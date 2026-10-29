@@ -236,8 +236,10 @@ public readonly record struct KillView(int Sequence, int Killer, int Victim, Kil
 /// look; a client queries versions it does not have with an <see cref="AppearanceQuery"/>); protocol 40 (perks/inert-2): the player's
 /// equipment item (index into <see cref="SimConfig.Thrown"/>, as <see cref="Loadouts.EquipmentIndex(SimConfig, PlayerState)"/> resolves it;
 /// -1 none or unknown), so clients know whether another player's use is a throw or combat stims (slim snapshot records carry no equipment).
+/// Protocol 41 (names/bot-lore): the player's display name (<see cref="PlayerNames"/>; "" none: shown as "P&lt;id&gt;"), at most
+/// <see cref="PlayerNames.MaxLength"/> Latin-1 characters, sanitised on writing and reading (<see cref="PlayerNames.Sanitise"/>). The server names test bots today.
 /// </summary>
-public readonly record struct ScoreEntry(int PlayerId, Team Team, int Class, int Kills, int Deaths, ushort AppearanceVersion = 0, int Equipment = -1);
+public readonly record struct ScoreEntry(int PlayerId, Team Team, int Class, int Kills, int Deaths, ushort AppearanceVersion = 0, int Equipment = -1, string Name = "");
 
 /// <summary>
 /// Server → client about once a second (protocol 10): the match rules (<paramref name="Teams"/> false: no team match; time
@@ -373,7 +375,10 @@ public static partial class Protocol
     // 40 (perks/inert-2): combat stims (config hash); each scoreboard row ends with the player's equipment item (13 bytes a row; 255 none), so a client
     //     draws and sounds another player's stim use as a stim and not as a throw. Snapshot layout and sizes unchanged (worst case 1200). Other open branches
     //     may claim 40 too: the integrator renumbers
-    public const ushort Version = 40;
+    // 41 (names/bot-lore; the owner's request of 2026-10-29): each scoreboard row ends with the player's display name (a u8 length, 0..24, then that many
+    //     Latin-1 bytes; 0: no name, shown as "P<id>"): the server names test bots from per-race pools (PlayerNames). 14 to 38 bytes a row (16 rows: at most
+    //     608 bytes). Snapshots unchanged (worst case 1200)
+    public const ushort Version = 41;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>
     public const int HelloBytes = 53 + 2 * AppearanceCode.Size;
     /// <summary>Bytes of a Setup message (protocol 28: + the Ork look).</summary>
@@ -390,8 +395,9 @@ public static partial class Protocol
     public const int ChoiceBytes = 7;
     /// <summary>Most player ids in one <see cref="AppearanceQuery"/>.</summary>
     public const int MaxAppearanceQuery = 16;
-    /// <summary>Bytes of a Scoreboard row (protocol 22: 10 + the appearance version).</summary>
-    public const int ScoreRowBytes = 13;   // protocol 40: + the equipment item
+    /// <summary>Bytes of a Scoreboard row without its name (protocol 22: 10 + the appearance version; protocol 40: + the equipment item; protocol 41: + the
+    /// name's length byte). The name's bytes follow (at most <see cref="PlayerNames.MaxLength"/>).</summary>
+    public const int ScoreRowBytes = 14;
     /// <summary>Shot offsets travel as signed 16-bit integers in 1/10000 rad (±3.2767 rad).</summary>
     public const float ShotOffsetScale = 10000f;
     /// <summary>Shot-origin offsets travel as signed 16-bit integers in centimetres (±327.67 m).</summary>
@@ -685,7 +691,8 @@ public static partial class Protocol
             case Scoreboard b:
             {
                 // Scoreboard (protocol 10): tick, flags (1 teams, 2 friendly fire, 4 Seize Ground: protocol 11), score limit,
-                // time limit, [Seize Ground block], rows of 12 bytes (protocol 22: + the appearance version; protocol 40: 13, + the equipment item).
+                // time limit, [Seize Ground block], rows of 12 bytes (protocol 22: + the appearance version; protocol 40: 13, + the equipment item;
+                // protocol 41: + the display name, a length byte and 0..24 Latin-1 bytes).
                 w.U8((byte)Kind.Scoreboard); w.U32(b.ServerTick); w.U8((byte)((b.Teams ? 1 : 0) | (b.FriendlyFire ? 2 : 0) | (b.Seize is null ? 0 : 4)));
                 w.U16(Count(b.ScoreLimit)); w.F32(float.IsFinite(b.TimeLimit) ? Math.Max(0f, b.TimeLimit) : 0f);
                 if (b.Seize is { } seize)
@@ -713,6 +720,8 @@ public static partial class Protocol
                     w.I32(e.PlayerId); w.U8((byte)(e.Team is Team.SpaceMarines or Team.Chaos ? e.Team : Team.None)); w.U8((byte)Math.Clamp(e.Class, 0, MaxClasses - 1));
                     w.U16(Count(e.Kills)); w.U16(Count(e.Deaths)); w.U16(e.AppearanceVersion);
                     w.U8(e.Equipment is >= 0 and < 255 ? (byte)e.Equipment : (byte)255);   // protocol 40: the equipment item (255: none)
+                    var name = Encoding.Latin1.GetBytes(PlayerNames.Sanitise(e.Name));   // protocol 41: the display name (0..24 Latin-1 bytes)
+                    w.U8((byte)name.Length); w.Bytes(name);
                 }
                 break;
             }
@@ -1138,9 +1147,12 @@ public static partial class Protocol
         {
             int id = r.I32(), team = r.U8(), playerClass = r.U8(), kills = r.U16(), deaths = r.U16(); ushort appearance = r.U16();
             int equipment = r.U8();   // protocol 40
+            int nameLength = r.U8();   // protocol 41: the display name
+            if (nameLength > PlayerNames.MaxLength) return null;
+            string name = PlayerNames.Sanitise(Encoding.Latin1.GetString(r.Bytes(nameLength)));
             if (team > (int)Team.Chaos || playerClass >= MaxClasses) return null;
             for (int j = 0; j < k; j++) if (rows[j].PlayerId == id) return null;   // one row per player
-            rows[k] = new ScoreEntry(id, (Team)team, playerClass, kills, deaths, appearance, equipment == 255 ? -1 : equipment);
+            rows[k] = new ScoreEntry(id, (Team)team, playerClass, kills, deaths, appearance, equipment == 255 ? -1 : equipment, name);
         }
         return new Scoreboard(tick, (flags & 1) != 0, limit, time, (flags & 2) != 0, rows, seize);
     }

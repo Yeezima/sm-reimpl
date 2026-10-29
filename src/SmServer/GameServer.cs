@@ -128,6 +128,11 @@ public sealed partial class GameServer
             LastVictim, LastFlags, VictimHealth, VictimShield);
         /// <summary>Custom classes and appearances (protocol 22).</summary>
         public AppearanceState Appearance { get; } = new();
+        /// <summary>The Hello marked a test bot (protocol 37).</summary>
+        public bool Bot;
+        /// <summary>Display name (protocol 41, sanitised; "" none: "P&lt;id&gt;"); <see cref="NameRace"/> the race whose pool gave it (None: not a pool name).</summary>
+        public string Name = "";
+        public Race NameRace;
     }
 
     /// <summary>The map this server runs, or null for the flat placeholder ground.</summary>
@@ -255,6 +260,8 @@ public sealed partial class GameServer
             Log?.Invoke($"player {peer.PlayerId} is a test bot: the damage it deals x {_options.BotDamageScale:0.###} (--bot-damage-scale)");
         }
         JoinAppearance(connection, peer, spawned, h);
+        peer.Bot = h.Bot;
+        if (h.Bot) NameBot(peer);   // names/bot-lore (protocol 41): a bot's name from its race's pool
         _transport.Send(connection, Protocol.Write(new Welcome(peer.PlayerId, World.Tick, World.Config.TickRate, h.Nonce, h.SentMs, peer.Session)));
         NoteJoin(connection, peer.PlayerId);
         PlayerJoined?.Invoke(spawned);
@@ -589,13 +596,16 @@ public sealed partial class GameServer
         World.Players.Values.OrderBy(p => p.PlayerId).Select(p =>
         {
             var s = World.Scores.GetValueOrDefault(p.PlayerId);
-            return new ScoreEntry(p.PlayerId, p.Team, p.Class, s.Kills, s.Deaths, PeerOf(p.PlayerId)?.Appearance.Version ?? 0,
-                Loadouts.EquipmentIndex(World.Config, p));   // protocol 40 (perks/inert-2)
+            var peer = PeerOf(p.PlayerId);
+            return new ScoreEntry(p.PlayerId, p.Team, p.Class, s.Kills, s.Deaths, peer?.Appearance.Version ?? 0,
+                Loadouts.EquipmentIndex(World.Config, p),   // protocol 40 (perks/inert-2)
+                peer?.Name ?? "");                         // protocol 41 (names/bot-lore)
         }).ToArray(), SeizeOf(World));
 
     void SendScoreboards()
     {
         if (_peers.Count == 0) return;
+        RefreshBotNames();   // names/bot-lore: a bot whose race changed takes a name of its new race
         var packet = Protocol.Write(ScoreboardOf());
         foreach (var connection in _peers.Keys) _transport.Send(connection, packet);
     }

@@ -405,7 +405,7 @@ public class SeizeGroundTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_11_carries_the_mode_and_the_points_within_the_budget_and_refuses_malformed_ones()
     {
-        Assert.Equal(40, Protocol.Version);
+        Assert.Equal(41, Protocol.Version);
         Assert.Equal(1200, Protocol.MaxSnapshotBytes);   // protocol 21: + 1 ready-tick byte; protocol 12: + the 12-byte hit block; protocol 13: + 18 evade bytes − 1 projectile record; 16: − 3 projectile records + 5 shot records; 17: + 4 reaction bytes − 1 shot record
         Assert.Equal(8, Protocol.MaxSnapshotPoints);
         ControlPointView[] points =
@@ -459,7 +459,7 @@ public class SeizeGroundTests(ITestOutputHelper output)
         Assert.Equal(seize.Points, back.Seize.Points);
         Assert.Equal(board.Players, back.Players);
         int layout = 1 + 4 + 1 + 2 + 4 + 4 + 4 + 2 + 4 + 1;
-        Assert.Equal(layout + (1 + 15 + 20) + (1 + 9 + 20) + 1 + 13, bytes.Length);   // protocol 22: 12-byte rows; protocol 40: 13
+        Assert.Equal(layout + (1 + 15 + 20) + (1 + 9 + 20) + 1 + 14, bytes.Length);   // protocol 22: 12-byte rows; protocol 40: 13; protocol 41: 14 (an empty name)
         Assert.Equal(GameMode.Annihilation, Assert.IsType<Scoreboard>(Protocol.Read(Protocol.Write(board with { Seize = null }))).Mode);
 
         Assert.Null(Protocol.Read(Patch(bytes, layout - 1, 9)));            // 9 points

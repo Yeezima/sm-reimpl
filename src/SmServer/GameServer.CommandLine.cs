@@ -35,6 +35,8 @@ public sealed record ServerArguments
     /// <summary>--bot-damage-scale (test aid, owner 2026-10-29: "reduce all bot damage by 66% temporarily for testing purposes"): every hit a test bot deals (shots, projectiles,
     /// blasts, melee, the charge; health and shield) is scaled by this; 1 (default) off. Bots say they are bots in their Hello (protocol 37).</summary>
     public float BotDamageScale { get; init; } = 1f;
+    /// <summary>--name-seed (names/bot-lore): the seed of the test bots' names (<see cref="ServerOptions.NameSeed"/>); null: random at start.</summary>
+    public uint? NameSeed { get; init; }
     /// <summary>--honor-side-requests (M44a test aid, ours): a requested side is kept up to the per-side limit; the balance applies only to joins that name no side.</summary>
     public bool HonorSideRequests { get; init; }
     /// <summary>--ork-data (Ork O5 test aid): the Ork Boy with the data's values (<c>OrkBalanceMode.Data</c>) instead of the owner's Parity; clients need the same flag (config hash).</summary>
@@ -64,6 +66,7 @@ public static class ServerCommandLine
           --countdown <seconds>         "MATCH BEGINS" countdown before play, 0 = none (default 5, at most 600; ours)
           --pickup-test <seconds>       test aid: one drop of each type in front of every living player this often
           --bot-damage-scale <f>        test aid: scale all damage dealt by test bots (client --bot) by f, 0 to 1 (default 1 = off; e.g. 0.34 = 66% less)
+          --name-seed <0-4294967295>    the seed of the test bots' names (per-race pools, ours; default random, printed at start): the same seed and join order give the same names
           --honor-side-requests         switch: keep the side a client asks for up to the per-side limit (test aid for bot fills; the balance applies only to joins with no side)
           --content <profile>           added content: faithful (SM1 alone), extended (every added content: the Ork, gore) or a list such as orks,gore
                                         (default extended; a build without extras runs faithful only); clients need the same --content
@@ -82,7 +85,7 @@ public static class ServerCommandLine
     static readonly HashSet<string> Switches = ["--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--help", "-h"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale",
-         "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content"];
+         "--name-seed", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content"];
 
     /// <summary>Parses the arguments; false with a one-line <paramref name="error"/> for an unknown flag, a missing or invalid value, or a stray word.</summary>
     public static bool TryParse(IReadOnlyList<string> args, out ServerArguments result, out string error)
@@ -163,6 +166,9 @@ public static class ServerCommandLine
                     break;
                 case "--pickup-test":
                     if (Number(value) is { } every && every > 0f && every <= 3600f) a = a with { PickupTestSeconds = every }; else bad = "seconds above 0 (at most 3600)";
+                    break;
+                case "--name-seed":
+                    if (uint.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out uint seed)) a = a with { NameSeed = seed }; else bad = "a whole number from 0 to 4294967295";
                     break;
                 case "--bot-damage-scale":
                     if (Number(value) is { } scale && scale >= 0f && scale <= 1f) a = a with { BotDamageScale = scale }; else bad = "a factor from 0 to 1 (1 = off; a bot's flag is its own word, so it may only lower damage)";

@@ -25,6 +25,7 @@ server.cmd [--port 27015] [--map m] [--mode annihilation|seize] [--countdown s] 
                                      ::  --content faithful|extended|orks,gore = the added content (default extended; faithful = SM1 alone, no Ork; printed at startup; clients need the same --content, else ConfigMismatch naming the server's profile; a -p:SmExtras=false build runs faithful only)
                                      ::  --bind 127.0.0.1 = this machine only (test runs: no firewall prompt)
                                      ::  --honor-side-requests = a requested side is kept up to 8 per side, no balancing (test aid, ours; bot fills in uneven teams; default off)
+                                     ::  --name-seed n = the seed of the test bots' names (per-race pools, ours; default random, printed at start)
                                      ::  --max-per-ip N (4; 0 off) --join-interval s (5; 0 off) --idle-kick s (300; 0 off) --ban-file <path> (IP/CIDR per line, re-read on change); --help;
                                      ::  loopback (local bots) exempt from those three unless --limit-loopback; exit 1 no game / bad map, 2 bad flags, 3 port in use, 4 ticks failing 2 s (restart it; docs/dedicated-server.md)
                                      ::  --pickup-test <s> = test aid: one drop of each type in front of every living player every s seconds

@@ -538,7 +538,7 @@ public class InputBufferTests(ITestOutputHelper output)
     [Fact]
     public void The_own_record_carries_the_buffer_and_a_full_snapshot_stays_at_1200_bytes()
     {
-        Assert.Equal(40, Protocol.Version);
+        Assert.Equal(41, Protocol.Version);
         foreach (var action in Enum.GetValues<BufferedAction>())
             foreach (int ticks in action == BufferedAction.None ? new[] { 0 } : new[] { 0, 1, 4, 9, 15 })
             {

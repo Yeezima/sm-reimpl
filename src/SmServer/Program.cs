@@ -276,8 +276,10 @@ var server = new GameServer(config, fingerprint, transport, clock, new ServerOpt
     DefaultClass = defaultClass, Match = match, AppearanceRules = appearanceRules, CustomEmblems = customEmblems, Unlocks = unlocks,
     MaxPlayersPerAddress = cli.MaxPerIp, JoinInterval = cli.JoinInterval, IdleKick = cli.IdleKick, BanFile = cli.BanFile, BuildHint = buildHint, LimitLoopback = cli.LimitLoopback,
     BotDamageScale = cli.BotDamageScale,   // test aid (fix/hitboxes-grenades-bots)
+    NameSeed = cli.NameSeed,               // names/bot-lore
 }, map: map);
 server.Log += line => Console.WriteLine("note: " + line);
+Console.WriteLine($"names: test bots are named from per-race pools (ours), seed {server.NameSeed}{(cli.NameSeed is null ? " (random; --name-seed fixes it)" : " (--name-seed)")}; other players show as P<id>");
 if (cli.BotDamageScale != 1f) Console.WriteLine($"--bot-damage-scale {cli.BotDamageScale:0.###}: every hit a test bot (client --bot) deals is scaled by it (test aid, not the original)");
 // Joins and leaves with addresses, refusals, bans, idle kicks, caught faults, skipped ticks (UTC time for the operator).
 server.OperatorLog += line => Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}] {line}");
@@ -318,7 +320,7 @@ if (map is not null && map.Collision.KillVolumes.Count > 0)
         { Console.Error.WriteLine($"warning: {what} at {at.X:0.#},{at.Y:0.#},{at.Z:0.##} is inside a kill volume"); bad++; }
     Console.WriteLine($"  kill volumes: {map.Collision.KillVolumes.Count}; spawns, start spots and points inside one: {bad}");
 }
-server.PlayerJoined += p => Console.WriteLine($"player {p.PlayerId} joined{(p.Team != Team.None ? $" the {p.Team}" : "")}: {Loadouts.Describe(config, p)}");
+server.PlayerJoined += p => Console.WriteLine($"{server.Describe(p.PlayerId)} joined{(p.Team != Team.None ? $" the {p.Team}" : "")}: {Loadouts.Describe(config, p)}");
 var lastState = MatchState.None;
 // Spawn-room blockers: a line when a player first presses against the other side's blocker (and again after leaving it), and a
 // warning when one gets inside it (it should not; once per stay, like the contact line).
@@ -367,8 +369,8 @@ server.Stepped += world =>
             KillCause.World => "the level",
             _ => k.Cause.ToString(),
         };
-        string who = k.Killer == 0 ? "" : k.Killer == k.Victim ? " (suicide)" : $" by player {k.Killer}";
-        Console.WriteLine($"tick {k.Tick}: player {k.Victim} killed{who} with {how}; score marines {world.ScoreOf(Team.SpaceMarines)}, chaos {world.ScoreOf(Team.Chaos)}");
+        string who = k.Killer == 0 ? "" : k.Killer == k.Victim ? " (suicide)" : $" by {server.Describe(k.Killer)}";
+        Console.WriteLine($"tick {k.Tick}: {server.Describe(k.Victim)} killed{who} with {how}; score marines {world.ScoreOf(Team.SpaceMarines)}, chaos {world.ScoreOf(Team.Chaos)}");
     }
     foreach (var c in world.LastCaptures)
         Console.WriteLine($"tick {c.Tick}: point {Letter(c.Point)} ({world.ControlPoints[c.Point].Name}) {(c.Kind == CaptureKind.Captured ? "captured" : "neutralised")} by {c.Side}; " +

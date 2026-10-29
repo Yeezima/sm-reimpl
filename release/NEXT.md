@@ -31,3 +31,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Charging off a ledge: when you land, the marine goes straight into running instead of starting the bash again. Side charges and lunges turn the body over a few frames instead of snapping.
 - The jump-pack air slash no longer jerks its sword forward when you land earlier than the swing expected.
 - Switching from your primary weapon to the bolt pistol (and back) now puts the gun away in your right hand, round the right side onto your back, instead of the gun flying round your left side on its own; the pistol goes back to its thigh holster the same way.
+- Bots now have names that fit their side instead of "P1", "P2": Space Marine bots are Brothers and Sergeants, Chaos bots carry Chaos names and epithets, and Ork bots get Ork names. You see them in the kill feed, on the scoreboard (Tab), over the crosshair, above allies and in the end-of-match summary. Players without a name still show as P and a number.
+- New network version: this build does not play with earlier ones. Everyone, server hosts included, must update.
