@@ -48,6 +48,16 @@ public partial class NetworkView
     /// <summary>Looping effects fade over this long when their phase ends (s; ours: the data's "stop_emitting" lets the particles finish).</summary>
     const double JumpFxFade = 0.35;
 
+    /// <summary>
+    /// fx/impact-pass (the owner, 2026-10-29: "shorten the trail by a lot, reference the video"; **ours**, tuned by eye against the reference flights): the pack effects' trails
+    /// (<c>jumppack_thrust</c>'s <c>rocket_trail_00</c> / Chaos <c>firey_trail</c> streamers, 15 to 20 m at the play's scale 0.5) are laid along this share of their length in metres
+    /// of the nozzle's own path (<see cref="FxEffect.TrailScale"/>): 2.5 to 3.3 m, starting at the nozzle every frame. Before: the length read as seconds at 4 m/s (up to the 4 s the
+    /// path is kept), a column back to the take-off. <c>--old-pack-trail</c> (test aid, before / after) restores that.
+    /// </summary>
+    float PackTrailScale => _oldPackTrail ??= OS.GetCmdlineUserArgs().Contains("--old-pack-trail") ? 0f : PackTrailShare;
+    float? _oldPackTrail;
+    internal const float PackTrailShare = 1f / 3f;
+
     /// <summary>Called once per frame from <see cref="UpdateFx"/> (before the player draws): every player's pack effects and the own target marker.</summary>
     void FxJumpPacks(PlayerState me)
     {
@@ -62,30 +72,34 @@ public partial class NetworkView
     }
 
     /// <summary>The place of a pack marker of a player (Godot world position and axes, +Y along the locator's +Y), or null when it has no worn model with it.</summary>
-    (Vector3 Position, Basis Axes)? PackMarker(int id, string marker)
+    /// <param name="exhaust">fx/impact-pass: the nozzle's exit along the marker's +Y (<see cref="WeaponRig.TryWornMarker(string, bool, out Transform3D)"/>), for the thrusts.</param>
+    (Vector3 Position, Basis Axes)? PackMarker(int id, string marker, bool exhaust = false)
     {
         CharacterViewer? character = _client is not null && id == _client.PlayerId ? _local : _remotes.GetValueOrDefault(id);
         if (character?.Weapons is not { } rig || marker.Length == 0) return null;
-        if (rig.TryWornMarker(marker, out var world)) return (world.Origin, world.Basis);
+        if (rig.TryWornMarker(marker, exhaust, out var world)) return (world.Origin, world.Basis);
         return null;
     }
 
     /// <summary>Starts the plays at their markers (attached when the data says so); returns the effects started.</summary>
-    List<FxEffect> PlayOnPack(int id, IReadOnlyList<FxPlay> plays, bool repeat, string what)
+    List<FxEffect> PlayOnPack(int id, IReadOnlyList<FxPlay> plays, bool repeat, string what, bool exhaust = false)
     {
         var started = new List<FxEffect>();
+        exhaust &= PackTrailScale > 0f;   // --old-pack-trail: the old placement too
         foreach (var p in plays)
         {
             string marker = p.Marker;
-            if (PackMarker(id, marker) is not { } place)
+            if (PackMarker(id, marker, exhaust) is not { } place)
             {
                 if (_fxNoted.Add($"packmarker:{id % 2}:{marker}")) GD.Print($"  effects: {what}: no worn marker '{marker}' on P{id}'s pack; {p.Name} not shown");
                 continue;
             }
-            Func<(Vector3, Basis)?>? follow = p.Attached ? () => PackMarker(id, marker) : null;
+            Func<(Vector3, Basis)?>? follow = p.Attached ? () => PackMarker(id, marker, exhaust) : null;
             float lifetime = repeat ? 0f : p.Lifetime;
             if (_fx!.Play(p.Name, place.Position, place.Axes, p.Scale <= 0f ? 1f : p.Scale, null, follow, lifetime, 0.0, repeat, 1) is { } e)
             {
+                e.TrailScale = PackTrailScale;   // fx/impact-pass: the thrust's trail is the last few metres of the nozzle's path
+                if (exhaust) e.BeamScale = PackTrailScale;   // ... and its flame a third as long
                 started.Add(e);
                 if (_client is not null && id == _client.PlayerId) { e.Hidden = _ownHidden; _ownPackFx.Add(e); }   // feel/camera-hitstop: hidden with the own character
             }
@@ -121,7 +135,7 @@ public partial class NetworkView
             switch (mode)
             {
                 case PackMode.Rise:
-                    t.Looping.AddRange(PlayOnPack(s.PlayerId, effects.Ascending, repeat: true, "thrust"));
+                    t.Looping.AddRange(PlayOnPack(s.PlayerId, effects.Ascending, repeat: true, "thrust", exhaust: true));
                     if (t.Mode == PackMode.Ground) TakeOffBurst(s, effects.Ascending);
                     _thrustFx++;
                     break;
@@ -130,7 +144,7 @@ public partial class NetworkView
                     t.Looping.AddRange(PlayOnPack(s.PlayerId, effects.Descending, repeat: true, "fall"));
                     break;
                 case PackMode.Dive:
-                    t.Looping.AddRange(PlayOnPack(s.PlayerId, effects.Dive, repeat: true, "dive"));
+                    t.Looping.AddRange(PlayOnPack(s.PlayerId, effects.Dive, repeat: true, "dive", exhaust: true));
                     _diveFx++;
                     break;
             }
@@ -158,7 +172,7 @@ public partial class NetworkView
         bool restart = dashing && (!t.Dashing || s.EvadeTicks < t.DashTicks || s.EvadeDirection != t.DashDirection);
         if (restart && Loadouts.Evade(_config!, s) is { } dash)
         {
-            if (_catalogue!.Dashes.GetValueOrDefault(dash.Name) is { Count: > 0 } burst) { PlayOnPack(s.PlayerId, burst, repeat: false, "dash"); TakeOffBurst(s, burst); _dashFx++; }
+            if (_catalogue!.Dashes.GetValueOrDefault(dash.Name) is { Count: > 0 } burst) { PlayOnPack(s.PlayerId, burst, repeat: false, "dash", exhaust: true); TakeOffBurst(s, burst); _dashFx++; }
             DashSound(s, dash, own);
             if (_bot) GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId}{(own ? "" : $" sees P{s.PlayerId}")} dash {s.EvadeDirection} (burst {(_catalogue.Dashes.ContainsKey(dash.Name) ? "on" : "none")}; dashes shown {_dashFx})");
         }

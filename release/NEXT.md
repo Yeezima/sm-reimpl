@@ -14,3 +14,8 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - In the loadout and armour screens every class now stands in the bolt pistol's relaxed idle pose, and the figure no longer turns by itself while you pick colours; drag it with the mouse (or use Left / Right) to turn it.
 - With Content set to Extended you can now choose the Ork Boy in the menus: an Orks button and an Ork Boy tab in the loadout screen, an Ork Boy default loadout on the Join screen, and custom Ork loadouts with the Tactical Marine's perks.
 - The Ork Boy has no armour or colours: his LOOK step lets you pick one of five Ork models (or Automatic), and your Ork wears that look in the match. In Faithful the Ork is hidden and a saved Ork loadout joins as the side's default class.
+- Stomps and slams now hit the ground hard: cracks, a shockwave ring, a flash and chunks of floor thrown up, sized to how far the stomp reaches (no dust or smoke).
+- The power sword glows blue while it is in hand and flares bright with sparks when it hits someone (Chaos swords too).
+- Jump-pack thrusters: the flames start right at the nozzles and the trails are much shorter, closer to the original game.
+- New default lighting: the "remaster" look (cleaner air, higher sun, more contrast). The old look is still there with --look current.
+- Manufactorum has no more god rays (light shafts).

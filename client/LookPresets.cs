@@ -9,11 +9,13 @@ namespace SmClient;
 /// like before you commit to doing a lot of work on it"). Each look is a named set of the lighting constants that <c>--look-set</c> can override
 /// (<see cref="MapLightingView.V"/>, <c>MapMaterials</c>): runtime parameters only (environment, sky, fog and volumetric fog, tone mapping, exposure,
 /// bloom, grade, screen-space effects, the sun's angle, colour and energy, the placed lights' energy and range, the materials' roughness and specular).
-/// <c>--look-set</c> still wins over a look's value. A look changes nothing unless it is asked for: the default look is unchanged until the owner chooses.
+/// <c>--look-set</c> still wins over a look's value. fx/impact-pass (the owner's choice, 2026-10-29: "make the remaster look the default"): the remaster
+/// (<see cref="Default"/>) applies without <c>--look</c>; <c>--look current</c> (or <c>none</c>) gives the constants alone, the default look before it.
 /// Every value here is **ours** (a mockup choice, picked by eye on matched views) unless its comment names the data; the map's own sun colour, light colours,
 /// fog colour and ambient colours stay the data's in every look (scaled or saturated, never replaced).
 /// The looks do not switch the costly features: volumetric smog and SSIL follow <c>--lighting</c> (on at the default medium, off at low, so
-/// <c>--lighting low --look forge</c> is the cheap variant); only the remaster turns on SSR (on at high anyway). Captures: medium.
+/// <c>--lighting low --look forge</c> is the cheap variant); only the remaster turns on SSR, and only at medium (on at high anyway; never at low or off:
+/// <see cref="MapLightingView.SsrOn"/>, fx/impact-pass review). Captures: medium.
 /// </summary>
 public static class LookPresets
 {
@@ -80,12 +82,18 @@ public static class LookPresets
 
     public static IEnumerable<string> Names => Sets.Keys;
 
-    /// <summary>The constants of look <paramref name="name"/>; empty for null, with an error for an unknown name.</summary>
+    /// <summary>fx/impact-pass: the look used without <c>--look</c> (the owner's choice of 2026-10-29).</summary>
+    public const string Default = ImpactRules.LookChoice.Default;
+
+    /// <summary>fx/impact-pass: <c>--look</c> values that name no preset: <c>current</c> (the default look before the remaster became it), <c>none</c>, and <c>classic</c> (the pre-T7 constants).</summary>
+    public static bool IsNone(string name) => ImpactRules.LookChoice.IsNone(name);
+
+    /// <summary>The constants of look <paramref name="name"/>; empty for null (no preset), the <see cref="Default"/> look's with an error for an unknown name.</summary>
     public static IReadOnlyDictionary<string, float> For(string? name)
     {
         if (name is null) return new Dictionary<string, float>();
         if (Sets.TryGetValue(name, out var set)) return set;
-        Godot.GD.PrintErr($"--look '{name}' is not known ({string.Join(", ", Sets.Keys.Prepend("classic"))}); the default look is used");
-        return new Dictionary<string, float>();
+        Godot.GD.PrintErr($"--look '{name}' is not known ({string.Join(", ", Sets.Keys.Prepend("current").Prepend("classic"))}); the default look ({Default}) is used");
+        return Sets[Default];
     }
 }

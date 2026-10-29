@@ -476,7 +476,13 @@ public sealed class WeaponRig
     /// M44: a named locator of a worn model (the jump pack's <c>fx_l_jet</c>, <c>fx_r_jet_inside_center</c> ...; matched ignoring case) in Godot world space from
     /// the skeleton's current pose (its +Y axis is the transform's Y column); false without a worn model that has it. As <see cref="TryMarker"/>.
     /// </summary>
-    public bool TryWornMarker(string name, out Transform3D world)
+    public bool TryWornMarker(string name, out Transform3D world) => TryWornMarker(name, false, out world);
+
+    /// <summary>
+    /// As <see cref="TryWornMarker(string, out Transform3D)"/>; with <paramref name="exhaust"/> (fx/impact-pass) the origin is moved along the locator's +Y to where the drawn model
+    /// ends around that axis (<see cref="NozzleExit"/>: a jump pack's nozzle exit; 0.28 m for the Chaos pack's inside-centre markers), measured once per model and locator.
+    /// </summary>
+    public bool TryWornMarker(string name, bool exhaust, out Transform3D world)
     {
         world = default;
         if (!_alive || Faulted) return false;
@@ -486,11 +492,19 @@ public sealed class WeaponRig
             int bone = _skeleton.FindBone(placed.Bone);
             if (bone < 0) continue;
             world = _skeleton.GlobalTransform * _skeleton.GetBoneGlobalPose(bone) * placed.Local;
+            if (exhaust)
+            {
+                var key = (asset.Model, locator.Name);
+                if (!ExitCache.TryGetValue(key, out float exit)) ExitCache[key] = exit = NozzleExit.Along(asset.Model, locator);
+                if (exit > 0f) world.Origin += world.Basis.Y.Normalized() * (exit * world.Basis.Y.Length());
+            }
             world.Basis = world.Basis.Orthonormalized();
             return true;
         }
         return false;
     }
+
+    static readonly Dictionary<(WeaponModel, string), float> ExitCache = new();
 
     /// <summary>Gives up on this rig after a failure: its nodes are removed and <see cref="Update"/> does nothing from now on.</summary>
     public void Fault() { Faulted = true; Clear(); }
@@ -581,6 +595,32 @@ public sealed class WeaponRig
             return true;
         }
         return false;
+    }
+
+    /// <summary>
+    /// fx/impact-pass: a named locator (<c>fx_powersword_swing</c>, <c>fx_swing</c> ...) of the melee weapon while it is in hand, in Godot world space from the skeleton's current
+    /// pose; false when the melee weapon is not in hand, for a dead player, or when its model has no such locator. As <see cref="TryMarker"/>.
+    /// </summary>
+    public bool TryMeleeMarker(string name, out Transform3D world)
+    {
+        world = default;
+        if (!_alive || Faulted || MeleeInHand() is not { } i || i.Asset.Model.Locator(name) is not { } locator) return false;
+        int bone = _skeleton.FindBone(i.Bone!);
+        if (bone < 0) return false;
+        world = _skeleton.GlobalTransform * _skeleton.GetBoneGlobalPose(bone) * i.Wield * MarineAssets.ToGodot(locator.ToRoot);
+        world.Basis = world.Basis.Orthonormalized();
+        return true;
+    }
+
+    /// <summary>fx/impact-pass: the melee weapon's drawn mesh and its model while it is in hand (null otherwise: stowed, hidden, dead, no melee weapon).</summary>
+    public (MeshInstance3D Mesh, WeaponModel Model)? MeleeMeshInHand =>
+        _alive && !Faulted && MeleeInHand() is { } i && i.Holder.GetNodeOrNull<MeshInstance3D>("Mesh") is { } mesh ? (mesh, i.Asset.Model) : null;
+
+    Item? MeleeInHand()
+    {
+        foreach (var i in _items)
+            if (i.Role == Role.Melee && i.InHand && i.Mode == 1 && i.Bone is not null && GodotObject.IsInstanceValid(i.Holder)) return i;
+        return null;
     }
 
     /// <summary>
