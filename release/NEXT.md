@@ -9,6 +9,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- New network version: this build does not play with earlier ones. Everyone, server hosts included, must update.
 - Perk descriptions in the class creator now show the real numbers under each perk's text, worked out from the same values the game plays with: for example "Bolt Pistol: clip 10 → 16 (+60%)", "Armour 100 → 150 (+50%)", "Bolter: hip spread 0.25° → 0.125° (−50%)" and "heals 30 health per hit while hurt".
 - Perks that do not work yet (Rapid Deployment, Teleport Homer, Tactical Readout, Signum Link, Weapon Versatility) say "Not active yet." under their description.
 - In the loadout and armour screens every class now stands in the bolt pistol's relaxed idle pose, and the figure no longer turns by itself while you pick colours; drag it with the mouse (or use Left / Right) to turn it.
@@ -32,14 +33,12 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The jump-pack air slash no longer jerks its sword forward when you land earlier than the swing expected.
 - Switching from your primary weapon to the bolt pistol (and back) now puts the gun away in your right hand, round the right side onto your back, instead of the gun flying round your left side on its own; the pistol goes back to its thigh holster the same way.
 - Bots now have names that fit their side instead of "P1", "P2": Space Marine bots are Brothers and Sergeants, Chaos bots carry Chaos names and epithets, and Ork bots get Ork names. You see them in the kill feed, on the scoreboard (Tab), over the crosshair, above allies and in the end-of-match summary. Players without a name still show as P and a number.
-- New network version: this build does not play with earlier ones. Everyone, server hosts included, must update.
 - Charging off a ledge no longer replays the shoulder bash when you land: the charge ends on landing and you run on if you hold a movement key, or slow down to a stand if you don't.
 - Tactical and Assault marines (and their Chaos counterparts): press F twice for the full heavy combo. The second F during the backhand now goes into the stomp.
 - Melee swings step further forward (about 30 % more). This is an estimate to be tuned in playtests.
 - Weapon switching is a bit faster (0.48 s instead of 0.6 s). This is an estimate and still needs to be compared with the original game.
 - Melee and stun lock-ons turn your marine smoothly toward the target instead of snapping, keep the same target more reliably, and the camera follows more gently.
 - The power sword's hits now use the power sword's own impact sound from the original game.
-- This build uses a new network version: everyone has to update.
 - Players now collide with each other: you can no longer walk, sprint, roll, charge or get knocked through another marine, friend or foe. Walking into someone stops you and you slide around him.
 - Two players who end up inside each other (a crowded brawl, a busy spawn) are pushed apart within a moment instead of staying stuck.
 - Landing on someone's head with the jump pack (or falling onto him) slides you off his shoulders onto the floor beside him.
