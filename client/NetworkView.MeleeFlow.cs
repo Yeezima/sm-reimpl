@@ -76,17 +76,17 @@ public partial class NetworkView
     void SetUpMeleeFlow()
     {
         if (NoMeleeFlow || Lean) { _flowNote = Lean ? "not loaded (lean bot)" : "off (--no-melee-flow)"; return; }
-        string gameDir = _gameDir;
+        if (_locoLoad is not { } loco) { _flowNote = "no locomotion load"; return; }
         _flowNote = "loading";
-        _flowLoad = Task.Run(() =>
+        // The graphs the locomotion worker read (LocomotionBundle.Graphs): no second read of the rig and its behaviour graphs.
+        _flowLoad = loco.ContinueWith(t =>
         {
-            var character = RigProfiles.Marine.LoadCharacter(gameDir);
-            var graphs = HavokBehaviorDetailReader.Read(character.Pack);
+            var graphs = t.Result.Graphs;
             var result = new Dictionary<string, MeleeFlowBlends>(StringComparer.OrdinalIgnoreCase);
             foreach (var wargear in new[] { "sm_mp_melee_combat_knife", "sm_mp_melee_chainsword", "sm_mp_melee_powersword", "sm_mp_melee_power_axe", "sm_mp_melee_2hand_thunder_hammer", "sm_mp_core_abil_heavy_evade" })
                 if (MpClasses.MeleeMapFor(wargear) is { } map && !result.ContainsKey(map.Graph) && MeleeFlowBlends.Read(graphs, map) is { } flow) result[map.Graph] = flow;
             return result;
-        });
+        }, TaskContinuationOptions.OnlyOnRanToCompletion);
     }
 
     /// <summary>The blends of a player's melee weapon, or null (not loaded yet, off, or a weapon the reader does not know).</summary>
@@ -207,16 +207,33 @@ public partial class NetworkView
     /// holds the weapon ready after a shot (<see cref="HipReady"/>) or in aim mode.
     /// </summary>
     bool HammerStance(PlayerState s) =>
-        !NoMeleeFlow && s.Alive && !s.Aiming && !HipReady(s) && _config is not null
+        !NoMeleeFlow && s.Alive && !PistolUp(s) && _config is not null
         && MeleeWargear(s) is { } w && w.Contains("_2hand_", StringComparison.OrdinalIgnoreCase) && Loadouts.ClassOf(_config, s.Class)?.Race != Race.Orks;
 
-    /// <summary>The hammer's idle when the marine stands in the hammer stance and the data is in, else null.</summary>
-    string? HammerIdleOf(PlayerState s) => HammerStance(s) && _locoAnims?.HammerIdle is { } idle && RigHasClip(idle) ? idle : null;
+    /// <summary>
+    /// The pistol is up: aim mode, or the simulation holding the weapon ready after a shot, raising it, charging or with a shot pending. Not <see cref="HipReady"/>, which is also false
+    /// through reactions, throws, switches and melee steps (the pistol would be holstered for a stagger and pop back after it).
+    /// </summary>
+    static bool PistolUp(PlayerState s) => s.Aiming || s.ReadyTicks > 0 || s.RaiseTicks > 0 || s.Charging || s.PendingShot > 0;
+
+    string? _hammerIdle; bool _hammerIdleResolved;
+
+    /// <summary>The hammer's idle when the marine stands in the hammer stance and the data is in, else null (resolved once against the rig).</summary>
+    string? HammerIdleOf(PlayerState s)
+    {
+        if (!_hammerIdleResolved && _locoAnims is { } loco) { _hammerIdle = loco.HammerIdle is { } idle && RigHasClip(idle) ? idle : null; _hammerIdleResolved = true; }
+        return _hammerIdle is { } hammerIdle && HammerStance(s) ? hammerIdle : null;
+    }
 
     /// <summary>The hammer graph's connecting clip from the pistol to the hammer in both hands ("ThunderHammer From Pistol": <c>SM_1HR_NAV_Pistol2TH</c>, 0.833 s, on the upper body over the hammer's navigation).</summary>
     public const string PistolToHammerClip = "SM_1HR_NAV_Pistol2TH";
     /// <summary>Its blends: in '5 Frame Blend' 0.167 s (the pistol state's way into the hammer state), out from its <c>BRANCH_ToNav</c> (0.92 of the clip) over 'Blend Long' 0.5 s.</summary>
     const float PistolToHammerIn = 5f / 30f, PistolToHammerBranch = 0.92f, PistolToHammerOut = 0.5f;
+    /// <summary>
+    /// Where in the draw clip the pistol leaves the hand for its holster (fraction; measured: the clip has no weapon tag, and its pistol hand, <c>RIG_Prop_LHand</c>, is lowest, passing the hip,
+    /// at 0.62 to 0.64 of it before it rises to the hammer's haft). Before it the pistol stays in hand.
+    /// </summary>
+    const float PistolToHammerStow = 0.62f;
     readonly Dictionary<int, (bool Was, double Since)> _hammerDraw = new();
 
     /// <summary>
@@ -227,6 +244,8 @@ public partial class NetworkView
     {
         if (NoMeleeFlow || _assets is null) return;
         bool now = HammerStance(s) && s.MeleeStep == 0 && s.Rush == RushPhase.None;
+        // A death or a respawn starts afresh: a marine that died with the pistol up does not draw the hammer on its fresh spawn.
+        if (!s.Alive) { _hammerDraw.Remove(s.PlayerId); return; }
         var (was, since) = _hammerDraw.GetValueOrDefault(s.PlayerId, (now, double.NegativeInfinity));
         if (now && !was && s.Alive && _connectedFor > 1.0) since = _connectedFor;   // the pistol state handed back to the hammer
         if (!now) since = double.NegativeInfinity;
@@ -251,9 +270,16 @@ public partial class NetworkView
         return from > 1e-3f && to > 1e-3f ? (hammer, time * to / from) : (clip, time);
     }
 
-    /// <summary>Whether the pistol goes to its holster: the hammer stance, or a strike with the hammer (both hands on it).</summary>
-    bool HammerHoldsBothHands(PlayerState s) =>
-        !NoMeleeFlow && s.Alive && MeleeWargear(s) is { } w && w.Contains("_2hand_", StringComparison.OrdinalIgnoreCase) && (s.MeleeStep > 0 || HammerStance(s));
+    /// <summary>Whether the pistol goes to its holster: the hammer stance (from the draw clip's stow point on while it plays), or a strike with the hammer (both hands on it).</summary>
+    bool HammerHoldsBothHands(PlayerState s)
+    {
+        if (NoMeleeFlow || !s.Alive || MeleeWargear(s) is not { } w || !w.Contains("_2hand_", StringComparison.OrdinalIgnoreCase)) return false;
+        if (s.MeleeStep > 0) return true;
+        if (!HammerStance(s)) return false;
+        if (_hammerDraw.TryGetValue(s.PlayerId, out var draw) && double.IsFinite(draw.Since))
+            return _connectedFor - draw.Since >= PistolToHammerStow * ClipLength(PistolToHammerClip, 0.833f);
+        return true;
+    }
 
     // ------------------------------------------------------------------ once per frame
 
@@ -272,7 +298,9 @@ public partial class NetworkView
                 if (blast) _stompShakes++; else _stunShakes++;
                 if (LogStunShake) GD.Print($"t {_connectedFor:F2} s: stun-strike shake ({(blast ? "blast strike" : "heavy strike")} {events.MeleeHitStep}, {(blast ? StompShakeRadians : StunShakeRadians) * StunShakeScale * 180f / MathF.PI:F2} deg)");
             }
-            bool connected = (_ownRushSeen == RushPhase.Rush && me.Rush == RushPhase.Collision) || (_ownRushSeen == RushPhase.DashAttack && me.Rush == RushPhase.DashHit);
+            // A connect is a hit on a player: the dash attack's hit state, or the rush's collision stop with an enemy in reach in front (a wall stop shakes neither; presentation guess, the server decides).
+            bool connected = (_ownRushSeen == RushPhase.Rush && me.Rush == RushPhase.Collision && MeleePresentation.Victim(me, _lastOthers, _config) > 0)
+                || (_ownRushSeen == RushPhase.DashAttack && me.Rush == RushPhase.DashHit);
             if (connected) { FxShake(ChargeShakeRadians * StunShakeScale); _chargeShakes++; if (LogStunShake) GD.Print($"t {_connectedFor:F2} s: charge-connect shake ({me.Rush})"); }
         }
         _ownRushSeen = me.Alive ? me.Rush : RushPhase.None;

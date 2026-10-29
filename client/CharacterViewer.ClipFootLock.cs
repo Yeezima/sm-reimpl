@@ -48,7 +48,14 @@ public partial class CharacterViewer
 
     void AdvanceLockClock(double delta) => _lockClock += Math.Clamp(delta, 0.0, 0.25);
 
-    void DropClipPins() { _clipPins[0] = default; _clipPins[1] = default; }
+    /// <summary>Drops the pins and the toes' history (the next lock starts with no speed in the clip: no stale velocity from another clip or place).</summary>
+    void DropClipPins()
+    {
+        _clipPins[0] = default; _clipPins[1] = default;
+        _lockPrevClip = null; _lockPrevTime = float.NaN;
+        _lockPrevToe[0] = _lockPrevToe[1] = default;
+        _lockPrevStill[0] = _lockPrevStill[1] = true;
+    }
 
     /// <summary>After a clip pose (and its layers) is applied: holds the put-down feet (see the class comment).</summary>
     void ApplyClipFootLock()

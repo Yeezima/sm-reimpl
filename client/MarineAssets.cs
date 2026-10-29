@@ -165,7 +165,9 @@ public sealed class MarineAssets : IDisposable
         var rig = Rig;
         var table = TableOf(rig);
         var file = rig.Rig;
-        var names = file.AnimationNames.OrderBy(n => n.StartsWith("MP_", StringComparison.OrdinalIgnoreCase) || n.Contains("_MP_", StringComparison.OrdinalIgnoreCase) ? 0 : 1).ToArray();
+        // anim/melee-flow: the hammer's own navigation, sprint, charge and draw clips are multiplayer clips without "MP" in their names: with the MP clips.
+        static bool Hammer(string n) => n.Contains("_TH_", StringComparison.OrdinalIgnoreCase) || n.Contains("_2HM_", StringComparison.OrdinalIgnoreCase) || n.Contains("Pistol2TH", StringComparison.OrdinalIgnoreCase);
+        var names = file.AnimationNames.OrderBy(n => n.StartsWith("MP_", StringComparison.OrdinalIgnoreCase) || n.Contains("_MP_", StringComparison.OrdinalIgnoreCase) || Hammer(n) ? 0 : 1).ToArray();
         var completion = new System.Threading.Tasks.TaskCompletionSource<int>();
         new System.Threading.Thread(() =>
         {
