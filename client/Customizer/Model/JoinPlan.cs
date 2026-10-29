@@ -104,8 +104,10 @@ public sealed record FrontEndSettings(string Host, SideChoice Side, bool ReduceM
 /// arguments (<see cref="ToArgs"/>: class and item indices); the networked view (T7) reads the rest to fill <c>ClientOptions</c>
 /// (see <c>JoinPlanOptions.ApplyTo</c> in the client).
 /// </summary>
+/// <param name="OrkLook">The Hello's Ork look (ui/customizer-ork): the profile's <see cref="CustomizationProfile.OrkLook"/> as the wire byte, <see cref="Races.OrkLookAutomatic"/> when automatic
+/// or when the profile has no Orks.</param>
 public sealed record JoinPlan(Selection Selection, LoadoutChoice Choice, Team Side, string? ClassName, string Summary,
-    AppearanceCode SpaceMarineLook, AppearanceCode ChaosLook, bool UsesEmblem)
+    AppearanceCode SpaceMarineLook, AppearanceCode ChaosLook, bool UsesEmblem, byte OrkLook = Races.OrkLookAutomatic)
 {
     /// <summary>
     /// The plan for <paramref name="selection"/>. <paramref name="side"/> Auto asks for the Space Marine class and leaves the side to the class (the server may
@@ -125,10 +127,12 @@ public sealed record JoinPlan(Selection Selection, LoadoutChoice Choice, Team Si
         LoadoutChoice choice;
         AppearanceCode sm = AppearanceCode.Default, chaos = AppearanceCode.Default;
         string fallbackRole = ProfileStore.FirstRole(catalog);
-        if (selection.Kind == SelectionKind.Custom && profile.ClassAt(selection.Slot) is { } unavailable && LoadoutAvailability.Unavailable(unavailable, content))
+        if (LoadoutAvailability.Unavailable(profile, selection, content))
         {
+            // A saved Ork loadout (custom or the Ork DEFAULTS) in a profile without the Orks: kept, not played.
+            string name = profile.ClassAt(selection.Slot) is { } unavailable && selection.Kind == SelectionKind.Custom ? unavailable.Name : $"{OrkLoadout.ClassName} defaults";
             choice = ProfileWire.DefaultLoadout(fallbackRole, config, classSide);
-            summary = $"{unavailable.Name}: {LoadoutAvailability.Reason(unavailable, content)} Playing the {LoadoutRows.ClassName(catalog, fallbackRole, race)} defaults instead. {LoadoutRows.DefaultSummary(catalog, fallbackRole, race)}";
+            summary = $"{name}: {LoadoutAvailability.Reason(content)} Playing the {LoadoutRows.ClassName(catalog, fallbackRole, race)} defaults instead. {LoadoutRows.DefaultSummary(catalog, fallbackRole, race)}";
         }
         else if (selection.Kind == SelectionKind.Custom && profile.ClassAt(selection.Slot) is { } custom)
         {
@@ -146,7 +150,8 @@ public sealed record JoinPlan(Selection Selection, LoadoutChoice Choice, Team Si
         }
         choice = ContentGate.ForJoin(choice, config, content, ProfileWire.DefaultLoadout(fallbackRole, config, classSide));
         string? className = choice.Class >= 0 && choice.Class < config.Classes.Count ? config.Classes[choice.Class].Name : null;
-        return new JoinPlan(selection, choice, team, className, summary, sm, chaos, sm.UsesEmblem || chaos.UsesEmblem);
+        byte orkLook = ContentGate.OrkLook(ProfileWire.OrkLookByte(profile.OrkLook), content);
+        return new JoinPlan(selection, choice, team, className, summary, sm, chaos, sm.UsesEmblem || chaos.UsesEmblem, orkLook);
     }
 
     /// <summary>
@@ -165,19 +170,25 @@ public sealed record JoinPlan(Selection Selection, LoadoutChoice Choice, Team Si
 }
 
 /// <summary>
-/// Which saved loadouts a content profile can play (added content E2). A custom class of the Ork Boy (role <see cref="OrkClass.Role"/>, once the customizer's
-/// faction step saves one: O9) is not played in a profile without the Orks: it stays in the profile, untouched, shown as unavailable and joined as the side's
-/// default class. Today the catalogue knows only the three Space Marine roles, so no saved class is unavailable yet.
+/// Which saved loadouts a content profile can play (added content E2). A loadout of the Ork Boy (a custom class of role <see cref="OrkClass.Role"/>, saved by the
+/// customizer's faction step since ui/customizer-ork, or the Ork DEFAULTS selected) is not played in a profile without the Orks: it stays in the profile, untouched,
+/// shown as unavailable and joined as the side's default class.
 /// </summary>
 public static class LoadoutAvailability
 {
     /// <summary>Whether <paramref name="custom"/> is of a race the profile does not have.</summary>
     public static bool Unavailable(CustomClass custom, ContentExtras extras) =>
-        custom.Role.Equals(OrkClass.Role, StringComparison.OrdinalIgnoreCase) && !ContentGate.OffersOrks(extras);
+        OrkLoadout.IsOrk(custom.Role) && !ContentGate.OffersOrks(extras);
+
+    /// <summary>Whether a selection (a custom slot, or a DEFAULTS role) is of a race the profile does not have.</summary>
+    public static bool Unavailable(CustomizationProfile profile, Selection selection, ContentExtras extras) =>
+        !ContentGate.OffersOrks(extras) && (selection.Kind == SelectionKind.Custom ? profile.ClassAt(selection.Slot) is { } c && Unavailable(c, extras) : OrkLoadout.IsOrk(selection.Role));
 
     /// <summary>Why a loadout is unavailable (one sentence for the strip's tooltip and the Join summary); empty when it is available.</summary>
-    public static string Reason(CustomClass custom, ContentExtras extras) =>
-        Unavailable(custom, extras) ? $"The Orks are added content and this profile is {ContentProfiles.Name(extras)}." : "";
+    public static string Reason(CustomClass custom, ContentExtras extras) => Unavailable(custom, extras) ? Reason(extras) : "";
+
+    /// <summary>Why the Orks' loadouts are not played in <paramref name="extras"/>.</summary>
+    public static string Reason(ContentExtras extras) => $"The Orks are added content and this profile is {ContentProfiles.Name(extras)}.";
 }
 
 /// <summary>The launch flags of the front end (<c>--loadout</c>), parsed without Godot.</summary>
@@ -197,8 +208,10 @@ public static class LaunchOptions
             "tactical" or "sm - tactical" => "tactical",
             "heavy" or "devastator" or "havoc" => "heavy",
             "assault" or "raptor" => "assault",
+            "ork" or "ork boy" or "ork - boy" or "orks" => OrkLoadout.Role,   // ui/customizer-ork: the Ork DEFAULTS (played only with the Orks; the Join says so otherwise)
             _ => null,
         };
+        if (OrkLoadout.IsOrk(role)) return Selection.DefaultFor(OrkLoadout.Role);
         if (role is null || !ProfileStore.Roles(catalog).Contains(role, StringComparer.OrdinalIgnoreCase)) return null;
         return Selection.DefaultFor(ProfileStore.Roles(catalog).First(r => r.Equals(role, StringComparison.OrdinalIgnoreCase)));
     }

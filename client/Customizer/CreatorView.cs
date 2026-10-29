@@ -17,8 +17,10 @@ namespace SmClient.Customizer;
 /// </summary>
 public sealed partial class CreatorView : Control
 {
-    enum Step { Class, Weapons, Equipment, Perks }
-    static readonly string[] StepNames = ["CLASS", "WEAPONS", "EQUIPMENT", "PERKS"];
+    // ui/customizer-ork: LOOK is the Ork Boy's fifth step (his look instead of the armour and colour editors); a marine's look is the appearance editor.
+    enum Step { Class, Weapons, Equipment, Perks, Look }
+    static readonly string[] StepNames = ["CLASS", "WEAPONS", "EQUIPMENT", "PERKS", "LOOK"];
+    int StepCount => IsOrkOpen ? StepNames.Length : StepNames.Length - 1;
 
     readonly CustomizerServices _services;
     readonly ProfileSession _session;
@@ -81,6 +83,7 @@ public sealed partial class CreatorView : Control
         _services = services; _session = services.Session!; _catalog = services.Catalog!;
         _onBack = onBack; _onAppearance = onAppearance;
         _open = LoadoutEdits.Active(_session.Working, _catalog, out _);
+        _open = ValidOpen();   // the Ork DEFAULTS only with the Orks (ui/customizer-ork)
         SetAnchorsPreset(LayoutPreset.FullRect);
         Name = "Creator";
         AddChild(UiKit.Background().With(n => n.SetAnchorsPreset(LayoutPreset.FullRect)));
@@ -96,7 +99,8 @@ public sealed partial class CreatorView : Control
         var header = UiKit.HBox(16);
         _title = UiKit.Text("LOADOUTS", UiKit.HeaderSize, UiKit.Gold);
         header.AddChild(_title);
-        header.AddChild(UiKit.Text("Preview side:", UiKit.CaptionSize, UiKit.Grey).With(l => l.VerticalAlignment = VerticalAlignment.Center));
+        _sideCaption = UiKit.Text("Preview side:", UiKit.CaptionSize, UiKit.Grey).With(l => l.VerticalAlignment = VerticalAlignment.Center);
+        header.AddChild(_sideCaption);
         header.AddChild(_sideToggle);
         // The ACTIVE line fills the space up to the buttons and is cut (full text in its tooltip) rather than pushing BACK / LEAVE MATCH off the window (fix/frontend-fit).
         _activeLabel = UiKit.Text("", UiKit.CaptionSize, UiKit.Gold, HorizontalAlignment.Right);
@@ -194,6 +198,7 @@ public sealed partial class CreatorView : Control
     {
         if (selection != _open) _perkSlot = 0;   // a loadout opened by the shell starts at perk 1, as a click on its chip does
         _open = selection;
+        _open = ValidOpen();   // never the Ork's loadouts without the Orks (ui/customizer-ork)
         Refresh(focusList: false);
     }
 
@@ -212,6 +217,12 @@ public sealed partial class CreatorView : Control
         for (int i = 0; i < StepNames.Length; i++) if (StepNames[i].Equals(name, StringComparison.OrdinalIgnoreCase)) { _step = (Step)i; Refresh(false); return; }
     }
 
+    /// <summary>The step shown now (test aid).</summary>
+    public string CurrentStep => StepNames[(int)_step];
+
+    /// <summary>The Ork Boy's loadout is open (a custom Ork class or the Ork DEFAULTS; ui/customizer-ork).</summary>
+    public bool IsOrkOpen => !IsEmpty && OrkLoadout.IsOrk(Role);
+
     public PreviewStage Preview => _preview;
 
     /// <summary>Called when the view is shown again after the appearance editor (the working copy may have changed).</summary>
@@ -219,6 +230,10 @@ public sealed partial class CreatorView : Control
     {
         ReturnFromRevertedCopy();
         _open = ValidOpen();
+        // The content profile may have changed on the Join screen (ui/customizer-ork): the remembered DEFAULTS role, the factions and the class tabs follow it.
+        if (_lastDefaultsRole is { } last && !_services.Roles().Contains(last, StringComparer.OrdinalIgnoreCase)) _lastDefaultsRole = null;
+        BuildSideToggle();
+        BuildTabs();
         Refresh(focusList: false);
     }
 
@@ -239,10 +254,25 @@ public sealed partial class CreatorView : Control
     bool IsDefaults => _open.Kind == SelectionKind.Default;
     bool IsEmpty => _open.Kind == SelectionKind.Custom && OpenClass is null;
 
-    Selection ValidOpen() => LoadoutEdits.IsValid(_session.Working, _open) || (_open.Kind == SelectionKind.Custom && _open.Slot is >= 1 and <= CustomizationProfile.MaxCustomClasses) ? _open : Selection.DefaultFor(ProfileStore.FirstRole(_catalog));
+    Selection ValidOpen() =>
+        Unavailable(_open) ? Selection.DefaultFor(ProfileStore.FirstRole(_catalog))   // the Ork's loadouts (DEFAULTS or a saved slot) only with the Orks
+        : LoadoutEdits.IsValid(_session.Working, _open) || (_open.Kind == SelectionKind.Custom && _open.Slot is >= 1 and <= CustomizationProfile.MaxCustomClasses) ? _open : Selection.DefaultFor(ProfileStore.FirstRole(_catalog));
+
+    /// <summary>
+    /// A loadout the screens do not offer now (ui/customizer-ork review): the Ork DEFAULTS, or a saved Ork slot, while the Orks are not offered (Faithful). It is kept in the
+    /// profile but never opened in the editor.
+    /// </summary>
+    bool Unavailable(Selection selection) =>
+        !_services.OffersOrks && (selection.Kind == SelectionKind.Default ? OrkLoadout.IsOrk(selection.Role) : _session.Working.ClassAt(selection.Slot) is { } c && OrkLoadout.IsOrk(c.Role));
 
     void OnChip(Selection selection)
     {
+        if (Unavailable(selection))
+        {
+            Say(LoadoutAvailability.Reason(_services.Content) + " The loadout is kept; switch Content to Extended to edit it.", 6.0);
+            _strip.SetOpen(_open);
+            return;
+        }
         _open = selection;
         _perkSlot = 0;
         Refresh(focusList: true);
@@ -250,25 +280,71 @@ public sealed partial class CreatorView : Control
 
     // ---- building the static parts ----
 
+    /// <summary>
+    /// The faction row (added content E2; the Ork Boy's faction step since ui/customizer-ork): Space Marines and Chaos choose the side the preview shows (a loadout
+    /// serves both sides); Orks (only in a profile with the Orks) opens the Ork Boy, the one class of his faction, and choosing Space Marines or Chaos from the Ork
+    /// goes back to a marine class. The pressed button is the faction of the open loadout.
+    /// </summary>
     void BuildSideToggle()
     {
         foreach (var c in _sideToggle.GetChildren()) { _sideToggle.RemoveChild(c); c.QueueFree(); }
+        _factionButtons.Clear();
+        if (_sideCaption is not null) _sideCaption.Text = _services.OffersOrks ? "Faction:" : "Preview side:";
         foreach (var (race, text) in _services.Factions())   // added content E2: the profile's factions (no Ork in the faithful profile)
         {
             string r = race;
-            var b = UiKit.Toggle(text, _previewRace == race, on => { if (on) SetPreviewRace(r); else BuildSideToggle(); }, 190);
+            var b = UiKit.Toggle(text, FactionOf() == race, on => { if (on) ChooseFaction(r); else SyncFactions(); }, 190);
+            b.Name = "Faction" + text.Replace(" ", "");
             _sideToggle.AddChild(b);
+            _factionButtons.Add((race, b));
         }
+    }
+
+    readonly List<(string Race, Button Button)> _factionButtons = new();
+    Label? _sideCaption;
+
+    /// <summary>The faction the open loadout belongs to: the Orks for the Ork Boy, else the side the preview shows.</summary>
+    string FactionOf() => IsOrkOpen ? OrkLoadout.Race : _previewRace;
+
+    void SyncFactions()
+    {
+        string faction = FactionOf();
+        foreach (var (race, button) in _factionButtons) if (GodotObject.IsInstanceValid(button)) button.SetPressedNoSignal(race == faction);
+    }
+
+    // The marine class the Ork was chosen from: Space Marines or Chaos from the Ork goes back to it.
+    string? _lastMarineRole;
+
+    void ChooseFaction(string race)
+    {
+        if (race == OrkLoadout.Race)
+        {
+            if (!IsOrkOpen) { if (!IsEmpty && !OrkLoadout.IsOrk(Role)) _lastMarineRole = Role; ChooseRole(OrkLoadout.Role); }
+            SyncFactions();
+            return;
+        }
+        _previewRace = race;
+        if (IsOrkOpen)
+        {
+            string role = _lastMarineRole is { } last && ProfileStore.Roles(_catalog).Contains(last, StringComparer.OrdinalIgnoreCase) ? last : ProfileStore.FirstRole(_catalog);
+            ChooseRole(role);
+        }
+        SyncFactions();
+        Refresh(focusList: false);
     }
 
     void BuildTabs()
     {
         foreach (var c in _tabs.GetChildren()) { _tabs.RemoveChild(c); c.QueueFree(); }
         _tabButtons.Clear();
-        foreach (var role in ProfileStore.Roles(_catalog))
+        _tabRoles = _services.Roles();   // the Ork Boy's tab only in a profile with the Orks (ui/customizer-ork)
+        // Four tabs (with the Ork) share the row: narrower minimums so the row fits a 1920-wide UI.
+        int minimum = _tabRoles.Count > 3 ? 300 : 400;
+        foreach (var role in _tabRoles)
         {
             string r = role;
-            var b = new Button { Text = LoadoutRows.RoleLabel(_catalog, role), ToggleMode = true, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(400, UiKit.MinHit), ClipText = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            var b = new Button { Text = LoadoutRows.RoleLabel(_catalog, role), ToggleMode = true, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(minimum, UiKit.MinHit), ClipText = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            b.TooltipText = b.Text;
             b.Pressed += () => ChooseRole(r);
             _tabs.AddChild(b);
             _tabButtons.Add(b);
@@ -289,9 +365,15 @@ public sealed partial class CreatorView : Control
             _stepButtons.Add(b);
         }
         _steps.AddChild(UiKit.Spacer(false));
-        _steps.AddChild(UiKit.Text("LOOK", UiKit.CaptionSize, UiKit.Grey));
-        _steps.AddChild(UiKit.Button("Appearance...", OpenAppearance, 0));
+        _lookCaption = UiKit.Text("LOOK", UiKit.CaptionSize, UiKit.Grey);
+        _steps.AddChild(_lookCaption);
+        _appearanceStepButton = UiKit.Button("Appearance...", OpenAppearance, 0);
+        _steps.AddChild(_appearanceStepButton);
     }
+
+    Label? _lookCaption;
+    Button? _appearanceStepButton;
+    IReadOnlyList<string> _tabRoles = [];
 
     // ---- refreshing ----
 
@@ -309,12 +391,22 @@ public sealed partial class CreatorView : Control
         _activeLabel.Text = "ACTIVE: " + ActiveName(profile, active);
         _activeLabel.TooltipText = _activeLabel.Text;
 
-        for (int i = 0; i < _tabButtons.Count; i++)
+        for (int i = 0; i < _tabButtons.Count && i < _tabRoles.Count; i++)
         {
-            var r = ProfileStore.Roles(_catalog)[i];
+            var r = _tabRoles[i];
             _tabButtons[i].SetPressedNoSignal(!empty && r.Equals(role, StringComparison.OrdinalIgnoreCase));
         }
-        for (int i = 0; i < _stepButtons.Count; i++) _stepButtons[i].SetPressedNoSignal((int)_step == i);
+        // The Ork Boy's LOOK step (ui/customizer-ork) replaces the appearance editor for him; a marine has the four steps and the editor.
+        bool ork = IsOrkOpen;
+        if (!ork && _step == Step.Look) _step = Step.Weapons;
+        for (int i = 0; i < _stepButtons.Count; i++)
+        {
+            _stepButtons[i].SetPressedNoSignal((int)_step == i);
+            _stepButtons[i].Visible = i < StepCount;
+        }
+        if (_lookCaption is not null) _lookCaption.Visible = !ork;
+        if (_appearanceStepButton is not null) _appearanceStepButton.Visible = !ork;
+        SyncFactions();
 
         string slotName = defaults ? $"DEFAULTS - {LoadoutRows.ClassName(_catalog, role, _previewRace)}" : empty ? $"CUSTOM {_open.Slot} - empty" : $"CUSTOM {_open.Slot} - {OpenClass!.Name}";
         _title.Text = "LOADOUTS";
@@ -334,11 +426,13 @@ public sealed partial class CreatorView : Control
         // another class, e.g. --class): only an empty slot disables it.
         _setActive!.Disabled = empty || (Activate is null && active == _open);
         _setActive.Text = Activate is null && active == _open ? "ACTIVE" : "SET ACTIVE";
-        _look!.Disabled = OpenClass is null;
+        _look!.Disabled = OpenClass is null && !ork;   // the Ork's look is one choice of the profile: open on his DEFAULTS too
+        _look.Text = ork ? "ORK LOOK..." : "APPEARANCE...";
         _deployButton!.Visible = Deploy is not null;
         _deployButton.Text = _open.Kind == SelectionKind.Custom ? $"DEPLOY WITH SLOT {_open.Slot}" : "DEPLOY WITH DEFAULTS";
         _deployButton.Disabled = empty;
 
+        if (_step != Step.Look) _previewOrkLook = null;
         RebuildList(focusList);
         UpdatePreview();
     }
@@ -355,9 +449,12 @@ public sealed partial class CreatorView : Control
         var profile = _session.Working;
         var custom = OpenClass;
         var look = custom is null ? null : profile.Appearance(custom.Appearance.For(_previewRace));
-        _preview.SetSubject(new PreviewSubject(_previewRace, Role.Length == 0 ? ProfileStore.FirstRole(_catalog) : Role, custom, look));
+        _preview.SetSubject(new PreviewSubject(_previewRace, Role.Length == 0 ? ProfileStore.FirstRole(_catalog) : Role, custom, look, _previewOrkLook ?? profile.OrkLook));
         _preview.SetFraming(Framing.Body);
     }
+
+    // A look row with the keyboard focus shows that look in the preview (the LOOK step); null: the profile's look.
+    int? _previewOrkLook;
 
     // ---- the list ----
 
@@ -376,7 +473,7 @@ public sealed partial class CreatorView : Control
         if (IsEmpty)
         {
             Heading("EMPTY SLOT: CHOOSE A CLASS");
-            foreach (var role in ProfileStore.Roles(_catalog))
+            foreach (var role in _tabRoles)
             {
                 string r = role;
                 var row = new UiKit.Row(LoadoutRows.RoleLabel(_catalog, role), [], false, true) { Focused = () => ShowClassCard(r) };
@@ -389,7 +486,7 @@ public sealed partial class CreatorView : Control
         else if (_step == Step.Class)
         {
             Heading("CLASS");
-            foreach (var role in ProfileStore.Roles(_catalog))
+            foreach (var role in _tabRoles)
             {
                 string r = role;
                 bool selected = r.Equals(Role, StringComparison.OrdinalIgnoreCase);
@@ -409,9 +506,11 @@ public sealed partial class CreatorView : Control
         {
             var section = LoadoutRows.Equipment(_catalog, Role, _previewRace, OpenClass, _services.Policy);
             AddSection(section, rowButtons, Heading, Note);
-            Note("Combat stimulants are listed but not simulated yet: the server gives you the default grenade.");
+            if (!IsOrkOpen) Note("Combat stimulants are listed but not simulated yet: the server gives you the default grenade.");
         }
+        else if (_step == Step.Look && IsOrkOpen) AddOrkLooks(rowButtons, Heading, Note);
         else AddPerks(rowButtons, Heading, Note);
+        if (IsOrkOpen && _step is Step.Weapons or Step.Equipment) Note("The Ork Boy carries these and nothing else. He fights for either side: the Join screen's SIDE picks which.");
 
         if (rowButtons.Count > 0)
         {
@@ -488,6 +587,38 @@ public sealed partial class CreatorView : Control
             rowButtons.Add(row);
         }
         if (perks.Count == 0) note("This class has no perks.", null);
+    }
+
+    /// <summary>
+    /// The Ork Boy's LOOK step (ui/customizer-ork): automatic or one of the boy's models (<see cref="OrkLoadout.LookChoices"/>), one choice for the whole profile. The focused row
+    /// shows its look in the preview; choosing it keeps it (no copy of the DEFAULTS is needed: the look is not part of a loadout).
+    /// </summary>
+    void AddOrkLooks(List<Button> rowButtons, Action<string> heading, Action<string, Color?> note)
+    {
+        heading("ORK LOOK (all your Ork loadouts)");
+        int? current = _session.Working.OrkLook;
+        foreach (var look in OrkLoadout.LookChoices)
+        {
+            int? l = look;
+            bool selected = current == look;
+            var row = new UiKit.Row(OrkLoadout.LookTitle(look), selected ? ["SELECTED"] : [], selected, true, selected ? UiKit.Glyph.Kind.Check : null)
+            {
+                Focused = () => { ShowTextCard(OrkLoadout.LookTitle(l), OrkLoadout.LookDescription(l)); if (_previewOrkLook != l) { _previewOrkLook = l; UpdatePreview(); } },
+            };
+            row.Pressed += () => ChooseOrkLook(l);
+            _list.AddChild(row);
+            rowButtons.Add(row);
+        }
+        note("The Ork has no armour pieces, colours or badges: his look is one of the boy's own models, sent with your loadout when you join.", null);
+    }
+
+    void ChooseOrkLook(int? look)
+    {
+        var r = OrkLoadout.SetLook(_session.Working, look);
+        if (!r.Changed) { if (r.Notice is { Length: > 0 } n) Say(n); return; }
+        _previewOrkLook = look;
+        _session.Edit(_ => r.Profile);
+        Say(r.Notice ?? "");
     }
 
     static string Trim(string text, int max) => text.Length <= max ? text : text[..(max - 1)] + ".";
@@ -733,6 +864,8 @@ public sealed partial class CreatorView : Control
 
     void OpenAppearance()
     {
+        // The Ork Boy has no armour or colours (ui/customizer-ork): his look choice instead of the appearance editor.
+        if (IsOrkOpen) { _step = Step.Look; Refresh(focusList: true); return; }
         if (OpenClass is null) { Say("Create a custom loadout first; the look belongs to a custom loadout."); return; }
         _onAppearance();
     }
@@ -788,7 +921,7 @@ public sealed partial class CreatorView : Control
     void MoveStep(int delta)
     {
         if (IsEmpty) return;
-        _step = (Step)(((int)_step + delta + StepNames.Length) % StepNames.Length);
+        _step = (Step)(((int)_step + delta + StepCount) % StepCount);
         Refresh(focusList: false);
     }
 

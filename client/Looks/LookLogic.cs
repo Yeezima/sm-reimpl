@@ -332,5 +332,5 @@ public static class PickerRules
         classBefore >= 0 && classAfter >= 0 && classBefore != classAfter ? $"You are now playing {classAfterName}" : "";
 }
 
-/// <summary>What a loadout sends, for comparing (<see cref="PickerRules.SendOnClose"/>): the wire loadout and both races' looks.</summary>
-public readonly record struct LoadoutKey(LoadoutChoice Choice, AppearanceCode SpaceMarine, AppearanceCode Chaos);
+/// <summary>What a loadout sends, for comparing (<see cref="PickerRules.SendOnClose"/>): the wire loadout, both races' looks and the Ork look (ui/customizer-ork).</summary>
+public readonly record struct LoadoutKey(LoadoutChoice Choice, AppearanceCode SpaceMarine, AppearanceCode Chaos, byte OrkLook = Races.OrkLookAutomatic);

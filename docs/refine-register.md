@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1512 spec table rows: **1004 tagged**, 369 not tagged (read from data with high confidence), 139 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 277 rows of the changes document.
+Scanned 1518 spec table rows: **1008 tagged**, 371 not tagged (read from data with high confidence), 139 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 279 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,15 +52,15 @@ Scanned 1512 spec table rows: **1004 tagged**, 369 not tagged (read from data wi
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
 | Core simulation (provisional values) | 36 | 31 | 32 | 3 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 73 | 67 | 40 | 4 | 0 |
-| **All areas** | **1004** | 824 | 791 | 346 | 38 |
+| Ork faction | 77 | 71 | 40 | 8 | 0 |
+| **All areas** | **1008** | 828 | 791 | 350 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | confidence: low | 344 |
-| kind: ours | 336 |
+| kind: ours | 340 |
 | confidence: medium | 333 |
 | kind: interpretation | 298 |
 | notes: ours | 267 |
@@ -68,9 +68,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: provisional | 98 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
+| notes: provisional | 31 |
 | kind: choice | 28 |
 | kind: estimate | 27 |
-| notes: provisional | 27 |
 | kind: user's knowledge | 26 |
 | kind: approximation | 23 |
 | kind: placeholder | 22 |
@@ -1491,6 +1491,15 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 |---|---|---|---|---|---|---|
 | `R-46B69A3F` | Ork parity | the Ork shoota's parity reference is the owner-balanced Tactical bolter (`OwnerBalance` runs in `MpClasses.Load` before `WithOrk`): shoota 25.4 per hit (was 22), section "The Ork Boy in the simulation (Ork O4)" | kind: ours | maintainer, 2026-10-28 | Ork parity: compare with SM1 by feel or video. Ours: the Ork shoota's parity reference is the owner-balanced Tactical… | ☐ |
 
+*Spec section: The customizer's preview pose and the Ork Boy in the menus (ui/customizer-ork; client and profile only, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-364784E3` | Preview facing | the pistol idle stands turned to the marine's left, so the figure is turned back by 35 degrees (measured on screenshots) to keep the full-body framing's front-quarter view (degrees) | kind: ours; notes: provisional | screenshots at 0, -40 and +40 degrees | Preview facing: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the pistol idle stands turned to the marine's left, so the figure is… | ☐ |
+| `R-1A3A8452` | The Ork Boy in the menus | in a profile with the Orks (Extended): the creator's faction row reads Space Marines, Chaos, Orks (Orks opens the Ork Boy; Space Marines or Chaos from the Ork goes back to a marine class), a fourth class tab "Ork Boy", an Ork Boy DEFAULTS chip on the Join… | kind: ours; notes: provisional | docs/ork-faction-design.md section 7 (owner's decisions of 2026-10-28; menus approved 2026-10-29) | The Ork Boy in the menus: compare with SM1 by feel or video. Ours: in a profile with the Orks (Extended): the creator's faction row… | ☐ |
+| `R-7CEF774A` | Ork look | one choice for the profile (`orkLook` in `customization.json`, optional; absent = automatic): Automatic, Shoota Boy, Choppa Boy, Shoota Boy kitted out, Choppa Boy kitted out, 'Ard Boy (`boy_ranged`, `boy_melee`, `boy_ranged_pro`, `boy_melee_pro`… (look index) | kind: ours; notes: provisional | design section 7 ("orkLook in the profile") | Ork look: compare with SM1 by feel or video. Ours: one choice for the profile (orkLook in customization.json, optional… | ☐ |
+| `R-0054F480` | Ork preview | the boy's own model on his own rig (`OrkAssets`, read on first use; the look's files on a worker) in his own idle (`RigClipTable.OrkBoy.PreviewIdleCandidates`), shoota in hand, slugga and choppa stowed (`OrkWeaponMounts`), no eye glow, no paint | kind: ours; notes: provisional | Ork O3 / O6 assets | Ork preview: compare with SM1 by feel or video. Ours: the boy's own model on his own rig (OrkAssets, read on first use; the… | ☐ |
+
 *Spec section: The Ork Boy model (Ork O3; client only, not simulated, no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -1841,6 +1850,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-C71F4F7C` | Loadout picker in the match (T7) | C on the death screen opens the class creator (and the appearance editor) over the match; the change applies at the next respawn, the death screen shows the server's answer. The key, the death-screen entry and the apply-at-respawn rule are our design (owner question 10, our default) | Whether the original let you change a custom class between lives and with which key | Custom classes, end to end (T9) and in the match (T7) | Loadout picker in the match: compare with SM1 by feel or video. Ours: C on the death screen opens the class creator (and the appearance… | ☐ |
 | `C-8363500E` | Esc menu in the match (M44, the owner's request) | Esc in a match, alive or dead, opens the customizer (class creator and appearance editor) over the match with the mouse free; the match goes on, the own input is neutral, changes apply at the next respawn; Esc again or RESUME closes it; LEAVE MATCH (confirmed) returns to the front end. The front end's Esc-back keeps… | Whether the original has any in-match loadout menu while alive (as far as we know it does not: loadouts change between lives; the "Call of Duty style" behaviour is the owner's request) | Esc menu in the match (M44) | Esc menu in the match: compare with SM1 by feel or video. Ours: Esc in a match, alive or dead, opens the customizer (class creator… | ☐ |
 | `C-B13A1A99` | DEFAULTS are copied on the first pick (fix/customizer-weapons-perks) | The creator's DEFAULTS loadouts are the data's classes and cannot be changed; choosing a weapon or perk on one makes an editable copy in the first empty custom slot (active when the defaults were), saved only with SAVE. Perk rows say "PARTLY ACTIVE" / "NOT ACTIVE YET" from the simulation's own status (the creator used… | Whether the original let a default class be edited (as far as we know its default classes are fixed and a custom class is the way to change them); the copy-on-pick convenience is ours (the owner could not pick the Power Sword or a perk on the DEFAULTS the creator opens with) | Custom classes, "The creator's lists and the DEFAULTS copy" | DEFAULTS are copied on the first pick…: compare with SM1 by feel or video. Ours: The creator's DEFAULTS loadouts are the data's classes and cannot be… | ☐ |
+| `C-ACF88497` | The customizer's preview pose and turning (ui/customizer-ork) | **The owner's requests of 2026-10-29:** every class stands in the bolt pistol's relaxed idle (`SM_NAV_IdleL_CS_01`) in the creator, the appearance editor and the in-match picker, with its pistol in the hand and the primary stowed; the figure never turns by itself (the 18 degrees a second turntable is gone; drag, Left… | How the original's armoury posed and turned the marine | The customizer's preview pose and the Ork Boy in the menus | The customizer's preview pose and turning…: compare with SM1 by feel or video. Ours: The owner's requests of 2026-10-29: every class stands in the bolt… | ☐ |
+| `C-C850CE1A` | The Ork Boy in the menus (ui/customizer-ork; added content) | In Extended the creator's faction row adds Orks and a fourth class tab "Ork Boy" (fixed shoota, slugga, choppa, stikkbombs; the Tactical's perks), the Join screen an Ork Boy DEFAULTS chip; his LOOK step (automatic or one of five boy models, one choice for the profile; titles ours) replaces the armour and colour… | SM1 had no Orks in multiplayer (section 0: added content) | The customizer's preview pose and the Ork Boy in the menus | The Ork Boy in the menus (ui/customizer-ork; added content): compare with SM1 by feel or video. Ours: In Extended the creator's faction row adds Orks and a fourth class… | ☐ |
 | `C-B60F3BD5` | SET ACTIVE in the match (fix/class-change-in-match) | In the match menu SET ACTIVE sends the loadout for the next respawn (as DEPLOY, the menu stays open); closing the menu sends a saved active loadout that changed; the menu, the ack line and the respawn name the class played, and a role's other-side name (Havoc for a Space Marine) is said to play as the side's class of… | How the original's in-match class select confirmed a choice (we know only that it applied at the next spawn) | Custom classes, "SET ACTIVE in the match" | SET ACTIVE in the match (fix/class-change-in-match): compare with SM1 by feel or video. Ours: In the match menu SET ACTIVE sends the loadout for the next respawn… | ☐ |
 | `C-7B295043` | Map rendering | Sun, fog, exposure and shadows are a provisional approximation; collision layer roles ("2" characters, "8" shots) are an interpretation | The original lighting and collision filters | CLAUDE.md M8, M18; docs/discovery.md | Map rendering: compare with SM1 by feel or video. Ours: Sun, fog, exposure and shadows are a provisional approximation… | ☐ |
 | `C-BDDB3232` | Death and reactions | Ragdoll approximated with Godot joints, death camera and vignette after the owner's description, white blindness overlay, reaction camera shake | The original's ragdoll solver and screen effects | Death and ragdoll (M23); Hit reactions (M28) | Death and reactions: compare with SM1 by watching the reaction and timing it frame by frame. Ours: Ragdoll approximated with Godot joints, death camera and vignette… | ☐ |

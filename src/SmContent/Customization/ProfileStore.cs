@@ -235,6 +235,16 @@ public sealed class ProfileStore
         return roles;
     }
 
+    /// <summary>
+    /// The roles a profile file may hold: the catalogue's (<see cref="Roles"/>) and the Ork Boy's (<see cref="OrkClass.Role"/>; ui/customizer-ork). An Ork loadout is kept in
+    /// every content profile (the front end shows it unavailable without the Orks); the screens offer it only with the Orks.
+    /// </summary>
+    public static IReadOnlyList<string> StoredRoles(CustomizationCatalog catalog) => [.. Roles(catalog), OrkClass.Role];
+
+    /// <summary>The role whose perks a role takes: the Ork Boy has the Tactical Marine's (<see cref="OrkClass.ClassOf"/>), every other role its own.</summary>
+    public static string PerkRole(CustomizationCatalog catalog, string role) =>
+        role.Equals(OrkClass.Role, StringComparison.OrdinalIgnoreCase) ? catalog.Perks.Class(OrkClass.Tactical)?.Role ?? "tactical" : role;
+
     /// <summary>The role of the initial DEFAULTS selection (tactical when the catalogue has it).</summary>
     public static string FirstRole(CustomizationCatalog catalog) => Roles(catalog).FirstOrDefault() ?? "tactical";
 
@@ -277,6 +287,7 @@ public sealed class ProfileStore
             w.WriteStartArray("appearances");
             foreach (var a in profile.Appearances) WriteAppearance(w, a);
             w.WriteEndArray();
+            if (profile.OrkLook is { } orkLook) w.WriteNumber("orkLook", orkLook);   // ui/customizer-ork: only when chosen (a file without it reads as automatic)
             w.WriteEndObject();
         }
         return Encoding.UTF8.GetString(stream.ToArray());
@@ -347,7 +358,7 @@ public sealed class ProfileStore
     sealed class Reader(CustomizationCatalog catalog, List<ProfileRepair> repairs, Func<EmblemHash, bool> emblemExists)
     {
         static readonly string[] Pads = ["leftshoulder", "rightshoulder"];
-        readonly IReadOnlyList<string> _roles = Roles(catalog);
+        readonly IReadOnlyList<string> _roles = StoredRoles(catalog);
 
         void Fix(string path, string message) => repairs.Add(new ProfileRepair(path, message));
         void Note(string path, string message) => repairs.Add(new ProfileRepair(path, message, true));
@@ -369,7 +380,19 @@ public sealed class ProfileStore
             var appearances = ReadAppearances(root["appearances"] as JsonArray);
             var classes = ReadClasses(root["classes"] as JsonArray, appearances);
             var selected = ReadSelection(root["selected"] as JsonObject, classes);
-            return new CustomizationProfile(schema > CustomizationProfile.CurrentSchema ? schema : CustomizationProfile.CurrentSchema, selected, classes, appearances);
+            return new CustomizationProfile(schema > CustomizationProfile.CurrentSchema ? schema : CustomizationProfile.CurrentSchema, selected, classes, appearances)
+            {
+                OrkLook = ReadOrkLook(root["orkLook"]),
+            };
+        }
+
+        /// <summary>The Ork look (ui/customizer-ork): absent or null = automatic; a look index 0..<see cref="Races.OrkLooks"/>-1; anything else is repaired to automatic.</summary>
+        int? ReadOrkLook(JsonNode? node)
+        {
+            if (node is null) return null;
+            if (TryInt(node, out int look) && look >= 0 && look < Races.OrkLooks) return look;
+            Fix("orkLook", $"not a look 0..{Races.OrkLooks - 1}; the Ork look is automatic");
+            return null;
         }
 
         // ---- selection ----
@@ -450,7 +473,8 @@ public sealed class ProfileStore
             var result = new List<string?> { null, null };
             if (node is null) return result;
             if (node is not JsonArray array) { Fix(path, "not a list; no perks"); return result; }
-            var offered = catalog.Perks.Classes.Where(c => c.Role.Equals(role, StringComparison.OrdinalIgnoreCase))
+            string perkRole = PerkRole(catalog, role);   // the Ork Boy's perks are the Tactical Marine's
+            var offered = catalog.Perks.Classes.Where(c => c.Role.Equals(perkRole, StringComparison.OrdinalIgnoreCase))
                 .SelectMany(c => c.Perks.Concat(c.DefaultPerk is { } d ? [d] : [])).Select(p => p.Name).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             if (array.Count > 2) Fix(path, $"{array.Count} perks listed; only the first two are kept");
             for (int i = 0; i < Math.Min(2, array.Count); i++)

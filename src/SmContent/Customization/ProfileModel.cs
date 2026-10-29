@@ -96,6 +96,13 @@ public sealed record CustomizationProfile(int Schema, Selection Selected, IReadO
 
     public bool ReadOnly { get; init; }
 
+    /// <summary>
+    /// The look the player wears as the Ork Boy (ui/customizer-ork, Ork O9; added content): 0..<see cref="SmSim.Races.OrkLooks"/>-1 (<see cref="OrkLookRules.Names"/>), null =
+    /// automatic (chosen by player id). One for the profile (docs/ork-faction-design.md section 7: <c>orkLook</c> in the profile), shared by the Ork DEFAULTS and every Ork
+    /// custom loadout: the Ork has no armour, colours or badges. An optional field: schema 1 stays; written only when set.
+    /// </summary>
+    public int? OrkLook { get; init; }
+
     /// <summary>The profile of a player who never opened the customizer: the Tactical DEFAULTS loadout, no custom class, no appearance.</summary>
     public static CustomizationProfile Default(CustomizationCatalog catalog) =>
         new(CurrentSchema, Selection.DefaultFor(ProfileStore.FirstRole(catalog)), [], []);

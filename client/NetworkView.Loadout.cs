@@ -314,7 +314,7 @@ public partial class NetworkView
         if (_config is null || _client is null || services.Session is not { } session || services.Catalog is not { } catalog) return null;
         var saved = session.Saved;
         var plan = JoinPlan.Build(saved, LoadoutEdits.Active(saved, catalog, out _), _config, catalog, _client.Predicted.Team == Team.Chaos ? SideChoice.Chaos : SideChoice.SpaceMarines);
-        return new LoadoutKey(plan.Choice, plan.SpaceMarineLook, plan.ChaosLook);
+        return new LoadoutKey(plan.Choice, plan.SpaceMarineLook, plan.ChaosLook, plan.OrkLook);
     }
 
     /// <summary>A class's display name for the player ("Devastator"), from the catalogue when it is loaded, else the class's data name.</summary>
@@ -340,7 +340,8 @@ public partial class NetworkView
         if (!LoadoutEdits.IsValid(profile, selection)) { message = selection.Kind == SmContent.Customization.SelectionKind.Custom ? $"Slot {selection.Slot} is empty. Fill it first." : "That loadout is not available."; return false; }
         var team = _client.Predicted.Team;
         var plan = JoinPlan.Build(profile, selection, _config, catalog, team == Team.Chaos ? SideChoice.Chaos : SideChoice.SpaceMarines);
-        _lastSetupSequence = _client.ChangeSetup(plan.Choice, plan.SpaceMarineLook, plan.ChaosLook);
+        _lastSetupSequence = _client.ChangeSetup(plan.Choice, plan.SpaceMarineLook, plan.ChaosLook, plan.OrkLook);   // ui/customizer-ork: the profile's Ork look rides along
+        _ownOrkLook = plan.OrkLook;
         _setupSent = true; _setupSentAt = _connectedFor; _ackShownUntil = double.MaxValue;
         _sentClass = plan.Choice.Class; _ackLogged = 0;
         _ownLooks.Request(plan.SpaceMarineLook, plan.ChaosLook);
@@ -354,7 +355,7 @@ public partial class NetworkView
         }
         _lastSaveError = saveError;
         // A failed save leaves the old active loadout in the saved profile: that counts as in effect, so closing the menu does not send it back (fix/set-active-save-failure).
-        _pickerInEffect = PickerRules.InEffectAfterSend(new LoadoutKey(plan.Choice, plan.SpaceMarineLook, plan.ChaosLook), saveError is null ? null : ActiveKey(services), saveError);
+        _pickerInEffect = PickerRules.InEffectAfterSend(new LoadoutKey(plan.Choice, plan.SpaceMarineLook, plan.ChaosLook, plan.OrkLook), saveError is null ? null : ActiveKey(services), saveError);
         message = plan.Summary;
         GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} sends a loadout change (setup {_lastSetupSequence}): {plan.Summary}");
         return true;

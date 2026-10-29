@@ -1202,6 +1202,107 @@ public class CustomizerModelTests : IDisposable
         Assert.DoesNotContain("added content", extended.Summary);
     }
 
+    // ===== the Ork Boy in the customizer (ui/customizer-ork, Ork O9) =====
+
+    /// <summary>The configuration with the Ork Boy appended as the last class (no side, the Tactical's perks), as GameplayTuning.LoadForMatch makes it.</summary>
+    static SimConfig OrkConfig()
+    {
+        var c = Config();
+        return c with
+        {
+            Classes = [.. c.Classes, new ClassLoadout("ork - boy", 0, 2, []) { Side = Team.None, Role = OrkClass.Role, Race = Race.Orks, PrimaryChoices = [0], EquipmentChoices = [0], PerkChoices = [0, 1, 2], DefaultPerk = 0 }],
+        };
+    }
+
+    [Fact]
+    public void The_ork_boy_has_his_fixed_gear_and_the_tactical_marines_perks()
+    {
+        var ork = OrkLoadout.Options(Catalog)!;
+        var tactical = Catalog.Perks.Class("sm - tactical")!;
+        Assert.Equal(OrkClass.Role, ork.Role);
+        foreach (var slot in new[] { "primary", "pistol", "melee", "equipment" })
+        {
+            Assert.False(ork.For(slot).Selectable);
+            Assert.Single(ork.For(slot).Items);
+        }
+        Assert.Equal([OrkClass.Shoota, OrkClass.Slugga, OrkClass.Choppa, OrkClass.Stikkbomb], new[] { "primary", "pistol", "melee", "equipment" }.Select(s => ork.For(s).Items[0].Name));
+        Assert.Equal(tactical.Perks.Select(p => p.Name), ork.Perks.Select(p => p.Name));
+        Assert.Equal(tactical.DefaultPerk?.Name, ork.DefaultPerk?.Name);
+        // The creator's lists come from them: the weapons all FIXED, the perks the Tactical's.
+        var weapons = LoadoutRows.Weapons(Catalog, OrkClass.Role, OrkLoadout.Race, null, UnlockPolicy.All);
+        Assert.All(weapons, s => Assert.True(!s.Selectable && s.Rows.Single().Fixed));
+        Assert.Equal(LoadoutRows.Perks(Catalog, "tactical", CustomizationCatalog.SpaceMarine, null, UnlockPolicy.All).Select(r => r.Name),
+            LoadoutRows.Perks(Catalog, OrkClass.Role, OrkLoadout.Race, null, UnlockPolicy.All).Select(r => r.Name));
+        // His items cannot be changed; his perks can.
+        var p = LoadoutEdits.Create(CustomizationProfile.Default(Catalog), 2, OrkClass.Role, Catalog).Profile;
+        Assert.False(LoadoutEdits.SetItem(p, 2, "primary", "mp_ranged_bolter", Catalog).Changed);
+        Assert.Equal("mp_perk_secondary_weapon", LoadoutEdits.SetPerk(p, 2, 1, "mp_perk_secondary_weapon", Catalog).Profile.ClassAt(2)!.Perk(1));
+        Assert.False(LoadoutEdits.SetPerk(p, 2, 1, "mp_perk_bolter_in_place_of_pistol", Catalog).Changed);   // an Assault perk is not his
+        Assert.Contains("Shoota", LoadoutRows.Summary(Catalog, p.ClassAt(2)!, CustomizationCatalog.Chaos));
+        // The roles the screens offer: the Ork only with the Orks.
+        Assert.DoesNotContain(OrkClass.Role, OrkLoadout.Roles(Catalog, ContentExtras.None));
+        Assert.Equal(OrkClass.Role, OrkLoadout.Roles(Catalog, ContentExtras.Orks)[^1]);
+    }
+
+    [Fact]
+    public void An_ork_loadout_and_the_ork_look_round_trip_through_the_store()
+    {
+        var store = NewStore();
+        var p = LoadoutEdits.Create(CustomizationProfile.Default(Catalog), 3, OrkClass.Role, Catalog).Profile;
+        p = LoadoutEdits.SetPerk(p, 3, 1, "mp_perk_secondary_weapon", Catalog).Profile;
+        p = OrkLoadout.SetLook(p, 2).Profile;
+        p = LoadoutEdits.Select(p, Selection.DefaultFor(OrkClass.Role));
+        store.Save(p);
+        var (back, repairs) = store.Load(Catalog);
+        Assert.Empty(repairs.Where(r => !r.Informational));
+        Assert.Equal(OrkClass.Role, back.ClassAt(3)!.Role);
+        Assert.Equal("mp_perk_secondary_weapon", back.ClassAt(3)!.Perk(1));
+        Assert.Equal(2, back.OrkLook);
+        Assert.Equal(Selection.DefaultFor(OrkClass.Role), back.Selected);
+        Assert.Equal(ProfileStore.Serialize(p), ProfileStore.Serialize(back));
+        // No look: nothing written, automatic read back; a damaged look is repaired to automatic.
+        Assert.DoesNotContain("orkLook", ProfileStore.Serialize(p with { OrkLook = null }));
+        File.WriteAllText(store.ProfilePath, ProfileStore.Serialize(p).Replace("\"orkLook\": 2", "\"orkLook\": 9"));
+        var (repaired, fixes) = store.Load(Catalog);
+        Assert.Null(repaired.OrkLook);
+        Assert.Contains(fixes, r => r.Path == "orkLook");
+        Assert.False(OrkLoadout.SetLook(p, 5).Changed);
+        Assert.False(OrkLoadout.SetLook(p, 2).Changed);   // unchanged
+    }
+
+    [Fact]
+    public void The_join_plan_sends_the_ork_class_and_look_only_with_the_orks()
+    {
+        var config = OrkConfig();
+        int orkClass = config.Classes.Count - 1;
+        var p = LoadoutEdits.Create(CustomizationProfile.Default(Catalog), 4, OrkClass.Role, Catalog).Profile;
+        p = OrkLoadout.SetLook(LoadoutEdits.SetPerk(p, 4, 1, "mp_perk_secondary_weapon", Catalog).Profile, 3).Profile;
+
+        var custom = JoinPlan.Build(p, Selection.CustomSlot(4), config, Catalog, SideChoice.Chaos, ContentExtras.Orks);
+        Assert.Equal(orkClass, custom.Choice.Class);
+        Assert.Equal("ork - boy", custom.ClassName);
+        Assert.Equal((byte)3, custom.OrkLook);
+        Assert.True(custom.Choice.Perk2 >= 0);
+        Assert.Equal(Team.Chaos, custom.Side);                                                  // he fights for the side asked for
+        var defaults = JoinPlan.Build(p, Selection.DefaultFor(OrkClass.Role), config, Catalog, SideChoice.Auto, ContentExtras.Orks);
+        Assert.Equal(orkClass, defaults.Choice.Class);
+        Assert.Equal(Team.None, defaults.Side);
+        Assert.StartsWith("Defaults:", defaults.Summary);
+
+        // Faithful: both join as the side's default class, with no Ork look, and say why.
+        foreach (var selection in new[] { Selection.CustomSlot(4), Selection.DefaultFor(OrkClass.Role) })
+        {
+            var faithful = JoinPlan.Build(p, selection, config, Catalog, SideChoice.Chaos, ContentExtras.None);
+            Assert.Equal("csm - tactical", faithful.ClassName);
+            Assert.Equal(Races.OrkLookAutomatic, faithful.OrkLook);
+            Assert.Contains("added content", faithful.Summary);
+            Assert.True(LoadoutAvailability.Unavailable(p, selection, ContentExtras.None));
+            Assert.False(LoadoutAvailability.Unavailable(p, selection, ContentExtras.Orks));
+        }
+        Assert.Equal(Selection.DefaultFor(OrkClass.Role), LaunchOptions.ParseLoadout("default:ork", Catalog));
+        Assert.Equal(Selection.DefaultFor(OrkClass.Role), LaunchOptions.ParseLoadout("Ork Boy", Catalog));
+    }
+
     [Fact]
     public void The_front_end_remembers_the_content_profile_and_defaults_to_extended()
     {

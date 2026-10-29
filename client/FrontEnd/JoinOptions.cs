@@ -24,7 +24,8 @@ public static class FrontEndLaunch
         if (Current is not { } request) return options;
         var applied = Apply(options, request);
         Godot.GD.Print($"front end options: class {applied.RequestedClass}, perks {applied.RequestedPerk1}/{applied.RequestedPerk2}, Space Marine look {(applied.SpaceMarineAppearance.IsDefault ? "default" : "custom")}, Chaos look {(applied.ChaosAppearance.IsDefault ? "default" : "custom")}, " +
-                       $"emblem {(applied.SpaceMarineAppearance.UsesEmblem ? applied.SpaceMarineAppearance.Emblem.ToHex() : applied.ChaosAppearance.UsesEmblem ? applied.ChaosAppearance.Emblem.ToHex() : "none")}, others' emblems {(applied.CustomEmblems ? "shown" : "hidden")}");
+                       $"emblem {(applied.SpaceMarineAppearance.UsesEmblem ? applied.SpaceMarineAppearance.Emblem.ToHex() : applied.ChaosAppearance.UsesEmblem ? applied.ChaosAppearance.Emblem.ToHex() : "none")}, others' emblems {(applied.CustomEmblems ? "shown" : "hidden")}, " +
+                       $"Ork look {(applied.OrkLook == Races.OrkLookAutomatic ? "automatic" : applied.OrkLook.ToString(System.Globalization.CultureInfo.InvariantCulture))}");
         return applied;
     }
 
@@ -41,7 +42,8 @@ public static class FrontEndLaunch
             RequestedClass = choice.Class >= 0 && choice.Class < Protocol.ServerDefaultClass ? (byte)choice.Class : Protocol.ServerDefaultClass,
             RequestedPrimary = B(choice.Primary), RequestedPistol = B(choice.Pistol), RequestedMelee = B(choice.Melee), RequestedEquipment = B(choice.Equipment),
             RequestedPerk1 = B(choice.Perk1), RequestedPerk2 = B(choice.Perk2),
-            OrkLook = ContentGate.OrkLook(options.OrkLook, extras),
+            // ui/customizer-ork: the profile's Ork look (the customizer's look step); an automatic one leaves the options' (a test aid's) as they are.
+            OrkLook = ContentGate.OrkLook(plan.OrkLook != Races.OrkLookAutomatic ? plan.OrkLook : options.OrkLook, extras),
             RequestedSide = plan.Side,
             SpaceMarineAppearance = plan.SpaceMarineLook, ChaosAppearance = plan.ChaosLook,
             EmblemSource = request.Services.EmblemBytes,

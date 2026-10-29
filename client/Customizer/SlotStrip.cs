@@ -55,7 +55,8 @@ public sealed partial class SlotStrip : VBoxContainer
         if (_compact)
         {
             single = UiKit.HBox(8);
-            string role = DefaultsRole ?? ProfileStore.FirstRole(catalog);
+            // Only a role the profile offers (ui/customizer-ork: no Ork DEFAULTS chip in Faithful).
+            string role = DefaultsRole is { } wanted && _services.Roles().Contains(wanted, StringComparer.OrdinalIgnoreCase) ? wanted : ProfileStore.FirstRole(catalog);
             var sel = Selection.DefaultFor(role);
             bool activeDefaults = active.Kind == SelectionKind.Default && active.Role?.Equals(role, StringComparison.OrdinalIgnoreCase) == true;
             single.AddChild(MakeChip(sel, "DEFAULTS", LoadoutRows.ClassName(catalog, role, CustomizationCatalog.SpaceMarine), activeDefaults, false, null, _chipWidth));
@@ -64,11 +65,16 @@ public sealed partial class SlotStrip : VBoxContainer
         {
             var row = UiKit.HBox(8);
             row.AddChild(Caption("DEFAULTS"));
-            foreach (var role in ProfileStore.Roles(catalog))
+            var roles = _services.Roles();   // the Ork Boy's DEFAULTS only in a profile with the Orks (ui/customizer-ork)
+            int width = roles.Count > 3 ? 320 : 430;   // four chips share the row's 1290 pixels
+            foreach (var role in roles)
             {
                 var sel = Selection.DefaultFor(role);
-                string name = LoadoutRows.ClassName(catalog, role, CustomizationCatalog.SpaceMarine) + " / " + LoadoutRows.ClassName(catalog, role, CustomizationCatalog.Chaos);
-                row.AddChild(MakeChip(sel, "DEFAULTS", name, active == sel, false, null, 430));
+                string name = OrkLoadout.IsOrk(role) ? $"{OrkLoadout.ClassName} (either side)"
+                    : LoadoutRows.ClassName(catalog, role, CustomizationCatalog.SpaceMarine) + " / " + LoadoutRows.ClassName(catalog, role, CustomizationCatalog.Chaos);
+                var defaultsChip = MakeChip(sel, "DEFAULTS", name, active == sel, false, null, width);
+                defaultsChip.TooltipText = defaultsChip.TooltipText.Length > 0 ? $"{name} - {defaultsChip.TooltipText}" : name;
+                row.AddChild(defaultsChip);
             }
             AddChild(row);
         }
