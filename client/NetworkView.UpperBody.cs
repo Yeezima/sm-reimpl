@@ -74,6 +74,12 @@ public partial class NetworkView
         _upperNote = $"switch {d.Switch.ToRifle?.Clip ?? "-"} {d.Switch.ToRifle?.Length:0.###} s (swap {d.Switch.ToRifle?.SwapAt:0.###} s) / {d.Switch.ToPistol?.Clip ?? "-"} {d.Switch.ToPistol?.Length:0.###} s (swap {d.Switch.ToPistol?.SwapAt:0.###} s); " +
                      $"flinch sets {d.Flinch.Sets.Count} (min time between hits {d.Flinch.MinHitReactionTime:0.##} s); death clips {d.Death.Clips.Count}; jump pack: get-up run {d.JumpPack.RunClip ?? "-"}, wobble {d.JumpPack.NoiseClip ?? "-"}{(d.JumpPack.NoiseAdditive ? " (additive)" : "")}";
         GD.Print("upper body: " + _upperNote);
+        // fix/stow-right: the two possible switch plans, built once (the weapon update asks for them every frame for every player).
+        _planToPistol = SwitchPlan.For(d.Switch, WeaponSlot.Ranged, WeaponSlot.Pistol, WeaponRig.OldStow);
+        _planToPrimary = SwitchPlan.For(d.Switch, WeaponSlot.Pistol, WeaponSlot.Ranged, WeaponRig.OldStow);
+        foreach (var c in new[] { d.Switch.ToRifle, d.Switch.ToPistol })
+            if (c is not null)
+                GD.Print($"  upper body: switch clip {c.Clip}: sequencer speed {c.Speed:0.###}, animation {ClipLength(c.Clip, c.Length):0.###} s{(Math.Abs(c.Speed - 1f) > 1e-3f ? " (not 1: the switch pieces sample the animation at playback x speed)" : "")}");
         foreach (var n in d.Switch.Notes.Concat(d.Flinch.Notes).Concat(d.Death.Notes).Concat(d.JumpPack.Notes)) GD.Print("  upper body note: " + n);
         if (LogUpper) GD.Print("  upper body: " + ClipOffsets());
         return _upperData;
@@ -141,7 +147,7 @@ public partial class NetworkView
     {
         t.Switch = null;
         if (NoSwitchAnim || UpperData() is not { } data || _config is null || _config.WeaponSwitchTime <= 0.05f) return;
-        var plan = SwitchPlanFor(data.Switch, s.Slot);
+        var plan = SwitchPlanFor(s.Slot);
         if (plan is null) return;
         t.Switch = plan;
         t.SwitchAt = _connectedFor;
@@ -152,9 +158,13 @@ public partial class NetworkView
                      $" over {t.SwitchDuration:F2} s; the old weapon is stowed at {plan.Release * t.SwitchDuration:F2} s, the new one in hand at {plan.Take * t.SwitchDuration:F2} s ({(own ? "own" : "seen")}{(WeaponRig.OldStow ? ", --old-stow" : "")})");
     }
 
-    /// <summary>The switch to <paramref name="slot"/> from the other ranged slot (a class has two): <see cref="SwitchPlan.For"/> (<c>--old-stow</c>: the new weapon's clip alone, as before fix/stow-right).</summary>
-    static SwitchPlan? SwitchPlanFor(SwitchAnimations switches, WeaponSlot slot) =>
-        SwitchPlan.For(switches, slot == WeaponSlot.Pistol ? WeaponSlot.Ranged : WeaponSlot.Pistol, slot, WeaponRig.OldStow);
+    SwitchPlan? _planToPistol, _planToPrimary;
+
+    /// <summary>
+    /// The switch to <paramref name="slot"/> from the other ranged slot (a class has two): <see cref="SwitchPlan.For"/> (<c>--old-stow</c>: the new weapon's clip alone, as before fix/stow-right),
+    /// built once when the clips load (<see cref="UpperData"/>); null before that. No allocation per call.
+    /// </summary>
+    SwitchPlan? SwitchPlanFor(WeaponSlot slot) => slot == WeaponSlot.Pistol ? _planToPistol : _planToPrimary;
 
     /// <summary>
     /// When the weapon models change during a switch to the player's slot (fractions of the switch time): the old weapon onto its stow marker, the new one into the hand (<see cref="SwitchPlan"/>);
@@ -162,7 +172,7 @@ public partial class NetworkView
     /// </summary>
     (float Release, float Take) SwapFractionsFor(PlayerState s)
     {
-        if (NoSwitchAnim || UpperData() is not { } data || SwitchPlanFor(data.Switch, s.Slot) is not { } plan) return (0.5f, 0.5f);
+        if (NoSwitchAnim || UpperData() is null || SwitchPlanFor(s.Slot) is not { } plan) return (0.5f, 0.5f);
         return (plan.Release, plan.Take);
     }
 
