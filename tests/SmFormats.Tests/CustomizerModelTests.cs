@@ -300,6 +300,27 @@ public class CustomizerModelTests : IDisposable
     }
 
     [Fact]
+    public void Perk_rows_add_the_values_line_under_the_locale_text()
+    {
+        // perks/finish: the row's description is the locale's text with the simulation's values line under it (PerkValues), "Not active yet." when inert,
+        // the text alone without a config.
+        var status = new Dictionary<string, PerkStatus>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["mp_perk_a"] = new(PerkActivity.Active, "") { Values = "Bolter: clip 30 → 38 (+27%)" },
+            ["mp_perk_secondary_weapon"] = new(PerkActivity.Inert, "no second weapon list in the data"),
+        };
+        var plain = LoadoutRows.Perks(Catalog, "tactical", CustomizationCatalog.SpaceMarine, null, UnlockPolicy.All).ToDictionary(r => r.Name);
+        var rows = LoadoutRows.Perks(Catalog, "tactical", CustomizationCatalog.SpaceMarine, null, UnlockPolicy.All, status).ToDictionary(r => r.Name);
+        Assert.Equal(PerkValues.Describe(plain["mp_perk_a"].Description, "Bolter: clip 30 → 38 (+27%)"), rows["mp_perk_a"].Description);
+        Assert.EndsWith("Bolter: clip 30 → 38 (+27%)", rows["mp_perk_a"].Description);
+        Assert.EndsWith(PerkValues.NotActive, rows["mp_perk_secondary_weapon"].Description);
+        Assert.DoesNotContain(PerkValues.NotActive, plain["mp_perk_secondary_weapon"].Description);
+        // The config's statuses carry the generator's text.
+        var config = Config();
+        Assert.All(config.Perks, p => Assert.Equal(PerkValues.Text(config, p), PerkStatuses.Of(config)[p.Name].Values));
+    }
+
+    [Fact]
     public void Either_sides_item_name_can_be_chosen_and_each_side_shows_its_own_counterpart()
     {
         // Chaos's Raptor lists chain axe, chainsword; the Space Marine Assault lists lightning claw, chainsword: the same positions.

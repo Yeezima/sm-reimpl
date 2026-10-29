@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1509 spec table rows: **1001 tagged**, 369 not tagged (read from data with high confidence), 139 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 276 rows of the changes document.
+Scanned 1512 spec table rows: **1004 tagged**, 369 not tagged (read from data with high confidence), 139 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 277 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -44,7 +44,7 @@ Scanned 1509 spec table rows: **1001 tagged**, 369 not tagged (read from data wi
 | Sound mix (critical) | 49 | 45 | 42 | 10 | 0 |
 | Effects (critical) | 65 | 57 | 55 | 33 | 0 |
 | Game modes | 38 | 35 | 36 | 19 | 1 |
-| Perks | 44 | 33 | 18 | 19 | 0 |
+| Perks | 47 | 36 | 20 | 20 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
 | Customizer and paint | 49 | 46 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
@@ -53,17 +53,17 @@ Scanned 1509 spec table rows: **1001 tagged**, 369 not tagged (read from data wi
 | Core simulation (provisional values) | 36 | 31 | 32 | 3 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 73 | 67 | 40 | 4 | 0 |
-| **All areas** | **1001** | 821 | 789 | 345 | 38 |
+| **All areas** | **1004** | 824 | 791 | 346 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | confidence: low | 344 |
-| kind: ours | 334 |
-| confidence: medium | 331 |
-| kind: interpretation | 297 |
-| notes: ours | 266 |
+| kind: ours | 336 |
+| confidence: medium | 333 |
+| kind: interpretation | 298 |
+| notes: ours | 267 |
 | confidence: none (low) | 114 |
 | kind: provisional | 98 |
 | section: provisional | 38 |
@@ -1171,7 +1171,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-F93EE7FA` | Spawn positions | the map's TDM markers (`tdm_mkr_spawn_NN` in `d_tdm.Layer`), facing their Z rotation; each spawn takes the next marker in name order, skipping markers within 2 m of a living player; without a map, a circle of radius 3 (m, rad) | confidence: low; notes: placeholder; section: placeholder; section: provisional | positions and facing **supported by evidence**; the choice of marker is a placeholder (M15 with teams: the free marker farthest from living enemies; see Teams… | Spawn positions: compare with SM1 by feel or video. Ours: the map's TDM markers (tdm_mkr_spawn_NN in d_tdm.Layer), facing their… | ☐ |
 
-### Perks (44)
+### Perks (47)
 
 *Spec section: Custom classes: loadout changes, perks and the wire (T2, T3a; protocol 22)*
 
@@ -1195,13 +1195,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-696F91A8` | `jump_pack_explodes_on_death` Final Vengeance (SA CR) | none → blast r 8, 100 + 100 armour, explosive, fall-off 1 to 5, 0.5 at 6, 0.25 at 8; a reaction-only blast (stun from 0.51, else interrupt) (m, damage) | kind: interpretation | ebps `death_action` `delayed_action` | Jump_pack_explodes_on_death Final Vengeance (SA CR): compare with SM1 by feel or video. Ours: none → blast r 8, 100 + 100 armour, explosive, fall-off 1 to 5, 0.5… | ☐ |
 | `R-8DA81460` | `jump_pack_reduced_cooldown` Air-Cooled Thrusters (SA CR) | power recharge 10 → 15; `smash_available_delay` 0 → 2; first height-map time 0.1 → 0 (power/s, s) | notes: open question | wargear `jump_info` perk entry | Jump_pack_reduced_cooldown Air-Cooled Thrusters (SA CR): compare with SM1 by feel or video. Ours: power recharge 10 → 15; smash_available_delay 0 → 2; first height-map… | ☐ |
 | `R-2B7A94A5` | `bolter_in_place_of_pistol` True Grit (SA CR) | pistol-slot Bolters offered only with it | kind: interpretation; notes: provisional | data-implied (the perk's content); no file reads its string | Bolter_in_place_of_pistol True Grit (SA CR): compare with SM1 by feel or video. Ours: pistol-slot Bolters offered only with it. | ☐ |
-| `R-B0DA38AD` | `respawn_timer` Rapid Deployment (ST CT) | not in the data | notes: gap (not reproduced) | executable | Respawn_timer Rapid Deployment (ST CT): compare with SM1 by feel or video. Ours: not in the data. | ☐ |
-| `R-AA10E32A` | `enemy_info` Tactical Readout (ST CT) | not in the data | notes: gap (not reproduced) | executable (HUD) | Enemy_info Tactical Readout (ST CT): compare with SM1 by feel or video. Ours: not in the data. | ☐ |
-| `R-E15A82D2` | `secondary_weapon` Weapon Versatility (ST CT) | not in the data (no upgrade string) | notes: gap (not reproduced) | front end / executable | Secondary_weapon Weapon Versatility (ST CT): compare with SM1 by feel or video. Ours: not in the data (no upgrade string). | ☐ |
-| `R-B08098C8` | `friendly_spawn_target` Teleport Homer (ST CT; default) | not in the data | notes: gap (not reproduced) | executable (spawn rule) | Friendly_spawn_target Teleport Homer (ST CT; default): compare with SM1 by feel or video. Ours: not in the data. | ☐ |
+| `R-B0DA38AD` | `respawn_timer` Rapid Deployment (ST CT) | not in the data (perks/finish: the whole install searched again; no file reads the string and no respawn time is in the data: the 5 s respawn is ours) | notes: gap (not reproduced) | executable | Respawn_timer Rapid Deployment (ST CT): compare with SM1 by feel or video. Ours: not in the data (perks/finish: the whole install searched again; no… | ☐ |
+| `R-AA10E32A` | `enemy_info` Tactical Readout (ST CT) | not in the data (perks/finish: no file reads the string; locale 111529 "Armor and Health indicators are displayed above opposing players": it needs other players' health and armour on the wire, which the full snapshot budget has no room for, and a HUD marker) | notes: gap (not reproduced) | executable (HUD) | Enemy_info Tactical Readout (ST CT): compare with SM1 by feel or video. Ours: not in the data (perks/finish: no file reads the string; locale… | ☐ |
+| `R-E15A82D2` | `secondary_weapon` Weapon Versatility (ST CT) | not in the data (no upgrade string; perks/finish: the file's only effect field is `common_data/customization_modifier_type` = `unlock_secondary_weapon`, a front-end modifier; locale 111523 "An additional weapon can be equipped"; which weapon and which slot is… | notes: gap (not reproduced) | front end / executable | Secondary_weapon Weapon Versatility (ST CT): compare with SM1 by feel or video. Ours: not in the data (no upgrade string; perks/finish: the file's only… | ☐ |
+| `R-B08098C8` | `friendly_spawn_target` Teleport Homer (ST CT; default) | not in the data (perks/finish: no file reads the string; only the Dreadnought blueprints carry the perk as default wargear; locale 111652 "Allies re-entering combat may do so at your position (so long as you remain alive)": it needs a spawn choice the game… | notes: gap (not reproduced) | executable (spawn rule) | Friendly_spawn_target Teleport Homer (ST CT; default): compare with SM1 by feel or video. Ours: not in the data (perks/finish: no file reads the string; only the… | ☐ |
 | `R-D1CCC735` | `speed_increase` Fast Stomp (SD CH) | the stomp clip plays at speed 1 → 1.5 (1.667 s → 1.111 s; hit 0.767 → 0.511 s): the displace graphs' "Set Stomp Speed Float" `hkbSetFloatModifier` (enable bound to `BOOL_UPGRADE_mp_perk_speed_increase`) writes 1.5 into `FLT_Displace_Stomp_Speed`, the stomp… (playback speed) | kind: interpretation; confidence: medium | graph `MP_SM_MEL_TB_Displace` | Speed_increase Fast Stomp (SD CH): compare with SM1 by feel or video. Ours: the stomp clip plays at speed 1 → 1.5 (1.667 s → 1.111 s; hit 0.767 →… | ☐ |
 | `R-DAD7C093` | `shield_break_damage` Reactive Blast (SD CH) | none → blast r 4.5, 25 + 35 armour, explosive, no fall-off, stun with 2.5 m knockback over 0.1 s; the second blast's `pa_3xy` not mapped (m, damage, s) | kind: interpretation | ebps `armourshield_broken` (`_by_breaker` identical) | Shield_break_damage Reactive Blast (SD CH): compare with SM1 by measuring on a flat spot of the same map. Ours: none → blast r 4.5, 25 + 35 armour, explosive, no fall-off, stun with… | ☐ |
-| `R-980B7116` | `snap_to_increase` Signum Link (SD CH) | not in the data | notes: gap (not reproduced) | executable | Snap_to_increase Signum Link (SD CH): compare with SM1 by feel or video. Ours: not in the data. | ☐ |
+| `R-980B7116` | `snap_to_increase` Signum Link (SD CH) | not in the data as a perk effect (perks/finish: no file reads the string; the only candidate data are the aim-assist sets `sm_auto_aim_heavy_bolter_mp__snap_upgrade`, `_zoom_mp__snap_upgrade` and the plasma cannon's two, `max_angle_for_ranged_aim_snap_to` 0 →… | notes: gap (not reproduced) | executable | Snap_to_increase Signum Link (SD CH): compare with SM1 by feel or video. Ours: not in the data as a perk effect (perks/finish: no file reads the… | ☐ |
 | `R-0B2DC1DA` | `weap_plasma_pistol_less_heat` Plasma Heat Sink (SA CR) | vent 45 → 70 heat/s: the player blueprints grant `mp_plasma_pistol_upgraded_vent` for the perk, the pistol graph's "Upgraded Vent State" runs the wargear's `ability_utility_upgraded` (fidelity gap 7) (heat/s) | kind: interpretation; confidence: medium | ebps player blueprints, `MP_SM_PlasmaPistol`, wargear | Weap_plasma_pistol_less_heat Plasma Heat Sink (SA CR): compare with SM1 by feel or video. Ours: vent 45 → 70 heat/s: the player blueprints grant… | ☐ |
 | `R-11F2B6F9` | `weap_bolter_accuracy` Bolter Targeter (ST CT) | scatter sets only (scatter not simulated, M27) | notes: gap (not reproduced) | wargear `kick_back_and_scatter_values` | Weap_bolter_accuracy Bolter Targeter (ST CT): compare with SM1 by feel or video. Ours: scatter sets only (scatter not simulated, M27). | ☐ |
 | `R-65D174A7` | `weap_power_axe_slow_on_hit` Axeman's Zeal (SA CR; string `…_heal_on_hit`) | heal on hit (weapon not simulated) | notes: gap (not reproduced) | wargear | Weap_power_axe_slow_on_hit Axeman's Zeal (SA CR; string…: compare with SM1 by feel or video. Ours: heal on hit (weapon not simulated). | ☐ |
@@ -1216,6 +1216,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-9EA846BB` | Chained armour-break blasts (rule) | at most 4 rounds per tick (rounds) | kind: provisional; notes: ours | ours | Chained armour-break blasts (rule): compare with SM1 by counting hits to kill and by video of the health bar. Ours: at most 4 rounds per tick. | ☐ |
 | `R-C037669B` | Perk blasts at a restart (rule) | waiting death and armour-break blasts are dropped when a round restarts | kind: provisional; notes: ours | ours | Perk blasts at a restart (rule): compare with SM1 by feel or video. Ours: waiting death and armour-break blasts are dropped when a round… | ☐ |
 | `R-B3B0DB48` | Perk kills (protocol 23) | the kill feed's cause 5 names the perk (index into `SimConfig.Perks`; `Perks.NameOf`) | notes: ours | ours | Perk kills (protocol 23): compare with SM1 by feel or video. Ours: the kill feed's cause 5 names the perk (index into SimConfig.Perks… | ☐ |
+| `R-4CE2A859` | Perk description values (perks/finish) | the class creator's perk card: the locale description, then one values line per item generated from the specs the simulation picks (each carried item's variant for exactly the perk's upgrade string against its base; player-blueprint upgrades against the… | kind: ours | owner's request 2026-10-29 ("include accurate values to perk descriptions (if those can be determined)"); wording and layout ours | Perk description values (perks/finish): compare with SM1 by feel or video. Ours: the class creator's perk card: the locale description, then one… | ☐ |
+| `R-84033D0D` | Perk description item names (perks/finish) | an item is named by its neutral weapon name from the locale's challenge groups (111733–111746: "Storm Bolter / Twin Bolter", "Power Axe / Chain Axe", "Thunder Hammer / Daemon Maul"; grenades and stims by their item names; the heavy classes' core melee "Kick… | kind: ours; confidence: medium | locale (names); the table ours | Perk description item names (perks/finish): compare with SM1 by feel or video. Ours: an item is named by its neutral weapon name from the locale's… | ☐ |
+| `R-C8ABD700` | Perk description blast reactions (perks/finish) | a blast's reaction entries are compared by position and named by intensity: the highest entry "close hits", the lowest "outer hits", others "middle hits" (a target takes the entry of the highest intensity it reaches, `Reaction.Pick`) | kind: interpretation; confidence: medium; notes: ours | ours (wording of the data's intensity entries) | Perk description blast reactions (perks/finish): compare with SM1 by watching the reaction and timing it frame by frame. Ours: a blast's reaction entries are compared by position and named by… | ☐ |
 
 *Spec section: Combat stims (perks/inert-2; protocol 40, the config hash changes)*
 
@@ -1803,6 +1806,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-285034D7` | Perk blasts at a round restart | Waiting death and armour-break blasts are dropped | Whether the original carries them over | Perks | Perk blasts at a round restart: compare with SM1 by feel or video. Ours: Waiting death and armour-break blasts are dropped. | ☐ |
 | `C-D5A920BF` | Perk kills | The kill feed names the perk (Final Vengeance, Reactive Blast, Blast Off) and, since fidelity gap 10, shows the perk file's own feed icon (`killed_by_weapon_type`) | Whether the engine reads that field for perk kills (interpretation) | Perks | Perk kills: compare with SM1 by feel or video. Ours: The kill feed names the perk (Final Vengeance, Reactive Blast, Blast… | ☐ |
 | `C-9F0B09C1` | Perks on the wire | Only the recipient's own perks travel (protocol 23); others' perk effects act on the server only | Not applicable (the original was peer-hosted) | Perks | Perks on the wire: compare with SM1 by feel or video. Ours: Only the recipient's own perks travel (protocol 23); others' perk… | ☐ |
+| `C-56C3A60F` | Perk descriptions with values (perks/finish) | The class creator shows each perk's locale text and, under it, a values line generated from the very specs the simulation picks for a player with the perk (`PerkValues`: e.g. "Bolt Pistol: clip 10 → 16 (+60%)", "Armour 100 → 150 (+50%)"); only values the simulation uses, none when nothing can be determined, "Not… | The original's cards show the locale text only (an addition of ours, the owner's request of 2026-10-29) | Perks (rows "Perk description values", "Perk description item names", "Perk description blast reactions") | Perk descriptions with values (perks/finish): compare with SM1 by feel or video. Ours: The class creator shows each perk's locale text and, under it, a… | ☐ |
 
 #### Client presentation (not simulated)
 
@@ -1934,7 +1938,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-3AD5CFED` | Exterminatus (co-op waves) and the Ork / Chaos AI it needs | Deferred by the alpha scope | Exterminatus (co-op waves) and the Ork / Chaos AI it needs: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-065DF23D` | The other multiplayer maps | Only Manufactorum (`mp_tdm_09`) is developed | The other multiplayer maps: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-073DC8BB` | Customizer, progression, XP and unlock levels | Every supported weapon is available at once; no armour customizer | Customizer, progression, XP and unlock levels: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
-| `C-7BC45C6C` | Perks without a data consumer, or whose item is not simulated (M43) | Rapid Deployment, Teleport Homer, Tactical Readout, Signum Link, Weapon Versatility: "NOT ACTIVE YET" (no value or consumer in the data; spec "Perks"). Every other perk acts since perks/inert-2 (combat stims made Favor of the Armory and Master-Crafted Wargear whole) | Perks without a data consumer, or whose item is not…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-7BC45C6C` | Perks without a data consumer, or whose item is not simulated (M43) | Rapid Deployment, Teleport Homer, Tactical Readout, Signum Link, Weapon Versatility: "NOT ACTIVE YET" (no value or consumer in the data; spec "Perks"). Every other perk acts since perks/inert-2 (combat stims made Favor of the Armory and Master-Crafted Wargear whole). perks/finish searched the whole install again for… | Perks without a data consumer, or whose item is not…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-28BB9D00` | Lobby, class-select screen and front-end flow | Class is chosen with command-line options; after a match we restart instead of returning to a lobby | Lobby, class-select screen and front-end flow: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-3376F2FD` | Summary screen's missing parts and the next-map vote | The count-up and a battle record (best class and weapon, enemy kills, player deaths, kill ratio, best killstreak, nemesis, the side's Seize Ground captures) are drawn after the splash (ours: statistics from the kill feed a client sees, so a late joiner's are partial); the original also shows assists, per-player score… | Summary screen's missing parts and the next-map vote: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-934B4B65` | Fury and executions | Listed as public behaviour, not decoded | Fury and executions: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |

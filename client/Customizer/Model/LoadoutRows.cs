@@ -156,8 +156,11 @@ public static class LoadoutRows
             string warning = "";
             if (p.Kind == PerkKind.Weapon && PerkWeapons.Needs(p.Name) is { } needs && !needs.Any(n => carried.Contains(n, StringComparer.OrdinalIgnoreCase)))
                 warning = $"Needs {PerkWeapons.Describe(needs, options)}; no effect without it";
-            rows.Add(new PerkRow(p.Name, p.DisplayName, p.Description, p.Kind == PerkKind.Weapon, slot, status is null ? new PerkStatus(PerkActivity.Active, "")   // no config yet: the row says nothing about it
-                    : status.TryGetValue(p.Name, out var known) ? known : new PerkStatus(PerkActivity.Inert, "the simulation has no such perk"),   // a perk the config lacks does nothing
+            var activity = status is null ? new PerkStatus(PerkActivity.Active, "")   // no config yet: the row says nothing about it
+                : status.TryGetValue(p.Name, out var known) ? known : new PerkStatus(PerkActivity.Inert, "the simulation has no such perk");   // a perk the config lacks does nothing
+            // perks/finish: the locale's text, then the values line from the simulation's own specs (PerkValues; "Not active yet." when inert).
+            string values = activity.Values is { Length: > 0 } v ? v : status is not null && activity.Activity == PerkActivity.Inert ? PerkValues.NotActive : "";
+            rows.Add(new PerkRow(p.Name, p.DisplayName, PerkValues.Describe(p.Description, values), p.Kind == PerkKind.Weapon, slot, activity,
                 policy.Evaluate(index++, p.Level, p.ChallengeText), warning));
         }
         return rows;
@@ -206,7 +209,7 @@ public static class PerkStatuses
     public static IReadOnlyDictionary<string, PerkStatus> Of(SimConfig config)
     {
         var map = new Dictionary<string, PerkStatus>(StringComparer.OrdinalIgnoreCase);
-        foreach (var perk in config.Perks) map[perk.Name] = SmSim.Perks.StatusOf(config, perk);
+        foreach (var perk in config.Perks) map[perk.Name] = SmSim.Perks.StatusOf(config, perk) with { Values = PerkValues.Text(config, perk) };   // perks/finish
         return map;
     }
 }

@@ -156,7 +156,7 @@ Classes: SA/CR = Assault Marine / Raptor, ST/CT = Tactical, SD/CH = Devastator /
 | `speed_increase` | Fast Stomp | 13 | SD CH | stomp animation faster: the displace graphs' "Set Stomp Speed Float" modifier (enabled by `BOOL_UPGRADE_mp_perk_speed_increase`) sets the stomp clip's playback speed to 1.5 (Weapons C, decoded; spec "Perks") | animation speed |
 | `better_stomp` | Furious Stomp | 1 | SD CH | stomp (`displace_footstomp`, knife and heavy evade) damage 25 -> 35, armour damage 50 -> 75, radius 7 -> 10, falloff 4.5/6/7 -> 6/8/10 | stomp exists (heavy evade) |
 | `shield_break_damage` | Reactive Blast | 7 | SD CH | when armour breaks (also by a breaker): area blast r 4.5, 25 + 35 armour, explosive, no fall-off, stun with 2.5 m knockback (M43 check) | armour-break blast |
-| `snap_to_increase` | Signum Link | 1 | SD CH | no data consumer: enemies show more clearly | HUD |
+| `snap_to_increase` | Signum Link | 1 | SD CH | no data consumer: enemies show more clearly; the only candidate data (perks/finish) are the unbound aim-assist sets `*_heavy_bolter_(zoom_)mp__snap_upgrade` and the plasma cannon's, `max_angle_for_ranged_aim_snap_to` 0 -> 12 | HUD or aim assist |
 | `iron_halo` (+ `iron_halo_for_havoc`) | Iron Halo / Chaos Icon | 19 | SD CH | `armourshield_max` 100 -> 150 (regen delay 7, rate 33 unchanged); Havoc adds the icon item as forced gear | armour value |
 | `shield_regen_delay` | Artificer Armor | 25 | SD CH | `armourshield_regeneration_delay` -5 (7 -> 2) | armour regen |
 | `starting_ammo` | Ammunition Stores | 31 | SD CH | heavy bolter clip 400 -> 800, plasma cannon 100 -> 200, lascannon reserve 30 -> 60 | ammo variants |

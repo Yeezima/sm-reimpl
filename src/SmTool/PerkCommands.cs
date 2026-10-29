@@ -19,13 +19,15 @@ static class PerkCommands
         var tuning = GameplayTuning.Load(gameDir);
         var c = tuning.Config;
         foreach (var note in tuning.Notes.Where(n => n.Contains("perk", StringComparison.OrdinalIgnoreCase))) Console.WriteLine("note: " + note);
-        Console.WriteLine($"{c.Perks.Count} perks");
+        Console.WriteLine($"{c.Perks.Count} perks: {c.Perks.Count(p => Perks.StatusOf(c, p).Activity == PerkActivity.Active)} active, {c.Perks.Count(p => Perks.StatusOf(c, p).Activity == PerkActivity.Partial)} partly, {c.Perks.Count(p => Perks.StatusOf(c, p).Activity == PerkActivity.Inert)} inert");
         foreach (var p in c.Perks)
         {
             int index = c.Perks.ToList().IndexOf(p);
             var classes = Enumerable.Range(0, c.Classes.Count).Where(k => Loadouts.ValidPerk(c, k, index)).Select(k => c.Classes[k].Name);
             var status = Perks.StatusOf(c, p);
             Console.WriteLine($"  {p.Name} [{p.UpgradeString ?? "-"}] {p.Kind} lvl {p.Level} ({string.Join(", ", classes)}): {status.Activity}{(status.Note.Length > 0 ? " - " + status.Note : "")}");
+            // perks/finish: the values line the class creator shows under the locale text (PerkValues, from the same specs the simulation picks).
+            foreach (var line in PerkValues.Text(c, p).Split('\n', StringSplitOptions.RemoveEmptyEntries)) Console.WriteLine("      values: " + line);
         }
         void Show<T>(string what, T spec, IReadOnlyList<UpgradeVariant<T>> variants) where T : class
         {
