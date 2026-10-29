@@ -174,7 +174,8 @@ description for testers (`tools/release/package/RELEASE-NOTES.md`: install steps
   source zip through the allowlist and scans its files as the stand-alone source zip is scanned. It fails closed: the game install must be indexed
   (`--require-install`), the cache is indexed when it exists, an unreadable secrets file, forbidden file or nested zip is an error (exit 2), not an empty comparison.
   The fingerprints of the install's and the cache's files (path, size, write time, SHA-256; the install's also by Steam build id) are kept in
-  `%LOCALAPPDATA%\sm-reimpl\cache\guard\` (`--index-cache`), so an unchanged file is not hashed twice; the answer is the same without them.
+  `%LOCALAPPDATA%\sm-reimpl\cache\guard\` (`--index-cache`; a stored hash is used for at most 7 days, and the last scan before an upload uses none),
+  so an unchanged file is not hashed twice; the answer is the same without them.
 - `-Smoke` unpacks the playtest zip into a folder with a space in its name and runs it as a tester would: `3 - Host a match on this PC.cmd --port <p>`
   must start `server\SmServer.exe` bound to 127.0.0.1, `game\sm-reimpl.console.exe --headless` must join it as a bot, and `2 - Play.cmd` (with
   `SM_ENGINE_ARGS=--headless --log-file ...` and `--auto-host`) must start `game\sm-reimpl.exe`, whose HOST A MATCH finds `server\` and starts it on 127.0.0.1.

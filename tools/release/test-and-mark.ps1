@@ -19,17 +19,16 @@ if ($Check) {
     Write-Host "HEAD $($sha.Substring(0, 7)): no test marker within $TestedMaxAgeHours h: a ship runs the tests." -ForegroundColor Yellow
     exit 1
 }
-$clean = -not ((git -C $RepoRoot status --porcelain --untracked-files=normal) -join "`n").Trim()
+$clean = (Get-TreeState $RepoRoot).Clean
 $clock = [Diagnostics.Stopwatch]::StartNew()
 Write-Host "== dotnet test and refine-register --check on $($sha.Substring(0, 7))$(if (-not $clean) { ' (uncommitted changes: no marker will be written)' })" -ForegroundColor Cyan
 $r = Invoke-ReleaseTests $RepoRoot
-# The tree must still be the same clean commit afterwards (a branch switch or an edit during the run would make the marker lie).
-$after = (git -C $RepoRoot rev-parse HEAD).Trim()
-$cleanAfter = -not ((git -C $RepoRoot status --porcelain --untracked-files=normal) -join "`n").Trim()
 $secs = '{0:0}' -f $clock.Elapsed.TotalSeconds
 if ($r.Test -ne 0) { Write-Host "dotnet test failed (exit $($r.Test)) after $secs s; nothing recorded." -ForegroundColor Red; exit 1 }
 if ($r.Refine -ne 0) { Write-Host "refine-register --check failed (exit $($r.Refine)) after $secs s: run smtool refine-register and commit; nothing recorded." -ForegroundColor Red; exit 1 }
-if (-not $clean -or -not $cleanAfter -or $after -ne $sha) { Write-Host "Both passed in $secs s, but the tree was not the clean commit $($sha.Substring(0, 7)) throughout; nothing recorded." -ForegroundColor Yellow; exit 0 }
-$path = Write-TestedMarker $dataRoot $sha
+# The tree must have been the same clean commit before and after (a branch switch or an edit during the run would make the marker lie).
+$why = ''
+$path = Write-TestedMarkerIfStable $dataRoot $sha $r ([ref]$why)
+if (-not $path) { Write-Host "Both passed in $secs s, but nothing was recorded: $why." -ForegroundColor Yellow; exit 0 }
 Write-Host "Both passed in $secs s; recorded for $($sha.Substring(0, 7)) ($path). A ship of this commit within $TestedMaxAgeHours h skips the tests." -ForegroundColor Green
 exit 0

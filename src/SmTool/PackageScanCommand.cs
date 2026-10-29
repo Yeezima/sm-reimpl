@@ -4,7 +4,7 @@ namespace SmTool;
 
 /// <summary>
 /// <c>smtool scan-package [--against &lt;dir&gt;]... [--against-install &lt;game-dir|auto&gt;] [--secrets &lt;config.json&gt;]... [--secrets-env]
-/// [--require-install] [--require-secrets] [--require-pack] [--profile binary] [--source-archive &lt;entry prefix&gt;]... [--index-cache &lt;dir&gt;] &lt;zip|tar.gz|folder|file&gt;...</c>
+/// [--require-install] [--require-secrets] [--require-pack] [--profile binary] [--source-archive &lt;entry prefix&gt;]... [--index-cache &lt;dir&gt; [--rehash]] &lt;zip|tar.gz|folder|file&gt;...</c>
 /// Runs the release content guard (<see cref="PackageScanner"/>). Zips inside a package are scanned entry by entry; <c>--source-archive source/</c> marks the
 /// nested zips under that prefix as the GPL source offer (allowed in a binary package, their entries scanned without the type allowlist). Exit 0 = clean, 1 = findings, 2 = usage error or an input that could not be used.
 /// The guard fails closed: a missing --against folder, an install that was asked for (--require-install) but not indexed, a secrets file that is
@@ -41,6 +41,7 @@ public static class PackageScanCommand
         var againstDirs = new List<string>();
         var installArgs = new List<string>();
         string? indexCache = null;
+        bool rehash = false;
         var clock = System.Diagnostics.Stopwatch.StartNew();
         try
         {
@@ -57,6 +58,7 @@ public static class PackageScanCommand
                     case "--index-cache" when i + 1 < args.Length:
                         indexCache = Path.GetFullPath(args[++i]);
                         break;
+                    case "--rehash": rehash = true; break;
                     case "--secrets" when i + 1 < args.Length:
                         secretFiles.Add(args[++i]);
                         break;
@@ -85,27 +87,43 @@ public static class PackageScanCommand
 
             // The comparison trees, after every option is known (--index-cache may come after them). The fingerprint index only saves hashing time:
             // the trees are enumerated in full on every run, and a file is reused only when its path, size and last-write time are unchanged.
+            var installs = new List<string>();
+            foreach (var given in installArgs)
+            {
+                string? dir = given.Equals("auto", StringComparison.OrdinalIgnoreCase) ? null : given;
+                try { installs.Add(GameInstall.Locate(dir)); }
+                catch (DirectoryNotFoundException) { Console.WriteLine("guard: game install not found, its files are not compared"); }
+            }
+            // Never write inside the install or inside a comparison tree (links and junctions resolved), except the private cache's own guard folder:
+            // an index folder anywhere else is ignored and the guard runs without stored hashes.
+            if (indexCache is not null)
+            {
+                string? problem;
+                try
+                {
+                    problem = installs.Select(i => GuardIndex.LocationProblem(indexCache, againstDirs.Where(Directory.Exists), i)).FirstOrDefault(p => p is not null)
+                              ?? GuardIndex.LocationProblem(indexCache, againstDirs.Where(Directory.Exists), null);
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException) { problem = $"its location could not be resolved ({e.GetType().Name})"; }
+                if (problem is not null) { Console.WriteLine($"guard: the --index-cache folder is ignored: {problem}; nothing is written there"); indexCache = null; }
+            }
             foreach (var folder in againstDirs)
             {
                 GuardIndex? index = null;
                 if (indexCache is not null && Directory.Exists(folder))
                     index = GuardIndex.Load(GuardIndex.FileFor(indexCache, "private", folder, skipSourceText: true), folder, null, skipSourceText: true);
+                if (index is not null) index.TrustStoredHashes = !rehash;
                 int indexed = scanner.AddForbiddenTree(folder, skipSourceText: true, index);
                 Console.WriteLine($"guard: {indexed} private file(s) indexed{IndexNote(index)}");
             }
-            foreach (var given in installArgs)
+            foreach (var install in installs)
             {
-                string? dir = given.Equals("auto", StringComparison.OrdinalIgnoreCase) ? null : given;
+                GuardIndex? index = null;
+                if (indexCache is not null)
+                    index = GuardIndex.Load(GuardIndex.FileFor(indexCache, "install", install, skipSourceText: false), install, GuardIndex.SteamBuildId(install), skipSourceText: false);
+                if (index is not null) index.TrustStoredHashes = !rehash;
                 try
                 {
-                    string install = GameInstall.Locate(dir);
-                    GuardIndex? index = null;
-                    if (indexCache is not null)
-                    {
-                        // Never write inside the install: a cache folder there is not used at all.
-                        if (GuardIndex.IsInside(indexCache, install)) Console.WriteLine("guard: the --index-cache folder lies inside the game install; not used (nothing is written there)");
-                        else index = GuardIndex.Load(GuardIndex.FileFor(indexCache, "install", install, skipSourceText: false), install, GuardIndex.SteamBuildId(install), skipSourceText: false);
-                    }
                     int indexed = scanner.AddForbiddenTree(install, skipSourceText: false, index);
                     Console.WriteLine($"guard: {indexed} game file(s) indexed (read only){IndexNote(index)}");
                     scanner.AddSecret(install);
@@ -144,7 +162,7 @@ public static class PackageScanCommand
         if (binaryProfile) scanner.AllowedExtensions = new HashSet<string>(BinaryProfileExtensions, StringComparer.OrdinalIgnoreCase);
         if (packages.Count == 0)
         {
-            Console.Error.WriteLine("usage: smtool scan-package [--against <dir>]... [--against-install <game-dir|auto>] [--secrets <config.json>]... [--secrets-env] [--require-install] [--require-secrets] [--require-pack] [--profile binary] [--source-archive <entry prefix>]... <zip|tar.gz|folder|file>...");
+            Console.Error.WriteLine("usage: smtool scan-package [--against <dir>]... [--against-install <game-dir|auto>] [--secrets <config.json>]... [--secrets-env] [--require-install] [--require-secrets] [--require-pack] [--profile binary] [--source-archive <entry prefix>]... [--index-cache <dir> [--rehash]] <zip|tar.gz|folder|file>...");
             return 2;
         }
 
@@ -176,9 +194,12 @@ public static class PackageScanCommand
         Console.WriteLine($"guard: done in {clock.Elapsed.TotalSeconds:F1} s; {scanner.ForbiddenHashesComputed} file(s) of the comparison trees hashed in this run");
         // The fingerprints are a cache: a failure to write them costs time on the next run, never the guard's answer.
         try { scanner.SaveIndexes(); }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Console.WriteLine($"guard: the fingerprint index was not saved ({e.GetType().Name}); the next run hashes again"); }
+        // ArgumentException / InvalidOperationException: Utf8JsonWriter refuses a name it cannot encode (an odd file name, e.g. a lone surrogate).
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException or NotSupportedException)
+        { Console.WriteLine($"guard: the fingerprint index was not saved ({e.GetType().Name}); the next run hashes again"); }
         return bad == 0 ? 0 : 1;
     }
 
-    static string IndexNote(GuardIndex? index) => index is null ? "" : $"; fingerprints {index.Status}, {index.Reused} reused";
+    static string IndexNote(GuardIndex? index) => index is null ? "" :
+        index.TrustStoredHashes ? $"; fingerprints {index.Status}, {index.Reused} reused" : $"; fingerprints {index.Status}, not trusted (--rehash): every needed file hashed again";
 }

@@ -182,9 +182,12 @@ public sealed class PackageScanner
     /// </summary>
     public void SaveIndexes()
     {
+        // Only hashes taken in this run are new; a reused one keeps its stored time (so it still expires), see GuardIndex.Save.
         foreach (var (index, files) in _indexedTrees)
-            index.Save(files.Select(f => (f.Relative, f.Size, f.Ticks, _forbiddenHashes.TryGetValue(f.Full, out var h) ? h : null)));
+            index.Save(files.Select(f => (f.Relative, f.Size, f.Ticks, _computedForbidden.Contains(f.Full) ? _forbiddenHashes[f.Full] : null)));
     }
+
+    readonly HashSet<string> _computedForbidden = [];
 
     /// <summary>A secret value (a webhook URL, a token, a local game path): any package that contains it, as ASCII or UTF-16, is refused. Values under 8 characters are ignored.</summary>
     public void AddSecret(string value)
@@ -399,6 +402,7 @@ public sealed class PackageScanner
         if (_forbiddenHashes.TryGetValue(path, out var h)) return h;
         h = Hash(() => File.OpenRead(path));      // throws on an unreadable file: the caller reports it, never treats it as "no match"
         ForbiddenHashesComputed++;
+        _computedForbidden.Add(path);
         return _forbiddenHashes[path] = h;
     }
 

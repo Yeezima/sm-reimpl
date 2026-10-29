@@ -73,20 +73,27 @@ and how many of the install's and the cache's files it had to hash.
 ## Skipping a duplicate test run
 
 `test-and-mark.cmd` (`tools\release\test-and-mark.ps1`) runs exactly the ship's checks, `dotnet test` and then `smtool refine-register --check`. When both
-pass and the tree was the clean `HEAD` commit before and after the run (no changes, no untracked files), it writes
+pass and the tree was clean and at the same `HEAD` commit both before and after the run (no changes, no untracked files; the check lives in
+`tools\release\tested-marker.ps1`, `Invoke-ReleaseTests` and `Write-TestedMarkerIfStable`, shared with the ship), it writes
 `%LOCALAPPDATA%\sm-reimpl\tmp-build\tested\<full commit sha>` (a small text file: the commit, the UTC time, both checks passed). A ship of that commit within
-24 hours prints `skip   dotnet test and refine-register --check: both passed on <sha> at <time> UTC (...)` and goes on; an older, unreadable, future-dated
-or other commit's marker means the tests run as before. A ship that runs the tests itself writes the marker after a green run too. `test-and-mark.cmd -Check`
-only reports whether `HEAD` has a valid marker. With uncommitted changes the checks still run, but nothing is recorded. Delete the folder to force the tests.
+24 hours prints `skip   dotnet test and refine-register --check: both passed on <sha> at <time> UTC (...)` and goes on. A marker is ignored (the tests run
+as before) when it is unreadable, names another commit, lacks a check, is older than 24 hours, or is dated more than 5 minutes in the future (5 minutes of
+clock slack are allowed). A ship that runs the tests itself writes the marker after a green run too, under the same rule: when the tree changed or `HEAD`
+moved during the run it writes nothing and warns. `test-and-mark.cmd -Check` only reports whether `HEAD` has a valid marker. With uncommitted changes the
+checks still run, but nothing is recorded. Delete the folder to force the tests.
 
 ## The guard's fingerprint cache
 
 `smtool scan-package --index-cache <dir>` (release.ps1 passes `%LOCALAPPDATA%\sm-reimpl\cache\guard`) keeps, per comparison tree (the game install, the
 private cache), each file's relative path, size, last-write time and, once the guard needed it, its SHA-256, in `install-<id>.json` / `private-<id>.json`.
 The guard compares a package file with the tree's files of the same size only, so it hashes few of them (36 on the 2026-10-29 build); a stored hash is
-reused only when the path, the size and the write time (and for the install the Steam build id from `appmanifest_55150.acf`) are unchanged, a changed or
-new file is hashed again, a deleted one is dropped, and a missing, corrupt or foreign index file is ignored and rebuilt, so the answer is identical with
-and without it (tests: `GuardIndexTests`). Nothing is ever written inside the install (a cache folder there is refused). Deleting the folder is always safe.
+reused only when the path, the size and the write time (and for the install the Steam build id from `appmanifest_55150.acf`) are unchanged and the hash
+was taken less than 7 days ago (reusing a hash does not renew its date); a changed, new or older file is hashed again, a deleted one is dropped, and a
+missing, corrupt, older-format or foreign index file is ignored and rebuilt, so the answer is identical with and without it (tests: `GuardIndexTests`).
+The last scans before an upload (`-Publish`, and the ship's re-scan) pass `--rehash`: no stored hash is used there, every needed file is hashed again, and
+the index is still saved. An `--index-cache` folder inside the install or inside a comparison tree (other than the private cache's own `guard` folder;
+links and junctions resolved to their final path first) is ignored: the guard runs without stored hashes and writes nothing there. A failure to save the
+index (a full disk, a file name JSON cannot hold) costs time on the next run, never the guard's answer. Deleting the folder is always safe.
 
 ## The launcher (what testers run)
 

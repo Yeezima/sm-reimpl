@@ -45,10 +45,24 @@ function Write-TestedMarker([string]$dataRoot, [string]$sha) {
     return $path
 }
 
-# The two checks a ship needs (the ship preflight and test-and-mark.ps1 both call this). Returns @{ Test = <exit>; Refine = <exit> } (refine-register is not run when
-# dotnet test failed: Refine = $null).
+# The checkout's state: HEAD's sha and whether the tree is clean (no changes, no untracked files that git does not ignore).
+function Get-TreeState([string]$repoRoot) {
+    $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try {
+        $sha = (& git -C $repoRoot rev-parse HEAD 2>$null | Out-String).Trim()
+        $headOk = $LASTEXITCODE -eq 0
+        $status = (& git -C $repoRoot status --porcelain --untracked-files=normal 2>$null | Out-String).Trim()
+        $statusOk = $LASTEXITCODE -eq 0
+        return @{ Sha = $sha; Clean = ($headOk -and $statusOk -and -not $status) }
+    } finally { $ErrorActionPreference = $old }
+}
+
+# The two checks a ship needs (the ship preflight and test-and-mark.ps1 both call this). Returns @{ Test = <exit>; Refine = <exit>; Sha = <HEAD before>;
+# Stable = <bool> } (refine-register is not run when dotnet test failed: Refine = $null). Stable is true only when the tree was clean and at the same HEAD
+# before and after the run: a marker may be written only for a Stable run of exactly the commit it names (Write-TestedMarkerIfStable).
 function Invoke-ReleaseTests([string]$repoRoot) {
-    $result = @{ Test = $null; Refine = $null }
+    $before = Get-TreeState $repoRoot
+    $result = @{ Test = $null; Refine = $null; Sha = $before.Sha; Stable = $false }
     Push-Location $repoRoot
     try {
         & dotnet test -nologo -v quiet | Out-Host
@@ -59,5 +73,18 @@ function Invoke-ReleaseTests([string]$repoRoot) {
         & dotnet run --project (Join-Path $repoRoot 'src\SmTool\SmTool.csproj') -c Release -- refine-register --check | Out-Host
         $result.Refine = $LASTEXITCODE
         return $result
-    } finally { Pop-Location }
+    } finally {
+        Pop-Location
+        $after = Get-TreeState $repoRoot
+        $result.Stable = $before.Clean -and $after.Clean -and $before.Sha -and ($before.Sha -eq $after.Sha)
+    }
+}
+
+# Writes the marker only for a run whose two checks passed on a tree that stayed clean at $sha throughout. Returns the marker's path, or $null with
+# $why set to the reason nothing was written.
+function Write-TestedMarkerIfStable([string]$dataRoot, [string]$sha, $result, [ref]$why) {
+    if ($result.Test -ne 0 -or $result.Refine -ne 0) { $why.Value = 'a check failed'; return $null }
+    if (-not $result.Stable) { $why.Value = 'the tree was not clean, or HEAD moved, during the run'; return $null }
+    if ($result.Sha -ne $sha) { $why.Value = "the tests ran on $($result.Sha), not on $sha"; return $null }
+    return (Write-TestedMarker $dataRoot $sha)
 }

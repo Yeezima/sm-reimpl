@@ -482,13 +482,16 @@ function Sha256([string]$path) { (Get-FileHash -Algorithm SHA256 -LiteralPath $p
 # indexed when it exists, and every secrets source that exists is loaded and must yield values. Exit 0 = clean; anything else = refuse.
 # The binary packages also get the file-type allowlist; the playtest zip must hold a verified Godot pack, and its source\ zip is scanned entry by
 # entry without the allowlist (as the stand-alone source zip is). Loose documents get the content rules only.
-function Invoke-Scan([string[]]$paths) {
+function Invoke-Scan([string[]]$paths, [switch]$Rehash) {
     Run-Native 'dotnet build smtool' { dotnet build (Join-Path $RepoRoot 'src\SmTool\SmTool.csproj') -c Release -nologo -v quiet | Out-Null }
     $cache = Join-Path $dataRoot 'cache'
     $common = @('run', '--project', (Join-Path $RepoRoot 'src\SmTool\SmTool.csproj'), '-c', 'Release', '--no-build', '--', 'scan-package', '--require-install', '--require-secrets', '--secrets-env')
     # The comparison trees' fingerprints (path, size, write time, SHA-256; the install's also by Steam build id) are kept between runs in cache\guard, so
-    # unchanged files are not hashed again; the guard's answer is the same with or without them (smtool refuses a cache folder inside the install).
+    # unchanged files are not hashed again (a stored hash is used for at most 7 days); the guard's answer is the same with or without them (smtool
+    # ignores an index folder inside the install or a comparison tree, other than the private cache's own guard folder). -Rehash (the last scan before an
+    # upload): no stored hash is used, every needed file is hashed again, and the index is still saved.
     $common += @('--index-cache', (Join-Path $cache 'guard'))
+    if ($Rehash) { $common += '--rehash' }
     if (Test-Path -LiteralPath $cache) { $common += @('--against', $cache) }
     $common += @('--against-install', $(if ($GameDir) { $GameDir } else { 'auto' }))
     foreach ($c in $secretFiles) { $common += @('--secrets', $c) }
@@ -832,8 +835,11 @@ if ($Ship) {
         $r = Invoke-ReleaseTests $RepoRoot
         Ship-Check ($r.Test -eq 0) 'dotnet test' "failed (exit $($r.Test))"
         Ship-Check ($r.Refine -eq 0) 'refine-register --check' 'the register is stale or a spec row lacks kind/source/confidence: run smtool refine-register, commit, merge'
-        $marker = Write-TestedMarker $dataRoot $CommitSha
-        Write-Host "  tests recorded as passed on $($CommitSha.Substring(0, 7)) ($marker)"
+        # Only a run on a tree that stayed clean at the shipped commit throughout is recorded (the ship goes on either way: the checks passed).
+        $why = ''
+        $marker = Write-TestedMarkerIfStable $dataRoot $CommitSha $r ([ref]$why)
+        if ($marker) { Write-Host "  tests recorded as passed on $($CommitSha.Substring(0, 7)) ($marker)" }
+        else { Write-Warning "The tests passed but were not recorded: $why. Check the checkout before shipping (git status)." }
         Time-Step 'preflight'
     }
 }
@@ -1282,11 +1288,11 @@ if ($Publish) {
     # git describe found a tag: v<describe> (no second v if the tag already starts with v and a digit). A bare commit hash: tester-<date>-<short sha>.
     $tag = if ($Version -match '^[0-9a-f]{7,40}$') { "tester-$BuildDate-$($CommitSha.Substring(0, 7))" } elseif ($Version -match '^v\d') { $Version } else { "v$Version" }
     # Re-scan right before the upload; the packages may have been touched since the build.
-    $again = Invoke-Scan $need
+    $again = Invoke-Scan $need -Rehash          # the last scan before an upload trusts no stored hash
     if ($again -ne 0) { Fail "The content guard refused the packages just before publishing (exit $again). Nothing was uploaded." }
     Test-Sums -Require $need
     Write-ReleaseNotes -WithServerAssets:$ServerAssets
-    $again = Invoke-Scan @($Notes)            # the description is public too
+    $again = Invoke-Scan @($Notes) -Rehash          # the description is public too
     if ($again -ne 0) { Fail "The content guard refused RELEASE-NOTES.md (exit $again). Nothing was uploaded." }
     $ghArgs = @('release', 'create', $tag, '--repo', $Repo)
     if (-not $NoDraft) { $ghArgs += '--draft' }
@@ -1311,7 +1317,7 @@ if ($Ship) {
     Step "Ship: publishing $Tag to $Repo"
     # Re-scan right before the upload, the description too (it is public).
     Write-ReleaseNotes
-    $again = Invoke-Scan @($Zips.playtest, $Notes)
+    $again = Invoke-Scan @($Zips.playtest, $Notes) -Rehash      # the last scan before an upload trusts no stored hash
     if ($again -ne 0) { Fail "The content guard refused the packages or the description just before publishing (exit $again). Nothing was uploaded." }
     Test-Sums -Require @($Zips.playtest)
     if ((Quiet-Exit { gh release view $Tag --repo $Repo }) -eq 0) { Fail "$Tag appeared in $Repo while building; nothing was uploaded." }
