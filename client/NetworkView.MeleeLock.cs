@@ -16,7 +16,8 @@ namespace SmClient;
 /// variant posed and the upper one laid over it at the blend weight (<see cref="PoseSlots.MeleeVariant"/>).</item>
 /// <item>Hit-stop (OFF by default, <c>--hit-stop</c>): a landed hit holds the attacker's attack clip and the victim's reaction clip for a few frames (own hits from the predicted hit event;
 /// others' when their hit time passes with someone in reach), plus a small camera shake on own hits.</item>
-/// <item>Camera assist: while the own attack aligns to its lock the view turns toward the target.</item>
+/// <item>Camera assist: while the own attack aligns to its lock the view turns toward the target (feel/melee-charge-2: gently, faded in and out,
+/// <see cref="MeleePresentation.AssistWeight"/>).</item>
 /// </list>
 /// Test aids: <c>--no-melee-lock</c> (the client sends no locks), <c>--no-melee-assist</c>, <c>--no-melee-variants</c> (the 3.5 m clip as before); opt-in <c>--hit-stop</c> (hit-stop and hit shakes, off by default since 2026-10-29).
 /// </summary>
@@ -82,7 +83,7 @@ public partial class NetworkView
                 if (o.PlayerId == _client.MeleeLockTarget && o.Alive)
                 {
                     var to = MeleeLock.Offset(me, o);
-                    if (to.LengthSquared() > 0.01f) _yaw = MeleePresentation.Assist(_yaw, MeleeLock.YawOf(to), (float)delta);
+                    if (to.LengthSquared() > 0.01f) _yaw = MeleePresentation.Assist(_yaw, MeleeLock.YawOf(to), (float)delta, MeleePresentation.AssistWeight(own, me.MeleeTime));
                     break;
                 }
     }
@@ -150,7 +151,7 @@ public partial class NetworkView
         // The blend shown (AttackVariants' start distance for this attack), else the start blend.
         float blend = _meleeShows.TryGetValue(s.PlayerId, out var show) && show.Step == s.MeleeStep && show.Heavy == s.MeleeHeavy
             ? show.StartDistance : Math.Clamp(reach.DefaultDistance, reach.Range.Min, reach.Range.Max);
-        return MeleePresentation.RootDriven(step, time, new V2(s.Velocity.X, s.Velocity.Y), s.Yaw, _config.TickSeconds, blend);
+        return MeleePresentation.RootDriven(step, time, new V2(s.Velocity.X, s.Velocity.Y), s.Yaw, _config.TickSeconds, blend, _config.LungeScale);
     }
 
     void MeleeLockForget(int id) { _meleeShows.Remove(id); _hitStops.Remove(id); }

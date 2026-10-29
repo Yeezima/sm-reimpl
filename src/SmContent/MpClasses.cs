@@ -133,6 +133,10 @@ public sealed record MpClasses(IReadOnlyList<MpClass> Classes, IReadOnlyList<Wea
     {
         HeavySequencers = ["CS Y Atk Sequencer", "Sequencer22", "Sequencer21", "Sequencer20"],
         HeavyAbilities = ["ability_melee_y", "ability_melee_y2", "ability_melee_y3", ""],
+        // feel/melee-charge-2 (protocol 42; the owner: "normal combo is backhand > stomp"): the graph's Backhand (Y), Kick (X, Y) and Shoulder (X, X, Y) go on
+        // BTN_Melee_Stun in their BRANCH_Melee_Y_Combo window to "CS Default Combo End 4 ( Y , Y ) AOE Attack", whose sequencer is Sequencer20 (the stomp,
+        // heavy strike 4 here). The graph's X, X, X, Y is a separate "Quick AOE Attack" (Sequencer31) that this map still plays as Sequencer20 (M28, a gap).
+        YNext = [4, 4, 4, 0],
     };
 
     /// <summary>Melee weapons whose combo the simulation knows: wargear name (without the race prefix) → graph and sequencers.</summary>

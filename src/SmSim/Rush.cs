@@ -94,12 +94,22 @@ public sealed record RushSpec(string Ability, RushMove Rush, RushMove Collision,
     /// up to its <c>BRANCH_Attack2Idle</c> (<see cref="RushMove.MoveAt"/>; install 0.667 s, so 0.333 s; ours).
     /// </summary>
     public float HyperArmourUntil { get; init; } = 0.3334f;   // just over 10 ticks at 30 Hz, as the install value (0.33334)
+    /// <summary>
+    /// feel/melee-charge-2 (protocol 42; the owner's request of 2026-10-29: "landing after ledge charging there is always an additional shoulder bash ... you
+    /// should in a blended fluid way transition to a running or standing animation"): a bull rush held in the air (<see cref="Rush.Held"/>) ends when it lands
+    /// after a real fall: its vertical speed at the start of the landing tick at least that of a free fall of this many metres (√(2 g h); ours, 0.5 m). A
+    /// shallower drop (a curb, a step the controller does not step down) keeps the M29 rule: the clip resumes. The dash attack held at its end ends on any landing.
+    /// </summary>
+    public float LandEndDrop { get; init; } = DefaultLandEndDrop;
+    /// <summary>The default of <see cref="LandEndDrop"/> (metres; ours).</summary>
+    public const float DefaultLandEndDrop = 0.5f;
 
     internal void Write(BinaryWriter w)
     {
         w.Write(Ability); Rush.Write(w); Collision.Write(w);
         DamageSpec.Write(w, Primary); PrimaryReaction.Write(w); DamageSpec.Write(w, Secondary); SecondaryReaction.Write(w);
         foreach (float f in new[] { Range, MinInterval, ContactUntil, WallFrom, WallHitAngle, MinForwardStick, SideSteer, ContactMargin, ContactHalfAngle, HyperArmourUntil }) w.Write(f);
+        if (LandEndDrop != DefaultLandEndDrop) { w.Write((byte)0x4C); w.Write(LandEndDrop); }   // feel/melee-charge-2: only when not the default
     }
 
     internal static void Write(BinaryWriter w, RushSpec? c)
@@ -214,6 +224,43 @@ public static class Rush
         return next with { Rush = phase, RushTicks = ticks };
     }
 
+    /// <summary>
+    /// feel/melee-charge-2 (protocol 42): the charging state a charger moved in this tick when that move landed it and the landing ended its charge
+    /// (<see cref="Move"/>: <see cref="EndsOnLanding"/>), else null. The world tests this tick's contacts with it (the airborne part's contacts still work);
+    /// a contact then puts the charger into the stop as any other (<c>World.StopRushes</c>).
+    /// </summary>
+    public static PlayerState? LandedFrom(PlayerState before, PlayerState next)
+    {
+        if (!Charging(before.Rush) || before.Grounded || !next.Alive || !next.Grounded || next.Rush != RushPhase.None || next.Reaction != ReactionKind.None) return null;
+        return next with { Rush = before.Rush, RushTicks = before.RushTicks };
+    }
+
+    /// <summary>
+    /// feel/melee-charge-2 (protocol 42; the owner's request): whether a charging phase held in the air (<see cref="Held"/>) that lands this tick ends there:
+    /// the dash attack (held only at its end) always; the bull rush after a real fall, its vertical speed at the tick's start (<paramref name="s"/>) at least
+    /// that of a free fall of <see cref="RushSpec.LandEndDrop"/> (ours).
+    /// </summary>
+    public static bool EndsOnLanding(PlayerState s, RushSpec? spec, SimConfig c)
+    {
+        if (s.Rush == RushPhase.DashAttack) return true;
+        if (s.Rush != RushPhase.Rush) return false;
+        float drop = spec is not null && float.IsFinite(spec.LandEndDrop) ? MathF.Max(0f, spec.LandEndDrop) : RushSpec.DefaultLandEndDrop;
+        return -s.Velocity.Z + Eps >= MathF.Sqrt(2f * MathF.Max(0f, c.Gravity) * drop);
+    }
+
+    /// <summary>
+    /// feel/melee-charge-2: the state after a landing that ended the charge (<see cref="EndsOnLanding"/>): no charge (the spacing lock stays), normal movement
+    /// from the next tick (a movement key: the run; none: the stand, through the sprint stop's slowdown), the horizontal speed kept for that slowdown but at
+    /// most <see cref="SimConfig.SprintSpeed"/> (ours: a charge held at its clip's 30 to 40 m/s burst would otherwise slide for metres).
+    /// </summary>
+    public static PlayerState Landed(PlayerState s, SimConfig c)
+    {
+        var flat = new Vector2(s.Velocity.X, s.Velocity.Y);
+        float speed = flat.Length(), cap = float.IsFinite(c.SprintSpeed) ? MathF.Max(0f, c.SprintSpeed) : 0f;
+        if (speed > cap && speed > 1e-6f) flat *= cap / speed;
+        return Cleared(s) with { Velocity = new Vector3(flat.X, flat.Y, s.Velocity.Z) };
+    }
+
     /// <summary>The phase a charger stopped by a wall this tick was charging in (<see cref="WallStoppedFrom"/>), else its own phase.</summary>
     public static RushPhase ChargingPhase(PlayerState s) =>
         s.RushTicks == 0 && s.Rush == RushPhase.DashCollision ? RushPhase.DashAttack : s.RushTicks == 0 && s.Rush == RushPhase.Collision ? RushPhase.Rush : s.Rush;
@@ -285,7 +332,9 @@ public static class Rush
     /// ground"): whether a charging phase's body is held in the air this tick: the bull rush whenever the tick starts in the air (it left the
     /// ground: a ledge), the dash attack's lunge (which may begin in the air) once its clip has reached its end in the air. Held: the clip
     /// time waits, the horizontal velocity of the last tick is kept, gravity pulls, contacts and wall stops go on, nothing ends it but a
-    /// landing (then the clip resumes at its time; ours), a reaction or death.
+    /// landing, a reaction or death. feel/melee-charge-2 (protocol 42, the owner's request of 2026-10-29): the landing after a real fall ends the charge
+    /// (<see cref="EndsOnLanding"/>, <see cref="Landed"/>: no resumed attack, no second contact window; the dash attack skips its run-out); after a shallow
+    /// one the bull rush's clip resumes at its time (M29's rule, ours).
     /// </summary>
     /// <remarks>
     /// The held speed is exactly the horizontal speed of the tick it left the ground on, uncapped (the owner's decision, 2026-10-29: "no a ledge charge
@@ -377,7 +426,8 @@ public static class Rush
     /// fixed facing, as a velocity through the capsule controller. A wall within the wall-hit angle in the rush from
     /// <see cref="RushSpec.WallFrom"/> starts the collision stop.
     /// </summary>
-    /// <param name="held">Protocol 30 (<see cref="Held"/>): the body keeps its horizontal velocity (the clip waits) and falls.</param>
+    /// <param name="held">Protocol 30 (<see cref="Held"/>): the body keeps its horizontal velocity (the clip waits) and falls; protocol 42: a landing after a
+    /// real fall ends the charge (<see cref="EndsOnLanding"/>).</param>
     internal static PlayerState Move(PlayerState s, SimConfig c, CollisionWorld? world, bool held = false)
     {
         float dt = c.TickSeconds;
@@ -393,6 +443,8 @@ public static class Rush
             delta = right * local.X + forward * local.Y;
         }
         var next = Movement.Glide(s, s.Yaw, dt > 0f ? delta / dt : Vector2.Zero, c, world);
+        // feel/melee-charge-2 (protocol 42): a held charge that lands after a real fall ends here (no resumed clip, no wall stop on the landing tick).
+        if (held && next.Grounded && EndsOnLanding(s, spec, c)) return Landed(next, c);
         float wished = delta.Length();
         if (Charging(s.Rush) && spec is not null && world is not null && wished > 1e-4f && (s.RushTicks - 1) * dt + Eps >= spec.WallFrom)
         {

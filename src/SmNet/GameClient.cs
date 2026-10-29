@@ -290,9 +290,12 @@ public sealed partial class GameClient
         {
             input = input with { ViewTick = held, ViewFraction = 0f };   // fix/hitboxes: exactly the held snapshot
             view = ViewAt(held);
-            input = input with { MeleeTarget = MeleeLock.Choose(lockState, lockInput with { ViewTick = held }, view, _config, Collision, MeleeLockTarget) };
+            // feel/melee-charge-2: the lock held last tick, else the one remembered from the last attack or charge (MeleeLock.LockMemory), so a quick follow-up keeps its target.
+            int previous = MeleeLockTarget > 0 ? MeleeLockTarget : RecentMeleeLock(Tick);
+            input = input with { MeleeTarget = MeleeLock.Choose(lockState, lockInput with { ViewTick = held }, view, _config, Collision, previous) };
         }
         MeleeLockTarget = input.MeleeTarget;
+        if (input.MeleeTarget > 0) (_recentLock, _recentLockTick) = (input.MeleeTarget, Tick);
         _prePrevious = PreviousPredicted;
         PreviousPredicted = Predicted;
         // The raw input is stored and sent (the server drops the attack buttons of a countdown tick itself); only the prediction drops them, by tick (protocol 25).
@@ -631,6 +634,16 @@ public sealed partial class GameClient
 
     /// <summary>feel/melee-lock: the melee lock sent with the newest input (a player id; 0 none). Presentation (camera nudge, distance clips) reads it.</summary>
     public int MeleeLockTarget { get; private set; }
+
+    int _recentLock;
+    uint _recentLockTick;
+
+    /// <summary>
+    /// feel/melee-charge-2 (ours): the last lock sent while it is at most <see cref="MeleeLock.LockMemory"/> old at tick <paramref name="tick"/>, else 0. Offered to
+    /// <see cref="MeleeLock.Choose"/> as its previous lock; the server accepts it only where <see cref="MeleeLock.Target"/> does, as any other.
+    /// </summary>
+    int RecentMeleeLock(uint tick) =>
+        _recentLock > 0 && tick >= _recentLockTick && (tick - _recentLockTick) * (double)_config.TickSeconds <= MeleeLock.LockMemory + 1e-6 ? _recentLock : 0;
 
     /// <summary>
     /// feel/melee-lock: the other players as this client shows them at server tick <paramref name="tick"/> (an input's view tick): interpolated

@@ -121,6 +121,8 @@ public partial class NetworkView : Node3D
     readonly bool _showCollision;
     readonly bool _waitMelee;
     readonly bool _botMelee;
+    /// <summary>feel/melee-charge-2 test aid <c>--bot-heavy-chain</c> (with <c>--bot-melee</c>): the bot's melee is F, F (the backhand, then the stomp in its Y,Y window).</summary>
+    static readonly bool BotHeavyChain = OS.GetCmdlineUserArgs().Contains("--bot-heavy-chain");
     readonly bool _botFire;
     bool _attackSeen;
     bool _switchPending;   // a mouse-wheel notch since the last input sample
@@ -798,7 +800,9 @@ public partial class NetworkView : Node3D
                 // Weapons C: a single-attack combo (the Devastator's kick) goes on to its heavy strike (the stomp), and a heavy strike with a
                 // Y,Y finisher chains into it.
                 int heavies = Loadouts.MeleeHeavy(_config, me).Count;
-                bool heavy = (me.MeleeStep == 2 && !me.MeleeHeavy && heavies >= 3)
+                // feel/melee-charge-2 test aid --bot-heavy-chain: F from rest (the backhand), F again during it (the Y,Y chain to the stomp), and so on.
+                bool heavy = (BotHeavyChain && heavies >= 1 && (!me.MeleeHeavy || Combat.MeleeStepOf(_config, me) is { YNext: > 0 }))
+                    || (me.MeleeStep == 2 && !me.MeleeHeavy && heavies >= 3)
                     || (me.MeleeStep == 1 && !me.MeleeHeavy && Loadouts.Melee(_config, me).Count == 1 && heavies >= 1)
                     || (me.MeleeHeavy && Combat.MeleeStepOf(_config, me) is { YNext: > 0 });
                 return new PlayerInput(tick, 0f, 0f, _yaw, press ? heavy ? InputButtons.MeleeHeavy : InputButtons.Melee : InputButtons.None, _pitch);

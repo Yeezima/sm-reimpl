@@ -15,9 +15,13 @@ public partial class NetworkView
 {
     static readonly bool LedgeWalk = OS.GetCmdlineUserArgs().Contains("--bot-ledge");
     static readonly float LedgeMinDrop = FloatArg("ledge-min-drop") ?? 3f;
-    /// <summary><c>--ledge-charge</c> (animation pass 3 test aid): the run off the ledge is a sprint with the charge pressed 0.5 s in, so the charge goes off the ledge (the airborne charge's fall pose).</summary>
+    /// <summary>
+    /// <c>--ledge-charge</c> (animation pass 3 test aid): the run off the ledge is a sprint with the charge pressed 0.5 s in, so the charge goes off the ledge (the airborne charge's fall pose).
+    /// feel/melee-charge-2: pressed later on a longer run (the sprint covers the plan's run in about 0.65 of its time; pressed 0.5 s before that), so the charge is still
+    /// under way at the edge; each landing logs whether the charge ended there (<c>--log-falls</c>).
+    /// </summary>
     static readonly bool LedgeCharge = OS.GetCmdlineUserArgs().Contains("--ledge-charge");
-    double _ledgeStart;
+    double _ledgeStart, _ledgeChargeAt = 0.5;
 
     bool _ledgeRunning;
     float _ledgeYaw;
@@ -39,7 +43,7 @@ public partial class NetworkView
             if (_connectedFor < _ledgeUntil)
             {
                 var b = InputButtons.None;
-                if (LedgeCharge) { b = InputButtons.Sprint; double since = _connectedFor - _ledgeStart; if (since is >= 0.5 and < 0.56) b |= InputButtons.MeleeHeavy; }
+                if (LedgeCharge) { b = InputButtons.Sprint; double since = _connectedFor - _ledgeStart; if (since >= _ledgeChargeAt && since < _ledgeChargeAt + 0.06) b |= InputButtons.MeleeHeavy; }
                 return new PlayerInput(tick, 0f, 1f, _ledgeYaw, b, _pitch);
             }
             _ledgeRunning = false;
@@ -53,12 +57,13 @@ public partial class NetworkView
         {
             _ledgeYaw = p.Yaw; _yaw = p.Yaw;
             _ledgeUntil = _connectedFor + p.Seconds + 3.0; _ledgeLeft = false; _ledgeRunning = true; _ledgeStart = _connectedFor;
+            _ledgeChargeAt = Math.Max(0.5, 0.65 * p.Seconds - 0.5);
             GD.Print($"t {_connectedFor:F2} s: LEDGE plan {_ledgePlans}: heading {p.Yaw * 180f / MathF.PI:F0} deg, leaves the ground after {p.Seconds:F1} s, lands {p.Drop:F1} m lower after {p.AirSeconds:F2} s, peak {p.Peak:F1} m/s down");
         }
         else
         {
             _ledgeYaw = (float)(_ledgeRandom.NextDouble() * 2 * Math.PI); _yaw = _ledgeYaw;
-            _ledgeUntil = _connectedFor + 2.0; _ledgeLeft = false; _ledgeRunning = true; _ledgeStart = _connectedFor;
+            _ledgeUntil = _connectedFor + 2.0; _ledgeLeft = false; _ledgeRunning = true; _ledgeStart = _connectedFor; _ledgeChargeAt = 0.5;
             GD.Print($"t {_connectedFor:F2} s: LEDGE plan {_ledgePlans}: no ledge of {LedgeMinDrop:0.#} m within 8 s; a random heading for 2 s");
         }
         return idle;

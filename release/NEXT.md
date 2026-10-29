@@ -14,3 +14,10 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - In the loadout and armour screens every class now stands in the bolt pistol's relaxed idle pose, and the figure no longer turns by itself while you pick colours; drag it with the mouse (or use Left / Right) to turn it.
 - With Content set to Extended you can now choose the Ork Boy in the menus: an Orks button and an Ork Boy tab in the loadout screen, an Ork Boy default loadout on the Join screen, and custom Ork loadouts with the Tactical Marine's perks.
 - The Ork Boy has no armour or colours: his LOOK step lets you pick one of five Ork models (or Automatic), and your Ork wears that look in the match. In Faithful the Ork is hidden and a saved Ork loadout joins as the side's default class.
+- Charging off a ledge no longer replays the shoulder bash when you land: the charge ends on landing and you run on if you hold a movement key, or slow down to a stand if you don't.
+- Tactical and Assault marines (and their Chaos counterparts): press F twice for the full heavy combo. The second F during the backhand now goes into the stomp.
+- Melee swings step further forward (about 30 % more). This is an estimate to be tuned in playtests.
+- Weapon switching is a bit faster (0.48 s instead of 0.6 s). This is an estimate and still needs to be compared with the original game.
+- Melee and stun lock-ons turn your marine smoothly toward the target instead of snapping, keep the same target more reliably, and the camera follows more gently.
+- The power sword's hits now use the power sword's own impact sound from the original game.
+- This build uses a new network version: everyone has to update.

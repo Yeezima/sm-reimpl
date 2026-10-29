@@ -373,7 +373,13 @@ public static partial class Protocol
     // 40 (perks/inert-2): combat stims (config hash); each scoreboard row ends with the player's equipment item (13 bytes a row; 255 none), so a client
     //     draws and sounds another player's stim use as a stim and not as a throw. Snapshot layout and sizes unchanged (worst case 1200). Other open branches
     //     may claim 40 too: the integrator renumbers
-    public const ushort Version = 40;
+    // 42 (feel/melee-charge-2; the owner's requests of 2026-10-29; 41 is claimed by another open branch: the integrator renumbers): a bull rush held in the
+    //     air ends on a landing after a real fall (Rush.EndsOnLanding, RushSpec.LandEndDrop 0.5 m, ours; the dash attack held at its end on any landing): no
+    //     resumed clip, normal movement from the next tick (speed kept, at most sprint speed), the landing tick's contact still counts; the knife's and
+    //     chainsword's Y,Y chain (backhand, kick or shoulder → the stomp in BRANCH_Melee_Y_Combo; config hash); melee lunges × SimConfig.MeleeLungeScale (1.3,
+    //     estimate) and the weapon switch × 0.8 (0.48 s, estimate; config hash); the melee lock's eased alignment and hysteresis (MeleeLockSpec.AlignEase,
+    //     Hysteresis 15 degrees; config hash). Snapshot layout and sizes unchanged (worst case 1200)
+    public const ushort Version = 42;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>
     public const int HelloBytes = 53 + 2 * AppearanceCode.Size;
     /// <summary>Bytes of a Setup message (protocol 28: + the Ork look).</summary>

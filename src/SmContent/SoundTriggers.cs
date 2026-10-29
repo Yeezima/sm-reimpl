@@ -174,6 +174,17 @@ public sealed partial class SoundTriggers
 
     /// <summary>The hit sound event of a file's impacts (<see cref="HitContainers"/> → <see cref="ContainerSound"/>), or null.</summary>
     public string? HitSound(string file) => HitContainers.TryGetValue(file, out var c) ? ContainerSound(c) : null;
+    /// <summary>
+    /// feel/melee-charge-2: a melee wargear's hit effect container by file: the first default <c>trigger_material_effect</c> of a light attack's
+    /// (<c>ability_melee_x…</c>) <c>primary_target_actions/hit_fx</c> (the power sword's <c>…\melee_weapons\power_sword</c>, the chainsword's
+    /// <c>…\chainsword</c>); not the file's first <c>hit_fx</c>, which is the charge's secondary kick.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> MeleeHitContainers { get; init; } = new Dictionary<string, string>();
+    /// <summary>
+    /// feel/melee-charge-2: the sound of a melee weapon's hit on a player: its <see cref="MeleeHitContainers"/> container's <c>sfx</c> event (the power sword's
+    /// <c>play_sm_power_sword_hit</c>, the chainsword's <c>play_sm_chain_sword_hit</c>), or null.
+    /// </summary>
+    public string? MeleeHitSound(string file) => MeleeHitContainers.TryGetValue(file, out var c) ? ContainerSound(c) : null;
     /// <summary>Behaviour Action tags per clip name (case-insensitive): tag name and start as a fraction of the clip.</summary>
     public required IReadOnlyDictionary<string, IReadOnlyList<(string Tag, float At)>> ClipTags { get; init; }
     public required IReadOnlyList<string> Notes { get; init; }
@@ -281,18 +292,24 @@ public sealed partial class SoundTriggers
             if (sounds.TryGetValue(Leaf(path), out var s)) sounds.TryAdd(path, s);
         var built = Build(docs, sounds, graphs, notes, orkGraphs);
         var hits = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var meleeHits = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var (name, doc) in docs)
         {
             var fx = FxBinding.Collect(doc.Root);
             foreach (var evt in new[] { "hit_fx", "initial_tracer_fx", "detonate_action" })
                 if (fx.FirstOrDefault(b => b.IsDefault && b.Event == evt && b.Material is { Container.Length: > 0 }) is { } hit) { hits[name] = hit.Material!.Container; break; }
+            // feel/melee-charge-2: a melee weapon's own hit container (a light attack's primary hit), for its hit sound.
+            if (fx.Where(b => b.IsDefault && b.Event == "hit_fx" && b.Material is { Container.Length: > 0 } && b.Ability.StartsWith("ability_melee_x", StringComparison.OrdinalIgnoreCase)
+                    && b.Path.Contains("/primary_target_actions/", StringComparison.Ordinal))
+                .OrderBy(b => b.Ability, StringComparer.Ordinal).FirstOrDefault() is { } melee)
+                meleeHits[name] = melee.Material!.Container;
         }
         // Ork O8: the Ork class is ours (no entry in global's class table); its voice is the blueprint's audio_ext character.
         var speechCharacters = new Dictionary<string, string>(LoadSpeechCharacters(gameDir, notes), StringComparer.OrdinalIgnoreCase);
         if (docs.TryGetValue(OrkSounds.Blueprint, out var boy) && OrkSounds.SpeechCharacter(boy) is { } boyVoice) speechCharacters[OrkClass.Key] = boyVoice;
         return new SoundTriggers
         {
-            Files = built.Files, ContainerSounds = built.ContainerSounds, ClipTags = built.ClipTags, Notes = built.Notes, HitContainers = hits,
+            Files = built.Files, ContainerSounds = built.ContainerSounds, ClipTags = built.ClipTags, Notes = built.Notes, HitContainers = hits, MeleeHitContainers = meleeHits,
             SpeechCharacters = speechCharacters, OrkOnlyClips = built.OrkOnlyClips,
         };
     }

@@ -213,7 +213,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
     // ---------------------------------------------------------------- 2. the airborne charge
 
     [Fact]
-    public void A_charge_off_a_ledge_keeps_its_speed_until_it_lands_then_resumes_its_clip()
+    public void A_charge_off_a_ledge_keeps_its_speed_until_it_lands_then_ends_into_normal_movement()
     {
         var world = Ledge(8f);
         var s = Fresh(Config, Marine, new Vector3(0, -9f, 8f));
@@ -245,13 +245,190 @@ public class JumpPackAttackTests(ITestOutputHelper output)
         // Longer in the air than the clip had left (the rule ends it by time only on the ground): 8 m is about 0.9 s.
         Assert.True(airTicks * Dt > RushTests.Spec.Rush.End - frozenAt * Dt, $"{airTicks} ticks in the air");
         Assert.True(s.Position.Y - left.Value.Position.Y > 8f, $"carried {s.Position.Y - left.Value.Position.Y:F2} m");   // before: about 5 m (the clip ended in the air, then the fall kept its speed)
-        // Landed: the rush resumes at its time (then ends by time, from the ground).
+        // feel/melee-charge-2 (protocol 42, the owner's request): landed after an 8 m fall, the charge has ended (no resumed clip, no second shoulder bash);
+        // the speed is kept (at most sprint speed) for the slowdown; the spacing lock stays.
+        Assert.Equal((RushPhase.None, 0), (s.Rush, s.RushTicks));
+        Assert.True(s.Grounded);
+        float landed = new Vector2(s.Velocity.X, s.Velocity.Y).Length();
+        Assert.InRange(landed, 0.1f, Config.SprintSpeed + 1e-3f);
+        output.WriteLine($"landed at {landed:F2} m/s; the charge ended on the landing tick");
+        // The next tick is normal movement: with W held it runs (the walk's acceleration toward run speed), never a charge tick.
+        var run = s;
+        Step(ref run, Config, InputButtons.None, 0f, 1f, world: world);
+        Assert.Equal(RushPhase.None, run.Rush);
+        Assert.True(run.Position.Y > s.Position.Y);
+        // With no key the body slows down and stands (the ground rule, or the sprint stop where the config has one).
+        var stand = s;
+        for (int k = 0; k < 30; k++) Step(ref stand, Config, InputButtons.None, world: world);
+        Assert.Equal(RushPhase.None, stand.Rush);
+        Assert.True(new Vector2(stand.Velocity.X, stand.Velocity.Y).Length() < 0.05f, "still sliding after a second");
+    }
+
+    [Theory]
+    [InlineData(0.3f, false)]   // a step: the clip resumes (or never left the ground)
+    [InlineData(1.5f, true)]    // a real drop: the landing ends the charge
+    [InlineData(4f, true)]
+    public void Only_a_landing_after_a_real_fall_ends_a_ledge_charge(float height, bool ends)
+    {
+        Assert.Equal(RushSpec.DefaultLandEndDrop, RushTests.Spec.LandEndDrop);
+        var world = Ledge(height);
+        var s = Fresh(Config, Marine, new Vector3(0, -2.5f, height));
+        Step(ref s, Config, InputButtons.MeleeHeavy, 0f, 1f, world: world);
         Assert.Equal(RushPhase.Rush, s.Rush);
-        int resumed = s.RushTicks;
-        Step(ref s, Config, InputButtons.None, world: world);
-        Assert.Equal((RushPhase.Rush, resumed + 1), (s.Rush, s.RushTicks));
-        for (int k = 0; k < 40 && s.Rush != RushPhase.None; k++) Step(ref s, Config, InputButtons.None, world: world);
-        Assert.Equal(RushPhase.None, s.Rush);
+        bool left = false;
+        PlayerState? landedState = null;
+        for (int k = 0; k < 60 && landedState is null; k++)
+        {
+            var before = s;
+            Step(ref s, Config, InputButtons.None, world: world);
+            if (!s.Grounded) left = true;
+            else if (left) landedState = s;
+            if (s.Rush == RushPhase.None && !left) break;   // ended on the plateau (no drop reached)
+        }
+        output.WriteLine($"{height} m: left the ground {left}; landing state {landedState?.Rush} ({landedState?.RushTicks} ticks)");
+        if (ends) Assert.Equal(RushPhase.None, landedState!.Value.Rush);
+        else if (landedState is { } l) Assert.Equal(RushPhase.Rush, l.Rush);   // a curb-sized drop: M29's resume
+    }
+
+    [Fact]
+    public void The_landing_rule_is_the_fall_speed_of_half_a_metre()
+    {
+        // √(2 g h) with h = 0.5 m and the config's gravity (20): 4.47 m/s at the landing tick's start.
+        PlayerState Falling(float vz, RushPhase phase) => new(1, default, new Vector3(3f, 0f, -vz), 0f, false) { Rush = phase, RushTicks = 4 };
+        float edge = MathF.Sqrt(2f * Config.Gravity * RushSpec.DefaultLandEndDrop);
+        Assert.True(Rush.EndsOnLanding(Falling(edge + 0.01f, RushPhase.Rush), RushTests.Spec, Config));
+        Assert.False(Rush.EndsOnLanding(Falling(edge - 0.05f, RushPhase.Rush), RushTests.Spec, Config));
+        Assert.True(Rush.EndsOnLanding(Falling(0f, RushPhase.DashAttack), DashCharge, Config));   // the dash attack held at its end: any landing
+        Assert.False(Rush.EndsOnLanding(Falling(9f, RushPhase.Collision), RushTests.Spec, Config));
+        Assert.True(Rush.EndsOnLanding(Falling(edge - 0.05f, RushPhase.Rush), RushTests.Spec with { LandEndDrop = 0.2f }, Config));
+        // Landed keeps the speed up to sprint speed and clears the charge (not its spacing).
+        var landed = Rush.Landed(new PlayerState(1, default, new Vector3(30f, 0f, 0f), 0f, true) { Rush = RushPhase.Rush, RushTicks = 5, RushLock = 20 }, Config);
+        Assert.Equal((RushPhase.None, 0, 20), (landed.Rush, landed.RushTicks, landed.RushLock));
+        Assert.Equal(Config.SprintSpeed, landed.Velocity.X, 4);
+        // The hash: the default writes nothing new; another value does.
+        var c2 = Config with { Classes = [Config.Classes[0], Config.Classes[1] with { MeleeRush = RushTests.Spec with { LandEndDrop = 1f } }] };
+        Assert.NotEqual(Config.Hash(), c2.Hash());
+    }
+
+    [Fact]
+    public void A_held_charge_landing_into_a_wall_on_the_same_tick_ends_and_takes_no_wall_stop()
+    {
+        // A plateau 3 m up (y < 0), the charge goes off its edge at 10 m/s; a wall across the lower floor at y = W. For each W the landing tick is checked:
+        // when the wall blocks that tick's move, the landing still ends the charge (protocol 42): no collision stop, normal movement from the next tick.
+        int blockedLandings = 0;
+        for (float wall = 3.0f; wall <= 9.0f; wall += 0.1f)
+        {
+            var world = new Level().Box(new(-100, -100, -1), new(100, 200, 0)).Box(new(-100, -100, 0), new(100, 0, 3f)).Box(new(-100, wall, 0), new(100, wall + 1f, 6f)).World();
+            var s = Fresh(Config, Marine, new Vector3(0, -2f, 3f));
+            Step(ref s, Config, InputButtons.MeleeHeavy, 0f, 1f, world: world);
+            Assert.Equal(RushPhase.Rush, s.Rush);
+            bool left = false;
+            for (int k = 0; k < 60; k++)
+            {
+                var before = s;
+                Step(ref s, Config, InputButtons.None, world: world);
+                if (!s.Grounded) { left = true; if (s.Rush != RushPhase.Rush) break; continue; }   // a wall stop in the air: not this case
+                if (!left) { if (s.Rush != RushPhase.Rush) break; continue; }
+                // The landing tick.
+                float moved = new Vector2(s.Position.X - before.Position.X, s.Position.Y - before.Position.Y).Length();
+                float wished = new Vector2(before.Velocity.X, before.Velocity.Y).Length() * Dt;
+                bool blocked = before.Rush == RushPhase.Rush && moved < 0.5f * wished;
+                if (blocked)
+                {
+                    blockedLandings++;
+                    output.WriteLine($"wall at y {wall:F1}: the landing tick moved {moved:F2} of {wished:F2} m; now {s.Rush} ({s.RushTicks} ticks)");
+                    Assert.Equal((RushPhase.None, 0), (s.Rush, s.RushTicks));   // ended by the landing, not the wall's collision stop
+                    var next = s;
+                    Step(ref next, Config, InputButtons.None, 0f, 1f, world: world);
+                    Assert.Equal(RushPhase.None, next.Rush);
+                }
+                break;
+            }
+        }
+        Assert.True(blockedLandings > 0, "no wall position blocked the landing tick");
+    }
+
+    [Fact]
+    public void A_dash_attack_held_at_its_end_landing_on_a_player_connects_and_takes_its_hit_state()
+    {
+        // The Assault dashes forward off a 0 m plateau that ends just past the dash attack's press point over a floor 8 m lower; the lunge reaches its end in the
+        // air (held), lands, and a target stands where it comes down. The landing tick's contact (protocol 42: the landing ends the dash attack) still counts:
+        // the hit, the stun and the dash attack's hit state.
+        (float PressY, bool LandingContact, RushPhase After, ReactionKind Target, bool Held) Run(float edge, float targetY)
+        {
+            var world = new Level().Box(new(-100, -100, -9), new(100, 200, -8)).Box(new(-100, -100, -1), new(100, edge, 0)).World();
+            var w = new World(Config, world, [new SpawnPoint(new Vector3(0, -6f, 0f), 0f), new SpawnPoint(new Vector3(0, targetY, -8f), MathF.PI)]);
+            w.Spawn(1, Assault); w.Spawn(2, Marine);
+            float pressY = float.NaN; bool pressed = false, held = false;
+            for (int k = 0; k < 150; k++)
+            {
+                int tick = k;
+                uint view = w.Tick;
+                var before = w.Players[1];
+                bool press = !pressed && before.EvadeTicks >= 10 && Rush.CanDashAttack(before, Config, world);
+                if (press) { pressed = true; pressY = before.Position.Y; }
+                w.Step(id => id == 1
+                    ? new PlayerInput(0, 0f, tick == 0 ? 1f : 0f, 0f, tick == 0 ? InputButtons.Jump : press ? InputButtons.Melee : InputButtons.None) with { ViewTick = view }
+                    : new PlayerInput(0, 0f, 0f, MathF.PI, InputButtons.None) with { ViewTick = view });
+                var after = w.Players[1];
+                if (after.Rush == RushPhase.DashAttack && after.RushTicks == 25 && !after.Grounded) held = true;
+                if (w.LastRushes.Count > 0) return (pressY, !before.Grounded && after.Grounded, after.Rush, w.Players[2].Reaction, held);
+                if (pressed && after.Rush == RushPhase.None && after.Grounded) return (pressY, false, after.Rush, w.Players[2].Reaction, held);
+            }
+            return (pressY, false, RushPhase.None, ReactionKind.None, held);
+        }
+        var dry = Run(1000f, 500f);   // the press point on an endless plateau (no target in reach)
+        Assert.False(float.IsNaN(dry.PressY));
+        float edge = dry.PressY + 1f;
+        bool found = false;
+        for (float y = edge + 2f; y <= edge + 16f && !found; y += 0.25f)
+        {
+            var r = Run(edge, y);
+            if (!r.LandingContact) continue;
+            found = true;
+            output.WriteLine($"target at y {y:F2} (edge {edge:F2}): contact on the landing tick (held at its end: {r.Held}); charger {r.After}, target {r.Target}");
+            Assert.True(r.Held);
+            Assert.Equal(RushPhase.DashHit, r.After);
+            Assert.Equal(ReactionKind.Stun, r.Target);
+        }
+        Assert.True(found, "no target position gave a contact on the landing tick");
+    }
+
+    [Fact]
+    public void A_ledge_charge_landing_on_a_player_still_connects_and_takes_the_stop()
+    {
+        // A plateau 3 m up; the target stands where the charge comes down. The landing tick's move reaches it: the hit, the stun and the collision stop,
+        // as any contact (feel/melee-charge-2: the landing ended the charge, its last move still counts).
+        var world = Ledge(3f);
+        bool hitOnLanding = false;
+        for (float y = 3.0f; y <= 9.0f && !hitOnLanding; y += 0.25f)
+        {
+            var w = new World(Config, world, [new SpawnPoint(new Vector3(0, -2f, 3f), 0f), new SpawnPoint(new Vector3(0, y, 0f), MathF.PI)]);
+            w.Spawn(1, Marine); w.Spawn(2, Marine);
+            for (int k = 0; k < 60; k++)
+            {
+                int tick = k;
+                uint view = w.Tick;
+                var before = w.Players[1];
+                w.Step(id => id == 1
+                    ? new PlayerInput(0, 0f, tick == 0 ? 1f : 0f, 0f, tick == 0 ? InputButtons.MeleeHeavy : InputButtons.None) with { ViewTick = view }
+                    : new PlayerInput(0, 0f, 0f, MathF.PI, InputButtons.None) with { ViewTick = view });
+                var after = w.Players[1];
+                if (w.LastRushes.Count > 0)
+                {
+                    if (!before.Grounded && after.Grounded)
+                    {
+                        hitOnLanding = true;
+                        output.WriteLine($"target at y {y}: contact on the landing tick; charger now {after.Rush}, target {w.Players[2].Reaction}");
+                        Assert.Equal(RushPhase.Collision, after.Rush);
+                        Assert.Equal(ReactionKind.Stun, w.Players[2].Reaction);
+                    }
+                    break;
+                }
+                if (after.Grounded && !before.Grounded) break;   // landed without a contact
+            }
+        }
+        Assert.True(hitOnLanding, "no target position gave a contact on the landing tick");
     }
 
     [Fact]
@@ -370,9 +547,11 @@ public class JumpPackAttackTests(ITestOutputHelper output)
         }
         output.WriteLine($"over the void: the lunge's end held {heldTicks} ticks in the air at {heldSpeed:F2} m/s");
         Assert.True(heldTicks > 10);
-        Assert.Equal(RushPhase.DashAttack, airborne.Rush);
+        // feel/melee-charge-2 (protocol 42): the landing of a lunge held at its end ends the dash attack on the landing tick (no run-out); normal movement follows.
+        Assert.True(airborne.Grounded);
+        Assert.Equal((RushPhase.None, 0), (airborne.Rush, airborne.RushTicks));
         Step(ref airborne, Config, InputButtons.None, world: shelf);
-        Assert.Equal(RushPhase.DashStop, airborne.Rush);   // landed: the run-out
+        Assert.Equal(RushPhase.None, airborne.Rush);   // no DashStop
     }
 
     [Fact]
@@ -605,7 +784,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_30_carries_the_dash_attacks_phases_and_the_slash_and_a_full_snapshot_stays_within_1200_bytes()
     {
-        Assert.Equal(40, Protocol.Version);
+        Assert.Equal(42, Protocol.Version);
         Assert.Equal(1200, Protocol.MaxSnapshotBytes);
         foreach (var phase in new[] { RushPhase.DashAttack, RushPhase.DashHit, RushPhase.DashStop, RushPhase.DashCollision })
         {
@@ -701,7 +880,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
             for (int i = 0; i < classes.Length; i++)
                 if (h.Clients[i].Status == ClientStatus.Connected) predicted[i][h.Clients[i].Tick] = h.Clients[i].Predicted;
         });
-        int dashAttacks = 0, slashes = 0, heldTicks = 0;
+        int dashAttacks = 0, slashes = 0, heldTicks = 0, landingEnds = 0;
         for (int i = 0; i < classes.Length; i++)
         {
             var c = h.Clients[i];
@@ -718,12 +897,15 @@ public class JumpPackAttackTests(ITestOutputHelper output)
             dashAttacks += mine.Count(p => p.Rush == RushPhase.DashAttack && p.RushTicks == 1);
             slashes += mine.Count(p => p.JumpSlash && p.Jump == JumpPhase.Recover && p.JumpTicks == 0);
             heldTicks += mine.Count(p => p.Rush == RushPhase.Rush && !p.Grounded);
+            // feel/melee-charge-2: a charge held in the air that ends on its landing tick (the 3 m drops are real falls).
+            landingEnds += mine.Zip(mine.Skip(1)).Count(p => p.First.Rush == RushPhase.Rush && !p.First.Grounded && p.Second.Rush == RushPhase.None && p.Second.Grounded);
             output.WriteLine($"client {i}: compared {compared} ticks, {mismatches.Count} mismatches, {c.CorrectionErrors.Count(e => e > 1e-4f)} corrections; ended at {mine[^1].Position}");
             foreach (var m in mismatches.Take(3)) output.WriteLine("  " + m);
             Assert.True(compared > 300, $"client {i}: only {compared} ticks compared");
             Assert.Empty(mismatches);
         }
-        output.WriteLine($"dash attacks {dashAttacks}, slashes {slashes}, ticks of charges held in the air {heldTicks}");
+        output.WriteLine($"dash attacks {dashAttacks}, slashes {slashes}, ticks of charges held in the air {heldTicks}, charges ended by their landing {landingEnds}");
+        Assert.True(landingEnds >= 2, $"only {landingEnds} charges ended by a landing");
         Assert.True(dashAttacks >= 4, $"only {dashAttacks} dash attacks");
         Assert.True(slashes >= 3, $"only {slashes} slashes");
         Assert.True(heldTicks >= 15, $"only {heldTicks} held ticks");
