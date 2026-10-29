@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1632 spec table rows: **1102 tagged**, 385 not tagged (read from data with high confidence), 145 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 314 rows of the changes document.
+Scanned 1634 spec table rows: **1104 tagged**, 385 not tagged (read from data with high confidence), 145 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 316 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 304 | 260 | 263 | 90 | 12 |
 | Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
 | Weapons (critical) | 110 | 63 | 97 | 50 | 3 |
-| Melee (critical) | 58 | 46 | 54 | 9 | 5 |
+| Melee (critical) | 60 | 48 | 56 | 10 | 5 |
 | Jump pack (critical) | 66 | 58 | 56 | 12 | 0 |
 | Charge (critical) | 13 | 12 | 10 | 7 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -53,17 +53,17 @@ Scanned 1632 spec table rows: **1102 tagged**, 385 not tagged (read from data wi
 | Core simulation (provisional values) | 66 | 60 | 54 | 5 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1102** | 909 | 870 | 355 | 38 |
+| **All areas** | **1104** | 911 | 872 | 356 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 408 |
-| confidence: medium | 380 |
-| confidence: low | 376 |
-| kind: interpretation | 305 |
-| notes: ours | 269 |
+| kind: ours | 410 |
+| confidence: medium | 381 |
+| confidence: low | 377 |
+| kind: interpretation | 307 |
+| notes: ours | 270 |
 | confidence: none (low) | 114 |
 | kind: provisional | 98 |
 | section: provisional | 38 |
@@ -75,7 +75,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: approximation | 23 |
 | kind: placeholder | 22 |
 | notes: placeholder | 17 |
-| kind: gap (not reproduced) | 15 |
+| kind: gap (not reproduced) | 14 |
 | notes: interpretation | 14 |
 | notes: not reproduced (gap) | 13 |
 | notes: open question | 13 |
@@ -695,7 +695,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (58)
+### Melee (gameplay-critical) (60)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -761,7 +761,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B8CC3436` | Attack start along the stick | kept: an attack started from rest with a lock and the stick pushed to a side still turns the body to the stick's direction on its press tick (the original's directional attack; it keeps the target in the attack's cone), the turn to the target itself eases | kind: interpretation; confidence: low | M32 rule kept | Attack start along the stick: compare with SM1 by feel or video. Ours: kept: an attack started from rest with a lock and the stick pushed to… | ☐ |
 | `R-FA813B41` | Camera assist (client) | the view closes the angle to the lock with a 0.2 s time constant, at most 120°/s (before: a constant 150°/s), faded in by a smoothstep over the attack's first 0.1 s and out over 0.1 s after the alignment window; only within 75° of the view (s, °/s) | kind: ours; confidence: low | ours | Camera assist (client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the view closes the angle to the lock with a 0.2 s time constant, at… | ☐ |
 | `R-6679EBF3` | Power sword: hit sound | a melee hit by the own player now posts the weapon's hit effect container's sound at the victim (the first default `trigger_material_effect` of a light attack's primary `hit_fx`): the power sword's `…\melee_weapons\power_sword` → `play_sm_power_sword_hit`… | kind: ours; confidence: medium | wargear `hit_fx` and the container's `sfx` (extracted); which hits post it ours | Power sword: hit sound: compare with SM1 by listening A/B at the same distance and state. Ours: a melee hit by the own player now posts the weapon's hit effect… | ☐ |
-| `R-F227492E` | Power sword: hum | the wargear's `while_deployed` `play_sm_power_sword_idle` is in no bank of this install; its `on_deploy` posts the power axe's idle hum (`play_sm_power_axe_idle`); neither is played (no deploy hook) | kind: gap (not reproduced); confidence: low | wargear (extracted) | Power sword: hum: compare with SM1 by feel or video. Ours: the wargear's while_deployed play_sm_power_sword_idle is in no bank… | ☐ |
+| `R-CB45CB5B` | Melee weapon hum (fx/melee-presentation) | a melee weapon in hand hums with the wargear's own idle events (`MeleeIdleSounds`): thunder hammer `play_sm_thunder_hammer_idle`, daemon maul `play_ch_power_mace_idle`, power axe `play_sm_power_axe_idle` (on_deploy; stop in on_stow, each `stop_` twin in a… (dB) | kind: ours; confidence: low | wargear (extracted, `smtool baf-dump wargear.oppc --grep _event_name`, `smtool audio-event`); the sword's level and the Chaos substitute ours | Melee weapon hum (fx/melee-presentation): compare with SM1 by feel or video. Ours: a melee weapon in hand hums with the wargear's own idle events… | ☐ |
+| `R-1D68F50D` | Others' melee hit sound (fx/melee-presentation) | a melee hit between other players, or on the local player, posts the attacker weapon's hit sound (as the own hit's) at the victim. **Inferred from the snapshots (interpretation):** the attacker's melee step passes its hit time (`MeleeHitGate`, once per… (s) | kind: ours; kind: interpretation; confidence: low | the hit reports exist only for the own player; the windows ours | Others' melee hit sound (fx/melee-presentation): compare with SM1 by listening A/B at the same distance and state. Ours: a melee hit between other players, or on the local player, posts the… | ☐ |
+| `R-E7FB5378` | Charge hit sound (fx/melee-presentation) | a bull rush or dash attack hit plays the data's charge impact: the primary hit container of `ability_bullrush_01` (melee wargear) or `ability_dash_attack` (jump pack), `body_smash` -> `play_sm_bull_rush_smash`, armour and flesh layers as a bullet (before: the… (s) | kind: interpretation; confidence: medium; notes: ours | wargear + `material_effect_container/body_smash` (extracted); which hits ours | Charge hit sound (fx/melee-presentation): compare with SM1 by listening A/B at the same distance and state. Ours: a bull rush or dash attack hit plays the data's charge impact: the… | ☐ |
 
 *Spec section: Provisional values in use*
 
@@ -2107,7 +2109,9 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-00E6389C` | Alignment window at least 0.2 s | A shorter window is widened: its end later up to the hit, then its start earlier | same | same | Alignment window at least 0.2 s: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A shorter window is widened: its end later up to the hit, then its… | ☐ |
 | `C-549B13CD` | Lock hysteresis and memory | A held lock is kept 15° beyond the cone; the client offers its last lock again for 1 s after an attack or charge | The original's lock persistence | same | Lock hysteresis and memory: compare with SM1 by feel or video. Ours: A held lock is kept 15° beyond the cone; the client offers its last… | ☐ |
 | `C-3C96F675` | Camera assist | An exponential approach (0.2 s, at most 120°/s), faded in over 0.1 s and out over 0.1 s after the window | Whether the original's camera followed the lock | same | Camera assist: compare with SM1 with an overlaid screenshot taken from the same position. Ours: An exponential approach (0.2 s, at most 120°/s), faded in over 0.1 s… | ☐ |
-| `C-48902160` | Melee hit sound | An own melee hit posts the weapon's hit container's sound (the power sword's `play_sm_power_sword_hit`) at the victim; others' melee hits post none; a charge hit plays the weapon's hit sound, not its own `play_sm_sk01_bodyslam` | Which of the data's hit commands the original played for whom | same | Melee hit sound: compare with SM1 by listening A/B at the same distance and state. Ours: An own melee hit posts the weapon's hit container's sound (the power… | ☐ |
+| `C-48902160` | Melee hit sound | An own melee hit posts the weapon's hit container's sound (the power sword's `play_sm_power_sword_hit`) at the victim; others' hits (inferred from the snapshots, the victim must react) and charge hits (the data's `body_smash` impact `play_sm_bull_rush_smash`) now sound too | Which of the data's hit commands the original played for whom; whether the original's clients heard others' hits at the same moments | same | Melee hit sound: compare with SM1 by listening A/B at the same distance and state. Ours: An own melee hit posts the weapon's hit container's sound (the power… | ☐ |
+| `C-8C296663` | Melee weapon hum | The hammer, maul and axe hum with their own idle events; the Space Marine sword with the axe's hum 6 dB quieter, the Chaos sword with it as a **substitute** (its own `play_sm_power_sword_idle` is in no bank); the chain axe is silent (nothing to play) | What the original played for the swords and the chain axe | same | Melee weapon hum: compare with SM1 by feel or video. Ours: The hammer, maul and axe hum with their own idle events; the Space… | ☐ |
+| `C-68DB00D3` | Hammer and axe idle glows | The hammer's and the axe's `while_deployed` effects play at their markers while the weapon is in hand, as the sword's | Whether the original showed them in multiplayer | same | Hammer and axe idle glows: compare with SM1 by feel or video. Ours: The hammer's and the axe's while_deployed effects play at their… | ☐ |
 
 ### Not yet reproduced
 

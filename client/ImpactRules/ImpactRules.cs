@@ -125,3 +125,79 @@ public sealed class MeleeHitGate
 
     public int Count => _seen.Count;
 }
+
+/// <summary>
+/// fx/melee-presentation (interpretation): other players' melee hits are not reported to a client (only the own player's are), so a hit's sound is inferred from
+/// what the snapshots show: a candidate (an attacker whose hit time has just passed with an enemy in reach, or whose charge has just connected) is confirmed when its victim
+/// <b>reacts</b> in the same window: the victim's health plus shield falls, or it dies, within <see cref="Before"/> s before to <see cref="After"/> s after the candidate.
+/// An evaded, blocked or missed swing gets no sound. Candidates come from <see cref="MeleeHitGate"/> (once per attack, never on a reconcile rewind), so a confirmed
+/// candidate is posted once. Engine-free and tested.
+/// </summary>
+public sealed class MeleeHitConfirm
+{
+    /// <summary>A drop in the victim's health or shield seen this long before the candidate still confirms it (the snapshots interpolate the two players separately).</summary>
+    public const double Before = 0.25;
+    /// <summary>A candidate waits this long for its victim's reaction, then is dropped.</summary>
+    public const double After = 0.35;
+    /// <summary>The smallest fall of health plus shield that counts as a reaction.</summary>
+    public const float MinDrop = 0.5f;
+
+    public readonly record struct Hit(int Attacker, int Victim, bool Charge, bool Dash, double At);
+
+    struct Seen { public float Total; public bool Alive; public double DropAt; }
+
+    readonly Dictionary<int, Seen> _seen = new();
+    readonly List<Hit> _pending = new();
+    readonly List<int> _drop = new();
+
+    /// <summary>Records a player's state this frame (<paramref name="total"/>: health plus shield); a fall or a death marks a reaction at <paramref name="now"/>.</summary>
+    public void Observe(int id, bool alive, float total, double now)
+    {
+        if (!_seen.TryGetValue(id, out var s)) { _seen[id] = new Seen { Total = total, Alive = alive, DropAt = double.NegativeInfinity }; return; }
+        if (s.Alive && (total < s.Total - MinDrop || !alive)) s.DropAt = now;
+        s.Total = total; s.Alive = alive;
+        _seen[id] = s;
+    }
+
+    /// <summary>A candidate hit at <paramref name="now"/> (<paramref name="charge"/>: a charge, <paramref name="dash"/>: the jump-pack dash attack's).</summary>
+    public void Add(int attacker, int victim, bool charge, bool dash, double now) => _pending.Add(new Hit(attacker, victim, charge, dash, now));
+
+    /// <summary>Moves the candidates whose victim has reacted into <paramref name="confirmed"/> and forgets those past <see cref="After"/>.</summary>
+    public void Drain(double now, List<Hit> confirmed)
+    {
+        for (int i = _pending.Count - 1; i >= 0; i--)
+        {
+            var h = _pending[i];
+            if (_seen.TryGetValue(h.Victim, out var v) && v.DropAt >= h.At - Before && v.DropAt <= h.At + After) { confirmed.Add(h); _pending.RemoveAt(i); }
+            else if (now > h.At + After) _pending.RemoveAt(i);
+        }
+    }
+
+    public int Pending => _pending.Count;
+
+    /// <summary>Forgets the players <paramref name="present"/> says are gone.</summary>
+    public void Prune(Func<int, bool> present)
+    {
+        _drop.Clear();
+        foreach (var id in _seen.Keys) if (!present(id)) _drop.Add(id);
+        foreach (var id in _drop) _seen.Remove(id);
+        _pending.RemoveAll(h => !present(h.Attacker) && !present(h.Victim));
+    }
+}
+
+/// <summary>fx/melee-presentation: whether a player's charge has just connected (engine-free so it is tested).</summary>
+public static class ChargeConnect
+{
+    /// <summary>
+    /// True when the charge phase went from charging (<paramref name="before"/>: the bull rush or the dash attack's lunge) to the stop after connecting (the collision clip or the
+    /// dash's hit state): the same phase change the simulation makes when a charge meets a player or a wall (a wall gets no confirmation from <see cref="MeleeHitConfirm"/>).
+    /// </summary>
+    public static bool Connected(SmSim.RushPhase before, SmSim.RushPhase now) =>
+        (before == SmSim.RushPhase.Rush && now == SmSim.RushPhase.Collision) || (before == SmSim.RushPhase.DashAttack && now == SmSim.RushPhase.DashHit);
+}
+
+/// <summary>fx/melee-presentation: the melee weapons' idle hum and glow belong to the marines' wargear; an Ork (our added race) gets neither, whatever its weapon's files say.</summary>
+public static class MeleeIdleGuard
+{
+    public static bool Allows(bool isOrk) => !isOrk;
+}
