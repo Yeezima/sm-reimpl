@@ -105,7 +105,7 @@ public partial class NetworkView
         public bool SwSeen;
         public double SwitchAt = double.NegativeInfinity, SwitchTraceAt = double.NegativeInfinity;
         public float SwitchDuration;
-        public SwitchClip? Switch;
+        public SwitchPlan? Switch;   // fix/stow-right: the old weapon's draw backwards, then the new one's (SwitchPlan)
         public FlinchClip? Flinch;
         public double FlinchAt = double.NegativeInfinity, FlinchLast = double.NegativeInfinity, HeadHitAt = double.NegativeInfinity;
         public bool WasSprint, WasCharging, WasAirborne;
