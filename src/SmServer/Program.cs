@@ -75,6 +75,11 @@ else
     Console.WriteLine("**************************************************************************************************");
 }
 var config = tuning.Config;
+// sim/player-collision (protocol 43): players' capsules block each other; --no-player-collision (test aid) lets them pass as before (config hash).
+if (cli.NoPlayerCollision) config = config with { PlayerBodies = false };
+Console.WriteLine(config.PlayerBodies
+    ? $"player collision: on (capsules r {config.CapsuleRadius} m, h {config.CapsuleHeight} m block each other; push apart {PlayerCollision.SeparationSpeed} m/s, slide off a head {PlayerCollision.SlideOffSpeed} m/s; ours)"
+    : "player collision: OFF (--no-player-collision, test aid; clients need --no-player-collision too)");
 Console.WriteLine($"tuning from {tuning.Source}: run {config.RunSpeed}, strafe {config.StrafeSpeed}, back {config.BackSpeed}, sprint {config.SprintSpeed} m/s; placeholders: {string.Join(", ", tuning.Placeholders)}");
 foreach (var note in tuning.Notes) Console.WriteLine("note: " + note);
 // Fidelity gap 1: what a death drops (weights, reach, lifetime, amounts per weapon and item).
@@ -325,8 +330,15 @@ var lastState = MatchState.None;
 var blockerNames = mapBlockers.Select(b => (Name: b.Name, Box: b.ToSim())).ToArray();
 var pressing = new HashSet<(int Player, int Blocker)>();
 var insideBox = new HashSet<(int Player, int Blocker)>();
+var overlaps = cli.LogOverlaps ? new OverlapProbe() : null;
 server.Stepped += world =>
 {
+    // --log-overlaps (sim/player-collision test aid): the closest the living players' capsules came, every 10 s.
+    if (overlaps is not null)
+    {
+        overlaps.Add(world.Players.Values, world.Config);
+        if (world.Tick % (uint)(10 * world.Config.TickRate) == 0) Console.WriteLine($"tick {world.Tick}: overlaps: {overlaps.Summary()}");
+    }
     // --pickup-test: test drops in front of every living player (the server's own SpawnPickup; the ground under the point as for a death).
     if (pickupTest > 0f && world.Config.Pickups is { } drops && world.Tick % (uint)Math.Max(1, MathF.Round(pickupTest * world.Config.TickRate)) == 0)
         foreach (var p in world.Players.Values.Where(p => p.Alive).ToList())

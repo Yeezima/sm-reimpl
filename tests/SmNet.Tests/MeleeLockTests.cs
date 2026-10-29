@@ -477,8 +477,8 @@ public class MeleeLockTests(ITestOutputHelper output)
     {
         var input = new PlayerInput(7, 0.5f, 1f, 0.25f, InputButtons.Melee, 0.1f, 5, MeleeTarget: 4321);
         var bytes = Protocol.Write(new InputBatch([input], 9, 3));
-        Assert.Equal(1 + 4 + 4 + 1 + 39, bytes.Length);   // protocol 37: + the view fraction
-        Assert.Equal(39, Protocol.InputBytes);
+        Assert.Equal(1 + 4 + 4 + 1 + 40, bytes.Length);   // protocol 37: + the view fraction; 43: + the body lag
+        Assert.Equal(40, Protocol.InputBytes);
         var read = Assert.IsType<InputBatch>(Protocol.Read(bytes));
         Assert.Equal(4321, read.Inputs[0].MeleeTarget);
         Assert.Equal(0, new PlayerInput(0, 0, 0, 0, InputButtons.None, MeleeTarget: -3).Sanitized().MeleeTarget);

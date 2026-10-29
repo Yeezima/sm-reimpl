@@ -45,10 +45,11 @@ public sealed class Demo
     /// <summary>The largest datagram stored (a record with more is dropped).</summary>
     public const int MaxPacketBytes = 65535;
     /// <summary>
-    /// PlayerInput fields a demo stores, in file order, plus ViewTick, MeleeTarget (protocol 32) and ViewFraction (protocol 37), which the client recomputes (<see cref="GameClient"/>
-    /// picks the melee lock from its view) and are not stored. A test compares this list with PlayerInput: a new field needs a format bump here.
+    /// PlayerInput fields a demo stores, in file order, plus ViewTick, MeleeTarget (protocol 32), ViewFraction (protocol 37) and BodyTick (protocol 43), which the client
+    /// recomputes (<see cref="GameClient"/> picks the melee lock from its view and the bodies from its newest snapshot) and are not stored. A test compares this list with
+    /// PlayerInput: a new field needs a format bump here.
     /// </summary>
-    public static readonly string[] InputFields = ["Tick", "MoveX", "MoveY", "Yaw", "Buttons", "Pitch", "ViewTick", "ShotYawOffset", "ShotPitchOffset", "ShotOriginX", "ShotOriginY", "ShotOriginZ", "MeleeTarget", "ViewFraction"];
+    public static readonly string[] InputFields = ["Tick", "MoveX", "MoveY", "Yaw", "Buttons", "Pitch", "ViewTick", "ShotYawOffset", "ShotPitchOffset", "ShotOriginX", "ShotOriginY", "ShotOriginZ", "MeleeTarget", "ViewFraction", "BodyTick"];
     static readonly byte[] Magic = "SMDEMO\0\0"u8.ToArray();
 
     public enum RecordKind : byte { Packet = 1, Input = 2, View = 3, Session = 4, End = 5 }

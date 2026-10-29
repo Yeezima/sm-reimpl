@@ -21,3 +21,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Melee and stun lock-ons turn your marine smoothly toward the target instead of snapping, keep the same target more reliably, and the camera follows more gently.
 - The power sword's hits now use the power sword's own impact sound from the original game.
 - This build uses a new network version: everyone has to update.
+- Players now collide with each other: you can no longer walk, sprint, roll, charge or get knocked through another marine, friend or foe. Walking into someone stops you and you slide around him.
+- Two players who end up inside each other (a crowded brawl, a busy spawn) are pushed apart within a moment instead of staying stuck.
+- Landing on someone's head with the jump pack (or falling onto him) slides you off his shoulders onto the floor beside him.
+- Melee lunges and the charge stop at arm's length from the target instead of ending up inside him.

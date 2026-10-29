@@ -41,6 +41,10 @@ public sealed record ServerArguments
     public bool OrkData { get; init; }
     /// <summary>--content (docs/added-content.md): the added content this server runs (<see cref="ContentProfiles"/>; default <see cref="ContentProfiles.Default"/>); clients need the same (config hash).</summary>
     public ContentExtras Content { get; init; } = ContentProfiles.Default;
+    /// <summary>--no-player-collision (sim/player-collision test aid): players pass through each other as before protocol 43 (<see cref="SimConfig.PlayerBodies"/>; config hash: clients need it too).</summary>
+    public bool NoPlayerCollision { get; init; }
+    /// <summary>--log-overlaps (sim/player-collision test aid): every 10 s, how close the living players' capsules came and how often they overlapped.</summary>
+    public bool LogOverlaps { get; init; }
     public bool Help { get; init; }
 }
 
@@ -68,6 +72,8 @@ public static class ServerCommandLine
           --content <profile>           added content: faithful (SM1 alone), extended (every added content: the Ork, gore) or a list such as orks,gore
                                         (default extended; a build without extras runs faithful only); clients need the same --content
           --ork-data                    switch: test aid: the Ork Boy with the data's values instead of the Tactical parity (clients need --ork-data too)
+          --no-player-collision         switch: test aid: players pass through each other as before protocol 43 (clients need --no-player-collision too)
+          --log-overlaps                switch: test aid: every 10 s, the closest the living players' capsules came and how many ticks they overlapped
           --unlocks all                 unlock mode (only 'all': no progression yet)
           --no-custom-emblems           switch: no custom emblem is pulled, kept or served
           --max-per-ip <n>              at most n players from one IP address, 0 = no cap (default 4)
@@ -79,7 +85,7 @@ public static class ServerCommandLine
           --help, -h                    switch: this list
         """;
 
-    static readonly HashSet<string> Switches = ["--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--help", "-h"];
+    static readonly HashSet<string> Switches = ["--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--log-overlaps", "--help", "-h"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale",
          "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content"];
@@ -100,6 +106,8 @@ public static class ServerCommandLine
                     "--limit-loopback" => a with { LimitLoopback = true },
                     "--honor-side-requests" => a with { HonorSideRequests = true },
                     "--ork-data" => a with { OrkData = true },
+                    "--no-player-collision" => a with { NoPlayerCollision = true },
+                    "--log-overlaps" => a with { LogOverlaps = true },
                     _ => a with { Help = true },
                 };
                 continue;

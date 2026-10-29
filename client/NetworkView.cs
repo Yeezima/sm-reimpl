@@ -271,7 +271,7 @@ public partial class NetworkView : Node3D
             var content = ContentArg();
             GD.Print($"content: {ContentProfiles.Describe(content)}");
             MemStep("start"); var tuning = GameplayTuning.LoadForMatch(_gameDir, content, OrkData); MemStep("tuning");
-            _config = tuning.Config;
+            _config = WithPlayerCollisionArg(tuning.Config);   // sim/player-collision: --no-player-collision (NetworkView.Bodies.cs)
             _tuningSource = tuning.Placeholders.Any(p => p is nameof(SimConfig.Damage) or nameof(SimConfig.ClipSize) or nameof(SimConfig.HealthMax) or nameof(SimConfig.MeleeSteps) or nameof(SimConfig.Classes))
                 ? "partly placeholders (see server log)" : "from the install";
             _notes.AddRange(tuning.Notes);
@@ -492,7 +492,8 @@ public partial class NetworkView : Node3D
         YawProbeFrame(delta, me);   // M36 test aid (--yaw-probe)
 
         Ph("remote players");
-        var (renderTick, others) = _client.RemotePlayers();
+        var (renderTick, interpolated) = _client.RemotePlayers();
+        var others = DrawnRemotes(interpolated, me, shown);   // sim/player-collision: drawn apart (NetworkView.Bodies.cs; ours)
         _lastOthers = others;
         HipFireOthers(me, others, renderTick > 0);   // M27 (fetches this frame's projectile list once, _frameProjectiles)
         var seen = _seenRemotes;

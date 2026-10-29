@@ -379,7 +379,13 @@ public static partial class Protocol
     //     chainsword's Y,Y chain (backhand, kick or shoulder → the stomp in BRANCH_Melee_Y_Combo; config hash); melee lunges × SimConfig.MeleeLungeScale (1.3,
     //     estimate) and the weapon switch × 0.8 (0.48 s, estimate; config hash); the melee lock's eased alignment and hysteresis (MeleeLockSpec.AlignEase,
     //     Hysteresis 15 degrees; config hash). Snapshot layout and sizes unchanged (worst case 1200)
-    public const ushort Version = 42;
+    // 41: claimed by another open branch (the integrator renumbers).
+    // 43 (sim/player-collision; the owner's request of 2026-10-29: "the models shouldn't get stuck inside each other"): living players' capsules block
+    //     each other in the shared movement step (PlayerCollision: slide, push apart, slide off a head). Every input ends with a u8 body lag (40 bytes an
+    //     input): how many ticks before its own the snapshot was that its client held when sampling it (PlayerInput.BodyTick; 0 none); server and
+    //     prediction collide with the other players as that snapshot had them, moved on by their velocities (World.RecordBodies keeps the same floats).
+    //     Snapshots unchanged (worst case 1200)
+    public const ushort Version = 43;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>
     public const int HelloBytes = 53 + 2 * AppearanceCode.Size;
     /// <summary>Bytes of a Setup message (protocol 28: + the Ork look).</summary>
@@ -402,8 +408,8 @@ public static partial class Protocol
     public const float ShotOffsetScale = 10000f;
     /// <summary>Shot-origin offsets travel as signed 16-bit integers in centimetres (±327.67 m).</summary>
     public const float ShotOriginScale = 100f;
-    /// <summary>Bytes per input in an input batch (protocol 12).</summary>
-    public const int InputBytes = 39;
+    /// <summary>Bytes per input in an input batch (protocol 12; 40 since protocol 43: the body lag).</summary>
+    public const int InputBytes = 40;
     /// <summary>Bytes of the hit block at the end of every snapshot (protocol 12; <see cref="HitView"/>).</summary>
     public const int HitBlockBytes = 12;
     /// <summary>
@@ -569,7 +575,7 @@ public static partial class Protocol
                 w.U16((ushort)detail.Length); w.Bytes(detail); break;
             case InputBatch b:
                 w.U8((byte)Kind.InputBatch); w.U32(b.Session); w.U32(b.SnapshotTick); w.U8((byte)Math.Min(b.Inputs.Length, MaxInputsPerBatch));
-                // 38 bytes each (protocol 12: buttons u16, shot direction offsets i16 in 1/10000 rad, shot origin offset 3 × i16 in cm; protocol 32: the melee target u16).
+                // 40 bytes each (protocol 12: buttons u16, shot direction offsets i16 in 1/10000 rad, shot origin offset 3 × i16 in cm; protocol 32: the melee target u16; 37: the view fraction u8; 43: the body lag u8).
                 foreach (var i in b.Inputs.Take(MaxInputsPerBatch))
                 {
                     w.U32(i.Tick); w.F32(i.MoveX); w.F32(i.MoveY); w.F32(i.Yaw); w.U16((ushort)i.Buttons); w.F32(i.Pitch); w.U32(i.ViewTick);
@@ -577,6 +583,7 @@ public static partial class Protocol
                     w.I16(OriginOffset(i.ShotOriginX)); w.I16(OriginOffset(i.ShotOriginY)); w.I16(OriginOffset(i.ShotOriginZ));
                     w.U16((ushort)(i.MeleeTarget is > 0 and <= ushort.MaxValue ? i.MeleeTarget : 0));
                     w.U8(ViewFractionByte(i.ViewFraction));   // protocol 37
+                    w.U8(BodyLag(i));   // protocol 43
                 }
                 break;
             case Snapshot s:
@@ -831,8 +838,11 @@ public static partial class Protocol
         if (n > MaxInputsPerBatch) return null;
         var inputs = new PlayerInput[n];
         for (int i = 0; i < n; i++)
+        {
             inputs[i] = new PlayerInput(r.U32(), r.F32(), r.F32(), r.F32(), (InputButtons)(r.U16() & KnownButtons), r.F32(), r.U32(), r.I16() / ShotOffsetScale, r.I16() / ShotOffsetScale,
                 r.I16() / ShotOriginScale, r.I16() / ShotOriginScale, r.I16() / ShotOriginScale, r.U16(), r.U8() / ViewFractionScale);
+            inputs[i] = inputs[i] with { BodyTick = BodyTickOf(inputs[i].Tick, r.U8()) };   // protocol 43
+        }
         return new InputBatch(inputs, session, snapshotTick);
     }
 
@@ -1081,7 +1091,14 @@ public static partial class Protocol
         ShotYawOffset = ShotOffset(i.ShotYawOffset) / ShotOffsetScale, ShotPitchOffset = ShotOffset(i.ShotPitchOffset) / ShotOffsetScale,
         ShotOriginX = OriginOffset(i.ShotOriginX) / ShotOriginScale, ShotOriginY = OriginOffset(i.ShotOriginY) / ShotOriginScale, ShotOriginZ = OriginOffset(i.ShotOriginZ) / ShotOriginScale,
         ViewFraction = ViewFractionByte(i.ViewFraction) / ViewFractionScale,
+        BodyTick = BodyTickOf(i.Tick, BodyLag(i)),
     };
+
+    /// <summary>Protocol 43: an input's body tick as the wire carries it, the ticks back from its own tick (1 to <see cref="PlayerCollision.MaxBodyLagTicks"/>; else 0, none).</summary>
+    static byte BodyLag(PlayerInput i) => i.BodyTick > 0 && i.BodyTick < i.Tick && i.Tick - i.BodyTick <= PlayerCollision.MaxBodyLagTicks ? (byte)(i.Tick - i.BodyTick) : (byte)0;
+
+    /// <summary>Protocol 43: the body tick of an input of tick <paramref name="tick"/> whose body lag is <paramref name="lag"/> (0 or out of range: none).</summary>
+    static uint BodyTickOf(uint tick, byte lag) => lag is > 0 and <= PlayerCollision.MaxBodyLagTicks && lag < tick ? tick - lag : 0;
 
     /// <summary>Protocol 37: the view fraction travels as a byte in 1/256 steps (0..255/256).</summary>
     public const float ViewFractionScale = 256f;

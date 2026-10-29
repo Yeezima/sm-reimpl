@@ -30,9 +30,9 @@ public class DemoRobustnessTests(ITestOutputHelper output)
         var parameters = typeof(PlayerInput).GetConstructors()
             .Single(c => c.GetParameters().Length > 1).GetParameters().Select(p => p.Name).ToArray();
         // If this fails, PlayerInput changed: store the new field in Demo.Writer.Input / Demo.Read (kind 2 payload), add it to Demo.InputFields and
-        // raise Demo.Version, so older demos are refused and not misread. (ViewTick, MeleeTarget and ViewFraction are not stored: the client recomputes them.)
+        // raise Demo.Version, so older demos are refused and not misread. (ViewTick, MeleeTarget, ViewFraction and BodyTick are not stored: the client recomputes them.)
         Assert.Equal(Demo.InputFields, parameters);
-        Assert.Equal(14, parameters.Length);
+        Assert.Equal(15, parameters.Length);
         Assert.Equal(1, Demo.Version);
     }
 
