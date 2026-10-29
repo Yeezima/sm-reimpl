@@ -198,7 +198,8 @@ public sealed partial class AppearanceView : Control
     void BuildSideToggle()
     {
         foreach (var c in _sideToggle.GetChildren()) { _sideToggle.RemoveChild(c); c.QueueFree(); }
-        foreach (var (race, text) in _services.Factions())   // added content E2: the profile's factions (no Ork in the faithful profile)
+        // Added content E2: the profile's factions; the Ork has no armour to edit (his look is the creator's LOOK step, ui/customizer-ork), so only the catalogue's races here.
+        foreach (var (race, text) in _services.Factions().Where(f => _catalog.Race(f.Race) is not null))
         {
             string r = race;
             _sideToggle.AddChild(UiKit.Toggle(text, _race == race, on =>

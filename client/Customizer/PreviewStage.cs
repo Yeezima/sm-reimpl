@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Godot;
 using SmClient.Customizer.Model;
 using SmContent;
@@ -68,6 +69,8 @@ public sealed class PreviewAssets
     public void Clear()
     {
         _weapons = null;
+        _orkWeapons = null;
+        _orkCatalogue = null;
         _warm = null;
         PreviewEyeGlow.Forget();
         if (_appearance is { } assets) { assets.EmblemSource = null; assets.Clear(); }
@@ -106,7 +109,8 @@ public sealed class PreviewAssets
         if (_weapons is not null || _services.Config is not { } config) return _weapons;
         try
         {
-            var names = config.Weapons.Select(w => w.Name).Concat(config.Classes.SelectMany(c => c.MeleeChoices.Select(m => m.Wargear))).Concat(config.JumpPacks.Select(j => j.Name));
+            var names = config.Weapons.Select(w => w.Name).Concat(config.Classes.SelectMany(c => c.MeleeChoices.Select(m => m.Wargear))).Concat(config.JumpPacks.Select(j => j.Name))
+                .Where(n => !OrkClass.Wargear.Contains(n, StringComparer.OrdinalIgnoreCase));   // the Ork's are on his own rig (OrkWeapons)
             var notes = new List<string>();
             _weapons = WeaponAssets.Load(_services.GameDir, marine, names, notes);
             lock (_services.Notes) _services.Notes.AddRange(notes);
@@ -117,16 +121,97 @@ public sealed class PreviewAssets
         }
         return _weapons;
     }
+
+    // ---- the Ork Boy (ui/customizer-ork) ----
+
+    OrkAssets? _orks;
+    bool _orkAsked, _orkFailed, _orkWeaponsFailed;
+    WeaponAssets? _orkWeapons;
+    Task<(WeaponModels Catalogue, List<string> Notes, double Milliseconds)>? _orkCatalogue;
+
+    /// <summary>Why the Ork preview could not be drawn, or null.</summary>
+    public string? OrkError { get; private set; }
+
+    /// <summary>The Ork's weapons cannot be read (or his model cannot): the preview shows him without them.</summary>
+    public bool OrkWeaponsFailed => _orkWeaponsFailed || _orkFailed;
+
+    /// <summary>
+    /// The Ork Boy's model in a look (<see cref="OrkAssets"/>, the process-wide caches the match uses too), or null while it is not ready: the first call only asks (the caller
+    /// shows "Loading" for a frame), the next reads the boy's rig on the main thread (once per run), then the look's files are read on a worker (<see cref="OrkAssets.Prefetch"/>)
+    /// and the model is built when they are in. Null for good, with <see cref="OrkError"/>, when the install has no Ork.
+    /// </summary>
+    public MarineAssets? TryBuildOrk(int look)
+    {
+        if (_orkFailed) return null;
+        if (!_orkAsked) { _orkAsked = true; return null; }
+        try
+        {
+            if (_orks is null)
+            {
+                var notes = new List<string>();
+                _orks = OrkAssets.Shared(_services.GameDir, notes);
+                lock (_services.Notes) _services.Notes.AddRange(notes);
+            }
+            string name = OrkLookRules.Names[Math.Clamp(look, 0, OrkLookRules.Names.Count - 1)];
+            _orks.Prefetch(name);
+            if (_orkCatalogue is null)
+            {
+                string dir = _services.GameDir;
+                var bones = _orks.Rig.Rig.Skeleton.BoneNames;
+                _orkCatalogue = Task.Run(() =>
+                {
+                    var watch = System.Diagnostics.Stopwatch.StartNew();
+                    var notes = new List<string>();
+                    var catalogue = WeaponModels.Load(dir, RigProfiles.OrkBoy, notes, RigProfiles.OrkBoy.DefaultWargear, bones);
+                    return (catalogue, notes, watch.Elapsed.TotalMilliseconds);
+                });
+            }
+            return _orks.IsReady(name) ? _orks.Build(name) : null;
+        }
+        catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
+        {
+            _orkFailed = true;
+            OrkError = ex.Message;
+            lock (_services.Notes) _services.Notes.Add("preview ork: " + ex.Message);
+            return null;
+        }
+    }
+
+    /// <summary>The Ork's weapon models on his own bones once the worker has read their catalogue; null before (the preview tries again each frame) or when they cannot be read.</summary>
+    public WeaponAssets? OrkWeapons()
+    {
+        if (_orkWeapons is not null || _orkWeaponsFailed || _orks is null || _orkCatalogue is not { IsCompleted: true } load) return _orkWeapons;
+        try
+        {
+            var (catalogue, notes, ms) = load.GetAwaiter().GetResult();
+            _orkWeapons = WeaponAssets.FromCatalogue(_services.GameDir, _orks.Rig.Rig.Skeleton.BoneNames, catalogue, notes, ms);
+            lock (_services.Notes) _services.Notes.AddRange(notes);
+        }
+        catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
+        {
+            _orkWeaponsFailed = true;   // the Ork is shown without weapons
+            lock (_services.Notes) _services.Notes.Add("preview ork weapons: " + (ex is AggregateException a ? a.GetBaseException().Message : ex.Message));
+        }
+        return _orkWeapons;
+    }
 }
 
 /// <summary>What the preview shows besides the framing: a class on a race with its chosen weapons, and a look.</summary>
-public sealed record PreviewSubject(string Race, string Role, CustomClass? Custom, AppearanceProfile? Look);
+/// <param name="OrkLook">The Ork Boy's look (role <see cref="OrkLoadout.Role"/>; ui/customizer-ork): an index of <see cref="OrkLookRules.Names"/>, null = automatic (drawn as the first look).</param>
+public sealed record PreviewSubject(string Race, string Role, CustomClass? Custom, AppearanceProfile? Look, int? OrkLook = null)
+{
+    public bool IsOrk => OrkLoadout.IsOrk(Role);
+}
 
 /// <summary>
-/// The 3D preview (docs/customizer-design.md section 3): a SubViewport of its own with the shared marine rig, the class's weapons in hand, a turntable in the
-/// full-body framing and the data-independent close framings of the customizer. Today it draws the chapter paint of the look (the preset or predefined set); the
+/// The 3D preview (docs/customizer-design.md section 3): a SubViewport of its own with the shared marine rig, the class's weapons in hand, the full-body framing
+/// and the data-independent close framings of the customizer. Today it draws the chapter paint of the look (the preset or predefined set); the
 /// per-part armour, colours, badges and lens are the appearance renderer's (T6) and plug in where <see cref="PreviewAssets.Marine"/> is called. Mouse drag
-/// rotates, the wheel zooms, Left/Right/Up/Down do the same from the keyboard, Home resets; the right stick rotates. "Reduce motion" cuts the camera moves and the spin.
+/// rotates, the wheel zooms, Left/Right/Up/Down do the same from the keyboard, Home resets; the right stick rotates. "Reduce motion" cuts the camera moves.
+/// <para>ui/customizer-ork (the owner's requests of 2026-10-29): every class stands in the bolt pistol's relaxed idle (<see cref="RigClipTable.PistolRelaxedIdle"/>;
+/// the weapons are held or stowed as before), the figure never turns by itself (the turntable's 18 degrees a second are gone: "spins automatically ... when
+/// choosing colors, which can be annoying"; only the player's drag, keys or stick turn it), and the Ork Boy is drawn on his own rig in his own idle with his
+/// shoota in hand (<see cref="PreviewAssets.TryBuildOrk"/>).</para>
 /// </summary>
 public sealed partial class PreviewStage : SubViewportContainer
 {
@@ -151,12 +236,21 @@ public sealed partial class PreviewStage : SubViewportContainer
     double _lastUserRotation = -10;
     double _time;
 
+    /// <summary>Seconds since the player last turned the figure (drag, keys, stick; test aid): nothing else turns it.</summary>
+    public double SinceUserTurn => _time - _lastUserRotation;
+
     /// <summary>Shown in the log and screenshot name: what the preview draws now.</summary>
     public string Description { get; private set; } = "";
     /// <summary>A note shown on the preview (what is not drawn yet).</summary>
     public string Caption { get; set; } = "";
     /// <summary>The preview has its assets and has drawn the subject.</summary>
-    public bool Loaded => _character is not null && !_dirty && (_subject?.Race != CustomizationCatalog.Chaos || _services.InMatch || _eye is { Settled: true });
+    public bool Loaded => _character is not null && !_dirty && !_orkWeaponsPending && (_subject?.Race != CustomizationCatalog.Chaos || _services.InMatch || _eye is { Settled: true });
+
+    /// <summary>The preview shows the Ork Boy (ui/customizer-ork; test aid).</summary>
+    public bool ShowsOrk => _subject?.IsOrk == true && _shownKey.StartsWith("ork|", StringComparison.Ordinal);
+
+    /// <summary>The figure's turn in degrees (test aid: it must stay put unless the player turns it).</summary>
+    public float Yaw => _yaw;
 
     public PreviewStage(CustomizerServices services)
     {
@@ -219,14 +313,25 @@ public sealed partial class PreviewStage : SubViewportContainer
     /// <summary><c>--preview-frame x,y,distance,azimuth,elevation</c> (test aid): every framing is this one (fractions of the marine's height).</summary>
     static readonly Framing? ForcedFraming = ParseForced();
 
-    /// <summary>The turn that makes the idle pose face the camera (the idle clips turn the body a little towards the aiming side); <c>--preview-base-yaw</c> overrides it (test aid).</summary>
-    static readonly float BaseYaw = ParseBaseYaw();
+    /// <summary>
+    /// The turn that makes the idle pose face the camera (the idle clips turn the body towards the aiming side): <see cref="PoseYaw"/> of the shown pose;
+    /// <c>--preview-base-yaw</c> overrides it (test aid).
+    /// </summary>
+    float BaseYaw => ForcedBaseYaw ?? _poseYaw;
+    static readonly float? ForcedBaseYaw = ParseBaseYaw();
+    float _poseYaw;
 
-    static float ParseBaseYaw()
+    /// <summary>
+    /// The bolt pistol's relaxed idle stands turned about 35 degrees to the marine's left (measured on screenshots, ui/customizer-ork; ours): the figure is turned back by that so the
+    /// full-body framing shows him from the front quarter as the old relaxed idle did. The Ork's idle needs none.
+    /// </summary>
+    public const float PistolIdleYaw = 35f;
+
+    static float? ParseBaseYaw()
     {
         var args = OS.GetCmdlineUserArgs();
         int at = Array.FindIndex(args, a => a == "--preview-base-yaw");
-        return at >= 0 && at + 1 < args.Length && float.TryParse(args[at + 1], System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0f;
+        return at >= 0 && at + 1 < args.Length && float.TryParse(args[at + 1], System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : null;
     }
 
     static Framing? ParseForced()
@@ -278,6 +383,7 @@ public sealed partial class PreviewStage : SubViewportContainer
         _time += delta;
         if (_services.Ready) Rebuild();
         else _status.Text = _services.Failed ? "The preview needs the game install: " + _services.Error : "Loading...";
+        if (_orkWeaponsPending && !_dirty) ConfigureOrkWeapons();
         UpdateRig((float)delta);
         UpdateCamera((float)delta);
         UpdateEyeGlow(delta);
@@ -317,8 +423,8 @@ public sealed partial class PreviewStage : SubViewportContainer
         var catalog = _services.Catalog!;
         var options = LoadoutRows.Options(catalog, s.Role, s.Race);
         if (options is null) { _status.Text = "No class data for this preview."; _dirty = false; return; }
-        if (!CreateModel(s, options)) return;   // not ready yet: the old model stays and "Loading" is shown; tried again next frame
-        ConfigureWeapons(options, s);
+        if (!(s.IsOrk ? CreateOrk(s, options) : CreateModel(s, options))) return;   // not ready yet: the old model stays and "Loading" is shown; tried again next frame
+        if (s.IsOrk) ConfigureOrkWeapons(); else ConfigureWeapons(options, s);
         _status.Visible = false;
         Description = $"{options.DisplayName} ({_shownKey})";
         _dirty = false;
@@ -349,20 +455,74 @@ public sealed partial class PreviewStage : SubViewportContainer
             _status.Visible = true;
             return false;
         }
-        ShowCharacter(model);
+        ShowCharacter(model, RigProfiles.Marine.Clips.PreviewIdleCandidates);
         _lens = resolved.Lens;
         _shownKey = key;
         return true;
     }
 
-    void ShowCharacter(MarineAssets assets)
+    /// <summary>
+    /// The Ork Boy (ui/customizer-ork): his look's model on his own rig (<see cref="PreviewAssets.TryBuildOrk"/>), in his own idle (<see cref="RigClipTable.OrkBoy"/>'s preview idle).
+    /// He has no armour, paint or lens. Returns false while the model is not ready (the previous one stays and "Loading" is shown).
+    /// </summary>
+    bool CreateOrk(PreviewSubject subject, ClassOptions options)
+    {
+        int look = OrkLoadout.PreviewLook(subject.OrkLook);
+        string key = "ork|" + look;
+        if (key == _shownKey && _character is not null) return true;
+        var model = _services.Previews.TryBuildOrk(look);
+        if (model is null)
+        {
+            _status.Text = _services.Previews.OrkError is { } error ? "The Ork Boy cannot be drawn: " + error : $"Loading {options.DisplayName}...";
+            _status.SetAnchorsPreset(_character is null ? LayoutPreset.Center : LayoutPreset.CenterTop);
+            _status.Visible = true;
+            if (_services.Previews.OrkError is not null) _dirty = false;
+            return false;
+        }
+        ShowCharacter(model, RigProfiles.OrkBoy.Clips.PreviewIdleCandidates);
+        _lens = null;
+        _shownKey = key;
+        return true;
+    }
+
+    // The Ork's weapons wait for their catalogue (read on a worker): tried each frame until they are on.
+    bool _orkWeaponsPending;
+
+    /// <summary>The Ork's shoota in hand, the slugga and choppa stowed (his idle is the two-handed gun's), from <see cref="PreviewAssets.OrkWeapons"/> once they are read.</summary>
+    void ConfigureOrkWeapons()
+    {
+        _orkWeaponsPending = !_services.Previews.OrkWeaponsFailed;   // when they cannot be read the Ork stands without them
+        if (_character?.Skeleton is null || _services.Previews.OrkWeapons() is not { } weapons) return;
+        _orkWeaponsPending = false;
+        _rig ??= _character.Weapons ??= new WeaponRig(_character.Skeleton, weapons);
+        if (_rig.Faulted) return;
+        try
+        {
+            string key = "ork|" + OrkWeaponMounts.Shoota;
+            if (key == _weaponKey) return;
+            _weaponKey = key;
+            _rig.Configure((-1, 0, 0, OrkWeaponMounts.Choppa, null), OrkWeaponMounts.Shoota, OrkWeaponMounts.Slugga, OrkWeaponMounts.Choppa, [], alwaysMelee: false);
+            _holdPistol = false;
+            _deployed = OrkWeaponMounts.Shoota;
+        }
+        catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
+        {
+            _rig.Fault();
+            lock (_services.Notes) _services.Notes.Add($"preview ork weapons: {ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    void ShowCharacter(MarineAssets assets, IReadOnlyList<string> idleCandidates)
     {
         if (_character is not null) { _turntable.RemoveChild(_character); _character.QueueFree(); }
         _rig = null;
         _deployed = null;
         _weaponKey = "";
+        _orkWeaponsPending = false;
         _height = MeasureHeight(assets);
-        string? idle = assets.FindAnimation(IdleCandidates, "Idle");
+        string? idle = assets.FindAnimation(idleCandidates, "Idle");
+        IdleClip = idle;
+        _poseYaw = idle == RigClipTable.PistolRelaxedIdle ? PistolIdleYaw : 0f;
         _character = new CharacterViewer(assets, idle, gameSpaceRoot: true) { Name = "Preview" };
         _turntable.AddChild(_character);
         _turntable.Rotation = new Vector3(0f, Mathf.DegToRad(_yaw + BaseYaw), 0f);
@@ -414,8 +574,8 @@ public sealed partial class PreviewStage : SubViewportContainer
         }
     }
 
-    // The plain idle first: the left and right idles turn the body towards a side (aiming stances), which is wrong for a front view.
-    static readonly string[] IdleCandidates = ["SM_NAV_IdleL_S_Relaxed_LE", "SM_NAV_Idle_S_01", "SM_NAV_IdleL_S_01", "SM_NAV_IdleR_S_01"];
+    /// <summary>The idle clip the shown character plays (test aid and log): the bolt pistol's relaxed idle for every marine class, the boy's own idle for the Ork.</summary>
+    public string? IdleClip { get; private set; }
 
     bool _holdPistol;
 
@@ -432,9 +592,7 @@ public sealed partial class PreviewStage : SubViewportContainer
 
     void UpdateCamera(float delta)
     {
-        // Turntable: only in a full-body framing, paused for a few seconds after the player turned the figure.
-        bool spin = _framing.Spin && !UiKit.ReduceMotion && _time - _lastUserRotation > 4.0 && _services.Ready;
-        if (spin) _yaw += 18f * delta;
+        // No turntable (ui/customizer-ork, the owner's request: the figure turning by itself while colours are chosen was annoying): it turns only when the player turns it.
         float stick = Input.GetJoyAxis(0, JoyAxis.RightX);
         if (Mathf.Abs(stick) > 0.25f && IsVisibleInTree()) { _yaw += stick * 120f * delta; _lastUserRotation = _time; }
         _turntable.Rotation = new Vector3(0f, Mathf.DegToRad(_yaw + BaseYaw), 0f);

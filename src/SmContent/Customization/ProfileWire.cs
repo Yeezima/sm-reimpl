@@ -61,6 +61,13 @@ public static class ProfileWire
     /// <summary>The index of the class of <paramref name="role"/> that plays for <paramref name="side"/>, or -1.</summary>
     public static int ClassIndex(SimConfig config, Team side, string role)
     {
+        // ui/customizer-ork: the Ork Boy has no side (he fights for either, World.AssignSide); his class is the configuration's Ork class whatever the side.
+        if (role.Equals(OrkClass.Role, StringComparison.OrdinalIgnoreCase))
+        {
+            for (int i = 0; i < config.Classes.Count; i++)
+                if (config.Classes[i].Race == SmSim.Race.Orks && string.Equals(config.Classes[i].Role, role, StringComparison.OrdinalIgnoreCase)) return i;
+            return -1;
+        }
         if (side == Team.None) return -1;
         for (int i = 0; i < config.Classes.Count; i++)
             if (config.Classes[i].Side == side && string.Equals(config.Classes[i].Role, role, StringComparison.OrdinalIgnoreCase)) return i;

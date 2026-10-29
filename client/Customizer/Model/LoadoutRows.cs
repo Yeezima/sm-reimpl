@@ -62,8 +62,9 @@ public static class LoadoutRows
 {
     public static readonly string[] SlotKeys = ["primary", "pistol", "melee", "equipment"];
 
-    /// <summary>The class options of a role on the side shown (the item names carry that side's prefix).</summary>
-    public static ClassOptions? Options(CustomizationCatalog catalog, string role, string race) => catalog.Perks.ForRole(role, race);
+    /// <summary>The class options of a role on the side shown (the item names carry that side's prefix). The Ork Boy's are the same on every side (<see cref="OrkLoadout.Options"/>).</summary>
+    public static ClassOptions? Options(CustomizationCatalog catalog, string role, string race) =>
+        OrkLoadout.IsOrk(role) ? OrkLoadout.Options(catalog) : catalog.Perks.ForRole(role, race);
 
     /// <summary>The item in effect for a slot: the custom class's choice (neutral name), else the class default.</summary>
     public static LoadoutItem? Effective(CustomizationCatalog catalog, ClassOptions options, string slot, CustomClass? custom)
@@ -176,7 +177,7 @@ public static class LoadoutRows
         if (Options(catalog, custom.Role, race) is not { } options) return custom.Role;
         var parts = new List<string> { options.DisplayName };
         foreach (var key in new[] { "primary", "pistol", "melee", "equipment" })
-            if (options.For(key).Selectable && Effective(catalog, options, key, custom) is { } item) parts.Add(key == "equipment" ? EquipmentTitle(item) : item.DisplayName);
+            if ((options.For(key).Selectable || OrkLoadout.IsOrk(custom.Role)) && Effective(catalog, options, key, custom) is { } item) parts.Add(key == "equipment" ? EquipmentTitle(item) : item.DisplayName);   // the Ork's fixed gear is all he has: named too
         var perks = new[] { custom.Perk(0) ?? options.DefaultPerk?.Name, custom.Perk(1) }.OfType<string>()
             .Select(n => catalog.Perks.Perk(n)?.DisplayName ?? n).ToList();
         if (perks.Count > 0) parts.Add(string.Join(", ", perks));

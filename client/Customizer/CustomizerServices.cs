@@ -90,7 +90,9 @@ public sealed class CustomizerServices
             var notes = new List<string>();
             var paint = MarineAssets.Schemes(GameDir, notes);
             var catalog = CustomizationCatalog.Load(GameDir, notes, paint);
-            var tuning = GameplayTuning.Load(GameDir);
+            // ui/customizer-ork: a build with added content reads the Ork Boy too (appended as the last class, so the six classes' indices and values are the
+            // same), so the creator and a Join can name his class; the content profile decides whether he is offered (ContentGate, JoinPlan.Build).
+            var tuning = ContentExtras.Compiled ? GameplayTuning.LoadForMatch(GameDir, ContentExtras.Orks) : GameplayTuning.Load(GameDir);
             var session = ProfileSession.Open(catalog, Store);
             lock (Notes) { Notes.AddRange(notes); Notes.AddRange(tuning.Notes); }
             PerkActivities = PerkStatuses.Of(tuning.Config);
@@ -119,20 +121,30 @@ public sealed class CustomizerServices
     }
 
     /// <summary>
-    /// The factions the faction step offers in this profile: the races <see cref="ContentGate.Factions"/> allows that the catalogue has (the Space Marines and Chaos;
-    /// the Orks join them with the faction step, O9, and only with the Orks flag), as (race name, label).
+    /// The factions the faction step offers in this profile: the races <see cref="ContentGate.Factions"/> allows (the Space Marines and Chaos, which the catalogue has;
+    /// the Orks only with the Orks flag, ui/customizer-ork, when this run has the Ork Boy's class), as (race name, label).
     /// </summary>
     public IReadOnlyList<(string Race, string Label)> Factions()
     {
         var list = new List<(string, string)>();
         foreach (var race in ContentGate.Factions(Content))
         {
-            // The Orks have no catalogue race to edit until the faction step (O9) adds one; then they appear here, and only with the Orks flag.
-            if (ProfileWire.RaceName(race) is not { } name || Catalog?.Race(name) is null) continue;
+            if (ProfileWire.RaceName(race) is not { } name) continue;
+            // The Ork has no catalogue race (no armour to edit): he is offered when the configuration has his class (a build with added content).
+            if (race == Race.Orks ? !HasOrkClass : Catalog?.Race(name) is null) continue;
             list.Add((name, race switch { Race.Chaos => "Chaos", Race.Orks => "Orks", _ => "Space Marines" }));
         }
         return list;
     }
+
+    /// <summary>The configuration this run read has the Ork Boy's class (a build with added content whose Ork read worked).</summary>
+    public bool HasOrkClass => Config?.Classes.Any(c => c.Race == Race.Orks) == true;
+
+    /// <summary>The Orks are offered now: the profile has them (<see cref="ContentGate.OffersOrks"/>) and the configuration has the Ork Boy.</summary>
+    public bool OffersOrks => ContentGate.OffersOrks(Content) && HasOrkClass;
+
+    /// <summary>The class roles the screens offer: the catalogue's three, then the Ork Boy's when <see cref="OffersOrks"/>.</summary>
+    public IReadOnlyList<string> Roles() => Catalog is not { } catalog ? [] : OffersOrks ? OrkLoadout.Roles(catalog, Content) : ProfileStore.Roles(catalog);
 
     /// <summary>The player's own emblem bytes by hash (the join sends them to the server on request).</summary>
     public byte[]? EmblemBytes(EmblemHash hash) => Store.LoadEmblem(hash);

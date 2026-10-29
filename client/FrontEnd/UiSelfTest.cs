@@ -289,6 +289,8 @@ public sealed partial class UiSelfTest : Node
         await MouseChecks();
         await DefaultsChecks();
         await ContentChecks();
+        await PreviewPoseChecks();
+        await OrkChecks();
         await HostChecks();
         await FitChecks();
     }
@@ -432,6 +434,15 @@ public sealed partial class UiSelfTest : Node
                 creator.OpenSelection(Selection.CustomSlot(10));
                 await Frames(4);
                 CheckFits($"fit {at}: class creator", creator, view);
+                if (_services.OffersOrks)
+                {
+                    // ui/customizer-ork: the Ork Boy's creator (four class tabs, the Orks faction, his fifth step LOOK).
+                    creator.OpenSelection(Selection.DefaultFor(OrkLoadout.Role));
+                    creator.OpenStep("LOOK");
+                    await Frames(4);
+                    CheckFits($"fit {at}: class creator with the Ork Boy's LOOK step", creator, view);
+                    creator.OpenSelection(Selection.CustomSlot(10));
+                }
                 creator.Banner = "Applies when you respawn - RESPAWN IN 4";
                 creator.Deploy = _ => { };
                 creator.Leave = () => { };

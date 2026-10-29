@@ -432,6 +432,14 @@ public sealed partial class FrontEndView : Control
     {
         if (!_built) return;
         var open = _creator!.Open;
+        if (_creator.IsOrkOpen)
+        {
+            // The Ork Boy has no armour or colours (ui/customizer-ork): his look choice, the creator's LOOK step, instead of the appearance editor.
+            _joinScreen!.Visible = false; _appearance!.Visible = false; _creator.Visible = true;
+            _creator.OpenStep("LOOK");
+            _creator.FocusList();
+            return;
+        }
         int slot = open.Kind == SelectionKind.Custom ? open.Slot : 0;
         if (_services.Session!.Working.ClassAt(slot) is null)
         {

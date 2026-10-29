@@ -221,11 +221,16 @@ public sealed record RigClipTable
 
     static readonly string[] Dirs8 = ["F", "FR", "R", "BR", "B", "BL", "L", "FL"];
 
+    /// <summary>The bolt pistol's relaxed idle on the marine rig (<c>SM_Pistol_NAV</c> "Idle Relaxed"): the customizer previews' pose for every class (ui/customizer-ork).</summary>
+    public const string PistolRelaxedIdle = "SM_NAV_IdleL_CS_01";
+
     /// <summary>The marine's table: today's client constants.</summary>
     public static readonly RigClipTable Marine = new()
     {
         IdleCandidates = ["SM_NAV_IdleL_S_01", "SM_NAV_Idle_S_01", "SM_NAV_IdleR_S_01"],
-        PreviewIdleCandidates = ["SM_NAV_IdleL_S_Relaxed_LE", "SM_NAV_Idle_S_01", "SM_NAV_IdleL_S_01", "SM_NAV_IdleR_S_01"],
+        // ui/customizer-ork (the owner's request of 2026-10-29: "use the bp idle stance as the pose for all classes when customizing"): the bolt pistol's relaxed idle,
+        // the clip SM_Pistol_NAV "Idle Relaxed" binds (SprintTransitions.PistolRelaxedIdle; pinned by PreviewPoseInstallPinTests), first for every class; the old preview idles follow.
+        PreviewIdleCandidates = [PistolRelaxedIdle, "SM_NAV_IdleL_S_Relaxed_LE", "SM_NAV_Idle_S_01", "SM_NAV_IdleL_S_01", "SM_NAV_IdleR_S_01"],
         DefaultAnimation = "SM_NAV_Run_F_01",
         TossClip = "SM_RNG_GrenadeToss_01",
         RecoilClip = "SM_RNG_FireIdle_S_01",

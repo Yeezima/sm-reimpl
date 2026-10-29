@@ -340,7 +340,8 @@ public partial class NetworkView
         if (!LoadoutEdits.IsValid(profile, selection)) { message = selection.Kind == SmContent.Customization.SelectionKind.Custom ? $"Slot {selection.Slot} is empty. Fill it first." : "That loadout is not available."; return false; }
         var team = _client.Predicted.Team;
         var plan = JoinPlan.Build(profile, selection, _config, catalog, team == Team.Chaos ? SideChoice.Chaos : SideChoice.SpaceMarines);
-        _lastSetupSequence = _client.ChangeSetup(plan.Choice, plan.SpaceMarineLook, plan.ChaosLook);
+        _lastSetupSequence = _client.ChangeSetup(plan.Choice, plan.SpaceMarineLook, plan.ChaosLook, plan.OrkLook);   // ui/customizer-ork: the profile's Ork look rides along
+        _ownOrkLook = plan.OrkLook;
         _setupSent = true; _setupSentAt = _connectedFor; _ackShownUntil = double.MaxValue;
         _sentClass = plan.Choice.Class; _ackLogged = 0;
         _ownLooks.Request(plan.SpaceMarineLook, plan.ChaosLook);
