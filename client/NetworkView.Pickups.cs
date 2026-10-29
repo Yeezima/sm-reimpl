@@ -37,6 +37,8 @@ public partial class NetworkView
     Task<(Dictionary<string, CSystem> Systems, Dictionary<string, byte[]> Decals, List<string> Failures)>? _pickupFxLoad;
     bool _pickupFxReady;
     Label? _pickupPrompt;
+    /// <summary>ui/hud-fidelity: the prompt this frame (empty: none), for the HUD.</summary>
+    string _hudPrompt = "";
     string _pickupNote = "not loaded";
     int _pickupsSeen, _pickupsCollectedSeen, _pickupsExpiredSeen, _ownCollections;
     double _pickupLogAt;
@@ -223,9 +225,10 @@ public partial class NetworkView
                 }
             }
         }
+        _hudPrompt = prompt ?? "";   // ui/hud-fidelity: the HUD draws the prompt from the movie (Hud.DrawMoviePrompt); the label only without it
         if (_pickupPrompt is not null)
         {
-            _pickupPrompt.Visible = prompt is not null;
+            _pickupPrompt.Visible = prompt is not null && _hudView is not { DrawsPrompt: true };
             if (prompt is not null) _pickupPrompt.Text = $"[E]  {prompt}";
         }
         if (_bot && _connectedFor - _pickupLogAt >= 10.0)

@@ -511,6 +511,9 @@ public sealed partial class UiSelfTest : Node
                     : Encloses(view, scroll.GetGlobalRect()) && rect.Position.X >= scroll.GlobalPosition.X - 0.5f && rect.End.X <= scroll.GetGlobalRect().End.X + 0.5f;
                 ok &= rect.Size.X > 0f && rect.Size.Y > 0f;   // a control squeezed to nothing cannot be clicked
                 if (!ok) problems.Add($"{c.GetType().Name} \"{(c as Button)?.Text.Replace('\n', ' ') ?? c.Name}\" at {rect.Position.X:F0},{rect.Position.Y:F0} size {rect.Size.X:F0}x{rect.Size.Y:F0}");
+                // The class creator's role tabs (one line each, clipped) must show their whole label (ui/hud-fidelity review: "Tactical Marine / Chaos Space Marine" was cut off).
+                else if (c is Button { ClipText: true } clipped && clipped.Name.ToString().StartsWith("ClassTab", StringComparison.Ordinal) && UiKit.TextNeed(clipped) > rect.Size.X + 1f)
+                    problems.Add($"Button \"{clipped.Text.Replace('\n', ' ')}\" cut off: needs {UiKit.TextNeed(clipped):F0} px, has {rect.Size.X:F0}");
             }
             foreach (var child in node.GetChildren()) Walk(child);
         }

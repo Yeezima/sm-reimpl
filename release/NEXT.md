@@ -19,3 +19,9 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Jump-pack thrusters: the flames start right at the nozzles and the trails are much shorter, closer to the original game.
 - New default lighting: the "remaster" look (cleaner air, higher sun, more contrast). The old look is still there with --look current.
 - Manufactorum has no more god rays (light shafts).
+- Crosshairs are now the original game's own reticles for every weapon: the thin ring with four ticks for bolters and bolt pistols, the plasma, melta, heavy bolter and grenade launcher shapes. The ticks open while you move or keep firing and close when you aim, and the reticle turns orange over an enemy.
+- The stalker bolter and the lascannon show no crosshair until you look through the scope, as in the original.
+- The hit marker is the original's four gold ticks.
+- The kill feed, the "+50 Kill" reward line, the team score panel, the weapon box, the Seize Ground point markers and the "Pick up Ammo" prompt now use the original game's HUD pictures and layout. The weapon box's heat bar now empties as the weapon heats up, like the original.
+- Trial: the camera trails your aim very slightly (about 50 ms), so turning feels less stiff. Your shots still go exactly where the crosshair is, and the crosshair may drift a little off the centre during fast turns. Tell us whether you like it.
+- The class creator's tabs now show the whole class name (for example "Tactical Marine / Chaos Space Marine") instead of cutting it off.

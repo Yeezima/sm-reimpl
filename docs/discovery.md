@@ -2110,6 +2110,41 @@ place each shape's bitmap on its atlas); the ActionScript was read only for its 
   unconfirmed); the values of the "Player Decorators" host option; the distance rule, the occlusion test and the enemy condition of the player decorators
   (executable code); the capture bar's art and colours (a runtime texture).
 
+## HUD movies read in full (ui/hud-fidelity, 2026-10-29)
+
+`SmFormats.Gfx.GfxMovie` now also reads text fields (DefineEditText: rectangle, font id and height, colour, alignment, leading, initial text), font names
+(DefineFont2/3 and ImportAssets: the HUD movies import `$Bourgeois` and `$BourgeoisBoldAlt`) and which tag defined each character id; `GfxRaster.DrawMasked`
+applies clip layers and draws images placed directly as characters (tag 1009 ids on a display list); `GfxRaster.Bounds` gives a frame's drawn box.
+`smtool gfx-dump <game-dir|auto> [--movie Hud|HudText|HudEventLog|Decorator] [--package common] [--grep word] [--frames sprite] [--path a/b --scale s --frame n [--top-frame] --out dir]`
+prints every sprite's frames, labels and named placements (text fields with their font and size) and renders a placement into PNG files outside the repository.
+
+- **`Hud.gfx`** (1280 x 720): the root places `Reticule_Ingame_0_mc` (639.2, 356.85: every reticle inside it is centred 0.8 to 1.0, 3.1 to 3.5 px below and right of its
+  origin, i.e. on the stage centre) holding one sprite per weapon family and state (`boltpistol_mc` / `_active_mc`, `idle_mc` / `enemy_mc` for the bolter,
+  `heavybidle_mc` / `heavybtarget_mc`, `plasmaidle_mc` / `plasmatarget_mc`, `plasmapistol_mc`, `plasma_cannon_mc`, `PlasmaCharge_mc`, `stalker_idle_mc` / `_active_mc`
+  and the two `_zoom_mc` scopes, `grenade_neutral_mc` / `_active_mc` with `grenade_rounds_mc`, `melta_mc`, `storm_bolter_mc`, `autocannon_mc`, `lascannon_scope_mc`,
+  `reticule_friendly_mc`, `default_mc`, `hit_mc`). The bolt pistol's, bolter's and storm bolter's rings hold a nested `crosshair` clip of four ticks that walk outward
+  over 25 frames (labels `min_aim` 0, `min_normal` 2 / 1, `max_normal` 24 / 14, `max_aim` 24 on the bolter); the ring itself is a separate shape at 35 % alpha. The
+  heavy bolter's and plasma reticles carry `alt_fire_fade` / `alt_fire` / `normal_fade` clips. `hit_mc` is one shape faded over 10 frames.
+  `weaponInfo_Slide` (1054.45, 522; 12-frame slide-in) holds the weapon box: `frame_gren_mc` / `frame_nogren_mc`, `loadout_mc` (the grenade column `grenade00` .. `04`
+  with `blind_grenade_mc` / `stimpack_mc` / `grenade_mc` each, the empty `gun_mc` holder the game loads the weapon picture into), `ammo_mc` (`ammo_count_mc`,
+  `ammo_count_bolt_pistol_mc`, `_16_mc`, `ammo_count_heavy_mc`: masked tick strips over 100 frames, frame 0 full; the `ammo_txt` count), and one display per family
+  (`ammo_plasmagun_mc` with a purple Chaos twin, `ammo_lascannon_mc` tinted red-orange, `ammo_meltagun_mc`, `ammo_stormbolter_mc`, `ammo_autocannon_mc`, `Ammo_Stalker_mc`
+  with ten rounds, `loadout_grenaderounddisplay_mc`, `infinity_mc`). `score_mc` (549, 153) holds four reward lines (`xp_event_1_mc` .. `4_mc`, 32.65 px apart: the
+  experience, four reward icons from a 30-frame sprite labelled `mp_bonus_*` / `player_track_*`, the name; their clips stamp them in from 27 x and white).
+  `unifiedhealth_mc` (463.05, 65.75 at 0.9) holds the armour and health bars as 110- and 100-frame masked fills (frame 0 full) and the Iron Halo's flash; drawn from the
+  movie its armour lines are gold, where the footage shows them cyan. `context_button_mc` places two imported button symbols (not in the movie).
+- **`HudText.gfx`**: `mp_score_mc` (20.65, 538.95) is the versus score panel (text fields `marine_kills` 20 px gold 255, 204, 0, `chaos_kills` red 255, 51, 0,
+  `kill_number` 35 px, `mp_timer_txt` 24 px gold; bars `sm_bar_mc` / `chaos_bar_mc` 105-frame masked fills; `objective_marker1` .. `4` with the 17 point-state labels;
+  side emblems `team_1` (hidden) / `team_2` that place whole images); `Prompt_mc` (385.25, 604.1) the interaction prompt (a band, `Objective_txt` 24 px centred, an icon
+  clip with `equip_ammo` / `equip_grenades` labels, an imported button; it slides up 40 px and fades in over 19 frames); `countdown_mc`, `winlose_mc`, `Event_mc`.
+- **`HudEventLog.gfx`**: three entries (`logentry0_mc` .. `2_mc` at 849.5, 61.25 / 98.7 / 136.2, 0.864): `killer_name_txt` right-aligned 18 px, `weapon_icon_mc`
+  (added), `victim_name_txt` left-aligned, `message_txt` 22 px centred.
+- **`Decorator.gfx`**: the point decorator places `anim_mc` (27 labelled frames: the grey, gold or red pointer triangle, the gold or red eagle or Chaos star, campaign and
+  CTF states; added, at 0.5), `number_mc` (`number_txt` black 35 px) and the capture bars; drawn 1:1 it is 40 stage px wide, the footage's size.
+- **Reference footage** (a 640 x 360 copy of a 2011 match video; frames in the private cache only): the reticles' ring radius (36 px of 1280) and the hit marker's
+  place match the movie; the kill feed's newest line enters at the top and lines live about 4 s; the "+50 [skull] Kill" line, the score panel, the weapon box
+  (1.12 times the movie's, a perspective the movie does not have) and the prompt were compared side by side (spec "HUD from the movies (ui/hud-fidelity)").
+
 ## Ork sounds and the menu and Seize Ground events (Ork O8, fidelity gap 9; 2026-10-28)
 
 Read-only investigation of the install (app 55150); nothing stored in the repository. `smtool ork-sounds <game-dir|auto>` prints the Ork half.

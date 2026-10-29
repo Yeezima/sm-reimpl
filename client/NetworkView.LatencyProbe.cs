@@ -256,6 +256,7 @@ public partial class NetworkView
         }
         if (_probeStaleDeg.Count > 0)
             GD.Print($"LATENCY while panning: converged shot against the camera of the same frame: mean {_probeStaleDeg.Average():F2} max {_probeStaleDeg.Max():F2} deg over {_probeStaleDeg.Count} samples");
+        if (LagProbeSummary() is { } lag) GD.Print(lag);   // ui/hud-fidelity camera lag (temporary)
         if (_probeClipFrames > 0)
             GD.Print($"LATENCY own attack clip: drawn time stood still in {_probeClipStill} of {_probeClipFrames} frames ({100.0 * _probeClipStill / _probeClipFrames:F0}%)");
 
