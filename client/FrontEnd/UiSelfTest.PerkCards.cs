@@ -17,11 +17,27 @@ public sealed partial class UiSelfTest
     readonly HashSet<string> _perkCardSizesDone = new();
     bool _perkCardShotTaken;
 
+    /// <summary>The <c>--perk-card-shot</c> file, or null; a path inside the repository or the game install (or not a .png) is refused with a message.</summary>
     static string? PerkCardShot()
     {
         var args = OS.GetCmdlineUserArgs();
         int i = Array.IndexOf(args, "--perk-card-shot");
-        return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+        if (i < 0 || i + 1 >= args.Length) return null;
+        string path = System.IO.Path.GetFullPath(args[i + 1]);
+        static bool Inside(string file, string? root)
+        {
+            if (string.IsNullOrEmpty(root)) return false;
+            string r = System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(root)) + System.IO.Path.DirectorySeparatorChar;
+            return file.StartsWith(r, StringComparison.OrdinalIgnoreCase);
+        }
+        string? repo = null;
+        foreach (var start in new[] { System.Environment.CurrentDirectory, System.AppContext.BaseDirectory })
+            for (var d = new System.IO.DirectoryInfo(start); d is not null && repo is null; d = d.Parent)
+                if (System.IO.File.Exists(System.IO.Path.Combine(d.FullName, "SmReimpl.slnx"))) repo = d.FullName;
+        string? install = GameInstall.TryLocate()?.Dir;
+        string? why = !path.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? "it is not a .png file" : Inside(path, install) ? "it is inside the game install" : Inside(path, repo) ? "it is inside the repository" : null;
+        if (why is not null) { GD.PrintErr($"--perk-card-shot refused ({why}): {path}"); return null; }
+        return path;
     }
 
     /// <summary>
@@ -60,7 +76,7 @@ public sealed partial class UiSelfTest
                         var fit = creator.CardFit;
                         n++;
                         if (fit.Panel.Size.Y > tallest) { tallest = fit.Panel.Size.Y; tallestShow = show; }
-                        if (PerkCardShot() is { } shot && title == "Sure Strike" && !_perkCardShotTaken)
+                        if (title == "Sure Strike" && !_perkCardShotTaken && PerkCardShot() is { } shot)
                         {
                             // --perk-card-shot <file.png> (windowed run, screenshot aid): the creator with the longest card, once.
                             _perkCardShotTaken = true;

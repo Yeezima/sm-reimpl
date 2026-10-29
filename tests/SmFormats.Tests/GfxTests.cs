@@ -386,4 +386,26 @@ public class GfxTests
         Assert.False(broken.Consistent);
         Assert.Same(morph.Start, broken.At(30000));
     }
+
+    [Fact]
+    public void AMorphTagTheReaderCannotTakeIsAbsentAndNeverStopsTheMovie()
+    {
+        static byte[] Body(byte[] tag) => tag[6..];
+        var good = Body(MorphRect(1, 10, 30));
+        // 1. Truncated: the tag's own length is short (the style lists and edges are cut off).
+        var truncated = Tag(84, good[..50]);
+        // 2. An unknown fill style type (the fill count byte is at 43, its type at 44).
+        var unknownFill = (byte[])good.Clone(); unknownFill[44] = 0x7f;
+        // 3. A style change inside the edge records.
+        var styleChange = (byte[])good.Clone();
+        Assert.Equal(0x16, styleChange[55]);          // 0 + flags 00101 (MoveTo, FillStyle1) + the first bit of the move
+        styleChange[55] = 0x46;                       // 0 + flags 10001 (MoveTo, new styles): not allowed in a morph's edges
+        foreach (var bad in new[] { truncated, Tag(84, unknownFill), Tag(84, styleChange) })
+        {
+            var movie = GfxMovie.Parse(Movie(bad, Shape(5, 20 * 20, 10 * 20, Red), Sprite(2, Place(1, 5, Matrix(1, 0, 0))), Place(1, 2, Matrix(1, 0, 0), "box_mc")));
+            Assert.False(movie.Morphs.ContainsKey(1));
+            Assert.NotNull(movie.FindNamedPlacement("box_mc"));   // the rest of the movie is there
+            Assert.True(movie.Shapes.ContainsKey(5));
+        }
+    }
 }

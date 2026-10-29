@@ -196,10 +196,11 @@ public sealed partial class Hud : Control
         _hitAt = _time;
         _hitKill = kill;
         _hitHead = head && !kill;
-        if (kill && head) _headKillAt = _time;   // ui/hud-2: a killing head hit, for the headshot reward line
+        if (kill && head) { _headKillAt = _time; _headKillAimed = Data.AimedName; }   // ui/hud-2: a killing head hit and who was under the crosshair, for the headshot reward line
     }
 
     double _headKillAt = double.NegativeInfinity;
+    string _headKillAimed = "";
 
     /// <summary>Opens the weapon-switch cards (the HUD also opens them itself when the weapon in hand changes).</summary>
     public void ShowSwitchPopup() => _popupAt = _time;
@@ -222,7 +223,10 @@ public sealed partial class Hud : Control
         if (text.StartsWith(kill, StringComparison.Ordinal) || text == "+ Kill")
         {
             string victim = text.Length > kill.Length ? text[kill.Length..] : "";
-            foreach (var earned in _rewards.OwnKill(victim, _time, _time - _headKillAt <= 1.0, Data.Alive))
+            // A headshot belongs to the one the head hit was on: the player under the crosshair then (when the HUD knew one), and the hit counts once.
+            bool head = _time - _headKillAt <= 1.0 && (_headKillAimed.Length == 0 || victim.Length == 0 || _headKillAimed.Contains(victim, StringComparison.Ordinal));
+            if (head) _headKillAt = double.NegativeInfinity;
+            foreach (var earned in _rewards.OwnKill(victim, _time, head, Data.Alive))
                 _events.Add(new EventLine(earned.Spec == RewardTable.Kill ? text : "+ " + earned.Spec.Name, _time, earned.Spec));
         }
         else _events.Add(new EventLine(text, _time));

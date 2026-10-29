@@ -199,7 +199,14 @@ public sealed class GfxMovie
                 case 28: { int d = U16(); frame.Display.Remove(d); break; }
                 case 5: { U16(); int d = U16(); frame.Display.Remove(d); break; }
                 case 2 or 22 or 32 or 83: Shape(code, body + len); break;
-                case 46 or 84: MorphShape(code); break;
+                case 46 or 84:
+                    {
+                        // A morph we cannot read is only absent (the tag is skipped by its length, as before morphs were read): it never stops the movie loading.
+                        int morphId = len >= 2 ? BitConverter.ToUInt16(_d, body) : -1;
+                        try { MorphShape(code, body + len); }
+                        catch (Exception e) when (e is IndexOutOfRangeException or ArgumentException or OverflowException or InvalidOperationException or InvalidDataException) { Morphs.Remove(morphId); }
+                        break;
+                    }
                 case 39:
                     {
                         if (len < 4) throw new InvalidDataException("short sprite tag");
@@ -452,7 +459,7 @@ public sealed class GfxMovie
     /// DefineMorphShape (46) and DefineMorphShape2 (84): the bounds, the morph fill and line styles, then the start edges and the end edges as two shapes (the end shape's segments take the
     /// start segment's styles: the end edges only move points). The two halves are paired by <see cref="GfxMorph"/>.
     /// </summary>
-    void MorphShape(int code)
+    void MorphShape(int code, int tagEnd)
     {
         int id = U16();
         for (int r = 0; r < (code == 84 ? 4 : 2); r++) { int nb = (int)UBits(5); SBits(nb); SBits(nb); SBits(nb); SBits(nb); Align(); }
@@ -485,6 +492,7 @@ public sealed class GfxMovie
         ReadEdgeRecords(start, null);
         Align();
         ReadEdgeRecords(end, start);
+        if ((_bit + 7) / 8 > tagEnd) throw new InvalidDataException("a morph shape runs past its tag");
         Morphs[id] = new GfxMorph(id, start, end);
     }
 
