@@ -47,7 +47,13 @@ static class GraphWalk
 /// whose later bones read as 1) while the navigation graph keeps the legs. <paramref name="SwapAt"/>: seconds into the clip at which the new weapon is in the hand (the sequencer's
 /// <c>Weapons - Ranged Weapon</c> / <c>Weapons - Melee and Ranged</c> modifier tag starts); <paramref name="BranchIn"/>: the <c>BranchIn</c> tag (seconds; where the next action may blend in).
 /// </summary>
-public sealed record SwitchClip(string Clip, float Length, IReadOnlyDictionary<string, float> Mask, float SwapAt, float BranchIn);
+/// <param name="Length">Seconds of playback (the animation's duration over <paramref name="Speed"/>); <paramref name="SwapAt"/> and <paramref name="BranchIn"/> are in the same seconds.</param>
+/// <param name="Speed">The sequencer's playback speed (fix/stow-right review: 1 for both swap clips on the install, printed at the client's start; a sample time in the animation is playback seconds x speed).</param>
+public sealed record SwitchClip(string Clip, float Length, IReadOnlyDictionary<string, float> Mask, float SwapAt, float BranchIn, float Speed = 1f)
+{
+    /// <summary>The animation's own time at <paramref name="playbackSeconds"/> into the clip.</summary>
+    public float AnimationTime(float playbackSeconds) => playbackSeconds * (Speed > 0f && float.IsFinite(Speed) ? Speed : 1f);
+}
 
 /// <summary>
 /// The weapon switches of <c>SM_Base_MP</c>: <see cref="ToRifle"/> (state "Bolter Weapon Switch" and the other rifle-class behaviours': <c>SM_Swap_Rifle_to_Rifle_01</c>, 0.467 s, the model swaps at
@@ -84,7 +90,7 @@ public sealed record SwitchAnimations(SwitchClip? ToRifle, SwitchClip? ToPistol,
                 // naming the ranged weapon that does not start at 0.
                 float swap = GraphWalk.Tag(seq, "Modifier", "Ranged", 0.01f) is { } tag ? tag.Start : 0.5f;
                 float branchIn = GraphWalk.Tag(seq, "BranchIn") is { } b ? b.Start : 1f;
-                return new SwitchClip(clip, len, mask, Math.Clamp(swap, 0f, 1f) * len, Math.Clamp(branchIn, 0f, 1f) * len);
+                return new SwitchClip(clip, len, mask, Math.Clamp(swap, 0f, 1f) * len, Math.Clamp(branchIn, 0f, 1f) * len, GraphWalk.Speed(seq));
             }
         }
         notes.Add($"{Graph}/{stateName}: no masked swap clip");
@@ -93,8 +99,8 @@ public sealed record SwitchAnimations(SwitchClip? ToRifle, SwitchClip? ToPistol,
 }
 
 /// <summary>
-/// One piece of a <see cref="SwitchPlan"/>: <paramref name="Clip"/> from <paramref name="From"/> to <paramref name="To"/> seconds of clip time (<paramref name="From"/> &gt; <paramref name="To"/>: played
-/// backwards) over the fractions <paramref name="Start"/> to <paramref name="End"/> of the switch time.
+/// One piece of a <see cref="SwitchPlan"/>: <paramref name="Clip"/> from <paramref name="From"/> to <paramref name="To"/> seconds of the animation's own time (<see cref="SwitchClip.AnimationTime"/>: the
+/// sequencer's speed applied; <paramref name="From"/> &gt; <paramref name="To"/>: played backwards) over the fractions <paramref name="Start"/> to <paramref name="End"/> of the switch time.
 /// </summary>
 public sealed record SwitchSegment(string Clip, float From, float To, float Start, float End, IReadOnlyDictionary<string, float> Mask)
 {
@@ -128,7 +134,7 @@ public sealed record SwitchPlan(IReadOnlyList<SwitchSegment> Segments, float Rel
     public static SwitchPlan Single(SwitchClip clip)
     {
         float swap = clip.Length > 0f ? Math.Clamp(clip.SwapAt / clip.Length, 0.05f, 0.95f) : 0.5f;
-        return new([new SwitchSegment(clip.Clip, 0f, clip.Length, 0f, 1f, clip.Mask)], swap, swap);
+        return new([new SwitchSegment(clip.Clip, 0f, clip.AnimationTime(clip.Length), 0f, 1f, clip.Mask)], swap, swap);
     }
 
     /// <summary>
@@ -152,8 +158,9 @@ public sealed record SwitchPlan(IReadOnlyList<SwitchSegment> Segments, float Rel
         if (total <= 1e-4f) return Single(draw);
         float split = stowSeconds / total;
         var segments = new List<SwitchSegment>(2);
-        if (stowSeconds > 0f) segments.Add(new SwitchSegment(stow.Clip, stow.Length, stow.SwapAt, 0f, split, stow.Mask));
-        if (drawSeconds > 0f) segments.Add(new SwitchSegment(draw.Clip, drawFrom, draw.Length, split, 1f, draw.Mask));
+        // The shares are in playback seconds; the pieces sample the animation's own time.
+        if (stowSeconds > 0f) segments.Add(new SwitchSegment(stow.Clip, stow.AnimationTime(stow.Length), stow.AnimationTime(stow.SwapAt), 0f, split, stow.Mask));
+        if (drawSeconds > 0f) segments.Add(new SwitchSegment(draw.Clip, draw.AnimationTime(drawFrom), draw.AnimationTime(draw.Length), split, 1f, draw.Mask));
         float take = split + (draw.SwapAt - drawFrom) / total;
         return new(segments, split, Math.Clamp(take, split, 1f));
     }

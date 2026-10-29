@@ -74,6 +74,21 @@ public class SwitchPlanTests
     }
 
     [Fact]
+    public void Pieces_sample_the_animations_own_time_when_a_sequencer_plays_at_another_speed()
+    {
+        // A rifle draw played at 2x: 0.467 s of playback over a 0.934 s animation, its tag at 0.2335 s of playback (0.467 s of animation).
+        var fastRifle = Rifle with { Speed = 2f };
+        var plan = SwitchPlan.For(new SwitchAnimations(fastRifle, Pistol, []), WeaponSlot.Ranged, WeaponSlot.Pistol)!;
+        Assert.Equal(0.934f, plan.Segments[0].From, 4);
+        Assert.Equal(0.467f, plan.Segments[0].To, 4);
+        var same = SwitchPlan.For(Both, WeaponSlot.Ranged, WeaponSlot.Pistol)!;
+        Assert.Equal(same.Release, plan.Release, 5);   // the shares stay in playback seconds
+        Assert.Equal(same.Take, plan.Take, 5);
+        Assert.Equal(fastRifle.AnimationTime(fastRifle.Length), SwitchPlan.Single(fastRifle).Segments[0].To, 5);
+        Assert.Equal(0.3f, (Rifle with { Speed = 0f }).AnimationTime(0.3f));   // a bad speed counts as 1
+    }
+
+    [Fact]
     public void The_old_rule_and_missing_clips_fall_back_to_one_clip_with_one_swap()
     {
         var old = SwitchPlan.For(Both, WeaponSlot.Ranged, WeaponSlot.Pistol, oldRule: true)!;

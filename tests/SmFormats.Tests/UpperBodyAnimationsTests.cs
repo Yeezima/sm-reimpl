@@ -88,6 +88,7 @@ public class UpperBodyAnimationsTests
         Assert.Equal(("SM_Swap_Rifle_to_Melee_01", 0.667f), (pistol.Clip, pistol.Length));
         Assert.Equal(0.6f * 0.667f, pistol.SwapAt, 1e-4f);    // "Weapons - Melee and Ranged" from 0.6
         Assert.Equal(0.4f * 0.667f, pistol.BranchIn, 1e-4f);
+        Assert.Equal((1f, 1f), (rifle.Speed, pistol.Speed));   // fix/stow-right: the sequencers' playback speed is carried (1 here and on the install; the client prints it)
     }
 
     [Fact]
