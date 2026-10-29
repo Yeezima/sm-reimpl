@@ -1,0 +1,104 @@
+name: Playtest bug
+description: Something is broken in the playtest build (crash, freeze, wrong behaviour, visual or sound glitch).
+title: "[Bug] "
+labels: ["playtest", "bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing. Before you file, check KNOWN-ISSUES.md and the "Deliberate changes" section of WHAT-TO-TEST.md in the tester kit.
+        If the game works but does not match Space Marine 1, use the "Playtest fidelity report" form instead.
+        Do not attach files from the game's install folder, and do not paste account names, passwords or tokens.
+  - type: input
+    id: version
+    attributes:
+      label: Build version
+      description: The text in VERSION.txt in your unzipped folder.
+      placeholder: "for example 0.1.0-alpha.3"
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Windows version
+      placeholder: "for example Windows 11 23H2"
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: Graphics card and driver version
+      placeholder: "for example NVIDIA RTX 3060, driver 560.94"
+    validations:
+      required: true
+  - type: dropdown
+    id: role
+    attributes:
+      label: Were you the client, the host, or both?
+      options:
+        - Client joining someone else's server
+        - Host (my PC ran the server)
+        - Both, on one PC
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of problem
+      options:
+        - Crash or freeze
+        - Cannot start or cannot join
+        - Gameplay behaves wrongly
+        - Visual glitch
+        - Sound glitch
+        - Network (lag, rubber-banding, disconnects)
+        - Customizer or menus
+        - Performance (low frame rate)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Describe what you saw. Be specific.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: What did you do just before it happened? Does it happen every time?
+      placeholder: |
+        1. Join a Seize Ground match as Assault
+        2. ...
+    validations:
+      required: true
+  - type: input
+    id: context
+    attributes:
+      label: Mode, class and weapon
+      description: Annihilation or Seize Ground; your class; the weapon in your hand.
+  - type: input
+    id: ping
+    attributes:
+      label: Your ping to the server, if you know it
+  - type: textarea
+    id: log
+    attributes:
+      label: Console log or screenshot
+      description: Paste the text from the client or server console window, or drag a log file or a screenshot here. A short video clip helps.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checked
+      options:
+        - label: I am on the newest build from the Releases page.
+        - label: I read KNOWN-ISSUES.md and this is not listed there.

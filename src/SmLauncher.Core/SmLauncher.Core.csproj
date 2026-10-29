@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The playtest launcher's engine-free logic (no UI, no Windows-only API): the release feed, the resumable download, the hash checks, the safe
+    extraction, the install layout with its state file and recovery, rollback and the carry-over of a tester's files. The WinForms app
+    (src/SmLauncher) is a thin shell over it; tests/SmLauncher.Tests checks it against fakes, never the real GitHub API.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsTrimmable>true</IsTrimmable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SmLauncher.Tests" />
+  </ItemGroup>
+
+</Project>

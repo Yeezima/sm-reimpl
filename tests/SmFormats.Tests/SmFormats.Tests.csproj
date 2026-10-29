@@ -1,0 +1,41 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="NVorbis" Version="0.10.5" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The data-research dump helpers (baf-dump, locale) are compiled into this test assembly; SmTool is an executable with top-level statements. -->
+    <Compile Include="..\..\src\SmTool\Dump\*.cs" Link="SmToolDump\%(Filename)%(Extension)" />
+    <!-- The refine-register generator (markdown tables of the spec to the human-playtest checklist). -->
+    <Compile Include="..\..\src\SmTool\RefineRegister.cs" Link="SmToolRefine\RefineRegister.cs" />
+    <!-- The release content guard (smtool scan-package; engine-free, tools/release/release.ps1). -->
+    <Compile Include="..\..\src\SmTool\PackageScanner.cs" Link="SmToolRelease\PackageScanner.cs" />
+    <Compile Include="..\..\src\SmTool\PackageScanCommand.cs" Link="SmToolRelease\PackageScanCommand.cs" />
+    <Compile Include="..\..\src\SmTool\TarPackage.cs" Link="SmToolRelease\TarPackage.cs" />
+    <Compile Include="..\..\src\SmTool\WhatsNew.cs" Link="SmToolRelease\WhatsNew.cs" />
+    <!-- The customizer's engine-free model (the client's Godot code cannot be referenced from a test project). -->
+    <Compile Include="..\..\client\Customizer\Model\*.cs" Link="CustomizerModel\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SmFormats\SmFormats.csproj" />
+    <ProjectReference Include="..\..\src\SmContent\SmContent.csproj" />
+  </ItemGroup>
+
+</Project>

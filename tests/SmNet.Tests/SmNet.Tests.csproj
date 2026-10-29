@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The networked view's engine-free look rules (customizer T7; the client's Godot code cannot be referenced from a test project). -->
+    <Compile Include="..\..\client\Looks\*.cs" Link="ClientLooks\%(Filename)%(Extension)" />
+    <!-- feel/bullets: the visible bullets' engine-free path rules. -->
+    <Compile Include="..\..\client\Bullets\*.cs" Link="ClientBullets\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SmServer\SmServer.csproj" />
+    <ProjectReference Include="..\..\src\SmNet\SmNet.csproj" />
+    <ProjectReference Include="..\..\src\SmSim\SmSim.csproj" />
+    <ProjectReference Include="..\..\src\SmContent\SmContent.csproj" />
+  </ItemGroup>
+
+</Project>

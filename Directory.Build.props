@@ -1,0 +1,35 @@
+<Project>
+  <!--
+    Added content (docs/added-content.md): every project builds its Extras/ folders and defines SM_EXTRAS unless SmExtras is false.
+      dotnet build -p:SmExtras=false   (faithful-build.cmd)   a build without any added content: Extras/** is not compiled,
+                                                              SM_EXTRAS is not defined, and only the faithful profile runs.
+    The Compile removal is in Directory.Build.targets: here, before the SDK's default Compile glob, it would remove nothing.
+    The owner's rule (2026-10-28): the added content stays separable from the faithful reproduction at any time.
+  -->
+  <!--
+    perf/pass-1: Godot's export builds the client with Configuration=ExportRelease and passes that configuration to the referenced projects (SmSim,
+    SmNet, SmContent, SmFormats). Microsoft.NET.Sdk optimises only a configuration named Release, so in the shipped game those four were compiled
+    without optimisations (DebuggableAttribute DisableOptimizations: the JIT never optimises them; checked on the e792504 playtest zip). The
+    client's own SmClient.dll was optimised by Godot.NET.Sdk. Every project of an export build is optimised now; Debug builds are unchanged.
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'ExportRelease'">
+    <Optimize Condition="'$(Optimize)' == ''">true</Optimize>
+    <DebugType Condition="'$(DebugType)' == ''">portable</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <SmExtras Condition="'$(SmExtras)' == ''">true</SmExtras>
+    <DefineConstants Condition="'$(SmExtras)' == 'true'">$(DefineConstants);SM_EXTRAS</DefineConstants>
+  </PropertyGroup>
+
+  <!--
+    The Godot client sets its own output folders (client/.godot/mono/temp, the build Godot runs) before this file and ignores dotnet's
+    artifacts path, so a build without extras would overwrite the client Godot runs. It goes to .faithful-build/godot instead (checked).
+  -->
+  <PropertyGroup Condition="'$(SmExtras)' != 'true' and '$(UsingGodotNETSdk)' == 'true'">
+    <BaseOutputPath>$(MSBuildThisFileDirectory).faithful-build\godot\bin\</BaseOutputPath>
+    <OutputPath>$(MSBuildThisFileDirectory).faithful-build\godot\bin\$(Configuration)\</OutputPath>
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory).faithful-build\godot\obj\</BaseIntermediateOutputPath>
+    <IntermediateOutputPath>$(MSBuildThisFileDirectory).faithful-build\godot\obj\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
+</Project>

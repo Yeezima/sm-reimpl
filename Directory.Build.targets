@@ -1,0 +1,10 @@
+<Project>
+  <!--
+    Added content (docs/added-content.md; SmExtras and SM_EXTRAS are set in Directory.Build.props). The removal lives here because MSBuild
+    imports this file after the SDK's default Compile glob: in the props file it would run before the glob and remove nothing (checked).
+  -->
+  <ItemGroup Condition="'$(SmExtras)' != 'true'">
+    <Compile Remove="Extras/**" />
+    <EmbeddedResource Remove="Extras/**" />
+  </ItemGroup>
+</Project>

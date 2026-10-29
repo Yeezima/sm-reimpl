@@ -1,0 +1,9 @@
+{
+  "_comment": "Copy to config/local.json (git-ignored) only if auto-detection fails. Use your own paths. Never commit secrets.",
+  "_environment": {
+    "SM_GAME_DIR": "The game install (the folder holding data). Overrides gameDir below. Read-only, never written.",
+    "SM_DATA_DIR": "The private data and cache root. Default: %LOCALAPPDATA%/sm-reimpl on Windows, ~/.local/share/sm-reimpl on Linux. Must lie outside SM_GAME_DIR.",
+    "SM_STEAM_DIR": "Replaces the Steam lookup when finding the install (tests; empty = no Steam folder)."
+  },
+  "gameDir": "C:/Path/To/steamapps/common/<Space Marine install folder>"
+}

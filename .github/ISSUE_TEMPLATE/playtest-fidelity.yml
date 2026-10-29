@@ -1,0 +1,110 @@
+name: Playtest fidelity report
+description: This build does not match how Space Marine 1 did it.
+title: "[Fidelity] "
+labels: ["playtest", "fidelity"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form when the build works but differs from the original Space Marine (2011) multiplayer.
+        The best evidence is a video of SM1 with a timestamp. Memory is welcome too: say "from memory" if that is what it is.
+        Differences listed under "Deliberate changes" in WHAT-TO-TEST.md are on purpose and are not defects.
+        Do not attach files from the game's install folder.
+  - type: input
+    id: version
+    attributes:
+      label: Build version
+      description: The text in VERSION.txt in your unzipped folder.
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Windows version
+    validations:
+      required: true
+  - type: input
+    id: gpu
+    attributes:
+      label: Graphics card and driver version
+    validations:
+      required: true
+  - type: input
+    id: register-id
+    attributes:
+      label: Checklist ID
+      description: The ID from WHAT-TO-TEST.md or the refine register, such as R-9F8281FF. Write "none" if you found something that is not on the list.
+      placeholder: "R-xxxxxxxx"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Movement
+        - Weapons and damage
+        - Melee and the charge
+        - Jump pack
+        - Hit reactions and stuns
+        - Camera and aiming
+        - HUD and hit feedback
+        - Sound
+        - Effects
+        - Match rules and scoring
+        - Customizer and armour
+        - Map and lighting
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: verdict
+    attributes:
+      label: How close is this build to SM1?
+      options:
+        - Same (it matches)
+        - Close (small difference, fine to keep)
+        - Differs (clearly not like SM1)
+    validations:
+      required: true
+  - type: textarea
+    id: this-build
+    attributes:
+      label: What this build does
+      description: Include numbers if you measured something (seconds, metres, hits).
+    validations:
+      required: true
+  - type: textarea
+    id: sm1
+    attributes:
+      label: How SM1 did it
+      description: Describe it as exactly as you can. Say which class, weapon and situation, and whether this is from memory or from a video.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Link to a video with a timestamp (for example a YouTube link with ?t=123), screenshots, or a note on how you measured. Do not upload game files.
+      placeholder: "https://... at 2:31"
+  - type: dropdown
+    id: severity
+    attributes:
+      label: How noticeable is it in play?
+      options:
+        - High (I noticed it in the first minutes and it changes how the game plays)
+        - Medium (I noticed it during normal play)
+        - Low (only side by side, or only a detail)
+    validations:
+      required: true
+  - type: input
+    id: context
+    attributes:
+      label: Mode, class and weapon
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checked
+      options:
+        - label: This is not under "Deliberate changes" in WHAT-TO-TEST.md.
+        - label: This is not listed in KNOWN-ISSUES.md as missing.

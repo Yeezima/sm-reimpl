@@ -1,0 +1,17 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SmContent/SmContent.csproj" />
+    <Project Path="src/SmFormats/SmFormats.csproj" />
+    <Project Path="src/SmLauncher.Core/SmLauncher.Core.csproj" />
+    <Project Path="src/SmLauncher/SmLauncher.csproj" />
+    <Project Path="src/SmNet/SmNet.csproj" />
+    <Project Path="src/SmServer/SmServer.csproj" />
+    <Project Path="src/SmSim/SmSim.csproj" />
+    <Project Path="src/SmTool/SmTool.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SmFormats.Tests/SmFormats.Tests.csproj" />
+    <Project Path="tests/SmLauncher.Tests/SmLauncher.Tests.csproj" />
+    <Project Path="tests/SmNet.Tests/SmNet.Tests.csproj" />
+  </Folder>
+</Solution>

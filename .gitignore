@@ -1,0 +1,70 @@
+# --- Original game content: never commit (see docs/architecture.md, "Content boundary", and CLAUDE.md, "Hard rules") ---
+*.oppc
+*.dcm
+*.o3d
+*.bod
+*.bmat
+*.object-manifest
+*.attr_pc
+*.baf
+*.ucs
+ucs.pc
+*.pck
+*.bnk
+*.wem
+# ww2ogg's codebook library is downloaded to the private cache, never committed (THIRD_PARTY_NOTICES.md)
+packed_codebooks*.bin
+*.usm
+*.dds
+original/
+extracted/
+cache/
+# Discovery reports contain archive listings derived from the user's install
+discovery/
+report.md
+report.json
+
+# Recordings and captures (screenshots of original assets stay private)
+screenshots/
+*.mp4
+*.mkv
+*.avi
+*.mov
+recordings/
+captures/
+
+# Local, machine-specific configuration and secrets
+config/local.json
+.env
+.env.*
+*.pfx
+*.key
+
+# Build outputs and IDE state
+bin/
+obj/
+# faithful-build.cmd's outputs (docs/added-content.md)
+.faithful-build/
+.vs/
+.vscode/
+.idea/
+*.user
+.godot/
+.import/
+export/
+builds/
+TestResults/
+
+# Claude Code session data and agent worktrees (local only)
+.claude/
+CLAUDE.local.md
+.mcp.json
+
+# Log files anywhere in the tree; local working notes and playtest reports at the root only (docs/playtest/ is tracked)
+*.log
+/handoff/
+/playtest/
+
+# Godot writes a .uid next to every C# script it imports (only ModelViewer.cs.uid is tracked)
+client/**/*.cs.uid
+client/SmClient.sln

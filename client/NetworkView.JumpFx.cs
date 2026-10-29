@@ -1,0 +1,283 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Godot;
+using SmContent;
+using SmSim;
+using Num = System.Numerics;
+
+namespace SmClient;
+
+/// <summary>
+/// M44 (the owner's playtest, 2026-10-28): the jump pack's flight effects and the ground pound's target marker, for the own player and the
+/// others (client presentation only). Everything played is the data's: the pack's <c>jump_info</c> actions read by <see cref="JumpPackEffects"/>
+/// (<c>action_ascending</c>: the thrust from the lift-off to the apex; <c>action_apex</c>; <c>action_descending_regular</c>: the fall;
+/// <c>action_descending_smash</c>: the dive's thrust; <c>action_idle_by_power</c>: the pilot glow by power on the ground;
+/// <c>action_smash_target_point</c>: the pound's target marker) and the jump evade's <c>fx_jump_evade</c> (the dash's burst), each at its
+/// <c>play_fx</c> marker on the worn pack (<see cref="WeaponRig.TryWornMarker"/>; the Chaos pack names its inside centres). Ours: when each starts
+/// and stops (the phases below: the remote players' from their slim flags and vertical speed), looping thrusts while their phase lasts, the
+/// idle glow of other players at full power (their power is not on the wire), and the charge sounds of the idle entries for the own player only.
+/// The sounds of the lift-off, apex, dive, landings and impact were already played (M26b, <see cref="SoundJump"/>); the dash's burst sound and
+/// the idle charge sounds are new here.
+/// <para>
+/// The pound's target marker (<see cref="PoundIndicator"/>): while the own player could start a pound (<see cref="JumpPack.CanPound"/>), the data's
+/// <c>mp_assault_land_reticule</c> (Chaos: <c>mp_chaos_assault_land_reticule</c>) at scale 1.5 stands where the simulation's dive would land if
+/// the melee button were pressed now (<see cref="JumpPack.PoundLanding"/> on the client's own collision world, at the view's yaw and pitch).
+/// </para>
+/// </summary>
+public partial class NetworkView
+{
+    enum PackMode : byte { Ground, Rise, Fall, Dive }
+
+    sealed class JumpFxTrack
+    {
+        public PackMode Mode = PackMode.Ground;
+        public readonly List<FxEffect> Looping = new();
+        public readonly List<FxEffect> Idle = new();
+        public float IdleLevel = float.NaN;
+        public bool Dashing;
+        public int DashTicks;
+        public EvadeDirection DashDirection;
+    }
+
+    readonly Dictionary<int, JumpFxTrack> _jumpFx = new();
+    readonly List<FxEffect> _reticule = new();
+    int _thrustFx, _apexFx, _diveFx, _dashFx, _idleFx, _reticuleShown, _burstFx;
+    bool _reticuleLogged;
+
+    /// <summary>Looping effects fade over this long when their phase ends (s; ours: the data's "stop_emitting" lets the particles finish).</summary>
+    const double JumpFxFade = 0.35;
+
+    /// <summary>Called once per frame from <see cref="UpdateFx"/> (before the player draws): every player's pack effects and the own target marker.</summary>
+    void FxJumpPacks(PlayerState me)
+    {
+        if (_client is null || _config is null || _catalogue is null || _fx is null) return;
+        var seen = new HashSet<int>();
+        JumpFxFor(me, own: true);
+        OwnPackFxHide();
+        seen.Add(me.PlayerId);
+        foreach (var s in _lastOthers) { JumpFxFor(s, own: false); seen.Add(s.PlayerId); }
+        foreach (var gone in _jumpFx.Keys.Where(id => !seen.Contains(id)).ToList()) { StopAll(_jumpFx[gone]); _jumpFx.Remove(gone); }
+        PoundIndicator(me);
+    }
+
+    /// <summary>The place of a pack marker of a player (Godot world position and axes, +Y along the locator's +Y), or null when it has no worn model with it.</summary>
+    (Vector3 Position, Basis Axes)? PackMarker(int id, string marker)
+    {
+        CharacterViewer? character = _client is not null && id == _client.PlayerId ? _local : _remotes.GetValueOrDefault(id);
+        if (character?.Weapons is not { } rig || marker.Length == 0) return null;
+        if (rig.TryWornMarker(marker, out var world)) return (world.Origin, world.Basis);
+        return null;
+    }
+
+    /// <summary>Starts the plays at their markers (attached when the data says so); returns the effects started.</summary>
+    List<FxEffect> PlayOnPack(int id, IReadOnlyList<FxPlay> plays, bool repeat, string what)
+    {
+        var started = new List<FxEffect>();
+        foreach (var p in plays)
+        {
+            string marker = p.Marker;
+            if (PackMarker(id, marker) is not { } place)
+            {
+                if (_fxNoted.Add($"packmarker:{id % 2}:{marker}")) GD.Print($"  effects: {what}: no worn marker '{marker}' on P{id}'s pack; {p.Name} not shown");
+                continue;
+            }
+            Func<(Vector3, Basis)?>? follow = p.Attached ? () => PackMarker(id, marker) : null;
+            float lifetime = repeat ? 0f : p.Lifetime;
+            if (_fx!.Play(p.Name, place.Position, place.Axes, p.Scale <= 0f ? 1f : p.Scale, null, follow, lifetime, 0.0, repeat, 1) is { } e)
+            {
+                started.Add(e);
+                if (_client is not null && id == _client.PlayerId) { e.Hidden = _ownHidden; _ownPackFx.Add(e); }   // feel/camera-hitstop: hidden with the own character
+            }
+        }
+        return started;
+    }
+
+    static void Fade(List<FxEffect> effects, double fade)
+    {
+        foreach (var e in effects) { e.Repeat = false; e.Life = Math.Min(e.Life, Math.Max(0.0, e.Age) + fade); }
+        effects.Clear();
+    }
+
+    static void StopAll(JumpFxTrack t) { Fade(t.Looping, JumpFxFade); Fade(t.Idle, 0.0); t.IdleLevel = float.NaN; }
+
+    void JumpFxFor(PlayerState s, bool own)
+    {
+        if (!_jumpFx.TryGetValue(s.PlayerId, out var t)) _jumpFx[s.PlayerId] = t = new JumpFxTrack();
+        var pack = Loadouts.JumpPack(_config!, s);
+        var effects = pack is null ? null : _catalogue!.JumpPack(pack.Name);
+        if (!s.Alive || effects is null) { StopAll(t); t.Mode = PackMode.Ground; t.Dashing = false; return; }
+
+        // The phase as both records show it: pounding (own: dive; others: the pound flag in the air), in a jump in the air rising or not, else on the ground.
+        bool pounding = own ? s.Jump == JumpPhase.Dive : JumpPack.Pounding(s.Jump) && !s.Grounded;
+        bool flying = JumpPack.Jumping(s.Jump) && !(own ? s.Jump == JumpPhase.TakeOff : s.Grounded);
+        // M45: the own player's thrust ends at the release that cuts the rise (others' records do not carry the cut: their vertical speed decides).
+        var mode = pounding ? PackMode.Dive : flying ? (s.Velocity.Z > 0f && !(own && s.JumpCut) ? PackMode.Rise : PackMode.Fall) : PackMode.Ground;
+        if (mode != t.Mode)
+        {
+            Fade(t.Looping, JumpFxFade);
+            if (mode != PackMode.Ground) Fade(t.Idle, 0.15);
+            t.IdleLevel = float.NaN;
+            switch (mode)
+            {
+                case PackMode.Rise:
+                    t.Looping.AddRange(PlayOnPack(s.PlayerId, effects.Ascending, repeat: true, "thrust"));
+                    if (t.Mode == PackMode.Ground) TakeOffBurst(s, effects.Ascending);
+                    _thrustFx++;
+                    break;
+                case PackMode.Fall:
+                    if (t.Mode == PackMode.Rise) { PlayOnPack(s.PlayerId, effects.Apex, repeat: false, "apex"); _apexFx++; }
+                    t.Looping.AddRange(PlayOnPack(s.PlayerId, effects.Descending, repeat: true, "fall"));
+                    break;
+                case PackMode.Dive:
+                    t.Looping.AddRange(PlayOnPack(s.PlayerId, effects.Dive, repeat: true, "dive"));
+                    _diveFx++;
+                    break;
+            }
+            if (_bot && own) GD.Print($"t {_connectedFor:F1} s: jump pack effects {t.Mode} -> {mode} ({t.Looping.Count} looping)");
+            t.Mode = mode;
+        }
+        if (mode == PackMode.Ground)
+        {
+            // The pilot glow by power (others: full; their power is not on the wire, ours) and, for the own player, the entry's charge sound when it changes.
+            float power = own ? s.JumpPower : pack!.MaxPower;
+            var entry = effects.IdleByPower.Where(l => l.MinDrop <= power + 1e-4f).OrderByDescending(l => l.MinDrop).FirstOrDefault();
+            float level = entry?.MinDrop ?? -1f;
+            if (!level.Equals(t.IdleLevel))
+            {
+                bool rising = !float.IsNaN(t.IdleLevel) && level > t.IdleLevel;
+                Fade(t.Idle, 0.0);
+                if (entry is not null) { t.Idle.AddRange(PlayOnPack(s.PlayerId, entry.Plays, repeat: true, "idle")); _idleFx++; }
+                if (own && rising) IdleChargeSound(s, pack!, level);
+                t.IdleLevel = level;
+            }
+        }
+
+        // The dash's burst (the jump evade's fx_jump_evade, with its sound) when a dash starts.
+        bool dashing = Evade.Evading(s) && !s.EvadeLanded && Loadouts.Evade(_config!, s) is { Dash: true };
+        bool restart = dashing && (!t.Dashing || s.EvadeTicks < t.DashTicks || s.EvadeDirection != t.DashDirection);
+        if (restart && Loadouts.Evade(_config!, s) is { } dash)
+        {
+            if (_catalogue!.Dashes.GetValueOrDefault(dash.Name) is { Count: > 0 } burst) { PlayOnPack(s.PlayerId, burst, repeat: false, "dash"); TakeOffBurst(s, burst); _dashFx++; }
+            DashSound(s, dash, own);
+            if (_bot) GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId}{(own ? "" : $" sees P{s.PlayerId}")} dash {s.EvadeDirection} (burst {(_catalogue.Dashes.ContainsKey(dash.Name) ? "on" : "none")}; dashes shown {_dashFx})");
+        }
+        t.Dashing = dashing; t.DashTicks = s.EvadeTicks; t.DashDirection = s.EvadeDirection;
+    }
+
+    /// <summary>The thrust's ground burst under a player leaving the ground (<see cref="GroundPoundFx.PlayBurst"/>), within <see cref="PoundDetailRange"/> of the camera.</summary>
+    void TakeOffBurst(PlayerState s, IReadOnlyList<FxPlay> thrust)
+    {
+        var (point, normal, _) = GroundUnder(s.Position);
+        if (_camera is { } cam && cam.GlobalPosition.DistanceTo(point) > PoundDetailRange) return;
+        if (GroundPoundFx.PlayBurst(_fx!, thrust, point, normal) > 0) _burstFx++;
+    }
+
+    /// <summary>The dash's burst sound: the jump evade's <c>fx_jump_evade</c> triggered action (<c>play_sm_jump_pack_launch</c>); the clip's FX_Evade_Start tag plays the rest (M26b).</summary>
+    void DashSound(PlayerState s, EvadeSpec dash, bool own)
+    {
+        if (_sound is null || _soundTriggers?.File(dash.Name) is not { } file || !_soundTracks.TryGetValue(s.PlayerId, out var track)) return;
+        PostAll(file.Tag("fx_jump_evade"), track.Emitter, own, "dash");
+    }
+
+    /// <summary>The own pack's charge sound when its power reaches an <c>action_idle_by_power</c> entry from below (<c>play_jump_pack_high_charge</c> at 55, <c>_low_charge</c> at 40).</summary>
+    void IdleChargeSound(PlayerState s, JumpPackSpec pack, float level)
+    {
+        if (_sound is null || _soundTriggers?.File(pack.Name) is not { } file || !_soundTracks.TryGetValue(s.PlayerId, out var track)) return;
+        var bindings = file.Of("action_idle_by_power").Where(b => b.Parameters.TryGetValue("min_power_level", out float l) && MathF.Abs(l - level) < 1e-3f).ToList();
+        PostAll(bindings, track.Emitter, true, "pack charge");
+    }
+
+    /// <summary>
+    /// The ground pound's target marker for the own player (see the class summary). The point is the simulation's dive stepped on the client's
+    /// collision world (or the flat ground); none while no pound can start, when the dive would not land (a kill region or the void) or for a dead player.
+    /// </summary>
+    void PoundIndicator(PlayerState me)
+    {
+        var pack = me.Alive ? Loadouts.JumpPack(_config!, me) : null;
+        var plays = pack is null ? null : _catalogue!.JumpPack(pack.Name)?.SmashTarget;
+        Num.Vector3? at = null;
+        if (pack is not null && plays is { Count: > 0 } && JumpPack.CanPound(me, pack, _config!, _client!.Collision) && !NoPoundIndicator)   // protocol 30: not below the slash's 8 m
+        {
+            // The dive is stepped (up to PoundLookAheadTicks motor steps) only when the predicted state changes (a new tick) or the view
+            // turned by more than about 0.3 degrees and a tick's time has passed since the last step: at most about the tick rate, not per frame.
+            var key = (me.Position, me.JumpTicks, me.Jump);
+            bool turned = MathF.Abs(_yaw - _poundAimYaw) > ViewEpsilon || MathF.Abs(_pitch - _poundAimPitch) > ViewEpsilon;
+            if (!_poundAimValid || !key.Equals(_poundAimKey) || (turned && _connectedFor - _poundAimAt >= _config!.TickSeconds))
+            {
+                _poundAim = JumpPack.PoundLanding(me, _yaw, _pitch, pack, _config!, _client!.Collision, PoundLookAheadTicks);
+                _poundAimKey = key; _poundAimYaw = _yaw; _poundAimPitch = _pitch; _poundAimAt = _connectedFor; _poundAimValid = true; _poundAimSteps++;
+            }
+            at = _poundAim;
+        }
+        else _poundAimValid = false;
+        if (at is not { } point) { Fade(_reticule, 0.15); return; }
+        var position = ToGodot(point) + Vector3.Up * 0.05f;
+        if (_reticule.Count == 0)
+        {
+            foreach (var p in plays!)
+                if (_fx!.Play(p.Name, position, Basis.Identity, p.Scale <= 0f ? 1f : p.Scale, null, null, 0f, 0.0, repeat: true, priority: 2) is { } e) _reticule.Add(e);
+            _reticuleShown++;
+            if (!_reticuleLogged && _bot) { _reticuleLogged = true; GD.Print($"t {_connectedFor:F1} s: pound target marker {string.Join(", ", plays.Select(p => $"{p.Name} x{p.Scale}"))} at {point.X:F1},{point.Y:F1},{point.Z:F1}"); }
+        }
+        foreach (var e in _reticule) { e.Origin = position; e.Axes = Basis.Identity; }
+    }
+
+    (Num.Vector3 Position, int Ticks, JumpPhase Phase) _poundAimKey;
+    Num.Vector3? _poundAim;
+    float _poundAimYaw, _poundAimPitch;
+    double _poundAimAt;
+    bool _poundAimValid;
+    int _poundAimSteps;
+    /// <summary>A view turn (radians) below which the target marker's dive is not stepped again (ours).</summary>
+    const float ViewEpsilon = 0.005f;
+
+    /// <summary>Ticks the target marker's dive is followed at most (4 s at 30 Hz; ours: a dive from any height of the alpha map lands well within it).</summary>
+    const int PoundLookAheadTicks = 120;
+
+    /// <summary><c>--no-pound-indicator</c> (test aid): no target marker.</summary>
+    bool NoPoundIndicator => _noPoundIndicator ??= OS.GetCmdlineUserArgs().Contains("--no-pound-indicator");
+    bool? _noPoundIndicator;
+
+    /// <summary><c>--jump-test</c> (test aid with <c>--bot</c>; not original behaviour): the own jump-pack marine runs a fixed script instead of the bot's.</summary>
+    bool JumpTest => _jumpTest ??= OS.GetCmdlineUserArgs().Contains("--jump-test");
+    bool? _jumpTest;
+    uint _jumpTestStart;
+    int _jumpTestCycle = -1;
+
+    /// <summary>
+    /// The <c>--jump-test</c> script, in 8 s cycles from when the marine stands on the ground: a jump (stick forward for 0.4 s) looking 0.5 rad down, since M45 in even
+    /// cycles a middle jump (Space let go 20 ticks after the press; feel/jump-pack-2, with the three jumps: the small jump, let go 8 ticks after it) and in odd ones the full jump (Jump held to the apex; with the three jumps 13 ticks),
+    /// in odd cycles a pound 1.6 s after the press (at about the apex), then two dashes (taps) forward-right and back-left 1 s apart. Null for a class without a pack.
+    /// </summary>
+    PlayerInput? JumpTestInput(PlayerState me, uint tick)
+    {
+        if (Loadouts.JumpPack(_config!, me) is null || !me.Alive) return null;
+        const uint Cycle = 240;
+        if (_jumpTestCycle < 0 || tick - _jumpTestStart >= Cycle)
+        {
+            if (!me.Grounded || me.Jump != JumpPhase.None || Evade.Evading(me)) return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch);
+            _jumpTestStart = tick; _jumpTestCycle++;
+        }
+        uint k = tick - _jumpTestStart;
+        _pitch = -0.5f;
+        var buttons = InputButtons.None;
+        float mx = 0f, my = 0f;
+        // M45: a release while rising cuts the rise, so the full jump holds Jump to the apex (JumpPack.FullRiseTicks; the stick forward for the first 0.4 s).
+        var pack = Loadouts.JumpPack(_config!, me)!;
+        // feel/jump-pack-2: with the three jumps the full jump needs Jump down on tick 12 (13 held ticks), the small jump any release from tick 6 to 12 (here 8).
+        uint full = pack.ReleaseCut ? (uint)JumpPack.FullRiseTicks(pack, _config!) : pack.HoldTiers ? 13u : 12u;
+        // M45: even cycles a middle jump (Space let go 20 ticks after the press, about 12 m), odd cycles the full jump and its pound.
+        uint hold = _jumpTestCycle % 2 == 0 && pack.HoldTiers ? 8u : pack.ReleaseCut && _jumpTestCycle % 2 == 0 ? 20u : full;
+        if (k < hold) { buttons = InputButtons.Jump; if (k < 12) my = 1f; }
+        if (k is 48 && _jumpTestCycle % 2 == 1) buttons |= InputButtons.Melee;
+        if (k is 150) { buttons = InputButtons.Jump; mx = 1f; my = 1f; }
+        else if (k is 151) { mx = 1f; my = 1f; }
+        else if (k is 190) { buttons = InputButtons.Jump; mx = -1f; my = -1f; }
+        else if (k is 191) { mx = -1f; my = -1f; }
+        return new PlayerInput(tick, mx, my, _yaw, buttons, _pitch);
+    }
+
+    /// <summary>For the effects log line.</summary>
+    string JumpFxLog() => $"pack fx: thrust {_thrustFx}, apex {_apexFx}, dive {_diveFx}, dash {_dashFx}, ground bursts {_burstFx}, idle {_idleFx}, target marker shown {_reticuleShown} (dives stepped {_poundAimSteps})";
+}

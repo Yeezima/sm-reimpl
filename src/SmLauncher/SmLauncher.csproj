@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    SM Reimpl Launcher.exe: the playtesters' launcher and updater (WinForms over SmLauncher.Core). tools/release/release.ps1 publishes it
+    self-contained and single-file for win-x64 and puts it at the top of the playtest zip as "0 - SM Reimpl Launcher.exe". WinForms does not
+    support trimming, so it is not trimmed; the single file is compressed instead. Version: release.ps1 passes -p:Version=<yyyy>.<MMdd>.<minute
+    of the day> of the build commit (UTC), which is how a launcher knows that the one inside a newer build is newer. Local builds are 1.0.0.
+      dotnet publish src/SmLauncher -c Release -r win-x64     (the single-file exe in bin/Release/net10.0-windows/win-x64/publish)
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>SM Reimpl Launcher</AssemblyName>
+    <RootNamespace>SmLauncher</RootNamespace>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationVisualStyles>true</ApplicationVisualStyles>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>1.0.0</Version>
+    <Product>SM Reimpl Launcher</Product>
+    <Description>Keeps the sm-reimpl playtest build up to date and starts it.</Description>
+    <Copyright>Copyright (C) 2026 Luna Studios. GPL-3.0.</Copyright>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'win-x64'">
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+    <DebugType>none</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SmLauncher.Core\SmLauncher.Core.csproj" />
+  </ItemGroup>
+
+</Project>

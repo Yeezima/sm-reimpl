@@ -1,0 +1,33 @@
+; Godot 4.7.2 .NET client for sm-reimpl. Loads original content from the user's install at runtime;
+; this folder contains no game assets.
+
+config_version=5
+
+[application]
+
+config/name="sm-reimpl"
+config/use_custom_user_dir=true
+config/custom_user_dir_name="sm-reimpl"
+run/main_scene="res://Main.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+
+[display]
+
+window/size/viewport_width=1600
+window/size/viewport_height=900
+
+[debug]
+
+; fix/hosting-bots-logs: keep the 10 newest godot*.log files in user://logs (Godot's default 5). Bots started by the menu write their own files in user://logs/bots.
+file_logging/max_log_files=10
+
+[dotnet]
+
+project/assembly_name="SmClient"
+
+[rendering]
+
+; M40-T7: anti-aliasing defaults (the client also sets them per run from --aa, RenderQuality.cs): MSAA 4x (2) + SMAA (2).
+anti_aliasing/quality/msaa_3d=2
+anti_aliasing/quality/screen_space_aa=2
+anti_aliasing/screen_space_roughness_limiter/enabled=true

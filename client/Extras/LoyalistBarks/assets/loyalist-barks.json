@@ -1,0 +1,333 @@
+{
+  "schema_version": 1,
+  "pack": "loyalist barks (added content, docs/added-content.md)",
+  "provenance": "The owner's own voice pack (2026-10-29): synthesized with ElevenLabs (model eleven_v4, voice 'SM-Reimpl Loyalist - Voice 1'), helmet_v1 processing baked in (do not filter again), normalised toward -16 LUFS / -1.5 dBTP; not extracted from any game.",
+  "format": {
+    "container": "ogg",
+    "codec": "vorbis",
+    "channels": 1,
+    "sample_rate": 48000
+  },
+  "clips": [
+    {
+      "id": "loyalist_for_the_emperor_01",
+      "file": "audio/loyalist_for_the_emperor_01.ogg",
+      "text": "FOR THE EMPEROR!",
+      "phrase": "for_the_emperor",
+      "event": "battle_cry",
+      "take": 1,
+      "duration_seconds": 1.853,
+      "sha256": "fcfe0bf545303ff87ef1d5fa7297eac4281849957f2816c9771f55a4b3711491"
+    },
+    {
+      "id": "loyalist_for_the_emperor_02",
+      "file": "audio/loyalist_for_the_emperor_02.ogg",
+      "text": "FOR THE EMPEROR!",
+      "phrase": "for_the_emperor",
+      "event": "battle_cry",
+      "take": 2,
+      "duration_seconds": 1.787,
+      "sha256": "912cafb77c0b3e425c1e55e323bb1383bdd9e0483b495d7a935bfa40e4b5ea3d"
+    },
+    {
+      "id": "loyalist_for_the_emperor_03",
+      "file": "audio/loyalist_for_the_emperor_03.ogg",
+      "text": "FOR THE EMPEROR!",
+      "phrase": "for_the_emperor",
+      "event": "battle_cry",
+      "take": 3,
+      "duration_seconds": 1.776,
+      "sha256": "4bce267f49ee474c453e2925f7e4a523f2a8870e9371bb1356000a0ffca9d642"
+    },
+    {
+      "id": "loyalist_for_the_emperor_04",
+      "file": "audio/loyalist_for_the_emperor_04.ogg",
+      "text": "FOR THE EMPEROR!",
+      "phrase": "for_the_emperor",
+      "event": "battle_cry",
+      "take": 4,
+      "duration_seconds": 1.853,
+      "sha256": "d9e0d2ceb025c5aa4ae88f8c532c6ca7c843107c3b38f9d5f4948e26865b9f8e"
+    },
+    {
+      "id": "loyalist_space_marines_attack_01",
+      "file": "audio/loyalist_space_marines_attack_01.ogg",
+      "text": "Space Marines, attack!",
+      "phrase": "space_marines_attack",
+      "event": "attack",
+      "take": 1,
+      "duration_seconds": 2.496,
+      "sha256": "0a850da923c956db0a98463350e485edc917fe37c013ddf767aa06338b096942"
+    },
+    {
+      "id": "loyalist_space_marines_attack_02",
+      "file": "audio/loyalist_space_marines_attack_02.ogg",
+      "text": "Space Marines, attack!",
+      "phrase": "space_marines_attack",
+      "event": "attack",
+      "take": 2,
+      "duration_seconds": 2.495,
+      "sha256": "58701314c684e038b1d1ecf9e3b293e6f7ab8891a3ff607a553e944f3fdca377"
+    },
+    {
+      "id": "loyalist_space_marines_attack_03",
+      "file": "audio/loyalist_space_marines_attack_03.ogg",
+      "text": "Space Marines, attack!",
+      "phrase": "space_marines_attack",
+      "event": "attack",
+      "take": 3,
+      "duration_seconds": 2.576,
+      "sha256": "8f3515bb84783ec443021033a7050e9028397915fb3a602a9af40ef6d931bf64"
+    },
+    {
+      "id": "loyalist_space_marines_attack_04",
+      "file": "audio/loyalist_space_marines_attack_04.ogg",
+      "text": "Space Marines, attack!",
+      "phrase": "space_marines_attack",
+      "event": "attack",
+      "take": 4,
+      "duration_seconds": 2.497,
+      "sha256": "1eaf1578fd8e752c352850d5c0a391e88a36ef80dc322aa9cc8a4ea6dc0edf08"
+    },
+    {
+      "id": "loyalist_none_shall_stop_us_01",
+      "file": "audio/loyalist_none_shall_stop_us_01.ogg",
+      "text": "None shall stop us!",
+      "phrase": "none_shall_stop_us",
+      "event": "battle_cry",
+      "take": 1,
+      "duration_seconds": 2.178,
+      "sha256": "f13a3dc855390e365da75a3aa08fe037548160d0f11732914456eabca88d2f21"
+    },
+    {
+      "id": "loyalist_none_shall_stop_us_02",
+      "file": "audio/loyalist_none_shall_stop_us_02.ogg",
+      "text": "None shall stop us!",
+      "phrase": "none_shall_stop_us",
+      "event": "battle_cry",
+      "take": 2,
+      "duration_seconds": 2.087,
+      "sha256": "a9be81c7ef30a7c7330734d1b2f0e0af90a19ff33b3489067375f2710986878a"
+    },
+    {
+      "id": "loyalist_none_shall_stop_us_03",
+      "file": "audio/loyalist_none_shall_stop_us_03.ogg",
+      "text": "None shall stop us!",
+      "phrase": "none_shall_stop_us",
+      "event": "battle_cry",
+      "take": 3,
+      "duration_seconds": 2.095,
+      "sha256": "d2671ef0b6a06935c88571aa8cfa26450112f557c6fb26b8dc02b4d165e9ec56"
+    },
+    {
+      "id": "loyalist_none_shall_stop_us_04",
+      "file": "audio/loyalist_none_shall_stop_us_04.ogg",
+      "text": "None shall stop us!",
+      "phrase": "none_shall_stop_us",
+      "event": "battle_cry",
+      "take": 4,
+      "duration_seconds": 2.173,
+      "sha256": "45d3eb579c4a2857b0e257c5d1c0d4de14f8d1de45378d6bad9f84ba30b35c0a"
+    },
+    {
+      "id": "loyalist_cleanse_purge_kill_01",
+      "file": "audio/loyalist_cleanse_purge_kill_01.ogg",
+      "text": "Cleanse, purge, kill!",
+      "phrase": "cleanse_purge_kill",
+      "event": "attack",
+      "take": 1,
+      "duration_seconds": 3.131,
+      "sha256": "c506c3d755560dafd6c068bdd75f89d50b8f63ab242cb8ae38aa7ab23756ea0b"
+    },
+    {
+      "id": "loyalist_cleanse_purge_kill_02",
+      "file": "audio/loyalist_cleanse_purge_kill_02.ogg",
+      "text": "Cleanse, purge, kill!",
+      "phrase": "cleanse_purge_kill",
+      "event": "attack",
+      "take": 2,
+      "duration_seconds": 3.059,
+      "sha256": "9c271369eeb0ed625c4b03a9f5947de29694dd74ca677f835e3029125d445b2d"
+    },
+    {
+      "id": "loyalist_cleanse_purge_kill_03",
+      "file": "audio/loyalist_cleanse_purge_kill_03.ogg",
+      "text": "Cleanse, purge, kill!",
+      "phrase": "cleanse_purge_kill",
+      "event": "attack",
+      "take": 3,
+      "duration_seconds": 2.976,
+      "sha256": "a3103f6e25a6ca9a5b94c26107b2043ce63e2015ded6165868eaeaa39c0a624d"
+    },
+    {
+      "id": "loyalist_cleanse_purge_kill_04",
+      "file": "audio/loyalist_cleanse_purge_kill_04.ogg",
+      "text": "Cleanse, purge, kill!",
+      "phrase": "cleanse_purge_kill",
+      "event": "attack",
+      "take": 4,
+      "duration_seconds": 2.979,
+      "sha256": "07c10a9e13bcabd2e3cca78d5d3f6ff57cd6afdccc3e6bb848d391fea6ee992e"
+    },
+    {
+      "id": "loyalist_eat_boltgun_01",
+      "file": "audio/loyalist_eat_boltgun_01.ogg",
+      "text": "Eat boltgun!",
+      "phrase": "eat_boltgun",
+      "event": "firing",
+      "take": 1,
+      "duration_seconds": 1.853,
+      "sha256": "c249466b0d8c23e4d227472e9cadf8a94e9f278a0aaa1bd11fb5170ee49f8f4b"
+    },
+    {
+      "id": "loyalist_eat_boltgun_02",
+      "file": "audio/loyalist_eat_boltgun_02.ogg",
+      "text": "Eat boltgun!",
+      "phrase": "eat_boltgun",
+      "event": "firing",
+      "take": 2,
+      "duration_seconds": 1.852,
+      "sha256": "23f3f1c7fe1040ee44803dbff26b2bf299f43c0c2ccc28a45e9218b7e890eab6"
+    },
+    {
+      "id": "loyalist_eat_boltgun_03",
+      "file": "audio/loyalist_eat_boltgun_03.ogg",
+      "text": "Eat boltgun!",
+      "phrase": "eat_boltgun",
+      "event": "firing",
+      "take": 3,
+      "duration_seconds": 1.857,
+      "sha256": "0be429e3c87564f2a764b0fd4a7d8e04c509db5c43eb403e20c3e29b9f845c0d"
+    },
+    {
+      "id": "loyalist_eat_boltgun_04",
+      "file": "audio/loyalist_eat_boltgun_04.ogg",
+      "text": "Eat boltgun!",
+      "phrase": "eat_boltgun",
+      "event": "firing",
+      "take": 4,
+      "duration_seconds": 1.854,
+      "sha256": "326694bd0a5c82f84c5f31930d937cbe2b105934fa588c8d4f877db4d0425f9c"
+    },
+    {
+      "id": "loyalist_no_prisoners_01",
+      "file": "audio/loyalist_no_prisoners_01.ogg",
+      "text": "No prisoners!",
+      "phrase": "no_prisoners",
+      "event": "attack",
+      "take": 1,
+      "duration_seconds": 1.618,
+      "sha256": "a84c687da050962ed6ed3a36805daff2859aae50caf271dadc74526ace0ee358"
+    },
+    {
+      "id": "loyalist_no_prisoners_02",
+      "file": "audio/loyalist_no_prisoners_02.ogg",
+      "text": "No prisoners!",
+      "phrase": "no_prisoners",
+      "event": "attack",
+      "take": 2,
+      "duration_seconds": 1.621,
+      "sha256": "7be991f76044cab7f65bdd2ed972d4965aea0a355ec2453538f9e411a857d221"
+    },
+    {
+      "id": "loyalist_no_prisoners_03",
+      "file": "audio/loyalist_no_prisoners_03.ogg",
+      "text": "No prisoners!",
+      "phrase": "no_prisoners",
+      "event": "attack",
+      "take": 3,
+      "duration_seconds": 1.699,
+      "sha256": "f610f71f3a25f4476124d0cdec15456a86ca05a76991cce36156514b46475a86"
+    },
+    {
+      "id": "loyalist_no_prisoners_04",
+      "file": "audio/loyalist_no_prisoners_04.ogg",
+      "text": "No prisoners!",
+      "phrase": "no_prisoners",
+      "event": "attack",
+      "take": 4,
+      "duration_seconds": 1.694,
+      "sha256": "22d38decad8724bc43d0884e5d2367d9867037345dfb649bd4254647760256c2"
+    },
+    {
+      "id": "loyalist_glory_of_the_imperium_01",
+      "file": "audio/loyalist_glory_of_the_imperium_01.ogg",
+      "text": "For the glory of the Imperium!",
+      "phrase": "glory_of_the_imperium",
+      "event": "battle_cry",
+      "take": 1,
+      "duration_seconds": 2.657,
+      "sha256": "cc82a9fb2d475899a4b6850ba64d05d85331a5c2b574732cfc7c19878d9d8744"
+    },
+    {
+      "id": "loyalist_glory_of_the_imperium_02",
+      "file": "audio/loyalist_glory_of_the_imperium_02.ogg",
+      "text": "For the glory of the Imperium!",
+      "phrase": "glory_of_the_imperium",
+      "event": "battle_cry",
+      "take": 2,
+      "duration_seconds": 2.58,
+      "sha256": "28fad11aac199d49a328111bba6a2ce8940e508bfb04d185673c99ed60989dc2"
+    },
+    {
+      "id": "loyalist_glory_of_the_imperium_03",
+      "file": "audio/loyalist_glory_of_the_imperium_03.ogg",
+      "text": "For the glory of the Imperium!",
+      "phrase": "glory_of_the_imperium",
+      "event": "battle_cry",
+      "take": 3,
+      "duration_seconds": 2.654,
+      "sha256": "a52cfc519b0895a1b5bdb83f46d7ccbc0317ce5694d30734064ccc2c0a090aaf"
+    },
+    {
+      "id": "loyalist_glory_of_the_imperium_04",
+      "file": "audio/loyalist_glory_of_the_imperium_04.ogg",
+      "text": "For the glory of the Imperium!",
+      "phrase": "glory_of_the_imperium",
+      "event": "battle_cry",
+      "take": 4,
+      "duration_seconds": 2.576,
+      "sha256": "cdffc19ccbe58f86eefe54e000f83c4eca67e6c623258a8b3bb123f3036f000d"
+    },
+    {
+      "id": "loyalist_taking_fire_01",
+      "file": "audio/loyalist_taking_fire_01.ogg",
+      "text": "Taking fire!",
+      "phrase": "taking_fire",
+      "event": "under_fire",
+      "take": 1,
+      "duration_seconds": 1.535,
+      "sha256": "80b32482eacefafc6230be396b447a84ac8ac84f193b325ad652dd9dc2d9f695"
+    },
+    {
+      "id": "loyalist_taking_fire_02",
+      "file": "audio/loyalist_taking_fire_02.ogg",
+      "text": "Taking fire!",
+      "phrase": "taking_fire",
+      "event": "under_fire",
+      "take": 2,
+      "duration_seconds": 1.457,
+      "sha256": "2bb3b39844364d7bec3ed16b4efc36dc197110b1d6129216fc9c48e590e4d90e"
+    },
+    {
+      "id": "loyalist_taking_fire_03",
+      "file": "audio/loyalist_taking_fire_03.ogg",
+      "text": "Taking fire!",
+      "phrase": "taking_fire",
+      "event": "under_fire",
+      "take": 3,
+      "duration_seconds": 1.533,
+      "sha256": "a40cb5a7b2cb86d6b628462e70542011330899fb31b8d0aeac7eff2a3eda15b5"
+    },
+    {
+      "id": "loyalist_taking_fire_04",
+      "file": "audio/loyalist_taking_fire_04.ogg",
+      "text": "Taking fire!",
+      "phrase": "taking_fire",
+      "event": "under_fire",
+      "take": 4,
+      "duration_seconds": 1.535,
+      "sha256": "7ed89f363ba980116823133df4801b5475f9f37773110aa0cb3450b87a3a6199"
+    }
+  ]
+}

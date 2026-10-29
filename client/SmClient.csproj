@@ -1,0 +1,23 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <Nullable>enable</Nullable>
+    <RootNamespace>SmClient</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\src\SmContent\SmContent.csproj" />
+    <ProjectReference Include="..\src\SmNet\SmNet.csproj" />
+  </ItemGroup>
+
+  <!--
+    Added content's own files (docs/added-content.md): embedded in the client assembly (Extras/<Feature>/assets/, which a .gdignore keeps out of Godot's
+    import and export), so a build without added content (-p:SmExtras=false, faithful-build.cmd) carries none of them (Directory.Build.targets).
+  -->
+  <ItemGroup Condition="'$(SmExtras)' == 'true'">
+    <EmbeddedResource Include="Extras/*/assets/**/*.ogg;Extras/*/assets/*.json" LogicalName="Extras/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>
