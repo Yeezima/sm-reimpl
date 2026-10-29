@@ -302,8 +302,9 @@ public sealed class WeaponAsset
 /// (jump pack, Devastator backpack), attached with <see cref="BoneAttachment3D"/> nodes under the character's skeleton so the
 /// animations carry them. Where each weapon hangs comes from its wargear (<c>wield_info_by_upgrade</c>, <c>stow_info</c>).
 /// <para>
-/// **Interpretation** (when the original draws what is not decoded): the weapon in hand is the simulation's current slot, swapped with
-/// the other ranged weapon half of the switch time after the slot changes; the Assault and Raptor classes (those with a jump pack) hold
+/// **Interpretation** (when the original draws what is not decoded): the weapon in hand is the simulation's current slot; in a switch the old ranged weapon
+/// goes onto its stow marker and then the new one comes into the hand at the moments <see cref="SmContent.SwitchPlan"/> gives (fix/stow-right; before it, one swap at the
+/// switch clip's tag; pass 1: half the switch time); the Assault and Raptor classes (those with a jump pack) hold
 /// their melee weapon in the right hand at all times; the other classes draw it only during a melee attack and stow it (or, for the
 /// combat knife, hide it) otherwise; a melee weapon wielded where the ranged one is (the chest prop of two-handed weapons) puts the
 /// ranged weapon away while it is out.
@@ -518,24 +519,36 @@ public sealed class WeaponRig
     /// <param name="slot">The simulation's current ranged slot (the weapon in hand).</param>
     /// <param name="meleeOut">A melee attack is shown.</param>
     /// <param name="alive">False: the player is dead; no swap delay and <see cref="TryMuzzle"/> returns false.</param>
-    /// <param name="switchTime">The weapon switch time (s); the swap happens <paramref name="swapFraction"/> of it after the slot changed.</param>
-    /// <param name="swapFraction">Animation pass 2: where in the switch the model changes hands (the switch clip's weapon tag: 0.5 for a rifle, 0.6 for the pistol); half before.</param>
-    public void Update(WeaponSlot slot, bool meleeOut, bool alive, float delta, float switchTime, float swapFraction = 0.5f)
+    /// <param name="switchTime">The weapon switch time (s); the old weapon leaves the hand <paramref name="swapFraction"/> of it after the slot changed.</param>
+    /// <param name="swapFraction">Animation pass 2: where in the switch the old weapon goes onto its stow marker (fix/stow-right: <see cref="SwitchPlan.Release"/>; the single clip's weapon tag: 0.5 for a
+    /// rifle, 0.6 for the pistol).</param>
+    /// <param name="takeFraction">fix/stow-right: where in the switch the new weapon comes into the hand (<see cref="SwitchPlan.Take"/>); between the two both ranged weapons are stowed. Negative: the same
+    /// moment as <paramref name="swapFraction"/> (one swap, the behaviour before).</param>
+    public void Update(WeaponSlot slot, bool meleeOut, bool alive, float delta, float switchTime, float swapFraction = 0.5f, float takeFraction = -1f)
     {
         if (Faulted) return;
         _alive = alive;
-        if (_first || !alive) { _shown = _target = slot; _timer = 0f; _first = false; }
+        if (_first || !alive) { _shown = _target = slot; _timer = 0f; _empty = false; _first = false; }
         else
         {
-            if (slot != _target) { _target = slot; _timer = switchTime * swapFraction; }
-            if (_shown != _target) { _timer -= delta; if (_timer <= 0f) _shown = _target; }
+            // _timer counts the seconds since the slot changed. A change during a switch starts again from the weapon now in hand (or from none, both stowed).
+            if (slot != _target) { _target = slot; _timer = 0f; }
+            if (_shown != _target || _empty)
+            {
+                _timer += delta;
+                float release = switchTime * Math.Clamp(swapFraction, 0f, 1f);
+                float take = takeFraction < 0f ? release : Math.Max(release, switchTime * Math.Min(takeFraction, 1f));
+                if (_timer >= take) { _shown = _target; _empty = false; }
+                else if (_timer >= release) _empty = true;
+            }
         }
         bool melee = AlwaysMelee || meleeOut;
         string? meleeBone = null;
         foreach (var i in _items) if (i.Role == Role.Melee && melee) meleeBone = i.Attachment.Wield?.Bone;
         foreach (var i in _items)
         {
-            bool inHand = WeaponHands.InHand(i.Role, _shown, melee, _grenadeHeld, i.Attachment.TwoHanded, i.Attachment.Wield?.Bone, meleeBone);
+            bool inHand = (!_empty || i.Role is not (Role.Primary or Role.Pistol))
+                          && WeaponHands.InHand(i.Role, _shown, melee, _grenadeHeld, i.Attachment.TwoHanded, i.Attachment.Wield?.Bone, meleeBone);
             if (StowPistol && i.Role == Role.Pistol) inHand = false;   // anim/melee-flow: both hands on the hammer
             Apply(i, inHand);
         }
@@ -543,6 +556,15 @@ public sealed class WeaponRig
 
     /// <summary>anim/melee-flow: the pistol goes to its holster (the marine holds the thunder hammer or the daemon maul in both hands); set by the networked view before <see cref="Update"/>.</summary>
     public bool StowPistol { get; set; }
+
+    /// <summary>fix/stow-right: between the old weapon's release and the new one's take both ranged weapons are on their stow markers.</summary>
+    bool _empty;
+
+    /// <summary>
+    /// <c>--old-stow</c> (test aid, fix/stow-right before / after): a switch plays the new weapon's clip alone and swaps the models at its tag (<see cref="SwitchPlan.For"/>'s old rule), so the
+    /// primary flies round the left side to the back on the pistol clip's chest prop, as before the fix.
+    /// </summary>
+    public static readonly bool OldStow = OS.GetCmdlineUserArgs().Contains("--old-stow");
 
     void Apply(Item i, bool inHand)
     {
@@ -684,6 +706,21 @@ public sealed class WeaponRig
         foreach (var i in _items) if (i.Magazine is not null && GodotObject.IsInstanceValid(i.Magazine)) i.Magazine.Visible = true;
     }
 
+    /// <summary>
+    /// Test aid (<c>--switch-test --switch-probe</c>): each drawn weapon's role, where it is ("hand", "stowed") and its handle point (the mount's handle node; the model's root
+    /// without one) in the skeleton's own space, from the skeleton's current pose.
+    /// </summary>
+    public IEnumerable<(Role Role, string Mode, Vector3 Origin)> Placements()
+    {
+        foreach (var i in _items)
+        {
+            if (i.Mode is not (0 or 1) || i.Bone is null || _skeleton.FindBone(i.Bone) is not (var bone and >= 0)) continue;
+            var mount = i.Mode == 1 ? i.Attachment.Wield : i.Attachment.Stow;
+            var handle = mount is not null && i.Asset.Model.Tree.Contains(mount.HandleNode) ? MarineAssets.ToGodot(i.Asset.Model.Tree.ModelSpace(mount.HandleNode)).Origin : Vector3.Zero;
+            yield return (i.Role, i.Mode == 1 ? "hand" : "stowed", _skeleton.GetBoneGlobalPose(bone) * i.Holder.Transform * handle);
+        }
+    }
+
     /// <summary>A rig for another character of the same skeleton (the corpse) with the same loadout and the weapons where they are now.</summary>
     public WeaponRig CloneTo(Skeleton3D skeleton)
     {
@@ -691,7 +728,7 @@ public sealed class WeaponRig
         copy.Configure(_key, Names.Primary, Names.Pistol, Names.Melee, Names.Worn, AlwaysMelee, GrenadeWargear);
         copy._grenadeHeld = _grenadeHeld;
         copy.SetPackPaint(_packPaint);   // the corpse keeps the pack's paint
-        copy._first = false; copy._shown = copy._target = _shown; copy._alive = _alive;
+        copy._first = false; copy._shown = copy._target = _shown; copy._alive = _alive; copy._empty = _empty;
         foreach (var mine in _items)
         {
             var theirs = copy._items.FirstOrDefault(i => i.Role == mine.Role);

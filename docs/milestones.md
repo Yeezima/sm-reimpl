@@ -758,3 +758,10 @@ still in the authored world is held by leg IK; melee demo planted-foot speed med
 (0.35° heavy strike, 0.6° stomp / slam, 0.5° when a charge or dash attack hits a player; ours, `--no-stun-shake`); the charge's body turn over 0.03 s; **ledge charge**: no second bash after landing, the fall's legs ramp from
 their first frame; the air slash's early-landing catch-up eased over 0.1 s. Probes on three demos (`--transition-probe-clips`, bot aid `--bot-turn-rate`): all switches median 17.5 → 16.9, p99 200 → 181, max 315 → 210 cm/f².
 `--no-melee-flow` for before / after. Spec "Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow)".
+
+The primary is stowed round the right side (branch `fix/stow-right`; client only, no protocol change; owner's knowledge 2026-10-29: "should stow it to the right around their back not the left. currently
+the gun floats through the air"): the pistol switch's clip carries the primary's chest prop round the left side onto `MKR_Stow_Bolter` with no hand on it (79 cm from the nearer hand). Now a switch is
+`SmContent.SwitchPlan`: the old weapon's own draw played backwards to its attach tag (the primary in the right hand round the right side, released onto the back marker; the pistol back to its thigh),
+then the new weapon's draw, the new one taken at its tag (`WeaponRig.Update(.., release, take)`, both stowed between; `PoseSlots.SwitchNext` cross-fades the joint). Every primary of both races (all on
+the chest prop and the bolter marker). Test aids: `--switch-test` (standalone, `--switch-shots n`, `--switch-probe`, `--switch-clips`), `--old-stow`, bots `--bot-switch-every s` with
+`--wait-switch-window a,b`. Spec "The primary is stowed round the right side"; `SwitchPlanTests`. Rebased onto main after anim/melee-flow: the hammer stance's pistol holster (`StowPistol`) applies on top of the switch's empty-hands interval.

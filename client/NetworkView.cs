@@ -673,6 +673,7 @@ public partial class NetworkView : Node3D
         _sampledYaw = _yaw; _sampledPitch = _pitch;   // M36: the view this input takes (NetworkView.Turning.cs)
         // Dead (M23): no control until the respawn - neither movement, look, fire nor abilities are sent.
         if (OwnDead || PickerBusy) { _switchPending = false; _latch.Reset(); return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch); }
+        if (_bot && BotSwitchEvery > 0 && _connectedFor > 4.0) return BotSwitchInput(tick);   // fix/stow-right test aid (NetworkView.UpperBody.cs)
         if (_bot && BotIdle) return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch);
         if (_bot && BotGait) return BotGaitInput(tick);   // M36 test aid
         if (_bot && AimTest && BotBackup) return BotBackupInput(tick);   // feel/camera-hitstop test aid (--bot-backup): backs into the wall behind

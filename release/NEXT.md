@@ -30,3 +30,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - A small camera shake when your stun strike (F) lands, a bigger one for stomps and hammer slams, and one when your charge or dash attack connects.
 - Charging off a ledge: when you land, the marine goes straight into running instead of starting the bash again. Side charges and lunges turn the body over a few frames instead of snapping.
 - The jump-pack air slash no longer jerks its sword forward when you land earlier than the swing expected.
+- Switching from your primary weapon to the bolt pistol (and back) now puts the gun away in your right hand, round the right side onto your back, instead of the gun flying round your left side on its own; the pistol goes back to its thigh holster the same way.

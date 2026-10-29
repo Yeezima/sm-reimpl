@@ -28,17 +28,19 @@ public static class PoseSlots
     public const int Action = 3;
     /// <summary>Animation pass 2: the weapon switch (<c>SM_Swap_*</c> over the upper body, the legs keep the movement; <c>NetworkView.UpperBody.cs</c>).</summary>
     public const int Switch = 4;
+    /// <summary>fix/stow-right: the next piece of a weapon switch fading in over the one in <see cref="Switch"/> at the joint between the old weapon's stow and the new one's draw.</summary>
+    public const int SwitchNext = 5;
     /// <summary>The hit flinch (an additive <c>SM_REC_Flinch_*</c> clip, pass 2).</summary>
-    public const int Flinch = 5;
+    public const int Flinch = 6;
     /// <summary>The flight wobble of the jump pack (<c>SM_JMP_Blend_90_Pos_Fast</c> as an offset from its first pose, pass 2).</summary>
-    public const int Wobble = 6;
-    /// <summary>Slot 7 is free; it sits above the others.</summary>
-    public const int FirstFree = 7;
+    public const int Wobble = 7;
+    /// <summary>Slot 8 is free; it sits above the others.</summary>
+    public const int FirstFree = 8;
     /// <summary>The number of slots.</summary>
-    public const int Count = 8;
+    public const int Count = 9;
 
     /// <summary>The slot's name, for logs.</summary>
-    public static string Name(int slot) => slot switch { Fall => "fall", Land => "land", Action => "action", Switch => "switch", Flinch => "flinch", Wobble => "wobble", MeleeVariant => "melee variant", _ => $"slot{slot}" };
+    public static string Name(int slot) => slot switch { Fall => "fall", Land => "land", Action => "action", Switch => "switch", SwitchNext => "switch next", Flinch => "flinch", Wobble => "wobble", MeleeVariant => "melee variant", _ => $"slot{slot}" };
 }
 
 public partial class CharacterViewer

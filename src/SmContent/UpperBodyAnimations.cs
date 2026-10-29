@@ -92,6 +92,95 @@ public sealed record SwitchAnimations(SwitchClip? ToRifle, SwitchClip? ToPistol,
     }
 }
 
+/// <summary>
+/// One piece of a <see cref="SwitchPlan"/>: <paramref name="Clip"/> from <paramref name="From"/> to <paramref name="To"/> seconds of clip time (<paramref name="From"/> &gt; <paramref name="To"/>: played
+/// backwards) over the fractions <paramref name="Start"/> to <paramref name="End"/> of the switch time.
+/// </summary>
+public sealed record SwitchSegment(string Clip, float From, float To, float Start, float End, IReadOnlyDictionary<string, float> Mask)
+{
+    /// <summary>The clip time at a fraction of the switch inside (clamped to) this segment.</summary>
+    public float ClipTime(float fraction) => End > Start ? From + (To - From) * Math.Clamp((fraction - Start) / (End - Start), 0f, 1f) : To;
+}
+
+/// <summary>
+/// How the client draws one weapon switch (fix/stow-right, the owner's playtest: "tactical marine when stowing their primary weapon to switch to bolt pistol should stow it to the right
+/// around their back not the left. currently the gun floats through the air"): the clip pieces over the switch time and when the old weapon leaves the hand for its stow marker
+/// (<see cref="Release"/>) and the new one comes into the hand (<see cref="Take"/>), both fractions of the switch time; between them both are stowed.
+/// <para>
+/// Why: the pistol switch's own clip (<c>SM_Swap_Rifle_to_Melee_01</c>) carries the rifle's chest prop round the marine's <b>left</b> side to the back marker on its own, 0.4 to 2 m from either
+/// hand prop from 0.2 s on (measured, <c>--switch-test --switch-probe --switch-clips</c>): the gun flies by itself. The rifle draw (<c>SM_Swap_Rifle_to_Rifle_01</c>) has the hand take the rifle off the
+/// back marker at its <c>Weapons - Ranged Weapon</c> tag (0.5 of the clip: the chest prop 4 cm from <c>MKR_Stow_Bolter</c>, 11 to 14 cm from the right-hand prop from there on) and carry it round
+/// the <b>right</b> side to the front. So a weapon is put away by its own draw played backwards from the clip's end down to that attach tag, where it is released onto its marker (owner's
+/// knowledge: the right side; the detach moment: the draw's tag), then the new weapon's draw plays from <see cref="DrawLead"/> before its tag to its end and the weapon comes into the hand at
+/// the tag. Played backwards, the pistol's draw puts the pistol back on its thigh marker the same way. Each piece keeps its clip's own speed share: the two pieces are stretched together over
+/// the switch time (ours).
+/// </para>
+/// </summary>
+public sealed record SwitchPlan(IReadOnlyList<SwitchSegment> Segments, float Release, float Take)
+{
+    /// <summary>
+    /// Seconds of the new weapon's draw clip played before its attach tag: the rifle draw's own reach to the back (its tag, 0.233 s); the pistol's draw starts as far before its tag (ours).
+    /// Null takes the rifle draw's tag.
+    /// </summary>
+    public static float DrawLead(SwitchAnimations switches) => switches.ToRifle?.SwapAt ?? 0.233f;
+
+    /// <summary>The whole clip over the switch with the weapon swapped at its tag (the behaviour before fix/stow-right; also any switch the rules below do not cover).</summary>
+    public static SwitchPlan Single(SwitchClip clip)
+    {
+        float swap = clip.Length > 0f ? Math.Clamp(clip.SwapAt / clip.Length, 0.05f, 0.95f) : 0.5f;
+        return new([new SwitchSegment(clip.Clip, 0f, clip.Length, 0f, 1f, clip.Mask)], swap, swap);
+    }
+
+    /// <summary>
+    /// The plan for a switch from the slot <paramref name="from"/> to <paramref name="to"/>: the old weapon's draw backwards, then the new weapon's draw (see the type). Null when nothing is
+    /// switched or neither clip is known; <see cref="Single"/> of the known clip when the other is missing; <paramref name="oldRule"/> gives the pre-fix plan (the new weapon's clip alone).
+    /// </summary>
+    public static SwitchPlan? For(SwitchAnimations switches, SmSim.WeaponSlot from, SmSim.WeaponSlot to, bool oldRule = false)
+    {
+        if (from == to) return null;
+        var draw = to == SmSim.WeaponSlot.Pistol ? switches.ToPistol : switches.ToRifle;
+        var stow = from == SmSim.WeaponSlot.Pistol ? switches.ToPistol : switches.ToRifle;
+        if (oldRule || draw is null || stow is null)
+        {
+            var only = (to == SmSim.WeaponSlot.Pistol ? switches.ToPistol ?? switches.ToRifle : switches.ToRifle ?? switches.ToPistol);
+            return only is null ? null : Single(only);
+        }
+        float stowSeconds = Math.Max(stow.Length - stow.SwapAt, 0f);
+        float drawFrom = Math.Clamp(draw.SwapAt - DrawLead(switches), 0f, draw.SwapAt);
+        float drawSeconds = Math.Max(draw.Length - drawFrom, 0f);
+        float total = stowSeconds + drawSeconds;
+        if (total <= 1e-4f) return Single(draw);
+        float split = stowSeconds / total;
+        var segments = new List<SwitchSegment>(2);
+        if (stowSeconds > 0f) segments.Add(new SwitchSegment(stow.Clip, stow.Length, stow.SwapAt, 0f, split, stow.Mask));
+        if (drawSeconds > 0f) segments.Add(new SwitchSegment(draw.Clip, drawFrom, draw.Length, split, 1f, draw.Mask));
+        float take = split + (draw.SwapAt - drawFrom) / total;
+        return new(segments, split, Math.Clamp(take, split, 1f));
+    }
+
+    /// <summary>The segment shown at a fraction of the switch (the last one at or after its end; the first before 0).</summary>
+    public SwitchSegment SegmentAt(float fraction)
+    {
+        for (int i = 0; i < Segments.Count; i++) if (fraction < Segments[i].End || i == Segments.Count - 1) return Segments[i];
+        return Segments[^1];
+    }
+
+    /// <summary>
+    /// The segment before the one at <paramref name="fraction"/> and how far the cross-fade into the current one has gone (0..1), when <paramref name="fraction"/> lies within
+    /// <paramref name="blend"/> (a fraction of the switch) after a segment boundary; null otherwise (the joint between the two draws is a different pose: ours, a short cross-fade).
+    /// </summary>
+    public (SwitchSegment Previous, float Progress)? Crossfade(float fraction, float blend)
+    {
+        if (blend <= 0f) return null;
+        for (int i = 1; i < Segments.Count; i++)
+        {
+            float since = fraction - Segments[i].Start;
+            if (since >= 0f && since < blend && fraction < Segments[i].End) return (Segments[i - 1], since / blend);
+        }
+        return null;
+    }
+}
+
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------
 // 2. Hit flinch
 
