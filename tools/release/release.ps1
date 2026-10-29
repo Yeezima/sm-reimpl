@@ -14,7 +14,7 @@
         source\   sm-reimpl-source-<ver>.zip (the GPL source offer)
         notes\    VERSION.txt, LICENSE.txt, THIRD_PARTY_NOTICES.md, licenses\, changes-from-original.md, refine-register.md, playtest\, CONTENTS-SHA256.txt
     sm-reimpl-server-win64-<ver>.zip              dedicated server for server hosts, self-contained (published only with -ServerAssets)
-    sm-reimpl-server-linux-x64-<ver>.tar.gz       the same for linux-x64 (server.sh; a tar.gz keeps the 0755 mode bits that a zip may lose)
+    sm-reimpl-server-linux-x64-<ver>.tar.gz       the same for linux-x64 (server.sh; a tar.gz keeps the 0755 mode bits that a zip may lose); only with -Linux or -ServerAssets
     sm-reimpl-source-<ver>.zip                    git archive of the commit (also inside the playtest zip)
     SHA256SUMS.txt                                over all of them (local; the release description shows the hashes instead)
     RELEASE-NOTES.md                              the release description for testers (tools/release/package/RELEASE-NOTES.md, tokens filled)
@@ -37,6 +37,8 @@
 .PARAMETER PrepareOnly   only download and install Godot and the export templates, then stop
 .PARAMETER SkipClient    do not build the playtest zip
 .PARAMETER SkipServer    do not build the stand-alone server packages (the playtest zip always bundles its own win64 server)
+.PARAMETER Linux         also build the linux-x64 server package (sm-reimpl-server-linux-x64-<ver>.tar.gz). Off by default: the playtest zip and its smoke
+                         test need only the win64 server and the source zip, so a hotfix skips the Linux publish. -ServerAssets turns it on by itself.
 .PARAMETER SkipBuild     do not rebuild: re-scan and (with -Publish) publish the packages already in the output folder of this version
 .PARAMETER Smoke         after building: unpack the playtest zip and run it as a tester would, headless, on 127.0.0.1 only (ports 27141 to 27199):
                          "0 - SM Reimpl Launcher.exe --selftest" must check the unpacked build against its file list (no network, nothing written),
@@ -60,7 +62,9 @@
                          marked Latest) with "What's new" from release/NEXT.md at the top of the description; then release/NEXT.md is archived to
                          release/history/<version>.md and emptied in one commit on top of the shipped commit, pushed to origin/main only while
                          origin/main is still the shipped commit (-NoPush keeps it local). See docs/releasing.md.
-.PARAMETER SkipTests     with -Ship: skip dotnet test and refine-register --check
+.PARAMETER SkipTests     with -Ship: skip dotnet test and refine-register --check. Without it they are also skipped (and the ship says so) when both
+                         passed on exactly this commit within the last 24 hours, as recorded by test-and-mark.cmd (or an earlier ship) in
+                         %LOCALAPPDATA%\sm-reimpl\tmp-build\tested\<commit sha>; otherwise they run, and a green run writes that marker.
 .PARAMETER Draft         with -Ship: create the release as a draft for the owner to check. NEXT.md is kept and -Supersede waits: after publishing the
                          draft on GitHub, run ship.cmd -ArchiveOnly [-Supersede].
 .PARAMETER ArchiveOnly   with -Ship: no build; for a release of this version that is already published (a draft the owner published by hand), archive
@@ -79,6 +83,7 @@
 .EXAMPLE
   release.cmd                     (build all packages, scan, write SHA256SUMS.txt and RELEASE-NOTES.md)
   release.cmd -Smoke              (and run the playtest zip's launchers, game and server headless)
+  release.cmd -Smoke -Linux       (the same with the linux-x64 server package too)
   release.cmd -Commit 4fa4d46 -Smoke   (the programs of commit 4fa4d46 in this tooling's layout)
   release.cmd -SkipBuild -Publish -DryRun   (re-scan the finished packages and show the gh command)
   ship.cmd                        (= release.ps1 -Ship: preflight, build, guard, smoke, publish, archive the What's new)
@@ -91,8 +96,34 @@ param(
     [string]$GameDir,
     [switch]$Publish, [switch]$ServerAssets, [switch]$NoDraft, [Alias('WhatIf')][switch]$DryRun,
     [switch]$Ship, [switch]$SkipTests, [switch]$Draft, [switch]$Supersede, [switch]$NotPrerelease, [switch]$NoPush, [switch]$AllowEmptyNotes, [switch]$Playtest, [switch]$ArchiveOnly, [switch]$KeepPrevious,
+    [switch]$Linux,
     [string]$Repo = 'Yeezima/sm-reimpl-releases', [switch]$AllowOtherRepo
 )
+# Step timings: every step's seconds and the total, printed as a table at the end (also when a step fails).
+$script:RunClock = [Diagnostics.Stopwatch]::StartNew()
+$script:StepTimes = [ordered]@{}
+$script:StepName = $null
+$script:StepClock = New-Object Diagnostics.Stopwatch
+$script:TimingsShown = $false
+function Time-Step([string]$name) { Stop-TimeStep; $script:StepName = $name; $script:StepClock.Restart() }
+function Stop-TimeStep {
+    if (-not $script:StepName) { return }
+    $s = $script:StepClock.Elapsed.TotalSeconds
+    if ($script:StepTimes.Contains($script:StepName)) { $script:StepTimes[$script:StepName] += $s } else { $script:StepTimes[$script:StepName] = $s }
+    $script:StepName = $null
+}
+function Show-Timings([string]$outcome = 'done') {
+    Stop-TimeStep
+    if ($script:TimingsShown) { return }
+    $script:TimingsShown = $true
+    Write-Host ''
+    Write-Host "Timings ($outcome), seconds:" -ForegroundColor Cyan
+    foreach ($k in $script:StepTimes.Keys) { Write-Host ('  {0,-18} {1,6:0}' -f $k, $script:StepTimes[$k]) }
+    Write-Host ('  {0,-18} {1,6:0}' -f 'total', $script:RunClock.Elapsed.TotalSeconds)
+}
+# A failure anywhere still prints the timings of the steps so far, then stops the script as before.
+trap { if (Get-Command Show-Timings -ErrorAction SilentlyContinue) { Show-Timings 'failed' }; break }
+Time-Step 'preflight'
 if ($Repo -ne 'Yeezima/sm-reimpl-releases' -and -not $AllowOtherRepo) {
     throw "Publishing is pinned to Yeezima/sm-reimpl-releases; '$Repo' needs the explicit -AllowOtherRepo switch."
 }
@@ -100,6 +131,7 @@ if ($Ship) {
     if ($Commit -or $Publish -or $SkipBuild -or $SkipClient -or $AllowDirty) { throw '-Ship builds and publishes HEAD of a clean main by itself; do not combine it with -Commit, -Publish, -SkipBuild, -SkipClient or -AllowDirty.' }
     $Smoke = $true             # a ship always runs the smoke test
 }
+if ($ServerAssets) { $Linux = $true }      # the server assets include the Linux package
 foreach ($pair in @(@('SkipTests', $SkipTests), @('Draft', $Draft), @('Supersede', $Supersede), @('NotPrerelease', $NotPrerelease), @('NoPush', $NoPush), @('AllowEmptyNotes', $AllowEmptyNotes), @('ArchiveOnly', $ArchiveOnly), @('KeepPrevious', $KeepPrevious))) {
     if ($pair[1] -and -not $Ship) { throw "-$($pair[0]) belongs to -Ship (ship.cmd)." }
 }
@@ -135,7 +167,7 @@ $SourceExclude = @(
     'CLAUDE.md', 'docs', 'spec', 'tests', '.github', 'config',
     'src/SmTool', 'smtool.cmd', 'smtool.sh', 'SmReimpl.slnx', 'faithful-build.cmd',
     'tools/discover.ps1', 'discover.cmd', 'tools/m1.ps1', 'm1.cmd', 'tools/movie.ps1', 'movie.cmd', 'tools/bots.ps1', 'bots.cmd',
-    'tools/release', 'release.cmd', 'ship.cmd', 'release'
+    'tools/release', 'release.cmd', 'ship.cmd', 'test-and-mark.cmd', 'release'
 )
 # The ship's "What's new" file and its archive (repository paths). Feature branches add tester-facing bullets to NEXT.md as they merge.
 $NextFile = Join-Path $RepoRoot 'release\NEXT.md'
@@ -160,6 +192,7 @@ $TopFiles = [ordered]@{
 # tester's install up to date from the releases of $Repo (docs/releasing.md, "The launcher"). Token @LAUNCHER@ in the templates.
 $LauncherTop = '0 - SM Reimpl Launcher.exe'
 
+. (Join-Path $PSScriptRoot 'tested-marker.ps1')      # the "tests passed on this commit" marker (Read-TestedMarker, Write-TestedMarker, Invoke-ReleaseTests)
 function Step([string]$text) { Write-Host "== $text" -ForegroundColor Cyan }
 function Fail([string]$text) { throw $text }
 function Run-Native([string]$what, [scriptblock]$block) {
@@ -449,10 +482,16 @@ function Sha256([string]$path) { (Get-FileHash -Algorithm SHA256 -LiteralPath $p
 # indexed when it exists, and every secrets source that exists is loaded and must yield values. Exit 0 = clean; anything else = refuse.
 # The binary packages also get the file-type allowlist; the playtest zip must hold a verified Godot pack, and its source\ zip is scanned entry by
 # entry without the allowlist (as the stand-alone source zip is). Loose documents get the content rules only.
-function Invoke-Scan([string[]]$paths) {
+function Invoke-Scan([string[]]$paths, [switch]$Rehash) {
     Run-Native 'dotnet build smtool' { dotnet build (Join-Path $RepoRoot 'src\SmTool\SmTool.csproj') -c Release -nologo -v quiet | Out-Null }
     $cache = Join-Path $dataRoot 'cache'
     $common = @('run', '--project', (Join-Path $RepoRoot 'src\SmTool\SmTool.csproj'), '-c', 'Release', '--no-build', '--', 'scan-package', '--require-install', '--require-secrets', '--secrets-env')
+    # The comparison trees' fingerprints (path, size, write time, SHA-256; the install's also by Steam build id) are kept between runs in cache\guard, so
+    # unchanged files are not hashed again (a stored hash is used for at most 7 days); the guard's answer is the same with or without them (smtool
+    # ignores an index folder inside the install or a comparison tree, other than the private cache's own guard folder). -Rehash (the last scan before an
+    # upload): no stored hash is used, every needed file is hashed again, and the index is still saved.
+    $common += @('--index-cache', (Join-Path $cache 'guard'))
+    if ($Rehash) { $common += '--rehash' }
     if (Test-Path -LiteralPath $cache) { $common += @('--against', $cache) }
     $common += @('--against-install', $(if ($GameDir) { $GameDir } else { 'auto' }))
     foreach ($c in $secretFiles) { $common += @('--secrets', $c) }
@@ -505,7 +544,7 @@ function Write-ReleaseNotes([switch]$WithServerAssets, [switch]$Placeholder) {
     $t.WHATSNEW = if ($WhatsNew) { "## What's new in this build`n`n$WhatsNew`n`n<!-- whats-new-end -->`n`n" } else { '' }
     $t.SERVERASSETS = ''
     if ($WithServerAssets -and -not $Placeholder) {
-        foreach ($k in 'serverWin', 'serverLinux', 'source') { if (-not (Test-Path -LiteralPath $Zips[$k])) { Fail "-ServerAssets needs $(Split-Path -Leaf $Zips[$k]); build without -SkipServer." } }
+        foreach ($k in 'serverWin', 'serverLinux', 'source') { if (-not (Test-Path -LiteralPath $Zips[$k])) { Fail "-ServerAssets needs $(Split-Path -Leaf $Zips[$k]); build with -ServerAssets (or -Linux) and without -SkipServer." } }
         $rows = foreach ($k in 'serverWin', 'serverLinux', 'source') { '| `{0}` | `{1}` |' -f (Split-Path -Leaf $Zips[$k]), (Sha256 $Zips[$k]) }
         $t.SERVERASSETS = "`n## Dedicated servers (for server hosts)`n`nTesters do not need these. Stand-alone servers for a Windows or Linux machine, and the source code as a separate download:`n`n| File | SHA-256 |`n|---|---|`n" + ($rows -join "`n") + "`n"
     }
@@ -781,17 +820,27 @@ if ($Ship) {
         $holders = Playtest-PortHolders
         Ship-Check (-not $holders -or $holders.Ours) "UDP $PlaytestPort is free or held by the earlier playtest server (-Playtest)" "it is held by another process (pid $(if ($holders) { $holders.Pids -join ', ' })); stop it first"
     }
+    # The tests: skipped by -SkipTests, or when both passed on exactly this commit within 24 hours (test-and-mark.cmd or an earlier ship wrote the marker;
+    # the tree is clean here, so the commit is the code). Otherwise they run, and a green run writes the marker.
+    $testedAt = if ($SkipTests -or $ArchiveOnly) { $null } else { Read-TestedMarker $dataRoot $CommitSha }
     if ($SkipTests -or $ArchiveOnly) { Write-Host '  skip   dotnet test and refine-register --check' -ForegroundColor Yellow }
-    elseif ($DryRun) { Write-Host '  would  run dotnet test and smtool refine-register --check' }
+    elseif ($testedAt -and -not $dirty) {
+        $ago = [DateTime]::UtcNow - $testedAt
+        Write-Host ("  skip   dotnet test and refine-register --check: both passed on {0} at {1:yyyy-MM-dd HH:mm} UTC ({2:0.0} h ago; {3})" -f $CommitSha.Substring(0, 7), $testedAt, $ago.TotalHours, (Get-TestedMarkerPath $dataRoot $CommitSha)) -ForegroundColor Green
+    }
+    elseif ($DryRun) { Write-Host "  would  run dotnet test and smtool refine-register --check (no marker of a green run on $($CommitSha.Substring(0, 7)) within $TestedMaxAgeHours h)" }
     else {
+        Time-Step 'tests'
         Step 'Ship preflight: dotnet test'
-        Push-Location $RepoRoot
-        try {
-            & dotnet test -nologo -v quiet | Out-Host
-            Ship-Check ($LASTEXITCODE -eq 0) 'dotnet test' "failed (exit $LASTEXITCODE)"
-            & dotnet run --project (Join-Path $RepoRoot 'src\SmTool\SmTool.csproj') -c Release -- refine-register --check --spec (Join-Path $RepoRoot 'spec\behavior.md') --changes (Join-Path $RepoRoot 'docs\changes-from-original.md') --out (Join-Path $RepoRoot 'docs\refine-register.md') | Out-Host
-            Ship-Check ($LASTEXITCODE -eq 0) 'refine-register --check' 'the register is stale or a spec row lacks kind/source/confidence: run smtool refine-register, commit, merge'
-        } finally { Pop-Location }
+        $r = Invoke-ReleaseTests $RepoRoot
+        Ship-Check ($r.Test -eq 0) 'dotnet test' "failed (exit $($r.Test))"
+        Ship-Check ($r.Refine -eq 0) 'refine-register --check' 'the register is stale or a spec row lacks kind/source/confidence: run smtool refine-register, commit, merge'
+        # Only a run on a tree that stayed clean at the shipped commit throughout is recorded (the ship goes on either way: the checks passed).
+        $why = ''
+        $marker = Write-TestedMarkerIfStable $dataRoot $CommitSha $r ([ref]$why)
+        if ($marker) { Write-Host "  tests recorded as passed on $($CommitSha.Substring(0, 7)) ($marker)" }
+        else { Write-Warning "The tests passed but were not recorded: $why. Check the checkout before shipping (git status)." }
+        Time-Step 'preflight'
     }
 }
 
@@ -800,20 +849,20 @@ if ($Ship -and $ArchiveOnly) {
     $state = if ((Quiet-Exit { gh release view $Tag --repo $Repo }) -eq 0) { (& gh release view $Tag --repo $Repo --json isDraft,url | ConvertFrom-Json) } else { $null }
     if ($DryRun) {
         Write-Host "  would archive release/NEXT.md for $Tag$(if ($Supersede) { ' and point the previous release at it' })$(if (-not $KeepPrevious) { ' and hide the earlier builds' })"
-        if ($script:ShipProblems -gt 0) { Write-Host "Preflight: $($script:ShipProblems) check(s) would refuse." -ForegroundColor Yellow; exit 1 }
-        exit 0
+        if ($script:ShipProblems -gt 0) { Write-Host "Preflight: $($script:ShipProblems) check(s) would refuse." -ForegroundColor Yellow; Show-Timings; exit 1 }
+        Show-Timings; exit 0
     }
     if (-not $state -or $state.isDraft) { Fail "$Tag is not published yet: publish the draft on GitHub first." }
     $ErrorActionPreference = 'Continue'
     if ($Supersede) { Invoke-Supersede $state.url }
     Step 'Hiding the earlier builds'; Hide-PreviousReleases
     if ($WhatsNew) { Step "Archiving release/NEXT.md to release/history/$Version.md"; Archive-WhatsNew $state.url } else { Write-Host 'release/NEXT.md has nothing to archive.' }
-    exit 0
+    Show-Timings; exit 0
 }
 
 if ($Ship -and $DryRun) {
     Step "Ship DRY RUN: nothing is built, published, committed or stopped"
-    Write-Host "  would build: $PlaytestName.zip, the server packages and the source zip; content guard; smoke test (127.0.0.1, ports 27141-27199)"
+    Write-Host "  would build: $PlaytestName.zip, the win64 server package$(if ($Linux) { ', the linux-x64 server package' }) and the source zip; content guard; smoke test (127.0.0.1, ports 27141-27199)"
     New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
     $Notes = Join-Path $OutDir 'RELEASE-NOTES.dry-run.md'
     Write-ReleaseNotes -Placeholder
@@ -849,12 +898,13 @@ if ($Ship -and $DryRun) {
         $old = Playtest-Procs
         Write-Host "  -Playtest: would stop $($old.Bots.Count) recorded bot(s) and $($old.Servers.Count) playtest server(s), start server\SmServer.exe of the zip from $(Join-Path $dataRoot "tmp-build\playtest-srv-$Version") with $($PlaytestServerArgs -join ' '), and $($PlaytestBots.Count) headless bots from $(Join-Path $RepoRoot 'client')"
     }
-    if ($script:ShipProblems -gt 0) { Write-Host "Preflight: $($script:ShipProblems) check(s) would refuse the ship." -ForegroundColor Yellow; exit 1 }
+    if ($script:ShipProblems -gt 0) { Write-Host "Preflight: $($script:ShipProblems) check(s) would refuse the ship." -ForegroundColor Yellow; Show-Timings; exit 1 }
     Write-Host 'Preflight: every check passed.' -ForegroundColor Green
-    exit 0
+    Show-Timings; exit 0
 }
 
 if (-not $SkipBuild) {
+    Time-Step 'clean copy'
     New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
     if (Test-Path -LiteralPath $Stage) { Remove-Item -LiteralPath $Stage -Recurse -Force }
     New-Item -ItemType Directory -Force -Path $Stage | Out-Null
@@ -910,13 +960,17 @@ if (-not $SkipBuild) {
     }
 
     # ---- server packages ----
+    # The win64 server is always built (the playtest zip bundles it as server\); its stand-alone zip unless -SkipServer. The linux-x64 package only with
+    # -Linux or -ServerAssets: nothing in the playtest zip or its smoke test needs it.
+    Time-Step 'server builds'
     $serverWinDir = Join-Path $Stage 'server-win64'
     $serverLinuxDir = Join-Path $Stage 'server-linux-x64'
     if (-not $SkipServer -or -not $SkipClient) {
         Publish-Server 'win-x64' $serverWinDir
     }
+    if ($SkipServer -and $Linux) { Write-Warning '-SkipServer wins over -Linux: no server packages are built.' }
+    elseif (-not $SkipServer -and -not $Linux) { Write-Host '  linux-x64 server package: skipped (pass -Linux, or -ServerAssets, to build it)' }
     if (-not $SkipServer) {
-        Publish-Server 'linux-x64' $serverLinuxDir
         # win64
         $d = Join-Path $Stage 'pkg-server-win64'
         Copy-Item -LiteralPath $serverWinDir -Destination $d -Recurse
@@ -926,6 +980,9 @@ if (-not $SkipBuild) {
         Common-Files $d 'README-FIRST.server.txt' 'server-win64' ($Tokens + @{ PLATFORM = 'Windows 64-bit'; REQUIREMENTS = 'Windows 10/11 64-bit. No .NET installation is needed (self-contained).'
             RUN = 'Server.cmd (finds the Steam install itself; add options after it, for example: Server.cmd --map mp_tdm_09 --mode seize)'; DATADIR = '%LOCALAPPDATA%\sm-reimpl' })
         New-Zip $d $Zips.serverWin "sm-reimpl-server-win64-$Version" @()
+    }
+    if (-not $SkipServer -and $Linux) {
+        Publish-Server 'linux-x64' $serverLinuxDir
         # linux-x64
         $d = Join-Path $Stage 'pkg-server-linux-x64'
         Copy-Item -LiteralPath $serverLinuxDir -Destination $d -Recurse
@@ -938,6 +995,7 @@ if (-not $SkipBuild) {
     }
 
     # ---- source (before the playtest zip, which carries it) ----
+    Time-Step 'zips'
     Step "Archiving the source (git archive $($CommitSha.Substring(0, 7)))"
     $srcDir = Join-Path $Stage 'pkg-source'
     New-Item -ItemType Directory -Force -Path $srcDir | Out-Null
@@ -959,7 +1017,9 @@ if (-not $SkipBuild) {
 
     # ---- the playtest zip ----
     if (-not $SkipClient) {
+        Time-Step 'launcher publish'
         $launcherExe = Publish-Launcher (Join-Path $Stage 'launcher')
+        Time-Step 'client export'
         Ensure-Godot
         Ensure-Templates
         $exportDir = Join-Path $Stage 'client-export'
@@ -989,6 +1049,7 @@ if (-not $SkipBuild) {
         if (-not (Test-Path -LiteralPath (Join-Path $exportDir 'sm-reimpl.exe'))) { Fail 'The export produced no sm-reimpl.exe.' }
         Get-ChildItem -LiteralPath $exportDir -Recurse -File | Where-Object { $_.Extension -in '.pdb', '.xml' } | Remove-Item -Force
 
+        Time-Step 'zips'
         Step "Assembling $PlaytestName.zip"
         $d = Join-Path $Stage 'pkg-playtest'
         New-Item -ItemType Directory -Force -Path $d | Out-Null
@@ -1040,6 +1101,7 @@ if (-not $SkipBuild) {
 # ---- guard, sums, notes ----------------------------------------------------------------------------------------------
 $built = @($Zips.Values | Where-Object { Test-Path -LiteralPath $_ })
 if ($built.Count -eq 0) { Fail "No packages in $OutDir." }
+Time-Step 'content guard'
 Step 'Content guard (smtool scan-package)'
 $scanCode = Invoke-Scan $built
 if ($scanCode -ne 0) {
@@ -1086,6 +1148,7 @@ function Wait-Line([string]$file, [string]$pattern, [int]$seconds, $process = $n
 }
 
 if ($Smoke) {
+    Time-Step 'smoke test'
     if (-not (Test-Path -LiteralPath $Zips.playtest)) { Fail 'The smoke test needs the playtest zip (do not combine -Smoke with -SkipClient on a fresh folder).' }
     $smokeDir = Join-Path $OutDir '_smoke'
     if (Test-Path -LiteralPath $smokeDir) { Remove-Item -LiteralPath $smokeDir -Recurse -Force }
@@ -1216,19 +1279,20 @@ if ($Smoke) {
 
 # ---- publish (owner only) --------------------------------------------------------------------------------------------
 if ($Publish) {
+    Time-Step 'publish'
     Step "Publish to $Repo"
     if ($Version -match 'dirty') { Fail 'Refusing to publish a -dirty version.' }
     $need = @($Zips.playtest)
     if ($ServerAssets) { $need += @($Zips.serverWin, $Zips.serverLinux, $Zips.source) }
-    foreach ($z in $need) { if (-not (Test-Path -LiteralPath $z)) { Fail "Publishing needs $(Split-Path -Leaf $z). Build without -SkipClient / -SkipServer." } }
+    foreach ($z in $need) { if (-not (Test-Path -LiteralPath $z)) { Fail "Publishing needs $(Split-Path -Leaf $z). Build without -SkipClient / -SkipServer (the Linux package: with -ServerAssets or -Linux)." } }
     # git describe found a tag: v<describe> (no second v if the tag already starts with v and a digit). A bare commit hash: tester-<date>-<short sha>.
     $tag = if ($Version -match '^[0-9a-f]{7,40}$') { "tester-$BuildDate-$($CommitSha.Substring(0, 7))" } elseif ($Version -match '^v\d') { $Version } else { "v$Version" }
     # Re-scan right before the upload; the packages may have been touched since the build.
-    $again = Invoke-Scan $need
+    $again = Invoke-Scan $need -Rehash          # the last scan before an upload trusts no stored hash
     if ($again -ne 0) { Fail "The content guard refused the packages just before publishing (exit $again). Nothing was uploaded." }
     Test-Sums -Require $need
     Write-ReleaseNotes -WithServerAssets:$ServerAssets
-    $again = Invoke-Scan @($Notes)            # the description is public too
+    $again = Invoke-Scan @($Notes) -Rehash          # the description is public too
     if ($again -ne 0) { Fail "The content guard refused RELEASE-NOTES.md (exit $again). Nothing was uploaded." }
     $ghArgs = @('release', 'create', $tag, '--repo', $Repo)
     if (-not $NoDraft) { $ghArgs += '--draft' }
@@ -1249,10 +1313,11 @@ if ($Publish) {
 # ---- ship: publish, supersede, archive (the build, the guard and the smoke test above have passed) -------------------------------
 if ($Ship) {
     $ErrorActionPreference = 'Continue'      # gh and git report progress on stderr; every step checks its exit code and Fail still throws
+    Time-Step 'publish'
     Step "Ship: publishing $Tag to $Repo"
     # Re-scan right before the upload, the description too (it is public).
     Write-ReleaseNotes
-    $again = Invoke-Scan @($Zips.playtest, $Notes)
+    $again = Invoke-Scan @($Zips.playtest, $Notes) -Rehash      # the last scan before an upload trusts no stored hash
     if ($again -ne 0) { Fail "The content guard refused the packages or the description just before publishing (exit $again). Nothing was uploaded." }
     Test-Sums -Require @($Zips.playtest)
     if ((Quiet-Exit { gh release view $Tag --repo $Repo }) -eq 0) { Fail "$Tag appeared in $Repo while building; nothing was uploaded." }
@@ -1268,8 +1333,9 @@ if ($Ship) {
     } else {
         if ($Supersede) { Invoke-Supersede $url }
         Step 'Ship: hiding the earlier builds'; Hide-PreviousReleases
-        if ($WhatsNew) { Step "Ship: archiving release/NEXT.md to release/history/$Version.md"; Archive-WhatsNew $url }
+        if ($WhatsNew) { Time-Step 'archive'; Step "Ship: archiving release/NEXT.md to release/history/$Version.md"; Archive-WhatsNew $url }
     }
 }
-if ($Playtest) { Start-Playtest }
+if ($Playtest) { Time-Step 'playtest'; Start-Playtest }
+Show-Timings
 exit 0

@@ -27,6 +27,7 @@
     <!-- The release content guard (smtool scan-package; engine-free, tools/release/release.ps1). -->
     <Compile Include="..\..\src\SmTool\PackageScanner.cs" Link="SmToolRelease\PackageScanner.cs" />
     <Compile Include="..\..\src\SmTool\PackageScanCommand.cs" Link="SmToolRelease\PackageScanCommand.cs" />
+    <Compile Include="..\..\src\SmTool\GuardIndex.cs" Link="SmToolRelease\GuardIndex.cs" />
     <Compile Include="..\..\src\SmTool\TarPackage.cs" Link="SmToolRelease\TarPackage.cs" />
     <Compile Include="..\..\src\SmTool\WhatsNew.cs" Link="SmToolRelease\WhatsNew.cs" />
     <!-- The customizer's engine-free model (the client's Godot code cannot be referenced from a test project). -->

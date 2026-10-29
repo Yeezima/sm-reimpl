@@ -8,7 +8,17 @@ git switch main; git pull
 .\ship.cmd              # ship it
 ```
 
-`ship.cmd` is `tools\release\release.ps1 -Ship`. A full run takes about 15 minutes (tests, Godot export, smoke test).
+`ship.cmd` is `tools\release\release.ps1 -Ship`. Every run ends with a table of each step's seconds and the total (also when a step fails), so a slow
+step shows itself. Measured on the owner's PC (2026-10-29, warm build caches): `release.cmd -Smoke` about 3.5 minutes, of which the smoke test is
+about 2 minutes (its bots and the front end run for fixed times) and the Godot export under half a minute; the ship's `dotnet test` and
+`refine-register --check` about 1 minute more.
+
+To ship a hotfix quickly, run the tests first while you write the What's new, then ship the same commit:
+
+```powershell
+.\test-and-mark.cmd     # dotnet test + refine-register --check; green on a clean tree = recorded for this commit
+.\ship.cmd              # skips the tests it finds recorded for this exact commit within 24 hours (and says so)
+```
 
 ## Before shipping: release\NEXT.md
 
@@ -25,9 +35,9 @@ The rest of the description (install steps, the file list, the controls table, k
 
 | Step | Checks | Stops when |
 |---|---|---|
-| 1. Preflight | on `main`; clean tree; `HEAD` = `origin/main` (after a fetch); `gh` installed and signed in; the version's tag (`tester-<date>-<short hash>`) not in the releases repo yet; `NEXT.md` has tester-facing bullets; `dotnet test`; `smtool refine-register --check`. Prints the version, protocol and commit. | any check fails |
-| 2. Build | the playtest zip `SM-Reimpl-Playtest-<date>-<version>-Windows.zip` (`0 - SM Reimpl Launcher.exe`, numbered launchers, `game\`, `server\`, `source\`, `notes\`), the server packages and the source zip, from a clean `git archive` of `HEAD` | a build or export error |
-| 3. Content guard | `smtool scan-package` over every package (the source zip inside the playtest zip too): no game files, private files, user paths, secrets, personal e-mail addresses or unexpected file types | any finding: every package is deleted |
+| 1. Preflight | on `main`; clean tree; `HEAD` = `origin/main` (after a fetch); `gh` installed and signed in; the version's tag (`tester-<date>-<short hash>`) not in the releases repo yet; `NEXT.md` has tester-facing bullets; `dotnet test`; `smtool refine-register --check` (both skipped when they passed on exactly this commit within 24 hours: see "Skipping a duplicate test run"). Prints the version, protocol and commit. | any check fails |
+| 2. Build | the playtest zip `SM-Reimpl-Playtest-<date>-<version>-Windows.zip` (`0 - SM Reimpl Launcher.exe`, numbered launchers, `game\`, `server\`, `source\`, `notes\`), the win64 server zip and the source zip, from a clean `git archive` of `HEAD`; the linux-x64 server package only with `-Linux` (or `-ServerAssets`) | a build or export error |
+| 3. Content guard | `smtool scan-package` over every package (the source zip inside the playtest zip too): no game files, private files, user paths, secrets, personal e-mail addresses or unexpected file types. The install's and the private cache's file fingerprints are kept between runs in `%LOCALAPPDATA%\sm-reimpl\cache\guard\` (below) | any finding: every package is deleted |
 | 4. Smoke test | unpacks the zip, `0 - SM Reimpl Launcher.exe --selftest` verifies it, `3 - Host a match on this PC.cmd` starts `server\` on 127.0.0.1 (ports 27141-27199), a headless bot from `game\` joins it, `2 - Play.cmd`'s HOST A MATCH finds `server\` | the server does not start, the bot does not join, a load error |
 | 5. Publish | re-scans the zip and the description, then `gh release create` with the zip as the only asset | the guard refuses, the tag appeared meanwhile, `gh` fails |
 | 5b. Hide earlier builds | after publishing (not with `-Draft`, not with `-KeepPrevious`): every other published release becomes a draft again, so testers only see this build; nothing is deleted | never stops the ship: a failed hide is a warning |
@@ -43,13 +53,47 @@ The rest of the description (install steps, the file list, the controls table, k
 | (default) | Once the new build is published, every other published release is turned back into a draft, so testers only see the current build. Nothing is deleted: publish an old one again on GitHub if needed. `-KeepPrevious` leaves them visible. |
 | `-Supersede` | Only useful with `-KeepPrevious` (otherwise the previous release is hidden right after). Puts "A newer playtest build is out" with the new link at the top of the previous published release's description. Older releases are never deleted. |
 | `-NotPrerelease` | Publishes a normal release marked **Latest**. GitHub's `releases/latest` link only ever points at a published release that is *not* a pre-release, so without this switch that link does not move (the default stays a pre-release, the owner's earlier decision). |
-| `-SkipTests` | Skips `dotnet test` and `refine-register --check` (the guard and the smoke test still run). |
+| `-SkipTests` | Skips `dotnet test` and `refine-register --check` (the guard and the smoke test still run). Without it they are skipped anyway when a green run of both on exactly this commit is recorded from the last 24 hours (below). |
+| `-Linux` | Also builds the linux-x64 server package (`sm-reimpl-server-linux-x64-<version>.tar.gz`). Off by default: the playtest zip, its smoke test and a ship need only the win64 server and the source zip. `-ServerAssets` (with `-Publish`) turns it on by itself. Works with `release.cmd` and `ship.cmd`. |
 | `-NoPush` | Commits the archived `NEXT.md` but does not push. |
 | `-AllowEmptyNotes` | Ships with no What's new section. |
 | `-Playtest` | The preflight first checks that UDP 27025 is free or held by the earlier playtest server. After publishing, restarts the local playtest server on the shipped build: the zip's `server\` copied to `%LOCALAPPDATA%\sm-reimpl\tmp-build\playtest-srv-<version>`, `--bind 127.0.0.1 --port 27025 --honor-side-requests --bot-damage-scale 0.34`, and 7 headless bots from this checkout's client (`--headless --bot --no-sound`; marines tactical, devastator, assault; Chaos tactical, havoc, raptor, tactical). Their PIDs go to `tmp-build\playtest-27025-bots\pids.txt` (the server's to `server.txt`). It stops only the bots recorded there (a Godot `--bot` process joining 127.0.0.1:27025, started at the recorded time) and SmServer copies from `tmp-build\playtest-srv-*` on port 27025; if anything else holds 27025 it refuses. The new server must print its ready line and its 127.0.0.1-only line, else it is stopped and the run fails. Also works without shipping: `release.cmd -SkipBuild -Playtest` on a built version. |
 
-Lower-level commands stay available: `release.cmd` (build only), `release.cmd -Smoke`, `release.cmd -SkipBuild -Publish [-NoDraft] [-ServerAssets]`,
-`release.cmd -Commit <rev>` (re-package an older build). README, "Building a tester release".
+Lower-level commands stay available: `release.cmd` (build only), `release.cmd -Smoke`, `release.cmd -Linux`, `release.cmd -SkipBuild -Publish [-NoDraft] [-ServerAssets]`
+(`-ServerAssets` needs a build made with `-Linux` or `-ServerAssets`), `release.cmd -Commit <rev>` (re-package an older build). README, "Building a tester release".
+
+## Step timings
+
+Every `release.cmd` and `ship.cmd` run ends with "Timings (done), seconds:", one line per step that ran and the total: preflight, tests, clean copy
+(smtool and the `git archive` copy), server builds, launcher publish, client export (the game's build, Godot import and export), zips (the source zip,
+assembling and zipping the playtest folder), content guard (with the sums and the description), smoke test, publish (the re-scan, `gh`, hiding the
+earlier builds), archive, playtest. A failed run prints "Timings (failed)" with the steps so far before the error. The guard also prints its own seconds
+and how many of the install's and the cache's files it had to hash.
+
+## Skipping a duplicate test run
+
+`test-and-mark.cmd` (`tools\release\test-and-mark.ps1`) runs exactly the ship's checks, `dotnet test` and then `smtool refine-register --check`. When both
+pass and the tree was clean and at the same `HEAD` commit both before and after the run (no changes, no untracked files; the check lives in
+`tools\release\tested-marker.ps1`, `Invoke-ReleaseTests` and `Write-TestedMarkerIfStable`, shared with the ship), it writes
+`%LOCALAPPDATA%\sm-reimpl\tmp-build\tested\<full commit sha>` (a small text file: the commit, the UTC time, both checks passed). A ship of that commit within
+24 hours prints `skip   dotnet test and refine-register --check: both passed on <sha> at <time> UTC (...)` and goes on. A marker is ignored (the tests run
+as before) when it is unreadable, names another commit, lacks a check, is older than 24 hours, or is dated more than 5 minutes in the future (5 minutes of
+clock slack are allowed). A ship that runs the tests itself writes the marker after a green run too, under the same rule: when the tree changed or `HEAD`
+moved during the run it writes nothing and warns. `test-and-mark.cmd -Check` only reports whether `HEAD` has a valid marker. With uncommitted changes the
+checks still run, but nothing is recorded. Delete the folder to force the tests.
+
+## The guard's fingerprint cache
+
+`smtool scan-package --index-cache <dir>` (release.ps1 passes `%LOCALAPPDATA%\sm-reimpl\cache\guard`) keeps, per comparison tree (the game install, the
+private cache), each file's relative path, size, last-write time and, once the guard needed it, its SHA-256, in `install-<id>.json` / `private-<id>.json`.
+The guard compares a package file with the tree's files of the same size only, so it hashes few of them (36 on the 2026-10-29 build); a stored hash is
+reused only when the path, the size and the write time (and for the install the Steam build id from `appmanifest_55150.acf`) are unchanged and the hash
+was taken less than 7 days ago (reusing a hash does not renew its date); a changed, new or older file is hashed again, a deleted one is dropped, and a
+missing, corrupt, older-format or foreign index file is ignored and rebuilt, so the answer is identical with and without it (tests: `GuardIndexTests`).
+The last scans before an upload (`-Publish`, and the ship's re-scan) pass `--rehash`: no stored hash is used there, every needed file is hashed again, and
+the index is still saved. An `--index-cache` folder inside the install or inside a comparison tree (other than the private cache's own `guard` folder;
+links and junctions resolved to their final path first) is ignored: the guard runs without stored hashes and writes nothing there. A failure to save the
+index (a full disk, a file name JSON cannot hold) costs time on the next run, never the guard's answer. Deleting the folder is always safe.
 
 ## The launcher (what testers run)
 
