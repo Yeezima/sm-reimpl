@@ -429,6 +429,39 @@ public class PlayerCollisionTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void A_real_game_servers_world_bounds_the_body_tick()
+    {
+        // The re-review: dropping BoundBodies from the server's world must fail a test.
+        var h = new Harness(LinkConditions.Perfect, 1, 0);
+        Assert.True(h.Server.World.BoundBodies);
+    }
+
+    [Fact]
+    public void A_hostile_45_tick_old_picture_from_before_a_player_stepped_in_is_raised_to_the_24_tick_bound()
+    {
+        // Player 2 walks in from 4 m to the side and stands at (0, 2.1) from about tick 25; the hostile walker sets off at tick 60 naming the picture
+        // 45 ticks back, when player 2 was still on the way (that picture would let it through). The world raises it to 24 ticks back: blocked.
+        var w = new World(Config, null, [new SpawnPoint(Vector3.Zero, 0f), new SpawnPoint(new Vector3(4f, 2.1f, 0f), 0f)]) { BoundBodies = true };
+        w.Spawn(1); w.Spawn(2);
+        bool farInOldPicture = false;
+        float worst = float.MaxValue;
+        for (int k = 0; k < 100; k++)
+        {
+            uint t = w.Tick + 1;
+            var walker = new PlayerInput(t, 0, k >= 60 ? 1 : 0, 0, InputButtons.None, BodyTick: t > 45 ? t - 45 : 1);
+            var mover = w.Players[2];
+            var stepper = new PlayerInput(t, 0, mover.Position.X > 0.02f ? 1 : 0, MathF.PI / 2f, InputButtons.None, BodyTick: w.Tick);   // yaw π/2: walk −X
+            if (k is >= 60 and < 75 && w.BodiesAt(t > 45 ? t - 45 : 1)?.FirstOrDefault(p => p.PlayerId == 2) is { } then && MathF.Abs(then.Position.X) > 1f) farInOldPicture = true;
+            w.Step(id => id == 1 ? walker : stepper);
+            if (k >= 60) worst = MathF.Min(worst, Flat(w.Players[1].Position, w.Players[2].Position) - Reach);
+        }
+        output.WriteLine($"player 2 stood at {w.Players[2].Position}; the walker ended at {w.Players[1].Position}; closest {worst:F3} m; 45-tick picture had player 2 away: {farInOldPicture}");
+        Assert.True(farInOldPicture, "the 45-tick-old picture must not show the blocking player (else the test proves nothing)");
+        Assert.True(MathF.Abs(w.Players[2].Position.X) < 0.5f, "player 2 stands in the walker's path");
+        Assert.True(worst >= -Tol, $"the walker went {-worst:F3} m into the standing player (it may only slide around him)");
+    }
+
+    [Fact]
     public void Outside_the_server_an_input_naming_no_body_tick_steps_without_bodies()
     {
         // Tools and the many older world tests (BoundBodies off): 0 still means no bodies; a tick older than the cap is raised (never none).
