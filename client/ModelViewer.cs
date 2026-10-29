@@ -151,7 +151,7 @@ public partial class ModelViewer : Node3D
             string gameDir = found.Dir;
             _foundNote = FoundNote(found);
             _forbiddenScreenshotDirs.Add(gameDir);
-            if (args.ContainsKey("fx") || args.ContainsKey("pound-test"))
+            if (args.ContainsKey("fx") || args.ContainsKey("pound-test") || args.ContainsKey("stomp-test"))
             {
                 // M25b test aid: original effects in a plain room (FxTestView).
                 AddChild(new FxTestView(gameDir, args) { Name = "FxTest" });
@@ -252,7 +252,7 @@ public partial class ModelViewer : Node3D
     string _lookRepoRoot = "";
 
     /// <summary>Test views that need the install before they start (they keep the synchronous lookup).</summary>
-    static readonly string[] FrontEndExcluded = ["fx", "pound-test", "reload-test", "appearance-test"];
+    static readonly string[] FrontEndExcluded = ["fx", "pound-test", "stomp-test", "reload-test", "appearance-test"];
 
     void BeginLocate(Dictionary<string, string?> args, string repoRoot)
     {

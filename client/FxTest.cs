@@ -15,6 +15,7 @@ namespace SmClient;
 /// <c>--fx-look x,y,z</c> place the camera; <c>--fx-rot ccw</c> turns rotated atlas sprites counter-clockwise (the default is clockwise: a bolt tracer's bright head then leads);
 /// <c>--pound-test</c> (M41) plays the ground pound's impact as the networked client does (<see cref="GroundPoundFx"/>: the effect named first in <c>--fx</c>, default <c>jumppack_land_heavy</c>, with its
 /// collisions, the dark ring at <c>--pound-radius</c> metres (default 7, the simulation's pound radius) and the physics chunks on a floor; <c>--fx-pos</c> sets the point, default 0,0,3 on the floor);
+/// <c>--stomp-test</c> (fx/impact-pass) plays a stomp's impact as the networked client does (<see cref="StompFx"/>, the first effect named, default <c>interrupt_stomp_dmg</c>, at <c>--pound-radius</c>; <c>--stomp-ring</c> picks the shockwave's sprite);
 /// <c>--fx-shots t1,t2,...</c> with <c>--fx-shot-base file.png</c> (M41) saves the view at those seconds after the first effect starts (<c>file_001.png</c>, ...) and then quits;
 /// <c>--fx-wargear csm_mp_ranged_plasma_gun</c> plays the effects as that weapon does (a Chaos plasma weapon recolours the loyalist-named plasma effects purple, <see cref="PlasmaColour"/>);
 /// <c>--fx-rein f</c> (feel/muzzle-smoke) plays the effects with their smoke elements reined in to that fraction (1: the data's look), <c>--fx-decals</c> (M38) draws only the effects' decals, <c>--fx-head m/s</c> sets a tracer's bright-head speed (what the networked client does for long shots), <c>--fx-sprite name</c> shows one atlas sprite as a big quad (to see how it is stored).
@@ -53,6 +54,8 @@ public partial class FxTestView : Node3D
     {
         _names = (_args.GetValueOrDefault("fx") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries);
         if (_args.ContainsKey("pound-test") && _names.Length == 0) _names = ["jumppack_land_heavy", "jumppack_land_light"];
+        // fx/impact-pass: --stomp-test plays a stomp's impact as the networked client does (StompFx): the first effect named, the others compiled for the shockwave's ring sprite.
+        if (_args.ContainsKey("stomp-test")) { _args["pound-test"] = null; if (_names.Length == 0) _names = ["interrupt_stomp_dmg", "knockback_stomp_dmg_furied", "thunderhammer_dmg_displace_heavy"]; }
         _holdAge = _args.TryGetValue("fx-age", out var a) ? F(a, 0.1f) : null;
         _period = F(_args.GetValueOrDefault("fx-period"), 2.5f);
         _shotTimes = (_args.GetValueOrDefault("fx-shots") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).Select(x => (double)F(x, 0f)).ToArray();
@@ -103,6 +106,12 @@ public partial class FxTestView : Node3D
                 var compiled = NetworkView.CompileSystems(library, _names, new List<string>(), zero);
                 var collide = _args.ContainsKey("pound-test") ? _names.ToHashSet(StringComparer.Ordinal) : null;
                 _player.Preload(compiled, library.Textures(FxPlayer.DecalNames(compiled.Values, collide)), collide);
+                if (_args.ContainsKey("stomp-test"))
+                {
+                    var shockwave = StompFx.Build(compiled.Values, _args.GetValueOrDefault("stomp-ring"));
+                    if (shockwave is not null) _player.Preload(new Dictionary<string, CSystem> { [StompFx.ShockwaveName] = shockwave }, new Dictionary<string, byte[]>());
+                    GD.Print($"fx stomp-test: shockwave {(shockwave is null ? "none" : ((CRing)shockwave.Roots[0]).Material.Name)}; compiled {string.Join(", ", compiled.Keys)}");
+                }
                 GD.Print("fx test: " + _player.Status + "; " + _player.MeshStatus);
                 if (_args.GetValueOrDefault("fx-sprite") is { } sprite)
                 {
@@ -136,6 +145,15 @@ public partial class FxTestView : Node3D
         if (_player is null) return;
         foreach (var e in _live) e.Life = 0;
         _live.Clear();
+        if (_args.ContainsKey("stomp-test"))
+        {
+            float radius = F(_args.GetValueOrDefault("pound-radius"), 7f);
+            PoundRing.Texture(radius, wait: true);
+            var stomp = new[] { new SmContent.FxPlay("master_fx", _names[0], F(_args.GetValueOrDefault("fx-scale"), 1f), 1f, false, "self", "", "", "", "world", "up", 0f, "stop_emitting", false, false) };
+            int n = StompFx.Play(_player, stomp, V3(_args.GetValueOrDefault("fx-pos"), new Vector3(0, 0, 3f)), Vector3.Up, radius, _args.ContainsKey("no-shards") ? null : _shards, "stone", _frames, near: true);
+            GD.Print($"fx stomp-test: {_names[0]} at radius {radius:F1}: {n} effects, {_shards?.Spawned} chunks thrown");
+            return;
+        }
         if (_args.ContainsKey("pound-test"))
         {
             // The first name at the data's scale (or --fx-scale), any others as the pound's dust (GroundPoundFx.DustScale).

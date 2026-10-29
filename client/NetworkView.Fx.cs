@@ -236,6 +236,7 @@ public partial class NetworkView
             FxStopFireSmoke();
             FxMapEffects();
             FxEyeGlow();   // M40-T13 (NetworkView.EyeGlow.cs)
+            FxMelee(me);   // fx/impact-pass: stomps, slams and the power sword (NetworkView.MeleeFx.cs)
             FxJumpPacks(me);   // M44 (NetworkView.JumpFx.cs)
             FxDeaths();   // F-D1: the death effects that are due (NetworkView.DeathFx.cs)
             _fx!.Update(delta / Math.Max(1f, FxSlow), _camera);
@@ -750,12 +751,13 @@ public partial class NetworkView
         _fx.Preload(loaded.Systems, loaded.DecalBytes);
         foreach (var failure in loaded.Failures.Take(6)) GD.Print("  effect note: does not parse: " + failure);
         var objects = loaded.Objects;
-        int started = 0, unknown = 0;
+        int started = 0, unknown = 0, godRays = 0;
         var rng = new RandomNumberGenerator { Seed = 12345 };
         foreach (var o in objects)
         {
             if (!o.AutoTrigger || o.Fx.Length == 0) continue;
-            if (_fx.System(o.Fx) is null) { unknown++; continue; }
+            if (_fx.System(o.Fx) is not { } placed) { unknown++; continue; }
+            if (!FxPlayer.ShowGodRays && FxPlayer.OnlyGodRays(placed)) { godRays++; continue; }   // fx/impact-pass: the map's god rays are removed (the owner's change; --god-rays)
             // The object's own frame (its rows are its X, Y and Z in game space), into Godot space; +Y is the effect's axis.
             Vector3 Row(float x, float y, float z) => DirToGodot(Num.Vector3.Normalize(new Num.Vector3(x, y, z)));
             var m = o.Transform;
@@ -763,7 +765,7 @@ public partial class NetworkView
             var e = _fx.Play(o.Fx, ToGodot(o.Position), basis, o.Scale > 0f ? o.Scale : 1f, null, null, 0f, -(o.PreComputeTime + rng.Randf() * 8f), true, -1, ambient: true);
             if (e is not null) started++;
         }
-        _fxMapNote = $"map effects: {started} of {objects.Count} started ({unknown} unknown to the effects package), looping";
+        _fxMapNote = $"map effects: {started} of {objects.Count} started ({unknown} unknown to the effects package; {godRays} god-ray effects left out{(FxPlayer.ShowGodRays ? "" : " and the others' god-ray beams hidden")}, --god-rays shows them), looping";
         GD.Print("effects: " + _fxMapNote);
     }
 
@@ -775,7 +777,7 @@ public partial class NetworkView
         _fxLogAt = _connectedFor;
         GD.Print($"t {_connectedFor:F0} s: effects: update avg {_fx.CostSum / _fx.CostFrames:F2} ms, max {_fx.CostMax:F2} ms over {_fx.CostFrames} frames; live {_fx.Live}, quads {_fx.LastQuads} ({_fx.AdditiveQuads} additive, {_fx.AlphaQuads} alpha, dropped {_fx.DroppedTotal}), lights {_fx.LastLights}, decals {_fx.LiveDecals}; " +
                  $"quads a frame avg {(double)_fx.QuadSum / _fx.CostFrames:F0} ({(double)_fx.AlphaQuadSum / _fx.CostFrames:F0} alpha), max {_fx.QuadMax}, smoke {(FxPlayer.ShowSmoke ? "on" : "off")}; " +
-                 $"own shots {_fxOwnShots}, remote shots {_fxRemoteShots}, tracers {_fxTracers} ({BulletStats()}), impacts {_fxImpacts} (on players {_fxBodyImpacts}), detonations {_fxDetonations}, trails {_fxTrails}; {JumpFxLog()}; spawned {_fx.Spawned}, culled {_fx.Culled}; " +
+                 $"own shots {_fxOwnShots}, remote shots {_fxRemoteShots}, tracers {_fxTracers} ({BulletStats()}), impacts {_fxImpacts} (on players {_fxBodyImpacts}), detonations {_fxDetonations}, trails {_fxTrails}; {JumpFxLog()}; {MeleeFxLog()}; spawned {_fx.Spawned}, culled {_fx.Culled}; " +
                  (_fx.Missing.Count > 0 ? $"missing: {string.Join(", ", _fx.Missing.Take(6))}" : "nothing missing"));
         _fx.CostSum = 0; _fx.CostMax = 0; _fx.CostFrames = 0; _fx.QuadSum = 0; _fx.AlphaQuadSum = 0; _fx.QuadMax = 0;
     }

@@ -56,6 +56,14 @@ public sealed class FxEffect
     public bool SoftGround;
     /// <summary>feel/camera-hitstop: not drawn while set (the own jump pack's thrust and idle glow while the camera hides the own character); the effect keeps its clock.</summary>
     public bool Hidden;
+    /// <summary>
+    /// fx/impact-pass (the owner's request of 2026-10-29, "shorten the trail by a lot"; ours): above 0, a streamer that follows the effect's own path (not a particle's) is laid along the
+    /// last <c>Length x scale x TrailScale</c> metres of that path (measured along it, from where the effect is now) instead of the data's length read as seconds of travel at 4 m/s
+    /// (<see cref="FxPlayer"/>'s streamer rule), which drew a jump pack's thrust trail back to the take-off point. 0: the old reading.
+    /// </summary>
+    public float TrailScale;
+    /// <summary>fx/impact-pass (ours): scales the length of the effect's beams that have no target (a jump pack thrust's <c>rocket</c> flame); 1: the data's length.</summary>
+    public float BeamScale = 1f;
 }
 
 /// <summary>
@@ -111,6 +119,26 @@ public sealed partial class FxPlayer : Node3D
     /// drawn; impacts keep their flash, sparks, debris and decal, explosions their fireball and flash. <c>--smoke on</c> (test aid, before / after) draws them as the data has them.
     /// </summary>
     public static bool ShowSmoke { get; set; } = SmokeRules.SwitchOn(OS.GetCmdlineUserArgs());
+
+    /// <summary>
+    /// fx/impact-pass (the owner, 2026-10-29: "remove all god rays from Manufactorum", a deliberate change from the original): the map's light-shaft beams (a beam with the data's
+    /// <c>GodRayFade</c>: <c>amb_god_ray_thick</c>'s <c>sky_beam</c> shafts, the fake spotlights' cones, <c>light_steamy</c>'s shaft) are not drawn in its ambient effects; the rest of those
+    /// effects (lamp glows, flares) stays. <c>--god-rays</c> (test aid, before / after) draws them as the data has them.
+    /// </summary>
+    public static bool ShowGodRays { get; set; } = OS.GetCmdlineUserArgs().Contains("--god-rays");
+
+    /// <summary>fx/impact-pass: whether a system draws nothing but god-ray beams (<see cref="ShowGodRays"/>), so that a map object playing it need not be started at all.</summary>
+    public static bool OnlyGodRays(CSystem system)
+    {
+        bool any = false;
+        foreach (var node in system.Roots.SelectMany(r => r.AllNodes()))
+        {
+            if (node.Hide) continue;
+            if (node is CBeam { GodRayFade: true }) { any = true; continue; }
+            if (node is CSprite or CLight or CDecal or CMesh) return false;
+        }
+        return any;
+    }
 
     /// <summary>Sprite quads drawn (all, alpha-blended) summed over the frames since the last reset, and the most in one frame (fx/no-smoke measurements).</summary>
     public long QuadSum, AlphaQuadSum;
@@ -581,6 +609,7 @@ public sealed partial class FxPlayer : Node3D
     void DrawBeam(FxEffect e, CBeam n, in Ctx c, double age, uint seed)
     {
         if (n.Distortion || _batch is null || !_batch.HasRoom) return;
+        if (n.GodRayFade && e.Ambient && !ShowGodRays) return;   // fx/impact-pass: the map's god rays are gone (the owner's change)
         if (!LeafTime(n, age, seed, out float t, out float dur)) return;
         var axis = c.B.Y.Normalized();
         var start = c.Pos + c.B * (new Vector3(At(n.OffX, t, 0f), At(n.OffY, t, 0f), At(n.OffZ, t, 0f)) * c.S);
@@ -592,7 +621,7 @@ public sealed partial class FxPlayer : Node3D
             float along = (start - e.Origin).Dot(axis);
             length = MathF.Min(lengthFraction * span, span - along);
         }
-        else length = lengthFraction * c.S * Jitter(n.EpsLength, seed, 10);
+        else length = lengthFraction * c.S * Jitter(n.EpsLength, seed, 10) * e.BeamScale;
         float width = At(n.Width, t, 0.1f) * c.S * Jitter(n.EpsWidth, seed, 11);
         if (e.SmokeRein < 1f && IsSmoke(n)) width *= e.SmokeRein;   // feel/muzzle-smoke
         if (length <= 0.001f || width <= 0.0005f) return;
@@ -665,6 +694,9 @@ public sealed partial class FxPlayer : Node3D
         float seconds = n.LengthAsSeconds ? trail : trail / MathF.Max(2f, c.InParticle ? MathF.Abs(c.Speed) : 4f);
         if (!_batch.Sprite(n.Material, 0, out var rect)) { if (!n.Material.IsEmpty) _missing.Add("sprite:" + n.Material.Name); return; }
         var pts = _scratch;
+        if (e.TrailScale > 0f && !c.InParticle && !n.LengthAsSeconds && e.History is { Count: > 1 } path)
+            TrailByDistance(path, c.Pos - e.Origin, trail * c.S * e.TrailScale, pts, N);   // fx/impact-pass: the last metres of the path, starting where the effect is now
+        else
         for (int j = 0; j <= N; j++)
         {
             float back = seconds * j / N;
@@ -705,6 +737,30 @@ public sealed partial class FxPlayer : Node3D
             if (n.MeterPerU <= 0.001f) u0 = (float)j / N;
             u = u1;
             if (_batch.Add(n.Additive, mid, d, side * width, col, rect, u0, u1, 1, FxBatch.QuadKind.AxisBillboard)) _frameQuads++;
+        }
+    }
+
+    /// <summary>
+    /// fx/impact-pass: <paramref name="count"/> + 1 points along the last <paramref name="metres"/> of a recorded path (newest last), evenly spaced by distance and moved by
+    /// <paramref name="offset"/>; point 0 is the newest place (where the effect is drawn this frame). A path shorter than that ends at its oldest sample.
+    /// </summary>
+    internal static void TrailByDistance(List<(double T, Vector3 P)> path, Vector3 offset, float metres, Vector3[] pts, int count)
+    {
+        int k = path.Count - 1;
+        var at = path[k].P;
+        float walked = 0f;
+        pts[0] = at + offset;
+        for (int j = 1; j <= count; j++)
+        {
+            float want = metres * j / count;
+            while (k > 0)
+            {
+                var next = path[k - 1].P;
+                float step = at.DistanceTo(next);
+                if (walked + step >= want && step > 1e-6f) { at = at.Lerp(next, (want - walked) / step); walked = want; break; }
+                walked += step; at = next; k--;
+            }
+            pts[j] = at + offset;
         }
     }
 

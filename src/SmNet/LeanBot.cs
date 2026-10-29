@@ -46,7 +46,7 @@ public static class LeanBot
         "pose-pop-probe", "turn-probe", "turn-probe-events", "turn-probe-trace", "transition-probe-csv", "transition-probe-trace", "anim-probe-csv", "motion-probe-worst",
         "gait-sweep-fire", "ui-sound-probe", "log-fall", "log-falls", "log-upper", "log-sprint-edges", "log-death-fx", "bot-ledge", "ledge-charge",
         "ragdoll", "ragdoll-rest", "ragdoll-delay", "screenshot-at", "screenshot-on-effect", "demo-look", "demo-profile", "demo-no-quit", "play-demo",
-        "jump-test", "slash-test", "dash-wall-test", "pound-test", "laser-test", "reload-test", "ork-test", "emblem-test", "appearance-test", "ui-selftest", "lock-demo",
+        "jump-test", "slash-test", "dash-wall-test", "pound-test", "stomp-test", "log-melee-fx", "laser-test", "reload-test", "ork-test", "emblem-test", "appearance-test", "ui-selftest", "lock-demo",
         // the screenshot waits
         "wait-players", "wait-melee", "wait-blast", "wait-jump", "wait-match-end", "wait-death", "wait-fall", "wait-fall-land", "wait-flinch", "wait-frames", "wait-switch",
     };

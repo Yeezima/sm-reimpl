@@ -28,6 +28,7 @@ return args switch
     ["race-parity", var gameDir, .. var rest] => SmTool.ParityCommands.Run(gameDir, rest),
     ["armour-audit", var gameDir, .. var rest] => SmTool.ArmourAuditCommand.Run(gameDir, rest),
     ["fx-smoke", var gameDir, .. var rest] => SmTool.FxSmokeCommands.Run(gameDir, rest),
+    ["fx-dump", var gameDir, .. var rest] => SmTool.FxDumpCommands.Run(gameDir, rest),
     [var dump, .. var rest] when dump is "baf-dump" or "locale" or "customization-dump" && SmTool.DumpCommands.Run(dump, rest) is var dumpCode && dumpCode >= 0 => dumpCode,
     [var audio, .. var rest] when audio.StartsWith("audio-") && AudioCommands.Run(audio, rest) is var code && code >= 0 => code,
     _ => Usage(),
@@ -72,6 +73,8 @@ static int Usage()
                                                     each Chaos wargear and its loyalist twin: present in the install, the differences of the simulation's specs before and
                                                     after parity (after must be 0), the class defaults and the config hashes; --raw also lists the files' differing values;
                                                     --fx-colours [plasma] prints the hue of every effect those weapons play (weapons task A)
+          smtool fx-dump <game-dir|auto> <name|word>... [--list] [--fields]
+                                                    fx/impact-pass: the element tree of each named effect (--list: effect names containing each word)
           smtool fx-smoke <game-dir|auto> [--map mp_tdm_09] [--all] [--textures]
                                                     fx/no-smoke: every effect the multiplayer client plays with the smoke, dust, mist and haze sprites the client no
                                                     longer draws (SmokeRules) and what each keeps; --textures sums them per atlas texture

@@ -22,7 +22,8 @@ public enum AaMode
 /// Render quality switches (M40-T7, client only). <c>--aa off|msaa|msaa+smaa|taa</c> picks the anti-aliasing (default
 /// <c>msaa+smaa</c>); the screen-space roughness limiter (specular anti-aliasing on every material, normal-map shimmer included) stays on in all
 /// modes but <c>off</c>. <c>--look classic</c> restores the pre-T7 lighting constants for before/after comparison; <c>--look sm1|remaster|moody|forge</c>
-/// applies a named lighting mockup (<see cref="LookPresets"/>, a set of constants under <c>--look-set</c>); <c>--look-set k=v,k=v</c>
+/// applies a named lighting look (<see cref="LookPresets"/>, a set of constants under <c>--look-set</c>); fx/impact-pass (the owner's choice, 2026-10-29): the
+/// remaster is the default, <c>--look current</c> gives the look that was the default before it (no preset); <c>--look-set k=v,k=v</c>
 /// overrides single lighting constants (<see cref="Look"/>, test aid). All values are **ours** (a choice, not data).
 /// </summary>
 public static class RenderQuality
@@ -40,8 +41,19 @@ public static class RenderQuality
     /// <summary><c>--look-set</c> text (test aid), or null.</summary>
     public static string? LookOverrides { get; } = Args.GetValueOrDefault("look-set");
 
-    /// <summary><c>--look &lt;name&gt;</c>: a named lighting mockup (<see cref="LookPresets"/>) other than <c>classic</c>, or null (the default look).</summary>
-    public static string? LookPreset { get; } = Args.GetValueOrDefault("look") is { } name && !string.Equals(name, "classic", StringComparison.OrdinalIgnoreCase) ? name : null;
+    /// <summary>
+    /// <c>--look &lt;name&gt;</c>: the named lighting look (<see cref="LookPresets"/>) in use, or null for none (<c>classic</c>, or <c>current</c>: the T7/M42 constants
+    /// alone, the default before fx/impact-pass). Without <c>--look</c>: <see cref="LookPresets.Default"/> (the remaster; the owner's choice, 2026-10-29).
+    /// </summary>
+    public static string? LookPreset { get; } = PresetOf(Args.GetValueOrDefault("look"));
+
+    /// <summary>The look a <c>--look</c> value names (null: no preset); no value: <see cref="LookPresets.Default"/>.</summary>
+    public static string? PresetOf(string? look) => look switch
+    {
+        null => LookPresets.Default,
+        _ when LookPresets.IsNone(look) => null,
+        _ => look,
+    };
 
     static AaMode ParseAa(string? text)
     {
