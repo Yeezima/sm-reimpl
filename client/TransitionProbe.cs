@@ -77,7 +77,7 @@ public partial class TransitionProbe : Node
         if (c.Contains("DEATH") || c.Contains("HEADSHOT") || c.Contains("SPRINT_STAGGER")) return "death";
         if (c.Contains("BULLRUSH2IDLE") || c.Contains("SPRINT_TO_IDLE")) return "stop";
         if (c.Contains("BULLRUSH_START") || c.Contains("180TURN_TO_SPRINT")) return "sprint-start";
-        if (c.StartsWith("SM_BUL_")) return "charge";
+        if (c.StartsWith("SM_BUL_") || c.StartsWith("SM_TH_BUL_")) return "charge";
         if (c.StartsWith("SM_REC_")) return "reaction";
         if (c.StartsWith("SM_MEL_")) return "melee";
         if (c.StartsWith("SM_JMP_") || c.StartsWith("SM_DSH_")) return "jump";
@@ -104,10 +104,14 @@ public partial class TransitionProbe : Node
     }
 
     /// <summary>The state label of a character this frame.</summary>
+    /// <summary><c>--transition-probe-clips</c> (anim/melee-flow): melee and charge clips are labelled with their clip's name too, so a combo's step to step (melee → melee) counts as a switch.</summary>
+    static readonly bool ClipLabels = OS.GetCmdlineUserArgs().Contains("--transition-probe-clips");
+
     public static string Label(CharacterViewer c)
     {
         if (c.PoseLocked) return "ragdoll";
         string b = c.StanceKey is { } key ? StanceKind(key) : c.Playing is { } clip ? ClipKind(clip) : "none";
+        if (ClipLabels && c.StanceKey is null && c.Playing is { } named && b is "melee" or "charge") b += ":" + named;
         if (c.LayerState(PoseSlots.Land) is { Weight: > 0.5f }) b += "+land";
         else if (c.LayerState(PoseSlots.Fall) is { Weight: > 0.5f }) b += "+fall";
         if (c.LayerState(PoseSlots.Switch) is { Weight: > 0.5f }) b += "+switch";

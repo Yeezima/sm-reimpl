@@ -35,8 +35,9 @@ public sealed record RelaxedMoveSet(HipFireWeaponClass Class, string Graph, stri
 public sealed record SprintClip(float AngleDegrees, string Clip, float Length);
 
 /// <summary>The weapon groups whose sprint graphs differ: <c>MP_SM_Bolter_NuSprint</c> (bolters, pistols, plasma, melta, grenade launcher and the rest),
-/// <c>SM_Heavy_Bolter_NuSprint</c> (heavy bolter), <c>SM_Lascannon_Plasma_NuSprint</c> (lascannon, plasma cannon).</summary>
-public enum SprintFamily { Rifle, Heavy, Cannon }
+/// <c>SM_Heavy_Bolter_NuSprint</c> (heavy bolter), <c>SM_Lascannon_Plasma_NuSprint</c> (lascannon, plasma cannon); anim/melee-flow: <c>SM_TH_NuSprint</c> (the thunder hammer
+/// and the daemon maul held in both hands: <c>MP_SM_MEL_ThunderHammer</c> "ThunderHammer Sprint").</summary>
+public enum SprintFamily { Rifle, Heavy, Cannon, Hammer }
 
 /// <summary>A sprint loop: a three-way blend over the movement angle (forward and a strafing clip to each side).</summary>
 /// <param name="EnterBlend">Seconds: the blend from the navigation state into the sprint (the base graph's transition; 0.1 s, "Default 3 Frame Transition", read where the family has one).</param>
@@ -52,6 +53,21 @@ public sealed record SprintSet(SprintFamily Family, string Graph, string State, 
 /// </summary>
 public sealed record LocomotionAnimations(IReadOnlyList<RelaxedMoveSet> Relaxed, IReadOnlyList<SprintSet> Sprints, IReadOnlyList<string> Notes)
 {
+    /// <summary>
+    /// anim/melee-flow (the owner, 2026-10-29: "Assault Hammer running animation missing"): the thunder hammer's (and the daemon maul's) own navigation, <c>SM_TH_NAV</c> "Run" (eight directions,
+    /// <c>SM_2HM_NAV_TH_MeleeWalk_*</c> at 2 and <c>SM_2HM_NAV_TH_MeleeRun_*</c> at 4.5 / 5.5 units/s), which the hammer graph's "ThunderHammer Nav" references: a marine carrying the two-handed hammer
+    /// stands and runs with it in both hands whenever its pistol is not up (the base graph's "Melee - ThunderHammer" state). Its <see cref="RelaxedMoveSet.Class"/> carries no meaning. Null when not read.
+    /// </summary>
+    public RelaxedMoveSet? Hammer { get; init; }
+
+    /// <summary>anim/melee-flow: the hammer navigation's idle (<c>SM_TH_NAV</c> "Idle": <c>SM_2HM_NAV_TH_IdleL_S_01</c>); null when not read.</summary>
+    public string? HammerIdle { get; init; }
+
+    /// <summary>anim/melee-flow: where the hammer's navigation sits (<see cref="Hammer"/>).</summary>
+    public static readonly RelaxedMap HammerRelaxed = new(HipFireWeaponClass.Pistol, "SM_TH_NAV", "Run");
+    /// <summary>anim/melee-flow: the hammer navigation's standing state (<see cref="HammerIdle"/>).</summary>
+    public const string HammerIdleState = "Idle";
+
     /// <summary>Where a family's relaxed run sits in the graphs.</summary>
     public sealed record RelaxedMap(HipFireWeaponClass Class, string Graph, string State)
     {
@@ -85,6 +101,8 @@ public sealed record LocomotionAnimations(IReadOnlyList<RelaxedMoveSet> Relaxed,
         new(SprintFamily.Rifle, "MP_SM_Bolter_NuSprint", "Sprint Loop", "BolterBehavior", "Bolter Navigation", "Bolter Sprint"),
         new(SprintFamily.Heavy, "SM_Heavy_Bolter_NuSprint", "Sprint Loop", "Behavior_RangedHeavyBolter", "Heavy Bolter Nav", "Heavy Bolter Sprint"),
         new(SprintFamily.Cannon, "SM_Lascannon_Plasma_NuSprint", "Sprint Loop", "", "", ""),
+        // anim/melee-flow: the hammer's sprint (SM_NAV_TH_Sprint_*); the hammer graph enters it from "ThunderHammer Nav" over 'Blend Three Frame' 0.1 s, the default blend (as the cannons, no base-graph lookup).
+        new(SprintFamily.Hammer, "SM_TH_NuSprint", "Sprint Loop", "", "", ""),
     ];
 
     /// <summary>The blend into a sprint when the graph names none (the base graph's "Default 3 Frame Transition": 3 frames at 30 fps).</summary>
@@ -117,7 +135,24 @@ public sealed record LocomotionAnimations(IReadOnlyList<RelaxedMoveSet> Relaxed,
     public static LocomotionAnimations From(HavokCharacterFile character, RigProfile rig)
     {
         var graphs = HavokBehaviorDetailReader.Read(character.Pack);
-        return From(graphs, clip => character.LoadAnimation(clip).Animation.Duration, rig.Relaxed, rig.Sprints, rig.BaseGraph);
+        var result = From(graphs, clip => character.LoadAnimation(clip).Animation.Duration, rig.Relaxed, rig.Sprints, rig.BaseGraph);
+        return ReferenceEquals(rig, RigProfiles.Marine) ? WithHammer(result, graphs, clip => character.LoadAnimation(clip).Animation.Duration) : result;
+    }
+
+    /// <summary>
+    /// anim/melee-flow: <paramref name="data"/> with the hammer's navigation (<see cref="Hammer"/>, <see cref="HammerIdle"/>) read from <paramref name="graphs"/>; unchanged but for a note when
+    /// the graph or a state is missing. Testable without an install.
+    /// </summary>
+    public static LocomotionAnimations WithHammer(LocomotionAnimations data, IReadOnlyList<BehaviorGraphDetail> graphs, Func<string, float> animationLength)
+    {
+        var read = From(graphs, animationLength, [HammerRelaxed], [], null);
+        var notes = data.Notes.Concat(read.Notes.Select(n => "hammer navigation: " + n)).ToList();
+        string? idle = null;
+        if (graphs.FirstOrDefault(g => g.Name.Equals(HammerRelaxed.Graph, StringComparison.OrdinalIgnoreCase)) is { } nav
+            && nav.AllStates.FirstOrDefault(x => x.State.Name == HammerIdleState).State is { } idleState)
+            idle = HipFireAnimations.FirstClip(nav, idleState.Generator)?.Animation;
+        if (idle is null) notes.Add($"hammer navigation: no '{HammerIdleState}' clip in {HammerRelaxed.Graph}");
+        return data with { Hammer = read.Relaxed.FirstOrDefault(), HammerIdle = idle, Notes = notes };
     }
 
     /// <summary>The data from already-read graphs (testable without an install).</summary>

@@ -157,8 +157,24 @@ public partial class CharacterViewer
         _layersDirty = false;
         if (_skeleton is null) return;
         foreach (var s in _slots)
-            if (s.Clip is not null && s.Weight > 1e-3f) ApplySlot(s, stanceMode);
+            if (s.Clip is not null && s.Weight > 1e-3f)
+            {
+                // anim/melee-flow: the melee variant is part of the clip's pose, so it fades in with the clip's entry (the share the snapshot keeps is not laid over): before, the
+                // upper variant came in whole on the first frame of an attack's cross-fade (the transition probe: up to 234 cm per frame per frame at a combo step).
+                if (!stanceMode && !NoMeleeFlow && ReferenceEquals(s, _slots[PoseSlots.MeleeVariant]) && _clipEntryKeep > 0f)
+                {
+                    float full = s.Weight;
+                    s.Weight = full * (1f - _clipEntryKeep);
+                    if (s.Weight > 1e-3f) ApplySlot(s, stanceMode);
+                    s.Weight = full;
+                    continue;
+                }
+                ApplySlot(s, stanceMode);
+            }
     }
+
+    /// <summary>anim/melee-flow: the share of the entry snapshot in the clip pose being applied (0 once the entry is over).</summary>
+    float _clipEntryKeep;
 
     HavokTransform[] RefBuffer = Array.Empty<HavokTransform>();
 

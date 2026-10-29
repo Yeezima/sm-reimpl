@@ -128,6 +128,7 @@ public partial class NetworkView
         _locoLoad = Task.Run(() => GaitLibrary.Load(gameDir));   // M40-T4: also measures the clips' gaits
         SetUpTurns();   // M40-T5: the turn-in-place, aim-offset idle and run-start data (NetworkView.TurnInPlace.cs)
         SetUpSprintEdges();   // animation pass 3: the sprint's start and stop clips, the pistol's relaxed idle (NetworkView.SprintEdges.cs)
+        SetUpMeleeFlow();     // anim/melee-flow: the melee graphs' blends (NetworkView.MeleeFlow.cs)
     }
 
     LocomotionAnimations? LocoData()
@@ -167,7 +168,8 @@ public partial class NetworkView
     /// state) <c>MP_SM_Bolter_NuSprint</c> (<c>SM_MP_1HR_NAV_Sprint_*</c>). <c>--shared-sprint</c> (test aid) restores the one shared sprint; <c>--per-weapon-sprint</c> is now the default and kept as a no-op.
     /// </summary>
     SprintFamily SprintFamilyOf(PlayerState s) =>
-        !SharedSprint && _config is not null && Loadouts.InHand(_config, s)?.Name is { } name ? LocomotionAnimations.SprintFamilyOf(name) : SprintFamily.Rifle;
+        !SharedSprint && HammerStance(s) && _locoAnims?.SprintFor(SprintFamily.Hammer) is not null ? SprintFamily.Hammer   // anim/melee-flow (NetworkView.MeleeFlow.cs): the hammer's sprint (SM_TH_NuSprint)
+        : !SharedSprint && _config is not null && Loadouts.InHand(_config, s)?.Name is { } name ? LocomotionAnimations.SprintFamilyOf(name) : SprintFamily.Rifle;
 
     /// <summary><c>--per-weapon-sprint</c> (test aid of M36): the graphs' per-weapon sprint clips; the default since animation pass 3.</summary>
     public bool PerWeaponSprint { get; init; }

@@ -730,6 +730,7 @@ public partial class CharacterViewer : Node3D
     {
         if (PoseLocked) return;
         AdvanceClock(delta);   // animation pass 3: the clock the moving snapshot's velocity and age are measured on
+        AdvanceLockClock(delta);   // anim/melee-flow: the clip foot lock's release clock
         bool blending = _entryActive;   // M40-T3: one more application when the fade ends, so the pose settles on the clip
         if (blending)
         {
@@ -775,7 +776,9 @@ public partial class CharacterViewer : Node3D
             _skeleton.SetBonePoseScale(bone, scale);
         }
         if (_entryFootLock) { if (keep > 0f) EntryFootLock(local); else _entryFootLock = false; }
+        _clipEntryKeep = keep;   // anim/melee-flow: the melee variant layer fades in with the entry (CharacterViewer.Layers.cs)
         ApplyPoseLayer(stanceMode: false);
+        ApplyClipFootLock();   // anim/melee-flow (CharacterViewer.ClipFootLock.cs): the feet the clip puts down stay where they were put down
         RecordApplied();   // animation pass 3 (CharacterViewer.Transitions.cs)
         DrawBones();
     }

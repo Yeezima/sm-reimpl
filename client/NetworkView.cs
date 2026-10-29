@@ -473,6 +473,7 @@ public partial class NetworkView : Node3D
         if (!me.Alive) _cameraPlacedValid = false;   // feel/controls: no fresh-aim turn from a camera placed before the death (FreshCenterRay)
         HipFireBegin(me);   // M27: drains the own events and the others' shots once, notes who fired
         MeleeLockFrame(me, delta);   // feel/melee-lock: hit-stops, the camera assist (NetworkView.MeleeLock.cs)
+        MeleeFlowFrame(me);   // anim/melee-flow: the stun-strike shakes (NetworkView.MeleeFlow.cs)
         FlinchFeed(me);     // animation pass 2 (NetworkView.UpperBody.cs): this frame's hits start the flinch
         HandlingFrame(me, delta);   // weapons/spread: the data's climb and sway kick the own view (NetworkView.Spread.cs)
         Ph("own model");
@@ -565,6 +566,7 @@ public partial class NetworkView : Node3D
             BraceForget(gone);   // fidelity gap 7
             LocomotionForget(gone);
             MeleeLockForget(gone);   // feel/melee-lock
+            MeleeFlowForget(gone);   // anim/melee-flow
             _orkTracks.Remove(gone); _orkShown.Remove(gone);   // Ork O7a (the capture aid keeps no entry of a player who left)
         }
 
@@ -642,7 +644,7 @@ public partial class NetworkView : Node3D
                      $"{(me.Alive ? "alive" : "dead")} hp {me.Health:F0} sh {me.Shield:F0} {AmmoText(me)}{HeatText(me)}{ChargeText(me)} bot [{_botNote}] melee {me.MeleeStep} ({MeleeLabel(me)}) swings {_meleeSwings} switches {_switches} overheats {_overheats} releases {_releases}; " +
                      $"charged releases {_chargedReleases} own shots basic {_ownBasicShots} charged {_ownChargedShots} detonate requests {_detonateRequests}; projectiles drawn {_projectileNodes.Count} seen {_projectilesSeen} (charged {_chargedProjectilesSeen}) detonations seen {_detonationsSeen} (charged {_chargedDetonationsSeen}) remote charge starts {_remoteChargeStarts}; " +
                      $"{ThrowText(me)} throws started {_throwsStarted} released {_throwsReleased} remote throws seen {_remoteThrowsSeen} thrown seen {_thrownSeen} thrown detonations seen {_thrownDetonationsSeen} melta shots {_meltaShots}; " +
-                     $"{JumpLogText(me)}; {DashAttackLogText()}; {MeleeLockLogText()}; " +
+                     $"{JumpLogText(me)}; {DashAttackLogText()}; {MeleeLockLogText()}; {MeleeFlowLogText()}; " +
                      string.Join(" ", others.Select(o => $"P{o.PlayerId} '{ClassLabel(o.Class)}' {WeaponLabel(Loadouts.InHand(_config, o))} melee {MeleeLabel(o)} {o.Position.X:F1},{o.Position.Y:F1} yaw {o.Yaw:F2} {(o.Alive ? "alive" : "dead")}{(o.Charging ? " CHARGING" : "")}{(o.Throwing ? " THROWING" : "")}{(JumpPack.Jumping(o.Jump) ? " JUMPING" : JumpPack.Pounding(o.Jump) ? " POUNDING" : "")} z {o.Position.Z:F1} melee {o.MeleeStep} {_remotes.GetValueOrDefault(o.PlayerId)?.Playing}")));
     }
 
@@ -680,6 +682,7 @@ public partial class NetworkView : Node3D
             // --aim-test: hold aim mode every other 5 s so the screenshots show both cameras (test aid).
             var scripted = BotPickupInput(BotApplyAim(BotInput(tick)), tick);   // M44a: aim error on ranged shots at enemies (NetworkView.BotAim.cs); fidelity gap 1: E in reach of a pickup; --bot-pickups walks to one
             scripted = BotBraceVentInput(scripted);   // fidelity gap 7 test aid (--bot-brace): brace and vent with Reload
+            scripted = BotTurnLimit(scripted);   // anim/melee-flow test aid (--bot-turn-rate): the view turns like a hand on a mouse, not in one tick (NetworkView.MeleeFlow.cs)
             if (AimTest) LogConvergence(scripted);
             // --bot-slot pistol|primary (test aid): one press of that slot key (protocol 14) a few seconds after joining.
             if (BotSlot is { Length: > 0 } && _connectedFor is >= 3.0 and < 3.2)
@@ -1426,26 +1429,40 @@ public partial class NetworkView : Node3D
         character.Transform = new Transform3D(new Basis(new Vector3(0, 0, 1), yaw), new Vector3(state.Position.X, state.Position.Y, state.Position.Z - hop));
         if (character.GetNodeOrNull<Node3D>("ChargeGlow") is { } glow) glow.Visible = state.Alive && state.Charging && !NoMarkers;
         // Reacting (M28): the reaction clip at the reaction's time; a reaction ends any attack, throw, evade or jump on the ground.
+        character.ClipFootLock = false;   // anim/melee-flow: only the strikes and the charge below hold their put-down feet (CharacterViewer.ClipFootLock.cs)
         if (ReactionPose(state) is { } reaction && character.Pose(reaction.Clip, MathF.Max(0f, (smooth is { Kind: ClipKind.Reaction } sr ? sr.Time : reaction.Time) - HitStopHold(state.PlayerId)), ClipBlends.Reaction)) return;   // feel/melee-lock: the hit-stop holds it
         // Charging (M29): the rush or its collision stop, at the phase's time.
         // feel/jump-pack (the owner, 2026-10-29): a charge held in the air off a ledge shows the fall pose (the locomotion path below), not its clip frozen (NetworkView.Fall.cs).
-        if (!ChargeHeldInAir(state) && RushPose(state) is { } rush && character.Pose(rush.Clip, smooth is { Kind: ClipKind.Rush } sh ? sh.Time : rush.Time, ClipBlends.RushFor(rush.Clip))) return;
+        // anim/melee-flow: nor, once landed, the rush clip again in that charge (RushRebashHeld: no second bash).
+        bool rebashHeld = RushRebashHeld(state);
+        character.ClipFootLock = ClipFootLockFor(state, melee: false);
+        character.ClipRootSpeed = float.NaN;
+        if (!ChargeHeldInAir(state) && !rebashHeld && RushPose(state) is { } rush)
+        {
+            var (rushClip, rushTime) = HammerRush(state, rush.Clip, smooth is { Kind: ClipKind.Rush } sh ? sh.Time : rush.Time);   // anim/melee-flow: the hammer's own sprint attack
+            if (character.Pose(rushClip, rushTime, ClipBlends.RushFor(rush.Clip))) return;
+        }
         // Attacking: the step's original clip (light or heavy, M28) at the simulation's attack time (seeked, not free-running).
         // A jump blocks melee attacks, so this only overlaps a landing.
         // From the step's MoveAt, while the body moves, the locomotion has the legs and the clip only the upper body (NetworkView.Handoff.cs, M40-T4 follow-up).
         // feel/melee-lock (NetworkView.MeleeLock.cs): the blend of the attack's distance variants at its start distance (the lower one posed, the upper laid
         // over it), held back by a hit-stop.
+        character.ClipFootLock = ClipFootLockFor(state, melee: true);
         if (AttackClip(state) is { } clip)
         {
             float attackTime = MathF.Max(0f, (smooth is { Kind: ClipKind.Attack } sa ? sa.Time : state.MeleeTime) - HitStopHold(state.PlayerId));
             var (baseClip, baseTime, overClip, overTime, overWeight) = AttackVariants(state, own, clip, attackTime);
+            character.ClipRootSpeed = NoMeleeFlow ? float.NaN : MeleeRootSpeed(state, attackTime, ClipLength(baseClip, 0f));   // anim/melee-flow: the clip foot lock's still-foot test
+            // anim/melee-flow (NetworkView.MeleeFlow.cs): the blend into the strike from its graph (entry or chain); noted every frame the strike shows, handed over or not.
+            float entryBlend = NoMeleeFlow ? ClipBlends.Melee(state.MeleeStep) : MeleeEntryBlend(state);
             if (HandoffAttack(character, state, own, baseClip, attackTime, baseTime)) return;
-            if (character.Pose(baseClip, baseTime, ClipBlends.Melee(state.MeleeStep)))
+            if (character.Pose(baseClip, baseTime, entryBlend))
             {
                 if (overClip is not null) character.SetLayer(PoseSlots.MeleeVariant, overClip, overTime, overWeight, additive: false);
                 return;
             }
         }
+        character.ClipFootLock = false;
         // Jump pack: take-off, flight, dive and impact win over a throw (the toss clip is a standing one) ...
         if (ShowJumpPose(character, JumpPose(state, airborneOnly: true))) { JumpUpperLayers(character, state, throwTime); return; }   // pass 2: the wobble and the upper-body actions in flight
         // Evade roll (protocol 13): the class's roll clip at the shown time; the simulation moves the body, the clip is in place.
@@ -1464,6 +1481,7 @@ public partial class NetworkView : Node3D
         SwitchLayer(character, state, fallTrack);   // pass 2: the weapon switch over the upper body
         VentPose(character, state, own);   // fidelity gap 7: the vent clip over the upper body
         StimPose(character, state, throwTime);   // perks/inert-2: the stim's clip over the upper body (NetworkView.Stims.cs)
+        HammerDrawPose(character, state);   // anim/melee-flow: the hammer taken back into both hands after the pistol (NetworkView.MeleeFlow.cs)
     }
 
     /// <summary>

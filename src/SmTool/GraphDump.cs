@@ -24,7 +24,7 @@ static class GraphDump
         }
     }
 
-    static readonly string[] Modes = ["--list", "--raw-any", "--animations", "--hipfire", "--reload", "--locomotion", "--turns", "--falls", "--upper", "--clip-table", "--jump-flight", "--bones", "--gaits", "--brace", "--melee", "--root-motion", "--sprint-edges", "--pose-diff", "--twists"];
+    static readonly string[] Modes = ["--list", "--raw-any", "--animations", "--hipfire", "--reload", "--locomotion", "--turns", "--falls", "--upper", "--clip-table", "--jump-flight", "--bones", "--gaits", "--brace", "--melee", "--root-motion", "--sprint-edges", "--pose-diff", "--twists", "--melee-flow"];
 
     static int RunInner(string[] args, TextWriter o)
     {
@@ -156,9 +156,10 @@ static class GraphDump
         if (args[0] == "--locomotion")
         {
             var loco = LocomotionAnimations.From(graphs, clip => character.LoadAnimation(clip).Animation.Duration, rig.Relaxed, rig.Sprints, rig.BaseGraph);
-            foreach (var set in loco.Relaxed)
+            if (ReferenceEquals(rig, RigProfiles.Marine)) loco = LocomotionAnimations.WithHammer(loco, graphs, clip => character.LoadAnimation(clip).Animation.Duration);   // anim/melee-flow
+            foreach (var set in loco.Hammer is { } hammer ? loco.Relaxed.Append(hammer) : loco.Relaxed)
             {
-                o.WriteLine($"== relaxed run, {set.Class}: {set.Graph} / '{set.State}'");
+                o.WriteLine(ReferenceEquals(set, loco.Hammer) ? $"== hammer run (anim/melee-flow): {set.Graph} / '{set.State}'; idle {loco.HammerIdle ?? "-"}" : $"== relaxed run, {set.Class}: {set.Graph} / '{set.State}'");
                 foreach (var d in set.Directions)
                     o.WriteLine($"  {d.Label,-3} {d.AngleDegrees,5:0}°  on the spot {(d.WalkOnSpot is { } wos ? $"{wos.Clip} ({wos.Length:0.###}s)" : "-")}; walk {(d.Walk is { } w ? $"{w.Clip} ({w.Length:0.###}s at {w.Speed:0.##})" : "-")}; run {(d.Run is { } r ? $"{r.Clip} ({r.Length:0.###}s at {r.Speed:0.##}{(r.SpeedBound ? ", playback speed bound" : "")})" : "-")}");
             }
@@ -197,6 +198,18 @@ static class GraphDump
                     + $"; with the brace graph's fire-mode speed the exit would be {b.ExitSeconds("mp_fire_mode_heavy_bolter_braced_fire", false):0.####} (not used)");
             }
             foreach (var n in notes) o.WriteLine($"  note: {n}");
+            return 0;
+        }
+        if (args[0] == "--melee-flow")
+        {
+            // anim/melee-flow: the blends each simulated melee weapon's graph puts into, between and out of its strikes (client presentation).
+            foreach (var wargear in new[] { "sm_mp_melee_combat_knife", "sm_mp_melee_chainsword", "sm_mp_melee_powersword", "sm_mp_melee_power_axe", "sm_mp_melee_2hand_thunder_hammer", "sm_mp_core_abil_heavy_evade" })
+            {
+                if (MpClasses.MeleeMapFor(wargear) is not { } map) continue;
+                o.WriteLine($"== {wargear}: {map.Graph}");
+                if (MeleeFlowBlends.Read(graphs, map) is not { } flow) { o.WriteLine("  graph not found"); continue; }
+                foreach (var line in flow.Describe()) o.WriteLine("  " + line);
+            }
             return 0;
         }
         if (args[0] == "--melee")

@@ -25,3 +25,8 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The kill feed, the "+50 Kill" reward line, the team score panel, the weapon box, the Seize Ground point markers and the "Pick up Ammo" prompt now use the original game's HUD pictures and layout. The weapon box's heat bar now empties as the weapon heats up, like the original.
 - Trial: the camera trails your aim very slightly (about 50 ms), so turning feels less stiff. Your shots still go exactly where the crosshair is, and the crosshair may drift a little off the centre during fast turns. Tell us whether you like it.
 - The class creator's tabs now show the whole class name (for example "Tactical Marine / Chaos Space Marine") instead of cutting it off.
+- Assault and Raptor with the thunder hammer or the daemon maul: the marine now stands, runs and sprints with the hammer in both hands, holsters the pistol while doing so, and swaps back from the pistol with its own animation. The hammer's charge uses its own hammer swing.
+- Melee strikes no longer slide: a foot the swing plants stays where it was put down while the body lunges, stops at its target or turns to it. Chainsword, power sword, axe and hammer swings blend in, chain and settle back to running with the timings of the original's animation files.
+- A small camera shake when your stun strike (F) lands, a bigger one for stomps and hammer slams, and one when your charge or dash attack connects.
+- Charging off a ledge: when you land, the marine goes straight into running instead of starting the bash again. Side charges and lunges turn the body over a few frames instead of snapping.
+- The jump-pack air slash no longer jerks its sword forward when you land earlier than the swing expected.

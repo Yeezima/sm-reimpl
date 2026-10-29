@@ -45,7 +45,7 @@ public sealed class GaitLibrary
         {
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var inPlace = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var set in locomotion.Relaxed)
+            foreach (var set in locomotion.Hammer is { } hammer ? locomotion.Relaxed.Append(hammer) : locomotion.Relaxed)   // anim/melee-flow: the hammer's own run
                 foreach (var direction in set.Directions)
                 {
                     if (direction.Walk is { } walk) names.Add(walk.Clip);

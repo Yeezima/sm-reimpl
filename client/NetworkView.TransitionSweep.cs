@@ -32,6 +32,10 @@ public partial class NetworkView
         new("run, switch", [new(0.6f, 0f, 1f, InputButtons.None), new(0.1f, 0f, 1f, InputButtons.None, InputButtons.Switch), new(1.5f, 0f, 1f, InputButtons.None), new(1.2f, 0f, 0f, InputButtons.None)]),
         new("strafe, let go", [new(1.2f, 1f, 0f, InputButtons.None), new(1.2f, 0f, 0f, InputButtons.None)]),
         new("sprint, hop or jump", [new(1.2f, 0f, 1f, InputButtons.Sprint), new(0.1f, 0f, 1f, InputButtons.None, InputButtons.Jump), new(1.8f, 0f, 1f, InputButtons.None), new(1.5f, 0f, 0f, InputButtons.None)]),
+        // anim/melee-flow: a light combo standing, a stun strike out of a run with the run going on, a heavy chain standing.
+        new("stand, light combo x3", [new(0.1f, 0f, 0f, InputButtons.None, InputButtons.Melee), new(0.45f, 0f, 0f, InputButtons.None), new(0.1f, 0f, 0f, InputButtons.None, InputButtons.Melee), new(0.45f, 0f, 0f, InputButtons.None), new(0.1f, 0f, 0f, InputButtons.None, InputButtons.Melee), new(2.2f, 0f, 0f, InputButtons.None)]),
+        new("run, stun strike, run on", [new(0.8f, 0f, 1f, InputButtons.None), new(0.1f, 0f, 0f, InputButtons.None, InputButtons.MeleeHeavy), new(1.4f, 0f, 0f, InputButtons.None), new(1.5f, 0f, 1f, InputButtons.None), new(1.0f, 0f, 0f, InputButtons.None)]),
+        new("stand, stun strike x2", [new(0.1f, 0f, 0f, InputButtons.None, InputButtons.MeleeHeavy), new(0.6f, 0f, 0f, InputButtons.None), new(0.1f, 0f, 0f, InputButtons.None, InputButtons.MeleeHeavy), new(2.4f, 0f, 0f, InputButtons.None)]),
     ];
 
     int _tsLeg = -1, _tsSegment, _tsPhase;   // _tsPhase: 0 the leg, 1 back to the start, 2 rest

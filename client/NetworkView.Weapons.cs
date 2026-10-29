@@ -83,6 +83,7 @@ public partial class NetworkView
                 _packLogged[state.PlayerId] = packColour;
                 GD.Print($"t {_connectedFor:F1} s: P{state.PlayerId}'s jump pack is drawn in {packColour.ToHtml(false)} (chest paint {(rig.PackPaint?.Primary?.Name ?? "none: the side's default")})");
             }
+            rig.StowPistol = !ork && HammerHoldsBothHands(state);   // anim/melee-flow (NetworkView.MeleeFlow.cs): the hammer in both hands holsters the pistol
             rig.Update(state.Slot, state.Alive && state.MeleeStep > 0, state.Alive, delta, _config.WeaponSwitchTime, ork ? 0.5f : SwapFractionFor(state));   // pass 2: the model changes at the clip's weapon tag
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
