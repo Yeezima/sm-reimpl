@@ -137,26 +137,53 @@ public sealed class PackageScanner
         ".cs", ".md", ".txt", ".json", ".ps1", ".py", ".csproj", ".cmd", ".sh", ".cfg", ".tscn", ".props", ".xml", ".yml", ".yaml", ".slnx", ".gd", ".log", ".csv", ".html", ".js",
     };
 
+    readonly List<(GuardIndex Index, List<(string Full, string Relative, long Size, long Ticks)> Files)> _indexedTrees = [];
+
+    /// <summary>Hashes of files of the comparison trees actually computed in this run (the rest came from a <see cref="GuardIndex"/> or were never needed).</summary>
+    public int ForbiddenHashesComputed { get; private set; }
+
     /// <summary>
     /// Remembers every file under <paramref name="folder"/> (read-only: sizes only) so a package file with identical content to one of them is refused.
     /// <paramref name="skipSourceText"/>: leave out plain source and document files (the private cache holds scratch copies of this repository's own source).
+    /// <paramref name="index"/>: the tree's remembered fingerprints; a file whose path, size and last-write time match reuses its stored SHA-256 instead of
+    /// being read again (the files are still hashed only when a package entry of the same size needs them). <see cref="SaveIndexes"/> writes it back.
     /// </summary>
-    public int AddForbiddenTree(string folder, bool skipSourceText = false)
+    public int AddForbiddenTree(string folder, bool skipSourceText = false, GuardIndex? index = null)
     {
         // Fail closed: a folder that is not there, or a file that cannot be sized, is an error and never an empty index.
         if (!Directory.Exists(folder)) throw new DirectoryNotFoundException("the folder to compare against does not exist");
+        if (index is not null && (!GuardIndex.IsInside(folder, index.Root) || !GuardIndex.IsInside(index.Root, folder) || index.SkipSourceText != skipSourceText))
+            throw new ArgumentException("the fingerprint index belongs to another folder or other options", nameof(index));
         int count = 0;
+        var seen = new List<(string Full, string Relative, long Size, long Ticks)>();
         var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = false, AttributesToSkip = FileAttributes.ReparsePoint };
-        foreach (var file in Directory.EnumerateFiles(folder, "*", options))
+        foreach (var info in new DirectoryInfo(folder).EnumerateFiles("*", options))
         {
-            long size = new FileInfo(file).Length;
+            long size = info.Length;
             if (size < MinHashedSize) continue;
+            string file = info.FullName;
             if (skipSourceText && SourceTextExtensions.Contains(Path.GetExtension(file))) continue;
             if (!_forbiddenBySize.TryGetValue(size, out var list)) _forbiddenBySize[size] = list = [];
             list.Add(file);
             count++;
+            if (index is null) continue;
+            long ticks = info.LastWriteTimeUtc.Ticks;
+            string relative = Path.GetRelativePath(index.Root, file);
+            if (index.TryGetHash(relative, size, ticks, out var hash)) { _forbiddenHashes[file] = hash; index.Reused++; }
+            seen.Add((file, relative, size, ticks));
         }
+        if (index is not null) _indexedTrees.Add((index, seen));
         return count;
+    }
+
+    /// <summary>
+    /// Writes every fingerprint index given to <see cref="AddForbiddenTree"/> back: the files indexed in this run (so deleted ones are dropped) with every
+    /// hash known now (stored or computed during the scan).
+    /// </summary>
+    public void SaveIndexes()
+    {
+        foreach (var (index, files) in _indexedTrees)
+            index.Save(files.Select(f => (f.Relative, f.Size, f.Ticks, _forbiddenHashes.TryGetValue(f.Full, out var h) ? h : null)));
     }
 
     /// <summary>A secret value (a webhook URL, a token, a local game path): any package that contains it, as ASCII or UTF-16, is refused. Values under 8 characters are ignored.</summary>
@@ -371,6 +398,7 @@ public sealed class PackageScanner
     {
         if (_forbiddenHashes.TryGetValue(path, out var h)) return h;
         h = Hash(() => File.OpenRead(path));      // throws on an unreadable file: the caller reports it, never treats it as "no match"
+        ForbiddenHashesComputed++;
         return _forbiddenHashes[path] = h;
     }
 

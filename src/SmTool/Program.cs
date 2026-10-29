@@ -52,9 +52,10 @@ static int Usage()
                                                     every class's default look, every armour set worn whole and every offered piece of both races,
                                                     resolved and loaded as the client draws them: what fails, explained gaps, free-hanging cloth
           smtool scan-package [--against <dir>]... [--against-install <game-dir|auto>] [--secrets <config.json>]... [--secrets-env]
-                              [--require-install] [--require-secrets] [--require-pack] [--profile binary] <zip|tar.gz|folder|file>...
+                              [--require-install] [--require-secrets] [--require-pack] [--profile binary] [--index-cache <dir>] <zip|tar.gz|folder|file>...
                                                     the release content guard: fails (exit 1) when a package holds game data, private files, user paths or secrets;
-                                                    exit 2 when an input could not be used (missing folder, unreadable secrets file, install required but not indexed)
+                                                    exit 2 when an input could not be used (missing folder, unreadable secrets file, install required but not indexed);
+                                                    --index-cache keeps the comparison trees' fingerprints there (path, size, write time; never inside the install)
           smtool make-tar <folder> <out.tar.gz> --prefix <top folder> [--exec a,b,...]
                                                     the Linux server package (tar.gz keeps the 0755 mode of the listed files)
           smtool ork-balance <game-dir|auto> [--mode parity|data|both]

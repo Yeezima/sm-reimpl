@@ -135,8 +135,10 @@ The owner ships a playtest build with one command, `ship.cmd` (preflight, build,
 The pieces underneath:
 
 ```bat
-release.cmd                  :: builds every package locally; publishes nothing
+release.cmd                  :: builds the playtest zip, the win64 server zip and the source zip locally; publishes nothing; prints each step's seconds
 release.cmd -Smoke           :: ... and runs the playtest zip as a tester would, headless, on 127.0.0.1 only (ports 27141-27199)
+release.cmd -Linux           :: ... and the linux-x64 server package too (-ServerAssets implies it)
+test-and-mark.cmd            :: dotnet test and refine-register --check; green on a clean tree = ship.cmd of this commit skips them for 24 hours
 release.cmd -Commit <rev>    :: the programs of an older commit in this tooling's layout (re-packaging a published build)
 release.cmd -PrepareOnly     :: only fetch Godot and its export templates
 ```
@@ -150,7 +152,7 @@ once; [docs/releasing.md](docs/releasing.md), "The launcher"), `1 - READ ME FIRS
 and `notes\` (`VERSION.txt`, `LICENSE.txt`, `THIRD_PARTY_NOTICES.md`, `licenses\`, `changes-from-original.md`, `refine-register.md`, the tester kit
 `playtest\` and `CONTENTS-SHA256.txt`). The names live in `$TopFiles` in `tools/release/release.ps1`; the templates (`tools/release/package/`) refer to them
 by token (`@PLAY@`, `@HOST@`, ...). Next to it, for server hosts: `sm-reimpl-server-win64-<ver>.zip`, `sm-reimpl-server-linux-x64-<ver>.tar.gz`
-(self-contained `dotnet publish` of `src/SmServer`, `server.sh`; a tar.gz so the executable bits survive) and `sm-reimpl-source-<ver>.zip`, each with
+(only with `-Linux` or `-ServerAssets`; self-contained `dotnet publish` of `src/SmServer`, `server.sh`; a tar.gz so the executable bits survive) and `sm-reimpl-source-<ver>.zip`, each with
 `LICENSE`, `THIRD_PARTY_NOTICES.md`, `README-FIRST.txt` and `VERSION.txt`; `SHA256SUMS.txt` over all of them; and `RELEASE-NOTES.md`, the release
 description for testers (`tools/release/package/RELEASE-NOTES.md`: install steps, the controls table, known issues, the zip's SHA-256).
 
@@ -171,6 +173,8 @@ description for testers (`tools/release/package/RELEASE-NOTES.md`: install steps
   a short allowlist. Zips inside a package are scanned entry by entry (`outer.zip!/inner/path`); in the playtest zip, `--source-archive source/` lets the
   source zip through the allowlist and scans its files as the stand-alone source zip is scanned. It fails closed: the game install must be indexed
   (`--require-install`), the cache is indexed when it exists, an unreadable secrets file, forbidden file or nested zip is an error (exit 2), not an empty comparison.
+  The fingerprints of the install's and the cache's files (path, size, write time, SHA-256; the install's also by Steam build id) are kept in
+  `%LOCALAPPDATA%\sm-reimpl\cache\guard\` (`--index-cache`), so an unchanged file is not hashed twice; the answer is the same without them.
 - `-Smoke` unpacks the playtest zip into a folder with a space in its name and runs it as a tester would: `3 - Host a match on this PC.cmd --port <p>`
   must start `server\SmServer.exe` bound to 127.0.0.1, `game\sm-reimpl.console.exe --headless` must join it as a bot, and `2 - Play.cmd` (with
   `SM_ENGINE_ARGS=--headless --log-file ...` and `--auto-host`) must start `game\sm-reimpl.exe`, whose HOST A MATCH finds `server\` and starts it on 127.0.0.1.
