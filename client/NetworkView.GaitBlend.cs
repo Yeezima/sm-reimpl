@@ -81,13 +81,13 @@ public partial class NetworkView
     ClipGait? GaitOf(string clip) => _gaits?.Get(clip);
 
     /// <summary>The blend space of the relaxed run of a weapon family (null, noted once, when a clip or gait is missing).</summary>
-    GaitFamily? RelaxedGaitFamily(LocomotionAnimations data, HipFireWeaponClass family)
+    GaitFamily? RelaxedGaitFamily(LocomotionAnimations data, HipFireWeaponClass family, bool hammer = false)
     {
-        string key = "relaxed:" + family;
+        string key = hammer ? "relaxed:hammer" : "relaxed:" + family;   // anim/melee-flow: the hammer's own run (SM_TH_NAV)
         if (_gaitFamilies.TryGetValue(key, out var cached)) return cached;
-        if (family == HipFireWeaponClass.Pistol && SprintEdgesLoading) return null;   // animation pass 3: the pistol's idle clip is read with the sprint edges; not cached before they are in
+        if (!hammer && family == HipFireWeaponClass.Pistol && SprintEdgesLoading) return null;   // animation pass 3: the pistol's idle clip is read with the sprint edges; not cached before they are in
         GaitFamily? result = null;
-        if ((data.RelaxedFor(family) ?? data.RelaxedFor(HipFireWeaponClass.Rifle)) is { Directions.Count: > 0 } set)
+        if ((hammer ? data.Hammer : data.RelaxedFor(family) ?? data.RelaxedFor(HipFireWeaponClass.Rifle)) is { Directions.Count: > 0 } set)
         {
             var directions = new List<(float, IReadOnlyList<ClipGait>)>();
             var clips = new List<CharacterViewer.BlendClip>();
@@ -112,7 +112,7 @@ public partial class NetworkView
             if (ok)
             {
                 int idle = clips.Count;
-                string idleClip = RelaxedIdleClip(family) ?? _idleAnimation ?? CharacterViewer.DefaultAnimation;   // animation pass 3: the pistol's own relaxed idle (NetworkView.SprintEdges.cs)
+                string idleClip = (hammer ? data.HammerIdle : RelaxedIdleClip(family)) ?? _idleAnimation ?? CharacterViewer.DefaultAnimation;   // animation pass 3: the pistol's own relaxed idle (NetworkView.SprintEdges.cs); anim/melee-flow: the hammer's
                 if (RigHasClip(idleClip)) clips.Add(new CharacterViewer.BlendClip(idleClip, null));
                 result = new GaitFamily
                 {
@@ -272,10 +272,11 @@ public partial class NetworkView
     {
         if (!GaitUsable) return false;
         var family = HipFamilyOf(s) == HipFireWeaponClass.Pistol ? HipFireWeaponClass.Pistol : HipFireWeaponClass.Rifle;
-        if (RelaxedGaitFamily(data, family) is not { } fam) return false;
+        bool hammer = HammerStance(s) && RelaxedGaitFamily(data, family, hammer: true) is not null;   // anim/melee-flow (NetworkView.MeleeFlow.cs): the hammer in both hands
+        if (RelaxedGaitFamily(data, family, hammer) is not { } fam) return false;
         if (!GaitPlace(character, s, t, fam, 0f, HipRelaxFade(s, hip), t.GaitMoving, own, out var detail)) return false;
         hip.Kind = PoseKind.Normal;
-        if (own && _showInfo) _locoNowText = $"relaxed run {family} {detail}";
+        if (own && _showInfo) _locoNowText = $"relaxed run {(hammer ? "hammer" : family)} {detail}";
         return true;
     }
 

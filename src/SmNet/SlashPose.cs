@@ -50,13 +50,27 @@ public static class SlashPose
     /// A dive that landed with its wind-up at <paramref name="landedAt"/> (earlier than the impact's start: the dive was shorter than expected) moves from it to
     /// that time over <see cref="ImpactCatchUp"/> (the time eased toward the strike's, never backwards), so the landing has no pop.
     /// </summary>
-    public static float ImpactTime(float sinceImpact, float impactStart, float clipLength, float landedAt = float.NaN)
+    public static float ImpactTime(float sinceImpact, float impactStart, float clipLength, float landedAt = float.NaN) =>
+        ImpactTime(sinceImpact, impactStart, clipLength, landedAt, ImpactCatchUp);
+
+    /// <summary>
+    /// anim/melee-flow: <see cref="ImpactTime(float, float, float, float)"/> with the catch-up over <paramref name="catchUp"/> seconds on the smooth curve (the client's
+    /// <see cref="EasedCatchUp"/>: the 1/30 s catch-up played up to 0.17 s of the strike in two frames, the transition probe's largest jerk at the slash's landing).
+    /// </summary>
+    public static float ImpactTime(float sinceImpact, float impactStart, float clipLength, float landedAt, float catchUp)
     {
         float since = MathF.Max(0f, sinceImpact), target = impactStart + since;
-        if (float.IsFinite(landedAt) && landedAt < impactStart && since < ImpactCatchUp)
-            target = landedAt + (target - landedAt) * (since / ImpactCatchUp);
+        if (float.IsFinite(landedAt) && landedAt < impactStart && catchUp > 0f && since < catchUp)
+        {
+            float x = since / catchUp;
+            float k = catchUp > ImpactCatchUp + 1e-4f ? x * x * (3f - 2f * x) : x;   // the graph's own catch-up stays linear
+            target = landedAt + (target - landedAt) * k;
+        }
         return Math.Clamp(target, 0f, MathF.Max(clipLength, impactStart));
     }
+
+    /// <summary>anim/melee-flow (ours): the client's catch-up of a slash that landed before its wind-up's end: 0.1 s on the smooth curve.</summary>
+    public const float EasedCatchUp = 0.1f;
 
     /// <summary>Seconds after the landing until the clip's end (what the get-up can show of it).</summary>
     public static float AfterImpact(float impactStart, float clipLength) => MathF.Max(0f, clipLength - impactStart);

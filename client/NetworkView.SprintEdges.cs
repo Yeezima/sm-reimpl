@@ -110,7 +110,7 @@ public partial class NetworkView
 
     /// <summary>The idle clip of the plain idle stance (no turn data for the posture): the pistol's relaxed idle with the pistol in hand and the weapon down, else the rig's idle.</summary>
     string? IdleClipOf(PlayerState s) =>
-        (!HipReady(s) && HipFamilyOf(s) is { } family ? RelaxedIdleClip(family) : null) ?? _idleAnimation;
+        (HammerIdleOf(s) ?? (!HipReady(s) && HipFamilyOf(s) is { } family ? RelaxedIdleClip(family) : null)) ?? _idleAnimation;   // anim/melee-flow: the hammer's own idle first
 
     /// <summary>The sprint edges of a marine's sprint family and hand (the pistol's loop in the rifle graph has its own stop).</summary>
     SprintEdges? EdgesOf(PlayerState s, SprintFamily family) =>
@@ -139,8 +139,8 @@ public partial class NetworkView
         // The clip the last frame showed (an action clip ends here): the graphs' blend out of it, and a charge that ends arms the stop as a sprint does.
         if (character.StanceKey is null && character.Playing is { } left && !e.Stop.Active)
         {
-            if (e.LeaveFade <= 0f) e.LeaveFade = ExitBlendOf(left);
-            if (left.StartsWith("SM_BUL_", StringComparison.OrdinalIgnoreCase) && _config is not null)
+            if (e.LeaveFade <= 0f) e.LeaveFade = MeleeExitBlendOf(s, left) ?? ExitBlendOf(left);   // anim/melee-flow: a melee strike's way out of its own graph (NetworkView.MeleeFlow.cs)
+            if ((left.StartsWith("SM_BUL_", StringComparison.OrdinalIgnoreCase) || left.StartsWith("SM_TH_BUL_", StringComparison.OrdinalIgnoreCase)) && _config is not null)
             {
                 e.Stop.ChargeEnded(_connectedFor);
                 e.Family = Loadouts.InHand(_config, s)?.Name is { } weapon ? SprintFamilyFor(weapon) : SprintFamily.Rifle;
@@ -176,7 +176,7 @@ public partial class NetworkView
     static float ExitBlendOf(string clip)
     {
         if (clip.StartsWith("SM_EVD_", StringComparison.OrdinalIgnoreCase)) return EvadeExitBlend;
-        if (clip.StartsWith("SM_BUL_", StringComparison.OrdinalIgnoreCase) || clip.Contains("Bullrush2Idle", StringComparison.OrdinalIgnoreCase)) return EvadeExitBlend;
+        if (clip.StartsWith("SM_BUL_", StringComparison.OrdinalIgnoreCase) || clip.StartsWith("SM_TH_BUL_", StringComparison.OrdinalIgnoreCase) || clip.Contains("Bullrush2Idle", StringComparison.OrdinalIgnoreCase)) return EvadeExitBlend;
         if (clip.StartsWith("SM_MEL_", StringComparison.OrdinalIgnoreCase) || clip.StartsWith("SM_REC_", StringComparison.OrdinalIgnoreCase)) return ActionExitBlend;
         return 0f;
     }

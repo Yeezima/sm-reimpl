@@ -212,6 +212,9 @@ public partial class NetworkView
         if (NoFallPose || _fallData is null) return;
         double now = _connectedFor;
         float dt = double.IsFinite(t.FallLayerAt) ? (float)Math.Clamp(now - t.FallLayerAt, 0.0, 0.1) : 0f;
+        // anim/melee-flow: not placed here for a while (an action clip drove the pose: a charge going off a ledge falls from its first unsupported frame while its clip still shows):
+        // the legs ramp from now instead of taking the whole gap at once (they came in at full weight in one frame: the root turned 90 degrees, 168 cm per frame per frame).
+        if (!NoMeleeFlow && double.IsFinite(t.FallLayerAt) && now - t.FallLayerAt > 0.05) dt = 0f;
         t.FallLayerAt = now;
         if (t.FallSet is not { } set || !s.Alive) { t.LegsWeight = 0f; return; }
         // The falling pose: the legs on the leg mask, or the heavy bolter's whole-body drop; they go out over the blend of whatever follows (the landing's, or the soft exit's).

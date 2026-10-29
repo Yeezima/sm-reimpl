@@ -536,9 +536,13 @@ public sealed class WeaponRig
         foreach (var i in _items)
         {
             bool inHand = WeaponHands.InHand(i.Role, _shown, melee, _grenadeHeld, i.Attachment.TwoHanded, i.Attachment.Wield?.Bone, meleeBone);
+            if (StowPistol && i.Role == Role.Pistol) inHand = false;   // anim/melee-flow: both hands on the hammer
             Apply(i, inHand);
         }
     }
+
+    /// <summary>anim/melee-flow: the pistol goes to its holster (the marine holds the thunder hammer or the daemon maul in both hands); set by the networked view before <see cref="Update"/>.</summary>
+    public bool StowPistol { get; set; }
 
     void Apply(Item i, bool inHand)
     {

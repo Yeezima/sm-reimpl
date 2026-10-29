@@ -73,9 +73,10 @@ public partial class NetworkView
         // feel/melee-lock: motion that is the attack's own root motion (the stick idle after MoveAt) keeps the legs in the clip.
         // feel/locks-sprint-stop: from the move gate the simulation applies (MoveAt × the action lock scale).
         if (!t.AttackHand && ActionHandoff.AttackHandsOver(time, Combat.MoveAtOf(step, _config), HandoffMoving(s) && !AttackRootDriven(s, step, time))) t.AttackHand = true;
-        if (!t.AttackHand) return false;
+        if (!t.AttackHand) { HandoffEnded(s.PlayerId); return false; }
         PlaceHandedOver(character, s, own);
-        character.SetPoseLayer(clip, clipTime ?? time, ActionHandoff.TailWeight(step.Duration, time), additive: false, mask);   // feel/melee-lock: the clip at its own time (a variant of another length)
+        // anim/melee-flow: the upper body leaves the strike over the graph's move-on exit from the hand-over on (HandoffUpperWeight), as the graph leaves the whole attack state.
+        character.SetPoseLayer(clip, clipTime ?? time, HandoffUpperWeight(s, step, time), additive: false, mask);   // feel/melee-lock: the clip at its own time (a variant of another length)
         return true;
     }
 

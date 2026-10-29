@@ -88,7 +88,7 @@ public partial class NetworkView
     /// <summary>The posture whose turn data applies to this marine now, or null (the body then follows the aim and the old idle shows): not aiming, a ranged weapon in hand, and the family has the data.</summary>
     TurnPosture? TurnPostureOf(PlayerState s, TurnAnimations data)
     {
-        if (!s.Alive || s.Aiming || HipFamilyOf(s) is not { } family || data.For(family) is not { } set) return null;
+        if (!s.Alive || s.Aiming || HammerStance(s) || HipFamilyOf(s) is not { } family || data.For(family) is not { } set) return null;   // anim/melee-flow: the hammer stands in its own idle (no turn data)
         return HipReady(s) ? set.Ready : set.Relaxed ?? (PistolTwistIdle && family == HipFireWeaponClass.Pistol ? set.Ready : null);
     }
 
@@ -160,7 +160,12 @@ public partial class NetworkView
         if (NoTurns || TurnData() is not { } data || !s.Alive || (own && OwnDead)) { t.Body.Snap(aimYaw); t.Stand = null; t.StandRig = null; t.PrevStanding = t.WasStanding = false; character.CancelSettle(); return aimYaw; }
         // feel/charge-directions (protocol 39): through a charge (the bull rush turned by A / D, the dash attack's lunge any of eight ways) the body is the
         // simulation's heading at once: the forward clips play along the travel, never turned toward it at the follow rate (a backward lunge spun 0.25 s).
-        if (s.Rush != RushPhase.None) { t.Body.Snap(aimYaw); t.Stand = null; t.StandRig = null; t.PrevStanding = t.WasStanding = false; character.CancelSettle(); return aimYaw; }
+        if (s.Rush != RushPhase.None)
+        {
+            // anim/melee-flow: the body reaches the charge's heading over a few frames (ChargeTurn) instead of in one: a 25 degree side charge put the feet 13 cm elsewhere in a frame.
+            float yaw = ChargeTurn(t.Body.Valid ? t.Body.Yaw : aimYaw, aimYaw, dt);
+            t.Body.Snap(yaw); t.Stand = null; t.StandRig = null; t.PrevStanding = t.WasStanding = false; character.CancelSettle(); return yaw;
+        }
         var posture = TurnPostureOf(s, data);
         var rig = posture is null ? null : TurnRigOf(posture);
         bool standing = TurnStanding(s, t, throwTime);

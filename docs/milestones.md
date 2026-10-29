@@ -749,3 +749,12 @@ removed):** the follow camera trails the view by a critically damped 50 ms (`SmN
 unlagged rig puts the eye and runs along the view (probe: 0.000 degrees and 0.000 m against the unlagged aim), the crosshair is drawn where it lands; `--camera-lag ms` (0 off); all in
 `client/NetworkView.CameraLag.cs` plus one-line hooks. The creator's class tabs shrink their font to show the whole label (`UiKit.ShrinkToFit`; the self-test checks it).
 `smtool gfx-dump` prints and renders the movies. Spec "HUD from the movies (ui/hud-fidelity)"; docs/discovery.md "HUD movies read in full".
+
+Melee flow is done (branch `anim/melee-flow`; client only, no protocol change; the owner's requests of 2026-10-29): **the hammer in both hands** (a thunder hammer / daemon maul marine whose pistol is not up runs on
+`SM_TH_NAV` and sprints on `SM_TH_NuSprint` through the gait blend space, `LocomotionAnimations.Hammer`, `SprintFamily.Hammer`; pistol holstered at the draw clip's swap point, `WeaponRig.StowPistol`; the graph's
+`SM_1HR_NAV_Pistol2TH` over the upper body when the pistol comes down; its charge shows `SM_TH_BUL_Hit_M_*`); **the strikes' blends from their graphs** (`SmContent.MeleeFlowBlends`, `smtool graph-dump --melee-flow`: entry,
+chain and exit per strike; the hand-over's upper body leaves over the move-on exit); **the clip foot lock** (`CharacterViewer.ClipFootLock.cs`, `SmNet.ClipFootLockRules`: a strike's or charge's planted foot that stands
+still in the authored world is held by leg IK; melee demo planted-foot speed median 1.81 → 0.00 m/s, frames above 0.5 m/s 74 → 22 %); the melee variant layer fades in with the strike's entry; **stun-strike shake**
+(0.35° heavy strike, 0.6° stomp / slam, 0.5° when a charge or dash attack hits a player; ours, `--no-stun-shake`); the charge's body turn over 0.03 s; **ledge charge**: no second bash after landing, the fall's legs ramp from
+their first frame; the air slash's early-landing catch-up eased over 0.1 s. Probes on three demos (`--transition-probe-clips`, bot aid `--bot-turn-rate`): all switches median 17.5 → 16.9, p99 200 → 181, max 315 → 210 cm/f².
+`--no-melee-flow` for before / after. Spec "Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow)".

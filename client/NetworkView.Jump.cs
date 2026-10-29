@@ -369,7 +369,8 @@ public partial class NetworkView
 
     /// <summary>feel/jump-pack-2: the slash clip's time <paramref name="sinceImpact"/> s after the landing (SmNet.SlashPose.ImpactTime from the impact's crop start).</summary>
     float SlashImpactTime(PlayerState s, float sinceImpact, float landedAt = float.NaN) =>
-        SmNet.SlashPose.ImpactTime(sinceImpact, SlashOf(s)?.ImpactClipStart ?? 0f, ClipLength(_slashClip, 1.733f), landedAt);
+        SmNet.SlashPose.ImpactTime(sinceImpact, SlashOf(s)?.ImpactClipStart ?? 0f, ClipLength(_slashClip, 1.733f), landedAt,
+            NoMeleeFlow ? SmNet.SlashPose.ImpactCatchUp : SmNet.SlashPose.EasedCatchUp);   // anim/melee-flow: the early landing's catch-up eased over 0.1 s
 
     /// <summary>feel/jump-pack-2: how long after the landing the slash clip has left to show.</summary>
     double SlashAfterImpact(PlayerState s) => SmNet.SlashPose.AfterImpact(SlashOf(s)?.ImpactClipStart ?? 0f, ClipLength(_slashClip, 1.733f));

@@ -162,6 +162,9 @@ public sealed record MpClasses(IReadOnlyList<MpClass> Classes, IReadOnlyList<Wea
     static Func<string, MeleeTuning.WeaponMap>? MeleeMapOf(string name) =>
         MeleeMaps.Concat(CoreMeleeMaps).FirstOrDefault(m => name.EndsWith(m.Suffix, StringComparison.OrdinalIgnoreCase)).Map;
 
+    /// <summary>anim/melee-flow (client presentation): the graph and sequencers the simulation reads a melee wargear's combo from, or null (read only; the same maps as the loader).</summary>
+    public static MeleeTuning.WeaponMap? MeleeMapFor(string wargear) => MeleeMapOf(wargear)?.Invoke(wargear);
+
     /// <summary>Weapons C: the base wargear of a class without a melee weapon that brings melee of its own (its core ability), in data order.</summary>
     static IEnumerable<string> CoreMelee(MpClass c) =>
         c.BaseWargear.Where(n => CoreMeleeMaps.Any(m => n.EndsWith(m.Suffix, StringComparison.OrdinalIgnoreCase)));

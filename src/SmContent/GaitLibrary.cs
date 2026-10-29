@@ -4,7 +4,11 @@ using SmFormats.Obpk;
 namespace SmContent;
 
 /// <summary>The locomotion data the client loads in one background task: the animation graphs' sprint and relaxed-run clips and the gait (<see cref="ClipGait"/>) of every clip the blend spaces use.</summary>
-public sealed record LocomotionBundle(LocomotionAnimations Locomotion, GaitLibrary Gaits);
+public sealed record LocomotionBundle(LocomotionAnimations Locomotion, GaitLibrary Gaits)
+{
+    /// <summary>anim/melee-flow: the rig's behaviour graphs as read for the locomotion, so the melee blends (<see cref="MeleeFlowBlends"/>) need not read them again; empty when not kept.</summary>
+    public IReadOnlyList<BehaviorGraphDetail> Graphs { get; init; } = [];
+}
 
 /// <summary>
 /// The measured <see cref="ClipGait"/> of the marine rig's locomotion clips (M40-T4): the relaxed run's walk and run clips (rifle and pistol families), the
@@ -40,12 +44,16 @@ public sealed class GaitLibrary
             archive.ReadEntries(e => e.FileName == CharacterModel.MarineRigEntry, (_, d) => rig = d.ToArray());
         if (rig is null) throw new FileNotFoundException($"'{CharacterModel.MarineRigEntry}' not found.");
         var character = new HavokCharacterFile(rig);
-        var locomotion = LocomotionAnimations.From(character);
+        // anim/melee-flow: the graphs are read once and kept in the bundle (the melee blends read them too).
+        var graphs = HavokBehaviorDetailReader.Read(character.Pack);
+        Func<string, float> length = clip => character.LoadAnimation(clip).Animation.Duration;
+        var marine = RigProfiles.Marine;
+        var locomotion = LocomotionAnimations.WithHammer(LocomotionAnimations.From(graphs, length, marine.Relaxed, marine.Sprints, marine.BaseGraph), graphs, length);
         var gaits = Guard(() =>
         {
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var inPlace = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var set in locomotion.Relaxed)
+            foreach (var set in locomotion.Hammer is { } hammer ? locomotion.Relaxed.Append(hammer) : locomotion.Relaxed)   // anim/melee-flow: the hammer's own run
                 foreach (var direction in set.Directions)
                 {
                     if (direction.Walk is { } walk) names.Add(walk.Clip);
@@ -62,7 +70,7 @@ public sealed class GaitLibrary
                         if (band.Speed > 0f && band.Clips.MinBy(c => MathF.Abs(c.PitchDegrees)) is { } level) names.Add(level.Clip);
             return From(character, names, inPlace);
         });
-        return new LocomotionBundle(locomotion, gaits);
+        return new LocomotionBundle(locomotion, gaits) { Graphs = graphs };
     }
 
     /// <summary>Runs <paramref name="build"/>; any failure (but an out-of-memory) gives an empty library with a note instead of an exception.</summary>
