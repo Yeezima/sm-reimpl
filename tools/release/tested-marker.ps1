@@ -45,7 +45,7 @@ function Write-TestedMarker([string]$dataRoot, [string]$sha) {
     return $path
 }
 
-# The two checks a ship needs, exactly as the ship preflight runs them. Returns @{ Test = <exit>; Refine = <exit> } (refine-register is not run when
+# The two checks a ship needs (the ship preflight and test-and-mark.ps1 both call this). Returns @{ Test = <exit>; Refine = <exit> } (refine-register is not run when
 # dotnet test failed: Refine = $null).
 function Invoke-ReleaseTests([string]$repoRoot) {
     $result = @{ Test = $null; Refine = $null }
@@ -54,7 +54,9 @@ function Invoke-ReleaseTests([string]$repoRoot) {
         & dotnet test -nologo -v quiet | Out-Host
         $result.Test = $LASTEXITCODE
         if ($result.Test -ne 0) { return $result }
-        & dotnet run --project (Join-Path $repoRoot 'src\SmTool\SmTool.csproj') -c Release -- refine-register --check --spec (Join-Path $repoRoot 'spec\behavior.md') --changes (Join-Path $repoRoot 'docs\changes-from-original.md') --out (Join-Path $repoRoot 'docs\refine-register.md') | Out-Host
+        # The default paths, resolved from the repository root (the current folder): with absolute --spec/--changes/--out the generator names the files by
+        # their leaf ("behavior.md") in the register's text, so the check against the committed register (which says "spec/behavior.md") always failed.
+        & dotnet run --project (Join-Path $repoRoot 'src\SmTool\SmTool.csproj') -c Release -- refine-register --check | Out-Host
         $result.Refine = $LASTEXITCODE
         return $result
     } finally { Pop-Location }
