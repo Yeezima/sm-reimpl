@@ -27,9 +27,9 @@ public static class PlayerNames
     public static readonly IReadOnlyList<string> SpaceMarines =
     [
         "Brother Aurex", "Brother Daecus", "Brother Vellius", "Brother Cassor", "Brother Taurex", "Brother Marcan", "Brother Octavus",
-        "Brother Sevrin", "Brother Corvan", "Brother Aurelan", "Brother Decimar", "Brother Valerin", "Brother Justan", "Brother Ostrian",
-        "Brother Feronus", "Brother Quintar", "Brother Tavian", "Brother Ancus", "Brother Celsan", "Brother Domitar", "Brother Sextor",
-        "Brother Vitrian", "Brother Ardias", "Brother Lysian", "Brother Tiberan", "Brother Novar", "Brother Cassus", "Brother Orestan",
+        "Brother Sevrin", "Brother Corvan", "Brother Ostiar", "Brother Fulvan", "Brother Valerin", "Brother Justan", "Brother Ostrian",
+        "Brother Feronus", "Brother Quintar", "Brother Tavian", "Brother Ancus", "Brother Celsan", "Brother Domitar", "Brother Tervan",
+        "Brother Vitrian", "Brother Ardias", "Brother Lysian", "Brother Tiberan", "Brother Novar", "Brother Vespan", "Brother Orestan",
         "Brother Galvarus", "Brother Helvan",
         "Sergeant Albinar", "Sergeant Ducarius", "Sergeant Verrin", "Sergeant Pallax",
     ];
@@ -50,6 +50,15 @@ public static class PlayerNames
         "Gutzog", "Badgob", "Rokkgit", "Zarbruk", "Grubbruk", "Ugnash", "Lugzag", "Braggit", "Fangrot", "Krogsnot", "Muzgob", "Thugrak",
         "Nazzbog", "Drukka", "Gitsmasha", "Snotrukk", "Klawgut", "Skumdakka", "Bonzgob", "Gobbruz",
     ];
+
+    /// <summary>The Tab scoreboard's name column (characters, monospace): a <see cref="MaxLength"/> name, " (you)" and one space before the next column.</summary>
+    public const int ScoreboardColumn = MaxLength + 7;
+
+    /// <summary>
+    /// <paramref name="text"/> as a left-aligned scoreboard cell of <paramref name="width"/> characters: padded with spaces, or cut so that one space is
+    /// left before the next column.
+    /// </summary>
+    public static string Cell(string text, int width) => text.Length >= width ? text[..(width - 1)] + " " : text.PadRight(width);
 
     /// <summary>The pool of <paramref name="race"/>: Chaos and Orks their own, anything else the loyalists'.</summary>
     public static IReadOnlyList<string> PoolFor(Race race) => race switch { Race.Chaos => Chaos, Race.Orks => Orks, _ => SpaceMarines };

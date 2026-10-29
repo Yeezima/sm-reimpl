@@ -59,6 +59,7 @@ public sealed class MatchSummaryText
 }
 
 /// <summary>One player of the count-up's list.</summary>
+/// <summary>A count-up row; <paramref name="Name"/> without the viewer's " (you)", which the view adds after fitting the name (names/bot-lore).</summary>
 public sealed record CountUpRow(string Name, string Class, int Kills, int Deaths, bool IsViewer);
 
 /// <summary>What the count-up shows: the viewer's team score and, with teams, the other side's, the viewer's kills, and the best players of the viewer's side.</summary>
@@ -136,6 +137,18 @@ public partial class MatchSummaryView : Control
         DrawString(_font, new Vector2(x, baseline), text, align, width, size, colour);
     }
 
+    /// <summary>
+    /// names/bot-lore: a row's name, and for the viewer " (you)" after it; a name too long for <paramref name="width"/> is cut (<see cref="Fit"/>) so the
+    /// suffix always shows.
+    /// </summary>
+    string Named(string name, bool viewer, int size, float width)
+    {
+        if (!viewer) return name;
+        const string you = " (you)";
+        float suffix = _font is null ? 0f : _font.GetStringSize(you, HorizontalAlignment.Left, -1, size).X;
+        return Fit(name, size, width - suffix) + you;
+    }
+
     /// <summary>The text cut with "..." so that it is no wider than <paramref name="width"/> at this size (a class or weapon name that is too long).</summary>
     string Fit(string text, int size, float width)
     {
@@ -186,7 +199,7 @@ public partial class MatchSummaryView : Control
         foreach (var row in data.Rows)
         {
             var c = row.IsViewer ? new Color(0.6f, 1f, 0.6f, alpha) : new Color(White, alpha);
-            Text(row.Name, colName, y, 290f * s, (int)(22 * s), c, HorizontalAlignment.Left);
+            Text(Named(row.Name, row.IsViewer, (int)(22 * s), 290f * s), colName, y, 290f * s, (int)(22 * s), c, HorizontalAlignment.Left);
             Text(row.Class, colClass, y, 255f * s, (int)(16 * s), new Color(Dim, alpha), HorizontalAlignment.Left);
             Text(CountUp.Value(row.Kills, firstStage).ToString(), colKills - 70f * s, y, 70f * s, (int)(22 * s), c, HorizontalAlignment.Right);
             Text(CountUp.Value(row.Deaths, firstStage).ToString(), colDeaths - 80f * s, y, 80f * s, (int)(22 * s), c, HorizontalAlignment.Right);

@@ -33,8 +33,14 @@ public class PlayerNameTests(ITestOutputHelper output)
         // Orks
         "Ghazghkull", "Thraka", "Makari", "Grukk", "Snagrod", "Badrukk", "Nazdreg", "Zagstruk", "Wazdakka", "Snikrot", "Grotsnik", "Zogwort", "Ufthak",
         "Gorgutz", "Skarsnik", "Gorbag", "Wurrzag", "Bluddflagg", "Zodgrod", "Gork", "Mork", "Gazbag", "Grimgor", "Azhag", "Morglum",
+        // Added after review (names/bot-lore): more loyalist, Chaos and Space Marine 2 characters
+        "Carnac", "Decimus", "Thaddeus", "Pedro", "Ragnar", "Logan", "Ezekiel", "Eldrad", "Zahariel", "Sevatar", "Shrike", "Khan", "Aurelian",
+        "Iolanthus", "Quintus", "Valoris", "Kayvaan", "Jaghatai", "Sammael", "Belial", "Asmodai", "Seth", "Tycho", "Corbulo", "Dorn", "Russ",
+        "Ferrus", "Manus", "Lion", "Jonson", "Sigismund", "Tarik", "Torgaddon", "Abaddon", "Aximand", "Kor", "Vaylund", "Cal", "Bellator", "Alarik",
         // Other games and fiction the style comes near
         "Vorkath", "Xerath",
+        // Words a profanity filter may catch
+        "Sext", "Sextor",
     ];
 
     static IEnumerable<(Race Race, string Name)> AllNames() =>
@@ -75,6 +81,71 @@ public class PlayerNameTests(ITestOutputHelper output)
                     Assert.False(w.Contains(c), $"{race} '{name}': '{word}' contains the canon name '{c}'");
             }
         }
+    }
+
+    /// <summary>Edit distance (insert, delete, replace one character), case-insensitive.</summary>
+    static int Levenshtein(string a, string b)
+    {
+        a = a.ToLowerInvariant(); b = b.ToLowerInvariant();
+        var row = Enumerable.Range(0, b.Length + 1).ToArray();
+        for (int i = 1; i <= a.Length; i++)
+        {
+            int diagonal = row[0]; row[0] = i;
+            for (int j = 1; j <= b.Length; j++)
+            {
+                int above = row[j];
+                row[j] = Math.Min(Math.Min(row[j] + 1, row[j - 1] + 1), diagonal + (a[i - 1] == b[j - 1] ? 0 : 1));
+                diagonal = above;
+            }
+        }
+        return row[b.Length];
+    }
+
+    [Fact]
+    public void No_pool_name_is_one_letter_from_a_canon_character()
+    {
+        Assert.Equal(1, Levenshtein("Cassus", "Cassius"));
+        Assert.Equal(1, Levenshtein("Aurelan", "Aurelian"));
+        foreach (var (race, name) in AllNames())
+            foreach (string word in name.Split(' ', '-', '\'').Where(w => w.Length >= 5))
+                foreach (string c in Canon.Where(c => c.Length >= 5))
+                    Assert.True(Levenshtein(word, c) > 1, $"{race} '{name}': '{word}' is one letter from the canon name '{c}'");
+    }
+
+    [Fact]
+    public void The_widest_scoreboard_row_keeps_the_whole_name_and_you()
+    {
+        string longest = AllNames().Select(x => x.Name).OrderByDescending(n => n.Length).First();
+        Assert.StartsWith(new string('n', PlayerNames.MaxLength) + " (you) ", PlayerNames.Cell(new string('n', PlayerNames.MaxLength) + " (you)", PlayerNames.ScoreboardColumn));
+        string cell = PlayerNames.Cell(longest + " (you)", PlayerNames.ScoreboardColumn);
+        Assert.Equal(PlayerNames.ScoreboardColumn, cell.Length);
+        Assert.Equal(longest + " (you) ", cell.TrimEnd() + " ");   // nothing cut, a space before the class column
+        Assert.Equal("abcd ", PlayerNames.Cell("abcdefgh", 5));   // too long: cut, one space left
+        Assert.Equal("ab   ", PlayerNames.Cell("ab", 5));
+    }
+
+    [Fact]
+    public void A_client_keeps_at_most_the_capped_number_of_names()
+    {
+        var h = new Harness(LinkConditions.Perfect, 5, clients: 0);
+        var viewer = h.AddClient(nonce: 100);
+        h.Run(TimeSpan.FromSeconds(1));
+        Assert.Equal(ClientStatus.Connected, viewer.Status);
+        // Boards from the server listing ever new named players (as over a long session with many bots coming and going), each one tick newer.
+        uint tick = h.Server.World.Tick + 1000;
+        for (int k = 0; k < 400; k++)
+        {
+            var board = new Scoreboard(tick++, true, 41, 600f, false,
+                [new ScoreEntry(viewer.PlayerId, Team.SpaceMarines, 0, 0, 0), new ScoreEntry(10_000 + k, Team.Chaos, 0, 0, 0, 0, -1, $"Bot {k}"), new ScoreEntry(9_999, Team.Chaos, 0, 0, 0, 0, -1, "Stays")]);
+            h.Net.Server.Send(0, Protocol.Write(board));
+            h.Step();
+        }
+        h.Run(TimeSpan.FromMilliseconds(50));
+        Assert.True(viewer.KeptNames <= GameClient.MaxKeptNames, $"{viewer.KeptNames} names kept");
+        Assert.Equal("Bot 399", viewer.NameOf(10_399));   // the newest kept
+        Assert.Equal("Stays", viewer.NameOf(9_999));      // listed on every board: never dropped
+        Assert.Equal("P10000", viewer.NameOf(10_000));    // the oldest departed one dropped
+        Assert.Equal("Bot 200", viewer.NameOf(10_200));   // recent departed ones still named
     }
 
     [Fact]

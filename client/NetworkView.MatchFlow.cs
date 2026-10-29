@@ -277,7 +277,7 @@ public partial class NetworkView
         string? otherLabel = teams ? (side == Team.Chaos ? _flowText.MarinesName : _flowText.ChaosName) : null;
         var entries = board?.Players ?? [];
         var rows = CountUpRows.Pick(entries, teams, side, _client.PlayerId)
-            .Select(e => new CountUpRow(e.PlayerId == _client.PlayerId ? $"{HudName(e.PlayerId)} (you)" : HudName(e.PlayerId), ClassLabel(e.Class), e.Kills, e.Deaths, e.PlayerId == _client.PlayerId))
+            .Select(e => new CountUpRow(HudName(e.PlayerId), ClassLabel(e.Class), e.Kills, e.Deaths, e.PlayerId == _client.PlayerId))
             .ToList();
         int kills = OwnScoreEntry()?.Kills ?? _stats.Of(_client.PlayerId).Kills;
         return new CountUpData(_summaryText.TeamScore, teamScore, otherLabel, otherScore, kills, rows, new Color(1f, 0.8f, 0f));

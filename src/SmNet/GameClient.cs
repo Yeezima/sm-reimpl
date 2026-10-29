@@ -545,6 +545,10 @@ public sealed partial class GameClient
     public Scoreboard? Scoreboard { get; private set; }
 
     readonly Dictionary<int, string> _names = new();
+    /// <summary>The ids in <see cref="_names"/>, oldest name first (for the cap).</summary>
+    readonly Queue<int> _nameOrder = new();
+    /// <summary>Most names kept (players who left included); beyond it the oldest names of players not on the newest scoreboard go (ours).</summary>
+    public const int MaxKeptNames = 256;
 
     /// <summary>
     /// names/bot-lore (protocol 41): the name to show for a player: the newest scoreboard's name, else the last one any scoreboard gave it this session
@@ -560,10 +564,26 @@ public sealed partial class GameClient
         foreach (var e in b.Players)
         {
             string name = PlayerNames.Sanitise(e.Name);
-            if (name.Length > 0) _names[e.PlayerId] = name;
+            if (name.Length > 0)
+            {
+                if (_names.TryAdd(e.PlayerId, name)) _nameOrder.Enqueue(e.PlayerId);
+                else _names[e.PlayerId] = name;
+            }
             else _names.Remove(e.PlayerId);
         }
+        // The cap: drop the oldest names of players the board no longer lists (and ids already removed); listed players keep theirs.
+        int guard = _nameOrder.Count;
+        while ((_names.Count > MaxKeptNames || _nameOrder.Count > 2 * MaxKeptNames) && guard-- > 0)
+        {
+            int id = _nameOrder.Dequeue();
+            if (!_names.ContainsKey(id)) continue;
+            if (Array.Exists(b.Players, e => e.PlayerId == id)) { _nameOrder.Enqueue(id); continue; }
+            _names.Remove(id);
+        }
     }
+
+    /// <summary>How many names this client keeps (tests: the cap).</summary>
+    public int KeptNames => _names.Count;
 
     /// <summary>
     /// perks/inert-2 (protocol 40): another player's equipment item as the newest scoreboard names it (index into <see cref="SimConfig.Thrown"/>),

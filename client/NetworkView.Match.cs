@@ -70,7 +70,7 @@ public partial class NetworkView
         _scoreboardPanel = new PanelContainer
         {
             AnchorLeft = 0.5f, AnchorRight = 0.5f, AnchorTop = 0.5f, AnchorBottom = 0.5f,
-            OffsetLeft = -520, OffsetRight = 520, OffsetTop = -40, OffsetBottom = 40,   // grows with the text (names/bot-lore: 30-character name column)
+            OffsetLeft = -526, OffsetRight = 526, OffsetTop = -40, OffsetBottom = 40,   // grows with the text (names/bot-lore: 31-character name column)
             GrowHorizontal = Control.GrowDirection.Both, GrowVertical = Control.GrowDirection.Both,
             Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore,
         };
@@ -409,8 +409,8 @@ public partial class NetworkView
         };
     }
 
-    /// <summary>The scoreboard's name column (names/bot-lore: <see cref="PlayerNames.MaxLength"/> and " (you)").</summary>
-    const int NameColumn = PlayerNames.MaxLength + 6;
+    /// <summary>The scoreboard's name column (names/bot-lore: <see cref="PlayerNames.MaxLength"/>, " (you)" and a space: <see cref="PlayerNames.ScoreboardColumn"/>).</summary>
+    const int NameColumn = PlayerNames.ScoreboardColumn;
 
     const string GoldTag = "[color=#ffcc00]", RedTag = "[color=#e01414]", GreyTag = "[color=#9a9a9a]", EndTag = "[/color]";
 
@@ -442,16 +442,16 @@ public partial class NetworkView
             // headed with the install's words; level, score, assists, captures and defends are not on the wire (a dash), the ratio is computed.
             var t = _summaryText;
             bool seizeMode = board.Seize is not null;
-            string Cell(string text, int width, bool left = false) => text.Length >= width ? text[..(width - 1)] + " " : left ? text.PadRight(width) : text.PadLeft(width);
+            string Cell(string text, int width) => text.Length >= width ? text[..(width - 1)] + " " : text.PadLeft(width);
             string extraHead = seizeMode ? Cell(t.Seized, 9) + Cell(t.Defended, 10) : Cell(t.Ratio, 8) + Cell(t.Assists, 9);
-            sb.AppendLine($"{GreyTag}    {Cell(t.Player, NameColumn, left: true)}{"CLASS",-20}{Cell(t.Kills, 7)}{Cell(t.Deaths, 8)}{extraHead}{EndTag}");
+            sb.AppendLine($"{GreyTag}    {PlayerNames.Cell(t.Player, NameColumn)}{"CLASS",-20}{Cell(t.Kills, 7)}{Cell(t.Deaths, 8)}{extraHead}{EndTag}");
             foreach (var e in rows)
             {
                 bool me = e.PlayerId == _client.PlayerId;
                 string extra = seizeMode ? Cell("—", 9) + Cell("—", 10)
                     : Cell(BattleRecord.Ratio(e.Kills, e.Deaths).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture), 8) + Cell("—", 9);
-                // names/bot-lore: a name of up to 24 characters and " (you)" fit the name column (30)
-                string line = $"{(me ? " >  " : "    ")}{Esc(Cell(HudName(e.PlayerId) + (me ? " (you)" : ""), NameColumn, left: true))}{Esc(Trim(ClassLabel(e.Class), 19)),-20}{e.Kills,7}{e.Deaths,8}{extra}";
+                // names/bot-lore: a name of up to 24 characters, " (you)" and a space fit the name column (31; PlayerNameTests)
+                string line = $"{(me ? " >  " : "    ")}{Esc(PlayerNames.Cell(HudName(e.PlayerId) + (me ? " (you)" : ""), NameColumn))}{Esc(Trim(ClassLabel(e.Class), 19)),-20}{e.Kills,7}{e.Deaths,8}{extra}";
                 sb.AppendLine(me ? GoldTag + line + EndTag : line);
             }
             if (rows.Count == 0) sb.AppendLine("    (nobody)");
