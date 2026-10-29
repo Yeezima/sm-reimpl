@@ -317,6 +317,7 @@ public class CustomizerModelTests : IDisposable
         Assert.DoesNotContain(PerkValues.NotActive, plain["mp_perk_secondary_weapon"].Description);
         // The config's statuses carry the generator's text.
         var config = Config();
+        Assert.NotEmpty(config.Perks);
         Assert.All(config.Perks, p => Assert.Equal(PerkValues.Text(config, p), PerkStatuses.Of(config)[p.Name].Values));
     }
 

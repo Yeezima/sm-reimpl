@@ -150,8 +150,8 @@ public static class PerkValues
         if (v.Bursts && !b.Bursts) p.Add($"fires {v.BurstLength}-round bursts, {N(v.BurstInterval)} s apart");
         if (v.ShotCooldown != b.ShotCooldown) p.Add($"{(v.Bursts ? "time between trigger pulls" : "time between shots")} {Change(b.ShotCooldown, v.ShotCooldown, " s")}");
         if (v.Pierce is { Points: > 0f } pierce && b.Pierce is null)
-            p.Add($"passes through up to {N(pierce.Points)} {(pierce.BodyCost <= 1f && pierce.PropCost <= 1f ? "bodies or crates" : "targets")}");
-        if (v.ClipSize != b.ClipSize) p.Add($"{(b.Heat is not null && b.ReserveSize == 0 ? "ammunition" : "clip")} {Change(b.ClipSize, v.ClipSize)}");
+            p.Add($"passes through up to {N(pierce.Points)} {(pierce.BodyCost == 1f && pierce.PropCost == 1f ? "bodies or crates" : "targets")}");
+        if (v.ClipSize != b.ClipSize) p.Add($"{(b.Heat is not null ? "ammunition" : "clip")} {Change(b.ClipSize, v.ClipSize)}");
         if (v.ReserveSize != b.ReserveSize) p.Add($"reserve {Change(b.ReserveSize, v.ReserveSize)}");
         if (v.Recharge is { } vr && b.Recharge is { } br && vr.RoundTime != br.RoundTime) p.Add($"a round recharges every {Change(br.RoundTime, vr.RoundTime, " s")}");
         else if (v.ReloadTime != b.ReloadTime) p.Add($"reload {Change(b.ReloadTime, v.ReloadTime, " s")}");
