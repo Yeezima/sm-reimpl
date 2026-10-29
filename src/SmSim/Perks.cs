@@ -159,6 +159,12 @@ public readonly record struct PerkStatus(PerkActivity Activity, string Note)
 {
     /// <summary>The label the class creator shows on a perk that does nothing yet.</summary>
     public const string NotActiveLabel = "NOT ACTIVE YET";
+
+    /// <summary>
+    /// perks/finish: the values line(s) the class creator shows under the perk's locale text (<see cref="PerkValues.Text"/>, from the specs the
+    /// simulation uses); "" when none was determined or not filled in (<see cref="Perks.StatusOf"/> leaves it empty; the creator's statuses fill it).
+    /// </summary>
+    public string Values { get; init; } = "";
 }
 
 /// <summary>
@@ -174,11 +180,12 @@ public static class Perks
     /// </summary>
     public static readonly IReadOnlyDictionary<string, string> Notes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
-        ["mp_perk_respawn_timer"] = "Rapid Deployment: shorter respawn; no data consumer and no value in the data (owner question)",
-        ["mp_perk_friendly_spawn_target"] = "Teleport Homer: allies may respawn at the carrier; no data consumer (owner question)",
-        ["mp_perk_enemy_info"] = "Tactical Readout: enemies' armour and health bars on the HUD; no data consumer (client HUD; owner question)",
-        ["mp_perk_secondary_weapon"] = "Weapon Versatility: an additional weapon; no upgrade string and no second weapon list in the data (owner question)",
-        ["mp_perk_snap_to_increase"] = "Signum Link: enemies show more clearly; no data consumer (owner question)",
+        // perks/finish: each checked again against the whole install (data/packages): what was found and what is missing.
+        ["mp_perk_respawn_timer"] = "Rapid Deployment: shorter respawn; no file reads its upgrade string and no respawn time is in the data (the reduction is unknown; owner question)",
+        ["mp_perk_friendly_spawn_target"] = "Teleport Homer: allies may respawn at the living carrier; no file reads its upgrade string (only the Dreadnought blueprints carry it); needs a spawn choice the game does not have yet (owner question)",
+        ["mp_perk_enemy_info"] = "Tactical Readout: enemies' armour and health shown above them; no file reads its upgrade string; needs other players' health and armour on the wire (the snapshot budget is full) and a HUD marker (owner question)",
+        ["mp_perk_secondary_weapon"] = "Weapon Versatility: an additional weapon; no upgrade string, only the front end's unlock_secondary_weapon; which weapon and slot is not in the data (owner question)",
+        ["mp_perk_snap_to_increase"] = "Signum Link: no file reads its upgrade string; the only candidate data are aim-assist sets named __snap_upgrade (heavy bolter, plasma cannon: aim snap-to 0 to 12 degrees), and aim assist is not simulated (its PC use is unknown; owner question)",
         ["mp_perk_bolter_in_place_of_pistol"] = "True Grit: the pistol-slot Bolters are offered to Assault/Raptor only with it (data-implied rule); the bolter fires as in the data",
     };
 
