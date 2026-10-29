@@ -378,7 +378,13 @@ public static partial class Protocol
     // 41 (names/bot-lore; the owner's request of 2026-10-29): each scoreboard row ends with the player's display name (a u8 length, 0..24, then that many
     //     Latin-1 bytes; 0: no name, shown as "P<id>"): the server names test bots from per-race pools (PlayerNames). 14 to 38 bytes a row (16 rows: at most
     //     608 bytes). Snapshots unchanged (worst case 1200)
-    public const ushort Version = 41;
+    // 42 (feel/melee-charge-2; the owner's requests of 2026-10-29): a bull rush held in the
+    //     air ends on a landing after a real fall (Rush.EndsOnLanding, RushSpec.LandEndDrop 0.5 m, ours; the dash attack held at its end on any landing): no
+    //     resumed clip, normal movement from the next tick (speed kept, at most sprint speed), the landing tick's contact still counts; the knife's and
+    //     chainsword's Y,Y chain (backhand, kick or shoulder → the stomp in BRANCH_Melee_Y_Combo; config hash); melee lunges × SimConfig.MeleeLungeScale (1.3,
+    //     estimate) and the weapon switch × 0.8 (0.48 s, estimate; config hash); the melee lock's eased alignment and hysteresis (MeleeLockSpec.AlignEase,
+    //     Hysteresis 15 degrees; config hash). Snapshot layout and sizes unchanged (worst case 1200)
+    public const ushort Version = 42;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>
     public const int HelloBytes = 53 + 2 * AppearanceCode.Size;
     /// <summary>Bytes of a Setup message (protocol 28: + the Ork look).</summary>

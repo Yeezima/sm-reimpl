@@ -407,7 +407,7 @@ public class RushTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_18_carries_the_rush_phase_in_every_record_and_refuses_malformed_ones()
     {
-        Assert.Equal(41, Protocol.Version);
+        Assert.Equal(42, Protocol.Version);
         var p = new PlayerState(4, Vector3.One, Vector3.Zero, 1f, true) { Alive = true, Rush = RushPhase.Collision, RushTicks = 17, RushLock = 9 };
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(9, 1, 1, [p, p with { PlayerId = 5 }], Self: 4))));
         Assert.Equal(p, back.Players[0]);

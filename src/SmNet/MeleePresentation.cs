@@ -14,7 +14,8 @@ namespace SmNet;
 /// <item>Root-driven motion: after an attack's <see cref="MeleeStep.MoveAt"/> the body may still be moving by the clip's own root motion (the stick idle);
 /// then the clip keeps the legs (<see cref="RootDriven"/>) instead of handing them to the locomotion (M40-T4).</item>
 /// <item>Camera assist: while the own attack aligns to its locked target the view turns toward it at most <see cref="AssistRate"/> (<see cref="Assist"/>),
-/// so the camera lines up with the body.</item>
+/// so the camera lines up with the body. feel/melee-charge-2: gentle: an exponential approach (<see cref="AssistTau"/>) faded in and out over its window
+/// (<see cref="AssistWeight"/>), so the view never starts or stops turning in one frame.</item>
 /// </list>
 /// </summary>
 public static class MeleePresentation
@@ -23,8 +24,12 @@ public static class MeleePresentation
     public const float StopSeconds = 0.07f;
     /// <summary>Ours: how long the held clips take to catch up with the simulation's time afterwards.</summary>
     public const float CatchUpSeconds = 0.12f;
-    /// <summary>Ours: the camera assist's turn rate toward the locked target, degrees a second.</summary>
-    public const float AssistRate = 150f;
+    /// <summary>Ours: the camera assist's largest turn rate toward the locked target, degrees a second (feel/melee-charge-2: 150 → 120, gentler).</summary>
+    public const float AssistRate = 120f;
+    /// <summary>Ours (feel/melee-charge-2): the assist closes the angle to the target with this time constant (seconds), at most <see cref="AssistRate"/>.</summary>
+    public const float AssistTau = 0.2f;
+    /// <summary>Ours (feel/melee-charge-2): the assist fades in over this long from the attack's start, and out over <see cref="AssistAfterWindow"/> after the alignment window.</summary>
+    public const float AssistFadeIn = 0.1f;
     /// <summary>Ours: the assist runs from the attack's start to this long after its alignment window, and only for targets within this angle of the view.</summary>
     public const float AssistAfterWindow = 0.1f, AssistMaxDegrees = 75f;
     /// <summary>Ours: the camera shake a landed own melee hit adds (radians; the knife's <c>camera_effect</c> shakes yaw 0.5 and pitch 0.45, read as degrees).</summary>
@@ -57,11 +62,13 @@ public static class MeleePresentation
     /// motion (the blend at <paramref name="blendDistance"/>, the one the client poses): no faster than its root speed there (± a tick) plus 0.75 m/s, and along
     /// the heading (forward or back) or nearly still.
     /// </summary>
-    public static bool RootDriven(MeleeStep step, float time, Vector2 velocity, float yaw, float tick, float blendDistance)
+    /// <param name="scale">feel/melee-charge-2: the config's lunge scale (<see cref="SimConfig.LungeScale"/>): the body moves that much faster than the clip forward.</param>
+    public static bool RootDriven(MeleeStep step, float time, Vector2 velocity, float yaw, float tick, float blendDistance, float scale = 1f)
     {
         if (step.Reach is not { Variants.Count: > 0 } reach) return false;
         float h = MathF.Max(tick, 1e-3f);
-        float root = MathF.Abs(reach.ForwardAt(time + h, step.Duration, blendDistance) - reach.ForwardAt(time - h, step.Duration, blendDistance)) / (2f * h);
+        float k = float.IsFinite(scale) && scale > 1f ? scale : 1f;
+        float root = k * MathF.Abs(reach.ForwardAt(time + h, step.Duration, blendDistance) - reach.ForwardAt(time - h, step.Duration, blendDistance)) / (2f * h);
         float speed = velocity.Length();
         if (speed > root + 0.75f) return false;
         if (speed < 0.3f) return true;
@@ -69,19 +76,34 @@ public static class MeleePresentation
     }
 
     /// <summary>
-    /// The view yaw after <paramref name="delta"/> seconds of the camera assist toward <paramref name="targetYaw"/>: turned by at most <see cref="AssistRate"/>,
-    /// never past it; unchanged when the target is more than <see cref="AssistMaxDegrees"/> off the view.
+    /// The view yaw after <paramref name="delta"/> seconds of the camera assist toward <paramref name="targetYaw"/>: the angle left closes with the time constant
+    /// <see cref="AssistTau"/>, by at most <see cref="AssistRate"/>, both scaled by <paramref name="weight"/> (<see cref="AssistWeight"/>), never past it;
+    /// unchanged when the target is more than <see cref="AssistMaxDegrees"/> off the view (feel/melee-charge-2: before, a constant 150 degrees a second).
     /// </summary>
-    public static float Assist(float viewYaw, float targetYaw, float delta)
+    public static float Assist(float viewYaw, float targetYaw, float delta, float weight = 1f)
     {
         float d = MeleeLock.Delta(viewYaw, targetYaw);
-        if (MathF.Abs(d) > AssistMaxDegrees * MathF.PI / 180f || !(delta > 0f)) return viewYaw;
-        return MeleeLock.TurnToward(viewYaw, targetYaw, AssistRate * MathF.PI / 180f * delta);
+        if (MathF.Abs(d) > AssistMaxDegrees * MathF.PI / 180f || !(delta > 0f) || !(weight > 0f)) return viewYaw;
+        float w = MathF.Min(weight, 1f);
+        float step = MathF.Abs(d) * (1f - MathF.Exp(-delta / AssistTau)) * w;
+        return MeleeLock.TurnToward(viewYaw, targetYaw, MathF.Min(step, AssistRate * MathF.PI / 180f * delta * w));
     }
 
     /// <summary>Whether the camera assist runs <paramref name="time"/> into an attack (from its start to <see cref="AssistAfterWindow"/> after its alignment window).</summary>
     public static bool AssistWindow(MeleeStep step, float time) =>
         step.Reach is { } r && r.AlignTo > r.AlignFrom && time <= r.AlignTo + AssistAfterWindow;
+
+    /// <summary>
+    /// feel/melee-charge-2 (ours): the assist's strength <paramref name="time"/> into an attack: a smoothstep up over <see cref="AssistFadeIn"/> from the start, 1 through the
+    /// alignment window, a smoothstep down to 0 over <see cref="AssistAfterWindow"/> after it; 0 outside <see cref="AssistWindow"/>.
+    /// </summary>
+    public static float AssistWeight(MeleeStep step, float time)
+    {
+        if (!AssistWindow(step, time) || step.Reach is not { } r || !(time >= 0f)) return 0f;
+        float rise = MeleeLock.Ease(time / AssistFadeIn);
+        float fall = time <= r.AlignTo ? 1f : 1f - MeleeLock.Ease((time - r.AlignTo) / AssistAfterWindow);
+        return MathF.Min(rise, fall);
+    }
 
     /// <summary>
     /// The player a landed melee hit most likely struck, for presentation (the server decides): among <paramref name="others"/>, the attacker's

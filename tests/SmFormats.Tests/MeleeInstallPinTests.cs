@@ -25,10 +25,11 @@ public class MeleeInstallPinTests
 
     /// <summary>
     /// feel/melee-lock: the pins cover what the readers built before the reach data (<see cref="MeleeStep.Reach"/>), which is stripped here and checked apart;
-    /// feel/locks-sprint-stop: so is the evade branch (<see cref="MeleeStep.EvadeAt"/>); feel/charge-directions: the charge's side steer is put back to the old margin's value.
+    /// feel/locks-sprint-stop: so is the evade branch (<see cref="MeleeStep.EvadeAt"/>); feel/charge-directions: the charge's side steer is put back to the old margin's value;
+    /// feel/melee-charge-2: the knife's and chainsword's Y,Y chain (<see cref="MeleeStep.YNext"/> and its window) is stripped and checked apart.
     /// </summary>
     static string H(MeleeCombo m) => Convert.ToHexString(SHA256.HashData(Variants.Bytes(Strip(m))))[..16];
-    static MeleeStep Strip(MeleeStep s) => s with { Reach = null, EvadeAt = float.PositiveInfinity };
+    static MeleeStep Strip(MeleeStep s) => s with { Reach = null, EvadeAt = float.PositiveInfinity, YNext = 0, YComboOpen = 0f, YComboClose = 0f };
     static MeleeCombo Strip(MeleeCombo m) => m with
     {
         // feel/charge-directions (protocol 39): RushSpec.SideSteer took the old sprint margin's place in the bytes; the pins were taken with its 0.25 there.
@@ -64,5 +65,31 @@ public class MeleeInstallPinTests
         Assert.Equal("35C27C6512A6E79F", H(MeleeTuning.Load(game, ork)));
         Assert.Equal("F37D57C04CDFF958", H(MeleeTuning.Load(game, ork, MeleeTuning.OrkChoppaSet2)));
         Assert.Equal("80B029F3BA556BFE", H(MeleeTuning.Load(game)));
+    }
+
+    /// <summary>
+    /// feel/melee-charge-2 (the owner: "normal combo is backhand > stomp"): on the install the knife's and chainsword's backhand, kick and shoulder strikes (heavy
+    /// 1 to 3) chain on a heavy press in their BRANCH_Melee_Y_Combo window to the stomp (heavy 4), both races (RaceParity copies the loyalist twin), after the
+    /// hit and inside the strike; the stomp chains on to nothing.
+    /// </summary>
+    [InstallFact]
+    public void The_knife_and_chainsword_backhand_kick_and_shoulder_chain_to_the_stomp()
+    {
+        var classes = MpClasses.Load(Game.Value!);
+        var combos = classes.Loadouts.SelectMany(l => l.MeleeChoices).GroupBy(m => m.Wargear).ToDictionary(g => g.Key, g => g.First());
+        foreach (var wargear in new[] { "sm_mp_melee_combat_knife", "csm_mp_melee_combat_knife", "sm_mp_melee_chainsword", "csm_mp_melee_chainsword", "sm_mp_melee_chainsword_gold" })
+        {
+            var heavy = combos[wargear].Heavy;
+            Assert.Equal(4, heavy.Count);
+            for (int i = 0; i < 3; i++)
+            {
+                var s = heavy[i];
+                Assert.Equal((wargear, i + 1, 4), (wargear, i + 1, s.YNext));
+                Assert.True(s.YComboOpen >= s.HitTime - 1e-4f && s.YComboOpen < s.YComboClose && s.YComboClose <= s.Duration + 1e-4f,
+                    $"{wargear} Y{i + 1}: window {s.YComboOpen:F3}..{s.YComboClose:F3} s, hit {s.HitTime:F3}, length {s.Duration:F3}");
+            }
+            Assert.Equal(0, heavy[3].YNext);
+            Assert.NotNull(heavy[3].Stomp);   // the stomp's blast
+        }
     }
 }

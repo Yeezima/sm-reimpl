@@ -798,6 +798,7 @@ public static class Combat
         if (shooting) moveInput = moveInput with { Buttons = moveInput.Buttons & ~InputButtons.Sprint };
         // feel/melee-lock: an attack that starts from rest this tick with a lock the start's cone accepts faces the direction that found it (the stick's,
         // else the view's: MeleeLock.SearchDirection), so the target stays in the attack's cone while its alignment window turns to it.
+        // (feel/melee-charge-2: kept: only a stick pushed to a side turns the body here, the original's directional attack; the turn to the target itself eases.)
         if (s.MeleeStep == 0 && step > 0 && sanitized.MeleeTarget > 0
             && MeleeLock.Target(s, sanitized, sanitized.MeleeTarget, others, c, world, MeleeLock.Phase.MeleeStart) is not null)
             moveInput = moveInput with { Yaw = MeleeLock.YawOf(MeleeLock.SearchDirection(sanitized)) };

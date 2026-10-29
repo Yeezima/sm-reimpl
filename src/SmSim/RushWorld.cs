@@ -77,12 +77,18 @@ public sealed partial class World
     /// The collision stop of every charger that connected this tick, after all contacts resolved (M32), unless a resolution
     /// already changed its phase (a reaction, death).
     /// </summary>
-    void StopRushes(IEnumerable<int> chargers)
+    /// <param name="landed">feel/melee-charge-2 (protocol 42): chargers whose landing ended the charge this tick (<see cref="Rush.LandedFrom"/>) and the phase they
+    /// were charging in: one that connected takes the stop of that phase as any other contact (unless a resolution changed its state since).</param>
+    void StopRushes(IEnumerable<int> chargers, IReadOnlyDictionary<int, RushPhase>? landed = null)
     {
         // feel/jump-pack-2 (the review): a charger a wall stopped this tick (0 ticks into its wall stop) that also connected takes the hit's stop, not the wall's.
         foreach (int id in chargers)
-            if (_players.TryGetValue(id, out var now) && now.Alive && Rush.Charging(Rush.ChargingPhase(now)))
-                _players[id] = Rush.Stopped(now with { Rush = Rush.ChargingPhase(now) });   // the dash attack: its hit state
+        {
+            if (!_players.TryGetValue(id, out var now) || !now.Alive) continue;
+            if (Rush.Charging(Rush.ChargingPhase(now))) _players[id] = Rush.Stopped(now with { Rush = Rush.ChargingPhase(now) });   // the dash attack: its hit state
+            else if (now.Rush == RushPhase.None && now.Reaction == ReactionKind.None && landed is not null && landed.TryGetValue(id, out var phase))
+                _players[id] = Rush.Stopped(now with { Rush = phase });
+        }
     }
 
     /// <summary>One charge hit: the shield part, then the damage on the body (as a blast's), recorded as melee; then the reaction.</summary>

@@ -100,7 +100,7 @@ public sealed record MeleeReach(float AlignFrom, float AlignTo, float DistanceFr
         // Ill-conditioned (or no segment holds the solution): the fixed-point steps from the distance now, which rise monotonically toward D0 and never
         // pass it (the lunge then errs short, never long).
         float x = Math.Clamp(distanceNow, low, high);
-        for (int k = 0; k < 16; k++) x = Math.Clamp(distanceNow + ForwardAt(time, duration, x), low, high);
+        for (int n = 0; n < 16; n++) x = Math.Clamp(distanceNow + ForwardAt(time, duration, x), low, high);
         return x;
     }
 
@@ -147,11 +147,29 @@ public sealed record MeleeLockSpec
     public float RushSteerRate { get; init; } = 180f;
     /// <summary>Ours: the lunge never brings the attacker nearer its target than this (metres, feet to feet: two capsules and a little).</summary>
     public float Separation { get; init; } = 1f;
+    /// <summary>
+    /// feel/melee-charge-2 (protocol 42; the owner's request of 2026-10-29: "melee and stun lock-ons feel janky, make them fluid"; ours): the alignment turn
+    /// eases in and out over the window (<see cref="MeleeLock.Align"/>: a smoothstep share of the turn left) instead of turning at a constant rate that starts
+    /// and stops in one tick; false: the M32 rule (tests and before / after numbers).
+    /// </summary>
+    public bool AlignEase { get; init; } = true;
+    /// <summary>
+    /// feel/melee-charge-2 (ours): a held lock (an attack or charge under way, or the client's recent lock at a new attack's start) is kept while its target
+    /// lies within the cone's half-angle plus this many degrees, so it does not flip at the cone's edge (acquisition keeps the plain cone).
+    /// </summary>
+    public float Hysteresis { get; init; } = 15f;
+    /// <summary>
+    /// feel/melee-charge-2 (ours): with <see cref="AlignEase"/>, an alignment window shorter than this (seconds) is widened to it (<see cref="MeleeLock.AlignWindow"/>):
+    /// later up to the hit, then earlier; 0.2 s.
+    /// </summary>
+    public float MinAlignSpan { get; init; } = 0.2f;
 
     internal void Write(BinaryWriter w)
     {
         foreach (float f in new[] { HalfAngle, Range, Vertical, DistanceBand, AngleBand, FanSetBack, FanStart, RushHalfAngle, RushRange, Leash, MaxAlignRate, RushSteerRate, Separation })
             w.Write(f);
+        // feel/melee-charge-2: only when not the M32 rule, so a spec from before hashes as it did when both are off.
+        if (AlignEase || Hysteresis != 0f) { w.Write((byte)0xE2); w.Write(AlignEase); w.Write(Hysteresis); w.Write(MinAlignSpan); }
     }
 }
 
@@ -159,6 +177,16 @@ public sealed partial record SimConfig
 {
     /// <summary>feel/melee-lock: the melee target lock (<see cref="MeleeLock"/>); hashed only when it differs from <see cref="MeleeLockSpec.Default"/>.</summary>
     public MeleeLockSpec MeleeLock { get; init; } = MeleeLockSpec.Default;
+    /// <summary>
+    /// feel/melee-charge-2 (protocol 42; the owner's request of 2026-10-29: "make all melee step forwards step forward more"; a **deliberate change**, the value an
+    /// **estimate (owner's request)** to review in a playtest): the factor on every melee attack's forward root motion (<see cref="MeleeLock.LungeStep"/>).
+    /// Backward motion, the charge, the dash attack and the slash are unchanged. With a locked target the blend is still solved from the distance now (<see cref="MeleeReach.StartDistance"/>, unscaled), so the approach still
+    /// aims at the clips' strike distance (it gets there sooner) and the extra shows in the follow-through after the hit, never nearer than
+    /// <see cref="MeleeLockSpec.Separation"/>. 1 (the default, synthetic configs): the clips' motion. The content loader sets 1.3 (<c>GameplayTuning.OwnerLungeScale</c>). Hashed when not 1.
+    /// </summary>
+    public float MeleeLungeScale { get; init; } = 1f;
+    /// <summary><see cref="MeleeLungeScale"/> as applied (a scale that is not finite or not above 0 counts as 1).</summary>
+    public float LungeScale => float.IsFinite(MeleeLungeScale) && MeleeLungeScale > 0f ? MeleeLungeScale : 1f;
 }
 
 /// <summary>
@@ -186,6 +214,11 @@ public sealed partial record SimConfig
 public static class MeleeLock
 {
     const float Eps = 1e-5f;
+    /// <summary>
+    /// feel/melee-charge-2 (ours): seconds the client remembers its last lock after an attack or charge ends, and offers it again at the next start
+    /// (<see cref="Choose"/>'s previous), so a quick follow-up attack keeps its target instead of re-searching and flipping to a neighbour.
+    /// </summary>
+    public const float LockMemory = 1.0f;
 
     /// <summary>Whether <paramref name="other"/> is someone <paramref name="self"/> locks onto: another living player of the other side (anyone without sides).</summary>
     public static bool IsEnemy(in PlayerState self, in PlayerState other) =>
@@ -309,6 +342,8 @@ public static class MeleeLock
     /// switch to another enemy must lie there too);</item>
     /// <item>the charge's first tick: within the charge's range and cone along the view; under way: its range plus the leash and its cone along its heading.</item>
     /// </list>
+    /// feel/melee-charge-2 (protocol 42): every cone but the charge's first tick is widened by <see cref="MeleeLockSpec.Hysteresis"/> (a lock the client
+    /// already holds; its own searches use the plain cones).
     /// Null otherwise (or without a view or an id). Stateless: the server checks every tick and no lock state travels (the snapshot budget is full).
     /// </summary>
     public static PlayerState? Target(in PlayerState self, PlayerInput input, int id, IReadOnlyDictionary<int, PlayerState>? others, SimConfig c,
@@ -318,13 +353,15 @@ public static class MeleeLock
         var spec = c.MeleeLock;
         if (MathF.Abs(other.Position.Z - self.Position.Z) > spec.Vertical) return null;
         float distance = Offset(self, other).Length();
+        // feel/melee-charge-2: a held lock keeps a wider cone (the hysteresis) so it does not flip at the edge; a new search (Acquire) keeps the plain one.
+        float keep = float.IsFinite(spec.Hysteresis) ? Math.Clamp(spec.Hysteresis, 0f, 90f) : 0f;
         bool inCone = phase switch
         {
-            Phase.MeleeStart => distance <= spec.Range && InCone(self, other.Position, SearchDirection(input), spec.HalfAngle, c, out _),
-            Phase.Melee => distance <= spec.Range + spec.Leash && (InCone(self, other.Position, Forward(self.Yaw), spec.HalfAngle, c, out _)
-                || InCone(self, other.Position, SearchDirection(input), spec.HalfAngle, c, out _)),
+            Phase.MeleeStart => distance <= spec.Range && InCone(self, other.Position, SearchDirection(input), spec.HalfAngle + keep, c, out _),
+            Phase.Melee => distance <= spec.Range + spec.Leash && (InCone(self, other.Position, Forward(self.Yaw), spec.HalfAngle + keep, c, out _)
+                || InCone(self, other.Position, SearchDirection(input), spec.HalfAngle + keep, c, out _)),
             Phase.RushStart => distance <= spec.RushRange && InCone(self, other.Position, Forward(input.Sanitized().Yaw), spec.RushHalfAngle, c, out _),
-            _ => distance <= spec.RushRange + spec.Leash && InCone(self, other.Position, Forward(self.Yaw), spec.RushHalfAngle, c, out _),
+            _ => distance <= spec.RushRange + spec.Leash && InCone(self, other.Position, Forward(self.Yaw), spec.RushHalfAngle + keep, c, out _),
         };
         return inCone && Sees(self, other, c, world) ? other : null;
     }
@@ -381,19 +418,58 @@ public static class MeleeLock
     /// The attack's heading after a tick covering (<paramref name="from"/>, <paramref name="to"/>] of step <paramref name="m"/>: inside the
     /// alignment window turned toward the target (<paramref name="toTarget"/>: the flat offset; null: none) so that it would face it at the
     /// window's end, capped by <see cref="MeleeLockSpec.MaxAlignRate"/>; without a target the view's yaw there; outside the window unchanged.
-    /// A step without reach data or without an alignment window follows the view (the rule before protocol 32).
+    /// A step without reach data or without an alignment window follows the view (the rule before protocol 32). feel/melee-charge-2
+    /// (<see cref="MeleeLockSpec.AlignEase"/>): the turn eases in and out (<see cref="Ease"/>), toward the target or, without one, toward the view.
     /// </summary>
     public static float Align(float heading, float viewYaw, MeleeStep m, float from, float to, Vector2? toTarget, SimConfig c)
     {
         if (m.Reach is not { } reach || reach.AlignTo <= reach.AlignFrom) return viewYaw;   // no window: the old rule (the view turns the attack)
-        float overlap = Overlap(from, to, reach.AlignFrom, reach.AlignTo);
+        var (open, close) = AlignWindow(m, c);
+        float overlap = Overlap(from, to, open, close);
         if (overlap <= 0f) return heading;
-        if (toTarget is not { } offset || offset.LengthSquared() < 1e-8f) return viewYaw;
-        float wanted = YawOf(offset);
-        float remaining = MathF.Max(reach.AlignTo - MathF.Max(from, reach.AlignFrom), 1e-6f);
-        float share = Math.Clamp(overlap / remaining, 0f, 1f);
+        bool target = toTarget is { } offset && offset.LengthSquared() >= 1e-8f;
+        if (!target && !c.MeleeLock.AlignEase) return viewYaw;   // the M32 rule: the view, at once
+        float wanted = target ? YawOf(toTarget!.Value) : viewYaw;
+        float share;
+        if (c.MeleeLock.AlignEase)
+        {
+            // feel/melee-charge-2 (ours): the share of the turn left that this tick covers follows a smoothstep over the window, so the heading accelerates from
+            // rest at the window's start and settles at its end (re-planned every tick: a moving target or view is followed); a window of one tick turns at once.
+            float span = close - open;
+            float u1 = Math.Clamp((MathF.Max(from, open) - open) / span, 0f, 1f), u2 = Math.Clamp((MathF.Min(to, close) - open) / span, 0f, 1f);
+            float s1 = Ease(u1), s2 = Ease(u2);
+            share = s1 >= 1f - 1e-6f ? 1f : Math.Clamp((s2 - s1) / (1f - s1), 0f, 1f);
+        }
+        else
+        {
+            float remaining = MathF.Max(close - MathF.Max(from, open), 1e-6f);
+            share = Math.Clamp(overlap / remaining, 0f, 1f);
+        }
         float cap = c.MeleeLock.MaxAlignRate * MathF.PI / 180f * MathF.Max(overlap, c.TickSeconds);
         return TurnToward(heading, wanted, MathF.Min(MathF.Abs(Delta(heading, wanted)) * share, cap));
+    }
+
+    /// <summary>
+    /// The alignment window <see cref="Align"/> turns in (seconds into the attack): the data's <see cref="MeleeReach.AlignFrom"/>..<see cref="MeleeReach.AlignTo"/>;
+    /// feel/melee-charge-2 (<see cref="MeleeLockSpec.AlignEase"/>, ours): one shorter than <see cref="MeleeLockSpec.MinAlignSpan"/> is widened to it, first later up
+    /// to the attack's hit (the heading still faces the target when it strikes), then earlier down to the attack's start, so the knife's 2-tick heavy windows no
+    /// longer turn 60 degrees in 0.06 s.
+    /// </summary>
+    public static (float Open, float Close) AlignWindow(MeleeStep m, SimConfig c)
+    {
+        if (m.Reach is not { } r) return (0f, 0f);
+        float open = r.AlignFrom, close = r.AlignTo, min = c.MeleeLock.MinAlignSpan;
+        if (!c.MeleeLock.AlignEase || !(min > 0f) || !float.IsFinite(min) || close <= open || close - open >= min) return (open, close);
+        close = MathF.Max(close, MathF.Min(open + min, MathF.Max(m.HitTime, close)));
+        open = MathF.Max(0f, MathF.Min(open, close - min));
+        return (open, close);
+    }
+
+    /// <summary>The smoothstep 3u² − 2u³ (0 at 0, 1 at 1, flat at both ends): the alignment turn's ease (feel/melee-charge-2).</summary>
+    public static float Ease(float u)
+    {
+        u = Math.Clamp(u, 0f, 1f);
+        return u * u * (3f - 2f * u);
     }
 
     /// <summary>
@@ -411,21 +487,26 @@ public static class MeleeLock
     /// <summary>
     /// The lunge: metres the attack moves the body along <paramref name="heading"/> over the tick (<paramref name="from"/>, <paramref name="to"/>]
     /// of step <paramref name="m"/> (negative: back), see the class summary. <paramref name="toTarget"/>: the flat offset to the locked target, or null.
+    /// feel/melee-charge-2: forward motion × <see cref="SimConfig.MeleeLungeScale"/> (backward motion as the clip), still never nearer the target than the separation.
     /// </summary>
     public static float LungeStep(MeleeStep m, float from, float to, float heading, Vector2? toTarget, SimConfig c)
     {
         if (m.Reach is not { } reach || reach.Variants.Count == 0 || !(to > from)) return 0f;
         float duration = m.Duration;
         var (low, high) = reach.Range;
+        float k = c.LungeScale;   // feel/melee-charge-2: forward motion × the lunge scale (an estimate, owner's request)
         if (toTarget is not { } offset)
         {
             float d0 = Math.Clamp(reach.DefaultDistance, low, high);
-            return reach.ForwardAt(to, duration, d0) - reach.ForwardAt(from, duration, d0);
+            float free = reach.ForwardAt(to, duration, d0) - reach.ForwardAt(from, duration, d0);
+            return free > 0f ? free * k : free;
         }
         // The blend this attack has followed: the target's distance when it began, solved from its distance now and the clip's motion so far (a moving
         // target re-solves it every tick, so the lunge chases or eases). The clips at that blend end where they were made to strike from.
+        // feel/melee-charge-2: solved unscaled (self-correcting: a scaled approach that is ahead picks a nearer blend), the step then × the lunge scale.
         float start = reach.StartDistance(from, duration, offset.Length());
         float step = reach.ForwardAt(to, duration, start) - reach.ForwardAt(from, duration, start);
+        if (step > 0f) step *= k;
         // Never nearer the target than the separation (only forward motion is held back).
         var spec = c.MeleeLock;
         var forward = Forward(heading);

@@ -195,6 +195,7 @@ public partial class NetworkView
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var me = _client?.Predicted;
         var own = me is { } m ? new[] { Loadouts.InHand(_config, m)?.Name, Loadouts.Holstered(_config, m)?.Name } : [];
+        if (me is { } mm && MeleeWargear(mm) is { } meleeFile && _soundTriggers.MeleeHitSound(meleeFile) is { } meleeHitSound) names.Add(meleeHitSound);   // feel/melee-charge-2
         foreach (var w in own.OfType<string>())
         {
             if (_soundTriggers.File(w) is { } f) foreach (var b in f.Fire(null)) names.Add(b.StartEvent);
@@ -688,7 +689,21 @@ public partial class NetworkView
         var t = Track(_client.PlayerId, own: true);
         if (hits.LastMelee)
         {
-            if (MeleeWargear(me) is { } m && _soundTriggers.File(m) is { } mf) PostAll(mf.Of("hit_audio").Take(1), t.Emitter, true, "melee hit");
+            if (MeleeWargear(me) is { } m && _soundTriggers.File(m) is { } mf)
+            {
+                var audio = mf.Of("hit_audio").Take(1).ToList();
+                PostAll(audio, t.Emitter, true, "melee hit");
+                // feel/melee-charge-2 (the owner: the power sword's own sounds): the weapon's hit effect container's sound at the victim (the power sword's
+                // play_sm_power_sword_hit, the chainsword's play_sm_chain_sword_hit; armour and flesh layers as for a bullet), when the file binds no hit_audio.
+                if (audio.Count == 0 && _soundTriggers.MeleeHitSound(m) is { } meleeHit)
+                {
+                    var victim = _lastOthers.FirstOrDefault(o => o.PlayerId == hits.LastVictim);
+                    var where = victim.PlayerId == hits.LastVictim && hits.LastVictim > 0 ? victim.Position + new System.Numerics.Vector3(0f, 0f, 1.2f) : me.Position + new System.Numerics.Vector3(0f, 0f, 1.2f);
+                    PostPlayerHitSound(meleeHit, new SoundEmitter { Position = ToGodot(where), Label = $"melee hit on P{hits.LastVictim}", OneShot = true });
+                    CountSound("melee hit");
+                    if (LogSound("tag")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} {m} on P{hits.LastVictim} event {meleeHit}");
+                }
+            }
         }
         else if (!hits.LastSplash && Loadouts.InHand(_config, me) is { } w && _soundTriggers.File(w.Name) is { } wf && wf.Of("player_hit_something_action").FirstOrDefault() is { } confirm)
             HitConfirmSound(confirm, hits);

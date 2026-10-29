@@ -285,7 +285,7 @@ public class SlotTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_14_carries_the_slot_buttons_and_their_held_flags()
     {
-        Assert.Equal(41, Protocol.Version);
+        Assert.Equal(42, Protocol.Version);
         var input = new PlayerInput(9, 0f, 1f, 0.5f, InputButtons.SlotPistol | InputButtons.SlotPrimary | InputButtons.Switch);
         Assert.Equal(input, Protocol.Quantize(input));
         Assert.Equal(input, Assert.IsType<InputBatch>(Protocol.Read(Protocol.Write(new InputBatch([input], 1, 2)))).Inputs[0]);

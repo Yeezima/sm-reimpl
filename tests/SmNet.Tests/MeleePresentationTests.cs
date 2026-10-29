@@ -88,12 +88,35 @@ public class MeleePresentationTests
     [Fact]
     public void Camera_assist_turns_toward_the_target_capped_and_only_near_the_view()
     {
-        float step = MeleePresentation.AssistRate * MathF.PI / 180f * 0.1f;
-        Assert.Equal(step, MeleePresentation.Assist(0f, 0.8f, 0.1f), 4);
-        Assert.Equal(0.1f, MeleePresentation.Assist(0f, 0.1f, 0.5f), 4);   // never past the target
+        // feel/melee-charge-2: an exponential approach (time constant AssistTau) capped at AssistRate, scaled by the fade weight.
+        float cap = MeleePresentation.AssistRate * MathF.PI / 180f * 0.1f;
+        Assert.Equal(cap, MeleePresentation.Assist(0f, 0.8f, 0.1f), 4);                                         // far: the cap
+        float near = 0.1f * (1f - MathF.Exp(-0.02f / MeleePresentation.AssistTau));
+        Assert.Equal(near, MeleePresentation.Assist(0f, 0.1f, 0.02f), 5);                                       // near: the exponential share, gentler than the cap
+        Assert.True(MeleePresentation.Assist(0f, 0.1f, 0.5f) <= 0.1f + 1e-6f);                                  // never past the target
+        Assert.Equal(0.5f * near, MeleePresentation.Assist(0f, 0.1f, 0.02f, 0.5f), 5);                          // half weight: half the turn
+        Assert.Equal(0f, MeleePresentation.Assist(0f, 0.1f, 0.02f, 0f));                                        // no weight: none
         Assert.Equal(0f, MeleePresentation.Assist(0f, 1.5f, 0.1f));         // 86° off: no assist
         Assert.True(MeleePresentation.AssistWindow(Step(), T(5f)));
         Assert.False(MeleePresentation.AssistWindow(Step(), T(8f)));
+    }
+
+    [Fact]
+    public void Camera_assist_fades_in_from_the_attacks_start_and_out_after_its_window()
+    {
+        // feel/melee-charge-2: the weight rises from 0 (no jump at the press), is 1 through the alignment window, falls to 0 over AssistAfterWindow after it.
+        var step = Step();
+        float alignTo = step.Reach!.AlignTo;
+        Assert.Equal(0f, MeleePresentation.AssistWeight(step, 0f), 5);
+        Assert.InRange(MeleePresentation.AssistWeight(step, MeleePresentation.AssistFadeIn / 2f), 0.4f, 0.6f);
+        Assert.Equal(1f, MeleePresentation.AssistWeight(step, MathF.Max(MeleePresentation.AssistFadeIn, alignTo)), 4);
+        Assert.InRange(MeleePresentation.AssistWeight(step, alignTo + MeleePresentation.AssistAfterWindow / 2f), 0.4f, 0.6f);
+        Assert.Equal(0f, MeleePresentation.AssistWeight(step, alignTo + MeleePresentation.AssistAfterWindow), 4);
+        Assert.Equal(0f, MeleePresentation.AssistWeight(step, T(8f)));
+        // Frame to frame the weight never steps by more than a smoothstep's slope allows (at 60 fps).
+        float worst = 0f, prev = 0f;
+        for (float t = 0f; t <= T(8f); t += 1f / 60f) { float w = MeleePresentation.AssistWeight(step, t); worst = MathF.Max(worst, MathF.Abs(w - prev)); prev = w; }
+        Assert.True(worst <= 0.3f, $"weight stepped {worst} in one frame");
     }
 
     [Fact]

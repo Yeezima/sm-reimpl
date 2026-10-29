@@ -63,6 +63,8 @@ public sealed partial record GameplayTuning(SimConfig Config, string Source, IRe
         if (ownerFeel) config = MovementScale.Apply(config, MovementScale.OwnerFactor) with { InputBufferWindow = OwnerInputBuffer };   // feel/buffer-speed
         if (ownerFeel)   // feel/locks-sprint-stop: shorter move, jump and evade gates (an estimate) and the sprint stop over the stop clip's BRANCH_Sprint_Finished
             config = config with { ActionLockScale = OwnerLockScale, SprintStopTime = classes?.SprintStop?.FinishedAt ?? SprintStopTuning.FallbackTime };
+        if (ownerFeel)   // feel/melee-charge-2: longer melee lunges and a faster weapon switch (both estimates, owner's requests)
+            config = config with { MeleeLungeScale = OwnerLungeScale, WeaponSwitchTime = config.WeaponSwitchTime * OwnerSwitchScale };
         return new GameplayTuning(config, $"{BlueprintPackage}: {MarineBlueprint}", placeholders, notes) { Melee = melee, Classes = classes };
     }
 
@@ -108,6 +110,19 @@ public sealed partial record GameplayTuning(SimConfig Config, string Source, IRe
     /// times that gate moving, jumping and evading out of an action. 0.7 is an **estimate (owner's request)**, to review in a playtest.
     /// </summary>
     public const float OwnerLockScale = 0.7f;
+
+    /// <summary>
+    /// feel/melee-charge-2 (the owner's request of 2026-10-29: "make all melee step forwards step forward more"): <see cref="SimConfig.MeleeLungeScale"/>, the factor
+    /// on every melee attack's forward root motion. 1.3 is an **estimate (owner's request)**, ours, to review in a playtest; the charge and the dash attack keep theirs.
+    /// </summary>
+    public const float OwnerLungeScale = 1.3f;
+
+    /// <summary>
+    /// feel/melee-charge-2 (the owner's request of 2026-10-29: "weapon switching is slightly faster ... make a note that this is an estimation and needs to be
+    /// measured against the original"): the factor on <see cref="SimConfig.WeaponSwitchTime"/> (the 0.6 s placeholder × 0.8 = 0.48 s). An **estimate (owner's
+    /// request)**, to measure against the original; the raise after a switch is unchanged.
+    /// </summary>
+    public const float OwnerSwitchScale = 0.8f;
 
     /// <summary>The melee weapon read by <see cref="MeleeTuning"/> (combat knife), or null when it could not be read.</summary>
     public MeleeTuning? Melee { get; init; }

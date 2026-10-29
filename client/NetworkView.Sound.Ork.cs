@@ -205,6 +205,8 @@ public partial class NetworkView
     /// <summary><c>--log-sound ork</c>: every post of an Ork's emitter with what it resolved to.</summary>
     void LogBindingPost(SoundBinding b, SoundEmitter e, string kind, SoundPlay? play)
     {
+        // feel/melee-charge-2 test aid: --log-sound tag prints every behaviour-tag post (the melee swings' events, which file posted them is in the trigger path).
+        if (kind == "tag" && LogSound("tag")) GD.Print($"TAG SOUND t {_connectedFor:F3} {e.Label} [{b.Trigger}] {b.Path} event {b.StartEvent} | {VoicesText(play)}");
         if (!LogSound("ork") || !_orkEmitterIds.Contains(e.Id)) return;
         GD.Print($"ORK SOUND t {_connectedFor:F3} {e.Label} {kind} [{b.Trigger}] event {b.StartEvent} | {VoicesText(play)}");
     }

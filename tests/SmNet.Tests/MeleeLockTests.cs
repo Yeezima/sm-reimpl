@@ -41,6 +41,8 @@ public class MeleeLockTests(ITestOutputHelper output)
         MeleeSteps = [Step(), Step(), Step()],
         MeleeRange = 4f, MeleeConeDegrees = 60f, MeleeVerticalReach = 1.5f,
         ShieldBodyMultiplier = 1f, BodyMultiplier = 1f,
+        // feel/melee-charge-2: these tests pin the data's 3-tick window; its widening to MinAlignSpan is MeleeCharge2Tests' (the ease itself stays on here).
+        MeleeLock = MeleeLockSpec.Default with { MinAlignSpan = 0f },
     };
 
     static PlayerState Player(int id, Vector3 at, float yaw = 0f, Team team = Team.None) =>
@@ -143,9 +145,10 @@ public class MeleeLockTests(ITestOutputHelper output)
     public void The_server_accepts_only_locks_its_phase_allows()
     {
         var self = Player(1, Vector3.Zero);
-        var view = View(Player(2, At(3f, 70f)), Player(3, At(7.5f, 0f)));
+        // feel/melee-charge-2: 2 stands 80° off (63° from the apex): outside even the held cone (45° plus the 15° hysteresis).
+        var view = View(Player(2, At(3f, 80f)), Player(3, At(7.5f, 0f)));
         var press = Press(target: 2);
-        // An attack's start: the search cone along the view (2 is 70° off) and 7 m (3 is 7.5 m away) refuse both.
+        // An attack's start: the search cone along the view (2 is 80° off) and 7 m (3 is 7.5 m away) refuse both.
         Assert.Null(MeleeLock.Target(self, press, 2, view, Config, null, MeleeLock.Phase.MeleeStart));
         Assert.Null(MeleeLock.Target(self, press, 3, view, Config, null, MeleeLock.Phase.MeleeStart));
         // Under way: the leash takes 3 (7.5 ≤ 8) in the heading's cone; 2 stays outside every cone.
@@ -220,7 +223,7 @@ public class MeleeLockTests(ITestOutputHelper output)
     [Fact]
     public void Alignment_turn_is_capped_by_the_max_rate()
     {
-        var c = Config with { MeleeLock = MeleeLockSpec.Default with { MaxAlignRate = 300f } };   // 10° a tick
+        var c = Config with { MeleeLock = Config.MeleeLock with { MaxAlignRate = 300f } };   // 10° a tick
         var states = Attack(Player(1, Vector3.Zero), Player(2, At(3f, 40f)), 5, config: c);
         float perTick = 300f / 30f * MathF.PI / 180f;
         Assert.Equal(perTick, states[1].Yaw, 3);

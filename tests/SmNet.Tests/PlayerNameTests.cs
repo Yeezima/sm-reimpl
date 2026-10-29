@@ -203,7 +203,7 @@ public class PlayerNameTests(ITestOutputHelper output)
     [Fact]
     public void Names_round_trip_in_the_scoreboard_and_a_full_board_stays_in_budget()
     {
-        Assert.Equal(41, Protocol.Version);
+        Assert.Equal(42, Protocol.Version);
         string longest = "Ilkarn of the Ninth Pyre";
         Assert.Equal(PlayerNames.MaxLength, longest.Length);
         var board = new Scoreboard(9, true, 41, 600f, false,

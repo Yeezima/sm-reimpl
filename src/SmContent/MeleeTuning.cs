@@ -89,6 +89,10 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     {
         HeavySequencers = ["CK Y1 Sequence", "CK Y2 Sequence", "CK Y3 Sequence", "CK Y4 Sequence"],
         HeavyAbilities = ["ability_melee_y", "ability_melee_y2", "ability_melee_y3", ""],
+        // feel/melee-charge-2 (protocol 42; the owner: "normal combo is backhand > stomp"): the graph's "CK Default Combo End 1 ( Y ) Backhand", "End 2 ( X , Y ) Kick"
+        // and "End 3 ( X , X , Y ) Shoulder" go on BTN_Melee_Stun in their BRANCH_Melee_Y_Combo window to "CK Default Combo End 4 ( X , X , X , Y ) AOE Attack"
+        // (CK Y4, the foot stomp). Not read before: a second F during a heavy strike did nothing.
+        YNext = [4, 4, 4, 0],
     };
 
     /// <summary>

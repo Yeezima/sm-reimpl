@@ -518,7 +518,7 @@ public class GrenadeTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_8_carries_the_throw_state_within_1200_bytes_and_refuses_unknown_flags()
     {
-        Assert.Equal(41, Protocol.Version);
+        Assert.Equal(42, Protocol.Version);
         var players = Enumerable.Range(1, Protocol.MaxPlayers).Select(Loaded).ToArray();
         var projectiles = Enumerable.Range(0, Protocol.MaxSnapshotProjectiles)
             .Select(k => new ProjectileView(60000 + k, 254, k % 2 == 0 ? 0 : 255, new Vector3(k, -k, 3), k % 2 == 0 ? ProjectileFlags.Thrown | ProjectileFlags.Stuck : ProjectileFlags.Detonated)).ToArray();

@@ -744,6 +744,7 @@ public sealed partial record SimConfig
             if (InputBufferTicks > 0) { w.Write("input-buffer"); w.Write(InputBufferWindow); }   // feel/buffer-speed: only when on
             if (ActionLockScale != 1f) { w.Write("lock-scale"); w.Write(ActionLockScale); }   // feel/locks-sprint-stop: only when not the default (older hashes unchanged)
             if (SprintStopTime > 0f) { w.Write("sprint-stop"); w.Write(SprintStopTime); }   // feel/locks-sprint-stop: only when on
+            if (MeleeLungeScale != 1f) { w.Write("lunge-scale"); w.Write(MeleeLungeScale); }   // feel/melee-charge-2: only when not the default (older hashes unchanged)
             // Added content (ContentExtras.cs): only when any is on, so a faithful config hashes byte for byte as before the switch.
             if (Extras != ContentExtras.None) { w.Write("extras"); w.Write((uint)Extras); w.Write(ContentExtras.WireVersion); ExtrasHash(w); }   // EXTRAS-HOOK
         }
@@ -1054,6 +1055,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         var swings = new List<(int Attacker, PlayerInput Input, PlayerState State, int Step, bool Heavy)>();
         var slashes = new List<(int Attacker, PlayerInput Input, PlayerState State, MeleeStep Step)>();   // protocol 30: the jump pack's sword slash
         var rushes = new List<(int Player, PlayerInput Input, PlayerState Before, PlayerState State)>();
+        Dictionary<int, RushPhase>? landedCharges = null;   // feel/melee-charge-2: chargers whose landing ended the charge this tick (their contacts still count)
         var jumps = new List<(int Player, JumpEventKind Kind, PlayerState State, float Drop)>();
         _jumps.Clear();
         foreach (var id in _players.Keys.ToList())
@@ -1101,6 +1103,8 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             if (next.Alive && Rush.Connecting(next, Config)) rushes.Add((id, input, before, next));
             // feel/jump-pack-2 (the review): a charge that met a wall this tick still tests this tick's move against the players (in its charging phase).
             else if (next.Alive && Rush.WallStoppedFrom(before, next, Config) is { } charging && Rush.Connecting(charging, Config)) rushes.Add((id, input, before, charging));
+            // feel/melee-charge-2 (protocol 42): a held charge whose landing ended it this tick still tests this tick's move against the players.
+            else if (Rush.LandedFrom(before, next) is { } landed && Rush.Connecting(landed, Config)) { rushes.Add((id, input, before, landed)); (landedCharges ??= new())[id] = landed.Rush; }
             TrackJump(id, next, events.Jump, jumps);
         }
         StepFlightViews();   // fix/hitboxes: the jump poses viewers see now that everyone moved (RewindFraction.cs)
@@ -1120,7 +1124,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         foreach (var (attacker, input, state, step) in slashes) ResolveMelee(attacker, input, state, step);
         var connected = new List<int>();   // M29: charges, after melee; M32: their stops once all have resolved
         foreach (var (player, input, before, state) in rushes) if (ResolveRush(player, input, before, state)) connected.Add(player);
-        StopRushes(connected);
+        StopRushes(connected, landedCharges);
         foreach (var (player, kind, state, drop) in jumps) ResolveJump(player, kind, state, drop);
         ApplyPerkBlasts();   // M43: armour-break blasts of this tick and death blasts now due
         CountProjectilesOut();
