@@ -142,7 +142,8 @@ public sealed partial class CreatorView : Control
         _preview = new PreviewStage(services);
         right.AddChild(_preview);
         var cardPanel = UiKit.Panel(_card, 12);
-        cardPanel.CustomMinimumSize = new Vector2(0, 176);
+        cardPanel.CustomMinimumSize = new Vector2(0, CardMinHeight);
+        _cardPanel = cardPanel;
         right.AddChild(cardPanel);
         main.AddChild(right);
 
@@ -627,12 +628,85 @@ public sealed partial class CreatorView : Control
 
     // ---- the card ----
 
+    // The card never outgrows its room (ui/hud-2: the perk cards with the longest descriptions pushed the action bar down): it grows with its text from CardMinHeight up to CardMaxHeight
+    // virtual units, then the text shrinks a size at a time (CardTextMax down to CardTextMin, still readable) until it fits, and only below that does the text area scroll (Sure Strike's 1176
+    // characters scroll; every other card fits).
+    const int CardMinHeight = 176, CardMaxHeight = 340, CardTextMax = UiKit.CaptionSize + 2, CardTextMin = 16;
+
+    PanelContainer? _cardPanel;
+    Label? _cardTitle, _cardBody, _cardExtra;
+    ScrollContainer? _cardScroll;
+    string _cardFittedFor = "";
+
+    /// <summary>The card's fit now (test aid): the text size in use, the height its text needs at that size and the height it has, the card panel's rectangle and whether the text scrolls.</summary>
+    public static int CardSmallestText => CardTextMin;
+
+    public (int FontSize, float Needed, float Available, Rect2 Panel, bool Scrolls, int Chars) CardFit =>
+        (_cardBody?.GetThemeFontSize("font_size") ?? 0, _cardNeeded, _cardAvailable, _cardPanel?.GetGlobalRect() ?? default, _cardScroll?.GetVScrollBar().Visible ?? false,
+            (_cardBody?.Text.Length ?? 0) + (_cardExtra?.Text.Length ?? 0));
+
+    float _cardNeeded, _cardAvailable;
+
     void ShowTextCard(string title, string body, string extra = "", Color? extraColour = null)
     {
         foreach (var c in _card.GetChildren()) { _card.RemoveChild(c); c.QueueFree(); }
-        _card.AddChild(UiKit.Text(title, UiKit.HeaderSize - 4, UiKit.Gold).With(l => l.ClipText = true));
-        if (body.Length > 0) _card.AddChild(UiKit.Text(body, UiKit.CaptionSize + 2, UiKit.White, HorizontalAlignment.Left, true));
-        if (extra.Length > 0) _card.AddChild(UiKit.Text(extra, UiKit.CaptionSize + 2, extraColour ?? UiKit.Grey, HorizontalAlignment.Left, true));
+        _cardTitle = UiKit.Text(title, UiKit.HeaderSize - 4, UiKit.Gold).With(l => l.ClipText = true);
+        _card.AddChild(_cardTitle);
+        var text = UiKit.VBox(6);
+        _cardBody = body.Length > 0 ? UiKit.Text(body, CardTextMax, UiKit.White, HorizontalAlignment.Left, true) : null;
+        _cardExtra = extra.Length > 0 ? UiKit.Text(extra, CardTextMax, extraColour ?? UiKit.Grey, HorizontalAlignment.Left, true) : null;
+        if (_cardBody is not null) text.AddChild(_cardBody);
+        if (_cardExtra is not null) text.AddChild(_cardExtra);
+        _cardScroll = UiKit.Scroll(text);
+        _cardScroll.CustomMinimumSize = new Vector2(0, 20);
+        _card.AddChild(_cardScroll);
+        _cardFittedFor = "";
+        _cardScroll.Resized += FitCard;
+        Callable.From(FitCard).CallDeferred();
+    }
+
+    /// <summary>Sizes the card for its text (see <see cref="CardMinHeight"/>): the panel's height, then the largest text size that fits it.</summary>
+    void FitCard()
+    {
+        if (_cardScroll is null || _cardPanel is null || _cardTitle is null || !GodotObject.IsInstanceValid(_cardScroll)) return;
+        float width = _cardScroll.Size.X;
+        if (width < 60f) return;   // not laid out yet: the next resize asks again
+        string key = $"{width:F0}|{_cardTitle.Text}|{_cardBody?.Text}|{_cardExtra?.Text}";
+        if (key == _cardFittedFor) return;
+        _cardFittedFor = key;
+        float Height(int size)
+        {
+            float h = 0f;
+            foreach (var l in new[] { _cardBody, _cardExtra })
+            {
+                if (l is null) continue;
+                var font = l.GetThemeFont("font");
+                // A little over the measure: the label wraps at the word that does not fit, the measure at the same width.
+                h += (font?.GetMultilineStringSize(l.Text, HorizontalAlignment.Left, width, size).Y ?? size * 1.3f) * 1.03f + 6f;
+            }
+            return h;
+        }
+        // The room the text has at a panel height: the panel less its margins (12 each side), the title line and the gap under it.
+        float chrome = 24f + _cardTitle.GetCombinedMinimumSize().Y + 6f;
+        float want = Height(CardTextMax) + chrome;
+        float panel = Math.Clamp(want, CardMinHeight, CardMaxHeight);
+        _cardPanel.CustomMinimumSize = new Vector2(0, panel);
+        float available = panel - chrome;
+        int fitted = CardTextMax;
+        while (fitted > CardTextMin && Height(fitted) > available) fitted--;
+        foreach (var l in new[] { _cardBody, _cardExtra }) l?.AddThemeFontSizeOverride("font_size", fitted);
+        _cardNeeded = Height(fitted); _cardAvailable = available;
+    }
+
+    /// <summary>The perk rows' cards of the open class on the Perks step, each as the action that shows it (test aid: the self-test checks that every card fits).</summary>
+    public IEnumerable<(string Title, Action Show)> PerkCardsForTest()
+    {
+        var perks = LoadoutRows.Perks(_catalog, Role, _previewRace, OpenClass, _services.Policy, _services.PerkActivities);
+        foreach (var perk in perks)
+        {
+            var p = perk;
+            yield return (p.Title, () => ShowPerkCard(p));
+        }
     }
 
     void ShowEmptyCard() => ShowTextCard("Empty slot", "A custom loadout keeps your weapons, grenade and perks, and the armour look you give it. Pick one of the three classes to start.");

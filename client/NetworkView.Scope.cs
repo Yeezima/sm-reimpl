@@ -35,7 +35,7 @@ public partial class NetworkView
         if (!me.Aiming) { _scopeView.Hide(); _scopeSince = -1; return; }
         if (_scopeSince < 0) _scopeSince = _connectedFor;
         int frame = (int)((_connectedFor - _scopeSince) * ScopeArt.FramesPerSecond);
-        _scopeView.Show(kind.Value, f.AimedAtEnemy, frame);
+        _scopeView.Show(kind.Value, f.AimedAtEnemy, frame, f.SpreadFraction);   // ui/hud-2: the scope's reticle opens with the scatter
         f.Scoped = _scopeView.Visible;   // the crosshair goes only once the overlay is on screen
     }
 }

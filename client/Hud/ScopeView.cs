@@ -97,12 +97,43 @@ public sealed partial class ScopeView : Control
 
     readonly ScopeAddLayer _add;
 
+    // ---- the reticle clip (ui/hud-2): rendered by itself at the frame of the scatter, a few at a time
+    sealed class CrossSlot { public ImageTexture? Normal, Add; public int Width, Height, RenderHeight, Generation; public Vector2 Origin; }
+    readonly record struct CrossKey(Key Variant, int Frame);
+    const int CrossKept = 24;
+
+    /// <summary><c>--scope-spread-demo</c> (screenshot aid): the scope's reticle walks through its whole spread range (a bot that does not shoot keeps the scatter at rest).</summary>
+    static readonly bool SpreadDemo = Array.IndexOf(OS.GetCmdlineUserArgs(), "--scope-spread-demo") >= 0;
+    readonly Dictionary<CrossKey, CrossSlot> _cross = new();
+    readonly List<CrossKey> _crossOrder = new();
+    readonly HashSet<(CrossKey, int)> _crossRequested = new();
+    readonly ConcurrentQueue<(CrossKey Key, ScopeCrosshair Picture, int Generation)> _crossResults = new();
+    int _crossFrame;
+
     /// <summary>Shows (or keeps showing) the overlay; the networked view calls this every frame while aiming.</summary>
-    public void Show(ScopeKind kind, bool active, int frame)
+    public void Show(ScopeKind kind, bool active, int frame, float spread = 0f)
     {
         _kind = kind; _active = active; _frame = frame; _shownAt = _now;
         Request(kind);
+        RequestCross(kind, active, spread);
         Refresh();
+    }
+
+    /// <summary>Asks for the reticle clip's frame for the scatter <paramref name="spread"/> (0 the narrowest, 1 the widest of the aiming stance), once the movie is read and the stance has a clip.</summary>
+    void RequestCross(ScopeKind kind, bool active, float spread)
+    {
+        if (_art is not { } art || !art.HasSpread(kind)) return;
+        if (SpreadDemo) spread = 0.5f + 0.5f * MathF.Sin((float)_now * 1.5f);
+        _crossFrame = art.SpreadFrame(kind, active, spread);
+        var key = new CrossKey(new Key(kind, active), _crossFrame);
+        if (_cross.TryGetValue(key, out var have) && have.Generation == _generation) { _crossOrder.Remove(key); _crossOrder.Add(key); return; }
+        if (_lane is null || !_crossRequested.Add((key, _generation))) return;
+        var token = _cts.Token; int gen = _generation; int height = _size.Y;
+        _lane.Post(() =>
+        {
+            if (token.IsCancellationRequested) return;
+            if (art.RenderCrosshair(kind, active, key.Frame, height, token) is { } picture) _crossResults.Enqueue((key, picture, gen));
+        });
     }
 
     /// <summary>Stops showing the overlay (the pictures stay for the next time).</summary>
@@ -129,6 +160,7 @@ public sealed partial class ScopeView : Control
             _size = now; _pendingSince = -1;
             _cts.Cancel(); _cts = new CancellationTokenSource(); _generation++;   // the stale renders stop; the pictures on screen stay until the new ones are built
             _requested.Clear();
+            _crossRequested.Clear();   // the built reticle frames stay on screen (at their own scale) until rendered again
         }
         _lane ??= new Lane();
         if (!_loadPosted)
@@ -180,7 +212,53 @@ public sealed partial class ScopeView : Control
                 }
             }
         }
+        if (_crossResults.TryDequeue(out var c))
+        {
+            if (c.Generation == _generation)
+            {
+                var p = c.Picture;
+                if (_cross.Remove(c.Key, out var old)) { old.Normal?.Dispose(); old.Add?.Dispose(); _crossOrder.Remove(c.Key); }
+                _cross[c.Key] = new CrossSlot
+                {
+                    Normal = ImageTexture.CreateFromImage(Image.CreateFromData(p.Width, p.Height, false, Image.Format.Rgba8, p.Normal)),
+                    Add = ImageTexture.CreateFromImage(Image.CreateFromData(p.Width, p.Height, false, Image.Format.Rgba8, p.Additive)),
+                    Width = p.Width, Height = p.Height, RenderHeight = p.RenderHeight, Origin = new Vector2(p.OriginX, p.OriginY), Generation = c.Generation,
+                };
+                _crossOrder.Add(c.Key);
+                while (_crossOrder.Count > CrossKept)
+                {
+                    var gone = _crossOrder[0];
+                    _crossOrder.RemoveAt(0);
+                    if (_cross.Remove(gone, out var dead)) { dead.Normal?.Dispose(); dead.Add?.Dispose(); }
+                    _crossRequested.Remove((gone, _generation));
+                }
+            }
+        }
         if (_kind is not null) Refresh();
+    }
+
+    /// <summary>
+    /// The reticle clip's picture for the frame asked for: the built one, else the nearest built frame of the variant shown (the idle one when the active one has none yet), whatever the
+    /// size it was rendered at (drawn at its own scale); null when none is built.
+    /// </summary>
+    CrossSlot? CurrentCross()
+    {
+        if (_kind is not { } kind) return null;
+        foreach (bool active in _active ? new[] { true, false } : new[] { false })
+        {
+            var variant = new Key(kind, active);
+            for (int step = 0; step < 40; step++)
+                foreach (int f in step == 0 ? new[] { _crossFrame } : new[] { _crossFrame - step, _crossFrame + step })
+                    if (f >= 0 && _cross.TryGetValue(new CrossKey(variant, f), out var slot) && slot.Normal is not null) return slot;
+        }
+        return null;
+    }
+
+    /// <summary>The clip's rectangle: the picture's origin is the screen centre, at the overlay's scale (height of the screen over the height it was rendered at).</summary>
+    static Rect2 CrossRect(CrossSlot c, Vector2 vs)
+    {
+        float k = vs.Y / MathF.Max(1f, c.RenderHeight);
+        return new Rect2(vs / 2f - c.Origin * k, new Vector2(c.Width, c.Height) * k);
     }
 
     public override void _ExitTree() { _cts.Cancel(); _lane?.Stop(); }
@@ -217,6 +295,7 @@ public sealed partial class ScopeView : Control
         var slot = Current(out float fade);
         if (slot?.Add is null) return;
         layer.DrawTextureRect(slot.Add, Fit(slot, GetViewportRect().Size), false, new Color(fade, fade, fade, 1f));
+        if (CurrentCross() is { } cross) layer.DrawTextureRect(cross.Add!, CrossRect(cross, GetViewportRect().Size), false, new Color(fade, fade, fade, 1f));
     }
 
     public override void _Draw()
@@ -233,6 +312,7 @@ public sealed partial class ScopeView : Control
             DrawRect(new Rect2(rect.End.X - 1f, 0, vs.X - rect.End.X + 1f, vs.Y), side);
         }
         DrawTextureRect(slot.Normal, rect, false, new Color(1f, 1f, 1f, fade));
+        if (CurrentCross() is { } cross) DrawTextureRect(cross.Normal!, CrossRect(cross, vs), false, new Color(1f, 1f, 1f, fade));
     }
 }
 

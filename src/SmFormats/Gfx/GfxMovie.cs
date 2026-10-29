@@ -74,8 +74,8 @@ public sealed class GfxShape
 
 public readonly record struct GfxSegment(double X0, double Y0, double CX, double CY, double X1, double Y1, bool Curved, int FillLeft, int FillRight, int Line);
 
-/// <summary>One placement on a display list. <see cref="Blend"/>: the Flash blend mode of a PlaceObject3 (0: none given; 1 normal, 8 add ...); <see cref="ClipDepth"/> above 0 makes it a clip layer for the depths up to that one.</summary>
-public sealed record GfxPlacement(int Depth, int Character, string Name, GfxMatrix? Matrix, GfxColourTransform? Colour, bool Move, int ClipDepth, int Blend = 0);
+/// <summary>One placement on a display list. <see cref="Ratio"/>: how far a morph shape is between its start and end (0 to 65535). <see cref="Blend"/>: the Flash blend mode of a PlaceObject3 (0: none given; 1 normal, 8 add ...); <see cref="ClipDepth"/> above 0 makes it a clip layer for the depths up to that one.</summary>
+public sealed record GfxPlacement(int Depth, int Character, string Name, GfxMatrix? Matrix, GfxColourTransform? Colour, bool Move, int ClipDepth, int Blend = 0, int Ratio = 0);
 
 /// <summary>One frame of a sprite: what is on the display list after its control tags ran (by depth).</summary>
 public sealed class GfxFrame
@@ -110,6 +110,8 @@ public sealed class GfxMovie
 {
     public double StageWidth, StageHeight;
     public Dictionary<int, GfxShape> Shapes { get; } = new();
+    /// <summary>Morph shapes (DefineMorphShape 46 and DefineMorphShape2 84) by character id (ui/hud-2).</summary>
+    public Dictionary<int, GfxMorph> Morphs { get; } = new();
     public Dictionary<int, GfxSprite> Sprites { get; } = new();
     public Dictionary<int, GfxSubImage> SubImages { get; } = new();
     /// <summary>External image id -> file name as the exporter wrote it (e.g. <c>hud_I5D.dds</c>), with the size the movie gives.</summary>
@@ -197,6 +199,7 @@ public sealed class GfxMovie
                 case 28: { int d = U16(); frame.Display.Remove(d); break; }
                 case 5: { U16(); int d = U16(); frame.Display.Remove(d); break; }
                 case 2 or 22 or 32 or 83: Shape(code, body + len); break;
+                case 46 or 84: MorphShape(code); break;
                 case 39:
                     {
                         if (len < 4) throw new InvalidDataException("short sprite tag");
@@ -257,7 +260,8 @@ public sealed class GfxMovie
         GfxMatrix? matrix = null; GfxColourTransform? cx = null; string name = ""; int clip = 0, blend = 0;
         if ((flags & 4) != 0) matrix = ReadMatrix();
         if ((flags & 8) != 0) cx = ReadColourTransform(true);
-        if ((flags & 0x10) != 0) U16();
+        int ratio = 0;
+        if ((flags & 0x10) != 0) ratio = U16();
         if ((flags & 0x20) != 0) name = CString();
         if ((flags & 0x40) != 0) clip = U16();
         // PlaceObject3: surface filters (not read: their size is variable, so a placement with them gets no blend mode), then the blend mode, then bitmap caching.
@@ -265,8 +269,9 @@ public sealed class GfxMovie
         bool move = (flags & 1) != 0;
         // Flash: a move keeps what the placement does not give (the character, the matrix, the colour transform, the name); a move with a new character replaces the character only.
         if (move && frame.Display.TryGetValue(depth, out var old))
-            frame.Display[depth] = new GfxPlacement(depth, ch >= 0 ? ch : old.Character, name.Length > 0 ? name : old.Name, matrix ?? old.Matrix, cx ?? old.Colour, true, clip > 0 ? clip : old.ClipDepth, blend > 0 ? blend : old.Blend);
-        else frame.Display[depth] = new GfxPlacement(depth, ch, name, matrix, cx, move, clip, blend);
+            frame.Display[depth] = new GfxPlacement(depth, ch >= 0 ? ch : old.Character, name.Length > 0 ? name : old.Name, matrix ?? old.Matrix, cx ?? old.Colour, true, clip > 0 ? clip : old.ClipDepth, blend > 0 ? blend : old.Blend,
+                (flags & 0x10) != 0 ? ratio : old.Ratio);
+        else frame.Display[depth] = new GfxPlacement(depth, ch, name, matrix, cx, move, clip, blend, ratio);
     }
 
     void EditText(int end)
@@ -409,6 +414,123 @@ public sealed class GfxMovie
             }
         }
         Shapes[s.Id] = s;
+    }
+
+    /// <summary>The shape a placement of character <paramref name="id"/> draws at <paramref name="ratio"/>: a plain shape as it is, a morph shape between its start and end (ui/hud-2); null for neither.</summary>
+    public GfxShape? ShapeAt(int id, int ratio) => Shapes.TryGetValue(id, out var shape) ? shape : Morphs.TryGetValue(id, out var morph) ? morph.At(ratio) : null;
+
+    // ---- morph shapes (ui/hud-2) ----
+
+    /// <summary>One morph fill style: the start and the end fill (colours, gradient stops and matrices, or a bitmap's matrix).</summary>
+    (GfxFill Start, GfxFill End) ReadMorphFill()
+    {
+        int type = Byte();
+        GfxFill a = new(), b = new();
+        if (type == 0) { a.Kind = b.Kind = GfxFillKind.Solid; a.Colour = Colour(true); b.Colour = Colour(true); }
+        else if (type is 0x10 or 0x12 or 0x13)
+        {
+            a.Kind = b.Kind = type == 0x10 ? GfxFillKind.LinearGradient : GfxFillKind.RadialGradient;
+            a.Matrix = ReadMatrix(); b.Matrix = ReadMatrix();
+            int n = Byte() & 15;
+            a.Stops = new (float, float, float, float, float)[n]; b.Stops = new (float, float, float, float, float)[n];
+            for (int i = 0; i < n; i++)
+            {
+                float ra = Byte() / 255f; var ca = Colour(true); float rb = Byte() / 255f; var cb = Colour(true);
+                a.Stops[i] = (ra, ca.Item1, ca.Item2, ca.Item3, ca.Item4); b.Stops[i] = (rb, cb.Item1, cb.Item2, cb.Item3, cb.Item4);
+            }
+        }
+        else if (type is >= 0x40 and <= 0x43)
+        {
+            a.Kind = b.Kind = GfxFillKind.Bitmap; a.BitmapId = b.BitmapId = U16(); a.Matrix = ReadMatrix(); b.Matrix = ReadMatrix();
+            a.Repeat = b.Repeat = type is 0x40 or 0x42; a.Smooth = b.Smooth = type is 0x40 or 0x41;
+        }
+        else throw new InvalidDataException("unknown morph fill style 0x" + type.ToString("X"));
+        return (a, b);
+    }
+
+    /// <summary>
+    /// DefineMorphShape (46) and DefineMorphShape2 (84): the bounds, the morph fill and line styles, then the start edges and the end edges as two shapes (the end shape's segments take the
+    /// start segment's styles: the end edges only move points). The two halves are paired by <see cref="GfxMorph"/>.
+    /// </summary>
+    void MorphShape(int code)
+    {
+        int id = U16();
+        for (int r = 0; r < (code == 84 ? 4 : 2); r++) { int nb = (int)UBits(5); SBits(nb); SBits(nb); SBits(nb); SBits(nb); Align(); }
+        if (code == 84) Byte();   // reserved, uses non-scaling / scaling strokes
+        _bit += 32;   // the offset to the end edges
+        GfxShape start = new() { Id = id }, end = new() { Id = id };
+        int nf = Byte(); if (nf == 0xff) nf = U16();
+        for (int i = 0; i < nf; i++) { var (a, b) = ReadMorphFill(); start.Fills.Add(a); end.Fills.Add(b); }
+        int nl = Byte(); if (nl == 0xff) nl = U16();
+        for (int i = 0; i < nl; i++)
+        {
+            double wa = U16(), wb = U16();
+            GfxLine la = new() { Width = wa }, lb = new() { Width = wb };
+            if (code == 84)
+            {
+                int f1 = Byte(); Byte();
+                int join = (f1 >> 4) & 3; bool hasFill = (f1 & 8) != 0;
+                if (join == 2) U16();
+                if (hasFill)
+                {
+                    var (fa, fb) = ReadMorphFill();
+                    (float, float, float, float) C(GfxFill f) => f.Kind == GfxFillKind.Solid ? f.Colour : (f.Stops.Length > 0 ? (f.Stops[0].R, f.Stops[0].G, f.Stops[0].B, f.Stops[0].A) : (1f, 1f, 1f, 1f));
+                    la.Colour = C(fa); lb.Colour = C(fb);
+                }
+                else { la.Colour = Colour(true); lb.Colour = Colour(true); }
+            }
+            else { la.Colour = Colour(true); lb.Colour = Colour(true); }
+            start.Lines.Add(la); end.Lines.Add(lb);
+        }
+        ReadEdgeRecords(start, null);
+        Align();
+        ReadEdgeRecords(end, start);
+        Morphs[id] = new GfxMorph(id, start, end);
+    }
+
+    /// <summary>
+    /// A SHAPE (fill and line bit counts, then records) of a morph half into <paramref name="s"/>; for the end half <paramref name="styled"/> is the start shape whose segments' styles the end
+    /// segments take (paired by order).
+    /// </summary>
+    void ReadEdgeRecords(GfxShape s, GfxShape? styled)
+    {
+        int fillBits = (int)UBits(4), lineBits = (int)UBits(4);
+        int fill0 = 0, fill1 = 0, line = 0;
+        double x = 0, y = 0;
+        while (true)
+        {
+            if (UBits(1) == 0)
+            {
+                uint flags = UBits(5);
+                if (flags == 0) break;
+                if ((flags & 1) != 0) { int n = (int)UBits(5); x = SBits(n); y = SBits(n); }
+                if ((flags & 2) != 0) fill0 = (int)UBits(fillBits);
+                if ((flags & 4) != 0) fill1 = (int)UBits(fillBits);
+                if ((flags & 8) != 0) line = (int)UBits(lineBits);
+                if ((flags & 16) != 0) throw new InvalidDataException("a morph shape's edges change styles");
+            }
+            else
+            {
+                GfxSegment seg;
+                if (UBits(1) == 1)
+                {
+                    int n = (int)UBits(4) + 2; double dx = 0, dy = 0;
+                    if (UBits(1) == 1) { dx = SBits(n); dy = SBits(n); }
+                    else if (UBits(1) == 0) dx = SBits(n); else dy = SBits(n);
+                    seg = new GfxSegment(x, y, 0, 0, x + dx, y + dy, false, fill0, fill1, line);
+                    x += dx; y += dy;
+                }
+                else
+                {
+                    int n = (int)UBits(4) + 2;
+                    double cx = x + SBits(n), cy = y + SBits(n), ax = cx + SBits(n), ay = cy + SBits(n);
+                    seg = new GfxSegment(x, y, cx, cy, ax, ay, true, fill0, fill1, line);
+                    x = ax; y = ay;
+                }
+                if (styled is not null && s.Segments.Count < styled.Segments.Count) { var m = styled.Segments[s.Segments.Count]; seg = seg with { FillLeft = m.FillLeft, FillRight = m.FillRight, Line = m.Line }; }
+                s.Segments.Add(seg);
+            }
+        }
     }
 
     /// <summary>The ids of the bitmaps that the shapes under a character (a sprite or a shape; every frame, nested sprites included) fill with.</summary>

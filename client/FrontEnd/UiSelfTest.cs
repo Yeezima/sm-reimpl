@@ -434,6 +434,10 @@ public sealed partial class UiSelfTest : Node
                 creator.OpenSelection(Selection.CustomSlot(10));
                 await Frames(4);
                 CheckFits($"fit {at}: class creator", creator, view);
+                await PerkCardFitChecks(view, at);   // ui/hud-2: every perk card of every class fits (UiSelfTest.PerkCards.cs)
+                _front.ShowCreator();
+                creator.OpenSelection(Selection.CustomSlot(10));
+                await Frames(3);
                 if (_services.OffersOrks)
                 {
                     // ui/customizer-ork: the Ork Boy's creator (four class tabs, the Orks faction, his fifth step LOOK).

@@ -100,12 +100,13 @@ public sealed class HudMovieArt
     /// The piece named <paramref name="key"/> (unique per what <paramref name="make"/> renders, without the scale), or null until it is ready. <paramref name="make"/> runs on the
     /// worker with the movies and the scale.
     /// </summary>
-    public Pic? Get(string key, Func<HudMovies, double, HudPicture?> make)
+    public Pic? Get(string key, Func<HudMovies, double, HudPicture?> make, string? group = null, int groupMax = 0)
     {
         if (_failed || _scale <= 0) return null;
         Start();
         if (_asked.Add(key))
         {
+            if (group is not null) Admit(key, group, groupMax);
             int gen = _generation; double scale = _scale;
             _work.Add(() =>
             {
@@ -118,6 +119,26 @@ public sealed class HudMovieArt
         }
         return _pics.TryGetValue(key, out var pic) ? pic : null;
     }
+
+    /// <summary>
+    /// Pieces that come in many variants and are only drawn one at a time (the health bar's frames: 100 of them, ui/hud-2) are kept as a <paramref name="group"/> of at most
+    /// <paramref name="groupMax"/>: asking for a new one lets the oldest go (its textures freed, asked again if it is wanted later).
+    /// </summary>
+    void Admit(string key, string group, int groupMax)
+    {
+        if (!_groups.TryGetValue(group, out var list)) _groups[group] = list = new List<string>();
+        list.Remove(key);
+        list.Add(key);
+        while (groupMax > 0 && list.Count > groupMax)
+        {
+            string old = list[0];
+            list.RemoveAt(0);
+            _asked.Remove(old);
+            if (_pics.Remove(old, out var gone) && gone is not null) { gone.Normal.Dispose(); gone.Add?.Dispose(); }
+        }
+    }
+
+    readonly Dictionary<string, List<string>> _groups = new();
 
     /// <summary>Whether the piece has been asked for and finished (drawn or found empty).</summary>
     public bool Known(string key) => _pics.ContainsKey(key);
