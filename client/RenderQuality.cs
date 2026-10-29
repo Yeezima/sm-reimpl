@@ -48,12 +48,7 @@ public static class RenderQuality
     public static string? LookPreset { get; } = PresetOf(Args.GetValueOrDefault("look"));
 
     /// <summary>The look a <c>--look</c> value names (null: no preset); no value: <see cref="LookPresets.Default"/>.</summary>
-    public static string? PresetOf(string? look) => look switch
-    {
-        null => LookPresets.Default,
-        _ when LookPresets.IsNone(look) => null,
-        _ => look,
-    };
+    public static string? PresetOf(string? look) => ImpactRules.LookChoice.PresetOf(look);   // engine-free, tested
 
     static AaMode ParseAa(string? text)
     {

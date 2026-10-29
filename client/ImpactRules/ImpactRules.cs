@@ -1,0 +1,127 @@
+using System;
+using System.Collections.Generic;
+using System.Numerics;
+
+namespace SmClient.ImpactRules;
+
+/// <summary>
+/// fx/impact-pass: the engine-free rules of the impact pass (no Godot types here: the test project links this folder). The client's Godot code
+/// (<c>RenderQuality</c>, <c>LookPresets</c>, <c>FxPlayer</c>, <c>PowerBlade</c>, <c>NetworkView.MeleeFx.cs</c>) only calls these.
+/// </summary>
+public static class LookChoice
+{
+    /// <summary>The look used without <c>--look</c> (the owner's choice of 2026-10-29: "make the remaster look the default").</summary>
+    public const string Default = "remaster";
+
+    /// <summary><c>--look</c> values that name no preset: <c>current</c> (the default look before the remaster became it), <c>none</c>, and <c>classic</c> (the pre-T7 constants).</summary>
+    public static bool IsNone(string name) => name.Equals("current", StringComparison.OrdinalIgnoreCase) || name.Equals("none", StringComparison.OrdinalIgnoreCase)
+                                              || name.Equals("classic", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The look a <c>--look</c> value names (null: no preset); no value: <see cref="Default"/>.</summary>
+    public static string? PresetOf(string? look) => look switch
+    {
+        null => Default,
+        _ when IsNone(look) => null,
+        _ => look,
+    };
+}
+
+/// <summary>fx/impact-pass (ours): the power sword's hit flare on the blade: full at the hit, then out with the square of the time left over <see cref="Seconds"/>.</summary>
+public static class SwordFlare
+{
+    public const float Seconds = 0.45f;
+
+    /// <summary>The flare <paramref name="since"/> seconds after a hit (0 before it and from <see cref="Seconds"/> on, 1 at the hit).</summary>
+    public static float At(float since) => !(since >= 0f) || since >= Seconds ? 0f : (1f - since / Seconds) * (1f - since / Seconds);
+}
+
+/// <summary>fx/impact-pass: a trail laid along the last metres of a recorded path (the jump pack's thrust trails).</summary>
+public static class TrailPath
+{
+    /// <summary>
+    /// Fills <paramref name="pts"/> (length n + 1) with points along the last <paramref name="metres"/> of a path of <paramref name="count"/> samples (<paramref name="point"/>(count - 1)
+    /// the newest), evenly spaced by distance from the newest; a path shorter than that ends at its oldest sample (the remaining points repeat it). Point 0 is the newest sample.
+    /// </summary>
+    public static void ByDistance(int count, Func<int, Vector3> point, float metres, Span<Vector3> pts)
+    {
+        if (pts.Length == 0 || count <= 0) return;
+        int k = count - 1;
+        var at = point(k);
+        float walked = 0f;
+        int n = pts.Length - 1;
+        pts[0] = at;
+        for (int j = 1; j <= n; j++)
+        {
+            float want = metres * j / n;
+            while (k > 0)
+            {
+                var next = point(k - 1);
+                float step = Vector3.Distance(at, next);
+                if (walked + step >= want && step > 1e-6f) { at = Vector3.Lerp(at, next, (want - walked) / step); walked = want; break; }
+                walked += step; at = next; k--;
+            }
+            pts[j] = at;
+        }
+    }
+}
+
+/// <summary>
+/// fx/impact-pass (review): when a melee attack's hit time has passed for a player, once per attack. An attack is keyed by its step, kind and start tick
+/// (the tick its time was 0: own player from the prediction's tick, others from the snapshot tick), so a reconcile rewind of any size, which takes the
+/// attack's time back and forward again, never fires twice; a player first seen mid-attack does not fire for a hit time already passed.
+/// </summary>
+public sealed class MeleeHitGate
+{
+    /// <summary>Start ticks within this many ticks of the last fired attack's (same step and kind) are the same attack (others' start estimates jitter with the snapshots).</summary>
+    public const int StartTolerance = 3;
+
+    struct Seen
+    {
+        public int Step; public bool Heavy; public float Time; public bool InAttack;
+        public bool HasFired; public int FiredStep; public bool FiredHeavy; public long FiredStart;
+    }
+
+    readonly Dictionary<int, Seen> _seen = new();
+    readonly List<int> _drop = new();
+
+    /// <summary>The player is in no attack this frame (an entry is kept, so an attack seen from its start counts; the last fired attack is remembered).</summary>
+    public void Idle(int id)
+    {
+        if (_seen.TryGetValue(id, out var s)) { s.InAttack = false; _seen[id] = s; }
+        else _seen[id] = new Seen { InAttack = false };
+    }
+
+    /// <summary>
+    /// The player is in attack <paramref name="step"/> (<paramref name="heavy"/>) at <paramref name="time"/> s, started at <paramref name="startTick"/>; true once when its
+    /// <paramref name="hitTime"/> passes. The first sight of a player (no entry) only seeds its time.
+    /// </summary>
+    public bool Passed(int id, int step, bool heavy, float time, float hitTime, long startTick)
+    {
+        if (!_seen.TryGetValue(id, out var s))
+        {
+            _seen[id] = new Seen { Step = step, Heavy = heavy, Time = time, InAttack = true };
+            return false;
+        }
+        bool same = s.InAttack && s.Step == step && s.Heavy == heavy && time >= s.Time;
+        float before = same ? s.Time : -1f;
+        s.Step = step; s.Heavy = heavy; s.Time = time; s.InAttack = true;
+        bool crossed = before < hitTime && time >= hitTime;
+        if (crossed && s.HasFired && s.FiredStep == step && s.FiredHeavy == heavy && Math.Abs(s.FiredStart - startTick) <= StartTolerance) crossed = false;
+        if (crossed) { s.HasFired = true; s.FiredStep = step; s.FiredHeavy = heavy; s.FiredStart = startTick; }
+        _seen[id] = s;
+        return crossed;
+    }
+
+    /// <summary>The start tick of an attack <paramref name="time"/> s old at <paramref name="tick"/> (ticks of <paramref name="tickSeconds"/>).</summary>
+    public static long StartTick(long tick, float time, float tickSeconds) => tick - (long)MathF.Round(time / tickSeconds);
+
+    /// <summary>Forgets the players <paramref name="present"/> says are gone.</summary>
+    public void Prune(Func<int, bool> present)
+    {
+        _drop.Clear();
+        foreach (var id in _seen.Keys) if (!present(id)) _drop.Add(id);
+        foreach (var id in _drop) _seen.Remove(id);
+    }
+
+    public int Count => _seen.Count;
+}

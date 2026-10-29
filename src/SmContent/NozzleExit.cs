@@ -17,20 +17,31 @@ public static class NozzleExit
     /// <summary>Metres from the locator along its +Y to the farthest drawn vertex within <see cref="Radius"/> of that axis; 0 when none lies ahead (or the axis is degenerate).</summary>
     public static float Along(WeaponModel model, WeaponLocator locator, float radius = Radius)
     {
-        var y = new Vector3(locator.ToRoot.M21, locator.ToRoot.M22, locator.ToRoot.M23);
-        if (y.LengthSquared() < 1e-10f) return 0f;
-        var axis = Vector3.Normalize(y);
+        var axis = new Vector3(locator.ToRoot.M21, locator.ToRoot.M22, locator.ToRoot.M23);
+        return Along(DrawnVertices(model), locator.Position, axis, radius);
+    }
+
+    /// <summary>The rule on plain points (model root space): the farthest of <paramref name="vertices"/> ahead of <paramref name="origin"/> along <paramref name="axis"/> and within <paramref name="radius"/> of it.</summary>
+    public static float Along(IEnumerable<Vector3> vertices, Vector3 origin, Vector3 axis, float radius = Radius)
+    {
+        if (axis.LengthSquared() < 1e-10f) return 0f;
+        axis = Vector3.Normalize(axis);
         float far = 0f;
+        foreach (var p in vertices)
+        {
+            var w = p - origin;
+            float along = Vector3.Dot(w, axis);
+            if (along > far && (w - axis * along).LengthSquared() <= radius * radius) far = along;
+        }
+        return far;
+    }
+
+    static IEnumerable<Vector3> DrawnVertices(WeaponModel model)
+    {
         foreach (var part in model.Parts)
         {
             if (!part.Visible || part.BlockIndex < 0 || part.BlockIndex >= model.Model.Mesh.Blocks.Count) continue;
-            foreach (var p in model.Model.Mesh.Blocks[part.BlockIndex].Positions)
-            {
-                var w = Vector3.Transform(p, part.ToRoot) - locator.Position;
-                float along = Vector3.Dot(w, axis);
-                if (along > far && (w - axis * along).LengthSquared() <= radius * radius) far = along;
-            }
+            foreach (var p in model.Model.Mesh.Blocks[part.BlockIndex].Positions) yield return Vector3.Transform(p, part.ToRoot);
         }
-        return far;
     }
 }

@@ -14,7 +14,8 @@ namespace SmClient;
 /// Every value here is **ours** (a mockup choice, picked by eye on matched views) unless its comment names the data; the map's own sun colour, light colours,
 /// fog colour and ambient colours stay the data's in every look (scaled or saturated, never replaced).
 /// The looks do not switch the costly features: volumetric smog and SSIL follow <c>--lighting</c> (on at the default medium, off at low, so
-/// <c>--lighting low --look forge</c> is the cheap variant); only the remaster turns on SSR (on at high anyway). Captures: medium.
+/// <c>--lighting low --look forge</c> is the cheap variant); only the remaster turns on SSR, and only at medium (on at high anyway; never at low or off:
+/// <see cref="MapLightingView.SsrOn"/>, fx/impact-pass review). Captures: medium.
 /// </summary>
 public static class LookPresets
 {
@@ -82,11 +83,10 @@ public static class LookPresets
     public static IEnumerable<string> Names => Sets.Keys;
 
     /// <summary>fx/impact-pass: the look used without <c>--look</c> (the owner's choice of 2026-10-29).</summary>
-    public const string Default = "remaster";
+    public const string Default = ImpactRules.LookChoice.Default;
 
     /// <summary>fx/impact-pass: <c>--look</c> values that name no preset: <c>current</c> (the default look before the remaster became it), <c>none</c>, and <c>classic</c> (the pre-T7 constants).</summary>
-    public static bool IsNone(string name) => name.Equals("current", StringComparison.OrdinalIgnoreCase) || name.Equals("none", StringComparison.OrdinalIgnoreCase)
-                                              || name.Equals("classic", StringComparison.OrdinalIgnoreCase);
+    public static bool IsNone(string name) => ImpactRules.LookChoice.IsNone(name);
 
     /// <summary>The constants of look <paramref name="name"/>; empty for null (no preset), the <see cref="Default"/> look's with an error for an unknown name.</summary>
     public static IReadOnlyDictionary<string, float> For(string? name)

@@ -23,6 +23,8 @@
     <Compile Include="..\..\client\Looks\*.cs" Link="ClientLooks\%(Filename)%(Extension)" />
     <!-- feel/bullets: the visible bullets' engine-free path rules. -->
     <Compile Include="..\..\client\Bullets\*.cs" Link="ClientBullets\%(Filename)%(Extension)" />
+    <!-- fx/impact-pass: the impact pass's engine-free rules (look choice, trail path, sword flare, the melee hit gate). -->
+    <Compile Include="..\..\client\ImpactRules\*.cs" Link="ClientImpactRules\%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>

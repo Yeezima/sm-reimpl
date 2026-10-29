@@ -744,25 +744,14 @@ public sealed partial class FxPlayer : Node3D
     /// fx/impact-pass: <paramref name="count"/> + 1 points along the last <paramref name="metres"/> of a recorded path (newest last), evenly spaced by distance and moved by
     /// <paramref name="offset"/>; point 0 is the newest place (where the effect is drawn this frame). A path shorter than that ends at its oldest sample.
     /// </summary>
-    internal static void TrailByDistance(List<(double T, Vector3 P)> path, Vector3 offset, float metres, Vector3[] pts, int count)
+    internal void TrailByDistance(List<(double T, Vector3 P)> path, Vector3 offset, float metres, Vector3[] pts, int count)
     {
-        int k = path.Count - 1;
-        var at = path[k].P;
-        float walked = 0f;
-        pts[0] = at + offset;
-        for (int j = 1; j <= count; j++)
-        {
-            float want = metres * j / count;
-            while (k > 0)
-            {
-                var next = path[k - 1].P;
-                float step = at.DistanceTo(next);
-                if (walked + step >= want && step > 1e-6f) { at = at.Lerp(next, (want - walked) / step); walked = want; break; }
-                walked += step; at = next; k--;
-            }
-            pts[j] = at + offset;
-        }
+        var points = _trailScratch.AsSpan(0, count + 1);
+        ImpactRules.TrailPath.ByDistance(path.Count, i => { var p = path[i].P; return new System.Numerics.Vector3(p.X, p.Y, p.Z); }, metres, points);   // engine-free, tested
+        for (int j = 0; j <= count; j++) pts[j] = new Vector3(points[j].X, points[j].Y, points[j].Z) + offset;
     }
+
+    readonly System.Numerics.Vector3[] _trailScratch = new System.Numerics.Vector3[16];
 
     void DrawLight(FxEffect e, CLight n, in Ctx c, double age, uint seed)
     {

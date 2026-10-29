@@ -34,8 +34,12 @@ public partial class NetworkView
     Task<MeleeFxLoad?>? _meleeFxLoad;
     MeleeEffects? _meleeFx;
     bool _meleeFxOff;
-    readonly Dictionary<int, (int Step, bool Heavy, float Time)> _meleeFxSeen = new();
-    readonly Dictionary<int, double> _meleeFxStompAt = new();
+    /// <summary>fx/impact-pass (review): once per attack, keyed on its start tick (engine-free, tested: <see cref="ImpactRules.MeleeHitGate"/>).</summary>
+    readonly ImpactRules.MeleeHitGate _meleeFxGate = new();
+    // Reused every frame (no per-frame allocation).
+    readonly List<PlayerState> _meleeFxAll = new();
+    readonly HashSet<int> _meleeFxPresent = new();
+    readonly List<int> _meleeFxGone = new();
     readonly Dictionary<int, FxEffect> _swordIdle = new();
     readonly Dictionary<int, double> _swordFlareAt = new();
     readonly Dictionary<int, MeshInstance3D> _swordGlowMesh = new();
@@ -57,17 +61,25 @@ public partial class NetworkView
         {
             if (!LoadMeleeFx()) return;
         }
-        var all = new List<PlayerState>(_lastOthers.Count + 1) { me };
-        all.AddRange(_lastOthers);
-        var seen = new HashSet<int>();
-        foreach (var s in all)
+        var all = _meleeFxAll;
+        all.Clear();
+        all.Add(me);
+        for (int i = 0; i < _lastOthers.Count; i++) all.Add(_lastOthers[i]);
+        _meleeFxPresent.Clear();
+        for (int i = 0; i < all.Count; i++)
         {
-            seen.Add(s.PlayerId);
-            MeleeFxFor(s, s.PlayerId == _client.PlayerId, all);
+            _meleeFxPresent.Add(all[i].PlayerId);
+            MeleeFxFor(all[i], all[i].PlayerId == _client.PlayerId, all);
         }
-        foreach (var gone in _swordIdle.Keys.Where(id => !seen.Contains(id)).ToList()) StopSwordIdle(gone);
-        foreach (var gone in _meleeFxSeen.Keys.Where(id => !seen.Contains(id)).ToList()) _meleeFxSeen.Remove(gone);
-        foreach (var gone in _swordGlowMesh.Keys.Where(id => !seen.Contains(id)).ToList()) _swordGlowMesh.Remove(gone);
+        // Players who left: their idle effect stops, their bookkeeping goes.
+        _meleeFxGone.Clear();
+        foreach (var id in _swordIdle.Keys) if (!_meleeFxPresent.Contains(id)) _meleeFxGone.Add(id);
+        foreach (var id in _meleeFxGone) StopSwordIdle(id);
+        _meleeFxGone.Clear();
+        foreach (var id in _swordGlowMesh.Keys) if (!_meleeFxPresent.Contains(id)) _meleeFxGone.Add(id);
+        foreach (var id in _swordFlareAt.Keys) if (!_meleeFxPresent.Contains(id)) _meleeFxGone.Add(id);
+        foreach (var id in _meleeFxGone) { _swordGlowMesh.Remove(id); _swordFlareAt.Remove(id); }
+        _meleeFxGate.Prune(_meleeFxPresent.Contains);
     }
 
     /// <summary>Starts (once) and finishes the background read of the melee wargear's effects; true when they are in.</summary>
@@ -118,24 +130,20 @@ public partial class NetworkView
         var character = own ? _local : _remotes.GetValueOrDefault(s.PlayerId);
         string? wargear = MeleeWargear(s);
         SwordFrame(s, character, wargear);
-        if (!s.Alive || s.MeleeStep <= 0 || Combat.MeleeStepOf(_config!, s) is not { } step) { _meleeFxSeen.Remove(s.PlayerId); return; }
-        // The hit time passing in this attack (the same attack: same step and kind, time not gone back).
-        var last = _meleeFxSeen.TryGetValue(s.PlayerId, out var known) ? known : (Step: 0, Heavy: false, Time: -1f);
-        bool same = last.Step == s.MeleeStep && last.Heavy == s.MeleeHeavy && s.MeleeTime >= last.Time;
-        float before = same ? last.Time : -1f;
-        _meleeFxSeen[s.PlayerId] = (s.MeleeStep, s.MeleeHeavy, s.MeleeTime);
-        if (!(before < step.HitTime && s.MeleeTime >= step.HitTime)) return;
-        // The own prediction may cross again after a correction: one effect per attack start.
-        double start = _connectedFor - s.MeleeTime;
-        if (step.Stomp is { } blast && !NoStompFx && !(_meleeFxStompAt.TryGetValue(s.PlayerId, out double at) && Math.Abs(at - start) < 0.25))
-        {
-            _meleeFxStompAt[s.PlayerId] = start;
-            PlayStomp(s, own, character, wargear, blast);
-        }
+        if (!s.Alive || s.MeleeStep <= 0 || Combat.MeleeStepOf(_config!, s) is not { } step) { _meleeFxGate.Idle(s.PlayerId); return; }
+        // Once per attack (review): the attack is keyed on its start tick (own: the prediction's tick; others: the newest snapshot's), so a reconcile rewind of any size
+        // does not fire it again, and a player first seen mid-attack does not fire for a hit time already passed.
+        long tick = own ? _client!.Tick : _client!.LatestSnapshotTick;
+        long start = ImpactRules.MeleeHitGate.StartTick(tick, s.MeleeTime, _config!.TickSeconds);
+        if (!_meleeFxGate.Passed(s.PlayerId, s.MeleeStep, s.MeleeHeavy, s.MeleeTime, step.HitTime, start)) return;
+        if (step.Stomp is { } blast && !NoStompFx) PlayStomp(s, own, character, wargear, blast);
         if (PowerBlade.IsPowerSword(wargear) && !NoSwordFx && character is not null)
         {
-            int victim = MeleePresentation.Victim(s, all.Where(p => p.PlayerId != s.PlayerId), _config!, own ? _client!.MeleeLockTarget : 0);
-            if (victim > 0 && all.FirstOrDefault(p => p.PlayerId == victim) is { } struck) SwordHit(s, character, struck);
+            // The attacker itself is no enemy of its own, so the whole list is passed.
+            int victim = MeleePresentation.Victim(s, all, _config!, own ? _client.MeleeLockTarget : 0);
+            if (victim > 0)
+                for (int i = 0; i < all.Count; i++)
+                    if (all[i].PlayerId == victim) { SwordHit(s, character, all[i]); break; }
         }
     }
 

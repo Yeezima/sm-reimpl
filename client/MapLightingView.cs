@@ -28,12 +28,16 @@ public static class MapLightingView
     /// <summary>
     /// M42 lighting preset (<c>--lighting off|low|medium|high</c>, default medium: it fits unknown GPUs; high is opt-in; the owner's decision to go
     /// beyond the original renderer,
-    /// docs/changes-from-original.md). Off = the M40-T7 look alone (the effect-card fades in FxBatch apply in every
-    /// preset; <c>--fx-hard</c> turns them off); every other preset adds the colour grade, a bounce fill and the sun halo; low adds soft sun shadows and contact shading (SSAO); medium adds screen-space indirect light and
+    /// docs/changes-from-original.md). Off = the M40-T7 renderer features alone: no shadows, SSAO, SSIL, volumetric smog or SSR; the look's constants (fx/impact-pass: the remaster by
+    /// default: sun angle and colour, tone mapping, exposure, colour grade, sky, materials) still apply, so <c>--lighting off --look current</c> is the M40-T7 look itself (the effect-card
+    /// fades in FxBatch apply in every preset; <c>--fx-hard</c> turns them off); every other preset adds the colour grade, a bounce fill and the sun halo; low adds soft sun shadows and contact shading (SSAO); medium adds screen-space indirect light and
     /// volumetric smog with light shafts; high adds screen-space reflections, sun penumbrae (PCSS), a larger shadow map and finer fog. SDFGI is not
     /// used (it hides wall sections on this map; test knob <c>gi.on</c>). <c>--look classic</c> turns all of it off. Every value it sets is **ours** unless its comment names the data.
     /// </summary>
     public enum LightingPreset { Off, Low, Medium, High }
+
+    /// <summary>fx/impact-pass: whether screen-space reflections run: at medium and high only, when the preset's default or the look's <c>ssr.on</c> (<paramref name="wanted"/>) asks; never at low or off.</summary>
+    public static bool SsrOn(LightingPreset preset, float wanted) => preset >= LightingPreset.Medium && wanted > 0.5f;
 
     public static LightingPreset Preset { get; } = ParsePreset();
 
@@ -665,8 +669,8 @@ public static class MapLightingView
                     });
 
             }
-            // SSR: high by default; a look can turn it on in any preset (ssr.on).
-            if (O("ssr.on", q == LightingPreset.High ? 1f : 0f) > 0.5f)
+            // SSR: high by default; a look can turn it on (ssr.on) at medium and high only, never at low (fx/impact-pass review: the remaster default must not cost older hardware).
+            if (SsrOn(q, O("ssr.on", q == LightingPreset.High ? 1f : 0f)))
             {
                 env.SsrEnabled = true;
                 env.SsrMaxSteps = (int)O("ssr.steps", 56f);

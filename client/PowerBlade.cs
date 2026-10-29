@@ -27,8 +27,8 @@ public static class PowerBlade
     /// <summary>The glow's colour: the data's <c>powersword_idle</c> light colour.</summary>
     public static readonly Color Colour = new(115f / 255f, 186f / 255f, 1f);
     /// <summary>How long a hit's flare lasts (s, ours) and its curve: full at once, then out with the square of the time left.</summary>
-    public const float FlareSeconds = 0.45f;
-    public static float FlareAt(float since) => since < 0f || since >= FlareSeconds ? 0f : (1f - since / FlareSeconds) * (1f - since / FlareSeconds);
+    public const float FlareSeconds = ImpactRules.SwordFlare.Seconds;
+    public static float FlareAt(float since) => ImpactRules.SwordFlare.At(since);   // engine-free, tested
 
     const string Code = """
 shader_type spatial;
