@@ -9,3 +9,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Other players' melee hits now make a sound (and hits on you): the weapon's hit sound where the blow lands, only when the victim is really hurt.
+- Charges and dash attacks that hit play the game's own heavy body-slam impact instead of the weapon's hit sound.
+- Melee weapons hum while held: the thunder hammer, the daemon maul and the power axe with their own hum, the power swords quietly with the axe's hum. The chain axe stays silent.
+- The thunder hammer and the power axe now glow while held, like the power sword.

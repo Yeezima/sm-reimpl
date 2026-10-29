@@ -40,7 +40,9 @@ public partial class NetworkView
     readonly List<PlayerState> _meleeFxAll = new();
     readonly HashSet<int> _meleeFxPresent = new();
     readonly List<int> _meleeFxGone = new();
-    readonly Dictionary<int, FxEffect> _swordIdle = new();
+    /// <summary>fx/melee-presentation: the deployed effects of the melee weapon each player holds (the sword's, the hammer's, the axe's): the wargear they were started for and one effect per play.</summary>
+    sealed class MeleeIdleSet { public string Wargear = ""; public FxEffect?[] Effects = []; }
+    readonly Dictionary<int, MeleeIdleSet> _swordIdle = new();
     readonly Dictionary<int, double> _swordFlareAt = new();
     readonly Dictionary<int, MeshInstance3D> _swordGlowMesh = new();
     int _stompFx, _swordHits, _swordIdleStarted;
@@ -52,6 +54,9 @@ public partial class NetworkView
     bool? _noStompFx;
     bool NoSwordFx => _noSwordFx ??= CmdFlag("no-sword-fx");
     bool? _noSwordFx;
+    /// <summary>fx/melee-presentation test aid <c>--no-melee-idle-fx</c>: the hammer's and the axe's idle glows off (before / after).</summary>
+    bool NoMeleeIdleFx => _noMeleeIdleFx ??= CmdFlag("no-melee-idle-fx");
+    bool? _noMeleeIdleFx;
 
     /// <summary>Called once per frame from <see cref="UpdateFx"/> after the eye glow: loads the melee effects once, then plays the stomps and the power swords.</summary>
     void FxMelee(PlayerState me)
@@ -186,7 +191,8 @@ public partial class NetworkView
 
     void SwordFrame(PlayerState s, CharacterViewer? character, string? wargear)
     {
-        bool sword = PowerBlade.IsPowerSword(wargear) && !NoSwordFx && s.Alive && character is not null;
+        bool isSword = PowerBlade.IsPowerSword(wargear);
+        bool sword = isSword && !NoSwordFx && s.Alive && character is not null;
         var held = sword ? character!.Weapons?.MeleeMeshInHand : null;
         // A sword that is stowed (or no longer the player's) stops glowing: the overlay goes with the hand.
         if (_swordGlowMesh.TryGetValue(s.PlayerId, out var glowing) && (held is not { } now || !ReferenceEquals(now.Mesh, glowing)))
@@ -194,36 +200,53 @@ public partial class NetworkView
             if (GodotObject.IsInstanceValid(glowing)) glowing.MaterialOverlay = null;
             _swordGlowMesh.Remove(s.PlayerId);
         }
-        if (held is not { } h) { StopSwordIdle(s.PlayerId); return; }
-        _swordGlowMesh[s.PlayerId] = h.Mesh;
-        // The blade's glow and flare (ours).
-        var overlay = PowerBlade.OverlayFor(h.Model);
-        if (!ReferenceEquals(h.Mesh.MaterialOverlay, overlay)) h.Mesh.MaterialOverlay = overlay;
-        float flare = _swordFlareAt.TryGetValue(s.PlayerId, out double hitAt) ? PowerBlade.FlareAt((float)(_connectedFor - hitAt)) : 0f;
-        if (overlay is not null) h.Mesh.SetInstanceShaderParameter(PowerBlade.FlareParameter, flare);
-        // The data's idle effect at its marker, attached.
-        if (_swordIdle.TryGetValue(s.PlayerId, out var idle) && !idle.Dead) { idle.Hidden = !character!.Visible; return; }
-        var play = _meleeFx!.Deployed(wargear).FirstOrDefault();
-        if (play is null || character!.Weapons is not { } rig || !rig.TryMeleeMarker(play.Marker, out var at)) return;
+        if (held is { } h)
+        {
+            _swordGlowMesh[s.PlayerId] = h.Mesh;
+            // The blade's glow and flare (ours).
+            var overlay = PowerBlade.OverlayFor(h.Model);
+            if (!ReferenceEquals(h.Mesh.MaterialOverlay, overlay)) h.Mesh.MaterialOverlay = overlay;
+            float flare = _swordFlareAt.TryGetValue(s.PlayerId, out double hitAt) ? PowerBlade.FlareAt((float)(_connectedFor - hitAt)) : 0f;
+            if (overlay is not null) h.Mesh.SetInstanceShaderParameter(PowerBlade.FlareParameter, flare);
+        }
+        // The data's deployed effects at their markers, attached, while the weapon is in hand (fx/melee-presentation: the hammer's and the axe's too, not only the sword's).
+        bool wanted = s.Alive && character is not null && wargear is not null && (isSword ? !NoSwordFx : !NoMeleeIdleFx) && character.Weapons?.MeleeMeshInHand is not null;
+        if (!wanted) { StopSwordIdle(s.PlayerId); return; }
         int id = s.PlayerId;
-        string marker = play.Marker;
-        Func<(Vector3, Basis)?> follow = () =>
+        if (_swordIdle.TryGetValue(id, out var set) && !string.Equals(set.Wargear, wargear, StringComparison.OrdinalIgnoreCase)) { StopSwordIdle(id); set = null; }
+        var plays = _meleeFx!.Deployed(wargear);
+        if (plays.Count == 0) return;
+        if (set is null) _swordIdle[id] = set = new MeleeIdleSet { Wargear = wargear!, Effects = new FxEffect?[plays.Count] };
+        var rig = character!.Weapons;
+        for (int i = 0; i < plays.Count && i < set.Effects.Length; i++)
         {
-            var c = _client is not null && id == _client.PlayerId ? _local : _remotes.GetValueOrDefault(id);
-            return c?.Weapons is { } r && r.TryMeleeMarker(marker, out var t) ? (t.Origin, t.Basis) : null;
-        };
-        if (_fx!.Play(play.Name, at.Origin, at.Basis, play.Scale <= 0f ? 1f : play.Scale, null, follow, 0f, 0.0, repeat: true, priority: 1) is { } e)
-        {
-            e.StopOnLost = true;
-            _swordIdle[id] = e;
-            _swordIdleStarted++;
+            if (set.Effects[i] is { Dead: false } idle) { idle.Hidden = !character.Visible; continue; }
+            var play = plays[i];
+            if (rig is null || !rig.TryMeleeMarker(play.Marker, out var at)) continue;
+            string marker = play.Marker;
+            Func<(Vector3, Basis)?> follow = () =>
+            {
+                var c = _client is not null && id == _client.PlayerId ? _local : _remotes.GetValueOrDefault(id);
+                return c?.Weapons is { } r && r.TryMeleeMarker(marker, out var t) ? (t.Origin, t.Basis) : null;
+            };
+            if (_fx!.Play(play.Name, at.Origin, at.Basis, play.Scale <= 0f ? 1f : play.Scale, null, follow, 0f, 0.0, repeat: true, priority: 1) is { } e)
+            {
+                e.StopOnLost = true;
+                set.Effects[i] = e;
+                _swordIdleStarted++;
+                if (_bot || CmdFlag("log-melee-fx")) GD.Print($"t {_connectedFor:F1} s: P{id} {wargear} deployed effect {play.Name} x{(play.Scale <= 0f ? 1f : play.Scale):0.##} at {marker}");
+            }
         }
     }
 
     void StopSwordIdle(int id)
     {
-        if (!_swordIdle.Remove(id, out var e)) return;
-        e.Repeat = false; e.Life = Math.Min(e.Life, Math.Max(0.0, e.Age) + 0.1);
+        if (!_swordIdle.Remove(id, out var set)) return;
+        foreach (var e in set.Effects)
+        {
+            if (e is null) continue;
+            e.Repeat = false; e.Life = Math.Min(e.Life, Math.Max(0.0, e.Age) + 0.1);
+        }
     }
 
     void SwordHit(PlayerState attacker, CharacterViewer character, PlayerState victim)
@@ -246,5 +269,5 @@ public partial class NetworkView
     }
 
     /// <summary>For the effects log line.</summary>
-    string MeleeFxLog() => $"melee fx: stomps {_stompFx}, sword hits {_swordHits}, sword glows started {_swordIdleStarted}";
+    string MeleeFxLog() => $"melee fx: stomps {_stompFx}, sword hits {_swordHits}, melee idle effects started {_swordIdleStarted}";
 }

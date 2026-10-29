@@ -93,6 +93,8 @@ public partial class NetworkView
         public double MaterialAt = double.NegativeInfinity;
         /// <summary>The ground pound's impact sound has played for this pound (M41: at the impact, not at the end of the recovery).</summary>
         public bool PoundSounded;
+        /// <summary>fx/melee-presentation: the melee wargear whose idle hum is playing on this emitter (null: none) and the event that stops it.</summary>
+        public string? HumFile, HumStop;
     }
 
     /// <summary>Starts loading the catalogue and the triggers on a worker thread (the behaviour graphs are read here, on the main thread).</summary>
@@ -196,6 +198,12 @@ public partial class NetworkView
         var me = _client?.Predicted;
         var own = me is { } m ? new[] { Loadouts.InHand(_config, m)?.Name, Loadouts.Holstered(_config, m)?.Name } : [];
         if (me is { } mm && MeleeWargear(mm) is { } meleeFile && _soundTriggers.MeleeHitSound(meleeFile) is { } meleeHitSound) names.Add(meleeHitSound);   // feel/melee-charge-2
+        if (me is { } m2 && !NoMeleeSounds)   // fx/melee-presentation: the charge impact and the melee weapon's hum
+        {
+            if (_soundTriggers.ChargeHitSound(MeleeWargear(m2)) is { } chargeHit) names.Add(chargeHit);
+            if (_soundTriggers.ChargeHitSound(Loadouts.JumpPack(_config, m2)?.Name) is { } dashHit) names.Add(dashHit);
+            if (HumOf(MeleeWargear(m2)) is { } hum) names.Add(hum.Start);
+        }
         foreach (var w in own.OfType<string>())
         {
             if (_soundTriggers.File(w) is { } f) foreach (var b in f.Fire(null)) names.Add(b.StartEvent);
@@ -243,6 +251,7 @@ public partial class NetworkView
         if (_local is not null) SoundPlayer(ownId, _local, me, own: true, (float)delta);
         foreach (var s in others)
             if (_remotes.TryGetValue(s.PlayerId, out var c)) SoundPlayer(s.PlayerId, c, s, own: false, (float)delta);
+        SoundMeleeOthers(me, others);   // fx/melee-presentation: others' melee and charge hits
         ConnectUiSounds();
         SoundSeize(me);   // fidelity gap 9: the Seize Ground capture tick, objective noise and score tick
         foreach (var gone in _soundTracks.Keys.Where(id => id != ownId && !_remotes.ContainsKey(id)).ToList())
@@ -322,6 +331,7 @@ public partial class NetworkView
         // pulsed every 0.7 s for the rest of the session).
         if (s.Alive != p.Alive && _sound is not null)
         {
+            t.HumFile = null; t.HumStop = null;   // StopLoops ends the hum with the life; SoundMeleeIdle starts it again if the new life holds the weapon
             int ended = _sound.StopLoops(t.Emitter);
             if (ended > 0 && LogSound("armour")) GD.Print($"ARMOUR t {_connectedFor:F3} P{id} {(s.Alive ? "spawn" : "death")}: {ended} looping sound(s) of the last life ended");
         }
@@ -346,6 +356,8 @@ public partial class NetworkView
             if (!own && s.Throwing && !p.Throwing && ItemOf(s) is { Stim: null } item && _soundTriggers!.File(item.Name) is { } tf)
                 PostAll(tf.Fire(null), t.Emitter, own, "throw", item.ReleaseAt(_config!));
         }
+        if (own) SoundNoteOwnCharge(s);
+        SoundMeleeIdle(t, character, s);
         if (s.Alive) SoundTags(t, character, s, own);
         if (IsOrkVoice(s)) SoundOrk(t, s, p, own);   // Ork O8: the boy's grunts, roars and yells for what the simulation shows
         else _orkEmitterIds.Remove(t.Emitter.Id);
@@ -687,7 +699,14 @@ public partial class NetworkView
         if (_client is null || _config is null || _soundTriggers is null || _sound is null) return;
         var me = _client.Predicted;
         var t = Track(_client.PlayerId, own: true);
-        if (hits.LastMelee)
+        if (hits.LastMelee && !NoMeleeSounds && OwnHitIsCharge(me, out bool dash))
+        {
+            // fx/melee-presentation: a charge (bull rush) or dash attack hit plays the data's charge impact, not the weapon's hit sound.
+            var victim = _lastOthers.FirstOrDefault(o => o.PlayerId == hits.LastVictim);
+            var at = victim.PlayerId == hits.LastVictim && hits.LastVictim > 0 ? victim.Position : me.Position;
+            PostMeleeHit(me, hits.LastVictim, at, charge: true, dash, "own hit report");
+        }
+        else if (hits.LastMelee)
         {
             if (MeleeWargear(me) is { } m && _soundTriggers.File(m) is { } mf)
             {

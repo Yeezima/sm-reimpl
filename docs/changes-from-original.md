@@ -387,7 +387,9 @@ slash's values and clips but not these engine rules, so these are ours:
 | Alignment window at least 0.2 s | A shorter window is widened: its end later up to the hit, then its start earlier | same | same |
 | Lock hysteresis and memory | A held lock is kept 15° beyond the cone; the client offers its last lock again for 1 s after an attack or charge | The original's lock persistence | same |
 | Camera assist | An exponential approach (0.2 s, at most 120°/s), faded in over 0.1 s and out over 0.1 s after the window | Whether the original's camera followed the lock | same |
-| Melee hit sound | An own melee hit posts the weapon's hit container's sound (the power sword's `play_sm_power_sword_hit`) at the victim; others' melee hits post none; a charge hit plays the weapon's hit sound, not its own `play_sm_sk01_bodyslam` | Which of the data's hit commands the original played for whom | same |
+| Melee hit sound | An own melee hit posts the weapon's hit container's sound (the power sword's `play_sm_power_sword_hit`) at the victim; others' hits (inferred from the snapshots, the victim must react) and charge hits (the data's `body_smash` impact `play_sm_bull_rush_smash`) now sound too | Which of the data's hit commands the original played for whom; whether the original's clients heard others' hits at the same moments | same |
+| Melee weapon hum | The hammer, maul and axe hum with their own idle events; the Space Marine sword with the axe's hum 6 dB quieter, the Chaos sword with it as a **substitute** (its own `play_sm_power_sword_idle` is in no bank); the chain axe is silent (nothing to play) | What the original played for the swords and the chain axe | same |
+| Hammer and axe idle glows | The hammer's and the axe's `while_deployed` effects play at their markers while the weapon is in hand, as the sword's | Whether the original showed them in multiplayer | same |
 
 ## 3. Not yet reproduced
 

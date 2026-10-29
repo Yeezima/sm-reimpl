@@ -185,6 +185,20 @@ public sealed partial class SoundTriggers
     /// <c>play_sm_power_sword_hit</c>, the chainsword's <c>play_sm_chain_sword_hit</c>), or null.
     /// </summary>
     public string? MeleeHitSound(string file) => MeleeHitContainers.TryGetValue(file, out var c) ? ContainerSound(c) : null;
+    /// <summary>
+    /// fx/melee-presentation: a wargear file's charge impact container by file: the first default <c>trigger_material_effect</c> of the bull rush's (<c>ability_bullrush_01</c>, the
+    /// melee weapons) or the dash attack's (<c>ability_dash_attack</c>, the jump packs) <c>primary_target_actions</c>: <c>…\melee_weapons\body_smash</c> in both (the upgraded entries use another).
+    /// </summary>
+    public IReadOnlyDictionary<string, string> ChargeHitContainers { get; init; } = new Dictionary<string, string>();
+    /// <summary>
+    /// fx/melee-presentation: the sound of a charge hit on a player: its <see cref="ChargeHitContainers"/> container's <c>sfx</c> event (<c>body_smash</c>: <c>play_sm_bull_rush_smash</c>;
+    /// the wargear's own <c>post_sound_event</c> there, <c>play_sm_sk01_bodyslam</c>, is in no bank of this install), or null.
+    /// </summary>
+    public string? ChargeHitSound(string? file) => file is not null && ChargeHitContainers.TryGetValue(file, out var c) ? ContainerSound(c) : null;
+    /// <summary>fx/melee-presentation: the charge impact container among a file's effect bindings (see <see cref="ChargeHitContainers"/>), or null.</summary>
+    public static string? ChargeHitContainer(IEnumerable<FxBinding> fx) =>
+        fx.FirstOrDefault(b => b.IsDefault && b.Material is { Container.Length: > 0 } && b.Path.Contains("/primary_target_actions/", StringComparison.Ordinal)
+            && (b.Ability.Equals("ability_bullrush_01", StringComparison.OrdinalIgnoreCase) || b.Ability.Equals("ability_dash_attack", StringComparison.OrdinalIgnoreCase)))?.Material!.Container;
     /// <summary>Behaviour Action tags per clip name (case-insensitive): tag name and start as a fraction of the clip.</summary>
     public required IReadOnlyDictionary<string, IReadOnlyList<(string Tag, float At)>> ClipTags { get; init; }
     public required IReadOnlyList<string> Notes { get; init; }
@@ -293,6 +307,7 @@ public sealed partial class SoundTriggers
         var built = Build(docs, sounds, graphs, notes, orkGraphs);
         var hits = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var meleeHits = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var chargeHits = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var (name, doc) in docs)
         {
             var fx = FxBinding.Collect(doc.Root);
@@ -303,13 +318,14 @@ public sealed partial class SoundTriggers
                     && b.Path.Contains("/primary_target_actions/", StringComparison.Ordinal))
                 .OrderBy(b => b.Ability, StringComparer.Ordinal).FirstOrDefault() is { } melee)
                 meleeHits[name] = melee.Material!.Container;
+            if (ChargeHitContainer(fx) is { } chargeHit) chargeHits[name] = chargeHit;
         }
         // Ork O8: the Ork class is ours (no entry in global's class table); its voice is the blueprint's audio_ext character.
         var speechCharacters = new Dictionary<string, string>(LoadSpeechCharacters(gameDir, notes), StringComparer.OrdinalIgnoreCase);
         if (docs.TryGetValue(OrkSounds.Blueprint, out var boy) && OrkSounds.SpeechCharacter(boy) is { } boyVoice) speechCharacters[OrkClass.Key] = boyVoice;
         return new SoundTriggers
         {
-            Files = built.Files, ContainerSounds = built.ContainerSounds, ClipTags = built.ClipTags, Notes = built.Notes, HitContainers = hits, MeleeHitContainers = meleeHits,
+            Files = built.Files, ContainerSounds = built.ContainerSounds, ClipTags = built.ClipTags, Notes = built.Notes, HitContainers = hits, MeleeHitContainers = meleeHits, ChargeHitContainers = chargeHits,
             SpeechCharacters = speechCharacters, OrkOnlyClips = built.OrkOnlyClips,
         };
     }
