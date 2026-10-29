@@ -205,8 +205,31 @@ public sealed partial class UiSelfTest
             session.Edit(p => LoadoutEdits.SetRole(p, slot, OrkLoadout.Role, catalog).Profile);   // the Ork slot again, for the faithful checks
             await Frames(3);
 
+            // The review's leak: the Ork DEFAULTS opened last in Extended, then a marine slot, then Faithful.
+            creator.OpenSelection(Selection.DefaultFor(OrkLoadout.Role));
+            await Frames(3);
+            int marineSlot = session.Working.Classes.FirstOrDefault(c => !OrkLoadout.IsOrk(c.Role))?.Slot ?? 0;
+            if (marineSlot > 0) { creator.OpenSelection(Selection.CustomSlot(marineSlot)); await Frames(3); }
+
             // Faithful: nothing of the Ork is offered; the saved Ork loadout is kept and joins as the side's default.
             _services.SetContent(ContentExtras.None);
+            _front.ShowJoin();
+            await Frames(4);
+            _front.ShowCreator();
+            await Frames(4);
+            Check("faithful: the creator's strip shows no Ork DEFAULTS chip after the Ork DEFAULTS were open in Extended",
+                FindButton(creator, b => b.Text.StartsWith("DEFAULTS") && b.Text.Contains("Ork", StringComparison.OrdinalIgnoreCase)) is null);
+            var orkChip = FindButton(creator, b => b.Text.StartsWith($"CUSTOM {slot}\n"));
+            orkChip?.EmitSignal(BaseButton.SignalName.Pressed);
+            await Frames(4);
+            Check("faithful: the saved Ork slot's chip does not open the Ork editor", orkChip is not null && !creator.IsOrkOpen && creator.Open != Selection.CustomSlot(slot) && !creator.Preview.ShowsOrk,
+                $"chip {orkChip is not null}, open {creator.Open}");
+            creator.OpenSelection(Selection.CustomSlot(slot));
+            await Frames(3);
+            Check("faithful: opening the saved Ork slot directly falls back to a marine loadout", !creator.IsOrkOpen);
+            creator.OpenSelection(Selection.DefaultFor(OrkLoadout.Role));
+            await Frames(3);
+            Check("faithful: opening the Ork DEFAULTS directly falls back to a marine loadout", !creator.IsOrkOpen);
             _front.ShowJoin();
             await Frames(4);
             Check("faithful: the Join screen offers no Ork DEFAULTS", FindButton(_front.JoinScreen!, b => b.Text.Contains("Ork Boy (either side)")) is null);

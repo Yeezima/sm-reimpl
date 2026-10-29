@@ -55,7 +55,8 @@ public sealed partial class SlotStrip : VBoxContainer
         if (_compact)
         {
             single = UiKit.HBox(8);
-            string role = DefaultsRole ?? ProfileStore.FirstRole(catalog);
+            // Only a role the profile offers (ui/customizer-ork: no Ork DEFAULTS chip in Faithful).
+            string role = DefaultsRole is { } wanted && _services.Roles().Contains(wanted, StringComparer.OrdinalIgnoreCase) ? wanted : ProfileStore.FirstRole(catalog);
             var sel = Selection.DefaultFor(role);
             bool activeDefaults = active.Kind == SelectionKind.Default && active.Role?.Equals(role, StringComparison.OrdinalIgnoreCase) == true;
             single.AddChild(MakeChip(sel, "DEFAULTS", LoadoutRows.ClassName(catalog, role, CustomizationCatalog.SpaceMarine), activeDefaults, false, null, _chipWidth));

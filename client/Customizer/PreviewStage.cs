@@ -227,7 +227,7 @@ public sealed partial class PreviewStage : SubViewportContainer
     string _shownKey = "";
     string _weaponKey = "";
     bool _dirty = true;
-    float _yaw, _zoom = 1f, _spin, _idle;
+    float _yaw, _zoom = 1f;
     // Smoothed camera.
     Vector3 _target = new(0f, 1.1f, 0f);
     float _distance = 4.5f, _azimuth = Framing.Body.AzimuthDeg, _elevation = Framing.Body.ElevationDeg;

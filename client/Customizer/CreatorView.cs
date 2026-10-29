@@ -198,6 +198,7 @@ public sealed partial class CreatorView : Control
     {
         if (selection != _open) _perkSlot = 0;   // a loadout opened by the shell starts at perk 1, as a click on its chip does
         _open = selection;
+        _open = ValidOpen();   // never the Ork's loadouts without the Orks (ui/customizer-ork)
         Refresh(focusList: false);
     }
 
@@ -229,7 +230,8 @@ public sealed partial class CreatorView : Control
     {
         ReturnFromRevertedCopy();
         _open = ValidOpen();
-        // The content profile may have changed on the Join screen (ui/customizer-ork): the factions and class tabs follow it.
+        // The content profile may have changed on the Join screen (ui/customizer-ork): the remembered DEFAULTS role, the factions and the class tabs follow it.
+        if (_lastDefaultsRole is { } last && !_services.Roles().Contains(last, StringComparer.OrdinalIgnoreCase)) _lastDefaultsRole = null;
         BuildSideToggle();
         BuildTabs();
         Refresh(focusList: false);
@@ -253,11 +255,24 @@ public sealed partial class CreatorView : Control
     bool IsEmpty => _open.Kind == SelectionKind.Custom && OpenClass is null;
 
     Selection ValidOpen() =>
-        _open.Kind == SelectionKind.Default && OrkLoadout.IsOrk(_open.Role) && !_services.OffersOrks ? Selection.DefaultFor(ProfileStore.FirstRole(_catalog))   // the Ork DEFAULTS only with the Orks
+        Unavailable(_open) ? Selection.DefaultFor(ProfileStore.FirstRole(_catalog))   // the Ork's loadouts (DEFAULTS or a saved slot) only with the Orks
         : LoadoutEdits.IsValid(_session.Working, _open) || (_open.Kind == SelectionKind.Custom && _open.Slot is >= 1 and <= CustomizationProfile.MaxCustomClasses) ? _open : Selection.DefaultFor(ProfileStore.FirstRole(_catalog));
+
+    /// <summary>
+    /// A loadout the screens do not offer now (ui/customizer-ork review): the Ork DEFAULTS, or a saved Ork slot, while the Orks are not offered (Faithful). It is kept in the
+    /// profile but never opened in the editor.
+    /// </summary>
+    bool Unavailable(Selection selection) =>
+        !_services.OffersOrks && (selection.Kind == SelectionKind.Default ? OrkLoadout.IsOrk(selection.Role) : _session.Working.ClassAt(selection.Slot) is { } c && OrkLoadout.IsOrk(c.Role));
 
     void OnChip(Selection selection)
     {
+        if (Unavailable(selection))
+        {
+            Say(LoadoutAvailability.Reason(_services.Content) + " The loadout is kept; switch Content to Extended to edit it.", 6.0);
+            _strip.SetOpen(_open);
+            return;
+        }
         _open = selection;
         _perkSlot = 0;
         Refresh(focusList: true);

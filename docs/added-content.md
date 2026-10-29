@@ -43,17 +43,20 @@ and O-S1 to O-S4. E1 (this switch) is done; the rest is listed at the end.
   code 2 on every path (as the server's).
 - **Faithful hides the Ork:** the faction step and the class creator offer the Space Marines and Chaos only (`CustomizerServices.Factions`, over
   `ContentGate.Factions`); the in-match picker (C on the death screen) uses the match's own flags; a Join or loadout change never carries an Ork class or an Ork
-  look (`ContentGate.ForJoin` / `OrkLook`, applied in `JoinPlan.Build` and `FrontEndLaunch.Apply`). The customizer has no Ork step yet (O9); it will take its
-  factions from the same list, so the Orks show only with the flag.
-- **A saved Ork loadout** (role `ork`, once O9 saves one) stays in the profile, shows "unavailable here" on its chip and joins as the Tactical defaults of the
+  look (`ContentGate.ForJoin` / `OrkLook`, applied in `JoinPlan.Build` and `FrontEndLaunch.Apply`). The customizer's Ork step (O9, ui/customizer-ork) takes its
+  factions and class tabs from the same list (`CustomizerServices.Factions` / `Roles` / `OffersOrks`), so the Orks button, the Ork Boy tab, his DEFAULTS chip
+  and his LOOK step show only with the flag; in Faithful a saved Ork loadout (custom or the Ork DEFAULTS) is never opened in the editor.
+- **A saved Ork loadout** (role `ork`, saved by the O9 creator; `ProfileStore` keeps it and the profile's `orkLook` in every profile) stays in the profile, shows "unavailable here" on its chip and joins as the Tactical defaults of the
   side in a profile without the Orks (`LoadoutAvailability`).
 - **A faithful server** gives an Ork class request the default class, ignores the Hello's and Setup's Ork look, never draws anyone as race 3
   (`GameServer.PlayableRace`), and a faithful client drops an Appearance of race 3; all of it holds for a config that has an Ork class without the flag
   (`ContentGate`, tests in `ContentGateTests`).
 - **Checks:** `ContentGateTests` (server, client and the rules) and the model tests are the real coverage of what a profile hides. `--ui-selftest --profile <file
   outside the repo>` (headless) ends with content checks on the real screens: the picker and its saved choice (restored at the end), the factions the
-  customizer lists (the catalogue has no Ork race yet, so the screens show no Ork in any profile today; the rule is what O9 will use), the unavailable
-  saved slot and the Hello without the Ork class and look; it passes on a fresh profile and on a repeat run.
+  customizer lists, the unavailable
+  saved slot and the Hello without the Ork class and look; then the Ork checks (`UiSelfTest.Ork.cs`): in Extended the Orks button, tab, DEFAULTS chip,
+  preview, fixed gear, perks, LOOK step, a saved Ork loadout and a Hello with his class and look; in Faithful none of it, and no way into the Ork editor.
+  It passes on a fresh profile and on a repeat run.
 
 
 ## 2. The build switch
