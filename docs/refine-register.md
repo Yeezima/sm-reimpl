@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1541 spec table rows: **1025 tagged**, 376 not tagged (read from data with high confidence), 140 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 293 rows of the changes document.
+Scanned 1558 spec table rows: **1039 tagged**, 378 not tagged (read from data with high confidence), 141 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 297 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 304 | 260 | 263 | 90 | 12 |
 | Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
 | Weapons (critical) | 110 | 63 | 97 | 50 | 3 |
-| Melee (critical) | 39 | 33 | 38 | 8 | 5 |
+| Melee (critical) | 40 | 33 | 39 | 8 | 5 |
 | Jump pack (critical) | 59 | 52 | 49 | 12 | 0 |
 | Charge (critical) | 13 | 12 | 10 | 7 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -50,18 +50,18 @@ Scanned 1541 spec table rows: **1025 tagged**, 376 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 21 | 12 | 19 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 36 | 31 | 32 | 3 | 1 |
+| Core simulation (provisional values) | 49 | 44 | 45 | 4 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1025** | 844 | 808 | 351 | 38 |
+| **All areas** | **1039** | 857 | 822 | 352 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| confidence: low | 358 |
-| kind: ours | 352 |
-| confidence: medium | 336 |
+| confidence: low | 367 |
+| kind: ours | 365 |
+| confidence: medium | 341 |
 | kind: interpretation | 299 |
 | notes: ours | 267 |
 | confidence: none (low) | 114 |
@@ -74,7 +74,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: user's knowledge | 26 |
 | kind: approximation | 23 |
 | kind: placeholder | 22 |
-| notes: placeholder | 16 |
+| notes: placeholder | 17 |
 | kind: gap (not reproduced) | 13 |
 | notes: interpretation | 13 |
 | notes: not reproduced (gap) | 13 |
@@ -695,7 +695,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (39)
+### Melee (gameplay-critical) (40)
 
 *Spec section: Melee target lock, alignment and lunge (feel/melee-lock; used by the simulation; protocol 32)*
 
@@ -755,6 +755,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-60E21DD0` | Melee bark | an attack line, chance 0.15, at a melee attack's start (not the charge) (probability) | kind: ours; confidence: low | ours | Melee bark: compare with SM1 by listening A/B at the same distance and state. Ours: an attack line, chance 0.15, at a melee attack's start (not the… | ☐ |
+
+*Spec section: Player collision (sim/player-collision; protocol 43, used by the simulation)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-80F19D0B` | Measured: 8 melee bots on Manufactorum (headless, 127.0.0.1, 4 v 4 Tacticals with `--bot-melee`… | server, ticks with a pair overlapping (of ticks with a pair): > 1 cm 27.2 % → **5.9 %**, > 5 cm 26.8 % → 4.3 %, > 20 cm 22.2 % → **2.0 %**; closest −0.87 → −0.81 m (a transient in a brawl). Drawn by the bots (frames): > 5 cm 27 to 33 % → 0 to 2.4 % (median… (%, m) | confidence: medium | measured | Measured: 8 melee bots on Manufactorum (headless…: compare with SM1 by feel or video. Ours: server, ticks with a pair overlapping (of ticks with a pair): > 1 cm… | ☐ |
 
 ### Jump pack (gameplay-critical) (59)
 
@@ -1421,7 +1427,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (36)
+### Core simulation (provisional values) (49)
 
 *Spec section: Provisional values in use*
 
@@ -1488,6 +1494,24 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-74B6618D` | What the rounding and the pose cost (measured) | loopback harness, install config, an Assault jumping full and cut jumps forward, sideways and back (up to 33 m/s), a Chaos shooter's client recording its drawn view at every input and the pose it draws (the client's rules on the drawn states), 40 s, 30 and 80… (m, %) | confidence: medium | measured (synthetic link, install config) | What the rounding and the pose cost (measured): compare with SM1 by feel or video. Ours: loopback harness, install config, an Assault jumping full and cut… | ☐ |
 | `R-F4D3F09F` | Grenade bounce as read (data rule, unchanged) | the data's reading stands: ground "reductions" are fractions kept (0.3 across, 0.4 up), one bounce then stop, ground fuse 1 s (stikkbomb 2 s); no misreading found (the opposite reading, fractions removed, bounces farther). Measured on flat ground (frag, throw… (m) | kind: interpretation; confidence: low | values extracted; rule as M13 | Grenade bounce as read (data rule, unchanged): compare with SM1 by measuring on a flat spot of the same map. Ours: the data's reading stands: ground "reductions" are fractions kept… | ☐ |
 | `R-8A944306` | Grenade bounce (owner's change) | **deliberate change** (owner, 2026-10-29: "grenades shouldn't bounce so far when thrown"; the rule is ours): on a ground contact the speed along the normal comes back x the blueprint's Havok `restituation_override` (0.65) and the speed along the surface loses… (m/s) | kind: ours; confidence: low | owner's request; material values extracted (`rigid_body_options_ext`), their use ours | Grenade bounce (owner's change): compare with SM1 by timing a run over a known distance. Ours: deliberate change (owner, 2026-10-29: "grenades shouldn't bounce so… | ☐ |
+
+*Spec section: Player collision (sim/player-collision; protocol 43, used by the simulation)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-10DA806E` | Who collides | every living player with every other living player, allies and enemies alike, in every way of moving (walk, sprint, sprint stop, evades, knockback, the charge and the dash attack, melee lunges and the lock's root motion, jump-pack flight, the pound and slash… | kind: ours; confidence: medium | the owner's request; the scope ours | Who collides: compare with SM1 by feel or video. Ours: every living player with every other living player, allies and… | ☐ |
+| `R-C5460BBE` | Body shape | the character capsule already used against the level: radius 0.45 m, 1.9 m tall, upright, the same for every class (the Ork too); two players touch when their axes are 0.9 m apart and their heights overlap (m) | kind: ours; confidence: low; notes: placeholder | the existing placeholder capsule (the ragdoll's hit volumes stick out further at the pads and the backpack) | Body shape: compare with SM1 by measuring on a flat spot of the same map. Ours: the character capsule already used against the level: radius 0.45 m… | ☐ |
+| `R-F31DB117` | What a step collides with (prediction-exact) | the others as the stepping player's client last knew them: each input names the newest snapshot its client held when it was sampled (`PlayerInput.BodyTick`, one byte on the wire: ticks back from the input, 1 to 24; 0 = none); the server keeps every tick's end… (ticks) | kind: ours; confidence: medium | ours (standard client prediction; the original was peer-hosted) | What a step collides with (prediction-exact): compare with SM1 by feel or video. Ours: the others as the stepping player's client last knew them: each input… | ☐ |
+| `R-78F1154C` | Others carried on to now | each body is moved on from the snapshot by its velocity there for the ticks up to the input's tick, at most 10 ticks (0.33 s, about the lag at 150 ms RTT) and 3 m, horizontally only; the carry stops where the body would touch the stepping player (it could not… (ticks, m) | kind: ours; confidence: low | ours | Others carried on to now: compare with SM1 by feel or video. Ours: each body is moved on from the snapshot by its velocity there for the… | ☐ |
+| `R-CB76C703` | Blocking and sliding | the part of a move going into a body the player touches or overlaps is removed; the rest sweeps the two capsules' circles (0.9 m) and slides along the first one met (up to 4 slides a tick, no tunnelling at any speed); the velocity loses what went into the… (m) | kind: ours; confidence: medium | ours | Blocking and sliding: compare with SM1 by measuring on a flat spot of the same map. Ours: the part of a move going into a body the player touches or overlaps… | ☐ |
+| `R-FF32E5D2` | Push apart | two capsules that overlapped sideways in the snapshot are pushed apart along the line between their axes there (a tie on one spot: one of 8 fixed directions from the two ids, opposite for each): each player moves out **half** the overlap (the other half is… (m/s) | kind: ours; confidence: low | ours | Push apart: compare with SM1 by timing a run over a known distance. Ours: two capsules that overlapped sideways in the snapshot are pushed… | ☐ |
+| `R-608684A4` | On a head | feet within 0.3 m below another capsule's top and at most 0.05 m above it are on its head: not blocked sideways, they slide off at **6 m/s** (the whole overlap); a body coming down onto a head (a fall, a jump-pack landing) is held at the head's top, not… (m, m/s) | kind: ours; confidence: low | ours | On a head: compare with SM1 by timing a run over a known distance. Ours: feet within 0.3 m below another capsule's top and at most 0.05 m… | ☐ |
+| `R-66932241` | The charge and the dash attack | a body stops the charge's motion but is not a wall: the wall test (the collision stop) is the level's move alone; meeting a player is the contact's business (`World.ResolveRush`: an enemy is hit, an ally stops it), now at most at contact range | kind: ours; confidence: low | ours | The charge and the dash attack: compare with SM1 by feel or video. Ours: a body stops the charge's motion but is not a wall: the wall test… | ☐ |
+| `R-0EB79005` | Charge against a target that brakes (playtest item) | the charge is stopped 0.9 m from the target as the charger's client carried it on (its velocity at the snapshot); a target that braked or turned since is really farther, so the charge can stop short and its contact (2 x 0.45 + 0.3 m, on the rewound target)… (m) | kind: ours; confidence: low | ours | Charge against a target that brakes (playtest item): compare with SM1 by measuring on a flat spot of the same map. Ours: the charge is stopped 0.9 m from the target as the charger's client… | ☐ |
+| `R-1BFA5B04` | Evades | a roll, hop or dash met by a body within the wall-hit angle ends as at a wall; the push apart is left out of that test (review fix: being pushed by a stale overlap is not being stopped, so a roll started while overlapping does not end at once) (°) | kind: ours; confidence: low | ours | Evades: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a roll, hop or dash met by a body within the wall-hit angle ends as… | ☐ |
+| `R-8AE401F6` | Spawns | as before every spawn skips spots within 2 m of a living player when a free one exists; when none is free it now takes the spot whose nearest living player is farthest (before: the rotation's next, possibly on top of someone); placeholder spawns (no map) move… (m) | kind: ours; confidence: low | ours | Spawns: compare with SM1 by measuring on a flat spot of the same map. Ours: as before every spawn skips spots within 2 m of a living player when… | ☐ |
+| `R-440CD63B` | Server bound (review fix) | the world itself never collides with a picture older than **24 ticks** (0.8 s: the shot rewind's 15 ticks plus the view slack): an older body tick is raised to 24 ticks back, and on the server (`World.BoundBodies`) so is none (lag byte 0, or a lag beyond 24… (ticks) | kind: ours; confidence: medium | ours | Server bound (review fix): compare with SM1 by feel or video. Ours: the world itself never collides with a picture older than 24 ticks… | ☐ |
+| `R-4059B12E` | Drawn remote players (client only) | remote players are drawn between snapshots in the past and the own player in the present, so bodies the simulation keeps apart can still be drawn inside each other: each overlapping pair of drawn living players (heights overlapping) is moved apart along the… (m) | kind: ours; confidence: low | ours | Drawn remote players (client only): compare with SM1 by measuring on a flat spot of the same map. Ours: remote players are drawn between snapshots in the past and the own… | ☐ |
 
 ### General game design (7)
 
@@ -1755,6 +1779,9 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-0B012FFE` | Jump-pack middle jump (M45; off since feel/jump-pack-2, the three jumps) | Letting go of Jump while a jump rises cuts the rise (the owner's knowledge of the original): the rise goes on for 0.1 s, then the vertical speed decays with a 0.05 s time constant to the apex; the hang and fall follow as usual; held to the apex the jump is unchanged. The shape (the rise carries on for a moment, then… | The data has no release field, tag or branch: the original's delay and decay values and whether a release before the lift-off counts | The middle jump (M45) | Jump-pack middle jump: compare with SM1 by feel or video. Ours: Letting go of Jump while a jump rises cuts the rise (the owner's… | ☐ |
 | `C-9A2CBE2E` | Jump-pack flight pose (M45) | The flight clips are posed by the vertical angle of motion (the graph binds their time to it): 0.5 − elevation / π, damped with 0.15 s; one clip of the low or high set by the height above the ground (switch at 13.5 ± 1 m) instead of the graph's blend | How the game code computes and damps the vertical-angle and distance variables; the graph's blend of the two sets | The middle jump (M45) | Jump-pack flight pose: compare with SM1 by feel or video. Ours: The flight clips are posed by the vertical angle of motion (the graph… | ☐ |
 | `C-FDA7B822` | Pound target marker (M44) | The data's `action_smash_target_point` effect (`mp_assault_land_reticule`, scale 1.5) stands where the simulation's dive would land if started in the next tick (the client steps the dive on its own collision world at the view's yaw and pitch), for the own player only, while a pound can start | When the original shows it and how it finds the point | Jump pack follow-ups (M44) | Pound target marker: compare with SM1 by feel or video. Ours: The data's action_smash_target_point effect… | ☐ |
+| `C-031B5E9B` | Player collision (sim/player-collision, protocol 43) | Living players' capsules (radius 0.45 m, 1.9 m) block each other in every way of moving, allies and enemies alike (before: no player collision at all); a move into a body is removed and slides along it, a charge or lunge stops at contact range, a body coming down on a head is held there and slides off at 6 m/s | How the original's Havok character controller resolves two character proxies (pushing, sliding, standing on heads); the original's proxy shape | Player collision (sim/player-collision) | Player collision (sim/player-collision, protocol 43): compare with SM1 by feel or video. Ours: Living players' capsules (radius 0.45 m, 1.9 m) block each other in… | ☐ |
+| `C-96394296` | Player collision: which picture of the others | A step collides with the others as the newest snapshot its client held showed them (named in the input), carried on by their velocity for up to 10 ticks (3 m) but never through the stepping player, so the prediction is exact; overlaps the stale picture lets through are pushed apart, each player half of the snapshot's… | Not applicable: the original was peer-hosted | Player collision (sim/player-collision) | Player collision: which picture of the others: compare with SM1 by feel or video. Ours: A step collides with the others as the newest snapshot its client… | ☐ |
+| `C-8CA9B6BC` | Player collision: the charge, evades and spawns | A player is not a wall for the charge's collision stop (the contact decides); an evade meeting a player ends as at a wall; a spawn with every spot taken takes the least crowded spot | The original's rules | Player collision (sim/player-collision) | Player collision: the charge, evades and spawns: compare with SM1 by feel or video. Ours: A player is not a wall for the charge's collision stop (the contact… | ☐ |
 
 #### Combat
 
@@ -1847,6 +1874,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 
 | ID | Rule | What we do | What is unknown | Spec section | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
+| `C-207DB038` | Drawn players kept apart (sim/player-collision) | Remote players, drawn between snapshots in the past next to the own player drawn in the present, are moved apart where their drawn capsules overlap (half each, all on the remote against the own player, at most 0.45 m); positions only, hit tests unchanged; `--no-body-separation` | Not applicable (the original drew peers' own states) | Player collision (sim/player-collision) | Drawn players kept apart (sim/player-collision): compare with SM1 by feel or video. Ours: Remote players, drawn between snapshots in the past next to the own… | ☐ |
 | `C-24F00EE9` | Which effect sprites are smoke (fx/no-smoke) | For the owner's "no smoke" change (section 1) a sprite is smoke by our rule on the data: additive and distortion sprites and god rays are kept; alpha sprites whose texture names debris, blood or solid things are kept; alpha sprites whose texture or element name says smoke, dust, mist or haze, or that grow and fade out… | What each sprite showed in the original (we read texture and element names, blend, size and alpha curves) | Effect rendering (M25b): "No smoke" rows | Which effect sprites are smoke (fx/no-smoke): compare with SM1 by feel or video. Ours: For the owner's "no smoke" change (section 1) a sprite is smoke by… | ☐ |
 | `C-BC9E8572` | Camera-facing effect cards depth-tested nearer (fx/no-smoke) | Each alpha-blended camera-facing card is depth-tested at a plane moved toward the camera by half its half size (at most 1 m, never within 0.5 m of the camera) and shrunk to cover the same pixels, so the floor inside the front of a cloud or debris card no longer draws over it (the owner's "lines on the floor show… | How the original sorted or depth-tested its sprites (the data's `DepthOffset`, mostly -0.5 to -10 on flashes and fire, is not applied) | Effect rendering (M25b): "Lines on the floor through smoke" rows | Camera-facing effect cards depth-tested nearer (fx/no-smoke): compare with SM1 with an overlaid screenshot taken from the same position. Ours: Each alpha-blended camera-facing card is depth-tested at a plane… | ☐ |
 | `C-C89138C5` | The own character hides when the camera is close (feel/camera-hitstop) | The whole own character (model, packs, weapons, the jump pack's thrust and idle effects) is hidden while the camera is within 1.4 m of the head and shown again at 1.61 m (the exploration camera is 3.5 m out, the aim camera 2.0 m); no fade; the camera is not shifted (owner's request 2026-10-29; the distances are ours) | The original's camera collision handling (not decoded; the rig data has no offset for it) | "The own character hides when the camera is close" | The own character hides when the camera is close…: compare with SM1 with an overlaid screenshot taken from the same position. Ours: The whole own character (model, packs, weapons, the jump pack's… | ☐ |
@@ -2161,4 +2189,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-3C893894` | Test aids | Death effects (F-D1; client only, not simulated, no protocol change) |
 | `R-54698497` | `--bot-damage-scale f` | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
 | `R-5601E474` | Protocol 37 (on top of main's 36) | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
+| `R-CDC6B663` | Protocol 43 (on main's 42; another open branch holds 41) | Player collision (sim/player-collision; protocol 43, used by the simulation) |
 

@@ -16,6 +16,7 @@ public sealed partial class World
     /// </summary>
     void RecordBodies()
     {
+        if (!Config.PlayerBodies) return;   // nothing reads it (the review)
         var all = _players.Values.ToArray();
         Array.Sort(all, (a, b) => a.PlayerId.CompareTo(b.PlayerId));
         _bodyHistory[Tick] = all;
@@ -29,9 +30,23 @@ public sealed partial class World
     /// </summary>
     BodyView? BodiesFor(int playerId, PlayerInput input)
     {
-        if (!Config.PlayerBodies || input.BodyTick == 0 || input.BodyTick >= Tick || Tick - input.BodyTick > PlayerCollision.MaxBodyLagTicks) return null;
-        return _bodyHistory.TryGetValue(input.BodyTick, out var seen) ? PlayerCollision.See(seen, playerId, input.BodyTick, Tick, Config) : null;
+        if (!Config.PlayerBodies) return null;
+        uint oldest = Tick > PlayerCollision.MaxBodyLagTicks ? Tick - PlayerCollision.MaxBodyLagTicks : 1;
+        uint tick = input.BodyTick;
+        // The review (must-fix): the world bounds the picture itself. A tick older than the lag cap is raised to it; with BoundBodies (the server), so is
+        // none (0): a client cannot shed the bodies by naming none or an old snapshot. Without it (tests, tools) 0 still means no bodies.
+        if (tick == 0) { if (!BoundBodies) return null; tick = oldest; }
+        else if (tick < oldest) tick = oldest;
+        if (tick >= Tick) return null;
+        return _bodyHistory.TryGetValue(tick, out var seen) ? PlayerCollision.See(seen, playerId, tick, Tick, Config) : null;
     }
+
+    /// <summary>
+    /// sim/player-collision (the review's must-fix): an input naming no body tick collides with the oldest picture allowed
+    /// (<see cref="PlayerCollision.MaxBodyLagTicks"/> back) instead of with nothing. The server sets it; an honest client names a snapshot from its
+    /// first ticks on (only a join's first ticks, before its first snapshot, then predict without bodies while the server has them).
+    /// </summary>
+    public bool BoundBodies { get; init; }
 
     /// <summary>The players at the end of tick <paramref name="tick"/> as the bodies record keeps them (in id order), or null (tests and probes).</summary>
     public IReadOnlyList<PlayerState>? BodiesAt(uint tick) => _bodyHistory.TryGetValue(tick, out var all) ? all : null;

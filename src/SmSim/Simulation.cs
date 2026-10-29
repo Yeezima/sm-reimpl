@@ -830,8 +830,9 @@ public static class Movement
         if (PlayerCollision.Current is { } bodies && s.Alive)
         {
             var plan = PlayerCollision.Resolve(s, horizontal, c, bodies);
-            return PlayerCollision.Finish(s, Walk(s, input.Yaw, plan.Motor, vz, grounded, c, world), plan, c, bodies);
+            return PlayerCollision.Finish(s, Walk(s, input.Yaw, plan.Motor, vz, grounded, c, world), plan, c, bodies, world is not null);
         }
+        PlayerCollision.LastPush = Vector2.Zero;
         return Walk(s, input.Yaw, horizontal, vz, grounded, c, world);
     }
 
@@ -865,8 +866,9 @@ public static class Movement
         if (PlayerCollision.Current is { } bodies && s.Alive)   // sim/player-collision (protocol 43)
         {
             var plan = PlayerCollision.Resolve(s, horizontal, c, bodies);
-            return PlayerCollision.Finish(s, GlideAlone(s, yaw, plan.Motor, c, world), plan, c, bodies);
+            return PlayerCollision.Finish(s, GlideAlone(s, yaw, plan.Motor, c, world), plan, c, bodies, world is not null);
         }
+        PlayerCollision.LastPush = Vector2.Zero;
         return GlideAlone(s, yaw, horizontal, c, world);
     }
 
@@ -890,8 +892,9 @@ public static class Movement
         if (PlayerCollision.Current is { } bodies && s.Alive)   // sim/player-collision (protocol 43)
         {
             var plan = PlayerCollision.Resolve(s, horizontal, c, bodies);
-            return PlayerCollision.Finish(s, FlyAlone(s, yaw, plan.Motor, vz, gravity, c, world), plan, c, bodies);
+            return PlayerCollision.Finish(s, FlyAlone(s, yaw, plan.Motor, vz, gravity, c, world), plan, c, bodies, world is not null);
         }
+        PlayerCollision.LastPush = Vector2.Zero;
         return FlyAlone(s, yaw, horizontal, vz, gravity, c, world);
     }
 

@@ -18,6 +18,7 @@ public partial class NetworkView
     static readonly bool NoPlayerCollision = OS.GetCmdlineUserArgs().Contains("--no-player-collision");
     static readonly bool NoBodySeparation = OS.GetCmdlineUserArgs().Contains("--no-body-separation");
 
+    readonly DrawnBodies _drawnBodies = new();   // its buffers are reused every frame
     readonly OverlapProbe _drawnOverlaps = new();
     readonly List<System.Numerics.Vector3> _drawnFeet = new();
     double _bodiesLoggedAt;
@@ -29,7 +30,7 @@ public partial class NetworkView
     /// <summary>The remote players where they are drawn this frame (moved apart unless <c>--no-body-separation</c>), and the bot's overlap sample.</summary>
     IReadOnlyList<PlayerState> DrawnRemotes(IReadOnlyList<PlayerState> others, PlayerState me, PlayerState shown)
     {
-        var drawn = NoBodySeparation ? others : DrawnBodies.Separate(others, me.Alive ? shown.Position : null, me.PlayerId, _config!);
+        var drawn = NoBodySeparation ? others : _drawnBodies.Separate(others, me.Alive ? shown.Position : null, me.PlayerId, _config!);
         if (_bot)
         {
             _drawnFeet.Clear();

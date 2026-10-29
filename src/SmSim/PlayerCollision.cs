@@ -75,8 +75,12 @@ public static class PlayerCollision
     public const int MaxExtrapolationTicks = 10;
     /// <summary>Longest such move (metres; ours): a charge or a dash is not carried more than a sprint's 0.33 s ahead.</summary>
     public const float MaxExtrapolation = 3f;
-    /// <summary>Oldest snapshot an input may name (ticks before its own; 1.5 s; ours): an older one means no bodies (both sides agree).</summary>
-    public const int MaxBodyLagTicks = 45;
+    /// <summary>
+    /// Oldest snapshot an input may name (ticks before its own; 24 ticks = 0.8 s: the shot rewind's 15 ticks plus the view slack; ours). The world
+    /// never collides with an older picture: an older (or, on a server, a missing) body tick is raised to this many ticks back
+    /// (<c>World.BodiesFor</c>), so a client cannot shed the bodies by naming none or an old one; an honest client names its newest snapshot.
+    /// </summary>
+    public const int MaxBodyLagTicks = 24;
     /// <summary>How fast an overlap is pushed apart (m/s, each player's own push; ours).</summary>
     public const float SeparationSpeed = 3f;
     /// <summary>How fast a body on another's head slides off it (m/s; ours).</summary>
@@ -90,6 +94,13 @@ public static class PlayerCollision
     const int MaxSlides = 4;
 
     [ThreadStatic] static BodyView? t_current;
+    [ThreadStatic] static Vector2 t_lastPush;
+
+    /// <summary>
+    /// The push apart the last movement step on this thread added to its move (metres; zero without bodies). A caller that tests the move it got
+    /// against the move it wished (the evade's wall test) leaves it out: being pushed is not being stopped.
+    /// </summary>
+    public static Vector2 LastPush { get => t_lastPush; internal set => t_lastPush = value; }
 
 
     /// <summary>The bodies the movement steps of the current scope collide with (null: none, movement as before).</summary>
@@ -298,8 +309,10 @@ public static class PlayerCollision
     /// (the plan's, or, when a wall cut the move, the motor's without the push and no faster than the plan's), and a body that came down onto a
     /// head held at its top (not grounded, not falling) while it still overlaps it.
     /// </summary>
-    internal static PlayerState Finish(PlayerState before, PlayerState moved, Plan plan, SimConfig c, BodyView bodies)
+    /// <param name="level">The step ran against a level (else the flat ground at z = 0, where standing above 0 is standing on a head).</param>
+    internal static PlayerState Finish(PlayerState before, PlayerState moved, Plan plan, SimConfig c, BodyView bodies, bool level)
     {
+        t_lastPush = plan.Push * c.TickSeconds;
         var v = moved.Velocity;
         var flat = new Vector2(v.X, v.Y);
         Vector2 keep;
@@ -317,12 +330,18 @@ public static class PlayerCollision
         foreach (var b in bodies.Bodies)
         {
             float top = b.Feet.Z + height;
-            if (before.Position.Z < top - 0.01f || result.Position.Z >= top) continue;   // not coming down onto it from its top
             if (Vector2.Distance(at, Where(b, new Vector2(before.Position.X, before.Position.Y), reach)) >= reach - Tolerance) continue;
-            hold = MathF.Max(hold, top);
+            if (before.Position.Z >= top - 0.01f && result.Position.Z < top) hold = MathF.Max(hold, top);   // coming down onto it from its top
         }
         if (float.IsFinite(hold))
-            result = result with { Position = new Vector3(result.Position.X, result.Position.Y, hold), Velocity = new Vector3(keep.X, keep.Y, MathF.Max(0f, v.Z)), Grounded = false };
+        {
+            // A ground pound's or slash's dive lands on the head in the tick it touches it (its impact then, as the original's landing on a
+            // character would be immediate; ours); anything else is held there, not grounded and not falling, until it has slid off.
+            bool dive = before.Jump == JumpPhase.Dive;
+            result = result with { Position = new Vector3(result.Position.X, result.Position.Y, hold), Velocity = new Vector3(keep.X, keep.Y, dive ? 0f : MathF.Max(0f, v.Z)), Grounded = dive };
+        }
+        else if (!level && result.Grounded && result.Position.Z > 0f)
+            result = result with { Grounded = false };   // after a dive's landing on a head: the flat ground has no floor up there (a level's controller finds none by itself)
         return result;
     }
 

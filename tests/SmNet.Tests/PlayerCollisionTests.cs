@@ -396,26 +396,113 @@ public class PlayerCollisionTests(ITestOutputHelper output)
         return w.Players.Values.OrderBy(p => p.PlayerId).ToArray();
     }
 
-    [Fact]
-    public void An_input_naming_no_body_tick_steps_without_bodies_as_its_client_does()
+    public enum Hostile { NoBodyTick, VeryOldBodyTick, OldLagOverTheWire, NeverAcked }
+
+    /// <summary>
+    /// The review's must-fix: a hostile client must not walk through a standing player by naming no body tick (lag byte 0), a very old one, a lag beyond the
+    /// cap over the wire, or by never acknowledging a snapshot. The server's world (BoundBodies) raises every such tick to the oldest picture allowed.
+    /// </summary>
+    [Theory]
+    [InlineData(Hostile.NoBodyTick)]
+    [InlineData(Hostile.VeryOldBodyTick)]
+    [InlineData(Hostile.OldLagOverTheWire)]
+    [InlineData(Hostile.NeverAcked)]
+    public void A_hostile_client_cannot_shed_the_bodies_and_walk_through_a_standing_player(Hostile how)
     {
-        World Pair()
+        var w = new World(Config, null, [new SpawnPoint(Vector3.Zero, 0f), new SpawnPoint(new Vector3(0f, 2.1f, 0f), 0f)]) { BoundBodies = true };
+        w.Spawn(1); w.Spawn(2);
+        for (int k = 0; k < 60; k++)
         {
-            var w = new World(Config, null, [new SpawnPoint(Vector3.Zero, 0f), new SpawnPoint(new Vector3(0f, 1.5f, 0f), 0f)]);
+            uint t = w.Tick + 1;
+            var walk = new PlayerInput(t, 0, 1, 0, InputButtons.None);
+            var hostile = how switch
+            {
+                Hostile.NoBodyTick => walk,                                                                     // lag byte 0
+                Hostile.VeryOldBodyTick => walk with { BodyTick = t > 45 ? t - 45 : 1 },                         // 1.5 s old
+                Hostile.OldLagOverTheWire => Protocol.Quantize(walk with { BodyTick = t > 45 ? t - 45 : 1 }),    // the wire drops it: 0
+                _ => GameServer.WithBoundedBody(walk with { BodyTick = t > 45 ? t - 45 : 1 }, ack: 0, slack: 7), // no ack: the server's own bound decides
+            };
+            w.Step(id => id == 1 ? hostile : new PlayerInput(t, 0, 0, 0, InputButtons.None, BodyTick: w.Tick));
+        }
+        output.WriteLine($"{how}: the walker ended at y {w.Players[1].Position.Y:F3} (the standing player at 2.1)");
+        Assert.True(w.Players[1].Position.Y <= 2.1f - Reach + Tol, $"{how}: walked {w.Players[1].Position.Y - (2.1f - Reach):F3} m into the standing player");
+    }
+
+    [Fact]
+    public void Outside_the_server_an_input_naming_no_body_tick_steps_without_bodies()
+    {
+        // Tools and the many older world tests (BoundBodies off): 0 still means no bodies; a tick older than the cap is raised (never none).
+        World Pair(bool bound)
+        {
+            var w = new World(Config, null, [new SpawnPoint(Vector3.Zero, 0f), new SpawnPoint(new Vector3(0f, 2.1f, 0f), 0f)]) { BoundBodies = bound };
             w.Spawn(1); w.Spawn(2);
             return w;
         }
         static PlayerInput Walk(int id) => id == 1 ? new PlayerInput(0, 0, 1, 0, InputButtons.None) : new PlayerInput(0, 0, 0, 0, InputButtons.None);
-        var blocked = Pair();
-        Run(blocked, 30, (id, p) => Walk(id));
+        var through = Pair(false);
+        for (int k = 0; k < 40; k++) through.Step(Walk);
+        Assert.True(through.Players[1].Position.Y > 3f);
+        var old = Pair(false);
+        for (int k = 0; k < 40; k++) { uint t = old.Tick + 1; old.Step(id => Walk(id) with { BodyTick = t > 45 ? t - 45 : 1 }); }
+        Assert.True(old.Players[1].Position.Y <= 2.1f - Reach + Tol);
+        var blocked = Pair(false);
+        Run(blocked, 40, (id, p) => Walk(id));
         Assert.NotNull(blocked.BodiesAt(blocked.Tick));
-        Assert.InRange(blocked.Players[1].Position.Y, 1.5f - Reach - 0.05f, 1.5f - Reach + Tol);
-        var through = Pair();   // BodyTick 0 (a client with no snapshot yet; every older test): no bodies
-        for (int k = 0; k < 30; k++) through.Step(Walk);
-        Assert.True(through.Players[1].Position.Y > 2f);
-        var tooOld = Pair();    // a body tick beyond the lag limit: none either
-        for (int k = 0; k < 30; k++) { uint t = tooOld.Tick + 1; tooOld.Step(id => Walk(id) with { BodyTick = t > 50 ? t - 50 : 0 }); }
-        Assert.True(tooOld.Players[1].Position.Y > 2f);
+        Assert.InRange(blocked.Players[1].Position.Y, 2.1f - Reach - 0.05f, 2.1f - Reach + Tol);
+        var off = new World(Config with { PlayerBodies = false });
+        off.Spawn(1); off.Step(id => new PlayerInput(0, 0, 0, 0, InputButtons.None));
+        Assert.Null(off.BodiesAt(off.Tick));   // nothing recorded when collision is off
+    }
+
+    [Fact]
+    public void Being_pushed_apart_does_not_end_a_roll_as_a_wall_would()
+    {
+        // A stale snapshot shows a body overlapping just ahead (it has since moved on): the push apart (back, 0.1 m a tick) runs against a forward roll
+        // that is not blocked. The roll must last as long as without that body; the push is left out of the evade's wall test.
+        var c = EvadeTests.Config;
+        var v = new List<Vector3>(); var idx = new List<int>();
+        v.AddRange([new(-60, -60, 0), new(60, -60, 0), new(60, 60, 0), new(-60, 60, 0)]); idx.AddRange([0, 1, 2, 0, 2, 3]);
+        var floor = new StaticMesh(v.ToArray(), idx.ToArray());
+        var level = new CollisionWorld(floor, floor);
+        int Roll(BodyView? view)
+        {
+            var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = 1 }, c);
+            int ticks = 0;
+            using (PlayerCollision.Use(view))
+                for (int k = 0; k < 40; k++)
+                {
+                    s = Combat.StepPlayer(s, new PlayerInput((uint)k + 1, 0f, k == 0 ? 1f : 0f, 0f, k == 0 ? InputButtons.Jump : InputButtons.None), c, out _, level);
+                    if (s.EvadeTicks > 0) ticks++;
+                }
+            return ticks;
+        }
+        var stale = BodyView.Of([new PlayerBody(2, new Vector3(0f, 9f, 0f), new Vector3(0f, 0.5f, 0f))], self: Vector3.Zero);
+        int plain = Roll(null), pushed = Roll(stale);
+        output.WriteLine($"roll ticks: {plain} alone, {pushed} while pushed back by a stale overlap");
+        Assert.True(plain > 10);
+        Assert.Equal(plain, pushed);
+    }
+
+    [Fact]
+    public void A_ground_pound_onto_a_head_lands_in_the_tick_it_touches_the_head()
+    {
+        // The Assault jumps straight up, the Tactical walks under the dive's path (it drifts about 1 m forward, the pound's 50 degree limit), the Assault
+        // pounds looking down: the impact comes on the head, at its height.
+        var c = JumpPackTests.Config;
+        var w = new World(c, null, [new SpawnPoint(Vector3.Zero, 0f), new SpawnPoint(new Vector3(2f, 1.2f, 0f), 0f)]);
+        w.Spawn(1, 0); w.Spawn(2, 1);
+        int k = 0;
+        var impacts = new List<JumpEvent>();
+        Run(w, 120, (id, p) =>
+        {
+            if (id == 1) return new PlayerInput(0, 0f, 0f, 0f, k < 20 ? InputButtons.Jump : k == 26 ? InputButtons.Melee : InputButtons.None, -1.4f);
+            return new PlayerInput(0, 0f, p.Position.X <= 0.02f ? 0f : 1f, MathF.PI / 2f, InputButtons.None);
+        }, 1, () => { k++; impacts.AddRange(w.LastJumps.Where(j => j.Player == 1 && j.Kind == JumpEventKind.Impact)); });
+        var a = w.Players[1]; var b = w.Players[2];
+        output.WriteLine($"impacts: {string.Join(", ", impacts.Select(j => $"tick {j.Tick} at {j.Position}"))}; assault ended at {a.Position} (grounded {a.Grounded}), tactical at {b.Position}");
+        var impact = Assert.Single(impacts);
+        Assert.InRange(impact.Position.Z, 1.8f, 2.0f);   // on the head (its top as seen), not after sliding down beside him
+        Assert.True(a.Grounded && a.Position.Z == 0f && Flat(a.Position, b.Position) >= Reach - 0.01f, "then he slid off and stands beside him");
     }
 
     // ---------------------------------------------------------------- the wire and the server
@@ -549,18 +636,18 @@ public class PlayerCollisionTests(ITestOutputHelper output)
             Player(5, new Vector3(10f, 0f, 0f)) with { Alive = false },
             Player(6, new Vector3(10.1f, 0f, 0f)),   // beside a corpse: not moved
         };
-        var drawn = DrawnBodies.Separate(remotes, own, 1, c);
+        var drawn = new DrawnBodies().Separate(remotes, own, 1, c);
         Assert.Equal(Reach, drawn[0].Position.X, 3);
         Assert.Equal(Reach, drawn[2].Position.X - drawn[1].Position.X, 3);
         Assert.Equal(4.7f, drawn[1].Position.X, 3);   // 0.3 m each
         Assert.Equal(remotes[3], drawn[3]);
         Assert.Equal(remotes[4], drawn[4]);
         // Deep overlaps are moved at most a capsule radius from where they are interpolated.
-        var deep = DrawnBodies.Separate([Player(2, new Vector3(0.01f, 0f, 0f))], own, 1, c);
+        var deep = new DrawnBodies().Separate([Player(2, new Vector3(0.01f, 0f, 0f))], own, 1, c);
         Assert.True(Flat(deep[0].Position, remotes[0].Position with { X = 0.01f }) <= DrawnBodies.MaxShift + 1e-4f);
         // Nothing to do: the same list.
         var apart = new[] { Player(2, new Vector3(3f, 0f, 0f)) };
-        Assert.Same(apart, DrawnBodies.Separate(apart, own, 1, c));
-        Assert.Same(remotes, DrawnBodies.Separate(remotes, own, 1, c with { PlayerBodies = false }));
+        Assert.Same(apart, new DrawnBodies().Separate(apart, own, 1, c));
+        Assert.Same(remotes, new DrawnBodies().Separate(remotes, own, 1, c with { PlayerBodies = false }));
     }
 }
