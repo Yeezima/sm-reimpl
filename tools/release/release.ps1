@@ -1218,7 +1218,7 @@ if ($Smoke) {
             $code = if ($timedOut) { -1 } else { $cp.ExitCode }
             $out = ((Get-Content $cout -ErrorAction SilentlyContinue) + (Get-Content $cerr -ErrorAction SilentlyContinue)) -join "`n"
             Write-Host (($out -split "`n" | Select-Object -Last 8) -join "`n")
-            $joined = Select-String -LiteralPath $log -Pattern '^player \d+ joined' -Quiet
+            $joined = Select-String -LiteralPath $log -Pattern '^player \d+ (\([^)]*\) )?joined' -Quiet
             # case-sensitive: the runtime's and the engine's own messages; our status lines may say "(0 failed to load)"
             if ($code -ne 0 -or -not $joined -or $out -cmatch 'Unhandled exception|FileNotFoundException|Could not load file or assembly|Failed to load') { $fail = $true; Write-Host "  game: FAILED (exit $code, the server saw a player join: $joined)" -ForegroundColor Red }
             else { Write-Host "  game: exit $code, no load errors, the server saw the bot join" -ForegroundColor Green }
@@ -1227,14 +1227,14 @@ if ($Smoke) {
         if ($ready) {
             Step 'Smoke: game\sm-reimpl.console.exe, lean headless bot (the hosted-bot default), joins it'
             $lout = Join-Path $smokeDir 'lean.out.txt'; $lerr = Join-Path $smokeDir 'lean.err.txt'
-            $before = @(Select-String -LiteralPath $log -Pattern '^player \d+ joined').Count
+            $before = @(Select-String -LiteralPath $log -Pattern '^player \d+ (\([^)]*\) )?joined').Count
             $lp = Start-Process -FilePath (Join-Path $pkg 'game\sm-reimpl.console.exe') -ArgumentList '--headless', '--', '--connect', "127.0.0.1:$port", '--bot', '--quit-after', '25' `
                 -WorkingDirectory (Join-Path $pkg 'game') -PassThru -WindowStyle Hidden -RedirectStandardOutput $lout -RedirectStandardError $lerr
             $null = $lp.Handle
             if (-not $lp.WaitForExit(120000)) { Stop-Process -Id $lp.Id -Force; $lcode = -1 } else { $lcode = $lp.ExitCode }     # only the process started above
             $lo = ((Get-Content $lout -ErrorAction SilentlyContinue) + (Get-Content $lerr -ErrorAction SilentlyContinue)) -join "`n"
             $lean = $lo -match 'lean bot'
-            $ljoined = @(Select-String -LiteralPath $log -Pattern '^player \d+ joined').Count -gt $before
+            $ljoined = @(Select-String -LiteralPath $log -Pattern '^player \d+ (\([^)]*\) )?joined').Count -gt $before
             if ($lcode -ne 0 -or -not $lean -or -not $ljoined -or $lo -cmatch 'Unhandled exception|FileNotFoundException|Could not load file or assembly|Failed to load') { $fail = $true; Write-Host "  lean bot: FAILED (exit $lcode, lean line: $lean, joined: $ljoined)" -ForegroundColor Red }
             else { Write-Host "  lean bot: exit $lcode, lean mode on, the server saw it join" -ForegroundColor Green }
         }
