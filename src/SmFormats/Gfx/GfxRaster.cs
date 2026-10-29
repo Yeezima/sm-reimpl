@@ -75,24 +75,147 @@ public static class GfxRaster
     /// </summary>
     public static void Draw(GfxMovie movie, int spriteId, int frame, GfxMatrix root, GfxCanvas canvas, Func<int, GfxBitmap?> bitmaps, Func<int, int>? frameOf = null,
         GfxCanvas? additive = null, CancellationToken cancel = default)
-        => DrawSprite(movie, spriteId == 0 ? movie.Root : movie.Sprites[spriteId], frame, root, GfxColourTransform.Identity, canvas, additive, false, bitmaps, frameOf, 0, cancel);
+        => DrawSprite(movie, spriteId == 0 ? movie.Root : movie.Sprites[spriteId], frame, root, GfxColourTransform.Identity, canvas, additive, false, bitmaps, frameOf, 0, cancel, false);
 
-    static void DrawSprite(GfxMovie movie, GfxSprite sprite, int frame, GfxMatrix m, GfxColourTransform cx, GfxCanvas canvas, GfxCanvas? additive, bool add, Func<int, GfxBitmap?> bitmaps, Func<int, int>? frameOf, int depth, CancellationToken cancel)
+    /// <summary>
+    /// <see cref="Draw"/> with the movie's clip layers applied (ui/hud-fidelity): a placement with a clip depth masks the depths up to it by its own coverage (Flash masks), so a
+    /// bar's sliding fill shows only inside its window. <paramref name="character"/> may be a sprite (0: the root) or a shape; <paramref name="colour"/> and <paramref name="add"/> are
+    /// its own placement's colour transform and "add" blend mode.
+    /// </summary>
+    public static void DrawMasked(GfxMovie movie, int character, int frame, GfxMatrix root, GfxCanvas canvas, Func<int, GfxBitmap?> bitmaps, Func<int, int>? frameOf = null,
+        GfxCanvas? additive = null, CancellationToken cancel = default, GfxColourTransform? colour = null, bool add = false)
+    {
+        var cx = colour ?? GfxColourTransform.Identity;
+        if (character == 0 || movie.Sprites.ContainsKey(character))
+            DrawSprite(movie, character == 0 ? movie.Root : movie.Sprites[character], frame, root, cx, canvas, additive, add, bitmaps, frameOf, 0, cancel, true);
+        else if (movie.Shapes.TryGetValue(character, out var shape)) DrawShape(shape, root, cx, add && additive is not null ? additive : canvas, bitmaps, cancel);
+    }
+
+    static void DrawSprite(GfxMovie movie, GfxSprite sprite, int frame, GfxMatrix m, GfxColourTransform cx, GfxCanvas canvas, GfxCanvas? additive, bool add, Func<int, GfxBitmap?> bitmaps, Func<int, int>? frameOf, int depth, CancellationToken cancel, bool masks)
     {
         if (depth > 12 || sprite.Frames.Count == 0) return;
         var f = sprite.Frames[Math.Clamp(frame, 0, sprite.Frames.Count - 1)];
+        GfxCanvas? mask = null, maskedN = null, maskedA = null;
+        int maskUntil = -1;
         foreach (var p in f.Display.Values)
         {
             cancel.ThrowIfCancellationRequested();
+            if (mask is not null && p.Depth > maskUntil) { Composite(mask, maskedN, canvas, maskedA, additive); mask = maskedN = maskedA = null; }
             if (p.Character < 0) continue;
             // Placement matrices are in twips for the translation: convert to pixels.
             var pm = p.Matrix is { } pmx ? new GfxMatrix(pmx.A, pmx.B, pmx.C, pmx.D, pmx.Tx / 20.0, pmx.Ty / 20.0) : GfxMatrix.Identity;
             var child = m.After(pm);
+            if (masks && p.ClipDepth > 0)
+            {
+                // A clip layer: its coverage (full alpha where it draws, whatever its colour) masks the depths up to its clip depth; it is not drawn itself.
+                mask = new GfxCanvas(canvas.Width, canvas.Height);
+                maskUntil = p.ClipDepth;
+                var solid = new GfxColourTransform(0, 0, 0, 0, 1, 1, 1, 1);
+                if (movie.Sprites.TryGetValue(p.Character, out var ms)) DrawSprite(movie, ms, frameOf?.Invoke(p.Character) ?? 0, child, solid, mask, null, false, bitmaps, frameOf, depth + 1, cancel, masks);
+                else if (movie.Shapes.TryGetValue(p.Character, out var mshape)) DrawShape(mshape, child, solid, mask, bitmaps, cancel);
+                maskedN = new GfxCanvas(canvas.Width, canvas.Height);
+                maskedA = additive is null ? null : new GfxCanvas(canvas.Width, canvas.Height, additive: true);
+                continue;
+            }
+            var targetN = mask is not null ? maskedN! : canvas;
+            var targetA = mask is not null ? maskedA : additive;
             var childCx = p.Colour is { } pc ? cx.After(pc) : cx;
             bool childAdd = add || p.Blend == 8;   // Flash blend mode 8 is "add"; a multiply (3) of black, which the scope's masks use, is the normal alpha blend
-            if (movie.Sprites.TryGetValue(p.Character, out var sub)) DrawSprite(movie, sub, frameOf?.Invoke(p.Character) ?? 0, child, childCx, canvas, additive, childAdd, bitmaps, frameOf, depth + 1, cancel);
-            else if (movie.Shapes.TryGetValue(p.Character, out var shape)) DrawShape(shape, child, childCx, childAdd && additive is not null ? additive : canvas, bitmaps, cancel);
+            if (movie.Sprites.TryGetValue(p.Character, out var sub)) DrawSprite(movie, sub, frameOf?.Invoke(p.Character) ?? 0, child, childCx, targetN, targetA, childAdd, bitmaps, frameOf, depth + 1, cancel, masks);
+            else if (movie.Shapes.TryGetValue(p.Character, out var shape)) DrawShape(shape, child, childCx, childAdd && targetA is not null ? targetA : targetN, bitmaps, cancel);
+            else if (ImageShape(movie, p.Character) is { } image) DrawShape(image, child, childCx, childAdd && targetA is not null ? targetA : targetN, bitmaps, cancel);
         }
+        if (mask is not null) Composite(mask, maskedN, canvas, maskedA, additive);
+    }
+
+    static readonly Dictionary<(GfxMovie, int), GfxShape?> ImageShapes = new();
+
+    /// <summary>
+    /// An exporter's image placed directly as a character (DefineExternalImage2 / sub-image ids on a display list, as the HUD movies' side emblems are): a rectangle of the image's
+    /// size filled with the image (the bitmap callback receives the character's id). Null when the id is not an image.
+    /// </summary>
+    static GfxShape? ImageShape(GfxMovie movie, int id)
+    {
+        lock (ImageShapes)
+        {
+            if (ImageShapes.TryGetValue((movie, id), out var cached)) return cached;
+            int w, h;
+            if (movie.SubImages.TryGetValue(id, out var si)) { w = si.X1 - si.X0; h = si.Y1 - si.Y0; }
+            else if (movie.Images.TryGetValue(id, out var img)) { w = img.Width; h = img.Height; }
+            else return ImageShapes[(movie, id)] = null;
+            if (w <= 0 || h <= 0) return ImageShapes[(movie, id)] = null;
+            var shape = new GfxShape { Id = id };
+            shape.Fills.Add(new GfxFill { Kind = GfxFillKind.Bitmap, BitmapId = id, Matrix = new GfxMatrix(20, 0, 0, 20, 0, 0), Smooth = true });
+            double tw = w * 20.0, th = h * 20.0;
+            shape.Segments.Add(new GfxSegment(0, 0, 0, 0, tw, 0, false, 0, 1, 0));
+            shape.Segments.Add(new GfxSegment(tw, 0, 0, 0, tw, th, false, 0, 1, 0));
+            shape.Segments.Add(new GfxSegment(tw, th, 0, 0, 0, th, false, 0, 1, 0));
+            shape.Segments.Add(new GfxSegment(0, th, 0, 0, 0, 0, false, 0, 1, 0));
+            return ImageShapes[(movie, id)] = shape;
+        }
+    }
+
+    /// <summary>Lays the masked layers over the targets, each pixel scaled by the mask's alpha.</summary>
+    static void Composite(GfxCanvas mask, GfxCanvas? normal, GfxCanvas target, GfxCanvas? added, GfxCanvas? targetAdd)
+    {
+        var mp = mask.Pixels;
+        for (int i = 0; i < mp.Length; i += 4)
+        {
+            float k = mp[i + 3] / 65535f;
+            if (k <= 0f) continue;
+            if (normal is not null)
+            {
+                var s = normal.Pixels; var t = target.Pixels;
+                float a = s[i + 3] / 65535f * k;
+                if (a > 0f)
+                {
+                    float inv = 1f - a;
+                    t[i] = Sat(s[i] * k + t[i] * inv); t[i + 1] = Sat(s[i + 1] * k + t[i + 1] * inv); t[i + 2] = Sat(s[i + 2] * k + t[i + 2] * inv); t[i + 3] = Sat(a * 65535f + t[i + 3] * inv);
+                }
+            }
+            if (added is not null && targetAdd is not null)
+            {
+                var s = added.Pixels; var t = targetAdd.Pixels;
+                t[i] = Sat(t[i] + s[i] * k); t[i + 1] = Sat(t[i + 1] + s[i + 1] * k); t[i + 2] = Sat(t[i + 2] + s[i + 2] * k);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The box (canvas pixels under <paramref name="root"/>) the shapes of a frame of a character cover, edges and curve control points included, or null when it draws nothing;
+    /// text fields count when <paramref name="withText"/>. Placements whose alpha is 0 are skipped when <paramref name="visibleOnly"/> (clip layers always count).
+    /// </summary>
+    public static (double X0, double Y0, double X1, double Y1)? Bounds(GfxMovie movie, int character, int frame, GfxMatrix root, Func<int, int>? frameOf = null, bool withText = false, bool visibleOnly = false)
+    {
+        double x0 = double.MaxValue, y0 = double.MaxValue, x1 = double.MinValue, y1 = double.MinValue;
+        void Add(GfxMatrix m, double x, double y) { var (px, py) = m.Apply(x, y); x0 = Math.Min(x0, px); y0 = Math.Min(y0, py); x1 = Math.Max(x1, px); y1 = Math.Max(y1, py); }
+        void Walk(int ch, int fr, GfxMatrix m, int d, float alpha)
+        {
+            if (d > 12) return;
+            if (movie.Shapes.TryGetValue(ch, out var shape) || (shape = ImageShape(movie, ch)) is not null)
+            {
+                foreach (var s in shape.Segments)
+                {
+                    Add(m, s.X0 / 20.0, s.Y0 / 20.0); Add(m, s.X1 / 20.0, s.Y1 / 20.0);
+                    if (s.Curved) Add(m, s.CX / 20.0, s.CY / 20.0);
+                }
+                return;
+            }
+            if (withText && movie.EditTexts.TryGetValue(ch, out var t)) { Add(m, t.X0, t.Y0); Add(m, t.X1, t.Y1); Add(m, t.X0, t.Y1); Add(m, t.X1, t.Y0); return; }
+            var sp = ch == 0 && d == 0 ? movie.Root : movie.Sprites.GetValueOrDefault(ch);   // 0: the root timeline
+            if (sp is null || sp.Frames.Count == 0) return;
+            var f = sp.Frames[Math.Clamp(fr, 0, sp.Frames.Count - 1)];
+            foreach (var p in f.Display.Values)
+            {
+                if (p.Character < 0) continue;
+                float a = alpha * (p.Colour?.MulA ?? 1f) + (p.Colour?.AddA ?? 0f);
+                if (visibleOnly && a <= 0.001f && p.ClipDepth == 0) continue;
+                var pm = p.Matrix is { } pmx ? new GfxMatrix(pmx.A, pmx.B, pmx.C, pmx.D, pmx.Tx / 20.0, pmx.Ty / 20.0) : GfxMatrix.Identity;
+                Walk(p.Character, frameOf?.Invoke(p.Character) ?? 0, m.After(pm), d + 1, a);
+            }
+        }
+        Walk(character, frame, root, 0, 1f);
+        return x0 <= x1 ? (x0, y0, x1, y1) : null;
     }
 
     // ---- shapes ----

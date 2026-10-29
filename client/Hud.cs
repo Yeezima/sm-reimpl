@@ -100,6 +100,8 @@ public sealed partial class Hud : Control
         public readonly List<Point> Points = new();
         /// <summary>Fidelity gap 10: the world decorators over other players this frame (<see cref="Decorator"/>).</summary>
         public readonly List<Decorator> Decorators = new();
+        /// <summary>ui/hud-fidelity: the interaction prompt ("Pick up Ammo"; empty: none) and its key, drawn by the HUD from the movie's prompt (NetworkView.Pickups.cs fills them).</summary>
+        public string Prompt = "", PromptKey = "E";
         // Status.
         public string Status = "";
         public bool StatusIsError;
@@ -108,6 +110,12 @@ public sealed partial class Hud : Control
         public float SpreadRadius;
         /// <summary>feel/scope-lascannon: the scope overlay (stalker bolter, lascannon) is on screen: it has its own reticle, so the normal crosshair is not drawn.</summary>
         public bool Scoped;
+        /// <summary>ui/hud-fidelity: how far the next shot's scatter is between the stance's narrowest and widest (0..1, <see cref="ReticleRules.SpreadFraction"/>): picks the reticle's spread frame.</summary>
+        public float SpreadFraction;
+        /// <summary>ui/hud-fidelity: aim mode (the reticle's <c>min_aim</c>..<c>max_aim</c> range) and the heavy bolter's brace (its reticle's <c>alt_fire</c> clip).</summary>
+        public bool Aiming, Braced;
+        /// <summary>ui/hud-fidelity: where the crosshair is drawn, from the screen centre (virtual units): zero, except with the camera lag (NetworkView.CameraLag.cs: the lens trails the aim).</summary>
+        public Vector2 CrosshairOffset;
         public bool AimedAtEnemy;
         public string AimedName = "";
         /// <summary>The aimed enemy's health and shield after the last hit on it (HUD units), or negative when not known (shown under its name).</summary>
@@ -172,6 +180,7 @@ public sealed partial class Hud : Control
         _fontLight = Variant(330, 88);
         _fontBold = Variant(600, 92);
         _art = new HudArt(GameDir);
+        MovieReady();   // ui/hud-fidelity (Hud.Movie.cs)
     }
 
     /// <summary>
@@ -209,6 +218,7 @@ public sealed partial class Hud : Control
         _feed.RemoveAll(f => _time - f.At > FeedSeconds);
         _events.RemoveAll(e => _time - e.At > EventSeconds);
         TrackPoints();
+        MovieProcess();
         if (Data.InGame)
         {
             if (_lastSlotKey >= 0 && Data.SlotKey != _lastSlotKey && Data.HasOther) _popupAt = _time;
@@ -242,9 +252,9 @@ public sealed partial class Hud : Control
     }
 
     /// <summary>Draws in a local frame placed by <paramref name="local"/> (local → virtual); <see cref="EndLocal"/> returns to the virtual space.</summary>
-    void BeginLocal(Transform2D local) => DrawSetTransformMatrix(_base * local);
+    void BeginLocal(Transform2D local) { _localXf = local; DrawSetTransformMatrix(_base * local); }
 
-    void EndLocal() => DrawSetTransformMatrix(_base);
+    void EndLocal() { _localXf = Transform2D.Identity; DrawSetTransformMatrix(_base); }
 
     static Transform2D Placed(Vector2 origin, float degrees) => new(Mathf.DegToRad(degrees), origin);
 
@@ -358,6 +368,7 @@ public sealed partial class Hud : Control
 
     public override void _Draw()
     {
+        _adds.Clear();
         if (_font is null) return;
         _scale = Size.Y / RefHeight;
         if (_scale <= 0f) return;
@@ -376,6 +387,7 @@ public sealed partial class Hud : Control
         DrawWeaponBox(vs);
         DrawObjectives(vs);
         DrawCentre(vs);
+        if (d.Alive && !d.Spectating) DrawMoviePrompt(vs);   // ui/hud-fidelity: the pick-up prompt
         DrawHint();
     }
 
@@ -480,6 +492,9 @@ public sealed partial class Hud : Control
         var d = Data;
         float cx = vs.X / 2f + 10f;
         float y = 222f;
+        bool movie = DrawMovieRewards(vs);   // ui/hud-fidelity: the movie's reward lines (Hud.Fidelity.cs)
+        if (movie) y = 250f + 49f * _events.Count;   // under the movie's reward lines (32.65 stage pixels apart)
+        if (!movie)
         foreach (var (text, at) in _events)
         {
             float a = (float)Math.Clamp(EventSeconds - (_time - at), 0.0, 0.6) / 0.6f;
@@ -500,6 +515,7 @@ public sealed partial class Hud : Control
     /// </summary>
     void DrawKillFeed(Vector2 vs)
     {
+        if (DrawMovieKillFeed(vs)) return;   // ui/hud-fidelity: the feed movie's layout (Hud.Fidelity.cs)
         float xr = vs.X - 187f, y = 127f;
         const int size = 22;
         foreach (var (k, at) in _feed)
@@ -538,11 +554,12 @@ public sealed partial class Hud : Control
     {
         var d = Data;
         if (!d.Alive || d.Spectating) return;
-        var c = vs / 2f;
+        var c = vs / 2f + d.CrosshairOffset;   // ui/hud-fidelity: the camera lag moves the crosshair off the centre while the lens catches up
         var col = d.AimedAtEnemy ? new Color(0.95f, 0.1f, 0.08f) : new Color(1f, 1f, 1f, 0.9f);
         var shadow = new Color(0f, 0f, 0f, 0.55f);
         const float r = 18f;
-        if (!d.Scoped)   // feel/scope-lascannon: the scope overlay has its own reticle (the name, hit marker and cards below stay)
+        // ui/hud-fidelity: the original reticle (Hud.Movie.cs); the M44 circle with --old-hud or without the movie.
+        if (!d.Scoped && (OldHud || !DrawMovieReticle(c)))   // feel/scope-lascannon: the scope overlay has its own reticle (the name, hit marker and cards below stay)
         {
         DrawArc(c, r, 0f, MathF.Tau, 40, shadow, 4f, true);
         DrawArc(c, r, 0f, MathF.Tau, 40, col, 1.8f, true);
@@ -569,7 +586,8 @@ public sealed partial class Hud : Control
         // Hit marker: four diagonal ticks.
         double since = _time - _hitAt;
         double life = _hitKill ? 0.55 : 0.28;
-        if (since >= 0.0 && since < life)
+        bool movieMarker = !OldHud && since >= 0.0 && since < 1.0 && DrawMovieHitMarker(c, since);   // ui/hud-fidelity: the movie's hit_mc
+        if (!movieMarker && since >= 0.0 && since < life)
         {
             float a = (float)(1.0 - since / life);
             var hc = _hitKill ? new Color(0.95f, 0.1f, 0.08f, a) : _hitHead ? new Color(1f, 0.9f, 0.45f, a) : new Color(1f, 1f, 1f, a);
@@ -581,6 +599,6 @@ public sealed partial class Hud : Control
                 DrawLine(c + n * r0, c + n * r1, hc, 2.5f);
             }
         }
-        DrawSwitchCards(c);
+        DrawSwitchCards(vs / 2f);
     }
 }

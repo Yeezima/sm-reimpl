@@ -136,8 +136,10 @@ public partial class NetworkView
         _mouseScale = Mathf.Lerp(Finite(wc.ExplorationInput.SpeedMouse, 100f), Finite(wc.AimInput.SpeedMouse, 100f), w) / 100f;
         _pitch = Math.Clamp(_pitch, _pitchMin, _pitchMax);
         float pitch = Math.Clamp(_pitch, _pitchMin, _pitchMax);
+        // ui/hud-fidelity: the rig follows the view a moment late (--camera-lag; temporary, owner: NetworkView.CameraLag.cs); the aim stays the view's.
+        var (rigYaw, rigPitch) = LaggedView(_yaw, pitch, delta, me.Alive);
 
-        if (_cameraRig.OffsetAtPitch(ex.AnimationCurve, pitch) is not { } o0 || _cameraRig.OffsetAtPitch(aim.AnimationCurve, pitch) is not { } o1) return false;
+        if (_cameraRig.OffsetAtPitch(ex.AnimationCurve, rigPitch) is not { } o0 || _cameraRig.OffsetAtPitch(aim.AnimationCurve, rigPitch) is not { } o1) return false;
         if (!_rigLogged)
         {
             _rigLogged = true;
@@ -164,7 +166,7 @@ public partial class NetworkView
             {
                 _lastEvadeSet = set;
                 float we = _evadeBlend * _evadeBlend * (3f - 2f * _evadeBlend);
-                float lookupPitch = Math.Clamp(pitch, CameraRig.SimRadians(set.PitchMinimum), CameraRig.SimRadians(set.PitchMaximum));
+                float lookupPitch = Math.Clamp(rigPitch, CameraRig.SimRadians(set.PitchMinimum), CameraRig.SimRadians(set.PitchMaximum));
                 if (_cameraRig.OffsetAtPitch(set.AnimationCurve, lookupPitch) is { } oe)
                 {
                     cam = System.Numerics.Vector3.Lerp(cam, oe.Camera, we);
@@ -187,7 +189,7 @@ public partial class NetworkView
         else { _lastEvadeSet = null; _evadeCamLogged = false; }
 
         // Character frame (X right, Y forward, Z up) rotated by the view's yaw about the feet, into Godot space.
-        float sin = MathF.Sin(_yaw), cos = MathF.Cos(_yaw);
+        float sin = MathF.Sin(rigYaw), cos = MathF.Cos(rigYaw);
         Vector3 ToWorld(System.Numerics.Vector3 v)
         {
             var g = me.Position + new System.Numerics.Vector3(v.X * cos - v.Y * sin, v.X * sin + v.Y * cos, v.Z);
@@ -245,10 +247,10 @@ public partial class NetworkView
         position = Depenetrate(ClearOfBodies(position, me, includeOwn: false, pivotWorld, delta));   // an enemy in melee range is not in the lens
         _cameraPlaced = true;
 
-        var aimGame = Combat.AimDirection(_yaw, pitch);
+        var aimGame = Combat.AimDirection(rigYaw, rigPitch);
         var look = (_gameSpace.Basis * new Vector3(aimGame.X, aimGame.Y, aimGame.Z)).Normalized();
         _camera.GlobalTransform = new Transform3D(Basis.LookingAt(look, Vector3.Up), position);
-        NoteCameraPlaced(_yaw, pitch, me.Position);   // feel/controls: the view the converged shot's ray is turned from (FreshCenterRay)
+        NoteCameraPlaced(rigYaw, rigPitch, me.Position);   // feel/controls: the view the converged shot's ray is turned from (FreshCenterRay)
         _camera.Fov = fov;
         var feet = _gameSpace.Transform * new Vector3(me.Position.X, me.Position.Y, me.Position.Z);
         _cameraOffset = position - feet;
@@ -272,7 +274,8 @@ public partial class NetworkView
         var d3 = (inverse.Basis * (-_camera.GlobalBasis.Z)).Normalized();
         var o = new System.Numerics.Vector3(o3.X, o3.Y, o3.Z);
         var d = new System.Numerics.Vector3(d3.X, d3.Y, d3.Z);
-        if (ray is { } fresh) { o = fresh.Origin; d = fresh.Direction; }   // feel/controls: the ray at the view of this moment (FreshCenterRay)
+        if (LagAimRay() is { } aimRay) { o = aimRay.Origin; d = aimRay.Direction; }   // ui/hud-fidelity: with the camera lag, the aim's ray, not the lens's (NetworkView.CameraLag.cs)
+        else if (ray is { } fresh) { o = fresh.Origin; d = fresh.Direction; }   // feel/controls: the ray at the view of this moment (FreshCenterRay)
         float t0 = MathF.Max(0f, System.Numerics.Vector3.Dot(Combat.EyePosition(me, c) - o, d));
         var start = o + d * t0;
         var inHand = Loadouts.InHand(c, me);

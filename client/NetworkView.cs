@@ -1918,7 +1918,12 @@ public partial class NetworkView : Node3D
                 }
             }
             f.SpreadRadius = SpreadPixels(me, c);   // weapons/spread: the crosshair ticks open with the scatter (NetworkView.Spread.cs)
+            // ui/hud-fidelity: the original reticle's spread frame, aim mode and the brace (Hud.Movie.cs).
+            f.SpreadFraction = ReticleRules.SpreadFraction(inHand, me, c.MoveSpeedScale);
+            f.Aiming = me.Aiming; f.Braced = me.Brace is BracePhase.Entering or BracePhase.Braced;
+            f.CrosshairOffset = CrosshairOffset(me, c);   // the camera lag (temporary, NetworkView.CameraLag.cs)
         }
+        f.Prompt = me.Alive ? _hudPrompt : "";   // ui/hud-fidelity (NetworkView.Pickups.cs)
         UpdateScope(f, me);   // feel/scope-lascannon
         if (HudDemo) RunHudDemo(f);
         Ph("overlay text");
@@ -1943,6 +1948,7 @@ public partial class NetworkView : Node3D
         else if (f.HasCharge) { f.Charge = (float)(t % 2.0 / 2.0); f.ChargeReady = f.Charge > 0.75f; }
         if (f.HasJump) f.JumpPower = f.JumpMax * (float)(0.3 + 0.7 * Math.Abs(Math.Sin(t)));
         if (t >= 4.0) f.Shield = MathF.Min(f.Shield, 0.7f * f.ShieldMax);
+        if (t >= 5.0) f.Prompt = "Pick up Ammo";   // ui/hud-fidelity: the prompt for screenshots
         if (Crossed(2.5)) _hudView.ShowHitMarker(false);
         if (Crossed(4.5))
         {

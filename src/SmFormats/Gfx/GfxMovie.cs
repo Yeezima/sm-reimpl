@@ -90,6 +90,14 @@ public sealed class GfxSprite
     public List<GfxFrame> Frames = [];
 }
 
+/// <summary>
+/// A text field (DefineEditText) as the movie defines it: its rectangle (pixels, in the field's own space), the font's character id and height (pixels),
+/// the default colour (straight RGBA 0..1), the alignment (0 left, 1 right, 2 centre, 3 justify), the leading (pixels) and the text the field starts with.
+/// The text itself is drawn by the client (the glyphs live in the font movies); ui/hud-fidelity.
+/// </summary>
+public sealed record GfxEditText(int Id, double X0, double Y0, double X1, double Y1, int FontId, double FontHeight, (float R, float G, float B, float A) Colour,
+    int Align, double Leading, string InitialText, bool Html, bool Multiline);
+
 /// <summary>A picture inside an external image (the Scaleform exporter's sub-image record: rectangle in the image's pixels).</summary>
 public readonly record struct GfxSubImage(int Image, int X0, int Y0, int X1, int Y1);
 
@@ -106,6 +114,12 @@ public sealed class GfxMovie
     public Dictionary<int, GfxSubImage> SubImages { get; } = new();
     /// <summary>External image id -> file name as the exporter wrote it (e.g. <c>hud_I5D.dds</c>), with the size the movie gives.</summary>
     public Dictionary<int, (string File, int Width, int Height)> Images { get; } = new();
+    /// <summary>The tag code that defined each character id (shapes 2/22/32/83, sprites 39, text 37, bitmaps 6/20/21/35/36/90, the exporter's images 1008/1009 ...).</summary>
+    public Dictionary<int, int> DefinedBy { get; } = new();
+    /// <summary>Text fields by character id (DefineEditText, tag 37).</summary>
+    public Dictionary<int, GfxEditText> EditTexts { get; } = new();
+    /// <summary>Font names by character id: a font the movie defines (DefineFont2/3) or imports (ImportAssets, e.g. <c>$BourgeoisBoldAlt</c>).</summary>
+    public Dictionary<int, string> FontNames { get; } = new();
     /// <summary>The root timeline's first frame.</summary>
     public GfxSprite Root { get; } = new() { Id = 0 };
 
@@ -167,6 +181,9 @@ public sealed class GfxMovie
             if (len < 0 || len > end - pos) throw new InvalidDataException("a tag's length runs past its parent");
             int body = pos; pos += len;
             _bit = body * 8;
+            // Which tag defined each character (diagnostics: a character that is neither a shape nor a sprite, e.g. a bitmap, is not drawn).
+            if (len >= 2 && code is 2 or 6 or 7 or 10 or 11 or 14 or 20 or 21 or 22 or 32 or 33 or 34 or 35 or 36 or 37 or 39 or 46 or 48 or 60 or 75 or 83 or 84 or 90 or 1008 or 1009)
+                DefinedBy[BitConverter.ToUInt16(_d, body)] = code;
             switch (code)
             {
                 case 0: if (owner.Frames.Count > 1) owner.Frames.RemoveAt(owner.Frames.Count - 1); return;   // the frame opened after the last ShowFrame has no tags
@@ -201,7 +218,31 @@ public sealed class GfxMovie
                         Images[id] = (Encoding.ASCII.GetString(_d, nameAt + 1, _d[nameAt]), w, h);
                         break;
                     }
-                // Everything else (actions: DoAction 12, DoInitAction 59, DoABC 82; fonts, text, sounds, ...) is skipped by its length and never read.
+                case 37: try { EditText(body + len); } catch (Exception e) when (e is IndexOutOfRangeException or ArgumentException) { } break;   // a field we cannot read only loses its text info
+                case 48 or 75:
+                    try
+                    {
+                        // DefineFont2/3: id, flags, language, name (length byte, text); the glyphs are not read.
+                        if (len >= 5)
+                        {
+                            int id = U16(); Byte(); Byte(); int n = Byte();
+                            if ((_bit >> 3) + n <= body + len) FontNames[id] = Encoding.UTF8.GetString(_d, _bit >> 3, n).TrimEnd('\0');
+                        }
+                    }
+                    catch (Exception e) when (e is IndexOutOfRangeException or ArgumentException) { }
+                    break;
+                case 57 or 71:
+                    try
+                    {
+                        // ImportAssets(2): source URL, (two reserved bytes in 71), count, then id + name pairs (the fonts a HUD movie takes from the font movie).
+                        CString();
+                        if (code == 71) { Byte(); Byte(); }
+                        int count = U16();
+                        for (int i = 0; i < count && (_bit >> 3) < body + len; i++) { int id = U16(); FontNames[id] = CString(); }
+                    }
+                    catch (Exception e) when (e is IndexOutOfRangeException or ArgumentException) { }
+                    break;
+                // Everything else (actions: DoAction 12, DoInitAction 59, DoABC 82; glyphs, static text, sounds, ...) is skipped by its length and never read.
             }
         }
     }
@@ -226,6 +267,29 @@ public sealed class GfxMovie
         if (move && frame.Display.TryGetValue(depth, out var old))
             frame.Display[depth] = new GfxPlacement(depth, ch >= 0 ? ch : old.Character, name.Length > 0 ? name : old.Name, matrix ?? old.Matrix, cx ?? old.Colour, true, clip > 0 ? clip : old.ClipDepth, blend > 0 ? blend : old.Blend);
         else frame.Display[depth] = new GfxPlacement(depth, ch, name, matrix, cx, move, clip, blend);
+    }
+
+    void EditText(int end)
+    {
+        int id = U16();
+        int nb = (int)UBits(5);
+        double x0 = SBits(nb) / 20.0, x1 = SBits(nb) / 20.0, y0 = SBits(nb) / 20.0, y1 = SBits(nb) / 20.0;
+        Align();
+        int f1 = Byte(), f2 = Byte();
+        bool hasText = (f1 & 0x80) != 0, multiline = (f1 & 0x20) != 0, hasColour = (f1 & 0x04) != 0, hasMax = (f1 & 0x02) != 0, hasFont = (f1 & 0x01) != 0;
+        bool hasFontClass = (f2 & 0x80) != 0, hasLayout = (f2 & 0x20) != 0, html = (f2 & 0x02) != 0;
+        int font = 0; double height = 0, leading = 0; int align = 0;
+        (float, float, float, float) colour = (1f, 1f, 1f, 1f);
+        if (hasFont) font = U16();
+        if (hasFontClass) CString();
+        if (hasFont || hasFontClass) height = U16() / 20.0;
+        if (hasColour) colour = Colour(true);
+        if (hasMax) U16();
+        if (hasLayout) { align = Byte(); U16(); U16(); U16(); leading = (short)U16() / 20.0; }
+        if ((_bit >> 3) < end) CString();   // variable name
+        string text = hasText && (_bit >> 3) < end ? CString() : "";
+        if ((_bit + 7) / 8 > end) return;   // ran past the tag: not a field we can read
+        EditTexts[id] = new GfxEditText(id, x0, y0, x1, y1, font, height, colour, align, leading, text, html, multiline);
     }
 
     GfxMatrix ReadMatrix()

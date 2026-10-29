@@ -19,6 +19,7 @@ public sealed partial class Hud
     {
         var d = Data;
         if (!d.Teams) return;
+        if (DrawMovieScorePanel(vs)) return;   // ui/hud-fidelity: the HudText movie's panel (Hud.Fidelity.cs)
         float b = vs.Y;   // bottom edge
         // The panel: a dark band whose top and bottom lines rise slightly to the right (footage: from (231, b-199) to (537, b-209) and
         // (216, b-135) to (534, b-145)); darker at the right, fading out at the left.
@@ -93,10 +94,16 @@ public sealed partial class Hud
     {
         var d = Data;
         if (!d.Alive) return;
+        bool movie = d.HasWeapon && DrawMovieWeaponBox(vs);   // ui/hud-fidelity: the movie's box (Hud.Fidelity.cs); the jump meter and the lines under it stay
         BeginLocal(Placed(new Vector2(vs.X - 514f, vs.Y - 238f), 2.5f));
-        if (d.HasWeapon) DrawBoxContents();
-        if (d.HasGrenade) DrawGrenadeBox();
-        float below = BoxH + 10f;
+        if (movie)
+        {
+            string state = d.Overheated ? (d.Venting ? "OVERHEATED - VENTING" : "OVERHEATED") : d.WeaponState;
+            if (state.Length > 0) Txt(state, BoxW - 14f, BoxH + 2f, 17, new Color(RedText.Lerp(Gold, 0.45f), 0.65f + 0.35f * MathF.Sin((float)_time * 10f)), 1, 3, 2);
+        }
+        if (d.HasWeapon && !movie) DrawBoxContents();
+        if (d.HasGrenade && !movie) DrawGrenadeBox();
+        float below = BoxH + (movie ? 26f : 10f);   // ui/hud-fidelity: the movie's box stands 1.12 times larger
         if (d.HasJump) { DrawJumpMeter(below); below += 34f; }
         if (d.GrenadesOutText.Length > 0) Txt(d.GrenadesOutText, BoxW - 6f, below + 18f, 17, new Color(0.9f, 0.9f, 0.9f), 1, 3);
         EndLocal();
@@ -311,6 +318,15 @@ public sealed partial class Hud
             placed.Add(pos);
             bool defend = p.Owner == Rel.Own && p.Progress >= 0.999f && !p.Contested;
             var textCol = p.Contested ? White.Lerp(RedText, 0.5f + 0.5f * MathF.Sin((float)_time * 12f)) : ClockGold;
+            // ui/hud-fidelity: an owned or contested point and a point being captured show the decorator movie's art (footage t 8 s: the gold triangle, the gold eagle); a quiet
+            // neutral point keeps the M44 dark plate (footage t 20 s shows a dark plate, not the movie's grey triangle).
+            if (PointLabel(p) != "neutral" && DrawMoviePointMarker(p, pos, PointBlink(p)))
+            {
+                // ui/hud-fidelity: the decorator movie's marker; the word above it (footage), the capture bar; no distance (the footage shows none).
+                Txt(defend ? "DEFEND" : "CAPTURE", pos.X, pos.Y - 44f, 16, textCol, 0, 3, 2);
+                DrawCaptureBar(p, new Vector2(pos.X, pos.Y + 41f));
+                continue;
+            }
             if (p.OwnerTeam == Team.None)
             {
                 float blink = PointBlink(p);
