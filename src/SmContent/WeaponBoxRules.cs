@@ -57,6 +57,27 @@ public static class WeaponBoxRules
         return (int)MathF.Round((1f - f) * last);
     }
 
+    /// <summary>The grenade launcher display's round slots (<c>loadout_grenaderounddisplay_mc/round00</c> .. <c>round17</c>: the movie's eighteen, the launcher's clip 1 plus reserve 17).</summary>
+    public const int LauncherSlots = 18;
+
+    /// <summary>The launcher display's path prefix under the box's <c>weaponInfo_mc</c>.</summary>
+    public const string LauncherDisplay = "loadout_grenaderounddisplay_mc";
+
+    /// <summary>The slot a path of the launcher display names (<c>loadout_grenaderounddisplay_mc/round07</c> is 7), or null for any other path.</summary>
+    public static int? LauncherRoundIndex(string path)
+    {
+        const string prefix = LauncherDisplay + "/round";
+        if (!path.StartsWith(prefix, StringComparison.Ordinal)) return null;
+        var rest = path.AsSpan(prefix.Length);
+        return rest.Length is >= 1 and <= 2 && int.TryParse(rest, out int i) && i >= 0 ? i : null;
+    }
+
+    /// <summary>
+    /// Which launcher rounds are shown for the rounds left (clip plus reserve): the slots below the count, the others hidden (their dark underlays stay as placed). <b>Interpretation</b>:
+    /// the movie names the slots and the script that fills them is not read, so which slot empties first is ours (the highest).
+    /// </summary>
+    public static bool LauncherRoundLoaded(int index, int roundsLeft) => index >= 0 && index < Math.Min(roundsLeft, LauncherSlots);
+
     /// <summary>
     /// The stalker bolter's rounds (<c>round0_mc</c> .. <c>round9_mc</c>): which are shown loaded for a clip (one each; a clip of more than ten fills them in shares, ours).
     /// </summary>

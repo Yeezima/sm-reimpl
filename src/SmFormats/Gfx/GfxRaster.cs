@@ -88,7 +88,7 @@ public static class GfxRaster
         var cx = colour ?? GfxColourTransform.Identity;
         if (character == 0 || movie.Sprites.ContainsKey(character))
             DrawSprite(movie, character == 0 ? movie.Root : movie.Sprites[character], frame, root, cx, canvas, additive, add, bitmaps, frameOf, 0, cancel, true);
-        else if (movie.Shapes.TryGetValue(character, out var shape)) DrawShape(shape, root, cx, add && additive is not null ? additive : canvas, bitmaps, cancel);
+        else if (movie.ShapeAt(character, 0) is { } shape) DrawShape(shape, root, cx, add && additive is not null ? additive : canvas, bitmaps, cancel);
     }
 
     static void DrawSprite(GfxMovie movie, GfxSprite sprite, int frame, GfxMatrix m, GfxColourTransform cx, GfxCanvas canvas, GfxCanvas? additive, bool add, Func<int, GfxBitmap?> bitmaps, Func<int, int>? frameOf, int depth, CancellationToken cancel, bool masks)
@@ -112,7 +112,7 @@ public static class GfxRaster
                 maskUntil = p.ClipDepth;
                 var solid = new GfxColourTransform(0, 0, 0, 0, 1, 1, 1, 1);
                 if (movie.Sprites.TryGetValue(p.Character, out var ms)) DrawSprite(movie, ms, frameOf?.Invoke(p.Character) ?? 0, child, solid, mask, null, false, bitmaps, frameOf, depth + 1, cancel, masks);
-                else if (movie.Shapes.TryGetValue(p.Character, out var mshape)) DrawShape(mshape, child, solid, mask, bitmaps, cancel);
+                else if (movie.ShapeAt(p.Character, p.Ratio) is { } mshape) DrawShape(mshape, child, solid, mask, bitmaps, cancel);
                 maskedN = new GfxCanvas(canvas.Width, canvas.Height);
                 maskedA = additive is null ? null : new GfxCanvas(canvas.Width, canvas.Height, additive: true);
                 continue;
@@ -122,7 +122,7 @@ public static class GfxRaster
             var childCx = p.Colour is { } pc ? cx.After(pc) : cx;
             bool childAdd = add || p.Blend == 8;   // Flash blend mode 8 is "add"; a multiply (3) of black, which the scope's masks use, is the normal alpha blend
             if (movie.Sprites.TryGetValue(p.Character, out var sub)) DrawSprite(movie, sub, frameOf?.Invoke(p.Character) ?? 0, child, childCx, targetN, targetA, childAdd, bitmaps, frameOf, depth + 1, cancel, masks);
-            else if (movie.Shapes.TryGetValue(p.Character, out var shape)) DrawShape(shape, child, childCx, childAdd && targetA is not null ? targetA : targetN, bitmaps, cancel);
+            else if (movie.ShapeAt(p.Character, p.Ratio) is { } shape) DrawShape(shape, child, childCx, childAdd && targetA is not null ? targetA : targetN, bitmaps, cancel);
             else if (ImageShape(movie, p.Character) is { } image) DrawShape(image, child, childCx, childAdd && targetA is not null ? targetA : targetN, bitmaps, cancel);
         }
         if (mask is not null) Composite(mask, maskedN, canvas, maskedA, additive);
@@ -188,11 +188,12 @@ public static class GfxRaster
     public static (double X0, double Y0, double X1, double Y1)? Bounds(GfxMovie movie, int character, int frame, GfxMatrix root, Func<int, int>? frameOf = null, bool withText = false, bool visibleOnly = false)
     {
         double x0 = double.MaxValue, y0 = double.MaxValue, x1 = double.MinValue, y1 = double.MinValue;
+        GfxShape? shape0(int ch, int ratio) => movie.ShapeAt(ch, ratio);
         void Add(GfxMatrix m, double x, double y) { var (px, py) = m.Apply(x, y); x0 = Math.Min(x0, px); y0 = Math.Min(y0, py); x1 = Math.Max(x1, px); y1 = Math.Max(y1, py); }
-        void Walk(int ch, int fr, GfxMatrix m, int d, float alpha)
+        void Walk(int ch, int fr, GfxMatrix m, int d, float alpha, int ratio = 0)
         {
             if (d > 12) return;
-            if (movie.Shapes.TryGetValue(ch, out var shape) || (shape = ImageShape(movie, ch)) is not null)
+            if ((shape0(ch, ratio) ?? ImageShape(movie, ch)) is { } shape)
             {
                 foreach (var s in shape.Segments)
                 {
@@ -211,7 +212,7 @@ public static class GfxRaster
                 float a = alpha * (p.Colour?.MulA ?? 1f) + (p.Colour?.AddA ?? 0f);
                 if (visibleOnly && a <= 0.001f && p.ClipDepth == 0) continue;
                 var pm = p.Matrix is { } pmx ? new GfxMatrix(pmx.A, pmx.B, pmx.C, pmx.D, pmx.Tx / 20.0, pmx.Ty / 20.0) : GfxMatrix.Identity;
-                Walk(p.Character, frameOf?.Invoke(p.Character) ?? 0, m.After(pm), d + 1, a);
+                Walk(p.Character, frameOf?.Invoke(p.Character) ?? 0, m.After(pm), d + 1, a, p.Ratio);
             }
         }
         Walk(character, frame, root, 0, 1f);

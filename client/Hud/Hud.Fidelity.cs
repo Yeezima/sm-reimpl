@@ -77,15 +77,10 @@ public sealed partial class Hud
     // ---------------------------------------------------------------- reward lines (Hud.gfx score_mc)
 
     /// <summary>
-    /// The kill's experience shown on the reward line: the footage's "+50 [skull] Kill" (reference t 12 s); the value is not found in the data (<c>xp_settings_pvp/rewards</c> has no
-    /// kill entry): measured.
-    /// </summary>
-    public const int KillReward = 50;
-
-    /// <summary>
     /// The reward lines from <c>Hud.gfx</c>'s <c>score_mc</c>: <c>xp_event_1_mc</c> .. <c>_4_mc</c> (32.65 stage pixels apart), each the experience ("+50", right-aligned), the reward's
     /// icon (<c>icon_mc</c> frame by the reward's frame name: <c>mp_bonus_kill</c>, the skull) and its name, stamped in by the movie's own clips (the icon falls from 27 times its size,
-    /// white, over 17 frames; the number and the name over 12; at 30 fps) and faded out by them. The newest on the top line (ours). False without the movie.
+    /// white, over 17 frames; the number and the name over 12; at 30 fps) and faded out by them. The newest on the top line (ours). The lines are the rewards of <see cref="RewardTracker"/>
+    /// (the kill's own, headshot, revenge, multi kills, killstreaks ...: experience, icon frame and name from <see cref="RewardTable"/>, ui/hud-2). False without the movie.
     /// </summary>
     bool DrawMovieRewards(Vector2 vs)
     {
@@ -94,7 +89,9 @@ public sealed partial class Hud
         if (hud.Find("score_mc/xp_event_1_mc/xp_icons_mc/xp_icon_1_mc/icon_mc") is not { } iconPlaced) return false;
         int iconSprite = iconPlaced.Placement.Character;
         var iconLabels = hud.Labels(iconSprite);
-        int skull = iconLabels.TryGetValue("mp_bonus_kill", out int sk) ? sk : 0;
+        int skull = iconLabels.TryGetValue(RewardTable.Kill.Frame, out int sk) ? sk : 0;
+        // The icon's frame for a reward: its own label, else (a streak step the movie has no picture of) the killstreak 3 picture, else the skull.
+        int IconFrame(RewardSpec spec) => iconLabels.TryGetValue(spec.Frame, out int f) ? f : iconLabels.TryGetValue("mp_bonus_killstreak_3", out int ks) && spec.Key.StartsWith("killstreak", StringComparison.Ordinal) ? ks : skull;
         float step = (float)(line2.ToStage.Ty - line1.ToStage.Ty);
         int eventSprite = line1.Placement.Character;
         var stage = Stage(vs, 0);
@@ -105,7 +102,8 @@ public sealed partial class Hud
         int n = 0;
         for (int i = _events.Count - 1; i >= 0 && n < 4; i--, n++)
         {
-            var (text, at) = _events[i];
+            var (text, at, line) = _events[i];
+            var spec = line ?? RewardTable.Kill;
             double age = _time - at;
             var m = line1.ToStage; m = m with { Ty = m.Ty + step * n };
             var root = stage * ToXf(m);
@@ -119,16 +117,17 @@ public sealed partial class Hud
                 return Math.Min(hold, fadeIn + (int)(age * ReticleRules.FramesPerSecond));
             }
             int iconF = iconClip >= 0 ? Clip(iconClip, "icon") : 0, xpF = xpClip >= 0 ? Clip(xpClip, "xp") : 0, nameF = nameClip >= 0 ? Clip(nameClip, "name") : 0;
-            string name = text.StartsWith("+ Kill", StringComparison.Ordinal) ? "Kill" : text.TrimStart('+', ' ');
+            string name = line is null ? text.TrimStart('+', ' ') : RewardName(spec);
+            int icon = IconFrame(spec);
             DrawWalk(hud, eventSprite, 0, root, (path, _) => path switch
             {
                 "xp_icons_mc/xp_icon_1_mc" => iconF,
-                "xp_icons_mc/xp_icon_1_mc/icon_mc" => skull,
+                "xp_icons_mc/xp_icon_1_mc/icon_mc" => icon,
                 "xp_mc" => xpF,
                 "name_offset_mc/name_mc" => nameF,
                 _ => null,   // xp_icon_2..4: their first frame ("none", hidden); the texts' "basic" frame
             }, ch => ch == iconSprite,
-                path => path.EndsWith("xp_txt", StringComparison.Ordinal) ? $"+{KillReward}" : path.EndsWith("name_txt", StringComparison.Ordinal) ? name : null);
+                path => path.EndsWith("xp_txt", StringComparison.Ordinal) ? $"+{spec.Experience}" : path.EndsWith("name_txt", StringComparison.Ordinal) ? name : null);
         }
         return true;
     }
@@ -283,6 +282,9 @@ public sealed partial class Hud
     /// </summary>
     const float BoxScale = 1.12f, BoxPictureScale = 0.8f, BoxPictureShade = 0.55f;
 
+    /// <summary><c>--hud-launcher-demo</c> (screenshot aid): the launcher display counts its rounds down and up (two a second) instead of showing the rounds left.</summary>
+    static readonly bool LauncherDemo = Array.IndexOf(OS.GetCmdlineUserArgs(), "--hud-launcher-demo") >= 0;
+
     // The box's path sets, built once (not every frame).
     static readonly HashSet<string> OptionalPaths = new(WeaponBoxRules.Optional, StringComparer.Ordinal), NoPaths = new(StringComparer.Ordinal);
     static readonly Dictionary<IReadOnlyList<string>, HashSet<string>> ShowSets = new(ReferenceEqualityComparer.Instance);
@@ -347,6 +349,12 @@ public sealed partial class Hud
                     if (rest.Length >= 1 && rest[0] - '0' >= grenades) return true;
                     int slash = rest.IndexOf('/');
                     return slash >= 0 && rest[(slash + 1)..] != equipment;
+                }
+                if (path.StartsWith(WeaponBoxRules.LauncherDisplay, StringComparison.Ordinal))
+                {
+                    // The launcher's rounds (ui/hud-2): the slots below the rounds left (clip and reserve); its red reload glow is not driven (hidden).
+                    if (WeaponBoxRules.LauncherRoundIndex(path) is int slot) return !WeaponBoxRules.LauncherRoundLoaded(slot, LauncherDemo ? (int)(_time * 2.0) % 19 : d.Clip + d.Reserve);
+                    return path.EndsWith("vengeance_reload", StringComparison.Ordinal);
                 }
                 if (path.StartsWith("Ammo_Stalker_mc/round", StringComparison.Ordinal) && path.Length > 21 && char.IsDigit(path[21]))
                     return !WeaponBoxRules.RoundLoaded(path[21] - '0', d.Clip, d.ClipMax);

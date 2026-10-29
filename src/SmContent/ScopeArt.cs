@@ -11,6 +11,12 @@ public enum ScopeKind { Stalker, Lascannon }
 public sealed record ScopePicture(byte[] Normal, byte[] Additive, int Width, int Height, float EdgeAlpha);
 
 /// <summary>
+/// The scope's reticle clip at one spread frame (ui/hud-2): straight RGBA and the additive layer, <see cref="Width"/> x <see cref="Height"/> pixels; <see cref="OriginX"/>, <see cref="OriginY"/> is where the
+/// stage centre (the screen centre) lies in the picture, <see cref="RenderHeight"/> the height the stage was rendered at (the same scale as the overlay's picture).
+/// </summary>
+public sealed record ScopeCrosshair(byte[] Normal, byte[] Additive, int Width, int Height, float OriginX, float OriginY, int RenderHeight);
+
+/// <summary>
 /// The scope overlays of the original HUD (feel/scope-lascannon; owner, 2026-10-29): the stalker bolter's and the lascannon's zoomed view is not a plain camera, the HUD
 /// movie (<c>Hud.gfx</c> in <c>data/packages/ui_ingame.oppc</c>) draws a mask with a lens-shaped opening and the reticle (<c>stalker_idle_zoom_mc</c>, <c>stalker_active_zoom_mc</c>,
 /// <c>lascannon_scope_mc</c>, <c>lascannon_scope_active_mc</c>: the idle and the aimed-at-an-enemy variants) over it. The movie's vector shapes (the mask, rings, ticks, gradients)
@@ -39,7 +45,76 @@ public sealed class ScopeArt
     readonly Dictionary<int, GfxBitmap?> _bitmaps = new();
     readonly object _lock = new();
 
-    ScopeArt(GfxMovie movie, Dictionary<string, byte[]> atlases) { _movie = movie; _atlases = atlases; }
+    ScopeArt(GfxMovie movie, Dictionary<string, byte[]> atlases) { _movie = movie; _atlases = atlases; DetachCrosshairs(); }
+
+    /// <summary>A scope sprite's reticle clip taken out of it: its character and its placement in the sprite (pixels).</summary>
+    readonly record struct CrosshairSlot(int Character, GfxMatrix Place);
+
+    readonly Dictionary<(ScopeKind, bool), CrosshairSlot> _crosshairs = new();
+
+    /// <summary>
+    /// The stalker's scope sprites place a nested <c>crosshair</c> clip (40 frames: ticks that walk outward, labels <c>min_aim</c> 0, <c>max_normal</c> 20, <c>max_aim</c> 39) that the finished picture
+    /// would draw at its tightest frame; it is taken out of the parsed (in-memory) sprites and rendered by itself at the frame of the scatter (<see cref="RenderCrosshair"/>, ui/hud-2). The
+    /// lascannon's overlay has no such clip.
+    /// </summary>
+    void DetachCrosshairs()
+    {
+        foreach (var kind in Kinds)
+            foreach (bool active in new[] { false, true })
+            {
+                if (_movie.FindNamedPlacement(Name(kind, active)) is not { } p || !_movie.Sprites.TryGetValue(p.Character, out var sprite)) continue;
+                GfxPlacement? last = null;
+                foreach (var frame in sprite.Frames)
+                    foreach (var kv in frame.Display.ToList())
+                        if (kv.Value.Name == "crosshair" && kv.Value.Character >= 0 && _movie.Sprites.TryGetValue(kv.Value.Character, out var clip) && clip.Frames.Count > 1)
+                        {
+                            last = kv.Value;
+                            frame.Display.Remove(kv.Key);
+                        }
+                if (last is not null) _crosshairs[(kind, active)] = new CrosshairSlot(last.Character, Pixels(last.Matrix));
+            }
+    }
+
+    static GfxMatrix Pixels(GfxMatrix? m) => m is { } x ? new GfxMatrix(x.A, x.B, x.C, x.D, x.Tx / 20.0, x.Ty / 20.0) : GfxMatrix.Identity;
+
+    /// <summary>Whether the overlay has a reticle clip that opens with the scatter (the stalker's; the lascannon's has none).</summary>
+    public bool HasSpread(ScopeKind kind) => _crosshairs.ContainsKey((kind, false));
+
+    /// <summary>The reticle clip's frame for a spread fraction (0 the narrowest, 1 the widest of the aiming stance): the clip's <c>min_aim</c> .. <c>max_aim</c> (<see cref="ReticleRules.SpreadRange"/>, the same rule as the hip reticles).</summary>
+    public int SpreadFrame(ScopeKind kind, bool active, float fraction)
+    {
+        if (!_crosshairs.TryGetValue((kind, active), out var slot) || !_movie.Sprites.TryGetValue(slot.Character, out var clip)) return 0;
+        var labels = new Dictionary<string, int>(StringComparer.Ordinal);
+        for (int i = 0; i < clip.Frames.Count; i++) if (clip.Frames[i].Label is { } l) labels.TryAdd(l.Trim(), i);
+        return ReticleRules.SpreadFrame(ReticleRules.SpreadRange(labels, clip.Frames.Count, aiming: true), fraction);
+    }
+
+    /// <summary>The number of frames of the reticle clip (0 without one).</summary>
+    public int SpreadFrames(ScopeKind kind) => _crosshairs.TryGetValue((kind, false), out var slot) && _movie.Sprites.TryGetValue(slot.Character, out var clip) ? clip.Frames.Count : 0;
+
+    /// <summary>
+    /// Renders the reticle clip alone at <paramref name="frame"/> for a screen of <paramref name="height"/> pixels (at most <see cref="MaxRenderHeight"/>), in a picture that is the same size for every
+    /// frame (the union of the clip's first and last), so the caller draws all of them at one place. Null without a clip.
+    /// </summary>
+    public ScopeCrosshair? RenderCrosshair(ScopeKind kind, bool active, int frame, int height, CancellationToken cancel = default)
+    {
+        if (!_crosshairs.TryGetValue((kind, active), out var slot) || _movie.FindNamedPlacement(Name(kind, active)) is not { } placement || !_movie.Sprites.TryGetValue(slot.Character, out var clip)) return null;
+        height = Math.Clamp(height, 16, MaxRenderHeight);
+        double scale = height / _movie.StageHeight;
+        // The stage centre is the origin: the container's sprite and the clip's own placement carry the rest.
+        var m = new GfxMatrix(scale, 0, 0, scale, 0, 0).After(Pixels(placement.Matrix)).After(slot.Place);
+        var first = GfxRaster.Bounds(_movie, slot.Character, 0, m, visibleOnly: true);
+        var lastB = GfxRaster.Bounds(_movie, slot.Character, clip.Frames.Count - 1, m, visibleOnly: true);
+        if (first is not { } a || lastB is not { } b) return null;
+        double x0 = Math.Floor(Math.Min(a.X0, b.X0)) - 3, y0 = Math.Floor(Math.Min(a.Y0, b.Y0)) - 3;
+        int w = (int)Math.Ceiling(Math.Max(a.X1, b.X1) - x0) + 3, h = (int)Math.Ceiling(Math.Max(a.Y1, b.Y1) - y0) + 3;
+        if (w <= 0 || h <= 0 || (long)w * h > 2048L * 2048L) return null;
+        var root = new GfxMatrix(1, 0, 0, 1, -x0, -y0).After(m);
+        var normal = new GfxCanvas(w, h);
+        var additive = new GfxCanvas(w, h, additive: true);
+        GfxRaster.Draw(_movie, slot.Character, Math.Clamp(frame, 0, clip.Frames.Count - 1), root, normal, Bitmap, null, additive, cancel);
+        return new ScopeCrosshair(normal.ToRgba8(), additive.ToRgba8(), w, h, (float)-x0, (float)-y0, height);
+    }
 
     /// <summary>The movie's stage size in its own pixels (1280 x 720).</summary>
     public (double Width, double Height) Stage => (_movie.StageWidth, _movie.StageHeight);

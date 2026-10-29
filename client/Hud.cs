@@ -150,7 +150,11 @@ public sealed partial class Hud : Control
     static readonly Color EnemyTint = new(1f, 0.22f, 0.18f), NeutralTint = new(0.62f, 0.62f, 0.64f);
 
     readonly List<(Kill Kill, double At)> _feed = new();
-    readonly List<(string Text, double At)> _events = new();
+    /// <summary>One reward line (ui/hud-2): its text for the M44 drawing, when it began, and the reward it is (null for a line the rules do not know).</summary>
+    sealed record EventLine(string Text, double At, RewardSpec? Spec = null);
+
+    readonly List<EventLine> _events = new();
+    readonly RewardTracker _rewards = new();
     FontVariation? _font, _fontLight, _fontBold;
     HudArt? _art;
     double _time, _hitAt = double.NegativeInfinity, _popupAt = double.NegativeInfinity, _hintFor;
@@ -192,7 +196,11 @@ public sealed partial class Hud : Control
         _hitAt = _time;
         _hitKill = kill;
         _hitHead = head && !kill;
+        if (kill && head) { _headKillAt = _time; _headKillAimed = Data.AimedName; }   // ui/hud-2: a killing head hit and who was under the crosshair, for the headshot reward line
     }
+
+    double _headKillAt = double.NegativeInfinity;
+    string _headKillAimed = "";
 
     /// <summary>Opens the weapon-switch cards (the HUD also opens them itself when the weapon in hand changes).</summary>
     public void ShowSwitchPopup() => _popupAt = _time;
@@ -202,13 +210,27 @@ public sealed partial class Hud : Control
     {
         _feed.Add((kill, _time));
         while (_feed.Count > FeedEntries) _feed.RemoveAt(0);
+        NoteKillForRewards(kill);
     }
 
-    /// <summary>Adds a transient reward line under the armour bar ("+ Kill P3": the medal and its name).</summary>
+    /// <summary>
+    /// Adds the reward lines of an own kill ("+ Kill P3": the client's call for every kill by the own player): the kill's own line and, from the kills the HUD has seen (<see cref="RewardTracker"/>,
+    /// ui/hud-2), the headshot, revenge, avenger, grudge, victory in death, double to mega kill and killstreak lines it earned. Any other text is shown as it is.
+    /// </summary>
     public void AddEvent(string text)
     {
-        _events.Add((text, _time));
-        while (_events.Count > 3) _events.RemoveAt(0);
+        const string kill = "+ Kill ";
+        if (text.StartsWith(kill, StringComparison.Ordinal) || text == "+ Kill")
+        {
+            string victim = text.Length > kill.Length ? text[kill.Length..] : "";
+            // A headshot belongs to the one the head hit was on: the player under the crosshair then (when the HUD knew one), and the hit counts once.
+            bool head = _time - _headKillAt <= 1.0 && (_headKillAimed.Length == 0 || victim.Length == 0 || _headKillAimed.Contains(victim, StringComparison.Ordinal));
+            if (head) _headKillAt = double.NegativeInfinity;
+            foreach (var earned in _rewards.OwnKill(victim, _time, head, Data.Alive))
+                _events.Add(new EventLine(earned.Spec == RewardTable.Kill ? text : "+ " + earned.Spec.Name, _time, earned.Spec));
+        }
+        else _events.Add(new EventLine(text, _time));
+        while (_events.Count > 4) _events.RemoveAt(0);
     }
 
     public override void _Process(double delta)
@@ -217,6 +239,8 @@ public sealed partial class Hud : Control
         if (Data.InGame && ShowHint) _hintFor += delta;
         _feed.RemoveAll(f => _time - f.At > FeedSeconds);
         _events.RemoveAll(e => _time - e.At > EventSeconds);
+        TrackRewards();
+        RunRewardsDemo();
         TrackPoints();
         MovieProcess();
         if (Data.InGame)
@@ -435,6 +459,7 @@ public sealed partial class Hud : Control
     {
         var d = Data;
         float cx = vs.X / 2f;
+        if (DrawMovieVitals(vs)) { DrawDeathText(cx); return; }   // ui/hud-2: the movie's own bar (Hud.Vitals.cs); the M44 bar below with --old-hud or without the movie
         float hf = Math.Clamp(d.Health / MathF.Max(d.HealthMax, 1f), 0f, 1f);
         float sf = Math.Clamp(d.Shield / MathF.Max(d.ShieldMax, 1f), 0f, 1f);
         float pulse = hf < 0.25f && d.Alive ? 0.7f + 0.3f * MathF.Sin((float)_time * 9f) : 1f;
@@ -476,12 +501,16 @@ public sealed partial class Hud : Control
         Poly([medallion + new Vector2(0, -13), medallion + new Vector2(13, 0), medallion + new Vector2(0, 13), medallion + new Vector2(-13, 0)], dark);
         Poly([medallion + new Vector2(0, -10), medallion + new Vector2(10, 0), medallion + new Vector2(0, 10), medallion + new Vector2(-10, 0)], new Color(0.9f, 0.08f, 0.06f));
         DrawCircle(medallion, 3.2f, new Color(0.3f, 0f, 0f));
-        // Dead: respawn countdown (the M23 death screen draws the vignette and camera).
-        if (!d.Alive)
-        {
-            Txt("KILLED", cx, 330f, 52, RedText, 0, 6, 2);
-            Txt($"RESPAWN IN {MathF.Ceiling(d.RespawnLeft):F0}", cx, 380f, 28, White, 0, 4);
-        }
+        DrawDeathText(cx);
+    }
+
+    /// <summary>Dead: the respawn countdown (the M23 death screen draws the vignette and camera).</summary>
+    void DrawDeathText(float cx)
+    {
+        var d = Data;
+        if (d.Alive) return;
+        Txt("KILLED", cx, 330f, 52, RedText, 0, 6, 2);
+        Txt($"RESPAWN IN {MathF.Ceiling(d.RespawnLeft):F0}", cx, 380f, 28, White, 0, 4);
     }
 
     /// <summary>
@@ -496,7 +525,7 @@ public sealed partial class Hud : Control
         bool movie = DrawMovieRewards(vs);   // ui/hud-fidelity: the movie's reward lines (Hud.Fidelity.cs)
         if (movie) y = 250f + 49f * _events.Count;   // under the movie's reward lines (32.65 stage pixels apart)
         if (!movie)
-        foreach (var (text, at) in _events)
+        foreach (var (text, at, _) in _events)
         {
             float a = (float)Math.Clamp(EventSeconds - (_time - at), 0.0, 0.6) / 0.6f;
             string line = text.StartsWith("+ ", StringComparison.Ordinal) ? text[2..] : text;

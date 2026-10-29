@@ -274,4 +274,138 @@ public class GfxTests
         Assert.Throws<InvalidDataException>(() => GfxMovie.Parse(Encoding.ASCII.GetBytes("CFX\u0008............")));
         Assert.Throws<InvalidDataException>(() => GfxMovie.Parse([1, 2, 3]));
     }
+
+    // ---- morph shapes (ui/hud-2) ----
+
+    /// <summary>
+    /// A DefineMorphShape2 (tag 84) of a rectangle with a solid fill that is <paramref name="w0"/> x 10 pixels at the start and <paramref name="w1"/> x 10 at the end (colours red then blue), as the
+    /// exporter lays it out: four bounds, flags, the offset, the morph fill and line styles, the start edges and the end edges (move only).
+    /// </summary>
+    static byte[] MorphRect(int id, int w0, int w1, bool withRatioInPlace = false)
+    {
+        var body = new List<byte>();
+        body.AddRange(BitConverter.GetBytes((ushort)id));
+        for (int i = 0; i < 4; i++) body.AddRange(Rect(0, Math.Max(w0, w1) * 20, 0, 10 * 20));
+        body.Add(0);                                   // reserved + stroke flags
+        body.AddRange(BitConverter.GetBytes(0u));      // offset to the end edges (not needed by the reader)
+        body.Add(1);                                   // one fill style
+        body.Add(0); body.AddRange([255, 0, 0, 255]); body.AddRange([0, 0, 255, 255]);   // solid, red -> blue
+        body.Add(0);                                   // no line styles
+        byte[] Edges(int w, bool first)
+        {
+            var b = new Bits();
+            b.Put(1, 4); b.Put(0, 4);                  // fill bits 1, line bits 0
+            b.Put(0, 1); b.Put(first ? 5 : 1, 5);      // style change: MoveTo (+ FillStyle1 in the start edges)
+            b.Put(16, 5); b.Signed(0, 16); b.Signed(0, 16);
+            if (first) b.Put(1, 1);
+            void Edge(int dx, int dy) { b.Put(1, 1); b.Put(1, 1); b.Put(14, 4); b.Put(1, 1); b.Signed(dx, 16); b.Signed(dy, 16); }
+            Edge(w * 20, 0); Edge(0, 10 * 20); Edge(-w * 20, 0); Edge(0, -10 * 20);
+            b.Put(0, 1); b.Put(0, 5);
+            return b.ToArray();
+        }
+        body.AddRange(Edges(w0, true));
+        body.AddRange(Edges(w1, false));
+        return Tag(84, [.. body]);
+    }
+
+    /// <summary>A placement with a ratio (PlaceObject2: character, matrix, ratio), or a move that sets only the ratio.</summary>
+    static byte[] PlaceRatio(int depth, int ch, int ratio, bool move = false)
+    {
+        var body = new List<byte>();
+        if (move) { body.Add(0x01 | 0x10); body.AddRange(BitConverter.GetBytes((ushort)depth)); }
+        else { body.Add(0x02 | 0x04 | 0x10); body.AddRange(BitConverter.GetBytes((ushort)depth)); body.AddRange(BitConverter.GetBytes((ushort)ch)); body.AddRange(Matrix(1, 0, 0)); }
+        body.AddRange(BitConverter.GetBytes((ushort)ratio));
+        return Tag(26, [.. body]);
+    }
+
+    static float CoveredWidth(GfxCanvas c, int y)
+    {
+        float sum = 0f;
+        for (int x = 0; x < 100; x++) sum += c.At(x, y).A;
+        return sum;
+    }
+
+    [Fact]
+    public void AMorphShapeIsDrawnBetweenItsStartAndEndByThePlacementsRatio()
+    {
+        var movie = GfxMovie.Parse(Movie(MorphRect(1, 10, 30), Sprite(2, PlaceRatio(1, 1, 0)), Place(1, 2, Matrix(1, 0, 0), "m_mc")));
+        Assert.True(movie.Morphs.ContainsKey(1));
+        Assert.True(movie.Morphs[1].Consistent);
+        Assert.Equal(4, movie.Morphs[1].Start.Segments.Count);
+        Assert.Equal(1, movie.Sprites[2].Frames[0].Display[1].Character);
+        Assert.Equal(0, movie.Sprites[2].Frames[0].Display[1].Ratio);
+        float Width(int ratio)
+        {
+            var m = GfxMovie.Parse(Movie(MorphRect(1, 10, 30), Sprite(2, PlaceRatio(1, 1, ratio)), Place(1, 2, Matrix(1, 0, 0), "m_mc")));
+            var c = new GfxCanvas(100, 60);
+            GfxRaster.Draw(m, 0, 0, GfxMatrix.Identity, c, _ => null);
+            return CoveredWidth(c, 5);
+        }
+        Assert.InRange(Width(0), 9.9f, 10.1f);        // the start: 10 pixels
+        Assert.InRange(Width(32768), 19.5f, 20.6f);   // halfway: 20 (the quantised ratio is within a hundredth of the range)
+        Assert.InRange(Width(65535), 29.9f, 30.1f);   // the end: 30
+    }
+
+    [Fact]
+    public void AMorphShapesColourAndBoundsFollowTheRatioToo()
+    {
+        var movie = GfxMovie.Parse(Movie(MorphRect(1, 10, 30), Sprite(2, PlaceRatio(1, 1, 32768)), Place(1, 2, Matrix(1, 0, 0), "m_mc")));
+        var c = new GfxCanvas(100, 60);
+        GfxRaster.Draw(movie, 0, 0, GfxMatrix.Identity, c, _ => null);
+        var (r, g, b, a) = c.At(5, 5);
+        Assert.InRange(r, 0.4f, 0.6f); Assert.InRange(b, 0.4f, 0.6f); Assert.Equal(0f, g);   // halfway between red and blue
+        var box = GfxRaster.Bounds(movie, 2, 0, GfxMatrix.Identity);
+        Assert.NotNull(box);
+        Assert.InRange(box!.Value.X1, 19.5, 20.6);   // the shape's extent at the ratio, not the start's
+    }
+
+    [Fact]
+    public void AMoveKeepsTheRatioItDoesNotSet()
+    {
+        // Frame 0 places the morph at ratio 0, frame 1 moves it to 65535; a later move without a ratio keeps that.
+        var sprite = new List<byte>();
+        sprite.AddRange(BitConverter.GetBytes((ushort)2)); sprite.AddRange(BitConverter.GetBytes((ushort)1));
+        sprite.AddRange(PlaceRatio(1, 1, 0)); sprite.AddRange(Tag(1, []));
+        sprite.AddRange(PlaceRatio(1, 1, 65535, move: true)); sprite.AddRange(Tag(1, []));
+        sprite.AddRange(Tag(26, [0x01, 1, 0])); sprite.AddRange(Tag(1, [])); sprite.AddRange(Tag(0, []));   // a bare move
+        var movie = GfxMovie.Parse(Movie(MorphRect(1, 10, 30), Tag(39, [.. sprite]), Place(1, 2, Matrix(1, 0, 0), "m_mc")));
+        var frames = movie.Sprites[2].Frames;
+        Assert.Equal(3, frames.Count);
+        Assert.Equal(0, frames[0].Display[1].Ratio);
+        Assert.Equal(65535, frames[1].Display[1].Ratio);
+        Assert.Equal(65535, frames[2].Display[1].Ratio);
+        Assert.Equal(1, frames[2].Display[1].Character);
+    }
+
+    [Fact]
+    public void AMorphWhoseHalvesDoNotMatchDrawsItsStart()
+    {
+        var movie = GfxMovie.Parse(Movie(MorphRect(1, 10, 30)));
+        var morph = movie.Morphs[1];
+        var broken = new GfxMorph(1, morph.Start, new GfxShape { Id = 1 });
+        Assert.False(broken.Consistent);
+        Assert.Same(morph.Start, broken.At(30000));
+    }
+
+    [Fact]
+    public void AMorphTagTheReaderCannotTakeIsAbsentAndNeverStopsTheMovie()
+    {
+        static byte[] Body(byte[] tag) => tag[6..];
+        var good = Body(MorphRect(1, 10, 30));
+        // 1. Truncated: the tag's own length is short (the style lists and edges are cut off).
+        var truncated = Tag(84, good[..50]);
+        // 2. An unknown fill style type (the fill count byte is at 43, its type at 44).
+        var unknownFill = (byte[])good.Clone(); unknownFill[44] = 0x7f;
+        // 3. A style change inside the edge records.
+        var styleChange = (byte[])good.Clone();
+        Assert.Equal(0x16, styleChange[55]);          // 0 + flags 00101 (MoveTo, FillStyle1) + the first bit of the move
+        styleChange[55] = 0x46;                       // 0 + flags 10001 (MoveTo, new styles): not allowed in a morph's edges
+        foreach (var bad in new[] { truncated, Tag(84, unknownFill), Tag(84, styleChange) })
+        {
+            var movie = GfxMovie.Parse(Movie(bad, Shape(5, 20 * 20, 10 * 20, Red), Sprite(2, Place(1, 5, Matrix(1, 0, 0))), Place(1, 2, Matrix(1, 0, 0), "box_mc")));
+            Assert.False(movie.Morphs.ContainsKey(1));
+            Assert.NotNull(movie.FindNamedPlacement("box_mc"));   // the rest of the movie is there
+            Assert.True(movie.Shapes.ContainsKey(5));
+        }
+    }
 }

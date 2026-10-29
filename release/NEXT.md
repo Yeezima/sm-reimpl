@@ -13,3 +13,8 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Charges and dash attacks that hit play the game's own heavy body-slam impact instead of the weapon's hit sound.
 - Melee weapons hum while held: the thunder hammer, the daemon maul and the power axe with their own hum, the power swords quietly with the axe's hum. The chain axe stays silent.
 - The thunder hammer and the power axe now glow while held, like the power sword.
+- The armour and health bar at the top of the screen is now the original game's own bar: the cyan armour lines with the starburst medallion and the red health fill, and the medallion flashes when you take damage.
+- Kill lines under the bar now show more than "Kill": headshots, double, triple, quad and mega kills, killstreaks, revenge, avenger, grudge and victory in death, each with its own icon and points.
+- The stalker bolter's scope reticle now opens up as your aim loosens after a shot and closes again as it settles.
+- The grenade launcher's round display in the weapon box now counts down the rounds you have left.
+- The class creator's description card now always fits: long perk descriptions (Sure Strike, Bolter Targeter, Furious Charge) get a bigger card, a smaller text and, for the very longest, a scroll bar.
