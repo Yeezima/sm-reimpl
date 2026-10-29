@@ -331,7 +331,7 @@ public partial class NetworkView
         // pulsed every 0.7 s for the rest of the session).
         if (s.Alive != p.Alive && _sound is not null)
         {
-            t.HumFile = null; t.HumStop = null;   // StopLoops ends the hum with the life; SoundMeleeIdle starts it again if the new life holds the weapon
+            StopMeleeHum(t);   // the hum's own stop event first (StopLoops would also end its endless voice); SoundMeleeIdle starts it again if the new life holds the weapon
             int ended = _sound.StopLoops(t.Emitter);
             if (ended > 0 && LogSound("armour")) GD.Print($"ARMOUR t {_connectedFor:F3} P{id} {(s.Alive ? "spawn" : "death")}: {ended} looping sound(s) of the last life ended");
         }

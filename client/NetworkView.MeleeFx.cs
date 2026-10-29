@@ -210,7 +210,7 @@ public partial class NetworkView
             if (overlay is not null) h.Mesh.SetInstanceShaderParameter(PowerBlade.FlareParameter, flare);
         }
         // The data's deployed effects at their markers, attached, while the weapon is in hand (fx/melee-presentation: the hammer's and the axe's too, not only the sword's).
-        bool wanted = s.Alive && character is not null && wargear is not null && (isSword ? !NoSwordFx : !NoMeleeIdleFx) && character.Weapons?.MeleeMeshInHand is not null;
+        bool wanted = ImpactRules.MeleeIdleGuard.Allows(IsOrkVoice(s)) && s.Alive && character is not null && wargear is not null && (isSword ? !NoSwordFx : !NoMeleeIdleFx) && character.Weapons?.MeleeMeshInHand is not null;
         if (!wanted) { StopSwordIdle(s.PlayerId); return; }
         int id = s.PlayerId;
         if (_swordIdle.TryGetValue(id, out var set) && !string.Equals(set.Wargear, wargear, StringComparison.OrdinalIgnoreCase)) { StopSwordIdle(id); set = null; }

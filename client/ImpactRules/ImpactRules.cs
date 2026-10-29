@@ -195,3 +195,9 @@ public static class ChargeConnect
     public static bool Connected(SmSim.RushPhase before, SmSim.RushPhase now) =>
         (before == SmSim.RushPhase.Rush && now == SmSim.RushPhase.Collision) || (before == SmSim.RushPhase.DashAttack && now == SmSim.RushPhase.DashHit);
 }
+
+/// <summary>fx/melee-presentation: the melee weapons' idle hum and glow belong to the marines' wargear; an Ork (our added race) gets neither, whatever its weapon's files say.</summary>
+public static class MeleeIdleGuard
+{
+    public static bool Allows(bool isOrk) => !isOrk;
+}

@@ -31,11 +31,11 @@ public partial class NetworkView
     bool NoMeleeSounds => _noMeleeSounds ??= CmdFlag("no-melee-sounds");
     bool? _noMeleeSounds;
 
-    /// <summary>The own player's charge, remembered for the hit report that arrives a few frames after the connection: the last time the prediction showed one and its phase.</summary>
+    /// <summary>The own player's charge, remembered for the hit report that arrives a frame or two after the prediction's charge ends: the last time the prediction showed one and its phase.</summary>
     double _ownRushAt = double.NegativeInfinity;
     RushPhase _ownRushPhase;
-    /// <summary>A hit report within this many seconds after the prediction last showed a charge is the charge's (ours; the collision clip itself lasts about this long).</summary>
-    const double OwnChargeMemory = 0.6;
+    /// <summary>A hit report within this many seconds after the prediction last showed a charge is the charge's (ours; short, so a normal swing right after a charge is not taken for it; the collision phase itself is shown, so the report normally arrives while it is on).</summary>
+    const double OwnChargeMemory = 0.15;
 
     int _meleeHitPosts, _chargeHitPosts, _humsStarted;
     readonly Dictionary<string, MeleeIdleSounds.Hum?> _humCache = new(StringComparer.OrdinalIgnoreCase);
@@ -179,7 +179,7 @@ public partial class NetworkView
     void SoundMeleeIdle(SoundTrack t, CharacterViewer character, PlayerState s)
     {
         if (_sound is null || _soundTriggers is null) return;
-        string? wargear = s.Alive && !NoMeleeSounds && character.Weapons?.MeleeMeshInHand is not null ? MeleeWargear(s) : null;
+        string? wargear = MeleeIdleGuard.Allows(IsOrkVoice(s)) && s.Alive && !NoMeleeSounds && character.Weapons?.MeleeMeshInHand is not null ? MeleeWargear(s) : null;
         var want = HumOf(wargear);
         if (t.HumFile is not null && (want is null || !string.Equals(wargear, t.HumFile, StringComparison.OrdinalIgnoreCase))) StopMeleeHum(t);
         if (want is null || t.HumFile is not null) return;

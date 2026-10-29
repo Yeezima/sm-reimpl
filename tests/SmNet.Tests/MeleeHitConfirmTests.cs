@@ -72,4 +72,11 @@ public class MeleeHitConfirmTests
         Assert.False(ChargeConnect.Connected(RushPhase.None, RushPhase.Collision));
         Assert.False(ChargeConnect.Connected(RushPhase.Collision, RushPhase.Collision));
     }
+
+    [Fact]
+    public void An_ork_gets_no_melee_hum_or_idle_glow()
+    {
+        Assert.False(MeleeIdleGuard.Allows(isOrk: true));
+        Assert.True(MeleeIdleGuard.Allows(isOrk: false));
+    }
 }
