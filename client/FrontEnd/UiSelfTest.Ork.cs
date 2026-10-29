@@ -42,6 +42,11 @@ public sealed partial class UiSelfTest
                 bool drawn = await WaitPreview(creator.Preview);
                 Check($"pose: the {LoadoutRows.ClassName(catalog, role, race)} preview stands in the bolt pistol's relaxed idle", drawn && creator.Preview.IdleClip == RigClipTable.PistolRelaxedIdle,
                     $"drawn {drawn}, idle {creator.Preview.IdleClip ?? "none"}");
+                // The pistol in the hand, the primary stowed (the jump-pack classes keep their melee weapon in the hand as before).
+                bool jumpClass = role == "assault";
+                Check($"pose: the {LoadoutRows.ClassName(catalog, role, race)} preview holds its pistol, the primary stowed",
+                    creator.Preview.HeldSlot == SmSim.WeaponSlot.Pistol && (jumpClass || creator.Preview.HeldWargear?.Contains("pistol", StringComparison.OrdinalIgnoreCase) == true),
+                    $"{creator.Preview.HeldSlot} {creator.Preview.HeldWargear ?? "none"}");
             }
         }
         creator.SetPreviewRace(CustomizationCatalog.SpaceMarine);

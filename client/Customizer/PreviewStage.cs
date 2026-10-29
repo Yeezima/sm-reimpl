@@ -209,7 +209,7 @@ public sealed record PreviewSubject(string Race, string Role, CustomClass? Custo
 /// per-part armour, colours, badges and lens are the appearance renderer's (T6) and plug in where <see cref="PreviewAssets.Marine"/> is called. Mouse drag
 /// rotates, the wheel zooms, Left/Right/Up/Down do the same from the keyboard, Home resets; the right stick rotates. "Reduce motion" cuts the camera moves.
 /// <para>ui/customizer-ork (the owner's requests of 2026-10-29): every class stands in the bolt pistol's relaxed idle (<see cref="RigClipTable.PistolRelaxedIdle"/>;
-/// the weapons are held or stowed as before), the figure never turns by itself (the turntable's 18 degrees a second are gone: "spins automatically ... when
+/// the class's pistol in the hand, the primary stowed: <see cref="HoldsPistol"/>), the figure never turns by itself (the turntable's 18 degrees a second are gone: "spins automatically ... when
 /// choosing colors, which can be annoying"; only the player's drag, keys or stick turn it), and the Ork Boy is drawn on his own rig in his own idle with his
 /// shoota in hand (<see cref="PreviewAssets.TryBuildOrk"/>).</para>
 /// </summary>
@@ -395,8 +395,23 @@ public sealed partial class PreviewStage : SubViewportContainer
     string? _deployed;
     (byte R, byte G, byte B)? _lens;
 
-    /// <summary>The wargear the preview holds in hand: the melee weapon for the classes that always hold it, else the pistol when there is no primary, else the primary.</summary>
-    string? DeployedWargear(string? primary, string? pistol, string? melee) => _rig is { AlwaysMelee: true } ? melee : primary ?? pistol;
+    /// <summary>
+    /// The wargear the preview holds in hand: the melee weapon for the classes that always hold it, else the pistol when the pose is the bolt pistol's idle
+    /// (ui/customizer-ork) or there is no primary, else the primary.
+    /// </summary>
+    string? DeployedWargear(string? primary, string? pistol, string? melee) => _rig is { AlwaysMelee: true } ? melee : _holdPistol ? pistol ?? primary : primary ?? pistol;
+
+    /// <summary>
+    /// ui/customizer-ork (the lead's review): in the bolt pistol's idle the class's pistol (the bolt pistol, or the plasma pistol of a class that carries it) is in the hand
+    /// and the primary stowed on its stow marker, as after a switch to the pistol; backpack-mounted weapons and jump packs stay as they are.
+    /// </summary>
+    bool HoldsPistol(string? primary, string? pistol) => primary is null || (pistol is not null && IdleClip == RigClipTable.PistolRelaxedIdle);
+
+    /// <summary>The slot the preview's rig holds (test aid): Pistol or Ranged.</summary>
+    public WeaponSlot? HeldSlot => _rig is null ? null : _holdPistol ? WeaponSlot.Pistol : WeaponSlot.Ranged;
+
+    /// <summary>The wargear in the preview's hand (test aid).</summary>
+    public string? HeldWargear => _deployed;
 
     void UpdateEyeGlow(double delta)
     {
@@ -564,7 +579,7 @@ public sealed partial class PreviewStage : SubViewportContainer
             _weaponKey = key;
             _rig.Configure((cls, primary?.GetHashCode() ?? 0, pistol?.GetHashCode() ?? 0, melee, key), primary, pistol, melee,
                 jump is null ? Array.Empty<string?>() : new string?[] { jump.Name }, jump is not null);
-            _holdPistol = primary is null;
+            _holdPistol = HoldsPistol(primary, pistol);
             _deployed = DeployedWargear(primary, pistol, melee);
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
