@@ -1369,7 +1369,7 @@ public partial class NetworkView : Node3D
         character.AddChild(new Label3D
         {
             Name = "Nameplate",
-            Text = local ? $"P{playerId} (you)" : $"P{playerId}",
+            Text = local ? $"{HudName(playerId)} (you)" : HudName(playerId),   // renamed when the scoreboard names it (ApplyTeamLook)
             Position = new Vector3(0, 0, 2.6f),
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
             FontSize = 48,
@@ -1954,8 +1954,11 @@ public partial class NetworkView : Node3D
         }
     }
 
-    /// <summary>The name shown for a player: "P3" (the protocol carries no names).</summary>
-    static string HudName(int playerId) => $"P{playerId}";
+    /// <summary>
+    /// The name shown for a player (names/bot-lore, protocol 41): the scoreboard's display name (test bots: a name from their race's pool, ours), else "P3"
+    /// (<see cref="GameClient.NameOf"/>).
+    /// </summary>
+    string HudName(int playerId) => _client?.NameOf(playerId) ?? PlayerNames.Fallback(playerId);
 
     /// <summary>The player's relation to the viewer for the HUD's colours (gold own side, red enemy, white without teams).</summary>
     Hud.Rel HudRelation(int playerId) => HudRelation(TeamOf(playerId));

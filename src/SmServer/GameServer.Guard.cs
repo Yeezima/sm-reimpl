@@ -241,7 +241,7 @@ public sealed partial class GameServer
             if (_lastJoinAt.Count > 4096)
                 foreach (var old in _lastJoinAt.Where(kv => now - kv.Value >= _options.JoinInterval).Select(kv => kv.Key).ToList()) _lastJoinAt.Remove(old);
         }
-        Note($"player {playerId} joined from {endPoint?.ToString() ?? $"connection {connection}"} ({_peers.Count} players)");
+        Note($"{Describe(playerId)} joined from {endPoint?.ToString() ?? $"connection {connection}"} ({_peers.Count} players)");
     }
 
     /// <summary>
@@ -258,7 +258,7 @@ public sealed partial class GameServer
             var until = now + TimeSpan.FromSeconds(state.RespawnLeft);
             if (!_respawnHold.TryGetValue(address, out var held) || held < until) _respawnHold[address] = until;
         }
-        Note($"player {peer.PlayerId} left from {where}: {reason} ({_peers.Count - 1} players)");
+        Note($"{Describe(peer.PlayerId)} left from {where}: {reason} ({_peers.Count - 1} players)");
     }
 
     // ---- activity ----

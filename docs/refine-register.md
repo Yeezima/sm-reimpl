@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1509 spec table rows: **1001 tagged**, 369 not tagged (read from data with high confidence), 139 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 276 rows of the changes document.
+Scanned 1517 spec table rows: **1008 tagged**, 369 not tagged (read from data with high confidence), 140 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 277 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,17 +50,17 @@ Scanned 1509 spec table rows: **1001 tagged**, 369 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 29 | 21 | 12 | 19 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 36 | 31 | 32 | 3 | 1 |
+| Core simulation (provisional values) | 43 | 38 | 32 | 3 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 73 | 67 | 40 | 4 | 0 |
-| **All areas** | **1001** | 821 | 789 | 345 | 38 |
+| **All areas** | **1008** | 828 | 789 | 345 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | confidence: low | 344 |
-| kind: ours | 334 |
+| kind: ours | 341 |
 | confidence: medium | 331 |
 | kind: interpretation | 297 |
 | notes: ours | 266 |
@@ -1396,7 +1396,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (36)
+### Core simulation (provisional values) (43)
 
 *Spec section: Provisional values in use*
 
@@ -1463,6 +1463,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-74B6618D` | What the rounding and the pose cost (measured) | loopback harness, install config, an Assault jumping full and cut jumps forward, sideways and back (up to 33 m/s), a Chaos shooter's client recording its drawn view at every input and the pose it draws (the client's rules on the drawn states), 40 s, 30 and 80… (m, %) | confidence: medium | measured (synthetic link, install config) | What the rounding and the pose cost (measured): compare with SM1 by feel or video. Ours: loopback harness, install config, an Assault jumping full and cut… | ☐ |
 | `R-F4D3F09F` | Grenade bounce as read (data rule, unchanged) | the data's reading stands: ground "reductions" are fractions kept (0.3 across, 0.4 up), one bounce then stop, ground fuse 1 s (stikkbomb 2 s); no misreading found (the opposite reading, fractions removed, bounces farther). Measured on flat ground (frag, throw… (m) | kind: interpretation; confidence: low | values extracted; rule as M13 | Grenade bounce as read (data rule, unchanged): compare with SM1 by measuring on a flat spot of the same map. Ours: the data's reading stands: ground "reductions" are fractions kept… | ☐ |
 | `R-8A944306` | Grenade bounce (owner's change) | **deliberate change** (owner, 2026-10-29: "grenades shouldn't bounce so far when thrown"; the rule is ours): on a ground contact the speed along the normal comes back x the blueprint's Havok `restituation_override` (0.65) and the speed along the surface loses… (m/s) | kind: ours; confidence: low | owner's request; material values extracted (`rigid_body_options_ext`), their use ours | Grenade bounce (owner's change): compare with SM1 by timing a run over a known distance. Ours: deliberate change (owner, 2026-10-29: "grenades shouldn't bounce so… | ☐ |
+
+*Spec section: Display names: the bots' names (names/bot-lore; protocol 41)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-794AA3FD` | Who gets a name | a client whose Hello marks it a test bot (protocol 37 flags byte, bit 0: `client.cmd --bot`, `bots.cmd`) gets one when it joins; humans have no name source yet (no profile name exists), so they keep "P<id>" (an empty name on the wire).… | kind: ours | owner's request; the rule ours | Who gets a name: compare with SM1 by feel or video. Ours: a client whose Hello marks it a test bot (protocol 37 flags byte, bit… | ☐ |
+| `R-DE95452D` | Name pools | one per race, original names in the style of each faction, **not** an established character of Space Marine (2011), Space Marine 2 or the wider Warhammer canon (pinned against a list of canon names by `PlayerNameTests`): Space Marines (Ultramarines by… (names) | kind: ours | ours | Name pools: compare with SM1 by feel or video. Ours: one per race, original names in the style of each faction, not an… | ☐ |
+| `R-33823869` | Faction | the pool of the race the bot plays (`Races.Of`: the class's race, else its side's): a loyalist bot is a Brother or Sergeant, a Chaos bot a Chaos name, an Ork Boy an Ork name; a bot whose race changes at a respawn (a class change to or from the Ork Boy) takes… | kind: ours | ours | Faction: compare with SM1 by feel or video. Ours: the pool of the race the bot plays (Races.Of: the class's race, else… | ☐ |
+| `R-34533316` | Choice and uniqueness | the race's pool shuffled by the server's name seed and the race, read from the race's join order on (the n-th bot of a race named so far), the first name no connected player holds (without case); a name is free again once its player has left. More bots of one… | kind: ours | ours | Choice and uniqueness: compare with SM1 by feel or video. Ours: the race's pool shuffled by the server's name seed and the race, read… | ☐ |
+| `R-A40BE858` | Name seed | `--name-seed <n>` (0 to 4294967295) fixes it: the same seed and join order give the same names (tests); default a random seed when the server starts, printed in its startup line ("names: ... seed N"). A bot that reconnects gets a name afresh (not necessarily… | kind: ours | ours | Name seed: compare with SM1 by feel or video. Ours: --name-seed <n> (0 to 4294967295) fixes it: the same seed and join… | ☐ |
+| `R-4DE26DA6` | Name characters | at most 24; Latin-1 letters and digits, space, '-', '\'' and '.' (anything else dropped: control characters, BBCode brackets; runs of spaces collapsed, trimmed), applied when the server sets a name, when a row is written and when a client reads one (characters) | kind: ours | ours (the HUD font) | Name characters: compare with SM1 by feel or video. Ours: at most 24; Latin-1 letters and digits, space, '-', '\'' and '.'… | ☐ |
+| `R-B654BEFE` | Where names show | the HUD kill feed and the BBCode feed text, the reward line ("+ Kill Brother Aurex"), the aimed-enemy name over the crosshair, the world decorators over allies, the test-aid nameplates (`--show-markers`), the Tab scoreboard (name column widened to 30… | kind: ours | ours | Where names show: compare with SM1 by feel or video. Ours: the HUD kill feed and the BBCode feed text, the reward line ("+ Kill… | ☐ |
 
 ### General game design (7)
 
@@ -1629,6 +1641,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-5AD498BF` | Armour and flesh sounds on a player hit | The impact sound of a hit switches on the local player's armour state: the flesh-penetrating layer only plays while armour is broken (`set_state_impact_broken_armor`) | Every bullet impact on a player plays the armour impact (`ceramite_armour`) and the flesh layer together, once, whatever the shield (M38); the impact effects use the victim's armour state only where the client really knows it (own player; later the protocol 22 bit), else the armour variant | Owner's direction 2026-10-28 (combine both, no guessing); spec "Hit feedback, per-weapon decals and the silent map (M38)" | Armour and flesh sounds on a player hit: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-7CD90567` | Lighting overhaul and god-ray blending | The original renderer's lighting (shaders not decoded); effect cards drawn as defined | A modern lighting pass on the original assets and data (M42): soft god rays and steam (depth, camera and edge fades), soft sun shadows, contact shading, volumetric smog with light shafts, a sun halo and a colour grade; `--lighting off\|low\|medium\|high` (default medium) | Owner's request 2026-10-28; spec "Lighting overhaul and god-ray blending (M42)" | Lighting overhaul and god-ray blending: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-3D924AF1` | Spawn facing | Not read; the start markers' own rotations are 0 and 180 degrees | Players face out of the room toward its exit (computed once per start area from the room's blockers) | User's decision (M22); spec "Spawn facing (M22)" | Spawn facing: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-25DAE862` | Bots' names (names/bot-lore, protocol 41) | Each player showed as their own account name; multiplayer had no bots | Test bots take a name from a per-race pool when they join ("Brother Aurex", "Skarne the Unbroken", an Ork name for the Ork Boy; original names, none a canon character), unique while connected; humans still show as P<id> (no name source yet) | Owner's request 2026-10-29 ("give the bots lore accurate names"); the pools and rules are ours; spec "Display names: the bots' names" | Bots' names (names/bot-lore, protocol 41): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-EABBC806` | No level progression | 41 levels; items, perks, the second perk slot, custom loadout slots and classes unlock by level and challenges | Everything is available from the start; the unlock levels are kept in the catalogue only | Owner's decision 2026-10-28 ("no level progression system yet"); docs/customizer-architecture.md | No level progression: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-78D0334D` | Custom loadout slots | 6 slots, unlocked at levels 4/11/17/23/29/35 | 10 slots, all available | Owner's request 2026-10-28 | Custom loadout slots: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-81DB2D08` | Jump pack meter under the weapon box | Not established from the footage | A thin meter with the pack's picture under the weapon box, no "JUMP PACK 100 / 100" text (M44) | Owner's request 2026-10-28 (playtest); spec "In-game HUD (M44)" | Jump pack meter under the weapon box: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
@@ -2104,4 +2117,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-3C893894` | Test aids | Death effects (F-D1; client only, not simulated, no protocol change) |
 | `R-54698497` | `--bot-damage-scale f` | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
 | `R-5601E474` | Protocol 37 (on top of main's 36) | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
+| `R-A4CB19AF` | Protocol 41 | Display names: the bots' names (names/bot-lore; protocol 41) |
 

@@ -70,7 +70,7 @@ public partial class NetworkView
         _scoreboardPanel = new PanelContainer
         {
             AnchorLeft = 0.5f, AnchorRight = 0.5f, AnchorTop = 0.5f, AnchorBottom = 0.5f,
-            OffsetLeft = -420, OffsetRight = 420, OffsetTop = -40, OffsetBottom = 40,   // grows with the text
+            OffsetLeft = -520, OffsetRight = 520, OffsetTop = -40, OffsetBottom = 40,   // grows with the text (names/bot-lore: 30-character name column)
             GrowHorizontal = Control.GrowDirection.Both, GrowVertical = Control.GrowDirection.Both,
             Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore,
         };
@@ -123,7 +123,8 @@ public partial class NetworkView
     void ApplyTeamLook(CharacterViewer character, int playerId, Team team)
     {
         var mine = _client?.Predicted.Team ?? Team.None;
-        string key = $"{team}/{mine}";
+        string name = HudName(playerId);   // names/bot-lore: the nameplate follows the scoreboard's name
+        string key = $"{team}/{mine}/{name}";
         if (character.HasMeta("team_look") && character.GetMeta("team_look").AsString() == key) return;
         character.SetMeta("team_look", key);
         // Fidelity gap 10: the original's world decorators (the HUD, FillDecorators) replace the placeholder name tags and side rings; those stay
@@ -131,6 +132,7 @@ public partial class NetworkView
         if (character.GetNodeOrNull<Label3D>("Nameplate") is { } plate)
         {
             plate.Modulate = RelationColour(playerId, team);
+            plate.Text = _client is not null && playerId == _client.PlayerId ? $"{name} (you)" : name;
             plate.Visible = ZoneMarkers && _client is not null && playerId != _client.PlayerId && mine != Team.None && team == mine;
         }
         if (character.GetNodeOrNull<MeshInstance3D>("SideRing") is { } ring)
@@ -272,7 +274,7 @@ public partial class NetworkView
         if (_bot && (int)(_connectedFor / 5.0) != (int)((_connectedFor - GetProcessDeltaTime()) / 5.0))
             GD.Print($"t {_connectedFor:F0} s: id {_client.PlayerId} side {SideName(_client.Predicted.Team)} match: {MatchText(match).Replace('\n', ';')}" +
                      (SeizeGround ? $"; points {PointsLogText()}; bot {_botSeizeNote}" : "") +
-                     (_client.Scoreboard is { } sb ? $"; board: {string.Join(", ", sb.Players.Select(e => $"P{e.PlayerId} {SideName(e.Team)} '{ClassLabel(e.Class)}' {e.Kills}/{e.Deaths}"))}" : ""));
+                     (_client.Scoreboard is { } sb ? $"; board: {string.Join(", ", sb.Players.Select(e => $"P{e.PlayerId}{(e.Name.Length > 0 ? $" \"{e.Name}\"" : "")} {SideName(e.Team)} '{ClassLabel(e.Class)}' {e.Kills}/{e.Deaths}"))}" : ""));
     }
 
     /// <summary>Once the scoreboard names this player: the class and side actually given (the server may balance them).</summary>
@@ -296,10 +298,10 @@ public partial class NetworkView
         }
     }
 
-    /// <summary>"P3 [bolter] P5", with suicide, team kill and fall wording; names coloured by relation (BBCode).</summary>
+    /// <summary>"Brother Aurex [bolter] Skarne the Unbroken" (names/bot-lore; "P3" for a player without a name), with suicide, team kill and fall wording; names coloured by relation (BBCode).</summary>
     string KillText(KillView k)
     {
-        string Name(int id) => $"[color=#{RelationColour(id, TeamOf(id)).ToHtml(false)}]P{id}{(_client is not null && id == _client.PlayerId ? " (you)" : "")}[/color]";
+        string Name(int id) => $"[color=#{RelationColour(id, TeamOf(id)).ToHtml(false)}]{Esc(HudName(id))}{(_client is not null && id == _client.PlayerId ? " (you)" : "")}[/color]";
         if (k.Cause == KillCause.World && (k.Killer == 0 || k.Killer == k.Victim)) return $"{Name(k.Victim)} fell out of the level";
         string weapon = Esc($"[{CauseLabel(k)}]");
         if (k.Killer == 0) return $"{weapon} {Name(k.Victim)}";
@@ -407,6 +409,9 @@ public partial class NetworkView
         };
     }
 
+    /// <summary>The scoreboard's name column (names/bot-lore: <see cref="PlayerNames.MaxLength"/> and " (you)").</summary>
+    const int NameColumn = PlayerNames.MaxLength + 6;
+
     const string GoldTag = "[color=#ffcc00]", RedTag = "[color=#e01414]", GreyTag = "[color=#9a9a9a]", EndTag = "[/color]";
 
     /// <summary>
@@ -437,15 +442,16 @@ public partial class NetworkView
             // headed with the install's words; level, score, assists, captures and defends are not on the wire (a dash), the ratio is computed.
             var t = _summaryText;
             bool seizeMode = board.Seize is not null;
-            string Cell(string text, int width) => text.Length >= width ? text[..(width - 1)] + " " : text.PadLeft(width);
+            string Cell(string text, int width, bool left = false) => text.Length >= width ? text[..(width - 1)] + " " : left ? text.PadRight(width) : text.PadLeft(width);
             string extraHead = seizeMode ? Cell(t.Seized, 9) + Cell(t.Defended, 10) : Cell(t.Ratio, 8) + Cell(t.Assists, 9);
-            sb.AppendLine($"{GreyTag}    {t.Player,-12}{"CLASS",-20}{Cell(t.Kills, 7)}{Cell(t.Deaths, 8)}{extraHead}{EndTag}");
+            sb.AppendLine($"{GreyTag}    {Cell(t.Player, NameColumn, left: true)}{"CLASS",-20}{Cell(t.Kills, 7)}{Cell(t.Deaths, 8)}{extraHead}{EndTag}");
             foreach (var e in rows)
             {
                 bool me = e.PlayerId == _client.PlayerId;
                 string extra = seizeMode ? Cell("—", 9) + Cell("—", 10)
                     : Cell(BattleRecord.Ratio(e.Kills, e.Deaths).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture), 8) + Cell("—", 9);
-                string line = $"{(me ? " >  " : "    ")}{$"P{e.PlayerId}{(me ? " (you)" : "")}",-12}{Esc(Trim(ClassLabel(e.Class), 19)),-20}{e.Kills,7}{e.Deaths,8}{extra}";
+                // names/bot-lore: a name of up to 24 characters and " (you)" fit the name column (30)
+                string line = $"{(me ? " >  " : "    ")}{Esc(Cell(HudName(e.PlayerId) + (me ? " (you)" : ""), NameColumn, left: true))}{Esc(Trim(ClassLabel(e.Class), 19)),-20}{e.Kills,7}{e.Deaths,8}{extra}";
                 sb.AppendLine(me ? GoldTag + line + EndTag : line);
             }
             if (rows.Count == 0) sb.AppendLine("    (nobody)");

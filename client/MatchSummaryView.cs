@@ -158,7 +158,7 @@ public partial class MatchSummaryView : Control
         var (stage, stageTime) = CountUp.StageAt(_time);
         float alpha = stage == 0 ? (float)CountUp.Intro(stageTime) : 1f;   // the panel eases in once, with the first stage
         float slide = (1f - alpha) * 60f * s;   // the panel rises into place while it fades in (the movie's block moves 80 px over its intro)
-        float w = 720f * s, left = cx - w / 2f, top = 130f * s + slide;
+        float w = 860f * s, left = cx - w / 2f, top = 130f * s + slide;   // names/bot-lore: wider for names of up to 24 characters (720 before)
         Panel(new Rect2(left, top, w, 440f * s), alpha);
         var gold = new Color(Gold, alpha);
         Text(_text.MatchResults, left, top + 52f * s, w, (int)(30 * s), gold, HorizontalAlignment.Center);
@@ -174,10 +174,10 @@ public partial class MatchSummaryView : Control
             Text($"{other}  {CountUp.Value(data.OtherScore, stageTime)}", left, top + 204f * s, w, (int)(22 * s), new Color(Dim, alpha), HorizontalAlignment.Center);
 
         // The side's best players, their kills and deaths counting up with the first stage.
-        float colName = left + 40f * s, colClass = left + 210f * s, colKills = left + w - 170f * s, colDeaths = left + w - 60f * s;
+        float colName = left + 40f * s, colClass = left + 340f * s, colKills = left + w - 170f * s, colDeaths = left + w - 60f * s;
         float y = top + 262f * s;
         var head = new Color(Grey, alpha);
-        Text(_text.Player, colName, y, 160f * s, (int)(18 * s), head, HorizontalAlignment.Left);
+        Text(_text.Player, colName, y, 290f * s, (int)(18 * s), head, HorizontalAlignment.Left);
         Text(_text.Kills, colKills - 70f * s, y, 70f * s, (int)(18 * s), head, HorizontalAlignment.Right);
         Text(_text.Deaths, colDeaths - 80f * s, y, 80f * s, (int)(18 * s), head, HorizontalAlignment.Right);
         DrawRect(new Rect2(left + 30f * s, y + 8f * s, w - 60f * s, 1.5f), new Color(1f, 0.8f, 0f, 0.5f * alpha));
@@ -186,7 +186,7 @@ public partial class MatchSummaryView : Control
         foreach (var row in data.Rows)
         {
             var c = row.IsViewer ? new Color(0.6f, 1f, 0.6f, alpha) : new Color(White, alpha);
-            Text(row.Name, colName, y, 170f * s, (int)(22 * s), c, HorizontalAlignment.Left);
+            Text(row.Name, colName, y, 290f * s, (int)(22 * s), c, HorizontalAlignment.Left);
             Text(row.Class, colClass, y, 255f * s, (int)(16 * s), new Color(Dim, alpha), HorizontalAlignment.Left);
             Text(CountUp.Value(row.Kills, firstStage).ToString(), colKills - 70f * s, y, 70f * s, (int)(22 * s), c, HorizontalAlignment.Right);
             Text(CountUp.Value(row.Deaths, firstStage).ToString(), colDeaths - 80f * s, y, 80f * s, (int)(22 * s), c, HorizontalAlignment.Right);
@@ -198,7 +198,7 @@ public partial class MatchSummaryView : Control
     {
         float cx = Size.X / 2f;
         float alpha = (float)Math.Clamp(_time / 0.3, 0.0, 1.0);
-        float w = 720f * s, left = cx - w / 2f, top = 130f * s;
+        float w = 860f * s, left = cx - w / 2f, top = 130f * s;   // names/bot-lore: room for a long NEMESIS name (720 before)
         Panel(new Rect2(left, top, w, 440f * s), alpha);
         // The tab strip of the original's summary: the scoreboard tab, then the battle record, the active one gold.
         float tabW = w / 2f;

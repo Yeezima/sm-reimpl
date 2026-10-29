@@ -222,7 +222,7 @@ public sealed partial class GameClient
                 case Reject r when r.Nonce == _nonce && Status == ClientStatus.Connecting:
                     Status = ClientStatus.Rejected; RejectedBecause = r.Reason; RejectDetail = r.Detail; break;
                 case Snapshot s when Status == ClientStatus.Connected: OnSnapshot(s); break;
-                case Scoreboard b when Status == ClientStatus.Connected && (Scoreboard is null || b.ServerTick > Scoreboard.ServerTick): Scoreboard = b; OnScoreboardAppearances(b); break;
+                case Scoreboard b when Status == ClientStatus.Connected && (Scoreboard is null || b.ServerTick > Scoreboard.ServerTick): Scoreboard = b; OnScoreboardAppearances(b); NoteNames(b); break;
                 case Message m and (SetupAck or Appearance or BlobRequest or BlobChunk) when Status == ClientStatus.Connected: OnAppearanceMessage(m); break;
                 case PickupUpdate p when Status == ClientStatus.Connected: OnPickups(p); break;   // protocol 26 (GameClient.Pickups.cs)
                 case ExtrasUpdate x when Status == ClientStatus.Connected: OnExtras(x); break;   // added content's envelope (GameClient.Envelope.cs)
@@ -543,6 +543,27 @@ public sealed partial class GameClient
     public IReadOnlyList<ControlPointView> Points { get; private set; } = [];
     /// <summary>The newest scoreboard (rules and every player's kills and deaths), or null before the first.</summary>
     public Scoreboard? Scoreboard { get; private set; }
+
+    readonly Dictionary<int, string> _names = new();
+
+    /// <summary>
+    /// names/bot-lore (protocol 41): the name to show for a player: the newest scoreboard's name, else the last one any scoreboard gave it this session
+    /// (a player who left stays named in the kill feed and the summary; ids are not reused while the server runs), else "P&lt;id&gt;".
+    /// </summary>
+    public string NameOf(int playerId) => PlayerNames.Display(playerId, _names.GetValueOrDefault(playerId));
+
+    /// <summary>Whether the scoreboard has given this player a name (a bot today).</summary>
+    public bool HasName(int playerId) => _names.ContainsKey(playerId);
+
+    void NoteNames(Scoreboard b)
+    {
+        foreach (var e in b.Players)
+        {
+            string name = PlayerNames.Sanitise(e.Name);
+            if (name.Length > 0) _names[e.PlayerId] = name;
+            else _names.Remove(e.PlayerId);
+        }
+    }
 
     /// <summary>
     /// perks/inert-2 (protocol 40): another player's equipment item as the newest scoreboard names it (index into <see cref="SimConfig.Thrown"/>),
