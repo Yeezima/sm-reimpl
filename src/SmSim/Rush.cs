@@ -451,7 +451,17 @@ public static class Rush
             float angle = Math.Clamp(float.IsFinite(spec.WallHitAngle) ? spec.WallHitAngle : 0f, 0f, 90f) * (MathF.PI / 180f);
             float sin = MathF.Sin(angle);
             var achieved = new Vector2(next.Position.X - s.Position.X, next.Position.Y - s.Position.Y);
-            if (Vector2.Dot(achieved, delta / wished) <= wished * sin * sin + 1e-6f) next = Stopped(next, wall: true);
+            bool blocked = Vector2.Dot(achieved, delta / wished) <= wished * sin * sin + 1e-6f;
+            // sim/player-collision: another player's capsule stops the body but is not a wall: when the move was cut, the wall test is the level's
+            // move alone (the contact, World.ResolveRush, decides what meeting a player does).
+            if (blocked && PlayerCollision.Current is not null)
+            {
+                PlayerState levelMove;
+                using (PlayerCollision.Use(null)) levelMove = Movement.Glide(s, s.Yaw, dt > 0f ? delta / dt : Vector2.Zero, c, world);
+                var level = new Vector2(levelMove.Position.X - s.Position.X, levelMove.Position.Y - s.Position.Y);
+                blocked = Vector2.Dot(level, delta / wished) <= wished * sin * sin + 1e-6f;
+            }
+            if (blocked) next = Stopped(next, wall: true);
         }
         return next;
     }

@@ -210,12 +210,13 @@ public sealed partial class World
         int index = Array.FindIndex(_startAreas, a => a.Side == team);
         if (index < 0) return false;
         var spots = SpotsIn(index);
-        int cursor = _areaCursor[(int)team] % spots.Count, chosen = cursor;
+        int cursor = _areaCursor[(int)team] % spots.Count, chosen = -1;
         for (int k = 0; k < spots.Count; k++)
         {
             int i = (cursor + k) % spots.Count;
             if (!Occupied(spots[i], playerId)) { chosen = i; break; }
         }
+        if (chosen < 0) chosen = LeastCrowded(spots, cursor, playerId);   // sim/player-collision: every spot taken: the least crowded (was the cursor's)
         _areaCursor[(int)team] = (chosen + 1) % spots.Count;
         position = spots[chosen];
         yaw = StartAreaFacing(index, position);

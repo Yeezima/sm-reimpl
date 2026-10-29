@@ -68,9 +68,13 @@ public enum InputButtons : ushort
 /// 0 for none; the simulation keeps it only while <see cref="MeleeLock.Target"/> accepts it in the input's view.
 /// ViewFraction (protocol 37, fix/hitboxes): how far past ViewTick toward the next tick the client was showing them (0 ≤ f &lt; 1, in 1/256 steps on the
 /// wire); hit-scan shots and cones rewind the targets to that point between the two ticks (<see cref="World.Between"/>), as the client interpolates them.
+/// BodyTick (protocol 43, sim/player-collision): the tick of the newest snapshot the client held when it sampled this input (0: none); the movement
+/// step collides with the other players as that snapshot had them (<see cref="PlayerCollision.See"/>), on the server and in the prediction alike. On
+/// the wire as the ticks back from <see cref="Tick"/> (one byte, 1 to <see cref="PlayerCollision.MaxBodyLagTicks"/>; anything else is 0).
 /// </summary>
 public readonly record struct PlayerInput(uint Tick, float MoveX, float MoveY, float Yaw, InputButtons Buttons, float Pitch = 0, uint ViewTick = 0,
-    float ShotYawOffset = 0, float ShotPitchOffset = 0, float ShotOriginX = 0, float ShotOriginY = 0, float ShotOriginZ = 0, int MeleeTarget = 0, float ViewFraction = 0)
+    float ShotYawOffset = 0, float ShotPitchOffset = 0, float ShotOriginX = 0, float ShotOriginY = 0, float ShotOriginZ = 0, int MeleeTarget = 0, float ViewFraction = 0,
+    uint BodyTick = 0)
 {
     /// <summary>Largest shot offset a sanitized input keeps (radians; ±π, inside the wire's ±3.2767).</summary>
     public const float MaxShotOffset = MathF.PI;
@@ -737,6 +741,7 @@ public sealed partial record SimConfig
             // Ork O4: class bodies, only when there are any (a config without them hashes as before).
             if (Bodies.Count > 0) { w.Write("bodies"); w.Write(Bodies.Count); foreach (var b in Bodies) b.Write(w); }
             w.Write("blind-view"); w.Write(BlindViewHalfAngle);   // owner's decision 2026-10-28: the blind grenade by facing
+            if (!PlayerBodies) w.Write("no-player-bodies");   // sim/player-collision: only when off (older hashes unchanged)
             if (StraightDropAbove != 1f) { w.Write("straight-drop"); w.Write(StraightDropAbove); }   // protocol 30: only when not the default (older hashes unchanged)
             if (MeleeLock != MeleeLockSpec.Default) { w.Write("melee-lock"); MeleeLock.Write(w); }   // feel/melee-lock: only when not the default (older hashes unchanged)
             if (FlightHitVolumes is { } flight) { w.Write("flight-volumes"); flight.Write(w); }   // fix/hitboxes (protocol 37): only when set (older hashes unchanged)
@@ -821,12 +826,26 @@ public static class Movement
         float vz = s.Velocity.Z;
         bool grounded = s.Grounded;
         if (grounded && c.JumpSpeed > 0f && (input.Buttons & InputButtons.Jump) != 0) { vz = c.JumpSpeed; grounded = false; }
-        if (world is not null) return CharacterMotor.Step(world.OutOfBlockers(s, c), input.Yaw, horizontal, vz, grounded, c, world.CharacterFor(s.Team));
+        // sim/player-collision (protocol 43): the other players' capsules (PlayerCollision), inside the world's or the prediction's scope only.
+        if (PlayerCollision.Current is { } bodies && s.Alive)
+        {
+            var plan = PlayerCollision.Resolve(s, horizontal, c, bodies);
+            return PlayerCollision.Finish(s, Walk(s, input.Yaw, plan.Motor, vz, grounded, c, world), plan, c, bodies, world is not null);
+        }
+        PlayerCollision.LastPush = Vector2.Zero;
+        return Walk(s, input.Yaw, horizontal, vz, grounded, c, world);
+    }
+
+    /// <summary>The walking step's move with its velocities decided: against the level with the capsule controller, else over the flat ground.</summary>
+    static PlayerState Walk(PlayerState s, float yaw, Vector2 horizontal, float vz, bool grounded, SimConfig c, CollisionWorld? world)
+    {
+        if (world is not null) return CharacterMotor.Step(world.OutOfBlockers(s, c), yaw, horizontal, vz, grounded, c, world.CharacterFor(s.Team));
+        float dt = c.TickSeconds;
         if (!grounded) vz -= c.Gravity * dt;
 
         var position = s.Position + new Vector3(horizontal.X, horizontal.Y, vz) * dt;
         if (position.Z <= 0f) { position.Z = 0f; vz = 0f; grounded = true; }
-        return s with { Position = position, Velocity = new Vector3(horizontal.X, horizontal.Y, vz), Yaw = input.Yaw, Grounded = grounded };
+        return s with { Position = position, Velocity = new Vector3(horizontal.X, horizontal.Y, vz), Yaw = yaw, Grounded = grounded };
     }
 
     /// <summary>
@@ -844,6 +863,17 @@ public static class Movement
     /// </summary>
     public static PlayerState Glide(PlayerState s, float yaw, Vector2 horizontal, SimConfig c, CollisionWorld? world = null)
     {
+        if (PlayerCollision.Current is { } bodies && s.Alive)   // sim/player-collision (protocol 43)
+        {
+            var plan = PlayerCollision.Resolve(s, horizontal, c, bodies);
+            return PlayerCollision.Finish(s, GlideAlone(s, yaw, plan.Motor, c, world), plan, c, bodies, world is not null);
+        }
+        PlayerCollision.LastPush = Vector2.Zero;
+        return GlideAlone(s, yaw, horizontal, c, world);
+    }
+
+    static PlayerState GlideAlone(PlayerState s, float yaw, Vector2 horizontal, SimConfig c, CollisionWorld? world)
+    {
         if (world is not null) return CharacterMotor.Step(world.OutOfBlockers(s, c), yaw, horizontal, s.Velocity.Z, s.Grounded, c, world.CharacterFor(s.Team));
         float dt = c.TickSeconds;
         float vz = s.Grounded ? 0f : s.Velocity.Z - c.Gravity * dt;
@@ -858,6 +888,17 @@ public static class Movement
     /// with the capsule controller, else over the flat ground at z = 0 (reaching it lands).
     /// </summary>
     public static PlayerState Fly(PlayerState s, float yaw, Vector2 horizontal, float vz, float gravity, SimConfig c, CollisionWorld? world = null)
+    {
+        if (PlayerCollision.Current is { } bodies && s.Alive)   // sim/player-collision (protocol 43)
+        {
+            var plan = PlayerCollision.Resolve(s, horizontal, c, bodies);
+            return PlayerCollision.Finish(s, FlyAlone(s, yaw, plan.Motor, vz, gravity, c, world), plan, c, bodies, world is not null);
+        }
+        PlayerCollision.LastPush = Vector2.Zero;
+        return FlyAlone(s, yaw, horizontal, vz, gravity, c, world);
+    }
+
+    static PlayerState FlyAlone(PlayerState s, float yaw, Vector2 horizontal, float vz, float gravity, SimConfig c, CollisionWorld? world)
     {
         if (world is not null) return CharacterMotor.Step(world.OutOfBlockers(s, c), yaw, horizontal, vz, false, c, world.CharacterFor(s.Team), gravity);
         float dt = c.TickSeconds;
@@ -950,12 +991,14 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             _spawnCursor = (far + 1) % _spawns.Length;
             return (_spawns[far].Position, _spawns[far].Yaw);
         }
-        int chosen = _spawnCursor % _spawns.Length;
+        int chosen = -1;
         for (int k = 0; k < _spawns.Length; k++)
         {
             int i = (_spawnCursor + k) % _spawns.Length;
             if (!Occupied(_spawns[i].Position, playerId)) { chosen = i; break; }
         }
+        // sim/player-collision: every point taken: the least crowded one (it was the cursor's, possibly on top of someone).
+        if (chosen < 0) chosen = LeastCrowded(_spawns.Select(p => p.Position).ToArray(), _spawnCursor, playerId);
         _spawnCursor = (chosen + 1) % _spawns.Length;
         return (_spawns[chosen].Position, _spawns[chosen].Yaw);
     }
@@ -967,11 +1010,18 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         return false;
     }
 
-    /// <summary>Spread spawns on a circle so players start apart (used when no spawn points are given).</summary>
-    static Vector3 PlaceholderSpawn(int playerId)
+    /// <summary>
+    /// Spread spawns on a circle so players start apart (used when no spawn points are given). sim/player-collision: a spot within two capsule
+    /// radii of a living player (ids 13 apart land 0.65 m apart on the 3 m circle) moves out to a wider circle, 1 m at a time (ours).
+    /// </summary>
+    Vector3 PlaceholderSpawn(int playerId)
     {
         float angle = playerId * 2.399963f;
-        return new Vector3(MathF.Cos(angle) * 3f, MathF.Sin(angle) * 3f, 0f);
+        var at = new Vector3(MathF.Cos(angle) * 3f, MathF.Sin(angle) * 3f, 0f);
+        float gap = 2f * MathF.Max(Config.CapsuleRadius, 0.05f) + 0.1f;
+        for (int ring = 1; ring <= 16 && _players.Any(kv => kv.Key != playerId && kv.Value.Alive && Vector3.Distance(kv.Value.Position, at) < gap); ring++)
+            at = new Vector3(MathF.Cos(angle) * (3f + ring), MathF.Sin(angle) * (3f + ring), 0f);
+        return at;
     }
 
     /// <summary>Removes the player and its projectiles (projectiles stuck to it stay where they are).</summary>
@@ -1062,7 +1112,10 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         {
             var input = (State == MatchState.Countdown ? MatchFlow.Locked(inputFor(id)) : inputFor(id)).Sanitized() with { Tick = Tick };   // no attacks before the match begins (ours)
             NoteInteract(id, input);   // fidelity gap 1: pickups (Pickups.cs)
-            var next = Combat.StepPlayer(_players[id], input, Config, out var events, Collision, SeenBy(input));   // feel/melee-lock: the lock in the attacker's view
+            PlayerState next;
+            SelfEvents events;
+            using (PlayerCollision.Use(BodiesFor(id, input)))   // sim/player-collision: the others' capsules as this player's client knew them (WorldBodies.cs)
+                next = Combat.StepPlayer(_players[id], input, Config, out events, Collision, SeenBy(input));   // feel/melee-lock: the lock in the attacker's view
             bool fired = events.Fired;
             int meleeHitStep = events.MeleeHitStep;
             var before = _players[id];
@@ -1132,6 +1185,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         ScheduleDeathBlasts(aliveBefore);   // M43: Final Vengeance
         StepPickups(aliveBefore);   // fidelity gap 1: collections, expiry, the deaths' drops (Pickups.cs)
         StepMatch();
+        RecordBodies();   // sim/player-collision: this tick's end states, as the snapshot after it carries them (WorldBodies.cs)
     }
 
 

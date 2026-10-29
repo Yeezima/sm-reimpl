@@ -147,7 +147,7 @@ public sealed partial class GameServer
             throw new ArgumentException("Seize Ground needs a map with control points.");
         foreach (var p in map?.ControlPoints ?? [])
             if (!Protocol.IsMapName(p.Name)) throw new ArgumentException($"Control point name '{p.Name}' cannot travel (letters, digits, '_'; at most {Protocol.MaxMapName}).");
-        World = new World(config, map?.Collision, map?.Spawns) { Rules = _options.Match, ControlPoints = map?.ControlPoints ?? [], StartAreas = map?.StartAreas ?? [], SpawnBlockers = map?.Blockers ?? map?.Collision?.Blockers ?? [] };
+        World = new World(config, map?.Collision, map?.Spawns) { BoundBodies = true, Rules = _options.Match, ControlPoints = map?.ControlPoints ?? [], StartAreas = map?.StartAreas ?? [], SpawnBlockers = map?.Blockers ?? map?.Collision?.Blockers ?? [] };
         _emblems = new EmblemCache(Math.Max(1, _options.MaxCachedEmblems));
         _contentFingerprint = contentFingerprint; _transport = transport; _clock = clock;
     }
@@ -413,9 +413,10 @@ public sealed partial class GameServer
             {
                 // A repeated input keeps its view relative to its own tick, so the rewind does not grow while packets are lost.
                 var last = peer.LastApplied;
-                peer.LastApplied = last with { Tick = tick, ViewTick = last.ViewTick == 0 ? 0 : last.ViewTick + (tick - last.Tick) };
+                peer.LastApplied = last with { Tick = tick, ViewTick = last.ViewTick == 0 ? 0 : last.ViewTick + (tick - last.Tick),
+                    BodyTick = last.BodyTick == 0 ? 0 : last.BodyTick + (tick - last.Tick) };   // protocol 43: the bodies too
             }
-            return WithBoundedView(peer.LastApplied, BoundedViewTick(peer, peer.LastApplied.ViewTick));
+            return WithBoundedBody(WithBoundedView(peer.LastApplied, BoundedViewTick(peer, peer.LastApplied.ViewTick)), peer.LastAppliedAck, BodySlack);
         });
         foreach (var peer in _peers.Values)
         {
@@ -527,6 +528,17 @@ public sealed partial class GameServer
     /// </summary>
     public static PlayerInput WithBoundedView(PlayerInput input, uint bounded) =>
         input with { ViewTick = bounded, ViewFraction = bounded == input.ViewTick ? input.ViewFraction : 0f };
+
+    /// <summary>
+    /// sim/player-collision (protocol 43): an input's body tick no older than the snapshot its batch acknowledged (<paramref name="ack"/>) less
+    /// <paramref name="slack"/> ticks (raised to that bound when older; an honest client names the snapshot it acknowledges, a later copy of a lost
+    /// input at most a few ticks newer), so a client cannot collide with an old world to walk into players. 0 (none) and an unknown ack stay.
+    /// </summary>
+    public static PlayerInput WithBoundedBody(PlayerInput input, uint ack, uint slack) =>
+        input.BodyTick == 0 || ack == 0 || (long)input.BodyTick >= (long)ack - slack ? input : input with { BodyTick = (uint)Math.Max(1L, (long)ack - slack) };
+
+    /// <summary>The body tick's slack behind the acknowledged snapshot: the view's (the longest interpolation delay and 4 ticks).</summary>
+    uint BodySlack => (uint)Math.Ceiling(_options.MaxInterpolationDelay.TotalSeconds * World.Config.TickRate) + 4;
 
     uint BoundedViewTick(Peer peer, uint viewTick)
     {

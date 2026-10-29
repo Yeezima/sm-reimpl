@@ -697,7 +697,7 @@ public class JumpPackTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_9_carries_the_jump_state_in_full_and_flags_in_slim_records_within_1200_bytes()
     {
-        Assert.Equal(42, Protocol.Version);
+        Assert.Equal(43, Protocol.Version);
         PlayerState Loaded(int id) => new(id, new Vector3(1e4f), new Vector3(100f), 3f, false)
         {
             Alive = true, Health = 1e3f, Shield = 1e3f, Class = Protocol.MaxClasses - 1, Slot = WeaponSlot.Pistol, Clip = 65535, Reserve = 65535, OtherClip = 65535, OtherReserve = 65535,

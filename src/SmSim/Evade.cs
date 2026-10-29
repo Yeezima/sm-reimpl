@@ -502,7 +502,8 @@ public static class Evade
             // sin²(WallHitAngle) of it is a wall within that angle.
             float angle = Math.Clamp(float.IsFinite(spec.WallHitAngle) ? spec.WallHitAngle : 0f, 0f, 90f) * (MathF.PI / 180f);
             float sin = MathF.Sin(angle);
-            var achieved = new Vector2(next.Position.X - s.Position.X, next.Position.Y - s.Position.Y);
+            // sim/player-collision: the push apart from another player is not progress or its loss: it is left out (PlayerCollision.LastPush).
+            var achieved = new Vector2(next.Position.X - s.Position.X, next.Position.Y - s.Position.Y) - PlayerCollision.LastPush;
             wallHit = Vector2.Dot(achieved, delta / wished) <= wished * sin * sin + 1e-6f;
         }
         return next;

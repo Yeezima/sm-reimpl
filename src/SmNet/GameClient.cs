@@ -277,7 +277,8 @@ public sealed partial class GameClient
         // Quantized as the wire will carry it, so the prediction steps exactly the input the server applies.
         // fix/hitboxes (protocol 37): the view tick is the tick at or before the render tick, the fraction how far toward the next one (the server rewinds there).
         var (viewTick, viewFraction) = ViewOf(RenderTick());
-        var input = Protocol.Quantize(sampleInput(Tick).Sanitized() with { Tick = Tick, ViewTick = viewTick, ViewFraction = viewFraction });
+        // sim/player-collision (protocol 43): the newest snapshot held is the one the movement collides with (GameClient.Bodies.cs).
+        var input = Protocol.Quantize(sampleInput(Tick).Sanitized() with { Tick = Tick, ViewTick = viewTick, ViewFraction = viewFraction, BodyTick = BodyTickFor(Tick) });
         // feel/melee-lock (protocol 32): the melee lock is picked from the others as this client shows them at the input's view tick (the server checks
         // it in its rewound world at the same tick), and the prediction steps with that view.
         // Only on ticks that may lock (MeleeLock.Wants): their view tick is moved to the nearest snapshot this client holds, so its view of the others is
@@ -299,7 +300,10 @@ public sealed partial class GameClient
         _prePrevious = PreviousPredicted;
         PreviousPredicted = Predicted;
         // The raw input is stored and sent (the server drops the attack buttons of a countdown tick itself); only the prediction drops them, by tick (protocol 25).
-        Predicted = Combat.StepPlayer(Predicted, Match.Predicted(_latestSnapshotTick, input), _config, out var events, Collision, view);
+        SelfEvents events;
+        LastBodies = BodiesFor(input);
+        using (PlayerCollision.Use(LastBodies))
+            Predicted = Combat.StepPlayer(Predicted, Match.Predicted(_latestSnapshotTick, input), _config, out events, Collision, view);
         if (events != default)
         {
             _ownEvents.Add((Tick, events));
@@ -470,8 +474,9 @@ public sealed partial class GameClient
             var input = _history[tick].Input;
             twoBefore = beforeLast;
             beforeLast = state;
-            state = Combat.StepSelf(state, Match.Predicted(s.ServerTick, input), _config, out _, out _, Collision,
-                input.MeleeTarget > 0 ? ViewAt(input.ViewTick) : null);   // the stored input is raw: the lock follows the newest snapshot (protocol 25); feel/melee-lock: the view at its view tick, only with a lock
+            using (PlayerCollision.Use(BodiesFor(input)))   // sim/player-collision: the same bodies as when it was first predicted
+                state = Combat.StepSelf(state, Match.Predicted(s.ServerTick, input), _config, out _, out _, Collision,
+                    input.MeleeTarget > 0 ? ViewAt(input.ViewTick) : null);   // the stored input is raw: the lock follows the newest snapshot (protocol 25); feel/melee-lock: the view at its view tick, only with a lock
             _history[tick] = (input, state);
         }
         LastCorrection = state.Position - Predicted.Position;
