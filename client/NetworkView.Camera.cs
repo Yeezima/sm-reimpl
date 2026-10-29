@@ -137,7 +137,7 @@ public partial class NetworkView
         _pitch = Math.Clamp(_pitch, _pitchMin, _pitchMax);
         float pitch = Math.Clamp(_pitch, _pitchMin, _pitchMax);
         // ui/hud-fidelity: the rig follows the view a moment late (--camera-lag; temporary, owner: NetworkView.CameraLag.cs); the aim stays the view's.
-        var (rigYaw, rigPitch) = LaggedView(_yaw, pitch, delta, me.Alive);
+        var (rigYaw, rigPitch) = LaggedView(_yaw, pitch, delta, me);
 
         if (_cameraRig.OffsetAtPitch(ex.AnimationCurve, rigPitch) is not { } o0 || _cameraRig.OffsetAtPitch(aim.AnimationCurve, rigPitch) is not { } o1) return false;
         if (!_rigLogged)
@@ -212,8 +212,8 @@ public partial class NetworkView
         // looking where the view is turning, so a wall corner that is about to cross the camera's line starts the pull-in early
         // instead of meeting the hard cast all at once.
         int ahead = 0;
-        float yawStep = _rigYawInit ? Mathf.Wrap(_yaw - _rigYaw, -MathF.PI, MathF.PI) : 0f;
-        _rigYaw = _yaw; _rigYawInit = true;
+        float yawStep = _rigYawInit ? Mathf.Wrap(rigYaw - _rigYaw, -MathF.PI, MathF.PI) : 0f;   // ui/hud-fidelity: the lens's (lagged) yaw
+        _rigYaw = rigYaw; _rigYawInit = true;
         _rigYawRate = Mathf.Lerp(_rigYawRate, delta > 1e-4f ? Math.Clamp(yawStep / delta, -4f, 4f) : 0f, 1f - MathF.Exp(-15f * delta));
         if (_client?.Collision is not null && me.Alive)
         {
@@ -223,7 +223,7 @@ public partial class NetworkView
                 var step = _gameSpace.Basis * (velocity * t);
                 float stepLength = step.Length();
                 if (stepLength > 0.05f) step *= CastClear(head, head + step, CameraSoftRadius) / stepLength;
-                float turned = _yaw + _rigYawRate * t;
+                float turned = rigYaw + _rigYawRate * t;
                 float s2 = MathF.Sin(turned), c2 = MathF.Cos(turned);
                 Vector3 AtAhead(System.Numerics.Vector3 v)
                 {
@@ -243,8 +243,9 @@ public partial class NetworkView
             _aheadFrom.Add(_aheadHead[i] + (_aheadPivot[i] - _aheadHead[i]) * _rigFractionA);
             _aheadTo.Add(_aheadEye[i]);
         }
-        var position = DampFraction(ref _rigFraction, _cameraPlaced, pivotWorld, wanted, delta, _aheadFrom, _aheadTo);
-        position = Depenetrate(ClearOfBodies(position, me, includeOwn: false, pivotWorld, delta));   // an enemy in melee range is not in the lens
+        var damped = DampFraction(ref _rigFraction, _cameraPlaced, pivotWorld, wanted, delta, _aheadFrom, _aheadTo);
+        var position = Depenetrate(ClearOfBodies(damped, me, includeOwn: false, pivotWorld, delta));   // an enemy in melee range is not in the lens
+        NoteLagEye(ex, aim, w, pitch, me, head, position - damped);   // ui/hud-fidelity camera lag (temporary): the eye an unlagged rig would have
         _cameraPlaced = true;
 
         var aimGame = Combat.AimDirection(rigYaw, rigPitch);
@@ -311,6 +312,7 @@ public partial class NetworkView
         // feel/controls: the ray turned to the view this input carries (the camera was placed last frame, before this frame's mouse movement).
         var (_, _, start, direction) = CenterRayTarget(me, _config, FreshCenterRay());
         LatencyProbeShot(direction);   // feel/controls test aid (--latency-probe)
+        if (LatencyProbeOn) LagProbeShot(start, direction);   // ui/hud-fidelity camera lag (temporary)
         return input.WithShot(start, direction, Combat.EyePosition(me, _config));
     }
 

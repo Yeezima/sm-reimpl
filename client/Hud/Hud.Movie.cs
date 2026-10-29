@@ -43,7 +43,6 @@ public sealed partial class Hud
         if (_movieArt is null) return;
         _movieArt.SetScale(Size.Y / 720.0);
         _movieArt.Process();
-        _addLayer?.QueueRedraw();
     }
 
     public override void _ExitTree() => _movieArt?.Stop();
@@ -51,7 +50,7 @@ public sealed partial class Hud
     HudMovie? HudMovie => _movieArt?.Movies?.Hud;
 
     /// <summary>Whether the HUD draws the interaction prompt itself (the movie is read and --old-hud is off).</summary>
-    public bool DrawsPrompt => !OldHud && _movieArt?.Movies?.Text is not null;
+    public bool DrawsPrompt => !OldHud && _movieArt?.Movies?.Text?.Find("Prompt_mc") is not null;
 
     /// <summary>Draws a movie piece whose origin is at <paramref name="at"/> (virtual units) at <paramref name="scale"/> times the movie's size. False when the piece is not there.</summary>
     bool DrawPic(HudMovieArt.Pic? pic, Vector2 at, Color? modulate = null, float scale = 1f)
@@ -84,14 +83,21 @@ public sealed partial class Hud
     /// <summary>The local frame currently set by <see cref="BeginLocal"/> (identity outside), so every piece lands in it.</summary>
     Transform2D _localXf = Transform2D.Identity;
 
-    internal void DrawAdditive(CanvasItem layer)
+    /// <summary>
+    /// Writes this frame's added pieces into the add layer's canvas item at the end of the HUD's own draw (review: queuing the layer's redraw from <c>_Process</c> drew them a frame
+    /// behind the normal ones): the layer's commands are replaced directly through the rendering server.
+    /// </summary>
+    void FlushAdditive()
     {
+        if (_addLayer is null) return;
+        var rid = _addLayer.GetCanvasItem();
+        RenderingServer.CanvasItemClear(rid);
         foreach (var (tex, xf, mod) in _adds)
         {
-            layer.DrawSetTransformMatrix(xf);
-            layer.DrawTexture(tex, Vector2.Zero, mod);
+            RenderingServer.CanvasItemAddSetTransform(rid, xf);
+            RenderingServer.CanvasItemAddTextureRect(rid, new Rect2(Vector2.Zero, tex.GetSize()), tex.GetRid(), false, mod);
         }
-        layer.DrawSetTransformMatrix(Transform2D.Identity);
+        RenderingServer.CanvasItemAddSetTransform(rid, Transform2D.Identity);
     }
 
     /// <summary>Movie pixels to virtual units for a movie anchored left (-1), centred (0) or right (1) on the screen (the stage is 1280 x 720, scaled by height).</summary>
@@ -184,8 +190,11 @@ public sealed partial class Hud
         var d = Data;
         if (ScopeArt.KindOf(d.WeaponWargear) is not null) return true;   // owner, 2026-10-29: the scoped weapons show no reticle outside the scope
         if (_movieArt is null || _movieArt.Failed) return false;
-        if (HudMovie is not { } hud) return !_movieArt.Failed && _movieArt.Movies is null;   // still reading: nothing for a moment
-        var spec = ReticleRules.For(d.WeaponWargear, _art?.Art?.WeaponType(d.WeaponWargear)) ?? ReticleRules.All[0];
+        if (HudMovie is not { } hud) return _movieArt.Loading;   // still reading: nothing for a moment; failed or no Hud.gfx: the M44 reticle
+        // The weapon in hand is always a ranged weapon (melee is a button, not a slot); a type the rules do not know shows no reticle (ReticleRules), and no weapon at all
+        // shows the movie's small default_mc dot.
+        if (!d.HasWeapon) return DrawDefaultReticle(hud, c);
+        if (ReticleRules.For(d.WeaponWargear, _art?.Art?.WeaponType(d.WeaponWargear)) is not { } spec) return true;
         string name = d.AimedAtEnemy && spec.Active is { } active ? active : spec.Idle;
         string path = $"{ReticleRules.Container}/{name}";
         int top = 0;
@@ -230,6 +239,15 @@ public sealed partial class Hud
     }
 
     void DrawReticlePic(HudMovieArt.Pic pic, Vector2 c) => DrawPic(pic, c + ReticleContainer * StageToVirtual);
+
+    /// <summary>The movie's <c>default_mc</c> (a small dot at half alpha): the reticle with no weapon in hand.</summary>
+    bool DrawDefaultReticle(HudMovie hud, Vector2 c)
+    {
+        string path = $"{ReticleRules.Container}/default_mc";
+        if (hud.Find(path) is null || _movieArt is null) return true;
+        if (_movieArt.Get("ret:default_mc", (m, s) => m.Hud?.RenderAt(path, ReticleRules.Container, s)) is { } pic) DrawReticlePic(pic, c);
+        return true;
+    }
 
     /// <summary>Asks for every spread frame of a family's two reticles once (rendered in the background, so a bloom finds its frame built).</summary>
     void WarmSpread(HudMovie hud, ReticleSpec spec)
@@ -309,5 +327,5 @@ public sealed partial class HudAddLayer : Control
         Material = new CanvasItemMaterial { BlendMode = CanvasItemMaterial.BlendModeEnum.Add };
     }
 
-    public override void _Draw() => _owner.DrawAdditive(this);
+    // Drawn by the HUD itself (Hud.FlushAdditive writes this item's commands in the HUD's draw).
 }

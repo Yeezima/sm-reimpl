@@ -19,3 +19,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The hit marker is the original's four gold ticks.
 - The kill feed, the "+50 Kill" reward line, the team score panel, the weapon box, the Seize Ground point markers and the "Pick up Ammo" prompt now use the original game's HUD pictures and layout. The weapon box's heat bar now empties as the weapon heats up, like the original.
 - Trial: the camera trails your aim very slightly (about 50 ms), so turning feels less stiff. Your shots still go exactly where the crosshair is, and the crosshair may drift a little off the centre during fast turns. Tell us whether you like it.
+- The class creator's tabs now show the whole class name (for example "Tactical Marine / Chaos Space Marine") instead of cutting it off.

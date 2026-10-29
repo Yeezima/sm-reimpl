@@ -46,6 +46,12 @@ public sealed class HudMovieArt
 
     public bool Failed => _failed;
 
+    /// <summary>Whether the movies are being read now (started, neither read nor failed): the only time the HUD draws no reticle at all.</summary>
+    public bool Loading => _thread is not null && !_failed && _movies is null;
+
+    /// <summary><c>--hud-movies-fail</c> (test aid): the read throws, to check that the HUD falls back to its M44 drawing.</summary>
+    static readonly bool FaultInjected = Array.IndexOf(OS.GetCmdlineUserArgs(), "--hud-movies-fail") >= 0;
+
     /// <summary>Screen pixels per movie pixel the pieces are rendered at (the window height / 720).</summary>
     public double Scale => _scale;
 
@@ -60,11 +66,13 @@ public sealed class HudMovieArt
             try
             {
                 var sw = Stopwatch.StartNew();
+                if (FaultInjected) throw new InvalidOperationException("--hud-movies-fail (test aid)");
                 var m = HudMovies.Load(dir);
                 _movies = m;
                 GD.Print($"HUD movies read in {sw.ElapsedMilliseconds} ms: Hud {(m.Hud is null ? "missing" : "ok")}, HudText {(m.Text is null ? "missing" : "ok")}, HudEventLog {(m.EventLog is null ? "missing" : "ok")}, Decorator {(m.Decorator is null ? "missing" : "ok")}");
             }
-            catch (Exception e) when (e is System.IO.IOException or System.IO.InvalidDataException or UnauthorizedAccessException) { _failed = true; GD.PrintErr("HUD movies not read: " + e.Message); }
+            // Any failure (but running out of memory) ends the read for good: the HUD then draws its M44 shapes instead of waiting.
+            catch (Exception e) when (e is not OutOfMemoryException) { _failed = true; GD.PrintErr("HUD movies not read (the HUD draws its own shapes): " + e.GetType().Name + ": " + e.Message); }
         });
     }
 

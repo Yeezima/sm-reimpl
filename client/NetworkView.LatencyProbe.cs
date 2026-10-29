@@ -90,7 +90,6 @@ public partial class NetworkView
     {
         if (!LatencyProbeOn) return;
         _probeShotDir = direction; _probeShotFrame = _probeFrame;
-        LagProbeShot(direction);   // ui/hud-fidelity camera lag (temporary, NetworkView.CameraLag.cs)
     }
 
     /// <summary>End of the frame: the reaction and feedback checks.</summary>

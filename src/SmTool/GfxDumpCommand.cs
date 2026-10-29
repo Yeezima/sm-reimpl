@@ -7,10 +7,10 @@ using SmFormats.Obpk;
 namespace SmTool;
 
 /// <summary>
-/// <c>smtool gfx-dump &lt;game-dir|auto&gt; [--movie Hud] [--package ingame|common] [--grep word] [--frames sprite] [--render name [--frame n] [--scale s] [--all-frames] --out dir]</c>: the structure of a Scaleform
+/// <c>smtool gfx-dump &lt;game-dir|auto&gt; [--movie Hud] [--package ingame|common] [--grep word] [--frames sprite] [--render name [--frame n] [--scale s] [--all-frames] [--out dir]]</c>: the structure of a Scaleform
 /// movie of <c>ui_ingame.oppc</c> (read-only): stage, every sprite's frame count and labels, every named placement (parent sprite, frame, character, position in
 /// movie pixels, scale, blend, colour transform). <c>--render</c> draws a named placement's character (its frame <c>n</c>, or every frame) with the movie's
-/// bitmaps into PNG files under <c>dir</c>, which must be outside the repository and the install (the private cache). No action (ActionScript) is read.
+/// bitmaps into PNG files under <c>dir</c> (default: the private cache's <c>gfx-dump</c> folder; never inside the repository or the install). No action (ActionScript) is read.
 /// </summary>
 public static class GfxDumpCommand
 {
@@ -21,7 +21,14 @@ public static class GfxDumpCommand
         string package = Opt(rest, "--package") is "common" ? UiArt.CommonPackage : UiArt.IngamePackage;
         string? grep = Opt(rest, "--grep");
         string? render = Opt(rest, "--render");
-        string? outDir = Opt(rest, "--out");
+        bool writeFiles = Opt(rest, "--out") is not null;
+        string? outDir = null;
+        if (writeFiles || render is not null)
+        {
+            // One guard for every file this command writes: never inside the repository or the install; by default the private cache.
+            outDir = SafeOutput(Opt(rest, "--out"), gameDir, out string why);
+            if (outDir is null) { Console.Error.WriteLine(why); return 2; }
+        }
         int frameArg = int.TryParse(Opt(rest, "--frame"), out var fr) ? fr : -1;
         double scale = double.TryParse(Opt(rest, "--scale"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var sc) ? sc : 1.0;
         bool allFrames = rest.Contains("--all-frames");
@@ -57,7 +64,7 @@ public static class GfxDumpCommand
             if (pic is null) { Console.WriteLine("draws nothing"); return 0; }
             var b = GfxRaster.Bounds(movie, found.Value.Placement.Character, 0, local, ch => movie.Sprites.TryGetValue(ch, out var s) && s.Frames.Count > nf ? nf : 0, visibleOnly: true);
             Console.WriteLine($"{path}: {pic.Width} x {pic.Height} px at scale {scale}, origin ({pic.OriginX:0.##}, {pic.OriginY:0.##}); box (movie px, origin of '{steps[0]}') {b?.X0:0.##},{b?.Y0:0.##} .. {b?.X1:0.##},{b?.Y1:0.##}, centre ({(b?.X0 + b?.X1) / 2:0.##}, {(b?.Y0 + b?.Y1) / 2:0.##}); additive {(pic.Additive is null ? "no" : "yes")}");
-            if (outDir is not null)
+            if (writeFiles && outDir is not null)
             {
                 Directory.CreateDirectory(outDir);
                 var px = new byte[pic.Width * pic.Height * 4];
@@ -125,9 +132,7 @@ public static class GfxDumpCommand
             return 0;
         }
 
-        if (outDir is null) { Console.Error.WriteLine("--render needs --out <dir> (outside the repository and the install)"); return 2; }
-        string full = Path.GetFullPath(outDir);
-        if (full.StartsWith(Path.GetFullPath(gameDir), StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("refusing an output inside the install"); return 2; }
+        string full = outDir!;
         Directory.CreateDirectory(full);
         int character;
         if (int.TryParse(render, out int byId)) character = byId;
@@ -184,6 +189,35 @@ public static class GfxDumpCommand
             Console.WriteLine(file);
         }
         return 0;
+    }
+
+    /// <summary>
+    /// The folder renders go to: <paramref name="requested"/> (full path), or <c>%LOCALAPPDATA%\sm-reimpl\cache\gfx-dump</c> when none is given; null (with the reason) for a folder inside
+    /// the repository or the install (compared folder by folder, so a sibling whose name only starts the same is allowed).
+    /// </summary>
+    public static string? SafeOutput(string? requested, string gameDir, out string why)
+    {
+        why = "";
+        string dir = requested is { Length: > 0 } ? Path.GetFullPath(requested)
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "sm-reimpl", "cache", "gfx-dump");
+        static bool Inside(string path, string? root)
+        {
+            if (string.IsNullOrEmpty(root)) return false;
+            string r = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root)) + Path.DirectorySeparatorChar;
+            string d = Path.TrimEndingDirectorySeparator(path) + Path.DirectorySeparatorChar;
+            return d.StartsWith(r, StringComparison.OrdinalIgnoreCase);
+        }
+        if (Inside(dir, gameDir)) { why = $"refusing an output inside the game install ({dir})"; return null; }
+        if (Inside(dir, RepoRoot())) { why = $"refusing an output inside the repository ({dir}): use the private cache"; return null; }
+        return dir;
+    }
+
+    static string? RepoRoot()
+    {
+        foreach (var start in new[] { Environment.CurrentDirectory, AppContext.BaseDirectory })
+            for (var d = new DirectoryInfo(start); d is not null; d = d.Parent)
+                if (File.Exists(Path.Combine(d.FullName, "SmReimpl.slnx"))) return d.FullName;
+        return null;
     }
 
     static string? Opt(string[] args, string name)

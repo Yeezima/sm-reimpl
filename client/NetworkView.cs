@@ -1906,7 +1906,8 @@ public partial class NetworkView : Node3D
         if (me.Alive && _camera is not null)
         {
             // Red crosshair and name when the centre ray's first hit is a hostile player (the simulation's hit shapes).
-            if (CenterRayTarget(me, c).Hit is { } enemy && World.Hostile(me.Team, enemy.Team))
+            var centre = CenterRayTarget(me, c);   // ui/hud-fidelity: one centre ray for the aimed enemy and the crosshair's place
+            if (centre.Hit is { } enemy && World.Hostile(me.Team, enemy.Team))
             {
                 f.AimedAtEnemy = true; f.AimedName = HudName(enemy.PlayerId);
                 if (enemy.PlayerId == _lastVictim && _connectedFor - _lastHitAt < 3.0)
@@ -1921,7 +1922,7 @@ public partial class NetworkView : Node3D
             // ui/hud-fidelity: the original reticle's spread frame, aim mode and the brace (Hud.Movie.cs).
             f.SpreadFraction = ReticleRules.SpreadFraction(inHand, me, c.MoveSpeedScale);
             f.Aiming = me.Aiming; f.Braced = me.Brace is BracePhase.Entering or BracePhase.Braced;
-            f.CrosshairOffset = CrosshairOffset(me, c);   // the camera lag (temporary, NetworkView.CameraLag.cs)
+            f.CrosshairOffset = CrosshairOffset(centre.Point);   // the camera lag (temporary, NetworkView.CameraLag.cs)
         }
         f.Prompt = me.Alive ? _hudPrompt : "";   // ui/hud-fidelity (NetworkView.Pickups.cs)
         UpdateScope(f, me);   // feel/scope-lascannon

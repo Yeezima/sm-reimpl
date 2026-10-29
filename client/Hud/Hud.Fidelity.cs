@@ -201,18 +201,20 @@ public sealed partial class Hud
     bool DrawMoviePointMarker(Point p, Vector2 pos, float blink)
     {
         if (OldHud || _movieArt?.Movies?.Decorator is not { } deco) return false;
-        int anim = -1, number = -1;
-        foreach (var (id, sprite) in deco.Movie.Sprites)
+        if (!_pointDecoratorSearched)
         {
-            // The point decorator: the sprite that places "anim_mc" and "number_mc" (sprite 158 in the install).
-            if (sprite.Frames.Count == 0) continue;
-            bool hasAnim = false, hasNumber = false;
-            foreach (var pl in sprite.Frames[0].Display.Values) { if (pl.Name == "anim_mc") hasAnim = true; if (pl.Name == "number_mc") hasNumber = true; }
-            if (hasAnim && hasNumber) { _pointDecorator = id; break; }
+            // Once: the point decorator is the sprite that places "anim_mc" and "number_mc" (sprite 158 in the install).
+            _pointDecoratorSearched = true;
+            foreach (var (id, sprite) in deco.Movie.Sprites)
+            {
+                if (sprite.Frames.Count == 0) continue;
+                int a = -1; bool hasNumber = false;
+                foreach (var pl in sprite.Frames[0].Display.Values) { if (pl.Name == "anim_mc") a = pl.Character; if (pl.Name == "number_mc") hasNumber = true; }
+                if (a >= 0 && hasNumber) { _pointDecorator = id; _pointAnim = a; break; }
+            }
         }
         if (_pointDecorator < 0) return false;
-        foreach (var pl in deco.Movie.Sprites[_pointDecorator].Frames[0].Display.Values) { if (pl.Name == "anim_mc") anim = pl.Character; if (pl.Name == "number_mc") number = pl.Character; }
-        if (anim < 0) return false;
+        int anim = _pointAnim;
         int frame = deco.Labels(anim).GetValueOrDefault(PointLabel(p), 0);
         var root = new Transform2D(0f, new Vector2(StageToVirtual, StageToVirtual), 0f, pos);
         DrawWalk(deco, _pointDecorator, 0, root, (path, _) => path == "anim_mc" ? frame : null, ch => ch == anim,
@@ -221,7 +223,8 @@ public sealed partial class Hud
         return true;
     }
 
-    int _pointDecorator = -1;
+    int _pointDecorator = -1, _pointAnim = -1;
+    bool _pointDecoratorSearched;
 
     // ---------------------------------------------------------------- pick-up prompt (HudText.gfx Prompt_mc)
 
@@ -242,7 +245,7 @@ public sealed partial class Hud
         var labels = text.Labels(prompt.Placement.Character);
         int inAt = labels.GetValueOrDefault("in", 1), outAt = labels.GetValueOrDefault("out", 74);
         // Hold where the slide ends (the frame after which the placement stops changing: 19 in the install), before "out".
-        int frame = Math.Min(Math.Min(outAt - 1, inAt + 18), inAt + (int)((_time - _promptSince) * ReticleRules.FramesPerSecond));
+        int frame = Math.Max(0, Math.Min(Math.Min(outAt - 1, inAt + 18), inAt + (int)((_time - _promptSince) * ReticleRules.FramesPerSecond)));
         var root = Stage(vs, 0) * ToXf(prompt.ToStage);
         DrawWalk(text, prompt.Placement.Character, frame, root, null, _ => false,
             path => path.EndsWith("Objective_txt", StringComparison.Ordinal) ? d.Prompt : null, null, 1f,
@@ -280,6 +283,10 @@ public sealed partial class Hud
     /// </summary>
     const float BoxScale = 1.12f, BoxPictureScale = 0.8f, BoxPictureShade = 0.55f;
 
+    // The box's path sets, built once (not every frame).
+    static readonly HashSet<string> OptionalPaths = new(WeaponBoxRules.Optional, StringComparer.Ordinal), NoPaths = new(StringComparer.Ordinal);
+    static readonly Dictionary<IReadOnlyList<string>, HashSet<string>> ShowSets = new(ReferenceEqualityComparer.Instance);
+
     /// <summary>
     /// The weapon box from <c>Hud.gfx</c> (<c>weaponInfo_Slide</c> at the end of its slide-in, bottom right): the frame with the winged skull (with or without the grenade column),
     /// the grenades held (<c>grenade00</c> .. <c>04</c>, the equipment's picture), the weapon's picture where the movie loads it (<c>gun_mc</c>), the family's ammunition display
@@ -314,8 +321,8 @@ public sealed partial class Hud
         bool reserve = d.ReserveMax > 0 || d.Reserve > 0;
         int count = reserve ? d.Reserve : d.Clip;
         bool empty = count == 0 && d.Clip == 0;
-        var show = new HashSet<string>(spec?.Show ?? []);
-        var optional = new HashSet<string>(WeaponBoxRules.Optional);
+        var show = spec is null ? NoPaths : ShowSets.TryGetValue(spec.Show, out var known) ? known : ShowSets[spec.Show] = new HashSet<string>(spec.Show, StringComparer.Ordinal);
+        var optional = OptionalPaths;
         string equipment = d.GrenadeWargear.Contains("krak", StringComparison.OrdinalIgnoreCase) || d.GrenadeWargear.Contains("blind", StringComparison.OrdinalIgnoreCase) ? "blind_grenade_mc"
             : d.GrenadeWargear.Contains("stim", StringComparison.OrdinalIgnoreCase) ? "stimpack_mc" : "grenade_mc";
         int grenades = d.HasGrenade ? Math.Clamp(d.Grenades, 0, 5) : 0;

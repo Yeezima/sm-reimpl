@@ -459,6 +459,44 @@ public static partial class UiKit
 
     public static string Upper(string text) => text.ToUpperInvariant();
 
+    /// <summary>The width a button's text needs at its current font and size, its style's side margins included.</summary>
+    public static float TextNeed(Button b)
+    {
+        var font = b.GetThemeFont("font");
+        int size = b.GetThemeFontSize("font_size");
+        var style = b.GetThemeStylebox("normal");
+        float margins = style is null ? 0f : style.GetMargin(Side.Left) + style.GetMargin(Side.Right);
+        return (font?.GetStringSize(b.Text, HorizontalAlignment.Left, -1, size).X ?? 0f) + margins;
+    }
+
+    /// <summary>
+    /// Keeps a button's whole label readable (ui/hud-fidelity review: the creator's "Tactical Marine / Chaos Space Marine" tab was cut off): whenever it is resized, its font shrinks
+    /// from the theme's size until the text fits the width, down to <paramref name="smallest"/>.
+    /// </summary>
+    public static void ShrinkToFit(Button b, int smallest = 13)
+    {
+        bool busy = false;
+        float fitted = -1f;
+        string fittedText = "";
+        void Fit()
+        {
+            // A size change re-lays the button out and resizes it again: fit once per width and text, never from inside a fit.
+            if (busy || (MathF.Abs(b.Size.X - fitted) < 0.5f && fittedText == b.Text)) return;
+            busy = true;
+            fitted = b.Size.X; fittedText = b.Text;
+            b.RemoveThemeFontSizeOverride("font_size");
+            int size = b.GetThemeFontSize("font_size");
+            while (size > smallest && TextNeed(b) > b.Size.X - 2f)
+            {
+                size--;
+                b.AddThemeFontSizeOverride("font_size", size);
+            }
+            busy = false;
+        }
+        b.Resized += Fit;
+        b.Ready += Fit;
+    }
+
     /// <summary>A coloured square swatch with a thin border (palette colours; the name is always printed elsewhere).</summary>
     public static Control Swatch(Color colour, int size = 40)
     {

@@ -378,7 +378,7 @@ public sealed partial class Hud : Control
         var d = Data;
 
         DrawStatus(vs);
-        if (!d.InGame) { DrawHint(); return; }
+        if (!d.InGame) { DrawHint(); FlushAdditive(); return; }
         DrawPlayerDecorators(vs);   // fidelity gap 10: under the panels
         DrawVitals(vs);
         DrawEvents(vs);
@@ -389,6 +389,7 @@ public sealed partial class Hud : Control
         DrawCentre(vs);
         if (d.Alive && !d.Spectating) DrawMoviePrompt(vs);   // ui/hud-fidelity: the pick-up prompt
         DrawHint();
+        FlushAdditive();   // ui/hud-fidelity: the movies' added pieces, this frame
     }
 
     /// <summary>Connection status, rejection and map errors: a centred banner (visible without the info overlay).</summary>

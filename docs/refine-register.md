@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1538 spec table rows: **1025 tagged**, 373 not tagged (read from data with high confidence), 140 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 282 rows of the changes document.
+Scanned 1540 spec table rows: **1027 tagged**, 373 not tagged (read from data with high confidence), 140 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 282 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -40,7 +40,7 @@ Scanned 1538 spec table rows: **1025 tagged**, 373 not tagged (read from data wi
 | Charge (critical) | 13 | 12 | 10 | 7 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 23 | 22 | 12 | 16 | 0 |
-| HUD and hit feedback (critical) | 41 | 36 | 34 | 8 | 0 |
+| HUD and hit feedback (critical) | 43 | 38 | 34 | 8 | 0 |
 | Sound mix (critical) | 49 | 45 | 42 | 10 | 0 |
 | Effects (critical) | 65 | 57 | 55 | 33 | 0 |
 | Game modes | 38 | 35 | 36 | 19 | 1 |
@@ -53,14 +53,14 @@ Scanned 1538 spec table rows: **1025 tagged**, 373 not tagged (read from data wi
 | Core simulation (provisional values) | 36 | 31 | 32 | 3 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1025** | 842 | 807 | 350 | 38 |
+| **All areas** | **1027** | 844 | 807 | 350 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
+| kind: ours | 350 |
 | confidence: low | 349 |
-| kind: ours | 348 |
 | confidence: medium | 344 |
 | kind: interpretation | 304 |
 | notes: ours | 267 |
@@ -902,7 +902,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EE0A6B04` | Fixed and exempt views | `--spectate cam:x,y,z,tx,ty,tz` is placed exactly (no springs, cast, push-out or depenetration: measured matched views for lighting comparisons and recorded footage); `inspect` keeps no distance from bodies; `overview` is not cast | notes: ours | ours | Fixed and exempt views: compare with SM1 with side-by-side screenshots in the same spot. Ours: --spectate cam:x,y,z,tx,ty,tz is placed exactly (no springs, cast… | ☐ |
 | `R-90EA2E09` | Cast start | the spectator and death casts start from the look target moved off any surface within 0.33 m (3 passes of the depenetration rays): a target between two players fighting beside a railing, or inside a wall between them, otherwise starts in collision and the… (m) | kind: provisional; notes: ours | ours | Cast start: compare with SM1 by measuring on a flat spot of the same map. Ours: the spectator and death casts start from the look target moved off… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (41)
+### HUD and hit feedback (gameplay-critical) (43)
 
 *Spec section: Camera, aim mode, shot convergence and hit confirmation (M20; protocol 12)*
 
@@ -963,7 +963,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-AC624959` | Seize Ground markers | an owned, contested or captured-into point shows the point decorator's `anim_mc` at the frame of its state label (the gold or red pointer triangle, the owner's eagle or Chaos star; added) at 0.5 with the letter in `number_txt` (black, 35 px at 0.5), 1 stage… (stage px) | kind: ours; confidence: medium | `Decorator.gfx`; footage t 8 / 20 s | Seize Ground markers: compare with SM1 with side-by-side screenshots in the same spot. Ours: an owned, contested or captured-into point shows the point… | ☐ |
 | `R-47D27B01` | Pick-up prompt | `HudText.gfx` `Prompt_mc`: its band and its centred 24 px text field ("Pick up Ammo"), sliding in from 40 stage px lower and fading in over 19 frames; the key in a 27 stage px gold-framed box at the movie's `button_mc` (the button art lives in another movie:… (stage px) | confidence: medium | `HudText.gfx`; key box: reference footage t 140 s | Pick-up prompt: compare with SM1 with side-by-side screenshots in the same spot. Ours: HudText.gfx Prompt_mc: its band and its centred 24 px text field… | ☐ |
 | `R-7A685938` | Armour and health bar | M44's (the original bitmaps): the movie's `unifiedhealth_mc` renders its armour lines and medallion gold where the footage shows them cyan (a runtime tint not in the data), so it is not used | confidence: medium | reference footage vs `Hud.gfx` | Armour and health bar: compare with SM1 by counting hits to kill and by video of the health bar. Ours: M44's (the original bitmaps): the movie's unifiedhealth_mc renders… | ☐ |
-| `R-6BB2B5B5` | Camera lag | **temporary (owner, likely to be removed)**: the follow camera's rig (orbit and lens) follows the view's yaw and pitch through a critically damped spring (SmoothDamp form) with a smooth time of 50 ms; the view, the input's aim and the converged shot's ray are… (ms) | kind: ours | owner's request 2026-10-29 ("the camera is too locked to the crosshair ... stiff compared to the original"); the 50 ms and the spring are ours | Camera lag: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: temporary (owner, likely to be removed): the follow camera's rig… | ☐ |
+| `R-6BB2B5B5` | Camera lag | **temporary (owner, likely to be removed)**: the follow camera's rig (orbit and lens) follows the view's yaw and pitch through a critically damped spring (SmoothDamp form) with a smooth time of 50 ms; the view, the input's aim and the shot are never smoothed:… (ms) | kind: ours | owner's request 2026-10-29 ("the camera is too locked to the crosshair ... stiff compared to the original"); the 50 ms, the spring and the resets are ours | Camera lag: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: temporary (owner, likely to be removed): the follow camera's rig… | ☐ |
+| `R-54469AE0` | Reticle without a known weapon | the weapon in hand is always a ranged one (melee is a button, not a slot): a weapon type the rules do not map shows no reticle; no weapon at all shows the movie's `default_mc` dot | kind: ours | `Hud.gfx` (`default_mc`); the rule is ours | Reticle without a known weapon: compare with SM1 with side-by-side screenshots in the same spot. Ours: the weapon in hand is always a ranged one (melee is a button, not a… | ☐ |
+| `R-6544F4C1` | HUD movies missing or unreadable | any failure to read the movies (or a missing `Hud.gfx`, `HudText.gfx` prompt) falls back to the M44 drawing of that piece; the reticle is left out only while the read is in flight | kind: ours | ours | HUD movies missing or unreadable: compare with SM1 with side-by-side screenshots in the same spot. Ours: any failure to read the movies (or a missing Hud.gfx, HudText.gfx… | ☐ |
 
 ### Sound mix (gameplay-critical) (49)
 
@@ -1655,7 +1657,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | ID | Change | Original | Here | Decision / record | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `C-3E067287` | Networking | Peer-hosted matches | Server-authoritative dedicated servers: input commands up, snapshots down, prediction, reconciliation, interpolation, lag compensation. Clients never learn other players' health, shield, ammunition or heat | The project's one intended change (CLAUDE.md "Goal"); docs/architecture.md; spec "What other players see" | Networking: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
-| `C-C901E5B4` | Camera follows the crosshair a moment late (ui/hud-fidelity) — **temporary (owner, likely to be removed)** | Not decoded; the owner finds our camera "too locked to the crosshair ... stiff compared to the original" | The follow camera's orbit and lens trail the view by a critically damped 50 ms (ours); the aim and the shots are not smoothed, the crosshair is drawn where the aim's ray lands (a little off the centre during fast turns); off while scoped. `--camera-lag ms` sets it, `--camera-lag 0` is the old camera. Everything is in… | Owner's request 2026-10-29; spec "HUD from the movies (ui/hud-fidelity)" row "Camera lag" | Camera follows the crosshair a moment late…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-C901E5B4` | Camera follows the crosshair a moment late (ui/hud-fidelity) — **temporary (owner, likely to be removed)** | Not decoded; the owner finds our camera "too locked to the crosshair ... stiff compared to the original" | The follow camera's orbit and lens trail the view by a critically damped 50 ms (ours); the aim and the shots are not smoothed (the shot leaves from where an unlagged rig puts the eye, along the view), the crosshair is drawn where the aim's ray lands (a little off the centre during fast turns); off while dead or… | Owner's request 2026-10-29; spec "HUD from the movies (ui/hud-fidelity)" row "Camera lag" | Camera follows the crosshair a moment late…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-786B4BB2` | No melee hit-stop, no hit shake (feel/camera-hitstop) | The original's hit presentation is not decoded; the hit-stop and shake were our own addition in feel/melee-lock | A landed melee hit does not hold the attacker's or the victim's clips, shakes neither the attacker's nor the victim's camera; the camera assist toward the lock stays. Opt-in `--hit-stop` restores the hold and the shakes | Owner's decision 2026-10-29: "remove the stop hit/screen freeze/shake effect when attacking an enemy in melee" | No melee hit-stop, no hit shake (feel/camera-hitstop): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-E5667C53` | Spawn-room walls vs jump packs | Jump packs could fly over the spawn-room blockers | The blockers reach 25 m above the level's highest character collision, so the other side's jumps and jump-pack flight cannot clear them (M31) | Owner's decision 2026-10-28; spec "Spawn-room blockers" and "Blocker reach (risk)" | Spawn-room walls vs jump packs: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-F9B0319A` | Annihilation spawns | The data gives both sides the same 18 shared `tdm_mkr_spawn_*` markers, none inside a spawn room (read from compiled-script constant pools only) | Every spawn, in both modes, is inside the side's own spawn room | User's request (M22: "only spawn in the correct spawn room"); spec "Spawn choice" | Annihilation spawns: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
@@ -2089,7 +2091,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-E15C4380` | `--old-controls`, `--no-tap-latch`, `--no-early-tick`, `--no-fresh-aim`, `--no-own-clip-smoothing`, `--sim-camera-cast` | Responsive controls (feel/controls; client only, not simulated, no protocol change) |
 | `R-F62EF929` | `--hud-demo` meters | In-game HUD (M44; client only, not simulated) |
 | `R-3204047A` | Placeholder rings and name tags | World decorators and the kill feed's pictures (fidelity gap 10; client only, not simulated) |
-| `R-CDF0F50E` | `--old-hud`, `smtool gfx-dump` | HUD from the movies (ui/hud-fidelity; client only, not simulated) |
+| `R-A64873A9` | `--old-hud`, `--hud-movies-fail`, `smtool gfx-dump` | HUD from the movies (ui/hud-fidelity; client only, not simulated) |
 | `R-6D1D7E08` | Probes (`--anim-probe`, `--anim-probe-csv <file>`) | Locomotion blend space (M40-T4; client only, not simulated) |
 | `R-386AD4B6` | Probe (`--action-sweep`, `--action-jump`, `--anim-probe`) | Action clips hand the legs to the locomotion (M40-T4 follow-up; client only, not simulated) |
 | `R-0599544A` | Probes | Turn in place, aim-offset idle, stop foot pins and run start (M40-T5; client only, not simulated) |

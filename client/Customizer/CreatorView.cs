@@ -346,6 +346,8 @@ public sealed partial class CreatorView : Control
             var b = new Button { Text = LoadoutRows.RoleLabel(_catalog, role), ToggleMode = true, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(minimum, UiKit.MinHit), ClipText = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
             b.TooltipText = b.Text;
             b.Pressed += () => ChooseRole(r);
+            b.Name = "ClassTab" + _tabButtons.Count;   // the self-test's fit check reads the whole label of these
+            UiKit.ShrinkToFit(b);   // the whole "Tactical Marine / Chaos Space Marine" fits (ui/hud-fidelity review)
             _tabs.AddChild(b);
             _tabButtons.Add(b);
         }
