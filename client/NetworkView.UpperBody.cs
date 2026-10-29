@@ -141,35 +141,50 @@ public partial class NetworkView
     {
         t.Switch = null;
         if (NoSwitchAnim || UpperData() is not { } data || _config is null || _config.WeaponSwitchTime <= 0.05f) return;
-        var clip = SwitchClipFor(data.Switch, s.Slot);
-        if (clip is null) return;
-        t.Switch = clip;
+        var plan = SwitchPlanFor(data.Switch, s.Slot);
+        if (plan is null) return;
+        t.Switch = plan;
         t.SwitchAt = _connectedFor;
         t.SwitchDuration = _config.WeaponSwitchTime;
         _switchAnims++;
         if (UpperLog)
-            GD.Print($"t {_connectedFor:F2} s: P{s.PlayerId} SWITCH to {s.Slot}: {clip.Clip} {clip.Length:F3} s stretched to {t.SwitchDuration:F2} s, the model changes at {clip.SwapAt / clip.Length * t.SwitchDuration:F2} s ({(own ? "own" : "seen")})");
+            GD.Print($"t {_connectedFor:F2} s: P{s.PlayerId} SWITCH to {s.Slot}: " + string.Join(" then ", plan.Segments.Select(g => $"{g.Clip} {g.From:F3}->{g.To:F3} s")) +
+                     $" over {t.SwitchDuration:F2} s; the old weapon is stowed at {plan.Release * t.SwitchDuration:F2} s, the new one in hand at {plan.Take * t.SwitchDuration:F2} s ({(own ? "own" : "seen")}{(WeaponRig.OldStow ? ", --old-stow" : "")})");
     }
 
-    static SwitchClip? SwitchClipFor(SwitchAnimations switches, WeaponSlot slot) =>
-        slot == WeaponSlot.Pistol ? switches.ToPistol ?? switches.ToRifle : switches.ToRifle ?? switches.ToPistol;
+    /// <summary>The switch to <paramref name="slot"/> from the other ranged slot (a class has two): <see cref="SwitchPlan.For"/> (<c>--old-stow</c>: the new weapon's clip alone, as before fix/stow-right).</summary>
+    static SwitchPlan? SwitchPlanFor(SwitchAnimations switches, WeaponSlot slot) =>
+        SwitchPlan.For(switches, slot == WeaponSlot.Pistol ? WeaponSlot.Ranged : WeaponSlot.Pistol, slot, WeaponRig.OldStow);
 
-    /// <summary>The fraction of the switch time at which the weapon model changes hands: the clip's own tag (0.5 rifle, 0.6 pistol), 0.5 (the old rule) without the clip or with the aid off.</summary>
-    float SwapFractionFor(PlayerState s)
+    /// <summary>
+    /// When the weapon models change during a switch to the player's slot (fractions of the switch time): the old weapon onto its stow marker, the new one into the hand (<see cref="SwitchPlan"/>);
+    /// 0.5 for both (the old rule) without the clips or with the aid off.
+    /// </summary>
+    (float Release, float Take) SwapFractionsFor(PlayerState s)
     {
-        if (NoSwitchAnim || UpperData() is not { } data || SwitchClipFor(data.Switch, s.Slot) is not { Length: > 0f } clip) return 0.5f;
-        return Math.Clamp(clip.SwapAt / clip.Length, 0.05f, 0.95f);
+        if (NoSwitchAnim || UpperData() is not { } data || SwitchPlanFor(data.Switch, s.Slot) is not { } plan) return (0.5f, 0.5f);
+        return (plan.Release, plan.Take);
     }
 
-    /// <summary>After the locomotion pose: lays the switch clip over everything but the legs, fading in and out at its ends.</summary>
+    /// <summary>Seconds of cross-fade between the pieces of a switch (the old weapon's stow and the new one's draw start from different poses; ours).</summary>
+    const float SwitchJointBlend = 0.08f;
+
+    /// <summary>After the locomotion pose: lays the switch's clip pieces over everything but the legs, fading in and out at its ends and across the joint between the pieces.</summary>
     void SwitchLayer(CharacterViewer character, PlayerState s, LocoTrack t)
     {
-        if (t.Switch is not { } clip) return;
+        if (t.Switch is not { } plan) return;
         float elapsed = (float)(_connectedFor - t.SwitchAt), duration = t.SwitchDuration;
         if (!s.Alive || elapsed < 0f || elapsed >= duration) { t.Switch = null; return; }
-        float weight = Math.Clamp(Math.Min(elapsed / SwitchBlendIn, (duration - elapsed) / SwitchBlendOut), 0f, 1f);
-        float clipLength = ClipLength(clip.Clip, clip.Length);
-        character.SetLayer(PoseSlots.Switch, clip.Clip, elapsed / duration * clipLength, CharacterViewer.Smooth(weight), false, clip.Mask);   // animation pass 3: the smooth blend curve
+        float weight = CharacterViewer.Smooth(Math.Clamp(Math.Min(elapsed / SwitchBlendIn, (duration - elapsed) / SwitchBlendOut), 0f, 1f));   // animation pass 3: the smooth blend curve
+        float fraction = elapsed / duration;
+        var segment = plan.SegmentAt(fraction);
+        if (plan.Crossfade(fraction, SwitchJointBlend / duration) is { } joint)
+        {
+            // The piece before holds its last pose underneath while the new piece fades in over it.
+            character.SetLayer(PoseSlots.Switch, joint.Previous.Clip, joint.Previous.To, weight, false, joint.Previous.Mask);
+            character.SetLayer(PoseSlots.SwitchNext, segment.Clip, segment.ClipTime(fraction), weight * CharacterViewer.Smooth(joint.Progress), false, segment.Mask);
+        }
+        else character.SetLayer(PoseSlots.Switch, segment.Clip, segment.ClipTime(fraction), weight, false, segment.Mask);
         if (LogUpper && ReferenceEquals(character, _local) && _connectedFor - t.SwitchTraceAt >= 0.05)
         {
             // Test aid: where the hand that carries the weapon is against the pelvis (last frame's pose), to see the clip move the arm.
@@ -177,7 +192,7 @@ public partial class NetworkView
             if (character.Skeleton is { } skeleton && skeleton.FindBone("RIG_R_Hand") is var hand and >= 0 && skeleton.FindBone("RIG_Pelvis") is var pelvis and >= 0)
             {
                 var rel = skeleton.GetBoneGlobalPose(pelvis).AffineInverse() * skeleton.GetBoneGlobalPose(hand).Origin;
-                GD.Print($"t {_connectedFor:F2} s: switch trace {elapsed:F2}/{duration:F2} s, clip {elapsed / duration * clipLength:F3}/{clipLength:F3}, weight {weight:F2}: right hand {rel.X * 100f:F0},{rel.Y * 100f:F0},{rel.Z * 100f:F0} cm from the pelvis");
+                GD.Print($"t {_connectedFor:F2} s: switch trace {elapsed:F2}/{duration:F2} s, {segment.Clip} at {segment.ClipTime(fraction):F3} s, weight {weight:F2}: right hand {rel.X * 100f:F0},{rel.Y * 100f:F0},{rel.Z * 100f:F0} cm from the pelvis");
             }
         }
     }
@@ -433,13 +448,33 @@ public partial class NetworkView
     /// <summary><c>--wait-switch</c> / <c>--wait-flinch</c> / <c>--wait-death</c> (screenshot aids): the screenshot waits for the own marine to be 0.2 to 0.4 s into a weapon switch / 0.06 to 0.14 s into a flinch / 0.2 to 0.4 s into its death clip.</summary>
     static readonly bool WaitSwitchShot = OS.GetCmdlineUserArgs().Contains("--wait-switch"), WaitFlinchShot = OS.GetCmdlineUserArgs().Contains("--wait-flinch"), WaitDeathShot = OS.GetCmdlineUserArgs().Contains("--wait-death");
 
+    /// <summary><c>--wait-switch-window a,b</c> (fix/stow-right, with <c>--wait-switch</c> and <c>--screenshot-every</c>): the seconds into a switch the screenshots wait for (default 0.2 to 0.4).</summary>
+    static readonly (double From, double To) WaitSwitchWindow = CmdArg("wait-switch-window")?.Split(',') is [var a, var b]
+        && double.TryParse(a, System.Globalization.CultureInfo.InvariantCulture, out var from) && double.TryParse(b, System.Globalization.CultureInfo.InvariantCulture, out var to) ? (from, to) : (0.2, 0.4);
+
+    /// <summary>
+    /// <c>--bot-switch-every s</c> (fix/stow-right test aid): from 4 s after joining the bot stands still, looks ahead and presses Switch once every <c>s</c> seconds (primary → pistol → primary ...),
+    /// so the own marine's switches can be watched and captured from the follow camera.
+    /// </summary>
+    static readonly double BotSwitchEvery = double.TryParse(CmdArg("bot-switch-every"), System.Globalization.CultureInfo.InvariantCulture, out var every) && every >= 0.7 ? every : 0;
+    long _botSwitchPeriod = -1;
+
+    PlayerInput BotSwitchInput(uint tick)
+    {
+        long period = (long)Math.Floor((_connectedFor - 4.0) / BotSwitchEvery);
+        bool press = period != _botSwitchPeriod;
+        _botSwitchPeriod = period;
+        if (press && UpperLog) GD.Print($"t {_connectedFor:F2} s: bot-switch-every: Switch pressed");
+        return new PlayerInput(tick, 0f, 0f, _yaw, press ? InputButtons.Switch : InputButtons.None, _pitch);
+    }
+
     bool UpperWorthCapturing
     {
         get
         {
             if (!WaitSwitchShot && !WaitFlinchShot && !WaitDeathShot) return true;
             if (_client is null || !_loco.TryGetValue(_client.PlayerId, out var t)) return false;
-            if (WaitSwitchShot) return t.Switch is not null && _connectedFor - t.SwitchAt is >= 0.2 and <= 0.4;
+            if (WaitSwitchShot) return t.Switch is not null && _connectedFor - t.SwitchAt >= WaitSwitchWindow.From && _connectedFor - t.SwitchAt <= WaitSwitchWindow.To;
             if (WaitFlinchShot) return t.Flinch is not null && _connectedFor - t.FlinchAt is >= 0.06 and <= 0.14;
             return _marineDeaths.TryGetValue(_client.PlayerId, out var d) && _connectedFor - d.Start is >= 0.2 and <= 0.4;
         }

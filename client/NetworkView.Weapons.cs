@@ -83,7 +83,8 @@ public partial class NetworkView
                 _packLogged[state.PlayerId] = packColour;
                 GD.Print($"t {_connectedFor:F1} s: P{state.PlayerId}'s jump pack is drawn in {packColour.ToHtml(false)} (chest paint {(rig.PackPaint?.Primary?.Name ?? "none: the side's default")})");
             }
-            rig.Update(state.Slot, state.Alive && state.MeleeStep > 0, state.Alive, delta, _config.WeaponSwitchTime, ork ? 0.5f : SwapFractionFor(state));   // pass 2: the model changes at the clip's weapon tag
+            var (release, take) = ork ? (0.5f, 0.5f) : SwapFractionsFor(state);   // fix/stow-right: the old weapon leaves the hand on its marker, the new one comes at its draw's tag
+            rig.Update(state.Slot, state.Alive && state.MeleeStep > 0, state.Alive, delta, _config.WeaponSwitchTime, release, take);
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
         {

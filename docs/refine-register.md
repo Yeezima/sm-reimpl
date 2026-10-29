@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1509 spec table rows: **1001 tagged**, 369 not tagged (read from data with high confidence), 139 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 276 rows of the changes document.
+Scanned 1517 spec table rows: **1008 tagged**, 370 not tagged (read from data with high confidence), 139 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 277 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -36,7 +36,7 @@ Scanned 1509 spec table rows: **1001 tagged**, 369 not tagged (read from data wi
 | Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
 | Weapons (critical) | 110 | 63 | 97 | 50 | 3 |
 | Melee (critical) | 22 | 17 | 21 | 7 | 5 |
-| Jump pack (critical) | 59 | 52 | 49 | 12 | 0 |
+| Jump pack (critical) | 66 | 58 | 56 | 12 | 0 |
 | Charge (critical) | 13 | 12 | 10 | 7 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 23 | 22 | 12 | 16 | 0 |
@@ -53,15 +53,15 @@ Scanned 1509 spec table rows: **1001 tagged**, 369 not tagged (read from data wi
 | Core simulation (provisional values) | 36 | 31 | 32 | 3 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 73 | 67 | 40 | 4 | 0 |
-| **All areas** | **1001** | 821 | 789 | 345 | 38 |
+| **All areas** | **1008** | 827 | 796 | 345 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| confidence: low | 344 |
-| kind: ours | 334 |
-| confidence: medium | 331 |
+| confidence: low | 348 |
+| kind: ours | 338 |
+| confidence: medium | 334 |
 | kind: interpretation | 297 |
 | notes: ours | 266 |
 | confidence: none (low) | 114 |
@@ -70,16 +70,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | section: placeholder | 35 |
 | kind: choice | 28 |
 | kind: estimate | 27 |
+| kind: user's knowledge | 27 |
 | notes: provisional | 27 |
-| kind: user's knowledge | 26 |
 | kind: approximation | 23 |
 | kind: placeholder | 22 |
 | notes: placeholder | 16 |
 | notes: not reproduced (gap) | 13 |
 | notes: open question | 13 |
+| kind: gap (not reproduced) | 12 |
 | notes: interpretation | 12 |
 | notes: user's knowledge | 12 |
-| kind: gap (not reproduced) | 11 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
 | kind: guess | 5 |
@@ -656,7 +656,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5842BB7D` | Muzzle | node `fx_Muzzle` of the weapon's object tree (the marker the wargear's fire and hit effects name); storm bolters also `fx_Muzzle01`; the locator's +Y axis is the barrel direction (all 23 gun models) (m, unit vector in the weapon root's space) | kind: inferred | weapon `.O3d`; wargear `play_fx/marker` | Muzzle: compare with SM1 by feel or video. Ours: node fx_Muzzle of the weapon's object tree (the marker the wargear's… | ☐ |
 | `R-79154EE7` | Default look | drawn: visuals with `LODLevel` bit 0 (or −1); hidden: `_LODL` twins (16) and upgrade geometry (nodes a perk upgrade shows, e.g. `GEO_upg_barrel`, gathered over every wargear drawing the same model: the Devastator bolt pistol lists no upgrades but hides the… | kind: inferred; confidence: medium | weapon `.O3d`, `upgrades/upgrades` | Default look: compare with SM1 by feel or video. Ours: drawn: visuals with LODLevel bit 0 (or −1); hidden: _LODL twins (16)… | ☐ |
 | `R-80E912D9` | Belts, cables, chain teeth | heavy bolter belt and lascannon / plasma cannon cables (type-2 blocks, simulated in the original) and chainsword / chain axe teeth (skinned to their own animated bones) are drawn rigid in the bind pose | kind: placeholder; confidence: none (low); notes: ours | ours | Belts, cables, chain teeth: compare with SM1 by feel or video. Ours: heavy bolter belt and lascannon / plasma cannon cables (type-2… | ☐ |
-| `R-107A0E0A` | When a weapon is in hand or stowed | the current ranged slot in hand, the other ranged weapon stowed; the swap at half the switch time; jump-pack classes (Assault, Raptor) keep the melee weapon in the right hand with the pistol in the left; other classes show the melee weapon only during attacks… | kind: choice; kind: interpretation; confidence: low; notes: ours | ours | When a weapon is in hand or stowed: compare with SM1 by feel or video. Ours: the current ranged slot in hand, the other ranged weapon stowed; the… | ☐ |
+| `R-107A0E0A` | When a weapon is in hand or stowed | the current ranged slot in hand, the other ranged weapon stowed; the swap at half the switch time (pass 2: at the switch clip's tag; fix/stow-right: the old weapon onto its marker at the plan's release, the new one in hand at its take, section "The primary is… | kind: choice; kind: interpretation; confidence: low; notes: ours | ours | When a weapon is in hand or stowed: compare with SM1 by feel or video. Ours: the current ranged slot in hand, the other ranged weapon stowed; the… | ☐ |
 
 *Spec section: Hip fire (M27)*
 
@@ -734,7 +734,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-60E21DD0` | Melee bark | an attack line, chance 0.15, at a melee attack's start (not the charge) (probability) | kind: ours; confidence: low | ours | Melee bark: compare with SM1 by listening A/B at the same distance and state. Ours: an attack line, chance 0.15, at a melee attack's start (not the… | ☐ |
 
-### Jump pack (gameplay-critical) (59)
+### Jump pack (gameplay-critical) (66)
 
 *Spec section: Jump pack and ground pound (M14, used by the simulation)*
 
@@ -812,6 +812,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C814C9FC` | Weapon switch: the swap tag | The sequencer's `Weapons - Ranged Weapon` modifier tag (rifle: from 0.5 of the clip = 0.233 s) and `Weapons - Melee and Ranged` (pistol: from 0.6 of the clip = 0.4 s) set the weapon in the hand. The model in the hand now changes at that fraction of the… (s) | kind: ours; confidence: medium | graph | Weapon switch: the swap tag: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The sequencer's Weapons - Ranged Weapon modifier tag (rifle: from 0.5… | ☐ |
 | `R-DE43EBBE` | Weapon switch: timing | **The simulation's `WeaponSwitchTime` (0.6 s, provisional, unchanged) is longer than the data's rifle switch (0.467 s) and shorter than its pistol switch (0.667 s)**; for the day the simulation takes the data's times: rifle 0.467 s, pistol 0.667 s (a switch… (s) | kind: ours; confidence: low | graph (times); the stretch and fades are ours | Weapon switch: timing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The simulation's WeaponSwitchTime (0.6 s, provisional, unchanged) is… | ☐ |
 | `R-1A23764B` | Weapon switch: which clip and when | A change of a player's weapon slot (own predicted state or the slot seen in the snapshot) starts it: to the pistol slot the pistol's clip, to the primary slot the rifle's (the graph runs the new weapon's behaviour state; a switch back from the pistol with the… | kind: interpretation; confidence: low; notes: ours | the choice is ours | Weapon switch: which clip and when: compare with SM1 by feel or video. Ours: A change of a player's weapon slot (own predicted state or the slot… | ☐ |
+| `R-8EAC753C` | Stow side | The primary is put away round the marine's right side onto the back marker, held in the right hand until it is there; no weapon flies on its own | kind: user's knowledge; confidence: medium | the owner's knowledge of the original (playtest 2026-10-29); the data's own stow clip goes round the left | Stow side: compare with SM1 by feel or video. Ours: The primary is put away round the marine's right side onto the back… | ☐ |
+| `R-A90CC77E` | Stow motion | The old weapon's own draw clip played backwards from its end down to its attach tag (`Weapons - Ranged Weapon`, 0.5 of the rifle draw; `Weapons - Melee and Ranged`, 0.6 of the pistol draw): the primary goes front → right side → back marker in the hand; the… (s) | kind: ours; confidence: low | graph (clips and tags); the reversal is ours | Stow motion: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The old weapon's own draw clip played backwards from its end down to… | ☐ |
+| `R-DD2E6750` | Release (old weapon onto its marker) | at the end of the stow piece, i.e. at the draw clip's attach tag: 0.318 of the switch to the pistol (0.19 s), 0.364 of the switch to the primary (0.22 s); the handle moves 8 cm (primary) / 14 cm (pistol) at the snap (measured) (fraction of the switch time) | kind: ours; confidence: medium | graph tags (the detach moment); measured snaps | Release (old weapon onto its marker): compare with SM1 by feel or video. Ours: at the end of the stow piece, i.e. at the draw clip's attach tag:… | ☐ |
+| `R-17934024` | Take (new weapon into the hand) | at the new weapon's own draw tag inside the draw piece: 0.636 of the switch to the pistol (0.38 s), 0.682 of the switch to the primary (0.41 s; the rifle's handle moves 2 cm off the marker); between release and take both ranged weapons are on their markers (fraction of the switch time) | confidence: medium | graph tags | Take (new weapon into the hand): compare with SM1 by feel or video. Ours: at the new weapon's own draw tag inside the draw piece: 0.636 of the… | ☐ |
+| `R-607FB3AC` | Draw piece | the new weapon's draw from 0.233 s (`SwitchPlan.DrawLead`: the rifle draw's own reach to the back) before its tag to its end: the pistol's from 0.167 s, the rifle's from 0. The pistol's lead is ours (s) | kind: ours; confidence: low | rifle draw tag; ours for the pistol | Draw piece: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the new weapon's draw from 0.233 s (SwitchPlan.DrawLead: the rifle… | ☐ |
+| `R-906F12A8` | Piece timing | stow and draw pieces keep their clip-second shares (0.233 + 0.5 s to the pistol, 0.267 + 0.467 s to the primary: 0.733 s each) and are stretched together over the simulation's switch time (0.6 s, unchanged: x1.22 speed); 0.08 s cross-fade at the joint… (s) | kind: ours; confidence: low | ours | Piece timing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: stow and draw pieces keep their clip-second shares (0.233 + 0.5 s to… | ☐ |
+| `R-F5BD71DD` | Not changed | the heavy weapons use the rifle clips as before (the reader has no heavy-weapon switch clip); a melee weapon still appears in hand at once when an attack starts (no draw clip read); the jump-pack classes have no switch | kind: gap (not reproduced); confidence: low | - | Not changed: compare with SM1 by feel or video. Ours: the heavy weapons use the rifle clips as before (the reader has no… | ☐ |
 | `R-44515378` | Hit flinch: slot choice | The graph picks the state in code the readers do not decode. Ours: a head hit takes the head slot of the shooter's side and front / back (0 to 3), a body hit the high slot (4 left, 5 right) or, from behind, the back slot (8 left, 9 right); "left" is the side… | kind: interpretation; confidence: low; notes: ours | the choice is ours | Hit flinch: slot choice: compare with SM1 by watching the reaction and timing it frame by frame. Ours: The graph picks the state in code the readers do not decode. Ours: a… | ☐ |
 | `R-9EFE65E8` | Hit flinch: which hits | Every ranged hit on a player's body or head seen in the shot records (others' shots, victim found by where the shot ended: `VictimAt`) and the own hit reports (the own hits show when the report arrives, one round trip after the shot); not melee or blast hits… (s) | kind: ours; confidence: medium | blueprint (1 s); the rest is ours | Hit flinch: which hits: compare with SM1 by watching the reaction and timing it frame by frame. Ours: Every ranged hit on a player's body or head seen in the shot records… | ☐ |
 | `R-8ACCC7FE` | Hit flinch: playing | The clip is laid additive over everything the character shows (slot `Flinch`, above the switch), weight 1, from its start, once, at the graph's playback speed. The additive order (delta times the base rotation) is the stack's (s) | kind: interpretation; confidence: low; notes: ours | ours | Hit flinch: playing: compare with SM1 by watching the reaction and timing it frame by frame. Ours: The clip is laid additive over everything the character shows (slot… | ☐ |
@@ -1661,6 +1668,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-024952BA` | Chaos weapons identical to the loyalists' (weapons task A) | The Chaos wargear files differ from their loyalist twins by one value the simulation reads (the Chaos frag grenade's `ground_angle` 54 against 65) and by effect, sound and model keys; a few unread presentation and AI-hint values differ too (the melta's recharge effect timings, the grenade launcher's unused old charge… | Every Chaos weapon, grenade, jump pack and melee combo takes its loyalist twin's numbers and behaviour (24 pairs; `SmContent.RaceParity`, applied in `MpClasses.Load` before the owner's bolter balance, perk variants and fire delays included); the Chaos names, projectile blueprints, effects, sounds and models stay… | Owner's knowledge 2026-10-28 ("weapons are identical in stats and behaviors between chaos and loyalists space marines. you only need to make them have different models"); spec "Chaos weapons follow their loyalist twins" | Chaos weapons identical to the loyalists' (weapons task A): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-5DDF7269` | Chaos plasma is purple, loyalist plasma blue (weapons task A) | The Chaos plasma gun, pistol and cannon play their own purple and magenta effects (muzzle, tracer, trails, vents, overheat), but share some loyalist-named effects with the loyalists (the charged blast, several impacts, the charging glow: cyan and blue keys) | Those loyalist-named `plasma_*` effects are recoloured purple (`FxEffect.Tint`, RGB 0.85, 0.36, 1.0: our value, from the Chaos effects' own purple) when a Chaos plasma weapon plays them (`PlasmaColour`); the loyalist plasma keeps the data's colours; the placeholder plasma ball is purple for Chaos weapons | Owner's knowledge 2026-10-28 ("the plasma of the chaos marines is purple while the marines is blue"); spec "Chaos weapons follow their loyalist twins" | Chaos plasma is purple, loyalist plasma blue (weapons task…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-B73BF04E` | Dash attack stuns (protocol 30) | The jump-pack dash attack's primary hit (`ability_dash_attack`, 75 + 25 shield) interrupts (`reaction_mp_melee`); only Furious Charge's entry stuns (100 + 50) | The primary hit always stuns (no knockback); Furious Charge keeps the data's 100 + 50 and stun; the 30 to others in reach keep the interrupt | Owner's decision 2026-10-28, an **estimate to review**: "make it always stun, but note that as an estimation that needs to be reviewed by me later"; spec "Falls, the airborne charge, the dash attack and the sword slash (protocol 30)" | Dash attack stuns (protocol 30): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-D777C32D` | The primary is stowed round the right side (fix/stow-right; client only) | The pistol switch's clip (`SM_Swap_Rifle_to_Melee_01`) animates the primary's chest prop round the marine's left side onto the back marker while both hands stay in front: the gun flies 0.4 to 0.8 m from either hand | The primary is put away by its own draw clip (`SM_Swap_Rifle_to_Rifle_01`) played backwards: in the right hand round the right side to the back marker, released there at the draw's attach tag; then the pistol's draw; the pistol is holstered the same way (its draw backwards) before the rifle draw. Playing a draw… | Owner's knowledge 2026-10-29 ("tactical marine when stowing their primary weapon to switch to bolt pistol should stow it to the right around their back not the left. currently the gun floats through the air"); spec "The primary is stowed round the right side" | The primary is stowed round the right side (fix/stow-right…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-D47CCCC3` | The charge needs only W (feel/charge-directions; protocol 39; supersedes M31's sprint gate) | The locale names it "Charge Attack (while Sprinting)" (110691); M31 read the owner's earlier rule as a sprint gate (Sprint applied and faster than run + 0.25 x (sprint - run) = 7.375 m/s) | An F press with W held starts the charge from standing, a walk, a run or a sprint; aim mode and the held trigger no longer turn it into the stun strike; without W, F is the stun strike; the jump-pack classes still charge from the ground only | Owner's knowledge and decision 2026-10-29 ("charge shouldn't require you to actually sprint to initiate charge, just be holding w when you press f to initiate forward charge"); spec "Charge directions" | The charge needs only W (feel/charge-directions; protocol…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-C5A4AD7A` | A side charge with W + A / W + D (feel/charge-directions; protocol 39) | The rush runs straight along the view's heading at the press (M29) | A or D held with W at the F press turns the charge 25 degrees to that side (a stick in between: in proportion to its angle, up to 45 degrees); a charge that locks onto a target starts along the view and steers to it as before | Owner's knowledge 2026-10-29 ("hold A or D while holding W and F to charge a bit to the left or right"); the 25 degrees and the proportion ours, an **estimate to review**; spec "Charge directions" | A side charge with W + A / W + D (feel/charge-directions…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-B7A40464` | The dash attack in eight directions (feel/charge-directions; protocol 39) | The dash attack lunged along the view whatever keys were held (protocol 30, our reading); the data has only the forward clip `SM_JMP_DashAtk_F` | The lunge goes the stick's way at the melee press, the nearest of eight directions (W, A, S, D and the diagonals) around the view; no stick: along the view. The body turns to the lunge and plays the forward clip (ours: no other clip exists) | Owner's knowledge 2026-10-29 ("you should be able to hold A or D or S and go in other directions, as well as the usual combinations for more directions W+A, S+D"); spec "Charge directions" | The dash attack in eight directions…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |

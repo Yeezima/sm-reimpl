@@ -768,6 +768,13 @@ the pauldron in the lens; the camera is not shifted: the rig data has no collisi
 shake) are off by default, opt-in `--hit-stop` (`--no-hit-stop` is gone); the camera assist toward the lock stays. Test aids: `--bot-backup [--bot-backup-yaw d]` (with `--aim-test`),
 `--camera-hide-log`, `--camera-hide-distance`, `--old-camera-hide`. Spec "The own character hides when the camera is close", `docs/changes-from-original.md`.
 
+The primary is stowed round the right side (branch `fix/stow-right`; client only, no protocol change; owner's knowledge 2026-10-29: "should stow it to the right around their back not the left. currently
+the gun floats through the air"): the pistol switch's clip carries the primary's chest prop round the left side onto `MKR_Stow_Bolter` with no hand on it (79 cm from the nearer hand). Now a switch is
+`SmContent.SwitchPlan`: the old weapon's own draw played backwards to its attach tag (the primary in the right hand round the right side, released onto the back marker; the pistol back to its thigh),
+then the new weapon's draw, the new one taken at its tag (`WeaponRig.Update(.., release, take)`, both stowed between; `PoseSlots.SwitchNext` cross-fades the joint). Every primary of both races (all on
+the chest prop and the bolter marker). Test aids: `--switch-test` (standalone, `--switch-shots n`, `--switch-probe`, `--switch-clips`), `--old-stow`, bots `--bot-switch-every s` with
+`--wait-switch-window a,b`. Spec "The primary is stowed round the right side"; `SwitchPlanTests`.
+
 Charge directions are done (branch `feel/charge-directions`; protocol 39; the owner's playtest of 2026-10-29, user's knowledge and decision): the bull rush starts on F
 with **W held**, no sprint and no speed (`Rush.CanStart`, `Rush.WHeld`; supersedes M31's sprint gate, `Rush.SprintThreshold` and `RushSpec.SprintMargin` are gone; aim mode and the
 held trigger no longer make it the stun strike; without W, F is the stun strike; the jump-pack classes still charge from the ground only); A or D held with W turns the charge

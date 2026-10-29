@@ -49,6 +49,8 @@ public static class LeanBot
         "jump-test", "slash-test", "dash-wall-test", "pound-test", "laser-test", "reload-test", "ork-test", "emblem-test", "appearance-test", "ui-selftest", "lock-demo",
         // the screenshot waits
         "wait-players", "wait-melee", "wait-blast", "wait-jump", "wait-match-end", "wait-death", "wait-fall", "wait-fall-land", "wait-flinch", "wait-frames", "wait-switch",
+        // fix/stow-right: the switch test view and its probe, the capture window, the bot that switches for the capture
+        "switch-test", "switch-probe", "wait-switch-window", "bot-switch-every",
     };
 
     /// <summary>
