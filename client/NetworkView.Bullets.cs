@@ -29,7 +29,7 @@ namespace SmClient;
 /// as many as the straight tracer cost, so the effect pool is not pressed harder than before; feel/bullets-2 replaced the second beam of the first version, which
 /// doubled them and left 6 in 10 shots straight under pool pressure) plus the muzzle leg, a few metres crossed in a few milliseconds, as a pooled bright streak outside
 /// the effect pool (32 slots, no allocation). The impact still arrives with the head, whose speed is the data's (<see cref="TracerHeadSpeed"/>, at least crossing in
-/// <c>MaxTracerFlight</c>, M31) unless <c>--bullet-speed m/s</c> sets it. A beam without a head (the lascannon) is there at once and bends as two beams. A hit-scan
+/// <c>MaxTracerFlight</c>, M31) unless <c>--bullet-speed m/s</c> sets it. A beam without a head (the lascannon) is there at once (drawn as one straight static beam since wfx; the old data-beam path below still bends as two). A hit-scan
 /// weapon without a tracer effect gets the pooled streak for the whole path.
 /// </para>
 /// <para>
@@ -45,7 +45,7 @@ namespace SmClient;
 /// </summary>
 public partial class NetworkView
 {
-    /// <summary>Live shot effects above which an instant beam (the lascannon's, which needs two effects to bend) is drawn from the join point only (the effect player holds 160 and drops the oldest of the lowest priority; ours).</summary>
+    /// <summary>Live shot effects above which an instant beam (the data's lascannon beam under --old-laser, which needs two effects to bend) is drawn from the join point only (the effect player holds 160 and drops the oldest of the lowest priority; ours).</summary>
     const int BentPoolLimit = 110;
 
     /// <summary>wfx (owner's item 27; ours): how long the muzzle leg of a bullet stays drawn after its head has crossed it, seconds (about seven frames at 60 fps).</summary>

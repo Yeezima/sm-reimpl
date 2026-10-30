@@ -18,7 +18,7 @@ namespace SmClient;
 /// </para>
 /// <para>
 /// The owner's change (ours): for those tracers the data's beams are not played; the beam is drawn as a hard-edged bright red core with a hot white line inside it and a thin soft glow,
-/// additive, along the shot's true path (muzzle, join point, end: <see cref="BulletPaths"/>), at least <see cref="MinCorePixels"/> pixels wide so that it stays a sharp line at range, in
+/// additive, along the shot's true path (one straight line from the muzzle to the end, both snapshotted at the shot; see <see cref="BulletPaths"/> for the bullets' bent path), at least <see cref="MinCorePixels"/> pixels wide so that it stays a sharp line at range, in
 /// world space where it was fired (it does not follow the barrel). Timing follows the data: the core shows for 0.4 s (<c>mycore</c>'s duration), the glow for 0.6 s; the beam is there at once
 /// (M31). The muzzle effect and the impacts are the data's. <c>--old-laser</c> restores the data's beam.
 /// </para>

@@ -152,7 +152,7 @@ void fragment() {
 
     static Shader? PlasmaShader;
 
-    /// <summary>Whether the projectile of this weapon is a plasma shot (the ball is drawn solid even where the original trail plays).</summary>
+    /// <summary>Whether the projectile of this weapon is a plasma shot (the ball is drawn solid even where the original trail plays). The plasma pistol keeps the ball too: every plasma weapon fires plasma (owner's coordinator decision, intended).</summary>
     bool IsPlasmaShot(int weaponIndex, bool thrown) =>
         !thrown && _config is not null && weaponIndex >= 0 && weaponIndex < _config.Weapons.Count && _config.Weapons[weaponIndex].Name.Contains("plasma", StringComparison.OrdinalIgnoreCase);
 }
