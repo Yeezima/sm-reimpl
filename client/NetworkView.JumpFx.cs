@@ -47,6 +47,10 @@ public partial class NetworkView
 
     /// <summary>Looping effects fade over this long when their phase ends (s; ours: the data's "stop_emitting" lets the particles finish).</summary>
     const double JumpFxFade = 0.35;
+    /// <summary>wfx (ours, owner's item 26): the thrust's fade at the peak of the jump, seconds (short, so that it reads as stopping there).</summary>
+    const double PeakFadeSeconds = 0.08;
+    bool? _oldPackFall;
+    bool OldPackFall => _oldPackFall ??= OS.GetCmdlineUserArgs().Contains("--old-pack-fall");
 
     /// <summary>
     /// fx/impact-pass (the owner, 2026-10-29: "shorten the trail by a lot, reference the video"; **ours**, tuned by eye against the reference flights): the pack effects' trails
@@ -129,7 +133,7 @@ public partial class NetworkView
         var mode = pounding ? PackMode.Dive : flying ? (s.Velocity.Z > 0f && !(own && s.JumpCut) ? PackMode.Rise : PackMode.Fall) : PackMode.Ground;
         if (mode != t.Mode)
         {
-            Fade(t.Looping, JumpFxFade);
+            Fade(t.Looping, t.Mode == PackMode.Rise && mode == PackMode.Fall && !OldPackFall ? PeakFadeSeconds : JumpFxFade);   // wfx: the thrust is gone almost at once at the peak
             if (mode != PackMode.Ground) Fade(t.Idle, 0.15);
             t.IdleLevel = float.NaN;
             switch (mode)
@@ -141,7 +145,8 @@ public partial class NetworkView
                     break;
                 case PackMode.Fall:
                     if (t.Mode == PackMode.Rise) { PlayOnPack(s.PlayerId, effects.Apex, repeat: false, "apex"); _apexFx++; }
-                    t.Looping.AddRange(PlayOnPack(s.PlayerId, effects.Descending, repeat: true, "fall"));
+                    // wfx (owner, 2026-10-30, playtest item 26): the thrust and fire stop at the peak; the data's looping fall effect (jumppack_innate_no_power_combo) is not played (ours; --old-pack-fall restores it).
+                    if (OldPackFall) t.Looping.AddRange(PlayOnPack(s.PlayerId, effects.Descending, repeat: true, "fall"));
                     break;
                 case PackMode.Dive:
                     t.Looping.AddRange(PlayOnPack(s.PlayerId, effects.Dive, repeat: true, "dive", exhaust: true));

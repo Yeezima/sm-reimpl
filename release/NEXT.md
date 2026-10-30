@@ -21,6 +21,11 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The power sword's glow now stays close to the blade and flares up while you swing.
 - The eyes of every Space Marine and Chaos Marine now glow in the lens colour chosen in the customizer, in the match and in the customizer previews (red for Marines and blue for Chaos when none is chosen).
 - Fixed: with Weapon Versatility the second primary weapon (for example the melta) is now drawn in your hands; the weapon you swapped out last is the one on your back.
+- The lascannon beam is now one straight red line that stays exactly where it was fired, even when you move.
+- Bullet tracers now visibly start at the gun barrel.
+- The melta's blast is a distinct orange cone instead of purple-blue haze. Plasma gun and plasma cannon shots are now a solid-looking, roiling ball of plasma.
+- Assault and Raptor jump pack flames now stop at the top of the jump.
+- Fixed: a flicker on the Devastator's backpack with some armour sets.
 - The camera no longer trails the mouse: it follows your aim exactly again.
 - The stalker bolter and the lascannon now zoom in further when you scope (stalker bolter about 1.5 times tighter, lascannon about 2.6 times tighter than before).
 - The C key no longer opens the loadout menu; press Esc to change your loadout, alive or dead (the death screen shows "[ESC] CHANGE LOADOUT").

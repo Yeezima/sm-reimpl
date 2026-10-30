@@ -73,7 +73,7 @@ public partial class NetworkView
                     ork ? OrkWeaponMounts.Stikkbomb : null, second >= 0 ? _config.Weapons[second].Name : null))
             {
                 // The armour's own backpack would sit inside a worn pack model (jump packs are drawn over the same bones).
-                character.SetPieceHidden("_backpack", rig.WornCount > 0);
+                character.SetBackpackHidden(rig.WornCount > 0);
                 if (_bot || ReferenceEquals(character, _local))
                     GD.Print($"weapons of P{state.PlayerId}: {string.Join(", ", rig.Description)}{(rig.WornCount > 0 ? $"; {rig.WornCount} worn model node(s)" : "")}{(rig.AlwaysMelee ? "; melee weapon always in hand" : "")}");
             }

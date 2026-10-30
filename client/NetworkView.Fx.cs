@@ -242,6 +242,7 @@ public partial class NetworkView
             FxJumpPacks(me);   // M44 (NetworkView.JumpFx.cs)
             FxDeaths();   // F-D1: the death effects that are due (NetworkView.DeathFx.cs)
             _fx!.Update(delta / Math.Max(1f, FxSlow), _camera);
+            UpdateMeltaCones();   // wfx (NetworkView.WeaponFx.cs)
             UpdateBulletLines();   // feel/bullets: the fallback streaks and the debug rays (NetworkView.Bullets.cs)
             FxApplyShake(delta);
             FxLog();
