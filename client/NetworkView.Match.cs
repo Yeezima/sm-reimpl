@@ -162,7 +162,7 @@ public partial class NetworkView
 
     /// <summary>
     /// Fidelity gap 10: the HUD's world decorators over the other living players (the original's <c>PlayerDecorator</c>: race icon and name for
-    /// friends, the name for foes). Visibility by <see cref="DecoratorRules.PlayerVisible"/> (ours: friends within 120 m, through walls within
+    /// friends; none for foes since 2026-10-30). Visibility by <see cref="DecoratorRules.PlayerVisible"/> (ours: friends within 120 m, through walls within
     /// 75 m; foes in the line of sight within 75 m); no sides, no decorators. Positions are the shown (interpolated) ones, 2.5 m over the feet.
     /// </summary>
     void FillDecorators(Hud.Frame f, PlayerState me)
@@ -177,7 +177,8 @@ public partial class NetworkView
         foreach (var other in _lastOthers)
         {
             if (!other.Alive || other.PlayerId == _client.PlayerId || other.Team == Team.None) continue;
-            var relation = World.Hostile(me.Team, other.Team) ? DecoratorRelation.Enemy : DecoratorRelation.Ally;
+            if (World.Hostile(me.Team, other.Team)) continue;   // owner's decision 2026-10-30: nothing over enemies (no name); the readout perks' bar is the crosshair's
+            var relation = DecoratorRelation.Ally;
             float distance = System.Numerics.Vector3.Distance(other.Position, me.Position);
             if (distance > DecoratorRules.AllyRange) continue;
             // No ray where the answer does not depend on it: a friend within the through-walls range is shown, a foe beyond its range is not.

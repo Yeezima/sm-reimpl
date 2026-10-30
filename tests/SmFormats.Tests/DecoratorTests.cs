@@ -129,7 +129,7 @@ public class DecoratorTests
         Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.Ally, 100f, lineOfSight: false));
         Assert.True(DecoratorRules.PlayerVisible(DecoratorRelation.Ally, 100f, lineOfSight: true));
         Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.Ally, 130f, lineOfSight: true));
-        Assert.True(DecoratorRules.PlayerVisible(DecoratorRelation.Enemy, 40f, lineOfSight: true));
+        Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.Enemy, 40f, lineOfSight: true));   // 2026-10-30: nothing over enemies
         Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.Enemy, 40f, lineOfSight: false));
         Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.Enemy, 80f, lineOfSight: true));
         Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.None, 5f, lineOfSight: true));

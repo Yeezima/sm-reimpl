@@ -253,4 +253,19 @@ public class FivePerksTests(ITestOutputHelper output)
         bytes[^4] = 4; bytes[^3] = 0;   // the second record names player 4 again
         Assert.Null(Protocol.Read(bytes));
     }
+
+    [Fact]
+    public void An_enemy_bar_is_sent_only_for_an_enemy_in_range_and_not_behind_a_wall()
+    {
+        var v = new[] { new Vector3(10f, -20, -1), new Vector3(10f, 20, -1), new Vector3(10f, 20, 10), new Vector3(10f, -20, 10) };
+        var wall = new StaticMesh(v, [0, 1, 2, 0, 2, 3]);
+        var open = new World(Config, null, [new SpawnPoint(Vector3.Zero, 0f)]);
+        var walled = new World(Config, new CollisionWorld(wall, wall), [new SpawnPoint(Vector3.Zero, 0f)]);
+        PlayerState At(float x) => new PlayerState(2, new Vector3(x, 0, 0), Vector3.Zero, 0f, true) { Alive = true };
+        var me = new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Alive = true };
+        Assert.True(GameServer.BarVisible(open, me, At(40f)));
+        Assert.False(GameServer.BarVisible(open, me, At(80f)));        // beyond 75 m
+        Assert.True(GameServer.BarVisible(walled, me, At(5f)));        // before the wall
+        Assert.False(GameServer.BarVisible(walled, me, At(20f)));      // behind it
+    }
 }
