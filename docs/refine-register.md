@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1747 spec table rows: **1194 tagged**, 403 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 366 rows of the changes document.
+Scanned 1749 spec table rows: **1196 tagged**, 403 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 367 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 306 | 260 | 265 | 91 | 12 |
 | Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
 | Weapons (critical) | 111 | 64 | 97 | 50 | 3 |
-| Melee (critical) | 61 | 48 | 57 | 10 | 5 |
+| Melee (critical) | 63 | 50 | 59 | 11 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
 | Charge (critical) | 26 | 19 | 21 | 12 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -53,15 +53,15 @@ Scanned 1747 spec table rows: **1194 tagged**, 403 not tagged (read from data wi
 | Core simulation (provisional values) | 100 | 86 | 85 | 12 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1194** | 981 | 953 | 382 | 38 |
+| **All areas** | **1196** | 983 | 955 | 383 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 447 |
-| confidence: medium | 428 |
-| confidence: low | 410 |
+| kind: ours | 449 |
+| confidence: medium | 429 |
+| confidence: low | 411 |
 | kind: interpretation | 320 |
 | notes: ours | 281 |
 | confidence: none (low) | 115 |
@@ -86,6 +86,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: guess | 4 |
 | section: approximation | 3 |
 | kind: inferred | 2 |
+| notes: guess | 1 |
 | notes: unverified | 1 |
 
 ## Part A: gameplay areas, critical first
@@ -708,7 +709,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (61)
+### Melee (gameplay-critical) (63)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -765,7 +766,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0F92936E` | Dash attack: landing | the dash attack's lunge held in the air at its end ends on any landing (no "Dash to Idle" run-out); a lunge begun in the air that lands before its end goes on as before | kind: ours; confidence: low | the owner's request (the same for the dash attack) | Dash attack: landing: compare with SM1 by feel or video. Ours: the dash attack's lunge held in the air at its end ends on any… | ☐ |
 | `R-CC911FE3` | Ledge charge: measured | headless bot on Manufactorum (`--bot-ledge --ledge-charge --ledge-min-drop 1.5 --log-falls`, 127.0.0.1): charges off 5.32, 4.00 and 2.90 m drops landed with no charge ("no charge"); one off a 0.45 m drop resumed its clip ("now Rush at 0.50 s") (m) | confidence: medium | measured | Ledge charge: measured: compare with SM1 by measuring on a flat spot of the same map. Ours: headless bot on Manufactorum (--bot-ledge --ledge-charge… | ☐ |
 | `R-593E392B` | Chainsword X, X, X, Y | the graph's "Quick AOE Attack" (`Sequencer31`) is still played as the Y,Y stomp (`Sequencer20`), as since M28 | kind: gap (not reproduced); confidence: low; notes: interpretation | M28 interpretation | Chainsword X, X, X, Y: compare with SM1 by feel or video. Ours: the graph's "Quick AOE Attack" (Sequencer31) is still played as the… | ☐ |
-| `R-3C953AFA` | Melee lunge scale | **× 1.3** on every melee attack's forward root motion (light and heavy, every weapon); backward motion, the charge, the dash attack, the slash and the pound unchanged; with a locked target the blend is still solved from the distance now (unscaled), so the… | kind: ours; kind: estimate; confidence: low | the owner's request; 1.3 and the forward-only rule ours | Melee lunge scale: compare with SM1 by feel or video. Ours: × 1.3 on every melee attack's forward root motion (light and heavy… | ☐ |
+| `R-3C953AFA` | Melee lunge scale | **× 1.3 (2026-10-29), × 1.625 since 2026-10-31 (the owner: "a bit longer in general", +25% on top; ours)** on every melee attack's forward root motion (light and heavy, every weapon); backward motion, the charge, the dash attack, the slash and the pound… | kind: ours; kind: estimate; confidence: low | the owner's request; 1.3 and the forward-only rule ours | Melee lunge scale: compare with SM1 by feel or video. Ours: × 1.3 (2026-10-29), × 1.625 since 2026-10-31 (the owner: "a bit… | ☐ |
+| `R-1FCA0F79` | Melee lunge: locked burst | (sim/melee-lunge, owner 2026-10-31: "the step should be longer the further away the target is"; "quicker and more forcefully") a locked target (the data's lock range `max_melee_target_distance` 7 m, `directional_targeting_ext`; held to 8 m by the 1 m leash)… (m, m/s) | kind: ours; confidence: low; notes: guess | guess | Melee lunge: locked burst: compare with SM1 by timing a run over a known distance. Ours: (sim/melee-lunge, owner 2026-10-31: "the step should be longer the… | ☐ |
+| `R-CD4291DE` | Melee lunge: exploits | the burst is capped in speed (28 m/s) and never closes past the 1 m separation; the body moves through the capsule controller (`Movement.Glide`): walls stop it, a lunge off a ledge drops from there; the lock keeps its line-of-sight and directional rules (#23… | kind: ours; confidence: medium | measured | Melee lunge: exploits: compare with SM1 by feel or video. Ours: the burst is capped in speed (28 m/s) and never closes past the 1 m… | ☐ |
 | `R-AD4F6782` | Weapon switch time | 0.6 s placeholder × **0.8** = **0.48 s** (18 → 15 ticks to the first possible shot); the raise after a switch still applies (the pistol's 0.167 s: 5 ticks) (s) | kind: estimate; confidence: low | the owner's request; to measure against the original (the data's switch clips: rifle 0.467 s, pistol 0.667 s) | Weapon switch time: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 0.6 s placeholder × 0.8 = 0.48 s (18 → 15 ticks to the first possible… | ☐ |
 | `R-E4637B72` | Alignment: eased turn | in the alignment window the share of the turn left that a tick covers follows a smoothstep (3u² − 2u³) of the window's time instead of a constant rate, re-planned each tick (a moving target is followed), still capped at 1080°/s; without a target the attack… | kind: ours; confidence: low | the owner's request ("make them fluid"); the curve ours | Alignment: eased turn: compare with SM1 by feel or video. Ours: in the alignment window the share of the turn left that a tick covers… | ☐ |
 | `R-3F21C13B` | Alignment: window at least 0.2 s | a window shorter than 0.2 s is widened: its end later up to the attack's hit, then its start earlier down to 0 (knife Y2 0.179–0.238 → 0.098–0.298 s); a longer window unchanged (s) | kind: ours; confidence: low | ours | Alignment: window at least 0.2 s: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a window shorter than 0.2 s is widened: its end later up to the… | ☐ |
@@ -2389,6 +2392,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-C77587B7` | Visuals pass 2 (fx/visuals-2, owner 2026-10-30 round 2: items 34, 35, 38, 40, 45, 46, 48) | Ours: the recharge glow and break flash are soft halos behind the figure, not a model-surface layer (`--old-flash-outline`); the air-slash landing adds a dust cone (apex at the feet, the sim's 60 degree, 4 m cone; `--no-slash-cone`); the pistol's tracer waits for the raise (`--old-pistol-tracer`); bolt tracers 0.42 x… | Visuals pass 2 (fx/visuals-2, owner 2026-10-30 round 2:…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-55031529` | Melta cone, fuzzy (fx/melta-fuzzy, owner 2026-10-31) | Ours: the melta's drawn blast cone is always the data's 20 m long, soft all through (nine nested shells, view-angle fade on the walls, muzzle and tip fades, scrolling cloud noise, depth fade at walls and floor, fade near the camera) in the data's purple-blue, with no hard outline; length, width, brightness, noise and… | Melta cone, fuzzy (fx/melta-fuzzy, owner 2026-10-31): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-92C86CDD` | HUD and camera pass 2 (ui/hud-camera-2, owner 2026-10-30) | Ours: the third-person camera is 1.3 times as far back as the data's rig (3.38 m to 4.40 m; aim unchanged); the score block's dark band is opaque (80 to 86 percent) and holds the timer, scores, bars and limit; the armour bar is plain yellow for everyone but the Iron Halo's carrier (cyan and white with the medallion)… | HUD and camera pass 2 (ui/hud-camera-2, owner 2026-10-30): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-C69D928F` | Melee lunge longer (sim/melee-lunge, owner 2026-10-31) | Ours: every melee attack's forward step is 25% longer (scale 1.3 to 1.625, an estimate to review in a playtest); a locked swing closes on its target with a front-loaded burst (settled by 0.6 of the way to the hit, at most 28 m/s, the bull rush's slowest burst; farther target, bigger step), never nearer than 1 m. The… | Melee lunge longer (sim/melee-lunge, owner 2026-10-31): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-37420BF6` | Armour regen sound level (owner 2026-10-31) | Ours: the regeneration sound is 50% of its earlier volume (-6 dB), and another player's regen would fade to silence at 20 ft (6.1 m, "roughly"; none is posted today, the data makes it the local player's only). Spec "Shield sounds". `--regen-sound-old` restores the old level | Armour regen sound level (owner 2026-10-31): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 #### Sticky launcher grenades (sim/sticky-launcher; protocol 48)
