@@ -152,7 +152,7 @@ public static class Reaction
         float played = Time(s, c);
         if (!Holds(s.Reaction))
         {
-            // sim/combat-2 (item 36, the owner's decision of 2026-10-30): a light reaction (the interrupt, the stagger) plays its clip but holds nobody: the first tick with any
+            // sim/combat-2 (item 36, the owner's decision of 2026-10-30): a light reaction (the interrupt) plays its clip but holds nobody: the first tick with any
             // input (the stick or any button) ends it and acts normally on that input; only the hit's knockback (a few ticks) runs before. Without input it runs on to its end.
             float pushEnd = s.PushDistance > 0 ? s.PushTicks * c.TickSeconds : 0f;
             if (played + Eps >= clip.EndAt || (anyInput && played + Eps >= pushEnd)) return (false, Cleared(s));
@@ -167,10 +167,10 @@ public static class Reaction
     }
 
     /// <summary>
-    /// sim/combat-2 (item 36): whether a reaction of this kind holds the victim (nothing but turning until it ends: the stun); the light ones (the interrupt, the stagger)
+    /// sim/combat-2 (item 36): whether a reaction of this kind holds the victim (nothing but turning until it ends: the stun and the stagger); the light one (the light-attack interrupt)
     /// only interrupt the action and play their clip (<see cref="Begin"/>). Which hits are light and which heavy is the data's (the hit tables pick the kind).
     /// </summary>
-    public static bool Holds(ReactionKind kind) => kind == ReactionKind.Stun;
+    public static bool Holds(ReactionKind kind) => kind != ReactionKind.Interrupt;   // the owner (review of sim/combat-2): only the light-attack interrupt is escapable; stagger and stun hold
 
     /// <summary>
     /// feel/locks-sprint-stop: when a reaction's stick or Jump branch (<see cref="ReactionClip.RunAt"/>, <see cref="ReactionClip.EvadeAt"/>) opens:

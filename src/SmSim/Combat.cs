@@ -544,7 +544,7 @@ public static class Combat
         // the body's root motion runs one tick ahead of the attack's clock (the tick covering (t, t + dt] moves the body by the clip's (t + dt, t + 2dt]), so the press
         // tick itself already steps (0, dt]; before, the lunge began 1/30 s after the press. The attack's own clock, hit time and windows are unchanged.
         if (startedNow && steps[step - 1].Reach is not null) (motionStep, motionFrom, motionTo) = (steps[step - 1], 0f, MathF.Min(dt, steps[step - 1].Duration));
-        if (step > 0 && !s.Throwing && (shotWanted || (chargePress && switchLeft <= 0f)) && (time >= steps[step - 1].RangedAt || (s.Slot == WeaponSlot.Pistol && (basicPress || chargePress) && !startedNow)))
+        if (step > 0 && !s.Throwing && (shotWanted || (chargePress && switchLeft <= 0f)) && (time >= steps[step - 1].RangedAt || (s.Slot == WeaponSlot.Pistol && basicPress && !startedNow && s.Clip > 0 && !s.Overheated && s.ReloadLeft <= 1e-6f && MathF.Max(0f, s.Cooldown - dt) <= TimeEpsilon)))   // review: only a shot that really leaves cancels
         {
             step = 0; time = 0f; queued = false; queuedHeavy = false;   // firing (or starting a charge) ends the attack; handled below this tick
             motionStep = null;   // and its root motion

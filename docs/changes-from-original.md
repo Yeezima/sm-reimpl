@@ -432,8 +432,8 @@ slash's values and clips but not these engine rules, so these are ours:
 | Stronger jump-pack air control | The stick steers the flight twice as hard: top speed 16 m/s (14.4 with the slower movement) and acceleration 30 m/s² (the owner's "about twice") | The original's air control is not in the data; the factor is the owner's recollection | "Combat 2" |
 | W does not end the charge | The charge runs its clip with W held (1.19 s); S, A or D alone still end it from its branch | How far the original's charge went; the effect on its reach is unmeasured | same |
 | The lock-on turns the model, not the camera | The camera assist is removed; the body's heading and the attack turn to the target | The original's exact alignment | same |
-| Light reactions hold nobody | The interrupt and the stagger play their clip but any input ends them at once (after the 3 to 4 tick knockback); the stun keeps the full hold | Which of the original's reactions were "light"; the split by kind is ours | same |
-| The bolt pistol cancels a swing | A trigger press with the pistol slot in hand ends the swing in that tick and fires | Whether the original also cancelled with the primary weapon | same |
+| The light-attack interrupt holds nobody | The interrupt plays its clip but any input ends it at once (after its knockback); the stagger and the stun keep the full hold (owner's review decision) | Which of the original's reactions were "light"; the split by kind is ours | same |
+| The bolt pistol cancels a swing | A trigger press with the pistol slot in hand ends the swing in that tick, when a shot really fires | Whether the original also cancelled with the primary weapon | same |
 | The lunge starts on the press tick | The body's step runs one tick ahead of the swing's clock | The original's lunge timing | same |
 | The countdown freezes movement and actions | The stick and all buttons are dropped until the countdown ends; the view stays free | How the original froze the players | same |
 | A roll off a ledge keeps its travel | The roll's horizontal motion goes on through the fall (replaces protocol 30's stop) | The original's exact fall | same |

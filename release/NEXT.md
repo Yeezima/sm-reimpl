@@ -39,7 +39,6 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The score panel at the bottom left no longer runs past its bars, and the weapon box at the bottom right sits a little higher, closer to the original.
 - The melta gun's bar in the weapon box now shows how far it is from the next shot.
 - Names now show only over the player under your crosshair: red for an enemy, yellow for a friend. Nobody else has a name floating over them any more.
-- New network version again: everyone must update together.
 - Charging is now purely W + F: with W held, F always charges and never gives the stun strike. Press it a moment too early (while the last charge is still recovering, in the air, or in the middle of a melee combo) and the charge starts as soon as it can.
 - Reloads now carry on while the weapon is put away: start a reload, switch weapons, and it finishes on its own; switching back finds the weapon ready.
 - Melee now goes the way you hold: hold S when you strike and the Marine turns round and hits backwards; A and D strike to the sides, and the diagonals work too. With no key held it strikes forward.
@@ -52,7 +51,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Assault and Raptor jump-pack flight: the movement keys steer you about twice as strongly in the air.
 - The charge is no longer cut short by holding W; it runs its whole animation. Pressing S, A or D alone still stops it.
 - Locking on to an enemy in melee now turns your character and your swing toward them, but no longer drags the camera: the camera stays under your mouse.
-- A light hit (a quick melee blow or a stagger) now only interrupts what you were doing and plays the stagger animation; you can move, jump, charge, strike, aim, roll or reload straight out of it. Heavy stuns still hold you.
+- A light melee hit now only interrupts what you were doing and plays its reaction animation; you can move, jump, charge, strike, aim, roll or reload straight out of it. Staggers and stuns still hold you.
 - Firing the bolt pistol now ends a melee swing at once and you can do anything next.
 - The step forward of melee swings and stun strikes now starts the instant you press the button.
 - Nobody can move or act during the countdown before a match; you can still look around, and you are free on the exact tick the timer ends.

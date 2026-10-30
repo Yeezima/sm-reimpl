@@ -833,8 +833,8 @@ bone turns above 45 degrees a frame 240 to 205. The run's bob is the data's (15 
 
 ### sim/combat-2: the owner's playtest round 2, combat items (protocol 47, 2026-10-30)
 Items 28, 31, 32, 36, 37, 39, 42, 43 and 50 of `playtest-notes-2026-10-30.md`, round 2 (rules and values: spec "Combat 2"). The jump pack's air control doubled (16 m/s, 30 m/s²);
-W no longer ends the bull rush (`stickEnds` in `Combat.StepPlayerCore`); the melee lock's camera assist is gone (client); the interrupt and the stagger are light reactions that any
-input ends (`Reaction.Holds`: only the stun holds); a pistol-slot trigger press ends a swing at once; the melee root motion runs a tick ahead of the clock, so the press tick steps; the
+W no longer ends the bull rush (`stickEnds` in `Combat.StepPlayerCore`); the melee lock's camera assist is gone (client); the light-attack interrupt is a reaction that any
+input ends (`Reaction.Holds`: everything else holds; the review first made the stagger light too, the owner took it back); a pistol-slot trigger press ends a swing at once; the melee root motion runs a tick ahead of the clock, so the press tick steps; the
 countdown drops the stick and every button; a roll keeps its horizontal travel off a ledge (protocol 30's stop removed); the switch buffer needed no change beyond the light reactions
 (a reload never blocks a switch). Tests that pinned the old timings were updated (melee lock windows one tick earlier, the rush ended by D instead of W, the stun used where a
 hold was meant). Protocol 47 (no layout change, snapshot worst case 1194). `NavJumps.SimulationVersion` 9.

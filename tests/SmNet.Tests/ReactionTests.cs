@@ -660,7 +660,7 @@ public class ReactionTests(ITestOutputHelper output)
     [InlineData("fire")]
     [InlineData("aim")]
     [InlineData("reload")]
-    public void A_stagger_and_an_interrupt_are_left_by_any_action_on_the_next_tick_a_stun_is_not(string action)
+    public void An_interrupt_is_left_by_any_action_on_the_next_tick_a_stagger_and_a_stun_are_not(string action)
     {
         var input = action switch
         {
@@ -672,7 +672,7 @@ public class ReactionTests(ITestOutputHelper output)
             "aim" => new PlayerInput(0, 0f, 0f, 0f, InputButtons.Aim),
             _ => new PlayerInput(0, 0f, 0f, 0f, InputButtons.Reload),
         };
-        foreach (var entry in new[] { new ReactionEntry(0f, ReactionKind.Stagger), Interrupt })
+        foreach (var entry in new[] { Interrupt })
         {
             var s = Reacting(entry);
             if (action == "reload") s = s with { Clip = 5 };
@@ -692,26 +692,29 @@ public class ReactionTests(ITestOutputHelper output)
                 default: Assert.True(s.ReloadLeft > 0f); break;
             }
         }
-        // The stun holds: the same input on the same tick does nothing.
-        var held = Combat.StepPlayer(Combat.StepPlayer(Reacting(Stun), new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), Config, out _), input, Config, out var fired);
-        Assert.Equal(ReactionKind.Stun, held.Reaction);
-        Assert.False(fired.Fired);
-        Assert.Equal((0, 0), (held.MeleeStep, held.EvadeTicks));
+        // The stagger and the stun hold (owner, review of sim/combat-2): the same input on the same tick does nothing.
+        foreach (var heavy in new[] { new ReactionEntry(0f, ReactionKind.Stagger), Stun })
+        {
+            var held = Combat.StepPlayer(Combat.StepPlayer(Reacting(heavy), new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), Config, out _), input, Config, out var fired);
+            Assert.Equal(heavy.Kind, held.Reaction);
+            Assert.False(fired.Fired);
+            Assert.Equal((0, 0), (held.MeleeStep, held.EvadeTicks));
+        }
     }
 
     [Fact]
-    public void A_stagger_still_interrupts_the_action_it_hits_and_pushes_before_input_takes_over()
+    public void An_interrupt_still_interrupts_the_action_it_hits_and_pushes_before_input_takes_over()
     {
         // The hit stops the swing (Reaction.Start), the knockback runs its 9 ticks even with the stick held, then the stick moves the body.
         var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = Tactical }, Config);
         s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Melee), Config, out _);
         Assert.Equal(1, s.MeleeStep);
-        s = Reaction.Start(s, Config, Stagger, ReactionDirection.Front, Vector2.UnitY);
-        Assert.Equal((0, ReactionKind.Stagger), (s.MeleeStep, s.Reaction));
+        s = Reaction.Start(s, Config, Interrupt with { Backward = 3f, Duration = 0.3f }, ReactionDirection.Front, Vector2.UnitY);
+        Assert.Equal((0, ReactionKind.Interrupt), (s.MeleeStep, s.Reaction));
         for (int k = 0; k < 9; k++)
         {
             s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.None), Config, out _);
-            Assert.Equal(ReactionKind.Stagger, s.Reaction);
+            Assert.Equal(ReactionKind.Interrupt, s.Reaction);
         }
         Assert.True(MathF.Abs(s.Position.Y - 3f) < 0.05f, $"pushed {s.Position.Y}");
         s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.None), Config, out _);
@@ -722,11 +725,11 @@ public class ReactionTests(ITestOutputHelper output)
     [Fact]
     public void A_light_reaction_runs_to_its_end_when_nothing_is_pressed_and_only_the_stun_holds()
     {
-        var s = Reacting(new ReactionEntry(0f, ReactionKind.Stagger));
+        var s = Reacting(Interrupt);
         int k = 0;
         while (s.Reaction != ReactionKind.None && k < 60) { s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), Config, out _); k++; }
-        Assert.InRange(k, 17, 18);   // the stagger front clip's end, 0.567 s
-        Assert.False(Reaction.Holds(ReactionKind.Interrupt) || Reaction.Holds(ReactionKind.Stagger));
-        Assert.True(Reaction.Holds(ReactionKind.Stun));
+        Assert.InRange(k, 29, 36);   // the interrupt front clip's end, 0.98 s
+        Assert.False(Reaction.Holds(ReactionKind.Interrupt));
+        Assert.True(Reaction.Holds(ReactionKind.Stagger) && Reaction.Holds(ReactionKind.Stun));
     }
 }

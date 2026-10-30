@@ -44,6 +44,15 @@ public class Combat2Tests
         // Free for any new action on the next tick: a new swing.
         pistol = Combat.StepPlayer(pistol, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Melee), Cfg, out _);
         Assert.Equal(1, pistol.MeleeStep);
+        // A pistol that cannot fire (empty, or cooling down after a shot) does not cancel the swing: a dry press costs nothing.
+        var dry = Swing(WeaponSlot.Pistol) with { Clip = 0 };
+        dry = Combat.StepPlayer(dry, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire), Cfg, out var e3);
+        Assert.True(dry.MeleeStep > 0);
+        Assert.False(e3.Fired);
+        var cooling = Swing(WeaponSlot.Pistol) with { Cooldown = 1f };
+        cooling = Combat.StepPlayer(cooling, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire), Cfg, out var e4);
+        Assert.True(cooling.MeleeStep > 0);
+        Assert.False(e4.Fired);
         // The rifle in hand: the swing is not cut (Fire waits for RangedAt, as before).
         var rifle = Swing(WeaponSlot.Ranged);
         rifle = Combat.StepPlayer(rifle, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire), Cfg, out var e2);

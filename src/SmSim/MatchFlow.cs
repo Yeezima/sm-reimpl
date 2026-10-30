@@ -11,10 +11,7 @@ public enum MatchResult { Victory, Defeat, Draw }
 /// </summary>
 public static class MatchFlow
 {
-    /// <summary>Buttons that do nothing during the countdown: the trigger, both melee strikes (which carry the charge) and the grenade.</summary>
-    public const InputButtons LockedDuringCountdown = InputButtons.Fire | InputButtons.Melee | InputButtons.MeleeHeavy | InputButtons.Grenade;
-
-    /// <summary>The input as the countdown lets it act: the stick and every button dropped (sim/combat-2: before, only <see cref="LockedDuringCountdown"/>); only the view stays.</summary>
+    /// <summary>The input as the countdown lets it act: the stick and every button dropped (sim/combat-2: before, only Fire, both melee buttons and the grenade); only the view stays.</summary>
     public static PlayerInput Locked(PlayerInput input) => input with { MoveX = 0f, MoveY = 0f, Buttons = InputButtons.None };   // sim/combat-2 (item 42): no movement and no buttons at all; the view (yaw, pitch) stays free
 
     /// <summary>How a match that ended with <paramref name="winner"/> went for a player of <paramref name="own"/>: a draw, else victory for the winner's side (and for a viewer without a side), defeat for the other.</summary>
