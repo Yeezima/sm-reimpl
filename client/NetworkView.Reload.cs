@@ -275,7 +275,7 @@ public partial class NetworkView
         if (_soundTriggers.File(weapon.Name) is not { } file) return;
         var emitter = Track(s.PlayerId, own: false).Emitter;
         int serial = t.Player.Serial;
-        foreach (var (tag, at) in _soundTriggers.ReloadTags(file))
+        foreach (var (tag, at) in ReloadTagsOnce(file, false))
         {
             double due = _connectedFor + at * total - elapsed;
             if (due < _connectedFor - 0.001) continue;

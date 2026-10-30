@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1657 spec table rows: **1123 tagged**, 387 not tagged (read from data with high confidence), 147 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 324 rows of the changes document.
+Scanned 1658 spec table rows: **1124 tagged**, 387 not tagged (read from data with high confidence), 147 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 324 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -39,7 +39,7 @@ Scanned 1657 spec table rows: **1123 tagged**, 387 not tagged (read from data wi
 | Jump pack (critical) | 66 | 58 | 56 | 12 | 0 |
 | Charge (critical) | 14 | 12 | 11 | 8 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
-| Camera (critical) | 25 | 24 | 14 | 17 | 0 |
+| Camera (critical) | 26 | 25 | 15 | 18 | 0 |
 | HUD and hit feedback (critical) | 47 | 43 | 39 | 9 | 0 |
 | Sound mix (critical) | 49 | 45 | 42 | 10 | 0 |
 | Effects (critical) | 65 | 57 | 55 | 33 | 0 |
@@ -53,14 +53,14 @@ Scanned 1657 spec table rows: **1123 tagged**, 387 not tagged (read from data wi
 | Core simulation (provisional values) | 66 | 60 | 54 | 5 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1123** | 930 | 891 | 364 | 38 |
+| **All areas** | **1124** | 931 | 892 | 365 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 411 |
-| confidence: medium | 390 |
+| confidence: medium | 391 |
 | confidence: low | 387 |
 | kind: interpretation | 314 |
 | notes: ours | 277 |
@@ -69,7 +69,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | section: provisional | 38 |
 | kind: user's knowledge | 35 |
 | section: placeholder | 35 |
-| kind: estimate | 33 |
+| kind: estimate | 34 |
 | notes: provisional | 31 |
 | kind: choice | 28 |
 | kind: approximation | 23 |
@@ -77,9 +77,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: placeholder | 17 |
 | kind: gap (not reproduced) | 16 |
 | notes: interpretation | 14 |
+| notes: user's knowledge | 14 |
 | notes: not reproduced (gap) | 13 |
 | notes: open question | 13 |
-| notes: user's knowledge | 13 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
 | kind: guess | 5 |
@@ -923,13 +923,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C1D7E018` | Not simulated | `min_hit_reaction_time` 1 (read as the flinches' spacing), flinches, the displace kick and slam (`ability_displace_kick`: stagger 5 m over 0.3 s, in the heavy evade and knife files; how a player triggers it is not in the data read), the bull rush… | notes: not reproduced (gap) | — | Not simulated: compare with SM1 by feel or video. Ours: min_hit_reaction_time 1 (read as the flinches' spacing), flinches… | ☐ |
 | `R-8B2013F2` | Client | poses the reaction clip at the reaction's time (remote players at the snapshot's value), the heavy strikes' clips like light attacks; the own view shook 0.35 s on a reaction start (0.012 / 0.03 / 0.022 rad for interrupt / stun / stagger; **off by default… (s, rad) | kind: placeholder; confidence: none (low); notes: ours | ours | Client: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: poses the reaction clip at the reaction's time (remote players at the… | ☐ |
 
-### Camera (gameplay-critical) (25)
+### Camera (gameplay-critical) (26)
 
 *Spec section: Camera, aim mode, shot convergence and hit confirmation (M20; protocol 12)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-3ECF189B` | Weapon switch camera blend (bolt pistol <-> primary) | when the weapon's camera sets change, the rig offsets (camera and pivot) and the field of view blend from the last placed camera to the new weapon's over the new exploration set's `blend_in_time` (0.25 s for `exploration_default_mp` and `exploration_pistol`)… (s) | kind: interpretation; confidence: medium; notes: ours | `camera_curve_settings` `blend_in_time` (extracted value); using it for a switch is ours; owner's report 2026-10-30 (item 24) | Weapon switch camera blend (bolt pistol <-> primary): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: when the weapon's camera sets change, the rig offsets (camera and… | ☐ |
+| `R-2828F70E` | Reload sound: each sample once (owner recollection, 2026-10-30) | when two differently named reload tags post events that resolve to the same sample, only the later tag posts it, so the sample plays once per reload at the later timing. On the install this changes only the stalker bolter (`sm_`/`csm_mp_ranged_sniper_rifle`):… (of the reload) | kind: estimate; confidence: medium; notes: user's knowledge | owner's recollection (plays once, likes the bolt-release sound); wem ids from the banks | Reload sound: each sample once (owner recollection…: compare with SM1 by listening A/B at the same distance and state. Ours: when two differently named reload tags post events that resolve to… | ☐ |
 | `R-2BE13C83` | Zoom levels: what the client does | the zoomed view blends to level 1 (`fov_1`: stalker bolter 10, lascannon 5.75) instead of the aim set's 15 (blend time and smoothstep unchanged); every other weapon keeps its aim set's value. **Not implemented:** the level cycle (`fov_2`: the lascannon's 2… (degrees) | kind: interpretation; confidence: medium | wargear `zoom_levels`; owner's report 2026-10-30 | Zoom levels: what the client does: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the zoomed view blends to level 1 (fov_1: stalker bolter 10… | ☐ |
 | `R-6F296FAA` | Aim mode | held: `InputButtons.Aim` (protocol 12, input bit 8); active while held with a ranged weapon in hand, not during a melee attack, a throw (or its release tick), a jump-pack jump or dive, nor when dead; `PlayerState.Aiming` | kind: provisional; confidence: none (low); notes: ours | locale string "Hold %AIM_MODE% to enter aim mode with ranged weapons" (`ucs.pc`); which actions end it is **ours** | Aim mode: compare with SM1 with an overlaid screenshot taken from the same position. Ours: held: InputButtons.Aim (protocol 12, input bit 8); active while held… | ☐ |
 | `R-B82BCDC8` | Aim-mode key (PC) | Left Ctrl; right mouse is melee; F is the stun strike (heavy melee) and F while sprinting forward the charge (M31) (user's knowledge of the original, 2026-10-28: the earlier "F is charge / alt fire" misread "charge"); the weapon's charged shot: hold the left… | kind: user's knowledge; confidence: medium | PC default bindings: from the user's knowledge of the original; not found in the data | Aim-mode key (PC): compare with SM1 with an overlaid screenshot taken from the same position. Ours: Left Ctrl; right mouse is melee; F is the stun strike (heavy melee)… | ☐ |

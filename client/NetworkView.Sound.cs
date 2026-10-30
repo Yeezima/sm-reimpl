@@ -584,6 +584,17 @@ public partial class NetworkView
     readonly Dictionary<int, float> _fallTimes = new();
 
     /// <summary>The local player's own state sounds: overheat, reload (at the reload clip's tags), armour and health stages.</summary>
+    /// <summary>The weapon's reload tags with the same sample posted once per reload (<see cref="SoundTriggers.OncePerSample"/>, owner 2026-10-30).</summary>
+    IReadOnlyList<(string Tag, float At)> ReloadTagsOnce(SoundFile file, bool ork)
+    {
+        var tags = _soundTriggers!.ReloadTags(file, ork);
+        if (_audio is null || NoReloadSampleDedupe) return tags;
+        return SoundTriggers.OncePerSample(tags, tag => file.Tag(tag).Where(b => b.StartEvent.Length > 0).SelectMany(b => _audio.WemsOf(b.StartEvent)).ToList());
+    }
+
+    /// <summary><c>--reload-sounds-all</c> (test aid): every reload tag posts, as before fix/camera-zoom-misc.</summary>
+    static readonly bool NoReloadSampleDedupe = System.Array.IndexOf(OS.GetCmdlineUserArgs(), "--reload-sounds-all") >= 0;
+
     void SoundOwnState(SoundTrack t, PlayerState s, PlayerState p)
     {
         var c = _config!;
@@ -593,7 +604,7 @@ public partial class NetworkView
         if (wf is not null && weapon is not null && s.ReloadLeft > 0f && p.ReloadLeft <= 0f && s.Slot == p.Slot)
         {
             float length = Math.Max(0.1f, weapon.ReloadTime);
-            foreach (var (tag, at) in _soundTriggers!.ReloadTags(wf, IsOrkVoice(s)))
+            foreach (var (tag, at) in ReloadTagsOnce(wf, IsOrkVoice(s)))
             {
                 var file = wf;
                 _soundSchedule.Add((_connectedFor + at * length, () =>

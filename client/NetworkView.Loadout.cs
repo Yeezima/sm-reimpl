@@ -467,7 +467,7 @@ public partial class NetworkView
         }
         // --picker-leave: a second and a half after the picker opened, as if LEAVE MATCH had been confirmed (back to the front end).
         if (_pickerCreator is not null && _pickerForced && _aidPickerLeave && LeaveToMenu is not null && _connectedFor - _pickerOpenedAt >= 1.5) { LeaveMatchNow(); return; }
-        // --picker-activate <loadout> (fix/class-change-in-match): a second after the picker opened (C, Esc, --picker-demo or --picker-on-death), opens that loadout and presses
+        // --picker-activate <loadout> (fix/class-change-in-match): a second after the picker opened (Esc, --picker-demo or --picker-on-death), opens that loadout and presses
         // SET ACTIVE, the owner's way; with --picker-resume the menu is left a second later through RESUME / BACK (the creator's Back, as Esc would).
         if (!_demoActivated && _pickerCreator is not null && _aidPickerActivate is { } activate && _connectedFor - _pickerOpenedAt >= 1.0)
         {
