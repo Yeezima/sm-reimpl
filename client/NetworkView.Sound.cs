@@ -597,7 +597,7 @@ public partial class NetworkView
     /// <summary><c>--reload-sounds-all</c> (test aid): every reload tag posts, as before fix/camera-zoom-misc.</summary>
     static readonly bool NoReloadSampleDedupe = System.Array.IndexOf(OS.GetCmdlineUserArgs(), "--reload-sounds-all") >= 0;
 
-    double _ownReloadSoundsUntil;
+    readonly ReloadSoundGuard _ownReloadSounds = new();
 
     void SoundOwnState(SoundTrack t, PlayerState s, PlayerState p)
     {
@@ -605,18 +605,20 @@ public partial class NetworkView
         var weapon = Loadouts.InHand(c, s);
         var wf = weapon is null ? null : _soundTriggers!.File(weapon.Name);
         if (wf is not null && s.Overheated && !p.Overheated && s.Slot == p.Slot) PostAll(wf.Of("overheat"), t.Emitter, true, "overheat");
-        if (wf is not null && weapon is not null && s.ReloadLeft > 0f && p.ReloadLeft <= 0f && s.Slot == p.Slot && _connectedFor >= _ownReloadSoundsUntil)
+        // A reload that ended early (switch, melee, death: slot changed, dead, or the time left was more than a tick) is cancelled: its pending sounds drop and a new reload plays normally.
+        if (p.ReloadLeft > 0f && (s.Slot != p.Slot || !s.Alive || (s.ReloadLeft <= 0f && p.ReloadLeft > c.TickSeconds * 1.5f))) _ownReloadSounds.Cancel((int)p.Slot);
+        if (wf is not null && weapon is not null && s.ReloadLeft > 0f && p.ReloadLeft <= 0f && s.Slot == p.Slot && _ownReloadSounds.Start((int)s.Slot, _connectedFor, Math.Max(0.1f, weapon.ReloadTime)) is int instance)
         {
             float length = Math.Max(0.1f, weapon.ReloadTime);
+            int slotKey = (int)s.Slot;
             // ui/hud-camera-2 (owner, 2026-10-30): one reload, one set of sounds. A start seen again before the sounds' time is over (a press during the reload, a prediction
             // corrected by a snapshot that replays the press) schedules nothing.
-            _ownReloadSoundsUntil = _connectedFor + length;
             foreach (var (tag, at) in ReloadTagsOnce(wf, IsOrkVoice(s)))
             {
                 var file = wf;
                 _soundSchedule.Add((_connectedFor + at * length, () =>
                 {
-                    if (_client is not { } cl || !cl.Predicted.Alive || cl.Predicted.ReloadLeft <= 0f) return;   // cancelled by a switch, melee or death
+                    if (_client is not { } cl || !cl.Predicted.Alive || cl.Predicted.ReloadLeft <= 0f || !_ownReloadSounds.Current(slotKey, instance)) return;   // cancelled by a switch, melee or death, or replaced
                     PostAll(file.Tag(tag), t.Emitter, true, "reload");
                 }));
             }
