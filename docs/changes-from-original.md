@@ -413,11 +413,11 @@ slash's values and clips but not these engine rules, so these are ours:
 
 | Rule | What we do | What is unknown | Spec section |
 |---|---|---|---|
-| The charge is purely W + F | F with W held is the charge or, inside the 1 s spacing or in the air, nothing: never the stun strike (the owner's decision) | What the original did with a W + F press inside the spacing (ours: the press is lost; it could wait for the spacing) | "Combat pass: the charge key, holstered reloads, headshots, directional melee, the ledge charge's fall" |
+| The charge is purely W + F | F with W held is the charge or, inside the 1 s spacing or in the air, never the stun strike (the owner's decision); the press is buffered for 0.3 s and charges as soon as allowed, also from the middle of a combo | What the original did with a W + F press inside the spacing; the 0.3 s window is an estimate | "Combat pass: the charge key, holstered reloads, headshots, directional melee, the ledge charge's fall" |
 | Reloads continue while holstered | A reload is not lost on a switch; the holstered weapon finishes it on its own timer and a weapon taken back has what is left (the owner's recollection; two more floats in the own record) | Whether the original also reloads a recharging weapon (plasma) while holstered (ours: yes, round by round) | same |
 | Headshot bonus | Already the data's: head multipliers per weapon (bolt pistol 2.5, bolters 2.55, sniper 2, lascannon 2.25) and the armour's own head multipliers; the bolt pistol kills a full marine with depleted armour in one headshot (40 x 2.5 = 100) | The head body's exact shape (Havok data not decoded; our head sphere / volumes) | same |
 | Directional melee | The stick's way of eight at the melee press, relative to the view, sets the strike's facing (S turns round and strikes behind); the body turns at once | The original's turn animation and speed (ours: instant; the client draws the new facing) | same |
-| Ledge charge: fall pose after 1 s | A charge held in the air keeps its clip until the charge has run 1 s (ground and air together), then the fall pose | "About 1 s" and its start point (ours: from the charge's start); the original's exact animation | same |
+| Ledge charge: fall pose after 0.3 s in the air | A charge held in the air keeps its clip until the body has been off the ground 0.3 s, then the fall pose | The delay (0.3 s, an estimate; owner to confirm); the original's exact animation | same |
 
 ## 3. Not yet reproduced
 

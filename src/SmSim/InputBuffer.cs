@@ -108,6 +108,9 @@ public static class InputBuffer
         if (s.MeleeStep > 0 || s.Throwing || s.SwitchLeft > 0f || s.EvadeTicks > 0 || s.Reaction != ReactionKind.None || s.Rush != RushPhase.None
             || s.Jump != JumpPhase.None || s.Brace is BracePhase.Entering or BracePhase.Exiting || s.PendingShot > 0 || s.RaiseTicks > 0)
             return true;
+        // sim/combat-pass (owner's follow-up of 2026-10-30): a heavy press that cannot charge yet (the charge's spacing, or in the air) is kept for the window; one that starts
+        // anything is spent (a strike without W, the charge itself), so this changes nothing for F without W.
+        if (a == BufferedAction.MeleeHeavy && (s.RushLock > 0 || !s.Grounded)) return true;
         return a switch
         {
             BufferedAction.Jump or BufferedAction.JumpLong => s.EvadeLock > 0 || !s.Grounded,

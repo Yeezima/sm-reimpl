@@ -429,8 +429,9 @@ public static class Combat
                 s = s with { Yaw = MeleeLock.Steer(rush.Started ? sanitized.Yaw : s.Yaw, MeleeLock.Offset(s, rushTarget), c) };
         }
         // sim/combat-pass (item 8; the owner's decision of 2026-10-30): the charge is purely W + F. A heavy press with W held that did not start a charge (the spacing
-        // since the last one is not over, or the body is in the air) is lost, never a stun strike. A combo under way (MeleeStep > 0) keeps its queueing as before.
-        if (!rushing && heavyPress && s.MeleeStep == 0 && Loadouts.Rush(c, s) is { } rushForKey && Rush.WHeld(input, rushForKey)) heavyPress = false;
+        // since the last one is not over, or the body is in the air) or a combo is under way) is never a stun strike, queued or struck: it is left unused, so the input buffer (0.3 s, an
+        // estimate) replays it and the charge starts as soon as it is allowed (owner's follow-up decision).
+        if (!rushing && heavyPress && Loadouts.Rush(c, s) is { } rushForKey && Rush.WHeld(input, rushForKey)) heavyPress = false;
         // BR-02 (owner's recollection): a Tactical fires nothing from the charge's start to its end. Fire is dropped from the input (below), and what a trigger
         // pressed just before had under way (a held charge, a delayed charged shot) is cancelled with the melee attacks'.
         bool noFire = rushing && Rush.NoFire(c, s);
@@ -882,6 +883,9 @@ public static class Combat
             }
             : pack is not null ? JumpPack.Move(s, moveInput, c, pack, world, speedScale, jump, out jumpEvent, aiming) : Movement.Step(s, moveInput, c, world, speedScale, aiming))
             with { Pitch = input.Pitch, Aiming = aiming };
+        // sim/combat-pass (review note): the chosen direction holds through the hit even when the hit comes after the move-on time (the walk then uses the view's frame, the body keeps the strike's facing).
+        if (step > 0 && meleeGlide is null && !reacting && !rushing && !evading && time < MathF.Max(MoveAtOf(steps[step - 1], c), steps[step - 1].HitTime + dt + TimeEpsilon))
+            s = s with { Yaw = sanitized.Yaw + meleeTurn };
         if (meleeGlide is { } glide)
         {
             // The attack's motion replaces the walk (the jump pack's bookkeeping of the walk tick stays).

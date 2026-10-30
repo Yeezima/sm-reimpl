@@ -127,13 +127,13 @@ public partial class NetworkView
     {
         double now = _connectedFor;
         if (NoFallPose || _config is null || FallData() is null) { t.Fall.Observe(now, false, true, 0f); return; }
-        // sim/combat-pass (item 21): a charge held in the air keeps its clip until it has run FallRules.ChargeFallDelay (1 s, ground and air together), then the fall pose.
+        // sim/combat-pass (item 21): a charge held in the air keeps its clip until it has run FallRules.ChargeFallDelay (0.3 s off the ground), then the fall pose.
         bool heldInAir = ChargeHeldInAir(s);
         if (!heldInAir) { t.ChargeAirSince = double.NegativeInfinity; t.ChargeFall = false; }
         else
         {
             if (double.IsNegativeInfinity(t.ChargeAirSince)) t.ChargeAirSince = now;
-            t.ChargeFall = t.ChargeFall || FallRules.ChargeShowsFall(Rush.Time(s, _config), now - t.ChargeAirSince);
+            t.ChargeFall = t.ChargeFall || FallRules.ChargeShowsFall(now - t.ChargeAirSince);
         }
         bool eligible = s.Alive && s.Jump == JumpPhase.None && (s.Rush == RushPhase.None || t.ChargeFall) && s.Reaction == ReactionKind.None && !Evade.Evading(s)
                         && !(_jumpTracks.TryGetValue(s.PlayerId, out var jump) && jump.View != JumpView.None);

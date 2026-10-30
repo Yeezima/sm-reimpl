@@ -23,6 +23,9 @@ public class CombatPassTests(ITestOutputHelper output)
     static readonly MeleeStep Light = new(1f, 0.2f, 0.4f, 0.6f, 0.5f, 0.7f, 10f, 5f, 3.5f);
     static readonly MeleeStep Heavy = new(1.2f, 0.3f, 0f, 0f, 0.8f, 0.9f, 20f, 5f, 3.5f) { PrimaryReaction = new(0f, ReactionKind.Stun) };
 
+    /// <summary>A strike whose hit (0.6 s) comes after its move-on time (0.3 s), as some weapons'.</summary>
+    static readonly MeleeStep Late = new(1f, 0.6f, 0.7f, 0.9f, 0.9f, 0.3f, 10f, 5f, 0f);
+
     static readonly SimConfig Config = new()
     {
         Weapons = [Rifle, BoltPistol],
@@ -30,6 +33,7 @@ public class CombatPassTests(ITestOutputHelper output)
         [
             new ClassLoadout("marine", 0, 1, [Light]) { MeleeHeavy = [Heavy], MeleeRush = RushTests.Spec, Evade = 0, Side = Team.SpaceMarines },
             new ClassLoadout("chaos", 0, 1, [Light]) { MeleeHeavy = [Heavy], MeleeRush = RushTests.Spec, Evade = 0, Side = Team.Chaos },
+            new ClassLoadout("late", 0, 1, [Late]) { Evade = 0, Side = Team.SpaceMarines },
         ],
         Evades = [EvadeTests.Roll with { TargetableModeTime = 0.3f, CollisionModeTime = 0.2f }],
         RunSpeed = 6.5f, StrafeSpeed = 6f, BackSpeed = 4.5f, SprintSpeed = 10f, GroundTimeToMaxSpeed = 0.2f, MaxAcceleration = 100f,
@@ -71,6 +75,35 @@ public class CombatPassTests(ITestOutputHelper output)
         var again = Step(s, InputButtons.MeleeHeavy, 0f, 1f);
         output.WriteLine($"second press: rush {again.Rush}, lock {s.RushLock}, melee {again.MeleeStep}");
         Assert.Equal(0, again.MeleeStep);
+    }
+
+    [Fact]
+    public void A_W_F_press_in_the_spacing_is_buffered_for_the_window_and_starts_the_charge_when_allowed_never_a_strike()
+    {
+        var c = Config with { InputBufferWindow = 0.3f };
+        PlayerState Go(PlayerState s, InputButtons b) => Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, b), c, out _);
+        // The spacing ends inside the window: the press is replayed and charges.
+        var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = Marine }, c) with { RushLock = 4 };
+        s = Go(s, InputButtons.MeleeHeavy);
+        for (int k = 0; k < 8 && s.Rush == RushPhase.None; k++) { Assert.Equal(0, s.MeleeStep); s = Go(s, InputButtons.None); }
+        Assert.Equal(RushPhase.Rush, s.Rush);
+        // The spacing outlasts the window: the press is forgotten, still no strike.
+        var late = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = Marine }, c) with { RushLock = 25 };
+        late = Go(late, InputButtons.MeleeHeavy);
+        for (int k = 0; k < 20; k++) { late = Go(late, InputButtons.None); Assert.Equal((RushPhase.None, 0), (late.Rush, late.MeleeStep)); }
+    }
+
+    [Fact]
+    public void W_F_in_the_middle_of_a_combo_queues_no_stun_strike()
+    {
+        var c = Config with { InputBufferWindow = 0.3f };
+        var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = Marine }, c);
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Melee), c, out _);
+        Assert.Equal(1, s.MeleeStep);
+        for (int k = 0; k < 4; k++) s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), c, out _);
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.MeleeHeavy), c, out _);
+        Assert.False(s.MeleeQueuedHeavy);
+        for (int k = 0; k < 45; k++) { s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), c, out _); Assert.False(s.MeleeHeavy); }
     }
 
     // ---------------------------------------------------------------- 10: reloads continue while holstered
@@ -200,14 +233,33 @@ public class CombatPassTests(ITestOutputHelper output)
         }
     }
 
+    [Fact]
+    public void A_strike_whose_hit_comes_after_its_move_on_time_still_lands_behind_with_S()
+    {
+        var spawns = new[] { new SpawnPoint(Vector3.Zero, 0f), new SpawnPoint(new Vector3(0, -1.2f, 0), 0f), new SpawnPoint(new Vector3(0, 1.2f, 0), 0f) };
+        var w = new World(Config, null, spawns) { Rules = new MatchRules { TimeLimit = 0f } };
+        w.Spawn(1, 2, team: Team.SpaceMarines);
+        w.Spawn(2, 1, team: Team.Chaos);
+        w.Spawn(3, 1, team: Team.Chaos);
+        for (int k = 0; k < 30; k++)
+        {
+            uint view = w.Tick;
+            int tick = k;
+            w.Step(id => (id == 1 ? new PlayerInput(0, 0f, tick == 0 ? -1f : 0f, 0f, tick == 0 ? InputButtons.Melee : InputButtons.None) : new PlayerInput(0, 0f, 0f, 0f, InputButtons.None)) with { ViewTick = view });
+        }
+        float behind = w.Players[2].Health + w.Players[2].Shield, front = w.Players[3].Health + w.Players[3].Shield;
+        output.WriteLine($"late hit: behind {behind}, in front {front}");
+        Assert.True(behind < 200f && front == 200f);
+    }
+
     // ---------------------------------------------------------------- 21: the ledge charge's fall pose
 
     [Theory]
-    [InlineData(0.0f, 0.5, false)]    // 0.5 s in
-    [InlineData(0.33f, 0.6, false)]   // 0.93 s in
-    [InlineData(0.33f, 0.67, true)]   // 1.0 s in
-    [InlineData(0.5f, 2.0, true)]
-    [InlineData(float.NaN, 0.2, false)]
-    public void A_charge_held_in_the_air_shows_the_fall_pose_from_about_one_second_into_the_charge(float onGround, double inAir, bool falls) =>
-        Assert.Equal(falls, FallRules.ChargeShowsFall(onGround, inAir));
+    [InlineData(0.1, false)]
+    [InlineData(0.29, false)]
+    [InlineData(0.3, true)]
+    [InlineData(2.0, true)]
+    [InlineData(double.NaN, false)]
+    public void A_charge_held_in_the_air_shows_the_fall_pose_0_3_s_after_the_body_leaves_the_ground(double inAir, bool falls) =>
+        Assert.Equal(falls, FallRules.ChargeShowsFall(inAir));
 }
