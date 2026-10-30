@@ -239,7 +239,7 @@ public sealed partial class World
             if (p.Motion == ProjectileMotion.Attached)
                 p = _players.TryGetValue(p.AttachedTo, out var host) && host.Alive
                     ? p with { Position = host.Position + p.AttachOffset }
-                    : p with { Motion = ProjectileMotion.Stuck, AttachedTo = -1 };   // its host died or left: it stays there
+                    : Dropped(p);   // its host died or left: it comes off and falls
             _projectiles[i] = p;
             if (p.Motion == ProjectileMotion.Flying && !Fly(i, spec, ageBefore)) continue;   // detonated on impact
             i = IndexOf(id);
@@ -274,7 +274,7 @@ public sealed partial class World
         float dt = Config.TickSeconds;
         var p = _projectiles[i];
         // A rigid body falls with full gravity once it has touched anything (its gravity table is for the flight from the hand; ours).
-        float gravityFactor = spec.Rigid is not null && (p.Bounces > 0 || p.Landed || p.Struck >= 0) ? 1f : Combat.GravityFactor(spec.Gravity, p.Travelled);
+        float gravityFactor = (spec.Rigid is not null && (p.Bounces > 0 || p.Landed || p.Struck >= 0)) || (spec.Sticky && p.Struck >= 0) ? 1f : Combat.GravityFactor(spec.Gravity, p.Travelled);
         var velocity = p.Velocity - new Vector3(0, 0, Config.Gravity * gravityFactor * dt);
         var segment = velocity * dt;
         float length = segment.Length();
@@ -341,7 +341,7 @@ public sealed partial class World
         {
             var travelled = p.Travelled + hit.Distance;
             if (spec.Rigid is { } rigid) return RigidContact(i, p with { Velocity = velocity, Travelled = travelled }, spec, rigid, hit);
-            if (p.Bounces < spec.MaxBounces)
+            if (p.Bounces < spec.MaxBounces && !spec.Sticky)   // sim/sticky-launcher: a sticky shot sticks at once, no bounce
             {
                 var reflected = (velocity - 2f * Vector3.Dot(velocity, hit.Normal) * hit.Normal) * Config.ProjectileRestitution;
                 _projectiles[i] = p with { Position = hit.Point + hit.Normal * SurfaceOffset, Velocity = reflected, Travelled = travelled, Bounces = p.Bounces + 1 };
@@ -514,12 +514,15 @@ public sealed partial class World
         }
     }
 
+    /// <summary>A projectile whose host died or left: off the player, at rest in the air, falling with full gravity (it never strikes that player again; it sticks to whatever it meets next).</summary>
+    static ProjectileState Dropped(ProjectileState p) => p with { Motion = ProjectileMotion.Flying, Velocity = Vector3.Zero, Struck = p.AttachedTo, AttachedTo = -1 };
+
     void RemoveProjectilesOf(int playerId)
     {
         _projectiles.RemoveAll(p => p.Owner == playerId);
         _areas.RemoveAll(a => a.Owner == playerId);
 
         for (int i = 0; i < _projectiles.Count; i++)
-            if (_projectiles[i].AttachedTo == playerId) _projectiles[i] = _projectiles[i] with { Motion = ProjectileMotion.Stuck, AttachedTo = -1 };
+            if (_projectiles[i].AttachedTo == playerId) _projectiles[i] = Dropped(_projectiles[i]);
     }
 }

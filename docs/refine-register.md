@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1740 spec table rows: **1188 tagged**, 403 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 361 rows of the changes document.
+Scanned 1744 spec table rows: **1191 tagged**, 403 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 362 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,20 +50,20 @@ Scanned 1740 spec table rows: **1188 tagged**, 403 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 95 | 84 | 80 | 8 | 1 |
+| Core simulation (provisional values) | 98 | 85 | 83 | 11 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1188** | 978 | 947 | 378 | 38 |
+| **All areas** | **1191** | 979 | 950 | 381 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 445 |
-| confidence: medium | 424 |
-| confidence: low | 408 |
-| kind: interpretation | 319 |
-| notes: ours | 280 |
+| confidence: medium | 426 |
+| confidence: low | 409 |
+| kind: interpretation | 320 |
+| notes: ours | 281 |
 | confidence: none (low) | 115 |
 | kind: provisional | 98 |
 | kind: estimate | 39 |
@@ -74,7 +74,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: choice | 28 |
 | kind: approximation | 23 |
 | kind: placeholder | 22 |
-| notes: user's knowledge | 19 |
+| notes: user's knowledge | 21 |
 | notes: placeholder | 17 |
 | kind: gap (not reproduced) | 15 |
 | notes: interpretation | 14 |
@@ -596,7 +596,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-79B3E2F6` | Projectile `plasma_pistol_altfire_mp` | speed 90, lifetime 1.5, sphere 0.25, **sticky**, does not detonate on collision (detonates at lifetime end), gravity ×0.45 from 5.1; blast radius 6: 50 + 75 shield, breaker, ×1 at 2, ×0.8 to 3.5, ×0.5 at 4, ×0.1 at 6 (as above) | confidence: medium | ebps | Projectile plasma_pistol_altfire_mp: compare with SM1 by feel or video. Ours: speed 90, lifetime 1.5, sphere 0.25, sticky, does not detonate on… | ☐ |
 | `R-7F990278` | Projectile `plasma_cannon_default_mp` | speed 100, lifetime 3, sphere 0.1, detonates on collision, gravity ×0.25 from 20.1; blast radius 7: 60 (shield multipliers ×2), breaker, ×1 to 3.5, ×0.75 at 4–5, ×0.6 at 6, ×0.15 at 7 (as above) | confidence: medium | ebps | Projectile plasma_cannon_default_mp: compare with SM1 by feel or video. Ours: speed 100, lifetime 3, sphere 0.1, detonates on collision, gravity… | ☐ |
 | `R-E11342B6` | Projectile `plasma_cannon_secondary_mp` | speed 31, lifetime 5, sphere 0.225, detonates on collision, gravity ×0.12 from 10.1; a direct `do_damage` in the detonation of 200 with health multipliers ×0 and shield ×1 (shield only, assumed); blast radius 15: 150 + 450 shield, breaker, ×1 to 6, ×0.65 at… (as above) | confidence: medium; notes: open question | ebps | Projectile plasma_cannon_secondary_mp: compare with SM1 by feel or video. Ours: speed 31, lifetime 5, sphere 0.225, detonates on collision, gravity… | ☐ |
-| `R-F81FEB39` | Projectile `grenade_launcher_grenade_multiplayer` | speed 130, lifetime 0 (no limit, assumed), no collision sphere, **sticky**, does not detonate on collision, 1 bounce then stops, gravity ×0 to 5, ×0.25 at 5.1, ×0.5 at 15, ×1 from 15.1; blast radius 6: 75 (no shield damage, no breaker), ×1 to 4, ×0.5 at 5… (as above) | confidence: medium | ebps | Projectile grenade_launcher_grenade_multiplayer: compare with SM1 by feel or video. Ours: speed 130, lifetime 0 (no limit, assumed), no collision sphere… | ☐ |
+| `R-F81FEB39` | Projectile `grenade_launcher_grenade_multiplayer` | speed 130, lifetime 0 (no limit, assumed), no collision sphere, **sticky**, does not detonate on collision, 1 bounce in the data (not used since protocol 48: sticks at once), gravity ×0 to 5, ×0.25 at 5.1, ×0.5 at 15, ×1 from 15.1; blast radius 6: 75 (no… (as above) | confidence: medium | ebps | Projectile grenade_launcher_grenade_multiplayer: compare with SM1 by feel or video. Ours: speed 130, lifetime 0 (no limit, assumed), no collision sphere… | ☐ |
 | `R-E07CFD8E` | Frag grenade (`sm_mp_eq_frag_grenade`) | equipment, thrown by `ability_utility`: 2 carried, starts with 1 (`initial_clip_amount`), cooldown 1, `max_range` 10, not instant (`instant_fire` false); projectile `pp_grenade_multiplayer`: speed 47.5, lifetime 30, rigid body, 1 bounce, `ground_lifetime` 1… (as above) | confidence: medium | wargear + ebps | Frag grenade (sm_mp_eq_frag_grenade): compare with SM1 by feel or video. Ours: equipment, thrown by ability_utility: 2 carried, starts with 1… | ☐ |
 | `R-0B64213F` | Splash flags | every MP blast: `target_filter` target_all, `ignore_self` false, `line_of_sight` true (assumed: allies and the shooter can be hit, walls block) | kind: interpretation; confidence: low | ebps | Splash flags: compare with SM1 by feel or video. Ours: every MP blast: target_filter target_all, ignore_self false… | ☐ |
 | `R-34C036B4` | Fall-off between points | the files give (distance, `intensity_value`) points; many come in close pairs (2.5/2.6, 6/6.1) that look like steps; stepwise or linear between points is not established | confidence: low | ebps | Fall-off between points: compare with SM1 by timing a run over a known distance. Ours: the files give (distance, intensity_value) points; many come in close… | ☐ |
@@ -1585,7 +1585,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (95)
+### Core simulation (provisional values) (98)
 
 *Spec section: Provisional values in use*
 
@@ -1741,6 +1741,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-21376237` | Scope zoom cycle | press the right stick (R3) while aiming: steps through the weapon's `zoom_levels` (`WeaponCamera.ZoomFovs`: the stalker bolter and the lascannon have a level 1 and more; a weapon with one level does nothing). The level resets when aim ends. Client only: the… (stick click) | confidence: medium; notes: user's knowledge | locale 122097 "Camera (Press - Lascannon Zoom)"; owner's recollection (R3); the tutorial strings 105867 and 111535 say [L3] | Scope zoom cycle: compare with SM1 by feel or video. Ours: press the right stick (R3) while aiming: steps through the weapon's… | ☐ |
 | `R-354554D8` | Game menu | Start: opens the Esc menu (loadout, resume, leave); inside the customizer Start saves (already so before this feature) and B goes back (button) | confidence: medium; notes: user's knowledge | owner's recollection | Game menu: compare with SM1 by feel or video. Ours: Start: opens the Esc menu (loadout, resume, leave); inside the… | ☐ |
 | `R-4939B80B` | Device rule | a controller that connects becomes the scheme at once; a disconnect, a key, a click or a mouse movement (3 px at once, or 6 px in small steps) swaps back; a pad button or a stick or trigger past 0.5 swaps to the pad; last used wins; no restart; the menu… | kind: ours; confidence: medium | the owner's request | Device rule: compare with SM1 by feel or video. Ours: a controller that connects becomes the scheme at once; a disconnect… | ☐ |
+
+*Spec section: Sticky launcher grenades (sim/sticky-launcher; protocol 48, used by the simulation)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-67D3E63B` | Sticky shots never bounce off the level | a projectile with `sticky` stops at the first contact with world geometry (wall, floor, ceiling) at the hit point, 2 cm off the surface along its normal, and rests there until detonated; `max_bounce_count` is ignored for sticky non-rigid projectiles (the… | confidence: medium; notes: user's knowledge | owner's recollection; data `sticky` | Sticky shots never bounce off the level: compare with SM1 by feel or video. Ours: a projectile with sticky stops at the first contact with world… | ☐ |
+| `R-E3525D67` | Stuck to a player | unchanged (protocol 7): on striking a player the grenade takes the shot's direct damage (10) and attaches at the point struck, following the player's position (walking, rolling, jump-pack, any move); detonation (R, delays 0 / 0.25 / 0.32 s, at most 3, 4th… | confidence: medium; notes: user's knowledge | owner's recollection; existing rules | Stuck to a player: compare with SM1 by feel or video. Ours: unchanged (protocol 7): on striking a player the grenade takes the… | ☐ |
+| `R-F32713AA` | Host dies or leaves | the grenade comes off, rests in the air for the tick and falls with full gravity (it never strikes that player again); it sticks to whatever it meets next (a floor, wall, or another player) and stays until detonated or its owner leaves. Before: it hung in the… | kind: interpretation; confidence: low; notes: ours | ours | Host dies or leaves: compare with SM1 by feel or video. Ours: the grenade comes off, rests in the air for the tick and falls with… | ☐ |
 
 ### General game design (7)
 
@@ -2371,6 +2379,12 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-C77587B7` | Visuals pass 2 (fx/visuals-2, owner 2026-10-30 round 2: items 34, 35, 38, 40, 45, 46, 48) | Ours: the recharge glow and break flash are soft halos behind the figure, not a model-surface layer (`--old-flash-outline`); the air-slash landing adds a dust cone (apex at the feet, the sim's 60 degree, 4 m cone; `--no-slash-cone`); the pistol's tracer waits for the raise (`--old-pistol-tracer`); bolt tracers 0.42 x… | Visuals pass 2 (fx/visuals-2, owner 2026-10-30 round 2:…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-92C86CDD` | HUD and camera pass 2 (ui/hud-camera-2, owner 2026-10-30) | Ours: the third-person camera is 1.3 times as far back as the data's rig (3.38 m to 4.40 m; aim unchanged); the score block's dark band is opaque (80 to 86 percent) and holds the timer, scores, bars and limit; the armour bar is plain yellow for everyone but the Iron Halo's carrier (cyan and white with the medallion)… | HUD and camera pass 2 (ui/hud-camera-2, owner 2026-10-30): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
+#### Sticky launcher grenades (sim/sticky-launcher; protocol 48)
+
+| ID | Rule | What we do | What is unknown | Spec section | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-E10F6713` | Launcher grenades stick at once | no bounce off the level (the data's `max_bounce_count` 1 is ignored for sticky projectiles); a grenade stuck to a player drops and falls when they die or leave | The original's exact behaviour on the host's death (ours: falls) | "Sticky launcher grenades" | Launcher grenades stick at once: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+
 ## Appendix: not gameplay
 
 Test aids, probes, demo and capture tooling, and engineering decisions (protocol, wire formats, budgets, uploads, caches, load order). Listed so nothing is lost; no SM1 comparison needed.
@@ -2526,4 +2540,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-0E87ED84` | Protocol 43 | Player collision (sim/player-collision; protocol 43, used by the simulation) |
 | `R-7B32DDE7` | Protocol 45 | Combat pass: the charge key, holstered reloads, headshots, directional melee, the ledge charge's fall (sim/combat-pass; protocol 45, used by the simulation) |
 | `R-1082D317` | Probe result (`feel/sweep1`, `--no-feel` / this build) | The feel pass: the roll's blending for every action (anim/feel-pass; client only, not simulated, no protocol change) |
+| `R-DB189635` | Wire | Sticky launcher grenades (sim/sticky-launcher; protocol 48, used by the simulation) |
 

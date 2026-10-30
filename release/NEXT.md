@@ -12,3 +12,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 
 - The launcher has a dark look.
 - The Devastator and Havoc hop now goes the way your movement keys point, like the Tactical roll: W+D hops forward-right, S+A back-left, and so on, in all eight directions (no key held: forward). This changes the game rules, so everyone must update to the same build.
+- Vengeance launcher grenades no longer bounce: they stick at once to the wall, floor, ceiling or player they hit, and fall if the player they were stuck to dies. This changes the game rules, so everyone must update to the same build.
