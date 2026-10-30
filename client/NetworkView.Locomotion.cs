@@ -107,6 +107,7 @@ public partial class NetworkView
         public bool SwSeen;
         public double SwitchAt = double.NegativeInfinity, SwitchTraceAt = double.NegativeInfinity;
         public float SwitchDuration;
+        public float SwitchStartWeight;   // sim/switch-cancel: the layer weight a cancelled switch had, so the restart blends in from it instead of from nothing
         public SwitchPlan? Switch;   // fix/stow-right: the old weapon's draw backwards, then the new one's (SwitchPlan)
         public FlinchClip? Flinch;
         public double FlinchAt = double.NegativeInfinity, FlinchLast = double.NegativeInfinity, HeadHitAt = double.NegativeInfinity;

@@ -99,20 +99,20 @@ public class SlotTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void A_slot_acts_on_a_press_edge_only_and_presses_during_a_switch_are_lost()
+    public void A_slot_acts_on_a_press_edge_only_and_presses_during_a_switch_cancel_it()
     {
         var s = Fresh();
         Step(ref s, InputButtons.SlotPistol);
-        // 2 pressed during the switch: ignored (not buffered), like Switch.
+        // 2 pressed during the switch cancels it and brings the rifle back (sim/switch-cancel), with a full switch time.
         Step(ref s, InputButtons.None);
         Step(ref s, InputButtons.SlotPrimary);
-        Assert.Equal(WeaponSlot.Pistol, s.Slot);
-        // 2 held through the end of the switch: no switch without a new press.
+        Assert.Equal((WeaponSlot.Ranged, Config.WeaponSwitchTime), (s.Slot, s.SwitchLeft));
+        // 2 held through the end of the switch: no further switch without a new press.
         for (int k = 0; k < 40; k++) Step(ref s, InputButtons.SlotPrimary);
-        Assert.Equal((WeaponSlot.Pistol, 0f), (s.Slot, s.SwitchLeft));
+        Assert.Equal((WeaponSlot.Ranged, 0f), (s.Slot, s.SwitchLeft));
         Step(ref s, InputButtons.None);
-        Step(ref s, InputButtons.SlotPrimary);
-        Assert.Equal(WeaponSlot.Ranged, s.Slot);
+        Step(ref s, InputButtons.SlotPistol);
+        Assert.Equal(WeaponSlot.Pistol, s.Slot);
         // Held 1 after a switch back: one press, one switch; the held flag follows the button.
         var t = Fresh();
         Step(ref t, InputButtons.SlotPistol);
@@ -285,7 +285,7 @@ public class SlotTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_14_carries_the_slot_buttons_and_their_held_flags()
     {
-        Assert.Equal(47, Protocol.Version);
+        Assert.Equal(48, Protocol.Version);
         var input = new PlayerInput(9, 0f, 1f, 0.5f, InputButtons.SlotPistol | InputButtons.SlotPrimary | InputButtons.Switch);
         Assert.Equal(input, Protocol.Quantize(input));
         Assert.Equal(input, Assert.IsType<InputBatch>(Protocol.Read(Protocol.Write(new InputBatch([input], 1, 2)))).Inputs[0]);
