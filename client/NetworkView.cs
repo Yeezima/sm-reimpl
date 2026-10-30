@@ -1951,7 +1951,6 @@ public partial class NetworkView : Node3D
             // ui/hud-fidelity: the original reticle's spread frame, aim mode and the brace (Hud.Movie.cs).
             f.SpreadFraction = ReticleRules.SpreadFraction(inHand, me, c.MoveSpeedScale);
             f.Aiming = me.Aiming; f.Braced = me.Brace is BracePhase.Entering or BracePhase.Braced;
-            f.CrosshairOffset = CrosshairOffset(centre.Point);   // the camera lag (temporary, NetworkView.CameraLag.cs)
         }
         f.Prompt = me.Alive ? _hudPrompt : "";   // ui/hud-fidelity (NetworkView.Pickups.cs)
         UpdateScope(f, me);   // feel/scope-lascannon

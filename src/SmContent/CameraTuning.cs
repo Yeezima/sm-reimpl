@@ -26,9 +26,14 @@ public sealed record InputTuning(string Name, float SpeedMouse, float SpeedHoriz
 /// and aim camera sets, and the input tuning used with each, through the weapon's aim-assist sets (<c>auto_aim</c> for
 /// exploration, <c>auto_aim_zoom</c> for aim mode; each names a <c>camera_input_tuning_set</c>). <see cref="Evidence"/> says
 /// where the values came from ("wargear ..." or "fallback: ...").
+/// <para>
+/// <see cref="ZoomFovs"/> (degrees, same convention as <see cref="CameraSet.FieldOfView"/>): the wargear's <c>zoom_levels</c> (<c>fov_1</c> .. <c>fov_&lt;num_zoom_levels&gt;</c>) of the
+/// default entry, only when the aim camera set has <c>aim_use_zoom_levels</c> true (stalker bolter, lascannon); the first is the field of view a scoped player has on pressing aim, the
+/// next ones are the levels the zoom-cycle binding steps through. Null: the aim set's own <c>field_of_view</c> is the zoom.
+/// </para>
 /// </summary>
 public sealed record WeaponCamera(string Weapon, CameraSet Exploration, CameraSet Aim, InputTuning ExplorationInput, InputTuning AimInput,
-    string? AutoAim, string? AutoAimZoom, string Evidence);
+    string? AutoAim, string? AutoAimZoom, string Evidence, IReadOnlyList<float>? ZoomFovs = null);
 
 /// <summary>
 /// Camera and look tuning read from the install (read-only): every camera state in <c>camera_curve_settings</c>, every
@@ -128,8 +133,10 @@ public sealed class CameraTuning
             }
             var (input, inputFrom) = Tuning(assist, DefaultInput);
             var (aimInput, aimInputFrom) = Tuning(assistZoom, DefaultAimInput);
+            var zoom = curves.TryGetValue(aim, out var aimDoc) && aimDoc.Root["aim_use_zoom_levels"] is { Type: BafType.Bool } flag && flag.AsBool() ? ZoomLevels(data) : null;
             weapons[name] = new WeaponCamera(name, e1, a1, input, aimInput, assist, assistZoom,
-                $"wargear {name} camera_data: {exploration}, {aim}; input {inputFrom}, aim input {aimInputFrom}");
+                $"wargear {name} camera_data: {exploration}, {aim}; input {inputFrom}, aim input {aimInputFrom}"
+                + (zoom is null ? "" : $"; zoom_levels {string.Join(" / ", zoom.Select(z => z.ToString(System.Globalization.CultureInfo.InvariantCulture)))}"), zoom);
         }
         return new CameraTuning(sets, tunings, weapons, notes);
 
@@ -139,6 +146,26 @@ public sealed class CameraTuning
             var f = tunings.TryGetValue(fallback, out var d) ? d : new InputTuning(fallback, float.NaN, float.NaN, float.NaN);
             return (f, $"{fallback} (fallback: {(assist is null or "" ? "no aim-assist set" : $"'{assist}' names no input tuning")})");
         }
+    }
+
+    /// <summary>
+    /// The wargear's <c>zoom_levels</c> of the entry without a required upgrade: <c>fov_1</c> .. <c>fov_n</c>, n = <c>num_zoom_levels</c> (1 to 3; the table is a template instance
+    /// named <c>_base_templates\zoom_levels</c>). Null when absent, implausible or the count is missing.
+    /// </summary>
+    static List<float>? ZoomLevels(BafTable data)
+    {
+        if (data.Table("zoom_levels") is not { } holder) return null;
+        foreach (var e in holder.Entries.Where(e => e.Type == BafType.Table))
+        {
+            var t = e.AsTable();
+            if (t.Table("required_upgrade_name/required_list") is { } list && list.Entries.Any()) continue;
+            if (t["num_zoom_levels"] is not { Type: BafType.Int } n || n.Raw is < 1 or > 3) continue;
+            var levels = new List<float>();
+            for (int i = 1; i <= n.Raw; i++)
+                if (t.Float($"fov_{i}") is { } f && float.IsFinite(f) && f > 0f && f < 180f) levels.Add(f); else return null;
+            return levels;
+        }
+        return null;
     }
 
     static CameraSet? ReadSet(string name, BafDocument doc, List<string> notes)

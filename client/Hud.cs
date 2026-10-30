@@ -118,8 +118,6 @@ public sealed partial class Hud : Control
         public float SpreadFraction;
         /// <summary>ui/hud-fidelity: aim mode (the reticle's <c>min_aim</c>..<c>max_aim</c> range) and the heavy bolter's brace (its reticle's <c>alt_fire</c> clip).</summary>
         public bool Aiming, Braced;
-        /// <summary>ui/hud-fidelity: where the crosshair is drawn, from the screen centre (virtual units): zero, except with the camera lag (NetworkView.CameraLag.cs: the lens trails the aim).</summary>
-        public Vector2 CrosshairOffset;
         public bool AimedAtEnemy;
         public string AimedName = "";
         /// <summary>Protocol 44 (Tactical Readout / Signum Link): the aimed enemy's bar is shown, from <see cref="AimedHealth"/> and <see cref="AimedShield"/> (fractions of 1). Without the perks nothing shows over an enemy: no name, no bar.</summary>
@@ -590,7 +588,7 @@ public sealed partial class Hud : Control
     {
         var d = Data;
         if (!d.Alive || d.Spectating) return;
-        var c = vs / 2f + d.CrosshairOffset;   // ui/hud-fidelity: the camera lag moves the crosshair off the centre while the lens catches up
+        var c = vs / 2f;
         var col = d.AimedAtEnemy ? new Color(0.95f, 0.1f, 0.08f) : new Color(1f, 1f, 1f, 0.9f);
         var shadow = new Color(0f, 0f, 0f, 0.55f);
         const float r = 18f;
