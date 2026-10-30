@@ -166,6 +166,12 @@ public static class Rush
     /// <summary>Protocol 30: the dash attack's phases (<see cref="RushPhase.DashAttack"/> to <see cref="RushPhase.DashCollision"/>).</summary>
     public static bool IsDash(RushPhase phase) => phase is RushPhase.DashAttack or RushPhase.DashHit or RushPhase.DashStop or RushPhase.DashCollision;
 
+    /// <summary>
+    /// BR-02 (owner's recollection, 2026-10-30): a Tactical (SM or CSM: the class role "tactical") cannot fire from the charge's start to its end, and Fire does
+    /// not end the charge. Every other class keeps its behaviour (Fire ends their charge from its move-on time and the weapon fires that tick).
+    /// </summary>
+    public static bool NoFire(SimConfig c, PlayerState s) => Loadouts.ClassOf(c, s.Class) is { } l && l.Role.Equals("tactical", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>The charging phases: the clip moves the body along its facing, it connects with players and walls stop it (the rush, the dash attack's lunge).</summary>
     public static bool Charging(RushPhase phase) => phase is RushPhase.Rush or RushPhase.DashAttack;
 

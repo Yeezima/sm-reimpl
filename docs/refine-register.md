@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1640 spec table rows: **1109 tagged**, 385 not tagged (read from data with high confidence), 146 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 322 rows of the changes document.
+Scanned 1641 spec table rows: **1110 tagged**, 385 not tagged (read from data with high confidence), 146 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 322 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -37,7 +37,7 @@ Scanned 1640 spec table rows: **1109 tagged**, 385 not tagged (read from data wi
 | Weapons (critical) | 110 | 63 | 97 | 50 | 3 |
 | Melee (critical) | 60 | 48 | 56 | 10 | 5 |
 | Jump pack (critical) | 66 | 58 | 56 | 12 | 0 |
-| Charge (critical) | 13 | 12 | 10 | 7 | 0 |
+| Charge (critical) | 14 | 12 | 11 | 8 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 23 | 22 | 12 | 16 | 0 |
 | HUD and hit feedback (critical) | 48 | 44 | 39 | 9 | 0 |
@@ -53,7 +53,7 @@ Scanned 1640 spec table rows: **1109 tagged**, 385 not tagged (read from data wi
 | Core simulation (provisional values) | 66 | 60 | 54 | 5 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1109** | 917 | 877 | 357 | 38 |
+| **All areas** | **1110** | 917 | 878 | 358 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,7 +61,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 411 |
 | confidence: low | 382 |
-| confidence: medium | 381 |
+| confidence: medium | 382 |
 | kind: interpretation | 312 |
 | notes: ours | 271 |
 | confidence: none (low) | 114 |
@@ -79,7 +79,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: interpretation | 14 |
 | notes: not reproduced (gap) | 13 |
 | notes: open question | 13 |
-| notes: user's knowledge | 12 |
+| notes: user's knowledge | 13 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
 | kind: guess | 5 |
@@ -880,7 +880,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-540B3991` | Jump pack: flight wobble | The jump state's `Noise` blend plays `SM_JMP_Blend_90_Pos_Fast` (1 s, looping). Taken as the offset from its own first pose, laid over the flight pose in slot `Wobble` at weight 1 (ours: the graph's blend weight is not read), from the end of the take-off… (s) | kind: interpretation; confidence: low; notes: ours | graph (the clip); the offset form and the weight are ours | Jump pack: flight wobble: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The jump state's Noise blend plays SM_JMP_Blend_90_Pos_Fast (1 s… | ☐ |
 | `R-CD9FB0C1` | Jump pack: actions in flight | In the flight view the recoil of a shot, the reload and the grenade toss are laid over the flight pose as over the locomotion (the toss over the upper-body mask, the others as before); before, the flight pose returned before them and a marine that fired in… | kind: interpretation; confidence: low; notes: ours | the jump graph (`MP_SM_NAV_JP_Sim`) is the navigation layer; the base graph's upper-body actions are separate layers that are not tied to the navigation state… | Jump pack: actions in flight: compare with SM1 by feel or video. Ours: In the flight view the recoil of a shot, the reload and the grenade… | ☐ |
 
-### Charge (gameplay-critical) (13)
+### Charge (gameplay-critical) (14)
 
 *Spec section: The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21)*
 
@@ -891,6 +891,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-77279B89` | Jump-pack classes (M31) | the Assault Marine and the Raptor **can charge, on the ground only** (owner's decision 2026-10-28): any jump-pack phase (take-off, ascent, hang, fall, dive, landing, recovery) refuses the start, and so does being airborne without one (walking off a ledge)… | kind: user's knowledge | user's knowledge of the original | Jump-pack classes: compare with SM1 by feel or video. Ours: the Assault Marine and the Raptor can charge, on the ground only… | ☐ |
 | `R-A7D09F49` | Rush motion | the 5 m variant's extracted motion `SM_BUL_Hit_M_5m` (1.667 s clip; 4.99 m by 0.167 s, 11.85 m by 0.667 s, 14.32 m by 1.19 s) along the body's heading, as a velocity through the capsule controller; the heading is the view's at the press (protocol 39: turned… (m, s) | kind: ours; confidence: low | clip motion | Rush motion: compare with SM1 by feel or video. Ours: the 5 m variant's extracted motion SM_BUL_Hit_M_5m (1.667 s clip… | ☐ |
 | `R-E44ADA47` | Rush branches | ends at `BRANCH_Sprint_Finished` 0.714 × 1.667 = 1.19 s; the stick, Fire, Aim or a Grenade press end it from `BRANCH_Attack2Idle` 0.667 s; Jump (evade or jump pack) from `BRANCH_Evade` 0.5 s; melee only at the end. A tick checks the time played before it.… (s) | kind: ours; confidence: low | tags | Rush branches: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: ends at BRANCH_Sprint_Finished 0.714 × 1.667 = 1.19 s; the stick… | ☐ |
+| `R-924D7CED` | No fire in a Tactical's charge (BR-02) | a **Tactical** (SM and CSM, class role `tactical`) fires nothing from the charge's start to its end: Fire is dropped from the charge's ticks, a held charge or delayed charged shot a trigger pressed just before had under way is cancelled at the start (nothing… | confidence: medium; notes: user's knowledge | owner's recollection, 2026-10-30 ("the original did not allow firing during the charge"; Tactical only, the owner's decision) | No fire in a Tactical's charge (BR-02): compare with SM1 by feel or video. Ours: a Tactical (SM and CSM, class role tactical) fires nothing from the… | ☐ |
 | `R-7038C9DD` | Contact | while the rush has played less than 0.667 s (`BRANCH_Attack2Idle`; the clip's hit event is at 0.233 s): the first living player (as the attacker's client saw it, rewound like melee) the tick's move passes within 2 × 0.45 + 0.3 m of, lying ahead: within 45° of… (m, °) | kind: interpretation; confidence: low; notes: ours | ours | Contact: compare with SM1 with an overlaid screenshot taken from the same position. Ours: while the rush has played less than 0.667 s (BRANCH_Attack2Idle; the… | ☐ |
 | `R-AD303A5D` | On contact | the rush stops (the collision stop starts, velocity zeroed). An enemy (or anyone with friendly fire) takes 25 on the shield (`damage_armourshield`) then 75 damage on the body (`damage_general`), and `reaction_mp_stun` (no knockback) unless its hyper armour or… (damage) | kind: interpretation; confidence: low; notes: ours | values and reactions: `ability_bullrush_01` default entries; stun on an enemy, negated by hyper armour, ally only collides: the owner; shield-then-damage… | On contact: compare with SM1 by feel or video. Ours: the rush stops (the collision stop starts, velocity zeroed). An enemy… | ☐ |
 | `R-255D55A9` | Wall | from the rush clip's `WallCollisionTest` (0.2 × 1.667 = 0.333 s) a wall within 25° of head-on (the sprint ability's `max_horz_angle_for_wall_hit`) starts the collision stop; before, walls only block and slide (s, °) | kind: interpretation; confidence: low | tag and `sm_mp_abil_sprint` (the angle is the constant 25 in the code; the sprint file's value on the install) | Wall: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: from the rush clip's WallCollisionTest (0.2 × 1.667 = 0.333 s) a wall… | ☐ |
