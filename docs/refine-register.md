@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1746 spec table rows: **1193 tagged**, 403 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 365 rows of the changes document.
+Scanned 1747 spec table rows: **1194 tagged**, 403 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 366 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -39,7 +39,7 @@ Scanned 1746 spec table rows: **1193 tagged**, 403 not tagged (read from data wi
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
 | Charge (critical) | 26 | 19 | 21 | 12 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
-| Camera (critical) | 27 | 26 | 16 | 18 | 0 |
+| Camera (critical) | 28 | 27 | 17 | 18 | 0 |
 | HUD and hit feedback (critical) | 53 | 48 | 42 | 10 | 0 |
 | Sound mix (critical) | 54 | 48 | 47 | 10 | 0 |
 | Effects (critical) | 71 | 62 | 61 | 37 | 0 |
@@ -53,14 +53,14 @@ Scanned 1746 spec table rows: **1193 tagged**, 403 not tagged (read from data wi
 | Core simulation (provisional values) | 100 | 86 | 85 | 12 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1193** | 980 | 952 | 382 | 38 |
+| **All areas** | **1194** | 981 | 953 | 382 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 446 |
-| confidence: medium | 427 |
+| kind: ours | 447 |
+| confidence: medium | 428 |
 | confidence: low | 410 |
 | kind: interpretation | 320 |
 | notes: ours | 281 |
@@ -965,7 +965,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C1D7E018` | Not simulated | `min_hit_reaction_time` 1 (read as the flinches' spacing), flinches, the displace kick and slam (`ability_displace_kick`: stagger 5 m over 0.3 s, in the heavy evade and knife files; how a player triggers it is not in the data read), the bull rush… | notes: not reproduced (gap) | — | Not simulated: compare with SM1 by feel or video. Ours: min_hit_reaction_time 1 (read as the flinches' spacing), flinches… | ☐ |
 | `R-8B2013F2` | Client | poses the reaction clip at the reaction's time (remote players at the snapshot's value), the heavy strikes' clips like light attacks; the own view shook 0.35 s on a reaction start (0.012 / 0.03 / 0.022 rad for interrupt / stun / stagger; **off by default… (s, rad) | kind: placeholder; confidence: none (low); notes: ours | ours | Client: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: poses the reaction clip at the reaction's time (remote players at the… | ☐ |
 
-### Camera (gameplay-critical) (27)
+### Camera (gameplay-critical) (28)
 
 *Spec section: Camera, aim mode, shot convergence and hit confirmation (M20; protocol 12)*
 
@@ -975,6 +975,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-2828F70E` | Reload sound: each sample once (owner recollection, 2026-10-30) | when two differently named reload tags post events that resolve to the same sample, only the later tag posts it, so the sample plays once per reload at the later timing. On the install this changes only the stalker bolter (`sm_`/`csm_mp_ranged_sniper_rifle`):… (of the reload) | kind: estimate; confidence: medium; notes: user's knowledge | owner's recollection (plays once, likes the bolt-release sound); wem ids from the banks | Reload sound: each sample once (owner recollection…: compare with SM1 by listening A/B at the same distance and state. Ours: when two differently named reload tags post events that resolve to… | ☐ |
 | `R-A4968E34` | Reload sound: the stalker bolter plays one sound (owner, 2026-10-30) | the stalker bolter's reload clip has three posts (`actn_snd_sp_clip_remove` 0.0, `actn_snd_sp_pull_bolt`, `actn_snd_stalker_bolt_release` 0.614); only the last, the bolt release (wem 123666085), plays: one sound per reload. Counted live with `--log-sound`… (of the reload) | kind: ours; confidence: medium | owner's decision (hears the three posts as the sound playing twice); wem ids from the banks | Reload sound: the stalker bolter plays one sound (owner…: compare with SM1 by listening A/B at the same distance and state. Ours: the stalker bolter's reload clip has three posts… | ☐ |
 | `R-2BE13C83` | Zoom levels: what the client does | the zoomed view blends to level 1 (`fov_1`: stalker bolter 10, lascannon 5.75) instead of the aim set's 15 (blend time and smoothstep unchanged); every other weapon keeps its aim set's value. **Not implemented:** the level cycle (`fov_2`: the lascannon's 2… (degrees) | kind: interpretation; confidence: medium | wargear `zoom_levels`; owner's report 2026-10-30 | Zoom levels: what the client does: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the zoomed view blends to level 1 (fov_1: stalker bolter 10… | ☐ |
+| `R-052D48BC` | Field-of-view option (ui/fov-slider, owner 2026-10-31: "120 being the maximum, the default the… | a slider in the Join screen and in the customizer / Esc menu: horizontal degrees at the window's aspect, from the data's look (the exploration sets' `field_of_view` 40, read as vertical: 65.5 horizontal at 16:9, 66 on the slider) to 120 (87.6 vertical at… (degrees (horizontal shown, vertical in Godot)) | kind: ours; confidence: medium | owner's request; the horizontal convention and proportional scaling of the aim camera are ours | Field-of-view option (ui/fov-slider, owner 2026-10-31: "120…: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a slider in the Join screen and in the customizer / Esc menu:… | ☐ |
 | `R-6F296FAA` | Aim mode | held: `InputButtons.Aim` (protocol 12, input bit 8); active while held with a ranged weapon in hand, not during a melee attack, a throw (or its release tick), a jump-pack jump or dive, nor when dead; `PlayerState.Aiming` | kind: provisional; confidence: none (low); notes: ours | locale string "Hold %AIM_MODE% to enter aim mode with ranged weapons" (`ucs.pc`); which actions end it is **ours** | Aim mode: compare with SM1 with an overlaid screenshot taken from the same position. Ours: held: InputButtons.Aim (protocol 12, input bit 8); active while held… | ☐ |
 | `R-B82BCDC8` | Aim-mode key (PC) | Left Ctrl; right mouse is melee; F is the stun strike (heavy melee) and F while sprinting forward the charge (M31) (user's knowledge of the original, 2026-10-28: the earlier "F is charge / alt fire" misread "charge"); the weapon's charged shot: hold the left… | kind: user's knowledge; confidence: medium | PC default bindings: from the user's knowledge of the original; not found in the data | Aim-mode key (PC): compare with SM1 with an overlaid screenshot taken from the same position. Ours: Left Ctrl; right mouse is melee; F is the stun strike (heavy melee)… | ☐ |
 | `R-582B236B` | Aim-mode movement | run 3, strafe 3, back 2 (the aiming table); Sprint ignored while aiming (m/s) | kind: interpretation; confidence: low | speeds `speed_aiming` (above); sprint exclusion **interpretation** | Aim-mode movement: compare with SM1 by timing a run over a known distance. Ours: run 3, strafe 3, back 2 (the aiming table); Sprint ignored while… | ☐ |
@@ -2347,6 +2348,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-BA71AE85` | Air slash wind-up curve | The wind-up's time is a smooth curve over our 40 m/s dive, at the clip's rate at both ends | The original plays it at its own rate over a slower dive | same | Air slash wind-up curve: compare with SM1 by feel or video. Ours: The wind-up's time is a smooth curve over our 40 m/s dive, at the… | ☐ |
 | `C-E3DC45B3` | Clip restarts and stance fades | A clip started again fades in; stance cross-fades turn bones along one arc (slerp fold) | Havok's own blend maths | same | Clip restarts and stance fades: compare with SM1 by feel or video. Ours: A clip started again fades in; stance cross-fades turn bones along… | ☐ |
 | `C-85FCAF64` | Heavy bolter always ready | It never drops to the rifle's relaxed clips outside the sprint | That "no relaxed state" means always ready (interpretation) | same | Heavy bolter always ready: compare with SM1 by feel or video. Ours: It never drops to the rifle's relaxed clips outside the sprint. | ☐ |
+| `C-B5695902` | Field-of-view slider (ui/fov-slider, owner 2026-10-31) | Ours, an added option: a slider in the Join screen and the customizer / Esc menu, horizontal degrees at the window's aspect from the data's look (about 66 at 16:9) to 120, saved in the front-end settings, applied live to the exploration and aim cameras proportionally; scopes keep the data's zoom levels. The original's… | default = the data's look (nothing changes unless the slider moves) | spec "Zoom levels of the scoped weapons" (row "Field-of-view option") | Field-of-view slider (ui/fov-slider, owner 2026-10-31): compare with SM1 with an overlaid screenshot taken from the same position. Ours: Ours, an added option: a slider in the Join screen and the customizer… | ☐ |
 
 ### Not yet reproduced
 

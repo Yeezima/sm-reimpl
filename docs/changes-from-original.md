@@ -466,6 +466,7 @@ slash's values and clips but not these engine rules, so these are ours:
 | Air slash wind-up curve | The wind-up's time is a smooth curve over our 40 m/s dive, at the clip's rate at both ends | The original plays it at its own rate over a slower dive | same |
 | Clip restarts and stance fades | A clip started again fades in; stance cross-fades turn bones along one arc (slerp fold) | Havok's own blend maths | same |
 | Heavy bolter always ready | It never drops to the rifle's relaxed clips outside the sprint | That "no relaxed state" means always ready (interpretation) | same |
+| Field-of-view slider (ui/fov-slider, owner 2026-10-31) | Ours, an added option: a slider in the Join screen and the customizer / Esc menu, horizontal degrees at the window's aspect from the data's look (about 66 at 16:9) to 120, saved in the front-end settings, applied live to the exploration and aim cameras proportionally; scopes keep the data's zoom levels. The original's PC options are not known to us | default = the data's look (nothing changes unless the slider moves) | spec "Zoom levels of the scoped weapons" (row "Field-of-view option") |
 
 ## 3. Not yet reproduced
 

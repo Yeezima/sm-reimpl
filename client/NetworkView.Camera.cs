@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using SmClient.Customizer.Model;
 using SmContent;
 using SmNet;
 using SmSim;
@@ -35,6 +36,8 @@ public partial class NetworkView
     const float DefaultFov = 65f;
     /// <summary>The exploration camera's distance behind the character as a multiple of the data rig's (ours, owner decision 2026-10-30); <c>--camera-back f</c> (1 = the data's) tests other values.</summary>
     static readonly float CameraBackScale = OS.GetCmdlineUserArgs() is { } a && Array.IndexOf(a, "--camera-back") is int i and >= 0 && i + 1 < a.Length && float.TryParse(a[i + 1], System.Globalization.CultureInfo.InvariantCulture, out float f) && f > 0f ? f : 1.3f;
+    /// <summary><c>--fov deg</c> (test aid, ui/fov-slider): the horizontal field of view to use instead of the saved choice (a direct <c>--connect</c> run has no front end to load it); 0 = the data's look.</summary>
+    static readonly float? FovOverride = OS.GetCmdlineUserArgs() is { } fa && Array.IndexOf(fa, "--fov") is int fi and >= 0 && fi + 1 < fa.Length && float.TryParse(fa[fi + 1], System.Globalization.CultureInfo.InvariantCulture, out float fv) ? fv : null;
     const string FallbackWeapon = "sm_mp_ranged_bolter";
 
     /// <summary><c>--aim-test</c> (test aid): the bot uses the follow camera of a human player and holds aim mode every other 5 s (so screenshots show both cameras).</summary>
@@ -158,7 +161,11 @@ public partial class NetworkView
         var pivot = System.Numerics.Vector3.Lerp(o0.Pivot, o1.Pivot, w);
         // The scoped weapons (stalker bolter, lascannon): the wargear's zoom_levels fov_1 is the zoomed view (spec "Zoom levels"), not the aim set's field_of_view; the rest of the weapons use the set's.
         float aimFov = wc.ZoomFovs is { Count: > 0 } zooms ? zooms[_padZoom % zooms.Count] : aim.FieldOfView;   // R3 on the pad steps through the levels (NetworkView.Gamepad.cs)
-        float fov = Mathf.Lerp(Finite(ex.FieldOfView, DefaultFov), Finite(aimFov, DefaultFov), w);
+        // ui/fov-slider (ours): the player's wider field of view scales the exploration and aim cameras; a scope's zoom level stays exactly the data's.
+        var viewSize = GetViewport().GetVisibleRect().Size;
+        float fovScale = FovMath.Scale(FovOverride ?? FovMath.Selected, FovMath.Aspect(viewSize.X, viewSize.Y));
+        bool scoped = wc.ZoomFovs is { Count: > 0 };
+        float fov = Mathf.Lerp(FovMath.Apply(Finite(ex.FieldOfView, DefaultFov), fovScale), scoped ? Finite(aimFov, DefaultFov) : FovMath.Apply(Finite(aimFov, DefaultFov), fovScale), w);
 
         // Evade roll (M21): blend to the roll's camera set (the ability's camera_curve, e.g. evade_default_mp) over its blend-in
         // time (back out over the exploration set's). Position from the set's rig curve (pitch clamped to the set's range for the
@@ -187,7 +194,7 @@ public partial class NetworkView
                     _evadeCameraNote = $"{set.Name} blend {we:F2}: curve '{set.AnimationCurve}' not in the camera rig, exploration offset kept, field of view only";
                     if (!_evadeCurveNoted) { _evadeCurveNoted = true; _notes.Add(_evadeCameraNote); GD.Print("  camera note: " + _evadeCameraNote); }
                 }
-                fov = Mathf.Lerp(fov, Finite(set.FieldOfView, fov), we);
+                fov = Mathf.Lerp(fov, float.IsFinite(set.FieldOfView) ? FovMath.Apply(set.FieldOfView, fovScale) : fov, we);
                 if (_bot && !_evadeCamLogged && we > 0.5f)
                 {
                     _evadeCamLogged = true;
