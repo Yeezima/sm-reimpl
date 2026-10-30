@@ -127,11 +127,19 @@ public partial class NetworkView
     {
         double now = _connectedFor;
         if (NoFallPose || _config is null || FallData() is null) { t.Fall.Observe(now, false, true, 0f); return; }
-        bool eligible = s.Alive && s.Jump == JumpPhase.None && (s.Rush == RushPhase.None || ChargeHeldInAir(s)) && s.Reaction == ReactionKind.None && !Evade.Evading(s)
+        // sim/combat-pass (item 21): a charge held in the air keeps its clip until it has run FallRules.ChargeFallDelay (0.3 s off the ground), then the fall pose.
+        bool heldInAir = ChargeHeldInAir(s);
+        if (!heldInAir) { t.ChargeAirSince = double.NegativeInfinity; t.ChargeFall = false; }
+        else
+        {
+            if (double.IsNegativeInfinity(t.ChargeAirSince)) t.ChargeAirSince = now;
+            t.ChargeFall = t.ChargeFall || FallRules.ChargeShowsFall(now - t.ChargeAirSince);
+        }
+        bool eligible = s.Alive && s.Jump == JumpPhase.None && (s.Rush == RushPhase.None || t.ChargeFall) && s.Reaction == ReactionKind.None && !Evade.Evading(s)
                         && !(_jumpTracks.TryGetValue(s.PlayerId, out var jump) && jump.View != JumpView.None);
         var fall = t.Fall;
         // Animation pass 3: a charge held in the air off a ledge is a fall from its first frame (no debounce: a crest of stairs does not hold a charge), so its clip hands over to the fall pose at once.
-        var seen = fall.Observe(now, eligible, s.Grounded, s.Velocity.Z, immediate: !CharacterViewer.NoP3 && ChargeHeldInAir(s));
+        var seen = fall.Observe(now, eligible, s.Grounded, s.Velocity.Z, immediate: !CharacterViewer.NoP3 && t.ChargeFall);
         if (fall.WasReset) t.LegsWeight = 0f;
         switch (seen)
         {
@@ -147,7 +155,7 @@ public partial class NetworkView
         t.FallSet = FallSetOf(s);
         t.LandKeep = 1f;
         _fallsBegun++;
-        if (_bot || LogFall) GD.Print($"t {_connectedFor:F2} s: P{s.PlayerId} FALL begins ({t.FallSet?.Family.ToString() ?? "no data"}; unsupported {(_connectedFor - t.Fall.AirSince) * 1000:F0} ms, vertical {s.Velocity.Z:F1} m/s, horizontal {MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y):F1} m/s, {(own ? "own" : "seen")}{(ChargeHeldInAir(s) ? $"; a charge held in the air ({s.Rush}): the fall pose, not its clip" : "")})");
+        if (_bot || LogFall) GD.Print($"t {_connectedFor:F2} s: P{s.PlayerId} FALL begins ({t.FallSet?.Family.ToString() ?? "no data"}; unsupported {(_connectedFor - t.Fall.AirSince) * 1000:F0} ms, vertical {s.Velocity.Z:F1} m/s, horizontal {MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y):F1} m/s, {(own ? "own" : "seen")}{(t.ChargeFall ? $"; a charge held in the air ({s.Rush}) for {FallRules.ChargeFallDelay:0.#} s: the fall pose, not its clip" : "")})");
     }
 
     /// <summary>The heavy bolter's states (<see cref="FallTracker.HeavyStep"/>): the drop clip from <see cref="FallSet.EnterHeight"/> above the ground, the landing clip from <see cref="FallSet.LandHeight"/> (reached before touchdown) or at touchdown.</summary>

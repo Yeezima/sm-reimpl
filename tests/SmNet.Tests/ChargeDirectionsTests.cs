@@ -373,7 +373,7 @@ public class ChargeDirectionsTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void W_and_F_inside_the_charge_spacing_is_the_stun_strike()
+    public void W_and_F_inside_the_charge_spacing_is_lost_and_not_the_stun_strike()
     {
         var w = Teams(Rules, (RMarine, Team.SpaceMarines, Vector3.Zero), (RChaos, Team.Chaos, new Vector3(40f, 0f, 0f)));
         PlayerInput Mine(int k, InputButtons b) => new(0, 0f, 1f, 0f, b);
@@ -388,11 +388,12 @@ public class ChargeDirectionsTests(ITestOutputHelper output)
         w.Step(id => id == 1 ? Mine(k, InputButtons.MeleeHeavy) : new PlayerInput(0, 0f, 0f, 0f, InputButtons.None));
         var after = w.Players[1];
         output.WriteLine($"rush over after {k} ticks, spacing left {before.RushLock}: W + F gives {after.Rush}, melee step {after.MeleeStep}, heavy {after.MeleeHeavy}");
-        Assert.Equal((RushPhase.None, 1, true), (after.Rush, after.MeleeStep, after.MeleeHeavy));
+        // sim/combat-pass (item 8, the owner's decision of 2026-10-30): W + F is purely the charge; inside the spacing the press is lost, never the stun strike.
+        Assert.Equal((RushPhase.None, 0, false), (after.Rush, after.MeleeStep, after.MeleeHeavy));
     }
 
     [Fact]
-    public void A_mashed_F_during_a_charge_is_replayed_as_the_stun_strike_when_it_ends_within_the_spacing()
+    public void A_mashed_F_during_a_charge_is_not_replayed_as_a_stun_strike_when_it_ends_within_the_spacing()
     {
         // With the owner's 0.3 s input buffer: F pressed again and again during the rush (W held) is kept and replayed on the tick the rush ends; the spacing
         // still runs then, so the replay is the stun strike (spec "Charge directions", row "Charge spacing and a mashed F").
@@ -403,7 +404,8 @@ public class ChargeDirectionsTests(ITestOutputHelper output)
         int k = 1;
         while (s.Rush != RushPhase.None && k < 60) { s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, k % 2 == 0 ? InputButtons.MeleeHeavy : InputButtons.None), c, out _); k++; }
         output.WriteLine($"rush over after {k} ticks: step {s.MeleeStep}, heavy {s.MeleeHeavy}, spacing left {s.RushLock}");
-        Assert.Equal((RushPhase.None, 1, true), (s.Rush, s.MeleeStep, s.MeleeHeavy));
+        // sim/combat-pass (item 8): W is held, so the replay is no stun strike either (it was one before protocol 45).
+        Assert.Equal((RushPhase.None, 0, false), (s.Rush, s.MeleeStep, s.MeleeHeavy));
         Assert.True(s.RushLock > 0);
     }
 

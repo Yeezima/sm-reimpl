@@ -1444,7 +1444,7 @@ public partial class NetworkView : Node3D
         bool rebashHeld = RushRebashHeld(state);
         character.ClipFootLock = ClipFootLockFor(state, melee: false);
         character.ClipRootSpeed = float.NaN;
-        if (!ChargeHeldInAir(state) && !rebashHeld && RushPose(state) is { } rush)
+        if (!(ChargeHeldInAir(state) && fallTrack.ChargeFall) && !rebashHeld && RushPose(state) is { } rush)   // sim/combat-pass: the held charge keeps its clip until FallRules.ChargeFallDelay
         {
             var (rushClip, rushTime) = HammerRush(state, rush.Clip, smooth is { Kind: ClipKind.Rush } sh ? sh.Time : rush.Time);   // anim/melee-flow: the hammer's own sprint attack
             if (character.Pose(rushClip, rushTime, ClipBlends.RushFor(rush.Clip))) return;

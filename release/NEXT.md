@@ -29,3 +29,9 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The score panel at the bottom left no longer runs past its bars, and the weapon box at the bottom right sits a little higher, closer to the original.
 - The melta gun's bar in the weapon box now shows how far it is from the next shot.
 - Names now show only over the player under your crosshair: red for an enemy, yellow for a friend. Nobody else has a name floating over them any more.
+- New network version again: everyone must update together.
+- Charging is now purely W + F: with W held, F always charges and never gives the stun strike. Press it a moment too early (while the last charge is still recovering, in the air, or in the middle of a melee combo) and the charge starts as soon as it can.
+- Reloads now carry on while the weapon is put away: start a reload, switch weapons, and it finishes on its own; switching back finds the weapon ready.
+- Melee now goes the way you hold: hold S when you strike and the Marine turns round and hits backwards; A and D strike to the sides, and the diagonals work too. With no key held it strikes forward.
+- Charging off a ledge: the falling animation now starts a third of a second after you leave the ground.
+- Headshots were checked against the game's numbers: the bolt pistol's headshot kills a Marine whose armour is gone in one shot.
