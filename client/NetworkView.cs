@@ -643,7 +643,7 @@ public partial class NetworkView : Node3D
         // Other players' health, shield and ammunition are not sent (slim records); only what is drawn is logged for them.
         if (_bot) { if (!me.Alive) _navAgent?.Reset(); LogNav(me); }
         if (_bot && (int)(_connectedFor / 2.0) != (int)((_connectedFor - delta) / 2.0))
-            GD.Print($"t {_connectedFor:F0} s: id {_client.PlayerId} class '{ClassLabel(me.Class)}' at {me.Position.X:F1},{me.Position.Y:F1} yaw {me.Yaw:F2} pitch {me.Pitch:F2} speed {new Vector2(me.Velocity.X, me.Velocity.Y).Length():F1} {_local.Playing} " +
+            GD.Print($"t {_connectedFor:F0} s: id {_client.PlayerId} class '{ClassLabel(me.Class)}' at {me.Position.X:F1},{me.Position.Y:F1},{me.Position.Z:F1} yaw {me.Yaw:F2} pitch {me.Pitch:F2} speed {new Vector2(me.Velocity.X, me.Velocity.Y).Length():F1} {_local.Playing} " +
                      $"{(me.Alive ? "alive" : "dead")} hp {me.Health:F0} sh {me.Shield:F0} {AmmoText(me)}{HeatText(me)}{ChargeText(me)} bot [{_botNote}] melee {me.MeleeStep} ({MeleeLabel(me)}) swings {_meleeSwings} switches {_switches} overheats {_overheats} releases {_releases}; " +
                      $"charged releases {_chargedReleases} own shots basic {_ownBasicShots} charged {_ownChargedShots} detonate requests {_detonateRequests}; projectiles drawn {_projectileNodes.Count} seen {_projectilesSeen} (charged {_chargedProjectilesSeen}) detonations seen {_detonationsSeen} (charged {_chargedDetonationsSeen}) remote charge starts {_remoteChargeStarts}; " +
                      $"{ThrowText(me)} throws started {_throwsStarted} released {_throwsReleased} remote throws seen {_remoteThrowsSeen} thrown seen {_thrownSeen} thrown detonations seen {_thrownDetonationsSeen} melta shots {_meltaShots}; " +

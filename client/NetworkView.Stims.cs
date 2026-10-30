@@ -100,6 +100,7 @@ public partial class NetworkView
     SmNet.ClientOptions WithPerkArgs(SmNet.ClientOptions options)
     {
         var args = OS.GetCmdlineUserArgs();
+        options = WithSecondArg(options, args);
         int at = Array.IndexOf(args, "--perks");
         if (at < 0 || at + 1 >= args.Length || _config is null) return options;
         int playerClass = options.RequestedClass != SmNet.Protocol.ServerDefaultClass ? options.RequestedClass : 0;
@@ -124,6 +125,22 @@ public partial class NetworkView
             1 => options with { RequestedPerk1 = picked[0] },
             _ => options with { RequestedPerk1 = picked[0], RequestedPerk2 = picked[1] },
         };
+    }
+
+    /// <summary>
+    /// Test aid (fx/character-visuals): <c>--second &lt;primary&gt;</c> asks for Weapon Versatility's second primary (a name from the class's primary choices; needs the perk, e.g.
+    /// <c>--perks secondary_weapon</c>, and a Tactical class).
+    /// </summary>
+    SmNet.ClientOptions WithSecondArg(SmNet.ClientOptions options, string[] args)
+    {
+        int at = Array.IndexOf(args, "--second");
+        if (at < 0 || at + 1 >= args.Length || _config is null) return options;
+        int playerClass = options.RequestedClass != SmNet.Protocol.ServerDefaultClass ? options.RequestedClass : 0;
+        var labels = ChoiceLabels(playerClass, WeaponSlot.Ranged);
+        int index = ResolveChoice(args[at + 1], labels, "ranged");
+        if (index < 0 || index >= SmNet.Protocol.DefaultChoice) { _notes.Add($"--second '{args[at + 1]}' matches no primary of class {playerClass}; skipped"); return options; }
+        GD.Print($"--second '{args[at + 1]}': requesting second primary choice {index} '{labels[index]}' (class {playerClass})");
+        return options with { RequestedSecond = (byte)index };
     }
 
     /// <summary>The bot log's stim counters.</summary>

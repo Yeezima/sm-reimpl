@@ -44,6 +44,13 @@ public partial class NetworkView
     sealed class MeleeIdleSet { public string Wargear = ""; public FxEffect?[] Effects = []; }
     readonly Dictionary<int, MeleeIdleSet> _swordIdle = new();
     readonly Dictionary<int, double> _swordFlareAt = new();
+    readonly Dictionary<int, (float Value, double At)> _swordSwing = new();
+    /// <summary>fx/character-visuals test aid <c>--no-sword-swing</c> (before / after): no flare while swinging.</summary>
+    bool NoSwordSwing => _noSwordSwing ??= CmdFlag("no-sword-swing");
+    bool? _noSwordSwing;
+    /// <summary>fx/character-visuals test aid <c>--sword-idle-fx</c> (before / after): the data's idle effect of the power sword again (blue edge sprites and a light, which reach out of the blade).</summary>
+    bool SwordIdleFx => _swordIdleFx ??= CmdFlag("sword-idle-fx");
+    bool? _swordIdleFx;
     readonly Dictionary<int, MeshInstance3D> _swordGlowMesh = new();
     int _stompFx, _swordHits, _swordIdleStarted;
 
@@ -83,7 +90,8 @@ public partial class NetworkView
         _meleeFxGone.Clear();
         foreach (var id in _swordGlowMesh.Keys) if (!_meleeFxPresent.Contains(id)) _meleeFxGone.Add(id);
         foreach (var id in _swordFlareAt.Keys) if (!_meleeFxPresent.Contains(id)) _meleeFxGone.Add(id);
-        foreach (var id in _meleeFxGone) { _swordGlowMesh.Remove(id); _swordFlareAt.Remove(id); }
+        foreach (var id in _swordSwing.Keys) if (!_meleeFxPresent.Contains(id)) _meleeFxGone.Add(id);
+        foreach (var id in _meleeFxGone) { _swordGlowMesh.Remove(id); _swordFlareAt.Remove(id); _swordSwing.Remove(id); }
         _meleeFxGate.Prune(_meleeFxPresent.Contains);
     }
 
@@ -207,10 +215,16 @@ public partial class NetworkView
             var overlay = PowerBlade.OverlayFor(h.Model);
             if (!ReferenceEquals(h.Mesh.MaterialOverlay, overlay)) h.Mesh.MaterialOverlay = overlay;
             float flare = _swordFlareAt.TryGetValue(s.PlayerId, out double hitAt) ? PowerBlade.FlareAt((float)(_connectedFor - hitAt)) : 0f;
+            // fx/character-visuals (owner, 2026-10-30): the blade flares up while it swings, in every attack shown (a hit's flare stays on top).
+            _swordSwing.TryGetValue(s.PlayerId, out var swing);
+            double dt = Math.Clamp(_connectedFor - swing.At, 0.0, 0.1);
+            swing = (ImpactRules.SwordSwing.Next(swing.Value, s.Alive && s.MeleeStep > 0 && !NoSwordSwing, (float)dt), _connectedFor);
+            _swordSwing[s.PlayerId] = swing;
+            flare = Math.Max(flare, swing.Value);
             if (overlay is not null) h.Mesh.SetInstanceShaderParameter(PowerBlade.FlareParameter, flare);
         }
         // The data's deployed effects at their markers, attached, while the weapon is in hand (fx/melee-presentation: the hammer's and the axe's too, not only the sword's).
-        bool wanted = ImpactRules.MeleeIdleGuard.Allows(IsOrkVoice(s)) && s.Alive && character is not null && wargear is not null && (isSword ? !NoSwordFx : !NoMeleeIdleFx) && character.Weapons?.MeleeMeshInHand is not null;
+        bool wanted = !(isSword && !SwordIdleFx) && ImpactRules.MeleeIdleGuard.Allows(IsOrkVoice(s)) && s.Alive && character is not null && wargear is not null && (isSword ? !NoSwordFx : !NoMeleeIdleFx) && character.Weapons?.MeleeMeshInHand is not null;
         if (!wanted) { StopSwordIdle(s.PlayerId); return; }
         int id = s.PlayerId;
         if (_swordIdle.TryGetValue(id, out var set) && !string.Equals(set.Wargear, wargear, StringComparison.OrdinalIgnoreCase)) { StopSwordIdle(id); set = null; }

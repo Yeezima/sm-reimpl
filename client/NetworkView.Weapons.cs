@@ -67,9 +67,10 @@ public partial class NetworkView
             int primary = Loadouts.WeaponIndex(_config, state, WeaponSlot.Ranged), pistol = Loadouts.WeaponIndex(_config, state, WeaponSlot.Pistol);
             string? melee = MeleeWargear(state);
             var jump = Loadouts.JumpPack(_config, state);
+            int second = ork ? -1 : Loadouts.WeaponIndex(_config, state, WeaponSlot.Second);   // protocol 44: Weapon Versatility's second primary, drawn in hand or on the back
             if (rig.Configure((state.Class, primary, pistol, melee, jump?.Name), primary >= 0 ? _config.Weapons[primary].Name : null,
                     pistol >= 0 ? _config.Weapons[pistol].Name : null, melee, jump is null ? Array.Empty<string?>() : new string?[] { jump.Name }, jump is not null,
-                    ork ? OrkWeaponMounts.Stikkbomb : null))
+                    ork ? OrkWeaponMounts.Stikkbomb : null, second >= 0 ? _config.Weapons[second].Name : null))
             {
                 // The armour's own backpack would sit inside a worn pack model (jump packs are drawn over the same bones).
                 character.SetPieceHidden("_backpack", rig.WornCount > 0);
