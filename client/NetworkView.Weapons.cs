@@ -77,11 +77,11 @@ public partial class NetworkView
                     GD.Print($"weapons of P{state.PlayerId}: {string.Join(", ", rig.Description)}{(rig.WornCount > 0 ? $"; {rig.WornCount} worn model node(s)" : "")}{(rig.AlwaysMelee ? "; melee weapon always in hand" : "")}");
             }
             if (ork) OrkWeaponState(rig, state);
-            rig.SetPackPaint(character.Assets?.PackPaint);   // the jump pack wears the look's chest paint (WornPackPaint, the owner's rule); the placeholder and the single-set path keep the side's paint
+            rig.SetPackPaint(character.Assets?.PackPaint);   // the jump pack wears the look's backpack paint (WornPackPaint, the owner's rule); the placeholder and the single-set path keep the side's paint
             if ((_bot || CmdFlag("look-log")) && rig.WornCount > 0 && rig.PackPrimaryColour is { } packColour && _packLogged.GetValueOrDefault(state.PlayerId) != packColour)
             {
                 _packLogged[state.PlayerId] = packColour;
-                GD.Print($"t {_connectedFor:F1} s: P{state.PlayerId}'s jump pack is drawn in {packColour.ToHtml(false)} (chest paint {(rig.PackPaint?.Primary?.Name ?? "none: the side's default")})");
+                GD.Print($"t {_connectedFor:F1} s: P{state.PlayerId}'s jump pack is drawn in {packColour.ToHtml(false)} (backpack paint {(rig.PackPaint?.Primary?.Name ?? "none: the side's default")})");
             }
             rig.StowPistol = !ork && HammerHoldsBothHands(state);   // anim/melee-flow (NetworkView.MeleeFlow.cs): the hammer in both hands holsters the pistol
             var (release, take) = ork ? (0.5f, 0.5f) : SwapFractionsFor(state);   // fix/stow-right: the old weapon leaves the hand on its marker, the new one comes at its draw's tag

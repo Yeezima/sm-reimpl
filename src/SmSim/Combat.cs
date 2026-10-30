@@ -417,7 +417,8 @@ public static class Combat
         bool rushing = false, rushHeld = false;
         if (!reacting)
         {
-            bool other = sanitized.MoveX != 0f || sanitized.MoveY != 0f || fireDown || grenadePress || (input.Buttons & InputButtons.Aim) != 0;
+            // BR-02: the Tactical classes' charge is not ended by Fire (and fires nothing; below); every other class's is, as before.
+            bool other = sanitized.MoveX != 0f || sanitized.MoveY != 0f || (fireDown && !Rush.NoFire(c, s)) || grenadePress || (input.Buttons & InputButtons.Aim) != 0;
             var rush = Rush.Begin(s, input, c, heavyPress, jumpDown && !s.JumpHeld, meleePress, other, world);
             (rushing, rushHeld, s) = (rush.Active, rush.Held, rush.State);
             if (rush.Started) used |= InputBuffer.Bit(s.Rush == RushPhase.Rush ? BufferedAction.MeleeHeavy : BufferedAction.Melee);   // the bull rush or the dash attack
@@ -427,6 +428,9 @@ public static class Combat
                 // feel/charge-directions (protocol 39): a locked charge starts along the view (the stick's A / D offset only without a target) and steers from there.
                 s = s with { Yaw = MeleeLock.Steer(rush.Started ? sanitized.Yaw : s.Yaw, MeleeLock.Offset(s, rushTarget), c) };
         }
+        // BR-02 (owner's recollection): a Tactical fires nothing from the charge's start to its end. Fire is dropped from the input (below), and what a trigger
+        // pressed just before had under way (a held charge, a delayed charged shot) is cancelled with the melee attacks'.
+        bool noFire = rushing && Rush.NoFire(c, s);
         if (reacting || rushing)
         {
             input = input with { MoveX = 0f, MoveY = 0f, Buttons = InputButtons.None };
@@ -541,7 +545,7 @@ public static class Combat
         int pending = weapon is not null && Shots.ChargeShotOf(weapon, s.PendingShot) is not null ? s.PendingShot : 0;
         float pendingLeft = pending > 0 ? s.PendingLeft : 0f;
         int projectilesOut = s.ProjectilesOut;
-        if (step > 0 || evade.Started) { charging = false; chargeTime = 0f; pending = 0; pendingLeft = 0f; }   // a melee attack or an evade cancels them (and a raise: below)
+        if (step > 0 || evade.Started || noFire) { charging = false; chargeTime = 0f; pending = 0; pendingLeft = 0f; }   // a melee attack or an evade cancels them (and a raise: below)
         if (jump.PoundStart) { charging = false; chargeTime = 0f; pending = 0; pendingLeft = 0f; reloadLeft = 0f; }   // and so does a ground pound (and a reload)
         // Venting (Vent; fidelity gap 7): on Reload or by itself while overheated, while the player stands or walks and does nothing else (owner's
         // recollection: everything but walking stops it); it adds to the in-hand weapon's cooling and takes the weapon (no shot, charge or reload).
@@ -694,7 +698,7 @@ public static class Combat
             }
         }
 
-        if (step > 0 || throwing || threw || jumpBusy)
+        if (step > 0 || throwing || threw || jumpBusy || noFire)
         {
             // Attacking or throwing: the weapon waits (fire before RangedAt and reload input are ignored).
         }
