@@ -16,6 +16,7 @@ public sealed partial class PoundMarker : Node3D
     static ImageTexture? _texture;
     readonly MeshInstance3D[] _chevrons = new MeshInstance3D[4];
     readonly StandardMaterial3D[] _materials = new StandardMaterial3D[4];
+    readonly Vector3[] _dirs = new Vector3[4];
 
     public PoundMarker()
     {
@@ -50,7 +51,8 @@ public sealed partial class PoundMarker : Node3D
         forward = forward.LengthSquared() < 1e-6f ? Vector3.Forward : forward.Normalized();
         var right = forward.Cross(Vector3.Up);
         float phase = Phase(time), dist = Distance(phase), a = Math.Clamp(Alpha(phase), 0f, 1f);
-        Vector3[] dirs = [forward, -right, right, -forward];   // top, left, right, bottom of the view
+        var dirs = _dirs;
+        dirs[0] = forward; dirs[1] = -right; dirs[2] = right; dirs[3] = -forward;   // top, left, right, bottom of the view
         GlobalPosition = point;
         for (int i = 0; i < 4; i++)
         {

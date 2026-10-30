@@ -252,10 +252,11 @@ public partial class NetworkView
     /// <summary>Ticks the target marker's dive is followed at most (4 s at 30 Hz; ours: a dive from any height of the alpha map lands well within it).</summary>
     const int PoundLookAheadTicks = 120;
 
-    /// <summary><c>--no-pound-indicator</c> (test aid): no target marker.</summary>
     /// <summary><c>--pound-marker-demo</c> (screenshot aid): the pound's chevron marker stands on the ground ahead of the own player at all times.</summary>
     bool PoundMarkerDemo => _poundMarkerDemo ??= OS.GetCmdlineUserArgs().Contains("--pound-marker-demo");
     bool? _poundMarkerDemo;
+
+    /// <summary><c>--no-pound-indicator</c> (test aid): no target marker.</summary>
     bool NoPoundIndicator => _noPoundIndicator ??= OS.GetCmdlineUserArgs().Contains("--no-pound-indicator");
     bool? _noPoundIndicator;
 
