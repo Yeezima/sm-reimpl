@@ -142,6 +142,7 @@ public sealed partial class Hud : Control
     const int FeedEntries = 5;
     const double EventSeconds = 3.5;
     const double PopupSeconds = 2.2;
+    static readonly bool SwitchCardsDemo = System.Array.IndexOf(OS.GetCmdlineUserArgs(), "--hud-switch-demo") >= 0;
     const double HintSeconds = 5.0;
     // Colours sampled from the reference frames (ours).
     static readonly Color Gold = new(0.98f, 0.8f, 0.12f);
@@ -249,6 +250,7 @@ public sealed partial class Hud : Control
         _events.RemoveAll(e => _time - e.At > EventSeconds);
         TrackRewards();
         RunRewardsDemo();
+        if (SwitchCardsDemo && Data.InGame) _popupAt = _time - 1.0;   // --hud-switch-demo (test aid): the switch cards stay open for screenshots
         TrackPoints();
         MovieProcess();
         if (Data.InGame)

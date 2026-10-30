@@ -305,6 +305,7 @@ public partial class ModelViewer : Node3D
     {
         _gameDir = gameDir; _launchArgs = args;
         GD.Print(_foundNote);
+        PadHost.Ensure(this);   // controller: the device node (client/Gamepad)
         UiSounds.Ensure(this, gameDir, args.ContainsKey("no-sound"));   // the menus' sounds (fidelity gap 9); one node for the app, handed to the match when one starts
         _frontEnd = new FrontEndView(() => MakeServices(args, gameDir), OnJoin, args.ContainsKey("appearance") ? StartScreen.Appearance : args.ContainsKey("customizer") ? StartScreen.Creator : StartScreen.Join, args) { Name = "FrontEnd", GameFoundNote = _foundNote };
         var layer = new CanvasLayer { Name = "FrontEndLayer" };

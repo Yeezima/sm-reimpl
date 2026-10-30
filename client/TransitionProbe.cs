@@ -127,6 +127,7 @@ public partial class TransitionProbe : Node
         if (c.LayerState(PoseSlots.Land) is { Weight: > 0.5f }) b += "+land";
         else if (c.LayerState(PoseSlots.Fall) is { Weight: > 0.5f }) b += "+fall";
         if (c.LayerState(PoseSlots.Switch) is { Weight: > 0.5f }) b += "+switch";
+        if (c.LayerState(PoseSlots.Flinch) is { Weight: > 0.001f }) b += "+flinch";   // anim/reaction-blend: the hit flinch comes in and goes out (the owner's item 49)
         return b;
     }
 

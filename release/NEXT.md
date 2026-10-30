@@ -48,6 +48,22 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The Assault and Raptor air slash: the swing no longer speeds up in jerks during the dive, and if you run off straight after landing the sword finishes its swing while your legs start running.
 - Other jump-pack players' air slashes no longer flick back to the start of the swing just after landing.
 - The Devastator keeps the heavy bolter raised while walking and standing (it only lowers it to sprint), so it no longer swings the gun's grip up and down between shots.
+- The armour recharge glow and the armour break flash are now a soft glow around the character (yellow when the armour comes back, red when it breaks), not a layer on the armour or an outline.
+- The Assault and Raptor air slash shows a cone of dust where its hit lands, the shape of the area it hits.
+- The bolt pistol's tracer now starts only once the pistol is raised.
+- Bolter tracers (bolter, bolt pistol, stalker, heavy bolter, storm bolter, Chaos too) are thinner and shorter.
+- The melta's cone is purple-blue again and now leaves the barrel and points at where you aim.
+- Combat stims: while a stim works, the marine has a big red glow and a red health cross floats above his head, for everyone to see.
+- The camera behind your Marine is further back, so you see more of him and the ground around.
+- The score box at the bottom left is solid now and holds the timer, the scores, the bars and the score limit inside it.
+- Your armour bar is plain yellow; only the Iron Halo perk keeps the blue and white look.
+- The stalker bolter's reload makes one sound (the bolt release) instead of three, and pressing R during a reload makes no extra sound.
+- The stalker bolter shows a small crosshair when you are not scoped.
+- With three weapons (Weapon Versatility), the switch cards form a cross: pistol above the crosshair, primary to the right, second primary below.
+- A headshot kill now shows one "Headshot" line instead of the plain kill line.
+- The kill and streak announcements in the middle of the screen are smaller, the text most of all.
+- The weapon box no longer shows words like RELOADING or OVERHEATED.
+- Controller support: plug in an Xbox-style pad and it takes over at once; touch the keyboard or mouse (or unplug the pad) and they take over again. The layout is the original's: left stick move, right stick look, left trigger aim, right trigger fire, left bumper grenade, right bumper reload or vent, X strike, Y stun or alt strike (push the left stick forward when you press it to charge), B use, A evade or jump pack, D-pad weapon swap (up pistol, right primary, down second primary), hold the left stick click to sprint, click the right stick to cycle the scope zoom, Start the game menu, Back the scoreboard. In menus the D-pad or left stick moves, A selects, B goes back.
 - Assault and Raptor jump-pack flight: the movement keys steer you about twice as strongly in the air.
 - The charge is no longer cut short by holding W; it runs its whole animation. Pressing S, A or D alone still stops it.
 - Locking on to an enemy in melee now turns your character and your swing toward them, but no longer drags the camera: the camera stays under your mouse.
@@ -60,3 +76,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - New network version again: everyone must update together.
 - The map makes no noise at all: no gate hum, machinery or ambience (players, weapons, announcer and menu sounds stay).
 - Ammo and equipment boxes dropped by fallen players never block you or hold you up; you still pick them up with E.
+- Getting shot now blends: the flinch eases in and out over about a third of a second instead of snapping back to standing.

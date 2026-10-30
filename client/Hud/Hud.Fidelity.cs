@@ -82,8 +82,8 @@ public sealed partial class Hud
     /// white, over 17 frames; the number and the name over 12; at 30 fps) and faded out by them. The newest on the top line (ours). The lines are the rewards of <see cref="RewardTracker"/>
     /// (the kill's own, headshot, revenge, multi kills, killstreaks ...: experience, icon frame and name from <see cref="RewardTable"/>, ui/hud-2). False without the movie.
     /// </summary>
-    /// <summary>The reward lines' scale (ours, owner 2026-10-30: slightly smaller than the movie's).</summary>
-    const float RewardScale = 0.82f;
+    /// <summary>The reward lines' scale (ours, owner 2026-10-30: 0.82 before; ui/hud-camera-2: smaller still, the text most) and the text's further factor.</summary>
+    const float RewardScale = 0.7f, RewardFontScale = 0.8f;
 
     bool DrawMovieRewards(Vector2 vs)
     {
@@ -131,7 +131,8 @@ public sealed partial class Hud
                 "name_offset_mc/name_mc" => nameF,
                 _ => null,   // xp_icon_2..4: their first frame ("none", hidden); the texts' "basic" frame
             }, ch => ch == iconSprite,
-                path => path.EndsWith("xp_txt", StringComparison.Ordinal) ? $"+{spec.Experience}" : path.EndsWith("name_txt", StringComparison.Ordinal) ? name : null);
+                path => path.EndsWith("xp_txt", StringComparison.Ordinal) ? $"+{spec.Experience}" : path.EndsWith("name_txt", StringComparison.Ordinal) ? name : null,
+                fontScale: RewardFontScale);
         }
         return true;
     }
@@ -144,8 +145,8 @@ public sealed partial class Hud
     /// </summary>
     const float ScoreTilt = -1.5f, ScoreShift = 17f;
 
-    /// <summary>The dark band's right end in the panel's frame (ui/hud-3: 330 before; side by side with the owner's frame the band ends at the bars' end, not 55 px past it; ours).</summary>
-    const float BandRight = 292f;
+    /// <summary>The dark band's edges in the panel's frame (ui/hud-camera-2, owner 2026-10-30: opaque, and it holds the timer, the scores, the bars and the limit; ui/hud-3: 330 before; side by side with the owner's frame the band ends at the bars' end, not 55 px past it; ours).</summary>
+    const float BandRight = 362f, BandTop = 24f, BandBottom = 98f;
 
     /// <summary>
     /// The team score panel from <c>HudText.gfx</c> <c>mp_score_mc</c>, anchored bottom left: the own score (gold) and the enemy's (red) right-aligned in their fields, the movie's bars
@@ -161,10 +162,10 @@ public sealed partial class Hud
         // The footage's panel sits 17 stage pixels right of the movie's place (its emblem where the movie's would be): measured side by side (ours).
         var root = Stage(vs, -1) * new Transform2D(0f, new Vector2(ScoreShift, 0f)) * ToXf(panel.ToStage);
         root *= new Transform2D(Mathf.DegToRad(ScoreTilt), new Vector2(200f, 70f)) * new Transform2D(0f, new Vector2(-200f, -70f));
-        var band = new Vector2[] { new(104f, 44f), new(BandRight, 44f), new(BandRight, 92f), new(92f, 92f) };   // ui/hud-3: ends where the bars' troughs end, as the owner's reference (ours)
+        var band = new Vector2[] { new(104f, BandTop), new(BandRight, BandTop), new(BandRight, BandBottom), new(92f, BandBottom) };   // ui/hud-3: ends where the bars' troughs end, as the owner's reference (ours)
         var bandV = new Vector2[4];
         for (int i = 0; i < 4; i++) bandV[i] = root * band[i];
-        DrawPolygon(bandV, [new Color(0f, 0f, 0f, 0.3f), new Color(0f, 0f, 0f, 0.78f), new Color(0f, 0f, 0f, 0.78f), new Color(0f, 0f, 0f, 0.3f)]);
+        DrawPolygon(bandV, [new Color(0f, 0f, 0f, 0.8f), new Color(0f, 0f, 0f, 0.86f), new Color(0f, 0f, 0f, 0.86f), new Color(0f, 0f, 0f, 0.8f)]);
         var line = new Color(0.85f, 0.85f, 0.82f, 0.5f);
         DrawLine(bandV[0], bandV[1], line, 1.5f, true);
         DrawLine(bandV[3], bandV[2], line, 1.5f, true);

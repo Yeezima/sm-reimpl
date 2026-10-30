@@ -183,12 +183,12 @@ public sealed partial class Hud
     /// <summary>
     /// The original reticle of the weapon in hand at the screen centre <paramref name="c"/>: its family's idle reticle, the active one with an enemy under the crosshair; the spread
     /// families' ticks at the frame of the current scatter (<see cref="ReticleRules"/>), the plasma weapons' charge clip by the charge, the heavy bolter's brace clip at 30 fps.
-    /// Nothing for the stalker bolter and the lascannon (owner). False when the movie is not there (the caller draws the M44 reticle).
+    /// Nothing for the lascannon (owner); the stalker bolter's own reticle (ui/hud-camera-2). False when the movie is not there (the caller draws the M44 reticle).
     /// </summary>
     bool DrawMovieReticle(Vector2 c)
     {
         var d = Data;
-        if (ScopeArt.KindOf(d.WeaponWargear) is not null) return true;   // owner, 2026-10-29: the scoped weapons show no reticle outside the scope
+        if (ScopeArt.KindOf(d.WeaponWargear) == ScopeKind.Lascannon) return true;   // owner, 2026-10-29: the lascannon shows no reticle outside the scope (the stalker bolter has its movie reticle since 2026-10-30)
         if (_movieArt is null || _movieArt.Failed) return false;
         if (HudMovie is not { } hud) return _movieArt.Loading;   // still reading: nothing for a moment; failed or no Hud.gfx: the M44 reticle
         // The weapon in hand is always a ranged weapon (melee is a button, not a slot); a type the rules do not know shows no reticle (ReticleRules), and no weapon at all

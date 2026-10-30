@@ -28,19 +28,19 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1707 spec table rows: **1163 tagged**, 395 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 350 rows of the changes document.
+Scanned 1733 spec table rows: **1181 tagged**, 403 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 358 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 305 | 260 | 264 | 90 | 12 |
+| Movement (critical) | 306 | 260 | 265 | 91 | 12 |
 | Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
 | Weapons (critical) | 111 | 64 | 97 | 50 | 3 |
 | Melee (critical) | 61 | 48 | 57 | 10 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
 | Charge (critical) | 26 | 19 | 21 | 12 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
-| Camera (critical) | 26 | 25 | 15 | 18 | 0 |
-| HUD and hit feedback (critical) | 49 | 45 | 40 | 9 | 0 |
+| Camera (critical) | 27 | 26 | 16 | 18 | 0 |
+| HUD and hit feedback (critical) | 51 | 46 | 42 | 10 | 0 |
 | Sound mix (critical) | 49 | 45 | 42 | 10 | 0 |
 | Effects (critical) | 71 | 62 | 61 | 37 | 0 |
 | Game modes | 38 | 35 | 36 | 19 | 1 |
@@ -50,33 +50,33 @@ Scanned 1707 spec table rows: **1163 tagged**, 395 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 81 | 73 | 66 | 6 | 1 |
+| Core simulation (provisional values) | 95 | 84 | 80 | 8 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1163** | 960 | 924 | 374 | 38 |
+| **All areas** | **1181** | 973 | 942 | 378 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 433 |
-| confidence: medium | 410 |
-| confidence: low | 399 |
-| kind: interpretation | 317 |
+| kind: ours | 443 |
+| confidence: medium | 420 |
+| confidence: low | 407 |
+| kind: interpretation | 318 |
 | notes: ours | 279 |
 | confidence: none (low) | 115 |
 | kind: provisional | 98 |
+| kind: estimate | 39 |
 | section: provisional | 38 |
-| kind: estimate | 37 |
 | kind: user's knowledge | 37 |
 | section: placeholder | 35 |
 | notes: provisional | 31 |
 | kind: choice | 28 |
 | kind: approximation | 23 |
 | kind: placeholder | 22 |
+| notes: user's knowledge | 19 |
 | notes: placeholder | 17 |
 | kind: gap (not reproduced) | 15 |
-| notes: user's knowledge | 15 |
 | notes: interpretation | 14 |
 | notes: not reproduced (gap) | 13 |
 | notes: open question | 13 |
@@ -90,7 +90,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (305)
+### Movement (gameplay-critical) (306)
 
 *Spec section: Extracted parameters*
 
@@ -532,6 +532,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-69DAA65D` | Movement weight: the run's bob, measured | pelvis height range over a 0.8 s window, in the game / in the clip: walk 8.3 / 9.2 cm, run 15.2 / 17.8 cm (`SM_NAV_Run_F_01`; at the slowed run speed 5.85 m/s the blend space mixes some walk in), sprint 19.0 / 18.8 cm; sideways 6.8 cm in the run (clip 6.7).… (cm) | confidence: medium | measured | Movement weight: the run's bob, measured: compare with SM1 by timing a run over a known distance. Ours: pelvis height range over a 0.8 s window, in the game / in the clip:… | ☐ |
 
+*Spec section: Controller (gamepad; client only, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-1430FAAD` | Sprint | hold the left stick click (the owner's answer 2026-10-30: a hold, not a toggle) (stick click) | confidence: medium; notes: user's knowledge | locale 122101 "Movement (Press to Sprint)"; owner's recollection | Sprint: compare with SM1 by timing a run over a known distance. Ours: hold the left stick click (the owner's answer 2026-10-30: a hold, not… | ☐ |
+
 ### Combat core (gameplay-critical) (10)
 
 *Spec section: Known behavior (public, unverified)*
@@ -959,7 +965,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C1D7E018` | Not simulated | `min_hit_reaction_time` 1 (read as the flinches' spacing), flinches, the displace kick and slam (`ability_displace_kick`: stagger 5 m over 0.3 s, in the heavy evade and knife files; how a player triggers it is not in the data read), the bull rush… | notes: not reproduced (gap) | — | Not simulated: compare with SM1 by feel or video. Ours: min_hit_reaction_time 1 (read as the flinches' spacing), flinches… | ☐ |
 | `R-8B2013F2` | Client | poses the reaction clip at the reaction's time (remote players at the snapshot's value), the heavy strikes' clips like light attacks; the own view shook 0.35 s on a reaction start (0.012 / 0.03 / 0.022 rad for interrupt / stun / stagger; **off by default… (s, rad) | kind: placeholder; confidence: none (low); notes: ours | ours | Client: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: poses the reaction clip at the reaction's time (remote players at the… | ☐ |
 
-### Camera (gameplay-critical) (26)
+### Camera (gameplay-critical) (27)
 
 *Spec section: Camera, aim mode, shot convergence and hit confirmation (M20; protocol 12)*
 
@@ -967,6 +973,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-3ECF189B` | Weapon switch camera blend (bolt pistol <-> primary) | when the weapon's camera sets change, the rig offsets (camera and pivot) and the field of view blend from the last placed camera to the new weapon's over the new exploration set's `blend_in_time` (0.25 s for `exploration_default_mp` and `exploration_pistol`)… (s) | kind: interpretation; confidence: medium; notes: ours | `camera_curve_settings` `blend_in_time` (extracted value); using it for a switch is ours; owner's report 2026-10-30 (item 24) | Weapon switch camera blend (bolt pistol <-> primary): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: when the weapon's camera sets change, the rig offsets (camera and… | ☐ |
 | `R-2828F70E` | Reload sound: each sample once (owner recollection, 2026-10-30) | when two differently named reload tags post events that resolve to the same sample, only the later tag posts it, so the sample plays once per reload at the later timing. On the install this changes only the stalker bolter (`sm_`/`csm_mp_ranged_sniper_rifle`):… (of the reload) | kind: estimate; confidence: medium; notes: user's knowledge | owner's recollection (plays once, likes the bolt-release sound); wem ids from the banks | Reload sound: each sample once (owner recollection…: compare with SM1 by listening A/B at the same distance and state. Ours: when two differently named reload tags post events that resolve to… | ☐ |
+| `R-A4968E34` | Reload sound: the stalker bolter plays one sound (owner, 2026-10-30) | the stalker bolter's reload clip has three posts (`actn_snd_sp_clip_remove` 0.0, `actn_snd_sp_pull_bolt`, `actn_snd_stalker_bolt_release` 0.614); only the last, the bolt release (wem 123666085), plays: one sound per reload. Counted live with `--log-sound`… (of the reload) | kind: ours; confidence: medium | owner's decision (hears the three posts as the sound playing twice); wem ids from the banks | Reload sound: the stalker bolter plays one sound (owner…: compare with SM1 by listening A/B at the same distance and state. Ours: the stalker bolter's reload clip has three posts… | ☐ |
 | `R-2BE13C83` | Zoom levels: what the client does | the zoomed view blends to level 1 (`fov_1`: stalker bolter 10, lascannon 5.75) instead of the aim set's 15 (blend time and smoothstep unchanged); every other weapon keeps its aim set's value. **Not implemented:** the level cycle (`fov_2`: the lascannon's 2… (degrees) | kind: interpretation; confidence: medium | wargear `zoom_levels`; owner's report 2026-10-30 | Zoom levels: what the client does: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the zoomed view blends to level 1 (fov_1: stalker bolter 10… | ☐ |
 | `R-6F296FAA` | Aim mode | held: `InputButtons.Aim` (protocol 12, input bit 8); active while held with a ranged weapon in hand, not during a melee attack, a throw (or its release tick), a jump-pack jump or dive, nor when dead; `PlayerState.Aiming` | kind: provisional; confidence: none (low); notes: ours | locale string "Hold %AIM_MODE% to enter aim mode with ranged weapons" (`ucs.pc`); which actions end it is **ours** | Aim mode: compare with SM1 with an overlaid screenshot taken from the same position. Ours: held: InputButtons.Aim (protocol 12, input bit 8); active while held… | ☐ |
 | `R-B82BCDC8` | Aim-mode key (PC) | Left Ctrl; right mouse is melee; F is the stun strike (heavy melee) and F while sprinting forward the charge (M31) (user's knowledge of the original, 2026-10-28: the earlier "F is charge / alt fire" misread "charge"); the weapon's charged shot: hold the left… | kind: user's knowledge; confidence: medium | PC default bindings: from the user's knowledge of the original; not found in the data | Aim-mode key (PC): compare with SM1 with an overlaid screenshot taken from the same position. Ours: Left Ctrl; right mouse is melee; F is the stun strike (heavy melee)… | ☐ |
@@ -1002,12 +1009,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EE0A6B04` | Fixed and exempt views | `--spectate cam:x,y,z,tx,ty,tz` is placed exactly (no springs, cast, push-out or depenetration: measured matched views for lighting comparisons and recorded footage); `inspect` keeps no distance from bodies; `overview` is not cast | notes: ours | ours | Fixed and exempt views: compare with SM1 with side-by-side screenshots in the same spot. Ours: --spectate cam:x,y,z,tx,ty,tz is placed exactly (no springs, cast… | ☐ |
 | `R-90EA2E09` | Cast start | the spectator and death casts start from the look target moved off any surface within 0.33 m (3 passes of the depenetration rays): a target between two players fighting beside a railing, or inside a wall between them, otherwise starts in collision and the… (m) | kind: provisional; notes: ours | ours | Cast start: compare with SM1 by measuring on a flat spot of the same map. Ours: the spectator and death casts start from the look target moved off… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (49)
+### HUD and hit feedback (gameplay-critical) (51)
 
 *Spec section: Camera, aim mode, shot convergence and hit confirmation (M20; protocol 12)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
+| `R-331520E1` | Third-person camera distance (ui/hud-camera-2, owner 2026-10-30) | the exploration camera sits 1.3 times as far behind the feet as the data's rig puts it (the rig's `exploration_default_mp` curve at pitch 0: 3.38 m back, so 4.40 m; the aim set's 1.78 m is unchanged; the camera's height, side and pivot are the data's). The… (m (factor)) | kind: ours; confidence: low | owner's decision ("too close to the character"); rig curve | Third-person camera distance (ui/hud-camera-2, owner…: compare with SM1 by measuring on a flat spot of the same map. Ours: the exploration camera sits 1.3 times as far behind the feet as the… | ☐ |
 | `R-A2440C13` | Hit confirmation | per recipient, running totals since joining: hits on others (self damage excluded; ally hits counted when friendly fire deals them), shield and health damage dealt (to 0.1), kills; and the latest hit's victim, flags (head, killed, melee, blast) and the… | kind: provisional; confidence: none (low); notes: ours | ours (the original's hit marker data path is not known) | Hit confirmation: compare with SM1 with side-by-side screenshots in the same spot. Ours: per recipient, running totals since joining: hits on others (self… | ☐ |
 
 *Spec section: Hit feedback, per-weapon decals and the silent map (M38; client only, not simulated)*
@@ -1072,6 +1080,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-850E9625` | Iron Halo flash (the bar's hit flash) | the first 15 frames of `ironhalo_mc` are the medallion's starburst (an added shape, 6.3 times its size and white at frame 0, shrinking to its own at frame 14, 30 fps). It plays over the bar from the own player's **damage** (the shield or the health going down… (frames at 30 fps) | kind: interpretation; confidence: low | `Hud.gfx` (frames, depth of the burst); footage; the blueprint's `armourshield_hit` | Iron Halo flash (the bar's hit flash): compare with SM1 with side-by-side screenshots in the same spot. Ours: the first 15 frames of ironhalo_mc are the medallion's starburst (an… | ☐ |
 | `R-54469AE0` | Reticle without a known weapon | the weapon in hand is always a ranged one (melee is a button, not a slot): a weapon type the rules do not map shows no reticle; no weapon at all shows the movie's `default_mc` dot | kind: ours | `Hud.gfx` (`default_mc`); the rule is ours | Reticle without a known weapon: compare with SM1 with side-by-side screenshots in the same spot. Ours: the weapon in hand is always a ranged one (melee is a button, not a… | ☐ |
 | `R-6544F4C1` | HUD movies missing or unreadable | any failure to read the movies (or a missing `Hud.gfx`, `HudText.gfx` prompt) falls back to the M44 drawing of that piece; the reticle is left out only while the read is in flight | kind: ours | ours | HUD movies missing or unreadable: compare with SM1 with side-by-side screenshots in the same spot. Ours: any failure to read the movies (or a missing Hud.gfx, HudText.gfx… | ☐ |
+
+*Spec section: Controller (gamepad; client only, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-FED76589` | Scoreboard | Back (held) (button) | confidence: medium; notes: user's knowledge | owner's recollection | Scoreboard: compare with SM1 with side-by-side screenshots in the same spot. Ours: Back (held). | ☐ |
 
 ### Sound mix (gameplay-critical) (49)
 
@@ -1554,7 +1568,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (81)
+### Core simulation (provisional values) (95)
 
 *Spec section: Provisional values in use*
 
@@ -1676,6 +1690,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-39684B7F` | Hit reactions leave over 0.2 s | the interrupt, stun and stagger clips and their get-ups (`SM_REC_*`, `SM_MP_REC_*`) blend back to the locomotion over **0.2 s**, snappier than the data's 0.333 s (the owner's decision, 2026-10-30) (s) | kind: ours; confidence: medium | the owner's decision | Hit reactions leave over 0.2 s: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the interrupt, stun and stagger clips and their get-ups (SM_REC_*… | ☐ |
+| `R-8D74EC18` | Getting shot: the flinch blends in and out (owner) | the owner (item 49, 2026-10-30): "the animation that plays when getting shot is too snappy. when it ends he instantly returns to the standing still animation. it should be blended like the other animations". A ranged hit is the additive flinch… (s) | kind: ours; confidence: medium | the owner's decision (0.333 s); the 0.05 s entry is ours | Getting shot: the flinch blends in and out (owner): compare with SM1 by watching the reaction and timing it frame by frame. Ours: the owner (item 49, 2026-10-30): "the animation that plays when… | ☐ |
 | `R-E992557C` | The heavy bolter stays raised (owner) | confirmed by the owner (2026-10-30): raised at all times except the sprint; a reload is still laid over it as over the ready hold | kind: ours | the owner's decision | The heavy bolter stays raised (owner): compare with SM1 by feel or video. Ours: confirmed by the owner (2026-10-30): raised at all times except the… | ☐ |
 | `R-FA72F377` | Run weight (owner) | the owner (2026-10-30): keep the data's blend and run clip mix; nothing changed | kind: ours | the owner's decision | Run weight (owner): compare with SM1 by timing a run over a known distance. Ours: the owner (2026-10-30): keep the data's blend and run clip mix… | ☐ |
 | `R-4D5639BD` | Every whole-body action leaves over 'Standard Blend' | melee strikes without their own graph exit (the knife), jump-pack clips (landings, the pound's impact and get-up, the dash attack's impact), the grenade toss: back to the locomotion over **0.333 s** (reactions: the row above; before: the knife 0.2 s, ours… (s) | kind: interpretation; confidence: medium | `SM_Base_MP`: `Reactions ( From Ranged )`, `Exotic - JumpPack`, `Use Equipment ( From Ranged )`, `FROM Melee Draw Attack` lead to the conduit `TO Ranged Nav`… | Every whole-body action leaves over 'Standard Blend': compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: melee strikes without their own graph exit (the knife), jump-pack… | ☐ |
@@ -1686,6 +1701,29 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-97A6D5E0` | Stance cross-fades fold by slerp | each stance layer is summed on its own; the layers and the snapshot are folded together by slerp in their fade weights (translation and scale by lerp), so a bone turns at an even rate along one arc. Before: one weighted sum of every clip, which passes near… | kind: ours; confidence: medium | ours (Havok's blend maths are not decoded) | Stance cross-fades fold by slerp: compare with SM1 by feel or video. Ours: each stance layer is summed on its own; the layers and the snapshot… | ☐ |
 | `R-5CF16369` | The heavy bolter stays ready | a marine with the heavy bolter in hand shows the ready posture whenever it is not sprinting (aiming, reacting, striking, throwing and switching keep their own); before, after the ready hold it dropped to the rifle's relaxed clips (M36's stand-in), whose left… | kind: interpretation; confidence: medium | `SM_Heavy_Bolter` has no relaxed navigation state (M36); "always ready" is the reading | The heavy bolter stays ready: compare with SM1 by feel or video. Ours: a marine with the heavy bolter in hand shows the ready posture… | ☐ |
 | `R-A470A827` | Not changed | the knife's first strike (probe 133 cm/f2) and the slash's strike are the clips' own fast swings (30 fps keys), not transitions; the charge entry (0.267 s), the melee entries and chains (anim/melee-flow), the sprint edges (pass 3), the weapon switch… | confidence: medium | - | Not changed: compare with SM1 by feel or video. Ours: the knife's first strike (probe 133 cm/f2) and the slash's strike are… | ☐ |
+
+*Spec section: Visuals pass 2: armour halo, slash cone, pistol tracer, bolt tracers, melta cone, stim glow (fx/visuals-2; client only, not simulated, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-1C1E4BCB` | Armour recharge glow and break flash | a soft camera-facing halo (a card turning about the vertical only, 2.5 x 2.8 m, 0.35 m behind the body, centred on the lower spine), a ring just outside the silhouette with soft falloff and a faint fill; yellowish (1, 0.78, 0.22) at 0.75, red (1, 0.12, 0.08)… (m, colour) | kind: ours; confidence: low | owner (item 34, reference image) | Armour recharge glow and break flash: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a soft camera-facing halo (a card turning about the vertical only… | ☐ |
+| `R-0AB5DCAE` | Slash landing cone | a true cone: apex at the attacker's feet, axis along the heading, slant = `MeleeRange` (4 m), half angle = `MeleeConeDegrees` (60: h 2 m, r 3.46 m), dust-coloured shell swelling 35 to 100 % in 0.18 s, fading by 0.65 s, pale ring at the rim; at the cone… (m, degrees, s) | kind: ours; confidence: low | owner (item 35); the sim's cone test (`RushWorld`) | Slash landing cone: compare with SM1 by measuring on a flat spot of the same map. Ours: a true cone: apex at the attacker's feet, axis along the heading… | ☐ |
+| `R-6F564A51` | Pistol tracer waits for the raise | the shot keeps its server time (the sim waits 0.167 s for the raise); the tracer starts from the raised muzzle once the posture's relaxed-to-ready blend has run; the impact waits with it; muzzle flash and sound stay (s) | kind: ours; confidence: medium | owner (item 38) | Pistol tracer waits for the raise: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the shot keeps its server time (the sim waits 0.167 s for the raise)… | ☐ |
+| `R-72C5ADE5` | Bolt tracers thinner and shorter | width x 0.42 of the data's (0.25 m beam), trail x 0.3 of the data's 40 m texture length; the data's texture, head speed and width curve kept (factor) | kind: ours; confidence: low | owner (item 45) | Bolt tracers thinner and shorter: compare with SM1 by feel or video. Ours: width x 0.42 of the data's (0.25 m beam), trail x 0.3 of the data's… | ☐ |
+| `R-5100F4DE` | Melta cone | purple-blue (0.42, 0.30, 1) near violet at the far end, pale blue-white (0.72, 0.88, 1) at the barrel; axis from the muzzle to the aim point (the basis scaled per local axis: `Basis.Scaled` scaled the world axes and stood the cone up) (colour) | kind: ours; confidence: low | owner (items 40, 46) | Melta cone: compare with SM1 by measuring on a flat spot of the same map. Ours: purple-blue (0.42, 0.30, 1) near violet at the far end, pale… | ☐ |
+| `R-23A54755` | Combat stim glow | the item-34 halo in red at 1.6 x size (4.0 x 4.5 m), pulsing, and a red health cross (0.55 m, procedural: the install has no usable world-sprite icon) 1.55 m above the lower spine, for the stim's `Lifetime` (data), fading over 0.35 s at the end; others see it… (m, s) | kind: ours; confidence: low | owner (item 48) | Combat stim glow: compare with SM1 by feel or video. Ours: the item-34 halo in red at 1.6 x size (4.0 x 4.5 m), pulsing, and a… | ☐ |
+
+*Spec section: Controller (gamepad; client only, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-727E38BE` | Move | left stick; the movement dead zone 0.2 and outer zone 0.95 are ours (radial, the magnitude kept) (stick) | kind: estimate; confidence: low | owner's screenshot (Move on the left stick); locale 110651, 122127 | Move: compare with SM1 by timing a run over a known distance. Ours: left stick; the movement dead zone 0.2 and outer zone 0.95 are ours… | ☐ |
+| `R-7411E171` | Look | right stick; turning rate = the weapon's `speed_horizontal` / `speed_vertical` (default set 300 / 200, aim set 80 / 60; blended with the aim camera) x the `input_mapping` curve (0 up to a stick of 0.2, 0.02 at 0.3, 0.07 at 0.6, 0.17 at 0.77, 0.47 at 0.87, 1… (degrees per second) | kind: interpretation; confidence: medium | `camera_input_tuning` default / aim sets; owner's screenshot (right stick) | Look: compare with SM1 with an overlaid screenshot taken from the same position. Ours: right stick; turning rate = the weapon's speed_horizontal /… | ☐ |
+| `R-FD94D3A9` | Aim (hold) | left trigger; press at 0.5, release below 0.35 (trigger) | kind: estimate; confidence: low | owner's screenshot ("Aim"); locale 110660 | Aim (hold): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: left trigger; press at 0.5, release below 0.35. | ☐ |
+| `R-E3B4EE6B` | Weapon swap | the D-pad, as the radial weapon menu: up the pistol, right the primary, down the second primary (Weapon Versatility; the south slot); left nothing for now. The radial menu's stick selection (`GamepadRules.RadialSlot`: the quadrant of the held stick) uses the… (D-pad) | confidence: medium | owner's screenshot ("Weapon Swap" on the D-pad); the owner's answer 2026-10-30 for the directions; locale 120990 (four slots) | Weapon swap: compare with SM1 by feel or video. Ours: the D-pad, as the radial weapon menu: up the pistol, right the… | ☐ |
+| `R-21376237` | Scope zoom cycle | press the right stick (R3) while aiming: steps through the weapon's `zoom_levels` (`WeaponCamera.ZoomFovs`: the stalker bolter and the lascannon have a level 1 and more; a weapon with one level does nothing). The level resets when aim ends. Client only: the… (stick click) | confidence: medium; notes: user's knowledge | locale 122097 "Camera (Press - Lascannon Zoom)"; owner's recollection (R3); the tutorial strings 105867 and 111535 say [L3] | Scope zoom cycle: compare with SM1 by feel or video. Ours: press the right stick (R3) while aiming: steps through the weapon's… | ☐ |
+| `R-354554D8` | Game menu | Start: opens the Esc menu (loadout, resume, leave); inside the customizer Start saves (already so before this feature) and B goes back (button) | confidence: medium; notes: user's knowledge | owner's recollection | Game menu: compare with SM1 by feel or video. Ours: Start: opens the Esc menu (loadout, resume, leave); inside the… | ☐ |
+| `R-4939B80B` | Device rule | a controller that connects becomes the scheme at once; a disconnect, a key, a click or a mouse movement (3 px at once, or 6 px in small steps) swaps back; a pad button or a stick or trigger past 0.5 swaps to the pad; last used wins; no restart; the menu… | kind: ours; confidence: medium | the owner's request | Device rule: compare with SM1 by feel or video. Ours: a controller that connects becomes the scheme at once; a disconnect… | ☐ |
 
 ### General game design (7)
 
@@ -1844,6 +1882,16 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 |---|---|---|---|---|---|---|
 | `C-5D4355E6` | Compatibility renderer on old cards | the owner's decision (2026-10-30): Godot has no DirectX 9, so cards without Vulkan run the OpenGL 3.3 renderer | automatic when Forward+ cannot start, or the launcher's "Old GPU / safe mode"; lighting low, anti-aliasing off, no volumetric fog, SSR, SSIL, SSAO, SDFGI. Looks plainer; no gameplay value changes. The default look is unchanged | none (no gameplay value) | Compatibility renderer on old cards: compare with SM1 by feel or video. Ours: the owner's decision (2026-10-30): Godot has no DirectX 9, so cards… | ☐ |
 
+#### Controller (gamepad feature; spec "Controller (gamepad)")
+
+| ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-5351D11A` | Controller layout | the original's Xbox 360 layout from the owner's screenshot (LT aim, RT fire, LB grenade, RB reload / vent, X strike, Y stun / alt strike, B use, A evade / jump pack, D-pad weapon swap), the owner's recollection for Start (game menu), Back (scoreboard) and the left-stick click (sprint) | the same `PlayerInput` as the keyboard; no protocol change | Controller | Controller layout: compare with SM1 by feel or video. Ours: the original's Xbox 360 layout from the owner's screenshot (LT aim… | ☐ |
+| `C-07E0EB46` | D-pad directions | the owner's answer (2026-10-30), as the radial weapon menu: up pistol, right primary, down second primary, left nothing | the original has four slots on the D-pad; the data read does not say which holds which | Weapon swap | D-pad directions: compare with SM1 by feel or video. Ours: the owner's answer (2026-10-30), as the radial weapon menu: up… | ☐ |
+| `C-A1B5B9DB` | The pad dead zones and trigger levels | ours: the move dead zone 0.2 / outer zone 0.95 and the trigger levels 0.5 / 0.35 are estimates (sprint is a hold on the left stick click, the owner) | as stated | Move, Aim | The pad dead zones and trigger levels: compare with SM1 by feel or video. Ours: ours: the move dead zone 0.2 / outer zone 0.95 and the trigger levels… | ☐ |
+| `C-0806FA32` | Device switching, hidden menu cursor, prompts | ours: last device used wins, a connect / disconnect swaps at once, the cursor is hidden in menus while the pad is in use, hints name the pad's buttons | last used wins | Device rule | Device switching, hidden menu cursor, prompts: compare with SM1 by feel or video. Ours: ours: last device used wins, a connect / disconnect swaps at once… | ☐ |
+| `C-5DD908CF` | Not in the pad: look inversion, targeting assistance, the zoom cycle's levels, vibration, the original's stick layouts (AUTO CENTER, SOUTHPAW, LEGACY) and button layouts 1-3 | missing; the default layout only | none | Look | Not in the pad: look inversion, targeting assistance, the…: compare with SM1 by feel or video. Ours: missing; the default layout only. | ☐ |
+
 #### Observer / spectator tooling (protocol 46; not a gameplay system)
 
 | ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
@@ -1888,6 +1936,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-119588AB` | Dash attack meets walls (feel/jump-pack-2) | The lunge's wall test starts at its `WallCollisionTest` (0.300 s) and takes walls within the sprint's 25 degrees of head-on: earlier walls block, glancing ones are slid along | Walls stop the lunge from its first tick and within 60 degrees of head-on, into the data's wall state (`SM_NAV_Bullrush2Idle_F_Collision_01`, the bull rush's connect clip); ours: a small camera knock | Owner's request 2026-10-29 ("he should collide with walls and play the same 'impact ricochet' animation"); the 60 degrees ours; spec as above | Dash attack meets walls (feel/jump-pack-2): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-D6A92489` | Shorter landing and dash-attack locks (feel/jump-pack-2) | The jump-pack landings' `BRANCH_Run` / `BRANCH_Jump_To_Jump` (0.333 / 0.132 s run landing, 0.462 / 0.277 s idle) and the dash attack's after-states' branch times | All × `SimConfig.ActionLockScale` (0.7, the one setting of feel/locks-sprint-stop's "Shorter action locks"): landings 0.233 / 0.093 and 0.323 / 0.194 s; the dash attack's wall stop takes Jump from 0.467 s; the pound's get-up and the slash's recovery kept | Owner's request 2026-10-29 ("i generally feel too locked out of movement ... mark that as a estimation for later review"): an **estimate to review**; spec as above | Shorter landing and dash-attack locks (feel/jump-pack-2): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-3631B221` | Shorter action locks (feel/locks-sprint-stop) | The data's branch times: a melee attack lets the stick move the body from its `BRANCH_Melee_Run` / `_Draw_Run` (knife 0.78 to 0.93 s), a roll from 0.667 s, the heavy hop from 0.452 s, a reaction's stick and Jump branches (stun 0.333 s to Jump), the bull rush's stick 0.667 s and Jump 0.5 s; evades 0.8 s apart; a throw… | Every time that gates moving, jumping or evading out of an action × **0.7** (`SimConfig.ActionLockScale`): melee `MoveAt` and the evade branch, the roll's and hop's stick and next-evade branches and the dash landing's, the evade spacing (0.56 s), a reaction's stick and Jump branches where the data has them before its… | Owner's request 2026-10-29 ("i generally feel too locked out of movement.. reduce generally the animation timings so i can jump or hop out of things more easily. mark that as a estimation for later review"); 0.7 is an **estimate (owner's request)** to review; spec "Action lock scale and the sprint stop" | Shorter action locks (feel/locks-sprint-stop): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-BAB4D237` | Getting shot blends (anim/reaction-blend) | The additive hit flinch (0.2 s) is laid at full weight and ends at its last frame (our reading) | The flinch eases in over 0.05 s (ours) and out over 0.333 s after its clip, the conduit's 'Standard Blend' (owner's item 49, 2026-10-30) | The owner's playtest: the end snapped back to standing | Getting shot blends (anim/reaction-blend): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-4A68EE45` | Jump out of a melee attack (feel/locks-sprint-stop) | Not simulated: a melee attack blocked every evade and jump-pack take-off until it ended (knife light 1.43 to 1.93 s; our reading until now) | A Jump press from the attack's `BRANCH_Evade` (read from each attack's sequencer: knife light 0.48 / 0.47 / 0.60 s) ends the attack and rolls, hops or takes off in that tick; the branch × 0.7 (above), but never before the attack's hit lands when the data opens it after the hit | The data's tag (extracted); the mapping (Jump ends the attack) interpretation, as for the evade's and the reactions' branches; brought in by the owner's request above; spec "Action lock scale and the sprint stop" | Jump out of a melee attack (feel/locks-sprint-stop): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-7B51C356` | Sprint stop (feel/locks-sprint-stop) | The ground acceleration rule: letting go of the keys at sprint speed stops the body in 0.16 to 0.25 s and 0.5 to 1.25 m; the original's sprint-to-idle clip (`SM_NAV_Bullrush2Idle_F_01`, 5.79 m of root motion over 1.2 s, `BRANCH_Sprint_Finished` 0.833 s) could not be played on it | With every movement key let go after a sprint (faster than run + 0.25 × (sprint − run)) the body slows along its velocity, v² falling at a constant rate from at most sprint speed so that a stop from sprint speed lasts **0.833 s** (the clip's `BRANCH_Sprint_Finished`) and covers 2/3 × 9 × 0.833 = **5.0 m** (the clip:… | Owner's request 2026-10-29 ("a 'slowdown' when you stop sprinting where an animation plays of the character model slowing down from the sprint back to a stop, if movement keys are let go of entirely"); the curve and the cancels ours, the time from the data; spec "Action lock scale and the sprint stop" | Sprint stop (feel/locks-sprint-stop): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-14CF4462` | Ledge charge ends on landing (feel/melee-charge-2) | As we read it (protocol 30, the maintainer's recommendation): a bull rush that leaves a ledge is held in the air and its clip resumes at its time on landing, so the shoulder bash plays again and contacts count again | A landing after a real fall (at least the speed of a 0.5 m free fall, ours) ends the charge on that tick: no resumed clip, no second contact window; the normal movement follows (run with a movement key, else the slowdown to a stand), the speed kept up to sprint speed (ours); the landing tick's contact still counts… | Owner's request 2026-10-29 ("when you hit the ground you start doing the charge animation again. that is wrong. you should in a blended fluid way transition to a running or standing animation"); spec "Melee and charge, second pass" | Ledge charge ends on landing (feel/melee-charge-2): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
@@ -2299,6 +2348,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-797CF647` | Accounts, matchmaking, a hosted multiplayer service, replacing online services | Out of scope for the product (features players would use). Running our own development and playtest servers anywhere, cloud included, is tooling and is not covered by this row | Accounts, matchmaking, a hosted multiplayer service…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-3150239D` | Armour flashes on models, power sword swing flare, eye glow in the lens colour (fx/character-visuals, owner 2026-10-30) | Ours: colours, strengths and lengths of the yellow hit, red break and recharge glow (with outline) are estimates; others' flashes are derived from the hits seen (melee and splash out of view give none; the break flash comes one hit late); the sword glow no longer plays the data's idle sprites and flares while… | Armour flashes on models, power sword swing flare, eye glow…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-810E5266` | Weapon effects pass (2026-10-30) | Lascannon beam straight and static; tracer muzzle leg lingers 0.12 s; melta blast a drawn cone instead of the data's haze; plasma shots drawn as a near-opaque roiling ball; jump pack thrust stops at the peak. All ours at the owner's request; values are estimates in the refine register | Weapon effects pass (2026-10-30): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-C77587B7` | Visuals pass 2 (fx/visuals-2, owner 2026-10-30 round 2: items 34, 35, 38, 40, 45, 46, 48) | Ours: the recharge glow and break flash are soft halos behind the figure, not a model-surface layer (`--old-flash-outline`); the air-slash landing adds a dust cone (apex at the feet, the sim's 60 degree, 4 m cone; `--no-slash-cone`); the pistol's tracer waits for the raise (`--old-pistol-tracer`); bolt tracers 0.42 x… | Visuals pass 2 (fx/visuals-2, owner 2026-10-30 round 2:…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-92C86CDD` | HUD and camera pass 2 (ui/hud-camera-2, owner 2026-10-30) | Ours: the third-person camera is 1.3 times as far back as the data's rig (3.38 m to 4.40 m; aim unchanged); the score block's dark band is opaque (80 to 86 percent) and holds the timer, scores, bars and limit; the armour bar is plain yellow for everyone but the Iron Halo's carrier (cyan and white with the medallion)… | HUD and camera pass 2 (ui/hud-camera-2, owner 2026-10-30): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
