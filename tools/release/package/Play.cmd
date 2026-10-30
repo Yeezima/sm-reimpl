@@ -13,4 +13,5 @@ rem Not found here: the game looks once more and, if it still cannot find Space 
 rem SM_ENGINE_ARGS (empty unless set; test aid of the release smoke test): engine options before "--", such as --headless.
 start "" /D "%HERE%game" "%HERE%game\sm-reimpl.exe" %SM_ENGINE_ARGS% -- --server-exe "%HERE%server\SmServer.exe" %*
 rem fix/hosting-bots-logs: an optional hidden helper notes a game that closes within 10 seconds with an error, and where its log is (blocked PowerShell: no note, the game still runs).
-start "" /min powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%HERE%game\Launcher.ps1" -Watch -Exe "%HERE%game\sm-reimpl.exe"
+rem hotfix/old-gpu: the launcher (SM_NO_WATCH=1) watches the game itself and may start it again in safe mode, so it needs no note from this helper.
+if not defined SM_NO_WATCH start "" /min powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%HERE%game\Launcher.ps1" -Watch -Exe "%HERE%game\sm-reimpl.exe"

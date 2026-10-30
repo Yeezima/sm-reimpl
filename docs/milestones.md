@@ -791,3 +791,12 @@ rounds left (`WeaponBoxRules.LauncherRoundLoaded`). The reward lines now carry t
 revenge, avenger, grudge, victory in death; names from the locale); the rest of the table (assists, captures, savior, variety, long shot ...) is recorded as not reproducible. The creator's card grows with its text,
 shrinks it and scrolls the longest (`CreatorView.FitCard`); `--ui-selftest` checks every perk card of every class at every fit size (`UiSelfTest.PerkCards.cs`). Aids: `--hud-rewards-demo`,
 `--hud-launcher-demo`, `--scope-spread-demo`, `--perk-card-shot`. Spec "HUD from the movies (ui/hud-fidelity)" (new rows); `HudRewardTests`, `GfxTests` (morphs).
+
+### hotfix/old-gpu: Old GPU / safe mode (2026-10-30)
+A tester's GTX 960M laptop could not run the client (Godot has no DirectX 9; the default driver on Windows is Vulkan). `client/project.godot` now lists the
+fallbacks explicitly (Vulkan/D3D12 to the Compatibility renderer, then ANGLE and OpenGL ES; Forward+ stays the default). New `client/SafeMode.cs`: safe mode is on
+when the Compatibility renderer is in use or with `--safe-mode`; it logs one line `renderer: <method> (<driver>); ...`, makes lighting low (an explicit `--lighting`
+wins, but Compatibility never goes above low), anti-aliasing off (`--aa` wins; SMAA/TAA become MSAA/off on Compatibility) and skips SSAO quality, SSIL, SSR, SDFGI and volumetric fog
+(`MapLightingView`, `RenderQuality`). Launcher: "Old GPU / safe mode" checkbox (`LauncherSettings.SafeMode`, `SafeModePolicy` with tests): Godot options
+`--rendering-method gl_compatibility --rendering-driver opengl3` plus `--safe-mode`; a game that fails within 8 s turns it on and is started once more. Protocol
+unchanged (43). Not verified on real old hardware.

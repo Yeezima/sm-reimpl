@@ -116,6 +116,7 @@ public partial class ModelViewer : Node3D
             GetWindow().SetFlag(Window.Flags.NoFocus, true);
             GetWindow().SetFlag(Window.Flags.AlwaysOnTop, false);
         }
+        GD.Print(SafeMode.Describe());   // hotfix/old-gpu: the renderer and whether safe mode is on (one line)
         GD.Print(RenderQuality.Apply(GetViewport()));   // M40-T7 / M42: anti-aliasing (--aa) for every view, not only the networked one
         MarineAssets.PaintOverride = args.GetValueOrDefault("paint");
         EmblemFile = args.GetValueOrDefault("emblem-file");

@@ -123,6 +123,13 @@ from this repository's releases and starts Play, Host and Join. The zip's number
 - **Download:** resumable (`downloads\<zip>.part`, HTTP Range), retried with backoff (2, 4, 8, 16 s; it gives up after 5 failures in a row without a byte
   gained, keeping the part; no answer within 60 s or no data for 30 s counts as a failure), percent, MB, speed, time left and Cancel. Only api.github.com, github.com and *.githubusercontent.com over HTTPS, every
   redirect checked; no token, no telemetry, no port bound, no administrator rights.
+- **Old GPU / safe mode** (hotfix/old-gpu; checkbox under the buttons, saved as `safeMode` in `launcher-settings.json`; rules in `SmLauncher.Core/SafeModePolicy.cs`):
+  Godot has no DirectX 9, so an old card (a GTX 960M laptop) runs Godot's Compatibility renderer (OpenGL 3.3). Ticked, PLAY and Join start the game with
+  `--rendering-method gl_compatibility --rendering-driver opengl3` before `--` (PLAY passes it through `SM_ENGINE_ARGS`, which `2 - Play.cmd` already reads)
+  and `--safe-mode` after it: lighting low, no anti-aliasing, no volumetric fog, SSR, SSIL, SSAO or SDFGI. Automatically: when PLAY's game exits with a
+  failure within 8 s the launcher ticks the box itself, says so in plain words and starts the game once more (never a second time); the launcher then
+  sets `SM_NO_WATCH=1` so `2 - Play.cmd` skips its own "the game closed" helper. Even without the box the client falls back to the Compatibility renderer
+  when Vulkan cannot start (`client/project.godot`), and then switches itself to safe mode. The game's log has one line, `renderer: <method> (<driver>); ...`.
 - **Install folder** (default `%LOCALAPPDATA%\SM Reimpl`, the tester may choose another; a non-default one is remembered under
   `HKCU\Software\SM Reimpl Launcher`): `SM Reimpl Launcher.exe`, `current.json` (the active and the previous version), `update.json` (only while an
   update runs: its phase), `versions\<tag>\` (the last two), `downloads\`, `logs\launcher.log` (it holds local paths: testers are told to look it over

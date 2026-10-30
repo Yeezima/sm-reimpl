@@ -37,7 +37,7 @@ public static class MapLightingView
     public enum LightingPreset { Off, Low, Medium, High }
 
     /// <summary>fx/impact-pass: whether screen-space reflections run: at medium and high only, when the preset's default or the look's <c>ssr.on</c> (<paramref name="wanted"/>) asks; never at low or off.</summary>
-    public static bool SsrOn(LightingPreset preset, float wanted) => preset >= LightingPreset.Medium && wanted > 0.5f;
+    public static bool SsrOn(LightingPreset preset, float wanted) => !SafeMode.Compatibility && preset >= LightingPreset.Medium && wanted > 0.5f;
 
     public static LightingPreset Preset { get; } = ParsePreset();
 
@@ -47,6 +47,12 @@ public static class MapLightingView
         var args = OS.GetCmdlineUserArgs();
         int i = Array.IndexOf(args, "--lighting");
         string? text = i >= 0 && i + 1 < args.Length ? args[i + 1].ToLowerInvariant() : null;
+        // hotfix/old-gpu: safe mode (the Compatibility renderer, or --safe-mode) drops the default to low; the Compatibility renderer never goes above low.
+        return SafeMode.Limit(ParseText(text), explicitLighting: text is not null);
+    }
+
+    static LightingPreset ParseText(string? text)
+    {
         switch (text)
         {
             case "off": return LightingPreset.Off;
@@ -290,7 +296,7 @@ public static class MapLightingView
     static Color SunTint(Color c) => new(c.R * O("sun.cr", 1f), c.G * O("sun.cg", 1f), c.B * O("sun.cb", 1f));
 
     /// <summary>Volumetric smog on (medium and high by default; a look's <c>vf.on</c>).</summary>
-    static bool VolumetricOn => O("vf.on", Preset >= LightingPreset.Medium ? 1f : 0f) > 0.5f;
+    static bool VolumetricOn => !SafeMode.Compatibility && O("vf.on", Preset >= LightingPreset.Medium ? 1f : 0f) > 0.5f;
 
     /// <summary>What the preset turned on (for the log and the F1 line).</summary>
     public static string PresetNote => Preset switch
@@ -636,9 +642,9 @@ public static class MapLightingView
             env.SsaoSharpness = 0.98f;
             env.SsaoLightAffect = O("ssao.light", 0.15f);
             env.SsaoAOChannelAffect = O("ssao.channel", 0.3f);
-            PendingGlobal.Add(() => RenderingServer.EnvironmentSetSsaoQuality(
+            if (!SafeMode.Compatibility) PendingGlobal.Add(() => RenderingServer.EnvironmentSetSsaoQuality(   // the Compatibility renderer has no SSAO
                 q == LightingPreset.High ? RenderingServer.EnvironmentSsaoQuality.High : RenderingServer.EnvironmentSsaoQuality.Medium, q != LightingPreset.High, 0.5f, 2, 50f, 300f));
-            if (O("ssil.on", q >= LightingPreset.Medium ? 1f : 0f) > 0.5f)
+            if (!SafeMode.Compatibility && O("ssil.on", q >= LightingPreset.Medium ? 1f : 0f) > 0.5f)
             {
                 env.SsilEnabled = true;
                 env.SsilRadius = O("ssil.radius", 6f);
@@ -648,7 +654,7 @@ public static class MapLightingView
                 PendingGlobal.Add(() => RenderingServer.EnvironmentSetSsilQuality(
                     q == LightingPreset.High ? RenderingServer.EnvironmentSsilQuality.High : RenderingServer.EnvironmentSsilQuality.Medium, q != LightingPreset.High, 0.5f, 4, 50f, 300f));
             }
-            if (q == LightingPreset.High)
+            if (q == LightingPreset.High && !SafeMode.Compatibility)
             {
                 env.SdfgiEnabled = O("gi.on", 0f) > 0.5f;   // off by default: on Manufactorum it hides whole walls (Godot 4.7.2; see the spec row), test knob only
                 env.SdfgiCascades = (int)O("gi.cascades", 5f);
