@@ -1231,6 +1231,14 @@ Owner's report 2026-10-29: "the shield regenerating starting sound is playing co
 | Regeneration start | once per regeneration: the first rise of the own shield below its maximum (after the data's 7 s delay), at any level (before: only a rise from 0); it ends when the shield is full or drops (damage: the binding's stop event `stop_armor_restore_early` is posted); frames that repeat the value (60 fps over the 30 Hz tick) neither start nor end it; a death or spawn is no regeneration. Bot run after: one start per regeneration (from 4.2 and from 0), restores at full, no repeats | — | per frame | `ShieldSoundTracker` | ebps trigger names; the span reading is ours | interpretation | medium |
 | Other players' shields | not played (the data's bindings are the local player's); other players' shields are not on the wire anyway (only the hit report's victim fractions for the own target) | — | — | — | ebps | extracted | high |
 
+### Tag-started sounds end with their action (sound/regen-loop-2; client and content only)
+
+Owner's report 2026-10-30: a continuous hum or buzz in matches, thought to be the shield regeneration. The regeneration sound is not it: `play_armor_restore` is a one-shot (Random container, 0.75 s Stop) and the warning loop is ended by it, by a death and by a spawn (sound/shield-regen); a headless run (Seize Ground, 2 sound clients and 6 bots, 5 minutes) showed the warning's continuations rise only between a shield break and the next regeneration or death, then stay flat. The endless sound found instead: a behaviour tag's `post_sound_event` names a start and a stop event; the client never posted the stop. The chainsword swing (`swing_x1` -> `play_sm_chainsword_swing_x1`, stop `stop_sm_chainsword_swing`) contains an endless continuous container (the motor layer, wem 305337544), so every swing added a chain that only a death ended: 774 continuations by 80 s, 17 to 40 a second, the 64-voice cap reached (the chaos side: `play_ch_chainsword_swing_x4`, stop `stop_ch_chainsword_swing`). Test aid: `--log-sound tag` prints the binding's stop and every `TAG STOP`.
+
+| Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Tag stop events | the stop event of a tag binding (`stop_event_name`) is posted when the clip that fired the tag leaves the upper body or the whole body, changes, or restarts (the next swing), and at the latest 3 s after the start (ours); a death or spawn clears them (the emitter's loops end). The same stop owed twice is posted once. Before: never posted | s | per clip end | `TagStopTracker`, `NetworkView.EndTagSounds` | the data names the stop; when it fires is the clip's end (interpretation) | interpretation | medium |
+
 ### Armour paint (client only; not simulated)
 
 Content: `SmContent.PaintSchemes` (colours, schemes, defaults), `CharacterModel.MarineArmourFiles`; drawing: `client/MapMaterials.Paint.cs`.
