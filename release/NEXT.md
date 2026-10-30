@@ -58,3 +58,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Rolling off a ledge in mid-roll now keeps your sideways momentum while you start to fall.
 - Switching weapons during other actions keeps working with the short input buffer: press it a moment early and the switch happens as soon as the action allows; a reload in progress is not cancelled by it.
 - New network version again: everyone must update together.
+- Getting shot now blends: the flinch eases in and out over about a third of a second instead of snapping back to standing.
