@@ -134,6 +134,28 @@ public class FivePerksTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Three_slots_cycle_through_switches_that_cancel_each_other_mid_switch()
+    {
+        var w = new World(Config, null, [new SpawnPoint(Vector3.Zero, 0f)]) { Rules = Rules };
+        w.Spawn(1, SmTac, perk1Choice: ChSecond, secondChoice: 1);
+        // Back-to-back presses (a release tick between), no waiting: each cancels the switch before and the last slot named is in hand.
+        foreach (var key in new[] { InputButtons.SlotSecond, InputButtons.SlotPistol, InputButtons.SlotSecond, InputButtons.SlotPrimary })
+        {
+            w.Step(Only1(key)); w.Step(Only1(InputButtons.None));
+            Assert.True(w.Players[1].SwitchLeft > 0f);
+        }
+        var s = w.Players[1];
+        Assert.Equal(WeaponSlot.Ranged, s.Slot);
+        Assert.Equal((30, 10, 20), (s.Clip, s.OtherClip, s.ThirdClip));   // every weapon keeps its ammunition
+        // Fire during the final raise is refused; once the switch time passes it shoots.
+        w.Step(Only1(InputButtons.Fire));
+        Assert.Equal(30, w.Players[1].Clip);
+        for (int k = 0; k < 60; k++) w.Step(Only1(InputButtons.None));
+        w.Step(Only1(InputButtons.Fire));
+        Assert.True(w.Players[1].Clip < 30);
+    }
+
+    [Fact]
     public void Key_3_does_nothing_without_a_second_primary()
     {
         var w = new World(Config, null, [new SpawnPoint(Vector3.Zero, 0f)]) { Rules = Rules };

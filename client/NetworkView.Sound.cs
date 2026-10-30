@@ -222,17 +222,26 @@ public partial class NetworkView
     Vector3 ToGodot(System.Numerics.Vector3 v) =>
         _gameSpace is null ? new Vector3(v.X, v.Z, -v.Y) : _gameSpace.GlobalTransform * new Vector3(v.X, v.Y, v.Z);
 
+    /// <summary><c>--regen-sound-old</c> (owner decision 2026-10-31): the armour regeneration sound at its earlier level, without the half volume and range.</summary>
+    static bool RegenSoundOld => OS.GetCmdlineUserArgs().Contains("--regen-sound-old");
+
     void CountSound(string kind) => _soundKinds[kind] = _soundKinds.GetValueOrDefault(kind) + 1;
 
     /// <summary>Posts a binding's start event (unless it is for the local player only and this is not it) after its delay.</summary>
     SoundPlay? PostBinding(SoundBinding b, SoundEmitter e, bool own, string kind, float extraDelay = 0f)
     {
         if (_sound is null || b.StartEvent.Length == 0 || (b.OnlyIfOnPlayer && !own)) return null;
-        var play = _sound.Post(b.StartEvent, e, extraDelay + b.DelaySeconds, footstep: b.IsFootstep, offset: new VoiceOffset(FootstepLevel.GainDb(b)));
+        float gain = FootstepLevel.GainDb(b);
+        if (!RegenSoundOld && (kind == "armour regen" || kind == "armour restored"))   // owner decision 2026-10-31: half volume, 20 ft range for others' (none are posted today)
+        {
+            var camera = GetViewport()?.GetCamera3D();
+            gain += RegenSoundLevel.GainDb(own, camera is null ? 0f : camera.GlobalPosition.DistanceTo(e.Current));
+        }
+        var play = _sound.Post(b.StartEvent, e, extraDelay + b.DelaySeconds, footstep: b.IsFootstep, offset: new VoiceOffset(gain));
         CountSound(kind);
         if (LogSoundKinds.Count > 0) LogBindingPost(b, e, kind, play);
         if (kind.StartsWith("armour", StringComparison.Ordinal) && LogSound("armour"))
-            GD.Print($"ARMOUR POST t {_connectedFor:F3} {e.Label} {kind} [{b.Trigger}] event {b.StartEvent} stop '{b.StopEvent}' | {play?.Voices.Count ?? 0} voices, {play?.Stops.Count ?? 0} stops");
+            GD.Print($"ARMOUR POST t {_connectedFor:F3} {e.Label} {kind} [{b.Trigger}] event {b.StartEvent} stop '{b.StopEvent}' | {play?.Voices.Count ?? 0} voices, {play?.Stops.Count ?? 0} stops | {VoiceMixText(play, e, new VoiceOffset(gain))}");
         return play;
     }
 

@@ -145,12 +145,16 @@ public partial class NetworkView
 
     void BeginSwitch(PlayerState s, LocoTrack t, bool own)
     {
+        // sim/switch-cancel: a switch cancelled mid-way starts the new one from the weight the old one had reached (no pop to the bare pose).
+        float carried = t.Switch is not null ? CharacterViewer.SmoothInverse(SwitchWeight((float)(_connectedFor - t.SwitchAt), t.SwitchDuration, t.SwitchStartWeight)) : 0f;   // the displayed (smoothed) weight, back to the pre-smooth start the new switch fades in from
         t.Switch = null;
+        t.SwitchStartWeight = 0f;
         if (NoSwitchAnim || UpperData() is not { } data || _config is null || _config.WeaponSwitchTime <= 0.05f) return;
         var plan = SwitchPlanFor(s.Slot);
         if (plan is null) return;
         t.Switch = plan;
         t.SwitchAt = _connectedFor;
+        t.SwitchStartWeight = carried;
         t.SwitchDuration = _config.WeaponSwitchTime;
         _switchAnims++;
         if (UpperLog)
@@ -179,13 +183,20 @@ public partial class NetworkView
     /// <summary>Seconds of cross-fade between the pieces of a switch (the old weapon's stow and the new one's draw start from different poses; ours).</summary>
     const float SwitchJointBlend = 0.08f;
 
+    /// <summary>The switch layer's weight (animation pass 3's smooth curve); a switch that cancelled another begins at <paramref name="start"/> and fades in from there (sim/switch-cancel).</summary>
+    static float SwitchWeight(float elapsed, float duration, float start)
+    {
+        float inTerm = start + (1f - start) * Math.Clamp(elapsed / SwitchBlendIn, 0f, 1f);
+        return CharacterViewer.Smooth(Math.Clamp(Math.Min(inTerm, (duration - elapsed) / SwitchBlendOut), 0f, 1f));
+    }
+
     /// <summary>After the locomotion pose: lays the switch's clip pieces over everything but the legs, fading in and out at its ends and across the joint between the pieces.</summary>
     void SwitchLayer(CharacterViewer character, PlayerState s, LocoTrack t)
     {
         if (t.Switch is not { } plan) return;
         float elapsed = (float)(_connectedFor - t.SwitchAt), duration = t.SwitchDuration;
         if (!s.Alive || elapsed < 0f || elapsed >= duration) { t.Switch = null; return; }
-        float weight = CharacterViewer.Smooth(Math.Clamp(Math.Min(elapsed / SwitchBlendIn, (duration - elapsed) / SwitchBlendOut), 0f, 1f));   // animation pass 3: the smooth blend curve
+        float weight = SwitchWeight(elapsed, duration, t.SwitchStartWeight);
         float fraction = elapsed / duration;
         var segment = plan.SegmentAt(fraction);
         if (plan.Crossfade(fraction, SwitchJointBlend / duration) is { } joint)

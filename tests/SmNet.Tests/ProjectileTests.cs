@@ -674,7 +674,7 @@ public class ProjectileTests(ITestOutputHelper output)
         // Player 3 stands next to the host with a lethal knife (hit on the press tick).
         var lethal = new MeleeStep(1f, 0f, 0.4f, 0.6f, 0.5f, 0.7f, 5000f, 0f, 3.5f);
         var config = ConfigWith(Weapon("sticky", Grenade with { Gravity = [new(0f, 0f)] })) with { Classes = [new ClassLoadout("test", 0, -1, [lethal])] };
-        var world = WorldWith(config, null, new Vector3(0, 8, 0), new Vector3(3, 8, 0));
+        var world = WorldWith(config, Level(), new Vector3(0, 8, 0), new Vector3(3, 8, 0));
         world.Step(Shooter(InputButtons.Fire));
         for (int k = 0; k < 10; k++) world.Step(Idle);
         var g = Assert.Single(world.Projectiles);
@@ -684,12 +684,17 @@ public class ProjectileTests(ITestOutputHelper output)
         world.Step(Idle);
         g = Assert.Single(world.Projectiles);
         Assert.Equal((ProjectileMotion.Flying, -1), (g.Motion, g.AttachedTo));   // sim/sticky-launcher: it drops off the corpse and falls
-        float z = g.Position.Z;
-        for (int k = 0; k < 10; k++) world.Step(Idle);
-        Assert.True(world.Projectiles[0].Position.Z < z - 0.1f);
+        for (int k = 0; k < 60; k++) world.Step(Idle);
+        g = Assert.Single(world.Projectiles);   // it landed on the floor and stays there, still undetonated
+        Assert.Equal((ProjectileMotion.Stuck, -1), (g.Motion, g.AttachedTo));
+        Assert.Equal(0.02f, g.Position.Z, 3);
+        var landed = g.Position;
+        for (int k = 0; k < 30; k++) world.Step(Idle);
+        Assert.Equal(landed, world.Projectiles[0].Position);
+        Assert.Empty(world.LastDetonations);
 
         // The host leaves: the same. The owner leaves: its projectiles go.
-        world = WorldWith(config, null, new Vector3(0, 8, 0));
+        world = WorldWith(config, Level(), new Vector3(0, 8, 0));
         world.Step(Shooter(InputButtons.Fire));
         for (int k = 0; k < 10; k++) world.Step(Idle);
         world.Remove(2);
