@@ -9,3 +9,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- The repeating sound is gone: the swell that plays before a round starts used to loop for the whole match and pile up with every new round; it now plays once.
+- Seize Ground no longer clicks while you capture a point or ticks every second while your side scores (the objective-complete sound and the end-of-match tally stay).

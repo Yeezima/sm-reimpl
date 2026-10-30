@@ -131,7 +131,7 @@ public partial class NetworkView
             if (!_flowRiser && countdown <= CountdownRiserLead)
             {
                 _flowRiser = true;
-                PostMatchSound("play_mp_countdown");
+                PostMatchSound("play_mp_countdown", once: true);   // sound-hunt: an endless container; once = the swell plays through, no chain that loops for the whole match
             }
         }
         else if (state == MatchState.Ended)
@@ -306,11 +306,11 @@ public partial class NetworkView
     }
 
     /// <summary>Posts one of the match flow's events on its own emitter (not positioned); a note in the log says what the catalogue made of it.</summary>
-    void PostMatchSound(string eventName)
+    void PostMatchSound(string eventName, bool once = false)
     {
         if (!SoundReady() || _sound is null) return;
         _matchEmitter ??= new SoundEmitter { Label = "match" };
-        var play = _sound.Post(eventName, _matchEmitter);
+        var play = _sound.Post(eventName, _matchEmitter, once: once);
         if (play is null) return;
         MatchFlowLog($"sound {eventName}: " + (!play.Found ? "event not in the banks" : $"{play.Voices.Count} voice(s)" +
             (play.Voices.Count > 0 ? $" (3D {play.Voices[0].Is3D}, {play.Voices[0].VolumeDb:F1} dB)" : "") + (play.MissingMedia > 0 ? $", {play.MissingMedia} without media" : "") +
