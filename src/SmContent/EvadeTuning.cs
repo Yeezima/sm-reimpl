@@ -348,8 +348,8 @@ public static class EvadeTuning
             TargetableModeTime = PropertyEnd("TargetableMode"),
             CollisionModeTime = PropertyEnd("CollisionMode"),
             AnimationSet = set,
-            // M22: the roll takes diagonals (user's knowledge of the original); the heavy hop keeps four directions, the side hop two.
-            Diagonals = !map.HopSets.Contains(set) && !sideOnly,
+            // M22: the roll takes diagonals (user's knowledge of the original); the heavy hop too since the owner's 2026-10-31 report (same rule); the side hop has two directions.
+            Diagonals = !sideOnly,
             SideOnly = sideOnly,
             Camera = (ability.String("camera_curve") ?? "").Split('\\', '/')[^1],
         };
