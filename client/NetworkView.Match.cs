@@ -161,66 +161,35 @@ public partial class NetworkView
     };
 
     /// <summary>
-    /// Fidelity gap 10: the HUD's world decorators over the other living players (the original's <c>PlayerDecorator</c>: race icon and name for
-    /// friends; none for foes since 2026-10-30). Visibility by <see cref="DecoratorRules.PlayerVisible"/> (ours: friends within 120 m, through walls within
-    /// 75 m; foes in the line of sight within 75 m); no sides, no decorators. Positions are the shown (interpolated) ones, 2.5 m over the feet.
+    /// ui/hud-3 (owner, 2026-10-30): the world decorator is only the aimed player's: the name over the living player the crosshair is on (red for an enemy, yellow with the race icon for a
+    /// friend), nothing otherwise and nothing for the rest of the players. Replaces the earlier friends-in-range list (fidelity gap 10) and the "no names over enemies" rule.
+    /// Visibility by <see cref="DecoratorRules.PlayerVisible"/>; the position is the shown (interpolated) one, 2.5 m over the feet.
     /// </summary>
-    void FillDecorators(Hud.Frame f, PlayerState me)
+    void FillDecorators(Hud.Frame f, PlayerState me, PlayerState? aimed)
     {
-        // Shown only while playing as a living player: not spectating, dead (the death screen shows none: ours, the original's is not known), or in the
-        // countdown, warm-up and match-over phases (the same gate as the crosshair's aimed name, Hud.DrawCentre).
-        if (_camera is null || _gameSpace is null || _client is null || me.Team == Team.None || !me.Alive || Spectate is not null
+        // Shown only while playing as a living player: not spectating, dead, or in the countdown, warm-up and match-over phases.
+        if (aimed is null || _camera is null || _gameSpace is null || _client is null || me.Team == Team.None || !me.Alive || Spectate is not null
             || _client.Match.State != MatchState.Playing) return;
-        // The line of sight is cast from the camera (what the viewer sees), not the head: a follow camera behind a wall sees nothing past it.
-        var camera = _gameSpace.Transform.AffineInverse() * _camera.GlobalPosition;
-        var eye = new System.Numerics.Vector3(camera.X, camera.Y, camera.Z);
-        foreach (var other in _lastOthers)
+        var other = aimed.Value;
+        if (!other.Alive || other.PlayerId == _client.PlayerId || other.Team == Team.None) return;
+        var relation = World.Hostile(me.Team, other.Team) ? DecoratorRelation.Enemy : DecoratorRelation.Ally;
+        float distance = System.Numerics.Vector3.Distance(other.Position, me.Position);
+        if (!DecoratorRules.PlayerVisible(relation, distance, true)) return;   // the crosshair's ray is the line of sight
+        var anchor = _gameSpace.Transform * new Vector3(other.Position.X, other.Position.Y, other.Position.Z + 2.5f);
+        if (_camera.IsPositionBehind(anchor)) return;
+        f.Decorators.Add(new Hud.Decorator
         {
-            if (!other.Alive || other.PlayerId == _client.PlayerId || other.Team == Team.None) continue;
-            if (World.Hostile(me.Team, other.Team)) continue;   // owner's decision 2026-10-30: nothing over enemies (no name); the readout perks' bar is the crosshair's
-            var relation = DecoratorRelation.Ally;
-            float distance = System.Numerics.Vector3.Distance(other.Position, me.Position);
-            if (distance > DecoratorRules.AllyRange) continue;
-            // No ray where the answer does not depend on it: a friend within the through-walls range is shown, a foe beyond its range is not.
-            bool sight;
-            if (relation == DecoratorRelation.Ally && distance <= DecoratorRules.OcclusionDistance) sight = true;
-            else if (relation == DecoratorRelation.Enemy && distance > DecoratorRules.OcclusionDistance) continue;
-            else sight = DecoratorSight(other, eye);
-            if (!DecoratorRules.PlayerVisible(relation, distance, sight)) continue;
-            var anchor = _gameSpace.Transform * new Vector3(other.Position.X, other.Position.Y, other.Position.Z + 2.5f);
-            if (_camera.IsPositionBehind(anchor)) continue;
-            f.Decorators.Add(new Hud.Decorator
-            {
-                Name = HudName(other.PlayerId), Rel = relation == DecoratorRelation.Enemy ? Hud.Rel.Enemy : Hud.Rel.Own, Team = other.Team,
-                Screen = _camera.UnprojectPosition(anchor), Distance = distance,
-            });
-        }
-        // Bot log (test aid): how many decorators of each kind show, about every 4 s.
+            Name = HudName(other.PlayerId), Rel = relation == DecoratorRelation.Enemy ? Hud.Rel.Enemy : Hud.Rel.Own, Team = other.Team,
+            Screen = _camera.UnprojectPosition(anchor), Distance = distance,
+        });
         if (_bot && (int)(_connectedFor / 4.0) != _decoratorLogSlot)
         {
             _decoratorLogSlot = (int)(_connectedFor / 4.0);
-            GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} decorators: {f.Decorators.Count(x => x.Rel == Hud.Rel.Own)} ally, {f.Decorators.Count(x => x.Rel == Hud.Rel.Enemy)} enemy");
+            GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} aimed decorator: {(relation == DecoratorRelation.Enemy ? "enemy" : "ally")}");
         }
     }
 
     int _decoratorLogSlot = -1;
-    // Line-of-sight answers per player, refreshed at about 10 Hz (a ray per player per frame is not needed for a name tag).
-    readonly Dictionary<int, (double At, bool Sight)> _decoratorSight = new();
-    const double DecoratorSightSeconds = 0.1;
-
-    /// <summary>Whether the camera sees the player's chest (weapon collision), cached for <see cref="DecoratorSightSeconds"/>.</summary>
-    bool DecoratorSight(PlayerState other, System.Numerics.Vector3 eye)
-    {
-        if (_decoratorSight.TryGetValue(other.PlayerId, out var cached) && _connectedFor - cached.At < DecoratorSightSeconds) return cached.Sight;
-        var toChest = other.Position + new System.Numerics.Vector3(0f, 0f, 1.4f) - eye;
-        float length = toChest.Length();
-        bool sight = true;
-        if (length > 0.5f && _client?.Collision is { } world)
-            sight = world.Weapons.Raycast(eye, toChest / length, length) is not { } wall || wall.Distance >= length - 0.6f;
-        if (_decoratorSight.Count > 64) _decoratorSight.Clear();
-        _decoratorSight[other.PlayerId] = (_connectedFor, sight);
-        return sight;
-    }
 
     /// <summary>Hook for added content (docs/added-content.md): each kill-feed entry, once, as the feed takes it. Implemented in an <c>Extras/</c> folder.</summary>
     partial void ExtrasKill(KillView k);

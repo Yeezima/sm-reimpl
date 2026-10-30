@@ -208,6 +208,13 @@ public partial class NetworkView
     /// </summary>
     void PoundIndicator(PlayerState me)
     {
+        if (PoundMarkerDemo && _camera is not null)   // ui/hud-3 screenshot aid: the marker stands on the ground 6.5 m ahead of the own player
+        {
+            var ahead = -_camera.GlobalBasis.Z; ahead.Y = 0f;
+            _poundMarker ??= new PoundMarker(); if (_poundMarker.GetParent() is null) AddChild(_poundMarker);
+            _poundMarker.Show(ToGodot(me.Position) + ahead.Normalized() * 6.5f + Vector3.Up * 0.08f, ahead, _connectedFor);
+            return;
+        }
         var pack = me.Alive ? Loadouts.JumpPack(_config!, me) : null;
         var plays = pack is null ? null : _catalogue!.JumpPack(pack.Name)?.SmashTarget;
         Num.Vector3? at = null;
@@ -225,17 +232,13 @@ public partial class NetworkView
             at = _poundAim;
         }
         else _poundAimValid = false;
-        if (at is not { } point) { Fade(_reticule, 0.15); return; }
-        var position = ToGodot(point) + Vector3.Up * 0.05f;
-        if (_reticule.Count == 0)
-        {
-            foreach (var p in plays!)
-                if (_fx!.Play(p.Name, position, Basis.Identity, p.Scale <= 0f ? 1f : p.Scale, null, null, 0f, 0.0, repeat: true, priority: 2) is { } e) _reticule.Add(e);
-            _reticuleShown++;
-            if (!_reticuleLogged && _bot) { _reticuleLogged = true; GD.Print($"t {_connectedFor:F1} s: pound target marker {string.Join(", ", plays.Select(p => $"{p.Name} x{p.Scale}"))} at {point.X:F1},{point.Y:F1},{point.Z:F1}"); }
-        }
-        foreach (var e in _reticule) { e.Origin = position; e.Axes = Basis.Identity; }
+        if (at is not { } point || _camera is null) { _poundMarker?.Hide2(); return; }
+        // ui/hud-3: the owner's marker, four inward chevrons (PoundMarker.cs); the data's land-reticule effect is no longer played.
+        if (_poundMarker is null) { _poundMarker = new PoundMarker(); AddChild(_poundMarker); _reticuleShown++; }
+        _poundMarker.Show(ToGodot(point) + Vector3.Up * 0.08f, -_camera.GlobalBasis.Z, _connectedFor);
     }
+
+    PoundMarker? _poundMarker;
 
     (Num.Vector3 Position, int Ticks, JumpPhase Phase) _poundAimKey;
     Num.Vector3? _poundAim;
@@ -250,6 +253,9 @@ public partial class NetworkView
     const int PoundLookAheadTicks = 120;
 
     /// <summary><c>--no-pound-indicator</c> (test aid): no target marker.</summary>
+    /// <summary><c>--pound-marker-demo</c> (screenshot aid): the pound's chevron marker stands on the ground ahead of the own player at all times.</summary>
+    bool PoundMarkerDemo => _poundMarkerDemo ??= OS.GetCmdlineUserArgs().Contains("--pound-marker-demo");
+    bool? _poundMarkerDemo;
     bool NoPoundIndicator => _noPoundIndicator ??= OS.GetCmdlineUserArgs().Contains("--no-pound-indicator");
     bool? _noPoundIndicator;
 

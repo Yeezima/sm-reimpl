@@ -312,11 +312,10 @@ public static class DecoratorRules
     /// </summary>
     public const float OcclusionDistance = 75f;
 
-    /// <summary>Whether a player's decorator shows (ours): allies within <see cref="AllyRange"/>, through walls only within <see cref="OcclusionDistance"/>; enemies never (owner's decision of 2026-10-30: nothing over enemies without Tactical Readout or Signum Link, and then only a bar, no name).</summary>
+    /// <summary>Whether a player's decorator shows (ours, owner 2026-10-30): only the player under the crosshair (the caller passes it; the ray is the line of sight), friend or foe, within <see cref="AllyRange"/>.</summary>
     public static bool PlayerVisible(DecoratorRelation relation, float distance, bool lineOfSight) => relation switch
     {
-        DecoratorRelation.Ally => distance <= AllyRange && (lineOfSight || distance <= OcclusionDistance),
-        DecoratorRelation.Enemy => false,
+        DecoratorRelation.Ally or DecoratorRelation.Enemy => distance <= AllyRange && lineOfSight,
         _ => false,
     };
 
@@ -326,7 +325,7 @@ public static class DecoratorRules
     /// <summary>The decorator's fade near the edge of its range (ours): 1 up to 85 % of the range, then to 0.</summary>
     public static float PlayerAlpha(DecoratorRelation relation, float distance)
     {
-        float range = relation == DecoratorRelation.Ally ? AllyRange : OcclusionDistance;
+        float range = AllyRange;
         return Math.Clamp((range - distance) / (range * 0.15f), 0f, 1f);
     }
 }

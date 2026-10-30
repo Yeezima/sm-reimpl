@@ -13,7 +13,14 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Rapid Deployment now works: you come back to life after 3 seconds instead of 5.
 - Weapon Versatility now works for Tactical Marines: press 3 for a second primary weapon. Pick it in the class creator (Weapons step) after choosing the perk; with none picked, 3 does nothing. The mouse wheel and X now cycle pistol, primary and the second primary.
 - Teleport Homer now works: while you live, your allies who die come back next to you.
-- Tactical Readout and Signum Link now show a health and armour bar on the enemy under your crosshair. Without one of them, enemies no longer show a name or a bar.
+- Tactical Readout and Signum Link now show a health and armour bar on the enemy under your crosshair. Without one of them the enemy shows no bar.
 - The Assault and Raptor jump pack now takes the colour you pick for the Backpack in the armour colours (before, it followed the torso colour).
 - Tactical Marines can no longer fire their weapon while charging: a shot started just before the charge is dropped, and pressing fire during the charge no longer interrupts it.
 - Fixed: in Seize Ground, after capturing a point a humming noise no longer starts and grows louder; each capture now gives its one cue and then it is quiet again.
+- Taking damage now flashes the edges of your screen instead of the health bar: blue-green when your armour is hit, red or orange when your health is.
+- Only the Iron Halo perk keeps the armour bar with the spiked medallion. Every other class gets the original's gold-framed bar without spikes and an orange health bar.
+- The ground pound marker is now four yellow arrows (above, left, right and below the landing spot) that slide inward again and again.
+- The kill and bonus lines in the middle of the screen are a little smaller.
+- The score panel at the bottom left no longer runs past its bars, and the weapon box at the bottom right sits a little higher, closer to the original.
+- The melta gun's bar in the weapon box now shows how far it is from the next shot.
+- Names now show only over the player under your crosshair: red for an enemy, yellow for a friend. Nobody else has a name floating over them any more.

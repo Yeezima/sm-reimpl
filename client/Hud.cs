@@ -120,6 +120,10 @@ public sealed partial class Hud : Control
         public bool Aiming, Braced;
         /// <summary>ui/hud-fidelity: where the crosshair is drawn, from the screen centre (virtual units): zero, except with the camera lag (NetworkView.CameraLag.cs: the lens trails the aim).</summary>
         public Vector2 CrosshairOffset;
+        /// <summary>ui/hud-3: the own player has the Iron Halo perk (the armour bar with the starburst medallion; others get the reference's bar without it).</summary>
+        public bool IronHalo;
+        /// <summary>ui/hud-3: the weapon box's bar for a recharging weapon (the melta): 0..1 progress to the next shot, or negative to use the clip's/heat's own fraction.</summary>
+        public float WeaponBarFull = -1f;
         public bool AimedAtEnemy;
         public string AimedName = "";
         /// <summary>Protocol 44 (Tactical Readout / Signum Link): the aimed enemy's bar is shown, from <see cref="AimedHealth"/> and <see cref="AimedShield"/> (fractions of 1). Without the perks nothing shows over an enemy: no name, no bar.</summary>
@@ -409,6 +413,7 @@ public sealed partial class Hud : Control
 
         DrawStatus(vs);
         if (!d.InGame) { DrawHint(); FlushAdditive(); return; }
+        DrawDamageVignette(vs);   // ui/hud-3: the own damage as a screen-edge flash
         DrawPlayerDecorators(vs);   // fidelity gap 10: under the panels
         DrawVitals(vs);
         DrawEvents(vs);
