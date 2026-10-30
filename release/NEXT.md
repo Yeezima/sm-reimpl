@@ -12,3 +12,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 
 - The launcher has a dark look.
 - The Devastator and Havoc hop now goes the way your movement keys point, like the Tactical roll: W+D hops forward-right, S+A back-left, and so on, in all eight directions (no key held: forward). This changes the game rules, so everyone must update to the same build.
+- There is a Field of view slider on the Join screen and in the customizer / Esc menu: from the original look up to 120 degrees (measured across the screen), live while you play. Scopes keep their own zoom.

@@ -78,6 +78,7 @@ public sealed class CustomizerServices
             else GD.PrintErr(contentError + "; the saved profile is used");
         }
         UiKit.ReduceMotion = Settings.ReduceMotion;
+        FovMath.Selected = Settings.FovDegrees;
         Previews = new PreviewAssets(this);
         LoadTask = Task.Run(Load);
     }
@@ -110,6 +111,7 @@ public sealed class CustomizerServices
     {
         Settings = change(Settings);
         UiKit.ReduceMotion = Settings.ReduceMotion;
+        FovMath.Selected = Settings.FovDegrees;
         Settings.Save(SettingsDirectory);
     }
 
