@@ -315,6 +315,7 @@ public partial class NetworkView : Node3D
                 SmoothRenderClock = !OldRenderClock,
                 MeleeLock = !NoMeleeLock,   // feel/melee-lock (NetworkView.MeleeLock.cs)
                 Bot = _bot,   // protocol 37: the Hello marks a test bot (the server's --bot-damage-scale)
+                Observer = Observe,   // protocol 46: a spectator (NetworkView.Observer.cs)
             };
             // The front end's perks, looks and emblems (customizer, T8); a replayed demo keeps its recorded Hello.
             if (_demoPlayback is null) clientOptions = SmClient.FrontEnd.FrontEndLaunch.WithProfile(clientOptions);
@@ -368,6 +369,7 @@ public partial class NetworkView : Node3D
             if (_overlay is not null) _overlay.Visible = _showInfo;
             return;
         }
+        if (Observe) { ObserverInput(e); return; }   // protocol 46: a spectator's keys and mouse (NetworkView.Observer.cs)
         if (_bot) return;
         PickupKey(e);   // fidelity gap 1: latch an E tap between input samples
         if (LoadoutInput(e)) return;   // customizer T7: C on the death screen; while the picker is open nothing else sees the mouse and keys
@@ -464,6 +466,7 @@ public partial class NetworkView : Node3D
         _connectedFor += delta;
         MemoryReportFrame();   // perf/lean-bots: one memory line (bots at 30 s; --mem-report [s]) (NetworkView.Lean.cs)
 
+        if (Observe) { ObserverFrame(delta); return; }   // protocol 46: a spectator draws the world without a player of its own (NetworkView.Observer.cs)
         var me = _client.Predicted;
         Ph("own state");
         LooksBeginFrame(me);   // customizer T7: arrivals, the acknowledged setup, the own look at the respawn

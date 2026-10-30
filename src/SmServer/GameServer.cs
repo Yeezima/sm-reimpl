@@ -16,6 +16,11 @@ public sealed partial record ServerOptions
     /// </summary>
     public float BotDamageScale { get; init; } = 1f;
     public int MaxPlayers { get; init; } = Protocol.MaxPlayers;
+    /// <summary>
+    /// Protocol 46 (ours; observer tooling): spectators admitted besides the <see cref="MaxPlayers"/> players (0 admits none; <c>--max-spectators</c>), at most
+    /// <see cref="Protocol.MaxSpectators"/> so the Scoreboard lists all of them. They never count toward <see cref="MaxPlayers"/>, teams, scores or balance.
+    /// </summary>
+    public int MaxSpectators { get; init; } = Protocol.MaxSpectators;
     /// <summary>Inputs further ahead than this many ticks are ignored (protects the buffer).</summary>
     public int MaxInputLead { get; init; } = 120;
     /// <summary>A player not heard from for this long is removed and its address forgotten.</summary>
@@ -95,7 +100,10 @@ public sealed partial class GameServer
     int _nextPlayerId = 1;
 
     public World World { get; }
-    public IReadOnlyCollection<int> Players => _peers.Values.Select(p => p.PlayerId).ToList();
+    /// <summary>The ids of the connected players (not the spectators, protocol 46).</summary>
+    public IReadOnlyCollection<int> Players => _peers.Values.Where(p => !p.Spectator).Select(p => p.PlayerId).ToList();
+    /// <summary>The ids of the connected spectators (protocol 46).</summary>
+    public IReadOnlyCollection<int> Spectators => _peers.Values.Where(p => p.Spectator).Select(p => p.PlayerId).ToList();
     public int Rejected { get; private set; }
     public int TimedOut { get; private set; }
 
@@ -130,6 +138,10 @@ public sealed partial class GameServer
         public AppearanceState Appearance { get; } = new();
         /// <summary>The Hello marked a test bot (protocol 37).</summary>
         public bool Bot;
+        /// <summary>Protocol 46: the Hello marked a spectator: no player in the world, no input, no score; it only receives.</summary>
+        public bool Spectator;
+        /// <summary>Protocol 46: a spectator's camera (game metres, clamped to the map), from its batches; null until one arrives.</summary>
+        public Vector3? Camera;
         /// <summary>Display name (protocol 41, sanitised; "" none: "P&lt;id&gt;"); <see cref="NameRace"/> the race whose pool gave it (None: not a pool name).</summary>
         public string Name = "";
         public Race NameRace;
@@ -234,7 +246,11 @@ public sealed partial class GameServer
         if (!AdmitJoin(connection, h.Nonce, existing)) return;   // per-address cap, held respawn, join rate (GameServer.Guard.cs)
         // A new client on a reused address (e.g. NAT port reuse after a restart): the old player is gone.
         if (existing is not null) RemovePeer(connection, existing, forgetAddress: false, reason: "replaced by a new client at the same address");
-        if (_peers.Count >= _options.MaxPlayers) { Refuse(connection, RejectReason.ServerFull, h.Nonce); return; }
+        if (h.Spectator)
+        {
+            if (Math.Min(_options.MaxSpectators, Protocol.MaxSpectators) <= _peers.Values.Count(p => p.Spectator)) { Refuse(connection, RejectReason.ServerFull, h.Nonce); return; }
+        }
+        else if (_peers.Values.Count(p => !p.Spectator) >= _options.MaxPlayers) { Refuse(connection, RejectReason.ServerFull, h.Nonce); return; }
 
         var peer = new Peer(NextPlayerId(), h.Nonce, BinaryPrimitives.ReadUInt32LittleEndian(RandomNumberGenerator.GetBytes(4)) | 1)
         {
@@ -242,6 +258,7 @@ public sealed partial class GameServer
         };
         _peers[connection] = peer;
         _transport.Pin(connection);   // an authenticated player's address must never be evicted by a flood
+        if (h.Spectator) { JoinSpectator(connection, peer, h); return; }
         // Class and loadout are kept across respawns until a Setup changes them (protocol 22); invalid choices get the class default.
         // With match rules the class may move to the other side to balance the teams (World.AssignClass); the choice indices, which a
         // client sends for the class it asked for, then carry over by position to the other side's class.
@@ -266,6 +283,39 @@ public sealed partial class GameServer
         _transport.Send(connection, Protocol.Write(new Welcome(peer.PlayerId, World.Tick, World.Config.TickRate, h.Nonce, h.SentMs, peer.Session)));
         NoteJoin(connection, peer.PlayerId);
         PlayerJoined?.Invoke(spawned);
+    }
+
+    /// <summary>A spectator's claimed camera kept inside the map's bounds (plus a margin to fly past the walls); a non-finite one reads as the map's middle (the origin without a map).</summary>
+    internal Vector3 ClampCamera(Vector3 at)
+    {
+        Vector3 lo = new(-2000f), hi = new(2000f);
+        if (Map is { } map)
+        {
+            const float margin = 30f;
+            lo = Vector3.Min(map.Collision.Weapons.Min, map.Collision.Character.Min) - new Vector3(margin);
+            hi = Vector3.Max(map.Collision.Weapons.Max, map.Collision.Character.Max) + new Vector3(margin);
+        }
+        if (!float.IsFinite(at.X) || !float.IsFinite(at.Y) || !float.IsFinite(at.Z)) return (lo + hi) / 2f;
+        return Vector3.Clamp(at, lo, hi);
+    }
+
+    /// <summary>Test seam: a spectator's clamped camera.</summary>
+    internal Vector3? CameraOfForTests(int id) => _peers.Values.FirstOrDefault(p => p.PlayerId == id)?.Camera;
+
+    /// <summary>
+    /// Protocol 46 (ours; observer tooling): a spectator joins. It has an id and a session like a player but no world player: nothing is spawned, so it has no team, score, body
+    /// or hit shape and nothing can target it; it is listed in the Scoreboard as a spectator and sent every snapshot (everyone, slim). It is not asked to be active (<see cref="KickIdle"/>).
+    /// </summary>
+    void JoinSpectator(int connection, Peer peer, Hello h)
+    {
+        peer.Spectator = true;
+        peer.Name = $"Spectator {peer.PlayerId}";
+        var a = peer.Appearance;   // it may query the others' looks and pull their emblems like a player; it has no look of its own
+        a.Chunks = new TokenBucket(_options.MaxServedChunksPerSecond, _options.MaxServedChunksPerSecond);
+        a.Queries = new TokenBucket(_options.MaxQueriedIdsPerSecond, _options.MaxQueriedIdsPerSecond);
+        a.Race = Race.None;
+        _transport.Send(connection, Protocol.Write(new Welcome(peer.PlayerId, World.Tick, World.Config.TickRate, h.Nonce, h.SentMs, peer.Session)));
+        NoteJoin(connection, peer.PlayerId, spectator: true);
     }
 
     /// <summary>Server notes (a pistol defaulted for lack of True Grit, an emblem refused); the console server prints them.</summary>
@@ -383,6 +433,12 @@ public sealed partial class GameServer
             if (peer.SentKills.TryGetValue(peer.AckedSnapshot, out int newest)) peer.AckedKill = Math.Max(peer.AckedKill, newest);
             foreach (var old in peer.SentKills.Keys.Where(k => k <= peer.AckedSnapshot).ToList()) peer.SentKills.Remove(old);
         }
+        if (peer.Spectator)
+        {
+            // Protocol 46: nothing a spectator sends acts on the world (and nothing piles up for it); its newest input carries its camera (MoveX, MoveY, Yaw = x, y, z).
+            if (batch.Inputs.Length > 0 && batch.Inputs.MaxBy(i => i.Tick) is var cam) peer.Camera = ClampCamera(new Vector3(cam.MoveX, cam.MoveY, cam.Yaw));
+            return;
+        }
         foreach (var input in batch.Inputs)
         {
             // Only future ticks matter; anything older was already simulated (with the repeated input).
@@ -399,7 +455,7 @@ public sealed partial class GameServer
     void StepWorld()
     {
         uint tick = World.Tick + 1;
-        var byPlayer = _peers.Values.ToDictionary(p => p.PlayerId);
+        var byPlayer = _peers.Values.Where(p => !p.Spectator).ToDictionary(p => p.PlayerId);   // protocol 46: a spectator is not in the world
         World.Step(id =>
         {
             var peer = byPlayer[id];
@@ -419,7 +475,7 @@ public sealed partial class GameServer
             }
             return WithBoundedBody(WithBoundedView(peer.LastApplied, BoundedViewTick(peer, peer.LastApplied.ViewTick)), peer.LastAppliedAck, BodySlack);
         });
-        foreach (var peer in _peers.Values)
+        foreach (var peer in byPlayer.Values)
         {
             foreach (var stale in peer.Inputs.Keys.TakeWhile(t => t <= World.Tick).ToList()) peer.Inputs.Remove(stale);
             foreach (var stale in peer.AckAt.Keys.Where(t => t <= World.Tick).ToList()) peer.AckAt.Remove(stale);
@@ -571,12 +627,12 @@ public sealed partial class GameServer
         SnapshotHookForTests?.Invoke(peer.PlayerId);
         // Per recipient: its own player in full, everyone else slim (no enemy health, ammunition or reload windows).
         int lead = peer.NewestReceived == 0 ? Protocol.NoLead : (int)((long)peer.NewestReceived - World.Tick);
-        var viewer = World.Players.TryGetValue(peer.PlayerId, out var self) ? self.Position : Vector3.Zero;
+        var viewer = World.Players.TryGetValue(peer.PlayerId, out var self) ? self.Position : peer.Camera ?? Vector3.Zero;   // protocol 46: a spectator's is its camera
         var kills = KillsFor(World, peer.AckedKill);
         if (kills.Length > 0) peer.SentKills[World.Tick] = kills[^1].Sequence;
         while (peer.SentKills.Count > 256) peer.SentKills.Remove(peer.SentKills.Keys.Min());
         _transport.Send(connection, Protocol.Write(new Snapshot(World.Tick, peer.LastAppliedFromClient, lead, players, Self: peer.PlayerId,
-            Projectiles: ProjectilesFor(World, viewer), Match: match, Kills: kills, Points: points, Hits: peer.Hits,
+            Projectiles: ProjectilesFor(World, viewer), Match: match, Kills: kills, Points: points, Hits: peer.Spectator ? null : peer.Hits,
             Shots: ShotsFor(_pendingShots, peer.PlayerId, viewer, World.Tick))));
     }
 
@@ -613,7 +669,8 @@ public sealed partial class GameServer
             return new ScoreEntry(p.PlayerId, p.Team, p.Class, s.Kills, s.Deaths, peer?.Appearance.Version ?? 0,
                 Loadouts.EquipmentIndex(World.Config, p),   // protocol 40 (perks/inert-2)
                 peer?.Name ?? "");                         // protocol 41 (names/bot-lore)
-        }).ToArray(), SeizeOf(World));
+        }).ToArray(), SeizeOf(World),
+        Spectators: _peers.Values.Where(p => p.Spectator).OrderBy(p => p.PlayerId).Take(Protocol.MaxSpectators).Select(p => new SpectatorEntry(p.PlayerId, p.Name)).ToArray() is { Length: > 0 } listed ? listed : null);   // protocol 46
 
     void SendScoreboards()
     {

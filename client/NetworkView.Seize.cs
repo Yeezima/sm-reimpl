@@ -51,7 +51,8 @@ public partial class NetworkView
     /// melta cone flash, the spawn-room shield planes, the Seize Ground point columns (the HUD keeps showing the points), and the
     /// debug text (as <c>--no-overlay</c>). The HUD stays (<c>--no-hud</c> hides it). Not hidden: the grenade models, still balls.
     /// </summary>
-    public bool NoMarkers { get; init; }
+    public bool NoMarkers { get => _noMarkers || !ObserverHudOn; init => _noMarkers = value; }   // observer mode: H (HUD off) hides them too
+    bool _noMarkers;
     /// <summary>
     /// <c>--show-markers</c> (M36 test aid): shows the zone indicators that are hidden in normal play (owner's playtest 2026-10-28:
     /// they are not in the original) - the Seize Ground point columns, discs and letters in the world, the ground-pound and landing

@@ -439,7 +439,7 @@ public class OwnerRulesTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_21_carries_the_raise_and_a_ten_second_hold_in_the_own_record_and_weapon_up_in_slim_ones_within_the_budget()
     {
-        Assert.Equal(45, Protocol.Version);
+        Assert.Equal(46, Protocol.Version);
         Assert.Equal(1194, Protocol.MaxSnapshotBytes);   // protocol 23: + the perk word (21: ready ticks in 2 bytes, 1198; 20: 1197)
         Assert.True(Protocol.MaxSnapshotBytes <= Protocol.SnapshotBudget);
         var me = new PlayerState(3, Vector3.One, Vector3.Zero, 0f, true) { Alive = true, ReadyTicks = 300, RaiseTicks = 6 };

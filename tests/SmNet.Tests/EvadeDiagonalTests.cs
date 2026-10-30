@@ -232,7 +232,7 @@ public class EvadeDiagonalTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_14_carries_all_eight_directions_in_slim_and_own_records_and_refuses_malformed_ones()
     {
-        Assert.Equal(45, Protocol.Version);
+        Assert.Equal(46, Protocol.Version);
         var players = Enumerable.Range(1, 16).Select(id => new PlayerState(id, new Vector3(id), Vector3.Zero, 0.5f, true)
         {
             Alive = true, Slot = id % 3 == 0 ? WeaponSlot.Pistol : WeaponSlot.Ranged, EvadeTicks = id * 4, EvadeDirection = (EvadeDirection)(id % 8), EvadeLock = 3,

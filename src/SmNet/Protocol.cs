@@ -41,6 +41,12 @@ public sealed record Hello(ushort ProtocolVersion, ulong ContentFingerprint, ulo
     /// <summary>Whether <see cref="Flags"/> marks a test bot.</summary>
     public bool Bot => (Flags & BotFlag) != 0;
 
+    /// <summary>Protocol 46 (ours; observer tooling, docs/changes-from-original.md): the client joins as a spectator (<c>client.cmd --observe</c>): the server gives it no player,
+    /// team, score or body, sends it the snapshots of everyone and lists it as a spectator. Self-declared and harmless: a spectator can neither act nor be acted on.</summary>
+    public const byte SpectatorFlag = 2;
+    /// <summary>Whether <see cref="Flags"/> marks a spectator (protocol 46).</summary>
+    public bool Spectator => (Flags & SpectatorFlag) != 0;
+
     /// <summary>The requested class and choices as a <see cref="LoadoutChoice"/> (255 bytes as -1, the default).</summary>
     public LoadoutChoice Loadout => new(Protocol.FromChoice(RequestedClass), Protocol.FromChoice(RequestedPrimary), Protocol.FromChoice(RequestedPistol),
         Protocol.FromChoice(RequestedMelee), Protocol.FromChoice(RequestedEquipment), Protocol.FromChoice(RequestedPerk1), Protocol.FromChoice(RequestedPerk2), Protocol.FromChoice(RequestedSecond));
@@ -242,12 +248,16 @@ public readonly record struct KillView(int Sequence, int Killer, int Victim, Kil
 /// </summary>
 public readonly record struct ScoreEntry(int PlayerId, Team Team, int Class, int Kills, int Deaths, ushort AppearanceVersion = 0, int Equipment = -1, string Name = "");
 
+/// <summary>A spectator listed in the scoreboard (protocol 46): its id and display name ("" none: shown as "Spectator &lt;id&gt;"); spectators have no team, class or score.</summary>
+public readonly record struct SpectatorEntry(int PlayerId, string Name = "");
+
 /// <summary>
 /// Server → client about once a second (protocol 10): the match rules (<paramref name="Teams"/> false: no team match; time
 /// limit in seconds, 0 none) and every player's score. Unreliable like snapshots; the next one replaces it.
 /// <paramref name="Seize"/> (protocol 11): Seize Ground's rules and point layout; null in Annihilation and free-for-all.
 /// </summary>
-public sealed record Scoreboard(uint ServerTick, bool Teams, int ScoreLimit, float TimeLimit, bool FriendlyFire, ScoreEntry[] Players, SeizeGroundInfo? Seize = null) : Message
+public sealed record Scoreboard(uint ServerTick, bool Teams, int ScoreLimit, float TimeLimit, bool FriendlyFire, ScoreEntry[] Players, SeizeGroundInfo? Seize = null,
+    SpectatorEntry[]? Spectators = null) : Message
 {
     public GameMode Mode => Seize is null ? GameMode.Annihilation : GameMode.SeizeGround;
 }
@@ -399,7 +409,12 @@ public static partial class Protocol
     //     second holstered weapons' reload times; at most 14 projectile records, so the worst case is 1194); W + F is always the charge (the spacing's press is lost,
     //     never a stun strike); directional melee (the stick's way of eight at the press sets the strike's facing: 3 bits in the own record's slot byte); the ledge charge's
     //     fall (client animation). Headshot values are the data's (unchanged)
-    public const ushort Version = 45;
+    // 46 (observer/spectator; the owner's request of 2026-10-30; ours: tooling for promotional footage): the Hello's flags byte has a spectator bit (2); the server gives such a
+    //     client an id and snapshots of everyone (slim records, no Self record) but no player; the Scoreboard has a flag (8) and a trailing list of the spectators (count,
+    //     then id and name; at most MaxSpectators). Snapshots unchanged (worst case 1200)
+    public const ushort Version = 46;
+    /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
+    public const int MaxSpectators = 4;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>
     public const int HelloBytes = 54 + 2 * AppearanceCode.Size;
     /// <summary>Bytes of a Setup message (protocol 28: + the Ork look).</summary>
@@ -724,7 +739,7 @@ public static partial class Protocol
                 // Scoreboard (protocol 10): tick, flags (1 teams, 2 friendly fire, 4 Seize Ground: protocol 11), score limit,
                 // time limit, [Seize Ground block], rows of 12 bytes (protocol 22: + the appearance version; protocol 40: 13, + the equipment item;
                 // protocol 41: + the display name, a length byte and 0..24 Latin-1 bytes).
-                w.U8((byte)Kind.Scoreboard); w.U32(b.ServerTick); w.U8((byte)((b.Teams ? 1 : 0) | (b.FriendlyFire ? 2 : 0) | (b.Seize is null ? 0 : 4)));
+                w.U8((byte)Kind.Scoreboard); w.U32(b.ServerTick); w.U8((byte)((b.Teams ? 1 : 0) | (b.FriendlyFire ? 2 : 0) | (b.Seize is null ? 0 : 4) | (b.Spectators is { Length: > 0 } ? 8 : 0)));
                 w.U16(Count(b.ScoreLimit)); w.F32(float.IsFinite(b.TimeLimit) ? Math.Max(0f, b.TimeLimit) : 0f);
                 if (b.Seize is { } seize)
                 {
@@ -753,6 +768,18 @@ public static partial class Protocol
                     w.U8(e.Equipment is >= 0 and < 255 ? (byte)e.Equipment : (byte)255);   // protocol 40: the equipment item (255: none)
                     var name = Encoding.Latin1.GetBytes(PlayerNames.Sanitise(e.Name));   // protocol 41: the display name (0..24 Latin-1 bytes)
                     w.U8((byte)name.Length); w.Bytes(name);
+                }
+                if (b.Spectators is { Length: > 0 } spectators)
+                {
+                    // Protocol 46: the spectators, after the rows: count, then id and display name each.
+                    int listed = Math.Min(spectators.Length, MaxSpectators);
+                    w.U8((byte)listed);
+                    for (int k = 0; k < listed; k++)
+                    {
+                        w.I32(spectators[k].PlayerId);
+                        var name = Encoding.Latin1.GetBytes(PlayerNames.Sanitise(spectators[k].Name));
+                        w.U8((byte)name.Length); w.Bytes(name);
+                    }
                 }
                 break;
             }
@@ -1177,7 +1204,7 @@ public static partial class Protocol
     {
         uint tick = r.U32();
         int flags = r.U8();
-        if (flags > 7) return null;   // unknown flags
+        if (flags > 15) return null;   // unknown flags (protocol 46: bit 3, spectators)
         int limit = r.U16(); float time = r.F32();
         SeizeGroundInfo? seize = null;
         if ((flags & 4) != 0)
@@ -1211,7 +1238,20 @@ public static partial class Protocol
             for (int j = 0; j < k; j++) if (rows[j].PlayerId == id) return null;   // one row per player
             rows[k] = new ScoreEntry(id, (Team)team, playerClass, kills, deaths, appearance, equipment == 255 ? -1 : equipment, name);
         }
-        return new Scoreboard(tick, (flags & 1) != 0, limit, time, (flags & 2) != 0, rows, seize);
+        SpectatorEntry[]? spectators = null;
+        if ((flags & 8) != 0)
+        {
+            int listed = r.U8();
+            if (listed is 0 or > MaxSpectators) return null;
+            spectators = new SpectatorEntry[listed];
+            for (int k = 0; k < listed; k++)
+            {
+                int id = r.I32(), nameLength = r.U8();
+                if (nameLength > PlayerNames.MaxLength) return null;
+                spectators[k] = new SpectatorEntry(id, PlayerNames.Sanitise(Encoding.Latin1.GetString(r.Bytes(nameLength))));
+            }
+        }
+        return new Scoreboard(tick, (flags & 1) != 0, limit, time, (flags & 2) != 0, rows, seize, spectators);
     }
 
     /// <summary>A position as a snapshot carries a projectile's: each axis rounded to 1/64 m and clamped to ±131 km (NaN: 0).</summary>

@@ -543,7 +543,7 @@ public class PlayerCollisionTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_43_carries_the_body_tick_as_a_lag_byte_and_drops_it_out_of_range()
     {
-        Assert.Equal(45, Protocol.Version);
+        Assert.Equal(46, Protocol.Version);
         Assert.Equal(40, Protocol.InputBytes);
         var inputs = new[]
         {
