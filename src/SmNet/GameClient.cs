@@ -91,7 +91,7 @@ public sealed record ClientOptions
     public bool MeleeLock { get; init; } = true;
     /// <summary>Protocol 37 (test aid): this client is a test bot (<c>--bot</c>); the Hello says so, and a server with <c>--bot-damage-scale</c> scales the damage it deals.</summary>
     public bool Bot { get; init; }
-    /// <summary>Protocol 47 (ours; observer tooling): join as a spectator (<c>client.cmd --observe</c>). The client has no player: it predicts and sends no input (only the
+    /// <summary>Protocol 46 (ours; observer tooling): join as a spectator (<c>client.cmd --observe</c>). The client has no player: it predicts and sends no input (only the
     /// acknowledgements that keep the connection alive) and receives everyone's snapshots; <see cref="GameClient.Predicted"/> stays empty.</summary>
     public bool Observer { get; init; }
 }
@@ -128,7 +128,13 @@ public sealed partial class GameClient
     bool _hasAuthoritativeState;
     TimeSpan _latestSnapshotAt;
 
-    /// <summary>Protocol 47: this client joined as a spectator (<see cref="ClientOptions.Observer"/>).</summary>
+    /// <summary>
+    /// Protocol 46 (observer): where the spectator's camera is, in game space (metres). Sent in every batch as its one input (<c>MoveX, MoveY, Yaw</c> = x, y, z; the server
+    /// clamps it to the map) so the server picks the projectiles and shots of the snapshots nearest the camera. Null: none sent.
+    /// </summary>
+    public System.Numerics.Vector3? ObserverCamera { get; set; }
+
+    /// <summary>Protocol 46: this client joined as a spectator (<see cref="ClientOptions.Observer"/>).</summary>
     public bool Observer => _options.Observer;
 
     public ClientStatus Status { get; private set; } = ClientStatus.Connecting;
@@ -284,9 +290,10 @@ public sealed partial class GameClient
         Tick++;
         if (_options.Observer)
         {
-            // Protocol 47: a spectator has no player to drive: an empty batch (the session and the newest snapshot acknowledged) keeps it connected and lets the server
+            // Protocol 46: a spectator has no player to drive: an empty batch (the session and the newest snapshot acknowledged) keeps it connected and lets the server
             // drop what it kept for it. One a tick, as a player's batches go.
-            _transport.Send(Protocol.Write(new InputBatch([], _session, _latestSnapshotTick)));
+            PlayerInput[] camera = ObserverCamera is { } at ? [new PlayerInput(Tick, at.X, at.Y, at.Z, InputButtons.None)] : [];
+            _transport.Send(Protocol.Write(new InputBatch(camera, _session, _latestSnapshotTick)));
             return;
         }
         // The view tick tells the server which past world this input was aimed at (lag compensation).
@@ -395,7 +402,7 @@ public sealed partial class GameClient
         float.IsFinite(p.Position.X) && float.IsFinite(p.Position.Y) && float.IsFinite(p.Position.Z) && p.Position.Length() < 1e5f
         && float.IsFinite(p.Velocity.X) && float.IsFinite(p.Velocity.Y) && float.IsFinite(p.Velocity.Z) && p.Velocity.Length() < 1e3f
         && float.IsFinite(p.Yaw) && float.IsFinite(p.Pitch) && float.IsFinite(p.Health) && float.IsFinite(p.Shield)
-        && float.IsFinite(p.Cooldown) && float.IsFinite(p.ReloadLeft) && float.IsFinite(p.SinceDamage) && float.IsFinite(p.RespawnLeft)
+        && float.IsFinite(p.Cooldown) && float.IsFinite(p.ReloadLeft) && float.IsFinite(p.OtherReloadLeft) && float.IsFinite(p.ThirdReloadLeft) && float.IsFinite(p.SinceDamage) && float.IsFinite(p.RespawnLeft)
         && p.MeleeTime is >= 0f and < 1e3f && p.SwitchLeft is >= 0f and < 1e3f
         && p.Class >= 0 && p.Class < _config.Classes.Count
         && p.Primary >= -1 && p.Primary < _config.Weapons.Count && p.Pistol >= -1 && p.Pistol < _config.Weapons.Count

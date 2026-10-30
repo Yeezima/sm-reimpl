@@ -294,7 +294,7 @@ public sealed partial class GameServer
         bool playing = World.Rules is null || World.State == MatchState.Playing;
         foreach (var (connection, peer) in _peers.ToList())
         {
-            if (peer.Spectator) continue;   // protocol 47: a spectator has nothing to press
+            if (peer.Spectator) continue;   // protocol 46: a spectator has nothing to press
             if (!_guarded.TryGetValue(connection, out var g) || g.Address is not { } address || Exempt(address)) continue;
             if (!playing) { g.LastActive = now; continue; }
             if (now - g.LastActive < _options.IdleKick) continue;

@@ -226,6 +226,8 @@ public partial class NetworkView
     {
         if (_camera is null || _client is null || _config is null) return;
         UpdateFlash(delta);
+        CharacterFlashFrame();   // fx/character-visuals: armour flashes on the models
+        LensGlowFrame();   // fx/character-visuals: the eye glow in the lens colour (NetworkView.LensGlow.cs)
         RequestPoundRings();   // M41
         if (!FxReady() || !FxActive) { _fxPrev = me; _fxPrevSeen = true; return; }
         try
@@ -240,6 +242,7 @@ public partial class NetworkView
             FxJumpPacks(me);   // M44 (NetworkView.JumpFx.cs)
             FxDeaths();   // F-D1: the death effects that are due (NetworkView.DeathFx.cs)
             _fx!.Update(delta / Math.Max(1f, FxSlow), _camera);
+            UpdateMeltaCones();   // wfx (NetworkView.WeaponFx.cs)
             UpdateBulletLines();   // feel/bullets: the fallback streaks and the debug rays (NetworkView.Bullets.cs)
             FxApplyShake(delta);
             FxLog();
@@ -500,6 +503,7 @@ public partial class NetworkView
         bool up = armourUp ?? true;
         var plays = _catalogue.Resolve(se.HitMaterial, hit, surface, up);
         if (hit != ShotHit.World) FxArmourHit(up, end, dir, victim, delay);
+        if (hit != ShotHit.World) CharacterFlashHit(victim, armourUp);   // fx/character-visuals: the victim's model flashes (NetworkView.CharacterFlash.cs)
         if (plays.Count == 0) return;
         _fxImpacts++;
         if (hit != ShotHit.World) { _fxBodyImpacts++; if (up) _fxArmourImpacts++; else _fxFleshImpacts++; }

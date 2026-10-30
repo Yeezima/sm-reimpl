@@ -315,7 +315,7 @@ public partial class NetworkView : Node3D
                 SmoothRenderClock = !OldRenderClock,
                 MeleeLock = !NoMeleeLock,   // feel/melee-lock (NetworkView.MeleeLock.cs)
                 Bot = _bot,   // protocol 37: the Hello marks a test bot (the server's --bot-damage-scale)
-                Observer = Observe,   // protocol 47: a spectator (NetworkView.Observer.cs)
+                Observer = Observe,   // protocol 46: a spectator (NetworkView.Observer.cs)
             };
             // The front end's perks, looks and emblems (customizer, T8); a replayed demo keeps its recorded Hello.
             if (_demoPlayback is null) clientOptions = SmClient.FrontEnd.FrontEndLaunch.WithProfile(clientOptions);
@@ -369,7 +369,7 @@ public partial class NetworkView : Node3D
             if (_overlay is not null) _overlay.Visible = _showInfo;
             return;
         }
-        if (Observe) { ObserverInput(e); return; }   // protocol 47: a spectator's keys and mouse (NetworkView.Observer.cs)
+        if (Observe) { ObserverInput(e); return; }   // protocol 46: a spectator's keys and mouse (NetworkView.Observer.cs)
         if (_bot) return;
         PickupKey(e);   // fidelity gap 1: latch an E tap between input samples
         if (LoadoutInput(e)) return;   // customizer T7: C on the death screen; while the picker is open nothing else sees the mouse and keys
@@ -466,7 +466,7 @@ public partial class NetworkView : Node3D
         _connectedFor += delta;
         MemoryReportFrame();   // perf/lean-bots: one memory line (bots at 30 s; --mem-report [s]) (NetworkView.Lean.cs)
 
-        if (Observe) { ObserverFrame(delta); return; }   // protocol 47: a spectator draws the world without a player of its own (NetworkView.Observer.cs)
+        if (Observe) { ObserverFrame(delta); return; }   // protocol 46: a spectator draws the world without a player of its own (NetworkView.Observer.cs)
         var me = _client.Predicted;
         Ph("own state");
         LooksBeginFrame(me);   // customizer T7: arrivals, the acknowledged setup, the own look at the respawn
@@ -646,7 +646,7 @@ public partial class NetworkView : Node3D
         // Other players' health, shield and ammunition are not sent (slim records); only what is drawn is logged for them.
         if (_bot) { if (!me.Alive) _navAgent?.Reset(); LogNav(me); }
         if (_bot && (int)(_connectedFor / 2.0) != (int)((_connectedFor - delta) / 2.0))
-            GD.Print($"t {_connectedFor:F0} s: id {_client.PlayerId} class '{ClassLabel(me.Class)}' at {me.Position.X:F1},{me.Position.Y:F1} yaw {me.Yaw:F2} pitch {me.Pitch:F2} speed {new Vector2(me.Velocity.X, me.Velocity.Y).Length():F1} {_local.Playing} " +
+            GD.Print($"t {_connectedFor:F0} s: id {_client.PlayerId} class '{ClassLabel(me.Class)}' at {me.Position.X:F1},{me.Position.Y:F1},{me.Position.Z:F1} yaw {me.Yaw:F2} pitch {me.Pitch:F2} speed {new Vector2(me.Velocity.X, me.Velocity.Y).Length():F1} {_local.Playing} " +
                      $"{(me.Alive ? "alive" : "dead")} hp {me.Health:F0} sh {me.Shield:F0} {AmmoText(me)}{HeatText(me)}{ChargeText(me)} bot [{_botNote}] melee {me.MeleeStep} ({MeleeLabel(me)}) swings {_meleeSwings} switches {_switches} overheats {_overheats} releases {_releases}; " +
                      $"charged releases {_chargedReleases} own shots basic {_ownBasicShots} charged {_ownChargedShots} detonate requests {_detonateRequests}; projectiles drawn {_projectileNodes.Count} seen {_projectilesSeen} (charged {_chargedProjectilesSeen}) detonations seen {_detonationsSeen} (charged {_chargedDetonationsSeen}) remote charge starts {_remoteChargeStarts}; " +
                      $"{ThrowText(me)} throws started {_throwsStarted} released {_throwsReleased} remote throws seen {_remoteThrowsSeen} thrown seen {_thrownSeen} thrown detonations seen {_thrownDetonationsSeen} melta shots {_meltaShots}; " +
@@ -1043,7 +1043,7 @@ public partial class NetworkView : Node3D
             bool trail = FxProjectile(q, ToGodot(q.Position));
             Ph("projectiles and blasts");
             string label = q.Thrown ? "grenade" : q.Weapon >= 0 && q.Weapon < _config.Weapons.Count ? _config.Weapons[q.Weapon].Name : "";
-            node.Visible = !(trail && !(q.Thrown || (label.Contains("grenade", StringComparison.OrdinalIgnoreCase) && !label.Contains("plasma", StringComparison.OrdinalIgnoreCase))));
+            node.Visible = !(trail && !(q.Thrown || (label.Contains("grenade", StringComparison.OrdinalIgnoreCase) && !label.Contains("plasma", StringComparison.OrdinalIgnoreCase)))) || (trail && IsPlasmaShot(q.Weapon, q.Thrown) && !OldPlasmaBall);   // wfx: a plasma shot's solid ball shows with the data's trail around it
         }
         _goneProjectiles.Clear();
         foreach (var id in _projectileNodes.Keys) if (!live.Contains(id)) _goneProjectiles.Add(id);
@@ -1222,8 +1222,10 @@ public partial class NetworkView : Node3D
             material = new StandardMaterial3D { AlbedoColor = new Color(0.12f, 0.13f, 0.12f), Metallic = 0.4f, Roughness = 0.5f,
                                                 EmissionEnabled = true, Emission = new Color(0.9f, 0.3f, 0.1f), EmissionEnergyMultiplier = 0.12f };
         }
+        else if (IsPlasmaShot(weaponIndex, false) && !OldPlasmaBall) material = PlasmaBallMaterial(ProjectileColour(weapon, stage), radius);   // wfx (owner's item 25): a solid-ish roiling ball
         else material = GlowMaterial(ProjectileColour(weapon, stage), stage > 0 ? 4f : 2.5f);
-        look = (new SphereMesh { Radius = radius, Height = 2f * radius, RadialSegments = 12, Rings = 6 }, material);
+        bool plasmaBall = IsPlasmaShot(weaponIndex, false) && !OldPlasmaBall;
+        look = (new SphereMesh { Radius = radius, Height = 2f * radius, RadialSegments = plasmaBall ? 32 : 12, Rings = plasmaBall ? 16 : 6 }, material);
         _projectileLooks[key] = look;
         return look;
     }
@@ -1447,7 +1449,7 @@ public partial class NetworkView : Node3D
         bool rebashHeld = RushRebashHeld(state);
         character.ClipFootLock = ClipFootLockFor(state, melee: false);
         character.ClipRootSpeed = float.NaN;
-        if (!ChargeHeldInAir(state) && !rebashHeld && RushPose(state) is { } rush)
+        if (!(ChargeHeldInAir(state) && fallTrack.ChargeFall) && !rebashHeld && RushPose(state) is { } rush)   // sim/combat-pass: the held charge keeps its clip until FallRules.ChargeFallDelay
         {
             var (rushClip, rushTime) = HammerRush(state, rush.Clip, smooth is { Kind: ClipKind.Rush } sh ? sh.Time : rush.Time);   // anim/melee-flow: the hammer's own sprint attack
             if (character.Pose(rushClip, rushTime, ClipBlends.RushFor(rush.Clip))) return;
@@ -1874,6 +1876,10 @@ public partial class NetworkView : Node3D
         f.InGame = true; f.Alive = me.Alive; f.Spectating = Spectate is not null; f.RespawnLeft = me.RespawnLeft;
         var body = Loadouts.Body(c, me);   // M43: the perks' maxima (Iron Halo: shield 150)
         f.Health = me.Health; f.HealthMax = body.HealthMax; f.Shield = me.Shield; f.ShieldMax = body.ShieldMax;
+        if (Loadouts.InHand(c, me) is { Recharge: { } recharge } melee0 && me.Alive)   // ui/hud-3: the melta's bar is the progress to its next shot (shot delay, then the recharged round)
+            f.WeaponBarFull = me.Cooldown > 1e-4f && melee0.ShotCooldown > 0f ? Math.Clamp(1f - me.Cooldown / melee0.ShotCooldown, 0f, 1f)
+                : me.ReloadLeft > 0f ? Math.Clamp(1f - me.ReloadLeft / MathF.Max(recharge.RoundTime, 1e-3f), 0f, 1f) : 1f;
+        f.IronHalo = Loadouts.HasPerk(c, me, "mp_perk_iron_halo");   // ui/hud-3: the armour bar's medallion
         var inHand = Loadouts.InHand(c, me);
         f.SlotKey = (int)me.Slot;
         if (inHand is not null)
@@ -1933,7 +1939,6 @@ public partial class NetworkView : Node3D
         };
         f.Seize = SeizeGround;
         if (f.Seize) FillPoints(f, me);
-        FillDecorators(f, me);   // fidelity gap 10 (NetworkView.Match.cs)
 
         // Crosshair: red over a living enemy, its name under the bar, the aimed enemy's health bar.
         Ph("hud: crosshair ray");
@@ -1950,6 +1955,7 @@ public partial class NetworkView : Node3D
                     f.AimedBar = true; f.AimedHealth = bar.Health / 255f; f.AimedShield = bar.Shield / 255f; f.AimedHealthMax = 1f; f.AimedShieldMax = 1f;
                 }
             }
+            FillDecorators(f, me, centre.Hit);   // ui/hud-3: the name over the aimed player only (NetworkView.Match.cs)
             f.SpreadRadius = SpreadPixels(me, c);   // weapons/spread: the crosshair ticks open with the scatter (NetworkView.Spread.cs)
             // ui/hud-fidelity: the original reticle's spread frame, aim mode and the brace (Hud.Movie.cs).
             f.SpreadFraction = ReticleRules.SpreadFraction(inHand, me, c.MoveSpeedScale);
@@ -1975,11 +1981,18 @@ public partial class NetworkView : Node3D
         bool Crossed(double at) => last >= 0 && last < at && t >= at;
         if (last < 0 || last > t) _hudView.ShowSwitchPopup();   // first call, or the 8 s cycle wrapped
         if (t >= 2.0 && t < 6.0) { f.AimedAtEnemy = true; f.AimedName = "[CSM] P1"; f.AimedBar = true; f.AimedHealth = 0.6f; f.AimedShield = 0.3f; f.AimedHealthMax = 1f; f.AimedShieldMax = 1f; }
+        // ui/hud-3: the aimed player's name for screenshots: an enemy from 2 s, a friend from 4 s (the real one needs a hit shape under the crosshair).
+        if (t >= 2.0 && t < 6.0 && _camera is not null)
+        {
+            bool ally = t >= 4.0;
+            f.Decorators.Add(new Hud.Decorator { Name = ally ? "Brother P2" : "[CSM] P1", Rel = ally ? Hud.Rel.Own : Hud.Rel.Enemy, Team = ally ? Team.SpaceMarines : Team.Chaos, Screen = new Vector2(800f, 330f) * (_hudView.Size.Y / 1080f), Distance = 25f });
+        }
         // M44: fill the meters for screenshots (heat ramps up, a charge repeats every 2 s, the jump pack swings, the armour drops to 70 % from 4 s).
         if (f.HasHeat) f.Heat = f.HeatMax * (float)Math.Clamp(t / 6.0, 0.0, 1.0);
         else if (f.HasCharge) { f.Charge = (float)(t % 2.0 / 2.0); f.ChargeReady = f.Charge > 0.75f; }
         if (f.HasJump) f.JumpPower = f.JumpMax * (float)(0.3 + 0.7 * Math.Abs(Math.Sin(t)));
         if (t >= 4.0) f.Shield = MathF.Min(f.Shield, 0.7f * f.ShieldMax);
+        if (t >= 6.0) f.Health = MathF.Min(f.Health, 0.6f * f.HealthMax);   // ui/hud-3: a second hit for the damage vignette (health colour)
         if (t >= 5.0) f.Prompt = "Pick up Ammo";   // ui/hud-fidelity: the prompt for screenshots
         if (Crossed(2.5)) _hudView.ShowHitMarker(false);
         if (Crossed(4.5))

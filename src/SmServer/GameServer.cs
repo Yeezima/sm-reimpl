@@ -17,7 +17,7 @@ public sealed partial record ServerOptions
     public float BotDamageScale { get; init; } = 1f;
     public int MaxPlayers { get; init; } = Protocol.MaxPlayers;
     /// <summary>
-    /// Protocol 47 (ours; observer tooling): spectators admitted besides the <see cref="MaxPlayers"/> players (0 admits none; <c>--max-spectators</c>), at most
+    /// Protocol 46 (ours; observer tooling): spectators admitted besides the <see cref="MaxPlayers"/> players (0 admits none; <c>--max-spectators</c>), at most
     /// <see cref="Protocol.MaxSpectators"/> so the Scoreboard lists all of them. They never count toward <see cref="MaxPlayers"/>, teams, scores or balance.
     /// </summary>
     public int MaxSpectators { get; init; } = Protocol.MaxSpectators;
@@ -100,9 +100,9 @@ public sealed partial class GameServer
     int _nextPlayerId = 1;
 
     public World World { get; }
-    /// <summary>The ids of the connected players (not the spectators, protocol 47).</summary>
+    /// <summary>The ids of the connected players (not the spectators, protocol 46).</summary>
     public IReadOnlyCollection<int> Players => _peers.Values.Where(p => !p.Spectator).Select(p => p.PlayerId).ToList();
-    /// <summary>The ids of the connected spectators (protocol 47).</summary>
+    /// <summary>The ids of the connected spectators (protocol 46).</summary>
     public IReadOnlyCollection<int> Spectators => _peers.Values.Where(p => p.Spectator).Select(p => p.PlayerId).ToList();
     public int Rejected { get; private set; }
     public int TimedOut { get; private set; }
@@ -138,8 +138,10 @@ public sealed partial class GameServer
         public AppearanceState Appearance { get; } = new();
         /// <summary>The Hello marked a test bot (protocol 37).</summary>
         public bool Bot;
-        /// <summary>Protocol 47: the Hello marked a spectator: no player in the world, no input, no score; it only receives.</summary>
+        /// <summary>Protocol 46: the Hello marked a spectator: no player in the world, no input, no score; it only receives.</summary>
         public bool Spectator;
+        /// <summary>Protocol 46: a spectator's camera (game metres, clamped to the map), from its batches; null until one arrives.</summary>
+        public Vector3? Camera;
         /// <summary>Display name (protocol 41, sanitised; "" none: "P&lt;id&gt;"); <see cref="NameRace"/> the race whose pool gave it (None: not a pool name).</summary>
         public string Name = "";
         public Race NameRace;
@@ -283,8 +285,25 @@ public sealed partial class GameServer
         PlayerJoined?.Invoke(spawned);
     }
 
+    /// <summary>A spectator's claimed camera kept inside the map's bounds (plus a margin to fly past the walls); a non-finite one reads as the map's middle (the origin without a map).</summary>
+    internal Vector3 ClampCamera(Vector3 at)
+    {
+        Vector3 lo = new(-2000f), hi = new(2000f);
+        if (Map is { } map)
+        {
+            const float margin = 30f;
+            lo = Vector3.Min(map.Collision.Weapons.Min, map.Collision.Character.Min) - new Vector3(margin);
+            hi = Vector3.Max(map.Collision.Weapons.Max, map.Collision.Character.Max) + new Vector3(margin);
+        }
+        if (!float.IsFinite(at.X) || !float.IsFinite(at.Y) || !float.IsFinite(at.Z)) return (lo + hi) / 2f;
+        return Vector3.Clamp(at, lo, hi);
+    }
+
+    /// <summary>Test seam: a spectator's clamped camera.</summary>
+    internal Vector3? CameraOfForTests(int id) => _peers.Values.FirstOrDefault(p => p.PlayerId == id)?.Camera;
+
     /// <summary>
-    /// Protocol 47 (ours; observer tooling): a spectator joins. It has an id and a session like a player but no world player: nothing is spawned, so it has no team, score, body
+    /// Protocol 46 (ours; observer tooling): a spectator joins. It has an id and a session like a player but no world player: nothing is spawned, so it has no team, score, body
     /// or hit shape and nothing can target it; it is listed in the Scoreboard as a spectator and sent every snapshot (everyone, slim). It is not asked to be active (<see cref="KickIdle"/>).
     /// </summary>
     void JoinSpectator(int connection, Peer peer, Hello h)
@@ -414,7 +433,12 @@ public sealed partial class GameServer
             if (peer.SentKills.TryGetValue(peer.AckedSnapshot, out int newest)) peer.AckedKill = Math.Max(peer.AckedKill, newest);
             foreach (var old in peer.SentKills.Keys.Where(k => k <= peer.AckedSnapshot).ToList()) peer.SentKills.Remove(old);
         }
-        if (peer.Spectator) return;   // protocol 47: nothing a spectator sends acts on the world (and nothing piles up for it)
+        if (peer.Spectator)
+        {
+            // Protocol 46: nothing a spectator sends acts on the world (and nothing piles up for it); its newest input carries its camera (MoveX, MoveY, Yaw = x, y, z).
+            if (batch.Inputs.Length > 0 && batch.Inputs.MaxBy(i => i.Tick) is var cam) peer.Camera = ClampCamera(new Vector3(cam.MoveX, cam.MoveY, cam.Yaw));
+            return;
+        }
         foreach (var input in batch.Inputs)
         {
             // Only future ticks matter; anything older was already simulated (with the repeated input).
@@ -431,7 +455,7 @@ public sealed partial class GameServer
     void StepWorld()
     {
         uint tick = World.Tick + 1;
-        var byPlayer = _peers.Values.Where(p => !p.Spectator).ToDictionary(p => p.PlayerId);   // protocol 47: a spectator is not in the world
+        var byPlayer = _peers.Values.Where(p => !p.Spectator).ToDictionary(p => p.PlayerId);   // protocol 46: a spectator is not in the world
         World.Step(id =>
         {
             var peer = byPlayer[id];
@@ -603,7 +627,7 @@ public sealed partial class GameServer
         SnapshotHookForTests?.Invoke(peer.PlayerId);
         // Per recipient: its own player in full, everyone else slim (no enemy health, ammunition or reload windows).
         int lead = peer.NewestReceived == 0 ? Protocol.NoLead : (int)((long)peer.NewestReceived - World.Tick);
-        var viewer = World.Players.TryGetValue(peer.PlayerId, out var self) ? self.Position : Vector3.Zero;
+        var viewer = World.Players.TryGetValue(peer.PlayerId, out var self) ? self.Position : peer.Camera ?? Vector3.Zero;   // protocol 46: a spectator's is its camera
         var kills = KillsFor(World, peer.AckedKill);
         if (kills.Length > 0) peer.SentKills[World.Tick] = kills[^1].Sequence;
         while (peer.SentKills.Count > 256) peer.SentKills.Remove(peer.SentKills.Keys.Min());
@@ -646,7 +670,7 @@ public sealed partial class GameServer
                 Loadouts.EquipmentIndex(World.Config, p),   // protocol 40 (perks/inert-2)
                 peer?.Name ?? "");                         // protocol 41 (names/bot-lore)
         }).ToArray(), SeizeOf(World),
-        Spectators: _peers.Values.Where(p => p.Spectator).OrderBy(p => p.PlayerId).Take(Protocol.MaxSpectators).Select(p => new SpectatorEntry(p.PlayerId, p.Name)).ToArray() is { Length: > 0 } listed ? listed : null);   // protocol 47
+        Spectators: _peers.Values.Where(p => p.Spectator).OrderBy(p => p.PlayerId).Take(Protocol.MaxSpectators).Select(p => new SpectatorEntry(p.PlayerId, p.Name)).ToArray() is { Length: > 0 } listed ? listed : null);   // protocol 46
 
     void SendScoreboards()
     {

@@ -212,7 +212,7 @@ public partial class ModelViewer : Node3D
                     string hand = args.GetValueOrDefault("hand") ?? "primary";
                     rig.Update(hand == "pistol" ? SmSim.WeaponSlot.Pistol : SmSim.WeaponSlot.Ranged, hand == "melee", true, 0f, 0.6f);
                     character.Weapons = rig;
-                    if (worn.Length > 0) character.SetPieceHidden("_backpack", args.GetValueOrDefault("keep-backpack") is null && rig.WornCount > 0);
+                    if (worn.Length > 0) character.SetBackpackHidden(args.GetValueOrDefault("keep-backpack") is null && rig.WornCount > 0);
                     notes.AddRange(weaponNotes);
                     GD.Print("weapons: " + string.Join(", ", rig.Description) + $"; {rig.WornCount} worn nodes; {weaponAssets.ModelsLoaded} models in {weaponAssets.LoadMilliseconds:F0} ms");
                 }
@@ -366,7 +366,7 @@ public partial class ModelViewer : Node3D
                                           Name = "Network", RequestedSide = side ?? SmSim.Team.None,
                                           ShowScoreboard = args.ContainsKey("show-scoreboard"), WaitMatchEnd = args.ContainsKey("wait-match-end"),
                                           Spectate = args.GetValueOrDefault("spectate") ?? (args.ContainsKey("spectate") ? "action" : args.ContainsKey("observe") ? "observe" : null),
-                                          Observe = args.ContainsKey("observe"), ObservePose = args.GetValueOrDefault("observe-pose"), ObserveFollow = args.ContainsKey("observe-follow"),   // protocol 47: a spectator (NetworkView.Observer.cs)
+                                          Observe = args.ContainsKey("observe"), ObservePose = args.GetValueOrDefault("observe-pose"), ObserveFollow = args.ContainsKey("observe-follow"),   // protocol 46: a spectator (NetworkView.Observer.cs)
                                           ShowInfo = args.ContainsKey("show-info"), HudDemo = args.ContainsKey("hud-demo"), AimTest = args.ContainsKey("aim-test"), BotSlot = args.GetValueOrDefault("bot-slot"), BotStand = args.ContainsKey("bot-stand"), BotIdle = args.ContainsKey("bot-idle"), BotFireWalls = args.ContainsKey("bot-fire-walls"), RagdollDebug = args.ContainsKey("ragdoll-debug"), RagdollRest = args.GetValueOrDefault("ragdoll-rest") is { } rr && float.TryParse(rr, System.Globalization.CultureInfo.InvariantCulture, out var restSeconds) ? restSeconds : null, PlaceholderFx = args.ContainsKey("placeholder-fx"), FxSlow = args.GetValueOrDefault("fx-slow") is { } fs && float.TryParse(fs, System.Globalization.CultureInfo.InvariantCulture, out var slow) ? slow : 1f, NoFx = args.ContainsKey("no-fx") || lean, NoHud = args.ContainsKey("no-hud"), NoWeapons = args.ContainsKey("no-weapons"), NoOverlay = args.ContainsKey("no-overlay") || args.ContainsKey("no-markers"), NoMarkers = args.ContainsKey("no-markers"), ShowMarkers = args.ContainsKey("show-markers"), BotGoal = args.GetValueOrDefault("bot-goal"), BotRoute = args.GetValueOrDefault("bot-route"), FrameStatsLog = args.ContainsKey("frame-stats"), NoSound = args.ContainsKey("no-sound"), MapSounds = args.ContainsKey("map-sounds"), HitArmour = args.GetValueOrDefault("hit-armour"), DamageDemo = args.ContainsKey("damage-demo") ? args.GetValueOrDefault("damage-demo") ?? "cycle" : null, SoundGainDb = args.GetValueOrDefault("sound-gain") is { } soundGainText && float.TryParse(soundGainText, System.Globalization.CultureInfo.InvariantCulture, out var soundGain) && float.IsFinite(soundGain) ? soundGain : 0f, NoHipFire = args.ContainsKey("no-hip-fire"), NoLocomotion = args.ContainsKey("no-locomotion"), YawProbe = args.ContainsKey("yaw-probe"), NoViewSmoothing = args.ContainsKey("no-view-smoothing"), PanRate = args.GetValueOrDefault("pan-rate") is { } pr && float.TryParse(pr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var panRate) ? panRate : 0f, BotGait = args.ContainsKey("bot-gait"), HipProbe = args.ContainsKey("hip-probe"), PerWeaponSprint = args.ContainsKey("per-weapon-sprint"),
                                       };
             if (side is null) GD.PrintErr($"--side '{args.GetValueOrDefault("side")}' is not marines or chaos; the class's side is used");
@@ -401,7 +401,7 @@ public partial class ModelViewer : Node3D
     {
         var args = new Dictionary<string, string?>(_launchArgs, StringComparer.OrdinalIgnoreCase) { ["connect"] = request.Host };
         foreach (var (key, value) in request.Plan.ToArgs()) args[key] = value;
-        if (request.Spectate) args["observe"] = "";   // protocol 47: the Join screen's SPECTATE button (not remembered: the next Join is a player's again)
+        if (request.Spectate) args["observe"] = "";   // protocol 46: the Join screen's SPECTATE button (not remembered: the next Join is a player's again)
         FrontEndLaunch.Current = request;
         _lastContent = request.Content ?? request.Services.Content;
         _frontEnd?.Release();

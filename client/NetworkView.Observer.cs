@@ -9,7 +9,7 @@ using SmSim;
 namespace SmClient;
 
 /// <summary>
-/// Observer mode (protocol 47; ours, docs/changes-from-original.md "Observer": the owner's tool for promotional footage, not an original feature):
+/// Observer mode (protocol 46; ours, docs/changes-from-original.md "Observer": the owner's tool for promotional footage, not an original feature):
 /// <c>client.cmd --connect host:port --observe</c> (or the Join screen's SPECTATE button) joins as a spectator. The server gives it no player, so
 /// there is nothing to predict, aim or be hit: this view draws the world as the server sends it (everyone, both sides, no team visibility) from a
 /// free-fly camera or from over a chosen player's shoulder. It is a separate per-frame path (<see cref="ObserverFrame"/>) beside the player's
@@ -17,14 +17,14 @@ namespace SmClient;
 /// <para>
 /// Keys: WASD fly (along the view), Space/E up, Ctrl/Q down, Shift fast (x4), Alt slow (x0.2), the wheel changes the speed (follows the distance
 /// while following), [ and ] change the field of view (Backspace resets it), G switches cinematic smoothing, F follows the next living player
-/// (Shift+F the previous; after the last one back to free-fly; left and right click do the same while following), H hides the whole HUD (2D elements,
+/// (Shift+F the previous; after the last one back to free-fly; left and right click do the same while following), H hides the whole HUD (2D elements, the objective and zone markers,
 /// the scoreboard, name tags and the placeholder rings) for clean footage, Tab the scoreboard, F10 back to the menu, Esc frees the mouse.
 /// <c>--observe-pose x,y,z,yaw,pitch</c> starts the free camera at a game-space place (metres, degrees) instead of the overview.
 /// </para>
 /// </summary>
 public partial class NetworkView
 {
-    /// <summary><c>--observe</c> (protocol 47): this client is a spectator (see the class comment).</summary>
+    /// <summary><c>--observe</c> (protocol 46): this client is a spectator (see the class comment).</summary>
     public bool Observe { get; init; }
     /// <summary><c>--observe-pose x,y,z,yaw,pitch</c> (capture aid): the free camera's first place in game space (metres, Z up; yaw and pitch in degrees, yaw 0 faces +Y), instead of the overview.</summary>
     public string? ObservePose { get; init; }
@@ -245,6 +245,8 @@ public partial class NetworkView
             ObserverFlyCamera(delta);
         }
         _cameraPlaced = true;
+        var at = _camera.GlobalPosition;   // Godot to game space; the server picks the nearest projectiles and shots for it (protocol 46)
+        if (_client is not null) _client.ObserverCamera = new System.Numerics.Vector3(at.X, -at.Z, at.Y);
     }
 
     /// <summary>The first place: <c>--observe-pose</c>, else a view from above and behind the middle of the living players (or over the map's origin when there are none).</summary>

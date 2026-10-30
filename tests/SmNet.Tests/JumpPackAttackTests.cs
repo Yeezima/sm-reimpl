@@ -784,8 +784,8 @@ public class JumpPackAttackTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_30_carries_the_dash_attacks_phases_and_the_slash_and_a_full_snapshot_stays_within_1200_bytes()
     {
-        Assert.Equal(47, Protocol.Version);
-        Assert.Equal(1200, Protocol.MaxSnapshotBytes);
+        Assert.Equal(46, Protocol.Version);
+        Assert.Equal(1194, Protocol.MaxSnapshotBytes);
         foreach (var phase in new[] { RushPhase.DashAttack, RushPhase.DashHit, RushPhase.DashStop, RushPhase.DashCollision })
         {
             var p = new PlayerState(4, Vector3.One, Vector3.Zero, 1f, false) { Alive = true, Rush = phase, RushTicks = 25, RushLock = 7 };

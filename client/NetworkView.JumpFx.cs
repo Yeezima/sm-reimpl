@@ -47,6 +47,10 @@ public partial class NetworkView
 
     /// <summary>Looping effects fade over this long when their phase ends (s; ours: the data's "stop_emitting" lets the particles finish).</summary>
     const double JumpFxFade = 0.35;
+    /// <summary>wfx (ours, owner's item 26): the thrust's fade at the peak of the jump, seconds (short, so that it reads as stopping there).</summary>
+    const double PeakFadeSeconds = 0.08;
+    bool? _oldPackFall;
+    bool OldPackFall => _oldPackFall ??= OS.GetCmdlineUserArgs().Contains("--old-pack-fall");
 
     /// <summary>
     /// fx/impact-pass (the owner, 2026-10-29: "shorten the trail by a lot, reference the video"; **ours**, tuned by eye against the reference flights): the pack effects' trails
@@ -129,7 +133,7 @@ public partial class NetworkView
         var mode = pounding ? PackMode.Dive : flying ? (s.Velocity.Z > 0f && !(own && s.JumpCut) ? PackMode.Rise : PackMode.Fall) : PackMode.Ground;
         if (mode != t.Mode)
         {
-            Fade(t.Looping, JumpFxFade);
+            Fade(t.Looping, t.Mode == PackMode.Rise && mode == PackMode.Fall && !OldPackFall ? PeakFadeSeconds : JumpFxFade);   // wfx: the thrust is gone almost at once at the peak
             if (mode != PackMode.Ground) Fade(t.Idle, 0.15);
             t.IdleLevel = float.NaN;
             switch (mode)
@@ -141,7 +145,8 @@ public partial class NetworkView
                     break;
                 case PackMode.Fall:
                     if (t.Mode == PackMode.Rise) { PlayOnPack(s.PlayerId, effects.Apex, repeat: false, "apex"); _apexFx++; }
-                    t.Looping.AddRange(PlayOnPack(s.PlayerId, effects.Descending, repeat: true, "fall"));
+                    // wfx (owner, 2026-10-30, playtest item 26): the thrust and fire stop at the peak; the data's looping fall effect (jumppack_innate_no_power_combo) is not played (ours; --old-pack-fall restores it).
+                    if (OldPackFall) t.Looping.AddRange(PlayOnPack(s.PlayerId, effects.Descending, repeat: true, "fall"));
                     break;
                 case PackMode.Dive:
                     t.Looping.AddRange(PlayOnPack(s.PlayerId, effects.Dive, repeat: true, "dive", exhaust: true));
@@ -208,6 +213,13 @@ public partial class NetworkView
     /// </summary>
     void PoundIndicator(PlayerState me)
     {
+        if (PoundMarkerDemo && _camera is not null)   // ui/hud-3 screenshot aid: the marker stands on the ground 6.5 m ahead of the own player
+        {
+            var ahead = -_camera.GlobalBasis.Z; ahead.Y = 0f;
+            _poundMarker ??= new PoundMarker(); if (_poundMarker.GetParent() is null) AddChild(_poundMarker);
+            _poundMarker.Show(ToGodot(me.Position) + ahead.Normalized() * 6.5f + Vector3.Up * 0.08f, ahead, _connectedFor);
+            return;
+        }
         var pack = me.Alive ? Loadouts.JumpPack(_config!, me) : null;
         var plays = pack is null ? null : _catalogue!.JumpPack(pack.Name)?.SmashTarget;
         Num.Vector3? at = null;
@@ -225,17 +237,13 @@ public partial class NetworkView
             at = _poundAim;
         }
         else _poundAimValid = false;
-        if (at is not { } point) { Fade(_reticule, 0.15); return; }
-        var position = ToGodot(point) + Vector3.Up * 0.05f;
-        if (_reticule.Count == 0)
-        {
-            foreach (var p in plays!)
-                if (_fx!.Play(p.Name, position, Basis.Identity, p.Scale <= 0f ? 1f : p.Scale, null, null, 0f, 0.0, repeat: true, priority: 2) is { } e) _reticule.Add(e);
-            _reticuleShown++;
-            if (!_reticuleLogged && _bot) { _reticuleLogged = true; GD.Print($"t {_connectedFor:F1} s: pound target marker {string.Join(", ", plays.Select(p => $"{p.Name} x{p.Scale}"))} at {point.X:F1},{point.Y:F1},{point.Z:F1}"); }
-        }
-        foreach (var e in _reticule) { e.Origin = position; e.Axes = Basis.Identity; }
+        if (at is not { } point || _camera is null) { _poundMarker?.Hide2(); return; }
+        // ui/hud-3: the owner's marker, four inward chevrons (PoundMarker.cs); the data's land-reticule effect is no longer played.
+        if (_poundMarker is null) { _poundMarker = new PoundMarker(); AddChild(_poundMarker); _reticuleShown++; }
+        _poundMarker.Show(ToGodot(point) + Vector3.Up * 0.08f, -_camera.GlobalBasis.Z, _connectedFor);
     }
+
+    PoundMarker? _poundMarker;
 
     (Num.Vector3 Position, int Ticks, JumpPhase Phase) _poundAimKey;
     Num.Vector3? _poundAim;
@@ -248,6 +256,10 @@ public partial class NetworkView
 
     /// <summary>Ticks the target marker's dive is followed at most (4 s at 30 Hz; ours: a dive from any height of the alpha map lands well within it).</summary>
     const int PoundLookAheadTicks = 120;
+
+    /// <summary><c>--pound-marker-demo</c> (screenshot aid): the pound's chevron marker stands on the ground ahead of the own player at all times.</summary>
+    bool PoundMarkerDemo => _poundMarkerDemo ??= OS.GetCmdlineUserArgs().Contains("--pound-marker-demo");
+    bool? _poundMarkerDemo;
 
     /// <summary><c>--no-pound-indicator</c> (test aid): no target marker.</summary>
     bool NoPoundIndicator => _noPoundIndicator ??= OS.GetCmdlineUserArgs().Contains("--no-pound-indicator");

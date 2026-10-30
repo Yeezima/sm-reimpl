@@ -52,7 +52,7 @@ public sealed partial class FrontEndView : Control
     /// <summary>The Join screen's root (the fit check lays it out at several window sizes).</summary>
     public Control? JoinScreen => _joinScreen;
     readonly List<Button> _sideButtons = new();
-    Button? _spectate;   // observer tooling (protocol 47): the Join screen's SPECTATE toggle
+    Button? _spectate;   // observer tooling (protocol 46): the Join screen's SPECTATE toggle
     Button? _joinButton;
     bool _built;
     int _frames;
@@ -247,7 +247,7 @@ public sealed partial class FrontEndView : Control
             _sideButtons.Add(b);
         }
         UiKit.ChainHorizontal(_sideButtons.Cast<Control>().ToList());
-        // Observer tooling (protocol 47; ours): join as a spectator (a free camera, no side, slot or score) instead of a player. Not remembered: every Join is a player's unless this is pressed again.
+        // Observer tooling (protocol 46; ours): join as a spectator (a free camera, no side, slot or score) instead of a player. Not remembered: every Join is a player's unless this is pressed again.
         _spectate = new Button { Text = "Spectate", ToggleMode = true, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(150, UiKit.MinHit), TooltipText = "Watch with a free camera instead of playing (footage tool)" };
         sideRow.AddChild(_spectate);
         sideRow.AddChild(UiKit.Text("Auto lets the server balance the teams.", UiKit.CaptionSize, UiKit.Grey).With(l => l.VerticalAlignment = VerticalAlignment.Center));

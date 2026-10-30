@@ -66,7 +66,7 @@ public class ArmourHitTests
     [Fact]
     public void The_armour_bit_round_trips_in_shot_records_and_the_hit_block_without_growing_the_snapshot()
     {
-        Assert.Equal((9, 12, 1200), (Protocol.ShotBytes, Protocol.HitBlockBytes, Protocol.MaxSnapshotBytes));   // spare bits only
+        Assert.Equal((9, 12, 1194), (Protocol.ShotBytes, Protocol.HitBlockBytes, Protocol.MaxSnapshotBytes));   // spare bits only
         PlayerState[] players = [Player(3, new Vector3(10, 20, 1)), Player(4, Vector3.Zero)];
         ShotView[] shots =
         [

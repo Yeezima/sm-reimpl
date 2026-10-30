@@ -532,7 +532,7 @@ public class ReactionTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_17_carries_reactions_and_heavy_strikes_in_every_record_and_the_knockback_and_blindness_in_the_own()
     {
-        Assert.Equal(47, Protocol.Version);
+        Assert.Equal(46, Protocol.Version);
         var me = new PlayerState(3, Vector3.One, Vector3.Zero, 0f, true)
         {
             Alive = true, Reaction = ReactionKind.Stagger, ReactionDirection = ReactionDirection.Left, ReactionTicks = 7,
@@ -607,7 +607,7 @@ public class ReactionTests(ITestOutputHelper output)
         var back = Assert.IsType<Snapshot>(Protocol.Read(bytes));
         output.WriteLine($"protocol {Protocol.Version}: {bytes.Length} bytes with {back.Shots!.Length} shot records (budget {Protocol.SnapshotBudget})");
         // Protocol 17: the own record's 4 reaction bytes cost the fifth guaranteed shot record of protocol 16 (1199 bytes).
-        Assert.Equal((1200, Protocol.MaxSnapshotBytes, 4, Protocol.MinSnapshotShots), (bytes.Length, bytes.Length, back.Shots.Length, back.Shots.Length));
+        Assert.Equal((1194, Protocol.MaxSnapshotBytes, 4, Protocol.MinSnapshotShots), (bytes.Length, bytes.Length, back.Shots.Length, back.Shots.Length));
         Assert.True(bytes.Length <= Protocol.SnapshotBudget && bytes.Length + Protocol.ShotBytes > Protocol.SnapshotBudget);
         Assert.Equal(players.Select(p => p.PlayerId == 7 ? p : Protocol.Slim(p)), back.Players);
     }

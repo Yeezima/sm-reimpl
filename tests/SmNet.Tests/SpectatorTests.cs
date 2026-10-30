@@ -6,7 +6,7 @@ using SmSim;
 namespace SmNet.Tests;
 
 /// <summary>
-/// Observer tooling (protocol 47; ours, docs/changes-from-original.md): a client that joins as a spectator gets an id and everyone's snapshots but no player: it never spawns, is in no
+/// Observer tooling (protocol 46; ours, docs/changes-from-original.md): a client that joins as a spectator gets an id and everyone's snapshots but no player: it never spawns, is in no
 /// team or score, cannot be targeted or damaged (it is not in the world), takes no player slot, is listed as a spectator in the Scoreboard and does not stop a match from
 /// balancing. Synthetic classes and weapons only (no game data).
 /// </summary>
@@ -175,6 +175,30 @@ public class SpectatorTests
         h.Run(TimeSpan.FromMilliseconds(300));
         Assert.Empty(h.Server.Spectators);
         Assert.Equal([shooter.PlayerId], h.Server.Players);
+    }
+
+    [Fact]
+    public void A_spectators_camera_reaches_the_server_clamped_and_picks_what_its_snapshots_carry()
+    {
+        var h = Match();
+        var spectator = h.AddClient(nonce: 100, options: Observer);
+        h.Run(TimeSpan.FromMilliseconds(600));
+        Assert.Null(h.Server.CameraOfForTests(spectator.PlayerId));
+        spectator.ObserverCamera = new Vector3(40f, -25f, 7f);
+        h.Run(TimeSpan.FromMilliseconds(300));
+        Assert.Equal(new Vector3(40f, -25f, 7f), h.Server.CameraOfForTests(spectator.PlayerId));
+        // Nonsense is held inside the map (no map here: +-2000 m) or, when not a number, in the middle.
+        spectator.ObserverCamera = new Vector3(1e9f, -1e9f, 5f);
+        h.Run(TimeSpan.FromMilliseconds(300));
+        Assert.Equal(new Vector3(2000f, -2000f, 5f), h.Server.CameraOfForTests(spectator.PlayerId));
+        spectator.ObserverCamera = new Vector3(float.NaN, 0f, 0f);
+        h.Run(TimeSpan.FromMilliseconds(300));
+        Assert.Equal(Vector3.Zero, h.Server.CameraOfForTests(spectator.PlayerId));
+        // The nearest projectiles to that camera, not to the origin, are the ones a snapshot lists first.
+        var near = new ProjectileState(1, 0, 0, 0, new Vector3(500f, 0f, 0f), Vector3.Zero);
+        var far = new ProjectileState(2, 0, 0, 0, new Vector3(3f, 0f, 0f), Vector3.Zero);
+        var picked = GameServer.ProjectilesFor([near, far], [], new Vector3(500f, 0f, 0f));
+        Assert.Equal(1, picked[0].Id);
     }
 
     [Fact]

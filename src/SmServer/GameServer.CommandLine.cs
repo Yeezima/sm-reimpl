@@ -47,7 +47,7 @@ public sealed record ServerArguments
     public bool NoPlayerCollision { get; init; }
     /// <summary>--log-overlaps (sim/player-collision test aid): every 10 s, how close the living players' capsules came and how often they overlapped.</summary>
     public bool LogOverlaps { get; init; }
-    /// <summary>--max-spectators (protocol 47; ours, observer tooling): spectators admitted besides the players, 0 none (default <see cref="Protocol.MaxSpectators"/>).</summary>
+    /// <summary>--max-spectators (protocol 46; ours, observer tooling): spectators admitted besides the players, 0 none (default <see cref="Protocol.MaxSpectators"/>).</summary>
     public int MaxSpectators { get; init; } = Protocol.MaxSpectators;
     public bool Help { get; init; }
 }
