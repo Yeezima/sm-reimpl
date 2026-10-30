@@ -18,6 +18,16 @@ and gore are listed in their own design documents for now (the rest of section 0
 |---|---|---|---|
 | Compatibility renderer on old cards | the owner's decision (2026-10-30): Godot has no DirectX 9, so cards without Vulkan run the OpenGL 3.3 renderer | automatic when Forward+ cannot start, or the launcher's "Old GPU / safe mode"; lighting low, anti-aliasing off, no volumetric fog, SSR, SSIL, SSAO, SDFGI. Looks plainer; no gameplay value changes. The default look is unchanged | none (no gameplay value) |
 
+### Controller (gamepad feature; spec "Controller (gamepad)")
+
+| What | Ours / the owner's | Value | Spec row |
+|---|---|---|---|
+| Controller layout | the original's Xbox 360 layout from the owner's screenshot (LT aim, RT fire, LB grenade, RB reload / vent, X strike, Y stun / alt strike, B use, A evade / jump pack, D-pad weapon swap), the owner's recollection for Start (game menu), Back (scoreboard) and the left-stick click (sprint) | the same `PlayerInput` as the keyboard; no protocol change | Controller |
+| D-pad directions | ours (estimate): up primary, left pistol, down second primary, right next weapon; the original has four slots on the D-pad, the data read does not say which holds which | check in a playtest | Weapon swap |
+| Sprint is a toggle and the pad dead zones | ours: the left-stick click toggles sprint until the stick is let go; the move dead zone 0.2 / outer zone 0.95 and the trigger levels 0.5 / 0.35 are estimates | toggle and zones as stated | Move, Sprint, Aim |
+| Device switching, hidden menu cursor, prompts | ours: last device used wins, a connect / disconnect swaps at once, the cursor is hidden in menus while the pad is in use, hints name the pad's buttons | last used wins | Device rule |
+| Not in the pad: look inversion, targeting assistance, the zoom cycle's levels, vibration, the original's stick layouts (AUTO CENTER, SOUTHPAW, LEGACY) and button layouts 1-3 | missing; the default layout only | none | Look |
+
 ### Observer / spectator tooling (protocol 46; not a gameplay system)
 
 | What | Ours / the owner's | Value | Spec row |

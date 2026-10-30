@@ -830,3 +830,14 @@ fades in; stance cross-fades fold layers by slerp (one arc per bone); the heavy 
 `--transition-probe` / `--anim-probe` (`--no-feel` for the before): flight to slash jerk median 107 to 82, p90 227 to 125 cm/f2; worst switch 227 to 198; the Devastator's lowerings 7 to 3;
 bone turns above 45 degrees a frame 240 to 205. The run's bob is the data's (15 cm in the run, the clip 18; nothing added). Probe additions: bob lines, aim / ready labels; a replay waits
 10 minutes for its Welcome. Spec "The feel pass: the roll's blending for every action"; `SlashPoseTests`.
+
+### feat/gamepad: controller support (2026-10-30; client only, protocol unchanged at 46)
+The owner's request: the original's controller bindings, autodetected, with the keyboard and mouse back when it leaves. The install holds the original's control-screen labels (locale 110651-110693), the stick
+tuning (`camera_input_tuning`: speeds, `input_mapping`, `request_damping`, now read into `InputTuning`) and the option names (gamepad on/off, button and stick layouts, vibration, targeting assistance), but not which button
+does what (the `ControlMap` movie's labels are filled by native code); the owner's screenshot of the Xbox 360 screen gives that. New `client/Gamepad/GamepadRules.cs` (binding table with a source per row, stick curves,
+trigger hysteresis, D-pad slots, radial selection, `SchemeTracker`: last device used wins), `PadHost` (device node: state from the events, cursor hidden in menus while the pad is in use, first-control focus on a pad press;
+Godot's `ui_*` actions then drive the menus: D-pad / left stick move, A accepts, B back), `NetworkView.Gamepad.cs` (move with analog magnitude, look at the data's rates, buttons through the tap latch, D-pad swaps, sprint toggle,
+Start = Esc menu, Back = scoreboard, hints "[START]", "[B]"). The server and the sim are untouched: it is the same `PlayerInput`. Aid: `--pad-test` (synthetic joypad events; `PADTEST` lines), `--log-input`. Verified headless
+with synthetic events only (no physical controller): scheme switch both ways, look, move (full and 0.6 stick: 4.97 and 1.84 m in 1 s), aim, fire (clip drops), melee, the charge (stick forward + Y) and no charge without it,
+jump pack, weapon swaps; zero prediction corrections against the server. Not verified: a real device, the menus' focus by hand. Not done: look inversion, targeting assistance, the zoom cycle (R3 is bound, nothing to cycle yet),
+vibration, the original's alternative layouts. Spec "Controller (gamepad)"; `GamepadTests`, `CameraTests` (the curves are read).

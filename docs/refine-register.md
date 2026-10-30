@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1695 spec table rows: **1154 tagged**, 392 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 339 rows of the changes document.
+Scanned 1712 spec table rows: **1163 tagged**, 400 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 344 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 305 | 260 | 264 | 90 | 12 |
+| Movement (critical) | 306 | 261 | 265 | 91 | 12 |
 | Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
 | Weapons (critical) | 110 | 63 | 97 | 50 | 3 |
 | Melee (critical) | 61 | 48 | 57 | 10 | 5 |
@@ -40,7 +40,7 @@ Scanned 1695 spec table rows: **1154 tagged**, 392 not tagged (read from data wi
 | Charge (critical) | 19 | 13 | 14 | 12 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 26 | 25 | 15 | 18 | 0 |
-| HUD and hit feedback (critical) | 48 | 44 | 40 | 9 | 0 |
+| HUD and hit feedback (critical) | 49 | 44 | 41 | 10 | 0 |
 | Sound mix (critical) | 49 | 45 | 42 | 10 | 0 |
 | Effects (critical) | 71 | 62 | 61 | 37 | 0 |
 | Game modes | 38 | 35 | 36 | 19 | 1 |
@@ -50,33 +50,33 @@ Scanned 1695 spec table rows: **1154 tagged**, 392 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 81 | 73 | 66 | 6 | 1 |
+| Core simulation (provisional values) | 88 | 78 | 73 | 7 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1154** | 952 | 917 | 374 | 38 |
+| **All areas** | **1163** | 958 | 926 | 377 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 427 |
-| confidence: medium | 409 |
-| confidence: low | 394 |
-| kind: interpretation | 317 |
+| kind: ours | 428 |
+| confidence: medium | 415 |
+| confidence: low | 397 |
+| kind: interpretation | 318 |
 | notes: ours | 279 |
 | confidence: none (low) | 114 |
 | kind: provisional | 98 |
+| kind: estimate | 41 |
 | section: provisional | 38 |
-| kind: estimate | 37 |
 | kind: user's knowledge | 35 |
 | section: placeholder | 35 |
 | notes: provisional | 31 |
 | kind: choice | 28 |
 | kind: approximation | 23 |
 | kind: placeholder | 22 |
+| notes: user's knowledge | 18 |
 | notes: placeholder | 17 |
 | kind: gap (not reproduced) | 15 |
-| notes: user's knowledge | 15 |
 | notes: interpretation | 14 |
 | notes: not reproduced (gap) | 13 |
 | notes: open question | 13 |
@@ -90,7 +90,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (305)
+### Movement (gameplay-critical) (306)
 
 *Spec section: Extracted parameters*
 
@@ -531,6 +531,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-69DAA65D` | Movement weight: the run's bob, measured | pelvis height range over a 0.8 s window, in the game / in the clip: walk 8.3 / 9.2 cm, run 15.2 / 17.8 cm (`SM_NAV_Run_F_01`; at the slowed run speed 5.85 m/s the blend space mixes some walk in), sprint 19.0 / 18.8 cm; sideways 6.8 cm in the run (clip 6.7).… (cm) | confidence: medium | measured | Movement weight: the run's bob, measured: compare with SM1 by timing a run over a known distance. Ours: pelvis height range over a 0.8 s window, in the game / in the clip:… | ☐ |
+
+*Spec section: Controller (gamepad; client only, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-1430FAAD` | Sprint | press the left stick: a toggle that ends when the stick is let go (the toggle is ours; the original's label says "Press to Sprint") (stick click) | kind: estimate; confidence: medium; notes: user's knowledge | locale 122101 "Movement (Press to Sprint)"; owner's recollection | Sprint: compare with SM1 by timing a run over a known distance. Ours: press the left stick: a toggle that ends when the stick is let go… | ☐ |
 
 ### Combat core (gameplay-critical) (10)
 
@@ -989,7 +995,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EE0A6B04` | Fixed and exempt views | `--spectate cam:x,y,z,tx,ty,tz` is placed exactly (no springs, cast, push-out or depenetration: measured matched views for lighting comparisons and recorded footage); `inspect` keeps no distance from bodies; `overview` is not cast | notes: ours | ours | Fixed and exempt views: compare with SM1 with side-by-side screenshots in the same spot. Ours: --spectate cam:x,y,z,tx,ty,tz is placed exactly (no springs, cast… | ☐ |
 | `R-90EA2E09` | Cast start | the spectator and death casts start from the look target moved off any surface within 0.33 m (3 passes of the depenetration rays): a target between two players fighting beside a railing, or inside a wall between them, otherwise starts in collision and the… (m) | kind: provisional; notes: ours | ours | Cast start: compare with SM1 by measuring on a flat spot of the same map. Ours: the spectator and death casts start from the look target moved off… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (48)
+### HUD and hit feedback (gameplay-critical) (49)
 
 *Spec section: Camera, aim mode, shot convergence and hit confirmation (M20; protocol 12)*
 
@@ -1058,6 +1064,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-850E9625` | Iron Halo flash (the bar's hit flash) | the first 15 frames of `ironhalo_mc` are the medallion's starburst (an added shape, 6.3 times its size and white at frame 0, shrinking to its own at frame 14, 30 fps). It plays over the bar from the own player's **damage** (the shield or the health going down… (frames at 30 fps) | kind: interpretation; confidence: low | `Hud.gfx` (frames, depth of the burst); footage; the blueprint's `armourshield_hit` | Iron Halo flash (the bar's hit flash): compare with SM1 with side-by-side screenshots in the same spot. Ours: the first 15 frames of ironhalo_mc are the medallion's starburst (an… | ☐ |
 | `R-54469AE0` | Reticle without a known weapon | the weapon in hand is always a ranged one (melee is a button, not a slot): a weapon type the rules do not map shows no reticle; no weapon at all shows the movie's `default_mc` dot | kind: ours | `Hud.gfx` (`default_mc`); the rule is ours | Reticle without a known weapon: compare with SM1 with side-by-side screenshots in the same spot. Ours: the weapon in hand is always a ranged one (melee is a button, not a… | ☐ |
 | `R-6544F4C1` | HUD movies missing or unreadable | any failure to read the movies (or a missing `Hud.gfx`, `HudText.gfx` prompt) falls back to the M44 drawing of that piece; the reticle is left out only while the read is in flight | kind: ours | ours | HUD movies missing or unreadable: compare with SM1 with side-by-side screenshots in the same spot. Ours: any failure to read the movies (or a missing Hud.gfx, HudText.gfx… | ☐ |
+
+*Spec section: Controller (gamepad; client only, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-FED76589` | Scoreboard | Back (held) (button) | confidence: medium; notes: user's knowledge | owner's recollection | Scoreboard: compare with SM1 with side-by-side screenshots in the same spot. Ours: Back (held). | ☐ |
 
 ### Sound mix (gameplay-critical) (49)
 
@@ -1540,7 +1552,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (81)
+### Core simulation (provisional values) (88)
 
 *Spec section: Provisional values in use*
 
@@ -1672,6 +1684,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-97A6D5E0` | Stance cross-fades fold by slerp | each stance layer is summed on its own; the layers and the snapshot are folded together by slerp in their fade weights (translation and scale by lerp), so a bone turns at an even rate along one arc. Before: one weighted sum of every clip, which passes near… | kind: ours; confidence: medium | ours (Havok's blend maths are not decoded) | Stance cross-fades fold by slerp: compare with SM1 by feel or video. Ours: each stance layer is summed on its own; the layers and the snapshot… | ☐ |
 | `R-5CF16369` | The heavy bolter stays ready | a marine with the heavy bolter in hand shows the ready posture whenever it is not sprinting (aiming, reacting, striking, throwing and switching keep their own); before, after the ready hold it dropped to the rifle's relaxed clips (M36's stand-in), whose left… | kind: interpretation; confidence: medium | `SM_Heavy_Bolter` has no relaxed navigation state (M36); "always ready" is the reading | The heavy bolter stays ready: compare with SM1 by feel or video. Ours: a marine with the heavy bolter in hand shows the ready posture… | ☐ |
 | `R-A470A827` | Not changed | the knife's first strike (probe 133 cm/f2) and the slash's strike are the clips' own fast swings (30 fps keys), not transitions; the charge entry (0.267 s), the melee entries and chains (anim/melee-flow), the sprint edges (pass 3), the weapon switch… | confidence: medium | - | Not changed: compare with SM1 by feel or video. Ours: the knife's first strike (probe 133 cm/f2) and the slash's strike are… | ☐ |
+
+*Spec section: Controller (gamepad; client only, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-727E38BE` | Move | left stick; the movement dead zone 0.2 and outer zone 0.95 are ours (radial, the magnitude kept) (stick) | kind: estimate; confidence: low | owner's screenshot (Move on the left stick); locale 110651, 122127 | Move: compare with SM1 by timing a run over a known distance. Ours: left stick; the movement dead zone 0.2 and outer zone 0.95 are ours… | ☐ |
+| `R-7411E171` | Look | right stick; turning rate = the weapon's `speed_horizontal` / `speed_vertical` (default set 300 / 200, aim set 80 / 60; blended with the aim camera) x the `input_mapping` curve (0 up to a stick of 0.2, 0.02 at 0.3, 0.07 at 0.6, 0.17 at 0.77, 0.47 at 0.87, 1… (degrees per second) | kind: interpretation; confidence: medium | `camera_input_tuning` default / aim sets; owner's screenshot (right stick) | Look: compare with SM1 with an overlaid screenshot taken from the same position. Ours: right stick; turning rate = the weapon's speed_horizontal /… | ☐ |
+| `R-FD94D3A9` | Aim (hold) | left trigger; press at 0.5, release below 0.35 (trigger) | kind: estimate; confidence: low | owner's screenshot ("Aim"); locale 110660 | Aim (hold): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: left trigger; press at 0.5, release below 0.35. | ☐ |
+| `R-E3B4EE6B` | Weapon swap | the D-pad: up the primary, left the pistol, down the second primary (Weapon Versatility), right the next weapon (the toggle / cycle). The original has four slots on the D-pad (locale 120990 `%ABILITY_SET_RANGED_FIRST%`..`FOURTH`) and a "Weapon Swap" label… (D-pad) | kind: estimate; confidence: low | owner's screenshot ("Weapon Swap" on the D-pad); locale 120990 | Weapon swap: compare with SM1 by feel or video. Ours: the D-pad: up the primary, left the pistol, down the second primary… | ☐ |
+| `R-21376237` | Scope zoom cycle | press the right stick ("Camera (Press - Lascannon Zoom)", locale 122097); the tutorial strings 105867 and 111535 say [L3], which contradicts it (the older layout?). The level cycle is not implemented (spec "Zoom levels of the scoped weapons"), so the press… (stick click) | confidence: medium | locale 122097 | Scope zoom cycle: compare with SM1 by feel or video. Ours: press the right stick ("Camera (Press - Lascannon Zoom)", locale… | ☐ |
+| `R-354554D8` | Game menu | Start: opens the Esc menu (loadout, resume, leave); inside the customizer Start saves (already so before this feature) and B goes back (button) | confidence: medium; notes: user's knowledge | owner's recollection | Game menu: compare with SM1 by feel or video. Ours: Start: opens the Esc menu (loadout, resume, leave); inside the… | ☐ |
+| `R-4939B80B` | Device rule | a controller that connects becomes the scheme at once; a disconnect, a key, a click or a mouse movement (3 px at once, or 6 px in small steps) swaps back; a pad button or a stick or trigger past 0.5 swaps to the pad; last used wins; no restart; the menu… | kind: ours; confidence: medium | the owner's request | Device rule: compare with SM1 by feel or video. Ours: a controller that connects becomes the scheme at once; a disconnect… | ☐ |
 
 ### General game design (7)
 
@@ -1829,6 +1853,16 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `C-5D4355E6` | Compatibility renderer on old cards | the owner's decision (2026-10-30): Godot has no DirectX 9, so cards without Vulkan run the OpenGL 3.3 renderer | automatic when Forward+ cannot start, or the launcher's "Old GPU / safe mode"; lighting low, anti-aliasing off, no volumetric fog, SSR, SSIL, SSAO, SDFGI. Looks plainer; no gameplay value changes. The default look is unchanged | none (no gameplay value) | Compatibility renderer on old cards: compare with SM1 by feel or video. Ours: the owner's decision (2026-10-30): Godot has no DirectX 9, so cards… | ☐ |
+
+#### Controller (gamepad feature; spec "Controller (gamepad)")
+
+| ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-5351D11A` | Controller layout | the original's Xbox 360 layout from the owner's screenshot (LT aim, RT fire, LB grenade, RB reload / vent, X strike, Y stun / alt strike, B use, A evade / jump pack, D-pad weapon swap), the owner's recollection for Start (game menu), Back (scoreboard) and the left-stick click (sprint) | the same `PlayerInput` as the keyboard; no protocol change | Controller | Controller layout: compare with SM1 by feel or video. Ours: the original's Xbox 360 layout from the owner's screenshot (LT aim… | ☐ |
+| `C-07E0EB46` | D-pad directions | ours (estimate): up primary, left pistol, down second primary, right next weapon; the original has four slots on the D-pad, the data read does not say which holds which | check in a playtest | Weapon swap | D-pad directions: compare with SM1 by feel or video. Ours: ours (estimate): up primary, left pistol, down second primary, right… | ☐ |
+| `C-1F3EFD78` | Sprint is a toggle and the pad dead zones | ours: the left-stick click toggles sprint until the stick is let go; the move dead zone 0.2 / outer zone 0.95 and the trigger levels 0.5 / 0.35 are estimates | toggle and zones as stated | Move, Sprint, Aim | Sprint is a toggle and the pad dead zones: compare with SM1 by timing a run over a known distance. Ours: ours: the left-stick click toggles sprint until the stick is let go… | ☐ |
+| `C-0806FA32` | Device switching, hidden menu cursor, prompts | ours: last device used wins, a connect / disconnect swaps at once, the cursor is hidden in menus while the pad is in use, hints name the pad's buttons | last used wins | Device rule | Device switching, hidden menu cursor, prompts: compare with SM1 by feel or video. Ours: ours: last device used wins, a connect / disconnect swaps at once… | ☐ |
+| `C-5DD908CF` | Not in the pad: look inversion, targeting assistance, the zoom cycle's levels, vibration, the original's stick layouts (AUTO CENTER, SOUTHPAW, LEGACY) and button layouts 1-3 | missing; the default layout only | none | Look | Not in the pad: look inversion, targeting assistance, the…: compare with SM1 by feel or video. Ours: missing; the default layout only. | ☐ |
 
 #### Observer / spectator tooling (protocol 46; not a gameplay system)
 
