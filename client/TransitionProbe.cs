@@ -46,7 +46,15 @@ public partial class TransitionProbe : Node
         public double Left;
         public float WJerk, WRot, WPos; public string WBone = "", WRotBone = "";
         public int Frames;
+        // anim/feel-pass: the pelvis's height and sideways place in the character's own frame over the last BobFrames frames of one state (the run's bob and weight shift).
+        public readonly float[] BobZ = new float[BobFrames], BobX = new float[BobFrames];
+        public int BobRun;
+        public readonly Vector3[] BobAt = new Vector3[BobFrames];
     }
+
+    /// <summary>anim/feel-pass: frames of one steady state the pelvis bob is measured over (0.8 s at 60 fps: about one run cycle, 0.87 s at the clip's rate).</summary>
+    const int BobFrames = 48;
+    readonly Dictionary<string, (List<float> Z, List<float> X)> _bob = new(StringComparer.Ordinal);
 
     sealed class Stat { public readonly List<float> Jerk = new(), Rot = new(), Pos = new(); }
 
@@ -99,6 +107,10 @@ public partial class TransitionProbe : Node
         if (k.StartsWith("turn:") || k.Contains("idle")) return "idle";
         if (k.StartsWith("aim") || k.Contains("focus")) return "aim";
         if (k.StartsWith("hip") || k.Contains("ready")) return "ready";
+        // anim/feel-pass: the aim mode's stances ("rifle:walk:F", "pistol:wos") and the ready run's blend space ("gait:hip:Rifle") were labelled "move", so the switches between
+        // the relaxed run, the ready run and aim mode (move <-> shoot / aim) were never measured.
+        if (k.StartsWith("rifle:") || k.StartsWith("pistol:") || k.StartsWith("heavy:")) return "aim";
+        if (k.StartsWith("gait:hip:")) return "ready";
         if (k.StartsWith("brace")) return "brace";
         return "move";
     }
@@ -167,6 +179,24 @@ public partial class TransitionProbe : Node
                 }
                 t.Pos[bone] = p; t.Rot[bone] = q;
             }
+            // anim/feel-pass: the pelvis bob (vertical range) and weight shift (sideways range) over the last BobFrames frames of one state.
+            if (skeleton.FindBone("RIG_Pelvis") is var pb and >= 0)
+            {
+                var local = character.GlobalTransform.Basis.Inverse() * ((skel * skeleton.GetBoneGlobalPose(pb)).Origin - origin);
+                if (label != t.Label) t.BobRun = 0;
+                int slot = t.BobRun % BobFrames;
+                var oldest = t.BobAt[slot];
+                t.BobZ[slot] = local.Z; t.BobX[slot] = local.X; t.BobAt[slot] = origin;
+                t.BobRun++;
+                if (t.BobRun >= BobFrames && t.BobRun % 12 == 0)
+                {
+                    // The window's mean ground speed (m/s at 60 frames a second) names the band: a walk, a run, a sprint-fast move.
+                    var d = origin - oldest; float speed = new Vector2(d.X, d.Z).Length() * 60f / (BobFrames - 1);
+                    string key = label + (speed < 0.5f ? "@still" : speed < 3.5f ? "@walk" : speed < 6.7f ? "@run" : "@fast");
+                    if (!_bob.TryGetValue(key, out var bob)) _bob[key] = bob = (new List<float>(), new List<float>());
+                    bob.Z.Add((t.BobZ.Max() - t.BobZ.Min()) * 100f); bob.X.Add((t.BobX.Max() - t.BobX.Min()) * 100f);
+                }
+            }
             bool measured = t.Have >= 2;
             t.Have = Math.Min(t.Have + 1, 2);
             if (label != t.Label && t.Label.Length > 0)
@@ -180,7 +210,7 @@ public partial class TransitionProbe : Node
             if (t.Left > 0)
             {
                 if (TraceBone is not null && skeleton.FindBone(TraceBone) is var tb and >= 0)
-                    GD.Print($"TPTRACE f {Engine.GetProcessFrames()} {t.Name} {t.From}->{t.To} {TraceBone} local {skeleton.GetBonePosePosition(tb)} rel {t.Pos[tb]} jerk {jerk:0.0} at {skeleton.GetBoneName(jerkBone)} clip {character.Playing} stance {character.StanceKey} entry {character.EntryWeight:0.00} settling {character.Settling} drops {CharacterViewer.PinsDroppedReach}/{CharacterViewer.PinsDroppedTeleport} {character.LayerDebug()}");
+                    GD.Print($"TPTRACE f {Engine.GetProcessFrames()} {t.Name} {t.From}->{t.To} {TraceBone} local {skeleton.GetBonePosePosition(tb)} rel {t.Pos[tb]} jerk {jerk:0.0} at {skeleton.GetBoneName(jerkBone)} clip {character.Playing} at {character.ClipTime?.Time:0.000} stance {character.StanceKey} entry {character.EntryWeight:0.00} settling {character.Settling} drops {CharacterViewer.PinsDroppedReach}/{CharacterViewer.PinsDroppedTeleport} {character.LayerDebug()}");
                 if (jerk > t.WJerk) { t.WJerk = jerk; t.WBone = skeleton.GetBoneName(jerkBone); }
                 if (rot > t.WRot) { t.WRot = rot; t.WRotBone = skeleton.GetBoneName(rotBone); }
                 t.WPos = MathF.Max(t.WPos, step);
@@ -217,12 +247,14 @@ public partial class TransitionProbe : Node
     void Report(string tag)
     {
         var all = _switches.Values.SelectMany(s => s.Jerk).ToList();
-        GD.Print($"{tag} snapshots: {CharacterViewer.SnapshotsMoving} with a measured velocity, {CharacterViewer.SnapshotsFrozen} frozen");
+        GD.Print($"{tag} snapshots: {CharacterViewer.SnapshotsMoving} with a measured velocity, {CharacterViewer.SnapshotsFrozen} frozen; clip restarts faded {CharacterViewer.ClipRestarts}");
         GD.Print($"{tag} total: {all.Count} switches, jerk median {Q(all, 0.5):0.0} p90 {Q(all, 0.9):0.0} max {(all.Count > 0 ? all.Max() : 0f):0.0} cm/f2; above 10 cm/f2: {all.Count(j => j > 10f)}");
         foreach (var (key, s) in _switches.OrderByDescending(kv => kv.Value.Jerk.Count))
             GD.Print($"{tag} switch {key}: n {s.Jerk.Count}, jerk med {Q(s.Jerk, 0.5):0.0} p90 {Q(s.Jerk, 0.9):0.0} max {s.Jerk.Max():0.0} cm/f2; turn med {Q(s.Rot, 0.5):0.0} max {s.Rot.Max():0.0} deg/f; step max {s.Pos.Max():0.0} cm/f");
         foreach (var (key, s) in _steady.OrderByDescending(kv => kv.Value.Jerk.Count))
             GD.Print($"{tag} steady {key}: {s.Jerk.Count} frames, jerk p50 {Q(s.Jerk, 0.5):0.0} p99 {Q(s.Jerk, 0.99):0.0} max {s.Jerk.Max():0.0} cm/f2; turn p99 {Q(s.Rot, 0.99):0.0} deg/f");
+        foreach (var (key, b) in _bob.Where(kv => kv.Value.Z.Count >= 5).OrderByDescending(kv => kv.Value.Z.Count))
+            GD.Print($"{tag} bob {key}: {b.Z.Count} windows of {BobFrames} frames, pelvis height range med {Q(b.Z, 0.5):0.0} p90 {Q(b.Z, 0.9):0.0} cm, sideways med {Q(b.X, 0.5):0.0} p90 {Q(b.X, 0.9):0.0} cm");
     }
 
     public override void _ExitTree()
