@@ -102,6 +102,7 @@ public sealed partial class CreatorView : Control
         _sideCaption = UiKit.Text("Preview side:", UiKit.CaptionSize, UiKit.Grey).With(l => l.VerticalAlignment = VerticalAlignment.Center);
         header.AddChild(_sideCaption);
         header.AddChild(_sideToggle);
+        header.AddChild(UiKit.FovRow(services.Settings.FovDegrees, f => services.UpdateSettings(x => x with { FovDegrees = f }), compact: true));   // ui/fov-slider (ours)
         // The ACTIVE line fills the space up to the buttons and is cut (full text in its tooltip) rather than pushing BACK / LEAVE MATCH off the window (fix/frontend-fit).
         _activeLabel = UiKit.Text("", UiKit.CaptionSize, UiKit.Gold, HorizontalAlignment.Right);
         _activeLabel.VerticalAlignment = VerticalAlignment.Center;

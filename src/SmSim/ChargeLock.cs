@@ -115,22 +115,51 @@ public static class ChargeLock
         return c.ChargeLock ? stopped with { Yaw = Facing(d, charging.Yaw) } : stopped;
     }
 
+    /// <summary>Ours: the pull walks toward the lock spot in steps of this length (metres) and stops before the first step that is not allowed.</summary>
+    public const float PullStep = 0.1f;
+    /// <summary>Ours: the most a pull may lower the victim in all (metres): enough for a gentle slope, not a ledge's edge.</summary>
+    public const float MaxPullDrop = 0.05f;
+
     /// <summary>
-    /// The victim moved to the lock spot: <see cref="LockDistance"/> in front of the charger at <paramref name="charger"/> along <paramref name="d"/>, at most <see cref="MaxPull"/>
-    /// toward it, swept through the level (a wall stops it there; other players do not block it). Facing, velocity and everything else unchanged.
+    /// The victim moved toward the lock spot: <see cref="LockDistance"/> in front of the charger at <paramref name="charger"/> along <paramref name="d"/>, at most <see cref="MaxPull"/>, in
+    /// steps of <see cref="PullStep"/>, each swept through the level. It stops short (keeps the last allowed step) before a step that would bring it within two capsule radii of
+    /// another living player (<paramref name="others"/>: neither the charger nor the victim; a step that moves it away from one it already overlaps is allowed), take a grounded victim
+    /// off the ground or down more than the step height (a ledge), or cross a kill volume. Facing, velocity and everything else unchanged.
     /// </summary>
-    public static PlayerState Pull(PlayerState victim, Vector3 charger, Vector2 d, SimConfig c, CollisionWorld? world)
+    public static PlayerState Pull(PlayerState victim, Vector3 charger, Vector2 d, SimConfig c, CollisionWorld? world, IEnumerable<Vector3>? others = null)
     {
         var spot = new Vector2(charger.X, charger.Y) + d * LockDistance(c);
         var delta = spot - new Vector2(victim.Position.X, victim.Position.Y);
         float length = delta.Length();
         if (!(length > 1e-3f) || !float.IsFinite(length)) return victim;
-        if (length > MaxPull) delta *= MaxPull / length;
-        if (world is null) return victim with { Position = victim.Position + new Vector3(delta.X, delta.Y, 0f) };
-        PlayerState moved;
-        using (PlayerCollision.Use(null))
-            moved = Movement.Glide(victim with { Velocity = new Vector3(0f, 0f, 0f) }, victim.Yaw, delta / c.TickSeconds, c, world);
-        return victim with { Position = moved.Position, Grounded = moved.Grounded };
+        if (length > MaxPull) { delta *= MaxPull / length; length = MaxPull; }
+        var blockers = others?.ToArray() ?? [];
+        float clear = 2f * c.CapsuleRadius;
+        int steps = Math.Max(1, (int)MathF.Ceiling(length / PullStep));
+        var step = delta / steps;
+        var at = victim with { Velocity = Vector3.Zero };
+        for (int k = 0; k < steps; k++)
+        {
+            PlayerState next;
+            if (world is null) next = at with { Position = at.Position + new Vector3(step.X, step.Y, 0f) };
+            else using (PlayerCollision.Use(null)) next = Movement.Glide(at, victim.Yaw, step / c.TickSeconds, c, world) with { Velocity = Vector3.Zero };
+            if (world is not null)
+            {
+                if (victim.Grounded && (!next.Grounded || victim.Position.Z - next.Position.Z > MaxPullDrop)) break;   // a ledge: a pull never steps down
+                if (world.KillsPlayer(at.Position, next.Position, c.CapsuleHeight)) break;                          // a kill volume
+            }
+            bool blocked = false;
+            foreach (var o in blockers)
+            {
+                if (MathF.Abs(o.Z - next.Position.Z) > c.CapsuleHeight) continue;
+                float now = Vector2.Distance(new Vector2(o.X, o.Y), new Vector2(next.Position.X, next.Position.Y));
+                float before = Vector2.Distance(new Vector2(o.X, o.Y), new Vector2(at.Position.X, at.Position.Y));
+                if (now < clear - 1e-3f && now < before + 1e-4f) { blocked = true; break; }
+            }
+            if (blocked) break;
+            at = next;
+        }
+        return victim with { Position = at.Position, Grounded = at.Grounded };
     }
 
     /// <summary>

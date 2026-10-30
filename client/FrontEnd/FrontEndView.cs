@@ -297,6 +297,7 @@ public sealed partial class FrontEndView : Control
         bar.AddChild(_joinButton);
         column.AddChild(bar);
         var footer = UiKit.HBox(24);
+        footer.AddChild(UiKit.FovRow(_services.Settings.FovDegrees, f => _services.UpdateSettings(x => x with { FovDegrees = f })));   // ui/fov-slider (ours)
         if (GameFoundNote is { Length: > 0 }) footer.AddChild(UiKit.Text(GameFoundNote, UiKit.CaptionSize, UiKit.Grey).With(l => { l.ClipText = true; l.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; l.TooltipText = GameFoundNote; l.MouseFilter = Control.MouseFilterEnum.Pass; }));
         else footer.AddChild(UiKit.Spacer());
         footer.AddChild(new LinkButton { Text = "Builds and issues: " + ServerLaunch.ReleasesUrl.Replace("https://", ""), Uri = ServerLaunch.ReleasesUrl }.With(l => l.AddThemeFontSizeOverride("font_size", UiKit.CaptionSize)));

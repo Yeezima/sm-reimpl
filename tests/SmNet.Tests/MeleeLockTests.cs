@@ -253,10 +253,9 @@ public class MeleeLockTests(ITestOutputHelper output)
         var states = Attack(Player(1, Vector3.Zero), target, 9);
         float atHit = Vector2.Distance(new(states[6].Position.X, states[6].Position.Y), new(target.Position.X, target.Position.Y));
         // The clips blended at the target's distance end where they were made to strike from (1.5 m for the 3.5 and 7 m clips; nearer between 1 and 3.5).
-        float expected = distance - Step().Reach!.ForwardAt(T(7f), T(30.5f), distance);
-        output.WriteLine($"{distance} m: at the hit {atHit:F3} m (the blend: {expected:F3}); moved {states[6].Position.Y:F3}");
-        Assert.InRange(atHit, expected - 0.03f, expected + 0.03f);
-        if (distance >= 3.5f) Assert.InRange(atHit, Strike - 0.03f, Strike + 0.03f);
+        // sim/melee-lunge: the locked burst closes to the separation (1 m) before the hit, no nearer.
+        output.WriteLine($"{distance} m: at the hit {atHit:F3} m; moved {states[6].Position.Y:F3}");
+        Assert.InRange(atHit, Config.MeleeLock.Separation - 0.03f, Config.MeleeLock.Separation + 0.03f);
     }
 
     [Fact]
@@ -279,6 +278,68 @@ public class MeleeLockTests(ITestOutputHelper output)
         float expected = 0.6f * (T(20f) - T(6.5f)) / (T(30.5f) - T(6.5f));
         Assert.Equal(expected, states[19].Position.Y, 2);
         Assert.True(states[19].Position.Y > 0.3f);
+    }
+
+    // sim/melee-lunge (owner, 2026-10-31): a longer step, longer the further the locked target is.
+    [Fact]
+    public void Locked_lunge_covers_more_ground_the_further_the_target_and_stops_at_the_strike_distance()
+    {
+        float previous = 0f;
+        foreach (float distance in new[] { 2.5f, 4f, 5.5f, 7f })
+        {
+            var target = Player(2, At(distance, 0f));
+            var states = Attack(Player(1, Vector3.Zero), target, 9);
+            float moved = states[6].Position.Y;
+            float left = distance - moved;
+            output.WriteLine($"{distance} m: moved {moved:F2} m by the hit, {left:F2} m left");
+            Assert.True(moved > previous, $"{distance} m: {moved} not above {previous}");
+            Assert.True(left >= Config.MeleeLock.Separation - 1e-3f, $"overlap: {left}");
+            previous = moved;
+        }
+    }
+
+    [Fact]
+    public void Locked_lunge_is_a_front_loaded_burst_that_settles_at_the_separation_by_the_hit()
+    {
+        foreach (float distance in new[] { 3f, 6f })
+        {
+            var target = Player(2, At(distance, 0f));
+            var states = Attack(Player(1, Vector3.Zero), target, 12);
+            var speeds = states.Select((x, i) => (x.Position.Y - (i == 0 ? 0f : states[i - 1].Position.Y)) * 30f).ToList();
+            float atHit = target.Position.Y - states[6].Position.Y;
+            output.WriteLine($"{distance} m: left {atHit:F2} m at the hit; speeds {string.Join(" ", speeds.Take(8).Select(v => v.ToString("F1")))}");
+            Assert.True(atHit >= Config.MeleeLock.Separation - 1e-3f, $"overlap {atHit}");
+            Assert.True(atHit < Config.MeleeLock.Separation + 0.4f, $"not closed by the hit: {atHit}");
+            Assert.True(speeds.Max() <= Config.MeleeLock.BurstSpeed + 0.5f, $"speed cap: {speeds.Max()}");
+            Assert.True(speeds[1] > speeds[5], "front-loaded");
+        }
+        // The further, the faster the opening burst.
+        float Open(float d) { var st = Attack(Player(1, Vector3.Zero), Player(2, At(d, 0f)), 3); return st[1].Position.Y; }
+        Assert.True(Open(6f) > Open(3f));
+    }
+
+    [Fact]
+    public void Unlocked_lunge_is_a_quarter_longer_with_the_scale_and_walls_stop_it()
+    {
+        var plain = Attack(Player(1, Vector3.Zero), Player(2, At(30f, 0f)), 22, lockOn: false);
+        var longer = Attack(Player(1, Vector3.Zero), Player(2, At(30f, 0f)), 22, lockOn: false, config: Config with { MeleeLungeScale = 1.25f });
+        Assert.Equal(plain[19].Position.Y * 1.25f, longer[19].Position.Y, 2);
+        // A wall 0.4 m ahead: the step meets it and does not tunnel (nor does a long one).
+        var level = Level(wall: false);
+        var v = new List<Vector3>(); var idx = new List<int>();
+        void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d) { int i = v.Count; v.AddRange([a, b, c, d]); idx.AddRange([i, i + 1, i + 2, i, i + 2, i + 3]); }
+        Quad(new(-20, -20, 0), new(20, -20, 0), new(20, 20, 0), new(-20, 20, 0));
+        Quad(new(-5, 0.9f, -1), new(5, 0.9f, -1), new(5, 0.9f, 4), new(-5, 0.9f, 4));
+        var mesh = new StaticMesh(v.ToArray(), idx.ToArray());
+        level = new CollisionWorld(mesh, mesh);
+        var s = Player(1, Vector3.Zero);
+        var cfg = Config with { MeleeLungeScale = 3f };
+        for (uint i = 0; i < 25; i++)
+        {
+            s = Combat.StepPlayer(s, new PlayerInput(i, 0, 0, 0f, i == 0 ? InputButtons.Melee : InputButtons.None), cfg, out _, level, null);
+            Assert.True(s.Position.Y < 0.9f, $"tick {i}: through the wall at {s.Position.Y}");
+        }
+        Assert.True(s.Position.Y > 0.2f);
     }
 
     [Fact]
@@ -385,7 +446,7 @@ public class MeleeLockTests(ITestOutputHelper output)
         float moved = world.Players[1].Position.Y - before;
         output.WriteLine($"wall {wall}: moved {moved:F3}");
         if (wall) Assert.True(moved < 0.05f, $"moved {moved} although the target is behind a wall");
-        else Assert.InRange(moved, 5f - Strike - 0.1f, 5f - Strike + 0.1f);
+        else Assert.InRange(moved, 5f - Config.MeleeLock.Separation - 0.1f, 5f - Config.MeleeLock.Separation + 0.1f);   // the locked burst ends at the separation
     }
 
     [Fact]

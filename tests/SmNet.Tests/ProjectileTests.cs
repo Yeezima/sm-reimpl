@@ -148,16 +148,37 @@ public class ProjectileTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void A_bounced_grenade_falls_and_sticks_to_the_floor()
+    public void A_sticky_grenade_never_bounces_even_when_its_data_allows_a_bounce_it_sticks_at_the_first_contact()
     {
-        var world = WorldWith(ConfigWith(Weapon("launcher", Grenade)), Level(wallY: 10f));
+        var world = WorldWith(ConfigWith(Weapon("launcher", Grenade)), Level(wallY: 10f));   // MaxBounces 1, sticky
         world.Step(Shooter(InputButtons.Fire, 0.1f));
         for (int k = 0; k < 90; k++) world.Step(Idle);
         var g = Assert.Single(world.Projectiles);
-        Assert.Equal((ProjectileMotion.Stuck, 1), (g.Motion, g.Bounces));   // off the wall, then stuck on the floor
-        Assert.Equal(0.02f, g.Position.Z, 3);
-        Assert.InRange(g.Position.Y, 1f, 9.9f);
+        Assert.Equal((ProjectileMotion.Stuck, 0), (g.Motion, g.Bounces));
+        Assert.InRange(g.Position.Y, 9.9f, 10f);   // on the wall, 2 cm off the surface
         Assert.Equal(Vector3.Zero, g.Velocity);
+        Assert.Empty(world.LastDetonations);
+    }
+
+    [Fact]
+    public void A_sticky_grenade_sticks_to_the_floor_and_the_ceiling()
+    {
+        var down = WorldWith(ConfigWith(Weapon("launcher", Grenade)), Level());
+        down.Step(Shooter(InputButtons.Fire, -0.2f));
+        for (int k = 0; k < 60; k++) down.Step(Idle);
+        var f = Assert.Single(down.Projectiles);
+        Assert.Equal((ProjectileMotion.Stuck, 0), (f.Motion, f.Bounces));
+        Assert.Equal(0.02f, f.Position.Z, 3);
+
+        var v = new List<Vector3>(); var idx = new List<int>();
+        v.AddRange([new(-60, -60, 4), new(60, -60, 4), new(60, 60, 4), new(-60, 60, 4)]); idx.AddRange([0, 2, 1, 0, 3, 2]);
+        var mesh = new StaticMesh(v.ToArray(), idx.ToArray());
+        var up = WorldWith(ConfigWith(Weapon("launcher", Grenade with { Gravity = [new(0f, 0f)] })), new CollisionWorld(mesh, mesh));
+        up.Step(Shooter(InputButtons.Fire, 0.5f));
+        for (int k = 0; k < 60; k++) up.Step(Idle);
+        var c = Assert.Single(up.Projectiles);
+        Assert.Equal((ProjectileMotion.Stuck, 0), (c.Motion, c.Bounces));
+        Assert.Equal(4f - 0.02f, c.Position.Z, 2);
     }
 
     [Fact]
@@ -653,7 +674,7 @@ public class ProjectileTests(ITestOutputHelper output)
         // Player 3 stands next to the host with a lethal knife (hit on the press tick).
         var lethal = new MeleeStep(1f, 0f, 0.4f, 0.6f, 0.5f, 0.7f, 5000f, 0f, 3.5f);
         var config = ConfigWith(Weapon("sticky", Grenade with { Gravity = [new(0f, 0f)] })) with { Classes = [new ClassLoadout("test", 0, -1, [lethal])] };
-        var world = WorldWith(config, null, new Vector3(0, 8, 0), new Vector3(3, 8, 0));
+        var world = WorldWith(config, Level(), new Vector3(0, 8, 0), new Vector3(3, 8, 0));
         world.Step(Shooter(InputButtons.Fire));
         for (int k = 0; k < 10; k++) world.Step(Idle);
         var g = Assert.Single(world.Projectiles);
@@ -662,14 +683,22 @@ public class ProjectileTests(ITestOutputHelper output)
         Assert.False(world.Players[2].Alive);
         world.Step(Idle);
         g = Assert.Single(world.Projectiles);
+        Assert.Equal((ProjectileMotion.Flying, -1), (g.Motion, g.AttachedTo));   // sim/sticky-launcher: it drops off the corpse and falls
+        for (int k = 0; k < 60; k++) world.Step(Idle);
+        g = Assert.Single(world.Projectiles);   // it landed on the floor and stays there, still undetonated
         Assert.Equal((ProjectileMotion.Stuck, -1), (g.Motion, g.AttachedTo));
+        Assert.Equal(0.02f, g.Position.Z, 3);
+        var landed = g.Position;
+        for (int k = 0; k < 30; k++) world.Step(Idle);
+        Assert.Equal(landed, world.Projectiles[0].Position);
+        Assert.Empty(world.LastDetonations);
 
         // The host leaves: the same. The owner leaves: its projectiles go.
-        world = WorldWith(config, null, new Vector3(0, 8, 0));
+        world = WorldWith(config, Level(), new Vector3(0, 8, 0));
         world.Step(Shooter(InputButtons.Fire));
         for (int k = 0; k < 10; k++) world.Step(Idle);
         world.Remove(2);
-        Assert.Equal((ProjectileMotion.Stuck, -1), (world.Projectiles[0].Motion, world.Projectiles[0].AttachedTo));
+        Assert.Equal((ProjectileMotion.Flying, -1), (world.Projectiles[0].Motion, world.Projectiles[0].AttachedTo));
         world.Remove(1);
         Assert.Empty(world.Projectiles);
     }
@@ -679,13 +708,13 @@ public class ProjectileTests(ITestOutputHelper output)
     [InlineData(10f, false)]    // control: within the grace it passes through
     public void The_owner_can_be_struck_by_its_own_projectile_after_the_grace(float grace, bool struck)
     {
-        var boomerang = Grenade with { Gravity = [new(0f, 0f)], MaxBounces = 1, MaxActive = 0 };
+        var boomerang = Grenade with { Gravity = [new(0f, 0f)], MaxBounces = 1, MaxActive = 0, Sticky = false };
         var world = WorldWith(ConfigWith(Weapon("boomerang", boomerang)) with { ProjectileOwnerGrace = grace }, Level(wallY: 3f));
         world.Step(Shooter(InputButtons.Fire));
         for (int k = 0; k < 20; k++) world.Step(Idle);
         var g = Assert.Single(world.Projectiles);
         Assert.Equal(1, g.Bounces);
-        if (struck) Assert.Equal((ProjectileMotion.Attached, 1), (g.Motion, g.AttachedTo));
+        if (struck) Assert.Equal(1, g.Struck);   // it hit its owner and stopped
         else { Assert.Equal(ProjectileMotion.Flying, g.Motion); Assert.True(g.Position.Y < -1f); }
     }
 

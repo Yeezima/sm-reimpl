@@ -185,4 +185,85 @@ public class ChargeLockTests(ITestOutputHelper output)
         if (locked) Assert.Equal(compared, exact);
         else Assert.Equal(0, exact);   // before: the own client ran on in the rush for a round trip
     }
+
+    // ---------------------------------------------------------------- the pull's limits (review)
+
+    static CollisionWorld Mesh(Action<Action<Vector3, Vector3, Vector3, Vector3>> build, IReadOnlyList<KillVolume>? kill = null)
+    {
+        var v = new List<Vector3>(); var idx = new List<int>();
+        void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d) { int n = v.Count; v.AddRange([a, b, c, d]); idx.AddRange([n, n + 1, n + 2, n, n + 2, n + 3]); }
+        build(Quad);
+        var mesh = new StaticMesh(v.ToArray(), idx.ToArray());
+        return new CollisionWorld(mesh, mesh, kill);
+    }
+
+    static PlayerState Victim(float y = 0f) => new PlayerState(2, new Vector3(0f, y, 0f), Vector3.Zero, MathF.PI, true) { Alive = true, Health = 100f };
+    /// <summary>The charger 3.9 m up +Y facing −Y: the lock spot is (0, 3) for a victim pulled toward +Y.</summary>
+    static readonly Vector3 Charger = new(0f, 3.9f, 0f);
+    static readonly Vector2 Line = new(0f, -1f);
+
+    [Fact]
+    public void The_pull_reaches_the_spot_on_open_ground_and_is_capped_at_2_5_m()
+    {
+        var open = Mesh(q => q(new(-50, -50, 0), new(50, -50, 0), new(50, 50, 0), new(-50, 50, 0)));
+        var near = ChargeLock.Pull(Victim(2f), Charger, Line, Config, open);
+        Assert.Equal(3f, near.Position.Y, 2);
+        var far = ChargeLock.Pull(Victim(-4f), Charger, Line, Config, open);   // 7 m from the spot: moved 2.5 m
+        Assert.Equal(-1.5f, far.Position.Y, 2);
+        Assert.Equal(-1.5f, ChargeLock.Pull(Victim(-4f), Charger, Line, Config, null).Position.Y, 3);
+    }
+
+    [Fact]
+    public void A_wall_stops_the_pull_short()
+    {
+        var walled = Mesh(q => { q(new(-50, -50, 0), new(50, -50, 0), new(50, 50, 0), new(-50, 50, 0)); q(new(-50, 1.5f, -1), new(50, 1.5f, -1), new(50, 1.5f, 4), new(-50, 1.5f, 4)); });
+        var p = ChargeLock.Pull(Victim(), Charger, Line, Config, walled);
+        output.WriteLine($"wall at y 1.5: victim stops at y {p.Position.Y:F3}");
+        Assert.True(p.Position.Y <= 1.5f - Config.CapsuleRadius + 0.02f && p.Position.Y > 0.5f);
+    }
+
+    [Fact]
+    public void The_pull_never_takes_a_victim_off_a_ledge()
+    {
+        // A platform at z 0 ending at y 1, a floor 3 m below beyond it.
+        var ledge = Mesh(q =>
+        {
+            q(new(-50, -50, 0), new(50, -50, 0), new(50, 1, 0), new(-50, 1, 0));
+            q(new(-50, 1, -3), new(50, 1, -3), new(50, 50, -3), new(-50, 50, -3));
+            q(new(-50, 1, -3), new(50, 1, -3), new(50, 1, 0), new(-50, 1, 0));
+        });
+        var p = ChargeLock.Pull(Victim(), Charger, Line, Config, ledge);
+        output.WriteLine($"ledge at y 1: victim stops at {p.Position} grounded {p.Grounded}");
+        Assert.True(p.Grounded);
+        Assert.True(p.Position.Z >= -ChargeLock.MaxPullDrop - 1e-3f && p.Position.Y < 1f + Config.CapsuleRadius, "still on the platform");
+        Assert.True(p.Position.Y > 0.3f, "it still moved toward the spot");
+    }
+
+    [Fact]
+    public void The_pull_stops_before_a_kill_volume()
+    {
+        var pit = new KillVolume(new Vector3(0f, 2f, 0.5f), new Vector3(5f, 0.5f, 1f), 0f);
+        var floor = Mesh(q => q(new(-50, -50, 0), new(50, -50, 0), new(50, 50, 0), new(-50, 50, 0)), [pit]);
+        var p = ChargeLock.Pull(Victim(), Charger, Line, Config, floor);
+        output.WriteLine($"kill volume from y 1.5: victim stops at y {p.Position.Y:F3}");
+        Assert.False(floor.KillsPlayer(Victim().Position, p.Position, Config.CapsuleHeight));
+        Assert.True(p.Position.Y > 1f && p.Position.Y < 1.5f);
+    }
+
+    [Fact]
+    public void The_pull_stops_short_of_a_third_player_and_of_a_teammate_in_the_world()
+    {
+        var p = ChargeLock.Pull(Victim(), Charger, Line, Config, null, [new Vector3(0f, 1.6f, 0f)]);
+        output.WriteLine($"third player at y 1.6: victim stops at y {p.Position.Y:F3}");
+        Assert.True(1.6f - p.Position.Y >= 2f * Config.CapsuleRadius - 1e-3f);
+        Assert.True(p.Position.Y > 0.5f);
+        // In the world: an ally of the victim stands at the lock spot's side; the victim ends clear of it.
+        var w = Arena(Config, (Marine, Vector3.Zero), (Chaos, new Vector3(0.6f, 6f, 0f)), (Chaos, new Vector3(0.6f, 3.6f, 0f)));
+        var c = Run(w, 40, 5);
+        Assert.NotNull(c);
+        int victimId = c.Value.Victim.PlayerId, otherId = victimId == 2 ? 3 : 2;
+        float gap = Flat(w.Players[victimId].Position, w.Players[otherId].Position);
+        output.WriteLine($"world: victim P{c.Value.Victim.PlayerId}, gap to the other {gap:F3} m");
+        Assert.True(gap >= 2f * Config.CapsuleRadius - 0.02f, $"inside another player: {gap:F3} m");
+    }
 }

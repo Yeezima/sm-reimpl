@@ -42,7 +42,8 @@ public sealed partial class World
         if (!harmed) return true;
         // anim/melee-interaction: a victim the stun will take stands at the lock spot in front of the charger before the hit (its push line is then the lock line).
         if (Config.ChargeLock && spec.PrimaryReaction.Kind != ReactionKind.None && _players[target] is { Alive: true } victim && Reaction.CanReact(victim, Config))
-            _players[target] = ChargeLock.Pull(victim, state.Position, lockLine, Config, Collision);
+            _players[target] = ChargeLock.Pull(victim, state.Position, lockLine, Config, Collision,
+                _players.Where(kv => kv.Key != attacker && kv.Key != target && kv.Value.Alive).Select(kv => kv.Value.Position));   // review: not into a third player
         RushHit(attacker, target, state, spec.Primary, spec.PrimaryReaction);
         // Others in reach in front: the secondary hit.
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));

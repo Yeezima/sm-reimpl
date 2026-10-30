@@ -161,6 +161,11 @@ public partial class NetworkView
         if (w is null) return;
         _laserTestAt = _connectedFor;
         var (_, _, start, dir) = CenterRayTarget(me, _config);
+        if (CmdFloat("shot-test-turn") is var turn && float.IsFinite(turn))   // fx/melta-fuzzy: --shot-test-turn <degrees> turns the shot about the vertical (90: sideways, 180: toward the camera)
+        {
+            float cs = MathF.Cos(turn * MathF.PI / 180f), sn = MathF.Sin(turn * MathF.PI / 180f);
+            dir = new System.Numerics.Vector3(dir.X * cs - dir.Y * sn, dir.X * sn + dir.Y * cs, dir.Z);
+        }
         float range = 60f;
         var end = start + dir * range;
         if (_client?.Collision?.Weapons.Raycast(start, dir, range) is { } wall) end = wall.Point;

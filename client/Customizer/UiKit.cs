@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using SmClient.Customizer.Model;
 
 namespace SmClient.Customizer;
 
@@ -139,6 +140,46 @@ public static partial class UiKit
         var b = new Button { Text = text, ToggleMode = true, ButtonPressed = on, FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, MinHit) };
         b.Toggled += v => changed(v);
         return b;
+    }
+
+    /// <summary>
+    /// The field-of-view row (ui/fov-slider, ours): a slider in HORIZONTAL degrees at the window's aspect ratio, from the data's look to 120, applied live and saved by
+    /// <paramref name="save"/>. Focusable, so a controller's left / right changes it (step 1).
+    /// </summary>
+    public static HBoxContainer FovRow(float saved, Action<float> save, bool compact = false)
+    {
+        const string tip = "Field of view in degrees, measured across the screen (horizontal) at this window's shape. The lowest value is the original game's view; the highest is 120. Scopes keep their own zoom.";
+        var row = HBox(compact ? 8 : 12);
+        row.TooltipText = tip;
+        row.MouseFilter = Control.MouseFilterEnum.Pass;
+        var caption = Text(compact ? "FOV" : "Field of view", CaptionSize, Grey);
+        caption.VerticalAlignment = VerticalAlignment.Center;
+        row.AddChild(caption);
+        var size = DisplayServer.WindowGetSize();   // the window's shape when the row is built (the viewport has no tree yet)
+        float aspect = FovMath.Aspect(size.X, size.Y);
+        var slider = new HSlider { MinValue = FovMath.MinimumHorizontal(aspect), MaxValue = FovMath.Maximum, Step = 1, Value = FovMath.Clamp(saved, aspect),
+            CustomMinimumSize = new Vector2(compact ? 130 : 300, 28), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter, FocusMode = Control.FocusModeEnum.All, TooltipText = tip, Name = "FovSlider" };
+        var value = Text("", CaptionSize, White);
+        value.VerticalAlignment = VerticalAlignment.Center;
+        value.CustomMinimumSize = new Vector2(compact ? 56 : 120, 0);
+        void Show(double v) => value.Text = $"{v:F0}°" + (!compact && v <= slider.MinValue ? " (original)" : "");
+        Show(slider.Value);
+        float chosen = saved;   // what is saved (0 = the data's look)
+        slider.ValueChanged += v => { Show(v); chosen = v <= slider.MinValue ? 0f : (float)v; save(chosen); };
+        // The range follows the window's shape: rebuilt when the window is resized (the saved choice is kept, limited to the new range).
+        void Refit()
+        {
+            var vs = row.GetViewport().GetVisibleRect().Size;
+            float a = FovMath.Aspect(vs.X, vs.Y);
+            slider.MinValue = FovMath.MinimumHorizontal(a);
+            slider.SetValueNoSignal(FovMath.Clamp(chosen, a));
+            Show(slider.Value);
+        }
+        row.TreeEntered += () => { Refit(); var vp = row.GetViewport(); if (!vp.IsConnected(Viewport.SignalName.SizeChanged, Callable.From(Refit))) vp.SizeChanged += Refit; };
+        row.TreeExiting += () => { try { row.GetViewport().SizeChanged -= Refit; } catch (Exception) { } };
+        row.AddChild(slider);
+        row.AddChild(value);
+        return row;
     }
 
     public static PanelContainer Panel(Control content, int margin = 14)

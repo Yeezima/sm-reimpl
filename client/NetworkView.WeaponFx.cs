@@ -25,9 +25,9 @@ public partial class NetworkView
     /// <summary>The blast cone's radius at the muzzle, metres (ours).</summary>
     const float MeltaMuzzleRadius = 0.12f;
     /// <summary>The blast cone's growth in radius per metre of length: tan of the data's 5 degree half angle (the file's <c>angle</c> 10 halved).</summary>
-    const float MeltaGrowth = 0.0875f;
+    const float MeltaGrowth = 0.065f;
     /// <summary>How long a blast is shown, seconds (ours; the data's rings last 0.2 to 0.6 s).</summary>
-    const float MeltaSeconds = 0.4f;
+    const float MeltaSeconds = 0.55f;
     /// <summary>The longest part of the shot drawn as the cone, metres (the data's cone length).</summary>
     const float MeltaMaxLength = 20f;
     /// <summary>The plasma ball's opacity (ours: "opaque-ish"), also at its edge.</summary>
@@ -46,41 +46,104 @@ public partial class NetworkView
     Mesh? _meltaMesh;
     ShaderMaterial? _meltaMaterial;
 
+    // fx/melta-fuzzy (owner, 2026-10-31: "blurred and stretched out a lot more ... no hard outlines ... fade out with a cloudy effect on the edges. fuzzy"). Values are ours.
+    // The cone is a stack of nested open cone shells (COLOR.r = the shell's radius fraction). Each shell fades by view angle (the facing of its wall against the view, normalised for the
+    // view's angle to the axis, so a silhouette never shows as a line from the side and the head-on view keeps its body), the shells together give a soft radial falloff, the muzzle and the
+    // tip fade out, scrolling 3D noise in metres breaks the body into clouds, and the fragment fades near any geometry in the depth buffer (no intersection line).
     const string MeltaShader = @"
 shader_type spatial;
 render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
 instance uniform float life = 0.0;
+instance uniform vec2 dims = vec2(1.0, 20.0);   // the cone's base radius and length, metres
+uniform float half_angle = 0.06;
+uniform sampler2D depth_tex : hint_depth_texture, repeat_disable, filter_nearest;
 varying vec3 lp;
-void vertex() { lp = VERTEX; }
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float vnoise(vec2 p) {
-    vec2 i = floor(p), f = fract(p);
+varying float shell;
+varying vec3 axisv;
+void vertex() { lp = VERTEX; shell = COLOR.r; axisv = (MODELVIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz; }
+float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float vnoise(vec3 x) {
+    vec3 i = floor(x), f = fract(x);
     f = f * f * (3.0 - 2.0 * f);
-    return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+    return mix(mix(mix(hash(i), hash(i + vec3(1,0,0)), f.x), mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+               mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x), mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
 }
 void fragment() {
-    float d = 1.0 - (lp.y + 0.5);                       // 0 at the muzzle, 1 at the far end
-    float ang = atan(lp.z, lp.x);
-    float flick = vnoise(vec2(ang * 2.5, d * 7.0 - TIME * 16.0)) * 0.6 + vnoise(vec2(ang * 5.0 + 3.0, d * 17.0 - TIME * 30.0)) * 0.4;
-    float rim = pow(1.0 - abs(dot(normalize(NORMAL), normalize(VIEW))), 1.3);
-    float fade = (1.0 - d * 0.8) * (1.0 - life) * (1.0 - life);
-    // fx/visuals-2 (item 40): back to the data's purple / blue (the rings' colours), a pale blue-white at the barrel to a violet-blue farther out.
-    vec3 hot = mix(vec3(0.42, 0.30, 1.0), vec3(0.72, 0.88, 1.0), (1.0 - d) * (1.0 - d));
-    float core = pow(abs(dot(normalize(NORMAL), normalize(VIEW))), 2.5);   // the cone seen from the muzzle's side: a faint hot middle
-    float a = (0.2 + 1.0 * rim + 0.35 * core * (1.0 - d)) * (0.55 + 0.9 * flick) * fade;
-    ALBEDO = hot * a * 1.5;
+    float d = clamp(0.5 - lp.y, 0.0, 1.0);                     // 0 at the muzzle, 1 at the far end
+    vec3 n = normalize(NORMAL);
+    vec3 v = normalize(VIEW);
+    vec3 axis = normalize(axisv);
+    float beta = acos(clamp(abs(dot(axis, v)), 0.0, 1.0));      // the view's angle to the axis
+    float maxf = cos(max(0.0, abs(beta - (1.5707963 - half_angle))));
+    float facing = abs(dot(n, v)) / max(maxf, 0.05);
+    float edge = smoothstep(0.0, 0.85, facing);
+    edge *= edge;                                              // soft both across the wall and toward the silhouette
+    vec3 p = vec3(lp.x * dims.x, lp.y * dims.y, lp.z * dims.x) * 0.7;
+    float c1 = vnoise(p * 0.55 + vec3(0.0, TIME * 7.0, 0.0));
+    float c2 = vnoise(p * 1.3 - vec3(TIME * 0.8, TIME * 11.0, TIME * 0.6));
+    float cloud = smoothstep(0.15, 0.85, c1 * 0.65 + c2 * 0.35) * 1.25 + 0.08;
+    cloud = mix(cloud, cloud * cloud * 1.5, shell);              // the outer shells break up more: ragged, cloudy edges
+    float weight = 0.22 + 0.7 * (1.0 - shell);          // the outer shells dim, the inner ones bright: a soft radial falloff, also head-on
+    float muzzle = smoothstep(0.0, 0.14, d);
+    float tip = 1.0 - smoothstep(0.35, 1.0, d);
+    tip *= tip;
+    float fade = (1.0 - life) * (1.0 - life);
+    float depth = texture(depth_tex, SCREEN_UV).r;
+    vec4 vw = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, depth, 1.0);
+    vw.xyz /= vw.w;
+    float soft = smoothstep(0.0, 0.9, VERTEX.z - vw.z);          // fades out within 0.9 m of a wall or floor
+    vec3 hot = mix(vec3(0.24, 0.12, 1.0), vec3(0.45, 0.65, 1.0), pow(1.0 - d, 5.0));
+    float near = smoothstep(0.8, 5.0, -VERTEX.z);               // a cone that passes the camera never veils the screen
+    float a = edge * weight * cloud * muzzle * tip * fade * soft * near;
+    ALBEDO = hot * a * 0.11;
     ALPHA = 1.0;
 }";
+
+    /// <summary>The nested open cone shells (apex +Y, base -Y, unit height and base radius), COLOR.r the shell's radius fraction.</summary>
+    static Mesh BuildMeltaMesh()
+    {
+        float[] shells = { 1f, 0.88f, 0.76f, 0.65f, 0.54f, 0.44f, 0.34f, 0.25f, 0.16f };
+        const int segments = 28, rings = 4;
+        const float top = 0.03f;
+        var st = new SurfaceTool();
+        st.Begin(Mesh.PrimitiveType.Triangles);
+        foreach (float s in shells)
+        {
+            st.SetColor(new Color(s, 0f, 0f));
+            Vector3 P(int ring, int seg)
+            {
+                float t = ring / (float)rings, ang = seg * Mathf.Tau / segments, r = Mathf.Lerp(top, 1f, t) * s;
+                return new Vector3(Mathf.Cos(ang) * r, 0.5f - t, Mathf.Sin(ang) * r);
+            }
+            Vector3 N(int seg)
+            {
+                float ang = seg * Mathf.Tau / segments;
+                return new Vector3(Mathf.Cos(ang), 1f, Mathf.Sin(ang)).Normalized();
+            }
+            for (int ring = 0; ring < rings; ring++)
+                for (int seg = 0; seg < segments; seg++)
+                {
+                    int s1 = (seg + 1) % segments;
+                    foreach (var (r, g) in new[] { (ring, seg), (ring + 1, seg), (ring, s1), (ring, s1), (ring + 1, seg), (ring + 1, s1) })
+                    {
+                        st.SetNormal(N(g));
+                        st.AddVertex(P(r, g));
+                    }
+                }
+        }
+        return st.Commit();
+    }
 
     /// <summary>Starts a blast cone from the muzzle <paramref name="from"/> toward <paramref name="end"/> (Godot space).</summary>
     void MeltaConeAdd(Vector3 from, Vector3 end)
     {
         var axis = end - from;
-        float length = Math.Min(axis.Length(), MeltaMaxLength);
-        if (length < 0.4f) return;
+        if (axis.Length() < 0.4f) return;
+        float length = MeltaMaxLength;   // fx/melta-fuzzy: always the data's reach; walls hide the part behind them (depth test), the depth fade softens the meeting
         var dir = axis.Normalized();
-        _meltaMesh ??= new CylinderMesh { TopRadius = 0f, BottomRadius = 1f, Height = 1f, RadialSegments = 28, Rings = 1, CapTop = false, CapBottom = false };
+        _meltaMesh ??= BuildMeltaMesh();
         _meltaMaterial ??= new ShaderMaterial { Shader = new Shader { Code = MeltaShader } };
+        _meltaMaterial.SetShaderParameter("half_angle", Mathf.Atan(MeltaGrowth));
         ref var c = ref _meltaCones[_meltaNext];
         _meltaNext = (_meltaNext + 1) % _meltaCones.Length;
         if (c.Node is null)
@@ -89,13 +152,13 @@ void fragment() {
             AddChild(c.Node);
         }
         float radius = MeltaMuzzleRadius + MeltaGrowth * length;
-        // The mesh's apex is +Y and its base -Y: +Y points back to the muzzle, the middle sits half the length along the shot; the apex is a small disc (the muzzle radius) rather than a point.
-        // fx/visuals-2 (item 40, "points the wrong way"): Basis.Scaled scales the WORLD axes, so the cone's length was stretched along world Y whatever the shot's direction (a cone that leaned
-        // away from the aim); the local axes are scaled here.
+        // The mesh's apex is +Y and its base -Y: +Y points back to the muzzle, the middle sits half the length along the shot.
+        // fx/visuals-2 (item 40): Basis.Scaled scales the WORLD axes; the local axes are scaled here.
         var axes = AxesFromY(-dir);
         var basis = new Basis(axes.X * radius, axes.Y * length, axes.Z * radius);
         c.Node.GlobalTransform = new Transform3D(basis, from + dir * (length * 0.5f));
         c.Node.SetInstanceShaderParameter("life", 0f);
+        c.Node.SetInstanceShaderParameter("dims", new Vector2(radius, length));
         c.Node.Visible = true;
         c.Start = _connectedFor;
         c.Live = true;
