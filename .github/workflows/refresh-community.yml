@@ -1,0 +1,37 @@
+name: Refresh community updates
+on:
+  push:
+    branches: [main]
+  pull_request_target:
+    types: [opened, reopened, closed, edited, synchronize, ready_for_review, converted_to_draft]
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: community-feed-refresh
+  cancel-in-progress: false
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      # No checkout or event-provided shell code: this only dispatches the trusted feed.
+      - name: Request a community feed refresh
+        env:
+          GH_TOKEN: ${{ secrets.FEED_DISPATCH_TOKEN }}
+          FEED_REPOSITORY: ${{ github.repository_owner }}/sm-reimpl-feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::FEED_DISPATCH_TOKEN is missing. Configure Actions write access to the community automation repository."
+            exit 1
+          fi
+          for attempt in 1 2 3; do
+            if gh workflow run live-feed-poll.yml --repo "$FEED_REPOSITORY" --ref main; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then sleep 5; fi
+          done
+          echo "::error::Community refresh was not accepted after three attempts."
+          exit 1
+
