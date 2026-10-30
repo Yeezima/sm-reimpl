@@ -119,16 +119,20 @@ public sealed partial class Hud
 
     // ---------------------------------------------------------------- player decorators
 
+    readonly List<Decorator> _decoratorSort = new();
+
     /// <summary>
     /// The decorators over players (Decorator.gfx's <c>PlayerDecorator</c>: the race icon and the name; the movie's health and armour bars
     /// need the other players' health on the wire, which it does not carry). A friend: the gold race icon (aquila or Chaos star, the movie's
-    /// <c>icon_mc</c> frames <c>imperial</c> / <c>chaos</c>) over the name in gold; a foe: nothing (owner's decision of 2026-10-30; the client no longer adds foes). Size follows the distance (ours).
+    /// <c>icon_mc</c> frames <c>imperial</c> / <c>chaos</c>) over the name in gold; a foe: the name alone in red. The client adds only the aimed player (ui/hud-3, owner's decision of 2026-10-30). Size follows the distance (ours).
     /// </summary>
     void DrawPlayerDecorators(Vector2 vs)
     {
         if (Data.Decorators.Count == 0) return;
         // Far ones first so the near ones are on top.
-        var list = new List<Decorator>(Data.Decorators);
+        var list = _decoratorSort;
+        list.Clear();
+        list.AddRange(Data.Decorators);
         list.Sort((a, b) => b.Distance.CompareTo(a.Distance));
         foreach (var dec in list)
         {

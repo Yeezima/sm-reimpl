@@ -483,7 +483,7 @@ public class MeleeLockTests(ITestOutputHelper output)
         Assert.Equal(4321, read.Inputs[0].MeleeTarget);
         Assert.Equal(0, new PlayerInput(0, 0, 0, 0, InputButtons.None, MeleeTarget: -3).Sanitized().MeleeTarget);
         Assert.Equal(0, new PlayerInput(0, 0, 0, 0, InputButtons.None, MeleeTarget: 70000).Sanitized().MeleeTarget);
-        Assert.Equal(1200, Protocol.MaxSnapshotBytes);   // snapshots unchanged
+        Assert.Equal(1194, Protocol.MaxSnapshotBytes);   // snapshots unchanged
     }
 
     [Fact]

@@ -404,7 +404,7 @@ public class LockScaleSprintStopTests(ITestOutputHelper output)
         Assert.Equal(stopping, back.Players[0]);
         Assert.Equal(Protocol.Slim(other), back.Players[1]);
         Assert.True(back.Players[1].SprintStop);
-        Assert.Equal(44, Protocol.Version);
+        Assert.Equal(45, Protocol.Version);
         // The slim record: melee byte [^30], time [^29..^26] (as in ReactionTests).
         var slim = Protocol.Write(new Snapshot(9, 1, 1, [other]));
         Assert.Equal(64, slim[^30]);

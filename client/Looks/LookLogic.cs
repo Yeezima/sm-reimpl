@@ -232,11 +232,9 @@ public sealed class HitchMeter
 /// <summary>What the in-match loadout picker allows and says (docs/customizer-design.md F2, acceptance M1 to M3).</summary>
 public static class PickerRules
 {
-    /// <summary>C opens the picker while the player is down: dead, spectating, or after the match; never while alive in play.</summary>
+    /// <summary>The picker not forced by Esc (the death screen's) stays open only while the player is down: dead, spectating, or after the match; never while alive in play.</summary>
     public static bool CanOpen(bool connected, bool alive, bool spectating, bool matchEnded) => connected && (!alive || spectating || matchEnded);
 
-    /// <summary>What C says while alive (the Esc menu is the way to change the loadout then).</summary>
-    public const string WhileAlive = "Press Esc to change your loadout";
 
     /// <summary>What Esc does in a match (customizer menu, M44).</summary>
     public enum EscAction { None, BackToMenu, OpenMenu }

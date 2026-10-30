@@ -1446,7 +1446,7 @@ public partial class NetworkView : Node3D
         bool rebashHeld = RushRebashHeld(state);
         character.ClipFootLock = ClipFootLockFor(state, melee: false);
         character.ClipRootSpeed = float.NaN;
-        if (!ChargeHeldInAir(state) && !rebashHeld && RushPose(state) is { } rush)
+        if (!(ChargeHeldInAir(state) && fallTrack.ChargeFall) && !rebashHeld && RushPose(state) is { } rush)   // sim/combat-pass: the held charge keeps its clip until FallRules.ChargeFallDelay
         {
             var (rushClip, rushTime) = HammerRush(state, rush.Clip, smooth is { Kind: ClipKind.Rush } sh ? sh.Time : rush.Time);   // anim/melee-flow: the hammer's own sprint attack
             if (character.Pose(rushClip, rushTime, ClipBlends.RushFor(rush.Clip))) return;
@@ -1873,6 +1873,10 @@ public partial class NetworkView : Node3D
         f.InGame = true; f.Alive = me.Alive; f.Spectating = Spectate is not null; f.RespawnLeft = me.RespawnLeft;
         var body = Loadouts.Body(c, me);   // M43: the perks' maxima (Iron Halo: shield 150)
         f.Health = me.Health; f.HealthMax = body.HealthMax; f.Shield = me.Shield; f.ShieldMax = body.ShieldMax;
+        if (Loadouts.InHand(c, me) is { Recharge: { } recharge } melee0 && me.Alive)   // ui/hud-3: the melta's bar is the progress to its next shot (shot delay, then the recharged round)
+            f.WeaponBarFull = me.Cooldown > 1e-4f && melee0.ShotCooldown > 0f ? Math.Clamp(1f - me.Cooldown / melee0.ShotCooldown, 0f, 1f)
+                : me.ReloadLeft > 0f ? Math.Clamp(1f - me.ReloadLeft / MathF.Max(recharge.RoundTime, 1e-3f), 0f, 1f) : 1f;
+        f.IronHalo = Loadouts.HasPerk(c, me, "mp_perk_iron_halo");   // ui/hud-3: the armour bar's medallion
         var inHand = Loadouts.InHand(c, me);
         f.SlotKey = (int)me.Slot;
         if (inHand is not null)
@@ -1932,7 +1936,6 @@ public partial class NetworkView : Node3D
         };
         f.Seize = SeizeGround;
         if (f.Seize) FillPoints(f, me);
-        FillDecorators(f, me);   // fidelity gap 10 (NetworkView.Match.cs)
 
         // Crosshair: red over a living enemy, its name under the bar, the aimed enemy's health bar.
         Ph("hud: crosshair ray");
@@ -1949,11 +1952,11 @@ public partial class NetworkView : Node3D
                     f.AimedBar = true; f.AimedHealth = bar.Health / 255f; f.AimedShield = bar.Shield / 255f; f.AimedHealthMax = 1f; f.AimedShieldMax = 1f;
                 }
             }
+            FillDecorators(f, me, centre.Hit);   // ui/hud-3: the name over the aimed player only (NetworkView.Match.cs)
             f.SpreadRadius = SpreadPixels(me, c);   // weapons/spread: the crosshair ticks open with the scatter (NetworkView.Spread.cs)
             // ui/hud-fidelity: the original reticle's spread frame, aim mode and the brace (Hud.Movie.cs).
             f.SpreadFraction = ReticleRules.SpreadFraction(inHand, me, c.MoveSpeedScale);
             f.Aiming = me.Aiming; f.Braced = me.Brace is BracePhase.Entering or BracePhase.Braced;
-            f.CrosshairOffset = CrosshairOffset(centre.Point);   // the camera lag (temporary, NetworkView.CameraLag.cs)
         }
         f.Prompt = me.Alive ? _hudPrompt : "";   // ui/hud-fidelity (NetworkView.Pickups.cs)
         UpdateScope(f, me);   // feel/scope-lascannon
@@ -1975,11 +1978,18 @@ public partial class NetworkView : Node3D
         bool Crossed(double at) => last >= 0 && last < at && t >= at;
         if (last < 0 || last > t) _hudView.ShowSwitchPopup();   // first call, or the 8 s cycle wrapped
         if (t >= 2.0 && t < 6.0) { f.AimedAtEnemy = true; f.AimedName = "[CSM] P1"; f.AimedBar = true; f.AimedHealth = 0.6f; f.AimedShield = 0.3f; f.AimedHealthMax = 1f; f.AimedShieldMax = 1f; }
+        // ui/hud-3: the aimed player's name for screenshots: an enemy from 2 s, a friend from 4 s (the real one needs a hit shape under the crosshair).
+        if (t >= 2.0 && t < 6.0 && _camera is not null)
+        {
+            bool ally = t >= 4.0;
+            f.Decorators.Add(new Hud.Decorator { Name = ally ? "Brother P2" : "[CSM] P1", Rel = ally ? Hud.Rel.Own : Hud.Rel.Enemy, Team = ally ? Team.SpaceMarines : Team.Chaos, Screen = new Vector2(800f, 330f) * (_hudView.Size.Y / 1080f), Distance = 25f });
+        }
         // M44: fill the meters for screenshots (heat ramps up, a charge repeats every 2 s, the jump pack swings, the armour drops to 70 % from 4 s).
         if (f.HasHeat) f.Heat = f.HeatMax * (float)Math.Clamp(t / 6.0, 0.0, 1.0);
         else if (f.HasCharge) { f.Charge = (float)(t % 2.0 / 2.0); f.ChargeReady = f.Charge > 0.75f; }
         if (f.HasJump) f.JumpPower = f.JumpMax * (float)(0.3 + 0.7 * Math.Abs(Math.Sin(t)));
         if (t >= 4.0) f.Shield = MathF.Min(f.Shield, 0.7f * f.ShieldMax);
+        if (t >= 6.0) f.Health = MathF.Min(f.Health, 0.6f * f.HealthMax);   // ui/hud-3: a second hit for the damage vignette (health colour)
         if (t >= 5.0) f.Prompt = "Pick up Ammo";   // ui/hud-fidelity: the prompt for screenshots
         if (Crossed(2.5)) _hudView.ShowHitMarker(false);
         if (Crossed(4.5))

@@ -410,6 +410,7 @@ public partial class NetworkView
             {
                 _deathCameraOn = false;
                 _cameraPlaced = false;   // the normal camera snaps to its place
+                _switchT = 1f;           // no weapon-switch ease left over from before the death
                 _aimBlend = 0f; _evadeBlend = 0f; _rigFraction = 1f; _rigFractionA = 1f;
             }
             return false;

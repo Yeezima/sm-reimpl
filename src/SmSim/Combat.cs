@@ -45,7 +45,7 @@ public static class Combat
             Slot = slot, Clip = inHand?.ClipSize ?? 0, Reserve = inHand?.ReserveSize ?? 0,
             OtherClip = other?.ClipSize ?? 0, OtherReserve = other?.ReserveSize ?? 0, SwitchLeft = 0,
             ThirdClip = third?.ClipSize ?? 0, ThirdReserve = third?.ReserveSize ?? 0, ThirdHeat = 0, ThirdOverheated = false, ThirdSinceHeat = 0,
-            Cooldown = 0, ReloadLeft = 0, SinceDamage = 0, RespawnLeft = 0, Velocity = Vector3.Zero, Grounded = true,
+            Cooldown = 0, ReloadLeft = 0, OtherReloadLeft = 0, ThirdReloadLeft = 0, SinceDamage = 0, RespawnLeft = 0, Velocity = Vector3.Zero, Grounded = true,
             MeleeStep = 0, MeleeTime = 0, MeleeQueued = false,
             Heat = 0, Overheated = false, SinceHeat = 0, OtherHeat = 0, OtherOverheated = false, OtherSinceHeat = 0,
             Charging = false, ChargeTime = 0, PendingShot = 0, PendingLeft = 0,
@@ -58,7 +58,7 @@ public static class Combat
             Rush = RushPhase.None, RushTicks = 0, RushLock = 0, ReadyTicks = 0, RaiseTicks = 0,
             Brace = BracePhase.None, BraceTicks = 0, Venting = false,
             SpreadBloom = 0f, SpreadSince = 0f, SpreadYaw = 0f, SpreadPitch = 0f,   // weapons/spread: a respawn (a round restart too) rests the weapon
-            Buffered = BufferedAction.None, BufferTicks = 0,   // feel/buffer-speed
+            Buffered = BufferedAction.None, BufferTicks = 0, BufferedCharge = false,   // feel/buffer-speed
             SprintStop = false,   // feel/locks-sprint-stop
         };
     }
@@ -110,13 +110,13 @@ public static class Combat
         MeleeHeavy = false, MeleeQueuedHeavy = false,
         Reaction = ReactionKind.None, ReactionDirection = ReactionDirection.Front, ReactionTicks = 0, PushYaw = 0, PushDistance = 0, PushTicks = 0, BlindTicks = 0,
         Rush = RushPhase.None, RushTicks = 0, RushLock = 0,
-        Alive = false, Health = 0f, Shield = 0f, RespawnLeft = Loadouts.RespawnTime(c, s), Velocity = Vector3.Zero, ReloadLeft = 0f, SwitchLeft = 0f,
+        Alive = false, Health = 0f, Shield = 0f, RespawnLeft = Loadouts.RespawnTime(c, s), Velocity = Vector3.Zero, ReloadLeft = 0f, OtherReloadLeft = 0f, ThirdReloadLeft = 0f, SwitchLeft = 0f,
         MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false,
         Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Throwing = false, ThrowTime = 0f, StimLeft = 0f,
         Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSlash = false, Aiming = false,
         EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLock = 0, EvadeLanded = false, JumpDashDirection = EvadeDirection.Forward,
         Brace = BracePhase.None, BraceTicks = 0, Venting = false,
-        Buffered = BufferedAction.None, BufferTicks = 0, SprintStop = false,
+        Buffered = BufferedAction.None, BufferTicks = 0, BufferedCharge = false, SprintStop = false,
     };
 
     /// <summary>
@@ -428,6 +428,10 @@ public static class Combat
                 // feel/charge-directions (protocol 39): a locked charge starts along the view (the stick's A / D offset only without a target) and steers from there.
                 s = s with { Yaw = MeleeLock.Steer(rush.Started ? sanitized.Yaw : s.Yaw, MeleeLock.Offset(s, rushTarget), c) };
         }
+        // sim/combat-pass (item 8; the owner's decision of 2026-10-30): the charge is purely W + F. A heavy press with W held that did not start a charge (the spacing
+        // since the last one is not over, or the body is in the air) or a combo is under way) is never a stun strike, queued or struck: it is left unused, so the input buffer (0.3 s, an
+        // estimate) replays it and the charge starts as soon as it is allowed (owner's follow-up decision).
+        if (!rushing && heavyPress && Loadouts.Rush(c, s) is { } rushForKey && Rush.WHeld(input, rushForKey)) heavyPress = false;
         // BR-02 (owner's recollection): a Tactical fires nothing from the charge's start to its end. Fire is dropped from the input (below), and what a trigger
         // pressed just before had under way (a held charge, a delayed charged shot) is cancelled with the melee attacks'.
         bool noFire = rushing && Rush.NoFire(c, s);
@@ -540,6 +544,7 @@ public static class Combat
         var slot = s.Slot;
         int clip = s.Clip, reserve = s.Reserve, otherClip = s.OtherClip, otherReserve = s.OtherReserve, thirdClip = s.ThirdClip, thirdReserve = s.ThirdReserve;
         float reloadLeft = cancelReload ? 0f : s.ReloadLeft;
+        float otherReloadLeft = s.OtherReloadLeft, thirdReloadLeft = s.ThirdReloadLeft;   // sim/combat-pass: reloads of the holstered weapons
         bool charging = s.Charging && charge is not null;
         float chargeTime = charging ? s.ChargeTime : 0f;
         int pending = weapon is not null && Shots.ChargeShotOf(weapon, s.PendingShot) is not null ? s.PendingShot : 0;
@@ -569,19 +574,34 @@ public static class Combat
             // Protocol 44: three stores (in hand, first holstered, second holstered) follow the weapons to their new places (two weapons: a plain swap).
             var from = slot;
             slot = switchTo.Value;
-            var stores = new (int Clip, int Reserve, float Heat, bool Overheated, float SinceHeat)[3];
-            stores[(int)from] = (clip, reserve, heat, overheated, sinceHeat);
-            stores[(int)Loadouts.Other(from)] = (otherClip, otherReserve, otherHeat, otherOverheated, otherSinceHeat);
-            stores[(int)Loadouts.Third(from)] = (thirdClip, thirdReserve, thirdHeat, thirdOverheated, thirdSinceHeat);
-            (clip, reserve, heat, overheated, sinceHeat) = stores[(int)slot];
-            (otherClip, otherReserve, otherHeat, otherOverheated, otherSinceHeat) = stores[(int)Loadouts.Other(slot)];
-            (thirdClip, thirdReserve, thirdHeat, thirdOverheated, thirdSinceHeat) = stores[(int)Loadouts.Third(slot)];
+            // sim/combat-pass (item 10, owner's recollection 2026-10-30): a reload in progress is not lost; the holstered weapon's runs on (below) and a weapon
+            // taken back in hand has what is left of its own.
+            var stores = new (int Clip, int Reserve, float Heat, bool Overheated, float SinceHeat, float Reload)[3];
+            stores[(int)from] = (clip, reserve, heat, overheated, sinceHeat, reloadLeft);
+            stores[(int)Loadouts.Other(from)] = (otherClip, otherReserve, otherHeat, otherOverheated, otherSinceHeat, otherReloadLeft);
+            stores[(int)Loadouts.Third(from)] = (thirdClip, thirdReserve, thirdHeat, thirdOverheated, thirdSinceHeat, thirdReloadLeft);
+            (clip, reserve, heat, overheated, sinceHeat, reloadLeft) = stores[(int)slot];
+            (otherClip, otherReserve, otherHeat, otherOverheated, otherSinceHeat, otherReloadLeft) = stores[(int)Loadouts.Other(slot)];
+            (thirdClip, thirdReserve, thirdHeat, thirdOverheated, thirdSinceHeat, thirdReloadLeft) = stores[(int)Loadouts.Third(slot)];
             weapon = next;
             switchLeft = c.WeaponSwitchTime;
             if (switchLeft <= 1e-6f) switchLeft = 0f;
-            reloadLeft = 0f;   // the reload in progress is lost
             shotWanted = false;
             charging = false; chargeTime = 0f; pending = 0; pendingLeft = 0f;   // and so is a charge or a pending shot
+        }
+
+        // sim/combat-pass (item 10): the holstered weapons' reloads run on while they are not in hand (owner's recollection: "reloads continue while the weapon
+        // is not equipped", all weapons), on their own timers, whatever the player is doing.
+        if (Loadouts.Weapon(c, s, Loadouts.Other(slot)) is { } otherSpec) ProgressHolstered(otherSpec, ref otherClip, ref otherReserve, ref otherReloadLeft);
+        if (Loadouts.Weapon(c, s, Loadouts.Third(slot)) is { } thirdSpec) ProgressHolstered(thirdSpec, ref thirdClip, ref thirdReserve, ref thirdReloadLeft);
+        void ProgressHolstered(WeaponSpec w, ref int hClip, ref int hReserve, ref float hLeft)
+        {
+            if (hLeft <= 0f) return;
+            hLeft -= dt;
+            if (hLeft > (w.Recharge is null ? 1e-6f : TimeEpsilon)) return;
+            int moved = Math.Min(w.Recharge is null ? w.ClipSize - hClip : Math.Min(1, w.ClipSize - hClip), hReserve);
+            hClip += Math.Max(0, moved); hReserve -= Math.Max(0, moved);
+            hLeft = w.Recharge is { } r && hClip < w.ClipSize && hReserve > 0 ? r.RoundTime : 0f;   // a recharging clip goes on round by round
         }
 
         // Throwing (rules provisional; see the summary): progress, release and end of a throw in progress, else a new throw.
@@ -817,6 +837,14 @@ public static class Combat
         // feel/melee-lock: an attack that starts from rest this tick with a lock the start's cone accepts faces the direction that found it (the stick's,
         // else the view's: MeleeLock.SearchDirection), so the target stays in the attack's cone while its alignment window turns to it.
         // (feel/melee-charge-2: kept: only a stick pushed to a side turns the body here, the original's directional attack; the turn to the target itself eases.)
+        // sim/combat-pass (item 19; the owner's decision of 2026-10-30): directional melee. The stick's way of eight (Evade.DirectionOf, dead zone 0.1) at the tick an
+        // attack begins sets the facing it is struck in, relative to the view: S turns the body round and strikes backwards, A / D sideways, the diagonals between,
+        // no key forwards. Latched for the attack (PlayerState.MeleeDirection; it follows the view's turns), re-read by each combo attack. A lock the start's cone
+        // accepts (the search already goes along the stick) still turns the body to the stick's continuous direction, then to the target.
+        bool newAttack = step > 0 && time == 0f;
+        var meleeDirection = step == 0 ? EvadeDirection.Forward : newAttack ? Evade.DirectionOf(sanitized.MoveX, sanitized.MoveY, diagonals: true) : s.MeleeDirection;
+        float meleeTurn = Rush.DashOffset(meleeDirection);
+        if (step > 0 && time < MoveAtOf(steps[step - 1], c)) moveInput = moveInput with { Yaw = sanitized.Yaw + meleeTurn };   // while the stick is held off (a stick that moves the body keeps the view's frame)
         if (s.MeleeStep == 0 && step > 0 && sanitized.MeleeTarget > 0
             && MeleeLock.Target(s, sanitized, sanitized.MeleeTarget, others, c, world, MeleeLock.Phase.MeleeStart) is not null)
             moveInput = moveInput with { Yaw = MeleeLock.YawOf(MeleeLock.SearchDirection(sanitized)) };
@@ -837,7 +865,7 @@ public static class Combat
             && (motionFrom + TimeEpsilon < MoveAtOf(attack, c) || (sanitized.MoveX == 0f && sanitized.MoveY == 0f)))
         {
             Vector2? toTarget = MeleeLock.Target(s, sanitized, sanitized.MeleeTarget, others, c, world, MeleeLock.Phase.Melee) is { } target ? MeleeLock.Offset(s, target) : null;
-            float heading = MeleeLock.Align(s.Yaw, sanitized.Yaw, attack, motionFrom, motionTo, toTarget, c);
+            float heading = MeleeLock.Align(s.Yaw, sanitized.Yaw + meleeTurn, attack, motionFrom, motionTo, toTarget, c);
             float lunge = MeleeLock.LungeStep(attack, motionFrom, motionTo, heading, toTarget, c);
             meleeGlide = (heading, MeleeLock.Forward(heading) * (lunge / dt));
         }
@@ -855,6 +883,9 @@ public static class Combat
             }
             : pack is not null ? JumpPack.Move(s, moveInput, c, pack, world, speedScale, jump, out jumpEvent, aiming) : Movement.Step(s, moveInput, c, world, speedScale, aiming))
             with { Pitch = input.Pitch, Aiming = aiming };
+        // sim/combat-pass (review note): the chosen direction holds through the hit even when the hit comes after the move-on time (the walk then uses the view's frame, the body keeps the strike's facing).
+        if (step > 0 && meleeGlide is null && !reacting && !rushing && !evading && time < MathF.Max(MoveAtOf(steps[step - 1], c), steps[step - 1].HitTime + dt + TimeEpsilon))
+            s = s with { Yaw = sanitized.Yaw + meleeTurn };
         if (meleeGlide is { } glide)
         {
             // The attack's motion replaces the walk (the jump pack's bookkeeping of the walk tick stays).
@@ -881,7 +912,7 @@ public static class Combat
         var result = s with
         {
             SinceDamage = since, Shield = shield, Health = health, Cooldown = cooldown,
-            ReloadLeft = reloadLeft, Clip = clip, Reserve = reserve,
+            ReloadLeft = reloadLeft, OtherReloadLeft = otherReloadLeft, ThirdReloadLeft = thirdReloadLeft, Clip = clip, Reserve = reserve,
             Slot = slot, OtherClip = otherClip, OtherReserve = otherReserve, SwitchLeft = switchLeft,
             ThirdClip = thirdClip, ThirdReserve = thirdReserve, ThirdHeat = thirdHeat, ThirdOverheated = thirdOverheated, ThirdSinceHeat = thirdSinceHeat,
             Heat = heat, Overheated = overheated, SinceHeat = sinceHeat, OtherHeat = otherHeat, OtherOverheated = otherOverheated, OtherSinceHeat = otherSinceHeat,
@@ -898,7 +929,7 @@ public static class Combat
             MeleeHeavy = step > 0 && heavy, MeleeQueuedHeavy = queued && queuedHeavy, MeleeHeavyHeld = heavyDown,
             BlindTicks = Math.Max(0, s.BlindTicks - 1),
             Brace = brace.Phase, BraceTicks = brace.Ticks, Venting = venting && heat > 0f,
-            SprintStop = sprintStopping,
+            SprintStop = sprintStopping, MeleeDirection = meleeDirection,
         };
         if (!reacting && !rushing && !braceMasked) return result;
         // Reacting, charging or a brace mask (fidelity gap 7): the buttons were ignored, but whether they are held is the real input's (a press during the reaction is lost).

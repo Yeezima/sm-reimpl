@@ -407,7 +407,7 @@ public class RushTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_18_carries_the_rush_phase_in_every_record_and_refuses_malformed_ones()
     {
-        Assert.Equal(44, Protocol.Version);
+        Assert.Equal(45, Protocol.Version);
         var p = new PlayerState(4, Vector3.One, Vector3.Zero, 1f, true) { Alive = true, Rush = RushPhase.Collision, RushTicks = 17, RushLock = 9 };
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(9, 1, 1, [p, p with { PlayerId = 5 }], Self: 4))));
         Assert.Equal(p, back.Players[0]);
@@ -425,7 +425,7 @@ public class RushTests(ITestOutputHelper output)
         var half = (byte[])slim.Clone(); BitConverter.GetBytes(2.5f).CopyTo(half, half.Length - 29);
         Assert.Null(Protocol.Read(half));              // ticks not whole
         Assert.Equal(31, Protocol.MaxMeleeStep);
-        Assert.Equal(1200, Protocol.MaxSnapshotBytes);
+        Assert.Equal(1194, Protocol.MaxSnapshotBytes);
     }
 
     [Theory]

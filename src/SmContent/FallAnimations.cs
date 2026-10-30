@@ -257,6 +257,16 @@ public static class FallRules
     /// <summary>A marine counts as falling after it has been unsupported this long (ours: two simulation ticks; the graph reacts at once, but the ground snap and the stairs keep a marine unsupported for a tick or two at a crest).</summary>
     public const float DebounceSeconds = 2f / 30f;
 
+    /// <summary>
+    /// sim/combat-pass (item 21; the owner's playtest of 2026-10-30: "charging off a ledge: the falling animation should start about 1 s into the ledge charge"): a charge held in the air shows its
+    /// own clip (its pose as it left the ground) until the body has been off the ground this long during the charge (ours, an estimate; the owner's follow-up decision replaced "about 1 s into the charge"), then the fall pose.
+    /// </summary>
+    public const float ChargeFallDelay = 0.3f;
+
+    /// <summary>Whether a charge held in the air for <paramref name="airSeconds"/> shows the fall pose (<see cref="ChargeFallDelay"/>).</summary>
+    public static bool ChargeShowsFall(double airSeconds) =>
+        (double.IsFinite(airSeconds) ? Math.Max(0.0, airSeconds) : 0.0) >= ChargeFallDelay - 1e-6;
+
     /// <summary>The air time from which landing effects, shake and sound happen (ours; the sound code's 0.4 s: a short hop is not a fall).</summary>
     public const float LandingFeelSeconds = 0.4f;
 

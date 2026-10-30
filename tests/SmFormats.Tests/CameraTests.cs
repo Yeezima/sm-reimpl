@@ -68,10 +68,10 @@ public class CameraTests
     static readonly (string, object)[] NoUpgrade = [("$ref", "_base_templates\\required_upgrade_name"), ("required_list", Array.Empty<(string, object)>())];
     static readonly (string, object)[] SnapUpgrade = [("$ref", "_base_templates\\required_upgrade_name"), ("required_list", new (string, object)[] { ("entry", "snap") })];
 
-    static BafDocument Set(float fov, string curve, float min, float max, float blend) => BafDocument.Read(SyntheticBafWriter.Build(
+    static BafDocument Set(float fov, string curve, float min, float max, float blend, bool zoomLevels = false) => BafDocument.Read(SyntheticBafWriter.Build(
         ("lens_properties", new (string, object)[] { ("$ref", "_base_templates\\cameraman_lens"), ("blur_radius", 0.1f) }),
         ("field_of_view", fov), ("animation_curve", curve), ("relax_delay", 0.1f), ("relax_speed", 10f), ("aim_blend_speed_scaler", 5f),
-        ("pitch_minimum", min), ("pitch_maximum", max), ("blend_in_time", blend), ("blend_in_distance", 5f), ("target_lock_on_seconds", 0.25f)));
+        ("pitch_minimum", min), ("pitch_maximum", max), ("blend_in_time", blend), ("blend_in_distance", 5f), ("target_lock_on_seconds", 0.25f), ("aim_use_zoom_levels", zoomLevels)));
 
     static BafDocument Input(float mouse, float horizontal, float vertical) => BafDocument.Read(SyntheticBafWriter.Build(
         ("speed_horizontal", horizontal), ("speed_vertical", vertical), ("request_damping_multiplier", 1f), ("speed_mouse", mouse)));
@@ -80,14 +80,16 @@ public class CameraTests
         ("target_adhesion_strength", 0.5f), ("camera_input_tuning_set", input), ("max_angle_for_adhesion", 5f)));
 
     /// <summary>Wargear with camera data: a snap-upgrade entry first, then the default (the reader must pick the default).</summary>
-    static BafDocument Weapon(string exploration, string aim, string autoAim, string autoAimZoom) => BafDocument.Read(SyntheticBafWriter.Build(
+    static BafDocument Weapon(string exploration, string aim, string autoAim, string autoAimZoom, float[]? zoom = null) => BafDocument.Read(SyntheticBafWriter.Build(
         ("camera_data", new (string, object)[]
         {
             ("entry", new (string, object)[] { ("required_upgrade_name", SnapUpgrade), ("camera_data", new (string, object)[] {
                 ("aim_camera", "camera_curve_settings\\aim_upgraded"), ("exploration_camera", "camera_curve_settings\\aim_upgraded") }) }),
             ("entry", new (string, object)[] { ("required_upgrade_name", NoUpgrade), ("camera_data", new (string, object)[] {
                 ("$ref", "wargear\\wargear_camera_mode"), ("auto_aim", autoAim), ("auto_aim_zoom", autoAimZoom),
-                ("aim_camera", aim), ("exploration_camera", exploration), ("melee_camera", "camera_curve_settings\\melee_default_mp") }) }),
+                ("aim_camera", aim), ("exploration_camera", exploration), ("melee_camera", "camera_curve_settings\\melee_default_mp"),
+                ("zoom_levels", new (string, object)[] { ("_base_templates\\zoom_levels", new (string, object)[] { ("$ref", "_base_templates\\zoom_levels"), ("fov_1", zoom?[0] ?? 33f), ("fov_2", zoom?[1] ?? 30f), ("fov_3", 5f),
+                    ("num_zoom_levels", zoom is null ? 1 : 2), ("required_upgrade_name", NoUpgrade) }) }) }) }),
         }),
         ("common_data", new (string, object)[] { ("slot", "ranged") })));
 
@@ -96,7 +98,7 @@ public class CameraTests
         {
             ["exploration_default_mp"] = Set(40f, "navigationset_standing", 20f, 160f, 0.25f),
             ["aim_sm_rifle_mp"] = Set(20f, "aimset_standing", 5f, 175f, 0.15f),
-            ["aim_sm_sniper_mp"] = Set(15f, "aimset_zoom", 10f, 170f, 0.05f),
+            ["aim_sm_sniper_mp"] = Set(15f, "aimset_zoom", 10f, 170f, 0.05f, zoomLevels: true),
             ["aim_upgraded"] = Set(25f, "aimset_heavy", 30f, 145f, 0.08f),
             ["broken"] = Set(40f, "navigationset_standing", 160f, 20f, 0.25f),   // minimum above maximum: skipped
         },
@@ -114,7 +116,7 @@ public class CameraTests
             ["sm_mp_ranged_bolter"] = Weapon("camera_curve_settings\\exploration_default_mp", "camera_curve_settings\\aim_sm_rifle_mp",
                 "auto_aim_info\\multiplayer\\sm_auto_aim_bolter_mp", "auto_aim_info\\multiplayer\\sm_auto_aim_bolter_zoom_mp"),
             ["sm_mp_ranged_sniper_rifle"] = Weapon("camera_curve_settings\\exploration_default_mp", "camera_curve_settings\\aim_sm_sniper_mp",
-                "", "auto_aim_info\\multiplayer\\sm_auto_aim_sniper_zoom_mp"),
+                "", "auto_aim_info\\multiplayer\\sm_auto_aim_sniper_zoom_mp", zoom: [10f, 10f]),
             ["sm_mp_ranged_missing"] = Weapon("camera_curve_settings\\exploration_default_mp", "camera_curve_settings\\aim_nowhere", "", ""),
         });
 
@@ -145,6 +147,11 @@ public class CameraTests
         Assert.Equal(("aim_sm_sniper_mp", 15f, "aimset_zoom"), (sniper.Aim.Name, sniper.Aim.FieldOfView, sniper.Aim.AnimationCurve));
         Assert.Equal(("default", "aim_sniper_mp", 20f), (sniper.ExplorationInput.Name, sniper.AimInput.Name, sniper.AimInput.SpeedMouse));
         Assert.Contains("fallback", sniper.Evidence);
+
+        // Zoom levels (fix/camera-zoom-misc): read only where the aim set says aim_use_zoom_levels (the sniper's), not for the bolter whose wargear also lists some.
+        Assert.Equal([10f, 10f], sniper.ZoomFovs);
+        Assert.Contains("zoom_levels 10 / 10", sniper.Evidence);
+        Assert.Null(bolter.ZoomFovs);
 
         // A weapon whose aim set does not exist is not listed; it (and an unknown name) gets the bolter's sets as a fallback.
         Assert.False(t.Weapons.ContainsKey("sm_mp_ranged_missing"));

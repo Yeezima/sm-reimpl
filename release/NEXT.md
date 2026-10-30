@@ -13,7 +13,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Rapid Deployment now works: you come back to life after 3 seconds instead of 5.
 - Weapon Versatility now works for Tactical Marines: press 3 for a second primary weapon. Pick it in the class creator (Weapons step) after choosing the perk; with none picked, 3 does nothing. The mouse wheel and X now cycle pistol, primary and the second primary.
 - Teleport Homer now works: while you live, your allies who die come back next to you.
-- Tactical Readout and Signum Link now show a health and armour bar on the enemy under your crosshair. Without one of them, enemies no longer show a name or a bar.
+- Tactical Readout and Signum Link now show a health and armour bar on the enemy under your crosshair. Without one of them the enemy shows no bar.
 - The Assault and Raptor jump pack now takes the colour you pick for the Backpack in the armour colours (before, it followed the torso colour).
 - Tactical Marines can no longer fire their weapon while charging: a shot started just before the charge is dropped, and pressing fire during the charge no longer interrupts it.
 - Fixed: in Seize Ground, after capturing a point a humming noise no longer starts and grows louder; each capture now gives its one cue and then it is quiet again.
@@ -22,3 +22,21 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The melta's blast is a distinct orange cone instead of purple-blue haze. Plasma gun and plasma cannon shots are now a solid-looking, roiling ball of plasma.
 - Assault and Raptor jump pack flames now stop at the top of the jump.
 - Fixed: a flicker on the Devastator's backpack with some armour sets.
+- The camera no longer trails the mouse: it follows your aim exactly again.
+- The stalker bolter and the lascannon now zoom in further when you scope (stalker bolter about 1.5 times tighter, lascannon about 2.6 times tighter than before).
+- The C key no longer opens the loadout menu; press Esc to change your loadout, alive or dead (the death screen shows "[ESC] CHANGE LOADOUT").
+- Switching between the bolt pistol and your primary weapon now eases the camera over a quarter of a second instead of jumping.
+- The stalker bolter's reload now plays its sounds once each: the doubled click is gone and the bolt release remains.
+- Taking damage now flashes the edges of your screen instead of the health bar: blue-green when your armour is hit, red or orange when your health is.
+- Only the Iron Halo perk keeps the armour bar with the spiked medallion. Every other class gets the original's gold-framed bar without spikes and an orange health bar.
+- The ground pound marker is now four yellow arrows (above, left, right and below the landing spot) that slide inward again and again.
+- The kill and bonus lines in the middle of the screen are a little smaller.
+- The score panel at the bottom left no longer runs past its bars, and the weapon box at the bottom right sits a little higher, closer to the original.
+- The melta gun's bar in the weapon box now shows how far it is from the next shot.
+- Names now show only over the player under your crosshair: red for an enemy, yellow for a friend. Nobody else has a name floating over them any more.
+- New network version again: everyone must update together.
+- Charging is now purely W + F: with W held, F always charges and never gives the stun strike. Press it a moment too early (while the last charge is still recovering, in the air, or in the middle of a melee combo) and the charge starts as soon as it can.
+- Reloads now carry on while the weapon is put away: start a reload, switch weapons, and it finishes on its own; switching back finds the weapon ready.
+- Melee now goes the way you hold: hold S when you strike and the Marine turns round and hits backwards; A and D strike to the sides, and the diagonals work too. With no key held it strikes forward.
+- Charging off a ledge: the falling animation now starts a third of a second after you leave the ground.
+- Headshots were checked against the game's numbers: the bolt pistol's headshot kills a Marine whose armour is gone in one shot.
