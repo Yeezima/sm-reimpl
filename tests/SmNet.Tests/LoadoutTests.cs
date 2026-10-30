@@ -142,12 +142,12 @@ public class LoadoutTests(ITestOutputHelper output)
         for (int i = 0; i < 40; i++) Step(ref s, InputButtons.Switch, out _);   // held: no further switch
         Assert.Equal(WeaponSlot.Pistol, s.Slot);
 
-        // A press while a switch is under way is ignored.
+        // A press while a switch is under way cancels it and switches back (sim/switch-cancel, owner's recollection 2026-10-31).
         s = Fresh(Tactical);
         Step(ref s, InputButtons.Switch, out _);
         Step(ref s, InputButtons.None, out _);
         Step(ref s, InputButtons.Switch, out _);
-        Assert.Equal(WeaponSlot.Pistol, s.Slot);
+        Assert.Equal((WeaponSlot.Ranged, Config.WeaponSwitchTime), (s.Slot, s.SwitchLeft));
 
         // No primary: nothing to switch to.
         var a = Fresh(Assault);
@@ -297,7 +297,7 @@ public class LoadoutTests(ITestOutputHelper output)
         var hello = new Hello(Protocol.Version, 1, 2, 3, 4, 5, 6, 2);
         Assert.Equal(hello, Protocol.Read(Protocol.Write(hello)));
         Assert.Equal(Protocol.ServerDefaultClass, new Hello(Protocol.Version, 1, 2, 3).RequestedClass);
-        Assert.Equal(47, Protocol.Version);
+        Assert.Equal(48, Protocol.Version);
     }
 
     // ---------------------------------------------------------------- per-recipient snapshots
