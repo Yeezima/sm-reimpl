@@ -708,9 +708,11 @@ public partial class NetworkView
         var bob = LandShakeOffset();   // animation pass 1 (NetworkView.Fall.cs): the landing's camera shake, a position offset along the camera's own axes
         bool rotate = amount >= 0.0004f;
         if (!rotate) _shake = Vector3.Zero;
-        if (!rotate && bob == Vector3.Zero) return;
+        float punch = PunchNow();   // anim/melee-interaction: the charge connect's camera kick (NetworkView.MeleeInteraction.cs)
+        if (!rotate && bob == Vector3.Zero && punch == 0f) return;
         _unshaken = _camera.GlobalTransform;
         var t = _unshaken;
+        if (punch != 0f) t.Basis = t.Basis * new Basis(Vector3.Right, -punch) * new Basis(Vector3.Forward, punch * 0.35f);
         if (rotate)
         {
             var rng = _shakeRng;

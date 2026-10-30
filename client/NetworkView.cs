@@ -486,6 +486,7 @@ public partial class NetworkView : Node3D
         HipFireBegin(me);   // M27: drains the own events and the others' shots once, notes who fired
         MeleeLockFrame(me, delta);   // feel/melee-lock: hit-stops, the camera assist (NetworkView.MeleeLock.cs)
         MeleeFlowFrame(me);   // anim/melee-flow: the stun-strike shakes (NetworkView.MeleeFlow.cs)
+        MeleeInteractionFrame(me, _lastOthers, observer: false);   // anim/melee-interaction: charge impacts, reaction sources, the hit-frame flinch (NetworkView.MeleeInteraction.cs)
         FlinchFeed(me);     // animation pass 2 (NetworkView.UpperBody.cs): this frame's hits start the flinch
         HandlingFrame(me, delta);   // weapons/spread: the data's climb and sway kick the own view (NetworkView.Spread.cs)
         Ph("own model");
@@ -658,7 +659,7 @@ public partial class NetworkView : Node3D
                      $"{(me.Alive ? "alive" : "dead")} hp {me.Health:F0} sh {me.Shield:F0} {AmmoText(me)}{HeatText(me)}{ChargeText(me)} bot [{_botNote}] melee {me.MeleeStep} ({MeleeLabel(me)}) swings {_meleeSwings} switches {_switches} overheats {_overheats} releases {_releases}; " +
                      $"charged releases {_chargedReleases} own shots basic {_ownBasicShots} charged {_ownChargedShots} detonate requests {_detonateRequests}; projectiles drawn {_projectileNodes.Count} seen {_projectilesSeen} (charged {_chargedProjectilesSeen}) detonations seen {_detonationsSeen} (charged {_chargedDetonationsSeen}) remote charge starts {_remoteChargeStarts}; " +
                      $"{ThrowText(me)} throws started {_throwsStarted} released {_throwsReleased} remote throws seen {_remoteThrowsSeen} thrown seen {_thrownSeen} thrown detonations seen {_thrownDetonationsSeen} melta shots {_meltaShots}; " +
-                     $"{JumpLogText(me)}; {DashAttackLogText()}; {MeleeLockLogText()}; {MeleeFlowLogText()}; " +
+                     $"{JumpLogText(me)}; {DashAttackLogText()}; {MeleeLockLogText()}; {MeleeFlowLogText()}; {MeleeInteractionLog()}; " +
                      string.Join(" ", others.Select(o => $"P{o.PlayerId} '{ClassLabel(o.Class)}' {WeaponLabel(Loadouts.InHand(_config, o))} melee {MeleeLabel(o)} {o.Position.X:F1},{o.Position.Y:F1} yaw {o.Yaw:F2} {(o.Alive ? "alive" : "dead")}{(o.Charging ? " CHARGING" : "")}{(o.Throwing ? " THROWING" : "")}{(JumpPack.Jumping(o.Jump) ? " JUMPING" : JumpPack.Pounding(o.Jump) ? " POUNDING" : "")} z {o.Position.Z:F1} melee {o.MeleeStep} {_remotes.GetValueOrDefault(o.PlayerId)?.Playing}")));
     }
 
@@ -1461,6 +1462,7 @@ public partial class NetworkView : Node3D
         if (!(ChargeHeldInAir(state) && fallTrack.ChargeFall) && !rebashHeld && RushPose(state) is { } rush)   // sim/combat-pass: the held charge keeps its clip until FallRules.ChargeFallDelay
         {
             var (rushClip, rushTime) = HammerRush(state, rush.Clip, smooth is { Kind: ClipKind.Rush } sh ? sh.Time : rush.Time);   // anim/melee-flow: the hammer's own sprint attack
+            rushTime = MathF.Max(0f, rushTime - HitStopHold(state.PlayerId));   // anim/melee-interaction: the charge connect's hit-stop holds the collision stop too
             if (character.Pose(rushClip, rushTime, ClipBlends.RushFor(rush.Clip))) return;
         }
         // Attacking: the step's original clip (light or heavy, M28) at the simulation's attack time (seeked, not free-running).

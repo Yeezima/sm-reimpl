@@ -25,12 +25,15 @@ public partial class NetworkView
     int _correctionsLogged;
 
     /// <summary>The config as the server's: player collision off with <c>--no-player-collision</c> (the config hashes then agree).</summary>
-    static SimConfig WithPlayerCollisionArg(SimConfig c) => NoPlayerCollision ? c with { PlayerBodies = false } : c;
+    static SimConfig WithPlayerCollisionArg(SimConfig c) => (NoPlayerCollision ? c with { PlayerBodies = false } : c) is var b && NoChargeLockArg ? b with { ChargeLock = false } : b;
+    /// <summary>anim/melee-interaction test aid <c>--no-charge-lock</c> (the server needs it too: config hash): the M29 charge contact and stop.</summary>
+    static readonly bool NoChargeLockArg = OS.GetCmdlineUserArgs().Contains("--no-charge-lock");
 
     /// <summary>The remote players where they are drawn this frame (moved apart unless <c>--no-body-separation</c>), and the bot's overlap sample.</summary>
     IReadOnlyList<PlayerState> DrawnRemotes(IReadOnlyList<PlayerState> others, PlayerState me, PlayerState shown)
     {
         var drawn = NoBodySeparation ? others : _drawnBodies.Separate(others, me.Alive ? shown.Position : null, me.PlayerId, _config!);
+        drawn = LockDrawn(drawn);   // anim/melee-interaction: the own charge's victim at the lock spot (NetworkView.MeleeInteraction.cs)
         if (_bot)
         {
             _drawnFeet.Clear();

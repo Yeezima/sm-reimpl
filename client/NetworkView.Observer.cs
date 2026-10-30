@@ -135,6 +135,7 @@ public partial class NetworkView
         var (renderTick, interpolated) = _client.RemotePlayers();
         var others = DrawnRemotes(interpolated, me, me);
         _lastOthers = others;
+        MeleeInteractionFrame(me, others, observer: true);   // anim/melee-interaction: charge impacts and reaction facing for the observer too
         HipFireBegin(me);
         HipFireOthers(me, others, renderTick > 0);
         var seen = _seenRemotes;

@@ -9,8 +9,11 @@ namespace SmNet;
 /// </summary>
 public sealed partial class GameClient
 {
-    /// <summary>The last contact the own prediction found (its input tick and the player met; 0: none yet). Presentation reads it (hit-stop, impact effects).</summary>
-    public (uint Tick, int Target) LastChargeContact { get; private set; }
+    /// <summary>
+    /// The last contact the own prediction found: its input tick, the player met (0: none yet) and the lock spot where the server puts a stunned victim (<see cref="ChargeLock.LockDistance"/>
+    /// in front of the stopped charger). Presentation reads it (hit-stop, impact effects, drawing the victim at the lock spot until the snapshots show it there).
+    /// </summary>
+    public (uint Tick, int Target, System.Numerics.Vector3 Spot) LastChargeContact { get; private set; }
     /// <summary>Diagnostics (bot log, tests): rush ticks checked for a contact, those without a view, contacts found (replays included).</summary>
     public int ChargeContactChecks { get; private set; }
     public int ChargeContactNoView { get; private set; }
@@ -24,7 +27,12 @@ public sealed partial class GameClient
         ChargeContactChecks++;
         if (view is null) ChargeContactNoView++;
         var after = ChargeLock.Predict(PlayerId, before, next, _config, view, bodies, Collision, out var contact);
-        if (contact is { } c) { ChargeContactsPredicted++; if (input.Tick > LastChargeContact.Tick) LastChargeContact = (input.Tick, c.Target); }
+        if (contact is { } c)
+        {
+            ChargeContactsPredicted++;
+            var forward = new System.Numerics.Vector3(-MathF.Sin(after.Yaw), MathF.Cos(after.Yaw), 0f);
+            if (input.Tick > LastChargeContact.Tick) LastChargeContact = (input.Tick, c.Target, after.Position + forward * ChargeLock.LockDistance(_config));
+        }
         return after;
     }
 }
