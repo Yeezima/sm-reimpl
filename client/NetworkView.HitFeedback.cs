@@ -107,15 +107,20 @@ public partial class NetworkView
     /// six-sound flesh layer while the impact state group is the broken-armour state, so the state is set to <c>set_state_impact_broken_armor</c> for this one post (the post resolves
     /// synchronously) and put back, so that level impacts and the own armour events keep their own state. One post: each layer plays once, nothing doubles.
     /// </summary>
-    void PostPlayerHitSound(string hitSound, SoundEmitter at, VoiceOffset offset = default)
+    void PostPlayerHitSound(string hitSound, SoundEmitter at, VoiceOffset offset = default, bool? armoured = null)
     {
         if (_audio is null || _sound is null) return;
-        at.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32("ceramite_armour"));
-        var before = BeginImpactState(flesh: true);
+        // fx/hit-armour-sound (owner's item 59): armour up plays the data's ceramite_armour case (the hard clang, armour state), armour down the flesh case and flesh layer; unknown plays both.
+        var layers = HitSoundRules.Of(armoured, CombinedHitSounds);
+        at.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32(layers == HitLayers.Flesh ? "flesh" : "ceramite_armour"));
+        var before = BeginImpactState(flesh: layers != HitLayers.Armour);
         var play = _sound.Post(hitSound, at, offset: offset);
         EndImpactState(before);
-        LogImpact("body hit", hitSound, at, offset, play);
+        LogImpact($"body hit ({layers.ToString().ToLowerInvariant()})", hitSound, at, offset, play);
     }
+
+    /// <summary><c>--combined-hit-sounds</c> (test aid): every player hit plays the armour and the flesh layers together, whatever the victim's armour (the behaviour before fx/hit-armour-sound).</summary>
+    static readonly bool CombinedHitSounds = OS.GetCmdlineUserArgs().Contains("--combined-hit-sounds");
 
     /// <summary>
     /// A level impact (a wall, a floor): the hit event with the armour impact state, explicitly, so that the flesh layer never leaks onto it (the state is global; the own

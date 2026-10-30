@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1736 spec table rows: **1184 tagged**, 403 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 360 rows of the changes document.
+Scanned 1740 spec table rows: **1188 tagged**, 403 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 361 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -41,7 +41,7 @@ Scanned 1736 spec table rows: **1184 tagged**, 403 not tagged (read from data wi
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 27 | 26 | 16 | 18 | 0 |
 | HUD and hit feedback (critical) | 53 | 48 | 42 | 10 | 0 |
-| Sound mix (critical) | 50 | 46 | 43 | 10 | 0 |
+| Sound mix (critical) | 54 | 48 | 47 | 10 | 0 |
 | Effects (critical) | 71 | 62 | 61 | 37 | 0 |
 | Game modes | 38 | 35 | 36 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
@@ -53,15 +53,15 @@ Scanned 1736 spec table rows: **1184 tagged**, 403 not tagged (read from data wi
 | Core simulation (provisional values) | 95 | 84 | 80 | 8 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1184** | 976 | 943 | 378 | 38 |
+| **All areas** | **1188** | 978 | 947 | 378 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 443 |
-| confidence: medium | 421 |
-| confidence: low | 407 |
+| kind: ours | 445 |
+| confidence: medium | 424 |
+| confidence: low | 408 |
 | kind: interpretation | 319 |
 | notes: ours | 279 |
 | confidence: none (low) | 115 |
@@ -1089,7 +1089,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-FED76589` | Scoreboard | Back (held) (button) | confidence: medium; notes: user's knowledge | owner's recollection | Scoreboard: compare with SM1 with side-by-side screenshots in the same spot. Ours: Back (held). | ☐ |
 
-### Sound mix (gameplay-critical) (50)
+### Sound mix (gameplay-critical) (54)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -1164,6 +1164,15 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-4B854312` | Tag stop events | the stop event of a tag binding (`stop_event_name`) is posted when the clip that fired the tag leaves the upper body or the whole body, changes, or restarts (the next swing), and at the latest 3 s after the start (ours); a death or spawn clears them (the… (s) | kind: interpretation; confidence: medium | the data names the stop; when it fires is the clip's end (interpretation) | Tag stop events: compare with SM1 by listening A/B at the same distance and state. Ours: the stop event of a tag binding (stop_event_name) is posted when the… | ☐ |
+
+*Spec section: Hit sound by the victim's armour (fx/hit-armour-sound; owner's item 59, 2026-10-31; client only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-F554E48B` | Hit sound with armour up | material `ceramite_armour` and the armour impact state: the hard clangs only | confidence: medium | ebps/banks (the cases are the data's); using the armour bit to choose is the data's design | Hit sound with armour up: compare with SM1 by listening A/B at the same distance and state. Ours: material ceramite_armour and the armour impact state: the hard clangs… | ☐ |
+| `R-F93ADD65` | Hit sound with armour down | material `flesh` and the broken-armour state: the flesh layers only | confidence: medium | same | Hit sound with armour down: compare with SM1 by listening A/B at the same distance and state. Ours: material flesh and the broken-armour state: the flesh layers only. | ☐ |
+| `R-ADC1491F` | Armour not known | both together, as before (owner's 2026-10-28 "combine both"); the bit is `ShotView.Armoured` (others' shots), the own shield before the hit (the own victim), the last hit report's shield (own shots); `--combined-hit-sounds` restores both for every hit | kind: ours; confidence: medium | ours (no guessing) | Armour not known: compare with SM1 by listening A/B at the same distance and state. Ours: both together, as before (owner's 2026-10-28 "combine both"); the bit… | ☐ |
+| `R-00C1F6BB` | Melee and charge hits | unchanged: both layers (the hit report's armour bit is not wired to these sounds) | kind: ours; confidence: low | ours | Melee and charge hits: compare with SM1 by listening A/B at the same distance and state. Ours: unchanged: both layers (the hit report's armour bit is not wired to… | ☐ |
 
 *Spec section: Match sounds and menu sounds (fidelity gap 9; client only, not simulated, no protocol change)*
 
@@ -1986,6 +1995,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-F0F8F929` | Dropped boxes have no collision (decision 57) | Not known (the original's drop may be a prop) | Ammo and equipment drops never block, support or touch players; pickup by the interact press within reach | Owner's decision 2026-10-30; spec "Dropped boxes have no collision" | Dropped boxes have no collision (decision 57): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-4F932040` | Power weapons: no idle hum (decision 56b) | Thunder hammer, daemon maul, power axe and power sword hum while held (the data's idle events) | No idle noise; the weapons sound only on a hit that lands on an enemy (their own hit events); `--weapon-hums` restores the hums; the glow stays | Owner's decision 2026-10-30; spec "Owner decision 56b" | Power weapons: no idle hum (decision 56b): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-4552DC65` | Tag-started sounds end with their action (sound/regen-loop-2) | The data's tag sounds name a stop event (the chainsword swing's endless motor layer, `stop_sm_chainsword_swing`) | The stop is posted when the swing clip ends, restarts or changes (3 s at most); a death or spawn clears them. Our timing; the data names only the event | Interpretation; spec "Tag-started sounds end with their action" | Tag-started sounds end with their action…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-503CE466` | Player hit sound follows the victim's armour (fx/hit-armour-sound) | The weapon's hit event switches armour clangs / flesh by the victim | Bullets and rays: armour up plays the clangs only, armour down the flesh layers only, unknown both (the owner's 2026-10-28 "always both" is now the unknown case); melee and charge hits still both; `--combined-hit-sounds` restores | Owner's item 59; spec "Hit sound by the victim's armour" | Player hit sound follows the victim's armour…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 
 ### Our choices where the original is unknown
 

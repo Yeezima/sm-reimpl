@@ -79,3 +79,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Getting shot now blends: the flinch eases in and out over about a third of a second instead of snapping back to standing.
 - The power sword, power axe, thunder hammer and daemon maul no longer hum while held; they only sound when they hit an enemy.
 - Fixed: a steady humming or buzzing that built up during fights (it came from chainsword swings and only stopped when someone died) is gone; each swing now ends its own sound.
+- Shots that hit a player now sound like hard armour clangs while the target still has armour, and like a duller flesh hit once the armour is gone (you hear it when you shoot and when you are shot).

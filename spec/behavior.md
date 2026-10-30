@@ -1239,6 +1239,17 @@ Owner's report 2026-10-30: a continuous hum or buzz in matches, thought to be th
 |---|---|---|---|---|---|---|---|
 | Tag stop events | the stop event of a tag binding (`stop_event_name`) is posted when the clip that fired the tag leaves the upper body or the whole body, changes, or restarts (the next swing), and at the latest 3 s after the start (ours); a death or spawn clears them (the emitter's loops end). The same stop owed twice is posted once. Before: never posted | s | per clip end | `TagStopTracker`, `NetworkView.EndTagSounds` | the data names the stop; when it fires is the clip's end (interpretation) | interpretation | medium |
 
+### Hit sound by the victim's armour (fx/hit-armour-sound; owner's item 59, 2026-10-31; client only)
+
+The data has no separate "armour crack" hit event: `play_iron_halo` (the blueprint's `armourshield_hit`) is in no bank, and `play_armor_break` is the own shield breaking. The armour hit sound is inside each weapon's hit event: `play_bolter_hits` (bolters, bolt pistol, storm and heavy bolter), `play_stalker_hits`, `play_plasma_rifle_hit`, `play_plasma_pistol_hit`, `play_melta_gun_hit`, `play_sm_lascannon_impacts` and the others (`smtool audio-event`, `audio-coverage`) switch on `material_type`: `ceramite_armour` = a random container of 7 hard metal clangs (-3 dB, `202447d8`), `flesh` = two layers of short wet impacts, and a last action plays a six-sound flesh layer only while the impact state `set_state_impact_broken_armor` is set (`set_state_impact_armor` otherwise). The client now picks by the victim's armour bit, for every weapon, for the shooter's own hits and for other players' shots (so the victim hears it too, positioned at the hit).
+
+| Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Hit sound with armour up | material `ceramite_armour` and the armour impact state: the hard clangs only | — | per hit | `HitSoundRules`, `PostPlayerHitSound` | ebps/banks (the cases are the data's); using the armour bit to choose is the data's design | extracted | medium |
+| Hit sound with armour down | material `flesh` and the broken-armour state: the flesh layers only | — | per hit | same | same | extracted | medium |
+| Armour not known | both together, as before (owner's 2026-10-28 "combine both"); the bit is `ShotView.Armoured` (others' shots), the own shield before the hit (the own victim), the last hit report's shield (own shots); `--combined-hit-sounds` restores both for every hit | — | — | same | ours (no guessing) | ours | medium |
+| Melee and charge hits | unchanged: both layers (the hit report's armour bit is not wired to these sounds) | — | — | `PostMeleeHit` | ours | ours | low |
+
 ### Armour paint (client only; not simulated)
 
 Content: `SmContent.PaintSchemes` (colours, schemes, defaults), `CharacterModel.MarineArmourFiles`; drawing: `client/MapMaterials.Paint.cs`.

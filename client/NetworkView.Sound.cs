@@ -700,7 +700,7 @@ public partial class NetworkView
                     var at = new SoundEmitter { Position = ToGodot(end), Label = $"impact of P{_client.PlayerId}", OneShot = true };
                     var offset = ImpactSounds.ImpactOffset(ImpactTreatmentArg, hitSound, hitScan: weapon.Delivery == DeliveryKind.Raycast);   // sound/impacts: the owner's deeper, muddier impacts
                     if (hit == ShotHit.World) { at.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32(Surfaces.NameOf(surface))); PostLevelImpact(hitSound, at, offset); }
-                    else { PostPlayerHitSound(hitSound, at, offset); OrkShotHit(victim, hit, index); }   // M38: armour and flesh layers together; Ork O8: a remote Ork grunts
+                    else { PostPlayerHitSound(hitSound, at, offset, ArmourUpForHit(hit, victim, own: true, OwnHitArmoured(victim))); OrkShotHit(victim, hit, index); }   // M38: armour and flesh layers together; Ork O8: a remote Ork grunts
                     CountSound(hit == ShotHit.World ? "impact" : "body hit");
                 }
             }
@@ -727,13 +727,14 @@ public partial class NetworkView
         PostFire(shot.Weapon, shot.Stage, t.Emitter, own: false, braced: BracedNow(shot.Shooter));
         if (shot.Hit == ShotHit.None || shot.Weapon < 0 || shot.Weapon >= _config.Weapons.Count) return;
         if (_soundTriggers.HitSound(_config.Weapons[shot.Weapon].Name) is not { } hitSound) return;
-        if (shot.Hit is ShotHit.Body or ShotHit.Head) OrkShotHit(VictimAt(shot.End, shot.Shooter), shot.Hit, shot.Weapon);   // Ork O8: a remote Ork grunts at a hit
+        int shotVictim = shot.Hit is ShotHit.Body or ShotHit.Head ? VictimAt(shot.End, shot.Shooter) : -1;
+        if (shot.Hit is ShotHit.Body or ShotHit.Head) OrkShotHit(shotVictim, shot.Hit, shot.Weapon);   // Ork O8: a remote Ork grunts at a hit
         var at = new SoundEmitter { Position = ToGodot(shot.End), Label = $"impact of P{shot.Shooter}", OneShot = true };
         // sound/impacts: the owner's deeper, muddier impacts; a cone shot (the melta) is not a ballistic one.
         var offset = ImpactSounds.ImpactOffset(ImpactTreatmentArg, hitSound, hitScan: _config.Weapons[shot.Weapon].Delivery == DeliveryKind.Raycast);
         // A world hit by its surface; a player hit plays the armour impact and the flesh layer together (M38, owner's direction: PostPlayerHitSound).
         if (shot.Hit == ShotHit.World) { at.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32(Surfaces.NameOf(shot.Surface))); PostLevelImpact(hitSound, at, offset); }
-        else PostPlayerHitSound(hitSound, at, offset);
+        else PostPlayerHitSound(hitSound, at, offset, ArmourUpForHit(shot.Hit, shotVictim, own: false, shot.Armoured));   // the victim's armour bit: the shooter's view and the victim's alike
         CountSound(shot.Hit == ShotHit.World ? "impact" : "body hit");
     }
 
