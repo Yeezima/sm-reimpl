@@ -65,6 +65,7 @@ public partial class NetworkView
         if (!observer && _config.ChargeLock && _client.LastChargeContact is var (contactTick, target, spot) && contactTick > _ciOwnContactTick)
         {
             _ciOwnContactTick = contactTick;
+            ChargeShotsBegin();
             if (me.Alive && StateOfPlayer(target, me) is { } victim)
             {
                 if (!NoLockDraw) _lockDraw = (target, spot, now, -1.0);
@@ -79,6 +80,7 @@ public partial class NetworkView
             bool ownByContact = p.PlayerId == ownId && _config.ChargeLock;
             if (!ownByContact && p.Alive && ChargeConnect.Connected(before, p.Rush))
             {
+                ChargeShotsBegin();   // capture aid: every stop (a wall's too), so a strip is taken with the lock off as well
                 int v = MeleeInteraction.ChargeVictim(p, all, _config);
                 if (v > 0 && all.FirstOrDefault(x => x.PlayerId == v) is { PlayerId: > 0 } victim) ChargeImpact(p, victim, me, ownId);
             }
@@ -121,10 +123,12 @@ public partial class NetworkView
     {
         double now = _connectedFor;
         _chargeImpacts++;
-        ChargeShotsBegin();
         bool ownCharger = charger.PlayerId == ownId && ownId > 0, ownVictim = victim.PlayerId == ownId && ownId > 0;
         if (ownCharger) _chargeImpactsOwn++;
         _reactionSource[victim.PlayerId] = (charger.PlayerId, now, true);
+        if (LogChargeImpact || _bot)
+            GD.Print($"t {now:F2} s: charge impact P{charger.PlayerId} -> P{victim.PlayerId}{(ownCharger ? " (own charge)" : ownVictim ? " (on me)" : "")}: apart {Num.Vector2.Distance(new(charger.Position.X, charger.Position.Y), new(victim.Position.X, victim.Position.Y)):F2} m, " +
+                     $"charger facing off {MathF.Abs(MeleeInteraction.Wrap(charger.Yaw - MeleeInteraction.Bearing(charger.Position, victim.Position))) * 180f / MathF.PI:F1} deg; impacts {_chargeImpacts}{(NoChargeImpact ? " (impact presentation off)" : "")}");
         if (NoChargeImpact) { if (ownCharger || ownVictim) FxShake(ChargeShakeRadians); return; }   // before: anim/melee-flow's 0.5 degree shake
         _chargeStops[charger.PlayerId] = now;
         _chargeStops[victim.PlayerId] = now;
@@ -143,9 +147,7 @@ public partial class NetworkView
         line = Num.Vector2.Normalize(line);
         var contact = victim.Position + new Num.Vector3(-line.X * 0.4f, -line.Y * 0.4f, 1.25f);
         int played = ChargeImpactFxPlay(charger, contact, new Num.Vector3(line.X, line.Y, 0f), victim.Shield > 0f || victim.PlayerId != ownId);
-        if (LogChargeImpact || _bot)
-            GD.Print($"t {now:F2} s: charge impact P{charger.PlayerId} -> P{victim.PlayerId}{(ownCharger ? " (own charge)" : ownVictim ? " (on me)" : "")}: apart {Num.Vector2.Distance(new(charger.Position.X, charger.Position.Y), new(victim.Position.X, victim.Position.Y)):F2} m, " +
-                     $"charger facing off {MathF.Abs(MeleeInteraction.Wrap(charger.Yaw - MeleeInteraction.Bearing(charger.Position, victim.Position))) * 180f / MathF.PI:F1} deg, effects {played}; impacts {_chargeImpacts}");
+        if (LogChargeImpact || _bot) GD.Print($"  impact effects started: {played}");
     }
 
     /// <summary>Plays the charge's impact effects; returns how many started.</summary>

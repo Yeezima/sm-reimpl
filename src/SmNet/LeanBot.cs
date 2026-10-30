@@ -57,6 +57,8 @@ public static class LeanBot
         "switch-test", "switch-probe", "wait-switch-window", "bot-switch-every",
         // fx/character-visuals: the armour flash demo
         "armour-flash-demo", "slash-cone-demo", "stim-glow-demo", "old-bolt-tracer", "old-pistol-tracer",
+        // anim/melee-interaction: the charge impact's log and the capture of its frames
+        "log-charge-impact", "charge-shots",
     };
 
     /// <summary>
