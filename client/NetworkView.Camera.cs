@@ -50,6 +50,10 @@ public partial class NetworkView
     string _cameraInfo = "";
     readonly Dictionary<string, WeaponCamera?> _weaponCameras = new(StringComparer.OrdinalIgnoreCase);
     float _aimBlend;                       // 0 exploration .. 1 aim
+    // Weapon switch (fix/camera-zoom-misc, owner item 24): the camera of the new weapon (pistol <-> primary: other rig curve and field of view) is eased in from the last placed one.
+    string _switchKey = "";
+    System.Numerics.Vector3 _switchCam, _switchPivot, _lastCam, _lastPivot;
+    float _switchFov, _lastFov, _switchT = 1f, _switchTime = 0.25f;
     float _evadeBlend;                     // 0 .. 1 toward the evade roll's camera set
     string _evadeCameraNote = "";
     bool _evadeCurveNoted;
@@ -187,6 +191,25 @@ public partial class NetworkView
             }
         }
         else { _lastEvadeSet = null; _evadeCamLogged = false; }
+
+        // Weapon switch: when the weapon's camera sets change (bolt pistol <-> primary), the rig offsets and the field of view blend from the last placed camera to the new one over the new
+        // exploration set's blend_in_time (data: 0.25 s for exploration_default_mp and exploration_pistol), smoothstep, instead of jumping.
+        string switchKey = $"{ex.Name}/{aim.Name}/{aimFov}";
+        if (_switchKey.Length > 0 && switchKey != _switchKey && me.Alive && _cameraPlaced)
+        {
+            _switchCam = _lastCam; _switchPivot = _lastPivot; _switchFov = _lastFov; _switchT = 0f;
+            _switchTime = Finite(ex.BlendInTime, 0.25f);
+        }
+        _switchKey = switchKey;
+        if (_switchT < 1f)
+        {
+            _switchT = _switchTime > 0.01f ? MathF.Min(1f, _switchT + delta / _switchTime) : 1f;
+            float ws = _switchT * _switchT * (3f - 2f * _switchT);
+            cam = System.Numerics.Vector3.Lerp(_switchCam, cam, ws);
+            pivot = System.Numerics.Vector3.Lerp(_switchPivot, pivot, ws);
+            fov = Mathf.Lerp(_switchFov, fov, ws);
+        }
+        _lastCam = cam; _lastPivot = pivot; _lastFov = fov;   // what was placed (a switch during a blend continues from here)
 
         // Character frame (X right, Y forward, Z up) rotated by the view's yaw about the feet, into Godot space.
         float sin = MathF.Sin(_yaw), cos = MathF.Cos(_yaw);

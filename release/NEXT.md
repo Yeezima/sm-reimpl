@@ -20,3 +20,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The camera no longer trails the mouse: it follows your aim exactly again.
 - The stalker bolter and the lascannon now zoom in further when you scope (stalker bolter about 1.5 times tighter, lascannon about 2.6 times tighter than before).
 - The C key no longer opens the loadout menu; press Esc to change your loadout, alive or dead (the death screen shows "[ESC] CHANGE LOADOUT").
+- Switching between the bolt pistol and your primary weapon now eases the camera over a quarter of a second instead of jumping.
