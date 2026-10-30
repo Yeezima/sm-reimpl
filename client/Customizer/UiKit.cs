@@ -164,7 +164,19 @@ public static partial class UiKit
         value.CustomMinimumSize = new Vector2(compact ? 56 : 120, 0);
         void Show(double v) => value.Text = $"{v:F0}°" + (!compact && v <= slider.MinValue ? " (original)" : "");
         Show(slider.Value);
-        slider.ValueChanged += v => { Show(v); save(v <= slider.MinValue ? 0f : (float)v); };
+        float chosen = saved;   // what is saved (0 = the data's look)
+        slider.ValueChanged += v => { Show(v); chosen = v <= slider.MinValue ? 0f : (float)v; save(chosen); };
+        // The range follows the window's shape: rebuilt when the window is resized (the saved choice is kept, limited to the new range).
+        void Refit()
+        {
+            var vs = row.GetViewport().GetVisibleRect().Size;
+            float a = FovMath.Aspect(vs.X, vs.Y);
+            slider.MinValue = FovMath.MinimumHorizontal(a);
+            slider.SetValueNoSignal(FovMath.Clamp(chosen, a));
+            Show(slider.Value);
+        }
+        row.TreeEntered += () => { Refit(); var vp = row.GetViewport(); if (!vp.IsConnected(Viewport.SignalName.SizeChanged, Callable.From(Refit))) vp.SizeChanged += Refit; };
+        row.TreeExiting += () => { try { row.GetViewport().SizeChanged -= Refit; } catch (Exception) { } };
         row.AddChild(slider);
         row.AddChild(value);
         return row;
