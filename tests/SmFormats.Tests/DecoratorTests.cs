@@ -123,15 +123,15 @@ public class DecoratorTests
     }
 
     [Fact]
-    public void Player_decorators_show_friends_through_walls_nearby_and_foes_only_in_sight()
+    public void Player_decorators_show_the_aimed_friend_or_foe_in_sight_within_range()
     {
-        Assert.True(DecoratorRules.PlayerVisible(DecoratorRelation.Ally, 30f, lineOfSight: false));
-        Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.Ally, 100f, lineOfSight: false));
+        // ui/hud-3 (owner 2026-10-30): a name only over the player under the crosshair, enemy red and friend yellow.
         Assert.True(DecoratorRules.PlayerVisible(DecoratorRelation.Ally, 100f, lineOfSight: true));
-        Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.Ally, 130f, lineOfSight: true));
-        Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.Enemy, 40f, lineOfSight: true));   // 2026-10-30: nothing over enemies
+        Assert.True(DecoratorRules.PlayerVisible(DecoratorRelation.Enemy, 80f, lineOfSight: true));
+        Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.Ally, 30f, lineOfSight: false));
         Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.Enemy, 40f, lineOfSight: false));
-        Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.Enemy, 80f, lineOfSight: true));
+        Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.Ally, 130f, lineOfSight: true));
+        Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.Enemy, 130f, lineOfSight: true));
         Assert.False(DecoratorRules.PlayerVisible(DecoratorRelation.None, 5f, lineOfSight: true));
     }
 
@@ -144,7 +144,7 @@ public class DecoratorTests
         Assert.True(DecoratorRules.PlayerScale(60f) < DecoratorRules.PlayerScale(30f));
         Assert.Equal(1f, DecoratorRules.PlayerAlpha(DecoratorRelation.Ally, 50f));
         Assert.Equal(0f, DecoratorRules.PlayerAlpha(DecoratorRelation.Ally, DecoratorRules.AllyRange));
-        Assert.InRange(DecoratorRules.PlayerAlpha(DecoratorRelation.Enemy, 70f), 0.01f, 0.99f);
-        Assert.Equal(0f, DecoratorRules.PlayerAlpha(DecoratorRelation.Enemy, 80f));
+        Assert.Equal(1f, DecoratorRules.PlayerAlpha(DecoratorRelation.Enemy, 80f));
+        Assert.Equal(0f, DecoratorRules.PlayerAlpha(DecoratorRelation.Enemy, DecoratorRules.AllyRange));
     }
 }
