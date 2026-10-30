@@ -41,6 +41,8 @@ public sealed class FxEffect
     public Color? Tint;
     /// <summary>Metres per second of a clamped beam's bright head, replacing the element's <c>USpeed</c> (0: the element's own); set for tracers whose flight is capped.</summary>
     public float HeadSpeed;
+    /// <summary>fx/visuals-2 (ours): scales the width of a clamped bright-head beam (a bolt tracer's streak) and the length of the streak's trail (metres per U); 1: the data's. Other beams are untouched.</summary>
+    public float TracerWidthScale = 1f, TracerTrailScale = 1f;
     /// <summary>M41: run the collision descriptions (<see cref="CNode.OnCollision"/>): a "dropper" particle touches the level where it starts and starts what it holds (the ground pound's impact). The effect must be placed on the ground, its +Y along the surface normal.</summary>
     public bool Collisions;
     /// <summary>
@@ -624,6 +626,8 @@ public sealed partial class FxPlayer : Node3D
         else length = lengthFraction * c.S * Jitter(n.EpsLength, seed, 10) * e.BeamScale;
         float width = At(n.Width, t, 0.1f) * c.S * Jitter(n.EpsWidth, seed, 11);
         if (e.SmokeRein < 1f && IsSmoke(n)) width *= e.SmokeRein;   // feel/muzzle-smoke
+        bool headBeam = n.USpeed != 0f && n.Material.UAddressMode == 1 && n.MeterPerU > 0.0001f;
+        if (headBeam) width *= e.TracerWidthScale;   // fx/visuals-2
         if (length <= 0.001f || width <= 0.0005f) return;
         if (!_batch.Sprite(n.Material, CellFor(n, t, seed), out var rect)) { if (!n.Material.IsEmpty) _missing.Add("sprite:" + n.Material.Name); return; }
         float alphaScale = 1f;
@@ -639,6 +643,7 @@ public sealed partial class FxPlayer : Node3D
         float u0, u1; int mode;
         bool clamp = n.Material.UAddressMode == 1;
         float mpu = n.MeterPerU * Jitter(n.EpsMeterPerU, seed, 13);
+        if (headBeam) mpu *= e.TracerTrailScale;   // fx/visuals-2: a shorter streak
         if (mpu <= 0.0001f)
         {
             float off = At(n.UOffset, t, 0f), rep = At(n.URepeat, t, 1f);

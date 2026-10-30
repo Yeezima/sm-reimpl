@@ -165,7 +165,7 @@ public partial class NetworkView
             // leg, a few metres crossed in a few milliseconds, as a pooled streak outside the effect pool.
             _bulletsBent++;
             var e1 = fx.Play(p.Name, join.Value, AxesFromY((end - join.Value).Normalized()), scale, target: end, lifetime: p.Lifetime, delay: d1 / speed, priority: 1, tint: tint, smokeRein: SmokeRein);
-            if (e1 is not null) { _fxTracers++; e1.HeadSpeed = speed; }
+            if (e1 is not null) { _fxTracers++; e1.HeadSpeed = speed; ThinBoltTracer(e1, p.Name); }
             StreakAdd(from, join.Value, join.Value, speed);
             BulletDebugAdd(own, rayOrigin, end, from, join);
             return travel;
@@ -185,7 +185,7 @@ public partial class NetworkView
             return 0f;
         }
         var straight = fx.Play(p.Name, from, AxesFromY((end - from).Normalized()), scale, target: end, lifetime: p.Lifetime, priority: 1, tint: tint, smokeRein: SmokeRein);
-        if (straight is not null) { _fxTracers++; if (speed > 0f) straight.HeadSpeed = speed; }
+        if (straight is not null) { _fxTracers++; if (speed > 0f) straight.HeadSpeed = speed; ThinBoltTracer(straight, p.Name); }
         BulletDebugAdd(own, rayOrigin, end, from, null);
         return travel;
     }

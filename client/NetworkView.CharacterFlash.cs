@@ -20,6 +20,9 @@ public partial class NetworkView
     /// <summary><c>--armour-flash-demo [hit|break|glow]</c>: null off; empty cycles; a name holds that flash at 0.6 of its curve (for a screenshot).</summary>
     string? ArmourFlashDemoMode => _armourFlashDemo ??= CmdFlag("armour-flash-demo") ? (CmdArg("armour-flash-demo") ?? "cycle") : "";
     string? _armourFlashDemo;
+    /// <summary><c>--old-flash-outline</c> (fx/visuals-2 before / after aid): the round-1 glow and break flash on the model's surface with the outline, no halo.</summary>
+    bool OldFlashOutlineFlag => _oldFlashOutline ??= CmdFlag("old-flash-outline");
+    bool? _oldFlashOutline;
 
     /// <summary>A shot struck <paramref name="victim"/> (another player's model) whose armour was up (<paramref name="armourUp"/>; null: not known, read as up).</summary>
     void CharacterFlashHit(int victim, bool? armourUp)
@@ -36,6 +39,7 @@ public partial class NetworkView
         if (_client is null || _config is null || _client.Status != ClientStatus.Connected) return;
         int own = _client.PlayerId;
         var me = _client.Predicted;
+        CharacterViewer.OldFlashOutline = OldFlashOutlineFlag;
         if (NoArmourFlash)
         {
             _local?.SetArmourFlash(0f, 0f, 0f);

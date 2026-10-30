@@ -187,6 +187,7 @@ public partial class NetworkView
             ReloadForget(gone);
             BraceForget(gone);
             LocomotionForget(gone);
+            _stimTracks.Remove(gone);
             MeleeLockForget(gone);
             MeleeFlowForget(gone);
             _orkTracks.Remove(gone); _orkShown.Remove(gone);

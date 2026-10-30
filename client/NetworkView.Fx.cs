@@ -227,6 +227,7 @@ public partial class NetworkView
         if (_camera is null || _client is null || _config is null) return;
         UpdateFlash(delta);
         CharacterFlashFrame();   // fx/character-visuals: armour flashes on the models
+        StimGlowFrame();   // fx/visuals-2 (item 48): the stim's red aura and cross (NetworkView.Stims.cs)
         LensGlowFrame();   // fx/character-visuals: the eye glow in the lens colour (NetworkView.LensGlow.cs)
         RequestPoundRings();   // M41
         if (!FxReady() || !FxActive) { _fxPrev = me; _fxPrevSeen = true; return; }
@@ -242,6 +243,8 @@ public partial class NetworkView
             FxJumpPacks(me);   // M44 (NetworkView.JumpFx.cs)
             FxDeaths();   // F-D1: the death effects that are due (NetworkView.DeathFx.cs)
             _fx!.Update(delta / Math.Max(1f, FxSlow), _camera);
+            UpdateDeferredTracers();   // fx/visuals-2 (NetworkView.PistolTracer.cs)
+            UpdateSlashCones();   // fx/visuals-2 (NetworkView.SlashCone.cs)
             UpdateMeltaCones();   // wfx (NetworkView.WeaponFx.cs)
             UpdateBulletLines();   // feel/bullets: the fallback streaks and the debug rays (NetworkView.Bullets.cs)
             FxApplyShake(delta);
@@ -476,7 +479,14 @@ public partial class NetworkView
                 // A tracer is fixed in the world once fired. A bullet's has a bright head that crosses in at most MaxTracerFlight and the impact comes
                 // with it; a beam without a head (the lascannon's laser) is drawn along the whole shot from its first frame and its impact is at once.
                 // feel/bullets (NetworkView.Bullets.cs): with the shot's true ray the bullet leaves the muzzle, joins the ray and flies along it to the end.
-                travel = MathF.Max(travel, PlayTracer(p, w, place.Position, end, rayOrigin, rayDir, own, shooter));
+                if (PistolRaiseWait(shooter, spec) is > 0f and var wait)
+                {
+                    // fx/visuals-2 (item 38): the pistol is still coming up: the tracer starts from the raised muzzle once it is (NetworkView.PistolTracer.cs); the impact waits with it.
+                    DeferTracer(wait, p, w, place.Position, end, rayOrigin, rayDir, own, shooter);
+                    float dist = place.Position.DistanceTo(end), headSpeed = TracerHeadSpeed(p.Name);
+                    travel = MathF.Max(travel, wait + (headSpeed > 1f ? dist / MathF.Max(headSpeed, dist / MaxTracerFlight) : 0f));
+                }
+                else travel = MathF.Max(travel, PlayTracer(p, w, place.Position, end, rayOrigin, rayDir, own, shooter));
                 tracered = true;
             }
             else
