@@ -34,14 +34,16 @@ public static class ReticleRules
     static readonly ReticleSpec PlasmaPistol = new("plasma_pistol", "plasmapistol_mc", "plasmapistol_active_mc", false);
     static readonly ReticleSpec PlasmaCannon = new("plasma_cannon", "plasma_cannon_mc", "plasma_cannon_active_mc", false);
     static readonly ReticleSpec Melta = new("melta", "melta_mc", "melta_active_mc", false);
+    /// <summary>The stalker bolter's own unscoped reticle: the movie's <c>stalker_idle_mc</c> and <c>stalker_active_mc</c> (owner, 2026-10-30; the data has them in the reticle container).</summary>
+    static readonly ReticleSpec Stalker = new("stalker", "stalker_idle_mc", "stalker_active_mc", false);
     static readonly ReticleSpec Launcher = new("grenade_launcher", "grenade_neutral_mc", "grenade_active_mc", false);
 
     /// <summary>Every family (for warming and checks).</summary>
-    public static readonly IReadOnlyList<ReticleSpec> All = [Bolter, BoltPistol, StormBolter, HeavyBolter, PlasmaGun, PlasmaPistol, PlasmaCannon, Melta, Launcher];
+    public static readonly IReadOnlyList<ReticleSpec> All = [Bolter, BoltPistol, StormBolter, HeavyBolter, PlasmaGun, PlasmaPistol, PlasmaCannon, Melta, Launcher, Stalker];
 
     /// <summary>
-    /// The reticle of a ranged weapon by its wargear file and <c>ui_data/weapon_type</c> (the name decides when the type is missing); null for the scoped weapons (no reticle
-    /// outside the scope) and for anything else (no reticle: the HUD draws none).
+    /// The reticle of a ranged weapon by its wargear file and <c>ui_data/weapon_type</c> (the name decides when the type is missing); null for the lascannon (no reticle
+    /// outside the scope; the stalker bolter has its own since 2026-10-30) and for anything else (no reticle: the HUD draws none).
     /// </summary>
     public static ReticleSpec? For(string wargear, string? weaponType)
     {
@@ -57,7 +59,8 @@ public static class ReticleRules
             "plasma_cannon" => PlasmaCannon,
             "melta" => Melta,
             "grenade_launcher" => Launcher,
-            _ => null,   // stalker, laz_cannon / lascannon (owner: none unscoped), melee, unknown
+            "stalker" or "sniper_rifle" => Stalker,
+            _ => null,   // laz_cannon / lascannon (owner: none unscoped), melee, unknown
         };
     }
 

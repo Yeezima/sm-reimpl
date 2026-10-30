@@ -226,7 +226,8 @@ public class HudMovieTests
         Assert.Equal("boltpistol_mc", ReticleRules.For("sm_mp_ranged_bolt_pistol", "bolt_pistol")!.Idle);
         Assert.Equal("boltpistol_mc", ReticleRules.For("sm_mp_ranged_bolt_pistol", null)!.Idle);   // from the name
         Assert.Equal("heavybidle_mc", ReticleRules.For("sm_mp_ranged_heavy_bolter", "heavy_bolter")!.Idle);
-        Assert.Null(ReticleRules.For("sm_mp_ranged_sniper_rifle", "stalker"));
+        Assert.Equal("stalker_idle_mc", ReticleRules.For("sm_mp_ranged_sniper_rifle", "stalker")!.Idle);   // ui/hud-camera-2: the stalker bolter's own unscoped reticle
+        Assert.Equal("stalker_active_mc", ReticleRules.For("sm_mp_ranged_sniper_rifle", null)!.Active);
         Assert.Null(ReticleRules.For("sm_mp_ranged_las_cannon", "laz_cannon"));
         Assert.All(ReticleRules.All, r => Assert.EndsWith("_mc", r.Idle));
     }

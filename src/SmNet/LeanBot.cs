@@ -37,11 +37,11 @@ public static class LeanBot
     /// </summary>
     public static readonly IReadOnlySet<string> PresentationAids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
     {
-        "anim-probe", "hip-probe", "yaw-probe", "pan-rate", "transition-probe", "transition-sweep", "camera-probe", "camera-selftest", "motion-probe",
+        "anim-probe", "hip-probe", "yaw-probe", "pan-rate", "transition-probe", "transition-sweep", "camera-probe", "camera-selftest", "camera-back", "motion-probe",
         "frame-profile", "frame-stats", "look-churn", "look-log", "look-closeup", "picker-demo", "picker-on-death", "picker-deploy", "bot-change-loadout",
         "bot-gait", "gait-sweep", "action-sweep", "bot-turn-sweep", "turn-sweep-fire", "latency-probe", "bullet-probe", "show-shot-rays", "camera-hide-log",
         "slash-trace", "run-start-log", "log-sound", "log-footsteps", "reload-capture", "reload-probe", "ork-capture", "screenshot", "screenshot-every",
-        "record-demo", "spectate", "ragdoll-debug", "damage-demo", "aim-test", "hud-demo", "hud-rewards-demo", "hud-launcher-demo", "scope-spread-demo", "pound-marker-demo",
+        "record-demo", "spectate", "ragdoll-debug", "damage-demo", "aim-test", "hud-demo", "hud-rewards-demo", "hud-switch-demo", "hud-launcher-demo", "scope-spread-demo", "pound-marker-demo",
         // review round (L2): the remaining probes, logs, captures and sweeps of the client
         "pose-pop-probe", "turn-probe", "turn-probe-events", "turn-probe-trace", "transition-probe-csv", "transition-probe-trace", "anim-probe-csv", "motion-probe-worst",
         "gait-sweep-fire", "ui-sound-probe", "log-fall", "log-falls", "log-upper", "log-sprint-edges", "log-death-fx", "bot-ledge", "ledge-charge",

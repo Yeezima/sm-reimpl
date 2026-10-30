@@ -28,11 +28,14 @@ public sealed partial class Hud
     bool _vignetteHealth;
     GradientTexture2D? _vignetteTex;
 
+    /// <summary>The plain armour bar's yellow (ours, owner 2026-10-30; the original's frame is yellow-gold, a flat colour in place of the Iron Halo clip's cyan and white).</summary>
+    static readonly GfxColourTransform ArmourYellow = new(0f, 0f, 0f, 1f, 1f, 0.8f, 0.05f, 0f);
+
     /// <summary>Starburst medallion of the armour clip (<c>c540</c>): the Iron Halo's bar keeps it, the reference's plain bar leaves it out.</summary>
     static readonly HashSet<int> NoMedallion = [540];
 
     // The vignette's colours: the armour bar's cyan; the health bar's red (Iron Halo's tinted bar) or the movie's own orange-red (the reference bar).
-    static readonly Color ArmourVignette = new(0.35f, 0.95f, 0.9f), HealthVignetteRed = new(0.91f, 0.02f, 0.1f), HealthVignetteOrange = new(1f, 0.28f, 0.1f);
+    static readonly Color ArmourVignette = new(0.35f, 0.95f, 0.9f), HealthVignetteRed = new(0.91f, 0.02f, 0.1f), HealthVignetteOrange = new(1f, 0.28f, 0.1f), ArmourVignetteYellow = new(1f, 0.8f, 0.05f);
     const double VignetteSeconds = 0.55;
     const float VignetteAlpha = 0.6f;
 
@@ -57,7 +60,7 @@ public sealed partial class Hud
             Width = 256, Height = 256, Fill = GradientTexture2D.FillEnum.Radial, FillFrom = new Vector2(0.5f, 0.5f), FillTo = new Vector2(1.05f, 0.5f),
             Gradient = new Gradient { Offsets = [0f, 0.45f, 1f], Colors = [new Color(1f, 1f, 1f, 0f), new Color(1f, 1f, 1f, 0.18f), new Color(1f, 1f, 1f, 1f)] },
         };
-        var col = _vignetteHealth ? (Data.IronHalo ? HealthVignetteRed : HealthVignetteOrange) : ArmourVignette;
+        var col = _vignetteHealth ? (Data.IronHalo ? HealthVignetteRed : HealthVignetteOrange) : (Data.IronHalo ? ArmourVignette : ArmourVignetteYellow);
         float k = 1f - (float)(age / VignetteSeconds);
         col.A = VignetteAlpha * k * k;
         DrawTextureRect(_vignetteTex, new Rect2(Vector2.Zero, vs), false, col);
@@ -86,7 +89,13 @@ public sealed partial class Hud
         var arm = _movieArt.Get($"vit:a{v}:{aframe}", (m, s) =>
         {
             GfxRaster.Hidden = halo ? null : NoMedallion;
-            try { return m.Hud?.RenderAt(haloPath, Vitals, s, aframe); } finally { GfxRaster.Hidden = null; }
+            try
+            {
+                if (halo || m.Hud is not { } movie || movie.Find(haloPath) is not { } found || unified.ToStage.Inverse() is not { } invU) return m.Hud?.RenderAt(haloPath, Vitals, s, aframe);
+                // ui/hud-r2 (owner, 2026-10-30): everyone but the Iron Halo's carrier has the plain yellow armour bar: the clip's own cyan and white replaced by the yellow (ours).
+                return movie.Render(found.Placement.Character, aframe, s, invU.After(found.ToStage), null, colour: ArmourYellow, add: found.Placement.Blend == 8);
+            }
+            finally { GfxRaster.Hidden = null; }
         }, "vit:a", 24);
         var healthLocal = unified.ToStage.Inverse() is { } invUnified ? invUnified.After(health.ToStage) : health.ToStage;
         var hp = _movieArt.Get($"vit:h{v}:{hframe}", (m, s) =>

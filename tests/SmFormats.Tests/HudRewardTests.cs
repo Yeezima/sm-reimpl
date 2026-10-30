@@ -20,11 +20,11 @@ public class HudRewardTests
     }
 
     [Fact]
-    public void AHeadshotAddsItsLine()
+    public void AHeadshotReplacesTheKillLine()
     {
         var r = new RewardTracker().OwnKill("P2", 1.0, headshot: true, ownAlive: true);
-        Assert.Equal(["kill", "headshot"], Names(r));
-        Assert.Equal(35, r[1].Spec.Experience);
+        Assert.Equal(["headshot kill"], Names(r));   // ui/hud-camera-2: one line, not the kill line as well
+        Assert.Equal(85, r[0].Spec.Experience);
     }
 
     [Fact]

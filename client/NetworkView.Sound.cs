@@ -588,12 +588,16 @@ public partial class NetworkView
     IReadOnlyList<(string Tag, float At)> ReloadTagsOnce(SoundFile file, bool ork)
     {
         var tags = _soundTriggers!.ReloadTags(file, ork);
-        if (_audio is null || NoReloadSampleDedupe) return tags;
+        if (NoReloadSampleDedupe) return tags;
+        if (_audio is null) return SoundTriggers.OnePostWhereSingle(file.Name, tags);
+        tags = SoundTriggers.OnePostWhereSingle(file.Name, tags);   // ui/hud-camera-2: the stalker bolter's reload is one sound
         return SoundTriggers.OncePerSample(tags, tag => file.Tag(tag).Where(b => b.StartEvent.Length > 0).SelectMany(b => _audio.WemsOf(b.StartEvent)).ToList());
     }
 
     /// <summary><c>--reload-sounds-all</c> (test aid): every reload tag posts, as before fix/camera-zoom-misc.</summary>
     static readonly bool NoReloadSampleDedupe = System.Array.IndexOf(OS.GetCmdlineUserArgs(), "--reload-sounds-all") >= 0;
+
+    double _ownReloadSoundsUntil;
 
     void SoundOwnState(SoundTrack t, PlayerState s, PlayerState p)
     {
@@ -601,9 +605,12 @@ public partial class NetworkView
         var weapon = Loadouts.InHand(c, s);
         var wf = weapon is null ? null : _soundTriggers!.File(weapon.Name);
         if (wf is not null && s.Overheated && !p.Overheated && s.Slot == p.Slot) PostAll(wf.Of("overheat"), t.Emitter, true, "overheat");
-        if (wf is not null && weapon is not null && s.ReloadLeft > 0f && p.ReloadLeft <= 0f && s.Slot == p.Slot)
+        if (wf is not null && weapon is not null && s.ReloadLeft > 0f && p.ReloadLeft <= 0f && s.Slot == p.Slot && _connectedFor >= _ownReloadSoundsUntil)
         {
             float length = Math.Max(0.1f, weapon.ReloadTime);
+            // ui/hud-camera-2 (owner, 2026-10-30): one reload, one set of sounds. A start seen again before the sounds' time is over (a press during the reload, a prediction
+            // corrected by a snapshot that replays the press) schedules nothing.
+            _ownReloadSoundsUntil = _connectedFor + length;
             foreach (var (tag, at) in ReloadTagsOnce(wf, IsOrkVoice(s)))
             {
                 var file = wf;

@@ -257,6 +257,16 @@ public sealed partial class SoundTriggers
         return kept;
     }
 
+    /// <summary>
+    /// The weapons whose reload is one sound (owner, 2026-10-30, the stalker bolter: its clip has three posts, remove clip, pull bolt and bolt release; the owner hears them as the sound
+    /// playing twice and wants exactly one per reload; ours): the last tag of the reload only, the bolt release (his preferred one).
+    /// </summary>
+    public static bool SingleReloadSound(string? wargear) => wargear is not null && wargear.EndsWith("mp_ranged_sniper_rifle", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The reload tags of <paramref name="wargear"/> as played: a <see cref="SingleReloadSound"/> weapon keeps only the last one.</summary>
+    public static IReadOnlyList<(string Tag, float At)> OnePostWhereSingle(string? wargear, IReadOnlyList<(string Tag, float At)> tags) =>
+        SingleReloadSound(wargear) && tags.Count > 1 ? [tags.OrderBy(t => t.At).Last()] : tags;
+
     /// <summary>The keys of every <c>triggered_actions</c> table in a file (any depth), in file order.</summary>
     public static IReadOnlyList<string> TriggeredActionKeys(BafTable root)
     {

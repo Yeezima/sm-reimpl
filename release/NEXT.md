@@ -49,3 +49,12 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The Assault and Raptor air slash: the swing no longer speeds up in jerks during the dive, and if you run off straight after landing the sword finishes its swing while your legs start running.
 - Other jump-pack players' air slashes no longer flick back to the start of the swing just after landing.
 - The Devastator keeps the heavy bolter raised while walking and standing (it only lowers it to sprint), so it no longer swings the gun's grip up and down between shots.
+- The camera behind your Marine is further back, so you see more of him and the ground around.
+- The score box at the bottom left is solid now and holds the timer, the scores, the bars and the score limit inside it.
+- Your armour bar is plain yellow; only the Iron Halo perk keeps the blue and white look.
+- The stalker bolter's reload makes one sound (the bolt release) instead of three, and pressing R during a reload makes no extra sound.
+- The stalker bolter shows a small crosshair when you are not scoped.
+- With three weapons (Weapon Versatility), the switch cards form a cross: pistol above the crosshair, primary to the right, second primary below.
+- A headshot kill now shows one "Headshot" line instead of the plain kill line.
+- The kill and streak announcements in the middle of the screen are smaller, the text most of all.
+- The weapon box no longer shows words like RELOADING or OVERHEATED.

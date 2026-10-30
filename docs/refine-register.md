@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1695 spec table rows: **1154 tagged**, 392 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 339 rows of the changes document.
+Scanned 1697 spec table rows: **1156 tagged**, 392 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 340 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -39,8 +39,8 @@ Scanned 1695 spec table rows: **1154 tagged**, 392 not tagged (read from data wi
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
 | Charge (critical) | 19 | 13 | 14 | 12 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
-| Camera (critical) | 26 | 25 | 15 | 18 | 0 |
-| HUD and hit feedback (critical) | 48 | 44 | 40 | 9 | 0 |
+| Camera (critical) | 27 | 26 | 16 | 18 | 0 |
+| HUD and hit feedback (critical) | 49 | 45 | 41 | 9 | 0 |
 | Sound mix (critical) | 49 | 45 | 42 | 10 | 0 |
 | Effects (critical) | 71 | 62 | 61 | 37 | 0 |
 | Game modes | 38 | 35 | 36 | 19 | 1 |
@@ -53,15 +53,15 @@ Scanned 1695 spec table rows: **1154 tagged**, 392 not tagged (read from data wi
 | Core simulation (provisional values) | 81 | 73 | 66 | 6 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1154** | 952 | 917 | 374 | 38 |
+| **All areas** | **1156** | 954 | 919 | 374 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 427 |
-| confidence: medium | 409 |
-| confidence: low | 394 |
+| kind: ours | 429 |
+| confidence: medium | 410 |
+| confidence: low | 395 |
 | kind: interpretation | 317 |
 | notes: ours | 279 |
 | confidence: none (low) | 114 |
@@ -946,7 +946,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C1D7E018` | Not simulated | `min_hit_reaction_time` 1 (read as the flinches' spacing), flinches, the displace kick and slam (`ability_displace_kick`: stagger 5 m over 0.3 s, in the heavy evade and knife files; how a player triggers it is not in the data read), the bull rush… | notes: not reproduced (gap) | — | Not simulated: compare with SM1 by feel or video. Ours: min_hit_reaction_time 1 (read as the flinches' spacing), flinches… | ☐ |
 | `R-8B2013F2` | Client | poses the reaction clip at the reaction's time (remote players at the snapshot's value), the heavy strikes' clips like light attacks; the own view shook 0.35 s on a reaction start (0.012 / 0.03 / 0.022 rad for interrupt / stun / stagger; **off by default… (s, rad) | kind: placeholder; confidence: none (low); notes: ours | ours | Client: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: poses the reaction clip at the reaction's time (remote players at the… | ☐ |
 
-### Camera (gameplay-critical) (26)
+### Camera (gameplay-critical) (27)
 
 *Spec section: Camera, aim mode, shot convergence and hit confirmation (M20; protocol 12)*
 
@@ -954,6 +954,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-3ECF189B` | Weapon switch camera blend (bolt pistol <-> primary) | when the weapon's camera sets change, the rig offsets (camera and pivot) and the field of view blend from the last placed camera to the new weapon's over the new exploration set's `blend_in_time` (0.25 s for `exploration_default_mp` and `exploration_pistol`)… (s) | kind: interpretation; confidence: medium; notes: ours | `camera_curve_settings` `blend_in_time` (extracted value); using it for a switch is ours; owner's report 2026-10-30 (item 24) | Weapon switch camera blend (bolt pistol <-> primary): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: when the weapon's camera sets change, the rig offsets (camera and… | ☐ |
 | `R-2828F70E` | Reload sound: each sample once (owner recollection, 2026-10-30) | when two differently named reload tags post events that resolve to the same sample, only the later tag posts it, so the sample plays once per reload at the later timing. On the install this changes only the stalker bolter (`sm_`/`csm_mp_ranged_sniper_rifle`):… (of the reload) | kind: estimate; confidence: medium; notes: user's knowledge | owner's recollection (plays once, likes the bolt-release sound); wem ids from the banks | Reload sound: each sample once (owner recollection…: compare with SM1 by listening A/B at the same distance and state. Ours: when two differently named reload tags post events that resolve to… | ☐ |
+| `R-A4968E34` | Reload sound: the stalker bolter plays one sound (owner, 2026-10-30) | the stalker bolter's reload clip has three posts (`actn_snd_sp_clip_remove` 0.0, `actn_snd_sp_pull_bolt`, `actn_snd_stalker_bolt_release` 0.614); only the last, the bolt release (wem 123666085), plays: one sound per reload. Counted live with `--log-sound`… (of the reload) | kind: ours; confidence: medium | owner's decision (hears the three posts as the sound playing twice); wem ids from the banks | Reload sound: the stalker bolter plays one sound (owner…: compare with SM1 by listening A/B at the same distance and state. Ours: the stalker bolter's reload clip has three posts… | ☐ |
 | `R-2BE13C83` | Zoom levels: what the client does | the zoomed view blends to level 1 (`fov_1`: stalker bolter 10, lascannon 5.75) instead of the aim set's 15 (blend time and smoothstep unchanged); every other weapon keeps its aim set's value. **Not implemented:** the level cycle (`fov_2`: the lascannon's 2… (degrees) | kind: interpretation; confidence: medium | wargear `zoom_levels`; owner's report 2026-10-30 | Zoom levels: what the client does: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the zoomed view blends to level 1 (fov_1: stalker bolter 10… | ☐ |
 | `R-6F296FAA` | Aim mode | held: `InputButtons.Aim` (protocol 12, input bit 8); active while held with a ranged weapon in hand, not during a melee attack, a throw (or its release tick), a jump-pack jump or dive, nor when dead; `PlayerState.Aiming` | kind: provisional; confidence: none (low); notes: ours | locale string "Hold %AIM_MODE% to enter aim mode with ranged weapons" (`ucs.pc`); which actions end it is **ours** | Aim mode: compare with SM1 with an overlaid screenshot taken from the same position. Ours: held: InputButtons.Aim (protocol 12, input bit 8); active while held… | ☐ |
 | `R-B82BCDC8` | Aim-mode key (PC) | Left Ctrl; right mouse is melee; F is the stun strike (heavy melee) and F while sprinting forward the charge (M31) (user's knowledge of the original, 2026-10-28: the earlier "F is charge / alt fire" misread "charge"); the weapon's charged shot: hold the left… | kind: user's knowledge; confidence: medium | PC default bindings: from the user's knowledge of the original; not found in the data | Aim-mode key (PC): compare with SM1 with an overlaid screenshot taken from the same position. Ours: Left Ctrl; right mouse is melee; F is the stun strike (heavy melee)… | ☐ |
@@ -989,12 +990,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EE0A6B04` | Fixed and exempt views | `--spectate cam:x,y,z,tx,ty,tz` is placed exactly (no springs, cast, push-out or depenetration: measured matched views for lighting comparisons and recorded footage); `inspect` keeps no distance from bodies; `overview` is not cast | notes: ours | ours | Fixed and exempt views: compare with SM1 with side-by-side screenshots in the same spot. Ours: --spectate cam:x,y,z,tx,ty,tz is placed exactly (no springs, cast… | ☐ |
 | `R-90EA2E09` | Cast start | the spectator and death casts start from the look target moved off any surface within 0.33 m (3 passes of the depenetration rays): a target between two players fighting beside a railing, or inside a wall between them, otherwise starts in collision and the… (m) | kind: provisional; notes: ours | ours | Cast start: compare with SM1 by measuring on a flat spot of the same map. Ours: the spectator and death casts start from the look target moved off… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (48)
+### HUD and hit feedback (gameplay-critical) (49)
 
 *Spec section: Camera, aim mode, shot convergence and hit confirmation (M20; protocol 12)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
+| `R-331520E1` | Third-person camera distance (ui/hud-camera-2, owner 2026-10-30) | the exploration camera sits 1.3 times as far behind the feet as the data's rig puts it (the rig's `exploration_default_mp` curve at pitch 0: 3.38 m back, so 4.40 m; the aim set's 1.78 m is unchanged; the camera's height, side and pivot are the data's). The… (m (factor)) | kind: ours; confidence: low | owner's decision ("too close to the character"); rig curve | Third-person camera distance (ui/hud-camera-2, owner…: compare with SM1 by measuring on a flat spot of the same map. Ours: the exploration camera sits 1.3 times as far behind the feet as the… | ☐ |
 | `R-A2440C13` | Hit confirmation | per recipient, running totals since joining: hits on others (self damage excluded; ally hits counted when friendly fire deals them), shield and health damage dealt (to 0.1), kills; and the latest hit's victim, flags (head, killed, melee, blast) and the… | kind: provisional; confidence: none (low); notes: ours | ours (the original's hit marker data path is not known) | Hit confirmation: compare with SM1 with side-by-side screenshots in the same spot. Ours: per recipient, running totals since joining: hits on others (self… | ☐ |
 
 *Spec section: Hit feedback, per-weapon decals and the silent map (M38; client only, not simulated)*
@@ -2269,6 +2271,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-797CF647` | Accounts, matchmaking, a hosted multiplayer service, replacing online services | Out of scope for the product (features players would use). Running our own development and playtest servers anywhere, cloud included, is tooling and is not covered by this row | Accounts, matchmaking, a hosted multiplayer service…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-3150239D` | Armour flashes on models, power sword swing flare, eye glow in the lens colour (fx/character-visuals, owner 2026-10-30) | Ours: colours, strengths and lengths of the yellow hit, red break and recharge glow (with outline) are estimates; others' flashes are derived from the hits seen (melee and splash out of view give none; the break flash comes one hit late); the sword glow no longer plays the data's idle sprites and flares while… | Armour flashes on models, power sword swing flare, eye glow…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-810E5266` | Weapon effects pass (2026-10-30) | Lascannon beam straight and static; tracer muzzle leg lingers 0.12 s; melta blast a drawn cone instead of the data's haze; plasma shots drawn as a near-opaque roiling ball; jump pack thrust stops at the peak. All ours at the owner's request; values are estimates in the refine register | Weapon effects pass (2026-10-30): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-92C86CDD` | HUD and camera pass 2 (ui/hud-camera-2, owner 2026-10-30) | Ours: the third-person camera is 1.3 times as far back as the data's rig (3.38 m to 4.40 m; aim unchanged); the score block's dark band is opaque (80 to 86 percent) and holds the timer, scores, bars and limit; the armour bar is plain yellow for everyone but the Iron Halo's carrier (cyan and white with the medallion)… | HUD and camera pass 2 (ui/hud-camera-2, owner 2026-10-30): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

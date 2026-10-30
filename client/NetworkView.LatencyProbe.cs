@@ -209,6 +209,15 @@ public partial class NetworkView
                 At(Gap(0.5), () => ProbeMouse(MouseButton.Left, true)); At(0.04, () => ProbeMouse(MouseButton.Left, false));
                 At(Gap(0.5), () => { }); Tap(Key.R, "reload", 0.04); At(3.0, () => { });
             }
+        if (actions.Contains("reloadagain"))   // ui/hud-camera-2 test aid (--log-sound reload): a shot, R, then R twice more during the reload: one reload and one set of sounds
+            for (int i = 0; i < Math.Min(trials, 4); i++)
+            {
+                At(Gap(0.5), () => ProbeMouse(MouseButton.Left, true)); At(0.04, () => ProbeMouse(MouseButton.Left, false));
+                At(Gap(0.5), () => ProbeKey(Key.R, true)); At(0.04, () => ProbeKey(Key.R, false));
+                At(0.6, () => ProbeKey(Key.R, true)); At(0.04, () => ProbeKey(Key.R, false));
+                At(0.5, () => ProbeKey(Key.R, true)); At(0.04, () => ProbeKey(Key.R, false));
+                At(4.0, () => { });
+            }
         if (actions.Contains("switch")) for (int i = 0; i < trials; i++) { At(Gap(1.6), () => { }); Tap(Key.X, "switch", 0.04); }
         if (actions.Contains("melee")) for (int i = 0; i < trials; i++) { At(Gap(1.8), () => { }); Click(MouseButton.Right, "melee", 0.04); }
         if (actions.Contains("meleetap")) for (int i = 0; i < trials; i++) { At(Gap(1.8), () => { }); Click(MouseButton.Right, "meleetap", 0); }

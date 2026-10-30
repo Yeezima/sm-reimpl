@@ -79,7 +79,7 @@ public sealed partial class Hud
         double[] at = [0.0, 0.8, 1.6];
         if (_rewardsDemoStep < victims.Length && since >= at[_rewardsDemoStep])
         {
-            if (_rewardsDemoStep == 0) ShowHitMarker(true, true);
+            if (_rewardsDemoStep == victims.Length - 1) ShowHitMarker(true, true);   // the last demo kill is a headshot kill: its own line instead of the kill line
             AddEvent("+ Kill " + victims[_rewardsDemoStep]);
             _rewardsDemoStep++;
         }
