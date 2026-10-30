@@ -19,6 +19,7 @@ public partial class NetworkView
     readonly SeizeSounds _seizeSounds = new();
     SoundEmitter? _uiEmitter;
     bool _uiConnected;
+    double _voiceLogAt;
 
     /// <summary>Once the sound system exists: the menus' buttons post through it (see <see cref="UiSounds.Redirect"/>).</summary>
     void ConnectUiSounds()
@@ -32,11 +33,11 @@ public partial class NetworkView
     }
 
     /// <summary>Posts an event on the non-positioned UI emitter; counted as <paramref name="kind"/>, logged with <c>--log-sound match</c> (or <c>ui</c>).</summary>
-    void PostUiEvent(string eventName, string kind)
+    void PostUiEvent(string eventName, string kind, bool once = false)
     {
         if (_sound is null) return;
         _uiEmitter ??= new SoundEmitter { Label = "ui" };
-        var play = _sound.Post(eventName, _uiEmitter);
+        var play = _sound.Post(eventName, _uiEmitter, once: once);
         CountSound(kind);
         if (LogSound("match") || (kind == "ui" && LogSound("ui")))
             GD.Print($"MATCH SOUND t {_connectedFor:F3} {kind} event {eventName} | {VoicesText(play)}");
@@ -61,6 +62,11 @@ public partial class NetworkView
             }
         var match = client.Match;
         int score = me.Team == Team.Chaos ? match.ChaosScore : me.Team == Team.SpaceMarines ? match.MarineScore : 0;
+        if (LogSound("match") && _connectedFor >= _voiceLogAt)
+        {
+            _voiceLogAt = _connectedFor + 5.0;
+            GD.Print($"MATCH VOICES t {_connectedFor:F1} {_sound.Summary(6)}");   // test aid: the live voice count must stay flat while nothing is posted
+        }
         var events = _seizeSounds.Step(points, inside, me.Team, score, _connectedFor);   // a buffer reused by the next step
         for (int i = 0; i < events.Count; i++)
         {
@@ -71,7 +77,7 @@ public partial class NetworkView
                 SeizeSoundKind.CaptureStop => "seize capture stop",
                 SeizeSoundKind.ObjectiveComplete => "seize objective complete",
                 _ => "seize score tick",
-            });
+            }, SeizeSounds.SingleShot(ev.Kind));
         }
     }
 

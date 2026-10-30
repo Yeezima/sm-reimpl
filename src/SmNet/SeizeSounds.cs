@@ -48,6 +48,13 @@ public sealed class SeizeSounds
     int _prevScore = -1;
     double _lastScoreTick = double.NegativeInfinity;
 
+    /// <summary>
+    /// Whether a post plays its first pick only (BR-03). The three Play events are endless trigger-rate containers in the data (they tick until their Stop event: the tally's
+    /// <c>Stop_MP_Points_Total</c> is never posted here, and every capture tick would add another chain beside the earlier ones), so posting them as they are stacked a growing
+    /// hum. The client drops the container's continuation for these posts; one post, one sound. Stops are not posts of sound.
+    /// </summary>
+    public static bool SingleShot(SeizeSoundKind kind) => kind != SeizeSoundKind.CaptureStop;
+
     /// <summary>The event name of a post kind.</summary>
     public static string EventOf(SeizeSoundKind kind) => kind switch
     {

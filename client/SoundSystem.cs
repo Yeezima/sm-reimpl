@@ -133,6 +133,7 @@ public partial class SoundSystem : Node
     // Statistics for the log.
     public readonly Dictionary<string, (int Posts, int Voices)> ByEvent = new(StringComparer.OrdinalIgnoreCase);
     public readonly Dictionary<string, int> Misses = new(StringComparer.OrdinalIgnoreCase);
+    public readonly Dictionary<string, int> ContByEvent = new();
     public int Posts, VoicesStarted, Steals, Late, PeakActive, Virtual, Culled, Revived, StreamsLoaded, UnsupportedActions, MissingMedia, Continuations;
     /// <summary>M33 counters: property actions applied, switch actions, bark posts, barks dropped (one at a time per character), barks with no line, voices started on a filter bus, bus changes.</summary>
     public int PropertyActions, SwitchActions, Barks, BarksDropped, BarksSilent, FilteredStarts, FilterChanges;
@@ -246,9 +247,9 @@ public partial class SoundSystem : Node
     /// <summary>
     /// Posts an event for an emitter now; returns the catalogue's answer (null when the name is empty). <paramref name="footstep"/>: an <c>is_footstep_sound</c>
     /// post (instance limits, <see cref="FootstepGainDb"/>); <paramref name="offset"/>: added to every voice of the post (volume, pitch, low-pass: the owner's
-    /// footstep level, the deeper impacts and the soft hit confirm).
+    /// footstep level, the deeper impacts and the soft hit confirm). <paramref name="once"/>: play the first pick only and drop the container's continuation (BR-03).
     /// </summary>
-    public SoundPlay? Post(string eventName, SoundEmitter emitter, float extraDelay = 0f, bool footstep = false, VoiceOffset offset = default)
+    public SoundPlay? Post(string eventName, SoundEmitter emitter, float extraDelay = 0f, bool footstep = false, VoiceOffset offset = default, bool once = false)
     {
         if (string.IsNullOrEmpty(eventName) || _catalog is null) return null;
         Posts++;
@@ -256,6 +257,7 @@ public partial class SoundSystem : Node
         var (p, v) = ByEvent.GetValueOrDefault(eventName);
         ByEvent[eventName] = (p + 1, v + play.Voices.Count);
         if (!play.Found) { Misses[eventName] = Misses.GetValueOrDefault(eventName) + 1; return play; }
+        if (once) play.Repeats.Clear();   // BR-03: a trigger-rate container asks to be continued for ever; a one-shot post plays its first pick only
         Schedule(play, emitter, extraDelay, eventName, footstep, offset);
         if (emitter.OneShot) _oneShots.Add(emitter);
         return play;
@@ -432,6 +434,7 @@ public partial class SoundSystem : Node
             if (due > _now) continue;
             _repeats.RemoveAt(i);
             Continuations++;
+            ContByEvent[evt] = ContByEvent.GetValueOrDefault(evt) + 1;
             Schedule(_catalog.Continue(repeat, emitter.Switches), emitter, 0f, evt);
         }
         // Voices whose time has come and whose stream is ready.
@@ -691,7 +694,7 @@ public partial class SoundSystem : Node
         string events = string.Join(", ", ByEvent.OrderByDescending(kv => kv.Value.Posts).Take(top).Select(kv => $"{kv.Key} {kv.Value.Posts}/{kv.Value.Voices}"));
         string misses = Misses.Count == 0 ? "none" : string.Join(", ", Misses.OrderByDescending(kv => kv.Value).Take(top).Select(kv => $"{kv.Key} x{kv.Value}"));
         return $"posts {Posts}, voices started {VoicesStarted}, playing {ActiveCount} (peak {PeakActive}; players 3D {_created3D}, 2D {_created2D}), virtual {_active.Count - ActiveCount} (made virtual {Virtual}, revived {Revived}), culled {Culled}, pending {_pending.Count}, steals {Steals}, late {Late}, " +
-               $"continuations {Continuations}, decodes {DecodesDone} (avg {(DecodesDone > 0 ? DecodeMsTotal / DecodesDone : 0):F1} ms, max {DecodeMsMax:F1} ms; converted {_catalog?.Decoded}, disk hits {_catalog?.DiskHits}, failures {_catalog?.DecodeFailures}), " +
+               $"continuations {Continuations} ({string.Join(", ", ContByEvent.OrderByDescending(kv => kv.Value).Take(4).Select(kv => kv.Key + " " + kv.Value))}), decodes {DecodesDone} (avg {(DecodesDone > 0 ? DecodeMsTotal / DecodesDone : 0):F1} ms, max {DecodeMsMax:F1} ms; converted {_catalog?.Decoded}, disk hits {_catalog?.DiskHits}, failures {_catalog?.DecodeFailures}), " +
                $"streams {StreamsLoaded}, unsupported actions {UnsupportedActions}, sounds without media {MissingMedia}; " +
                $"M33: property actions {PropertyActions} (live {_mods.Count}), switch actions {SwitchActions}, voices on a filter bus {FilteredStarts} (bus changes {FilterChanges}), master {_masterDb:0.#} dB, " +
                $"barks {Barks} (dropped {BarksDropped}, no line {BarksSilent}), footsteps fix: instance-limit kills {LimitKills} drops {LimitDrops}, culled under the threshold (2D) {ThresholdCulls}; events (posts/voices): {events}; events not in the banks: {misses}";
