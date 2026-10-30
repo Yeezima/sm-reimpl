@@ -16,15 +16,13 @@ namespace SmClient;
 /// variant posed and the upper one laid over it at the blend weight (<see cref="PoseSlots.MeleeVariant"/>).</item>
 /// <item>Hit-stop (OFF by default, <c>--hit-stop</c>): a landed hit holds the attacker's attack clip and the victim's reaction clip for a few frames (own hits from the predicted hit event;
 /// others' when their hit time passes with someone in reach), plus a small camera shake on own hits.</item>
-/// <item>Camera assist: while the own attack aligns to its lock the view turns toward the target (feel/melee-charge-2: gently, faded in and out,
-/// <see cref="MeleePresentation.AssistWeight"/>).</item>
+/// <item>Camera assist: removed in sim/combat-2 (the owner's decision of 2026-10-30: the lock turns the model and the attack, never the camera).</item>
 /// </list>
-/// Test aids: <c>--no-melee-lock</c> (the client sends no locks), <c>--no-melee-assist</c>, <c>--no-melee-variants</c> (the 3.5 m clip as before); opt-in <c>--hit-stop</c> (hit-stop and hit shakes, off by default since 2026-10-29).
+/// Test aids: <c>--no-melee-lock</c> (the client sends no locks), <c>--no-melee-variants</c> (the 3.5 m clip as before); opt-in <c>--hit-stop</c> (hit-stop and hit shakes, off by default since 2026-10-29).
 /// </summary>
 public partial class NetworkView
 {
     static readonly bool NoMeleeLock = OS.GetCmdlineUserArgs().Contains("--no-melee-lock");
-    static readonly bool NoMeleeAssist = OS.GetCmdlineUserArgs().Contains("--no-melee-assist");
     /// <summary>Owner's decision 2026-10-29 ("remove the stop hit/screen freeze/shake effect when attacking an enemy in melee"): the hit-stop and the hit shakes (own melee hit shake, the victim's reaction shake) are off; <c>--hit-stop</c> brings them back.</summary>
     static readonly bool HitStopOn = OS.GetCmdlineUserArgs().Contains("--hit-stop");
     static readonly bool NoMeleeVariants = OS.GetCmdlineUserArgs().Contains("--no-melee-variants");
@@ -76,16 +74,8 @@ public partial class NetworkView
         _hitStopDone.Clear();
         foreach (var (id, start) in _hitStops) if (!MeleePresentation.Active((float)(_connectedFor - start))) _hitStopDone.Add(id);
         foreach (int id in _hitStopDone) _hitStops.Remove(id);
-        // Camera assist toward the lock while the own attack aligns (only a player's own view; bots aim themselves; a replayed demo has its recorded view).
-        if (!NoMeleeAssist && !_bot && _demoPlayback is null && me.Alive && me.MeleeStep > 0 && _client.MeleeLockTarget > 0 && Combat.MeleeStepOf(_config, me) is { } own
-            && MeleePresentation.AssistWindow(own, me.MeleeTime))
-            foreach (var o in _lastOthers)
-                if (o.PlayerId == _client.MeleeLockTarget && o.Alive)
-                {
-                    var to = MeleeLock.Offset(me, o);
-                    if (to.LengthSquared() > 0.01f) _yaw = MeleePresentation.Assist(_yaw, MeleeLock.YawOf(to), (float)delta, MeleePresentation.AssistWeight(own, me.MeleeTime));
-                    break;
-                }
+        // sim/combat-2 (item 32, owner's decision 2026-10-30): no camera assist. The lock turns the character model and the attack's direction (the simulation's
+        // MeleeLock.Align on the body's heading), never the view: the camera follows the mouse freely.
     }
 
     void StartHitStop(int id) { if (HitStopOn) _hitStops[id] = _connectedFor; }
