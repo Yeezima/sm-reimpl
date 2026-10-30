@@ -237,6 +237,26 @@ public sealed partial class SoundTriggers
         return best;
     }
 
+    /// <summary>
+    /// One reload plays one sample once (owner, 2026-10-30, the stalker bolter: <c>Clip_Load</c> and <c>Bolt_Release</c> post events that resolve to the same sample): of the tags whose
+    /// whole set of samples (<paramref name="samplesOf"/>: the wem ids of the tag's bindings) equals that of a later tag of another name, only the last stays, so the sample plays at the later timing.
+    /// A tag the clip carries twice (the bolt pistol's load tag at 0.283 and 0.4) is the clip's own repeat and stays. Tags with different samples, or with no known samples, are untouched (the bolter's two <c>play_sm_reload_foley</c> posts sit in tags with other samples too: unchanged).
+    /// </summary>
+    public static IReadOnlyList<(string Tag, float At)> OncePerSample(IReadOnlyList<(string Tag, float At)> tags, Func<string, IReadOnlyCollection<uint>> samplesOf)
+    {
+        string Key(string tag) { var w = samplesOf(tag); return w.Count == 0 ? "" : string.Join(",", w.Distinct().Order()); }
+        var keys = tags.Select(t => Key(t.Tag)).ToList();
+        var kept = new List<(string Tag, float At)>();
+        for (int i = 0; i < tags.Count; i++)
+            {
+            bool later = false;
+            for (int j = i + 1; j < tags.Count && keys[i].Length > 0; j++)
+                if (keys[j] == keys[i] && !string.Equals(tags[j].Tag, tags[i].Tag, StringComparison.OrdinalIgnoreCase)) later = true;
+            if (!later) kept.Add(tags[i]);
+        }
+        return kept;
+    }
+
     /// <summary>The keys of every <c>triggered_actions</c> table in a file (any depth), in file order.</summary>
     public static IReadOnlyList<string> TriggeredActionKeys(BafTable root)
     {

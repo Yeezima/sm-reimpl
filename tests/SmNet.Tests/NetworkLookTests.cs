@@ -388,13 +388,12 @@ public class NetworkLookTests
     }
 
     [Fact]
-    public void C_is_for_the_death_screen_and_Esc_for_every_moment()
+    public void Esc_opens_the_menu_at_every_moment_and_there_is_no_C_key()
     {
-        // C: only when down; the Esc menu has no such condition (alive or dead).
+        // The Esc menu has no alive / dead condition (CanOpen only governs a picker that was not forced by Esc).
         Assert.False(PickerRules.CanOpen(true, alive: true, spectating: false, matchEnded: false));
         Assert.True(PickerRules.CanOpen(true, alive: false, spectating: false, matchEnded: false));
         Assert.Equal(PickerRules.EscAction.OpenMenu, PickerRules.OnEscape(connected: true, connectFailing: false, menuOpen: false, human: true));   // no alive / dead input at all
-        Assert.Contains("Esc", PickerRules.WhileAlive);
     }
 
     [Fact]

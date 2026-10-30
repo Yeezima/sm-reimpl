@@ -137,7 +137,7 @@ custom emblem, Lens labelled as our addition); `PreviewStage.cs` (SubViewport tu
 `RigAssets`, weapons via `WeaponRig`, the data's camera framing per tab); `EmblemImporter.cs` (native `FileDialog`;
 png/jpg/webp/bmp/tga; ≤ 8 MB, ≤ 4096² px; square crop with pan/zoom; Lanczos to 128²; BC3; hash; save); `UiKit.cs`
 (shared widgets, `FocusMode.All`, `ui_*` actions).
-In a match: the death screen offers "Change loadout [C]"; the picker lists DEFAULTS + custom slots for the current side,
+In a match: Esc opens the picker (the death screen shows "[ESC] CHANGE LOADOUT"); the picker lists DEFAULTS + custom slots for the current side,
 "applies at next respawn", sends `Setup`, shows the `SetupAck` state.
 Flags: `--class/--primary/--pistol/--melee/--equipment/--side` keep working (a temporary unsaved setup, skips the front
 end); new `--menu`, `--customizer`, `--loadout <default:role|1..10>`, `--profile <json>` (outside the repo),

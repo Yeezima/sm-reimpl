@@ -50,6 +50,10 @@ public partial class NetworkView
     string _cameraInfo = "";
     readonly Dictionary<string, WeaponCamera?> _weaponCameras = new(StringComparer.OrdinalIgnoreCase);
     float _aimBlend;                       // 0 exploration .. 1 aim
+    // Weapon switch (fix/camera-zoom-misc, owner item 24): the camera of the new weapon (pistol <-> primary: other rig curve and field of view) is eased in from the last placed one.
+    string _switchKey = "";
+    System.Numerics.Vector3 _switchCam, _switchPivot, _lastCam, _lastPivot;
+    float _switchFov, _lastFov, _switchT = 1f, _switchTime = 0.25f;
     float _evadeBlend;                     // 0 .. 1 toward the evade roll's camera set
     string _evadeCameraNote = "";
     bool _evadeCurveNoted;
@@ -103,7 +107,7 @@ public partial class NetworkView
             bool own = name.EndsWith("_sniper_rifle", StringComparison.OrdinalIgnoreCase) || name.EndsWith("_las_cannon", StringComparison.OrdinalIgnoreCase)
                        || name.Contains("lascannon", StringComparison.OrdinalIgnoreCase);
             if (wc is not null && !own && _cameraTuning.For(FallbackWeapon) is { } rifle)
-                wc = wc with { Exploration = rifle.Exploration, Aim = rifle.Aim,
+                wc = wc with { Exploration = rifle.Exploration, Aim = rifle.Aim, ZoomFovs = rifle.ZoomFovs,
                                Evidence = $"{rifle.Exploration.Name} / {rifle.Aim.Name} (the rifle's sets for every weapon but the sniper rifle and lascannon: user's knowledge of the original; wargear {name} names {wc.Exploration.Name} / {wc.Aim.Name}); input {wc.ExplorationInput.Name} / {wc.AimInput.Name} from the wargear" };
             _weaponCameras[name] = wc;
         }
@@ -136,10 +140,8 @@ public partial class NetworkView
         _mouseScale = Mathf.Lerp(Finite(wc.ExplorationInput.SpeedMouse, 100f), Finite(wc.AimInput.SpeedMouse, 100f), w) / 100f;
         _pitch = Math.Clamp(_pitch, _pitchMin, _pitchMax);
         float pitch = Math.Clamp(_pitch, _pitchMin, _pitchMax);
-        // ui/hud-fidelity: the rig follows the view a moment late (--camera-lag; temporary, owner: NetworkView.CameraLag.cs); the aim stays the view's.
-        var (rigYaw, rigPitch) = LaggedView(_yaw, pitch, delta, me);
 
-        if (_cameraRig.OffsetAtPitch(ex.AnimationCurve, rigPitch) is not { } o0 || _cameraRig.OffsetAtPitch(aim.AnimationCurve, rigPitch) is not { } o1) return false;
+        if (_cameraRig.OffsetAtPitch(ex.AnimationCurve, pitch) is not { } o0 || _cameraRig.OffsetAtPitch(aim.AnimationCurve, pitch) is not { } o1) return false;
         if (!_rigLogged)
         {
             _rigLogged = true;
@@ -149,7 +151,9 @@ public partial class NetworkView
         }
         var cam = System.Numerics.Vector3.Lerp(o0.Camera, o1.Camera, w);
         var pivot = System.Numerics.Vector3.Lerp(o0.Pivot, o1.Pivot, w);
-        float fov = Mathf.Lerp(Finite(ex.FieldOfView, DefaultFov), Finite(aim.FieldOfView, DefaultFov), w);
+        // The scoped weapons (stalker bolter, lascannon): the wargear's zoom_levels fov_1 is the zoomed view (spec "Zoom levels"), not the aim set's field_of_view; the rest of the weapons use the set's.
+        float aimFov = wc.ZoomFovs is { Count: > 0 } zooms ? zooms[0] : aim.FieldOfView;
+        float fov = Mathf.Lerp(Finite(ex.FieldOfView, DefaultFov), Finite(aimFov, DefaultFov), w);
 
         // Evade roll (M21): blend to the roll's camera set (the ability's camera_curve, e.g. evade_default_mp) over its blend-in
         // time (back out over the exploration set's). Position from the set's rig curve (pitch clamped to the set's range for the
@@ -166,7 +170,7 @@ public partial class NetworkView
             {
                 _lastEvadeSet = set;
                 float we = _evadeBlend * _evadeBlend * (3f - 2f * _evadeBlend);
-                float lookupPitch = Math.Clamp(rigPitch, CameraRig.SimRadians(set.PitchMinimum), CameraRig.SimRadians(set.PitchMaximum));
+                float lookupPitch = Math.Clamp(pitch, CameraRig.SimRadians(set.PitchMinimum), CameraRig.SimRadians(set.PitchMaximum));
                 if (_cameraRig.OffsetAtPitch(set.AnimationCurve, lookupPitch) is { } oe)
                 {
                     cam = System.Numerics.Vector3.Lerp(cam, oe.Camera, we);
@@ -188,8 +192,27 @@ public partial class NetworkView
         }
         else { _lastEvadeSet = null; _evadeCamLogged = false; }
 
+        // Weapon switch: when the weapon's camera sets change (bolt pistol <-> primary), the rig offsets and the field of view blend from the last placed camera to the new one over the new
+        // exploration set's blend_in_time (data: 0.25 s for exploration_default_mp and exploration_pistol), smoothstep, instead of jumping.
+        string switchKey = $"{ex.Name}/{aim.Name}/{aimFov}";
+        if (_switchKey.Length > 0 && switchKey != _switchKey && me.Alive && _cameraPlaced)
+        {
+            _switchCam = _lastCam; _switchPivot = _lastPivot; _switchFov = _lastFov; _switchT = 0f;
+            _switchTime = Finite(ex.BlendInTime, 0.25f);
+        }
+        _switchKey = switchKey;
+        if (_switchT < 1f)
+        {
+            _switchT = _switchTime > 0.01f ? MathF.Min(1f, _switchT + delta / _switchTime) : 1f;
+            float ws = _switchT * _switchT * (3f - 2f * _switchT);
+            cam = System.Numerics.Vector3.Lerp(_switchCam, cam, ws);
+            pivot = System.Numerics.Vector3.Lerp(_switchPivot, pivot, ws);
+            fov = Mathf.Lerp(_switchFov, fov, ws);
+        }
+        _lastCam = cam; _lastPivot = pivot; _lastFov = fov;   // what was placed (a switch during a blend continues from here)
+
         // Character frame (X right, Y forward, Z up) rotated by the view's yaw about the feet, into Godot space.
-        float sin = MathF.Sin(rigYaw), cos = MathF.Cos(rigYaw);
+        float sin = MathF.Sin(_yaw), cos = MathF.Cos(_yaw);
         Vector3 ToWorld(System.Numerics.Vector3 v)
         {
             var g = me.Position + new System.Numerics.Vector3(v.X * cos - v.Y * sin, v.X * sin + v.Y * cos, v.Z);
@@ -212,8 +235,8 @@ public partial class NetworkView
         // looking where the view is turning, so a wall corner that is about to cross the camera's line starts the pull-in early
         // instead of meeting the hard cast all at once.
         int ahead = 0;
-        float yawStep = _rigYawInit ? Mathf.Wrap(rigYaw - _rigYaw, -MathF.PI, MathF.PI) : 0f;   // ui/hud-fidelity: the lens's (lagged) yaw
-        _rigYaw = rigYaw; _rigYawInit = true;
+        float yawStep = _rigYawInit ? Mathf.Wrap(_yaw - _rigYaw, -MathF.PI, MathF.PI) : 0f;
+        _rigYaw = _yaw; _rigYawInit = true;
         _rigYawRate = Mathf.Lerp(_rigYawRate, delta > 1e-4f ? Math.Clamp(yawStep / delta, -4f, 4f) : 0f, 1f - MathF.Exp(-15f * delta));
         if (_client?.Collision is not null && me.Alive)
         {
@@ -223,7 +246,7 @@ public partial class NetworkView
                 var step = _gameSpace.Basis * (velocity * t);
                 float stepLength = step.Length();
                 if (stepLength > 0.05f) step *= CastClear(head, head + step, CameraSoftRadius) / stepLength;
-                float turned = rigYaw + _rigYawRate * t;
+                float turned = _yaw + _rigYawRate * t;
                 float s2 = MathF.Sin(turned), c2 = MathF.Cos(turned);
                 Vector3 AtAhead(System.Numerics.Vector3 v)
                 {
@@ -245,13 +268,12 @@ public partial class NetworkView
         }
         var damped = DampFraction(ref _rigFraction, _cameraPlaced, pivotWorld, wanted, delta, _aheadFrom, _aheadTo);
         var position = Depenetrate(ClearOfBodies(damped, me, includeOwn: false, pivotWorld, delta));   // an enemy in melee range is not in the lens
-        NoteLagEye(ex, aim, w, pitch, me, head, position - damped);   // ui/hud-fidelity camera lag (temporary): the eye an unlagged rig would have
         _cameraPlaced = true;
 
-        var aimGame = Combat.AimDirection(rigYaw, rigPitch);
+        var aimGame = Combat.AimDirection(_yaw, pitch);
         var look = (_gameSpace.Basis * new Vector3(aimGame.X, aimGame.Y, aimGame.Z)).Normalized();
         _camera.GlobalTransform = new Transform3D(Basis.LookingAt(look, Vector3.Up), position);
-        NoteCameraPlaced(rigYaw, rigPitch, me.Position);   // feel/controls: the view the converged shot's ray is turned from (FreshCenterRay)
+        NoteCameraPlaced(_yaw, pitch, me.Position);   // feel/controls: the view the converged shot's ray is turned from (FreshCenterRay)
         _camera.Fov = fov;
         var feet = _gameSpace.Transform * new Vector3(me.Position.X, me.Position.Y, me.Position.Z);
         _cameraOffset = position - feet;
@@ -275,8 +297,7 @@ public partial class NetworkView
         var d3 = (inverse.Basis * (-_camera.GlobalBasis.Z)).Normalized();
         var o = new System.Numerics.Vector3(o3.X, o3.Y, o3.Z);
         var d = new System.Numerics.Vector3(d3.X, d3.Y, d3.Z);
-        if (LagAimRay() is { } aimRay) { o = aimRay.Origin; d = aimRay.Direction; }   // ui/hud-fidelity: with the camera lag, the aim's ray, not the lens's (NetworkView.CameraLag.cs)
-        else if (ray is { } fresh) { o = fresh.Origin; d = fresh.Direction; }   // feel/controls: the ray at the view of this moment (FreshCenterRay)
+        if (ray is { } fresh) { o = fresh.Origin; d = fresh.Direction; }   // feel/controls: the ray at the view of this moment (FreshCenterRay)
         float t0 = MathF.Max(0f, System.Numerics.Vector3.Dot(Combat.EyePosition(me, c) - o, d));
         var start = o + d * t0;
         var inHand = Loadouts.InHand(c, me);
@@ -312,7 +333,6 @@ public partial class NetworkView
         // feel/controls: the ray turned to the view this input carries (the camera was placed last frame, before this frame's mouse movement).
         var (_, _, start, direction) = CenterRayTarget(me, _config, FreshCenterRay());
         LatencyProbeShot(direction);   // feel/controls test aid (--latency-probe)
-        if (LatencyProbeOn) LagProbeShot(start, direction);   // ui/hud-fidelity camera lag (temporary)
         return input.WithShot(start, direction, Combat.EyePosition(me, _config));
     }
 

@@ -67,6 +67,9 @@ public sealed class GfxCanvas(int width, int height, bool additive = false)
 /// </summary>
 public static class GfxRaster
 {
+    /// <summary>Characters the drawing on this thread leaves out wherever a display list places them (ui/hud-3: the armour bar without its starburst medallion). Null: none.</summary>
+    [ThreadStatic] public static HashSet<int>? Hidden;
+
     /// <summary>
     /// Draws frame <paramref name="frame"/> of sprite <paramref name="spriteId"/> (0: the root) onto <paramref name="canvas"/>. <paramref name="root"/> maps the sprite's
     /// pixels (twips / 20) to canvas pixels. <paramref name="bitmaps"/> returns the bitmap of a movie bitmap id (null: nothing is drawn for that fill).
@@ -101,7 +104,7 @@ public static class GfxRaster
         {
             cancel.ThrowIfCancellationRequested();
             if (mask is not null && p.Depth > maskUntil) { Composite(mask, maskedN, canvas, maskedA, additive); mask = maskedN = maskedA = null; }
-            if (p.Character < 0) continue;
+            if (p.Character < 0 || Hidden?.Contains(p.Character) == true) continue;
             // Placement matrices are in twips for the translation: convert to pixels.
             var pm = p.Matrix is { } pmx ? new GfxMatrix(pmx.A, pmx.B, pmx.C, pmx.D, pmx.Tx / 20.0, pmx.Ty / 20.0) : GfxMatrix.Identity;
             var child = m.After(pm);

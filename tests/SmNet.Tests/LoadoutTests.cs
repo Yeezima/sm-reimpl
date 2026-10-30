@@ -166,18 +166,21 @@ public class LoadoutTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Switching_cancels_a_reload_and_the_reload_is_lost()
+    public void Switching_keeps_a_reload_running_on_the_holstered_weapon_and_it_completes_on_its_timer()
     {
         var s = Fresh(Tactical) with { Clip = 5 };
         Step(ref s, InputButtons.Reload, out _);
         Assert.Equal(Rifle.ReloadTime, s.ReloadLeft, 5);
         for (int i = 0; i < 10; i++) Step(ref s, InputButtons.None, out _);
         Step(ref s, InputButtons.Switch, out _);
-        Assert.Equal((WeaponSlot.Pistol, 0f, 5, 60), (s.Slot, s.ReloadLeft, s.OtherClip, s.OtherReserve));
+        // sim/combat-pass (protocol 45; owner's recollection 2026-10-30): the reload is not lost; the holstered weapon's runs on and completes on its own timer.
+        Assert.Equal((WeaponSlot.Pistol, 0f, 5), (s.Slot, s.ReloadLeft, s.OtherClip));
+        Assert.InRange(s.OtherReloadLeft, 0.01f, Rifle.ReloadTime);
         for (int i = 0; i < 20; i++) Step(ref s, InputButtons.None, out _);
+        Assert.Equal((0f, 20, 45), (s.OtherReloadLeft, s.OtherClip, s.OtherReserve));   // 15 rounds moved (the rifle's data in this test: clip 20, reserve 60)
         Step(ref s, InputButtons.Switch, out _);
-        Assert.Equal((WeaponSlot.Ranged, 5, 60, 0f), (s.Slot, s.Clip, s.Reserve, s.ReloadLeft));
-        // Reloading is blocked during the switch too.
+        Assert.Equal((WeaponSlot.Ranged, 20, 45, 0f), (s.Slot, s.Clip, s.Reserve, s.ReloadLeft));
+        // Reloading is blocked during the switch.
         Step(ref s, InputButtons.Reload, out _);
         Assert.Equal(0f, s.ReloadLeft);
     }
@@ -294,7 +297,7 @@ public class LoadoutTests(ITestOutputHelper output)
         var hello = new Hello(Protocol.Version, 1, 2, 3, 4, 5, 6, 2);
         Assert.Equal(hello, Protocol.Read(Protocol.Write(hello)));
         Assert.Equal(Protocol.ServerDefaultClass, new Hello(Protocol.Version, 1, 2, 3).RequestedClass);
-        Assert.Equal(44, Protocol.Version);
+        Assert.Equal(45, Protocol.Version);
     }
 
     // ---------------------------------------------------------------- per-recipient snapshots

@@ -207,6 +207,8 @@ public partial class NetworkView
     {
         // feel/melee-charge-2 test aid: --log-sound tag prints every behaviour-tag post (the melee swings' events, which file posted them is in the trigger path).
         if (kind == "tag" && LogSound("tag")) GD.Print($"TAG SOUND t {_connectedFor:F3} {e.Label} [{b.Trigger}] {b.Path} event {b.StartEvent} | {VoicesText(play)}");
+        // fix/camera-zoom-misc test aid: --log-sound reload prints every reload-tag post (own: "reload", others: "reload other") with the event and what it resolved to, to count the posts of one reload.
+        if (kind.StartsWith("reload", StringComparison.Ordinal) && LogSound("reload")) GD.Print($"RELOAD SOUND t {_connectedFor:F3} {e.Label} {kind} [{b.Trigger}] event {b.StartEvent} | {VoicesText(play)}");
         if (!LogSound("ork") || !_orkEmitterIds.Contains(e.Id)) return;
         GD.Print($"ORK SOUND t {_connectedFor:F3} {e.Label} {kind} [{b.Trigger}] event {b.StartEvent} | {VoicesText(play)}");
     }

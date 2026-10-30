@@ -95,7 +95,7 @@ public sealed partial class Hud
         var d = Data;
         if (!d.Alive) return;
         bool movie = d.HasWeapon && DrawMovieWeaponBox(vs);   // ui/hud-fidelity: the movie's box (Hud.Fidelity.cs); the jump meter and the lines under it stay
-        BeginLocal(Placed(new Vector2(vs.X - 514f, vs.Y - 238f), 2.5f));
+        BeginLocal(Placed(new Vector2(vs.X - 514f, vs.Y - 248f), 2.5f));   // ui/hud-3: 10 units higher, as the owner's reference frame
         if (movie)
         {
             string state = d.Overheated ? (d.Venting ? "OVERHEATED - VENTING" : "OVERHEATED") : d.WeaponState;

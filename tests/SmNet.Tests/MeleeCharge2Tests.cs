@@ -84,7 +84,7 @@ public class MeleeCharge2Tests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void With_W_held_the_second_F_still_stomps_and_does_not_charge()
+    public void With_W_held_the_second_F_neither_stomps_nor_charges_mid_combo()
     {
         // The first F with W held is the charge (protocol 39); from rest without W the backhand. W pressed during the backhand: the second F stomps.
         var s = Fresh(YConfig);
@@ -93,7 +93,8 @@ public class MeleeCharge2Tests(ITestOutputHelper output)
         for (int k = 1; k < 25; k++)
             s = Combat.StepPlayer(s, new PlayerInput((uint)k, 0f, 1f, 0f, k == 15 ? InputButtons.MeleeHeavy : InputButtons.None), YConfig, out _);
         Assert.Equal(RushPhase.None, s.Rush);
-        Assert.Equal((4, true), (s.MeleeStep, s.MeleeHeavy));
+        // sim/combat-pass (review note, owner's rule 2026-10-30): W + F is never a stun strike, the Y,Y stomp included; no input buffer here, so nothing follows.
+        Assert.NotEqual((4, true), (s.MeleeStep, s.MeleeHeavy));
     }
 
     [Fact]

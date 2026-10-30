@@ -82,6 +82,9 @@ public sealed partial class Hud
     /// white, over 17 frames; the number and the name over 12; at 30 fps) and faded out by them. The newest on the top line (ours). The lines are the rewards of <see cref="RewardTracker"/>
     /// (the kill's own, headshot, revenge, multi kills, killstreaks ...: experience, icon frame and name from <see cref="RewardTable"/>, ui/hud-2). False without the movie.
     /// </summary>
+    /// <summary>The reward lines' scale (ours, owner 2026-10-30: slightly smaller than the movie's).</summary>
+    const float RewardScale = 0.82f;
+
     bool DrawMovieRewards(Vector2 vs)
     {
         if (OldHud || HudMovie is not { } hud) return false;
@@ -106,7 +109,8 @@ public sealed partial class Hud
             var spec = line ?? RewardTable.Kill;
             double age = _time - at;
             var m = line1.ToStage; m = m with { Ty = m.Ty + step * n };
-            var root = stage * ToXf(m);
+            // ui/hud-3 (owner 2026-10-30): the centre announcements a little smaller, about the screen's middle line and the first line's top (ours).
+            var root = stage * new Transform2D(0f, new Vector2(RewardScale, RewardScale), 0f, new Vector2(640f * (1f - RewardScale), (float)line1.ToStage.Ty * (1f - RewardScale))) * ToXf(m);
             int Clip(int sprite, string path)
             {
                 var l = hud.Labels(sprite);
@@ -140,6 +144,9 @@ public sealed partial class Hud
     /// </summary>
     const float ScoreTilt = -1.5f, ScoreShift = 17f;
 
+    /// <summary>The dark band's right end in the panel's frame (ui/hud-3: 330 before; side by side with the owner's frame the band ends at the bars' end, not 55 px past it; ours).</summary>
+    const float BandRight = 292f;
+
     /// <summary>
     /// The team score panel from <c>HudText.gfx</c> <c>mp_score_mc</c>, anchored bottom left: the own score (gold) and the enemy's (red) right-aligned in their fields, the movie's bars
     /// (<c>sm_bar_mc</c> gold for the viewer's side, <c>chaos_bar_mc</c> red for the enemy: frame = score / limit x 100 of their 105-frame fill clips), the score limit, the time left, and
@@ -154,7 +161,7 @@ public sealed partial class Hud
         // The footage's panel sits 17 stage pixels right of the movie's place (its emblem where the movie's would be): measured side by side (ours).
         var root = Stage(vs, -1) * new Transform2D(0f, new Vector2(ScoreShift, 0f)) * ToXf(panel.ToStage);
         root *= new Transform2D(Mathf.DegToRad(ScoreTilt), new Vector2(200f, 70f)) * new Transform2D(0f, new Vector2(-200f, -70f));
-        var band = new Vector2[] { new(112f, 44f), new(330f, 44f), new(330f, 92f), new(100f, 92f) };
+        var band = new Vector2[] { new(104f, 44f), new(BandRight, 44f), new(BandRight, 92f), new(92f, 92f) };   // ui/hud-3: ends where the bars' troughs end, as the owner's reference (ours)
         var bandV = new Vector2[4];
         for (int i = 0; i < 4; i++) bandV[i] = root * band[i];
         DrawPolygon(bandV, [new Color(0f, 0f, 0f, 0.3f), new Color(0f, 0f, 0f, 0.78f), new Color(0f, 0f, 0f, 0.78f), new Color(0f, 0f, 0f, 0.3f)]);
@@ -318,6 +325,7 @@ public sealed partial class Hud
                 WeaponBoxBar.Spent => d.ClipMax > 0 ? Math.Clamp(d.Clip / (float)d.ClipMax, 0f, 1f) : 1f,
                 _ => 1f,
             };
+            if (d.WeaponBarFull >= 0f) full = d.WeaponBarFull;   // ui/hud-3: the melta's progress between shots
             barFrame = WeaponBoxRules.BarFrame(full, hud.FrameCount(barSprite));
         }
         bool reserve = d.ReserveMax > 0 || d.Reserve > 0;
