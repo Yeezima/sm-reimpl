@@ -14,3 +14,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The launcher has a dark look.
 - The Devastator and Havoc hop now goes the way your movement keys point, like the Tactical roll: W+D hops forward-right, S+A back-left, and so on, in all eight directions (no key held: forward). This changes the game rules, so everyone must update to the same build.
 - Switching weapons now works while a switch is still playing: press another weapon key (or the same one to go back) and the switch is cancelled at once and the new weapon is raised. You still cannot fire until the new weapon is up.
+- Melee attacks now step forward further (about a quarter more) and, when locked onto an enemy, close the gap to them: the farther the enemy, the longer the step, stopping right in front of them.

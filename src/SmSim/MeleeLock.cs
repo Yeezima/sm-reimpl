@@ -147,6 +147,8 @@ public sealed record MeleeLockSpec
     public float RushSteerRate { get; init; } = 180f;
     /// <summary>Ours: the lunge never brings the attacker nearer its target than this (metres, feet to feet: two capsules and a little).</summary>
     public float Separation { get; init; } = 1f;
+    /// <summary>sim/melee-lunge (ours): the most speed (m/s) the lunge adds to close a gap its clip leaves at the hit (a lock held out to Range + Leash); the capped distance keeps it from becoming a teleport.</summary>
+    public float CatchUpSpeed { get; init; } = 12f;
     /// <summary>
     /// feel/melee-charge-2 (protocol 42; the owner's request of 2026-10-29: "melee and stun lock-ons feel janky, make them fluid"; ours): the alignment turn
     /// eases in and out over the window (<see cref="MeleeLock.Align"/>: a smoothstep share of the turn left) instead of turning at a constant rate that starts
@@ -168,6 +170,7 @@ public sealed record MeleeLockSpec
     {
         foreach (float f in new[] { HalfAngle, Range, Vertical, DistanceBand, AngleBand, FanSetBack, FanStart, RushHalfAngle, RushRange, Leash, MaxAlignRate, RushSteerRate, Separation })
             w.Write(f);
+        if (CatchUpSpeed != 12f) { w.Write((byte)0xE3); w.Write(CatchUpSpeed); }
         // feel/melee-charge-2: only when not the M32 rule, so a spec from before hashes as it did when both are off.
         if (AlignEase || Hysteresis != 0f) { w.Write((byte)0xE2); w.Write(AlignEase); w.Write(Hysteresis); w.Write(MinAlignSpan); }
     }
@@ -507,6 +510,19 @@ public static class MeleeLock
         float start = reach.StartDistance(from, duration, offset.Length());
         float step = reach.ForwardAt(to, duration, start) - reach.ForwardAt(from, duration, start);
         if (step > 0f) step *= k;
+        // sim/melee-lunge (the owner, 2026-10-31: the step is longer the further the target is; ours): a target past the farthest clip's blend (the leash lets a lock hold to
+        // Range + Leash) is not reached by the clip alone: the gap it leaves at the hit is closed over the ticks left before it, at most LockCatchUpSpeed.
+        if (from < m.HitTime - Eps)
+        {
+            float toHit = reach.ForwardAt(m.HitTime, duration, start) - reach.ForwardAt(from, duration, start);
+            float strike = MathF.Max(c.MeleeLock.Separation, start - reach.ForwardAt(m.HitTime, duration, start));
+            float gap = offset.Length() - MathF.Max(toHit * k, toHit) - strike;
+            if (gap > 0f)
+            {
+                float share = MathF.Min(1f, (to - from) / MathF.Max(m.HitTime - from, Eps));
+                step += MathF.Min(gap * share, c.MeleeLock.CatchUpSpeed * (to - from));
+            }
+        }
         // Never nearer the target than the separation (only forward motion is held back).
         var spec = c.MeleeLock;
         var forward = Forward(heading);

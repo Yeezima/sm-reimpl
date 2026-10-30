@@ -281,6 +281,70 @@ public class MeleeLockTests(ITestOutputHelper output)
         Assert.True(states[19].Position.Y > 0.3f);
     }
 
+    // sim/melee-lunge (owner, 2026-10-31): a longer step, longer the further the locked target is.
+    [Fact]
+    public void Locked_lunge_covers_more_ground_the_further_the_target_and_stops_at_the_strike_distance()
+    {
+        float previous = 0f;
+        foreach (float distance in new[] { 2.5f, 4f, 5.5f, 7f })
+        {
+            var target = Player(2, At(distance, 0f));
+            var states = Attack(Player(1, Vector3.Zero), target, 9);
+            float moved = states[6].Position.Y;
+            float left = distance - moved;
+            output.WriteLine($"{distance} m: moved {moved:F2} m by the hit, {left:F2} m left");
+            Assert.True(moved > previous, $"{distance} m: {moved} not above {previous}");
+            Assert.True(left >= Config.MeleeLock.Separation - 1e-3f, $"overlap: {left}");
+            previous = moved;
+        }
+    }
+
+    [Fact]
+    public void Locked_lunge_closes_the_gap_a_held_lock_leaves_past_the_farthest_clip()
+    {
+        // 7.8 m: inside the leash (7 + 1) but past the 7 m clip, which alone would end 0.8 m short of the strike distance.
+        var target = Player(2, At(7.8f, 0f));
+        // The lock is held from a previous attack: a fresh press would not find it, so name it directly.
+        var self = Player(1, Vector3.Zero);
+        var held = new List<PlayerState>();
+        for (int i = 0; i < 9; i++)
+        {
+            var input = new PlayerInput((uint)i, 0, 0, 0f, i == 0 ? InputButtons.Melee : InputButtons.None) { MeleeTarget = 2 };
+            self = Combat.StepPlayer(self, input, Config, out _, null, View(target));
+            held.Add(self);
+        }
+        float atHit = target.Position.Y - held[6].Position.Y;
+        output.WriteLine($"held 7.8 m: {atHit:F2} m left at the hit; speed cap {Config.MeleeLock.CatchUpSpeed} m/s");
+        Assert.InRange(atHit, Strike - 0.1f, Strike + 0.35f);
+        Assert.True(atHit >= Config.MeleeLock.Separation - 1e-3f);
+        for (int i = 1; i < held.Count; i++)
+            Assert.True((held[i].Position.Y - held[i - 1].Position.Y) * 30f < 40f, "lunge speed within a sane cap");
+    }
+
+    [Fact]
+    public void Unlocked_lunge_is_a_quarter_longer_with_the_scale_and_walls_stop_it()
+    {
+        var plain = Attack(Player(1, Vector3.Zero), Player(2, At(30f, 0f)), 22, lockOn: false);
+        var longer = Attack(Player(1, Vector3.Zero), Player(2, At(30f, 0f)), 22, lockOn: false, config: Config with { MeleeLungeScale = 1.25f });
+        Assert.Equal(plain[19].Position.Y * 1.25f, longer[19].Position.Y, 2);
+        // A wall 0.4 m ahead: the step meets it and does not tunnel (nor does a long one).
+        var level = Level(wall: false);
+        var v = new List<Vector3>(); var idx = new List<int>();
+        void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d) { int i = v.Count; v.AddRange([a, b, c, d]); idx.AddRange([i, i + 1, i + 2, i, i + 2, i + 3]); }
+        Quad(new(-20, -20, 0), new(20, -20, 0), new(20, 20, 0), new(-20, 20, 0));
+        Quad(new(-5, 0.9f, -1), new(5, 0.9f, -1), new(5, 0.9f, 4), new(-5, 0.9f, 4));
+        var mesh = new StaticMesh(v.ToArray(), idx.ToArray());
+        level = new CollisionWorld(mesh, mesh);
+        var s = Player(1, Vector3.Zero);
+        var cfg = Config with { MeleeLungeScale = 3f };
+        for (uint i = 0; i < 25; i++)
+        {
+            s = Combat.StepPlayer(s, new PlayerInput(i, 0, 0, 0f, i == 0 ? InputButtons.Melee : InputButtons.None), cfg, out _, level, null);
+            Assert.True(s.Position.Y < 0.9f, $"tick {i}: through the wall at {s.Position.Y}");
+        }
+        Assert.True(s.Position.Y > 0.2f);
+    }
+
     [Fact]
     public void A_target_that_dodges_sideways_after_the_window_is_not_followed()
     {

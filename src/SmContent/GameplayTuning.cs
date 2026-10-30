@@ -113,9 +113,9 @@ public sealed partial record GameplayTuning(SimConfig Config, string Source, IRe
 
     /// <summary>
     /// feel/melee-charge-2 (the owner's request of 2026-10-29: "make all melee step forwards step forward more"): <see cref="SimConfig.MeleeLungeScale"/>, the factor
-    /// on every melee attack's forward root motion. 1.3 is an **estimate (owner's request)**, ours, to review in a playtest; the charge and the dash attack keep theirs.
+    /// on every melee attack's forward root motion. 1.625 (1.3 from 2026-10-29, then +25% on 2026-10-31) is an **estimate (owner's request)**, ours, to review in a playtest; the charge and the dash attack keep theirs.
     /// </summary>
-    public const float OwnerLungeScale = 1.3f;
+    public const float OwnerLungeScale = 1.625f;
 
     /// <summary>
     /// feel/melee-charge-2 (the owner's request of 2026-10-29: "weapon switching is slightly faster ... make a note that this is an estimation and needs to be
