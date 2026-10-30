@@ -259,6 +259,35 @@ public class PickupTests(ITestOutputHelper output)
         }
     }
 
+    /// <summary>Owner decision 57 (2026-10-30): a dropped box has no collision with players. It neither blocks a walk through it nor holds the player up
+    /// (the same run with and without the box ends at the same place and height), and an interact press on it still collects.</summary>
+    [Fact]
+    public void A_dropped_box_neither_blocks_nor_supports_a_player_and_still_collects()
+    {
+        static PlayerInput Run(PlayerState p, InputButtons b = InputButtons.None) => new(0, 1, 0, p.Yaw, b);
+        var with = NewWorld(1); var without = NewWorld(1);
+        var start = with.Players[1].Position;
+        var yawDir = new Vector3(-MathF.Sin(with.Players[1].Yaw), MathF.Cos(with.Players[1].Yaw), 0f);
+        var box = with.SpawnPickup(AmmoType, start + yawDir * 1.5f);
+        Assert.NotNull(box);
+        for (int k = 0; k < 45; k++)
+        {
+            with.Step(id => Run(with.Players[id]));
+            without.Step(id => Run(without.Players[id]));
+        }
+        Assert.Equal(without.Players[1].Position, with.Players[1].Position);
+        Assert.True((with.Players[1].Position - start).Length() > 2.5f, "the run passed the box's place");
+        // Standing on it: the box does not raise the feet.
+        var on = NewWorld(1); var off = NewWorld(1);
+        on.SpawnPickup(AmmoType, on.Players[1].Position);
+        Idle(on, 30); Idle(off, 30);
+        Assert.Equal(off.Players[1].Position.Z, on.Players[1].Position.Z);
+        // Pickup by overlap still works.
+        int before = on.LivePickups.Count;
+        Idle(on, 2, id => InputButtons.Interact);
+        Assert.True(on.LivePickups.Count < before);
+    }
+
     [Fact]
     public void A_pickup_expires_after_its_25_s_lifetime()
     {

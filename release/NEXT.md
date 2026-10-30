@@ -74,4 +74,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Rolling off a ledge in mid-roll now keeps your sideways momentum while you start to fall.
 - Switching weapons during other actions keeps working with the short input buffer: press it a moment early and the switch happens as soon as the action allows; a reload in progress is not cancelled by it.
 - New network version again: everyone must update together.
+- The map makes no noise at all: no gate hum, machinery or ambience (players, weapons, announcer and menu sounds stay).
+- Ammo and equipment boxes dropped by fallen players never block you or hold you up; you still pick them up with E.
 - Getting shot now blends: the flinch eases in and out over about a third of a second instead of snapping back to standing.
+- The power sword, power axe, thunder hammer and daemon maul no longer hum while held; they only sound when they hit an enemy.

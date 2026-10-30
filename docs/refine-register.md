@@ -28,19 +28,19 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1731 spec table rows: **1179 tagged**, 403 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 356 rows of the changes document.
+Scanned 1735 spec table rows: **1183 tagged**, 403 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 359 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 306 | 260 | 265 | 91 | 12 |
 | Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
-| Weapons (critical) | 110 | 63 | 97 | 50 | 3 |
+| Weapons (critical) | 111 | 64 | 97 | 50 | 3 |
 | Melee (critical) | 61 | 48 | 57 | 10 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
 | Charge (critical) | 26 | 19 | 21 | 12 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 27 | 26 | 16 | 18 | 0 |
-| HUD and hit feedback (critical) | 50 | 45 | 42 | 10 | 0 |
+| HUD and hit feedback (critical) | 53 | 48 | 42 | 10 | 0 |
 | Sound mix (critical) | 49 | 45 | 42 | 10 | 0 |
 | Effects (critical) | 71 | 62 | 61 | 37 | 0 |
 | Game modes | 38 | 35 | 36 | 19 | 1 |
@@ -53,7 +53,7 @@ Scanned 1731 spec table rows: **1179 tagged**, 403 not tagged (read from data wi
 | Core simulation (provisional values) | 95 | 84 | 80 | 8 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1179** | 971 | 942 | 378 | 38 |
+| **All areas** | **1183** | 975 | 942 | 378 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -67,8 +67,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: none (low) | 115 |
 | kind: provisional | 98 |
 | kind: estimate | 39 |
+| kind: user's knowledge | 39 |
 | section: provisional | 38 |
-| kind: user's knowledge | 35 |
 | section: placeholder | 35 |
 | notes: provisional | 31 |
 | kind: choice | 28 |
@@ -560,7 +560,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-9432FECF` | Regeneration timing | shield and health regenerate once the time since the last damage reaches their delays; `reload` refills when its time has fully elapsed; the bolter fires on the first tick its cooldown has elapsed (0.133 s rounds up to 4 ticks at 30 Hz, so 7.5 shots/s instead… | confidence: low; notes: ours; section: placeholder; section: provisional | tick quantisation is ours | Regeneration timing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: shield and health regenerate once the time since the last damage… | ☐ |
 | `R-9F8281FF` | Time to kill (derived) | 14 body hits from full health and shield: 9 on the shield alone (22 × 0.505 each), a 10th that breaks it and spills into health, then 4 on health; about 1.7 s of continuous fire at 0.133 s per shot (s) | confidence: low; notes: unverified; section: placeholder; section: provisional | unverified against the original | Time to kill (derived): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 14 body hits from full health and shield: 9 on the shield alone (22 ×… | ☐ |
 
-### Weapons (gameplay-critical) (110)
+### Weapons (gameplay-critical) (111)
 
 *Spec section: Classes and default loadouts (M10, used by the simulation)*
 
@@ -641,6 +641,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-9DB08FC0` | Melta cone geometry (simulated) | from the eye point along the aim (as rays); half angle = `angle` / 2 (5°); the apex `start_length` (20 m) behind the eye, the volume from the eye to `shape_length` (20 m) ahead: the cone is ~1.75 m wide (radius) at the muzzle and ~3.5 m at 20 m (m, °) | kind: interpretation; confidence: low; notes: ours | ours (another cone's angle 135 suggests a full angle; offset = −start length in every file) | Melta cone geometry (simulated): compare with SM1 by measuring on a flat spot of the same map. Ours: from the eye point along the aim (as rays); half angle = angle / 2… | ☐ |
 | `R-F3EDAC4F` | Melta targets and damage (simulated) | every other living player, rewound to the shooter's view like rays; coverage = the fraction of 26 fixed sample points (head centre, 5 rings × 5 points on the body capsule at 0.7 × its radius) inside the cone; 0: no hit; the line from the eye to the target's… (m, damage) | kind: interpretation; confidence: low; notes: ours | sample set and rules ours | Melta targets and damage (simulated): compare with SM1 by counting hits to kill and by video of the health bar. Ours: every other living player, rewound to the shooter's view like rays… | ☐ |
 | `R-3E0777F6` | Melta offered | the melta is a Tactical primary choice (index 4 between the sniper rifle and the storm bolter, data order: storm bolter is now 5 and the grenade launcher 6) | confidence: medium | `startup_wargear` order | Melta offered: compare with SM1 by feel or video. Ours: the melta is a Tactical primary choice (index 4 between the sniper… | ☐ |
+| `R-D65A7DA5` | **Dropped boxes have no collision (owner decision 57, 2026-10-30)** | an ammo or equipment drop is not a body: the simulation never tests players against `World.LivePickups` (no blocking, no standing on it; `PlayerCollision` already excludes pickups) and the client's `PickupView` holds a mesh only (no physics body); pickup is… | kind: user's knowledge | owner's decision (2026-10-30) | Dropped boxes have no collision (owner decision 57…: compare with SM1 by feel or video. Ours: an ammo or equipment drop is not a body: the simulation never tests… | ☐ |
 
 *Spec section: Blind grenade (M37, used by the simulation)*
 
@@ -1008,7 +1009,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EE0A6B04` | Fixed and exempt views | `--spectate cam:x,y,z,tx,ty,tz` is placed exactly (no springs, cast, push-out or depenetration: measured matched views for lighting comparisons and recorded footage); `inspect` keeps no distance from bodies; `overview` is not cast | notes: ours | ours | Fixed and exempt views: compare with SM1 with side-by-side screenshots in the same spot. Ours: --spectate cam:x,y,z,tx,ty,tz is placed exactly (no springs, cast… | ☐ |
 | `R-90EA2E09` | Cast start | the spectator and death casts start from the look target moved off any surface within 0.33 m (3 passes of the depenetration rays): a target between two players fighting beside a railing, or inside a wall between them, otherwise starts in collision and the… (m) | kind: provisional; notes: ours | ours | Cast start: compare with SM1 by measuring on a flat spot of the same map. Ours: the spectator and death casts start from the look target moved off… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (50)
+### HUD and hit feedback (gameplay-critical) (53)
 
 *Spec section: Camera, aim mode, shot convergence and hit confirmation (M20; protocol 12)*
 
@@ -1031,6 +1032,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-11FEE32C` | **Client: detonation on the surface** | the blast's position is a projectile contact: the nearest level triangle within 1 m by six axis rays gives the surface (so the grenade launcher / plasma containers pick their per-surface entry) and the normal (so craters and decals lie on walls too, not… (m) | kind: provisional; confidence: medium; notes: ours | ours | Client: detonation on the surface: compare with SM1 by measuring on a flat spot of the same map. Ours: the blast's position is a projectile contact: the nearest level… | ☐ |
 | `R-761EBF3D` | **The map's sounds are off** | the 48 `FXAudioEventName` emitters, the ambience bed `play_MP_TDM_09_ambs` and the 6 trigger regions are not started unless `--map-sounds` (test aid); the map's bank is then not loaded, the reverb regions (`AudioEnvironmentRegion`) still shape the players'… | kind: user's knowledge | owner's decision (2026-10-28, deliberate change: the original's map is not silent) | The map's sounds are off: compare with SM1 with side-by-side screenshots in the same spot. Ours: the 48 FXAudioEventName emitters, the ambience bed… | ☐ |
 | `R-658C09DF` | The ringing | not heard here; found by decoding every emitter event's samples and measuring them (`smtool audio-decode`, a Goertzel scan over 50 Hz to 16 kHz): the spawn-room shield hum **`play_weirdboy_shield_loop_mp`** (six emitters `marine_shield_01..03`… (Hz) | confidence: medium | banks | The ringing: compare with SM1 with side-by-side screenshots in the same spot. Ours: not heard here; found by decoding every emitter event's samples and… | ☐ |
+| `R-1DE71D57` | **Owner decision 56: no map noise anywhere (2026-10-30)** | confirms the row above and widens its wording: nothing the map itself emits sounds by default: the 48 emitters (fans, power lines, machines, gas pipes, the six spawn-room gate hums `play_weirdboy_shield_loop_mp` `marine_shield_01..03` /… | kind: user's knowledge | owner's decision (2026-10-30) | Owner decision 56: no map noise anywhere (2026-10-30): compare with SM1 with side-by-side screenshots in the same spot. Ours: confirms the row above and widens its wording: nothing the map itself… | ☐ |
+| `R-9B759AA2` | **Owner decision 56b: power weapons make no idle hum (2026-10-30)** | the held power sword, power axe, thunder hammer and daemon maul post no idle hum (`play_sm_power_axe_idle`, `play_sm_thunder_hammer_idle`, `play_ch_power_mace_idle`, the sword's quieter axe hum; PR fx/melee-presentation) unless `--weapon-hums`; the glow stays… | kind: user's knowledge | owner's decision (2026-10-30) | Owner decision 56b: power weapons make no idle hum…: compare with SM1 with side-by-side screenshots in the same spot. Ours: the held power sword, power axe, thunder hammer and daemon maul post… | ☐ |
+| `R-872F9604` | **Corpse ragdolls ignore dropped boxes (decision 57b)** | ragdoll bodies collide only with the map's static trimesh (layer 1) and their own layer; `PickupView` has no physics body, so a corpse cannot hit a box (it may overlap the box's mesh where it fell, a visual overlap only) | kind: user's knowledge | owner's decision (2026-10-30) | Corpse ragdolls ignore dropped boxes (decision 57b): compare with SM1 with side-by-side screenshots in the same spot. Ours: ragdoll bodies collide only with the map's static trimesh (layer 1)… | ☐ |
 
 *Spec section: In-game HUD (M44; client only, not simulated)*
 
@@ -1972,6 +1976,9 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-DE2501FC` | Jump-pack thrust trail and flame (fx/impact-pass) | The thrust's `rocket_trail_00` (Chaos `firey_trail`) streamers are 15 to 20 m at the play's scale 0.5 (our reading of the length: seconds of travel, drawn back to the take-off), the `rocket` flame 4 to 6 m; the Chaos thrust plays at the nozzles' inside centres | **Owner's change (2026-10-29: "make the start of the trail always match the exhaust... shorten the trail by a lot")**: trails along the last third of their length in metres of the nozzle's path (2.5 to 3.3 m), the flame a third as long, every thrust started at the nozzle's exit (Chaos: 0.28 m out along the flame's… | same spec section | Jump-pack thrust trail and flame (fx/impact-pass): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-9074ED6D` | Remaster lighting look is the default (fx/impact-pass) | The renderer is ours anyway (M40-T7, M42); the default look was the plain M42 constants | **Owner's choice (2026-10-29)**: the `remaster` look (higher sun, thin haze, more contrast, glossier metal, screen-space reflections at medium and high only, never low or off) without `--look`; `--look current` gives the previous default, every other look unchanged | spec "Lighting overhaul and god-ray blending (M42)", row "Default look" | Remaster lighting look is the default (fx/impact-pass): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-C229E22A` | No god rays on Manufactorum (fx/impact-pass) | The map places 45 `amb_god_ray_thick` light shafts (`sky_beam`) and its fake spotlights and steamy lamps carry `GodRayFade` beams | **Owner's change (2026-10-29: "remove all god rays from Manufactorum")**: the 45 shaft effects are not started and every `GodRayFade` beam of the map's ambient effects is hidden (the lamps' glows and flares stay). `--god-rays` restores them | same spec row | No god rays on Manufactorum (fx/impact-pass): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-DB01DE08` | Map noise: none at all (decision 56) | The map's gates, machinery and ambience emitters are placed in the map | Nothing the map emits plays by default (48 emitters incl. the six `play_weirdboy_shield_loop_mp` gate hums, the bed, trigger-region events); `--map-sounds` restores them (test aid); `--log-sound post` lists every sound post | Owner's decision 2026-10-30; spec "Owner decision 56" | Map noise: none at all (decision 56): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-F0F8F929` | Dropped boxes have no collision (decision 57) | Not known (the original's drop may be a prop) | Ammo and equipment drops never block, support or touch players; pickup by the interact press within reach | Owner's decision 2026-10-30; spec "Dropped boxes have no collision" | Dropped boxes have no collision (decision 57): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-4F932040` | Power weapons: no idle hum (decision 56b) | Thunder hammer, daemon maul, power axe and power sword hum while held (the data's idle events) | No idle noise; the weapons sound only on a hit that lands on an enemy (their own hit events); `--weapon-hums` restores the hums; the glow stays | Owner's decision 2026-10-30; spec "Owner decision 56b" | Power weapons: no idle hum (decision 56b): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 
 ### Our choices where the original is unknown
 

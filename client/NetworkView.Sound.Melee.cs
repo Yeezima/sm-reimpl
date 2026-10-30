@@ -28,6 +28,11 @@ namespace SmClient;
 /// </summary>
 public partial class NetworkView
 {
+    /// <summary><c>--weapon-hums</c> (test aid): plays the held power weapons' idle hums again. **Owner decision 57b (2026-10-30)**: the power sword, power axe, thunder hammer and
+    /// daemon maul make no idle noise by default; they sound only when a hit lands on an enemy (<see cref="SoundTriggers.MeleeHitSound"/>).</summary>
+    bool WeaponHums => _weaponHums ??= CmdFlag("weapon-hums");
+    bool? _weaponHums;
+    bool _meleeTableLogged;
     bool NoMeleeSounds => _noMeleeSounds ??= CmdFlag("no-melee-sounds");
     bool? _noMeleeSounds;
 
@@ -179,7 +184,13 @@ public partial class NetworkView
     void SoundMeleeIdle(SoundTrack t, CharacterViewer character, PlayerState s)
     {
         if (_sound is null || _soundTriggers is null) return;
-        string? wargear = MeleeIdleGuard.Allows(IsOrkVoice(s)) && s.Alive && !NoMeleeSounds && character.Weapons?.MeleeMeshInHand is not null ? MeleeWargear(s) : null;
+        if (!_meleeTableLogged && LogSound("melee"))
+        {
+            _meleeTableLogged = true;
+            foreach (var f in _soundTriggers.Files.Keys.Where(k => k.Contains("melee", StringComparison.OrdinalIgnoreCase)).OrderBy(k => k, StringComparer.Ordinal))
+                GD.Print($"MELEE TABLE {f}: hit '{_soundTriggers.MeleeHitSound(f) ?? "-"}', hum '{HumOf(f)?.Start ?? "-"}'");
+        }
+        string? wargear = WeaponHums && MeleeIdleGuard.Allows(IsOrkVoice(s)) && s.Alive && !NoMeleeSounds && character.Weapons?.MeleeMeshInHand is not null ? MeleeWargear(s) : null;
         var want = HumOf(wargear);
         if (t.HumFile is not null && (want is null || !string.Equals(wargear, t.HumFile, StringComparison.OrdinalIgnoreCase))) StopMeleeHum(t);
         if (want is null || t.HumFile is not null) return;
