@@ -46,6 +46,16 @@ public partial class NetworkView
         || clip.StartsWith("SM_JMP_", StringComparison.OrdinalIgnoreCase) || clip.StartsWith("SM_DSH_", StringComparison.OrdinalIgnoreCase)
         || clip.Contains("Toss", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// The owner's decision (2026-10-30, ours): a hit reaction (the interrupt, the stun and stagger, their get-ups: <c>SM_REC_*</c>, <c>SM_MP_REC_*</c>) leaves for the locomotion over
+    /// 0.2 s, snappier than the data's 0.333 s the other actions keep.
+    /// </summary>
+    public const float ReactionExitBlend = 0.2f;
+
+    /// <summary>A hit reaction's clip (<c>SM_REC_</c>, <c>SM_MP_REC_</c>).</summary>
+    static bool IsReactionClip(string clip) =>
+        clip.StartsWith("SM_REC_", StringComparison.OrdinalIgnoreCase) || clip.StartsWith("SM_MP_REC_", StringComparison.OrdinalIgnoreCase);
+
     int _slashHandoffs;
 
     /// <summary>

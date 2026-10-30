@@ -429,7 +429,8 @@ slash's values and clips but not these engine rules, so these are ours:
 
 | Rule | What we do | What is unknown | Spec section |
 |---|---|---|---|
-| Whole-body actions leave over 0.333 s | Reactions, the knife, jump-pack clips and the toss blend back to the locomotion over the base graph's navigation conduit 'Standard Blend' (the roll's 10 frames) | Whether Havok uses the conduit's onward blend for the hop (interpretation) | The feel pass: the roll's blending for every action (anim/feel-pass; client only, not simulated, no protocol change) |
+| Hit reactions leave over 0.2 s | The owner's decision: snappier than the data's 0.333 s | The original's exact exit from a reaction | The feel pass: the roll's blending for every action (anim/feel-pass; client only, not simulated, no protocol change) |
+| Whole-body actions leave over 0.333 s | The knife, jump-pack clips and the toss blend back to the locomotion over the base graph's navigation conduit 'Standard Blend' (the roll's 10 frames) | Whether Havok uses the conduit's onward blend for the hop (interpretation) | The feel pass: the roll's blending for every action (anim/feel-pass; client only, not simulated, no protocol change) |
 | Air slash follow-through on the upper body | Moving on after the slash's landing hands the legs to the run and fades the strike off the upper body over 0.333 s | The original's slash recovery (its run branch is at 0.639 s; ours frees at 0.3 s) | same |
 | Air slash wind-up curve | The wind-up's time is a smooth curve over our 40 m/s dive, at the clip's rate at both ends | The original plays it at its own rate over a slower dive | same |
 | Clip restarts and stance fades | A clip started again fades in; stance cross-fades turn bones along one arc (slerp fold) | Havok's own blend maths | same |

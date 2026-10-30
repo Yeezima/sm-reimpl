@@ -45,7 +45,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Melee now goes the way you hold: hold S when you strike and the Marine turns round and hits backwards; A and D strike to the sides, and the diagonals work too. With no key held it strikes forward.
 - Charging off a ledge: the falling animation now starts a third of a second after you leave the ground.
 - Headshots were checked against the game's numbers: the bolt pistol's headshot kills a Marine whose armour is gone in one shot.
-- Getting up from a hit, landing with the jump pack, finishing a knife strike or a grenade throw now flows back into running over the same smooth blend as the tactical roll.
+- Landing with the jump pack, finishing a knife strike or a grenade throw now flows back into running over the same smooth blend as the tactical roll; recovering from a hit blends back a little quicker.
 - The Assault and Raptor air slash: the swing no longer speeds up in jerks during the dive, and if you run off straight after landing the sword finishes its swing while your legs start running.
 - Other jump-pack players' air slashes no longer flick back to the start of the swing just after landing.
 - The Devastator keeps the heavy bolter raised while walking and standing (it only lowers it to sprint), so it no longer swings the gun's grip up and down between shots.

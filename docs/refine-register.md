@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1692 spec table rows: **1151 tagged**, 392 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 338 rows of the changes document.
+Scanned 1695 spec table rows: **1154 tagged**, 392 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 339 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,17 +50,17 @@ Scanned 1692 spec table rows: **1151 tagged**, 392 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 78 | 70 | 65 | 6 | 1 |
+| Core simulation (provisional values) | 81 | 73 | 66 | 6 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1151** | 949 | 916 | 374 | 38 |
+| **All areas** | **1154** | 952 | 917 | 374 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 424 |
-| confidence: medium | 408 |
+| kind: ours | 427 |
+| confidence: medium | 409 |
 | confidence: low | 394 |
 | kind: interpretation | 317 |
 | notes: ours | 279 |
@@ -1540,7 +1540,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (78)
+### Core simulation (provisional values) (81)
 
 *Spec section: Provisional values in use*
 
@@ -1661,7 +1661,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-4D5639BD` | Every whole-body action leaves over 'Standard Blend' | reactions, melee strikes without their own graph exit (the knife), jump-pack clips (landings, the pound's impact and get-up, the dash attack's impact), the grenade toss: back to the locomotion over **0.333 s** (before: reactions and the knife 0.2 s, ours… (s) | kind: interpretation; confidence: medium | `SM_Base_MP`: `Reactions ( From Ranged )`, `Exotic - JumpPack`, `Use Equipment ( From Ranged )`, `FROM Melee Draw Attack` lead to the conduit `TO Ranged Nav`… | Every whole-body action leaves over 'Standard Blend': compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: reactions, melee strikes without their own graph exit (the knife)… | ☐ |
+| `R-39684B7F` | Hit reactions leave over 0.2 s | the interrupt, stun and stagger clips and their get-ups (`SM_REC_*`, `SM_MP_REC_*`) blend back to the locomotion over **0.2 s**, snappier than the data's 0.333 s (the owner's decision, 2026-10-30) (s) | kind: ours; confidence: medium | the owner's decision | Hit reactions leave over 0.2 s: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the interrupt, stun and stagger clips and their get-ups (SM_REC_*… | ☐ |
+| `R-E992557C` | The heavy bolter stays raised (owner) | confirmed by the owner (2026-10-30): raised at all times except the sprint; a reload is still laid over it as over the ready hold | kind: ours | the owner's decision | The heavy bolter stays raised (owner): compare with SM1 by feel or video. Ours: confirmed by the owner (2026-10-30): raised at all times except the… | ☐ |
+| `R-FA72F377` | Run weight (owner) | the owner (2026-10-30): keep the data's blend and run clip mix; nothing changed | kind: ours | the owner's decision | Run weight (owner): compare with SM1 by timing a run over a known distance. Ours: the owner (2026-10-30): keep the data's blend and run clip mix… | ☐ |
+| `R-4D5639BD` | Every whole-body action leaves over 'Standard Blend' | melee strikes without their own graph exit (the knife), jump-pack clips (landings, the pound's impact and get-up, the dash attack's impact), the grenade toss: back to the locomotion over **0.333 s** (reactions: the row above; before: the knife 0.2 s, ours… (s) | kind: interpretation; confidence: medium | `SM_Base_MP`: `Reactions ( From Ranged )`, `Exotic - JumpPack`, `Use Equipment ( From Ranged )`, `FROM Melee Draw Attack` lead to the conduit `TO Ranged Nav`… | Every whole-body action leaves over 'Standard Blend': compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: melee strikes without their own graph exit (the knife), jump-pack… | ☐ |
 | `R-786B7D2E` | Air slash: the follow-through on the upper body | a marine that moves on after the slash's landing (the simulation frees it 0.3 s after, ours) gets the legs from the locomotion (the melee hand-over's 0.1 s, at least 0.15 s) and keeps the strike on the upper body (the action mask), its weight 1 to 0 over the… (s) | kind: ours; confidence: medium | the melee hand-over (M40-T4) and the graphs' exit; applying it to the slash is ours | Air slash: the follow-through on the upper body: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a marine that moves on after the slash's landing (the simulation… | ☐ |
 | `R-FCFE6ECD` | Air slash: the wind-up's time curve | a cubic Hermite from 0 to the flight crop (0.4667 s) over the expected dive with the clip's own rate (slope 1) at both ends; the dive used is at least a third of the wind-up (middle rate at most 4); a dive longer than the wind-up plays it at the clip's rate… (s) | kind: ours; confidence: medium | ours (the graph plays the flight part at its own rate; the 40 m/s dive is ours) | Air slash: the wind-up's time curve: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a cubic Hermite from 0 to the flight crop (0.4667 s) over the… | ☐ |
 | `R-EC5A65A1` | Remote pound: once landed, stays landed | a remote player's pound whose recovery shows ungrounded for a tick no longer goes back to the dive view (which restarted the slash clip at its wind-up: the hand 1.5 m in one frame) | kind: ours | ours (the slim record's one pound flag) | Remote pound: once landed, stays landed: compare with SM1 by feel or video. Ours: a remote player's pound whose recovery shows ungrounded for a tick no… | ☐ |
@@ -2223,7 +2226,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 
 | ID | Rule | What we do | What is unknown | Spec section | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `C-4E62FF86` | Whole-body actions leave over 0.333 s | Reactions, the knife, jump-pack clips and the toss blend back to the locomotion over the base graph's navigation conduit 'Standard Blend' (the roll's 10 frames) | Whether Havok uses the conduit's onward blend for the hop (interpretation) | The feel pass: the roll's blending for every action (anim/feel-pass; client only, not simulated, no protocol change) | Whole-body actions leave over 0.333 s: compare with SM1 by feel or video. Ours: Reactions, the knife, jump-pack clips and the toss blend back to the… | ☐ |
+| `C-29051BA9` | Hit reactions leave over 0.2 s | The owner's decision: snappier than the data's 0.333 s | The original's exact exit from a reaction | The feel pass: the roll's blending for every action (anim/feel-pass; client only, not simulated, no protocol change) | Hit reactions leave over 0.2 s: compare with SM1 by watching the reaction and timing it frame by frame. Ours: The owner's decision: snappier than the data's 0.333 s. | ☐ |
+| `C-4E62FF86` | Whole-body actions leave over 0.333 s | The knife, jump-pack clips and the toss blend back to the locomotion over the base graph's navigation conduit 'Standard Blend' (the roll's 10 frames) | Whether Havok uses the conduit's onward blend for the hop (interpretation) | The feel pass: the roll's blending for every action (anim/feel-pass; client only, not simulated, no protocol change) | Whole-body actions leave over 0.333 s: compare with SM1 by feel or video. Ours: The knife, jump-pack clips and the toss blend back to the locomotion… | ☐ |
 | `C-EDD79AFE` | Air slash follow-through on the upper body | Moving on after the slash's landing hands the legs to the run and fades the strike off the upper body over 0.333 s | The original's slash recovery (its run branch is at 0.639 s; ours frees at 0.3 s) | same | Air slash follow-through on the upper body: compare with SM1 by feel or video. Ours: Moving on after the slash's landing hands the legs to the run and… | ☐ |
 | `C-BA71AE85` | Air slash wind-up curve | The wind-up's time is a smooth curve over our 40 m/s dive, at the clip's rate at both ends | The original plays it at its own rate over a slower dive | same | Air slash wind-up curve: compare with SM1 by feel or video. Ours: The wind-up's time is a smooth curve over our 40 m/s dive, at the… | ☐ |
 | `C-E3DC45B3` | Clip restarts and stance fades | A clip started again fades in; stance cross-fades turn bones along one arc (slerp fold) | Havok's own blend maths | same | Clip restarts and stance fades: compare with SM1 by feel or video. Ours: A clip started again fades in; stance cross-fades turn bones along… | ☐ |
