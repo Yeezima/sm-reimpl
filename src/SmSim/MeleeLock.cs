@@ -147,8 +147,10 @@ public sealed record MeleeLockSpec
     public float RushSteerRate { get; init; } = 180f;
     /// <summary>Ours: the lunge never brings the attacker nearer its target than this (metres, feet to feet: two capsules and a little).</summary>
     public float Separation { get; init; } = 1f;
-    /// <summary>sim/melee-lunge (ours): the most speed (m/s) the lunge adds to close a gap its clip leaves at the hit (a lock held out to Range + Leash); the capped distance keeps it from becoming a teleport.</summary>
-    public float CatchUpSpeed { get; init; } = 12f;
+    /// <summary>sim/melee-lunge (ours): a locked lunge's burst speed cap, m/s: the bull rush clip's slowest opening burst (spec "Airborne charge: no cap": 28 to 41 m/s), so no teleport.</summary>
+    public float BurstSpeed { get; init; } = 28f;
+    /// <summary>sim/melee-lunge (ours): the share of the way to the hit by which the locked burst has closed the gap (it settles there; the hit stays at its hit time).</summary>
+    public float BurstFraction { get; init; } = 0.6f;
     /// <summary>
     /// feel/melee-charge-2 (protocol 42; the owner's request of 2026-10-29: "melee and stun lock-ons feel janky, make them fluid"; ours): the alignment turn
     /// eases in and out over the window (<see cref="MeleeLock.Align"/>: a smoothstep share of the turn left) instead of turning at a constant rate that starts
@@ -170,7 +172,7 @@ public sealed record MeleeLockSpec
     {
         foreach (float f in new[] { HalfAngle, Range, Vertical, DistanceBand, AngleBand, FanSetBack, FanStart, RushHalfAngle, RushRange, Leash, MaxAlignRate, RushSteerRate, Separation })
             w.Write(f);
-        if (CatchUpSpeed != 12f) { w.Write((byte)0xE3); w.Write(CatchUpSpeed); }
+        if (BurstSpeed != 28f || BurstFraction != 0.6f) { w.Write((byte)0xE3); w.Write(BurstSpeed); w.Write(BurstFraction); }
         // feel/melee-charge-2: only when not the M32 rule, so a spec from before hashes as it did when both are off.
         if (AlignEase || Hysteresis != 0f) { w.Write((byte)0xE2); w.Write(AlignEase); w.Write(Hysteresis); w.Write(MinAlignSpan); }
     }
@@ -185,7 +187,7 @@ public sealed partial record SimConfig
     /// **estimate (owner's request)** to review in a playtest): the factor on every melee attack's forward root motion (<see cref="MeleeLock.LungeStep"/>).
     /// Backward motion, the charge, the dash attack and the slash are unchanged. With a locked target the blend is still solved from the distance now (<see cref="MeleeReach.StartDistance"/>, unscaled), so the approach still
     /// aims at the clips' strike distance (it gets there sooner) and the extra shows in the follow-through after the hit, never nearer than
-    /// <see cref="MeleeLockSpec.Separation"/>. 1 (the default, synthetic configs): the clips' motion. The content loader sets 1.3 (<c>GameplayTuning.OwnerLungeScale</c>). Hashed when not 1.
+    /// <see cref="MeleeLockSpec.Separation"/>. 1 (the default, synthetic configs): the clips' motion. The content loader sets 1.625 (1.3 from 2026-10-29, +25% on 2026-10-31; <c>GameplayTuning.OwnerLungeScale</c>). Hashed when not 1.
     /// </summary>
     public float MeleeLungeScale { get; init; } = 1f;
     /// <summary><see cref="MeleeLungeScale"/> as applied (a scale that is not finite or not above 0 counts as 1).</summary>
@@ -510,18 +512,16 @@ public static class MeleeLock
         float start = reach.StartDistance(from, duration, offset.Length());
         float step = reach.ForwardAt(to, duration, start) - reach.ForwardAt(from, duration, start);
         if (step > 0f) step *= k;
-        // sim/melee-lunge (the owner, 2026-10-31: the step is longer the further the target is; ours): a target past the farthest clip's blend (the leash lets a lock hold to
-        // Range + Leash) is not reached by the clip alone: the gap it leaves at the hit is closed over the ticks left before it, at most LockCatchUpSpeed.
+        // sim/melee-lunge (owner 2026-10-31: a locked step covers the gap quicker and more forcefully; the further the target, the bigger and faster; ours): a front-loaded
+        // burst closes the remaining gap to the separation by BurstFraction of the way to the hit, the remaining gap falling quadratically (fast, then settling), at most
+        // BurstSpeed (the bull rush clip's slowest opening burst, 28 m/s). The hit stays at its hit time; the clip's own (scaled) step still applies if it is larger.
         if (from < m.HitTime - Eps)
         {
-            float toHit = reach.ForwardAt(m.HitTime, duration, start) - reach.ForwardAt(from, duration, start);
-            float strike = MathF.Max(c.MeleeLock.Separation, start - reach.ForwardAt(m.HitTime, duration, start));
-            float gap = offset.Length() - MathF.Max(toHit * k, toHit) - strike;
-            if (gap > 0f)
-            {
-                float share = MathF.Min(1f, (to - from) / MathF.Max(m.HitTime - from, Eps));
-                step += MathF.Min(gap * share, c.MeleeLock.CatchUpSpeed * (to - from));
-            }
+            float finish = m.HitTime * c.MeleeLock.BurstFraction;
+            float remaining = MathF.Max(0f, offset.Length() - c.MeleeLock.Separation);
+            float share = to >= finish - Eps ? 1f : 1f - MathF.Pow((finish - to) / (finish - from), 2f);
+            float burst = MathF.Min(remaining * share, c.MeleeLock.BurstSpeed * (to - from));
+            step = MathF.Max(step, burst);
         }
         // Never nearer the target than the separation (only forward motion is held back).
         var spec = c.MeleeLock;

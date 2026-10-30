@@ -72,4 +72,15 @@ public class ShieldSoundTests
         Assert.Equal(ShieldSoundEvents.RegenStart, t.Step(100f, 101f, 150f, true, true));
         Assert.Equal(ShieldSoundEvents.Restored, t.Step(149f, 150f, 150f, true, true));
     }
+
+    [Fact]
+    public void RegenSoundLevel_OwnIsHalfVolume_OthersFadeToSilenceAtTwentyFeet()
+    {
+        Assert.Equal(-6.02f, RegenSoundLevel.GainDb(true, 0f), 2);
+        Assert.Equal(-6.02f, RegenSoundLevel.GainDb(true, 50f), 2);   // own: distance does not matter
+        Assert.Equal(-6.02f, RegenSoundLevel.GainDb(false, 0f), 2);
+        Assert.True(RegenSoundLevel.GainDb(false, 3f) < RegenSoundLevel.GainDb(false, 1f));   // monotonic, smooth
+        Assert.Equal(-80f, RegenSoundLevel.GainDb(false, RegenSoundLevel.RangeMeters));
+        Assert.Equal(-80f, RegenSoundLevel.GainDb(false, 30f));
+    }
 }

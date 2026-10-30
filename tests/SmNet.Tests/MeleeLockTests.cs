@@ -253,10 +253,9 @@ public class MeleeLockTests(ITestOutputHelper output)
         var states = Attack(Player(1, Vector3.Zero), target, 9);
         float atHit = Vector2.Distance(new(states[6].Position.X, states[6].Position.Y), new(target.Position.X, target.Position.Y));
         // The clips blended at the target's distance end where they were made to strike from (1.5 m for the 3.5 and 7 m clips; nearer between 1 and 3.5).
-        float expected = distance - Step().Reach!.ForwardAt(T(7f), T(30.5f), distance);
-        output.WriteLine($"{distance} m: at the hit {atHit:F3} m (the blend: {expected:F3}); moved {states[6].Position.Y:F3}");
-        Assert.InRange(atHit, expected - 0.03f, expected + 0.03f);
-        if (distance >= 3.5f) Assert.InRange(atHit, Strike - 0.03f, Strike + 0.03f);
+        // sim/melee-lunge: the locked burst closes to the separation (1 m) before the hit, no nearer.
+        output.WriteLine($"{distance} m: at the hit {atHit:F3} m; moved {states[6].Position.Y:F3}");
+        Assert.InRange(atHit, Config.MeleeLock.Separation - 0.03f, Config.MeleeLock.Separation + 0.03f);
     }
 
     [Fact]
@@ -300,25 +299,23 @@ public class MeleeLockTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Locked_lunge_closes_the_gap_a_held_lock_leaves_past_the_farthest_clip()
+    public void Locked_lunge_is_a_front_loaded_burst_that_settles_at_the_separation_by_the_hit()
     {
-        // 7.8 m: inside the leash (7 + 1) but past the 7 m clip, which alone would end 0.8 m short of the strike distance.
-        var target = Player(2, At(7.8f, 0f));
-        // The lock is held from a previous attack: a fresh press would not find it, so name it directly.
-        var self = Player(1, Vector3.Zero);
-        var held = new List<PlayerState>();
-        for (int i = 0; i < 9; i++)
+        foreach (float distance in new[] { 3f, 6f })
         {
-            var input = new PlayerInput((uint)i, 0, 0, 0f, i == 0 ? InputButtons.Melee : InputButtons.None) { MeleeTarget = 2 };
-            self = Combat.StepPlayer(self, input, Config, out _, null, View(target));
-            held.Add(self);
+            var target = Player(2, At(distance, 0f));
+            var states = Attack(Player(1, Vector3.Zero), target, 12);
+            var speeds = states.Select((x, i) => (x.Position.Y - (i == 0 ? 0f : states[i - 1].Position.Y)) * 30f).ToList();
+            float atHit = target.Position.Y - states[6].Position.Y;
+            output.WriteLine($"{distance} m: left {atHit:F2} m at the hit; speeds {string.Join(" ", speeds.Take(8).Select(v => v.ToString("F1")))}");
+            Assert.True(atHit >= Config.MeleeLock.Separation - 1e-3f, $"overlap {atHit}");
+            Assert.True(atHit < Config.MeleeLock.Separation + 0.4f, $"not closed by the hit: {atHit}");
+            Assert.True(speeds.Max() <= Config.MeleeLock.BurstSpeed + 0.5f, $"speed cap: {speeds.Max()}");
+            Assert.True(speeds[1] > speeds[5], "front-loaded");
         }
-        float atHit = target.Position.Y - held[6].Position.Y;
-        output.WriteLine($"held 7.8 m: {atHit:F2} m left at the hit; speed cap {Config.MeleeLock.CatchUpSpeed} m/s");
-        Assert.InRange(atHit, Strike - 0.1f, Strike + 0.35f);
-        Assert.True(atHit >= Config.MeleeLock.Separation - 1e-3f);
-        for (int i = 1; i < held.Count; i++)
-            Assert.True((held[i].Position.Y - held[i - 1].Position.Y) * 30f < 40f, "lunge speed within a sane cap");
+        // The further, the faster the opening burst.
+        float Open(float d) { var st = Attack(Player(1, Vector3.Zero), Player(2, At(d, 0f)), 3); return st[1].Position.Y; }
+        Assert.True(Open(6f) > Open(3f));
     }
 
     [Fact]
@@ -449,7 +446,7 @@ public class MeleeLockTests(ITestOutputHelper output)
         float moved = world.Players[1].Position.Y - before;
         output.WriteLine($"wall {wall}: moved {moved:F3}");
         if (wall) Assert.True(moved < 0.05f, $"moved {moved} although the target is behind a wall");
-        else Assert.InRange(moved, 5f - Strike - 0.1f, 5f - Strike + 0.1f);
+        else Assert.InRange(moved, 5f - Config.MeleeLock.Separation - 0.1f, 5f - Config.MeleeLock.Separation + 0.1f);   // the locked burst ends at the separation
     }
 
     [Fact]
