@@ -17,6 +17,10 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The Assault and Raptor jump pack now takes the colour you pick for the Backpack in the armour colours (before, it followed the torso colour).
 - Tactical Marines can no longer fire their weapon while charging: a shot started just before the charge is dropped, and pressing fire during the charge no longer interrupts it.
 - Fixed: in Seize Ground, after capturing a point a humming noise no longer starts and grows louder; each capture now gives its one cue and then it is quiet again.
+- Characters now flash for everyone to see: a subtle yellow flash when armour takes damage, a subtle red one when the armour breaks, and a yellowish glow with a strong outline when armour starts to recharge. Hits you cannot see (a melee strike out of view) do not flash on other players.
+- The power sword's glow now stays close to the blade and flares up while you swing.
+- The eyes of every Space Marine and Chaos Marine now glow in the lens colour chosen in the customizer, in the match and in the customizer previews (red for Marines and blue for Chaos when none is chosen).
+- Fixed: with Weapon Versatility the second primary weapon (for example the melta) is now drawn in your hands; the weapon you swapped out last is the one on your back.
 - The camera no longer trails the mouse: it follows your aim exactly again.
 - The stalker bolter and the lascannon now zoom in further when you scope (stalker bolter about 1.5 times tighter, lascannon about 2.6 times tighter than before).
 - The C key no longer opens the loadout menu; press Esc to change your loadout, alive or dead (the death screen shows "[ESC] CHANGE LOADOUT").

@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1670 spec table rows: **1131 tagged**, 391 not tagged (read from data with high confidence), 148 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 330 rows of the changes document.
+Scanned 1674 spec table rows: **1135 tagged**, 391 not tagged (read from data with high confidence), 148 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 331 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,26 +50,26 @@ Scanned 1670 spec table rows: **1131 tagged**, 391 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 66 | 60 | 54 | 5 | 1 |
+| Core simulation (provisional values) | 70 | 63 | 58 | 6 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1131** | 934 | 897 | 369 | 38 |
+| **All areas** | **1135** | 937 | 901 | 370 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 414 |
-| confidence: medium | 395 |
-| confidence: low | 388 |
+| confidence: medium | 396 |
+| confidence: low | 391 |
 | kind: interpretation | 315 |
-| notes: ours | 277 |
+| notes: ours | 278 |
 | confidence: none (low) | 114 |
 | kind: provisional | 98 |
 | section: provisional | 38 |
+| kind: estimate | 37 |
 | kind: user's knowledge | 35 |
 | section: placeholder | 35 |
-| kind: estimate | 34 |
 | notes: provisional | 31 |
 | kind: choice | 28 |
 | kind: approximation | 23 |
@@ -1522,7 +1522,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (66)
+### Core simulation (provisional values) (70)
 
 *Spec section: Provisional values in use*
 
@@ -1634,6 +1634,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-8AE401F6` | Spawns | as before every spawn skips spots within 2 m of a living player when a free one exists; when none is free it now takes the spot whose nearest living player is farthest (before: the rotation's next, possibly on top of someone); placeholder spawns (no map) move… (m) | kind: ours; confidence: low | ours | Spawns: compare with SM1 by measuring on a flat spot of the same map. Ours: as before every spawn skips spots within 2 m of a living player when… | ☐ |
 | `R-440CD63B` | Server bound (review fix) | the world itself never collides with a picture older than **24 ticks** (0.8 s: the shot rewind's 15 ticks plus the view slack): an older body tick is raised to 24 ticks back, and on the server (`World.BoundBodies`) so is none (lag byte 0, or a lag beyond 24… (ticks) | kind: ours; confidence: medium | ours | Server bound (review fix): compare with SM1 by feel or video. Ours: the world itself never collides with a picture older than 24 ticks… | ☐ |
 | `R-4059B12E` | Drawn remote players (client only) | remote players are drawn between snapshots in the past and the own player in the present, so bodies the simulation keeps apart can still be drawn inside each other: each overlapping pair of drawn living players (heights overlapping) is moved apart along the… (m) | kind: ours; confidence: low | ours | Drawn remote players (client only): compare with SM1 by measuring on a flat spot of the same map. Ours: remote players are drawn between snapshots in the past and the own… | ☐ |
+| `R-B5FD9B6F` | Armour flashes on character models (fx/character-visuals) | **owner's decision (2026-10-30):** armour damage while armour remains: a subtle yellow flash on the model; the armour breaks: a subtle red flash; the armour starts recharging: a yellowish glow with a strong outline (his reference). Seen by everyone. Own… (s / colour) | kind: estimate; confidence: low; notes: ours | the owner's words and reference image; every number ours | Armour flashes on character models (fx/character-visuals): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: owner's decision (2026-10-30): armour damage while armour remains: a… | ☐ |
+| `R-CF044ABA` | Power sword glow (fx/character-visuals) | **owner's decision (2026-10-30):** the glow stays on the blade (the blade overlay only; the data's `powersword_idle` edge sprites and light, which reached out of it, are not played; `--sword-idle-fx` restores them) and flares up while an attack is shown:… (flare 0..1) | kind: estimate; confidence: low | the owner's reference frame | Power sword glow (fx/character-visuals): compare with SM1 by feel or video. Ours: owner's decision (2026-10-30): the glow stays on the blade (the blade… | ☐ |
+| `R-963D3E2E` | Eye glow in the lens colour (fx/character-visuals) | **owner's decision (2026-10-30):** every Space Marine and Chaos character glows at both eyes in the customizer's lens colour (full brightness), seen by all and in the previews; no lens colour chosen: a Marine's glow is red (1, 0.16, 0.07), a Chaos Marine's… (m / colour) | kind: estimate; confidence: low | owner's words; `LensRegions` | Eye glow in the lens colour (fx/character-visuals): compare with SM1 by shooting at the edges of the head and body and noting where shots register. Ours: owner's decision (2026-10-30): every Space Marine and Chaos character… | ☐ |
+| `R-108655A3` | Second primary drawn (fx/character-visuals) | with Weapon Versatility the second primary has a model: in hand in its slot, and of the two primaries only the one swapped out most recently hangs on the back (the owner's rule), the other is not drawn; before, a second primary in hand was invisible (the… | confidence: medium | owner's words | Second primary drawn (fx/character-visuals): compare with SM1 by feel or video. Ours: with Weapon Versatility the second primary has a model: in hand in… | ☐ |
 
 ### General game design (7)
 
@@ -2212,6 +2216,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-87E3B71F` | HUD text removed to match the original (M44) | The charge readout ("CHARGE 0.5 / 1.5 s READY (stage): release to fire"), the melee weapon's name in the weapon box, the "1" / "2" slot keys on the switch cards and the "JUMP PACK 100 / 100" row are no longer drawn: none appears in the footage (t075, t020, t105, t150). Charge readiness is now the gold cue above; the… | HUD text removed to match the original: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-6AD0FEB7` | The thunder hammer's dash attack and slash (protocol 30) | The hammer lunges and slashes with the sword's clips and `ability_melee_dash`; its own `SM_JMP_TH_DashAtk_F`, `SM_MEL_TH_XATK_Combo3` and `ability_hammer_dash` (reaction outside the MP mapping) are not used. The graph's switch between pound and slash when the height crosses 8 m in flight is not simulated (decided at… | The thunder hammer's dash attack and slash (protocol 30): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-797CF647` | Accounts, matchmaking, a hosted multiplayer service, replacing online services | Out of scope for the product (features players would use). Running our own development and playtest servers anywhere, cloud included, is tooling and is not covered by this row | Accounts, matchmaking, a hosted multiplayer service…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-3150239D` | Armour flashes on models, power sword swing flare, eye glow in the lens colour (fx/character-visuals, owner 2026-10-30) | Ours: colours, strengths and lengths of the yellow hit, red break and recharge glow (with outline) are estimates; others' flashes are derived from the hits seen (melee and splash out of view give none; the break flash comes one hit late); the sword glow no longer plays the data's idle sprites and flares while… | Armour flashes on models, power sword swing flare, eye glow…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

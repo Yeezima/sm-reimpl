@@ -53,6 +53,8 @@ public static class LeanBot
         "transition-probe-clips", "clip-lock-trace", "log-stun-shake",
         // fix/stow-right: the switch test view and its probe, the capture window, the bot that switches for the capture
         "switch-test", "switch-probe", "wait-switch-window", "bot-switch-every",
+        // fx/character-visuals: the armour flash demo
+        "armour-flash-demo",
     };
 
     /// <summary>
