@@ -9,7 +9,7 @@ namespace SmNet.Tests;
 /// <summary>
 /// M22: diagonal rolls (user's knowledge of the original: two movement keys roll diagonally). The roll takes eight
 /// directions; a diagonal plays the forward or back clip with the body turned 45° (forward diagonals with alignment turn to
-/// the stick). The hop keeps four. Distance and timing, walls, prediction exactness and protocol 14.
+/// the stick). The hop takes them too (owner, 2026-10-31). Distance and timing, walls, prediction exactness and protocol 14.
 /// </summary>
 public class EvadeDiagonalTests(ITestOutputHelper output)
 {
@@ -50,7 +50,7 @@ public class EvadeDiagonalTests(ITestOutputHelper output)
         var s = Fresh();
         Step(ref s, InputButtons.Jump, mx, my, 0.3f);
         Assert.Equal((1, expected), (s.EvadeTicks, s.EvadeDirection));
-        // The hop keeps four directions (an exact diagonal: forward or back), and so does a roll without diagonals.
+        // A spec without diagonals (the test hop fixture, a roll without them) keeps four.
         var h = Fresh(Heavy);
         Step(ref h, InputButtons.Jump, mx, my, 0.3f);
         Assert.Equal(Evade.DirectionOf(mx, my), h.EvadeDirection);
@@ -119,6 +119,44 @@ public class EvadeDiagonalTests(ITestOutputHelper output)
         var b = Fresh();
         Step(ref b, InputButtons.Jump, 1f, -1f, 0.2f);
         Assert.Equal(0.2f + MathF.PI / 4, b.Yaw, 5);
+    }
+
+    // ---------------------------------------------------------------- the hop takes the roll's eight directions (owner, 2026-10-31)
+
+    static readonly EvadeSpec Hop8 = EvadeTests.Hop with { Diagonals = true };
+    static readonly SimConfig HopConfig8 = EvadeTests.HopConfig with { Evades = [Roll8, Hop8] };
+
+    [Theory]
+    [InlineData(0f, 1f, EvadeDirection.Forward)]
+    [InlineData(1f, 1f, EvadeDirection.ForwardRight)]   // W + D: was forward before
+    [InlineData(1f, 0f, EvadeDirection.Right)]
+    [InlineData(1f, -1f, EvadeDirection.BackRight)]
+    [InlineData(0f, -1f, EvadeDirection.Back)]
+    [InlineData(-1f, -1f, EvadeDirection.BackLeft)]     // S + A
+    [InlineData(-1f, 0f, EvadeDirection.Left)]
+    [InlineData(-1f, 1f, EvadeDirection.ForwardLeft)]
+    [InlineData(0f, 0f, EvadeDirection.Forward)]        // W + S held together cancel to no stick: forward, as the roll
+    [InlineData(0.05f, -0.05f, EvadeDirection.Forward)]
+    public void The_hop_takes_the_same_eight_directions_as_the_roll(float mx, float my, EvadeDirection expected)
+    {
+        const float view = 0.3f;
+        var roll = Fresh(Tactical, HopConfig8);
+        var hop = Fresh(Heavy, HopConfig8);
+        Step(ref roll, InputButtons.Jump, mx, my, view, c: HopConfig8);
+        Step(ref hop, InputButtons.Jump, mx, my, view, c: HopConfig8);
+        Assert.Equal(expected, roll.EvadeDirection);
+        Assert.Equal(expected, hop.EvadeDirection);
+        if (!Evade.IsForward(expected)) Assert.Equal(roll.Yaw, hop.Yaw, 5);   // the body turns the same way
+        // The hop travels along the same heading as its clip (forward or back clip turned 45 degrees for a diagonal).
+        for (int n = 1; n < 40 && hop.EvadeTicks > 0; n++) Step(ref hop, InputButtons.None, 0f, 0f, view, c: HopConfig8);
+        var local = expected switch
+        {
+            EvadeDirection.ForwardRight => new Vector2(1, 1), EvadeDirection.ForwardLeft => new Vector2(-1, 1),
+            EvadeDirection.BackRight => new Vector2(1, -1), EvadeDirection.BackLeft => new Vector2(-1, -1),
+            EvadeDirection.Right => Vector2.UnitX, EvadeDirection.Left => -Vector2.UnitX, EvadeDirection.Back => -Vector2.UnitY, _ => Vector2.UnitY,
+        };
+        Assert.True(Vector2.Dot(Vector2.Normalize(Flat(hop.Position)), Vector2.Normalize(World(view, local))) > 0.999f,
+            $"{expected}: hop ended at {Flat(hop.Position)}");
     }
 
     // ---------------------------------------------------------------- walls
