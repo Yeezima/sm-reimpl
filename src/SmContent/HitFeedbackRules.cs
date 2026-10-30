@@ -39,3 +39,24 @@ public static class HitFeedbackRules
         return armoured;
     }
 }
+
+/// <summary>Which layers of a weapon's hit event a bullet that struck a player plays (fx/hit-armour-sound).</summary>
+public enum HitLayers
+{
+    /// <summary>The armour layers and the flesh layer together (the victim's armour is not known: no guessing).</summary>
+    Both,
+    /// <summary>The <c>ceramite_armour</c> case: the hard metal clangs (armour still up when the bullet landed).</summary>
+    Armour,
+    /// <summary>The <c>flesh</c> case and the flesh layer of the broken-armour state (the armour was down).</summary>
+    Flesh,
+}
+
+public static class HitSoundRules
+{
+    /// <summary>
+    /// The data's own switch: every weapon hit event holds a <c>ceramite_armour</c> case (armour up) and a <c>flesh</c> case plus a flesh layer chosen by the impact state
+    /// (<c>set_state_impact_armor</c> / <c>set_state_impact_broken_armor</c>). <paramref name="armoured"/> is the victim's armour bit (<see cref="HitFeedbackRules.ArmourUp"/>);
+    /// unknown plays both, as before (owner's earlier "combine both"); <paramref name="combined"/> (<c>--combined-hit-sounds</c>) restores that for every hit.
+    /// </summary>
+    public static HitLayers Of(bool? armoured, bool combined) => combined || armoured is null ? HitLayers.Both : armoured.Value ? HitLayers.Armour : HitLayers.Flesh;
+}

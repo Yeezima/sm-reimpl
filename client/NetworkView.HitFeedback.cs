@@ -20,7 +20,7 @@ namespace SmClient;
 /// an edge flash of our own after those: red for health damage, yellow for armour damage (the owner's colour), at the screen edge toward the attacker when a shot
 /// event names him (the data's eight positions, ours: as a smooth direction), all round otherwise. Durations follow the data's bloom keys (about 0.4 s); the opacity is ours (readable without
 /// hiding the view: edges only, the centre stays clear).</item>
-/// <item><b>Armour and flesh on a player hit</b>: the sound combines both layers always (<see cref="PostPlayerHitSound"/>, owner's direction); the effects use the victim's armour state where it is really known
+/// <item><b>Armour and flesh on a player hit</b>: a ranged hit's sound plays the armour layer while the victim has armour and the flesh layer once it is gone, both when unknown or in melee (<see cref="PostPlayerHitSound"/>, owner 2026-10-30; `--combined-hit-sounds` restores both always); the effects use the victim's armour state where it is really known
 /// (<see cref="ArmourUpForHit"/>), else the armour variant.</item>
 /// </list>
 /// </summary>
@@ -83,7 +83,7 @@ public partial class NetworkView
 
     /// <summary>
     /// Whether the victim's armour shield was up when a player hit landed, where the client really knows (<see cref="HitFeedbackRules.ArmourUp"/>); null: unknown, and the effects then use
-    /// the armour variant (<see cref="FxImpact"/>). No guessing (owner's direction, M38). Sounds do not use it at all (<see cref="PostPlayerHitSound"/>).
+    /// the armour variant (<see cref="FxImpact"/>). No guessing (owner's direction, M38). Ranged hit sounds use it too, to pick the armour or the flesh layer (<see cref="PostPlayerHitSound"/>).
     /// <para>
     /// Protocol 22: <paramref name="armoured"/> is the server's armour bit, <c>ShotView.Armoured</c> for others' shots (<c>FxRemoteShot</c>). Own hits play from the
     /// prediction before the hit block arrives, so <c>FxOwnShot</c> uses <see cref="OwnHitArmoured"/>: the previous hit report on the same victim.
@@ -107,15 +107,20 @@ public partial class NetworkView
     /// six-sound flesh layer while the impact state group is the broken-armour state, so the state is set to <c>set_state_impact_broken_armor</c> for this one post (the post resolves
     /// synchronously) and put back, so that level impacts and the own armour events keep their own state. One post: each layer plays once, nothing doubles.
     /// </summary>
-    void PostPlayerHitSound(string hitSound, SoundEmitter at, VoiceOffset offset = default)
+    void PostPlayerHitSound(string hitSound, SoundEmitter at, VoiceOffset offset = default, bool? armoured = null)
     {
         if (_audio is null || _sound is null) return;
-        at.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32("ceramite_armour"));
-        var before = BeginImpactState(flesh: true);
+        // fx/hit-armour-sound (owner's item 59): armour up plays the data's ceramite_armour case (the hard clang, armour state), armour down the flesh case and flesh layer; unknown plays both.
+        var layers = HitSoundRules.Of(armoured, CombinedHitSounds);
+        at.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32(layers == HitLayers.Flesh ? "flesh" : "ceramite_armour"));
+        var before = BeginImpactState(flesh: layers != HitLayers.Armour);
         var play = _sound.Post(hitSound, at, offset: offset);
         EndImpactState(before);
-        LogImpact("body hit", hitSound, at, offset, play);
+        LogImpact($"body hit ({layers.ToString().ToLowerInvariant()})", hitSound, at, offset, play);
     }
+
+    /// <summary><c>--combined-hit-sounds</c> (test aid): every player hit plays the armour and the flesh layers together, whatever the victim's armour (the behaviour before fx/hit-armour-sound).</summary>
+    static readonly bool CombinedHitSounds = OS.GetCmdlineUserArgs().Contains("--combined-hit-sounds");
 
     /// <summary>
     /// A level impact (a wall, a floor): the hit event with the armour impact state, explicitly, so that the flesh layer never leaks onto it (the state is global; the own

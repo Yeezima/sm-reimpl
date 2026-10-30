@@ -95,6 +95,8 @@ public partial class NetworkView
         public bool PoundSounded;
         /// <summary>fx/melee-presentation: the melee wargear whose idle hum is playing on this emitter (null: none) and the event that stops it.</summary>
         public string? HumFile, HumStop;
+        /// <summary>sound/regen-loop-2: the stop events owed for the sounds a behaviour tag started (the chainsword swing's endless motor layer).</summary>
+        public readonly TagStopTracker TagStops = new();
     }
 
     /// <summary>Starts loading the catalogue and the triggers on a worker thread (the behaviour graphs are read here, on the main thread).</summary>
@@ -331,6 +333,7 @@ public partial class NetworkView
         // pulsed every 0.7 s for the rest of the session).
         if (s.Alive != p.Alive && _sound is not null)
         {
+            t.TagStops.Clear();   // StopLoops ends what a tag started
             StopMeleeHum(t);   // the hum's own stop event first (StopLoops would also end its endless voice); SoundMeleeIdle starts it again if the new life holds the weapon
             int ended = _sound.StopLoops(t.Emitter);
             if (ended > 0 && LogSound("armour")) GD.Print($"ARMOUR t {_connectedFor:F3} P{id} {(s.Alive ? "spawn" : "death")}: {ended} looping sound(s) of the last life ended");
@@ -359,6 +362,7 @@ public partial class NetworkView
         if (own) SoundNoteOwnCharge(s);
         SoundMeleeIdle(t, character, s);
         if (s.Alive) SoundTags(t, character, s, own);
+        if (t.TagStops.Count > 0) PostTagStops(t, t.TagStops.TakeExpired(_connectedFor));
         if (IsOrkVoice(s)) SoundOrk(t, s, p, own);   // Ork O8: the boy's grunts, roars and yells for what the simulation shows
         else _orkEmitterIds.Remove(t.Emitter.Id);
         t.Prev = s;
@@ -374,12 +378,13 @@ public partial class NetworkView
             return;
         }
         t.PhaseValid = false;
-        if (_soundTriggers is null || character.ClipTime is not { } ct || ct.Duration <= 1e-3f) { t.Clip = null; return; }
+        if (_soundTriggers is null || character.ClipTime is not { } ct || ct.Duration <= 1e-3f) { EndTagSounds(t); t.Clip = null; return; }
         float f = Math.Clamp(ct.Time / ct.Duration, 0f, 1f);
         if (t.Clip is null) { t.Clip = ct.Clip; t.Fraction = f; return; }
+        bool same = string.Equals(ct.Clip, t.Clip, StringComparison.OrdinalIgnoreCase);
+        if (!same || (f < t.Fraction && !ct.Looping)) EndTagSounds(t);   // the action ended or restarted (before this frame's tags start the next)
         if (_soundTriggers.ClipTags.TryGetValue(ct.Clip, out var tags))
         {
-            bool same = string.Equals(ct.Clip, t.Clip, StringComparison.OrdinalIgnoreCase);
             foreach (var (tag, at) in tags)
             {
                 bool crossed = same
@@ -440,14 +445,32 @@ public partial class NetworkView
     /// </summary>
     void SoundLayerTags(SoundTrack t, CharacterViewer character, PlayerState s, bool own)
     {
-        if (character.PoseLayerState is not { } layer || layer.Duration <= 1e-3f) { t.Clip = null; return; }
+        if (character.PoseLayerState is not { } layer || layer.Duration <= 1e-3f) { EndTagSounds(t); t.Clip = null; return; }
         float f = Math.Clamp(layer.Time / layer.Duration, 0f, 1f);
         if (t.Clip is null) { t.Clip = layer.Clip; t.Fraction = f; return; }
+        if (!string.Equals(layer.Clip, t.Clip, StringComparison.OrdinalIgnoreCase) || f < t.Fraction) EndTagSounds(t);
         if (string.Equals(layer.Clip, t.Clip, StringComparison.OrdinalIgnoreCase) && _soundTriggers!.ClipTags.TryGetValue(layer.Clip, out var tags))
             foreach (var (tag, at) in tags)
                 if (f >= t.Fraction ? at > t.Fraction && at <= f : at <= f) TagSound(tag, t, s, own);
         t.Clip = layer.Clip;
         t.Fraction = f;
+    }
+
+    /// <summary>sound/regen-loop-2: the clip that fired a tag ended, restarted or went: the stop events of the sounds it started.</summary>
+    void EndTagSounds(SoundTrack t)
+    {
+        if (t.TagStops.Count > 0) PostTagStops(t, t.TagStops.TakeAll());
+    }
+
+    void PostTagStops(SoundTrack t, List<string> stops)
+    {
+        if (_sound is null) return;
+        foreach (var stop in stops)
+        {
+            _sound.Post(stop, t.Emitter);
+            CountSound("tag stop");
+            if (LogSound("tag")) GD.Print($"TAG STOP t {_connectedFor:F3} {t.Emitter.Label} {stop}");
+        }
     }
 
     void TagSound(string tag, SoundTrack t, PlayerState s, bool own)
@@ -467,6 +490,7 @@ public partial class NetworkView
                 if (LogFootsteps && b.IsFootstep && !t.PhaseValid) GD.Print($"TAG P{s.PlayerId} t {_connectedFor:F3} {tag} via {t.Clip} (clip time)");
                 if (b.UseTerrainMaterial || b.IsFootstep) SurfaceUnder(t, s);
                 var play = PostBinding(b, t.Emitter, own, b.IsFootstep ? "footstep" : "tag");
+                if (play is not null && !b.IsFootstep && b.StopEvent.Length > 0) t.TagStops.Started(b.StopEvent, _connectedFor);   // sound/regen-loop-2: owed when the action ends
                 if (b.IsFootstep && LogSound("footstep")) LogFootstep(tag, b, t, s, own, play);
                 any = true;
             }
@@ -676,7 +700,7 @@ public partial class NetworkView
                     var at = new SoundEmitter { Position = ToGodot(end), Label = $"impact of P{_client.PlayerId}", OneShot = true };
                     var offset = ImpactSounds.ImpactOffset(ImpactTreatmentArg, hitSound, hitScan: weapon.Delivery == DeliveryKind.Raycast);   // sound/impacts: the owner's deeper, muddier impacts
                     if (hit == ShotHit.World) { at.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32(Surfaces.NameOf(surface))); PostLevelImpact(hitSound, at, offset); }
-                    else { PostPlayerHitSound(hitSound, at, offset); OrkShotHit(victim, hit, index); }   // M38: armour and flesh layers together; Ork O8: a remote Ork grunts
+                    else { PostPlayerHitSound(hitSound, at, offset, ArmourUpForHit(hit, victim, own: true, OwnHitArmoured(victim))); OrkShotHit(victim, hit, index); }   // M38: armour and flesh layers together; Ork O8: a remote Ork grunts
                     CountSound(hit == ShotHit.World ? "impact" : "body hit");
                 }
             }
@@ -703,13 +727,14 @@ public partial class NetworkView
         PostFire(shot.Weapon, shot.Stage, t.Emitter, own: false, braced: BracedNow(shot.Shooter));
         if (shot.Hit == ShotHit.None || shot.Weapon < 0 || shot.Weapon >= _config.Weapons.Count) return;
         if (_soundTriggers.HitSound(_config.Weapons[shot.Weapon].Name) is not { } hitSound) return;
-        if (shot.Hit is ShotHit.Body or ShotHit.Head) OrkShotHit(VictimAt(shot.End, shot.Shooter), shot.Hit, shot.Weapon);   // Ork O8: a remote Ork grunts at a hit
+        int shotVictim = shot.Hit is ShotHit.Body or ShotHit.Head ? VictimAt(shot.End, shot.Shooter) : -1;
+        if (shot.Hit is ShotHit.Body or ShotHit.Head) OrkShotHit(shotVictim, shot.Hit, shot.Weapon);   // Ork O8: a remote Ork grunts at a hit
         var at = new SoundEmitter { Position = ToGodot(shot.End), Label = $"impact of P{shot.Shooter}", OneShot = true };
         // sound/impacts: the owner's deeper, muddier impacts; a cone shot (the melta) is not a ballistic one.
         var offset = ImpactSounds.ImpactOffset(ImpactTreatmentArg, hitSound, hitScan: _config.Weapons[shot.Weapon].Delivery == DeliveryKind.Raycast);
         // A world hit by its surface; a player hit plays the armour impact and the flesh layer together (M38, owner's direction: PostPlayerHitSound).
         if (shot.Hit == ShotHit.World) { at.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32(Surfaces.NameOf(shot.Surface))); PostLevelImpact(hitSound, at, offset); }
-        else PostPlayerHitSound(hitSound, at, offset);
+        else PostPlayerHitSound(hitSound, at, offset, ArmourUpForHit(shot.Hit, shotVictim, own: false, shot.Armoured));   // the victim's armour bit: the shooter's view and the victim's alike
         CountSound(shot.Hit == ShotHit.World ? "impact" : "body hit");
     }
 
