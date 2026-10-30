@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1658 spec table rows: **1124 tagged**, 387 not tagged (read from data with high confidence), 147 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 324 rows of the changes document.
+Scanned 1658 spec table rows: **1124 tagged**, 387 not tagged (read from data with high confidence), 147 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 325 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -1779,6 +1779,12 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `C-5D4355E6` | Compatibility renderer on old cards | the owner's decision (2026-10-30): Godot has no DirectX 9, so cards without Vulkan run the OpenGL 3.3 renderer | automatic when Forward+ cannot start, or the launcher's "Old GPU / safe mode"; lighting low, anti-aliasing off, no volumetric fog, SSR, SSIL, SSAO, SDFGI. Looks plainer; no gameplay value changes. The default look is unchanged | none (no gameplay value) | Compatibility renderer on old cards: compare with SM1 by feel or video. Ours: the owner's decision (2026-10-30): Godot has no DirectX 9, so cards… | ☐ |
+
+#### Observer / spectator tooling (protocol 47; not a gameplay system)
+
+| ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-536883BF` | A spectator that flies the map | the owner's request (2026-10-30), for capturing promotional footage; SM1 multiplayer had no free spectator | `client.cmd --connect h:p --observe` or the Join screen's SPECTATE button (never remembered); the Hello's flags byte has a spectator bit; the server gives it an id and everyone's snapshots (no team visibility) but no player, so it never spawns, has no team, score or kills, takes no player slot (`--max-spectators`… | none (no gameplay value) | A spectator that flies the map: compare with SM1 by feel or video. Ours: the owner's request (2026-10-30), for capturing promotional footage… | ☐ |
 
 #### Loyalist barks (`LoyalistBarks`; spec "Added content: loyalist barks")
 

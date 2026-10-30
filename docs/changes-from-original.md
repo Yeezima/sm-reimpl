@@ -18,6 +18,12 @@ and gore are listed in their own design documents for now (the rest of section 0
 |---|---|---|---|
 | Compatibility renderer on old cards | the owner's decision (2026-10-30): Godot has no DirectX 9, so cards without Vulkan run the OpenGL 3.3 renderer | automatic when Forward+ cannot start, or the launcher's "Old GPU / safe mode"; lighting low, anti-aliasing off, no volumetric fog, SSR, SSIL, SSAO, SDFGI. Looks plainer; no gameplay value changes. The default look is unchanged | none (no gameplay value) |
 
+### Observer / spectator tooling (protocol 47; not a gameplay system)
+
+| What | Ours / the owner's | Value | Spec row |
+|---|---|---|---|
+| A spectator that flies the map | the owner's request (2026-10-30), for capturing promotional footage; SM1 multiplayer had no free spectator | `client.cmd --connect h:p --observe` or the Join screen's SPECTATE button (never remembered); the Hello's flags byte has a spectator bit; the server gives it an id and everyone's snapshots (no team visibility) but no player, so it never spawns, has no team, score or kills, takes no player slot (`--max-spectators`, default and most 4) and cannot be hit or collided with; it is not idle-kicked and is listed as a spectator under the scoreboard. Free-fly and over-the-shoulder follow cameras, HUD-off key and the keys are in `docs/commands.md` | none (no gameplay value) |
+
 ### Loyalist barks (`LoyalistBarks`; spec "Added content: loyalist barks")
 
 | What | Ours / the owner's | Value | Spec row |

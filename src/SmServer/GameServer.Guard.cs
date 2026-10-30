@@ -229,7 +229,7 @@ public sealed partial class GameServer
     }
 
     /// <summary>Records an accepted join (address, join time, activity) and logs it with the address.</summary>
-    void NoteJoin(int connection, int playerId)
+    void NoteJoin(int connection, int playerId, bool spectator = false)
     {
         var now = _clock.Now;
         var endPoint = _transport.EndPointOf(connection);
@@ -241,7 +241,7 @@ public sealed partial class GameServer
             if (_lastJoinAt.Count > 4096)
                 foreach (var old in _lastJoinAt.Where(kv => now - kv.Value >= _options.JoinInterval).Select(kv => kv.Key).ToList()) _lastJoinAt.Remove(old);
         }
-        Note($"{Describe(playerId)} joined from {endPoint?.ToString() ?? $"connection {connection}"} ({_peers.Count} players)");
+        Note($"{Describe(playerId)} joined{(spectator ? " as a spectator" : "")} from {endPoint?.ToString() ?? $"connection {connection}"} ({_peers.Values.Count(p => !p.Spectator)} players, {_peers.Values.Count(p => p.Spectator)} spectators)");
     }
 
     /// <summary>
@@ -258,7 +258,7 @@ public sealed partial class GameServer
             var until = now + TimeSpan.FromSeconds(state.RespawnLeft);
             if (!_respawnHold.TryGetValue(address, out var held) || held < until) _respawnHold[address] = until;
         }
-        Note($"{Describe(peer.PlayerId)} left from {where}: {reason} ({_peers.Count - 1} players)");
+        Note($"{Describe(peer.PlayerId)}{(peer.Spectator ? " (spectator)" : "")} left from {where}: {reason} ({_peers.Values.Count(p => !p.Spectator && !ReferenceEquals(p, peer))} players, {_peers.Values.Count(p => p.Spectator && !ReferenceEquals(p, peer))} spectators)");
     }
 
     // ---- activity ----
@@ -294,6 +294,7 @@ public sealed partial class GameServer
         bool playing = World.Rules is null || World.State == MatchState.Playing;
         foreach (var (connection, peer) in _peers.ToList())
         {
+            if (peer.Spectator) continue;   // protocol 47: a spectator has nothing to press
             if (!_guarded.TryGetValue(connection, out var g) || g.Address is not { } address || Exempt(address)) continue;
             if (!playing) { g.LastActive = now; continue; }
             if (now - g.LastActive < _options.IdleKick) continue;

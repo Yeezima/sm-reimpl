@@ -282,6 +282,7 @@ var server = new GameServer(config, fingerprint, transport, clock, new ServerOpt
     MaxPlayersPerAddress = cli.MaxPerIp, JoinInterval = cli.JoinInterval, IdleKick = cli.IdleKick, BanFile = cli.BanFile, BuildHint = buildHint, LimitLoopback = cli.LimitLoopback,
     BotDamageScale = cli.BotDamageScale,   // test aid (fix/hitboxes-grenades-bots)
     NameSeed = cli.NameSeed,               // names/bot-lore
+    MaxSpectators = cli.MaxSpectators,     // protocol 47 (observer tooling)
 }, map: map);
 server.Log += line => Console.WriteLine("note: " + line);
 Console.WriteLine($"names: test bots are named from per-race pools (ours), seed {server.NameSeed}{(cli.NameSeed is null ? " (random; --name-seed fixes it)" : " (--name-seed)")}; other players show as P<id>");

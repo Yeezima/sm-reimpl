@@ -253,7 +253,7 @@ public class JumpTierTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_38_carries_the_small_jump_s_cut_and_the_config_hash_covers_the_tiers()
     {
-        Assert.Equal(44, Protocol.Version);
+        Assert.Equal(47, Protocol.Version);
         var s = Jump(On, 10);
         var p = s.First(x => x.JumpCut) with { PlayerId = 7 };
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(1, 1, 1, [p], Self: 7)))).Players[0];

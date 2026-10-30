@@ -714,7 +714,7 @@ public class BraceVentTests(ITestOutputHelper output)
     [Fact]
     public void A_sixteen_player_snapshot_with_the_brace_and_the_vent_stays_at_the_1200_byte_budget()
     {
-        Assert.Equal(44, Protocol.Version);
+        Assert.Equal(47, Protocol.Version);
         Assert.Equal(1200, Protocol.MaxSnapshotBytes);
         var players = Enumerable.Range(1, Protocol.MaxPlayers).Select(i => new PlayerState(i, new Vector3(1e4f), new Vector3(100f), 3f, true)
         {

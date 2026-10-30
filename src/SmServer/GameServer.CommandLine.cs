@@ -47,6 +47,8 @@ public sealed record ServerArguments
     public bool NoPlayerCollision { get; init; }
     /// <summary>--log-overlaps (sim/player-collision test aid): every 10 s, how close the living players' capsules came and how often they overlapped.</summary>
     public bool LogOverlaps { get; init; }
+    /// <summary>--max-spectators (protocol 47; ours, observer tooling): spectators admitted besides the players, 0 none (default <see cref="Protocol.MaxSpectators"/>).</summary>
+    public int MaxSpectators { get; init; } = Protocol.MaxSpectators;
     public bool Help { get; init; }
 }
 
@@ -79,6 +81,7 @@ public static class ServerCommandLine
           --log-overlaps                switch: test aid: every 10 s, the closest the living players' capsules came and how many ticks they overlapped
           --unlocks all                 unlock mode (only 'all': no progression yet)
           --no-custom-emblems           switch: no custom emblem is pulled, kept or served
+          --max-spectators <n>          spectators (client.cmd --observe) admitted besides the players, 0 = none (default 4, at most 4); they take no player slot, team or score
           --max-per-ip <n>              at most n players from one IP address, 0 = no cap (default 4)
           --join-interval <seconds>     at most one new join per IP address this often, 0 = no limit (default 5)
           --idle-kick <seconds>         drop a player without movement, buttons or customizer use for this long while playing, 0 = never (default 300)
@@ -91,7 +94,7 @@ public static class ServerCommandLine
     static readonly HashSet<string> Switches = ["--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--log-overlaps", "--help", "-h"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale",
-         "--name-seed", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content"];
+         "--name-seed", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators"];
 
     /// <summary>Parses the arguments; false with a one-line <paramref name="error"/> for an unknown flag, a missing or invalid value, or a stray word.</summary>
     public static bool TryParse(IReadOnlyList<string> args, out ServerArguments result, out string error)
@@ -156,6 +159,9 @@ public static class ServerCommandLine
                     break;
                 case "--max-per-ip":
                     if (Int(value) is { } cap && cap is >= 0 and <= Protocol.MaxPlayers) a = a with { MaxPerIp = cap }; else bad = $"a whole number from 0 (no cap) to {Protocol.MaxPlayers}";
+                    break;
+                case "--max-spectators":
+                    if (Int(value) is { } spectators && spectators is >= 0 and <= Protocol.MaxSpectators) a = a with { MaxSpectators = spectators }; else bad = $"a whole number from 0 (none) to {Protocol.MaxSpectators}";
                     break;
                 case "--join-interval":
                     if (Number(value) is { } interval && interval is >= 0f and <= 3600f) a = a with { JoinInterval = TimeSpan.FromSeconds(interval) }; else bad = "seconds from 0 (no limit) to 3600";

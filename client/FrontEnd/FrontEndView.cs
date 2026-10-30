@@ -15,7 +15,7 @@ public enum StartScreen { Join, Creator, Appearance }
 
 /// <summary>What the Join button hands over: the server, the plan for the active loadout (class, item indices, perks, looks) and the shared services.</summary>
 /// <param name="Content">The content profile the match is joined with (added content E2: the Join screen's picker, or <c>--content</c>); null: <c>--content</c> / the default.</param>
-public sealed record JoinRequest(string Host, JoinPlan Plan, CustomizerServices Services, SmSim.ContentExtras? Content = null);
+public sealed record JoinRequest(string Host, JoinPlan Plan, CustomizerServices Services, SmSim.ContentExtras? Content = null, bool Spectate = false);
 
 /// <summary>
 /// The front end (docs/customizer-design.md F1, F3): a shell that waits for the install to be read, then shows the Join screen (server, side, the loadout strip with
@@ -52,6 +52,7 @@ public sealed partial class FrontEndView : Control
     /// <summary>The Join screen's root (the fit check lays it out at several window sizes).</summary>
     public Control? JoinScreen => _joinScreen;
     readonly List<Button> _sideButtons = new();
+    Button? _spectate;   // observer tooling (protocol 47): the Join screen's SPECTATE toggle
     Button? _joinButton;
     bool _built;
     int _frames;
@@ -246,6 +247,9 @@ public sealed partial class FrontEndView : Control
             _sideButtons.Add(b);
         }
         UiKit.ChainHorizontal(_sideButtons.Cast<Control>().ToList());
+        // Observer tooling (protocol 47; ours): join as a spectator (a free camera, no side, slot or score) instead of a player. Not remembered: every Join is a player's unless this is pressed again.
+        _spectate = new Button { Text = "Spectate", ToggleMode = true, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(150, UiKit.MinHit), TooltipText = "Watch with a free camera instead of playing (footage tool)" };
+        sideRow.AddChild(_spectate);
         sideRow.AddChild(UiKit.Text("Auto lets the server balance the teams.", UiKit.CaptionSize, UiKit.Grey).With(l => l.VerticalAlignment = VerticalAlignment.Center));
         connect.AddChild(sideRow);
         connect.AddChild(BuildContentRow());
@@ -484,7 +488,7 @@ public sealed partial class FrontEndView : Control
         _services.UpdateSettings(x => x with { Host = host });
         var plan = _services.PlanFor();
         if (plan is null) { Say("The game data is not ready yet.", true); return; }
-        _join(new JoinRequest(host, plan, _services, _services.Content));
+        _join(new JoinRequest(host, plan, _services, _services.Content, _spectate?.ButtonPressed ?? false));
     }
 
     /// <summary>Sets the Join screen's message line; empty hides it (the UI self-test's fit check measures the screen with and without one).</summary>
