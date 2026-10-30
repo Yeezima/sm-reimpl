@@ -10,72 +10,54 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Add your bullets in the same pull request as the change, when it merges.
 -->
 - New network version: this build does not play with earlier ones, so everyone must update together.
-- Rapid Deployment now works: you come back to life after 3 seconds instead of 5.
-- Weapon Versatility now works for Tactical Marines: press 3 for a second primary weapon. Pick it in the class creator (Weapons step) after choosing the perk; with none picked, 3 does nothing. The mouse wheel and X now cycle pistol, primary and the second primary.
-- Teleport Homer now works: while you live, your allies who die come back next to you.
-- Tactical Readout and Signum Link now show a health and armour bar on the enemy under your crosshair. Without one of them the enemy shows no bar.
-- The Assault and Raptor jump pack now takes the colour you pick for the Backpack in the armour colours (before, it followed the torso colour).
-- Tactical Marines can no longer fire their weapon while charging: a shot started just before the charge is dropped, and pressing fire during the charge no longer interrupts it.
-- Fixed: in Seize Ground, after capturing a point a humming noise no longer starts and grows louder; each capture now gives its one cue and then it is quiet again.
-- Characters now flash for everyone to see: a subtle yellow flash when armour takes damage, a subtle red one when the armour breaks, and a yellowish glow with a strong outline when armour starts to recharge. Hits you cannot see (a melee strike out of view) do not flash on other players.
-- The power sword's glow now stays close to the blade and flares up while you swing.
-- The eyes of every Space Marine and Chaos Marine now glow in the lens colour chosen in the customizer, in the match and in the customizer previews (red for Marines and blue for Chaos when none is chosen).
-- Fixed: with Weapon Versatility the second primary weapon (for example the melta) is now drawn in your hands; the weapon you swapped out last is the one on your back.
-- The lascannon beam is now one straight red line that stays exactly where it was fired, even when you move.
-- Bullet tracers now visibly start at the gun barrel.
-- The melta's blast is a distinct orange cone instead of purple-blue haze. Plasma gun and plasma cannon shots are now a solid-looking, roiling ball of plasma.
-- Assault and Raptor jump pack flames now stop at the top of the jump.
-- Fixed: a flicker on the Devastator's backpack with some armour sets.
-- The camera no longer trails the mouse: it follows your aim exactly again.
-- The stalker bolter and the lascannon now zoom in further when you scope (stalker bolter about 1.5 times tighter, lascannon about 2.6 times tighter than before).
-- The C key no longer opens the loadout menu; press Esc to change your loadout, alive or dead (the death screen shows "[ESC] CHANGE LOADOUT").
-- Switching between the bolt pistol and your primary weapon now eases the camera over a quarter of a second instead of jumping.
-- The stalker bolter's reload now plays its sounds once each: the doubled click is gone and the bolt release remains.
-- New: Spectate. Press SPECTATE on the Join screen before joining (it is not remembered) to watch a match with a free camera instead of playing; you take no player slot, side or score and cannot be hit, and the scoreboard lists you under SPECTATORS. WASD flies where you look, Space or E up, Ctrl or Q down, Shift faster, Alt slower, the mouse wheel changes the speed, [ and ] change the field of view (Backspace resets it), G switches smooth cinematic movement, F follows the next player over the shoulder (Shift+F the previous one, after the last back to free flight), H hides the whole screen display for clean footage, F10 returns to the menu. A server admits up to 4 spectators.
-- Taking damage now flashes the edges of your screen instead of the health bar: blue-green when your armour is hit, red or orange when your health is.
-- Only the Iron Halo perk keeps the armour bar with the spiked medallion. Every other class gets the original's gold-framed bar without spikes and an orange health bar.
-- The ground pound marker is now four yellow arrows (above, left, right and below the landing spot) that slide inward again and again.
-- The kill and bonus lines in the middle of the screen are a little smaller.
-- The score panel at the bottom left no longer runs past its bars, and the weapon box at the bottom right sits a little higher, closer to the original.
-- The melta gun's bar in the weapon box now shows how far it is from the next shot.
-- Names now show only over the player under your crosshair: red for an enemy, yellow for a friend. Nobody else has a name floating over them any more.
-- Charging is now purely W + F: with W held, F always charges and never gives the stun strike. Press it a moment too early (while the last charge is still recovering, in the air, or in the middle of a melee combo) and the charge starts as soon as it can.
-- Reloads now carry on while the weapon is put away: start a reload, switch weapons, and it finishes on its own; switching back finds the weapon ready.
-- Melee now goes the way you hold: hold S when you strike and the Marine turns round and hits backwards; A and D strike to the sides, and the diagonals work too. With no key held it strikes forward.
-- Charging off a ledge: the falling animation now starts a third of a second after you leave the ground.
-- Headshots were checked against the game's numbers: the bolt pistol's headshot kills a Marine whose armour is gone in one shot.
-- Landing with the jump pack, finishing a knife strike or a grenade throw now flows back into running over the same smooth blend as the tactical roll; recovering from a hit blends back a little quicker.
-- The Assault and Raptor air slash: the swing no longer speeds up in jerks during the dive, and if you run off straight after landing the sword finishes its swing while your legs start running.
-- Other jump-pack players' air slashes no longer flick back to the start of the swing just after landing.
-- The Devastator keeps the heavy bolter raised while walking and standing (it only lowers it to sprint), so it no longer swings the gun's grip up and down between shots.
-- The armour recharge glow and the armour break flash are now a soft glow around the character (yellow when the armour comes back, red when it breaks), not a layer on the armour or an outline.
-- The Assault and Raptor air slash shows a cone of dust where its hit lands, the shape of the area it hits.
-- The bolt pistol's tracer now starts only once the pistol is raised.
-- Bolter tracers (bolter, bolt pistol, stalker, heavy bolter, storm bolter, Chaos too) are thinner and shorter.
-- The melta's cone is purple-blue again and now leaves the barrel and points at where you aim.
-- Combat stims: while a stim works, the marine has a big red glow and a red health cross floats above his head, for everyone to see.
-- The camera behind your Marine is further back, so you see more of him and the ground around.
-- The score box at the bottom left is solid now and holds the timer, the scores, the bars and the score limit inside it.
-- Your armour bar is plain yellow; only the Iron Halo perk keeps the blue and white look.
-- The stalker bolter's reload makes one sound (the bolt release) instead of three, and pressing R during a reload makes no extra sound.
-- The stalker bolter shows a small crosshair when you are not scoped.
-- With three weapons (Weapon Versatility), the switch cards form a cross: pistol above the crosshair, primary to the right, second primary below.
-- A headshot kill now shows one "Headshot" line instead of the plain kill line.
-- The kill and streak announcements in the middle of the screen are smaller, the text most of all.
-- The weapon box no longer shows words like RELOADING or OVERHEATED.
-- Controller support: plug in an Xbox-style pad and it takes over at once; touch the keyboard or mouse (or unplug the pad) and they take over again. The layout is the original's: left stick move, right stick look, left trigger aim, right trigger fire, left bumper grenade, right bumper reload or vent, X strike, Y stun or alt strike (push the left stick forward when you press it to charge), B use, A evade or jump pack, D-pad weapon swap (up pistol, right primary, down second primary), hold the left stick click to sprint, click the right stick to cycle the scope zoom, Start the game menu, Back the scoreboard. In menus the D-pad or left stick moves, A selects, B goes back.
-- Assault and Raptor jump-pack flight: the movement keys steer you about twice as strongly in the air.
-- The charge is no longer cut short by holding W; it runs its whole animation. Pressing S, A or D alone still stops it.
-- Locking on to an enemy in melee now turns your character and your swing toward them, but no longer drags the camera: the camera stays under your mouse.
-- A light melee hit now only interrupts what you were doing and plays its reaction animation; you can move, jump, charge, strike, aim, roll or reload straight out of it. Staggers and stuns still hold you.
-- Firing the bolt pistol now ends a melee swing at once and you can do anything next.
-- The step forward of melee swings and stun strikes now starts the instant you press the button.
-- Nobody can move or act during the countdown before a match; you can still look around, and you are free on the exact tick the timer ends.
-- Rolling off a ledge in mid-roll now keeps your sideways momentum while you start to fall.
-- Switching weapons during other actions keeps working with the short input buffer: press it a moment early and the switch happens as soon as the action allows; a reload in progress is not cancelled by it.
-- The map makes no noise at all: no gate hum, machinery or ambience (players, weapons, announcer and menu sounds stay).
-- Ammo and equipment boxes dropped by fallen players never block you or hold you up; you still pick them up with E.
-- Getting shot now blends: the flinch eases in and out over about a third of a second instead of snapping back to standing.
-- The power sword, power axe, thunder hammer and daemon maul no longer hum while held; they only sound when they hit an enemy.
-- Fixed: a steady humming or buzzing that built up during fights (it came from chainsword swings and only stopped when someone died) is gone; each swing now ends its own sound.
-- Shots that hit a player now sound like hard armour clangs while the target still has armour, and like a duller flesh hit once the armour is gone (you hear it when you shoot and when you are shot).
+
+### New
+- Controller support: plug in an Xbox-style pad and it takes over at once; touch the keyboard or mouse (or unplug the pad) and they take over again. The layout is the original's: left stick move, right stick aim, LT aim, RT fire, LB grenade, RB reload, X strike, Y stun strike (stick forward + Y charges), B use, A evade or jump pack, D-pad weapons, hold the left stick to sprint, click the right stick to zoom, Start menu, Back scoreboard.
+- Spectate: press SPECTATE on the Join screen to watch a match with a free-flying camera instead of playing. WASD and the mouse fly, Space/E up, Ctrl/Q down, Shift faster, Alt slower, F follows a player, H hides the HUD.
+- Perks that did nothing now work: Rapid Deployment (respawn after 3 seconds), Weapon Versatility (Tactical only: a second primary on key 3, picked in the class creator), Teleport Homer (allies who die come back next to you while you live), Tactical Readout and Signum Link (a health and armour bar on the enemy under your crosshair).
+
+### Combat
+- Charging is W + F: with W held, F always charges and never gives the stun strike; pressed a moment too early, the charge starts as soon as it can. Holding W no longer cuts a charge short.
+- Tactical Marines can no longer fire while charging.
+- Melee goes the way you hold: S turns round and strikes backwards, A and D to the sides, diagonals too. The step forward starts the instant you press.
+- Melee lock-on turns your Marine toward the enemy without dragging the camera.
+- A light melee hit only interrupts you: you can move, jump, charge, strike, aim, roll or reload straight out of it. Staggers and stuns still hold you.
+- Firing the bolt pistol ends a melee swing at once.
+- Reloads carry on while the weapon is put away, and weapon switches can be pressed early during other actions.
+- Assault and Raptor jump packs steer about twice as strongly in the air, and their flames stop at the top of the jump.
+- Rolling off a ledge keeps your momentum; charging off a ledge starts the falling animation shortly after you leave the ground.
+- Nobody can move during the countdown before a match; you can still look around.
+- Headshots were checked against the game's numbers: a bolt pistol headshot kills a Marine whose armour is gone.
+
+### Camera and HUD
+- The camera follows your aim exactly again (no trailing behind the mouse) and sits a little further back.
+- The stalker bolter and lascannon scopes zoom in further, as in the original. The stalker bolter has a small crosshair when not scoped.
+- Switching between the bolt pistol and your primary eases the camera instead of jumping.
+- Taking damage flashes the edges of your screen instead of the bars.
+- The armour bar is plain yellow; only the Iron Halo perk keeps the blue and white bar with the spiked medallion.
+- The score box at the bottom left holds the timer, scores and bars inside it; the weapon box shows no RELOADING or OVERHEATED text.
+- The ground pound marker is four yellow arrows sliding inward.
+- Kill and streak lines are smaller, and a headshot kill shows its own "Headshot" line.
+- Names show only over the player under your crosshair: red for an enemy, yellow for a friend.
+- The melta's bar in the weapon box shows how far it is from the next shot. With three weapons the switch cards form a cross (pistol up, primary right, second primary down).
+- Esc changes your loadout, alive or dead (the C key is gone).
+
+### Effects
+- Characters glow softly when hit: yellow when armour takes damage and when it starts recharging, red when it breaks.
+- Combat stims give a big red glow and a red health cross over the head for as long as they last.
+- The power sword's glow stays close to the blade and flares as you swing. Eyes glow in the lens colour from the customizer.
+- The lascannon beam is one straight line that stays where it was fired. Tracers start at the barrel; bolter tracers are thinner and shorter; the bolt pistol's tracer waits until the pistol is raised.
+- The melta fires a purple-blue cone from the barrel toward your aim. Plasma shots are a solid, roiling ball.
+- The Assault and Raptor air slash shows a cone where it lands.
+- With Weapon Versatility the second primary (for example the melta) is drawn in your hands, and the weapon you swapped out last hangs on your back.
+- The Assault and Raptor jump pack takes the Backpack colour. A flicker on the Devastator's backpack is fixed.
+
+### Animation
+- Getting shot, landing, knife strikes and grenade throws blend back into running as smoothly as the tactical roll. The air slash swings smoothly and finishes while you run off.
+- The Devastator keeps the heavy bolter raised except when sprinting.
+
+### Sound
+- Fixed: the humming that built up during fights (chainsword swings never stopped their sound), and the hum after capturing a point in Seize Ground.
+- Hits sound like armour clangs while the target has armour, and like a duller flesh hit once it is gone.
+- The map makes no noise, and power weapons no longer hum while held; they sound when they hit.
+- The stalker bolter's reload makes one sound, and pressing R during a reload makes none.

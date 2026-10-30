@@ -88,8 +88,8 @@ CONTROLS (F1 in a match shows them too; no key rebinding yet)
   T                    shout "FOR THE EMPEROR" (added content: Extended profile, loyalist Space Marines)
   Tab (hold)           scoreboard
   F1                   info overlay
-  Esc                  menu: class creator, armour editor, leave match
-  C (when dead)        change class and armour for your next life
+  Esc                  menu: change loadout (alive or dead), class creator, armour editor, leave match
+  Controller           plug in an Xbox-style pad and it takes over (the original's layout)
   Left / Right arrows  turn with the keyboard
   If nothing fires, click in the window once: the mouse must be captured.
 

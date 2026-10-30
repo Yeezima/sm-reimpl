@@ -64,9 +64,10 @@ Everyone in a match must use this same build: different versions refuse each oth
 | T | Shout "FOR THE EMPEROR" (added content: Extended profile, loyalist Space Marines) |
 | Tab (hold) | Scoreboard |
 | F1 | Info overlay |
-| Esc | Menu: class creator, armour editor, leave match |
-| C (when dead) | Change class and armour for your next life |
+| Esc | Menu: change loadout (alive or dead, for your next life), class creator, armour editor, leave match |
 | Left / Right arrows | Turn with the keyboard |
+
+A controller works too: plug in an Xbox-style pad and it takes over (the original's layout; see What's new).
 
 There is no key rebinding yet. If nothing fires, click in the game window once: the mouse must be captured.
 
