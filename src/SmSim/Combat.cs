@@ -415,16 +415,22 @@ public static class Combat
         s = reacted with { RushLock = Math.Max(0, reacted.RushLock - 1) };   // the charge's spacing counts down every living tick, as the evade's
         // The charge, i.e. the bull rush (Rush; M29): under way, ended by time or input, or started by a heavy press while running forward.
         // Protocol 30: also the dash attack (a melee press in a jump-pack dash's window), and a charge held in the air (Rush.Held).
-        bool rushing = false, rushHeld = false;
+        bool rushing = false, rushHeld = false, fireDropped = false;
         if (!reacting)
         {
             // BR-02: the Tactical classes' charge is not ended by Fire (and fires nothing; below); every other class's is, as before.
             // sim/combat-2 (item 31, owner's decision 2026-10-30): W does not end the bull rush (it was started with W held and ended at its stick branch when W was
             // still down); any other stick direction (S, A / D alone) still does.
             bool stickEnds = (sanitized.MoveX != 0f || sanitized.MoveY != 0f) && !(s.Rush == RushPhase.Rush && Loadouts.Rush(c, s) is { } rushSpec && Rush.WHeld(input, rushSpec));
-            bool other = stickEnds || (fireDown && !Rush.NoFire(c, s)) || grenadePress || (input.Buttons & InputButtons.Aim) != 0;
+            // sim/no-fire-charging-all (protocol 48; owner 2026-10-31): neither Fire nor Aim ends the charge (for every class); only the stick (not W), a grenade, Jump,
+            // melee or the clip's end do. They are ignored while it plays: no shot, no aim state (the camera stays), nothing buffered.
+            bool other = stickEnds || grenadePress;
+            var rushBefore = s;
             var rush = Rush.Begin(s, input, c, heavyPress, jumpDown && !s.JumpHeld, meleePress, other, world);
             (rushing, rushHeld, s) = (rush.Active, rush.Held, rush.State);
+            // A charge ended this tick by the stick, a grenade, Jump or melee before its clip's end is still the charge's tick: the trigger fires nothing in it.
+            fireDropped = !rushing && rushBefore.Rush != RushPhase.None && Loadouts.Rush(c, rushBefore) is not null && Rush.MoveOf(c, rushBefore) is { } endMove
+                && Rush.Time(rushBefore, c) + 1e-5f < endMove.End;
             if (rush.Started) used |= InputBuffer.Bit(s.Rush == RushPhase.Rush ? BufferedAction.MeleeHeavy : BufferedAction.Melee);   // the bull rush or the dash attack
             // feel/melee-lock (protocol 32): the bull rush steers to its locked target, inside the charge's cone, while it still connects.
             if (rushing && !rushHeld && s.Rush == RushPhase.Rush && s.Grounded && Rush.Connecting(s, c)
@@ -436,9 +442,10 @@ public static class Combat
         // since the last one is not over, or the body is in the air) or a combo is under way) is never a stun strike, queued or struck: it is left unused, so the input buffer (0.3 s, an
         // estimate) replays it and the charge starts as soon as it is allowed (owner's follow-up decision).
         if (!rushing && heavyPress && Loadouts.Rush(c, s) is { } rushForKey && Rush.WHeld(input, rushForKey)) heavyPress = false;
-        // BR-02 (owner's recollection): a Tactical fires nothing from the charge's start to its end. Fire is dropped from the input (below), and what a trigger
+        // BR-02 (owner's recollection; for every class since protocol 48): nothing fires from the charge's start to its end. Fire is dropped from the input (below), and what a trigger
         // pressed just before had under way (a held charge, a delayed charged shot) is cancelled with the melee attacks'.
-        bool noFire = rushing && Rush.NoFire(c, s);
+        bool noFire = rushing || fireDropped;
+        if (fireDropped) fireDown = firePress = false;
         if (reacting || rushing)
         {
             input = input with { MoveX = 0f, MoveY = 0f, Buttons = InputButtons.None };
@@ -941,7 +948,7 @@ public static class Combat
             Brace = brace.Phase, BraceTicks = brace.Ticks, Venting = venting && heat > 0f,
             SprintStop = sprintStopping, MeleeDirection = meleeDirection,
         };
-        if (!reacting && !rushing && !braceMasked) return result;
+        if (!reacting && !rushing && !braceMasked && !fireDropped) return result;
         // Reacting, charging or a brace mask (fidelity gap 7): the buttons were ignored, but whether they are held is the real input's (a press during the reaction is lost).
         bool Real(InputButtons b) => (realButtons & b) != 0;
         return result with

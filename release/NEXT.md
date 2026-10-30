@@ -12,3 +12,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 
 - The launcher has a dark look.
 - The Devastator and Havoc hop now goes the way your movement keys point, like the Tactical roll: W+D hops forward-right, S+A back-left, and so on, in all eight directions (no key held: forward). This changes the game rules, so everyone must update to the same build.
+- No weapon can be fired while a charge plays, for every class: a trigger pressed during the charge does nothing (and is not saved for when it ends), and aim / zoom presses during a charge no longer end it or flip the camera. This changes the game rules, so everyone must update to the same build.
