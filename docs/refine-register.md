@@ -37,7 +37,7 @@ Scanned 1749 spec table rows: **1196 tagged**, 403 not tagged (read from data wi
 | Weapons (critical) | 111 | 64 | 97 | 50 | 3 |
 | Melee (critical) | 63 | 50 | 59 | 11 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
-| Charge (critical) | 26 | 19 | 21 | 12 | 0 |
+| Charge (critical) | 26 | 19 | 20 | 12 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 28 | 27 | 17 | 18 | 0 |
 | HUD and hit feedback (critical) | 53 | 48 | 42 | 10 | 0 |
@@ -53,14 +53,14 @@ Scanned 1749 spec table rows: **1196 tagged**, 403 not tagged (read from data wi
 | Core simulation (provisional values) | 100 | 86 | 85 | 12 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1196** | 983 | 955 | 383 | 38 |
+| **All areas** | **1196** | 983 | 954 | 383 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 449 |
-| confidence: medium | 429 |
+| confidence: medium | 428 |
 | confidence: low | 411 |
 | kind: interpretation | 320 |
 | notes: ours | 281 |
@@ -914,7 +914,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-77279B89` | Jump-pack classes (M31) | the Assault Marine and the Raptor **can charge, on the ground only** (owner's decision 2026-10-28): any jump-pack phase (take-off, ascent, hang, fall, dive, landing, recovery) refuses the start, and so does being airborne without one (walking off a ledge)… | kind: user's knowledge | user's knowledge of the original | Jump-pack classes: compare with SM1 by feel or video. Ours: the Assault Marine and the Raptor can charge, on the ground only… | ☐ |
 | `R-A7D09F49` | Rush motion | the 5 m variant's extracted motion `SM_BUL_Hit_M_5m` (1.667 s clip; 4.99 m by 0.167 s, 11.85 m by 0.667 s, 14.32 m by 1.19 s) along the body's heading, as a velocity through the capsule controller; the heading is the view's at the press (protocol 39: turned… (m, s) | kind: ours; confidence: low | clip motion | Rush motion: compare with SM1 by feel or video. Ours: the 5 m variant's extracted motion SM_BUL_Hit_M_5m (1.667 s clip… | ☐ |
 | `R-E44ADA47` | Rush branches | ends at `BRANCH_Sprint_Finished` 0.714 × 1.667 = 1.19 s; the stick, Fire, Aim or a Grenade press end it from `BRANCH_Attack2Idle` 0.667 s; Jump (evade or jump pack) from `BRANCH_Evade` 0.5 s; melee only at the end. A tick checks the time played before it.… (s) | kind: ours; confidence: low | tags | Rush branches: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: ends at BRANCH_Sprint_Finished 0.714 × 1.667 = 1.19 s; the stick… | ☐ |
-| `R-924D7CED` | No fire in a Tactical's charge (BR-02) | a **Tactical** (SM and CSM, class role `tactical`) fires nothing from the charge's start to its end: Fire is dropped from the charge's ticks, a held charge or delayed charged shot a trigger pressed just before had under way is cancelled at the start (nothing… | confidence: medium; notes: user's knowledge | owner's recollection, 2026-10-30 ("the original did not allow firing during the charge"; Tactical only, the owner's decision) | No fire in a Tactical's charge (BR-02): compare with SM1 by feel or video. Ours: a Tactical (SM and CSM, class role tactical) fires nothing from the… | ☐ |
+| `R-8B273F0A` | No fire, no aim in anyone's charge (BR-02, protocol 48) | **No class and no weapon** (bolter, storm bolter, heavy bolter, melta, plasma, pistol, launcher) fires from the charge's start until its clip has fully ended: Fire is dropped from the charge's ticks (and from the tick a stick / grenade / jump / melee input… | notes: user's knowledge | owner's decision, 2026-10-31 ("ensure no guns can be shot while a charge animation is playing, ever. the animation must have ended"); extends BR-02 (owner's… | No fire, no aim in anyone's charge (BR-02, protocol 48): compare with SM1 with an overlaid screenshot taken from the same position. Ours: No class and no weapon (bolter, storm bolter, heavy bolter, melta… | ☐ |
 | `R-7038C9DD` | Contact | while the rush has played less than 0.667 s (`BRANCH_Attack2Idle`; the clip's hit event is at 0.233 s): the first living player (as the attacker's client saw it, rewound like melee) the tick's move passes within 2 × 0.45 + 0.3 m of, lying ahead: within 45° of… (m, °) | kind: interpretation; confidence: low; notes: ours | ours | Contact: compare with SM1 with an overlaid screenshot taken from the same position. Ours: while the rush has played less than 0.667 s (BRANCH_Attack2Idle; the… | ☐ |
 | `R-AD303A5D` | On contact | the rush stops (the collision stop starts, velocity zeroed). An enemy (or anyone with friendly fire) takes 25 on the shield (`damage_armourshield`) then 75 damage on the body (`damage_general`), and `reaction_mp_stun` (no knockback) unless its hyper armour or… (damage) | kind: interpretation; confidence: low; notes: ours | values and reactions: `ability_bullrush_01` default entries; stun on an enemy, negated by hyper armour, ally only collides: the owner; shield-then-damage… | On contact: compare with SM1 by feel or video. Ours: the rush stops (the collision stop starts, velocity zeroed). An enemy… | ☐ |
 | `R-255D55A9` | Wall | from the rush clip's `WallCollisionTest` (0.2 × 1.667 = 0.333 s) a wall within 25° of head-on (the sprint ability's `max_horz_angle_for_wall_hit`) starts the collision stop; before, walls only block and slide (s, °) | kind: interpretation; confidence: low | tag and `sm_mp_abil_sprint` (the angle is the constant 25 in the code; the sprint file's value on the install) | Wall: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: from the rush clip's WallCollisionTest (0.2 × 1.667 = 0.333 s) a wall… | ☐ |

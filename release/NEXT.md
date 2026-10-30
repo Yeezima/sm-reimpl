@@ -19,3 +19,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Melee attacks now step forward further (about a quarter more) and, when locked onto an enemy, dash at them in a quick burst: the farther the enemy, the bigger and faster the step, stopping right in front of them.
 - The melta's blast is a much longer, softer cone: fuzzy cloudy edges with no hard outline, still purple-blue and still from the barrel to where you aim.
 - The sound of your armour regenerating is half as loud as before.
+- No weapon can be fired while a charge plays, for every class: a trigger pressed during the charge does nothing (and is not saved for when it ends), and aim / zoom presses during a charge no longer end it or flip the camera.
