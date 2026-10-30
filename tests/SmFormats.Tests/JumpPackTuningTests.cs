@@ -26,7 +26,7 @@ public class JumpPackTuningTests
         // default variant, not the perk's 15. Air control is on for every pack read (ours, the owner's request).
         Assert.Equal((300f, 10f), (j.MaxPower, j.RechargeRate));
         Assert.Contains(notes, n => n.Contains("becomes 300"));
-        Assert.Equal((8f, 15f), (j.AirSpeed, j.AirAcceleration));
+        Assert.Equal((16f, 30f), (j.AirSpeed, j.AirAcceleration));   // sim/combat-2: doubled (was 8 and 15)
         Assert.Equal((20f, 12f, 0.5f, 30f, 16f, 0.02f, 0.01f), (j.JumpingGravity, j.HangGravity, j.HangTime, j.FallingGravity, j.ForwardSpeed, j.MoveGain, j.DriftGain));
         Assert.Equal((true, 0f, 75f, 50f, 50f), (j.PoundEnabled, j.PoundDelay, j.PoundGravity, j.PoundSpeed, j.PoundLimitAngle));   // perk delay 2 not taken
         Assert.Contains(notes, n => n.Contains("2 entries with height 0"));

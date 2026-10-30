@@ -17,7 +17,7 @@ public partial class CharacterViewer
 
     static readonly string StimCrossCode = $$"""
 shader_type spatial;
-render_mode blend_add, unshaded, depth_draw_never, cull_disabled, fog_disabled, depth_test_disabled;
+render_mode blend_add, unshaded, depth_draw_never, cull_disabled, fog_disabled;
 
 uniform float amount = 1.0;
 

@@ -158,7 +158,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void A_roll_over_a_curb_keeps_rolling_and_one_off_a_real_drop_stops_travelling_but_plays_on()
+    public void A_roll_over_a_curb_and_one_off_a_real_drop_both_keep_their_horizontal_travel()
     {
         var c = Config with { Classes = [Config.Classes[0], Config.Classes[1] with { Evade = 1 }], Evades = [Dash, EvadeTests.Roll] };
         (float Carried, int RollAirTicks) Roll(float height)
@@ -180,12 +180,12 @@ public class JumpPackAttackTests(ITestOutputHelper output)
         var drop = Roll(6f);
         output.WriteLine($"curb 0.6 m: carried {curb.Carried:F2} m; drop 6 m: carried {drop.Carried:F2} m, {drop.RollAirTicks} ticks rolling in the air");
         Assert.True(curb.Carried > 1f, $"curb: carried {curb.Carried}");
-        Assert.InRange(drop.Carried, 0f, 1.0f);   // stops travelling after its first tick in the air
+        Assert.True(drop.Carried > 1f, $"drop: carried {drop.Carried}");   // sim/combat-2 (item 43, owner's decision 2026-10-30): the roll keeps its horizontal travel through the fall (it stopped after one tick before)
         Assert.True(drop.RollAirTicks > 3);         // the clip plays on in the air
     }
 
     [Fact]
-    public void A_roll_carried_off_a_ledge_is_not_ended_by_input_in_the_air_and_then_drops_straight()
+    public void A_roll_carried_off_a_ledge_is_not_ended_by_input_in_the_air_and_then_falls_on_with_its_momentum()
     {
         // The Tactical roll (EvadeTests.Roll, 1 s): rolled forward off a plateau 12 m high from just before the edge, the stick held all along.
         var c = Config with { Classes = [Config.Classes[0], Config.Classes[1] with { Evade = 1 }], Evades = [Dash, EvadeTests.Roll] };
@@ -784,7 +784,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_30_carries_the_dash_attacks_phases_and_the_slash_and_a_full_snapshot_stays_within_1200_bytes()
     {
-        Assert.Equal(46, Protocol.Version);
+        Assert.Equal(47, Protocol.Version);
         Assert.Equal(1194, Protocol.MaxSnapshotBytes);
         foreach (var phase in new[] { RushPhase.DashAttack, RushPhase.DashHit, RushPhase.DashStop, RushPhase.DashCollision })
         {
@@ -909,5 +909,27 @@ public class JumpPackAttackTests(ITestOutputHelper output)
         Assert.True(dashAttacks >= 4, $"only {dashAttacks} dash attacks");
         Assert.True(slashes >= 3, $"only {slashes} slashes");
         Assert.True(heldTicks >= 15, $"only {heldTicks} held ticks");
+    }
+
+    [Fact]
+    public void A_roll_carried_off_a_ledge_keeps_its_horizontal_speed_in_the_air_and_only_gains_downward_motion()
+    {
+        // sim/combat-2 (item 43, owner's decision 2026-10-30): no stop and no snap of the horizontal velocity when the roll leaves the ground.
+        var c = Config with { Classes = [Config.Classes[0], Config.Classes[1] with { Evade = 1 }], Evades = [Dash, EvadeTests.Roll] };
+        var world = Ledge(12f);
+        var s = Fresh(c, Marine, new Vector3(0, -1f, 12f));
+        Step(ref s, c, InputButtons.Jump, 0f, 1f, world: world);
+        var speeds = new List<float>();
+        var fall = new List<float>();
+        for (int k = 0; k < 40 && !(s.Grounded && speeds.Count > 0); k++)
+        {
+            var before = s;
+            Step(ref s, c, InputButtons.None, 0f, 1f, world: world);
+            if (!s.Grounded && Evade.Evading(s) && Evade.Evading(before)) { speeds.Add((s.Position.Y - before.Position.Y) / Dt); fall.Add(before.Position.Z - s.Position.Z); }
+        }
+        output.WriteLine("air tick speeds: " + string.Join(" ", speeds.Select(v => v.ToString("F1"))));
+        Assert.True(speeds.Count > 5);
+        Assert.All(speeds.Take(6), v => Assert.True(v > 3f, $"horizontal speed {v} in the air"));   // the clip's 3 to 7 m/s goes on
+        Assert.True(fall.Skip(2).Take(3).All(f => f > 0f));   // and gravity adds the downward motion
     }
 }

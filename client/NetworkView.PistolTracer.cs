@@ -42,6 +42,7 @@ public partial class NetworkView
     /// <summary>Each frame: plays the held tracers that are due, from the muzzle where it is now.</summary>
     void UpdateDeferredTracers()
     {
+        if (_tracersWaiting.Count > 0 && (_client is null || _client.Status != SmNet.ClientStatus.Connected || _tracersWaiting.Exists(d => d.At > _connectedFor + 2.0))) _tracersWaiting.Clear();   // disconnect, or a new connection's clock
         for (int i = _tracersWaiting.Count - 1; i >= 0; i--)
         {
             var d = _tracersWaiting[i];

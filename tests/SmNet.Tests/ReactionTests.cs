@@ -355,10 +355,12 @@ public class ReactionTests(ITestOutputHelper output)
     [Fact]
     public void Jump_melee_and_the_stick_end_a_reaction_from_their_branches_and_act_in_that_tick()
     {
-        EndsAt(InputButtons.Jump, 0f, 5, 6);               // back interrupt: Evade from 0.2 s (6 ticks): the "stun break" roll
-        EndsAt(InputButtons.Melee, 0f, 21, 22);            // back interrupt: Melee_Combo at 0.72 s (21.6 ticks)
-        EndsAt(InputButtons.MeleeHeavy, 0f, 21, 22);
-        EndsAt(InputButtons.None, 1f, 27, 28);             // Run at 0.92 s (27.6 ticks), the reaction's end
+        // sim/combat-2 (item 36): the light kinds hold nobody; the stun (front clip) is the holding one: Evade from 0.333 s (10 ticks): the "stun break" roll;
+        // it has no melee or run branch of its own: both fall back to its end, 0.533 s (16 ticks).
+        EndsAt(InputButtons.Jump, 0f, 9, 10);
+        EndsAt(InputButtons.Melee, 0f, 15, 16);
+        EndsAt(InputButtons.MeleeHeavy, 0f, 15, 16);
+        EndsAt(InputButtons.None, 1f, 15, 16);
     }
 
     /// <summary>
@@ -370,12 +372,12 @@ public class ReactionTests(ITestOutputHelper output)
         PlayerState Played(int ticks)
         {
             var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = Tactical }, Config);
-            s = Reaction.Start(s, Config, Interrupt, ReactionDirection.Back, Vector2.UnitY);
+            s = Reaction.Start(s, Config, new ReactionEntry(0f, ReactionKind.Stun), ReactionDirection.Front, Vector2.UnitY);
             for (int k = 0; k < ticks; k++) s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), Config, out _);
             return s;
         }
         var early = Combat.StepPlayer(Played(notBefore), new PlayerInput(0, stick, 0f, 0f, button), Config, out _);
-        Assert.Equal(ReactionKind.Interrupt, early.Reaction);
+        Assert.Equal(ReactionKind.Stun, early.Reaction);
         var late = Combat.StepPlayer(Played(at), new PlayerInput(0, stick, 0f, 0f, button), Config, out _);
         Assert.Equal(ReactionKind.None, late.Reaction);
         if (button == InputButtons.Jump) Assert.True(late.EvadeTicks > 0);              // the roll started
@@ -532,7 +534,7 @@ public class ReactionTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_17_carries_reactions_and_heavy_strikes_in_every_record_and_the_knockback_and_blindness_in_the_own()
     {
-        Assert.Equal(46, Protocol.Version);
+        Assert.Equal(47, Protocol.Version);
         var me = new PlayerState(3, Vector3.One, Vector3.Zero, 0f, true)
         {
             Alive = true, Reaction = ReactionKind.Stagger, ReactionDirection = ReactionDirection.Left, ReactionTicks = 7,
@@ -640,5 +642,94 @@ public class ReactionTests(ITestOutputHelper output)
             Config with { Reactions = [Reaction.Placeholders[0] with { Front = Reaction.Placeholders[0].Front with { EvadeAt = 0.5f } }, .. Reaction.Placeholders.Skip(1)] },
         })
             Assert.True(seen.Add(c.Hash()), "a change left the hash unchanged");
+    }
+
+    // ---------------------------------------------------------------- sim/combat-2 (item 36): the light reactions hold nobody
+
+    static PlayerState Reacting(ReactionEntry entry, int cls = Tactical)
+    {
+        var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = cls }, Config);
+        return Reaction.Start(s, Config, entry, ReactionDirection.Front, Vector2.UnitY);
+    }
+
+    [Theory]
+    [InlineData("move")]
+    [InlineData("jump")]
+    [InlineData("melee")]
+    [InlineData("heavy")]
+    [InlineData("fire")]
+    [InlineData("aim")]
+    [InlineData("reload")]
+    public void An_interrupt_is_left_by_any_action_on_the_next_tick_a_stagger_and_a_stun_are_not(string action)
+    {
+        var input = action switch
+        {
+            "move" => new PlayerInput(0, 0f, 1f, 0f, InputButtons.None),
+            "jump" => new PlayerInput(0, 0f, 0f, 0f, InputButtons.Jump),
+            "melee" => new PlayerInput(0, 0f, 0f, 0f, InputButtons.Melee),
+            "heavy" => new PlayerInput(0, 0f, 0f, 0f, InputButtons.MeleeHeavy),
+            "fire" => new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire),
+            "aim" => new PlayerInput(0, 0f, 0f, 0f, InputButtons.Aim),
+            _ => new PlayerInput(0, 0f, 0f, 0f, InputButtons.Reload),
+        };
+        foreach (var entry in new[] { Interrupt })
+        {
+            var s = Reacting(entry);
+            if (action == "reload") s = s with { Clip = 5 };
+            // One quiet tick (the clip plays), then the action: the reaction ends in that very tick and the action happens.
+            s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), Config, out _);
+            Assert.Equal(entry.Kind, s.Reaction);
+            s = Combat.StepPlayer(s, input, Config, out var e);
+            Assert.Equal(ReactionKind.None, s.Reaction);
+            switch (action)
+            {
+                case "move": Assert.True(s.Velocity.Y > 0f); break;
+                case "jump": Assert.True(s.EvadeTicks > 0); break;
+                case "melee": Assert.Equal((1, false), (s.MeleeStep, s.MeleeHeavy)); break;
+                case "heavy": Assert.Equal((1, true), (s.MeleeStep, s.MeleeHeavy)); break;
+                case "fire": Assert.True(e.Fired); break;
+                case "aim": Assert.True(s.Aiming); break;
+                default: Assert.True(s.ReloadLeft > 0f); break;
+            }
+        }
+        // The stagger and the stun hold (owner, review of sim/combat-2): the same input on the same tick does nothing.
+        foreach (var heavy in new[] { new ReactionEntry(0f, ReactionKind.Stagger), Stun })
+        {
+            var held = Combat.StepPlayer(Combat.StepPlayer(Reacting(heavy), new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), Config, out _), input, Config, out var fired);
+            Assert.Equal(heavy.Kind, held.Reaction);
+            Assert.False(fired.Fired);
+            Assert.Equal((0, 0), (held.MeleeStep, held.EvadeTicks));
+        }
+    }
+
+    [Fact]
+    public void An_interrupt_still_interrupts_the_action_it_hits_and_pushes_before_input_takes_over()
+    {
+        // The hit stops the swing (Reaction.Start), the knockback runs its 9 ticks even with the stick held, then the stick moves the body.
+        var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = Tactical }, Config);
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Melee), Config, out _);
+        Assert.Equal(1, s.MeleeStep);
+        s = Reaction.Start(s, Config, Interrupt with { Backward = 3f, Duration = 0.3f }, ReactionDirection.Front, Vector2.UnitY);
+        Assert.Equal((0, ReactionKind.Interrupt), (s.MeleeStep, s.Reaction));
+        for (int k = 0; k < 9; k++)
+        {
+            s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.None), Config, out _);
+            Assert.Equal(ReactionKind.Interrupt, s.Reaction);
+        }
+        Assert.True(MathF.Abs(s.Position.Y - 3f) < 0.05f, $"pushed {s.Position.Y}");
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.None), Config, out _);
+        Assert.Equal(ReactionKind.None, s.Reaction);
+        Assert.True(s.Velocity.Y > 0f);
+    }
+
+    [Fact]
+    public void A_light_reaction_runs_to_its_end_when_nothing_is_pressed_and_only_the_stun_holds()
+    {
+        var s = Reacting(Interrupt);
+        int k = 0;
+        while (s.Reaction != ReactionKind.None && k < 60) { s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), Config, out _); k++; }
+        Assert.InRange(k, 29, 36);   // the interrupt front clip's end, 0.98 s
+        Assert.False(Reaction.Holds(ReactionKind.Interrupt));
+        Assert.True(Reaction.Holds(ReactionKind.Stagger) && Reaction.Holds(ReactionKind.Stun));
     }
 }

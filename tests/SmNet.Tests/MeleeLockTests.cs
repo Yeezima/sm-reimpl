@@ -212,12 +212,12 @@ public class MeleeLockTests(ITestOutputHelper output)
     {
         var target = Player(2, At(3f, 40f));
         var states = Attack(Player(1, Vector3.Zero), target, 12);
-        float wanted = MeleeLock.YawOf(MeleeLock.Offset(states[3], target));
-        // Ticks 1..3 cover the window (0, 0.1]: by its end the heading faces the target.
-        Assert.True(MathF.Abs(MeleeLock.Delta(states[3].Yaw, wanted)) < 0.02f, $"heading {states[3].Yaw}, wanted {wanted}");
-        Assert.True(states[1].Yaw > 0.05f && states[1].Yaw < states[2].Yaw && states[2].Yaw < states[3].Yaw);
+        float wanted = MeleeLock.YawOf(MeleeLock.Offset(states[2], target));
+        // sim/combat-2 (item 39): the motion runs a tick ahead of the clock, the press tick included: ticks 0..2 cover the window (0, 0.1]: by its end the heading faces the target.
+        Assert.True(MathF.Abs(MeleeLock.Delta(states[2].Yaw, wanted)) < 0.02f, $"heading {states[2].Yaw}, wanted {wanted}");
+        Assert.True(states[0].Yaw > 0.05f && states[0].Yaw < states[1].Yaw && states[1].Yaw < states[2].Yaw);
         // After the window the view's yaw (0) does not turn the attack back.
-        Assert.All(states.Skip(4).Take(5), s => Assert.Equal(states[3].Yaw, s.Yaw, 4));
+        Assert.All(states.Skip(3).Take(5), s => Assert.Equal(states[2].Yaw, s.Yaw, 4));
     }
 
     [Fact]
@@ -226,8 +226,8 @@ public class MeleeLockTests(ITestOutputHelper output)
         var c = Config with { MeleeLock = Config.MeleeLock with { MaxAlignRate = 300f } };   // 10° a tick
         var states = Attack(Player(1, Vector3.Zero), Player(2, At(3f, 40f)), 5, config: c);
         float perTick = 300f / 30f * MathF.PI / 180f;
-        Assert.Equal(perTick, states[1].Yaw, 3);
-        Assert.Equal(3 * perTick, states[3].Yaw, 3);   // 30° by the window's end: not all the way to 40°
+        Assert.Equal(perTick, states[0].Yaw, 3);   // sim/combat-2 (item 39): the press tick already turns
+        Assert.Equal(3 * perTick, states[2].Yaw, 3);   // 30° by the window's end: not all the way to 40°
     }
 
     [Fact]
@@ -251,10 +251,10 @@ public class MeleeLockTests(ITestOutputHelper output)
     {
         var target = Player(2, At(distance, 0f));
         var states = Attack(Player(1, Vector3.Zero), target, 9);
-        float atHit = Vector2.Distance(new(states[7].Position.X, states[7].Position.Y), new(target.Position.X, target.Position.Y));
+        float atHit = Vector2.Distance(new(states[6].Position.X, states[6].Position.Y), new(target.Position.X, target.Position.Y));
         // The clips blended at the target's distance end where they were made to strike from (1.5 m for the 3.5 and 7 m clips; nearer between 1 and 3.5).
         float expected = distance - Step().Reach!.ForwardAt(T(7f), T(30.5f), distance);
-        output.WriteLine($"{distance} m: at the hit {atHit:F3} m (the blend: {expected:F3}); moved {states[7].Position.Y:F3}");
+        output.WriteLine($"{distance} m: at the hit {atHit:F3} m (the blend: {expected:F3}); moved {states[6].Position.Y:F3}");
         Assert.InRange(atHit, expected - 0.03f, expected + 0.03f);
         if (distance >= 3.5f) Assert.InRange(atHit, Strike - 0.03f, Strike + 0.03f);
     }
@@ -275,10 +275,10 @@ public class MeleeLockTests(ITestOutputHelper output)
     {
         var states = Attack(Player(1, Vector3.Zero), Player(2, At(30f, 0f)), 22, lockOn: false);
         // The 1 m variant: no lunge before the hit, the 0.6 m follow-through after it (until MoveAt, tick 22).
-        Assert.Equal(0f, states[6].Position.Y, 3);
+        Assert.Equal(0f, states[5].Position.Y, 3);   // sim/combat-2 (item 39): one tick earlier than before
         float expected = 0.6f * (T(20f) - T(6.5f)) / (T(30.5f) - T(6.5f));
-        Assert.Equal(expected, states[20].Position.Y, 2);
-        Assert.True(states[20].Position.Y > 0.3f);
+        Assert.Equal(expected, states[19].Position.Y, 2);
+        Assert.True(states[19].Position.Y > 0.3f);
     }
 
     [Fact]
@@ -653,5 +653,28 @@ public class MeleeLockTests(ITestOutputHelper output)
             Assert.True(Harness.Percentile(errors, 0.99) < 0.1f, "p99 position error");
             Assert.True(errors.Max() < 0.5f, "max position error");
         }
+    }
+
+    // ---------------------------------------------------------------- sim/combat-2 (items 32 and 39)
+
+    [Fact]
+    public void The_lunge_starts_on_the_press_tick_toward_a_target()
+    {
+        // Item 39: the press tick already steps forward (before, the first step came a tick later); without a target the 1 m blend still has none before the hit.
+        var near = Attack(Player(1, Vector3.Zero), Player(2, At(5f, 0f)), 3);
+        Assert.True(near[0].Position.Y > 0.05f, $"press tick moved {near[0].Position.Y}");
+        Assert.True(near[1].Position.Y > near[0].Position.Y);
+        var none = Attack(Player(1, Vector3.Zero), Player(2, At(30f, 0f)), 3, lockOn: false);
+        Assert.Equal(0f, none[0].Position.Y, 3);
+    }
+
+    [Fact]
+    public void A_lock_turns_the_body_not_the_view_the_view_yaw_of_the_input_is_never_changed()
+    {
+        // Item 32 (the camera assist is gone from the client): the attack's heading turns to the target 40 degrees off while the view yaw the player sends stays 0.
+        var states = Attack(Player(1, Vector3.Zero), Player(2, At(3f, 40f)), 6);
+        Assert.True(states[2].Yaw > 0.6f, $"body yaw {states[2].Yaw}");
+        var input = new PlayerInput(0, 0, 0, 0f, InputButtons.None);
+        Assert.Equal(0f, InputBuffer.Replayed(states[2], input, Config).Input.Yaw);
     }
 }

@@ -64,6 +64,7 @@ public partial class NetworkView
     void StimPlayer(PlayerState s, bool own)
     {
         if (!_stimTracks.TryGetValue(s.PlayerId, out var t)) _stimTracks[s.PlayerId] = t = new StimTrack();
+        if (!s.Alive) { t.Until = 0; t.Released = false; t.Using = false; }   // fx/visuals-2: a death ends the glow (a respawn must not show the rest of the old stim)
         var stim = StimOf(s);
         bool usingNow = s.Alive && s.Throwing && stim is not null;
         if (usingNow && !t.Using) { t.Since = _connectedFor - (own ? s.ThrowTime : 0f); t.Released = false; _stimUsesSeen++; if (!own) _stimRemoteUses++; }
