@@ -91,6 +91,9 @@ public sealed record ClientOptions
     public bool MeleeLock { get; init; } = true;
     /// <summary>Protocol 37 (test aid): this client is a test bot (<c>--bot</c>); the Hello says so, and a server with <c>--bot-damage-scale</c> scales the damage it deals.</summary>
     public bool Bot { get; init; }
+    /// <summary>Protocol 46 (ours; observer tooling): join as a spectator (<c>client.cmd --observe</c>). The client has no player: it predicts and sends no input (only the
+    /// acknowledgements that keep the connection alive) and receives everyone's snapshots; <see cref="GameClient.Predicted"/> stays empty.</summary>
+    public bool Observer { get; init; }
 }
 
 /// <summary>
@@ -124,6 +127,15 @@ public sealed partial class GameClient
     public uint LatestSnapshotTick => _latestSnapshotTick;
     bool _hasAuthoritativeState;
     TimeSpan _latestSnapshotAt;
+
+    /// <summary>
+    /// Protocol 46 (observer): where the spectator's camera is, in game space (metres). Sent in every batch as its one input (<c>MoveX, MoveY, Yaw</c> = x, y, z; the server
+    /// clamps it to the map) so the server picks the projectiles and shots of the snapshots nearest the camera. Null: none sent.
+    /// </summary>
+    public System.Numerics.Vector3? ObserverCamera { get; set; }
+
+    /// <summary>Protocol 46: this client joined as a spectator (<see cref="ClientOptions.Observer"/>).</summary>
+    public bool Observer => _options.Observer;
 
     public ClientStatus Status { get; private set; } = ClientStatus.Connecting;
     public RejectReason? RejectedBecause { get; private set; }
@@ -242,7 +254,7 @@ public sealed partial class GameClient
             {
                 _transport.Send(Protocol.Write(new Hello(Protocol.Version, _contentFingerprint, _config.Hash(), _nonce, Milliseconds(now), _cookie, _mapHash, _options.RequestedClass,
                     _options.RequestedPrimary, _options.RequestedPistol, _options.RequestedMelee, _options.RequestedEquipment, (byte)_options.RequestedSide,
-                    _options.RequestedPerk1, _options.RequestedPerk2, _options.SpaceMarineAppearance, _options.ChaosAppearance, _options.OrkLook, _options.Bot ? Hello.BotFlag : (byte)0, _options.RequestedSecond)));
+                    _options.RequestedPerk1, _options.RequestedPerk2, _options.SpaceMarineAppearance, _options.ChaosAppearance, _options.OrkLook, (byte)((_options.Bot ? Hello.BotFlag : 0) | (_options.Observer ? Hello.SpectatorFlag : 0)), _options.RequestedSecond)));
                 _helloSentAt = now;
             }
             return;
@@ -276,6 +288,14 @@ public sealed partial class GameClient
     void StepTick(Func<uint, PlayerInput> sampleInput)
     {
         Tick++;
+        if (_options.Observer)
+        {
+            // Protocol 46: a spectator has no player to drive: an empty batch (the session and the newest snapshot acknowledged) keeps it connected and lets the server
+            // drop what it kept for it. One a tick, as a player's batches go.
+            PlayerInput[] camera = ObserverCamera is { } at ? [new PlayerInput(Tick, at.X, at.Y, at.Z, InputButtons.None)] : [];
+            _transport.Send(Protocol.Write(new InputBatch(camera, _session, _latestSnapshotTick)));
+            return;
+        }
         // The view tick tells the server which past world this input was aimed at (lag compensation).
         // Quantized as the wire will carry it, so the prediction steps exactly the input the server applies.
         // fix/hitboxes (protocol 37): the view tick is the tick at or before the render tick, the fraction how far toward the next one (the server rewinds there).

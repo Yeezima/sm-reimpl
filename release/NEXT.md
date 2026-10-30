@@ -17,11 +17,21 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The Assault and Raptor jump pack now takes the colour you pick for the Backpack in the armour colours (before, it followed the torso colour).
 - Tactical Marines can no longer fire their weapon while charging: a shot started just before the charge is dropped, and pressing fire during the charge no longer interrupts it.
 - Fixed: in Seize Ground, after capturing a point a humming noise no longer starts and grows louder; each capture now gives its one cue and then it is quiet again.
+- Characters now flash for everyone to see: a subtle yellow flash when armour takes damage, a subtle red one when the armour breaks, and a yellowish glow with a strong outline when armour starts to recharge. Hits you cannot see (a melee strike out of view) do not flash on other players.
+- The power sword's glow now stays close to the blade and flares up while you swing.
+- The eyes of every Space Marine and Chaos Marine now glow in the lens colour chosen in the customizer, in the match and in the customizer previews (red for Marines and blue for Chaos when none is chosen).
+- Fixed: with Weapon Versatility the second primary weapon (for example the melta) is now drawn in your hands; the weapon you swapped out last is the one on your back.
+- The lascannon beam is now one straight red line that stays exactly where it was fired, even when you move.
+- Bullet tracers now visibly start at the gun barrel.
+- The melta's blast is a distinct orange cone instead of purple-blue haze. Plasma gun and plasma cannon shots are now a solid-looking, roiling ball of plasma.
+- Assault and Raptor jump pack flames now stop at the top of the jump.
+- Fixed: a flicker on the Devastator's backpack with some armour sets.
 - The camera no longer trails the mouse: it follows your aim exactly again.
 - The stalker bolter and the lascannon now zoom in further when you scope (stalker bolter about 1.5 times tighter, lascannon about 2.6 times tighter than before).
 - The C key no longer opens the loadout menu; press Esc to change your loadout, alive or dead (the death screen shows "[ESC] CHANGE LOADOUT").
 - Switching between the bolt pistol and your primary weapon now eases the camera over a quarter of a second instead of jumping.
 - The stalker bolter's reload now plays its sounds once each: the doubled click is gone and the bolt release remains.
+- New: Spectate. Press SPECTATE on the Join screen before joining (it is not remembered) to watch a match with a free camera instead of playing; you take no player slot, side or score and cannot be hit, and the scoreboard lists you under SPECTATORS. WASD flies where you look, Space or E up, Ctrl or Q down, Shift faster, Alt slower, the mouse wheel changes the speed, [ and ] change the field of view (Backspace resets it), G switches smooth cinematic movement, F follows the next player over the shoulder (Shift+F the previous one, after the last back to free flight), H hides the whole screen display for clean footage, F10 returns to the menu. A server admits up to 4 spectators.
 - Taking damage now flashes the edges of your screen instead of the health bar: blue-green when your armour is hit, red or orange when your health is.
 - Only the Iron Halo perk keeps the armour bar with the spiked medallion. Every other class gets the original's gold-framed bar without spikes and an orange health bar.
 - The ground pound marker is now four yellow arrows (above, left, right and below the landing spot) that slide inward again and again.

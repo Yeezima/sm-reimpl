@@ -35,6 +35,23 @@ public static class SwordFlare
     public static float At(float since) => !(since >= 0f) || since >= Seconds ? 0f : (1f - since / Seconds) * (1f - since / Seconds);
 }
 
+/// <summary>
+/// fx/character-visuals (owner, 2026-10-30: the power sword's glow "flares up while swinging", as in his reference): the blade's flare while a melee attack is shown. It rises fast and
+/// falls a little slower (<see cref="Rise"/> and <see cref="Fall"/> per second, ours), to <see cref="Level"/> (ours: below a hit's full flare, which stays on top).
+/// </summary>
+public static class SwordSwing
+{
+    public const float Level = 0.7f, Rise = 14f, Fall = 7f;
+
+    /// <summary>The swing flare after <paramref name="dt"/> seconds from <paramref name="current"/> while the attack is <paramref name="swinging"/> (or not).</summary>
+    public static float Next(float current, bool swinging, float dt)
+    {
+        float target = swinging ? Level : 0f;
+        float step = (target > current ? Rise : Fall) * Math.Max(0f, dt) * Level;
+        return target > current ? Math.Min(target, current + step) : Math.Max(target, current - step);
+    }
+}
+
 /// <summary>fx/impact-pass: a trail laid along the last metres of a recorded path (the jump pack's thrust trails).</summary>
 public static class TrailPath
 {

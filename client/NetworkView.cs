@@ -318,6 +318,7 @@ public partial class NetworkView : Node3D
                 ConnectTimeout = DemoPlayPath is not null ? TimeSpan.FromMinutes(10) : ConnectFailure.DefaultTimeout,
                 MeleeLock = !NoMeleeLock,   // feel/melee-lock (NetworkView.MeleeLock.cs)
                 Bot = _bot,   // protocol 37: the Hello marks a test bot (the server's --bot-damage-scale)
+                Observer = Observe,   // protocol 46: a spectator (NetworkView.Observer.cs)
             };
             // The front end's perks, looks and emblems (customizer, T8); a replayed demo keeps its recorded Hello.
             if (_demoPlayback is null) clientOptions = SmClient.FrontEnd.FrontEndLaunch.WithProfile(clientOptions);
@@ -371,6 +372,7 @@ public partial class NetworkView : Node3D
             if (_overlay is not null) _overlay.Visible = _showInfo;
             return;
         }
+        if (Observe) { ObserverInput(e); return; }   // protocol 46: a spectator's keys and mouse (NetworkView.Observer.cs)
         if (_bot) return;
         PickupKey(e);   // fidelity gap 1: latch an E tap between input samples
         if (LoadoutInput(e)) return;   // customizer T7: C on the death screen; while the picker is open nothing else sees the mouse and keys
@@ -467,6 +469,7 @@ public partial class NetworkView : Node3D
         _connectedFor += delta;
         MemoryReportFrame();   // perf/lean-bots: one memory line (bots at 30 s; --mem-report [s]) (NetworkView.Lean.cs)
 
+        if (Observe) { ObserverFrame(delta); return; }   // protocol 46: a spectator draws the world without a player of its own (NetworkView.Observer.cs)
         var me = _client.Predicted;
         Ph("own state");
         LooksBeginFrame(me);   // customizer T7: arrivals, the acknowledged setup, the own look at the respawn
@@ -646,7 +649,7 @@ public partial class NetworkView : Node3D
         // Other players' health, shield and ammunition are not sent (slim records); only what is drawn is logged for them.
         if (_bot) { if (!me.Alive) _navAgent?.Reset(); LogNav(me); }
         if (_bot && (int)(_connectedFor / 2.0) != (int)((_connectedFor - delta) / 2.0))
-            GD.Print($"t {_connectedFor:F0} s: id {_client.PlayerId} class '{ClassLabel(me.Class)}' at {me.Position.X:F1},{me.Position.Y:F1} yaw {me.Yaw:F2} pitch {me.Pitch:F2} speed {new Vector2(me.Velocity.X, me.Velocity.Y).Length():F1} {_local.Playing} " +
+            GD.Print($"t {_connectedFor:F0} s: id {_client.PlayerId} class '{ClassLabel(me.Class)}' at {me.Position.X:F1},{me.Position.Y:F1},{me.Position.Z:F1} yaw {me.Yaw:F2} pitch {me.Pitch:F2} speed {new Vector2(me.Velocity.X, me.Velocity.Y).Length():F1} {_local.Playing} " +
                      $"{(me.Alive ? "alive" : "dead")} hp {me.Health:F0} sh {me.Shield:F0} {AmmoText(me)}{HeatText(me)}{ChargeText(me)} bot [{_botNote}] melee {me.MeleeStep} ({MeleeLabel(me)}) swings {_meleeSwings} switches {_switches} overheats {_overheats} releases {_releases}; " +
                      $"charged releases {_chargedReleases} own shots basic {_ownBasicShots} charged {_ownChargedShots} detonate requests {_detonateRequests}; projectiles drawn {_projectileNodes.Count} seen {_projectilesSeen} (charged {_chargedProjectilesSeen}) detonations seen {_detonationsSeen} (charged {_chargedDetonationsSeen}) remote charge starts {_remoteChargeStarts}; " +
                      $"{ThrowText(me)} throws started {_throwsStarted} released {_throwsReleased} remote throws seen {_remoteThrowsSeen} thrown seen {_thrownSeen} thrown detonations seen {_thrownDetonationsSeen} melta shots {_meltaShots}; " +
@@ -1043,7 +1046,7 @@ public partial class NetworkView : Node3D
             bool trail = FxProjectile(q, ToGodot(q.Position));
             Ph("projectiles and blasts");
             string label = q.Thrown ? "grenade" : q.Weapon >= 0 && q.Weapon < _config.Weapons.Count ? _config.Weapons[q.Weapon].Name : "";
-            node.Visible = !(trail && !(q.Thrown || (label.Contains("grenade", StringComparison.OrdinalIgnoreCase) && !label.Contains("plasma", StringComparison.OrdinalIgnoreCase))));
+            node.Visible = !(trail && !(q.Thrown || (label.Contains("grenade", StringComparison.OrdinalIgnoreCase) && !label.Contains("plasma", StringComparison.OrdinalIgnoreCase)))) || (trail && IsPlasmaShot(q.Weapon, q.Thrown) && !OldPlasmaBall);   // wfx: a plasma shot's solid ball shows with the data's trail around it
         }
         _goneProjectiles.Clear();
         foreach (var id in _projectileNodes.Keys) if (!live.Contains(id)) _goneProjectiles.Add(id);
@@ -1222,8 +1225,10 @@ public partial class NetworkView : Node3D
             material = new StandardMaterial3D { AlbedoColor = new Color(0.12f, 0.13f, 0.12f), Metallic = 0.4f, Roughness = 0.5f,
                                                 EmissionEnabled = true, Emission = new Color(0.9f, 0.3f, 0.1f), EmissionEnergyMultiplier = 0.12f };
         }
+        else if (IsPlasmaShot(weaponIndex, false) && !OldPlasmaBall) material = PlasmaBallMaterial(ProjectileColour(weapon, stage), radius);   // wfx (owner's item 25): a solid-ish roiling ball
         else material = GlowMaterial(ProjectileColour(weapon, stage), stage > 0 ? 4f : 2.5f);
-        look = (new SphereMesh { Radius = radius, Height = 2f * radius, RadialSegments = 12, Rings = 6 }, material);
+        bool plasmaBall = IsPlasmaShot(weaponIndex, false) && !OldPlasmaBall;
+        look = (new SphereMesh { Radius = radius, Height = 2f * radius, RadialSegments = plasmaBall ? 32 : 12, Rings = plasmaBall ? 16 : 6 }, material);
         _projectileLooks[key] = look;
         return look;
     }

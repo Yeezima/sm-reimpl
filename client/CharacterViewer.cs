@@ -751,6 +751,13 @@ public partial class CharacterViewer : Node3D
     /// <summary>Suffixes given to <see cref="SetPieceHidden"/> that are hidden now.</summary>
     public HashSet<string> HiddenPieces { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// wfx (owner's playtest 2026-10-30, item 23): hides or shows the armour's own backpack piece, whichever of the install's two names the set uses: <c>_backpack</c> (basic, veteran, mk4, ...) or <c>_bp</c>
+    /// (bloodravens, spacewolves, the DLC sets, Chaos berserk and children). Only <c>_backpack</c> was hidden under a worn pack model, so in a <c>_bp</c> set the armour's backpack stayed inside the
+    /// Devastator's weapon pack: two near-coplanar hulls, flickering along the box's side edges.
+    /// </summary>
+    public bool SetBackpackHidden(bool hidden) => SetPieceHidden("_backpack", hidden) | SetPieceHidden("_bp", hidden);
+
     /// <summary>Hides or shows the armour piece whose name ends with <paramref name="suffix"/> (e.g. "_backpack" while a worn pack model is drawn); true when a piece matched.</summary>
     public bool SetPieceHidden(string suffix, bool hidden)
     {

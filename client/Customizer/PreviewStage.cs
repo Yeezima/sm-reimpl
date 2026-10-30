@@ -392,6 +392,7 @@ public sealed partial class PreviewStage : SubViewportContainer
     // ---- the Chaos eye glow (owner's request 2026-10-28: it follows the lens colour; PreviewEyeGlow) ----
 
     PreviewEyeGlow? _eye;
+    LensGlow? _lensGlow;
     string? _deployed;
     (byte R, byte G, byte B)? _lens;
 
@@ -416,6 +417,9 @@ public sealed partial class PreviewStage : SubViewportContainer
     void UpdateEyeGlow(double delta)
     {
         if (_subject is null || _character is null || !_services.Ready) return;
+        // fx/character-visuals (owner, 2026-10-30): every Marine and Chaos preview glows at the eyes in the lens colour (the Ork has none).
+        if (_subject.Race != SmContent.Customization.ProfileWire.Ork) (_lensGlow ??= new LensGlow()).Update(_character, LensGlow.ColourFor(_lens, _subject.Race == CustomizationCatalog.Chaos), _character.Visible);
+        else _lensGlow?.Hide();
         // A Space Marine preview, or the in-match picker (the match has its own effects): no glow, and none left on the stage from the last frame.
         if (_subject.Race != CustomizationCatalog.Chaos || _services.InMatch) { _eye?.Clear(delta, _camera); return; }
         _eye ??= new PreviewEyeGlow(_viewport);

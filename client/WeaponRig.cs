@@ -342,6 +342,9 @@ public sealed class WeaponRig
     bool _first = true;
     WeaponSlot _shown, _target;
     float _timer;
+    /// <summary>Weapon Versatility's second primary (protocol 44), or null; the primary slot that was in hand most recently decides which of the two hangs on the back (<see cref="BackWeapon"/>).</summary>
+    string? _second;
+    WeaponSlot _lastPrimary = WeaponSlot.Ranged;
 
     public bool AlwaysMelee { get; private set; }
     /// <summary>The thrown item's wargear the rig was configured with (Ork O6), or null.</summary>
@@ -366,22 +369,24 @@ public sealed class WeaponRig
     /// </summary>
     /// <param name="grenade">Ork O6: the thrown item's wargear whose model is drawn in hand while <see cref="SetGrenadeHeld"/> is true (null: none, as every Space Marine class).</param>
     public bool Configure((int Class, int Primary, int Pistol, string? Melee, string? Pack) key, string? primary, string? pistol, string? melee, IEnumerable<string?> wornWargear, bool alwaysMelee,
-        string? grenade = null)
+        string? grenade = null, string? second = null)
     {
-        if (key == _key && string.Equals(grenade, GrenadeWargear, StringComparison.OrdinalIgnoreCase)) return false;
+        if (key == _key && string.Equals(grenade, GrenadeWargear, StringComparison.OrdinalIgnoreCase) && string.Equals(second, _second, StringComparison.OrdinalIgnoreCase)) return false;
         _key = key;
         GrenadeWargear = grenade;
+        _second = second;
         var wornList = wornWargear.ToArray();
         Names = (primary, pistol, melee, wornList);
         AlwaysMelee = alwaysMelee;
         Clear();
         _first = true;
         AddItem(Role.Primary, primary);
+        AddItem(Role.Second, second);
         AddItem(Role.Pistol, pistol);
         AddItem(Role.Melee, melee);
         AddItem(Role.Grenade, grenade);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var name in new[] { primary, pistol, melee }.Concat(wornList))
+        foreach (var name in new[] { primary, second, pistol, melee }.Concat(wornList))
         {
             if (name is null || !seen.Add(name)) continue;
             bool pack = wornList.Contains(name, StringComparer.OrdinalIgnoreCase);   // the jump pack (the worn wargear), not a weapon's own worn part
@@ -528,7 +533,7 @@ public sealed class WeaponRig
     {
         if (Faulted) return;
         _alive = alive;
-        if (_first || !alive) { _shown = _target = slot; _timer = 0f; _empty = false; _first = false; }
+        if (_first || !alive) { _lastPrimary = WeaponSlot.Ranged; _shown = _target = slot; _timer = 0f; _empty = false; _first = false; }
         else
         {
             // _timer counts the seconds since the slot changed. A change during a switch starts again from the weapon now in hand (or from none, both stowed).
@@ -542,15 +547,20 @@ public sealed class WeaponRig
                 else if (_timer >= release) _empty = true;
             }
         }
+        if (_shown != WeaponSlot.Pistol) _lastPrimary = _shown;
+        bool hasSecond = false;
+        foreach (var i in _items) hasSecond |= i.Role == Role.Second;
+        var onBack = BackWeapon.Owner(_shown, hasSecond, _lastPrimary, _empty);
         bool melee = AlwaysMelee || meleeOut;
         string? meleeBone = null;
         foreach (var i in _items) if (i.Role == Role.Melee && melee) meleeBone = i.Attachment.Wield?.Bone;
         foreach (var i in _items)
         {
-            bool inHand = (!_empty || i.Role is not (Role.Primary or Role.Pistol))
+            bool inHand = (!_empty || i.Role is not (Role.Primary or Role.Second or Role.Pistol))
                           && WeaponHands.InHand(i.Role, _shown, melee, _grenadeHeld, i.Attachment.TwoHanded, i.Attachment.Wield?.Bone, meleeBone);
             if (StowPistol && i.Role == Role.Pistol) inHand = false;   // anim/melee-flow: both hands on the hammer
-            Apply(i, inHand);
+            // With two primaries only the one swapped out last hangs on the back; the other is not drawn.
+            Apply(i, inHand, hasSecond && i.Role is Role.Primary or Role.Second && !inHand && i.Role != onBack);
         }
     }
 
@@ -566,11 +576,11 @@ public sealed class WeaponRig
     /// </summary>
     public static readonly bool OldStow = OS.GetCmdlineUserArgs().Contains("--old-stow");
 
-    void Apply(Item i, bool inHand)
+    void Apply(Item i, bool inHand, bool hide = false)
     {
         i.InHand = inHand;
         var mount = inHand ? i.Attachment.Wield : i.Attachment.Stow;
-        int mode = mount?.Bone is null || (!inHand && i.Attachment.HideOnStow) ? 2 : inHand ? 1 : 0;
+        int mode = hide || mount?.Bone is null || (!inHand && i.Attachment.HideOnStow) ? 2 : inHand ? 1 : 0;
         if (mode == i.Mode) return;
         i.Mode = mode;
         i.Node.Visible = mode != 2;
@@ -725,7 +735,7 @@ public sealed class WeaponRig
     public WeaponRig CloneTo(Skeleton3D skeleton)
     {
         var copy = new WeaponRig(skeleton, _assets);
-        copy.Configure(_key, Names.Primary, Names.Pistol, Names.Melee, Names.Worn, AlwaysMelee, GrenadeWargear);
+        copy.Configure(_key, Names.Primary, Names.Pistol, Names.Melee, Names.Worn, AlwaysMelee, GrenadeWargear, _second);
         copy._grenadeHeld = _grenadeHeld;
         copy.SetPackPaint(_packPaint);   // the corpse keeps the pack's paint
         copy._first = false; copy._shown = copy._target = _shown; copy._alive = _alive; copy._empty = _empty;

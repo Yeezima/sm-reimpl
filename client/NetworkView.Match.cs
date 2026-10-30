@@ -124,7 +124,7 @@ public partial class NetworkView
     {
         var mine = _client?.Predicted.Team ?? Team.None;
         string name = HudName(playerId);   // names/bot-lore: the nameplate follows the scoreboard's name
-        string key = $"{team}/{mine}/{name}";
+        string key = $"{team}/{mine}/{name}/{ZoneMarkers}";   // observer mode: H (HUD off) changes it, so the tags and rings are set again
         if (character.HasMeta("team_look") && character.GetMeta("team_look").AsString() == key) return;
         character.SetMeta("team_look", key);
         // Fidelity gap 10: the original's world decorators (the HUD, FillDecorators) replace the placeholder name tags and side rings; those stay
@@ -426,6 +426,8 @@ public partial class NetworkView
             }
             if (rows.Count == 0) sb.AppendLine("    (nobody)");
         }
+        if (board.Spectators is { Length: > 0 } watching)
+            sb.AppendLine("\n" + GreyTag + "SPECTATORS: " + string.Join(", ", watching.Select(s => Esc(s.Name.Length > 0 ? s.Name : $"Spectator {s.PlayerId}"))) + EndTag);   // protocol 46
         sb.Append(GreyTag + "\n(Tab: scoreboard; columns after the original's; level, score, assists, captures and defends are not tracked yet: a dash)" + EndTag);
         return sb.ToString();
 
