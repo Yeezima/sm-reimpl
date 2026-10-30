@@ -212,7 +212,7 @@ public partial class ModelViewer : Node3D
                     string hand = args.GetValueOrDefault("hand") ?? "primary";
                     rig.Update(hand == "pistol" ? SmSim.WeaponSlot.Pistol : SmSim.WeaponSlot.Ranged, hand == "melee", true, 0f, 0.6f);
                     character.Weapons = rig;
-                    if (worn.Length > 0) character.SetPieceHidden("_backpack", args.GetValueOrDefault("keep-backpack") is null && rig.WornCount > 0);
+                    if (worn.Length > 0) character.SetBackpackHidden(args.GetValueOrDefault("keep-backpack") is null && rig.WornCount > 0);
                     notes.AddRange(weaponNotes);
                     GD.Print("weapons: " + string.Join(", ", rig.Description) + $"; {rig.WornCount} worn nodes; {weaponAssets.ModelsLoaded} models in {weaponAssets.LoadMilliseconds:F0} ms");
                 }

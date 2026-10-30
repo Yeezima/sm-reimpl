@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1654 spec table rows: **1122 tagged**, 385 not tagged (read from data with high confidence), 147 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 325 rows of the changes document.
+Scanned 1660 spec table rows: **1128 tagged**, 385 not tagged (read from data with high confidence), 147 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 325 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -42,7 +42,7 @@ Scanned 1654 spec table rows: **1122 tagged**, 385 not tagged (read from data wi
 | Camera (critical) | 23 | 22 | 12 | 16 | 0 |
 | HUD and hit feedback (critical) | 48 | 44 | 39 | 9 | 0 |
 | Sound mix (critical) | 49 | 45 | 42 | 10 | 0 |
-| Effects (critical) | 65 | 57 | 55 | 33 | 0 |
+| Effects (critical) | 71 | 62 | 61 | 37 | 0 |
 | Game modes | 38 | 35 | 36 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
@@ -53,17 +53,17 @@ Scanned 1654 spec table rows: **1122 tagged**, 385 not tagged (read from data wi
 | Core simulation (provisional values) | 66 | 60 | 54 | 5 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1122** | 929 | 889 | 363 | 38 |
+| **All areas** | **1128** | 934 | 895 | 367 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 412 |
-| confidence: medium | 388 |
-| confidence: low | 387 |
+| kind: ours | 417 |
+| confidence: medium | 391 |
+| confidence: low | 390 |
 | kind: interpretation | 312 |
-| notes: ours | 276 |
+| notes: ours | 277 |
 | confidence: none (low) | 114 |
 | kind: provisional | 98 |
 | section: provisional | 38 |
@@ -82,8 +82,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: user's knowledge | 13 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
+| notes: estimate | 6 |
 | kind: guess | 5 |
-| notes: estimate | 3 |
 | section: approximation | 3 |
 | kind: inferred | 2 |
 | notes: unverified | 1 |
@@ -1114,7 +1114,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5FBBC333` | Menu sound cost | its own catalogue of two packages (`init`, `in_game_default`) opens in the background in 65 to 130 ms when the first root is attached (not before a button exists) and is disposed when a match starts, one still loading too (the match's sound system plays the… (ms) | kind: ours; confidence: medium | measured | Menu sound cost: compare with SM1 by listening A/B at the same distance and state. Ours: its own catalogue of two packages (init, in_game_default) opens in… | ☐ |
 | `R-30F789A0` | Not played | `Play_Menu_Expand_Main` (the menu opening), `Play_Multiplayer_Select`, `Play_Cooperative_Select`, `Play_Network_Select`, `Play_Campaign_Select` (screens we do not have in that form), `play_mp_point_captured` and `play_mp_bonus` (exist; no trigger found)… | kind: gap (not reproduced); confidence: none (low) | gap | Not played: compare with SM1 by listening A/B at the same distance and state. Ours: Play_Menu_Expand_Main (the menu opening), Play_Multiplayer_Select… | ☐ |
 
-### Effects (gameplay-critical) (65)
+### Effects (gameplay-critical) (71)
 
 *Spec section: Jump-pack feel: fuel, air control, the air slash and impact effects (feel/jump-pack; protocol 31, used by the simulation)*
 
@@ -1163,6 +1163,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-4F247B06` | Scope overlay: how it is shown | drawn over the zoomed camera (camera sets, field of view 15 / 20, unchanged) while the player aims (Left Ctrl) with those weapons: the stage fitted to the screen height and centred (a wider screen gets the mask's black beside it), under the HUD; the stalker's… (s, px) | confidence: medium; notes: ours | ours (the drawing; the transition is the movie's clip) | Scope overlay: how it is shown: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: drawn over the zoomed camera (camera sets, field of view 15 / 20… | ☐ |
 | `R-8075DC70` | Scope overlay: cost (measured, Release build, this PC under load; `ScopeArt.Render`) | nothing is read or rendered until a player first holds the stalker bolter or the lascannon; then one low-priority worker thread reads `Hud.gfx` and the 5 `hud_i*` atlases (one pass over `ui_ingame.oppc`; 98 ms, 4.4 MB; only the 3 the four sprites reach are… (ms, MB) | confidence: medium | measured | Scope overlay: cost (measured, Release build, this PC under…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: nothing is read or rendered until a player first holds the stalker… | ☐ |
 | `R-6276AF3E` | Lascannon beam: solid and sharp (the owner's change, 2026-10-29) | the data's beams are not played for lascannon tracers; the beam is a hard-edged bright red core (0.2 m wide at scale x1, 0.1 m at the basic shot's x0.5, narrowing by a third as it fades, at least 2.2 pixels on screen at each end separately, so a long beam… (m, s) | kind: ours; confidence: medium | ours (owner's change) | Lascannon beam: solid and sharp (the owner's change…: compare with SM1 with side-by-side video of the same action. Ours: the data's beams are not played for lascannon tracers; the beam is a… | ☐ |
+| `R-CFD49A14` | Lascannon beam: one straight static line (owner, 2026-10-30) | the beam is one straight ribbon from the muzzle position at the shot to the end point, both snapshotted when the shot is seen; nothing later (shooter, camera, weapon bone) moves it (before: muzzle, join point, end, which read as a V once the shooter moved) (m) | kind: ours; confidence: medium | ours (owner's change) | Lascannon beam: one straight static line (owner, 2026-10-30): compare with SM1 by measuring on a flat spot of the same map. Ours: the beam is one straight ribbon from the muzzle position at the shot… | ☐ |
+| `R-8FBC5C9A` | Muzzle leg of a bullet stays drawn (owner, 2026-10-30) | the pooled streak from the muzzle to the join point stays in the world as a fading line for 0.12 s after the head has crossed it, so tracers are seen to start at the barrel; the ballistic and hit origin is unchanged. `--old-muzzle-leg` restores it (s) | kind: ours; confidence: low; notes: estimate | ours (owner's change) | Muzzle leg of a bullet stays drawn (owner, 2026-10-30): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the pooled streak from the muzzle to the join point stays in the… | ☐ |
+| `R-B5566893` | Melta blast cone (owner, 2026-10-30) | the data's `meltagun_cylinder_blast_1..4` (rings and beams, read as purple-blue haze) are replaced by a hollow cone from the muzzle along the shot (up to the 20 m cone length): radius 0.12 m + 0.0875 m per metre (tan of the 5 degree half angle), 0.4 s, bright… (m, s) | kind: ours; confidence: low; notes: estimate | ours (owner's change) | Melta blast cone (owner, 2026-10-30): compare with SM1 by measuring on a flat spot of the same map. Ours: the data's meltagun_cylinder_blast_1..4 (rings and beams, read as… | ☐ |
+| `R-0336DBB6` | Plasma ball (owner, 2026-10-30) | a plasma gun, pistol or cannon shot also draws its projectile sphere (radius 0.2 m, charged 0.35 m) with a shader: alpha 0.94 including the edge, roiling noise from a pale core to the side's plasma colour; the data's trail plays around it. `--old-plasma-ball`… (m) | kind: ours; confidence: low; notes: estimate | ours (owner's change) | Plasma ball (owner, 2026-10-30): compare with SM1 by measuring on a flat spot of the same map. Ours: a plasma gun, pistol or cannon shot also draws its projectile sphere… | ☐ |
+| `R-FFB8D733` | Jump pack thrust and fire stop at the peak (owner, 2026-10-30) | the thrust fades in 0.08 s at the peak (before 0.35 s) and the data's looping fall effect (`action_descending_regular`) is not played; the dive's thrust and the apex burst are unchanged. `--old-pack-fall` restores both (s) | kind: ours; confidence: medium | ours (owner's change) | Jump pack thrust and fire stop at the peak (owner…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the thrust fades in 0.08 s at the peak (before 0.35 s) and the data's… | ☐ |
+| `R-8C9EA950` | Armour backpack hidden under a worn pack in `_bp` sets (owner, 2026-10-30) | the armour's backpack piece is hidden under a worn pack or weapon backpack whether the set names it `_backpack` or `_bp` (before only `_backpack`; the `_bp` sets left it inside the Devastator's pack: flicker). Not reproduced in a still frame; the cause is the… | confidence: medium; notes: ours | ours | Armour backpack hidden under a worn pack in _bp sets…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the armour's backpack piece is hidden under a worn pack or weapon… | ☐ |
 | `R-2815CEF9` | Effects a shot attaches to the weapon stay in the world (the owner's change, 2026-10-29) | the data's `attached` flag (shell casings, muzzle effects of the plasma weapons, the lascannon's LEDs, the stop-fire smoke) made the effect follow its marker for its whole life, so after a shot the effect moved with the barrel as the player moved; now it… (s) | kind: ours; confidence: medium | ours (owner's change) | Effects a shot attaches to the weapon stay in the world…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the data's attached flag (shell casings, muzzle effects of the plasma… | ☐ |
 | `R-C8493B44` | Rotated atlas sprites | flag bit 0 of a `master_fx.tpage` rect: the sprite is stored turned 90° clockwise (chosen so the bolt tracer's bright head leads) | kind: provisional; confidence: low; notes: ours | ours | Rotated atlas sprites: compare with SM1 with side-by-side video of the same action. Ours: flag bit 0 of a master_fx.tpage rect: the sprite is stored turned 90°… | ☐ |
 | `R-7EC3AC95` | Blending | `AdditiveBlend` 1 additive, 0 alpha; 2 (distortion) not drawn; no soft-particle fade | kind: provisional; confidence: medium; notes: ours | ours | Blending: compare with SM1 with side-by-side video of the same action. Ours: AdditiveBlend 1 additive, 0 alpha; 2 (distortion) not drawn; no… | ☐ |

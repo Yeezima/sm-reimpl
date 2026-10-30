@@ -48,6 +48,12 @@ public partial class NetworkView
     /// <summary>Live shot effects above which an instant beam (the lascannon's, which needs two effects to bend) is drawn from the join point only (the effect player holds 160 and drops the oldest of the lowest priority; ours).</summary>
     const int BentPoolLimit = 110;
 
+    /// <summary>wfx (owner's item 27; ours): how long the muzzle leg of a bullet stays drawn after its head has crossed it, seconds (about seven frames at 60 fps).</summary>
+    const float MuzzleLegGlowSeconds = 0.12f;
+    bool? _oldMuzzleLeg;
+    /// <summary><c>--old-muzzle-leg</c> (test aid): the muzzle leg is gone as soon as the head has crossed it, as before wfx.</summary>
+    bool OldMuzzleLeg => _oldMuzzleLeg ??= CmdFlag("old-muzzle-leg");
+
     bool? _noBullets, _showShotRays, _bulletProbe;
     float? _bulletSpeedFlag;
     /// <summary>False with <c>--no-bullets</c>: the tracer is the straight line from the muzzle to the end, as before feel/bullets.</summary>
@@ -142,10 +148,12 @@ public partial class NetworkView
         float speed = 0f;
         if (headSpeed > 1f) speed = BulletSpeedOverride > 0f ? BulletSpeedOverride : MathF.Max(headSpeed, total / MaxTracerFlight);
         float travel = speed > 0f ? total / speed : 0f;
+        // wfx (owner's item 25): the melta's blast is a distinct cone, not the data's haze of rings (NetworkView.WeaponFx.cs).
+        if (IsMeltaBlast(p.Name) && !OldMeltaFx) { MeltaConeAdd(from, end); BulletDebugAdd(own, rayOrigin, end, from, null); return 0f; }
         // The lascannon's beam: the owner's hard red beam instead of the data's soft stack of beams, in world space where it was fired (NetworkView.Laser.cs).
         if (IsLaserTracer(p.Name) && !OldLaser)
         {
-            LaserAdd(from, join, end, scale);
+            LaserAdd(from, null, end, scale);   // wfx: one straight beam, muzzle to end, both points snapshotted now (the muzzle-join-end bend read as a V once the shooter moved)
             BulletDebugAdd(own, rayOrigin, end, from, join);
             return 0f;
         }
@@ -263,7 +271,19 @@ public partial class NetworkView
             float head = s.Speed * (float)(_connectedFor - s.Start);
             const float tail = 2.5f;
             // Gone once its tail has left the path, but never before it has been drawn once (a leg crossed in a few milliseconds is shown whole in the first frame).
-            if ((s.Shown && head - tail > legA + legB) || _connectedFor - s.Start > 2.0) { s.Live = false; continue; }
+            // wfx (owner's item 27, ours): the muzzle leg stays in the world as a fading line for MuzzleLegGlowSeconds after the head has crossed it, so that the tracer is seen to start at the barrel
+            // (before: the leg was crossed in a few milliseconds and the tracer effect, which starts at the join point 3 m out, looked as if it left the air in front of the gun).
+            if (s.Shown && head - tail > legA + legB)
+            {
+                float since = (head - tail - legA - legB) / MathF.Max(1f, s.Speed);
+                float glow = OldMuzzleLeg ? 0f : 1f - since / MuzzleLegGlowSeconds;
+                if (glow <= 0f || _connectedFor - s.Start > 2.0) { s.Live = false; continue; }
+                var warm = new Color(1f, 0.82f, 0.4f, 0.9f * glow);
+                Ribbon(camera, s.From, s.Via, 0.05f, new Color(warm.R, warm.G, warm.B, 0.35f * glow), warm);
+                if (legB > 1e-3f) Ribbon(camera, s.Via, s.To, 0.05f, warm, new Color(warm.R, warm.G, warm.B, 0.35f * glow));
+                continue;
+            }
+            if (_connectedFor - s.Start > 2.0) { s.Live = false; continue; }
             // Head and tail as distances along the path, clipped to it; the bent path is drawn as its two legs.
             float h = MathF.Min(head, legA + legB), t = MathF.Max(0f, head - tail);
             if (!s.Shown) { s.Shown = true; if (head > legA + legB) { h = legA + legB; t = 0f; } }

@@ -1040,7 +1040,7 @@ public partial class NetworkView : Node3D
             bool trail = FxProjectile(q, ToGodot(q.Position));
             Ph("projectiles and blasts");
             string label = q.Thrown ? "grenade" : q.Weapon >= 0 && q.Weapon < _config.Weapons.Count ? _config.Weapons[q.Weapon].Name : "";
-            node.Visible = !(trail && !(q.Thrown || (label.Contains("grenade", StringComparison.OrdinalIgnoreCase) && !label.Contains("plasma", StringComparison.OrdinalIgnoreCase))));
+            node.Visible = !(trail && !(q.Thrown || (label.Contains("grenade", StringComparison.OrdinalIgnoreCase) && !label.Contains("plasma", StringComparison.OrdinalIgnoreCase)))) || (trail && IsPlasmaShot(q.Weapon, q.Thrown) && !OldPlasmaBall);   // wfx: a plasma shot's solid ball shows with the data's trail around it
         }
         _goneProjectiles.Clear();
         foreach (var id in _projectileNodes.Keys) if (!live.Contains(id)) _goneProjectiles.Add(id);
@@ -1219,8 +1219,10 @@ public partial class NetworkView : Node3D
             material = new StandardMaterial3D { AlbedoColor = new Color(0.12f, 0.13f, 0.12f), Metallic = 0.4f, Roughness = 0.5f,
                                                 EmissionEnabled = true, Emission = new Color(0.9f, 0.3f, 0.1f), EmissionEnergyMultiplier = 0.12f };
         }
+        else if (IsPlasmaShot(weaponIndex, false) && !OldPlasmaBall) material = PlasmaBallMaterial(ProjectileColour(weapon, stage), radius);   // wfx (owner's item 25): a solid-ish roiling ball
         else material = GlowMaterial(ProjectileColour(weapon, stage), stage > 0 ? 4f : 2.5f);
-        look = (new SphereMesh { Radius = radius, Height = 2f * radius, RadialSegments = 12, Rings = 6 }, material);
+        bool plasmaBall = IsPlasmaShot(weaponIndex, false) && !OldPlasmaBall;
+        look = (new SphereMesh { Radius = radius, Height = 2f * radius, RadialSegments = plasmaBall ? 32 : 12, Rings = plasmaBall ? 16 : 6 }, material);
         _projectileLooks[key] = look;
         return look;
     }

@@ -146,7 +146,7 @@ public partial class NetworkView
 
     double _laserTestAt = 1.2;   // the first shot at 4.2 s: the screenshot series starts at 4 s
     bool? _laserTest;
-    bool LaserTest => _laserTest ??= CmdFlag("laser-test");
+    bool LaserTest => _laserTest ??= CmdFlag("laser-test") || CmdFlag("shot-test");   // wfx: --shot-test fires whatever weapon is in hand (the melta's cone, a rifle's tracer) the same way
 
     /// <summary>
     /// <c>--laser-test</c> (test aid, with the lascannon in hand): every 3 s fires the weapon's effects (muzzle, beam, impact) as a shot along the camera ray to 60 m or the first wall,
@@ -156,7 +156,7 @@ public partial class NetworkView
     {
         if (!LaserTest || _config is null || _camera is null || !me.Alive || _connectedFor - _laserTestAt < 3.0) return;
         var weapon = Loadouts.InHand(_config, me);
-        if (weapon is null || ScopeArt.KindOf(weapon.Name) != ScopeKind.Lascannon) return;   // the lascannon only (not "las" in "plasma")
+        if (weapon is null || (!CmdFlag("shot-test") && ScopeArt.KindOf(weapon.Name) != ScopeKind.Lascannon)) return;   // the lascannon only (not "las" in "plasma")
         var w = FxWeapon(weapon.Name);
         if (w is null) return;
         _laserTestAt = _connectedFor;

@@ -17,3 +17,8 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The Assault and Raptor jump pack now takes the colour you pick for the Backpack in the armour colours (before, it followed the torso colour).
 - Tactical Marines can no longer fire their weapon while charging: a shot started just before the charge is dropped, and pressing fire during the charge no longer interrupts it.
 - Fixed: in Seize Ground, after capturing a point a humming noise no longer starts and grows louder; each capture now gives its one cue and then it is quiet again.
+- The lascannon beam is now one straight red line that stays exactly where it was fired, even when you move.
+- Bullet tracers now visibly start at the gun barrel.
+- The melta's blast is a distinct orange cone instead of purple-blue haze. Plasma gun and plasma cannon shots are now a solid-looking, roiling ball of plasma.
+- Assault and Raptor jump pack flames now stop at the top of the jump.
+- Fixed: a flicker on the Devastator's backpack with some armour sets.
