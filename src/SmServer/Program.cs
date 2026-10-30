@@ -77,6 +77,9 @@ else
 var config = tuning.Config;
 // sim/player-collision (protocol 43): players' capsules block each other; --no-player-collision (test aid) lets them pass as before (config hash).
 if (cli.NoPlayerCollision) config = config with { PlayerBodies = false };
+// anim/melee-interaction: --no-charge-lock (test aid) restores the M29 charge contact and stop (config hash).
+if (cli.NoChargeLock) config = config with { ChargeLock = false };
+Console.WriteLine(config.ChargeLock ? "charge lock: on (contact with the blocking body too; charger turned to the victim, victim at 0.9 m; ours)" : "charge lock: OFF (--no-charge-lock, test aid; clients need --no-charge-lock too)");
 Console.WriteLine(config.PlayerBodies
     ? $"player collision: on (capsules r {config.CapsuleRadius} m, h {config.CapsuleHeight} m block each other; push apart {PlayerCollision.SeparationSpeed} m/s, slide off a head {PlayerCollision.SlideOffSpeed} m/s; ours)"
     : "player collision: OFF (--no-player-collision, test aid; clients need --no-player-collision too)");
