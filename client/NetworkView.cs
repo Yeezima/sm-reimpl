@@ -385,7 +385,7 @@ public partial class NetworkView : Node3D
         }
         else if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelUp or MouseButton.WheelDown })
         {
-            // Either direction switches (there are only two weapons); only while the mouse is captured, like Fire.
+            // Either direction switches (to the next weapon: two weapons toggle, three cycle; protocol 44); only while the mouse is captured, like Fire.
             if (Input.MouseMode == Input.MouseModeEnum.Captured) _switchPending = true;
         }
         else if (e is InputEventMouseButton { Pressed: true } && Input.MouseMode != Input.MouseModeEnum.Captured && !ModelViewer.TestWindow)
@@ -736,6 +736,7 @@ public partial class NetworkView : Node3D
         // nothing when that weapon is already in hand). From the user's knowledge of the original; the digit row only (not the keypad).
         if (Input.IsPhysicalKeyPressed(Key.Key1)) buttons |= InputButtons.SlotPistol;
         if (Input.IsPhysicalKeyPressed(Key.Key2)) buttons |= InputButtons.SlotPrimary;
+        if (Input.IsPhysicalKeyPressed(Key.Key3)) buttons |= InputButtons.SlotSecond;   // protocol 44: the second primary (Weapon Versatility; nothing without it)
         // Interact (protocol 26, fidelity gap 1): E picks up a dropped pickup in reach (NetworkView.Pickups.cs; the PC key is ours).
         buttons |= InteractButton();
         buttons = LatchButtons(buttons);   // feel/controls: a tap since the last sample is held for this one (NetworkView.Controls.cs)
@@ -1774,7 +1775,8 @@ public partial class NetworkView : Node3D
     string AmmoText(PlayerState me)
     {
         string text = $"{WeaponLabel(Loadouts.InHand(_config!, me))} {me.Clip}/{me.Reserve}";
-        if (Loadouts.Holstered(_config!, me) is { } other) text += $" (holstered {WeaponLabel(other)} {me.OtherClip}/{me.OtherReserve})";
+        if (Loadouts.Weapon(_config!, me, Loadouts.Other(me.Slot)) is { } other) text += $" (holstered {WeaponLabel(other)} {me.OtherClip}/{me.OtherReserve})";
+        if (Loadouts.Weapon(_config!, me, Loadouts.Third(me.Slot)) is { } third) text += $" (holstered {WeaponLabel(third)} {me.ThirdClip}/{me.ThirdReserve})";
         if (me.SwitchLeft > 0f) text += " switching";
         if (me.ReloadLeft > 0f) text += Loadouts.InHand(_config!, me)?.Recharge is not null ? $" recharging {me.ReloadLeft:F1} s" : " reloading";
         return text;
@@ -1889,9 +1891,14 @@ public partial class NetworkView : Node3D
             if (Shots.RemoteDetonated(inHand) && inHand.Projectile is { } projectile)
                 f.GrenadesOutText = $"Grenades out {me.ProjectilesOut} / {projectile.MaxActive}{(me.ProjectilesOut > 0 ? " (R detonates)" : "")}";
         }
-        if (Loadouts.Holstered(c, me) is { } other)
+        // Protocol 44: the first holstered slot's weapon is "the other" (as the only one was); with Weapon Versatility the second holstered one is "the third".
+        if (Loadouts.Weapon(c, me, Loadouts.Other(me.Slot)) is { } other)
         {
             f.HasOther = true; f.OtherName = Capitalized(WeaponLabel(other)); f.OtherWargear = other.Name; f.OtherClip = me.OtherClip; f.OtherClipMax = other.ClipSize; f.OtherReserve = me.OtherReserve;
+        }
+        if (Loadouts.Weapon(c, me, Loadouts.Third(me.Slot)) is { } third)
+        {
+            f.HasThird = true; f.ThirdName = Capitalized(WeaponLabel(third)); f.ThirdWargear = third.Name; f.ThirdClip = me.ThirdClip; f.ThirdClipMax = third.ClipSize; f.ThirdReserve = me.ThirdReserve;
         }
         if (Loadouts.Equipment(c, me) is { } item)
         {
@@ -1933,13 +1940,11 @@ public partial class NetworkView : Node3D
             var centre = CenterRayTarget(me, c);   // ui/hud-fidelity: one centre ray for the aimed enemy and the crosshair's place
             if (centre.Hit is { } enemy && World.Hostile(me.Team, enemy.Team))
             {
-                f.AimedAtEnemy = true; f.AimedName = HudName(enemy.PlayerId);
-                if (enemy.PlayerId == _lastVictim && _connectedFor - _lastHitAt < 3.0)
+                f.AimedAtEnemy = true; f.AimedName = HudName(enemy.PlayerId);   // kept for the headshot line; never drawn (no name over enemies)
+                // Protocol 44: Tactical Readout / Signum Link send the enemies' health and armour (fractions of the class body, as the hit report's); without them no bar.
+                if (_client!.EnemyBarFor(enemy.PlayerId) is { } bar)
                 {
-                    // Ork O7a (design O4 note): the bar's maxima are the aimed player's own class body (an Ork's 85 / 0 in Data mode), the hit report's rule (SmNet.HitBars:
-                    // the class body, not Loadouts.Body, whose perk maxima the report's fractions are not against).
-                    var (healthMax, shieldMax) = HitBars.Maxima(c, enemy.Class);
-                    f.AimedHealth = _lastVictimHealth; f.AimedShield = _lastVictimShield; f.AimedHealthMax = healthMax; f.AimedShieldMax = shieldMax;
+                    f.AimedBar = true; f.AimedHealth = bar.Health / 255f; f.AimedShield = bar.Shield / 255f; f.AimedHealthMax = 1f; f.AimedShieldMax = 1f;
                 }
             }
             f.SpreadRadius = SpreadPixels(me, c);   // weapons/spread: the crosshair ticks open with the scatter (NetworkView.Spread.cs)
@@ -1967,7 +1972,7 @@ public partial class NetworkView : Node3D
         _hudDemoLast = t;
         bool Crossed(double at) => last >= 0 && last < at && t >= at;
         if (last < 0 || last > t) _hudView.ShowSwitchPopup();   // first call, or the 8 s cycle wrapped
-        if (t >= 2.0 && t < 6.0) { f.AimedAtEnemy = true; f.AimedName = "[CSM] P1"; }
+        if (t >= 2.0 && t < 6.0) { f.AimedAtEnemy = true; f.AimedName = "[CSM] P1"; f.AimedBar = true; f.AimedHealth = 0.6f; f.AimedShield = 0.3f; f.AimedHealthMax = 1f; f.AimedShieldMax = 1f; }
         // M44: fill the meters for screenshots (heat ramps up, a charge repeats every 2 s, the jump pack swings, the armour drops to 70 % from 4 s).
         if (f.HasHeat) f.Heat = f.HeatMax * (float)Math.Clamp(t / 6.0, 0.0, 1.0);
         else if (f.HasCharge) { f.Charge = (float)(t % 2.0 / 2.0); f.ChargeReady = f.Charge > 0.75f; }

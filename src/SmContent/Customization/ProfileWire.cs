@@ -101,7 +101,7 @@ public static class ProfileWire
         }
         return new LoadoutChoice(cls,
             Pick(custom.Primary, "ranged"), Pick(custom.Pistol, "pistol"), Pick(custom.Melee, "melee"), Pick(custom.Equipment, "equipment"),
-            Pick(custom.Perk(0), "perk", positional: false), Pick(custom.Perk(1), "perk", positional: false));
+            Pick(custom.Perk(0), "perk", positional: false), Pick(custom.Perk(1), "perk", positional: false), Pick(custom.Second, "second"));
     }
 
     /// <summary>

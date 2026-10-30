@@ -51,6 +51,11 @@ public enum InputButtons : ushort
     /// added content ignores it. Loyalist barks: the FOR THE EMPEROR key (T), honoured only with <see cref="ContentExtras.LoyalistBarks"/>.
     /// </summary>
     ExtraAction = 8192,
+    /// <summary>
+    /// Weapon slot 3 (protocol 44), on a press edge: puts the second primary (<see cref="WeaponSlot.Second"/>, Tactical with Weapon Versatility) in hand;
+    /// nothing without one. PC key 3 (owner's decision of 2026-10-30).
+    /// </summary>
+    SlotSecond = 16384,
 }
 
 /// <summary>
@@ -153,6 +158,23 @@ public readonly record struct PlayerState(int PlayerId, Vector3 Position, Vector
     public int OtherClip { get; init; }
     /// <summary>Reserve of the holstered weapon.</summary>
     public int OtherReserve { get; init; }
+    /// <summary>
+    /// Protocol 44 (Weapon Versatility): the chosen second primary (index into <see cref="SimConfig.Weapons"/>, -1 none; <see cref="Loadouts.SecondIndex"/>).
+    /// The clip, reserve and heat of the second holstered weapon (<see cref="Loadouts.Third"/>) are the Third fields; the first holstered one's are the Other fields.
+    /// </summary>
+    public int Second { get; init; } = -1;
+    /// <summary>Clip of the second holstered weapon (0 without one).</summary>
+    public int ThirdClip { get; init; }
+    /// <summary>Reserve of the second holstered weapon.</summary>
+    public int ThirdReserve { get; init; }
+    /// <summary>Heat of the second holstered weapon.</summary>
+    public float ThirdHeat { get; init; }
+    /// <summary>Whether the second holstered weapon is overheated.</summary>
+    public bool ThirdOverheated { get; init; }
+    /// <summary>Seconds since the second holstered weapon last heated.</summary>
+    public float ThirdSinceHeat { get; init; }
+    /// <summary>The previous input's <see cref="InputButtons.SlotSecond"/> bit (protocol 44).</summary>
+    public bool SlotSecondHeld { get; init; }
     /// <summary>Seconds until a weapon switch completes (0 when not switching); the weapon cannot fire or reload meanwhile.</summary>
     public float SwitchLeft { get; init; }
     /// <summary>The previous input's fire bit (a semi-automatic weapon fires on a press edge only).</summary>
@@ -961,7 +983,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
     /// loadout change of the id (<see cref="SetNextLoadout"/>) is dropped. <paramref name="team"/> (Ork O4): the side for a class without
     /// one (the Ork Boy; <see cref="AssignSide"/>); ignored for a class with a side and without rules; null: the smaller side.</remarks>
     public PlayerState Spawn(int playerId, int playerClass = 0, int primaryChoice = -1, int pistolChoice = -1, int meleeChoice = -1, int equipmentChoice = -1,
-        int perk1Choice = -1, int perk2Choice = -1, Team? team = null)
+        int perk1Choice = -1, int perk2Choice = -1, Team? team = null, int secondChoice = -1)
     {
         _players.Remove(playerId);   // a re-spawned id is counted afresh for sides
         _nextLoadouts.Remove(playerId);
@@ -972,7 +994,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         var (position, yaw) = TryStartAreaSpawn(playerId, side, out var areaAt, out var areaYaw) ? (areaAt, areaYaw)
             : _spawns.Length > 0 ? ChooseSpawn(playerId, side) : (PlaceholderSpawn(playerId), 0f);
         var chosen = Loadouts.Choose(Config, new PlayerState(playerId, position, Vector3.Zero, yaw, true) { Class = playerClass, Team = side }, primaryChoice, pistolChoice, meleeChoice, equipmentChoice,
-            perk1Choice, perk2Choice);
+            perk1Choice, perk2Choice, secondChoice);
         var state = Combat.Respawned(chosen, Config);
         _players[playerId] = state;
         _scores[playerId] = default;
@@ -1071,7 +1093,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
     PlayerState WithNextLoadout(PlayerState p)
     {
         if (!_nextLoadouts.Remove(p.PlayerId, out var c)) return p;
-        return Loadouts.Choose(Config, p with { Class = c.Class }, c.Primary, c.Pistol, c.Melee, c.Equipment, c.Perk1, c.Perk2);
+        return Loadouts.Choose(Config, p with { Class = c.Class }, c.Primary, c.Pistol, c.Melee, c.Equipment, c.Perk1, c.Perk2, c.Second);
     }
 
     /// <summary>Shots that left a barrel during the last <see cref="Step"/> (basic and charged, rays and projectiles).</summary>
@@ -1126,7 +1148,9 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             {
                 next = WithNextLoadout(next);   // a loadout change waiting for this respawn
                 _respawns.Add(id);
-                if (TryStartAreaSpawn(id, next.Team, out var areaAt, out var areaYaw))
+                if (TryHomerSpawn(next, out var homerAt, out var homerYaw))   // Teleport Homer: next to a living carrier on the side
+                    next = Combat.Respawned(next with { Position = homerAt, Yaw = homerYaw }, Config);
+                else if (TryStartAreaSpawn(id, next.Team, out var areaAt, out var areaYaw))
                     next = Combat.Respawned(next with { Position = areaAt, Yaw = areaYaw }, Config);
                 else if (_spawns.Length > 0)
                 {

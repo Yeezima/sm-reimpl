@@ -54,7 +54,7 @@ public class PerkValuesTests(ITestOutputHelper output)
         new("mp_perk_shield_recharge", Larr, PerkKind.Class, 1),
         new("mp_perk_iron_halo", Halo, PerkKind.Class, 1),
         new("mp_perk_unused", Unused, PerkKind.Class, 1),
-        new("mp_perk_respawn_timer", "mp_perk_respawn_timer", PerkKind.Class, 1),   // nothing reads its string: inert
+        new("mp_perk_speed_increase", "mp_perk_speed_increase", PerkKind.Class, 1),   // nothing reads its string: inert
     ];
 
     static readonly SimConfig Config = new()
@@ -133,7 +133,7 @@ public class PerkValuesTests(ITestOutputHelper output)
     [Fact]
     public void Inert_perks_say_not_active_yet()
     {
-        var inert = PerkList.Single(p => p.Name == "mp_perk_respawn_timer");
+        var inert = PerkList.Single(p => p.Name == "mp_perk_speed_increase");
         Assert.Equal(PerkActivity.Inert, Perks.StatusOf(Config, inert).Activity);
         Assert.Empty(PerkValues.Lines(Config, inert));
         Assert.Equal("Not active yet.", PerkValues.Text(Config, inert));
@@ -196,6 +196,6 @@ public class PerkValuesTests(ITestOutputHelper output)
         Assert.Contains("Storm Bolter / Twin Bolter: reload 2 s → 1 s (−50%)", Of("mp_perk_weap_storm_bolter_reload"));
         Assert.Contains("heals 30 health per hit while hurt", Of("mp_perk_weap_chainsword_heal_on_hit"));
         Assert.Contains("charge damage 75 + 25 armour → 100 + 50 (+50%)", Of("mp_perk_improved_bullrush"));
-        Assert.Equal(5, c.Perks.Count(p => Perks.StatusOf(c, p).Activity == PerkActivity.Inert));
+        Assert.Equal(0, c.Perks.Count(p => Perks.StatusOf(c, p).Activity == PerkActivity.Inert));   // protocol 44: the last five inert perks are rules of the server and the client
     }
 }

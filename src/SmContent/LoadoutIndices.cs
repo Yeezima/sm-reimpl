@@ -40,6 +40,7 @@ public static class LoadoutIndices
         return slot switch
         {
             "ranged" or "primary" => Loadouts.Choices(c, playerClass, WeaponSlot.Ranged).Select(i => i >= 0 && i < c.Weapons.Count ? c.Weapons[i].Name : "").ToList(),
+            "second" => Loadouts.Choices(c, playerClass, WeaponSlot.Second).Select(i => i >= 0 && i < c.Weapons.Count ? c.Weapons[i].Name : "").ToList(),   // protocol 44
             "pistol" => Loadouts.Choices(c, playerClass, WeaponSlot.Pistol).Select(i => i >= 0 && i < c.Weapons.Count ? c.Weapons[i].Name : "").ToList(),
             "melee" => loadout.MeleeChoices.Select(m => m.Wargear).ToList(),
             "equipment" => loadout.EquipmentChoices.Select(i => i >= 0 && i < c.Thrown.Count ? c.Thrown[i].Name : "").ToList(),

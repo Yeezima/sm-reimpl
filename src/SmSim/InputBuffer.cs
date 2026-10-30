@@ -78,7 +78,7 @@ public static class InputBuffer
 
     /// <summary>Whether the real button of <paramref name="a"/> is down in <paramref name="buttons"/> (Switch: the toggle or either slot key).</summary>
     public static bool Held(BufferedAction a, InputButtons buttons) => a == BufferedAction.Switch
-        ? (buttons & (InputButtons.Switch | InputButtons.SlotPistol | InputButtons.SlotPrimary)) != 0
+        ? (buttons & (InputButtons.Switch | InputButtons.SlotPistol | InputButtons.SlotPrimary | InputButtons.SlotSecond)) != 0
         : a != BufferedAction.None && (buttons & Button(a)) != 0;
 
     /// <summary>
@@ -92,7 +92,7 @@ public static class InputBuffer
         if (Edge(InputButtons.Melee, s.MeleeHeld)) return BufferedAction.Melee;
         if (Edge(InputButtons.Jump, s.JumpHeld)) return BufferedAction.Jump;
         if (Edge(InputButtons.Grenade, s.GrenadeHeld)) return BufferedAction.Grenade;
-        if (Combat.SwitchRequested(c, s, Edge(InputButtons.Switch, s.SwitchHeld), Edge(InputButtons.SlotPistol, s.SlotPistolHeld), Edge(InputButtons.SlotPrimary, s.SlotPrimaryHeld)))
+        if (Combat.SwitchRequested(c, s, Edge(InputButtons.Switch, s.SwitchHeld), Edge(InputButtons.SlotPistol, s.SlotPistolHeld), Edge(InputButtons.SlotPrimary, s.SlotPrimaryHeld), Edge(InputButtons.SlotSecond, s.SlotSecondHeld)))
             return BufferedAction.Switch;
         if (Edge(InputButtons.Reload, s.ReloadHeld)) return BufferedAction.Reload;
         return BufferedAction.None;
@@ -170,11 +170,12 @@ public static class InputBuffer
             BufferedAction.Melee => s with { MeleeHeld = false },
             BufferedAction.MeleeHeavy => s with { MeleeHeavyHeld = false },
             BufferedAction.Grenade => s with { GrenadeHeld = false },
-            BufferedAction.Switch => s with { SwitchHeld = false, SlotPistolHeld = false, SlotPrimaryHeld = false },
+            BufferedAction.Switch => s with { SwitchHeld = false, SlotPistolHeld = false, SlotPrimaryHeld = false, SlotSecondHeld = false },
             BufferedAction.Reload => s with { ReloadHeld = false, DetonateHeld = false },
             _ => s,
         };
-        // A Switch replays as the toggle alone (a slot key held for it is dropped this tick: the toggle names the same weapon).
+        // A Switch replays as the toggle alone (a slot key held for it is dropped this tick: the toggle names the same weapon). Protocol 44: the key-3 slot stays,
+        // since the toggle does not name the second primary (a key 3 let go before the replay replays as the toggle: an estimate).
         var buttons = carried == BufferedAction.Switch ? input.Buttons & ~(InputButtons.SlotPistol | InputButtons.SlotPrimary) : input.Buttons;
         return new(fresh, carried, primed, input with { Buttons = buttons | Button(carried) });
     }
@@ -198,6 +199,7 @@ public static class InputBuffer
                 BufferedAction.Switch => next with
                 {
                     SwitchHeld = (b & InputButtons.Switch) != 0, SlotPistolHeld = (b & InputButtons.SlotPistol) != 0, SlotPrimaryHeld = (b & InputButtons.SlotPrimary) != 0,
+                    SlotSecondHeld = (b & InputButtons.SlotSecond) != 0,
                 },
                 // A replayed Reload that detonated launcher grenades keeps its "no reload until released" latch while R is really down (review fix).
                 BufferedAction.Reload => next with { ReloadHeld = (b & InputButtons.Reload) != 0, DetonateHeld = next.DetonateHeld && (b & InputButtons.Reload) != 0 },

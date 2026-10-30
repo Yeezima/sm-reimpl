@@ -150,7 +150,7 @@ public static class Brace
     public static PlayerInput Mask(PlayerInput input, Tick tick)
     {
         if (tick.Phase == BracePhase.None) return input;
-        var cleared = InputButtons.Reload | InputButtons.Melee | InputButtons.MeleeHeavy | InputButtons.Switch | InputButtons.SlotPistol | InputButtons.SlotPrimary | InputButtons.Sprint;
+        var cleared = InputButtons.Reload | InputButtons.Melee | InputButtons.MeleeHeavy | InputButtons.Switch | InputButtons.SlotPistol | InputButtons.SlotPrimary | InputButtons.SlotSecond | InputButtons.Sprint;
         // Jump too: during an exit a Jump that starts an evade has already ended the stance (Begin), so one left here starts nothing.
         cleared |= InputButtons.Jump;
         if (tick.Changing) cleared |= InputButtons.Fire | InputButtons.Grenade | InputButtons.Aim;

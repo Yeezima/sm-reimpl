@@ -35,13 +35,16 @@ public static class Combat
         var primary = Loadouts.Weapon(c, s, WeaponSlot.Ranged);
         var pistol = Loadouts.Weapon(c, s, WeaponSlot.Pistol);
         var slot = primary is null && pistol is not null ? WeaponSlot.Pistol : WeaponSlot.Ranged;
-        var (inHand, other) = slot == WeaponSlot.Ranged ? (primary, pistol) : (pistol, primary);
+        var inHand = slot == WeaponSlot.Ranged ? primary : pistol;
+        var other = Loadouts.Weapon(c, s, Loadouts.Other(slot));
+        var third = Loadouts.Weapon(c, s, Loadouts.Third(slot));   // protocol 44: the second primary (Weapon Versatility) or the primary
         var body = Loadouts.Body(c, s);   // M43: the perks' health and shield (Iron Halo)
         return s with
         {
             Alive = true, Health = body.HealthMax, Shield = body.ShieldMax, BurstLeft = 0,
             Slot = slot, Clip = inHand?.ClipSize ?? 0, Reserve = inHand?.ReserveSize ?? 0,
             OtherClip = other?.ClipSize ?? 0, OtherReserve = other?.ReserveSize ?? 0, SwitchLeft = 0,
+            ThirdClip = third?.ClipSize ?? 0, ThirdReserve = third?.ReserveSize ?? 0, ThirdHeat = 0, ThirdOverheated = false, ThirdSinceHeat = 0,
             Cooldown = 0, ReloadLeft = 0, SinceDamage = 0, RespawnLeft = 0, Velocity = Vector3.Zero, Grounded = true,
             MeleeStep = 0, MeleeTime = 0, MeleeQueued = false,
             Heat = 0, Overheated = false, SinceHeat = 0, OtherHeat = 0, OtherOverheated = false, OtherSinceHeat = 0,
@@ -107,7 +110,7 @@ public static class Combat
         MeleeHeavy = false, MeleeQueuedHeavy = false,
         Reaction = ReactionKind.None, ReactionDirection = ReactionDirection.Front, ReactionTicks = 0, PushYaw = 0, PushDistance = 0, PushTicks = 0, BlindTicks = 0,
         Rush = RushPhase.None, RushTicks = 0, RushLock = 0,
-        Alive = false, Health = 0f, Shield = 0f, RespawnLeft = c.RespawnTime, Velocity = Vector3.Zero, ReloadLeft = 0f, SwitchLeft = 0f,
+        Alive = false, Health = 0f, Shield = 0f, RespawnLeft = Loadouts.RespawnTime(c, s), Velocity = Vector3.Zero, ReloadLeft = 0f, SwitchLeft = 0f,
         MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false,
         Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Throwing = false, ThrowTime = 0f, StimLeft = 0f,
         Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSlash = false, Aiming = false,
@@ -377,8 +380,10 @@ public static class Combat
         bool switchDown = (input.Buttons & InputButtons.Switch) != 0;
         bool slotPistolDown = (input.Buttons & InputButtons.SlotPistol) != 0;
         bool slotPrimaryDown = (input.Buttons & InputButtons.SlotPrimary) != 0;
-        // A toggle press, or a slot press naming the holstered weapon: one switch request, under the same rules below.
-        bool switchPress = SwitchRequested(c, s, switchDown && !s.SwitchHeld, slotPistolDown && !s.SlotPistolHeld, slotPrimaryDown && !s.SlotPrimaryHeld);
+        bool slotSecondDown = (input.Buttons & InputButtons.SlotSecond) != 0;
+        // A toggle press, or a slot press naming a holstered weapon: one switch request, under the same rules below (protocol 44: to the slot SwitchTarget names).
+        var switchTo = SwitchTarget(c, s, switchDown && !s.SwitchHeld, slotPistolDown && !s.SlotPistolHeld, slotPrimaryDown && !s.SlotPrimaryHeld, slotSecondDown && !s.SlotSecondHeld);
+        bool switchPress = switchTo is not null;
         bool reloadDown = (input.Buttons & InputButtons.Reload) != 0;
         bool reloadPress = reloadDown && !s.ReloadHeld;
         bool grenadeDown = (input.Buttons & InputButtons.Grenade) != 0;
@@ -394,7 +399,7 @@ public static class Combat
             return s with
             {
                 RespawnLeft = MathF.Max(0f, s.RespawnLeft - dt), Velocity = Vector3.Zero, MeleeHeld = meleeDown, MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false,
-                FireHeld = fireDown, SwitchHeld = switchDown, SlotPistolHeld = slotPistolDown, SlotPrimaryHeld = slotPrimaryDown, SwitchLeft = 0f,
+                FireHeld = fireDown, SwitchHeld = switchDown, SlotPistolHeld = slotPistolDown, SlotPrimaryHeld = slotPrimaryDown, SlotSecondHeld = slotSecondDown, SwitchLeft = 0f,
                 ReloadHeld = reloadDown, Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, ReadyTicks = 0, RaiseTicks = 0,
                 DetonateHeld = reloadBlocked, GrenadeHeld = grenadeDown, Throwing = false, ThrowTime = 0f, StimLeft = 0f, JumpHeld = jumpDown,
                 GrenadeCooldown = MathF.Max(0f, s.GrenadeCooldown - dt), Aiming = false,
@@ -429,7 +434,7 @@ public static class Combat
         if (reacting || rushing)
         {
             input = input with { MoveX = 0f, MoveY = 0f, Buttons = InputButtons.None };
-            meleeDown = meleePress = heavyDown = heavyPress = fireDown = firePress = switchDown = slotPistolDown = slotPrimaryDown = switchPress = false;
+            meleeDown = meleePress = heavyDown = heavyPress = fireDown = firePress = switchDown = slotPistolDown = slotPrimaryDown = slotSecondDown = switchPress = false;
             reloadDown = reloadPress = grenadeDown = grenadePress = jumpDown = reloadBlocked = false;
         }
 
@@ -533,7 +538,7 @@ public static class Combat
         }
 
         var slot = s.Slot;
-        int clip = s.Clip, reserve = s.Reserve, otherClip = s.OtherClip, otherReserve = s.OtherReserve;
+        int clip = s.Clip, reserve = s.Reserve, otherClip = s.OtherClip, otherReserve = s.OtherReserve, thirdClip = s.ThirdClip, thirdReserve = s.ThirdReserve;
         float reloadLeft = cancelReload ? 0f : s.ReloadLeft;
         bool charging = s.Charging && charge is not null;
         float chargeTime = charging ? s.ChargeTime : 0f;
@@ -554,15 +559,23 @@ public static class Combat
         // Both weapons cool every tick (each with its own spec), before any switch or shot of this tick.
         var (heat, overheated, sinceHeat) = Cool(weapon?.Heat, s.Heat, s.Overheated, s.SinceHeat, dt);
         if (venting) (heat, overheated) = Vent.Step(weapon!.Vent!, weapon.Heat!, heat, overheated, dt);   // on top of the cooling (owner's recollection)
-        var (otherHeat, otherOverheated, otherSinceHeat) = Cool(holstered?.Heat, s.OtherHeat, s.OtherOverheated, s.OtherSinceHeat, dt);
+        var (otherHeat, otherOverheated, otherSinceHeat) = Cool(Loadouts.Weapon(c, s, Loadouts.Other(s.Slot))?.Heat, s.OtherHeat, s.OtherOverheated, s.OtherSinceHeat, dt);
+        var (thirdHeat, thirdOverheated, thirdSinceHeat) = Cool(Loadouts.Weapon(c, s, Loadouts.Third(s.Slot))?.Heat, s.ThirdHeat, s.ThirdOverheated, s.ThirdSinceHeat, dt);
         bool switched = false;
-        if (switchPress && step == 0 && !s.Throwing && !jumpBusy && switchLeft <= 0f && weapon is not null && holstered is { } next)
+        if (switchPress && step == 0 && !s.Throwing && !jumpBusy && switchLeft <= 0f && weapon is not null && switchTo!.Value != s.Slot && Loadouts.Weapon(c, s, switchTo.Value) is { } next)
         {
             switched = true;
             used |= InputBuffer.Bit(BufferedAction.Switch);
-            slot = Loadouts.Other(slot);
-            (clip, reserve, otherClip, otherReserve) = (otherClip, otherReserve, clip, reserve);
-            (heat, overheated, sinceHeat, otherHeat, otherOverheated, otherSinceHeat) = (otherHeat, otherOverheated, otherSinceHeat, heat, overheated, sinceHeat);
+            // Protocol 44: three stores (in hand, first holstered, second holstered) follow the weapons to their new places (two weapons: a plain swap).
+            var from = slot;
+            slot = switchTo.Value;
+            var stores = new (int Clip, int Reserve, float Heat, bool Overheated, float SinceHeat)[3];
+            stores[(int)from] = (clip, reserve, heat, overheated, sinceHeat);
+            stores[(int)Loadouts.Other(from)] = (otherClip, otherReserve, otherHeat, otherOverheated, otherSinceHeat);
+            stores[(int)Loadouts.Third(from)] = (thirdClip, thirdReserve, thirdHeat, thirdOverheated, thirdSinceHeat);
+            (clip, reserve, heat, overheated, sinceHeat) = stores[(int)slot];
+            (otherClip, otherReserve, otherHeat, otherOverheated, otherSinceHeat) = stores[(int)Loadouts.Other(slot)];
+            (thirdClip, thirdReserve, thirdHeat, thirdOverheated, thirdSinceHeat) = stores[(int)Loadouts.Third(slot)];
             weapon = next;
             switchLeft = c.WeaponSwitchTime;
             if (switchLeft <= 1e-6f) switchLeft = 0f;
@@ -790,7 +803,8 @@ public static class Combat
         float speedScale = charging && charge is not null && ChargeStage(charge, chargeTime, firing: false) is var reachedStage and > 0
             ? charge.Stages[reachedStage - 1].MoveSpeedMultiplier : 1f;
         // An overheat's speed modifier (the plasma cannon; fidelity gap 7), from either weapon (it is on the player).
-        speedScale *= Vent.OverheatSpeed(weapon?.Heat, overheated, sinceHeat) * Vent.OverheatSpeed((switched ? Loadouts.InHand(c, s) : holstered)?.Heat, otherOverheated, otherSinceHeat);
+        speedScale *= Vent.OverheatSpeed(weapon?.Heat, overheated, sinceHeat) * Vent.OverheatSpeed(Loadouts.Weapon(c, s, Loadouts.Other(slot))?.Heat, otherOverheated, otherSinceHeat)
+            * Vent.OverheatSpeed(Loadouts.Weapon(c, s, Loadouts.Third(slot))?.Heat, thirdOverheated, thirdSinceHeat);
         var moveInput = step > 0 && time < MoveAtOf(steps[step - 1], c)   // feel/locks-sprint-stop: MoveAt × the lock scale
             ? input with { MoveX = 0f, MoveY = 0f, Buttons = input.Buttons & ~(InputButtons.Sprint | InputButtons.Jump) }
             : input;
@@ -869,8 +883,9 @@ public static class Combat
             SinceDamage = since, Shield = shield, Health = health, Cooldown = cooldown,
             ReloadLeft = reloadLeft, Clip = clip, Reserve = reserve,
             Slot = slot, OtherClip = otherClip, OtherReserve = otherReserve, SwitchLeft = switchLeft,
+            ThirdClip = thirdClip, ThirdReserve = thirdReserve, ThirdHeat = thirdHeat, ThirdOverheated = thirdOverheated, ThirdSinceHeat = thirdSinceHeat,
             Heat = heat, Overheated = overheated, SinceHeat = sinceHeat, OtherHeat = otherHeat, OtherOverheated = otherOverheated, OtherSinceHeat = otherSinceHeat,
-            FireHeld = fireDown, SwitchHeld = switchDown, SlotPistolHeld = slotPistolDown, SlotPrimaryHeld = slotPrimaryDown,
+            FireHeld = fireDown, SwitchHeld = switchDown, SlotPistolHeld = slotPistolDown, SlotPrimaryHeld = slotPrimaryDown, SlotSecondHeld = slotSecondDown,
             MeleeStep = step, MeleeTime = time, MeleeQueued = queued, MeleeHeld = meleeDown,
             ReloadHeld = reloadDown, Charging = charging, ChargeTime = chargeTime, PendingShot = pending, PendingLeft = pendingLeft,
             ReadyTicks = readyTicks, RaiseTicks = raise, BurstLeft = burstLeft,
@@ -891,7 +906,7 @@ public static class Combat
         return result with
         {
             FireHeld = Real(InputButtons.Fire), SwitchHeld = Real(InputButtons.Switch), SlotPistolHeld = Real(InputButtons.SlotPistol),
-            SlotPrimaryHeld = Real(InputButtons.SlotPrimary), MeleeHeld = Real(InputButtons.Melee), MeleeHeavyHeld = Real(InputButtons.MeleeHeavy),
+            SlotPrimaryHeld = Real(InputButtons.SlotPrimary), SlotSecondHeld = Real(InputButtons.SlotSecond), MeleeHeld = Real(InputButtons.Melee), MeleeHeavyHeld = Real(InputButtons.MeleeHeavy),
             ReloadHeld = Real(InputButtons.Reload), DetonateHeld = s.DetonateHeld && Real(InputButtons.Reload),
             GrenadeHeld = Real(InputButtons.Grenade), JumpHeld = Real(InputButtons.Jump),
         };
@@ -904,11 +919,18 @@ public static class Combat
     /// a slot press overrides a Switch press in the same tick. Whether the switch then happens is
     /// <see cref="StepPlayer"/>'s rules for the request (melee, throw, jump dive, a switch under way, evade timing).
     /// </summary>
-    public static bool SwitchRequested(SimConfig c, PlayerState s, bool togglePress, bool pistolPress, bool primaryPress)
+    public static bool SwitchRequested(SimConfig c, PlayerState s, bool togglePress, bool pistolPress, bool primaryPress, bool secondPress = false) =>
+        SwitchTarget(c, s, togglePress, pistolPress, primaryPress, secondPress) is not null;
+
+    /// <summary>
+    /// The slot a switch request goes to (protocol 44), or null for none: a named slot (pistol first, then primary, then the second primary) when it is not in hand
+    /// and holds a weapon; without a slot press, a toggle press goes to <see cref="Loadouts.ToggleSlot"/>.
+    /// </summary>
+    public static WeaponSlot? SwitchTarget(SimConfig c, PlayerState s, bool togglePress, bool pistolPress, bool primaryPress, bool secondPress = false)
     {
-        WeaponSlot? named = pistolPress ? WeaponSlot.Pistol : primaryPress ? WeaponSlot.Ranged : null;
-        if (named is not { } slot) return togglePress;
-        return slot != s.Slot && Loadouts.Holstered(c, s) is not null;
+        WeaponSlot? named = pistolPress ? WeaponSlot.Pistol : primaryPress ? WeaponSlot.Ranged : secondPress ? WeaponSlot.Second : null;
+        if (named is not { } slot) return togglePress ? Loadouts.ToggleSlot(c, s) ?? s.Slot : null;   // a toggle press with nothing to go to is still a request (it ends an evade), to the slot in hand
+        return slot != s.Slot && Loadouts.Weapon(c, s, slot) is not null ? slot : null;
     }
 
     /// <summary>

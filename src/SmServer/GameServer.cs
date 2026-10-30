@@ -183,6 +183,7 @@ public sealed partial class GameServer
             _nextTickAt += tickLength;
             if (_nextTickAt > _nextSnapshotAt) { Guard("snapshots", SendSnapshots); _nextSnapshotAt += snapshotLength; }
             if (_nextTickAt > _nextScoreboardAt) { Guard("scoreboards", SendScoreboards); _nextScoreboardAt += _options.ScoreboardInterval; }
+            Guard("bars", SendBars);   // protocol 44: Tactical Readout / Signum Link (GameServer.Bars.cs)
             Guard("pickups", SendPickups);   // protocol 26: dropped pickups, outside the snapshots (GameServer.Pickups.cs)
             Guard("extras", SendExtrasDue);   // added content's envelope, never on a faithful server (GameServer.Envelope.cs)
         }
@@ -252,7 +253,7 @@ public sealed partial class GameServer
         bool classRefused = h.RequestedClass != Protocol.ServerDefaultClass && !ContentGate.ClassOffered(World.Config, h.RequestedClass);
         int Choice(byte requested) => classRefused ? -1 : ChoiceFor(requested);
         var spawned = World.Spawn(peer.PlayerId, playerClass, Choice(h.RequestedPrimary), Choice(h.RequestedPistol), Choice(h.RequestedMelee),
-            Choice(h.RequestedEquipment), Choice(h.RequestedPerk1), Choice(h.RequestedPerk2), team: team);
+            Choice(h.RequestedEquipment), Choice(h.RequestedPerk1), Choice(h.RequestedPerk2), team: team, secondChoice: Choice(h.RequestedSecond));
         NotePistolDefault(peer.PlayerId, playerClass, Choice(h.RequestedPistol), spawned.Pistol);
         if (h.Bot && _options.BotDamageScale != 1f)   // test aid (--bot-damage-scale)
         {

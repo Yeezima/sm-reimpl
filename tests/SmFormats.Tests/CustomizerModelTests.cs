@@ -296,7 +296,7 @@ public class CustomizerModelTests : IDisposable
         Assert.False(missing.Active);
         Assert.Equal("NOT ACTIVE YET", missing.ActivityTag);
         // The statuses of a config are the simulation's (nothing in this tiny config consumes an upgrade string, so none is active).
-        Assert.All(PerkStatuses.Of(Config()).Values, s => Assert.Equal(PerkActivity.Inert, s.Activity));
+        Assert.All(PerkStatuses.Of(Config()).Where(kv => !SmSim.Perks.ServerRulePerks.Contains(kv.Key)).Select(kv => kv.Value), s => Assert.Equal(PerkActivity.Inert, s.Activity));   // protocol 44: but the server-rule perks act
     }
 
     [Fact]

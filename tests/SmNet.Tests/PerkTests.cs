@@ -17,8 +17,8 @@ public class PerkTests(ITestOutputHelper output)
         Inert = "u_inert", Cool = "u_cool";
     static readonly string[] Strings = [Mag, Burst, Fnp, Imp, Larr, Art, Halo, Veng, React, BlastOff, Recharge, KnifePerk, HealPerk, Armory, Master, Inert, Cool];
     static int P(string upgrade) => Array.IndexOf(Strings, upgrade);
-    /// <summary>The perk files: named after the original's where a status note applies (Rapid Deployment inert; Burst Fire has had no note since weapons/spread).</summary>
-    static string NameOf(string u) => u switch { Burst => "mp_perk_weap_stalker_zoom_modes", Inert => "mp_perk_respawn_timer", _ => "mp_perk_" + u };
+    /// <summary>The perk files: named after the original's where a status note applies (Fast Stomp inert; Burst Fire has had no note since weapons/spread).</summary>
+    static string NameOf(string u) => u switch { Burst => "mp_perk_weap_stalker_zoom_modes", Inert => "mp_perk_speed_increase", _ => "mp_perk_" + u };
 
     static readonly DamageSpec Plain = new(0f, 0f, 1f, 1f, 1f, 1f, false);
     static WeaponSpec Gun(string name, WeaponSlot slot, TriggerKind trigger, float damage, float cooldown, int clip, int reserve) =>
@@ -401,10 +401,11 @@ public class PerkTests(ITestOutputHelper output)
         Assert.Equal(PerkActivity.Active, Of("mp_perk_u_mag").Activity);
         Assert.Equal(PerkActivity.Active, Of("mp_perk_u_fnp").Activity);                         // a player-blueprint upgrade
         Assert.Equal(PerkActivity.Active, Of("mp_perk_weap_stalker_zoom_modes").Activity);       // weapons/spread: its scatter sets act, the note is gone
-        var inert = Of("mp_perk_respawn_timer");
+        var inert = Of("mp_perk_speed_increase");
         Assert.Equal(PerkActivity.Inert, inert.Activity);
-        Assert.Contains("owner question", inert.Note);
-        Assert.Equal(PerkActivity.Inert, Of("mp_perk_secondary_weapon").Activity);               // no upgrade string at all
+        Assert.Contains("no simulated entry", inert.Note);
+        Assert.Equal(PerkActivity.Active, Of("mp_perk_secondary_weapon").Activity);              // no upgrade string at all, but a rule of the server and the client (protocol 44)
+        foreach (var rule in Perks.ServerRulePerks) Assert.Equal(PerkActivity.Active, Perks.StatusOf(c, new PerkSpec(rule, null, PerkKind.Class, 1)).Activity);
         Assert.Equal("NOT ACTIVE YET", PerkStatus.NotActiveLabel);
         // A class that carries nothing reacting to a string: that class's view of the perk is inert.
         Assert.DoesNotContain(Burst, Perks.Consumed(c, Jumper));   // the jumper carries no stalker
@@ -415,7 +416,7 @@ public class PerkTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_23_carries_the_own_perks_and_burst_and_not_the_others()
     {
-        Assert.Equal(43, Protocol.Version);
+        Assert.Equal(44, Protocol.Version);
         var me = new PlayerState(3, Vector3.One, Vector3.Zero, 0f, true) { Alive = true, Perk1 = 5, Perk2 = 126, BurstLeft = 1 };
         var other = new PlayerState(4, Vector3.One, Vector3.Zero, 0f, true) { Alive = true, Perk1 = 7, Perk2 = 8 };
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(1, 1, 1, [me, other], Self: 3))));

@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1641 spec table rows: **1110 tagged**, 385 not tagged (read from data with high confidence), 146 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 322 rows of the changes document.
+Scanned 1654 spec table rows: **1122 tagged**, 385 not tagged (read from data with high confidence), 147 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 325 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -44,7 +44,7 @@ Scanned 1641 spec table rows: **1110 tagged**, 385 not tagged (read from data wi
 | Sound mix (critical) | 49 | 45 | 42 | 10 | 0 |
 | Effects (critical) | 65 | 57 | 55 | 33 | 0 |
 | Game modes | 38 | 35 | 36 | 19 | 1 |
-| Perks | 47 | 36 | 20 | 20 | 0 |
+| Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
 | Customizer and paint | 49 | 46 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
@@ -53,25 +53,25 @@ Scanned 1641 spec table rows: **1110 tagged**, 385 not tagged (read from data wi
 | Core simulation (provisional values) | 66 | 60 | 54 | 5 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1110** | 917 | 878 | 358 | 38 |
+| **All areas** | **1122** | 929 | 889 | 363 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 411 |
-| confidence: low | 382 |
-| confidence: medium | 382 |
+| kind: ours | 412 |
+| confidence: medium | 388 |
+| confidence: low | 387 |
 | kind: interpretation | 312 |
-| notes: ours | 271 |
+| notes: ours | 276 |
 | confidence: none (low) | 114 |
 | kind: provisional | 98 |
 | section: provisional | 38 |
+| kind: user's knowledge | 35 |
 | section: placeholder | 35 |
+| kind: estimate | 33 |
 | notes: provisional | 31 |
-| kind: estimate | 29 |
 | kind: choice | 28 |
-| kind: user's knowledge | 28 |
 | kind: approximation | 23 |
 | kind: placeholder | 22 |
 | notes: placeholder | 17 |
@@ -1261,7 +1261,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-F93EE7FA` | Spawn positions | the map's TDM markers (`tdm_mkr_spawn_NN` in `d_tdm.Layer`), facing their Z rotation; each spawn takes the next marker in name order, skipping markers within 2 m of a living player; without a map, a circle of radius 3 (m, rad) | confidence: low; notes: placeholder; section: placeholder; section: provisional | positions and facing **supported by evidence**; the choice of marker is a placeholder (M15 with teams: the free marker farthest from living enemies; see Teams… | Spawn positions: compare with SM1 by feel or video. Ours: the map's TDM markers (tdm_mkr_spawn_NN in d_tdm.Layer), facing their… | ☐ |
 
-### Perks (47)
+### Perks (59)
 
 *Spec section: Custom classes: loadout changes, perks and the wire (T2, T3a; protocol 22)*
 
@@ -1309,6 +1309,23 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-4CE2A859` | Perk description values (perks/finish) | the class creator's perk card: the locale description, then one values line per item generated from the specs the simulation picks (each carried item's variant for exactly the perk's upgrade string against its base; player-blueprint upgrades against the… | kind: ours | owner's request 2026-10-29 ("include accurate values to perk descriptions (if those can be determined)"); wording and layout ours | Perk description values (perks/finish): compare with SM1 by feel or video. Ours: the class creator's perk card: the locale description, then one… | ☐ |
 | `R-84033D0D` | Perk description item names (perks/finish) | an item is named by its neutral weapon name from the locale's challenge groups (111733–111746: "Storm Bolter / Twin Bolter", "Power Axe / Chain Axe", "Thunder Hammer / Daemon Maul"; grenades and stims by their item names; the heavy classes' core melee "Kick… | kind: ours; confidence: medium | locale (names); the table ours | Perk description item names (perks/finish): compare with SM1 by feel or video. Ours: an item is named by its neutral weapon name from the locale's… | ☐ |
 | `R-C8ABD700` | Perk description blast reactions (perks/finish) | a blast's reaction entries are compared by position and named by intensity: the highest entry "close hits", the lowest "outer hits", others "middle hits" (a target takes the entry of the highest intensity it reaches, `Reaction.Pick`) | kind: interpretation; confidence: medium; notes: ours | ours (wording of the data's intensity entries) | Perk description blast reactions (perks/finish): compare with SM1 by watching the reaction and timing it frame by frame. Ours: a blast's reaction entries are compared by position and named by… | ☐ |
+
+*Spec section: Perks without data (protocol 44; owner's decisions of 2026-10-30)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-8EC05A92` | Rapid Deployment: respawn time | **3 s** for a player with the perk (the base `SimConfig.RespawnTime` stays 5 s; never longer than the base); read when the player dies (s) | kind: user's knowledge; confidence: medium | **owner's recollection** (2026-10-30) | Rapid Deployment: respawn time: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 3 s for a player with the perk (the base SimConfig.RespawnTime stays… | ☐ |
+| `R-93023974` | Weapon Versatility: who | Tactical only (the data's role `tactical`: Tactical Marine and Chaos Space Marine Tactical); another class's request is dropped by the server (class) | kind: user's knowledge; confidence: medium | **owner's decision** (2026-10-30) | Weapon Versatility: who: compare with SM1 by feel or video. Ours: Tactical only (the data's role tactical: Tactical Marine and Chaos… | ☐ |
+| `R-F5903420` | Weapon Versatility: the third slot | slot 1 pistol (key 1), slot 2 primary (key 2), slot 3 a second primary (key 3, `InputButtons.SlotSecond`); the second primary is chosen in the class creator among the class's primaries (default: none; key 3 then does nothing); its ammunition and heat are its… (slot) | kind: user's knowledge; confidence: medium | **owner's decision** (2026-10-30) | Weapon Versatility: the third slot: compare with SM1 by feel or video. Ours: slot 1 pistol (key 1), slot 2 primary (key 2), slot 3 a second… | ☐ |
+| `R-881208E3` | Weapon Versatility: validation | the server keeps the request only for a Tactical holding the perk (either perk slot) and a weapon of the class's primary list; else none (`Loadouts.SecondIndex`, `Loadouts.Resolve`); a dead perk after a class change drops it at the next respawn | kind: ours | ours (rule of the owner's decision) | Weapon Versatility: validation: compare with SM1 by feel or video. Ours: the server keeps the request only for a Tactical holding the perk… | ☐ |
+| `R-8DEE4872` | Weapon switching with three weapons | keys 1, 2, 3 name their slot; the Switch toggle and the mouse wheel go to the next weapon in the order pistol, primary, second primary (two weapons: the other one, as before); the switch costs the same time and has the same rules as before | kind: estimate; confidence: low; notes: ours | the order is **ours** (the owner named only the keys) | Weapon switching with three weapons: compare with SM1 by feel or video. Ours: keys 1, 2, 3 name their slot; the Switch toggle and the mouse wheel… | ☐ |
+| `R-A760454E` | Weapon switch buffered with three weapons | a Switch press blocked by an action is replayed as the toggle (key 3 is kept while it is still held); a key 1 or 2 let go before the replay may go to the next weapon of the cycle instead | kind: estimate; confidence: low; notes: ours | ours | Weapon switch buffered with three weapons: compare with SM1 by feel or video. Ours: a Switch press blocked by an action is replayed as the toggle (key 3… | ☐ |
+| `R-AFD589AF` | Teleport Homer: rule | while a carrier is alive, a player of its side who respawns after dying appears next to it instead of at the side's start area or a map spawn; joins and round starts use the side's spawn as ever | kind: user's knowledge; confidence: medium | **owner's decision** (2026-10-30) | Teleport Homer: rule: compare with SM1 by feel or video. Ours: while a carrier is alive, a player of its side who respawns after… | ☐ |
+| `R-771E3061` | Teleport Homer: several carriers | the one nearest to where the respawning player died (ties: the lowest id) | kind: estimate; confidence: low; notes: ours | ours | Teleport Homer: several carriers: compare with SM1 by feel or video. Ours: the one nearest to where the respawning player died (ties: the lowest… | ☐ |
+| `R-A6003C94` | Teleport Homer: the place | the first free spot of a ring around the carrier: radii 1.5, 2, 2.5, 3 m; 12 directions each, starting behind the carrier and alternating sides; free = on the carrier's floor (a standable surface within 0.6 m of its feet), in its sight (nothing on the… (m) | kind: estimate; confidence: low; notes: ours | ours | Teleport Homer: the place: compare with SM1 by measuring on a flat spot of the same map. Ours: the first free spot of a ring around the carrier: radii 1.5, 2, 2.5… | ☐ |
+| `R-8DEF59B7` | Tactical Readout: what shows | the health and armour of the living **enemies** (allies are not sent) as a thin two-lane bar at the enemy under the crosshair (the existing aimed-enemy display), fractions of the enemy's class body; **no name**; sent by the server ten times a second only to a… | kind: user's knowledge; confidence: medium; notes: ours | **owner's decision** (2026-10-30); the place (at the crosshair, not over every enemy in sight) and the rates are ours | Tactical Readout: what shows: compare with SM1 by feel or video. Ours: the health and armour of the living enemies (allies are not sent) as… | ☐ |
+| `R-58D53DB1` | Signum Link | the same as Tactical Readout for now (bars, no name) | kind: user's knowledge; confidence: low | **owner's decision** (2026-10-30: "for now") | Signum Link: compare with SM1 by feel or video. Ours: the same as Tactical Readout for now (bars, no name). | ☐ |
+| `R-D6981A0D` | Without either perk | nothing shows over an enemy: no name and no bar (before this: the enemy's name always, a bar after a hit on it); the crosshair still turns red over an enemy; allies' display is unchanged | kind: user's knowledge; confidence: medium | **owner's decision** (2026-10-30) | Without either perk: compare with SM1 by feel or video. Ours: nothing shows over an enemy: no name and no bar (before this: the… | ☐ |
 
 *Spec section: Combat stims (perks/inert-2; protocol 40, the config hash changes)*
 
@@ -2108,6 +2125,14 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-5009D94C` | The slash's landing | The regular landing's blast for the drop applies as for any landing (the data's smash-landing table has none) | same | The slash's landing: compare with SM1 by feel or video. Ours: The regular landing's blast for the drop applies as for any landing… | ☐ |
 | `C-7B4F55E3` | Interrupted slash and dash attack | A reaction in the slash's recovery before its hit cancels the hit; a reaction, death or round restart ends a dash attack in any of its states | same | Interrupted slash and dash attack: compare with SM1 by watching the reaction and timing it frame by frame. Ours: A reaction in the slash's recovery before its hit cancels the hit; a… | ☐ |
 
+#### Five perks from the owner's recollection (protocol 44)
+
+| ID | Area | What we do | What is unknown | Spec | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-18CF6759` | Teleport Homer | A respawning ally of the carrier's side appears on a free spot of a ring (1.5 to 3 m, behind the carrier first) around the living carrier that is on its floor and in its sight; several carriers: the one nearest to where the ally died; none free: the normal spawn; only death respawns | Which carrier the original takes, how it picks the spot, whether joins and round starts use it | Perks without data | Teleport Homer: compare with SM1 by feel or video. Ours: A respawning ally of the carrier's side appears on a free spot of a… | ☐ |
+| `C-6539A825` | Weapon Versatility | A third weapon slot on key 3 for Tactical Marines holding the perk; the second primary is picked in the creator among the class's primaries (default none); the Switch toggle and the wheel cycle pistol, primary, second primary; the HUD's switch cards show three cards | Which weapons the original offers in slot 3, its default, how the toggle and the wheel treat three weapons, the card layout | Perks without data | Weapon Versatility: compare with SM1 by feel or video. Ours: A third weapon slot on key 3 for Tactical Marines holding the perk… | ☐ |
+| `C-BEC240AD` | Tactical Readout, Signum Link | The enemy under the crosshair shows a health and armour bar without a name; Signum Link does the same for now; without either perk an enemy shows nothing (before: its name). The server sends the bars only to players with the perks | Whether the original draws the bars over every enemy in sight, their look and range, what Signum Link really does | Perks without data | Tactical Readout, Signum Link: compare with SM1 by feel or video. Ours: The enemy under the crosshair shows a health and armour bar without a… | ☐ |
+
 #### Combat stims (perks/inert-2)
 
 | ID | Rule | What we do | What is unknown | Spec section | Compare in a playtest | Result |
@@ -2222,6 +2247,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-E5F597B6` | Model key | Custom classes, end to end (customizer T9; summary) and in the match (T7) |
 | `R-DE2A0D0F` | Test aids (client only) | Custom classes, end to end (customizer T9; summary) and in the match (T7) |
 | `R-D680D0E8` | Wire | Weapon spread (weapons/spread; the owner's decision 2026-10-28; used by the simulation; no protocol change) |
+| `R-6A78E096` | Protocol 44 | Perks without data (protocol 44; owner's decisions of 2026-10-30) |
 | `R-587283EB` | **Demo file** (`--record-demo <file>`) | Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated) |
 | `R-DD23A31C` | **Replay** (`--play-demo <file>`, no server) | Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated) |
 | `R-06DC5D5F` | Replay fidelity | Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated) |

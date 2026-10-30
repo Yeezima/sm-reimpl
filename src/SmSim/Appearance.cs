@@ -13,10 +13,10 @@ namespace SmSim;
 /// Note: <c>default(LoadoutChoice)</c> and <c>new LoadoutChoice()</c> are all zeros (the first entry of every list), not the
 /// default; use <see cref="Default"/> or the constructor with named arguments.
 /// </summary>
-public readonly record struct LoadoutChoice(int Class = -1, int Primary = -1, int Pistol = -1, int Melee = -1, int Equipment = -1, int Perk1 = -1, int Perk2 = -1)
+public readonly record struct LoadoutChoice(int Class = -1, int Primary = -1, int Pistol = -1, int Melee = -1, int Equipment = -1, int Perk1 = -1, int Perk2 = -1, int Second = -1)
 {
-    /// <summary>Every field the default (-1).</summary>
-    public static LoadoutChoice Default => new(-1, -1, -1, -1, -1, -1, -1);
+    /// <summary>Every field the default (-1). Protocol 44: <see cref="Second"/> indexes the class's primary choices (Weapon Versatility; -1 none).</summary>
+    public static LoadoutChoice Default => new(-1, -1, -1, -1, -1, -1, -1, -1);
 }
 
 /// <summary>A perk's family (customizer tabs "CLASS PERKS" / "WEAPON PERKS"): weapon perks are the <c>mp_perk_weap_*</c> files (interpretation).</summary>

@@ -380,6 +380,14 @@ slash's values and clips but not these engine rules, so these are ours:
 | The slash's landing | The regular landing's blast for the drop applies as for any landing (the data's smash-landing table has none) | same |
 | Interrupted slash and dash attack | A reaction in the slash's recovery before its hit cancels the hit; a reaction, death or round restart ends a dash attack in any of its states | same |
 
+### Five perks from the owner's recollection (protocol 44)
+
+| Area | What we do | What is unknown | Spec |
+|---|---|---|---|
+| Teleport Homer | A respawning ally of the carrier's side appears on a free spot of a ring (1.5 to 3 m, behind the carrier first) around the living carrier that is on its floor and in its sight; several carriers: the one nearest to where the ally died; none free: the normal spawn; only death respawns | Which carrier the original takes, how it picks the spot, whether joins and round starts use it | Perks without data |
+| Weapon Versatility | A third weapon slot on key 3 for Tactical Marines holding the perk; the second primary is picked in the creator among the class's primaries (default none); the Switch toggle and the wheel cycle pistol, primary, second primary; the HUD's switch cards show three cards | Which weapons the original offers in slot 3, its default, how the toggle and the wheel treat three weapons, the card layout | Perks without data |
+| Tactical Readout, Signum Link | The enemy under the crosshair shows a health and armour bar without a name; Signum Link does the same for now; without either perk an enemy shows nothing (before: its name). The server sends the bars only to players with the perks | Whether the original draws the bars over every enemy in sight, their look and range, what Signum Link really does | Perks without data |
+
 ### Combat stims (perks/inert-2)
 
 | Rule | What we do | What is unknown | Spec section |

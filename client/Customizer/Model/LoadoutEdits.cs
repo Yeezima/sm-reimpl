@@ -88,7 +88,9 @@ public static class LoadoutEdits
         if (profile.ClassAt(slot) is not { } c) return Refused(profile, "That slot is empty.");
         if (neutralName is not null && LoadoutRows.Options(catalog, c.Role, CustomizationCatalog.SpaceMarine) is { } options)
         {
-            if (catalog.Perks.Offered(c.Role, key == "primary" ? "ranged" : key, neutralName) is not { } offered) return Refused(profile, "That class does not offer it.");
+            if (key == "second" && !PerkIn(c, options, SmSim.Loadouts.SecondWeaponPerk)) return Refused(profile, "Requires perk: Weapon Versatility");
+            if (key == "second" && !c.Role.Equals("tactical", StringComparison.OrdinalIgnoreCase)) return Refused(profile, "Only the Tactical Marine carries a second primary.");
+            if (catalog.Perks.Offered(c.Role, key is "primary" or "second" ? "ranged" : key, neutralName) is not { } offered) return Refused(profile, "That class does not offer it.");
             if (!offered.Selectable) return Refused(profile, "That item is fixed for the class.");
             if (offered.Item.RequiredPerk is { } need && !PerkIn(c, options, need))
                 return Refused(profile, $"Requires perk: {catalog.Perks.Perk(need)?.DisplayName ?? need}");
@@ -96,6 +98,7 @@ public static class LoadoutEdits
         var next = key switch
         {
             "primary" => c with { Primary = neutralName },
+            "second" => c with { Second = neutralName },   // protocol 44 (Weapon Versatility)
             "pistol" => c with { Pistol = neutralName },
             "melee" => c with { Melee = neutralName },
             "equipment" => c with { Equipment = neutralName },
@@ -134,6 +137,12 @@ public static class LoadoutEdits
         {
             next = next with { Pistol = null };
             notice = $"{catalog.Perks.Perk(need)?.DisplayName ?? need} removed: the pistol is back to the default.";
+        }
+        // Protocol 44: without Weapon Versatility the second primary goes (the server would drop it anyway).
+        if (next.Second is not null && !PerkIn(next, options, SmSim.Loadouts.SecondWeaponPerk))
+        {
+            next = next with { Second = null };
+            notice = (notice is null ? "" : notice + " ") + "Weapon Versatility removed: no second primary.";
         }
         return Done(Put(profile, next), notice);
     }
@@ -180,7 +189,7 @@ public static class LoadoutEdits
     public static EditResult Reset(CustomizationProfile profile, int slot)
     {
         if (profile.ClassAt(slot) is not { } c) return Refused(profile, "That slot is empty.");
-        return Done(Put(profile, c with { Primary = null, Pistol = null, Melee = null, Equipment = null, Perks = [null, null] }), "Reset to the class defaults.");
+        return Done(Put(profile, c with { Primary = null, Pistol = null, Melee = null, Equipment = null, Second = null, Perks = [null, null] }), "Reset to the class defaults.");
     }
 
     /// <summary>Empties a slot. When it was the selected loadout, the role's DEFAULTS take its place.</summary>

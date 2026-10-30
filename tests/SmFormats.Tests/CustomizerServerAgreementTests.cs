@@ -257,7 +257,7 @@ public class CustomizerServerAgreementTests
         Assert.Equal(catalog.Perks.All.Count, status.Count);
         int inert = status.Values.Count(s => s.Activity == PerkActivity.Inert), partial = status.Values.Count(s => s.Activity == PerkActivity.Partial);
         Assert.True(status.Count - inert >= 43, $"{status.Count - inert} of {status.Count} perks act");   // M43: 34 implemented; perks/inert-2: 43 (the stims made the last two partial ones whole)
-        Assert.True(partial >= 0 && inert >= 1 && inert < status.Count / 2, $"{inert} inert, {partial} partial");
+        Assert.True(partial >= 0 && inert >= 0 && inert < status.Count / 2, $"{inert} inert, {partial} partial");
         foreach (var options in catalog.Perks.Classes)
         {
             var rows = LoadoutRows.Perks(catalog, options.Role, options.Race, null, UnlockPolicy.All, status);

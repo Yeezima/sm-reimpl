@@ -110,6 +110,19 @@ public static class LoadoutRows
             }
             sections.Add(new OptionSection(key, heading, choices.Selectable, rows, null));
         }
+        // Protocol 44 (owner's decision of 2026-10-30): a Tactical that carries Weapon Versatility picks a second primary (key 3 in play); None is the default.
+        if (role.Equals("tactical", StringComparison.OrdinalIgnoreCase) && custom is not null && LoadoutEdits.PerkIn(custom, options, SmSim.Loadouts.SecondWeaponPerk) && options.For("primary") is { Items.Count: > 0 } primaries)
+        {
+            var secondRows = new List<OptionRow> { new("", "None", "No second primary: key 3 does nothing.", custom.Second is null, false, false, Unlock.Open, "") };
+            for (int i = 0; i < primaries.Items.Count; i++)
+            {
+                var item = primaries.Items[i];
+                secondRows.Add(new OptionRow(ProfileWire.Neutral(item.Name), item.DisplayName, item.Description,
+                    custom.Second is not null && ProfileWire.Neutral(item.Name).Equals(custom.Second, StringComparison.OrdinalIgnoreCase), false, !item.Simulated,
+                    policy.Evaluate(i, item.Level, null), !item.Simulated ? "Sent to the server as no second primary until it is simulated" : ""));
+            }
+            sections.Add(new OptionSection("second", "SECOND PRIMARY (WEAPON VERSATILITY, KEY 3)", true, secondRows, null));
+        }
         return sections;
     }
 
@@ -176,6 +189,8 @@ public static class LoadoutRows
     {
         if (Options(catalog, custom.Role, race) is not { } options) return custom.Role;
         var parts = new List<string> { options.DisplayName };
+        if (custom.Second is not null && options.For("primary").Items.FirstOrDefault(i => ProfileWire.Neutral(i.Name).Equals(custom.Second, StringComparison.OrdinalIgnoreCase)) is { } second)
+            parts.Add("2nd " + second.DisplayName);
         foreach (var key in new[] { "primary", "pistol", "melee", "equipment" })
             if ((options.For(key).Selectable || OrkLoadout.IsOrk(custom.Role)) && Effective(catalog, options, key, custom) is { } item) parts.Add(key == "equipment" ? EquipmentTitle(item) : item.DisplayName);   // the Ork's fixed gear is all he has: named too
         var perks = new[] { custom.Perk(0) ?? options.DefaultPerk?.Name, custom.Perk(1) }.OfType<string>()

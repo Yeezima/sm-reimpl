@@ -630,7 +630,8 @@ public sealed partial class UiSelfTest : Node
         Check("most assault perks are active, not a blanket NOT ACTIVE YET", active >= 10 && inert <= 2, $"active {active}, inert {inert} of {rows.Count}");
         Check("Furious Charge is active", rows.Single(r => r.Name == "mp_perk_improved_bullrush").Status.Activity == PerkActivity.Active);
         var tactical = LoadoutRows.Perks(catalog, "tactical", CustomizationCatalog.SpaceMarine, null, UnlockPolicy.All, _services.PerkActivities);
-        Check("Rapid Deployment says NOT ACTIVE YET and why", tactical.Single(r => r.Name == "mp_perk_respawn_timer") is { Active: false, ActivityTag: "NOT ACTIVE YET" } rd && rd.ActivityNote.Contains("owner question"), tactical.Single(r => r.Name == "mp_perk_respawn_timer").ActivityNote);
+        Check("Rapid Deployment, Weapon Versatility, Teleport Homer and Tactical Readout are active (protocol 44)", new[] { "mp_perk_respawn_timer", "mp_perk_secondary_weapon", "mp_perk_friendly_spawn_target", "mp_perk_enemy_info" }.All(n => tactical.Single(r => r.Name == n).Active), string.Join(", ", tactical.Where(r => !r.Active).Select(r => r.Name)));
+        Check("Signum Link is active (heavy)", LoadoutRows.Perks(catalog, "heavy", CustomizationCatalog.SpaceMarine, null, UnlockPolicy.All, _services.PerkActivities).Single(r => r.Name == "mp_perk_snap_to_increase").Active);
 
         // The list's scroll bar has a width: a list longer than its panel shows that it goes on.
         creator.OpenStep("weapons");

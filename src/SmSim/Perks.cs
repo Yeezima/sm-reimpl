@@ -181,11 +181,8 @@ public static class Perks
     public static readonly IReadOnlyDictionary<string, string> Notes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         // perks/finish: each checked again against the whole install (data/packages): what was found and what is missing.
-        ["mp_perk_respawn_timer"] = "Rapid Deployment: shorter respawn; no file reads its upgrade string and no respawn time is in the data (the reduction is unknown; owner question)",
-        ["mp_perk_friendly_spawn_target"] = "Teleport Homer: allies may respawn at the living carrier; no file reads its upgrade string (only the Dreadnought blueprints carry it); needs a spawn choice the game does not have yet (owner question)",
-        ["mp_perk_enemy_info"] = "Tactical Readout: enemies' armour and health shown above them; no file reads its upgrade string; needs other players' health and armour on the wire (the snapshot budget is full) and a HUD marker (owner question)",
-        ["mp_perk_secondary_weapon"] = "Weapon Versatility: an additional weapon; no upgrade string, only the front end's unlock_secondary_weapon; which weapon and slot is not in the data (owner question)",
-        ["mp_perk_snap_to_increase"] = "Signum Link: no file reads its upgrade string; the only candidate data are aim-assist sets named __snap_upgrade (heavy bolter, plasma cannon: aim snap-to 0 to 12 degrees), and aim assist is not simulated (its PC use is unknown; owner question)",
+        // Protocol 44 (owner's decisions of 2026-10-30, from his knowledge of the original): Rapid Deployment, Weapon Versatility, Teleport Homer, Tactical Readout and
+        // Signum Link are rules of the server and the client, not data: they are active (ServerRulePerks). Signum Link is for now the same as Tactical Readout.
         ["mp_perk_bolter_in_place_of_pistol"] = "True Grit: the pistol-slot Bolters are offered to Assault/Raptor only with it (data-implied rule); the bolter fires as in the data",
     };
 
@@ -218,6 +215,26 @@ public static class Perks
         ["mp_perk_weap_heavy_bolter_braced_fire_time"] = "Heavy Bolter Expertise", ["mp_perk_weap_heavy_bolter_heat"] = "Heavy Bolter Coolant",
         ["mp_perk_weap_las_cannon_recharge"] = "Lascannon Capacitors", ["mp_perk_weap_las_cannon_zoom"] = "Lascannon Stabilizers",
         ["mp_perk_weap_plasma_cannon_less_heat"] = "Plasma Heat Sink", ["mp_perk_weap_plasma_cannon_alt_fire_charge_time"] = "Improved Plasma Charge",
+    };
+
+    /// <summary>
+    /// The perks that are rules of the server and the client rather than data entries (protocol 44; owner's decisions of 2026-10-30): they have no entry that needs an
+    /// upgrade string, and are active all the same. Spec rows: spec/behavior.md "Perks without data".
+    /// </summary>
+    public static readonly IReadOnlySet<string> ServerRulePerks = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        Loadouts.RapidDeploymentPerk, Loadouts.SecondWeaponPerk, Loadouts.TeleportHomerPerk, Loadouts.TacticalReadoutPerk, Loadouts.SignumLinkPerk,
+    };
+
+    /// <summary>The values line of a server-rule perk (see <see cref="ServerRulePerks"/>), or null.</summary>
+    public static string? RuleText(string perkName) => perkName.ToLowerInvariant() switch
+    {
+        Loadouts.RapidDeploymentPerk => "Respawn time 5 s → 3 s.",
+        Loadouts.SecondWeaponPerk => "A third weapon slot on key 3 (Tactical Marine only): a second primary.",
+        Loadouts.TeleportHomerPerk => "Allies respawn next to you while you live.",
+        Loadouts.TacticalReadoutPerk => "Shows enemies' health and armour bars (no names).",
+        Loadouts.SignumLinkPerk => "Shows enemies' health and armour bars (no names), as Tactical Readout.",
+        _ => null,
     };
 
     /// <summary>A perk's English name (<see cref="EnglishNames"/>), else its file name.</summary>
@@ -256,7 +273,8 @@ public static class Perks
         var consumed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (int k = 0; k < c.Classes.Count; k++)
             if (index < 0 || Loadouts.ValidPerk(c, k, index)) consumed.UnionWith(Consumed(c, k));
-        bool used = (perk.UpgradeString is { Length: > 0 } u && consumed.Contains(u)) || string.Equals(perk.Name, Loadouts.TrueGritPerk, StringComparison.OrdinalIgnoreCase);
+        bool used = (perk.UpgradeString is { Length: > 0 } u && consumed.Contains(u)) || string.Equals(perk.Name, Loadouts.TrueGritPerk, StringComparison.OrdinalIgnoreCase)
+            || ServerRulePerks.Contains(perk.Name);
         string note = Notes.GetValueOrDefault(perk.Name, "");
         if (!used) return new PerkStatus(PerkActivity.Inert, note.Length > 0 ? note : "no simulated entry needs its upgrade string");
         return new PerkStatus(note.Length > 0 && !string.Equals(perk.Name, Loadouts.TrueGritPerk, StringComparison.OrdinalIgnoreCase) ? PerkActivity.Partial : PerkActivity.Active, note);

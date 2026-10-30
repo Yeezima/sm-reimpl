@@ -303,6 +303,7 @@ public sealed class ProfileStore
         w.WriteString("pistol", c.Pistol);
         w.WriteString("melee", c.Melee);
         w.WriteString("equipment", c.Equipment);
+        if (c.Second is not null) w.WriteString("second", c.Second);   // protocol 44: only when chosen (a file without it reads as none)
         w.WriteStartArray("perks");
         foreach (var p in c.Perks) w.WriteStringValue(p);
         w.WriteEndArray();
@@ -441,7 +442,8 @@ public sealed class ProfileStore
                     melee = Item(node["melee"], $"{path}.melee", role, "melee"), equipment = Item(node["equipment"], $"{path}.equipment", role, "equipment");
                 var perks = ReadPerks(node["perks"], $"{path}.perks", role);
                 var refs = ReadRefs(node["appearance"] as JsonObject, $"{path}.appearance", appearances);
-                var custom = new CustomClass(slot, name, role, primary, pistol, melee, equipment, perks, refs);
+                string? second = SecondItem(node["second"], $"{path}.second", role);
+                var custom = new CustomClass(slot, name, role, primary, pistol, melee, equipment, perks, refs, second);
                 foreach (var (slotName, item) in UnsimulatedItems(custom, catalog))
                     Note($"{path}.{slotName}", $"{item} is not simulated yet; it is kept and sent as the class default");
                 if (pistol is not null && Offered(catalog, role, "pistol").FirstOrDefault(p => ProfileWire.Neutral(p.Name).Equals(pistol, StringComparison.OrdinalIgnoreCase)) is { RequiredPerk: { } needed }
@@ -451,6 +453,17 @@ public sealed class ProfileStore
             }
             result = result.OrderBy(c => c.Slot).ToList();
             return result;
+        }
+
+        /// <summary>Protocol 44: the second primary, a primary the Tactical offers; anything else is dropped (none).</summary>
+        string? SecondItem(JsonNode? node, string path, string role)
+        {
+            if (node is null || Str(node)?.Trim() is not { Length: > 0 } raw) return null;
+            if (!role.Equals("tactical", StringComparison.OrdinalIgnoreCase)) { Fix(path, $"only the tactical class carries a second primary; '{raw}' dropped"); return null; }
+            string neutral = ProfileWire.Neutral(raw);
+            var match = Offered(catalog, role, "ranged").FirstOrDefault(i => ProfileWire.Neutral(i.Name).Equals(neutral, StringComparison.OrdinalIgnoreCase));
+            if (match is null) { Fix(path, $"'{raw}' is not offered to the {role} class; no second primary"); return null; }
+            return ProfileWire.Neutral(match.Name);
         }
 
         string? Item(JsonNode? node, string path, string role, string slot)

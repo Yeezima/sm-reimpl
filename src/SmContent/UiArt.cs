@@ -312,11 +312,11 @@ public static class DecoratorRules
     /// </summary>
     public const float OcclusionDistance = 75f;
 
-    /// <summary>Whether a player's decorator shows (ours): allies within <see cref="AllyRange"/>, through walls only within <see cref="OcclusionDistance"/>; enemies in the line of sight within <see cref="OcclusionDistance"/>.</summary>
+    /// <summary>Whether a player's decorator shows (ours): allies within <see cref="AllyRange"/>, through walls only within <see cref="OcclusionDistance"/>; enemies never (owner's decision of 2026-10-30: nothing over enemies without Tactical Readout or Signum Link, and then only a bar, no name).</summary>
     public static bool PlayerVisible(DecoratorRelation relation, float distance, bool lineOfSight) => relation switch
     {
         DecoratorRelation.Ally => distance <= AllyRange && (lineOfSight || distance <= OcclusionDistance),
-        DecoratorRelation.Enemy => distance <= OcclusionDistance && lineOfSight,
+        DecoratorRelation.Enemy => false,
         _ => false,
     };
 
