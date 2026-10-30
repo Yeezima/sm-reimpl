@@ -636,7 +636,7 @@ public static partial class Protocol
                     w.U16(PerkWord(p));
                     // Protocol 44 (14 bytes): the second holstered weapon's index, the real slot (bits 0..1) with its overheat (2) and the SlotSecond held flag (3), its clip,
                     // reserve, heat and heat age. Right after the perk word, so the fields at the record's end keep their offsets from the end.
-                    w.U8(Index(third)); w.U8((byte)(((int)p.Slot & 3) | (p.ThirdOverheated ? 4 : 0) | (p.SlotSecondHeld ? 8 : 0) | (((int)p.MeleeDirection & 7) << 4)));   // protocol 45: bits 4..6 the melee attack's direction
+                    w.U8(Index(third)); w.U8((byte)(((int)p.Slot & 3) | (p.ThirdOverheated ? 4 : 0) | (p.SlotSecondHeld ? 8 : 0) | (((int)p.MeleeDirection & 7) << 4) | (p.BufferedCharge ? 128 : 0)));   // protocol 45: bits 4..6 the melee attack's direction
                     w.U16(Ammo(p.ThirdClip)); w.U16(Ammo(p.ThirdReserve)); w.F32(p.ThirdHeat); w.F32(p.ThirdSinceHeat);
                     w.F32(p.OtherReloadLeft); w.F32(p.ThirdReloadLeft);   // protocol 45: the holstered weapons' reloads (8 bytes)
                     w.F32(p.Health); w.F32(p.Shield);
@@ -933,7 +933,7 @@ public static partial class Protocol
                 p = p with { Perk1 = FromPerk(perks & NoPerk), Perk2 = FromPerk((perks >> 7) & NoPerk), BurstLeft = perks >> 14 };
                 // Protocol 44: the third weapon's store and the real slot.
                 int thirdIndex = FromIndex(r.U8()), ext = r.U8();
-                if (ext > 127 || (ext & 3) == 3) return null;
+                if ((ext & 3) == 3) return null;
                 var meleeDirection = (EvadeDirection)((ext >> 4) & 7);   // protocol 45
                 if (meleeDirection != EvadeDirection.Forward && p.MeleeStep == 0) return null;   // a direction without an attack
                 var realSlot = (WeaponSlot)(ext & 3);
@@ -969,7 +969,8 @@ public static partial class Protocol
                 int grenade = r.U8();
                 int buffered = (grenade >> 3) & 7, bufferLow = grenade >> 6;
                 if (buffered > (int)BufferedAction.JumpLong) return null;   // protocol 33: an unknown buffered action (protocol 38: 7 is the long Jump press)
-                p = p with { GrenadeHeld = (grenade & 1) != 0, SlotPistolHeld = (grenade & 2) != 0, SlotPrimaryHeld = (grenade & 4) != 0, Buffered = (BufferedAction)buffered };
+                p = p with { GrenadeHeld = (grenade & 1) != 0, SlotPistolHeld = (grenade & 2) != 0, SlotPrimaryHeld = (grenade & 4) != 0, Buffered = (BufferedAction)buffered, BufferedCharge = (ext & 128) != 0 };
+                if ((ext & 128) != 0 && p.Buffered != BufferedAction.MeleeHeavy) return null;   // protocol 45: a charge press flag without a buffered heavy press
                 int charge = r.U8();
                 // Protocol 29: a brace transition's ticks (bits 3..7 low, bit 0 high: 0..63), only while entering or exiting (and then at least 1).
                 int braceTicks = ((charge >> 3) & 31) | ((charge & 1) << 5);

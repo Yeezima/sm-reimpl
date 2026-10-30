@@ -94,6 +94,28 @@ public class CombatPassTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void A_buffered_W_F_press_replayed_after_W_was_released_is_dropped_not_a_stun_strike_and_not_a_charge()
+    {
+        var c = Config with { InputBufferWindow = 0.3f };
+        PlayerState Go(PlayerState s, float my, InputButtons b) => Combat.StepPlayer(s, new PlayerInput(0, 0f, my, 0f, b), c, out _);
+        var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = Marine }, c) with { RushLock = 5 };
+        s = Go(s, 1f, InputButtons.MeleeHeavy);
+        Assert.True(s.BufferedCharge);
+        var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(1, 1, 1, [s], Self: 1))));
+        Assert.True(back.Players[0].BufferedCharge);
+        for (int k = 0; k < 25; k++)
+        {
+            s = Go(s, 0f, k == 0 ? InputButtons.None : InputButtons.None);   // W released before the charge is allowed
+            Assert.Equal((RushPhase.None, 0, false), (s.Rush, s.MeleeStep, s.MeleeHeavy));
+        }
+        Assert.Equal((BufferedAction.None, false), (s.Buffered, s.BufferedCharge));
+        // F alone (no W) buffered is a plain strike press and is kept as before.
+        var plain = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = Marine }, c) with { RushLock = 5 };
+        plain = Go(plain, 0f, InputButtons.MeleeHeavy);
+        Assert.Equal((1, true), (plain.MeleeStep, plain.MeleeHeavy));
+    }
+
+    [Fact]
     public void W_F_in_the_middle_of_a_combo_queues_no_stun_strike()
     {
         var c = Config with { InputBufferWindow = 0.3f };

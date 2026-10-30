@@ -58,7 +58,7 @@ public static class Combat
             Rush = RushPhase.None, RushTicks = 0, RushLock = 0, ReadyTicks = 0, RaiseTicks = 0,
             Brace = BracePhase.None, BraceTicks = 0, Venting = false,
             SpreadBloom = 0f, SpreadSince = 0f, SpreadYaw = 0f, SpreadPitch = 0f,   // weapons/spread: a respawn (a round restart too) rests the weapon
-            Buffered = BufferedAction.None, BufferTicks = 0,   // feel/buffer-speed
+            Buffered = BufferedAction.None, BufferTicks = 0, BufferedCharge = false,   // feel/buffer-speed
             SprintStop = false,   // feel/locks-sprint-stop
         };
     }
@@ -116,7 +116,7 @@ public static class Combat
         Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSlash = false, Aiming = false,
         EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLock = 0, EvadeLanded = false, JumpDashDirection = EvadeDirection.Forward,
         Brace = BracePhase.None, BraceTicks = 0, Venting = false,
-        Buffered = BufferedAction.None, BufferTicks = 0, SprintStop = false,
+        Buffered = BufferedAction.None, BufferTicks = 0, BufferedCharge = false, SprintStop = false,
     };
 
     /// <summary>

@@ -153,7 +153,7 @@ public static class InputBuffer
     }
 
     /// <summary>The start of a tick: what was pressed, whether the buffered press is replayed, and the state and input the tick runs on.</summary>
-    internal readonly record struct Tick(BufferedAction Fresh, BufferedAction Replayed, PlayerState State, PlayerInput Input);
+    internal readonly record struct Tick(BufferedAction Fresh, BufferedAction Replayed, PlayerState State, PlayerInput Input, bool Dropped = false);
 
     /// <summary>
     /// The start of a tick (before <see cref="Combat.StepPlayer"/>'s rules): the newest real press, and the buffered press replayed when no other
@@ -167,6 +167,9 @@ public static class InputBuffer
         var carried = s.Buffered;
         if (carried == BufferedAction.None || fresh != BufferedAction.None) return new(fresh, BufferedAction.None, s, input);
         if (Hold(s, carried)) return new(fresh, BufferedAction.None, s, input);
+        // sim/combat-pass (owner's rule): a heavy press made with W held is a charge press; replayed with W let go it is dropped, never a stun strike.
+        if (carried == BufferedAction.MeleeHeavy && s.BufferedCharge && !(Loadouts.Rush(c, s) is { } rushSpec && Rush.WHeld(input, rushSpec)))
+            return new(fresh, BufferedAction.None, s, input, Dropped: true);
         var primed = carried switch
         {
             BufferedAction.Jump or BufferedAction.JumpLong => s with { JumpHeld = false },
@@ -210,7 +213,9 @@ public static class InputBuffer
             };
         }
         var (action, ticks) = After(before, real.Buttons, t, used, c.InputBufferTicks, c);
-        return next.Alive ? next with { Buffered = action, BufferTicks = ticks } : next with { Buffered = BufferedAction.None, BufferTicks = 0 };
+        // The press's "W held at press time" (a fresh heavy press with W down) is kept with it until it is spent or dropped.
+        bool charge = action == BufferedAction.MeleeHeavy && (t.Fresh == BufferedAction.MeleeHeavy ? Loadouts.Rush(c, before) is { } spec && Rush.WHeld(real, spec) : before.BufferedCharge);
+        return next.Alive ? next with { Buffered = action, BufferTicks = ticks, BufferedCharge = charge } : next with { Buffered = BufferedAction.None, BufferTicks = 0, BufferedCharge = false };
     }
 
     /// <summary>The buffer after a tick (pure rule; see the class summary).</summary>
@@ -221,7 +226,7 @@ public static class InputBuffer
         if (t.Fresh != BufferedAction.None)
             return (used & Bit(t.Fresh)) == 0 && Locked(before, t.Fresh) && !Hold(before, t.Fresh) ? (t.Fresh, window) : (BufferedAction.None, 0);
         var carried = before.Buffered;
-        if (carried == BufferedAction.None) return (BufferedAction.None, 0);
+        if (carried == BufferedAction.None || t.Dropped) return (BufferedAction.None, 0);
         if (t.Replayed != BufferedAction.None && ((used & Bit(carried)) != 0 || !Locked(before, carried))) return (BufferedAction.None, 0);
         int left = Math.Max(0, Math.Min(before.BufferTicks, window) - 1);
         bool held = Held(carried, real);

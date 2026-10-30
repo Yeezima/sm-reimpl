@@ -405,6 +405,8 @@ public readonly record struct PlayerState(int PlayerId, Vector3 Position, Vector
     // ---- input buffering (feel/buffer-speed; see SmSim.InputBuffer; protocol 33: own record only) ----
     /// <summary>A press kept for the first tick its action is allowed (<see cref="InputBuffer"/>), or None.</summary>
     public BufferedAction Buffered { get; init; }
+    /// <summary>Protocol 45: the buffered heavy press was made with W held (a charge press): replayed only while W is held, never as a stun strike.</summary>
+    public bool BufferedCharge { get; init; }
     /// <summary>Ticks left of the buffered press's window (0: kept only while its button is held); 0 when nothing is buffered. At most <see cref="InputBuffer.MaxTicks"/>.</summary>
     public int BufferTicks { get; init; }
 
