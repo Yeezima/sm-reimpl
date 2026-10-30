@@ -576,6 +576,7 @@ public partial class NetworkView : Node3D
             LocomotionForget(gone);
             MeleeLockForget(gone);   // feel/melee-lock
             MeleeFlowForget(gone);   // anim/melee-flow
+            _stimTracks.Remove(gone);   // fx/visuals-2: a reused id never inherits a stale stim glow
             _orkTracks.Remove(gone); _orkShown.Remove(gone);   // Ork O7a (the capture aid keeps no entry of a player who left)
         }
 

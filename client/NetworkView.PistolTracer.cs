@@ -43,6 +43,7 @@ public partial class NetworkView
     void UpdateDeferredTracers()
     {
         if (_tracersWaiting.Count > 0 && (_client is null || _client.Status != SmNet.ClientStatus.Connected || _tracersWaiting.Exists(d => d.At > _connectedFor + 2.0))) _tracersWaiting.Clear();   // disconnect, or a new connection's clock
+        if (_stimTracks.Count > 0 && (_client is null || _client.Status != SmNet.ClientStatus.Connected)) _stimTracks.Clear();   // stim times are in this connection's clock
         for (int i = _tracersWaiting.Count - 1; i >= 0; i--)
         {
             var d = _tracersWaiting[i];
