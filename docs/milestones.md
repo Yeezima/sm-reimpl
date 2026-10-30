@@ -836,8 +836,14 @@ The owner's request: the original's controller bindings, autodetected, with the 
 tuning (`camera_input_tuning`: speeds, `input_mapping`, `request_damping`, now read into `InputTuning`) and the option names (gamepad on/off, button and stick layouts, vibration, targeting assistance), but not which button
 does what (the `ControlMap` movie's labels are filled by native code); the owner's screenshot of the Xbox 360 screen gives that. New `client/Gamepad/GamepadRules.cs` (binding table with a source per row, stick curves,
 trigger hysteresis, D-pad slots, radial selection, `SchemeTracker`: last device used wins), `PadHost` (device node: state from the events, cursor hidden in menus while the pad is in use, first-control focus on a pad press;
-Godot's `ui_*` actions then drive the menus: D-pad / left stick move, A accepts, B back), `NetworkView.Gamepad.cs` (move with analog magnitude, look at the data's rates, buttons through the tap latch, D-pad swaps, sprint toggle,
-Start = Esc menu, Back = scoreboard, hints "[START]", "[B]"). The server and the sim are untouched: it is the same `PlayerInput`. Aid: `--pad-test` (synthetic joypad events; `PADTEST` lines), `--log-input`. Verified headless
+Godot's `ui_*` actions then drive the menus: D-pad / left stick move, A accepts, B back), `NetworkView.Gamepad.cs` (move with analog magnitude, look at the data's rates, buttons through the tap latch, D-pad swaps, sprint hold, R3 zoom cycle,
+R3 = scope zoom cycle, Start = Esc menu, Back = scoreboard, hints "[START]", "[B]"). The server and the sim are untouched: it is the same `PlayerInput`. Aid: `--pad-test` (synthetic joypad events; `PADTEST` lines), `--log-input`. Verified headless
 with synthetic events only (no physical controller): scheme switch both ways, look, move (full and 0.6 stick: 4.97 and 1.84 m in 1 s), aim, fire (clip drops), melee, the charge (stick forward + Y) and no charge without it,
-jump pack, weapon swaps; zero prediction corrections against the server. Not verified: a real device, the menus' focus by hand. Not done: look inversion, targeting assistance, the zoom cycle (R3 is bound, nothing to cycle yet),
-vibration, the original's alternative layouts. Spec "Controller (gamepad)"; `GamepadTests`, `CameraTests` (the curves are read).
+jump pack, weapon swaps; zero prediction corrections against the server. Not verified: a real device, the menus' focus by hand. Not done: look inversion, targeting assistance, vibration, the original's alternative layouts. Spec "Controller (gamepad)"; `GamepadTests`, `CameraTests` (the curves are read).
+### sim/combat-2: the owner's playtest round 2, combat items (protocol 47, 2026-10-30)
+Items 28, 31, 32, 36, 37, 39, 42, 43 and 50 of `playtest-notes-2026-10-30.md`, round 2 (rules and values: spec "Combat 2"). The jump pack's air control doubled (16 m/s, 30 m/s²);
+W no longer ends the bull rush (`stickEnds` in `Combat.StepPlayerCore`); the melee lock's camera assist is gone (client); the light-attack interrupt is a reaction that any
+input ends (`Reaction.Holds`: everything else holds; the review first made the stagger light too, the owner took it back); a pistol-slot trigger press ends a swing at once; the melee root motion runs a tick ahead of the clock, so the press tick steps; the
+countdown drops the stick and every button; a roll keeps its horizontal travel off a ledge (protocol 30's stop removed); the switch buffer needed no change beyond the light reactions
+(a reload never blocks a switch). Tests that pinned the old timings were updated (melee lock windows one tick earlier, the rush ended by D instead of W, the stun used where a
+hold was meant). Protocol 47 (no layout change, snapshot worst case 1194). `NavJumps.SimulationVersion` 9.

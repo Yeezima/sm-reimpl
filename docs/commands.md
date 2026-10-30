@@ -63,6 +63,6 @@ client.cmd ... --old-melta-fx | --old-plasma-ball | --old-pack-fall | --old-muzz
 ## Controller (gamepad)
 
 Plug a pad in (or press a button on one already connected) and it becomes the way you play; touch a key, click or move the mouse and the keyboard and mouse are back; unplug it and they are back too (no restart). The layout is the original's Xbox 360 one:
-left stick move; right stick look; LT aim; RT fire; LB grenade; RB reload / vent; X strike; Y stun / alt strike (the left stick forward when you press it: the charge); B use; A evade / jump pack; D-pad weapon swap (up primary, left pistol, down second
-primary, right next); click the left stick to sprint (toggle); Start the game menu (the loadout picker, resume, leave); Back the scoreboard. Menus: the D-pad or the left stick moves the focus, A accepts, B goes back; the first press with nothing focused
+left stick move; right stick look; LT aim; RT fire; LB grenade; RB reload / vent; X strike; Y stun / alt strike (the left stick forward when you press it: the charge); B use; A evade / jump pack; D-pad weapon swap (up pistol, right primary, down second
+primary); hold the left stick click to sprint; click the right stick to cycle the scope zoom; Start the game menu (the loadout picker, resume, leave); Back the scoreboard. Menus: the D-pad or the left stick moves the focus, A accepts, B goes back; the first press with nothing focused
 focuses the first control. The table with every row's source is spec "Controller (gamepad)" (`client/Gamepad/GamepadRules.cs`). Tests: `dotnet test --filter GamepadTests`, and the `--pad-test` run above.

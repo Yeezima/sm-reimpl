@@ -473,12 +473,8 @@ public static class Evade
         landed = false;
         float before = move.HeightAt(from), after = move.HeightAt(to);
         float vz = dt > 0f ? (after - before) / dt : 0f;
-        // Protocol 30 (ours, the review of 2026-10-29: the owner's "drops straight down"): a roll, hop or a dash's landing part whose body is falling
-        // (in the air past its first tick, outside its own hop curve) over a real drop (Movement.FallsStraight) stops travelling; its clip plays on.
-        // Once stopped it stays stopped until it lands (its velocity is then zero), also through the last metre above the ground.
-        if (!move.Flight && !s.Grounded && s.Velocity.Z != 0f && before <= 0f && after <= 0f && horizontal != Vector2.Zero
-            && ((s.Velocity.X == 0f && s.Velocity.Y == 0f) || Movement.FallsStraight(s, c, world)))
-        { horizontal = Vector2.Zero; delta = Vector2.Zero; }
+        // sim/combat-2 (item 43, the owner's decision of 2026-10-30): a roll carried off a ledge keeps the clip's horizontal travel through the fall; gravity only adds
+        // the downward motion. (Protocol 30's rule stopped a roll's travel after its first tick in the air over a real drop; it is gone.)
         if (move.Flight)
         {
             // M44, the dash's flight: the root motion's height in the air with no gravity; ground met on the way down lands it.

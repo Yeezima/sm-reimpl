@@ -42,12 +42,11 @@ public static class GamepadRules
         new("Stun / Alt Strike (heavy melee; with the stick forward: the charge)", PadControl.Y, PadSource.OwnerScreenshot, "binding screen (yellow); locale 110692; %ABILITY_MELEE_HEAVY%; locale 110691 'Charge Attack (while Sprinting)'; the charge rule is the simulation's (stick forward at the press)"),
         new("Use / Execute (pickups)", PadControl.B, PadSource.OwnerScreenshot, "binding screen (red); locale 110664"),
         new("Evade / Jump Pack", PadControl.A, PadSource.OwnerScreenshot, "binding screen (green); locale 110693; %ABILITY_CONTEXTMOTION% 'tap to perform a combat roll'"),
-        new("Weapon swap: primary", PadControl.DpadUp, PadSource.Estimate, "the original has four weapon slots on the D-pad (locale 120990: %ABILITY_SET_RANGED_FIRST%..%ABILITY_SET_RANGED_FOURTH%) and 'Weapon Swap' on the binding screen; which direction holds which weapon is not in the data read"),
-        new("Weapon swap: next weapon (toggle / cycle)", PadControl.DpadRight, PadSource.Estimate, "as above"),
-        new("Weapon swap: second primary (Weapon Versatility)", PadControl.DpadDown, PadSource.Estimate, "the south slot of the weapon menu (lead's brief, 2026-10-30)"),
-        new("Weapon swap: pistol", PadControl.DpadLeft, PadSource.Estimate, "as above"),
-        new("Sprint (press to toggle; ends when the stick is released)", PadControl.LeftStickClick, PadSource.OwnerRecollection, "locale 122101 'Movement (Press to Sprint)'; owner 2026-10-30; the toggle is ours"),
-        new("Scope zoom cycle (not in the simulation yet)", PadControl.RightStickClick, PadSource.Data, "locale 122097 'Camera (Press - Lascannon Zoom)'; locale 105867 and 111535 say [L3] (a conflict in the data: the tutorial strings read like the older layout); the level cycle is not implemented (spec 'Zoom levels')"),
+        new("Weapon swap: pistol", PadControl.DpadUp, PadSource.OwnerRecollection, "matches the radial weapon menu (owner 2026-10-30); 'Weapon Swap' on the binding screen; locale 120990 names four slots"),
+        new("Weapon swap: primary", PadControl.DpadRight, PadSource.OwnerRecollection, "as above"),
+        new("Weapon swap: second primary (Weapon Versatility)", PadControl.DpadDown, PadSource.OwnerRecollection, "the south slot of the weapon menu (owner 2026-10-30)"),
+        new("Sprint (hold)", PadControl.LeftStickClick, PadSource.OwnerRecollection, "locale 122101 'Movement (Press to Sprint)'; owner 2026-10-30: a hold on the stick click"),
+        new("Scope zoom cycle (the scoped weapons' zoom levels, while aiming)", PadControl.RightStickClick, PadSource.OwnerRecollection, "owner 2026-10-30: R3; locale 122097 'Camera (Press - Lascannon Zoom)'; the tutorial strings 105867 and 111535 say [L3]"),
         new("Game menu (the Esc menu: loadout, resume, leave)", PadControl.Start, PadSource.OwnerRecollection, "owner 2026-10-30"),
         new("Scoreboard (held)", PadControl.Back, PadSource.OwnerRecollection, "owner 2026-10-30"),
     };
@@ -112,10 +111,9 @@ public static class GamepadRules
     /// <summary>The weapon-swap button of a D-pad direction (Up, Right, Down, Left); None for another control.</summary>
     public static InputButtons WeaponSwap(PadControl dpad) => dpad switch
     {
-        PadControl.DpadUp => InputButtons.SlotPrimary,
-        PadControl.DpadRight => InputButtons.Switch,
+        PadControl.DpadUp => InputButtons.SlotPistol,
+        PadControl.DpadRight => InputButtons.SlotPrimary,
         PadControl.DpadDown => InputButtons.SlotSecond,
-        PadControl.DpadLeft => InputButtons.SlotPistol,
         _ => InputButtons.None,
     };
 
@@ -130,7 +128,7 @@ public static class GamepadRules
     // ---- the charge ----
 
     /// <summary>Whether the stick counts as forward for the charge (the simulation's rule: forward at least <c>RushSpec.MinForwardStick</c>, 0.7, at the heavy press; here for the tests).</summary>
-    public static bool ChargeForward(float stickX, float stickDown, float minForward = 0.7f) => MoveStick(stickX, stickDown).Y >= minForward;
+    public static bool ChargeForward(float stickX, float stickDown, float minForward = RushSpec.DefaultMinForwardStick) => MoveStick(stickX, stickDown).Y >= minForward;
 
     static float Finite(float v) => float.IsFinite(v) ? v : 0f;
 }

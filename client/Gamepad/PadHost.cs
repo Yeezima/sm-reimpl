@@ -24,6 +24,7 @@ public partial class PadHost : Node
     readonly bool[] _buttons = new bool[16];
     readonly bool[] _triggerDown = new bool[2];
     bool _hidMouse;
+    double _nextScan;
 
     /// <summary>Raised on every pad button press and release (button, pressed) after the state is updated.</summary>
     public event Action<JoyButton, bool>? ButtonChanged;
@@ -161,8 +162,11 @@ public partial class PadHost : Node
         bool navigation = e is InputEventJoypadButton { ButtonIndex: JoyButton.DpadUp or JoyButton.DpadDown or JoyButton.DpadLeft or JoyButton.DpadRight or JoyButton.A }
             || e is InputEventJoypadMotion { Axis: JoyAxis.LeftX or JoyAxis.LeftY } mo && MathF.Abs(mo.AxisValue) >= 0.6f;
         if (!navigation) return;
+        // Nothing focusable: do not walk the tree on every stick event; ask again after a quarter second.
+        double now = Time.GetTicksMsec() / 1000.0;
+        if (now < _nextScan) return;
         var target = FirstFocusable(GetTree().Root, out _);
-        if (target is null) return;
+        if (target is null) { _nextScan = now + 0.25; return; }
         target.GrabFocus();
         viewport.SetInputAsHandled();
     }

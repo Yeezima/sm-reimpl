@@ -152,7 +152,7 @@ public partial class NetworkView
         var cam = System.Numerics.Vector3.Lerp(o0.Camera, o1.Camera, w);
         var pivot = System.Numerics.Vector3.Lerp(o0.Pivot, o1.Pivot, w);
         // The scoped weapons (stalker bolter, lascannon): the wargear's zoom_levels fov_1 is the zoomed view (spec "Zoom levels"), not the aim set's field_of_view; the rest of the weapons use the set's.
-        float aimFov = wc.ZoomFovs is { Count: > 0 } zooms ? zooms[0] : aim.FieldOfView;
+        float aimFov = wc.ZoomFovs is { Count: > 0 } zooms ? zooms[_padZoom % zooms.Count] : aim.FieldOfView;   // R3 on the pad steps through the levels (NetworkView.Gamepad.cs)
         float fov = Mathf.Lerp(Finite(ex.FieldOfView, DefaultFov), Finite(aimFov, DefaultFov), w);
 
         // Evade roll (M21): blend to the roll's camera set (the ability's camera_curve, e.g. evade_default_mp) over its blend-in

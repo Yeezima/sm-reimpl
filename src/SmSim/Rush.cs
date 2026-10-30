@@ -74,7 +74,9 @@ public sealed record RushSpec(string Ability, RushMove Rush, RushMove Collision,
     /// Ours: the stick's forward part that counts as W held (0.7 of full; a keyboard's W, alone or with A or D, gives 1). feel/charge-directions
     /// (protocol 39, the owner's rule of 2026-10-29): W held at the F press starts the charge (<see cref="Rush.CanStart"/>); no sprint is needed.
     /// </summary>
-    public float MinForwardStick { get; init; } = 0.7f;
+    public float MinForwardStick { get; init; } = DefaultMinForwardStick;
+    /// <summary>The install-independent default of <see cref="MinForwardStick"/> (the controller rule reads it too).</summary>
+    public const float DefaultMinForwardStick = 0.7f;
     /// <summary>
     /// feel/charge-directions (protocol 39; the owner's rule of 2026-10-29: "you should be able to hold A or D while holding W and F to charge a bit to
     /// the left or right"): the most the stick turns the charge's heading from the view at its start (degrees; the angle ours, 25). The share is the

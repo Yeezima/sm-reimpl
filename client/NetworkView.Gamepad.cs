@@ -17,7 +17,7 @@ namespace SmClient;
 public partial class NetworkView
 {
     PadHost? _pad;
-    bool _padSprint;
+    int _padZoom;   // the scope zoom level R3 cycles to (reset when aim ends)
     bool _padInteractLatched;
     float _padHeldX, _padHeldY;   // seconds each look axis has been out of its dead zone (the data's request damping)
 
@@ -58,11 +58,10 @@ public partial class NetworkView
         switch (button)
         {
             case JoyButton.B: _padInteractLatched = true; break;
-            case JoyButton.LeftStick: _padSprint = !_padSprint; break;
+            case JoyButton.RightStick: if (_client?.Predicted.Aiming == true) _padZoom++; break;   // the zoom cycle (the levels of the scoped weapons)
             case JoyButton.DpadUp: PadSwap(PadControl.DpadUp); break;
             case JoyButton.DpadRight: PadSwap(PadControl.DpadRight); break;
             case JoyButton.DpadDown: PadSwap(PadControl.DpadDown); break;
-            case JoyButton.DpadLeft: PadSwap(PadControl.DpadLeft); break;
         }
     }
 
@@ -70,6 +69,7 @@ public partial class NetworkView
     void PadSwap(PadControl dpad)
     {
         var button = GamepadRules.WeaponSwap(dpad);
+        if (button == InputButtons.None) return;
         _latch.Press(button); _latch.Release(button);
     }
 
@@ -88,6 +88,7 @@ public partial class NetworkView
     /// <summary>Right stick turning for this frame (from <c>ProcessFrame</c>): the data's rates in degrees per second, like the mouse changes the view.</summary>
     void PadLook(double delta)
     {
+        if (_client is not null && !_client.Predicted.Aiming) _padZoom = 0;
         if (_pad is null || !PadHost.Active || _client is null) { _padHeldX = _padHeldY = 0f; return; }
         var (rx, ry) = _pad.RightStick;
         float dt = (float)delta;
@@ -117,8 +118,7 @@ public partial class NetworkView
     {
         var pad = _pad!;
         var (x, y) = GamepadRules.MoveStick(pad.LeftStick.X, pad.LeftStick.Y);
-        if (x == 0f && y == 0f) _padSprint = false;   // the sprint toggle ends when the stick is let go (ours)
-        var buttons = _padSprint ? InputButtons.Sprint : InputButtons.None;
+        var buttons = pad.Button(JoyButton.LeftStick) ? InputButtons.Sprint : InputButtons.None;   // a hold on the stick click (owner 2026-10-30)
         if (pad.RightTriggerDown) buttons |= InputButtons.Fire;
         if (pad.LeftTriggerDown) buttons |= InputButtons.Aim;
         if (pad.Button(JoyButton.X)) buttons |= InputButtons.Melee;

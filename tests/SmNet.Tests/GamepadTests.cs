@@ -34,12 +34,10 @@ public class GamepadTests
     }
 
     [Fact]
-    public void Every_row_has_a_note_no_control_has_two_actions_and_only_the_dpad_is_an_estimate()
+    public void Every_row_has_a_note_and_no_control_has_two_actions()
     {
         Assert.All(GamepadRules.Bindings, b => { Assert.False(string.IsNullOrWhiteSpace(b.Note)); Assert.False(string.IsNullOrWhiteSpace(b.Action)); });
         Assert.Empty(GamepadRules.Bindings.GroupBy(b => b.Control).Where(g => g.Count() > 1));
-        Assert.All(GamepadRules.Bindings.Where(b => b.Source == PadSource.Estimate),
-            b => Assert.Contains(b.Control, new[] { PadControl.DpadUp, PadControl.DpadRight, PadControl.DpadDown, PadControl.DpadLeft }));
     }
 
     // ---- sticks ----
@@ -103,10 +101,10 @@ public class GamepadTests
     [Fact]
     public void The_dpad_maps_to_the_weapon_slots_and_the_radial_stick_picks_the_same_directions()
     {
-        Assert.Equal(InputButtons.SlotPrimary, GamepadRules.WeaponSwap(PadControl.DpadUp));
+        Assert.Equal(InputButtons.SlotPistol, GamepadRules.WeaponSwap(PadControl.DpadUp));
         Assert.Equal(InputButtons.SlotSecond, GamepadRules.WeaponSwap(PadControl.DpadDown));   // the south slot: Weapon Versatility's second primary
-        Assert.Equal(InputButtons.SlotPistol, GamepadRules.WeaponSwap(PadControl.DpadLeft));
-        Assert.Equal(InputButtons.Switch, GamepadRules.WeaponSwap(PadControl.DpadRight));
+        Assert.Equal(InputButtons.SlotPrimary, GamepadRules.WeaponSwap(PadControl.DpadRight));
+        Assert.Equal(InputButtons.None, GamepadRules.WeaponSwap(PadControl.DpadLeft));   // nothing for now
         Assert.Equal(InputButtons.None, GamepadRules.WeaponSwap(PadControl.A));
         Assert.Null(GamepadRules.RadialSlot(0.2f, 0.2f));
         Assert.Equal(PadControl.DpadUp, GamepadRules.RadialSlot(0.1f, -0.9f));

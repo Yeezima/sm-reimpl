@@ -23,8 +23,8 @@ and gore are listed in their own design documents for now (the rest of section 0
 | What | Ours / the owner's | Value | Spec row |
 |---|---|---|---|
 | Controller layout | the original's Xbox 360 layout from the owner's screenshot (LT aim, RT fire, LB grenade, RB reload / vent, X strike, Y stun / alt strike, B use, A evade / jump pack, D-pad weapon swap), the owner's recollection for Start (game menu), Back (scoreboard) and the left-stick click (sprint) | the same `PlayerInput` as the keyboard; no protocol change | Controller |
-| D-pad directions | ours (estimate): up primary, left pistol, down second primary, right next weapon; the original has four slots on the D-pad, the data read does not say which holds which | check in a playtest | Weapon swap |
-| Sprint is a toggle and the pad dead zones | ours: the left-stick click toggles sprint until the stick is let go; the move dead zone 0.2 / outer zone 0.95 and the trigger levels 0.5 / 0.35 are estimates | toggle and zones as stated | Move, Sprint, Aim |
+| D-pad directions | the owner's answer (2026-10-30), as the radial weapon menu: up pistol, right primary, down second primary, left nothing | the original has four slots on the D-pad; the data read does not say which holds which | Weapon swap |
+| The pad dead zones and trigger levels | ours: the move dead zone 0.2 / outer zone 0.95 and the trigger levels 0.5 / 0.35 are estimates (sprint is a hold on the left stick click, the owner) | as stated | Move, Aim |
 | Device switching, hidden menu cursor, prompts | ours: last device used wins, a connect / disconnect swaps at once, the cursor is hidden in menus while the pad is in use, hints name the pad's buttons | last used wins | Device rule |
 | Not in the pad: look inversion, targeting assistance, the zoom cycle's levels, vibration, the original's stick layouts (AUTO CENTER, SOUTHPAW, LEGACY) and button layouts 1-3 | missing; the default layout only | none | Look |
 
@@ -434,6 +434,20 @@ slash's values and clips but not these engine rules, so these are ours:
 | Headshot bonus | Already the data's: head multipliers per weapon (bolt pistol 2.5, bolters 2.55, sniper 2, lascannon 2.25) and the armour's own head multipliers; the bolt pistol kills a full marine with depleted armour in one headshot (40 x 2.5 = 100) | The head body's exact shape (Havok data not decoded; our head sphere / volumes) | same |
 | Directional melee | The stick's way of eight at the melee press, relative to the view, sets the strike's facing (S turns round and strikes behind); the body turns at once | The original's turn animation and speed (ours: instant; the client draws the new facing) | same |
 | Ledge charge: fall pose after 0.3 s in the air | A charge held in the air keeps its clip until the body has been off the ground 0.3 s, then the fall pose | The delay (0.3 s, an estimate; owner to confirm); the original's exact animation | same |
+
+### Combat 2 (sim/combat-2; protocol 47)
+
+| Rule | What we do | What is unknown | Spec section |
+|---|---|---|---|
+| Stronger jump-pack air control | The stick steers the flight twice as hard: top speed 16 m/s (14.4 with the slower movement) and acceleration 30 m/s² (the owner's "about twice") | The original's air control is not in the data; the factor is the owner's recollection | "Combat 2" |
+| W does not end the charge | The charge runs its clip with W held (1.19 s); S, A or D alone still end it from its branch | How far the original's charge went; the effect on its reach is unmeasured | same |
+| The lock-on turns the model, not the camera | The camera assist is removed; the body's heading and the attack turn to the target | The original's exact alignment | same |
+| The light-attack interrupt holds nobody | The interrupt plays its clip but any input ends it at once (after its knockback); the stagger and the stun keep the full hold (owner's review decision) | Which of the original's reactions were "light"; the split by kind is ours | same |
+| The bolt pistol cancels a swing | A trigger press with the pistol slot in hand ends the swing in that tick, when a shot really fires | Whether the original also cancelled with the primary weapon | same |
+| The lunge starts on the press tick | The body's step runs one tick ahead of the swing's clock | The original's lunge timing | same |
+| The countdown freezes movement and actions | The stick and all buttons are dropped until the countdown ends; the view stays free | How the original froze the players | same |
+| A roll off a ledge keeps its travel | The roll's horizontal motion goes on through the fall (replaces protocol 30's stop) | The original's exact fall | same |
+| Buffered weapon switches | The existing 0.3 s buffer holds a switch press through other actions; a reload is never cancelled by a switch | The window (0.3 s, an estimate) | same |
 
 ### The feel pass (anim/feel-pass; client only)
 

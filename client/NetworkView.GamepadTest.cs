@@ -57,10 +57,10 @@ public partial class NetworkView
             At(0.3, "jump: A", () => { _padSawAir = false; PadButton(JoyButton.A, true); });
             At(0.4, "jump release", () => { PadButton(JoyButton.A, false); });
             At(0.8, "jump result", () => Log($"evade / jump pack: left the ground {_padSawAir} (a class without a pack rolls instead)"));
-            At(0.3, "swap: D-pad left (pistol)", () => { _padSlot = null; PadButton(JoyButton.DpadLeft, true); PadButton(JoyButton.DpadLeft, false); });
-            At(0.5, "swap result", () => Log($"weapon swap: slot in hand {_client.Predicted.Slot} (D-pad left asks for the pistol)"));
-            At(0.1, "swap back: D-pad up (primary)", () => { PadButton(JoyButton.DpadUp, true); PadButton(JoyButton.DpadUp, false); });
-            At(0.5, "swap back result", () => Log($"weapon swap: slot in hand {_client.Predicted.Slot} (D-pad up asks for the primary)"));
+            At(0.3, "swap: D-pad up (pistol)", () => { _padSlot = null; PadButton(JoyButton.DpadUp, true); PadButton(JoyButton.DpadUp, false); });
+            At(0.5, "swap result", () => Log($"weapon swap: slot in hand {_client.Predicted.Slot} (D-pad up asks for the pistol)"));
+            At(0.1, "swap back: D-pad right (primary)", () => { PadButton(JoyButton.DpadRight, true); PadButton(JoyButton.DpadRight, false); });
+            At(0.5, "swap back result", () => Log($"weapon swap: slot in hand {_client.Predicted.Slot} (D-pad right asks for the primary)"));
             At(0.2, "mouse takes the scheme back", () => Input.ParseInputEvent(new InputEventMouseMotion { Relative = new Vector2(20, 0), Position = new Vector2(20, 0) }));
             At(0.2, "scheme after mouse", () => Log("scheme after mouse movement: " + (PadHost.Active ? "Gamepad" : "KeyboardMouse")));
             At(0.2, "pad again", () => PadButton(JoyButton.B, true));

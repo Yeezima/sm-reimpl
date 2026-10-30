@@ -338,9 +338,9 @@ public class EvadeTests(ITestOutputHelper output)
         Assert.True(fell);
         Assert.Equal(0f, s.Position.Z, 2);
         Assert.True(s.Grounded);
-        // Protocol 30 (the review of 2026-10-29, the owner's "drops straight down"): over a real drop the roll stops travelling after its first
-        // tick in the air and drops; its clip plays on (the ticks above). Before: the whole clip's path (9 m).
-        Assert.Equal(4f, s.Position.Y, 1);   // left the floor at 2.5 m, one tick of travel in the air, landed at 3 m; the rest of the clip rolls on along the floor
+        // sim/combat-2 (item 43, owner's decision 2026-10-30): the roll keeps its horizontal travel through the fall (the whole clip's path, 9 m); before, it stopped after
+        // one tick in the air over a real drop and ended at 4 m.
+        Assert.InRange(s.Position.Y, 8.5f, 9.05f);
         // An evade does not start in the air.
         var air = Fresh(at: new Vector3(0, 0, 10)) with { Grounded = false };
         Step(ref air, InputButtons.Jump);
@@ -455,8 +455,8 @@ public class EvadeTests(ITestOutputHelper output)
         Assert.True(belowStart);                                // fell past the take-off height with gravity
         Assert.True(s.Grounded);
         Assert.Equal(0f, s.Position.Z, 2);
-        // Protocol 30: the hop's own curve carries it; once it falls over the real drop it stops travelling (before: the clip's 6 m).
-        Assert.Equal(5.04f, s.Position.Y, 1);   // the curve and the clip after the landing; the fall itself carried nothing
+        // sim/combat-2 (item 43): the hop keeps its travel through the fall (protocol 30's stop is gone): the clip's 6 m.
+        Assert.Equal(6f, s.Position.Y, 1);
     }
 
     // ---------------------------------------------------------------- hyper armour
@@ -695,7 +695,7 @@ public class EvadeTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_13_carries_the_exact_evade_in_the_own_record_and_direction_and_ticks_in_slim_records_within_1200_bytes()
     {
-        Assert.Equal(46, Protocol.Version);
+        Assert.Equal(47, Protocol.Version);
         PlayerState Loaded(int id) => new(id, new Vector3(1e4f), new Vector3(100f), 3f, false)
         {
             Alive = true, Health = 1e3f, Shield = 1e3f, Class = Protocol.MaxClasses - 1, Slot = WeaponSlot.Pistol, Clip = 65535, Reserve = 65535, OtherClip = 65535, OtherReserve = 65535,

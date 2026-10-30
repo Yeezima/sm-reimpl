@@ -110,10 +110,10 @@ public static class JumpPackTuning
     /// from empty in 30 s. A perk entry with its own <c>max_power</c> keeps the data's ratio to the base entry's (none differs on the install).
     /// </summary>
     public const float OwnerCapacity = 300f;
-    /// <summary>feel/jump-pack, air control (ours, the owner's request): the top speed (m/s) the stick steers toward in the air (<see cref="JumpPackSpec.AirSpeed"/>).</summary>
-    public const float AirControlSpeed = 8f;
-    /// <summary>feel/jump-pack, air control (ours): the steering acceleration (m/s²; 8 m/s from a standstill in about 0.53 s).</summary>
-    public const float AirControlAcceleration = 15f;
+    /// <summary>feel/jump-pack, air control (ours, the owner's request; sim/combat-2: doubled, owner's recollection "about twice as strong", was 8): the top speed (m/s) the stick steers toward in the air (<see cref="JumpPackSpec.AirSpeed"/>).</summary>
+    public const float AirControlSpeed = 16f;
+    /// <summary>feel/jump-pack, air control (ours; sim/combat-2: doubled, was 15): the steering acceleration (m/s²; 16 m/s from a standstill in about 0.53 s, the same time as before).</summary>
+    public const float AirControlAcceleration = 30f;
 
     /// <summary>The pack at the owner's capacity: <see cref="OwnerCapacity"/> × the entry's max_power / the base entry's (<paramref name="baseMax"/>).</summary>
     public static JumpPackSpec WithOwnerCapacity(JumpPackSpec spec, float baseMax, List<string> notes)
