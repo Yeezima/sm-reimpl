@@ -327,6 +327,8 @@ public sealed partial class GameClient
         LastBodies = BodiesFor(input);
         using (PlayerCollision.Use(LastBodies))
             Predicted = Combat.StepPlayer(Predicted, Match.Predicted(_latestSnapshotTick, input), _config, out events, Collision, view);
+        // anim/melee-interaction: the charge's contact, stop and turn, as the server resolves them with the same view and bodies (ChargeLock.Predict).
+        Predicted = PredictChargeContact(PreviousPredicted, Predicted, input, view, LastBodies);
         if (events != default)
         {
             _ownEvents.Add((Tick, events));
@@ -497,9 +499,11 @@ public sealed partial class GameClient
             var input = _history[tick].Input;
             twoBefore = beforeLast;
             beforeLast = state;
-            using (PlayerCollision.Use(BodiesFor(input)))   // sim/player-collision: the same bodies as when it was first predicted
+            var replayBodies = BodiesFor(input);
+            using (PlayerCollision.Use(replayBodies))   // sim/player-collision: the same bodies as when it was first predicted
                 state = Combat.StepSelf(state, Match.Predicted(s.ServerTick, input), _config, out _, out _, Collision,
                     input.MeleeTarget > 0 ? ViewAt(input.ViewTick) : null);   // the stored input is raw: the lock follows the newest snapshot (protocol 25); feel/melee-lock: the view at its view tick, only with a lock
+            state = PredictChargeContact(beforeLast, state, input, null, replayBodies);   // anim/melee-interaction
             _history[tick] = (input, state);
         }
         LastCorrection = state.Position - Predicted.Position;

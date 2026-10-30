@@ -170,6 +170,12 @@ public partial class NetworkView
         var rig = posture is null ? null : TurnRigOf(posture);
         bool standing = TurnStanding(s, t, throwTime);
         bool canTwist = rig is not null && standing;
+        // anim/melee-interaction (NetworkView.MeleeInteraction.cs): a body in a hit reaction turns so the clip's side points at its attacker.
+        if (ReactionFacingYaw(s, t.Body.Valid ? t.Body.Yaw : aimYaw, dt) is float facing)
+        {
+            t.Body.Snap(facing); t.Stand = null; t.StandRig = null; t.PrevStanding = t.WasStanding = false; character.CancelSettle(); return facing;
+        }
+        ReactionFacingDone(s.PlayerId);
         // M40-T5 (CharacterViewer.FootPin.cs): the moment a marine comes to rest the feet on the ground are pinned while the pose cross-fades to the idle, then step to it.
         if (standing && !t.WasStanding && !character.Settling) character.BeginSettle(posture?.StopBlend ?? (s.Aiming ? AimStopBlend : TurnAnimations.DefaultStopBlend), SettleStepSeconds);
         else if (!standing && character.Settling && TurnInAction(s, throwTime)) character.CancelSettle();

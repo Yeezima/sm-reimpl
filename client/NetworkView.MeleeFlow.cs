@@ -301,7 +301,7 @@ public partial class NetworkView
             // A connect is a hit on a player: the dash attack's hit state, or the rush's collision stop with an enemy in reach in front (a wall stop shakes neither; presentation guess, the server decides).
             bool connected = (_ownRushSeen == RushPhase.Rush && me.Rush == RushPhase.Collision && MeleePresentation.Victim(me, _lastOthers, _config) > 0)
                 || (_ownRushSeen == RushPhase.DashAttack && me.Rush == RushPhase.DashHit);
-            if (connected) { FxShake(ChargeShakeRadians * StunShakeScale); _chargeShakes++; if (LogStunShake) GD.Print($"t {_connectedFor:F2} s: charge-connect shake ({me.Rush})"); }
+            if (connected && NoChargeImpact) { FxShake(ChargeShakeRadians * StunShakeScale); _chargeShakes++; if (LogStunShake) GD.Print($"t {_connectedFor:F2} s: charge-connect shake ({me.Rush})"); }
         }
         _ownRushSeen = me.Alive ? me.Rush : RushPhase.None;
     }

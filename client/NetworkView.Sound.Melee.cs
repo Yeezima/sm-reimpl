@@ -82,6 +82,12 @@ public partial class NetworkView
         if (evt is null) return null;
         var where = victimPosition + new System.Numerics.Vector3(0f, 0f, 1.2f);
         PostPlayerHitSound(evt, new SoundEmitter { Position = ToGodot(where), Label = $"{(charge ? "charge" : "melee")} hit on P{victimId}", OneShot = true });
+        // anim/melee-interaction (ours): a charge hit layers the charging weapon's own hit sound under the body smash (the data's two impacts together: crunchier).
+        if (charge && !dash && !NoChargeImpact && MeleeWargear(attacker) is { } layer && _soundTriggers.MeleeHitSound(layer) is { } weaponHit && weaponHit != evt)
+        {
+            PostPlayerHitSound(weaponHit, new SoundEmitter { Position = ToGodot(where), Label = $"charge hit layer on P{victimId}", OneShot = true });
+            CountSound("charge hit layer");
+        }
         CountSound(charge ? "charge hit" : "melee hit");
         if (charge) _chargeHitPosts++; else _meleeHitPosts++;
         if (LogSound("melee")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} P{attacker.PlayerId} {(charge ? (dash ? "dash attack" : "charge") : "melee")} on P{victimId} ({source}) wargear {(charge ? ChargeWargear(attacker, dash) : MeleeWargear(attacker)) ?? "-"} event {evt}");

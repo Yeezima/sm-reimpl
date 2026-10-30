@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1749 spec table rows: **1196 tagged**, 403 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 367 rows of the changes document.
+Scanned 1761 spec table rows: **1208 tagged**, 403 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 373 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -37,7 +37,7 @@ Scanned 1749 spec table rows: **1196 tagged**, 403 not tagged (read from data wi
 | Weapons (critical) | 111 | 64 | 97 | 50 | 3 |
 | Melee (critical) | 63 | 50 | 59 | 11 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
-| Charge (critical) | 26 | 19 | 20 | 12 | 0 |
+| Charge (critical) | 38 | 31 | 32 | 16 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 28 | 27 | 17 | 18 | 0 |
 | HUD and hit feedback (critical) | 53 | 48 | 42 | 10 | 0 |
@@ -53,20 +53,20 @@ Scanned 1749 spec table rows: **1196 tagged**, 403 not tagged (read from data wi
 | Core simulation (provisional values) | 100 | 86 | 85 | 12 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1196** | 983 | 954 | 383 | 38 |
+| **All areas** | **1208** | 995 | 966 | 387 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 449 |
-| confidence: medium | 428 |
-| confidence: low | 411 |
+| kind: ours | 456 |
+| confidence: medium | 430 |
+| confidence: low | 421 |
 | kind: interpretation | 320 |
-| notes: ours | 281 |
+| notes: ours | 285 |
 | confidence: none (low) | 115 |
 | kind: provisional | 98 |
-| kind: estimate | 39 |
+| kind: estimate | 43 |
 | kind: user's knowledge | 39 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
@@ -76,7 +76,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: placeholder | 22 |
 | notes: user's knowledge | 22 |
 | notes: placeholder | 17 |
-| kind: gap (not reproduced) | 15 |
+| kind: gap (not reproduced) | 16 |
 | notes: interpretation | 14 |
 | notes: not reproduced (gap) | 13 |
 | notes: open question | 13 |
@@ -903,7 +903,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-540B3991` | Jump pack: flight wobble | The jump state's `Noise` blend plays `SM_JMP_Blend_90_Pos_Fast` (1 s, looping). Taken as the offset from its own first pose, laid over the flight pose in slot `Wobble` at weight 1 (ours: the graph's blend weight is not read), from the end of the take-off… (s) | kind: interpretation; confidence: low; notes: ours | graph (the clip); the offset form and the weight are ours | Jump pack: flight wobble: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The jump state's Noise blend plays SM_JMP_Blend_90_Pos_Fast (1 s… | ☐ |
 | `R-CD9FB0C1` | Jump pack: actions in flight | In the flight view the recoil of a shot, the reload and the grenade toss are laid over the flight pose as over the locomotion (the toss over the upper-body mask, the others as before); before, the flight pose returned before them and a marine that fired in… | kind: interpretation; confidence: low; notes: ours | the jump graph (`MP_SM_NAV_JP_Sim`) is the navigation layer; the base graph's upper-body actions are separate layers that are not tied to the navigation state… | Jump pack: actions in flight: compare with SM1 by feel or video. Ours: In the flight view the recoil of a shot, the reload and the grenade… | ☐ |
 
-### Charge (gameplay-critical) (26)
+### Charge (gameplay-critical) (38)
 
 *Spec section: The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21)*
 
@@ -945,6 +945,23 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6E03ABE8` | The lunge starts on the press tick (item 39) | the body's root motion and alignment of a melee swing or a stun strike run one tick ahead of the attack's clock: the press tick already steps the clip's (0, 1/30 s], each later tick the clip's next tick; the attack's own clock, hit time, combo and move-on… (s) | kind: ours; confidence: low | the owner, 2026-10-30: "the step forward starts the instant the button is pressed"; one tick is the smallest change that makes the press tick move (ours) | The lunge starts on the press tick (item 39): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the body's root motion and alignment of a melee swing or a stun… | ☐ |
 | `R-B26B756D` | Weapon switch buffering (item 50) | the existing input buffer (0.3 s, an estimate, shared by every buffered action) already keeps a switch press (1/2/3, the cycle, the wheel) through a melee swing, a throw, a roll, a charge, a jump-pack phase, a brace transition, a raise and the stun; with item… (s) | kind: ours; confidence: low | the owner, 2026-10-30 (item 50); the window: ours | Weapon switch buffering (item 50): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the existing input buffer (0.3 s, an estimate, shared by every… | ☐ |
 | `R-B749CC15` | Not changed | the stun's branch times and lock scale; the interrupt's and stagger's clips and knockback; the charge's hyper armour; the start gate; hit-stop and shakes (off); the camera of the third person view (another branch) | kind: ours; confidence: none (low) | ours (scope note) | Not changed: compare with SM1 by feel or video. Ours: the stun's branch times and lock scale; the interrupt's and stagger's… | ☐ |
+
+*Spec section: Melee interaction pass: the charge connect locked, its impact, reactions turned to the attacker (anim/melee-interaction; protocol 48, no wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-48E07562` | Charge contact: the blocking body counts | a charge's move this tick reaches a player at its rewound (seen) feet **or** at the feet of the body that blocked the move (the player-collision picture, carried on by velocity), whichever comes first along the move; the same reach (2 × 0.45 + 0.3 m), 45… (m) | kind: ours; confidence: low | ours (the original's contact is engine code) | Charge contact: the blocking body counts: compare with SM1 by measuring on a flat spot of the same map. Ours: a charge's move this tick reaches a player at its rewound (seen) feet… | ☐ |
+| `R-95B9603C` | Charge lock: the charger | on a contact the charger stops where its move ended (the data's collision stop, the wall-hit recoil clip) and turns to face the point met (from its move's closest approach, at most 45 degrees off its heading) | kind: ours; confidence: low | ours | Charge lock: the charger: compare with SM1 by feel or video. Ours: on a contact the charger stops where its move ended (the data's… | ☐ |
+| `R-36A7525F` | Charge lock: the victim | a victim the stun takes is moved to stand 0.9 m (the capsules touching: the charger's shoulder at its chest) in front of the stopped charger along that line, in 0.1 m steps swept through the level, at most 2.5 m, stopping short before a wall, a step that… (m) | kind: estimate; confidence: low; notes: ours | ours | Charge lock: the victim: compare with SM1 by measuring on a flat spot of the same map. Ours: a victim the stun takes is moved to stand 0.9 m (the capsules… | ☐ |
+| `R-3598C87B` | Charge lock: prediction | the own client predicts the contact, the stop and the turn on the contact tick with the same view (the held snapshot of a charge tick) and bodies the server uses; the victim's move is the server's | kind: ours; confidence: medium | ours | Charge lock: prediction: compare with SM1 by feel or video. Ours: the own client predicts the contact, the stop and the turn on the… | ☐ |
+| `R-B94A3AFF` | Own view: victim at the lock spot | the own charge's victim is drawn at the lock spot from the predicted contact until its drawn reaction shows, then the override fades over 0.2 s (at most 0.8 s in all) (s) | kind: estimate; confidence: low; notes: ours | ours | Own view: victim at the lock spot: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the own charge's victim is drawn at the lock spot from the predicted… | ☐ |
+| `R-8166967F` | Charge hit-stop | on a connect both clips (the charger's collision stop, the victim's stun) hold for 0.1 s and catch up over 0.15 s; the simulation does not wait. On by default (the melee hit-stop stays opt-in, `--hit-stop`: the owner removed it for strikes on 2026-10-29) (s) | kind: estimate; confidence: low; notes: ours | ours | Charge hit-stop: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: on a connect both clips (the charger's collision stop, the victim's… | ☐ |
+| `R-E74CD8C9` | Charge camera kick | the charger's camera dips 2.2 degrees, the victim's is thrown up 3.5 degrees (up in 0.03 s, back with a 0.09 s time constant, a third of it as roll), plus a shake of 0.9 / 1.3 degrees; an observer within 3 m 0.35 degrees of shake, fading to none at 12 m.… (degrees, s) | kind: estimate; confidence: low; notes: ours | ours | Charge camera kick: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the charger's camera dips 2.2 degrees, the victim's is thrown up 3.5… | ☐ |
+| `R-795FD0BE` | Charge impact effects | at the victim's chest toward the charger: the charging wargear's `body_smash` material container resolved for armour up (unknown on others: armour), else the `body_smash` effect; plus `body_smash_directional` along the charge (ours: the data names no effect… | kind: ours; confidence: low | data (container, effects); placement and the directional burst ours | Charge impact effects: compare with SM1 by feel or video. Ours: at the victim's chest toward the charger: the charging wargear's… | ☐ |
+| `R-C8579996` | Charge impact sound | the data's charge impact (`play_sm_bull_rush_smash`, as before) layered with the charging melee weapon's own hit sound (ours) | kind: ours; confidence: low | data events; the layering ours | Charge impact sound: compare with SM1 by listening A/B at the same distance and state. Ours: the data's charge impact (play_sm_bull_rush_smash, as before) layered… | ☐ |
+| `R-199E0479` | Reactions turned to the attacker | a body in a hit reaction turns (eased, 25/s) so the side its clip was chosen for points exactly at its attacker: the charger, the own player's predicted hit, else the nearest attacking enemy within 4.5 m when the reaction starts; the clip itself (the… (1/s, m) | kind: ours; confidence: low | ours | Reactions turned to the attacker: compare with SM1 by watching the reaction and timing it frame by frame. Ours: a body in a hit reaction turns (eased, 25/s) so the side its clip was… | ☐ |
+| `R-6FFF5BFB` | Own hit on the hit frame | an own melee hit predicted this frame starts the victim's data flinch (`SM_REC_Flinch_*`) at once; the server's reaction replaces it a round trip later | kind: ours; confidence: low | ours | Own hit on the hit frame: compare with SM1 by feel or video. Ours: an own melee hit predicted this frame starts the victim's data flinch… | ☐ |
+| `R-8CF7B67C` | Not changed | the stun's knockback (the data's `reaction_mp_stun` has none); the stun clips' own extracted motion (about 2 m) is not applied by the simulation (as before; an open question); normal strikes' hit-stop and shakes (the owner's 2026-10-29 removal stands) | kind: gap (not reproduced); confidence: medium | data / owner | Not changed: compare with SM1 by feel or video. Ours: the stun's knockback (the data's reaction_mp_stun has none); the stun… | ☐ |
 
 ### Reactions (gameplay-critical) (15)
 
@@ -2352,6 +2369,17 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-E3DC45B3` | Clip restarts and stance fades | A clip started again fades in; stance cross-fades turn bones along one arc (slerp fold) | Havok's own blend maths | same | Clip restarts and stance fades: compare with SM1 by feel or video. Ours: A clip started again fades in; stance cross-fades turn bones along… | ☐ |
 | `C-85FCAF64` | Heavy bolter always ready | It never drops to the rifle's relaxed clips outside the sprint | That "no relaxed state" means always ready (interpretation) | same | Heavy bolter always ready: compare with SM1 by feel or video. Ours: It never drops to the rifle's relaxed clips outside the sprint. | ☐ |
 | `C-B5695902` | Field-of-view slider (ui/fov-slider, owner 2026-10-31) | Ours, an added option: a slider in the Join screen and the customizer / Esc menu, horizontal degrees at the window's aspect from the data's look (about 66 at 16:9) to 120, saved in the front-end settings, applied live to the exploration and aim cameras proportionally; scopes keep the data's zoom levels. The original's… | default = the data's look (nothing changes unless the slider moves) | spec "Zoom levels of the scoped weapons" (row "Field-of-view option") | Field-of-view slider (ui/fov-slider, owner 2026-10-31): compare with SM1 with an overlaid screenshot taken from the same position. Ours: Ours, an added option: a slider in the Join screen and the customizer… | ☐ |
+
+#### Melee interaction pass (anim/melee-interaction; protocol 48, no wire change)
+
+| ID | Rule | What we do | What is unknown | Spec section | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-3DA0E423` | Charge contact counts the blocking body | A charge meets a player at its rewound picture or at the body that blocked it, whichever first | SM1's contact test (its `Interaction` tag at 0.2 to 0.233 s of the rush clip suggests a paired move) | Melee interaction pass | Charge contact counts the blocking body: compare with SM1 by feel or video. Ours: A charge meets a player at its rewound picture or at the body that… | ☐ |
+| `C-9D076494` | Charge lock | The charger stops facing the victim; a stunned victim is moved to 0.9 m in front of it (at most 2.5 m, swept) | Whether SM1 snapped either body, and how far apart they stood | same | Charge lock: compare with SM1 by feel or video. Ours: The charger stops facing the victim; a stunned victim is moved to 0.9… | ☐ |
+| `C-A8612F59` | Own view draws the victim at the lock spot | From the predicted contact until the victim's reaction arrives, then a 0.2 s fade | How SM1's clients drew a remote victim at a charge hit | same | Own view draws the victim at the lock spot: compare with SM1 by feel or video. Ours: From the predicted contact until the victim's reaction arrives, then… | ☐ |
+| `C-885B0C07` | Charge hit-stop, camera kick, impact effects and layered sound | 0.1 s hold on both clips; 2.2 / 3.5 degree kicks with shakes, a faint shake for observers; the data's body smash container and directional burst; the body smash with the weapon's hit sound | SM1's camera effect and hit pause for the charge (a `camera_effect` in `ability_bullrush_01` was not looked for in this pass) | same | Charge hit-stop, camera kick, impact effects and layered…: compare with SM1 by listening A/B at the same distance and state. Ours: 0.1 s hold on both clips; 2.2 / 3.5 degree kicks with shakes, a faint… | ☐ |
+| `C-283346F3` | Reactions turned to the attacker | The reacting body turns (at most 45 degrees) so its clip's side faces the attacker | Whether SM1 aligned victims (it chose clips by direction) | same | Reactions turned to the attacker: compare with SM1 by watching the reaction and timing it frame by frame. Ours: The reacting body turns (at most 45 degrees) so its clip's side faces… | ☐ |
+| `C-F576CADA` | The own hit flinches the victim on the hit frame | The data's flinch at the predicted hit, the server's reaction a round trip later | Whether SM1 predicted hit reactions on the attacker's client | same | The own hit flinches the victim on the hit frame: compare with SM1 by watching the reaction and timing it frame by frame. Ours: The data's flinch at the predicted hit, the server's reaction a round… | ☐ |
 
 ### Not yet reproduced
 

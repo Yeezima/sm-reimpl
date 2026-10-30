@@ -105,12 +105,17 @@ public partial class NetworkView
             string dir = _gameDir;
             var library = _fx!.Library;
             var names = _config!.Classes.SelectMany(c => c.MeleeChoices.Select(m => m.Wargear)).Where(n => n.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            // anim/melee-interaction: the charge impact's effects (the bull rush's and the dash attack's material container, armour and flesh) compile with the melee ones.
+            var chargeContainerFx = _catalogue is null || _soundTriggers is null ? new List<string>()
+                : _soundTriggers.ChargeHitContainers.Values.Distinct(StringComparer.OrdinalIgnoreCase)
+                    .SelectMany(c => new[] { true, false }.SelectMany(up => _catalogue.Resolve(new FxMaterialTrigger(c, ""), ShotHit.Body, 0, up)))
+                    .Select(p => p.Name).Distinct(StringComparer.Ordinal).ToList();
             _meleeFxLoad = Task.Run(() =>
             {
                 try
                 {
                     var data = MeleeEffects.Load(dir, names);
-                    var wanted = data.EffectNames.Append(SwordHitFx).Distinct(StringComparer.Ordinal).ToList();
+                    var wanted = data.EffectNames.Append(SwordHitFx).Concat(ChargeImpactEffects).Concat(chargeContainerFx).Distinct(StringComparer.Ordinal).ToList();
                     var systems = library is null ? new Dictionary<string, CSystem>() : CompileSystems(library, wanted, new List<string>());
                     var decals = library is null ? new Dictionary<string, byte[]>() : library.Textures(FxPlayer.DecalNames(systems.Values));
                     return new MeleeFxLoad(data, systems, decals);

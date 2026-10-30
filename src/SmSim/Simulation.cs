@@ -775,6 +775,7 @@ public sealed partial record SimConfig
             if (Bodies.Count > 0) { w.Write("bodies"); w.Write(Bodies.Count); foreach (var b in Bodies) b.Write(w); }
             w.Write("blind-view"); w.Write(BlindViewHalfAngle);   // owner's decision 2026-10-28: the blind grenade by facing
             if (!PlayerBodies) w.Write("no-player-bodies");   // sim/player-collision: only when off (older hashes unchanged)
+            if (!ChargeLock) w.Write("no-charge-lock");   // anim/melee-interaction: only when off (older hashes unchanged)
             if (StraightDropAbove != 1f) { w.Write("straight-drop"); w.Write(StraightDropAbove); }   // protocol 30: only when not the default (older hashes unchanged)
             if (MeleeLock != MeleeLockSpec.Default) { w.Write("melee-lock"); MeleeLock.Write(w); }   // feel/melee-lock: only when not the default (older hashes unchanged)
             if (FlightHitVolumes is { } flight) { w.Write("flight-volumes"); flight.Write(w); }   // fix/hitboxes (protocol 37): only when set (older hashes unchanged)

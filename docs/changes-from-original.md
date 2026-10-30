@@ -468,6 +468,20 @@ slash's values and clips but not these engine rules, so these are ours:
 | Heavy bolter always ready | It never drops to the rifle's relaxed clips outside the sprint | That "no relaxed state" means always ready (interpretation) | same |
 | Field-of-view slider (ui/fov-slider, owner 2026-10-31) | Ours, an added option: a slider in the Join screen and the customizer / Esc menu, horizontal degrees at the window's aspect from the data's look (about 66 at 16:9) to 120, saved in the front-end settings, applied live to the exploration and aim cameras proportionally; scopes keep the data's zoom levels. The original's PC options are not known to us | default = the data's look (nothing changes unless the slider moves) | spec "Zoom levels of the scoped weapons" (row "Field-of-view option") |
 
+### Melee interaction pass (anim/melee-interaction; protocol 48, no wire change)
+
+The owner's request of 2026-10-31 (the charge connect "floaty and disconnected", not consistently locked; weightier impact; more interaction). How SM1 placed a charger and its victim at
+the hit is engine code, so these rules are ours (spec "Melee interaction pass").
+
+| Rule | What we do | What is unknown | Spec section |
+|---|---|---|---|
+| Charge contact counts the blocking body | A charge meets a player at its rewound picture or at the body that blocked it, whichever first | SM1's contact test (its `Interaction` tag at 0.2 to 0.233 s of the rush clip suggests a paired move) | Melee interaction pass |
+| Charge lock | The charger stops facing the victim; a stunned victim is moved to 0.9 m in front of it (at most 2.5 m, swept) | Whether SM1 snapped either body, and how far apart they stood | same |
+| Own view draws the victim at the lock spot | From the predicted contact until the victim's reaction arrives, then a 0.2 s fade | How SM1's clients drew a remote victim at a charge hit | same |
+| Charge hit-stop, camera kick, impact effects and layered sound | 0.1 s hold on both clips; 2.2 / 3.5 degree kicks with shakes, a faint shake for observers; the data's body smash container and directional burst; the body smash with the weapon's hit sound | SM1's camera effect and hit pause for the charge (a `camera_effect` in `ability_bullrush_01` was not looked for in this pass) | same |
+| Reactions turned to the attacker | The reacting body turns (at most 45 degrees) so its clip's side faces the attacker | Whether SM1 aligned victims (it chose clips by direction) | same |
+| The own hit flinches the victim on the hit frame | The data's flinch at the predicted hit, the server's reaction a round trip later | Whether SM1 predicted hit reactions on the attacker's client | same |
+
 ## 3. Not yet reproduced
 
 Known original features missing from the alpha (alpha scope: Annihilation and Seize Ground on Manufactorum only).

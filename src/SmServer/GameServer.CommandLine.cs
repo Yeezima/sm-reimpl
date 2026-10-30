@@ -45,6 +45,8 @@ public sealed record ServerArguments
     public ContentExtras Content { get; init; } = ContentProfiles.Default;
     /// <summary>--no-player-collision (sim/player-collision test aid): players pass through each other as before protocol 43 (<see cref="SimConfig.PlayerBodies"/>; config hash: clients need it too).</summary>
     public bool NoPlayerCollision { get; init; }
+    /// <summary>anim/melee-interaction (test aid, before / after): the M29 charge contact and stop, no lock (config hash; clients need it too).</summary>
+    public bool NoChargeLock { get; init; }
     /// <summary>--log-overlaps (sim/player-collision test aid): every 10 s, how close the living players' capsules came and how often they overlapped.</summary>
     public bool LogOverlaps { get; init; }
     /// <summary>--max-spectators (protocol 46; ours, observer tooling): spectators admitted besides the players, 0 none (default <see cref="Protocol.MaxSpectators"/>).</summary>
@@ -78,6 +80,7 @@ public static class ServerCommandLine
                                         (default extended; a build without extras runs faithful only); clients need the same --content
           --ork-data                    switch: test aid: the Ork Boy with the data's values instead of the Tactical parity (clients need --ork-data too)
           --no-player-collision         switch: test aid: players pass through each other as before protocol 43 (clients need --no-player-collision too)
+          --no-charge-lock              switch: test aid: the charge contact and stop as before anim/melee-interaction (clients need --no-charge-lock too)
           --log-overlaps                switch: test aid: every 10 s, the closest the living players' capsules came and how many ticks they overlapped
           --unlocks all                 unlock mode (only 'all': no progression yet)
           --no-custom-emblems           switch: no custom emblem is pulled, kept or served
@@ -91,7 +94,7 @@ public static class ServerCommandLine
           --help, -h                    switch: this list
         """;
 
-    static readonly HashSet<string> Switches = ["--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--log-overlaps", "--help", "-h"];
+    static readonly HashSet<string> Switches = ["--no-custom-emblems", "--limit-loopback", "--honor-side-requests", "--ork-data", "--no-player-collision", "--no-charge-lock", "--log-overlaps", "--help", "-h"];
     static readonly HashSet<string> Valued =
         ["--port", "--bind", "--game-dir", "--map", "--mode", "--score-limit", "--time-limit", "--friendly-fire", "--unlocks", "--countdown", "--pickup-test", "--bot-damage-scale",
          "--name-seed", "--max-per-ip", "--join-interval", "--idle-kick", "--ban-file", "--content", "--max-spectators"];
@@ -113,6 +116,7 @@ public static class ServerCommandLine
                     "--honor-side-requests" => a with { HonorSideRequests = true },
                     "--ork-data" => a with { OrkData = true },
                     "--no-player-collision" => a with { NoPlayerCollision = true },
+                    "--no-charge-lock" => a with { NoChargeLock = true },
                     "--log-overlaps" => a with { LogOverlaps = true },
                     _ => a with { Help = true },
                 };

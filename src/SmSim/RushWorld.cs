@@ -31,24 +31,19 @@ public sealed partial class World
     {
         if (Rush.SpecOf(Config, state) is not { } spec) return false;   // protocol 30: the dash attack's lunge too
         var seen = SeenBy(input);
-        var eye = state.Position + new Vector3(0, 0, Config.EyeHeight);
-        int target = -1; float first = float.MaxValue;
-        foreach (var (id, then) in seen)
-        {
-            if (id == attacker || !then.Alive || !_players.TryGetValue(id, out var current) || !current.Alive) continue;
-            if (Rush.Contact(before.Position, state.Position, state.Yaw, then.Position, spec, Config) is not float t || t > first || (t == first && id > target)) continue;
-            if (Collision is not null)
-            {
-                var toChest = then.Position + new Vector3(0, 0, ChestOf(then)) - eye;
-                float length = toChest.Length();
-                if (length > 1e-4f && Collision.Weapons.Raycast(eye, toChest / length, length) is { } wall && wall.Distance < length) continue;   // behind a wall
-            }
-            first = t; target = id;
-        }
-        if (target < 0) return false;
+        // anim/melee-interaction (ChargeLock.cs): the seen picture or the body that blocked the move, whichever the move reaches first; the lock line for the stop.
+        if (ChargeLock.Find(attacker, before.Position, state.Position, state.Yaw, spec, Config, seen, Config.ChargeLock ? BodiesFor(attacker, input) : null, Collision,
+                id => _players.TryGetValue(id, out var current) && current.Alive) is not { } contact) return false;
+        int target = contact.Target;
+        var lockLine = ChargeLock.Direction(before.Position, state.Position, state.Yaw, contact, spec);
+        _chargeLines[attacker] = lockLine;
         bool harmed = Harms(attacker, target);
         _rushes.Add(new RushEvent(Tick, attacker, target, harmed));
         if (!harmed) return true;
+        // anim/melee-interaction: a victim the stun will take stands at the lock spot in front of the charger before the hit (its push line is then the lock line).
+        if (Config.ChargeLock && spec.PrimaryReaction.Kind != ReactionKind.None && _players[target] is { Alive: true } victim && Reaction.CanReact(victim, Config))
+            _players[target] = ChargeLock.Pull(victim, state.Position, lockLine, Config, Collision,
+                _players.Where(kv => kv.Key != attacker && kv.Key != target && kv.Value.Alive).Select(kv => kv.Value.Position));   // review: not into a third player
         RushHit(attacker, target, state, spec.Primary, spec.PrimaryReaction);
         // Others in reach in front: the secondary hit.
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
@@ -81,13 +76,23 @@ public sealed partial class World
     /// were charging in: one that connected takes the stop of that phase as any other contact (unless a resolution changed its state since).</param>
     void StopRushes(IEnumerable<int> chargers, IReadOnlyDictionary<int, RushPhase>? landed = null)
     {
+        try { StopRushesLocked(chargers, landed); } finally { _chargeLines.Clear(); }
+    }
+
+    /// <summary>anim/melee-interaction: each connecting charger's lock line this tick (<see cref="ChargeLock.Direction"/>), for its stop.</summary>
+    readonly Dictionary<int, Vector2> _chargeLines = new();
+
+    void StopRushesLocked(IEnumerable<int> chargers, IReadOnlyDictionary<int, RushPhase>? landed)
+    {
         // feel/jump-pack-2 (the review): a charger a wall stopped this tick (0 ticks into its wall stop) that also connected takes the hit's stop, not the wall's.
         foreach (int id in chargers)
         {
             if (!_players.TryGetValue(id, out var now) || !now.Alive) continue;
-            if (Rush.Charging(Rush.ChargingPhase(now))) _players[id] = Rush.Stopped(now with { Rush = Rush.ChargingPhase(now) });   // the dash attack: its hit state
+            // anim/melee-interaction: facing the lock line (ChargeLock.Stopped; without the lock as Rush.Stopped).
+            var line = _chargeLines.TryGetValue(id, out var l) ? l : new Vector2(-MathF.Sin(now.Yaw), MathF.Cos(now.Yaw));
+            if (Rush.Charging(Rush.ChargingPhase(now))) _players[id] = ChargeLock.Stopped(now with { Rush = Rush.ChargingPhase(now) }, line, Config);   // the dash attack: its hit state
             else if (now.Rush == RushPhase.None && now.Reaction == ReactionKind.None && landed is not null && landed.TryGetValue(id, out var phase))
-                _players[id] = Rush.Stopped(now with { Rush = phase });
+                _players[id] = ChargeLock.Stopped(now with { Rush = phase }, line, Config);
         }
     }
 
