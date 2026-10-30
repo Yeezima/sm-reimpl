@@ -170,7 +170,7 @@ public static class Reaction
     /// sim/combat-2 (item 36): whether a reaction of this kind holds the victim (nothing but turning until it ends: the stun and the stagger); the light one (the light-attack interrupt)
     /// only interrupt the action and play their clip (<see cref="Begin"/>). Which hits are light and which heavy is the data's (the hit tables pick the kind).
     /// </summary>
-    public static bool Holds(ReactionKind kind) => kind != ReactionKind.Interrupt;   // the owner (review of sim/combat-2): only the light-attack interrupt is escapable; stagger and stun hold
+    public static bool Holds(ReactionKind kind) => kind is ReactionKind.Stun or ReactionKind.Stagger;   // the owner (review of sim/combat-2): only the light-attack interrupt is escapable; stagger and stun hold
 
     /// <summary>
     /// feel/locks-sprint-stop: when a reaction's stick or Jump branch (<see cref="ReactionClip.RunAt"/>, <see cref="ReactionClip.EvadeAt"/>) opens:

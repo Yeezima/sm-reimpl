@@ -675,12 +675,12 @@ public class InputBufferTests(ITestOutputHelper output)
         output.WriteLine($"roll: late press switched at {late}, early press at {early}");
         Assert.InRange(late, 14, 25);
         Assert.Equal(-1, SwitchTick(On(EvadeTests.Config) with { InputBufferWindow = 0f }, roll, 13) == -1 ? -1 : -2);   // no buffer: the same press is lost
-        // A stun holds: a press 5 ticks before its end waits for it (a stagger or interrupt holds nobody: the press acts on its tick).
+        // A stun holds: a press 5 ticks before its end waits for it (the light-attack interrupt holds nobody: the press acts on its tick).
         var stun = Reaction.Start(Fresh(c, Tactical), c, new ReactionEntry(0f, ReactionKind.Stun), ReactionDirection.Front, Vector2.UnitY);
         int afterStun = SwitchTick(c, stun, 10);
         output.WriteLine($"stun: press at 10 switched at {afterStun}");
         Assert.InRange(afterStun, 16, 20);
-        var stagger = Reaction.Start(Fresh(c, Tactical), c, new ReactionEntry(0f, ReactionKind.Stagger), ReactionDirection.Front, Vector2.UnitY);
+        var stagger = Reaction.Start(Fresh(c, Tactical), c, new ReactionEntry(0f, ReactionKind.Interrupt), ReactionDirection.Front, Vector2.UnitY);
         Assert.Equal(3, SwitchTick(c, stagger, 3));
     }
 
