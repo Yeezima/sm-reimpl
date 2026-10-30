@@ -26,7 +26,7 @@ public sealed class WeaponAssets
     readonly Dictionary<string, WeaponAsset?> _cache = new(StringComparer.OrdinalIgnoreCase);
     readonly List<string> _notes;
     readonly MapMaterials _materials = new();   // painted backpacks and jump packs (wargear materials with a paint mask)
-    readonly PaintedMaterialCache _packMaterials = new();   // a worn jump pack's materials for a look's chest paint, shared by every character in that paint
+    readonly PaintedMaterialCache _packMaterials = new();   // a worn jump pack's materials for a look's backpack paint, shared by every character in that paint
 
     public WeaponModels Catalogue { get; }
     public int ModelsLoaded => _cache.Values.Count(a => a is not null);
@@ -134,7 +134,7 @@ public sealed class WeaponAssets
         SchemeOf(model.Package.StartsWith("csm_", StringComparison.OrdinalIgnoreCase)) is { } scheme ? PaintSchemes.For(scheme, model.Package) : null;
 
     /// <summary>
-    /// The material of a worn jump pack's surface in a look's pack paint (<see cref="WornPackPaint"/>: the chest's), shared by every character wearing that paint
+    /// The material of a worn jump pack's surface in a look's pack paint (<see cref="WornPackPaint"/>: the backpack's), shared by every character wearing that paint
     /// (<see cref="PaintedMaterialKey"/> over the surface and the colours; bounded like the armour's cache). Cheap: only uniforms differ.
     /// </summary>
     public Material PackMaterial(WornPaintSurface surface, ResolvedPaint paint) =>
@@ -406,7 +406,7 @@ public sealed class WeaponRig
     }
 
     /// <summary>
-    /// Paints the worn jump pack with a look's pack paint (<see cref="WornPackPaint"/>: the chest's colours; the owner's rule) instead of the side's default scheme;
+    /// Paints the worn jump pack with a look's pack paint (<see cref="WornPackPaint"/>: the backpack slot's colours; the owner's rule) instead of the side's default scheme;
     /// null returns it to the default. Cheap when nothing changed (a reference comparison per call), so the view may call it every frame; a pack configured later gets
     /// it too. The materials are shared by every character in the same paint.
     /// </summary>

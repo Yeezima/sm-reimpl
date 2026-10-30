@@ -504,7 +504,7 @@ public sealed partial class AppearanceView : Control
     {
         var parts = new List<string>();
         if (resolved?.ForcedSlots.Contains(slot) == true) parts.Add($"Set by class: {LoadoutRows.ClassName(_catalog, Role, _race)}.");
-        if (resolved?.HiddenSlots.Contains(slot) == true) parts.Add("Not shown on this class (the jump pack takes the back).");
+        if (resolved?.HiddenSlots.Contains(slot) == true) parts.Add("Not shown on this class (the jump pack takes the back; the Backpack colours paint the pack).");
         var offered = Race?.PiecesFor(slot).Count ?? 0;
         ShowTextCard(AppearanceEdits.SlotTitle(slot), $"Worn: {PieceTitle(look, resolved, slot)}\n{offered} to choose from.", string.Join("\n", parts));
     }

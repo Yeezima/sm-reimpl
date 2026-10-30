@@ -29,7 +29,7 @@ public sealed class MarineAssets : IDisposable
     public int Surfaces { get; }
     public List<string> Notes { get; }
     /// <summary>
-    /// The paint the worn jump pack takes in this look (the chest's: <see cref="SmContent.Customization.WornPackPaint"/>, the owner's rule), or null (the pack keeps the
+    /// The paint the worn jump pack takes in this look (the backpack's: <see cref="SmContent.Customization.WornPackPaint"/>, the owner's rule), or null (the pack keeps the
     /// side's default paint: the single-set path and the placeholder). Read by <see cref="WeaponRig.SetPackPaint"/>.
     /// </summary>
     public SmContent.Customization.ResolvedPaint? PackPaint { get; internal init; }
