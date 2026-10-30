@@ -25,6 +25,11 @@ public static class RewardTable
 
     public static readonly RewardSpec Kill = new("kill", "Kill", 121089, "mp_bonus_kill", 50);
     public static readonly RewardSpec Headshot = new("headshot", "Headshot", 105720, "mp_bonus_headshot", 35);
+    /// <summary>
+    /// A headshot kill's one line (owner, 2026-10-30): the headshot's icon and name instead of the plain kill line, with the experience of both (the data grants the kill's 50 and the headshot's 35;
+    /// ours: shown as one line of 85).
+    /// </summary>
+    public static readonly RewardSpec HeadshotKill = new("headshot kill", "Headshot", 105720, "mp_bonus_headshot", Kill.Experience + Headshot.Experience);
     public static readonly RewardSpec DoubleKill = new("double kill", "Double Kill", 105730, "player_track_doublekill", 100);
     public static readonly RewardSpec TripleKill = new("triple kill", "Triple Kill", 105731, "mp_bonus_multikill", 300);
     public static readonly RewardSpec QuadKill = new("quad kill", "Quad Kill", 105732, "player_track_quadkill", 400);
@@ -47,7 +52,7 @@ public static class RewardTable
 
     static IReadOnlyList<RewardSpec> BuildAll()
     {
-        var l = new List<RewardSpec> { Kill, Headshot, DoubleKill, TripleKill, QuadKill, MegaKill, Revenge, Avenger, Grudge, VictoryInDeath, MaxKillstreak, KillstreakCap };
+        var l = new List<RewardSpec> { Kill, Headshot, HeadshotKill, DoubleKill, TripleKill, QuadKill, MegaKill, Revenge, Avenger, Grudge, VictoryInDeath, MaxKillstreak, KillstreakCap };
         for (int n = 3; n <= 9; n++) l.Add(KillstreakStep(n));
         return l;
     }
@@ -100,8 +105,7 @@ public sealed class RewardTracker
     /// </summary>
     public IReadOnlyList<RewardEarned> OwnKill(string victim, double now, bool headshot, bool ownAlive)
     {
-        var list = new List<RewardEarned> { new(RewardTable.Kill) };
-        if (headshot) list.Add(new(RewardTable.Headshot));
+        var list = new List<RewardEarned> { new(headshot ? RewardTable.HeadshotKill : RewardTable.Kill) };
         if (_lastKiller == victim) { list.Add(new(RewardTable.Revenge)); _lastKiller = null; }
         if (_teamLossBy.TryGetValue(victim, out double at) && now - at <= RewardTable.AvengerWindow && now >= at) { list.Add(new(RewardTable.Avenger)); _teamLossBy.Remove(victim); }
         _killsOf[victim] = _killsOf.GetValueOrDefault(victim) + 1;

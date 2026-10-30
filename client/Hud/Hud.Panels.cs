@@ -96,11 +96,7 @@ public sealed partial class Hud
         if (!d.Alive) return;
         bool movie = d.HasWeapon && DrawMovieWeaponBox(vs);   // ui/hud-fidelity: the movie's box (Hud.Fidelity.cs); the jump meter and the lines under it stay
         BeginLocal(Placed(new Vector2(vs.X - 514f, vs.Y - 248f), 2.5f));   // ui/hud-3: 10 units higher, as the owner's reference frame
-        if (movie)
-        {
-            string state = d.Overheated ? (d.Venting ? "OVERHEATED - VENTING" : "OVERHEATED") : d.WeaponState;
-            if (state.Length > 0) Txt(state, BoxW - 14f, BoxH + 2f, 17, new Color(RedText.Lerp(Gold, 0.45f), 0.65f + 0.35f * MathF.Sin((float)_time * 10f)), 1, 3, 2);
-        }
+        // ui/hud-camera-2 (owner, 2026-10-30): no status words in the weapon box in any state (RELOADING, SWITCHING, RECHARGING, OVERHEATED): the original has none.
         if (d.HasWeapon && !movie) DrawBoxContents();
         if (d.HasGrenade && !movie) DrawGrenadeBox();
         float below = BoxH + (movie ? 26f : 10f);   // ui/hud-fidelity: the movie's box stands 1.12 times larger
@@ -169,14 +165,6 @@ public sealed partial class Hud
         // The weapon's picture at the right (smaller and higher above a bar, so the bar runs under it as in the footage).
         if (!WeaponPicture(d.WeaponWargear, bar ? new Vector2(311f, 48f) : new Vector2(311f, 60f), bar ? 1.15f : 1.42f, White))
             Txt(d.WeaponName, BoxW - 18f, 66f, 24, new Color(0.9f, 0.9f, 0.88f), 1, 3);
-
-        // Reloading, switching, recharging, overheated: small blinking words at the bottom right (ours; the original's cue is not known).
-        string state = d.Overheated ? (d.Venting ? "OVERHEATED - VENTING" : "OVERHEATED") : d.WeaponState;
-        if (state.Length > 0)
-        {
-            float blink = 0.65f + 0.35f * MathF.Sin((float)_time * 10f);
-            Txt(state, BoxW - 14f, BoxH - 10f, 17, new Color(RedText.Lerp(Gold, 0.45f), blink), 1, 3, 2);
-        }
     }
 
     /// <summary>The clip as slanted ticks from the original strip (loaded white, spent dark): 9.8 virtual units apart, 22 tall (footage).</summary>
@@ -247,7 +235,7 @@ public sealed partial class Hud
         float a = (float)Math.Clamp(PopupSeconds - age, 0.0, 0.4) / 0.4f;
         if (d.HasThird)
         {
-            // Protocol 44: three weapons (Weapon Versatility). The cards by slot: pistol above the crosshair, the primary at its right, the second primary under it.
+            // Protocol 44: three weapons (Weapon Versatility). The cards by slot as a radial menu (owner, 2026-10-30): pistol north (above the crosshair), the primary east, the second primary south (below the crosshair, the pistol card's mirror).
             var slot = (WeaponSlot)d.SlotKey;
             var bySlot = new (string Ammo, string Name, string Wargear)[3];
             bySlot[(int)slot] = (HudRules.CardAmmo(d.Clip, d.ClipMax, d.Reserve), d.WeaponName, d.WeaponWargear);
@@ -255,11 +243,11 @@ public sealed partial class Hud
             bySlot[(int)Loadouts.Third(slot)] = (HudRules.CardAmmo(d.ThirdClip, d.ThirdClipMax, d.ThirdReserve), d.ThirdName, d.ThirdWargear);
             var pistolCard = bySlot[(int)WeaponSlot.Pistol]; var primaryCard = bySlot[(int)WeaponSlot.Ranged]; var secondCard = bySlot[(int)WeaponSlot.Second];
             Card(new Rect2(c.X - 140f, c.Y - 212f, 291f, 112f), pistolCard.Ammo, pistolCard.Name, pistolCard.Wargear, slot == WeaponSlot.Pistol, a);
-            Card(new Rect2(c.X + 108f, c.Y - 120f, 312f, 116f), primaryCard.Ammo, primaryCard.Name, primaryCard.Wargear, slot == WeaponSlot.Ranged, a);
-            Card(new Rect2(c.X + 108f, c.Y + 4f, 312f, 116f), secondCard.Ammo, secondCard.Name, secondCard.Wargear, slot == WeaponSlot.Second, a);
+            Card(new Rect2(c.X + 108f, c.Y - 58f, 312f, 116f), primaryCard.Ammo, primaryCard.Name, primaryCard.Wargear, slot == WeaponSlot.Ranged, a);
+            Card(new Rect2(c.X - 140f, c.Y + 100f, 291f, 112f), secondCard.Ammo, secondCard.Name, secondCard.Wargear, slot == WeaponSlot.Second, a);
             Chevron(new Vector2(c.X, c.Y - 82f), 0f, slot == WeaponSlot.Pistol, a);
-            Chevron(new Vector2(c.X + 86f, c.Y - 62f), MathF.PI / 2f, slot == WeaponSlot.Ranged, a);
-            Chevron(new Vector2(c.X + 86f, c.Y + 62f), MathF.PI / 2f, slot == WeaponSlot.Second, a);
+            Chevron(new Vector2(c.X + 86f, c.Y), MathF.PI / 2f, slot == WeaponSlot.Ranged, a);
+            Chevron(new Vector2(c.X, c.Y + 82f), MathF.PI, slot == WeaponSlot.Second, a);
             return;
         }
         bool pistolInHand = d.SlotKey == (int)WeaponSlot.Pistol;

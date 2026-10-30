@@ -33,6 +33,8 @@ namespace SmClient;
 public partial class NetworkView
 {
     const float DefaultFov = 65f;
+    /// <summary>The exploration camera's distance behind the character as a multiple of the data rig's (ours, owner decision 2026-10-30); <c>--camera-back f</c> (1 = the data's) tests other values.</summary>
+    static readonly float CameraBackScale = OS.GetCmdlineUserArgs() is { } a && Array.IndexOf(a, "--camera-back") is int i and >= 0 && i + 1 < a.Length && float.TryParse(a[i + 1], System.Globalization.CultureInfo.InvariantCulture, out float f) && f > 0f ? f : 1.3f;
     const string FallbackWeapon = "sm_mp_ranged_bolter";
 
     /// <summary><c>--aim-test</c> (test aid): the bot uses the follow camera of a human player and holds aim mode every other 5 s (so screenshots show both cameras).</summary>
@@ -147,9 +149,12 @@ public partial class NetworkView
             _rigLogged = true;
             // Diagnostic: does the rig's outer-bone elevation (LookPitch) equal the view pitch?
             string looks = string.Join(", ", new[] { -0.6f, 0f, 0.6f }.Select(p => _cameraRig.OffsetAtPitch(ex.AnimationCurve, p) is { } o ? $"pitch {p:F2} -> look {o.LookPitch:F2}" : "none"));
+            GD.Print($"camera back: data {o0.Back:F2} m exploration / {o1.Back:F2} m aim at pitch {pitch:F2}; exploration used x{CameraBackScale:F2} = {o0.Back * CameraBackScale:F2} m");
             GD.Print($"camera rig: {ex.Name} / {aim.Name} for {wc.Weapon}; {wc.Evidence}; exploration LookPitch vs view pitch: {looks}");
         }
-        var cam = System.Numerics.Vector3.Lerp(o0.Camera, o1.Camera, w);
+        // ui/hud-camera-2 (owner, 2026-10-30: "too close to the character"): the exploration camera sits CameraBackScale times as far behind the feet as the data's rig puts it (ours; the aim set is unchanged).
+        var explore = o0.Camera; explore.Y *= CameraBackScale;
+        var cam = System.Numerics.Vector3.Lerp(explore, o1.Camera, w);
         var pivot = System.Numerics.Vector3.Lerp(o0.Pivot, o1.Pivot, w);
         // The scoped weapons (stalker bolter, lascannon): the wargear's zoom_levels fov_1 is the zoomed view (spec "Zoom levels"), not the aim set's field_of_view; the rest of the weapons use the set's.
         float aimFov = wc.ZoomFovs is { Count: > 0 } zooms ? zooms[0] : aim.FieldOfView;
