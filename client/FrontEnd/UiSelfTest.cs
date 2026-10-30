@@ -535,7 +535,7 @@ public sealed partial class UiSelfTest : Node
     static Color SwatchOf(Button b) => b.GetThemeStylebox("normal") is StyleBoxFlat flat ? flat.BgColor : Colors.Transparent;
 
     /// <summary>
-    /// The owner's rule of 2026-10-29: the worn jump pack takes the chest's colours (SmContent.Customization.WornPackPaint). Slot 4 is an Assault class, so the appearance editor's
+    /// The owner's rule of 2026-10-30: the worn jump pack takes the backpack slot's colours (SmContent.Customization.WornPackPaint). Slot 4 is an Assault class, so the appearance editor's
     /// preview wears a jump pack: choosing a colour for all parts must set the pack's material colour to that swatch, and a second, different swatch must change it again.
     /// </summary>
     async Task PackPaintChecks(AppearanceView appearance)
@@ -563,14 +563,14 @@ public sealed partial class UiSelfTest : Node
         first.EmitSignal(BaseButton.SignalName.Pressed);
         var packFirst = await PackAfter(null);
         Check("the Assault preview wears a painted jump pack", packFirst is not null);
-        Check("the pack is drawn in the chest colour that was chosen", packFirst is { } a && Near(a, firstColour), $"{packFirst} vs {firstColour}");
-        Check("the pack paint is the chest's paint of the look", preview.PackPaint is { Primary: { } chest } && Near(new Color(chest.Diffuse[0], chest.Diffuse[1], chest.Diffuse[2]), firstColour));
+        Check("the pack is drawn in the backpack colour that was chosen", packFirst is { } a && Near(a, firstColour), $"{packFirst} vs {firstColour}");
+        Check("the pack paint is the backpack's paint of the look", preview.PackPaint is { Primary: { } chest } && Near(new Color(chest.Diffuse[0], chest.Diffuse[1], chest.Diffuse[2]), firstColour));
         swatches.Clear();
         FindButtons(appearance, swatches);
         var again = swatches.Where(b => b is UiKit.ColourButton && Near(SwatchOf(b), secondColour)).FirstOrDefault();
         again?.EmitSignal(BaseButton.SignalName.Pressed);
         var packSecond = await PackAfter(packFirst);
-        Check("changing the chest colour changes the pack's material colour", packSecond is { } b2 && packFirst is { } b1 && !Near(b1, b2) && Near(b2, secondColour), $"{packFirst} -> {packSecond} (wanted {secondColour})");
+        Check("changing the backpack colour changes the pack's material colour", packSecond is { } b2 && packFirst is { } b1 && !Near(b1, b2) && Near(b2, secondColour), $"{packFirst} -> {packSecond} (wanted {secondColour})");
     }
 
     static bool Near(Color a, Color b) => Math.Abs(a.R - b.R) < 0.004f && Math.Abs(a.G - b.G) < 0.004f && Math.Abs(a.B - b.B) < 0.004f;

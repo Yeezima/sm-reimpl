@@ -424,7 +424,7 @@ public sealed partial class PreviewStage : SubViewportContainer
 
     /// <summary>The worn jump pack's primary colour as drawn now (test aid: the shader value of its first painted surface), or null without a painted pack.</summary>
     public Color? PackPrimaryColour => _rig?.PackPrimaryColour;
-    /// <summary>The pack paint the preview applies now (the chest's of the look shown), or null.</summary>
+    /// <summary>The pack paint the preview applies now (the backpack's of the look shown), or null.</summary>
     public SmContent.Customization.ResolvedPaint? PackPaint => _rig?.PackPaint;
 
     /// <summary>The glow's state (test aid): the effects alive and the state they were started in.</summary>
@@ -599,7 +599,7 @@ public sealed partial class PreviewStage : SubViewportContainer
         if (_rig is null || _rig.Faulted) return;
         try
         {
-            _rig.SetPackPaint(_character?.Assets?.PackPaint);   // a colour change builds a new character for the new look; the jump pack takes its chest paint (WornPackPaint)
+            _rig.SetPackPaint(_character?.Assets?.PackPaint);   // a colour change builds a new character for the new look; the jump pack takes its backpack paint (WornPackPaint)
             _rig.Update(_holdPistol ? WeaponSlot.Pistol : WeaponSlot.Ranged, false, true, delta, 0.5f);
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException)) { _rig.Fault(); }

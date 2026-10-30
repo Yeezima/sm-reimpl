@@ -800,3 +800,5 @@ wins, but Compatibility never goes above low), anti-aliasing off (`--aa` wins; S
 (`MapLightingView`, `RenderQuality`). Launcher: "Old GPU / safe mode" checkbox (`LauncherSettings.SafeMode`, `SafeModePolicy` with tests): Godot options
 `--rendering-method gl_compatibility --rendering-driver opengl3` plus `--safe-mode`; a game that fails within 8 s turns it on and is started once more. Protocol
 unchanged (43). Not verified on real old hardware.
+
+Jump pack paint follows the backpack (branch fix/br04-jumppack-paint, bug BR-04; the owner's decision of 2026-10-30, replacing the chest rule of 2026-10-29; client and content only, no protocol change, paint already travels in the appearance code): `WornPackPaint.Slot` is `backpack`, so the worn jump pack (Assault, Raptor) takes the Backpack slot's colours in the customizer preview, after save and reopen, and in the match (own view, others, corpses); the chest colour no longer paints it. Normal backpacks are unchanged. `PackPaintTests` and the `--ui-selftest` pack checks now use the backpack slot. Spec "Worn jump pack paint".

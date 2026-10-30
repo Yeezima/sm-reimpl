@@ -6,7 +6,7 @@ using Xunit;
 namespace SmNet.Tests;
 
 /// <summary>
-/// Which slot paints a worn jump pack (owner's decision of 2026-10-29: the chest). Engine-free, synthetic data only; the client's <c>WeaponRig.SetPackPaint</c> and the
+/// Which slot paints a worn jump pack (owner's decision of 2026-10-30: the backpack). Engine-free, synthetic data only; the client's <c>WeaponRig.SetPackPaint</c> and the
 /// appearance editor's check of the pack's material colour are in <c>--ui-selftest</c>.
 /// </summary>
 public class PackPaintTests
@@ -18,26 +18,26 @@ public class PackPaintTests
             new HashSet<string> { "backpack" }, new HashSet<string>(), "", []);
 
     [Fact]
-    public void The_pack_follows_the_chest_slot()
+    public void The_pack_follows_the_backpack_slot()
     {
-        Assert.Equal("torso", WornPackPaint.Slot);
+        Assert.Equal("backpack", WornPackPaint.Slot);
         var chest = new ResolvedPaint(Colour("Red"), Colour("Gold"), Colour("Black"), true);
         var look = Look(new()
         {
             ["head"] = new(Colour("Green"), Colour("Green"), null, false),
-            ["backpack"] = new(Colour("Blue"), Colour("Blue"), Colour("Blue"), false),   // the data's slot of the pack: hidden on the jump-pack classes, not used
-            ["torso"] = chest,
+            ["torso"] = new(Colour("Blue"), Colour("Blue"), Colour("Blue"), false),   // the chest colour does not paint the pack
+            ["backpack"] = chest,
         });
         Assert.Same(chest, WornPackPaint.Of(look));
     }
 
     [Fact]
-    public void Changing_the_chest_colour_changes_the_pack_paint_and_nothing_else_does()
+    public void Changing_the_backpack_colour_changes_the_pack_paint_and_nothing_else_does()
     {
         var head = new ResolvedPaint(Colour("Green"), Colour("Green"), null, false);
-        var look1 = Look(new() { ["head"] = head, ["torso"] = new(Colour("Red"), Colour("Red"), null, false) });
-        var look2 = Look(new() { ["head"] = head, ["torso"] = new(Colour("Blue"), Colour("Blue"), null, false) });
-        var look3 = Look(new() { ["head"] = new(Colour("Black"), Colour("Black"), null, false), ["torso"] = look1.Paint["torso"] });
+        var look1 = Look(new() { ["head"] = head, ["backpack"] = new(Colour("Red"), Colour("Red"), null, false) });
+        var look2 = Look(new() { ["head"] = head, ["backpack"] = new(Colour("Blue"), Colour("Blue"), null, false) });
+        var look3 = Look(new() { ["head"] = new(Colour("Black"), Colour("Black"), null, false), ["backpack"] = look1.Paint["backpack"] });
         Assert.NotEqual("Red", WornPackPaint.Of(look2)!.Primary!.Name);
         Assert.Equal("Blue", WornPackPaint.Of(look2)!.Primary!.Name);
         Assert.Equal("Red", WornPackPaint.Of(look1)!.Primary!.Name);
@@ -45,9 +45,9 @@ public class PackPaintTests
     }
 
     [Fact]
-    public void The_pack_takes_the_chest_secondary_and_tertiary_and_the_pattern_flag_too()
+    public void The_pack_takes_the_backpack_secondary_and_tertiary_and_the_pattern_flag_too()
     {
-        var look = Look(new() { ["torso"] = new(Colour("Red"), Colour("Gold"), Colour("Black"), true) });
+        var look = Look(new() { ["backpack"] = new(Colour("Red"), Colour("Gold"), Colour("Black"), true) });
         var paint = WornPackPaint.Of(look)!;
         Assert.Equal(("Red", "Gold", "Black", true), (paint.Primary!.Name, paint.Secondary!.Name, paint.Tertiary!.Name, paint.PatternEnabled));
     }
@@ -57,15 +57,15 @@ public class PackPaintTests
     {
         var single = new ResolvedPaint(Colour("Ultramarines Blue"), Colour("Ultramarines Blue"), Colour("Burnished Gold"), false);
         Assert.Same(single, WornPackPaint.Of(Look(new() { ["default"] = single })));
-        Assert.Null(WornPackPaint.Of(Look(new() { ["head"] = single })));   // no chest, no default: null = the side's default scheme as before
+        Assert.Null(WornPackPaint.Of(Look(new() { ["head"] = single })));   // no backpack, no default: null = the side's default scheme as before
         Assert.Null(WornPackPaint.Of(Look(new())));
     }
 
     [Fact]
-    public void The_look_key_changes_with_the_chest_colour_so_a_new_look_is_built_for_the_pack()
+    public void The_look_key_changes_with_the_backpack_colour_so_a_new_look_is_built_for_the_pack()
     {
-        var a = Look(new() { ["torso"] = new(Colour("Red"), Colour("Red"), null, false) });
-        var b = Look(new() { ["torso"] = new(Colour("Blue"), Colour("Blue"), null, false) });
+        var a = Look(new() { ["backpack"] = new(Colour("Red"), Colour("Red"), null, false) });
+        var b = Look(new() { ["backpack"] = new(Colour("Blue"), Colour("Blue"), null, false) });
         Assert.NotEqual(SmClient.Looks.LookKeys.Of(a, true), SmClient.Looks.LookKeys.Of(b, true));
     }
 }
