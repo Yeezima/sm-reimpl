@@ -167,7 +167,7 @@ static class AudioCommands
                     NodeParams(s.Base) + (s.LoopCount != 1 ? $" loop {s.LoopCount}" : ""));
                 return;
             case HircRandomSequence r:
-                w.WriteLine($"{pad}{(r.IsRandom ? "Random" : "Sequence")} {n.Id:x8}{where} avoid-repeat {r.AvoidRepeatCount}, {r.Children.Count} children" + NodeParams(r.Base));
+                w.WriteLine($"{pad}{(r.IsRandom ? "Random" : "Sequence")} {n.Id:x8}{where} avoid-repeat {r.AvoidRepeatCount}, {r.Children.Count} children{(r.IsContinuous ? $", continuous (loop {(r.LoopCount == 0 ? "endless" : r.LoopCount)}, transition mode {r.TransitionMode})" : "")}" + NodeParams(r.Base));
                 break;
             case HircSwitch sw:
                 w.WriteLine($"{pad}Switch {n.Id:x8}{where} {(sw.GroupType == 0 ? "switch" : "state")} group {names.Name(sw.GroupId)}, default {names.Name(sw.DefaultSwitch)}" + NodeParams(sw.Base));

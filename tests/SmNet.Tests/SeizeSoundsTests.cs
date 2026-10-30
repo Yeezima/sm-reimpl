@@ -110,4 +110,31 @@ public class SeizeSoundsTests
         s.Reset();
         Assert.Empty(s.Step(Points(Owned(Team.SpaceMarines)), 0, Team.SpaceMarines, 0, 0.2));                 // noted only, no objective noise
     }
+
+    [Fact]
+    public void Every_play_post_is_single_shot_so_no_endless_container_chain_stacks()
+    {
+        // BR-03: the Play events are endless trigger-rate containers (Stop events end them); a post that keeps its continuation stacked a growing hum.
+        Assert.True(SeizeSounds.SingleShot(SeizeSoundKind.CaptureTick));
+        Assert.True(SeizeSounds.SingleShot(SeizeSoundKind.ObjectiveComplete));
+        Assert.True(SeizeSounds.SingleShot(SeizeSoundKind.ScoreTick));
+        Assert.False(SeizeSounds.SingleShot(SeizeSoundKind.CaptureStop));
+
+        // A long capture and the score ticking after it post a bounded, steady number of sounds (no per-frame or per-snapshot posts).
+        var s = new SeizeSounds();
+        s.Step(Points(Neutral()), 0, Team.SpaceMarines, 0, 0.0);
+        int ticks = 0, scores = 0;
+        for (int i = 1; i <= 600; i++)   // 20 s at 30 Hz of a moving capture, then the score rising 2 a second for 30 s
+        {
+            double t = i / 30.0;
+            var pt = t < 20 ? Capturing(Team.SpaceMarines, (float)(t / 20)) : Owned(Team.SpaceMarines);
+            foreach (var e in s.Step(Points(pt), 0, Team.SpaceMarines, t < 20 ? 0 : (int)((t - 20) * 2), t))
+            {
+                if (e.Kind == SeizeSoundKind.CaptureTick) ticks++;
+                if (e.Kind == SeizeSoundKind.ScoreTick) scores++;
+            }
+        }
+        Assert.InRange(ticks, 19, 21);
+        Assert.InRange(scores, 0, 1);
+    }
 }
