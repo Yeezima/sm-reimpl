@@ -13,7 +13,7 @@ idempotent resends plus receiver-pulled blobs (not a reliable `SetLoadout` chann
 
 Facts (repo): no front-end menu exists (`client.cmd --connect` joins at once; class/choices come from CLI args,
 `LoadoutRequest`, `RequestedClass`, `RequestedSide`); Esc frees the mouse; the death screen shows "KILLED / RESPAWN IN n"
-(`Hud.cs`); key C is unused. HUD style: near-black panels (0.03, 0.03, 0.03, 0.78), 2–3 px gold borders (1, 0.8, 0),
+(`Hud.cs`); key C is unused (the in-match loadout menu is Esc only). HUD style: near-black panels (0.03, 0.03, 0.03, 0.78), 2–3 px gold borders (1, 0.8, 0),
 white emboldened default font with a dark outline, 1080-high virtual space; own side gold, enemy light red
 (1, 0.38, 0.32). The scoreboard uses real Controls (`PanelContainer`, `StyleBoxFlat`, `RichTextLabel`).
 `CharacterViewer` + `MarineAssets` build characters; `ModelViewer.AddCameraAndLights` is a preview rig;
@@ -46,10 +46,9 @@ as the original and with the same information.
 with the ACTIVE slot marked; Customize opens the creator; Join connects with the active slot's class and choices plus
 the appearance transfer.
 
-**F2 In a match.** The death screen adds "[C] CHANGE LOADOUT": opens the creator with the mouse free and no game input
+**F2 In a match.** Esc (alive or dead; the death screen shows "[ESC] CHANGE LOADOUT"; the C key was removed on 2026-10-30) opens the creator with the mouse free and no game input
 sent; banner "Applies when you respawn" with the respawn countdown; DEPLOY WITH SLOT n sends `SetLoadout`; if the timer
-ends first the creator closes and the pending change stays (or falls back with a status line if rejected). While alive C
-does nothing and the hint reads "Available when you are down".
+ends first the creator closes and the pending change stays (or falls back with a status line if rejected). There is no C key.
 
 **F3 Choosing a slot.** Chips show "ACTIVE" with a star; Enter on a chip (Join screen / deploy) or SET ACTIVE sets it.
 An empty/invalid active slot falls back to slot 1, then the server default, with a status line.

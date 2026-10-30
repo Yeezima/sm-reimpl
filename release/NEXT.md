@@ -17,3 +17,6 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The Assault and Raptor jump pack now takes the colour you pick for the Backpack in the armour colours (before, it followed the torso colour).
 - Tactical Marines can no longer fire their weapon while charging: a shot started just before the charge is dropped, and pressing fire during the charge no longer interrupts it.
 - Fixed: in Seize Ground, after capturing a point a humming noise no longer starts and grows louder; each capture now gives its one cue and then it is quiet again.
+- The camera no longer trails the mouse: it follows your aim exactly again.
+- The stalker bolter and the lascannon now zoom in further when you scope (stalker bolter about 1.5 times tighter, lascannon about 2.6 times tighter than before).
+- The C key no longer opens the loadout menu; press Esc to change your loadout, alive or dead (the death screen shows "[ESC] CHANGE LOADOUT").

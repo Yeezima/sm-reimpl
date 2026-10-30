@@ -11,12 +11,12 @@ using SmSim;
 namespace SmClient;
 
 /// <summary>
-/// Customizer T7: the in-match loadout picker (docs/customizer-design.md F2, acceptance M1 to M3). On the death screen "[C] CHANGE LOADOUT" opens the class creator
+/// Customizer T7: the in-match loadout picker (docs/customizer-design.md F2, acceptance M1 to M3). Esc (alive or dead) opens the class creator
 /// (<see cref="CreatorView"/> with <c>Banner</c> and <c>Deploy</c> set; its appearance editor too) with the mouse free and no game input sent; Deploy builds the same
 /// <see cref="JoinPlan"/> a Join does for the side the player is on, sends it with <see cref="GameClient.ChangeSetup"/> and closes; the server applies it at the next respawn
 /// (<see cref="SetupAck"/> says accepted, defaulted fields or emblem trouble: the death screen shows it). SET ACTIVE sends the same way and keeps the menu open; Esc or Back
 /// sends only a saved active loadout that changed since the menu opened (fix/class-change-in-match, <see cref="PickerRules.SendOnClose"/>). The picker closes by itself at the respawn;
-/// closing restores the mouse capture (never in a test window, a bot or a replay). While alive C only says "Available when you are down". The rules are in
+/// closing restores the mouse capture (never in a test window, a bot or a replay). There is no C key (removed 2026-10-30, owner). The rules are in
 /// <c>client/Looks/LookLogic.cs</c> (<see cref="PickerRules"/>).
 /// <para>
 /// Test aids (client only): <c>--bot-change-loadout &lt;slot|default:role&gt; [seconds]</c> (a bot with <c>--profile</c> changes loadout that long after it dies),
@@ -32,7 +32,7 @@ public partial class NetworkView
     AppearanceView? _pickerAppearance;
     Label? _loadoutHint;
     bool _pickerWanted, _pickerForced;
-    double _pickerOpenedAt, _hintAliveUntil, _ackShownUntil;
+    double _pickerOpenedAt, _ackShownUntil;
     double _deadFor;
     bool _botChanged, _demoOpened, _demoDeployed, _deathOpened;
     // fix/class-change-in-match: what the next life uses as far as this client knows (sent, or the saved active loadout when the menu opened), whether the menu was
@@ -114,7 +114,7 @@ public partial class NetworkView
 
     // ---- input ----
 
-    /// <summary>Called first by <c>_UnhandledInput</c> for humans: C opens the picker; while it is open the picker owns the mouse and the keys.</summary>
+    /// <summary>Called first by <c>_UnhandledInput</c> for humans: Esc opens the picker; while it is open the picker owns the mouse and the keys.</summary>
     bool LoadoutInput(InputEvent e)
     {
         if (PickerOpen) return true;
@@ -128,14 +128,6 @@ public partial class NetworkView
             // The Esc is consumed only when the menu opens; if it cannot, the mouse is back and Esc falls through.
             return action == PickerRules.EscAction.OpenMenu && OpenPicker(forced: true);
         }
-        if (e is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.C, CtrlPressed: false, AltPressed: false, MetaPressed: false })
-        {
-            if (_client is null) return false;
-            if (!PickerRules.CanOpen(_client.Status == ClientStatus.Connected, UiAlive(_client.Predicted), Spectate is not null, _client.Match.State == MatchState.Ended))
-                _hintAliveUntil = _connectedFor + 2.5;   // "Available when you are down"
-            else OpenPicker(forced: false);
-            return true;
-        }
         return false;
     }
 
@@ -148,7 +140,7 @@ public partial class NetworkView
     /// </summary>
     bool OpenPicker(bool forced)
     {
-        if (!_pickerWanted) _pickerForced = forced;   // a request already under way keeps its kind (a C request is not upgraded)
+        if (!_pickerWanted) _pickerForced = forced;   // a request already under way keeps its kind
         _pickerWanted = true;
         if (_pickerLayer is not null) return true;
         Input.MouseMode = Input.MouseModeEnum.Visible;
@@ -397,7 +389,7 @@ public partial class NetworkView
         AddChild(_hintLayer);
     }
 
-    /// <summary>The death screen's lines: the key hint while down, "Loading" while the customizer reads the install, the answer to the last change; "Available when you are down" after C while alive.</summary>
+    /// <summary>The death screen's lines: the key hint while down, "Loading" while the customizer reads the install, the answer to the last change.</summary>
     string _hintFirst = "", _hintSecond = "";
 
     void UpdateLoadoutHint(PlayerState me, bool ended)
@@ -406,8 +398,7 @@ public partial class NetworkView
         string first = "", second = "";
         bool down = PickerRules.CanOpen(true, UiAlive(me), Spectate is not null, ended);
         if (_pickerWanted && _pickerLayer is null) first = "Loading your loadouts...";
-        else if (down && !PickerOpen && !_bot) first = "[C] CHANGE LOADOUT";
-        else if (_connectedFor < _hintAliveUntil) first = PickerRules.WhileAlive;
+        else if (down && !PickerOpen && !_bot) first = "[ESC] CHANGE LOADOUT";
         var ack = _client.LastSetupAck is { } a && a.Sequence == _lastSetupSequence ? a : null;
         string? accepted = ack is not null && ack.Loadout.Class >= 0 ? ClassDisplayName(ack.Loadout.Class) : null;
         string? sentName = _sentClass >= 0 ? ClassDisplayName(_sentClass) : null;
