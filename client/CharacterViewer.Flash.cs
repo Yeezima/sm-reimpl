@@ -74,6 +74,22 @@ void fragment() {
         return _flashMaterial;
     }
 
+    readonly System.Collections.Generic.List<MeshInstance3D> _armourMeshes = new();
+    int _armourMeshChildren = -1;
+
+    /// <summary>The armour piece meshes, cached; rebuilt only when the skeleton's child count changes (a new look, weapons added).</summary>
+    System.Collections.Generic.List<MeshInstance3D> ArmourMeshes()
+    {
+        int count = _skeleton!.GetChildCount();
+        bool stale = count != _armourMeshChildren;
+        foreach (var m in _armourMeshes) if (!GodotObject.IsInstanceValid(m)) { stale = true; break; }
+        if (!stale) return _armourMeshes;
+        _armourMeshChildren = count;
+        _armourMeshes.Clear();
+        foreach (var child in _skeleton.GetChildren()) if (child is MeshInstance3D mesh && mesh.HasMeta(ArmourMeta)) _armourMeshes.Add(mesh);
+        return _armourMeshes;
+    }
+
     /// <summary>Whether a flash is on the model now (for tests and logs).</summary>
     public bool FlashActive => _flashActive;
 
@@ -89,8 +105,7 @@ void fragment() {
         {
             if (!_flashActive) return;
             _flashActive = false;
-            foreach (var child in _skeleton.GetChildren())
-                if (child is MeshInstance3D mesh && mesh.HasMeta(ArmourMeta)) mesh.MaterialOverlay = Overlay;
+            foreach (var mesh in ArmourMeshes()) mesh.MaterialOverlay = Overlay;
             _flashMaterial?.SetShaderParameter("flash_mix", new Vector4(0f, 0f, 0f, 0f));
             _outlineMaterial?.SetShaderParameter("outline_amount", 0f);
             return;
@@ -99,7 +114,6 @@ void fragment() {
         _flashActive = true;
         material.SetShaderParameter("flash_mix", new Vector4(hit, broke, glow, 1f));
         _outlineMaterial!.SetShaderParameter("outline_amount", glow);
-        foreach (var child in _skeleton.GetChildren())
-            if (child is MeshInstance3D mesh && mesh.HasMeta(ArmourMeta) && !ReferenceEquals(mesh.MaterialOverlay, material)) mesh.MaterialOverlay = material;   // also the pieces a new look added since
+        foreach (var mesh in ArmourMeshes()) if (!ReferenceEquals(mesh.MaterialOverlay, material)) mesh.MaterialOverlay = material;   // also the pieces a new look added since
     }
 }

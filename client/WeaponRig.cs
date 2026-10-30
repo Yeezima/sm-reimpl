@@ -533,7 +533,7 @@ public sealed class WeaponRig
     {
         if (Faulted) return;
         _alive = alive;
-        if (_first || !alive) { _shown = _target = slot; _timer = 0f; _empty = false; _first = false; }
+        if (_first || !alive) { _lastPrimary = WeaponSlot.Ranged; _shown = _target = slot; _timer = 0f; _empty = false; _first = false; }
         else
         {
             // _timer counts the seconds since the slot changed. A change during a switch starts again from the weapon now in hand (or from none, both stowed).
