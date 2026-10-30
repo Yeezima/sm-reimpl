@@ -9,7 +9,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
-- New network version: everyone must update together.
+- New network version: this build does not play with earlier ones, so everyone must update together.
 - Rapid Deployment now works: you come back to life after 3 seconds instead of 5.
 - Weapon Versatility now works for Tactical Marines: press 3 for a second primary weapon. Pick it in the class creator (Weapons step) after choosing the perk; with none picked, 3 does nothing. The mouse wheel and X now cycle pistol, primary and the second primary.
 - Teleport Homer now works: while you live, your allies who die come back next to you.
@@ -73,7 +73,6 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Nobody can move or act during the countdown before a match; you can still look around, and you are free on the exact tick the timer ends.
 - Rolling off a ledge in mid-roll now keeps your sideways momentum while you start to fall.
 - Switching weapons during other actions keeps working with the short input buffer: press it a moment early and the switch happens as soon as the action allows; a reload in progress is not cancelled by it.
-- New network version again: everyone must update together.
 - The map makes no noise at all: no gate hum, machinery or ambience (players, weapons, announcer and menu sounds stay).
 - Ammo and equipment boxes dropped by fallen players never block you or hold you up; you still pick them up with E.
 - Getting shot now blends: the flinch eases in and out over about a third of a second instead of snapping back to standing.
