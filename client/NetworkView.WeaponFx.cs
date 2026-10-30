@@ -64,8 +64,10 @@ void fragment() {
     float flick = vnoise(vec2(ang * 2.5, d * 7.0 - TIME * 16.0)) * 0.6 + vnoise(vec2(ang * 5.0 + 3.0, d * 17.0 - TIME * 30.0)) * 0.4;
     float rim = pow(1.0 - abs(dot(normalize(NORMAL), normalize(VIEW))), 1.3);
     float fade = (1.0 - d * 0.8) * (1.0 - life) * (1.0 - life);
-    vec3 hot = mix(vec3(1.0, 0.5, 0.1), vec3(1.0, 0.93, 0.65), (1.0 - d) * (1.0 - d));
-    float a = (0.22 + 1.0 * rim) * (0.55 + 0.9 * flick) * fade;
+    // fx/visuals-2 (item 40): back to the data's purple / blue (the rings' colours), a pale blue-white at the barrel to a violet-blue farther out.
+    vec3 hot = mix(vec3(0.42, 0.30, 1.0), vec3(0.72, 0.88, 1.0), (1.0 - d) * (1.0 - d));
+    float core = pow(abs(dot(normalize(NORMAL), normalize(VIEW))), 2.5);   // the cone seen from the muzzle's side: a faint hot middle
+    float a = (0.2 + 1.0 * rim + 0.35 * core * (1.0 - d)) * (0.55 + 0.9 * flick) * fade;
     ALBEDO = hot * a * 1.5;
     ALPHA = 1.0;
 }";
@@ -88,7 +90,10 @@ void fragment() {
         }
         float radius = MeltaMuzzleRadius + MeltaGrowth * length;
         // The mesh's apex is +Y and its base -Y: +Y points back to the muzzle, the middle sits half the length along the shot; the apex is a small disc (the muzzle radius) rather than a point.
-        var basis = AxesFromY(-dir).Scaled(new Vector3(radius, length, radius));
+        // fx/visuals-2 (item 40, "points the wrong way"): Basis.Scaled scales the WORLD axes, so the cone's length was stretched along world Y whatever the shot's direction (a cone that leaned
+        // away from the aim); the local axes are scaled here.
+        var axes = AxesFromY(-dir);
+        var basis = new Basis(axes.X * radius, axes.Y * length, axes.Z * radius);
         c.Node.GlobalTransform = new Transform3D(basis, from + dir * (length * 0.5f));
         c.Node.SetInstanceShaderParameter("life", 0f);
         c.Node.Visible = true;

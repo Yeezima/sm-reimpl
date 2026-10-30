@@ -104,6 +104,7 @@ public partial class NetworkView
         int started = GroundPoundFx.PlaySlash(_fx, effects.LightLanding, point, normal, heading, _config.MeleeRange, _config.MeleeConeDegrees,
             NoShards || !near ? null : GroundShardsNode(), _catalogue.SurfaceName(surface), s.PlayerId * 17 + _slashMarks);
         _slashMarks++;
+        SlashConeAdd(point + normal.Normalized() * 0.03f, heading, _config.MeleeRange, _config.MeleeConeDegrees);   // fx/visuals-2 (item 35, NetworkView.SlashCone.cs)
         if (_camera is { } cam && cam.GlobalPosition.DistanceTo(point) is var d && d < SlashShakeRange) FxShake(Math.Clamp(1f - d / SlashShakeRange, 0f, 1f) * SlashHitShakeAmount);
         if (_bot) GD.Print($"t {_connectedFor:F2} s: {(own ? $"id {_client!.PlayerId}" : $"id {_client!.PlayerId} sees P{s.PlayerId}")} sword slash hit mark at {s.Position.X:F1},{s.Position.Y:F1},{s.Position.Z:F1} heading {s.Yaw:F2} ({started} parts; marks {_slashMarks})");
     }

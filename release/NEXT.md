@@ -49,3 +49,9 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The Assault and Raptor air slash: the swing no longer speeds up in jerks during the dive, and if you run off straight after landing the sword finishes its swing while your legs start running.
 - Other jump-pack players' air slashes no longer flick back to the start of the swing just after landing.
 - The Devastator keeps the heavy bolter raised while walking and standing (it only lowers it to sprint), so it no longer swings the gun's grip up and down between shots.
+- The armour recharge glow and the armour break flash are now a soft glow around the character (yellow when the armour comes back, red when it breaks), not a layer on the armour or an outline.
+- The Assault and Raptor air slash shows a cone of dust where its hit lands, the shape of the area it hits.
+- The bolt pistol's tracer now starts only once the pistol is raised.
+- Bolter tracers (bolter, bolt pistol, stalker, heavy bolter, storm bolter, Chaos too) are thinner and shorter.
+- The melta's cone is purple-blue again and now leaves the barrel and points at where you aim.
+- Combat stims: while a stim works, the marine has a big red glow and a red health cross floats above his head, for everyone to see.

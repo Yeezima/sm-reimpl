@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1695 spec table rows: **1154 tagged**, 392 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 339 rows of the changes document.
+Scanned 1701 spec table rows: **1160 tagged**, 392 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 340 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 1695 spec table rows: **1154 tagged**, 392 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 81 | 73 | 66 | 6 | 1 |
+| Core simulation (provisional values) | 87 | 79 | 72 | 6 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1154** | 952 | 917 | 374 | 38 |
+| **All areas** | **1160** | 958 | 923 | 374 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 427 |
-| confidence: medium | 409 |
-| confidence: low | 394 |
+| kind: ours | 433 |
+| confidence: medium | 410 |
+| confidence: low | 399 |
 | kind: interpretation | 317 |
 | notes: ours | 279 |
 | confidence: none (low) | 114 |
@@ -1540,7 +1540,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (81)
+### Core simulation (provisional values) (87)
 
 *Spec section: Provisional values in use*
 
@@ -1672,6 +1672,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-97A6D5E0` | Stance cross-fades fold by slerp | each stance layer is summed on its own; the layers and the snapshot are folded together by slerp in their fade weights (translation and scale by lerp), so a bone turns at an even rate along one arc. Before: one weighted sum of every clip, which passes near… | kind: ours; confidence: medium | ours (Havok's blend maths are not decoded) | Stance cross-fades fold by slerp: compare with SM1 by feel or video. Ours: each stance layer is summed on its own; the layers and the snapshot… | ☐ |
 | `R-5CF16369` | The heavy bolter stays ready | a marine with the heavy bolter in hand shows the ready posture whenever it is not sprinting (aiming, reacting, striking, throwing and switching keep their own); before, after the ready hold it dropped to the rifle's relaxed clips (M36's stand-in), whose left… | kind: interpretation; confidence: medium | `SM_Heavy_Bolter` has no relaxed navigation state (M36); "always ready" is the reading | The heavy bolter stays ready: compare with SM1 by feel or video. Ours: a marine with the heavy bolter in hand shows the ready posture… | ☐ |
 | `R-A470A827` | Not changed | the knife's first strike (probe 133 cm/f2) and the slash's strike are the clips' own fast swings (30 fps keys), not transitions; the charge entry (0.267 s), the melee entries and chains (anim/melee-flow), the sprint edges (pass 3), the weapon switch… | confidence: medium | - | Not changed: compare with SM1 by feel or video. Ours: the knife's first strike (probe 133 cm/f2) and the slash's strike are… | ☐ |
+
+*Spec section: Visuals pass 2: armour halo, slash cone, pistol tracer, bolt tracers, melta cone, stim glow (fx/visuals-2; client only, not simulated, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-1C1E4BCB` | Armour recharge glow and break flash | a soft camera-facing halo (a card turning about the vertical only, 2.5 x 2.8 m, 0.35 m behind the body, centred on the lower spine), a ring just outside the silhouette with soft falloff and a faint fill; yellowish (1, 0.78, 0.22) at 0.75, red (1, 0.12, 0.08)… (m, colour) | kind: ours; confidence: low | owner (item 34, reference image) | Armour recharge glow and break flash: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a soft camera-facing halo (a card turning about the vertical only… | ☐ |
+| `R-0AB5DCAE` | Slash landing cone | a true cone: apex at the attacker's feet, axis along the heading, slant = `MeleeRange` (4 m), half angle = `MeleeConeDegrees` (60: h 2 m, r 3.46 m), dust-coloured shell swelling 35 to 100 % in 0.18 s, fading by 0.65 s, pale ring at the rim; at the cone… (m, degrees, s) | kind: ours; confidence: low | owner (item 35); the sim's cone test (`RushWorld`) | Slash landing cone: compare with SM1 by measuring on a flat spot of the same map. Ours: a true cone: apex at the attacker's feet, axis along the heading… | ☐ |
+| `R-6F564A51` | Pistol tracer waits for the raise | the shot keeps its server time (the sim waits 0.167 s for the raise); the tracer starts from the raised muzzle once the posture's relaxed-to-ready blend has run; the impact waits with it; muzzle flash and sound stay (s) | kind: ours; confidence: medium | owner (item 38) | Pistol tracer waits for the raise: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the shot keeps its server time (the sim waits 0.167 s for the raise)… | ☐ |
+| `R-72C5ADE5` | Bolt tracers thinner and shorter | width x 0.42 of the data's (0.25 m beam), trail x 0.3 of the data's 40 m texture length; the data's texture, head speed and width curve kept (factor) | kind: ours; confidence: low | owner (item 45) | Bolt tracers thinner and shorter: compare with SM1 by feel or video. Ours: width x 0.42 of the data's (0.25 m beam), trail x 0.3 of the data's… | ☐ |
+| `R-5100F4DE` | Melta cone | purple-blue (0.42, 0.30, 1) near violet at the far end, pale blue-white (0.72, 0.88, 1) at the barrel; axis from the muzzle to the aim point (the basis scaled per local axis: `Basis.Scaled` scaled the world axes and stood the cone up) (colour) | kind: ours; confidence: low | owner (items 40, 46) | Melta cone: compare with SM1 by measuring on a flat spot of the same map. Ours: purple-blue (0.42, 0.30, 1) near violet at the far end, pale… | ☐ |
+| `R-23A54755` | Combat stim glow | the item-34 halo in red at 1.6 x size (4.0 x 4.5 m), pulsing, and a red health cross (0.55 m, procedural: the install has no usable world-sprite icon) 1.55 m above the lower spine, for the stim's `Lifetime` (data), fading over 0.35 s at the end; others see it… (m, s) | kind: ours; confidence: low | owner (item 48) | Combat stim glow: compare with SM1 by feel or video. Ours: the item-34 halo in red at 1.6 x size (4.0 x 4.5 m), pulsing, and a… | ☐ |
 
 ### General game design (7)
 
@@ -2269,6 +2280,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-797CF647` | Accounts, matchmaking, a hosted multiplayer service, replacing online services | Out of scope for the product (features players would use). Running our own development and playtest servers anywhere, cloud included, is tooling and is not covered by this row | Accounts, matchmaking, a hosted multiplayer service…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-3150239D` | Armour flashes on models, power sword swing flare, eye glow in the lens colour (fx/character-visuals, owner 2026-10-30) | Ours: colours, strengths and lengths of the yellow hit, red break and recharge glow (with outline) are estimates; others' flashes are derived from the hits seen (melee and splash out of view give none; the break flash comes one hit late); the sword glow no longer plays the data's idle sprites and flares while… | Armour flashes on models, power sword swing flare, eye glow…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-810E5266` | Weapon effects pass (2026-10-30) | Lascannon beam straight and static; tracer muzzle leg lingers 0.12 s; melta blast a drawn cone instead of the data's haze; plasma shots drawn as a near-opaque roiling ball; jump pack thrust stops at the peak. All ours at the owner's request; values are estimates in the refine register | Weapon effects pass (2026-10-30): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-C77587B7` | Visuals pass 2 (fx/visuals-2, owner 2026-10-30 round 2: items 34, 35, 38, 40, 45, 46, 48) | Ours: the recharge glow and break flash are soft halos behind the figure, not a model-surface layer (`--old-flash-outline`); the air-slash landing adds a dust cone (apex at the feet, the sim's 60 degree, 4 m cone; `--no-slash-cone`); the pistol's tracer waits for the raise (`--old-pistol-tracer`); bolt tracers 0.42 x… | Visuals pass 2 (fx/visuals-2, owner 2026-10-30 round 2:…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

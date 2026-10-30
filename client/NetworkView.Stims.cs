@@ -18,7 +18,7 @@ namespace SmClient;
 public partial class NetworkView
 {
     /// <summary>Per player: whether a use was seen under way, when it was seen to start (connected time) and whether its release was played.</summary>
-    sealed class StimTrack { public bool Using; public double Since; public bool Released; }
+    sealed class StimTrack { public bool Using; public double Since; public bool Released; public double Until; }
     readonly Dictionary<int, StimTrack> _stimTracks = new();
     int _stimUsesSeen, _stimRemoteUses, _stimFx, _stimSounds;
 
@@ -71,8 +71,35 @@ public partial class NetworkView
         if (!usingNow || t.Released || stim is null) return;
         if (_connectedFor - t.Since + 1e-3 < stim.UseRelease) return;
         t.Released = true;
+        t.Until = _connectedFor + stim.Lifetime;   // fx/visuals-2 (item 48): the glow and the cross last the stim's duration (the data's), for the others too (StimLeft is not on the wire)
         GD.Print($"t {_connectedFor:F1} s: stim release of P{s.PlayerId} ({(own ? "own" : "remote")}, {ItemOf(s)!.Name}; toss clip {(TossShown(s) ? "SHOWN" : "not shown")})");
         StimRelease(s, own, ItemOf(s)!.Name);
+    }
+
+    bool NoStimGlow => _noStimGlow ??= CmdFlag("no-stim-glow");
+    bool? _noStimGlow;
+    /// <summary><c>--stim-glow-demo</c> (test aid): the own model shows the stim glow all the time.</summary>
+    bool StimGlowDemo => _stimGlowDemo ??= CmdFlag("stim-glow-demo");
+    bool? _stimGlowDemo;
+    const double StimGlowFade = 0.35;
+
+    /// <summary>The stim glow's strength for a player now: 1 through the stim, fading out over <see cref="StimGlowFade"/> s at its end (0: none). Own: also the prediction's StimLeft.</summary>
+    float StimGlowOf(PlayerState s, bool own)
+    {
+        if (NoStimGlow || !s.Alive) return 0f;
+        if (own && StimGlowDemo) return 1f;
+        double left = own ? s.StimLeft : 0.0;
+        if (_stimTracks.TryGetValue(s.PlayerId, out var t)) left = Math.Max(left, t.Until - _connectedFor);
+        return (float)Math.Clamp(left / StimGlowFade, 0.0, 1.0);
+    }
+
+    /// <summary>Per frame: the stim glow of the own model and of every other drawn model.</summary>
+    void StimGlowFrame()
+    {
+        if (_client is null || _config is null || _client.Status != ClientStatus.Connected) return;
+        _local?.SetStimGlow(StimGlowOf(_client.Predicted, true));
+        foreach (var state in _lastOthers)
+            if (_remotes.TryGetValue(state.PlayerId, out var character)) character.SetStimGlow(StimGlowOf(state, false));
     }
 
     /// <summary>The release: the action's sound and effects.</summary>
