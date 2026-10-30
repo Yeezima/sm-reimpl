@@ -245,6 +245,23 @@ public sealed partial class Hud
         double age = _time - _popupAt;
         if (age > PopupSeconds || !d.HasWeapon || !d.HasOther) return;
         float a = (float)Math.Clamp(PopupSeconds - age, 0.0, 0.4) / 0.4f;
+        if (d.HasThird)
+        {
+            // Protocol 44: three weapons (Weapon Versatility). The cards by slot: pistol above the crosshair, the primary at its right, the second primary under it.
+            var slot = (WeaponSlot)d.SlotKey;
+            var bySlot = new (string Ammo, string Name, string Wargear)[3];
+            bySlot[(int)slot] = (HudRules.CardAmmo(d.Clip, d.ClipMax, d.Reserve), d.WeaponName, d.WeaponWargear);
+            bySlot[(int)Loadouts.Other(slot)] = (HudRules.CardAmmo(d.OtherClip, d.OtherClipMax, d.OtherReserve), d.OtherName, d.OtherWargear);
+            bySlot[(int)Loadouts.Third(slot)] = (HudRules.CardAmmo(d.ThirdClip, d.ThirdClipMax, d.ThirdReserve), d.ThirdName, d.ThirdWargear);
+            var pistolCard = bySlot[(int)WeaponSlot.Pistol]; var primaryCard = bySlot[(int)WeaponSlot.Ranged]; var secondCard = bySlot[(int)WeaponSlot.Second];
+            Card(new Rect2(c.X - 140f, c.Y - 212f, 291f, 112f), pistolCard.Ammo, pistolCard.Name, pistolCard.Wargear, slot == WeaponSlot.Pistol, a);
+            Card(new Rect2(c.X + 108f, c.Y - 120f, 312f, 116f), primaryCard.Ammo, primaryCard.Name, primaryCard.Wargear, slot == WeaponSlot.Ranged, a);
+            Card(new Rect2(c.X + 108f, c.Y + 4f, 312f, 116f), secondCard.Ammo, secondCard.Name, secondCard.Wargear, slot == WeaponSlot.Second, a);
+            Chevron(new Vector2(c.X, c.Y - 82f), 0f, slot == WeaponSlot.Pistol, a);
+            Chevron(new Vector2(c.X + 86f, c.Y - 62f), MathF.PI / 2f, slot == WeaponSlot.Ranged, a);
+            Chevron(new Vector2(c.X + 86f, c.Y + 62f), MathF.PI / 2f, slot == WeaponSlot.Second, a);
+            return;
+        }
         bool pistolInHand = d.SlotKey == (int)WeaponSlot.Pistol;
         (string Ammo, string Name, string Wargear) inHand = (HudRules.CardAmmo(d.Clip, d.ClipMax, d.Reserve), d.WeaponName, d.WeaponWargear);
         (string Ammo, string Name, string Wargear) holstered = (HudRules.CardAmmo(d.OtherClip, d.OtherClipMax, d.OtherReserve), d.OtherName, d.OtherWargear);

@@ -9,3 +9,8 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- New network version: everyone must update together.
+- Rapid Deployment now works: you come back to life after 3 seconds instead of 5.
+- Weapon Versatility now works for Tactical Marines: press 3 for a second primary weapon. Pick it in the class creator (Weapons step) after choosing the perk; with none picked, 3 does nothing. The mouse wheel and X now cycle pistol, primary and the second primary.
+- Teleport Homer now works: while you live, your allies who die come back next to you.
+- Tactical Readout and Signum Link now show a health and armour bar on the enemy under your crosshair. Without one of them, enemies no longer show a name or a bar.

@@ -32,7 +32,8 @@ public sealed record Hello(ushort ProtocolVersion, ulong ContentFingerprint, ulo
     byte RequestedClass = Protocol.ServerDefaultClass, byte RequestedPrimary = Protocol.DefaultChoice, byte RequestedPistol = Protocol.DefaultChoice,
     byte RequestedMelee = Protocol.DefaultChoice, byte RequestedEquipment = Protocol.DefaultChoice, byte RequestedSide = 0,
     byte RequestedPerk1 = Protocol.DefaultChoice, byte RequestedPerk2 = Protocol.DefaultChoice,
-    AppearanceCode SpaceMarineAppearance = default, AppearanceCode ChaosAppearance = default, byte OrkLook = Races.OrkLookAutomatic, byte Flags = 0) : Message
+    AppearanceCode SpaceMarineAppearance = default, AppearanceCode ChaosAppearance = default, byte OrkLook = Races.OrkLookAutomatic, byte Flags = 0,
+    byte RequestedSecond = Protocol.DefaultChoice) : Message
 {
     /// <summary>Protocol 37 (test aid): the client is a test bot (<c>client.cmd --bot</c>); the server's <c>--bot-damage-scale</c> applies to it. Self-declared:
     /// it can only lower the damage its own sender deals.</summary>
@@ -42,7 +43,7 @@ public sealed record Hello(ushort ProtocolVersion, ulong ContentFingerprint, ulo
 
     /// <summary>The requested class and choices as a <see cref="LoadoutChoice"/> (255 bytes as -1, the default).</summary>
     public LoadoutChoice Loadout => new(Protocol.FromChoice(RequestedClass), Protocol.FromChoice(RequestedPrimary), Protocol.FromChoice(RequestedPistol),
-        Protocol.FromChoice(RequestedMelee), Protocol.FromChoice(RequestedEquipment), Protocol.FromChoice(RequestedPerk1), Protocol.FromChoice(RequestedPerk2));
+        Protocol.FromChoice(RequestedMelee), Protocol.FromChoice(RequestedEquipment), Protocol.FromChoice(RequestedPerk1), Protocol.FromChoice(RequestedPerk2), Protocol.FromChoice(RequestedSecond));
 
     /// <summary>The appearance for a side (<see cref="Team.Chaos"/>: the Chaos one; anything else the Space Marine one).</summary>
     public AppearanceCode AppearanceFor(Team side) => side == Team.Chaos ? ChaosAppearance : SpaceMarineAppearance;
@@ -389,9 +390,14 @@ public static partial class Protocol
     //     input): how many ticks before its own the snapshot was that its client held when sampling it (PlayerInput.BodyTick; 0 none); server and
     //     prediction collide with the other players as that snapshot had them, moved on by their velocities (World.RecordBodies keeps the same floats).
     //     Snapshots unchanged (worst case 1200)
-    public const ushort Version = 43;
+    // 44 (perks; the owner's decisions of 2026-10-30): Weapon Versatility's third weapon slot (Tactical only): the SlotSecond input button (bit 14), the requested second
+    //     primary (one more byte in the Hello, the Setup and the SetupAck), and the own record's 14 more bytes (the third weapon's index, the real slot and flags, the
+    //     third store's clip, reserve, heat and heat age; at most 15 projectile records instead of 16, so the worst case stays 1200). Rapid Deployment (3 s respawn) and
+    //     Teleport Homer (allies respawn next to a living carrier) change the server's simulation only. Tactical Readout / Signum Link: a new message EnemyBars (18) with the
+    //     living enemies' health and armour fractions, sent only to players whose perks show them (Protocol.Bars.cs).
+    public const ushort Version = 44;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>
-    public const int HelloBytes = 53 + 2 * AppearanceCode.Size;
+    public const int HelloBytes = 54 + 2 * AppearanceCode.Size;
     /// <summary>Bytes of a Setup message (protocol 28: + the Ork look).</summary>
     public const int SetupBytes = 1 + 4 + 2 + ChoiceBytes + 2 * AppearanceCode.Size + 1;
     /// <summary>Bytes of a SetupAck message.</summary>
@@ -403,7 +409,7 @@ public static partial class Protocol
     /// <summary>Bytes of a BlobChunk message's header (the data follows).</summary>
     public const int BlobChunkHeaderBytes = 1 + EmblemHash.Bytes + 1 + 1 + 2;
     /// <summary>The loadout choices on the wire: class, primary, pistol, melee, equipment, perk 1, perk 2 (one byte each, 255 default).</summary>
-    public const int ChoiceBytes = 7;
+    public const int ChoiceBytes = 8;
     /// <summary>Most player ids in one <see cref="AppearanceQuery"/>.</summary>
     public const int MaxAppearanceQuery = 16;
     /// <summary>Bytes of a Scoreboard row without its name (protocol 22: 10 + the appearance version; protocol 40: + the equipment item; protocol 41: + the
@@ -422,7 +428,7 @@ public static partial class Protocol
     /// <see cref="InputButtons.ExtraAction"/>, added content's action key, since extras wire 2: the faithful simulation never reads it); others are
     /// dropped when an input batch is read.
     /// </summary>
-    const ushort KnownButtons = 0x3FFF & ~64;
+    const ushort KnownButtons = 0x7FFF & ~64;   // protocol 44: bit 14 SlotSecond
     /// <summary>Most control point records in one snapshot (every point travels).</summary>
     public const int MaxSnapshotPoints = World.MaxControlPoints;
     /// <summary>
@@ -432,7 +438,7 @@ public static partial class Protocol
     /// the recipient's full one of <see cref="FullRecordBytes"/>) a snapshot is at most
     /// 13 + 1 + 16 × 14 + 1 + 15 × 47 + 144 + 9 (match) + 1 + 4 × 9 (kill feed) + 1 + 8 × 2 (points) + 12 (hits) + 1 + 4 × 9 (shots) = <see cref="MaxSnapshotBytes"/> bytes (full record 138 in protocol 17, 139 in 18 and 19, 141 in 20, 142 in 21 and 22, 144 since protocol 23).
     /// </summary>
-    public const int MaxSnapshotProjectiles = 16;
+    public const int MaxSnapshotProjectiles = 15;
     /// <summary>The packet size snapshots must not exceed (bytes, the UDP payload budget).</summary>
     public const int SnapshotBudget = 1200;
     /// <summary>Bytes of a shot record (protocol 16; <see cref="ShotView"/>).</summary>
@@ -455,7 +461,7 @@ public static partial class Protocol
     /// <summary>Bytes of a slim player record (protocol 13: 46 + the evade byte).</summary>
     public const int SlimRecordBytes = 47;
     /// <summary>Bytes of the recipient's full record (protocol 13: the slim part, 85 more, and 2 evade bytes; protocol 17: 4 reaction bytes; 18: the charge lock; 20: ready and raise ticks; 21: ready ticks in 2 bytes; 23: the perk word).</summary>
-    public const int FullRecordBytes = SlimRecordBytes + 97;
+    public const int FullRecordBytes = SlimRecordBytes + 97 + 14;   // protocol 44: + the third weapon's 14 bytes (and one projectile record fewer)
     /// <summary>Most kill-feed entries in one snapshot (protocol 10; the server sends the newest).</summary>
     public const int MaxSnapshotKills = 4;
     /// <summary>
@@ -490,6 +496,8 @@ public static partial class Protocol
         Hello = 1, Welcome = 2, Reject = 3, InputBatch = 4, Snapshot = 5, Challenge = 6, Leave = 7, Scoreboard = 8,
         Setup = 9, SetupAck = 10, AppearanceQuery = 11, Appearance = 12, BlobRequest = 13, BlobChunk = 14,
         Pickups = 15,
+        /// <summary>Protocol 44: the living enemies' health and armour for a player whose perks show them (Protocol.Bars.cs).</summary>
+        EnemyBars = 18,
         /// <summary>Added content's envelope (Protocol.Envelope.cs): sent only by a server whose match runs added content; no protocol version of its own (ContentExtras.WireVersion 2).</summary>
         Extras = 16,
     }
@@ -510,16 +518,16 @@ public static partial class Protocol
 
     /// <summary>A loadout choice after a trip through the wire (fields outside 0..254 become -1).</summary>
     public static LoadoutChoice Quantize(LoadoutChoice c) => new(FromChoice(ToChoice(c.Class)), FromChoice(ToChoice(c.Primary)), FromChoice(ToChoice(c.Pistol)),
-        FromChoice(ToChoice(c.Melee)), FromChoice(ToChoice(c.Equipment)), FromChoice(ToChoice(c.Perk1)), FromChoice(ToChoice(c.Perk2)));
+        FromChoice(ToChoice(c.Melee)), FromChoice(ToChoice(c.Equipment)), FromChoice(ToChoice(c.Perk1)), FromChoice(ToChoice(c.Perk2)), FromChoice(ToChoice(c.Second)));
 
     static void WriteChoice(Writer w, LoadoutChoice c)
     {
         w.U8(ToChoice(c.Class)); w.U8(ToChoice(c.Primary)); w.U8(ToChoice(c.Pistol)); w.U8(ToChoice(c.Melee)); w.U8(ToChoice(c.Equipment));
-        w.U8(ToChoice(c.Perk1)); w.U8(ToChoice(c.Perk2));
+        w.U8(ToChoice(c.Perk1)); w.U8(ToChoice(c.Perk2)); w.U8(ToChoice(c.Second));
     }
 
     static LoadoutChoice ReadChoice(ref Reader r) => new(FromChoice(r.U8()), FromChoice(r.U8()), FromChoice(r.U8()), FromChoice(r.U8()), FromChoice(r.U8()),
-        FromChoice(r.U8()), FromChoice(r.U8()));
+        FromChoice(r.U8()), FromChoice(r.U8()), FromChoice(r.U8()));
 
     static void WriteCode(Writer w, AppearanceCode c) { Span<byte> b = stackalloc byte[AppearanceCode.Size]; c.WriteTo(b); w.Bytes(b); }
     static AppearanceCode ReadCode(ref Reader r) => AppearanceCode.FromBytes(r.Bytes(AppearanceCode.Size));
@@ -546,7 +554,7 @@ public static partial class Protocol
         {
             case Hello h: w.U8((byte)Kind.Hello); w.U16(h.ProtocolVersion); w.U64(h.ContentFingerprint); w.U64(h.ConfigHash); w.U32(h.Nonce); w.U32(h.SentMs); w.U64(h.Cookie); w.U64(h.MapHash); w.U8(h.RequestedClass);
                 w.U8(h.RequestedPrimary); w.U8(h.RequestedPistol); w.U8(h.RequestedMelee); w.U8(h.RequestedEquipment); w.U8(h.RequestedSide);
-                w.U8(h.RequestedPerk1); w.U8(h.RequestedPerk2); WriteCode(w, h.SpaceMarineAppearance); WriteCode(w, h.ChaosAppearance); w.U8(h.OrkLook); w.U8(h.Flags); break;
+                w.U8(h.RequestedPerk1); w.U8(h.RequestedPerk2); WriteCode(w, h.SpaceMarineAppearance); WriteCode(w, h.ChaosAppearance); w.U8(h.OrkLook); w.U8(h.Flags); w.U8(h.RequestedSecond); break;
             case Setup x: w.U8((byte)Kind.Setup); w.U32(x.Session); w.U16(x.Sequence); WriteChoice(w, x.Loadout); WriteCode(w, x.SpaceMarineAppearance); WriteCode(w, x.ChaosAppearance);
                 w.U8(x.OrkLook); break;
             case SetupAck a: w.U8((byte)Kind.SetupAck); w.U16(a.Sequence); WriteChoice(w, a.Loadout); w.U8((byte)(a.Flags & SetupFlags.All)); w.U16(a.AppearanceVersion); break;
@@ -607,7 +615,9 @@ public static partial class Protocol
                 foreach (var p in s.Players)
                 {
                     bool full = s.Self != 0 && p.PlayerId == s.Self;
-                    var (inHand, holstered) = p.Slot == WeaponSlot.Pistol ? (p.Pistol, p.Primary) : (p.Primary, p.Pistol);
+                    // Protocol 44: the three weapons by slot; the one in hand, the first holstered (Loadouts.Other) and the second holstered (Loadouts.Third).
+                    int WeaponOf(WeaponSlot k) => k == WeaponSlot.Pistol ? p.Pistol : k == WeaponSlot.Second ? p.Second : p.Primary;
+                    int inHand = WeaponOf(p.Slot), holstered = WeaponOf(Loadouts.Other(p.Slot)), third = WeaponOf(Loadouts.Third(p.Slot));
                     // Slim part: everything needed to draw and interpolate a player (47 bytes).
                     w.I32(p.PlayerId); w.V3(p.Position); w.V3(p.Velocity); w.F32(p.Yaw); w.F32(p.Pitch);
                     w.U8((byte)((p.Grounded ? 1 : 0) | (p.Alive ? 2 : 0) | (full ? 4 : 0) | (p.Charging ? 8 : 0) | (p.Throwing ? 16 : 0)
@@ -620,6 +630,10 @@ public static partial class Protocol
                     // The recipient's own player: everything its prediction replays from (97 more bytes). Protocol 23 (M43): first the
                     // perk word: perk 1 (bits 0..6), perk 2 (bits 7..13; 127 none) and a burst's rounds left (bits 14..15).
                     w.U16(PerkWord(p));
+                    // Protocol 44 (14 bytes): the second holstered weapon's index, the real slot (bits 0..1) with its overheat (2) and the SlotSecond held flag (3), its clip,
+                    // reserve, heat and heat age. Right after the perk word, so the fields at the record's end keep their offsets from the end.
+                    w.U8(Index(third)); w.U8((byte)(((int)p.Slot & 3) | (p.ThirdOverheated ? 4 : 0) | (p.SlotSecondHeld ? 8 : 0)));
+                    w.U16(Ammo(p.ThirdClip)); w.U16(Ammo(p.ThirdReserve)); w.F32(p.ThirdHeat); w.F32(p.ThirdSinceHeat);
                     w.F32(p.Health); w.F32(p.Shield);
                     w.U16(Ammo(p.Clip)); w.U16(Ammo(p.Reserve)); w.U16(Ammo(p.OtherClip)); w.U16(Ammo(p.OtherReserve));
                     w.F32(p.Cooldown); w.F32(p.ReloadLeft); w.F32(p.SinceDamage); w.F32(p.RespawnLeft); w.F32(p.SwitchLeft);
@@ -737,6 +751,7 @@ public static partial class Protocol
                 }
                 break;
             }
+            case EnemyBars eb: WriteBars(w, eb); break;   // protocol 44 (Protocol.Bars.cs)
             case PickupUpdate p: WritePickups(w, p); break;   // protocol 26 (Protocol.Pickups.cs)
             case ExtrasUpdate x: WriteExtras(w, x); break;   // added content's envelope (Protocol.Envelope.cs; extras wire 2)
             default: throw new ArgumentException($"Unknown message {m.GetType().Name}.");
@@ -753,7 +768,7 @@ public static partial class Protocol
             Message? m = (Kind)r.U8() switch
             {
                 Kind.Hello => new Hello(r.U16(), r.U64(), r.U64(), r.U32(), r.U32(), r.U64(), r.U64(), r.U8(), r.U8(), r.U8(), r.U8(), r.U8(), r.U8(),
-                    r.U8(), r.U8(), ReadCode(ref r), ReadCode(ref r), r.U8(), r.U8()),
+                    r.U8(), r.U8(), ReadCode(ref r), ReadCode(ref r), r.U8(), r.U8(), r.U8()),
                 Kind.Setup => new Setup(r.U32(), r.U16(), ReadChoice(ref r), ReadCode(ref r), ReadCode(ref r), r.U8()),
                 Kind.SetupAck => ReadSetupAck(ref r),
                 Kind.AppearanceQuery => ReadAppearanceQuery(ref r),
@@ -768,6 +783,7 @@ public static partial class Protocol
                 Kind.Snapshot => ReadSnapshot(ref r),
                 Kind.Scoreboard => ReadScoreboard(ref r),
                 Kind.Pickups => ReadPickups(ref r),
+                Kind.EnemyBars => ReadBars(ref r),
                 Kind.Extras => packet.Length <= MaxExtrasMessageBytes ? ReadExtras(ref r) : null,   // added content's envelope: oversized is refused
                 _ => null,
             };
@@ -910,6 +926,12 @@ public static partial class Protocol
                 self = id;
                 int perks = r.U16();   // protocol 23 (M43): the perk word first
                 p = p with { Perk1 = FromPerk(perks & NoPerk), Perk2 = FromPerk((perks >> 7) & NoPerk), BurstLeft = perks >> 14 };
+                // Protocol 44: the third weapon's store and the real slot.
+                int thirdIndex = FromIndex(r.U8()), ext = r.U8();
+                if (ext > 15 || (ext & 3) == 3) return null;
+                var realSlot = (WeaponSlot)(ext & 3);
+                if ((realSlot == WeaponSlot.Pistol) != (slot == (int)WeaponSlot.Pistol)) return null;   // disagrees with the slim slot bit
+                p = p with { ThirdOverheated = (ext & 4) != 0, SlotSecondHeld = (ext & 8) != 0, ThirdClip = r.U16(), ThirdReserve = r.U16(), ThirdHeat = r.F32(), ThirdSinceHeat = r.F32() };
                 p = p with
                 {
                     Health = r.F32(), Shield = r.F32(), Clip = r.U16(), Reserve = r.U16(), OtherClip = r.U16(), OtherReserve = r.U16(),
@@ -961,6 +983,10 @@ public static partial class Protocol
                 if ((ready > 0 || raise > 0) != up) return null;   // disagrees with the slim "weapon up" bit
                 if (buffered == 0 && bufferTicks != 0) return null;   // protocol 33: ticks without a buffered action
                 p = p with { ReadyTicks = ready, RaiseTicks = raise, BufferTicks = bufferTicks };
+                // Protocol 44: the three weapon indices are placed by the real slot in hand (the third store was read after the perk word).
+                var byslot = new int[3];
+                byslot[(int)realSlot] = inHand; byslot[(int)Loadouts.Other(realSlot)] = holstered; byslot[(int)Loadouts.Third(realSlot)] = thirdIndex;
+                p = p with { Slot = realSlot, Primary = byslot[(int)WeaponSlot.Ranged], Pistol = byslot[(int)WeaponSlot.Pistol], Second = byslot[(int)WeaponSlot.Second] };
             }
             if (players.Take(i).Any(q => q.PlayerId == id)) return null;   // one record per player (a duplicate would break the client)
             players[i] = p;

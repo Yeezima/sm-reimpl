@@ -40,12 +40,12 @@ public class OrkWireTests
     [Fact]
     public void The_hello_and_the_setup_carry_the_ork_look()
     {
-        Assert.Equal((177, 139), (Protocol.HelloBytes, Protocol.SetupBytes));   // protocol 37: + the flags byte
+        Assert.Equal((178, 140), (Protocol.HelloBytes, Protocol.SetupBytes));   // protocol 37: + the flags byte; 44: + the second primary
         var hello = new Hello(Protocol.Version, 1, 2, 3, RequestedClass: 6, RequestedSide: 2, SpaceMarineAppearance: CustomFixture.Look(3), OrkLook: 3);
         var bytes = Protocol.Write(hello);
         Assert.Equal(Protocol.HelloBytes, bytes.Length);
-        Assert.Equal(3, bytes[^2]);   // the Ork look: the last byte but the flags (protocol 37)
-        Assert.Equal(0, bytes[^1]);
+        Assert.Equal(3, bytes[^3]);   // the Ork look: before the flags (protocol 37) and the second primary (protocol 44)
+        Assert.Equal(0, bytes[^2]);
         var back = Assert.IsType<Hello>(Protocol.Read(bytes));
         Assert.Equal(hello, back);
         Assert.Equal(Races.OrkCode(3), back.AppearanceFor(Race.Orks));

@@ -532,7 +532,7 @@ public class ReactionTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_17_carries_reactions_and_heavy_strikes_in_every_record_and_the_knockback_and_blindness_in_the_own()
     {
-        Assert.Equal(43, Protocol.Version);
+        Assert.Equal(44, Protocol.Version);
         var me = new PlayerState(3, Vector3.One, Vector3.Zero, 0f, true)
         {
             Alive = true, Reaction = ReactionKind.Stagger, ReactionDirection = ReactionDirection.Left, ReactionTicks = 7,

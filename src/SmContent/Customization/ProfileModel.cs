@@ -37,9 +37,10 @@ public sealed record AppearanceRefs(string? SpaceMarine, string? Chaos)
 /// A custom class. The class is per <see cref="Role"/> ("tactical", "heavy", "assault") and shared by both sides: item names are stored race-neutral
 /// (<see cref="ProfileWire.Neutral"/>: "mp_ranged_bolter" for sm_mp_ranged_bolter and csm_mp_ranged_bolter) and resolved for the side played;
 /// null means the class default. <see cref="Perks"/> are the two perk slots (wargear names; null: the class default perk for slot 1, none for slot 2).
+/// <see cref="Second"/> (protocol 44, Weapon Versatility): the second primary of a Tactical that carries the perk (a primary's neutral name; null: none).
 /// </summary>
 public sealed record CustomClass(int Slot, string Name, string Role, string? Primary, string? Pistol, string? Melee, string? Equipment,
-    IReadOnlyList<string?> Perks, AppearanceRefs Appearance)
+    IReadOnlyList<string?> Perks, AppearanceRefs Appearance, string? Second = null)
 {
     public string? Perk(int index) => index >= 0 && index < Perks.Count ? Perks[index] : null;
 }

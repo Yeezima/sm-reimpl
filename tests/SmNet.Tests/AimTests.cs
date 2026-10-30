@@ -91,8 +91,8 @@ public class AimTests(ITestOutputHelper output)
         Assert.Equal(1 + 4 + 4 + 1 + 40, bytes.Length);   // 36 bytes per input since protocol 12, 38 since protocol 32 (the melee target), 39 since 37 (the view fraction), 40 since 43 (the body lag)
         Assert.Equal(40, Protocol.InputBytes);
         Assert.Equal(Protocol.Quantize(input), Assert.IsType<InputBatch>(Protocol.Read(bytes)).Inputs[0]);
-        bytes[1 + 4 + 4 + 1 + 4 + 12 + 1] = 0xFF;   // the high byte of the buttons: bits 8..11 (Aim, SlotPistol, SlotPrimary; protocol 14; MeleeHeavy, protocol 17; Interact, protocol 26) kept, bit 13 added content's ExtraAction (extras wire 2) kept, bits 14..15 unknown and dropped
-        Assert.Equal(InputButtons.Aim | InputButtons.SlotPistol | InputButtons.SlotPrimary | InputButtons.MeleeHeavy | InputButtons.Interact | InputButtons.ExtraAction | InputButtons.Fire | InputButtons.Grenade,
+        bytes[1 + 4 + 4 + 1 + 4 + 12 + 1] = 0xFF;   // the high byte of the buttons: bits 8..11 (Aim, SlotPistol, SlotPrimary; protocol 14; MeleeHeavy, protocol 17; Interact, protocol 26) kept, bit 13 added content's ExtraAction (extras wire 2) kept, bit 14 SlotSecond (protocol 44) kept, bit 15 unknown and dropped
+        Assert.Equal(InputButtons.Aim | InputButtons.SlotPistol | InputButtons.SlotPrimary | InputButtons.MeleeHeavy | InputButtons.Interact | InputButtons.ExtraAction | InputButtons.SlotSecond | InputButtons.Fire | InputButtons.Grenade,
             Assert.IsType<InputBatch>(Protocol.Read(bytes)).Inputs[0].Buttons);
     }
 

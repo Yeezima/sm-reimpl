@@ -2,7 +2,11 @@ using System.Numerics;
 
 namespace SmSim;
 
-public enum WeaponSlot : byte { Ranged = 0, Pistol = 1 }
+/// <summary>
+/// A weapon slot: <see cref="Ranged"/> the primary (key 2), <see cref="Pistol"/> (key 1) and, with the Weapon Versatility perk (Tactical only; protocol 44),
+/// <see cref="Second"/> the second primary (key 3).
+/// </summary>
+public enum WeaponSlot : byte { Ranged = 0, Pistol = 1, Second = 2 }
 public enum TriggerKind : byte { FullAuto = 0, SemiAuto = 1 }
 
 /// <summary>
@@ -656,7 +660,7 @@ public static class Loadouts
     /// <summary>Index into <see cref="SimConfig.Weapons"/> of the class's default weapon in <paramref name="slot"/>, or -1.</summary>
     public static int WeaponIndex(SimConfig c, int playerClass, WeaponSlot slot)
     {
-        if (ClassOf(c, playerClass) is not { } loadout) return -1;
+        if (ClassOf(c, playerClass) is not { } loadout || slot == WeaponSlot.Second) return -1;   // the second primary has no class default (protocol 44)
         int index = slot == WeaponSlot.Pistol ? loadout.Pistol : loadout.Primary;
         return index >= 0 && index < c.Weapons.Count ? index : -1;
     }
@@ -671,6 +675,7 @@ public static class Loadouts
     /// </summary>
     public static int WeaponIndex(SimConfig c, PlayerState s, WeaponSlot slot)
     {
+        if (slot == WeaponSlot.Second) return SecondIndex(c, s);
         int chosen = slot == WeaponSlot.Pistol ? s.Pistol : s.Primary;
         return ValidWeapon(c, s.Class, slot, chosen) ? chosen : WeaponIndex(c, s.Class, slot);
     }
@@ -682,8 +687,57 @@ public static class Loadouts
     /// <summary>The weapon the player holds (its chosen weapon in <see cref="PlayerState.Slot"/>), or null.</summary>
     public static WeaponSpec? InHand(SimConfig c, PlayerState s) => Weapon(c, s, s.Slot);
 
-    /// <summary>The weapon the player has holstered, or null.</summary>
-    public static WeaponSpec? Holstered(SimConfig c, PlayerState s) => Weapon(c, s, Other(s.Slot));
+    /// <summary>
+    /// The weapon the player has holstered that the Switch toggle goes to, or null: the weapon of <see cref="ToggleSlot"/>.
+    /// With two weapons it is the other one, as it always was.
+    /// </summary>
+    public static WeaponSpec? Holstered(SimConfig c, PlayerState s) => ToggleSlot(c, s) is { } slot ? Weapon(c, s, slot) : null;
+
+    /// <summary>
+    /// The slot the Switch toggle (and the mouse wheel) goes to (protocol 44): the next slot that has a weapon in the order pistol, primary, second primary,
+    /// round to the pistol; null when there is none. With two weapons, the other one, as it always was; with three it cycles (an estimate: the owner named only keys 1, 2, 3).
+    /// </summary>
+    public static WeaponSlot? ToggleSlot(SimConfig c, PlayerState s)
+    {
+        ReadOnlySpan<WeaponSlot> order = [WeaponSlot.Pistol, WeaponSlot.Ranged, WeaponSlot.Second];
+        int at = (int)s.Slot switch { 1 => 0, 0 => 1, _ => 2 };
+        for (int k = 1; k < 3; k++)
+        {
+            var candidate = order[(at + k) % 3];
+            if (WeaponIndex(c, s, candidate) >= 0) return candidate;
+        }
+        return null;
+    }
+
+    /// <summary>The perk file of Weapon Versatility (protocol 44).</summary>
+    public const string SecondWeaponPerk = "mp_perk_secondary_weapon";
+    /// <summary>The perk file of Rapid Deployment (a respawn of <see cref="RapidDeploymentSeconds"/>).</summary>
+    public const string RapidDeploymentPerk = "mp_perk_respawn_timer";
+    /// <summary>The perk file of Teleport Homer (allies respawn next to the living carrier).</summary>
+    public const string TeleportHomerPerk = "mp_perk_friendly_spawn_target";
+    /// <summary>The perk file of Tactical Readout.</summary>
+    public const string TacticalReadoutPerk = "mp_perk_enemy_info";
+    /// <summary>The perk file of Signum Link (the same as Tactical Readout for now).</summary>
+    public const string SignumLinkPerk = "mp_perk_snap_to_increase";
+    /// <summary>Respawn time of a player with Rapid Deployment (owner's recollection, 2026-10-30).</summary>
+    public const float RapidDeploymentSeconds = 3f;
+
+    /// <summary>Whether the class may carry the second primary: a Tactical (the data's role; owner's decision 2026-10-30).</summary>
+    public static bool CanCarrySecond(SimConfig c, int playerClass) => ClassOf(c, playerClass) is { Role: "tactical" };
+
+    /// <summary>
+    /// The player's second primary (protocol 44): its choice when the player is a Tactical with Weapon Versatility and the choice is one of the
+    /// class's primaries, else -1 (no third weapon). Server-side validation and the prediction use this one rule.
+    /// </summary>
+    public static int SecondIndex(SimConfig c, PlayerState s) =>
+        CanCarrySecond(c, s.Class) && HasPerk(c, s, SecondWeaponPerk) && s.Second >= 0 && ValidWeapon(c, s.Class, WeaponSlot.Ranged, s.Second) ? s.Second : -1;
+
+    /// <summary>Whether the player's perks show enemies' health and armour bars: Tactical Readout, or Signum Link (the same for now; owner's decision 2026-10-30).</summary>
+    public static bool ShowsEnemyBars(SimConfig c, PlayerState s) => HasPerk(c, s, TacticalReadoutPerk) || HasPerk(c, s, SignumLinkPerk);
+
+    /// <summary>The respawn wait of a player dying with its perks: <see cref="SimConfig.RespawnTime"/>, or <see cref="RapidDeploymentSeconds"/> with Rapid Deployment (never longer than the base).</summary>
+    public static float RespawnTime(SimConfig c, PlayerState s) =>
+        HasPerk(c, s, RapidDeploymentPerk) ? MathF.Min(c.RespawnTime, RapidDeploymentSeconds) : c.RespawnTime;
 
     /// <summary>The class's default melee combo (empty without a class or melee weapon).</summary>
     public static IReadOnlyList<MeleeStep> Melee(SimConfig c, int playerClass) => ClassOf(c, playerClass)?.Melee ?? [];
@@ -735,6 +789,7 @@ public static class Loadouts
     public static IReadOnlyList<int> Choices(SimConfig c, int playerClass, WeaponSlot slot)
     {
         if (ClassOf(c, playerClass) is not { } loadout) return [];
+        if (slot == WeaponSlot.Second) return CanCarrySecond(c, playerClass) ? Choices(c, playerClass, WeaponSlot.Ranged) : [];
         var list = slot == WeaponSlot.Pistol ? loadout.PistolChoices : loadout.PrimaryChoices;
         if (list.Count > 0) return list;
         int fallback = WeaponIndex(c, playerClass, slot);
@@ -744,6 +799,7 @@ public static class Loadouts
     /// <summary>Whether <paramref name="weapon"/> (a weapon index, -1 none) is the class default or one of its choices.</summary>
     public static bool ValidWeapon(SimConfig c, int playerClass, WeaponSlot slot, int weapon)
     {
+        if (slot == WeaponSlot.Second) { var seconds = Choices(c, playerClass, slot); for (int i = 0; i < seconds.Count; i++) if (seconds[i] == weapon) return weapon >= 0; return false; }
         if (weapon == WeaponIndex(c, playerClass, slot)) return true;
         if (weapon < 0 || weapon >= c.Weapons.Count || ClassOf(c, playerClass) is not { } loadout) return false;
         var list = slot == WeaponSlot.Pistol ? loadout.PistolChoices : loadout.PrimaryChoices;
@@ -761,9 +817,10 @@ public static class Loadouts
     /// (<see cref="Resolved"/>, which also applies <see cref="PistolPerkRule"/>).
     /// </remarks>
     public static PlayerState Choose(SimConfig c, PlayerState s, int primaryChoice, int pistolChoice, int meleeChoice, int equipmentChoice = -1,
-        int perk1Choice = -1, int perk2Choice = -1)
+        int perk1Choice = -1, int perk2Choice = -1, int secondChoice = -1)
     {
         var primaries = Choices(c, s.Class, WeaponSlot.Ranged);
+        var seconds = Choices(c, s.Class, WeaponSlot.Second);
         var pistols = Choices(c, s.Class, WeaponSlot.Pistol);
         int melees = ClassOf(c, s.Class)?.MeleeChoices.Count ?? 0;
         var equipment = EquipmentChoices(c, s.Class);
@@ -776,6 +833,7 @@ public static class Loadouts
             Equipment = equipmentChoice >= 0 && equipmentChoice < equipment.Count ? equipment[equipmentChoice] : -1,
             Perk1 = perk1Choice >= 0 && perk1Choice < perks.Count ? perks[perk1Choice] : -1,
             Perk2 = perk2Choice >= 0 && perk2Choice < perks.Count ? perks[perk2Choice] : -1,
+            Second = secondChoice >= 0 && secondChoice < seconds.Count ? seconds[secondChoice] : -1,
         });
     }
 
@@ -795,6 +853,7 @@ public static class Loadouts
         };
         int perk1 = PerkIndex(c, s, 1);
         s = s with { Perk1 = perk1, Perk2 = PerkIndex(c, s with { Perk1 = perk1 }, 2) };
+        s = s with { Second = SecondIndex(c, s) };   // protocol 44: a Tactical with Weapon Versatility, else no third weapon
         if (!PistolPerkRule(c, s, s.Pistol)) s = s with { Pistol = WeaponIndex(c, s.Class, WeaponSlot.Pistol) };
         return s;
     }
@@ -942,8 +1001,11 @@ public static class Loadouts
         int pistol = In(choice.Pistol, pistols.Count);
         var state = new PlayerState(0, default, default, 0f, true) { Class = playerClass, Perk1 = perk1Index, Perk2 = perk2 >= 0 ? perks[perk2] : -1 };
         if (pistol >= 0 && !PistolPerkRule(c, state, pistols[pistol])) pistol = -1;
+        // Protocol 44: the second primary is kept only for a Tactical holding Weapon Versatility.
+        int second = In(choice.Second, Choices(c, playerClass, WeaponSlot.Second).Count);
+        if (second >= 0 && !HasPerk(c, state, SecondWeaponPerk)) second = -1;
         return new LoadoutChoice(playerClass, In(choice.Primary, Choices(c, playerClass, WeaponSlot.Ranged).Count), pistol,
-            In(choice.Melee, ClassOf(c, playerClass)?.MeleeChoices.Count ?? 0), In(choice.Equipment, EquipmentChoices(c, playerClass).Count), perk1, perk2);
+            In(choice.Melee, ClassOf(c, playerClass)?.MeleeChoices.Count ?? 0), In(choice.Equipment, EquipmentChoices(c, playerClass).Count), perk1, perk2, second);
     }
 
     /// <summary>The thrown items a class may choose (indices into <see cref="SimConfig.Thrown"/>; empty: none).</summary>
@@ -998,11 +1060,19 @@ public static class Loadouts
         var loadout = ClassOf(c, s.Class);
         int melee = MeleeChoiceOf(c, s);
         string meleeName = melee >= 0 && loadout is not null ? loadout.MeleeChoices[melee].Wargear : Melee(c, s).Count > 0 ? "default" : "none";
-        return $"{loadout?.Name ?? "?"}: primary {Name(Weapon(c, s, WeaponSlot.Ranged))}, pistol {Name(Weapon(c, s, WeaponSlot.Pistol))}, melee {meleeName}" +
+        return $"{loadout?.Name ?? "?"}: primary {Name(Weapon(c, s, WeaponSlot.Ranged))}, pistol {Name(Weapon(c, s, WeaponSlot.Pistol))}" +
+            (Weapon(c, s, WeaponSlot.Second) is { } second ? $", second primary {second.Name}" : "") + $", melee {meleeName}" +
             (Equipment(c, s) is { } item ? $", equipment {item.Name}" : "") + (JumpPack(c, s) is { } pack ? $", jump pack {pack.Name}" : "")
             + (Evade(c, s) is { } evade ? $", evade {evade.Name}" : "")
             + string.Concat(new[] { 1, 2 }.Select(slot => PerkIndex(c, s, slot)).Where(i => i >= 0).Select((i, k) => (k == 0 ? ", perks " : " + ") + c.Perks[i].Name));
     }
 
+    /// <summary>
+    /// The first holstered slot while <paramref name="slot"/> is in hand (protocol 44): the slots in the order pistol, primary, second primary without the one
+    /// in hand. The player's <see cref="PlayerState.OtherClip"/> family holds its ammunition. With two weapons, the other one, as before.
+    /// </summary>
     public static WeaponSlot Other(WeaponSlot slot) => slot == WeaponSlot.Pistol ? WeaponSlot.Ranged : WeaponSlot.Pistol;
+
+    /// <summary>The second holstered slot (protocol 44; <see cref="PlayerState.ThirdClip"/> family): the second primary's slot unless it is in hand, then the primary's.</summary>
+    public static WeaponSlot Third(WeaponSlot slot) => slot == WeaponSlot.Second ? WeaponSlot.Ranged : WeaponSlot.Second;
 }

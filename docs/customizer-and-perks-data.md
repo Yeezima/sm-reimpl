@@ -144,11 +144,11 @@ Classes: SA/CR = Assault Marine / Raptor, ST/CT = Tactical, SD/CH = Devastator /
 | `jump_pack_reduced_cooldown` | Air-Cooled Thrusters | 31 | SA CR | `jump_info/power_settings/recharge_rate` 10 -> 15 (also other landing tuning: see `sm_mp_abil_jumppack`'s second `jump_info`) | jump pack energy exists |
 | `special_y_hold_attack` | Sure Strike | 1 | SA CR | heavy strike (`ability_melee_y*`, "Interrupt attack"), measured on the power axe: stun damage 100 -> 500, hit damage 25 -> 30, reaction `reaction_mp_stun` -> `reaction_mp_stagger`; the later strikes of the chain and the stomp variants (`displace_*`) have upgraded entries too (read them per weapon) | heavy strikes exist (M28) |
 | `bolter_in_place_of_pistol` | True Grit | 25 | SA CR | no data consumer; adds the two pistol-slot Bolters to the Assault list (front end) | one-handed bolter in the pistol slot |
-| `respawn_timer` | Rapid Deployment | 1 | ST CT | no data consumer (executable): shorter respawn | respawn rule |
+| `respawn_timer` | Rapid Deployment | 1 | ST CT | no data consumer (executable): shorter respawn; **active since protocol 44**: respawn 3 s (owner's recollection) | respawn rule |
 | `shield_recharge` | Larraman's Blessing | 25 | ST CT | `health_regeneration` +45, `health_regeneration_delay` -1.5 (base `health_regen_rate` 5, `health_regen_delay` 5, `health_max` 100) | health regen |
-| `enemy_info` | Tactical Readout | 1 | ST CT | no data consumer: shows armour/health bars over enemies | HUD |
+| `enemy_info` | Tactical Readout | 1 | ST CT | no data consumer: shows armour/health bars over enemies; **active since protocol 44**: enemy health and armour bars, no name | HUD |
 | `combat_knife_damage` | Serrated Combat Blade | 6 | ST CT | knife attacks: primary target 40 -> 65, secondary targets 20 -> 32 | knife exists |
-| `secondary_weapon` | Weapon Versatility | 13 | ST CT | no consumer, no upgrade string (front end / executable) | second weapon slot |
+| `secondary_weapon` | Weapon Versatility | 13 | ST CT | no consumer, no upgrade string (front end / executable); **active since protocol 44**: a third weapon slot (key 3), Tactical only | second weapon slot |
 | `equipment_double` | Favor of the Armory | 31 | ST CT | equipment clip: frag, blind 2 -> 4 (initial 1 -> 2); stims, melta bomb, demolition 1 -> 2 | equipment counts |
 | `friendly_spawn_target` (default ST/CT) | Teleport Homer | 1 | ST CT | no data consumer; the Dreadnought blueprints carry it by default (`wargear_ext/default_wargear`); allies may respawn at the carrier | spawn rule |
 | `equipment_effectiveness` | Master-Crafted Wargear | 19 | ST CT | swaps in "upgraded" projectile blueprints: frag damage 200 -> 300, radius 10 -> 15; blind radius 8 -> 12, blind time 3.5 -> 6 s (direct 2 -> 3), stun 700 -> 1000; stims 5 -> 7 s with received damage x0.75/0.75/0.5/0.75 (world/ranged/melee/explosive, health only) -> x0.75/0.6/0.35/0.6 and melee damage x1.35 -> x2 | stims, grenades (thrown exist M13) |
@@ -281,9 +281,9 @@ Customizer camera framing per tab (`global` `character_customization/camera_sett
 1. **Default loadouts and the custom-loadout storage** (profile, online service): not in the install. Defaults stay our interpretation.
 2. **Eye-lens colour**: not in the original (section 4). Owner's addition.
 3. **Number of appearance slots**, the squad number, the accolade/honor selection (only the labels exist).
-4. **Perks without a data consumer** (executable side): Rapid Deployment, Teleport Homer, Tactical Readout, Signum Link, Weapon Versatility, True Grit, plus the animation-timed Fast Stomp and Heavy Bolter Expertise. Their numbers (e.g. respawn time reduction) are unknown; original behaviour must come from the owner's knowledge.
+4. **Perks without a data consumer** (executable side): Rapid Deployment, Teleport Homer, Tactical Readout, Signum Link and Weapon Versatility are active since protocol 44 from the owner's recollection (spec "Perks without data"); True Grit, plus the animation-timed Fast Stomp and Heavy Bolter Expertise. Their numbers (e.g. respawn time reduction) are unknown; original behaviour must come from the owner's knowledge.
 5. **Three singleplayer dependencies** among the unlocks: Ultramarines Champion and Chosen of Nemeroth armour (campaign completion). The scope note says to name such dependencies; suggest treating them as unlocked or tied to a level.
-6. **Pistol-slot Bolters** without the True Grit perk; the second (secondary) weapon slot of Weapon Versatility; whether Tactical can pick another sidearm or melee (the data says no).
+6. **Pistol-slot Bolters** without the True Grit perk; (the second weapon slot of Weapon Versatility is built since protocol 44: key 3, Tactical only, a second primary picked in the creator); whether Tactical can pick another sidearm or melee (the data says no).
 7. **Backpack vs jump pack** for Assault/Raptor, and whether backpack weapons replace the armour piece's backpack mesh (the Devastator override suggests yes).
 8. **DLC sets**: ownership gating unknown. **Spiked Armor** (havoc 3) has no challenge group.
 9. **Class-wide unlocks for Chaos classes**: assumed equal to the Space Marine flags.

@@ -58,6 +58,8 @@ public sealed record ClientOptions
     public byte RequestedPerk1 { get; init; } = Protocol.DefaultChoice;
     /// <summary>Perk slot 2: index into the class's perk choices, or <see cref="Protocol.DefaultChoice"/> (none).</summary>
     public byte RequestedPerk2 { get; init; } = Protocol.DefaultChoice;
+    /// <summary>Protocol 44 (Weapon Versatility, Tactical only): the second primary, an index into the class's primary choices, or <see cref="Protocol.DefaultChoice"/> (none).</summary>
+    public byte RequestedSecond { get; init; } = Protocol.DefaultChoice;
     /// <summary>The appearance for each race (the server uses the one of the side it puts the player on); default: the original look.</summary>
     public AppearanceCode SpaceMarineAppearance { get; init; }
     public AppearanceCode ChaosAppearance { get; init; }
@@ -224,6 +226,7 @@ public sealed partial class GameClient
                 case Snapshot s when Status == ClientStatus.Connected: OnSnapshot(s); break;
                 case Scoreboard b when Status == ClientStatus.Connected && (Scoreboard is null || b.ServerTick > Scoreboard.ServerTick): Scoreboard = b; OnScoreboardAppearances(b); NoteNames(b); break;
                 case Message m and (SetupAck or Appearance or BlobRequest or BlobChunk) when Status == ClientStatus.Connected: OnAppearanceMessage(m); break;
+                case EnemyBars eb when Status == ClientStatus.Connected: OnBars(eb); break;   // protocol 44 (GameClient.Bars.cs)
                 case PickupUpdate p when Status == ClientStatus.Connected: OnPickups(p); break;   // protocol 26 (GameClient.Pickups.cs)
                 case ExtrasUpdate x when Status == ClientStatus.Connected: OnExtras(x); break;   // added content's envelope (GameClient.Envelope.cs)
             }
@@ -239,7 +242,7 @@ public sealed partial class GameClient
             {
                 _transport.Send(Protocol.Write(new Hello(Protocol.Version, _contentFingerprint, _config.Hash(), _nonce, Milliseconds(now), _cookie, _mapHash, _options.RequestedClass,
                     _options.RequestedPrimary, _options.RequestedPistol, _options.RequestedMelee, _options.RequestedEquipment, (byte)_options.RequestedSide,
-                    _options.RequestedPerk1, _options.RequestedPerk2, _options.SpaceMarineAppearance, _options.ChaosAppearance, _options.OrkLook, _options.Bot ? Hello.BotFlag : (byte)0)));
+                    _options.RequestedPerk1, _options.RequestedPerk2, _options.SpaceMarineAppearance, _options.ChaosAppearance, _options.OrkLook, _options.Bot ? Hello.BotFlag : (byte)0, _options.RequestedSecond)));
                 _helloSentAt = now;
             }
             return;

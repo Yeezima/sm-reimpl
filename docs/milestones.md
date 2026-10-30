@@ -800,3 +800,13 @@ wins, but Compatibility never goes above low), anti-aliasing off (`--aa` wins; S
 (`MapLightingView`, `RenderQuality`). Launcher: "Old GPU / safe mode" checkbox (`LauncherSettings.SafeMode`, `SafeModePolicy` with tests): Godot options
 `--rendering-method gl_compatibility --rendering-driver opengl3` plus `--safe-mode`; a game that fails within 8 s turns it on and is started once more. Protocol
 unchanged (43). Not verified on real old hardware.
+
+## Five perks (perks/five, protocol 44)
+
+From the owner's recollection of 2026-10-30 (spec "Perks without data"): **Rapid Deployment** respawns in 3 s (base 5 s); **Weapon Versatility** (Tactical only) adds a third
+weapon slot on key 3 with a second primary picked in the class creator, validated by the server (`Loadouts.SecondIndex`; `WeaponSlot.Second`, `PlayerState.Second` and the `Third*`
+store; the Switch toggle and the wheel cycle the three; three switch cards in the HUD); **Teleport Homer** puts a respawning ally on a free spot next to the living carrier
+(`World.TryHomerSpawn`; several carriers: the nearest to the death, an estimate); **Tactical Readout** and **Signum Link** (the same for now) show the enemy under the crosshair a
+health and armour bar and no name, and without either perk nothing shows over an enemy (the name is gone). The bars travel in a new message `EnemyBars` (18) only to players
+with the perks. Wire: the SlotSecond button, one choice byte, 14 own-record bytes, 15 projectile records at most (worst case still 1200). The five perks are no longer "NOT ACTIVE YET"
+(`Perks.ServerRulePerks`). Tests: `FivePerksTests`. A 60 s headless run (server on 127.0.0.1:27163, two bots, one per side) played without a fault or exception. Not verified: the feel of any of it against the original; the HUD cards and the creator rows were not looked at in a window.

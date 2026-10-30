@@ -41,7 +41,7 @@ public static class FrontEndLaunch
         {
             RequestedClass = choice.Class >= 0 && choice.Class < Protocol.ServerDefaultClass ? (byte)choice.Class : Protocol.ServerDefaultClass,
             RequestedPrimary = B(choice.Primary), RequestedPistol = B(choice.Pistol), RequestedMelee = B(choice.Melee), RequestedEquipment = B(choice.Equipment),
-            RequestedPerk1 = B(choice.Perk1), RequestedPerk2 = B(choice.Perk2),
+            RequestedPerk1 = B(choice.Perk1), RequestedPerk2 = B(choice.Perk2), RequestedSecond = B(choice.Second),
             // ui/customizer-ork: the profile's Ork look (the customizer's look step); an automatic one leaves the options' (a test aid's) as they are.
             OrkLook = ContentGate.OrkLook(plan.OrkLook != Races.OrkLookAutomatic ? plan.OrkLook : options.OrkLook, extras),
             RequestedSide = plan.Side,

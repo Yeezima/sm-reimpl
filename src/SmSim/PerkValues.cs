@@ -48,6 +48,7 @@ public static class PerkValues
                     if (i >= 0 && i < c.Weapons.Count && Loadouts.IsPistolBolter(c.Weapons[i]))
                         Add(ItemName(c.Weapons[i].Name), [$"offered, {N(c.Weapons[i].Damage)} damage per hit, clip {c.Weapons[i].ClipSize}"]);
 
+        if (Perks.RuleText(perk.Name) is { } rule) Add("", [rule]);   // protocol 44: the server-rule perks
         if (perk.UpgradeString is not { Length: > 0 } upgrade) return Join(groups);
 
         foreach (var u in c.PlayerUpgrades)

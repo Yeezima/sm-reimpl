@@ -66,6 +66,10 @@ public sealed partial class Hud : Control
         public bool HasOther;
         public string OtherName = "", OtherWargear = "";
         public int OtherClip, OtherClipMax, OtherReserve;
+        /// <summary>Protocol 44 (Weapon Versatility): the second holstered weapon (<see cref="Loadouts.Third"/>), when the player has three.</summary>
+        public bool HasThird;
+        public string ThirdName = "", ThirdWargear = "";
+        public int ThirdClip, ThirdClipMax, ThirdReserve;
         /// <summary>Charge fill 0..1 or negative when not charging, and whether a release fires the charged shot (the bar overlay and charge mark turn gold). <see cref="ChargeText"/> is not drawn since M44 (changes-from-original §3).</summary>
         public float Charge = -1f;
         public string ChargeText = "";
@@ -118,6 +122,8 @@ public sealed partial class Hud : Control
         public Vector2 CrosshairOffset;
         public bool AimedAtEnemy;
         public string AimedName = "";
+        /// <summary>Protocol 44 (Tactical Readout / Signum Link): the aimed enemy's bar is shown, from <see cref="AimedHealth"/> and <see cref="AimedShield"/> (fractions of 1). Without the perks nothing shows over an enemy: no name, no bar.</summary>
+        public bool AimedBar;
         /// <summary>The aimed enemy's health and shield after the last hit on it (HUD units), or negative when not known (shown under its name).</summary>
         public float AimedHealth = -1f, AimedShield = -1f, AimedHealthMax = 1f, AimedShieldMax = 1f;
     }
@@ -600,11 +606,10 @@ public sealed partial class Hud : Control
             DrawLine(c + dir * (r - 4f + open), c + dir * (r + 5f + open), col, 2f);
         }
         }
-        // The enemy under the crosshair: its name in red just above it (the original shows names over the players), and the
-        // health and shield after the last hit on it (server hit report) as a thin two-lane bar.
-        if (d.AimedAtEnemy && d.AimedName.Length > 0)
+        // The enemy under the crosshair (owner's decision of 2026-10-30): no name; with Tactical Readout or Signum Link, its health and shield as a thin
+        // two-lane bar (from the server's bars message). Without either perk nothing shows over an enemy.
+        if (d.AimedAtEnemy && d.AimedBar)
         {
-            Txt(d.AimedName, c.X, c.Y - 62f, 24, RedText, 0, 4, 2);
             if (d.AimedHealth >= 0f)
             {
                 float bw = 120f, bx = c.X - bw / 2f, by = c.Y - 54f;

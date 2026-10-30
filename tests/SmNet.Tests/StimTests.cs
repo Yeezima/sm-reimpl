@@ -254,7 +254,7 @@ public class StimTests(Xunit.Abstractions.ITestOutputHelper output)
         // The server names the resolved item: the choice, else the class default.
         var w = Arena(Config, 50f, equipment1: 0, equipment2: 1);
         Assert.Equal((0, 1), (Loadouts.EquipmentIndex(Config, w.Players[1]), Loadouts.EquipmentIndex(Config, w.Players[2])));
-        Assert.Equal(43, Protocol.Version);
+        Assert.Equal(44, Protocol.Version);
     }
 
     [Theory]

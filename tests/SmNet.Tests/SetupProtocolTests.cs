@@ -37,10 +37,10 @@ public class SetupProtocolTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_22_bumps_the_version_and_keeps_snapshots_as_they_were()
     {
-        Assert.Equal(43, Protocol.Version);
+        Assert.Equal(44, Protocol.Version);
         Assert.Equal(1200, Protocol.MaxSnapshotBytes);   // protocol 21's worst case: no snapshot change
-        Assert.Equal((47, 144), (Protocol.SlimRecordBytes, Protocol.FullRecordBytes));   // protocol 23: + the perk word
-        Assert.Equal((177, 139, 13, 68, 22, 21), (Protocol.HelloBytes, Protocol.SetupBytes, Protocol.SetupAckBytes, Protocol.AppearanceBytes,   // protocol 28: + the Ork look
+        Assert.Equal((47, 158), (Protocol.SlimRecordBytes, Protocol.FullRecordBytes));   // protocol 23: + the perk word
+        Assert.Equal((178, 140, 14, 68, 22, 21), (Protocol.HelloBytes, Protocol.SetupBytes, Protocol.SetupAckBytes, Protocol.AppearanceBytes,   // protocol 28: + the Ork look
             Protocol.BlobRequestBytes, Protocol.BlobChunkHeaderBytes));
     }
 
@@ -77,8 +77,8 @@ public class SetupProtocolTests(ITestOutputHelper output)
         var ack = new SetupAck(9, new LoadoutChoice(1, 0, -1, -1, 0, 1, 0), SetupFlags.Pending | SetupFlags.EmblemUploading | SetupFlags.Defaulted, 513);
         Assert.Equal(ack, RoundTrip(ack, Protocol.SetupAckBytes));
         var bytes = Protocol.Write(ack);
-        Assert.Null(Protocol.Read(Patch(bytes, 1 + 2 + 7, 16)));   // unknown flag
-        Assert.Equal(SetupFlags.All, Assert.IsType<SetupAck>(Protocol.Read(Patch(bytes, 10, (byte)SetupFlags.All))).Flags);
+        Assert.Null(Protocol.Read(Patch(bytes, 1 + 2 + 8, 16)));   // unknown flag
+        Assert.Equal(SetupFlags.All, Assert.IsType<SetupAck>(Protocol.Read(Patch(bytes, 11, (byte)SetupFlags.All))).Flags);
         Assert.Equal(SetupFlags.Pending, Assert.IsType<SetupAck>(Protocol.Read(Protocol.Write(ack with { Flags = (SetupFlags)0xF1 }))).Flags);   // written masked
     }
 

@@ -458,7 +458,7 @@ public class TeamsTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_10_carries_teams_the_match_and_the_kill_feed_within_the_budget()
     {
-        Assert.Equal(43, Protocol.Version);
+        Assert.Equal(44, Protocol.Version);
         Assert.Equal(1200, Protocol.MaxSnapshotBytes);   // protocol 23: + the 2-byte perk word; protocol 21: + 1 ready-tick byte; protocol 11: + the point count and 8 points; protocol 12: + the hit block; protocol 13: + the evade bytes − 1 projectile record; 16: − 3 projectile records + 5 shot records; 17: + 4 reaction bytes − 1 shot record
         Assert.True(Protocol.MaxSnapshotBytes <= 1200);   // protocol 12: 13 bytes of headroom; protocol 13: 9; protocol 15: 5; protocol 16: 1 (more shot records fill smaller snapshots); protocol 23: 0
         var hello = new Hello(Protocol.Version, 1, 2, 3, 4, 5, 6, 2, 1, 0, 7, 1, (byte)Team.Chaos);

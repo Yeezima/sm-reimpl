@@ -49,7 +49,7 @@ public partial class NetworkView
 
     /// <summary>The buttons the tap latch handles (Interact and the wheel switch have latches of their own).</summary>
     const InputButtons LatchedButtons = InputButtons.Fire | InputButtons.Melee | InputButtons.MeleeHeavy | InputButtons.Reload | InputButtons.Grenade
-        | InputButtons.Switch | InputButtons.Jump | InputButtons.SlotPistol | InputButtons.SlotPrimary | InputButtons.Aim | InputButtons.Sprint;
+        | InputButtons.Switch | InputButtons.Jump | InputButtons.SlotPistol | InputButtons.SlotPrimary | InputButtons.SlotSecond | InputButtons.Aim | InputButtons.Sprint;
 
     readonly InputLatch _latch = new();
 
@@ -84,6 +84,7 @@ public partial class NetworkView
                     Key.Space => (InputButtons.Jump, false),
                     Key.Key1 => (InputButtons.SlotPistol, false),
                     Key.Key2 => (InputButtons.SlotPrimary, false),
+                    Key.Key3 => (InputButtons.SlotSecond, false),
                     Key.Ctrl => (InputButtons.Aim, true),
                     Key.Shift => (InputButtons.Sprint, false),
                     _ => (InputButtons.None, false),

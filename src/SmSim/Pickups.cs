@@ -130,13 +130,13 @@ public static class Pickups
     {
         if (!s.Alive) return (s, default);
         int primaryGain = 0, pistolGain = 0;
-        foreach (var slot in new[] { WeaponSlot.Ranged, WeaponSlot.Pistol })
+        foreach (var slot in new[] { WeaponSlot.Ranged, WeaponSlot.Pistol, WeaponSlot.Second })   // protocol 44: the second primary too
         {
             if (Loadouts.Weapon(c, s, slot) is not { } weapon) continue;
             int amount = type.WeaponAmount(Loadouts.WeaponIndex(c, s, slot));
             if (amount <= 0) continue;
-            bool inHand = s.Slot == slot;
-            int clip = inHand ? s.Clip : s.OtherClip, reserve = inHand ? s.Reserve : s.OtherReserve;
+            bool inHand = s.Slot == slot, isOther = !inHand && Loadouts.Other(s.Slot) == slot;
+            int clip = inHand ? s.Clip : isOther ? s.OtherClip : s.ThirdClip, reserve = inHand ? s.Reserve : isOther ? s.OtherReserve : s.ThirdReserve;
             int gained;
             if (weapon.ReserveSize > 0)
             {
@@ -148,8 +148,8 @@ public static class Pickups
                 int now = Math.Clamp(clip + amount, clip, Math.Max(clip, weapon.ClipSize));
                 gained = now - clip; clip = now;
             }
-            s = inHand ? s with { Clip = clip, Reserve = reserve } : s with { OtherClip = clip, OtherReserve = reserve };
-            if (slot == WeaponSlot.Ranged) primaryGain = gained; else pistolGain = gained;
+            s = inHand ? s with { Clip = clip, Reserve = reserve } : isOther ? s with { OtherClip = clip, OtherReserve = reserve } : s with { ThirdClip = clip, ThirdReserve = reserve };
+            if (slot == WeaponSlot.Pistol) pistolGain = gained; else primaryGain += gained;
         }
         int grenadeGain = 0;
         if (Loadouts.Equipment(c, s) is { } item && type.ThrownAmount(Loadouts.EquipmentIndex(c, s)) is var add and > 0)
