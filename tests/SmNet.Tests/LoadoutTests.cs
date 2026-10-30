@@ -142,12 +142,12 @@ public class LoadoutTests(ITestOutputHelper output)
         for (int i = 0; i < 40; i++) Step(ref s, InputButtons.Switch, out _);   // held: no further switch
         Assert.Equal(WeaponSlot.Pistol, s.Slot);
 
-        // A press while a switch is under way is ignored.
+        // A press while a switch is under way cancels it and switches back (sim/switch-cancel, owner's recollection 2026-10-31).
         s = Fresh(Tactical);
         Step(ref s, InputButtons.Switch, out _);
         Step(ref s, InputButtons.None, out _);
         Step(ref s, InputButtons.Switch, out _);
-        Assert.Equal(WeaponSlot.Pistol, s.Slot);
+        Assert.Equal((WeaponSlot.Ranged, Config.WeaponSwitchTime), (s.Slot, s.SwitchLeft));
 
         // No primary: nothing to switch to.
         var a = Fresh(Assault);

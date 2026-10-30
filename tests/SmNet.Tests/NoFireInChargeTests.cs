@@ -188,4 +188,61 @@ public class NoFireInChargeTests(ITestOutputHelper output)
         Assert.False(fired);
         Assert.Equal(clip, idle.Clip);
     }
+
+    // sim/no-fire-charging-all, review follow-up: the storm bolter, the heavy bolter (heat) and the Vengeance launcher (projectile), and a grenade / a jump ending a charge early.
+    static readonly SplashSpec Blast = new(6f, new DamageSpec(75f, 0f, 1f, 1f, 0f, 0f, false), [new(0f, 1f), new(6f, 0.05f)], true, false, "target_all");
+    static readonly ProjectileSpec Rocket = new("ebps_test_grenade", 30f, 0f, "raycast", 0f, [new(0f, 1f)], false, false, true, 1, 0f, 0f, 3, null, Blast);
+    static readonly WeaponSpec Storm = new("storm", WeaponSlot.Ranged, TriggerKind.FullAuto, 8f, 0.05f, 100, 200, 1.0f, 250f, 45f, 70f, 0.8f, 2.5f, 1f, 0.5f, 0.5f);
+    static readonly WeaponSpec HeavyHeat = new("heavy", WeaponSlot.Ranged, TriggerKind.FullAuto, 35f, 0.233f, 400, 0, 1.5f, 250f, 250f, 250f, 1f, 1f, 1f, 0.7f, 0.7f) { Heat = new HeatSpec(3f, 100f, 75f, 20f, 25f, 0.3f, 0f) };
+    static readonly WeaponSpec Launcher = new("launcher", WeaponSlot.Ranged, TriggerKind.SemiAuto, 10f, 0.2f, 10, 20, 0.6f, 150f, 150f, 150f, 1f, 1f, 1f, 0f, 0f) { Delivery = DeliveryKind.Projectile, Projectile = Rocket };
+
+    static SimConfig Config2() => Config("tactical") with { Weapons = [Storm, HeavyHeat, Launcher, Pistol] };
+
+    [Theory]
+    [InlineData(0, 0)] [InlineData(1, 0)] [InlineData(2, 0)]   // storm bolter, heavy bolter, launcher
+    [InlineData(0, 1)] [InlineData(1, 1)] [InlineData(2, 1)]
+    public void The_storm_bolter_heavy_bolter_and_launcher_fire_nothing_in_the_charge_and_fire_normally_after(int primary, int cls)
+    {
+        var c = Config2() with { Classes = [Config2().Classes[0] with { PrimaryChoices = [0, 1, 2], PistolChoices = [3] }, Config2().Classes[1] with { PrimaryChoices = [0, 1, 2], PistolChoices = [3] }] };
+        foreach (var from in new[] { 1, 10, 99 })
+        {
+            var (shots, ticks, ended, last, _) = Run(c, cls, primary, false, false, true, from);
+            Assert.Equal(0, shots);
+            Assert.True(ended);
+            Assert.Equal(RushTests.Spec.Rush.End, ticks / 30f, 0.1f);
+            bool fired = false;
+            var s = last;
+            s = Tick(s, c, InputButtons.None).S;
+            for (int k = 0; k < 12; k++) { var (n, f) = Tick(s, c, InputButtons.Fire); s = n; fired |= f; }
+            Assert.True(fired, $"weapon {primary} class {cls} fires after the charge");
+        }
+    }
+
+    [Theory]
+    [InlineData(InputButtons.Grenade)]
+    [InlineData(InputButtons.Jump)]
+    public void A_grenade_or_a_jump_ending_the_charge_early_fires_nothing_that_tick_and_fire_is_normal_after(InputButtons ender)
+    {
+        var c = Config("tactical");
+        var s = Fresh(c, Assault, 1, false);
+        for (int k = 0; k < 6; k++) s = Tick(s, c, InputButtons.None).S;
+        s = Tick(s, c, InputButtons.MeleeHeavy).S;
+        int clip = s.Clip;
+        bool ended = false, shot = false;
+        for (int k = 1; k < 60 && !ended; k++)
+        {
+            // Fire alone is ignored; the ender with Fire pressed together ends the charge at the move-on time and fires nothing in that tick.
+            var (n, f) = Tick(s, c, (k % 2 == 1 ? ender : InputButtons.None) | InputButtons.Fire, 0f);   // the ender is pressed afresh every other tick
+            shot |= f;
+            ended = n.Rush == RushPhase.None;
+            s = n;
+        }
+        Assert.True(ended);
+        Assert.False(shot);
+        Assert.Equal(clip, s.Clip);
+        s = Tick(s, c, InputButtons.None).S;
+        bool fired = false;
+        for (int k = 0; k < 12; k++) { var (n, f) = Tick(s, c, InputButtons.Fire); s = n; fired |= f; }
+        Assert.True(fired);
+    }
 }

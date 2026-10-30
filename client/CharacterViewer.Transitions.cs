@@ -71,6 +71,13 @@ public partial class CharacterViewer
         return x * x * (3f - 2f * x);
     }
 
+    /// <summary>The linear progress whose <see cref="Smooth"/> is <paramref name="y"/> (the inverse of the smoothstep; sim/switch-cancel).</summary>
+    public static float SmoothInverse(float y)
+    {
+        y = Math.Clamp(y, 0f, 1f);
+        return NoDeadBlend ? y : 0.5f - MathF.Sin(MathF.Asin(1f - 2f * y) / 3f);
+    }
+
     /// <summary>At the start of a frame's pose work: the character's clock and the snapshot's age.</summary>
     void AdvanceClock(double delta)
     {
