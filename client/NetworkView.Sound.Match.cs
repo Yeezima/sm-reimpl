@@ -19,7 +19,7 @@ public partial class NetworkView
     readonly SeizeSounds _seizeSounds = new();
     SoundEmitter? _uiEmitter;
     bool _uiConnected;
-    double _voiceLogAt;
+    double _voiceLogAt, _censusAt;
 
     /// <summary>Once the sound system exists: the menus' buttons post through it (see <see cref="UiSounds.Redirect"/>).</summary>
     void ConnectUiSounds()
@@ -43,9 +43,19 @@ public partial class NetworkView
             GD.Print($"MATCH SOUND t {_connectedFor:F3} {kind} event {eventName} | {VoicesText(play)}");
     }
 
+    bool? _seizeTicks;
+    /// <summary><c>--sound-seize-ticks</c> (restore switch, sound-hunt, owner 2026-10-31 "a sound heard over and over"): plays Seize Ground's capture tick (about 25 a minute while capturing) and score tick (a second apart while the side scores) again; default off. The objective-complete sound and the end tally stay.</summary>
+    bool SeizeTicks => _seizeTicks ??= CmdFlag("sound-seize-ticks");
+
     /// <summary>Per frame in Seize Ground: the capture tick, the objective noise and the score tick.</summary>
     void SoundSeize(PlayerState me)
     {
+        if (_sound is not null && LogSound("census") && _connectedFor >= _censusAt)
+        {
+            _censusAt = _connectedFor + 30.0;
+            GD.Print($"CENSUS_T {_connectedFor:F0} playing {_sound.ActiveCount} voices-started {_sound.VoicesStarted} continuations {_sound.Continuations} steals {_sound.Steals}");
+            foreach (var l in _sound.CensusLines()) GD.Print(l);
+        }
         if (_sound is null || _client is not { Status: ClientStatus.Connected } client || !SeizeGround || client.Scoreboard?.Seize is not { } layout)
         {
             _seizeSounds.Reset();
@@ -71,6 +81,7 @@ public partial class NetworkView
         for (int i = 0; i < events.Count; i++)
         {
             var ev = events[i];
+            if (!SeizeTicks && ev.Kind is SeizeSoundKind.CaptureTick or SeizeSoundKind.ScoreTick) continue;   // sound-hunt (owner 2026-10-31): the per-second ticks are off unless --sound-seize-ticks
             PostUiEvent(SeizeSounds.EventOf(ev.Kind), ev.Kind switch
             {
                 SeizeSoundKind.CaptureTick => "seize capture tick",

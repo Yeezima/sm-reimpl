@@ -134,6 +134,18 @@ public partial class SoundSystem : Node
     public readonly Dictionary<string, (int Posts, int Voices)> ByEvent = new(StringComparer.OrdinalIgnoreCase);
     public readonly Dictionary<string, int> Misses = new(StringComparer.OrdinalIgnoreCase);
     public readonly Dictionary<string, int> ContByEvent = new();
+    readonly Dictionary<string, Census> _census = new(StringComparer.OrdinalIgnoreCase);
+    sealed class Census { public int Started, TwoD, Loops; public double SumDb; public HashSet<string> Labels = new(); }
+    void Tally(Active a)
+    {
+        var c = _census.TryGetValue(a.Event, out var e) ? e : _census[a.Event] = new Census();
+        c.Started++; if (!a.Voice.Is3D) c.TwoD++; if (a.Voice.LoopCount == 0) c.Loops++;
+        c.SumDb += MixOf(a).VolumeDb;
+        if (c.Labels.Count < 4) c.Labels.Add(a.Emitter.Label);
+    }
+    /// <summary>--log-sound census: one line per event (posts, voices started, 2D voices, looping voices, mean volume dB, continuations, emitter labels).</summary>
+    public IEnumerable<string> CensusLines() => _census.OrderByDescending(kv => kv.Value.Started).Take(25).Concat(_census.Where(kv => ContByEvent.GetValueOrDefault(kv.Key) > 0)).Distinct().Select(kv =>
+        $"CENSUS {kv.Key} posts {ByEvent.GetValueOrDefault(kv.Key).Posts} started {kv.Value.Started} 2D {kv.Value.TwoD} loopvoices {kv.Value.Loops} meandb {kv.Value.SumDb / Math.Max(1, kv.Value.Started):F1} cont {ContByEvent.GetValueOrDefault(kv.Key)} labels {string.Join('|', kv.Value.Labels)}");
     public int Posts, VoicesStarted, Steals, Late, PeakActive, Virtual, Culled, Revived, StreamsLoaded, UnsupportedActions, MissingMedia, Continuations;
     /// <summary>M33 counters: property actions applied, switch actions, bark posts, barks dropped (one at a time per character), barks with no line, voices started on a filter bus, bus changes.</summary>
     public int PropertyActions, SwitchActions, Barks, BarksDropped, BarksSilent, FilteredStarts, FilterChanges;
@@ -488,6 +500,7 @@ public partial class SoundSystem : Node
         }
         _active.Add(a);
         VoicesStarted++;
+        Tally(a);
         if (IsSpeech(p.Event)) _speechUntil[p.Emitter.Id] = _now + _catalog.Duration(v.WemId) / Math.Max(0.05f, v.PitchScale);   // the line is heard from now
         PeakActive = Math.Max(PeakActive, _active.Count(x => x.Player is not null));
     }
