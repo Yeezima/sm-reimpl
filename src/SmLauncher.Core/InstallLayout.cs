@@ -116,6 +116,8 @@ public sealed class UpdateState
 public sealed class LauncherSettings
 {
     public string? LastServer { get; set; }
+    /// <summary>hotfix/old-gpu: "Old GPU / safe mode" (<see cref="SafeModePolicy"/>): start the game on the Compatibility renderer with low settings.</summary>
+    public bool SafeMode { get; set; }
 }
 
 [JsonSourceGenerationOptions(WriteIndented = true, PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, UseStringEnumConverter = true)]

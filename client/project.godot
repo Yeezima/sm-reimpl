@@ -27,6 +27,16 @@ project/assembly_name="SmClient"
 
 [rendering]
 
+; hotfix/old-gpu: Godot has no DirectX 9. Forward+ stays the default method; when its driver (Vulkan, or D3D12) cannot start Godot falls back to the Compatibility
+; renderer (OpenGL 3.3), and for that renderer to ANGLE and then to OpenGL ES. Godot 4.7.2 defaults to the Vulkan driver on Windows (all fallbacks default to true; set
+; here so the choice is on record). SafeMode.cs notices the Compatibility renderer and drops lighting to low. The launcher's "Old GPU / safe mode" forces it.
+rendering_device/fallback_to_opengl3=true
+rendering_device/fallback_to_vulkan=true
+rendering_device/fallback_to_d3d12=true
+gl_compatibility/fallback_to_angle=true
+gl_compatibility/fallback_to_native=true
+gl_compatibility/fallback_to_gles=true
+
 ; M40-T7: anti-aliasing defaults (the client also sets them per run from --aa, RenderQuality.cs): MSAA 4x (2) + SMAA (2).
 anti_aliasing/quality/msaa_3d=2
 anti_aliasing/quality/screen_space_aa=2

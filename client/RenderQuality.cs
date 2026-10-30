@@ -52,6 +52,15 @@ public static class RenderQuality
 
     static AaMode ParseAa(string? text)
     {
+        var mode = ParseAaText(text);
+        // hotfix/old-gpu: safe mode turns anti-aliasing off unless --aa says otherwise; the Compatibility renderer has MSAA but neither SMAA nor TAA.
+        if (SafeMode.Active && text is null) return AaMode.Off;
+        if (SafeMode.Compatibility) return mode switch { AaMode.MsaaSmaa => AaMode.Msaa, AaMode.Taa => AaMode.Off, _ => mode };
+        return mode;
+    }
+
+    static AaMode ParseAaText(string? text)
+    {
         switch (text?.ToLowerInvariant())
         {
             case "off" or "none": return AaMode.Off;

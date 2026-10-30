@@ -12,6 +12,12 @@ Spec section names below are the headings in `spec/behavior.md`.
 Whole systems SM1 multiplayer did not have, each behind its own `ContentExtras` flag and removable in one piece (`docs/added-content.md`). The Ork Boy
 and gore are listed in their own design documents for now (the rest of section 0, D1, is to come).
 
+### Old GPU / safe mode (hotfix/old-gpu)
+
+| What | Ours / the owner's | Value | Spec row |
+|---|---|---|---|
+| Compatibility renderer on old cards | the owner's decision (2026-10-30): Godot has no DirectX 9, so cards without Vulkan run the OpenGL 3.3 renderer | automatic when Forward+ cannot start, or the launcher's "Old GPU / safe mode"; lighting low, anti-aliasing off, no volumetric fog, SSR, SSIL, SSAO, SDFGI. Looks plainer; no gameplay value changes. The default look is unchanged | none (no gameplay value) |
+
 ### Loyalist barks (`LoyalistBarks`; spec "Added content: loyalist barks")
 
 | What | Ours / the owner's | Value | Spec row |

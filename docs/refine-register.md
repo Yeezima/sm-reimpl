@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1640 spec table rows: **1109 tagged**, 385 not tagged (read from data with high confidence), 146 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 321 rows of the changes document.
+Scanned 1640 spec table rows: **1109 tagged**, 385 not tagged (read from data with high confidence), 146 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 322 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -1753,6 +1753,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our choices where the original is unknown, and what is not reproduced yet. Nothing is classified here; every row is listed. The prompt says what to ask after the playtest.
 
 ### Added content (not in SM1; off with `--content faithful`)
+
+#### Old GPU / safe mode (hotfix/old-gpu)
+
+| ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-5D4355E6` | Compatibility renderer on old cards | the owner's decision (2026-10-30): Godot has no DirectX 9, so cards without Vulkan run the OpenGL 3.3 renderer | automatic when Forward+ cannot start, or the launcher's "Old GPU / safe mode"; lighting low, anti-aliasing off, no volumetric fog, SSR, SSIL, SSAO, SDFGI. Looks plainer; no gameplay value changes. The default look is unchanged | none (no gameplay value) | Compatibility renderer on old cards: compare with SM1 by feel or video. Ours: the owner's decision (2026-10-30): Godot has no DirectX 9, so cards… | ☐ |
 
 #### Loyalist barks (`LoyalistBarks`; spec "Added content: loyalist barks")
 

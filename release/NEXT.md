@@ -18,3 +18,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The stalker bolter's scope reticle now opens up as your aim loosens after a shot and closes again as it settles.
 - The grenade launcher's round display in the weapon box now counts down the rounds you have left.
 - The class creator's description card now always fits: long perk descriptions (Sure Strike, Bolter Targeter, Furious Charge) get a bigger card, a smaller text and, for the very longest, a scroll bar.
+- Old graphics cards: the launcher has a new "Old GPU / safe mode" box. The game also tries a simpler graphics mode by itself when your card cannot run the normal one, and the launcher turns the box on if the game closes right after starting. The game then looks plainer (low lighting, no smog or reflections), but plays the same. Tell us if it still does not start.

@@ -57,6 +57,7 @@ sealed class MainForm : Form
     readonly Button _btnHost = new() { Text = "Host a match on this PC", AutoSize = true, Height = 44 };
     readonly Button _btnJoin = new() { Text = "Join a server...", AutoSize = true, Height = 44 };
     readonly Button _btnLan = new() { Text = "Host for friends (LAN)", AutoSize = true, Height = 44 };
+    readonly CheckBox _cbSafeMode = new() { AutoSize = true, Text = "Old GPU / safe mode (simpler graphics for old graphics cards)", Margin = new Padding(16, 14, 3, 3) };
     readonly LinkLabel _lnkCheck = Link("Check files");
     readonly LinkLabel _lnkRollback = Link("Roll back to the previous version");
     readonly LinkLabel _lnkRelease = Link("Open the release page");
@@ -135,7 +136,7 @@ sealed class MainForm : Form
         var buttons = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top, WrapContents = true, Margin = new Padding(0, 10, 0, 0) };
         Accentuate(_btnPlay, PlayGreen);
         foreach (var b in new[] { _btnHost, _btnJoin, _btnLan }) { b.AutoSize = false; b.Size = new Size(b.PreferredSize.Width + 20, 44); }
-        buttons.Controls.AddRange([_btnPlay, _btnHost, _btnJoin, _btnLan]);
+        buttons.Controls.AddRange([_btnPlay, _btnHost, _btnJoin, _btnLan, _cbSafeMode]);
         grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -204,7 +205,8 @@ sealed class MainForm : Form
         FormClosing += OnClosing;
         _btnUpdate.Click += async (_, _) => await UpdateAsync();
         _btnCancel.Click += (_, _) => { _cts?.Cancel(); _btnCancel.Enabled = false; };
-        _btnPlay.Click += (_, _) => Start(GameStart.Play, "Starting the game...");
+        _btnPlay.Click += (_, _) => PlayGame();
+        _cbSafeMode.CheckedChanged += (_, _) => SaveSafeMode();
         _btnHost.Click += (_, _) => Start(GameStart.Host, "Starting a server only this PC can join (its window lists what to do next)...");
         _btnLan.Click += (_, _) => Start(GameStart.HostLan, "Starting a server other PCs can join (Windows Firewall may ask once)...");
         _btnJoin.Click += (_, _) => Join();
@@ -266,6 +268,7 @@ sealed class MainForm : Form
         _lock?.Dispose();
         _lock = null;
         _layout = new InstallLayout(root);
+        LoadSafeMode();
         _log = new AppLog(_layout);
         var layout = _layout;
         _lock = await Task.Run(() => RootLock.TryAcquire(layout, TimeSpan.FromSeconds(10)));
@@ -695,6 +698,60 @@ sealed class MainForm : Form
         catch (Exception e) { SetLine(e.Message, Bad); }
     }
 
+    bool _loadingSafeMode;
+
+    /// <summary>Shows the saved choice of the "Old GPU / safe mode" box (without saving it again).</summary>
+    void LoadSafeMode()
+    {
+        if (_layout is null) return;
+        _loadingSafeMode = true;
+        try { _cbSafeMode.Checked = Store.ReadSettings(_layout).SafeMode; } finally { _loadingSafeMode = false; }
+    }
+
+    void SaveSafeMode()
+    {
+        if (_loadingSafeMode || _layout is null) return;
+        try { var s = Store.ReadSettings(_layout); s.SafeMode = _cbSafeMode.Checked; Store.WriteSettings(_layout, s); }
+        catch (Exception e) { _log?.Write("safe mode: could not save the setting: " + e.Message); }
+    }
+
+    /// <summary>PLAY: starts the game (in safe mode when the box is ticked) and, for a game that fails at once, turns safe mode on and tries once more (SafeModePolicy).</summary>
+    void PlayGame()
+    {
+        string? dir = _updater?.CurrentDir();
+        if (dir is null) return;
+        bool safe = _cbSafeMode.Checked;
+        try
+        {
+            var launched = DateTime.UtcNow;
+            GameStart.Play(dir, safe);
+            SetLine(safe ? "Starting the game in Old GPU / safe mode..." : "Starting the game...", Muted);
+            _ = WatchPlayAsync(dir, safe, retried: false, launched);
+        }
+        catch (Exception e) { SetLine(e.Message, Bad); }
+    }
+
+    async Task WatchPlayAsync(string dir, bool safe, bool retried, DateTime launched)
+    {
+        try
+        {
+            var result = await GameStart.WatchEarlyExitAsync(dir, launched, CancellationToken.None);
+            if (result is not { } r || IsDisposed) return;
+            _log?.Write($"game exited with code {r.ExitCode} after {r.RanFor.TotalSeconds:0.0} s (safe mode {(safe ? "on" : "off")})");
+            if (r.ExitCode == 0) return;
+            if (SafeModePolicy.ShouldRetryInSafeMode(safe, retried, r.ExitCode, r.RanFor))
+            {
+                _cbSafeMode.Checked = true;      // saved by CheckedChanged
+                SetLine(SafeModePolicy.AutoOnMessage, Warn);
+                var again = DateTime.UtcNow;
+                GameStart.Play(dir, safeMode: true);
+                _ = WatchPlayAsync(dir, true, retried: true, again);
+            }
+            else if (safe || retried) SetLine(SafeModePolicy.StillFailsMessage, Bad);
+        }
+        catch (Exception e) { _log?.Write("watching the game: " + e.Message); }
+    }
+
     void Join()
     {
         string? dir = _updater?.CurrentDir();
@@ -706,7 +763,7 @@ sealed class MainForm : Form
         {
             settings.LastServer = address;
             Store.WriteSettings(_layout, settings);
-            GameStart.Join(dir, address);
+            GameStart.Join(dir, address, _cbSafeMode.Checked);
             SetLine($"Joining {address}...", Muted);
         }
         catch (Exception e) { SetLine(e.Message, Bad); }

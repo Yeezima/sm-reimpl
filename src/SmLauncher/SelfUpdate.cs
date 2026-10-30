@@ -162,25 +162,56 @@ static class Shortcuts
 static class GameStart
 {
     /// <summary>"2 - Play.cmd": it starts the game and returns, so it runs without a console window.</summary>
-    public static void Play(string versionDir) => RunCmd(versionDir, 2, visible: false);
+    public static void Play(string versionDir, bool safeMode = false) => RunCmd(versionDir, 2, visible: false, safeMode, launcherWatches: true);
     /// <summary>"3 - Host a match on this PC.cmd": the server's console window stays open while it runs.</summary>
     public static void Host(string versionDir) => RunCmd(versionDir, 3, visible: true);
     /// <summary>"5 - Host a match for friends (LAN).cmd".</summary>
     public static void HostLan(string versionDir) => RunCmd(versionDir, 5, visible: true);
 
     /// <summary>Join: the game with --connect, as "4 - Join a server by address.cmd" starts it (that script asks in a console; the launcher asks in its window).</summary>
-    public static void Join(string versionDir, string address)
+    public static void Join(string versionDir, string address, bool safeMode = false)
     {
         string game = Path.Combine(versionDir, PackageLayout.GameExe);
         if (!File.Exists(game)) throw new FileNotFoundException("The game is missing from the installed build; use Check files.");
         var psi = new ProcessStartInfo(game) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(game)! };
+        if (safeMode) foreach (var a in SafeModePolicy.EngineArgs) psi.ArgumentList.Add(a);   // Godot's own options go before "--"
         psi.ArgumentList.Add("--");
+        foreach (var a in SafeModePolicy.ExtraGameArgs(safeMode)) psi.ArgumentList.Add(a);
         psi.ArgumentList.Add("--connect");
         psi.ArgumentList.Add(address);
         Process.Start(psi)?.Dispose();
     }
 
-    static void RunCmd(string versionDir, int number, bool visible)
+    /// <summary>
+    /// hotfix/old-gpu: after "2 - Play.cmd" ran, finds the game it started and waits up to <see cref="SafeModePolicy.EarlyExitWindow"/> for it to end. Returns the exit code and how long it ran,
+    /// or null when it is still running after the window (or was never seen).
+    /// </summary>
+    public static async Task<(int ExitCode, TimeSpan RanFor)?> WatchEarlyExitAsync(string versionDir, DateTime launchedUtc, CancellationToken ct)
+    {
+        var deadline = DateTime.UtcNow + SafeModePolicy.EarlyExitWindow + TimeSpan.FromSeconds(4);
+        while (DateTime.UtcNow < deadline && !ct.IsCancellationRequested)
+        {
+            foreach (var p in Process.GetProcessesByName("sm-reimpl"))
+            {
+                try
+                {
+                    if (p.MainModule?.FileName is not { } f || !Updater.IsInsideFolder(f, versionDir) || p.StartTime.ToUniversalTime() < launchedUtc.AddSeconds(-2)) continue;
+                    var started = p.StartTime.ToUniversalTime();
+                    using var wait = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    wait.CancelAfter(SafeModePolicy.EarlyExitWindow);
+                    try { await p.WaitForExitAsync(wait.Token); }
+                    catch (OperationCanceledException) { return null; }   // still running: it started fine
+                    return (p.ExitCode, DateTime.UtcNow - started);
+                }
+                catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException or NotSupportedException) { }
+                finally { p.Dispose(); }
+            }
+            try { await Task.Delay(250, ct); } catch (OperationCanceledException) { return null; }
+        }
+        return null;
+    }
+
+    static void RunCmd(string versionDir, int number, bool visible, bool safeMode = false, bool launcherWatches = false)
     {
         string script = PackageLayout.EntryPoint(versionDir, number) ?? throw new FileNotFoundException($"The installed build has no \"{number} - ...cmd\"; use Check files.");
         var psi = new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "cmd.exe"))
@@ -188,8 +219,10 @@ static class GameStart
             UseShellExecute = false,
             CreateNoWindow = !visible,
             WorkingDirectory = versionDir,
-            Arguments = $"/d /c \"\"{script}\"\"",
+            Arguments = $"/d /c \"\"{script}\" {string.Join(' ', SafeModePolicy.ExtraGameArgs(safeMode))}\"",
         };
+        if (safeMode) psi.Environment[SafeModePolicy.EngineArgsVariable] = SafeModePolicy.EngineArgsText(Environment.GetEnvironmentVariable(SafeModePolicy.EngineArgsVariable), true)!;
+        if (launcherWatches) psi.Environment["SM_NO_WATCH"] = "1";   // the launcher notes an early close itself (and may retry): the script's own message box stays away
         Process.Start(psi)?.Dispose();
     }
 
