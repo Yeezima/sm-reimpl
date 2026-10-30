@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1740 spec table rows: **1188 tagged**, 403 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 361 rows of the changes document.
+Scanned 1740 spec table rows: **1188 tagged**, 403 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 362 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -2370,6 +2370,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-810E5266` | Weapon effects pass (2026-10-30) | Lascannon beam straight and static; tracer muzzle leg lingers 0.12 s; melta blast a drawn cone instead of the data's haze; plasma shots drawn as a near-opaque roiling ball; jump pack thrust stops at the peak. All ours at the owner's request; values are estimates in the refine register | Weapon effects pass (2026-10-30): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-C77587B7` | Visuals pass 2 (fx/visuals-2, owner 2026-10-30 round 2: items 34, 35, 38, 40, 45, 46, 48) | Ours: the recharge glow and break flash are soft halos behind the figure, not a model-surface layer (`--old-flash-outline`); the air-slash landing adds a dust cone (apex at the feet, the sim's 60 degree, 4 m cone; `--no-slash-cone`); the pistol's tracer waits for the raise (`--old-pistol-tracer`); bolt tracers 0.42 x… | Visuals pass 2 (fx/visuals-2, owner 2026-10-30 round 2:…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-92C86CDD` | HUD and camera pass 2 (ui/hud-camera-2, owner 2026-10-30) | Ours: the third-person camera is 1.3 times as far back as the data's rig (3.38 m to 4.40 m; aim unchanged); the score block's dark band is opaque (80 to 86 percent) and holds the timer, scores, bars and limit; the armour bar is plain yellow for everyone but the Iron Halo's carrier (cyan and white with the medallion)… | HUD and camera pass 2 (ui/hud-camera-2, owner 2026-10-30): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-37420BF6` | Armour regen sound level (owner 2026-10-31) | Ours: the regeneration sound is 50% of its earlier volume (-6 dB), and another player's regen would fade to silence at 20 ft (6.1 m, "roughly"; none is posted today, the data makes it the local player's only). Spec "Shield sounds". `--regen-sound-old` restores the old level | Armour regen sound level (owner 2026-10-31): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

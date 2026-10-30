@@ -11,3 +11,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 -->
 
 - The launcher has a dark look.
+- The armour regeneration sound is half as loud as before, and a regenerating player you can only hear within about 20 feet.
