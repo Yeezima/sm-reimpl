@@ -17,9 +17,12 @@ public sealed record CameraSet(string Name, float FieldOfView, string AnimationC
 /// <summary>
 /// Look-speed tuning (<c>data/packages/camera_input_tuning.oppc</c>): <see cref="SpeedMouse"/>, <see cref="SpeedHorizontal"/>
 /// and <see cref="SpeedVertical"/> in original units (not established; the stick speeds are probably degrees per second at
-/// full deflection, the mouse speed a relative scale).
+/// full deflection, the mouse speed a relative scale). Controller (gamepad feature): <see cref="StickMapping"/> is the file's <c>input_mapping</c>
+/// (raw stick 0..1 to the mapped request 0..1, linear between the points; the Xbox table, not <c>input_mapping_ps3</c>) and <see cref="StickDamping"/> the
+/// <c>request_damping</c> (time, to cap), null when the file has none.
 /// </summary>
-public sealed record InputTuning(string Name, float SpeedMouse, float SpeedHorizontal, float SpeedVertical);
+public sealed record InputTuning(string Name, float SpeedMouse, float SpeedHorizontal, float SpeedVertical,
+    IReadOnlyList<(float From, float To)>? StickMapping = null, IReadOnlyList<(float From, float To)>? StickDamping = null);
 
 /// <summary>
 /// What a weapon's wargear says about the camera (<c>camera_data/entry/camera_data</c> of the default entry): the exploration
@@ -66,6 +69,17 @@ public sealed class CameraTuning
         _sets = sets; _inputs = inputs; _weapons = weapons; _notes = notes;
     }
 
+    /// <summary>A table of <c>mapping</c> entries with two float fields as points (null when absent or empty); the order of the file is kept.</summary>
+    static IReadOnlyList<(float From, float To)>? ReadCurve(BafTable? table, string from, string to)
+    {
+        if (table is not { } t) return null;
+        var points = new List<(float, float)>();
+        foreach (var e in t.Entries)
+            if (e.Type == BafType.Table && e.Name == "mapping" && e.AsTable() is var m && m.Float(from) is { } a && m.Float(to) is { } b && float.IsFinite(a) && float.IsFinite(b))
+                points.Add((a, b));
+        return points.Count > 0 ? points : null;
+    }
+
     /// <summary>Reads everything from the install (read-only).</summary>
     public static CameraTuning Load(string gameDir)
     {
@@ -104,7 +118,8 @@ public sealed class CameraTuning
             var r = doc.Root;
             float? mouse = r.Float("speed_mouse"), horizontal = r.Float("speed_horizontal"), vertical = r.Float("speed_vertical");
             if (mouse is { } m && float.IsFinite(m) && m > 0f)
-                tunings[name] = new InputTuning(name, m, horizontal is { } h && float.IsFinite(h) ? h : float.NaN, vertical is { } v && float.IsFinite(v) ? v : float.NaN);
+                tunings[name] = new InputTuning(name, m, horizontal is { } h && float.IsFinite(h) ? h : float.NaN, vertical is { } v && float.IsFinite(v) ? v : float.NaN,
+                    ReadCurve(r.Table("input_mapping"), "from (raw stick)", "to (mapped request)"), ReadCurve(r.Table("request_damping"), "from (time)", "to (cap)"));
             else notes.Add($"input tuning {name}: no positive speed_mouse; skipped");
         }
         // Aim-assist set → input tuning set (by the aim-assist file name, without folders).

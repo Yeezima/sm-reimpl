@@ -63,6 +63,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - A headshot kill now shows one "Headshot" line instead of the plain kill line.
 - The kill and streak announcements in the middle of the screen are smaller, the text most of all.
 - The weapon box no longer shows words like RELOADING or OVERHEATED.
+- Controller support: plug in an Xbox-style pad and it takes over at once; touch the keyboard or mouse (or unplug the pad) and they take over again. The layout is the original's: left stick move, right stick look, left trigger aim, right trigger fire, left bumper grenade, right bumper reload or vent, X strike, Y stun or alt strike (push the left stick forward when you press it to charge), B use, A evade or jump pack, D-pad weapon swap (up pistol, right primary, down second primary), hold the left stick click to sprint, click the right stick to cycle the scope zoom, Start the game menu, Back the scoreboard. In menus the D-pad or left stick moves, A selects, B goes back.
 - Assault and Raptor jump-pack flight: the movement keys steer you about twice as strongly in the air.
 - The charge is no longer cut short by holding W; it runs its whole animation. Pressing S, A or D alone still stops it.
 - Locking on to an enemy in melee now turns your character and your swing toward them, but no longer drags the camera: the camera stays under your mouse.

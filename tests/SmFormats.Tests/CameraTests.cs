@@ -165,4 +165,26 @@ public class CameraTests
         Assert.True(CameraTuning.IsMultiplayerWargear("csm_mp_ranged_bolter"));
         Assert.False(CameraTuning.IsMultiplayerWargear("sm_ranged_bolter"));
     }
+
+    [Fact]
+    public void The_stick_mapping_and_damping_tables_of_an_input_set_are_read_as_curves()
+    {
+        // Controller feature: input_mapping (raw stick to request) and request_damping (time to cap), points in file order; the PS3 table is not the one read.
+        var doc = BafDocument.Read(SyntheticBafWriter.Build(
+            ("speed_horizontal", 300f), ("speed_vertical", 200f), ("speed_mouse", 100f),
+            ("input_mapping", new (string, object)[] {
+                ("mapping", new (string, object)[] { ("from (raw stick)", 0f), ("to (mapped request)", 0f) }),
+                ("mapping", new (string, object)[] { ("from (raw stick)", 0.3f), ("to (mapped request)", 0.02f) }),
+                ("mapping", new (string, object)[] { ("from (raw stick)", 1f), ("to (mapped request)", 1f) }) }),
+            ("input_mapping_ps3", new (string, object)[] {
+                ("mapping", new (string, object)[] { ("from (raw stick)", 0f), ("to (mapped request)", 0.5f) }) }),
+            ("request_damping", new (string, object)[] {
+                ("mapping", new (string, object)[] { ("from (time)", 0f), ("to (cap)", 0.12f) }),
+                ("mapping", new (string, object)[] { ("from (time)", 1f), ("to (cap)", 1f) }) })));
+        var t = CameraTuning.Read(new Dictionary<string, BafDocument>(), new Dictionary<string, BafDocument> { ["default"] = doc },
+            new Dictionary<string, BafDocument>(), new Dictionary<string, BafDocument>());
+        var input = t.Inputs["default"];
+        Assert.Equal([(0f, 0f), (0.3f, 0.02f), (1f, 1f)], input.StickMapping);
+        Assert.Equal([(0f, 0.12f), (1f, 1f)], input.StickDamping);
+    }
 }

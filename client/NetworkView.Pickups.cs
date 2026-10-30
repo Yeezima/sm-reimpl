@@ -229,7 +229,7 @@ public partial class NetworkView
         if (_pickupPrompt is not null)
         {
             _pickupPrompt.Visible = prompt is not null && _hudView is not { DrawsPrompt: true };
-            if (prompt is not null) _pickupPrompt.Text = $"[E]  {prompt}";
+            if (prompt is not null) _pickupPrompt.Text = $"[{PadHost.Hint("E", "B")}]  {prompt}";
         }
         if (_bot && _connectedFor - _pickupLogAt >= 10.0)
         {

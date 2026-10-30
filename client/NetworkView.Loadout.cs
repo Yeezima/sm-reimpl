@@ -119,7 +119,7 @@ public partial class NetworkView
     {
         if (PickerOpen) return true;
         // Esc opens the customizer menu in a match, alive or dead (M44); the front end's back path keeps Esc while the join is going nowhere (ModelViewer handles it then).
-        if (e is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.Escape } && _client is not null)
+        if (IsMenuPress(e) && _client is not null)   // Esc, or Start on a controller
         {
             bool connected = _client.Status == ClientStatus.Connected;
             var action = PickerRules.OnEscape(connected, ConnectionFailed || StillConnecting, PickerOpen, human: !_bot && _demoPlayback is null);
@@ -215,7 +215,7 @@ public partial class NetworkView
         _pickerCreator.Activate = ActivateFromPicker;
         _pickerDeployed = false;
         _pickerInEffect = ActiveKey(services);
-        if (_pickerForced) _pickerCreator.BackText = "RESUME (Esc)";
+        if (_pickerForced) _pickerCreator.BackText = $"RESUME ({PadHost.Hint("Esc", "B")})";
         if (LeaveToMenu is not null) _pickerCreator.Leave = LeaveMatchNow;
         _overlayTranslucent = null;
         ApplyPickerLook(PickerRules.Translucent(UiAlive(me), _client.Match.State == MatchState.Ended));
@@ -398,7 +398,7 @@ public partial class NetworkView
         string first = "", second = "";
         bool down = PickerRules.CanOpen(true, UiAlive(me), Spectate is not null, ended);
         if (_pickerWanted && _pickerLayer is null) first = "Loading your loadouts...";
-        else if (down && !PickerOpen && !_bot) first = "[ESC] CHANGE LOADOUT";
+        else if (down && !PickerOpen && !_bot) first = $"[{PadHost.Hint("ESC", "START")}] CHANGE LOADOUT";
         var ack = _client.LastSetupAck is { } a && a.Sequence == _lastSetupSequence ? a : null;
         string? accepted = ack is not null && ack.Loadout.Class >= 0 ? ClassDisplayName(ack.Loadout.Class) : null;
         string? sentName = _sentClass >= 0 ? ClassDisplayName(_sentClass) : null;

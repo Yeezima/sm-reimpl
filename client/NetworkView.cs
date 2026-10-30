@@ -344,11 +344,13 @@ public partial class NetworkView : Node3D
         }
         foreach (var n in _notes) GD.Print("  note: " + n);
         if (!_bot && !ModelViewer.TestWindow && _demoPlayback is null && _error == "") Input.MouseMode = Input.MouseModeEnum.Captured;
+        PadSetup();   // controller (NetworkView.Gamepad.cs)
     }
 
     public override void _ExitTree()
     {
         // Tell the server right away (best effort); otherwise it would drop this player only after its timeout.
+        PadTeardown();
         _watchdog?.Dispose();
         _watchdog?.Profile?.PrintSummary();   // M40-T9
         _perfProbe?.PrintSummary();   // perf/pass-1 (--perf-probe)
@@ -429,6 +431,7 @@ public partial class NetworkView : Node3D
             _yaw += turn * KeyYawRate * (float)delta;
             _yaw %= 2 * MathF.PI;
             PanView(delta);   // M36 test aid (--pan-rate)
+            PadLook(delta);   // controller: the right stick turns the view (NetworkView.Gamepad.cs)
         }
 
         Ph("client update (input, network)");
@@ -436,6 +439,7 @@ public partial class NetworkView : Node3D
         LatencyProbeBeforeUpdate();   // feel/controls test aid (--latency-probe)
         _client.Update(SampleInput, EarlyTickWanted);   // feel/controls: an input edge runs the next tick now (NetworkView.Controls.cs)
         DemoAfterUpdate(delta);    // M40 T0: records the view / ends the replay
+        PadTestFrame();   // --pad-test (NetworkView.GamepadTest.cs)
         if (_client.Status != ClientStatus.Connected)
         {
             // A connection that was up and is gone (the server stopped hearing from this client, or the client stopped hearing the server,
@@ -707,6 +711,7 @@ public partial class NetworkView : Node3D
             var botInput = AimTest && (int)(_connectedFor / 5.0) % 2 == 1 ? scripted with { Buttons = scripted.Buttons | InputButtons.Aim } : scripted;
             return BulletProbe ? Converged(botInput) : botInput;   // feel/bullets --bullet-probe: a bot with --aim-test sends the converged shot of a human (offsets and origin)
         }
+        if (_pad is not null && PadHost.Active) return SamplePad(tick);   // controller: the last device used wins (NetworkView.Gamepad.cs)
         float x = (Input.IsPhysicalKeyPressed(Key.D) ? 1f : 0f) - (Input.IsPhysicalKeyPressed(Key.A) ? 1f : 0f);
         float y = (Input.IsPhysicalKeyPressed(Key.W) ? 1f : 0f) - (Input.IsPhysicalKeyPressed(Key.S) ? 1f : 0f);
         var buttons = Input.IsPhysicalKeyPressed(Key.Shift) ? InputButtons.Sprint : InputButtons.None;
