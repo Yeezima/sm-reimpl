@@ -11,3 +11,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 -->
 
 - The launcher has a dark look.
+- The melta's blast is a much longer, softer cone: fuzzy cloudy edges with no hard outline, still purple-blue and still from the barrel to where you aim.
