@@ -11,12 +11,12 @@ namespace SmLauncher;
 /// </summary>
 sealed class MainForm : Form
 {
-    static readonly Color Accent = Color.FromArgb(11, 92, 173);
-    static readonly Color PlayGreen = Color.FromArgb(24, 120, 56);
-    static readonly Color Good = Color.FromArgb(24, 120, 56);
-    static readonly Color Warn = Color.FromArgb(166, 77, 0);
-    static readonly Color Bad = Color.FromArgb(180, 30, 30);
-    static readonly Color Muted = Color.FromArgb(96, 96, 96);
+    static readonly Color Accent = Color.FromArgb(0x7A, 0x5A, 0x1E);        // the Update button (dark amber; the links use Theme.Accent)
+    static readonly Color PlayGreen = Theme.Green;
+    static readonly Color Good = Theme.GoodText;
+    static readonly Color Warn = Theme.WarnText;
+    static readonly Color Bad = Theme.BadText;
+    static readonly Color Muted = Theme.Muted;
 
     readonly Args _args;
     readonly SafeHttp _http = new(NetPolicy.GitHub);
@@ -48,16 +48,16 @@ sealed class MainForm : Form
     readonly Label _update = new() { AutoSize = true, MaximumSize = new Size(560, 0), Font = new Font("Segoe UI", 10f) };
     readonly Button _btnUpdate = new() { Text = "Update", AutoSize = true, Visible = false };
     readonly Label _notesTitle = new() { AutoSize = true, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), Text = "What's new" };
-    readonly TextBox _notes = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, BackColor = SystemColors.Window, BorderStyle = BorderStyle.FixedSingle };
+    readonly TextBox _notes = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, BackColor = Theme.Input, BorderStyle = BorderStyle.FixedSingle };
     readonly TableLayoutPanel _progressPanel = new() { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, Visible = false, Padding = new Padding(16, 4, 16, 4) };
-    readonly ProgressBar _progress = new() { Dock = DockStyle.Fill, Maximum = 1000, Height = 22 };
+    readonly DarkProgress _progress = new() { Dock = DockStyle.Fill, Maximum = 1000, Height = 22 };
     readonly Label _progressText = new() { AutoSize = true };
     readonly Button _btnCancel = new() { Text = "Cancel", AutoSize = true };
     readonly Button _btnPlay = new() { Text = "PLAY", AutoSize = false, Size = new Size(150, 44), Font = new Font("Segoe UI", 12f, FontStyle.Bold) };
     readonly Button _btnHost = new() { Text = "Host a match on this PC", AutoSize = true, Height = 44 };
     readonly Button _btnJoin = new() { Text = "Join a server...", AutoSize = true, Height = 44 };
     readonly Button _btnLan = new() { Text = "Host for friends (LAN)", AutoSize = true, Height = 44 };
-    readonly CheckBox _cbSafeMode = new() { AutoSize = true, Text = "Old GPU / safe mode (simpler graphics for old graphics cards)", Margin = new Padding(16, 14, 3, 3) };
+    readonly DarkCheckBox _cbSafeMode = new() { AutoSize = true, Text = "Old GPU / safe mode (simpler graphics for old graphics cards)", Margin = new Padding(16, 14, 3, 3) };
     readonly LinkLabel _lnkCheck = Link("Check files");
     readonly LinkLabel _lnkRollback = Link("Roll back to the previous version");
     readonly LinkLabel _lnkRelease = Link("Open the release page");
@@ -69,9 +69,9 @@ sealed class MainForm : Form
     // set-up (first run)
     readonly TextBox _setupFolder = new() { Width = 600 };
     readonly Button _btnBrowse = new() { Text = "Browse...", AutoSize = true };
-    readonly RadioButton _rbAdopt = new() { AutoSize = true };
-    readonly RadioButton _rbDownload = new() { AutoSize = true, Text = "Download the newest build (looking it up...)" };
-    readonly CheckBox _cbShortcuts = new() { AutoSize = true, Checked = true, Text = "Create shortcuts on the desktop and in the Start menu" };
+    readonly DarkRadioButton _rbAdopt = new() { AutoSize = true };
+    readonly DarkRadioButton _rbDownload = new() { AutoSize = true, Text = "Download the newest build (looking it up...)" };
+    readonly DarkCheckBox _cbShortcuts = new() { AutoSize = true, Checked = true, Text = "Create shortcuts on the desktop and in the Start menu" };
     readonly Button _btnInstall = new() { Text = "Install", AutoSize = false, Size = new Size(150, 40), Font = new Font("Segoe UI", 11f, FontStyle.Bold) };
     readonly Label _setupStatus = new() { AutoSize = true, MaximumSize = new Size(680, 0) };
 
@@ -87,7 +87,7 @@ sealed class MainForm : Form
         ClientSize = new Size(780, 600);
         MinimumSize = new Size(640, 520);
         StartPosition = FormStartPosition.CenterScreen;
-        BackColor = SystemColors.Window;
+        BackColor = Theme.Base;
         try { Icon = Icon.ExtractAssociatedIcon(LauncherInfo.ExePath ?? ""); } catch (Exception) { }
         if (_args.Has("screenshot"))
         {
@@ -96,12 +96,13 @@ sealed class MainForm : Form
             ShowInTaskbar = false;
         }
         BuildLayout();
+        Theme.Apply(this);
         WireEvents();
     }
 
     protected override bool ShowWithoutActivation => _args.Has("screenshot");
 
-    static LinkLabel Link(string text) => new() { Text = text, AutoSize = true, LinkColor = Accent, ActiveLinkColor = Accent, Margin = new Padding(0, 2, 18, 2) };
+    static LinkLabel Link(string text) => new DarkLink { Text = text, AutoSize = true, LinkColor = Theme.Accent, ActiveLinkColor = Theme.AccentHover, Margin = new Padding(0, 2, 18, 2) };
 
     static void Accentuate(Button b, Color c)
     {
@@ -114,10 +115,10 @@ sealed class MainForm : Form
 
     void BuildLayout()
     {
-        var header = new Panel { Dock = DockStyle.Top, Height = 74, BackColor = Color.FromArgb(31, 35, 40) };
-        var title = new Label { Text = "SM REIMPL", ForeColor = Color.White, Font = new Font("Segoe UI", 18f, FontStyle.Bold), AutoSize = true, Location = new Point(16, 8) };
-        var subtitle = new Label { Text = "Space Marine (2011) multiplayer playtest launcher", ForeColor = Color.FromArgb(200, 205, 210), AutoSize = true, Location = new Point(19, 46) };
-        var version = new Label { Text = "launcher " + LauncherInfo.VersionText, ForeColor = Color.FromArgb(150, 155, 160), AutoSize = true, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+        var header = new Panel { Dock = DockStyle.Top, Height = 74, BackColor = Theme.Header };
+        var title = new Label { Text = "SM REIMPL", ForeColor = Theme.Text, Font = new Font("Segoe UI", 18f, FontStyle.Bold), AutoSize = true, Location = new Point(16, 8) };
+        var subtitle = new Label { Text = "Space Marine (2011) multiplayer playtest launcher", ForeColor = Theme.Muted, AutoSize = true, Location = new Point(19, 46) };
+        var version = new Label { Text = "launcher " + LauncherInfo.VersionText, ForeColor = Theme.Muted, AutoSize = true, Anchor = AnchorStyles.Top | AnchorStyles.Right };
         header.Controls.AddRange([title, subtitle, version]);
         header.Resize += (_, _) => version.Location = new Point(header.ClientSize.Width - version.Width - 14, 50);
 
@@ -274,7 +275,7 @@ sealed class MainForm : Form
         _lock = await Task.Run(() => RootLock.TryAcquire(layout, TimeSpan.FromSeconds(10)));
         if (_lock is null)
         {
-            MessageBox.Show(this, $"Another SM Reimpl Launcher is already open for {layout.Root}.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            DarkBox.Show(this, $"Another SM Reimpl Launcher is already open for {layout.Root}.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
             return false;
         }
         _log.Write($"launcher {LauncherInfo.VersionText} started from {LauncherInfo.ExePath}");
@@ -529,7 +530,7 @@ sealed class MainForm : Form
             _progress.Style = ProgressBarStyle.Continuous;
             _progress.Value = (int)(d.Fraction * 1000);
             _progressText.Text = $"{step}: {Format.Download(d)}";
-            _progressText.ForeColor = d.Note is null ? SystemColors.ControlText : Warn;
+            _progressText.ForeColor = d.Note is null ? Theme.Text : Warn;
             return;
         }
         if (s.Fraction is { } f)
@@ -543,7 +544,7 @@ sealed class MainForm : Form
             _progress.Style = ProgressBarStyle.Marquee;
             _progressText.Text = s.Message;
         }
-        _progressText.ForeColor = SystemColors.ControlText;
+        _progressText.ForeColor = Theme.Text;
     }
 
     void BeginBusy(UpdatePhase phase)
@@ -655,7 +656,7 @@ sealed class MainForm : Form
         UpdateLinks();
         if (newer is null || (ask && _args.Has("screenshot"))) return;     // no modal question in a screenshot run
         var v = SelfUpdate.FileVersionOf(newer);
-        if (ask && MessageBox.Show(this, $"This build comes with a newer launcher ({v?.ToString(3)}). Update the launcher now? It restarts by itself.", Text,
+        if (ask && DarkBox.Show(this, $"This build comes with a newer launcher ({v?.ToString(3)}). Update the launcher now? It restarts by itself.", Text,
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
         try
         {
@@ -784,17 +785,17 @@ sealed class MainForm : Form
         try { report = await Task.Run(() => updater.CheckFiles(tag, progress)); }
         finally { EndBusy(); }
         _log?.Write($"check files {tag}: {report.Describe()}");
-        if (report.Ok) { MessageBox.Show(this, $"All {report.Checked} files of {tag} are intact.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+        if (report.Ok) { DarkBox.Show(this, $"All {report.Checked} files of {tag} are intact.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
         string problem = $"{tag} is damaged: {report.Describe()}.";
         if (_newest?.Tag == tag)
         {
-            if (MessageBox.Show(this, problem + "\n\nDownload this build again? Your profile and settings are kept.", Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+            if (DarkBox.Show(this, problem + "\n\nDownload this build again? Your profile and settings are kept.", Text, MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
                 await RepairAsync();
         }
         else if (_newest is not null)
-            MessageBox.Show(this, problem + "\n\nUpdate to the newest build to replace it" + (p.Previous is not null ? ", or roll back to " + p.Previous : "") + ".", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            DarkBox.Show(this, problem + "\n\nUpdate to the newest build to replace it" + (p.Previous is not null ? ", or roll back to " + p.Previous : "") + ".", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
         else
-            MessageBox.Show(this, problem + "\n\nConnect to the internet and use Check files again to download it anew" + (p.Previous is not null ? ", or roll back to " + p.Previous : "") + ".", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            DarkBox.Show(this, problem + "\n\nConnect to the internet and use Check files again to download it anew" + (p.Previous is not null ? ", or roll back to " + p.Previous : "") + ".", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
     }
 
     async Task RepairAsync()
@@ -822,7 +823,7 @@ sealed class MainForm : Form
         if (_updater is null || _busy) return;
         var p = _updater.ReadPointer();
         if (p.Previous is null) return;
-        if (MessageBox.Show(this, $"Go back to {p.Previous}? {p.Current} stays installed, so you can switch back with Update.", Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+        if (DarkBox.Show(this, $"Go back to {p.Previous}? {p.Current} stays installed, so you can switch back with Update.", Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
         try
         {
             string tag = _updater.Rollback();
@@ -837,11 +838,11 @@ sealed class MainForm : Form
     {
         var (target, refusal) = CacheRepair.Target(Environment.GetEnvironmentVariable(CacheRepair.DataDirEnvVar),
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
-        if (target is null) { MessageBox.Show(this, refusal, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
+        if (target is null) { DarkBox.Show(this, refusal, Text, MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
         string cache = target;
-        if (!Directory.Exists(cache)) { MessageBox.Show(this, "There are no caches to clear.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
-        if (_layout is not null && GameStart.AnythingRunning(_layout.Root)) { MessageBox.Show(this, "Close the game and any server first.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
-        if (MessageBox.Show(this, $"Clear the caches the game built from your Space Marine install?\n\n{cache}\n\nThe game rebuilds them on the next start (the first join is slow again). " +
+        if (!Directory.Exists(cache)) { DarkBox.Show(this, "There are no caches to clear.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+        if (_layout is not null && GameStart.AnythingRunning(_layout.Root)) { DarkBox.Show(this, "Close the game and any server first.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+        if (DarkBox.Show(this, $"Clear the caches the game built from your Space Marine install?\n\n{cache}\n\nThe game rebuilds them on the next start (the first join is slow again). " +
                 "Your profile, custom classes and settings (%APPDATA%\\sm-reimpl) are not touched, nor is the Space Marine install.", Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
         try
         {
@@ -858,7 +859,7 @@ sealed class MainForm : Form
     {
         if (_busy && _cts is not null && !_closingAfterCancel)
         {
-            if (_args.Has("screenshot") || MessageBox.Show(this, "Stop the update? It continues where it stopped the next time.", Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            if (_args.Has("screenshot") || DarkBox.Show(this, "Stop the update? It continues where it stopped the next time.", Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
             {
                 _closingAfterCancel = true;
                 _cts.Cancel();
@@ -895,7 +896,7 @@ sealed class MainForm : Form
 sealed class JoinDialog : Form
 {
     readonly TextBox _box = new() { Width = 300 };
-    readonly Label _error = new() { AutoSize = true, ForeColor = Color.FromArgb(180, 30, 30) };
+    readonly Label _error = new() { AutoSize = true, ForeColor = Theme.BadText };
     public string? Address { get; private set; }
 
     public JoinDialog(string initial)
@@ -924,5 +925,6 @@ sealed class JoinDialog : Form
         buttons.Controls.AddRange([ok, cancel]);
         layout.Controls.AddRange([new Label { AutoSize = true, Text = "Server address (host or host:port; 127.0.0.1 = this PC):" }, _box, _error, buttons]);
         Controls.Add(layout);
+        Theme.Apply(this);
     }
 }

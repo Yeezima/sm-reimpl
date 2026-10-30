@@ -44,7 +44,7 @@ static class Program
         }
         ApplicationConfiguration.Initialize();
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
-        Application.ThreadException += (_, e) => MessageBox.Show(e.Exception.Message, "SM Reimpl Launcher", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        Application.ThreadException += (_, e) => DarkBox.Show(e.Exception.Message, "SM Reimpl Launcher", MessageBoxButtons.OK, MessageBoxIcon.Error);
         Application.Run(new MainForm(a));
         return 0;
     }
