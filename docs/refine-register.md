@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1733 spec table rows: **1181 tagged**, 403 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 358 rows of the changes document.
+Scanned 1735 spec table rows: **1183 tagged**, 403 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 359 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -40,7 +40,7 @@ Scanned 1733 spec table rows: **1181 tagged**, 403 not tagged (read from data wi
 | Charge (critical) | 26 | 19 | 21 | 12 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 27 | 26 | 16 | 18 | 0 |
-| HUD and hit feedback (critical) | 51 | 46 | 42 | 10 | 0 |
+| HUD and hit feedback (critical) | 53 | 48 | 42 | 10 | 0 |
 | Sound mix (critical) | 49 | 45 | 42 | 10 | 0 |
 | Effects (critical) | 71 | 62 | 61 | 37 | 0 |
 | Game modes | 38 | 35 | 36 | 19 | 1 |
@@ -53,7 +53,7 @@ Scanned 1733 spec table rows: **1181 tagged**, 403 not tagged (read from data wi
 | Core simulation (provisional values) | 95 | 84 | 80 | 8 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1181** | 973 | 942 | 378 | 38 |
+| **All areas** | **1183** | 975 | 942 | 378 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -67,8 +67,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: none (low) | 115 |
 | kind: provisional | 98 |
 | kind: estimate | 39 |
+| kind: user's knowledge | 39 |
 | section: provisional | 38 |
-| kind: user's knowledge | 37 |
 | section: placeholder | 35 |
 | notes: provisional | 31 |
 | kind: choice | 28 |
@@ -1009,7 +1009,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EE0A6B04` | Fixed and exempt views | `--spectate cam:x,y,z,tx,ty,tz` is placed exactly (no springs, cast, push-out or depenetration: measured matched views for lighting comparisons and recorded footage); `inspect` keeps no distance from bodies; `overview` is not cast | notes: ours | ours | Fixed and exempt views: compare with SM1 with side-by-side screenshots in the same spot. Ours: --spectate cam:x,y,z,tx,ty,tz is placed exactly (no springs, cast… | ☐ |
 | `R-90EA2E09` | Cast start | the spectator and death casts start from the look target moved off any surface within 0.33 m (3 passes of the depenetration rays): a target between two players fighting beside a railing, or inside a wall between them, otherwise starts in collision and the… (m) | kind: provisional; notes: ours | ours | Cast start: compare with SM1 by measuring on a flat spot of the same map. Ours: the spectator and death casts start from the look target moved off… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (51)
+### HUD and hit feedback (gameplay-critical) (53)
 
 *Spec section: Camera, aim mode, shot convergence and hit confirmation (M20; protocol 12)*
 
@@ -1033,6 +1033,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-761EBF3D` | **The map's sounds are off** | the 48 `FXAudioEventName` emitters, the ambience bed `play_MP_TDM_09_ambs` and the 6 trigger regions are not started unless `--map-sounds` (test aid); the map's bank is then not loaded, the reverb regions (`AudioEnvironmentRegion`) still shape the players'… | kind: user's knowledge | owner's decision (2026-10-28, deliberate change: the original's map is not silent) | The map's sounds are off: compare with SM1 with side-by-side screenshots in the same spot. Ours: the 48 FXAudioEventName emitters, the ambience bed… | ☐ |
 | `R-658C09DF` | The ringing | not heard here; found by decoding every emitter event's samples and measuring them (`smtool audio-decode`, a Goertzel scan over 50 Hz to 16 kHz): the spawn-room shield hum **`play_weirdboy_shield_loop_mp`** (six emitters `marine_shield_01..03`… (Hz) | confidence: medium | banks | The ringing: compare with SM1 with side-by-side screenshots in the same spot. Ours: not heard here; found by decoding every emitter event's samples and… | ☐ |
 | `R-1DE71D57` | **Owner decision 56: no map noise anywhere (2026-10-30)** | confirms the row above and widens its wording: nothing the map itself emits sounds by default: the 48 emitters (fans, power lines, machines, gas pipes, the six spawn-room gate hums `play_weirdboy_shield_loop_mp` `marine_shield_01..03` /… | kind: user's knowledge | owner's decision (2026-10-30) | Owner decision 56: no map noise anywhere (2026-10-30): compare with SM1 with side-by-side screenshots in the same spot. Ours: confirms the row above and widens its wording: nothing the map itself… | ☐ |
+| `R-9B759AA2` | **Owner decision 56b: power weapons make no idle hum (2026-10-30)** | the held power sword, power axe, thunder hammer and daemon maul post no idle hum (`play_sm_power_axe_idle`, `play_sm_thunder_hammer_idle`, `play_ch_power_mace_idle`, the sword's quieter axe hum; PR fx/melee-presentation) unless `--weapon-hums`; the glow stays… | kind: user's knowledge | owner's decision (2026-10-30) | Owner decision 56b: power weapons make no idle hum…: compare with SM1 with side-by-side screenshots in the same spot. Ours: the held power sword, power axe, thunder hammer and daemon maul post… | ☐ |
+| `R-872F9604` | **Corpse ragdolls ignore dropped boxes (decision 57b)** | ragdoll bodies collide only with the map's static trimesh (layer 1) and their own layer; `PickupView` has no physics body, so a corpse cannot hit a box (it may overlap the box's mesh where it fell, a visual overlap only) | kind: user's knowledge | owner's decision (2026-10-30) | Corpse ragdolls ignore dropped boxes (decision 57b): compare with SM1 with side-by-side screenshots in the same spot. Ours: ragdoll bodies collide only with the map's static trimesh (layer 1)… | ☐ |
 
 *Spec section: In-game HUD (M44; client only, not simulated)*
 
@@ -1976,6 +1978,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-C229E22A` | No god rays on Manufactorum (fx/impact-pass) | The map places 45 `amb_god_ray_thick` light shafts (`sky_beam`) and its fake spotlights and steamy lamps carry `GodRayFade` beams | **Owner's change (2026-10-29: "remove all god rays from Manufactorum")**: the 45 shaft effects are not started and every `GodRayFade` beam of the map's ambient effects is hidden (the lamps' glows and flares stay). `--god-rays` restores them | same spec row | No god rays on Manufactorum (fx/impact-pass): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-DB01DE08` | Map noise: none at all (decision 56) | The map's gates, machinery and ambience emitters are placed in the map | Nothing the map emits plays by default (48 emitters incl. the six `play_weirdboy_shield_loop_mp` gate hums, the bed, trigger-region events); `--map-sounds` restores them (test aid); `--log-sound post` lists every sound post | Owner's decision 2026-10-30; spec "Owner decision 56" | Map noise: none at all (decision 56): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-F0F8F929` | Dropped boxes have no collision (decision 57) | Not known (the original's drop may be a prop) | Ammo and equipment drops never block, support or touch players; pickup by the interact press within reach | Owner's decision 2026-10-30; spec "Dropped boxes have no collision" | Dropped boxes have no collision (decision 57): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-4F932040` | Power weapons: no idle hum (decision 56b) | Thunder hammer, daemon maul, power axe and power sword hum while held (the data's idle events) | No idle noise; the weapons sound only on a hit that lands on an enemy (their own hit events); `--weapon-hums` restores the hums; the glow stays | Owner's decision 2026-10-30; spec "Owner decision 56b" | Power weapons: no idle hum (decision 56b): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 
 ### Our choices where the original is unknown
 
