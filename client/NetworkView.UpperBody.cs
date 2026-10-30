@@ -265,14 +265,37 @@ public partial class NetworkView
         if (UpperLog) GD.Print($"t {_connectedFor:F2} s: P{victimId} FLINCH {clip.Clip} ({setName} slot {slot}: {(head ? "head" : "body")} hit from {(behind ? "behind" : "the front")}, {(left ? "left" : "right")}; {clip.Length:F2} s)");
     }
 
+    /// <summary>
+    /// anim/reaction-blend (owner's item 49, 2026-10-30: "the animation that plays when getting shot is too snappy. when it ends he instantly returns to the standing still animation ... it should be
+    /// blended like the other animations"): the flinch is the animation of a ranged hit (the 0.2 s additive <c>SM_REC_Flinch_*</c>), and it was laid at weight 1 from its first frame and
+    /// cleared on the frame its clip ended: the bend snapped back to the stance. Now it comes in over 3 frames (0.05 s, ours: it stays a punch) and, once the clip has run, its last pose is held
+    /// while the weight goes 1 to 0 over <see cref="NavConduitBlend"/> 0.333 s ('Standard Blend', the conduit <c>TO Ranged Nav</c> every reaction leaves through) on the smooth curve.
+    /// <c>--no-feel</c>: weight 1 to the clip's end, then gone.
+    /// </summary>
+    internal static float FlinchWeight(float age, float length)
+    {
+        if (CharacterViewer.NoFeel || length <= 1e-3f) return 1f;
+        float weight = 1f;
+        if (age < FlinchInSeconds) weight = CharacterViewer.Smooth(age / FlinchInSeconds);
+        float over = age - length;
+        if (over > 0f) weight = MathF.Min(weight, CharacterViewer.Smooth(1f - over / NavConduitBlend));
+        return weight;
+    }
+
+    /// <summary>A flinch's blend-in (s; ours: 3 frames at 30 fps, the 'Default 3 Frame Transition' of the reactions' entry, halved to keep the punch).</summary>
+    const float FlinchInSeconds = 0.05f;
+
+    /// <summary>How long a flinch layer lives: its clip, then the fade-out (<c>--no-feel</c>: the clip alone).</summary>
+    static float FlinchLife(float length) => CharacterViewer.NoFeel ? length : length + NavConduitBlend;
+
     /// <summary>The additive flinch clip over whatever shows, until its end.</summary>
     void FlinchLayer(CharacterViewer character, PlayerState s, LocoTrack t)
     {
         if (t.Flinch is not { } clip) return;
         float age = (float)(_connectedFor - t.FlinchAt);
-        if (NoFlinch || !s.Alive || s.Reaction != ReactionKind.None || age >= clip.Length) { t.Flinch = null; return; }
+        if (NoFlinch || !s.Alive || s.Reaction != ReactionKind.None || age >= FlinchLife(clip.Length)) { t.Flinch = null; return; }
         float rate = clip.Length > 1e-3f ? ClipLength(clip.Clip, clip.Length) / clip.Length : 1f;
-        character.SetLayer(PoseSlots.Flinch, clip.Clip, age * rate, 1f, clip.Additive, null);
+        character.SetLayer(PoseSlots.Flinch, clip.Clip, MathF.Min(age, clip.Length) * rate, FlinchWeight(age, clip.Length), clip.Additive, null);
         if (LogUpper && _connectedFor - _flinchTraceAt >= 0.04 && _local is { } me && ReferenceEquals(character, me))
         {
             _flinchTraceAt = _connectedFor;

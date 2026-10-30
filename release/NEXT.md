@@ -49,3 +49,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The Assault and Raptor air slash: the swing no longer speeds up in jerks during the dive, and if you run off straight after landing the sword finishes its swing while your legs start running.
 - Other jump-pack players' air slashes no longer flick back to the start of the swing just after landing.
 - The Devastator keeps the heavy bolter raised while walking and standing (it only lowers it to sprint), so it no longer swings the gun's grip up and down between shots.
+- Getting shot now blends: the flinch eases in and out over about a third of a second instead of snapping back to standing.
