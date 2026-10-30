@@ -197,13 +197,13 @@ public class InputBufferTests(ITestOutputHelper output)
     {
         // The light interrupt (front clip, 1.17 s): a Jump ends it from 0.467 s (EvadeAt), time alone at 0.98 s. A press at 0.267 s was lost;
         // buffered it rolls on the tick 0.467 s have played.
-        foreach (var (c, expect) in new[] { (EvadeTests.Config, -1), (On(EvadeTests.Config), 15) })
+        foreach (var (c, expect) in new[] { (EvadeTests.Config, -1), (On(EvadeTests.Config), 11) })
         {
-            var s = Fresh(c, Tactical) with { Reaction = ReactionKind.Interrupt, ReactionDirection = ReactionDirection.Front, ReactionTicks = 0 };
+            var s = Fresh(c, Tactical) with { Reaction = ReactionKind.Stun, ReactionDirection = ReactionDirection.Front, ReactionTicks = 0 };   // sim/combat-2: the stun (the light kinds hold nobody): EvadeAt 0.333 s
             int rolled = -1;
             for (int k = 1; k <= 30 && rolled < 0; k++)
             {
-                Step(ref s, c, k == 8 ? InputButtons.Jump : InputButtons.None);
+                Step(ref s, c, k == 5 ? InputButtons.Jump : InputButtons.None);
                 if (s.EvadeTicks == 1) rolled = k;
             }
             Assert.Equal(expect, rolled);
@@ -352,9 +352,9 @@ public class InputBufferTests(ITestOutputHelper output)
         // to the end never acts (the hold rule does not apply in a reaction); pressed in the last 0.3 s before its branch (Jump 0.467 s, melee 0.793 s)
         // and held, it acts there.
         var c = On(EvadeTests.Config);
-        foreach (var (button, from, expect) in new[] { (InputButtons.Jump, 1, false), (InputButtons.Melee, 1, false), (InputButtons.Jump, 8, true), (InputButtons.Melee, 18, true) })
+        foreach (var (button, from, expect) in new[] { (InputButtons.Jump, 1, false), (InputButtons.Melee, 1, false), (InputButtons.Jump, 5, true), (InputButtons.Melee, 10, true) })
         {
-            var s = Fresh(c, Tactical) with { Reaction = ReactionKind.Interrupt, ReactionDirection = ReactionDirection.Front, ReactionTicks = 0 };
+            var s = Fresh(c, Tactical) with { Reaction = ReactionKind.Stun, ReactionDirection = ReactionDirection.Front, ReactionTicks = 0 };   // sim/combat-2: the stun (EvadeAt 10 ticks, end 16)
             bool acted = false;
             for (int k = 1; k <= 40; k++)
             {
@@ -538,7 +538,7 @@ public class InputBufferTests(ITestOutputHelper output)
     [Fact]
     public void The_own_record_carries_the_buffer_and_a_full_snapshot_stays_at_1200_bytes()
     {
-        Assert.Equal(46, Protocol.Version);
+        Assert.Equal(47, Protocol.Version);
         foreach (var action in Enum.GetValues<BufferedAction>())
             foreach (int ticks in action == BufferedAction.None ? new[] { 0 } : new[] { 0, 1, 4, 9, 15 })
             {
@@ -649,4 +649,54 @@ public class InputBufferTests(ITestOutputHelper output)
         }
     }
 
+    // ---------------------------------------------------------------- sim/combat-2 (item 50): a weapon switch buffered through any action
+
+    /// <summary>The tick (1-based, after the setup) a Switch pressed at <paramref name="pressTick"/> changes the slot, or -1.</summary>
+    static int SwitchTick(SimConfig c, PlayerState s, int pressTick, int ticks = 60)
+    {
+        var slot = s.Slot;
+        for (int k = 1; k <= ticks; k++)
+        {
+            Step(ref s, c, k == pressTick ? InputButtons.Switch : InputButtons.None);
+            if (s.Slot != slot) return k;
+        }
+        return -1;
+    }
+
+    [Fact]
+    public void A_switch_pressed_late_in_a_roll_or_a_stun_waits_for_it_and_one_in_a_stagger_acts_at_once()
+    {
+        var c = On(EvadeTests.Config);
+        // A roll (switch branch at 0.7 s): a press 8 ticks before it is kept (the 0.3 s window) and acts at the branch; a press with 11 ticks to go is lost.
+        var roll = Fresh(c, Tactical);
+        Step(ref roll, c, InputButtons.Jump);
+        Assert.True(roll.EvadeTicks > 0);
+        int late = SwitchTick(c, roll, 13), early = SwitchTick(c, roll, 5);
+        output.WriteLine($"roll: late press switched at {late}, early press at {early}");
+        Assert.InRange(late, 14, 25);
+        Assert.Equal(-1, SwitchTick(On(EvadeTests.Config) with { InputBufferWindow = 0f }, roll, 13) == -1 ? -1 : -2);   // no buffer: the same press is lost
+        // A stun holds: a press 5 ticks before its end waits for it (the light-attack interrupt holds nobody: the press acts on its tick).
+        var stun = Reaction.Start(Fresh(c, Tactical), c, new ReactionEntry(0f, ReactionKind.Stun), ReactionDirection.Front, Vector2.UnitY);
+        int afterStun = SwitchTick(c, stun, 10);
+        output.WriteLine($"stun: press at 10 switched at {afterStun}");
+        Assert.InRange(afterStun, 16, 20);
+        var stagger = Reaction.Start(Fresh(c, Tactical), c, new ReactionEntry(0f, ReactionKind.Interrupt), ReactionDirection.Front, Vector2.UnitY);
+        Assert.Equal(3, SwitchTick(c, stagger, 3));
+    }
+
+    [Fact]
+    public void A_switch_during_a_reload_acts_at_once_and_the_reload_goes_on_in_the_holstered_weapon()
+    {
+        var c = On(EvadeTests.Config);
+        var s = Fresh(c, Tactical) with { Clip = 5 };
+        Step(ref s, c, InputButtons.Reload);
+        Assert.True(s.ReloadLeft > 0f);
+        var slot = s.Slot;
+        Step(ref s, c, InputButtons.Switch);
+        Assert.NotEqual(slot, s.Slot);
+        Assert.True(s.OtherReloadLeft > 0f, "the holstered weapon keeps reloading");
+        float left = s.OtherReloadLeft;
+        for (int k = 0; k < 5; k++) Step(ref s, c, InputButtons.None);
+        Assert.True(s.OtherReloadLeft < left, "and goes on");
+    }
 }

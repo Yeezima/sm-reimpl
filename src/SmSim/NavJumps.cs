@@ -26,7 +26,7 @@ public static class NavJumpFlight
     /// **Bump it with any change to the capsule motor, the jump pack, the movement step or the collision (anything that can
     /// change where a flight lands)**: cached links are keyed by it and would otherwise be reused stale.
     /// </summary>
-    public const int SimulationVersion = 8;   // 8: the three jumps by the hold, the M45 cut off (feel/jump-pack-2); 7: movement × 0.9 and input buffering (feel/buffer-speed); 6: jump-pack air control and the slash's own dive (feel/jump-pack); 2: the spawn-room blockers reach above the level (M31); 3: a tap (released before 0.167 s) is the dash, two full jumps fit (M44); 4: a release while rising cuts the rise (M45); 5: the walk-off drop and the slash (protocol 30)
+    public const int SimulationVersion = 9;   // 9: air control doubled, the charge ignoring W, stagger and interrupt not holding, the lunge on the press tick (sim/combat-2); 8: the three jumps by the hold, the M45 cut off (feel/jump-pack-2); 7: movement × 0.9 and input buffering (feel/buffer-speed); 6: jump-pack air control and the slash's own dive (feel/jump-pack); 2: the spawn-room blockers reach above the level (M31); 3: a tap (released before 0.167 s) is the dash, two full jumps fit (M44); 4: a release while rising cuts the rise (M45); 5: the walk-off drop and the slash (protocol 30)
 
     /// <summary>Headings a link can take off in (a yaw each, 360 / 16 = 22.5 degrees apart).</summary>
     public const int Directions = 16;

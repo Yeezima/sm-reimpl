@@ -410,7 +410,8 @@ public static class Combat
         // A hit reaction (Reaction; M28): over (by time, or ended by a Jump, melee or stick input from its branch times), or
         // holding this tick: then the tick runs with no movement and no buttons (presses are lost), and the knockback moves the body.
         var sanitized = input.Sanitized();
-        var (reacting, reacted) = Reaction.Begin(s, c, jumpDown && !s.JumpHeld, meleePress || heavyPress, sanitized.MoveX != 0f || sanitized.MoveY != 0f);
+        var (reacting, reacted) = Reaction.Begin(s, c, jumpDown && !s.JumpHeld, meleePress || heavyPress, sanitized.MoveX != 0f || sanitized.MoveY != 0f,
+            anyInput: sanitized.MoveX != 0f || sanitized.MoveY != 0f || input.Buttons != InputButtons.None);
         s = reacted with { RushLock = Math.Max(0, reacted.RushLock - 1) };   // the charge's spacing counts down every living tick, as the evade's
         // The charge, i.e. the bull rush (Rush; M29): under way, ended by time or input, or started by a heavy press while running forward.
         // Protocol 30: also the dash attack (a melee press in a jump-pack dash's window), and a charge held in the air (Rush.Held).
@@ -418,7 +419,10 @@ public static class Combat
         if (!reacting)
         {
             // BR-02: the Tactical classes' charge is not ended by Fire (and fires nothing; below); every other class's is, as before.
-            bool other = sanitized.MoveX != 0f || sanitized.MoveY != 0f || (fireDown && !Rush.NoFire(c, s)) || grenadePress || (input.Buttons & InputButtons.Aim) != 0;
+            // sim/combat-2 (item 31, owner's decision 2026-10-30): W does not end the bull rush (it was started with W held and ended at its stick branch when W was
+            // still down); any other stick direction (S, A / D alone) still does.
+            bool stickEnds = (sanitized.MoveX != 0f || sanitized.MoveY != 0f) && !(s.Rush == RushPhase.Rush && Loadouts.Rush(c, s) is { } rushSpec && Rush.WHeld(input, rushSpec));
+            bool other = stickEnds || (fireDown && !Rush.NoFire(c, s)) || grenadePress || (input.Buttons & InputButtons.Aim) != 0;
             var rush = Rush.Begin(s, input, c, heavyPress, jumpDown && !s.JumpHeld, meleePress, other, world);
             (rushing, rushHeld, s) = (rush.Active, rush.Held, rush.State);
             if (rush.Started) used |= InputBuffer.Bit(s.Rush == RushPhase.Rush ? BufferedAction.MeleeHeavy : BufferedAction.Melee);   // the bull rush or the dash attack
@@ -496,6 +500,7 @@ public static class Combat
         bool queued = step > 0 && s.MeleeQueued;
         bool queuedHeavy = queued && s.MeleeQueuedHeavy;
         bool cancelReload = false;
+        bool startedNow = false;   // sim/combat-2 (item 39): an attack (from rest, or the next of a string) began in this very tick
         MeleeStep? motionStep = null;   // feel/melee-lock: the attack whose root motion and alignment this tick covers, over (motionFrom, motionTo]
         float motionFrom = 0f, motionTo = 0f;
         if (step > 0)
@@ -503,7 +508,7 @@ public static class Combat
             var m = steps[step - 1];
             float before = time;
             time += dt;
-            if (m.Reach is not null) (motionStep, motionFrom, motionTo) = (m, before, MathF.Min(time, m.Duration));
+            if (m.Reach is not null) (motionStep, motionFrom, motionTo) = (m, MathF.Min(before + dt, m.Duration), MathF.Min(time + dt, m.Duration));   // sim/combat-2: one tick ahead of the clock (below)
             if (before < m.HitTime && m.HitTime <= time) { meleeHitStep = step; hitHeavy = heavy; }
             // Buffering (M28 adds heavy presses): before the combo window closes a press is kept for the next attack; a heavy
             // press during a light attack replaces a buffered light one; heavy presses during a heavy strike do nothing, except in
@@ -521,7 +526,7 @@ public static class Combat
                 if (queuedHeavy) { step = heavyTarget; heavy = true; }
                 else { step = heavy ? 1 : step % lightSteps.Count + 1; heavy = false; }   // after a heavy strike, light attack 1
                 steps = heavy ? heavySteps : lightSteps;
-                time = 0f; queued = false; queuedHeavy = false;
+                time = 0f; queued = false; queuedHeavy = false; startedNow = true;
                 if (steps[step - 1].HitTime <= 0f) { meleeHitStep = step; hitHeavy = heavy; }
             }
             else if (time >= m.Duration) { step = 0; time = 0f; queued = false; queuedHeavy = false; heavy = false; steps = lightSteps; }
@@ -532,10 +537,14 @@ public static class Combat
             heavy = heavyPress && heavySteps.Count > 0;
             used |= InputBuffer.Bit(heavy ? BufferedAction.MeleeHeavy : BufferedAction.Melee);
             steps = heavy ? heavySteps : lightSteps;
-            step = 1; time = 0f; queued = false; queuedHeavy = false; cancelReload = true;
+            step = 1; time = 0f; queued = false; queuedHeavy = false; cancelReload = true; startedNow = true;
             if (steps[0].HitTime <= 0f) { meleeHitStep = 1; hitHeavy = heavy; }
         }
-        if (step > 0 && !s.Throwing && (shotWanted || (chargePress && switchLeft <= 0f)) && time >= steps[step - 1].RangedAt)
+        // sim/combat-2 (item 39; the owner's decision of 2026-10-30: "the step forward of melee swings and F stun strikes starts the instant the button is pressed"):
+        // the body's root motion runs one tick ahead of the attack's clock (the tick covering (t, t + dt] moves the body by the clip's (t + dt, t + 2dt]), so the press
+        // tick itself already steps (0, dt]; before, the lunge began 1/30 s after the press. The attack's own clock, hit time and windows are unchanged.
+        if (startedNow && steps[step - 1].Reach is not null) (motionStep, motionFrom, motionTo) = (steps[step - 1], 0f, MathF.Min(dt, steps[step - 1].Duration));
+        if (step > 0 && !s.Throwing && (shotWanted || (chargePress && switchLeft <= 0f)) && (time >= steps[step - 1].RangedAt || (s.Slot == WeaponSlot.Pistol && basicPress && !startedNow && s.Clip > 0 && !s.Overheated && s.ReloadLeft <= 1e-6f && MathF.Max(0f, s.Cooldown - dt) <= TimeEpsilon)))   // review: only a shot that really leaves cancels
         {
             step = 0; time = 0f; queued = false; queuedHeavy = false;   // firing (or starting a charge) ends the attack; handled below this tick
             motionStep = null;   // and its root motion
@@ -841,7 +850,7 @@ public static class Combat
         // attack begins sets the facing it is struck in, relative to the view: S turns the body round and strikes backwards, A / D sideways, the diagonals between,
         // no key forwards. Latched for the attack (PlayerState.MeleeDirection; it follows the view's turns), re-read by each combo attack. A lock the start's cone
         // accepts (the search already goes along the stick) still turns the body to the stick's continuous direction, then to the target.
-        bool newAttack = step > 0 && time == 0f;
+        bool newAttack = step > 0 && startedNow;
         var meleeDirection = step == 0 ? EvadeDirection.Forward : newAttack ? Evade.DirectionOf(sanitized.MoveX, sanitized.MoveY, diagonals: true) : s.MeleeDirection;
         float meleeTurn = Rush.DashOffset(meleeDirection);
         if (step > 0 && time < MoveAtOf(steps[step - 1], c)) moveInput = moveInput with { Yaw = sanitized.Yaw + meleeTurn };   // while the stick is held off (a stick that moves the body keeps the view's frame)
@@ -862,10 +871,11 @@ public static class Combat
         // target in the attack's alignment window (MeleeLock). On the ground outside the jump pack's phases, until MoveAt, after it while the stick is idle.
         (float Yaw, Vector2 Velocity)? meleeGlide = null;
         if (motionStep is { } attack && motionTo > motionFrom && !reacting && !rushing && !evading && s.Grounded && jump.Phase == JumpPhase.None && !jump.Started
-            && (motionFrom + TimeEpsilon < MoveAtOf(attack, c) || (sanitized.MoveX == 0f && sanitized.MoveY == 0f)))
+            && (motionFrom - (startedNow ? 0f : dt) + TimeEpsilon < MoveAtOf(attack, c) || (sanitized.MoveX == 0f && sanitized.MoveY == 0f)))
         {
-            Vector2? toTarget = MeleeLock.Target(s, sanitized, sanitized.MeleeTarget, others, c, world, MeleeLock.Phase.Melee) is { } target ? MeleeLock.Offset(s, target) : null;
-            float heading = MeleeLock.Align(s.Yaw, sanitized.Yaw + meleeTurn, attack, motionFrom, motionTo, toTarget, c);
+            Vector2? toTarget = MeleeLock.Target(s, sanitized, sanitized.MeleeTarget, others, c, world, s.MeleeStep == 0 ? MeleeLock.Phase.MeleeStart : MeleeLock.Phase.Melee) is { } target ? MeleeLock.Offset(s, target) : null;
+            // The press tick starts from the strike's facing (the view turned by the stick's way; before, the next tick started from it), later ticks from the heading they hold.
+            float heading = MeleeLock.Align(startedNow ? sanitized.Yaw + meleeTurn : s.Yaw, sanitized.Yaw + meleeTurn, attack, motionFrom, motionTo, toTarget, c);
             float lunge = MeleeLock.LungeStep(attack, motionFrom, motionTo, heading, toTarget, c);
             meleeGlide = (heading, MeleeLock.Forward(heading) * (lunge / dt));
         }
