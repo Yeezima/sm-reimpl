@@ -189,6 +189,15 @@ public readonly record struct PlayerState(int PlayerId, Vector3 Position, Vector
     public float Cooldown { get; init; }
     /// <summary>Seconds left of a reload in progress (0 when not reloading).</summary>
     public float ReloadLeft { get; init; }
+    /// <summary>Protocol 45 (sim/combat-pass; owner's recollection 2026-10-30): seconds left of the first holstered weapon's reload; it runs on while the weapon is not equipped.</summary>
+    public float OtherReloadLeft { get; init; }
+    /// <summary>
+    /// Protocol 45 (sim/combat-pass, directional melee; owner's decision 2026-10-30): the stick's way of eight, relative to the view, that the melee attack in progress
+    /// was struck in (<see cref="EvadeDirection.Forward"/> without an attack or a stick). The body faces the view turned by it (<see cref="Rush.DashOffset"/>).
+    /// </summary>
+    public EvadeDirection MeleeDirection { get; init; }
+    /// <summary>Protocol 45: the same for the second holstered weapon (<see cref="ThirdClip"/> family).</summary>
+    public float ThirdReloadLeft { get; init; }
     /// <summary>Seconds since this player last took damage (drives regeneration).</summary>
     public float SinceDamage { get; init; }
     /// <summary>Seconds until a dead player respawns.</summary>

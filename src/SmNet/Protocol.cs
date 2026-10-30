@@ -395,7 +395,11 @@ public static partial class Protocol
     //     third store's clip, reserve, heat and heat age; at most 15 projectile records instead of 16, so the worst case stays 1200). Rapid Deployment (3 s respawn) and
     //     Teleport Homer (allies respawn next to a living carrier) change the server's simulation only. Tactical Readout / Signum Link: a new message EnemyBars (18) with the
     //     living enemies' health and armour fractions, sent only to players whose perks show them (Protocol.Bars.cs).
-    public const ushort Version = 44;
+    // 45 (sim/combat-pass; the owner's playtest notes of 2026-10-30): reloads run on while the weapon is not equipped (the own record's 8 more bytes: the first and
+    //     second holstered weapons' reload times; at most 14 projectile records, so the worst case is 1194); W + F is always the charge (the spacing's press is lost,
+    //     never a stun strike); directional melee (the stick's way of eight at the press sets the strike's facing: 3 bits in the own record's slot byte); the ledge charge's
+    //     fall (client animation). Headshot values are the data's (unchanged)
+    public const ushort Version = 45;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>
     public const int HelloBytes = 54 + 2 * AppearanceCode.Size;
     /// <summary>Bytes of a Setup message (protocol 28: + the Ork look).</summary>
@@ -438,7 +442,7 @@ public static partial class Protocol
     /// the recipient's full one of <see cref="FullRecordBytes"/>) a snapshot is at most
     /// 13 + 1 + 16 × 14 + 1 + 15 × 47 + 144 + 9 (match) + 1 + 4 × 9 (kill feed) + 1 + 8 × 2 (points) + 12 (hits) + 1 + 4 × 9 (shots) = <see cref="MaxSnapshotBytes"/> bytes (full record 138 in protocol 17, 139 in 18 and 19, 141 in 20, 142 in 21 and 22, 144 since protocol 23).
     /// </summary>
-    public const int MaxSnapshotProjectiles = 15;
+    public const int MaxSnapshotProjectiles = 14;   // protocol 45: 14 (the holstered reloads' 8 bytes took one record's room)
     /// <summary>The packet size snapshots must not exceed (bytes, the UDP payload budget).</summary>
     public const int SnapshotBudget = 1200;
     /// <summary>Bytes of a shot record (protocol 16; <see cref="ShotView"/>).</summary>
@@ -461,15 +465,15 @@ public static partial class Protocol
     /// <summary>Bytes of a slim player record (protocol 13: 46 + the evade byte).</summary>
     public const int SlimRecordBytes = 47;
     /// <summary>Bytes of the recipient's full record (protocol 13: the slim part, 85 more, and 2 evade bytes; protocol 17: 4 reaction bytes; 18: the charge lock; 20: ready and raise ticks; 21: ready ticks in 2 bytes; 23: the perk word).</summary>
-    public const int FullRecordBytes = SlimRecordBytes + 97 + 14;   // protocol 44: + the third weapon's 14 bytes (and one projectile record fewer)
+    public const int FullRecordBytes = SlimRecordBytes + 97 + 14 + 8;   // protocol 44: + the third weapon's 14 bytes (and one projectile record fewer)
     /// <summary>Most kill-feed entries in one snapshot (protocol 10; the server sends the newest).</summary>
     public const int MaxSnapshotKills = 4;
     /// <summary>
     /// The largest snapshot with every other block full: 1200 bytes (protocol 11: 1175; protocol 12: + the 12-byte hit block =
     /// 1187; protocol 13: + 16 evade bytes in the player records + 2 in the own record − one 14-byte projectile record = 1191;
     /// protocol 15: + 4 kill-feed direction bytes = 1195; protocol 16: − three projectile records (42) + the shot count and
-    /// five shot records (46) = 1199; protocol 17: + 4 reaction bytes in the own record − one guaranteed shot record (9) = 1194; protocol 18: + 1 charge-lock byte = 1195; protocol 20: + 2 raise bytes = 1197; protocol 21: ready ticks in 2 bytes = 1198; protocol 23: + the 2-byte perk word = 1200),
-    /// exactly the 1200-byte <see cref="SnapshotBudget"/> (no headroom left). A smaller snapshot
+    /// five shot records (46) = 1199; protocol 17: + 4 reaction bytes in the own record − one guaranteed shot record (9) = 1194; protocol 18: + 1 charge-lock byte = 1195; protocol 20: + 2 raise bytes = 1197; protocol 21: ready ticks in 2 bytes = 1198; protocol 23: + the 2-byte perk word = 1200; protocol 44: + 14 bytes, - one projectile record = 1200; protocol 45: + 8 bytes, - one projectile record = 1194),
+    /// at most the 1200-byte <see cref="SnapshotBudget"/> (no headroom left). A smaller snapshot
     /// carries more shot records, up to <see cref="MaxSnapshotShots"/>, but never more than the budget.
     /// </summary>
     public const int MaxSnapshotBytes = 13 + 1 + MaxSnapshotProjectiles * 14 + 1 + (MaxPlayers - 1) * SlimRecordBytes + FullRecordBytes + 9 + 1 + MaxSnapshotKills * KillEntryBytes
@@ -632,8 +636,9 @@ public static partial class Protocol
                     w.U16(PerkWord(p));
                     // Protocol 44 (14 bytes): the second holstered weapon's index, the real slot (bits 0..1) with its overheat (2) and the SlotSecond held flag (3), its clip,
                     // reserve, heat and heat age. Right after the perk word, so the fields at the record's end keep their offsets from the end.
-                    w.U8(Index(third)); w.U8((byte)(((int)p.Slot & 3) | (p.ThirdOverheated ? 4 : 0) | (p.SlotSecondHeld ? 8 : 0)));
+                    w.U8(Index(third)); w.U8((byte)(((int)p.Slot & 3) | (p.ThirdOverheated ? 4 : 0) | (p.SlotSecondHeld ? 8 : 0) | (((int)p.MeleeDirection & 7) << 4)));   // protocol 45: bits 4..6 the melee attack's direction
                     w.U16(Ammo(p.ThirdClip)); w.U16(Ammo(p.ThirdReserve)); w.F32(p.ThirdHeat); w.F32(p.ThirdSinceHeat);
+                    w.F32(p.OtherReloadLeft); w.F32(p.ThirdReloadLeft);   // protocol 45: the holstered weapons' reloads (8 bytes)
                     w.F32(p.Health); w.F32(p.Shield);
                     w.U16(Ammo(p.Clip)); w.U16(Ammo(p.Reserve)); w.U16(Ammo(p.OtherClip)); w.U16(Ammo(p.OtherReserve));
                     w.F32(p.Cooldown); w.F32(p.ReloadLeft); w.F32(p.SinceDamage); w.F32(p.RespawnLeft); w.F32(p.SwitchLeft);
@@ -928,10 +933,13 @@ public static partial class Protocol
                 p = p with { Perk1 = FromPerk(perks & NoPerk), Perk2 = FromPerk((perks >> 7) & NoPerk), BurstLeft = perks >> 14 };
                 // Protocol 44: the third weapon's store and the real slot.
                 int thirdIndex = FromIndex(r.U8()), ext = r.U8();
-                if (ext > 15 || (ext & 3) == 3) return null;
+                if (ext > 127 || (ext & 3) == 3) return null;
+                var meleeDirection = (EvadeDirection)((ext >> 4) & 7);   // protocol 45
+                if (meleeDirection != EvadeDirection.Forward && p.MeleeStep == 0) return null;   // a direction without an attack
                 var realSlot = (WeaponSlot)(ext & 3);
                 if ((realSlot == WeaponSlot.Pistol) != (slot == (int)WeaponSlot.Pistol)) return null;   // disagrees with the slim slot bit
-                p = p with { ThirdOverheated = (ext & 4) != 0, SlotSecondHeld = (ext & 8) != 0, ThirdClip = r.U16(), ThirdReserve = r.U16(), ThirdHeat = r.F32(), ThirdSinceHeat = r.F32() };
+                p = p with { MeleeDirection = meleeDirection, ThirdOverheated = (ext & 4) != 0, SlotSecondHeld = (ext & 8) != 0, ThirdClip = r.U16(), ThirdReserve = r.U16(), ThirdHeat = r.F32(), ThirdSinceHeat = r.F32() };
+                p = p with { OtherReloadLeft = r.F32(), ThirdReloadLeft = r.F32() };   // protocol 45
                 p = p with
                 {
                     Health = r.F32(), Shield = r.F32(), Clip = r.U16(), Reserve = r.U16(), OtherClip = r.U16(), OtherReserve = r.U16(),

@@ -382,7 +382,7 @@ public sealed partial class GameClient
         float.IsFinite(p.Position.X) && float.IsFinite(p.Position.Y) && float.IsFinite(p.Position.Z) && p.Position.Length() < 1e5f
         && float.IsFinite(p.Velocity.X) && float.IsFinite(p.Velocity.Y) && float.IsFinite(p.Velocity.Z) && p.Velocity.Length() < 1e3f
         && float.IsFinite(p.Yaw) && float.IsFinite(p.Pitch) && float.IsFinite(p.Health) && float.IsFinite(p.Shield)
-        && float.IsFinite(p.Cooldown) && float.IsFinite(p.ReloadLeft) && float.IsFinite(p.SinceDamage) && float.IsFinite(p.RespawnLeft)
+        && float.IsFinite(p.Cooldown) && float.IsFinite(p.ReloadLeft) && float.IsFinite(p.OtherReloadLeft) && float.IsFinite(p.ThirdReloadLeft) && float.IsFinite(p.SinceDamage) && float.IsFinite(p.RespawnLeft)
         && p.MeleeTime is >= 0f and < 1e3f && p.SwitchLeft is >= 0f and < 1e3f
         && p.Class >= 0 && p.Class < _config.Classes.Count
         && p.Primary >= -1 && p.Primary < _config.Weapons.Count && p.Pistol >= -1 && p.Pistol < _config.Weapons.Count

@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1654 spec table rows: **1122 tagged**, 385 not tagged (read from data with high confidence), 147 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 325 rows of the changes document.
+Scanned 1664 spec table rows: **1127 tagged**, 389 not tagged (read from data with high confidence), 148 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 330 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -37,7 +37,7 @@ Scanned 1654 spec table rows: **1122 tagged**, 385 not tagged (read from data wi
 | Weapons (critical) | 110 | 63 | 97 | 50 | 3 |
 | Melee (critical) | 60 | 48 | 56 | 10 | 5 |
 | Jump pack (critical) | 66 | 58 | 56 | 12 | 0 |
-| Charge (critical) | 14 | 12 | 11 | 8 | 0 |
+| Charge (critical) | 19 | 13 | 14 | 12 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 23 | 22 | 12 | 16 | 0 |
 | HUD and hit feedback (critical) | 48 | 44 | 39 | 9 | 0 |
@@ -53,15 +53,15 @@ Scanned 1654 spec table rows: **1122 tagged**, 385 not tagged (read from data wi
 | Core simulation (provisional values) | 66 | 60 | 54 | 5 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1122** | 929 | 889 | 363 | 38 |
+| **All areas** | **1127** | 930 | 892 | 367 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 412 |
-| confidence: medium | 388 |
-| confidence: low | 387 |
+| kind: ours | 413 |
+| confidence: medium | 390 |
+| confidence: low | 388 |
 | kind: interpretation | 312 |
 | notes: ours | 276 |
 | confidence: none (low) | 114 |
@@ -77,13 +77,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: placeholder | 17 |
 | kind: gap (not reproduced) | 16 |
 | notes: interpretation | 14 |
+| notes: user's knowledge | 14 |
 | notes: not reproduced (gap) | 13 |
 | notes: open question | 13 |
-| notes: user's knowledge | 13 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
+| notes: estimate | 6 |
 | kind: guess | 5 |
-| notes: estimate | 3 |
 | section: approximation | 3 |
 | kind: inferred | 2 |
 | notes: unverified | 1 |
@@ -880,7 +880,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-540B3991` | Jump pack: flight wobble | The jump state's `Noise` blend plays `SM_JMP_Blend_90_Pos_Fast` (1 s, looping). Taken as the offset from its own first pose, laid over the flight pose in slot `Wobble` at weight 1 (ours: the graph's blend weight is not read), from the end of the take-off… (s) | kind: interpretation; confidence: low; notes: ours | graph (the clip); the offset form and the weight are ours | Jump pack: flight wobble: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The jump state's Noise blend plays SM_JMP_Blend_90_Pos_Fast (1 s… | ☐ |
 | `R-CD9FB0C1` | Jump pack: actions in flight | In the flight view the recoil of a shot, the reload and the grenade toss are laid over the flight pose as over the locomotion (the toss over the upper-body mask, the others as before); before, the flight pose returned before them and a marine that fired in… | kind: interpretation; confidence: low; notes: ours | the jump graph (`MP_SM_NAV_JP_Sim`) is the navigation layer; the base graph's upper-body actions are separate layers that are not tied to the navigation state… | Jump pack: actions in flight: compare with SM1 by feel or video. Ours: In the flight view the recoil of a shot, the reload and the grenade… | ☐ |
 
-### Charge (gameplay-critical) (14)
+### Charge (gameplay-critical) (19)
 
 *Spec section: The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21)*
 
@@ -900,6 +900,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-23BBFED5` | Hyper armour of the charger (M32) | **applied**: while the rush has played at most **0.333 s** (10 ticks at 30 Hz, the press tick included, as the evade's window) the charger cannot be put in a reaction: stuns, staggers, interrupts and their knockback are negated exactly as in the evade's hyper… (s) | kind: interpretation; kind: approximation; kind: user's knowledge; confidence: low; notes: ours; notes: estimate | the owner (user's knowledge of the original, 2026-10-28): "the charger has hyper armour during the initial phase of the charge; the hyper armour that blocks… | Hyper armour of the charger: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: applied: while the rush has played at most 0.333 s (10 ticks at 30… | ☐ |
 | `R-30DB8943` | Client | poses the rush and collision clips at the phase's time; their behaviour tags (`SWING_RushAttack`, `EVT_Bullrush_Stop_*`) trigger the data's sounds through the M26 clip-tag triggers; the bot charges every ~8 s at targets 4–9 m away | notes: ours | ours | Client: compare with SM1 by feel or video. Ours: poses the rush and collision clips at the phase's time; their… | ☐ |
 | `R-94272382` | Client: remote clip-time smoothing (fix/remote-smoothing) | other players' reaction (M28), charge (M29) and melee-attack clip times arrive as snapshot values that step at the snapshot rate (20 Hz), so a clip posed at them froze between snapshots and jumped at the next. Each remote player has a clip clock… (s) | kind: provisional; kind: approximation; confidence: low; notes: ours | ours | Client: remote clip-time smoothing (fix/remote-smoothing): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: other players' reaction (M28), charge (M29) and melee-attack clip… | ☐ |
+
+*Spec section: Combat pass: the charge key, holstered reloads, headshots, directional melee, the ledge charge's fall (sim/combat-pass; protocol 45, used by the simulation)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-E529F4AC` | The charge is purely W + F | an F (heavy) press with W held (the stick's forward part at least 0.7) is the charge or nothing: when the charge cannot start because its spacing since the last one (`min_time_between_activations`, 1 s) is not over, or the body is in the air, the press is… | notes: estimate | the owner's decision (2026-10-30): "W held when F is pressed = charge, never a stun strike (purely W + F)" | The charge is purely W + F: compare with SM1 by feel or video. Ours: an F (heavy) press with W held (the stick's forward part at least… | ☐ |
+| `R-B2E10096` | Reloads continue while the weapon is not equipped | a switch no longer cancels the reload in progress: the weapon keeps its own remaining time (`PlayerState.ReloadLeft` for the one in hand, `OtherReloadLeft` for the first holstered weapon, `ThirdReloadLeft` for the second one with Weapon Versatility), and a… (s) | confidence: medium; notes: user's knowledge | the owner's recollection (2026-10-30): "reloads continue while the weapon is not equipped (all weapons)"; the timers are the data's `reload_time` | Reloads continue while the weapon is not equipped: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a switch no longer cancels the reload in progress: the weapon keeps… | ☐ |
+| `R-A7C7F436` | Directional melee | the stick's way of eight (`Evade.DirectionOf`, dead zone 0.1: W, W + D, D, S + D, S, S + A, A, W + A; no stick = forward) at the tick a melee attack begins sets the facing it is struck in, relative to the view: forward 0, A / D 90 degrees, S 180, the… (degrees) | notes: estimate | the owner's decision (2026-10-30): "the WASD direction held at the melee press sets the attack direction relative to the camera; S = turn and strike backwards… | Directional melee: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the stick's way of eight (Evade.DirectionOf, dead zone 0.1: W, W + D… | ☐ |
+| `R-1C9E1EF7` | Directional melee: with a lock | the lock search already went along the stick (`MeleeLock.SearchDirection`); a lock the start's cone accepts still turns the body to the stick's continuous direction and then eases to the target | kind: ours; confidence: medium | unchanged (feel/melee-lock) | Directional melee: with a lock: compare with SM1 by feel or video. Ours: the lock search already went along the stick… | ☐ |
+| `R-7D6B3276` | Ledge charge: the fall pose | a charge held in the air (`Rush.Held`) keeps its own clip, frozen at the pose it left the ground in, until the charge has been under way **1 s** (seconds on the ground and in the air together: `Rush.Time` plus the time since it left the ground), then shows… (s) | confidence: low; notes: estimate | the owner's decision (2026-10-30): "the falling animation should start about 1 s into the ledge charge (currently it never plays)" | Ledge charge: the fall pose: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a charge held in the air (Rush.Held) keeps its own clip, frozen at… | ☐ |
 
 ### Reactions (gameplay-critical) (15)
 
@@ -2154,6 +2164,16 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-8C296663` | Melee weapon hum | The hammer, maul and axe hum with their own idle events; the Space Marine sword with the axe's hum 6 dB quieter, the Chaos sword with it as a **substitute** (its own `play_sm_power_sword_idle` is in no bank); the chain axe is silent (nothing to play) | What the original played for the swords and the chain axe | same | Melee weapon hum: compare with SM1 by feel or video. Ours: The hammer, maul and axe hum with their own idle events; the Space… | ☐ |
 | `C-68DB00D3` | Hammer and axe idle glows | The hammer's and the axe's `while_deployed` effects play at their markers while the weapon is in hand, as the sword's | Whether the original showed them in multiplayer | same | Hammer and axe idle glows: compare with SM1 by feel or video. Ours: The hammer's and the axe's while_deployed effects play at their… | ☐ |
 
+#### Combat pass (sim/combat-pass; protocol 45)
+
+| ID | Rule | What we do | What is unknown | Spec section | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-9DA9E870` | The charge is purely W + F | F with W held is the charge or, inside the 1 s spacing or in the air, nothing: never the stun strike (the owner's decision) | What the original did with a W + F press inside the spacing (ours: the press is lost; it could wait for the spacing) | "Combat pass: the charge key, holstered reloads, headshots, directional melee, the ledge charge's fall" | The charge is purely W + F: compare with SM1 by feel or video. Ours: F with W held is the charge or, inside the 1 s spacing or in the air… | ☐ |
+| `C-E9C2306E` | Reloads continue while holstered | A reload is not lost on a switch; the holstered weapon finishes it on its own timer and a weapon taken back has what is left (the owner's recollection; two more floats in the own record) | Whether the original also reloads a recharging weapon (plasma) while holstered (ours: yes, round by round) | same | Reloads continue while holstered: compare with SM1 by feel or video. Ours: A reload is not lost on a switch; the holstered weapon finishes it on… | ☐ |
+| `C-B5033D56` | Headshot bonus | Already the data's: head multipliers per weapon (bolt pistol 2.5, bolters 2.55, sniper 2, lascannon 2.25) and the armour's own head multipliers; the bolt pistol kills a full marine with depleted armour in one headshot (40 x 2.5 = 100) | The head body's exact shape (Havok data not decoded; our head sphere / volumes) | same | Headshot bonus: compare with SM1 by feel or video. Ours: Already the data's: head multipliers per weapon (bolt pistol 2.5… | ☐ |
+| `C-53D79AD5` | Directional melee | The stick's way of eight at the melee press, relative to the view, sets the strike's facing (S turns round and strikes behind); the body turns at once | The original's turn animation and speed (ours: instant; the client draws the new facing) | same | Directional melee: compare with SM1 by feel or video. Ours: The stick's way of eight at the melee press, relative to the view… | ☐ |
+| `C-2A49B0D4` | Ledge charge: fall pose after 1 s | A charge held in the air keeps its clip until the charge has run 1 s (ground and air together), then the fall pose | "About 1 s" and its start point (ours: from the charge's start); the original's exact animation | same | Ledge charge: fall pose after 1 s: compare with SM1 by timing a run over a known distance. Ours: A charge held in the air keeps its clip until the charge has run 1 s… | ☐ |
+
 ### Not yet reproduced
 
 | ID | Missing | Note | Compare in a playtest | Result |
@@ -2342,4 +2362,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-5601E474` | Protocol 37 (on top of main's 36) | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
 | `R-A4CB19AF` | Protocol 41 | Display names: the bots' names (names/bot-lore; protocol 41) |
 | `R-0E87ED84` | Protocol 43 | Player collision (sim/player-collision; protocol 43, used by the simulation) |
+| `R-7B32DDE7` | Protocol 45 | Combat pass: the charge key, holstered reloads, headshots, directional melee, the ledge charge's fall (sim/combat-pass; protocol 45, used by the simulation) |
 

@@ -115,7 +115,7 @@ public class ExtrasEnvelopeTests(ITestOutputHelper output)
         Assert.False(Protocol.IsKnownKind(0));
         Assert.False(Protocol.IsKnownKind(17));
         Assert.False(Protocol.IsKnownKind(200));
-        Assert.Equal(1200, Protocol.MaxSnapshotBytes);   // the envelope adds nothing to snapshots
+        Assert.Equal(1194, Protocol.MaxSnapshotBytes);   // the envelope adds nothing to snapshots
         Assert.Equal(Protocol.SnapshotBudget, Protocol.MaxExtrasMessageBytes);
     }
 

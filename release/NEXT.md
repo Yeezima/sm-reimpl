@@ -17,3 +17,9 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The Assault and Raptor jump pack now takes the colour you pick for the Backpack in the armour colours (before, it followed the torso colour).
 - Tactical Marines can no longer fire their weapon while charging: a shot started just before the charge is dropped, and pressing fire during the charge no longer interrupts it.
 - Fixed: in Seize Ground, after capturing a point a humming noise no longer starts and grows louder; each capture now gives its one cue and then it is quiet again.
+- New network version again: everyone must update together.
+- Charging is now purely W + F: with W held, F always charges and never gives the stun strike. If you press it again while the charge is still recovering, nothing happens.
+- Reloads now carry on while the weapon is put away: start a reload, switch weapons, and it finishes on its own; switching back finds the weapon ready.
+- Melee now goes the way you hold: hold S when you strike and the Marine turns round and hits backwards; A and D strike to the sides, and the diagonals work too. With no key held it strikes forward.
+- Charging off a ledge: the falling animation now starts about one second into the charge.
+- Headshots were checked against the game's numbers: the bolt pistol's headshot kills a Marine whose armour is gone in one shot.
