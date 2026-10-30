@@ -42,6 +42,28 @@ public static class SlashPose
         return Math.Clamp(fade + (t - fade) * DiveRate(expectedDive - fade, flightEnd - fade), 0f, flightEnd);
     }
 
+    /// <summary>
+    /// anim/feel-pass (the owner, 2026-10-30: "the Assault air slash landing still feels janky"): the wind-up's clip time in the dive on a curve whose rate never steps. <see cref="DiveTime"/>
+    /// played the fade at the clip's rate, then jumped to up to <see cref="MaxDiveRate"/> times it (a velocity step of the arm 0.125 s into the dive, the transition probe's largest jerk) and
+    /// fell back to the clip's rate at the landing (a second step). Here the time is a cubic Hermite from 0 to <paramref name="flightEnd"/> over the expected dive with the clip's own rate
+    /// (slope 1) at both ends, so the swing speeds up and slows down smoothly and the strike after the landing carries on at the rate the dive ended with, as the roll's clip runs on at
+    /// one rate through its exit. The dive used for the curve is at least a third of the wind-up (the curve's middle rate, 1.5 × wind-up / dive − 0.5, stays at most 4); a dive that
+    /// lands sooner is caught up by <see cref="ImpactTime(float, float, float, float, float)"/>. A dive longer than the wind-up plays it at the clip's rate and holds its end, as
+    /// before. Ours (the graph plays the flight part at its own rate; the simulation's straight 40 m/s dive is ours too).
+    /// </summary>
+    public static float SmoothDiveTime(float sinceDive, float expectedDive, float flightEnd)
+    {
+        if (!(flightEnd > 0f)) return 0f;
+        float t = MathF.Max(0f, sinceDive);
+        if (!float.IsFinite(expectedDive) || expectedDive >= flightEnd) return MathF.Min(t, flightEnd);
+        float d = MathF.Max(expectedDive, flightEnd / 3f);
+        if (t >= d) return flightEnd;
+        float u = t / d, u2 = u * u, u3 = u2 * u;
+        // Hermite basis: p0 = 0, m0 = 1 (clip rate), p1 = flightEnd, m1 = 1; tangents scaled by the interval d.
+        float h10 = u3 - 2f * u2 + u, h01 = -2f * u3 + 3f * u2, h11 = u3 - u2;
+        return Math.Clamp(h10 * d + h01 * flightEnd + h11 * d, 0f, flightEnd);
+    }
+
     /// <summary>The graph's flight-to-impact transition ("Blend Slo-mo", 0.033 s): a dive that landed before its wind-up's end catches up over it.</summary>
     public const float ImpactCatchUp = 1f / 30f;
 

@@ -49,6 +49,8 @@ public partial class NetworkView
         public float DiveExpected = float.PositiveInfinity;
         // feel/jump-pack-2: the wind-up's clip time when the dive landed (the impact eases from it to the strike's; NaN: none).
         public float LandedClip = float.NaN;
+        // anim/feel-pass (NetworkView.Feel.cs): the slash's follow-through handed to the upper body when the marine moved on (connected time; NaN: none) and that slash's impact time.
+        public double SlashHandAt = double.NaN, SlashHandImpactAt;
     }
 
     // Clip names of the jump-pack behavior graph (docs/discovery.md, M14).
@@ -190,6 +192,9 @@ public partial class NetworkView
             : JumpPack.Pounding(s.Jump) ? (s.Grounded ? JumpView.Impact : JumpView.Dive)
             : JumpView.None;
         var prev = t.View;
+        // anim/feel-pass: a remote pound's dive and recovery share one flag, told apart by the grounded bit; a recovery that leaves the ground for a tick (the slash's landing
+        // lunge over an edge, a step) went back to the dive and restarted the slash clip at its wind-up. Once landed, the pound stays landed until its flag drops.
+        if (!own && !CharacterViewer.NoFeel && raw == JumpView.Dive && prev is JumpView.Impact) raw = JumpView.Impact;
         var next = raw != JumpView.None ? raw : prev switch
         {
             JumpView.Air or JumpView.Landing => JumpView.Landing,
@@ -232,7 +237,7 @@ public partial class NetworkView
                     break;
                 case JumpView.Impact:
                 case JumpView.Getup when prev == JumpView.Dive:   // the recovery was not seen
-                    if (t.Slash && prev == JumpView.Dive) t.LandedClip = SmNet.SlashPose.DiveTime((float)(now - t.DiveAt), t.DiveExpected, SlashOf(s)?.FlightClipEnd ?? 0f, CharacterViewer.MinEntryBlendSeconds);
+                    if (t.Slash && prev == JumpView.Dive) t.LandedClip = SlashDiveTime((float)(now - t.DiveAt), t.DiveExpected, SlashOf(s)?.FlightClipEnd ?? 0f);   // anim/feel-pass: the smooth wind-up
                     else t.LandedClip = float.NaN;
                     t.ImpactAt = now;
                     t.Slash |= s.JumpSlash;
@@ -287,7 +292,11 @@ public partial class NetworkView
             if (t.Slash)
             {
                 double slashEnds = SlashAfterImpact(s);   // feel/jump-pack-2: the clip from the impact's crop start to its end
-                if (sinceImpact >= slashEnds || speed > RunThreshold) t.View = JumpView.None;
+                if (sinceImpact >= slashEnds || speed > RunThreshold)
+                {
+                    if (speed > RunThreshold) SlashMovedOn(t, now, sinceImpact, slashEnds);   // anim/feel-pass: the follow-through goes on over the upper body (NetworkView.Feel.cs)
+                    t.View = JumpView.None;
+                }
             }
             else
             {
@@ -338,7 +347,7 @@ public partial class NetworkView
             // end), fitted to the dive; the impact the impact sequencer's part, the strike, from its crop start. (feel/jump-pack held frame 0 through the
             // dive and restarted the clip at 0 on landing: the landing showed the wind-up, the blade rising, as the swing seen backwards.)
             case JumpView.Dive when t.Slash && _slashClip is not null:
-                return (_slashClip, SmNet.SlashPose.DiveTime((float)(now - t.DiveAt), t.DiveExpected, SlashOf(s)?.FlightClipEnd ?? 0f, CharacterViewer.MinEntryBlendSeconds));
+                return (_slashClip, SlashDiveTime((float)(now - t.DiveAt), t.DiveExpected, SlashOf(s)?.FlightClipEnd ?? 0f));   // anim/feel-pass: the smooth wind-up (NetworkView.Feel.cs)
             case JumpView.Impact when t.Slash && _slashClip is not null:
                 return (_slashClip, SlashImpactTime(s, sinceImpact, t.LandedClip));
             case JumpView.Dive when _jmpDive is not null:

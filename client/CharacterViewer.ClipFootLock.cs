@@ -16,6 +16,8 @@ public partial class CharacterViewer
 {
     /// <summary><c>--no-melee-flow</c>: every anim/melee-flow change off (before / after runs on the same demo).</summary>
     public static readonly bool NoMeleeFlow = OS.GetCmdlineUserArgs().Contains("--no-melee-flow");
+    /// <summary><c>--no-feel</c> (test aid): every change of the feel pass (anim/feel-pass, <c>NetworkView.Feel.cs</c>) off, for before / after runs on one build.</summary>
+    public static readonly bool NoFeel = OS.GetCmdlineUserArgs().Contains("--no-feel");
     /// <summary><c>--no-clip-foot-lock</c> (test aid): the clip foot lock alone off.</summary>
     public static readonly bool NoClipFootLock = NoMeleeFlow || OS.GetCmdlineUserArgs().Contains("--no-clip-foot-lock");
 
