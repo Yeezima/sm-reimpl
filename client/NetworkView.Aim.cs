@@ -164,7 +164,7 @@ public partial class NetworkView
             return;
         }
         if (RunStartPlace(character, s, hip, own)) { if (own) _aimNowText = ""; HipRecoil(character, s, hip); return; }   // M40-T5 (NetworkView.RunStart.cs): the start clip, driven by the distance travelled
-        if (!NoHipFire && HipData() is not null && HipReady(s) && HipStancePlace(character, s, hip))
+        if (!NoHipFire && HipData() is not null && (HipReady(s) || HeavyStaysReady(s)) && HipStancePlace(character, s, hip))
         {
             if (own) _aimNowText = "";
             HipRecoil(character, s, hip);

@@ -253,6 +253,9 @@ public partial class CharacterViewer : Node3D
             _entryFootLock = lockFeet;   // M40-T5 (CharacterViewer.FootPin.cs)
         }
         float clamped = Math.Clamp(time, 0f, _animation!.Animation.Duration);
+        // anim/feel-pass: the same clip started again (a second slash, a roll in the same direction, a remote clip whose time is set back) jumped to its new time in one frame;
+        // it now fades from a moving copy of the shown pose over the caller's blend, as an entry does.
+        if (!changed && _posed && !NoFeel && clamped < _time - RestartBackSeconds) { BeginEntry(blendSeconds); ClipRestarts++; }
         if (!changed && _posed && clamped == _time && !_layersDirty) return true;
         _posed = true;
         _time = clamped;
@@ -277,6 +280,11 @@ public partial class CharacterViewer : Node3D
         ResetEntryArcs();   // animation pass 3 (CharacterViewer.Transitions.cs)
         _entryActive = true; _entryElapsed = 0f; _entryDuration = Math.Clamp(seconds, NoP3 ? MinEntryBlendSeconds : SmoothMinEntryBlendSeconds, 2f);
     }
+
+    /// <summary>anim/feel-pass: a clip posed again further back than this (s) is taken as started again and faded into (ours: more than a remote clip's smoothing ever sets it back).</summary>
+    public const float RestartBackSeconds = 0.25f;
+    /// <summary>Test aid: clip restarts faded into (<see cref="RestartBackSeconds"/>).</summary>
+    public static int ClipRestarts;
 
     /// <summary>Counts the clip entries (<see cref="Play"/> / <see cref="Pose"/> taking over from another clip or the stances), faded or not: <see cref="PosePopProbe"/> measures around them.</summary>
     public int EntryStamp { get; private set; }
@@ -464,10 +472,13 @@ public partial class CharacterViewer : Node3D
         const int N = 48;
         float dt = clip.Animation.Duration / N;
         var path = feet.Select(_ => new Vector3[N]).ToArray();
+        int pelvis = _skeleton.FindBone("RIG_Pelvis");
+        var hips = new Vector3[N];
         for (int i = 0; i < N; i++)
         {
             Pose(name, dt * i, 0f);
             for (int f = 0; f < feet.Length; f++) path[f][i] = _skeleton.GetBoneGlobalPose(feet[f]).Origin;
+            if (pelvis >= 0) hips[i] = _skeleton.GetBoneGlobalPose(pelvis).Origin;
         }
         var parts = new List<string>();
         for (int f = 0; f < feet.Length; f++)
@@ -484,7 +495,9 @@ public partial class CharacterViewer : Node3D
             }
             parts.Add($"{_skeleton.GetBoneName(feet[f])} {x1 - x0:F2}/{y1 - y0:F2}/{z1 - z0:F2} planted {(count > 0 ? sum / count : 0f):F2} m/s ({count}/{N} frames)");
         }
-        return $"{name}: {clip.Animation.Duration:F2} s; foot travel (m, x/y/z): " + string.Join("; ", parts);
+        // feel pass: the pelvis's own travel over the cycle (its bob and side-to-side weight shift), skeleton space.
+        string hip = pelvis < 0 ? "" : $"; pelvis travel {hips.Max(v => v.X) - hips.Min(v => v.X):F3}/{hips.Max(v => v.Y) - hips.Min(v => v.Y):F3}/{hips.Max(v => v.Z) - hips.Min(v => v.Z):F3}";
+        return $"{name}: {clip.Animation.Duration:F2} s; foot travel (m, x/y/z): " + string.Join("; ", parts) + hip;
     }
 
     /// <summary>Names of the rig's animations that contain <paramref name="text"/> (case-insensitive); test aid.</summary>
@@ -586,6 +599,11 @@ public partial class CharacterViewer : Node3D
                     _accPos[b] = sp * w; _accScale[b] = _snapScale![b] * w; _accRot[b] = q * w; _accWeight[b] = w;
                 }
         }
+        // anim/feel-pass: each layer is summed on its own and the layers (and the snapshot) are then folded together by slerp in their fade weights, so a cross-fade between two
+        // stances turns each bone at an even rate along one arc. The plain weighted sum of all of them (kept with --no-feel) passes close to zero for a bone whose two poses are
+        // far apart and turns it through the middle of the fade in a frame or two: the Devastator's left hand flipped up to 74 degrees a frame between the ready and relaxed runs.
+        bool fold = !NoFeel && (_snapActive || _layers.Count > 1);
+        if (fold) FoldBegin(n);
         foreach (var l in _layers)
         {
             if (l.Fade <= 0f) continue;
@@ -595,12 +613,15 @@ public partial class CharacterViewer : Node3D
                 for (int i = 0; i < l.BlendAnims.Length; i++)
                     if (l.BlendWeights[i] > 1e-3f && l.BlendAnims[i] is { } blended) Add(blended, BlendTime(l, i), fade * l.BlendWeights[i], blended: true);
                 blendShare += fade;
+                if (fold) FoldLayer(n);
                 continue;
             }
             if (l.Low is not null) Add(l.Low, l.Time, fade * l.WLow);
             Add(l.Mid!, l.Time, fade * l.WMid);
             if (l.High is not null) Add(l.High, l.Time, fade * l.WHigh);
+            if (fold) FoldLayer(n);
         }
+        if (fold) FoldEnd(n);
         for (int b = 0; b < n; b++)
         {
             float w = _accWeight[b];
@@ -618,6 +639,52 @@ public partial class CharacterViewer : Node3D
         ApplyFootPins();
         RecordApplied();   // animation pass 3 (CharacterViewer.Transitions.cs)
         DrawBones();
+    }
+
+    // anim/feel-pass: the layer fold (see ApplyStances). The accumulators hold one contributor at a time (the snapshot, then each layer's own sum); FoldLayer folds the
+    // contributor into the running result: rotation by slerp, translation and scale by lerp, each by its share of the weight so far. Nothing allocates per frame.
+    Vector3[] _foldPos = Array.Empty<Vector3>(), _foldScale = Array.Empty<Vector3>();
+    Quaternion[] _foldRot = Array.Empty<Quaternion>();
+    float[] _foldWeight = Array.Empty<float>();
+
+    void FoldBegin(int n)
+    {
+        if (_foldWeight.Length != n) { _foldPos = new Vector3[n]; _foldScale = new Vector3[n]; _foldRot = new Quaternion[n]; _foldWeight = new float[n]; }
+        Array.Clear(_foldWeight);
+        if (_snapActive) FoldLayer(n);   // the snapshot was written into the accumulators first
+    }
+
+    void FoldLayer(int n)
+    {
+        for (int b = 0; b < n; b++)
+        {
+            float w = _accWeight[b];
+            if (w <= 0f) continue;
+            var pos = _accPos[b] / w; var scale = _accScale[b] / w; var rot = _accRot[b].Normalized();
+            float total = _foldWeight[b] + w;
+            if (_foldWeight[b] <= 0f) { _foldPos[b] = pos; _foldScale[b] = scale; _foldRot[b] = rot; }
+            else
+            {
+                float t = w / total;
+                _foldPos[b] = _foldPos[b].Lerp(pos, t); _foldScale[b] = _foldScale[b].Lerp(scale, t);
+                if (rot.Dot(_foldRot[b]) < 0f) rot = -rot;
+                _foldRot[b] = _foldRot[b].Slerp(rot, t).Normalized();
+            }
+            _foldWeight[b] = total;
+            _accWeight[b] = 0f;
+        }
+    }
+
+    void FoldEnd(int n)
+    {
+        for (int b = 0; b < n; b++)
+        {
+            float w = _foldWeight[b];
+            if (w <= 0f) continue;
+            var q = _foldRot[b];
+            if (q.Dot(_signRef[b]) < 0f) q = -q;
+            _accPos[b] = _foldPos[b] * w; _accScale[b] = _foldScale[b] * w; _accRot[b] = q * w; _accWeight[b] = w;
+        }
     }
 
     // ---- extra pose layers: see CharacterViewer.Layers.cs (the stack: fall legs, landing, action overlays) ----

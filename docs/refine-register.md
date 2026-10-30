@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1680 spec table rows: **1141 tagged**, 391 not tagged (read from data with high confidence), 148 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 333 rows of the changes document.
+Scanned 1695 spec table rows: **1154 tagged**, 392 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 339 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 304 | 260 | 263 | 90 | 12 |
+| Movement (critical) | 305 | 260 | 264 | 90 | 12 |
 | Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
 | Weapons (critical) | 110 | 63 | 97 | 50 | 3 |
-| Melee (critical) | 60 | 48 | 56 | 10 | 5 |
+| Melee (critical) | 61 | 48 | 57 | 10 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
 | Charge (critical) | 19 | 13 | 14 | 12 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -50,19 +50,19 @@ Scanned 1680 spec table rows: **1141 tagged**, 391 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 70 | 63 | 58 | 6 | 1 |
+| Core simulation (provisional values) | 81 | 73 | 66 | 6 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1141** | 942 | 907 | 374 | 38 |
+| **All areas** | **1154** | 952 | 917 | 374 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 419 |
-| confidence: medium | 399 |
+| kind: ours | 427 |
+| confidence: medium | 409 |
 | confidence: low | 394 |
-| kind: interpretation | 315 |
+| kind: interpretation | 317 |
 | notes: ours | 279 |
 | confidence: none (low) | 114 |
 | kind: provisional | 98 |
@@ -90,7 +90,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (304)
+### Movement (gameplay-critical) (305)
 
 *Spec section: Extracted parameters*
 
@@ -526,6 +526,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-440FEEBC` | Hit volumes in a jump | a jump-pack player is hit with the rig's volumes carried by their bones into the clip the client draws (each ragdoll body's volumes follow the animation bone the ragdoll-to-animation mapper gives it; rigid: posed bone x inverse reference bone): from the press… (m) | kind: interpretation; confidence: medium; notes: ours | clips, bones, mapper and shapes extracted; that the original's hit test followed the animated pose is an **interpretation** (the hit test is in the… | Hit volumes in a jump: compare with SM1 by shooting at the edges of the head and body and noting where shots register. Ours: a jump-pack player is hit with the rig's volumes carried by their… | ☐ |
 | `R-0C65A4E1` | Jump pose chosen by the server | one shared engine-free rule for the client that draws and the server that hits (`SmSim.FlightPoseRules`; `SmContent.JumpFlightPose` forwards to it): the server keeps, for every player, the view a client keeps of a remote jump (`FlightPoseRules.Step`, advanced… (m/s, rad, m, s) | kind: ours; confidence: low | the client's own rules (ours, M45) | Jump pose chosen by the server: compare with SM1 by timing a run over a known distance. Ours: one shared engine-free rule for the client that draws and the server… | ☐ |
 
+*Spec section: The feel pass: the roll's blending for every action (anim/feel-pass; client only, not simulated, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-69DAA65D` | Movement weight: the run's bob, measured | pelvis height range over a 0.8 s window, in the game / in the clip: walk 8.3 / 9.2 cm, run 15.2 / 17.8 cm (`SM_NAV_Run_F_01`; at the slowed run speed 5.85 m/s the blend space mixes some walk in), sprint 19.0 / 18.8 cm; sideways 6.8 cm in the run (clip 6.7).… (cm) | confidence: medium | measured | Movement weight: the run's bob, measured: compare with SM1 by timing a run over a known distance. Ours: pelvis height range over a 0.8 s window, in the game / in the clip:… | ☐ |
+
 ### Combat core (gameplay-critical) (10)
 
 *Spec section: Known behavior (public, unverified)*
@@ -695,7 +701,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (60)
+### Melee (gameplay-critical) (61)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -786,6 +792,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-80F19D0B` | Measured: 8 melee bots on Manufactorum (headless, 127.0.0.1, 4 v 4 Tacticals with `--bot-melee`… | server, ticks with a pair overlapping (of ticks with a pair): > 1 cm 27.2 % → **5.9 %**, > 5 cm 26.8 % → 4.3 %, > 20 cm 22.2 % → **2.0 %**; closest −0.87 → −0.81 m (a transient in a brawl). Drawn by the bots (frames): > 5 cm 27 to 33 % → 0 to 2.4 % (median… (%, m) | confidence: medium | measured | Measured: 8 melee bots on Manufactorum (headless…: compare with SM1 by feel or video. Ours: server, ticks with a pair overlapping (of ticks with a pair): > 1 cm… | ☐ |
+
+*Spec section: The feel pass: the roll's blending for every action (anim/feel-pass; client only, not simulated, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-51BAC41F` | Melee impact: victim reaction | already data-driven: a light hit is the interrupt clip (`SM_REC_Light_Itrpt_*`), heavy hits the stun / stagger clips (M28), a ranged hit the flinch (pass 2); this pass only makes them leave over 0.333 s; the strikes' wind-up and recovery are the data's whole… | confidence: medium | the data | Melee impact: victim reaction: compare with SM1 by watching the reaction and timing it frame by frame. Ours: already data-driven: a light hit is the interrupt clip… | ☐ |
 
 ### Jump pack (gameplay-critical) (67)
 
@@ -1528,7 +1540,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (70)
+### Core simulation (provisional values) (81)
 
 *Spec section: Provisional values in use*
 
@@ -1644,6 +1656,22 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-CF044ABA` | Power sword glow (fx/character-visuals) | **owner's decision (2026-10-30):** the glow stays on the blade (the blade overlay only; the data's `powersword_idle` edge sprites and light, which reached out of it, are not played; `--sword-idle-fx` restores them) and flares up while an attack is shown:… (flare 0..1) | kind: estimate; confidence: low | the owner's reference frame | Power sword glow (fx/character-visuals): compare with SM1 by feel or video. Ours: owner's decision (2026-10-30): the glow stays on the blade (the blade… | ☐ |
 | `R-963D3E2E` | Eye glow in the lens colour (fx/character-visuals) | **owner's decision (2026-10-30):** every Space Marine and Chaos character glows at both eyes in the customizer's lens colour (full brightness), seen by all and in the previews; no lens colour chosen: a Marine's glow is red (1, 0.16, 0.07), a Chaos Marine's… (m / colour) | kind: estimate; confidence: low | owner's words; `LensRegions` | Eye glow in the lens colour (fx/character-visuals): compare with SM1 by shooting at the edges of the head and body and noting where shots register. Ours: owner's decision (2026-10-30): every Space Marine and Chaos character… | ☐ |
 | `R-108655A3` | Second primary drawn (fx/character-visuals) | with Weapon Versatility the second primary has a model: in hand in its slot, and of the two primaries only the one swapped out most recently hangs on the back (the owner's rule), the other is not drawn; before, a second primary in hand was invisible (the… | confidence: medium | owner's words | Second primary drawn (fx/character-visuals): compare with SM1 by feel or video. Ours: with Weapon Versatility the second primary has a model: in hand in… | ☐ |
+
+*Spec section: The feel pass: the roll's blending for every action (anim/feel-pass; client only, not simulated, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-39684B7F` | Hit reactions leave over 0.2 s | the interrupt, stun and stagger clips and their get-ups (`SM_REC_*`, `SM_MP_REC_*`) blend back to the locomotion over **0.2 s**, snappier than the data's 0.333 s (the owner's decision, 2026-10-30) (s) | kind: ours; confidence: medium | the owner's decision | Hit reactions leave over 0.2 s: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the interrupt, stun and stagger clips and their get-ups (SM_REC_*… | ☐ |
+| `R-E992557C` | The heavy bolter stays raised (owner) | confirmed by the owner (2026-10-30): raised at all times except the sprint; a reload is still laid over it as over the ready hold | kind: ours | the owner's decision | The heavy bolter stays raised (owner): compare with SM1 by feel or video. Ours: confirmed by the owner (2026-10-30): raised at all times except the… | ☐ |
+| `R-FA72F377` | Run weight (owner) | the owner (2026-10-30): keep the data's blend and run clip mix; nothing changed | kind: ours | the owner's decision | Run weight (owner): compare with SM1 by timing a run over a known distance. Ours: the owner (2026-10-30): keep the data's blend and run clip mix… | ☐ |
+| `R-4D5639BD` | Every whole-body action leaves over 'Standard Blend' | melee strikes without their own graph exit (the knife), jump-pack clips (landings, the pound's impact and get-up, the dash attack's impact), the grenade toss: back to the locomotion over **0.333 s** (reactions: the row above; before: the knife 0.2 s, ours… (s) | kind: interpretation; confidence: medium | `SM_Base_MP`: `Reactions ( From Ranged )`, `Exotic - JumpPack`, `Use Equipment ( From Ranged )`, `FROM Melee Draw Attack` lead to the conduit `TO Ranged Nav`… | Every whole-body action leaves over 'Standard Blend': compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: melee strikes without their own graph exit (the knife), jump-pack… | ☐ |
+| `R-786B7D2E` | Air slash: the follow-through on the upper body | a marine that moves on after the slash's landing (the simulation frees it 0.3 s after, ours) gets the legs from the locomotion (the melee hand-over's 0.1 s, at least 0.15 s) and keeps the strike on the upper body (the action mask), its weight 1 to 0 over the… (s) | kind: ours; confidence: medium | the melee hand-over (M40-T4) and the graphs' exit; applying it to the slash is ours | Air slash: the follow-through on the upper body: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a marine that moves on after the slash's landing (the simulation… | ☐ |
+| `R-FCFE6ECD` | Air slash: the wind-up's time curve | a cubic Hermite from 0 to the flight crop (0.4667 s) over the expected dive with the clip's own rate (slope 1) at both ends; the dive used is at least a third of the wind-up (middle rate at most 4); a dive longer than the wind-up plays it at the clip's rate… (s) | kind: ours; confidence: medium | ours (the graph plays the flight part at its own rate; the 40 m/s dive is ours) | Air slash: the wind-up's time curve: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a cubic Hermite from 0 to the flight crop (0.4667 s) over the… | ☐ |
+| `R-EC5A65A1` | Remote pound: once landed, stays landed | a remote player's pound whose recovery shows ungrounded for a tick no longer goes back to the dive view (which restarted the slash clip at its wind-up: the hand 1.5 m in one frame) | kind: ours | ours (the slim record's one pound flag) | Remote pound: once landed, stays landed: compare with SM1 by feel or video. Ours: a remote player's pound whose recovery shows ungrounded for a tick no… | ☐ |
+| `R-4FE64C33` | Clip restart fades | the same clip posed again more than **0.25 s** further back (a second slash, a roll again the same way, a remote clip set back) fades from a moving copy over the caller's entry blend instead of jumping (s) | kind: ours; confidence: medium | ours | Clip restart fades: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the same clip posed again more than 0.25 s further back (a second… | ☐ |
+| `R-97A6D5E0` | Stance cross-fades fold by slerp | each stance layer is summed on its own; the layers and the snapshot are folded together by slerp in their fade weights (translation and scale by lerp), so a bone turns at an even rate along one arc. Before: one weighted sum of every clip, which passes near… | kind: ours; confidence: medium | ours (Havok's blend maths are not decoded) | Stance cross-fades fold by slerp: compare with SM1 by feel or video. Ours: each stance layer is summed on its own; the layers and the snapshot… | ☐ |
+| `R-5CF16369` | The heavy bolter stays ready | a marine with the heavy bolter in hand shows the ready posture whenever it is not sprinting (aiming, reacting, striking, throwing and switching keep their own); before, after the ready hold it dropped to the rifle's relaxed clips (M36's stand-in), whose left… | kind: interpretation; confidence: medium | `SM_Heavy_Bolter` has no relaxed navigation state (M36); "always ready" is the reading | The heavy bolter stays ready: compare with SM1 by feel or video. Ours: a marine with the heavy bolter in hand shows the ready posture… | ☐ |
+| `R-A470A827` | Not changed | the knife's first strike (probe 133 cm/f2) and the slash's strike are the clips' own fast swings (30 fps keys), not transitions; the charge entry (0.267 s), the melee entries and chains (anim/melee-flow), the sprint edges (pass 3), the weapon switch… | confidence: medium | - | Not changed: compare with SM1 by feel or video. Ours: the knife's first strike (probe 133 cm/f2) and the slash's strike are… | ☐ |
 
 ### General game design (7)
 
@@ -2194,6 +2222,17 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-53D79AD5` | Directional melee | The stick's way of eight at the melee press, relative to the view, sets the strike's facing (S turns round and strikes behind); the body turns at once | The original's turn animation and speed (ours: instant; the client draws the new facing) | same | Directional melee: compare with SM1 by feel or video. Ours: The stick's way of eight at the melee press, relative to the view… | ☐ |
 | `C-FEDFA9DF` | Ledge charge: fall pose after 0.3 s in the air | A charge held in the air keeps its clip until the body has been off the ground 0.3 s, then the fall pose | The delay (0.3 s, an estimate; owner to confirm); the original's exact animation | same | Ledge charge: fall pose after 0.3 s in the air: compare with SM1 by timing a run over a known distance. Ours: A charge held in the air keeps its clip until the body has been off… | ☐ |
 
+#### The feel pass (anim/feel-pass; client only)
+
+| ID | Rule | What we do | What is unknown | Spec section | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-29051BA9` | Hit reactions leave over 0.2 s | The owner's decision: snappier than the data's 0.333 s | The original's exact exit from a reaction | The feel pass: the roll's blending for every action (anim/feel-pass; client only, not simulated, no protocol change) | Hit reactions leave over 0.2 s: compare with SM1 by watching the reaction and timing it frame by frame. Ours: The owner's decision: snappier than the data's 0.333 s. | ☐ |
+| `C-4E62FF86` | Whole-body actions leave over 0.333 s | The knife, jump-pack clips and the toss blend back to the locomotion over the base graph's navigation conduit 'Standard Blend' (the roll's 10 frames) | Whether Havok uses the conduit's onward blend for the hop (interpretation) | The feel pass: the roll's blending for every action (anim/feel-pass; client only, not simulated, no protocol change) | Whole-body actions leave over 0.333 s: compare with SM1 by feel or video. Ours: The knife, jump-pack clips and the toss blend back to the locomotion… | ☐ |
+| `C-EDD79AFE` | Air slash follow-through on the upper body | Moving on after the slash's landing hands the legs to the run and fades the strike off the upper body over 0.333 s | The original's slash recovery (its run branch is at 0.639 s; ours frees at 0.3 s) | same | Air slash follow-through on the upper body: compare with SM1 by feel or video. Ours: Moving on after the slash's landing hands the legs to the run and… | ☐ |
+| `C-BA71AE85` | Air slash wind-up curve | The wind-up's time is a smooth curve over our 40 m/s dive, at the clip's rate at both ends | The original plays it at its own rate over a slower dive | same | Air slash wind-up curve: compare with SM1 by feel or video. Ours: The wind-up's time is a smooth curve over our 40 m/s dive, at the… | ☐ |
+| `C-E3DC45B3` | Clip restarts and stance fades | A clip started again fades in; stance cross-fades turn bones along one arc (slerp fold) | Havok's own blend maths | same | Clip restarts and stance fades: compare with SM1 by feel or video. Ours: A clip started again fades in; stance cross-fades turn bones along… | ☐ |
+| `C-85FCAF64` | Heavy bolter always ready | It never drops to the rifle's relaxed clips outside the sprint | That "no relaxed state" means always ready (interpretation) | same | Heavy bolter always ready: compare with SM1 by feel or video. Ours: It never drops to the rifle's relaxed clips outside the sprint. | ☐ |
+
 ### Not yet reproduced
 
 | ID | Missing | Note | Compare in a playtest | Result |
@@ -2385,4 +2424,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-A4CB19AF` | Protocol 41 | Display names: the bots' names (names/bot-lore; protocol 41) |
 | `R-0E87ED84` | Protocol 43 | Player collision (sim/player-collision; protocol 43, used by the simulation) |
 | `R-7B32DDE7` | Protocol 45 | Combat pass: the charge key, holstered reloads, headshots, directional melee, the ledge charge's fall (sim/combat-pass; protocol 45, used by the simulation) |
+| `R-1082D317` | Probe result (`feel/sweep1`, `--no-feel` / this build) | The feel pass: the roll's blending for every action (anim/feel-pass; client only, not simulated, no protocol change) |
 

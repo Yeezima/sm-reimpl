@@ -177,6 +177,8 @@ public partial class NetworkView
     {
         if (clip.StartsWith("SM_EVD_", StringComparison.OrdinalIgnoreCase)) return EvadeExitBlend;
         if (clip.StartsWith("SM_BUL_", StringComparison.OrdinalIgnoreCase) || clip.StartsWith("SM_TH_BUL_", StringComparison.OrdinalIgnoreCase) || clip.Contains("Bullrush2Idle", StringComparison.OrdinalIgnoreCase)) return EvadeExitBlend;
+        if (!CharacterViewer.NoFeel && IsReactionClip(clip)) return ReactionExitBlend;   // the owner's decision (2026-10-30): hit reactions leave snappier (NetworkView.Feel.cs)
+        if (!CharacterViewer.NoFeel && LeavesThroughNavConduit(clip)) return NavConduitBlend;   // anim/feel-pass (NetworkView.Feel.cs): the base graph's way back to the navigation
         if (clip.StartsWith("SM_MEL_", StringComparison.OrdinalIgnoreCase) || clip.StartsWith("SM_REC_", StringComparison.OrdinalIgnoreCase)) return ActionExitBlend;
         return 0f;
     }

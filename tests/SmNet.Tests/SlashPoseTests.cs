@@ -74,4 +74,32 @@ public class SlashPoseTests
         Assert.Equal(0f, SlashPose.DiveTime(0.2f, 0.25f, 0f));
         Assert.Equal(0.2f, SlashPose.ImpactTime(0.2f, 0f, Length));
     }
+
+    [Fact]
+    public void The_smooth_wind_up_starts_and_ends_at_the_clip_rate_and_never_steps()
+    {
+        // anim/feel-pass: a 0.2 s dive (the snappy 40 m/s slash from about 8 m) over the 0.4667 s wind-up.
+        const float dive = 0.2f, dt = 1f / 240f;
+        Assert.Equal(0f, SlashPose.SmoothDiveTime(0f, dive, Crop));
+        Assert.Equal(Crop, SlashPose.SmoothDiveTime(dive, dive, Crop), 4);   // at the expected landing: the wind-up's end
+        Assert.Equal(Crop, SlashPose.SmoothDiveTime(1f, dive, Crop));        // a longer dive holds it
+        float rateStart = SlashPose.SmoothDiveTime(dt, dive, Crop) / dt;
+        float rateEnd = (Crop - SlashPose.SmoothDiveTime(dive - dt, dive, Crop)) / dt;
+        Assert.InRange(rateStart, 0.95f, 1.1f);   // the clip's own rate at the dive's start (the flight pose's motion carries on) ...
+        Assert.InRange(rateEnd, 0.9f, 1.1f);      // ... and at the landing, where the strike goes on at the clip's rate
+        float last = 0f, lastRate = rateStart, maxRate = 0f, maxStep = 0f;
+        for (float t = dt; t <= dive; t += dt)
+        {
+            float x = SlashPose.SmoothDiveTime(t, dive, Crop), rate = (x - last) / dt;
+            Assert.True(x >= last - 1e-5f);   // never backwards
+            maxRate = MathF.Max(maxRate, rate); maxStep = MathF.Max(maxStep, MathF.Abs(rate - lastRate));
+            last = x; lastRate = rate;
+        }
+        Assert.True(maxRate <= 4f);      // at most MaxDiveRate in the middle
+        Assert.True(maxStep < 0.2f);     // the rate changes by small amounts from one 1/240 s step to the next (DiveTime stepped from 1 to 4 at once)
+        // A very short dive is fitted over a third of the wind-up (the rest is the landing's catch-up); no ground: the clip's rate.
+        Assert.True(SlashPose.SmoothDiveTime(0.05f, 0.05f, Crop) < Crop);
+        Assert.Equal(0.1f, SlashPose.SmoothDiveTime(0.1f, float.PositiveInfinity, Crop), 4);
+        Assert.Equal(0f, SlashPose.SmoothDiveTime(0.1f, dive, 0f));
+    }
 }

@@ -313,6 +313,9 @@ public partial class NetworkView : Node3D
                 RequestedPrimary = _requestedPrimary, RequestedPistol = _requestedPistol, RequestedMelee = _requestedMelee,
                 RequestedEquipment = _requestedEquipment, RequestedSide = RequestedSide,
                 SmoothRenderClock = !OldRenderClock,
+                // anim/feel-pass: a replay's Welcome comes at its recorded time, however long the recording's map load took (a demo recorded beside other loading clients waited
+                // more than the 10 s live timeout for it, and the replay gave up with NoAnswer); the live timeout stays for live connections.
+                ConnectTimeout = DemoPlayPath is not null ? TimeSpan.FromMinutes(10) : ConnectFailure.DefaultTimeout,
                 MeleeLock = !NoMeleeLock,   // feel/melee-lock (NetworkView.MeleeLock.cs)
                 Bot = _bot,   // protocol 37: the Hello marks a test bot (the server's --bot-damage-scale)
                 Observer = Observe,   // protocol 46: a spectator (NetworkView.Observer.cs)
@@ -1481,6 +1484,8 @@ public partial class NetworkView : Node3D
         if (EvadePose(state) is { } roll && character.Pose(roll.Clip, roll.Time, ClipBlends.Evade)) return;
         // Throwing: the toss clip at the throw's time (the simulation ends the throw at ThrowDuration, before the clip's end).
         if (throwTime is { } tt && _tossAnimation is not null && TossShown(state) && (HandoffThrow(character, state, own, _tossAnimation, tt) || character.Pose(_tossAnimation, tt, ClipBlends.Throw))) return;
+        // anim/feel-pass (NetworkView.Feel.cs): a slash whose marine moved on keeps its follow-through on the upper body over the strike's exit.
+        if (SlashHandoff(character, state, own)) return;
         // ... the landing and the pound's get-up lose to it.
         if (ShowJumpPose(character, JumpPose(state, airborneOnly: false))) return;
         // The heavy bolter's brace (fidelity gap 7, NetworkView.Brace.cs): the entry, the braced idle, the exit over the legs.
