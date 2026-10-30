@@ -123,6 +123,7 @@ from this repository's releases and starts Play, Host and Join. The zip's number
 - **Download:** resumable (`downloads\<zip>.part`, HTTP Range), retried with backoff (2, 4, 8, 16 s; it gives up after 5 failures in a row without a byte
   gained, keeping the part; no answer within 60 s or no data for 30 s counts as a failure), percent, MB, speed, time left and Cancel. Only api.github.com, github.com and *.githubusercontent.com over HTTPS, every
   redirect checked; no token, no telemetry, no port bound, no administrator rights.
+- **Dark look** (`SmLauncher/Theme.cs`): warm charcoal #302D2C background with a faint weave drawn as a tile with GDI+ at start-up (no image embedded), light text, flat buttons, amber links and focus, owner-drawn check box, radio button, progress bar and message box (`DarkBox`), and the dark title bar through DWMWA_USE_IMMERSIVE_DARK_MODE. Window screenshots: `--screenshot` with a temp `--root`.
 - **Old GPU / safe mode** (hotfix/old-gpu; checkbox under the buttons, saved as `safeMode` in `launcher-settings.json`; rules in `SmLauncher.Core/SafeModePolicy.cs`):
   Godot has no DirectX 9, so an old card (a GTX 960M laptop) runs Godot's Compatibility renderer (OpenGL 3.3). Ticked, PLAY and Join start the game with
   `--rendering-method gl_compatibility --rendering-driver opengl3` before `--` (PLAY passes it through `SM_ENGINE_ARGS`, which `2 - Play.cmd` already reads)
