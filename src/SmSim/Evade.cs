@@ -133,7 +133,7 @@ public sealed record EvadeSpec(string Name, EvadeMove Forward, EvadeMove Back, E
     public float HyperArmourTime => MathF.Max(TargetableModeTime, CollisionModeTime);
     /// <summary>
     /// Whether two stick directions at once roll diagonally (M22; 8 sectors, <see cref="Evade.DirectionOf(float, float, bool)"/>):
-    /// the Tactical roll yes, the heavy hop no (4 directions). From the user's knowledge of the original ("hold D and S and
+    /// the Tactical roll and the heavy hop yes (owner, 2026-10-31: the hop gets the roll's freedom of direction), the Ork's side-only hop no. From the user's knowledge of the original ("hold D and S and
     /// roll south-east"); the data have only the four clips. How a diagonal moves is an interpretation (<see cref="Evade"/>).
     /// </summary>
     public bool Diagonals { get; init; }

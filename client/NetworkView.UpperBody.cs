@@ -146,7 +146,7 @@ public partial class NetworkView
     void BeginSwitch(PlayerState s, LocoTrack t, bool own)
     {
         // sim/switch-cancel: a switch cancelled mid-way starts the new one from the weight the old one had reached (no pop to the bare pose).
-        float carried = t.Switch is not null ? SwitchWeight((float)(_connectedFor - t.SwitchAt), t.SwitchDuration, t.SwitchStartWeight) : 0f;
+        float carried = t.Switch is not null ? CharacterViewer.SmoothInverse(SwitchWeight((float)(_connectedFor - t.SwitchAt), t.SwitchDuration, t.SwitchStartWeight)) : 0f;   // the displayed (smoothed) weight, back to the pre-smooth start the new switch fades in from
         t.Switch = null;
         t.SwitchStartWeight = 0f;
         if (NoSwitchAnim || UpperData() is not { } data || _config is null || _config.WeaponSwitchTime <= 0.05f) return;

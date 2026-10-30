@@ -415,7 +415,7 @@ public static partial class Protocol
     // 47 (sim/combat-2; the owner's playtest round 2, 2026-10-30): no wire change, the rules change the simulation: jump-pack air control twice as strong,
     //     W no longer ends the bull rush, light reactions (interrupt, stagger) hold nobody, the bolt pistol's trigger ends a swing at once, a melee lunge steps on the
     //     press tick, no stick or button input during the match-start countdown, a roll keeps its travel off a ledge. Snapshot layout and sizes unchanged (worst case 1194)
-    public const ushort Version = 47;
+    public const ushort Version = 48;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>
