@@ -145,11 +145,19 @@ public static class Reaction
     /// then acts normally on the real input). <paramref name="jumpPress"/>, <paramref name="meleePress"/> and
     /// <paramref name="stick"/> are this tick's real input.
     /// </summary>
-    internal static (bool Active, PlayerState State) Begin(PlayerState s, SimConfig c, bool jumpPress, bool meleePress, bool stick)
+    internal static (bool Active, PlayerState State) Begin(PlayerState s, SimConfig c, bool jumpPress, bool meleePress, bool stick, bool anyInput = false)
     {
         if (s.Reaction == ReactionKind.None) return (false, s);
         if (ClipOf(s, c) is not { } clip) return (false, Cleared(s));
         float played = Time(s, c);
+        if (!Holds(s.Reaction))
+        {
+            // sim/combat-2 (item 36, the owner's decision of 2026-10-30): a light reaction (the interrupt, the stagger) plays its clip but holds nobody: the first tick with any
+            // input (the stick or any button) ends it and acts normally on that input; only the hit's knockback (a few ticks) runs before. Without input it runs on to its end.
+            float pushEnd = s.PushDistance > 0 ? s.PushTicks * c.TickSeconds : 0f;
+            if (played + Eps >= clip.EndAt || (anyInput && played + Eps >= pushEnd)) return (false, Cleared(s));
+            return (true, s with { ReactionTicks = Math.Min(s.ReactionTicks + 1, MaxTicks) });
+        }
         bool over = played + Eps >= clip.EndAt
             || (jumpPress && played + Eps >= EscapeAt(s, clip.EvadeAt, clip.EndAt, c))
             || (meleePress && played + Eps >= clip.MeleeAt)
@@ -157,6 +165,12 @@ public static class Reaction
         if (over) return (false, Cleared(s));
         return (true, s with { ReactionTicks = Math.Min(s.ReactionTicks + 1, MaxTicks) });
     }
+
+    /// <summary>
+    /// sim/combat-2 (item 36): whether a reaction of this kind holds the victim (nothing but turning until it ends: the stun); the light ones (the interrupt, the stagger)
+    /// only interrupt the action and play their clip (<see cref="Begin"/>). Which hits are light and which heavy is the data's (the hit tables pick the kind).
+    /// </summary>
+    public static bool Holds(ReactionKind kind) => kind == ReactionKind.Stun;
 
     /// <summary>
     /// feel/locks-sprint-stop: when a reaction's stick or Jump branch (<see cref="ReactionClip.RunAt"/>, <see cref="ReactionClip.EvadeAt"/>) opens:

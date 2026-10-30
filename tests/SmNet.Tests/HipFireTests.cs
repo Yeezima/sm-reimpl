@@ -137,7 +137,7 @@ public class HipFireTests(ITestOutputHelper output)
         for (uint t = 1; t <= 45; t++) s = Combat.StepSelf(s, new PlayerInput(t, 0, 1f, 0f, InputButtons.Sprint), c, out _);
         Assert.Equal(10f, Speed(s), 1e-3f);
         int clip = s.Clip;
-        s = Reaction.Start(s, c, new ReactionEntry(0f, ReactionKind.Interrupt), ReactionDirection.Front, Vector2.UnitY);
+        s = Reaction.Start(s, c, new ReactionEntry(0f, ReactionKind.Stun), ReactionDirection.Front, Vector2.UnitY);   // sim/combat-2: a stun holds (the light kinds do not)
         bool fired = false;
         uint tick = 46;
         for (int k = 0; k < 6 && s.Reaction != ReactionKind.None; k++, tick++)

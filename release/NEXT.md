@@ -49,3 +49,13 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The Assault and Raptor air slash: the swing no longer speeds up in jerks during the dive, and if you run off straight after landing the sword finishes its swing while your legs start running.
 - Other jump-pack players' air slashes no longer flick back to the start of the swing just after landing.
 - The Devastator keeps the heavy bolter raised while walking and standing (it only lowers it to sprint), so it no longer swings the gun's grip up and down between shots.
+- Assault and Raptor jump-pack flight: the movement keys steer you about twice as strongly in the air.
+- The charge is no longer cut short by holding W; it runs its whole animation. Pressing S, A or D alone still stops it.
+- Locking on to an enemy in melee now turns your character and your swing toward them, but no longer drags the camera: the camera stays under your mouse.
+- A light hit (a quick melee blow or a stagger) now only interrupts what you were doing and plays the stagger animation; you can move, jump, charge, strike, aim, roll or reload straight out of it. Heavy stuns still hold you.
+- Firing the bolt pistol now ends a melee swing at once and you can do anything next.
+- The step forward of melee swings and stun strikes now starts the instant you press the button.
+- Nobody can move or act during the countdown before a match; you can still look around, and you are free on the exact tick the timer ends.
+- Rolling off a ledge in mid-roll now keeps your sideways momentum while you start to fall.
+- Switching weapons during other actions keeps working with the short input buffer: press it a moment early and the switch happens as soon as the action allows; a reload in progress is not cancelled by it.
+- New network version again: everyone must update together.

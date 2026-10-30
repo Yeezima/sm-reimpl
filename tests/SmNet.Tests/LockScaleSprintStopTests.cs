@@ -232,8 +232,8 @@ public class LockScaleSprintStopTests(ITestOutputHelper output)
         Assert.Equal(8, First(n => Breaks(Feel, stun, n)));             // 0.233 s (the knockback's 0.2 s is over): 7 ticks
         Assert.Equal(10, First(n => Breaks(Feel, stun with { Duration = 0.3f }, n)));   // a 0.3 s knockback: not before its 9 ticks
         var clip = new ReactionClip("itrpt", 1f, 0.9f, 0.6f, 0.4f, 0.7f, 0.3f);
-        SimConfig Real(SimConfig c) => c with { Reactions = [new ReactionSpec(ReactionKind.Interrupt, false, clip, clip, clip, clip)] };
-        var interrupt = new ReactionEntry(0f, ReactionKind.Interrupt);
+        SimConfig Real(SimConfig c) => c with { Reactions = [new ReactionSpec(ReactionKind.Stun, false, clip, clip, clip, clip)] };   // sim/combat-2: a holding kind (a light one ends on any input)
+        var interrupt = new ReactionEntry(0f, ReactionKind.Stun);
         Assert.Equal(19, EndsOn(Real(Data), interrupt, InputButtons.None, 1f));   // BRANCH_Run 0.6 s: 18 ticks played
         Assert.Equal(14, EndsOn(Real(Feel), interrupt, InputButtons.None, 1f));   // 0.42 s: 13 ticks
         Assert.Equal(28, EndsOn(Real(Feel), interrupt, InputButtons.None, 0f));   // no keys: its end, 0.9 s
@@ -247,14 +247,16 @@ public class LockScaleSprintStopTests(ITestOutputHelper output)
     [Fact]
     public void The_bull_rushs_stick_and_Jump_branches_are_scaled_and_its_end_is_not()
     {
-        bool Ended(SimConfig c, RushPhase phase, int played, InputButtons b, float my)
+        bool Ended(SimConfig c, RushPhase phase, int played, InputButtons b, float my, float mx = 0f)
         {
             var s = Fresh(c) with { Rush = phase, RushTicks = played };
-            Step(ref s, c, b, my: my);
+            Step(ref s, c, b, mx, my);
             return s.Rush == RushPhase.None;
         }
         // The rush: MoveAt 0.6 (18 ticks), EvadeAt 0.5 (15), end 1.0.
-        Assert.Equal((18, 13), (First(n => Ended(Data, RushPhase.Rush, n, InputButtons.None, 1f)), First(n => Ended(Feel, RushPhase.Rush, n, InputButtons.None, 1f))));
+        // sim/combat-2 (item 31): W does not end the bull rush any more (it ran to the stick branch with W held); a sideways stick still does.
+        Assert.Equal((18, 13), (First(n => Ended(Data, RushPhase.Rush, n, InputButtons.None, 0f, 1f)), First(n => Ended(Feel, RushPhase.Rush, n, InputButtons.None, 0f, 1f))));
+        Assert.Equal((30, 30), (First(n => Ended(Data, RushPhase.Rush, n, InputButtons.None, 1f)), First(n => Ended(Feel, RushPhase.Rush, n, InputButtons.None, 1f))));
         Assert.Equal((15, 11), (First(n => Ended(Data, RushPhase.Rush, n, InputButtons.Jump, 0f)), First(n => Ended(Feel, RushPhase.Rush, n, InputButtons.Jump, 0f))));
         Assert.Equal((30, 30), (First(n => Ended(Data, RushPhase.Rush, n, InputButtons.None, 0f)), First(n => Ended(Feel, RushPhase.Rush, n, InputButtons.None, 0f))));
         // The collision stop: MoveAt 0.9 (27), EvadeAt 0.6 (18).
@@ -404,7 +406,7 @@ public class LockScaleSprintStopTests(ITestOutputHelper output)
         Assert.Equal(stopping, back.Players[0]);
         Assert.Equal(Protocol.Slim(other), back.Players[1]);
         Assert.True(back.Players[1].SprintStop);
-        Assert.Equal(46, Protocol.Version);
+        Assert.Equal(47, Protocol.Version);
         // The slim record: melee byte [^30], time [^29..^26] (as in ReactionTests).
         var slim = Protocol.Write(new Snapshot(9, 1, 1, [other]));
         Assert.Equal(64, slim[^30]);

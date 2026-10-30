@@ -74,7 +74,7 @@ public class MatchFlowTests
     }
 
     [Fact]
-    public void Everyone_stands_at_a_spawn_point_when_the_countdown_starts_and_may_move_and_look_but_not_attack()
+    public void Everyone_stands_at_a_spawn_point_when_the_countdown_starts_and_may_look_but_not_move_or_act()
     {
         var w = Arena(both: false);
         for (int k = 0; k < 30; k++) w.Step(Only1(InputButtons.None, 1f));    // warm-up: player 1 walks away from its spawn
@@ -83,10 +83,12 @@ public class MatchFlowTests
         w.Step(Only1(InputButtons.None));
         Assert.Equal(MatchState.Countdown, w.State);
         Assert.Equal([new Vector3(0, 0, 0), new Vector3(0, 5, 0)], w.Players.Values.Select(p => p.Position).Order(Comparer<Vector3>.Create((a, b) => a.Y.CompareTo(b.Y))));   // one on each spawn point
-        // Moving and looking work.
+        // sim/combat-2 (item 42, owner's decision 2026-10-30): no movement and no actions (before: moving and looking worked, only the attack buttons were dropped);
+        // the view (yaw, pitch) is not part of the frozen input.
         float y = w.Players[1].Position.Y;
-        for (int k = 0; k < 10; k++) w.Step(Only1(InputButtons.None, 1f));
-        Assert.True(w.Players[1].Position.Y > y + 0.5f);
+        for (int k = 0; k < 10; k++) w.Step(Only1(InputButtons.Jump | InputButtons.Sprint, 1f));
+        Assert.Equal(y, w.Players[1].Position.Y, 3);
+        Assert.True(w.Players[1].Grounded);
         // Attacks do nothing: no shot, no hit, no ammunition spent, no melee, no grenade.
         int clip = w.Players[1].Clip;
         for (int k = 0; k < 8; k++)
@@ -97,6 +99,19 @@ public class MatchFlowTests
         }
         Assert.Equal(MatchState.Countdown, w.State);
         Assert.Equal((clip, 1000f), (w.Players[1].Clip, w.Players[2].Health));
+    }
+
+    [Fact]
+    public void The_freeze_ends_on_the_tick_play_begins_and_movement_works_again_then()
+    {
+        var w = Arena();
+        var steps = 0;
+        float y = 0;
+        while (w.State != MatchState.Playing) { w.Step(Only1(InputButtons.None, 1f)); steps++; Assert.True(steps < 400); if (w.State == MatchState.Countdown) y = w.Players[1].Position.Y; }
+        // The step that ended the countdown was the last locked one (MatchFlowWire.Locks: play begins at the end of it): nobody has moved yet; the next step is the first free one.
+        Assert.Equal(y, w.Players[1].Position.Y, 3);
+        for (int k = 0; k < 5; k++) w.Step(Only1(InputButtons.None, 1f));
+        Assert.True(w.Players[1].Position.Y > y + 0.1f);
     }
 
     [Fact]
@@ -259,19 +274,18 @@ public class MatchFlowTests
     }
 
     [Fact]
-    public void The_shared_lock_drops_exactly_the_attack_buttons()
+    public void The_shared_lock_drops_the_stick_and_every_button()
     {
         var all = (InputButtons)0xFFFF;
         var locked = MatchFlow.Locked(new PlayerInput(5, 0.5f, 1f, 1f, all));
-        Assert.Equal(InputButtons.None, locked.Buttons & MatchFlow.LockedDuringCountdown);
-        Assert.Equal(all & ~MatchFlow.LockedDuringCountdown, locked.Buttons);
-        Assert.True(locked.Buttons.HasFlag(InputButtons.Jump) && locked.Buttons.HasFlag(InputButtons.Sprint) && locked.Buttons.HasFlag(InputButtons.Aim));
-        Assert.Equal((5u, 0.5f, 1f, 1f), (locked.Tick, locked.MoveX, locked.MoveY, locked.Yaw));
+        // sim/combat-2 (item 42): the stick and every button are dropped; the tick and the view stay.
+        Assert.Equal(InputButtons.None, locked.Buttons);
+        Assert.Equal((5u, 0f, 0f, 1f), (locked.Tick, locked.MoveX, locked.MoveY, locked.Yaw));
         // Only a running countdown changes a client's input, and only the ticks inside it (protocol 25): a snapshot of tick 100 that says
         // 20 ticks to go locks the server's steps 101..120; step 121 is the first of play.
         var countdown = new MatchView(MatchState.Warmup, Team.None, 20, 0, 0);
         PlayerInput Press(uint tick) => new(tick, 0, 0, 0, InputButtons.Fire | InputButtons.Jump);
-        foreach (uint tick in new uint[] { 101, 110, 120 }) Assert.Equal(InputButtons.Jump, countdown.Predicted(100, Press(tick)).Buttons);
+        foreach (uint tick in new uint[] { 101, 110, 120 }) Assert.Equal(InputButtons.None, countdown.Predicted(100, Press(tick)).Buttons);
         foreach (uint tick in new uint[] { 99, 100, 121, 140 }) Assert.Equal(Press(tick), countdown.Predicted(100, Press(tick)));
         Assert.False(new MatchView(MatchState.Playing, Team.None, 20, 0, 0).Locks(100, 105));
         Assert.False(new MatchView(MatchState.Warmup, Team.None, 0, 0, 0).Locks(100, 105));

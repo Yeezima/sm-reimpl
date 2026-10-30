@@ -425,6 +425,20 @@ slash's values and clips but not these engine rules, so these are ours:
 | Directional melee | The stick's way of eight at the melee press, relative to the view, sets the strike's facing (S turns round and strikes behind); the body turns at once | The original's turn animation and speed (ours: instant; the client draws the new facing) | same |
 | Ledge charge: fall pose after 0.3 s in the air | A charge held in the air keeps its clip until the body has been off the ground 0.3 s, then the fall pose | The delay (0.3 s, an estimate; owner to confirm); the original's exact animation | same |
 
+### Combat 2 (sim/combat-2; protocol 47)
+
+| Rule | What we do | What is unknown | Spec section |
+|---|---|---|---|
+| Stronger jump-pack air control | The stick steers the flight twice as hard: top speed 16 m/s (14.4 with the slower movement) and acceleration 30 m/s² (the owner's "about twice") | The original's air control is not in the data; the factor is the owner's recollection | "Combat 2" |
+| W does not end the charge | The charge runs its clip with W held (1.19 s); S, A or D alone still end it from its branch | How far the original's charge went; the effect on its reach is unmeasured | same |
+| The lock-on turns the model, not the camera | The camera assist is removed; the body's heading and the attack turn to the target | The original's exact alignment | same |
+| Light reactions hold nobody | The interrupt and the stagger play their clip but any input ends them at once (after the 3 to 4 tick knockback); the stun keeps the full hold | Which of the original's reactions were "light"; the split by kind is ours | same |
+| The bolt pistol cancels a swing | A trigger press with the pistol slot in hand ends the swing in that tick and fires | Whether the original also cancelled with the primary weapon | same |
+| The lunge starts on the press tick | The body's step runs one tick ahead of the swing's clock | The original's lunge timing | same |
+| The countdown freezes movement and actions | The stick and all buttons are dropped until the countdown ends; the view stays free | How the original froze the players | same |
+| A roll off a ledge keeps its travel | The roll's horizontal motion goes on through the fall (replaces protocol 30's stop) | The original's exact fall | same |
+| Buffered weapon switches | The existing 0.3 s buffer holds a switch press through other actions; a reload is never cancelled by a switch | The window (0.3 s, an estimate) | same |
+
 ### The feel pass (anim/feel-pass; client only)
 
 | Rule | What we do | What is unknown | Spec section |

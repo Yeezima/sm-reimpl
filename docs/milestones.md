@@ -830,3 +830,11 @@ fades in; stance cross-fades fold layers by slerp (one arc per bone); the heavy 
 `--transition-probe` / `--anim-probe` (`--no-feel` for the before): flight to slash jerk median 107 to 82, p90 227 to 125 cm/f2; worst switch 227 to 198; the Devastator's lowerings 7 to 3;
 bone turns above 45 degrees a frame 240 to 205. The run's bob is the data's (15 cm in the run, the clip 18; nothing added). Probe additions: bob lines, aim / ready labels; a replay waits
 10 minutes for its Welcome. Spec "The feel pass: the roll's blending for every action"; `SlashPoseTests`.
+
+### sim/combat-2: the owner's playtest round 2, combat items (protocol 47, 2026-10-30)
+Items 28, 31, 32, 36, 37, 39, 42, 43 and 50 of `playtest-notes-2026-10-30.md`, round 2 (rules and values: spec "Combat 2"). The jump pack's air control doubled (16 m/s, 30 m/s²);
+W no longer ends the bull rush (`stickEnds` in `Combat.StepPlayerCore`); the melee lock's camera assist is gone (client); the interrupt and the stagger are light reactions that any
+input ends (`Reaction.Holds`: only the stun holds); a pistol-slot trigger press ends a swing at once; the melee root motion runs a tick ahead of the clock, so the press tick steps; the
+countdown drops the stick and every button; a roll keeps its horizontal travel off a ledge (protocol 30's stop removed); the switch buffer needed no change beyond the light reactions
+(a reload never blocks a switch). Tests that pinned the old timings were updated (melee lock windows one tick earlier, the rush ended by D instead of W, the stun used where a
+hold was meant). Protocol 47 (no layout change, snapshot worst case 1194). `NavJumps.SimulationVersion` 9.

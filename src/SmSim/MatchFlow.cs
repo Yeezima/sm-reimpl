@@ -5,8 +5,8 @@ public enum MatchResult { Victory, Defeat, Draw }
 
 /// <summary>
 /// The rules of the match start that client and server share (match flow, ours; spec/behavior.md "Match flow"). While
-/// <see cref="MatchState.Countdown"/> runs everyone stands at a spawn point and may move and look but not attack: the attack
-/// buttons are dropped from the input before the step, on the server and in the client's prediction alike (so the prediction
+/// <see cref="MatchState.Countdown"/> runs everyone stands at a spawn point and may look but not move or act (sim/combat-2; before: move and look but not attack): the stick and the buttons
+/// are dropped from the input before the step, on the server and in the client's prediction alike (so the prediction
 /// does not spend ammunition the server never sees).
 /// </summary>
 public static class MatchFlow
@@ -14,8 +14,8 @@ public static class MatchFlow
     /// <summary>Buttons that do nothing during the countdown: the trigger, both melee strikes (which carry the charge) and the grenade.</summary>
     public const InputButtons LockedDuringCountdown = InputButtons.Fire | InputButtons.Melee | InputButtons.MeleeHeavy | InputButtons.Grenade;
 
-    /// <summary>The input without its attack buttons.</summary>
-    public static PlayerInput Locked(PlayerInput input) => input with { Buttons = input.Buttons & ~LockedDuringCountdown };
+    /// <summary>The input as the countdown lets it act: the stick and every button dropped (sim/combat-2: before, only <see cref="LockedDuringCountdown"/>); only the view stays.</summary>
+    public static PlayerInput Locked(PlayerInput input) => input with { MoveX = 0f, MoveY = 0f, Buttons = InputButtons.None };   // sim/combat-2 (item 42): no movement and no buttons at all; the view (yaw, pitch) stays free
 
     /// <summary>How a match that ended with <paramref name="winner"/> went for a player of <paramref name="own"/>: a draw, else victory for the winner's side (and for a viewer without a side), defeat for the other.</summary>
     public static MatchResult ResultFor(Team own, Team winner) =>

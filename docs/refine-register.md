@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1695 spec table rows: **1154 tagged**, 392 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 339 rows of the changes document.
+Scanned 1705 spec table rows: **1161 tagged**, 395 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 348 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -37,7 +37,7 @@ Scanned 1695 spec table rows: **1154 tagged**, 392 not tagged (read from data wi
 | Weapons (critical) | 110 | 63 | 97 | 50 | 3 |
 | Melee (critical) | 61 | 48 | 57 | 10 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
-| Charge (critical) | 19 | 13 | 14 | 12 | 0 |
+| Charge (critical) | 26 | 19 | 21 | 12 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 26 | 25 | 15 | 18 | 0 |
 | HUD and hit feedback (critical) | 48 | 44 | 40 | 9 | 0 |
@@ -53,18 +53,18 @@ Scanned 1695 spec table rows: **1154 tagged**, 392 not tagged (read from data wi
 | Core simulation (provisional values) | 81 | 73 | 66 | 6 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1154** | 952 | 917 | 374 | 38 |
+| **All areas** | **1161** | 958 | 924 | 374 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 427 |
-| confidence: medium | 409 |
-| confidence: low | 394 |
+| kind: ours | 433 |
+| confidence: medium | 410 |
+| confidence: low | 399 |
 | kind: interpretation | 317 |
 | notes: ours | 279 |
-| confidence: none (low) | 114 |
+| confidence: none (low) | 115 |
 | kind: provisional | 98 |
 | section: provisional | 38 |
 | kind: estimate | 37 |
@@ -893,7 +893,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-540B3991` | Jump pack: flight wobble | The jump state's `Noise` blend plays `SM_JMP_Blend_90_Pos_Fast` (1 s, looping). Taken as the offset from its own first pose, laid over the flight pose in slot `Wobble` at weight 1 (ours: the graph's blend weight is not read), from the end of the take-off… (s) | kind: interpretation; confidence: low; notes: ours | graph (the clip); the offset form and the weight are ours | Jump pack: flight wobble: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The jump state's Noise blend plays SM_JMP_Blend_90_Pos_Fast (1 s… | ☐ |
 | `R-CD9FB0C1` | Jump pack: actions in flight | In the flight view the recoil of a shot, the reload and the grenade toss are laid over the flight pose as over the locomotion (the toss over the upper-body mask, the others as before); before, the flight pose returned before them and a marine that fired in… | kind: interpretation; confidence: low; notes: ours | the jump graph (`MP_SM_NAV_JP_Sim`) is the navigation layer; the base graph's upper-body actions are separate layers that are not tied to the navigation state… | Jump pack: actions in flight: compare with SM1 by feel or video. Ours: In the flight view the recoil of a shot, the reload and the grenade… | ☐ |
 
-### Charge (gameplay-critical) (19)
+### Charge (gameplay-critical) (26)
 
 *Spec section: The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21)*
 
@@ -923,6 +923,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-A7C7F436` | Directional melee | the stick's way of eight (`Evade.DirectionOf`, dead zone 0.1: W, W + D, D, S + D, S, S + A, A, W + A; no stick = forward) at the tick a melee attack begins sets the facing it is struck in, relative to the view: forward 0, A / D 90 degrees, S 180, the… (degrees) | notes: estimate | the owner's decision (2026-10-30): "the WASD direction held at the melee press sets the attack direction relative to the camera; S = turn and strike backwards… | Directional melee: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the stick's way of eight (Evade.DirectionOf, dead zone 0.1: W, W + D… | ☐ |
 | `R-1C9E1EF7` | Directional melee: with a lock | the lock search already went along the stick (`MeleeLock.SearchDirection`); a lock the start's cone accepts still turns the body to the stick's continuous direction and then eases to the target | kind: ours; confidence: medium | unchanged (feel/melee-lock) | Directional melee: with a lock: compare with SM1 by feel or video. Ours: the lock search already went along the stick… | ☐ |
 | `R-7D6B3276` | Ledge charge: the fall pose | a charge held in the air (`Rush.Held`) keeps its own clip, frozen at the pose it left the ground in, until the body has been off the ground **0.3 s** during the charge, then shows the fall pose (`FallRules.ChargeFallDelay`, `ChargeShowsFall`); before it… (s) | confidence: low; notes: estimate | the owner's decision (2026-10-30): "the falling animation should start about 1 s into the ledge charge (currently it never plays)" | Ledge charge: the fall pose: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a charge held in the air (Rush.Held) keeps its own clip, frozen at… | ☐ |
+
+*Spec section: Combat 2: air control, the charge and W, light reactions, the pistol cancel, the lunge's first tick, the countdown freeze, the roll off a ledge, switch buffering (sim/combat-2; protocol 47, used by the simulation)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-F97E1693` | Air control: strength (item 28) | the jump pack's air control (spec "Jump-pack feel") doubled: top speed 8 → **16** m/s and acceleration 15 → **30** m/s² (× 0.9 with the slower movement: 14.4 m/s, 27 m/s²); the same time to the top speed (about 0.53 s). Measured on the synthetic pack: 10… (m/s, m/s²) | kind: ours; confidence: low | the owner, 2026-10-30: WASD in the air "about twice as strong" (too restricted); the factor 2 is his "about" | Air control: strength (item 28): compare with SM1 by timing a run over a known distance. Ours: the jump pack's air control (spec "Jump-pack feel") doubled: top… | ☐ |
+| `R-E564D350` | The charge and W (item 31) | W (the stick's forward part ≥ 0.7, as the start gate) does not end the bull rush; before, the stick ended it at its stick branch (0.667 s × 0.7 = 0.467 s) with W still held, which is always the case after a W + F start, so the charge was cut there. A sideways… (s) | confidence: low | the owner, 2026-10-30: "the charge animation must not be cancelled by pressing W" | The charge and W (item 31): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: W (the stick's forward part ≥ 0.7, as the start gate) does not end… | ☐ |
+| `R-31D01614` | Light reactions hold nobody (item 36) | the interrupt (`reaction_mp_melee`, the light attacks) and the stagger (`reaction_mp_stagger`) interrupt what the victim was doing (the swing, reload, throw, charge, aim: as before, `Reaction.Start`) and play their clip, but the victim acts out of them: the… (s) | kind: ours; confidence: low | the owner, 2026-10-30: "light stagger must not be a full stun"; which kinds are light: ours (interrupt and stagger light, stun full) | Light reactions hold nobody (item 36): compare with SM1 by watching the reaction and timing it frame by frame. Ours: the interrupt (reaction_mp_melee, the light attacks) and the stagger… | ☐ |
+| `R-BAA2B0E6` | Pistol cancel (item 37) | with the pistol slot in hand, a trigger press (a charge weapon's press too) ends a melee swing in that tick, before the swing's own fire branch (`RangedAt`), and the shot leaves that tick; the player is free for any new action on the next tick (no hit lands… | kind: ours; confidence: medium | the owner, 2026-10-30: "firing the bolt pistol immediately ends any melee animation" | Pistol cancel (item 37): compare with SM1 by feel or video. Ours: with the pistol slot in hand, a trigger press (a charge weapon's… | ☐ |
+| `R-6E03ABE8` | The lunge starts on the press tick (item 39) | the body's root motion and alignment of a melee swing or a stun strike run one tick ahead of the attack's clock: the press tick already steps the clip's (0, 1/30 s], each later tick the clip's next tick; the attack's own clock, hit time, combo and move-on… (s) | kind: ours; confidence: low | the owner, 2026-10-30: "the step forward starts the instant the button is pressed"; one tick is the smallest change that makes the press tick move (ours) | The lunge starts on the press tick (item 39): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the body's root motion and alignment of a melee swing or a stun… | ☐ |
+| `R-B26B756D` | Weapon switch buffering (item 50) | the existing input buffer (0.3 s, an estimate, shared by every buffered action) already keeps a switch press (1/2/3, the cycle, the wheel) through a melee swing, a throw, a roll, a charge, a jump-pack phase, a brace transition, a raise and the stun; with item… (s) | kind: ours; confidence: low | the owner, 2026-10-30 (item 50); the window: ours | Weapon switch buffering (item 50): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the existing input buffer (0.3 s, an estimate, shared by every… | ☐ |
+| `R-B749CC15` | Not changed | the stun's branch times and lock scale; the interrupt's and stagger's clips and knockback; the charge's hyper armour; the start gate; hit-stop and shakes (off); the camera of the third person view (another branch) | kind: ours; confidence: none (low) | ours (scope note) | Not changed: compare with SM1 by feel or video. Ours: the stun's branch times and lock scale; the interrupt's and stagger's… | ☐ |
 
 ### Reactions (gameplay-critical) (15)
 
@@ -2221,6 +2233,20 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-B5033D56` | Headshot bonus | Already the data's: head multipliers per weapon (bolt pistol 2.5, bolters 2.55, sniper 2, lascannon 2.25) and the armour's own head multipliers; the bolt pistol kills a full marine with depleted armour in one headshot (40 x 2.5 = 100) | The head body's exact shape (Havok data not decoded; our head sphere / volumes) | same | Headshot bonus: compare with SM1 by feel or video. Ours: Already the data's: head multipliers per weapon (bolt pistol 2.5… | ☐ |
 | `C-53D79AD5` | Directional melee | The stick's way of eight at the melee press, relative to the view, sets the strike's facing (S turns round and strikes behind); the body turns at once | The original's turn animation and speed (ours: instant; the client draws the new facing) | same | Directional melee: compare with SM1 by feel or video. Ours: The stick's way of eight at the melee press, relative to the view… | ☐ |
 | `C-FEDFA9DF` | Ledge charge: fall pose after 0.3 s in the air | A charge held in the air keeps its clip until the body has been off the ground 0.3 s, then the fall pose | The delay (0.3 s, an estimate; owner to confirm); the original's exact animation | same | Ledge charge: fall pose after 0.3 s in the air: compare with SM1 by timing a run over a known distance. Ours: A charge held in the air keeps its clip until the body has been off… | ☐ |
+
+#### Combat 2 (sim/combat-2; protocol 47)
+
+| ID | Rule | What we do | What is unknown | Spec section | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-8467D7B6` | Stronger jump-pack air control | The stick steers the flight twice as hard: top speed 16 m/s (14.4 with the slower movement) and acceleration 30 m/s² (the owner's "about twice") | The original's air control is not in the data; the factor is the owner's recollection | "Combat 2" | Stronger jump-pack air control: compare with SM1 by feel or video. Ours: The stick steers the flight twice as hard: top speed 16 m/s (14.4… | ☐ |
+| `C-23F54C57` | W does not end the charge | The charge runs its clip with W held (1.19 s); S, A or D alone still end it from its branch | How far the original's charge went; the effect on its reach is unmeasured | same | W does not end the charge: compare with SM1 by feel or video. Ours: The charge runs its clip with W held (1.19 s); S, A or D alone still… | ☐ |
+| `C-05E7B7E0` | The lock-on turns the model, not the camera | The camera assist is removed; the body's heading and the attack turn to the target | The original's exact alignment | same | The lock-on turns the model, not the camera: compare with SM1 with an overlaid screenshot taken from the same position. Ours: The camera assist is removed; the body's heading and the attack turn… | ☐ |
+| `C-5A66F715` | Light reactions hold nobody | The interrupt and the stagger play their clip but any input ends them at once (after the 3 to 4 tick knockback); the stun keeps the full hold | Which of the original's reactions were "light"; the split by kind is ours | same | Light reactions hold nobody: compare with SM1 by watching the reaction and timing it frame by frame. Ours: The interrupt and the stagger play their clip but any input ends them… | ☐ |
+| `C-18E324E3` | The bolt pistol cancels a swing | A trigger press with the pistol slot in hand ends the swing in that tick and fires | Whether the original also cancelled with the primary weapon | same | The bolt pistol cancels a swing: compare with SM1 by feel or video. Ours: A trigger press with the pistol slot in hand ends the swing in that… | ☐ |
+| `C-39EBB7AE` | The lunge starts on the press tick | The body's step runs one tick ahead of the swing's clock | The original's lunge timing | same | The lunge starts on the press tick: compare with SM1 by feel or video. Ours: The body's step runs one tick ahead of the swing's clock. | ☐ |
+| `C-251939FD` | The countdown freezes movement and actions | The stick and all buttons are dropped until the countdown ends; the view stays free | How the original froze the players | same | The countdown freezes movement and actions: compare with SM1 by timing a run over a known distance. Ours: The stick and all buttons are dropped until the countdown ends; the… | ☐ |
+| `C-FC033CCC` | A roll off a ledge keeps its travel | The roll's horizontal motion goes on through the fall (replaces protocol 30's stop) | The original's exact fall | same | A roll off a ledge keeps its travel: compare with SM1 by feel or video. Ours: The roll's horizontal motion goes on through the fall (replaces… | ☐ |
+| `C-FC75D578` | Buffered weapon switches | The existing 0.3 s buffer holds a switch press through other actions; a reload is never cancelled by a switch | The window (0.3 s, an estimate) | same | Buffered weapon switches: compare with SM1 by feel or video. Ours: The existing 0.3 s buffer holds a switch press through other actions… | ☐ |
 
 #### The feel pass (anim/feel-pass; client only)
 
