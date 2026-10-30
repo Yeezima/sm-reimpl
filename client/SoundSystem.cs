@@ -256,6 +256,7 @@ public partial class SoundSystem : Node
         var play = _catalog.Post(eventName, emitter.Switches, emitter.Id);
         var (p, v) = ByEvent.GetValueOrDefault(eventName);
         ByEvent[eventName] = (p + 1, v + play.Voices.Count);
+        if (NetworkView.LogSoundKinds.Contains("post")) GD.Print($"POST {eventName} label '{emitter.Label}' at {emitter.Current.X:F1},{emitter.Current.Y:F1},{emitter.Current.Z:F1} found {play.Found} voices {play.Voices.Count}");   // --log-sound post (map-silence test aid)
         if (!play.Found) { Misses[eventName] = Misses.GetValueOrDefault(eventName) + 1; return play; }
         if (once) play.Repeats.Clear();   // BR-03: a trigger-rate container asks to be continued for ever; a one-shot post plays its first pick only
         Schedule(play, emitter, extraDelay, eventName, footstep, offset);
