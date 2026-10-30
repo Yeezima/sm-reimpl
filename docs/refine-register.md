@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1740 spec table rows: **1188 tagged**, 403 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 361 rows of the changes document.
+Scanned 1742 spec table rows: **1190 tagged**, 403 not tagged (read from data with high confidence), 149 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 362 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 1740 spec table rows: **1188 tagged**, 403 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 95 | 84 | 80 | 8 | 1 |
+| Core simulation (provisional values) | 97 | 85 | 82 | 9 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1188** | 978 | 947 | 378 | 38 |
+| **All areas** | **1190** | 979 | 949 | 379 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 445 |
-| confidence: medium | 424 |
-| confidence: low | 408 |
+| kind: ours | 446 |
+| confidence: medium | 425 |
+| confidence: low | 409 |
 | kind: interpretation | 319 |
 | notes: ours | 279 |
 | confidence: none (low) | 115 |
@@ -74,7 +74,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: choice | 28 |
 | kind: approximation | 23 |
 | kind: placeholder | 22 |
-| notes: user's knowledge | 19 |
+| notes: user's knowledge | 20 |
 | notes: placeholder | 17 |
 | kind: gap (not reproduced) | 15 |
 | notes: interpretation | 14 |
@@ -1585,7 +1585,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (95)
+### Core simulation (provisional values) (97)
 
 *Spec section: Provisional values in use*
 
@@ -1741,6 +1741,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-21376237` | Scope zoom cycle | press the right stick (R3) while aiming: steps through the weapon's `zoom_levels` (`WeaponCamera.ZoomFovs`: the stalker bolter and the lascannon have a level 1 and more; a weapon with one level does nothing). The level resets when aim ends. Client only: the… (stick click) | confidence: medium; notes: user's knowledge | locale 122097 "Camera (Press - Lascannon Zoom)"; owner's recollection (R3); the tutorial strings 105867 and 111535 say [L3] | Scope zoom cycle: compare with SM1 by feel or video. Ours: press the right stick (R3) while aiming: steps through the weapon's… | ☐ |
 | `R-354554D8` | Game menu | Start: opens the Esc menu (loadout, resume, leave); inside the customizer Start saves (already so before this feature) and B goes back (button) | confidence: medium; notes: user's knowledge | owner's recollection | Game menu: compare with SM1 by feel or video. Ours: Start: opens the Esc menu (loadout, resume, leave); inside the… | ☐ |
 | `R-4939B80B` | Device rule | a controller that connects becomes the scheme at once; a disconnect, a key, a click or a mouse movement (3 px at once, or 6 px in small steps) swaps back; a pad button or a stick or trigger past 0.5 swaps to the pad; last used wins; no restart; the menu… | kind: ours; confidence: medium | the owner's request | Device rule: compare with SM1 by feel or video. Ours: a controller that connects becomes the scheme at once; a disconnect… | ☐ |
+
+*Spec section: Switch cancel (sim/switch-cancel; no protocol change, protocol 47; used by the simulation and the client's prediction)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-4D303E08` | A switch can be cancelled by a new switch | while a switch (the old weapon lowering, the new one raising) is playing, a switch request (keys 1/2/3, the cycle, the wheel, the D-pad) takes effect at once: the requested weapon is put in hand and the full switch time starts over, so firing and reloading… (s (the switch time, placeholder × 0.8)) | confidence: medium; notes: user's knowledge | the owner's recollection, 2026-10-31: "while the switching weapon animation is playing you should be able to switch weapons again instantly and cancel the… | A switch can be cancelled by a new switch: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while a switch (the old weapon lowering, the new one raising) is… | ☐ |
+| `R-BDAA0553` | The switch animation restarts without a pop | the client starts the new switch clip pieces from the layer weight the cancelled one had reached (fading in from there over the same 0.1 s smooth curve) (s) | kind: ours; confidence: low | ours | The switch animation restarts without a pop: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the client starts the new switch clip pieces from the layer weight… | ☐ |
 
 ### General game design (7)
 
@@ -1949,6 +1956,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-2B2F6A40` | Jump-pack air control (feel/jump-pack) | `in_air_move_gain` 0.02 / `in_air_drift_gain` 0.01 (our reading: the gap to stick x 16 m/s closed 2% a tick: about 4.4 m/s after 0.5 s) | With the stick pushed the flight steers toward stick x max(8 m/s, its speed) at 15 m/s² in the view's frame, diagonals at the same speed, no height gained, never faster than max(8 m/s, the speed before); released, the data's drift | Owner's request 2026-10-29 ("should be able to somewhat move around in the air with WASD and combinations such as WA, SD"); the values ours; spec "Jump-pack feel" | Jump-pack air control (feel/jump-pack): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-154966C9` | Input buffering (feel/buffer-speed) | No buffering in the data beyond the melee combo window (our reading: a press during another action or recovery is lost) | A press of Jump, melee, heavy melee, Grenade, Switch / slot key or Reload that a running action or recovery blocks is kept and acts on the first tick it is allowed: for 0.3 s after the press, and for Jump and melee longer while the button stays held (letting go after 0.3 s cancels it; not during a hit reaction, not… | Owner's request 2026-10-29 ("when approaching the end of any animation the player should be able to buffer the next inputs"); the rules and the 0.3 s ours; spec "Input buffering and slower movement" | Input buffering (feel/buffer-speed): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-7234F6AC` | Slower movement (feel/buffer-speed) | The data's speeds: run 6.5, strafe 6, back 4.5, sprint 10 m/s (acceleration cap 100), jump-pack `jump_forward_speed` 16, the dash's and heavy hop's root motion | Every ground speed (and the acceleration cap), the jump pack's horizontal flight (forward speed and air control's 8 m/s and 15 m/s²), the jump-pack dash's and the Devastator / Havoc hop's travel × 0.9 (run 5.85, sprint 9 m/s); heights and times unchanged; the charge, the dash attack, the slash, the pound's dive, melee… | Owner's request 2026-10-29 ("slow movement including flying and jumping hopping speed by a small degree ... Don't change charge or lunge attack speed"); the factor 0.9 ours, the roll left alone ours (not named); spec "Input buffering and slower movement" | Slower movement (feel/buffer-speed): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-D9F3594C` | Switch cancel (sim/switch-cancel, owner 2026-10-31) | Not in the data (the switch is a fixed time; the original's handling of a press during it is unknown) | Owner's recollection: a switch request during a switch cancels it at once and equips the requested weapon; ours: the full switch time starts over each time (no time saved on a switch back), and the animation fades in from the cancelled one's weight | Owner recollection; the time is a safe reading | Switch cancel (sim/switch-cancel, owner 2026-10-31): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-34804946` | Three jumps by the hold (feel/jump-pack-2) | The data maps the hold continuously to the apex (0.1 s 4 m to 0.4 s 18 m); M45 cut the rise on release (the owner's earlier knowledge) | A tap (let go by 0.167 s) is the dash, a medium hold (to 0.4 s) the small jump with one apex (7.7 m: the hold at 0.167 s), a long hold (0.4 s or more) the full jump (17.5 m); a medium release in the ascent decelerates the rise to that apex; a small jump costs 35, the full one 55; M45's cut off; a Jump press the input… | Owner's decision 2026-10-29 ("revert to the old jump behavior. space bar tap makes a hop dash, space bar medium hold makes a small jump, and space bar long hold is a full jump"); the fixed apex and the cut's shape ours; spec "The three jumps, the dash attack's walls and the air slash's swing" | Three jumps by the hold (feel/jump-pack-2): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-119588AB` | Dash attack meets walls (feel/jump-pack-2) | The lunge's wall test starts at its `WallCollisionTest` (0.300 s) and takes walls within the sprint's 25 degrees of head-on: earlier walls block, glancing ones are slid along | Walls stop the lunge from its first tick and within 60 degrees of head-on, into the data's wall state (`SM_NAV_Bullrush2Idle_F_Collision_01`, the bull rush's connect clip); ours: a small camera knock | Owner's request 2026-10-29 ("he should collide with walls and play the same 'impact ricochet' animation"); the 60 degrees ours; spec as above | Dash attack meets walls (feel/jump-pack-2): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-D6A92489` | Shorter landing and dash-attack locks (feel/jump-pack-2) | The jump-pack landings' `BRANCH_Run` / `BRANCH_Jump_To_Jump` (0.333 / 0.132 s run landing, 0.462 / 0.277 s idle) and the dash attack's after-states' branch times | All × `SimConfig.ActionLockScale` (0.7, the one setting of feel/locks-sprint-stop's "Shorter action locks"): landings 0.233 / 0.093 and 0.323 / 0.194 s; the dash attack's wall stop takes Jump from 0.467 s; the pound's get-up and the slash's recovery kept | Owner's request 2026-10-29 ("i generally feel too locked out of movement ... mark that as a estimation for later review"): an **estimate to review**; spec as above | Shorter landing and dash-attack locks (feel/jump-pack-2): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |

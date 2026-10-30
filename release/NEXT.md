@@ -11,3 +11,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 -->
 
 - The launcher has a dark look.
+- Switching weapons now works while a switch is still playing: press another weapon key (or the same one to go back) and the switch is cancelled at once and the new weapon is raised. You still cannot fire until the new weapon is up.

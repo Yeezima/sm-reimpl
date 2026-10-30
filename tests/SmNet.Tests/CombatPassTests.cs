@@ -150,6 +150,57 @@ public class CombatPassTests(ITestOutputHelper output)
         Assert.Equal(10, s.Clip);        // the pistol in hand untouched
     }
 
+    // ---------------------------------------------------------------- sim/switch-cancel (owner's recollection 2026-10-31)
+
+    [Fact]
+    public void A_switch_request_during_a_switch_cancels_it_at_once_and_restarts_the_switch_time_without_early_fire()
+    {
+        var s = Step(Fresh(), InputButtons.Switch);   // rifle -> pistol, lowering/raising under way
+        Assert.Equal(WeaponSlot.Pistol, s.Slot);
+        s = Step(s); s = Step(s);
+        float mid = s.SwitchLeft;
+        Assert.InRange(mid, 0.01f, Config.WeaponSwitchTime - Dt);
+        s = Step(s, InputButtons.None);   // release edge for the next press
+        var back = Step(s, InputButtons.Switch);   // cancel: back to the rifle in the same tick
+        Assert.Equal(WeaponSlot.Ranged, back.Slot);
+        Assert.True(back.SwitchLeft > mid, $"restarted: {back.SwitchLeft} vs {mid}");
+        Assert.Equal(Config.WeaponSwitchTime, back.SwitchLeft, 3);
+        // Fire during the new raise does nothing; no instant fire through a cancel loop.
+        int clip = back.Clip;
+        var f = back;
+        for (int k = 0; k < 10; k++)
+        {
+            f = Step(f, InputButtons.Fire);
+            Assert.Equal(clip, f.Clip);
+            f = Step(f, InputButtons.None);
+            f = Step(f, InputButtons.Switch);   // cancel again each time
+            f = Step(f, InputButtons.None);
+            Assert.Equal(Config.WeaponSwitchTime - Dt, f.SwitchLeft, 3);   // restarted by the press, then one tick
+            Assert.Equal(k % 2 == 0 ? WeaponSlot.Pistol : WeaponSlot.Ranged, f.Slot);
+            clip = f.Clip;
+        }
+        Assert.Equal(30, Step(Fresh()).Clip);   // sanity: nothing was spent from a fresh rifle
+        Assert.Equal(30 + 10, f.Clip + f.OtherClip);   // no ammunition lost or duplicated
+    }
+
+    [Fact]
+    public void Switching_away_and_back_mid_switch_keeps_the_holstered_reload_unharmed()
+    {
+        var s = Fresh() with { Clip = 5 };
+        s = Step(s, InputButtons.Reload);
+        s = Step(s, InputButtons.Switch);   // to the pistol; the rifle reloads holstered
+        s = Step(s); s = Step(s);
+        float left = s.OtherReloadLeft;
+        Assert.True(left > 0f);
+        s = Step(s, InputButtons.Switch);   // mid-switch back to the rifle
+        Assert.Equal(WeaponSlot.Ranged, s.Slot);
+        Assert.InRange(s.ReloadLeft, 0.01f, left);   // its own reload continues; not restarted, not completed
+        int ticks = 0;
+        while (s.ReloadLeft > 0f && ticks++ < 60) s = Step(s);
+        Assert.Equal((30, 270 - 25), (s.Clip, s.Reserve));   // one reload's worth, no duplication
+        Assert.InRange(ticks, 1, 52);   // the raise first (the reload waits for it), then the rest of the reload
+    }
+
     [Fact]
     public void A_reload_interrupted_by_a_switch_and_back_is_kept_and_the_holstered_reload_travels_in_the_own_record()
     {

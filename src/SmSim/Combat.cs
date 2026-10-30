@@ -563,7 +563,7 @@ public static class Combat
         if (jump.PoundStart) { charging = false; chargeTime = 0f; pending = 0; pendingLeft = 0f; reloadLeft = 0f; }   // and so does a ground pound (and a reload)
         // Venting (Vent; fidelity gap 7): on Reload or by itself while overheated, while the player stands or walks and does nothing else (owner's
         // recollection: everything but walking stops it); it adds to the in-hand weapon's cooling and takes the weapon (no shot, charge or reload).
-        bool switching = switchPress && step == 0 && !s.Throwing && !jumpBusy && switchLeft <= 0f && weapon is not null && holstered is not null;
+        bool switching = switchPress && step == 0 && !s.Throwing && !jumpBusy && weapon is not null && holstered is not null;
         bool ventFree = Vent.Free(reacting || rushing || step > 0 || s.Throwing || grenadePress || evading || switching || switchLeft > 0f || jumpBusy || pending > 0
             || (aimDown && weapon is not null) || jump.Started || jump.Phase != JumpPhase.None
             || (charging && !(reloadPress && !reloadBlocked && charge!.ReloadCancels)), input, s, c);
@@ -576,7 +576,8 @@ public static class Combat
         var (otherHeat, otherOverheated, otherSinceHeat) = Cool(Loadouts.Weapon(c, s, Loadouts.Other(s.Slot))?.Heat, s.OtherHeat, s.OtherOverheated, s.OtherSinceHeat, dt);
         var (thirdHeat, thirdOverheated, thirdSinceHeat) = Cool(Loadouts.Weapon(c, s, Loadouts.Third(s.Slot))?.Heat, s.ThirdHeat, s.ThirdOverheated, s.ThirdSinceHeat, dt);
         bool switched = false;
-        if (switchPress && step == 0 && !s.Throwing && !jumpBusy && switchLeft <= 0f && weapon is not null && switchTo!.Value != s.Slot && Loadouts.Weapon(c, s, switchTo.Value) is { } next)
+        // sim/switch-cancel (owner's recollection 2026-10-31): a request while a switch is under way is not blocked; it cancels that switch and starts the new one (full switch time).
+        if (switchPress && step == 0 && !s.Throwing && !jumpBusy && weapon is not null && switchTo!.Value != s.Slot && Loadouts.Weapon(c, s, switchTo.Value) is { } next)
         {
             switched = true;
             used |= InputBuffer.Bit(BufferedAction.Switch);
