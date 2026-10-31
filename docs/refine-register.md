@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1803 spec table rows: **1246 tagged**, 406 not tagged (read from data with high confidence), 151 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 393 rows of the changes document.
+Scanned 1804 spec table rows: **1247 tagged**, 406 not tagged (read from data with high confidence), 151 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 393 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -40,7 +40,7 @@ Scanned 1803 spec table rows: **1246 tagged**, 406 not tagged (read from data wi
 | Charge (critical) | 44 | 35 | 37 | 20 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 28 | 27 | 17 | 18 | 0 |
-| HUD and hit feedback (critical) | 54 | 49 | 43 | 10 | 0 |
+| HUD and hit feedback (critical) | 55 | 50 | 44 | 10 | 0 |
 | Sound mix (critical) | 56 | 50 | 48 | 10 | 0 |
 | Effects (critical) | 72 | 63 | 62 | 38 | 0 |
 | Game modes | 39 | 36 | 37 | 19 | 1 |
@@ -53,16 +53,16 @@ Scanned 1803 spec table rows: **1246 tagged**, 406 not tagged (read from data wi
 | Core simulation (provisional values) | 124 | 109 | 109 | 13 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1246** | 1030 | 1001 | 392 | 38 |
+| **All areas** | **1247** | 1031 | 1002 | 392 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 487 |
-| confidence: low | 447 |
+| confidence: low | 448 |
 | confidence: medium | 439 |
-| kind: interpretation | 321 |
+| kind: interpretation | 322 |
 | notes: ours | 288 |
 | confidence: none (low) | 115 |
 | kind: provisional | 100 |
@@ -1049,7 +1049,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EE0A6B04` | Fixed and exempt views | `--spectate cam:x,y,z,tx,ty,tz` is placed exactly (no springs, cast, push-out or depenetration: measured matched views for lighting comparisons and recorded footage); `inspect` keeps no distance from bodies; `overview` is not cast | notes: ours | ours | Fixed and exempt views: compare with SM1 with side-by-side screenshots in the same spot. Ours: --spectate cam:x,y,z,tx,ty,tz is placed exactly (no springs, cast… | ☐ |
 | `R-90EA2E09` | Cast start | the spectator and death casts start from the look target moved off any surface within 0.33 m (3 passes of the depenetration rays): a target between two players fighting beside a railing, or inside a wall between them, otherwise starts in collision and the… (m) | kind: provisional; notes: ours | ours | Cast start: compare with SM1 by measuring on a flat spot of the same map. Ours: the spectator and death casts start from the look target moved off… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (54)
+### HUD and hit feedback (gameplay-critical) (55)
 
 *Spec section: Camera, aim mode, shot convergence and hit confirmation (M20; protocol 12)*
 
@@ -1118,6 +1118,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-47D27B01` | Pick-up prompt | `HudText.gfx` `Prompt_mc`: its band and its centred 24 px text field ("Pick up Ammo"), sliding in from 40 stage px lower and fading in over 19 frames; the key in a 27 stage px gold-framed box at the movie's `button_mc` (the button art lives in another movie:… (stage px) | confidence: medium | `HudText.gfx`; key box: reference footage t 140 s | Pick-up prompt: compare with SM1 with side-by-side screenshots in the same spot. Ours: HudText.gfx Prompt_mc: its band and its centred 24 px text field… | ☐ |
 | `R-7A685938` | Armour and health bar | `Hud.gfx` `unifiedhealth_mc` at its own place and scale (463.05, 65.75, 0.9, its y axis flipped: the footage's cyan lines are at 434 to 814 and 78 to 114 of the stage, the movie's own place is within 2 stage px): the dark band `background_mc`, the **armour**… (stage px, frames) | kind: interpretation; confidence: medium | `Hud.gfx`; footage t 0 to 256 s | Armour and health bar: compare with SM1 by counting hits to kill and by video of the health bar. Ours: Hud.gfx unifiedhealth_mc at its own place and scale (463.05, 65.75… | ☐ |
 | `R-72075C1D` | Armour bar: the plain clip (ui/hud-bar-colours) | a player **without the Iron Halo perk** (any class: Tactical, Assault, Devastator without it; Chaos Tactical, Raptor, Havoc without it) has the movie's own plain armour clip `lightdamagebar_mc` (110 frames, placed added) in its own colours in place of… (movie frames, colour) | kind: interpretation; confidence: medium | `Hud.gfx` (clip, colours, mask); owner's reference frames (which clip, the health colour) | Armour bar: the plain clip (ui/hud-bar-colours): compare with SM1 by counting hits to kill and by video of the health bar. Ours: a player without the Iron Halo perk (any class: Tactical, Assault… | ☐ |
+| `R-516379DA` | Armour bar: the plain clip at low armour (ui/hud-bar-colours) | from frame 76 (below about 26 % armour) `lightdamagebar_mc` swaps its outline frame `armorframe_mc` for the flash clip `armorflash_mc` (c530) and its cream lines (c525) for the flash clip c531: 10 frames each, frame 0 pure white (the outline 1.128 times as… (frames at 30 fps, alpha) | kind: interpretation; confidence: low | `Hud.gfx` (the clips, their frames and colour transforms) | Armour bar: the plain clip at low armour…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: from frame 76 (below about 26 % armour) lightdamagebar_mc swaps its… | ☐ |
 | `R-1D3CB861` | Damage vignette | the own damage flashes the screen's edges (a radial gradient from clear in the middle to the colour at the corners): the armour bar's colour when only the armour went down (the Iron Halo's cyan 0.35, 0.95, 0.9; the plain bar's cream 0.984, 0.988, 0.682 = the… (s) | kind: ours; confidence: low | owner's decision | Damage vignette: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the own damage flashes the screen's edges (a radial gradient from… | ☐ |
 | `R-850E9625` | Iron Halo flash (the bar's hit flash) | the first 15 frames of `ironhalo_mc` are the medallion's starburst (an added shape, 6.3 times its size and white at frame 0, shrinking to its own at frame 14, 30 fps). It plays over the bar from the own player's **damage** (the shield or the health going down… (frames at 30 fps) | kind: interpretation; confidence: low | `Hud.gfx` (frames, depth of the burst); footage; the blueprint's `armourshield_hit` | Iron Halo flash (the bar's hit flash): compare with SM1 with side-by-side screenshots in the same spot. Ours: the first 15 frames of ironhalo_mc are the medallion's starburst (an… | ☐ |
 | `R-54469AE0` | Reticle without a known weapon | the weapon in hand is always a ranged one (melee is a button, not a slot): a weapon type the rules do not map shows no reticle; no weapon at all shows the movie's `default_mc` dot | kind: ours | `Hud.gfx` (`default_mc`); the rule is ours | Reticle without a known weapon: compare with SM1 with side-by-side screenshots in the same spot. Ours: the weapon in hand is always a ranged one (melee is a button, not a… | ☐ |

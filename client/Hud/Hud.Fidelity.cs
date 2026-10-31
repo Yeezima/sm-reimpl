@@ -297,8 +297,8 @@ public sealed partial class Hud
         return true;
     }
 
-    // The armour and health bar stays M44's (Hud.DrawVitals, the original bitmaps): the movie's unifiedhealth_mc renders its armour lines and medallion gold, the
-    // footage shows them cyan (the game tints them at runtime: not in the data), so the M44 drawing is the closer match (ui/hud-fidelity, side by side).
+    // The armour and health bar is drawn from the movie's unifiedhealth_mc in Hud.Vitals.cs (since ui/hud-2): the cyan ironhalo_mc for the Iron Halo perk's carrier, the cream
+    // lightdamagebar_mc for everyone else (ui/hud-bar-colours); M44's Hud.DrawVitals is only the fallback (--old-hud, or without the movie).
 
     // ---------------------------------------------------------------- weapon box (Hud.gfx weaponInfo_Slide)
 

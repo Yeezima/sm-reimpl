@@ -49,9 +49,10 @@ public sealed partial class Hud
     static readonly GfxColourTransform HealthTint = new(0.9f, 0f, 0.7f, 1f, 0f, 0f, 0f, 0f);
 
     /// <summary>
-    /// ui/hud-bar-colours: the plain bar's health fill on the owner's three reference frames of the original (an Assault Marine without Iron Halo) is a warmer orange-red than the movie's own: the
-    /// core about F7 36 11 (FF491B, FA3203, F03115 sampled) and the edges about EE 79 2E, where the movie draws E7 08 00 and EC 58 03: the green lifted (most in the core) and the blue brought down,
-    /// fitted on our own window shots (measured, ours; the Iron Halo's bar keeps <see cref="HealthTint"/>).
+    /// ui/hud-bar-colours: the plain bar's health fill on the owner's three reference frames of the original (an Assault Marine without Iron Halo) is a warmer orange-red than the movie's own (the
+    /// fill's core sampled FF491B, FA3203, F03115; its edges FD7A2C, FC9B2C, E46C37; the movie's own core E7 08 00, edges EC 58 03). The values are a visual fit, not a derivation: tried on our
+    /// 1600 x 900 window shots (where the fill is placed added over the dark band, so the window colour is not the transform applied to the movie's colour) until the core read about F0 2E 15 and
+    /// the edges about EF 72 0C, close to the references (ours, an estimate; the Iron Halo's bar keeps <see cref="HealthTint"/>).
     /// </summary>
     static readonly GfxColourTransform PlainHealthTint = new(1f, 0.73f, 0.3f, 1f, 0.03f, 0.13f, 0f, 0f);
 
@@ -198,10 +199,16 @@ public sealed partial class Hud
         string v = halo ? "h" : "p";
 
         var bg = _movieArt.Get("vit:bg", (m, s) => m.Hud?.RenderAt($"{Vitals}/background_mc", Vitals, s));
-        var arm = armourEmpty ? null : _movieArt.Get($"vit:a{v}:{aframe}", (m, s) => m.Hud?.RenderAt(armourPath, Vitals, s, aframe), "vit:a", 24);
+        string armKey = $"vit:a{v}:{aframe}";
+        var arm = armourEmpty ? null : _movieArt.Get(armKey, (m, s) => m.Hud?.RenderAt(armourPath, Vitals, s, aframe, halo ? null : PlainArmourFrameOf), "vit:a", 24);
+        // A frame's picture is rendered in the background the first time it is asked for: until it is ready the layer keeps the last picture it drew (same variant only; held so that the
+        // group's eviction never frees it), so the bar never blanks while the armour or health moves through new frames (regen, damage). A freed picture is never drawn.
+        if (arm is not null) { _lastArm = arm; _lastArmVariant = v; _movieArt.Hold("vit:a", armKey); }
+        else if (!armourEmpty && _lastArmVariant == v && Usable(_lastArm)) arm = _lastArm;
         if (arm is not null) MeasureArmourShare(arm);
         var healthLocal = unified.ToStage.Inverse() is { } invUnified ? invUnified.After(health.ToStage) : health.ToStage;
-        var hp = _movieArt.Get($"vit:h{v}:{hframe}", (m, s) =>
+        string hpKey = $"vit:h{v}:{hframe}";
+        var hp = _movieArt.Get(hpKey, (m, s) =>
         {
             // ui/armour-bar-fix (owner 2026-10-31): from frame 50 on the health clip swaps its bar for an additive white flash version (c558) and adds the flash clip (c559): drawn still they turn
             // the fill white (pink with the Halo's tint). They are the movie's low-health flash, which the own-damage vignette replaces (ui/hud-3), so the fill stays its normal red.
@@ -209,12 +216,59 @@ public sealed partial class Hud
             try { return m.Hud?.Render(health.Placement.Character, hframe, s, healthLocal, null, colour: halo ? HealthTint : PlainHealthTint, add: health.Placement.Blend == 8); }
             finally { GfxRaster.Hidden = null; GfxRaster.Swap = null; }
         }, "vit:h", 24);
+        if (hp is not null) { _lastHp = hp; _lastHpVariant = v; _movieArt.Hold("vit:h", hpKey); }
+        else if (_lastHpVariant == v && Usable(_lastHp)) hp = _lastHp;
         if (bg is not null) DrawAtom(bg, xf, White, false);
         // One armour bar layer only (ui/armour-bar-fix): the Iron Halo's cyan clip or the plain cream clip, never both. The plain clip's empty frame (99) is its bare unmasked lines: nothing is drawn
         // at no armour (the Iron Halo's frame 99 is its starburst alone and stays).
         VitalsArmourLayers = 0;
-        if (arm is not null) { DrawAtom(arm, xf, White, false); VitalsArmourLayers++; }
+        if (arm is not null) { DrawAtom(arm, xf, White, false); VitalsArmourLayers++; NoteArmourDraw(v); }
+        else if (!armourEmpty) VitalsArmourBlankFrames++;
         if (hp is not null) { MeasureHealthShare(hp); DrawAtom(hp, xf, White, false); }
+        else VitalsHealthBlankFrames++;
         return true;
+    }
+
+    HudMovieArt.Pic? _lastArm, _lastHp;
+    string? _lastArmVariant, _lastHpVariant;
+
+    static bool Usable(HudMovieArt.Pic? p) => p is not null && GodotObject.IsInstanceValid(p.Normal) && (p.Add is null || GodotObject.IsInstanceValid(p.Add));
+
+    /// <summary>
+    /// From frame 76 (below about 26 % armour) the plain clip swaps its two line pieces for flash clips of 10 frames each: the outline frame <c>armorframe_mc</c> for <c>armorflash_mc</c>
+    /// (<c>c530</c>; frame 0 pure white and 1.128 times as large) and the cream lines <c>c525</c> for <c>c531</c> (frame 0 pure white); both fade by frame 9 to their normal colours at alpha 0.25.
+    /// Drawn at their first frame (the default for a nested clip) they froze the flash's white peak over the whole low range (white lines, a white, blue-edged outline); their last frame is
+    /// the resting state, dim lines (ui/hud-bar-colours). Whether the original plays the flash once on entering the range or loops it as a warning is script (not read): spec "Armour bar: the plain clip".
+    /// </summary>
+    const int ArmourFlashOutline = 530, ArmourFlashLines = 531, ArmourFlashRest = 9;
+    static int PlainArmourFrameOf(int character) => character is ArmourFlashOutline or ArmourFlashLines ? ArmourFlashRest : 0;
+
+    // ui-selftest (ui/hud-bar-colours): how many armour bar layers are drawn in one frame (any path: the movie's Iron Halo or plain clip, or the M44 fallback), whether two different ones were drawn
+    // in the same frame (a double bar), and the frames in which a layer that should show was missing.
+    ulong _armourDrawFrame = ulong.MaxValue;
+    int _armourDrawsThisFrame;
+    string? _armourVariantThisFrame;
+    public int VitalsArmourDrawsMax { get; private set; }
+    public bool VitalsArmourMixed { get; private set; }
+    public string? VitalsArmourVariantDrawn { get; private set; }
+    public int VitalsArmourBlankFrames { get; private set; }
+    public int VitalsHealthBlankFrames { get; private set; }
+
+    public void ResetVitalsDrawStats()
+    {
+        VitalsArmourDrawsMax = 0; VitalsArmourMixed = false; VitalsArmourVariantDrawn = null; VitalsArmourBlankFrames = 0; VitalsHealthBlankFrames = 0;
+        _armourDrawFrame = ulong.MaxValue;
+    }
+
+    /// <summary>Counts one armour bar layer drawn this frame (<paramref name="variant"/>: <c>h</c> Iron Halo, <c>p</c> plain, <c>m44</c> the fallback bar).</summary>
+    void NoteArmourDraw(string variant)
+    {
+        ulong f = Engine.GetProcessFrames();
+        if (f != _armourDrawFrame) { _armourDrawFrame = f; _armourDrawsThisFrame = 0; _armourVariantThisFrame = null; }
+        _armourDrawsThisFrame++;
+        if (_armourVariantThisFrame is not null && _armourVariantThisFrame != variant) VitalsArmourMixed = true;
+        _armourVariantThisFrame = variant;
+        VitalsArmourVariantDrawn = variant;
+        VitalsArmourDrawsMax = Math.Max(VitalsArmourDrawsMax, _armourDrawsThisFrame);
     }
 }
