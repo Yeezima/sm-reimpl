@@ -59,7 +59,7 @@ public partial class NetworkView
     Transform3D _deathStart;
     float _deathFov, _deathAz, _deathRadius, _deathEl;
     Vector3 _deathFocus;
-    float _deathFraction = 1f;       // M40-T6: the death camera's place along the cast from the focus (NetworkView.Spectate.cs)
+    readonly SmNet.CameraBoom _deathFraction = new();       // M40-T6: the death camera's place along the cast from the focus (NetworkView.Spectate.cs)
 
     /// <summary>The own player is dead (connected, no control until the respawn).</summary>
     bool OwnDead => _client is { Status: ClientStatus.Connected } c && !c.Predicted.Alive && Spectate is null;
@@ -411,7 +411,7 @@ public partial class NetworkView
                 _deathCameraOn = false;
                 _cameraPlaced = false;   // the normal camera snaps to its place
                 _switchT = 1f;           // no weapon-switch ease left over from before the death
-                _aimBlend = 0f; _evadeBlend = 0f; _rigFraction = 1f; _rigFractionA = 1f;
+                _aimBlend = 0f; _evadeBlend = 0f; _rigFraction.Reset(); _rigFractionA.Reset(); _rigFractionS.Reset(); _rigFractionU.Reset(); _rigSide.Reset(); _rigFocus = 0f;
             }
             return false;
         }
@@ -430,7 +430,7 @@ public partial class NetworkView
             _deathEl = Math.Clamp(MathF.Asin(Math.Clamp(offset.Y / length, -1f, 1f)), 0.1f, 0.9f);
             _deathRadius = Math.Clamp(length, 2.5f, 5f);
             _deathFocus = focus;
-            _deathFraction = 1f;
+            _deathFraction.Reset();
             _aimBlend = 0f; _evadeBlend = 0f;
         }
         _deathAge += delta;
@@ -447,7 +447,7 @@ public partial class NetworkView
         // camera is kept out of every living player's body (the killer standing over the corpse).
         var raw = _deathStart.Origin.Lerp(wanted, blend);
         CamProbeNote("death", raw);
-        var position = DampFraction(ref _deathFraction, true, Depenetrate(_deathFocus, CameraSoftRadius + 0.05f, 3), raw, delta);
+        var position = DampFraction(_deathFraction, true, Depenetrate(_deathFocus, CameraSoftRadius + 0.05f, 3), raw, delta);
         position = Depenetrate(ClearOfBodies(position, me, includeOwn: false, _deathFocus, delta));
         var toFocus = _deathFocus - position;
         var look = toFocus.LengthSquared() > 1e-4f ? Basis.LookingAt(toFocus.Normalized(), Vector3.Up) : _deathStart.Basis;

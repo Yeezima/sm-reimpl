@@ -20,12 +20,12 @@ public sealed partial class UiSelfTest
         ControlsInput.Use(BindingSet.Defaults());
         try
         {
-            // The CONTROLS screen: B goes back to the Join screen.
+            // The keybind screen: B goes back to OPTIONS.
             _front.ShowControls();
             await Frames(4);
-            Check("pad back: the controls screen is open", controls.Visible && !_front.ShowsJoin);
+            Check("pad back: the controls screen is open", controls.Visible && !_front.ShowsMainMenu);
             await SendPad(JoyButton.B);
-            Check("pad back: B leaves the controls screen for the Join screen", !controls.Visible && _front.ShowsJoin);
+            Check("pad back: B leaves the controls screen for OPTIONS", !controls.Visible && _front.Options!.Visible);
 
             // While waiting for a rebind input: B is bindable on the controller tab (it asks about its current Use), and cancels like Esc on the keyboard tab.
             _front.ShowControls();
@@ -43,7 +43,7 @@ public sealed partial class UiSelfTest
             await SendPad(JoyButton.B);
             Check("pad back: B cancels a keyboard capture like Esc and the screen stays", !controls.Capturing && controls.Visible && controls.Working.IsDefault(BindDevice.Keyboard));
             await SendPad(JoyButton.B);
-            Check("pad back: B again (nothing waiting) leaves the screen", !controls.Visible && _front.ShowsJoin);
+            Check("pad back: B again (nothing waiting) leaves the screen", !controls.Visible && _front.Options!.Visible);
 
             // The loadout screen (the in-match menu is this screen): B goes back like its BACK button (a plain leave or the unsaved-changes question).
             var creator = _front.Creator!;
@@ -52,17 +52,9 @@ public sealed partial class UiSelfTest
             await Frames(4);
             Check("pad back: the loadout screen is open", creator.Visible);
             await SendPad(JoyButton.B);
-            Check("pad back: B backs out of the loadout screen to the Join screen", !creator.Visible && _front.ShowsJoin);
-
-            // Its CONTROLS overlay: B closes only the overlay.
+            Check("pad back: B backs out of the loadout screen to the main menu", !creator.Visible && _front.ShowsMainMenu);
             _front.ShowCreator();
             await Frames(4);
-            FindButton(creator, b => b.Name == "ControlsButton")?.EmitSignal(BaseButton.SignalName.Pressed);
-            await Frames(4);
-            var overlay = creator.ControlsScreen;
-            Check("pad back: the controls overlay is open over the loadouts", overlay is { Visible: true });
-            await SendPad(JoyButton.B);
-            Check("pad back: B closes the controls overlay and the loadouts stay", overlay is { Visible: false } && creator.Visible);
 
             // Confirm dialogs, and the prompt with a text field: B picks the cancel button (the last) and nothing else closes.
             int chosen = -1;
@@ -91,7 +83,7 @@ public sealed partial class UiSelfTest
         {
             ControlsInput.Use(keptScreen);
             controls.Close();
-            _front.ShowJoin();
+            _front.ShowMainMenu();
             await Frames(2);
         }
     }

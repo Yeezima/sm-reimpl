@@ -305,6 +305,124 @@ public sealed class StaticMesh
         return t >= 0f;
     }
 
+    /// <summary>
+    /// How far a sphere of <paramref name="radius"/> travels from <paramref name="origin"/> along the unit <paramref name="direction"/> before touching a triangle, up to
+    /// <paramref name="maxDistance"/> (null: free). The hit's point is the contact, its normal faces the sphere. A sphere that already overlaps a surface at the start is cast with the distance
+    /// to that surface as its radius (continuous, so the result does not jump as a start nears a wall): a cast beginning close to a wall may run along it or leave it, and stops at
+    /// once only moving into it (camera/hop-and-walls: the follow cameras' casts).
+    /// </summary>
+    public RayHit? SweepSphere(Vector3 origin, Vector3 direction, float radius, float maxDistance)
+    {
+        if (_nodes.Length == 0 || !(maxDistance >= 0f) || !(radius >= 0f) || !Geometry.Finite(origin) || !Geometry.Finite(direction)) return null;
+        float near = NearestWithin(origin, radius);
+        if (near < radius) radius = near * 0.99f;   // (just under, so a run parallel to the surface does not graze it)
+        var inv = new Vector3(Inverse(direction.X), Inverse(direction.Y), Inverse(direction.Z));
+        var pad = new Vector3(radius);
+        float best = maxDistance;
+        int bestSlot = -1;
+        var bestNormal = Vector3.Zero;
+        var bestPoint = Vector3.Zero;
+        Span<int> stack = stackalloc int[64];
+        int sp = 0;
+        stack[sp++] = 0;
+        while (sp > 0)
+        {
+            ref readonly Node node = ref _nodes[stack[--sp]];
+            if (!SlabEntry(node.Min - pad, node.Max + pad, origin, inv, best, out _)) continue;
+            if (node.Count > 0)
+            {
+                for (int slot = node.Start; slot < node.Start + node.Count; slot++)
+                    if (SphereTriangle(origin, direction, radius, slot, best, out float t, out var contact)) { best = t; bestSlot = slot; bestPoint = contact; }
+                continue;
+            }
+            stack[sp++] = node.Start;
+            stack[sp++] = node.Start + 1;
+        }
+        if (bestSlot < 0) return null;
+        var centre = origin + direction * best;
+        var away = centre - bestPoint;
+        bestNormal = away.LengthSquared() > 1e-12f ? Vector3.Normalize(away) : -direction;
+        return new RayHit(best, bestPoint, bestNormal, _tri[bestSlot]);
+    }
+
+    /// <summary>The distance from <paramref name="p"/> to the nearest triangle closer than <paramref name="limit"/>; <paramref name="limit"/> when none is.</summary>
+    float NearestWithin(Vector3 p, float limit)
+    {
+        var pad = new Vector3(limit);
+        Vector3 min = p - pad, max = p + pad;
+        float best = limit;
+        Span<int> stack = stackalloc int[64];
+        int sp = 0;
+        stack[sp++] = 0;
+        while (sp > 0)
+        {
+            ref readonly Node node = ref _nodes[stack[--sp]];
+            if (node.Min.X > max.X || node.Max.X < min.X || node.Min.Y > max.Y || node.Max.Y < min.Y || node.Min.Z > max.Z || node.Max.Z < min.Z) continue;
+            if (node.Count == 0) { stack[sp++] = node.Start + 1; stack[sp++] = node.Start; continue; }
+            for (int slot = node.Start; slot < node.Start + node.Count; slot++)
+            {
+                var a = _v0[slot];
+                best = MathF.Min(best, Vector3.Distance(p, Geometry.ClosestOnTriangle(p, a, a + _e1[slot], a + _e2[slot])));
+            }
+        }
+        return best;
+    }
+
+    /// <summary>The first touch of a moving sphere and one triangle before <paramref name="limit"/>: the face, then the three edges and corners. See <see cref="SweepSphere"/>.</summary>
+    bool SphereTriangle(Vector3 o, Vector3 d, float radius, int slot, float limit, out float t, out Vector3 contact)
+    {
+        t = limit; contact = default;
+        var a = _v0[slot]; var b = a + _e1[slot]; var c = a + _e2[slot];
+        var n = _n[slot];
+        float r2 = radius * radius;
+        bool hit = false;
+        float plane = Vector3.Dot(o - a, n);
+        if (plane < 0f) { n = -n; plane = -plane; }
+        float closing = -Vector3.Dot(d, n);
+        if (closing > 1e-6f)
+        {
+            float at = (plane - radius) / closing;
+            if (at >= 0f && at < t)
+            {
+                var touch = o + d * at - n * radius;
+                if (Geometry.InsideTriangle(touch, a, b, c, _n[slot])) { t = at; contact = touch; hit = true; }
+            }
+        }
+        if (hit) return true;   // the face comes first: an edge or corner can touch only later
+        void Edge(Vector3 p, Vector3 q, ref float best, ref Vector3 where, ref bool found, float rr)
+        {
+            var e = q - p;
+            float ee = Vector3.Dot(e, e);
+            if (ee < 1e-12f) return;
+            var m = o - p;
+            float de = Vector3.Dot(d, e), me = Vector3.Dot(m, e), dm = Vector3.Dot(d, m);
+            float qa = ee - de * de, qb = ee * dm - de * me, qc = ee * (Vector3.Dot(m, m) - rr) - me * me;
+            if (qa > 1e-9f && qb < 0f)
+            {
+                float disc = qb * qb - qa * qc;
+                if (disc >= 0f)
+                {
+                    float at = (-qb - MathF.Sqrt(disc)) / qa;
+                    float along = me + at * de;
+                    if (at >= 0f && at < best && along >= 0f && along <= ee) { best = at; where = p + e * (along / ee); found = true; }
+                }
+            }
+        }
+        void Corner(Vector3 p, ref float best, ref Vector3 where, ref bool found, float rr)
+        {
+            var m = o - p;
+            float dm = Vector3.Dot(d, m), qc = Vector3.Dot(m, m) - rr;
+            if (dm >= 0f) return;
+            float disc = dm * dm - qc;
+            if (disc < 0f) return;
+            float at = -dm - MathF.Sqrt(disc);
+            if (at >= 0f && at < best) { best = at; where = p; found = true; }
+        }
+        Edge(a, b, ref t, ref contact, ref hit, r2); Edge(b, c, ref t, ref contact, ref hit, r2); Edge(c, a, ref t, ref contact, ref hit, r2);
+        Corner(a, ref t, ref contact, ref hit, r2); Corner(b, ref t, ref contact, ref hit, r2); Corner(c, ref t, ref contact, ref hit, r2);
+        return hit;
+    }
+
     /// <summary>Appends, in tree order, the slots of triangles whose bounds overlap the box (used by the character motor).</summary>
     internal void Overlap(Vector3 min, Vector3 max, List<int> slots)
     {

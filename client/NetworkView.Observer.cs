@@ -10,7 +10,7 @@ namespace SmClient;
 
 /// <summary>
 /// Observer mode (protocol 46; ours, docs/changes-from-original.md "Observer": the owner's tool for promotional footage, not an original feature):
-/// <c>client.cmd --connect host:port --observe</c> (or the Join screen's SPECTATE button) joins as a spectator. The server gives it no player, so
+/// <c>client.cmd --connect host:port --observe</c> (or the lobby menu's SPECTATE row) joins as a spectator. The server gives it no player, so
 /// there is nothing to predict, aim or be hit: this view draws the world as the server sends it (everyone, both sides, no team visibility) from a
 /// free-fly camera or from over a chosen player's shoulder. It is a separate per-frame path (<see cref="ObserverFrame"/>) beside the player's
 /// (<c>ProcessFrame</c>), reusing the same drawing of remote players, projectiles, effects and sound.
@@ -68,12 +68,12 @@ public partial class NetworkView
                 if (_obsFollow != 0)
                 {
                     _obsOrbitYaw -= motion.Relative.X * MouseYawPerPixel * MouseLook;
-                    _obsOrbitPitch = Math.Clamp(_obsOrbitPitch - motion.Relative.Y * MouseYawPerPixel * MouseLook, -1.2f, 1.2f);
+                    _obsOrbitPitch = Math.Clamp(_obsOrbitPitch - motion.Relative.Y * SmClient.Customizer.Model.LiveOptions.MouseVertical * MouseYawPerPixel * MouseLook, -1.2f, 1.2f);
                 }
                 else
                 {
                     _obsYaw -= motion.Relative.X * MouseYawPerPixel * MouseLook;
-                    _obsPitch = Math.Clamp(_obsPitch - motion.Relative.Y * MouseYawPerPixel * MouseLook, -1.55f, 1.55f);
+                    _obsPitch = Math.Clamp(_obsPitch - motion.Relative.Y * SmClient.Customizer.Model.LiveOptions.MouseVertical * MouseYawPerPixel * MouseLook, -1.55f, 1.55f);
                 }
                 break;
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelUp or MouseButton.WheelDown } wheel:

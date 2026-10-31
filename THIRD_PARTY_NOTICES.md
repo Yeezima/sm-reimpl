@@ -3,6 +3,13 @@
 sm-reimpl is licensed under GPL-3.0 (see `LICENSE`). It includes or depends on the following third-party work, used
 under the licences below. None of it is game content.
 
+## DejaVu Sans Bold (font, bundled)
+
+- Source: https://github.com/dejavu-fonts/dejavu-fonts (release 2.37, `dejavu-fonts-ttf-2.37.zip`, file `ttf/DejaVuSans-Bold.ttf`, unmodified).
+- Used in: every menu of the client (`client/assets/fonts/`, embedded in the client assembly).
+- Licence: the DejaVu Fonts licence (Bitstream Vera and Arev terms: free to use, copy and bundle), full text in
+  `client/assets/fonts/LICENSE-DejaVu.txt`.
+
 ## ww2ogg (port; codebook library downloaded, not distributed)
 
 - Source: https://github.com/hcs64/ww2ogg (version 0.24, tag `0.24`, commit `4b4ca8ec4079a42488aae6344c3c52165e210eec`),

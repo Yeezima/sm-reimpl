@@ -33,6 +33,9 @@ screenshots/
 recordings/
 captures/
 
+# The front end's menu background: the final image is not settled; the client falls back to a dark background without it
+client/assets/menu/background.jpg
+
 # Local, machine-specific configuration and secrets
 config/local.json
 .env

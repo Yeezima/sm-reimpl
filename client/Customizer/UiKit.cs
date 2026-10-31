@@ -7,30 +7,46 @@ using SmClient.Customizer.Model;
 namespace SmClient.Customizer;
 
 /// <summary>
-/// The shared look and widgets of the front end and the customizer (docs/customizer-design.md sections 4 to 7): one <see cref="Theme"/> in the HUD's style (near-black
-/// panels, gold borders, white emboldened text with a dark outline), focus that is a 3 px white outline, text for every state (colour is never the only signal),
-/// a "Reduce motion" switch, and the small modal dialogs. Everything is real Controls in a 1920 x 1080 virtual space (the window scales it).
+/// The shared look and widgets of the front end and the customizer: one <see cref="Theme"/> (ui/menu-rebuild, the owner's Half-Life 2 style menus: DejaVu Sans Bold, white text, transparent
+/// text buttons that brighten on hover and focus, an underline on a chosen toggle, no boxes or borders), text for every state (colour is never the only signal),
+/// a "Reduce motion" switch, and the small modal dialogs. Everything is real Controls in a 1920 x 1080 virtual space (the window scales it). The page layout is in MenuKit.cs.
 /// </summary>
 public static partial class UiKit
 {
-    public static readonly Color Gold = new(1f, 0.8f, 0f);
     public static readonly Color White = new(1f, 1f, 1f);
-    public static readonly Color Grey = new(0.62f, 0.62f, 0.64f);
+    /// <summary>The highlight colour. ui/menu-rebuild: every menu has one colour, so this is white too (the name stays for the many places that say "the highlighted text").</summary>
+    public static readonly Color Gold = White;
+    public static readonly Color Grey = new(0.72f, 0.72f, 0.72f);
     public static readonly Color LightRed = new(1f, 0.38f, 0.32f);
     public static readonly Color PanelColour = new(0.03f, 0.03f, 0.03f, 0.86f);
     public static readonly Color PanelSolid = new(0.05f, 0.05f, 0.05f, 0.97f);
-    public static readonly Color Hover = new(0.16f, 0.14f, 0.06f, 0.95f);
+    public static readonly Color Hover = new(0.16f, 0.16f, 0.16f, 0.95f);
     public static readonly Color BackgroundTop = new(0.07f, 0.075f, 0.09f), BackgroundBottom = new(0.02f, 0.02f, 0.025f);
 
     public const int VirtualWidth = 1920, VirtualHeight = 1080;
-    public const int BodySize = 24, CaptionSize = 20, HeaderSize = 32, TitleSize = 44, MinHit = 48;
+    public const int BodySize = 18, CaptionSize = 15, HeaderSize = 26, TitleSize = 34, MinHit = 44;
 
     /// <summary>"Reduce motion": no camera moves, no turntable, no fades (set from the front end's settings).</summary>
     public static bool ReduceMotion { get; set; }
 
     static Theme? _theme;
     static FontVariation? _font;
-    public static FontVariation Font => _font ??= new FontVariation { BaseFont = ThemeDB.FallbackFont, VariationEmbolden = 0.55f, SpacingGlyph = 1 };
+    static FontVariation? _titleFont;
+    /// <summary>The one menu font (bundled: client/assets/fonts). The file is embedded in the client assembly, so it needs no Godot import; the engine's font is the fallback if it cannot be read.</summary>
+    public static FontVariation Font => _font ??= new FontVariation { BaseFont = BundledFont() };
+    /// <summary>The same font with the title's tracking.</summary>
+    public static FontVariation TitleFont => _titleFont ??= new FontVariation { BaseFont = BundledFont(), SpacingGlyph = MenuTitleTracking };
+
+    static Font? _bundled;
+    static Font BundledFont()
+    {
+        if (_bundled is not null) return _bundled;
+        using var stream = typeof(UiKit).Assembly.GetManifestResourceStream("Fonts/DejaVuSans-Bold.ttf");
+        if (stream is null) { GD.PrintErr("menus: the bundled font is missing; using the engine's"); return _bundled = ThemeDB.FallbackFont; }
+        var bytes = new byte[stream.Length];
+        stream.ReadExactly(bytes);
+        return _bundled = new FontFile { Data = bytes, Antialiasing = TextServer.FontAntialiasing.Gray, Hinting = TextServer.Hinting.Light, SubpixelPositioning = TextServer.SubpixelPositioning.Disabled };
+    }
 
     // ---- the theme ----
 
@@ -45,12 +61,18 @@ public static partial class UiKit
         return box;
     }
 
-    static StyleBoxFlat FocusRing()
+    static StyleBoxEmpty Clear(int margin)
     {
-        var box = new StyleBoxFlat { BgColor = new Color(0, 0, 0, 0), BorderColor = White, DrawCenter = false };
-        box.SetBorderWidthAll(3);
-        box.SetContentMarginAll(0);
+        var box = new StyleBoxEmpty();
+        box.SetContentMarginAll(margin);
         return box;
+    }
+
+    static ImageTexture Grabber(int width, int height)
+    {
+        var image = Image.CreateEmpty(width, height, false, Image.Format.Rgba8);
+        image.Fill(White);
+        return ImageTexture.CreateFromImage(image);
     }
 
     static Theme BuildTheme()
@@ -59,61 +81,66 @@ public static partial class UiKit
         foreach (var type in new[] { "Label", "Button", "CheckButton", "CheckBox", "LineEdit", "OptionButton", "RichTextLabel" })
         {
             t.SetColor("font_color", type, White);
-            t.SetColor("font_outline_color", type, new Color(0, 0, 0, 0.9f));
-            t.SetConstant("outline_size", type, 3);
             t.SetFontSize("font_size", type, BodySize);
         }
-        t.SetColor("font_color", "Button", White);
-        t.SetColor("font_hover_color", "Button", Gold);
-        t.SetColor("font_focus_color", "Button", White);
-        t.SetColor("font_pressed_color", "Button", Gold);
-        t.SetColor("font_disabled_color", "Button", Grey);
-        var normal = Box(new Color(0.06f, 0.06f, 0.06f, 0.92f), new Color(0.55f, 0.45f, 0.1f), 2, 12);
-        var hover = Box(Hover, Gold, 2, 12);
-        var pressed = Box(new Color(0.25f, 0.2f, 0.03f, 0.98f), Gold, 3, 12);
-        var disabled = Box(new Color(0.05f, 0.05f, 0.05f, 0.7f), new Color(0.3f, 0.3f, 0.3f), 2, 12);
         foreach (var type in new[] { "Button", "OptionButton" })
         {
-            t.SetStylebox("normal", type, normal);
-            t.SetStylebox("hover", type, hover);
-            t.SetStylebox("pressed", type, pressed);
-            t.SetStylebox("disabled", type, disabled);
-            t.SetStylebox("focus", type, FocusRing());
+            t.SetColor("font_color", type, MenuIdle);
+            t.SetColor("font_hover_color", type, White);
+            t.SetColor("font_focus_color", type, White);
+            t.SetColor("font_pressed_color", type, White);
+            t.SetColor("font_hover_pressed_color", type, White);
+            t.SetColor("font_disabled_color", type, new Color(0.5f, 0.5f, 0.5f));
+            t.SetStylebox("normal", type, Clear(8));
+            t.SetStylebox("hover", type, Clear(8));
+            t.SetStylebox("disabled", type, Clear(8));
+            t.SetStylebox("focus", type, new StyleBoxEmpty());
+            t.SetStylebox("pressed", type, Underline(8));
+            t.SetStylebox("hover_pressed", type, Underline(8));
         }
-        t.SetStylebox("panel", "PanelContainer", Box(PanelColour, Gold, 2, 12));
-        t.SetStylebox("panel", "Panel", Box(PanelColour, Gold, 2, 12));
-        t.SetStylebox("normal", "LineEdit", Box(new Color(0.01f, 0.01f, 0.01f, 0.95f), Gold, 2, 10));
-        t.SetStylebox("focus", "LineEdit", FocusRing());
-        t.SetColor("caret_color", "LineEdit", Gold);
-        t.SetColor("selection_color", "LineEdit", new Color(Gold, 0.35f));
-        // Scroll bars: wide enough to grab, gold grabbers.
-        // A StyleBoxFlat has no size of its own, so without content margins the bar measured 0 px wide and a list longer than its panel (the Assault's five melee weapons,
-        // the perks) showed no sign that more rows lie below: the margins give the bar its width (fix/customizer-weapons-perks).
-        var track = new StyleBoxFlat { BgColor = new Color(0.1f, 0.1f, 0.1f, 0.9f), ContentMarginLeft = 6, ContentMarginRight = 6, ContentMarginTop = 6, ContentMarginBottom = 6 };
-        var grab = new StyleBoxFlat { BgColor = new Color(Gold, 0.8f), ContentMarginLeft = 4, ContentMarginRight = 4, ContentMarginTop = 4, ContentMarginBottom = 4 };
-        var grabHot = new StyleBoxFlat { BgColor = Gold, ContentMarginLeft = 4, ContentMarginRight = 4, ContentMarginTop = 4, ContentMarginBottom = 4 };
-        t.SetStylebox("scroll", "VScrollBar", track);
-        t.SetStylebox("grabber", "VScrollBar", grab);
-        t.SetStylebox("grabber_highlight", "VScrollBar", grabHot);
-        t.SetStylebox("grabber_pressed", "VScrollBar", grabHot);
-        t.SetStylebox("scroll", "HScrollBar", track);
-        t.SetStylebox("grabber", "HScrollBar", grab);
-        t.SetStylebox("grabber_highlight", "HScrollBar", grabHot);
-        t.SetStylebox("grabber_pressed", "HScrollBar", grabHot);
+        t.SetStylebox("panel", "PanelContainer", Clear(12));
+        t.SetStylebox("panel", "Panel", Clear(12));
+        var field = Underline(6, 1);
+        field.BorderColor = new Color(White, 0.6f);
+        t.SetStylebox("normal", "LineEdit", field);
+        t.SetStylebox("focus", "LineEdit", Underline(6, 2));
+        t.SetColor("caret_color", "LineEdit", White);
+        t.SetColor("selection_color", "LineEdit", new Color(White, 0.3f));
+        t.SetTypeVariation("SmMenuField", "LineEdit");
+        t.SetFontSize("font_size", "SmMenuField", MenuTextSize);
+        t.SetStylebox("normal", "SmMenuField", Underline(1, 1));
+        t.SetStylebox("focus", "SmMenuField", Underline(1, 2));
+        // Scroll bars: wide enough to grab (a StyleBoxFlat has no size of its own, so without content margins the bar measured 0 px: fix/customizer-weapons-perks).
+        var track = new StyleBoxFlat { BgColor = new Color(1f, 1f, 1f, 0.08f), ContentMarginLeft = 6, ContentMarginRight = 6, ContentMarginTop = 6, ContentMarginBottom = 6 };
+        var grab = new StyleBoxFlat { BgColor = new Color(White, 0.55f), ContentMarginLeft = 4, ContentMarginRight = 4, ContentMarginTop = 4, ContentMarginBottom = 4 };
+        var grabHot = new StyleBoxFlat { BgColor = White, ContentMarginLeft = 4, ContentMarginRight = 4, ContentMarginTop = 4, ContentMarginBottom = 4 };
+        foreach (var type in new[] { "VScrollBar", "HScrollBar" })
+        {
+            t.SetStylebox("scroll", type, track);
+            t.SetStylebox("grabber", type, grab);
+            t.SetStylebox("grabber_highlight", type, grabHot);
+            t.SetStylebox("grabber_pressed", type, grabHot);
+        }
         t.SetConstant("separation", "VBoxContainer", 8);
         t.SetConstant("separation", "HBoxContainer", 8);
-        // Sliders.
-        t.SetStylebox("slider", "HSlider", new StyleBoxFlat { BgColor = new Color(0.2f, 0.2f, 0.2f), ContentMarginTop = 4, ContentMarginBottom = 4 });
-        t.SetStylebox("grabber_area", "HSlider", new StyleBoxFlat { BgColor = Gold, ContentMarginTop = 4, ContentMarginBottom = 4 });
-        t.SetStylebox("grabber_area_highlight", "HSlider", new StyleBoxFlat { BgColor = Gold, ContentMarginTop = 4, ContentMarginBottom = 4 });
-        t.SetStylebox("focus", "HSlider", FocusRing());
-        // Popup menus (the dropdown of an OptionButton).
-        t.SetStylebox("panel", "PopupMenu", Box(PanelSolid, Gold, 2, 8));
-        t.SetStylebox("hover", "PopupMenu", Box(Hover, Gold, 0, 6));
-        t.SetColor("font_color", "PopupMenu", White);
-        t.SetColor("font_hover_color", "PopupMenu", Gold);
+        // Sliders: a thin line and a small white grabber.
+        t.SetStylebox("slider", "HSlider", new StyleBoxFlat { BgColor = new Color(1f, 1f, 1f, 0.28f), ContentMarginTop = 1, ContentMarginBottom = 1 });
+        t.SetStylebox("grabber_area", "HSlider", new StyleBoxFlat { BgColor = new Color(1f, 1f, 1f, 0.7f), ContentMarginTop = 1, ContentMarginBottom = 1 });
+        t.SetStylebox("grabber_area_highlight", "HSlider", new StyleBoxFlat { BgColor = White, ContentMarginTop = 1, ContentMarginBottom = 1 });
+        t.SetStylebox("focus", "HSlider", new StyleBoxEmpty());
+        var grabber = Grabber(6, 14);
+        foreach (var icon in new[] { "grabber", "grabber_highlight", "grabber_disabled" }) t.SetIcon(icon, "HSlider", grabber);
+        // Popup menus (the dropdown of an OptionButton) and tooltips need something to stand on.
+        t.SetStylebox("panel", "PopupMenu", Box(PanelSolid, PanelSolid, 0, 8));
+        t.SetStylebox("hover", "PopupMenu", Box(Hover, Hover, 0, 6));
+        t.SetColor("font_color", "PopupMenu", MenuIdle);
+        t.SetColor("font_hover_color", "PopupMenu", White);
         t.SetFontSize("font_size", "PopupMenu", BodySize);
         t.SetConstant("v_separation", "PopupMenu", 10);
+        t.SetStylebox("panel", "TooltipPanel", Box(PanelSolid, PanelSolid, 0, 6));
+        t.SetColor("font_color", "TooltipLabel", White);
+        t.SetFontSize("font_size", "TooltipLabel", CaptionSize);
+        AddMenuTheme(t);
         return t;
     }
 
@@ -146,39 +173,27 @@ public static partial class UiKit
     /// The field-of-view row (ui/fov-slider, ours): a slider in HORIZONTAL degrees at the window's aspect ratio, from the data's look to 120, applied live and saved by
     /// <paramref name="save"/>. Focusable, so a controller's left / right changes it (step 1).
     /// </summary>
-    public static HBoxContainer FovRow(float saved, Action<float> save, bool compact = false)
+    public static MenuSlider FovRow(float saved, Action<float> save)
     {
         const string tip = "Field of view in degrees, measured across the screen (horizontal) at this window's shape. The lowest value is the original game's view; the highest is 120. Scopes keep their own zoom.";
-        var row = HBox(compact ? 8 : 12);
-        row.TooltipText = tip;
-        row.MouseFilter = Control.MouseFilterEnum.Pass;
-        var caption = Text(compact ? "FOV" : "Field of view", CaptionSize, Grey);
-        caption.VerticalAlignment = VerticalAlignment.Center;
-        row.AddChild(caption);
         var size = DisplayServer.WindowGetSize();   // the window's shape when the row is built (the viewport has no tree yet)
         float aspect = FovMath.Aspect(size.X, size.Y);
-        var slider = new HSlider { MinValue = FovMath.MinimumHorizontal(aspect), MaxValue = FovMath.Maximum, Step = 1, Value = FovMath.Clamp(saved, aspect),
-            CustomMinimumSize = new Vector2(compact ? 130 : 300, 28), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter, FocusMode = Control.FocusModeEnum.All, TooltipText = tip, Name = "FovSlider" };
-        var value = Text("", CaptionSize, White);
-        value.VerticalAlignment = VerticalAlignment.Center;
-        value.CustomMinimumSize = new Vector2(compact ? 56 : 120, 0);
-        void Show(double v) => value.Text = $"{v:F0}°" + (!compact && v <= slider.MinValue ? " (original)" : "");
-        Show(slider.Value);
         float chosen = saved;   // what is saved (0 = the data's look)
-        slider.ValueChanged += v => { Show(v); chosen = v <= slider.MinValue ? 0f : (float)v; save(chosen); };
+        MenuSlider row = null!;
+        string Words(double v) => $"{v:F0}°" + (v <= row.Slider.MinValue ? " (ORIGINAL)" : "");
+        row = new MenuSlider("Field of view", FovMath.MinimumHorizontal(aspect), FovMath.Maximum, 1, FovMath.Clamp(saved, aspect), v => row is null ? "" : Words(v), v => { chosen = v <= row.Slider.MinValue ? 0f : (float)v; save(chosen); }, "FovSlider", tip);
+        row.ShowValue(Words(row.Slider.Value));
         // The range follows the window's shape: rebuilt when the window is resized (the saved choice is kept, limited to the new range).
         void Refit()
         {
             var vs = row.GetViewport().GetVisibleRect().Size;
             float a = FovMath.Aspect(vs.X, vs.Y);
-            slider.MinValue = FovMath.MinimumHorizontal(a);
-            slider.SetValueNoSignal(FovMath.Clamp(chosen, a));
-            Show(slider.Value);
+            row.Slider.MinValue = FovMath.MinimumHorizontal(a);
+            row.Slider.SetValueNoSignal(FovMath.Clamp(chosen, a));
+            row.ShowValue(Words(row.Slider.Value));
         }
-        row.TreeEntered += () => { Refit(); var vp = row.GetViewport(); if (!vp.IsConnected(Viewport.SignalName.SizeChanged, Callable.From(Refit))) vp.SizeChanged += Refit; };
+        row.TreeEntered += () => { Refit(); row.GetViewport().SizeChanged += Refit; };
         row.TreeExiting += () => { try { row.GetViewport().SizeChanged -= Refit; } catch (Exception) { } };
-        row.AddChild(slider);
-        row.AddChild(value);
         return row;
     }
 
@@ -186,28 +201,10 @@ public static partial class UiKit
     /// The mouse sensitivity row (ui/mouse-sensitivity, a client convenience: ours): a slider from 0.1x to 3.0x (step 0.05; 1.0x is the original feel) on the mouse look, applied live and saved by
     /// <paramref name="save"/>. Focusable, so a controller's left / right changes it.
     /// </summary>
-    public static HBoxContainer MouseSensitivityRow(float saved, Action<float> save, bool compact = false)
+    public static MenuSlider MouseSensitivityRow(float saved, Action<float> save)
     {
         const string tip = "Mouse sensitivity: a factor on the mouse look in the hip, aimed and scoped views. 1.00x is the original game's feel. The controller is not affected.";
-        var row = HBox(compact ? 8 : 12);
-        row.TooltipText = tip;
-        row.MouseFilter = Control.MouseFilterEnum.Pass;
-        row.Name = "MouseSensitivityRow";
-        var caption = Text("Mouse", CaptionSize, Grey);
-        caption.VerticalAlignment = VerticalAlignment.Center;
-        row.AddChild(caption);
-        var slider = new HSlider { MinValue = MouseSensitivity.Minimum, MaxValue = MouseSensitivity.Maximum, Step = MouseSensitivity.Step, Value = MouseSensitivity.Clamp(saved),
-            CustomMinimumSize = new Vector2(compact ? 104 : 200, 28), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter, FocusMode = Control.FocusModeEnum.All, TooltipText = tip, Name = "MouseSensitivitySlider" };
-        var value = Text("", CaptionSize, White);
-        value.VerticalAlignment = VerticalAlignment.Center;
-        value.CustomMinimumSize = new Vector2(compact ? 52 : 64, 0);
-        value.Name = "MouseSensitivityValue";
-        void Show(double v) => value.Text = $"{v:F2}x";
-        Show(slider.Value);
-        slider.ValueChanged += v => { Show(v); save((float)v); };
-        row.AddChild(slider);
-        row.AddChild(value);
-        return row;
+        return new MenuSlider("Mouse sensitivity", MouseSensitivity.Minimum, MouseSensitivity.Maximum, MouseSensitivity.Step, MouseSensitivity.Clamp(saved), v => $"{v:F2}x", v => save((float)v), "MouseSensitivitySlider", tip);
     }
 
     public static PanelContainer Panel(Control content, int margin = 14)
@@ -279,16 +276,16 @@ public static partial class UiKit
             Alignment = HorizontalAlignment.Left;
             ClipText = true;
             FocusMode = FocusModeEnum.All;
-            CustomMinimumSize = new Vector2(0, MinHit + 4);
+            CustomMinimumSize = new Vector2(0, MinHit);
             SizeFlagsHorizontal = SizeFlags.ExpandFill;
             IsSelected = selected;
-            _bar = new ColorRect { Color = Gold, Visible = selected, MouseFilter = MouseFilterEnum.Ignore };
+            _bar = new ColorRect { Color = White, Visible = selected, MouseFilter = MouseFilterEnum.Ignore };
             _bar.SetAnchorsPreset(LayoutPreset.LeftWide);
-            _bar.OffsetRight = 6;
+            _bar.OffsetRight = 3;
             AddChild(_bar);
             if (glyph is { } g)
             {
-                var icon = new Glyph(g, selected ? Gold : enabled ? White : Grey) { Position = new Vector2(16, 14), CustomMinimumSize = new Vector2(24, 24), Size = new Vector2(24, 24) };
+                var icon = new Glyph(g, selected ? Gold : enabled ? White : Grey) { Position = new Vector2(16, 12), CustomMinimumSize = new Vector2(20, 20), Size = new Vector2(20, 20) };
                 AddChild(icon);
             }
             var tagList = tags.ToList();
@@ -316,13 +313,14 @@ public static partial class UiKit
             _tags.OffsetLeft = -reserved - tagWidth - 8f;
             _tags.VerticalAlignment = VerticalAlignment.Center;
             AddChild(_tags);
-            var normal = Box(selected ? new Color(0.14f, 0.12f, 0.04f, 0.95f) : new Color(0.06f, 0.06f, 0.06f, 0.92f), selected ? Gold : new Color(0.4f, 0.33f, 0.08f), 2, 8);
+            var clear = new Color(0f, 0f, 0f, 0f);
+            var normal = Box(clear, clear, 0, 6);
             normal.ContentMarginLeft = 52;
             normal.ContentMarginRight = rightMargin + (swatches is { Length: > 0 } ? swatches.Length * 34 : 0);
-            var hover = Box(Hover, Gold, 2, 8);
+            var hover = Box(clear, clear, 0, 6);
             hover.ContentMarginLeft = 52;
             hover.ContentMarginRight = rightMargin + (swatches is { Length: > 0 } ? swatches.Length * 34 : 0);
-            var disabledBox = Box(new Color(0.05f, 0.05f, 0.05f, 0.7f), new Color(0.3f, 0.3f, 0.3f), 2, 8);
+            var disabledBox = Box(clear, clear, 0, 6);
             disabledBox.ContentMarginLeft = 52;
             disabledBox.ContentMarginRight = rightMargin + (swatches is { Length: > 0 } ? swatches.Length * 34 : 0);
             AddThemeStyleboxOverride("normal", normal);
@@ -460,7 +458,7 @@ public static partial class UiKit
             }
             column.AddChild(row);
             var panel = Panel(column, 24);
-            panel.AddThemeStyleboxOverride("panel", Box(PanelSolid, titleColour ?? Gold, 3, 24));
+            panel.AddThemeStyleboxOverride("panel", Box(PanelSolid, PanelSolid, 0, 24));
             panel.SetAnchorsPreset(LayoutPreset.Center);
             panel.GrowHorizontal = GrowDirection.Both;
             panel.GrowVertical = GrowDirection.Both;

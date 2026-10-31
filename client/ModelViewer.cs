@@ -383,7 +383,7 @@ public partial class ModelViewer : Node3D
             AddChild(_network);
     }
 
-    /// <summary>"Leave match" in the in-match menu: back to the front end's Join screen with a short note (deferred: it frees the view that asked).</summary>
+    /// <summary>"Leave match" in the in-match menu: back to the front end's main menu with a short note (deferred: it frees the view that asked).</summary>
     void LeaveMatch()
     {
         if (_network is null) return;   // already leaving
@@ -410,7 +410,7 @@ public partial class ModelViewer : Node3D
     {
         var args = new Dictionary<string, string?>(_launchArgs, StringComparer.OrdinalIgnoreCase) { ["connect"] = request.Host };
         foreach (var (key, value) in request.Plan.ToArgs()) args[key] = value;
-        if (request.Spectate) args["observe"] = "";   // protocol 46: the Join screen's SPECTATE button (not remembered: the next Join is a player's again)
+        if (request.Spectate) args["observe"] = "";   // protocol 46: the lobby menu's SPECTATE row (not remembered: the next Join is a player's again)
         FrontEndLaunch.Current = request;
         _lastContent = request.Content ?? request.Services.Content;
         _frontEnd?.Release();

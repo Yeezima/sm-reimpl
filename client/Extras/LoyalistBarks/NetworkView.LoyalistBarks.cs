@@ -282,8 +282,8 @@ public partial class NetworkView
         float db = BarkBaseGainDb + LoyalistGainDb + SoundGainDb + (_audio?.MasterBusVolume ?? 0f);
         switch (sp.Player)
         {
-            case AudioStreamPlayer p2: p2.Stream = stream; p2.VolumeDb = db; p2.Play(); break;
-            case AudioStreamPlayer3D p3: p3.Stream = stream; p3.VolumeDb = db; p3.Play(); break;
+            case AudioStreamPlayer p2: p2.Stream = stream; p2.VolumeDb = db + SmClient.Customizer.Model.LiveOptions.GainDb(SmClient.Customizer.Model.SoundCategory.Voice); p2.Play(); break;
+            case AudioStreamPlayer3D p3: p3.Stream = stream; p3.VolumeDb = db + SmClient.Customizer.Model.LiveOptions.GainDb(SmClient.Customizer.Model.SoundCategory.Voice); p3.Play(); break;
         }
         return stream.GetLength();
     }

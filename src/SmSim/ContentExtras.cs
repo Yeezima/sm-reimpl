@@ -21,8 +21,8 @@ public enum ContentExtras : uint
     /// </summary>
     LoyalistBarks = 4,
     /// <summary>
-    /// Musou (experimental; the owner, 2026-10-31: "This game mode should be labeled Musou"): waves of Orks on Manufactorum converging on Space Marine
-    /// players, played on the player's own PC. A mode, not an addition to the existing ones: not in <see cref="ContentExtrasInfo.All"/> (so <c>extended</c>
+    /// Musou (experimental; the owner, 2026-10-31: "This game mode should be labeled Musou"; 2026-11-01: "the three-front war mode is Musou mode"): the Three-Front War,
+    /// played on the player's own PC. A mode, not an addition to the existing ones: not in <see cref="ContentExtrasInfo.All"/> (so <c>extended</c>
     /// and its config hash are unchanged), and <c>--content musou</c> only alone (never combined with another flag).
     /// </summary>
     Musou = 8,
