@@ -58,6 +58,7 @@ public sealed partial class World
         _musouArmIds.Sort();
         foreach (int id in _musouArmIds)
         {
+            if (_tfw is not null && SmSim.Extras.Musou.Campaign.TfwContracts.IsPuppet(id)) continue;   // the AI Marines keep their class loadout (pistol-only is the players' rule)
             var p = _players[id];
             if (!p.Alive) { _musouArmed.Remove(id); continue; }
             if (_musouArmed.Add(id)) _players[id] = MusouLoadout.Stripped(Config, p);

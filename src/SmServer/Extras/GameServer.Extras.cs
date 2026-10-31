@@ -1,3 +1,6 @@
+using SmNet;
+using SmSim;
+
 namespace SmServer;
 
 /// <summary>
@@ -6,16 +9,27 @@ namespace SmServer;
 /// </summary>
 public sealed partial class GameServer
 {
-    /// <summary>Once a server tick after the pickups (only with added content and a client connected): the loyalist barks' shouts, then Musou's sections.</summary>
+    /// <summary>Once a server tick after the pickups (only with added content and a client connected): the loyalist barks' shouts, then Musou's sections, then the war's.</summary>
     partial void ExtrasSend()
     {
         SendLoyalistBarks();
         SendMusou();
+        SendTfw();
     }
 
-    /// <summary>At the end of the constructor (only with added content): Musou's set-up.</summary>
+    /// <summary>At the end of the constructor (only with added content): Musou's set-up, or on the war's map the war's.</summary>
     partial void ExtrasCreated()
     {
         CreateMusou();
+        CreateTfw();
     }
+
+    /// <summary>A client's command (message kind 17, only under <c>ContentExtras.CommandUsers</c>): the Three-Front War's.</summary>
+    partial void ExtrasCommand(int player, byte tag, byte[] payload) => OnTfwCommand(player, tag, payload);
+
+    /// <summary>A scoreboard name: the Three-Front War's AI Marines.</summary>
+    partial void ExtrasPlayerName(int id, ref string name) => TfwPlayerName(id, ref name);
+
+    /// <summary>A map generated in code: the Three-Front War's.</summary>
+    static partial void ExtrasGeneratedMap(ContentExtras extras, ref string? name, ref GameMap? map, ref string? error) => TfwGeneratedMap(extras, ref name, ref map, ref error);
 }

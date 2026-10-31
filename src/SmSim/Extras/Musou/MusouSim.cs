@@ -15,7 +15,7 @@ public sealed partial class MusouSim
     /// The Musou version: its simulation rules and its wire sections (<c>MusouWire.Version</c> is this). Hashed into the config only under
     /// <see cref="ContentExtras.Musou"/> (<c>SimConfig.Extras.cs</c>); raise it for any Musou-only change (never <see cref="ContentExtras.WireVersion"/>).
     /// </summary>
-    public const uint Version = 4;   // 2: MU3's combat and the Warboss's abilities; 3: the Nobs' weapon drops (wire tag 6); 4: Chaos Marines drop too
+    public const uint Version = 5;   // 2: MU3's combat and the Warboss's abilities; 3: the Nobs' weapon drops (wire tag 6); 4: Chaos Marines drop too; 5: the Three-Front War (TfwRules.Version in the same hash block, phase 6, command kind 17)
     /// <summary>The pool's slots (design: 512; the hard cap of enemies alive is lower, 400).</summary>
     public const int Capacity = 512;
     /// <summary>The most events one tick keeps (ours; more are dropped and counted in <see cref="EventsDropped"/>).</summary>
@@ -58,7 +58,9 @@ public sealed partial class MusouSim
     /// <summary>The shared flow field (null without a graph).</summary>
     public FlowField? Flow { get; }
     /// <summary>The box positions are quantised over on the wire (the graph's, or 128 m around the origin on the flat ground).</summary>
-    public MusouBox Box { get; }
+    public MusouBox Box { get; private set; }
+    /// <summary>Grows <see cref="Box"/> to hold <paramref name="other"/> as well (the war's map: the Stormbird lies outside the graph). The enemies' grid stays over the graph, where they walk.</summary>
+    public void WidenBox(MusouBox other) => Box = new MusouBox(Vector3.Min(Box.Min, other.Min), Vector3.Max(Box.Max, other.Max));
     /// <summary>The world tick the events are of (<see cref="BeginTick"/>).</summary>
     public uint Tick { get; private set; }
     /// <summary>Slots in use (alive or dying).</summary>

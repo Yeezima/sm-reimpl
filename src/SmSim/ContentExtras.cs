@@ -58,6 +58,12 @@ public static class ContentExtrasInfo
         public static ContentExtras ActionKeyUsers => ContentExtras.LoyalistBarks;
 
         /// <summary>
+        /// The added content that reads the client-to-server extras commands (message kind 17, docs/added-content.md section 4): a server whose match runs none
+        /// of it drops every command, and a client sends none.
+        /// </summary>
+        public static ContentExtras CommandUsers => ContentExtras.Musou;
+
+        /// <summary>
         /// Every added content of the <c>extended</c> profile. <see cref="ContentExtras.Musou"/> is a mode of its own and not in it (its profile is
         /// <c>musou</c> alone); <see cref="Known"/> has every flag.
         /// </summary>
