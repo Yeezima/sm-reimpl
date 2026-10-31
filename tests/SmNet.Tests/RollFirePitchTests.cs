@@ -191,6 +191,41 @@ public class RollFirePitchTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void When_the_stick_cut_sprint_and_fire_coincide_nothing_fires_until_the_sprint_lets_go()
+    {
+        // The overlap tick: the stick (W) cuts the roll at 0.6 s with Sprint and Fire held. Both the roll's cut-tick rule and the sprint rule block the trigger;
+        // the sprint goes on blocking while Shift is held; the first tick without Shift fires (always-ready, full-auto heavy bolter).
+        var c = ConfigFor(NoFireWhileSprintingTests.Weapons["heavy bolter"]);
+        var s = Step(Fresh(c), c, InputButtons.Jump | InputButtons.Fire).S;
+        for (int k = 1; k < CutAt - 1; k++)
+        {
+            (s, var e) = Step(s, c, InputButtons.Fire | InputButtons.Sprint);   // Sprint held through the roll changes nothing (no stick yet)
+            Assert.False(e.Fired);
+            Assert.True(s.EvadeTicks > 0);
+        }
+        (s, var cut) = Step(s, c, InputButtons.Fire | InputButtons.Sprint, my: 1f);
+        Assert.Equal(0, s.EvadeTicks);                 // cut by the stick in this tick
+        Assert.False(cut.Fired);                       // the overlap tick fires nothing
+        Assert.Equal((false, 0, 0), (s.Charging, s.RaiseTicks, s.BurstLeft));
+        Assert.True(s.FireHeld);                       // the real button is kept
+        for (int k = 0; k < 10; k++)
+        {
+            (s, var e) = Step(s, c, InputButtons.Fire | InputButtons.Sprint, my: 1f);
+            Assert.False(e.Fired, $"a shot while sprinting out of the roll, tick {k}");
+        }
+        (s, var free) = Step(s, c, InputButtons.Fire, my: 1f);
+        Assert.True(free.Fired, "the held full-auto trigger does not fire once Shift is let go");
+        // A semi-automatic weapon in the same overlap needs a new press after the sprint.
+        var m = ConfigFor(NoFireWhileSprintingTests.Weapons["melta"]);
+        var t = Step(Fresh(m), m, InputButtons.Jump | InputButtons.Fire).S;
+        for (int k = 1; k < CutAt - 1; k++) t = Step(t, m, InputButtons.Fire | InputButtons.Sprint).S;
+        for (int k = 0; k < 12; k++) { (t, var e) = Step(t, m, InputButtons.Fire | InputButtons.Sprint, my: 1f); Assert.False(e.Fired); }
+        for (int k = 0; k < 5; k++) { (t, var e) = Step(t, m, InputButtons.Fire, my: 1f); Assert.False(e.Fired); }
+        t = Step(t, m, InputButtons.None, my: 1f).S;
+        Assert.True(Step(t, m, InputButtons.Fire, my: 1f).E.Fired);
+    }
+
+    [Fact]
     public void The_heavies_hop_keeps_its_rule_fire_ends_it_at_the_ranged_branch_and_shoots()
     {
         // Not changed (the owner named the Tactical roll): the hop's fire branch (0.45 s here) still ends it with a shot in that tick.
@@ -262,6 +297,76 @@ public class RollFirePitchTests(ITestOutputHelper output)
         var sent = new PlayerInput(0, 0, 0, 0.7f, InputButtons.Fire, MathF.Min(degrees, 89.9f) * Deg).WithShot(eye0 + new Vector3(0.6f, -0.4f, 0.2f), ray, eye0);
         var along = Combat.ShotDirection(sent, c);
         Assert.True(Vector3.Dot(along, ray) > 0.99f && Vector3.Cross(along, ray).Length() < 1e-3f, $"the shot {along} is off the crosshair's ray {ray}");   // under 0.06 degrees
+    }
+
+    [Theory]
+    [InlineData(89f)]
+    [InlineData(89.9f)]
+    [InlineData(90f)]
+    public void A_cone_weapon_reaches_a_target_straight_above(float degrees)
+    {
+        // The melta's cone (20 m) along a view at 89 to 90 degrees reaches a player 7 m above the eye; the same shot at level misses it (control).
+        var c = new SimConfig
+        {
+            Weapons = [MeltaTests.Melta], Classes = [new ClassLoadout("melta", 0, -1, []), new ClassLoadout("target", 0, -1, [])],
+            HealthMax = 1e6f, ShieldMax = 0f,
+        };
+        int Hits(float pitch)
+        {
+            var world = new World(c, null, [new SpawnPoint(Vector3.Zero, 0f), new SpawnPoint(new Vector3(0f, 0f, 7f), 0f)]);
+            world.Spawn(1, 0); world.Spawn(2, 1);
+            world.Step(id => new PlayerInput(0, 0, 0, 0.3f, id == 1 ? InputButtons.Fire : InputButtons.None, id == 1 ? pitch : 0f));
+            Assert.Contains(world.LastShots, s => s.Shooter == 1);
+            return world.LastHits.Count(h => h.Shooter == 1 && h.Target == 2);
+        }
+        int up = Hits(MathF.Min(degrees * Deg, MathF.PI / 2f));
+        output.WriteLine($"melta at {degrees} deg: {up} hit(s) on the player above; level: {Hits(0f)}");
+        Assert.Equal(1, up);
+        Assert.Equal(0, Hits(0f));
+    }
+
+    [Theory]
+    [InlineData(89f, 0f)]
+    [InlineData(89.9f, 0f)]
+    [InlineData(90f, 0f)]
+    [InlineData(89f, 10f)]
+    [InlineData(89.9f, 10f)]
+    [InlineData(90f, 10f)]
+    public void A_projectile_launched_at_89_to_90_degrees_goes_straight_up_and_its_extra_aim_angle_never_takes_it_over_the_head(float degrees, float extra)
+    {
+        var launcher = NoFireWhileSprintingTests.Weapons["grenade launcher"];
+        launcher = launcher with { Projectile = launcher.Projectile! with { ExtraAimAngle = extra } };
+        var c = new SimConfig { Weapons = [launcher], Classes = [new ClassLoadout("gl", 0, -1, [])], HealthMax = 1e6f };
+        float pitch = MathF.Min(degrees * Deg, MathF.PI / 2f), yaw = 0.3f;
+        var world = new World(c, null, [new SpawnPoint(Vector3.Zero, 0f)]);
+        world.Spawn(1);
+        for (int k = 0; k < 5 && world.Projectiles.Count == 0; k++) world.Step(_ => new PlayerInput(0, 0, 0, yaw, k == 0 ? InputButtons.Fire : InputButtons.None, pitch));
+        var p = Assert.Single(world.Projectiles);
+        var v = p.Velocity;
+        var view = Combat.AimDirection(yaw, 0f);
+        float along = v.X * view.X + v.Y * view.Y;   // the horizontal part along the view (negative: over the head, backwards)
+        float wanted = MathF.Min(degrees + extra, 90f);
+        output.WriteLine($"{degrees} deg + {extra}: velocity {v}, horizontal along the view {along:F4} m/s, |v| {v.Length():F2}");
+        Assert.True(along >= -1e-3f, $"launched over the head: {along} m/s backwards");
+        Assert.Equal(MathF.Cos(wanted * Deg) * v.Length(), along, 2e-2f);   // the gravity of the launch tick only changes Z
+    }
+
+    [Fact]
+    public void The_fresh_aim_ray_keeps_separate_up_and_down_limits()
+    {
+        var pivot = Vector3.Zero;
+        var origin = new Vector3(0.5f, -3f, 2f);
+        float up = 89.9f * Deg, down = -1.4f;
+        // Up: a turn past straight up stops at 89.9 degrees (not at the old 1.4 rad, not past vertical).
+        var (_, d) = FreshAim.Turn(origin, Combat.AimDirection(0.2f, 1.5f), pivot, 0f, 0.5f, down, up);
+        Assert.Equal(up, MathF.Asin(d.Z), 1e-3f);
+        Assert.True(Vector3.Dot(new Vector3(d.X, d.Y, 0f), Combat.AimDirection(0.2f, 0f)) > 0f);   // still facing the view's yaw
+        // Down: stops at -1.4 rad, not at -89.9 degrees.
+        (_, d) = FreshAim.Turn(origin, Combat.AimDirection(0.2f, -1.3f), pivot, 0f, -0.5f, down, up);
+        Assert.Equal(down, MathF.Asin(d.Z), 1e-3f);
+        // The symmetric overload is unchanged.
+        (_, d) = FreshAim.Turn(origin, Combat.AimDirection(0.2f, 1.2f), pivot, 0f, 0.5f, 1.3f);
+        Assert.Equal(1.3f, MathF.Asin(d.Z), 1e-3f);
     }
 
     [Theory]
