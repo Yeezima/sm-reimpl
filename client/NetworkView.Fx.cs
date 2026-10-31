@@ -127,6 +127,7 @@ public partial class NetworkView
             // M44: the flight's effects (thrust, apex, fall, dive, idle glow, the pound's target marker) and the dash's burst.
             foreach (var pack in catalogue.JumpPacks.Values) foreach (var n in pack.FlightNames) names.Add(n);
             foreach (var plays in catalogue.Dashes.Values) foreach (var p in plays) if (p.Name.Length > 0) names.Add(p.Name);
+            names.Add(SlashFlashEffect);   // fx/air-slash-landing: the perk landing's burst for the air slash (NetworkView.SlashFlash.cs)
             // F-D1: the death effects the player blueprints and jump packs bind (their ground impact runs collisions like the jump packs' other ground effects).
             DeathEffects? death = null; string? deathError = null;
             if (loadDeath)
@@ -150,6 +151,7 @@ public partial class NetworkView
             foreach (var plays in catalogue.Dashes.Values) foreach (var p in plays) collisionNames.Add(p.Name);
             // F-D1: a jump death's impact is a ground effect with a crater decal (the data's jumppack_land_death_mp), like the landings.
             if (death is not null) foreach (var side in new[] { death.Marines, death.Chaos }) if (side.JumpImpact is { } impact) foreach (var n in impact.EffectNames) collisionNames.Add(n);
+            collisionNames.Add(SlashFlashEffect);
             foreach (var p in catalogue.FinishFalling.Plays) collisionNames.Add(p.Name);   // the landing is played with its collision content (GroundPoundFx.Play), as the jump packs' landings
             var decals = library.Textures(FxPlayer.DecalNames(systems.Values, collisionNames));
             StaticModel? casing = null; string? casingError = null;

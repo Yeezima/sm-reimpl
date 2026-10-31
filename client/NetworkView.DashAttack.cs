@@ -79,6 +79,7 @@ public partial class NetworkView
             var (point, normal, surface) = GroundUnder(s.Position);
             var dust = effects.LandingFor(float.MaxValue).Concat(effects.LightLanding.Select(p => p with { Scale = (p.Scale <= 0f ? 1f : p.Scale) * GroundPoundFx.DustScale * 0.6f })).ToList();
             GroundPoundFx.Play(_fx, dust, point, normal, 0f, null, _catalogue.SurfaceName(surface), 0);
+            SlashFlashAdd(point, normal, own);   // fx/air-slash-landing: the blue-white burst, light and own-view flash (NetworkView.SlashFlash.cs)
             if (_camera is { } cam && cam.GlobalPosition.DistanceTo(point) is var d && d < SlashShakeRange) FxShake(Math.Clamp(1f - d / SlashShakeRange, 0f, 1f) * SlashShakeAmount);
         }
         else LandingPresentation(s, own, pack, drop);
