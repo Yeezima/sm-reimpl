@@ -12,6 +12,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/SmFormats.Tests/SmFormats.Tests.csproj" />
     <Project Path="tests/SmLauncher.Tests/SmLauncher.Tests.csproj" />
+    <Project Path="tests/SmLauncher.UiTests/SmLauncher.UiTests.csproj" />
     <Project Path="tests/SmNet.Tests/SmNet.Tests.csproj" />
   </Folder>
 </Solution>

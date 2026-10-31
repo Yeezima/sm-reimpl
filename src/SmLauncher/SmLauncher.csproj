@@ -39,4 +39,9 @@
     <ProjectReference Include="..\SmLauncher.Core\SmLauncher.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- SmLauncher.UiTests runs the window's layout and repaint checks (LauncherLayoutTests) -->
+    <InternalsVisibleTo Include="SmLauncher.UiTests" />
+  </ItemGroup>
+
 </Project>

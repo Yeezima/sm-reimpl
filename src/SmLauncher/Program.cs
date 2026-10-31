@@ -46,7 +46,8 @@ static class Program
         ApplicationConfiguration.Initialize();
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += (_, e) => DarkBox.Show(e.Exception.Message, "SM Reimpl Launcher", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        Application.Run(new MainForm(a));
+        if (a.Has("screenshot")) PrivateDesktop.Run(() => { Application.Run(new MainForm(a)); return 0; });      // test aid: drawn on a private desktop, never the foreground
+        else Application.Run(new MainForm(a));
         return Environment.ExitCode;
     }
 
@@ -93,7 +94,7 @@ static class LauncherInfo
 sealed class Args
 {
     public Dictionary<string, string?> Values { get; } = new(StringComparer.OrdinalIgnoreCase);
-    static readonly HashSet<string> WithValue = new(StringComparer.OrdinalIgnoreCase) { "root", "adopt", "screenshot", "screenshot-after", "self-updated", "install-self", "wait-pid", "wait-start", "ui-scale", "ui-workarea", "ui-state", "layout-check", "row-check" };
+    static readonly HashSet<string> WithValue = new(StringComparer.OrdinalIgnoreCase) { "root", "adopt", "screenshot", "screenshot-after", "self-updated", "install-self", "wait-pid", "wait-start", "ui-scale", "ui-width", "ui-workarea", "ui-state", "layout-check", "row-check" };
     static readonly string[] Commands = ["status", "check", "install-latest", "resume", "verify", "rollback", "adopt", "recover", "update-launcher", "install-self"];
 
     public static Args Parse(string[] args)
