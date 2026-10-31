@@ -4,7 +4,7 @@ using SmSim.Extras.Musou;
 namespace SmSim;
 
 /// <summary>
-/// Added content "Musou": the golden weapon drops in the World (owner, 2026-10-31; <see cref="MusouDropRules"/>). A KO of a dropping enemy (the Nobs) in
+/// Added content "Musou": the golden weapon drops in the World (owner, 2026-10-31; <see cref="MusouDropRules"/>). A KO of a dropping enemy (the Nobs and Chaos Marines) in
 /// play makes one drop spot where it fell, on the floor (its walking-graph node's height); every living player gets a drop of its own there, an independent
 /// roll from its class's pool (<see cref="MusouDropRules.Roll"/>). Each player sees and takes only its own: an interact press (E) within
 /// <see cref="MusouDropRules.ReachMetres"/> takes the nearest and equips it (<see cref="MusouGiveItem"/>); that press then collects no ammunition box (the

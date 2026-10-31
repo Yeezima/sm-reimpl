@@ -110,7 +110,7 @@ public sealed partial class World
         {
             if (_state != MatchState.Playing) continue;
             _musouDirector!.OnKill(kill);
-            MusouDropFor(kill);   // World.MusouDrops.cs: a Nob's weapon drop
+            MusouDropFor(kill);   // World.MusouDrops.cs: a Nob's or Chaos Marine's weapon drop
             if (kill.Player != 0 && _players.ContainsKey(kill.Player))
             {
                 var score = _scores.GetValueOrDefault(kill.Player);
