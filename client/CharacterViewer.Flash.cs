@@ -26,7 +26,9 @@ public partial class CharacterViewer
     /// <c>--old-break-glow</c> restores the round-2 halo.
     /// </summary>
     public static readonly Color RedGlowColour = new(1f, 0.03f, 0.14f);
-    public const float RedGlowStrength = 2.0f, RedGlowScale = 1.7f, RedBodyStrength = 0.5f;
+    /// <summary>The blood splash's colour (deep red, ours).</summary>
+    public static readonly Color BloodColour = new(0.85f, 0.01f, 0.03f);
+    public const float RedGlowStrength = 2.6f, RedGlowScale = 2.1f, RedBodyStrength = 0.1f, RedHotStrength = 0.22f;
     /// <summary><c>--old-break-glow</c> (before / after aid): the subtle round-2 red halo, no re-flash, no blood.</summary>
     public static bool OldBreakGlow { get; set; }
 
@@ -52,7 +54,8 @@ void fragment() {
     vec3 energy = vec3({{F(HitColour.R)}}, {{F(HitColour.G)}}, {{F(HitColour.B)}}) * flash_hit * {{F(HitStrength)}}
                 + vec3({{F(old ? BreakColour.R : RedGlowColour.R)}}, {{F(old ? BreakColour.G : RedGlowColour.G)}}, {{F(old ? BreakColour.B : RedGlowColour.B)}}) * flash_break * {{F(old ? BreakStrength : 0f)}}
                 + vec3({{F(GlowColour.R)}}, {{F(GlowColour.G)}}, {{F(GlowColour.B)}}) * flash_glow * {{F(old ? GlowStrength : 0f)}};
-    ALBEDO = energy * (0.06 + 1.0 * rim) + flash_break * (rim * 0.6 + 0.15) * vec3({{F(RedGlowColour.R)}}, {{F(RedGlowColour.G)}}, {{F(RedGlowColour.B)}}) * {{F(old || OldBreakGlow ? 0f : RedBodyStrength)}};
+    ALBEDO = energy * (0.06 + 1.0 * rim) + flash_break * (rim * 0.8 + 0.02) * vec3({{F(RedGlowColour.R)}}, {{F(RedGlowColour.G)}}, {{F(RedGlowColour.B)}}) * {{F(old || OldBreakGlow ? 0f : RedBodyStrength)}}
+                + pow(flash_break, 8.0) * vec3(1.0, 0.45, 0.55) * {{F(old || OldBreakGlow ? 0f : RedHotStrength)}};
 }
 """;
 
@@ -89,11 +92,11 @@ void fragment() {
     float fill = (1.0 - smoothstep(0.1, 1.0, r)) * 0.25;      // a faint soft fill that dies out at the quad's edge
     float a = (band * 0.85 + fill) * wob * (1.0 - smoothstep(0.92, 1.0, r)) * smoothstep(-0.97, -0.55, p.y);   // dies out toward the feet, so that the floor cuts it where it is already clear
     // fx/red-glow-blood: a bright core that hugs the body and fades outward, with a softer spill beyond (the original's engulfing red-magenta glow)
-    float rb = length(vec2(p.x * 1.35, p.y));   // narrower than tall: it hugs a standing body
-    float core = exp(-rb * rb / 0.09);
-    float spill = exp(-pow((rb - 0.5) / 0.22, 2.0)) * 0.45;
-    float ra = (core * 0.9 + spill) * (0.75 + 0.25 * vnoise(vec2(ang * 3.0 - TIME * 2.0, TIME * 4.0))) * (1.0 - smoothstep(0.92, 1.0, r)) * smoothstep(-0.97, -0.5, p.y);
-    vec3 red = vec3({{F(RedGlowColour.R)}}, {{F(RedGlowColour.G)}}, {{F(RedGlowColour.B)}}) * ra * {{F(RedGlowStrength)}} + vec3(0.35, 0.05, 0.1) * core * ra * {{F(RedGlowStrength)}};
+    float rb = length(vec2(p.x * 1.15, p.y * 0.9 - 0.05));   // centred on the torso, a bloom well beyond the body
+    float core = exp(-rb * rb / 0.12);
+    float spill = exp(-pow((rb - 0.55) / 0.4, 2.0)) * 0.85;
+    float ra = (core * 0.9 + spill) * (0.7 + 0.3 * vnoise(vec2(ang * 3.0 - TIME * 2.0, TIME * 4.0))) * (1.0 - smoothstep(0.55, 0.98, r)) * smoothstep(-0.97, -0.5, p.y);
+    vec3 red = vec3({{F(RedGlowColour.R)}}, {{F(RedGlowColour.G)}}, {{F(RedGlowColour.B)}}) * ra * {{F(RedGlowStrength)}} + vec3(0.9, 0.25, 0.35) * core * ra * pow(halo_mix.x, 3.0) * {{F(RedGlowStrength)}};
     vec3 energy = mix(vec3({{F(BreakColour.R)}}, {{F(BreakColour.G)}}, {{F(BreakColour.B)}}) * a * {{F(HaloBreakStrength)}}, red, halo_mix.z) * halo_mix.x
                 + vec3({{F(GlowColour.R)}}, {{F(GlowColour.G)}}, {{F(GlowColour.B)}}) * a * halo_mix.y * {{F(HaloGlowStrength)}};
     ALBEDO = energy;
@@ -217,7 +220,7 @@ void fragment() {
             if (show)
             {
                 _haloMaterial!.SetShaderParameter("halo_mix", new Vector4(broke, glow, OldBreakGlow ? 0f : 1f, 1f));
-                halo.Scale = broke > 0.001f && !OldBreakGlow ? new Vector3(RedGlowScale * 0.85f, RedGlowScale, 1f) : Vector3.One;
+                halo.Scale = broke > 0.001f && !OldBreakGlow ? new Vector3(RedGlowScale * 0.9f, RedGlowScale, 1f) : Vector3.One;
                 // The model's body is not at the viewer's origin (the rig's root is offset): centre the halo on the lower spine, where the body is.
                 if (_haloBone == -2) _haloBone = _skeleton.FindBone("RIG_SpineA");
                 if (_haloBone >= 0) halo.GlobalPosition = _skeleton.ToGlobal(_skeleton.GetBoneGlobalPose(_haloBone).Origin) + Vector3.Up * 0.12f;
