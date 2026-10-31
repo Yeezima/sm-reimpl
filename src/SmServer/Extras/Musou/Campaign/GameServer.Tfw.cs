@@ -30,10 +30,4 @@ public sealed partial class GameServer
         if (started) { PlayerJoined += p => World.MusouJoined(p.PlayerId); TfwUseWireBox(); }
         _musouNote = started ? $"musou: the Three-Front War runs on {TfwMap.Name} (placeholder arena and Stormbird; Space Marines only, no limits); {navNote}" : "musou: not started (the match has no team rules)";
     }
-
-    /// <summary>An AI Marine's scoreboard name; every other player keeps its own.</summary>
-    void TfwPlayerName(int id, ref string name)
-    {
-        if (World.Tfw is { } run && TfwContracts.IsPuppet(id)) name = run.PuppetName(id);
-    }
 }

@@ -189,7 +189,7 @@ public class TfwContractTests
         h.Server.NextPlayerIdForTests = TfwContracts.PuppetIdFirst;
         h.AddClient(nonce: 1, options: new ClientOptions { LoadMap = _ => new LoadedMap(h.Server.Map!.Collision, h.Server.Map.Hash) });
         h.Run(TimeSpan.FromSeconds(1));
-        Assert.Equal(TfwContracts.PuppetIdFirst + 1, Assert.Single(h.Server.Players));
+        Assert.Equal(TfwContracts.PuppetIdLast + 1, Assert.Single(h.Server.Players));   // TF5: past the whole reserved range, held or not
     }
 
     // ---------------------------------------------------------------- commands (message kind 17)

@@ -278,7 +278,7 @@ public class TfwWireTests(ITestOutputHelper output)
         int player = client.PlayerId;
         void Send(ushort sequence)
         {
-            Assert.True(client.SendExtrasCommand(TfwWire.CommandTag, TfwWire.WriteCommand(new TfwCommandRecord(sequence, TfwCommand.Follow, 0))));
+            Assert.True(client.SendExtrasCommand(TfwWire.CommandTag, TfwWire.WriteCommand(new TfwCommandRecord(sequence, TfwCommand.RequestPickup, 0))));
             h.Run(TimeSpan.FromMilliseconds(130));   // under the rate
         }
         Send(65534);
@@ -317,7 +317,7 @@ public class TfwWireTests(ITestOutputHelper output)
     {
         var h = WarServer();
         h.Run(TimeSpan.FromSeconds(1));
-        for (ushort s = 1; s <= 30; s++) h.Clients[0].SendExtrasCommand(TfwWire.CommandTag, TfwWire.WriteCommand(new TfwCommandRecord(s, TfwCommand.Follow, 0)));
+        for (ushort s = 1; s <= 30; s++) h.Clients[0].SendExtrasCommand(TfwWire.CommandTag, TfwWire.WriteCommand(new TfwCommandRecord(s, TfwCommand.RequestPickup, 0)));
         h.Run(TimeSpan.FromMilliseconds(100));
         Assert.Equal(8, h.Server.World.Tfw!.QueuedCommands);
         Assert.Equal(22, h.Server.ExtrasCommandsDropped);

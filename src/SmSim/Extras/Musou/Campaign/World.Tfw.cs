@@ -45,7 +45,8 @@ public sealed partial class World
     {
         MusouBeginTick();
         MusouArm();
-        TfwGuardsStep();   // World.TfwGuards.cs
+        TfwGuardsStep();    // World.TfwGuards.cs: the one fight of the tick (shots, enemies, Guardsmen)
+        TfwPuppetsStep();   // World.TfwPuppets.cs: the AI Marines
     }
 
     /// <summary>

@@ -427,11 +427,17 @@ public sealed partial class GameServer
     /// <summary>Test seam: the input last applied for <paramref name="id"/> (as stored: e.g. with added content's action key dropped when no extra reads it).</summary>
     internal PlayerInput LastAppliedForTests(int id) => _peers.Values.Single(p => p.PlayerId == id).LastApplied;
 
+    /// <summary>
+    /// Ids no joining player gets, on any profile: added content's players without a peer live here (the Three-Front War's AI Marines; a test pins these to its contract, which the
+    /// core cannot name). A plain range, not a hook: skipping 8 of 65535 ids changes nothing a faithful match can see.
+    /// </summary>
+    internal const int ReservedPlayerIdFirst = 65520, ReservedPlayerIdLast = 65527;
+
     int NextPlayerId()
     {
         var used = _peers.Values.Select(p => p.PlayerId).ToHashSet();
         used.UnionWith(World.Players.Keys);   // players without a peer (added content's AI Marines) hold their ids too
-        while (used.Contains(_nextPlayerId) || _nextPlayerId is < 1 or > ushort.MaxValue)
+        while (used.Contains(_nextPlayerId) || _nextPlayerId is < 1 or > ushort.MaxValue or (>= ReservedPlayerIdFirst and <= ReservedPlayerIdLast))
             _nextPlayerId = _nextPlayerId is < 1 or >= ushort.MaxValue ? 1 : _nextPlayerId + 1;
         int id = _nextPlayerId;
         _nextPlayerId = id >= ushort.MaxValue ? 1 : id + 1;
