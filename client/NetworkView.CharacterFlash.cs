@@ -24,6 +24,24 @@ public partial class NetworkView
     bool OldFlashOutlineFlag => _oldFlashOutline ??= CmdFlag("old-flash-outline");
     bool? _oldFlashOutline;
 
+    /// <summary><c>--old-break-glow</c> (fx/red-glow-blood before / after aid): the subtle round-2 red halo for a break, no re-flash on later damage, no blood splash.</summary>
+    bool OldBreakGlowFlag => _oldBreakGlow ??= CmdFlag("old-break-glow");
+    bool? _oldBreakGlow;
+
+    BloodSplash? _blood;
+    double _bloodAt = double.NegativeInfinity;
+    const float BloodSize = 1.0f;
+
+    /// <summary>fx/red-glow-blood: the red splash of a hit on a body whose armour is gone, at the hit point, sprayed back toward the shooter.</summary>
+    void BloodSplashAt(Vector3 end, Vector3 dir, double delay)
+    {
+        if (OldBreakGlowFlag) return;
+        if (_connectedFor - _bloodAt < 0.05) return;   // rapid fire does not stack streaks on streaks
+        _bloodAt = _connectedFor;
+        if (_blood is null || !GodotObject.IsInstanceValid(_blood)) { _blood = new BloodSplash { Name = "BloodSplash" }; AddChild(_blood); }
+        _blood.Spawn(end, -dir, BloodSize, delay);
+    }
+
     /// <summary>A shot struck <paramref name="victim"/> (another player's model) whose armour was up (<paramref name="armourUp"/>; null: not known, read as up).</summary>
     void CharacterFlashHit(int victim, bool? armourUp)
     {
@@ -40,13 +58,14 @@ public partial class NetworkView
         int own = _client.PlayerId;
         var me = _client.Predicted;
         CharacterViewer.OldFlashOutline = OldFlashOutlineFlag;
+        CharacterViewer.OldBreakGlow = ArmourFlashTracker.Old = OldBreakGlowFlag;
         if (NoArmourFlash)
         {
             _local?.SetArmourFlash(0f, 0f, 0f);
             foreach (var character in _remotes.Values) character.SetArmourFlash(0f, 0f, 0f);
             return;
         }
-        _armourFlash.OwnShield(own, _connectedFor, me.Shield, Loadouts.Body(_config, me).ShieldMax, me.Alive);
+        _armourFlash.OwnShield(own, _connectedFor, me.Shield, Loadouts.Body(_config, me).ShieldMax, me.Alive, me.Health);
         if (_local is not null)
         {
             if (ArmourFlashDemoMode is { Length: > 0 } demo)

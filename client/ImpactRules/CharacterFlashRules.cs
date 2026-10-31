@@ -13,13 +13,18 @@ namespace SmClient.ImpactRules;
 public sealed class ArmourFlashTracker
 {
     /// <summary>How long each flash lasts (s, ours).</summary>
-    public const float HitSeconds = 0.22f, BreakSeconds = 0.4f, GlowSeconds = 1.1f;
+    public const float HitSeconds = 0.22f, BreakSeconds = 0.9f, GlowSeconds = 1.1f;
+    /// <summary>fx/red-glow-blood (owner, 2026-10-31; ours): how long the red glow re-flashes for each damage tick taken with the armour already gone (s); <see cref="BreakSeconds"/> is the first, longer glow (was 0.4 s as a subtle flash; <see cref="OldBreakSeconds"/> for <c>--old-break-glow</c>).</summary>
+    public const float ReflashSeconds = 0.2f, OldBreakSeconds = 0.4f;
+    /// <summary><c>--old-break-glow</c> (before / after aid): the break flash lasts <see cref="OldBreakSeconds"/> and nothing re-flashes.</summary>
+    public static bool Old { get; set; }
 
     sealed class Entry
     {
-        public double HitAt = double.NegativeInfinity, BreakAt = double.NegativeInfinity, GlowAt = double.NegativeInfinity;
+        public double HitAt = double.NegativeInfinity, ReflashAt = double.NegativeInfinity, BreakAt = double.NegativeInfinity, GlowAt = double.NegativeInfinity;
         public double RegenAt = double.PositiveInfinity;   // others: when the armour is expected to start recharging
         public int Armour;                                 // others: 0 not known, 1 up, 2 down
+        public float Health = float.NaN;                   // own: the last health sample (fx/red-glow-blood)
         public float Shield = float.NaN;                   // own: the last sample
         public bool Regenerating;                          // own: the shield is rising
         public double LastRiseAt = double.NegativeInfinity;
@@ -35,6 +40,7 @@ public sealed class ArmourFlashTracker
         var e = Of(id);
         if (armourUp) e.HitAt = now;
         else if (e.Armour == 1) e.BreakAt = now;   // up before, down now: it broke in between (the flash comes with the first hit that finds it down)
+        else e.ReflashAt = now;                    // fx/red-glow-blood: a further hit on a body whose armour is already gone
         e.Armour = armourUp ? 1 : 2;
         e.RegenAt = now + Math.Max(0f, regenDelay);
     }
@@ -54,12 +60,18 @@ public sealed class ArmourFlashTracker
     /// The own player's shield sampled each frame: a drop that leaves armour is a hit, a drop to nothing a break, and a rise after the shield stood still or fell is the
     /// recharge starting (the rise goes on for the glow's length without starting again).
     /// </summary>
-    public void OwnShield(int id, double now, float shield, float max, bool alive)
+    public void OwnShield(int id, double now, float shield, float max, bool alive, float health = float.NaN)
     {
         var e = Of(id);
-        if (!alive) { e.Shield = float.NaN; e.Regenerating = false; return; }
+        if (!alive) { e.Shield = float.NaN; e.Health = float.NaN; e.Regenerating = false; return; }
         if (float.IsNaN(e.Shield)) { e.Shield = shield; return; }   // the first sample (or the first after a respawn): nothing to compare
         const float Eps = 0.01f;
+        // fx/red-glow-blood: health lost while the shield stands at nothing (before and after) is a damage tick with no armour: the red glow re-flashes.
+        if (!float.IsNaN(health))
+        {
+            if (!float.IsNaN(e.Health) && health < e.Health - Eps && shield <= 0f && e.Shield <= 0f) e.ReflashAt = now;
+            e.Health = health;
+        }
         if (shield < e.Shield - Eps)
         {
             if (shield <= 0f) e.BreakAt = now; else e.HitAt = now;
@@ -80,7 +92,8 @@ public sealed class ArmourFlashTracker
     {
         if (!_byId.TryGetValue(id, out var e)) return (0f, 0f, 0f);
         if (now >= e.RegenAt) { e.GlowAt = e.RegenAt; e.RegenAt = double.PositiveInfinity; e.Armour = 1; }
-        return (Fade(now - e.HitAt, HitSeconds), Fade(now - e.BreakAt, BreakSeconds), Glow(now - e.GlowAt));
+        float red = Old ? Fade(now - e.BreakAt, OldBreakSeconds) : Math.Max(Fade(now - e.BreakAt, BreakSeconds), Fade(now - e.ReflashAt, ReflashSeconds));
+        return (Fade(now - e.HitAt, HitSeconds), red, Glow(now - e.GlowAt));
     }
 
     /// <summary>A flash: full at its start, out with the square of the time left.</summary>

@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Losing your armour (or an enemy's) now shows a strong red glow around the character, which flashes again briefly with every hit taken afterwards; hits on a character with no armour throw out a spray of red droplets.
