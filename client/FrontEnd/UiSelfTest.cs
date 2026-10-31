@@ -294,6 +294,7 @@ public sealed partial class UiSelfTest : Node
         await HostChecks();
         await ControlsChecks();   // ui/keybinds (UiSelfTest.Controls.cs)
         await FitChecks();
+        await ArmourBarChecks();   // ui/armour-bar-fix: one armour bar layer (UiSelfTest.ArmourBar.cs)
         await ScoreBoxChecks();   // ui/score-box-center: the HUD score box holds its block (UiSelfTest.ScoreBox.cs)
     }
 
