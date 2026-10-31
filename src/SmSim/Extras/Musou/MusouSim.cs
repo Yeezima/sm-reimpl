@@ -53,6 +53,8 @@ public sealed class MusouSim
     public IReadOnlyList<MusouEvent> Events => _events;
     /// <summary>Events dropped over <see cref="MaxEventsPerTick"/> since the start.</summary>
     public int EventsDropped { get; private set; }
+    /// <summary>The director's state for the clients (tag 5). The director (MU1) sets it each tick; the server sends it (MU2).</summary>
+    public MusouDirectorView Director { get; set; }
 
     /// <summary>A new tick: clears the last tick's events. Called by the World once a tick (the <c>ExtrasStep</c> hook).</summary>
     public void BeginTick(uint tick)
