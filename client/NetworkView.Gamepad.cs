@@ -40,46 +40,39 @@ public partial class NetworkView
 
     bool PadLive => _pad is not null && PadHost.Active && !OwnDead && !PickerBusy;
 
-    void OnPadButton(JoyButton button, bool pressed)
+    void OnPadButton(JoyButton button, bool pressed) => PadInputChanged(ControlsInput.PadCode(button), pressed);
+
+    /// <summary>The held-type buttons a pad press feeds into the tap latch (Sprint is read from the sample only).</summary>
+    const InputButtons PadHoldButtons = InputButtons.Fire | InputButtons.Aim | InputButtons.Melee | InputButtons.MeleeHeavy | InputButtons.Jump | InputButtons.Grenade | InputButtons.Reload;
+
+    /// <summary>
+    /// A pad button or trigger changed (ui/keybinds: the actions come from the player's controller bindings, the SM1 layout by default): the held-type buttons go through the tap latch,
+    /// the weapon slots and the switch tap for one tick, Use latches an interact, the zoom action cycles the scope level.
+    /// </summary>
+    void PadInputChanged(string code, bool pressed)
     {
         if (!PadHost.Active) return;
-        if (!PadLive) { if (!pressed) _latch.Release(InputButtons.Melee | InputButtons.MeleeHeavy | InputButtons.Jump | InputButtons.Grenade | InputButtons.Reload); return; }
-        var held = button switch
+        var actions = ControlsInput.PadActions(code);
+        if (!PadLive)
         {
-            JoyButton.X => InputButtons.Melee,
-            JoyButton.Y => InputButtons.MeleeHeavy,
-            JoyButton.A => InputButtons.Jump,
-            JoyButton.LeftShoulder => InputButtons.Grenade,
-            JoyButton.RightShoulder => InputButtons.Reload,
-            _ => InputButtons.None,
-        };
-        if (held != InputButtons.None) { if (pressed) _latch.Press(held); else _latch.Release(held); return; }
-        if (!pressed) return;
-        switch (button)
+            if (!pressed) foreach (var a in actions) if ((ControlActions.Info(a).Buttons & PadHoldButtons) != 0) _latch.Release(ControlActions.Info(a).Buttons);
+            return;
+        }
+        foreach (var action in actions)
         {
-            case JoyButton.B: _padInteractLatched = true; break;
-            case JoyButton.RightStick: if (_client?.Predicted.Aiming == true) _padZoom++; break;   // the zoom cycle (the levels of the scoped weapons)
-            case JoyButton.DpadUp: PadSwap(PadControl.DpadUp); break;
-            case JoyButton.DpadRight: PadSwap(PadControl.DpadRight); break;
-            case JoyButton.DpadDown: PadSwap(PadControl.DpadDown); break;
+            var button = ControlActions.Info(action).Buttons;
+            if ((button & PadHoldButtons) != 0) { if (pressed) _latch.Press(button); else _latch.Release(button); continue; }
+            if (!pressed) continue;
+            switch (action)
+            {
+                case GameAction.Use: _padInteractLatched = true; break;
+                case GameAction.ZoomCycle: if (_client?.Predicted.Aiming == true) _padZoom++; break;   // the zoom cycle (the levels of the scoped weapons)
+                case GameAction.Weapon1 or GameAction.Weapon2 or GameAction.Weapon3 or GameAction.NextWeapon: _latch.Press(button); _latch.Release(button); break;   // one tick (the simulation acts on the press edge)
+            }
         }
     }
 
-    /// <summary>A D-pad press: one tick of the weapon's slot button (the simulation acts on the press edge).</summary>
-    void PadSwap(PadControl dpad)
-    {
-        var button = GamepadRules.WeaponSwap(dpad);
-        if (button == InputButtons.None) return;
-        _latch.Press(button); _latch.Release(button);
-    }
-
-    void OnPadTrigger(int trigger, bool pressed)
-    {
-        if (!PadHost.Active) return;
-        var button = trigger == 0 ? InputButtons.Aim : InputButtons.Fire;
-        if (pressed && !PadLive) return;
-        if (pressed) _latch.Press(button); else _latch.Release(button);
-    }
+    void OnPadTrigger(int trigger, bool pressed) => PadInputChanged(ControlsInput.TriggerCode(trigger), pressed);
 
     /// <summary>Start opens the game menu like Esc does (called from <see cref="LoadoutInput"/>'s event test).</summary>
     static bool IsMenuPress(InputEvent e) =>
@@ -113,20 +106,14 @@ public partial class NetworkView
         return Mathf.Lerp(x, y, Math.Clamp(w, 0f, 1f));
     }
 
-    /// <summary>This tick's input from the pad (the same <see cref="PlayerInput"/> the keyboard makes).</summary>
+    /// <summary>This tick's input from the pad (the same <see cref="PlayerInput"/> the keyboard makes, from the controller bindings).</summary>
     PlayerInput SamplePad(uint tick)
     {
         var pad = _pad!;
         var (x, y) = GamepadRules.MoveStick(pad.LeftStick.X, pad.LeftStick.Y);
-        var buttons = pad.Button(JoyButton.LeftStick) ? InputButtons.Sprint : InputButtons.None;   // a hold on the stick click (owner 2026-10-30)
-        if (pad.RightTriggerDown) buttons |= InputButtons.Fire;
-        if (pad.LeftTriggerDown) buttons |= InputButtons.Aim;
-        if (pad.Button(JoyButton.X)) buttons |= InputButtons.Melee;
-        if (pad.Button(JoyButton.Y)) buttons |= InputButtons.MeleeHeavy;
-        if (pad.Button(JoyButton.RightShoulder)) buttons |= InputButtons.Reload;
-        if (pad.Button(JoyButton.LeftShoulder)) buttons |= InputButtons.Grenade;
-        if (pad.Button(JoyButton.A)) buttons |= InputButtons.Jump;
-        bool interact = _padInteractLatched || pad.Button(JoyButton.B);
+        // The bound actions as buttons (sprint is a hold on the stick click by default: owner 2026-10-30); the sprint, charge and strikes read the same bits as the keyboard's.
+        var buttons = BindingSet.Sample(a => ControlsInput.PadHeld(pad, a), captured: true, includeMove: false).Buttons;
+        bool interact = _padInteractLatched || ControlsInput.PadHeld(pad, GameAction.Use);
         _padInteractLatched = false;
         if (interact && !NoPickups) buttons |= InputButtons.Interact;
         buttons = LatchButtons(buttons);
@@ -134,5 +121,5 @@ public partial class NetworkView
     }
 
     /// <summary>Whether the scoreboard button (Back) is held on the pad.</summary>
-    bool PadScoreboardHeld => !_bot && _pad is not null && PadHost.Active && _pad.Button(JoyButton.Back);
+    bool PadScoreboardHeld => !_bot && _pad is not null && PadHost.Active && ControlsInput.PadHeld(_pad, GameAction.Scoreboard);
 }

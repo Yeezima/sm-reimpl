@@ -234,7 +234,7 @@ public partial class NetworkView
 
         NoteCapturesForStats(match.State);
         UpdateMatchFlow(match);   // before the board: the splash, the count-up and the battle record hold the scoreboard back (MatchEndTimeline)
-        bool board = ShowScoreboard || (match.State == MatchState.Ended && EndBoardUp) || (!_bot && Input.IsPhysicalKeyPressed(Key.Tab)) || PadScoreboardHeld;
+        bool board = ShowScoreboard || (match.State == MatchState.Ended && EndBoardUp) || (!_bot && ControlsInput.Held(GameAction.Scoreboard)) || PadScoreboardHeld;
         if (_scoreboardPanel is not null && _scoreboardText is not null)
         {
             _scoreboardPanel.Visible = board;

@@ -35,6 +35,7 @@ public sealed partial class FrontEndView : Control
     Control? _joinScreen;
     CreatorView? _creator;
     AppearanceView? _appearance;
+    ControlsView? _controls;
     SlotStrip? _strip;
     LineEdit? _host;
     Label? _activeLabel, _summary, _message;
@@ -195,6 +196,8 @@ public sealed partial class FrontEndView : Control
         _appearance = new AppearanceView(_services, ShowCreatorAgain) { Visible = false };
         AddChild(_creator);
         AddChild(_appearance);
+        _controls = new ControlsView(ShowJoin);   // ui/keybinds (ours)
+        AddChild(_controls);
         if (_args.ContainsKey("ui-selftest")) AddChild(new UiSelfTest(this, _services));
         // The profile's own notices (a repaired, corrupt or read-only file) show once.
         var notices = _services.Session!.Notices();
@@ -298,6 +301,10 @@ public sealed partial class FrontEndView : Control
         column.AddChild(bar);
         var footer = UiKit.HBox(24);
         footer.AddChild(UiKit.FovRow(_services.Settings.FovDegrees, f => _services.UpdateSettings(x => x with { FovDegrees = f })));   // ui/fov-slider (ours)
+        footer.AddChild(UiKit.Button("CONTROLS", ShowControls, 200, "Rebind the keyboard, mouse and controller").With(b => { b.Name = "ControlsButton"; b.CustomMinimumSize = new Vector2(200, 28); b.AddThemeFontSizeOverride("font_size", UiKit.CaptionSize);
+            // The footer is one slider high: slim styles (the theme's boxes carry 12 px of margin all round), so the Join screen keeps its room.
+            foreach (var (state, box) in new[] { ("normal", UiKit.Box(new Color(0.06f, 0.06f, 0.06f, 0.92f), new Color(0.55f, 0.45f, 0.1f), 2, 12)), ("hover", UiKit.Box(UiKit.Hover, UiKit.Gold, 2, 12)), ("pressed", UiKit.Box(new Color(0.25f, 0.2f, 0.03f, 0.98f), UiKit.Gold, 2, 12)) })
+            { box.ContentMarginTop = 1; box.ContentMarginBottom = 1; b.AddThemeStyleboxOverride(state, box); } }));   // ui/keybinds (ours)
         if (GameFoundNote is { Length: > 0 }) footer.AddChild(UiKit.Text(GameFoundNote, UiKit.CaptionSize, UiKit.Grey).With(l => { l.ClipText = true; l.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; l.TooltipText = GameFoundNote; l.MouseFilter = Control.MouseFilterEnum.Pass; }));
         else footer.AddChild(UiKit.Spacer());
         footer.AddChild(new LinkButton { Text = "Builds and issues: " + ServerLaunch.ReleasesUrl.Replace("https://", ""), Uri = ServerLaunch.ReleasesUrl }.With(l => l.AddThemeFontSizeOverride("font_size", UiKit.CaptionSize)));
@@ -414,9 +421,22 @@ public sealed partial class FrontEndView : Control
     {
         if (!_built) return;
         _creator!.Visible = false; _appearance!.Visible = false; _joinScreen!.Visible = true;
+        bool fromControls = _controls?.Visible == true;
+        _controls?.Close();
         RefreshSummary();
-        _joinButton!.FocusLater();
+        if (fromControls && FindChild("ControlsButton", true, false) is Button controlsButton) controlsButton.FocusLater(); else _joinButton!.FocusLater();
     }
+
+    /// <summary>The CONTROLS screen (key and controller rebinding; ui/keybinds), reached from the Join screen's footer.</summary>
+    public void ShowControls()
+    {
+        if (!_built) return;
+        _creator!.Visible = false; _appearance!.Visible = false; _joinScreen!.Visible = false;
+        _controls!.Open();
+    }
+
+    /// <summary>The CONTROLS screen, or null before the screens are built (the self-test and the screenshots read it).</summary>
+    public ControlsView? Controls => _controls;
 
     public void ShowCreator()
     {
@@ -512,6 +532,13 @@ public sealed partial class FrontEndView : Control
     {
         var args = _args;
         if (args.ContainsKey("demo-profile")) DemoProfile();
+        // --controls-screen [keyboard|controller] [--controls-conflict]: the CONTROLS screen (ui/keybinds screenshots); with --controls-conflict an input in use is pressed, so the prompt shows.
+        if (args.ContainsKey("controls-screen"))
+        {
+            ShowControls();
+            _controls!.Open(args["controls-screen"] is { } which && which.StartsWith("c", StringComparison.OrdinalIgnoreCase) ? BindDevice.Controller : BindDevice.Keyboard);
+            if (args.ContainsKey("controls-conflict")) _controls.DemoConflict();
+        }
         if (args.ContainsKey("demo-look")) DemoLook();
         // --loadout <default:role|1..10>: the loadout to open with (held in memory, not saved), as at a --connect launch.
         if (args.GetValueOrDefault("loadout") is { } wanted && LaunchOptions.ParseLoadout(wanted, _services.Catalog!) is { } chosen && LoadoutEdits.IsValid(_services.Session!.Working, chosen))

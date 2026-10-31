@@ -550,6 +550,7 @@ public static class Combat
         // sim/combat-2 (item 39; the owner's decision of 2026-10-30: "the step forward of melee swings and F stun strikes starts the instant the button is pressed"):
         // the body's root motion runs one tick ahead of the attack's clock (the tick covering (t, t + dt] moves the body by the clip's (t + dt, t + 2dt]), so the press
         // tick itself already steps (0, dt]; before, the lunge began 1/30 s after the press. The attack's own clock, hit time and windows are unchanged.
+        if (step > 0 && steps[step - 1].InPlace) motionStep = null;   // sim/stomp-in-place: the tick a chain starts the stomp carries no motion of the strike before it
         if (startedNow && steps[step - 1].Reach is not null) (motionStep, motionFrom, motionTo) = (steps[step - 1], 0f, MathF.Min(dt, steps[step - 1].Duration));
         if (step > 0 && !s.Throwing && (shotWanted || (chargePress && switchLeft <= 0f)) && (time >= steps[step - 1].RangedAt || (s.Slot == WeaponSlot.Pistol && basicPress && !startedNow && s.Clip > 0 && !s.Overheated && s.ReloadLeft <= 1e-6f && MathF.Max(0f, s.Cooldown - dt) <= TimeEpsilon)))   // review: only a shot that really leaves cancels
         {
@@ -911,6 +912,11 @@ public static class Combat
             var velocity = glided.Grounded ? glided.Velocity : new Vector3(0f, 0f, glided.Velocity.Z);
             s = s with { Position = glided.Position, Velocity = velocity, Yaw = glided.Yaw, Grounded = glided.Grounded };
         }
+        // sim/stomp-in-place (protocol 49; owner, 2026-10-31): the heavy classes' stomp keeps the body exactly where it stands until the strike lets movement return
+        // (no lunge, and the speed it began with does not carry it on): grounded, horizontal position and velocity held; a reaction, charge or evade overrides it as before.
+        if (step > 0 && steps[step - 1].InPlace && meleeGlide is null && !reacting && !rushing && !evading && beforeMove.Grounded && s.Grounded
+            && jump.Phase == JumpPhase.None && !jump.Started && time < MoveAtOf(steps[step - 1], c))
+            s = s with { Position = new Vector3(beforeMove.Position.X, beforeMove.Position.Y, s.Position.Z), Velocity = new Vector3(0f, 0f, s.Velocity.Z) };
         // feel/locks-sprint-stop (the owner's change): the sprint stop (SprintStop). With every movement key let go after a sprint the body slows along its
         // velocity (v² falling at SprintStop.Rate) instead of braking at once; a movement key, Jump, Fire or Aim, or an action that moves the body, cancels it
         // into the normal movement (the walk above). The jump pack's bookkeeping of the walk tick stays, as for the attack's motion.

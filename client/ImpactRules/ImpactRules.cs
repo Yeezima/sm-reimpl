@@ -129,6 +129,17 @@ public sealed class MeleeHitGate
         return crossed;
     }
 
+    /// <summary>
+    /// The time to give <see cref="Passed"/> for a strike whose effects follow the drawn pose: the drawn time <paramref name="shown"/> (never ahead of the state's
+    /// <paramref name="sim"/> time, which guards a stale time from the strike before), but once the state itself has reached <paramref name="hitTime"/> the effects are
+    /// due whatever the drawn clock does (a stalled or culled remote, a strike that ends first): at least <paramref name="fxTime"/>. The gate still fires once.
+    /// </summary>
+    public static float EffectTime(float shown, float sim, float fxTime, float hitTime)
+    {
+        float t = MathF.Min(shown, sim);
+        return sim >= hitTime ? MathF.Max(t, fxTime) : t;
+    }
+
     /// <summary>The start tick of an attack <paramref name="time"/> s old at <paramref name="tick"/> (ticks of <paramref name="tickSeconds"/>).</summary>
     public static long StartTick(long tick, float time, float tickSeconds) => tick - (long)MathF.Round(time / tickSeconds);
 

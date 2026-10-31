@@ -69,7 +69,7 @@ Everyone in a match must use this same build: different versions refuse each oth
 
 A controller works too: plug in an Xbox-style pad and it takes over (the original's layout; see What's new).
 
-There is no key rebinding yet. If nothing fires, click in the game window once: the mouse must be captured.
+Every key and controller binding can be changed in CONTROLS (the Join screen, or the Esc menu in a match). If nothing fires, click in the game window once: the mouse must be captured.
 
 ## Good to know
 

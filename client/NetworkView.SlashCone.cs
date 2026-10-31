@@ -16,7 +16,7 @@ public partial class NetworkView
     /// <summary>How long the cone shell lasts (s, ours).</summary>
     const float SlashConeSeconds = 0.65f;
 
-    bool NoSlashCone => _noSlashCone ??= CmdFlag("no-slash-cone");
+    bool NoSlashCone => _noSlashCone ??= CmdFlag("no-slash-cone") || !CmdFlag("slash-cone");   // fx/air-slash-landing: off by default (contradicts the reference); --slash-cone restores #30's shell
     bool? _noSlashCone;
 
     struct SlashConeNode { public MeshInstance3D Node; public double Start; public bool Live; public Vector3 Apex, Heading; public float Radius, Height; }
@@ -83,7 +83,7 @@ void fragment() {
     /// <summary><c>--slash-cone-demo</c> (test aid): every 4 s the own Assault / Raptor shows the slash's landing effects as if it had just landed (no jump needed).</summary>
     bool SlashConeDemo => _slashConeDemo ??= CmdFlag("slash-cone-demo");
     bool? _slashConeDemo;
-    double _slashConeDemoAt = 3.0;
+    double _slashConeDemoAt = 3.0, _slashDemoHitAt;
 
     /// <summary>Each frame: swells and fades the cone shells and hides the finished ones.</summary>
     void UpdateSlashCones()
@@ -92,8 +92,14 @@ void fragment() {
         {
             _slashConeDemoAt = _connectedFor + 4.0;
             var me = _client.Predicted;
-            if (Loadouts.JumpPack(_config, me) is { } pack) SlashHitPresentation(me, true, pack);
+            if (Loadouts.JumpPack(_config, me) is { } pack) { SlashLanded(me, true, pack, 15f); _slashDemoHitAt = _connectedFor + 0.133; }
         }
+        if (_slashDemoHitAt > 0 && _connectedFor >= _slashDemoHitAt && _client is not null && _config is not null)
+        {
+            _slashDemoHitAt = 0;
+            if (Loadouts.JumpPack(_config, _client.Predicted) is { } hitPack) SlashHitPresentation(_client.Predicted, true, hitPack);
+        }
+        UpdateSlashFlash();
         for (int i = 0; i < _slashCones.Length; i++)
         {
             ref var c = ref _slashCones[i];
