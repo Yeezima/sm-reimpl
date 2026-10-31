@@ -26,6 +26,16 @@ public sealed partial class UiSelfTest
                     await Frames(3);
                     for (int i = 0; i < 400 && hud.VitalsArmourLayers < expected; i++) await Frames(1);
                     int layers = hud.VitalsArmourLayers;
+                    foreach (float health in new[] { 100f, 50f, 20f })
+                    {
+                        hud.Data.Health = health;
+                        await Frames(3);
+                        for (int i = 0; i < 400 && hud.VitalsHealthWhiteShare < 0f; i++) await Frames(1);
+                        await Frames(60);   // the art of a new health level is built in the background
+                        float share = hud.VitalsHealthWhiteShare;
+                        Check($"armour bar: {(halo ? "Iron Halo" : "plain")}, health {health:F0} %: the health fill is red, never white or blue", share >= 0f && share < 0.02f, $"white share {share:P1}");
+                    }
+                    hud.Data.Health = 100f;
                     Check($"armour bar: {(halo ? "Iron Halo" : "plain")}, armour {shield:F0} %: {expected} armour layer drawn", layers == expected, $"layers {layers}");
                 }
         }

@@ -70,6 +70,9 @@ public static class GfxRaster
     /// <summary>Characters the drawing on this thread leaves out wherever a display list places them (ui/hud-3: the armour bar without its starburst medallion). Null: none.</summary>
     [ThreadStatic] public static HashSet<int>? Hidden;
 
+    /// <summary>Characters the drawing on this thread draws as another character, in the normal blend mode wherever a display list places them (ui/armour-bar-fix: the health bar's white low-health flash bar as its red one). Null: none.</summary>
+    [ThreadStatic] public static Dictionary<int, int>? Swap;
+
     /// <summary>
     /// Draws frame <paramref name="frame"/> of sprite <paramref name="spriteId"/> (0: the root) onto <paramref name="canvas"/>. <paramref name="root"/> maps the sprite's
     /// pixels (twips / 20) to canvas pixels. <paramref name="bitmaps"/> returns the bitmap of a movie bitmap id (null: nothing is drawn for that fill).
@@ -123,10 +126,13 @@ public static class GfxRaster
             var targetN = mask is not null ? maskedN! : canvas;
             var targetA = mask is not null ? maskedA : additive;
             var childCx = p.Colour is { } pc ? cx.After(pc) : cx;
-            bool childAdd = add || p.Blend == 8;   // Flash blend mode 8 is "add"; a multiply (3) of black, which the scope's masks use, is the normal alpha blend
-            if (movie.Sprites.TryGetValue(p.Character, out var sub)) DrawSprite(movie, sub, frameOf?.Invoke(p.Character) ?? 0, child, childCx, targetN, targetA, childAdd, bitmaps, frameOf, depth + 1, cancel, masks);
-            else if (movie.ShapeAt(p.Character, p.Ratio) is { } shape) DrawShape(shape, child, childCx, childAdd && targetA is not null ? targetA : targetN, bitmaps, cancel);
-            else if (ImageShape(movie, p.Character) is { } image) DrawShape(image, child, childCx, childAdd && targetA is not null ? targetA : targetN, bitmaps, cancel);
+            int character = p.Character;
+            bool swapped = Swap is not null && Swap.TryGetValue(character, out character);
+            if (!swapped) character = p.Character;
+            bool childAdd = add || (p.Blend == 8 && !swapped);   // Flash blend mode 8 is "add"; a multiply (3) of black, which the scope's masks use, is the normal alpha blend
+            if (movie.Sprites.TryGetValue(character, out var sub)) DrawSprite(movie, sub, frameOf?.Invoke(character) ?? 0, child, childCx, targetN, targetA, childAdd, bitmaps, frameOf, depth + 1, cancel, masks);
+            else if (movie.ShapeAt(character, p.Ratio) is { } shape) DrawShape(shape, child, childCx, childAdd && targetA is not null ? targetA : targetN, bitmaps, cancel);
+            else if (ImageShape(movie, character) is { } image) DrawShape(image, child, childCx, childAdd && targetA is not null ? targetA : targetN, bitmaps, cancel);
         }
         if (mask is not null) Composite(mask, maskedN, canvas, maskedA, additive);
     }

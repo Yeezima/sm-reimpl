@@ -60,6 +60,10 @@ public sealed partial class Hud
     /// <summary>Starburst medallion of the armour clip (<c>c540</c>): the Iron Halo's bar keeps it, the reference's plain bar leaves it out.</summary>
     static readonly HashSet<int> NoMedallion = [540];
 
+    /// <summary>The health clip's low-health flash pieces (frames 50 to 99): the additive white bar <c>c558</c> is drawn as the normal red one <c>c550</c> and the flash clip <c>health_flash_mc</c> <c>c559</c> as the normal diamond <c>c553</c> (the frames below 50 have them); the white end cap <c>c557</c> is left out (it turned magenta under the Halo's tint).</summary>
+    static readonly HashSet<int> HealthFlash = [557];
+    static readonly Dictionary<int, int> HealthBarSwap = new() { [558] = 550, [559] = 553 };
+
     // The vignette's colours: the armour bar's cyan; the health bar's red (Iron Halo's tinted bar) or the movie's own orange-red (the reference bar).
     static readonly Color ArmourVignette = new(0.35f, 0.95f, 0.9f), HealthVignetteRed = new(0.91f, 0.02f, 0.1f), HealthVignetteOrange = new(1f, 0.28f, 0.1f), ArmourVignetteYellow = new(1f, 0.8f, 0.05f);
     const double VignetteSeconds = 0.55;
@@ -99,6 +103,37 @@ public sealed partial class Hud
     /// <summary>Armour bar layers the last movie bar drew (ui-selftest: one, or none for an empty plain bar; -1 until the movie bar has been drawn).</summary>
     public int VitalsArmourLayers { get; private set; } = -1;
 
+    /// <summary>Share of the health clip's drawn pixels that are white or blue-ish (ui-selftest: none at any health level, with or without Iron Halo; -1 until drawn).</summary>
+    public float VitalsHealthWhiteShare { get; private set; } = -1f;
+    HudMovieArt.Pic? _healthShareFor;
+
+    void MeasureHealthShare(HudMovieArt.Pic pic)
+    {
+        if (ReferenceEquals(pic, _healthShareFor)) return;
+        _healthShareFor = pic;
+        var img = pic.Normal.GetImage();
+        int drawn = 0, light = 0;
+        for (int y = 0; y < img.GetHeight(); y++)
+            for (int x = 0; x < img.GetWidth(); x++)
+            {
+                var c = img.GetPixel(x, y);
+                if (c.A < 0.5f) continue;
+                drawn++;
+                if ((c.R > 0.75f && c.G > 0.75f && c.B > 0.75f) || c.B > c.R) light++;
+            }
+        if (pic.Add is { } add)   // what the movie places additively (the flash's white) is a second picture
+        {
+            var ai = add.GetImage();
+            for (int y = 0; y < ai.GetHeight(); y++)
+                for (int x = 0; x < ai.GetWidth(); x++)
+                {
+                    var c = ai.GetPixel(x, y);
+                    if (c.R > 0.75f && c.G > 0.75f && c.B > 0.75f) { drawn++; light++; }
+                }
+        }
+        VitalsHealthWhiteShare = drawn == 0 ? 0f : light / (float)drawn;
+    }
+
     bool DrawMovieVitals(Vector2 vs)
     {
         if (OldHud || HudMovie is not { } hud || _movieArt is null) return false;
@@ -127,13 +162,19 @@ public sealed partial class Hud
         }, "vit:a", 24);
         var healthLocal = unified.ToStage.Inverse() is { } invUnified ? invUnified.After(health.ToStage) : health.ToStage;
         var hp = _movieArt.Get($"vit:h{v}:{hframe}", (m, s) =>
-            m.Hud?.Render(health.Placement.Character, hframe, s, healthLocal, null, colour: halo ? HealthTint : null, add: health.Placement.Blend == 8), "vit:h", 24);
+        {
+            // ui/armour-bar-fix (owner 2026-10-31): from frame 50 on the health clip swaps its bar for an additive white flash version (c558) and adds the flash clip (c559): drawn still they turn
+            // the fill white (pink with the Halo's tint). They are the movie's low-health flash, which the own-damage vignette replaces (ui/hud-3), so the fill stays its normal red.
+            GfxRaster.Hidden = HealthFlash; GfxRaster.Swap = HealthBarSwap;
+            try { return m.Hud?.Render(health.Placement.Character, hframe, s, healthLocal, null, colour: halo ? HealthTint : null, add: health.Placement.Blend == 8); }
+            finally { GfxRaster.Hidden = null; GfxRaster.Swap = null; }
+        }, "vit:h", 24);
         if (bg is not null) DrawAtom(bg, xf, White, false);
         // ui/armour-bar-fix (owner 2026-10-31): the gold lightdamagebar_mc frame (a whole second armour bar, gold, full length) is no longer drawn under the yellow bar: one armour bar only.
         // Frame 99 of the clip is the starburst alone: it belongs to the Iron Halo perk, so everyone else draws nothing for an empty armour (ui/armour-bar-fix).
         VitalsArmourLayers = 0;
         if (arm is not null && (halo || aframe != VitalsRules.ArmourEmpty)) { DrawAtom(arm, xf, White, false); VitalsArmourLayers++; }
-        if (hp is not null) DrawAtom(hp, xf, White, false);
+        if (hp is not null) { MeasureHealthShare(hp); DrawAtom(hp, xf, White, false); }
         return true;
     }
 }
