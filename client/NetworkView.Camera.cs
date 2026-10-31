@@ -256,6 +256,11 @@ public partial class NetworkView
         // Lookahead: the same two legs cast for where the player will be in 0.12 s and 0.25 s (its velocity, stopped by walls) and
         // looking where the view is turning, so a wall corner that is about to cross the camera's line starts the pull-in early
         // instead of meeting the hard cast all at once.
+        // camera/hop-and-walls: a shoulder leg first. The rig's pivot is beside, above and behind the head; a single leg from the head to it shrank all three together, so a wall behind
+        // the character took the camera into the head and across the view (0.07 m from it, the world sliding sideways and down). Now the side and height come first (head to shoulder) and
+        // only the way back meets the wall behind. The shoulder is the pivot's place without its distance along the facing.
+        var shoulderRig = new System.Numerics.Vector3(pivot.X, 0f, pivot.Z);
+        var shoulderWanted = head + (ToWorld(shoulderRig) - drawnHead);
         int ahead = 0;
         float yawStep = _rigYawInit ? Mathf.Wrap(_yaw - _rigYaw, -MathF.PI, MathF.PI) : 0f;
         _rigYaw = _yaw; _rigYawInit = true;
@@ -275,13 +280,20 @@ public partial class NetworkView
                     var g = me.Position + new System.Numerics.Vector3(v.X * c2 - v.Y * s2, v.X * s2 + v.Y * c2, v.Z);
                     return _gameSpace.Transform * new Vector3(g.X, g.Y, g.Z) + step;
                 }
-                _aheadHead[ahead] = head + step; _aheadPivot[ahead] = AtAhead(pivot); _aheadEye[ahead] = AtAhead(cam);
+                _aheadHead[ahead] = head + step; _aheadShoulder[ahead] = AtAhead(shoulderRig); _aheadPivot[ahead] = AtAhead(pivot); _aheadEye[ahead] = AtAhead(cam);
                 ahead++;
             }
         }
+        var legStart = head;
+        if (!OldCameraCollision)
+        {
+            // No lookahead on this short leg: a head foreseen against a wall starts inside the soft radius, and its leg read 0 for the frames of every wall contact.
+            legStart = DampFraction(_rigFractionS, _cameraPlaced, head, shoulderWanted, delta);
+            for (int i = 0; i < ahead; i++) _aheadHead[i] += (_aheadShoulder[i] - _aheadHead[i]) * _rigFractionS.Fraction;
+        }
         _aheadFrom.Clear(); _aheadTo.Clear();
         for (int i = 0; i < ahead; i++) { _aheadFrom.Add(_aheadHead[i]); _aheadTo.Add(_aheadPivot[i]); }
-        pivotWorld = DampFraction(_rigFractionA, _cameraPlaced, head, pivotWorld, delta, _aheadFrom, _aheadTo);
+        pivotWorld = DampFraction(_rigFractionA, _cameraPlaced, legStart, pivotWorld, delta, _aheadFrom, _aheadTo);
         _aheadFrom.Clear(); _aheadTo.Clear();
         for (int i = 0; i < ahead; i++)
         {

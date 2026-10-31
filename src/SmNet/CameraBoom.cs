@@ -31,8 +31,8 @@ public sealed class CameraBoom
     public const float FocusMax = 100f;
     /// <summary>Ours: 1/s, how fast the focus distance follows the ray's hit (in log distance, so a hit jumping from far to near turns the camera over a few frames).</summary>
     public const float FocusRate = 12f;
-    /// <summary>Ours: radians, the most the view is turned toward the focus (5 degrees).</summary>
-    public const float AimMaxTurn = 5f * MathF.PI / 180f;
+    /// <summary>Ours: radians, the most the view is turned toward the focus (10 degrees: the pivot's 0.64 m to the side at <see cref="FocusMin"/>, about 9 degrees, fits).</summary>
+    public const float AimMaxTurn = 10f * MathF.PI / 180f;
 
     /// <summary>The camera's place on its cast: 0 at the start, 1 at the wanted place.</summary>
     public float Fraction { get; set; } = 1f;

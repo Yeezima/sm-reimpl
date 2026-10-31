@@ -182,10 +182,10 @@ public class CameraBoomTests
     {
         // 0.1 m off the wall with a 0.28 m sphere: the old ring started one ray behind the wall and read 0.
         Assert.Null(Wall().SweepSphere(new Vector3(0.9f, -5f, 0f), Vector3.UnitY, 0.28f, 8f));
-        // Moving into it from there it may close half the gap and no more.
+        // Moving into it from there it stops at once.
         var hit = Wall().SweepSphere(new Vector3(0.9f, 0f, 0f), Vector3.UnitX, 0.28f, 8f);
         Assert.NotNull(hit);
-        Assert.Equal(0.05f, hit!.Value.Distance, 3);
+        Assert.Equal(0f, hit!.Value.Distance, 3);
     }
 
     [Fact]

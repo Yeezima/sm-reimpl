@@ -63,7 +63,12 @@ public partial class NetworkView
                     else _ctYaw += MathF.Sin((float)(t * 0.8)) * 0.012f;
                     break;
                 case "pillar":
-                    if (!_ctHasTarget) { _ctHasTarget = CtFindPillar(me, out _ctTarget); _ctPhase = 0; }
+                    if (!_ctHasTarget)
+                    {
+                        _ctHasTarget = CtFindPillar(me, out _ctTarget); _ctPhase = 0;
+                        if (!_ctHasTarget) { _pitch = CameraTestPitch; return null; }   // the normal bot walks on until one is near
+                        GD.Print($"t {_connectedFor:F2} s: CAMTEST pillar found at {_ctTarget.X:F1},{_ctTarget.Y:F1}, from {me.Position.X:F1},{me.Position.Y:F1}");
+                    }
                     if (_ctHasTarget)
                     {
                         var to = _ctTarget - me.Position; to.Z = 0f;
@@ -113,7 +118,7 @@ public partial class NetworkView
                 float near = 0f;
                 for (int k = 0; k < w; k++) near = MathF.Max(near, d[(i + k) % N]);
                 float side = MathF.Min(d[(i + N - 2) % N], d[(i + w + 1) % N]);
-                if (near < 3f || near > 25f || side < near + 2.5f || near >= best) continue;
+                if (near < 2.5f || near > 10f || side < near + 2f || near >= best) continue;
                 float a = (i + (w - 1) * 0.5f) * MathF.Tau / N;
                 best = near;
                 found = me.Position + new System.Numerics.Vector3(MathF.Cos(a), MathF.Sin(a), 0f) * near;

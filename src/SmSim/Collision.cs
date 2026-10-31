@@ -307,14 +307,15 @@ public sealed class StaticMesh
 
     /// <summary>
     /// How far a sphere of <paramref name="radius"/> travels from <paramref name="origin"/> along the unit <paramref name="direction"/> before touching a triangle, up to
-    /// <paramref name="maxDistance"/> (null: free). The hit's point is the contact, its normal faces the sphere. A sphere that already overlaps a surface at the start is cast with half the
-    /// distance to that surface as its radius, so a cast beginning close to a wall may run along it and is not stopped dead (camera/hop-and-walls: the follow cameras' casts).
+    /// <paramref name="maxDistance"/> (null: free). The hit's point is the contact, its normal faces the sphere. A sphere that already overlaps a surface at the start is cast with the distance
+    /// to that surface as its radius (continuous, so the result does not jump as a start nears a wall): a cast beginning close to a wall may run along it or leave it, and stops at
+    /// once only moving into it (camera/hop-and-walls: the follow cameras' casts).
     /// </summary>
     public RayHit? SweepSphere(Vector3 origin, Vector3 direction, float radius, float maxDistance)
     {
         if (_nodes.Length == 0 || !(maxDistance >= 0f) || !(radius >= 0f) || !Geometry.Finite(origin) || !Geometry.Finite(direction)) return null;
         float near = NearestWithin(origin, radius);
-        if (near < radius) radius = near * 0.5f;
+        if (near < radius) radius = near;
         var inv = new Vector3(Inverse(direction.X), Inverse(direction.Y), Inverse(direction.Z));
         var pad = new Vector3(radius);
         float best = maxDistance;
