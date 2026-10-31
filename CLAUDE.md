@@ -43,9 +43,9 @@ the rule for new added content: `docs/added-content.md`.
   interface makes Windows Firewall ask the owner about each new SmServer copy.
 - Nothing in tests, tools or test runs binds 0.0.0.0 / every interface (owner, 2026-10-28: Windows Firewall prompts for testhost, Godot
   and SmServer): sockets bind 127.0.0.1, servers `--bind 127.0.0.1`, the Host panel and `Host.cmd` are tested in "This PC only" mode.
-- Test runs never disturb the owner's desktop (owner, 2026-10-28): Godot test clients run `--headless` by default; a
-  windowed client (only when a screenshot or recording needs rendering) must be started with Godot's `--position -4000,-4000`
-  before `--` and `--test-window` after it (no focus, never captures the mouse). Never run a non-bot client without it.
+- Test runs never disturb the owner's desktop (owner, 2026-10-28 and 2026-10-31: no window may flash or take focus): start Godot only through
+  `godot.cmd` (headless by default, no console window); a windowed client (only when a screenshot or recording needs rendering)
+  uses `godot.cmd --windowed`, which runs it on a private hidden desktop. Never run Godot or its console exe directly.
 - The game install is **read-only**. Open with `FileAccess.Read`. Never write, rename, or patch inside it,
   including saves, config, Steam files, and online services.
 - Private cache: `%LOCALAPPDATA%\sm-reimpl\cache` (outside the repo). Never commit or package it.
@@ -81,7 +81,7 @@ Only the map Manufactorum (`mp_tdm_09`) is developed further; it is the alpha ar
 
 ## Current state (2026-10-29)
 A playable pre-alpha ships to playtesters through the SM Reimpl Launcher (releases repository Yeezima/sm-reimpl-releases): Annihilation and
-Seize Ground on Manufactorum, the six classes plus the Ork Boy (added content), customizer, perks, bots, the launcher and updater. Protocol 43 (since 2026-10-30: bot names 41, melee and charge 42, player collision 43).
+Seize Ground on Manufactorum, the six classes plus the Ork Boy (added content), customizer, perks, bots, the launcher and updater. Protocol 50 (since 2026-10-31: the scoreboard ping).
 The history of every milestone and fix (formats, systems, decisions, test aids, the switches that restore old behaviour) is in
 `docs/milestones.md`; search it for a system's name before changing that system. Add a short paragraph there after each milestone.
 This repository was published fresh on 2026-10-29 (one root commit); never merge a branch from the older private history.

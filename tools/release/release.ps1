@@ -148,6 +148,10 @@ $GodotName = "Godot_v$($GodotVersion)_mono_win64"
 # Same pin as tools/client.ps1 (keep both in sync when Godot is bumped).
 $GodotSha512 = '79229FD112B0C9CBEAB82363A4EF7BE18EA70F1CAF86BF912789335B136FBE7E01DB0053A33461438C5DA1C680C17BBB10040BD09BEDC51221CD4423D0367757'
 $GodotConsole = Join-Path $Tools "godot\$GodotName\$($GodotName)_console.exe"
+# tools/no-focus-steal: every process the build, the smoke test and the playtest start runs with no console window and no focus change
+# (Start-QuietProcess); the launcher's window test runs on the private desktop the windowed Godot test clients use.
+. (Join-Path $RepoRoot 'tools\quiet-launch.ps1')
+$TestDesktop = 'sm-reimpl-test'
 $GodotMarker = Join-Path $Tools "godot\$GodotName.complete"
 $TemplatesName = "Godot_v$($GodotVersion)_mono_export_templates.tpz"
 # SHA-512 of the official templates archive, pinned after the first verified download (empty = checked against SHA512-SUMS.txt only).
@@ -210,9 +214,7 @@ function Invoke-Godot([string[]]$arguments, [string]$what, [switch]$Lenient) {
     $logDir = Join-Path ([IO.Path]::GetTempPath()) ('sm-release-godot-' + [Guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Force -Path $logDir | Out-Null
     $o = Join-Path $logDir 'out.txt'; $e = Join-Path $logDir 'err.txt'
-    $argLine = ($arguments | ForEach-Object { if ($_ -match '[\s"]') { '"' + $_ + '"' } else { $_ } }) -join ' '      # Start-Process does not quote array items itself
-    $p = Start-Process -FilePath $GodotConsole -ArgumentList $argLine -NoNewWindow -PassThru -RedirectStandardOutput $o -RedirectStandardError $e
-    $null = $p.Handle
+    $p = Start-QuietProcess -FilePath $GodotConsole -ArgumentList $arguments -StdOut $o -StdErr $e
     $p.WaitForExit()
     $text = ((Get-Content $o -ErrorAction SilentlyContinue) + (Get-Content $e -ErrorAction SilentlyContinue)) -join "`n"
     Remove-Item -LiteralPath $logDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -766,7 +768,7 @@ function Start-Playtest {
     $slog = Join-Path $PlaytestState 'server.log'
     foreach ($f in $slog, (Join-Path $PlaytestState 'server.err')) { Remove-Item -LiteralPath $f -ErrorAction SilentlyContinue }
     if ($GameDir) { $env:SM_GAME_DIR = $GameDir }
-    $sp = Start-Process -FilePath (Join-Path $srvDir 'SmServer.exe') -ArgumentList $PlaytestServerArgs -WorkingDirectory $srvDir -PassThru -WindowStyle Hidden -RedirectStandardOutput $slog -RedirectStandardError (Join-Path $PlaytestState 'server.err')
+    $sp = Start-QuietProcess -FilePath (Join-Path $srvDir 'SmServer.exe') -ArgumentList $PlaytestServerArgs -WorkingDirectory $srvDir -StdOut $slog -StdErr (Join-Path $PlaytestState 'server.err')
     Set-Content -LiteralPath (Join-Path $PlaytestState 'server.txt') -Value ("{0} {1} server" -f $sp.Id, $sp.StartTime.ToFileTimeUtc()) -Encoding ascii
     $ready = $false
     for ($i = 0; $i -lt 180 -and -not $sp.HasExited; $i++) { Start-Sleep -Seconds 1; if ((Test-Path $slog) -and (Select-String -LiteralPath $slog -Pattern '^smserver on UDP' -Quiet)) { $ready = $true; break } }
@@ -786,8 +788,8 @@ function Start-Playtest {
     $n = 0
     foreach ($b in $PlaytestBots) {
         $n++
-        $argLine = ((@('--headless', '--path', $client, '--', '--connect', "127.0.0.1:$PlaytestPort", '--bot', '--no-sound', '--class', $b.Class, '--side', $b.Side)) | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
-        $bp = Start-Process -FilePath $GodotConsole -ArgumentList $argLine -WorkingDirectory $RepoRoot -PassThru -WindowStyle Hidden -RedirectStandardOutput (Join-Path $PlaytestState "bot$n.log") -RedirectStandardError (Join-Path $PlaytestState "bot$n.err")
+        $bargs = @('--headless', '--path', $client, '--', '--connect', "127.0.0.1:$PlaytestPort", '--bot', '--no-sound', '--class', $b.Class, '--side', $b.Side)
+        $bp = Start-QuietProcess -FilePath $GodotConsole -ArgumentList $bargs -WorkingDirectory $RepoRoot -StdOut (Join-Path $PlaytestState "bot$n.log") -StdErr (Join-Path $PlaytestState "bot$n.err")
         Add-Content -LiteralPath $pidFile -Value ("{0} {1} bot{2}-{3}-{4}" -f $bp.Id, $bp.StartTime.ToFileTimeUtc(), $n, $b.Side, ($b.Class -replace ' ', '_')) -Encoding ascii
         Write-Host "  bot $n (pid $($bp.Id)): $($b.Side), $($b.Class)"
         Start-Sleep -Milliseconds 1500
@@ -1160,7 +1162,6 @@ if ($Smoke) {
     if ($GameDir) { $env:SM_GAME_DIR = $GameDir }
     $profileFile = Join-Path $smokeDir 'profile\customization.json'      # the front end's profile and settings stay in the smoke folder
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $profileFile) | Out-Null
-    $noInput = Join-Path $smokeDir 'no-input.txt'; Write-Utf8 $noInput ''
     $fail = $false
     try {
         # 1. The top level is the numbered files and the four folders, and the launchers are where they say.
@@ -1174,8 +1175,7 @@ if ($Smoke) {
         if (Test-Path -LiteralPath $lexe) {
             Step "Smoke: '$LauncherTop' --selftest"
             $lout = Join-Path $smokeDir 'launcher.out.txt'; $lerr = Join-Path $smokeDir 'launcher.err.txt'
-            $lp = Start-Process -FilePath $lexe -ArgumentList '--selftest' -WorkingDirectory $pkg -PassThru -WindowStyle Hidden -RedirectStandardOutput $lout -RedirectStandardError $lerr
-            $null = $lp.Handle
+            $lp = Start-QuietProcess -FilePath $lexe -ArgumentList '--selftest' -WorkingDirectory $pkg -StdOut $lout -StdErr $lerr
             if (-not $lp.WaitForExit(120000)) { Stop-Process -Id $lp.Id -Force; $lcode = -1 } else { $lcode = $lp.ExitCode }     # only the process started above
             $ltext = ((Get-Content $lout -ErrorAction SilentlyContinue) + (Get-Content $lerr -ErrorAction SilentlyContinue)) -join "`n"
             Write-Host "    $ltext"
@@ -1184,8 +1184,9 @@ if ($Smoke) {
             # 1c. The window itself (Windows Forms starts, the first-run panel is drawn): off-screen, no update check (--offline), no shortcuts, its
             #     install folder in the smoke folder; it draws itself into a PNG and closes.
             $lroot = Join-Path $smokeDir 'launcher-root'; $lpng = Join-Path $smokeDir 'launcher-window.png'
-            $wp = Start-Process -FilePath $lexe -ArgumentList '--root', "`"$lroot`"", '--offline', '--no-shortcuts', '--screenshot', "`"$lpng`"" -WorkingDirectory $pkg -PassThru
-            $null = $wp.Handle
+            #     On the private test desktop (tools/no-focus-steal: an off-screen window still took the foreground now and then).
+            $wp = Start-QuietProcess -FilePath $lexe -ArgumentList '--root', $lroot, '--offline', '--no-shortcuts', '--screenshot', $lpng -WorkingDirectory $pkg `
+                -StdOut (Join-Path $smokeDir 'launcher-window.out.txt') -Desktop $TestDesktop
             if (-not $wp.WaitForExit(120000)) { Stop-Process -Id $wp.Id -Force; $wcode = -1 } else { $wcode = $wp.ExitCode }     # only the process started above
             $pngOk = (Test-Path -LiteralPath $lpng) -and ((Get-Item -LiteralPath $lpng).Length -gt 10000)
             if ($wcode -ne 0 -or -not $pngOk) { $fail = $true; Write-Host "  launcher window: FAILED (exit $wcode, picture drawn: $pngOk)" -ForegroundColor Red }
@@ -1199,7 +1200,7 @@ if ($Smoke) {
         Step "Smoke: '$($TopFiles.HOST.Name)' --port $port (server\, 127.0.0.1 only)"
         $hostCmd = Join-Path $pkg $TopFiles.HOST.Name
         $log = Join-Path $smokeDir 'host.out.txt'; $err = Join-Path $smokeDir 'host.err.txt'
-        $hostProc = Start-Process -FilePath 'cmd.exe' -ArgumentList "/d /c `"`"$hostCmd`" --port $port`"" -WorkingDirectory $pkg -PassThru -WindowStyle Hidden -RedirectStandardOutput $log -RedirectStandardError $err -RedirectStandardInput $noInput
+        $hostProc = Start-QuietProcess -FilePath "$env:ComSpec" -RawArguments "/d /c `"`"$hostCmd`" --port $port`"" -WorkingDirectory $pkg -StdOut $log -StdErr $err
         $ready = Wait-Line $log '^smserver on UDP' 120 $hostProc
         if ($ready) {
             Write-Host '  server: started from server\ by the Host launcher' -ForegroundColor Green
@@ -1211,9 +1212,8 @@ if ($Smoke) {
         if ($ready) {
             Step 'Smoke: game\sm-reimpl.console.exe, headless bot, joins it'
             $cout = Join-Path $smokeDir 'client.out.txt'; $cerr = Join-Path $smokeDir 'client.err.txt'
-            $cp = Start-Process -FilePath (Join-Path $pkg 'game\sm-reimpl.console.exe') -ArgumentList '--headless', '--', '--connect', "127.0.0.1:$port", '--bot', '--bot-full-load', '--quit-after', '45' `
-                -WorkingDirectory (Join-Path $pkg 'game') -PassThru -WindowStyle Hidden -RedirectStandardOutput $cout -RedirectStandardError $cerr
-            $null = $cp.Handle
+            $cp = Start-QuietProcess -FilePath (Join-Path $pkg 'game\sm-reimpl.console.exe') -ArgumentList '--headless', '--', '--connect', "127.0.0.1:$port", '--bot', '--bot-full-load', '--quit-after', '45' `
+                -WorkingDirectory (Join-Path $pkg 'game') -StdOut $cout -StdErr $cerr
             if (-not $cp.WaitForExit(180000)) { Stop-Process -Id $cp.Id -Force; $timedOut = $true } else { $timedOut = $false }     # only the process started above
             $code = if ($timedOut) { -1 } else { $cp.ExitCode }
             $out = ((Get-Content $cout -ErrorAction SilentlyContinue) + (Get-Content $cerr -ErrorAction SilentlyContinue)) -join "`n"
@@ -1228,9 +1228,8 @@ if ($Smoke) {
             Step 'Smoke: game\sm-reimpl.console.exe, lean headless bot (the hosted-bot default), joins it'
             $lout = Join-Path $smokeDir 'lean.out.txt'; $lerr = Join-Path $smokeDir 'lean.err.txt'
             $before = @(Select-String -LiteralPath $log -Pattern '^player \d+ (\([^)]*\) )?joined').Count
-            $lp = Start-Process -FilePath (Join-Path $pkg 'game\sm-reimpl.console.exe') -ArgumentList '--headless', '--', '--connect', "127.0.0.1:$port", '--bot', '--quit-after', '25' `
-                -WorkingDirectory (Join-Path $pkg 'game') -PassThru -WindowStyle Hidden -RedirectStandardOutput $lout -RedirectStandardError $lerr
-            $null = $lp.Handle
+            $lp = Start-QuietProcess -FilePath (Join-Path $pkg 'game\sm-reimpl.console.exe') -ArgumentList '--headless', '--', '--connect', "127.0.0.1:$port", '--bot', '--quit-after', '25' `
+                -WorkingDirectory (Join-Path $pkg 'game') -StdOut $lout -StdErr $lerr
             if (-not $lp.WaitForExit(120000)) { Stop-Process -Id $lp.Id -Force; $lcode = -1 } else { $lcode = $lp.ExitCode }     # only the process started above
             $lo = ((Get-Content $lout -ErrorAction SilentlyContinue) + (Get-Content $lerr -ErrorAction SilentlyContinue)) -join "`n"
             $lean = $lo -match 'lean bot'
@@ -1246,10 +1245,13 @@ if ($Smoke) {
         Step "Smoke: '$($TopFiles.PLAY.Name)' (front end, headless), HOST A MATCH on 127.0.0.1:$port2"
         $feLog = Join-Path $smokeDir 'frontend.log'
         $env:SM_ENGINE_ARGS = "--headless --log-file `"$feLog`""
+        $env:SM_NO_WATCH = '1'      # tools/no-focus-steal: no `start /min powershell` watcher from Play.cmd (its own console could flash)
         $playCmd = Join-Path $pkg $TopFiles.PLAY.Name
-        $pp = Start-Process -FilePath 'cmd.exe' -ArgumentList "/d /c `"`"$playCmd`" --profile `"$profileFile`" --auto-host --host-bots none --host-port $port2 --quit-after 40`"" -WorkingDirectory $pkg -PassThru -WindowStyle Hidden -RedirectStandardInput $noInput
+        $pp = Start-QuietProcess -FilePath "$env:ComSpec" -RawArguments "/d /c `"`"$playCmd`" --profile `"$profileFile`" --auto-host --host-bots none --host-port $port2 --quit-after 40`"" -WorkingDirectory $pkg `
+            -StdOut (Join-Path $smokeDir 'play.out.txt')
         $null = $pp.WaitForExit(30000)
         Remove-Item Env:\SM_ENGINE_ARGS -ErrorAction SilentlyContinue
+        Remove-Item Env:\SM_NO_WATCH -ErrorAction SilentlyContinue
         # The evidence: an SmServer.exe from the zip's server\ folder, started by the game with this port and the this-PC-only bind (an exported game
         # flushes its log file only at exit, so the process table is read, not the log).
         $serverDir = Join-Path $pkg 'server'
