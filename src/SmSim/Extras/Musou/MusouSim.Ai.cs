@@ -82,6 +82,7 @@ public sealed partial class MusouSim
     {
         _cooldown[i] = 0; _burst[i] = 0; _roundTicks[i] = 0; _losTick[i] = 0; _los[i] = false;
         _blocked[i] = 0; _flowTicks[i] = 0; _transit[i] = -1; _aim[i] = -1;
+        SpawnedCombat(i);   // MU3 (MusouCombat.cs): no script, no drive
         _relocations[i] = 0;
         _ring[i] = Rules.CircleMin + (Rules.CircleMax - Rules.CircleMin) * Unit(Mix((uint)i * 2654435761u, 0x9E3779B9u));
         if (Walk is not null && _node[i] < 0) _node[i] = Walk.Nearest(_position[i]);
@@ -108,6 +109,7 @@ public sealed partial class MusouSim
             _meleeWantD[t] = float.MaxValue; _shotWantD[t] = float.MaxValue;
         }
         Flow?.Step(_sources.AsSpan(0, ns), _owners.AsSpan(0, ns), Rules.FlowExpansionsPerTick, Ticks(Rules.FlowRefreshSeconds));
+        if (_frenzyTicks > 0) _frenzyTicks--;   // MU3: the Waaagh!'s speed
 
         int gn = 0;
         for (int i = 0; i < Capacity; i++)
@@ -143,7 +145,8 @@ public sealed partial class MusouSim
             var spec = Rules.Of(_type[i]);
             int t = Target(i, targets);
             Vector2 desired = Vector2.Zero;
-            if (t < 0)
+            if (_scripted[i]) { }   // MU3: the boss's ability drives it (MusouBoss)
+            else if (t < 0)
             {
                 _token[i] = 0; _burst[i] = 0;
                 if (state is not (MusouEnemyState.Seek or MusouEnemyState.Stagger)) SetState(i, MusouEnemyState.Seek);
@@ -151,7 +154,7 @@ public sealed partial class MusouSim
             else
             {
                 _aim[i] = -1;
-                desired = Behave(i, t, targets, spec, fight, collision, attacks);
+                desired = Behave(i, t, targets, spec, fight, collision, attacks) * SpeedScale(i);
             }
             Move(i, spec, desired, targets, near);
             Headway(i, spec, targets);
@@ -227,6 +230,7 @@ public sealed partial class MusouSim
         if (i < 0 || i >= Capacity || !_used[i] || _state[i] == MusouEnemyState.Dying || !float.IsFinite(position.X) || !float.IsFinite(position.Y) || !float.IsFinite(position.Z)) return false;
         _position[i] = position; _node[i] = node; _velocity[i] = Vector2.Zero;
         _token[i] = 0; _burst[i] = 0; _transit[i] = -1; _aim[i] = -1; _blocked[i] = 0; _flowTicks[i] = 0;
+        SpawnedCombat(i);   // MU3: no script, no drive (a Warboss moved mid-ability starts afresh; MusouBoss sees the relocation)
         if (Walk is not null && _node[i] < 0) _node[i] = Walk.Nearest(position);
         if (Walk is not null && _node[i] >= 0) _position[i] = position with { Z = Walk.Z(_node[i]) };
         SetState(i, MusouEnemyState.Seek);
@@ -330,7 +334,7 @@ public sealed partial class MusouSim
                 if (_stateTicks[i] >= Math.Max(1, Ticks(spec.MeleePeriod) - Ticks(spec.MeleeWindUp) - 1)) SetState(i, MusouEnemyState.Seek);
                 return Vector2.Zero;
             case MusouEnemyState.Stagger:
-                if (_stateTicks[i] >= Ticks(0.6f)) SetState(i, MusouEnemyState.Seek);   // MU3 staggers enemies; 0.6 s ours
+                if (_stateTicks[i] >= Ticks(Rules.Combat.StaggerSeconds)) SetState(i, MusouEnemyState.Seek);   // MU3 staggers enemies (Stagger)
                 return Vector2.Zero;
         }
 
@@ -462,7 +466,8 @@ public sealed partial class MusouSim
         var p = _position[i];
         if (_transit[i] >= 0 && Walk is not null)
         {
-            // Over a drop: straight to the landing node at run speed, falling with it, then on the graph again.
+            // Over a drop: straight to the landing node at run speed, falling with it, then on the graph again. A drive (MU3's knockback) waits: Driven
+            // is not called, so its ticks are kept for after the landing.
             int to = _transit[i];
             var land = Walk.Position(to);
             var way = new Vector2(land.X - p.X, land.Y - p.Y);
@@ -519,8 +524,9 @@ public sealed partial class MusouSim
             push += dir * (gap - dist) * Rules.SeparationStrength * 2f;
         }
         var v = desired + push;
-        float max = spec.Speed * 1.5f, len = v.Length();
+        float max = spec.Speed * 1.5f * SpeedScale(i), len = v.Length();
         if (len > max) v *= max / len;
+        v += Driven(i);   // MU3: a knockback or the boss's charge, over the clamp
         if (desired.LengthSquared() > 0.01f && _state[i] == MusouEnemyState.Seek) Face(i, Vector2.Normalize(desired));
         if (v.LengthSquared() < 1e-6f) { _velocity[i] = Vector2.Zero; return; }
 
