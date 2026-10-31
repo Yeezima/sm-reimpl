@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1813 spec table rows: **1254 tagged**, 407 not tagged (read from data with high confidence), 152 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 397 rows of the changes document.
+Scanned 1814 spec table rows: **1255 tagged**, 407 not tagged (read from data with high confidence), 152 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 397 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 313 | 266 | 271 | 93 | 12 |
+| Movement (critical) | 314 | 266 | 272 | 93 | 12 |
 | Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
 | Weapons (critical) | 112 | 65 | 97 | 49 | 3 |
 | Melee (critical) | 64 | 51 | 60 | 11 | 5 |
@@ -53,7 +53,7 @@ Scanned 1813 spec table rows: **1254 tagged**, 407 not tagged (read from data wi
 | Core simulation (provisional values) | 124 | 109 | 109 | 13 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1254** | 1037 | 1008 | 394 | 38 |
+| **All areas** | **1255** | 1037 | 1009 | 394 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,7 +61,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 493 |
 | confidence: low | 448 |
-| confidence: medium | 443 |
+| confidence: medium | 444 |
 | kind: interpretation | 322 |
 | notes: ours | 288 |
 | confidence: none (low) | 117 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (313)
+### Movement (gameplay-critical) (314)
 
 *Spec section: Extracted parameters*
 
@@ -560,6 +560,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-1430FAAD` | Sprint | hold the left stick click (the owner's answer 2026-10-30: a hold, not a toggle) (stick click) | confidence: medium; notes: user's knowledge | locale 122101 "Movement (Press to Sprint)"; owner's recollection | Sprint: compare with SM1 by timing a run over a known distance. Ours: hold the left stick click (the owner's answer 2026-10-30: a hold, not… | ☐ |
+| `R-981212DA` | Menu back (every screen Esc closes or steps back from) | B: closes the open menu or goes back one level exactly as Esc or the screen's BACK does (the Esc menu and its sub-screens, the armour editor, CONTROLS, confirm dialogs and text prompts take the dialog's cancel button, the connection screen going back to the… (button) | confidence: medium | owner's request 2026-11-01 (the console convention) | Menu back (every screen Esc closes or steps back from): compare with SM1 by timing a run over a known distance. Ours: B: closes the open menu or goes back one level exactly as Esc or the… | ☐ |
 
 ### Combat core (gameplay-critical) (10)
 

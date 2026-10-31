@@ -188,6 +188,16 @@ public partial class PadHost : Node
         return best;
     }
 
+    // ---- back ----
+
+    /// <summary>
+    /// The menu "back" press (owner's request 2026-11-01): Esc, or B on a controller (the east face button, the console convention), through Godot's <c>ui_cancel</c> and, so the rule does not
+    /// depend on the input map, B itself. Every screen that Esc closes or steps back from asks this, so B does the same there. While a rebinding waits for an input B is not "back" (the
+    /// controller tab binds it; the keyboard tab treats it like Esc: cancel).
+    /// </summary>
+    public static bool IsBack(InputEvent e) =>
+        e.IsActionPressed("ui_cancel") || e is InputEventJoypadButton { Pressed: true, ButtonIndex: JoyButton.B };
+
     // ---- prompts ----
 
     /// <summary>The key hint for the scheme in use: <paramref name="keyboard"/> (e.g. "Esc") or the pad's name (e.g. "START"), in the original's naming.</summary>

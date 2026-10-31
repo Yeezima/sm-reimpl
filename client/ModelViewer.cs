@@ -452,7 +452,7 @@ public partial class ModelViewer : Node3D
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (_fromFrontEnd && _network is { } n && (n.ConnectionFailed || n.StillConnecting) && e is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.Escape })
+        if (_fromFrontEnd && _network is { } n && (n.ConnectionFailed || n.StillConnecting) && (e is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.Escape } || e is InputEventJoypadButton { Pressed: true, ButtonIndex: JoyButton.B }))
         {
             GetViewport().SetInputAsHandled();
             BackToFrontEnd();
