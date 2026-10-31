@@ -151,9 +151,10 @@ public partial class NetworkView
         if (!s.Alive || s.MeleeStep <= 0 || Combat.MeleeStepOf(_config!, s) is not { } step) { _meleeFxGate.Idle(s.PlayerId); return; }
         // Once per attack (review): the attack is keyed on its start tick (own: the prediction's tick; others: the newest snapshot's), so a reconcile rewind of any size
         // does not fire it again, and a player first seen mid-attack does not fire for a hit time already passed.
+        NoteFootContact(s, step);
         long tick = own ? _client!.Tick : _client!.LatestSnapshotTick;
         long start = ImpactRules.MeleeHitGate.StartTick(tick, s.MeleeTime, _config!.TickSeconds);
-        if (!_meleeFxGate.Passed(s.PlayerId, s.MeleeStep, s.MeleeHeavy, s.MeleeTime, step.HitTime, start)) return;
+        if (!_meleeFxGate.Passed(s.PlayerId, s.MeleeStep, s.MeleeHeavy, ShownMeleeTime(s), FxTime(step), start)) return;   // sim/stomp-in-place: the drawn pose's time (the foot's landing), not the state's
         if (step.Stomp is { } blast && !NoStompFx) PlayStomp(s, own, character, wargear, blast);
         if (PowerBlade.IsPowerSword(wargear) && !NoSwordFx && character is not null)
         {
@@ -185,7 +186,7 @@ public partial class NetworkView
         _fxLastShotAt = _connectedFor; _fxLastEnd = point; _fxLastFrom = point;   // for --screenshot-on-effect
         if (_bot || CmdFlag("log-melee-fx"))
             GD.Print($"t {_connectedFor:F1} s: {(own ? "own" : $"P{s.PlayerId}'s")} stomp effects ({wargear ?? "-"}, blast {radius:F1} m / {blast.Damage.Damage:F0}; {(entry is null ? "no data entry" : string.Join(", ", entry.Plays.Select(p => $"{p.Name} x{p.Scale:0.##} at {p.Marker}")))}) at {point.X:F1},{point.Y:F1},{point.Z:F1} " +
-                     $"marker {(place is null ? "none (feet)" : marker)}; {started} effects; ring, cracks {(near ? "on" : "off (far)")}; stomps shown {_stompFx}");
+                     $"marker {(place is null ? "none (feet)" : marker)}; {started} effects; ring, cracks {(near ? "on" : "off (far)")}; stomps shown {_stompFx}; {FootContactText(s.PlayerId)}");
     }
 
     /// <summary>A body marker of the character's rig (<c>fx_l_foot</c> ...) in Godot world space, or null.</summary>

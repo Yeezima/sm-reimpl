@@ -145,7 +145,7 @@ public partial class NetworkView
             if (p.Alive && p.MeleeStep > 0 && Combat.MeleeStepOf(_config, p) is { } step)
             {
                 long start = MeleeHitGate.StartTick(_client.LatestSnapshotTick, p.MeleeTime, _config.TickSeconds);
-                if (_meleeSoundGate.Passed(p.PlayerId, p.MeleeStep, p.MeleeHeavy, p.MeleeTime, step.HitTime, start)
+                if (_meleeSoundGate.Passed(p.PlayerId, p.MeleeStep, p.MeleeHeavy, ShownMeleeTime(p), FxTime(step), start)
                     && MeleePresentation.Victim(p, pool, _config) is var victim && victim > 0)
                     _meleeConfirm.Add(p.PlayerId, victim, charge: false, dash: false, now);
             }

@@ -136,11 +136,12 @@ public partial class NetworkView
     /// <summary>The own clip (reaction, charge, attack) to pose this frame at the frame rate, or null (none, dead, or <c>--no-own-clip-smoothing</c>).</summary>
     SmoothClip? SmoothOwnClip(PlayerState me)
     {
-        if (_client is null || _config is null || !me.Alive || OwnDead) { _ownClip.Stop(); return null; }
+        if (_client is null || _config is null || !me.Alive || OwnDead) { _ownClip.Stop(); NoteShownAttack(me.PlayerId, ClipKind.None, 0f); return null; }
         var (kind, key, target, length) = ClipTargetOf(me);
-        if (kind == ClipKind.None) { _ownClip.Stop(); return null; }
-        if (NoOwnClipSmoothing) { if (kind == ClipKind.Attack) _ownClipShown = target; _ownClip.Stop(); return null; }
+        if (kind == ClipKind.None) { _ownClip.Stop(); NoteShownAttack(me.PlayerId, kind, 0f); return null; }
+        if (NoOwnClipSmoothing) { if (kind == ClipKind.Attack) _ownClipShown = target; _ownClip.Stop(); NoteShownAttack(me.PlayerId, ClipKind.None, 0f); return null; }
         float shown = _ownClip.Step(key, target, _client.ClipFraction, _config.TickSeconds, length);
+        NoteShownAttack(me.PlayerId, kind, shown);
         if (kind == ClipKind.Attack) _ownClipShown = shown;   // --latency-probe: the drawn attack time
         return new SmoothClip(kind, shown);
     }
