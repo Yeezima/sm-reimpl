@@ -151,7 +151,7 @@ public partial class NetworkView
     /// <c>*_pistol_bolter_gold</c>, both races), which play the bolt pistol's one-handed set (anim/relic-bolter-idle, the owner 2026-11-01: "the gun and
     /// arm need to point straight down at the ground at idle ... the same idle animation as bolt pistol"). Supported by the data: their wargear files
     /// name <c>weapon_type = "weapon_1hand"</c> and <c>animation_set = "pistol"</c>, as the bolt pistol's do (the primary bolter: <c>weapon_2hand_range_light</c>,
-    /// <c>bolter</c>). Animation only: the simulation's raise delay still follows <see cref="HipFireAnimations.FamilyOf"/> (rifle, 6 ticks).
+    /// <c>bolter</c>). The simulation's raise delay reads the same data (<c>MpClasses.WithRaise</c>: the pistol's 5 ticks).
     /// </summary>
     internal static HipFireWeaponClass AnimationFamilyOf(string weaponName) =>
         !OldPistolBolterAnim && Loadouts.IsPistolBolterName(weaponName) ? HipFireWeaponClass.Pistol : HipFireAnimations.FamilyOf(weaponName);

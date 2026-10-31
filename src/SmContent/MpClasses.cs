@@ -309,10 +309,13 @@ public sealed record MpClasses(IReadOnlyList<MpClass> Classes, IReadOnlyList<Wea
     /// (<see cref="HipFireAnimations.FamilyOf"/>), <see cref="WeaponSpec.AlwaysReady"/> from the family's ready condition
     /// (<see cref="HipFireAnimations.AlwaysReady"/>). Without the data (or the family's set or delay) the weapon never waits.
     /// </summary>
-    public static WeaponSpec WithRaise(WeaponSpec w, HipFireAnimations? hipFire, List<string> notes)
+    /// <param name="animationSet">The wargear's <c>common_data/fire_mode_primary</c> <c>animation_set</c> (<see cref="AnimationSetOf"/>): "pistol" puts the weapon in
+    /// the pistol family whatever its name (anim/relic-bolter-idle: the True Grit pistol-slot bolters name "pistol" as the bolt pistol does, so their raise is
+    /// the pistol's 0.167 s = 5 ticks, not the rifle's 6); null or another set: the name rule <see cref="HipFireAnimations.FamilyOf"/>.</param>
+    public static WeaponSpec WithRaise(WeaponSpec w, HipFireAnimations? hipFire, List<string> notes, string? animationSet = null)
     {
         if (hipFire is null) return w;
-        var family = HipFireAnimations.FamilyOf(w.Name);
+        var family = string.Equals(animationSet, "pistol", StringComparison.OrdinalIgnoreCase) ? HipFireWeaponClass.Pistol : HipFireAnimations.FamilyOf(w.Name);
         if (hipFire.For(family) is not { } set) { notes.Add($"{w.Name}: no hip-fire data for the {family} family; the shot never waits for a raise"); return w; }
         bool always = HipFireAnimations.AlwaysReady(set, w.Name);
         if (set.RaiseDelay is not { } delay || !float.IsFinite(delay) || delay < 0f)
@@ -321,6 +324,18 @@ public sealed record MpClasses(IReadOnlyList<MpClass> Classes, IReadOnlyList<Wea
             return w with { AlwaysReady = always };
         }
         return w with { RaiseDelay = delay, AlwaysReady = always };
+    }
+
+    /// <summary>
+    /// The animation set a wargear file names for its primary fire mode (<c>common_data/fire_mode_primary/entry/animation_set</c>: "bolter", "pistol", ...;
+    /// the first non-empty one), or null. The pistol-slot bolters name "pistol" (anim/relic-bolter-idle).
+    /// </summary>
+    public static string? AnimationSetOf(BafDocument doc)
+    {
+        if (doc.Root.Table("common_data")?.Table("fire_mode_primary") is not { } modes) return null;
+        foreach (var e in modes.Entries)
+            if (e.Type == BafType.Table && e.AsTable()["animation_set"] is { Type: BafType.String } set && set.AsString().Length > 0) return set.AsString();
+        return null;
     }
 
     /// <summary>Whether an equipment file is hidden from the customizer (<c>ui_data/visible_in_customizer</c> false).</summary>
@@ -380,10 +395,10 @@ public sealed record MpClasses(IReadOnlyList<MpClass> Classes, IReadOnlyList<Wea
             if (!wargear.TryGetValue(name, out var doc)) { notes.Add($"{name}: wargear file not found"); return weaponIndex[name] = -1; }
             var spec = WeaponTuning.Read(name, doc, notes, blueprints);
             if (spec is null) return weaponIndex[name] = -1;
-            spec = SpreadTuning.With(WithRaise(spec, hipFire, notes), doc, scatterSets, notes);   // weapons/spread
+            spec = SpreadTuning.With(WithRaise(spec, hipFire, notes, AnimationSetOf(doc)), doc, scatterSets, notes);   // weapons/spread; anim/relic-bolter-idle: the data's animation set
             var baseSpec = spec;
             var variants = UpgradeScope.VariantsOf(baseSpec, PerkStringsOf(doc),
-                () => WeaponTuning.Read(name, doc, []/* notes of the base read only */, blueprints) is { } v ? SpreadTuning.With(WithRaise(v, hipFire, []), doc, scatterSets, []) : null, Variants.Bytes);
+                () => WeaponTuning.Read(name, doc, []/* notes of the base read only */, blueprints) is { } v ? SpreadTuning.With(WithRaise(v, hipFire, [], AnimationSetOf(doc)), doc, scatterSets, []) : null, Variants.Bytes);
             if (variants.Count > 0) { spec = spec with { Variants = variants }; variantCount += variants.Count; }
             if (spec.Delivery == DeliveryKind.Projectile && !offerProjectileWeapons)
             {
