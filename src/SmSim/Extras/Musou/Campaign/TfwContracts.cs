@@ -21,14 +21,14 @@ public static class TfwContracts
     /// <summary>Whether <paramref name="id"/> is one of the AI Marines' ids. Means nothing outside a war (<see cref="World.Tfw"/> null): a human may hold such an id there.</summary>
     public static bool IsPuppet(int id) => id is >= PuppetIdFirst and <= PuppetIdLast;
 
-    /// <summary>The <see cref="MusouTarget.Id"/> of Guard squad <paramref name="squad"/> (0-based): always negative, so it never meets a player's id.</summary>
-    public static int GuardTargetId(int squad) => -(squad + 1);
+    /// <summary>The <see cref="MusouTarget.Id"/> of Guard squad <paramref name="squad"/> (0-based): -2 and down, so it never meets a player's id or <see cref="FlowField"/>'s -1 for an unreached node.</summary>
+    public static int GuardTargetId(int squad) => -(squad + 2);
 
     /// <summary>Whether a target or attack names a Guard squad (<see cref="MusouAttack.Player"/> below 0; the World routes it to <c>TfwGuardHit</c>).</summary>
-    public static bool IsGuardTarget(int id) => id < 0;
+    public static bool IsGuardTarget(int id) => id <= -2;
 
     /// <summary>The squad of a Guard target id (the inverse of <see cref="GuardTargetId"/>).</summary>
-    public static int SquadOf(int targetId) => -targetId - 1;
+    public static int SquadOf(int targetId) => -targetId - 2;
 }
 
 /// <summary>The three fronts.</summary>
