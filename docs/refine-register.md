@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1845 spec table rows: **1278 tagged**, 414 not tagged (read from data with high confidence), 153 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 407 rows of the changes document.
+Scanned 1849 spec table rows: **1282 tagged**, 414 not tagged (read from data with high confidence), 153 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 408 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 1845 spec table rows: **1278 tagged**, 414 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 124 | 109 | 109 | 13 | 1 |
+| Core simulation (provisional values) | 128 | 113 | 111 | 13 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1278** | 1057 | 1028 | 399 | 38 |
+| **All areas** | **1282** | 1061 | 1030 | 399 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 509 |
+| kind: ours | 513 |
+| confidence: low | 457 |
 | confidence: medium | 456 |
-| confidence: low | 455 |
 | kind: interpretation | 326 |
 | notes: ours | 290 |
 | confidence: none (low) | 117 |
@@ -1707,7 +1707,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (124)
+### Core simulation (provisional values) (128)
 
 *Spec section: Provisional values in use*
 
@@ -1804,6 +1804,15 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC00F273` | Musou telegraphs | a faint ground wedge for each melee wind-up within 25 m (at most 24, the type's reach and cone, filling over the wind-up); the Warboss's slam a 6 m ring filling over 0.8 s, his charge a 1.5 m lane to its end filling over 1 s; started when the event arrives… (m, s) | kind: ours; confidence: low | the boss values from the design; the rest ours | Musou telegraphs: compare with SM1 by feel or video. Ours: a faint ground wedge for each melee wind-up within 25 m (at most 24… | ☐ |
 | `R-F64DD798` | Musou weapon drops | the owner (2026-10-31): "each player sees weapons when 'boss' enemies die ... only one drops. When picking the weapon up the player equips the item ... glow golden"; a credited KO of a Nob or (the owner, 2026-10-31: "Make Chaos Marines drop weapons too.") a… (m, s) | kind: ours; confidence: low | the owner's request; "boss" = Nobs and Chaos Marines (the owner), the rest ours | Musou weapon drops: compare with SM1 by feel or video. Ours: the owner (2026-10-31): "each player sees weapons when 'boss' enemies… | ☐ |
 | `R-4DCA9897` | Musou drop look | the weapon's own held model recoloured gold and emissive (a gold bar if it cannot be read), 1.4 ×, 0.9 m above the floor, spinning 1.2 rad/s and bobbing 0.08 m at 0.5 Hz; a 16 m additive light beam fading within 2–9 m of the camera, a 2.6 m floor glow, an… (m) | kind: ours; confidence: low | the owner ("glow golden ... easy to see"); the values ours | Musou drop look: compare with SM1 by measuring on a flat spot of the same map. Ours: the weapon's own held model recoloured gold and emissive (a gold bar… | ☐ |
+
+*Spec section: Added content: Musou — the Three-Front War (TF0: contracts and a stub map; no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-0932D9C7` | War map | arena 240 × 240 m around the origin, walls 1 m thick and 12 m high; Stormbird room 10 × 10 × 5 m centred at (0, -200), stations Destination (-3.5, -196.5) and Equipment (3.5, -196.5), r 1.5 m; four Space Marine spawns at (±2, -202 ±1) facing north; TF0 builds… (m) | kind: ours; confidence: low | the owner (empty boxes, a 10 m control room); the sizes and places the architect's | War map: compare with SM1 by measuring on a flat spot of the same map. Ours: arena 240 × 240 m around the origin, walls 1 m thick and 12 m high… | ☐ |
+| `R-11D349F6` | War battle layout | landing zone (0, -100) r 10; positions (-40, -45), the depot (35, 10), (-25, 60), r 12; HQ (0, 105) r 15; sources (-110, -40), (110, 15), (-110, 70), (60, 112) (m) | kind: ours; confidence: low | the architect's proposal | War battle layout: compare with SM1 by measuring on a flat spot of the same map. Ours: landing zone (0, -100) r 10; positions (-40, -45), the depot (35… | ☐ |
+| `R-D3A3B1CE` | War commands | a client's command (message kind 17) carries at most 64 payload bytes; the server takes 8 a second per client (burst 8) and queues at most 64 between ticks (/s) | kind: ours | the architect's proposal | War commands: compare with SM1 by feel or video. Ours: a client's command (message kind 17) carries at most 64 payload… | ☐ |
+| `R-FC7D8173` | AI Marine ids | the server-side AI Marines are players 65520 to 65527, without a client; a joining player's id skips any held id | kind: ours | the architect's proposal | AI Marine ids: compare with SM1 by feel or video. Ours: the server-side AI Marines are players 65520 to 65527, without a… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -2102,6 +2111,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-D7C1E93B` | Enemies ignore spawn-room blockers | ours (the lead, 2026-10-31) | Musou enemies walk through both sides' spawn-room blockers (the Warboss leaves the Chaos room; enemies may enter the Space Marine room); players keep them | Musou enemies and the spawn rooms | Enemies ignore spawn-room blockers: compare with SM1 by feel or video. Ours: ours (the lead, 2026-10-31). | ☐ |
 | `C-0BAAC3C5` | Pistol-only start, Space Marine spawn room, Warboss in the Chaos room | the owner's request (2026-10-31) | every life starts with the class's bolt pistol only; everyone spawns in the Space Marine room | Musou spawns and loadout | Pistol-only start, Space Marine spawn room, Warboss in the…: compare with SM1 by feel or video. Ours: the owner's request (2026-10-31). | ☐ |
 | `C-D5938EAB` | Golden weapon drops from Nobs and Chaos Marines | the owner's requests (2026-10-31) | each Nob or Chaos Marine KO drops one weapon per player from their class's pool, E equips it, 60 s | Musou weapon drops | Golden weapon drops from Nobs and Chaos Marines: compare with SM1 by feel or video. Ours: the owner's requests (2026-10-31). | ☐ |
+| `C-21B5B32C` | Musou mode is the Three-Front War | the owner's decision (2026-11-01) | `--content musou` runs the war on the generated map `tfw_war`; the 5-wave run stays only as a test aid (`--map mp_tdm_09`) | War map | Musou mode is the Three-Front War: compare with SM1 by feel or video. Ours: the owner's decision (2026-11-01). | ☐ |
 
 ### Deliberate changes (owner's decisions)
 
