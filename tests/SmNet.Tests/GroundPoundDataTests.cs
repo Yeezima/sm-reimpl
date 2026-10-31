@@ -1,6 +1,8 @@
 using System.Numerics;
 using SmContent;
 using SmFormats.Baf;
+using SmNet;
+using SmServer;
 using SmSim;
 using Xunit.Abstractions;
 
@@ -138,5 +140,44 @@ public class GroundPoundDataTests(ITestOutputHelper output)
         var h = Assert.Single(hits);
         Assert.Equal((0f, 25f), (h.ShieldDamage, h.HealthDamage));
         Assert.Equal((0f, config.HealthMax - 25f), (world.Players[2].Shield, world.Players[2].Health));
+    }
+
+    [Fact]
+    public void The_pounded_clients_own_state_shows_the_armour_drop_and_not_a_health_drop()
+    {
+        // sim/pound-armour-first (owner, 2026-10-31): through GameServer and two GameClients, the victim's predicted (own HUD) armour and health after a pound.
+        var config = Config(100f) with { JumpPacks = [PackFromData() with { Pound = PackFromData().Pound! with { Reactions = [new ReactionEntry(0f, ReactionKind.Stun)] } }] };
+        var h = new Harness(new LinkConditions(TimeSpan.FromMilliseconds(20), TimeSpan.Zero, 0), 3, 2, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5) });
+        h.Run(TimeSpan.FromSeconds(1.5));
+        Assert.All(h.Clients, c => Assert.Equal(ClientStatus.Connected, c.Status));
+        int pounder = h.Server.World.Players.Keys.Min(), victim = h.Clients.FindIndex(c => c.PlayerId != pounder);
+        int pi = 1 - victim;
+        output.WriteLine($"pounder P{pounder} victim P{h.Clients[victim].PlayerId} distance {Vector3.Distance(h.Server.World.Players[h.Clients[pi].PlayerId].Position, h.Server.World.Players[h.Clients[victim].PlayerId].Position):F2}");
+        bool pounded = false, impact = false;
+        var samples = new List<string>();
+        float minShield = 100f, maxHealthLoss = 0f;
+        for (int ms = 0; ms < 12000; ms++)
+        {
+            h.Step((i, t) =>
+            {
+                if (i != pi) return new PlayerInput(t, 0, 0, 0f, InputButtons.None);
+                var p = h.Server.World.Players[h.Clients[pi].PlayerId];
+                var b = ms < 500 ? InputButtons.None : ms < 960 ? InputButtons.Jump : !pounded && p.Position.Z > 9f && p.Jump is JumpPhase.Hang or JumpPhase.Fall ? InputButtons.Melee : InputButtons.None;
+                if (b == InputButtons.Melee) pounded = true;
+                return new PlayerInput(t, 0, 0, -2.68f, b, -1.4f);   // faces the victim, so the dive leans toward it
+            });
+            if (!impact && h.Server.World.LastJumps.Any(j => j.Kind == JumpEventKind.Impact)) { impact = true; var ij = h.Server.World.LastJumps.First(j => j.Kind == JumpEventKind.Impact); output.WriteLine($"impact at ms {ms}: player {ij.Player} at {ij.Position}, {ij.Victims} hit; victim at {h.Server.World.Players[h.Clients[victim].PlayerId].Position}"); }
+            if (impact)
+            {
+                var v = h.Clients[victim].Predicted; var truth = h.Server.World.Players[h.Clients[victim].PlayerId];
+                minShield = Math.Min(minShield, v.Shield); maxHealthLoss = Math.Max(maxHealthLoss, config.HealthMax - v.Health);
+                if (ms % 100 == 0) samples.Add($"ms {ms}: client shield {v.Shield:F1} health {v.Health:F1} | server shield {truth.Shield:F1} health {truth.Health:F1}");
+                if (samples.Count > 3) break;
+            }
+        }
+        samples.ForEach(output.WriteLine);
+        Assert.True(impact);
+        Assert.True(minShield <= 25.5f, $"the victim's own armour only fell to {minShield}");
+        Assert.Equal(0f, maxHealthLoss);
     }
 }
