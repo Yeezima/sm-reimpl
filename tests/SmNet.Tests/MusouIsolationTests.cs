@@ -82,6 +82,57 @@ public class MusouIsolationTests(ITestOutputHelper output)
         Assert.Equal(golden, hash);
     }
 
+    // ---------------------------------------------------------------- the wire (added with MU0's hooks)
+
+    /// <summary>Musou's envelope tags (entities, events, director; <c>MusouWire</c>, named here as numbers: this core test runs in the faithful build too).</summary>
+    static readonly byte[] MusouTags = [3, 4, 5];
+
+    [Fact]
+    public void Musou_changes_neither_the_protocol_version_nor_the_extended_profile()
+    {
+        Assert.Equal(49u, (uint)Protocol.Version);
+        Assert.Equal(2u, ContentExtras.WireVersion);
+        Assert.False(ContentExtras.All.HasFlag(ContentExtras.Musou));
+        Assert.Equal(ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks, ContentExtras.All);
+        if (ContentExtras.Compiled)
+        {
+            Assert.True(ContentProfiles.TryParse(ContentProfiles.Extended, out var extended, out _));
+            Assert.False(extended.HasFlag(ContentExtras.Musou));
+        }
+        // Musou hashes apart from both (a Musou client is refused by every other server and the other way round).
+        ulong musou = (Fixture with { Extras = ContentExtras.Musou }).Hash();
+        Assert.NotEqual(Faithful.Hash(), musou);
+        Assert.NotEqual(Extended.Hash(), musou);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_faithful_or_extended_server_never_sends_a_musou_section(bool extended)
+    {
+        var config = extended ? Extended : Faithful;
+        IServerTransport? recorder = null;
+        var sent = new List<byte[]>();
+        var h = new Harness(LinkConditions.Perfect, 7, 2, config, wrapServer: inner => recorder = new Recording(inner, sent));
+        // The loyalist barks' key (input bit 13) every half second for everyone, so an extended server does send envelopes (the check is live).
+        h.Run(TimeSpan.FromSeconds(4), (i, t) => Harness.Scripted(i, t) with { Buttons = Harness.Scripted(i, t).Buttons | (t % 15 < 4 ? InputButtons.ExtraAction : InputButtons.None) });
+        Assert.NotNull(recorder);
+        Assert.All(h.Clients, c => Assert.Equal(ClientStatus.Connected, c.Status));
+        var envelopes = sent.Select(p => Protocol.Read(p)).OfType<ExtrasUpdate>().ToList();
+        output.WriteLine($"{(extended ? "extended" : "faithful")}: {sent.Count} packets, {envelopes.Count} envelopes, tags {string.Join(",", envelopes.SelectMany(e => e.Sections).Select(s => s.Tag).Distinct())}");
+        if (extended && ContentExtras.Compiled) Assert.NotEmpty(envelopes);   // the barks' shouts (a faithful build has no Extras/ code to send them)
+        else Assert.Empty(envelopes);
+        Assert.DoesNotContain(envelopes.SelectMany(e => e.Sections), s => MusouTags.Contains(s.Tag));
+    }
+
+    sealed class Recording(IServerTransport inner, List<byte[]> sent) : IServerTransport
+    {
+        public void Send(int connection, byte[] packet) { sent.Add(packet); inner.Send(connection, packet); }
+        public bool TryReceive(out int connection, out byte[] packet) => inner.TryReceive(out connection, out packet);
+        public void Disconnect(int connection) => inner.Disconnect(connection);
+        public void Pin(int connection) => inner.Pin(connection);
+    }
+
     internal readonly record struct ReplayStats(int Shots, int Throws, int Detonations, int MeleeHits, int Rushes, int Kills, MatchState End);
 
     /// <summary>

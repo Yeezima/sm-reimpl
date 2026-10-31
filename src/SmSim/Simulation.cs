@@ -1218,6 +1218,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         StopRushes(connected, landedCharges);
         foreach (var (player, kind, state, drop) in jumps) ResolveJump(player, kind, state, drop);
         ApplyPerkBlasts();   // M43: armour-break blasts of this tick and death blasts now due
+        ExtrasStep();   // EXTRAS-HOOK: added content's own simulation after every player's attacks (Musou: its enemies)
         CountProjectilesOut();
         ResolveDeaths(aliveBefore);
         ScheduleDeathBlasts(aliveBefore);   // M43: Final Vengeance
@@ -1299,7 +1300,20 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         }
         if (step.Stomp is { } stomp)
             ApplyBlast(attacker, 0, state.Position + new Vector3(0, 0, ChestOf(state)), stomp, melee: true);   // a stomp kill is a melee kill
+        ExtrasMelee(attacker, state, step);   // EXTRAS-HOOK: added content's targets of the same strike (Musou: the cleave)
     }
+
+    /// <summary>
+    /// Hook for added content (docs/added-content.md): once a tick in <see cref="Step"/>, after every player's shots, strikes, charges and perk blasts and
+    /// before the projectile counts and the deaths are resolved. Implemented in an <c>Extras/</c> folder; returns at once unless its feature runs.
+    /// </summary>
+    partial void ExtrasStep();
+
+    /// <summary>
+    /// Hook for added content: at the end of <see cref="ResolveMelee"/> (after the players it hit and its stomp), with the attacker's state this tick
+    /// and the step it struck with. Implemented in an <c>Extras/</c> folder; returns at once unless its feature runs.
+    /// </summary>
+    partial void ExtrasMelee(int attacker, PlayerState state, MeleeStep step);
 
     /// <summary>
     /// Hit test against other living players as they were at the shooter's view tick (rewind capped by

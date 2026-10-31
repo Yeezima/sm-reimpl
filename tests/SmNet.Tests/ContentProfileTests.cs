@@ -167,6 +167,59 @@ public class ContentProfileTests
         Assert.Equal($"orks (orks; extras wire {ContentExtras.WireVersion})", ContentProfiles.Describe(ContentExtras.Orks));
     }
 
+    // ---------------------------------------------------------------- Musou (MU0: a mode of its own, never in extended)
+
+    [Fact]
+    public void Musou_is_its_own_profile_never_part_of_extended()
+    {
+        Assert.Equal(8u, (uint)ContentExtras.Musou);
+        Assert.False(ContentExtras.All.HasFlag(ContentExtras.Musou));
+        Assert.Equal(ContentExtras.All | ContentExtras.Musou, ContentExtras.Known);
+        Assert.Equal("musou", ContentProfiles.Musou);
+        Assert.Equal("musou", ContentProfiles.Name(ContentExtras.Musou));
+        Assert.Equal($"musou (musou; extras wire {ContentExtras.WireVersion})", ContentProfiles.Describe(ContentExtras.Musou));
+        Assert.Contains("musou", ContentProfiles.Expected);
+        bool ok = ContentProfiles.TryParse(" Musou ", out var musou, out string error);
+        if (ContentExtras.Compiled)
+        {
+            Assert.True(ok, error);
+            Assert.Equal(ContentExtras.Musou, musou);
+            Assert.True(ContentProfiles.TryParse("extended", out var extended, out _));
+            Assert.False(extended.HasFlag(ContentExtras.Musou));
+            Assert.False(ContentProfiles.Default.HasFlag(ContentExtras.Musou));
+        }
+        else
+        {
+            Assert.False(ok);
+            Assert.Contains("SmExtras=false", error);
+            Assert.Equal(ContentExtras.None, musou);
+        }
+        Assert.InRange(SmServer.GameServer.ConfigMismatchDetail(ContentExtras.Musou).Length, 1, 200);   // the refusal fits the reject message
+    }
+
+    [Theory]
+    [InlineData("musou,orks")]
+    [InlineData("orks,musou")]
+    [InlineData("musou,gore,loyalist-barks")]
+    [InlineData("musou,musou,gore")]
+    public void Musou_with_any_other_flag_is_refused(string text)
+    {
+        Assert.False(ContentProfiles.TryParse(text, out var extras, out string error));
+        Assert.Equal(ContentExtras.None, extras);
+        Assert.StartsWith("--content", error);
+        Assert.Contains("musou", error);
+    }
+
+    [Fact]
+    public void Musou_hashes_apart_from_every_other_profile()
+    {
+        ulong musou = (Golden with { Extras = ContentExtras.Musou }).Hash();
+        Assert.NotEqual(GoldenHash, musou);
+        Assert.NotEqual((Golden with { Extras = ContentExtras.All }).Hash(), musou);
+        Assert.NotEqual((Golden with { Extras = ContentExtras.LoyalistBarks }).Hash(), musou);
+        Assert.Equal(musou, (Golden with { Extras = ContentExtras.Musou }).Hash());
+    }
+
     // ---------------------------------------------------------------- the Ork gate (needs the player's install; skipped without it)
 
     static readonly Lazy<string?> Game = new(() => GameInstall.TryLocate()?.Dir);

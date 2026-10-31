@@ -125,7 +125,11 @@ public partial class NetworkView
         if (BarksActive && k.Killer != k.Victim && k.Killer >= 0) _barkKills.Add(k);
     }
 
-    partial void ExtrasFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta)
+    /// <summary>
+    /// This feature's part of the frame hook (called by the dispatcher <c>NetworkView.Extras.cs</c>, which drains the envelope queue once a frame):
+    /// <paramref name="sections"/> are this frame's sections with <see cref="LoyalistShoutWire.Tag"/>, oldest first.
+    /// </summary>
+    void LoyalistBarksFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta, IReadOnlyList<ExtrasSection> sections)
     {
         if (!BarksActive || _client is not { Status: ClientStatus.Connected } client || _config is null) return;
         // The key (human players): a press, latched between input samples; nothing else reads T.
@@ -139,12 +143,11 @@ public partial class NetworkView
         _barkPlayers[ownId] = me;
         foreach (var o in others) _barkPlayers[o.PlayerId] = o;
 
-        // Others' shouts from the server (the envelope's section with this feature's tag; other tags are not this feature's). Read even while the takes
+        // Others' shouts from the server (the envelope's sections with this feature's tag, routed here by the dispatcher). Read even while the takes
         // load, so the own shout sequence stays known.
         _shoutPlay.Clear();
-        foreach (var section in client.TakeExtras())
+        foreach (var section in sections)
         {
-            if (section.Tag != LoyalistShoutWire.Tag) continue;
             if (LoyalistShoutWire.Read(section.Payload) is not { } shouts) { BarkCount("malformed shout section"); continue; }
             _shoutInbox.Take(shouts, ownId, serverTick, _config.TickRate, _shoutPlay);
         }

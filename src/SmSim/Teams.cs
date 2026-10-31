@@ -166,11 +166,30 @@ public sealed partial class World
         var side = classes[requestedClass].Side;
         if (side == Team.None) return requestedClass;
         var want = requestedSide is Team.SpaceMarines or Team.Chaos ? requestedSide : side;
-        int mine = CountSide(want), other = CountSide(MatchRules.Other(want));
-        bool asked = Rules.HonorSideRequests && requestedSide is Team.SpaceMarines or Team.Chaos;   // --honor-side-requests (test aid)
-        if ((mine > other && !asked) || mine >= Rules.MaxPerSide) want = MatchRules.Other(want);
+        bool forced = false;
+        ExtrasJoinSide(ref want, ref forced);   // EXTRAS-HOOK: added content that fixes the side (Musou: Space Marines only, no balance)
+        if (!forced)
+        {
+            int mine = CountSide(want), other = CountSide(MatchRules.Other(want));
+            bool asked = Rules.HonorSideRequests && requestedSide is Team.SpaceMarines or Team.Chaos;   // --honor-side-requests (test aid)
+            if ((mine > other && !asked) || mine >= Rules.MaxPerSide) want = MatchRules.Other(want);
+        }
         return want == side ? requestedClass : Equivalent(requestedClass, want);
     }
+
+    /// <summary>
+    /// Hook for added content (docs/added-content.md): the side a join asks for (<paramref name="want"/>, in <see cref="AssignClass"/> and for a class
+    /// without a side in <see cref="AssignSide"/>); set <paramref name="forced"/> to take <paramref name="want"/> as it is, without the balance or the
+    /// per-side limit. Implemented in an <c>Extras/</c> folder; returns at once (both unchanged) unless its feature runs.
+    /// </summary>
+    partial void ExtrasJoinSide(ref Team want, ref bool forced);
+
+    /// <summary>
+    /// Hook for added content: at the top of <see cref="StepMatch"/> (with rules); set <paramref name="handled"/> when the feature ran the match flow
+    /// itself this tick, and the core's warm-up, countdown, play and restart are skipped. Implemented in an <c>Extras/</c> folder; returns at once
+    /// (unhandled) unless its feature runs.
+    /// </summary>
+    partial void ExtrasStepMatch(ref bool handled);
 
     /// <summary>
     /// The side a joining player of <paramref name="playerClass"/> plays for (Ork O4; design section 1.2; rules **ours**): none without
@@ -186,6 +205,10 @@ public sealed partial class World
         var classes = Config.Classes;
         var side = playerClass >= 0 && playerClass < classes.Count ? classes[playerClass].Side : Team.None;
         if (side != Team.None) return side;
+        var want = requestedSide;
+        bool forced = false;
+        ExtrasJoinSide(ref want, ref forced);   // EXTRAS-HOOK: added content that fixes the side (Musou)
+        if (forced) return want;
         if (requestedSide is not (Team.SpaceMarines or Team.Chaos)) return SmallerSide();
         int mine = CountSide(requestedSide), other = CountSide(MatchRules.Other(requestedSide));
         bool full = mine >= Rules.MaxPerSide;
@@ -345,6 +368,9 @@ public sealed partial class World
     void StepMatch()
     {
         if (Rules is null) return;
+        bool handled = false;
+        ExtrasStepMatch(ref handled);   // EXTRAS-HOOK: added content that runs its own match flow (Musou: one side only)
+        if (handled) return;
         StepCapture();
         int marines = CountSide(Team.SpaceMarines), chaos = CountSide(Team.Chaos);
         bool both = marines > 0 && chaos > 0;

@@ -6,7 +6,7 @@ namespace SmServer;
 
 /// <summary>
 /// Added content "loyalist barks" on the server (docs/added-content.md section 7): the FOR THE EMPEROR key. Once a tick (the envelope hook
-/// <see cref="ExtrasSend"/>), only when the match runs <see cref="ContentExtras.LoyalistBarks"/>: a press edge of <see cref="InputButtons.ExtraAction"/>
+/// <see cref="ExtrasSend"/>, through its dispatcher), only when the match runs <see cref="ContentExtras.LoyalistBarks"/>: a press edge of <see cref="InputButtons.ExtraAction"/>
 /// in the applied input of a living loyalist Space Marine (not Chaos, not an Ork), at most once per <see cref="LoyalistShoutWire.CooldownSeconds"/>,
 /// becomes a shout (with the player's shout sequence) every client is told about in the envelope's section (<see cref="LoyalistShoutWire"/>), repeated for
 /// <see cref="LoyalistShoutWire.ResendTicks"/> ticks. The simulation never reads the key: no action is interrupted and no animation plays. The server
@@ -26,7 +26,8 @@ public sealed partial class GameServer
     /// <summary>Key presses refused: dead, not a loyalist Space Marine, or within the cooldown.</summary>
     public int LoyalistShoutsRefused { get; private set; }
 
-    partial void ExtrasSend()
+    /// <summary>This feature's part of the envelope hook (called by the dispatcher <c>GameServer.Extras.cs</c>).</summary>
+    void SendLoyalistBarks()
     {
         if (!World.Config.Extras.HasFlag(ContentExtras.LoyalistBarks)) return;
         uint tick = World.Tick;

@@ -39,6 +39,9 @@ public sealed partial class HostPanel : PanelContainer
     Label? _botsLabel;
     OptionButton? _difficultyOption;
     int _botCount = HostBots.DefaultCount;   // fix/hosting-bots-logs: never remembered; 0 = no bots
+    readonly List<(string Mode, Button Button)> _modeButtons = new();
+    readonly List<(bool Local, Button Button)> _reachButtons = new();
+    bool? _musouShown;   // the Musou lock last applied to the mode, reach and bots rows (null: not yet)
     bool _pendingJoin;
     double _startedAt;
     bool _autoDone, _stopOtherDone;
@@ -60,7 +63,33 @@ public sealed partial class HostPanel : PanelContainer
     }
 
     /// <summary>The number of bots the next hosted match gets (the BOTS stepper; the test aid <c>--host-bots</c>; default none in every reach, never remembered).</summary>
-    public int BotCount => _botCount;
+    public int BotCount => Musou ? 0 : _botCount;
+
+    /// <summary>
+    /// The Join screen's profile is Musou (experimental added content): the hosted server is this PC only (127.0.0.1), Annihilation (the mode row is locked: the
+    /// mode comes from the profile), without bots (the enemies are the server's own), and the button reads START MUSOU; the usual hand-over joins it.
+    /// </summary>
+    public bool Musou => _content().HasFlag(SmSim.ContentExtras.Musou);
+
+    /// <summary>The host button's text (self-test).</summary>
+    public string HostButtonText => _hostButton?.Text ?? "";
+
+    /// <summary>Applies the Musou lock to the rows when the profile changes (pressed states follow the forced choice; the rows come back unlocked after).</summary>
+    void ApplyMusou()
+    {
+        bool musou = Musou;
+        if (_musouShown == musou) return;
+        _musouShown = musou;
+        if (musou) { _mode = ServerLaunch.ModeAnnihilation; _localOnly = true; }
+        foreach (var (mode, b) in _modeButtons) { b.Disabled = musou; b.SetPressedNoSignal(_mode == mode); }
+        foreach (var (local, b) in _reachButtons) { b.Disabled = musou; b.SetPressedNoSignal(_localOnly == local); }
+        if (_hostButton is not null)
+        {
+            _hostButton.Text = musou ? "START MUSOU" : "HOST A MATCH";
+            _hostButton.TooltipText = musou ? "Start a Musou server on this PC only and join it" : "Start a server on this PC and join it";
+        }
+        RefreshNote();
+    }
     public BotDifficulty Difficulty => _difficultyOverride ?? _services?.Settings.BotDifficulty ?? BotDifficulty.Easy;
     bool HumanChaos => _services?.Settings.Side == SideChoice.Chaos;
 
@@ -86,6 +115,7 @@ public sealed partial class HostPanel : PanelContainer
             b.Pressed += () => _mode = chosen;
             row.AddChild(b);
             modeButtons.Add(b);
+            _modeButtons.Add((mode, b));
         }
         row.AddChild(UiKit.Text("PORT", UiKit.CaptionSize, UiKit.Grey).With(l => l.VerticalAlignment = VerticalAlignment.Center));
         _port = new LineEdit { Text = (_args.GetValueOrDefault("host-port") ?? ServerLaunch.DefaultPort.ToString()), CustomMinimumSize = new Vector2(120, UiKit.MinHit), MaxLength = 5, FocusMode = Control.FocusModeEnum.All, SelectAllOnFocus = true };
@@ -99,6 +129,7 @@ public sealed partial class HostPanel : PanelContainer
             b.Pressed += () => { _localOnly = chosen; RefreshNote(); RefreshBots(); };
             row.AddChild(b);
             modeButtons.Add(b);
+            _reachButtons.Add((local, b));
         }
         UiKit.ChainHorizontal(modeButtons);
         setup.AddChild(row);
@@ -204,15 +235,16 @@ public sealed partial class HostPanel : PanelContainer
     {
         if (_botsLabel is null || _difficultyOption is null || _fewerBots is null || _moreBots is null) return;
         bool hosting = HostedServer.Running;
-        int count = hosting && HostedServer.Options is { } o ? o.Bots : _botCount;
+        bool musou = !hosting && Musou;   // Musou plans no bots (the stepper shows none and is locked)
+        int count = hosting && HostedServer.Options is { } o ? o.Bots : musou ? 0 : _botCount;
         var difficulty = hosting && HostedServer.Options is { } d ? d.Difficulty : Difficulty;
         int difficultyIndex = difficulty == BotDifficulty.Easy ? 0 : 1;
         string label = HostBots.Label(count);
         if (_botsLabel.Text != label) _botsLabel.Text = label;
         if (_difficultyOption.Selected != difficultyIndex) _difficultyOption.Select(difficultyIndex);
-        _difficultyOption.Disabled = hosting;
-        _fewerBots.Disabled = hosting || count <= 0;
-        _moreBots.Disabled = hosting || count >= HostBots.MaxBots;
+        _difficultyOption.Disabled = hosting || musou;
+        _fewerBots.Disabled = hosting || musou || count <= 0;
+        _moreBots.Disabled = hosting || musou || count >= HostBots.MaxBots;
     }
 
     /// <summary>The BOTS row shown (test aid for the self-test): the number's text and the difficulty's.</summary>
@@ -228,6 +260,7 @@ public sealed partial class HostPanel : PanelContainer
     void Refresh()
     {
         bool running = HostedServer.Running || _testRunningText is not null;
+        if (!running) ApplyMusou();
         _setup!.Visible = !running;
         _running!.Visible = running;
         if (_testRunningText is not null) _runningText!.Text = _testRunningText;
@@ -235,7 +268,8 @@ public sealed partial class HostPanel : PanelContainer
         {
             int count = HostedBots.Count, pending = HostedBots.Pending;
             string bots = count > 0 ? HostBots.CountText(count) + (pending > 0 ? $" ({pending} more joining)" : "") : pending > 0 ? $"{pending} bots joining" : "no bots";
-            _runningText!.Text = $"Hosting {(o.Mode == ServerLaunch.ModeSeize ? "Seize Ground" : "Annihilation")} on port {o.Port}, {(o.LocalOnly ? "this PC only" : "all interfaces")}"
+            string hosted = o.Content == SmSim.ContentProfiles.Musou ? "Musou" : o.Mode == ServerLaunch.ModeSeize ? "Seize Ground" : "Annihilation";
+            _runningText!.Text = $"Hosting {hosted} on port {o.Port}, {(o.LocalOnly ? "this PC only" : "all interfaces")}"
                                  + " · " + bots + (HostedServer.Ready ? "" : " (starting...)");
         }
         _runningText!.TooltipText = _runningText.Text;
@@ -279,7 +313,9 @@ public sealed partial class HostPanel : PanelContainer
         if (ServerLaunch.ValidatePort(_port!.Text, out int port) is { } portProblem) { Say(portProblem, true); _port.GrabFocus(); return; }
         if (ServerLaunch.PortProblem(port, HolderOf) is { } taken) { Say(taken, true); _port.GrabFocus(); CheckInstallServers(force: true); return; }
         string content = SmSim.ContentProfiles.Name(_content());   // added content E1/E2: the server gets the Join screen's profile, so the client that joins it is not refused
-        var plan = HostBots.Plan(_botCount, HumanChaos);
+        bool musou = Musou;
+        if (musou) { _mode = ServerLaunch.ModeAnnihilation; _localOnly = true; }   // Musou: this PC only, the mode from the profile, no bots
+        var plan = HostBots.Plan(musou ? 0 : _botCount, HumanChaos);
         BotLaunch? bots = null;
         if (plan.Count > 0 && HostBots.BotExecutable(OS.GetExecutablePath()) is { } botExe)
         {

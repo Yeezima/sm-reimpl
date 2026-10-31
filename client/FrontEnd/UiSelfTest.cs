@@ -866,6 +866,26 @@ public sealed partial class UiSelfTest : Node
             Check("the default profile is extended", ContentProfiles.DefaultName == ContentProfiles.Extended && FrontEndSettings.Default.Content == ContentProfiles.Extended);
         }
         else Check("a build without added content cannot pick Extended", extendedButton?.Disabled == true);
+
+        // Musou (experimental added content, MU0): its own button; Extended never selects it; it is remembered as "musou" and the Host panel hosts it on this PC only.
+        var musouButton = FindButton(_front, b => b.Name == "ContentMusou");
+        Check("the content picker has the Musou button", musouButton is not null);
+        Check("Extended never includes Musou", !ContentExtras.All.HasFlag(ContentExtras.Musou) && !_services.Content.HasFlag(ContentExtras.Musou) && musouButton?.ButtonPressed == false, _services.Content.ToString());
+        if (ContentExtras.Compiled)
+        {
+            musouButton?.EmitSignal(BaseButton.SignalName.Pressed);
+            await Frames(3);
+            Check("Musou plays the Musou mode alone and is remembered", _services.Content == ContentExtras.Musou && FrontEndSettings.Load(_services.SettingsDirectory).Content == ContentProfiles.Musou, _services.Content.ToString());
+            Check("the picker shows Musou, not Extended", musouButton?.ButtonPressed == true && extendedButton?.ButtonPressed == false && faithfulButton?.ButtonPressed == false);
+            if (_front.JoinHostPanel is { } host)
+                Check("the Host panel starts Musou on this PC without bots", host.Musou && host.HostButtonText == "START MUSOU" && host.BotCount == 0, host.HostButtonText);
+            extendedButton?.EmitSignal(BaseButton.SignalName.Pressed);
+            await Frames(3);
+            Check("choosing Extended after Musou leaves Musou", _services.Content == ContentExtras.All && musouButton?.ButtonPressed == false && extendedButton?.ButtonPressed == true, _services.Content.ToString());
+            if (_front.JoinHostPanel is { } back)
+                Check("the Host panel is back to HOST A MATCH", !back.Musou && back.HostButtonText == "HOST A MATCH", back.HostButtonText);
+        }
+        else Check("a build without added content cannot pick Musou", musouButton?.Disabled == true);
         faithfulButton?.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(2);
         Check("Faithful plays no added content and is remembered", _services.Content == ContentExtras.None && FrontEndSettings.Load(_services.SettingsDirectory).Content == ContentProfiles.Faithful);

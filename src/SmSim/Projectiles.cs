@@ -456,7 +456,7 @@ public sealed partial class World
     void ApplyBlast(int owner, int projectile, Vector3 point, SplashSpec splash, bool landing = false, int weapon = -1, bool thrownItem = false, bool melee = false,
         bool filtered = false, int perk = -1)
     {
-        if (splash.BlindOnly) { BlindBlast(owner, projectile, point, splash); return; }   // M37: the blind grenade
+        if (splash.BlindOnly) { BlindBlast(owner, projectile, point, splash); ExtrasBlast(owner, point, splash, melee); return; }   // EXTRAS-HOOK; M37: the blind grenade
         foreach (var target in _players.Keys.ToList())
         {
             var player = _players[target];
@@ -471,7 +471,15 @@ public sealed partial class World
                 direction: BlastPush(point, target, Vector3.Zero), melee: melee, perk: perk);
             BlastEffects(owner, target, splash, point, intensity);   // reactions and blindness (M28)
         }
+        ExtrasBlast(owner, point, splash, melee);   // EXTRAS-HOOK: added content's targets of the same blast (Musou: its enemies)
     }
+
+    /// <summary>
+    /// Hook for added content (docs/added-content.md): at the end of every <see cref="ApplyBlast"/> (a blind-only blast too, after it blinded), with the
+    /// owner, the blast point, the splash and whether it is a melee blast (a stomp). Implemented in an <c>Extras/</c> folder; returns at once unless its
+    /// feature runs.
+    /// </summary>
+    partial void ExtrasBlast(int owner, Vector3 point, SplashSpec splash, bool melee);
 
     /// <summary>
     /// A blast's push on a player (M23, for the ragdoll; ours): from the blast point to the player's body centre; when they
