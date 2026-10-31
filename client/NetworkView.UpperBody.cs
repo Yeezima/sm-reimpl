@@ -266,7 +266,8 @@ public partial class NetworkView
         if (_connectedFor - t.FlinchLast < data.Flinch.MinHitReactionTime) { _flinchSkippedGap++; return; }
         var shooter = StateOfPlayer(shooterId, me);
         var (behind, left) = shooter is { } sh ? FlinchRules.Side(victim.Position.X, victim.Position.Y, victim.Yaw, sh.Position.X, sh.Position.Y) : (false, false);
-        string setName = FlinchRules.SetFor(t.WeaponName ?? "", victim.Charging);
+        // anim/relic-bolter-idle: the True Grit bolter flinches as the bolt pistol (its animation_set "pistol", AnimationFamilyOf).
+        string setName = t.WeaponName is { } held && AnimationFamilyOf(held) == HipFireWeaponClass.Pistol && Loadouts.IsPistolBolterName(held) ? "Bolt Pistol Flinch" : FlinchRules.SetFor(t.WeaponName ?? "", victim.Charging);
         var set = data.Flinch.For(setName) ?? data.Flinch.For("Bolter Flinch") ?? data.Flinch.Sets.Values.FirstOrDefault();
         if (set is null) return;
         int slot = FlinchRules.Choose(set, head, behind, left);

@@ -137,11 +137,28 @@ public partial class NetworkView
     }
 
     /// <summary>
-    /// The hip-fire family of the weapon in hand (null without a ranged weapon; <see cref="HipFireAnimations.FamilyOf"/>, the mapping the
-    /// simulation's raise delays use). Lascannon and plasma cannon use the rifle graph's ready posture; plasma pistol: pistol (interpretation).
+    /// The hip-fire family of the weapon in hand (null without a ranged weapon; <see cref="AnimationFamilyOf"/>). Lascannon and plasma cannon use the
+    /// rifle graph's ready posture; plasma pistol: pistol (interpretation).
     /// </summary>
     HipFireWeaponClass? HipFamilyOf(PlayerState s) =>
-        _config is not null && Loadouts.InHand(_config, s)?.Name is { } name ? HipFireAnimations.FamilyOf(name) : null;
+        _config is not null && Loadouts.InHand(_config, s)?.Name is { } name ? AnimationFamilyOf(name) : null;
+
+    /// <summary><c>--old-pistol-bolter-anim</c> (test aid, before/after captures): the True Grit bolter plays the rifle's animation set again (before anim/relic-bolter-idle).</summary>
+    static readonly bool OldPistolBolterAnim = OS.GetCmdlineUserArgs().Contains("--old-pistol-bolter-anim");
+
+    /// <summary>
+    /// The animation family of a weapon: <see cref="HipFireAnimations.FamilyOf"/>, except the pistol-slot bolters (True Grit, <c>*_pistol_bolter</c>,
+    /// <c>*_pistol_bolter_gold</c>, both races), which play the bolt pistol's one-handed set (anim/relic-bolter-idle, the owner 2026-11-01: "the gun and
+    /// arm need to point straight down at the ground at idle ... the same idle animation as bolt pistol"). Supported by the data: their wargear files
+    /// name <c>weapon_type = "weapon_1hand"</c> and <c>animation_set = "pistol"</c>, as the bolt pistol's do (the primary bolter: <c>weapon_2hand_range_light</c>,
+    /// <c>bolter</c>). Animation only: the simulation's raise delay still follows <see cref="HipFireAnimations.FamilyOf"/> (rifle, 6 ticks).
+    /// </summary>
+    internal static HipFireWeaponClass AnimationFamilyOf(string weaponName) =>
+        !OldPistolBolterAnim && Loadouts.IsPistolBolterName(weaponName) ? HipFireWeaponClass.Pistol : HipFireAnimations.FamilyOf(weaponName);
+
+    /// <summary>The reload family of a weapon for its clip: the bolt pistol's for the pistol-slot bolters (their <c>animation_set</c> "pistol", <see cref="AnimationFamilyOf"/>), else <see cref="ReloadAnimations.FamilyOf"/>.</summary>
+    internal static ReloadFamily? ReloadAnimationFamilyOf(string weaponName) =>
+        !OldPistolBolterAnim && Loadouts.IsPistolBolterName(weaponName) ? ReloadFamily.BoltPistol : ReloadAnimations.FamilyOf(weaponName);
 
     // ------------------------------------------------------------------ shots seen
 

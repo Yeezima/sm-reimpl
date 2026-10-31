@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1807 spec table rows: **1249 tagged**, 406 not tagged (read from data with high confidence), 152 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 395 rows of the changes document.
+Scanned 1809 spec table rows: **1250 tagged**, 407 not tagged (read from data with high confidence), 152 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 395 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 308 | 262 | 267 | 91 | 12 |
+| Movement (critical) | 309 | 263 | 268 | 91 | 12 |
 | Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
 | Weapons (critical) | 112 | 65 | 97 | 49 | 3 |
 | Melee (critical) | 64 | 51 | 60 | 11 | 5 |
@@ -53,7 +53,7 @@ Scanned 1807 spec table rows: **1249 tagged**, 406 not tagged (read from data wi
 | Core simulation (provisional values) | 124 | 109 | 109 | 13 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1249** | 1033 | 1004 | 392 | 38 |
+| **All areas** | **1250** | 1034 | 1005 | 392 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,8 +61,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 489 |
 | confidence: low | 447 |
-| confidence: medium | 440 |
-| kind: interpretation | 322 |
+| confidence: medium | 441 |
+| kind: interpretation | 323 |
 | notes: ours | 288 |
 | confidence: none (low) | 117 |
 | kind: provisional | 100 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (308)
+### Movement (gameplay-critical) (309)
 
 *Spec section: Extracted parameters*
 
@@ -463,6 +463,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-4636462E` | Sprint start | Rifles and pistols: the entry state's `SM_NAV_Bullrush_Start_F_01` (0.933 s, 4.5 m of root motion, `BRANCH_Idle2SprintLoop` at its end, entered over 0.1 s and into the loop over 0.1 s) for a sprint shown within 0.4 s of standing (below 1 m/s); posed at the… (s, m) | kind: ours; confidence: low | graph (clips, blends, branch); ours (the arming, the rate cap, the foot match) | Sprint start: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Rifles and pistols: the entry state's SM_NAV_Bullrush_Start_F_01… | ☐ |
 | `R-B90F2E44` | Sprint loop: cadence and strafe blend | The loop's playback rate is the body's speed over the clip's planted-foot speed (rifle and pistol 7.84, heavy bolter 7.3, cannons 7.7 m/s, `--clip-stats`), clamped 0.7 to 1.4; the strafe blend over the movement angle follows it with a 0.12 s time constant… (m/s, s) | kind: ours; confidence: medium | measured (planted speeds); ours (the damping) | Sprint loop: cadence and strafe blend: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The loop's playback rate is the body's speed over the clip's… | ☐ |
 | `R-52E9DC83` | Pistol relaxed idle | With the bolt pistol in hand and the weapon down (the Assault and Raptor at rest, any class with its pistol out) the idle is `SM_Pistol_NAV` "Idle Relaxed": `SM_NAV_IdleL_CS_01` (1.5 s), also as the idle end of the pistol's relaxed blend space. Before, every… | confidence: medium | graph (`SM_Pistol_NAV` "Idle Relaxed"; `smtool graph-dump --pose-diff`, `weapon-parts`) | Pistol relaxed idle: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: With the bolt pistol in hand and the weapon down (the Assault and… | ☐ |
+| `R-07907EA8` | True Grit bolter: reload and flinch clips | The pistol-slot bolters reload with the bolt pistol's clip (`ReloadFamily.BoltPistol`, stretched over their own 1.5 s reload as every reload clip is) and flinch with "Bolt Pistol Flinch", not the two-handed bolter's | kind: interpretation; confidence: medium | read from `animation_set = "pistol"` (which graph state the original enters for it is not read) | True Grit bolter: reload and flinch clips: compare with SM1 by watching the reaction and timing it frame by frame. Ours: The pistol-slot bolters reload with the bolt pistol's clip… | ☐ |
 | `R-00D5AF55` | Airborne charge to the fall | A charge held in the air off a ledge starts the fall pose on its first unsupported frame (no 2-tick debounce: a stair crest does not hold a charge); the rush clip → fall stance takes the charge's exit blend (0.333 s); the fall's legs ease in and out on the… (s) | kind: ours; confidence: medium | ours | Airborne charge to the fall: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A charge held in the air off a ledge starts the fall pose on its… | ☐ |
 | `R-D0FE384B` | Landing: the idle stays the aim-offset idle | While the fall's legs fade out after a touchdown (or its landing clip plays) the stance stays the aim-offset idle it had in the air; before, the plain idle clip showed for those frames and the grid came back after them (two stance changes in 0.1 s) | kind: ours | ours (a fix) | Landing: the idle stays the aim-offset idle: compare with SM1 by measuring on a flat spot of the same map. Ours: While the fall's legs fade out after a touchdown (or its landing clip… | ☐ |
 | `R-AC114D6B` | Foot pins let go softly | A foot held by a stop's pin (M40-T5) that the leg can no longer reach starts its step at once and is held at the edge of the leg's reach instead of being dropped; a marine that moves on releases its held feet over 0.15 s (they slide onto the moving pose, no… (s) | kind: ours; confidence: medium | ours | Foot pins let go softly: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A foot held by a stop's pin (M40-T5) that the leg can no longer reach… | ☐ |

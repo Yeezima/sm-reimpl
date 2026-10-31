@@ -32,6 +32,9 @@ public partial class NetworkView
     /// <summary><c>--observe-follow</c> (capture aid): follows the first living player (lowest id) as soon as there is one, as F does.</summary>
     public bool ObserveFollow { get; init; }
 
+    /// <summary><c>--observe-orbit &lt;degrees&gt;</c> (capture aid, anim/relic-bolter-idle): the follow camera starts turned this far round the followed player (180: in front, facing it); default 0 (behind).</summary>
+    static readonly float ObserveOrbit = float.TryParse(CmdArg("observe-orbit"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var orbit) && float.IsFinite(orbit) ? orbit * MathF.PI / 180f : 0f;
+
     const float ObsBaseSpeed = 12f, ObsMinSpeed = 0.5f, ObsMaxSpeed = 250f, ObsFastFactor = 4f, ObsSlowFactor = 0.2f;   // m/s; ours
     const float ObsFovMin = 15f, ObsFovMax = 110f, ObsFovRate = 30f;   // degrees; degrees per second held
     const float ObsMoveSmooth = 3.5f, ObsLookSmooth = 7f;              // 1/s: the smoothing's exponential rates
@@ -107,7 +110,7 @@ public partial class NetworkView
         int next = _obsFollow == 0 ? (direction > 0 ? 0 : ids.Count - 1) : at < 0 ? 0 : at + direction;
         if (next < 0 || next >= ids.Count) { ObserverFree(); return; }
         _obsFollow = ids[next];
-        _obsOrbitYaw = 0f; _obsOrbitPitch = 0f;
+        _obsOrbitYaw = ObserveOrbit; _obsOrbitPitch = 0f;
         _obsFollowPlaced = false;
     }
 
