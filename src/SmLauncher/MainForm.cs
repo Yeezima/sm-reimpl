@@ -99,7 +99,31 @@ sealed class MainForm : Form
         BuildLayout();
         Theme.Apply(this);
         WireEvents();
+        if (_args["ui-workarea"] is { } wk && wk.Split('x') is [var ww, var wh] && int.TryParse(ww, out int wwi) && int.TryParse(wh, out int whi)) _simWork = new Rectangle(0, 0, wwi, whi);
         if (_args["ui-scale"] is { } us && double.TryParse(us, System.Globalization.CultureInfo.InvariantCulture, out double sim) && sim is > 0.5 and < 4) SimulateScale(sim);
+    }
+
+    Rectangle? _simWork;
+
+    protected override void OnLoad(EventArgs e) { base.OnLoad(e); FitToWorkArea(); }
+
+    /// <summary>Keeps the window inside the screen's work area (above the taskbar) after DPI scaling and centres it there; the notes box takes the lost height, and a
+    /// work area too small for the content makes the panels scroll instead of cutting the controls off.</summary>
+    internal void FitToWorkArea()
+    {
+        var wa = _simWork ?? Screen.FromControl(this).WorkingArea;
+        int w = Math.Min(Width, wa.Width), h = Math.Min(Height, wa.Height);
+        MinimumSize = new Size(Math.Min(MinimumSize.Width, w), Math.Min(MinimumSize.Height, h));
+        Size = new Size(w, h);
+        if (!_args.Has("screenshot"))
+        {
+            StartPosition = FormStartPosition.Manual;
+            Location = new Point(wa.X + (wa.Width - w) / 2, wa.Y + (wa.Height - h) / 2);
+        }
+        _main.AutoScroll = true;
+        _main.AutoScrollMinSize = new Size(0, (int)(330 * Theme.Scale(this)));
+        _setup.AutoScroll = true;
+        _setup.AutoScrollMinSize = new Size(0, (int)(480 * Theme.Scale(this)));
     }
 
     protected override bool ShowWithoutActivation => _args.Has("screenshot");
@@ -175,6 +199,8 @@ sealed class MainForm : Form
         updateRow.Resize += (_, _) => WrapUpdate(updateRow);
         _btnUpdate.VisibleChanged += (_, _) => WrapUpdate(updateRow);
         _btnUpdate.SizeChanged += (_, _) => WrapUpdate(updateRow);
+        buttons.TabIndex = 0; _cbSafeMode.TabIndex = 1; updateRow.TabIndex = 2; _notes.TabIndex = 3;      // tab order: PLAY first, then Host, Join, LAN, safe mode, Update, the notes
+        _btnPlay.TabIndex = 0; _btnHost.TabIndex = 1; _btnJoin.TabIndex = 2; _btnLan.TabIndex = 3;
         _main.Controls.Add(grid);
 
         // the set-up panel (first run)
@@ -231,6 +257,7 @@ sealed class MainForm : Form
         Controls.Add(header);
         // docking (last added docks first): the header at the top; from the bottom edge up the folder line, the links, the progress; the content fills the rest
         _progressPanel.Dock = DockStyle.Bottom;
+        content.TabIndex = 0; _progressPanel.TabIndex = 1; links.TabIndex = 2; _folder.TabStop = false; header.TabStop = false;
     }
 
     /// <summary>The update line may use the row's width minus the Update button's, whether that button is showing or not.</summary>
