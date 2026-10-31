@@ -71,6 +71,7 @@ public sealed class CustomizerServices
         Store = UsesProfileFile ? ProfileStore.ForFile(profileFile!) : new ProfileStore(userDir);
         SettingsDirectory = UsesProfileFile ? Store.Directory : userDir;
         Settings = FrontEndSettings.Load(SettingsDirectory);
+        ControlsInput.UseDirectory(SettingsDirectory);   // ui/keybinds: controls.json beside the settings
         Content = Settings.ContentExtras;
         if (contentArg is not null)
         {

@@ -228,7 +228,7 @@ public partial class NetworkView
             if (state != MatchState.Ended) { StopPointsSound(); _endPhase = MatchEndPhase.Splash; }
             return;
         }
-        bool tab = !_bot && Input.IsPhysicalKeyPressed(Key.Tab) || PadScoreboardHeld;
+        bool tab = !_bot && ControlsInput.Held(GameAction.Scoreboard) || PadScoreboardHeld;
         double since = SecondsSinceEnd;
         var phase = MatchEndTimeline.PhaseAt(since);
         double inPhase = MatchEndTimeline.TimeInPhase(since);

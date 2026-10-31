@@ -56,45 +56,31 @@ public partial class NetworkView
     /// <summary>The game buttons that need the mouse captured act only then (a click on a released mouse recaptures it); the latency probe counts as captured (headless).</summary>
     bool MouseCaptured => Input.MouseMode == Input.MouseModeEnum.Captured || LatencyProbeOn;
 
-    /// <summary>From <c>_UnhandledInput</c> (human players): notes presses and releases of the game buttons and movement keys for the latch and the early tick.</summary>
+    /// <summary>The latched actions: the action, the button it presses, whether it acts only with the mouse captured, and whether a press is a one-tick tap (the wheel's, and the slot and switch keys act on the press edge).</summary>
+    static readonly (GameAction Action, InputButtons Button, bool NeedsCapture)[] LatchedActions = ControlActions.All
+        .Where(a => a.Buttons != InputButtons.None && a.Buttons != InputButtons.Interact && (LatchedButtons & a.Buttons) != 0)
+        .Select(a => (a.Action, a.Buttons, a.NeedsCapture)).ToArray();
+
+    /// <summary>From <c>_UnhandledInput</c> (human players): notes presses and releases of the bound game actions and movement keys for the latch and the early tick (ui/keybinds: the bindings are the player's).</summary>
     void ControlEvent(InputEvent e)
     {
         if (NoTapLatch && NoEarlyTick) return;
         if (OwnDead || PickerBusy) { _latch.Reset(); return; }
-        switch (e)
+        if (e is not (InputEventKey or InputEventMouseButton)) return;
+        if (e is InputEventKey { Echo: true }) return;
+        bool pressed = e.IsPressed();
+        foreach (var action in MoveActions)
+            if (ControlsInput.Is(e, action)) { _latch.MoveChanged(); return; }
+        foreach (var (action, button, needsCapture) in LatchedActions)
         {
-            case InputEventMouseButton { ButtonIndex: MouseButton.Left } left:
-                if (left.Pressed) { if (MouseCaptured) _latch.Press(InputButtons.Fire); }
-                else _latch.Release(InputButtons.Fire);
-                break;
-            case InputEventMouseButton { ButtonIndex: MouseButton.Right } right:
-                if (right.Pressed) { if (MouseCaptured) _latch.Press(InputButtons.Melee); }
-                else if (!Input.IsPhysicalKeyPressed(Key.V)) _latch.Release(InputButtons.Melee);   // V is the same button
-                break;
-            case InputEventKey { Echo: false } k:
-                var key = k.PhysicalKeycode;
-                if (key is Key.W or Key.A or Key.S or Key.D) { _latch.MoveChanged(); break; }
-                var (button, needsCapture) = key switch
-                {
-                    Key.V => (InputButtons.Melee, true),
-                    Key.F => (InputButtons.MeleeHeavy, true),
-                    Key.R => (InputButtons.Reload, false),
-                    Key.G => (InputButtons.Grenade, true),
-                    Key.X => (InputButtons.Switch, true),
-                    Key.Space => (InputButtons.Jump, false),
-                    Key.Key1 => (InputButtons.SlotPistol, false),
-                    Key.Key2 => (InputButtons.SlotPrimary, false),
-                    Key.Key3 => (InputButtons.SlotSecond, false),
-                    Key.Ctrl => (InputButtons.Aim, true),
-                    Key.Shift => (InputButtons.Sprint, false),
-                    _ => (InputButtons.None, false),
-                };
-                if (button == InputButtons.None) break;
-                if (k.Pressed) { if (!needsCapture || MouseCaptured) _latch.Press(button); }
-                else if (button != InputButtons.Melee || !Input.IsMouseButtonPressed(MouseButton.Right)) _latch.Release(button);
-                break;
+            if (!ControlsInput.Is(e, action)) continue;
+            if (ControlsInput.IsWheel(e)) { if (pressed && MouseCaptured && action != GameAction.NextWeapon) { _latch.Press(button); _latch.Release(button); } continue; }   // a wheel notch is a tap (Next weapon has its own pending flag)
+            if (pressed) { if (!needsCapture || MouseCaptured) _latch.Press(button); }
+            else if (!ControlsInput.Held(action)) _latch.Release(button);   // another input of the same action may still be down (right mouse and V are one button)
         }
     }
+
+    static readonly GameAction[] MoveActions = [GameAction.MoveForward, GameAction.MoveBack, GameAction.MoveLeft, GameAction.MoveRight];
 
     /// <summary>The sampled buttons with the latch's taps (the latch is always sampled, so its events never pile up).</summary>
     InputButtons LatchButtons(InputButtons held)
