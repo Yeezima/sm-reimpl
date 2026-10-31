@@ -23,9 +23,9 @@ public partial class NetworkView
     bool? _botChargeDirs;
     bool BotDashDirs => _botDashDirs ??= OS.GetCmdlineUserArgs().Contains("--bot-dash-dirs");
     bool? _botDashDirs;
-    /// <summary>Seconds the <c>--bot-charge-dirs</c> bot runs with W (no sprint) before F (test aid, ours).</summary>
+    /// <summary>Seconds the <c>--bot-charge-dirs</c> bot runs with W (no sprint) before holding Shift for F (test aid, ours).</summary>
     const float ChargeDirsRunUp = 0.5f;
-    static readonly (float X, string Name)[] ChargeDirs = [(0f, "W"), (-1f, "W+A"), (1f, "W+D")];
+    static readonly (float X, string Name)[] ChargeDirs = [(0f, "Shift+W"), (-1f, "Shift+W+A"), (1f, "Shift+W+D")];
     static readonly (float X, float Y, string Name)[] DashDirs =
         [(0f, 1f, "W"), (1f, 1f, "W+D"), (1f, 0f, "D"), (1f, -1f, "S+D"), (0f, -1f, "S"), (-1f, -1f, "S+A"), (-1f, 0f, "A"), (-1f, 1f, "W+A")];
     int _botChargeDir, _botDashDir;

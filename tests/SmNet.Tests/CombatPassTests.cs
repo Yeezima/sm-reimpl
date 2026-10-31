@@ -51,28 +51,28 @@ public class CombatPassTests(ITestOutputHelper output)
     {
         // The spacing since the last charge is not over (RushLock): the press used to fall through to the heavy strike.
         var s = Fresh() with { RushLock = 12 };
-        var withW = Step(s, InputButtons.MeleeHeavy, 0f, 1f);
+        var withW = Step(s, InputButtons.Sprint | InputButtons.MeleeHeavy, 0f, 1f);
         Assert.Equal((RushPhase.None, 0, false), (withW.Rush, withW.MeleeStep, withW.MeleeHeavy));
-        var withWA = Step(s, InputButtons.MeleeHeavy, -1f, 1f);
+        var withWA = Step(s, InputButtons.Sprint | InputButtons.MeleeHeavy, -1f, 1f);
         Assert.Equal((RushPhase.None, 0), (withWA.Rush, withWA.MeleeStep));
         var noW = Step(s, InputButtons.MeleeHeavy, 0f, 0f);
         Assert.Equal((1, true), (noW.MeleeStep, noW.MeleeHeavy));   // F alone is the stun strike
         // Over: W + F charges.
-        Assert.Equal(RushPhase.Rush, Step(Fresh(), InputButtons.MeleeHeavy, 0f, 1f).Rush);
+        Assert.Equal(RushPhase.Rush, Step(Fresh(), InputButtons.Sprint | InputButtons.MeleeHeavy, 0f, 1f).Rush);
         // Held F: the press edge only; a W + F held through the spacing does not strike when the spacing ends without a new press.
         var held = withW;
-        for (int k = 0; k < 20; k++) held = Step(held, InputButtons.MeleeHeavy, 0f, 1f);
+        for (int k = 0; k < 20; k++) held = Step(held, InputButtons.Sprint | InputButtons.MeleeHeavy, 0f, 1f);
         Assert.Equal((RushPhase.None, 0), (held.Rush, held.MeleeStep));
     }
 
     [Fact]
     public void A_second_W_F_inside_the_spacing_after_a_real_charge_is_not_a_stun_strike()
     {
-        var s = Step(Fresh(), InputButtons.MeleeHeavy, 0f, 1f);
+        var s = Step(Fresh(), InputButtons.Sprint | InputButtons.MeleeHeavy, 0f, 1f);
         Assert.Equal(RushPhase.Rush, s.Rush);
         for (int k = 0; k < 36 && s.Rush != RushPhase.None; k++) s = Step(s, InputButtons.None, 0f, 0f);
         s = Step(s, InputButtons.None, 0f, 1f);
-        var again = Step(s, InputButtons.MeleeHeavy, 0f, 1f);
+        var again = Step(s, InputButtons.Sprint | InputButtons.MeleeHeavy, 0f, 1f);
         output.WriteLine($"second press: rush {again.Rush}, lock {s.RushLock}, melee {again.MeleeStep}");
         Assert.Equal(0, again.MeleeStep);
     }
@@ -84,12 +84,12 @@ public class CombatPassTests(ITestOutputHelper output)
         PlayerState Go(PlayerState s, InputButtons b) => Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, b), c, out _);
         // The spacing ends inside the window: the press is replayed and charges.
         var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = Marine }, c) with { RushLock = 4 };
-        s = Go(s, InputButtons.MeleeHeavy);
+        s = Go(s, InputButtons.Sprint | InputButtons.MeleeHeavy);
         for (int k = 0; k < 8 && s.Rush == RushPhase.None; k++) { Assert.Equal(0, s.MeleeStep); s = Go(s, InputButtons.None); }
         Assert.Equal(RushPhase.Rush, s.Rush);
         // The spacing outlasts the window: the press is forgotten, still no strike.
         var late = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = Marine }, c) with { RushLock = 25 };
-        late = Go(late, InputButtons.MeleeHeavy);
+        late = Go(late, InputButtons.Sprint | InputButtons.MeleeHeavy);
         for (int k = 0; k < 20; k++) { late = Go(late, InputButtons.None); Assert.Equal((RushPhase.None, 0), (late.Rush, late.MeleeStep)); }
     }
 
@@ -99,7 +99,7 @@ public class CombatPassTests(ITestOutputHelper output)
         var c = Config with { InputBufferWindow = 0.3f };
         PlayerState Go(PlayerState s, float my, InputButtons b) => Combat.StepPlayer(s, new PlayerInput(0, 0f, my, 0f, b), c, out _);
         var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = Marine }, c) with { RushLock = 5 };
-        s = Go(s, 1f, InputButtons.MeleeHeavy);
+        s = Go(s, 1f, InputButtons.Sprint | InputButtons.MeleeHeavy);
         Assert.True(s.BufferedCharge);
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(1, 1, 1, [s], Self: 1))));
         Assert.True(back.Players[0].BufferedCharge);
@@ -123,7 +123,7 @@ public class CombatPassTests(ITestOutputHelper output)
         s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Melee), c, out _);
         Assert.Equal(1, s.MeleeStep);
         for (int k = 0; k < 4; k++) s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), c, out _);
-        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.MeleeHeavy), c, out _);
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint | InputButtons.MeleeHeavy), c, out _);
         Assert.False(s.MeleeQueuedHeavy);
         for (int k = 0; k < 45; k++) { s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), c, out _); Assert.False(s.MeleeHeavy); }
     }
