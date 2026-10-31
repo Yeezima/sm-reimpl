@@ -78,6 +78,27 @@ public partial class NetworkView
         CharacterViewer.NoFeel ? SmNet.SlashPose.DiveTime(sinceDive, expectedDive, flightEnd, CharacterViewer.MinEntryBlendSeconds) : SmNet.SlashPose.SmoothDiveTime(sinceDive, expectedDive, flightEnd);
 
     /// <summary>
+    /// anim/air-slash-character: <c>--old-slash-windup</c> restores the feel pass's wind-up (the whole wind-up fitted into the dive, <see cref="SmNet.SlashPose.SmoothDiveTime"/>,
+    /// and the 0.1 s catch-up at the landing) instead of the one curve from the dive to the strike at the hit (<see cref="SmNet.SlashPose.StrikeDiveTime"/>). <c>--no-feel</c> implies it.
+    /// </summary>
+    static readonly bool OldSlashWindup = OS.GetCmdlineUserArgs().Contains("--old-slash-windup");
+    static bool StrikeCurve => !OldSlashWindup && !CharacterViewer.NoFeel;
+
+    /// <summary>The slash clip's time <paramref name="sinceDive"/> s into <paramref name="s"/>'s dive (the strike curve, or <see cref="SlashDiveTime"/> with <c>--old-slash-windup</c>).</summary>
+    float SlashDiveTimeOf(PlayerState s, float sinceDive, float expectedDive)
+    {
+        var slash = SlashOf(s);
+        float flightEnd = slash?.FlightClipEnd ?? 0f;
+        return StrikeCurve && slash is not null
+            ? SmNet.SlashPose.StrikeDiveTime(sinceDive, expectedDive, flightEnd, slash.ImpactClipStart, slash.HitTime)
+            : SlashDiveTime(sinceDive, expectedDive, flightEnd);
+    }
+
+    /// <summary>The rate of <see cref="SlashDiveTimeOf"/> at <paramref name="sinceDive"/> (NaN with <c>--old-slash-windup</c>: the old catch-up needs none).</summary>
+    float SlashDiveRateOf(PlayerState s, float sinceDive, float expectedDive) =>
+        StrikeCurve && SlashOf(s) is { } slash ? SmNet.SlashPose.StrikeDiveRate(sinceDive, expectedDive, slash.FlightClipEnd, slash.ImpactClipStart, slash.HitTime) : float.NaN;
+
+    /// <summary>
     /// Called when the slash's get-up view ends because the marine moves on (<c>NetworkView.Jump.cs</c>): the follow-through is handed to the upper body from now, unless it is over.
     /// </summary>
     void SlashMovedOn(JumpTrack t, double now, double sinceImpact, double clipLeft)
