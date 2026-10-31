@@ -533,3 +533,4 @@ Known original features missing from the alpha (alpha scope: Annihilation and Se
 | Rule | What we do | What is unknown | Spec section |
 |---|---|---|---|
 | Launcher grenades stick at once | no bounce off the level (the data's `max_bounce_count` 1 is ignored for sticky projectiles); a grenade stuck to a player drops and falls when they die or leave | The original's exact behaviour on the host's death (ours: falls) | "Sticky launcher grenades" |
+| Devastator / Havoc stomp stays in place | the owner's decision (2026-10-31): no step forward, no lunge or burst, no coasting; fixes the slide from chaining the kick (click) and the stomp (F) | the body is held in place until the stomp's move-again branch; protocol 49 | "Stomp stays in place" |

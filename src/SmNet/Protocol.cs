@@ -417,7 +417,10 @@ public static partial class Protocol
     //     press tick, no stick or button input during the match-start countdown, a roll keeps its travel off a ledge. Snapshot layout and sizes unchanged (worst case 1194)
     // 48 (sim/no-fire-charging-all; the owner's playtest of 2026-10-31): no wire change. No class fires from the charge's start to the end of its clip (BR-02's Tactical-only
     //     rule for everyone; a fire press is dropped, never buffered), and Fire and Aim no longer end the charge (Aim spam ended it and flipped the aim camera). Worst case 1194
-    public const ushort Version = 48;
+    // 49 (sim/stomp-in-place; the owner's playtest of 2026-10-31): no wire change. The Devastator's and the Havoc's stomp keeps the body exactly in place (no lunge or
+    //     burst, no coasting), so the kick-to-stomp chain no longer slides the body forward twice; the stomp's hit time is unchanged (the data's DISPLACE_FootStomp tag).
+    //     Shared with sim/charge-needs-sprint (the lead merges them). Snapshot layout and sizes unchanged
+    public const ushort Version = 49;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>

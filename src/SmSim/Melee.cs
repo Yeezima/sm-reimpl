@@ -85,6 +85,12 @@ public readonly record struct MeleeStep(
     public MeleeReach? Reach { get; init; }
 
     /// <summary>
+    /// sim/stomp-in-place (protocol 49; owner, 2026-10-31): the strike keeps the body exactly where it stands until <see cref="MoveAt"/> (no lunge, no
+    /// burst, no coasting on the speed it began with): the Devastator's and the Havoc's stomp. False (the default): every other strike.
+    /// </summary>
+    public bool InPlace { get; init; }
+
+    /// <summary>
     /// feel/locks-sprint-stop: the attack's <c>BRANCH_Evade</c> (the start of its first window, seconds from the attack's start): from here (scaled by
     /// <see cref="SimConfig.ActionLockScale"/>, never before <see cref="HitTime"/>) a Jump press ends the attack and evades or takes off in the same tick
     /// (<see cref="Combat"/>). Infinity (the default: tests, a sequencer without the tag): no Jump during the attack, as before.
@@ -106,6 +112,7 @@ public readonly record struct MeleeStep(
         }
         // feel/melee-lock: only when set, so a step without it hashes as before.
         if (Reach is { } reach) { w.Write((byte)0xA1); reach.Write(w); }
+        if (InPlace) w.Write((byte)0xA2);   // sim/stomp-in-place: only when set
         // feel/locks-sprint-stop: only when read, so a step without it hashes as before.
         if (float.IsFinite(EvadeAt)) { w.Write((byte)0xE5); w.Write(EvadeAt); }
     }

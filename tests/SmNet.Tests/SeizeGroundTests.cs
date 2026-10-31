@@ -405,7 +405,7 @@ public class SeizeGroundTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_11_carries_the_mode_and_the_points_within_the_budget_and_refuses_malformed_ones()
     {
-        Assert.Equal(48, Protocol.Version);
+        Assert.Equal(49, Protocol.Version);
         Assert.Equal(1194, Protocol.MaxSnapshotBytes);   // protocol 21: + 1 ready-tick byte; protocol 12: + the 12-byte hit block; protocol 13: + 18 evade bytes − 1 projectile record; 16: − 3 projectile records + 5 shot records; 17: + 4 reaction bytes − 1 shot record
         Assert.Equal(8, Protocol.MaxSnapshotPoints);
         ControlPointView[] points =
