@@ -107,4 +107,36 @@ public class GroundPoundDataTests(ITestOutputHelper output)
         Assert.Equal((60f, 15f), (h.ShieldDamage, h.HealthDamage));
         Assert.Equal((0f, config.HealthMax - 15f), (world.Players[2].Shield, world.Players[2].Health));
     }
+
+    [Fact]
+    public void A_pound_on_a_full_armour_target_lowers_the_armour_first_and_leaves_the_health_alone_even_a_few_ticks_later()
+    {
+        // sim/pound-armour-first (owner, 2026-10-31): 100 armour at 2 m (intensity 1): 75 comes off the armour, health stays 100 (the stun the pound adds does not undo it).
+        var config = Config(100f) with { JumpPacks = [PackFromData() with { Pound = PackFromData().Pound! with { Reactions = [new ReactionEntry(0f, ReactionKind.Stun)] } }] };
+        var world = new World(config, null, [new SpawnPoint(Vector3.Zero, 0f), new SpawnPoint(new Vector3(2f, 0, 0), 0f)]);
+        world.Spawn(1, Assault);
+        world.Spawn(2, Target);
+        var (_, hits) = Pound(world);
+        var h = Assert.Single(hits);
+        Assert.Equal((75f, 0f), (h.ShieldDamage, h.HealthDamage));
+        for (int k = 0; k < 10; k++)
+        {
+            Assert.Equal((25f, config.HealthMax), (world.Players[2].Shield, world.Players[2].Health));
+            world.Step(_ => new PlayerInput(0, 0, 0, 0f, InputButtons.None));
+        }
+    }
+
+    [Fact]
+    public void A_pound_on_a_target_with_no_armour_takes_all_of_it_as_health()
+    {
+        // No armour: the shield part (50) has nothing to come off, the 25 goes to health (multiplier 1).
+        var config = Config(0f);
+        var world = new World(config, null, [new SpawnPoint(Vector3.Zero, 0f), new SpawnPoint(new Vector3(2f, 0, 0), 0f)]);
+        world.Spawn(1, Assault);
+        world.Spawn(2, Target);
+        var (_, hits) = Pound(world);
+        var h = Assert.Single(hits);
+        Assert.Equal((0f, 25f), (h.ShieldDamage, h.HealthDamage));
+        Assert.Equal((0f, config.HealthMax - 25f), (world.Players[2].Shield, world.Players[2].Health));
+    }
 }

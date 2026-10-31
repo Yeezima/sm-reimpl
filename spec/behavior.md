@@ -357,10 +357,11 @@ values are identical) and with the player blueprints' hit materials. **No mismat
 | Pound reactions | `reaction_mp_stun` from 0.81, `reaction_mp_melee` from 0.8, distances 0; a 0.01 s `delayed_action` with `cs_3xy` / `cs_y` (unmapped, campaign names) | stun within about 5.0 m, interrupt to about 5.01 m | M28 |
 | Pound by height | `action_land_smash_by_height` entries at 0 and 8 m are empty: the damage does **not** depend on the height fallen | none | — |
 | How the pound combines with the shield | — (not in the data) | per victim: 50 × i comes off the shield first (no multiplier), then 25 × i goes through the shield-then-health rule (shield ×1, the rest to health ×1); e.g. full shield 100 at i = 1: 75 off the shield; shield 60: shield 0 and 15 to health | `World.ApplyHit` (interpretation, spec "Shield damage rule") |
+| Armour first, re-checked (2026-10-31) | `actn_gp_hit` has no ignore-shield flag: `armourshield_breaker` False, `damage_armourshield` 50 (the Death From Above entry: 50 too, `damage_general` 75), shield-material multipliers 1; nothing in the data lets the pound skip the shield (owner's report: pounds should first deplete armour, then health) | unchanged: armour first, then health with the rest. A probe on the install's data (assault and raptor, 0.5 to 6.5 m) lowered the armour every time: 100 armour at 2 m leaves 25 and full health; no armour takes the 25 as health. The report could not be reproduced; the victim's feedback follows the snapshot's armour change | `World.ApplyHit`, `GroundPoundDataTests` |
 | Landings | `action_land_regular_by_height`: drop ≥ 15 m: r 4, 15 (no shield part), fall-off 3 → 1, 4 → 0.1; drop ≥ 0: r 4, 5, no fall-off; both line of sight, `ignore_self`, target_all, `reaction_flinch` (not simulated) | the same | `JumpPackSpec.Landings` |
 | Perks (since M43, section "Perks") | `mp_perk_jump_pack_ground_pound_damage` (pound 75 + 50), `mp_perk_jump_pack_reduced_cooldown` (recharge 15, `smash_available_delay` 2), `mp_perk_jump_pack_take_off_damage` (`actn_take_off` blast) are simulated; the larger pound effect is client side | — | — |
 
-Tests: `GroundPoundDataTests` (a synthetic pack with these values read by `JumpPackTuning` and simulated), `JumpPackTests`.
+Tests: `GroundPoundDataTests` (a synthetic pack with these values read by `JumpPackTuning` and simulated; since 2026-10-31 also full armour first with a stun, and no armour), `JumpPackTests`.
 
 #### Jump pack follow-ups (M44, the owner's playtest of 2026-10-28; protocol 24)
 
