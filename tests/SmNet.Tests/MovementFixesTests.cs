@@ -302,6 +302,77 @@ public class MovementFixesTests(ITestOutputHelper output)
         Assert.Equal(BufferedAction.None, t.Buffered);
     }
 
+    [Fact]
+    public void A_second_tap_during_the_spacing_dashes_on_its_release_not_on_its_press()
+    {
+        // Review M1: a fresh press over a tap still buffered must wait for its own release (Space still down on the press tick: no dash yet).
+        var s = Flyer(new Vector3(0, 0, 20));
+        int n = 0;
+        while (s.Grounded && n++ < 60) s = Step(s, InputButtons.None, 1f, Platform);
+        s = s with { EvadeLock = 3 };
+        s = Step(s, InputButtons.Jump, 0f, Platform);              // tap 1: press
+        s = Step(s, InputButtons.None, 0f, Platform);              // tap 1: release, refused (the spacing)
+        Assert.Equal((0, BufferedAction.Jump), (s.EvadeTicks, s.Buffered));
+        s = Step(s, InputButtons.Jump, 0f, Platform);              // tap 2: press, the spacing now over
+        Assert.Equal(0, s.EvadeTicks);                             // not on the press (before the fix: the old tap's buffer made it dash here, Space down)
+        Assert.Equal(BufferedAction.Jump, s.Buffered);
+        s = Step(s, InputButtons.None, 0f, Platform);              // tap 2: release
+        Assert.Equal(1, s.EvadeTicks);
+        // A hold as the second press stays the long press: no dash in the air at all.
+        var h = Flyer(new Vector3(0, 0, 20));
+        n = 0;
+        while (h.Grounded && n++ < 60) h = Step(h, InputButtons.None, 1f, Platform);
+        h = h with { EvadeLock = 3 };
+        h = Step(h, InputButtons.Jump, 0f, Platform); h = Step(h, InputButtons.None, 0f, Platform);
+        for (int k = 0; k < 10; k++) { h = Step(h, InputButtons.Jump, 0f, Platform); Assert.Equal(0, h.EvadeTicks); }
+        Assert.Equal(BufferedAction.JumpLong, h.Buffered);
+    }
+
+    [Fact]
+    public void A_melee_press_with_the_air_tap_refuses_the_dash_and_is_not_lost()
+    {
+        // Review L2: the melee press acts (the jump's slash or pound here), the dash does not start.
+        var s = Flyer(Vector3.Zero);
+        for (int k = 0; k < 20; k++) s = Step(s, InputButtons.Jump);
+        int guard = 0;
+        while (s.Jump != JumpPhase.Fall && guard++ < 300) s = Step(s, InputButtons.None);
+        s = Step(s, InputButtons.Jump);
+        s = Step(s, InputButtons.Melee);                           // the tap's release with a melee press
+        Assert.Equal(0, s.EvadeTicks);
+        Assert.Equal(JumpPhase.Dive, s.Jump);
+    }
+
+    [Fact]
+    public void A_chain_of_air_dashes_comes_down_by_metres_each_no_hover()
+    {
+        // Review L4: from high up, a tap as soon as each dash's flight ends in the air: every dash starts well below the one before.
+        var s = Flyer(new Vector3(0, 0, 200)) with { Grounded = false };
+        var starts = new List<float>();
+        for (int k = 0; k < 600 && starts.Count < 6 && !s.Grounded; k++)
+        {
+            bool free = s.EvadeTicks == 0 && s.EvadeLock <= 1;
+            var before = s;
+            s = Step(s, free && !before.JumpHeld ? InputButtons.Jump : InputButtons.None);
+            if (s.EvadeTicks == 1 && before.EvadeTicks == 0) starts.Add(before.Position.Z);
+        }
+        output.WriteLine("dash starts at " + string.Join(", ", starts.Select(z => z.ToString("F1"))) + " m");
+        Assert.True(starts.Count >= 4, $"{starts.Count} dashes");
+        for (int k = 1; k < starts.Count; k++) Assert.True(starts[k - 1] - starts[k] > 5f, $"dash {k + 1} started {starts[k - 1] - starts[k]:F2} m below the one before");
+    }
+
+    [Fact]
+    public void A_hop_stopped_by_a_low_ceiling_still_takes_its_input()
+    {
+        // Review L3: a 2.2 m ceiling over flat ground stops the hop's rise (the capsule's top meets it); W held ends the hop from its stick branch as on open ground.
+        float top = Hop.CapsuleHeight + 0.1f;
+        var world = Mesh(Floor(0f), (new(-60, 60, top), new(60, 60, top), new(60, -60, top), new(-60, -60, top)));
+        var low = HopForward(Vector3.Zero, world, ticks: 30);
+        var open = HopForward(Vector3.Zero, Mesh(Floor(0f)), ticks: 30);
+        int lowEnd = low.FindIndex(p => p.EvadeTicks == 0), openEnd = open.FindIndex(p => p.EvadeTicks == 0);
+        output.WriteLine($"ended on tick {lowEnd + 1} under the ceiling, {openEnd + 1} in the open; highest {low.Max(p => p.Position.Z):F3} m");
+        Assert.True(lowEnd >= 0 && lowEnd <= openEnd + 1, $"the hop under the ceiling ran to tick {lowEnd + 1}");
+    }
+
     // ---------------------------------------------------------------- B: the ground pound in a full jump
 
     [Fact]
@@ -450,7 +521,7 @@ public class MovementFixesTests(ITestOutputHelper output)
 
     // ---------------------------------------------------------------- prediction against the server
 
-    sealed record Case(string Name, SimConfig Config, int Class, CollisionWorld Level, SpawnPoint[] Spawns, Func<int, uint, PlayerInput> Input);
+    sealed record Case(string Name, SimConfig Config, int Class, CollisionWorld Level, SpawnPoint[] Spawns, Func<int, uint, PlayerState, PlayerInput> Input);
 
     static void Matches(ITestOutputHelper output, int seed, Case cs, Func<List<PlayerState>, int> counted, int minCounted)
     {
@@ -461,7 +532,7 @@ public class MovementFixesTests(ITestOutputHelper output)
         for (int i = 0; i < n; i++) h.AddClient(nonce: (uint)(500 + i), options: new ClientOptions { RequestedClass = (byte)cs.Class, LoadMap = _ => new LoadedMap(cs.Level, 78) });
         var truth = new SortedDictionary<uint, Dictionary<int, PlayerState>>();
         var predicted = Enumerable.Range(0, n).Select(_ => new Dictionary<uint, PlayerState>()).ToArray();
-        h.Run(TimeSpan.FromSeconds(30), cs.Input, () =>
+        h.Run(TimeSpan.FromSeconds(30), (i, t) => cs.Input(i, t, h.Clients[i].Predicted), () =>
         {
             truth[h.Server.World.Tick] = new Dictionary<int, PlayerState>(h.Server.World.Players);
             for (int i = 0; i < n; i++)
@@ -507,8 +578,54 @@ public class MovementFixesTests(ITestOutputHelper output)
             return new PlayerInput(t, i == 0 ? 0f : 0.4f, my, 0f, press ? InputButtons.Jump : InputButtons.None, 0f);
         }
         var spawns = new[] { new SpawnPoint(new Vector3(0, -1, 3), 0f), new SpawnPoint(new Vector3(3, -1, 3), 0f) };
-        Matches(output, seed, new Case("hop", config, Heavy, level, spawns, Input),
+        Matches(output, seed, new Case("hop", config, Heavy, level, spawns, (i, t, _) => Input(i, t)),
             mine => mine.Count(p => p.EvadeTicks > 0 && !p.Grounded && p.Velocity.Z < -1f), 20);
+    }
+
+    [Theory]
+    [InlineData(531)]
+    [InlineData(532)]
+    public void Prediction_matches_the_server_for_space_taps_after_a_ledge_walk_off_under_150ms_rtt_and_5pct_loss(int seed)
+    {
+        // Review M2: the players spawn 20 m before the edge of a 20 m plateau and walk off it (W); a one-tick Space tap every 7 ticks from tick 60 on: the
+        // taps in the fall are air dashes, the ones on the ground before or after it ground dashes. W is let go after tick 200 and the taps stop after tick 260 (on the floor below, which reaches far enough).
+        var config = Dash with { JumpPacks = [Dash.JumpPacks[0] with { RechargeRate = 100f, Pound = null, Landings = [] }] };
+        PlayerInput Input(int i, uint t)
+        {
+            bool tap = t >= 60 && t < 260 && (t + (uint)i * 3) % 7 == 0;   // then no more taps: the dashes do not carry them off the floor
+            return new PlayerInput(t, 0f, t < 200 ? 1f : 0f, 0f, tap ? InputButtons.Jump : InputButtons.None, 0f);
+        }
+        var level = Mesh(Floor(20f, -60, 60, -300, 0), Riser(0f, -1f, 20f), Floor(0f, -60, 60, 0, 1500));
+        var spawns = new[] { new SpawnPoint(new Vector3(-10, -20, 20), 0f), new SpawnPoint(new Vector3(10, -20, 20), 0f) };
+        Matches(output, seed, new Case("walk-off air dash", config, Assault, level, spawns, (i, t, _) => Input(i, t)),
+            mine => mine.Zip(mine.Skip(1)).Count(p => p.Second.EvadeTicks == 1 && !p.First.Grounded), 1);
+    }
+
+    [Theory]
+    [InlineData(541, Assault)]
+    [InlineData(542, 1)]   // the Tactical (the charge, no jump pack)
+    public void Prediction_matches_the_server_for_a_ledge_charge_steered_in_the_air_under_150ms_rtt_and_5pct_loss(int seed, int cls)
+    {
+        // Review M2: a charge pressed 3 m before the 8 m plateau's edge runs off it and D steers
+        // it in the air. The two players are 40 m apart (no contact between them).
+        var config = Charger with { RespawnTime = 0.5f };
+        // The client's own predicted state picks the moment (the server gets the same inputs): Shift + W toward the edge, F (with Shift + W) once 3 m before it, D alone in the air.
+        PlayerInput Input(int i, uint t, PlayerState me)
+        {
+            if (!me.Grounded) return new(t, 1f, 0f, 0f, InputButtons.None, 0f);
+            if (me.Position.Z < 4f) return new(t, 0f, 0f, 0f, InputButtons.None, 0f);   // landed below: stand
+            bool press = me.Rush == RushPhase.None && me.Position.Y > -3f && t % 2 == 0;
+            return new(t, 0f, 1f, 0f, InputButtons.Sprint | (press ? InputButtons.MeleeHeavy : InputButtons.None), 0f);
+        }
+        var level = Mesh(Floor(8f, -100, 100, -300, 0), Riser(0f, -1f, 8f), Floor(0f, -100, 100, 0, 300));
+        var spawns = new[] { new SpawnPoint(new Vector3(-20, -30, 8), 0f), new SpawnPoint(new Vector3(20, -30, 8), 0f) };
+        Matches(output, seed, new Case("steered ledge charge", config, cls, level, spawns, Input),
+            mine =>
+            {
+                output.WriteLine($"  rush ticks {mine.Count(p => p.Rush == RushPhase.Rush)}, in the air {mine.Count(p => p.Rush == RushPhase.Rush && !p.Grounded)}, airborne {mine.Count(p => !p.Grounded)}, last {mine[^1].Position}");
+                return mine.Zip(mine.Skip(1)).Count(p => p.First.Rush == RushPhase.Rush && p.Second.Rush == RushPhase.Rush && !p.First.Grounded && !p.Second.Grounded
+                    && MathF.Abs(p.Second.Yaw - p.First.Yaw) > 1e-4f);
+            }, 5);
     }
 
     [Theory]
@@ -528,7 +645,7 @@ public class MovementFixesTests(ITestOutputHelper output)
         }
         var level = Mesh(Floor(0f, -300, 300, -300, 300));
         var spawns = new[] { new SpawnPoint(Vector3.Zero, 0f), new SpawnPoint(new Vector3(5, 0, 0), 0f) };
-        Matches(output, seed, new Case("air dash", config, Assault, level, spawns, Input),
+        Matches(output, seed, new Case("air dash", config, Assault, level, spawns, (i, t, _) => Input(i, t)),
             mine => mine.Zip(mine.Skip(1)).Count(p => p.Second.EvadeTicks == 1 && !p.First.Grounded), 3);
     }
 }

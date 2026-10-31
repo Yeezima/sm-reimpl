@@ -420,8 +420,11 @@ public static class Evade
     /// sim/movement-fixes (A): whether a hop in the air is falling below its curve (over a drop: its vertical speed more than <see cref="HopFallSlack"/> under the
     /// curve's own over the tick just played). Input then does not end it (as for an evade carried off a ledge): it keeps its forward motion to the ground.
     /// </summary>
-    static bool FallingBelowCurve(PlayerState s, EvadeMove move, float played, float dt) =>
-        !s.Grounded && float.IsFinite(s.Velocity.Z) && s.Velocity.Z < CurveRate(move, played, dt) - HopFallSlack;
+    /// <remarks>Review L3: the feet must also be more than <see cref="HopGroundSlack"/> above the ground below plus the curve's height (over a real drop), so a hop
+    /// stopped by a low ceiling while its curve rises (its vertical speed 0, under the curve's) is not taken for a fall and its input is not locked.</remarks>
+    static bool FallingBelowCurve(PlayerState s, EvadeMove move, float played, float dt, CollisionWorld? world) =>
+        !s.Grounded && float.IsFinite(s.Velocity.Z) && s.Velocity.Z < CurveRate(move, played, dt) - HopFallSlack
+        && JumpPack.AboveGround(s, world) > move.HeightAt(played) + HopGroundSlack;
 
     /// <summary>The first part of a tick: end, chaining and start (before the weapon and melee).</summary>
     internal readonly record struct Tick(bool Active, bool Started, int Ticks, EvadeDirection Direction, int Lock, float Yaw, bool Landed = false);
@@ -430,8 +433,9 @@ public static class Evade
     /// <param name="dashStart">M44, dash only: the jump pack turned this tick's take-off into a dash (its start trigger instead of <paramref name="jumpPress"/>).</param>
     /// <param name="takeOff">M44, dash only: a take-off started this tick (in the landing part, from <see cref="EvadeMove.JumpAt"/>): it ends the dash.</param>
     /// <param name="dashDirection">M44, dash only: the direction latched at the take-off's press (<see cref="PlayerState.JumpDashDirection"/>); null: the stick now.</param>
+    /// <param name="world">sim/movement-fixes (review L3): the level a hop's height above the ground is probed on (null: the flat ground at z = 0).</param>
     internal static Tick Begin(PlayerState s, EvadeSpec? spec, PlayerInput input, bool jumpPress, bool meleePress, bool switchPress, bool rangedDown, SimConfig c,
-        bool dashStart = false, bool takeOff = false, EvadeDirection? dashDirection = null)
+        bool dashStart = false, bool takeOff = false, EvadeDirection? dashDirection = null, CollisionWorld? world = null)
     {
         if (spec is null) return new Tick(false, false, 0, EvadeDirection.Forward, 0, s.Yaw);
         float dt = c.TickSeconds;
@@ -459,7 +463,7 @@ public static class Evade
                 // (outside its own hop): its clip motion plays on to the end, then the body drops straight down (Movement.Step).
                 // sim/movement-fixes (A): a hop falling below its curve (over a stair going down or a ledge) is such an evade too: before, the stick ended it in
                 // mid-air from its MoveAt and the walk-off rule then dropped it straight down.
-                bool inputs = s.Grounded || (move.HeightAt(played) > 0f && !FallingBelowCurve(s, move, played, dt));
+                bool inputs = s.Grounded || (move.HeightAt(played) > 0f && !FallingBelowCurve(s, move, played, dt, world));
                 // feel/locks-sprint-stop: the stick's and the next evade's branches × the lock scale (the ranged, switch and melee branches are the data's).
                 chain = !spec.Dash && inputs && jumpPress && lockTicks == 0 && At(c.LockTime(move.NextAt));
                 if (At(move.Duration) || (inputs && ((stick && At(c.LockTime(move.MoveAt))) || (rangedDown && At(move.RangedAt)) || (switchPress && At(move.SwitchAt))
@@ -471,11 +475,11 @@ public static class Evade
         // An evade that ended this tick for another reason (the stick, a ranged or switch input) lets the press start none:
         // a new one needs NextAt (the chain above) or no evade before this tick.
         bool trigger = spec.Dash ? dashStart : jumpPress;
-        // sim/movement-fixes (C): a dash may start in the air (JumpPack.Begin's air dash, or a take-off released after walking off a ledge); the pack already
-        // refused a light melee press for the air dash, and a heavy press there is dropped by the dash (its presses are lost).
+        // sim/movement-fixes (C): a dash may start in the air (JumpPack.Begin's air dash, or a take-off released after walking off a ledge). A melee or heavy
+        // press in the same tick refuses it, on the ground and in the air alike (review L2), so the press acts instead of being lost.
         bool airDash = spec.Dash && dashStart && !s.Grounded;
         if (!active && trigger && lockTicks == 0 && (s.EvadeTicks == 0 || chain)
-            && (s.Grounded || airDash) && s.MeleeStep == 0 && (!meleePress || airDash) && !Combat.ThrowHolds(s, c))
+            && (s.Grounded || airDash) && s.MeleeStep == 0 && !meleePress && !Combat.ThrowHolds(s, c))
         {
             // The direction latched at a take-off's press; an air dash (no take-off) takes the stick on its start tick (the tap's release).
             direction = spec.Dash && dashDirection is { } latched && s.Jump == JumpPhase.TakeOff ? latched

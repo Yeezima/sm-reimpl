@@ -175,6 +175,10 @@ public static class InputBuffer
         if (c.InputBufferTicks <= 0 || !s.Alive) return new(BufferedAction.None, BufferedAction.None, s, input);
         var fresh = Pressed(s, input.Buttons, c);
         var carried = s.Buffered;
+        // sim/movement-fixes (review M1): a fresh Jump press in the air over a buffered Jump of a jump-pack dash class replaces it: the tick runs with nothing buffered,
+        // so the press is not taken for the old tap's replay (JumpPack.Begin's air tap reads Buffered); the new press is buffered by End and decides tap or hold itself.
+        if (fresh == BufferedAction.Jump && carried == BufferedAction.Jump && AirTapPending(s, carried, input.Buttons, c))
+            return new(fresh, BufferedAction.None, s with { Buffered = BufferedAction.None, BufferTicks = 0 }, input);
         if (carried == BufferedAction.None || fresh != BufferedAction.None) return new(fresh, BufferedAction.None, s, input);
         if (Hold(s, carried)) return new(fresh, BufferedAction.None, s, input);
         if (AirTapPending(s, carried, input.Buttons, c)) return new(fresh, BufferedAction.None, s, input);
