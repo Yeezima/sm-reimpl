@@ -58,7 +58,9 @@ public sealed partial class MusouSim
     /// <summary>The shared flow field (null without a graph).</summary>
     public FlowField? Flow { get; }
     /// <summary>The box positions are quantised over on the wire (the graph's, or 128 m around the origin on the flat ground).</summary>
-    public MusouBox Box { get; }
+    public MusouBox Box { get; private set; }
+    /// <summary>Grows <see cref="Box"/> to hold <paramref name="other"/> as well (the war's map: the Stormbird lies outside the graph). The enemies' grid stays over the graph, where they walk.</summary>
+    public void WidenBox(MusouBox other) => Box = new MusouBox(Vector3.Min(Box.Min, other.Min), Vector3.Max(Box.Max, other.Max));
     /// <summary>The world tick the events are of (<see cref="BeginTick"/>).</summary>
     public uint Tick { get; private set; }
     /// <summary>Slots in use (alive or dying).</summary>

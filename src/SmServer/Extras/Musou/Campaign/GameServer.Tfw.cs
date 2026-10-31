@@ -22,13 +22,14 @@ public sealed partial class GameServer
         map = new GameMap(TfwMap.Name, data.Collision, data.Spawns, data.Hash, StartAreas: data.StartAreas);
     }
 
-    /// <summary>At the end of the constructor: on the war's map (<see cref="CreateMusou"/> leaves it alone), the war. TF1 builds its nav graph (null until then: no enemies).</summary>
+    /// <summary>At the end of the constructor: on the war's map (<see cref="CreateMusou"/> leaves it alone), the war on the arena's walking graph (<c>GameServer.TfwMap.cs</c>).</summary>
     void CreateTfw()
     {
         if (!World.Config.Extras.HasFlag(ContentExtras.Musou) || Map?.Name != TfwMap.Name) return;
-        bool started = World.StartTfw(null);
-        if (started) PlayerJoined += p => World.MusouJoined(p.PlayerId);
-        _musouNote = started ? $"musou: the Three-Front War runs on {TfwMap.Name} (stub map; Space Marines only, no limits)" : "musou: not started (the match has no team rules)";
+        var nav = TfwNav(out string navNote);
+        bool started = World.StartTfw(nav);
+        if (started) { PlayerJoined += p => World.MusouJoined(p.PlayerId); TfwUseWireBox(); }
+        _musouNote = started ? $"musou: the Three-Front War runs on {TfwMap.Name} (placeholder arena and Stormbird; Space Marines only, no limits); {navNote}" : "musou: not started (the match has no team rules)";
     }
 
     /// <summary>This feature's part of the envelope hook (the dispatcher <c>GameServer.Extras.cs</c>). TF0 sends nothing; TF6: tags 7 to 10.</summary>
