@@ -197,8 +197,10 @@ public sealed class MusouClientState
         _newEvents.Add(e);
         if (e.Kind != MusouEventKind.Death) return;
         _dead[e.Enemy] = (e.Tick, _now);
-        if (_tracks.Remove(e.Enemy, out var t))
+        // A late copy of an old death never removes a newer enemy on the reused id (its track starts after the death).
+        if (_tracks.TryGetValue(e.Enemy, out var t) && (t.Count == 0 || t.Ticks[0] <= e.Tick))
         {
+            _tracks.Remove(e.Enemy);
             int last = t.Count - 1;
             _newDeaths.Add(new MusouDeathShown(e.Enemy, t.Type, last >= 0 ? t.Positions[last] : default, last >= 0 ? t.Yaws[last] : 0f, e.Vector, (MusouDeathKind)e.Value, e.Player, e.Tick));
             _spare.Push(t);
