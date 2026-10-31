@@ -11,7 +11,7 @@ public sealed partial class GameServer
     /// <summary>The war, the reserves, the objectives, the Guardsmen (each slot once) and this tick's Guard events.</summary>
     void FeedTfw()
     {
-        if (World.Tfw is not { } run || World.TfwGuards is not { } guards || _tfwFedTick == World.Tick) return;
+        if (World.Tfw is not { } run || World.TfwGuards is not { } guards || run.Idle || _tfwFedTick == World.Tick) return;
         _tfwFedTick = World.Tick;
         var feed = TfwFeed;
         feed.War = run.War;   // a new run makes a new one, and tag 7 echoes the commands: never null

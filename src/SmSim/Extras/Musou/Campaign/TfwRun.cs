@@ -42,6 +42,9 @@ public sealed partial class TfwRun
     /// <summary>Test seam for the AI Marines: whether a player's retainer can revive it (null: the World asks the roster).</summary>
     public Func<int, bool>? RetainerUp { get; set; }
 
+    /// <summary>Test aid (ours): the run stands still: it takes no command from the queue and feeds no wire, for tests of the queue and of the wire themselves.</summary>
+    public bool Idle { get; set; }
+
     /// <summary>Test seam: an order as it reaches the Marines.</summary>
     public Action<int, TfwCommandRecord>? OrderSeen { get; set; }
 

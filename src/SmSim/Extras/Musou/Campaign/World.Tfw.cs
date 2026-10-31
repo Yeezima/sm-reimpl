@@ -50,8 +50,8 @@ public sealed partial class World
         MusouBeginTick();
         MusouArm();
         TfwCreditKills();   // the strikes and blasts earlier in the tick: a battle may end below
-        if (_state == MatchState.Playing) run.Step(this);
-        else run.Commands(null, Config.TickRate);
+        if (_state == MatchState.Playing && !run.Idle) run.Step(this);
+        else if (!run.Idle) run.Commands(null, Config.TickRate);
         TfwGuardsStep();   // World.TfwGuards.cs
         TfwBossStep();
         TfwPuppetsStep();

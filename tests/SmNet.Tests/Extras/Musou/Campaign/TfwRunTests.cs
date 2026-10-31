@@ -1,4 +1,5 @@
 using System.Numerics;
+using SmNet.Extras.Musou.Campaign;
 using SmSim;
 using SmSim.Extras.Musou;
 using SmSim.Extras.Musou.Campaign;
@@ -377,6 +378,46 @@ public class TfwRunTests
 
     [Fact]
     public void A_whole_scripted_run_reaches_the_final_assault_and_wins_the_same_way_twice() => Assert.Equal(WholeRun(), WholeRun());
+
+    [Fact]
+    public void The_server_feeds_the_wire_from_the_run_each_guardsman_once()
+    {
+        string? name = null;
+        var map = Assert.IsType<GameMap>(SmServer.GameServer.GeneratedMap(ContentExtras.Musou, ref name, out _));
+        var h = new Harness(LinkConditions.Perfect, 5, 1, TfwRig.Config, new SmServer.ServerOptions { Match = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2 } }, map: map,
+            clientOptions: new ClientOptions { LoadMap = _ => new LoadedMap(map.Collision, map.Hash) });
+        h.Run(TimeSpan.FromSeconds(1));
+        var run = h.Server.World.Tfw!;
+        Assert.Same(run.War, h.Server.TfwFeed.War);                          // set from the hub on
+        Assert.True(run.Enqueue(h.Clients[0].PlayerId, new TfwCommandRecord(1, TfwCommand.Deploy, 0)));
+        h.Clients[0].TakeExtras();
+        h.Run(TimeSpan.FromSeconds(TfwBattleRules.TravelSeconds + 1f));
+        Assert.Equal(TfwRunPhase.Battle, run.Phase);
+        var feed = h.Server.TfwFeed;
+        Assert.Equal(run.Objectives.Count, feed.Objectives.Count);
+        Assert.Equal(60, feed.GuardCount);
+        Assert.Equal(60, feed.Guards.Take(feed.GuardCount).Select(g => g.Id).Distinct().Count());
+        Assert.Equal(4, feed.Transport);
+        var tags = h.Clients[0].TakeExtras().Select(s => s.Tag).ToHashSet();
+        Assert.Contains(TfwWire.WarTag, tags);
+        Assert.Contains(TfwWire.ObjectivesTag, tags);
+        Assert.Contains(TfwWire.GuardsTag, tags);
+    }
+
+    [Fact]
+    public void A_position_is_secured_on_the_real_walking_graph()
+    {
+        string? name = null;
+        var map = Assert.IsType<GameMap>(SmServer.GameServer.GeneratedMap(ContentExtras.Musou, ref name, out _));
+        var h = new Harness(LinkConditions.Perfect, 5, 0, TfwRig.Config, new SmServer.ServerOptions { Match = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2 } }, map: map);
+        var nav = Assert.IsType<NavGraph>(h.Server.World.Musou!.Nav);
+        var w = TfwRig.War(nav);
+        var battle = TfwRig.Deploy(w);
+        Assert.Equal(60, w.Musou!.Alive);
+        TfwRig.Secure(w, battle, 0);
+        TfwRig.Secure(w, battle, 1);
+        Assert.Equal((6, 5), (w.Tfw!.Transport, w.Tfw.Supplies));
+    }
 
     [Fact]
     public void Every_human_gone_sends_the_war_back_to_warmup_with_a_new_run()
