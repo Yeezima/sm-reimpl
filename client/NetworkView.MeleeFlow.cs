@@ -32,6 +32,8 @@ namespace SmClient;
 public partial class NetworkView
 {
     static bool NoMeleeFlow => CharacterViewer.NoMeleeFlow;
+    /// <summary><c>--old-handoff-exit</c> (test aid, anim/stomp-to-move): a strike whose graph has no move-on exit keeps the upper body to its clip's end after the hand-over (before).</summary>
+    static readonly bool OldHandoffExit = OS.GetCmdlineUserArgs().Contains("--old-handoff-exit");
     static readonly bool NoStunShake = CharacterViewer.NoMeleeFlow || OS.GetCmdlineUserArgs().Contains("--no-stun-shake");
     static readonly float StunShakeScale = CmdFloat("--stun-shake-scale", 1f);
     /// <summary><c>--log-stun-shake</c> (test aid): a line per stun-strike or charge shake.</summary>
@@ -143,7 +145,14 @@ public partial class NetworkView
     float HandoffUpperWeight(PlayerState s, MeleeStep step, float time)
     {
         float tail = ActionHandoff.TailWeight(step.Duration, time);
-        if (NoMeleeFlow || FlowBlendsOf(s) is not { ExitRun: float exit } || exit <= 1e-3f) return tail;
+        if (NoMeleeFlow) return tail;
+        // anim/stomp-to-move (owner, 2026-11-01): a graph without a move-on exit of its own (the heavy classes' kick and stomp, the knife) leaves through the base graph's navigation
+        // conduit, 'Standard Blend' 0.333 s (NavConduitBlend, as their whole-body exit already does); before, their strike stayed whole on the upper body to its clip's end over running
+        // legs (the stomp: 0.58 s from its move gate). --old-handoff-exit (test aid): the old rule.
+        float? read = FlowBlendsOf(s)?.ExitRun;
+        if (read is null && OldHandoffExit) return tail;
+        float exit = read ?? NavConduitBlend;
+        if (!(exit > 1e-3f)) return tail;
         var t = FlowOf(s.PlayerId);
         if (t.HandFrom < 0f || t.HandStep != s.MeleeStep || t.HandHeavy != s.MeleeHeavy || time < t.HandFrom) { t.HandFrom = time; t.HandStep = s.MeleeStep; t.HandHeavy = s.MeleeHeavy; }
         float fade = 1f - CharacterViewer.Smooth((time - t.HandFrom) / exit);

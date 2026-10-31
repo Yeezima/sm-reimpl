@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1812 spec table rows: **1253 tagged**, 407 not tagged (read from data with high confidence), 152 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 396 rows of the changes document.
+Scanned 1813 spec table rows: **1254 tagged**, 407 not tagged (read from data with high confidence), 152 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 397 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 313 | 266 | 271 | 93 | 12 |
 | Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
 | Weapons (critical) | 112 | 65 | 97 | 49 | 3 |
-| Melee (critical) | 63 | 50 | 59 | 11 | 5 |
+| Melee (critical) | 64 | 51 | 60 | 11 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
 | Charge (critical) | 44 | 35 | 37 | 20 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -53,7 +53,7 @@ Scanned 1812 spec table rows: **1253 tagged**, 407 not tagged (read from data wi
 | Core simulation (provisional values) | 124 | 109 | 109 | 13 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1253** | 1036 | 1007 | 394 | 38 |
+| **All areas** | **1254** | 1037 | 1008 | 394 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,8 +61,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 493 |
 | confidence: low | 448 |
-| confidence: medium | 442 |
-| kind: interpretation | 321 |
+| confidence: medium | 443 |
+| kind: interpretation | 322 |
 | notes: ours | 288 |
 | confidence: none (low) | 117 |
 | kind: provisional | 100 |
@@ -732,7 +732,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (63)
+### Melee (gameplay-critical) (64)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -745,6 +745,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1E3FF477` | Strike entry blend | A strike entered from the navigation takes its graph's entry transition: the knife, chainsword and power sword 'Entry to Melee' 0.167 s, their Y strike 0.1 s, the power axe 0.1 s, the hammer's first swing 'Transition to 1' 0.4 s and its interrupt strike… (s) | confidence: medium; notes: interpretation | graph (each melee graph's attack machine, the entry conduit's transitions; the "From Stowed" conduit is not used); which of the nested machines' blends Havok… | Strike entry blend: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A strike entered from the navigation takes its graph's entry… | ☐ |
 | `R-571ECA7C` | Strike chain blend | A strike chained from another (within 0.3 s) takes the transition between their states: 'Melee To Melee' 0.1 s for most, the hammer's 'Melee to 180' 0.333 s into its sweeps and 'Blend In to Slam' 0.267 s into the left slam, the chainsword's and power sword's… (s) | kind: ours; confidence: medium | graph | Strike chain blend: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A strike chained from another (within 0.3 s) takes the transition… | ☐ |
 | `R-E823A6BF` | Strike hand-over: the upper body leaves over the exit | When the legs are handed to the locomotion at the move gate (M40-T4) the strike leaves the upper body over the weapon's move-on exit (0.333 s chainsword, sword, hammer; smooth curve) from that moment, as the graph leaves the whole attack state on its move… (s) | kind: ours; confidence: medium | graph (the blend); the hand-over itself: ours (M40-T4) | Strike hand-over: the upper body leaves over the exit: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: When the legs are handed to the locomotion at the move gate (M40-T4)… | ☐ |
+| `R-91FCD4AC` | Strike hand-over without a graph exit (anim/stomp-to-move) | A strike whose graph has no move-on exit of its own (`MP_SM_MEL_TB_Displace`: the Devastator's and the Havoc's kick and stomp; `MP_SM_MEL_CombatKnife`: the knife; `smtool graph-dump --melee-flow` "moving on -") leaves the upper body over the base graph's… (s) | kind: interpretation; confidence: medium | `SM_Base_MP` conduit blend (data); its use for this hand-over: interpretation | Strike hand-over without a graph exit (anim/stomp-to-move): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A strike whose graph has no move-on exit of its own… | ☐ |
 | `R-8A92A5A4` | Melee variant fades in with the strike | The upper distance variant laid over the strike (feel/melee-lock) fades in with the strike's entry (its weight times the clip's share of the cross-fade); before, it came in whole on the strike's first frame while the clip itself still faded in from the… | kind: ours | ours (a fix) | Melee variant fades in with the strike: compare with SM1 by feel or video. Ours: The upper distance variant laid over the strike (feel/melee-lock)… | ☐ |
 | `R-08577B3E` | Clip foot lock | While a strike's clip (on the ground or over a curb, not in a jump-pack phase) or the charge's clip (on the ground) is shown, each foot the clip puts down (toe below 0.03 m and ankle below 0.24 m above the feet; let go above 0.045 / 0.27 m) and that stands… (m, m/s, s) | kind: ours; confidence: medium | ours (the clips are in place; the body travels what the simulation decides: stopped at its target, a longer lunge, turned to the lock); the thresholds the… | Clip foot lock: compare with SM1 by timing a run over a known distance. Ours: While a strike's clip (on the ground or over a curb, not in a… | ☐ |
 | `R-274679A7` | Clip foot lock: result | Planted-foot speed under the strike clips (the air slash left out; flat foot), `--no-melee-flow` / this build: `melee2` median 1.81 / 0.00, p75 4.35 / 0.14, p90 7.68 / 3.19 m/s, frames above 0.5 m/s 74 / 22 %; `sweep` 0.22 / 0.00, p90 3.52 / 0.92 m/s, 34 / 12… (m/s) | confidence: medium | measured | Clip foot lock: result: compare with SM1 by timing a run over a known distance. Ours: Planted-foot speed under the strike clips (the air slash left out… | ☐ |
@@ -2067,6 +2068,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 
 | ID | Change | Original | Here | Decision / record | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
+| `C-2AEA28CF` | Shell casings fall faster | The ejected casing's spray falls with the effect data's gravity | The casing itself falls with its particle's gravity × 2.5 (ours); smoke and other effects unchanged | Owner 2026-11-01: casings "far too floaty" | Shell casings fall faster: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-3E067287` | Networking | Peer-hosted matches | Server-authoritative dedicated servers: input commands up, snapshots down, prediction, reconciliation, interpolation, lag compensation. Clients never learn other players' health, shield, ammunition or heat | The project's one intended change (CLAUDE.md "Goal"); docs/architecture.md; spec "What other players see" | Networking: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-786B4BB2` | No melee hit-stop, no hit shake (feel/camera-hitstop) | The original's hit presentation is not decoded; the hit-stop and shake were our own addition in feel/melee-lock | A landed melee hit does not hold the attacker's or the victim's clips, shakes neither the attacker's nor the victim's camera; the camera assist toward the lock stays. Opt-in `--hit-stop` restores the hold and the shakes | Owner's decision 2026-10-29: "remove the stop hit/screen freeze/shake effect when attacking an enemy in melee" | No melee hit-stop, no hit shake (feel/camera-hitstop): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-657EA7F7` | A small shake on every stun strike (anim/melee-flow) | The original's camera effects of the heavy strikes are not decoded (the melee hit shake was removed by the owner the same day) | The own camera shakes 0.35 degrees at the impact of every heavy (F) strike, 0.6 degrees at a stomp or slam, 0.5 degrees when the own charge or dash attack hits a player; `--no-stun-shake`, `--stun-shake-scale` | Owner's request 2026-10-29: "add a tiny bit of screen shake to all stun strike moves"; the amounts are ours; spec "Melee flow, the hammer in both hands and the transitions pass" | A small shake on every stun strike (anim/melee-flow): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
