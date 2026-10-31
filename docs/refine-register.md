@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1769 spec table rows: **1215 tagged**, 404 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 377 rows of the changes document.
+Scanned 1769 spec table rows: **1215 tagged**, 404 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 378 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -2449,6 +2449,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | ID | Rule | What we do | What is unknown | Spec section | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `C-E10F6713` | Launcher grenades stick at once | no bounce off the level (the data's `max_bounce_count` 1 is ignored for sticky projectiles); a grenade stuck to a player drops and falls when they die or leave | The original's exact behaviour on the host's death (ours: falls) | "Sticky launcher grenades" | Launcher grenades stick at once: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-F76A5DC5` | Air-slash landing burst (owner 2026-10-31) | Plays the jump pack's perk landing effect `jumppack_land_extreme_mp` small (0.6 instead of the data's 1.4), blue-white, with a blue-white light, no full-screen flash (switches `--slash-big-flash`, `--no-slash-flash`, `--slash-cone`) | The data binds no effect to the MP slash itself; size and colour are estimates | Air slash landing flash | Air-slash landing burst (owner 2026-10-31): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
