@@ -15,7 +15,7 @@ namespace SmClient;
 /// Camera (<see cref="RigCamera"/>): the weapon in hand names an exploration and an aim <see cref="CameraSet"/>
 /// (<see cref="CameraTuning.For"/>); each names a curve of the original camera rig (<see cref="CameraRig"/>) that gives the
 /// camera's and its collision pivot's place relative to the feet for the view's pitch. The camera is the yaw-rotated offset
-/// from the feet, pulled in toward the pivot by a sphere cast with a damped pull-in (M40-T6: <see cref="CastClear"/>,
+/// from the feet, pulled in by sphere casts along head to shoulder, to pivot, to camera with a damped pull-in (M40-T6, camera/hop-and-walls: <see cref="CastClear"/>,
 /// <see cref="DampFraction"/>; the rig's pivot is an interpretation: the inner bone), and looks along the view direction; exploration and aim are blended over the aim set's <c>blend_in_time</c>
 /// (position and field of view; the aim blend follows <see cref="PlayerState.Aiming"/> of the predicted state), the view's
 /// pitch is clamped to the sets' lower limit and to 89.9 degrees up (sim/roll-fire-pitch; above a set's upper limit the camera keeps that limit's place), and the mouse look is scaled by the sets' <c>speed_mouse</c> / 100 (aim 0.6, sniper
@@ -49,6 +49,9 @@ public partial class NetworkView
     /// <summary><c>--bot-stand</c> (test aid, with <c>--aim-test</c>): the bot holds aim mode and alternates standing, walking forward and strafing (8 s cycle).</summary>
     public bool BotStand { get; init; }
 
+    /// <summary><c>--old-hop-camera</c> (test aid, camera/hop-and-walls): the evade sets' curves clamped at the sets' lower limit too, for before captures of the hop looking down.</summary>
+    static readonly bool OldHopCamera = CmdFlag("old-hop-camera");
+
     CameraTuning? _cameraTuning;
     CameraRig? _cameraRig;
     string _cameraNote = "camera: placeholder (not loaded)";
@@ -68,7 +71,7 @@ public partial class NetworkView
     float MouseLook => SmClient.Customizer.Model.MouseSensitivity.Look(_mouseScale);
     float _mouseScale = 1f;                // speed_mouse / 100 of the current camera
     float _pitchMin = -MaxPitchDown, _pitchMax = MaxPitchUp;
-    float _rigFraction = 1f;               // how much of the way from the pivot to the wanted eye the camera is (wall pull-in, smoothed outward)
+    readonly CameraBoom _rigFraction = new();   // how much of the way from the pivot to the wanted eye the camera is (wall pull-in, smoothed outward)
     bool _rigLogged;
     // Last hit report (TakeHits), for the aimed enemy's health bar.
     int _lastVictim = -1;
@@ -122,7 +125,7 @@ public partial class NetworkView
     }
 
     /// <summary>Whether the follow camera is the rig's: human views (and the bot's with <c>--aim-test</c>), not the spectator cameras.</summary>
-    bool RigCameraWanted => Spectate is null && (!_bot || AimTest || SlashTest && float.IsFinite(SlashViewPitch) || StompMoveTest || CarryTest) && _cameraRig is not null && _cameraTuning is not null;   // anim/air-slash-character: --slash-view-pitch gives the slash test the human camera; anim/stomp-to-move: --stomp-move-test too; anim/relic-bolter-idle: --carry-test too
+    bool RigCameraWanted => Spectate is null && (!_bot || AimTest || SlashTest && float.IsFinite(SlashViewPitch) || StompMoveTest || CarryTest || CameraTest) && _cameraRig is not null && _cameraTuning is not null;   // anim/air-slash-character: --slash-view-pitch gives the slash test the human camera; anim/stomp-to-move: --stomp-move-test too; anim/relic-bolter-idle: --carry-test too
 
     static float Finite(float v, float fallback) => float.IsFinite(v) ? v : fallback;
 
@@ -189,7 +192,7 @@ public partial class NetworkView
             {
                 _lastEvadeSet = set;
                 float we = _evadeBlend * _evadeBlend * (3f - 2f * _evadeBlend);
-                float evadeLookup = Math.Clamp(pitch, CameraRig.SimRadians(set.PitchMinimum), CameraRig.SimRadians(set.PitchMaximum));
+                float evadeLookup = OldHopCamera ? Math.Clamp(pitch, CameraRig.SimRadians(set.PitchMinimum), CameraRig.SimRadians(set.PitchMaximum)) : CameraRig.SetPlacePitch(pitch, set);   // camera/hop-and-walls: the curve follows the view down
                 if (_cameraRig.OffsetAtPitch(set.AnimationCurve, evadeLookup) is { } oe)
                 {
                     cam = System.Numerics.Vector3.Lerp(cam, oe.Camera, we);
@@ -246,6 +249,7 @@ public partial class NetworkView
         // The wall casts start from the simulation's position (M36: me is the drawn one, up to a tick behind).
         // feel/controls: from the drawn head (the camera is placed from the drawn position, which after an early tick can be two ticks behind
         // the simulation's: 0.67 m sprinting), unless the way from the simulation's head to it is blocked (a drawn position across a corner).
+        long castsFrom = CameraTest ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
         var simHead = _gameSpace.Transform * new Vector3(_simPosition.X, _simPosition.Y, _simPosition.Z + _config.EyeHeight);
         var drawnHead = _gameSpace.Transform * new Vector3(me.Position.X, me.Position.Y, me.Position.Z + _config.EyeHeight);
         var head = NoDrawnCameraCast || CastClear(simHead, drawnHead, CameraSoftRadius) < simHead.DistanceTo(drawnHead) - 1e-3f ? simHead : drawnHead;
@@ -253,6 +257,29 @@ public partial class NetworkView
         // Lookahead: the same two legs cast for where the player will be in 0.12 s and 0.25 s (its velocity, stopped by walls) and
         // looking where the view is turning, so a wall corner that is about to cross the camera's line starts the pull-in early
         // instead of meeting the hard cast all at once.
+        // camera/hop-and-walls: a shoulder leg first. The rig's pivot is beside, above and behind the head; a single leg from the head to it shrank all three together, so a wall behind
+        // the character took the camera into the head and across the view (0.07 m from it, the world sliding sideways and down). Now the side and height come first (head to shoulder) and
+        // only the way back meets the wall behind. The shoulder is the pivot's place without its distance along the facing.
+        // Review pass: the height comes before the side (a pillar at the right shoulder took the height too), and a blocked right side crosses to the left (CameraSide).
+        var shoulderRig = new System.Numerics.Vector3(pivot.X, 0f, pivot.Z);
+        var legStart = head;
+        var pivotSided = pivot; var camSided = cam; var eyeWanted = wanted;
+        if (!OldCameraCollision)
+        {
+            if (!_cameraPlaced) { _rigFocus = 0f; _rigSide.Reset(); }   // a respawn or first frame: nothing carries over
+            var heightRig = new System.Numerics.Vector3(0f, 0f, pivot.Z);
+            var raised = DampFraction(_rigFractionU, _cameraPlaced, head, head + (ToWorld(heightRig) - drawnHead), delta);
+            var sideRight = ToWorld(shoulderRig) - ToWorld(heightRig);
+            float sideLength = sideRight.Length();
+            float rightFree = sideLength > 1e-3f ? CastClear(raised, raised + sideRight, CameraSoftRadius) / sideLength : 1f;
+            float leftFree = sideLength > 1e-3f && (rightFree < CameraSide.BlockedBelow || _rigSide.OnLeft) ? CastClear(raised, raised - sideRight, CameraSoftRadius) / sideLength : 0f;
+            float side = _rigSide.Step(rightFree, leftFree, delta, _cameraPlaced, me.Alive && me.Aiming);
+            shoulderRig.X *= side; pivotSided.X *= side; camSided.X *= side;
+            // No lookahead on these short legs: a head foreseen against a wall starts inside the soft radius, and its leg read 0 for the frames of every wall contact.
+            legStart = DampFraction(_rigFractionS, _cameraPlaced, raised, raised + sideRight * side, delta);
+            pivotWorld = ToWorld(pivotSided);
+            eyeWanted = ToWorld(camSided);
+        }
         int ahead = 0;
         float yawStep = _rigYawInit ? Mathf.Wrap(_yaw - _rigYaw, -MathF.PI, MathF.PI) : 0f;
         _rigYaw = _yaw; _rigYawInit = true;
@@ -272,26 +299,33 @@ public partial class NetworkView
                     var g = me.Position + new System.Numerics.Vector3(v.X * c2 - v.Y * s2, v.X * s2 + v.Y * c2, v.Z);
                     return _gameSpace.Transform * new Vector3(g.X, g.Y, g.Z) + step;
                 }
-                _aheadHead[ahead] = head + step; _aheadPivot[ahead] = AtAhead(pivot); _aheadEye[ahead] = AtAhead(cam);
+                _aheadHead[ahead] = head + step; _aheadShoulder[ahead] = AtAhead(shoulderRig); _aheadPivot[ahead] = AtAhead(pivotSided); _aheadEye[ahead] = AtAhead(camSided);
                 ahead++;
             }
         }
+        if (!OldCameraCollision)
+            for (int i = 0; i < ahead; i++) _aheadHead[i] += (_aheadShoulder[i] - _aheadHead[i]) * _rigFractionS.Fraction;
         _aheadFrom.Clear(); _aheadTo.Clear();
         for (int i = 0; i < ahead; i++) { _aheadFrom.Add(_aheadHead[i]); _aheadTo.Add(_aheadPivot[i]); }
-        pivotWorld = DampFraction(ref _rigFractionA, _cameraPlaced, head, pivotWorld, delta, _aheadFrom, _aheadTo);
+        pivotWorld = DampFraction(_rigFractionA, _cameraPlaced, legStart, pivotWorld, delta, _aheadFrom, _aheadTo);
         _aheadFrom.Clear(); _aheadTo.Clear();
         for (int i = 0; i < ahead; i++)
         {
-            _aheadFrom.Add(_aheadHead[i] + (_aheadPivot[i] - _aheadHead[i]) * _rigFractionA);
+            _aheadFrom.Add(_aheadHead[i] + (_aheadPivot[i] - _aheadHead[i]) * _rigFractionA.Fraction);
             _aheadTo.Add(_aheadEye[i]);
         }
-        var damped = DampFraction(ref _rigFraction, _cameraPlaced, pivotWorld, wanted, delta, _aheadFrom, _aheadTo);
+        var damped = DampFraction(_rigFraction, _cameraPlaced, pivotWorld, eyeWanted, delta, _aheadFrom, _aheadTo);
         var position = Depenetrate(ClearOfBodies(damped, me, includeOwn: false, pivotWorld, delta));   // an enemy in melee range is not in the lens
         _cameraPlaced = true;
 
         var aimGame = Combat.AimDirection(_yaw, pitch);
         var look = (_gameSpace.Basis * new Vector3(aimGame.X, aimGame.Y, aimGame.Z)).Normalized();
+        // camera/hop-and-walls: the crosshair stays on the world point the uncollided rig camera looks at while the boom is short (CameraBoom.StableLook, NetworkView.CameraAim.cs).
+        var focusPoint = OldCameraCollision && !CameraTest ? position : RigFocusPoint(wanted, look, head, delta);   // the extra cast only where it is used
+        if (!OldCameraCollision) look = StableLook(wanted, position, look);
         _camera.GlobalTransform = new Transform3D(Basis.LookingAt(look, Vector3.Up), position);
+        if (CameraTest) CameraTestCost(System.Diagnostics.Stopwatch.GetTimestamp() - castsFrom);
+        CameraTestNote(me, position, wanted, look, (focusPoint - position).Cross(look).Length());   // --camera-test (NetworkView.CameraTest.cs)
         NoteCameraPlaced(_yaw, pitch, me.Position);   // feel/controls: the view the converged shot's ray is turned from (FreshCenterRay)
         _camera.Fov = fov;
         var feet = _gameSpace.Transform * new Vector3(me.Position.X, me.Position.Y, me.Position.Z);

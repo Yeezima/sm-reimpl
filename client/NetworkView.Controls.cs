@@ -112,7 +112,10 @@ public partial class NetworkView
         var d3 = (inverse.Basis * (-_camera.GlobalBasis.Z)).Normalized();
         float dyaw = ViewSmoothing.WrapPi(_yaw - _cameraPlacedYaw);
         float dpitch = Math.Clamp(_pitch, _pitchMin, _pitchMax) - _cameraPlacedPitch;
-        var (o, d) = FreshAim.Turn(new System.Numerics.Vector3(o3.X, o3.Y, o3.Z), new System.Numerics.Vector3(d3.X, d3.Y, d3.Z), _cameraPlacedFeet, dyaw, dpitch, -MaxPitchDown, MaxPitchUp);
+        // camera/hop-and-walls: the camera's ray may lie up to 10 degrees off the view (CameraBoom.StableLook), so it is turned as a whole: dpitch is the view's own, already within its limits, and a clamp on the ray's pitch would bend the shot near them.
+        var (o, d) = OldCameraCollision
+            ? FreshAim.Turn(new System.Numerics.Vector3(o3.X, o3.Y, o3.Z), new System.Numerics.Vector3(d3.X, d3.Y, d3.Z), _cameraPlacedFeet, dyaw, dpitch, -MaxPitchDown, MaxPitchUp)
+            : FreshAim.TurnRigid(new System.Numerics.Vector3(o3.X, o3.Y, o3.Z), new System.Numerics.Vector3(d3.X, d3.Y, d3.Z), _cameraPlacedFeet, dyaw, dpitch, _yaw);
         return (o, d);
     }
 
