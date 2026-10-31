@@ -37,11 +37,12 @@ public partial class GuardCrowd : CrowdView
         public float Yaw, Pitch, Speed, Clock;
         public float SinceShot = float.PositiveInfinity, SinceHurt = float.PositiveInfinity, Fade;
         public int Clip = -1;
-        public bool Fallen, Seen;
+        public bool Seen;
     }
 
     readonly GuardLooks _looks;
     readonly Dictionary<ushort, Man> _men = new();
+    readonly GuardDeaths _deaths = new();
     readonly List<ushort> _gone = new();
     Quaternion[] _quats = [];
     Vector3[] _spots = [];
@@ -75,18 +76,17 @@ public partial class GuardCrowd : CrowdView
                 if (man is not null && man.SinceHurt >= HurtSeconds) man.SinceHurt = 0f;
                 break;
             case TfwGuardEventKind.Death:
-                Fall(e.Guard, man, man?.Position ?? new Vector3(e.Vector.X, e.Vector.Y, e.Vector.Z), man?.Yaw ?? 0f, e.Tick);
+                Fall(e.Guard, e.Tick, man?.Position ?? new Vector3(e.Vector.X, e.Vector.Y, e.Vector.Z), man?.Yaw ?? 0f, e.Tick);
                 break;
         }
     }
 
     float HurtSeconds => _looks.Look?.Clips[GuardRig.Hurt]?.Animation.Duration ?? 2f;
 
-    void Fall(ushort id, Man? man, Vector3 at, float yaw, uint tick)
+    /// <summary>One body a death, whichever report comes first (<see cref="GuardDeaths"/>).</summary>
+    void Fall(ushort id, uint tick, Vector3 at, float yaw, uint clipTick)
     {
-        if (man is { Fallen: true }) return;
-        if (man is not null) man.Fallen = true;
-        AddBody(at, yaw, 0, GuardRig.DeathClip(id, tick));
+        if (_deaths.Died(id, tick)) AddBody(at, yaw, 0, GuardRig.DeathClip(id, clipTick));
     }
 
     /// <summary>Where a man's muzzle is now (game space); null for a man not shown.</summary>
@@ -102,6 +102,7 @@ public partial class GuardCrowd : CrowdView
     public void Frame(IReadOnlyList<TfwGuardShown> shown, uint tick, Vector3 camera, float delta)
     {
         UpkeepLooks("guards");
+        _deaths.Forget(tick);
         Items.Clear();
         foreach (var man in _men.Values) man.Seen = false;
         foreach (var g in shown)
@@ -112,10 +113,10 @@ public partial class GuardCrowd : CrowdView
             man!.Seen = true;
             if (g.State == (byte)GuardState.Dying)
             {
-                Fall(g.Id, man, man.Position, man.Yaw, tick);   // the event was lost, or came first: one body either way
+                Fall(g.Id, tick, man.Position, man.Yaw, tick);   // the event was lost, or came first: one body either way
                 continue;
             }
-            man.Fallen = false;
+            if (_deaths.IsGone(g.Id, tick)) continue;   // a record behind his death: the body is drawn, not him
             Step(man, p, g.Yaw, delta);
             bool moving = g.State == (byte)GuardState.Moving && man.Speed > StandingSpeed;
             int clip = ClipOf(man, moving);

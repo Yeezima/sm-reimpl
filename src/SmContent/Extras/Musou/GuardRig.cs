@@ -93,6 +93,41 @@ public static class GuardRig
 }
 
 /// <summary>
+/// Which Guardsmen have died, by id and tick, apart from what is drawn of them, so one death gives one body: the Death event and the Dying records (tag 9) can come in either order, either can be lost,
+/// and live records can still arrive after the event. A man stays gone for <see cref="HoldTicks"/>, longer than <c>GuardRules.DyingSeconds</c> (60 ticks), after which his slot may hold a new man. Ticks
+/// are compared as a signed difference, as an event's tick is usually ahead of the render tick; one far outside the hold (a restarted server) has expired.
+/// </summary>
+public sealed class GuardDeaths
+{
+    /// <summary>Ticks a death is remembered (ours: 3 s at 30 Hz).</summary>
+    public const int HoldTicks = 90;
+
+    readonly Dictionary<ushort, uint> _died = new();
+    readonly List<ushort> _expired = new();
+
+    static bool Within(uint died, uint tick) => Math.Abs((long)(int)(tick - died)) < HoldTicks;
+
+    /// <summary>A report of a death at <paramref name="tick"/>; true for the first of this death: it gets the body.</summary>
+    public bool Died(ushort guard, uint tick)
+    {
+        if (_died.TryGetValue(guard, out uint known) && Within(known, tick)) return false;
+        _died[guard] = tick;
+        return true;
+    }
+
+    /// <summary>Whether a live record of <paramref name="guard"/> at <paramref name="tick"/> is behind his death (he is not drawn).</summary>
+    public bool IsGone(ushort guard, uint tick) => _died.TryGetValue(guard, out uint died) && Within(died, tick);
+
+    /// <summary>Drops the deaths whose hold is over at <paramref name="tick"/>.</summary>
+    public void Forget(uint tick)
+    {
+        _expired.Clear();
+        foreach (var (guard, died) in _died) if (!Within(died, tick)) _expired.Add(guard);
+        foreach (ushort guard in _expired) _died.Remove(guard);
+    }
+}
+
+/// <summary>
 /// The lasgun in the hands, read from the data as the marine's weapons are (<see cref="WeaponModels"/>): <c>ig_coop_lasgun</c>'s wield entry puts the model's <c>rig_prop_m_chest</c> node on the
 /// rig bone of that name (**supported by evidence**: the wargear names both nodes, the model and the rig both have them).
 /// </summary>

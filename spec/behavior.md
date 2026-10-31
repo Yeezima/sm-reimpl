@@ -3218,6 +3218,7 @@ The Exterminatus `ig_coop_guardsman` from the player's install: body `guardsman_
 | Recoil | `IG_RNG_Fire_S_01` laid over the pose at each shot (0.167 s), skinned tier only | clip | per shot | `GuardCrowd` | the clip is the install's; far men show none (ours) | ours | medium |
 | Hurt reaction | `IG_REC_Light_Front_Hi_Left`, whole, only on a man standing; a moving man shows nothing | clip | per Hurt event | `GuardRig`, `GuardCrowd` | ours: hit direction is not on the wire | estimate | low |
 | Death | a death clip by id and tick out of `IG_DIE_Basic_01`, `_03`, `IG_DIE_FallForward_01`, `IG_DIE_Headshot_01`, `IG_REC_Death_02`, last frame held, sinks after 3 s over 1.5 s (no ragdoll yet) | clips, s | per Death event | `GuardRig.DeathClip`, `GuardCrowd` | the owner's order for now; the rule is ours | ours | low |
+| One body a death | a man's death is remembered by id for 90 ticks from the first report (Death event or Dying record); later reports add no body and his live records are not drawn | ticks | per death | `GuardDeaths.HoldTicks` | ours: longer than the 60 ticks a slot stays Dying | ours | medium |
 | Clip fade | 0.15 | s | per clip change, skinned tier | `GuardCrowd.FadeSeconds` | ours | ours | medium |
 | Shot effects' reach | muzzle within 45 m of the camera, tracer within 90 m, at most 12 shots with effects a frame | m, shots | per frame | `NetworkView.TfwGuards.cs` | ours: `FxPlayer` keeps 160 effects | ours | medium |
 

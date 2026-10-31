@@ -68,6 +68,55 @@ public class GuardRigTests
     }
 
     [Fact]
+    public void An_event_before_the_records_gives_one_body_and_hides_his_late_live_records()
+    {
+        var deaths = new GuardDeaths();
+        Assert.True(deaths.Died(5, 100));
+        Assert.True(deaths.IsGone(5, 97));    // a live record behind the event
+        Assert.True(deaths.IsGone(5, 103));   // and one after a live record must not clear it
+        Assert.False(deaths.Died(5, 101));    // his Dying record
+    }
+
+    [Fact]
+    public void An_event_for_a_man_never_seen_gives_one_body()
+    {
+        var deaths = new GuardDeaths();
+        Assert.True(deaths.Died(9, 200));
+        Assert.False(deaths.Died(9, 205));
+        Assert.True(deaths.IsGone(9, 205));
+        Assert.False(deaths.IsGone(10, 205));
+    }
+
+    [Fact]
+    public void An_event_after_his_records_ended_gives_no_second_body()
+    {
+        var deaths = new GuardDeaths();
+        Assert.True(deaths.Died(5, 150));    // the Dying record came first
+        Assert.False(deaths.Died(5, 148));   // the event, late, with its earlier tick
+    }
+
+    [Fact]
+    public void A_new_man_in_the_slot_shows_after_the_hold_and_can_die()
+    {
+        var deaths = new GuardDeaths();
+        deaths.Died(5, 100);
+        uint later = 100 + GuardDeaths.HoldTicks;
+        Assert.False(deaths.IsGone(5, later));
+        deaths.Forget(later);
+        Assert.False(deaths.IsGone(5, 100));   // forgotten
+        Assert.True(deaths.Died(5, later));
+    }
+
+    [Fact]
+    public void A_restarted_server_clock_expires_a_death()
+    {
+        var deaths = new GuardDeaths();
+        deaths.Died(5, 90000);
+        Assert.False(deaths.IsGone(5, 10));
+        Assert.True(deaths.Died(5, 10));
+    }
+
+    [Fact]
     public void A_death_clip_is_a_death_and_the_same_on_every_client()
     {
         var seen = new HashSet<int>();
