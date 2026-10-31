@@ -108,4 +108,23 @@ public class ImpactRulesTests
         // Forgotten: player 1 counts as first seen again.
         Assert.False(gate.Passed(1, 1, false, 0.5f, 0.3f, 10));
     }
+
+    [Fact]
+    public void A_stalled_drawn_clock_still_fires_once_when_the_state_reaches_the_hit_and_a_stale_time_does_not_fire_early()
+    {
+        const float fx = 0.735f, hit = 0.767f;
+        var gate = new MeleeHitGate();
+        gate.Idle(1);
+        // First stomp frame with the kick's stale drawn time (1.0 s) while the state is at 0.03 s: no early fire.
+        Assert.False(gate.Passed(1, 1, true, MeleeHitGate.EffectTime(1.0f, 0.03f, fx, hit), fx, 100));
+        // The drawn clock stalls at 0.2 s; the state passes the hit: fires once, then never again for that attack.
+        Assert.False(gate.Passed(1, 1, true, MeleeHitGate.EffectTime(0.2f, 0.7f, fx, hit), fx, 100));
+        Assert.True(gate.Passed(1, 1, true, MeleeHitGate.EffectTime(0.2f, 0.8f, fx, hit), fx, 100));
+        Assert.False(gate.Passed(1, 1, true, MeleeHitGate.EffectTime(0.74f, 0.83f, fx, hit), fx, 100));
+        // A normal drawn clock reaching the landing first fires at it, and the state's later hit time does not fire a second time.
+        gate.Idle(1);
+        Assert.False(gate.Passed(1, 1, true, MeleeHitGate.EffectTime(0.5f, 0.53f, fx, hit), fx, 130));
+        Assert.True(gate.Passed(1, 1, true, MeleeHitGate.EffectTime(0.736f, 0.77f, fx, hit), fx, 130));
+        Assert.False(gate.Passed(1, 1, true, MeleeHitGate.EffectTime(0.8f, 0.83f, fx, hit), fx, 130));
+    }
 }

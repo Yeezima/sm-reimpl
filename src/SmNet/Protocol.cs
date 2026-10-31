@@ -417,6 +417,9 @@ public static partial class Protocol
     //     press tick, no stick or button input during the match-start countdown, a roll keeps its travel off a ledge. Snapshot layout and sizes unchanged (worst case 1194)
     // 48 (sim/no-fire-charging-all; the owner's playtest of 2026-10-31): no wire change. No class fires from the charge's start to the end of its clip (BR-02's Tactical-only
     //     rule for everyone; a fire press is dropped, never buffered), and Fire and Aim no longer end the charge (Aim spam ended it and flipped the aim camera). Worst case 1194
+    // 49 (sim/stomp-in-place; the owner's playtest of 2026-10-31): no wire change. The Devastator's and the Havoc's stomp keeps the body exactly in place (no lunge or
+    //     burst, no coasting), so the kick-to-stomp chain no longer slides the body forward twice; the stomp's hit time is unchanged (the data's DISPLACE_FootStomp tag).
+    //     Snapshot layout and sizes unchanged
     // 49 (sim/charge-needs-sprint; the owner's rule of 2026-10-31): no wire change. The charge needs Sprint (Shift; the pad's L3 hold) as well as W at the F press; F without Sprint is a stun strike
     //     in the held stick's direction (W + F alone: forward), never a charge. The buffered press follows the same test (Rush.ChargeHeld).
     public const ushort Version = 49;

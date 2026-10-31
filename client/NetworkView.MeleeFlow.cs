@@ -294,9 +294,17 @@ public partial class NetworkView
                 if (events.MeleeHitStep <= 0 || !events.MeleeHeavy) continue;
                 var heavy = Loadouts.MeleeHeavy(_config, me);
                 bool blast = events.MeleeHitStep <= heavy.Count && heavy[events.MeleeHitStep - 1].Stomp is not null;
+                _pendingShakes.Add(events.MeleeHitStep <= heavy.Count ? (blast, heavy[events.MeleeHitStep - 1].HitTime, FxTime(heavy[events.MeleeHitStep - 1])) : (blast, 0f, 0f));   // fired below once the drawn pose reaches the hit time
+            }
+            // sim/stomp-in-place: the shake lands when the drawn foot does (ShownMeleeTime), or at once when the strike is over.
+            for (int i = _pendingShakes.Count - 1; i >= 0; i--)
+            {
+                var (blast, hitTime, fxTime) = _pendingShakes[i];
+                if (me.MeleeStep > 0 && ImpactRules.MeleeHitGate.EffectTime(ShownMeleeTime(me), me.MeleeTime, fxTime, hitTime) < fxTime - 1e-4f) continue;
+                _pendingShakes.RemoveAt(i);
                 FxShake((blast ? StompShakeRadians : StunShakeRadians) * StunShakeScale);
                 if (blast) _stompShakes++; else _stunShakes++;
-                if (LogStunShake) GD.Print($"t {_connectedFor:F2} s: stun-strike shake ({(blast ? "blast strike" : "heavy strike")} {events.MeleeHitStep}, {(blast ? StompShakeRadians : StunShakeRadians) * StunShakeScale * 180f / MathF.PI:F2} deg)");
+                if (LogStunShake) GD.Print($"t {_connectedFor:F2} s: stun-strike shake ({(blast ? "blast strike" : "heavy strike")}, drawn time {ShownMeleeTime(me):F3} s, {(blast ? StompShakeRadians : StunShakeRadians) * StunShakeScale * 180f / MathF.PI:F2} deg)");
             }
             // A connect is a hit on a player: the dash attack's hit state, or the rush's collision stop with an enemy in reach in front (a wall stop shakes neither; presentation guess, the server decides).
             bool connected = (_ownRushSeen == RushPhase.Rush && me.Rush == RushPhase.Collision && MeleePresentation.Victim(me, _lastOthers, _config) > 0)
