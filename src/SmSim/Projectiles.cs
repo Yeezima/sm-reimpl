@@ -188,7 +188,7 @@ public sealed partial class World
         var origin = Combat.ShotOrigin(state, input, Config, Collision);
         var view = input with { Yaw = state.Yaw, Pitch = state.Pitch };
         var (shotYaw, shotPitch) = thrown ? Combat.ShotAim(view, Config) : Combat.ShotAim(view, Config, state);   // weapons/spread: a fired projectile scatters, a throw does not
-        var direction = Combat.AimDirection(shotYaw, shotPitch + spec.ExtraAimAngle * (MathF.PI / 180f));
+        var direction = Combat.AimDirection(shotYaw, MathF.Min(shotPitch + spec.ExtraAimAngle * (MathF.PI / 180f), PlayerInput.MaxPitch));   // sim/roll-fire-pitch: never past straight up (over the head)
         // Ids travel modulo 65536: skip one a live projectile or a detonation still on the wire shares.
         while (_projectiles.Any(q => (q.Id & 0xFFFF) == (_nextProjectileId & 0xFFFF)) || _recentDetonations.Any(d => (d.Projectile & 0xFFFF) == (_nextProjectileId & 0xFFFF)))
             _nextProjectileId++;

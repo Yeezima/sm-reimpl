@@ -269,7 +269,7 @@ public partial class NetworkView
             float dx = enemy.Position.X - me.Position.X, dy = enemy.Position.Y - me.Position.Y;
             float dz = enemy.Position.Z + BotTargetHeight - (me.Position.Z + _config!.EyeHeight);
             _yaw = MathF.Atan2(-dx, dy);
-            _pitch = Math.Clamp(MathF.Atan2(dz, targetDistance), -MaxPitch, MaxPitch);
+            _pitch = Math.Clamp(MathF.Atan2(dz, targetDistance), -MaxPitchDown, MaxPitchUp);
             buttons = BotWeaponButtons(me, tick, enemy);
             _botAimNow = true;                  // M44a: the aim error applies to this ranged shot (NetworkView.BotAim.cs)
             _botAimTarget = enemy.PlayerId;     // the trigger discipline's reaction delay

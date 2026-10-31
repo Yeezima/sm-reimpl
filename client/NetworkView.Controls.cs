@@ -112,7 +112,7 @@ public partial class NetworkView
         var d3 = (inverse.Basis * (-_camera.GlobalBasis.Z)).Normalized();
         float dyaw = ViewSmoothing.WrapPi(_yaw - _cameraPlacedYaw);
         float dpitch = Math.Clamp(_pitch, _pitchMin, _pitchMax) - _cameraPlacedPitch;
-        var (o, d) = FreshAim.Turn(new System.Numerics.Vector3(o3.X, o3.Y, o3.Z), new System.Numerics.Vector3(d3.X, d3.Y, d3.Z), _cameraPlacedFeet, dyaw, dpitch, MaxPitch);
+        var (o, d) = FreshAim.Turn(new System.Numerics.Vector3(o3.X, o3.Y, o3.Z), new System.Numerics.Vector3(d3.X, d3.Y, d3.Z), _cameraPlacedFeet, dyaw, dpitch, MaxPitchUp);
         return (o, d);
     }
 

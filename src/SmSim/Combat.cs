@@ -477,7 +477,10 @@ public static class Combat
         bool aimDown = (input.Buttons & InputButtons.Aim) != 0;
         // M44: the dash's direction is latched from the stick at the take-off's press (a key let go a tick before Space still counts).
         var dashDirection = dashAt is not null && jump.Started ? Evade.DirectionOf(input.Sanitized().MoveX, input.Sanitized().MoveY, evadeSpec!.Diagonals) : s.JumpDashDirection;
-        var evade = Evade.Begin(s, evadeSpec, input.Sanitized(), jumpDown && !s.JumpHeld, meleePress || heavyPress, switchPress, fireDown || aimDown || grenadePress, c,
+        // sim/roll-fire-pitch (protocol 51; the owner 2026-11-01: "ensure you can never shoot while the roll animation is playing"): on the Tactical classes' roll the
+        // trigger does not end the evade at the data's BRANCH_ToRanged (RangedAt) any more; Aim and a grenade still do, the stick at BRANCH_Run as before.
+        bool roll = IsRoll(evadeSpec);
+        var evade = Evade.Begin(s, evadeSpec, input.Sanitized(), jumpDown && !s.JumpHeld, meleePress || heavyPress, switchPress, (fireDown && !roll) || aimDown || grenadePress, c,
             jump.DashStart, jump.Started, dashDirection);
         if (meleeJumpBranch && !jump.Started && !evade.Started) s = beforeJumpBranch;   // nothing took the press: the attack goes on
         bool evading = evade.Active;
@@ -513,8 +516,15 @@ public static class Combat
         // Whether the button is held stays the real one, so after the sprint a semi-automatic or charge weapon needs a new press; a full-auto trigger fires on.
         bool sprintNoFire = (input.Buttons & InputButtons.Sprint) != 0 && sanitized.MoveY > 0f && s.Grounded && !reacting && !rushing && !evading
             && jump.Phase == JumpPhase.None && !jump.Started && !(aimDown && weapon is not null) && !(step > 0 && time < MoveAtOf(steps[step - 1], c));
-        bool fireHeldThroughSprint = sprintNoFire && fireDown;
-        if (sprintNoFire) fireDown = firePress = chargeDown = chargePress = basicDown = basicPress = shotWanted = false;
+        // sim/roll-fire-pitch (protocol 51; the owner 2026-11-01: "ensure you can never shoot while the roll animation is playing"): for the whole roll the trigger does
+        // nothing for every weapon (no shot, no charge start, no raise; nothing buffered), and in the tick the stick, Aim or a grenade cuts the roll short (before its clip's
+        // end) neither, as the charge's fireDropped. A charge or pending charged shot held into the roll is cancelled at its start (the M21 rule, below), a raise and a
+        // burst's later rounds by the lowering. As with the sprint, the button's held state stays the real one: after the roll a full-auto trigger fires on, a
+        // semi-automatic or charge weapon needs a new press. Only the roll: the heavies' hop and the jump-pack dash keep their rules (the owner named the roll).
+        bool rollCut = roll && !evade.Active && s.EvadeTicks > 0 && Evade.Move(s, c) is { } rollMove && Evade.Time(s, c) + 1e-5f < rollMove.Duration;
+        bool rollNoFire = roll && (evading || rollCut);
+        bool fireHeldThroughSprint = (sprintNoFire || rollNoFire) && fireDown;
+        if (sprintNoFire || rollNoFire) fireDown = firePress = chargeDown = chargePress = basicDown = basicPress = shotWanted = false;
         bool cancelReload = false;
         bool startedNow = false;   // sim/combat-2 (item 39): an attack (from rest, or the next of a string) began in this very tick
         MeleeStep? motionStep = null;   // feel/melee-lock: the attack whose root motion and alignment this tick covers, over (motionFrom, motionTo]
@@ -581,7 +591,7 @@ public static class Combat
         int pending = weapon is not null && Shots.ChargeShotOf(weapon, s.PendingShot) is not null ? s.PendingShot : 0;
         float pendingLeft = pending > 0 ? s.PendingLeft : 0f;
         int projectilesOut = s.ProjectilesOut;
-        if (step > 0 || evade.Started || noFire || sprintNoFire) { charging = false; chargeTime = 0f; pending = 0; pendingLeft = 0f; }   // a melee attack, an evade or a sprint cancels them (and a raise: below)
+        if (step > 0 || evade.Started || noFire || sprintNoFire || rollNoFire) { charging = false; chargeTime = 0f; pending = 0; pendingLeft = 0f; }   // a melee attack, an evade or a sprint cancels them (and a raise: below)
         if (jump.PoundStart) { charging = false; chargeTime = 0f; pending = 0; pendingLeft = 0f; reloadLeft = 0f; }   // and so does a ground pound (and a reload)
         // Venting (Vent; fidelity gap 7): on Reload or by itself while overheated, while the player stands or walks and does nothing else (owner's
         // recollection: everything but walking stops it); it adds to the in-hand weapon's cooling and takes the weapon (no shot, charge or reload).
@@ -1021,6 +1031,12 @@ public static class Combat
         if ((input.Buttons & InputButtons.Sprint) == 0) return false;
         return !(Loadouts.InHand(c, s) is not null && (input.Buttons & InputButtons.Aim) != 0);
     }
+
+    /// <summary>
+    /// sim/roll-fire-pitch: whether the class's evade is a roll (the Tactical classes' <c>evade</c> set): not the jump-pack dash and no move that hops
+    /// (the heavies' <c>heavy_evade</c>, the Ork's side hop). The trigger is blocked for the whole roll (owner's decision 2026-11-01).
+    /// </summary>
+    public static bool IsRoll(EvadeSpec? spec) => spec is { Dash: false } && !spec.Forward.Hops && !spec.Back.Hops && !spec.Left.Hops && !spec.Right.Hops;
 
     /// <summary>Unit aim direction from yaw (0 faces +Y, as in movement) and pitch (positive up).</summary>
     public static Vector3 AimDirection(float yaw, float pitch)

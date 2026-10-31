@@ -507,7 +507,7 @@ public partial class NetworkView
         return $"Hip fire (M27, M31): ready posture {(_hipAnims is null ? _hipNote : "from the behaviour graphs")} while the simulation holds the weapon up ({_config?.ReadyHold:F2} s after a shot, the owner's rough estimate, unverified; " +
                "the first shot from a lowered weapon waits for its raise: rifle 0.2, pistol 0.167 s, from the graphs; heavy bolter, grenade launcher, melta, lascannon, plasma cannon always up), " +
                "movement clips blended between the neighbouring directions and speed bands by the damped velocity (M40-T4; the nearest clip when the gait data is missing or with --no-gait-blend), and by pitch; recoil = the original additive clip per shot (grenade launcher: partial overlay, approximation); " +
-               "shots as accurate as aimed fire; a sprint lowers the weapon and blocks the trigger (protocol 51). " +
+               "shots as accurate as aimed fire; a sprint lowers the weapon and blocks the trigger, so does the Tactical roll (protocol 51). " +
                (own is null ? "" : $"Now: {(HipReady(_client!.Predicted) ? (_client.Predicted.RaiseTicks > 0 ? "raising" : "ready") : "relaxed")}, {own.Shots} own shots, last {(_connectedFor - own.ShotAt < 1e6 ? $"{_connectedFor - own.ShotAt:F1} s ago" : "never")}.");
     }
 }
