@@ -274,6 +274,7 @@ public partial class NetworkView
         if (set.Slot(slot) is not { } clip) return;
         t.Flinch = clip; t.FlinchAt = t.FlinchLast = _connectedFor;
         t.FlinchPeak = OldFlinchWeight ? 1f : WeightFeel.FlinchRangedPeak;   // feel/weight-impact
+        FeelShotTrigger("flinch");
         _flinches++;
         if (UpperLog) GD.Print($"t {_connectedFor:F2} s: P{victimId} FLINCH {clip.Clip} ({setName} slot {slot}: {(head ? "head" : "body")} hit from {(behind ? "behind" : "the front")}, {(left ? "left" : "right")}; {clip.Length:F2} s)");
     }

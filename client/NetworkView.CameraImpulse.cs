@@ -30,16 +30,55 @@ public partial class NetworkView
 
     readonly CameraImpulse _cameraImpulse = new();
 
+    // --feel-shots <dir> --feel-shots-on <event> [--feel-shots-max n] (capture aid): the frames after an event (landing, pack landing, ground pound, shot, melee, flinch, blast), for the before / after sheets.
+    static readonly string? FeelShotsDir = ArgAfter("--feel-shots");
+    static readonly string FeelShotsOn = ArgAfter("--feel-shots-on") ?? "";
+    static readonly int FeelShotsMax = (int)(FloatArg("feel-shots-max") ?? 3f);
+    static readonly double[] FeelShotTimes = [0.0, 0.033, 0.067, 0.1, 0.15, 0.2, 0.3, 0.45, 0.7];
+    double _feelShotAt = double.NegativeInfinity;
+    int _feelShotNext, _feelShotSet;
+
+    static string? ArgAfter(string flag)
+    {
+        var a = OS.GetCmdlineUserArgs();
+        int i = Array.IndexOf(a, flag);
+        return i >= 0 && i + 1 < a.Length ? a[i + 1] : null;
+    }
+
+    /// <summary>Starts a capture when <paramref name="why"/> is the event asked for, none is under way and the last ended a while ago.</summary>
+    void FeelShotTrigger(string why)
+    {
+        if (FeelShotsDir is null || why != FeelShotsOn || _feelShotSet >= FeelShotsMax || _connectedFor - _feelShotAt < 2.0) return;
+        _feelShotAt = _connectedFor; _feelShotNext = 0; _feelShotSet++;
+    }
+
+    void FeelShotsFrame()
+    {
+        if (FeelShotsDir is null || !double.IsFinite(_feelShotAt) || _feelShotNext >= FeelShotTimes.Length) return;
+        double since = _connectedFor - _feelShotAt;
+        if (since + 1e-6 < FeelShotTimes[_feelShotNext]) return;
+        System.IO.Directory.CreateDirectory(FeelShotsDir);
+        string path = System.IO.Path.Combine(FeelShotsDir, $"{FeelShotsOn.Replace(' ', '_')}{_feelShotSet}_{(int)Math.Round(since * 1000):D4}.png");
+        var err = GetViewport().GetTexture().GetImage().SavePng(path);
+        GD.Print(err == Error.Ok ? $"feel shot -> {path}" : $"feel shot failed: {err}");
+        while (_feelShotNext < FeelShotTimes.Length && FeelShotTimes[_feelShotNext] <= since + 1e-6) _feelShotNext++;
+    }
+
     /// <summary>A kick of the own camera; positive dips the view, negative throws it up (as <see cref="Punch"/>).</summary>
     void CameraKick(float degrees, string why)
     {
+        FeelShotTrigger(why);
         if (OldCameraImpulse || degrees == 0f) return;
         _cameraImpulse.Add(degrees);
         if (LogWeightFeel) GD.Print($"t {_connectedFor:F2} s: weight feel: camera {degrees:+0.00;-0.00} deg ({why})");
     }
 
     /// <summary>The impulses' pitch this frame (radians), added to the camera's punch by <c>FxApplyShake</c>.</summary>
-    float CameraImpulseNow(double delta) => OldCameraImpulse ? 0f : _cameraImpulse.Step((float)delta) * MathF.PI / 180f;
+    float CameraImpulseNow(double delta)
+    {
+        FeelShotsFrame();
+        return OldCameraImpulse ? 0f : _cameraImpulse.Step((float)delta) * MathF.PI / 180f;
+    }
 
     void HeavyWeaponKick(PlayerState me, WeaponSpec weapon, int stage) => CameraKick(-WeightFeel.CameraRecoilDegrees(weapon.Name, stage, me.Aiming), "shot");
 
