@@ -9,9 +9,10 @@ namespace SmClient;
 /// The reference (8 frames): the pack burns purple in the dive; at the landing a huge blue-white energy burst blooms over the impact and much of the screen (white at its peak, then the
 /// marine washed cyan), the ground pound's yellow chevrons show at the spot, and it is gone about 0.4 s later. The data binds no effect of its own to the MP slash; the effect that
 /// matches is the jump pack's perk landing <c>jumppack_land_extreme_mp</c> (<c>actn_gp_hit</c>'s perk entry, scale 1.4): an <c>add_point_cool</c> flash bloom 9.9 m (x scale) in radius, a flash ball,
-/// directional streaks, bright spikes, a lit skirt, ground flashes and a shock ring, a light. It plays here at the data's 1.4 without its crater and crack decals (<see cref="FxEffect.NoDecals"/>).
-/// Ours, estimates (spec "Air slash landing flash"): the blue-white point light (the power sword's light colour, 115 186 255, 14 m, 0.4 s) and the own view's screen flash
-/// (white at a close landing fading to cyan, 0.4 s, by distance). <c>--no-slash-flash</c> restores the previous look.
+/// directional streaks, bright spikes, a lit skirt, ground flashes and a shock ring, a light. It plays here as a small in-world burst at 0.6 (ours; the data plays 1.4), tinted
+/// blue-white, without its crater and crack decals (<see cref="FxEffect.NoDecals"/>). Owner 2026-10-31: no full-screen flash (focus on the character, not the reference's flash).
+/// Ours, estimates (spec "Air slash landing flash"): the blue-white point light (the power sword's light colour, 115 186 255, 14 m, 0.4 s). <c>--slash-big-flash</c> plays the
+/// data's 1.4 with the own view's screen flash (own landing only, not stacking); <c>--no-slash-flash</c> restores the look before this pass.
 /// </summary>
 public partial class NetworkView
 {
