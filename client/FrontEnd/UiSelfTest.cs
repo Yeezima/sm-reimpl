@@ -240,7 +240,7 @@ public sealed partial class UiSelfTest : Node
         Check("leaving with edits asks Save / Discard / Cancel", dialog is not null && new[] { "Save", "Discard", "Cancel" }.All(t => FindButton(dialog, b => b.Text == t) is not null));
         ClickDialog("Discard");
         await Frames(4);
-        Check("Discard reverts and shows the Join screen", !session.Dirty && session.Working.ClassAt(4)?.Name == "Zed the Bold" && _front.ShowsMainMenu);
+        Check("Discard reverts and shows the main menu", !session.Dirty && session.Working.ClassAt(4)?.Name == "Zed the Bold" && _front.ShowsMainMenu);
 
         // 9. the appearance editor: a preset, a colour, a badge, then undo.
         _front.ShowCreator();
@@ -385,14 +385,14 @@ public sealed partial class UiSelfTest : Node
     }
 
     /// <summary>
-    /// Window sizes the front end must fit (fix/frontend-fit, release issue 1: the Join screen's bottom row was cut off at about 1600 x 930): the common 16:9 sizes, the
+    /// Window sizes the front end must fit (fix/frontend-fit, release issue 1: the lobby menu's bottom row was cut off at about 1600 x 930): the common 16:9 sizes, the
     /// owner's window, an ultrawide, a 5:4 and 4K. The UI is a 1920 x 1080 space stretched to the window with the aspect kept (more room on the long side), so these
     /// cover what Windows display scaling changes too: it changes only the window's size in pixels.
     /// </summary>
     static readonly Vector2I[] FitSizes = [new(1280, 720), new(1600, 900), new(1600, 930), new(1920, 1080), new(2560, 1080), new(1280, 1024), new(3840, 2160)];
 
     /// <summary>
-    /// Lays out the Join screen, the creator (also with the in-match picker's banner, DEPLOY, RESUME and LEAVE MATCH) and the appearance editor at each of
+    /// Lays out the lobby menu, the creator (also with the in-match picker's banner, DEPLOY, RESUME and LEAVE MATCH) and the appearance editor at each of
     /// <see cref="FitSizes"/> and checks that every button, field and slider is inside the window, or inside a scroll list that is itself inside the window.
     /// A loadout with the longest possible name is active, so the ACTIVE lines are as long as they get.
     /// </summary>
@@ -824,7 +824,7 @@ public sealed partial class UiSelfTest : Node
     }
 
     /// <summary>
-    /// Added content E2 (docs/added-content.md): the content profile on the Join screen and what it hides. Runs last and leaves the saved choice at the default.
+    /// Added content E2 (docs/added-content.md): the content profile on the lobby menu and what it hides. Runs last and leaves the saved choice at the default.
     /// </summary>
     async Task ContentChecks()
     {

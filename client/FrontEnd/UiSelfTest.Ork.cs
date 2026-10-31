@@ -96,7 +96,7 @@ public sealed partial class UiSelfTest
     }
 
     /// <summary>
-    /// The Ork Boy in the menus (O9): offered in Extended (faction button, class tab, DEFAULTS chip on the Join screen), drawn on his own rig in the preview, his fixed gear
+    /// The Ork Boy in the menus (O9): offered in Extended (faction button, class tab, DEFAULTS chip in the customizer), drawn on his own rig in the preview, his fixed gear
     /// and the Tactical's perks, his LOOK step instead of the appearance editor, a custom Ork loadout that saves and loads, a Join that sends his class and look; none of it
     /// in Faithful (the saved Ork loadout kept, joined as the side's default). Restores the content choice and the profile it found.
     /// </summary>

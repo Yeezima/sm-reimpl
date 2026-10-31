@@ -113,6 +113,22 @@ public sealed partial class UiSelfTest
             _front.ShowMainMenu();
             await Frames(3);
 
+            // The in-match Esc menu (the real one is checked in a match by --pad-test): the same layout over a dim, no image.
+            bool resumed = false;
+            var escMenu = new MatchMenu(() => resumed = true, () => { }, () => { }, () => { }) { Visible = false };
+            _front.AddChild(escMenu);
+            escMenu.Open(alive: true);
+            await Frames(4);
+            Check("menu: the Esc menu's rows", RowTexts(escMenu).SequenceEqual(["RESUME", "LOADOUT", "OPTIONS", "LEAVE MATCH"]), string.Join(", ", RowTexts(escMenu)));
+            Check("menu: the Esc menu has a translucent dim and no background image", escMenu.GetChild(0) is ColorRect { Color.A: > 0.2f and < 0.8f } && escMenu.FindChild("MenuBackground", true, false) is null);
+            await SendKey(Key.Escape);
+            Check("menu: Esc resumes from the Esc menu", resumed);
+            resumed = false;
+            await SendPad(JoyButton.B);
+            Check("menu: B resumes from the Esc menu", resumed);
+            _front.RemoveChild(escMenu);
+            escMenu.QueueFree();
+
             // The bundled font and the one colour.
             Check("menu: every menu uses the bundled font", UiKit.Theme.DefaultFont is FontVariation { BaseFont: FontFile { Data.Length: > 100000 } });
             Check("menu: the highlight colour is the text colour", UiKit.Gold == UiKit.White);

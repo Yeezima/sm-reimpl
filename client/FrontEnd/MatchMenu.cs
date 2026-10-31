@@ -48,7 +48,7 @@ public sealed partial class MatchMenu : UiKit.MenuPage
 
     public override void _Input(InputEvent e)
     {
-        if (!IsVisibleInTree() || !PadHost.IsBack(e)) return;
+        if (!IsVisibleInTree() || FocusBehaviorRecursive == FocusBehaviorRecursiveEnum.Disabled || !PadHost.IsBack(e)) return;   // an open question takes Esc and B itself
         GetViewport().SetInputAsHandled();
         _resume();
     }

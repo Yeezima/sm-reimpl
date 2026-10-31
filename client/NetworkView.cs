@@ -216,7 +216,7 @@ public partial class NetworkView : Node3D
     /// </summary>
     internal static ContentExtras ContentArg()
     {
-        // Added content E2: a match joined from the front end (or with a profile) plays the profile the Join screen showed (seeded from --content, else the saved choice).
+        // Added content E2: a match joined from the front end (or with a profile) plays the profile the lobby menu showed (seeded from --content, else the saved choice).
         if (SmClient.FrontEnd.FrontEndLaunch.Current is { } joined) return joined.Content ?? joined.Services.Content;
         var args = OS.GetCmdlineUserArgs();
         int i = Array.IndexOf(args, "--content");

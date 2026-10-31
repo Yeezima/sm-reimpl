@@ -58,7 +58,7 @@ public partial class NetworkView
     /// <summary>The menu is open or being opened (the customizer is still loading): the mouse is free and the game takes no input.</summary>
     bool PickerBusy => _pickerLayer is not null || _pickerWanted;
 
-    /// <summary>Set by the shell that started this view (<c>ModelViewer</c>): returns to the front end's Join screen (the T8 back path). Null: no "LEAVE MATCH" button.</summary>
+    /// <summary>Set by the shell that started this view (<c>ModelViewer</c>): returns to the front end's main menu (the T8 back path). Null: no "LEAVE MATCH" button.</summary>
     public Action? LeaveToMenu { get; set; }
 
     /// <summary>The own player counts as alive until the first snapshot has told who it is (id 0 is the state before it): no "dead" flash while joining.</summary>

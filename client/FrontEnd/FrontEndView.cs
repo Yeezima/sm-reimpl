@@ -568,6 +568,7 @@ public sealed partial class FrontEndView : Control
         }
         // --menu-screen lobby|host|joinlocal|graphics|sound|controls: opens that page (screenshots).
         if (args.GetValueOrDefault("menu-screen") is { } menuScreen) ShowMenuPage(menuScreen);
+        if (args.ContainsKey("auto-musou")) StartMusou();   // test aid: presses MUSOU MODE once
         if (args.ContainsKey("demo-look")) DemoLook();
         // --loadout <default:role|1..10>: the loadout to open with (held in memory, not saved), as at a --connect launch.
         if (args.GetValueOrDefault("loadout") is { } wanted && LaunchOptions.ParseLoadout(wanted, _services.Catalog!) is { } chosen && LoadoutEdits.IsValid(_services.Session!.Working, chosen))

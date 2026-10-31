@@ -5,7 +5,7 @@ namespace SmClient;
 /// <summary>
 /// The build stamp of a tester release (tools/release/release.ps1 passes <c>InformationalVersion = "&lt;git describe&gt;|&lt;yyyy-MM-dd&gt;"</c>
 /// to the build; nothing is generated or committed). A plain <c>client.cmd</c> build has no stamp and reports "dev".
-/// Nothing reads this yet: the front end's Join screen can show <see cref="Summary"/> (for example next to its title or in a corner label).
+/// Nothing reads this yet: the front end's main menu can show <see cref="Summary"/> (for example next to its title or in a corner label).
 /// </summary>
 public static class BuildInfo
 {

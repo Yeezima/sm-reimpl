@@ -10,7 +10,7 @@ namespace SmClient.Customizer;
 
 /// <summary>
 /// The loadout chips (docs/customizer-design.md section 3): the three DEFAULTS loadouts and CUSTOM 1 to 10, each with its name and class and the words
-/// ACTIVE / UNSAVED / EMPTY (the ACTIVE one also a star). Used by the Join screen and the creator. The strip only reports clicks; the screen decides what a click does.
+/// ACTIVE / UNSAVED / EMPTY (the ACTIVE one also a star). Used by the creator. The strip only reports clicks; the screen decides what a click does.
 /// </summary>
 public sealed partial class SlotStrip : VBoxContainer
 {

@@ -235,7 +235,7 @@ public sealed partial class CreatorView : Control
     {
         ReturnFromRevertedCopy();
         _open = ValidOpen();
-        // The content profile may have changed on the Join screen (ui/customizer-ork): the remembered DEFAULTS role, the factions and the class tabs follow it.
+        // The content profile may have changed on the lobby menu (ui/customizer-ork): the remembered DEFAULTS role, the factions and the class tabs follow it.
         if (_lastDefaultsRole is { } last && !_services.Roles().Contains(last, StringComparer.OrdinalIgnoreCase)) _lastDefaultsRole = null;
         BuildSideToggle();
         BuildTabs();
@@ -517,7 +517,7 @@ public sealed partial class CreatorView : Control
         }
         else if (_step == Step.Look && IsOrkOpen) AddOrkLooks(rowButtons, Heading, Note);
         else AddPerks(rowButtons, Heading, Note);
-        if (IsOrkOpen && _step is Step.Weapons or Step.Equipment) Note("The Ork Boy carries these and nothing else. He fights for either side: the Join screen's SIDE picks which.");
+        if (IsOrkOpen && _step is Step.Weapons or Step.Equipment) Note("The Ork Boy carries these and nothing else. He fights for either side: the lobby menu's SIDE picks which.");
 
         if (rowButtons.Count > 0)
         {
