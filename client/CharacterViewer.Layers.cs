@@ -111,7 +111,7 @@ public partial class CharacterViewer
             if (s.Clip is null) { ClearLayer(slot); return false; }
         }
         s.Time = float.IsFinite(time) ? Math.Clamp(time, 0f, s.Clip.Animation.Duration) : 0f;
-        s.Weight = float.IsFinite(weight) ? Math.Clamp(weight, 0f, 1f) : 0f;
+        s.Weight = float.IsFinite(weight) ? Math.Clamp(weight, 0f, additive ? 2f : 1f) : 0f;   // feel/weight-impact: an additive clip may be laid stronger than authored
         s.Additive = additive || referenceTime >= 0f;
         s.RefTime = float.IsFinite(referenceTime) && referenceTime >= 0f ? Math.Min(referenceTime, s.Clip.Animation.Duration) : -1f;
         _layersDirty = true;   // a clip shown by Pose() is applied again for it (pass 2)

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using SmContent;
+using SmNet;
 using SmSim;
 using Num = System.Numerics;
 
@@ -65,6 +66,7 @@ public partial class NetworkView
     /// <summary>The pound's impact for <paramref name="s"/> at the ground it stands on; <paramref name="pack"/> is its jump pack.</summary>
     void PoundImpactPresentation(PlayerState s, bool own, JumpPackSpec? pack)
     {
+        if (own) CameraKick(WeightFeel.PoundDipDegrees, "pound");   // feel/weight-impact: on top of the shake, which is unchanged
         if (!FxActive || _fx is null || _catalogue is null || pack is null) return;
         if (_catalogue.JumpPack(pack.Name) is not { } effects) { if (_fxNoted.Add("jumppack:" + pack.Name)) GD.Print($"  effects: no ground effects for jump pack '{pack.Name}'"); return; }
         var (point, normal, surface) = GroundUnder(s.Position);
@@ -85,6 +87,7 @@ public partial class NetworkView
     /// <summary>A landing after <paramref name="drop"/> metres from the highest point: the data's landing effect for that drop only.</summary>
     void LandingPresentation(PlayerState s, bool own, JumpPackSpec? pack, float drop)
     {
+        if (own) CameraKick(WeightFeel.LandingDipDegrees(WeightFeel.SpeedOfDrop(drop)), "pack-landing");   // feel/weight-impact
         if (!FxActive || _fx is null || _catalogue is null || pack is null || _catalogue.JumpPack(pack.Name) is not { } effects) return;
         var plays = effects.LandingFor(drop);
         if (plays.Count == 0) return;

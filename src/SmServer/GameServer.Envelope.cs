@@ -33,6 +33,32 @@ public sealed partial class GameServer
     /// </summary>
     partial void ExtrasSend();
 
+    /// <summary>Added-content commands passed to the hook, and commands dropped: the match reads none, a spectator's, or over the rate.</summary>
+    public int ExtrasCommandsAccepted { get; private set; }
+    public int ExtrasCommandsDropped { get; private set; }
+
+    /// <summary>The most commands a client gets through per second (ours; design: at most 8 a second), as a token bucket of this burst.</summary>
+    const double ExtrasCommandRate = 8;
+
+    /// <summary>
+    /// One client's command (message kind 17; the session is checked in <see cref="Dispatch"/>). A faithful or extended server (no flag of <c>ContentExtras.CommandUsers</c>) drops
+    /// it without reading it, as it drops the action key; nothing acts on the world and nothing is sent back.
+    /// </summary>
+    void OnExtrasCommand(Peer peer, ExtrasCommandMessage command)
+    {
+        if ((World.Config.Extras & ContentExtras.CommandUsers) == 0 || peer.Spectator) { ExtrasCommandsDropped++; return; }
+        peer.Commands ??= new TokenBucket(ExtrasCommandRate, ExtrasCommandRate);
+        if (!peer.Commands.TryTake(_clock.Now)) { ExtrasCommandsDropped++; return; }
+        ExtrasCommandsAccepted++;
+        ExtrasCommand(peer.PlayerId, command.Tag, command.Payload);   // EXTRAS-HOOK
+    }
+
+    /// <summary>
+    /// Hook for added content (docs/added-content.md section 4): a command of <paramref name="player"/> arrived. Runs on the packet path between ticks: an implementation
+    /// queues it for the next tick and treats the bytes as untrusted. Implemented in an <c>Extras/</c> folder; each feature skips the tags it does not own.
+    /// </summary>
+    partial void ExtrasCommand(int player, byte tag, byte[] payload);
+
     /// <summary>
     /// Sends <paramref name="update"/> to every client, or only to <paramref name="toPlayer"/> (a per-recipient section). False, and nothing
     /// sent, when the match runs no added content (a faithful server never sends kind 16), the message has no section, or the player is not

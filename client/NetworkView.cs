@@ -1432,7 +1432,7 @@ public partial class NetworkView : Node3D
         if (character.GetNodeOrNull<Node3D>("ChargeGlow") is { } glow) glow.Visible = state.Alive && state.Charging && !NoMarkers;
         // Reacting (M28): the reaction clip at the reaction's time; a reaction ends any attack, throw, evade or jump on the ground.
         character.ClipFootLock = false;   // anim/melee-flow: only the strikes and the charge below hold their put-down feet (CharacterViewer.ClipFootLock.cs)
-        if (ReactionPose(state) is { } reaction && character.Pose(reaction.Clip, MathF.Max(0f, (smooth is { Kind: ClipKind.Reaction } sr ? sr.Time : reaction.Time) - HitStopHold(state.PlayerId)), ClipBlends.Reaction)) return;   // feel/melee-lock: the hit-stop holds it
+        if (ReactionPose(state) is { } reaction && PoseSharp(character, reaction.Clip, MathF.Max(0f, (smooth is { Kind: ClipKind.Reaction } sr ? sr.Time : reaction.Time) - HitStopHold(state.PlayerId)), ClipBlends.Reaction)) return;   // feel/melee-lock: the hit-stop holds it
         // Charging (M29): the rush or its collision stop, at the phase's time.
         // feel/jump-pack (the owner, 2026-10-29): a charge held in the air off a ledge shows the fall pose (the locomotion path below), not its clip frozen (NetworkView.Fall.cs).
         // anim/melee-flow: nor, once landed, the rush clip again in that charge (RushRebashHeld: no second bash).
@@ -1459,7 +1459,7 @@ public partial class NetworkView : Node3D
             // anim/melee-flow (NetworkView.MeleeFlow.cs): the blend into the strike from its graph (entry or chain); noted every frame the strike shows, handed over or not.
             float entryBlend = NoMeleeFlow ? ClipBlends.Melee(state.MeleeStep) : MeleeEntryBlend(state);
             if (HandoffAttack(character, state, own, baseClip, attackTime, baseTime)) return;
-            if (character.Pose(baseClip, baseTime, entryBlend))
+            if (PoseSharp(character, baseClip, baseTime, entryBlend, sharp: !(state.MeleeHeavy && HeavyClass(state))))   // feel/weight-impact: not the stomp
             {
                 if (overClip is not null) character.SetLayer(PoseSlots.MeleeVariant, overClip, overTime, overWeight, additive: false);
                 return;
@@ -2075,6 +2075,9 @@ public partial class NetworkView : Node3D
     /// </summary>
     LoadedMap? LoadMap(string name)
     {
+        LoadedMap? generated = null;
+        ExtrasLoadMap(name, ref generated);   // EXTRAS-HOOK: a map added content generates in code (the Three-Front War's tfw_war); nothing below reads it from the install
+        if (generated is not null) return generated;
         var watch = System.Diagnostics.Stopwatch.StartNew();
         Ph("map load: collision and content");
         MemStep("before map"); var map = MapContent.Load(_gameDir, name); MemStep("map content");
@@ -2170,6 +2173,9 @@ public partial class NetworkView : Node3D
         _jumpGround = world;   // M45: the flight pose's height above the ground
         return new LoadedMap(world, map.Hash);
     }
+
+    /// <summary>Hook for added content, at the top of <see cref="LoadMap"/>: sets <paramref name="loaded"/> for a map it generates (and draws it). Implemented in an <c>Extras/</c> folder.</summary>
+    partial void ExtrasLoadMap(string name, ref LoadedMap? loaded);
 
     void AddGroundCameraAndLights()
     {

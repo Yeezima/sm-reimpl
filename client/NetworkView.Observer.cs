@@ -68,12 +68,12 @@ public partial class NetworkView
                 if (_obsFollow != 0)
                 {
                     _obsOrbitYaw -= motion.Relative.X * MouseYawPerPixel * MouseLook;
-                    _obsOrbitPitch = Math.Clamp(_obsOrbitPitch - motion.Relative.Y * MouseYawPerPixel * MouseLook, -1.2f, 1.2f);
+                    _obsOrbitPitch = Math.Clamp(_obsOrbitPitch - motion.Relative.Y * SmClient.Customizer.Model.LiveOptions.MouseVertical * MouseYawPerPixel * MouseLook, -1.2f, 1.2f);
                 }
                 else
                 {
                     _obsYaw -= motion.Relative.X * MouseYawPerPixel * MouseLook;
-                    _obsPitch = Math.Clamp(_obsPitch - motion.Relative.Y * MouseYawPerPixel * MouseLook, -1.55f, 1.55f);
+                    _obsPitch = Math.Clamp(_obsPitch - motion.Relative.Y * SmClient.Customizer.Model.LiveOptions.MouseVertical * MouseYawPerPixel * MouseLook, -1.55f, 1.55f);
                 }
                 break;
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelUp or MouseButton.WheelDown } wheel:

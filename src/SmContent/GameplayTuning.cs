@@ -107,7 +107,7 @@ public sealed partial record GameplayTuning(SimConfig Config, string Source, IRe
     /// <summary>
     /// feel/locks-sprint-stop (the owner's request of 2026-10-29: "i generally feel too locked out of movement.. reduce generally the animation timings so i
     /// can jump or hop out of things more easily. mark that as a estimation for later review"): <see cref="SimConfig.ActionLockScale"/>, the factor on the
-    /// times that gate moving, jumping and evading out of an action. 0.7 is an **estimate (owner's request)**, to review in a playtest.
+    /// times that gate moving, jumping and evading out of an action, not the evade's cooldown (sim/evade-cooldowns). 0.7 is an **estimate (owner's request)**, to review in a playtest.
     /// </summary>
     public const float OwnerLockScale = 0.7f;
 

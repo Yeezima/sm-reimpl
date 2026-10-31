@@ -269,6 +269,9 @@ public partial class CharacterViewer : Node3D
     /// </summary>
     public const float MinEntryBlendSeconds = 0.125f;
 
+    /// <summary>feel/weight-impact: set around one <see cref="Pose"/> call, this entry's shortest fade instead of the usual floor (s; 0: the usual; <c>NetworkView.PoseSharp</c>).</summary>
+    public float EntryFloorOnce;
+
     /// <summary>Starts a cross-fade from the pose shown now (before a clip takes over); no fade when <paramref name="seconds"/> is 0 or no pose was shown yet.</summary>
     void BeginEntry(float seconds)
     {
@@ -278,7 +281,7 @@ public partial class CharacterViewer : Node3D
         if (!TakeSnapshot()) return;
         _snapActive = false;   // the stance blend's flag: the snapshot belongs to this entry now
         ResetEntryArcs();   // animation pass 3 (CharacterViewer.Transitions.cs)
-        _entryActive = true; _entryElapsed = 0f; _entryDuration = Math.Clamp(seconds, NoP3 ? MinEntryBlendSeconds : SmoothMinEntryBlendSeconds, 2f);
+        _entryActive = true; _entryElapsed = 0f; _entryDuration = Math.Clamp(seconds, EntryFloorOnce > 0f ? EntryFloorOnce : NoP3 ? MinEntryBlendSeconds : SmoothMinEntryBlendSeconds, 2f);
     }
 
     /// <summary>anim/feel-pass: a clip posed again further back than this (s) is taken as started again and faded into (ours: more than a remote clip's smoothing ever sets it back).</summary>

@@ -178,6 +178,8 @@ public sealed partial class UiSelfTest
             ((UiKit.MenuChoice)FindButton(options, b => b.Text == "INVERT Y")!).Step(1);
             await Frames(2);
             Check("options: Invert Y turns the mouse's vertical look", LiveOptions.MouseVertical == -1f);
+            string observer = System.IO.File.Exists(ProjectSettings.GlobalizePath("res://NetworkView.Observer.cs")) ? System.IO.File.ReadAllText(ProjectSettings.GlobalizePath("res://NetworkView.Observer.cs")) : "";
+            Check("options: Invert Y reaches both spectator cameras (source check)", observer.Length == 0 || System.Text.RegularExpressions.Regex.Matches(observer, @"Relative\.Y \* SmClient\.Customizer\.Model\.LiveOptions\.MouseVertical").Count == 2);
             ((HSlider)options.FindChild("AimSensitivitySlider", true, false)!).Value = 0.5;
             await Frames(2);
             Check("options: the aim sensitivity scales the mouse while aiming only", Mathf.IsEqualApprox(LiveOptions.MouseAim(true), 0.5f) && LiveOptions.MouseAim(false) == 1f);
@@ -213,14 +215,19 @@ public sealed partial class UiSelfTest
                   && Mathf.IsEqualApprox(saved.MasterVolume, 0.5f) && Mathf.IsEqualApprox(saved.VoiceVolume, 0.25f) && saved.MusicVolume == 0f && Mathf.IsEqualApprox(saved.RenderScale, 0.75f) && Mathf.IsEqualApprox(saved.Brightness, 1.25f), saved.ToString());
             Check("options: a saved file reads back equal", FrontEndSettings.Load(_services.SettingsDirectory) == _services.Settings);
 
-            string file = System.IO.Path.Combine(_services.SettingsDirectory, FrontEndSettings.FileName);
-            string good = System.IO.File.ReadAllText(file);
-            var json = System.Text.Json.Nodes.JsonNode.Parse(good)!.AsObject();
-            json["options"]!["masterVolume"] = 42; json["options"]!["fpsCap"] = 7; json["options"]!["window"] = "Sideways";
-            System.IO.File.WriteAllText(file, json.ToJsonString());
-            var clamped = FrontEndSettings.Load(_services.SettingsDirectory).Options;
-            Check("options: damaged values are limited", clamped is { MasterVolume: 1f, FpsCap: 0, Window: WindowChoice.Windowed }, clamped.ToString());
-            System.IO.File.WriteAllText(file, good);
+            // A damaged file, in a folder of its own under the system's temp: the settings in use are never written with bad values.
+            string damagedDir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sm-selftest-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                System.IO.Directory.CreateDirectory(damagedDir);
+                var json = new System.Text.Json.Nodes.JsonObject { ["options"] = new System.Text.Json.Nodes.JsonObject { ["masterVolume"] = 42, ["fpsCap"] = 7, ["window"] = "Sideways" } };
+                System.IO.File.WriteAllText(System.IO.Path.Combine(damagedDir, FrontEndSettings.FileName), json.ToJsonString());
+                var clamped = FrontEndSettings.Load(damagedDir).Options;
+                Check("options: damaged values are limited", clamped is { MasterVolume: 1f, FpsCap: 0, Window: WindowChoice.Windowed }, clamped.ToString());
+            }
+            finally { try { System.IO.Directory.Delete(damagedDir, true); } catch (System.IO.IOException) { } }
+
+            Check("options: the self-test never changes the window", GetWindow().Mode == Window.ModeEnum.Windowed, GetWindow().Mode.ToString());
 
             // Esc leaves; B too.
             await SendKey(Key.Escape);

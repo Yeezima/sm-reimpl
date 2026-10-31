@@ -33,7 +33,12 @@ public enum MusouBossAbility : byte { GroundSlam = 1, Charge = 2, Waaagh = 3, En
 public readonly record struct MusouEvent(MusouEventKind Kind, uint Tick, ushort Enemy, ushort Player, byte Value, Vector3 Vector);
 
 /// <summary>The director's phase (design section B: the waves, the breaks between them, the boss, the end).</summary>
-public enum MusouPhase : byte { Waiting = 0, Wave = 1, Break = 2, Boss = 3, Won = 4, Lost = 5 }
+public enum MusouPhase : byte
+{
+    Waiting = 0, Wave = 1, Break = 2, Boss = 3, Won = 4, Lost = 5,
+    /// <summary>The Three-Front War is on (the run's own state travels in tag 7): no waves, no lives pool.</summary>
+    Campaign = 6,
+}
 
 /// <summary>
 /// The box enemy positions are quantised over on the wire (the nav graph's area with its floors; sent with the director so a client decodes the entities).

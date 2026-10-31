@@ -436,6 +436,8 @@ public static partial class Protocol
     // 51 (sim/movement-fixes; the owner's report of 2026-11-01; one number for that batch's unreleased rule changes): no wire change. The Devastator / Havoc hop goes
     //     down stairs and off ledges while it keeps going forward (gravity on top of its curve over a drop; the stick no longer ends it in mid-air); the Assault /
     //     Raptor Space tap is the dash at any moment while falling (off a ledge, at a jump's apex or in its fall); a charge off a ledge steers with A / D in the air. Snapshot layout and sizes unchanged (worst case 1194)
+    // 51 (sim/evade-cooldowns; the owner 2026-11-01; part of the same unreleased batch): no wire change, no config hash change. The roll, the hop and the dash take the data's
+    //     cooldown, min_time_between_activations 0.8 s (24 ticks; the 0.7 lock scale made it 0.56 s, 17 ticks), in the own record's existing EvadeLock; a Jump press in it ends nothing and starts no take-off.
     public const ushort Version = 51;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
@@ -545,6 +547,8 @@ public static partial class Protocol
         EnemyBars = 18,
         /// <summary>Added content's envelope (Protocol.Envelope.cs): sent only by a server whose match runs added content; no protocol version of its own (ContentExtras.WireVersion 2).</summary>
         Extras = 16,
+        /// <summary>Client to server, added content's commands (Protocol.Envelope.cs): sent only by a client whose match runs added content that reads them (ContentExtras.CommandUsers).</summary>
+        ExtrasCommand = 17,
     }
 
     /// <summary>
@@ -813,6 +817,7 @@ public static partial class Protocol
             case EnemyBars eb: WriteBars(w, eb); break;   // protocol 44 (Protocol.Bars.cs)
             case PickupUpdate p: WritePickups(w, p); break;   // protocol 26 (Protocol.Pickups.cs)
             case ExtrasUpdate x: WriteExtras(w, x); break;   // added content's envelope (Protocol.Envelope.cs; extras wire 2)
+            case ExtrasCommandMessage c: WriteExtrasCommand(w, c); break;   // added content's commands, client to server (Protocol.Envelope.cs)
             default: throw new ArgumentException($"Unknown message {m.GetType().Name}.");
         }
         return w.ToArray();
@@ -844,6 +849,7 @@ public static partial class Protocol
                 Kind.Pickups => ReadPickups(ref r),
                 Kind.EnemyBars => ReadBars(ref r),
                 Kind.Extras => packet.Length <= MaxExtrasMessageBytes ? ReadExtras(ref r) : null,   // added content's envelope: oversized is refused
+                Kind.ExtrasCommand => ReadExtrasCommand(ref r),
                 _ => null,
             };
             return m is not null && r.AtEnd ? m : null;

@@ -21,8 +21,8 @@ public enum ContentExtras : uint
     /// </summary>
     LoyalistBarks = 4,
     /// <summary>
-    /// Musou (experimental; the owner, 2026-10-31: "This game mode should be labeled Musou"): waves of Orks on Manufactorum converging on Space Marine
-    /// players, played on the player's own PC. A mode, not an addition to the existing ones: not in <see cref="ContentExtrasInfo.All"/> (so <c>extended</c>
+    /// Musou (experimental; the owner, 2026-10-31: "This game mode should be labeled Musou"; 2026-11-01: "the three-front war mode is Musou mode"): the Three-Front War,
+    /// played on the player's own PC. A mode, not an addition to the existing ones: not in <see cref="ContentExtrasInfo.All"/> (so <c>extended</c>
     /// and its config hash are unchanged), and <c>--content musou</c> only alone (never combined with another flag).
     /// </summary>
     Musou = 8,
@@ -56,6 +56,12 @@ public static class ContentExtrasInfo
         /// from every input it receives.
         /// </summary>
         public static ContentExtras ActionKeyUsers => ContentExtras.LoyalistBarks;
+
+        /// <summary>
+        /// The added content that reads the client-to-server extras commands (message kind 17, docs/added-content.md section 4): a server whose match runs none
+        /// of it drops every command, and a client sends none.
+        /// </summary>
+        public static ContentExtras CommandUsers => ContentExtras.Musou;
 
         /// <summary>
         /// Every added content of the <c>extended</c> profile. <see cref="ContentExtras.Musou"/> is a mode of its own and not in it (its profile is

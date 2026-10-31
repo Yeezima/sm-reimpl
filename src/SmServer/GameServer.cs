@@ -152,6 +152,8 @@ public sealed partial class GameServer
         public readonly uint[] SentTick = new uint[TimedTicks];
         public readonly TimeSpan[] SentAt = new TimeSpan[TimedTicks];
         public RttEstimator Rtt { get; } = new();
+        /// <summary>Added content's commands (message kind 17): this peer's rate, made at its first command.</summary>
+        public TokenBucket? Commands;
     }
 
     /// <summary>Ticks of snapshot send times kept per peer for the ping (protocol 50): 64 ticks, 2.1 s at 30 Hz; an acknowledgement of an older snapshot gives no sample.</summary>
@@ -209,6 +211,21 @@ public sealed partial class GameServer
     /// </summary>
     partial void ExtrasCreated();
 
+    /// <summary>
+    /// The map added content generates in code instead of reading it from the install (the console server asks before it loads a map): null when <paramref name="name"/> is a map of
+    /// the install. <paramref name="name"/> may be set when none was asked for (the profile's default map). <paramref name="error"/>: why the request is refused (exit code 2).
+    /// </summary>
+    public static GameMap? GeneratedMap(ContentExtras extras, ref string? name, out string? error)
+    {
+        GameMap? map = null;
+        error = null;
+        ExtrasGeneratedMap(extras, ref name, ref map, ref error);   // EXTRAS-HOOK: a generated map (the Three-Front War's tfw_war)
+        return map;
+    }
+
+    /// <summary>Hook for added content, called by <see cref="GeneratedMap"/>: sets <paramref name="map"/> (and <paramref name="name"/>) for a map it generates, or <paramref name="error"/>. Implemented in an <c>Extras/</c> folder.</summary>
+    static partial void ExtrasGeneratedMap(ContentExtras extras, ref string? name, ref GameMap? map, ref string? error);
+
     public void Update()
     {
         RefreshBans(_clock.Now);   // hardening (GameServer.Guard.cs): bans, per-address rules, idle kick, crash isolation
@@ -261,6 +278,7 @@ public sealed partial class GameServer
             case AppearanceQuery q when _peers.TryGetValue(connection, out var asking) && q.Session == asking.Session: OnAppearanceQuery(connection, asking, q); break;
             case BlobRequest r when _peers.TryGetValue(connection, out var pulling) && r.Session == pulling.Session: OnBlobRequest(connection, pulling, r); break;
             case BlobChunk c when _peers.ContainsKey(connection): OnBlobChunk(connection, c); NoteActivity(connection); break;
+            case ExtrasCommandMessage x when _peers.TryGetValue(connection, out var commanding) && x.Session == commanding.Session: OnExtrasCommand(commanding, x); break;
             case null: RefuseOldHello(connection, packet); break;
         }
     }
@@ -412,6 +430,7 @@ public sealed partial class GameServer
     int NextPlayerId()
     {
         var used = _peers.Values.Select(p => p.PlayerId).ToHashSet();
+        used.UnionWith(World.Players.Keys);   // players without a peer (added content's AI Marines) hold their ids too
         while (used.Contains(_nextPlayerId) || _nextPlayerId is < 1 or > ushort.MaxValue)
             _nextPlayerId = _nextPlayerId is < 1 or >= ushort.MaxValue ? 1 : _nextPlayerId + 1;
         int id = _nextPlayerId;
@@ -713,12 +732,17 @@ public sealed partial class GameServer
         {
             var s = World.Scores.GetValueOrDefault(p.PlayerId);
             var peer = PeerOf(p.PlayerId);
+            string name = peer?.Name ?? "";
+            ExtrasPlayerName(p.PlayerId, ref name);   // EXTRAS-HOOK: the name of a player without a peer (the Three-Front War's AI Marines)
             return new ScoreEntry(p.PlayerId, p.Team, p.Class, s.Kills, s.Deaths, peer?.Appearance.Version ?? 0,
                 Loadouts.EquipmentIndex(World.Config, p),   // protocol 40 (perks/inert-2)
-                peer?.Name ?? "",                          // protocol 41 (names/bot-lore)
+                name,                                      // protocol 41 (names/bot-lore)
                 peer?.Rtt.Ms ?? -1);                       // protocol 50 (net/scoreboard-ping): -1 not measured yet
         }).ToArray(), SeizeOf(World),
         Spectators: _peers.Values.Where(p => p.Spectator).OrderBy(p => p.PlayerId).Take(Protocol.MaxSpectators).Select(p => new SpectatorEntry(p.PlayerId, p.Name)).ToArray() is { Length: > 0 } listed ? listed : null);   // protocol 46
+
+    /// <summary>Hook for added content: the scoreboard name of player <paramref name="id"/> ("" reads as P&lt;id&gt;). Implemented in an <c>Extras/</c> folder; returns at once unless its feature runs.</summary>
+    partial void ExtrasPlayerName(int id, ref string name);
 
     void SendScoreboards()
     {

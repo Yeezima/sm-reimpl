@@ -410,7 +410,10 @@ public static class Combat
         // A hit reaction (Reaction; M28): over (by time, or ended by a Jump, melee or stick input from its branch times), or
         // holding this tick: then the tick runs with no movement and no buttons (presses are lost), and the knockback moves the body.
         var sanitized = input.Sanitized();
-        var (reacting, reacted) = Reaction.Begin(s, c, jumpDown && !s.JumpHeld, meleePress || heavyPress, sanitized.MoveX != 0f || sanitized.MoveY != 0f,
+        // sim/evade-cooldowns: a Jump press the evade's cooldown refuses ends nothing and starts nothing (it only waits in the input buffer): not a reaction or a
+        // charge at their Jump branches, not a take-off that a tap would leave with no dash.
+        bool jumpPressed = jumpDown && !s.JumpHeld && !Evade.RefusesJump(s, Loadouts.JumpPack(c, s), longJump);
+        var (reacting, reacted) = Reaction.Begin(s, c, jumpPressed, meleePress || heavyPress, sanitized.MoveX != 0f || sanitized.MoveY != 0f,
             anyInput: sanitized.MoveX != 0f || sanitized.MoveY != 0f || input.Buttons != InputButtons.None);
         s = reacted with { RushLock = Math.Max(0, reacted.RushLock - 1) };   // the charge's spacing counts down every living tick, as the evade's
         // The charge, i.e. the bull rush (Rush; M29): under way, ended by time or input, or started by a heavy press while running forward.
@@ -426,7 +429,7 @@ public static class Combat
             // melee or the clip's end do. They are ignored while it plays: no shot, no aim state (the camera stays), nothing buffered.
             bool other = stickEnds || grenadePress;
             var rushBefore = s;
-            var rush = Rush.Begin(s, input, c, heavyPress, jumpDown && !s.JumpHeld, meleePress, other, world);
+            var rush = Rush.Begin(s, input, c, heavyPress, jumpPressed, meleePress, other, world);
             (rushing, rushHeld, s) = (rush.Active, rush.Held, rush.State);
             // A charge ended this tick by the stick, a grenade, Jump or melee before its clip's end is still the charge's tick: the trigger fires nothing in it.
             fireDropped = !rushing && rushBefore.Rush != RushPhase.None && Loadouts.Rush(c, rushBefore) is not null && Rush.MoveOf(c, rushBefore) is { } endMove
@@ -468,7 +471,7 @@ public static class Combat
         // feel/jump-pack: a slash press buffered in the take-off also probes (JumpPack.Begin; it fires on the tick after the lift-off).
         bool heldOver = s.JumpSlash && pack?.Slash is { Snappy: true } && s.Jump == JumpPhase.Ascent;
         float aboveGround = (meleePress || heldOver) && pack?.Slash is not null && JumpPack.InFlight(s.Jump) ? JumpPack.AboveGround(s, world) : float.PositiveInfinity;
-        var jump = JumpPack.Begin(s, pack, jumpDown, jumpDown && !s.JumpHeld && Evade.JumpAllowed(s, evadeSpec, c), meleePress, s.MeleeStep > 0, c, dashAt, aboveGround, longJump);
+        var jump = JumpPack.Begin(s, pack, jumpDown, jumpPressed && Evade.JumpAllowed(s, evadeSpec, c), meleePress, s.MeleeStep > 0, c, dashAt, aboveGround, longJump);
         if (jump.Started) used |= InputBuffer.Bit(BufferedAction.Jump);
         if (meleePress && (jump.PoundStart || (jump.Buffered && !(s.JumpSlash && s.Jump == JumpPhase.TakeOff)))) used |= InputBuffer.Bit(BufferedAction.Melee);   // the pound, the slash or its take-off buffer
         if (jump.BlocksMelee) { meleePress = false; heavyPress = false; }
