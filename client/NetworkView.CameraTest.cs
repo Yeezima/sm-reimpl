@@ -9,7 +9,7 @@ namespace SmClient;
 /// camera/hop-and-walls capture aid <c>--camera-test hop|wall|corner|pillar</c> (with <c>--bot</c>; not original behaviour): the bot has the human follow camera, its view
 /// pitch is <c>--camera-test-pitch</c> (radians, default -1.4 for hop, -0.1 for the rest; the sets' lower limit still applies) and it runs a fixed script:
 /// <list type="bullet">
-/// <item><c>hop</c>: S + Space for 0.1 s every 3 s, a backwards evade (a Devastator or Havoc with <c>--class</c>: the hop).</item>
+/// <item><c>hop</c>: Space for 0.1 s every 3 s, S and W in turn: backwards and forwards evades (a Devastator or Havoc with <c>--class</c>: the hop).</item>
 /// <item><c>wall</c>: backs up until a wall stops it, stands, walks 2 m out, backs in again.</item>
 /// <item><c>corner</c>: backs up to a wall, turns the view 90 degrees, backs up to the next one, then turns the view left and right.</item>
 /// <item><c>pillar</c>: finds the nearest narrow obstacle by a ray scan at chest height, walks up to it, stands with it behind and strafes left and right across it.</item>
@@ -25,7 +25,7 @@ public partial class NetworkView
     float CameraTestPitch => float.IsFinite(CameraTestPitchArg) ? CameraTestPitchArg : CameraTestMode == "hop" ? -1.4f : -0.1f;
 
     double _ctStart = -1, _ctLogAt, _ctSumAt, _ctBlockAt, _ctPhaseStart;
-    int _ctPhase;
+    int _ctPhase, _ctCycle = -1, _ctPressTicks;
     float _ctYaw, _ctSide = 1f;
     System.Numerics.Vector3 _ctLast, _ctTarget;
     bool _ctHasTarget;
@@ -49,7 +49,11 @@ public partial class NetworkView
             switch (CameraTestMode)
             {
                 case "hop":
-                    if (t % 3.0 < 0.1) { y = -1f; buttons = InputButtons.Jump; }
+                    {
+                        int cycle = (int)(t / 3.0);   // by the cycle, not a time window: a slow capture frame must not skip the press
+                        if (cycle != _ctCycle) { _ctCycle = cycle; _ctPressTicks = 3; }
+                        if (_ctPressTicks > 0) { _ctPressTicks--; y = cycle % 2 == 0 ? -1f : 1f; buttons = InputButtons.Jump; }   // back, then forward again so the back hops stay off the wall
+                    }
                     break;
                 case "wall":
                     if (_ctPhase == 0) { y = -1f; if (blocked) CtNext(); }
