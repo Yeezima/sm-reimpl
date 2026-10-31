@@ -85,6 +85,7 @@ public class MusouSwitchTests
         var options = new ServerOptions { Match = Rules };
         var h = new Harness(LinkConditions.Perfect, 5, 0, MusouConfig, options);
         Assert.NotNull(h.Server.World.Musou);
+        h.Server.World.MusouDirector!.Hold = true;   // MU1: no releases here (the enemies' sections are MU2's own tests)
         Assert.Contains("musou: the mode runs", h.Server.MusouNote);
         Assert.Contains("no nav graph", h.Server.MusouNote);   // the flat ground: no map
         h.AddClient(nonce: 1, options: new ClientOptions { RequestedSide = Team.Chaos });
@@ -95,8 +96,9 @@ public class MusouSwitchTests
         Assert.All(h.Clients, c => Assert.Equal(ClientStatus.Connected, c.Status));
         Assert.All(h.Server.World.Players.Values, p => Assert.Equal(Team.SpaceMarines, p.Team));
         Assert.Equal(MatchState.Playing, h.Server.World.State);
-        Assert.Equal(0, h.Server.ExtrasMessagesSent);   // MU0: nothing to send yet
-        Assert.All(h.Clients, c => Assert.Empty(c.TakeExtras()));
+        // With the director held there is no enemy: the clients get the director's state alone (MU2 sends it once play starts), no entities or events.
+        Assert.All(h.Clients, c => Assert.All(c.TakeExtras(), s => Assert.Equal(SmNet.Extras.Musou.MusouWire.DirectorTag, s.Tag)));
+        Assert.Equal(0, h.Server.World.Musou!.Count);
         Assert.Contains(log, l => l.StartsWith("musou:", StringComparison.Ordinal));
 
         // A faithful or extended server never builds the mode.

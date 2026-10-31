@@ -17,7 +17,7 @@ public readonly record struct MusouEntity(ushort Id, Vector3 Position, float Yaw
 /// (one full payload).</item>
 /// <item>Tag 4, events: <c>[u8 n]</c> then n records of 16 bytes <c>[u8 kind][u32 tick][u16 enemy][u16 player][u8 value][3 x 16-bit vector]</c>; the vector
 /// is a direction (signed, 1/32767) for <see cref="MusouEventKind.Death"/>'s push and a position (quantised over the box, as the entities) for every other
-/// kind; at most <see cref="MaxEvents"/>. Each event is repeated in 3 messages; a client plays each (kind, tick, enemy) once.</item>
+/// kind; at most <see cref="MaxEvents"/>. Each event is repeated in 3 messages; a client plays each (kind, tick, enemy, player) once.</item>
 /// <item>Tag 5, director: one record of <see cref="DirectorBytes"/> bytes <c>[u8 wave][u8 waves][u8 phase][u16 break ticks][u16 left][u16 alive][u16 boss id]
 /// [f32 boss health][f32 boss max][u8 lives][f32 x6 box min, max]</c>.</item>
 /// </list>
@@ -101,20 +101,25 @@ public static class MusouWire
         return bytes;
     }
 
-    /// <summary>The entities of a payload; null for a malformed one (wrong length, id 0, an unknown type or state).</summary>
+    /// <summary>The entities of a payload; null for a malformed one (wrong length, id 0 or above the pool, an id twice, an unknown type or state).</summary>
     public static MusouEntity[]? ReadEntities(ReadOnlySpan<byte> payload, MusouBox box)
     {
         if (payload.Length < 1) return null;
         int n = payload[0];
         if (n > MaxEntities || payload.Length != 1 + n * EntityBytes) return null;
         var list = new MusouEntity[n];
+        Span<ulong> seen = stackalloc ulong[MusouSim.Capacity / 64];
+        seen.Clear();
         for (int i = 0; i < n; i++)
         {
             var s = payload.Slice(1 + i * EntityBytes, EntityBytes);
             ushort id = BinaryPrimitives.ReadUInt16LittleEndian(s);
             var type = (MusouEnemyType)(s[9] >> 4);
             var state = (MusouEnemyState)(s[9] & 0x0F);
-            if (id == 0 || !Enum.IsDefined(type) || !Enum.IsDefined(state)) return null;
+            if (id == 0 || id > MusouSim.Capacity || !Enum.IsDefined(type) || !Enum.IsDefined(state)) return null;
+            int bit = id - 1;
+            if ((seen[bit >> 6] & (1UL << (bit & 63))) != 0) return null;
+            seen[bit >> 6] |= 1UL << (bit & 63);
             list[i] = new MusouEntity(id, ReadPosition(s[2..], box), DequantiseYaw(s[8]), type, state);
         }
         return list;
@@ -189,7 +194,10 @@ public static class MusouWire
         return bytes;
     }
 
-    /// <summary>The director of a payload; null for a malformed one (wrong length, an unknown phase, a non-finite number).</summary>
+    /// <summary>A director's box corner is at most this far from the origin on any axis (ours: far beyond any map), and each axis at least this wide.</summary>
+    public const float MaxBoxCoordinate = 100_000f, MinBoxSpan = 0.5f;
+
+    /// <summary>The director of a payload; null for a malformed one (wrong length, an unknown phase, a non-finite number, an inverted, flat or huge box).</summary>
     public static MusouDirectorView? ReadDirector(ReadOnlySpan<byte> s)
     {
         if (s.Length != DirectorBytes) return null;
@@ -200,6 +208,9 @@ public static class MusouWire
         f[1] = BinaryPrimitives.ReadSingleLittleEndian(s[15..]);
         for (int i = 0; i < 6; i++) f[2 + i] = BinaryPrimitives.ReadSingleLittleEndian(s[(20 + 4 * i)..]);
         foreach (float v in f) if (!float.IsFinite(v)) return null;
+        // The box: each corner within MaxBoxCoordinate and each axis at least MinBoxSpan wide (no inverted, flat or huge box that dequantises to inf or NaN).
+        for (int i = 0; i < 3; i++)
+            if (MathF.Abs(f[2 + i]) > MaxBoxCoordinate || MathF.Abs(f[5 + i]) > MaxBoxCoordinate || !(f[5 + i] - f[2 + i] >= MinBoxSpan)) return null;
         return new MusouDirectorView(s[0], s[1], phase, BinaryPrimitives.ReadUInt16LittleEndian(s[3..]), BinaryPrimitives.ReadUInt16LittleEndian(s[5..]),
             BinaryPrimitives.ReadUInt16LittleEndian(s[7..]), BinaryPrimitives.ReadUInt16LittleEndian(s[9..]), f[0], f[1], s[19],
             new MusouBox(new Vector3(f[2], f[3], f[4]), new Vector3(f[5], f[6], f[7])));

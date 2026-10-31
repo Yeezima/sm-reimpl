@@ -123,6 +123,13 @@ public sealed record MusouRules
     public MusouCombatRules Combat { get; init; } = MusouCombatRules.Default;
     /// <summary>The Warboss's abilities (MU3; <see cref="MusouBossRules"/>).</summary>
     public MusouBossRules Boss { get; init; } = MusouBossRules.Default;
+    /// <summary>
+    /// The stranded-enemy failsafe (ours): an enemy in play without headway toward a player for this long (s) is moved to a gate clear of the players;
+    /// still stranded after <see cref="StrandedRelocations"/> moves it is removed and counted as a KO for nobody (so a wave always ends). The Warboss is only
+    /// ever moved.
+    /// </summary>
+    public float StrandedSeconds { get; init; } = 8f;
+    public int StrandedRelocations { get; init; } = 1;
 
     /// <summary>Test aid (ours): the enemies' damage to players is multiplied by this (1 in a match; 0: they never hurt).</summary>
     public float PlayerDamageScale { get; init; } = 1f;

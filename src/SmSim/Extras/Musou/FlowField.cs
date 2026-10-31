@@ -170,6 +170,7 @@ public sealed class FlowField
 
     readonly MusouNav _nav;
     float[] _front, _back;
+    int[] _frontOwner, _backOwner;   // per node: the tag of the source it is nearest (-1: none)
     readonly List<List<int>> _buckets = new();
     readonly List<int> _bucketRead = new();
     int _bucket, _openCount;
@@ -183,11 +184,15 @@ public sealed class FlowField
         int n = nav.NodeCount;
         _front = new float[n]; _back = new float[n];
         Array.Fill(_front, float.PositiveInfinity);
+        _frontOwner = new int[n]; _backOwner = new int[n];
+        Array.Fill(_frontOwner, -1);
         _next = new int[n]; _nextStamp = new int[n];
     }
 
-    /// <summary>Completed fields so far (each swap counts one; 0: none yet, every distance infinite).</summary>
+    /// <summary>Completed fields so far (each swap counts one; a <see cref="Reset"/> counts one too).</summary>
     public int Generation { get; private set; }
+    /// <summary>A field exists (until the first one is done, or after a <see cref="Reset"/>, every distance is infinite).</summary>
+    public bool Ready { get; private set; }
     /// <summary>A refresh is under way in the back buffer.</summary>
     public bool Running => _running;
     /// <summary>Node expansions of the last <see cref="Step"/> (for the cost report).</summary>
@@ -196,34 +201,56 @@ public sealed class FlowField
     /// <summary>The walking cost from <paramref name="node"/> to the nearest player in the current field (infinite: none reached it).</summary>
     public float Distance(int node) => _front[node];
 
+    /// <summary>The tag of the source <paramref name="node"/> is nearest by walking in the current field (the caller's; -1: unreached).</summary>
+    public int Owner(int node) => _frontOwner[node];
+
+    /// <summary>Forgets the field and any refresh under way (a new round).</summary>
+    public void Reset()
+    {
+        Array.Fill(_front, float.PositiveInfinity);
+        Array.Fill(_frontOwner, -1);
+        _running = false; Ready = false; _sinceStart = 0;
+        _openCount = 0;
+        Generation++;   // the gradient cache is stale
+    }
+
     /// <summary>
-    /// One tick: starts a refresh from <paramref name="sources"/> when none runs and <paramref name="refreshTicks"/> have passed since the last start (or no
-    /// field exists yet), then expands at most <paramref name="budget"/> nodes; swaps the buffers when the refresh is done.
+    /// One tick: starts a refresh from <paramref name="sources"/> (each tagged by <paramref name="owners"/>, same length; empty: the tags are the
+    /// indices) when none runs and <paramref name="refreshTicks"/> have passed since the last start (or no field exists yet), then expands at most
+    /// <paramref name="budget"/> nodes; swaps the buffers when the refresh is done. No sources (every player off the graph or dead): no refresh starts and
+    /// the last field stays, so the horde keeps walking to where the players were.
     /// </summary>
-    public void Step(ReadOnlySpan<int> sources, int budget, int refreshTicks)
+    public void Step(ReadOnlySpan<int> sources, ReadOnlySpan<int> owners, int budget, int refreshTicks)
     {
         _sinceStart++;
         LastExpansions = 0;
-        if (!_running && (_sinceStart >= refreshTicks || Generation == 0)) Start(sources);
+        if (!_running && (_sinceStart >= refreshTicks || !Ready) && !Start(sources, owners)) _sinceStart = 0;
         if (_running) Expand(Math.Max(1, budget));
     }
 
-    /// <summary>A whole field from <paramref name="sources"/> at once (set-up, tests), replacing any refresh under way.</summary>
-    public void Complete(ReadOnlySpan<int> sources)
+    /// <summary>A whole field from <paramref name="sources"/> at once (set-up, tests), replacing any refresh under way; none: the field stays as it is.</summary>
+    public void Complete(ReadOnlySpan<int> sources, ReadOnlySpan<int> owners = default)
     {
-        Start(sources);
-        Expand(int.MaxValue);
+        if (Start(sources, owners)) Expand(int.MaxValue);
     }
 
-    void Start(ReadOnlySpan<int> sources)
+    bool Start(ReadOnlySpan<int> sources, ReadOnlySpan<int> owners)
     {
+        bool any = false;
+        foreach (int s in sources) any |= s >= 0 && s < _back.Length;
+        if (!any) return false;
         _sinceStart = 0;
         for (int b = 0; b < _buckets.Count; b++) { _buckets[b].Clear(); _bucketRead[b] = 0; }
         _bucket = 0; _openCount = 0;
         Array.Fill(_back, float.PositiveInfinity);
-        foreach (int s in sources)
-            if (s >= 0 && s < _back.Length && _back[s] > 0f) { _back[s] = 0f; Push(s, 0f); }
+        Array.Fill(_backOwner, -1);
+        for (int k = 0; k < sources.Length; k++)
+        {
+            int s = sources[k];
+            if (s >= 0 && s < _back.Length && _back[s] > 0f) { _back[s] = 0f; _backOwner[s] = k < owners.Length ? owners[k] : k; Push(s, 0f); }
+        }
         _running = true;
+        return true;
     }
 
     static int BucketOf(float d) => (int)(d / BucketWidth);
@@ -251,20 +278,22 @@ public sealed class FlowField
             {
                 int from = _nav.ReverseFrom(l);
                 float nd = d + MathF.Max(_nav.ReverseCost(l), BucketWidth * 1.01f);
-                if (nd < _back[from]) { _back[from] = nd; Push(from, nd); }
+                if (nd < _back[from]) { _back[from] = nd; _backOwner[from] = _backOwner[node]; Push(from, nd); }
             }
         }
         LastExpansions += done;
         if (_openCount > 0) return;
         (_front, _back) = (_back, _front);
+        (_frontOwner, _backOwner) = (_backOwner, _frontOwner);
         _running = false;
+        Ready = true;
         Generation++;
     }
 
     /// <summary>The linked neighbour of <paramref name="node"/> one step down the field (-1: the node is a source, unreached, or a local minimum).</summary>
     public int Next(int node)
     {
-        if (_nextStamp[node] == Generation && Generation > 0) return _next[node];
+        if (_nextStamp[node] == Generation + 1) return _next[node];
         float here = _front[node], best = float.PositiveInfinity;
         int next = -1;
         if (!float.IsPositiveInfinity(here))
@@ -276,7 +305,7 @@ public sealed class FlowField
                 float via = d + _nav.ForwardCost(l);
                 if (via < best) { best = via; next = t; }
             }
-        _next[node] = next; _nextStamp[node] = Generation;
+        _next[node] = next; _nextStamp[node] = Generation + 1;   // + 1: a fresh array's zeros never match
         return next;
     }
 }

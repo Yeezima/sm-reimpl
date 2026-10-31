@@ -341,53 +341,61 @@ public class MusouCombatTests
         Assert.Equal((1, 1), (charge.Scores[1].Kills, charge.MusouDirector!.Scores[1].Kos));
     }
 
-    /// <summary>Player 1 charges into player 2 (an ally: the charge stops on it); <paramref name="enemyAt"/> places a boy (in run B) at a tick.</summary>
-    static (List<Vector3> Path, int Contact, World World, ushort Enemy) ChargeIntoAlly(Func<List<Vector3>, (int Tick, Vector3 At)?> enemyAt, int contactKnown = -1)
+    /// <summary>
+    /// Player 1 charges along <paramref name="yaw"/> in <paramref name="make"/>'s world until the charge stops (on an ally or a wall); <paramref name="enemy"/>
+    /// places a boy (in a second run) at a loop tick. The path (index t + 1 after loop tick t) and the path index where the charge stopped.
+    /// </summary>
+    static (List<Vector3> Path, int Stop, World World, ushort Enemy) ChargeRun(Func<World> make, Func<World, float> yaw, (int Tick, Vector3 At)? enemy)
     {
-        var w = NewWorld(players: 2);
-        var d = w.Players[2].Position - w.Players[1].Position;
-        float yaw = MathF.Atan2(-d.X, d.Y);
+        var w = make();
+        float heading = yaw(w);
         var path = new List<Vector3> { w.Players[1].Position };
-        int contact = -1;
-        ushort enemy = 0;
-        var place = enemyAt(path);
+        int stop = -1;
+        ushort boy = 0;
+        bool was = false;
         for (int t = 0; t < 45; t++)
         {
-            if (place is { } p && p.Tick == t) enemy = w.Musou!.Spawn(MusouEnemyType.Boy, p.At, 0f, 85f);
+            if (enemy is { } p && p.Tick == t) boy = w.Musou!.Spawn(MusouEnemyType.Boy, p.At, 0f, 85f);
             bool held = t < 2;
             w.Step(id => id == 1
-                ? new PlayerInput(0, 0f, held ? 1f : 0f, yaw, held ? InputButtons.Sprint | (t == 1 ? InputButtons.MeleeHeavy : 0) : 0)
+                ? new PlayerInput(0, 0f, held ? 1f : 0f, heading, held ? InputButtons.Sprint | (t == 1 ? InputButtons.MeleeHeavy : 0) : 0)
                 : new PlayerInput(0, 0f, 0f, 0f, 0));
             path.Add(w.Players[1].Position);
-            if (contact < 0 && w.LastRushes.Any(r => r.Player == 1)) contact = t + 1;   // path index of the contact tick's end
+            bool now = Rush.Connecting(w.Players[1], w.Config);
+            if (stop < 0 && was && !now) stop = t + 1;
+            was = now;
         }
-        return (path, contact, w, enemy);
+        return (path, stop, w, boy);
+    }
+
+    /// <summary>The two-run check: a boy that only the charge's last move (the one that stopped it) reaches is hit by it.</summary>
+    static World LastMoveHits(Func<World> make, Func<World, float> yaw)
+    {
+        // Run A: where the charge goes and where it stops.
+        var (path, stop, _, _) = ChargeRun(make, yaw, null);
+        Assert.True(stop > 2, "the charge stopped");
+        var end = path[stop];
+        var line = end - path[stop - 1];
+        Assert.True(new Vector2(line.X, line.Y).Length() > 0.15f, "the last move");
+        var dir = Vector3.Normalize(line with { Z = 0f });
+        var perp = new Vector3(-dir.Y, dir.X, 0f);
+        // A boy only the last move reaches: 1 m past its end and 0.3 m aside (reach 0.4 + 0.45 + 0.3 = 1.15 m).
+        var at = (end + dir * 1f + perp * 0.3f) with { Z = 0f };
+        for (int k = 1; k < stop; k++) Assert.True(MusouSim.FlatDistanceToSegment(at, path[k - 1], path[k]) > 1.15f);
+        Assert.True(MusouSim.FlatDistanceToSegment(at, path[stop - 1], end) <= 1.15f);
+        // Run B (deterministic: the same charge): the boy is there and is hit on that last move.
+        var (pathB, stopB, w, boy) = ChargeRun(make, yaw, (stop - 3, at));
+        Assert.Equal(stop, stopB);
+        Assert.Equal(end, pathB[stop]);
+        Assert.True(w.Musou!.TryGet(boy, out var e));
+        Assert.Equal(85f - 40f, e.Health);
+        return w;
     }
 
     [Fact]
     public void A_charges_last_move_before_it_stops_on_a_player_still_hits_the_enemies()
     {
-        // Run A: where the charge goes and when it stops on the ally.
-        var (path, contact, _, _) = ChargeIntoAlly(_ => null);
-        Assert.True(contact > 2, "the charge reached the ally");
-        var end = path[contact];
-        var line = end - path[contact - 1];
-        float stride = new Vector2(line.X, line.Y).Length();
-        Assert.True(stride > 0.25f, $"the last stride {stride}");
-        var dir = Vector3.Normalize(line with { Z = 0f });
-        var perp = new Vector3(-dir.Y, dir.X, 0f);
-        // A boy only the last move reaches: 0.5 m past its end and 0.9 m aside (reach 0.4 + 0.45 + 0.3 = 1.15 m).
-        var at = end + dir * 0.5f + perp * 0.9f;
-        for (int k = 1; k < contact; k++)
-            Assert.True(MusouSim.FlatDistanceToSegment(at, path[k - 1], path[k]) > 1.15f);
-        Assert.True(MusouSim.FlatDistanceToSegment(at, path[contact - 1], end) <= 1.15f);
-        // Run B (deterministic: the same charge): the boy is there and is hit on that last move.
-        var (pathB, contactB, w, boy) = ChargeIntoAlly(_ => (contact - 3, at));
-        Assert.Equal(contact, contactB);
-        Assert.Equal(end, pathB[contact]);
-        Assert.False(Rush.Connecting(w.Players[1], w.Config));
-        Assert.True(w.Musou!.TryGet(boy, out var e));
-        Assert.Equal(85f - 40f, e.Health);
+        LastMoveHits(() => NewWorld(players: 2), w => { var d = w.Players[2].Position - w.Players[1].Position; return MathF.Atan2(-d.X, d.Y); });
     }
 
     [Theory]

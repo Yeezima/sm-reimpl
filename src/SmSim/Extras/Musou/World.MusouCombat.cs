@@ -44,7 +44,7 @@ public sealed partial class World
     uint _musouStompTick;                                                  // … that stomp's tick and attacker
     int _musouStompBy;
     readonly List<int> _musouStale = new();
-    readonly ushort[] _musouNear = new ushort[MusouSim.Capacity];
+    readonly ushort[] _musouNear = new ushort[MusouSim.Capacity];         // one Query's ids at a time: never Query into it while a loop over it runs
 
     /// <summary>The Warboss's abilities this round (null before he comes).</summary>
     public MusouBoss? MusouBoss => _musouBoss;
@@ -191,8 +191,8 @@ public sealed partial class World
         {
             PlayerState? before = start is not null && start.TryGetValue(id, out var b) ? b : null;
             PlayerState? charging = null;
-            if (!p.Alive) { }
-            else if (Rush.Connecting(p, Config)) charging = p;
+            // As the core's: a charger killed earlier this tick still deals its contact (RushWorld), so no alive test here.
+            if (Rush.Connecting(p, Config)) charging = p;
             else if (before is { } wallFrom && Rush.WallStoppedFrom(wallFrom, p, Config) is { } wall && Rush.Connecting(wall, Config)) charging = wall;
             else if (before is { } landFrom && Rush.LandedFrom(landFrom, p) is { } landed && Rush.Connecting(landed, Config)) charging = landed;
             else if (_rushes.Exists(r => r.Player == id)) charging = p;   // stopped on a player this tick

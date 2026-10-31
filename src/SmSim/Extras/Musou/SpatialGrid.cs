@@ -46,20 +46,27 @@ public sealed class SpatialGrid
         Count = count;
     }
 
-    /// <summary>The values in the 3 x 3 cells around <paramref name="p"/>, written into <paramref name="into"/> as far as it holds them; the number written.</summary>
+    // The 3 x 3 cells from the centre out: the point's own cell, the four sides, then the corners.
+    static readonly (int X, int Y)[] Order = [(0, 0), (1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, 1), (1, -1), (-1, -1)];
+
+    /// <summary>
+    /// The values in the 3 x 3 cells around <paramref name="p"/>, its own cell first, then the sides, then the corners (so a full span keeps the nearest
+    /// cells), written into <paramref name="into"/> as far as it holds them; the number written.
+    /// </summary>
     public int Around(Vector3 p, Span<int> into)
     {
         int cx = CellX(p.X), cy = CellY(p.Y), n = 0;
-        for (int y = Math.Max(0, cy - 1); y <= Math.Min(_h - 1, cy + 1); y++)
-            for (int x = Math.Max(0, cx - 1); x <= Math.Min(_w - 1, cx + 1); x++)
+        foreach (var (ox, oy) in Order)
+        {
+            int x = cx + ox, y = cy + oy;
+            if (x < 0 || y < 0 || x >= _w || y >= _h) continue;
+            int c = x + y * _w;
+            for (int k = _cellStart[c]; k < _cellStart[c + 1]; k++)
             {
-                int c = x + y * _w;
-                for (int k = _cellStart[c]; k < _cellStart[c + 1]; k++)
-                {
-                    if (n >= into.Length) return n;
-                    into[n++] = _items[k];
-                }
+                if (n >= into.Length) return n;
+                into[n++] = _items[k];
             }
+        }
         return n;
     }
 }

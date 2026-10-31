@@ -1,6 +1,9 @@
+using System.Numerics;
 using SmContent;
 using SmNet;
+using SmNet.Extras.Musou;
 using SmSim;
+using SmSim.Extras.Musou;
 
 namespace SmServer;
 
@@ -8,8 +11,9 @@ namespace SmServer;
 /// Added content "Musou" on the server (design sections A and C), only when the match runs <see cref="ContentExtras.Musou"/>. At the end of the constructor
 /// (<see cref="CreateMusou"/>, from the <c>ExtrasCreated</c> hook) the server builds or reads the walking graph of the map (the test bots' graph setup and
 /// cache, <see cref="BotNavigation"/>, around the map's spawns, points and start areas, on the Space Marines' collision: the side the players are on) and
-/// makes the world a Musou match (<see cref="World.StartMusou"/>). Once a tick (<see cref="SendMusou"/>, from the envelope hook) it will send the enemies,
-/// their events and the director (<c>MusouWire</c> tags 3 to 5; MU2). MU0 sends nothing: there are no enemies yet.
+/// makes the world a Musou match (<see cref="World.StartMusou"/>). Once a tick (<see cref="SendMusou"/>, from the envelope hook) it sends each client the
+/// director, the events and the enemies due by that client's interest (<see cref="MusouInterest"/>: <c>MusouWire</c> tags 3 to 5, at most 4 messages a tick
+/// within the client's budget; MU2). Nothing is sent while the pool is empty and the director unset (MU0's state).
 /// </summary>
 public sealed partial class GameServer
 {
@@ -28,14 +32,15 @@ public sealed partial class GameServer
         else
         {
             try { nav = BuildMusouNav(map, World.Config, out navNote); }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException or InvalidOperationException)
+            catch (Exception e) when (e is not OutOfMemoryException)   // any failure of the build: the mode runs without a graph (noted), the server starts
             {
                 navNote = $"nav graph failed ({e.GetType().Name}: {e.Message})";
             }
         }
         bool started = World.StartMusou(nav);
         _musouNote = started
-            ? $"musou: the mode runs (Space Marines only, no limits; no enemies yet, MU0); {navNote}{(nav is null ? "" : $", {nav.NodeCount} nodes")}"
+            ? $"musou: the mode runs (Space Marines only, no limits; enemies by the director, sent by interest); {navNote}{(nav is null ? "" : $", {nav.NodeCount} nodes")}" +
+              (MusouDummiesWanted > 0 ? $"; test aid {MusouDummiesVariable}: {MusouDummiesWanted} dummies" : "")
             : "musou: not started (the match has no team rules)";
     }
 
@@ -53,11 +58,77 @@ public sealed partial class GameServer
         return NavCache.LoadOrBuild(BotNavigation.CacheDirectory, map.Name, key, settings, () => NavGraph.Build(mesh, map.Collision.KillVolumes, settings, area), out note);
     }
 
-    /// <summary>This feature's part of the envelope hook (called by the dispatcher <c>GameServer.Extras.cs</c>).</summary>
+    readonly Dictionary<int, MusouInterest> _musouInterest = new();
+    readonly MusouEventWindow _musouEvents = new();
+    readonly MusouEnemy[] _musouEnemies = new MusouEnemy[MusouSim.Capacity];
+    readonly List<int> _musouGone = new();
+    MusouBox? _musouNavBox;
+    bool _musouNavBoxRead;
+    long _musouRecordsGone, _musouRecordsHeldGone;
+
+    /// <summary>Musou entity records sent (all clients), and records due but held back by a client's budget or message cap (MU2; bandwidth tests).</summary>
+    public long MusouRecordsSent => _musouInterest.Values.Sum(i => i.RecordsSent) + _musouRecordsGone;
+    public long MusouRecordsHeld => _musouInterest.Values.Sum(i => i.RecordsHeld) + _musouRecordsHeldGone;
+    /// <summary>Event copies left out of a tick's sections (over two full sections in the 3-tick window).</summary>
+    public int MusouEventCopiesDropped => _musouEvents.CopiesDropped;
+
+    /// <summary>
+    /// This feature's part of the envelope hook (called by the dispatcher <c>GameServer.Extras.cs</c>): per client, the director (on a change, else every 10
+    /// ticks), the events of the last 3 ticks (each in 3 messages) and the enemies due by that client's interest.
+    /// </summary>
     void SendMusou()
     {
-        if (World.Musou is null) return;
+        if (World.Musou is not { } sim) return;
         if (!_musouLogged) { _musouLogged = true; Log?.Invoke(_musouNote); }
-        // MU2: entities (tag 3) by interest, events (tag 4, each in 3 messages) and the director (tag 5, every 10 ticks and on a change) through SendExtras.
+        StepMusouDummies(sim);   // test aid (SM_MUSOU_DUMMIES; GameServer.MusouDummies.cs)
+        int n = sim.CopyTo(_musouEnemies);
+        PoseMusouDummies(_musouEnemies.AsSpan(0, n));
+        LogMusouDirector(sim.Director);
+        var events = _musouEvents.Step(sim.Tick, sim.Events, MusouSendRules.EventsPerTick(World.Config.TickRate));
+        if (n == 0 && events.Count == 0 && sim.Director == default) return;   // nothing in play: MU0's state sends nothing
+
+        if (!_musouNavBoxRead) { _musouNavBoxRead = true; _musouNavBox = MusouSend.BoundsOf(sim.Nav); }
+        var box = MusouSend.EffectiveBox(sim.Director.Box, _musouNavBox);
+        var director = MusouWire.WriteDirector(sim.Director with { Box = box });
+        uint tick = World.Tick;
+        var enemies = new ReadOnlySpan<MusouEnemy>(_musouEnemies, 0, n);
+        Vector3? anyone = null;
+        foreach (var p in World.Players.Values) if (p.Alive) { anyone = p.Position; break; }
+        foreach (var peer in _peers.Values)
+        {
+            if (!_musouInterest.TryGetValue(peer.PlayerId, out var interest)) _musouInterest[peer.PlayerId] = interest = new MusouInterest();
+            // The client's player, else (a spectator) the first living player: the crowd near the action stays fresh.
+            Vector3? viewer = World.Players.TryGetValue(peer.PlayerId, out var me) ? me.Position : anyone;
+            foreach (var sections in interest.Plan(tick, World.Config.TickRate, enemies, viewer, box, director, events))
+                SendExtras(new ExtrasUpdate(tick, sections), peer.PlayerId);
+        }
+        _musouGone.Clear();
+        foreach (int id in _musouInterest.Keys) if (!_peers.Values.Any(p => p.PlayerId == id)) _musouGone.Add(id);
+        foreach (int id in _musouGone)
+        {
+            _musouRecordsGone += _musouInterest[id].RecordsSent;
+            _musouRecordsHeldGone += _musouInterest[id].RecordsHeld;
+            _musouInterest.Remove(id);
+        }
+    }
+
+    MusouDirectorView _musouLoggedDirector;
+
+    /// <summary>The director's milestones in the server log (the director the simulation sets each tick: MU1's view): a wave starts, a break, the boss, a win or a loss.</summary>
+    void LogMusouDirector(MusouDirectorView d)
+    {
+        var was = _musouLoggedDirector;
+        _musouLoggedDirector = d;
+        if (d.Phase == was.Phase && d.Wave == was.Wave && d.BossId == was.BossId) return;
+        string? line = d.Phase switch
+        {
+            MusouPhase.Wave when d.Wave != was.Wave || was.Phase != MusouPhase.Wave => $"wave {d.Wave}/{d.Waves} starts: {d.EnemiesLeft} enemies, {d.Lives} lives",
+            MusouPhase.Break when was.Phase != MusouPhase.Break => $"break after wave {d.Wave}/{d.Waves}: {d.BreakTicksLeft / (float)Math.Max(1, World.Config.TickRate):0.#} s, {d.Lives} lives",
+            MusouPhase.Boss when d.BossId != 0 && (was.BossId != d.BossId || was.Phase != MusouPhase.Boss) => $"the boss is in (enemy {d.BossId}, {d.BossMaxHealth:0} health), {d.Lives} lives",
+            MusouPhase.Won when was.Phase != MusouPhase.Won => $"won: the boss is dead after wave {d.Wave}/{d.Waves}, {d.Lives} lives left",
+            MusouPhase.Lost when was.Phase != MusouPhase.Lost => $"lost in wave {d.Wave}/{d.Waves}: every player dead and no lives left",
+            _ => null,
+        };
+        if (line is not null) Log?.Invoke($"musou: tick {World.Tick}: {line}");
     }
 }

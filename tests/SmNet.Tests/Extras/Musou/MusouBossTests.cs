@@ -237,6 +237,54 @@ public class MusouBossTests
         Assert.Equal(31, director.View().EnemiesLeft);
     }
 
+    /// <summary>A Boy and a Warboss (no swing, no charge) come for one standing player; every Musou event with its tick, and when the player died.</summary>
+    static (List<(uint Tick, MusouEvent Event)> Events, uint Died, ushort Boss) BoyAndBoss(float scale, float boyWindUp, float slamWindUp)
+    {
+        var rules = MusouRules.Default with
+        {
+            PlayerDamageScale = scale, Lives = 0, LivesPerExtraPlayer = 0,
+            Waves = [new MusouWaveSpec(1, 1, [(MusouEnemyType.Boy, 1f)])],
+            Types = [.. MusouRules.Default.Types.Select(t => t.Type switch
+            {
+                MusouEnemyType.Warboss => t with { MeleeDamage = 0f },
+                MusouEnemyType.Boy => t with { MeleeWindUp = boyWindUp },
+                _ => t,
+            })],
+            Boss = MusouBossRules.Default with { ChargeFirst = 1000f, SlamWindUp = slamWindUp },
+        };
+        var w = NewWorld(rules);
+        var events = new List<(uint, MusouEvent)>();
+        uint died = 0;
+        for (int t = 0; t < 30 * 40 && w.State != MatchState.Ended; t++)
+        {
+            w.Step(_ => default);
+            foreach (var e in w.Musou!.Events) events.Add((w.Tick, e));
+            if (died == 0 && !w.Players[1].Alive) died = w.Tick;
+        }
+        return (events, died, w.MusouDirector!.BossId);
+    }
+
+    [Fact]
+    public void A_player_the_horde_killed_this_tick_is_neither_slammed_nor_reported_slammed()
+    {
+        // Run A (nobody hurts): when the Boy's first wind-up and the Warboss's first slam begin.
+        var (a, _, boss) = BoyAndBoss(0f, 0.5f, 0.8f);
+        uint W = a.First(e => e.Event.Kind == MusouEventKind.Telegraph && e.Event.Enemy != boss).Tick;
+        uint S = a.First(e => e.Event.Kind == MusouEventKind.Telegraph && e.Event.Value == (byte)MusouBossAbility.GroundSlam).Tick;
+        // Run B: both land on the same tick L (the later one's own wind-up lengthened), and the Boy's strike kills.
+        float boyWindUp = 0.5f, slamWindUp = 0.8f;
+        uint L = Math.Max(W + 15, S + 24);
+        if (L > W + 15) boyWindUp = (L - W) / 30f; else slamWindUp = (L - S) / 30f;
+        var (b, died, bossB) = BoyAndBoss(1000f, boyWindUp, slamWindUp);
+        Assert.Equal(boss, bossB);
+        Assert.Equal(S, b.First(e => e.Event.Kind == MusouEventKind.Telegraph && e.Event.Value == (byte)MusouBossAbility.GroundSlam).Tick);
+        Assert.Contains(b, e => e.Tick == L && e.Event.Kind == MusouEventKind.Strike && e.Event.Enemy != boss && e.Event.Player == 1);
+        Assert.Equal(L, died);
+        Assert.DoesNotContain(b, e => e.Event.Kind == MusouEventKind.Strike && e.Event.Enemy == boss);
+        // In run A the same slam landed on the living player.
+        Assert.Contains(a, e => e.Tick == S + 24 && e.Event.Kind == MusouEventKind.Strike && e.Event.Enemy == boss && e.Event.Player == 1);
+    }
+
     // ---------------------------------------------------------------- whole runs in the World
 
     static readonly WeaponSpec Rifle = new("rifle", WeaponSlot.Ranged, TriggerKind.FullAuto, 9f, 0.12f, 30, 5000, 1.2f, 250f, 45f, 70f, 0.8f, 2.5f, 1f, 0.5f, 0.5f);

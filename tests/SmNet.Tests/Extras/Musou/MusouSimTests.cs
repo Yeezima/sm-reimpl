@@ -23,6 +23,17 @@ public class MusouSimTests
     static NavGraph WalledFloor() =>
         NavGraph.Build(new NavigationTests.Level().Floor(0f, 0f, 40f, 40f).Wall(20f, 0f, 20f, 30f).Mesh(), null, NavSettings.From(new SimConfig()));
 
+    /// <summary>The walled floor with a closed room at x 30 to 36, y 30 to 36 (its floor is on the graph, nothing links it to the rest).</summary>
+    internal static NavGraph RoomFloor() =>
+        NavGraph.Build(new NavigationTests.Level().Floor(0f, 0f, 40f, 40f).Wall(20f, 0f, 20f, 30f)
+            .Wall(30f, 30f, 36f, 30f).Wall(30f, 36f, 36f, 36f).Wall(30f, 30f, 30f, 36f).Wall(36f, 30f, 36f, 36f).Mesh(), null, NavSettings.From(new SimConfig()));
+
+    static MusouEnemy[] All(MusouSim sim)
+    {
+        var buffer = new MusouEnemy[MusouSim.Capacity];
+        return buffer[..sim.CopyTo(buffer)];
+    }
+
     static void Steps(MusouSim sim, ref uint tick, int count, ReadOnlySpan<MusouTarget> targets, bool fight, List<MusouAttack> attacks, Action? each = null)
     {
         for (int k = 0; k < count; k++)
@@ -44,7 +55,7 @@ public class MusouSimTests
         whole.Complete([source]);
         var sliced = new FlowField(nav);
         int ticks = 0;
-        while (sliced.Generation == 0) { sliced.Step([source], 500, 15); ticks++; Assert.True(sliced.LastExpansions <= 500); }
+        while (sliced.Generation == 0) { sliced.Step([source], [], 500, 15); ticks++; Assert.True(sliced.LastExpansions <= 500); }
         Assert.True(ticks > 3);   // it really took several ticks
         for (int n = 0; n < nav.NodeCount; n++) Assert.Equal(whole.Distance(n), sliced.Distance(n));
         // Around the wall through the gap: far longer than the 30 m straight line, about 30 + 2 x 25 m.
@@ -169,6 +180,101 @@ public class MusouSimTests
         Assert.Equal(hits, attacks.Count);
         Assert.InRange(hits / (float)tracers, 0.2f, 0.5f);   // the roll: 0.45 near, 0.25 far
         Assert.All(attacks, a => Assert.Equal((3, 3f, false), (a.Player, a.Damage, a.Melee)));
+    }
+
+    [Fact]
+    public void A_moving_player_and_one_in_the_air_stay_flow_sources()
+    {
+        var sim = new MusouSim(WalledFloor());
+        for (int k = 0; k < 20; k++) sim.Spawn(MusouEnemyType.Boy, new Vector3(28f + (k % 5) * 1.5f, 3f + (k / 5) * 1.5f, 0f), 0f, 85f);
+        var attacks = new List<MusouAttack>();
+        var targets = new MusouTarget[1];
+        uint tick = 0;
+        // 10 s walking a 6 m circle around (8, 8), then 20 s 6 to 10 m up (a jump pack's flight, off the graph), still circling.
+        for (int t = 0; t < 30 * 30; t++)
+        {
+            float a = t * 0.01f, up = t < 300 ? 0f : 6f + 4f * MathF.Sin(t * 0.02f);
+            targets[0] = new MusouTarget(1, new Vector3(8f + MathF.Cos(a) * 6f, 8f + MathF.Sin(a) * 6f, up), true);
+            sim.BeginTick(++tick);
+            sim.Step(targets, null, fight: false, attacks);
+            if (t > 300) Assert.True(sim.Flow!.Ready);
+        }
+        var under = targets[0].Position;
+        Assert.All(All(sim), e => Assert.True(new Vector2(e.Position.X - under.X, e.Position.Y - under.Y).Length() < 10f, $"enemy {e.Id} at {e.Position}, the player above {under}"));
+        Assert.All(All(sim), e => Assert.False(float.IsPositiveInfinity(sim.Flow!.Distance(e.Node))));
+
+        // A player who has never stood on the graph but flies 10 m over it still counts from the floor below.
+        var fresh = new MusouSim(WalledFloor());
+        ushort boy = fresh.Spawn(MusouEnemyType.Boy, new Vector3(35f, 5f, 0f), 0f, 85f);
+        MusouTarget[] high = [new(2, new Vector3(5f, 5f, 10f), true)];
+        tick = 0;
+        Steps(fresh, ref tick, 30, high, fight: false, attacks);
+        Assert.True(fresh.Flow!.Ready);
+        Assert.True(fresh.TryGet(boy, out var b));
+        Assert.Equal(2, b.TargetPlayer);
+        Assert.InRange(fresh.Flow.Distance(b.Node), 60f, 80f);
+    }
+
+    [Fact]
+    public void A_player_who_leaves_the_graph_keeps_the_last_field()
+    {
+        var sim = new MusouSim(WalledFloor());
+        ushort boy = sim.Spawn(MusouEnemyType.Boy, new Vector3(35f, 5f, 0f), 0f, 85f);
+        var attacks = new List<MusouAttack>();
+        uint tick = 0;
+        MusouTarget[] on = [new(1, new Vector3(5f, 5f, 0f), true)];
+        Steps(sim, ref tick, 30, on, fight: false, attacks);
+        Assert.True(sim.Flow!.Ready);
+        // Far off the graph (no node within the wide search): the last node stays the source; the horde walks on round the wall, not into it.
+        MusouTarget[] off = [new(1, new Vector3(-60f, 5f, 0f), true)];
+        Steps(sim, ref tick, 30 * 20, off, fight: false, attacks);
+        Assert.True(sim.Flow.Ready);
+        Assert.True(sim.TryGet(boy, out var b));
+        Assert.True(b.Position.X < 20f, $"the enemy at {b.Position} never came round the wall");
+        Assert.False(float.IsPositiveInfinity(sim.Flow.Distance(b.Node)));
+    }
+
+    [Fact]
+    public void Enemies_go_for_the_player_they_can_walk_to_and_hold_when_none_is()
+    {
+        var sim = new MusouSim(RoomFloor());
+        for (int k = 0; k < 10; k++) sim.Spawn(MusouEnemyType.Boy, new Vector3(25f + (k % 5) * 1.5f, 3f + (k / 5) * 1.5f, 0f), 0f, 85f);
+        var attacks = new List<MusouAttack>();
+        uint tick = 0;
+        // Player 1 shut in the room (on the graph, out of reach), player 2 outside: everyone goes for 2, though 1 is nearer for some.
+        MusouTarget[] both = [new(1, new Vector3(33f, 33f, 0f), true), new(2, new Vector3(5f, 35f, 0f), true)];
+        Steps(sim, ref tick, 30 * 20, both, fight: false, attacks);
+        Assert.All(All(sim), e => Assert.Equal(2, e.TargetPlayer));
+        Assert.All(All(sim), e => Assert.True(Vector3.Distance(e.Position, both[1].Position) < 9f, $"enemy {e.Id} at {e.Position}"));
+
+        // Only the shut-in player: they hold where they are (no walking into the room's walls) and the failsafe lists them after 8 s.
+        var held = new MusouSim(RoomFloor());
+        for (int k = 0; k < 10; k++) held.Spawn(MusouEnemyType.Boy, new Vector3(5f + (k % 5) * 1.5f, 3f + (k / 5) * 1.5f, 0f), 0f, 85f);
+        var start = All(held).ToDictionary(e => e.Id, e => e.Position);
+        MusouTarget[] shut = [new(1, new Vector3(33f, 33f, 0f), true)];
+        tick = 0;
+        var stranded = new List<ushort>();
+        Steps(held, ref tick, 30 * 7, shut, fight: false, attacks, () => held.TakeStranded(stranded));
+        Assert.All(All(held), e => Assert.True(Vector3.Distance(e.Position, start[e.Id]) < 1.5f, $"enemy {e.Id} wandered to {e.Position}"));
+        Assert.All(All(held), e => Assert.Equal(0, e.TargetPlayer));
+        Assert.Empty(stranded);
+        Steps(held, ref tick, 30 * 2, shut, fight: false, attacks, () => held.TakeStranded(stranded));
+        Assert.Equal(10, stranded.Distinct().Count());
+    }
+
+    [Fact]
+    public void Separation_takes_the_nearest_neighbours_so_a_pile_spreads_evenly()
+    {
+        var sim = new MusouSim(null);
+        // 60 bodies on almost one spot: the pile spreads out round where it stood, not off to one side.
+        for (int k = 0; k < 60; k++) sim.Spawn(MusouEnemyType.Gretchin, new Vector3((k % 8 - 3.5f) * 0.05f, (k / 8 - 3.5f) * 0.05f, 0f), 0f, 30f);
+        var attacks = new List<MusouAttack>();
+        uint tick = 0;
+        Steps(sim, ref tick, 30 * 3, [], fight: false, attacks);
+        var all = All(sim);
+        var centre = all.Aggregate(Vector3.Zero, (c, e) => c + e.Position) / all.Length;
+        Assert.True(new Vector2(centre.X, centre.Y).Length() < 0.5f, $"the pile drifted to {centre}");
+        Assert.True(all.Max(e => new Vector2(e.Position.X, e.Position.Y).Length()) > 1.5f);   // it did spread
     }
 
     [Fact]
