@@ -413,7 +413,14 @@ public sealed record ProjectileSpec(string Blueprint, float Speed, float Lifetim
 /// <param name="MinTimeMultiplier"><c>min_charge_time_multiplier</c> default entry (perks lower it; 1 by default).</param>
 /// <param name="ReloadCancels"><c>reload_button_cancels_charging</c>.</param>
 /// <param name="AmmoToStart"><c>trigger_data/ammunition/…/required_to_start</c>.</param>
-public sealed record ChargeSpec(string Ability, IReadOnlyList<ChargeStage> Stages, float MaxChargeTime, float MinTimeMultiplier, bool ReloadCancels, int AmmoToStart);
+public sealed record ChargeSpec(string Ability, IReadOnlyList<ChargeStage> Stages, float MaxChargeTime, float MinTimeMultiplier, bool ReloadCancels, int AmmoToStart)
+{
+    /// <summary>
+    /// sim/instant-fire (owner, 2026-10-31: the lascannon "should fire the instant the left mouse button is pressed"): a charge with a
+    /// <c>max_charge_time</c> (install: the lascannon's 1.5 s only) is not held; the press fires the basic shot at once.
+    /// </summary>
+    public bool FiresOnPress => MaxChargeTime > 0f;
+}
 
 /// <summary>
 /// One charge stage: reached after <see cref="MinTime"/> seconds held (× <see cref="ChargeSpec.MinTimeMultiplier"/>, assumed).

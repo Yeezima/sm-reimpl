@@ -874,7 +874,7 @@ public partial class NetworkView : Node3D
             GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} detonates {me.ProjectilesOut} grenade(s) ({why}; requests {_detonateRequests})");
         }
 
-        if (weapon.Charge is { Stages.Count: > 0 } charge)
+        if (weapon.Charge is { Stages.Count: > 0, FiresOnPress: false } charge)   // sim/instant-fire: the lascannon press-fires like any basic weapon
         {
             int lastFiring = 0;
             for (int i = 0; i < charge.Stages.Count; i++) if (charge.Stages[i].Shot is not null) lastFiring = i + 1;
@@ -1871,7 +1871,7 @@ public partial class NetworkView : Node3D
             f.HasWeapon = true;
             f.WeaponName = Capitalized(WeaponLabel(inHand)); f.WeaponWargear = inHand.Name;   // M44: the wargear names the weapon's picture
             f.Clip = me.Clip; f.ClipMax = inHand.ClipSize; f.Reserve = me.Reserve; f.ReserveMax = inHand.ReserveSize;
-            f.HasCharge = inHand.Charge is { Stages.Count: > 0 };
+            f.HasCharge = inHand.Charge is { Stages.Count: > 0, FiresOnPress: false };
             // A self-recharging clip (the melta) shows the time to its next round instead of RELOADING.
             f.WeaponState = me.SwitchLeft > 0f ? "SWITCHING"
                 : me.ReloadLeft > 0f ? (inHand.Recharge is not null ? $"RECHARGING {me.ReloadLeft:F1} s" : "RELOADING") : "";

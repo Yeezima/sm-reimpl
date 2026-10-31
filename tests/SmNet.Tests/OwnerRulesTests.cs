@@ -301,7 +301,7 @@ public class OwnerRulesTests(ITestOutputHelper output)
     };
 
     [Theory]
-    [InlineData(0, 45)]   // lascannon: charged at 1.5 s
+    [InlineData(0, 45)]   // lascannon held-charge variant (max_charge_time 0): charged at 1.5 s; the real lascannon fires on the press (below)
     [InlineData(1, 33)]   // plasma gun: 1.1 s
     [InlineData(2, 20)]   // plasma pistol (its charge on the primary ability): 0.65 s
     [InlineData(3, 90)]   // plasma cannon: 3 s
@@ -333,6 +333,46 @@ public class OwnerRulesTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void The_lascannon_fires_its_shot_on_the_press_tick_and_holding_charges_nothing()
+    {
+        var c = ChargeConfig with { Weapons = [ChargeTests.LasPress, ChargeTests.PlasmaGun, ChargeTests.PlasmaPistol, ChargeTests.Cannon] };
+        var s = Fresh(c, 0);
+        var weapon = Loadouts.InHand(c, s)!;
+        Assert.Equal(1.5f, weapon.Charge!.MaxChargeTime);
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire), c, out var press);
+        Assert.Equal((true, 0, false), (press.Fired, press.ShotStage, s.Charging));   // the press tick; the basic shot, no charge
+        Assert.Equal(weapon.ClipSize - Math.Max(1, weapon.AmmoPerShot), s.Clip);
+        // Holding on (past the old 1.5 s charge) fires nothing more, and the release fires nothing.
+        for (int k = 0; k < 60; k++)
+        {
+            s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire), c, out var held);
+            Assert.False(held.Fired);
+            Assert.False(s.Charging);
+        }
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), c, out var rel);
+        Assert.False(rel.Fired);
+    }
+
+    [Fact]
+    public void A_charged_shot_with_a_data_fire_delay_leaves_on_the_release_tick()
+    {
+        var c = ChargeConfig;
+        foreach (int cls in new[] { 1, 2, 3 })
+        {
+            var s = Fresh(c, cls);
+            var weapon = Loadouts.InHand(c, s)!;
+            Assert.True(weapon.Charge!.Stages.Any(st => st.Shot is { FireDelay: > 0f }), weapon.Name);   // the data does carry a delay
+            int need = (int)MathF.Ceiling(weapon.Charge.Stages.Last(st => st.Shot is not null).MinTime / (1f / 30f)) + 1;
+            for (int k = 0; k < need; k++) s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire), c, out var held);
+            Assert.True(Combat.ChargeStage(weapon.Charge, s.ChargeTime, firing: true) > 0);
+            s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), c, out var rel);
+            Assert.True(rel.Fired, weapon.Name);
+            Assert.True(rel.ShotStage > 0, weapon.Name);
+            Assert.Equal(0, s.PendingShot);
+        }
+    }
+
+    [Fact]
     public void A_tap_on_a_lowered_charge_weapon_waits_for_the_raise_and_a_hold_charges_through_it()
     {
         var gun = ChargeTests.PlasmaGun with { RaiseDelay = 0.2f };
@@ -352,8 +392,8 @@ public class OwnerRulesTests(ITestOutputHelper output)
         int shots = 0;
         for (int k = 0; k < 34; k++) { s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire), c, out var e); if (e.Fired) shots++; }
         Assert.Equal((0, true, 0), (shots, s.Charging, s.RaiseTicks));
-        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), c, out _);
-        Assert.Equal(2, s.PendingShot);
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), c, out var rel);
+        Assert.Equal((true, 2, 0), (rel.Fired, rel.ShotStage, s.PendingShot));   // sim/instant-fire: on the release tick
     }
 
     [Fact]
