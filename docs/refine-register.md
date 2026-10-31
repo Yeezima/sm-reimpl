@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1910 spec table rows: **1334 tagged**, 420 not tagged (read from data with high confidence), 156 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 419 rows of the changes document.
+Scanned 1918 spec table rows: **1341 tagged**, 420 not tagged (read from data with high confidence), 157 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 419 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,23 +50,23 @@ Scanned 1910 spec table rows: **1334 tagged**, 420 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 146 | 131 | 125 | 15 | 1 |
+| Core simulation (provisional values) | 153 | 138 | 126 | 16 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 78 | 72 | 40 | 8 | 0 |
-| **All areas** | **1334** | 1111 | 1074 | 402 | 38 |
+| **All areas** | **1341** | 1118 | 1075 | 403 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 551 |
-| confidence: low | 491 |
+| kind: ours | 557 |
+| confidence: low | 492 |
 | confidence: medium | 466 |
 | kind: interpretation | 330 |
-| notes: ours | 293 |
+| notes: ours | 294 |
 | confidence: none (low) | 117 |
 | kind: provisional | 100 |
-| kind: estimate | 52 |
+| kind: estimate | 53 |
 | kind: user's knowledge | 45 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
@@ -1765,7 +1765,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (146)
+### Core simulation (provisional values) (153)
 
 *Spec section: Provisional values in use*
 
@@ -1894,6 +1894,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-3AD26EA5` | War: player left or lost | progress = clamp(-0.2 + 0.25·secured, -1, 0.6), secured 0 to 3; O −= 0.05·Orks killed; I −= 0.1·Guards lost; no gather | kind: estimate; confidence: low | the design's calibrated proposal (section C), unchanged by TF2's tuning | War: player left or lost: compare with SM1 by feel or video. Ours: progress = clamp(-0.2 + 0.25·secured, -1, 0.6), secured 0 to 3; O −=… | ☐ |
 | `R-3B7E8909` | War: wounded lord | a lord killed in a battle is wounded 300 war s (no 1.25 on his lane); a second wound restarts it (war s) | kind: estimate; confidence: low | the design's calibrated proposal (section C), unchanged by TF2's tuning | War: wounded lord: compare with SM1 by feel or video. Ours: a lord killed in a battle is wounded 300 war s (no 1.25 on his lane)… | ☐ |
 | `R-8D4DA7E9` | War: final bonus | per lane other than the assault's at front ≥ 2: Warboss HP × 0.85, +2 squads (at the calibrated run both other lanes still stand at 2: see the milestone note) | kind: estimate; confidence: low | the design's calibrated proposal (section C), unchanged by TF2's tuning | War: final bonus: compare with SM1 by feel or video. Ours: per lane other than the assault's at front ≥ 2: Warboss HP × 0.85, +2… | ☐ |
+
+*Spec section: Added content: Musou — the Three-Front War on the wire (TF6; no protocol change, `TfwRules.Version` 2)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-5C945299` | War section (tag 7) | 71 bytes (the design's about 62: exact floats kept); per client, on any change and every 1 s (B, s) | kind: ours | the design's section H; the floats ours | War section (tag 7): compare with SM1 by feel or video. Ours: 71 bytes (the design's about 62: exact floats kept); per client, on… | ☐ |
+| `R-2BB9C079` | Objectives section (tag 8) | at most 17 records of 10 bytes, 171 bytes in all; the whole list every 10 ticks, also empty (B, ticks) | kind: ours | the design's section H | Objectives section (tag 8): compare with SM1 by feel or video. Ours: at most 17 records of 10 bytes, 171 bytes in all; the whole list… | ☐ |
+| `R-733D9488` | Guardsmen section (tag 9) | 10-byte records, at most 119 a section; bands as the enemies': within 15 m every tick, to 40 m every 2nd, beyond every 5th, a changed state at once; at most 2 messages a tick on top of Musou's (B, ticks) | kind: ours | the design's section H; the message cap ours | Guardsmen section (tag 9): compare with SM1 by feel or video. Ours: 10-byte records, at most 119 a section; bands as the enemies': within… | ☐ |
+| `R-BD385ED4` | Guard events (tag 10) | 15-byte records; a death in 3 messages, a shot or a hurt man in 1; deaths first; at most 35% of the war's tick budget (15 copies a tick at 30 Hz); gone after 30 ticks (B, copies, ticks) | kind: estimate; confidence: low; notes: ours | the design's 15 bytes; the rest ours, after Musou's events | Guard events (tag 10): compare with SM1 by feel or video. Ours: 15-byte records; a death in 3 messages, a shot or a hurt man in 1… | ☐ |
+| `R-E10738F6` | Orders with a place | Hold and Attack carry the sender's crosshair point: 3 × i16 in 0.1 m after the frozen 4 bytes, 10 bytes in all, reaching ±3276.7 m; Follow, Deploy and the pickup commands stay 4 bytes (m, B) | kind: ours | ours (the design's positions; the server has no camera to find the point) | Orders with a place: compare with SM1 by feel or video. Ours: Hold and Attack carry the sender's crosshair point: 3 × i16 in 0.1 m… | ☐ |
+| `R-97586DFF` | Command delivery | one command at a time, oldest first; resent every 250 ms until tag 7 echoes it, at least 125 ms between sends, 8 waiting at most; the server takes each sequence once, compared across the 16-bit wrap, and echoes it only once queued (s, commands) | kind: ours | the design's 250 ms and 8 a second; the rest ours | Command delivery: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one command at a time, oldest first; resent every 250 ms until tag 7… | ☐ |
+| `R-1156B9D2` | War sections on a client | a man is dropped 2 s after his last record; 4 records kept a man; tags 8 to 10 held until the director's box, 64 sections at most; a section 300 ticks older than the newest means a restarted server (s, sections, ticks) | kind: ours | ours, as Musou's | War sections on a client: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a man is dropped 2 s after his last record; 4 records kept a man… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -2868,6 +2880,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-CC3EE3F5` | Test aids | Added content: loyalist barks — voice lines for loyalist marines and the FOR THE EMPEROR key (client and server; no protocol change, extras wire 2) |
 | `R-6C5E4C60` | Musou send budget | Added content: Musou — an experimental one-sided mode against swarms (server and client; no protocol change, extras wire 2) |
 | `R-2C299735` | War wire box | Added content: Musou — the Three-Front War (TF0 contracts, TF1 map, TF3 Guardsmen and leashed defenders; no protocol change) |
+| `R-D62C8E23` | War's budget | Added content: Musou — the Three-Front War on the wire (TF6; no protocol change, `TfwRules.Version` 2) |
 | `R-3C893894` | Test aids | Death effects (F-D1; client only, not simulated, no protocol change) |
 | `R-54698497` | `--bot-damage-scale f` | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
 | `R-5601E474` | Protocol 37 (on top of main's 36) | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |

@@ -1,5 +1,4 @@
 using SmNet;
-using SmNet.Extras.Musou.Campaign;
 using SmSim;
 using SmSim.Extras.Musou.Campaign;
 
@@ -30,19 +29,6 @@ public sealed partial class GameServer
         bool started = World.StartTfw(nav);
         if (started) { PlayerJoined += p => World.MusouJoined(p.PlayerId); TfwUseWireBox(); }
         _musouNote = started ? $"musou: the Three-Front War runs on {TfwMap.Name} (placeholder arena and Stormbird; Space Marines only, no limits); {navNote}" : "musou: not started (the match has no team rules)";
-    }
-
-    /// <summary>This feature's part of the envelope hook (the dispatcher <c>GameServer.Extras.cs</c>). TF0 sends nothing; TF6: tags 7 to 10.</summary>
-    void SendTfw()
-    {
-        if (World.Tfw is null) return;
-    }
-
-    /// <summary>A client's command (message kind 17): queued for the next tick, only under the war's tag and when well formed; the session and the rate are the core's.</summary>
-    void OnTfwCommand(int player, byte tag, byte[] payload)
-    {
-        if (World.Tfw is not { } run || tag != TfwWire.CommandTag || TfwWire.ReadCommand(payload) is not { } command) return;
-        run.Enqueue(player, command);
     }
 
     /// <summary>An AI Marine's scoreboard name; every other player keeps its own.</summary>
