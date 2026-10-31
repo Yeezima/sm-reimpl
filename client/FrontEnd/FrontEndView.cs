@@ -353,8 +353,10 @@ public sealed partial class FrontEndView : Control
         return row;
     }
 
-    /// <summary>The Musou button is shown (<c>--musou</c> or <c>SM_MUSOU=1</c>): hidden until the mode is ready.</summary>
-    public bool MusouShown => _args.ContainsKey("musou") || System.Environment.GetEnvironmentVariable("SM_MUSOU") == "1";
+    /// <summary>The Musou button is shown (<c>--musou</c>, <c>--content musou</c> or <c>SM_MUSOU=1</c>): hidden until the mode is ready. A command-line
+    /// <c>--content musou</c> shows it, so the test aid keeps working and never overwrites the remembered profile.</summary>
+    public bool MusouShown => _args.ContainsKey("musou") || _args.GetValueOrDefault("content") == SmSim.ContentProfiles.Musou
+        || System.Environment.GetEnvironmentVariable("SM_MUSOU") == "1";
 
     bool _contentLocked;
 

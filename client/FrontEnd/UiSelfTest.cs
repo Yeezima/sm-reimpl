@@ -871,7 +871,10 @@ public sealed partial class UiSelfTest : Node
         var musouButton = FindButton(_front, b => b.Name == "ContentMusou");
         // Hidden until the mode is ready (the owner, 2026-10-31): shown only with --musou or SM_MUSOU=1.
         if (!_front.MusouShown)
+        {
             Check("the Musou button is hidden without --musou", musouButton is null || !musouButton.Visible);
+            Check("hidden Musou: the profile and the Host panel are not Musou", !_services.Content.HasFlag(ContentExtras.Musou) && _front.JoinHostPanel?.Musou != true, _services.Content.ToString());
+        }
         else
         {
             Check("the content picker has the Musou button", musouButton is not null);
