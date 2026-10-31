@@ -11,3 +11,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 -->
 
 - Launcher: the "Old GPU / safe mode" tick box no longer shows a black strip behind its text or leftover pieces of the buttons above it; its row now repaints cleanly after every status change, tick, hover, resize and minimise.
+- Losing your armour (or an enemy's) now shows a strong red glow around the character, which flashes again briefly with every hit taken afterwards; hits on a character with no armour throw out a spray of blood-red droplets.

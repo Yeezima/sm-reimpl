@@ -531,6 +531,7 @@ public partial class NetworkView
         var plays = _catalogue.Resolve(se.HitMaterial, hit, surface, up);
         if (hit != ShotHit.World) FxArmourHit(up, end, dir, victim, delay);
         if (hit != ShotHit.World && up) ArmourSparks(end, dir, delay);   // fx/bolt-tracer-impact
+        if (hit != ShotHit.World && armourUp == false) BloodSplashAt(end, dir, delay);   // fx/red-glow-blood: no armour left, a red splash
         if (hit != ShotHit.World) CharacterFlashHit(victim, armourUp);   // fx/character-visuals: the victim's model flashes (NetworkView.CharacterFlash.cs)
         if (plays.Count == 0) return;
         _fxImpacts++;
