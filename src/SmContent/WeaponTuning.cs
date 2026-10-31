@@ -101,7 +101,7 @@ public static class WeaponTuning
             Get(health, "default_head", 1f, allowZero: true, quiet: noDirectHit), Get(health, "default_body", 1f, allowZero: true, quiet: noDirectHit),
             Get(shield, "default_head", 1f, allowZero: true, quiet: noDirectHit), Get(shield, "default_body", 1f, allowZero: true, quiet: noDirectHit))
         {
-            Heat = heat, Delivery = kind.Value, Projectile = projectile, AmmoPerShot = AmmoCost(delivery) ?? 1, Charge = charge,
+            Heat = heat, Delivery = kind.Value, Projectile = projectile, AmmoPerShot = ShotAmmo(name, delivery, UpgradeScope.Current, notes), Charge = charge,
             DetonationDelays = detonationDelays, Cone = cone, Recharge = recharge,
             Pierce = kind == DeliveryKind.Raycast ? Pierce(name, delivery, UpgradeScope.Current, notes) : null,
             PerkPierces = kind == DeliveryKind.Raycast ? PerkPierces(name, delivery, notes) : [],
@@ -309,7 +309,7 @@ public static class WeaponTuning
         float cooldown = Entry(delivery.Table("basic_weapon_tuning"), "entry", upgrades)?.Float("shot_cooldown") ?? float.NaN;
         if (!float.IsFinite(cooldown) || cooldown < 0f) { notes.Add($"{name}: charge stage {stage} shot_cooldown missing; using 0"); cooldown = 0f; }
         var fire = delivery.Table("fire_sim");
-        return new ChargeShot(kind, damage, NonNegative(delivery.Float("max_range")), cooldown, AmmoCost(delivery) ?? 1,
+        return new ChargeShot(kind, damage, NonNegative(delivery.Float("max_range")), cooldown, ShotAmmo($"{name} {stage}", delivery, upgrades, notes),
             HeatOf(fire, upgrades) ?? 0f, NonNegative(fire?.Table("actions/delayed_action")?.Float("delay")), projectile)
         { Pierce = kind == DeliveryKind.Raycast ? Pierce($"{name} {stage}", delivery, upgrades, notes) : null };
     }
@@ -496,6 +496,54 @@ public static class WeaponTuning
             ?? f.Table("actions/apply_heat")
             ?? Entry(f.Table("actions/actions_by_upgrade/actions"), "entry", upgrades)?.Table("action/commands/apply_heat");
         return apply?.Table("heat_generated/entry")?.Float("heat_to_generate") is float v && float.IsFinite(v) && v >= 0f ? v : null;
+    }
+
+    /// <summary>
+    /// Rounds one shot of a delivery spends: its <c>ammo_used</c> amount (1 when missing) plus every <c>consume_ammo</c> its
+    /// <c>fire_sim</c> runs (<see cref="FireSimAmmo"/>; sim/stormbolter-ammo: the storm bolters' twin barrel).
+    /// </summary>
+    static int ShotAmmo(string name, BafTable? delivery, IReadOnlyCollection<string> upgrades, List<string> notes)
+    {
+        int used = AmmoCost(delivery) ?? 1;
+        string? ammunition = delivery?.Table("ammo_used")?.Entries.Where(e => e.Type == BafType.Table).Select(e => e.AsTable().String("ammunition_name")).FirstOrDefault(s => !string.IsNullOrEmpty(s));
+        var (extra, delays) = FireSimAmmo(delivery?.Table("fire_sim"), ammunition, upgrades);
+        if (extra > 0)
+            notes.Add($"{name}: fire_sim consume_ammo {extra} more per shot ({used + extra} in all){(delays.Any(d => d > 0f) ? $", spent at the shot (the data's delay {string.Join(", ", delays.Select(d => d.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)))} s is not kept)" : "")}");
+        return used + extra;
+    }
+
+    /// <summary>
+    /// The rounds the <c>consume_ammo</c> commands of a <c>fire_sim</c> spend on each shot (sim/stormbolter-ammo), on top of the
+    /// delivery's <c>ammo_used</c>: those in <c>actions</c> and in the <c>actions_by_upgrade</c> entry selected for
+    /// <paramref name="upgrades"/>, at any depth (a <c>delayed_action</c>'s commands included; its delay is returned, not applied).
+    /// A command naming another <c>ammunition_name</c> than <paramref name="ammunition"/> is not counted. On the install only the
+    /// storm bolters (<c>sm_</c>, <c>csm_mp_ranged_storm_bolter</c>) have one: 1 round after 0.05 s, so 2 rounds per 0.1 s shot.
+    /// </summary>
+    internal static (int Rounds, List<float> Delays) FireSimAmmo(BafTable? fireSim, string? ammunition, IReadOnlyCollection<string> upgrades)
+    {
+        int rounds = 0;
+        var delays = new List<float>();
+        void Walk(BafTable? t, float delay)
+        {
+            if (t is not { } table) return;
+            foreach (var e in table.Entries.Where(e => e.Type == BafType.Table))
+            {
+                var child = e.AsTable();
+                if (e.Name == "actions_by_upgrade") continue;   // a nested upgrade list is not selected here
+                if (e.Name == "consume_ammo" || child.String("$ref")?.EndsWith("consume_ammo", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    string? own = child.String("ammunition_name");
+                    if (!string.IsNullOrEmpty(ammunition) && !string.IsNullOrEmpty(own) && !string.Equals(own, ammunition, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (Int(child, "amount") is int n and > 0) { rounds += n; delays.Add(delay); }
+                    continue;
+                }
+                float inner = child.String("$ref")?.EndsWith("delayed_action", StringComparison.OrdinalIgnoreCase) == true ? delay + NonNegative(child.Float("delay")) : delay;
+                Walk(child, inner);
+            }
+        }
+        Walk(fireSim?.Table("actions"), 0f);
+        Walk(Entry(fireSim?.Table("actions_by_upgrade"), "entry", upgrades)?.Table("action"), 0f);
+        return (rounds, delays);
     }
 
     static int? AmmoCost(BafTable? delivery) =>

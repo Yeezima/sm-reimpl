@@ -52,7 +52,7 @@ Exterminatus select alternative entries (see notes). Paths are under `ability_da
 | Weapon (file) | Damage per hit (`delivery/hit_sim/.../do_damage/damage_general`) | Shot cooldown s (`basic_weapon_tuning/entry/shot_cooldown`) | Clip / reserve (`common_data/ammunition/.../capacity_*`) | Reload s (`ability_reload/.../triggered_reload_time`) | Max range (`delivery/max_range`) | Trigger, delivery | Unlock level |
 |---|---|---|---|---|---|---|---|
 | Bolter (`sm_mp_ranged_bolter`) | 22 (×0.8 beyond 70) | 0.133 | 30 / 270 | 1.3 | 250 | full auto, raycast | 1 |
-| Storm bolter (`sm_mp_ranged_storm_bolter`) | 22 | 0.1 | 100 / 500 | 2.0 | 250 | full auto, raycast | 16 |
+| Storm bolter (`sm_mp_ranged_storm_bolter`) | 22 | 0.1 | 100 / 500 (2 rounds a shot: 50 shots, row "Rounds per shot") | 2.0 | 250 | full auto, raycast | 16 |
 | Stalker bolter (`sm_mp_ranged_sniper_rifle`) | 50 | 0.267 | 10 / 40 | 2.5 | 250 | semi auto, raycast | 4 |
 | Bolt pistol (`sm_mp_pistol_bolt_pistol`) | 40 | 0.25 | 10 / 80 | 0.75 | 250 | semi auto, raycast | 1 |
 | Heavy bolter (`sm_mp_exotic_heavy_bolter`) | 35 | 0.233 (braced 0.1) | 400 / 0, heat 3 per shot of 100 | — | 250 | full auto, raycast | 1 |
@@ -85,6 +85,11 @@ Heavy bolter: heat is simulated since M11 (table below); there is no reserve, so
 choice of its slot in the data's order (no unsupported choice was skipped), and all are unlock level 1.
 
 Bolt pistol: 40 damage, 0.25 s, 10 / 80, reload 0.75 s, fall-off ×1 to 30 m then ×0.78 at 40 m, head ×2.5, shield ×0.7.
+
+| Ammunition (sim/stormbolter-ammo) | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Rounds per shot | the delivery's `ammo_used` amount plus every `consume_ammo` its `fire_sim` runs (in `actions`, at any depth, and the selected `actions_by_upgrade` entry; a command naming another `ammunition_name` is not counted); on the install the storm bolters (`sm_`, `csm_mp_ranged_storm_bolter`, every perk entry) spend **2** (`ammo_used` 1 + a `delayed_action` `consume_ammo` 1 after 0.05 s: the second barrel; the fire effects flash `fx_muzzle` then `fx_muzzle01`), every other MP firearm 1; so the storm bolter's clip of 100 lasts 50 shots, 5 s on full auto (was 100 shots, 10 s: only `ammo_used` was read). The owner's report of 2026-11-01 ("not using a bullet every shot - resulting in firing for twice as long on full automatic before requiring a reload") agrees with the data | rounds | per shot | `WeaponTuning.ShotAmmo`, `FireSimAmmo` → `WeaponSpec.AmmoPerShot`, `Combat.StepPlayer` | wargear `delivery/ammo_used`, `delivery/fire_sim/actions/delayed_action/action/commands/consume_ammo` | extracted | high |
+| Second round's delay | the second round goes at the shot with the first, so the clip (and the HUD count) drops 2 at each 0.1 s shot; the data spend it 0.05 s later (the HUD would step 1 every 0.05 s). The last round of an odd clip still fires and the shot spends what is left (a shot needs 1 round, as before) | s | per shot | `Combat.BasicShot` | ours (the delay is not simulated; the time to empty a clip is the same) | interpretation | medium |
 
 | Heat (M11) | Value | Units | Timing basis | Where | Source | Kind | Confidence |
 |---|---|---|---|---|---|---|---|
