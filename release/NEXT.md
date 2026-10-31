@@ -10,3 +10,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Add your bullets in the same pull request as the change, when it merges.
 -->
 - Devastator and Havoc: running or sprinting off right after a stomp no longer leaves the arms stuck in the stomp pose over running legs; the arms now go into the run or sprint as soon as you can move. The same goes for the knife strikes and the heavy classes' kick.
+- Spent bolt casings drop to the ground much faster instead of floating.
