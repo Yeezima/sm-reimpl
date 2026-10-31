@@ -68,7 +68,8 @@ GETTING INTO A MATCH
     ZeroTier does.
   Everyone in a match must use this same build. Different versions refuse each other on purpose.
 
-CONTROLS (F1 in a match shows them too; no key rebinding yet)
+CONTROLS (F1 in a match shows them too). Every binding can be changed: CONTROLS on the Join
+  screen, or in the Esc menu in a match (keyboard and mouse tab, controller tab).
   W A S D              move
   Mouse                look and aim
   Shift (hold)         sprint

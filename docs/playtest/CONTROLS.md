@@ -3,7 +3,7 @@
 These are the bindings in this build. The game's data does not contain the PC default keys, so they come from the project owner's memory of the original
 (marked "from memory" below) or are our own choice (marked "ours"). If a binding differs from what you remember in SM1, that is a useful report.
 
-There is no key rebinding yet.
+The bindings below are the defaults. Every one can be changed: CONTROLS on the Join screen (next to the field-of-view setting) and in the Esc menu opens the rebinding screen, with one tab for the keyboard and mouse (two bindings per action) and one for the controller. The change is saved and applies at once.
 
 ## In a match
 
