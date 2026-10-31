@@ -2235,5 +2235,7 @@ flinches `IG_REC_Flinch_High|Mid|Low_L|R_01` (additive: **not bound** by our rea
 deaths `IG_DIE_Basic_01` 0.4 s, `_03` 0.6 s, `IG_DIE_FallForward_01` 0.467 s, `IG_DIE_Headshot_01` 0.533 s, `IG_DIE_Explode_01` 3 s, `IG_REC_Death_02`
 2.233 s; melee `IG_MEL_Attack_F_01` 2 s and the chainsword guardsman's `IG_CS_MEL_*`.
 
+`lasgun_tracer` (`smtool fx-dump auto lasgun_tracer`): two beams are not hidden. `mycore` (additive, `laser_beam`, 0.5 s, width 0.039 to 0.059) goes pink (244,92,105), red (238,29,4) by 5% of its life and almost black (2,12,2) by 36%. `mycore_alpha` (alpha, `laser_beam_alpha`, 0.4 s, width 0.079 falling to 0) peaks pink (218,85,94, alpha 180) at 8%, turns teal (11,115,103, alpha 134) at 17%, dark blue (8,6,81, alpha 86) at 30% and fades. So a shot is pink-red first and a thin blue-teal thread after about 0.1 s. Both looks in our stills are the data's curves at different ages (read with keys as fractions of the duration, the renderer's provisional reading), not a bug. `lasgun_muzzle`'s light is (255,115,168), the pink glow on the floor.
+
 Done in TF7a: `GuardRig` (profile, clip table), `GuardLasgun` (the mount from the data, no table of ours), the crowd (`GuardCrowd`). Left: the rig's graphs are not read, so the clip choices are ours;
 the ragdoll (`havok_guardsman_a_coop`, 16 bodies, not read yet); the six additive flinches' extra track.

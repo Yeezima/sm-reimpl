@@ -8,6 +8,7 @@ using SmFormats.Fx;
 using SmNet;
 using SmNet.Extras.Musou.Campaign;
 using SmSim.Extras.Musou;
+using SmSim.Extras.Musou.Campaign;
 using Num = System.Numerics;
 
 namespace SmClient;
@@ -29,9 +30,10 @@ public partial class NetworkView
     GuardCrowd? _guardCrowd;
     GuardDemoFeed? _guardDemo;
     Task<(Dictionary<string, CSystem> Systems, List<string> Failures)>? _guardFxLoad;
-    bool _guardFxReady, _guardDemoChecked;
-    double _guardLogAt, _guardFrameMs;
-    int _guardFrames, _guardFxPlayed, _guardFxSkipped;
+    bool _guardFxReady, _guardDemoChecked, _tfwDeployChecked;
+    TfwLane? _tfwDeployLane;
+    double _guardLogAt, _guardFrameMs, _tfwDeployNext;
+    int _guardFrames, _guardFxPlayed, _guardFxSkipped, _guardHurts, _guardDeaths;
 
     /// <summary>The war as this client knows it (the HUD of TF7b reads it too).</summary>
     internal TfwClientState TfwState => _tfwState;
@@ -42,6 +44,7 @@ public partial class NetworkView
         double now = Time.GetTicksUsec() / 1e6;
         MusouBox? box = _musouState.Director is { } director ? director.Box.Sane() : null;
         foreach (var section in sections) _tfwState.Apply(section, box, now);
+        TfwCommandsFrame(now);
         double renderTick = _client!.RemotePlayers().Tick;
         if (renderTick <= 0) renderTick = _tfwState.NewestTick;
         if (GuardDemo() is { } demo)
@@ -58,6 +61,25 @@ public partial class NetworkView
             _guardFrames++;
         }
         _tfwState.TakeNew();
+    }
+
+    /// <summary>Sends what <see cref="TfwCommandSender"/> has due. Test aid <c>--tfw-deploy a|b|c</c> (until TF7b's war map): a Deploy to that lane each time the run is back in the hub.</summary>
+    void TfwCommandsFrame(double now)
+    {
+        if (_tfwDeployLane is null && !_tfwDeployChecked)
+        {
+            _tfwDeployChecked = true;
+            var args = OS.GetCmdlineUserArgs();
+            int at = Array.IndexOf(args, "--tfw-deploy");
+            if (at >= 0 && at + 1 < args.Length && Enum.TryParse<TfwLane>(args[at + 1], ignoreCase: true, out var lane)) _tfwDeployLane = lane;
+        }
+        if (_tfwDeployLane is { } wanted && _tfwState.War is { Phase: TfwRunPhase.Hub } && _tfwState.Commands.Pending == 0 && now >= _tfwDeployNext)
+        {
+            _tfwDeployNext = now + 5.0;
+            _tfwState.Commands.Issue(TfwCommand.Deploy, (byte)wanted);
+            GD.Print($"guards: --tfw-deploy: asking for lane {wanted}");
+        }
+        if (_tfwState.Commands.Due(now) is { } payload) _client!.SendExtrasCommand(TfwWire.CommandTag, payload);
     }
 
     GuardDemoFeed? GuardDemo()
@@ -99,7 +121,12 @@ public partial class NetworkView
         GuardFxLoad();
 
         var camera = _camera is null ? Vector3.Zero : new Vector3(_camera.GlobalPosition.X, -_camera.GlobalPosition.Z, _camera.GlobalPosition.Y);   // Godot to game space
-        foreach (var e in _tfwState.NewEvents) _guardCrowd!.Event(e);
+        foreach (var e in _tfwState.NewEvents)
+        {
+            _guardCrowd!.Event(e);
+            if (e.Kind == TfwGuardEventKind.Hurt) _guardHurts++;
+            else if (e.Kind == TfwGuardEventKind.Death) _guardDeaths++;
+        }
         int played = 0;
         foreach (var e in _tfwState.NewEvents)
             if (e.Kind == TfwGuardEventKind.Shot) { if (played < GuardFxPerFrame && GuardShotFx(e, camera)) played++; }
@@ -148,8 +175,8 @@ public partial class NetworkView
         if (_connectedFor < _guardLogAt || _guardFrames == 0) return;
         _guardLogAt = _connectedFor + 10.0;
         var c = _guardCrowd!;
-        GD.Print($"guards: t {_connectedFor:F0} s: known {_tfwState.GuardCount}, drawn {c.ShownSkinned} skinned + {c.ShownVat} vat, {c.LeftOut} left out, {c.Bodies} bodies; frame cost {_guardFrameMs / _guardFrames:F2} ms; " +
-                 $"sections {_tfwState.SectionsRead} ({_tfwState.SectionsMalformed} malformed), events {_tfwState.EventsPlayed} (+{_tfwState.EventCopies} copies), shot effects {_guardFxPlayed} ({_guardFxSkipped} too far)");
+        GD.Print($"guards: t {_connectedFor:F0} s: war {(_tfwState.War is { } w ? $"{w.Phase} lane {w.BattleLane}" : "none")}, known {_tfwState.GuardCount}, drawn {c.ShownSkinned} skinned + {c.ShownVat} vat, {c.LeftOut} left out, {c.Bodies} bodies; frame cost {_guardFrameMs / _guardFrames:F2} ms; " +
+                 $"sections {_tfwState.SectionsRead} ({_tfwState.SectionsMalformed} malformed), events {_tfwState.EventsPlayed} (+{_tfwState.EventCopies} copies), {_guardHurts} hurt, {_guardDeaths} dead, shot effects {_guardFxPlayed} ({_guardFxSkipped} too far)");
         _guardFrameMs = 0; _guardFrames = 0;
     }
 }
