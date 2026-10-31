@@ -44,10 +44,4 @@ public sealed partial class GameServer
         if (World.Tfw is not { } run || tag != TfwWire.CommandTag || TfwWire.ReadCommand(payload) is not { } command) return;
         run.Enqueue(player, command);
     }
-
-    /// <summary>An AI Marine's scoreboard name; every other player keeps its own.</summary>
-    void TfwPlayerName(int id, ref string name)
-    {
-        if (World.Tfw is { } run && TfwContracts.IsPuppet(id)) name = run.PuppetName(id);
-    }
 }

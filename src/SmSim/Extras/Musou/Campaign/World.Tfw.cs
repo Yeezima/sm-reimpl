@@ -45,6 +45,8 @@ public sealed partial class World
     {
         MusouBeginTick();
         MusouArm();
+        TfwMarinesFight();   // World.TfwPuppets.cs: TF5's stand-in for TF3's TfwGuardsStep; that call replaces this line
+        TfwPuppetsStep();    // World.TfwPuppets.cs: the AI Marines
     }
 
     /// <summary>

@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1888 spec table rows: **1313 tagged**, 420 not tagged (read from data with high confidence), 155 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 414 rows of the changes document.
+Scanned 1896 spec table rows: **1321 tagged**, 420 not tagged (read from data with high confidence), 155 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 415 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 343 | 291 | 295 | 98 | 12 |
+| Movement (critical) | 344 | 292 | 296 | 98 | 12 |
 | Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
 | Weapons (critical) | 113 | 66 | 98 | 50 | 3 |
 | Melee (critical) | 64 | 51 | 60 | 11 | 5 |
@@ -50,23 +50,23 @@ Scanned 1888 spec table rows: **1313 tagged**, 420 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 141 | 126 | 121 | 15 | 1 |
+| Core simulation (provisional values) | 148 | 133 | 128 | 19 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1313** | 1091 | 1056 | 402 | 38 |
+| **All areas** | **1321** | 1099 | 1064 | 406 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 532 |
-| confidence: low | 479 |
+| kind: ours | 536 |
+| confidence: low | 487 |
 | confidence: medium | 460 |
 | kind: interpretation | 329 |
-| notes: ours | 293 |
+| notes: ours | 296 |
 | confidence: none (low) | 117 |
 | kind: provisional | 100 |
-| kind: estimate | 52 |
+| kind: estimate | 56 |
 | kind: user's knowledge | 45 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
@@ -75,9 +75,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: user's knowledge | 26 |
 | kind: approximation | 23 |
 | kind: placeholder | 22 |
-| notes: placeholder | 18 |
+| notes: placeholder | 19 |
 | kind: gap (not reproduced) | 16 |
-| notes: open question | 15 |
+| notes: open question | 16 |
 | notes: interpretation | 14 |
 | notes: not reproduced (gap) | 13 |
 | notes: estimate | 10 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (343)
+### Movement (gameplay-critical) (344)
 
 *Spec section: Extracted parameters*
 
@@ -575,6 +575,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-ABEF115E` | Musou enemy movement | one shared flow field from the players' nodes (incremental, 20k expansions a tick, refresh 0.5 s; a player off the graph uses the node within 6 m sideways and 12 m below, else its last); at most 4 melee and 6 shooters engage a player, the others circle at 3–6… (m, s) | kind: ours; confidence: low | ours (MU1) | Musou enemy movement: compare with SM1 by timing a run over a known distance. Ours: one shared flow field from the players' nodes (incremental, 20k… | ☐ |
+
+*Spec section: Added content: Musou — the Three-Front War: the AI Marines (TF5: `MarineBrain`, `World.TfwPuppets.cs`; not yet brought in by a match: TF4 does)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-49D28496` | Marine movement | straight steering (no nav graph: the arena is empty); sprints with over 12 m to go and nobody to shoot (m) | kind: ours; confidence: low | ours | Marine movement: compare with SM1 by timing a run over a known distance. Ours: straight steering (no nav graph: the arena is empty); sprints with… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -1735,7 +1741,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (141)
+### Core simulation (provisional values) (148)
 
 *Spec section: Provisional values in use*
 
@@ -1859,6 +1865,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-3AD26EA5` | War: player left or lost | progress = clamp(-0.2 + 0.25·secured, -1, 0.6), secured 0 to 3; O −= 0.05·Orks killed; I −= 0.1·Guards lost; no gather | kind: estimate; confidence: low | the design's calibrated proposal (section C), unchanged by TF2's tuning | War: player left or lost: compare with SM1 by feel or video. Ours: progress = clamp(-0.2 + 0.25·secured, -1, 0.6), secured 0 to 3; O −=… | ☐ |
 | `R-3B7E8909` | War: wounded lord | a lord killed in a battle is wounded 300 war s (no 1.25 on his lane); a second wound restarts it (war s) | kind: estimate; confidence: low | the design's calibrated proposal (section C), unchanged by TF2's tuning | War: wounded lord: compare with SM1 by feel or video. Ours: a lord killed in a battle is wounded 300 war s (no 1.25 on his lane)… | ☐ |
 | `R-8D4DA7E9` | War: final bonus | per lane other than the assault's at front ≥ 2: Warboss HP × 0.85, +2 squads (at the calibrated run both other lanes still stand at 2: see the milestone note) | kind: estimate; confidence: low | the design's calibrated proposal (section C), unchanged by TF2's tuning | War: final bonus: compare with SM1 by feel or video. Ours: per lane other than the assault's at front ≥ 2: Warboss HP × 0.85, +2… | ☐ |
+
+*Spec section: Added content: Musou — the Three-Front War: the AI Marines (TF5: `MarineBrain`, `World.TfwPuppets.cs`; not yet brought in by a match: TF4 does)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-80D9FB6C` | Marine aim | looks for the nearest enemy every 3 ticks, then aims at its chest with an error within ±2° on yaw and pitch, from a hash of the id and tick (no random numbers) (ticks, degrees) | kind: estimate; confidence: low | the design (section E) | Marine aim: compare with SM1 with an overlaid screenshot taken from the same position. Ours: looks for the nearest enemy every 3 ticks, then aims at its chest… | ☐ |
+| `R-A1C904C3` | Marine fire | holds the trigger while the clip lasts (semi-automatic or charged weapons by repeated presses), then reloads; strikes instead within 2.5 m; a weapon with a brace never presses Reload, stays unbraced; no fire while overheated or sprinting (m) | kind: ours; confidence: low | the design (section E); brace and heat ours | Marine fire: compare with SM1 by measuring on a flat spot of the same map. Ours: holds the trigger while the clip lasts (semi-automatic or charged… | ☐ |
+| `R-C298F525` | Marine ammunition | an empty reserve fills at once, and a brace weapon's empty clip (rounds) | kind: ours; confidence: low | ours: a puppet has no pickups to look for | Marine ammunition: compare with SM1 by feel or video. Ours: an empty reserve fills at once, and a brace weapon's empty clip. | ☐ |
+| `R-181BE472` | Retainer orders | one Tactical, default loadout (first of its primaries), per player; Follow keeps the owner at 4 to 8 m (steers to 4.5 to 6.5), shoots within 20 m of itself; Hold stands where it was at the order, within 1 m, shoots within 25 m of that place; Attack goes to… (m) | kind: estimate; confidence: low; notes: ours | the design (section E), the owner (2026-11-01: 1 retainer at first; orders to my retainers only); the stand band, the arrival and the stand-off ours | Retainer orders: compare with SM1 by measuring on a flat spot of the same map. Ours: one Tactical, default loadout (first of its primaries), per player… | ☐ |
+| `R-989D9325` | Retainer revive | before any order, while the run keeps the window open (25 s, TF4's): sprints to the body, 3 s in a row within 2 m bring the player back where it fell at 50 % of health and shield, carrying what it had (no new life, no ammunition) (s, m, share) | kind: estimate; confidence: low; notes: ours | the design (section E), the owner (2026-11-01: revive, then extract); what the player keeps ours | Retainer revive: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: before any order, while the run keeps the window open (25 s, TF4's):… | ☐ |
+| `R-3E3AD1A2` | Retainer recovery | a dead retainer (a player's or a lord's) is out 180 war s, on the war's time scale, in or out of a battle, then returns at the landing zone; it stays dead until then (the respawn timer held) (war s) | kind: estimate; confidence: low; notes: ours | the design (section E: 3 war-minutes); the return place ours | Retainer recovery: compare with SM1 by feel or video. Ours: a dead retainer (a player's or a lord's) is out 180 war s, on the… | ☐ |
+| `R-3AD62DF3` | Lords | one per lane: A Assault "Brother-Captain Aurex", B Tactical "Brother-Captain Tolmar", C Devastator "Brother-Captain Severin", each with a Tactical "Retainer of ..." who follows him and, once he falls, attacks; autonomous, no player orders them; attack-move to… (m) | kind: ours; confidence: low; notes: placeholder; notes: open question | the design (section E, open question 7: placeholder names), the owner (2026-11-01: one lord per lane, autonomous); the 10 m ours | Lords: compare with SM1 by measuring on a flat spot of the same map. Ours: one per lane: A Assault "Brother-Captain Aurex", B Tactical… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -2158,6 +2176,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-0BAAC3C5` | Pistol-only start, Space Marine spawn room, Warboss in the Chaos room | the owner's request (2026-10-31) | every life starts with the class's bolt pistol only; everyone spawns in the Space Marine room | Musou spawns and loadout | Pistol-only start, Space Marine spawn room, Warboss in the…: compare with SM1 by feel or video. Ours: the owner's request (2026-10-31). | ☐ |
 | `C-D5938EAB` | Golden weapon drops from Nobs and Chaos Marines | the owner's requests (2026-10-31) | each Nob or Chaos Marine KO drops one weapon per player from their class's pool, E equips it, 60 s | Musou weapon drops | Golden weapon drops from Nobs and Chaos Marines: compare with SM1 by feel or video. Ours: the owner's requests (2026-10-31). | ☐ |
 | `C-21B5B32C` | Musou mode is the Three-Front War | the owner's decision (2026-11-01) | `--content musou` runs the war on the generated map `tfw_war`; the 5-wave run stays only as a test aid (`--map mp_tdm_09`) | War map | Musou mode is the Three-Front War: compare with SM1 by feel or video. Ours: the owner's decision (2026-11-01). | ☐ |
+| `C-38A58728` | AI Marines in the war | the owner's decisions (2026-11-01) and ours | server-side puppets: a retainer per player who follows orders and revives, three lords with retainers who act alone; ammunition without end, placeholder names | Retainer orders | AI Marines in the war: compare with SM1 by feel or video. Ours: the owner's decisions (2026-11-01) and ours. | ☐ |
 
 ### Deliberate changes (owner's decisions)
 
