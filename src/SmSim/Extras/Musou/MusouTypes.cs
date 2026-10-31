@@ -119,6 +119,11 @@ public sealed record MusouRules
     public float BossHealth { get; init; } = 4000f;
     public float BossScale { get; init; } = 1.25f;
 
+    /// <summary>The players' attacks on the enemies (MU3: the cleave, the staggers, the knockbacks; <see cref="MusouCombatRules"/>).</summary>
+    public MusouCombatRules Combat { get; init; } = MusouCombatRules.Default;
+    /// <summary>The Warboss's abilities (MU3; <see cref="MusouBossRules"/>).</summary>
+    public MusouBossRules Boss { get; init; } = MusouBossRules.Default;
+
     /// <summary>Test aid (ours): the enemies' damage to players is multiplied by this (1 in a match; 0: they never hurt).</summary>
     public float PlayerDamageScale { get; init; } = 1f;
 
