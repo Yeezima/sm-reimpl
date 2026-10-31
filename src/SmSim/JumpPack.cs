@@ -119,6 +119,17 @@ public sealed record JumpPackSpec(string Name, IReadOnlyList<DistancePoint> Heig
     /// </summary>
     public bool HoldTiers { get; init; }
 
+    // ---- sim/jump-hang: the small jump hangs at its apex (the owner, 2026-10-31) ----
+    /// <summary>
+    /// sim/jump-hang (owner's recollection; the length ours): seconds the small jump (<see cref="HoldTiers"/>: a medium hold) hangs longer at its apex,
+    /// added to <see cref="HangTime"/>. During them the hang gravity starts at <see cref="SmallHangFloor"/> of <see cref="HangGravity"/> and eases up to the
+    /// whole of it (smoothstep), so he settles into the hover and leaves it without a snap. 0 (the default, synthetic specs): the data's hang for every jump.
+    /// The full jump and the dash keep the data's hang. Set by <c>SmContent.JumpPackTuning</c>.
+    /// </summary>
+    public float SmallHangTime { get; init; }
+    /// <summary>sim/jump-hang (ours): the hang gravity at the start of the small jump's hover, as a fraction of <see cref="HangGravity"/>.</summary>
+    public float SmallHangFloor { get; init; } = 0.05f;
+
     // ---- feel/jump-pack: air control (the owner's request of 2026-10-29: "should be able to somewhat move around in the air with WASD") ----
     /// <summary>
     /// Air control's top speed (m/s) toward the stick in the ascent, hang and fall (<see cref="JumpPack.AirSteer"/>): with the stick pushed the
@@ -150,6 +161,8 @@ public sealed record JumpPackSpec(string Name, IReadOnlyList<DistancePoint> Heig
         if (ReleaseCut) { w.Write("release-cut"); w.Write(ReleaseCutDelay); w.Write(ReleaseCutDecay); }
         // feel/jump-pack-2: only with the tiers on, so packs without them (synthetic configs) hash as before.
         if (HoldTiers) w.Write("hold-tiers");
+        // sim/jump-hang: only when on, so packs without it (synthetic configs) hash as before.
+        if (SmallHangTime > 0f) { w.Write("small-hang"); w.Write(SmallHangTime); w.Write(SmallHangFloor); }
         // feel/jump-pack: only with air control on, so packs without it (synthetic configs) hash as before.
         if (AirSpeed > 0f) { w.Write("air-control"); w.Write(AirSpeed); w.Write(AirAcceleration); }
         // Protocol 30: only when read, so packs without them (synthetic configs) hash as before.
@@ -276,7 +289,8 @@ public static partial class JumpPack
         else if (phase == JumpPhase.Recover && T(ticks) + Eps >= (s.JumpSlash && pack.Slash is { } recovering ? recovering.Recovery : pack.PoundRecovery)) { phase = JumpPhase.None; ticks = 0; }
         if (phase is JumpPhase.None or JumpPhase.Landed or JumpPhase.Recover) power = MathF.Min(pack.MaxPower, power + pack.RechargeRate * dt);
         // The hang covers the ticks after the apex tick: HangTime / dt of them (15 at 30 Hz) under HangGravity, then the fall.
-        if (phase == JumpPhase.Hang && T(ticks - mark - 1) + Eps >= pack.HangTime) phase = JumpPhase.Fall;
+        // sim/jump-hang: the small jump's hang is SmallHangTime longer (PlayerState.JumpSmall).
+        if (phase == JumpPhase.Hang && T(ticks - mark - 1) + Eps >= pack.HangTime + (s.JumpSmall ? pack.SmallHangTime : 0f)) phase = JumpPhase.Fall;
 
         bool started = false, dashStart = false, decided = false;
         // feel/jump-pack-2: the three jumps by the hold (JumpPackSpec.HoldTiers): d is the dash's decision tick, its hold the small jump's.
@@ -464,6 +478,17 @@ public static partial class JumpPack
     }
 
     /// <summary>
+    /// sim/jump-hang: the hang's gravity <paramref name="elapsed"/> s into the hang. The small jump's first <see cref="JumpPackSpec.SmallHangTime"/> s run from
+    /// <see cref="JumpPackSpec.SmallHangFloor"/> of the data's gravity up to all of it along a smoothstep (the hover); then the data's.
+    /// </summary>
+    public static float HangGravityAt(JumpPackSpec pack, bool small, float elapsed)
+    {
+        if (!small || pack.SmallHangTime <= 0f) return pack.HangGravity;
+        float x = Math.Clamp(elapsed / pack.SmallHangTime, 0f, 1f), k = x * x * (3f - 2f * x);
+        return pack.HangGravity * (pack.SmallHangFloor + (1f - pack.SmallHangFloor) * k);
+    }
+
+    /// <summary>
     /// A regular landing's blast for a drop of <paramref name="drop"/> m from the apex: the <see cref="JumpPackSpec.Landings"/> entry with the
     /// largest MinDrop not above the drop (1e-4 m tolerance), or null.
     /// </summary>
@@ -599,6 +624,7 @@ public static partial class JumpPack
         bool holding = t.Holding, landMoving = t.LandMoving;
         var input = moveInput.Sanitized();
         PlayerState next;
+        bool? small = null;
         if (phase is JumpPhase.Ascent or JumpPhase.Hang or JumpPhase.Fall or JumpPhase.Dive)
         {
             var horizontal = new Vector2(s.Velocity.X, s.Velocity.Y);
@@ -640,7 +666,7 @@ public static partial class JumpPack
             float gravity = phase switch
             {
                 JumpPhase.Ascent => t.Cut && t.CutGravity > 0f ? t.CutGravity : pack.JumpingGravity,
-                JumpPhase.Hang => pack.HangGravity,
+                JumpPhase.Hang => HangGravityAt(pack, s.JumpSmall, (ticks - mark - 1) * dt),
                 JumpPhase.Fall => pack.FallingGravity,
                 // feel/jump-pack: the slash's dive is straight (no gravity) until it has flown its reach, then the pound's gravity.
                 _ when snappy is not null => (ticks - mark) * dt + Eps < snappy.DiveReach / snappy.DiveSpeed ? 0f : pack.PoundGravity,
@@ -658,7 +684,14 @@ public static partial class JumpPack
                 else { phase = JumpPhase.Landed; landMoving = input.MoveX != 0f || input.MoveY != 0f; happened = happened == JumpEventKind.None ? JumpEventKind.Land : happened; }
                 ticks = 0; mark = 0; holding = false;
             }
-            else if (phase == JumpPhase.Ascent && next.Velocity.Z <= 0f) { phase = JumpPhase.Hang; mark = ticks; holding = false; }
+            else if (phase == JumpPhase.Ascent && next.Velocity.Z <= 0f)
+            {
+                // sim/jump-hang: a medium hold's jump (the cut in the ascent, or the hold let go below the full one's) is the small jump: it hangs longer.
+                small = pack.HoldTiers && pack.SmallHangTime > 0f && (t.Cut || mark * dt + Eps < pack.MaxHold);
+                phase = JumpPhase.Hang; mark = ticks; holding = false;
+                // The cut's gravity can overshoot the apex by up to one tick's speed; the hover starts from rest (no snap into the drop).
+                if (small == true) next = next with { Velocity = new Vector3(next.Velocity.X, next.Velocity.Y, 0f) };
+            }
         }
         else
         {
@@ -677,6 +710,7 @@ public static partial class JumpPack
         {
             Jump = phase, JumpTicks = ticks, JumpMark = mark, JumpPower = t.Power, JumpHolding = holding, JumpLandMoving = phase == JumpPhase.Landed && landMoving,
             JumpCut = t.Cut && phase == JumpPhase.Ascent,
+            JumpSmall = phase == JumpPhase.Hang && (small ?? s.JumpSmall),
             JumpSlash = t.Slash && phase is JumpPhase.Dive or JumpPhase.Recover || t.Buffered && phase is JumpPhase.TakeOff or JumpPhase.Ascent,
         };
     }
