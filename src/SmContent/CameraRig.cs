@@ -107,6 +107,14 @@ public sealed class CameraRig
     /// <summary>As <see cref="Offset"/> for a pitch in the simulation's convention (radians, 0 level, positive up).</summary>
     public CameraOffset? OffsetAtPitch(string curveName, float pitchRadians) => Offset(curveName, FileDegrees(pitchRadians));
 
+    /// <summary>
+    /// The pitch at which a temporary set (an evade's) is looked up for a view at <paramref name="viewPitch"/> (simulation radians): the view's own, only capped at the set's
+    /// upper limit (above it the camera keeps that place and only turns, as the exploration and aim sets do). No lower cap: the evade sets stop at 80 file degrees (10 below level) but
+    /// their curves orbit the character down to 0, and with a lower cap a view looking at the floor kept the place of a nearly level view, about 3 m behind the character and
+    /// 2.5 m lower, so the character left the screen for the length of every hop (camera/hop-and-walls).
+    /// </summary>
+    public static float SetPlacePitch(float viewPitch, CameraSet set) => MathF.Min(viewPitch, SimRadians(set.PitchMaximum));
+
     /// <summary>A simulation pitch (radians, 0 level, positive up) in the files' degrees (0 down, 90 level, 180 up).</summary>
     public static float FileDegrees(float pitchRadians) => 90f + pitchRadians * (180f / MathF.PI);
 

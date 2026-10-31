@@ -49,6 +49,9 @@ public partial class NetworkView
     /// <summary><c>--bot-stand</c> (test aid, with <c>--aim-test</c>): the bot holds aim mode and alternates standing, walking forward and strafing (8 s cycle).</summary>
     public bool BotStand { get; init; }
 
+    /// <summary><c>--old-hop-camera</c> (test aid, camera/hop-and-walls): the evade sets' curves clamped at the sets' lower limit too, for before captures of the hop looking down.</summary>
+    static readonly bool OldHopCamera = CmdFlag("old-hop-camera");
+
     CameraTuning? _cameraTuning;
     CameraRig? _cameraRig;
     string _cameraNote = "camera: placeholder (not loaded)";
@@ -122,7 +125,7 @@ public partial class NetworkView
     }
 
     /// <summary>Whether the follow camera is the rig's: human views (and the bot's with <c>--aim-test</c>), not the spectator cameras.</summary>
-    bool RigCameraWanted => Spectate is null && (!_bot || AimTest || SlashTest && float.IsFinite(SlashViewPitch) || StompMoveTest || CarryTest) && _cameraRig is not null && _cameraTuning is not null;   // anim/air-slash-character: --slash-view-pitch gives the slash test the human camera; anim/stomp-to-move: --stomp-move-test too; anim/relic-bolter-idle: --carry-test too
+    bool RigCameraWanted => Spectate is null && (!_bot || AimTest || SlashTest && float.IsFinite(SlashViewPitch) || StompMoveTest || CarryTest || CameraTest) && _cameraRig is not null && _cameraTuning is not null;   // anim/air-slash-character: --slash-view-pitch gives the slash test the human camera; anim/stomp-to-move: --stomp-move-test too; anim/relic-bolter-idle: --carry-test too
 
     static float Finite(float v, float fallback) => float.IsFinite(v) ? v : fallback;
 
@@ -189,7 +192,7 @@ public partial class NetworkView
             {
                 _lastEvadeSet = set;
                 float we = _evadeBlend * _evadeBlend * (3f - 2f * _evadeBlend);
-                float evadeLookup = Math.Clamp(pitch, CameraRig.SimRadians(set.PitchMinimum), CameraRig.SimRadians(set.PitchMaximum));
+                float evadeLookup = OldHopCamera ? Math.Clamp(pitch, CameraRig.SimRadians(set.PitchMinimum), CameraRig.SimRadians(set.PitchMaximum)) : CameraRig.SetPlacePitch(pitch, set);   // camera/hop-and-walls: the curve follows the view down
                 if (_cameraRig.OffsetAtPitch(set.AnimationCurve, evadeLookup) is { } oe)
                 {
                     cam = System.Numerics.Vector3.Lerp(cam, oe.Camera, we);
@@ -292,6 +295,7 @@ public partial class NetworkView
         var aimGame = Combat.AimDirection(_yaw, pitch);
         var look = (_gameSpace.Basis * new Vector3(aimGame.X, aimGame.Y, aimGame.Z)).Normalized();
         _camera.GlobalTransform = new Transform3D(Basis.LookingAt(look, Vector3.Up), position);
+        CameraTestNote(me, position, wanted, look, 0f);   // --camera-test (NetworkView.CameraTest.cs)
         NoteCameraPlaced(_yaw, pitch, me.Position);   // feel/controls: the view the converged shot's ray is turned from (FreshCenterRay)
         _camera.Fov = fov;
         var feet = _gameSpace.Transform * new Vector3(me.Position.X, me.Position.Y, me.Position.Z);
