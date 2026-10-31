@@ -293,6 +293,7 @@ public sealed partial class UiSelfTest : Node
         await OrkChecks();
         await HostChecks();
         await FitChecks();
+        await ScoreBoxChecks();   // ui/score-box-center: the HUD score box holds its block (UiSelfTest.ScoreBox.cs)
     }
 
     /// <summary>

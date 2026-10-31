@@ -39,7 +39,7 @@ The first shot from a lowered weapon waits for the weapon to come up (about 0.2 
 |---|---|---|
 | Right mouse, or V | Melee attack | From memory (right mouse). V is an extra bind of ours. Press repeatedly for the combo. In the air with a jump pack: ground pound. |
 | F | Stun strike (heavy melee) | From memory. |
-| W + F | The charge | Hold W when you press F; no sprint needed (owner's rule, 2026-10-29). Hold A or D with W to charge a bit (25 degrees) to that side. Assault and Raptor charge from the ground only. |
+| Shift + W + F | The charge | Hold Shift (sprint) and W when you press F (owner's rule, 2026-10-31; protocol 49 replaced the W-only rule of 2026-10-29). Hold A or D with W to charge a bit (25 degrees) to that side. Assault and Raptor charge from the ground only. F without Shift is the stun strike in the direction of the held W, A, S, D keys (forward with none). Controller: sprint (left stick click) held + stick forward + Y. |
 | Space tap, then right mouse | The dash attack (Assault, Raptor) | During the short dash hop. Hold W, A, S, D or two of them at the right-mouse press to lunge that way (eight directions); no key: along the view. |
 
 ### Menus and information

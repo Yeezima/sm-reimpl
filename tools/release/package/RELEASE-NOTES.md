@@ -54,7 +54,7 @@ Everyone in a match must use this same build: different versions refuse each oth
 | Left Ctrl (hold) | Aim mode |
 | R | Reload. Heavy bolter: brace / unbrace. Plasma weapons: vent heat. Grenade launcher: detonate its grenades |
 | Right mouse (or V) | Melee; press again for the combo. In the air with a jump pack: slash or ground pound |
-| F | Stun strike (heavy melee). W + F: the charge (W + A or W + D with F: a bit to that side) |
+| F | Stun strike (heavy melee) in the direction of the keys held (forward with none). Shift + W + F: the charge (Shift + W + A or W + D with F: a bit to that side) |
 | Space | Evade: Tactical roll, Devastator and Havoc hop. Jump pack (Assault, Raptor): tap = hop-dash, medium hold = small jump, long hold = full jump |
 | Right mouse during the hop-dash | Dash attack (Assault, Raptor); W A S D pick one of 8 directions |
 | G | Throw your grenade |

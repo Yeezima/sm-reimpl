@@ -46,7 +46,7 @@ static class Program
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += (_, e) => DarkBox.Show(e.Exception.Message, "SM Reimpl Launcher", MessageBoxButtons.OK, MessageBoxIcon.Error);
         Application.Run(new MainForm(a));
-        return 0;
+        return Environment.ExitCode;
     }
 }
 
@@ -70,7 +70,7 @@ static class LauncherInfo
 sealed class Args
 {
     public Dictionary<string, string?> Values { get; } = new(StringComparer.OrdinalIgnoreCase);
-    static readonly HashSet<string> WithValue = new(StringComparer.OrdinalIgnoreCase) { "root", "adopt", "screenshot", "screenshot-after", "self-updated", "install-self", "wait-pid", "wait-start" };
+    static readonly HashSet<string> WithValue = new(StringComparer.OrdinalIgnoreCase) { "root", "adopt", "screenshot", "screenshot-after", "self-updated", "install-self", "wait-pid", "wait-start", "ui-scale", "ui-workarea", "ui-state", "layout-check" };
     static readonly string[] Commands = ["status", "check", "install-latest", "resume", "verify", "rollback", "adopt", "recover", "update-launcher", "install-self"];
 
     public static Args Parse(string[] args)
@@ -91,7 +91,7 @@ sealed class Args
     public bool Has(string key) => Values.ContainsKey(key);
     public string? this[string key] => Values.GetValueOrDefault(key);
     public string? Command => Commands.FirstOrDefault(Has);
-    public bool IsHeadless => Has("selftest") || Command is not null;
+    public bool IsHeadless => Has("selftest") || Has("layout-check") || Command is not null;
 }
 
 /// <summary>Where the install folder is (see <see cref="Program"/>).</summary>

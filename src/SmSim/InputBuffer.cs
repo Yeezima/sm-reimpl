@@ -167,7 +167,7 @@ public static class InputBuffer
         var carried = s.Buffered;
         if (carried == BufferedAction.None || fresh != BufferedAction.None) return new(fresh, BufferedAction.None, s, input);
         if (Hold(s, carried)) return new(fresh, BufferedAction.None, s, input);
-        // sim/combat-pass (owner's rule): a heavy press made with W held is a charge press; replayed with W let go it is dropped, never a stun strike.
+        // sim/combat-pass (owner's rule): a heavy press made with W held is a charge press; replayed with W let go it is dropped, never a stun strike. Protocol 49: a charge press is one made with Sprint AND W held (it replays while W is still held, Shift or not); without both it is a stun strike request, buffered as any.
         if (carried == BufferedAction.MeleeHeavy && s.BufferedCharge && !(Loadouts.Rush(c, s) is { } rushSpec && Rush.WHeld(input, rushSpec)))
             return new(fresh, BufferedAction.None, s, input, Dropped: true);
         var primed = carried switch
@@ -183,6 +183,8 @@ public static class InputBuffer
         // A Switch replays as the toggle alone (a slot key held for it is dropped this tick: the toggle names the same weapon). Protocol 44: the key-3 slot stays,
         // since the toggle does not name the second primary (a key 3 let go before the replay replays as the toggle: an estimate).
         var buttons = carried == BufferedAction.Switch ? input.Buttons & ~(InputButtons.SlotPistol | InputButtons.SlotPrimary) : input.Buttons;
+        // Protocol 49: a charge press (Shift + W at the press) replays as a charge while W is still held, whether or not Shift still is (the request was made with it).
+        if (carried == BufferedAction.MeleeHeavy && s.BufferedCharge) buttons |= InputButtons.Sprint;
         return new(fresh, carried, primed, input with { Buttons = buttons | Button(carried) });
     }
 
@@ -214,7 +216,7 @@ public static class InputBuffer
         }
         var (action, ticks) = After(before, real.Buttons, t, used, c.InputBufferTicks, c);
         // The press's "W held at press time" (a fresh heavy press with W down) is kept with it until it is spent or dropped.
-        bool charge = action == BufferedAction.MeleeHeavy && (t.Fresh == BufferedAction.MeleeHeavy ? Loadouts.Rush(c, before) is { } spec && Rush.WHeld(real, spec) : before.BufferedCharge);
+        bool charge = action == BufferedAction.MeleeHeavy && (t.Fresh == BufferedAction.MeleeHeavy ? Loadouts.Rush(c, before) is { } spec && Rush.ChargeHeld(real, spec) : before.BufferedCharge);
         return next.Alive ? next with { Buffered = action, BufferTicks = ticks, BufferedCharge = charge } : next with { Buffered = BufferedAction.None, BufferTicks = 0, BufferedCharge = false };
     }
 

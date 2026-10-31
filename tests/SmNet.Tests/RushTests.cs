@@ -69,7 +69,7 @@ public class RushTests(ITestOutputHelper output)
     // ---------------------------------------------------------------- start
 
     [Fact]
-    public void F_with_W_held_starts_the_rush_from_rest_or_a_run_and_F_without_W_is_the_heavy_strike()
+    public void Shift_W_F_starts_the_rush_from_rest_or_a_run_and_F_without_Shift_and_W_is_the_heavy_strike()
     {
         // feel/charge-directions (protocol 39; the owner's rule of 2026-10-29, superseding M31's sprint gate): W held at the F press is enough.
         var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = Marine }, Config);
@@ -81,16 +81,20 @@ public class RushTests(ITestOutputHelper output)
         Assert.Equal((RushPhase.None, 1), (side.Rush, side.MeleeStep));                                       // D alone: the heavy strike
         var weak = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0.5f, 0f, InputButtons.MeleeHeavy), Config, out _);
         Assert.Equal(RushPhase.None, weak.Rush);                                                              // a stick barely forward is not W
-        var fromRest = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0.3f, InputButtons.MeleeHeavy), Config, out _);
+        var noShift = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.MeleeHeavy), Config, out _);
+        Assert.Equal((RushPhase.None, 1, true), (noShift.Rush, noShift.MeleeStep, noShift.MeleeHeavy));        // protocol 49: W + F without Shift is the forward stun strike
+        var shiftOnly = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.MeleeHeavy | InputButtons.Sprint), Config, out _);
+        Assert.Equal((RushPhase.None, 1, true), (shiftOnly.Rush, shiftOnly.MeleeStep, shiftOnly.MeleeHeavy)); // Shift without W: the stun strike
+        var fromRest = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0.3f, InputButtons.MeleeHeavy | InputButtons.Sprint), Config, out _);
         Assert.Equal((RushPhase.Rush, 1, 30, 0), (fromRest.Rush, fromRest.RushTicks, fromRest.RushLock, fromRest.MeleeStep));   // from rest
         var run = s;
         for (int k = 0; k < 20; k++) run = Combat.StepPlayer(run, new PlayerInput(0, 0f, 1f, 0f, InputButtons.None), Config, out _);
         Assert.Equal(Config.RunSpeed, run.Velocity.Y, 3);
-        Assert.Equal(RushPhase.Rush, Combat.StepPlayer(run, new PlayerInput(0, 0f, 1f, 0f, InputButtons.MeleeHeavy), Config, out _).Rush);   // a run, no sprint
+        Assert.Equal(RushPhase.Rush, Combat.StepPlayer(run, new PlayerInput(0, 0f, 1f, 0f, InputButtons.MeleeHeavy | InputButtons.Sprint), Config, out _).Rush);   // a run, Shift held at the press
         // Aim mode and the held trigger no longer stop it (they took the sprint away under M31); the charge cancels aim mode.
-        var aiming = Combat.StepPlayer(run, new PlayerInput(0, 0f, 1f, 0f, InputButtons.MeleeHeavy | InputButtons.Aim), Config, out _);
+        var aiming = Combat.StepPlayer(run, new PlayerInput(0, 0f, 1f, 0f, InputButtons.MeleeHeavy | InputButtons.Sprint | InputButtons.Aim), Config, out _);
         Assert.Equal((RushPhase.Rush, false), (aiming.Rush, aiming.Aiming));
-        Assert.Equal(RushPhase.Rush, Combat.StepPlayer(run, new PlayerInput(0, 0f, 1f, 0f, InputButtons.MeleeHeavy | InputButtons.Fire), Config, out _).Rush);
+        Assert.Equal(RushPhase.Rush, Combat.StepPlayer(run, new PlayerInput(0, 0f, 1f, 0f, InputButtons.MeleeHeavy | InputButtons.Sprint | InputButtons.Fire), Config, out _).Rush);
         var rush = Combat.StepPlayer(run, new PlayerInput(0, 0f, 1f, 0.3f, InputButtons.MeleeHeavy | InputButtons.Sprint), Config, out var e);
         Assert.Equal((RushPhase.Rush, 1, 30, 0, false), (rush.Rush, rush.RushTicks, rush.RushLock, rush.MeleeStep, e.Fired));
         Assert.Equal(0.3f, rush.Yaw, 5);
@@ -101,7 +105,7 @@ public class RushTests(ITestOutputHelper output)
         Assert.Equal(10f * Dt, Vector2.Dot(new Vector2(next.Position.X - rush.Position.X, next.Position.Y - rush.Position.Y), forward), 3);
         // Not in the air.
         var air = run with { Grounded = false, Position = run.Position with { Z = 2f } };
-        Assert.False(Rush.CanStart(air, new PlayerInput(0, 0f, 1f, 0f, InputButtons.MeleeHeavy), Spec, Config));
+        Assert.False(Rush.CanStart(air, new PlayerInput(0, 0f, 1f, 0f, InputButtons.MeleeHeavy | InputButtons.Sprint), Spec, Config));
     }
 
     // ---------------------------------------------------------------- the world
@@ -407,7 +411,7 @@ public class RushTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_18_carries_the_rush_phase_in_every_record_and_refuses_malformed_ones()
     {
-        Assert.Equal(48, Protocol.Version);
+        Assert.Equal(49, Protocol.Version);
         var p = new PlayerState(4, Vector3.One, Vector3.Zero, 1f, true) { Alive = true, Rush = RushPhase.Collision, RushTicks = 17, RushLock = 9 };
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(9, 1, 1, [p, p with { PlayerId = 5 }], Self: 4))));
         Assert.Equal(p, back.Players[0]);

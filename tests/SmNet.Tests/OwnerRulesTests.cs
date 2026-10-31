@@ -42,17 +42,20 @@ public class OwnerRulesTests(ITestOutputHelper output)
         Combat.StepPlayer(s, new PlayerInput(0, 0f, my, 0f, b), c, out _, world);
 
     [Fact]
-    public void Superseded_by_protocol_39_the_charge_needs_W_held_not_the_sprint()
+    public void Superseded_by_protocol_49_the_charge_needs_the_sprint_held_as_well_as_W()
     {
-        // M31's sprint gate (sprint applied, speed above run + 0.25 x (sprint - run)) is superseded by the owner's rule of 2026-10-29
-        // (feel/charge-directions): "just be holding w when you press f". Running, standing, aiming or firing with W held: the charge starts.
+        // Protocol 39 dropped M31's speed gate ("just be holding w when you press f"); protocol 49 (sim/charge-needs-sprint, owner 2026-10-31): "you also need to be
+        // holding shift". Only the held Sprint button and W matter (not the speed, aim mode or the trigger).
         var s = Fresh(RushConfig, Tactical);
-        Assert.True(Rush.CanStart(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.None), RushTests.Spec, RushConfig));   // standing
+        Assert.True(Rush.CanStart(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint), RushTests.Spec, RushConfig));    // standing, Shift + W
+        Assert.False(Rush.CanStart(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.None), RushTests.Spec, RushConfig));     // W alone
         for (int k = 0; k < 20; k++) s = Step(s, RushConfig, InputButtons.None);
         Assert.Equal(6.5f, s.Velocity.Y, 3);
-        foreach (var b in new[] { InputButtons.None, InputButtons.Sprint, InputButtons.Sprint | InputButtons.Aim, InputButtons.Sprint | InputButtons.Fire, InputButtons.Aim })
+        foreach (var b in new[] { InputButtons.Sprint, InputButtons.Sprint | InputButtons.Aim, InputButtons.Sprint | InputButtons.Fire })
             Assert.True(Rush.CanStart(s, new PlayerInput(0, 0f, 1f, 0f, b), RushTests.Spec, RushConfig), b.ToString());
-        Assert.False(Rush.CanStart(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Sprint), RushTests.Spec, RushConfig));   // no W
+        foreach (var b in new[] { InputButtons.None, InputButtons.Aim, InputButtons.Fire })
+            Assert.False(Rush.CanStart(s, new PlayerInput(0, 0f, 1f, 0f, b), RushTests.Spec, RushConfig), b.ToString());
+        Assert.False(Rush.CanStart(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Sprint), RushTests.Spec, RushConfig));   // Shift without W
     }
 
     [Theory]
@@ -64,10 +67,10 @@ public class OwnerRulesTests(ITestOutputHelper output)
         var s = Fresh(RushConfig, cls);
         for (int k = 0; k < 10; k++) s = Step(s, RushConfig, InputButtons.Sprint);
         Assert.Equal(RushPhase.Rush, Step(s, RushConfig, InputButtons.Sprint | InputButtons.MeleeHeavy).Rush);
-        // Running without the sprint: since protocol 39 the charge too (W held).
+        // Running without the sprint: protocol 49 (owner 2026-10-31): no charge, the stun strike.
         var run = Fresh(RushConfig, cls);
         for (int k = 0; k < 20; k++) run = Step(run, RushConfig, InputButtons.None);
-        Assert.Equal(RushPhase.Rush, Step(run, RushConfig, InputButtons.MeleeHeavy).Rush);
+        Assert.Equal(RushPhase.None, Step(run, RushConfig, InputButtons.MeleeHeavy).Rush);
 
         // Sprint, then jump with W and Sprint held and press F in every tick of the jump: take-off, ascent, hang, fall, landing.
         s = Fresh(RushConfig, cls);
@@ -439,7 +442,7 @@ public class OwnerRulesTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_21_carries_the_raise_and_a_ten_second_hold_in_the_own_record_and_weapon_up_in_slim_ones_within_the_budget()
     {
-        Assert.Equal(48, Protocol.Version);
+        Assert.Equal(49, Protocol.Version);
         Assert.Equal(1194, Protocol.MaxSnapshotBytes);   // protocol 23: + the perk word (21: ready ticks in 2 bytes, 1198; 20: 1197)
         Assert.True(Protocol.MaxSnapshotBytes <= Protocol.SnapshotBudget);
         var me = new PlayerState(3, Vector3.One, Vector3.Zero, 0f, true) { Alive = true, ReadyTicks = 300, RaiseTicks = 6 };

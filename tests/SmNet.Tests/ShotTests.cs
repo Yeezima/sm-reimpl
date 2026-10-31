@@ -29,7 +29,7 @@ public class ShotTests(ITestOutputHelper output)
     [Fact]
     public void Shot_records_round_trip_relative_to_their_shooter()
     {
-        Assert.Equal(48, Protocol.Version);   // protocol 16 brought the shot records; 17 (M28) left them as they are
+        Assert.Equal(49, Protocol.Version);   // protocol 16 brought the shot records; 17 (M28) left them as they are
         Assert.Equal(9, Protocol.ShotBytes);
         PlayerState[] players = [Player(3, new Vector3(100.3f, -812.7f, 4.1f)), Player(65535, new Vector3(-5f, 7f, 0f))];
         ShotView[] shots =

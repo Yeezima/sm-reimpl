@@ -66,6 +66,17 @@ public class GamepadTests
     }
 
     [Fact]
+    public void Y_charges_only_with_the_sprint_held_and_the_stick_forward_else_it_is_the_stun_strike()
+    {
+        Assert.True(GamepadRules.ChargeRequest(true, 0f, -1f));
+        Assert.False(GamepadRules.ChargeRequest(false, 0f, -1f));    // stick forward without the L3 hold: the forward stun strike
+        Assert.False(GamepadRules.ChargeRequest(true, 0f, 0f));      // sprint without the stick: the stun strike
+        Assert.False(GamepadRules.ChargeRequest(true, 0f, 1f));      // back
+        Assert.False(GamepadRules.ChargeRequest(true, 1f, 0f));      // sideways
+        Assert.Contains(GamepadRules.Bindings, b => b.Control == PadControl.Y && b.Action.Contains("sprint"));
+    }
+
+    [Fact]
     public void The_look_rate_follows_the_datas_mapping_speed_and_damping()
     {
         Assert.Equal(0f, GamepadRules.LookRate(0.15f, 5f, 300f, DefaultMapping, DefaultDamping));

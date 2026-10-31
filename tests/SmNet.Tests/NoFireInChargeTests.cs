@@ -50,7 +50,7 @@ public class NoFireInChargeTests(ITestOutputHelper output)
     {
         var s = Fresh(c, cls, primary, pistol);
         for (int k = 0; k < 6; k++) s = Tick(s, c, fireBefore ? InputButtons.Fire : InputButtons.None).S;
-        var (started, _) = Tick(s, c, InputButtons.MeleeHeavy | (fireAtStart ? InputButtons.Fire : InputButtons.None));
+        var (started, _) = Tick(s, c, InputButtons.Sprint | InputButtons.MeleeHeavy | (fireAtStart ? InputButtons.Fire : InputButtons.None));
         Assert.Equal(RushPhase.Rush, started.Rush);
         s = started;
         int shots = 0, ticks = 1;
@@ -92,7 +92,7 @@ public class NoFireInChargeTests(ITestOutputHelper output)
         var c = Config("tactical");
         var s = Fresh(c, Tactical, primary, false);
         for (int k = 0; k < 6; k++) s = Tick(s, c, InputButtons.Fire | InputButtons.None).S;
-        s = Tick(s, c, InputButtons.MeleeHeavy | InputButtons.Fire).S;
+        s = Tick(s, c, InputButtons.Sprint | InputButtons.MeleeHeavy | InputButtons.Fire).S;
         Assert.Equal(RushPhase.Rush, s.Rush);
         var (clip, heat) = (s.Clip, s.Heat);
         while (s.Rush != RushPhase.None)
@@ -108,7 +108,7 @@ public class NoFireInChargeTests(ITestOutputHelper output)
         var c = Config("tactical");
         var s = Fresh(c, Tactical, 1, false);
         for (int k = 0; k < 6; k++) s = Tick(s, c, InputButtons.None).S;
-        s = Tick(s, c, InputButtons.MeleeHeavy).S;
+        s = Tick(s, c, InputButtons.Sprint | InputButtons.MeleeHeavy).S;
         while (s.Rush != RushPhase.None) s = Tick(s, c, InputButtons.Fire, 0f).S;   // held through to the end
         int clip = s.Clip;
         // Held across the end: a full-automatic rifle goes on firing on the held trigger; released and pressed again always does.
@@ -153,7 +153,7 @@ public class NoFireInChargeTests(ITestOutputHelper output)
         {
             var s = Fresh(c, cls, 1, false);
             for (int k = 0; k < 6; k++) s = Tick(s, c, InputButtons.None).S;
-            s = Tick(s, c, InputButtons.MeleeHeavy).S;
+            s = Tick(s, c, InputButtons.Sprint | InputButtons.MeleeHeavy).S;
             Assert.Equal(RushPhase.Rush, s.Rush);
             int ticks = 1;
             for (int k = 1; k < 60 && s.Rush != RushPhase.None; k++, ticks++)
@@ -173,7 +173,7 @@ public class NoFireInChargeTests(ITestOutputHelper output)
         var c = Config("tactical");
         var s = Fresh(c, Assault, 1, false);
         for (int k = 0; k < 6; k++) s = Tick(s, c, InputButtons.None).S;
-        s = Tick(s, c, InputButtons.MeleeHeavy).S;
+        s = Tick(s, c, InputButtons.Sprint | InputButtons.MeleeHeavy).S;
         int clip = s.Clip;
         bool shot = false;
         // S (stick back) ends the charge from its move-on time; Fire pressed on the same tick fires nothing, and released it is gone.
@@ -226,7 +226,7 @@ public class NoFireInChargeTests(ITestOutputHelper output)
         var c = Config("tactical");
         var s = Fresh(c, Assault, 1, false);
         for (int k = 0; k < 6; k++) s = Tick(s, c, InputButtons.None).S;
-        s = Tick(s, c, InputButtons.MeleeHeavy).S;
+        s = Tick(s, c, InputButtons.Sprint | InputButtons.MeleeHeavy).S;
         int clip = s.Clip;
         bool ended = false, shot = false;
         for (int k = 1; k < 60 && !ended; k++)

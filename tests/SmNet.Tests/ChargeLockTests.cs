@@ -46,7 +46,7 @@ public class ChargeLockTests(ITestOutputHelper output)
             int tick = k;
             uint view = (uint)Math.Max(1, (long)w.Tick - lag), body = w.Tick > 1 ? w.Tick - 1 : 0;
             w.Step(id => (id == 1
-                ? new PlayerInput(0, 0f, tick <= pressAt ? 1f : 0f, yaw, tick == pressAt ? InputButtons.MeleeHeavy : InputButtons.None)
+                ? new PlayerInput(0, 0f, tick <= pressAt ? 1f : 0f, yaw, tick == pressAt ? InputButtons.Sprint | InputButtons.MeleeHeavy : InputButtons.None)
                 : other?.Invoke(tick, id) ?? new PlayerInput(0, 0f, 0f, MathF.PI, InputButtons.None)) with { ViewTick = view, BodyTick = body });
             if (contact is null && w.LastRushes.Count > 0) contact = (w.Tick, w.Players[1], w.Players[w.LastRushes[0].Target]);
         }
