@@ -1,6 +1,6 @@
 using System.Windows.Forms;
 
-namespace SmLauncher.Tests;
+namespace SmLauncher.UiTests;
 
 /// <summary>
 /// The launcher window, drawn off-screen (at -4000,-4000, never activated, not in the taskbar): at every display scale no two visible controls overlap,
@@ -9,6 +9,7 @@ namespace SmLauncher.Tests;
 /// are simulated the way Windows Forms scales a window on such a display (MainForm --ui-scale).
 /// </summary>
 [Collection(nameof(LauncherLayoutTests))]       // one window at a time: Theme.SimScale is shared
+[Trait("Category", "Window")]                  // a quick loop can leave these out: dotnet test --filter "Category!=Window"
 public class LauncherLayoutTests
 {
     static readonly object Gate = new();

@@ -7,7 +7,7 @@ namespace SmLauncher;
 /// state of 2026-10-31 in a 735 px wide window) at 100, 125, 150, 175 and 200 % (simulated where this PC's display is not that: fonts and pixel sizes scaled
 /// the way Windows Forms scales them on such a display), saves a PNG of each into the folder and fails when two visible controls overlap, one reaches
 /// outside its container or a text does not fit its control. No install folder, no network, nothing on the desktop (the windows sit at -4000,-4000).
-/// SmLauncher.Tests runs the same checks (LauncherLayoutTests).
+/// SmLauncher.UiTests runs the same checks (LauncherLayoutTests).
 /// </summary>
 static class LayoutCheck
 {
@@ -48,7 +48,7 @@ static class LayoutCheck
             Theme.SimScale = 1.0;
             using var form = new MainForm(Args.Parse(["--screenshot", "--ui-state", "idle"]));
             form.Show();
-            for (int i = 0; i < 15; i++) { Application.DoEvents(); Thread.Sleep(20); }
+            if (Settle(form) is { } unsettled) { Console.WriteLine("tab order: " + unsettled); failures++; }
             var order = new List<string>();
             for (Control? c = form.GetNextControl(null!, true); c is not null && order.Count < 40; c = form.GetNextControl(c, true))
                 if (c.TabStop && c.Visible && c.Enabled && !(c is Label and not LinkLabel)) order.Add(Describe(c));
@@ -78,15 +78,52 @@ static class LayoutCheck
         if (width is { } w) form.Width = w;
         form.Show();
         if (smallest) form.Size = form.MinimumSize;       // as small as a user can drag it
-        for (int i = 0; i < 15; i++) { Application.DoEvents(); Thread.Sleep(20); }
+        var problems = new List<string>();
+        if (Settle(form) is { } unsettled) problems.Add(unsettled);
         if (png is not null) using (var bmp = form.Snapshot()) bmp.Save(png, ImageFormat.Png);
-        var problems = Problems(form);
+        problems.AddRange(Problems(form));
         if (workArea is { } wa && (form.Width > wa.W || form.Height > wa.H)) problems.Add($"the window {form.Width}x{form.Height} is larger than the work area {wa.W}x{wa.H}");
         int playHeight = form.PlayButtonSize().Height, expected = (int)Math.Round(44 * Theme.Scale(form));
         if (Math.Abs(playHeight - expected) > 1) problems.Add($"the PLAY button is {playHeight} px tall at {scale * 100:0} %, not {expected} px: the window's sizes do not follow the display scale");
         form.Close();
         Theme.SimScale = 1.0;
         return problems;
+    }
+
+    /// <summary>
+    /// Lets the window finish laying out: messages are pumped until two passes in a row see the same window size, scroll heights and control bounds (at least
+    /// 100 ms; the scroll heights are set after each layout, by a posted message). Null when it settled, else what kept changing after about 3 s. A fixed wait
+    /// was too short on a busy PC (the test run with every test project at once).
+    /// </summary>
+    public static string? Settle(Form form, int timeoutMs = 3000)
+    {
+        string Shape()
+        {
+            var sb = new System.Text.StringBuilder().Append(form.Bounds).Append(form.WindowState);
+            void Walk(Control c)
+            {
+                sb.Append('|').Append(c.Visible ? c.Bounds.ToString() : "-");
+                if (c is ScrollableControl s) sb.Append(s.AutoScrollMinSize);
+                foreach (Control k in c.Controls) Walk(k);
+            }
+            Walk(form);
+            return sb.ToString();
+        }
+        var start = DateTime.UtcNow;
+        string last = "";
+        int same = 0;
+        while (true)
+        {
+            Application.DoEvents();
+            Thread.Sleep(20);
+            Application.DoEvents();
+            string now = Shape();
+            same = now == last ? same + 1 : 0;
+            last = now;
+            double ms = (DateTime.UtcNow - start).TotalMilliseconds;
+            if (same >= 1 && ms >= 100) return null;
+            if (ms > timeoutMs) return $"the window did not settle within {timeoutMs} ms: its layout kept changing (size, scroll heights or control bounds)";
+        }
     }
 
     /// <summary>Overlaps between visible leaf controls, and visible controls that stick out of their parent's client area (clipped text, cut-off buttons).</summary>

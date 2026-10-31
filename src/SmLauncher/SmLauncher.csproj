@@ -40,8 +40,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- SmLauncher.Tests runs the window's layout and repaint checks (LauncherLayoutTests) -->
-    <InternalsVisibleTo Include="SmLauncher.Tests" />
+    <!-- SmLauncher.UiTests runs the window's layout and repaint checks (LauncherLayoutTests) -->
+    <InternalsVisibleTo Include="SmLauncher.UiTests" />
   </ItemGroup>
 
 </Project>

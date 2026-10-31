@@ -146,7 +146,7 @@ static class RowCheck
         return problems.Count == 0 ? 0 : 1;
     }
 
-    /// <summary>The check itself (SmLauncher.Tests runs it too): the problems found, none when every frame is clean. A null <paramref name="folder"/> saves no
+    /// <summary>The check itself (SmLauncher.UiTests runs it too): the problems found, none when every frame is clean. A null <paramref name="folder"/> saves no
     /// frames. <paramref name="width"/> sets the window's outer width first and starts in the owner's state of 2026-10-31 (a window about 735 px wide, a
     /// released build's tag with a previous build to roll back to, the mouse over "Host a match on this PC").</summary>
     public static List<string> Check(string? folder, string? scaleText, int? width, Action<string> log, out int frames)
@@ -159,19 +159,20 @@ static class RowCheck
         using var form = new MainForm(Args.Parse([.. list]));
         if (width is { } w0) form.Width = w0;
         form.Show();
-        Pump(600);
+        if (LayoutCheck.Settle(form) is { } u0) { problems.Add("start: " + u0); log(problems[^1]); }
         var play = form.PlayButtonSize();
         log($"window {form.Width}x{form.Height}, client {form.ClientSize.Width}x{form.ClientSize.Height}, {form.DeviceDpi} dpi{(scaleText is null ? "" : ", simulated " + scaleText + "x")}, PLAY button {play.Width}x{play.Height}");
         int step = 0;
         void Check(string what)
         {
-            Pump(250);
+            string? unsettled = LayoutCheck.Settle(form);
             // paint whatever is still waiting to be painted (a busy PC delays WM_PAINT), without invalidating anything: a region nobody invalidated stays stale
             RedrawWindow(form.Handle, IntPtr.Zero, IntPtr.Zero, RDW_UPDATENOW | RDW_ALLCHILDREN);
             int before = problems.Count;
             using var live = Live(form);
             using var fresh = Fresh(form);
             string name = $"{++step:00}-{what}";
+            if (unsettled is not null) problems.Add($"{name}: {unsettled}");
             if (folder is not null) live.Save(Path.Combine(folder, "live-" + name + ".png"), ImageFormat.Png);
             var diffs = Differences(live, fresh, NativeBorders(form));
             var row = form.SafeModeRowBounds();

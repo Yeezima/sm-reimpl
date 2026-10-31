@@ -133,6 +133,34 @@ sealed class MainForm : Form
         }
         _main.AutoScroll = true;          // the scroll heights follow the rows (KeepRowsApart)
         _setup.AutoScroll = true;
+        _lastScreen = Screen.FromControl(this).DeviceName;
+    }
+
+    /// <summary>After a move to a display with another scale (Windows Forms has scaled the window by then) or to another monitor: the window is kept inside that
+    /// display's work area, shrunk if it is larger (the panels scroll), and moved in if it hangs over the edge. Not centred again: the user put it there.</summary>
+    void ClampToWorkArea()
+    {
+        if (IsDisposed || WindowState != FormWindowState.Normal || _args.Has("screenshot")) return;
+        var wa = Screen.FromControl(this).WorkingArea;
+        int w = Math.Min(Width, wa.Width), h = Math.Min(Height, wa.Height);
+        MinimumSize = new Size(Math.Min(MinimumSize.Width, w), Math.Min(MinimumSize.Height, h));
+        var b = new Rectangle(Math.Clamp(Left, wa.Left, wa.Right - w), Math.Clamp(Top, wa.Top, wa.Bottom - h), w, h);
+        if (b != Bounds) Bounds = b;
+        _lastScreen = Screen.FromControl(this).DeviceName;
+    }
+
+    string? _lastScreen;
+
+    protected override void OnDpiChanged(DpiChangedEventArgs e)
+    {
+        base.OnDpiChanged(e);
+        if (IsHandleCreated) BeginInvoke(ClampToWorkArea);       // once the scaling of the new display is done
+    }
+
+    protected override void OnResizeEnd(EventArgs e)
+    {
+        base.OnResizeEnd(e);
+        if (Screen.FromControl(this).DeviceName != _lastScreen) ClampToWorkArea();      // dragged to another monitor (same scale: no DPI change)
     }
 
     protected override bool ShowWithoutActivation => _args.Has("screenshot");
@@ -170,6 +198,7 @@ sealed class MainForm : Form
         }
         // Applied after the table's layout has finished, never inside it: resizing the table from within its own layout (the panel's new scroll height docks it
         // again, the wrapped rows get new widths) left wrapped rows at a height of 0 at large text sizes.
+        panel.SizeChanged += (_, _) => changes = 0;          // a new window size starts afresh
         table.Laid += (_, _) =>
         {
             if (queued || !table.IsHandleCreated) return;
@@ -181,7 +210,8 @@ sealed class MainForm : Form
                 if (table.IsDisposed) return;
                 int need = Need(), now = panel.AutoScrollMinSize.Height;
                 if (now == need) { changes = 0; return; }                    // settled
-                if (++changes > 4 && need < now) return;                    // flipping back and forth: keep the larger height
+                if (++changes > 4 && need < now) { changes = 0; return; }  // flipping back and forth: keep the larger height for now; the count starts again,
+                                                                              // so the next change (a new state, a resize) can still shrink it
                 panel.AutoScroll = true;
                 panel.AutoScrollMinSize = new Size(0, need);
             });
