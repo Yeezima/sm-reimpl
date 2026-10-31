@@ -18,8 +18,8 @@ public class MusouWireTests
     public void The_tags_and_the_version_are_musous_own()
     {
         Assert.Equal((3, 4, 5), (MusouWire.EntitiesTag, MusouWire.EventsTag, MusouWire.DirectorTag));
-        Assert.True(MusouWire.Owns(3) && MusouWire.Owns(4) && MusouWire.Owns(5));
-        Assert.False(MusouWire.Owns(1) || MusouWire.Owns(2) || MusouWire.Owns(6) || MusouWire.Owns(0));
+        Assert.True(MusouWire.Owns(3) && MusouWire.Owns(4) && MusouWire.Owns(5) && MusouWire.Owns(6));   // MU-D: 6, the drops
+        Assert.False(MusouWire.Owns(1) || MusouWire.Owns(2) || MusouWire.Owns(7) || MusouWire.Owns(0));
         Assert.Equal(MusouSim.Version, MusouWire.Version);
         Assert.Equal(119, MusouWire.MaxEntities);
         Assert.Equal(74, MusouWire.MaxEvents);

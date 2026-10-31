@@ -38,6 +38,7 @@ public sealed partial class GameServer
             }
         }
         bool started = World.StartMusou(nav);
+        if (started) PlayerJoined += p => World.MusouJoined(p.PlayerId);   // MU-D fix: a join is stripped to the pistol at once, not a tick later
         _musouNote = started
             ? $"musou: the mode runs (Space Marines only, no limits; enemies by the director, sent by interest); {navNote}{(nav is null ? "" : $", {nav.NodeCount} nodes")}" +
               (MusouDummiesWanted > 0 ? $"; test aid {MusouDummiesVariable}: {MusouDummiesWanted} dummies" : "")
@@ -99,7 +100,9 @@ public sealed partial class GameServer
             if (!_musouInterest.TryGetValue(peer.PlayerId, out var interest)) _musouInterest[peer.PlayerId] = interest = new MusouInterest();
             // The client's player, else (a spectator) the first living player: the crowd near the action stays fresh.
             Vector3? viewer = World.Players.TryGetValue(peer.PlayerId, out var me) ? me.Position : anyone;
-            foreach (var sections in interest.Plan(tick, World.Config.TickRate, enemies, viewer, box, director, events))
+            var planned = interest.Plan(tick, World.Config.TickRate, enemies, viewer, box, director, events);
+            MusouDropSection(peer.PlayerId, tick, box, planned);   // MU-D: the client's own drops (tag 6), into the tick's messages
+            foreach (var sections in planned)
                 SendExtras(new ExtrasUpdate(tick, sections), peer.PlayerId);
         }
         _musouGone.Clear();
@@ -109,7 +112,51 @@ public sealed partial class GameServer
             _musouRecordsGone += _musouInterest[id].RecordsSent;
             _musouRecordsHeldGone += _musouInterest[id].RecordsHeld;
             _musouInterest.Remove(id);
+            _musouDropSent.Remove(id);
         }
+    }
+
+    /// <summary>Test aid (MU-D): with this set to 1 the server lays a drop 3 m in front of every living player that has none (to see and take one at once).</summary>
+    public const string MusouDropTestVariable = "SM_MUSOU_DROP_TEST";
+    bool? _musouDropTest;
+    readonly Dictionary<int, (uint Version, uint Tick)> _musouDropSent = new();
+    readonly List<MusouDrop> _musouDropList = new();
+    readonly List<MusouDropRecord> _musouDropRecords = new();
+    /// <summary>Drop sections (tag 6) sent, and their records (all clients; tests).</summary>
+    public int MusouDropSections { get; private set; }
+    public long MusouDropRecordsSent { get; private set; }
+
+    /// <summary>A client's drop list is sent again every this many ticks while it is not empty (ours: a lost message is mended within half a second).</summary>
+    const uint MusouDropRefreshTicks = 15;
+
+    /// <summary>
+    /// Player <paramref name="playerId"/>'s drops (only its own: the drops are per player) as one tag 6 section, when its list changed since the last one sent
+    /// or every <see cref="MusouDropRefreshTicks"/> ticks while not empty; added to the tick's last message when it has room, else as a new message within
+    /// the cap of <see cref="MusouSendRules.MaxMessagesPerTick"/>; with no room it waits for the next tick (the change is still unsent).
+    /// </summary>
+    void MusouDropSection(int playerId, uint tick, MusouBox box, List<(byte Tag, byte[] Payload)[]> messages)
+    {
+        if (_musouDropTest ??= Environment.GetEnvironmentVariable(MusouDropTestVariable) == "1")
+            if (World.State == MatchState.Playing && World.Players.TryGetValue(playerId, out var p) && p.Alive && World.MusouDropsOf(playerId, _musouDropList) == 0 && World.MusouSpawnTestDrop(playerId, 4f) is { } test)
+                Log?.Invoke($"musou: test aid {MusouDropTestVariable}: drop {test.Id} for player {playerId} at {test.Position.X:F1},{test.Position.Y:F1},{test.Position.Z:F1}, item {test.Item}");
+        uint version = World.MusouDropVersion(playerId);
+        int n = World.MusouDropsOf(playerId, _musouDropList);
+        bool known = _musouDropSent.TryGetValue(playerId, out var sent);
+        bool changed = known ? sent.Version != version : n > 0;
+        bool refresh = n > 0 && known && (tick - sent.Tick >= MusouDropRefreshTicks || tick < sent.Tick);
+        if (!changed && !refresh) return;
+        _musouDropRecords.Clear();
+        foreach (var d in _musouDropList) _musouDropRecords.Add(new MusouDropRecord(d.Id, d.Position, d.Item, d.State));
+        (byte, byte[]) section = (MusouWire.DropsTag, MusouWire.WriteDrops(_musouDropRecords, box));
+        int need = Protocol.ExtrasSectionHeaderBytes + section.Item2.Length;
+        if (messages.Count > 0 && messages[^1].Length < Protocol.MaxExtrasSections
+            && Protocol.EnvelopeBytes(new ExtrasUpdate(tick, messages[^1])) + need <= Protocol.MaxExtrasMessageBytes)
+            messages[^1] = [.. messages[^1], section];
+        else if (messages.Count < MusouSendRules.MaxMessagesPerTick) messages.Add([section]);
+        else return;   // no room this tick: sent the next
+        _musouDropSent[playerId] = (version, tick);
+        MusouDropSections++;
+        MusouDropRecordsSent += _musouDropRecords.Count;
     }
 
     MusouDirectorView _musouLoggedDirector;

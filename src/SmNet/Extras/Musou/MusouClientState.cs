@@ -86,6 +86,7 @@ public sealed class MusouClientState
     /// <summary>Reads one section (Musou's tags) at local time <paramref name="now"/> (seconds); false for a malformed one.</summary>
     public bool Apply(in ExtrasSection section, double now)
     {
+        if (section.Tag == MusouWire.DropsTag) return false;   // MU-D: the drops (tag 6) are the client's MusouDrops', not the crowd's: skipped, not malformed
         _now = Math.Max(_now, now);
         if (NewestTick > RestartTicks && section.ServerTick + RestartTicks < NewestTick)
         {
