@@ -185,7 +185,7 @@ public class CameraBoomTests
         // Moving into it from there it stops at once.
         var hit = Wall().SweepSphere(new Vector3(0.9f, 0f, 0f), Vector3.UnitX, 0.28f, 8f);
         Assert.NotNull(hit);
-        Assert.Equal(0f, hit!.Value.Distance, 3);
+        Assert.InRange(hit!.Value.Distance, 0f, 0.002f);
     }
 
     [Fact]

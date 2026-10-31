@@ -15,7 +15,7 @@ namespace SmClient;
 /// Camera (<see cref="RigCamera"/>): the weapon in hand names an exploration and an aim <see cref="CameraSet"/>
 /// (<see cref="CameraTuning.For"/>); each names a curve of the original camera rig (<see cref="CameraRig"/>) that gives the
 /// camera's and its collision pivot's place relative to the feet for the view's pitch. The camera is the yaw-rotated offset
-/// from the feet, pulled in toward the pivot by a sphere cast with a damped pull-in (M40-T6: <see cref="CastClear"/>,
+/// from the feet, pulled in by sphere casts along head to shoulder, to pivot, to camera with a damped pull-in (M40-T6, camera/hop-and-walls: <see cref="CastClear"/>,
 /// <see cref="DampFraction"/>; the rig's pivot is an interpretation: the inner bone), and looks along the view direction; exploration and aim are blended over the aim set's <c>blend_in_time</c>
 /// (position and field of view; the aim blend follows <see cref="PlayerState.Aiming"/> of the predicted state), the view's
 /// pitch is clamped to the sets' lower limit and to 89.9 degrees up (sim/roll-fire-pitch; above a set's upper limit the camera keeps that limit's place), and the mouse look is scaled by the sets' <c>speed_mouse</c> / 100 (aim 0.6, sniper

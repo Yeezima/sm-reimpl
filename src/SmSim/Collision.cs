@@ -315,7 +315,7 @@ public sealed class StaticMesh
     {
         if (_nodes.Length == 0 || !(maxDistance >= 0f) || !(radius >= 0f) || !Geometry.Finite(origin) || !Geometry.Finite(direction)) return null;
         float near = NearestWithin(origin, radius);
-        if (near < radius) radius = near;
+        if (near < radius) radius = near * 0.99f;   // (just under, so a run parallel to the surface does not graze it)
         var inv = new Vector3(Inverse(direction.X), Inverse(direction.Y), Inverse(direction.Z));
         var pad = new Vector3(radius);
         float best = maxDistance;
