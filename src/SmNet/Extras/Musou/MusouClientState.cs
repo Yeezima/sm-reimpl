@@ -60,6 +60,9 @@ public sealed class MusouClientState
     double _now;
 
     public MusouDirectorView? Director { get; private set; }
+    /// <summary>Directors ignored as older than the one shown (late or reordered datagrams).</summary>
+    public int StaleDirectors { get; private set; }
+    uint? _directorTick;
     /// <summary>Enemies known now.</summary>
     public int Count => _tracks.Count;
     public int SectionsRead { get; private set; }
@@ -94,6 +97,7 @@ public sealed class MusouClientState
             foreach (var t in _tracks.Values) _spare.Push(t);
             _tracks.Clear(); _played.Clear(); _dead.Clear();
             NewestTick = section.ServerTick;
+            _directorTick = null;   // the new clock's first director is taken whatever its tick
             Restarts++;
         }
         if (section.Tag == MusouWire.DirectorTag)
@@ -102,6 +106,10 @@ public sealed class MusouClientState
             if (d is null) { SectionsMalformed++; return false; }
             SectionsRead++;
             NewestTick = Math.Max(NewestTick, section.ServerTick);
+            // A late or repeated datagram's director older than the one shown is ignored (it would turn a run back: a wave-2 director after wave 3, a
+            // waiting or boss one after the win); one of the same tick is the same director (a copy). A restarted clock is the restart path above.
+            if (Director is not null && _directorTick is { } shownTick && section.ServerTick < shownTick) { StaleDirectors++; return true; }
+            _directorTick = section.ServerTick;
             bool first = Director is null;
             Director = d;
             if (first && _pending.Count > 0)
@@ -262,9 +270,20 @@ public sealed class MusouClientState
         return _shown;
     }
 
+    /// <summary>
+    /// Forgets every enemy (a new run: the server cleared its pool without death events), keeping the director, the events not yet taken and what was
+    /// already played or died (copies stay ignored).
+    /// </summary>
+    public void ForgetEnemies()
+    {
+        foreach (var t in _tracks.Values) _spare.Push(t);
+        _tracks.Clear();
+    }
+
     /// <summary>Forgets everything (the match left Musou, or the view was rebuilt).</summary>
     public void Clear()
     {
+        _directorTick = null;
         foreach (var t in _tracks.Values) _spare.Push(t);
         _tracks.Clear(); _played.Clear(); _dead.Clear(); _pending.Clear(); _newEvents.Clear(); _newDeaths.Clear();
         Director = null;

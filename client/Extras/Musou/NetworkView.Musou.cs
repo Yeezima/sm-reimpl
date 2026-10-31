@@ -16,7 +16,7 @@ namespace SmClient;
 /// clock (the remote players' interpolated tick); the crowd (<see cref="MusouCrowd"/>) draws the result, the dead play their death where they fell, with the
 /// red splash of a body hit (<see cref="BloodSplashAt"/>) within 25 m. Test aids: <c>--musou-visible N</c> (most drawn, default 150), <c>--musou-no-vat</c>
 /// (skinned only, the fallback). Every 10 s one log line: the frame times (mean fps, p50 and p99 ms) and what the crowd drew. A lean bot or a headless client
-/// keeps the state and draws nothing. MU3: the HUD and the hit effects.
+/// keeps the state and draws nothing (no HUD node either). MU3: the HUD, the hit feedback, the telegraphs and the voices (<c>MusouFx.cs</c>, <see cref="MusouHud"/>).
 /// </summary>
 public partial class NetworkView
 {
@@ -38,7 +38,7 @@ public partial class NetworkView
     /// <summary>This feature's part of the frame hook: <paramref name="sections"/> are this frame's sections with Musou's tags, oldest first.</summary>
     void MusouFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta, IReadOnlyList<ExtrasSection> sections)
     {
-        if (!MusouActive || _client is not { } client) return;
+        if (!MusouActive || _client is not { } client) { if (_musouHud is not null) _musouHud.Visible = false; return; }
         double now = Time.GetTicksUsec() / 1e6;
         foreach (var section in sections) if (!MusouDropSection(section)) _musouState.Apply(section, now);   // MU-D: tag 6 to the drops (MusouDrops.cs)
         var (renderTick, _) = client.RemotePlayers();
@@ -55,6 +55,7 @@ public partial class NetworkView
             foreach (var d in _musouState.NewDeaths) _musouDeaths.Add(d);
             if (_musouDeaths.Count > MusouCrowd.MaxBodies) _musouDeaths.RemoveRange(0, _musouDeaths.Count - MusouCrowd.MaxBodies);
             if (_gameSpace is not null) MusouDraw(shown, (float)delta);
+            MusouPresent(me, shown, (float)delta);   // MU3: the HUD, hit feedback, telegraphs and voices (MusouFx.cs)
         }
         _musouState.TakeNew();
         MusouDropsFrame(me, (float)delta);   // MU-D: the own weapon drops (MusouDrops.cs)
@@ -122,7 +123,7 @@ public partial class NetworkView
         GD.Print($"musou: t {_connectedFor:F0} s: {sorted.Length} frames, {fps:F1} fps, frame p50 {P(0.5):F1} ms p99 {P(0.99):F1} ms max {sorted[^1]:F1} ms; " +
                  $"enemies known {known}, drawn {(c is null ? "-" : $"{c.ShownSkinned} skinned + {c.ShownVat} vat, {c.LeftOut} left out, {c.Bodies} bodies")}; " +
                  $"sections {_musouState.SectionsRead} ({_musouState.SectionsMalformed} malformed), events {_musouState.EventsPlayed} (+{_musouState.EventCopies} copies), " +
-                 $"silent drops {_musouState.DroppedSilent}; director {(_musouState.Director is { } d ? $"wave {d.Wave}/{d.Waves} {d.Phase}" : "none")}");
+                 $"silent drops {_musouState.DroppedSilent}; {MusouPresentNote()}; director {(_musouState.Director is { } d ? $"wave {d.Wave}/{d.Waves} {d.Phase}" : "none")}");
         _musouFrames.Clear();
     }
 }
