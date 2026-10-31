@@ -24,6 +24,7 @@ public sealed partial class World
     {
         if (!StartMusou(nav)) return false;
         _tfw ??= new TfwRun();
+        _musou!.WidenBox(TfwMap.WireBox);   // the Stormbird lies outside the arena's graph
         _musou!.Director = default;   // no 5-wave director to show (nothing is sent; TF4 shows MusouPhase.Campaign with the run)
         return true;
     }
