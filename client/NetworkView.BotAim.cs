@@ -110,7 +110,7 @@ public partial class NetworkView
         // Turning the view by dy turns the move vector with it; rotate the stick the other way to keep the body's direction.
         float c = MathF.Cos(dy), s = MathF.Sin(dy);
         float mx = input.MoveX * c + input.MoveY * s, my = -input.MoveX * s + input.MoveY * c;
-        float pitch = Math.Clamp(input.Pitch + dp, -MaxPitch, MaxPitch);
+        float pitch = Math.Clamp(input.Pitch + dp, -MaxPitchDown, MaxPitchUp);
         // The shot goes view + offsets (Combat.ShotAim keeps it within the server's cone of the view; the prediction uses the same input).
         return input with { Yaw = input.Yaw + dy, Pitch = pitch, MoveX = Math.Clamp(mx, -1f, 1f), MoveY = Math.Clamp(my, -1f, 1f), ShotYawOffset = sy, ShotPitchOffset = sp };
     }

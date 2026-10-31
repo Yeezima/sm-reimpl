@@ -18,7 +18,7 @@ namespace SmClient;
 /// from the feet, pulled in toward the pivot by a sphere cast with a damped pull-in (M40-T6: <see cref="CastClear"/>,
 /// <see cref="DampFraction"/>; the rig's pivot is an interpretation: the inner bone), and looks along the view direction; exploration and aim are blended over the aim set's <c>blend_in_time</c>
 /// (position and field of view; the aim blend follows <see cref="PlayerState.Aiming"/> of the predicted state), the view's
-/// pitch is clamped to the sets' range, and the mouse look is scaled by the sets' <c>speed_mouse</c> / 100 (aim 0.6, sniper
+/// pitch is clamped to the sets' lower limit and to 89.9 degrees up (sim/roll-fire-pitch; above a set's upper limit the camera keeps that limit's place), and the mouse look is scaled by the sets' <c>speed_mouse</c> / 100 (aim 0.6, sniper
 /// zoom 0.2). Field of view is taken as vertical (interpretation). Relax delay and speed, aim blend speed and distance and
 /// aim assist are not implemented. Every weapon but the sniper rifle and lascannon uses the rifle's two camera sets (see <see cref="CameraFor"/>). If the rig or tuning fails to load, the placeholder camera stays (said in the info overlay).
 /// </para>
@@ -65,7 +65,7 @@ public partial class NetworkView
     CameraSet? _lastEvadeSet;
     bool _evadeCamLogged;
     float _mouseScale = 1f;                // speed_mouse / 100 of the current camera
-    float _pitchMin = -MaxPitch, _pitchMax = MaxPitch;
+    float _pitchMin = -MaxPitchDown, _pitchMax = MaxPitchUp;
     float _rigFraction = 1f;               // how much of the way from the pivot to the wanted eye the camera is (wall pull-in, smoothed outward)
     bool _rigLogged;
     // Last hit report (TakeHits), for the aimed enemy's health bar.
@@ -139,14 +139,19 @@ public partial class NetworkView
         _aimBlend = Mathf.MoveToward(_aimBlend, target, time > 0.01f ? delta / time : 1f);
         float w = _aimBlend * _aimBlend * (3f - 2f * _aimBlend);
 
-        // Pitch range of the blended sets (file degrees -> simulation radians), and the mouse speed.
-        _pitchMin = MathF.Max(-MaxPitch, Mathf.Lerp(CameraRig.SimRadians(ex.PitchMinimum), CameraRig.SimRadians(aim.PitchMinimum), w));
-        _pitchMax = MathF.Min(MaxPitch, Mathf.Lerp(CameraRig.SimRadians(ex.PitchMaximum), CameraRig.SimRadians(aim.PitchMaximum), w));
+        // Pitch range of the blended sets (file degrees -> simulation radians), and the mouse speed. sim/roll-fire-pitch (the owner 2026-11-01: "all classes
+        // should be able to zoom directly upwards into the sky"): the sets' upper limits (exploration 70, rifle aim 85, heavy 55 degrees) no longer bound the
+        // view, which goes up to MaxPitchUp (89.9 degrees) in hip fire and aim mode alike; above a set's limit the camera keeps the rig's place for that
+        // limit (lookupPitch) and only turns. The lower limit is the sets' as before.
+        _pitchMin = MathF.Max(-MaxPitchDown, Mathf.Lerp(CameraRig.SimRadians(ex.PitchMinimum), CameraRig.SimRadians(aim.PitchMinimum), w));
+        float setsMax = MathF.Min(MaxPitchDown, Mathf.Lerp(CameraRig.SimRadians(ex.PitchMaximum), CameraRig.SimRadians(aim.PitchMaximum), w));
+        _pitchMax = MaxPitchUp;
         _mouseScale = Mathf.Lerp(Finite(wc.ExplorationInput.SpeedMouse, 100f), Finite(wc.AimInput.SpeedMouse, 100f), w) / 100f;
         _pitch = Math.Clamp(_pitch, _pitchMin, _pitchMax);
         float pitch = Math.Clamp(_pitch, _pitchMin, _pitchMax);
+        float lookupPitch = MathF.Min(pitch, MathF.Max(setsMax, _pitchMin));   // the rig curves' place: as before up to the sets' old limit
 
-        if (_cameraRig.OffsetAtPitch(ex.AnimationCurve, pitch) is not { } o0 || _cameraRig.OffsetAtPitch(aim.AnimationCurve, pitch) is not { } o1) return false;
+        if (_cameraRig.OffsetAtPitch(ex.AnimationCurve, lookupPitch) is not { } o0 || _cameraRig.OffsetAtPitch(aim.AnimationCurve, lookupPitch) is not { } o1) return false;
         if (!_rigLogged)
         {
             _rigLogged = true;
@@ -182,8 +187,8 @@ public partial class NetworkView
             {
                 _lastEvadeSet = set;
                 float we = _evadeBlend * _evadeBlend * (3f - 2f * _evadeBlend);
-                float lookupPitch = Math.Clamp(pitch, CameraRig.SimRadians(set.PitchMinimum), CameraRig.SimRadians(set.PitchMaximum));
-                if (_cameraRig.OffsetAtPitch(set.AnimationCurve, lookupPitch) is { } oe)
+                float evadeLookup = Math.Clamp(pitch, CameraRig.SimRadians(set.PitchMinimum), CameraRig.SimRadians(set.PitchMaximum));
+                if (_cameraRig.OffsetAtPitch(set.AnimationCurve, evadeLookup) is { } oe)
                 {
                     cam = System.Numerics.Vector3.Lerp(cam, oe.Camera, we);
                     pivot = System.Numerics.Vector3.Lerp(pivot, oe.Pivot, we);

@@ -167,14 +167,15 @@ public class EvadeTests(ITestOutputHelper output)
     // ---------------------------------------------------------------- blocked actions
 
     [Fact]
-    public void Firing_is_blocked_until_the_ranged_branch_where_fire_ends_the_roll_and_shoots_at_once()
+    public void Firing_is_blocked_for_the_whole_roll_and_fire_does_not_end_it_at_the_ranged_branch()
     {
+        // sim/roll-fire-pitch (owner's decision 2026-11-01): before, Fire held ended the roll at RangedAt (0.6 s here) and shot at once.
         var s = Fresh();
         Assert.False(Step(ref s, InputButtons.Jump | InputButtons.Fire).Fired);
         int clip = s.Clip;
-        for (int n = 2; n <= 18; n++) { Assert.False(Step(ref s, InputButtons.Fire).Fired); Assert.Equal(n, s.EvadeTicks); }
+        for (int n = 2; n <= 30; n++) { Assert.False(Step(ref s, InputButtons.Fire).Fired); Assert.Equal(n, s.EvadeTicks); }
         Assert.Equal(clip, s.Clip);
-        Assert.True(Step(ref s, InputButtons.Fire).Fired);      // 0.6 s
+        Assert.True(Step(ref s, InputButtons.Fire).Fired);      // 1 s: the clip's end; the full-auto trigger held through it fires on
         Assert.Equal((0, clip - 1), (s.EvadeTicks, s.Clip));
         // Aim mode is off while evading; Aim held from the ranged branch ends the roll and aims.
         var a = Fresh();

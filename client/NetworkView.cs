@@ -60,7 +60,10 @@ public partial class NetworkView : Node3D
     const float RunThreshold = 0.5f;            // m/s horizontal speed above which the run cycle plays
     const float MouseYawPerPixel = 0.0035f;     // radians per pixel; client-side preference, not an original value
     const float KeyYawRate = 2.5f;              // radians per second for the Left / Right arrow keys
-    const float MaxPitch = 1.4f;                // radians; client-side preference, not an original value (the sim clamps to the same)
+    const float MaxPitchDown = 1.4f;            // radians below level; client-side preference, not an original value (the sim's PlayerInput.MinPitch is the same)
+    // sim/roll-fire-pitch (the owner 2026-11-01: "all classes should be able to zoom directly upwards into the sky"): the view goes up to 89.9 degrees, just under
+    // straight up, so the camera's look-at (world up) and the yaw read back from a view direction (FreshAim) stay defined; the simulation accepts π/2.
+    const float MaxPitchUp = 89.9f * MathF.PI / 180f;
     const float BotTargetHeight = 1.2f;         // metres above the target's feet the bot aims at (chest; placeholder)
     const float BotMeleeDistance = 3f;          // metres (horizontal) within which the bot uses melee instead of firing (test script)
     const float BotMeleeHeight = 1.5f;          // metres (vertical) a melee target may be above or below the bot (test script)
@@ -769,7 +772,7 @@ public partial class NetworkView : Node3D
             float dx = target.Position.X - me.Position.X, dy = target.Position.Y - me.Position.Y;
             float dz = target.Position.Z + BotTargetHeight - (me.Position.Z + _config.EyeHeight);
             _yaw = MathF.Atan2(-dx, dy);   // direction (-sin yaw, cos yaw)
-            _pitch = Math.Clamp(MathF.Atan2(dz, MathF.Sqrt(dx * dx + dy * dy)), -MaxPitch, MaxPitch);
+            _pitch = Math.Clamp(MathF.Atan2(dz, MathF.Sqrt(dx * dx + dy * dy)), -MaxPitchDown, MaxPitchUp);
             // Jump pack (assault classes): jump at targets 8-30 m away and pound from above (NetworkView.Jump.cs).
             if (BotDashAttackInput(me, target, tick) is { } dashInput) return dashInput;   // protocol 30 test aid --bot-dash-attack (NetworkView.DashAttack.cs)
             if (BotJumpInput(me, target, tick) is { } jumpInput) return jumpInput;
@@ -807,7 +810,7 @@ public partial class NetworkView : Node3D
             // Throwing (pressed now or under way until the release): aim at the ground BotThrowShort m short of the target,
             // since a grenade keeps going after it lands (test script heuristic, not the original's aim).
             if (grenade != InputButtons.None || (me.Throwing && me.ThrowTime <= _config.ThrowRelease + 0.05f))
-                _pitch = Math.Clamp(MathF.Atan2(target.Position.Z - (me.Position.Z + _config.EyeHeight), MathF.Max(2f, horizontal - BotThrowShort)), -MaxPitch, MaxPitch);
+                _pitch = Math.Clamp(MathF.Atan2(target.Position.Z - (me.Position.Z + _config.EyeHeight), MathF.Max(2f, horizontal - BotThrowShort)), -MaxPitchDown, MaxPitchUp);
             // The melta only reaches its cone length: beyond it, run at the target (no fire) instead of strafing.
             if (Loadouts.InHand(_config, me) is { Delivery: DeliveryKind.Cone, Cone: { } cone } && horizontal > cone.Length * 0.9f)
                 return new PlayerInput(tick, 0f, 1f, _yaw, grenade, _pitch);

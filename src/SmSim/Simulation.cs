@@ -85,6 +85,13 @@ public readonly record struct PlayerInput(uint Tick, float MoveX, float MoveY, f
     public const float MaxShotOffset = MathF.PI;
     /// <summary>Largest shot-origin component a sanitized input keeps (metres; inside the wire's ±327.67 m in centimetres).</summary>
     public const float MaxShotOriginComponent = 300f;
+    /// <summary>
+    /// Highest view pitch a sanitized input keeps (radians): straight up, π/2 (sim/roll-fire-pitch, the owner 2026-11-01: "there should be no upper bound to the
+    /// Y axis angle they can shoot at"; before, 1.4 rad, about 80 degrees).
+    /// </summary>
+    public const float MaxPitch = MathF.PI / 2f;
+    /// <summary>Lowest view pitch a sanitized input keeps (radians; about −80 degrees; a placeholder, unchanged: the clients' camera sets limit looking down).</summary>
+    public const float MinPitch = -1.4f;
 
     /// <summary>The shot origin's offset from the eye (game space, metres).</summary>
     public Vector3 ShotOrigin => new(ShotOriginX, ShotOriginY, ShotOriginZ);
@@ -95,7 +102,7 @@ public readonly record struct PlayerInput(uint Tick, float MoveX, float MoveY, f
         MoveX = float.IsFinite(MoveX) ? Math.Clamp(MoveX, -1f, 1f) : 0f,
         MoveY = float.IsFinite(MoveY) ? Math.Clamp(MoveY, -1f, 1f) : 0f,
         Yaw = float.IsFinite(Yaw) ? Yaw % (2 * MathF.PI) : 0f,
-        Pitch = float.IsFinite(Pitch) ? Math.Clamp(Pitch, -1.4f, 1.4f) : 0f,
+        Pitch = float.IsFinite(Pitch) ? Math.Clamp(Pitch, MinPitch, MaxPitch) : 0f,
         ShotYawOffset = float.IsFinite(ShotYawOffset) ? Math.Clamp(ShotYawOffset, -MaxShotOffset, MaxShotOffset) : 0f,
         ShotPitchOffset = float.IsFinite(ShotPitchOffset) ? Math.Clamp(ShotPitchOffset, -MaxShotOffset, MaxShotOffset) : 0f,
         ShotOriginX = Origin(ShotOriginX), ShotOriginY = Origin(ShotOriginY), ShotOriginZ = Origin(ShotOriginZ),

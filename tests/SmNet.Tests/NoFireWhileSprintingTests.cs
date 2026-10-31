@@ -41,7 +41,7 @@ public class NoFireWhileSprintingTests(ITestOutputHelper output)
         AlwaysReady = true, RaiseDelay = 0.2f, Delivery = DeliveryKind.Projectile, Projectile = Grenade,
     };
 
-    static readonly Dictionary<string, WeaponSpec> Weapons = new()
+    internal static readonly Dictionary<string, WeaponSpec> Weapons = new()
     {
         ["bolter"] = Bolter, ["stalker"] = Stalker, ["bolt pistol"] = BoltPistol, ["plasma pistol"] = PlasmaPistol, ["plasma gun"] = PlasmaGun,
         ["plasma cannon"] = PlasmaCannon, ["lascannon"] = Lascannon, ["held las"] = HeldLas, ["heavy bolter"] = HeavyBolter, ["melta"] = Melta, ["grenade launcher"] = Launcher,

@@ -152,7 +152,14 @@ public sealed class OwnClipClock
 public static class FreshAim
 {
     /// <summary>The ray (origin, unit direction; game space, Z up) turned by <paramref name="deltaYaw"/> about the vertical through <paramref name="pivot"/>, and its pitch raised by <paramref name="deltaPitch"/> (kept within ±<paramref name="maxPitch"/>).</summary>
-    public static (Vector3 Origin, Vector3 Direction) Turn(Vector3 origin, Vector3 direction, Vector3 pivot, float deltaYaw, float deltaPitch, float maxPitch)
+    public static (Vector3 Origin, Vector3 Direction) Turn(Vector3 origin, Vector3 direction, Vector3 pivot, float deltaYaw, float deltaPitch, float maxPitch) =>
+        Turn(origin, direction, pivot, deltaYaw, deltaPitch, -maxPitch, maxPitch);
+
+    /// <summary>
+    /// As the symmetric overload with separate limits (sim/roll-fire-pitch: the view goes up to 89.9 degrees but down only to 1.4 rad): the raised pitch is kept
+    /// within [<paramref name="minPitch"/>, <paramref name="maxPitch"/>] (radians, positive up).
+    /// </summary>
+    public static (Vector3 Origin, Vector3 Direction) Turn(Vector3 origin, Vector3 direction, Vector3 pivot, float deltaYaw, float deltaPitch, float minPitch, float maxPitch)
     {
         if (!float.IsFinite(deltaYaw) || !float.IsFinite(deltaPitch) || direction.LengthSquared() < 1e-12f) return (origin, direction);
         float s = MathF.Sin(deltaYaw), c = MathF.Cos(deltaYaw);
@@ -164,7 +171,7 @@ public static class FreshAim
         {
             float yaw = MathF.Atan2(-d.X, d.Y);   // Combat.AimDirection: (-sin yaw cos pitch, cos yaw cos pitch, sin pitch)
             float pitch = MathF.Asin(Math.Clamp(d.Z, -1f, 1f));
-            d = Combat.AimDirection(yaw, Math.Clamp(pitch + deltaPitch, -maxPitch, maxPitch));
+            d = Combat.AimDirection(yaw, Math.Clamp(pitch + deltaPitch, MathF.Min(minPitch, maxPitch), maxPitch));
         }
         return (o, d);
     }

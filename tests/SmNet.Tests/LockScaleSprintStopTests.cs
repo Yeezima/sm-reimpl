@@ -163,8 +163,9 @@ public class LockScaleSprintStopTests(ITestOutputHelper output)
         }
         Assert.Equal(18, Rolling(Data, 0f, 1f));    // MoveAt 0.6 s: the stick ends it after 18 ticks
         Assert.Equal(13, Rolling(Feel, 0f, 1f));    // 0.42 s
-        Assert.Equal(18, Rolling(Data, 0f, 0f, InputButtons.Fire));   // RangedAt 0.6 s: the data's in both
-        Assert.Equal(18, Rolling(Feel, 0f, 0f, InputButtons.Fire));
+        Assert.Equal(18, Rolling(Data, 0f, 0f, InputButtons.Aim));    // RangedAt 0.6 s: the data's in both (sim/roll-fire-pitch: Aim; Fire no longer ends the roll)
+        Assert.Equal(18, Rolling(Feel, 0f, 0f, InputButtons.Aim));
+        Assert.Equal(30, Rolling(Data, 0f, 0f, InputButtons.Fire));   // the trigger plays the roll to its clip's end (1 s)
         bool Chains(SimConfig c, int n)
         {
             var s = Fresh(c);
