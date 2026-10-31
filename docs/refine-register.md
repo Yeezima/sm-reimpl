@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1806 spec table rows: **1248 tagged**, 406 not tagged (read from data with high confidence), 152 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 395 rows of the changes document.
+Scanned 1807 spec table rows: **1249 tagged**, 406 not tagged (read from data with high confidence), 152 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 395 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 308 | 262 | 267 | 91 | 12 |
 | Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
 | Weapons (critical) | 112 | 65 | 97 | 49 | 3 |
-| Melee (critical) | 63 | 50 | 59 | 11 | 5 |
+| Melee (critical) | 64 | 51 | 60 | 11 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
 | Charge (critical) | 44 | 35 | 37 | 20 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -53,7 +53,7 @@ Scanned 1806 spec table rows: **1248 tagged**, 406 not tagged (read from data wi
 | Core simulation (provisional values) | 124 | 109 | 109 | 13 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1248** | 1032 | 1003 | 392 | 38 |
+| **All areas** | **1249** | 1033 | 1004 | 392 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,8 +61,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 489 |
 | confidence: low | 447 |
-| confidence: medium | 439 |
-| kind: interpretation | 321 |
+| confidence: medium | 440 |
+| kind: interpretation | 322 |
 | notes: ours | 288 |
 | confidence: none (low) | 117 |
 | kind: provisional | 100 |
@@ -717,7 +717,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (63)
+### Melee (gameplay-critical) (64)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -730,6 +730,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1E3FF477` | Strike entry blend | A strike entered from the navigation takes its graph's entry transition: the knife, chainsword and power sword 'Entry to Melee' 0.167 s, their Y strike 0.1 s, the power axe 0.1 s, the hammer's first swing 'Transition to 1' 0.4 s and its interrupt strike… (s) | confidence: medium; notes: interpretation | graph (each melee graph's attack machine, the entry conduit's transitions; the "From Stowed" conduit is not used); which of the nested machines' blends Havok… | Strike entry blend: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A strike entered from the navigation takes its graph's entry… | ☐ |
 | `R-571ECA7C` | Strike chain blend | A strike chained from another (within 0.3 s) takes the transition between their states: 'Melee To Melee' 0.1 s for most, the hammer's 'Melee to 180' 0.333 s into its sweeps and 'Blend In to Slam' 0.267 s into the left slam, the chainsword's and power sword's… (s) | kind: ours; confidence: medium | graph | Strike chain blend: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A strike chained from another (within 0.3 s) takes the transition… | ☐ |
 | `R-E823A6BF` | Strike hand-over: the upper body leaves over the exit | When the legs are handed to the locomotion at the move gate (M40-T4) the strike leaves the upper body over the weapon's move-on exit (0.333 s chainsword, sword, hammer; smooth curve) from that moment, as the graph leaves the whole attack state on its move… (s) | kind: ours; confidence: medium | graph (the blend); the hand-over itself: ours (M40-T4) | Strike hand-over: the upper body leaves over the exit: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: When the legs are handed to the locomotion at the move gate (M40-T4)… | ☐ |
+| `R-91FCD4AC` | Strike hand-over without a graph exit (anim/stomp-to-move) | A strike whose graph has no move-on exit of its own (`MP_SM_MEL_TB_Displace`: the Devastator's and the Havoc's kick and stomp; `MP_SM_MEL_CombatKnife`: the knife; `smtool graph-dump --melee-flow` "moving on -") leaves the upper body over the base graph's… (s) | kind: interpretation; confidence: medium | `SM_Base_MP` conduit blend (data); its use for this hand-over: interpretation | Strike hand-over without a graph exit (anim/stomp-to-move): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A strike whose graph has no move-on exit of its own… | ☐ |
 | `R-8A92A5A4` | Melee variant fades in with the strike | The upper distance variant laid over the strike (feel/melee-lock) fades in with the strike's entry (its weight times the clip's share of the cross-fade); before, it came in whole on the strike's first frame while the clip itself still faded in from the… | kind: ours | ours (a fix) | Melee variant fades in with the strike: compare with SM1 by feel or video. Ours: The upper distance variant laid over the strike (feel/melee-lock)… | ☐ |
 | `R-08577B3E` | Clip foot lock | While a strike's clip (on the ground or over a curb, not in a jump-pack phase) or the charge's clip (on the ground) is shown, each foot the clip puts down (toe below 0.03 m and ankle below 0.24 m above the feet; let go above 0.045 / 0.27 m) and that stands… (m, m/s, s) | kind: ours; confidence: medium | ours (the clips are in place; the body travels what the simulation decides: stopped at its target, a longer lunge, turned to the lock); the thresholds the… | Clip foot lock: compare with SM1 by timing a run over a known distance. Ours: While a strike's clip (on the ground or over a curb, not in a… | ☐ |
 | `R-274679A7` | Clip foot lock: result | Planted-foot speed under the strike clips (the air slash left out; flat foot), `--no-melee-flow` / this build: `melee2` median 1.81 / 0.00, p75 4.35 / 0.14, p90 7.68 / 3.19 m/s, frames above 0.5 m/s 74 / 22 %; `sweep` 0.22 / 0.00, p90 3.52 / 0.92 m/s, 34 / 12… (m/s) | confidence: medium | measured | Clip foot lock: result: compare with SM1 by timing a run over a known distance. Ours: Planted-foot speed under the strike clips (the air slash left out… | ☐ |
