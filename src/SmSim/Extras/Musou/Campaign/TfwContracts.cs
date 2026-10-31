@@ -9,7 +9,7 @@ namespace SmSim.Extras.Musou.Campaign;
 /// </summary>
 public static class TfwRules
 {
-    public const uint Version = 1;
+    public const uint Version = 2;   // 2: TF4, the war runs (the battle, the run, the extraction)
 }
 
 /// <summary>The contract the war's milestones share (TF0, frozen): ids and how the war's actors are named across the simulation, the server and the client.</summary>
@@ -63,7 +63,7 @@ public readonly record struct TfwGuard(ushort Id, Vector3 Position, float Yaw, b
 /// The war of one match (<see cref="World.Tfw"/>; set only by <see cref="World.StartTfw"/>). TF0 holds the contract alone: the command queue, the AI Marines' input source and
 /// their names. The war itself (TF2's WarSim, TF3's Guardsmen, TF4's battle and run, TF5's Marines) grows here and in <c>World.Tfw.cs</c>.
 /// </summary>
-public sealed class TfwRun
+public sealed partial class TfwRun
 {
     /// <summary>Commands waiting for the next tick (a client's flood is cut by the server's rate, this by the queue's size).</summary>
     public const int MaxQueuedCommands = 64;
