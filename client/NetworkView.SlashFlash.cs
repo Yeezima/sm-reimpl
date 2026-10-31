@@ -28,11 +28,14 @@ public partial class NetworkView
     bool? _noSlashFlash;
 
     MeshInstance3D? _slashCore;
+    Vector3 _slashCoreAt;
+    float _slashLos = 1f;
     ShaderMaterial? _slashCoreMaterial;
     const float SlashCoreRadius = 2.1f;
     const string SlashCoreShader = @"
 shader_type spatial;
-render_mode unshaded, blend_add, cull_disabled, depth_draw_never, depth_test_disabled, fog_disabled;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, fog_disabled;
+uniform sampler2D depth_tex : hint_depth_texture, repeat_disable, filter_nearest;
 uniform float strength = 0.0;
 void vertex() {
     MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
@@ -43,7 +46,11 @@ void fragment() {
     float core = clamp(1.0 - r * 1.25, 0.0, 1.0);
     float rim = exp(-pow((r - 0.62) / 0.28, 2.0));
     vec3 rimc = vec3(0.35, 0.72, 1.0) * rim * 0.9;
-    ALBEDO = (vec3(1.0) * pow(core, 0.7) * 3.0 + rimc) * strength * (1.0 - smoothstep(0.85, 1.0, r));
+    float depth = texture(depth_tex, SCREEN_UV).x;
+    vec4 sv = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, depth, 1.0);
+    sv.xyz /= sv.w;
+    float soft = clamp((-sv.z - (-VERTEX.z)) / 1.5, 0.0, 1.0);   // soft depth fade: walls and floor cut the glow gently
+    ALBEDO = (vec3(1.0) * pow(core, 0.7) * 3.0 + rimc) * strength * soft * (1.0 - smoothstep(0.85, 1.0, r));
 }";
 
     OmniLight3D? _slashLight;
@@ -76,7 +83,10 @@ void fragment() {
             e.Collisions = true; e.SoftGround = true; e.NoDecals = true;
             e.Life = Math.Max(e.Life, e.System.CollisionLife + 0.1f);
         }
-        _slashFlashStart = _connectedFor;
+        double ageNow = _connectedFor - _slashFlashStart;
+        bool wasLive = ageNow >= 0 && ageNow < SlashFlashSeconds;
+        _slashFlashStart = wasLive ? _connectedFor - Math.Min(ageNow, 0.05) : _connectedFor;   // back-to-back landings continue the level, never above the peak
+        _slashCoreAt = point + up * 2.6f;
         if (_slashCore is null || !IsInstanceValid(_slashCore))
         {
             _slashCoreMaterial = new ShaderMaterial { Shader = new Shader { Code = SlashCoreShader } };
@@ -94,7 +104,8 @@ void fragment() {
         _slashLight.GlobalPosition = point + up * 1.2f;
         _slashLight.Visible = true;
         float dist = _camera is { } cam ? cam.GlobalPosition.DistanceTo(point) : 0f;
-        _slashFlashScreen = Math.Clamp(1f - (dist - 3f) / SlashFlashScreenReach, 0f, 1f) * SlashFlashScreenPeak;
+        if (own) _slashFlashScreen = Math.Max(Math.Clamp(1f - (dist - 3f) / SlashFlashScreenReach, 0f, 1f) * SlashFlashScreenPeak, wasLive ? _slashFlashScreen : 0f);   // the screen flash is the own landing's only
+        else if (!wasLive) _slashFlashScreen = 0f;
         if (_bot || SlashShotsDir is not null) GD.Print($"slash flash: effect {(e is null ? "NOT STARTED" : e.System.Name)}, screen {_slashFlashScreen:F2}, camera {dist:F1} m away");
         if (_slashScreen is null)
         {
@@ -120,7 +131,14 @@ void fragment() {
         }
         if (_slashCore is not null && _slashCoreMaterial is not null && IsInstanceValid(_slashCore))
         {
-            float k = live ? MathF.Pow(1f - (float)(age / (SlashFlashSeconds * 0.7)), 1.5f) * Math.Clamp((float)(age / 0.02), 0f, 1f) : 0f;
+            float losTarget = 1f;
+            if (live && _camera is { } cam && _client?.Collision is { } world)
+            {
+                var from = cam.GlobalPosition; var to = _slashCoreAt; var d = to - from; float len = d.Length();
+                if (len > 0.5f && world.Weapons.Raycast(new System.Numerics.Vector3(from.X, -from.Z, from.Y), new System.Numerics.Vector3(d.X, -d.Z, d.Y) / len, len - 0.3f) is not null) losTarget = 0f;
+            }
+            _slashLos = Mathf.MoveToward(_slashLos, losTarget, 8f * (float)GetProcessDeltaTime());
+            float k = _slashLos * (live ? MathF.Pow(1f - (float)(age / (SlashFlashSeconds * 0.7)), 1.5f) * Math.Clamp((float)(age / 0.02), 0f, 1f) : 0f);
             _slashCore.Visible = live && k > 0.002f;
             _slashCore.Scale = Vector3.One * SlashCoreRadius * 2f * (0.7f + 0.3f * Math.Clamp((float)(age / 0.1), 0f, 1f));
             _slashCoreMaterial.SetShaderParameter("strength", k);
