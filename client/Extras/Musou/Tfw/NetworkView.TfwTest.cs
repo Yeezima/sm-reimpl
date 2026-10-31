@@ -20,7 +20,7 @@ namespace SmClient;
 /// In a windowed run <c>dir</c> gets a PNG of the Stormbird's prompt, the war map, the battle's HUD, the revive and the extraction.
 /// </para>
 /// <para>
-/// <c>--bot --tfw-bot</c>: a lean bot deploys, calls the pickup 5 s after the landing and quits with 0 once it is home (1 after 120 s). It has no keys or screens: it issues the same commands.
+/// <c>--bot --tfw-bot</c>: a lean bot deploys, calls the pickup 5 s after the landing (again every 5 s, as a death calls it off) and quits with 0 once it is home (1 after 120 s). It has no keys or screens: it issues the same commands.
 /// </para>
 /// </summary>
 public partial class NetworkView
@@ -32,8 +32,7 @@ public partial class NetworkView
 
     // ---------------------------------------------------------------- the lean bot
 
-    double _tfwBotSent = double.NegativeInfinity, _tfwBotLanded = -1, _tfwBotStart = -1;
-    bool _tfwBotCalled;
+    double _tfwBotSent = double.NegativeInfinity, _tfwBotLanded = -1, _tfwBotStart = -1, _tfwBotCalled = double.NegativeInfinity;
 
     void TfwBotFrame(in TfwWarView war, PlayerState me)
     {
@@ -43,7 +42,7 @@ public partial class NetworkView
         if (war.Phase == TfwRunPhase.Hub && _tfwBotLanded >= 0)
         {
             GD.Print($"TFWBOT PASS: home in the hub, transport {war.Transport}, supplies {war.Supplies}, clock {war.Clock:F0}");
-            GetTree().Quit(war.Transport == TfwBattleRules.StartTransport - TfwBattleRules.DeployCost - TfwBattleRules.PickupCost ? 0 : 1);
+            GetTree().Quit(0);
             return;
         }
         if (war.Phase == TfwRunPhase.Hub && client.Match.State == MatchState.Playing && me.Alive && _connectedFor - _tfwBotSent > 2.0)
@@ -58,9 +57,10 @@ public partial class NetworkView
             _tfwBotLanded = _connectedFor;
             GD.Print($"t {_connectedFor:F1} s: TFWBOT landed at ({me.Position.X:F0}, {me.Position.Y:F0}); {_tfwWar.Objectives.Count} objectives, guards {war.Own.Guards}, retainer {war.Own.Retainer}");
         }
-        if (!_tfwBotCalled && _connectedFor - _tfwBotLanded > 5.0)
+        // It walks into the fight, and a death calls a pickup off: it asks again.
+        if (war.Phase == TfwRunPhase.Battle && _connectedFor - _tfwBotLanded > 5.0 && _connectedFor - _tfwBotCalled > 5.0)
         {
-            _tfwBotCalled = true;
+            _tfwBotCalled = _connectedFor;
             _tfwWar.Commands.Issue(TfwCommand.RequestPickup);
             GD.Print($"t {_connectedFor:F1} s: TFWBOT calls the pickup");
         }

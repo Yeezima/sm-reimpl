@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1942 spec table rows: **1365 tagged**, 420 not tagged (read from data with high confidence), 157 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 420 rows of the changes document.
+Scanned 1950 spec table rows: **1373 tagged**, 420 not tagged (read from data with high confidence), 157 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 421 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -40,7 +40,7 @@ Scanned 1942 spec table rows: **1365 tagged**, 420 not tagged (read from data wi
 | Charge (critical) | 44 | 35 | 37 | 20 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 51 | 49 | 40 | 18 | 0 |
-| HUD and hit feedback (critical) | 56 | 51 | 45 | 10 | 0 |
+| HUD and hit feedback (critical) | 64 | 59 | 48 | 10 | 0 |
 | Sound mix (critical) | 56 | 50 | 48 | 10 | 0 |
 | Effects (critical) | 72 | 63 | 62 | 38 | 0 |
 | Game modes | 39 | 36 | 37 | 19 | 1 |
@@ -53,14 +53,14 @@ Scanned 1942 spec table rows: **1365 tagged**, 420 not tagged (read from data wi
 | Core simulation (provisional values) | 176 | 161 | 145 | 22 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 78 | 72 | 40 | 8 | 0 |
-| **All areas** | **1365** | 1142 | 1095 | 409 | 38 |
+| **All areas** | **1373** | 1150 | 1098 | 409 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 575 |
-| confidence: low | 512 |
+| kind: ours | 583 |
+| confidence: low | 515 |
 | confidence: medium | 466 |
 | kind: interpretation | 330 |
 | notes: ours | 299 |
@@ -1167,7 +1167,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C9703C8F` | Strike and reaction entry floor | a melee strike's and a hit reaction's entry fade has a floor of **0.125** s instead of 0.1875 s, so the graphs' 0.1 s and 0.167 s are nearer met; not the charge, the roll, the stomp (a Devastator's or Havoc's heavy strike) or any exit (s) | kind: ours; confidence: low | ours | Strike and reaction entry floor: compare with SM1 by watching the reaction and timing it frame by frame. Ours: a melee strike's and a hit reaction's entry fade has a floor of 0.125… | ☐ |
 | `R-79ECC932` | Heavy footfall | a moving Devastator's or Havoc's own footfall dips the camera **0.05** degrees (**0.09** above 7 m/s); the sound is the data's; the data has no camera footfall (degrees) | kind: ours; confidence: low | ours | Heavy footfall: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a moving Devastator's or Havoc's own footfall dips the camera 0.05… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (56)
+### HUD and hit feedback (gameplay-critical) (64)
 
 *Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
 
@@ -1253,6 +1253,19 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-9A804443` | Musou HUD | a run panel (wave n / 5, enemies left, lives as pips, own KOs and points), a Warboss bar at the top centre with ticks at 75/50/25 % and ENRAGED, a KO chain counter, a break countdown, WAAAGH! and ENRAGED call-outs (2.2–2.4 s, 0.7 s flashes), a victory or… | kind: ours; confidence: low | the lead's design; layout and values ours | Musou HUD: compare with SM1 with side-by-side screenshots in the same spot. Ours: a run panel (wave n / 5, enemies left, lives as pips, own KOs and… | ☐ |
+
+*Spec section: Added content: Musou — the Three-Front War: the HUD, the war map and the orders (TF7b; no protocol change, `TfwRules.Version` 4)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-052A6288` | Own block (end of tag 7) | 14 bytes per client: seconds left of the travel, the pickup, the own revive window and the extraction's prompt (rounded up), the revive in tenths, battle won, the retainer's state and order, its recovery in war seconds, Guardsmen alive, squads in the field… (B, s) | kind: ours | ours: frozen tag 8 had no room, the owner's brief allowed the extension | Own block (end of tag 7): compare with SM1 with side-by-side screenshots in the same spot. Ours: 14 bytes per client: seconds left of the travel, the pickup, the own… | ☐ |
+| `R-8079DCFE` | Station reach | the pad's radius, 1.5 m on the ground plane, in the hub, alive; the Use action opens it (m) | kind: ours | the design's section B and G | Station reach: compare with SM1 by measuring on a flat spot of the same map. Ours: the pad's radius, 1.5 m on the ground plane, in the hub, alive; the… | ☐ |
+| `R-1D9B310C` | War map keys | M held shows the map over the game (the game keeps its input); Esc, B or CLOSE closes the station's map | kind: ours | the design's section G; the owner's keys | War map keys: compare with SM1 with side-by-side screenshots in the same spot. Ours: M held shows the map over the game (the game keeps its input); Esc, B… | ☐ |
+| `R-806140A6` | Orders | Z follow, X hold at the ground point under the crosshair, V attack the enemy within 3 m of the crosshair's ray, else the point; on the press, in a battle, alive, with no menu open; ray reach 340 m (m) | kind: ours; confidence: low | the design's section G; the owner's keys; the 3 m and the reach ours | Orders: compare with SM1 by measuring on a flat spot of the same map. Ours: Z follow, X hold at the ground point under the crosshair, V attack… | ☐ |
+| `R-6B82E02C` | Pickup key | P held 1 s asks for a pickup, or calls a running one off; once a press (s) | kind: ours; confidence: low | the design's section G; calling it off with the same key ours | Pickup key: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: P held 1 s asks for a pickup, or calls a running one off; once a press. | ☐ |
+| `R-B5AD9CA0` | Keys in a war's match | X gives up Next weapon and V gives up Melee (and any action the player bound to Z, P or M gives up that key) for this match, in the InputMap only: the wheel and the right mouse button keep those actions, `controls.json` and the controls screen stay as they… | kind: ours | ours: the owner's approved keys clash with the defaults | Keys in a war's match: compare with SM1 with side-by-side screenshots in the same spot. Ours: X gives up Next weapon and V gives up Melee (and any action the… | ☐ |
+| `R-84047A78` | Death in a battle | the match HUD's respawn line is hidden (the run holds the respawn); KILLED and the revive or extraction prompt show | kind: ours | ours | Death in a battle: compare with SM1 with side-by-side screenshots in the same spot. Ours: the match HUD's respawn line is hidden (the run holds the respawn)… | ☐ |
+| `R-77A60C76` | Markers | ring of each position's radius (12 m, HQ 15 m) coloured by state; a 40 m pillar at each source still sending; a beacon at the landing zone (m) | kind: ours; confidence: low | the design's section G; sizes and colours ours | Markers: compare with SM1 by measuring on a flat spot of the same map. Ours: ring of each position's radius (12 m, HQ 15 m) coloured by state; a… | ☐ |
 
 *Spec section: Controller (gamepad; client only, no protocol change)*
 
@@ -1905,7 +1918,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-5C945299` | War section (tag 7) | 71 bytes (the design's about 62: exact floats kept); per client, on any change and every 1 s (B, s) | kind: ours | the design's section H; the floats ours | War section (tag 7): compare with SM1 by feel or video. Ours: 71 bytes (the design's about 62: exact floats kept); per client, on… | ☐ |
+| `R-5C945299` | War section (tag 7) | 85 bytes since TF7b, 71 of the war (the design's about 62: exact floats kept) and the 14 of the own block; per client, on any change and every 1 s (B, s) | kind: ours | the design's section H; the floats ours | War section (tag 7): compare with SM1 by feel or video. Ours: 85 bytes since TF7b, 71 of the war (the design's about 62: exact… | ☐ |
 | `R-2BB9C079` | Objectives section (tag 8) | at most 17 records of 10 bytes, 171 bytes in all; the whole list every 10 ticks, also empty (B, ticks) | kind: ours | the design's section H | Objectives section (tag 8): compare with SM1 by feel or video. Ours: at most 17 records of 10 bytes, 171 bytes in all; the whole list… | ☐ |
 | `R-733D9488` | Guardsmen section (tag 9) | 10-byte records, at most 119 a section; bands as the enemies': within 15 m every tick, to 40 m every 2nd, beyond every 5th, a changed state at once; at most 2 messages a tick on top of Musou's (B, ticks) | kind: ours | the design's section H; the message cap ours | Guardsmen section (tag 9): compare with SM1 by feel or video. Ours: 10-byte records, at most 119 a section; bands as the enemies': within… | ☐ |
 | `R-BD385ED4` | Guard events (tag 10) | 15-byte records; a death in 3 messages, a shot or a hurt man in 1; deaths first; at most 35% of the war's tick budget (15 copies a tick at 30 Hz); gone after 30 ticks (B, copies, ticks) | kind: estimate; confidence: low; notes: ours | the design's 15 bytes; the rest ours, after Musou's events | Guard events (tag 10): compare with SM1 by feel or video. Ours: 15-byte records; a death in 3 messages, a shot or a hurt man in 1… | ☐ |
@@ -2252,6 +2265,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-21B5B32C` | Musou mode is the Three-Front War | the owner's decision (2026-11-01) | `--content musou` runs the war on the generated map `tfw_war`; the 5-wave run stays only as a test aid (`--map mp_tdm_09`) | War map | Musou mode is the Three-Front War: compare with SM1 by feel or video. Ours: the owner's decision (2026-11-01). | ☐ |
 | `C-38A58728` | AI Marines in the war | the owner's decisions (2026-11-01) and ours | server-side puppets: a retainer per player who follows orders and revives, three lords with retainers who act alone; ammunition without end, placeholder names | Retainer orders | AI Marines in the war: compare with SM1 by feel or video. Ours: the owner's decisions (2026-11-01) and ours. | ☐ |
 | `C-A5D8C2C2` | Guard squads fight beside the players; leashed Ork defenders | the design of the war (2026-11-01); SM1 has no such allies (the Guardsman is the Exterminatus co-op blueprint) | squads of 10 shoot and are struck server-side; defenders hold until a target is within 30 m or their group is hurt | War Guard squads, Leashed defenders | Guard squads fight beside the players; leashed Ork defenders: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01); SM1 has no such allies (the… | ☐ |
+| `C-ADD505EB` | The war's client: stations, war map, order keys | the design of the war (2026-11-01), the keys the owner's (M, Z, X, V, P); SM1 has no such screens | E at the Stormbird's consoles, the war map held on M, orders on Z, X, V and P held 1 s; in a war's match X and V are order keys, not Next weapon and Melee (the wheel and the right mouse button stay); a fallen player sees no respawn line: the run holds it | added content, ours (spec "the HUD, the war map and the orders") | The war's client: stations, war map, order keys: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01), the keys the owner's (M, Z, X, V… | ☐ |
 
 ### Deliberate changes (owner's decisions)
 

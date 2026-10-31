@@ -57,6 +57,8 @@ public partial class NetworkView
         f.Kos = _musouScore.Kos;
         _tfwHud.Fed();
         _tfwHud.Visible = _endPhase == MatchEndPhase.Splash && !_tfwMapHeld;
+        // The match HUD's "RESPAWN IN n" would lie: a fallen player waits for its retainer or the extraction, held by the run. TfwHud says KILLED and what happens instead.
+        if (!me.Alive && TfwHudModel.InBattle(war.Phase) && _hudView is { } hud) hud.Data.Alive = true;
         if (_musouHud is { } musou) musou.Data.BossName = war.Phase == TfwRunPhase.FinalAssault || _tfwWar.Objectives.Count == 0 ? "ORK WARBOSS" : "ORK COMMANDER";
     }
 
