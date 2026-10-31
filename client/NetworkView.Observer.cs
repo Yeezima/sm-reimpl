@@ -246,6 +246,7 @@ public partial class NetworkView
             if (_obsFollow != 0) ObserverFree();
             ObserverFlyCamera(delta);
         }
+        BoltFxDemo(others);   // fx/bolt-tracer-impact: --bolt-fx-demo
         _cameraPlaced = true;
         var at = _camera.GlobalPosition;   // Godot to game space; the server picks the nearest projectiles and shots for it (protocol 46)
         if (_client is not null) _client.ObserverCamera = new System.Numerics.Vector3(at.X, -at.Z, at.Y);

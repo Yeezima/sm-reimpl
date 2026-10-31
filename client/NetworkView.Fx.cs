@@ -127,6 +127,7 @@ public partial class NetworkView
             // M44: the flight's effects (thrust, apex, fall, dive, idle glow, the pound's target marker) and the dash's burst.
             foreach (var pack in catalogue.JumpPacks.Values) foreach (var n in pack.FlightNames) names.Add(n);
             foreach (var plays in catalogue.Dashes.Values) foreach (var p in plays) if (p.Name.Length > 0) names.Add(p.Name);
+            names.Add(ArmourSparksEffect);   // fx/bolt-tracer-impact
             names.Add(SlashFlashEffect);   // fx/air-slash-landing: the perk landing's burst for the air slash (NetworkView.SlashFlash.cs)
             // F-D1: the death effects the player blueprints and jump packs bind (their ground impact runs collisions like the jump packs' other ground effects).
             DeathEffects? death = null; string? deathError = null;
@@ -529,6 +530,7 @@ public partial class NetworkView
         bool up = armourUp ?? true;
         var plays = _catalogue.Resolve(se.HitMaterial, hit, surface, up);
         if (hit != ShotHit.World) FxArmourHit(up, end, dir, victim, delay);
+        if (hit != ShotHit.World && up) ArmourSparks(end, dir, delay);   // fx/bolt-tracer-impact
         if (hit != ShotHit.World) CharacterFlashHit(victim, armourUp);   // fx/character-visuals: the victim's model flashes (NetworkView.CharacterFlash.cs)
         if (plays.Count == 0) return;
         _fxImpacts++;
