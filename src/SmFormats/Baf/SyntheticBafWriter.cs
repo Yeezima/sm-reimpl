@@ -116,7 +116,7 @@ public static class SyntheticBafWriter
         string delivery = "_base_templates\\ranged_delivery_types\\raycast",
         (float PerShot, float Overheat, float High, float Recovery, float Rate, float Delay, float DelayAfterOverheat)? heat = null,
         string? blueprint = null, int maxActive = 0, ChargeFixture? charge = null, bool chargeIsPrimary = false,
-        float[]? detonationDelays = null, PierceFixture? pierce = null) => Build(
+        float[]? detonationDelays = null, PierceFixture? pierce = null, (int Amount, float Delay)? consumeAmmo = null) => Build(
         ("ability_data", new (string, object)[]
         {
             ("ability_definitions", Join(charge is { } c ? new (string, object)[] { (chargeIsPrimary ? "ability_ranged_primary" : "ability_ranged_secondary", ChargeAbility(c)) } : [],
@@ -131,13 +131,13 @@ public static class SyntheticBafWriter
                 {
                     ("$ref", "wargear\\ability_types\\standard_ranged"),
                     ("trigger_data", new (string, object)[] { ("trigger", new (string, object)[] { ("$ref", trigger) }) }),
-                    ("delivery", Join(heat is { } h ? new (string, object)[]
+                    ("delivery", Join(heat is not null || consumeAmmo is not null ? new (string, object)[]
                         {
-                            ("fire_sim", new (string, object)[] { ("actions_by_upgrade", new (string, object)[]
+                            ("fire_sim", Join(heat is { } h ? new (string, object)[] { ("actions_by_upgrade", new (string, object)[]
                             {
                                 Upgraded("entry", ("action", new (string, object)[] { ("commands", new (string, object)[] { ("apply_heat", HeatPerShot(h.PerShot / 3)) }) })),
                                 Default("entry", ("action", new (string, object)[] { ("commands", new (string, object)[] { ("apply_heat", HeatPerShot(h.PerShot)) }) })),
-                            }) }),
+                            }) } : [], consumeAmmo is { } ca ? new (string, object)[] { ("actions", ConsumeAmmo(ca.Amount, ca.Delay)) } : [])),
                         } : [], pierce is { } pen ? new (string, object)[] { ("penetration", Penetration(pen)) } : [], new (string, object)[] {
                         ("ranged_delivery_type", blueprint is null
                             ? new (string, object)[] { Default("entry", ("type", new (string, object)[] { ("$ref", delivery) })) }
@@ -432,6 +432,26 @@ public static class SyntheticBafWriter
     ];
 
     static (string, object)[] Join(params (string, object)[][] parts) => parts.SelectMany(p => p).ToArray();
+
+    /// <summary>
+    /// A <c>fire_sim/actions</c> list shaped like the storm bolter's (sim/stormbolter-ammo): a <c>delayed_action</c> whose commands
+    /// <c>consume_ammo</c> <paramref name="amount"/> of the weapon's <c>test_ammo</c> after <paramref name="delay"/> s, and a decoy
+    /// <c>consume_ammo</c> of another ammunition (5 rounds of <c>other_ammo</c>) that a reader must not count.
+    /// </summary>
+    static (string, object)[] ConsumeAmmo(int amount, float delay) =>
+    [
+        ("controller_rumble", new (string, object)[] { ("$ref", "action_commands\\controller_rumble"), ("duration", 0.05f) }),
+        ("delayed_action", new (string, object)[]
+        {
+            ("$ref", "action_commands\\delayed_action"),
+            ("action", new (string, object)[] { ("$ref", "action"), ("commands", new (string, object)[]
+            {
+                ("consume_ammo", new (string, object)[] { ("$ref", "action_commands\\consume_ammo"), ("amount", amount), ("ammunition_name", "test_ammo"), ("only_consume_if_player", false) }),
+            }) }),
+            ("delay", delay),
+        }),
+        ("consume_ammo", new (string, object)[] { ("$ref", "action_commands\\consume_ammo"), ("amount", 5), ("ammunition_name", "other_ammo") }),
+    ];
 
     /// <summary>
     /// A jump pack shaped like the game's (<c>ability_jumppack/jump_info</c>: a perk variant first, then the default one;

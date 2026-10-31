@@ -28,13 +28,13 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1829 spec table rows: **1265 tagged**, 411 not tagged (read from data with high confidence), 153 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 401 rows of the changes document.
+Scanned 1831 spec table rows: **1266 tagged**, 412 not tagged (read from data with high confidence), 153 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 402 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 324 | 276 | 280 | 93 | 12 |
 | Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
-| Weapons (critical) | 112 | 65 | 97 | 49 | 3 |
+| Weapons (critical) | 113 | 66 | 98 | 50 | 3 |
 | Melee (critical) | 64 | 51 | 60 | 11 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
 | Charge (critical) | 44 | 35 | 37 | 20 | 0 |
@@ -53,7 +53,7 @@ Scanned 1829 spec table rows: **1265 tagged**, 411 not tagged (read from data wi
 | Core simulation (provisional values) | 124 | 109 | 109 | 13 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1265** | 1047 | 1017 | 394 | 38 |
+| **All areas** | **1266** | 1048 | 1018 | 395 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,9 +61,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 502 |
 | confidence: low | 452 |
-| confidence: medium | 448 |
-| kind: interpretation | 323 |
-| notes: ours | 288 |
+| confidence: medium | 449 |
+| kind: interpretation | 324 |
+| notes: ours | 289 |
 | confidence: none (low) | 117 |
 | kind: provisional | 100 |
 | kind: user's knowledge | 45 |
@@ -599,7 +599,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-9432FECF` | Regeneration timing | shield and health regenerate once the time since the last damage reaches their delays; `reload` refills when its time has fully elapsed; the bolter fires on the first tick its cooldown has elapsed (0.133 s rounds up to 4 ticks at 30 Hz, so 7.5 shots/s instead… | confidence: low; notes: ours; section: placeholder; section: provisional | tick quantisation is ours | Regeneration timing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: shield and health regenerate once the time since the last damage… | ☐ |
 | `R-9F8281FF` | Time to kill (derived) | 14 body hits from full health and shield: 9 on the shield alone (22 × 0.505 each), a 10th that breaks it and spills into health, then 4 on health; about 1.7 s of continuous fire at 0.133 s per shot (s) | confidence: low; notes: unverified; section: placeholder; section: provisional | unverified against the original | Time to kill (derived): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 14 body hits from full health and shield: 9 on the shield alone (22 ×… | ☐ |
 
-### Weapons (gameplay-critical) (112)
+### Weapons (gameplay-critical) (113)
 
 *Spec section: Classes and default loadouts (M10, used by the simulation)*
 
@@ -608,6 +608,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-D8BD5E7B` | Tactical (`sm - tactical`, `csm - tactical`) | Primary: bolter (full auto); Pistol: bolt pistol (semi auto); Melee: combat knife (3 attacks); Default perk: `mp_perk_friendly_spawn_target` | section: approximation; section: provisional |  | Tactical (sm - tactical, csm - tactical): compare with SM1 by feel or video. Ours: Primary: bolter (full auto); Pistol: bolt pistol (semi auto); Melee:… | ☐ |
 | `R-821E9E0B` | Assault (`sm - assault marine`, `csm - raptor`) | Primary: none (the data gives none); Pistol: bolt pistol; Melee: chainsword (4 attacks: 65 / 70 / 73 / 82, secondary 30 / 30 / 50 / 50); Default perk: `mp_perk_improved_bullrush` | section: approximation; section: provisional |  | Assault (sm - assault marine, csm - raptor): compare with SM1 by feel or video. Ours: Primary: none (the data gives none); Pistol: bolt pistol; Melee:… | ☐ |
 | `R-FEF3BD30` | Devastator (`sm - devastator`, `csm - havoc`) | Primary: heavy bolter (full auto, 35 damage, 0.233 s, 400 rounds, no reserve); Pistol: Devastator bolt pistol; Melee: none in the class table; the original may give a fallback melee attack (not found); Default perk: `mp_perk_melee_damage_resistance` | section: approximation; section: provisional |  | Devastator (sm - devastator, csm - havoc): compare with SM1 by feel or video. Ours: Primary: heavy bolter (full auto, 35 damage, 0.233 s, 400 rounds, no… | ☐ |
+| `R-057FD81B` | Second round's delay | the second round goes at the shot with the first, so the clip (and the HUD count) drops 2 at each 0.1 s shot; the data spend it 0.05 s later (the HUD would step 1 every 0.05 s). The last round of an odd clip still fires and the shot spends what is left (a… (s) | kind: interpretation; confidence: medium; notes: ours | ours (the delay is not simulated; the time to empty a clip is the same) | Second round's delay: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the second round goes at the shot with the first, so the clip (and… | ☐ |
 | `R-C0955EA4` | Heavy bolter heat | 3 per shot; overheat at 100; high-heat warning at 75; after an overheat locked until heat ≤ 20; cools 25 per second starting 0.3 s after the last shot (no extra delay after an overheat) (heat units, s) | confidence: medium | wargear `common_data/heat/wargear\heat_info` and the primary's `apply_heat` (default entry) | Heavy bolter heat: compare with SM1 by feel or video. Ours: 3 per shot; overheat at 100; high-heat warning at 75; after an… | ☐ |
 | `R-BE6E6375` | Plasma gun heat | 6.5 per shot; overheat at 100; warning at 80; after an overheat locked until heat ≤ 0.1; cools 4 per second starting 0.35 s after the last shot (1 s after an overheat) (heat units, s) | confidence: low | same | Plasma gun heat: compare with SM1 by feel or video. Ours: 6.5 per shot; overheat at 100; warning at 80; after an overheat… | ☐ |
 | `R-9E2CC527` | Heat rules | each shot adds its heat (clamped to the overheat amount); the shot that reaches overheat still fires; then the weapon cannot fire until heat ≤ the recovery amount, and may fire on the tick that releases it; heat falls at the cool rate once the delay since the… | kind: interpretation; confidence: low; notes: ours | how the fields combine is ours | Heat rules: compare with SM1 by feel or video. Ours: each shot adds its heat (clamped to the overheat amount); the shot… | ☐ |
@@ -2222,6 +2223,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-307360A4` | Trigger edges | Semi-auto fires on a press edge only; a press inside the cooldown or a reload is lost | Original input buffering | Multiplayer weapons (M10 rules) | Trigger edges: compare with SM1 by feel or video. Ours: Semi-auto fires on a press edge only; a press inside the cooldown or… | ☐ |
 | `C-E2066EBF` | Charged weapons | Left mouse: a tap is the basic shot, a hold the charged shot (owner's knowledge, M31); release rules, no hold limit, and heat while charging are our combination | Original charge limits | Charged fire, projectiles and splash (M12) | Charged weapons: compare with SM1 by feel or video. Ours: Left mouse: a tap is the basic shot, a hold the charged shot (owner's… | ☐ |
 | `C-A651094F` | No firing while sprinting (sim/no-fire-while-sprinting; protocol 51) | The rule itself is the owner's (2026-11-01: "you should not be able to shoot while sprinting"; user's knowledge of the original): on the ground with Sprint held and the stick forward the trigger does nothing for every weapon, and the held trigger no longer ends the sprint (M27). Ours around it: the sprint cancels a… | The behaviour graphs have a sprint-to-fire transition on `BTN_Ranged` for every weapon (spec "Sprint and shooting"), which M27 followed; whether game code gates it during the sprint, whether a charge survives a sprint, and whether a sprinting player could detonate launcher grenades | No firing while sprinting | No firing while sprinting (sim/no-fire-while-sprinting…: compare with SM1 by feel or video. Ours: The rule itself is the owner's (2026-11-01: "you should not be able… | ☐ |
+| `C-582D240F` | Storm bolter's second round (sim/stormbolter-ammo; protocol 51 batch) | Each 0.1 s shot spends its 2 rounds (the data's `ammo_used` 1 + a `fire_sim` `consume_ammo` 1) at once, so the clip and the HUD count drop 2 per shot; the last round of an odd clip still fires | The data spend the second round 0.05 s after the shot (the HUD would step 1 every 0.05 s); the clip's 50 shots and 5 s on full auto are the data's either way | Multiplayer weapons, row "Second round's delay" | Storm bolter's second round (sim/stormbolter-ammo; protocol…: compare with SM1 by feel or video. Ours: Each 0.1 s shot spends its 2 rounds (the data's ammo_used 1 + a… | ☐ |
 | `C-240B6F79` | Weapon heat | The plasma gun locks about 26 s after an overheat when it does not vent (the cool rate's unit is assumed per second); since fidelity gap 7 an overheat vents by itself (about 2.1 s with the data's 45 heat/s, kept by the owner's decision; his 6 s recollection is to check in a later playtest) | The rate's unit | Heat (M11) | Weapon heat: compare with SM1 by feel or video. Ours: The plasma gun locks about 26 s after an overheat when it does not… | ☐ |
 | `C-5DA9BCE1` | Brace (fidelity gap 7) | From the owner's recollection (2026-10-28, estimates to review): braced, no walking, turning on the spot only; the entry cannot be cancelled; once braced, fire or Reload to leave; no reaction knocks a player out of the brace. Ours: the transitions are immune to reactions too; exiting the player walks and a Jump that… | The owner's recollection against a playtest; the early-exit window's use; the turn-in-place clips | Brace and vent | Brace (fidelity gap 7): compare with SM1 by feel or video. Ours: From the owner's recollection (2026-10-28, estimates to review):… | ☐ |
 | `C-6E8CD791` | Braced accuracy (fidelity gap 7) | Braced fire shoots as accurately as unbraced fire: no scatter is simulated (M27); the owner remembers braced fire being more accurate. The wargear's `_braced` scatter sets will give it once spread lands | The braced scatter sets (to read with spread) | Brace and vent | Braced accuracy (fidelity gap 7): compare with SM1 by feel or video. Ours: Braced fire shoots as accurately as unbraced fire: no scatter is… | ☐ |
