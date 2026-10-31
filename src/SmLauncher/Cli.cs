@@ -7,7 +7,7 @@ static class Cli
 {
     public static int Run(Args a)
     {
-        if (a.Has("row-check")) return RowCheck.Run(a["row-check"] ?? Path.Combine(Path.GetTempPath(), "sm-launcher-row"), a["ui-scale"]);
+        if (a.Has("row-check")) return RowCheck.Run(a["row-check"] ?? Path.Combine(Path.GetTempPath(), "sm-launcher-row"), a["ui-scale"], width: int.TryParse(a["ui-width"], out int uw) ? uw : null);
         if (a.Has("layout-check")) return LayoutCheck.Run(a["layout-check"]);
         if (a.Has("selftest")) return SelfTest(a);
         if (a.Has("install-self"))

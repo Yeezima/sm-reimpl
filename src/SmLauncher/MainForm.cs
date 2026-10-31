@@ -81,9 +81,18 @@ sealed class MainForm : Form
         _source = new ReleaseSource(_http);
         _adoptCandidate = RootFinder.AdoptCandidate();
         _adoptVersion = _adoptCandidate is null ? null : PackageLayout.ReadVersion(_adoptCandidate);
+        // Layout stays suspended until every size and control is in place: setting AutoScaleMode on a form whose layout is not suspended scales it at once,
+        // while it is still empty, and the pixel sizes set afterwards (window, buttons, paddings) then stayed at their 96-dpi values on a 125 % or larger
+        // display, with only the fonts growing. Now the whole window is scaled once, by Windows Forms, when the layout resumes at the end.
+        SuspendLayout();
+        // --ui-scale is the display scale to show (1 = 100 %, 1.5 = 150 %) whatever this PC's own is: the simulation makes up the difference
+        double sim = _args["ui-scale"] is { } us && double.TryParse(us, System.Globalization.CultureInfo.InvariantCulture, out double s0) && s0 is > 0.5 and < 4 ? s0 * 96.0 / DeviceDpi : 1.0;
+        if (Math.Abs(sim - 1.0) < 0.001) sim = 1.0;
+        Theme.SimScale = sim;
         Text = "SM Reimpl Launcher";
         Font = new Font("Segoe UI", 9.5f);
-        AutoScaleDimensions = new SizeF(96f, 96f);       // sizes are in pixels at 96 dpi and scale with the display (fonts are in points)
+        // sizes are in pixels at 96 dpi and scale with the display (fonts are in points); the simulated scale (--ui-scale, the layout checks) goes the same way
+        AutoScaleDimensions = new SizeF((float)(96 / sim), (float)(96 / sim));
         AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(780, 680);
         MinimumSize = new Size(660, 620);
@@ -100,7 +109,9 @@ sealed class MainForm : Form
         Theme.Apply(this);
         WireEvents();
         if (_args["ui-workarea"] is { } wk && wk.Split('x') is [var ww, var wh] && int.TryParse(ww, out int wwi) && int.TryParse(wh, out int whi)) _simWork = new Rectangle(0, 0, wwi, whi);
-        if (_args["ui-scale"] is { } us && double.TryParse(us, System.Globalization.CultureInfo.InvariantCulture, out double sim) && sim is > 0.5 and < 4) SimulateScale(sim);
+        if (sim != 1.0) SimulateFonts(sim);
+        ResumeLayout(false);
+        PerformLayout();
     }
 
     Rectangle? _simWork;
@@ -120,21 +131,61 @@ sealed class MainForm : Form
             StartPosition = FormStartPosition.Manual;
             Location = new Point(wa.X + (wa.Width - w) / 2, wa.Y + (wa.Height - h) / 2);
         }
-        _main.AutoScroll = true;
-        _main.AutoScrollMinSize = new Size(0, (int)(330 * Theme.Scale(this)));
+        _main.AutoScroll = true;          // the scroll heights follow the rows (KeepRowsApart)
         _setup.AutoScroll = true;
-        _setup.AutoScrollMinSize = new Size(0, (int)(480 * Theme.Scale(this)));
     }
 
     protected override bool ShowWithoutActivation => _args.Has("screenshot");
 
-    /// <summary>Lets a wrapping label use the width of its host (minus the label's margin and the host's padding) instead of a fixed pixel width.</summary>
-    static void WrapTo(Label l, Control host, int reserve = 0)
+    /// <summary>
+    /// Lets a label, check box or radio button in a table cell wrap its text to the cell's width: an AutoSize control anchored left and right is measured by
+    /// the table at the column's width. (A maximum width set from the host's Resize event, the earlier way, changed the label while a parent was still
+    /// laying out, and could leave it 0 px tall: the update line vanished in a small window at 175 %.)
+    /// </summary>
+    static void Wrap(Control c)
     {
-        void Fit() { int w = host.ClientSize.Width - host.Padding.Horizontal - l.Margin.Horizontal - reserve; if (w > 40) l.MaximumSize = new Size(w, 0); }
-        host.Resize += (_, _) => Fit();
-        host.HandleCreated += (_, _) => Fit();
-        Fit();
+        c.AutoSize = true;
+        c.MaximumSize = Size.Empty;
+        c.Anchor = c is ButtonBase ? AnchorStyles.Left : AnchorStyles.Left | AnchorStyles.Right;       // a check box stays as wide as its text (its click area); it wraps by its own measure (DarkGlyph.Preferred)
+    }
+
+    /// <summary>
+    /// A one-column table that fills a scrolling panel can be given less height than its rows need (a small window, wrapped lines at a large text size, a
+    /// notice): Windows Forms then lays the rows over each other (the notes box over the PLAY row). After every layout the panel's scroll height is set to
+    /// what the rows really need, with the stretching row (<paramref name="flexible"/>) at its minimum, so the table is never shorter than its rows: the
+    /// panel scrolls instead.
+    /// </summary>
+    static void KeepRowsApart(TileTable table, Control? flexible, ScrollableControl panel)
+    {
+        bool queued = false;
+        int changes = 0;            // changes in a row without settling: a scroll bar that comes and goes changes the wrapping, and the height could flip forever
+        int Need()
+        {
+            // what each row asks for at the table's width, not the height it got: a table already too short squeezes its last rows (to 0 at worst)
+            int width = table.ClientSize.Width - table.Padding.Horizontal, need = table.Padding.Vertical;
+            foreach (Control c in table.Controls)
+                if (c.Visible)
+                    need += (c == flexible ? c.MinimumSize.Height : Math.Max(c.Height, c.GetPreferredSize(new Size(Math.Max(1, width - c.Margin.Horizontal), 0)).Height)) + c.Margin.Vertical;
+            return need;
+        }
+        // Applied after the table's layout has finished, never inside it: resizing the table from within its own layout (the panel's new scroll height docks it
+        // again, the wrapped rows get new widths) left wrapped rows at a height of 0 at large text sizes.
+        table.Laid += (_, _) =>
+        {
+            if (queued || !table.IsHandleCreated) return;
+            if (panel.AutoScrollMinSize.Height == Need()) { changes = 0; return; }        // settled
+            queued = true;
+            table.BeginInvoke(() =>
+            {
+                queued = false;
+                if (table.IsDisposed) return;
+                int need = Need(), now = panel.AutoScrollMinSize.Height;
+                if (now == need) { changes = 0; return; }                    // settled
+                if (++changes > 4 && need < now) return;                    // flipping back and forth: keep the larger height
+                panel.AutoScroll = true;
+                panel.AutoScrollMinSize = new Size(0, need);
+            });
+        };
     }
 
     static LinkLabel Link(string text) => new DarkLink { Text = text, AutoSize = true, LinkColor = Theme.Accent, ActiveLinkColor = Theme.AccentHover, Margin = new Padding(0, 2, 18, 2) };
@@ -170,7 +221,7 @@ sealed class MainForm : Form
         updateRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         updateRow.Controls.Add(_update, 0, 0);
         updateRow.Controls.Add(_btnUpdate, 1, 0);
-        _update.Anchor = AnchorStyles.Left;
+        Wrap(_update);
         _btnUpdate.Anchor = AnchorStyles.Right;
         _btnUpdate.Margin = new Padding(12, 3, 0, 3);
         Accentuate(_btnUpdate, Accent);
@@ -178,7 +229,8 @@ sealed class MainForm : Form
         _btnUpdate.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
         var buttons = new TileFlow { AutoSize = true, Dock = DockStyle.Top, WrapContents = true, Margin = new Padding(0, 10, 0, 0) };
         Accentuate(_btnPlay, PlayGreen);
-        foreach (var b in new[] { _btnHost, _btnJoin, _btnLan }) { b.AutoSize = false; b.Size = new Size(b.PreferredSize.Width + 20, 44); }
+        // sized by their text in the font they really get (a width measured here, before the display's scaling, would be scaled a second time)
+        foreach (var b in new[] { _btnHost, _btnJoin, _btnLan }) { b.AutoSize = true; b.AutoSizeMode = AutoSizeMode.GrowAndShrink; b.Padding = new Padding(8, 0, 8, 0); b.MinimumSize = new Size(0, 44); }
         buttons.Controls.AddRange([_btnPlay, _btnHost, _btnJoin, _btnLan]);
         for (int i = 0; i < 5; i++) grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         grid.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -194,11 +246,10 @@ sealed class MainForm : Form
         grid.Controls.Add(_notes, 0, 5);
         grid.Controls.Add(buttons, 0, 6);
         grid.Controls.Add(_cbSafeMode, 0, 7);
-        WrapTo(_installedSub, grid);
-        WrapTo(_notice, grid);
-        updateRow.Resize += (_, _) => WrapUpdate(updateRow);
-        _btnUpdate.VisibleChanged += (_, _) => WrapUpdate(updateRow);
-        _btnUpdate.SizeChanged += (_, _) => WrapUpdate(updateRow);
+        Wrap(_installedSub);
+        Wrap(_notice);
+        Wrap(_cbSafeMode);          // the check box's text wraps inside its row instead of running past the window's edge (narrow window, large text)
+        KeepRowsApart(grid, _notes, _main);
         buttons.TabIndex = 0; _cbSafeMode.TabIndex = 1; updateRow.TabIndex = 2; _notes.TabIndex = 3;      // tab order: PLAY first, then Host, Join, LAN, safe mode, Update, the notes
         _btnPlay.TabIndex = 0; _btnHost.TabIndex = 1; _btnJoin.TabIndex = 2; _btnLan.TabIndex = 3;
         _main.Controls.Add(grid);
@@ -228,8 +279,8 @@ sealed class MainForm : Form
             s.Controls.Add(c);
         }
         _cbShortcuts.Margin = new Padding(3, 12, 3, 8);
-        WrapTo(explain, s);
-        WrapTo(_setupStatus, s);
+        foreach (var c in new Control[] { explain, _setupStatus, _rbAdopt, _rbDownload, _cbShortcuts }) Wrap(c);
+        KeepRowsApart(s, null, _setup);
         _setup.Controls.Add(s);
 
         // progress, links, folder
@@ -241,7 +292,7 @@ sealed class MainForm : Form
         _progressPanel.SetColumnSpan(_progressText, 2);
         _progress.Anchor = AnchorStyles.Left | AnchorStyles.Right;
         _btnCancel.Anchor = AnchorStyles.Right;
-        WrapTo(_progressText, _progressPanel);
+        Wrap(_progressText);
         var links = new TileFlow { Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(16, 6, 16, 4), WrapContents = true };
         links.Controls.AddRange([_lnkCheck, _lnkRollback, _lnkRelease, _lnkIssues, _lnkFolder, _lnkCaches, _lnkSelfUpdate]);
         _lnkSelfUpdate.Visible = false;
@@ -258,14 +309,6 @@ sealed class MainForm : Form
         // docking (last added docks first): the header at the top; from the bottom edge up the folder line, the links, the progress; the content fills the rest
         _progressPanel.Dock = DockStyle.Bottom;
         content.TabIndex = 0; _progressPanel.TabIndex = 1; links.TabIndex = 2; _folder.TabStop = false; header.TabStop = false;
-    }
-
-    /// <summary>The update line may use the row's width minus the Update button's, whether that button is showing or not.</summary>
-    void WrapUpdate(Control row)
-    {
-        int reserve = _btnUpdate.Visible ? _btnUpdate.Width + _btnUpdate.Margin.Horizontal : 0;
-        int w = row.ClientSize.Width - _update.Margin.Horizontal - reserve;
-        if (w > 40) _update.MaximumSize = new Size(w, 0);
     }
 
     void WireEvents()
@@ -998,25 +1041,25 @@ sealed class MainForm : Form
 
     // ---- test aids: simulated display scale and fixed states (--ui-scale, --ui-state; used by --layout-check) ------------------------
 
-    /// <summary>Simulates a display at <paramref name="f"/> times 96 dpi: every font and every pixel size is scaled, as Windows does at 125 / 150 / 200 %.</summary>
-    void SimulateScale(double f)
+    /// <summary>Simulates a display at <paramref name="f"/> times the real one: the fonts grow here (a real display draws points larger by itself), the pixel
+    /// sizes through the form's own DPI scaling (AutoScaleDimensions = 96 / f, set in the constructor), the same code path a real 125 / 150 / 175 % display takes.</summary>
+    void SimulateFonts(double f)
     {
-        Theme.SimScale = f;
         var fonts = new List<(Control, Font)>();
         void Collect(Control c) { fonts.Add((c, c.Font)); foreach (Control k in c.Controls) Collect(k); }
         Collect(this);
         foreach (var (c, font) in fonts) c.Font = new Font(font.FontFamily, font.Size * (float)f, font.Style);
-        Scale(new SizeF((float)f, (float)f));
     }
 
     // test aids of the repaint check (RowCheck)
     internal Rectangle SafeModeRowBounds() => RectangleToClient(_cbSafeMode.Parent!.RectangleToScreen(_cbSafeMode.Bounds));
     internal void ToggleSafeModeForTest() => _cbSafeMode.Checked = !_cbSafeMode.Checked;
     internal void FocusSafeModeForTest(bool on) { if (on) _cbSafeMode.Focus(); else _btnPlay.Focus(); }
-    internal void HoverForTest(bool on)
+    internal Size PlayButtonSize() => _btnPlay.Size;
+    internal void HoverForTest(bool on, bool hostOnly = false)
     {
         var m = typeof(Control).GetMethod(on ? "OnMouseEnter" : "OnMouseLeave", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        foreach (var b in new[] { _btnHost, _btnJoin, _btnPlay }) m.Invoke(b, [EventArgs.Empty]);
+        foreach (var b in hostOnly ? [_btnHost] : new[] { _btnHost, _btnJoin, _btnPlay }) m.Invoke(b, [EventArgs.Empty]);
     }
 
     internal static readonly string[] DemoStates = ["idle", "checking", "offered", "downloading", "error", "setup"];
@@ -1025,6 +1068,18 @@ sealed class MainForm : Form
     /// as long as it gets), downloading, error (with a notice and the launcher-update link) and setup.</summary>
     internal void ApplyDemoState(string state)
     {
+        if (state == "owner")       // the owner's screenshot of 2026-10-31: a released build installed, the one before it kept for a roll-back
+        {
+            ApplyDemoState("idle");
+            _installed.Text = "Installed: tester-2026-10-31-a873bcc";
+            _installedSub.Text = "published 31 Oct 2026 · installed 31 Oct 2026 11:23 · previous: tester-2026-10-31-0aafd85";
+            _notesTitle.Text = "What's new in tester-2026-10-31-a873bcc";
+            _notes.Text = "• Bolter-type shots look closer to the original: the bullet streaks are thin and soft instead of blocky, and a shot that hits an armoured marine throws a white-gold flash with a fan of long thin sparks.";
+            _lnkRollback.Text = "Roll back to tester-2026-10-31-0aafd85";
+            _folder.Text = @"Install folder: D:\Games\SM Reimpl";
+            SetLine("You have the newest build (published 31 Oct 2026).", Good);
+            return;
+        }
         const string tag = "tester-2026-10-30-3abb29b";
         string notes = string.Join(Environment.NewLine, Enumerable.Range(1, 24).Select(i => $"- Playtest change {i}: the sound hunt, a very long line about melee interactions and the charge that has to wrap inside the box instead of running past its edge ({i})."));
         _firstRun = state == "setup";
@@ -1093,6 +1148,7 @@ sealed class JoinDialog : Form
 
     public JoinDialog(string initial)
     {
+        SuspendLayout();          // scaled once at the end, with its contents (see MainForm)
         Text = "Join a server";
         Font = new Font("Segoe UI", 9.5f);
         AutoScaleDimensions = new SizeF(96f, 96f);
@@ -1120,5 +1176,7 @@ sealed class JoinDialog : Form
         layout.Controls.AddRange([new DarkLabel { AutoSize = true, MaximumSize = new Size(420, 0), Text = "Server address (host or host:port; 127.0.0.1 = this PC):" }, _box, _error, buttons]);
         Controls.Add(layout);
         Theme.Apply(this);
+        ResumeLayout(false);
+        PerformLayout();
     }
 }

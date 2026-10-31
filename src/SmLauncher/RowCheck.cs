@@ -14,6 +14,8 @@ namespace SmLauncher;
 static class RowCheck
 {
     [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr hwnd, IntPtr hdc, uint flags);
+    [DllImport("user32.dll")] static extern bool RedrawWindow(IntPtr hwnd, IntPtr rect, IntPtr region, uint flags);
+    const uint RDW_ALLCHILDREN = 0x80, RDW_UPDATENOW = 0x100;
     [DllImport("user32.dll")] static extern bool GetClientRect(IntPtr hwnd, out RECT r);
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hwnd, out RECT r);
     [DllImport("user32.dll")] static extern bool ClientToScreen(IntPtr hwnd, ref POINT p);
@@ -46,7 +48,8 @@ static class RowCheck
         return w.Clone(r, PixelFormat.Format32bppArgb);
     }
 
-    /// <summary>Blocks where the two frames differ (small anti-aliasing noise is ignored): the bounding box of each connected group of 16 px cells.</summary>
+    /// <summary>Blocks where the two frames differ (anti-aliasing noise is ignored: colour differences up to 24, and cells with fewer than 4 differing pixels): the
+    /// bounding box of each connected group of 16 px cells.</summary>
     static List<Rectangle> Differences(Bitmap a, Bitmap b, List<(Rectangle R, bool Ring)> rings)
     {
         var res = new List<Rectangle>();
@@ -57,7 +60,7 @@ static class RowCheck
         {
             const int cell = 16;
             int cw = (w + cell - 1) / cell, ch = (h + cell - 1) / cell;
-            var bad = new bool[cw * ch];
+            var count = new int[cw * ch];
             var ra = new byte[w * 4]; var rb = new byte[w * 4];
             for (int y = 0; y < h; y++)
             {
@@ -66,9 +69,12 @@ static class RowCheck
                 for (int x = 0; x < w; x++)
                 {
                     int d = Math.Abs(ra[x * 4] - rb[x * 4]) + Math.Abs(ra[x * 4 + 1] - rb[x * 4 + 1]) + Math.Abs(ra[x * 4 + 2] - rb[x * 4 + 2]);
-                    if (d > 24 && !rings.Any(r => r.R.Contains(x, y) && (!r.Ring || !Rectangle.Inflate(r.R, -5, -5).Contains(x, y)))) bad[(y / cell) * cw + x / cell] = true;
+                    if (d > 24 && !rings.Any(r => r.R.Contains(x, y) && (!r.Ring || !Rectangle.Inflate(r.R, -5, -5).Contains(x, y)))) count[(y / cell) * cw + x / cell]++;
                 }
             }
+            // A cell counts when several of its pixels differ: GDI+ anti-aliases a line drawn into a partial repaint's buffer a hair differently from a full one
+            // (one edge pixel of the tick at 200 %), while stale or missing paint (old glyphs, a black strip) always covers many pixels.
+            var bad = count.Select(n => n >= 4).ToArray();
             var seen = new bool[bad.Length];
             for (int i = 0; i < bad.Length; i++)
             {
@@ -131,35 +137,58 @@ static class RowCheck
         return string.Join(", ", names);
     }
 
-    public static int Run(string folder, string? scaleText = null, bool initialize = true)
+    public static int Run(string folder, string? scaleText = null, bool initialize = true, int? width = null)
     {
-        Directory.CreateDirectory(folder);
         if (initialize) ApplicationConfiguration.Initialize();
+        var problems = Check(folder, scaleText, width, Console.WriteLine, out int frames);
+        string at = (scaleText is null ? "" : " at " + scaleText + "x") + (width is null ? "" : $", {width} px wide");
+        Console.WriteLine(problems.Count == 0 ? $"repaint check{at}: ok ({frames} frames, the live window equals a full repaint every time)" : $"repaint check{at}: FAILED ({problems.Count} problems in {frames} frames)");
+        return problems.Count == 0 ? 0 : 1;
+    }
+
+    /// <summary>The check itself (SmLauncher.Tests runs it too): the problems found, none when every frame is clean. A null <paramref name="folder"/> saves no
+    /// frames. <paramref name="width"/> sets the window's outer width first and starts in the owner's state of 2026-10-31 (a window about 735 px wide, a
+    /// released build's tag with a previous build to roll back to, the mouse over "Host a match on this PC").</summary>
+    public static List<string> Check(string? folder, string? scaleText, int? width, Action<string> log, out int frames)
+    {
+        if (folder is not null) Directory.CreateDirectory(folder);
         Theme.SimScale = 1.0;
-        var list = new List<string> { "--screenshot", "--ui-state", "idle" };
+        var list = new List<string> { "--screenshot", "--ui-state", width is null ? "idle" : "owner" };
         if (scaleText is not null) { list.Add("--ui-scale"); list.Add(scaleText); }
+        var problems = new List<string>();
         using var form = new MainForm(Args.Parse([.. list]));
+        if (width is { } w0) form.Width = w0;
         form.Show();
         Pump(600);
-        int failures = 0, step = 0;
+        var play = form.PlayButtonSize();
+        log($"window {form.Width}x{form.Height}, client {form.ClientSize.Width}x{form.ClientSize.Height}, {form.DeviceDpi} dpi{(scaleText is null ? "" : ", simulated " + scaleText + "x")}, PLAY button {play.Width}x{play.Height}");
+        int step = 0;
         void Check(string what)
         {
             Pump(250);
+            // paint whatever is still waiting to be painted (a busy PC delays WM_PAINT), without invalidating anything: a region nobody invalidated stays stale
+            RedrawWindow(form.Handle, IntPtr.Zero, IntPtr.Zero, RDW_UPDATENOW | RDW_ALLCHILDREN);
+            int before = problems.Count;
             using var live = Live(form);
             using var fresh = Fresh(form);
             string name = $"{++step:00}-{what}";
-            live.Save(Path.Combine(folder, "live-" + name + ".png"), ImageFormat.Png);
+            if (folder is not null) live.Save(Path.Combine(folder, "live-" + name + ".png"), ImageFormat.Png);
             var diffs = Differences(live, fresh, NativeBorders(form));
             var row = form.SafeModeRowBounds();
             var crop = Rectangle.Intersect(Rectangle.Inflate(row, 0, 40), new Rectangle(0, 0, live.Width, live.Height));
-            if (crop.Width > 0 && crop.Height > 0) { using var c = live.Clone(crop, PixelFormat.Format32bppArgb); c.Save(Path.Combine(folder, "row-" + name + ".png"), ImageFormat.Png); }
-            if (diffs.Count > 0)
-            {
-                failures++;
-                foreach (var d in diffs) Console.WriteLine($"repaint-diff {name}: stale or missing pixels at {d} (under: {Under(form, d)}){(d.IntersectsWith(Rectangle.Inflate(row, 0, 20)) ? " [IN THE SAFE-MODE ROW]" : "")}");
-                fresh.Save(Path.Combine(folder, "fresh-" + name + ".png"), ImageFormat.Png);
-            }
-            foreach (var p in LayoutCheck.Problems(form)) { Console.WriteLine($"{name}: {p}"); failures++; }
+            if (folder is not null && crop.Width > 0 && crop.Height > 0) { using var c = live.Clone(crop, PixelFormat.Format32bppArgb); c.Save(Path.Combine(folder, "row-" + name + ".png"), ImageFormat.Png); }
+            foreach (var d in diffs)
+                problems.Add($"repaint-diff {name}: stale or missing pixels at {d} (under: {Under(form, d)}){(d.IntersectsWith(Rectangle.Inflate(row, 0, 20)) ? " [IN THE SAFE-MODE ROW]" : "")}");
+            if (diffs.Count > 0 && folder is not null) fresh.Save(Path.Combine(folder, "fresh-" + name + ".png"), ImageFormat.Png);
+            foreach (var p in LayoutCheck.Problems(form)) problems.Add($"{name}: {p}");
+            for (int i = before; i < problems.Count; i++) log(problems[i]);
+        }
+        if (width is not null)
+        {
+            Check("owner");
+            form.HoverForTest(true, hostOnly: true); Check("owner-host-hovered");
+            form.HoverForTest(false, hostOnly: true); Check("owner-host-unhovered");
+            form.ApplyDemoState("idle");
         }
         Check("idle");
         foreach (var s in new[] { "checking", "offered", "downloading", "error", "idle", "setup", "idle", "error", "checking", "downloading", "idle" })
@@ -178,10 +207,10 @@ static class RowCheck
         form.WindowState = FormWindowState.Minimized; Pump(300);
         form.ApplyDemoState("downloading");                                        // changed while minimised
         form.WindowState = FormWindowState.Normal; Check("restored");
-        form.ApplyDemoState("idle"); Check("idle-end");
+        form.ApplyDemoState(width is null ? "idle" : "owner"); Check("idle-end");
         form.Close();
         Theme.SimScale = 1.0;
-        Console.WriteLine(failures == 0 ? $"repaint check{(scaleText is null ? "" : " at " + scaleText + "x")}: ok ({step} frames, the live window equals a full repaint every time)" : $"repaint check{(scaleText is null ? "" : " at " + scaleText + "x")}: FAILED ({failures} problems in {step} frames)");
-        return failures == 0 ? 0 : 1;
+        frames = step;
+        return problems;
     }
 }

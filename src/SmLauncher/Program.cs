@@ -93,7 +93,7 @@ static class LauncherInfo
 sealed class Args
 {
     public Dictionary<string, string?> Values { get; } = new(StringComparer.OrdinalIgnoreCase);
-    static readonly HashSet<string> WithValue = new(StringComparer.OrdinalIgnoreCase) { "root", "adopt", "screenshot", "screenshot-after", "self-updated", "install-self", "wait-pid", "wait-start", "ui-scale", "ui-workarea", "ui-state", "layout-check", "row-check" };
+    static readonly HashSet<string> WithValue = new(StringComparer.OrdinalIgnoreCase) { "root", "adopt", "screenshot", "screenshot-after", "self-updated", "install-self", "wait-pid", "wait-start", "ui-scale", "ui-width", "ui-workarea", "ui-state", "layout-check", "row-check" };
     static readonly string[] Commands = ["status", "check", "install-latest", "resume", "verify", "rollback", "adopt", "recover", "update-launcher", "install-self"];
 
     public static Args Parse(string[] args)

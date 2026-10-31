@@ -29,7 +29,8 @@ static class Theme
 
     static Bitmap? _tile;
 
-    /// <summary>1 normally; the layout check (--ui-scale) sets 1.25 / 1.5 / 2 to simulate a high-DPI display (fonts and sizes are scaled by MainForm).</summary>
+    /// <summary>1 normally; --ui-scale (the layout checks) sets the factor between the display scale asked for and this PC's own (MainForm scales the fonts and has
+    /// Windows Forms scale the sizes by it).</summary>
     public static double SimScale = 1.0;
     public static double Scale(Control c) => c.DeviceDpi / 96.0 * SimScale;
 
@@ -157,7 +158,7 @@ sealed class DarkCheckBox : CheckBox
     protected override void OnEnabledChanged(EventArgs e) { base.OnEnabledChanged(e); Invalidate(); }
     protected override void OnVisibleChanged(EventArgs e) { base.OnVisibleChanged(e); Parent?.Invalidate(Bounds); }
     protected override void SetBoundsCore(int x, int y, int width, int height, BoundsSpecified specified) { Parent?.Invalidate(Bounds); base.SetBoundsCore(x, y, width, height, specified); }
-    public override Size GetPreferredSize(Size proposedSize) => DarkGlyph.Preferred(this);
+    public override Size GetPreferredSize(Size proposedSize) => DarkGlyph.Preferred(this, proposedSize);
     protected override void OnPaint(PaintEventArgs e) => DarkGlyph.Paint(this, e, radio: false, Checked);
 }
 
@@ -172,7 +173,7 @@ sealed class DarkRadioButton : RadioButton
     protected override void OnEnabledChanged(EventArgs e) { base.OnEnabledChanged(e); Invalidate(); }
     protected override void OnVisibleChanged(EventArgs e) { base.OnVisibleChanged(e); Parent?.Invalidate(Bounds); }
     protected override void SetBoundsCore(int x, int y, int width, int height, BoundsSpecified specified) { Parent?.Invalidate(Bounds); base.SetBoundsCore(x, y, width, height, specified); }
-    public override Size GetPreferredSize(Size proposedSize) => DarkGlyph.Preferred(this);
+    public override Size GetPreferredSize(Size proposedSize) => DarkGlyph.Preferred(this, proposedSize);
     protected override void OnPaint(PaintEventArgs e) => DarkGlyph.Paint(this, e, radio: true, Checked);
 }
 
@@ -181,10 +182,20 @@ static class DarkGlyph
     static int BoxSize(Control c) => (int)Math.Round(16 * Theme.Scale(c));
     static int Gap(Control c) => (int)Math.Round(8 * Theme.Scale(c));
 
-    public static Size Preferred(ButtonBase c)
+    const TextFormatFlags TextFlags = TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoPadding | TextFormatFlags.WordBreak;
+
+    /// <summary>The box, the gap and the text on one line, or wrapped onto more lines when the width allowed (the smallest of the proposed width,
+    /// MaximumSize and the host's inner width) is too narrow for one: the control never asks for more width than it may have, so it cannot run past its row or
+    /// over a neighbour.</summary>
+    public static Size Preferred(ButtonBase c, Size proposed)
     {
-        var t = TextRenderer.MeasureText(c.Text.Length == 0 ? " " : c.Text, c.Font, new Size(int.MaxValue, 0), TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
-        return new Size(BoxSize(c) + Gap(c) + t.Width + 2, Math.Max(BoxSize(c), t.Height) + 6);
+        int limit = int.MaxValue;
+        if (proposed.Width > 1 && proposed.Width < int.MaxValue) limit = proposed.Width;
+        if (c.MaximumSize.Width > 0) limit = Math.Min(limit, c.MaximumSize.Width);
+        if (c.Parent is { } host) limit = Math.Min(limit, Math.Max(40, host.ClientSize.Width - host.Padding.Horizontal - c.Margin.Horizontal));      // never wider than its host
+        int lead = BoxSize(c) + Gap(c), textMax = limit == int.MaxValue ? int.MaxValue : Math.Max(20, limit - lead - 2);
+        var t = TextRenderer.MeasureText(c.Text.Length == 0 ? " " : c.Text, c.Font, new Size(textMax, 0), TextFlags);
+        return new Size(lead + t.Width + 2, Math.Max(BoxSize(c), t.Height) + 6);
     }
 
     /// <summary>Paints what a control sits on, itself, with no reliance on transparency: a solid colour when an ancestor is a <see cref="IBackdrop"/> with one
@@ -213,7 +224,11 @@ static class DarkGlyph
         PaintBackdrop(c, g, c.ClientRectangle);        // the whole rectangle, every time: ButtonBase is Opaque and never gets an erase of its own
         g.SmoothingMode = SmoothingMode.AntiAlias;
         int s = BoxSize(c);
-        var box = new Rectangle(0, (c.Height - s) / 2, s - 1, s - 1);
+        var textRect = new Rectangle(s + Gap(c), 0, Math.Max(1, c.Width - s - Gap(c)), c.Height);
+        var textSize = TextRenderer.MeasureText(c.Text.Length == 0 ? " " : c.Text, c.Font, new Size(textRect.Width, 0), TextFlags);
+        textRect.Y = Math.Max(0, (c.Height - textSize.Height) / 2);                      // the text block centred; the box beside its first line
+        int firstLine = TextRenderer.MeasureText("Xg", c.Font, new Size(int.MaxValue, 0), TextFormatFlags.NoPadding | TextFormatFlags.SingleLine).Height;
+        var box = new Rectangle(0, Math.Max(0, textRect.Y + (firstLine - s) / 2), s - 1, s - 1);
         var enabled = c.Enabled;
         var border = !enabled ? Color.FromArgb(0x4A, 0x46, 0x44) : c.Focused ? Theme.Accent : Theme.Border;
         using (var fill = new SolidBrush(Theme.Input)) { if (radio) g.FillEllipse(fill, box); else g.FillRectangle(fill, box); }
@@ -233,9 +248,8 @@ static class DarkGlyph
                 g.DrawLines(pen, [new PointF(box.X + s * 0.2f, box.Y + s * 0.5f), new PointF(box.X + s * 0.42f, box.Y + s * 0.72f), new PointF(box.X + s * 0.8f, box.Y + s * 0.26f)]);
             }
         }
-        var textRect = new Rectangle(s + Gap(c), 0, Math.Max(1, c.Width - s - Gap(c)), c.Height);
-        TextRenderer.DrawText(g, c.Text, c.Font, textRect, enabled ? Theme.Text : Color.FromArgb(0x85, 0x80, 0x7D),
-            TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis);
+        textRect.Height = c.Height - textRect.Y;
+        TextRenderer.DrawText(g, c.Text, c.Font, textRect, enabled ? Theme.Text : Color.FromArgb(0x85, 0x80, 0x7D), TextFlags | TextFormatFlags.EndEllipsis);
     }
 }
 
@@ -308,9 +322,11 @@ static class DarkBox
         {
             Text = caption, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false, ShowInTaskbar = owner is null,
             StartPosition = owner is null ? FormStartPosition.CenterScreen : FormStartPosition.CenterParent,
-            AutoScaleDimensions = new SizeF(96f, 96f), AutoScaleMode = AutoScaleMode.Dpi, Font = new Font("Segoe UI", 9.5f), AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
-            Padding = new Padding(16),
+            Font = new Font("Segoe UI", 9.5f), AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(16),
         };
+        f.SuspendLayout();          // scaled once at the end, with its contents (see MainForm)
+        f.AutoScaleDimensions = new SizeF(96f, 96f);
+        f.AutoScaleMode = AutoScaleMode.Dpi;
         var glyph = new DarkLabel { AutoSize = false, Size = new Size(36, 36), Text = GlyphFor(icon), TextAlign = ContentAlignment.MiddleCenter, ForeColor = GlyphColor(icon), Font = new Font("Segoe UI", 16f, FontStyle.Bold), Margin = new Padding(0, 0, 12, 0) };
         var message = new DarkLabel { AutoSize = true, MaximumSize = new Size(520, 0), Text = text ?? "", ForeColor = Theme.Text };
         var top = new TileFlow { AutoSize = true, WrapContents = false, Margin = new Padding(0) };
@@ -337,7 +353,9 @@ static class DarkBox
         layout.Controls.Add(row);
         f.Controls.Add(layout);
         Theme.Apply(f);
-        f.Shown += (_, _) => (f.AcceptButton as Button)?.Focus();
+        f.ResumeLayout(false);
+        f.PerformLayout();
+        f.Shown +=(_, _) => (f.AcceptButton as Button)?.Focus();
         var result2 = owner is null ? f.ShowDialog() : f.ShowDialog(owner);
         return result2 == DialogResult.None ? defs[^1].Item2 : result2;
     }
@@ -417,8 +435,11 @@ sealed class TilePanel : Panel, IBackdrop
 sealed class TileTable : TableLayoutPanel, IBackdrop
 {
     [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)] public Color? Solid { get; set; }
+    /// <summary>Raised after each layout, once the rows have their sizes (the Layout event comes before them).</summary>
+    public event EventHandler? Laid;
     public TileTable() { SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true); }
     protected override void OnPaintBackground(PaintEventArgs e) => TilePaint.Paint(this, Solid, e);
+    protected override void OnLayout(LayoutEventArgs e) { base.OnLayout(e); Laid?.Invoke(this, EventArgs.Empty); }
 }
 
 sealed class TileFlow : FlowLayoutPanel, IBackdrop

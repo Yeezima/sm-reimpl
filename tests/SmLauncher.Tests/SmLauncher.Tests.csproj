@@ -1,8 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- The playtest launcher's engine-free logic against fakes (an in-process GitHub, synthetic zips, a 127.0.0.1 socket server); never the real API. -->
+  <!-- The playtest launcher's engine-free logic against fakes (an in-process GitHub, synthetic zips, a 127.0.0.1 socket server); never the real API.
+       Also the launcher window's layout and repaint checks (LauncherLayoutTests: off-screen windows, nothing on the desktop), hence Windows Forms. -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -21,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\SmLauncher.Core\SmLauncher.Core.csproj" />
+    <ProjectReference Include="..\..\src\SmLauncher\SmLauncher.csproj" />
   </ItemGroup>
 
 </Project>
