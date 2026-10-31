@@ -85,7 +85,8 @@ public partial class NetworkView
         for (int i = 0; i < _config.Weapons.Count; i++) if (_config.Weapons[i].Name.Equals(name, StringComparison.OrdinalIgnoreCase)) { index = i; break; }
         if (index < 0 || FxWeapon(name) is not { } w) { if (_boltFxDemoShots++ == 0) GD.Print($"  bolt-fx-demo: no weapon '{name}'"); return; }
         var spec = _config.Weapons[index];
-        bool armoured = !(CmdArg("bolt-fx-armour") is "0");
+        // --bolt-fx-armour 0: armour down; seq (fx/red-glow-blood): the first shot on armour, every later one on none (the break, then the re-flashes and the blood)
+        bool armoured = CmdArg("bolt-fx-armour") is "seq" ? _boltFxDemoShots == 0 : !(CmdArg("bolt-fx-armour") is "0");
         // The shot: from 3.2 m to the shooter's side of the camera line, 1.3 m up, to the chest; the shooter does not exist (the effects use the fallback muzzle just ahead of the eye).
         var from = chest + toShooter * 7.5f + new Vector3(0f, -0.15f, 0f);
         var dir = (chest - from).Normalized();

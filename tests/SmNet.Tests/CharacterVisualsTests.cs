@@ -17,8 +17,8 @@ public class CharacterVisualsTests
         Assert.Equal(0f, t.At(7, 10.0 + ArmourFlashTracker.HitSeconds + 0.01).Hit);
         t.Hit(7, 11.0, armourUp: false, regenDelay: 5f);
         Assert.True(t.At(7, 11.05).Break > 0.5f);
-        t.Hit(7, 11.2, armourUp: false, regenDelay: 5f);   // already down: no second break flash
-        Assert.Equal(0f, t.At(7, 11.45).Break);
+        t.Hit(7, 11.2, armourUp: false, regenDelay: 5f);   // already down: no second break flash, but the red glow re-flashes (fx/red-glow-blood)
+        Assert.True(t.At(7, 11.21).Break > t.At(7, 11.15).Break);
     }
 
     [Fact]
@@ -48,6 +48,26 @@ public class CharacterVisualsTests
         double glowAt = 7.0;
         for (double now = 7.03; now < 7.6; now += 0.03) t.OwnShield(1, now, 2f + (float)(now - 7.0) * 20f, 100f, true);
         Assert.Equal(0f, t.At(1, glowAt + ArmourFlashTracker.GlowSeconds + 0.05).Glow);   // a continuing rise did not start it again
+    }
+
+    [Fact]
+    public void Damage_with_no_armour_reflashes_the_red_glow()
+    {
+        var t = new ArmourFlashTracker();
+        t.OwnShield(1, 0.0, 0f, 100f, true, 100f);
+        t.OwnShield(1, 0.1, 0f, 100f, true, 100f);
+        Assert.Equal(0f, t.At(1, 0.2).Break);
+        t.OwnShield(1, 1.0, 0f, 100f, true, 90f);
+        Assert.True(t.At(1, 1.02).Break > 0.7f);
+        Assert.Equal(0f, t.At(1, 1.0 + ArmourFlashTracker.ReflashSeconds + 0.01).Break);
+        // others: up, then a hit finding it down breaks it; the next hit re-flashes
+        t.Hit(2, 5.0, true, 5f);
+        t.Hit(2, 6.0, false, 5f);
+        Assert.True(t.At(2, 6.3).Break > 0.1f);
+        t.Hit(2, 8.0, false, 5f);
+        Assert.True(t.At(2, 8.02).Break > 0.7f);
+        ArmourFlashTracker.Old = true;
+        try { t.Hit(2, 9.0, false, 5f); Assert.Equal(0f, t.At(2, 9.02).Break); } finally { ArmourFlashTracker.Old = false; }
     }
 
     [Fact]
