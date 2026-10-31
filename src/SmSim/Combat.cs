@@ -506,6 +506,15 @@ public static class Combat
         float time = step > 0 ? s.MeleeTime : 0f;
         bool queued = step > 0 && s.MeleeQueued;
         bool queuedHeavy = queued && s.MeleeQueuedHeavy;
+        // sim/no-fire-while-sprinting (protocol 51; the owner 2026-11-01: "you should not be able to shoot while sprinting"): while the sprint is applied (Sprint held with
+        // the stick forward, on the ground; not in aim mode, a jump-pack phase, an evade, a reaction, the charge, a brace, or a melee attack's movement lock) the trigger does
+        // nothing for every weapon: no shot, no charge, no raise (nothing buffered). What a trigger had under way (a held charge, a pending charged shot, a raise and its shot,
+        // a burst's later rounds) is cancelled below, so a release during the sprint fires nothing. The held trigger no longer takes the sprint away (M27's rule, superseded).
+        // Whether the button is held stays the real one, so after the sprint a semi-automatic or charge weapon needs a new press; a full-auto trigger fires on.
+        bool sprintNoFire = (input.Buttons & InputButtons.Sprint) != 0 && sanitized.MoveY > 0f && s.Grounded && !reacting && !rushing && !evading
+            && jump.Phase == JumpPhase.None && !jump.Started && !(aimDown && weapon is not null) && !(step > 0 && time < MoveAtOf(steps[step - 1], c));
+        bool fireHeldThroughSprint = sprintNoFire && fireDown;
+        if (sprintNoFire) fireDown = firePress = chargeDown = chargePress = basicDown = basicPress = shotWanted = false;
         bool cancelReload = false;
         bool startedNow = false;   // sim/combat-2 (item 39): an attack (from rest, or the next of a string) began in this very tick
         MeleeStep? motionStep = null;   // feel/melee-lock: the attack whose root motion and alignment this tick covers, over (motionFrom, motionTo]
@@ -517,6 +526,10 @@ public static class Combat
             time += dt;
             if (m.Reach is not null) (motionStep, motionFrom, motionTo) = (m, MathF.Min(before + dt, m.Duration), MathF.Min(time + dt, m.Duration));   // sim/combat-2: one tick ahead of the clock (below)
             if (before < m.HitTime && m.HitTime <= time) { meleeHitStep = step; hitHeavy = heavy; }
+            // sim/stomp-uninterruptible (protocol 51; the owner 2026-11-01: "devastator/havoc stomp can only be cancelled by a hop move. shooting, aim down sight, or any
+            // other action should never interrupt a stomp animation"): the heavy classes' stomp (MeleeStep.InPlace) queues no next attack, so it always plays to its end;
+            // only the hop (a Jump press from its BRANCH_Evade, above) ends it early. The presses are left unused (the input buffer's own rules decide a replay).
+            if (m.InPlace) { meleePress = false; heavyPress = false; }
             // Buffering (M28 adds heavy presses): before the combo window closes a press is kept for the next attack; a heavy
             // press during a light attack replaces a buffered light one; heavy presses during a heavy strike do nothing, except in
             // its Y-chain window (Weapons C: the Y,Y finishers, MeleeStep.YNext). A light press after an attack that ends the string does nothing.
@@ -552,7 +565,8 @@ public static class Combat
         // tick itself already steps (0, dt]; before, the lunge began 1/30 s after the press. The attack's own clock, hit time and windows are unchanged.
         if (step > 0 && steps[step - 1].InPlace) motionStep = null;   // sim/stomp-in-place: the tick a chain starts the stomp carries no motion of the strike before it
         if (startedNow && steps[step - 1].Reach is not null) (motionStep, motionFrom, motionTo) = (steps[step - 1], 0f, MathF.Min(dt, steps[step - 1].Duration));
-        if (step > 0 && !s.Throwing && (shotWanted || (chargePress && switchLeft <= 0f)) && (time >= steps[step - 1].RangedAt || (s.Slot == WeaponSlot.Pistol && basicPress && !startedNow && s.Clip > 0 && !s.Overheated && s.ReloadLeft <= 1e-6f && MathF.Max(0f, s.Cooldown - dt) <= TimeEpsilon)))   // review: only a shot that really leaves cancels
+        if (step > 0 && !s.Throwing && !steps[step - 1].InPlace   // sim/stomp-uninterruptible: no shot ends the stomp
+            && (shotWanted || (chargePress && switchLeft <= 0f)) && (time >= steps[step - 1].RangedAt || (s.Slot == WeaponSlot.Pistol && basicPress && !startedNow && s.Clip > 0 && !s.Overheated && s.ReloadLeft <= 1e-6f && MathF.Max(0f, s.Cooldown - dt) <= TimeEpsilon)))   // review: only a shot that really leaves cancels
         {
             step = 0; time = 0f; queued = false; queuedHeavy = false;   // firing (or starting a charge) ends the attack; handled below this tick
             motionStep = null;   // and its root motion
@@ -567,7 +581,7 @@ public static class Combat
         int pending = weapon is not null && Shots.ChargeShotOf(weapon, s.PendingShot) is not null ? s.PendingShot : 0;
         float pendingLeft = pending > 0 ? s.PendingLeft : 0f;
         int projectilesOut = s.ProjectilesOut;
-        if (step > 0 || evade.Started || noFire) { charging = false; chargeTime = 0f; pending = 0; pendingLeft = 0f; }   // a melee attack or an evade cancels them (and a raise: below)
+        if (step > 0 || evade.Started || noFire || sprintNoFire) { charging = false; chargeTime = 0f; pending = 0; pendingLeft = 0f; }   // a melee attack, an evade or a sprint cancels them (and a raise: below)
         if (jump.PoundStart) { charging = false; chargeTime = 0f; pending = 0; pendingLeft = 0f; reloadLeft = 0f; }   // and so does a ground pound (and a reload)
         // Venting (Vent; fidelity gap 7): on Reload or by itself while overheated, while the player stands or walks and does nothing else (owner's
         // recollection: everything but walking stops it); it adds to the in-hand weapon's cooling and takes the weapon (no shot, charge or reload).
@@ -661,7 +675,8 @@ public static class Combat
         bool aiming = aimDown && weapon is not null && step == 0 && !throwing && !threw
             && !JumpPack.Jumping(jump.Phase) && !JumpPack.Pounding(jump.Phase) && !evading;
         // Raising the weapon (M31; see the summary): what lowered it this tick, the raise under way, and whether it is up.
-        bool lowering = reacting || rushing || step > 0 || throwing || threw || evading || switched || jump.Started || jump.PoundStart || jumpBusy;
+        bool lowering = reacting || rushing || step > 0 || throwing || threw || evading || switched || jump.Started || jump.PoundStart || jumpBusy
+            || sprintNoFire;   // sim/no-fire-while-sprinting: the sprint drops a raise and its waiting shot, and a burst's later rounds
         int raise = lowering || weapon is null ? 0 : s.RaiseTicks;
         bool raised = weapon is null || !weapon.WaitsToRaise || aiming || (!lowering && s.ReadyTicks > 0);
 
@@ -845,10 +860,9 @@ public static class Combat
         var moveInput = step > 0 && time < MoveAtOf(steps[step - 1], c)   // feel/locks-sprint-stop: MoveAt × the lock scale
             ? input with { MoveX = 0f, MoveY = 0f, Buttons = input.Buttons & ~(InputButtons.Sprint | InputButtons.Jump) }
             : input;
-        // Hip fire (M27; supported by evidence, spec/behavior.md "Hip fire"): the behaviour graphs have no sprint-fire state, a
-        // shot ends the sprint. While the trigger is held with a ranged weapon in hand (or a charge, delayed charged shot or
-        // raise runs) the Sprint bit is not applied, so the player moves at run speed and sprints again once the trigger is released.
-        // The same for every weapon; the held trigger (not only the press tick) keeps a semi-automatic weapon from flickering.
+        // Hip fire (M27; spec/behavior.md "Hip fire"): while the trigger is held with a ranged weapon in hand (or a charge, delayed charged shot or raise runs) the
+        // Sprint bit is not applied. Since protocol 51 (sim/no-fire-while-sprinting) a sprint on the ground blocks the trigger instead (sprintNoFire, above), so this
+        // only acts where the sprint is not applied anyway for firing's sake: in a jump-pack phase or the air, and with the stick not forward.
         bool shooting = weapon is not null && step == 0 && !throwing && switchLeft <= 0f && (basicDown || chargeDown || charging || pending > 0 || raise > 0 || burstLeft > 0);
         if (shooting) moveInput = moveInput with { Buttons = moveInput.Buttons & ~InputButtons.Sprint };
         // feel/melee-lock: an attack that starts from rest this tick with a lock the start's cone accepts faces the direction that found it (the stick's,
@@ -939,7 +953,7 @@ public static class Combat
             Slot = slot, OtherClip = otherClip, OtherReserve = otherReserve, SwitchLeft = switchLeft,
             ThirdClip = thirdClip, ThirdReserve = thirdReserve, ThirdHeat = thirdHeat, ThirdOverheated = thirdOverheated, ThirdSinceHeat = thirdSinceHeat,
             Heat = heat, Overheated = overheated, SinceHeat = sinceHeat, OtherHeat = otherHeat, OtherOverheated = otherOverheated, OtherSinceHeat = otherSinceHeat,
-            FireHeld = fireDown, SwitchHeld = switchDown, SlotPistolHeld = slotPistolDown, SlotPrimaryHeld = slotPrimaryDown, SlotSecondHeld = slotSecondDown,
+            FireHeld = fireDown || fireHeldThroughSprint, SwitchHeld = switchDown, SlotPistolHeld = slotPistolDown, SlotPrimaryHeld = slotPrimaryDown, SlotSecondHeld = slotSecondDown,
             MeleeStep = step, MeleeTime = time, MeleeQueued = queued, MeleeHeld = meleeDown,
             ReloadHeld = reloadDown, Charging = charging, ChargeTime = chargeTime, PendingShot = pending, PendingLeft = pendingLeft,
             ReadyTicks = readyTicks, RaiseTicks = raise, BurstLeft = burstLeft,
@@ -999,16 +1013,13 @@ public static class Combat
 
     /// <summary>
     /// Whether this tick's Sprint bit would be applied (M31's charge gate until protocol 39, which needs only W; still the vent's sprint rule): held, and not taken away by aim mode (the
-    /// Aim button with a ranged weapon in hand) or by the trigger rule of <see cref="StepPlayer"/> (Fire held with a weapon in hand, a
-    /// charge, a delayed charged shot or a raise under way).
+    /// Aim button with a ranged weapon in hand). Protocol 51 (sim/no-fire-while-sprinting): the trigger, a charge, a delayed charged shot or a raise no longer take it away
+    /// (on the ground the sprint blocks the trigger and cancels them; <see cref="StepPlayer"/>).
     /// </summary>
     public static bool SprintApplies(PlayerState s, PlayerInput input, SimConfig c)
     {
         if ((input.Buttons & InputButtons.Sprint) == 0) return false;
-        bool armed = Loadouts.InHand(c, s) is not null;
-        // Fire takes the sprint away only outside a weapon switch, as in StepPlayer's trigger rule.
-        if (armed && ((input.Buttons & InputButtons.Aim) != 0 || ((input.Buttons & InputButtons.Fire) != 0 && s.SwitchLeft <= 0f))) return false;
-        return !s.Charging && s.PendingShot == 0 && s.RaiseTicks == 0;
+        return !(Loadouts.InHand(c, s) is not null && (input.Buttons & InputButtons.Aim) != 0);
     }
 
     /// <summary>Unit aim direction from yaw (0 faces +Y, as in movement) and pitch (positive up).</summary>

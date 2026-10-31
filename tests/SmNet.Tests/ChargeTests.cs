@@ -352,6 +352,8 @@ public class ChargeTests(ITestOutputHelper output)
             if (phase is >= 235 and < 255 && phase % 3 == 0) buttons |= InputButtons.Fire;   // the pistol's basic shot (the pistol-only class: the same)
             if (phase == 30) buttons |= InputButtons.Reload;                  // cancels the plasma weapons' and the cannon's first hold
             if (phase is 280 or 281) buttons |= InputButtons.Melee;
+            // Protocol 51 (sim/no-fire-while-sprinting): a sprint blocks the trigger, so the holds let go of Sprint; the later taps keep the script's sprint (blocked shots predicted alike).
+            if (phase < 160) buttons &= ~InputButtons.Sprint;
             return move with { Buttons = buttons, Pitch = 0.2f };
         }
         h.Run(TimeSpan.FromSeconds(40), Input, () =>
