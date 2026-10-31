@@ -17,7 +17,7 @@ public partial class NetworkView
 {
     /// <summary>The data's perk landing effect and its scale (wargear <c>actn_gp_hit</c>, the entry requiring <c>mp_perk_jump_pack_ground_pound_damage</c>).</summary>
     const string SlashFlashEffect = "jumppack_land_extreme_mp";
-    const float SlashFlashScale = 1.4f;
+    const float SlashFlashScale = 0.6f;   // ours (the data plays 1.4; owner 2026-10-31: focus on the character, not a screen flash); `--slash-big-flash` plays 1.4
     /// <summary>Ours: the flash's life (s), the light's range (m), its peak energy, the screen flash's reach (m) and peak.</summary>
     const float SlashFlashSeconds = 0.4f, SlashFlashLightRange = 14f, SlashFlashLightEnergy = 8f, SlashFlashScreenReach = 14f, SlashFlashScreenPeak = 0.6f;
 
@@ -31,7 +31,11 @@ public partial class NetworkView
     Vector3 _slashCoreAt;
     float _slashLos = 1f;
     ShaderMaterial? _slashCoreMaterial;
-    const float SlashCoreRadius = 2.1f;
+    /// <summary>Ours: the in-world impact burst's radius (m; owner 2026-10-31: no full-screen flash, focus on the character) and the big reference-style flash's (switch <c>--slash-big-flash</c>, off by default).</summary>
+    const float SlashCoreSmall = 0.9f, SlashCoreBig = 2.1f;
+    bool BigSlashFlash => _bigSlashFlash ??= CmdFlag("slash-big-flash");
+    bool? _bigSlashFlash;
+    float SlashCoreRadius => BigSlashFlash ? SlashCoreBig : SlashCoreSmall;
     const string SlashCoreShader = @"
 shader_type spatial;
 render_mode unshaded, blend_add, cull_disabled, depth_draw_never, fog_disabled;
@@ -77,7 +81,7 @@ void fragment() {
     {
         if (NoSlashFlash || _fx is null) return;
         var up = normal.LengthSquared() < 1e-6f ? Vector3.Up : normal.Normalized();
-        var e = _fx.Play(SlashFlashEffect, point + up * 0.02f, AxesFromY(up), SlashFlashScale, null, null, 0f, 0.0, false, GroundPoundFx.Priority + 1, tint: SlashFlashTint);
+        var e = _fx.Play(SlashFlashEffect, point + up * 0.02f, AxesFromY(up), BigSlashFlash ? 1.4f : SlashFlashScale, null, null, 0f, 0.0, false, GroundPoundFx.Priority + 1, tint: SlashFlashTint);
         if (e is not null)
         {
             e.Collisions = true; e.SoftGround = true; e.NoDecals = true;
@@ -86,14 +90,14 @@ void fragment() {
         double ageNow = _connectedFor - _slashFlashStart;
         bool wasLive = ageNow >= 0 && ageNow < SlashFlashSeconds;
         _slashFlashStart = wasLive ? _connectedFor - Math.Min(ageNow, 0.05) : _connectedFor;   // back-to-back landings continue the level, never above the peak
-        _slashCoreAt = point + up * 2.6f;
+        _slashCoreAt = point + up * (BigSlashFlash ? 2.6f : 0.8f);
         if (_slashCore is null || !IsInstanceValid(_slashCore))
         {
             _slashCoreMaterial = new ShaderMaterial { Shader = new Shader { Code = SlashCoreShader } };
             _slashCore = new MeshInstance3D { Name = "SlashFlashCore", Mesh = new QuadMesh { Size = Vector2.One }, MaterialOverride = _slashCoreMaterial, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, TopLevel = true, ExtraCullMargin = 16f };
             AddChild(_slashCore);
         }
-        _slashCore.GlobalPosition = point + up * 2.6f;
+        _slashCore.GlobalPosition = point + up * (BigSlashFlash ? 2.6f : 0.8f);
         _slashCore.Scale = new Vector3(SlashCoreRadius * 2f, SlashCoreRadius * 2f, SlashCoreRadius * 2f);
         SlashShotsBegin();
         if (_slashLight is null || !IsInstanceValid(_slashLight))
@@ -104,7 +108,7 @@ void fragment() {
         _slashLight.GlobalPosition = point + up * 1.2f;
         _slashLight.Visible = true;
         float dist = _camera is { } cam ? cam.GlobalPosition.DistanceTo(point) : 0f;
-        if (own) _slashFlashScreen = Math.Max(Math.Clamp(1f - (dist - 3f) / SlashFlashScreenReach, 0f, 1f) * SlashFlashScreenPeak, wasLive ? _slashFlashScreen : 0f);   // the screen flash is the own landing's only
+        if (own && BigSlashFlash) _slashFlashScreen = Math.Max(Math.Clamp(1f - (dist - 3f) / SlashFlashScreenReach, 0f, 1f) * SlashFlashScreenPeak, wasLive ? _slashFlashScreen : 0f);   // the screen flash is the own landing's only
         else if (!wasLive) _slashFlashScreen = 0f;
         if (_bot || SlashShotsDir is not null) GD.Print($"slash flash: effect {(e is null ? "NOT STARTED" : e.System.Name)}, screen {_slashFlashScreen:F2}, camera {dist:F1} m away");
         if (_slashScreen is null)
