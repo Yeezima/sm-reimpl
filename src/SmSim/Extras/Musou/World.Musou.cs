@@ -9,8 +9,8 @@ namespace SmSim;
 /// existing mode runs exactly as before (pinned in <c>MusouIsolationTests</c>). The side is forced (Space Marines only, no balance) and the match flow is
 /// one-sided (warm-up, the countdown, play, the end, the restart). MU1: in play the director (<see cref="MusouDirector"/>) runs the waves, the enemies move and
 /// attack (<see cref="MusouSim.Step"/>), the players' hit-scan shots hit them (<c>World.MusouCombat.cs</c>), KOs score, and the shared lives pool decides
-/// the respawns; every player dead with no life left loses (<see cref="Team.Chaos"/> wins), the Warboss's death wins. MU3: cones, projectiles, blasts, the
-/// cleave and the boss's abilities.
+/// the respawns; every player dead with no life left loses (<see cref="Team.Chaos"/> wins), the Warboss's death wins. MU3 (<c>World.MusouCombat.cs</c>):
+/// cones, projectiles, blasts, charges, the cleave and the boss's abilities.
 /// </summary>
 public sealed partial class World
 {
@@ -52,7 +52,7 @@ public sealed partial class World
         if (_musou is null || _musouDirector is null) return;
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
         var director = _musouDirector;
-        _musou.BeginTick(Tick);
+        MusouBeginTick();   // World.MusouCombat.cs: once a tick (a cleave or a blast earlier in the tick may have begun it)
         bool playing = _state == MatchState.Playing;
 
         // The players this tick, in id order (deterministic).
@@ -80,9 +80,11 @@ public sealed partial class World
         }
 
         _musouAttacks.Clear();
-        _musou.Step(targets, Collision, fight: playing && director.Phase is MusouPhase.Wave or MusouPhase.Break or MusouPhase.Boss, _musouAttacks);
+        bool fight = playing && director.Phase is MusouPhase.Wave or MusouPhase.Break or MusouPhase.Boss;
+        _musou.Step(targets, Collision, fight, _musouAttacks);
         foreach (var attack in _musouAttacks) MusouHit(attack);
-        MusouCreditKills();   // KOs of this tick's step (none in MU1; MU3's reactions may add some)
+        MusouBossStep(targets, fight);   // World.MusouCombat.cs: the Warboss's abilities
+        MusouCreditKills();   // KOs of this tick's step
 
         if (playing && director.Phase == MusouPhase.Won) End(Team.SpaceMarines);
         else if (playing && director.Phase == MusouPhase.Lost) End(Team.Chaos);
@@ -206,13 +208,13 @@ public sealed partial class World
     partial void ExtrasMelee(int attacker, PlayerState state, MeleeStep step)
     {
         if (_musou is null) return;
-        // MU3: the cleave (every enemy within MeleeRange + 0.5 m and cone x1.5 takes step.Damage, up to 8).
+        MusouCleave(attacker, state, step);   // World.MusouCombat.cs
     }
 
     partial void ExtrasBlast(int owner, Vector3 point, SplashSpec splash, bool melee)
     {
         if (_musou is null) return;
-        // MU3: the blast on the enemies within its radius.
+        MusouBlast(owner, point, splash, melee);   // World.MusouCombat.cs
     }
 
     partial void ExtrasJoinSide(ref Team want, ref bool forced)

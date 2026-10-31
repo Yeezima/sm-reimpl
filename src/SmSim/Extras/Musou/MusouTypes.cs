@@ -119,6 +119,10 @@ public sealed record MusouRules
     public float BossHealth { get; init; } = 4000f;
     public float BossScale { get; init; } = 1.25f;
 
+    /// <summary>The players' attacks on the enemies (MU3: the cleave, the staggers, the knockbacks; <see cref="MusouCombatRules"/>).</summary>
+    public MusouCombatRules Combat { get; init; } = MusouCombatRules.Default;
+    /// <summary>The Warboss's abilities (MU3; <see cref="MusouBossRules"/>).</summary>
+    public MusouBossRules Boss { get; init; } = MusouBossRules.Default;
     /// <summary>
     /// The stranded-enemy failsafe (ours): an enemy in play without headway toward a player for this long (s) is moved to a gate clear of the players;
     /// still stranded after <see cref="StrandedRelocations"/> moves it is removed and counted as a KO for nobody (so a wave always ends). The Warboss is only

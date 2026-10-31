@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1794 spec table rows: **1237 tagged**, 406 not tagged (read from data with high confidence), 151 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 390 rows of the changes document.
+Scanned 1798 spec table rows: **1241 tagged**, 406 not tagged (read from data with high confidence), 151 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 392 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -43,25 +43,25 @@ Scanned 1794 spec table rows: **1237 tagged**, 406 not tagged (read from data wi
 | HUD and hit feedback (critical) | 53 | 48 | 42 | 10 | 0 |
 | Sound mix (critical) | 56 | 50 | 48 | 10 | 0 |
 | Effects (critical) | 72 | 63 | 62 | 38 | 0 |
-| Game modes | 38 | 35 | 36 | 19 | 1 |
+| Game modes | 39 | 36 | 37 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
 | Customizer and paint | 49 | 46 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 117 | 102 | 102 | 13 | 1 |
+| Core simulation (provisional values) | 120 | 105 | 105 | 13 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1237** | 1021 | 992 | 392 | 38 |
+| **All areas** | **1241** | 1025 | 996 | 392 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 478 |
-| confidence: low | 439 |
-| confidence: medium | 438 |
+| kind: ours | 482 |
+| confidence: low | 442 |
+| confidence: medium | 439 |
 | kind: interpretation | 321 |
 | notes: ours | 288 |
 | confidence: none (low) | 115 |
@@ -1331,7 +1331,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-14AADBDD` | Not drawn | the plasma death's `remove_wargear` (the corpse's ranged weapon gone 1.2 s after death: `WeaponRig` has no hide); any limb or body removal (no geometry); the original's death clips before the ragdoll (`SM_REC_MP_*Death*`, `Powered Ragdoll Controls Modifier`… | notes: not reproduced (gap); kind: gap (not reproduced); confidence: none (low) | graph `SM_Base_MP` | Not drawn: compare with SM1 with side-by-side video of the same action. Ours: the plasma death's remove_wargear (the corpse's ranged weapon gone… | ☐ |
 | `R-029F8653` | Cost | choosing and queueing 0.3 to 0.5 ms in the death frame, of which 0.3 ms is the first death's JIT (the marker-to-bone lookup is cached: 0.02 ms a call, the effect starts 0.01 ms each); the due steps of one death 0.3 to 6 ms in their frame, no JIT and no GC in… (ms) | confidence: low | measured (bots, headless) | Cost: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: choosing and queueing 0.3 to 0.5 ms in the death frame, of which 0.3… | ☐ |
 
-### Game modes (38)
+### Game modes (39)
 
 *Spec section: Teams and Annihilation (M15, used by the simulation)*
 
@@ -1385,6 +1385,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-F93EE7FA` | Spawn positions | the map's TDM markers (`tdm_mkr_spawn_NN` in `d_tdm.Layer`), facing their Z rotation; each spawn takes the next marker in name order, skipping markers within 2 m of a living player; without a map, a circle of radius 3 (m, rad) | confidence: low; notes: placeholder; section: placeholder; section: provisional | positions and facing **supported by evidence**; the choice of marker is a placeholder (M15 with teams: the free marker farthest from living enemies; see Teams… | Spawn positions: compare with SM1 by feel or video. Ours: the map's TDM markers (tdm_mkr_spawn_NN in d_tdm.Layer), facing their… | ☐ |
+
+*Spec section: Added content: Musou — an experimental one-sided mode against swarms (server and client; no protocol change, extras wire 2)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-D27EE184` | Musou enemies and the spawn rooms | the enemies' walking graph is built without the spawn-room blockers: enemies leave the Chaos spawn room and may enter the Space Marine one (players keep their sides' blockers); the Warboss starts at the Chaos start area's centre (Manufactorum: 337.5 m walk to… (m) | kind: ours; confidence: medium | the lead's decision (2026-10-31) for the owner's "the warboss ... is in the chaos spawn room" | Musou enemies and the spawn rooms: compare with SM1 by measuring on a flat spot of the same map. Ours: the enemies' walking graph is built without the spawn-room blockers:… | ☐ |
 
 ### Perks (59)
 
@@ -1633,7 +1639,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (117)
+### Core simulation (provisional values) (120)
 
 *Spec section: Provisional values in use*
 
@@ -1723,6 +1729,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-7396A782` | Musou lives | a shared pool of 3, plus 2 per player beyond the most seen; a respawn spends one; with none left the dead wait; every player dead with none left loses (Chaos); the Warboss's death wins (lives) | kind: ours; confidence: low | the lead's design | Musou lives: compare with SM1 by feel or video. Ours: a shared pool of 3, plus 2 per player beyond the most seen; a respawn… | ☐ |
 | `R-763C55D4` | Musou spawns and loadout | every player spawns and respawns in the Space Marine start area (the owner, 2026-10-31); every life starts with the class's default pistol only: no primary, grenades or special melee (the owner: "the player starts with a bolt pistol only"); basic melee… | confidence: medium; notes: ours | the owner (2026-10-31); the rest ours | Musou spawns and loadout: compare with SM1 by feel or video. Ours: every player spawns and respawns in the Space Marine start area (the… | ☐ |
 | `R-93DCACD0` | Musou score | KOs to the scoreboard, points per type with a chain multiplier (+0.2 per KO within 2 s, up to × 3); the Space Marines' team score is the KOs; neither the host's score limit nor its time limit ends a Musou match | kind: ours; confidence: low | the lead's design | Musou score: compare with SM1 by feel or video. Ours: KOs to the scoreboard, points per type with a chain multiplier (+0.2… | ☐ |
+| `R-C51713F0` | Musou player hits on enemies | rays: the nearest enemy (a cylinder of its radius plus a head sphere 0.22 × height / 1.9) takes the carried weapon's damage with its fall-off and head multiplier, and the tracer ends on it; cones: coverage (21 samples) × the cone multiplier with line of… | kind: ours; confidence: low | the lead's design (MU3) | Musou player hits on enemies: compare with SM1 by feel or video. Ours: rays: the nearest enemy (a cylinder of its radius plus a head sphere… | ☐ |
+| `R-A292D7C6` | Musou cleave | Musou only: every enemy within the melee range + 0.5 m and 1.5 × the melee cone, with line of sight, up to 8 nearest, takes the step's full damage (× the health multiplier and melee stims); a heavy step (heavy strike, stun or stagger reaction, stomp) staggers… (m, °) | kind: ours; confidence: low | the owner ("melee cleave hitting many enemies"); the numbers ours | Musou cleave: compare with SM1 with an overlaid screenshot taken from the same position. Ours: Musou only: every enemy within the melee range + 0.5 m and 1.5 × the… | ☐ |
+| `R-E70F52E2` | Musou Warboss abilities | Ground slam: a player within 4 m, 0.8 s telegraph, 40 dmg within 6 m with a stagger, 10 s cooldown; Charge: a player at 6–15 m, 1 s wind-up, 15 m at 12 m/s, 1.5 m wide, 50 dmg and a 3 m knockback, 12 s cooldown; Waaagh! at 75, 50 and 25 % health: 20 Boyz… (s, m, dmg) | kind: ours; confidence: low | the lead's design; the owner ("a few special abilities") | Musou Warboss abilities: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Ground slam: a player within 4 m, 0.8 s telegraph, 40 dmg within 6 m… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -2018,6 +2027,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-3BF7D39D` | A one-sided co-op mode against swarms | the owner's request (2026-10-31); SM1 has no such mode (Exterminatus is the nearest) | `--content musou`, Annihilation rules replaced by the Musou flow | Musou flow | A one-sided co-op mode against swarms: compare with SM1 by feel or video. Ours: the owner's request (2026-10-31); SM1 has no such mode (Exterminatus… | ☐ |
 | `C-804C1BF1` | Space Marines only, no balance | ours (the lead's default; the owner may change it) | every player joins the Space Marines, no per-side limit | Musou sides | Space Marines only, no balance: compare with SM1 by feel or video. Ours: ours (the lead's default; the owner may change it). | ☐ |
 | `C-9A202D59` | Endless match until the run ends | ours | warm-up until a Space Marine is in, countdown, play; no score or time limit; an empty server goes back to warm-up | Musou flow | Endless match until the run ends: compare with SM1 by timing a run over a known distance. Ours: ours. | ☐ |
+| `C-D7C1E93B` | Enemies ignore spawn-room blockers | ours (the lead, 2026-10-31) | Musou enemies walk through both sides' spawn-room blockers (the Warboss leaves the Chaos room; enemies may enter the Space Marine room); players keep them | Musou enemies and the spawn rooms | Enemies ignore spawn-room blockers: compare with SM1 by feel or video. Ours: ours (the lead, 2026-10-31). | ☐ |
+| `C-0BAAC3C5` | Pistol-only start, Space Marine spawn room, Warboss in the Chaos room | the owner's request (2026-10-31) | every life starts with the class's bolt pistol only; everyone spawns in the Space Marine room | Musou spawns and loadout | Pistol-only start, Space Marine spawn room, Warboss in the…: compare with SM1 by feel or video. Ours: the owner's request (2026-10-31). | ☐ |
 
 ### Deliberate changes (owner's decisions)
 
