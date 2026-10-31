@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1929 spec table rows: **1349 tagged**, 422 not tagged (read from data with high confidence), 158 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 420 rows of the changes document.
+Scanned 1953 spec table rows: **1373 tagged**, 422 not tagged (read from data with high confidence), 158 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 421 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 345 | 293 | 297 | 99 | 12 |
+| Movement (critical) | 346 | 294 | 298 | 99 | 12 |
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 113 | 66 | 98 | 50 | 3 |
 | Melee (critical) | 64 | 51 | 60 | 11 | 5 |
@@ -50,23 +50,23 @@ Scanned 1929 spec table rows: **1349 tagged**, 422 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 160 | 145 | 133 | 19 | 1 |
+| Core simulation (provisional values) | 183 | 168 | 152 | 25 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 78 | 72 | 40 | 8 | 0 |
-| **All areas** | **1349** | 1126 | 1083 | 407 | 38 |
+| **All areas** | **1373** | 1150 | 1103 | 413 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 561 |
-| confidence: low | 496 |
+| kind: ours | 579 |
+| confidence: low | 516 |
 | confidence: medium | 470 |
 | kind: interpretation | 330 |
-| notes: ours | 297 |
+| notes: ours | 302 |
 | confidence: none (low) | 117 |
 | kind: provisional | 100 |
-| kind: estimate | 57 |
+| kind: estimate | 63 |
 | kind: user's knowledge | 45 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
@@ -75,10 +75,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: user's knowledge | 26 |
 | kind: approximation | 23 |
 | kind: placeholder | 22 |
-| notes: placeholder | 18 |
+| notes: placeholder | 19 |
 | kind: gap (not reproduced) | 16 |
+| notes: open question | 16 |
 | notes: interpretation | 15 |
-| notes: open question | 15 |
 | notes: not reproduced (gap) | 13 |
 | notes: estimate | 10 |
 | notes: gap (not reproduced) | 10 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (345)
+### Movement (gameplay-critical) (346)
 
 *Spec section: Extracted parameters*
 
@@ -587,6 +587,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-EE36D2CF` | Aim pitch range | all down or all up at 0.8 (rad) | kind: estimate; confidence: low; notes: ours | ours: the clips' range is not in the data read | Aim pitch range: compare with SM1 by measuring on a flat spot of the same map. Ours: all down or all up at 0.8. | ☐ |
+
+*Spec section: Added content: Musou — the Three-Front War: the AI Marines (TF5: `MarineBrain`, `World.TfwPuppets.cs`; not yet brought in by a match: TF4 does)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-49D28496` | Marine movement | straight steering (no nav graph: the arena is empty); sprints with over 12 m to go and nobody to shoot (m) | kind: ours; confidence: low | ours | Marine movement: compare with SM1 by timing a run over a known distance. Ours: straight steering (no nav graph: the arena is empty); sprints with… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -1771,7 +1777,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (160)
+### Core simulation (provisional values) (183)
 
 *Spec section: Provisional values in use*
 
@@ -1924,6 +1930,39 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-851CB6C3` | Death | a death clip by id and tick out of `IG_DIE_Basic_01`, `_03`, `IG_DIE_FallForward_01`, `IG_DIE_Headshot_01`, `IG_REC_Death_02`, last frame held, sinks after 3 s over 1.5 s (no ragdoll yet) (clips, s) | kind: ours; confidence: low | the owner's order for now; the rule is ours | Death: compare with SM1 by feel or video. Ours: a death clip by id and tick out of IG_DIE_Basic_01, _03… | ☐ |
 | `R-922C604C` | Clip fade | 0.15 (s) | kind: ours; confidence: medium | ours | Clip fade: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 0.15. | ☐ |
 | `R-72A7F09E` | Shot effects' reach | muzzle within 45 m of the camera, tracer within 90 m, at most 12 shots with effects a frame (m, shots) | kind: ours; confidence: medium | ours: `FxPlayer` keeps 160 effects | Shot effects' reach: compare with SM1 by measuring on a flat spot of the same map. Ours: muzzle within 45 m of the camera, tracer within 90 m, at most 12… | ☐ |
+
+*Spec section: Added content: Musou — the Three-Front War: the battle and the run (TF4)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-0EDD4D89` | War reserves | start 5 transport, 4 supplies; a deploy costs 1 transport; an early pickup 1 transport, charged on arrival, free after a win; an emergency extraction 2 supplies; the depot +2 transport, +1 supply; the HQ +1 transport every 600 war s | kind: estimate; confidence: low; notes: ours | the owner's decision (2026-11-01) on the architect's proposal; charged on arrival ours | War reserves: compare with SM1 by feel or video. Ours: start 5 transport, 4 supplies; a deploy costs 1 transport; an early… | ☐ |
+| `R-FC43368B` | War field clearing | a battle's end, by any way, clears the enemies, the Guardsmen, the drops and the players' projectiles, lingering blasts and perk blasts; the enemies have no projectile of their own (hit rolls with tracers); a human who joined after the landing waits in the… | kind: ours | ours | War field clearing: compare with SM1 by feel or video. Ours: a battle's end, by any way, clears the enemies, the Guardsmen, the… | ☐ |
+| `R-C0D18A0C` | War deploy | only in the hub, from inside the Stormbird (not only at the station: the client decides that); 5 s travel, then a fresh life at the landing zone with the waiting Setup and the pistol; a lane at front 3 lands the final assault (s) | kind: ours; confidence: low | the architect's proposal; the Stormbird check ours | War deploy: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: only in the hub, from inside the Stormbird (not only at the station:… | ☐ |
+| `R-C41AD22E` | Battle layout by node | the node fought is the front + 1; even nodes mirror x, lane C turns 90 degrees about the origin | kind: ours; confidence: low | the architect's proposal | Battle layout by node: compare with SM1 by feel or video. Ours: the node fought is the front + 1; even nodes mirror x, lane C turns… | ☐ |
+| `R-39BC08CA` | Position chain | P1, P2, P3 in order: Held, Clearing with any living player (AI Marines too) within 30 m, Securing with its defenders dead and no Ork within 12 m, Secured after 25 s with a Guardsman inside and no Ork; an Ork pauses it; a wiped squad loses 2 % a second and… (m, s) | kind: ours; confidence: low | the architect's proposal; the reserve's order and the human's half rate ours | Position chain: compare with SM1 by feel or video. Ours: P1, P2, P3 in order: Held, Clearing with any living player (AI… | ☐ |
+| `R-2A9FF3C5` | Position defenders | 20 at each position (12 Boyz, 5 Shootas, 3 'Ard Boyz), all spawned at the landing, leashed at aggro 30 m (enemies, m) | kind: ours; confidence: low | the architect's proposal; spawning all three at once ours | Position defenders: compare with SM1 by feel or video. Ours: 20 at each position (12 Boyz, 5 Shootas, 3 'Ard Boyz), all spawned at… | ☐ |
+| `R-C0A83303` | Battle arrivals | every 15 s each active source sends clamp(round(4 x O / 100), 2, 10), seven Boyz in ten, the rest Shootas, on a 5 x 5 grid 1.5 m apart; O as the lane stood at landing; at most 140 alive solo, +40 per extra human; a source stops with its position, the HQ's at… (enemies, s) | kind: ours; confidence: low | the architect's proposal; the mix, the grid and the final's four ours | Battle arrivals: compare with SM1 by feel or video. Ours: every 15 s each active source sends clamp(round(4 x O / 100), 2, 10)… | ☐ |
+| `R-EF698201` | Battle Guardsmen | clamp(round(I / 15), 4, 12) squads, at most 6 in the field, 12 in the final with the final bonus's squads; the rest in reserve, refilled to 6 at each secured position; the living squads move up to the last secured position, then the HQ (squads) | kind: ours; confidence: low | the architect's proposal; the refill and the moving up ours | Battle Guardsmen: compare with SM1 by feel or video. Ours: clamp(round(I / 15), 4, 12) squads, at most 6 in the field, 12 in the… | ☐ |
+| `R-D3D1E46B` | Battle commander | after P3: a Nob at the HQ, 1500 x player scale health, a Nob and five 'Ard Boyz, all leashed at 30 m; the boss bar shows him; his death wins; he has the Warboss's abilities too, his three Waaagh!s bring 20 Boyz each (hit points) | kind: ours; confidence: low | the architect's proposal; the leash and the abilities ours, to check in a playtest | Battle commander: compare with SM1 by feel or video. Ours: after P3: a Nob at the HQ, 1500 x player scale health, a Nob and five… | ☐ |
+| `R-D7A4DE6C` | Boss against squads | the commander and the Warboss count squads as targets; a slam or charge on a squad lands on one man | kind: ours; confidence: low | ours | Boss against squads: compare with SM1 by feel or video. Ours: the commander and the Warboss count squads as targets; a slam or… | ☐ |
+| `R-006B034C` | War pickup | 20 s while the battle goes on, cancelled by the player or any human's death; then to the Stormbird with a fresh life, the field cleared; without a win the battle counts as left; leaving the final assault, by pickup or extraction, counts as 3 positions secured… (s) | kind: ours; confidence: low | the architect's proposal; the final's count ours | War pickup: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 20 s while the battle goes on, cancelled by the player or any human's… | ☐ |
+| `R-AED947D2` | War downed | a dead human's respawn is held; a standing retainer gives 25 s to revive; with nobody fighting and no window open a 3 s prompt, then 2 supplies and the whole team to the Stormbird, the battle left; under 2 supplies the run is lost. After a won battle an… (s, supplies) | kind: estimate; confidence: low; notes: ours | the owner's decision (2026-11-01); several humans ours | War downed: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a dead human's respawn is held; a standing retainer gives 25 s to… | ☐ |
+| `R-7D947923` | War failsafe | an enemy without headway for 8 s, a woken defender with no reachable target among them, goes to the first source still sending; the second time it is removed, nobody's KO and not counted in `orksKilled`; the boss is only moved (s) | kind: ours | the 5-wave run's rule | War failsafe: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: an enemy without headway for 8 s, a woken defender with no reachable… | ☐ |
+| `R-1DDBB6FB` | War final assault | landing on a lane at front 3: the Warboss at the HQ, no positions, the lords of all three lanes unless wounded; his health 4000 x player scale x the final bonus; his death wins the run; the Waaagh!s' Boyz come from the sources | kind: ours; confidence: low | the architect's proposal | War final assault: compare with SM1 by feel or video. Ours: landing on a lane at front 3: the Warboss at the HQ, no positions… | ☐ |
+| `R-36D0FDDF` | War orders | Follow, Hold and Attack count only from a human in a battle; Hold's and Attack's point, the sender's crosshair, is clamped to the arena and is where the retainer holds or goes (no point: Hold where it stands, Attack the active position); a recovered… (m) | kind: ours | ours | War orders: compare with SM1 by measuring on a flat spot of the same map. Ours: Follow, Hold and Attack count only from a human in a battle; Hold's… | ☐ |
+| `R-2922655C` | War end | the run lost: the Chaos side wins, nobody returns; won: the Space Marines; after the rules' restart delay a new run; every human gone: warm-up and a new run (AI Marines do not count) | kind: ours | the architect's proposal | War end: compare with SM1 by feel or video. Ours: the run lost: the Chaos side wins, nobody returns; won: the Space… | ☐ |
+
+*Spec section: Added content: Musou — the Three-Front War: the AI Marines (TF5: `MarineBrain`, `World.TfwPuppets.cs`; not yet brought in by a match: TF4 does)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-80D9FB6C` | Marine aim | looks for the nearest enemy every 3 ticks, then aims at its chest with an error within ±2° on yaw and pitch, from a hash of the id and tick (no random numbers) (ticks, degrees) | kind: estimate; confidence: low | the design (section E) | Marine aim: compare with SM1 with an overlaid screenshot taken from the same position. Ours: looks for the nearest enemy every 3 ticks, then aims at its chest… | ☐ |
+| `R-A1C904C3` | Marine fire | holds the trigger while the clip lasts (semi-automatic or charged weapons by repeated presses), then reloads; strikes instead within 2.5 m; a weapon with a brace never presses Reload, stays unbraced; no fire while overheated or sprinting (m) | kind: ours; confidence: low | the design (section E); brace and heat ours | Marine fire: compare with SM1 by measuring on a flat spot of the same map. Ours: holds the trigger while the clip lasts (semi-automatic or charged… | ☐ |
+| `R-C298F525` | Marine ammunition | an empty reserve fills at once, and a brace weapon's empty clip (rounds) | kind: ours; confidence: low | ours: a puppet has no pickups to look for | Marine ammunition: compare with SM1 by feel or video. Ours: an empty reserve fills at once, and a brace weapon's empty clip. | ☐ |
+| `R-181BE472` | Retainer orders | one Tactical, default loadout (first of its primaries), per player; Follow keeps the owner at 4 to 8 m (steers to 4.5 to 6.5), shoots within 20 m of itself; Hold stands where it was at the order, within 1 m, shoots within 25 m of that place; Attack goes to… (m) | kind: estimate; confidence: low; notes: ours | the design (section E), the owner (2026-11-01: 1 retainer at first; orders to my retainers only); the stand band, the arrival and the stand-off ours | Retainer orders: compare with SM1 by measuring on a flat spot of the same map. Ours: one Tactical, default loadout (first of its primaries), per player… | ☐ |
+| `R-989D9325` | Retainer revive | before any order, while the run keeps the window open (25 s, TF4's): sprints to the body, 3 s in a row within 2 m bring the player back where it fell at 50 % of health and shield, carrying what it had (no new life, no ammunition) (s, m, share) | kind: estimate; confidence: low; notes: ours | the design (section E), the owner (2026-11-01: revive, then extract); what the player keeps ours | Retainer revive: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: before any order, while the run keeps the window open (25 s, TF4's):… | ☐ |
+| `R-3E3AD1A2` | Retainer recovery | a dead retainer (a player's or a lord's) is out 180 war s, on the war's time scale, in or out of a battle, then returns at the landing zone; it stays dead until then (the respawn timer held) (war s) | kind: estimate; confidence: low; notes: ours | the design (section E: 3 war-minutes); the return place ours | Retainer recovery: compare with SM1 by feel or video. Ours: a dead retainer (a player's or a lord's) is out 180 war s, on the… | ☐ |
+| `R-3AD62DF3` | Lords | one per lane: A Assault "Brother-Captain Aurex", B Tactical "Brother-Captain Tolmar", C Devastator "Brother-Captain Severin", each with a Tactical "Retainer of ..." who follows him and, once he falls, attacks; autonomous, no player orders them; attack-move to… (m) | kind: ours; confidence: low; notes: placeholder; notes: open question | the design (section E, open question 7: placeholder names), the owner (2026-11-01: one lord per lane, autonomous); the 10 m ours | Lords: compare with SM1 by measuring on a flat spot of the same map. Ours: one per lane: A Assault "Brother-Captain Aurex", B Tactical… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -2229,6 +2268,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-0BAAC3C5` | Pistol-only start, Space Marine spawn room, Warboss in the Chaos room | the owner's request (2026-10-31) | every life starts with the class's bolt pistol only; everyone spawns in the Space Marine room | Musou spawns and loadout | Pistol-only start, Space Marine spawn room, Warboss in the…: compare with SM1 by feel or video. Ours: the owner's request (2026-10-31). | ☐ |
 | `C-D5938EAB` | Golden weapon drops from Nobs and Chaos Marines | the owner's requests (2026-10-31) | each Nob or Chaos Marine KO drops one weapon per player from their class's pool, E equips it, 60 s | Musou weapon drops | Golden weapon drops from Nobs and Chaos Marines: compare with SM1 by feel or video. Ours: the owner's requests (2026-10-31). | ☐ |
 | `C-21B5B32C` | Musou mode is the Three-Front War | the owner's decision (2026-11-01) | `--content musou` runs the war on the generated map `tfw_war`; the 5-wave run stays only as a test aid (`--map mp_tdm_09`) | War map | Musou mode is the Three-Front War: compare with SM1 by feel or video. Ours: the owner's decision (2026-11-01). | ☐ |
+| `C-38A58728` | AI Marines in the war | the owner's decisions (2026-11-01) and ours | server-side puppets: a retainer per player who follows orders and revives, three lords with retainers who act alone; ammunition without end, placeholder names | Retainer orders | AI Marines in the war: compare with SM1 by feel or video. Ours: the owner's decisions (2026-11-01) and ours. | ☐ |
 | `C-A5D8C2C2` | Guard squads fight beside the players; leashed Ork defenders | the design of the war (2026-11-01); SM1 has no such allies (the Guardsman is the Exterminatus co-op blueprint) | squads of 10 shoot and are struck server-side; defenders hold until a target is within 30 m or their group is hurt | War Guard squads, Leashed defenders | Guard squads fight beside the players; leashed Ork defenders: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01); SM1 has no such allies (the… | ☐ |
 | `C-599F9281` | Guardsmen drawn as a crowd | the design of the war (2026-11-01) and the owner: real models, death clips rather than the ragdoll for now | the co-op Guardsman with original clips and effects; which clip plays when is ours (the rig's graphs are not read) | Crowd budget, Which clip plays, Death | Guardsmen drawn as a crowd: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01) and the owner: real models, death… | ☐ |
 

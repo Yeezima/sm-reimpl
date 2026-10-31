@@ -32,6 +32,7 @@ public sealed partial class GameServer
     void SendTfw()
     {
         if (World.Tfw is null || World.Musou is not { } sim) return;
+        FeedTfw();   // GameServer.TfwFeedRun.cs
         var feed = TfwFeed;
         uint tick = World.Tick;
         int tickRate = World.Config.TickRate;

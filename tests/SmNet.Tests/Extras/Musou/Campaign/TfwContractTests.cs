@@ -137,7 +137,7 @@ public class TfwContractTests
         Assert.Equal(0, h.Server.World.Musou!.Count);
         Assert.Equal(MusouPhase.Waiting, h.Server.World.MusouDirector!.Phase);   // the 5-wave director never starts
         Assert.Equal(default, h.Server.World.Musou.Director);                    // and nothing goes out for it
-        Assert.Empty(h.Clients[0].TakeExtras());
+        Assert.All(h.Clients[0].TakeExtras(), s => Assert.Equal(TfwWire.WarTag, s.Tag));   // TF4: the war alone (tag 7), which echoes the commands
         Assert.Contains(log, l => l.StartsWith("musou: the Three-Front War", StringComparison.Ordinal));
     }
 
@@ -189,7 +189,7 @@ public class TfwContractTests
         h.Server.NextPlayerIdForTests = TfwContracts.PuppetIdFirst;
         h.AddClient(nonce: 1, options: new ClientOptions { LoadMap = _ => new LoadedMap(h.Server.Map!.Collision, h.Server.Map.Hash) });
         h.Run(TimeSpan.FromSeconds(1));
-        Assert.Equal(TfwContracts.PuppetIdFirst + 1, Assert.Single(h.Server.Players));
+        Assert.Equal(TfwContracts.PuppetIdLast + 1, Assert.Single(h.Server.Players));   // TF5: past the whole reserved range, held or not
     }
 
     // ---------------------------------------------------------------- commands (message kind 17)
@@ -201,6 +201,7 @@ public class TfwContractTests
         h.Run(TimeSpan.FromSeconds(1));
         var client = h.Clients[0];
         var run = h.Server.World.Tfw!;
+        run.Idle = true;   // the queue itself is under test (TF4's run would take the Deploy)
         var deploy = new TfwCommandRecord(300, TfwCommand.Deploy, (byte)TfwLane.B);
         Assert.True(client.SendExtrasCommand(TfwWire.CommandTag, TfwWire.WriteCommand(deploy)));
         Assert.True(client.SendExtrasCommand(TfwWire.CommandTag, [1, 2]));                 // malformed
