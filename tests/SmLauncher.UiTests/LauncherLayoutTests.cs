@@ -3,7 +3,7 @@ using System.Windows.Forms;
 namespace SmLauncher.UiTests;
 
 /// <summary>
-/// The launcher window, drawn off-screen (at -4000,-4000, never activated, not in the taskbar): at every display scale no two visible controls overlap,
+/// The launcher window, drawn on a private desktop (WinSta0\sm-reimpl-test; off-screen at -4000,-4000 there, never activated, not in the taskbar): at every display scale no two visible controls overlap,
 /// nothing sticks out of its container, every text fits its control (or ends in "..." by design), the pixel sizes follow the scale, and after each state
 /// change the live window equals a full fresh repaint (no stale or ghost pixels, the owner's "Old GPU" row of 2026-10-31). Scales other than this PC's own
 /// are simulated the way Windows Forms scales a window on such a display (MainForm --ui-scale).
@@ -18,11 +18,10 @@ public class LauncherLayoutTests
     /// <summary>Runs <paramref name="body"/> on a fresh STA thread with the launcher's own Windows Forms set-up (per-monitor DPI awareness, visual styles).</summary>
     static T OnUiThread<T>(Func<T> body)
     {
-        T result = default!;
-        Exception? error = null;
-        var t = new Thread(() =>
+        try
         {
-            try
+            // a fresh STA thread on the private desktop WinSta0\sm-reimpl-test: the windows never reach the owner's screen or the foreground
+            return PrivateDesktop.Run(() =>
             {
                 lock (Gate)
                 {
@@ -33,16 +32,11 @@ public class LauncherLayoutTests
                         Application.SetCompatibleTextRenderingDefault(false);
                         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
                     }
-                    result = body();
+                    return body();
                 }
-            }
-            catch (Exception e) { error = e; }
-        });
-        t.SetApartmentState(ApartmentState.STA);
-        t.Start();
-        t.Join();
-        if (error is not null) throw new Xunit.Sdk.XunitException("the launcher window failed: " + error);
-        return result;
+            }, note => throw new InvalidOperationException(note));      // never fall back here: a test window on the owner's desktop is a failure
+        }
+        catch (Exception e) { throw new Xunit.Sdk.XunitException("the launcher window failed: " + e); }
     }
 
     public static TheoryData<double> DisplayScales => [1.0, 1.25, 1.5, 1.75];

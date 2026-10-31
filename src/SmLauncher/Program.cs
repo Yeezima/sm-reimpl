@@ -46,7 +46,8 @@ static class Program
         ApplicationConfiguration.Initialize();
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += (_, e) => DarkBox.Show(e.Exception.Message, "SM Reimpl Launcher", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        Application.Run(new MainForm(a));
+        if (a.Has("screenshot")) PrivateDesktop.Run(() => { Application.Run(new MainForm(a)); return 0; });      // test aid: drawn on a private desktop, never the foreground
+        else Application.Run(new MainForm(a));
         return Environment.ExitCode;
     }
 

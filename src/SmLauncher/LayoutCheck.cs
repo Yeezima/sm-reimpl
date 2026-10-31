@@ -91,38 +91,46 @@ static class LayoutCheck
     }
 
     /// <summary>
-    /// Lets the window finish laying out: messages are pumped until two passes in a row see the same window size, scroll heights and control bounds (at least
-    /// 100 ms; the scroll heights are set after each layout, by a posted message). Null when it settled, else what kept changing after about 3 s. A fixed wait
+    /// Lets the window finish laying out: messages are pumped until three passes in a row see the same window size, scroll heights and control bounds (at least
+    /// 100 ms; the scroll heights are set after each layout, by a posted message). Null when it settled, else what kept changing after about 10 s. A fixed wait
     /// was too short on a busy PC (the test run with every test project at once).
     /// </summary>
-    public static string? Settle(Form form, int timeoutMs = 3000)
+    public static string? Settle(Form form, int timeoutMs = 10000)
     {
-        string Shape()
+        List<string> Shape()
         {
-            var sb = new System.Text.StringBuilder().Append(form.Bounds).Append(form.WindowState);
-            void Walk(Control c)
+            var res = new List<string> { $"window {form.Bounds} {form.WindowState}" };
+            void Walk(Control c, string path)
             {
-                sb.Append('|').Append(c.Visible ? c.Bounds.ToString() : "-");
-                if (c is ScrollableControl s) sb.Append(s.AutoScrollMinSize);
-                foreach (Control k in c.Controls) Walk(k);
+                string me = $"{path}/{c.GetType().Name}[{(c.Text.Length > 16 ? c.Text[..16] : c.Text)}]";
+                res.Add($"{me} {(c.Visible ? c.Bounds.ToString() : "hidden")}{(c is ScrollableControl s ? " scroll " + s.AutoScrollMinSize : "")}");
+                foreach (Control k in c.Controls) Walk(k, me);
             }
-            Walk(form);
-            return sb.ToString();
+            foreach (Control k in form.Controls) Walk(k, "");
+            return res;
         }
         var start = DateTime.UtcNow;
-        string last = "";
+        List<string> last = [];
+        var changed = new Dictionary<string, int>();
         int same = 0;
         while (true)
         {
             Application.DoEvents();
             Thread.Sleep(20);
             Application.DoEvents();
-            string now = Shape();
-            same = now == last ? same + 1 : 0;
+            var now = Shape();
+            if (now.SequenceEqual(last)) same++;
+            else
+            {
+                same = 0;
+                foreach (var d in now.Except(last)) { int cut = d.IndexOf(" {", StringComparison.Ordinal); if (cut < 0) cut = d.IndexOf(" hidden", StringComparison.Ordinal); string key = cut < 0 ? d : d[..cut]; changed[key] = changed.GetValueOrDefault(key) + 1; }
+            }
             last = now;
             double ms = (DateTime.UtcNow - start).TotalMilliseconds;
-            if (same >= 1 && ms >= 100) return null;
-            if (ms > timeoutMs) return $"the window did not settle within {timeoutMs} ms: its layout kept changing (size, scroll heights or control bounds)";
+            if (same >= 2 && ms >= 100) return null;
+            if (ms > timeoutMs)
+                return $"the window did not settle within {timeoutMs} ms: its layout kept changing; most often: " +
+                       string.Join("; ", changed.OrderByDescending(kv => kv.Value).Take(3).Select(kv => $"{kv.Key} ({kv.Value} times, now {now.FirstOrDefault(x => x.StartsWith(kv.Key, StringComparison.Ordinal))?[kv.Key.Length..]})"));
         }
     }
 

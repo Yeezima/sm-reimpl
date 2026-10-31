@@ -7,8 +7,9 @@ static class Cli
 {
     public static int Run(Args a)
     {
-        if (a.Has("row-check")) return RowCheck.Run(a["row-check"] ?? Path.Combine(Path.GetTempPath(), "sm-launcher-row"), a["ui-scale"], width: int.TryParse(a["ui-width"], out int uw) ? uw : null);
-        if (a.Has("layout-check")) return LayoutCheck.Run(a["layout-check"]);
+        // the check windows live on a private desktop: never on the owner's screen, never the foreground (PrivateDesktop)
+        if (a.Has("row-check")) return PrivateDesktop.Run(() => RowCheck.Run(a["row-check"] ?? Path.Combine(Path.GetTempPath(), "sm-launcher-row"), a["ui-scale"], width: int.TryParse(a["ui-width"], out int uw) ? uw : null), Console.WriteLine);
+        if (a.Has("layout-check")) return PrivateDesktop.Run(() => LayoutCheck.Run(a["layout-check"]), Console.WriteLine);
         if (a.Has("selftest")) return SelfTest(a);
         if (a.Has("install-self"))
         {
