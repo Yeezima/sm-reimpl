@@ -309,4 +309,109 @@ public class MusouDropsTests
         Assert.Equal(MusouDropRules.MaxLivePerPlayer, DropsOf(w, 1).Count(d => d.State == MusouDropState.Live));
         Assert.Equal(MusouDropState.Expired, DropsOf(w, 1)[0].State);
     }
+
+    static readonly PickupSpec AmmoBoxes = new([new PickupType("test_ammo", PickupKind.Ammo, 1, 4f, 25f, [60, 60, 20, 20, 20], [])]);
+
+    [Fact]
+    public void A_taken_drop_keeps_the_press_from_an_ammo_box_and_a_refused_or_far_press_still_collects_one()
+    {
+        var w = NewWorld(Prepared with { Pickups = AmmoBoxes });
+        w.Spawn(1, w.AssignClass(0));
+        w.Step(_ => default);
+        var at = w.Players[1].Position;
+
+        // A drop in reach and a box in reach: the drop goes, the box stays.
+        w.MusouSpawnDrop(1, at + new Vector3(0.5f, 0f, 0f), 0);
+        Assert.NotNull(w.SpawnPickup(0, at + new Vector3(1f, 0f, 0f)));
+        w.Step(_ => Press);
+        Assert.Equal("bolter", Loadouts.InHand(w.Config, w.Players[1])!.Name);
+        Assert.Single(w.LivePickups);
+        Assert.DoesNotContain(w.LastPickupEvents, e => e.End == PickupEnd.Collected);
+        w.Step(_ => default);
+
+        // A drop out of reach (2 m): the press collects the box.
+        w.MusouSpawnDrop(1, at + new Vector3(2f, 0f, 0f), 4);
+        w.Step(_ => Press);
+        Assert.Contains(w.LastPickupEvents, e => e.End == PickupEnd.Collected && e.Collector == 1);
+        Assert.Empty(w.LivePickups);
+        Assert.Equal(MusouDropState.Live, DropsOf(w, 1).Single(d => d.Item == 4).State);
+        w.Step(_ => default);
+
+        // A drop in reach that cannot be given (the heavy bolter is not a Tactical's): it stays live, and the press collects the box.
+        w.MusouSpawnDrop(1, at + new Vector3(0.3f, 0f, 0f), 1);
+        Assert.NotNull(w.SpawnPickup(0, at + new Vector3(1f, 0f, 0f)));
+        w.Step(_ => Press);
+        Assert.Contains(w.LastPickupEvents, e => e.End == PickupEnd.Collected && e.Collector == 1);
+        Assert.Equal(MusouDropState.Live, DropsOf(w, 1).Single(d => d.Item == 1).State);
+        Assert.Equal("bolter", Loadouts.InHand(w.Config, w.Players[1])!.Name);
+    }
+
+    [Fact]
+    public void A_press_mid_strike_is_refused_and_the_drop_stays()
+    {
+        var w = NewWorld();
+        w.Spawn(1, w.AssignClass(0));
+        w.Step(_ => default);
+        w.MusouSpawnDrop(1, w.Players[1].Position + new Vector3(0.5f, 0f, 0f), 0);
+        w.Step(_ => new PlayerInput(0, 0f, 0f, 0f, InputButtons.Melee));
+        Assert.True(w.Players[1].MeleeStep > 0);
+        w.Step(_ => Press);
+        Assert.True(w.Players[1].MeleeStep > 0);
+        Assert.Equal(WeaponSlot.Pistol, w.Players[1].Slot);
+        Assert.Equal(MusouDropState.Live, Assert.Single(DropsOf(w, 1)).State);
+        // The same rule for every gift: mid-strike, queued, charging or throwing.
+        var p = w.Players[1];
+        Assert.Null(MusouLoadout.Give(w.Config, p, 0));
+        Assert.Null(MusouLoadout.Give(w.Config, p with { MeleeStep = 0, MeleeQueued = false, MeleeQueuedHeavy = false, Rush = RushPhase.Rush }, 0));
+        Assert.Null(MusouLoadout.Give(w.Config, p with { MeleeStep = 0, MeleeQueued = false, MeleeQueuedHeavy = false, Throwing = true }, 0));
+        Assert.Null(MusouLoadout.Give(w.Config, p with { MeleeStep = 0, MeleeQueued = true }, 0));
+        Assert.NotNull(MusouLoadout.Give(w.Config, p with { MeleeStep = 0, MeleeQueued = false, MeleeQueuedHeavy = false }, 0));
+        // Once the strike is over, E takes it.
+        for (int t = 0; t < 90 && w.Players[1].MeleeStep > 0; t++) w.Step(_ => default);
+        Assert.Equal(0, w.Players[1].MeleeStep);
+        w.Step(_ => Press);
+        Assert.Equal(MusouDropState.Picked, Assert.Single(DropsOf(w, 1)).State);
+    }
+
+    [Fact]
+    public void Drops_end_when_their_player_dies()
+    {
+        var config = Prepared with { RespawnTime = 1f, MusouRules = Prepared.MusouRules! with { PlayerDamageScale = 100f } };
+        var w = new World(config) { Rules = MusouSimTests.Endless, StartAreas = MusouDirectorTests.Rooms };
+        Assert.True(w.StartMusou(null));
+        w.MusouDirector!.Hold = true;
+        w.Spawn(1, w.AssignClass(0));
+        w.Spawn(2, w.AssignClass(0));
+        w.Step(_ => default);
+        w.MusouSpawnDrop(1, new Vector3(30f, 0f, 0f), 0);
+        w.MusouSpawnDrop(2, new Vector3(30f, 0f, 0f), 0);
+        uint version = w.MusouDropVersion(1);
+        for (int t = 0; t < 30 * 20 && w.Players[1].Alive; t++)
+        {
+            if (w.Musou!.Alive == 0) w.Musou.Spawn(MusouEnemyType.Boy, w.Players[1].Position + new Vector3(0f, 1.2f, 0f), 0f, 85f);
+            w.Step(_ => default);
+        }
+        Assert.False(w.Players[1].Alive);
+        w.Step(_ => default);
+        Assert.Equal(MusouDropState.Expired, Assert.Single(DropsOf(w, 1)).State);
+        Assert.NotEqual(version, w.MusouDropVersion(1));
+        if (w.Players[2].Alive) Assert.Equal(MusouDropState.Live, Assert.Single(DropsOf(w, 2)).State);   // a living player's own stays
+    }
+
+    [Fact]
+    public void A_leavers_change_count_is_forgotten()
+    {
+        var w = NewWorld();
+        w.Spawn(1, w.AssignClass(0));
+        w.Spawn(2, w.AssignClass(0));
+        w.Step(_ => default);
+        w.MusouSpawnDrop(2, new Vector3(30f, 0f, 0f), 0);
+        w.MusouSpawnDrop(1, new Vector3(30f, 0f, 0f), 0);
+        Assert.NotEqual(0u, w.MusouDropVersion(2));
+        w.Remove(2);
+        w.Step(_ => default);   // the leaver's drop goes (a change) ...
+        w.Step(_ => default);   // ... and then its count
+        Assert.Equal(0u, w.MusouDropVersion(2));
+        Assert.NotEqual(0u, w.MusouDropVersion(1));
+    }
 }

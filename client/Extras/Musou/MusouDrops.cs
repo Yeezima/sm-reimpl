@@ -29,6 +29,10 @@ public partial class NetworkView
     bool _musouDropUseHeld, _musouDropDirty;
     Label? _musouDropPrompt;
     int _musouDropsSeen, _musouDropsTaken;
+    readonly List<(float D2, ushort Id)> _musouDropOrder = new();
+    readonly List<ushort> _musouDropScratch = new(), _musouDropGone = new();
+    ushort _musouDropPromptFor;
+    string? _musouDropPromptText;
 
     /// <summary>Seconds a predicted pickup stays hidden while the server still lists the drop as lying (a refused pickup shows again).</summary>
     const double MusouDropPredictSeconds = 1.5;
@@ -62,16 +66,31 @@ public partial class NetworkView
                     // Picked (by this player: the list is its own) or expired: gone; a pickup not predicted plays its sound now.
                     if (d.State == MusouDropState.Picked && _musouDropViews.ContainsKey(d.Id) && !_musouDropTaken.ContainsKey(d.Id)) MusouDropSound(d.Position, me);
                 }
-                foreach (var id in _musouDropTaken.Keys.Where(id => !_musouDropLive.ContainsKey(id)).ToList()) _musouDropTaken.Remove(id);
+                _musouDropScratch.Clear();
+                foreach (var id in _musouDropTaken.Keys) if (!_musouDropLive.ContainsKey(id)) _musouDropScratch.Add(id);
+                foreach (var id in _musouDropScratch) _musouDropTaken.Remove(id);
             }
         }
         if (_musouNoDraw || _gameSpace is null) return;
 
-        // The views: one per live drop not taken by a press just now.
+        // The drops to draw: live, not taken by a press just now, the nearest MaxDrawn (the nearest MaxLit with a light).
+        _musouDropOrder.Clear();
         foreach (var (id, d) in _musouDropLive)
         {
-            bool hidden = _musouDropTaken.TryGetValue(id, out double at) && now - at < MusouDropPredictSeconds;
-            if (hidden) { MusouRemoveDropView(id); continue; }
+            if (_musouDropTaken.TryGetValue(id, out double at) && now - at < MusouDropPredictSeconds) continue;
+            _musouDropOrder.Add((System.Numerics.Vector3.DistanceSquared(d.Position, me.Position), id));
+        }
+        _musouDropOrder.Sort();
+        if (_musouDropOrder.Count > MusouDropView.MaxDrawn) _musouDropOrder.RemoveRange(MusouDropView.MaxDrawn, _musouDropOrder.Count - MusouDropView.MaxDrawn);
+        _musouDropScratch.Clear();
+        foreach (var (_, id) in _musouDropOrder) _musouDropScratch.Add(id);
+        _musouDropGone.Clear();
+        foreach (var id in _musouDropViews.Keys) if (!_musouDropScratch.Contains(id)) _musouDropGone.Add(id);
+        foreach (var id in _musouDropGone) MusouRemoveDropView(id);
+        for (int k = 0; k < _musouDropOrder.Count; k++)
+        {
+            ushort id = _musouDropOrder[k].Id;
+            var d = _musouDropLive[id];
             if (!_musouDropViews.TryGetValue(id, out var view) || view.Item != d.Item)
             {
                 MusouRemoveDropView(id);
@@ -83,9 +102,9 @@ public partial class NetworkView
                 GD.Print($"musou: drop {id} ({view.Title}) at {d.Position.X:F1},{d.Position.Y:F1},{d.Position.Z:F1}{(view.Original ? "" : " (gold bar: no model)")}");
             }
             view.Place(d.Position);
+            view.Lit = k < MusouDropView.MaxLit;
             view.Frame(delta);
         }
-        foreach (var gone in _musouDropViews.Keys.Where(id => !_musouDropLive.ContainsKey(id)).ToList()) MusouRemoveDropView(gone);
 
         // The prompt and the press: the nearest own drop in reach of the living own player.
         MusouDropView? near = null;
@@ -97,7 +116,9 @@ public partial class NetworkView
                 float d2 = System.Numerics.Vector3.DistanceSquared(d.Position, me.Position);
                 if (d2 < best) { best = d2; near = view; }
             }
-        bool held = Input.MouseMode == Input.MouseModeEnum.Captured && ControlsInput.Held(GameAction.Use);
+        // Use as the input sends it: the key held or its latched tap while the mouse is captured, or the pad's Use held or latched; nothing with --no-pickups.
+        bool held = !NoPickups && ((Input.MouseMode == Input.MouseModeEnum.Captured && (ControlsInput.Held(GameAction.Use) || _interactLatched))
+                                   || (_pad is not null && PadHost.Active && (ControlsInput.PadHeld(_pad, GameAction.Use) || _padInteractLatched)));
         if (held && !_musouDropUseHeld && near is not null && _musouDropLive.TryGetValue(near.Id, out var taken))
         {
             // At once on the picker's own client: hidden and heard now; the server's next list confirms.
@@ -109,7 +130,14 @@ public partial class NetworkView
             near = null;
         }
         _musouDropUseHeld = held;
-        MusouDropPromptShow(near is null ? null : $"{ControlsInput.Prompt(GameAction.Use)}: PICK UP {near.Title.ToUpperInvariant()}");
+        // The prompt's text is made only when the drop in reach changes (no string a frame).
+        if (near is null) _musouDropPromptFor = 0;
+        else if (near.Id != _musouDropPromptFor || _musouDropPromptText is null)
+        {
+            _musouDropPromptFor = near.Id;
+            _musouDropPromptText = $"{ControlsInput.Prompt(GameAction.Use)}: PICK UP {near.Title.ToUpperInvariant()}";
+        }
+        MusouDropPromptShow(near is null ? null : _musouDropPromptText);
     }
 
     void MusouRemoveDropView(ushort id)
@@ -121,7 +149,8 @@ public partial class NetworkView
     void MusouDropSound(System.Numerics.Vector3 at, PlayerState me)
     {
         if (_sound is null) return;
-        var look = _pickupLooks.FirstOrDefault(l => l.TakeSound.Length > 0);
+        SmContent.PickupLook? look = null;
+        foreach (var l in _pickupLooks) if (l.TakeSound.Length > 0) { look = l; break; }
         if (look is null) return;
         _sound.Post(look.TakeSound, new SoundEmitter { Position = ToGodot(at), Label = "pickup", OneShot = true, Own = true });
         CountSound("pickup");
@@ -145,9 +174,11 @@ public partial class NetworkView
             layer.AddChild(_musouDropPrompt);
             AddChild(layer);
         }
-        _musouDropPrompt.Text = text;
+        if (!ReferenceEquals(text, _musouDropPromptShown)) { _musouDropPrompt.Text = text; _musouDropPromptShown = text; }
         _musouDropPrompt.Visible = true;
     }
+
+    string? _musouDropPromptShown;
 
     /// <summary>The weapon's held model (baked once per wargear), or null.</summary>
     Mesh? MusouDropMesh(string? wargear)
@@ -189,6 +220,26 @@ public sealed partial class MusouDropView : Node3D
 
     /// <summary>The look (ours): turn rate (rad/s), bob (m and Hz), the model's height over the floor, the beam's height.</summary>
     const float SpinRate = 1.2f, BobMetres = 0.08f, BobHz = 0.5f, Lift = 0.9f, BeamHeight = 16f, ModelScale = 1.4f;
+    /// <summary>Most drops drawn at once (the nearest), and of them the nearest that carry a light (ours: the lead's caps).</summary>
+    public const int MaxDrawn = 16, MaxLit = 4;
+
+    OmniLight3D? _light;
+
+    /// <summary>Whether this drop carries its warm light (created or freed when it changes).</summary>
+    public bool Lit
+    {
+        get => _light is not null;
+        set
+        {
+            if (value == (_light is not null)) return;
+            if (value)
+            {
+                _light = new OmniLight3D { LightColor = new Color(1f, 0.74f, 0.3f), LightEnergy = 2.2f, OmniRange = 5f, Position = new Vector3(0f, 0f, Lift + 0.3f), ShadowEnabled = false };
+                AddChild(_light);
+            }
+            else { _light!.QueueFree(); _light = null; }
+        }
+    }
 
     static StandardMaterial3D? _gold, _beam, _core, _floor;
 
@@ -240,7 +291,7 @@ public sealed partial class MusouDropView : Node3D
         }
         else view._spin.AddChild(new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(0.9f, 0.14f, 0.24f), Material = Gold() }, Layers = 2 });
         // The light, warm and close.
-        view.AddChild(new OmniLight3D { LightColor = new Color(1f, 0.74f, 0.3f), LightEnergy = 2.2f, OmniRange = 5f, Position = new Vector3(0f, 0f, Lift + 0.3f), ShadowEnabled = false });
+        // The light: only the nearest MaxLit drops have one (Lit).
         // The beam: a tall soft column (a cylinder's axis is its Y: turned up to game Z), a brighter thin core inside.
         _beam ??= Glow(0.16f, Fade(), nearFade: true);
         _core ??= Glow(0.45f, Fade(), nearFade: true);

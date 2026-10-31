@@ -142,6 +142,22 @@ public sealed partial class GameServer
     public int MusouDropSections { get; private set; }
     public long MusouDropRecordsSent { get; private set; }
 
+    /// <summary>
+    /// Adds <paramref name="section"/> to a tick's planned messages: into the last one when it stays within <see cref="Protocol.MaxExtrasMessageBytes"/> and
+    /// <see cref="Protocol.MaxExtrasSections"/>, else as a new message while there are fewer than <see cref="MusouSendRules.MaxMessagesPerTick"/>; false (nothing
+    /// added) when neither fits.
+    /// </summary>
+    internal static bool AppendMusouSection(List<(byte Tag, byte[] Payload)[]> messages, (byte Tag, byte[] Payload) section, uint tick)
+    {
+        int need = Protocol.ExtrasSectionHeaderBytes + section.Payload.Length;
+        if (messages.Count > 0 && messages[^1].Length < Protocol.MaxExtrasSections
+            && Protocol.EnvelopeBytes(new ExtrasUpdate(tick, messages[^1])) + need <= Protocol.MaxExtrasMessageBytes)
+            messages[^1] = [.. messages[^1], section];
+        else if (messages.Count < MusouSendRules.MaxMessagesPerTick) messages.Add([section]);
+        else return false;
+        return true;
+    }
+
     /// <summary>A client's drop list is sent again every this many ticks while it is not empty (ours: a lost message is mended within half a second).</summary>
     const uint MusouDropRefreshTicks = 15;
 
@@ -164,12 +180,7 @@ public sealed partial class GameServer
         _musouDropRecords.Clear();
         foreach (var d in _musouDropList) _musouDropRecords.Add(new MusouDropRecord(d.Id, d.Position, d.Item, d.State));
         (byte, byte[]) section = (MusouWire.DropsTag, MusouWire.WriteDrops(_musouDropRecords, box));
-        int need = Protocol.ExtrasSectionHeaderBytes + section.Item2.Length;
-        if (messages.Count > 0 && messages[^1].Length < Protocol.MaxExtrasSections
-            && Protocol.EnvelopeBytes(new ExtrasUpdate(tick, messages[^1])) + need <= Protocol.MaxExtrasMessageBytes)
-            messages[^1] = [.. messages[^1], section];
-        else if (messages.Count < MusouSendRules.MaxMessagesPerTick) messages.Add([section]);
-        else return;   // no room this tick: sent the next
+        if (!AppendMusouSection(messages, section, tick)) return;   // no room this tick: sent the next
         _musouDropSent[playerId] = (version, tick);
         MusouDropSections++;
         MusouDropRecordsSent += _musouDropRecords.Count;

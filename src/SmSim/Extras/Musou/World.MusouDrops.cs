@@ -8,7 +8,7 @@ namespace SmSim;
 /// play makes one drop spot where it fell, on the floor (its walking-graph node's height); every living player gets a drop of its own there, an independent
 /// roll from its class's pool (<see cref="MusouDropRules.Roll"/>). Each player sees and takes only its own: an interact press (E) within
 /// <see cref="MusouDropRules.ReachMetres"/> takes the nearest and equips it (<see cref="MusouGiveItem"/>); that press then collects no ammunition box (the
-/// drop goes first; a press with no drop in reach, or one that cannot be given now, still does). A drop lies for <see cref="MusouDropRules.LifetimeSeconds"/>;
+/// drop goes first; a press with no drop in reach, or one that cannot be given now, still does). A drop lies for <see cref="MusouDropRules.LifetimeSeconds"/> or until its player dies (drops are tied to a life);
 /// a new round clears them. Server side; the clients learn of their own drops from wire tag 6.
 /// </summary>
 public sealed partial class World
@@ -116,6 +116,13 @@ public sealed partial class World
     /// </summary>
     void MusouDropsStep()
     {
+        // Leavers' change counters go (the server forgets a leaver's peer too; an id that joins again starts a new count).
+        if (_musouDropVersions.Count > _players.Count)
+        {
+            _musouDropPlayers.Clear();
+            foreach (int id in _musouDropVersions.Keys) if (!_players.ContainsKey(id) && !MusouHasDrops(id)) _musouDropPlayers.Add(id);
+            foreach (int id in _musouDropPlayers) _musouDropVersions.Remove(id);
+        }
         if (_musouDrops.Count == 0) return;
         if (_state == MatchState.Playing && _interactPresses.Count > 0)
         {
@@ -136,15 +143,17 @@ public sealed partial class World
                 }
                 if (best < 0 || !MusouGiveItem(id, _musouDrops[best].Item)) continue;
                 MusouEndDrop(best, MusouDropState.Picked);
-                _interactPresses.RemoveAll(x => x == id);   // the drop went first: this press collects no ammunition box (Pickups.cs)
+                for (int k = _interactPresses.Count - 1; k >= 0; k--)   // the drop went first: this press collects no ammunition box (Pickups.cs)
+                    if (_interactPresses[k] == id) _interactPresses.RemoveAt(k);
             }
         }
         uint keep = (uint)MathF.Max(1f, MathF.Round(MusouDropRules.EndedListedSeconds * Config.TickRate));
         for (int i = _musouDrops.Count - 1; i >= 0; i--)
         {
             var d = _musouDrops[i];
-            if (!_players.ContainsKey(d.Player)) { _musouDrops.RemoveAt(i); MusouDropChanged(d.Player); continue; }
-            if (d.State == MusouDropState.Live && d.EndTick <= Tick) MusouEndDrop(i, MusouDropState.Expired);
+            if (!_players.TryGetValue(d.Player, out var owner)) { _musouDrops.RemoveAt(i); MusouDropChanged(d.Player); continue; }
+            // Drops are tied to a life (the lead, 2026-10-31): a dead player's live drops end (sent as expired).
+            if (d.State == MusouDropState.Live && (d.EndTick <= Tick || !owner.Alive)) MusouEndDrop(i, MusouDropState.Expired);
             else if (d.State != MusouDropState.Live && Tick - d.EndTick >= keep) { _musouDrops.RemoveAt(i); MusouDropChanged(d.Player); }
         }
     }
@@ -154,6 +163,12 @@ public sealed partial class World
     {
         float dx = drop.X - feet.X, dy = drop.Y - feet.Y;
         return dx * dx + dy * dy <= MusouDropRules.ReachMetres * MusouDropRules.ReachMetres && MathF.Abs(drop.Z - feet.Z) <= MusouDropRules.ReachHeight;
+    }
+
+    bool MusouHasDrops(int playerId)
+    {
+        foreach (var d in _musouDrops) if (d.Player == playerId) return true;
+        return false;
     }
 
     /// <summary>A new round: every drop goes (each player's list changes to empty).</summary>

@@ -53,7 +53,7 @@ public static class MusouLoadout
     /// </summary>
     public static PlayerState? Give(SimConfig c, PlayerState s, int weapon)
     {
-        if (!s.Alive || weapon < 0 || weapon >= c.Weapons.Count) return null;
+        if (!s.Alive || weapon < 0 || weapon >= c.Weapons.Count || Busy(s)) return null;   // as the core's switch: not mid-strike, queued, charging or throwing
         WeaponSlot slot;
         if (Loadouts.ValidWeapon(c, s.Class, WeaponSlot.Ranged, weapon)) slot = WeaponSlot.Ranged;
         else if (Loadouts.ValidWeapon(c, s.Class, WeaponSlot.Pistol, weapon)) slot = WeaponSlot.Pistol;
@@ -85,9 +85,15 @@ public static class MusouLoadout
         if (!MusouDropItem.IsMelee(item)) return Give(c, s, MusouDropItem.Index(item));
         int choice = MusouDropItem.Index(item);
         if (!s.Alive || Loadouts.ClassOf(c, s.Class) is not { } loadout || choice >= loadout.MeleeChoices.Count) return null;
-        if (s.MeleeStep != 0 || s.MeleeQueued || s.MeleeQueuedHeavy || s.Rush != RushPhase.None) return null;
+        if (Busy(s)) return null;
         return s with { MeleeChoice = choice };
     }
+
+    /// <summary>
+    /// Whether a gift waits (the drop stays): the core allows no weapon switch during a melee step (a queued attack only exists in one), a charge (its
+    /// input is cleared while rushing) or a throw (<c>Combat.StepPlayer</c>), and a melee weapon changes no combo under way.
+    /// </summary>
+    public static bool Busy(PlayerState s) => s.MeleeStep != 0 || s.MeleeQueued || s.MeleeQueuedHeavy || s.Rush != RushPhase.None || s.Throwing;
 
     /// <summary>Nothing of the weapon in hand in flight: no switch, charge, burst, brace or vent under way.</summary>
     static PlayerState Calm(PlayerState s) => s with

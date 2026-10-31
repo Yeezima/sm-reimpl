@@ -127,4 +127,62 @@ public class MusouDropsWireTests
         Assert.Equal(-1, Loadouts.WeaponIndex(c, joined.Value, WeaponSlot.Ranged));
         Assert.Equal("bolt_pistol", Loadouts.InHand(c, joined.Value)!.Name);
     }
+
+    [Fact]
+    public void A_new_round_clears_the_drops_and_sends_the_empty_list()
+    {
+        var h = DropHarness();
+        h.AddClient(nonce: 1);
+        h.Run(TimeSpan.FromSeconds(3));
+        Assert.Equal(MatchState.Playing, h.Server.World.State);
+        int a = h.Clients[0].PlayerId;
+        var w = h.Server.World;
+        w.MusouSpawnDrop(a, w.Players[a].Position + new Vector3(10f, 0f, 0f), 0);
+        var lists = new List<MusouDropRecord[]>();
+        void Read() { foreach (var s in h.Clients[0].TakeExtras()) if (s.Tag == MusouWire.DropsTag) lists.Add(MusouWire.ReadDrops(s.Payload, w.Musou!.Director.Box)!); }
+        h.Run(TimeSpan.FromSeconds(0.5), after: Read);
+        Assert.Single(lists[^1]);
+        // The run is lost: the end, then the restart delay, then a new round (MusouNewRound clears the drops).
+        w.MusouDirector!.Lose();
+        bool cleared = false;
+        for (int s = 0; s < 40 && !cleared; s++)
+        {
+            h.Run(TimeSpan.FromSeconds(0.5), after: Read);
+            cleared = w.MusouDrops.Count == 0 && lists.Count > 0 && lists[^1].Length == 0;
+        }
+        Assert.True(cleared, $"state {w.State}, drops {w.MusouDrops.Count}, last list {lists[^1].Length}");
+        // Nothing more is sent for an empty list (no refresh).
+        int sent = lists.Count;
+        h.Run(TimeSpan.FromSeconds(1), after: Read);
+        Assert.Equal(sent, lists.Count);
+    }
+
+    [Fact]
+    public void The_drop_section_joins_the_last_message_only_when_it_fits()
+    {
+        var drop = (MusouWire.DropsTag, MusouWire.WriteDrops([new MusouDropRecord(1, Vector3.Zero, 0, MusouDropState.Live)], Box));
+        int dropBytes = Protocol.ExtrasSectionHeaderBytes + drop.Item2.Length;   // 3 + 12
+        // A last message with exactly the room for it: appended there.
+        int fill = Protocol.MaxExtrasMessageBytes - Protocol.ExtrasHeaderBytes - Protocol.ExtrasSectionHeaderBytes - dropBytes;
+        var messages = new List<(byte Tag, byte[] Payload)[]> { new[] { ((byte)3, new byte[fill]) } };
+        Assert.True(SmServer.GameServer.AppendMusouSection(messages, drop, 1));
+        Assert.Single(messages);
+        Assert.Equal(2, messages[0].Length);
+        Assert.Equal(Protocol.MaxExtrasMessageBytes, Protocol.EnvelopeBytes(new ExtrasUpdate(1, messages[0])));
+        // One byte short: a message of its own.
+        messages = [new[] { ((byte)3, new byte[fill + 1]) }];
+        Assert.True(SmServer.GameServer.AppendMusouSection(messages, drop, 1));
+        Assert.Equal(2, messages.Count);
+        Assert.Equal([MusouWire.DropsTag], messages[1].Select(s => s.Tag));
+        Assert.All(messages, m => Assert.True(Protocol.EnvelopeBytes(new ExtrasUpdate(1, m)) <= Protocol.MaxExtrasMessageBytes));
+        // Four full messages already: nothing added (it waits for the next tick).
+        var full = new byte[Protocol.MaxExtrasPayloadBytes];
+        messages = Enumerable.Range(0, MusouSendRules.MaxMessagesPerTick).Select(_ => new[] { ((byte)3, full) }).ToList();
+        Assert.False(SmServer.GameServer.AppendMusouSection(messages, drop, 1));
+        Assert.Equal(MusouSendRules.MaxMessagesPerTick, messages.Count);
+        // No message yet: one of its own.
+        messages = [];
+        Assert.True(SmServer.GameServer.AppendMusouSection(messages, drop, 1));
+        Assert.Single(messages);
+    }
 }
