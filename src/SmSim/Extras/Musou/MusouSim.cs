@@ -6,9 +6,10 @@ namespace SmSim.Extras.Musou;
 /// Added content "Musou" (experimental; design section B): the enemies of a Musou match, owned by the <see cref="World"/> (<see cref="World.Musou"/>, set only
 /// by <see cref="World.StartMusou"/> under <see cref="ContentExtras.Musou"/>). MU0 is the contract: the pool (struct of arrays, <see cref="Capacity"/> slots,
 /// a first-in first-out free list so a freed id is reused as late as possible), <see cref="Spawn"/>, <see cref="Damage"/>, <see cref="Query"/> and the tick's
-/// <see cref="Events"/>. No enemy is spawned and nothing moves yet (MU1: the flow field, the director; MU3: combat and the boss).
+/// <see cref="Events"/>. MU1 (<c>MusouSim.Ai.cs</c>): the enemies' moves and attacks (<see cref="Step"/>: the flow field, the separation, the attack tokens,
+/// the melee wind-up and strike, the shooters' line of sight and hit roll); the director (<see cref="MusouDirector"/>) releases them. MU3: combat and the boss.
 /// </summary>
-public sealed class MusouSim
+public sealed partial class MusouSim
 {
     /// <summary>
     /// The Musou version: its simulation rules and its wire sections (<c>MusouWire.Version</c> is this). Hashed into the config only under
@@ -34,15 +35,29 @@ public sealed class MusouSim
     readonly byte[] _token = new byte[Capacity];
     readonly Queue<int> _free = new(Capacity);
     readonly List<MusouEvent> _events = new();
+    readonly List<MusouKill> _kills = new();
 
-    public MusouSim(NavGraph? nav)
+    public MusouSim(NavGraph? nav, MusouRules? rules = null)
     {
         Nav = nav;
+        Rules = rules ?? MusouRules.Default;
         for (int i = 0; i < Capacity; i++) _free.Enqueue(i);
+        Walk = nav is { NodeCount: > 0 } ? new MusouNav(nav) : null;
+        Flow = Walk is null ? null : new FlowField(Walk);
+        Box = Walk?.Box() ?? new MusouBox(new Vector3(-64f, -64f, -2f), new Vector3(64f, 64f, 8f));
+        _grid = new SpatialGrid(Box, Rules.SeparationCell);
     }
 
     /// <summary>The walking graph enemies move on (the server's; null on the flat placeholder ground or when it could not be built).</summary>
     public NavGraph? Nav { get; }
+    /// <summary>The tuning (the match's <see cref="SimConfig.MusouRules"/>, else <see cref="MusouRules.Default"/>).</summary>
+    public MusouRules Rules { get; }
+    /// <summary>The graph as the enemies use it (null without one: they then walk the flat ground at z = 0).</summary>
+    public MusouNav? Walk { get; }
+    /// <summary>The shared flow field (null without a graph).</summary>
+    public FlowField? Flow { get; }
+    /// <summary>The box positions are quantised over on the wire (the graph's, or 128 m around the origin on the flat ground).</summary>
+    public MusouBox Box { get; }
     /// <summary>The world tick the events are of (<see cref="BeginTick"/>).</summary>
     public uint Tick { get; private set; }
     /// <summary>Slots in use (alive or dying).</summary>
@@ -65,17 +80,20 @@ public sealed class MusouSim
 
     /// <summary>
     /// Takes a free slot for an enemy of <paramref name="type"/> at <paramref name="position"/> with <paramref name="health"/> hit points, in
-    /// <see cref="MusouEnemyState.Spawning"/>; its id, or 0 when the pool is full.
+    /// <see cref="MusouEnemyState.Spawning"/>; its id, or 0 when the pool is full or a value is not finite (the director keeps the lower cap of enemies alive,
+    /// <see cref="MusouRules.HardCap"/>).
     /// </summary>
     public ushort Spawn(MusouEnemyType type, Vector3 position, float yaw, float health, int node = -1)
     {
-        if (_free.Count == 0) return 0;
+        if (_free.Count == 0 || !float.IsFinite(health) || !float.IsFinite(yaw) || !float.IsFinite(position.X) || !float.IsFinite(position.Y) || !float.IsFinite(position.Z)) return 0;
+        if ((int)type >= Rules.Types.Count) return 0;
         int i = _free.Dequeue();
         _used[i] = true;
         _type[i] = type; _state[i] = MusouEnemyState.Spawning;
         _position[i] = position; _velocity[i] = Vector2.Zero; _yaw[i] = yaw;
         _health[i] = MathF.Max(1f, health); _node[i] = node;
         _target[i] = 0; _stateTicks[i] = 0; _token[i] = 0;
+        SpawnedAi(i);
         Count++; Alive++;
         return (ushort)(i + 1);
     }
@@ -103,8 +121,9 @@ public sealed class MusouSim
         AddEvent(new MusouEvent(MusouEventKind.Hit, Tick, id, (ushort)Math.Clamp(attacker, 0, ushort.MaxValue), marker, _position[i]));
         if (_health[i] > 0f) return true;
         killed = true;
-        _state[i] = MusouEnemyState.Dying; _stateTicks[i] = 0; _velocity[i] = Vector2.Zero;
+        _state[i] = MusouEnemyState.Dying; _stateTicks[i] = 0; _velocity[i] = Vector2.Zero; _token[i] = 0;
         Alive--;
+        _kills.Add(new MusouKill(id, _type[i], attacker, cause));
         float length = push.Length();
         AddEvent(new MusouEvent(MusouEventKind.Death, Tick, id, (ushort)Math.Clamp(attacker, 0, ushort.MaxValue), (byte)cause, length > 1f ? push / length : push));
         return true;
@@ -127,6 +146,19 @@ public sealed class MusouSim
     {
         for (int i = 0; i < Capacity; i++) if (_used[i]) Remove((ushort)(i + 1));
         _events.Clear();
+        _kills.Clear();
+    }
+
+    /// <summary>
+    /// The KOs since the last call (each enemy once, in the order they died, whenever <see cref="Damage"/> killed it: in a tick or between ticks), moved into
+    /// <paramref name="into"/>; the number moved. The World credits them (scores, the director's count).
+    /// </summary>
+    public int TakeKills(List<MusouKill> into)
+    {
+        into.AddRange(_kills);
+        int n = _kills.Count;
+        _kills.Clear();
+        return n;
     }
 
     /// <summary>

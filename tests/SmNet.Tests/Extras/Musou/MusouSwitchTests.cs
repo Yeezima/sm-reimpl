@@ -50,6 +50,7 @@ public class MusouSwitchTests
     {
         var w = new World(MusouConfig) { Rules = Rules };
         Assert.True(w.StartMusou(null));
+        w.MusouDirector!.Hold = true;   // MU1: no releases here (the director's own tests run the waves)
         for (int id = 1; id <= 10; id++)
         {
             int cls = w.AssignClass(id % 2, id % 3 == 0 ? Team.Chaos : Team.None);
@@ -65,8 +66,8 @@ public class MusouSwitchTests
         Assert.Equal(MatchState.Playing, w.State);
         Assert.Equal(uint.MaxValue, w.TicksLeft);   // no time limit
         for (int k = 0; k < 3000; k++) w.Step(_ => default);
-        Assert.Equal(MatchState.Playing, w.State);   // endless (MU1's director ends it)
-        Assert.Equal(0, w.Musou!.Count);              // MU0: no enemies
+        Assert.Equal(MatchState.Playing, w.State);   // no limit ends it (only the director's win or loss)
+        Assert.Equal(0, w.Musou!.Count);
 
         // Every player gone: back to warm-up; a new join starts again.
         for (int id = 1; id <= 10; id++) w.Remove(id);

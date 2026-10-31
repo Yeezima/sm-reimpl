@@ -15,7 +15,8 @@ public enum MusouEventKind : byte
     Strike = 3,
     /// <summary>An enemy fired: target in <see cref="MusouEvent.Player"/> (0: a miss), <see cref="MusouEvent.Vector"/> where the tracer ends.</summary>
     Tracer = 4,
-    /// <summary>The boss telegraphs an ability: <see cref="MusouEvent.Value"/> a <see cref="MusouBossAbility"/>, <see cref="MusouEvent.Vector"/> where it lands.</summary>
+    /// <summary>An enemy telegraphs an attack: <see cref="MusouEvent.Value"/> a <see cref="MusouBossAbility"/> for the boss, 0
+    /// (<see cref="MusouSim.MeleeWindUpTelegraph"/>) for any enemy's melee wind-up (its target in <see cref="MusouEvent.Player"/>); <see cref="MusouEvent.Vector"/> where it lands.</summary>
     Telegraph = 5,
 }
 
