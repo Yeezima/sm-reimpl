@@ -42,10 +42,9 @@ public partial class NetworkView
     const float VoiceRange = 40f, AttackVoiceRange = 20f, AttackVoiceChance = 0.3f;
     /// <summary>A voice slot whose line length is not known is held this long (s, ours).</summary>
     const double VoiceHold = 1.5;
-    /// <summary>The Warboss's Ground Slam radius and wind-up, its Charge's width and wind-up (design section B).</summary>
-    const float SlamRadius = 6f, SlamWindUp = 0.8f, ChargeWidth = 1.5f, ChargeWindUp = 1f;
-
     MusouHud? _musouHud;
+    int _musouLivesMax;
+    uint _musouRunTick;
     MusouTelegraphs? _musouTelegraphs;
     MusouDirectorView? _musouPrevDirector;
     double _musouDirectorAt;
@@ -94,12 +93,17 @@ public partial class NetworkView
         public float Left(double now, MusouRules rules) => rules.ChainSeconds <= 0f ? 0f : (float)Math.Clamp(1.0 - (now - LastAt) / rules.ChainSeconds, 0.0, 1.0);
     }
 
-    /// <summary>This frame's HUD, hit feedback, telegraphs and voices (a client that draws only; before the crowd state's new events are taken).</summary>
+    /// <summary>
+    /// This frame's HUD, hit feedback, telegraphs and voices (a client that draws only; before the crowd state's new events are taken). The view is single-use
+    /// for Musou: its config (so <see cref="MusouActive"/>) is set once per connection; a new run on the same server is found from the director (back to
+    /// waiting, out of a won or lost run, or the wave counting back) and clears the crowd state, the run's own counts and the telegraphs. The events of a frame
+    /// are always read (the KOs count even before the HUD or the game space exist); the effects only once both exist.
+    /// </summary>
     void MusouPresent(PlayerState me, IReadOnlyList<MusouShown> shown, float delta)
     {
-        if (_client is not { } client || _config is null || _gameSpace is null) return;
+        if (_client is not { } client || _config is null) return;
         if (!_musouDemoRead) { _musouDemoRead = true; _musouDemo = CmdFlag("musou-hud-demo") ? CmdArg("musou-hud-demo") ?? "" : null; }
-        if (_musouHud is null && _hudView is not null)
+        if (_musouHud is null && _hudView is not null && _gameSpace is not null)
         {
             _musouHud = new MusouHud();
             _hudView.AddChild(_musouHud);
@@ -107,50 +111,69 @@ public partial class NetworkView
             _gameSpace.AddChild(_musouTelegraphs);
             GD.Print("musou: HUD and telegraphs added");
         }
-        if (_musouHud is null || _musouTelegraphs is null) return;
-        _musouHud.Visible = _endPhase == MatchEndPhase.Splash;   // the match's own end screens after the splash (count-up, record, scoreboard) cover the screen
         double now = _connectedFor;
         var rules = _config.MusouRules ?? MusouRules.Default;
+        var boss = rules.Boss;
         int ownId = client.PlayerId;
         var camera = _camera is null ? Num.Vector3.Zero : new Num.Vector3(_camera.GlobalPosition.X, -_camera.GlobalPosition.Z, _camera.GlobalPosition.Y);   // Godot to game space
         _musouFxTokens = MathF.Min(FxBurst, _musouFxTokens + FxPerSecond * delta);
+        bool present = _musouHud is not null && _musouTelegraphs is not null;
 
-        // The director: a new run (after the end, or the wave counting back) clears the run's own counts.
+        // The director: a new run clears the crowd state, the run's own counts and the telegraphs.
         var d = _musouState.Director;
         if (d is { } dir && !Nullable.Equals(dir, _musouPrevDirector))
         {
-            if (_musouPrevDirector is { } prev && (prev.Phase is MusouPhase.Won or MusouPhase.Lost && dir.Phase is not (MusouPhase.Won or MusouPhase.Lost) || dir.Wave < prev.Wave))
+            if (_musouPrevDirector is { } prev && MusouNewRun(prev, dir))
             {
                 _musouScore.Reset();
-                _musouHud.Data.LivesMax = 0;
+                _musouLivesMax = 0;
+                _musouEnraged = false;
+                _musouRunTick = _musouState.NewestTick;   // a scoreboard older than this still counts the last run's kills
+                _musouTelegraphs?.Clear();
+                _musouState.Clear();   // the server cleared its pool without deaths: no enemy of the last run lingers for the silence time
+                _musouPrevDirector = null;   // the next director (within 10 ticks) is taken as it comes
+                d = null;
             }
-            if (dir.BossId != _musouBossId) { _musouBossId = dir.BossId; _musouEnraged = false; }
-            _musouPrevDirector = dir;
-            _musouDirectorAt = now;
+            else
+            {
+                if (dir.BossId != _musouBossId) { _musouBossId = dir.BossId; _musouEnraged = false; }
+                _musouPrevDirector = dir;
+                _musouDirectorAt = now;
+            }
         }
 
-        // Events: the hit marker, the effects, the telegraphs, the voices, the score.
-        foreach (var e in _musouState.NewEvents)
+        // Events: the score always; the hit marker, the effects, the telegraphs and the voices once the HUD is there.
+        var events = _musouState.NewEvents;
+        for (int i = 0; i < events.Count; i++)
         {
+            var e = events[i];
             switch (e.Kind)
             {
                 case MusouEventKind.Hit:
+                    if (!present) break;
                     if (e.Player == ownId) { _hudView?.ShowHitMarker(false, e.Value == 2); _musouHitMarkers++; }
                     MusouHitFx(e, shown, camera, own: e.Player == ownId, me);
                     break;
                 case MusouEventKind.Death:
+                    var (place, type) = MusouDeathOf(e);
                     if (e.Player == ownId && e.Player != 0)
                     {
-                        _hudView?.ShowHitMarker(true);
-                        _musouScore.Ko(MusouDeathType(e), e.Tick, now, rules, _config.TickRate);
+                        if (present) _hudView?.ShowHitMarker(true);
+                        _musouScore.Ko(type, e.Tick, now, rules, _config.TickRate);
                     }
-                    if (Num.Vector3.Distance(MusouDeathPlace(e), camera) <= VoiceRange) MusouVoice(OrkSounds.DeathTag, MusouDeathPlace(e), force: false);
+                    if (present && Num.Vector3.DistanceSquared(place, camera) <= VoiceRange * VoiceRange) MusouVoice(OrkSounds.DeathTag, place, force: false);
                     break;
                 case MusouEventKind.Telegraph:
-                    MusouTelegraph(e, shown, camera);
+                    if (present) MusouTelegraph(e, shown, camera, boss);
                     break;
             }
         }
+        if (_musouHud is null || _musouTelegraphs is null) return;
+        _musouHud.Fed();
+        _musouHud.Visible = _endPhase == MatchEndPhase.Splash;   // the match's own end screens after the splash (count-up, record, scoreboard) cover the screen
+
+        // The match HUD's score box: Musou has no score limit (the server's is int.MaxValue / 2, which travels clamped to 65535): no limit shown ("-").
+        if (_hudView is not null) _hudView.Data.ScoreLimit = 0;
 
         // The HUD's frame.
         var f = _musouHud.Data;
@@ -158,15 +181,20 @@ public partial class NetworkView
         f.Alive = me.Alive;
         float rate = Math.Max(1, _config.TickRate);
         f.BreakLeft = d is { } b ? (float)Math.Max(0.0, b.BreakTicksLeft / rate - (now - _musouDirectorAt)) : 0f;
+        // The scoreboard's kills are the server's KOs (reset when a run's round starts: World.StartRound); one from before this run's start is stale.
         int boardKills = 0;
-        if (client.Scoreboard is { } board) foreach (var entry in board.Players) if (entry.PlayerId == ownId) boardKills = entry.Kills;
+        if (client.Scoreboard is { } board && board.ServerTick >= _musouRunTick)
+            foreach (var entry in board.Players) if (entry.PlayerId == ownId) boardKills = entry.Kills;
         f.Kos = Math.Max(_musouScore.Kos, boardKills);
         f.Points = _musouScore.Points;
         f.Chain = _musouScore.Chain;
         f.Multiplier = _musouScore.Multiplier;
         f.ChainLeft = _musouScore.Left(now, rules);
-        f.BossEnraged = _musouEnraged || d is { BossId: > 0, BossMaxHealth: > 0f } bb && bb.BossHealth < 0.25f * bb.BossMaxHealth;
-        if (d is { } l) f.LivesMax = Math.Max(f.LivesMax, l.Lives);
+        f.BossEnraged = _musouEnraged || d is { BossId: > 0, BossMaxHealth: > 0f } bb && bb.BossHealth < boss.EnrageBelow * bb.BossMaxHealth;
+        if (d is { } l) _musouLivesMax = Math.Max(_musouLivesMax, l.Lives);
+        f.LivesMax = _musouLivesMax;
+        // After a won or lost run the match has ended: the server starts the next run when the match's restart time runs out (World.Musou: Ended, then warm-up).
+        f.NextRunIn = client.Match.State == MatchState.Ended ? (float)SecondsLeft(client.Match) : -1f;
         if (_musouDemo is not null)
         {
             MusouDemo(f, me, rules, now);
@@ -181,17 +209,22 @@ public partial class NetworkView
         _musouTelegraphs.Frame(shown, camera, rules, delta);
     }
 
-    /// <summary>A death's place: where the crowd last showed the enemy (its body this frame), else far away (a death the crowd never showed has no voice).</summary>
-    Num.Vector3 MusouDeathPlace(in MusouEvent e)
-    {
-        foreach (var dd in _musouState.NewDeaths) if (dd.Id == e.Enemy && dd.Tick == e.Tick) return dd.Position;
-        return new Num.Vector3(float.MaxValue);
-    }
+    /// <summary>Whether the director went from <paramref name="prev"/> into a new run: back to waiting, out of a won or lost run, or the wave counting back.</summary>
+    static bool MusouNewRun(in MusouDirectorView prev, in MusouDirectorView dir) =>
+        dir.Phase == MusouPhase.Waiting && prev.Phase != MusouPhase.Waiting
+        || prev.Phase is MusouPhase.Won or MusouPhase.Lost && dir.Phase is not (MusouPhase.Won or MusouPhase.Lost)
+        || dir.Wave < prev.Wave;
 
-    MusouEnemyType MusouDeathType(in MusouEvent e)
+    /// <summary>
+    /// A death's place and type: where and what the crowd last showed (its body this frame); for an enemy this client never saw, far away (no voice) and a Boy
+    /// (its points an estimate).
+    /// </summary>
+    (Num.Vector3 Place, MusouEnemyType Type) MusouDeathOf(in MusouEvent e)
     {
-        foreach (var dd in _musouState.NewDeaths) if (dd.Id == e.Enemy && dd.Tick == e.Tick) return dd.Type;
-        return MusouEnemyType.Boy;   // an enemy this client never saw: counted as a Boy (an estimate)
+        var deaths = _musouState.NewDeaths;
+        for (int i = 0; i < deaths.Count; i++)
+            if (deaths[i].Id == e.Enemy && deaths[i].Tick == e.Tick) return (deaths[i].Position, deaths[i].Type);
+        return (new Num.Vector3(float.MaxValue), MusouEnemyType.Boy);
     }
 
     static int MusouFind(IReadOnlyList<MusouShown> shown, ushort id)
@@ -215,7 +248,7 @@ public partial class NetworkView
         // A hit reported at the feet (the enemy's place) is raised to the chest; a real hit point higher up stays.
         if (i >= 0 && at.Z < shown[i].Position.Z + 0.5f) at = new Num.Vector3(at.X, at.Y, shown[i].Position.Z + 1.1f);
         else if (i < 0 && own) at = new Num.Vector3(at.X, at.Y, at.Z + 1.1f);
-        if (Num.Vector3.Distance(at, camera) > FxRange || _musouFxTokens < 1f) return;
+        if (_musouFxTokens < 1f || Num.Vector3.DistanceSquared(at, camera) > FxRange * FxRange) return;
         _musouFxTokens -= 1f;
         _musouHitFx++;
         var end = ToGodot(at);
@@ -223,23 +256,24 @@ public partial class NetworkView
         var dir = (end - from).Normalized();
         BloodSplashAt(end, dir, 0.0);
         if (!own || e.Value == 3 || _fx is null || _catalogue is null || Loadouts.InHand(_config!, me) is not { } weapon) return;
-        foreach (var p in _catalogue.Impact(weapon.Name, e.Value == 2 ? ShotHit.Head : ShotHit.Body, 0, armourUp: false))
-            _fx.Play(p.Name, end - dir * 0.05f, AxesFromY(-dir), p.Scale <= 0f ? 1f : p.Scale, null, null, p.Lifetime, 0.0, false, 0);
+        var plays = _catalogue.Impact(weapon.Name, e.Value == 2 ? ShotHit.Head : ShotHit.Body, 0, armourUp: false);
+        for (int k = 0; k < plays.Count; k++)
+            if (plays[k] is var p) _fx.Play(p.Name, end - dir * 0.05f, AxesFromY(-dir), p.Scale <= 0f ? 1f : p.Scale, null, null, p.Lifetime, 0.0, false, 0);
     }
 
     /// <summary>A telegraph: the boss's ring, lane and call-outs, the attack taunt of a melee wind-up.</summary>
-    void MusouTelegraph(in MusouEvent e, IReadOnlyList<MusouShown> shown, Num.Vector3 camera)
+    void MusouTelegraph(in MusouEvent e, IReadOnlyList<MusouShown> shown, Num.Vector3 camera, MusouBossRules boss)
     {
         int i = MusouFind(shown, e.Enemy);
         var from = i >= 0 ? shown[i].Position : e.Vector;
         switch ((MusouBossAbility)e.Value)
         {
             case MusouBossAbility.GroundSlam:
-                _musouTelegraphs?.Ring(e.Vector, SlamRadius, SlamWindUp);
+                _musouTelegraphs?.Ring(e.Vector, boss.SlamRadius, boss.SlamWindUp);
                 MusouVoice(OrkSounds.RoarTag, from, force: true);
                 break;
             case MusouBossAbility.Charge:
-                _musouTelegraphs?.Lane(from, e.Vector, ChargeWidth, ChargeWindUp);
+                _musouTelegraphs?.Lane(from, e.Vector, boss.ChargeWidth, boss.ChargeWindUp);
                 MusouVoice(OrkSounds.RoarTag, from, force: true);
                 break;
             case MusouBossAbility.Waaagh:
@@ -252,7 +286,7 @@ public partial class NetworkView
                 MusouVoice(OrkSounds.RoarTag, from, force: true);
                 break;
             default:   // MusouSim.MeleeWindUpTelegraph: the wedge comes from the enemy's state (MusouTelegraphs); a taunt now and then
-                if (Num.Vector3.Distance(from, camera) <= AttackVoiceRange && _musouVoiceRoll.NextSingle() < AttackVoiceChance) MusouVoice(OrkSounds.BarkTag, from, force: false);
+                if (_musouVoiceRoll.NextSingle() < AttackVoiceChance && Num.Vector3.DistanceSquared(from, camera) <= AttackVoiceRange * AttackVoiceRange) MusouVoice(OrkSounds.BarkTag, from, force: false);
                 break;
         }
     }
@@ -263,10 +297,12 @@ public partial class NetworkView
     /// </summary>
     bool MusouVoice(string tag, Num.Vector3 at, bool force)
     {
-        if (_sound is null || _soundTriggers is null || !float.IsFinite(at.X) || at.X == float.MaxValue) return false;
-        if (_soundTriggers.File(OrkSounds.Blueprint) is not { } file || _soundTriggers.SpeechCharacter(OrkClass.Key) is not { } character) return false;
         double now = _connectedFor;
-        if (!force && now - _musouLastVoiceAt < VoiceSpacing) { _musouVoicesDropped++; return false; }
+        if (!force && now - _musouLastVoiceAt < VoiceSpacing) { _musouVoicesDropped++; return false; }   // the cheap check first
+        if (_sound is null || _soundTriggers is null || !float.IsFinite(at.X) || at.X == float.MaxValue) return false;
+        _musouOrkFile ??= _soundTriggers.File(OrkSounds.Blueprint);
+        _musouOrkCharacter ??= _soundTriggers.SpeechCharacter(OrkClass.Key);
+        if (_musouOrkFile is not { } file || _musouOrkCharacter is not { } character) return false;
         int slot = -1, oldest = 0;
         for (int i = 0; i < VoiceSlots; i++)
         {
@@ -285,8 +321,10 @@ public partial class NetworkView
         var emitter = _musouVoices[slot]!;
         emitter.Position = ToGodot(at) + new Vector3(0f, 1.6f, 0f);
         bool posted = false;
-        foreach (var b in file.Tag(tag)) posted |= _sound.Post(b.StartEvent, emitter) is { Found: true };
-        foreach (var b in file.SpeechTag(tag)) posted |= _sound.PostSpeech(b, character, emitter) == SpeechResult.Started;
+        var events = file.Tag(tag);
+        for (int k = 0; k < events.Count; k++) posted |= _sound.Post(events[k].StartEvent, emitter) is { Found: true };
+        var lines = file.SpeechTag(tag);
+        for (int k = 0; k < lines.Count; k++) posted |= _sound.PostSpeech(lines[k], character, emitter) == SpeechResult.Started;
         if (!posted) return false;
         _musouVoiceStarted[slot] = now;
         _musouVoiceUntil[slot] = now + VoiceHold;
@@ -302,11 +340,11 @@ public partial class NetworkView
     /// <summary><c>--musou-hud-demo</c>: made-up values for screenshots (the phase held, or wave, break, boss, won, lost in turn every 4 s).</summary>
     void MusouDemo(MusouHud.Frame f, PlayerState me, MusouRules rules, double now)
     {
-        string[] phases = ["wave", "break", "boss", "won", "lost"];
-        int step = (int)(now / 4.0) % phases.Length;
-        string phase = _musouDemo is { Length: > 0 } held ? held : phases[step];
-        bool fresh = _musouDemoPhase != phase;
+        int cycle = (int)(now / 4.0);
+        string phase = _musouDemo is { Length: > 0 } held ? held : DemoPhases[cycle % DemoPhases.Length];
+        bool fresh = _musouDemoPhase != phase || cycle != _musouDemoCycle;   // a held boss phase replays its telegraphs every 4 s
         _musouDemoPhase = phase;
+        _musouDemoCycle = cycle;
         var box = f.Director?.Box ?? new MusouBox(new Num.Vector3(-100f), new Num.Vector3(100f));
         f.Director = phase switch
         {
@@ -317,6 +355,7 @@ public partial class NetworkView
             _ => new MusouDirectorView(3, 5, MusouPhase.Wave, 0, 87, 64, 0, 0f, 0f, 4, box),
         };
         f.LivesMax = 5;
+        f.NextRunIn = phase is "won" or "lost" ? 15f - (float)(now % 4.0) : -1f;
         f.BreakLeft = 12f - (float)(now % 4.0);
         f.Kos = 214; f.Points = 3120;
         f.Chain = 6; f.Multiplier = MathF.Min(rules.ChainMax, 1f + rules.ChainStep * 6); f.ChainLeft = 0.65f;
@@ -327,12 +366,16 @@ public partial class NetworkView
             float yaw = me.Yaw;
             var ahead = new Num.Vector3(-MathF.Sin(yaw), MathF.Cos(yaw), 0f);
             var side = new Num.Vector3(ahead.Y, -ahead.X, 0f);
-            _musouTelegraphs?.Ring(me.Position + ahead * 9f, SlamRadius, 3.5f);
-            _musouTelegraphs?.Lane(me.Position + ahead * 6f + side * 7f, me.Position + ahead * 10f - side * 8f, ChargeWidth, 3.5f);
+            _musouTelegraphs?.Ring(me.Position + ahead * 9f, rules.Boss.SlamRadius, 3.5f);
+            _musouTelegraphs?.Lane(me.Position + ahead * 6f + side * 7f, me.Position + ahead * 10f - side * 8f, rules.Boss.ChargeWidth, 3.5f);
         }
     }
 
+    static readonly string[] DemoPhases = ["wave", "break", "boss", "won", "lost"];
     string? _musouDemoPhase;
+    int _musouDemoCycle = -1;
+    SoundFile? _musouOrkFile;
+    string? _musouOrkCharacter;
     readonly List<MusouShown> _musouDemoShown = new();
 }
 
@@ -391,8 +434,12 @@ void fragment() {
 
     static Shader? _shader;
     static QuadMesh? _quad;
+    // The shader's parameter names, made once (a string would be turned into a StringName at every call).
+    static readonly StringName FillName = "fill", FadeName = "fade", ShapeName = "shape", TintName = "tint", HalfAngleName = "half_angle";
+    static readonly Color MarkTint = new(1f, 0.22f, 0.04f, 1f), WedgeTint = new(1f, 0.3f, 0.06f, 1f);
     readonly List<Mark> _marks = new(), _wedges = new();
     double _time;
+    ulong _fedFrame;
 
     /// <summary>Marks drawn in the last frame (rings, lanes and wedges).</summary>
     public int Shown { get; private set; }
@@ -402,8 +449,8 @@ void fragment() {
         _shader ??= new Shader { Code = ShaderCode };
         _quad ??= new QuadMesh { Size = new Vector2(2f, 2f) };
         var material = new ShaderMaterial { Shader = _shader };
-        material.SetShaderParameter("shape", shape);
-        material.SetShaderParameter("tint", tint);
+        material.SetShaderParameter(ShapeName, shape);
+        material.SetShaderParameter(TintName, tint);
         var node = new MeshInstance3D { Mesh = _quad, MaterialOverride = material, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Visible = false };
         AddChild(node);
         return new Mark { Node = node, Material = material };
@@ -411,11 +458,11 @@ void fragment() {
 
     Mark FreeMark(float shape, Color tint)
     {
-        foreach (var m in _marks) if (!m.Used) { m.Material.SetShaderParameter("shape", shape); m.Material.SetShaderParameter("tint", tint); return m; }
+        foreach (var m in _marks) if (!m.Used) { m.Material.SetShaderParameter(ShapeName, shape); m.Material.SetShaderParameter(TintName, tint); return m; }
         if (_marks.Count < MaxMarks) { var m = NewMark(shape, tint); _marks.Add(m); return m; }
         Mark oldest = _marks[0];
         foreach (var m in _marks) if (m.Start < oldest.Start) oldest = m;
-        oldest.Material.SetShaderParameter("shape", shape); oldest.Material.SetShaderParameter("tint", tint);
+        oldest.Material.SetShaderParameter(ShapeName, shape); oldest.Material.SetShaderParameter(TintName, tint);
         return oldest;
     }
 
@@ -426,7 +473,7 @@ void fragment() {
     /// <summary>A ring of <paramref name="radius"/> around <paramref name="centre"/> (game space) that fills over <paramref name="windUp"/> s.</summary>
     public void Ring(Num.Vector3 centre, float radius, double windUp)
     {
-        var m = FreeMark(0f, new Color(1f, 0.22f, 0.04f, 1f));
+        var m = FreeMark(0f, MarkTint);
         m.Used = true; m.Start = _time; m.WindUp = Math.Max(0.05, windUp);
         m.Node.Transform = new Transform3D(Flat(0f, radius, radius), V(centre) + new Vector3(0, 0, Lift));
         m.Node.Visible = true;
@@ -438,7 +485,7 @@ void fragment() {
         var d = new Vector2(to.X - from.X, to.Y - from.Y);
         float length = d.Length();
         if (length < 0.1f) return;
-        var m = FreeMark(1f, new Color(1f, 0.22f, 0.04f, 1f));
+        var m = FreeMark(1f, MarkTint);
         m.Used = true; m.Start = _time; m.WindUp = Math.Max(0.05, windUp);
         float yaw = MathF.Atan2(-d.X, d.Y);   // the simulation's facing: local +Y toward the end
         var mid = (V(from) + V(to)) / 2f;
@@ -446,9 +493,24 @@ void fragment() {
         m.Node.Visible = true;
     }
 
-    /// <summary>Per frame: the rings and lanes fill and fade; the wedges follow the enemies winding up a melee blow.</summary>
+    /// <summary>Hides every mark at once (a new run).</summary>
+    public void Clear()
+    {
+        foreach (var m in _marks) { m.Used = false; m.Node.Visible = false; }
+        foreach (var m in _wedges) m.Node.Visible = false;
+        Shown = 0;
+    }
+
+    /// <summary>
+    /// The view stops calling <see cref="Frame"/> while it is not connected (its frame returns before the added content's hook): the marks hide themselves
+    /// after two frames without one, and show again with the next.
+    /// </summary>
+    public override void _Process(double delta) => Visible = Engine.GetProcessFrames() - _fedFrame <= 2;
+
+    /// <summary>Per frame: the rings and lanes fill and fade; the wedges follow the enemies winding up a melee blow (not the Warboss's while a ring or lane of its own shows).</summary>
     public void Frame(IReadOnlyList<MusouShown> shown, Num.Vector3 camera, MusouRules rules, float delta)
     {
+        _fedFrame = Engine.GetProcessFrames();
         _time += delta;
         int count = 0;
         foreach (var m in _marks)
@@ -456,23 +518,23 @@ void fragment() {
             if (!m.Used) continue;
             double since = _time - m.Start;
             if (since > m.WindUp + After) { m.Used = false; m.Node.Visible = false; continue; }
-            m.Material.SetShaderParameter("fill", (float)Math.Clamp(since / m.WindUp, 0.0, 1.0));
-            m.Material.SetShaderParameter("fade", since <= m.WindUp ? 1f : (float)(1.0 - (since - m.WindUp) / After));
+            m.Material.SetShaderParameter(FillName, (float)Math.Clamp(since / m.WindUp, 0.0, 1.0));
+            m.Material.SetShaderParameter(FadeName, since <= m.WindUp ? 1f : (float)(1.0 - (since - m.WindUp) / After));
             count++;
         }
         int w = 0;
-        foreach (var e in shown)
+        for (int i = 0; i < shown.Count && w < MaxWedges; i++)
         {
-            if (w >= MaxWedges) break;
-            if (e.State != MusouEnemyState.WindUp || (int)e.Type >= rules.Types.Count) continue;
+            var e = shown[i];
+            if (e.State != MusouEnemyState.WindUp || (int)e.Type >= rules.Types.Count || e.Type == MusouEnemyType.Warboss && count > 0) continue;
             var spec = rules.Types[(int)e.Type];
-            if (!spec.Melee || e.StateSeconds > spec.MeleeWindUp + 0.05f || Num.Vector3.Distance(e.Position, camera) > WedgeRange) continue;
-            if (w >= _wedges.Count) _wedges.Add(NewMark(2f, new Color(1f, 0.3f, 0.06f, 1f)));
+            if (!spec.Melee || e.StateSeconds > spec.MeleeWindUp + 0.05f || Num.Vector3.DistanceSquared(e.Position, camera) > WedgeRange * WedgeRange) continue;
+            if (w >= _wedges.Count) _wedges.Add(NewMark(2f, WedgeTint));
             var m = _wedges[w++];
             float reach = spec.MeleeRange;
             m.Node.Transform = new Transform3D(Flat(e.Yaw, reach, reach), V(e.Position) + new Vector3(0, 0, Lift));
-            m.Material.SetShaderParameter("half_angle", Mathf.DegToRad(spec.MeleeConeDegrees / 2f));
-            m.Material.SetShaderParameter("fill", Math.Clamp(e.StateSeconds / MathF.Max(0.05f, spec.MeleeWindUp), 0f, 1f));
+            m.Material.SetShaderParameter(HalfAngleName, Mathf.DegToRad(spec.MeleeConeDegrees / 2f));
+            m.Material.SetShaderParameter(FillName, Math.Clamp(e.StateSeconds / MathF.Max(0.05f, spec.MeleeWindUp), 0f, 1f));
             m.Node.Visible = true;
         }
         for (int i = w; i < _wedges.Count; i++) _wedges[i].Node.Visible = false;
