@@ -85,7 +85,7 @@ public class MusouIsolationTests(ITestOutputHelper output)
     // ---------------------------------------------------------------- the wire (added with MU0's hooks)
 
     /// <summary>Musou's envelope tags (entities, events, director; <c>MusouWire</c>, named here as numbers: this core test runs in the faithful build too).</summary>
-    static readonly byte[] MusouTags = [3, 4, 5];
+    static readonly byte[] MusouTags = [3, 4, 5, 6];
 
     [Fact]
     public void Musou_changes_neither_the_protocol_version_nor_the_extended_profile()

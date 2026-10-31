@@ -8,6 +8,9 @@ namespace SmNet.Extras.Musou;
 /// <summary>An enemy as it travels (tag 3): id, position, facing, kind and state; positions and facing quantised (see <see cref="MusouWire"/>).</summary>
 public readonly record struct MusouEntity(ushort Id, Vector3 Position, float Yaw, MusouEnemyType Type, MusouEnemyState State);
 
+/// <summary>One weapon drop as it travels (tag 6): id, position (quantised over the director's box), item (<see cref="MusouDropItem"/>) and state.</summary>
+public readonly record struct MusouDropRecord(ushort Id, Vector3 Position, ushort Item, MusouDropState State);
+
 /// <summary>
 /// Added content "Musou" on the wire (design section C): three sections of the extras envelope (message kind 16), no protocol bump, sent only by a server whose
 /// match runs <see cref="ContentExtras.Musou"/> (whose config hashes differently from every other profile). Values are little-endian.
@@ -20,6 +23,9 @@ public readonly record struct MusouEntity(ushort Id, Vector3 Position, float Yaw
 /// kind; at most <see cref="MaxEvents"/>. Each event is repeated in 3 messages; a client plays each (kind, tick, enemy, player) once.</item>
 /// <item>Tag 5, director: one record of <see cref="DirectorBytes"/> bytes <c>[u8 wave][u8 waves][u8 phase][u16 break ticks][u16 left][u16 alive][u16 boss id]
 /// [f32 boss health][f32 boss max][u8 lives][f32 x6 box min, max]</c>.</item>
+/// <item>Tag 6, drops (MU-D; sent to the drops' own player only): <c>[u8 n]</c> then n records of 11 bytes <c>[u16 id][u16 x][u16 y][u16 z][u16 item][u8 state]</c>,
+/// the player's whole list (live drops, and ended ones for a second: picked or expired); a client drops what a newer list leaves out. Positions as tag 3;
+/// at most <see cref="MaxDrops"/>.</item>
 /// </list>
 /// MU0 fixes the layouts and their round trips; the server's sends (interest, priorities, resends) come in MU2.
 /// </summary>
@@ -29,15 +35,17 @@ public static class MusouWire
     public const uint Version = MusouSim.Version;
 
     /// <summary>The envelope tags (gore 1, loyalist barks 2).</summary>
-    public const byte EntitiesTag = 3, EventsTag = 4, DirectorTag = 5;
-    public const int EntityBytes = 10, EventBytes = 16, DirectorBytes = 44;
+    public const byte EntitiesTag = 3, EventsTag = 4, DirectorTag = 5, DropsTag = 6;
+    public const int EntityBytes = 10, EventBytes = 16, DirectorBytes = 44, DropBytes = 11;
+    /// <summary>Most drops in one section: (1191 - 1) / 11 = 108.</summary>
+    public const int MaxDrops = (Protocol.MaxExtrasPayloadBytes - 1) / DropBytes;
     /// <summary>Most entities in one section: (1191 - 1) / 10 = 119 (one section alone in a full message).</summary>
     public const int MaxEntities = (Protocol.MaxExtrasPayloadBytes - 1) / EntityBytes;
     /// <summary>Most events in one section: (1191 - 1) / 16 = 74.</summary>
     public const int MaxEvents = (Protocol.MaxExtrasPayloadBytes - 1) / EventBytes;
 
-    /// <summary>Whether an envelope tag is one of Musou's (3, 4 or 5).</summary>
-    public static bool Owns(byte tag) => tag is EntitiesTag or EventsTag or DirectorTag;
+    /// <summary>Whether an envelope tag is one of Musou's (3 to 6).</summary>
+    public static bool Owns(byte tag) => tag is EntitiesTag or EventsTag or DirectorTag or DropsTag;
 
     // ---------------------------------------------------------------- quantisation
 
@@ -217,4 +225,43 @@ public static class MusouWire
     }
 
     static float Finite(float v) => float.IsFinite(v) ? v : 0f;
+
+    // ---------------------------------------------------------------- tag 6: drops
+
+    /// <summary>The drops payload of <paramref name="drops"/> (the first <see cref="MaxDrops"/>).</summary>
+    public static byte[] WriteDrops(IReadOnlyList<MusouDropRecord> drops, MusouBox box)
+    {
+        int n = Math.Min(drops.Count, MaxDrops);
+        var bytes = new byte[1 + n * DropBytes];
+        bytes[0] = (byte)n;
+        for (int i = 0; i < n; i++)
+        {
+            var d = drops[i];
+            var s = bytes.AsSpan(1 + i * DropBytes, DropBytes);
+            BinaryPrimitives.WriteUInt16LittleEndian(s, d.Id);
+            WritePosition(s[2..], d.Position, box);
+            BinaryPrimitives.WriteUInt16LittleEndian(s[8..], d.Item);
+            s[10] = (byte)d.State;
+        }
+        return bytes;
+    }
+
+    /// <summary>The drops of a payload; null for a malformed one (wrong length, id 0, an id twice, an unknown state).</summary>
+    public static MusouDropRecord[]? ReadDrops(ReadOnlySpan<byte> payload, MusouBox box)
+    {
+        if (payload.Length < 1) return null;
+        int n = payload[0];
+        if (n > MaxDrops || payload.Length != 1 + n * DropBytes) return null;
+        var list = new MusouDropRecord[n];
+        for (int i = 0; i < n; i++)
+        {
+            var s = payload.Slice(1 + i * DropBytes, DropBytes);
+            ushort id = BinaryPrimitives.ReadUInt16LittleEndian(s);
+            var state = (MusouDropState)s[10];
+            if (id == 0 || !Enum.IsDefined(state)) return null;
+            for (int k = 0; k < i; k++) if (list[k].Id == id) return null;
+            list[i] = new MusouDropRecord(id, ReadPosition(s[2..], box), BinaryPrimitives.ReadUInt16LittleEndian(s[8..]), state);
+        }
+        return list;
+    }
 }

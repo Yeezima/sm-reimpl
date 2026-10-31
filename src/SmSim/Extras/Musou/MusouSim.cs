@@ -15,7 +15,7 @@ public sealed partial class MusouSim
     /// The Musou version: its simulation rules and its wire sections (<c>MusouWire.Version</c> is this). Hashed into the config only under
     /// <see cref="ContentExtras.Musou"/> (<c>SimConfig.Extras.cs</c>); raise it for any Musou-only change (never <see cref="ContentExtras.WireVersion"/>).
     /// </summary>
-    public const uint Version = 2;   // 2: MU3's combat and the Warboss's abilities
+    public const uint Version = 3;   // 2: MU3's combat and the Warboss's abilities; 3: the Nobs' weapon drops (wire tag 6)
     /// <summary>The pool's slots (design: 512; the hard cap of enemies alive is lower, 400).</summary>
     public const int Capacity = 512;
     /// <summary>The most events one tick keeps (ours; more are dropped and counted in <see cref="EventsDropped"/>).</summary>

@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1801 spec table rows: **1244 tagged**, 406 not tagged (read from data with high confidence), 151 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 392 rows of the changes document.
+Scanned 1803 spec table rows: **1246 tagged**, 406 not tagged (read from data with high confidence), 151 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 393 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,17 +50,17 @@ Scanned 1801 spec table rows: **1244 tagged**, 406 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 122 | 107 | 107 | 13 | 1 |
+| Core simulation (provisional values) | 124 | 109 | 109 | 13 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1244** | 1028 | 999 | 392 | 38 |
+| **All areas** | **1246** | 1030 | 1001 | 392 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 485 |
-| confidence: low | 445 |
+| kind: ours | 487 |
+| confidence: low | 447 |
 | confidence: medium | 439 |
 | kind: interpretation | 321 |
 | notes: ours | 288 |
@@ -1645,7 +1645,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (122)
+### Core simulation (provisional values) (124)
 
 *Spec section: Provisional values in use*
 
@@ -1740,6 +1740,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E70F52E2` | Musou Warboss abilities | Ground slam: a player within 4 m, 0.8 s telegraph, 40 dmg within 6 m with a stagger, 10 s cooldown; Charge: a player at 6–15 m, 1 s wind-up, 15 m at 12 m/s, 1.5 m wide, 50 dmg and a 3 m knockback, 12 s cooldown; Waaagh! at 75, 50 and 25 % health: 20 Boyz… (s, m, dmg) | kind: ours; confidence: low | the lead's design; the owner ("a few special abilities") | Musou Warboss abilities: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Ground slam: a player within 4 m, 0.8 s telegraph, 40 dmg within 6 m… | ☐ |
 | `R-199928B9` | Musou hit feedback and voices | own hits on enemies show the core hit marker (warm on a head hit) and own KOs the kill marker; blood and the weapon's flesh impact within 30 m, at most 16 a second (burst 8); Ork voice lines (`ork_boy_2`): death yells within 40 m, a taunt on 30 % of melee… (m, /s) | kind: ours; confidence: low | ours | Musou hit feedback and voices: compare with SM1 by feel or video. Ours: own hits on enemies show the core hit marker (warm on a head hit) and… | ☐ |
 | `R-EC00F273` | Musou telegraphs | a faint ground wedge for each melee wind-up within 25 m (at most 24, the type's reach and cone, filling over the wind-up); the Warboss's slam a 6 m ring filling over 0.8 s, his charge a 1.5 m lane to its end filling over 1 s; started when the event arrives… (m, s) | kind: ours; confidence: low | the boss values from the design; the rest ours | Musou telegraphs: compare with SM1 by feel or video. Ours: a faint ground wedge for each melee wind-up within 25 m (at most 24… | ☐ |
+| `R-F64DD798` | Musou weapon drops | the owner (2026-10-31): "each player sees weapons when 'boss' enemies die ... only one drops. When picking the weapon up the player equips the item ... glow golden"; a Nob's credited KO drops one spot at its feet; every living player gets their own roll… (m, s) | kind: ours; confidence: low | the owner's request; "boss" = Nobs (the lead, the owner may add Chaos Marines), the rest ours | Musou weapon drops: compare with SM1 by feel or video. Ours: the owner (2026-10-31): "each player sees weapons when 'boss' enemies… | ☐ |
+| `R-4DCA9897` | Musou drop look | the weapon's own held model recoloured gold and emissive (a gold bar if it cannot be read), 1.4 ×, 0.9 m above the floor, spinning 1.2 rad/s and bobbing 0.08 m at 0.5 Hz; a 16 m additive light beam fading within 2–9 m of the camera, a 2.6 m floor glow, an… (m) | kind: ours; confidence: low | the owner ("glow golden ... easy to see"); the values ours | Musou drop look: compare with SM1 by measuring on a flat spot of the same map. Ours: the weapon's own held model recoloured gold and emissive (a gold bar… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -2037,6 +2039,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-9A202D59` | Endless match until the run ends | ours | warm-up until a Space Marine is in, countdown, play; no score or time limit; an empty server goes back to warm-up | Musou flow | Endless match until the run ends: compare with SM1 by timing a run over a known distance. Ours: ours. | ☐ |
 | `C-D7C1E93B` | Enemies ignore spawn-room blockers | ours (the lead, 2026-10-31) | Musou enemies walk through both sides' spawn-room blockers (the Warboss leaves the Chaos room; enemies may enter the Space Marine room); players keep them | Musou enemies and the spawn rooms | Enemies ignore spawn-room blockers: compare with SM1 by feel or video. Ours: ours (the lead, 2026-10-31). | ☐ |
 | `C-0BAAC3C5` | Pistol-only start, Space Marine spawn room, Warboss in the Chaos room | the owner's request (2026-10-31) | every life starts with the class's bolt pistol only; everyone spawns in the Space Marine room | Musou spawns and loadout | Pistol-only start, Space Marine spawn room, Warboss in the…: compare with SM1 by feel or video. Ours: the owner's request (2026-10-31). | ☐ |
+| `C-60B3AE20` | Golden weapon drops from Nobs | the owner's request (2026-10-31); "boss" = Nobs: the lead | each Nob KO drops one weapon per player from their class's pool, E equips it, 60 s | Musou weapon drops | Golden weapon drops from Nobs: compare with SM1 by feel or video. Ours: the owner's request (2026-10-31); "boss" = Nobs: the lead. | ☐ |
 
 ### Deliberate changes (owner's decisions)
 
