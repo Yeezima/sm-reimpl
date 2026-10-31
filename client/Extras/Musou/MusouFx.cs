@@ -96,7 +96,8 @@ public partial class NetworkView
     /// <summary>
     /// This frame's HUD, hit feedback, telegraphs and voices (a client that draws only; before the crowd state's new events are taken). The view is single-use
     /// for Musou: its config (so <see cref="MusouActive"/>) is set once per connection; a new run on the same server is found from the director (back to
-    /// waiting, out of a won or lost run, or the wave counting back) and clears the crowd state, the run's own counts and the telegraphs. The events of a frame
+    /// waiting, out of a won or lost run, or the wave counting back; a late or repeated director is ignored by the crowd state) and forgets the crowd's enemies,
+    /// the run's own counts and the telegraphs, keeping the new director and this frame's events. The events of a frame
     /// are always read (the KOs count even before the HUD or the game space exist); the effects only once both exist.
     /// </summary>
     void MusouPresent(PlayerState me, IReadOnlyList<MusouShown> shown, float delta)
@@ -119,7 +120,7 @@ public partial class NetworkView
         _musouFxTokens = MathF.Min(FxBurst, _musouFxTokens + FxPerSecond * delta);
         bool present = _musouHud is not null && _musouTelegraphs is not null;
 
-        // The director: a new run clears the crowd state, the run's own counts and the telegraphs.
+        // The director: a new run forgets the crowd's enemies, the run's own counts and the telegraphs.
         var d = _musouState.Director;
         if (d is { } dir && !Nullable.Equals(dir, _musouPrevDirector))
         {
@@ -130,16 +131,11 @@ public partial class NetworkView
                 _musouEnraged = false;
                 _musouRunTick = _musouState.NewestTick;   // a scoreboard older than this still counts the last run's kills
                 _musouTelegraphs?.Clear();
-                _musouState.Clear();   // the server cleared its pool without deaths: no enemy of the last run lingers for the silence time
-                _musouPrevDirector = null;   // the next director (within 10 ticks) is taken as it comes
-                d = null;
+                _musouState.ForgetEnemies();   // the server cleared its pool without deaths: no enemy of the last run lingers for the silence time
             }
-            else
-            {
-                if (dir.BossId != _musouBossId) { _musouBossId = dir.BossId; _musouEnraged = false; }
-                _musouPrevDirector = dir;
-                _musouDirectorAt = now;
-            }
+            if (dir.BossId != _musouBossId) { _musouBossId = dir.BossId; _musouEnraged = false; }
+            _musouPrevDirector = dir;
+            _musouDirectorAt = now;
         }
 
         // Events: the score always; the hit marker, the effects, the telegraphs and the voices once the HUD is there.
@@ -173,7 +169,8 @@ public partial class NetworkView
         _musouHud.Visible = _endPhase == MatchEndPhase.Splash;   // the match's own end screens after the splash (count-up, record, scoreboard) cover the screen
 
         // The match HUD's score box: Musou has no score limit (the server's is int.MaxValue / 2, which travels clamped to 65535): no limit shown ("-").
-        if (_hudView is not null) _hudView.Data.ScoreLimit = 0;
+        // Its bars would then fill by a limit of 1: the scores are zeroed too, so the bars stay empty (the KOs are in the run panel).
+        if (_hudView is not null) { _hudView.Data.ScoreLimit = 0; _hudView.Data.OwnScore = 0; _hudView.Data.EnemyScore = 0; }
 
         // The HUD's frame.
         var f = _musouHud.Data;

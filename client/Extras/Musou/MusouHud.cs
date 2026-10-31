@@ -280,7 +280,7 @@ public sealed partial class MusouHud : Control
 
     void DrawCallOuts(Vector2 vs)
     {
-        float cx = vs.X / 2f, y = Data.Alive ? 300f : 470f;   // dead: under the match HUD's KILLED and respawn lines
+        float cx = vs.X / 2f, y = Data.Alive ? 300f : 590f;   // dead: under the match HUD's KILLED and respawn lines and the break's lines (470 to 514)
         foreach (var c in _callOuts)
         {
             double since = _time - c.At;
