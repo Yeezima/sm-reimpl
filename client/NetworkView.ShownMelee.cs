@@ -14,7 +14,7 @@ namespace SmClient;
 public partial class NetworkView
 {
     readonly Dictionary<int, float> _shownAttack = new();
-    readonly List<(bool Blast, float HitTime)> _pendingShakes = new();
+    readonly List<(bool Blast, float HitTime, float FxTime)> _pendingShakes = new();
 
     /// <summary>Records the attack clip time drawn for a player this frame (called by the clip clocks); other clips clear it.</summary>
     void NoteShownAttack(int id, ClipKind kind, float shown)
@@ -44,6 +44,9 @@ public partial class NetworkView
     }
 
     /// <summary>The time into the strike its effects, shake and hit sound fire at: the hit time, except the heavy classes' in-place stomp, which fires where the drawn foot lands (<see cref="FootContactFraction"/>, never later than the hit).</summary>
+    /// <summary>The time the effect gate is given for a player's strike (<see cref="MeleeHitGate.EffectTime"/>).</summary>
+    float GateTime(PlayerState s, MeleeStep step) => ImpactRules.MeleeHitGate.EffectTime(ShownMeleeTime(s), s.MeleeTime, FxTime(step), step.HitTime);
+
     float FxTime(MeleeStep step) => step.InPlace && !SimMeleeGate ? System.MathF.Min(step.HitTime, FootContactFraction * step.Duration) : step.HitTime;
 
     string FootContactText(int id) => _footFrame.TryGetValue(id, out long f) ? $"drawn foot contact at frame {f}, effects at frame {Godot.Engine.GetFramesDrawn()} (+{Godot.Engine.GetFramesDrawn() - f})" : "foot contact not seen";
