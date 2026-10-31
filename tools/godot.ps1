@@ -65,7 +65,12 @@ if ($editorRun -and -not (Test-Path -LiteralPath (Join-Path $client '.godot'))) 
     $ip = Start-QuietProcess -FilePath $exe -ArgumentList @('--headless', '--path', $client, '--import') -WorkingDirectory $RepoRoot -StdOut (Join-Path $state 'import.log')
     $null = Wait-QuietProcess $ip
 }
-if (-not $log) { $log = Join-Path $state ("run-{0}-{1}.log" -f (Get-Date -Format 'yyyyMMdd-HHmmss'), $PID) }
+if (-not $log) {
+    $log = Join-Path $state ("run-{0}-{1}.log" -f (Get-Date -Format 'yyyyMMdd-HHmmss'), $PID)
+    # Keep the newest 50 run logs (this one included); a log still open by a running Godot is skipped.
+    Get-ChildItem -LiteralPath $state -Filter 'run-*.log' -File | Sort-Object LastWriteTimeUtc -Descending | Select-Object -Skip 49 |
+        ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue }
+}
 
 $argv = @($engine) + @('--') + @($user)
 $p = Start-QuietProcess -FilePath $exe -ArgumentList $argv -WorkingDirectory $(if ($editorRun) { $RepoRoot } else { Split-Path -Parent $exe }) `

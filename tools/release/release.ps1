@@ -1245,11 +1245,13 @@ if ($Smoke) {
         Step "Smoke: '$($TopFiles.PLAY.Name)' (front end, headless), HOST A MATCH on 127.0.0.1:$port2"
         $feLog = Join-Path $smokeDir 'frontend.log'
         $env:SM_ENGINE_ARGS = "--headless --log-file `"$feLog`""
+        $env:SM_NO_WATCH = '1'      # tools/no-focus-steal: no `start /min powershell` watcher from Play.cmd (its own console could flash)
         $playCmd = Join-Path $pkg $TopFiles.PLAY.Name
         $pp = Start-QuietProcess -FilePath "$env:ComSpec" -RawArguments "/d /c `"`"$playCmd`" --profile `"$profileFile`" --auto-host --host-bots none --host-port $port2 --quit-after 40`"" -WorkingDirectory $pkg `
             -StdOut (Join-Path $smokeDir 'play.out.txt')
         $null = $pp.WaitForExit(30000)
         Remove-Item Env:\SM_ENGINE_ARGS -ErrorAction SilentlyContinue
+        Remove-Item Env:\SM_NO_WATCH -ErrorAction SilentlyContinue
         # The evidence: an SmServer.exe from the zip's server\ folder, started by the game with this port and the this-PC-only bind (an exported game
         # flushes its log file only at exit, so the process table is read, not the log).
         $serverDir = Join-Path $pkg 'server'
