@@ -17,6 +17,8 @@ namespace SmClient;
 public static class MusouVat
 {
     public const int Fps = 15, Width = 2048;
+    /// <summary>Most texture rows a look may take (ours: 4096 rows of 2048 texels is 64 MB of half-float positions and 32 MB of normals); a larger look stays skinned.</summary>
+    public const int MaxRows = 4096;
 
     /// <summary>One clip's rows in the textures: the first frame, the number of frames, its length (s), whether it loops.</summary>
     public readonly record struct ClipRows(int First, int Frames, float Duration, bool Loops);
@@ -98,7 +100,7 @@ public static class MusouVat
             frames += n;
         }
         int height = frames * rowsPerFrame;
-        if (height > 16384) return null;   // beyond a texture's height: the look stays in the skinned tier
+        if (height > MaxRows) return null;   // too large (MaxRows): the look stays in the skinned tier
         var positions = new byte[Width * height * 8];
         var normals = new byte[Width * height * 4];
         int bones = parents.Length;

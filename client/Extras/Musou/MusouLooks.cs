@@ -35,6 +35,8 @@ public sealed class MusouLooks
         public required HavokBoundAnimation?[] Clips;
         public MusouVat.Baked? Vat;
         public Task<MusouVat.Baked?>? Baking;
+        /// <summary>The bake failed or had nothing to bake: skinned only, never tried again.</summary>
+        public bool BakeFailed;
     }
 
     sealed record Wanted(MusouEnemyType Type, string Mesh, float Scale, string? Fallback, float FallbackScale, bool Ranged);

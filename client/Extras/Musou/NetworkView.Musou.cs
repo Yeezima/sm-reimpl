@@ -26,6 +26,7 @@ public partial class NetworkView
     bool _musouNoDraw, _musouDrawChecked;
     double _musouStarted = -1, _musouLogAt;
     readonly List<float> _musouFrames = new();
+    readonly List<MusouDeathShown> _musouDeaths = new();   // deaths not yet given a body (kept while the crowd is being made; at most MaxBodies)
 
     bool MusouActive => _config is { } c && c.Extras.HasFlag(ContentExtras.Musou);
 
@@ -49,7 +50,12 @@ public partial class NetworkView
             _musouNoDraw = Lean || DisplayServer.GetName() == "headless";
             GD.Print($"musou: crowd {(_musouNoDraw ? "not drawn (headless or lean)" : "drawn")}");
         }
-        if (!_musouNoDraw && _gameSpace is not null) MusouDraw(shown, (float)delta);
+        if (!_musouNoDraw)
+        {
+            foreach (var d in _musouState.NewDeaths) _musouDeaths.Add(d);
+            if (_musouDeaths.Count > MusouCrowd.MaxBodies) _musouDeaths.RemoveRange(0, _musouDeaths.Count - MusouCrowd.MaxBodies);
+            if (_gameSpace is not null) MusouDraw(shown, (float)delta);
+        }
         _musouState.TakeNew();
         MusouLog(delta, shown.Count);
     }
@@ -71,13 +77,14 @@ public partial class NetworkView
         _musouLooks.Notes.Clear();
 
         var camera = _camera is null ? Vector3.Zero : new Vector3(_camera.GlobalPosition.X, -_camera.GlobalPosition.Z, _camera.GlobalPosition.Y);   // Godot to game space
-        foreach (var d in _musouState.NewDeaths)
+        foreach (var d in _musouDeaths)
         {
             _musouCrowd!.AddBody(d);
             var at = new Vector3(d.Position.X, d.Position.Y, d.Position.Z + 1.1f);
             if (at.DistanceTo(camera) <= MusouCrowd.NearMetres)
                 BloodSplashAt(_gameSpace!.Transform * at, -(_gameSpace.Transform.Basis * new Vector3(d.Push.X, d.Push.Y, d.Push.Z)), 0.0);
         }
+        _musouDeaths.Clear();
         _musouCrowd!.Frame(shown, camera, delta);
     }
 

@@ -45,6 +45,11 @@ public sealed partial class GameServer
     /// <summary>Test aid for tests: sets the dummy count instead of the environment variable (before the first send).</summary>
     public void SetMusouDummies(int count) => _musouDummyTarget = Math.Clamp(count, 0, 400);
 
+    int _musouDummyEvents;
+
+    /// <summary>Test aid for tests: each tick the dummies also report this many hits and tracers (half each) through <see cref="MusouSim.AddEvent"/> (an event storm).</summary>
+    public void SetMusouDummyEvents(int perTick) => _musouDummyEvents = Math.Clamp(perTick, 0, MusouSim.MaxEventsPerTick);
+
     static int ReadDummyTarget() =>
         int.TryParse(Environment.GetEnvironmentVariable(MusouDummiesVariable), out int n) ? Math.Clamp(n, 0, 400) : 0;
 
@@ -96,6 +101,11 @@ public sealed partial class GameServer
                 continue;
             }
             StepDummy(d, nav, players, dt);
+        }
+        for (int k = 0; k < _musouDummyEvents && _musouDummies.Count > 0; k++)
+        {
+            var d = _musouDummies[(int)(NextRandom(ref _musouDummySeed) % (uint)_musouDummies.Count)];
+            sim.AddEvent(new MusouEvent(k % 2 == 0 ? MusouEventKind.Hit : MusouEventKind.Tracer, tick, d.Id, (ushort)(1 + k % 4), 1, d.Position));
         }
     }
 

@@ -39,7 +39,8 @@ public sealed partial class GameServer
         }
         bool started = World.StartMusou(nav);
         _musouNote = started
-            ? $"musou: the mode runs (Space Marines only, no limits; no enemies yet, MU0); {navNote}{(nav is null ? "" : $", {nav.NodeCount} nodes")}"
+            ? $"musou: the mode runs (Space Marines only, no limits; enemies by the director, sent by interest); {navNote}{(nav is null ? "" : $", {nav.NodeCount} nodes")}" +
+              (MusouDummiesWanted > 0 ? $"; test aid {MusouDummiesVariable}: {MusouDummiesWanted} dummies" : "")
             : "musou: not started (the match has no team rules)";
     }
 
@@ -82,7 +83,8 @@ public sealed partial class GameServer
         StepMusouDummies(sim);   // test aid (SM_MUSOU_DUMMIES; GameServer.MusouDummies.cs)
         int n = sim.CopyTo(_musouEnemies);
         PoseMusouDummies(_musouEnemies.AsSpan(0, n));
-        var events = _musouEvents.Step(sim.Tick, sim.Events);
+        LogMusouDirector(sim.Director);
+        var events = _musouEvents.Step(sim.Tick, sim.Events, MusouSendRules.EventsPerTick(World.Config.TickRate));
         if (n == 0 && events.Count == 0 && sim.Director == default) return;   // nothing in play: MU0's state sends nothing
 
         if (!_musouNavBoxRead) { _musouNavBoxRead = true; _musouNavBox = MusouSend.BoundsOf(sim.Nav); }
@@ -108,5 +110,25 @@ public sealed partial class GameServer
             _musouRecordsHeldGone += _musouInterest[id].RecordsHeld;
             _musouInterest.Remove(id);
         }
+    }
+
+    MusouDirectorView _musouLoggedDirector;
+
+    /// <summary>The director's milestones in the server log (the director the simulation sets each tick: MU1's view): a wave starts, a break, the boss, a win or a loss.</summary>
+    void LogMusouDirector(MusouDirectorView d)
+    {
+        var was = _musouLoggedDirector;
+        _musouLoggedDirector = d;
+        if (d.Phase == was.Phase && d.Wave == was.Wave && d.BossId == was.BossId) return;
+        string? line = d.Phase switch
+        {
+            MusouPhase.Wave when d.Wave != was.Wave || was.Phase != MusouPhase.Wave => $"wave {d.Wave}/{d.Waves} starts: {d.EnemiesLeft} enemies, {d.Lives} lives",
+            MusouPhase.Break when was.Phase != MusouPhase.Break => $"break after wave {d.Wave}/{d.Waves}: {d.BreakTicksLeft / (float)Math.Max(1, World.Config.TickRate):0.#} s, {d.Lives} lives",
+            MusouPhase.Boss when d.BossId != 0 && (was.BossId != d.BossId || was.Phase != MusouPhase.Boss) => $"the boss is in (enemy {d.BossId}, {d.BossMaxHealth:0} health), {d.Lives} lives",
+            MusouPhase.Won when was.Phase != MusouPhase.Won => $"won: the boss is dead after wave {d.Wave}/{d.Waves}, {d.Lives} lives left",
+            MusouPhase.Lost when was.Phase != MusouPhase.Lost => $"lost in wave {d.Wave}/{d.Waves}: every player dead and no lives left",
+            _ => null,
+        };
+        if (line is not null) Log?.Invoke($"musou: tick {World.Tick}: {line}");
     }
 }

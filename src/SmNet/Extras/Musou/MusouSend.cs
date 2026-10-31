@@ -5,39 +5,55 @@ using SmSim.Extras.Musou;
 namespace SmNet.Extras.Musou;
 
 /// <summary>
-/// The events of the last <see cref="MusouSendRules.EventRepeat"/> ticks (design section C: each event goes out in 3 messages; a client plays each
-/// (kind, tick, enemy) once). Server-wide: every client gets the same events. Engine-free and deterministic.
+/// The events waiting to go out (design section C: each event goes out in <see cref="MusouSendRules.EventRepeat"/> messages; a client plays each
+/// (kind, tick, enemy, player) once). Server-wide: every client gets the same events. Each tick at most <c>cap</c> copies are chosen: deaths first, then the
+/// boss's telegraphs, strikes, tracers and hits; within a kind the events sent the fewest times first (so an overflow rotates instead of starving), then the
+/// newest. An event leaves after its 3 copies, or unsent after <see cref="MusouSendRules.MaxEventAgeTicks"/> ticks (counted). Engine-free and deterministic.
 /// </summary>
 public sealed class MusouEventWindow
 {
-    readonly List<MusouEvent> _window = new();
+    sealed class Entry { public MusouEvent Event; public int Copies; }
+    readonly List<Entry> _window = new();
+    readonly List<Entry> _order = new();
     readonly List<MusouEvent> _chosen = new();
 
-    /// <summary>Event copies left out of a tick's sections (more than <see cref="MusouSendRules.MaxEventsPerTick"/> in the window), since the start.</summary>
+    /// <summary>Copies never sent (events that aged out before their 3 copies), and events that never went out at all, since the start.</summary>
     public int CopiesDropped { get; private set; }
+    public int EventsDropped { get; private set; }
+    /// <summary>Events waiting (test aid).</summary>
+    public int Waiting => _window.Count;
 
     /// <summary>
-    /// This tick's events (<paramref name="events"/>, of <paramref name="tick"/>) join the window, events older than the repeat leave it, and the events to send now
-    /// come back: deaths first, then the boss's telegraphs, strikes, tracers and hits; within a kind the newest first; at most <see cref="MusouSendRules.MaxEventsPerTick"/>.
+    /// This tick's events (<paramref name="events"/>, of <paramref name="tick"/>) join the window and the copies to send now come back (at most
+    /// <paramref name="cap"/>; each counts as one of its event's copies).
     /// </summary>
-    public IReadOnlyList<MusouEvent> Step(uint tick, IReadOnlyList<MusouEvent> events)
+    public IReadOnlyList<MusouEvent> Step(uint tick, IReadOnlyList<MusouEvent> events, int cap = MusouSendRules.MaxEventsPerTick)
     {
-        _window.RemoveAll(e => tick - e.Tick >= MusouSendRules.EventRepeat || e.Tick > tick);
-        for (int i = 0; i < events.Count; i++) _window.Add(events[i]);
-        _chosen.Clear();
-        _chosen.AddRange(_window);
-        _chosen.Sort(static (a, b) =>
+        _window.RemoveAll(e =>
         {
-            int c = Rank(a.Kind).CompareTo(Rank(b.Kind));
-            if (c != 0) return c;
-            c = b.Tick.CompareTo(a.Tick);
-            return c != 0 ? c : a.Enemy.CompareTo(b.Enemy);
+            if (e.Copies >= MusouSendRules.EventRepeat) return true;
+            if (e.Event.Tick > tick) return true;   // a tick from the future: the match restarted
+            if (tick - e.Event.Tick <= MusouSendRules.MaxEventAgeTicks) return false;
+            CopiesDropped += MusouSendRules.EventRepeat - e.Copies;
+            if (e.Copies == 0) EventsDropped++;
+            return true;
         });
-        if (_chosen.Count > MusouSendRules.MaxEventsPerTick)
+        for (int i = 0; i < events.Count; i++) _window.Add(new Entry { Event = events[i] });
+        _order.Clear();
+        _order.AddRange(_window);
+        _order.Sort(static (a, b) =>
         {
-            CopiesDropped += _chosen.Count - MusouSendRules.MaxEventsPerTick;
-            _chosen.RemoveRange(MusouSendRules.MaxEventsPerTick, _chosen.Count - MusouSendRules.MaxEventsPerTick);
-        }
+            int c = Rank(a.Event.Kind).CompareTo(Rank(b.Event.Kind));
+            if (c != 0) return c;
+            c = a.Copies.CompareTo(b.Copies);
+            if (c != 0) return c;
+            c = b.Event.Tick.CompareTo(a.Event.Tick);
+            if (c != 0) return c;
+            c = a.Event.Enemy.CompareTo(b.Event.Enemy);
+            return c != 0 ? c : a.Event.Player.CompareTo(b.Event.Player);
+        });
+        _chosen.Clear();
+        for (int i = 0; i < _order.Count && _chosen.Count < cap; i++) { _order[i].Copies++; _chosen.Add(_order[i].Event); }
         return _chosen;
     }
 
@@ -68,8 +84,19 @@ public static class MusouSendRules
     public const int MaxMessagesPerTick = 4;
     /// <summary>Each event is sent in this many messages (design).</summary>
     public const int EventRepeat = 3;
-    /// <summary>Most event copies in one tick's sections (ours: two full sections).</summary>
+    /// <summary>Most event copies in one tick's sections (ours: two full sections); the budget lowers it (<see cref="EventsPerTick"/>).</summary>
     public const int MaxEventsPerTick = 2 * MusouWire.MaxEvents;
+    /// <summary>An event not sent 3 times within this many ticks leaves the window (ours: 1 s at 30 Hz; counted as dropped).</summary>
+    public const int MaxEventAgeTicks = 30;
+    /// <summary>The share of a tick's budget events may take (ours): the rest is the entities' (the crowd never freezes under a storm of hits).</summary>
+    public const float EventShare = 0.35f;
+
+    /// <summary>Event copies a tick at <paramref name="tickRate"/>: <see cref="EventShare"/> of the tick's budget in 16-byte records, at most <see cref="MaxEventsPerTick"/>.</summary>
+    public static int EventsPerTick(int tickRate)
+    {
+        float bytes = BudgetBytesPerSecond / (float)Math.Max(1, tickRate) * EventShare - 2 * (Protocol.ExtrasSectionHeaderBytes + 1);
+        return Math.Clamp((int)(bytes / MusouWire.EventBytes), 1, MaxEventsPerTick);
+    }
     /// <summary>The director is sent every this many ticks (and on any change; design).</summary>
     public const int DirectorEveryTicks = 10;
     /// <summary>A client's long-run budget for Musou (ours: under the 60 KB/s target with headroom), refilled each tick; up to <see cref="BurstBytes"/> saved.</summary>
@@ -158,10 +185,12 @@ public sealed class MusouInterest
         bool directorDue = director is not null && (_lastDirector is null || !_lastDirector.AsSpan().SequenceEqual(director)
                                                     || tick - _lastDirectorTick >= MusouSendRules.DirectorEveryTicks || tick < _lastDirectorTick);
         if (directorDue) { fixedSections.Add((MusouWire.DirectorTag, director!)); _lastDirector = director; _lastDirectorTick = tick; }
-        for (int start = 0; start < events.Count; start += MusouWire.MaxEvents)
+        // Events take at most their share of the tick's budget (the window already chooses that many; a longer list is cut here): the rest is the entities'.
+        int eventCount = Math.Min(events.Count, MusouSendRules.EventsPerTick(tickRate));
+        for (int start = 0; start < eventCount; start += MusouWire.MaxEvents)
         {
-            var chunk = new List<MusouEvent>(Math.Min(MusouWire.MaxEvents, events.Count - start));
-            for (int k = start; k < events.Count && k < start + MusouWire.MaxEvents; k++) chunk.Add(events[k]);
+            var chunk = new List<MusouEvent>(Math.Min(MusouWire.MaxEvents, eventCount - start));
+            for (int k = start; k < eventCount && k < start + MusouWire.MaxEvents; k++) chunk.Add(events[k]);
             fixedSections.Add((MusouWire.EventsTag, MusouWire.WriteEvents(chunk, box)));
         }
 
@@ -211,7 +240,7 @@ public sealed class MusouInterest
             RecordsSent += fit;
         }
         RecordsHeld += _due.Count - next;
-        _tokens -= sizes.Sum();
+        _tokens = MathF.Max(0f, _tokens - sizes.Sum());   // a floor: a debt never starves the entities of later ticks (the director and the events fit a tick's refill)
         return messages.Where(m => m.Count > 0).Select(m => m.ToArray()).ToList();
     }
 
@@ -235,9 +264,18 @@ public static class MusouSend
     public static MusouBox EffectiveBox(MusouBox director, MusouBox? fallback)
     {
         var d = director.Max - director.Min;
-        if (d.X > 0f && d.Y > 0f && d.Z > 0f && float.IsFinite(d.X + d.Y + d.Z)) return director.Sane();
-        if (fallback is { } f) return f.Sane();
+        if (d.X > 0f && d.Y > 0f && d.Z > 0f && float.IsFinite(d.X + d.Y + d.Z)) return Readable(director.Sane());
+        if (fallback is { } f && float.IsFinite(f.Min.X + f.Min.Y + f.Min.Z + f.Max.X + f.Max.Y + f.Max.Z)) return Readable(f.Sane());
         return new MusouBox(new Vector3(-128f, -128f, -16f), new Vector3(128f, 128f, 48f));
+    }
+
+    /// <summary>A box a client accepts (<see cref="MusouWire.ReadDirector"/>): corners within <see cref="MusouWire.MaxBoxCoordinate"/>, each axis at least 1 m wide.</summary>
+    static MusouBox Readable(MusouBox b)
+    {
+        var limit = new Vector3(MusouWire.MaxBoxCoordinate - 1f);
+        var min = Vector3.Clamp(b.Min, -limit, limit);
+        var max = Vector3.Clamp(b.Max, -limit, limit);
+        return new MusouBox(min, Vector3.Max(max, min + Vector3.One));
     }
 
     /// <summary>The bounds of a walking graph's nodes, 2 m wider on each side and 3 m higher (ours: room for a jump or a stagger); null for an empty graph.</summary>

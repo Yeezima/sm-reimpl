@@ -90,13 +90,18 @@ public partial class MusouCrowd : Node3D
         foreach (var type in Enum.GetValues<MusouEnemyType>())
             if (_looks.For(type) is { } look)
             {
-                if (look.Vat is null && look.Baking is null && !NoVat) look.Baking = MusouVat.Start(look.Assets, look.Clips);
+                // One bake per look, ever: a failure (nothing to bake, too large, an exception) leaves the look in the skinned tier for good.
+                if (look.Vat is null && look.Baking is null && !look.BakeFailed && !NoVat)
+                {
+                    look.Baking = MusouVat.Start(look.Assets, look.Clips);
+                    if (look.Baking is null) { look.BakeFailed = true; GD.Print($"musou: {look.Name} has nothing to bake; skinned only"); }
+                }
                 if (look.Baking is { IsCompleted: true } done)
                 {
                     look.Baking = null;
                     look.Vat = done.IsCompletedSuccessfully ? done.Result : null;
                     if (look.Vat is { } v) { MusouVat.Upload(v); GD.Print($"musou: {look.Name} baked in {v.BakeMilliseconds:F0} ms ({v.Vertices} vertices, {v.Height} rows)"); }
-                    else GD.Print($"musou: {look.Name} not baked ({done.Exception?.GetBaseException().Message ?? "too large"}); skinned only");
+                    else { look.BakeFailed = true; GD.Print($"musou: {look.Name} not baked ({done.Exception?.GetBaseException().Message ?? $"over {MusouVat.MaxRows} rows"}); skinned only"); }
                 }
             }
 
@@ -144,7 +149,9 @@ public partial class MusouCrowd : Node3D
             var it = _items[i];
             var look = _looks.For(it.Type);
             if (i >= visible || look is null) { left++; continue; }
-            if (skinned < skinnedCap && (it.Distance <= NearMetres || look.Vat?.Mesh is null) && TakeSkinned(it, look, delta)) { skinned++; continue; }
+            // A look without a bake (failed, or not done yet) draws skinned at any distance, up to the fallback's cap.
+            bool unbaked = look.Vat?.Mesh is null;
+            if (skinned < (unbaked ? FallbackSkinned : skinnedCap) && (it.Distance <= NearMetres || unbaked) && TakeSkinned(it, look, delta)) { skinned++; continue; }
             if (look.Vat?.Mesh is not null && AddFar(look, it)) { vat++; continue; }
             left++;
         }

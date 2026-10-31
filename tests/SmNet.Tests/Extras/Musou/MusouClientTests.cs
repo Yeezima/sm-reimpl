@@ -44,7 +44,7 @@ public class MusouClientTests
         Assert.Equal(0f, s.Sample(5, 0.1)[0].Position.X, 0.01f);
         Assert.Equal(3.5f, s.Sample(12.5, 0.1)[0].Position.X, 0.01f);
         Assert.Equal(8.5f, s.Sample(17.5, 0.1)[0].Position.X, 0.01f);
-        Assert.Equal(10f, s.Sample(30, 0.1)[0].Position.X, 0.01f);
+        Assert.Equal(10f + 3f / 5f * MusouClientState.ExtrapolateTicks, s.Sample(30, 0.1)[0].Position.X, 0.01f);   // a runner carries on along its last step, at most 6 ticks
     }
 
     [Fact]
@@ -126,6 +126,45 @@ public class MusouClientTests
             Assert.True(d.X <= step.X && d.Y <= step.Y && d.Z <= step.Z, $"{e.Id}: {spawned[e.Id]} -> {e.Position}");
             Assert.Equal((MusouEnemyType)((e.Id - 1) % 7), e.Type);
         }
+    }
+
+    [Fact]
+    public void A_reused_id_after_a_clear_is_a_new_enemy_not_a_streak()
+    {
+        var s = new MusouClientState();
+        s.Apply(DirectorSection(1), 0.0);
+        s.Apply(Entities(10, At(1, 0f)), 0.0);
+        s.Apply(Entities(15, At(1, 2f)), 0.1);
+        // Respawned (Spawning) far away 5 ticks later: no interpolation from the old place.
+        s.Apply(Entities(20, At(1, 80f, MusouEnemyState.Spawning)), 0.2);
+        Assert.Equal(80f, s.Sample(17, 0.2)[0].Position.X, 0.01f);
+        // A long gap does the same, whatever the state.
+        s.Apply(Entities(100, At(1, -50f)), 0.5);
+        Assert.Equal(-50f, s.Sample(60, 0.5)[0].Position.X, 0.01f);
+        Assert.Equal(2, s.NewOnSameId);
+    }
+
+    [Fact]
+    public void A_server_clock_that_restarts_lower_forgets_the_old_deaths_and_tracks()
+    {
+        var s = new MusouClientState();
+        s.Apply(DirectorSection(5000), 0.0);
+        s.Apply(Entities(5000, At(1, 0f), At(2, 3f)), 0.0);
+        s.Apply(Events(5001, new MusouEvent(MusouEventKind.Death, 5001, 1, 0, 0, Vector3.UnitX)), 0.0);
+        s.Apply(Entities(40, At(1, 7f)), 0.1);   // the restarted server's enemy 1
+        Assert.Equal(1, s.Restarts);
+        var shown = s.Sample(40, 0.1);
+        Assert.Single(shown);
+        Assert.Equal(7f, shown[0].Position.X, 0.01f);
+    }
+
+    [Fact]
+    public void The_servers_box_is_always_one_a_client_reads()
+    {
+        var d = new MusouDirectorView(1, 5, MusouPhase.Wave, 0, 1, 1, 0, 0f, 0f, 3, default);
+        foreach (var box in new MusouBox?[] { null, new MusouBox(new Vector3(-1e9f), new Vector3(1e9f)), new MusouBox(new Vector3(-5f, -5f, 0f), new Vector3(5f, 5f, 0f)) })
+            Assert.NotNull(MusouWire.ReadDirector(MusouWire.WriteDirector(d with { Box = MusouSend.EffectiveBox(default, box) })));
+        Assert.NotNull(MusouWire.ReadDirector(MusouWire.WriteDirector(d with { Box = MusouSend.EffectiveBox(new MusouBox(new Vector3(-3e38f), new Vector3(3e38f)), null) })));
     }
 
     [Fact]

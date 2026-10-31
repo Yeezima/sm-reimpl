@@ -110,12 +110,63 @@ public class MusouSendTests(ITestOutputHelper output)
         Assert.Equal([death, hit], window.Step(11, []));
         Assert.Equal([death, hit], window.Step(12, []));
         Assert.Empty(window.Step(13, []));
-        // Over the cap the oldest hits go first; deaths stay.
+        // Over the cap: deaths first, the rest wait.
         var many = Enumerable.Range(1, 200).Select(i => new MusouEvent(MusouEventKind.Hit, 20, (ushort)i, 1, 1, Vector3.Zero)).Append(death with { Tick = 20 }).ToList();
         var chosen = window.Step(20, many);
         Assert.Equal(MusouSendRules.MaxEventsPerTick, chosen.Count);
         Assert.Equal(MusouEventKind.Death, chosen[0].Kind);
+        Assert.True(window.Waiting > MusouSendRules.MaxEventsPerTick);
+    }
+
+    [Fact]
+    public void An_overflow_of_deaths_rotates_so_every_death_gets_its_three_copies()
+    {
+        var window = new MusouEventWindow();
+        var deaths = Enumerable.Range(1, 200).Select(i => new MusouEvent(MusouEventKind.Death, 20, (ushort)i, 1, 0, Vector3.UnitX)).ToList();
+        var copies = new Dictionary<ushort, int>();
+        for (uint tick = 20; tick < 40; tick++)
+            foreach (var e in window.Step(tick, tick == 20 ? deaths : [], cap: MusouWire.MaxEvents))
+                copies[e.Enemy] = copies.GetValueOrDefault(e.Enemy) + 1;
+        Assert.Equal(200, copies.Count);
+        Assert.All(copies.Values, c => Assert.Equal(MusouSendRules.EventRepeat, c));
+        Assert.Equal(0, window.EventsDropped);
+        Assert.Equal(0, window.Waiting);
+    }
+
+    [Fact]
+    public void Events_that_cannot_go_out_within_a_second_leave_the_window_counted()
+    {
+        var window = new MusouEventWindow();
+        var hits = Enumerable.Range(1, 100).Select(i => new MusouEvent(MusouEventKind.Hit, 1, (ushort)i, 1, 1, Vector3.Zero)).ToList();
+        for (uint tick = 1; tick <= 1 + MusouSendRules.MaxEventAgeTicks + 1; tick++) window.Step(tick, tick == 1 ? hits : [], cap: 2);
+        Assert.Equal(0, window.Waiting);
+        Assert.True(window.EventsDropped > 0);
         Assert.True(window.CopiesDropped > 0);
+    }
+
+    [Fact]
+    public void A_storm_of_events_keeps_the_entities_flowing_within_the_budget()
+    {
+        var interest = new MusouInterest();
+        var window = new MusouEventWindow();
+        var rng = new Random(21);
+        var enemies = Enumerable.Range(1, 300).Select(i => Enemy((ushort)i, new Vector3(rng.NextSingle() * 20f - 10f, rng.NextSingle() * 20f - 10f, 0f))).ToArray();   // all near: every one due every tick, the budget decides
+        long bytes = 0;
+        const int ticks = 300;
+        int cap = MusouSendRules.EventsPerTick(30);
+        for (uint tick = 1; tick <= ticks; tick++)
+        {
+            var events = Enumerable.Range(0, 100).Select(k => new MusouEvent(k % 2 == 0 ? MusouEventKind.Hit : MusouEventKind.Tracer, tick, (ushort)rng.Next(1, 301),
+                (ushort)(1 + k % 4), 1, Vector3.Zero)).ToList();
+            var messages = interest.Plan(tick, 30, enemies, Vector3.Zero, Box, Director, window.Step(tick, events, cap));
+            bytes += messages.Sum(m => (long)Protocol.EnvelopeBytes(new ExtrasUpdate(tick, m)));
+            int records = EntitiesOf(messages).Count();
+            Assert.True(records >= 90, $"tick {tick}: {records} entity records");   // about a tick's budget less the events' share
+            Assert.True(messages.SelectMany(m => m).Where(s => s.Tag == MusouWire.EventsTag).Sum(s => MusouWire.ReadEvents(s.Payload, Box)!.Length) <= cap);
+        }
+        double perSecond = bytes / (ticks / 30.0);
+        output.WriteLine($"event storm (100 a tick, cap {cap} copies), 300 enemies: {perSecond / 1000.0:F1} KB/s, {interest.RecordsSent / (ticks / 30.0):F0} records/s");
+        Assert.True(perSecond <= 60_000, $"{perSecond:F0} B/s");
     }
 
     [Fact]
@@ -163,6 +214,34 @@ public class MusouSendTests(ITestOutputHelper output)
         Assert.True(h.Server.MusouDummiesKilled > 0);
         Assert.True(state.EventsPlayed >= h.Server.MusouDummiesKilled);   // every death reached the client (perfect link)
         Assert.InRange(state.Count, 250, 300);
+    }
+
+    [Fact]
+    public void Three_hundred_dummies_in_an_event_storm_still_stream_and_stay_within_60_kilobytes_a_second()
+    {
+        var h = MusouHarness(out var config);
+        h.Server.SetMusouDummies(300);
+        h.Server.SetMusouDummyEvents(100);   // 100 hits and tracers a tick, far over the events' share
+        h.AddClient(nonce: 1);
+        h.Run(TimeSpan.FromSeconds(8));
+        long bytes0 = h.Server.ExtrasBytesSent, records0 = h.Server.MusouRecordsSent;
+        const int seconds = 10;
+        var client = h.Clients[0];
+        var state = new MusouClientState();
+        var perSecondRecords = new List<long>();
+        for (int s = 0; s < seconds; s++)
+        {
+            long r0 = h.Server.MusouRecordsSent;
+            h.Run(TimeSpan.FromSeconds(1), after: () => { foreach (var x in client.TakeExtras()) state.Apply(x, h.Clock.Now.TotalSeconds); });
+            perSecondRecords.Add(h.Server.MusouRecordsSent - r0);
+        }
+        double perSecond = (h.Server.ExtrasBytesSent - bytes0) / (double)seconds;
+        output.WriteLine($"300 dummies + 100 events a tick: {perSecond / 1000.0:F1} KB/s, records/s {string.Join(" ", perSecondRecords)}, events played {state.EventsPlayed}, dropped {h.Server.MusouEventCopiesDropped} copies");
+        Assert.True(perSecond <= 60_000, $"{perSecond:F0} B/s");
+        Assert.All(perSecondRecords, r => Assert.True(r >= 2000, $"{r} records in a second"));   // the crowd keeps streaming
+        Assert.Equal(0, state.SectionsMalformed);
+        Assert.InRange(state.Count, 250, 300);
+        Assert.True(h.Server.MusouRecordsSent > records0);
     }
 
     internal static Harness MusouHarness(out SimConfig config)

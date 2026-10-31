@@ -26,6 +26,12 @@ public sealed class MusouClientState
     public const int History = 4;
     /// <summary>How long an event's identity and a death's tick are remembered (ours: past the 3-message repeat and any late copy).</summary>
     public const double MemorySeconds = 5.0;
+    /// <summary>A record this many ticks after an enemy's newest one starts a new enemy on that id (ours: 1 s; a far enemy is sent every 5 ticks).</summary>
+    public const uint NewEnemyGapTicks = 30;
+    /// <summary>A section this many ticks older than the newest seen means the server restarted its clock (ours: 10 s; no datagram is that late).</summary>
+    public const uint RestartTicks = 300;
+    /// <summary>Most ticks an enemy that runs is carried on past its newest record (ours: a far enemy's 5-tick gap plus one).</summary>
+    public const int ExtrapolateTicks = 6;
 
     sealed class Track
     {
@@ -64,6 +70,9 @@ public sealed class MusouClientState
     /// <summary>Events played (new), and copies ignored as already played.</summary>
     public int EventsPlayed { get; private set; }
     public int EventCopies { get; private set; }
+    /// <summary>New enemies found on a known id (a reused id without a death seen), and server clock restarts seen.</summary>
+    public int NewOnSameId { get; private set; }
+    public int Restarts { get; private set; }
     /// <summary>The newest server tick of any section read.</summary>
     public uint NewestTick { get; private set; }
 
@@ -78,6 +87,14 @@ public sealed class MusouClientState
     public bool Apply(in ExtrasSection section, double now)
     {
         _now = Math.Max(_now, now);
+        if (NewestTick > RestartTicks && section.ServerTick + RestartTicks < NewestTick)
+        {
+            // The server's tick went back (a restarted server on the same address): every track, death and event of the old clock is forgotten; the box stays.
+            foreach (var t in _tracks.Values) _spare.Push(t);
+            _tracks.Clear(); _played.Clear(); _dead.Clear();
+            NewestTick = section.ServerTick;
+            Restarts++;
+        }
         if (section.Tag == MusouWire.DirectorTag)
         {
             var d = MusouWire.ReadDirector(section.Payload);
@@ -141,7 +158,13 @@ public sealed class MusouClientState
             t.Id = e.Id; t.Count = 0; t.ShownState = e.State; t.StateSince = _now;
             _tracks[e.Id] = t;
         }
-        else if (t.Type != e.Type) { t.Count = 0; t.ShownState = e.State; t.StateSince = _now; }   // another kind on the same id: a new enemy
+        else if (t.Type != e.Type || t.Count > 0 && (tick > t.Ticks[t.Count - 1] + NewEnemyGapTicks
+                                                     || e.State == MusouEnemyState.Spawning && t.States[t.Count - 1] != MusouEnemyState.Spawning && tick > t.Ticks[t.Count - 1]))
+        {
+            // Another kind on the same id, a long gap or a fresh spawn (the pool was cleared without deaths and the id reused): a new enemy, not a streak across the map.
+            t.Count = 0; t.ShownState = e.State; t.StateSince = _now;
+            NewOnSameId++;
+        }
         t.Type = e.Type;
         t.Heard = _now;
         // Insert by tick (newest last); a duplicate tick replaces; older than the oldest kept is dropped when full.
@@ -208,7 +231,18 @@ public sealed class MusouClientState
             int after = 0;
             while (after < t.Count && t.Ticks[after] < renderTick) after++;
             if (after == 0) { p = t.Positions[0]; yaw = t.Yaws[0]; state = t.States[0]; }
-            else if (after == t.Count) { p = t.Positions[t.Count - 1]; yaw = t.Yaws[t.Count - 1]; state = t.States[t.Count - 1]; }
+            else if (after == t.Count)
+            {
+                int last = t.Count - 1;
+                p = t.Positions[last]; yaw = t.Yaws[last]; state = t.States[last];
+                // Past the newest record (a far enemy is sent every 5th tick, the view runs 3 behind): carry on along the last step for a few ticks, not a stop-and-go.
+                if (last >= 1 && t.Ticks[last] - t.Ticks[last - 1] <= ExtrapolateTicks && state == t.States[last - 1] && state is MusouEnemyState.Seek)
+                {
+                    float span = t.Ticks[last] - t.Ticks[last - 1];
+                    float ahead = (float)Math.Min(renderTick - t.Ticks[last], ExtrapolateTicks);
+                    p += (t.Positions[last] - t.Positions[last - 1]) / span * ahead;
+                }
+            }
             else
             {
                 int before = after - 1;
