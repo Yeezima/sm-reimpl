@@ -41,6 +41,16 @@ dotnet build (Join-Path $client 'SmClient.csproj') -nologo -v quiet
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 if (-not (Test-Path -LiteralPath (Join-Path $client '.godot'))) { & $Godot --headless --path $client --import | Out-Null }
 
+# tools/no-focus-steal (owner, 2026-10-31): a test run never shows a window or takes the focus. --test-window runs on the private test
+# desktop (godot.cmd --windowed), --bot headless with no console window (godot.cmd); --on-desktop (stripped here) keeps the old visible
+# window for a bot someone wants to watch.
+$userArgs = @($args)
+if ($userArgs -contains '--on-desktop') { $userArgs = @($userArgs | Where-Object { $_ -ne '--on-desktop' }) }
+elseif ($userArgs -contains '--test-window' -or $userArgs -contains '--bot') {
+    $mode = @(if ($userArgs -contains '--test-window') { '--windowed' })
+    & (Join-Path $PSScriptRoot 'godot.ps1') @mode '--' @userArgs
+    exit $LASTEXITCODE
+}
 # Quoted so the separator always reaches Godot; arguments after it go to the client (OS.GetCmdlineUserArgs).
-& $Godot --path $client '--' @args
+& $Godot --path $client '--' @userArgs
 exit $LASTEXITCODE

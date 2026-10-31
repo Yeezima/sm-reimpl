@@ -110,11 +110,19 @@ public partial class ModelViewer : Node3D
         // --test-window (automated tests on the owner's desktop): the window never takes keyboard focus and the game never
         // captures the mouse (NetworkView.NoCapture), so test runs cannot lock the owner's cursor; pair with Godot's own
         // `--position -4000,-4000` before `--` to keep it off-screen. Bots never capture the mouse either.
+        // tools/no-focus-steal (measured 2026-10-31): Godot clamps --position into a screen, so the window was created at the primary
+        // screen's top-left and took the foreground before this runs. The canonical start is godot.cmd --windowed (a private desktop:
+        // never on the owner's screen, no focus); a test window started any other way at least leaves the screen here (no clamp now).
         if (args.ContainsKey("test-window"))
         {
             TestWindow = true;
             GetWindow().SetFlag(Window.Flags.NoFocus, true);
             GetWindow().SetFlag(Window.Flags.AlwaysOnTop, false);
+            if (DisplayServer.GetName() != "headless")
+            {
+                DisplayServer.WindowSetPosition(new Vector2I(-10000, -10000));
+                GD.Print($"test window: at {DisplayServer.WindowGetPosition()} (off-screen; start test windows with godot.cmd --windowed so they never appear)");
+            }
         }
         GD.Print(SafeMode.Describe());   // hotfix/old-gpu: the renderer and whether safe mode is on (one line)
         GD.Print(RenderQuality.Apply(GetViewport()));   // M40-T7 / M42: anti-aliasing (--aa) for every view, not only the networked one

@@ -103,7 +103,10 @@ if ($StartBots) {
         $botLog = Join-Path $botLogs ("bot-$n-$($b[0])-$((Get-Date).ToString('yyyyMMdd-HHmmss'))-$PID.log")
         $botArgs += @('--log-file', "`"$botLog`"")
         $botArgs += @('--', '--connect', "127.0.0.1:$Port", '--bot', '--no-sound', '--no-hud', '--side', $b[0], '--class', "`"$($b[1])`"")
-        $null = Start-Process -FilePath $BotExe -ArgumentList $botArgs -WorkingDirectory (Split-Path -Parent $BotExe) -WindowStyle Hidden
+        # No console window at all (CREATE_NO_WINDOW, as the game's own hosted bots): nothing appears and nothing takes the focus.
+        $si = New-Object System.Diagnostics.ProcessStartInfo $BotExe
+        $si.Arguments = $botArgs -join ' '; $si.WorkingDirectory = Split-Path -Parent $BotExe; $si.UseShellExecute = $false; $si.CreateNoWindow = $true
+        $null = [System.Diagnostics.Process]::Start($si)
         Start-Sleep -Seconds 3
     }
     exit 0
