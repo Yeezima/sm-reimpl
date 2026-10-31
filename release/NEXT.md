@@ -9,3 +9,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+
+- Launcher: the "Old GPU / safe mode" tick box no longer shows a black strip behind its text or leftover pieces of the buttons above it; its row now repaints cleanly after every status change, tick, hover, resize and minimise.

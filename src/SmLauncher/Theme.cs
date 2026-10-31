@@ -144,12 +144,19 @@ static class Theme
     }
 }
 
-/// <summary>A dark check box: the box, the tick and the focus ring are drawn here; behaviour is the stock CheckBox's.</summary>
+/// <summary>A dark check box: the box, the tick and the focus ring are drawn here; behaviour is the stock CheckBox's. ButtonBase is an Opaque control (it never
+/// gets a background erase of its own), so the paint routine fills the whole rectangle itself, every time (<see cref="DarkGlyph.Paint"/>); before that the box's row
+/// showed black behind the text and old pieces of the buttons above it.</summary>
 sealed class DarkCheckBox : CheckBox
 {
     public DarkCheckBox() { SetStyle(ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true); BackColor = Theme.Base; }
     protected override void OnPaintBackground(PaintEventArgs e) => DarkGlyph.PaintBackdrop(this, e.Graphics, e.ClipRectangle);
     protected override void OnTextChanged(EventArgs e) { base.OnTextChanged(e); Invalidate(); }
+    protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); Invalidate(); }
+    protected override void OnLostFocus(EventArgs e) { base.OnLostFocus(e); Invalidate(); }
+    protected override void OnEnabledChanged(EventArgs e) { base.OnEnabledChanged(e); Invalidate(); }
+    protected override void OnVisibleChanged(EventArgs e) { base.OnVisibleChanged(e); Parent?.Invalidate(Bounds); }
+    protected override void SetBoundsCore(int x, int y, int width, int height, BoundsSpecified specified) { Parent?.Invalidate(Bounds); base.SetBoundsCore(x, y, width, height, specified); }
     public override Size GetPreferredSize(Size proposedSize) => DarkGlyph.Preferred(this);
     protected override void OnPaint(PaintEventArgs e) => DarkGlyph.Paint(this, e, radio: false, Checked);
 }
@@ -160,6 +167,11 @@ sealed class DarkRadioButton : RadioButton
     public DarkRadioButton() { SetStyle(ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true); BackColor = Theme.Base; }
     protected override void OnPaintBackground(PaintEventArgs e) => DarkGlyph.PaintBackdrop(this, e.Graphics, e.ClipRectangle);
     protected override void OnTextChanged(EventArgs e) { base.OnTextChanged(e); Invalidate(); }
+    protected override void OnGotFocus(EventArgs e) { base.OnGotFocus(e); Invalidate(); }
+    protected override void OnLostFocus(EventArgs e) { base.OnLostFocus(e); Invalidate(); }
+    protected override void OnEnabledChanged(EventArgs e) { base.OnEnabledChanged(e); Invalidate(); }
+    protected override void OnVisibleChanged(EventArgs e) { base.OnVisibleChanged(e); Parent?.Invalidate(Bounds); }
+    protected override void SetBoundsCore(int x, int y, int width, int height, BoundsSpecified specified) { Parent?.Invalidate(Bounds); base.SetBoundsCore(x, y, width, height, specified); }
     public override Size GetPreferredSize(Size proposedSize) => DarkGlyph.Preferred(this);
     protected override void OnPaint(PaintEventArgs e) => DarkGlyph.Paint(this, e, radio: true, Checked);
 }
@@ -198,6 +210,7 @@ static class DarkGlyph
     public static void Paint(ButtonBase c, PaintEventArgs e, bool radio, bool isChecked)
     {
         var g = e.Graphics;
+        PaintBackdrop(c, g, c.ClientRectangle);        // the whole rectangle, every time: ButtonBase is Opaque and never gets an erase of its own
         g.SmoothingMode = SmoothingMode.AntiAlias;
         int s = BoxSize(c);
         var box = new Rectangle(0, (c.Height - s) / 2, s - 1, s - 1);

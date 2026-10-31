@@ -1009,6 +1009,16 @@ sealed class MainForm : Form
         Scale(new SizeF((float)f, (float)f));
     }
 
+    // test aids of the repaint check (RowCheck)
+    internal Rectangle SafeModeRowBounds() => RectangleToClient(_cbSafeMode.Parent!.RectangleToScreen(_cbSafeMode.Bounds));
+    internal void ToggleSafeModeForTest() => _cbSafeMode.Checked = !_cbSafeMode.Checked;
+    internal void FocusSafeModeForTest(bool on) { if (on) _cbSafeMode.Focus(); else _btnPlay.Focus(); }
+    internal void HoverForTest(bool on)
+    {
+        var m = typeof(Control).GetMethod(on ? "OnMouseEnter" : "OnMouseLeave", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        foreach (var b in new[] { _btnHost, _btnJoin, _btnPlay }) m.Invoke(b, [EventArgs.Empty]);
+    }
+
     internal static readonly string[] DemoStates = ["idle", "checking", "offered", "downloading", "error", "setup"];
 
     /// <summary>Puts the window into one of its states with realistic (long) texts and no install folder behind it: idle, checking, offered (an update line
