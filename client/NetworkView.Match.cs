@@ -61,8 +61,45 @@ public partial class NetworkView
 
     static string SideName(Team t) => t switch { Team.SpaceMarines => "Space Marines", Team.Chaos => "Chaos", _ => "no side" };
 
-    /// <summary>The Godot font for the scoreboard's columns (a system monospace font).</summary>
-    static readonly SystemFont MonoFont = new() { FontNames = ["Consolas", "Cascadia Mono", "Courier New", "monospace"] };
+    /// <summary>
+    /// The Godot font for the scoreboard's columns (a system monospace font). <c>--scoreboard-font &lt;name&gt;</c> (test aid, net/scoreboard-ping) puts one
+    /// font first, e.g. "Courier New", to check the layout with a fallback font.
+    /// </summary>
+    static readonly SystemFont MonoFont = new()
+    {
+        FontNames = CmdArg("scoreboard-font") is { Length: > 0 } forced ? [forced, "Consolas", "Cascadia Mono", "Courier New", "monospace"] : ["Consolas", "Cascadia Mono", "Courier New", "monospace"],
+    };
+
+    /// <summary>The scoreboard's font size (px) when the row fits the window; smaller (down to <see cref="ScoreboardMinFontSize"/>) when it does not.</summary>
+    const int ScoreboardFontSize = 20, ScoreboardMinFontSize = 12;
+    /// <summary>
+    /// Characters in the widest scoreboard row (net/scoreboard-ping): the 4-character marker, the name column, CLASS (20), KILLS (7), DEATHS (8), Seize Ground's
+    /// SEIZED and DEFENDED (19; Annihilation's RATIO and ASSISTS take 17) and PING; plus 2 spare characters for a fallback glyph (the dash) of another width.
+    /// </summary>
+    const int ScoreboardRowChars = 4 + NameColumn + 20 + 7 + 8 + 19 + PingColumn + 2;
+    /// <summary>The scoreboard panel's left and right content margins (px) and the gap kept to each window edge.</summary>
+    const int ScoreboardMargins = 36, ScoreboardEdgeGap = 8;
+    float _scoreboardFitFor = -1f;
+
+    /// <summary>
+    /// Sizes the scoreboard panel from the font actually resolved (net/scoreboard-ping review): the widest row measured in that font's character width plus the
+    /// margins, so no row wraps whether Consolas, Cascadia Mono or Courier New is used; when that is wider than the window the font shrinks until it fits.
+    /// </summary>
+    void FitScoreboard()
+    {
+        if (_scoreboardPanel is null || _scoreboardText is null) return;
+        float window = GetViewport().GetVisibleRect().Size.X;
+        if (window == _scoreboardFitFor) return;
+        _scoreboardFitFor = window;
+        string row = new('M', ScoreboardRowChars);
+        int size = ScoreboardFontSize;
+        float Width(int s) => MonoFont.GetStringSize(row, HorizontalAlignment.Left, -1, s).X + ScoreboardMargins;
+        while (size > ScoreboardMinFontSize && Width(size) > window - 2 * ScoreboardEdgeGap) size--;
+        float width = MathF.Ceiling(Width(size));
+        _scoreboardText.AddThemeFontSizeOverride("normal_font_size", size);
+        _scoreboardPanel.OffsetLeft = -width / 2f; _scoreboardPanel.OffsetRight = width / 2f;
+        GD.Print($"scoreboard fit: window {window:0} px, font {size} px ({MonoFont.GetStringSize("M", HorizontalAlignment.Left, -1, size).X:0.##} px a character), panel {width:0} px for {ScoreboardRowChars} characters");
+    }
 
     void AddMatchUi(CanvasLayer layer)
     {
@@ -70,7 +107,7 @@ public partial class NetworkView
         _scoreboardPanel = new PanelContainer
         {
             AnchorLeft = 0.5f, AnchorRight = 0.5f, AnchorTop = 0.5f, AnchorBottom = 0.5f,
-            OffsetLeft = -560, OffsetRight = 560, OffsetTop = -40, OffsetBottom = 40,   // grows with the text (names/bot-lore: 31-character name column; protocol 50: + the 6-character PING column)
+            OffsetLeft = -560, OffsetRight = 560, OffsetTop = -40, OffsetBottom = 40,   // grows with the text; the width is set from the font by FitScoreboard (protocol 50: + the PING column)
             GrowHorizontal = Control.GrowDirection.Both, GrowVertical = Control.GrowDirection.Both,
             Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore,
         };
@@ -238,7 +275,7 @@ public partial class NetworkView
         if (_scoreboardPanel is not null && _scoreboardText is not null)
         {
             _scoreboardPanel.Visible = board;
-            if (board) _scoreboardText.Text = ScoreboardText();
+            if (board) { FitScoreboard(); _scoreboardText.Text = ScoreboardText(); }
         }
 
         if (_bot && (int)(_connectedFor / 5.0) != (int)((_connectedFor - GetProcessDeltaTime()) / 5.0))

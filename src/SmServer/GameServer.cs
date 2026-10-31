@@ -146,30 +146,44 @@ public sealed partial class GameServer
         public string Name = "";
         public Race NameRace;
         /// <summary>
-        /// Protocol 50 (net/scoreboard-ping; ours): when each recent snapshot went to this peer (by its tick; at most <see cref="MaxTimedSnapshots"/>),
-        /// and the round-trip time measured from the first acknowledgement of each (<see cref="NoteSnapshotAck"/>).
+        /// Protocol 50 (net/scoreboard-ping; ours): when recent snapshots went to this peer, in a ring by tick (slot tick % <see cref="TimedTicks"/>; the slot's
+        /// tick tells a live entry from a stale one), and the round-trip time measured from the first acknowledgement of each (<see cref="NoteSnapshotAck"/>).
         /// </summary>
-        public Dictionary<uint, TimeSpan> SnapshotSentAt { get; } = new();
+        public readonly uint[] SentTick = new uint[TimedTicks];
+        public readonly TimeSpan[] SentAt = new TimeSpan[TimedTicks];
         public RttEstimator Rtt { get; } = new();
     }
 
-    /// <summary>Snapshot send times kept per peer for the ping (protocol 50): 64 snapshots, 3.2 s at 20 a second; an older acknowledgement gives no sample.</summary>
-    const int MaxTimedSnapshots = 64;
+    /// <summary>Ticks of snapshot send times kept per peer for the ping (protocol 50): 64 ticks, 2.1 s at 30 Hz; an acknowledgement of an older snapshot gives no sample.</summary>
+    internal const int TimedTicks = 64;
+
+    /// <summary>Protocol 50: notes that a snapshot of <paramref name="tick"/> goes to <paramref name="peer"/> now (a second one in the same tick keeps the first time).</summary>
+    void NoteSnapshotSent(Peer peer, uint tick)
+    {
+        int slot = (int)(tick % TimedTicks);
+        if (peer.SentTick[slot] == tick && tick != 0) return;
+        peer.SentTick[slot] = tick; peer.SentAt[slot] = _clock.Now;
+    }
 
     /// <summary>
     /// Protocol 50 (net/scoreboard-ping; ours): an input batch acknowledges <paramref name="acked"/>; the first acknowledgement of a snapshot sent to this peer
     /// gives a round-trip sample (now - its send time: the network both ways, the client's wait for its next input send, and the server's packet loop).
-    /// A repeated or older acknowledgement gives none; send times up to the acknowledged snapshot are forgotten.
+    /// A repeated or older acknowledgement gives none (the acknowledgement only moves forward), nor one of a snapshot whose slot a newer tick has taken.
     /// </summary>
     void NoteSnapshotAck(Peer peer, uint acked)
     {
-        if (acked <= peer.AckedSnapshot || peer.SnapshotSentAt.Count == 0) return;
-        if (peer.SnapshotSentAt.TryGetValue(acked, out var sentAt)) peer.Rtt.Add((_clock.Now - sentAt).TotalMilliseconds);
-        foreach (var old in peer.SnapshotSentAt.Keys.Where(k => k <= acked).ToList()) peer.SnapshotSentAt.Remove(old);
+        if (acked == 0 || acked <= peer.AckedSnapshot) return;
+        int slot = (int)(acked % TimedTicks);
+        if (peer.SentTick[slot] != acked) return;
+        peer.Rtt.Add((_clock.Now - peer.SentAt[slot]).TotalMilliseconds);
+        peer.SentTick[slot] = 0;   // one sample per snapshot
     }
 
     /// <summary>Test seam: a player's smoothed ping (ms; -1 not measured yet).</summary>
     internal int PingOfForTests(int id) => _peers.Values.Single(p => p.PlayerId == id).Rtt.Ms;
+
+    /// <summary>Test seam: how many ping samples a player has given.</summary>
+    internal int PingSamplesOfForTests(int id) => _peers.Values.Single(p => p.PlayerId == id).Rtt.Samples;
 
     /// <summary>The map this server runs, or null for the flat placeholder ground.</summary>
     public GameMap? Map { get; }
@@ -663,8 +677,7 @@ public sealed partial class GameServer
         var kills = KillsFor(World, peer.AckedKill);
         if (kills.Length > 0) peer.SentKills[World.Tick] = kills[^1].Sequence;
         while (peer.SentKills.Count > 256) peer.SentKills.Remove(peer.SentKills.Keys.Min());
-        peer.SnapshotSentAt.TryAdd(World.Tick, _clock.Now);   // protocol 50: the ping's send time (a snapshot sent twice in one tick keeps its first)
-        while (peer.SnapshotSentAt.Count > MaxTimedSnapshots) peer.SnapshotSentAt.Remove(peer.SnapshotSentAt.Keys.Min());
+        NoteSnapshotSent(peer, World.Tick);   // protocol 50: the ping's send time
         _transport.Send(connection, Protocol.Write(new Snapshot(World.Tick, peer.LastAppliedFromClient, lead, players, Self: peer.PlayerId,
             Projectiles: ProjectilesFor(World, viewer), Match: match, Kills: kills, Points: points, Hits: peer.Spectator ? null : peer.Hits,
             Shots: ShotsFor(_pendingShots, peer.PlayerId, viewer, World.Tick))));

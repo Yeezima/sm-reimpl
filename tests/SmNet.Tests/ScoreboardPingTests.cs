@@ -106,7 +106,18 @@ public class ScoreboardPingTests(ITestOutputHelper output)
     public void Clients_on_a_loopback_link_see_plausible_pings_for_everyone(int oneWayMs, int low, int high)
     {
         var h = new Harness(new LinkConditions(TimeSpan.FromMilliseconds(oneWayMs), TimeSpan.Zero, 0), seed: 5, clients: 3);
+        var sent = new Dictionary<int, int>();
+        h.Server.SnapshotHookForTests = id => sent[id] = sent.GetValueOrDefault(id) + 1;
         h.Run(TimeSpan.FromSeconds(4));
+        // One sample per acknowledged snapshot: on a lossless link the client (30 input batches a second) acknowledges every snapshot (20 a second) once,
+        // all but the ones still in flight (at most the last few round trips' worth).
+        int inFlight = 2 + (int)Math.Ceiling((2 * oneWayMs + 40) / 50.0);
+        foreach (var c in h.Clients)
+        {
+            int samples = h.Server.PingSamplesOfForTests(c.PlayerId);
+            output.WriteLine($"{oneWayMs} ms one way: P{c.PlayerId} sent {sent[c.PlayerId]} snapshots, {samples} ping samples");
+            Assert.InRange(samples, sent[c.PlayerId] - inFlight, sent[c.PlayerId]);
+        }
         foreach (var c in h.Clients)
         {
             Assert.Equal(ClientStatus.Connected, c.Status);
@@ -139,7 +150,7 @@ public class ScoreboardPingTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void A_spectator_has_no_row_and_a_player_before_its_first_acknowledgement_reads_as_not_known()
+    public void A_spectator_has_no_row_and_the_player_beside_it_is_measured()
     {
         var h = new Harness(LinkConditions.Perfect, seed: 3, clients: 1);
         h.Run(TimeSpan.FromSeconds(2));
@@ -149,7 +160,124 @@ public class ScoreboardPingTests(ITestOutputHelper output)
         Assert.Single(board.Players);
         Assert.DoesNotContain(board.Players, p => p.PlayerId == watcher.PlayerId);
         Assert.InRange(board.Players[0].PingMs, 0, 40);
-        // A server that has sent nothing yet: the row says -1 (the client shows a dash).
-        Assert.Equal(-1, new RttEstimator().Ms);
+    }
+
+    // ---------------------------------------------------------------- the server's sampling, driven by a raw client
+
+    /// <summary>A raw player on a perfect link: its id and session, and the snapshot ticks it has received (newest last).</summary>
+    static (int Id, uint Session, List<uint> Snapshots) Join(Harness h, IClientTransport raw, uint nonce)
+    {
+        var (id, session) = RobustnessTests.ConnectRaw(h, raw, nonce);
+        return (id, session, []);
+    }
+
+    /// <summary>Steps the harness <paramref name="ms"/> times (1 ms each), collecting the snapshot ticks <paramref name="raw"/> receives.</summary>
+    static void Pump(Harness h, IClientTransport raw, List<uint> snapshots, int ms)
+    {
+        for (int i = 0; i < ms; i++)
+        {
+            h.Step();
+            while (raw.TryReceive(out var p)) if (Protocol.Read(p) is Snapshot s) snapshots.Add(s.ServerTick);
+        }
+    }
+
+    static void Ack(IClientTransport raw, uint session, uint snapshot, uint inputTick) =>
+        raw.Send(Protocol.Write(new InputBatch([new PlayerInput(inputTick, 0, 0, 0, InputButtons.None)], session, snapshot)));
+
+    [Fact]
+    public void A_player_reads_as_not_known_in_the_scoreboard_until_its_first_acknowledgement()
+    {
+        var h = new Harness(LinkConditions.Perfect, seed: 3, clients: 0);
+        var raw = h.Net.Connect();
+        var (id, session, snaps) = Join(h, raw, 7);
+        // Right after the join: a row, but no measurement.
+        Assert.Equal(-1, h.Server.ScoreboardOf().Players.Single(p => p.PlayerId == id).PingMs);
+        Pump(h, raw, snaps, 300);   // snapshots arrive, nothing is acknowledged
+        Assert.NotEmpty(snaps);
+        Assert.Equal((-1, 0), (h.Server.ScoreboardOf().Players.Single(p => p.PlayerId == id).PingMs, h.Server.PingSamplesOfForTests(id)));
+        Ack(raw, session, 0, h.Server.World.Tick + 2);   // an input that acknowledges nothing (0) gives no sample either
+        Pump(h, raw, snaps, 5);
+        Assert.Equal(0, h.Server.PingSamplesOfForTests(id));
+        // The first acknowledgement of the newest snapshot gives the first sample.
+        Ack(raw, session, snaps[^1], h.Server.World.Tick + 2);
+        Pump(h, raw, snaps, 1);
+        Assert.Equal(1, h.Server.PingSamplesOfForTests(id));
+        Assert.InRange(h.Server.ScoreboardOf().Players.Single(p => p.PlayerId == id).PingMs, 1, 999);
+    }
+
+    [Fact]
+    public void A_repeated_acknowledgement_adds_no_sample_and_one_that_skips_ticks_adds_one()
+    {
+        var h = new Harness(LinkConditions.Perfect, seed: 3, clients: 0);
+        var raw = h.Net.Connect();
+        var (id, session, snaps) = Join(h, raw, 8);
+        Pump(h, raw, snaps, 200);
+        uint first = snaps[^1];
+        int count = snaps.Count;
+        Pump(h, raw, snaps, 40);   // the client takes 40 ms to answer the snapshot it holds
+        Ack(raw, session, first, h.Server.World.Tick + 2);
+        Pump(h, raw, snaps, 1);
+        Assert.Equal(1, h.Server.PingSamplesOfForTests(id));
+        int afterFirst = h.Server.PingOfForTests(id);
+        Assert.InRange(afterFirst, 40, 50);   // the send-to-acknowledgement time, from the server's clock
+        // The same acknowledgement again (every input batch carries it until a newer snapshot arrives): no sample, the value stays.
+        for (int i = 0; i < 5; i++) { Ack(raw, session, first, h.Server.World.Tick + 2); Pump(h, raw, snaps, 10); }
+        Assert.Equal((1, afterFirst), (h.Server.PingSamplesOfForTests(id), h.Server.PingOfForTests(id)));
+        // An older one (a reordered batch): none either.
+        Ack(raw, session, snaps[0], h.Server.World.Tick + 2);
+        Pump(h, raw, snaps, 1);
+        Assert.Equal(1, h.Server.PingSamplesOfForTests(id));
+        Pump(h, raw, snaps, 200);
+        // Several snapshots were missed (lost): acknowledging the newest one skips their ticks and gives exactly one sample, of that snapshot's age.
+        Assert.True(snaps.Count - count >= 3, "snapshots kept arriving");
+        uint skipped = snaps[^1];
+        Assert.True(skipped - first >= 3);
+        Ack(raw, session, skipped, h.Server.World.Tick + 2);
+        Pump(h, raw, snaps, 1);
+        Assert.Equal(2, h.Server.PingSamplesOfForTests(id));
+        Assert.InRange(h.Server.PingOfForTests(id), 0, 52);   // the newest snapshot was sent within the last 51 ms: the estimate stays in that range
+    }
+
+    [Fact]
+    public void An_acknowledgement_older_than_the_64_tick_ring_gives_no_sample()
+    {
+        var h = new Harness(LinkConditions.Perfect, seed: 3, clients: 0);
+        var raw = h.Net.Connect();
+        var (id, session, snaps) = Join(h, raw, 9);
+        Pump(h, raw, snaps, 100);
+        uint old = snaps[^1];
+        // More than 64 ticks (2.1 s at 30 Hz) later the slot of that tick has been reused by a newer snapshot: the acknowledgement is no longer timed.
+        Pump(h, raw, snaps, (int)Math.Ceiling(1000.0 * (SmServer.GameServer.TimedTicks + 4) / h.Config.TickRate));
+        Assert.True(h.Server.World.Tick - old > SmServer.GameServer.TimedTicks);
+        Ack(raw, session, old, h.Server.World.Tick + 2);
+        Pump(h, raw, snaps, 1);
+        Assert.Equal((0, -1), (h.Server.PingSamplesOfForTests(id), h.Server.PingOfForTests(id)));
+        // A snapshot still inside the ring is timed.
+        uint recent = snaps[^1];
+        Ack(raw, session, recent, h.Server.World.Tick + 2);
+        Pump(h, raw, snaps, 1);
+        Assert.Equal(1, h.Server.PingSamplesOfForTests(id));
+    }
+
+    [Fact]
+    public void A_player_who_leaves_takes_its_ping_along_and_a_rejoin_starts_unmeasured()
+    {
+        var h = new Harness(new LinkConditions(TimeSpan.FromMilliseconds(20), TimeSpan.Zero, 0), seed: 4, clients: 2);
+        h.Run(TimeSpan.FromSeconds(3));
+        int leaving = h.Clients[1].PlayerId;
+        Assert.InRange(h.Server.PingOfForTests(leaving), 40, 90);
+        h.Clients[1].Leave();
+        h.Clients.RemoveAt(1);
+        h.Run(TimeSpan.FromSeconds(1.5));
+        var board = h.Server.ScoreboardOf();
+        Assert.DoesNotContain(board.Players, p => p.PlayerId == leaving);
+        Assert.Single(board.Players);
+        Assert.InRange(board.Players[0].PingMs, 40, 90);   // the one who stayed keeps its value
+        // A new player starts with no measurement (no state carries over), then gets its own.
+        var rejoin = h.AddClient(nonce: 555);
+        for (int i = 0; i < 2000 && rejoin.Status != ClientStatus.Connected; i++) h.Step();
+        Assert.Equal(-1, h.Server.ScoreboardOf().Players.Single(p => p.PlayerId == rejoin.PlayerId).PingMs);
+        h.Run(TimeSpan.FromSeconds(2));
+        Assert.InRange(h.Server.PingOfForTests(rejoin.PlayerId), 40, 90);
     }
 }
