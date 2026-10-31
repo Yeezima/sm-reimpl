@@ -75,6 +75,24 @@ public class TfwRunTests
     }
 
     [Fact]
+    public void A_flood_of_deploys_is_drained_each_tick_and_starves_no_order()
+    {
+        var w = TfwRig.War();
+        var run = w.Tfw!;
+        var seen = new List<TfwCommandRecord>();
+        run.OrderSeen = (_, c) => seen.Add(c);
+        TfwRig.Deploy(w);
+        for (int k = 0; k < TfwRun.MaxQueuedCommands; k++) Assert.True(run.Enqueue(Human, new TfwCommandRecord((ushort)k, TfwCommand.Deploy, 1)));
+        Assert.False(run.Enqueue(Human, new TfwCommandRecord(100, TfwCommand.Follow, 0)));   // full
+        TfwRig.Steps(w, 1);
+        Assert.Equal(0, run.QueuedCommands);
+        Assert.True(run.Enqueue(Human, new TfwCommandRecord(101, TfwCommand.Follow, 0)));
+        TfwRig.Steps(w, 1);
+        Assert.Single(seen);
+        Assert.Equal(TfwLane.A, run.War.BattleLane);
+    }
+
+    [Fact]
     public void A_deploy_in_the_field_or_from_outside_the_stormbird_is_refused()
     {
         var w = TfwRig.War();
