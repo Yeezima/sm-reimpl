@@ -321,17 +321,21 @@ public sealed partial class FrontEndView : Control
     /// CONTENT on the Join screen: Faithful (SM1 multiplayer alone) or Extended (the added content this build has: the Ork Boy, later gore). The choice is remembered
     /// next to the profile, is what Join and Host a match use, and must match the server's (a server with another profile refuses the client and says which it runs).
     /// A build without added content shows only Faithful. Musou (experimental added content): the third button, a mode of its own (<c>--content musou</c>: waves of
-    /// Orks on Manufactorum, on this PC); disabled without added content, and the Host panel then hosts it on this PC only.
+    /// Orks on Manufactorum, on this PC); disabled without added content, and the Host panel then hosts it on this PC only. Hidden until Musou is ready (the owner,
+    /// 2026-10-31): shown only with <c>--musou</c> or <c>SM_MUSOU=1</c>; a remembered Musou choice falls back to Extended while it is hidden.
     /// </summary>
     Control BuildContentRow()
     {
         var row = UiKit.HBox(12);
         row.AddChild(UiKit.Text("CONTENT", UiKit.CaptionSize, UiKit.Grey).With(l => { l.CustomMinimumSize = new Vector2(120, 0); l.VerticalAlignment = VerticalAlignment.Center; }));
+        bool showMusou = MusouShown;
+        if (!showMusou && _services.Content.HasFlag(SmSim.ContentExtras.Musou)) _services.SetContent(SmSim.ContentExtras.All);
         foreach (var (name, text) in new[] { (SmSim.ContentProfiles.Faithful, "Faithful"), (SmSim.ContentProfiles.Extended, "Extended"), (SmSim.ContentProfiles.Musou, "Musou") })
         {
             string profile = name;
             bool available = name == SmSim.ContentProfiles.Faithful || SmSim.ContentExtras.Compiled;
-            var b = new Button { Text = text, ToggleMode = true, ButtonPressed = false, Disabled = !available, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(170, UiKit.MinHit), Name = "Content" + text };
+            var b = new Button { Text = text, ToggleMode = true, ButtonPressed = false, Disabled = !available, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(showMusou ? 170 : 210, UiKit.MinHit), Name = "Content" + text };
+            if (name == SmSim.ContentProfiles.Musou) b.Visible = showMusou;
             b.Pressed += () =>
             {
                 SmSim.ContentProfiles.TryParse(profile, out var extras, out _);
@@ -342,12 +346,15 @@ public sealed partial class FrontEndView : Control
             row.AddChild(b);
             _contentButtons.Add(b);
         }
-        UiKit.ChainHorizontal(_contentButtons.Cast<Control>().ToList());
+        UiKit.ChainHorizontal(_contentButtons.Where(b => b.Visible).Cast<Control>().ToList());
         _contentNote = UiKit.Text("", UiKit.CaptionSize, UiKit.Grey).With(l => l.VerticalAlignment = VerticalAlignment.Center);
         row.AddChild(_contentNote);
         RefreshContent();
         return row;
     }
+
+    /// <summary>The Musou button is shown (<c>--musou</c> or <c>SM_MUSOU=1</c>): hidden until the mode is ready.</summary>
+    public bool MusouShown => _args.ContainsKey("musou") || System.Environment.GetEnvironmentVariable("SM_MUSOU") == "1";
 
     bool _contentLocked;
 

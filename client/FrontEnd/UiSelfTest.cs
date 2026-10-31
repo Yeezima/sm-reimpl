@@ -869,9 +869,15 @@ public sealed partial class UiSelfTest : Node
 
         // Musou (experimental added content, MU0): its own button; Extended never selects it; it is remembered as "musou" and the Host panel hosts it on this PC only.
         var musouButton = FindButton(_front, b => b.Name == "ContentMusou");
-        Check("the content picker has the Musou button", musouButton is not null);
-        Check("Extended never includes Musou", !ContentExtras.All.HasFlag(ContentExtras.Musou) && !_services.Content.HasFlag(ContentExtras.Musou) && musouButton?.ButtonPressed == false, _services.Content.ToString());
-        if (ContentExtras.Compiled)
+        // Hidden until the mode is ready (the owner, 2026-10-31): shown only with --musou or SM_MUSOU=1.
+        if (!_front.MusouShown)
+            Check("the Musou button is hidden without --musou", musouButton is null || !musouButton.Visible);
+        else
+        {
+            Check("the content picker has the Musou button", musouButton is not null);
+            Check("Extended never includes Musou", !ContentExtras.All.HasFlag(ContentExtras.Musou) && !_services.Content.HasFlag(ContentExtras.Musou) && musouButton?.ButtonPressed == false, _services.Content.ToString());
+        }
+        if (ContentExtras.Compiled && _front.MusouShown)
         {
             musouButton?.EmitSignal(BaseButton.SignalName.Pressed);
             await Frames(3);
@@ -885,7 +891,7 @@ public sealed partial class UiSelfTest : Node
             if (_front.JoinHostPanel is { } back)
                 Check("the Host panel is back to HOST A MATCH", !back.Musou && back.HostButtonText == "HOST A MATCH", back.HostButtonText);
         }
-        else Check("a build without added content cannot pick Musou", musouButton?.Disabled == true);
+        else if (!ContentExtras.Compiled && _front.MusouShown) Check("a build without added content cannot pick Musou", musouButton?.Disabled == true);
         faithfulButton?.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(2);
         Check("Faithful plays no added content and is remembered", _services.Content == ContentExtras.None && FrontEndSettings.Load(_services.SettingsDirectory).Content == ContentProfiles.Faithful);
