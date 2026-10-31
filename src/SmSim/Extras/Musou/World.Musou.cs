@@ -275,6 +275,9 @@ public sealed partial class World
                 break;
         }
         MusouArm();   // World.MusouLoadout.cs: every new life with the pistol alone
+        // As the snapshot after this tick shows it: no time limit from the tick play begins, and no Chaos score (ResolveDeaths added this tick's deaths).
+        if (_state == MatchState.Playing) TicksLeft = uint.MaxValue;
+        _teamScores[(int)Team.Chaos] = 0;
     }
 
     void MusouNewRound()

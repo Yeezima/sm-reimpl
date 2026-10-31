@@ -209,7 +209,7 @@ public sealed class MusouDirector
             else
             {
                 float most = float.MinValue, sum = 0f;
-                foreach (var (_, share) in spec.Mix) sum += MathF.Max(0f, share);
+                for (int m = 0; m < spec.Mix.Count; m++) sum += MathF.Max(0f, spec.Mix[m].Share);
                 for (int m = 0; m < spec.Mix.Count; m++)
                 {
                     float shortfall = MathF.Max(0f, spec.Mix[m].Share) / MathF.Max(1e-6f, sum) * (mixReleased + 1) - _mixCounts[m];

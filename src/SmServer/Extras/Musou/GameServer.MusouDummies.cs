@@ -64,6 +64,9 @@ public sealed partial class GameServer
     void StepMusouDummies(MusouSim sim)
     {
         if (MusouDummiesWanted == 0) return;
+        // A crowd aid: only the dummies (MU1's director releases nothing and its AI leaves them alone, so the counts and costs are the dummies').
+        if (World.MusouDirector is { } director) director.Hold = true;
+        sim.Frozen = true;
         uint tick = sim.Tick;
         // A cleared pool (a new round, every player gone) took the dummies with it.
         if (_musouDummies.RemoveAll(d => !sim.TryGet(d.Id, out var e) || e.Type != d.Type) > 0)

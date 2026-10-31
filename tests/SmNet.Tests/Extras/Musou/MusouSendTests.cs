@@ -251,6 +251,9 @@ public class MusouSendTests(ITestOutputHelper output)
         ClassLoadout Class(string name, Team side) => new(name, 0, -1, [light]) { PrimaryChoices = [0], Side = side, Role = "tactical" };
         config = new SimConfig { Weapons = [rifle], Classes = [Class("sm - tactical", Team.SpaceMarines), Class("csm - tactical", Team.Chaos)], Extras = ContentExtras.Musou };
         var options = new ServerOptions { Match = new MatchRules { CountdownTime = 1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2 } };
-        return new Harness(LinkConditions.Perfect, 7, 0, config, options);
+        var h = new Harness(LinkConditions.Perfect, 7, 0, config, options);
+        h.Server.World.MusouDirector!.Hold = true;   // MU1's director releases nothing and its AI moves nothing: only the tests' own enemies
+        h.Server.World.Musou!.Frozen = true;
+        return h;
     }
 }

@@ -96,7 +96,7 @@ public class MusouDirectorTests
                 respawns++;
                 Assert.True(InRoom(w.Players[1].Position, Rooms[0]), $"respawned at {w.Players[1].Position}");   // every respawn in the Space Marines' room
             }
-            Assert.True(w.ScoreOf(Team.Chaos) <= 1);   // a death of this tick at most, never a running Chaos score
+            Assert.Equal(0, w.ScoreOf(Team.Chaos));   // never a Chaos score, not even for the tick of a death
         }
         Assert.Equal(MatchState.Ended, w.State);
         Assert.Equal(Team.Chaos, w.Winner);
@@ -310,7 +310,7 @@ public class MusouDirectorTests
         {
             w.Step(_ => default);
             deaths += w.LastKills.Count;
-            if (t > 2) Assert.Equal(MatchState.Playing, w.State);
+            Assert.Equal((MatchState.Playing, uint.MaxValue), (w.State, w.TicksLeft));   // from the first tick
             if (t < 30 * 10 && t % 3 == 0) KoAll(w);   // KOs first, then the horde gets through
         }
         Assert.True(w.MusouDirector!.Kos > scoreLimit);

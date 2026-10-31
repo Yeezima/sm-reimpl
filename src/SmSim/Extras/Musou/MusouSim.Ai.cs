@@ -69,6 +69,9 @@ public sealed partial class MusouSim
     public int TickRate { get; init; } = 30;
     /// <summary>Wall-clock milliseconds the World's Musou part of the last tick took (the director, the players' shots, <see cref="Step"/>, the hits; for the cost report).</summary>
     public double LastStepMilliseconds { get; internal set; }
+    /// <summary>Test aid (ours): the enemies do nothing at all in <see cref="Step"/> (no move, attack, token, failsafe or freeing), for tests and test aids that
+    /// place and move enemies themselves (the server's <c>SM_MUSOU_DUMMIES</c>).</summary>
+    public bool Frozen { get; set; }
     /// <summary>Line-of-sight raycasts of the last <see cref="Step"/>.</summary>
     public int LastLosChecks { get; private set; }
 
@@ -93,6 +96,7 @@ public sealed partial class MusouSim
     /// </summary>
     public void Step(ReadOnlySpan<MusouTarget> targets, CollisionWorld? collision, bool fight, List<MusouAttack> attacks)
     {
+        if (Frozen) { LastLosChecks = 0; return; }
         int nt = targets.Length;
         if (_targetNode.Length < nt) Grow(nt);
         int ns = 0;
@@ -282,7 +286,9 @@ public sealed partial class MusouSim
         }
         if (Flow is { Ready: true } && _node[i] >= 0 && !(bestScore <= Rules.DirectSeekDistance * Rules.DirectSeekDistance))
         {
-            int owner = float.IsPositiveInfinity(Flow.Distance(_node[i])) ? -1 : IndexOf(targets, Flow.Owner(_node[i]));
+            bool reachable = !float.IsPositiveInfinity(Flow.Distance(_node[i]));
+            int owner = reachable ? IndexOf(targets, Flow.Owner(_node[i])) : -1;
+            if (reachable && owner < 0) owner = best;   // the field's player died or left since the refresh: the nearest living one until the next
             if (owner != current) { _token[i] = 0; _burst[i] = 0; _losTick[i] = 0; }
             _target[i] = owner >= 0 ? (ushort)Math.Clamp(targets[owner].Id, 0, ushort.MaxValue) : (ushort)0;
             return owner;
