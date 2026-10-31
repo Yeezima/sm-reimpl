@@ -36,7 +36,7 @@ public class ChargeDirectionsTests(ITestOutputHelper output)
         var s = Fresh(Marine);
         for (int k = 0; k < 6; k++) s = Step(s, InputButtons.None, 0f, 1f, view);   // walking, no sprint
         var before = s;
-        s = Step(s, InputButtons.MeleeHeavy, stickX, 1f, view);
+        s = Step(s, InputButtons.Sprint | InputButtons.MeleeHeavy, stickX, 1f, view);
         Assert.Equal(RushPhase.Rush, s.Rush);
         Assert.Equal(expected, Off(s.Yaw, view), 1);
         var start = s.Position;
@@ -73,7 +73,7 @@ public class ChargeDirectionsTests(ITestOutputHelper output)
             w.Spawn(1, Marine, team: Team.SpaceMarines);
             w.Spawn(2, Marine, team: Team.Chaos);
             uint view = w.Tick;
-            w.Step(id => id == 1 ? new PlayerInput(0, -1f, 1f, 0f, InputButtons.MeleeHeavy, 0f, view) { MeleeTarget = locked ? 2 : 0 } : new PlayerInput(0, 0f, 0f, MathF.PI, InputButtons.None, 0f, view));
+            w.Step(id => id == 1 ? new PlayerInput(0, -1f, 1f, 0f, InputButtons.Sprint | InputButtons.MeleeHeavy, 0f, view) { MeleeTarget = locked ? 2 : 0 } : new PlayerInput(0, 0f, 0f, MathF.PI, InputButtons.None, 0f, view));
             var me = w.Players[1];
             Assert.Equal(new Vector3(1.5f, 5f, 0f), w.Players[2].Position);
             Assert.Equal(RushPhase.Rush, me.Rush);
@@ -165,7 +165,7 @@ public class ChargeDirectionsTests(ITestOutputHelper output)
             }
             uint phase = t % 90;
             float side = (t / 90 % 3) switch { 1 => -1f, 2 => 1f, _ => 0f };
-            return new PlayerInput(t, phase == 19 ? side : 0f, phase < 20 ? 1f : 0f, 0f, phase == 19 ? InputButtons.MeleeHeavy : InputButtons.None);
+            return new PlayerInput(t, phase == 19 ? side : 0f, phase < 20 ? 1f : 0f, 0f, phase == 19 ? InputButtons.Sprint | InputButtons.MeleeHeavy : InputButtons.None);
         }
         h.Run(TimeSpan.FromSeconds(30), Input, () =>
         {
@@ -253,7 +253,7 @@ public class ChargeDirectionsTests(ITestOutputHelper output)
             uint view = w.Tick;
             // A walk with W (no sprint) for 5 ticks, then F with W + A (no lock: MeleeTarget 0), then nothing.
             w.Step(id => (id == 1
-                ? new PlayerInput(0, tick == 5 ? -1f : 0f, tick <= 5 ? 1f : 0f, 0f, tick == 5 ? InputButtons.MeleeHeavy : InputButtons.None)
+                ? new PlayerInput(0, tick == 5 ? -1f : 0f, tick <= 5 ? 1f : 0f, 0f, tick == 5 ? InputButtons.Sprint | InputButtons.MeleeHeavy : InputButtons.None)
                 : new PlayerInput(0, 0f, 0f, MathF.PI, InputButtons.None)) with { ViewTick = view });
             rushes.AddRange(w.LastRushes);
             reactions.AddRange(w.LastReactions);
@@ -377,7 +377,7 @@ public class ChargeDirectionsTests(ITestOutputHelper output)
     {
         var w = Teams(Rules, (RMarine, Team.SpaceMarines, Vector3.Zero), (RChaos, Team.Chaos, new Vector3(40f, 0f, 0f)));
         PlayerInput Mine(int k, InputButtons b) => new(0, 0f, 1f, 0f, b);
-        w.Step(id => id == 1 ? Mine(0, InputButtons.MeleeHeavy) : new PlayerInput(0, 0f, 0f, 0f, InputButtons.None));
+        w.Step(id => id == 1 ? Mine(0, InputButtons.Sprint | InputButtons.MeleeHeavy) : new PlayerInput(0, 0f, 0f, 0f, InputButtons.None));
         Assert.Equal(RushPhase.Rush, w.Players[1].Rush);
         // sim/combat-2 (item 31): W no longer ends the rush; a sideways stick (D) does, at its MoveAt (0.6 s); the 1 s spacing still runs.
         int k = 1;
@@ -385,7 +385,7 @@ public class ChargeDirectionsTests(ITestOutputHelper output)
         var before = w.Players[1];
         Assert.Equal(RushPhase.None, before.Rush);
         Assert.True(before.RushLock > 1, $"spacing left {before.RushLock}");
-        w.Step(id => id == 1 ? Mine(k, InputButtons.MeleeHeavy) : new PlayerInput(0, 0f, 0f, 0f, InputButtons.None));
+        w.Step(id => id == 1 ? Mine(k, InputButtons.Sprint | InputButtons.MeleeHeavy) : new PlayerInput(0, 0f, 0f, 0f, InputButtons.None));
         var after = w.Players[1];
         output.WriteLine($"rush over after {k} ticks, spacing left {before.RushLock}: W + F gives {after.Rush}, melee step {after.MeleeStep}, heavy {after.MeleeHeavy}");
         // sim/combat-pass (item 8, the owner's decision of 2026-10-30): W + F is purely the charge; inside the spacing the press is lost, never the stun strike.
@@ -399,10 +399,10 @@ public class ChargeDirectionsTests(ITestOutputHelper output)
         // still runs then, so the replay is the stun strike (spec "Charge directions", row "Charge spacing and a mashed F").
         var c = Rules with { InputBufferWindow = 0.3f };
         var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = RMarine }, c);
-        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.MeleeHeavy), c, out _);
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint | InputButtons.MeleeHeavy), c, out _);
         Assert.Equal(RushPhase.Rush, s.Rush);
         int k = 1;
-        while (s.Rush != RushPhase.None && k < 60) { s = Combat.StepPlayer(s, k % 2 == 0 ? new PlayerInput(0, 0f, 1f, 0f, InputButtons.MeleeHeavy) : new PlayerInput(0, 1f, 0f, 0f, InputButtons.None), c, out _); k++; }   // sim/combat-2: W + F on the even ticks, D (which ends the rush at its stick branch) on the odd ones
+        while (s.Rush != RushPhase.None && k < 60) { s = Combat.StepPlayer(s, k % 2 == 0 ? new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint | InputButtons.MeleeHeavy) : new PlayerInput(0, 1f, 0f, 0f, InputButtons.None), c, out _); k++; }   // sim/combat-2: W + F on the even ticks, D (which ends the rush at its stick branch) on the odd ones
         output.WriteLine($"rush over after {k} ticks: step {s.MeleeStep}, heavy {s.MeleeHeavy}, spacing left {s.RushLock}");
         // sim/combat-pass (item 8): W is held, so the replay is no stun strike either (it was one before protocol 45).
         Assert.Equal((RushPhase.None, 0, false), (s.Rush, s.MeleeStep, s.MeleeHeavy));
@@ -417,7 +417,7 @@ public class ChargeDirectionsTests(ITestOutputHelper output)
         s = Reaction.Start(s, Rules, new ReactionEntry(0f, ReactionKind.Stun), ReactionDirection.Front, Vector2.UnitY);
         for (int k = 0; k < 6; k++)
         {
-            s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, k % 2 == 0 ? InputButtons.MeleeHeavy : InputButtons.None), Rules, out _);
+            s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, k % 2 == 0 ? InputButtons.Sprint | InputButtons.MeleeHeavy : InputButtons.None), Rules, out _);
             Assert.Equal((ReactionKind.Stun, RushPhase.None, 0), (s.Reaction, s.Rush, s.MeleeStep));
         }
         // The brace (World): Reload enters it; W + F in the entry and braced does nothing (the stance takes the press).
@@ -442,7 +442,7 @@ public class ChargeDirectionsTests(ITestOutputHelper output)
         var w = Teams(Rules, (ROrk, Team.Chaos, Vector3.Zero), (RMarine, Team.SpaceMarines, new Vector3(40f, 0f, 0f)));
         Assert.Equal((ROrk, Race.Orks), (w.Players[1].Class, Races.Of(Rules, w.Players[1].Class, w.Players[1].Team)));
         Assert.Equal(Vector3.Zero, w.Players[1].Velocity);
-        w.Step(id => id == 1 ? new PlayerInput(0, 0f, 1f, 0.4f, InputButtons.MeleeHeavy) : new PlayerInput(0, 0f, 0f, 0f, InputButtons.None));
+        w.Step(id => id == 1 ? new PlayerInput(0, 0f, 1f, 0.4f, InputButtons.Sprint | InputButtons.MeleeHeavy) : new PlayerInput(0, 0f, 0f, 0f, InputButtons.None));
         var me = w.Players[1];
         Assert.Equal((RushPhase.Rush, 0.4f), (me.Rush, me.Yaw));
         var start = me.Position;
@@ -461,7 +461,7 @@ public class ChargeDirectionsTests(ITestOutputHelper output)
         int RushTicks(float mx, float my)
         {
             var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = RMarine }, Rules);
-            s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.MeleeHeavy), Rules, out _);
+            s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint | InputButtons.MeleeHeavy), Rules, out _);
             Assert.Equal(RushPhase.Rush, s.Rush);
             int k = 1;
             while (s.Rush == RushPhase.Rush && k < 80) { s = Combat.StepPlayer(s, new PlayerInput(0, mx, my, 0f, InputButtons.None), Rules, out _); k++; }

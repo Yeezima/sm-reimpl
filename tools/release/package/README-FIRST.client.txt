@@ -77,7 +77,7 @@ CONTROLS (F1 in a match shows them too; no key rebinding yet)
   R                    reload. Heavy bolter: brace / unbrace. Plasma weapons: vent heat.
                        Grenade launcher: detonate the grenades in the air
   Right mouse (or V)   melee; press again for the combo. In the air with a jump pack: slash or ground pound
-  F                    stun strike (heavy melee). W + F: the charge (W + A / W + D + F: a bit to the side)
+  F                    stun strike (heavy melee) in the direction of the keys held (W, A, S, D, diagonals; forward with none). Shift + W + F: the charge (Shift + W + A / W + D + F: a bit to the side)
   Space                evade: Tactical roll, Devastator and Havoc hop.
                        Jump pack (Assault, Raptor): tap = hop-dash, medium hold = small jump, long hold = full jump.
                        Right mouse during the hop-dash: the dash attack (W A S D pick one of 8 directions)

@@ -438,10 +438,10 @@ public static class Combat
                 // feel/charge-directions (protocol 39): a locked charge starts along the view (the stick's A / D offset only without a target) and steers from there.
                 s = s with { Yaw = MeleeLock.Steer(rush.Started ? sanitized.Yaw : s.Yaw, MeleeLock.Offset(s, rushTarget), c) };
         }
-        // sim/combat-pass (item 8; the owner's decision of 2026-10-30): the charge is purely W + F. A heavy press with W held that did not start a charge (the spacing
+        // sim/combat-pass (item 8; the owner's decision of 2026-10-30; protocol 49: Shift + W + F): A heavy press with Shift and W held that did not start a charge (the spacing
         // since the last one is not over, or the body is in the air) or a combo is under way) is never a stun strike, queued or struck: it is left unused, so the input buffer (0.3 s, an
         // estimate) replays it and the charge starts as soon as it is allowed (owner's follow-up decision).
-        if (!rushing && heavyPress && Loadouts.Rush(c, s) is { } rushForKey && Rush.WHeld(input, rushForKey)) heavyPress = false;
+        if (!rushing && heavyPress && Loadouts.Rush(c, s) is { } rushForKey && Rush.ChargeHeld(input, rushForKey)) heavyPress = false;
         // BR-02 (owner's recollection; for every class since protocol 48): nothing fires from the charge's start to its end. Fire is dropped from the input (below), and what a trigger
         // pressed just before had under way (a held charge, a delayed charged shot) is cancelled with the melee attacks'.
         bool noFire = rushing || fireDropped;

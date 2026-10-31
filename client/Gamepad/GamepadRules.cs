@@ -39,7 +39,7 @@ public static class GamepadRules
         new("Grenade (equipment)", PadControl.LeftBumper, PadSource.OwnerScreenshot, "binding screen 'Grenade'; locale 110661; %ABILITY_USEEQUIPMENT%"),
         new("Reload / Vent", PadControl.RightBumper, PadSource.OwnerScreenshot, "binding screen 'Reload / Vent'; locale 110659; %ABILITY_RELOAD%"),
         new("Strike (light melee)", PadControl.X, PadSource.OwnerScreenshot, "binding screen 'Strike' (blue); locale 110662; %ABILITY_MELEE%"),
-        new("Stun / Alt Strike (heavy melee; with the stick forward: the charge)", PadControl.Y, PadSource.OwnerScreenshot, "binding screen (yellow); locale 110692; %ABILITY_MELEE_HEAVY%; locale 110691 'Charge Attack (while Sprinting)'; the charge rule is the simulation's (stick forward at the press)"),
+        new("Stun / Alt Strike (heavy melee, in the stick's direction; with the sprint (L3) held and the stick forward: the charge)", PadControl.Y, PadSource.OwnerScreenshot, "binding screen (yellow); locale 110692; %ABILITY_MELEE_HEAVY%; locale 110691 'Charge Attack (while Sprinting)'; the charge rule is the simulation's (sprint held and stick forward at the press, protocol 49)"),
         new("Use / Execute (pickups)", PadControl.B, PadSource.OwnerScreenshot, "binding screen (red); locale 110664"),
         new("Evade / Jump Pack", PadControl.A, PadSource.OwnerScreenshot, "binding screen (green); locale 110693; %ABILITY_CONTEXTMOTION% 'tap to perform a combat roll'"),
         new("Weapon swap: pistol", PadControl.DpadUp, PadSource.OwnerRecollection, "matches the radial weapon menu (owner 2026-10-30); 'Weapon Swap' on the binding screen; locale 120990 names four slots"),
@@ -129,6 +129,12 @@ public static class GamepadRules
 
     /// <summary>Whether the stick counts as forward for the charge (the simulation's rule: forward at least <c>RushSpec.MinForwardStick</c>, 0.7, at the heavy press; here for the tests).</summary>
     public static bool ChargeForward(float stickX, float stickDown, float minForward = RushSpec.DefaultMinForwardStick) => MoveStick(stickX, stickDown).Y >= minForward;
+
+    /// <summary>
+    /// Protocol 49 (sim/charge-needs-sprint; owner 2026-10-31): the pad's charge request at the Y press: the sprint held (L3 hold) AND the stick forward (<see cref="ChargeForward"/>). Y otherwise is the stun strike in the
+    /// stick's direction (the simulation's directional melee). Mirrors <c>Rush.ChargeHeld</c> for the tests; the simulation decides.
+    /// </summary>
+    public static bool ChargeRequest(bool sprintHeld, float stickX, float stickDown, float minForward = RushSpec.DefaultMinForwardStick) => sprintHeld && ChargeForward(stickX, stickDown, minForward);
 
     static float Finite(float v) => float.IsFinite(v) ? v : 0f;
 }

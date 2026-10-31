@@ -112,7 +112,7 @@ public partial class NetworkView
 
     /// <summary>
     /// The bot's charge (test script, M29): every ~8 s, with a target 4 to 9 m away and a charge available, it runs at the target
-    /// (W, sprint) and presses F (the heavy button) once the charge can start (protocol 39: W held is enough); then it lets the rush play without input.
+    /// (W, sprint) and presses F (the heavy button) once the charge can start (protocol 49: Shift and W held); then it lets the rush play without input.
     /// <c>--bot-charge-dirs</c> (NetworkView.ChargeDirections.cs): W only for <see cref="ChargeDirsRunUp"/> s, turned away from the target, then F with W, W + A, W + D in turn.
     /// </summary>
     PlayerInput? BotRushInput(PlayerState me, uint tick, float distanceSquared)
@@ -126,14 +126,16 @@ public partial class NetworkView
         var run = new PlayerInput(tick, 0f, 1f, _yaw, dirs ? InputButtons.None : InputButtons.Sprint, _pitch);
         if (dirs && _botChargeRunSince < 0 && me.Grounded && me.MeleeStep == 0) _botChargeRunSince = _connectedFor;
         bool runUp = dirs && (_botChargeRunSince < 0 || _connectedFor - _botChargeRunSince < ChargeDirsRunUp);
-        if (runUp || !Rush.CanStart(me, run, spec, _config!)) return me.Grounded && me.MeleeStep == 0 ? run : null;
+        // protocol 49: the press needs Sprint held as well as W (--bot-charge-dirs runs up without it, then holds Shift for the press).
+        var press = run with { Buttons = run.Buttons | InputButtons.Sprint };
+        if (runUp || !Rush.CanStart(me, press, spec, _config!)) return me.Grounded && me.MeleeStep == 0 ? run : null;
         _botRushNext = _connectedFor + 8.0;
         _botChargeRunSince = -1;
         float forward = me.Velocity.X * -MathF.Sin(_yaw) + me.Velocity.Y * MathF.Cos(_yaw);
         var (x, keys) = dirs ? ChargeDirs[_botChargeDir++ % ChargeDirs.Length] : (0f, "W+Shift");
         NotePress(_yaw, keys, forward);
-        GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} presses F with {keys} at {forward:F2} m/s forward (protocol 39: W held is enough)");
-        return run with { MoveX = x, Buttons = run.Buttons | (me.MeleeHeavyHeld ? InputButtons.None : InputButtons.MeleeHeavy) };
+        GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} presses F with {keys} at {forward:F2} m/s forward (protocol 49: Shift + W; F without Shift is the stun strike)");
+        return press with { MoveX = x, Buttons = press.Buttons | (me.MeleeHeavyHeld ? InputButtons.None : InputButtons.MeleeHeavy) };
     }
 
     /// <summary>

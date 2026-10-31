@@ -91,7 +91,7 @@ public class MeleeCharge2Tests(ITestOutputHelper output)
         s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.MeleeHeavy), YConfig, out _);
         Assert.Equal((1, true, RushPhase.None), (s.MeleeStep, s.MeleeHeavy, s.Rush));
         for (int k = 1; k < 25; k++)
-            s = Combat.StepPlayer(s, new PlayerInput((uint)k, 0f, 1f, 0f, k == 15 ? InputButtons.MeleeHeavy : InputButtons.None), YConfig, out _);
+            s = Combat.StepPlayer(s, new PlayerInput((uint)k, 0f, 1f, 0f, k == 15 ? InputButtons.Sprint | InputButtons.MeleeHeavy : InputButtons.None), YConfig, out _);
         Assert.Equal(RushPhase.None, s.Rush);
         // sim/combat-pass (review note, owner's rule 2026-10-30): W + F is never a stun strike, the Y,Y stomp included; no input buffer here, so nothing follows.
         Assert.NotEqual((4, true), (s.MeleeStep, s.MeleeHeavy));
