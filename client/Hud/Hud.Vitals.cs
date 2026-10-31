@@ -15,6 +15,32 @@ public sealed partial class Hud
 {
     const string Vitals = "unifiedhealth_mc";
 
+    /// <summary><c>--hud-vitals-demo &lt;prefix&gt;</c> (screenshot aid, ui/armour-bar-fix): in a match, steps the own bars through six states (full, half armour, no armour, half health, low health, both half), saving the window as <c>&lt;prefix&gt;_N.png</c> for each, then quits.</summary>
+    static readonly string? VitalsDemo = ReadVitalsDemo();
+    double _vitalsDemoAt;
+    int _vitalsDemoStep;
+    static readonly (float Health, float Shield)[] VitalsDemoStates = [(1f, 1f), (1f, 0.5f), (1f, 0f), (0.5f, 1f), (0.2f, 1f), (0.5f, 0.5f)];
+
+    static string? ReadVitalsDemo()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        int i = Array.IndexOf(args, "--hud-vitals-demo");
+        return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+    }
+
+    void RunVitalsDemo()
+    {
+        if (VitalsDemo is null || !Data.InGame) return;
+        var d = Data;
+        _vitalsDemoAt += GetProcessDeltaTime();
+        if (_vitalsDemoStep >= VitalsDemoStates.Length) { GetTree().Quit(); return; }
+        var (h, s) = VitalsDemoStates[_vitalsDemoStep];
+        d.Alive = true; d.Health = d.HealthMax * h; d.Shield = d.ShieldMax * s;
+        if (_vitalsDemoAt < 3.0) return;
+        GD.Print(GetViewport().GetTexture().GetImage().SavePng($"{VitalsDemo}_{_vitalsDemoStep}.png") == Error.Ok ? $"vitals shot {_vitalsDemoStep} (halo {d.IronHalo}) -> {VitalsDemo}_{_vitalsDemoStep}.png" : "vitals shot failed");
+        _vitalsDemoStep++; _vitalsDemoAt = 2.0;
+    }
+
     /// <summary>
     /// The footage's health bar is a pure red (232, 0, 20 to 36; its medallion a red diamond) where the movie's is an orange-red gradient with an orange medallion (255, 48 to 145, 40):
     /// the green channel is taken out and the red and blue brought down (a runtime tint the data does not carry): measured on the reference frames (ours).
@@ -68,9 +94,11 @@ public sealed partial class Hud
 
     /// <summary>
     /// The bar from <c>unifiedhealth_mc</c>: the dark band, the cyan armour bar cut by the armour, the health bar cut by the health (added, as the movie places it). With the Iron Halo perk the
-    /// armour bar has its starburst medallion and the health bar its measured red; without it (ui/hud-3, the owner's reference) the bar has no medallion spikes, a gold outline frame
-    /// (<c>lightdamagebar_mc</c>) and the movie's own orange-red health. False without the movie (the caller draws the M44 bar).
+    /// armour bar has its starburst medallion and the health bar its measured red; without it (ui/hud-3, the owner's reference) the bar has no medallion spikes, a plain yellow armour bar (never blue or white) and the movie's own orange-red health. False without the movie (the caller draws the M44 bar).
     /// </summary>
+    /// <summary>Armour bar layers the last movie bar drew (ui-selftest: one, or none for an empty plain bar; -1 until the movie bar has been drawn).</summary>
+    public int VitalsArmourLayers { get; private set; } = -1;
+
     bool DrawMovieVitals(Vector2 vs)
     {
         if (OldHud || HudMovie is not { } hud || _movieArt is null) return false;
@@ -101,8 +129,10 @@ public sealed partial class Hud
         var hp = _movieArt.Get($"vit:h{v}:{hframe}", (m, s) =>
             m.Hud?.Render(health.Placement.Character, hframe, s, healthLocal, null, colour: halo ? HealthTint : null, add: health.Placement.Blend == 8), "vit:h", 24);
         if (bg is not null) DrawAtom(bg, xf, White, false);
-        if (!halo && _movieArt.Get("vit:frame", (m, s) => m.Hud?.RenderAt($"{Vitals}/lightdamagebar_mc", Vitals, s)) is { } outline) DrawAtom(outline, xf, White, false);
-        if (arm is not null) DrawAtom(arm, xf, White, false);
+        // ui/armour-bar-fix (owner 2026-10-31): the gold lightdamagebar_mc frame (a whole second armour bar, gold, full length) is no longer drawn under the yellow bar: one armour bar only.
+        // Frame 99 of the clip is the starburst alone: it belongs to the Iron Halo perk, so everyone else draws nothing for an empty armour (ui/armour-bar-fix).
+        VitalsArmourLayers = 0;
+        if (arm is not null && (halo || aframe != VitalsRules.ArmourEmpty)) { DrawAtom(arm, xf, White, false); VitalsArmourLayers++; }
         if (hp is not null) DrawAtom(hp, xf, White, false);
         return true;
     }

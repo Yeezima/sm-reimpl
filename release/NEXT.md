@@ -9,3 +9,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+
+- The armour bar is drawn once again: the old gold bar that showed under the yellow one is gone. The blue and white armour bar with the star on the left only appears when you carry the Iron Halo perk; every other loadout has the plain yellow bar.
