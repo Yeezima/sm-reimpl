@@ -435,7 +435,7 @@ public static partial class Protocol
     //     stomp is ended by no shot or melee press, only by the hop. Snapshots unchanged (worst case 1194)
     // 51 (sim/movement-fixes; the owner's report of 2026-11-01; one number for that batch's unreleased rule changes): no wire change. The Devastator / Havoc hop goes
     //     down stairs and off ledges while it keeps going forward (gravity on top of its curve over a drop; the stick no longer ends it in mid-air); the Assault /
-    //     Raptor Space tap is the dash at any moment while falling (off a ledge, at a jump's apex or in its fall). Snapshot layout and sizes unchanged (worst case 1194)
+    //     Raptor Space tap is the dash at any moment while falling (off a ledge, at a jump's apex or in its fall); a charge off a ledge steers with A / D in the air. Snapshot layout and sizes unchanged (worst case 1194)
     public const ushort Version = 51;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;

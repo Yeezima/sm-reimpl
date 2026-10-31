@@ -337,6 +337,117 @@ public class MovementFixesTests(ITestOutputHelper output)
         Assert.True(pounds > 20 && slashes > 5);
     }
 
+    // ---------------------------------------------------------------- D: steering a charge held in the air
+
+    /// <summary>The Assault (jump pack) with RushTests' bull rush (10 m/s), and the marine with the same rush and no pack (class 1).</summary>
+    static readonly SimConfig Charger = JumpPackAttackTests.Config with
+    {
+        Classes = [JumpPackAttackTests.Config.Classes[0] with { MeleeRush = RushTests.Spec }, JumpPackAttackTests.Config.Classes[1]],
+    };
+
+    /// <summary>A plateau 8 m high whose edge is y = 0 (plateau at y &lt; 0) over a floor.</summary>
+    static CollisionWorld ChargeLedge() => Mesh(Floor(8f, y0: -60f, y1: 0f), Riser(0f, -1f, 8f), Floor(0f, y0: 0f, y1: 300f));
+
+    /// <summary>Charges +Y off the 8 m plateau from 9 m before its edge, then holds the stick's <paramref name="side"/> in the air; every state from the press on.</summary>
+    static List<PlayerState> ChargeOff(int cls, float side, CollisionWorld world)
+    {
+        var s = Combat.Respawned(new PlayerState(1, new Vector3(0, -9f, 8f), Vector3.Zero, 0f, true) { Class = cls }, Charger);
+        for (int k = 0; k < 12; k++) s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint), Charger, out _, world);
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint | InputButtons.MeleeHeavy), Charger, out _, world);
+        Assert.Equal(RushPhase.Rush, s.Rush);
+        var states = new List<PlayerState> { s };
+        for (int k = 0; k < 120 && !(states.Count > 3 && s.Grounded && !states[^2].Grounded); k++)
+        {
+            s = Combat.StepPlayer(s, new PlayerInput(0, s.Grounded ? 0f : side, 0f, 0f, InputButtons.None), Charger, out _, world);
+            states.Add(s);
+        }
+        return states;
+    }
+
+    [Theory]
+    [InlineData(1f)]    // D: bends right
+    [InlineData(-1f)]   // A: bends left
+    [InlineData(0.5f)]  // half a stick (a pad): half the rate
+    public void A_charge_off_a_ledge_steers_with_A_and_D_in_the_air_at_its_held_speed(float side)
+    {
+        var world = ChargeLedge();
+        var states = ChargeOff(Assault, side, world);
+        var straight = ChargeOff(Assault, 0f, world);
+        int left = states.FindIndex(p => !p.Grounded), landed = states.FindLastIndex(p => p.Grounded);
+        Assert.True(left > 0 && landed > left);
+        float speed = new Vector2(states[left].Velocity.X, states[left].Velocity.Y).Length();
+        var air = states.Skip(left + 1).Take(landed - left - 1).ToList();
+        Assert.NotEmpty(air);
+        Assert.All(air, p => Assert.Equal(RushPhase.Rush, p.Rush));
+        Assert.All(air, p => Assert.Equal(speed, new Vector2(p.Velocity.X, p.Velocity.Y).Length(), 3));   // a turn: never faster, never slower
+        // The heading turns at the rate and the velocity points along it (the contact cone follows the path).
+        float perTick = Rush.AirTurnRate * MathF.PI / 180f * Dt * side;
+        for (int k = 1; k < air.Count; k++)
+        {
+            Assert.Equal(-perTick, air[k].Yaw - air[k - 1].Yaw, 4);
+            var heading = new Vector2(-MathF.Sin(air[k].Yaw), MathF.Cos(air[k].Yaw));
+            Assert.Equal(1f, Vector2.Dot(heading, Vector2.Normalize(new Vector2(air[k].Velocity.X, air[k].Velocity.Y))), 4);
+        }
+        float drift = states[landed].Position.X - straight[straight.FindLastIndex(p => p.Grounded)].Position.X;
+        float turned = (states[landed - 1].Yaw - states[left].Yaw) * 180f / MathF.PI;
+        output.WriteLine($"side {side}: {air.Count + 1} ticks in the air at {speed:F2} m/s, turned {turned:F1} deg, landed {drift:F2} m to the side of the straight charge");
+        Assert.True(MathF.Sign(drift) == MathF.Sign(side) && MathF.Abs(drift) > 0.5f * MathF.Abs(side), $"drift {drift:F2}");
+        // The ground part before the edge is the straight charge's, tick for tick.
+        for (int k = 0; k <= left; k++) Assert.Equal(straight[k], states[k]);
+    }
+
+    [Fact]
+    public void The_tactical_steers_a_held_charge_too_the_ork_does_not_and_the_ground_charge_is_unchanged()
+    {
+        var world = ChargeLedge();
+        // The Tactical / Chaos Tactical (a class with the charge and no jump pack; the owner's follow-up of 2026-11-01): the same steering.
+        var marine = ChargeOff(1, 1f, world);
+        var straightMarine = ChargeOff(1, 0f, world);
+        int left = marine.FindIndex(p => !p.Grounded), landedAt = marine.FindLastIndex(p => p.Grounded);
+        float speed = new Vector2(marine[left].Velocity.X, marine[left].Velocity.Y).Length();
+        var air = marine.Skip(left + 1).TakeWhile(p => !p.Grounded).ToList();
+        for (int k = 1; k < air.Count; k++) Assert.Equal(-Rush.AirTurnRate * MathF.PI / 180f * Dt, air[k].Yaw - air[k - 1].Yaw, 4);
+        Assert.All(air, p => Assert.Equal(speed, new Vector2(p.Velocity.X, p.Velocity.Y).Length(), 3));
+        Assert.True(marine[landedAt].Position.X - straightMarine[straightMarine.FindLastIndex(p => p.Grounded)].Position.X > 2f);
+        // The Ork Boy's sprint attack (added content, class race Orks) is not steered.
+        var orkConfig = Charger with { Classes = [Charger.Classes[0], Charger.Classes[1] with { Race = Race.Orks }] };
+        var ork = Combat.Respawned(new PlayerState(1, new Vector3(0, -9f, 8f), Vector3.Zero, 0f, true) { Class = 1 }, orkConfig);
+        for (int k = 0; k < 12; k++) ork = Combat.StepPlayer(ork, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint), orkConfig, out _, world);
+        ork = Combat.StepPlayer(ork, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint | InputButtons.MeleeHeavy), orkConfig, out _, world);
+        float orkYaw = ork.Yaw;
+        for (int k = 0; k < 40; k++)
+        {
+            ork = Combat.StepPlayer(ork, new PlayerInput(0, ork.Grounded ? 0f : 1f, 0f, 0f, InputButtons.None), orkConfig, out _, world);
+            if (ork.Rush == RushPhase.Rush) Assert.Equal(orkYaw, ork.Yaw, 6);
+        }
+        // On the ground D still ends the charge from its stick branch (unchanged).
+        var s = Combat.Respawned(new PlayerState(1, new Vector3(0, -40f, 8f), Vector3.Zero, 0f, true) { Class = Assault }, Charger);
+        for (int k = 0; k < 12; k++) s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint), Charger, out _, world);
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint | InputButtons.MeleeHeavy), Charger, out _, world);
+        float yaw = s.Yaw;
+        int ticks = 0;
+        while (s.Rush == RushPhase.Rush && ticks++ < 60) { s = Combat.StepPlayer(s, new PlayerInput(0, 1f, 0f, 0f, InputButtons.None), Charger, out _, world); if (s.Rush == RushPhase.Rush) Assert.Equal(yaw, s.Yaw, 6); }
+        Assert.True(s.Grounded);
+        Assert.True(ticks * Dt <= RushTests.Spec.Rush.End + Dt, $"the ground charge ran {ticks} ticks with D held");
+    }
+
+    [Fact]
+    public void A_steered_charge_in_the_air_hits_a_player_on_its_bent_path_that_the_straight_one_misses()
+    {
+        // A target standing on the floor 4 m to the right of the straight path, about where the charge lands; prediction of the contact uses the same state.
+        var world = ChargeLedge();
+        var straight = ChargeOff(Assault, 0f, world);
+        var bent = ChargeOff(Assault, 1f, world);
+        var land = bent[bent.FindLastIndex(p => p.Grounded)].Position;
+        float pathX(List<PlayerState> st, float y) => st.Where(p => p.Position.Y <= y).Select(p => p.Position.X).DefaultIfEmpty(0f).Last();
+        var target = new Vector3(land.X, land.Y - 0.5f, 0f);
+        bool Reaches(List<PlayerState> st) => st.Zip(st.Skip(1)).Any(p => p.Second.Rush == RushPhase.Rush
+            && Rush.Contact(p.First.Position, p.Second.Position, p.Second.Yaw, target, RushTests.Spec, Charger) is not null);
+        output.WriteLine($"target at {target}; straight path x {pathX(straight, target.Y):F2}, bent {pathX(bent, target.Y):F2}");
+        Assert.True(Reaches(bent));
+        Assert.False(Reaches(straight));
+    }
+
     // ---------------------------------------------------------------- prediction against the server
 
     sealed record Case(string Name, SimConfig Config, int Class, CollisionWorld Level, SpawnPoint[] Spawns, Func<int, uint, PlayerInput> Input);

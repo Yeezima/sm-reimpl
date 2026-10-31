@@ -18,3 +18,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Controller: the B button now closes the open menu or goes back one level, like Esc (the in-match menu, loadouts, armour and colours, controls, dialogs, and the connecting screen). While a controls entry waits for a new button, B is bound as usual. In a match B still uses and picks up, and the B that closes a menu no longer also picks something up.
 - Devastator and Havoc: the hop now goes down stairs and off ledges while it keeps going forward, instead of floating at the height you started from and then dropping straight down.
 - Assault Marine and Raptor: tapping Space while falling (off a ledge, at the top of a jump or on the way down) now does the short hop in the air. Holding Space while falling still jumps again as soon as you land.
+- Assault Marine, Raptor and Tactical: a charge that runs off a ledge can now be steered a little left and right with A and D while it flies, at the same speed.

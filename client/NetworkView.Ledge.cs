@@ -27,9 +27,12 @@ public partial class NetworkView
     /// in the fall. Both log the press (<c>LEDGE hop</c> / <c>LEDGE tap</c>).
     /// </summary>
     static readonly bool LedgeHop = OS.GetCmdlineUserArgs().Contains("--ledge-hop"), LedgeTap = OS.GetCmdlineUserArgs().Contains("--ledge-tap");
+    /// <summary><c>--ledge-steer</c> (sim/movement-fixes, with <c>--ledge-charge</c>): D is held while the body is in the air, so the charge off the ledge bends right (logged at the landing).</summary>
+    static readonly bool LedgeSteer = OS.GetCmdlineUserArgs().Contains("--ledge-steer");
     double _ledgeStart, _ledgeChargeAt = 0.5, _ledgeLeftAt;
     bool _ledgePressed;
     int _ledgeAirTicks;
+    bool _ledgeCharged;   // --ledge-steer: the charge was pressed on this run
 
     bool _ledgeRunning;
     float _ledgeYaw;
@@ -47,11 +50,11 @@ public partial class NetworkView
         {
             if (!me.Grounded && !_ledgeLeft) { _ledgeLeft = true; _ledgeLeftAt = _connectedFor; }
             bool landed = _ledgeLeft && me.Grounded && !(LedgeHop && Evade.Evading(me));
-            if (landed) { _ledgeRunning = false; _ledgeSettleUntil = _connectedFor + 1.2; GD.Print($"t {_connectedFor:F2} s: LEDGE walked off and landed at {me.Position.X:F1},{me.Position.Y:F1},{me.Position.Z:F1}"); return idle; }
+            if (landed) { _ledgeRunning = false; _ledgeSettleUntil = _connectedFor + 1.2; GD.Print($"t {_connectedFor:F2} s: LEDGE walked off and landed at {me.Position.X:F1},{me.Position.Y:F1},{me.Position.Z:F1} (heading {me.Yaw * 180f / MathF.PI:F0} deg, planned {_ledgeYaw * 180f / MathF.PI:F0})"); return idle; }
             if (_connectedFor < _ledgeUntil)
             {
                 var b = InputButtons.None;
-                if (LedgeCharge) { b = InputButtons.Sprint; double since = _connectedFor - _ledgeStart; if (since >= _ledgeChargeAt && since < _ledgeChargeAt + 0.06) b |= InputButtons.MeleeHeavy; }
+                if (LedgeCharge) { b = InputButtons.Sprint; double since = _connectedFor - _ledgeStart; if (LedgeSteer ? !_ledgeCharged && me.Grounded && LeavesWithin(me, _ledgeYaw, 10, InputButtons.Sprint) : since >= _ledgeChargeAt && since < _ledgeChargeAt + 0.06) { b |= InputButtons.MeleeHeavy; _ledgeCharged = true; } }
                 // sim/movement-fixes capture aids: one tick of Space before the edge (the hop) or in the fall (the dash).
                 _ledgeAirTicks = me.Grounded ? 0 : _ledgeAirTicks + 1;
                 bool pressNow = !_ledgePressed && (LedgeHop ? me.Grounded && LeavesWithin(me, _ledgeYaw, 8) : LedgeTap && _ledgeAirTicks >= 4);
@@ -60,6 +63,7 @@ public partial class NetworkView
                     _ledgePressed = true; b |= InputButtons.Jump;
                     GD.Print($"t {_connectedFor:F2} s: LEDGE {(LedgeHop ? "hop" : "tap")} at {me.Position.X:F1},{me.Position.Y:F1},{me.Position.Z:F1} ({(me.Grounded ? "on the ground" : $"{_connectedFor - _ledgeLeftAt:F2} s into the fall")})");
                 }
+                if (LedgeSteer && !me.Grounded) return new PlayerInput(tick, 1f, 0f, _ledgeYaw, b, _pitch);   // D in the air (the W is dropped: a sideways stick)
                 return new PlayerInput(tick, 0f, 1f, _ledgeYaw, b, _pitch);
             }
             _ledgeRunning = false;
@@ -74,7 +78,7 @@ public partial class NetworkView
             _ledgeYaw = p.Yaw; _yaw = p.Yaw;
             _ledgeUntil = _connectedFor + p.Seconds + 3.0; _ledgeLeft = false; _ledgeRunning = true; _ledgeStart = _connectedFor;
             _ledgeChargeAt = Math.Max(0.5, 0.65 * p.Seconds - 0.5);
-            _ledgePressed = false;
+            _ledgePressed = false; _ledgeCharged = false;
             GD.Print($"t {_connectedFor:F2} s: LEDGE plan {_ledgePlans}: heading {p.Yaw * 180f / MathF.PI:F0} deg, leaves the ground after {p.Seconds:F1} s, lands {p.Drop:F1} m lower after {p.AirSeconds:F2} s, peak {p.Peak:F1} m/s down");
         }
         else
@@ -87,10 +91,10 @@ public partial class NetworkView
     }
 
     /// <summary><c>--ledge-hop</c>: whether running on along <paramref name="yaw"/> leaves the ground within <paramref name="ticks"/> ticks (the real movement step on the map).</summary>
-    bool LeavesWithin(PlayerState me, float yaw, int ticks)
+    bool LeavesWithin(PlayerState me, float yaw, int ticks, InputButtons buttons = InputButtons.None)
     {
         var s = me;
-        var input = new PlayerInput(0, 0f, 1f, yaw, InputButtons.None, 0f);
+        var input = new PlayerInput(0, 0f, 1f, yaw, buttons, 0f);
         for (int t = 0; t < ticks; t++) { s = Movement.Step(s, input, _config!, _client!.Collision); if (!s.Grounded) return true; }
         return false;
     }
