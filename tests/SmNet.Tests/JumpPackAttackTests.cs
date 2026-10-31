@@ -273,7 +273,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
         Assert.Equal(RushSpec.DefaultLandEndDrop, RushTests.Spec.LandEndDrop);
         var world = Ledge(height);
         var s = Fresh(Config, Marine, new Vector3(0, -2.5f, height));
-        Step(ref s, Config, InputButtons.MeleeHeavy, 0f, 1f, world: world);
+        Step(ref s, Config, InputButtons.Sprint | InputButtons.MeleeHeavy, 0f, 1f, world: world);
         Assert.Equal(RushPhase.Rush, s.Rush);
         bool left = false;
         PlayerState? landedState = null;
@@ -320,7 +320,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
         {
             var world = new Level().Box(new(-100, -100, -1), new(100, 200, 0)).Box(new(-100, -100, 0), new(100, 0, 3f)).Box(new(-100, wall, 0), new(100, wall + 1f, 6f)).World();
             var s = Fresh(Config, Marine, new Vector3(0, -2f, 3f));
-            Step(ref s, Config, InputButtons.MeleeHeavy, 0f, 1f, world: world);
+            Step(ref s, Config, InputButtons.Sprint | InputButtons.MeleeHeavy, 0f, 1f, world: world);
             Assert.Equal(RushPhase.Rush, s.Rush);
             bool left = false;
             for (int k = 0; k < 60; k++)
@@ -411,7 +411,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
                 uint view = w.Tick;
                 var before = w.Players[1];
                 w.Step(id => id == 1
-                    ? new PlayerInput(0, 0f, tick == 0 ? 1f : 0f, 0f, tick == 0 ? InputButtons.MeleeHeavy : InputButtons.None) with { ViewTick = view }
+                    ? new PlayerInput(0, 0f, tick == 0 ? 1f : 0f, 0f, tick == 0 ? InputButtons.Sprint | InputButtons.MeleeHeavy : InputButtons.None) with { ViewTick = view }
                     : new PlayerInput(0, 0f, 0f, MathF.PI, InputButtons.None) with { ViewTick = view });
                 var after = w.Players[1];
                 if (w.LastRushes.Count > 0)

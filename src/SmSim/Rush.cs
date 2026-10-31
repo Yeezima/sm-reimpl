@@ -370,8 +370,14 @@ public static class Rush
     public static bool CanStart(PlayerState s, PlayerInput input, RushSpec spec, SimConfig c)
     {
         if (!s.Alive || !s.Grounded || s.MeleeStep > 0 || s.EvadeTicks > 0 || s.Jump != JumpPhase.None || s.Throwing || s.Reaction != ReactionKind.None) return false;
-        return WHeld(input, spec);
+        return ChargeHeld(input, spec);
     }
+
+    /// <summary>
+    /// sim/charge-needs-sprint (protocol 49; owner 2026-10-31): whether the input is a charge request: Sprint held (Shift; the pad's L3 hold) AND W held (<see cref="WHeld"/>).
+    /// A heavy press without both is a stun strike (in the held stick's direction: the directional melee rule), never a charge.
+    /// </summary>
+    public static bool ChargeHeld(PlayerInput input, RushSpec spec) => (input.Buttons & InputButtons.Sprint) != 0 && WHeld(input, spec);
 
     /// <summary>Whether the input holds W for the charge: the stick's forward part at least <see cref="RushSpec.MinForwardStick"/>.</summary>
     public static bool WHeld(PlayerInput input, RushSpec spec)

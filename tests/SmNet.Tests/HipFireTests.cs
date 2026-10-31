@@ -291,14 +291,14 @@ public class HipFireTests(ITestOutputHelper output)
     };
 
     [Theory]
-    [InlineData(InputButtons.Fire, true)]
+    [InlineData(InputButtons.Fire, false)]
     [InlineData(InputButtons.Fire | InputButtons.Sprint, true)]
     [InlineData(InputButtons.Sprint, true)]
-    [InlineData(InputButtons.None, true)]
-    public void The_strike_button_with_W_charges_with_or_without_the_sprint_and_a_held_trigger(InputButtons held, bool charges)
+    [InlineData(InputButtons.None, false)]
+    public void The_strike_button_with_W_charges_only_with_the_sprint_whatever_the_held_trigger(InputButtons held, bool charges)
     {
-        // M31 made the charge need the sprint (so a held trigger made W + F the stun strike); superseded by protocol 39 (feel/charge-directions,
-        // the owner's rule of 2026-10-29): W held at the F press is enough, so the held trigger no longer changes it.
+        // M31 made the charge need the sprint (so a held trigger made W + F the stun strike); superseded by protocol 39 (W alone), then protocol 49
+        // (sim/charge-needs-sprint, owner 2026-10-31): Shift + W at the F press charges; without Shift it is the stun strike; the held trigger changes nothing.
         var c = ChargeConfig();
         var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true), c);
         uint tick = 1;

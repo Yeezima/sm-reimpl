@@ -419,7 +419,9 @@ public static partial class Protocol
     //     rule for everyone; a fire press is dropped, never buffered), and Fire and Aim no longer end the charge (Aim spam ended it and flipped the aim camera). Worst case 1194
     // 49 (sim/stomp-in-place; the owner's playtest of 2026-10-31): no wire change. The Devastator's and the Havoc's stomp keeps the body exactly in place (no lunge or
     //     burst, no coasting), so the kick-to-stomp chain no longer slides the body forward twice; the stomp's hit time is unchanged (the data's DISPLACE_FootStomp tag).
-    //     Shared with sim/charge-needs-sprint (the lead merges them). Snapshot layout and sizes unchanged
+    //     Snapshot layout and sizes unchanged
+    // 49 (sim/charge-needs-sprint; the owner's rule of 2026-10-31): no wire change. The charge needs Sprint (Shift; the pad's L3 hold) as well as W at the F press; F without Sprint is a stun strike
+    //     in the held stick's direction (W + F alone: forward), never a charge. The buffered press follows the same test (Rush.ChargeHeld).
     public const ushort Version = 49;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
