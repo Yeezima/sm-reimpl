@@ -29,7 +29,7 @@ public sealed class CustomizerServices
 
     /// <summary>
     /// The content profile this run plays (added content E2, docs/added-content.md): <c>--content</c> when given, else the saved choice of the front end (default
-    /// <see cref="ContentProfiles.DefaultName"/>, extended: the owner's decision of 2026-10-29). The Join screen's picker changes it (<see cref="SetContent"/>); the
+    /// <see cref="ContentProfiles.DefaultName"/>, extended: the owner's decision of 2026-10-29). The lobby menu's CONTENT row changes it (<see cref="SetContent"/>); the
     /// in-match picker sets it to the match's own flags. The customizer offers only the factions it allows (<see cref="Factions"/>), and a Join never asks for more.
     /// </summary>
     public ContentExtras Content { get; set; }
@@ -81,6 +81,8 @@ public sealed class CustomizerServices
         UiKit.ReduceMotion = Settings.ReduceMotion;
         FovMath.Selected = Settings.FovDegrees;
         MouseSensitivity.Selected = Settings.MouseSensitivity;
+        LiveOptions.Current = Settings.Options;
+        SmClient.FrontEnd.OptionsHost.Apply(Settings.Options);   // ui/menu-rebuild: the saved options, from the first frame
         Previews = new PreviewAssets(this);
         LoadTask = Task.Run(Load);
     }
@@ -115,10 +117,12 @@ public sealed class CustomizerServices
         UiKit.ReduceMotion = Settings.ReduceMotion;
         FovMath.Selected = Settings.FovDegrees;
         MouseSensitivity.Selected = Settings.MouseSensitivity;
+        LiveOptions.Current = Settings.Options;
+        SmClient.FrontEnd.OptionsHost.Apply(Settings.Options);
         Settings.Save(SettingsDirectory);
     }
 
-    /// <summary>The Join screen's profile picker: plays <paramref name="extras"/> from now on and remembers it (outside the repository, next to the profile).</summary>
+    /// <summary>The lobby menu's CONTENT row: plays <paramref name="extras"/> from now on and remembers it (outside the repository, next to the profile).</summary>
     public void SetContent(ContentExtras extras)
     {
         Content = extras;
@@ -154,7 +158,7 @@ public sealed class CustomizerServices
     /// <summary>The player's own emblem bytes by hash (the join sends them to the server on request).</summary>
     public byte[]? EmblemBytes(EmblemHash hash) => Store.LoadEmblem(hash);
 
-    /// <summary>The plan for the profile's active loadout (or <paramref name="selection"/>) on the side the Join screen asks for.</summary>
+    /// <summary>The plan for the profile's active loadout (or <paramref name="selection"/>) on the side the lobby menu asks for.</summary>
     public JoinPlan? PlanFor(Selection? selection = null)
     {
         if (!Ready) return null;

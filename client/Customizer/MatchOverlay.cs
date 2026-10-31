@@ -25,7 +25,7 @@ public static class MatchOverlay
             var frame = new Panel { Name = FrameName, MouseFilter = Control.MouseFilterEnum.Ignore };
             frame.SetAnchorsPreset(Control.LayoutPreset.FullRect);
             frame.OffsetLeft = 60; frame.OffsetRight = -60; frame.OffsetTop = 6; frame.OffsetBottom = -6;
-            frame.AddThemeStyleboxOverride("panel", UiKit.Box(UiKit.PanelSolid, UiKit.Gold, 2, 0));
+            frame.AddThemeStyleboxOverride("panel", UiKit.Box(UiKit.PanelSolid, UiKit.PanelSolid, 0, 0));
             view.AddChild(dim);
             view.AddChild(frame);
             view.MoveChild(dim, 0);

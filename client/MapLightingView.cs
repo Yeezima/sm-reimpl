@@ -327,15 +327,30 @@ public static class MapLightingView
         sun.DirectionalShadowFadeStart = 0.85f;
         sun.ShadowBlur = O("sh.blur", 1.2f);
         sun.LightAngularDistance = Preset == LightingPreset.High ? O("sun.angle", 0.6f) : 0f;
-        int atlas = Preset == LightingPreset.High ? 8192 : 4096;
-        var filter = Preset switch
+        _presetShadows = (Preset == LightingPreset.High ? 8192 : 4096, Preset switch
         {
             LightingPreset.High => RenderingServer.ShadowQuality.SoftHigh,
             LightingPreset.Medium => RenderingServer.ShadowQuality.SoftMedium,
             _ => RenderingServer.ShadowQuality.SoftLow,
-        };
-        PendingGlobal.Add(() => { RenderingServer.DirectionalShadowAtlasSetSize(atlas, true); RenderingServer.DirectionalSoftShadowFilterSetQuality(filter); });
+        });
+        PendingGlobal.Add(() => ApplyShadowChoice(SmClient.Customizer.Model.LiveOptions.Current.Shadows));
         sun.LightVolumetricFogEnergy = O("vf.sun", 1.0f);
+    }
+
+    static (int Atlas, RenderingServer.ShadowQuality Filter) _presetShadows = (4096, RenderingServer.ShadowQuality.SoftLow);
+
+    /// <summary>The sun's shadow map and filter: the Options menu's Shadow quality, or the lighting preset's at DEFAULT (ui/menu-rebuild; ours). Applied live.</summary>
+    public static void ApplyShadowChoice(SmClient.Customizer.Model.ShadowChoice choice)
+    {
+        var (atlas, filter) = choice switch
+        {
+            SmClient.Customizer.Model.ShadowChoice.Low => (2048, RenderingServer.ShadowQuality.SoftLow),
+            SmClient.Customizer.Model.ShadowChoice.Medium => (4096, RenderingServer.ShadowQuality.SoftMedium),
+            SmClient.Customizer.Model.ShadowChoice.High => (8192, RenderingServer.ShadowQuality.SoftHigh),
+            _ => _presetShadows,
+        };
+        RenderingServer.DirectionalShadowAtlasSetSize(atlas, true);
+        RenderingServer.DirectionalSoftShadowFilterSetQuality(filter);
     }
 
     /// <summary>

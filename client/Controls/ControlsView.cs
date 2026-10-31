@@ -46,13 +46,14 @@ public sealed partial class ControlsView : Control
     /// <summary>The entry button of an action's slot on the tab shown, or null.</summary>
     public Button? BindButton(GameAction action, int slot) => _binds.GetValueOrDefault((_device, action, slot));
 
-    public ControlsView(Action onBack)
+    /// <param name="background">What the screen stands on (the in-match dim); null: nothing of its own, the screen behind shows (the front end's background).</param>
+    public ControlsView(Action onBack, Control? background = null)
     {
         _onBack = onBack;
         Name = "Controls";
         SetAnchorsPreset(LayoutPreset.FullRect);
         Visible = false;
-        AddChild(UiKit.Background().With(n => n.SetAnchorsPreset(LayoutPreset.FullRect)));
+        if (background is not null) AddChild(background.With(n => n.SetAnchorsPreset(LayoutPreset.FullRect)));
         var margin = new MarginContainer();
         margin.SetAnchorsPreset(LayoutPreset.FullRect);
         foreach (var (side, v) in new[] { ("left", 84), ("right", 84), ("top", 22), ("bottom", 20) }) margin.AddThemeConstantOverride("margin_" + side, v);

@@ -69,6 +69,27 @@ public static class HostBots
         return plan;
     }
 
+    /// <summary>The most bots a side can take: 8 a side, less the human on the human's side (Auto counts as the Space Marines).</summary>
+    public static int MaxForSide(string side, bool humanChaos) => (side == Chaos) == humanChaos ? 7 : 8;
+
+    /// <summary>
+    /// The bots the host asked for, side by side (ui/menu-rebuild: ADD LOYALIST BOT and ADD CHAOS BOT), in start order: each next bot goes to the side with fewer players, while it has any left,
+    /// so a one-sided request still fills evenly up to the point it can. Each side's classes follow that side's order. Limited by <see cref="MaxForSide"/>.
+    /// </summary>
+    public static IReadOnlyList<BotSlot> PlanSides(int loyalists, int chaos, bool humanChaos)
+    {
+        int leftMarines = Math.Clamp(loyalists, 0, MaxForSide(Marines, humanChaos)), leftChaos = Math.Clamp(chaos, 0, MaxForSide(Chaos, humanChaos));
+        var plan = new List<BotSlot>();
+        int marines = humanChaos ? 0 : 1, traitors = humanChaos ? 1 : 0;
+        while (leftMarines + leftChaos > 0)
+        {
+            bool toChaos = leftMarines == 0 || (leftChaos > 0 && traitors <= marines);
+            if (toChaos) { plan.Add(new BotSlot(Chaos, ClassFor(Chaos, plan.Count(b => b.Side == Chaos)))); leftChaos--; traitors++; }
+            else { plan.Add(new BotSlot(Marines, ClassFor(Marines, plan.Count(b => b.Side == Marines)))); leftMarines--; marines++; }
+        }
+        return plan;
+    }
+
     /// <summary>
     /// The next bot of a plan, given the bots before it (their slots) and the human's side: on the side with fewer players (the human counts on theirs; ties go
     /// to the side the human did not pick), the next class of that side's order. Null at <see cref="MaxBots"/> or when both sides are full (8 each).
