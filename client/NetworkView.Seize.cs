@@ -101,7 +101,7 @@ public partial class NetworkView
         {
             if (_camera is null || _client?.Status != ClientStatus.Connected) return false;
             bool InView(Node3D n) => n.IsInsideTree() && _camera.IsPositionInFrustum(n.GlobalPosition);
-            if (_blasts.Any(b => InView(b.Node)) || _coneFlashes.Any(f => InView(f.Node)) || DeathInView() || FxShotRecent) return true;   // M25b: or a weapon effect just played
+            if (_blasts.Any(b => InView(b.Node)) || _coneFlashes.Any(f => InView(f.Node)) || DeathInView() || FxShotRecent || BarrelShotRecent) return true;   // M25b: or a weapon effect just played
             return _local is not null && _jumpTracks.TryGetValue(_client.PlayerId, out var t) && t.View is JumpView.Air or JumpView.Dive
                 && _local.Position.Z - t.LiftZ >= 3f && _camera.IsPositionInFrustum(_local.GlobalPosition + Vector3.Up);
         }
@@ -328,6 +328,7 @@ public partial class NetworkView
         _spectateAngle += delta;
         _spectateMode ??= Spectate.ToLowerInvariant();
         string mode = _spectateMode;
+        if (mode == "barrel" && BarrelView() is { } barrelView) return barrelView;   // fx/barrel-origin
         if (mode == "shot" && FxShotView() is { } shotView) return shotView;   // M25b: close to the last shot's effects
         // "cam:x,y,z,tx,ty,tz": a fixed camera at game position (x, y, z) looking at (tx, ty, tz) (close-up shots).
         if (mode.StartsWith("cam:", StringComparison.Ordinal))

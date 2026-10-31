@@ -691,6 +691,7 @@ public partial class NetworkView : Node3D
         if (OwnDead || PickerBusy) { _switchPending = false; _latch.Reset(); return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch); }
         if (_bot && BotSwitchEvery > 0 && _connectedFor > 4.0) return BotSwitchInput(tick);   // fix/stow-right test aid (NetworkView.UpperBody.cs)
         if (_bot && BotIdle) return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch);
+        if (_bot && BarrelTest) return BarrelTestInput(tick);   // fx/barrel-origin test aid (NetworkView.Barrel.cs)
         if (_bot && BotGait) return BotGaitInput(tick);   // M36 test aid
         if (_bot && AimTest && BotBackup) return BotBackupInput(tick);   // feel/camera-hitstop test aid (--bot-backup): backs into the wall behind
         if (_bot && SpreadWallInput(tick) is { } spreadWall) return spreadWall;   // weapons/spread test aid (NetworkView.Spread.cs)
@@ -944,6 +945,7 @@ public partial class NetworkView : Node3D
     /// </summary>
     bool BotWantsSwitch(PlayerState me)
     {
+        if (BarrelTest) return false;   // fx/barrel-origin: the weapon asked for stays in hand
         if (me.MeleeStep > 0 || me.SwitchLeft > 0f || me.Charging || me.PendingShot > 0) return false;   // a switch would cancel the charge
         if (Loadouts.Holstered(_config!, me) is null) { _botCoolingPrimary = false; return false; }
         if (me.Slot == WeaponSlot.Ranged)
@@ -1018,10 +1020,11 @@ public partial class NetworkView : Node3D
             var (mesh, material) = ProjectileLook(q.Weapon, q.Stage, q.Thrown);
             if (node.Mesh != mesh) node.Mesh = mesh;
             if (node.MaterialOverride != material) node.MaterialOverride = material;
-            node.Position = new Vector3(q.Position.X, q.Position.Y, q.Position.Z);
+            var drawn = BarrelDrawn(q);   // fx/barrel-origin: leaves the barrel, joins the server's path within 3 m (NetworkView.Barrel.cs)
+            node.Position = new Vector3(drawn.X, drawn.Y, drawn.Z);
             // M25b: with the original trail drawing it, the placeholder ball stays only for grenades (their model is not drawn yet).
             Ph("projectiles: effects");
-            bool trail = FxProjectile(q, ToGodot(q.Position));
+            bool trail = FxProjectile(q, ToGodot(drawn));
             Ph("projectiles and blasts");
             string label = q.Thrown ? "grenade" : q.Weapon >= 0 && q.Weapon < _config.Weapons.Count ? _config.Weapons[q.Weapon].Name : "";
             node.Visible = !(trail && !(q.Thrown || (label.Contains("grenade", StringComparison.OrdinalIgnoreCase) && !label.Contains("plasma", StringComparison.OrdinalIgnoreCase)))) || (trail && IsPlasmaShot(q.Weapon, q.Thrown) && !OldPlasmaBall);   // wfx: a plasma shot's solid ball shows with the data's trail around it
@@ -1033,6 +1036,7 @@ public partial class NetworkView : Node3D
             var node = _projectileNodes[id];
             node.Visible = false;
             FxProjectileGone(id);
+            BarrelForget(id);
             _projectileNodes.Remove(id);
             _projectilePool.Push(node);
         }
