@@ -1466,7 +1466,8 @@ public partial class NetworkView : Node3D
         // Jump pack: take-off, flight, dive and impact win over a throw (the toss clip is a standing one) ...
         if (ShowJumpPose(character, JumpPose(state, airborneOnly: true))) { JumpUpperLayers(character, state, throwTime); return; }   // pass 2: the wobble and the upper-body actions in flight
         // Evade roll (protocol 13): the class's roll clip at the shown time; the simulation moves the body, the clip is in place.
-        if (EvadePose(state) is { } roll && character.Pose(roll.Clip, roll.Time, ClipBlends.Evade)) return;
+        // sim/movement-fixes: a roll or hop falling off a drop shows the fall pose after FallRules.ChargeFallDelay in the air (NetworkView.Fall.cs).
+        if (!(EvadeFallingInAir(state) && fallTrack.ChargeFall) && EvadePose(state) is { } roll && character.Pose(roll.Clip, roll.Time, ClipBlends.Evade)) return;
         // Throwing: the toss clip at the throw's time (the simulation ends the throw at ThrowDuration, before the clip's end).
         if (throwTime is { } tt && _tossAnimation is not null && TossShown(state) && (HandoffThrow(character, state, own, _tossAnimation, tt) || character.Pose(_tossAnimation, tt, ClipBlends.Throw))) return;
         // anim/feel-pass (NetworkView.Feel.cs): a slash whose marine moved on keeps its follow-through on the upper body over the strike's exit.

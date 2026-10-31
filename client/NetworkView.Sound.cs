@@ -583,7 +583,8 @@ public partial class NetworkView
             if (wasUp && !up)
             {
                 SurfaceUnder(t, s);
-                if (!JumpPack.Pounding(p.Jump))
+                // sim/movement-fixes: a dash started in the air ends the jump without a landing (no landing sound in mid-air).
+                if (!JumpPack.Pounding(p.Jump) && !(Evade.Evading(s) && !s.Grounded))
                 {
                     // The landing entry for the drop from the apex: the largest distance_from_apex_to_land not above it.
                     PostAll(LandingSounds(pack, t.TopZ - s.Position.Z), t.Emitter, own, "jump land");

@@ -478,7 +478,7 @@ public static class Combat
         // M44: the dash's direction is latched from the stick at the take-off's press (a key let go a tick before Space still counts).
         var dashDirection = dashAt is not null && jump.Started ? Evade.DirectionOf(input.Sanitized().MoveX, input.Sanitized().MoveY, evadeSpec!.Diagonals) : s.JumpDashDirection;
         var evade = Evade.Begin(s, evadeSpec, input.Sanitized(), jumpDown && !s.JumpHeld, meleePress || heavyPress, switchPress, fireDown || aimDown || grenadePress, c,
-            jump.DashStart, jump.Started, dashDirection);
+            jump.DashStart, jump.Started, dashDirection, world);
         if (meleeJumpBranch && !jump.Started && !evade.Started) s = beforeJumpBranch;   // nothing took the press: the attack goes on
         bool evading = evade.Active;
         if (evade.Started) used |= InputBuffer.Bit(BufferedAction.Jump);

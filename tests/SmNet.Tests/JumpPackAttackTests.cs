@@ -227,7 +227,8 @@ public class JumpPackAttackTests(ITestOutputHelper output)
         {
             // In the air: the stick, Fire and Aim (inputs that end the rush from its move branch) and Jump: none ends it.
             bool inAir = left is not null;
-            Step(ref s, Config, inAir ? InputButtons.Fire | InputButtons.Aim | InputButtons.Jump : InputButtons.None, inAir ? 1f : 0f, 0f, world: world);
+            // sim/movement-fixes (D): the stick is S here (it would end the charge on the ground); A / D now steer a held charge (MovementFixesTests).
+            Step(ref s, Config, inAir ? InputButtons.Fire | InputButtons.Aim | InputButtons.Jump : InputButtons.None, 0f, inAir ? -1f : 0f, world: world);
             if (left is null && !s.Grounded) { left = s; frozenAt = s.RushTicks; }
             else if (left is not null && !s.Grounded)
             {

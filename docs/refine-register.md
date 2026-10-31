@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1819 spec table rows: **1257 tagged**, 410 not tagged (read from data with high confidence), 152 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 398 rows of the changes document.
+Scanned 1834 spec table rows: **1267 tagged**, 414 not tagged (read from data with high confidence), 153 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 402 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 315 | 267 | 273 | 93 | 12 |
+| Movement (critical) | 325 | 277 | 281 | 93 | 12 |
 | Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
 | Weapons (critical) | 113 | 66 | 98 | 50 | 3 |
 | Melee (critical) | 64 | 51 | 60 | 11 | 5 |
@@ -53,21 +53,21 @@ Scanned 1819 spec table rows: **1257 tagged**, 410 not tagged (read from data wi
 | Core simulation (provisional values) | 124 | 109 | 109 | 13 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1257** | 1039 | 1011 | 395 | 38 |
+| **All areas** | **1267** | 1049 | 1019 | 395 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 493 |
-| confidence: low | 448 |
-| confidence: medium | 446 |
-| kind: interpretation | 324 |
+| kind: ours | 502 |
+| confidence: low | 452 |
+| confidence: medium | 450 |
+| kind: interpretation | 325 |
 | notes: ours | 289 |
 | confidence: none (low) | 117 |
 | kind: provisional | 100 |
-| kind: estimate | 43 |
-| kind: user's knowledge | 41 |
+| kind: user's knowledge | 45 |
+| kind: estimate | 44 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
 | notes: provisional | 31 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (315)
+### Movement (gameplay-critical) (325)
 
 *Spec section: Extracted parameters*
 
@@ -562,6 +562,21 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-1430FAAD` | Sprint | hold the left stick click (the owner's answer 2026-10-30: a hold, not a toggle) (stick click) | confidence: medium; notes: user's knowledge | locale 122101 "Movement (Press to Sprint)"; owner's recollection | Sprint: compare with SM1 by timing a run over a known distance. Ours: hold the left stick click (the owner's answer 2026-10-30: a hold, not… | ☐ |
 | `R-981212DA` | Menu back (every screen Esc closes or steps back from) | B: closes the open menu or goes back one level exactly as Esc or the screen's BACK does (the Esc menu and its sub-screens, the armour editor, CONTROLS, confirm dialogs and text prompts take the dialog's cancel button, the connection screen going back to the… (button) | confidence: medium | owner's request 2026-11-01 (the console convention) | Menu back (every screen Esc closes or steps back from): compare with SM1 by timing a run over a known distance. Ours: B: closes the open menu or goes back one level exactly as Esc or the… | ☐ |
+
+*Spec section: Movement fixes: the heavy hop down stairs and off ledges, the pound in a full jump, the short hop while falling, steering a ledge charge (sim/movement-fixes; protocol 51, no wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-3DFECFF6` | A: the hop over a drop | in the air the hop's curve is the lift above the ground below, not a fixed height: while the feet are more than **0.05 m** above the ground below (a ray down) plus the curve's height, gravity (the movement's, 20 m/s² on the install) pulls the body down on top… (m, m/s²) | kind: ours; kind: user's knowledge; confidence: medium | the owner's report (user's knowledge of the original); the slack ours | A: the hop over a drop: compare with SM1 by timing a run over a known distance. Ours: in the air the hop's curve is the lift above the ground below, not a… | ☐ |
+| `R-4A58A0E9` | A: input over a drop | a hop falling below its curve (its vertical speed more than **0.05 m/s** under the curve's) and over a real drop (the feet more than 0.05 m above the ground plus the curve, so a hop held down by a low ceiling is not one; the review's L3) is not ended by the… (m/s) | kind: ours; kind: user's knowledge; confidence: medium | the owner's report; the slack ours | A: input over a drop: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: a hop falling below its curve (its vertical speed more than 0.05 m/s… | ☐ |
+| `R-2DDE2235` | A: the hop's end in the air | a hop whose clip ends in the air (a drop deeper than its travel: about 3 m below after the 0.967 s clip) ends there and the body falls on as any walk-off fall (straight down under gravity, the walk-off rule) and lands normally; the client shows the fall pose… | kind: ours; confidence: low | the existing walk-off rule | A: the hop's end in the air: compare with SM1 by feel or video. Ours: a hop whose clip ends in the air (a drop deeper than its travel:… | ☐ |
+| `R-B840042B` | A: up stairs, slopes, flat ground | unchanged: no gravity is added while the feet are within the slack of the ground plus the curve (tested: 0.25 m risers every 0.6 m, 0.2 m every 0.4 m, a 20 degree ramp, the flat curve tick for tick, the existing 0.3 m step cases) | kind: ours | ours | A: up stairs, slopes, flat ground: compare with SM1 by feel or video. Ours: unchanged: no gravity is added while the feet are within the slack of… | ☐ |
+| `R-62EEE491` | A: animation | a roll or hop falling off a drop (past its own lift, going down) keeps its clip for **0.3 s** off the ground, then the fall pose (the charge's `FallRules.ChargeFallDelay`); the landing then plays as for any fall; on the ground the clip resumes.… (s) | kind: ours; confidence: low | ours (the charge's rule reused) | A: animation: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a roll or hop falling off a drop (past its own lift, going down)… | ☐ |
+| `R-CB6E42DC` | B: the Air-Cooled Thrusters delay | with `mp_perk_jump_pack_reduced_cooldown` the data's `smash_available_delay` is **2** s (taken as "after the lift-off"; an interpretation): with that perk the pound waits 2 s into a jump (a full jump's apex is about 1.4 s after the lift-off), the slash does… (s) | kind: interpretation; confidence: low | wargear `jump_info` perk entry | B: the Air-Cooled Thrusters delay: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: with mp_perk_jump_pack_reduced_cooldown the data's… | ☐ |
+| `R-6A5E0D45` | C: the short hop while falling | a **Space tap** in the air while falling (walked or dashed off a ledge; a jump's apex hang or its fall; not its ascent, take-off, dive or recovery) is the dash: the press waits in the input buffer and is not replayed while Space is down (the tap-or-hold… (ticks) | kind: ours; kind: user's knowledge; confidence: medium | the owner's report (user's knowledge of the original); data: the base graph's `Navigation --on BTN_Nav_Evade --> Jumppack Evade` has no `BOOL_IsSupported` test… | C: the short hop while falling: compare with SM1 by feel or video. Ours: a Space tap in the air while falling (walked or dashed off a ledge; a… | ☐ |
+| `R-15F080D4` | C: fuel, spacing, limits | the dash still costs no power and keeps its spacing: `min_time_between_activations` 0.8 s × the 0.7 lock scale (17 ticks) from a dash's start; a tap inside it is kept for the buffer's 0.3 s and dashes when the spacing ends, else it is lost; a press during a… (s, power) | kind: ours; confidence: medium | data (spacing, no cost); no air limit: absence of evidence | C: fuel, spacing, limits: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the dash still costs no power and keeps its spacing:… | ☐ |
+| `R-C82D328F` | C: presentation | a dash started in the air ends the jump's view without a landing (no landing effect, ring or sound in mid-air); its flight, landing and sounds are the dash's own | kind: ours | ours | C: presentation: compare with SM1 by feel or video. Ours: a dash started in the air ends the jump's view without a landing (no… | ☐ |
+| `R-61FA96E8` | D: steering a charge off a ledge | a charge held in the air (the bull rush off a ledge, the dash attack's lunge held at its end; protocol 30's `Rush.Held`: the clip waits, the speed it left the ground with is kept) turns with the stick's sideways part: A left, D right, at most **60 degrees per… (deg/s) | kind: ours; kind: estimate; kind: user's knowledge; confidence: low | the owner's requests (user's knowledge); the rate ours | D: steering a charge off a ledge: compare with SM1 by feel or video. Ours: a charge held in the air (the bull rush off a ledge, the dash… | ☐ |
 
 ### Combat core (gameplay-critical) (10)
 
@@ -2499,6 +2514,15 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-283346F3` | Reactions turned to the attacker | The reacting body turns (at most 45 degrees) so its clip's side faces the attacker | Whether SM1 aligned victims (it chose clips by direction) | same | Reactions turned to the attacker: compare with SM1 by watching the reaction and timing it frame by frame. Ours: The reacting body turns (at most 45 degrees) so its clip's side faces… | ☐ |
 | `C-F576CADA` | The own hit flinches the victim on the hit frame | The data's flinch at the predicted hit, the server's reaction a round trip later | Whether SM1 predicted hit reactions on the attacker's client | same | The own hit flinches the victim on the hit frame: compare with SM1 by watching the reaction and timing it frame by frame. Ours: The data's flinch at the predicted hit, the server's reaction a round… | ☐ |
 
+#### Movement fixes (sim/movement-fixes; protocol 51, no wire change)
+
+| ID | Rule | What we do | What is unknown | Spec section | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-3856BE9F` | The heavy hop over a drop | Over stairs going down or a ledge, gravity pulls the hop down on top of its height curve once the feet are more than 0.05 m (ours) above the ground plus the curve; input no longer ends a hop that is falling below its curve, so it keeps its forward travel to the ground (the owner's report of 2026-11-01) | How the original's hop met a drop (its clips have no vertical root motion); the slacks are estimates | "Movement fixes" | The heavy hop over a drop: compare with SM1 by feel or video. Ours: Over stairs going down or a ledge, gravity pulls the hop down on top… | ☐ |
+| `C-16462197` | The short hop while falling | A Space tap in the air while falling (off a ledge, at a jump's apex or in its fall) is the jump-pack dash, on its release (the tap-or-hold timing of the ground); no limit per airtime, the dash's spacing applies; the jump ends without a landing (the owner's report of 2026-11-01; the data's jump-pack evade has no ground… | Whether the original limited air dashes (none seen in the data); a held press in the air stays the buffered long press (ours) | same | The short hop while falling: compare with SM1 by feel or video. Ours: A Space tap in the air while falling (off a ledge, at a jump's apex… | ☐ |
+| `C-0CC01B8C` | Steering a charge off a ledge | A charge held in the air turns with A / D at up to 60 degrees per second (ours) at its held speed, for the Assault, Raptor, Tactical and Chaos Tactical (the owner's requests of 2026-11-01); the Ork's sprint attack does not | The original's air steering of a ledge charge (no data value); the rate | same | Steering a charge off a ledge: compare with SM1 by feel or video. Ours: A charge held in the air turns with A / D at up to 60 degrees per… | ☐ |
+| `C-1766C557` | Rolls and hops falling off a drop show the fall pose | After 0.3 s in the air past their own lift (the charge's delay, ours) | The original's evade-to-fall blend timing | same | Rolls and hops falling off a drop show the fall pose: compare with SM1 by timing a run over a known distance. Ours: After 0.3 s in the air past their own lift (the charge's delay, ours). | ☐ |
+
 ### Not yet reproduced
 
 | ID | Missing | Note | Compare in a playtest | Result |
@@ -2711,4 +2735,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-7B32DDE7` | Protocol 45 | Combat pass: the charge key, holstered reloads, headshots, directional melee, the ledge charge's fall (sim/combat-pass; protocol 45, used by the simulation) |
 | `R-1082D317` | Probe result (`feel/sweep1`, `--no-feel` / this build) | The feel pass: the roll's blending for every action (anim/feel-pass; client only, not simulated, no protocol change) |
 | `R-DB189635` | Wire | Sticky launcher grenades (sim/sticky-launcher; protocol 48, used by the simulation) |
+| `R-752D26F1` | Protocol 51 | Movement fixes: the heavy hop down stairs and off ledges, the pound in a full jump, the short hop while falling, steering a ledge charge (sim/movement-fixes; protocol 51, no wire change) |
 

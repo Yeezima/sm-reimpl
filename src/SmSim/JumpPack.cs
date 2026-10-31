@@ -311,6 +311,20 @@ public static partial class JumpPack
             }
         }
 
+        // sim/movement-fixes (C; the owner, 2026-11-01: "i should be able to perform a short hop at any moment while falling"): with a dash, a Space tap in the
+        // air while falling (walked or dashed off a ledge: phase None; after a jump's apex: the hang or the fall) is the dash, as a tap on the ground is: the
+        // press in the air waits in the input buffer (InputBuffer.Locked: in the air) and is not replayed while Space stays down (InputBuffer.AirTapPending);
+        // let go before the dash's decision tick (still a plain Jump, not yet BufferedAction.JumpLong), its replay on the release tick (or a later tick of its
+        // window, once the spacing allows) starts the dash: the jump ends and DashStart asks the evade for it, from the stick then. A press held to the decision
+        // tick becomes the long press (the small jump on landing, as before). Not in the ascent (still rising; Jump is the hold there), the take-off (its own
+        // decision covers it), the dive or the recovery. The dash's spacing and its no-cost rule are unchanged (Evade.CanDashInAir: refused while it would not
+        // start, so the jump goes on). Data: the base graph's "Jumppack Evade" is entered from Navigation, which a walk-off fall stays in, with no
+        // BOOL_IsSupported test (every ground evade has one); the in-jump sequencer carries a BRANCH_Jump_To_Dash tag.
+        bool airTap = jumpPress && s.Buffered == BufferedAction.Jump;   // the buffered tap replayed (a fresh press has nothing buffered before it)
+        if (dashAt is not null && !started && airTap && !s.Grounded && phase is JumpPhase.None or JumpPhase.Hang or JumpPhase.Fall
+            && !meleeBusy && !meleePress && Evade.CanDashInAir(s, c))
+        { phase = JumpPhase.None; ticks = 0; mark = 0; holding = false; landMoving = false; dashStart = true; }
+
         float oldHold = MathF.Min(T(mark), pack.MaxHold);
         // M44: the dash's decision. Before the decision tick nothing is spent and the hold grows freely; a release then is the dash.
         if (dashAt is float dash && phase == JumpPhase.TakeOff && !started && mark < ticks && T(ticks - 1) + Eps < MathF.Min(dash, pack.TakeOffDelay))
