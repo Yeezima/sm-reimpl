@@ -30,7 +30,7 @@ public sealed partial class MusouSim
     readonly float[] _yaw = new float[Capacity];
     readonly float[] _health = new float[Capacity];
     readonly int[] _node = new int[Capacity];
-    readonly ushort[] _target = new ushort[Capacity];
+    readonly int[] _target = new int[Capacity];   // a player's id, or a Guard squad's (negative, TfwContracts.GuardTargetId); 0: none
     readonly ushort[] _stateTicks = new ushort[Capacity];
     readonly byte[] _token = new byte[Capacity];
     readonly Queue<int> _free = new(Capacity);
@@ -99,12 +99,51 @@ public sealed partial class MusouSim
         return (ushort)(i + 1);
     }
 
+    /// <summary>
+    /// <see cref="Spawn"/> for a leashed defender (Three-Front War, design section D): it stands at home until a target comes within <paramref name="aggro"/> metres of that home
+    /// (flat), goes back when none is, and is free for good once any member of <paramref name="group"/> (above 0) is hurt or <see cref="ReleaseGroup"/> is called. Its id, or 0 as
+    /// <see cref="Spawn"/>, or for a group that is not above 0 or an aggro that is not 0 or more. A plain <see cref="Spawn"/> has no leash (aggro infinite), so the 5-wave run is unchanged.
+    /// </summary>
+    public ushort SpawnLeashed(MusouEnemyType type, Vector3 position, float yaw, float health, int group, float aggro, int node = -1)
+    {
+        if (group <= 0 || !(aggro >= 0f)) return 0;
+        ushort id = Spawn(type, position, yaw, health, node);
+        if (id == 0) return 0;
+        _home[id - 1] = _position[id - 1];   // as the graph placed it
+        _aggro[id - 1] = aggro;
+        _group[id - 1] = group;
+        return id;
+    }
+
+    /// <summary>Frees every member of a leashed <paramref name="group"/> for good, in id order; the number freed.</summary>
+    public int ReleaseGroup(int group)
+    {
+        if (group <= 0) return 0;
+        int n = 0;
+        for (int i = 0; i < Capacity; i++)
+        {
+            if (!_used[i] || _group[i] != group) continue;
+            _group[i] = 0; _aggro[i] = float.PositiveInfinity;
+            n++;
+        }
+        return n;
+    }
+
+    /// <summary>Whether the enemy still has a leash (false for an unknown, unleashed or released one).</summary>
+    public bool Leashed(ushort id) => id >= 1 && id <= Capacity && _used[id - 1] && _group[id - 1] != 0;
+
+    /// <summary>What the enemy goes for as stored: a player's id, a Guard squad's negative <see cref="MusouTarget.Id"/>, or 0 (<see cref="MusouEnemy.TargetPlayer"/> shows players only).</summary>
+    public int TargetOf(ushort id) => id >= 1 && id <= Capacity && _used[id - 1] ? _target[id - 1] : 0;
+
+    /// <summary>The enemy's target as the public view has it: a player, or 0 for none or a Guard squad.</summary>
+    ushort TargetPlayer(int i) => (ushort)Math.Max(0, _target[i]);
+
     /// <summary>The enemy with <paramref name="id"/>, if its slot is in use (alive or dying).</summary>
     public bool TryGet(ushort id, out MusouEnemy enemy)
     {
         int i = id - 1;
         if (i < 0 || i >= Capacity || !_used[i]) { enemy = default; return false; }
-        enemy = new MusouEnemy(id, _type[i], _state[i], _position[i], _velocity[i], _yaw[i], _health[i], _node[i], _target[i], _stateTicks[i], _token[i]);
+        enemy = new MusouEnemy(id, _type[i], _state[i], _position[i], _velocity[i], _yaw[i], _health[i], _node[i], TargetPlayer(i), _stateTicks[i], _token[i]);
         return true;
     }
 
@@ -119,6 +158,7 @@ public sealed partial class MusouSim
         int i = id - 1;
         if (i < 0 || i >= Capacity || !_used[i] || _state[i] == MusouEnemyState.Dying || !(amount > 0f)) return false;
         _health[i] = MathF.Max(0f, _health[i] - amount);
+        if (_group[i] != 0) ReleaseGroup(_group[i]);   // a hurt defender wakes its whole group (MusouSim.Ai.cs)
         AddEvent(new MusouEvent(MusouEventKind.Hit, Tick, id, (ushort)Math.Clamp(attacker, 0, ushort.MaxValue), marker, _position[i]));
         if (_health[i] > 0f) return true;
         killed = true;
@@ -200,7 +240,7 @@ public sealed partial class MusouSim
     {
         int n = 0;
         for (int i = 0; i < Capacity && n < into.Length; i++)
-            if (_used[i]) into[n++] = new MusouEnemy((ushort)(i + 1), _type[i], _state[i], _position[i], _velocity[i], _yaw[i], _health[i], _node[i], _target[i], _stateTicks[i], _token[i]);
+            if (_used[i]) into[n++] = new MusouEnemy((ushort)(i + 1), _type[i], _state[i], _position[i], _velocity[i], _yaw[i], _health[i], _node[i], TargetPlayer(i), _stateTicks[i], _token[i]);
         return n;
     }
 

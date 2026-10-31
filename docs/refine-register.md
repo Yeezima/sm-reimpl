@@ -28,12 +28,12 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1883 spec table rows: **1309 tagged**, 420 not tagged (read from data with high confidence), 154 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 414 rows of the changes document.
+Scanned 1891 spec table rows: **1317 tagged**, 420 not tagged (read from data with high confidence), 154 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 415 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 343 | 291 | 295 | 98 | 12 |
-| Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
+| Movement (critical) | 344 | 292 | 296 | 98 | 12 |
+| Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 113 | 66 | 98 | 50 | 3 |
 | Melee (critical) | 64 | 51 | 60 | 11 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
@@ -50,17 +50,17 @@ Scanned 1883 spec table rows: **1309 tagged**, 420 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 137 | 122 | 120 | 14 | 1 |
+| Core simulation (provisional values) | 142 | 127 | 124 | 14 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1309** | 1087 | 1055 | 401 | 38 |
+| Ork faction | 78 | 72 | 40 | 8 | 0 |
+| **All areas** | **1317** | 1095 | 1060 | 401 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 529 |
-| confidence: low | 478 |
+| kind: ours | 537 |
+| confidence: low | 483 |
 | confidence: medium | 460 |
 | kind: interpretation | 329 |
 | notes: ours | 292 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (343)
+### Movement (gameplay-critical) (344)
 
 *Spec section: Extracted parameters*
 
@@ -576,6 +576,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-ABEF115E` | Musou enemy movement | one shared flow field from the players' nodes (incremental, 20k expansions a tick, refresh 0.5 s; a player off the graph uses the node within 6 m sideways and 12 m below, else its last); at most 4 melee and 6 shooters engage a player, the others circle at 3–6… (m, s) | kind: ours; confidence: low | ours (MU1) | Musou enemy movement: compare with SM1 by timing a run over a known distance. Ours: one shared flow field from the players' nodes (incremental, 20k… | ☐ |
 
+*Spec section: Added content: Musou — the Three-Front War (TF0: contracts and a stub map; TF3: Guardsmen and leashed defenders; no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-E24D28CB` | War Guardsman speed | 4.5 (the install's `ig_coop_guardsman` run 6.25, walk 3.6: not used, for the owner to choose) (m/s) | kind: ours; confidence: low | the architect's proposal; data values as read from the install | War Guardsman speed: compare with SM1 by timing a run over a known distance. Ours: 4.5 (the install's ig_coop_guardsman run 6.25, walk 3.6: not used… | ☐ |
+
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -611,7 +617,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C82D328F` | C: presentation | a dash started in the air ends the jump's view without a landing (no landing effect, ring or sound in mid-air); its flight, landing and sounds are the dash's own | kind: ours | ours | C: presentation: compare with SM1 by feel or video. Ours: a dash started in the air ends the jump's view without a landing (no… | ☐ |
 | `R-61FA96E8` | D: steering a charge off a ledge | a charge held in the air (the bull rush off a ledge, the dash attack's lunge held at its end; protocol 30's `Rush.Held`: the clip waits, the speed it left the ground with is kept) turns with the stick's sideways part: A left, D right, at most **60 degrees per… (deg/s) | kind: ours; kind: estimate; kind: user's knowledge; confidence: low | the owner's requests (user's knowledge); the rate ours | D: steering a charge off a ledge: compare with SM1 by feel or video. Ours: a charge held in the air (the bull rush off a ledge, the dash… | ☐ |
 
-### Combat core (gameplay-critical) (10)
+### Combat core (gameplay-critical) (11)
 
 *Spec section: Known behavior (public, unverified)*
 
@@ -632,6 +638,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-72F9868D` | Respawn time | 5 (s) | confidence: none (low); notes: placeholder; section: placeholder; section: provisional | placeholder; not in the mode data (M15: shown by the HUD, set in code) | Respawn time: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 5. | ☐ |
 | `R-9432FECF` | Regeneration timing | shield and health regenerate once the time since the last damage reaches their delays; `reload` refills when its time has fully elapsed; the bolter fires on the first tick its cooldown has elapsed (0.133 s rounds up to 4 ticks at 30 Hz, so 7.5 shots/s instead… | confidence: low; notes: ours; section: placeholder; section: provisional | tick quantisation is ours | Regeneration timing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: shield and health regenerate once the time since the last damage… | ☐ |
 | `R-9F8281FF` | Time to kill (derived) | 14 body hits from full health and shield: 9 on the shield alone (22 × 0.505 each), a 10th that breaks it and spills into health, then 4 on health; about 1.7 s of continuous fire at 0.133 s per shot (s) | confidence: low; notes: unverified; section: placeholder; section: provisional | unverified against the original | Time to kill (derived): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 14 body hits from full health and shield: 9 on the shield alone (22 ×… | ☐ |
+
+*Spec section: Added content: Musou — the Three-Front War (TF0: contracts and a stub map; TF3: Guardsmen and leashed defenders; no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-644B906E` | War Guardsman health | 85, the install's `ig_coop_guardsman` value, in place of the design's 40: with 40 the 6 squads lost to 60 Boyz in the box (all 60 men dead by 45 s, 39 Boyz left), with 85 they win in 34.4 s losing 20 (hit points) | kind: ours | the install's data; the choice is TF3's measure | War Guardsman health: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 85, the install's ig_coop_guardsman value, in place of the design's… | ☐ |
 
 ### Weapons (gameplay-critical) (113)
 
@@ -1735,7 +1747,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (137)
+### Core simulation (provisional values) (142)
 
 *Spec section: Provisional values in use*
 
@@ -1833,7 +1845,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-F64DD798` | Musou weapon drops | the owner (2026-10-31): "each player sees weapons when 'boss' enemies die ... only one drops. When picking the weapon up the player equips the item ... glow golden"; a credited KO of a Nob or (the owner, 2026-10-31: "Make Chaos Marines drop weapons too.") a… (m, s) | kind: ours; confidence: low | the owner's request; "boss" = Nobs and Chaos Marines (the owner), the rest ours | Musou weapon drops: compare with SM1 by feel or video. Ours: the owner (2026-10-31): "each player sees weapons when 'boss' enemies… | ☐ |
 | `R-4DCA9897` | Musou drop look | the weapon's own held model recoloured gold and emissive (a gold bar if it cannot be read), 1.4 ×, 0.9 m above the floor, spinning 1.2 rad/s and bobbing 0.08 m at 0.5 Hz; a 16 m additive light beam fading within 2–9 m of the camera, a 2.6 m floor glow, an… (m) | kind: ours; confidence: low | the owner ("glow golden ... easy to see"); the values ours | Musou drop look: compare with SM1 by measuring on a flat spot of the same map. Ours: the weapon's own held model recoloured gold and emissive (a gold bar… | ☐ |
 
-*Spec section: Added content: Musou — the Three-Front War (TF0: contracts and a stub map; no protocol change)*
+*Spec section: Added content: Musou — the Three-Front War (TF0: contracts and a stub map; TF3: Guardsmen and leashed defenders; no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -1841,6 +1853,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-11D349F6` | War battle layout | landing zone (0, -100) r 10; positions (-40, -45), the depot (35, 10), (-25, 60), r 12; HQ (0, 105) r 15; sources (-110, -40), (110, 15), (-110, 70), (60, 112) (m) | kind: ours; confidence: low | the architect's proposal | War battle layout: compare with SM1 by measuring on a flat spot of the same map. Ours: landing zone (0, -100) r 10; positions (-40, -45), the depot (35… | ☐ |
 | `R-D3A3B1CE` | War commands | a client's command (message kind 17) carries at most 64 payload bytes; the server takes 8 a second per client (burst 8) and queues at most 64 between ticks (/s) | kind: ours | the architect's proposal | War commands: compare with SM1 by feel or video. Ours: a client's command (message kind 17) carries at most 64 payload… | ☐ |
 | `R-FC7D8173` | AI Marine ids | the server-side AI Marines are players 65520 to 65527, without a client; a joining player's id skips any held id | kind: ours | the architect's proposal | AI Marine ids: compare with SM1 by feel or video. Ours: the server-side AI Marines are players 65520 to 65527, without a… | ☐ |
+| `R-61C255EA` | War Guard squads | squads of 10 in two rows of five, 1.5 m apart; at most 24 squads (240 men; the design's pool of 256 is not needed, a squad owns 10 fixed slots); a squad walks straight to its order and fires while walking; its place moves at 0.9 of a man's speed so the men… (m, men) | kind: ours; confidence: low | the architect's proposal (0.9, firing on the move: ours) | War Guard squads: compare with SM1 by feel or video. Ours: squads of 10 in two rows of five, 1.5 m apart; at most 24 squads (240… | ☐ |
+| `R-8077C2F3` | War Guardsman shot | one shot every 1.0 ± 0.2 s; hit chance 0.65 up to 10 m, falling linearly to 0.2 at 40 m; damage 5; range 40 from the man, no line of sight (the install's lasgun: damage 1, clip 40, range 75: not used, and there is no reload) (s, m, hit points) | kind: ours; confidence: low | the architect's proposal; data values as read from the install | War Guardsman shot: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one shot every 1.0 ± 0.2 s; hit chance 0.65 up to 10 m, falling… | ☐ |
+| `R-48C30F2D` | War Guard sight | a squad looks 40 m from its men's centre every 10 ticks and keeps the 16 nearest enemies; each man starts from his own place in that list, so fire spreads (m, ticks) | kind: ours; confidence: low | the architect's proposal (16 and the spread: ours) | War Guard sight: compare with SM1 by feel or video. Ours: a squad looks 40 m from its men's centre every 10 ticks and keeps the… | ☐ |
+| `R-4C835E43` | War Guard separation | men 0.4 m in radius push apart at 6 m/s per metre of overlap, at most 8 neighbours, 2 m hash cells; a dead man's slot is kept 2 s (m, m/s, s) | kind: ours; confidence: low | ours | War Guard separation: compare with SM1 by timing a run over a known distance. Ours: men 0.4 m in radius push apart at 6 m/s per metre of overlap, at most… | ☐ |
+| `R-2A29D776` | Leashed defenders | stand at home until a living target (a player or a Guard squad) is within 30 m of the home, flat, and walk back when none is; hurting any member frees its whole group for good; a plain spawn has no leash (m) | kind: ours | the architect's proposal (measuring from home, Guards waking them, the walk back: ours) | Leashed defenders: compare with SM1 by measuring on a flat spot of the same map. Ours: stand at home until a living target (a player or a Guard squad) is… | ☐ |
 
 *Spec section: Added content: Musou — the Three-Front War: the war between the battles (TF2: `WarSim`, not yet driven by a match)*
 
@@ -2104,6 +2121,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-12ACD6D8` | A saved Ork loadout in a profile without the Orks (E2) | the slot stays in the profile file untouched, shows "unavailable here" on its chip (tooltip names the profile) and joins as the first role's DEFAULTS on the side (the Tactical), with the reason in the plan's summary; it is the player's again as soon as the… | kind: ours | ours | A saved Ork loadout in a profile without the Orks (E2): compare with SM1 by feel or video. Ours: the slot stays in the profile file untouched, shows "unavailable… | ☐ |
 | `R-4DA7105A` | A faithful server and the Ork (E2) | a Hello or Setup asking for an Ork class (or any class the config does not have) gets the default class with the item choices reset to the defaults (a Setup's ack says `Defaulted`); the Hello's and Setup's Ork look byte is ignored (read as automatic); nobody… | kind: ours | ours | A faithful server and the Ork (E2): compare with SM1 by feel or video. Ours: a Hello or Setup asking for an Ork class (or any class the config… | ☐ |
 
+*Spec section: Added content: Musou — the Three-Front War (TF0: contracts and a stub map; TF3: Guardsmen and leashed defenders; no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-DFBCE118` | Orks against Guard squads | enemies target a squad at its men's centre like a player (the same attack tokens per squad: 4 melee, 6 shooters) and a blow lands on the man nearest the attacker, without any player damage scale; events on a squad carry player 0 | kind: ours | the architect's proposal | Orks against Guard squads: compare with SM1 by feel or video. Ours: enemies target a squad at its men's centre like a player (the same… | ☐ |
+
 ## Part C: Deliberate changes (keep or revert after playtest)
 
 Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our choices where the original is unknown, and what is not reproduced yet. Nothing is classified here; every row is listed. The prompt says what to ask after the playtest.
@@ -2154,6 +2177,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-0BAAC3C5` | Pistol-only start, Space Marine spawn room, Warboss in the Chaos room | the owner's request (2026-10-31) | every life starts with the class's bolt pistol only; everyone spawns in the Space Marine room | Musou spawns and loadout | Pistol-only start, Space Marine spawn room, Warboss in the…: compare with SM1 by feel or video. Ours: the owner's request (2026-10-31). | ☐ |
 | `C-D5938EAB` | Golden weapon drops from Nobs and Chaos Marines | the owner's requests (2026-10-31) | each Nob or Chaos Marine KO drops one weapon per player from their class's pool, E equips it, 60 s | Musou weapon drops | Golden weapon drops from Nobs and Chaos Marines: compare with SM1 by feel or video. Ours: the owner's requests (2026-10-31). | ☐ |
 | `C-21B5B32C` | Musou mode is the Three-Front War | the owner's decision (2026-11-01) | `--content musou` runs the war on the generated map `tfw_war`; the 5-wave run stays only as a test aid (`--map mp_tdm_09`) | War map | Musou mode is the Three-Front War: compare with SM1 by feel or video. Ours: the owner's decision (2026-11-01). | ☐ |
+| `C-A5D8C2C2` | Guard squads fight beside the players; leashed Ork defenders | the design of the war (2026-11-01); SM1 has no such allies (the Guardsman is the Exterminatus co-op blueprint) | squads of 10 shoot and are struck server-side; defenders hold until a target is within 30 m or their group is hurt | War Guard squads, Leashed defenders | Guard squads fight beside the players; leashed Ork defenders: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01); SM1 has no such allies (the… | ☐ |
 
 ### Deliberate changes (owner's decisions)
 
