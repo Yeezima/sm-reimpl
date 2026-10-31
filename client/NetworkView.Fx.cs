@@ -729,7 +729,7 @@ public partial class NetworkView
         var bob = LandShakeOffset();   // animation pass 1 (NetworkView.Fall.cs): the landing's camera shake, a position offset along the camera's own axes
         bool rotate = amount >= 0.0004f;
         if (!rotate) _shake = Vector3.Zero;
-        float punch = PunchNow();   // anim/melee-interaction: the charge connect's camera kick (NetworkView.MeleeInteraction.cs)
+        float punch = PunchNow() + CameraImpulseNow(delta);   // feel/weight-impact: the impulses (NetworkView.CameraImpulse.cs); anim/melee-interaction: the charge connect's camera kick (NetworkView.MeleeInteraction.cs)
         if (!rotate && bob == Vector3.Zero && punch == 0f) return;
         _unshaken = _camera.GlobalTransform;
         var t = _unshaken;
