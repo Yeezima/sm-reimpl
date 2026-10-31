@@ -11,7 +11,7 @@ namespace SmClient;
 /// M24: the weapons on the characters. Every player (own and remote, Space Marine and Chaos) carries the weapons of its loadout:
 /// the one in hand (the simulation's current slot) on its wargear's wield mount, the other ranged weapon on its stow marker, the
 /// melee weapon in the right hand during an attack (always for the jump pack classes, Assault and Raptor) and stowed or hidden
-/// otherwise; jump packs and the Devastator backpack are worn. Models, mounts and markers are the original's
+/// otherwise; jump packs are worn (a heavy class's pack is its armour's backpack slot: <see cref="SmContent.Customization.WornItems"/>). Models, mounts and markers are the original's
 /// (<see cref="WeaponModels"/>, <see cref="WeaponRig"/>); when a weapon changes hands, and the melee rule, are interpretations.
 /// </summary>
 public partial class NetworkView

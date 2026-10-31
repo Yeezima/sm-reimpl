@@ -149,10 +149,10 @@ public class LockScaleSprintStopTests(ITestOutputHelper output)
     // ---------------------------------------------------------------- evades
 
     [Fact]
-    public void An_evades_stick_and_next_evade_branches_and_its_spacing_are_scaled_its_other_branches_are_not()
+    public void An_evades_stick_and_next_evade_branches_are_scaled_its_cooldown_and_other_branches_are_not()
     {
         Assert.Equal(24, Evade.LockTicks(Roll, Data));
-        Assert.Equal(17, Evade.LockTicks(Roll, Feel));   // 0.56 s
+        Assert.Equal(24, Evade.LockTicks(Roll, Feel));   // sim/evade-cooldowns: the data's 0.8 s, not scaled (it was 0.56 s, 17 ticks)
         int Rolling(SimConfig c, float mx, float my, InputButtons held = InputButtons.None)
         {
             var s = Fresh(c);
@@ -175,7 +175,7 @@ public class LockScaleSprintStopTests(ITestOutputHelper output)
             return s.EvadeTicks == 1;
         }
         Assert.Equal(27, First(n => Chains(Data, n)));   // NextAt 0.9 s: 27 ticks played before the press tick
-        Assert.Equal(19, First(n => Chains(Feel, n)));   // 0.63 s: 18.9 (the 17-tick spacing is over by then)
+        Assert.Equal(24, First(n => Chains(Feel, n)));   // 0.63 s: 18.9, but the 24-tick cooldown holds it to tick 24
     }
 
     [Fact]
