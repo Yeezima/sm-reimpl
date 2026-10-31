@@ -27,7 +27,7 @@ public sealed record ResolvedDecal(DecalKind Kind, PaintDecal? Badge, EmblemHash
 }
 
 /// <summary>An armour piece to draw: its slot, wargear name and visual packages (a torso carries its belt). <see cref="Forced"/>: the class forces it.</summary>
-/// <remarks>Paint the piece with the paint of <see cref="Slot"/> (the belt too: **interpretation**, the data's torso slot includes the belt). Slot "perk" is a class's forced extra item (the Havoc's Iron Halo icon).</remarks>
+/// <remarks>Paint the piece with the paint of <see cref="Slot"/> (the belt too: **interpretation**, the data's torso slot includes the belt). Slot "perk" is an item a perk puts on the body: the perk's own attachment (the Devastator's Iron Halo) or the class's forced replacement (the Havoc's icon).</remarks>
 public sealed record ResolvedPiece(string Slot, string Name, IReadOnlyList<string> Packages, bool Forced, string HelmetOverride = "");
 
 /// <summary>
@@ -147,6 +147,10 @@ public static class AppearanceResolver
             else extras.Add(piece);
         }
 
+        // What a carried perk itself shows on the body, unless the class swapped it for its own item.
+        var swapped = cls.Overrides.Where(ov => ov.Piece.Slot == "perk" && ov.RequiredWargear is not null).Select(ov => ov.RequiredWargear!);
+        extras.AddRange(PerkPieces(options.Carried, name => catalog.Perks.Perk(name)?.Packages, swapped));
+
         // Jump-pack classes wear the pack instead of a backpack piece.
         var hidden = new HashSet<string>(StringComparer.Ordinal);
         if (cls.JumpPack) hidden.Add("backpack");
@@ -197,6 +201,18 @@ public static class AppearanceResolver
         string helmet = slotPieces.TryGetValue("head", out var head) ? head.HelmetOverride : "";
         (byte, byte, byte)? lens = code.HasLens ? code.Lens : null;
         return new ResolvedAppearance(cls.Race, classKey, predefined?.Name, pieces, paint, left, right, lens, hidden, forced, helmet, notes);
+    }
+
+    /// <summary>
+    /// The pieces carried perks show on the body (the data's <c>visual_data/attachments</c> of the perk file): <c>mp_perk_iron_halo</c> shows <c>sm_acc_iron_halo</c>.
+    /// A perk in <paramref name="swapped"/> has a class override in its place (the Havoc's <c>mp_perk_iron_halo_for_havoc</c> shows <c>csm_acc_iron_halo</c>), so a Chaos marine never wears the loyalist halo.
+    /// </summary>
+    /// <param name="packagesOf">A perk's packages by name; null or empty for wargear that is no perk or shows nothing.</param>
+    public static IEnumerable<ResolvedPiece> PerkPieces(IEnumerable<string>? carried, Func<string, IReadOnlyList<string>?> packagesOf, IEnumerable<string> swapped)
+    {
+        var replaced = swapped.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var name in (carried ?? []).Distinct(StringComparer.OrdinalIgnoreCase))
+            if (!replaced.Contains(name) && packagesOf(name) is { Count: > 0 } packages) yield return new ResolvedPiece("perk", name, packages, true);
     }
 
     static bool Carries(IReadOnlyCollection<string>? carried, string need) =>

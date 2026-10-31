@@ -392,7 +392,7 @@ public sealed class WeaponRig
             bool pack = wornList.Contains(name, StringComparer.OrdinalIgnoreCase);   // the jump pack (the worn wargear), not a weapon's own worn part
             foreach (var attachment in _assets.Catalogue.Worn(name))
             {
-                if (_assets.Get(attachment) is not { } asset) continue;
+                if (!WornItems.Draws(attachment.Name, pack) || _assets.Get(attachment) is not { } asset) continue;
                 if (!_wornAssets.Contains(asset)) _wornAssets.Add(asset);
                 foreach (var (bone, mesh) in asset.Worn)
                 {

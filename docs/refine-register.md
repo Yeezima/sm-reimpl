@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1845 spec table rows: **1278 tagged**, 414 not tagged (read from data with high confidence), 153 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 407 rows of the changes document.
+Scanned 1847 spec table rows: **1279 tagged**, 415 not tagged (read from data with high confidence), 153 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 408 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -46,23 +46,23 @@ Scanned 1845 spec table rows: **1278 tagged**, 414 not tagged (read from data wi
 | Game modes | 39 | 36 | 37 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
-| Customizer and paint | 49 | 46 | 26 | 15 | 0 |
+| Customizer and paint | 50 | 47 | 27 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
 | Core simulation (provisional values) | 124 | 109 | 109 | 13 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1278** | 1057 | 1028 | 399 | 38 |
+| **All areas** | **1279** | 1058 | 1029 | 399 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 509 |
-| confidence: medium | 456 |
+| confidence: medium | 457 |
 | confidence: low | 455 |
-| kind: interpretation | 326 |
+| kind: interpretation | 327 |
 | notes: ours | 290 |
 | confidence: none (low) | 117 |
 | kind: provisional | 100 |
@@ -1562,7 +1562,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5AED6E4D` | Ragdoll lifecycle (client) | simulates until every body has been still (< 0.3 m/s and < 2 rad/s) for 3 s (the user's request), or 12 s at most, or the chest falls below −300 m; then the pose is kept and the physics freed; at most 16 corpses (simulating or lying; the oldest lying one goes… (s) | kind: provisional; confidence: none (low); notes: ours | user's request (3 s); the rest ours | Ragdoll lifecycle (client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: simulates until every body has been still (< 0.3 m/s and < 2 rad/s)… | ☐ |
 | `R-42969A4B` | Death camera and vignette (client) | after the user's description of the original: the camera blends in 0.3 s (smoothstep) from the last view to a third-person orbit of the own ragdoll's chest, then rises to at least 0.4 rad elevation over 1.5 s and pulls back 1.2 m over 3 s (FOV to 60°), kept… (s) | kind: placeholder; confidence: none (low); notes: ours | after the user's description of the original; numbers ours | Death camera and vignette (client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: after the user's description of the original: the camera blends in… | ☐ |
 
-### Customizer and paint (49)
+### Customizer and paint (50)
 
 *Spec section: Armour paint (client only; not simulated)*
 
@@ -1621,7 +1621,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-3A06FBA2` | Own look after a change | a `ChangeSetup`'s look becomes the own one at the first respawn after the server's `SetupAck`, or when the scoreboard's own row shows the acknowledged version; a refused emblem (`SetupFlags.EmblemRejected`) shows as the fallback badge on the own model too.… (s) | kind: ours; notes: provisional | architecture section 4 (our default 5) | Own look after a change: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a ChangeSetup's look becomes the own one at the first respawn after… | ☐ |
 | `R-7A15C249` | Emblems | a look with a custom emblem is drawn with its fallback badge until `GameClient.Emblem(hash)` has the verified bytes (probed at most twice a second per hash, and when `TakeEmblemArrivals` names it), then built again (the materials are cached); "Show others'… | kind: ours; notes: provisional | architecture section 4 | Emblems: compare with SM1 with side-by-side screenshots in the same spot. Ours: a look with a custom emblem is drawn with its fallback badge until… | ☐ |
 | `R-59D07FD6` | Warm-up | while the map loads: the default look and the own look of every class, files read in parallel, built (`AppearanceAssets.Build`, waiting): 12 looks in 53 to 138 ms (6 with no profile); it replaces the old preload of the three Chaos sets. The handshake waits… (ms) | kind: ours | measured | Warm-up: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while the map loads: the default look and the own look of every… | ☐ |
-| `R-69BA6A0D` | Weapons, ragdolls, magazines | the weapon rig hangs on the skeleton and survives a swap (nothing to rebuild); a corpse and the M35 magazine drops use the shown model's shared meshes (a corpse's jump pack keeps its paint: `WeaponRig.CloneTo`). **Gap:** the weapons' own worn parts (backpack… | kind: gap (not reproduced) | — | Weapons, ragdolls, magazines: compare with SM1 with side-by-side screenshots in the same spot. Ours: the weapon rig hangs on the skeleton and survives a swap (nothing to… | ☐ |
+| `R-69BA6A0D` | Weapons, ragdolls, magazines | the weapon rig hangs on the skeleton and survives a swap (nothing to rebuild); a corpse and the M35 magazine drops use the shown model's shared meshes (a corpse's jump pack keeps its paint: `WeaponRig.CloneTo`). the worn jump pack follows the chest (next row) | kind: gap (not reproduced) | — | Weapons, ragdolls, magazines: compare with SM1 with side-by-side screenshots in the same spot. Ours: the weapon rig hangs on the skeleton and survives a swap (nothing to… | ☐ |
+| `R-6A0B389B` | Heavy classes' back (visual/pack-halo) | a weapon's `backpack` attachment is not drawn: the back of the Devastator and the Havoc is the armour's backpack slot with its class override (`sm_backpack_heavy_bolter` / `_lascannon` / `_plasma_cannon`; `csm_backpack_havoc`). The fixed sidearm… | kind: interpretation; confidence: medium | wargear (`smtool baf-dump data/packages/wargear.oppc`); owner 2026-11-01 | Heavy classes' back (visual/pack-halo): compare with SM1 by timing a run over a known distance. Ours: a weapon's backpack attachment is not drawn: the back of the… | ☐ |
 | `R-6DE42114` | Loadout picker | C on the death screen (the player is dead, spectating, or the match has ended; while alive C only says "Press Esc to change your loadout" (M44), owner question 10: our default `C`) opens the class creator (`CreatorView`, the same screens as the front end, its… | kind: ours; notes: provisional | docs/customizer-design.md F2, M1 to M3 | Loadout picker: compare with SM1 with side-by-side screenshots in the same spot. Ours: C on the death screen (the player is dead, spectating, or the match… | ☐ |
 | `R-C63F9348` | Esc menu in the match (M44, the owner's request: "Call of Duty style") | Esc, while connected and in a match, **alive or dead**, opens the same customizer overlay (class creator and appearance editor) and frees the mouse; Esc again (or RESUME (Esc)) closes it, and the mouse is captured again (not in a test window, for a bot or in… | kind: ours; notes: provisional | the owner | Esc menu in the match: compare with SM1 with side-by-side screenshots in the same spot. Ours: Esc, while connected and in a match, alive or dead, opens the same… | ☐ |
 | `R-4AB4F632` | SET ACTIVE in the match (fix/class-change-in-match; the owner's playtest 2026-10-28: "when i set my… | In the match menu (Esc or C), **SET ACTIVE sends the loadout for the next respawn** as DEPLOY does (marks it active, saves the profile, `ChangeSetup`), but the menu stays open; it is enabled for every filled loadout, also the one already active (a match… | kind: ours; notes: provisional | the owner's playtest report; tests `ClassChangeInMatchTests` | SET ACTIVE in the match (fix/class-change-in-match; the…: compare with SM1 with side-by-side screenshots in the same spot. Ours: In the match menu (Esc or C), SET ACTIVE sends the loadout for the… | ☐ |
@@ -2600,6 +2601,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 |---|---|---|---|---|---|---|
 | `C-E10F6713` | Launcher grenades stick at once | no bounce off the level (the data's `max_bounce_count` 1 is ignored for sticky projectiles); a grenade stuck to a player drops and falls when they die or leave | The original's exact behaviour on the host's death (ours: falls) | "Sticky launcher grenades" | Launcher grenades stick at once: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-F76A5DC5` | Air-slash landing burst (owner 2026-10-31) | Plays the jump pack's perk landing effect `jumppack_land_extreme_mp` small (0.6 instead of the data's 1.4), blue-white, with a blue-white light, no full-screen flash (switches `--slash-big-flash`, `--no-slash-flash`, `--slash-cone`) | The data binds no effect to the MP slash itself; size and colour are estimates | Air slash landing flash | Air-slash landing burst (owner 2026-10-31): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-CFB2B524` | Heavy classes draw one pack | Interpretation: a weapon's `backpack` attachment is not drawn (the fixed sidearm's `sm_lascannon_backpack_001`); the armour slot's class override is the only pack, so the Havoc wears no loyalist pack | one pack | "Heavy classes' back" | Heavy classes draw one pack: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-A6BD3B61` | Devastator / Havoc stomp stays in place | the owner's decision (2026-10-31): no step forward, no lunge or burst, no coasting; fixes the slide from chaining the kick (click) and the stomp (F) | the body is held in place until the stomp's move-again branch; protocol 49 | "Stomp stays in place" | Devastator / Havoc stomp stays in place: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-5318F1D9` | Bolt tracer softness and armour-hit sparks (fx/bolt-tracer-impact, owner 2026-10-31) | Ours: the pooled bolt streaks are soft glow ribbons with a thin hot core (were flat hard ribbons); a hit on raised armour adds the data's `hit_ranged_armour_generic` sparks (two copies) on top of the weapon's own armour effect; client only, no protocol change; `--old-bolt-fx` restores both; `--old-bolt-tracer` still… | the owner's reference r6 shows thin streaks and a white-gold flash | the sizes and scales are estimates for a playtest | Bolt tracer softness and armour-hit sparks…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
