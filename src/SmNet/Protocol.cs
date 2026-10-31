@@ -547,6 +547,8 @@ public static partial class Protocol
         EnemyBars = 18,
         /// <summary>Added content's envelope (Protocol.Envelope.cs): sent only by a server whose match runs added content; no protocol version of its own (ContentExtras.WireVersion 2).</summary>
         Extras = 16,
+        /// <summary>Client to server, added content's commands (Protocol.Envelope.cs): sent only by a client whose match runs added content that reads them (ContentExtras.CommandUsers).</summary>
+        ExtrasCommand = 17,
     }
 
     /// <summary>
@@ -815,6 +817,7 @@ public static partial class Protocol
             case EnemyBars eb: WriteBars(w, eb); break;   // protocol 44 (Protocol.Bars.cs)
             case PickupUpdate p: WritePickups(w, p); break;   // protocol 26 (Protocol.Pickups.cs)
             case ExtrasUpdate x: WriteExtras(w, x); break;   // added content's envelope (Protocol.Envelope.cs; extras wire 2)
+            case ExtrasCommandMessage c: WriteExtrasCommand(w, c); break;   // added content's commands, client to server (Protocol.Envelope.cs)
             default: throw new ArgumentException($"Unknown message {m.GetType().Name}.");
         }
         return w.ToArray();
@@ -846,6 +849,7 @@ public static partial class Protocol
                 Kind.Pickups => ReadPickups(ref r),
                 Kind.EnemyBars => ReadBars(ref r),
                 Kind.Extras => packet.Length <= MaxExtrasMessageBytes ? ReadExtras(ref r) : null,   // added content's envelope: oversized is refused
+                Kind.ExtrasCommand => ReadExtrasCommand(ref r),
                 _ => null,
             };
             return m is not null && r.AtEnd ? m : null;

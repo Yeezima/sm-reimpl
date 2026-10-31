@@ -50,6 +50,7 @@ public sealed partial class World
     partial void ExtrasStep()
     {
         if (_musou is null || _musouDirector is null) return;
+        if (_tfw is not null) { TfwStep(); return; }   // Campaign/World.Tfw.cs: the war, not the 5-wave run
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
         var director = _musouDirector;
         MusouBeginTick();   // World.MusouCombat.cs: once a tick (a cleave or a blast earlier in the tick may have begun it)
@@ -126,6 +127,7 @@ public sealed partial class World
     /// </summary>
     void MusouHit(MusouAttack attack)
     {
+        if (attack.Player < 0) { TfwGuardHit(attack); return; }   // a Guard squad (Campaign/World.Tfw.cs): before the player lookup, which would drop it
         if (!_players.TryGetValue(attack.Player, out var before) || !before.Alive) return;
         var type = attack.Melee ? DamageType.Melee : DamageType.Ranged;
         float damage = attack.Damage * _musou!.Rules.PlayerDamageScale * Loadouts.Body(Config, before).Received(type);
@@ -208,6 +210,12 @@ public sealed partial class World
         }
     }
 
+    partial void ExtrasPlayerInput(int id, ref PlayerInput input, ref bool handled)
+    {
+        if (_tfw is null) return;
+        TfwPlayerInput(id, ref input, ref handled);   // Campaign/World.Tfw.cs: the AI Marines have no client
+    }
+
     partial void ExtrasMelee(int attacker, PlayerState state, MeleeStep step)
     {
         if (_musou is null) return;
@@ -237,6 +245,7 @@ public sealed partial class World
     {
         if (_musou is null) return;
         handled = true;
+        if (_tfw is not null && TfwStepMatch()) return;   // Campaign/World.Tfw.cs: the war's own flow, once it has one
         bool marines = CountSide(Team.SpaceMarines) > 0;
         switch (_state)
         {
@@ -290,6 +299,6 @@ public sealed partial class World
         _musou!.Clear();
         MusouClearDrops();   // World.MusouDrops.cs
         _musouDirector!.Reset();
-        _musou.Director = _musouDirector.View();
+        _musou.Director = _tfw is null ? _musouDirector.View() : default;   // the war has no 5-wave director to show
     }
 }

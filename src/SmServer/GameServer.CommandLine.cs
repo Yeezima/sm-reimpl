@@ -66,7 +66,7 @@ public static class ServerCommandLine
           --port <1-65535>              UDP port (default 27015)
           --bind <ip>                   listen on this address only (default every interface; 127.0.0.1 for test runs)
           --game-dir <dir>              the game install (default: the located install, SM_GAME_DIR, config/local.json)
-          --map <name|none>             multiplayer map (default mp_tdm_09 when installed; none = flat placeholder ground)
+          --map <name|none>             multiplayer map (default mp_tdm_09 when installed; none = flat placeholder ground; --content musou: tfw_war, generated, unless named)
           --mode annihilation|seize|ffa match rules (default annihilation)
           --score-limit <1-65535>       score limit (default per mode; provisional)
           --time-limit <minutes>        time limit, 0 = none (provisional)

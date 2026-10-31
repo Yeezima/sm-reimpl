@@ -55,6 +55,7 @@ and gore are listed in their own design documents for now (the rest of section 0
 | Enemies ignore spawn-room blockers | ours (the lead, 2026-10-31) | Musou enemies walk through both sides' spawn-room blockers (the Warboss leaves the Chaos room; enemies may enter the Space Marine room); players keep them | Musou enemies and the spawn rooms |
 | Pistol-only start, Space Marine spawn room, Warboss in the Chaos room | the owner's request (2026-10-31) | every life starts with the class's bolt pistol only; everyone spawns in the Space Marine room | Musou spawns and loadout |
 | Golden weapon drops from Nobs and Chaos Marines | the owner's requests (2026-10-31) | each Nob or Chaos Marine KO drops one weapon per player from their class's pool, E equips it, 60 s | Musou weapon drops |
+| Musou mode is the Three-Front War | the owner's decision (2026-11-01) | `--content musou` runs the war on the generated map `tfw_war`; the 5-wave run stays only as a test aid (`--map mp_tdm_09`) | War map |
 
 ## 1. Deliberate changes (owner's decisions)
 

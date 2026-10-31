@@ -13,6 +13,13 @@ public sealed record ExtrasUpdate(uint ServerTick, (byte Tag, byte[] Payload)[] 
     public IEnumerable<byte[]> PayloadsOf(byte tag) => Sections.Where(s => s.Tag == tag).Select(s => s.Payload);
 }
 
+/// <summary>
+/// Client to server (added content; no protocol bump, as the envelope and the action key: docs/added-content.md section 4): one command of a feature, under a one-byte tag
+/// with a payload the core never reads. On the wire <c>[17][u32 session][u8 tag][u16 len][payload]</c>, at most <see cref="Protocol.MaxExtrasCommandPayload"/> payload bytes.
+/// Sent only by a client whose match runs added content that reads commands (<see cref="SmSim.ContentExtrasInfo"/>'s <c>CommandUsers</c>); any other server drops it.
+/// </summary>
+public sealed record ExtrasCommandMessage(uint Session, byte Tag, byte[] Payload) : Message;
+
 /// <summary>One section of an <see cref="ExtrasUpdate"/> as the client queues it (<c>GameClient.TakeExtras</c>): the message's server tick, the tag, the payload.</summary>
 public readonly record struct ExtrasSection(uint ServerTick, byte Tag, byte[] Payload);
 
@@ -33,6 +40,8 @@ public static partial class Protocol
     public const int MaxExtrasPayloadBytes = MaxExtrasMessageBytes - ExtrasHeaderBytes - ExtrasSectionHeaderBytes;
     /// <summary>The reserved tag 0: never written (ArgumentException), a message carrying it is malformed (null). Features use 1..255.</summary>
     public const byte ReservedExtrasTag = 0;
+    /// <summary>The largest payload of an <see cref="ExtrasCommandMessage"/> (ours): a command is small, so a client cannot make the server read much.</summary>
+    public const int MaxExtrasCommandPayload = 64;
 
     /// <summary>
     /// True when this build knows the message kind <paramref name="kind"/> (a packet's first byte). A demo recorded by a build with more kinds
@@ -72,5 +81,22 @@ public static partial class Protocol
             sections[k] = (tag, r.Bytes(length).ToArray());   // a length beyond the packet throws: malformed
         }
         return new ExtrasUpdate(tick, sections);
+    }
+
+    static void WriteExtrasCommand(Writer w, ExtrasCommandMessage c)
+    {
+        if (c.Tag == ReservedExtrasTag) throw new ArgumentException($"Extras tag {ReservedExtrasTag} is reserved (features use 1..255).");
+        if (c.Payload is null || c.Payload.Length > MaxExtrasCommandPayload) throw new ArgumentException($"An extras command carries 0..{MaxExtrasCommandPayload} bytes.");
+        w.U8((byte)Kind.ExtrasCommand); w.U32(c.Session); w.U8(c.Tag); w.U16((ushort)c.Payload.Length); w.Bytes(c.Payload);
+    }
+
+    /// <summary>Reads a command after the kind byte; a reserved tag or an oversized length is malformed, and a length past the packet throws (Read returns null).</summary>
+    static ExtrasCommandMessage? ReadExtrasCommand(ref Reader r)
+    {
+        uint session = r.U32();
+        byte tag = r.U8();
+        int length = r.U16();
+        if (tag == ReservedExtrasTag || length > MaxExtrasCommandPayload) return null;
+        return new ExtrasCommandMessage(session, tag, r.Bytes(length).ToArray());
     }
 }
