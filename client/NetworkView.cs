@@ -386,8 +386,8 @@ public partial class NetworkView : Node3D
         ControlEvent(e);   // feel/controls: presses and releases for the tap latch and the early tick (NetworkView.Controls.cs)
         if (e is InputEventMouseMotion motion && MouseCaptured && !OwnDead)
         {
-            _yaw -= motion.Relative.X * MouseYawPerPixel * _mouseScale;   // mouse right turns right (clockwise seen from above)
-            _pitch = Math.Clamp(_pitch - motion.Relative.Y * MouseYawPerPixel * _mouseScale, _pitchMin, _pitchMax);   // mouse up aims up
+            _yaw -= motion.Relative.X * MouseYawPerPixel * MouseLook;   // mouse right turns right (clockwise seen from above)
+            _pitch = Math.Clamp(_pitch - motion.Relative.Y * MouseYawPerPixel * MouseLook, _pitchMin, _pitchMax);   // mouse up aims up
         }
         else if (e is InputEventKey { Pressed: true, PhysicalKeycode: Key.Escape })
         {

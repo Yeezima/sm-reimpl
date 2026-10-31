@@ -72,7 +72,7 @@ public partial class NetworkView
         while (_probeOpIndex < _probeOps.Count && _probeOps[_probeOpIndex].At <= t) _probeOps[_probeOpIndex++].Do();
         if (_probePanRate != 0f && _camera is not null)
         {
-            float px = _probePanRate * (float)GetProcessDeltaTime() / (MouseYawPerPixel * MathF.Max(_mouseScale, 1e-3f));
+            float px = _probePanRate * (float)GetProcessDeltaTime() / (MouseYawPerPixel * MathF.Max(MouseLook, 1e-3f));
             Input.ParseInputEvent(new InputEventMouseMotion { Relative = new Vector2(px, 0f) });
         }
         if (_probeOpIndex >= _probeOps.Count && _probeTrial is null) { LatencyProbeReport(); GetTree().Quit(0); }

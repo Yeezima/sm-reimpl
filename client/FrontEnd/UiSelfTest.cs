@@ -292,6 +292,7 @@ public sealed partial class UiSelfTest : Node
         await PreviewPoseChecks();
         await OrkChecks();
         await HostChecks();
+        await MouseSensitivityChecks();   // ui/mouse-sensitivity (UiSelfTest.MouseSensitivity.cs)
         await ControlsChecks();   // ui/keybinds (UiSelfTest.Controls.cs)
         await PadBackChecks();   // ui/pad-b-back: B on the controller backs out of menus (UiSelfTest.PadBack.cs)
         await FitChecks();

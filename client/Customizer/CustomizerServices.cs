@@ -80,6 +80,7 @@ public sealed class CustomizerServices
         }
         UiKit.ReduceMotion = Settings.ReduceMotion;
         FovMath.Selected = Settings.FovDegrees;
+        MouseSensitivity.Selected = Settings.MouseSensitivity;
         Previews = new PreviewAssets(this);
         LoadTask = Task.Run(Load);
     }
@@ -113,6 +114,7 @@ public sealed class CustomizerServices
         Settings = change(Settings);
         UiKit.ReduceMotion = Settings.ReduceMotion;
         FovMath.Selected = Settings.FovDegrees;
+        MouseSensitivity.Selected = Settings.MouseSensitivity;
         Settings.Save(SettingsDirectory);
     }
 

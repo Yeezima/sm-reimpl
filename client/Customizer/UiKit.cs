@@ -182,6 +182,34 @@ public static partial class UiKit
         return row;
     }
 
+    /// <summary>
+    /// The mouse sensitivity row (ui/mouse-sensitivity, a client convenience: ours): a slider from 0.1x to 3.0x (step 0.05; 1.0x is the original feel) on the mouse look, applied live and saved by
+    /// <paramref name="save"/>. Focusable, so a controller's left / right changes it.
+    /// </summary>
+    public static HBoxContainer MouseSensitivityRow(float saved, Action<float> save, bool compact = false)
+    {
+        const string tip = "Mouse sensitivity: a factor on the mouse look in the hip, aimed and scoped views. 1.00x is the original game's feel. The controller is not affected.";
+        var row = HBox(compact ? 8 : 12);
+        row.TooltipText = tip;
+        row.MouseFilter = Control.MouseFilterEnum.Pass;
+        row.Name = "MouseSensitivityRow";
+        var caption = Text("Mouse", CaptionSize, Grey);
+        caption.VerticalAlignment = VerticalAlignment.Center;
+        row.AddChild(caption);
+        var slider = new HSlider { MinValue = MouseSensitivity.Minimum, MaxValue = MouseSensitivity.Maximum, Step = MouseSensitivity.Step, Value = MouseSensitivity.Clamp(saved),
+            CustomMinimumSize = new Vector2(compact ? 104 : 200, 28), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter, FocusMode = Control.FocusModeEnum.All, TooltipText = tip, Name = "MouseSensitivitySlider" };
+        var value = Text("", CaptionSize, White);
+        value.VerticalAlignment = VerticalAlignment.Center;
+        value.CustomMinimumSize = new Vector2(compact ? 52 : 64, 0);
+        value.Name = "MouseSensitivityValue";
+        void Show(double v) => value.Text = $"{v:F2}x";
+        Show(slider.Value);
+        slider.ValueChanged += v => { Show(v); save((float)v); };
+        row.AddChild(slider);
+        row.AddChild(value);
+        return row;
+    }
+
     public static PanelContainer Panel(Control content, int margin = 14)
     {
         var p = new PanelContainer();
