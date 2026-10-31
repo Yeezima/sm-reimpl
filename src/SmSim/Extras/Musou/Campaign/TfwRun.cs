@@ -194,10 +194,12 @@ public sealed partial class TfwRun
         _deployed.RemoveAll(id => !w.Players.ContainsKey(id));
         if (_deployed.Count == 0) { Leave(w, !battle.Won); return; }
 
-        if (_feet.Length < w.Players.Count) _feet = new Vector3[w.Players.Count * 2];
+        if (_feet.Length < w.Players.Count * 2) _feet = new Vector3[w.Players.Count * 4];
         int n = 0;
         foreach (var p in w.Players.Values) if (p.Alive) _feet[n++] = p.Position;
-        var change = battle.Step(_feet.AsSpan(0, n));
+        int humans = n;
+        foreach (int id in _deployed) if (w.Players[id] is { Alive: true } p) _feet[humans++] = p.Position;
+        var change = battle.Step(_feet.AsSpan(0, n), _feet.AsSpan(n, humans - n));
         if (change.HasFlag(TfwBattleChange.DepotSecured))
         {
             Transport += TfwBattleRules.DepotTransport;

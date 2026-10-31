@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1941 spec table rows: **1364 tagged**, 420 not tagged (read from data with high confidence), 157 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 420 rows of the changes document.
+Scanned 1942 spec table rows: **1365 tagged**, 420 not tagged (read from data with high confidence), 157 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 420 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,16 +50,16 @@ Scanned 1941 spec table rows: **1364 tagged**, 420 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 175 | 160 | 145 | 22 | 1 |
+| Core simulation (provisional values) | 176 | 161 | 145 | 22 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 78 | 72 | 40 | 8 | 0 |
-| **All areas** | **1364** | 1141 | 1095 | 409 | 38 |
+| **All areas** | **1365** | 1142 | 1095 | 409 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 574 |
+| kind: ours | 575 |
 | confidence: low | 512 |
 | confidence: medium | 466 |
 | kind: interpretation | 330 |
@@ -1771,7 +1771,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (175)
+### Core simulation (provisional values) (176)
 
 *Spec section: Provisional values in use*
 
@@ -1918,9 +1918,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-0EDD4D89` | War reserves | start 5 transport, 4 supplies; a deploy costs 1 transport; an early pickup 1 transport, charged on arrival, free after a win; an emergency extraction 2 supplies; the depot +2 transport, +1 supply; the HQ +1 transport every 600 war s | kind: estimate; confidence: low; notes: ours | the owner's decision (2026-11-01) on the architect's proposal; charged on arrival ours | War reserves: compare with SM1 by feel or video. Ours: start 5 transport, 4 supplies; a deploy costs 1 transport; an early… | ☐ |
+| `R-FC43368B` | War field clearing | a battle's end, by any way, clears the enemies, the Guardsmen, the drops and the players' projectiles, lingering blasts and perk blasts; the enemies have no projectile of their own (hit rolls with tracers); a human who joined after the landing waits in the… | kind: ours | ours | War field clearing: compare with SM1 by feel or video. Ours: a battle's end, by any way, clears the enemies, the Guardsmen, the… | ☐ |
 | `R-C0D18A0C` | War deploy | only in the hub, from inside the Stormbird (not only at the station: the client decides that); 5 s travel, then a fresh life at the landing zone with the waiting Setup and the pistol; a lane at front 3 lands the final assault (s) | kind: ours; confidence: low | the architect's proposal; the Stormbird check ours | War deploy: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: only in the hub, from inside the Stormbird (not only at the station:… | ☐ |
 | `R-C41AD22E` | Battle layout by node | the node fought is the front + 1; even nodes mirror x, lane C turns 90 degrees about the origin | kind: ours; confidence: low | the architect's proposal | Battle layout by node: compare with SM1 by feel or video. Ours: the node fought is the front + 1; even nodes mirror x, lane C turns… | ☐ |
-| `R-39BC08CA` | Position chain | P1, P2, P3 in order: Held, Clearing with any living player (AI Marines too) within 30 m, Securing with its defenders dead and no Ork within 12 m, Secured after 25 s with a Guardsman inside and no Ork; an Ork pauses it; a wiped squad loses 2 % a second and… (m, s) | kind: ours; confidence: low | the architect's proposal; the reserve's order and the dead end ours | Position chain: compare with SM1 by feel or video. Ours: P1, P2, P3 in order: Held, Clearing with any living player (AI… | ☐ |
+| `R-39BC08CA` | Position chain | P1, P2, P3 in order: Held, Clearing with any living player (AI Marines too) within 30 m, Securing with its defenders dead and no Ork within 12 m, Secured after 25 s with a Guardsman inside and no Ork; an Ork pauses it; a wiped squad loses 2 % a second and… (m, s) | kind: ours; confidence: low | the architect's proposal; the reserve's order and the human's half rate ours | Position chain: compare with SM1 by feel or video. Ours: P1, P2, P3 in order: Held, Clearing with any living player (AI… | ☐ |
 | `R-2A9FF3C5` | Position defenders | 20 at each position (12 Boyz, 5 Shootas, 3 'Ard Boyz), all spawned at the landing, leashed at aggro 30 m (enemies, m) | kind: ours; confidence: low | the architect's proposal; spawning all three at once ours | Position defenders: compare with SM1 by feel or video. Ours: 20 at each position (12 Boyz, 5 Shootas, 3 'Ard Boyz), all spawned at… | ☐ |
 | `R-C0A83303` | Battle arrivals | every 15 s each active source sends clamp(round(4 x O / 100), 2, 10), seven Boyz in ten, the rest Shootas, on a 5 x 5 grid 1.5 m apart; O as the lane stood at landing; at most 140 alive solo, +40 per extra human; a source stops with its position, the HQ's at… (enemies, s) | kind: ours; confidence: low | the architect's proposal; the mix, the grid and the final's four ours | Battle arrivals: compare with SM1 by feel or video. Ours: every 15 s each active source sends clamp(round(4 x O / 100), 2, 10)… | ☐ |
 | `R-EF698201` | Battle Guardsmen | clamp(round(I / 15), 4, 12) squads, at most 6 in the field, 12 in the final with the final bonus's squads; the rest in reserve, refilled to 6 at each secured position; the living squads move up to the last secured position, then the HQ (squads) | kind: ours; confidence: low | the architect's proposal; the refill and the moving up ours | Battle Guardsmen: compare with SM1 by feel or video. Ours: clamp(round(I / 15), 4, 12) squads, at most 6 in the field, 12 in the… | ☐ |

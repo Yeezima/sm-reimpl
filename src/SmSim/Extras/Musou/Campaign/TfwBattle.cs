@@ -14,6 +14,8 @@ public static class TfwBattleRules
     /// <summary>The share of a position's progress lost a second while its squad is wiped.</summary>
     public const float SecureDecayPerSecond = 0.02f;
     public const float ReserveSeconds = 15f;
+    /// <summary>With every Guardsman dead and no reserve, a human inside secures at this share of the rate (ours: a position never dead-ends).</summary>
+    public const float HumanSecureRate = 0.5f;
 
     // The defenders of one position.
     public const int DefenderBoyz = 12, DefenderShootas = 5, DefenderArds = 3, Defenders = DefenderBoyz + DefenderShootas + DefenderArds;
@@ -232,8 +234,8 @@ public sealed class TfwBattle
         _waaaghs = waaaghs;
     }
 
-    /// <summary>One tick, before the fight: <paramref name="players"/> are the feet of the living players, AI Marines included.</summary>
-    public TfwBattleChange Step(ReadOnlySpan<Vector3> players)
+    /// <summary>One tick, before the fight: <paramref name="players"/> are the feet of the living players, AI Marines included; <paramref name="humans"/> those of the living humans in the field.</summary>
+    public TfwBattleChange Step(ReadOnlySpan<Vector3> players, ReadOnlySpan<Vector3> humans = default)
     {
         var change = TfwBattleChange.None;
         Unstrand();
@@ -250,12 +252,12 @@ public sealed class TfwBattle
             }
             _objectives[CommanderObjective] = _objectives[CommanderObjective] with { Progress = 1f - boss.Health / MathF.Max(1f, BossMaxHealth) };
         }
-        if (_next < Positions) change |= StepPosition(_next, players);
+        if (_next < Positions) change |= StepPosition(_next, players, humans);
         StepArrivals();
         return change;
     }
 
-    TfwBattleChange StepPosition(int k, ReadOnlySpan<Vector3> players)
+    TfwBattleChange StepPosition(int k, ReadOnlySpan<Vector3> players, ReadOnlySpan<Vector3> humans)
     {
         var o = _objectives[k];
         switch (o.State)
@@ -274,7 +276,7 @@ public sealed class TfwBattle
                 }
                 break;
             case TfwPositionState.Securing:
-                o = o with { Progress = Securing(o) };
+                o = o with { Progress = Securing(o, humans) };
                 if (o.Progress >= 1f)
                 {
                     _objectives[k] = o with { State = TfwPositionState.Secured, Progress = 1f };
@@ -292,10 +294,15 @@ public sealed class TfwBattle
         return _enemies.Query(at, TfwMap.CaptureRadius, one) > 0;
     }
 
-    /// <summary>One tick of a position's securing: a Guardsman inside and no Ork moves it, an Ork pauses it, a wiped squad lets it decay until the reserve is sent.</summary>
-    float Securing(in TfwObjective o)
+    /// <summary>One tick of a position's securing: a Guardsman inside and no Ork moves it, an Ork pauses it, a wiped squad lets it decay until the reserve is sent. With no Guardsman and no reserve left, a human inside takes over at <see cref="TfwBattleRules.HumanSecureRate"/>.</summary>
+    float Securing(in TfwObjective o, ReadOnlySpan<Vector3> humans)
     {
         bool inside = _guards.CountInside(o.Position, TfwMap.CaptureRadius) > 0;
+        if (_guards.Alive == 0 && _reserves == 0 && HumanInside(o.Position, humans))
+        {
+            _wipedTicks = 0;
+            return OrksInside(o.Position) ? o.Progress : o.Progress + TfwBattleRules.HumanSecureRate * Dt / TfwBattleRules.SecureSeconds;
+        }
         if (inside || _guards.AliveIn(_secureSquad) > 0)
         {
             _wipedTicks = 0;
@@ -308,6 +315,13 @@ public sealed class TfwBattle
             AssignSquad(o.Position);
         }
         return MathF.Max(0f, o.Progress - TfwBattleRules.SecureDecayPerSecond * Dt);
+    }
+
+    static bool HumanInside(Vector3 at, ReadOnlySpan<Vector3> humans)
+    {
+        foreach (var h in humans)
+            if (new Vector2(h.X - at.X, h.Y - at.Y).LengthSquared() <= TfwMap.CaptureRadius * TfwMap.CaptureRadius) return true;
+        return false;
     }
 
     void AssignSquad(Vector3 position)

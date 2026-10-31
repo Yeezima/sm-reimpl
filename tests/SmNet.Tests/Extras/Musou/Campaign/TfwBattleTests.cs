@@ -20,10 +20,10 @@ internal static class TfwRig
 
     public const int Human = 1;
 
-    public static World War(NavGraph? nav = null)
+    public static World War(NavGraph? nav = null, SimConfig? config = null)
     {
         var map = TfwMap.Build();
-        var w = new World(Config, map.Collision, TfwMap.Spawns) { Rules = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2, RestartDelay = 2f }, StartAreas = TfwMap.StartAreas };
+        var w = new World(config ?? Config, map.Collision, TfwMap.Spawns) { Rules = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2, RestartDelay = 2f }, StartAreas = TfwMap.StartAreas };
         Assert.True(w.StartTfw(nav));
         w.Tfw!.RetainerUp = _ => false;   // the tests of the extraction; those of the revive set their own
         w.Spawn(Human, w.AssignClass(0));
@@ -186,6 +186,39 @@ public class TfwBattleTests
         TfwRig.Seconds(w, 5.5f);
         Assert.Equal(reserves - 1, battle.Reserves);
         Assert.Equal(1, guards.SquadsAlive);
+    }
+
+    [Fact]
+    public void With_every_guardsman_dead_and_no_reserve_a_human_secures_at_half_rate()
+    {
+        var sim = new MusouSim(null);
+        var guards = new GuardSim(sim);
+        var layout = TfwLayout.For(TfwLane.A, 1);
+        var battle = new TfwBattle(sim, guards, layout, 100.0, 10.0, 1);     // 4 squads, all in the field
+        battle.Start();
+        Assert.Equal(0, battle.Reserves);
+        Vector3[] at = [layout.Positions[0]], away = [layout.LandingZone];
+        var all = new MusouEnemy[MusouSim.Capacity];
+        int n = sim.CopyTo(all);
+        for (int k = 0; k < n; k++) sim.Damage(all[k].Id, 1, 1e6f, Vector3.Zero, out _);
+        for (int k = 0; k < 3; k++) battle.Step(at, at);
+        Assert.Equal(TfwPositionState.Securing, battle.Objectives[0].State);
+        for (int s = 0; s < GuardSim.MaxSquads; s++)
+            while (guards.AliveIn(s) > 0) guards.Hit(s, 1e6f, Vector3.Zero);
+        Assert.Equal(0, guards.Alive);
+
+        for (int k = 0; k < 30; k++) battle.Step(at, []);                    // an AI Marine alone does not count
+        Assert.Equal(0f, battle.Objectives[0].Progress);
+        for (int k = 0; k < 30; k++) battle.Step(at, away);                  // nor a human elsewhere
+        Assert.Equal(0f, battle.Objectives[0].Progress);
+        ushort ork = sim.Spawn(MusouEnemyType.Boy, layout.Positions[0], 0f, 85f);
+        for (int k = 0; k < 30; k++) battle.Step(at, at);
+        Assert.Equal(0f, battle.Objectives[0].Progress);                     // an Ork pauses it
+        sim.Damage(ork, 1, 1e6f, Vector3.Zero, out _);
+        for (int k = 0; k < 25 * 30; k++) battle.Step(at, at);
+        Assert.InRange(battle.Objectives[0].Progress, 0.499f, 0.501f);       // half the rate
+        for (int k = 0; k < 25 * 30 + 2; k++) battle.Step(at, at);
+        Assert.Equal(TfwPositionState.Secured, battle.Objectives[0].State);
     }
 
     [Fact]

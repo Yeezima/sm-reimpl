@@ -126,8 +126,10 @@ public sealed partial class World
     /// <summary>The field is empty: no enemy, Guardsman, drop or AI Marine (recoveries and orders stay). A new round does not clear the Guardsmen by itself.</summary>
     internal void TfwClearField()
     {
-        _musou!.Clear();
+        _musou!.Clear();   // the enemies fire no projectile: their rounds are rolled hits (MusouSim.Fire)
         TfwGuards!.Clear();
+        _projectiles.Clear(); _areas.Clear(); _perkBlasts.Clear();   // the players' own: nothing of this battle lands in the next or in the Stormbird
+        CountProjectilesOut();
         MusouClearDrops();
         TfwDismissMarines();
         _musouBoss = null;

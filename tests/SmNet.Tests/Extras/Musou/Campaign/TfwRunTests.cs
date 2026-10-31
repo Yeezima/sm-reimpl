@@ -117,6 +117,76 @@ public class TfwRunTests
     }
 
     [Fact]
+    public void A_human_who_joins_mid_battle_waits_in_the_stormbird_and_blocks_no_extraction()
+    {
+        var w = TfwRig.War();
+        var run = w.Tfw!;
+        var battle = TfwRig.Deploy(w);
+        w.Spawn(2, w.AssignClass(0));
+        TfwRig.Seconds(w, 1f);
+        Assert.Equal([Human], run.InField);
+        Assert.True(TfwRig.InStormbird(w.Players[2].Position), $"{w.Players[2].Position}");
+        Assert.True(run.Enqueue(2, new TfwCommandRecord(1, TfwCommand.RequestPickup, 0)));
+        TfwRig.Steps(w, 2);
+        Assert.Equal(TfwRunPhase.Battle, run.Phase);                         // not in the field: no say
+        Assert.True(w.TfwKillForTests(Human));
+        TfwRig.Seconds(w, TfwBattleRules.ExtractionPromptSeconds + 0.3f);
+        Assert.Equal((TfwRunPhase.Hub, 2), (run.Phase, run.Supplies));
+        TfwRig.Deploy(w);
+        Assert.Equal([Human, 2], run.InField);                               // both go on the next deploy
+    }
+
+    [Fact]
+    public void Without_transport_a_pickup_and_a_deploy_are_refused_until_the_hq_sends_one()
+    {
+        var w = TfwRig.War();
+        var run = w.Tfw!;
+        for (int k = 0; k < 2; k++)
+        {
+            TfwRig.Deploy(w);
+            TfwRig.Command(w, TfwCommand.RequestPickup);
+            TfwRig.Seconds(w, TfwBattleRules.PickupSeconds + 0.2f);
+        }
+        TfwRig.Deploy(w);
+        Assert.Equal(0, run.Transport);
+        TfwRig.Command(w, TfwCommand.RequestPickup);
+        TfwRig.Steps(w, 2);
+        Assert.Equal(TfwRunPhase.Battle, run.Phase);                         // no way out by air
+        Assert.True(w.TfwKillForTests(Human));
+        TfwRig.Seconds(w, TfwBattleRules.ExtractionPromptSeconds + 0.3f);
+        Assert.Equal((TfwRunPhase.Hub, 0, 2), (run.Phase, run.Transport, run.Supplies));
+        TfwRig.Command(w, TfwCommand.Deploy);
+        TfwRig.Steps(w, 2);
+        Assert.Equal((TfwRunPhase.Hub, 0), (run.Phase, run.Transport));
+        while (run.War.Clock < TfwBattleRules.HqTransportSeconds) run.War.Step();
+        TfwRig.Seconds(w, 1.2f);
+        Assert.Equal(1, run.Transport);
+        TfwRig.Deploy(w);
+        Assert.Equal((TfwRunPhase.Battle, 0), (run.Phase, run.Transport));
+    }
+
+    [Fact]
+    public void A_players_projectile_does_not_outlive_the_battle()
+    {
+        var slow = new ProjectileSpec("t", 0.5f, 120f, "raycast", 0f, [], false, false, false, 0, 0f, 0f, 0, null, null);
+        var pistol = TfwRig.Config.Weapons[1] with { Delivery = DeliveryKind.Projectile, Projectile = slow };
+        var w = TfwRig.War(config: TfwRig.Config with { Weapons = [TfwRig.Config.Weapons[0], pistol] });
+        w.Tfw!.RetainerUp = _ => false;
+        TfwRig.Deploy(w);
+        for (int k = 0; k < 8 && w.Projectiles.Count == 0; k++)
+        {
+            w.Step(_ => new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire));
+            w.Step(_ => default);
+        }
+        Assert.NotEmpty(w.Projectiles);
+        Assert.True(w.TfwKillForTests(Human));
+        TfwRig.Seconds(w, TfwBattleRules.ExtractionPromptSeconds + 0.3f);
+        Assert.Equal(TfwRunPhase.Hub, w.Tfw.Phase);
+        Assert.Empty(w.Projectiles);
+        Assert.Equal(0, w.Players[Human].ProjectilesOut);
+    }
+
+    [Fact]
     public void A_flood_of_deploys_is_drained_each_tick_and_starves_no_order()
     {
         var w = TfwRig.War();
