@@ -9,17 +9,18 @@ namespace SmClient;
 // ui/hud-2: the armour and health bar drawn from the HUD movie (Hud.gfx `unifiedhealth_mc`) like the other panels. The movie holds three bar clips: `healthbar_mc` (100 frames: the red
 // fill, frame 0 full, frame 99 empty; its low-health frames carry the hit flash clips), `ironhalo_mc` (100 frames, **cyan**: frames 0 to 14 a flash with the medallion's starburst
 // shrinking in, frame 15 the whole bar, frames 16 to 99 the bar cut shorter with its white end cap, frame 99 only the starburst) and `lightdamagebar_mc` (the same armour bar in
-// **gold**, 110 frames). The footage's armour bar is the cyan one in 22 of the 24 samples that show armour lines (one every 4 s), so it is drawn from `ironhalo_mc` as the movie has it (no tint needed); the gold clip is not drawn
-// (which state of the original shows it is script, not data: spec "HUD from the movies"). Place and scale are the movie's own (they match the footage within 2 stage pixels).
+// **cream** lines with a plain diamond outline, 110 frames, cut by a mask). ui/hud-bar-colours: the Iron Halo perk's carrier gets `ironhalo_mc`, everyone else `lightdamagebar_mc`, each in the movie's own
+// colours (the owner's reference frames of an Assault Marine show the cream bar: spec "Armour bar: the plain clip"). Place and scale are the movie's own (they match the footage within 2 stage pixels).
 public sealed partial class Hud
 {
     const string Vitals = "unifiedhealth_mc";
 
-    /// <summary><c>--hud-vitals-demo &lt;prefix&gt;</c> (screenshot aid, ui/armour-bar-fix): in a match, steps the own bars through six states (full, half armour, no armour, half health, low health, both half), saving the window as <c>&lt;prefix&gt;_N.png</c> for each, then quits.</summary>
+    /// <summary><c>--hud-vitals-demo &lt;prefix&gt;</c> (screenshot aid, ui/armour-bar-fix): in a match, steps the own bars through nine states (full; half armour; no armour with half health; no armour
+    /// with low health; no armour; half health; low health; both half; low armour), saving the window as <c>&lt;prefix&gt;_N.png</c> for each, then quits.</summary>
     static readonly string? VitalsDemo = ReadVitalsDemo();
     double _vitalsDemoAt;
     int _vitalsDemoStep;
-    static readonly (float Health, float Shield)[] VitalsDemoStates = [(1f, 1f), (1f, 0.5f), (1f, 0f), (0.5f, 1f), (0.2f, 1f), (0.5f, 0.5f)];
+    static readonly (float Health, float Shield)[] VitalsDemoStates = [(1f, 1f), (1f, 0.5f), (0.5f, 0f), (0.2f, 0f), (1f, 0f), (0.5f, 1f), (0.2f, 1f), (0.5f, 0.5f), (1f, 0.2f)];
 
     static string? ReadVitalsDemo()
     {
@@ -47,6 +48,13 @@ public sealed partial class Hud
     /// </summary>
     static readonly GfxColourTransform HealthTint = new(0.9f, 0f, 0.7f, 1f, 0f, 0f, 0f, 0f);
 
+    /// <summary>
+    /// ui/hud-bar-colours: the plain bar's health fill on the owner's three reference frames of the original (an Assault Marine without Iron Halo) is a warmer orange-red than the movie's own: the
+    /// core about F7 36 11 (FF491B, FA3203, F03115 sampled) and the edges about EE 79 2E, where the movie draws E7 08 00 and EC 58 03: the green lifted (most in the core) and the blue brought down,
+    /// fitted on our own window shots (measured, ours; the Iron Halo's bar keeps <see cref="HealthTint"/>).
+    /// </summary>
+    static readonly GfxColourTransform PlainHealthTint = new(1f, 0.73f, 0.3f, 1f, 0.03f, 0.13f, 0f, 0f);
+
     // ui/hud-3: no bar flash any more (owner, 2026-10-30): the own damage is a full-screen vignette (DrawDamageVignette).
     float _vitalsHealth = -1f, _vitalsShield = -1f;
     bool _vitalsAlive;
@@ -54,18 +62,20 @@ public sealed partial class Hud
     bool _vignetteHealth;
     GradientTexture2D? _vignetteTex;
 
-    /// <summary>The plain armour bar's yellow (ours, owner 2026-10-30; the original's frame is yellow-gold, a flat colour in place of the Iron Halo clip's cyan and white).</summary>
-    static readonly GfxColourTransform ArmourYellow = new(0f, 0f, 0f, 1f, 1f, 0.8f, 0.05f, 0f);
-
-    /// <summary>Starburst medallion of the armour clip (<c>c540</c>): the Iron Halo's bar keeps it, the reference's plain bar leaves it out.</summary>
-    static readonly HashSet<int> NoMedallion = [540];
+    /// <summary>
+    /// ui/hud-bar-colours (owner 2026-10-31, third pass): the bar without the Iron Halo perk is the movie's own plain armour clip <c>lightdamagebar_mc</c>, cut by the armour like the cyan one: cream lines
+    /// (251, 252, 174 in the data; the original's footage samples FFF2C5, F9F5BB, FAEFB1 on the owner's three reference frames), a cream diamond outline with no spikes, placed added. Before, everyone
+    /// without the perk got the Iron Halo clip flat-tinted saturated yellow (FDCA0D), which the original never shows.
+    /// </summary>
+    const string PlainArmourClip = "lightdamagebar_mc";
 
     /// <summary>The health clip's low-health flash pieces (frames 50 to 99): the additive white bar <c>c558</c> is drawn as the normal red one <c>c550</c> and the flash clip <c>health_flash_mc</c> <c>c559</c> as the normal diamond <c>c553</c> (the frames below 50 have them); the white end cap <c>c557</c> is left out (it turned magenta under the Halo's tint).</summary>
     static readonly HashSet<int> HealthFlash = [557];
     static readonly Dictionary<int, int> HealthBarSwap = new() { [558] = 550, [559] = 553 };
 
-    // The vignette's colours: the armour bar's cyan; the health bar's red (Iron Halo's tinted bar) or the movie's own orange-red (the reference bar).
-    static readonly Color ArmourVignette = new(0.35f, 0.95f, 0.9f), HealthVignetteRed = new(0.91f, 0.02f, 0.1f), HealthVignetteOrange = new(1f, 0.28f, 0.1f), ArmourVignetteYellow = new(1f, 0.8f, 0.05f);
+    // The vignette's colours: the armour bar's cyan (Iron Halo) or the plain clip's cream (251, 252, 174: the data's line colour); the health bar's red (Iron Halo's tinted bar) or the reference's orange-red
+    // (FF461A: the fill's core sampled on the owner's reference frame of the plain bar).
+    static readonly Color ArmourVignette = new(0.35f, 0.95f, 0.9f), HealthVignetteRed = new(0.91f, 0.02f, 0.1f), HealthVignetteOrange = new(1f, 0.275f, 0.1f), ArmourVignetteCream = new(0.984f, 0.988f, 0.682f);
     const double VignetteSeconds = 0.55;
     const float VignetteAlpha = 0.6f;
 
@@ -90,7 +100,7 @@ public sealed partial class Hud
             Width = 256, Height = 256, Fill = GradientTexture2D.FillEnum.Radial, FillFrom = new Vector2(0.5f, 0.5f), FillTo = new Vector2(1.05f, 0.5f),
             Gradient = new Gradient { Offsets = [0f, 0.45f, 1f], Colors = [new Color(1f, 1f, 1f, 0f), new Color(1f, 1f, 1f, 0.18f), new Color(1f, 1f, 1f, 1f)] },
         };
-        var col = _vignetteHealth ? (Data.IronHalo ? HealthVignetteRed : HealthVignetteOrange) : (Data.IronHalo ? ArmourVignette : ArmourVignetteYellow);
+        var col = _vignetteHealth ? (Data.IronHalo ? HealthVignetteRed : HealthVignetteOrange) : (Data.IronHalo ? ArmourVignette : ArmourVignetteCream);
         float k = 1f - (float)(age / VignetteSeconds);
         col.A = VignetteAlpha * k * k;
         DrawTextureRect(_vignetteTex, new Rect2(Vector2.Zero, vs), false, col);
@@ -98,7 +108,8 @@ public sealed partial class Hud
 
     /// <summary>
     /// The bar from <c>unifiedhealth_mc</c>: the dark band, the cyan armour bar cut by the armour, the health bar cut by the health (added, as the movie places it). With the Iron Halo perk the
-    /// armour bar has its starburst medallion and the health bar its measured red; without it (ui/hud-3, the owner's reference) the bar has no medallion spikes, a plain yellow armour bar (never blue or white) and the movie's own orange-red health. False without the movie (the caller draws the M44 bar).
+    /// armour bar has its starburst medallion and the health bar its measured red; without it (ui/hud-bar-colours, the owner's reference) the armour bar is the movie's plain cream clip
+    /// <c>lightdamagebar_mc</c> (no spikes, never blue) and the health bar the reference's orange-red (<see cref="PlainHealthTint"/>). False without the movie (the caller draws the M44 bar).
     /// </summary>
     /// <summary>Armour bar layers the last movie bar drew (ui-selftest: one, or none for an empty plain bar; -1 until the movie bar has been drawn).</summary>
     public int VitalsArmourLayers { get; private set; } = -1;
@@ -134,6 +145,41 @@ public sealed partial class Hud
         VitalsHealthWhiteShare = drawn == 0 ? 0f : light / (float)drawn;
     }
 
+    /// <summary>
+    /// The armour bar picture last drawn (ui-selftest, ui/hud-bar-colours): the share of its bright pixels that are cyan (blue over red), saturated yellow (blue under 40 % of red: the old flat tint
+    /// made every pixel so; the cream clip's own glow has some) and cream or white (red and green over 85 %, blue over 55 %), over both layers; -1 until drawn.
+    /// </summary>
+    public float VitalsArmourCyanShare { get; private set; } = -1f;
+    public float VitalsArmourYellowShare { get; private set; } = -1f;
+    public float VitalsArmourCreamShare { get; private set; } = -1f;
+    HudMovieArt.Pic? _armourShareFor;
+
+    void MeasureArmourShare(HudMovieArt.Pic pic)
+    {
+        if (ReferenceEquals(pic, _armourShareFor)) return;
+        _armourShareFor = pic;
+        int bright = 0, cyan = 0, yellow = 0, cream = 0;
+        foreach (var tex in new[] { pic.Normal, pic.Add })
+        {
+            if (tex is null) continue;
+            var img = tex.GetImage();
+            for (int y = 0; y < img.GetHeight(); y++)
+                for (int x = 0; x < img.GetWidth(); x++)
+                {
+                    var c = img.GetPixel(x, y);
+                    if (tex == pic.Normal && c.A < 0.5f) continue;
+                    if (MathF.Max(c.R, MathF.Max(c.G, c.B)) < 0.6f) continue;   // the lines and the medallion, not their faint glow
+                    bright++;
+                    if (c.B > c.R + 0.1f) cyan++;
+                    else if (c.R > 0.6f && c.G > 0.5f && c.B < 0.4f * c.R) yellow++;
+                    if (c.R > 0.85f && c.G > 0.85f && c.B > 0.55f && c.B <= c.R + 0.1f) cream++;
+                }
+        }
+        VitalsArmourCyanShare = bright == 0 ? 0f : cyan / (float)bright;
+        VitalsArmourYellowShare = bright == 0 ? 0f : yellow / (float)bright;
+        VitalsArmourCreamShare = bright == 0 ? 0f : cream / (float)bright;
+    }
+
     bool DrawMovieVitals(Vector2 vs)
     {
         if (OldHud || HudMovie is not { } hud || _movieArt is null) return false;
@@ -144,36 +190,30 @@ public sealed partial class Hud
         float sf = Math.Clamp(d.Shield / MathF.Max(d.ShieldMax, 1f), 0f, 1f);
         // The movie's own place (463.05, 65.75, 0.9 turned upside down: its y axis is flipped, as its band's) is the footage's: cyan lines 434 to 814 and 78 to 114 of the 1280 x 720 stage.
         var xf = Stage(vs, 0) * ToXf(unified.ToStage);
-        int hframe = VitalsRules.HealthFrame(hf, d.Alive), aframe = VitalsRules.ArmourFrame(sf, d.Alive);
-        string haloPath = $"{Vitals}/ironhalo_mc";
+        int hframe = VitalsRules.HealthFrame(hf, d.Alive);
+        // Iron Halo: the cyan ironhalo_mc with its starburst; everyone else: the movie's own plain clip lightdamagebar_mc in its own colours (ui/hud-bar-colours).
+        int aframe = halo ? VitalsRules.ArmourFrame(sf, d.Alive) : VitalsRules.PlainArmourFrame(sf, d.Alive);
+        bool armourEmpty = !halo && aframe == VitalsRules.PlainEmpty;
+        string armourPath = $"{Vitals}/{(halo ? "ironhalo_mc" : PlainArmourClip)}";
         string v = halo ? "h" : "p";
 
         var bg = _movieArt.Get("vit:bg", (m, s) => m.Hud?.RenderAt($"{Vitals}/background_mc", Vitals, s));
-        var arm = _movieArt.Get($"vit:a{v}:{aframe}", (m, s) =>
-        {
-            GfxRaster.Hidden = halo ? null : NoMedallion;
-            try
-            {
-                if (halo || m.Hud is not { } movie || movie.Find(haloPath) is not { } found || unified.ToStage.Inverse() is not { } invU) return m.Hud?.RenderAt(haloPath, Vitals, s, aframe);
-                // ui/hud-r2 (owner, 2026-10-30): everyone but the Iron Halo's carrier has the plain yellow armour bar: the clip's own cyan and white replaced by the yellow (ours).
-                return movie.Render(found.Placement.Character, aframe, s, invU.After(found.ToStage), null, colour: ArmourYellow, add: found.Placement.Blend == 8);
-            }
-            finally { GfxRaster.Hidden = null; }
-        }, "vit:a", 24);
+        var arm = armourEmpty ? null : _movieArt.Get($"vit:a{v}:{aframe}", (m, s) => m.Hud?.RenderAt(armourPath, Vitals, s, aframe), "vit:a", 24);
+        if (arm is not null) MeasureArmourShare(arm);
         var healthLocal = unified.ToStage.Inverse() is { } invUnified ? invUnified.After(health.ToStage) : health.ToStage;
         var hp = _movieArt.Get($"vit:h{v}:{hframe}", (m, s) =>
         {
             // ui/armour-bar-fix (owner 2026-10-31): from frame 50 on the health clip swaps its bar for an additive white flash version (c558) and adds the flash clip (c559): drawn still they turn
             // the fill white (pink with the Halo's tint). They are the movie's low-health flash, which the own-damage vignette replaces (ui/hud-3), so the fill stays its normal red.
             GfxRaster.Hidden = HealthFlash; GfxRaster.Swap = HealthBarSwap;
-            try { return m.Hud?.Render(health.Placement.Character, hframe, s, healthLocal, null, colour: halo ? HealthTint : null, add: health.Placement.Blend == 8); }
+            try { return m.Hud?.Render(health.Placement.Character, hframe, s, healthLocal, null, colour: halo ? HealthTint : PlainHealthTint, add: health.Placement.Blend == 8); }
             finally { GfxRaster.Hidden = null; GfxRaster.Swap = null; }
         }, "vit:h", 24);
         if (bg is not null) DrawAtom(bg, xf, White, false);
-        // ui/armour-bar-fix (owner 2026-10-31): the gold lightdamagebar_mc frame (a whole second armour bar, gold, full length) is no longer drawn under the yellow bar: one armour bar only.
-        // Frame 99 of the clip is the starburst alone: it belongs to the Iron Halo perk, so everyone else draws nothing for an empty armour (ui/armour-bar-fix).
+        // One armour bar layer only (ui/armour-bar-fix): the Iron Halo's cyan clip or the plain cream clip, never both. The plain clip's empty frame (99) is its bare unmasked lines: nothing is drawn
+        // at no armour (the Iron Halo's frame 99 is its starburst alone and stays).
         VitalsArmourLayers = 0;
-        if (arm is not null && (halo || aframe != VitalsRules.ArmourEmpty)) { DrawAtom(arm, xf, White, false); VitalsArmourLayers++; }
+        if (arm is not null) { DrawAtom(arm, xf, White, false); VitalsArmourLayers++; }
         if (hp is not null) { MeasureHealthShare(hp); DrawAtom(hp, xf, White, false); }
         return true;
     }

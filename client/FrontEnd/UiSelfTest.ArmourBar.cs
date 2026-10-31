@@ -26,6 +26,16 @@ public sealed partial class UiSelfTest
                     await Frames(3);
                     for (int i = 0; i < 400 && hud.VitalsArmourLayers < expected; i++) await Frames(1);
                     int layers = hud.VitalsArmourLayers;
+                    if (shield > 0f)
+                    {
+                        await Frames(60);   // the new armour level's art is built in the background
+                        float cyan = hud.VitalsArmourCyanShare, yellow = hud.VitalsArmourYellowShare, cream = hud.VitalsArmourCreamShare;
+                        // ui/hud-bar-colours: the plain bar is the movie's cream lightdamagebar_mc (no cyan; mostly cream, only its glow yellow: the old flat tint was all yellow); the Iron Halo's bar
+                        // is the cyan ironhalo_mc.
+                        string seen = $"cyan {cyan:P1}, yellow {yellow:P1}, cream {cream:P1}";
+                        if (halo) Check($"armour bar: Iron Halo, armour {shield:F0} %: the bar is cyan and white", cyan > 0.2f && yellow < 0.02f, seen);
+                        else Check($"armour bar: plain, armour {shield:F0} %: the bar is cream, never blue or flat yellow", cyan >= 0f && cyan < 0.02f && yellow < 0.4f && cream > 0.5f, seen);
+                    }
                     foreach (float health in new[] { 100f, 50f, 20f })
                     {
                         hud.Data.Health = health;

@@ -145,6 +145,26 @@ public class HudRewardTests
     }
 
     [Fact]
+    public void ThePlainArmourClipsFramesFollowTheFraction()
+    {
+        // ui/hud-bar-colours: the bar without the Iron Halo is the movie's lightdamagebar_mc (frame 0 whole, 1 to 98 cut by its mask, 99 nothing drawn).
+        Assert.Equal(VitalsRules.PlainFull, VitalsRules.PlainArmourFrame(1f, true));
+        Assert.Equal(VitalsRules.PlainEmpty, VitalsRules.PlainArmourFrame(0f, true));
+        Assert.Equal(VitalsRules.PlainEmpty, VitalsRules.PlainArmourFrame(1f, false));
+        Assert.Equal(VitalsRules.PlainEmpty, VitalsRules.PlainArmourFrame(float.NaN, true));
+        Assert.InRange(VitalsRules.PlainArmourFrame(0.5f, true), 50, 52);            // the mask's edge at half the bar's length
+        Assert.Equal(VitalsRules.PlainLastCut, VitalsRules.PlainArmourFrame(0.01f, true));
+        int last = VitalsRules.PlainFull;
+        for (float f = 0.99f; f > 0.01f; f -= 0.01f)
+        {
+            int frame = VitalsRules.PlainArmourFrame(f, true);
+            Assert.InRange(frame, VitalsRules.PlainFull + 1, VitalsRules.PlainLastCut);
+            Assert.True(frame >= last);
+            last = frame;
+        }
+    }
+
+    [Fact]
     public void TheLauncherDisplaysRoundsFollowTheRoundsLeft()
     {
         Assert.Equal(18, WeaponBoxRules.LauncherSlots);
