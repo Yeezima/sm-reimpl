@@ -128,14 +128,14 @@ public partial class NetworkView
         double now = _connectedFor;
         if (NoFallPose || _config is null || FallData() is null) { t.Fall.Observe(now, false, true, 0f); return; }
         // sim/combat-pass (item 21): a charge held in the air keeps its clip until it has run FallRules.ChargeFallDelay (0.3 s off the ground), then the fall pose.
-        bool heldInAir = ChargeHeldInAir(s);
+        bool heldInAir = ChargeHeldInAir(s) || EvadeFallingInAir(s);   // sim/movement-fixes: a roll or hop carried off a drop too
         if (!heldInAir) { t.ChargeAirSince = double.NegativeInfinity; t.ChargeFall = false; }
         else
         {
             if (double.IsNegativeInfinity(t.ChargeAirSince)) t.ChargeAirSince = now;
             t.ChargeFall = t.ChargeFall || FallRules.ChargeShowsFall(now - t.ChargeAirSince);
         }
-        bool eligible = s.Alive && s.Jump == JumpPhase.None && (s.Rush == RushPhase.None || t.ChargeFall) && s.Reaction == ReactionKind.None && !Evade.Evading(s)
+        bool eligible = s.Alive && s.Jump == JumpPhase.None && (s.Rush == RushPhase.None || t.ChargeFall) && s.Reaction == ReactionKind.None && (!Evade.Evading(s) || t.ChargeFall)
                         && !(_jumpTracks.TryGetValue(s.PlayerId, out var jump) && jump.View != JumpView.None);
         var fall = t.Fall;
         // Animation pass 3: a charge held in the air off a ledge is a fall from its first frame (no debounce: a crest of stairs does not hold a charge), so its clip hands over to the fall pose at once.
@@ -275,6 +275,16 @@ public partial class NetworkView
     /// </summary>
     bool ChargeHeldInAir(PlayerState s) =>
         !NoFallPose && s.Alive && !s.Grounded && s.Rush is RushPhase.Rush or RushPhase.DashAttack && _config is not null && Rush.MoveOf(_config, s) is { } move && Rush.Held(s, move, _config);
+
+    /// <summary>
+    /// sim/movement-fixes (the owner, 2026-11-01: the hop off a ledge "should go down while still going forward"): a roll or heavy hop carried off a drop goes on in the
+    /// air with its clip's travel (the simulation) and falls; past its own lift (<see cref="EvadeMove.HeightAt"/> 0) and on the way down it shows the fall pose once it has been
+    /// off the ground <see cref="FallRules.ChargeFallDelay"/> (as a charge held in the air), so a long drop is not its clip's standing frames in mid-air; on landing the
+    /// clip resumes. Not the jump-pack dash (its flight clip is its own fall). <c>--no-fall-pose</c> keeps the clip.
+    /// </summary>
+    bool EvadeFallingInAir(PlayerState s) =>
+        !NoFallPose && s.Alive && !s.Grounded && s.Velocity.Z < 0f && _config is not null && Evade.Move(s, _config) is { Flight: false } move
+        && !(move.HeightAt(Evade.Time(s, _config)) > 0f);
 
     /// <summary>The bot log's fall counters.</summary>
     string FallStats() => $"falls: {_fallsBegun} begun, landings soft {_landingsSoft} hard {_landingsHard}, own landing feel {_landingFeels}";

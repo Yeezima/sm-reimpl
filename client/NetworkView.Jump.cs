@@ -205,6 +205,8 @@ public partial class NetworkView
         };
         // An own take-off that ends on the ground without lifting off (death, or a missed tick) is no landing.
         if (prev == JumpView.TakeOff && raw == JumpView.None) next = JumpView.None;
+        // sim/movement-fixes: a dash started in the air (a Space tap at the apex or in the fall) ends the jump with no landing: its flight and landing are the evade's.
+        if (prev == JumpView.Air && raw == JumpView.None && Evade.Evading(s) && !s.Grounded) next = JumpView.None;
 
         if (next != prev)
         {
