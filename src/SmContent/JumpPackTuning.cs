@@ -95,6 +95,8 @@ public static class JumpPackTuning
             ReleaseCut = ReleaseStopsRise, ReleaseCutDelay = ReleaseRiseDelay, ReleaseCutDecay = ReleaseRiseDecay,
             // feel/jump-pack-2 (the owner's decision, 2026-10-29): tap = the dash, a medium hold = the small jump, a long hold = the full jump.
             HoldTiers = ThreeJumps,
+            // sim/jump-hang (the owner, 2026-10-31): the small jump hangs longer at its apex; the data's jump_hang_gravity / jump_hang_time are the full jump's.
+            SmallHangTime = SmallJumpHangTime, SmallHangFloor = SmallJumpHangFloor,
             // feel/jump-pack (the owner's request, 2026-10-29): steering in the air; not in the data (its gains stay the released-stick rule).
             AirSpeed = AirControlSpeed, AirAcceleration = AirControlAcceleration,
         };
@@ -145,6 +147,14 @@ public static class JumpPackTuning
     /// its cut are ours.
     /// </summary>
     public const bool ThreeJumps = true;
+    /// <summary>
+    /// sim/jump-hang (owner's recollection 2026-10-31: "you drop out of the air too fast once you hit the peak height ... hold vertical height for a bit
+    /// longer"): seconds the small jump hangs longer at its apex, on top of the data's <c>jump_hang_time</c> (0.5 s at <c>jump_hang_gravity</c> 12). The data
+    /// has no separate hover for it, so the length is ours.
+    /// </summary>
+    public const float SmallJumpHangTime = 0.35f;
+    /// <summary>sim/jump-hang (ours): the hover's gravity at its start, as a fraction of the data's hang gravity; it eases up to all of it over <see cref="SmallJumpHangTime"/>.</summary>
+    public const float SmallJumpHangFloor = 0.05f;
     /// <summary>M45 (ours): the rise goes on unchanged this long after the release (the owner's "brief delay").</summary>
     public const float ReleaseRiseDelay = 0.1f;
     /// <summary>M45 (ours): the rise then decays with this time constant (s) to the apex.</summary>

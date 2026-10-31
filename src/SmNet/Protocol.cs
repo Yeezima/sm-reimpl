@@ -673,7 +673,7 @@ public static partial class Protocol
                     // Protocol 27 (M45): in the ascent, bit 6 says the rise is cut (Jump let go; the mark is then the cut's tick).
                     w.U8((byte)(((int)p.Jump & 7) | (p.JumpHeld ? 8 : 0) | (p.JumpHolding ? 16 : 0)
                         | (p.Jump == JumpPhase.TakeOff ? ((int)p.JumpDashDirection & 7) << 5 : p.JumpLandMoving ? 32 : 0)
-                        | (p.Jump == JumpPhase.Ascent && p.JumpCut ? 64 : 0)));
+                        | (p.Jump == JumpPhase.Ascent && p.JumpCut ? 64 : 0) | (p.Jump == JumpPhase.Hang && p.JumpSmall ? 64 : 0)));   // sim/jump-hang: in the hang, bit 6 says the small jump's longer hang
                     w.U16((ushort)Math.Clamp(p.JumpTicks, 0, JumpPack.MaxTicks)); w.U16((ushort)Math.Clamp(p.JumpMark, 0, JumpPack.MaxTicks)); w.F32(p.JumpPower);
                     // Evade (protocol 13; 2 bytes): the exact ticks and the spacing lock.
                     w.U8((byte)Math.Clamp(p.EvadeTicks, 0, Evade.MaxTicks)); w.U8((byte)Math.Clamp(p.EvadeLock, 0, Evade.MaxTicks));
@@ -985,7 +985,7 @@ public static partial class Protocol
                 p = p with { ChargeTime = r.F32(), PendingLeft = r.F32(), PendingShot = r.U8(), ProjectilesOut = r.U8() };
                 int jump = r.U8();
                 var phase = (JumpPhase)(jump & 7);
-                if (phase != JumpPhase.TakeOff && jump > (phase == JumpPhase.Ascent ? 127 : 63)) return null;   // unknown flags (protocol 24: bits 5..7 are the dash direction while taking off; 27: bit 6 the ascent's cut)
+                if (phase != JumpPhase.TakeOff && jump > (phase is JumpPhase.Ascent or JumpPhase.Hang ? 127 : 63)) return null;   // unknown flags (protocol 24: bits 5..7 are the dash direction while taking off; 27: bit 6 the ascent's cut)
                 if (phase == JumpPhase.Ascent && (jump & 64) != 0 && (jump & 16) != 0) return null;   // a cut rise is not holding
                 if (JumpPack.Jumping(phase) != ((flags & 32) != 0) || JumpPack.Pounding(phase) != ((flags & 64) != 0)) return null;   // disagrees with the slim flags
                 if (slash && phase is JumpPhase.Hang or JumpPhase.Fall) return null;   // protocol 31: the buffered press only in the take-off and on the lift-off tick
@@ -993,7 +993,7 @@ public static partial class Protocol
                 {
                     Jump = phase, JumpHeld = (jump & 8) != 0, JumpHolding = (jump & 16) != 0,
                     JumpLandMoving = phase != JumpPhase.TakeOff && (jump & 32) != 0, JumpDashDirection = phase == JumpPhase.TakeOff ? (EvadeDirection)(jump >> 5) : EvadeDirection.Forward,
-                    JumpCut = phase == JumpPhase.Ascent && (jump & 64) != 0,
+                    JumpCut = phase == JumpPhase.Ascent && (jump & 64) != 0, JumpSmall = phase == JumpPhase.Hang && (jump & 64) != 0,
                     JumpTicks = r.U16(), JumpMark = r.U16(), JumpPower = r.F32(),
                 };
                 int exactTicks = r.U8(), evadeLock = r.U8();

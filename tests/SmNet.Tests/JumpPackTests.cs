@@ -736,7 +736,7 @@ public class JumpPackTests(ITestOutputHelper output)
         // and those before the match block, kill count and point count (11 bytes since protocol 11) and the hit block (12
         // bytes since protocol 12): phase byte at [^56] (protocol 21: ready ticks in 2 bytes).
         Assert.Equal((byte)((int)JumpPhase.Hang | 8), own[^56]);
-        var unknown = (byte[])own.Clone(); unknown[^56] |= 64;
+        var unknown = (byte[])own.Clone(); unknown[^56] = (byte)((unknown[^56] & ~7) | (int)JumpPhase.Fall | 64);   // sim/jump-hang: bit 6 is the small hang's in the hang, unknown in the fall
         Assert.Null(Protocol.Read(unknown));
         var disagree = (byte[])own.Clone(); disagree[^56] = (byte)JumpPhase.Dive;   // slim flags say jumping
         Assert.Null(Protocol.Read(disagree));
