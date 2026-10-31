@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1806 spec table rows: **1248 tagged**, 406 not tagged (read from data with high confidence), 152 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 394 rows of the changes document.
+Scanned 1806 spec table rows: **1248 tagged**, 406 not tagged (read from data with high confidence), 152 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 395 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -2052,6 +2052,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 
 | ID | Change | Original | Here | Decision / record | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
+| `C-2AEA28CF` | Shell casings fall faster | The ejected casing's spray falls with the effect data's gravity | The casing itself falls with its particle's gravity × 2.5 (ours); smoke and other effects unchanged | Owner 2026-11-01: casings "far too floaty" | Shell casings fall faster: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-3E067287` | Networking | Peer-hosted matches | Server-authoritative dedicated servers: input commands up, snapshots down, prediction, reconciliation, interpolation, lag compensation. Clients never learn other players' health, shield, ammunition or heat | The project's one intended change (CLAUDE.md "Goal"); docs/architecture.md; spec "What other players see" | Networking: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-786B4BB2` | No melee hit-stop, no hit shake (feel/camera-hitstop) | The original's hit presentation is not decoded; the hit-stop and shake were our own addition in feel/melee-lock | A landed melee hit does not hold the attacker's or the victim's clips, shakes neither the attacker's nor the victim's camera; the camera assist toward the lock stays. Opt-in `--hit-stop` restores the hold and the shakes | Owner's decision 2026-10-29: "remove the stop hit/screen freeze/shake effect when attacking an enemy in melee" | No melee hit-stop, no hit shake (feel/camera-hitstop): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-657EA7F7` | A small shake on every stun strike (anim/melee-flow) | The original's camera effects of the heavy strikes are not decoded (the melee hit shake was removed by the owner the same day) | The own camera shakes 0.35 degrees at the impact of every heavy (F) strike, 0.6 degrees at a stomp or slam, 0.5 degrees when the own charge or dash attack hits a player; `--no-stun-shake`, `--stun-shake-scale` | Owner's request 2026-10-29: "add a tiny bit of screen shake to all stun strike moves"; the amounts are ours; spec "Melee flow, the hammer in both hands and the transitions pass" | A small shake on every stun strike (anim/melee-flow): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |

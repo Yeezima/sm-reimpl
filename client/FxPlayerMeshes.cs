@@ -13,6 +13,8 @@ namespace SmClient;
 public sealed partial class FxPlayer
 {
     const int MaxCasings = 24;
+    /// <summary>The ejected casing falls this many times faster than its particle's data gravity (ours; the owner found casings too floaty).</summary>
+    public const float CasingGravityScale = 2.5f;
     ArrayMesh? _casing;
     float _casingUnit = 1f;
     readonly MeshInstance3D[] _casingNodes = new MeshInstance3D[MaxCasings];
@@ -73,8 +75,11 @@ public sealed partial class FxPlayer
         var axis = new Vector3(R(seed, 21) - 0.5f, R(seed, 22) - 0.5f, R(seed, 23) - 0.5f);
         axis = axis.LengthSquared() < 1e-4f ? Vector3.Right : axis.Normalized();
         var basis = c.B * new Basis(axis, R(seed, 24) * MathF.Tau + (float)age * (6f + 10f * R(seed, 25))) * Basis.FromScale(Vector3.One * scale);
+        // The owner (2026-11-01): spent casings "should fall to the ground faster. they are far too floaty": the casing alone falls with its particle's
+        // gravity times CasingGravityScale (ours); the smoke and sparks of the same spray keep the data's gravity.
+        var pos = c.InParticle ? c.Pos - new Vector3(0f, (CasingGravityScale - 1f) * Drop(c.Gravity, c.Drag, c.Tau), 0f) : c.Pos;
         var node = _casingNodes[_casingsUsed++];
-        node.Transform = new Transform3D(basis, c.Pos);
+        node.Transform = new Transform3D(basis, pos);
         node.Visible = true;
     }
 
