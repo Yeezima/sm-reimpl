@@ -494,7 +494,7 @@ public static class Combat
         if (switchLeft <= 1e-6f) switchLeft = 0f;
         // Fire drives the weapon (M31, owner's decision 2026-10-28): on a charge weapon a press starts the charge and a tap's
         // release fires the basic shot (below); on any other weapon it is the basic trigger.
-        var charge = weapon?.Charge is { Stages.Count: > 0 } spec ? spec : null;
+        var charge = weapon?.Charge is { Stages.Count: > 0, FiresOnPress: false } spec ? spec : null;   // sim/instant-fire: the lascannon has no charge to hold, its press fires
         bool chargeDown = charge is not null && fireDown;
         bool chargePress = charge is not null && firePress;
         bool basicDown = charge is null && fireDown;
@@ -780,9 +780,8 @@ public static class Combat
                     if (stage > 0)
                     {
                         raise = 0;   // the charged shot is the one that leaves; no basic shot after the raise
-                        float delay = charge.Stages[stage - 1].Shot!.FireDelay;
-                        if (delay <= 1e-6f) ChargedShot(weapon, stage);
-                        else { pending = stage; pendingLeft = delay; }
+                        // sim/instant-fire (owner, 2026-10-31): the charged shot leaves on the release tick; the data's FireDelay (plasma cannon 0.1 s) is not applied.
+                        ChargedShot(weapon, stage);
                     }
                     else if (raise == 0 && clip > 0 && cooldown <= 1e-6f) BasicShot(weapon);
                 }

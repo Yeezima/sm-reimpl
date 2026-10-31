@@ -179,7 +179,7 @@ public class HipFireTests(ITestOutputHelper output)
             if (f) shots++;
             if (s.PendingShot > 0) { pendingTicks++; Assert.True(Speed(s) < 6.5f + 1e-3f, $"pending shot at {Speed(s)} m/s"); }
         }
-        Assert.True(pendingTicks >= 2, $"only {pendingTicks} pending ticks");
+        Assert.Equal(0, pendingTicks);   // sim/instant-fire: the shot leaves on the release tick, nothing stays pending
         Assert.True(shots >= 1);
         Assert.Equal(10f, Speed(s), 1e-3f);
     }

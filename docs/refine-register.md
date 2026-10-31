@@ -28,13 +28,13 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1767 spec table rows: **1213 tagged**, 404 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 376 rows of the changes document.
+Scanned 1768 spec table rows: **1214 tagged**, 404 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 377 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 306 | 260 | 265 | 91 | 12 |
 | Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
-| Weapons (critical) | 111 | 64 | 97 | 50 | 3 |
+| Weapons (critical) | 112 | 65 | 97 | 49 | 3 |
 | Melee (critical) | 63 | 50 | 59 | 11 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
 | Charge (critical) | 41 | 32 | 34 | 18 | 0 |
@@ -53,21 +53,21 @@ Scanned 1767 spec table rows: **1213 tagged**, 404 not tagged (read from data wi
 | Core simulation (provisional values) | 100 | 86 | 85 | 12 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1213** | 998 | 969 | 389 | 38 |
+| **All areas** | **1214** | 999 | 969 | 388 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 459 |
-| confidence: medium | 432 |
-| confidence: low | 422 |
-| kind: interpretation | 321 |
-| notes: ours | 286 |
+| confidence: medium | 433 |
+| confidence: low | 421 |
+| kind: interpretation | 320 |
+| notes: ours | 285 |
 | confidence: none (low) | 115 |
 | kind: provisional | 98 |
 | kind: estimate | 43 |
-| kind: user's knowledge | 39 |
+| kind: user's knowledge | 41 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
 | notes: provisional | 31 |
@@ -561,7 +561,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-9432FECF` | Regeneration timing | shield and health regenerate once the time since the last damage reaches their delays; `reload` refills when its time has fully elapsed; the bolter fires on the first tick its cooldown has elapsed (0.133 s rounds up to 4 ticks at 30 Hz, so 7.5 shots/s instead… | confidence: low; notes: ours; section: placeholder; section: provisional | tick quantisation is ours | Regeneration timing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: shield and health regenerate once the time since the last damage… | ☐ |
 | `R-9F8281FF` | Time to kill (derived) | 14 body hits from full health and shield: 9 on the shield alone (22 × 0.505 each), a 10th that breaks it and spills into health, then 4 on health; about 1.7 s of continuous fire at 0.133 s per shot (s) | confidence: low; notes: unverified; section: placeholder; section: provisional | unverified against the original | Time to kill (derived): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 14 body hits from full health and shield: 9 on the shield alone (22 ×… | ☐ |
 
-### Weapons (gameplay-critical) (111)
+### Weapons (gameplay-critical) (112)
 
 *Spec section: Classes and default loadouts (M10, used by the simulation)*
 
@@ -607,7 +607,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-4277BF15` | Charge time and release (simulated) | a press edge starts a charge when the weapon could fire (no reload, overheat, switch, attack or pending shot; cooldown over); every tick the button is down adds one tick (the press tick included); releasing fires the last reached stage that has a shot… (s) | kind: interpretation; confidence: low; notes: ours | maintainer's decision; press edge ours; tap rule the owner's | Charge time and release (simulated): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a press edge starts a charge when the weapon could fire (no reload… | ☐ |
 | `R-9805A259` | Charge ammunition (simulated) | starting needs `required_to_start` and at least 1 in the clip (install: lascannon 2, plasma weapons 1); the shot uses AmmoCost, at most what the clip holds (plasma pistol 10, plasma gun 15, plasma cannon 25, lascannon 4); the basic shot uses `AmmoPerShot` (at… (rounds / energy) | kind: interpretation; confidence: medium; notes: ours | ammo values extracted; capping ours | Charge ammunition (simulated): compare with SM1 by feel or video. Ours: starting needs required_to_start and at least 1 in the clip (install:… | ☐ |
 | `R-106C0C89` | Charge heat (simulated) | each charging tick adds the reached stage's `heat_applied_per_second` × 1/30 s and restarts the cool-down delay (install: plasma gun and pistol +28/s only in the firing stage, plasma cannon +50/s from 3 s); reaching Overheat cancels the charge (no shot) and… (heat units) | kind: interpretation; confidence: low; notes: ours | values extracted; combination ours | Charge heat (simulated): compare with SM1 by feel or video. Ours: each charging tick adds the reached stage's heat_applied_per_second ×… | ☐ |
-| `R-6BED601A` | Charge fire delay (simulated) | a shot with a `delayed_action` leaves that long after the release, in the first tick at or after it (0.1 s = 3 ticks); meanwhile the weapon neither fires, charges nor reloads (s) | kind: interpretation; confidence: low; notes: ours | delay extracted; blocking ours | Charge fire delay (simulated): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a shot with a delayed_action leaves that long after the release, in… | ☐ |
+| `R-63C8FEC2` | Charge fire delay (simulated; sim/instant-fire) | **no delay is applied.** The data has a `fire_sim` `delayed_action` of 0.1 s on the plasma gun, plasma pistol and plasma cannon charged shots (`ChargeShot.FireDelay`, read, kept in the config and the race-parity comparison; the lascannon's is 0); before, the… (s) | kind: user's knowledge | delay extracted; removal: owner's decision | Charge fire delay (simulated; sim/instant-fire): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: no delay is applied. The data has a fire_sim delayed_action of 0.1 s… | ☐ |
+| `R-E0C3B936` | Lascannon fires on the press (sim/instant-fire) | the lascannon has no hold-to-charge: Fire fires the basic shot (100 ray, 1 round) on the press tick, a hold fires nothing more. Its charged shot (`3.charge_medium`, 200 after `max_charge_time` 1.5 s, 4 rounds) is therefore not reachable by the left mouse… (s) | kind: user's knowledge; confidence: medium | owner's decision 2026-10-31 (supersedes the lascannon rows of M31's "Charge input") | Lascannon fires on the press (sim/instant-fire): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the lascannon has no hold-to-charge: Fire fires the basic shot (100… | ☐ |
 | `R-09762997` | Charge cancels (simulated) | a weapon switch, a melee attack or death cancels a charge or a pending shot (nothing spent); reload input cancels a charge when `reload_button_cancels_charging` (the reload may start in the same tick), else it is ignored while charging (lascannon) | kind: interpretation; confidence: low; notes: ours | flag extracted; rest maintainer's decision / ours | Charge cancels (simulated): compare with SM1 by feel or video. Ours: a weapon switch, a melee attack or death cancels a charge or a… | ☐ |
 | `R-8C0BF0F4` | Charge hold limit | none: `max_charge_time` (1.5 on the lascannon) is read but not applied; holding the plasma weapons ends only through overheat (s) | kind: ours; confidence: low | maintainer's decision | Charge hold limit: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: none: max_charge_time (1.5 on the lascannon) is read but not applied… | ☐ |
 | `R-D392026D` | Move speed while charging (simulated) | the reached stage's `speed_maximum` multiplier scales the wished movement speed (sprint included) in every tick the weapon is charging, from the press tick (plasma cannon ×0.5) (factor) | kind: interpretation; confidence: medium; notes: ours | multiplier extracted; application ours | Move speed while charging (simulated): compare with SM1 by timing a run over a known distance. Ours: the reached stage's speed_maximum multiplier scales the wished… | ☐ |
@@ -1970,6 +1971,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 
 | ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
+| `C-35D34ED5` | Charged shots leave on the release tick; the lascannon fires on the press (sim/instant-fire) | The plasma gun's, plasma pistol's and plasma cannon's charged shots carry a `delayed_action` of 0.1 s in `fire_sim`; the lascannon's charge is a 1.5 s hold | No delay (the owner: "it should shoot immediately after releasing"); the lascannon fires its basic shot on the press and has no hold-to-charge ("truly fire the instant ... pressed") | Owner's request 2026-10-31; the original's real latency is unmeasured | Charged shots leave on the release tick; the lascannon…: compare with SM1 by feel or video. Ours: The plasma gun's, plasma pistol's and plasma cannon's charged shots… | ☐ |
 | `C-F27734BF` | Voice lines for loyalist marines | the owner's decision (2026-10-29): loyalist Space Marines bark the owner's own ElevenLabs voice pack (32 takes); SM1 has no such lines in multiplayer | charge, kill, melee, bolt fire, own damage; chances 0.6 / 0.5 / 0.15 / 0.1 / 0.35 (ours) | Charge bark ... Under-fire bark | Voice lines for loyalist marines: compare with SM1 by listening A/B at the same distance and state. Ours: the owner's decision (2026-10-29): loyalist Space Marines bark the… | ☐ |
 | `C-5C22E4FE` | Bark limits | ours (the pack's suggestions) | 8 s per speaker, 20 s per phrase, no immediate repeat of a take, 1.5 s between any two random barks, one line per speaker | Speaker cooldown, Phrase cooldown, Take choice, Global spacing | Bark limits: compare with SM1 by listening A/B at the same distance and state. Ours: ours (the pack's suggestions). | ☐ |
 | `C-D6694B0D` | SM1 speech first | ours | random barks yield to SM1's exertion and action lines; the key's shout cuts them | SM1 speech precedence | SM1 speech first: compare with SM1 by feel or video. Ours: ours. | ☐ |

@@ -38,6 +38,7 @@ and gore are listed in their own design documents for now (the rest of section 0
 
 | What | Ours / the owner's | Value | Spec row |
 |---|---|---|---|
+| Charged shots leave on the release tick; the lascannon fires on the press (sim/instant-fire) | The plasma gun's, plasma pistol's and plasma cannon's charged shots carry a `delayed_action` of 0.1 s in `fire_sim`; the lascannon's charge is a 1.5 s hold | No delay (the owner: "it should shoot immediately after releasing"); the lascannon fires its basic shot on the press and has no hold-to-charge ("truly fire the instant ... pressed") | Owner's request 2026-10-31; the original's real latency is unmeasured |
 | Voice lines for loyalist marines | the owner's decision (2026-10-29): loyalist Space Marines bark the owner's own ElevenLabs voice pack (32 takes); SM1 has no such lines in multiplayer | charge, kill, melee, bolt fire, own damage; chances 0.6 / 0.5 / 0.15 / 0.1 / 0.35 (ours) | Charge bark ... Under-fire bark |
 | Bark limits | ours (the pack's suggestions) | 8 s per speaker, 20 s per phrase, no immediate repeat of a take, 1.5 s between any two random barks, one line per speaker | Speaker cooldown, Phrase cooldown, Take choice, Global spacing |
 | SM1 speech first | ours | random barks yield to SM1's exertion and action lines; the key's shout cuts them | SM1 speech precedence |
