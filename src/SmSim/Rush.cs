@@ -293,7 +293,7 @@ public static class Rush
             if (MoveOf(c, s) is not { } move) return new(false, false, false, Cleared(s));
             float played = Time(s, c);
             bool At(float t) => played + Eps >= t;
-            if (Held(s, move, c)) return new(true, false, true, s);   // in the air: the clip waits for the ground (no end by time or input)
+            if (Held(s, move, c)) return new(true, false, true, AirSteer(s, input, c));   // in the air: the clip waits for the ground (no end by time or input); sim/movement-fixes (D): A / D bend it
             if (Charging(s.Rush) && !s.Grounded) return new(true, false, false, s with { RushTicks = Math.Min(s.RushTicks + 1, MaxTicks) });   // a lunge begun in the air runs on
             // feel/locks-sprint-stop: the bull rush's and its collision stop's Jump and stick branches × the lock scale. feel/jump-pack-2 (the owner's request,
             // an estimate): the dash attack's states after the lunge (hit, wall stop, run-out) too, their melee branch included; the lunge (no input ends it) not.
@@ -346,6 +346,31 @@ public static class Rush
     /// </remarks>
     public static bool Held(PlayerState s, RushMove move, SimConfig c) =>
         !s.Grounded && (s.Rush == RushPhase.Rush || (s.Rush == RushPhase.DashAttack && Time(s, c) + Eps >= move.End));
+
+    /// <summary>
+    /// sim/movement-fixes (D; the owner, 2026-11-01: "assault marine/raptor should be able to steer somewhat left and right while charging off of a ledge (during the
+    /// time especially where they're still maintaining their horizontal momentum)"; the rate ours): degrees per second a charge held in the air (<see cref="Held"/>)
+    /// turns with the stick fully left or right. No data value exists (the charge's ability has no air control; the jump pack's <c>in_air_move_gain</c> is the jump's).
+    /// </summary>
+    public const float AirTurnRate = 60f;
+
+    /// <summary>
+    /// sim/movement-fixes (D): one tick of steering for a charge held in the air (the Assault's and Raptor's, and since the owner's follow-up of 2026-11-01, "add to the ledge
+    /// charge steering change tactical marine. he should also be able to steer.", the Tactical's and Chaos Tactical's; the heavy classes have no charge): the stick's sideways part
+    /// (A left, D right, partial on a pad) turns the held horizontal velocity and the body's heading together by at most <see cref="AirTurnRate"/> × dt. A turn, not
+    /// a push: the speed is the held speed exactly (never more), and the heading stays along the path, so the contact test (<see cref="Contact"/>: the cone from the
+    /// heading, the swept move) and a wall stop follow the bent path. The Ork Boy (added content), the ground charge and a stick without a sideways part: unchanged.
+    /// </summary>
+    internal static PlayerState AirSteer(PlayerState s, PlayerInput input, SimConfig c)
+    {
+        if (Loadouts.ClassOf(c, s.Class) is not { Race: not Race.Orks }) return s;   // the Ork Boy's sprint attack (added content) keeps its straight flight
+        float side = Math.Clamp(input.Sanitized().MoveX, -1f, 1f);
+        if (side == 0f) return s;
+        float turn = -side * AirTurnRate * (MathF.PI / 180f) * c.TickSeconds;   // yaw grows to the left; D (positive X) turns right
+        float cos = MathF.Cos(turn), sin = MathF.Sin(turn);
+        var v = s.Velocity;
+        return s with { Yaw = s.Yaw + turn, Velocity = new Vector3(v.X * cos - v.Y * sin, v.X * sin + v.Y * cos, v.Z) };
+    }
 
     /// <summary>
     /// Protocol 30: whether a melee press this tick starts the dash attack (the "Jumppack Evade" state's <c>BTN_Melee_Attack</c> transition):

@@ -481,7 +481,7 @@ public static class Combat
         // trigger does not end the evade at the data's BRANCH_ToRanged (RangedAt) any more; Aim and a grenade still do, the stick at BRANCH_Run as before.
         bool roll = IsRoll(evadeSpec);
         var evade = Evade.Begin(s, evadeSpec, input.Sanitized(), jumpDown && !s.JumpHeld, meleePress || heavyPress, switchPress, (fireDown && !roll) || aimDown || grenadePress, c,
-            jump.DashStart, jump.Started, dashDirection);
+            jump.DashStart, jump.Started, dashDirection, world);
         if (meleeJumpBranch && !jump.Started && !evade.Started) s = beforeJumpBranch;   // nothing took the press: the attack goes on
         bool evading = evade.Active;
         if (evade.Started) used |= InputBuffer.Bit(BufferedAction.Jump);
