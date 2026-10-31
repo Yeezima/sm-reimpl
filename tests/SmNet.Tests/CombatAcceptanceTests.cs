@@ -682,7 +682,8 @@ public class CombatAcceptanceTests(ITestOutputHelper output)
         {
             var move = Harness.Scripted(i, t);
             var buttons = move.Buttons & ~InputButtons.Jump;
-            if ((t / 45 + (uint)i) % 3 != 0) buttons |= InputButtons.Fire;
+            // Protocol 51 (sim/no-fire-while-sprinting): a sprint blocks the trigger; one fire window in two lets go of Sprint, the other keeps the script's (blocked shots predicted alike).
+            if ((t / 45 + (uint)i) % 3 != 0) buttons = (buttons | InputButtons.Fire) & ((t / 45) % 2 == 0 ? ~InputButtons.Sprint : ~InputButtons.None);
             if ((t + (uint)i * 31) % 173 == 0) buttons |= InputButtons.Reload;
             return move with { Buttons = buttons, Pitch = SkyPitch };
         }

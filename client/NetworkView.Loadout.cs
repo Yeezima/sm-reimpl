@@ -118,6 +118,8 @@ public partial class NetworkView
     bool LoadoutInput(InputEvent e)
     {
         if (PickerOpen) return true;
+        // B on a controller backs out of "Loading your loadouts..." like Esc does (the menu itself closes B through its own back handling).
+        if (_pickerWanted && e is InputEventJoypadButton { Pressed: true, ButtonIndex: JoyButton.B } && _client is not null) { FailOpen(); return true; }
         // Esc opens the customizer menu in a match, alive or dead (M44); the front end's back path keeps Esc while the join is going nowhere (ModelViewer handles it then).
         if (IsMenuPress(e) && _client is not null)   // Esc, or Start on a controller
         {
@@ -163,7 +165,7 @@ public partial class NetworkView
         _pickerCreator.Banner = PickerRules.Banner(me.Alive, me.RespawnLeft) + (_pickerNote.Length > 0 ? "\n" + _pickerNote : "");
     }
 
-    void FailOpen() { _pickerWanted = false; RestoreMouse(leaving: false); }
+    void FailOpen() { _pickerWanted = false; PadMenuClosed(); RestoreMouse(leaving: false); }
 
     /// <summary>Captures the mouse again where a human is back in a connected match (never in a test window, for a bot or a replay, after a failed connection or when leaving).</summary>
     void RestoreMouse(bool leaving)
@@ -237,6 +239,7 @@ public partial class NetworkView
             else GD.Print("loadout picker: the active loadout was not sent: " + sent);
         }
         _pickerLayer.QueueFree();
+        PadMenuClosed();   // a pad press of this frame closed it: not also a Use (NetworkView.Gamepad.cs)
         if (_pickerServices is not null) _pickerServices.InMatch = false;
         _pickerLayer = null; _pickerCreator = null; _pickerAppearance = null; _pickerForced = false; _pickerWanted = false;
         UiKit.LeaveVirtualSpace(GetWindow());

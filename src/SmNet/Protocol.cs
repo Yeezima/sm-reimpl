@@ -429,6 +429,10 @@ public static partial class Protocol
     //     player's round-trip time as a u16 (ms, 0..999; 65535 not known yet) before its name: 16 to 40 bytes a row (16 rows: at most 640 bytes; the fullest
     //     scoreboard with the Seize Ground layout and four spectators 1145 bytes). The server measures it from snapshot acknowledgements (RttEstimator).
     //     Snapshots unchanged (worst case 1194)
+    // 51 (sim/no-fire-while-sprinting; the owner 2026-11-01: "you should not be able to shoot while sprinting"): no wire change. While the sprint is applied on the ground
+    //     (Sprint held, stick forward) the trigger does nothing for every weapon (no shot, charge or raise); the sprint cancels a held charge, a pending charged shot, a raise
+    //     and a burst's later rounds, and the held trigger no longer ends the sprint (M27's rule). Also sim/stomp-uninterruptible (owner 2026-11-01): the heavy classes'
+    //     stomp is ended by no shot or melee press, only by the hop. Snapshots unchanged (worst case 1194)
     // 51 (sim/movement-fixes; the owner's report of 2026-11-01; one number for that batch's unreleased rule changes): no wire change. The Devastator / Havoc hop goes
     //     down stairs and off ledges while it keeps going forward (gravity on top of its curve over a drop; the stick no longer ends it in mid-air); the Assault /
     //     Raptor Space tap is the dash at any moment while falling (off a ledge, at a jump's apex or in its fall). Snapshot layout and sizes unchanged (worst case 1194)

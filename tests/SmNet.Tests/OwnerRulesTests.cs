@@ -193,7 +193,7 @@ public class OwnerRulesTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void A_sprint_a_switch_melee_and_a_throw_lower_the_weapon_and_the_raise_keeps_the_sprint_off()
+    public void A_sprint_a_switch_melee_and_a_throw_lower_the_weapon_and_a_press_while_sprinting_starts_no_raise()
     {
         var c = RaiseConfig(Gun("rifle") with { RaiseDelay = 0.2f }) with { Thrown = [GrenadeTests.Frag], WeaponSwitchTime = 0.1f };
         c = c with { Classes = [c.Classes[0] with { EquipmentChoices = [0] }] };
@@ -216,22 +216,21 @@ public class OwnerRulesTests(ITestOutputHelper output)
         Assert.True(thrown.Throwing);
         Assert.Equal(0, thrown.ReadyTicks);
 
-        // While the raise runs with Sprint held the player moves at run speed; the sprint returns after the shot.
+        // Superseded by protocol 51 (sim/no-fire-while-sprinting): a press while sprinting starts no raise and the sprint goes on (M31: the raise ran at run speed
+        // and the shot left 6 ticks later); a raise started before the sprint is dropped by it (NoFireWhileSprintingTests).
         var s = Fresh(c, 0);
         for (int k = 0; k < 30; k++) s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint), c, out _);
         Assert.Equal(10f, s.Velocity.Y, 3);
         s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint | InputButtons.Fire), c, out _);
-        Assert.True(s.RaiseTicks > 0);
-        int fired = -1;
+        Assert.Equal(0, s.RaiseTicks);
         for (int k = 1; k <= 20; k++)
         {
             s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint), c, out var e);
-            if (e.Fired) fired = k;
-            if (fired < 0) Assert.True(s.Velocity.Y < 10f - 1e-3f, $"tick {k}: sprinting during the raise");
+            Assert.False(e.Fired, $"tick {k}: a shot during the sprint");
         }
-        Assert.Equal(6, fired);   // 6 ticks (0.2 s) after the press
         Assert.Equal(10f, s.Velocity.Y, 3);
-        Assert.Equal(0, s.ReadyTicks);   // sprinting again: lowered
+        Assert.Equal(0, s.ReadyTicks);   // sprinting: lowered
+        Assert.Equal(6, TicksToShot(c, from: s));   // after the sprint: the rifle's raise, as from any sprint
     }
 
     /// <summary>

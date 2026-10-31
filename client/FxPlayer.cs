@@ -363,10 +363,12 @@ public sealed partial class FxPlayer : Node3D
     {
         float d = c.Drag;
         float disp = d > 1e-4f ? c.Speed * (1f - MathF.Exp(-d * tau)) / d : c.Speed * tau;
-        float g = c.Gravity;
-        float drop = d > 1e-4f ? g * (tau / d - (1f - MathF.Exp(-d * tau)) / (d * d)) : 0.5f * g * tau * tau;
-        return c.P0 + c.Dir * disp + new Vector3(0f, -drop, 0f);
+        return c.P0 + c.Dir * disp + new Vector3(0f, -Drop(c.Gravity, d, tau), 0f);
     }
+
+    /// <summary>How far a particle with gravity <paramref name="g"/> and drag <paramref name="d"/> has fallen after <paramref name="tau"/> seconds.</summary>
+    static float Drop(float g, float d, float tau) =>
+        d > 1e-4f ? g * (tau / d - (1f - MathF.Exp(-d * tau)) / (d * d)) : 0.5f * g * tau * tau;
 
     static uint Mix(uint a, int b) { unchecked { return (a ^ ((uint)b * 2654435761u)) * 16777619u + 0x9e3779b9u; } }
 

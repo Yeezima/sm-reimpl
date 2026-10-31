@@ -885,7 +885,7 @@ public sealed partial class AppearanceView : Control
     public override void _UnhandledInput(InputEvent e)
     {
         if (!IsVisibleInTree()) return;
-        if (e.IsActionPressed("ui_cancel"))
+        if (PadHost.IsBack(e))
         {
             GetViewport().SetInputAsHandled();
             if (_section == Section.Armour && _armourSlot is not null) { _armourSlot = null; Rebuild(true); }
