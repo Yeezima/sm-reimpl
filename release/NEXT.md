@@ -9,6 +9,8 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+
+- The Assault and Raptor air slash now lands in a blue-white energy burst at the impact, with a blue light that fades in under half a second (the earlier dust cone is gone).
 - New network version (49): everyone must update, older builds do not play with this one.
 
 - The launcher window is readable again: no more overwritten or garbled text, nothing overlaps at 125%, 150% or 200% display scaling, and long status lines wrap inside their own space.

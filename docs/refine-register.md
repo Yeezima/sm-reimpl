@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1767 spec table rows: **1213 tagged**, 404 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 376 rows of the changes document.
+Scanned 1769 spec table rows: **1215 tagged**, 404 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 377 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 1767 spec table rows: **1213 tagged**, 404 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 100 | 86 | 85 | 12 | 1 |
+| Core simulation (provisional values) | 102 | 88 | 87 | 12 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1213** | 998 | 969 | 389 | 38 |
+| **All areas** | **1215** | 1000 | 971 | 389 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 459 |
+| kind: ours | 461 |
 | confidence: medium | 432 |
-| confidence: low | 422 |
+| confidence: low | 424 |
 | kind: interpretation | 321 |
 | notes: ours | 286 |
 | confidence: none (low) | 115 |
@@ -71,7 +71,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | section: provisional | 38 |
 | section: placeholder | 35 |
 | notes: provisional | 31 |
-| kind: choice | 28 |
+| kind: choice | 29 |
 | notes: user's knowledge | 24 |
 | kind: approximation | 23 |
 | kind: placeholder | 22 |
@@ -1621,7 +1621,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (100)
+### Core simulation (provisional values) (102)
 
 *Spec section: Provisional values in use*
 
@@ -1760,7 +1760,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-1C1E4BCB` | Armour recharge glow and break flash | a soft camera-facing halo (a card turning about the vertical only, 2.5 x 2.8 m, 0.35 m behind the body, centred on the lower spine), a ring just outside the silhouette with soft falloff and a faint fill; yellowish (1, 0.78, 0.22) at 0.75, red (1, 0.12, 0.08)… (m, colour) | kind: ours; confidence: low | owner (item 34, reference image) | Armour recharge glow and break flash: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a soft camera-facing halo (a card turning about the vertical only… | ☐ |
-| `R-0AB5DCAE` | Slash landing cone | a true cone: apex at the attacker's feet, axis along the heading, slant = `MeleeRange` (4 m), half angle = `MeleeConeDegrees` (60: h 2 m, r 3.46 m), dust-coloured shell swelling 35 to 100 % in 0.18 s, fading by 0.65 s, pale ring at the rim; at the cone… (m, degrees, s) | kind: ours; confidence: low | owner (item 35); the sim's cone test (`RushWorld`) | Slash landing cone: compare with SM1 by measuring on a flat spot of the same map. Ours: a true cone: apex at the attacker's feet, axis along the heading… | ☐ |
+| `R-3A385233` | Slash landing cone (off by default since fx/air-slash-landing; `--slash-cone` restores) | a true cone: apex at the attacker's feet, axis along the heading, slant = `MeleeRange` (4 m), half angle = `MeleeConeDegrees` (60: h 2 m, r 3.46 m), dust-coloured shell swelling 35 to 100 % in 0.18 s, fading by 0.65 s, pale ring at the rim; at the cone… (m, degrees, s) | kind: ours; confidence: low | owner (item 35); the sim's cone test (`RushWorld`) | Slash landing cone (off by default since…: compare with SM1 by measuring on a flat spot of the same map. Ours: a true cone: apex at the attacker's feet, axis along the heading… | ☐ |
+| `R-B926F3CA` | Air slash landing: the data's burst (fx/air-slash-landing) | the slash landing plays `jumppack_land_extreme_mp` (the effect the jump pack's wargear `actn_gp_hit` perk entry binds, scale 1.4; the MP wargear binds nothing to the slash itself, so the choice of this effect is ours, matched to the owner's reference r5: its… (scale, colour) | kind: ours; kind: choice; confidence: low | owner reference r5 (frames at 0.13 s); wargear (`sm_mp_abil_jumppack`) | Air slash landing: the data's burst (fx/air-slash-landing): compare with SM1 by feel or video. Ours: the slash landing plays jumppack_land_extreme_mp (the effect the jump… | ☐ |
+| `R-118C4A13` | Air slash landing: light and own-view flash (fx/air-slash-landing; owner 2026-10-31 redirect: no… | a modest in-world additive core billboard (0.9 m radius, 0.8 m above the impact, depth-tested with a soft depth fade, faded when the camera has no line of sight; big: 2.1 m, 2.6 m up, cyan rim, 0.28 s; the slash's own dust effects tinted blue-white too, no… (m, s) | kind: ours; confidence: low | owner reference r5 (white peak, cyan wash, gone by 0.65 s) | Air slash landing: light and own-view flash…: compare with SM1 by feel or video. Ours: a modest in-world additive core billboard (0.9 m radius, 0.8 m above… | ☐ |
 | `R-6F564A51` | Pistol tracer waits for the raise | the shot keeps its server time (the sim waits 0.167 s for the raise); the tracer starts from the raised muzzle once the posture's relaxed-to-ready blend has run; the impact waits with it; muzzle flash and sound stay (s) | kind: ours; confidence: medium | owner (item 38) | Pistol tracer waits for the raise: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the shot keeps its server time (the sim waits 0.167 s for the raise)… | ☐ |
 | `R-72C5ADE5` | Bolt tracers thinner and shorter | width x 0.42 of the data's (0.25 m beam), trail x 0.3 of the data's 40 m texture length; the data's texture, head speed and width curve kept (factor) | kind: ours; confidence: low | owner (item 45) | Bolt tracers thinner and shorter: compare with SM1 by feel or video. Ours: width x 0.42 of the data's (0.25 m beam), trail x 0.3 of the data's… | ☐ |
 | `R-5100F4DE` | Melta cone | (colours superseded by the fuzzy cone, see "Melta blast cone" above) purple-blue (0.42, 0.30, 1) near violet at the far end, pale blue-white (0.72, 0.88, 1) at the barrel; axis from the muzzle to the aim point (the basis scaled per local axis: `Basis.Scaled`… (colour) | kind: ours; confidence: low | owner (items 40, 46) | Melta cone: compare with SM1 by measuring on a flat spot of the same map. Ours: (colours superseded by the fuzzy cone, see "Melta blast cone" above)… | ☐ |
@@ -2436,6 +2438,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-3150239D` | Armour flashes on models, power sword swing flare, eye glow in the lens colour (fx/character-visuals, owner 2026-10-30) | Ours: colours, strengths and lengths of the yellow hit, red break and recharge glow (with outline) are estimates; others' flashes are derived from the hits seen (melee and splash out of view give none; the break flash comes one hit late); the sword glow no longer plays the data's idle sprites and flares while… | Armour flashes on models, power sword swing flare, eye glow…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-810E5266` | Weapon effects pass (2026-10-30) | Lascannon beam straight and static; tracer muzzle leg lingers 0.12 s; melta blast a drawn cone instead of the data's haze; plasma shots drawn as a near-opaque roiling ball; jump pack thrust stops at the peak. All ours at the owner's request; values are estimates in the refine register | Weapon effects pass (2026-10-30): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-C77587B7` | Visuals pass 2 (fx/visuals-2, owner 2026-10-30 round 2: items 34, 35, 38, 40, 45, 46, 48) | Ours: the recharge glow and break flash are soft halos behind the figure, not a model-surface layer (`--old-flash-outline`); the air-slash landing adds a dust cone (apex at the feet, the sim's 60 degree, 4 m cone; `--no-slash-cone`); the pistol's tracer waits for the raise (`--old-pistol-tracer`); bolt tracers 0.42 x… | Visuals pass 2 (fx/visuals-2, owner 2026-10-30 round 2:…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-82B43EC1` | Air slash landing (fx/air-slash-landing, owner 2026-10-31, reference r5) | The slash landing (power sword, chainsword, every melee weapon: the slash belongs to the jump pack) plays the data's perk landing burst `jumppack_land_extreme_mp` at 1.4 (data) tinted blue-white and without decals (ours), with a blue-white light and an own-view screen flash (ours); the dust cone of fx/visuals-2 is off… | Air slash landing (fx/air-slash-landing, owner 2026-10-31…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-55031529` | Melta cone, fuzzy (fx/melta-fuzzy, owner 2026-10-31) | Ours: the melta's drawn blast cone is always the data's 20 m long, soft all through (nine nested shells, view-angle fade on the walls, muzzle and tip fades, scrolling cloud noise, depth fade at walls and floor, fade near the camera) in the data's purple-blue, with no hard outline; length, width, brightness, noise and… | Melta cone, fuzzy (fx/melta-fuzzy, owner 2026-10-31): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-92C86CDD` | HUD and camera pass 2 (ui/hud-camera-2, owner 2026-10-30) | Ours: the third-person camera is 1.3 times as far back as the data's rig (3.38 m to 4.40 m; aim unchanged); the score block's dark band is opaque (80 to 86 percent) and holds the timer, scores, bars and limit; the armour bar is plain yellow for everyone but the Iron Halo's carrier (cyan and white with the medallion)… | HUD and camera pass 2 (ui/hud-camera-2, owner 2026-10-30): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-C69D928F` | Melee lunge longer (sim/melee-lunge, owner 2026-10-31) | Ours: every melee attack's forward step is 25% longer (scale 1.3 to 1.625, an estimate to review in a playtest); a locked swing closes on its target with a front-loaded burst (settled by 0.6 of the way to the hit, at most 28 m/s, the bull rush's slowest burst; farther target, bigger step), never nearer than 1 m. The… | Melee lunge longer (sim/melee-lunge, owner 2026-10-31): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
