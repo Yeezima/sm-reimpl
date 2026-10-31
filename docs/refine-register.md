@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1803 spec table rows: **1246 tagged**, 406 not tagged (read from data with high confidence), 151 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 393 rows of the changes document.
+Scanned 1806 spec table rows: **1248 tagged**, 406 not tagged (read from data with high confidence), 152 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 394 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -40,7 +40,7 @@ Scanned 1803 spec table rows: **1246 tagged**, 406 not tagged (read from data wi
 | Charge (critical) | 44 | 35 | 37 | 20 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 28 | 27 | 17 | 18 | 0 |
-| HUD and hit feedback (critical) | 54 | 49 | 43 | 10 | 0 |
+| HUD and hit feedback (critical) | 56 | 51 | 45 | 10 | 0 |
 | Sound mix (critical) | 56 | 50 | 48 | 10 | 0 |
 | Effects (critical) | 72 | 63 | 62 | 38 | 0 |
 | Game modes | 39 | 36 | 37 | 19 | 1 |
@@ -53,18 +53,18 @@ Scanned 1803 spec table rows: **1246 tagged**, 406 not tagged (read from data wi
 | Core simulation (provisional values) | 124 | 109 | 109 | 13 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1246** | 1030 | 1001 | 392 | 38 |
+| **All areas** | **1248** | 1032 | 1003 | 392 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 487 |
+| kind: ours | 489 |
 | confidence: low | 447 |
 | confidence: medium | 439 |
 | kind: interpretation | 321 |
 | notes: ours | 288 |
-| confidence: none (low) | 115 |
+| confidence: none (low) | 117 |
 | kind: provisional | 100 |
 | kind: estimate | 43 |
 | kind: user's knowledge | 41 |
@@ -1049,7 +1049,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EE0A6B04` | Fixed and exempt views | `--spectate cam:x,y,z,tx,ty,tz` is placed exactly (no springs, cast, push-out or depenetration: measured matched views for lighting comparisons and recorded footage); `inspect` keeps no distance from bodies; `overview` is not cast | notes: ours | ours | Fixed and exempt views: compare with SM1 with side-by-side screenshots in the same spot. Ours: --spectate cam:x,y,z,tx,ty,tz is placed exactly (no springs, cast… | ☐ |
 | `R-90EA2E09` | Cast start | the spectator and death casts start from the look target moved off any surface within 0.33 m (3 passes of the depenetration rays): a target between two players fighting beside a railing, or inside a wall between them, otherwise starts in collision and the… (m) | kind: provisional; notes: ours | ours | Cast start: compare with SM1 by measuring on a flat spot of the same map. Ours: the spectator and death casts start from the look target moved off… | ☐ |
 
-### HUD and hit feedback (gameplay-critical) (54)
+### HUD and hit feedback (gameplay-critical) (56)
+
+*Spec section: Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-25C83A56` | Scoreboard ping: measurement (protocol 50, net/scoreboard-ping) | the server times each snapshot it sends to a peer (per peer, a ring of 64 ticks: 2.1 s at 30 Hz; an older snapshot's acknowledgement is not timed) and takes one round-trip sample when an input batch first acknowledges that snapshot: the network both ways… (ms) | kind: ours; confidence: none (low) | owner's request (2026-10-31: "add ping (ms) value in the scoreboard for each player"); the method is ours | Scoreboard ping: measurement (protocol 50…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the server times each snapshot it sends to a peer (per peer, a ring… | ☐ |
+| `R-CA396844` | Scoreboard ping: smoothing | an exponentially weighted moving average: the first sample as it is, then 1/8 of each new sample's difference (TCP's smoothed-RTT gain, RFC 6298); samples and estimate clamped to 0..999 ms; not measured yet: -1 (ms) | kind: ours; confidence: none (low) | ours | Scoreboard ping: smoothing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: an exponentially weighted moving average: the first sample as it is… | ☐ |
 
 *Spec section: Camera, aim mode, shot convergence and hit confirmation (M20; protocol 12)*
 
@@ -2056,6 +2063,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-7CD90567` | Lighting overhaul and god-ray blending | The original renderer's lighting (shaders not decoded); effect cards drawn as defined | A modern lighting pass on the original assets and data (M42): soft god rays and steam (depth, camera and edge fades), soft sun shadows, contact shading, volumetric smog with light shafts, a sun halo and a colour grade; `--lighting off\|low\|medium\|high` (default medium) | Owner's request 2026-10-28; spec "Lighting overhaul and god-ray blending (M42)" | Lighting overhaul and god-ray blending: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-3D924AF1` | Spawn facing | Not read; the start markers' own rotations are 0 and 180 degrees | Players face out of the room toward its exit (computed once per start area from the room's blockers) | User's decision (M22); spec "Spawn facing (M22)" | Spawn facing: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-25DAE862` | Bots' names (names/bot-lore, protocol 41) | Each player showed as their own account name; multiplayer had no bots | Test bots take a name from a per-race pool when they join ("Brother Aurex", "Skarne the Unbroken", an Ork name for the Ork Boy; original names, none a canon character), unique while connected; humans still show as P<id> (no name source yet) | Owner's request 2026-10-29 ("give the bots lore accurate names"); the pools and rules are ours; spec "Display names: the bots' names" | Bots' names (names/bot-lore, protocol 41): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-8EAF5000` | Ping on the scoreboard (net/scoreboard-ping, protocol 50) | The scoreboard's columns (`SummaryScreen.gfx` `player_header_mc`: LEVEL, PLAYER, XP, KILLS, DEATHS, RATIO, ASSISTS; Seize Ground SEIZED, DEFENDED) have no ping; whether the original showed a connection indicator anywhere else is unknown | A PING column at the right end of the Tab and end-of-match scoreboard: the server's smoothed round trip per player in ms (from snapshot acknowledgements, a 1/8 moving average, 0..999; "—" not measured yet), green below 80 ms, yellow below 150, red from 150. PING includes up to one client input interval (the wait for… | Owner's request 2026-10-31 ("add ping (ms) value in the scoreboard for each player"); the method and the colour bands are ours; spec "Scoreboard ping: measurement", "smoothing", "wire and display" | Ping on the scoreboard (net/scoreboard-ping, protocol 50): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-EABBC806` | No level progression | 41 levels; items, perks, the second perk slot, custom loadout slots and classes unlock by level and challenges | Everything is available from the start; the unlock levels are kept in the catalogue only | Owner's decision 2026-10-28 ("no level progression system yet"); docs/customizer-architecture.md | No level progression: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-78D0334D` | Custom loadout slots | 6 slots, unlocked at levels 4/11/17/23/29/35 | 10 slots, all available | Owner's request 2026-10-28 | Custom loadout slots: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-81DB2D08` | Jump pack meter under the weapon box | Not established from the footage | A thin meter with the pack's picture under the weapon box, no "JUMP PACK 100 / 100" text (M44) | Owner's request 2026-10-28 (playtest); spec "In-game HUD (M44)" | Jump pack meter under the weapon box: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
@@ -2556,6 +2564,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-9C5F3840` | Wire | Match flow: the start countdown, the victory / defeat splash and the next-map timer (fidelity gap 4; server and client; no protocol change) |
 | `R-25214C73` | Test aids | Match flow: the start countdown, the victory / defeat splash and the next-map timer (fidelity gap 4; server and client; no protocol change) |
 | `R-CD49ADE6` | Test aids | Match flow: the score count-up and the summary (fidelity gap 4, rest; client only, no protocol change) |
+| `R-3DF7DACB` | Scoreboard ping: wire and display | Scoreboard ping on the HUD scoreboard (net/scoreboard-ping; protocol 50; ours) |
 | `R-D4702120` | Shot offsets on the wire | Camera, aim mode, shot convergence and hit confirmation (M20; protocol 12) |
 | `R-BF1FCB22` | Protocol 12 | Camera, aim mode, shot convergence and hit confirmation (M20; protocol 12) |
 | `R-41F399DF` | Snapshot budget (protocol 16; 17) | Weapon effects and shot events (M25a; protocol 16) |
