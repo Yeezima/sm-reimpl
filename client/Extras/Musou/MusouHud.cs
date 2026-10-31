@@ -18,6 +18,7 @@ namespace SmClient;
 /// <item>under the reward lines, the break's countdown to the next wave; call-outs ("WAAAGH!", "ENRAGED") with a short screen flash;</item>
 /// <item>the end-of-run panel for a victory or a defeat (the wave reached, the KOs and points, the next run's start) during the match end splash.</item>
 /// </list>
+/// In the Three-Front War (<see cref="MusouPhase.Campaign"/>) there are no waves or shared lives: the run panel goes (<see cref="TfwHud"/> stands there) and the boss bar shows the battle's commander.
 /// Layout, sizes and colours are ours (kind: ours; the original has no such mode). <see cref="NetworkView"/> fills <see cref="Data"/> every frame and calls
 /// <see cref="Fed"/>; without that call for two frames (the view stops its added content while it is not connected) the HUD hides itself. No allocation per
 /// frame: the texts are rebuilt only when what they show changes.
@@ -40,6 +41,8 @@ public sealed partial class MusouHud : Control
         public int LivesMax;
         /// <summary>Seconds until the server starts the next run (the ended match's restart time), negative when not known.</summary>
         public float NextRunIn = -1f;
+        /// <summary>The boss bar's name (the war's commander; the Warboss otherwise).</summary>
+        public string BossName = "ORK WARBOSS";
     }
 
     public Frame Data = new();
@@ -185,7 +188,7 @@ public sealed partial class MusouHud : Control
         var vs = Size / scale;
         DrawFlash(vs);
         if (Data.Director is not { } d) return;
-        DrawRunPanel(d);
+        if (d.Phase != MusouPhase.Campaign) DrawRunPanel(d);
         DrawBossBar(vs, d);
         if (d.Phase is not (MusouPhase.Won or MusouPhase.Lost)) DrawChain(vs);
         DrawBreak(vs, d);
@@ -243,7 +246,7 @@ public sealed partial class MusouHud : Control
         float cx = vs.X / 2f, w = Math.Min(720f, vs.X - 760f), x = cx - w / 2f, y = 52f, h = 22f;
         bool rage = Data.BossEnraged;
         float pulse = rage ? 0.75f + 0.25f * MathF.Sin((float)_time * 8f) : 1f;
-        Txt("ORK WARBOSS", cx, y - 10f, 24, rage ? RedText : Gold, 0, 4, true);
+        Txt(Data.BossName, cx, y - 10f, 24, rage ? RedText : Gold, 0, 4, true);
         if (rage) Txt("ENRAGED", x + w, y - 10f, 20, new Color(RedText, pulse), 1, 3, true);
         long pct = (long)MathF.Ceiling(Math.Clamp(d.BossHealth / d.BossMaxHealth, 0f, 1f) * 100f);
         Txt(_bossPct.Of(pct, static k => $"{k}%"), x, y - 10f, 20, White, -1, 3, true);

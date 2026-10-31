@@ -17,7 +17,9 @@ public readonly record struct TfwGuardEvent(TfwGuardEventKind Kind, uint Tick, u
 /// 0..65535 over the director's <see cref="MusouBox"/> (tag 5), as Musou's. The server's sections are envelope tags (message kind 16), sent only under <c>World.Tfw</c>:
 /// <list type="bullet">
 /// <item>Tag 7, the war: one record of <see cref="WarBytes"/> bytes <c>[u8 phase][u8 battle lane][f32 clock][f32 time scale][u8 transport][u8 supplies][u16 command echo]</c> then per
-/// lane <c>[i8 front][f32 progress][f32 imperial][f32 ork][u8 owned mask][f32 gather left][u8 lord state]</c>. On a change and once a second; per client (the echo is the client's).</item>
+/// lane <c>[i8 front][f32 progress][f32 imperial][f32 ork][u8 owned mask][f32 gather left][u8 lord state]</c>, then the own block (TF7b, <see cref="TfwOwnView"/>) <c>[u8 travel s][u8 pickup s][u8 revive s]
+/// [u8 extraction s][u8 revive tenths][u8 flags: bit 0 battle won][u8 retainer][u8 order][u16 recovery s][u8 guards][u8 squads][u8 reserves][u8 secured]</c>. On a change and once a second; per client
+/// (the echo and the own block are the client's).</item>
 /// <item>Tag 8, the objectives: <c>[u8 n]</c> then n records of 10 bytes <c>[u8 index][u8 state][u16 progress 0..1][u16 x][u16 y][u16 z]</c>, at most <see cref="MaxObjectives"/>
 /// (180 bytes in all), the whole list every 10 ticks; n 0 outside a battle.</item>
 /// <item>Tag 9, the Guardsmen: <c>[u8 n]</c> then n records of 10 bytes <c>[u16 id][u16 x][u16 y][u16 z][u8 yaw][u8 state]</c>, at most <see cref="MaxGuards"/>, by interest
@@ -41,8 +43,10 @@ public static class TfwWire
     /// <summary>The metres of one step of a command's point: 0.1 m, so a point reaches 3276.7 m from the origin on each axis.</summary>
     public const float PointStep = 0.1f;
 
-    const int WarHeadBytes = 14, LaneBytes = 19;
-    public const int WarBytes = WarHeadBytes + 3 * LaneBytes, ObjectiveBytes = 10, GuardBytes = 10, GuardEventBytes = 15;
+    const int WarHeadBytes = 14, LaneBytes = 19, OwnBytes = 14;
+    /// <summary>The fullest revive progress on the wire (<see cref="TfwOwnView.ReviveTenths"/>).</summary>
+    public const byte MaxReviveTenths = 10;
+    public const int WarBytes = WarHeadBytes + 3 * LaneBytes + OwnBytes, ObjectiveBytes = 10, GuardBytes = 10, GuardEventBytes = 15;
     /// <summary>The objectives' section is at most this long (design section H).</summary>
     public const int MaxObjectivesBytes = 180;
     /// <summary>Most objectives in one section: (180 - 1) / 10 = 17.</summary>
@@ -137,7 +141,33 @@ public static class TfwWire
         WriteLane(s[WarHeadBytes..], war.A);
         WriteLane(s[(WarHeadBytes + LaneBytes)..], war.B);
         WriteLane(s[(WarHeadBytes + 2 * LaneBytes)..], war.C);
+        WriteOwn(s[(WarHeadBytes + 3 * LaneBytes)..], war.Own);
         return bytes;
+    }
+
+    static void WriteOwn(Span<byte> s, in TfwOwnView own)
+    {
+        s[0] = own.TravelSeconds;
+        s[1] = own.PickupSeconds;
+        s[2] = own.ReviveSeconds;
+        s[3] = own.ExtractionSeconds;
+        s[4] = own.ReviveTenths;
+        s[5] = (byte)(own.BattleWon ? 1 : 0);
+        s[6] = (byte)own.Retainer;
+        s[7] = (byte)own.Order;
+        BinaryPrimitives.WriteUInt16LittleEndian(s[8..], own.RecoverySeconds);
+        s[10] = own.Guards;
+        s[11] = own.Squads;
+        s[12] = own.Reserves;
+        s[13] = own.Secured;
+    }
+
+    static TfwOwnView? ReadOwn(ReadOnlySpan<byte> s)
+    {
+        var retainer = (TfwRetainerState)s[6];
+        var order = (MarineOrder)s[7];
+        if (s[4] > MaxReviveTenths || s[5] > 1 || !Enum.IsDefined(retainer) || !Enum.IsDefined(order) || s[13] > WarRules.Positions) return null;
+        return new TfwOwnView(s[0], s[1], s[2], s[3], s[4], s[5] == 1, retainer, order, BinaryPrimitives.ReadUInt16LittleEndian(s[8..]), s[10], s[11], s[12], s[13]);
     }
 
     static void WriteLane(Span<byte> s, in TfwLaneState lane)
@@ -151,7 +181,7 @@ public static class TfwWire
         s[18] = lane.LordState;
     }
 
-    /// <summary>The war of a payload; null for a malformed one (wrong length, an unknown phase or lane, a front out of range, a non-finite number, an unknown mask or lord state).</summary>
+    /// <summary>The war of a payload; null for a malformed one (wrong length, an unknown phase or lane, a front out of range, a non-finite number, an unknown mask or lord state, an own block out of range).</summary>
     public static TfwWarView? ReadWar(ReadOnlySpan<byte> s)
     {
         if (s.Length != WarBytes) return null;
@@ -161,7 +191,8 @@ public static class TfwWire
         float clock = BinaryPrimitives.ReadSingleLittleEndian(s[2..]), scale = BinaryPrimitives.ReadSingleLittleEndian(s[6..]);
         if (!float.IsFinite(clock) || !float.IsFinite(scale)) return null;
         if (ReadLane(s[WarHeadBytes..]) is not { } a || ReadLane(s[(WarHeadBytes + LaneBytes)..]) is not { } b || ReadLane(s[(WarHeadBytes + 2 * LaneBytes)..]) is not { } c) return null;
-        return new TfwWarView(phase, lane, clock, scale, s[10], s[11], BinaryPrimitives.ReadUInt16LittleEndian(s[12..]), a, b, c);
+        if (ReadOwn(s[(WarHeadBytes + 3 * LaneBytes)..]) is not { } own) return null;
+        return new TfwWarView(phase, lane, clock, scale, s[10], s[11], BinaryPrimitives.ReadUInt16LittleEndian(s[12..]), a, b, c, own);
     }
 
     static TfwLaneState? ReadLane(ReadOnlySpan<byte> s)

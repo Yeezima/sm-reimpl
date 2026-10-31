@@ -32,6 +32,7 @@ public sealed partial class GameServer
     void SendTfw()
     {
         if (World.Tfw is null || World.Musou is not { } sim) return;
+        TfwDownTest();   // GameServer.TfwDownTest.cs: a test aid, off without its variable
         FeedTfw();   // GameServer.TfwFeedRun.cs
         var feed = TfwFeed;
         uint tick = World.Tick;
@@ -49,7 +50,7 @@ public sealed partial class GameServer
             int id = peer.PlayerId;
             if (!_tfwInterest.TryGetValue(id, out var interest)) _tfwInterest[id] = interest = new TfwGuardInterest();
             Vector3? viewer = World.Players.TryGetValue(id, out var me) ? me.Position : anyone;
-            byte[]? war = feed.War is { } front ? TfwWire.WriteWar(front.View(feed.Transport, feed.Supplies, _tfwCommandEcho.GetValueOrDefault(id))) : null;
+            byte[]? war = feed.War is { } front ? TfwWire.WriteWar(front.View(feed.Transport, feed.Supplies, _tfwCommandEcho.GetValueOrDefault(id)) with { Own = World.TfwOwn(id) }) : null;
             float musouBytes = interest.MusouBytes(_musouInterest.TryGetValue(id, out var musou) ? musou.Tokens : null, tickRate);
             foreach (var sections in interest.Plan(tick, tickRate, war, objectives, guards, viewer, box, events, musouBytes))
                 SendExtras(new ExtrasUpdate(tick, sections), id);
