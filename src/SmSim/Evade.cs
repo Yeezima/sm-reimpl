@@ -107,7 +107,10 @@ public sealed record EvadeMove(string Animation, IReadOnlyList<Vector2> Path, fl
 /// <param name="Name">The wargear file.</param>
 public sealed record EvadeSpec(string Name, EvadeMove Forward, EvadeMove Back, EvadeMove Left, EvadeMove Right)
 {
-    /// <summary><c>special_nav_ability/min_time_between_activations</c>: seconds from one evade's press before the next may start (0.8).</summary>
+    /// <summary>
+    /// <c>special_nav_ability/min_time_between_activations</c>, the evade's cooldown: seconds from one evade's start before the next may start (0.8 on
+    /// all three MP evades). The data's value, not × <see cref="SimConfig.ActionLockScale"/> (sim/evade-cooldowns; <see cref="Evade.LockTicks"/>).
+    /// </summary>
     public float MinInterval { get; init; } = 0.8f;
     /// <summary>
     /// The forward sequencer aligns the character to the stick (<c>Align To Nav Direction</c> modifier): a forward roll
@@ -190,7 +193,7 @@ public sealed record EvadeSpec(string Name, EvadeMove Forward, EvadeMove Back, E
 /// <para>
 /// Start: a Jump press edge while alive, on the ground, not evading (or at <see cref="EvadeMove.NextAt"/> of the evade in
 /// progress), with no melee attack in progress or starting this tick, no throw in progress (feel/locks-sprint-stop: <see cref="Combat.ThrowHolds"/>), and at least
-/// <see cref="EvadeSpec.MinInterval"/> since the previous evade's press. The direction comes from the stick at the press
+/// <see cref="EvadeSpec.MinInterval"/> (the cooldown, <see cref="LockTicks"/>) since the previous evade started; a press inside it does nothing (<see cref="RefusesJump"/>). The direction comes from the stick at the press
 /// (<see cref="DirectionOf(float, float, bool)"/>: the nearest of forward, back, left, right, or with
 /// <see cref="EvadeSpec.Diagonals"/> of those and the four diagonals; no stick: forward). The body keeps the view's yaw,
 /// except a forward roll with <see cref="EvadeSpec.AlignForward"/>, which turns it to the stick (<see cref="AlignedYaw"/>;
@@ -381,15 +384,27 @@ public static class Evade
     }
 
     /// <summary>
-    /// Ticks of spacing after a press: the fewest whose length reaches <see cref="EvadeSpec.MinInterval"/> × <see cref="SimConfig.ActionLockScale"/>
-    /// (feel/locks-sprint-stop; at most <see cref="MaxTicks"/>).
+    /// Ticks of cooldown after an evade starts: the fewest whose length reaches <see cref="EvadeSpec.MinInterval"/> (at most <see cref="MaxTicks"/>). sim/evade-cooldowns
+    /// (the owner, 2026-11-01: "Add the game data cooldown ... Currently they are completely spammable"): the data's value: <see cref="SimConfig.ActionLockScale"/> no
+    /// longer applies (feel/locks-sprint-stop had made it 0.56 s, 17 ticks). It runs from the start of the move, an **interpretation**: the field is "time between
+    /// activations", and the graph's own evade-to-evade transition (<c>BTN_Nav_Evade</c> at <c>BRANCH_Evade</c>, inside the clip) could never fire on a cooldown counted from the end.
     /// </summary>
     public static int LockTicks(EvadeSpec spec, SimConfig c)
     {
-        float ticks = c.LockTime(spec.MinInterval) / c.TickSeconds;
+        float ticks = spec.MinInterval / c.TickSeconds;
         if (!float.IsFinite(ticks) || ticks <= 0f) return 0;
         return (int)Math.Clamp(MathF.Ceiling(ticks - 1e-3f), 0f, MaxTicks);
     }
+
+    /// <summary>Whether the evade's cooldown still holds on this tick (<see cref="Begin"/>'s own count: <see cref="PlayerState.EvadeLock"/> less this tick).</summary>
+    public static bool Cooling(PlayerState s) => Math.Max(0, s.EvadeLock - 1) > 0;
+
+    /// <summary>
+    /// sim/evade-cooldowns: whether the cooldown refuses a Jump press this tick: it starts nothing and ends nothing (no reaction, charge or take-off), so the press does
+    /// nothing but wait in the input buffer. Not a <paramref name="longJump"/> replay, which is a jump (the press was held past the dash's decision tick), and not a
+    /// jump-pack class without the three jumps, whose take-off never asked the evade.
+    /// </summary>
+    internal static bool RefusesJump(PlayerState s, JumpPackSpec? pack, LongJump longJump) => Cooling(s) && longJump == LongJump.None && pack is not { HoldTiers: false };
 
     /// <summary>
     /// sim/movement-fixes (A, ours): metres the feet may be above the ground below plus the hop's height before the hop counts as over a drop (gravity then
