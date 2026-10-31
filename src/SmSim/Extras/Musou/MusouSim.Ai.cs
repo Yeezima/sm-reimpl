@@ -357,7 +357,8 @@ public sealed partial class MusouSim
         var p = _position[i];
         if (_transit[i] >= 0 && Walk is not null)
         {
-            // Over a drop: straight to the landing node at run speed, falling with it, then on the graph again.
+            // Over a drop: straight to the landing node at run speed, falling with it, then on the graph again. A drive (MU3's knockback) waits: Driven
+            // is not called, so its ticks are kept for after the landing.
             int to = _transit[i];
             var land = Walk.Position(to);
             var way = new Vector2(land.X - p.X, land.Y - p.Y);

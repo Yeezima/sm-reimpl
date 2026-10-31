@@ -36,6 +36,7 @@ public sealed partial class MusouSim
     readonly Queue<int> _free = new(Capacity);
     readonly List<MusouEvent> _events = new();
     readonly List<MusouKill> _kills = new();
+    readonly float[] _queryDistance = new float[Capacity];   // Query's scratch (single-threaded)
 
     public MusouSim(NavGraph? nav, MusouRules? rules = null)
     {
@@ -170,7 +171,7 @@ public sealed partial class MusouSim
     public int Query(Vector3 centre, float radius, Span<ushort> into, float verticalReach = 2.5f)
     {
         if (into.Length == 0 || !(radius >= 0f)) return 0;
-        Span<float> distance = into.Length <= 256 ? stackalloc float[into.Length] : new float[into.Length];
+        Span<float> distance = into.Length <= _queryDistance.Length ? _queryDistance.AsSpan(0, into.Length) : new float[into.Length];   // MU3a: no allocation
         int n = 0;
         float r2 = radius * radius;
         for (int i = 0; i < Capacity; i++)

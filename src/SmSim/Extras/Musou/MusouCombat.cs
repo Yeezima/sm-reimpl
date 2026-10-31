@@ -27,6 +27,8 @@ public sealed record MusouCombatRules
     public float BlastStaggerIntensity { get; init; } = 0.25f;
     /// <summary>Most enemies one charge hits (ours: as the cleave).</summary>
     public int ChargeTargets { get; init; } = 8;
+    /// <summary>Most enemies one cone shot covers, nearest first (ours; MU3a review: a cost cap).</summary>
+    public int ConeTargets { get; init; } = 24;
 
     public static MusouCombatRules Default { get; } = new();
 }

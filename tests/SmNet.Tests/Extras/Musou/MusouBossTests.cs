@@ -208,6 +208,35 @@ public class MusouBossTests
         Assert.Equal(5.2f, Speed(2), 2);
     }
 
+    [Fact]
+    public void Summons_wait_for_the_hard_cap_with_several_players_and_count_as_enemies_left()
+    {
+        var rules = Rules(1000f, 1000f) with { HardCap = 25, Waves = [new MusouWaveSpec(0, 1, [(MusouEnemyType.Boy, 1f)])] };
+        var sim = new MusouSim(null, rules);
+        var director = new MusouDirector(sim, []);
+        director.Start(3);
+        MusouTarget[] targets = [new(1, Vector3.Zero, true), new(2, new Vector3(1.5f, 0f, 0f), true), new(3, new Vector3(-1.5f, 0f, 0f), true)];
+        uint tick = 0;
+        void Step(int n) { for (int k = 0; k < n; k++) { sim.BeginTick(++tick); director.Step(targets); } }
+        Step(1);
+        Assert.Equal(MusouPhase.Boss, director.Phase);
+        director.Summon(MusouEnemyType.Boy, 40);
+        Assert.Equal(41, director.View().EnemiesLeft);   // the boss and the 40 to come
+        Step(20);
+        Assert.Equal(25, sim.Alive);   // 24 Boyz and the Warboss: the cap holds
+        Assert.Equal((16, 24), (director.Summons, director.Released));
+        Assert.Equal(41, director.View().EnemiesLeft);
+        // Ten KOs free room: ten more come (at most 6 a tick).
+        var all = new MusouEnemy[MusouSim.Capacity];
+        int n = sim.CopyTo(all);
+        foreach (var e in all[..n].Where(e => e.Type == MusouEnemyType.Boy).Take(10)) { sim.Damage(e.Id, 1, 1000f, Vector3.UnitY, out _); director.OnKill(new MusouKill(e.Id, e.Type, 1, MusouDeathKind.Shot)); }
+        Step(1);
+        Assert.Equal(21, sim.Alive);
+        Step(5);
+        Assert.Equal((25, 6), (sim.Alive, director.Summons));
+        Assert.Equal(31, director.View().EnemiesLeft);
+    }
+
     // ---------------------------------------------------------------- whole runs in the World
 
     static readonly WeaponSpec Rifle = new("rifle", WeaponSlot.Ranged, TriggerKind.FullAuto, 9f, 0.12f, 30, 5000, 1.2f, 250f, 45f, 70f, 0.8f, 2.5f, 1f, 0.5f, 0.5f);

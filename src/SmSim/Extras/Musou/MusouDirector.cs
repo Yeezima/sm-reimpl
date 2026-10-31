@@ -307,7 +307,7 @@ public sealed class MusouDirector
         int left = Phase switch
         {
             MusouPhase.Wave => WaveTotal - Killed,
-            MusouPhase.Boss => Math.Max(0, WaveTotal - Killed) + (bossHealth > 0f ? 1 : 0),
+            MusouPhase.Boss => Math.Max(0, WaveTotal - Killed) + _summons + (bossHealth > 0f ? 1 : 0),   // MU3: summons still to come count
             _ => 0,
         };
         return new MusouDirectorView((byte)Math.Clamp(Wave, 0, 255), (byte)Math.Clamp(Waves, 0, 255), Phase, (ushort)Math.Clamp(BreakTicksLeft, 0, ushort.MaxValue),

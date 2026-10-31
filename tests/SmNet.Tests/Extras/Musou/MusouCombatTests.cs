@@ -43,19 +43,24 @@ public class MusouCombatTests
         Types = [.. MusouRules.Default.Types.Select(t => t with { Speed = 0f })],
     };
 
-    static World NewWorld(int primary = 0)
+    static SimConfig Config(int primary = 0, Func<ClassLoadout, ClassLoadout>? cls = null)
     {
-        var cls = new ClassLoadout("sm - tactical", primary, -1, [Light]) { PrimaryChoices = [primary], EquipmentChoices = [0], MeleeHeavy = [Heavy], MeleeRush = Charge, Side = Team.SpaceMarines, Role = "tactical" };
-        var config = MusouSimTests.Base with
+        var c = new ClassLoadout("sm - tactical", primary, -1, [Light]) { PrimaryChoices = [primary], EquipmentChoices = [0], MeleeHeavy = [Heavy], MeleeRush = Charge, Side = Team.SpaceMarines, Role = "tactical" };
+        if (cls is not null) c = cls(c);
+        return MusouSimTests.Base with
         {
             Weapons = [Rifle, Flamer, Launcher], Thrown = [Frag],
-            Classes = [cls, cls with { Name = "csm - tactical", Side = Team.Chaos }],
+            Classes = [c, c with { Name = "csm - tactical", Side = Team.Chaos }],
             MusouRules = Still,
         };
-        var w = new World(config) { Rules = MusouSimTests.Endless };
+    }
+
+    static World NewWorld(int primary = 0, SimConfig? config = null, int players = 1)
+    {
+        var w = new World(config ?? Config(primary)) { Rules = MusouSimTests.Endless };
         Assert.True(w.StartMusou(null));
         w.MusouDirector!.Hold = true;
-        w.Spawn(1, w.AssignClass(0));
+        for (int id = 1; id <= players; id++) w.Spawn(id, w.AssignClass(0));
         w.Step(_ => new PlayerInput(0, 0f, 0f, 0f, 0));   // in play, facing +y
         Assert.Equal(MatchState.Playing, w.State);
         return w;
@@ -267,5 +272,179 @@ public class MusouCombatTests
         foreach (var id in path) { Assert.True(sim.TryGet(id, out var e)); Assert.Equal(85f - 40f, e.Health); }
         Assert.True(sim.TryGet(aside, out var a));
         Assert.Equal(85f, a.Health);
+    }
+
+    // ---------------------------------------------------------------- the MU3a review's cases
+
+    [Fact]
+    public void A_shot_hits_with_the_weapon_the_shooter_carries_its_perk_variant()
+    {
+        var variant = Rifle with { Damage = 40f, HeadMultiplier = 1f, BodyMultiplier = 1f };
+        var config = Config(cls: c => c with { DefaultPerk = 0 }) with
+        {
+            Weapons = [Rifle with { Variants = [new UpgradeVariant<WeaponSpec>(["test_heavy_rounds"], variant)] }, Flamer, Launcher],
+            Perks = [new PerkSpec("test_perk", "test_heavy_rounds", PerkKind.Weapon, 1)],
+        };
+        var w = NewWorld(config: config);
+        Assert.Equal(40f, Loadouts.InHand(w.Config, w.Players[1])!.Damage);
+        var sim = w.Musou!;
+        ushort boy = sim.Spawn(MusouEnemyType.Boy, Me(w) + new Vector3(0f, 12f, 0f), 0f, 85f);
+        for (int t = 0; t < 30 && sim.TryGet(boy, out var e) && e.Health == 85f; t++) w.Step(_ => new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire));
+        Assert.True(sim.TryGet(boy, out var hit));
+        Assert.Equal(85f - 40f, hit.Health);   // the base rifle would deal 9 (22.5 on the head)
+    }
+
+    [Fact]
+    public void Two_hits_that_kill_one_enemy_in_one_tick_make_one_ko()
+    {
+        var w = NewWorld(players: 2);
+        var sim = w.Musou!;
+        var a = w.Players[1].Position; var b = w.Players[2].Position;
+        var mid = (a + b) * 0.5f;
+        var away = Vector3.Normalize(new Vector3(-(b.Y - a.Y), b.X - a.X, 0f)) * 8f;
+        ushort boy = sim.Spawn(MusouEnemyType.Boy, mid + away, 0f, 5f);
+        float Yaw(Vector3 from) { var d = mid + away - from; return MathF.Atan2(-d.X, d.Y); }
+        var events = new List<MusouEvent>();
+        for (int t = 0; t < 5; t++)
+        {
+            w.Step(id => new PlayerInput(0, 0f, 0f, Yaw(w.Players[id].Position), t == 0 ? 0 : InputButtons.Fire));
+            events.AddRange(sim.Events);
+        }
+        Assert.Single(events, e => e.Kind == MusouEventKind.Death && e.Enemy == boy);
+        Assert.True(sim.TryGet(boy, out var dead) && !dead.Alive);
+        Assert.Equal(1, w.MusouDirector!.Kos);
+        Assert.Equal(1, w.Scores[1].Kills + w.Scores[2].Kills);
+    }
+
+    [Fact]
+    public void A_cone_and_a_charge_ko_is_the_attackers()
+    {
+        var cone = NewWorld(primary: 1);
+        ushort burnt = cone.Musou!.Spawn(MusouEnemyType.Boy, Me(cone) + new Vector3(0f, 4f, 0f), 0f, 10f);
+        var events = new List<MusouEvent>();
+        for (int t = 0; t < 5; t++) { cone.Step(_ => new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire)); events.AddRange(cone.Musou.Events); }
+        var death = Assert.Single(events, e => e.Kind == MusouEventKind.Death);
+        Assert.Equal((burnt, (ushort)1, (byte)MusouDeathKind.Shot), (death.Enemy, death.Player, death.Value));
+        Assert.Equal((1, 1), (cone.Scores[1].Kills, cone.MusouDirector!.Scores[1].Kos));
+
+        var charge = NewWorld();
+        ushort run = charge.Musou!.Spawn(MusouEnemyType.Boy, Me(charge) + new Vector3(0.3f, 4f, 0f), 0f, 30f);
+        events.Clear();
+        for (int t = 0; t < 45; t++)
+        {
+            bool held = t < 2;
+            charge.Step(_ => new PlayerInput(0, 0f, held ? 1f : 0f, 0f, held ? InputButtons.Sprint | (t == 1 ? InputButtons.MeleeHeavy : 0) : 0));
+            events.AddRange(charge.Musou.Events);
+        }
+        death = Assert.Single(events, e => e.Kind == MusouEventKind.Death);
+        Assert.Equal((run, (ushort)1, (byte)MusouDeathKind.Melee), (death.Enemy, death.Player, death.Value));
+        Assert.Equal((1, 1), (charge.Scores[1].Kills, charge.MusouDirector!.Scores[1].Kos));
+    }
+
+    /// <summary>Player 1 charges into player 2 (an ally: the charge stops on it); <paramref name="enemyAt"/> places a boy (in run B) at a tick.</summary>
+    static (List<Vector3> Path, int Contact, World World, ushort Enemy) ChargeIntoAlly(Func<List<Vector3>, (int Tick, Vector3 At)?> enemyAt, int contactKnown = -1)
+    {
+        var w = NewWorld(players: 2);
+        var d = w.Players[2].Position - w.Players[1].Position;
+        float yaw = MathF.Atan2(-d.X, d.Y);
+        var path = new List<Vector3> { w.Players[1].Position };
+        int contact = -1;
+        ushort enemy = 0;
+        var place = enemyAt(path);
+        for (int t = 0; t < 45; t++)
+        {
+            if (place is { } p && p.Tick == t) enemy = w.Musou!.Spawn(MusouEnemyType.Boy, p.At, 0f, 85f);
+            bool held = t < 2;
+            w.Step(id => id == 1
+                ? new PlayerInput(0, 0f, held ? 1f : 0f, yaw, held ? InputButtons.Sprint | (t == 1 ? InputButtons.MeleeHeavy : 0) : 0)
+                : new PlayerInput(0, 0f, 0f, 0f, 0));
+            path.Add(w.Players[1].Position);
+            if (contact < 0 && w.LastRushes.Any(r => r.Player == 1)) contact = t + 1;   // path index of the contact tick's end
+        }
+        return (path, contact, w, enemy);
+    }
+
+    [Fact]
+    public void A_charges_last_move_before_it_stops_on_a_player_still_hits_the_enemies()
+    {
+        // Run A: where the charge goes and when it stops on the ally.
+        var (path, contact, _, _) = ChargeIntoAlly(_ => null);
+        Assert.True(contact > 2, "the charge reached the ally");
+        var end = path[contact];
+        var line = end - path[contact - 1];
+        float stride = new Vector2(line.X, line.Y).Length();
+        Assert.True(stride > 0.25f, $"the last stride {stride}");
+        var dir = Vector3.Normalize(line with { Z = 0f });
+        var perp = new Vector3(-dir.Y, dir.X, 0f);
+        // A boy only the last move reaches: 0.5 m past its end and 0.9 m aside (reach 0.4 + 0.45 + 0.3 = 1.15 m).
+        var at = end + dir * 0.5f + perp * 0.9f;
+        for (int k = 1; k < contact; k++)
+            Assert.True(MusouSim.FlatDistanceToSegment(at, path[k - 1], path[k]) > 1.15f);
+        Assert.True(MusouSim.FlatDistanceToSegment(at, path[contact - 1], end) <= 1.15f);
+        // Run B (deterministic: the same charge): the boy is there and is hit on that last move.
+        var (pathB, contactB, w, boy) = ChargeIntoAlly(_ => (contact - 3, at));
+        Assert.Equal(contact, contactB);
+        Assert.Equal(end, pathB[contact]);
+        Assert.False(Rush.Connecting(w.Players[1], w.Config));
+        Assert.True(w.Musou!.TryGet(boy, out var e));
+        Assert.Equal(85f - 40f, e.Health);
+    }
+
+    [Theory]
+    [InlineData(30f, 85f - 45f)]   // the cleave's 45 is larger: it alone
+    [InlineData(60f, 85f - 60f)]   // the stomp's 60 is larger: it alone
+    public void An_enemy_in_a_steps_stomp_and_cleave_takes_the_larger_of_the_two(float stomp, float front)
+    {
+        var splash = new SplashSpec(3f, Plain with { Damage = stomp }, [new(0f, 1f), new(3f, 1f)], false, true, "target_all");
+        var w = NewWorld(config: Config(cls: c => c with { MeleeHeavy = [Heavy with { Stomp = splash }] }));
+        var sim = w.Musou!;
+        var me = Me(w);
+        ushort ahead = sim.Spawn(MusouEnemyType.Boy, me + new Vector3(0f, 1.5f, 0f), 0f, 85f);
+        ushort behind = sim.Spawn(MusouEnemyType.Boy, me + new Vector3(0f, -1.5f, 0f), 0f, 85f);   // in the stomp only
+        Run(w, 20, InputButtons.MeleeHeavy);
+        Assert.True(sim.TryGet(ahead, out var a));
+        Assert.Equal(front, a.Health);
+        Assert.True(sim.TryGet(behind, out var b));
+        Assert.Equal(85f - stomp, b.Health);
+    }
+
+    [Fact]
+    public void A_frag_grenade_glances_off_an_enemy_and_goes_off_on_its_fuse()
+    {
+        // The throw; a boy at a given loop tick and place; the grenade's state after each tick (with the loop tick) until it goes off.
+        static (World W, List<(int T, ProjectileState P)> Flight, ushort Boy, bool Blast) Throw((int Tick, Vector3 At)? boy)
+        {
+            var w = NewWorld();
+            var flight = new List<(int, ProjectileState)>();
+            ushort id = 0;
+            for (int t = 0; t < 150; t++)
+            {
+                if (boy is { } b && b.Tick == t) id = w.Musou!.Spawn(MusouEnemyType.Boy, b.At, 0f, 85f);
+                w.Step(_ => new PlayerInput(0, 0f, 0f, 0f, t == 0 ? InputButtons.Grenade : 0));
+                if (w.LastDetonations.Count > 0) return (w, flight, id, true);
+                if (w.Projectiles.Count > 0) flight.Add((t, w.Projectiles[0]));
+            }
+            return (w, flight, id, false);
+        }
+        // Run A, nobody in the way: a point of the flight at a boy's chest height before the first bounce.
+        var (_, free, _, _) = Throw(null);
+        int k = free.FindIndex(f => f.P.Bounces == 0 && f.P.Position.Z is > 0.5f and < 1.2f);
+        Assert.True(k > 1);
+        var at = free[k].P.Position with { Z = 0f };
+        float speed = free[0].P.Velocity.Length();
+        // Run B: a boy stands there (placed a few ticks before the grenade arrives; it stands while it spawns).
+        var (w, flight, boy, blast) = Throw((Math.Max(1, free[k].T - 4), at));
+        Assert.NotEqual(0, boy);
+        // It met the boy: its speed fell to the entity reductions' 5 % on the near side, and it did not go off there.
+        int glance = flight.FindIndex(f => f.P.Bounces == 0 && f.P.Velocity.Length() < 0.2f * speed);
+        Assert.True(glance > 0);
+        Assert.True(flight[glance].T <= free[k].T);
+        Assert.True(new Vector2(flight[glance].P.Position.X - at.X, flight[glance].P.Position.Y - at.Y).Length() < 0.6f);
+        Assert.True(flight[glance].P.Position.Y < at.Y);
+        Assert.True(flight.Skip(glance).Count() > 10);   // still there for a while: no detonation on contact
+        // Its fuse: it went off at the boy's feet and the blast killed it.
+        Assert.True(blast);
+        Assert.True(w.Musou!.TryGet(boy, out var hurt));
+        Assert.False(hurt.Alive);
     }
 }
