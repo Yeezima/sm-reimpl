@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1797 spec table rows: **1240 tagged**, 406 not tagged (read from data with high confidence), 151 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 390 rows of the changes document.
+Scanned 1798 spec table rows: **1241 tagged**, 406 not tagged (read from data with high confidence), 151 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 392 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -43,7 +43,7 @@ Scanned 1797 spec table rows: **1240 tagged**, 406 not tagged (read from data wi
 | HUD and hit feedback (critical) | 53 | 48 | 42 | 10 | 0 |
 | Sound mix (critical) | 56 | 50 | 48 | 10 | 0 |
 | Effects (critical) | 72 | 63 | 62 | 38 | 0 |
-| Game modes | 38 | 35 | 36 | 19 | 1 |
+| Game modes | 39 | 36 | 37 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
 | Customizer and paint | 49 | 46 | 26 | 15 | 0 |
@@ -53,15 +53,15 @@ Scanned 1797 spec table rows: **1240 tagged**, 406 not tagged (read from data wi
 | Core simulation (provisional values) | 120 | 105 | 105 | 13 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1240** | 1024 | 995 | 392 | 38 |
+| **All areas** | **1241** | 1025 | 996 | 392 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 481 |
+| kind: ours | 482 |
 | confidence: low | 442 |
-| confidence: medium | 438 |
+| confidence: medium | 439 |
 | kind: interpretation | 321 |
 | notes: ours | 288 |
 | confidence: none (low) | 115 |
@@ -1331,7 +1331,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-14AADBDD` | Not drawn | the plasma death's `remove_wargear` (the corpse's ranged weapon gone 1.2 s after death: `WeaponRig` has no hide); any limb or body removal (no geometry); the original's death clips before the ragdoll (`SM_REC_MP_*Death*`, `Powered Ragdoll Controls Modifier`… | notes: not reproduced (gap); kind: gap (not reproduced); confidence: none (low) | graph `SM_Base_MP` | Not drawn: compare with SM1 with side-by-side video of the same action. Ours: the plasma death's remove_wargear (the corpse's ranged weapon gone… | ☐ |
 | `R-029F8653` | Cost | choosing and queueing 0.3 to 0.5 ms in the death frame, of which 0.3 ms is the first death's JIT (the marker-to-bone lookup is cached: 0.02 ms a call, the effect starts 0.01 ms each); the due steps of one death 0.3 to 6 ms in their frame, no JIT and no GC in… (ms) | confidence: low | measured (bots, headless) | Cost: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: choosing and queueing 0.3 to 0.5 ms in the death frame, of which 0.3… | ☐ |
 
-### Game modes (38)
+### Game modes (39)
 
 *Spec section: Teams and Annihilation (M15, used by the simulation)*
 
@@ -1385,6 +1385,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-F93EE7FA` | Spawn positions | the map's TDM markers (`tdm_mkr_spawn_NN` in `d_tdm.Layer`), facing their Z rotation; each spawn takes the next marker in name order, skipping markers within 2 m of a living player; without a map, a circle of radius 3 (m, rad) | confidence: low; notes: placeholder; section: placeholder; section: provisional | positions and facing **supported by evidence**; the choice of marker is a placeholder (M15 with teams: the free marker farthest from living enemies; see Teams… | Spawn positions: compare with SM1 by feel or video. Ours: the map's TDM markers (tdm_mkr_spawn_NN in d_tdm.Layer), facing their… | ☐ |
+
+*Spec section: Added content: Musou — an experimental one-sided mode against swarms (server and client; no protocol change, extras wire 2)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-D27EE184` | Musou enemies and the spawn rooms | the enemies' walking graph is built without the spawn-room blockers: enemies leave the Chaos spawn room and may enter the Space Marine one (players keep their sides' blockers); the Warboss starts at the Chaos start area's centre (Manufactorum: 337.5 m walk to… (m) | kind: ours; confidence: medium | the lead's decision (2026-10-31) for the owner's "the warboss ... is in the chaos spawn room" | Musou enemies and the spawn rooms: compare with SM1 by measuring on a flat spot of the same map. Ours: the enemies' walking graph is built without the spawn-room blockers:… | ☐ |
 
 ### Perks (59)
 
@@ -2021,6 +2027,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-3BF7D39D` | A one-sided co-op mode against swarms | the owner's request (2026-10-31); SM1 has no such mode (Exterminatus is the nearest) | `--content musou`, Annihilation rules replaced by the Musou flow | Musou flow | A one-sided co-op mode against swarms: compare with SM1 by feel or video. Ours: the owner's request (2026-10-31); SM1 has no such mode (Exterminatus… | ☐ |
 | `C-804C1BF1` | Space Marines only, no balance | ours (the lead's default; the owner may change it) | every player joins the Space Marines, no per-side limit | Musou sides | Space Marines only, no balance: compare with SM1 by feel or video. Ours: ours (the lead's default; the owner may change it). | ☐ |
 | `C-9A202D59` | Endless match until the run ends | ours | warm-up until a Space Marine is in, countdown, play; no score or time limit; an empty server goes back to warm-up | Musou flow | Endless match until the run ends: compare with SM1 by timing a run over a known distance. Ours: ours. | ☐ |
+| `C-D7C1E93B` | Enemies ignore spawn-room blockers | ours (the lead, 2026-10-31) | Musou enemies walk through both sides' spawn-room blockers (the Warboss leaves the Chaos room; enemies may enter the Space Marine room); players keep them | Musou enemies and the spawn rooms | Enemies ignore spawn-room blockers: compare with SM1 by feel or video. Ours: ours (the lead, 2026-10-31). | ☐ |
+| `C-0BAAC3C5` | Pistol-only start, Space Marine spawn room, Warboss in the Chaos room | the owner's request (2026-10-31) | every life starts with the class's bolt pistol only; everyone spawns in the Space Marine room | Musou spawns and loadout | Pistol-only start, Space Marine spawn room, Warboss in the…: compare with SM1 by feel or video. Ours: the owner's request (2026-10-31). | ☐ |
 
 ### Deliberate changes (owner's decisions)
 
