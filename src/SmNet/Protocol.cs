@@ -429,7 +429,10 @@ public static partial class Protocol
     //     player's round-trip time as a u16 (ms, 0..999; 65535 not known yet) before its name: 16 to 40 bytes a row (16 rows: at most 640 bytes; the fullest
     //     scoreboard with the Seize Ground layout and four spectators 1145 bytes). The server measures it from snapshot acknowledgements (RttEstimator).
     //     Snapshots unchanged (worst case 1194)
-    public const ushort Version = 50;
+    // 51 (sim/movement-fixes; the owner's report of 2026-11-01; one number for that batch's unreleased rule changes): no wire change. The Devastator / Havoc hop goes
+    //     down stairs and off ledges while it keeps going forward (gravity on top of its curve over a drop; the stick no longer ends it in mid-air); the Assault /
+    //     Raptor Space tap is the dash at any moment while falling (off a ledge, at a jump's apex or in its fall). Snapshot layout and sizes unchanged (worst case 1194)
+    public const ushort Version = 51;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>

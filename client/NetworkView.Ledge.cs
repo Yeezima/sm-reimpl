@@ -21,7 +21,15 @@ public partial class NetworkView
     /// under way at the edge; each landing logs whether the charge ended there (<c>--log-falls</c>).
     /// </summary>
     static readonly bool LedgeCharge = OS.GetCmdlineUserArgs().Contains("--ledge-charge");
-    double _ledgeStart, _ledgeChargeAt = 0.5;
+    /// <summary>
+    /// <c>--ledge-hop</c> (sim/movement-fixes capture aid): Space is pressed for one tick when the run would leave the ground within 8 ticks, so a Devastator / Havoc hops off the ledge
+    /// (W held: the hop goes down while it keeps going forward). <c>--ledge-tap</c>: a one-tick Space tap 4 ticks after the body left the ground, so an Assault / Raptor dashes
+    /// in the fall. Both log the press (<c>LEDGE hop</c> / <c>LEDGE tap</c>).
+    /// </summary>
+    static readonly bool LedgeHop = OS.GetCmdlineUserArgs().Contains("--ledge-hop"), LedgeTap = OS.GetCmdlineUserArgs().Contains("--ledge-tap");
+    double _ledgeStart, _ledgeChargeAt = 0.5, _ledgeLeftAt;
+    bool _ledgePressed;
+    int _ledgeAirTicks;
 
     bool _ledgeRunning;
     float _ledgeYaw;
@@ -37,13 +45,21 @@ public partial class NetworkView
         if (!me.Alive || _client.Collision is null || _config is null) { _ledgeRunning = false; return idle; }
         if (_ledgeRunning)
         {
-            if (!me.Grounded) _ledgeLeft = true;
-            bool landed = _ledgeLeft && me.Grounded;
+            if (!me.Grounded && !_ledgeLeft) { _ledgeLeft = true; _ledgeLeftAt = _connectedFor; }
+            bool landed = _ledgeLeft && me.Grounded && !(LedgeHop && Evade.Evading(me));
             if (landed) { _ledgeRunning = false; _ledgeSettleUntil = _connectedFor + 1.2; GD.Print($"t {_connectedFor:F2} s: LEDGE walked off and landed at {me.Position.X:F1},{me.Position.Y:F1},{me.Position.Z:F1}"); return idle; }
             if (_connectedFor < _ledgeUntil)
             {
                 var b = InputButtons.None;
                 if (LedgeCharge) { b = InputButtons.Sprint; double since = _connectedFor - _ledgeStart; if (since >= _ledgeChargeAt && since < _ledgeChargeAt + 0.06) b |= InputButtons.MeleeHeavy; }
+                // sim/movement-fixes capture aids: one tick of Space before the edge (the hop) or in the fall (the dash).
+                _ledgeAirTicks = me.Grounded ? 0 : _ledgeAirTicks + 1;
+                bool pressNow = !_ledgePressed && (LedgeHop ? me.Grounded && LeavesWithin(me, _ledgeYaw, 8) : LedgeTap && _ledgeAirTicks >= 4);
+                if (pressNow)
+                {
+                    _ledgePressed = true; b |= InputButtons.Jump;
+                    GD.Print($"t {_connectedFor:F2} s: LEDGE {(LedgeHop ? "hop" : "tap")} at {me.Position.X:F1},{me.Position.Y:F1},{me.Position.Z:F1} ({(me.Grounded ? "on the ground" : $"{_connectedFor - _ledgeLeftAt:F2} s into the fall")})");
+                }
                 return new PlayerInput(tick, 0f, 1f, _ledgeYaw, b, _pitch);
             }
             _ledgeRunning = false;
@@ -58,15 +74,25 @@ public partial class NetworkView
             _ledgeYaw = p.Yaw; _yaw = p.Yaw;
             _ledgeUntil = _connectedFor + p.Seconds + 3.0; _ledgeLeft = false; _ledgeRunning = true; _ledgeStart = _connectedFor;
             _ledgeChargeAt = Math.Max(0.5, 0.65 * p.Seconds - 0.5);
+            _ledgePressed = false;
             GD.Print($"t {_connectedFor:F2} s: LEDGE plan {_ledgePlans}: heading {p.Yaw * 180f / MathF.PI:F0} deg, leaves the ground after {p.Seconds:F1} s, lands {p.Drop:F1} m lower after {p.AirSeconds:F2} s, peak {p.Peak:F1} m/s down");
         }
         else
         {
             _ledgeYaw = (float)(_ledgeRandom.NextDouble() * 2 * Math.PI); _yaw = _ledgeYaw;
-            _ledgeUntil = _connectedFor + 2.0; _ledgeLeft = false; _ledgeRunning = true; _ledgeStart = _connectedFor; _ledgeChargeAt = 0.5;
+            _ledgeUntil = _connectedFor + 2.0; _ledgeLeft = false; _ledgeRunning = true; _ledgeStart = _connectedFor; _ledgeChargeAt = 0.5; _ledgePressed = true;   // no hop or tap on a random run
             GD.Print($"t {_connectedFor:F2} s: LEDGE plan {_ledgePlans}: no ledge of {LedgeMinDrop:0.#} m within 8 s; a random heading for 2 s");
         }
         return idle;
+    }
+
+    /// <summary><c>--ledge-hop</c>: whether running on along <paramref name="yaw"/> leaves the ground within <paramref name="ticks"/> ticks (the real movement step on the map).</summary>
+    bool LeavesWithin(PlayerState me, float yaw, int ticks)
+    {
+        var s = me;
+        var input = new PlayerInput(0, 0f, 1f, yaw, InputButtons.None, 0f);
+        for (int t = 0; t < ticks; t++) { s = Movement.Step(s, input, _config!, _client!.Collision); if (!s.Grounded) return true; }
+        return false;
     }
 
     /// <summary>The earliest straight run (of 16 headings, 8 s) that walks off a ledge and lands, or null.</summary>

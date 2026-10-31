@@ -9,3 +9,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+
+- Devastator and Havoc: the hop now goes down stairs and off ledges while it keeps going forward, instead of floating at the height you started from and then dropping straight down.
+- Assault Marine and Raptor: tapping Space while falling (off a ledge, at the top of a jump or on the way down) now does the short hop in the air. Holding Space while falling still jumps again as soon as you land.
+- New network version: everyone must update to play together.

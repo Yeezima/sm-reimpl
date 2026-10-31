@@ -502,6 +502,14 @@ the hit is engine code, so these rules are ours (spec "Melee interaction pass").
 | Reactions turned to the attacker | The reacting body turns (at most 45 degrees) so its clip's side faces the attacker | Whether SM1 aligned victims (it chose clips by direction) | same |
 | The own hit flinches the victim on the hit frame | The data's flinch at the predicted hit, the server's reaction a round trip later | Whether SM1 predicted hit reactions on the attacker's client | same |
 
+### Movement fixes (sim/movement-fixes; protocol 51, no wire change)
+
+| Rule | What we do | What is unknown | Spec section |
+|---|---|---|---|
+| The heavy hop over a drop | Over stairs going down or a ledge, gravity pulls the hop down on top of its height curve once the feet are more than 0.05 m (ours) above the ground plus the curve; input no longer ends a hop that is falling below its curve, so it keeps its forward travel to the ground (the owner's report of 2026-11-01) | How the original's hop met a drop (its clips have no vertical root motion); the slacks are estimates | "Movement fixes" |
+| The short hop while falling | A Space tap in the air while falling (off a ledge, at a jump's apex or in its fall) is the jump-pack dash, on its release (the tap-or-hold timing of the ground); no limit per airtime, the dash's spacing applies; the jump ends without a landing (the owner's report of 2026-11-01; the data's jump-pack evade has no ground test) | Whether the original limited air dashes (none seen in the data); a held press in the air stays the buffered long press (ours) | same |
+| Rolls and hops falling off a drop show the fall pose | After 0.3 s in the air past their own lift (the charge's delay, ours) | The original's evade-to-fall blend timing | same |
+
 ## 3. Not yet reproduced
 
 Known original features missing from the alpha (alpha scope: Annihilation and Seize Ground on Manufactorum only).

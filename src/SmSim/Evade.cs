@@ -287,6 +287,14 @@ public static class Evade
     public static bool StartsFromRest(PlayerState s, EvadeSpec? spec, bool meleePress, SimConfig c) =>
         spec is { Dash: false } && s.EvadeTicks == 0 && Math.Max(0, s.EvadeLock - 1) == 0 && s.Grounded && s.MeleeStep == 0 && !meleePress && !Combat.ThrowHolds(s, c);
 
+    /// <summary>
+    /// sim/movement-fixes (C): whether a dash may start in the air this tick as far as the evade is concerned (<see cref="Begin"/>'s start condition for a
+    /// dash with the ground not required): no evade under way before it, its spacing over by this tick, no melee step, no throw holding. The jump pack's
+    /// air dash (<see cref="JumpPack.Begin"/>) asks this so it never ends a jump for a dash that would not start.
+    /// </summary>
+    public static bool CanDashInAir(PlayerState s, SimConfig c) =>
+        s.EvadeTicks == 0 && Math.Max(0, s.EvadeLock - 1) == 0 && s.MeleeStep == 0 && !Combat.ThrowHolds(s, c);
+
     /// <summary>The fraction of the clip played (0..1): <see cref="Time"/> / the clip's duration; 0 when not evading.</summary>
     public static float Progress(PlayerState s, SimConfig c) =>
         Move(s, c) is { Duration: > 0f } m ? Math.Clamp(Time(s, c) / m.Duration, 0f, 1f) : 0f;
@@ -383,6 +391,38 @@ public static class Evade
         return (int)Math.Clamp(MathF.Ceiling(ticks - 1e-3f), 0f, MaxTicks);
     }
 
+    /// <summary>
+    /// sim/movement-fixes (A, ours): metres the feet may be above the ground below plus the hop's height before the hop counts as over a drop (gravity then
+    /// applies on top of the curve, <see cref="HopFall"/>): more than float drift and the motor's skin, less than a stair's riser.
+    /// </summary>
+    public const float HopGroundSlack = 0.05f;
+    /// <summary>sim/movement-fixes (A, ours): m/s of vertical speed below the curve's own from which a hop counts as falling (<see cref="FallingBelowCurve"/>).</summary>
+    public const float HopFallSlack = 0.05f;
+
+    /// <summary>The hop curve's vertical speed over the clip time (<paramref name="from"/> − dt, <paramref name="from"/>] (0 before the clip's start).</summary>
+    static float CurveRate(EvadeMove move, float from, float dt) =>
+        dt > 0f && from > 0f ? (move.HeightAt(from) - move.HeightAt(MathF.Max(0f, from - dt))) / dt : 0f;
+
+    /// <summary>
+    /// sim/movement-fixes (A): the hop's fall part for a tick starting at clip time <paramref name="from"/> (added to the curve's own vertical speed): 0 on the
+    /// ground or at most <see cref="HopGroundSlack"/> above the ground plus the curve's height; over a drop the previous tick's fall part (the vertical speed
+    /// beyond the curve's: a walk-off before the curve brings its gravity along) minus gravity × dt. Never upward.
+    /// </summary>
+    static float HopFall(PlayerState s, EvadeMove move, float from, float dt, SimConfig c, CollisionWorld? world)
+    {
+        if (s.Grounded || !(dt > 0f)) return 0f;
+        if (!(JumpPack.AboveGround(s, world) > move.HeightAt(from) + HopGroundSlack)) return 0f;
+        float carried = float.IsFinite(s.Velocity.Z) ? MathF.Min(0f, s.Velocity.Z - CurveRate(move, from, dt)) : 0f;
+        return carried - c.Gravity * dt;
+    }
+
+    /// <summary>
+    /// sim/movement-fixes (A): whether a hop in the air is falling below its curve (over a drop: its vertical speed more than <see cref="HopFallSlack"/> under the
+    /// curve's own over the tick just played). Input then does not end it (as for an evade carried off a ledge): it keeps its forward motion to the ground.
+    /// </summary>
+    static bool FallingBelowCurve(PlayerState s, EvadeMove move, float played, float dt) =>
+        !s.Grounded && float.IsFinite(s.Velocity.Z) && s.Velocity.Z < CurveRate(move, played, dt) - HopFallSlack;
+
     /// <summary>The first part of a tick: end, chaining and start (before the weapon and melee).</summary>
     internal readonly record struct Tick(bool Active, bool Started, int Ticks, EvadeDirection Direction, int Lock, float Yaw, bool Landed = false);
 
@@ -417,7 +457,9 @@ public static class Evade
             {
                 // Protocol 30 (ours, with the owner's walk-off rule): an evade carried off a ledge is not ended by input while its body is in the air
                 // (outside its own hop): its clip motion plays on to the end, then the body drops straight down (Movement.Step).
-                bool inputs = s.Grounded || move.HeightAt(played) > 0f;
+                // sim/movement-fixes (A): a hop falling below its curve (over a stair going down or a ledge) is such an evade too: before, the stick ended it in
+                // mid-air from its MoveAt and the walk-off rule then dropped it straight down.
+                bool inputs = s.Grounded || (move.HeightAt(played) > 0f && !FallingBelowCurve(s, move, played, dt));
                 // feel/locks-sprint-stop: the stick's and the next evade's branches × the lock scale (the ranged, switch and melee branches are the data's).
                 chain = !spec.Dash && inputs && jumpPress && lockTicks == 0 && At(c.LockTime(move.NextAt));
                 if (At(move.Duration) || (inputs && ((stick && At(c.LockTime(move.MoveAt))) || (rangedDown && At(move.RangedAt)) || (switchPress && At(move.SwitchAt))
@@ -429,10 +471,14 @@ public static class Evade
         // An evade that ended this tick for another reason (the stick, a ranged or switch input) lets the press start none:
         // a new one needs NextAt (the chain above) or no evade before this tick.
         bool trigger = spec.Dash ? dashStart : jumpPress;
+        // sim/movement-fixes (C): a dash may start in the air (JumpPack.Begin's air dash, or a take-off released after walking off a ledge); the pack already
+        // refused a light melee press for the air dash, and a heavy press there is dropped by the dash (its presses are lost).
+        bool airDash = spec.Dash && dashStart && !s.Grounded;
         if (!active && trigger && lockTicks == 0 && (s.EvadeTicks == 0 || chain)
-            && s.Grounded && s.MeleeStep == 0 && !meleePress && !Combat.ThrowHolds(s, c))
+            && (s.Grounded || airDash) && s.MeleeStep == 0 && (!meleePress || airDash) && !Combat.ThrowHolds(s, c))
         {
-            direction = spec.Dash && dashDirection is { } latched ? latched
+            // The direction latched at a take-off's press; an air dash (no take-off) takes the stick on its start tick (the tap's release).
+            direction = spec.Dash && dashDirection is { } latched && s.Jump == JumpPhase.TakeOff ? latched
                 : spec.SideOnly ? SideOf(input.MoveX, s.Velocity.X, s.Velocity.Y, input.Yaw)
                 : DirectionOf(input.MoveX, input.MoveY, spec.Diagonals);
             yaw = spec.AlignForward && IsForward(direction) ? AlignedYaw(input.Yaw, input.MoveX, input.MoveY) : input.Yaw + YawOffset(direction);
@@ -488,7 +534,14 @@ public static class Evade
             // down (early on a higher floor). On the ground on the way down it stays there. After the curve, a body still in the
             // air (off a ledge) falls with gravity from the curve's last vertical speed.
             bool hopTick = (before > 0f || after > 0f) && (vz > 0f || !s.Grounded);
-            next = hopTick ? Movement.Fly(s with { Grounded = false }, t.Yaw, horizontal, vz, 0f, c, world) : Movement.Glide(s, t.Yaw, horizontal, c, world);
+            // sim/movement-fixes (A; the owner, 2026-11-01: "you should go down while still going forward if you go down stairs or off a ledge"): in the air the
+            // curve is the lift above the ground under the body, not a fixed height. While the feet are more than HopGroundSlack above the ground below plus the
+            // curve's height (the ground fell away: a stair going down, a ledge), gravity pulls the body down on top of the curve (its fall part, the vertical speed
+            // beyond the curve's own, carries over from tick to tick); at or under that height (flat ground, a step up) the fall part is 0 and the curve rules
+            // alone, as before. Before, the curve flew level from the take-off height with no gravity, so a hop off a ledge floated (and rose again after a
+            // walk-off before the curve).
+            if (hopTick) next = Movement.Fly(s with { Grounded = false }, t.Yaw, horizontal, vz + HopFall(s, move, from, dt, c, world), 0f, c, world);
+            else next = Movement.Glide(s, t.Yaw, horizontal, c, world);
         }
         wallHit = false;
         float wished = delta.Length();

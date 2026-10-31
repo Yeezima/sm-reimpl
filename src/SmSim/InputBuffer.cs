@@ -126,6 +126,16 @@ public static class InputBuffer
     static bool Hold(PlayerState s, BufferedAction a) => a is BufferedAction.Jump or BufferedAction.JumpLong && s.Jump is JumpPhase.TakeOff or JumpPhase.Ascent;
 
     /// <summary>
+    /// sim/movement-fixes (C): a buffered plain Jump of a class with a jump-pack dash, in the air with Space still down, is not replayed: whether it is a tap
+    /// (the air dash, on the first replay after its release: <see cref="JumpPack.Begin"/>) or a long press (<see cref="BufferedAction.JumpLong"/>, the small
+    /// jump on landing) is not decided yet. Nothing took a held Jump replayed in the air before (a take-off and the dash need the ground), so only the air dash
+    /// changes.
+    /// </summary>
+    static bool AirTapPending(PlayerState s, BufferedAction carried, InputButtons buttons, SimConfig c) =>
+        carried == BufferedAction.Jump && (buttons & InputButtons.Jump) != 0 && !s.Grounded
+        && Loadouts.JumpPack(c, s) is not null && Loadouts.Evade(c, s) is { Dash: true };
+
+    /// <summary>
     /// Whether a buffered press of <paramref name="a"/> past its window is still kept while its button is held in state <paramref name="s"/> (the hold
     /// rule; the review of 2026-10-29, ours): only Jump, Melee and heavy Melee; never during a hit reaction; Jump not in the air for a class without a
     /// jump pack.
@@ -167,6 +177,7 @@ public static class InputBuffer
         var carried = s.Buffered;
         if (carried == BufferedAction.None || fresh != BufferedAction.None) return new(fresh, BufferedAction.None, s, input);
         if (Hold(s, carried)) return new(fresh, BufferedAction.None, s, input);
+        if (AirTapPending(s, carried, input.Buttons, c)) return new(fresh, BufferedAction.None, s, input);
         // sim/combat-pass (owner's rule): a heavy press made with W held is a charge press; replayed with W let go it is dropped, never a stun strike. Protocol 49: a charge press is one made with Sprint AND W held (it replays while W is still held, Shift or not); without both it is a stun strike request, buffered as any.
         if (carried == BufferedAction.MeleeHeavy && s.BufferedCharge && !(Loadouts.Rush(c, s) is { } rushSpec && Rush.WHeld(input, rushSpec)))
             return new(fresh, BufferedAction.None, s, input, Dropped: true);

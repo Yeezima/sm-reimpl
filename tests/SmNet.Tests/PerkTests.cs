@@ -416,7 +416,7 @@ public class PerkTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_23_carries_the_own_perks_and_burst_and_not_the_others()
     {
-        Assert.Equal(50, Protocol.Version);
+        Assert.Equal(51, Protocol.Version);
         var me = new PlayerState(3, Vector3.One, Vector3.Zero, 0f, true) { Alive = true, Perk1 = 5, Perk2 = 126, BurstLeft = 1 };
         var other = new PlayerState(4, Vector3.One, Vector3.Zero, 0f, true) { Alive = true, Perk1 = 7, Perk2 = 8 };
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(1, 1, 1, [me, other], Self: 3))));
