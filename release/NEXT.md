@@ -9,5 +9,3 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
-- Every gun's shots now leave the barrel: the plasma ball, the plasma cannon's shot and the launcher's grenades start at the muzzle (and fly onto the aimed path within a few metres) instead of near your eye, a charged plasma shot is drawn at once with one flash instead of three, and a streak shows the first stretch of a fast shot.
-- The Assault and Raptor air slash plays more like the original: the sword is still being raised as you land and comes down with the hit, instead of being whipped overhead during the short dive.
