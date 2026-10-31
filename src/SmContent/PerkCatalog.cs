@@ -16,7 +16,11 @@ namespace SmContent;
 /// <param name="ChallengeText">"Group: description" of the weapon-mastery challenge that unlocks the perk (e.g. "Bolter: Kill 50 enemies"), or null.</param>
 /// <param name="DisplayName">The English display name; the file name when the text is missing.</param>
 /// <param name="Description">The English description; empty when missing.</param>
-public sealed record PerkInfo(string Name, string? UpgradeString, PerkKind Kind, int Level, string? ChallengeText, string DisplayName, string Description);
+public sealed record PerkInfo(string Name, string? UpgradeString, PerkKind Kind, int Level, string? ChallengeText, string DisplayName, string Description)
+{
+    /// <summary>The visual packages of the perk's own <c>visual_data/attachments</c> (Iron Halo: <c>sm_acc_iron_halo</c>); empty for a perk that shows nothing on the body.</summary>
+    public IReadOnlyList<string> Packages { get; init; } = [];
+}
 
 /// <summary>
 /// One wargear choice (weapon or equipment) of a class.
@@ -178,6 +182,10 @@ public sealed class PerkCatalog
         return Build(global, docs.GetValueOrDefault, locale, notes);
     }
 
+    static IReadOnlyList<string> PackagesOf(BafDocument doc) => doc.Root.Table("visual_data/attachments") is { } attachments
+        ? attachments.Entries.Where(e => e.Type == BafType.Table).Select(e => e.AsTable().String("visual_package")).OfType<string>().Where(p => p.Length > 0).ToList()
+        : [];
+
     /// <summary>The catalogue from already-read data (testable without an install). <paramref name="wargear"/> returns a wargear file by name or null.</summary>
     public static PerkCatalog Build(BafDocument global, Func<string, BafDocument?> wargear, LocaleTable? locale, List<string> notes)
     {
@@ -196,7 +204,7 @@ public sealed class PerkCatalog
             var meta = CatalogData.Meta(doc);
             var spec = MpClasses.ReadPerk(name, doc);   // the one perk reader (the simulation's too)
             return perks[name] = new PerkInfo(name, spec.UpgradeString, spec.Kind, spec.Level, challenges.For(name),
-                CatalogData.Text(locale, meta.NameId) ?? name, CatalogData.Text(locale, meta.DescriptionId) ?? "");
+                CatalogData.Text(locale, meta.NameId) ?? name, CatalogData.Text(locale, meta.DescriptionId) ?? "") { Packages = PackagesOf(doc) };
         }
         var options = new List<ClassOptions>();
         foreach (var c in classes)

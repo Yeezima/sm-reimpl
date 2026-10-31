@@ -755,6 +755,10 @@ Read-only probes of the install (buildid 7412325) with a scratch tool on `SmForm
   `reaction_mp_stagger` 5 m back over 0.3 s, `apply_stun_damage` 25, `max_range` 4) and `ability_displace_slam`
   (`min_time_between_activations` 2, upgrade `mp_reaction_immunity`). No evade speed, distance or duration exists in the
   wargear or the player blueprints (`ebps`: only the AI's `dodge_*`/`evade_*` entries).
+- **Cooldown (sim/evade-cooldowns).** `min_time_between_activations` 0.8 is the only gate on the three MP evades (`sm_mp_core_abil_evade`, `_heavy_evade`, `_jump_evade`). Their live abilities have empty
+  `ammunition` and `heat` and zero recovery times; `autoshot` (1 round, 0.6/s) on the jump evade serves only its `ability_evade_disabled`. `SM_Base_MP` enters the evades on `BTN_Nav_Evade` (`if BOOL_IsSupported`) with
+  no timer variable. Self-transitions such as `Bolter Evade --on BTN_Nav_Evade branch BRANCH_Evade--> Bolter Evade` start an evade inside the clip, so the cooldown cannot run from the move's end. 0.66 in `sm_abil_evade` and the
+  non-MP `heavy_bolter` / `auto_cannon` / `plasma_cannon`; `generic_metadata/min_recovery_time` 2 in `sm_coop_evade` / `chaos_coop_evade` / `evade` is AI metadata. Reproduce: `smtool baf-dump data/packages/wargear.oppc --entry evade --grep min_time_between`.
 - **Sequencers.** `SM_Base_MP` (the base multiplayer graph) holds "Ranged Evade Fwd/Back/Left/Right Sequencer" with the
   clips `SM_EVD_R2R_Roll_F_02_8m`, `_B_01_8m`, `_L_01_8m`, `_R_01_8m` (1.1667 s each), and two heavy sets of 0.9667 s clips:
   `SM_EVD_TB_Evade_*` (also in `MP_SM_HB_Brace`) and `SM_EVD_LC_Evade_*` (also in `MP_SM_LasCannon`). `MP_SM_PlasmaPistol`

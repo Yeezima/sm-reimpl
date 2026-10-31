@@ -273,6 +273,8 @@ public partial class NetworkView
         int slot = FlinchRules.Choose(set, head, behind, left);
         if (set.Slot(slot) is not { } clip) return;
         t.Flinch = clip; t.FlinchAt = t.FlinchLast = _connectedFor;
+        t.FlinchPeak = OldFlinchWeight ? 1f : WeightFeel.FlinchRangedPeak;   // feel/weight-impact
+        FeelShotTrigger("flinch");
         _flinches++;
         if (UpperLog) GD.Print($"t {_connectedFor:F2} s: P{victimId} FLINCH {clip.Clip} ({setName} slot {slot}: {(head ? "head" : "body")} hit from {(behind ? "behind" : "the front")}, {(left ? "left" : "right")}; {clip.Length:F2} s)");
     }
@@ -307,7 +309,7 @@ public partial class NetworkView
         float age = (float)(_connectedFor - t.FlinchAt);
         if (NoFlinch || !s.Alive || s.Reaction != ReactionKind.None || age >= FlinchLife(clip.Length)) { t.Flinch = null; return; }
         float rate = clip.Length > 1e-3f ? ClipLength(clip.Clip, clip.Length) / clip.Length : 1f;
-        character.SetLayer(PoseSlots.Flinch, clip.Clip, MathF.Min(age, clip.Length) * rate, FlinchWeight(age, clip.Length), clip.Additive, null);
+        character.SetLayer(PoseSlots.Flinch, clip.Clip, MathF.Min(age, clip.Length) * rate, FlinchWeight(age, clip.Length) * (clip.Additive ? t.FlinchPeak : 1f), clip.Additive, null);
         if (LogUpper && _connectedFor - _flinchTraceAt >= 0.04 && _local is { } me && ReferenceEquals(character, me))
         {
             _flinchTraceAt = _connectedFor;

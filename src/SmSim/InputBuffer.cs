@@ -41,7 +41,7 @@ public enum BufferedAction : byte
 /// one of them through a recovery acts on the first allowed tick however long it lasts; letting go after the window cancels it, letting go inside
 /// it does not). Grenade, Switch and Reload have the window only; during a hit reaction every button has the window only (a held button does not
 /// break out of a stun; a press in its last 0.3 s does); so does Jump in the air for a class without a jump pack (no roll on landing from a held
-/// Space). The review of 2026-10-29 narrowed the hold rule to this (ours). One buffered action at a time: a newer
+/// Space), and Jump in the evade's cooldown with nothing else under way (sim/evade-cooldowns: no roll from a held Space the moment it ends). The review of 2026-10-29 narrowed the hold rule to this (ours). One buffered action at a time: a newer
 /// press of any of these buttons replaces it (and is itself buffered only when blocked). A replayed press that meets a player no longer held by
 /// anything is spent like a normal press (whatever it did; a pointless Reload with a full clip does nothing and is dropped). Death and respawn
 /// clear it. Fire is not buffered: the trigger is a held control (full-automatic and charge weapons already fire on the first allowed tick while
@@ -98,6 +98,11 @@ public static class InputBuffer
         return BufferedAction.None;
     }
 
+    /// <summary>Whether the player at a tick's start is in an action or recovery (not one of the cooldowns <see cref="Locked"/> adds) that holds a press of <paramref name="a"/>.</summary>
+    static bool InAction(PlayerState s, BufferedAction a) =>
+        s.MeleeStep > 0 || s.Throwing || (s.SwitchLeft > 0f && a != BufferedAction.Switch) || s.EvadeTicks > 0 || Reaction.Holds(s.Reaction) || s.Rush != RushPhase.None
+        || s.Jump != JumpPhase.None || s.Brace is BracePhase.Entering or BracePhase.Exiting || s.PendingShot > 0 || s.RaiseTicks > 0;
+
     /// <summary>
     /// Whether the player at a tick's start is held by an action or recovery that keeps a press of <paramref name="a"/> from acting (see the class
     /// summary). Not alive: false (nothing is buffered for the dead).
@@ -105,9 +110,7 @@ public static class InputBuffer
     public static bool Locked(PlayerState s, BufferedAction a)
     {
         if (!s.Alive || a == BufferedAction.None) return false;
-        if (s.MeleeStep > 0 || s.Throwing || (s.SwitchLeft > 0f && a != BufferedAction.Switch) || s.EvadeTicks > 0 || Reaction.Holds(s.Reaction) || s.Rush != RushPhase.None
-            || s.Jump != JumpPhase.None || s.Brace is BracePhase.Entering or BracePhase.Exiting || s.PendingShot > 0 || s.RaiseTicks > 0)
-            return true;
+        if (InAction(s, a)) return true;
         // sim/combat-pass (owner's follow-up of 2026-10-30): a heavy press that cannot charge yet (the charge's spacing, or in the air) is kept for the window; one that starts
         // anything is spent (a strike without W, the charge itself), so this changes nothing for F without W.
         if (a == BufferedAction.MeleeHeavy && (s.RushLock > 0 || !s.Grounded)) return true;
@@ -138,11 +141,13 @@ public static class InputBuffer
     /// <summary>
     /// Whether a buffered press of <paramref name="a"/> past its window is still kept while its button is held in state <paramref name="s"/> (the hold
     /// rule; the review of 2026-10-29, ours): only Jump, Melee and heavy Melee; never during a hit reaction; Jump not in the air for a class without a
-    /// jump pack.
+    /// jump pack, and not on the ground with only the evade's cooldown left (sim/evade-cooldowns: a press in the cooldown has the window alone, so holding Space
+    /// does not roll again the moment it ends).
     /// </summary>
     public static bool HoldKeeps(PlayerState s, BufferedAction a, SimConfig c) =>
         a is BufferedAction.Jump or BufferedAction.JumpLong or BufferedAction.Melee or BufferedAction.MeleeHeavy && s.Reaction == ReactionKind.None
-        && !(a == BufferedAction.Jump && !s.Grounded && Loadouts.JumpPack(c, s) is null);
+        && !(a == BufferedAction.Jump && !s.Grounded && Loadouts.JumpPack(c, s) is null)
+        && !(a == BufferedAction.Jump && s.Grounded && s.EvadeLock > 0 && !InAction(s, a));
 
     /// <summary>
     /// feel/jump-pack-2: ticks after the press (the press tick counting 0) Jump must still be down for a buffered press to become <see cref="BufferedAction.JumpLong"/>
