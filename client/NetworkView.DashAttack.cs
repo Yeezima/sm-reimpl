@@ -272,8 +272,8 @@ public partial class NetworkView
 
     /// <summary>
     /// anim/air-slash-character capture aids with <c>--slash-test</c> (not original behaviour): <c>--slash-view-pitch &lt;rad&gt;</c> turns the view to this pitch once the slash is
-    /// pressed and gives the bot the human follow camera (framing the dive and landing like the reference footage; the dive's direction is taken on the press tick only); <c>--slash-move-on &lt;s&gt;</c> pushes the stick
-    /// right from that long after the landing for 1.2 s (the player moving on, as in the reference: the follow-through over a walk; sideways, the target stands in front).
+    /// pressed and gives the bot the human follow camera (framing the dive and landing like the reference footage; the dive's direction is taken on the press tick only); <c>--slash-move-on &lt;s&gt;</c> aims the slash
+    /// about 2 m right of the target (it lands beside it) and pushes the stick forward from that long after the landing for 1.2 s (the player moving on, as in the reference).
     /// </summary>
     static readonly float SlashViewPitch = CmdFloat("slash-view-pitch");
     static readonly float SlashMoveOn = CmdFloat("slash-move-on");
@@ -299,6 +299,8 @@ public partial class NetworkView
         if (target is not { } t) return null;
         float dx = t.Position.X - me.Position.X, dy = t.Position.Y - me.Position.Y;
         _yaw = MathF.Atan2(-dx, dy);
+        // anim/air-slash-character (--slash-move-on): aim about 2 m to the right of the target so the slash lands beside it and the walk on goes past it.
+        if (float.IsFinite(SlashMoveOn)) _yaw -= MathF.Atan2(2f, MathF.Max(1f, best));
         int[] holds = [6, 8, 10, 12];
         switch (me.Jump)
         {
@@ -324,9 +326,9 @@ public partial class NetworkView
             case JumpPhase.Dive or JumpPhase.Recover or JumpPhase.Landed:
                 // anim/air-slash-character (capture aid): the view's pitch after the press (the dive's direction is set on the press tick only).
                 if (float.IsFinite(SlashViewPitch)) _pitch = SlashViewPitch;
-                return new PlayerInput(tick, SlashMovingOn ? 1f : 0f, 0f, _yaw, InputButtons.None, _pitch);
+                return new PlayerInput(tick, 0f, SlashMovingOn ? 1f : 0f, _yaw, InputButtons.None, _pitch);
         }
-        if (SlashMovingOn) return new PlayerInput(tick, 1f, 0f, _yaw, InputButtons.None, float.IsFinite(SlashViewPitch) ? SlashViewPitch : 0f);
+        if (SlashMovingOn) return new PlayerInput(tick, 0f, 1f, _yaw, InputButtons.None, float.IsFinite(SlashViewPitch) ? SlashViewPitch : 0f);
         _pitch = 0f;
         if (!me.Grounded || me.MeleeStep > 0 || me.JumpHeld || me.MeleeHeld || Rush.IsDash(me.Rush) || Evade.Evading(me)) return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, 0f);
         // feel/jump-pack-2: stand still for 2 s after a slash first (the get-up's clip plays out: --slash-trace sees all of it), then walk to or back off.

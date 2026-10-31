@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1775 spec table rows: **1219 tagged**, 406 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 384 rows of the changes document.
+Scanned 1776 spec table rows: **1220 tagged**, 406 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 385 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,19 +50,19 @@ Scanned 1775 spec table rows: **1219 tagged**, 406 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 103 | 89 | 88 | 12 | 1 |
+| Core simulation (provisional values) | 104 | 90 | 89 | 12 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1219** | 1004 | 974 | 389 | 38 |
+| **All areas** | **1220** | 1005 | 975 | 389 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 464 |
-| confidence: medium | 434 |
+| confidence: medium | 435 |
 | confidence: low | 425 |
-| kind: interpretation | 320 |
+| kind: interpretation | 321 |
 | notes: ours | 285 |
 | confidence: none (low) | 115 |
 | kind: provisional | 98 |
@@ -1624,7 +1624,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (103)
+### Core simulation (provisional values) (104)
 
 *Spec section: Provisional values in use*
 
@@ -1753,6 +1753,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-786B7D2E` | Air slash: the follow-through on the upper body | a marine that moves on after the slash's landing (the simulation frees it 0.3 s after, ours) gets the legs from the locomotion (the melee hand-over's 0.1 s, at least 0.15 s) and keeps the strike on the upper body (the action mask), its weight 1 to 0 over the… (s) | kind: ours; confidence: medium | the melee hand-over (M40-T4) and the graphs' exit; applying it to the slash is ours | Air slash: the follow-through on the upper body: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a marine that moves on after the slash's landing (the simulation… | ☐ |
 | `R-FCFE6ECD` | Air slash: the wind-up's time curve | a cubic Hermite from 0 to the flight crop (0.4667 s) over the expected dive with the clip's own rate (slope 1) at both ends; the dive used is at least a third of the wind-up (middle rate at most 4); a dive longer than the wind-up plays it at the clip's rate… (s) | kind: ours; confidence: medium | ours (the graph plays the flight part at its own rate; the 40 m/s dive is ours) | Air slash: the wind-up's time curve: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a cubic Hermite from 0 to the flight crop (0.4667 s) over the… | ☐ |
 | `R-8F6029E8` | Air slash: the strike curve (anim/air-slash-character, owner 2026-10-31) | the slash clip runs as one curve from the dive's start to the strike's sync point, clip **0.6 s** (the impact crop 0.4667 s + the hit 0.133 s: the hand halfway down) at the simulation's hit: a cubic Hermite over the expected dive + 0.133 s, starting at its… (s (clip time)) | kind: ours; confidence: medium | the clip, crops (0.4667), playback speed 1 and hit time are the data's (`MP_SM_NAV_JP_Sim` 'Melee Dash Flight' / 'Melee Dash Impact'); the curve (spreading the… | Air slash: the strike curve (anim/air-slash-character…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the slash clip runs as one curve from the dive's start to the… | ☐ |
+| `R-3F33B9D7` | Air slash: moving on leaves over 0.167 s (anim/air-slash-character, lead's review 2026-10-31) | a marine that moves on after the slash's landing has the strike's follow-through faded off the upper body over **0.167 s** ('Fast Blend BranchIn', the jump-pack graph's pound impact-to-run transition on `BRANCH_to_Getup`; the slash's impact state has no exit… (s) | kind: interpretation; confidence: medium | `MP_SM_NAV_JP_Sim` transitions (`smtool graph-dump MP_SM_NAV_JP_Sim`); using the pound's exit for the slash is an interpretation | Air slash: moving on leaves over 0.167 s…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a marine that moves on after the slash's landing has the strike's… | ☐ |
 | `R-EC5A65A1` | Remote pound: once landed, stays landed | a remote player's pound whose recovery shows ungrounded for a tick no longer goes back to the dive view (which restarted the slash clip at its wind-up: the hand 1.5 m in one frame) | kind: ours | ours (the slim record's one pound flag) | Remote pound: once landed, stays landed: compare with SM1 by feel or video. Ours: a remote player's pound whose recovery shows ungrounded for a tick no… | ☐ |
 | `R-4FE64C33` | Clip restart fades | the same clip posed again more than **0.25 s** further back (a second slash, a roll again the same way, a remote clip set back) fades from a moving copy over the caller's entry blend instead of jumping (s) | kind: ours; confidence: medium | ours | Clip restart fades: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the same clip posed again more than 0.25 s further back (a second… | ☐ |
 | `R-97A6D5E0` | Stance cross-fades fold by slerp | each stance layer is summed on its own; the layers and the snapshot are folded together by slerp in their fade weights (translation and scale by lerp), so a bone turns at an even rate along one arc. Before: one weighted sum of every clip, which passes near… | kind: ours; confidence: medium | ours (Havok's blend maths are not decoded) | Stance cross-fades fold by slerp: compare with SM1 by feel or video. Ours: each stance layer is summed on its own; the layers and the snapshot… | ☐ |
@@ -2392,6 +2393,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-4E62FF86` | Whole-body actions leave over 0.333 s | The knife, jump-pack clips and the toss blend back to the locomotion over the base graph's navigation conduit 'Standard Blend' (the roll's 10 frames) | Whether Havok uses the conduit's onward blend for the hop (interpretation) | The feel pass: the roll's blending for every action (anim/feel-pass; client only, not simulated, no protocol change) | Whole-body actions leave over 0.333 s: compare with SM1 by feel or video. Ours: The knife, jump-pack clips and the toss blend back to the locomotion… | ☐ |
 | `C-EDD79AFE` | Air slash follow-through on the upper body | Moving on after the slash's landing hands the legs to the run and fades the strike off the upper body over 0.333 s | The original's slash recovery (its run branch is at 0.639 s; ours frees at 0.3 s) | same | Air slash follow-through on the upper body: compare with SM1 by feel or video. Ours: Moving on after the slash's landing hands the legs to the run and… | ☐ |
 | `C-BA71AE85` | Air slash wind-up curve | The wind-up's time is a smooth curve over our 40 m/s dive, at the clip's rate at both ends | The original plays it at its own rate over a slower dive | same | Air slash wind-up curve: compare with SM1 by feel or video. Ours: The wind-up's time is a smooth curve over our 40 m/s dive, at the… | ☐ |
+| `C-96E46026` | Air slash move-on blend (anim/air-slash-character) | Moving on after the slash's landing fades the strike off the upper body over 0.167 s (the jump-pack graph's pound impact-to-run blend) instead of 0.333 s | The slash's own exit to the run (its impact state has none in the graph; the pound's sibling exit is used) | same | Air slash move-on blend (anim/air-slash-character): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Moving on after the slash's landing fades the strike off the upper… | ☐ |
 | `C-F288BE20` | Air slash strike curve (anim/air-slash-character) | The slash clip runs as one curve from the dive's start to the strike at the simulation's hit (clip 0.6 s), so the wind-up spreads over the dive and the first 0.133 s of the landing (rate about 1.4 to 2.3 instead of up to 4); `--old-slash-windup` restores the curve above | The original plays the wind-up at its own rate over its own dive, whose length we do not know; the reference footage shows the raise still going after the landing | same | Air slash strike curve (anim/air-slash-character): compare with SM1 by feel or video. Ours: The slash clip runs as one curve from the dive's start to the strike… | ☐ |
 | `C-E3DC45B3` | Clip restarts and stance fades | A clip started again fades in; stance cross-fades turn bones along one arc (slerp fold) | Havok's own blend maths | same | Clip restarts and stance fades: compare with SM1 by feel or video. Ours: A clip started again fades in; stance cross-fades turn bones along… | ☐ |
 | `C-85FCAF64` | Heavy bolter always ready | It never drops to the rifle's relaxed clips outside the sprint | That "no relaxed state" means always ready (interpretation) | same | Heavy bolter always ready: compare with SM1 by feel or video. Ours: It never drops to the rifle's relaxed clips outside the sprint. | ☐ |
