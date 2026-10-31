@@ -74,7 +74,8 @@ public sealed partial class CreatorView : Control
     readonly PreviewStage _preview;
     readonly List<Button> _stepButtons = new(), _tabButtons = new();
     readonly HBoxContainer _sideToggle = UiKit.HBox(8);
-    Button? _backButton, _leaveButton;
+    Button? _backButton, _leaveButton, _controlsButton;
+    ControlsView? _controlsView;
     Button? _save, _setActive, _revert, _rename, _copy, _reset, _clear, _look, _deployButton;
     double _statusUntil;
 
@@ -103,6 +104,9 @@ public sealed partial class CreatorView : Control
         header.AddChild(_sideCaption);
         header.AddChild(_sideToggle);
         header.AddChild(UiKit.FovRow(services.Settings.FovDegrees, f => services.UpdateSettings(x => x with { FovDegrees = f }), compact: true));   // ui/fov-slider (ours)
+        _controlsButton = UiKit.Button("CONTROLS", OpenControls, 170, "Rebind the keyboard, mouse and controller");   // ui/keybinds (ours)
+        _controlsButton.Name = "ControlsButton";
+        header.AddChild(_controlsButton);
         // The ACTIVE line fills the space up to the buttons and is cut (full text in its tooltip) rather than pushing BACK / LEAVE MATCH off the window (fix/frontend-fit).
         _activeLabel = UiKit.Text("", UiKit.CaptionSize, UiKit.Gold, HorizontalAlignment.Right);
         _activeLabel.VerticalAlignment = VerticalAlignment.Center;
@@ -116,6 +120,8 @@ public sealed partial class CreatorView : Control
         _leaveButton.Visible = false;
         header.AddChild(_leaveButton);
         root.AddChild(header);
+        _controlsView = new ControlsView(CloseControls);
+        AddChild(_controlsView);
         _banner = UiKit.Text("", UiKit.BodySize, UiKit.Gold);
         _banner.Visible = false;
         root.AddChild(_banner);
@@ -962,7 +968,7 @@ public sealed partial class CreatorView : Control
 
     public override void _UnhandledKeyInput(InputEvent e)
     {
-        if (!IsVisibleInTree() || e is not InputEventKey { Pressed: true } key) return;
+        if (!IsVisibleInTree() || _controlsView?.Visible == true || e is not InputEventKey { Pressed: true } key) return;
         bool ctrl = key.CtrlPressed || key.MetaPressed;
         switch (key.PhysicalKeycode)
         {
@@ -978,7 +984,7 @@ public sealed partial class CreatorView : Control
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (!IsVisibleInTree()) return;
+        if (!IsVisibleInTree() || _controlsView?.Visible == true) return;   // the CONTROLS screen over this one owns the keys and the pad
         if (e.IsActionPressed("ui_cancel")) { GetViewport().SetInputAsHandled(); Back(); return; }
         if (e is InputEventJoypadButton { Pressed: true } pad)
         {
@@ -1001,6 +1007,17 @@ public sealed partial class CreatorView : Control
         _step = (Step)(((int)_step + delta + StepCount) % StepCount);
         Refresh(focusList: false);
     }
+
+    void OpenControls() => _controlsView?.Open();
+
+    void CloseControls()
+    {
+        _controlsView?.Close();
+        _controlsButton?.FocusLater();
+    }
+
+    /// <summary>The CONTROLS screen laid over this one (key and controller rebinding; ui/keybinds).</summary>
+    public ControlsView? ControlsScreen => _controlsView;
 
     /// <summary>Focuses the first control (screens and tests).</summary>
     public void FocusList() => Refresh(true);

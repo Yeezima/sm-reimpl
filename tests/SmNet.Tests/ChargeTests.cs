@@ -20,8 +20,13 @@ public class ChargeTests(ITestOutputHelper output)
         Damage: 50f, ShotCooldown: 1f, ClipSize: 4, ReserveSize: 8, ReloadTime: 2f, MaxRange: 300f,
         FallOffStart: 300f, FallOffEnd: 300f, FallOffEndMultiplier: 1f, HeadMultiplier: 2f, BodyMultiplier: 1f, ShieldHeadMultiplier: 1f, ShieldBodyMultiplier: 1f)
     {
-        Charge = new ChargeSpec(Shots.SecondaryAbility, [new("1.charge_light", 0f, 0f, 1f, null), new("3.charge_medium", 1.5f, 0f, 1f, LasShot)], 1.5f, 1f, false, 2),
+        Charge = new ChargeSpec(Shots.SecondaryAbility, [new("1.charge_light", 0f, 0f, 1f, null), new("3.charge_medium", 1.5f, 0f, 1f, LasShot)], 0f, 1f, false, 2),
     };
+    /// <summary>
+    /// The real lascannon's data (<c>max_charge_time</c> 1.5): sim/instant-fire, the press fires the basic shot at once. <see cref="Las"/> is the
+    /// same weapon without a <c>max_charge_time</c>, a held-charge ray weapon that keeps the charge machinery (pierce, ammunition, reload rules) tested.
+    /// </summary>
+    internal static readonly WeaponSpec LasPress = Las with { Name = "test_las_press", Charge = Las.Charge! with { MaxChargeTime = 1.5f } };
 
     internal static readonly ProjectileSpec Bolt = new("ebps\\test\\bolt", 90f, 3f, "raycast", 0.25f, [new(0f, 0f)], true, true, false, 0, 0f, 0f, 0, null,
         new SplashSpec(7f, new DamageSpec(75f, 75f, 1f, 1f, 1f, 1f, true), [new(2f, 1f), new(7f, 0.01f)], true, false, "target_all"));
@@ -151,13 +156,8 @@ public class ChargeTests(ITestOutputHelper output)
             Assert.Equal(0f, s.SinceHeat);           // every charging tick restarts the cool-down delay
         }
         Assert.Equal(100, s.Clip);
-        // Release: the shot waits 0.1 s (3 ticks); a Fire press meanwhile does nothing.
+        // Release: sim/instant-fire (owner, 2026-10-31): the shot leaves on the release tick although the data has a 0.1 s delay.
         var e = Step(ref s, InputButtons.None);
-        Assert.False(e.Fired);
-        Assert.Equal((2, 0.1f), (s.PendingShot, s.PendingLeft));
-        Assert.False(Step(ref s, InputButtons.Fire).Fired);
-        Assert.False(Step(ref s, InputButtons.None).Fired);
-        e = Step(ref s, InputButtons.None);
         Assert.True(e.Fired);
         Assert.Equal(2, e.ShotStage);
         Assert.Equal((0, 85), (s.PendingShot, s.Clip));
@@ -204,12 +204,9 @@ public class ChargeTests(ITestOutputHelper output)
         e = Step(ref s, InputButtons.None);
         Assert.Equal((true, 0, 99), (e.Fired, e.ShotStage, s.Clip));
 
-        // 20 ticks (0.667 s): the charged shot, 0.1 s after the release; +100 heat overheats.
+        // 20 ticks (0.667 s): the charged shot on the release tick (sim/instant-fire; the data's 0.1 s delay is not applied); +100 heat overheats.
         s = Fresh(PistolOnly);
         for (int k = 0; k < 20; k++) Step(ref s, InputButtons.Fire);
-        Assert.False(Step(ref s, InputButtons.None).Fired);
-        Assert.False(Step(ref s, InputButtons.None).Fired);
-        Assert.False(Step(ref s, InputButtons.None).Fired);
         e = Step(ref s, InputButtons.None);
         Assert.Equal((true, 2, 90), (e.Fired, e.ShotStage, s.Clip));
         Assert.True(s.Overheated);
@@ -250,9 +247,7 @@ public class ChargeTests(ITestOutputHelper output)
         Assert.Equal((false, 0f), (d.Charging, d.ChargeTime));
 
         // A pending shot is lost to a switch.
-        var p = Charged(40);
-        Step(ref p, InputButtons.None);
-        Assert.Equal(2, p.PendingShot);
+        var p = Charged(40) with { Charging = false, ChargeTime = 0f, PendingShot = 2, PendingLeft = 0.1f };   // legacy state: releases no longer leave a pending shot
         Step(ref p, InputButtons.Switch);
         Assert.Equal(0, p.PendingShot);
         for (int k = 0; k < 30; k++) Assert.False(Step(ref p, InputButtons.None).Fired);
@@ -387,7 +382,7 @@ public class ChargeTests(ITestOutputHelper output)
             foreach (var m in mismatches.Take(3)) output.WriteLine("  " + m);
             Assert.True(compared > 300, $"client {i}: only {compared} ticks compared");
             Assert.True(charges >= 6 && charged >= 2, $"client {i}: too little charging");
-            if (i != 1) Assert.True(pendings >= 2, $"client {i}: no fire delays");
+            Assert.Equal(0, pendings);   // sim/instant-fire: no pending shots
             Assert.Empty(mismatches);
         }
     }

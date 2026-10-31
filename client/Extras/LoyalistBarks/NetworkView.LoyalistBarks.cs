@@ -129,7 +129,7 @@ public partial class NetworkView
     {
         if (!BarksActive || _client is not { Status: ClientStatus.Connected } client || _config is null) return;
         // The key (human players): a press, latched between input samples; nothing else reads T.
-        bool down = !_bot && !PickerBusy && Input.IsPhysicalKeyPressed(Key.T);
+        bool down = !_bot && !PickerBusy && ControlsInput.Held(GameAction.Shout);
         if (down && !_shoutKeyWasDown) _shoutLatched = true;
         _shoutKeyWasDown = down;
 

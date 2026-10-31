@@ -27,6 +27,8 @@
     <Compile Include="..\..\client\ImpactRules\*.cs" Link="ClientImpactRules\%(Filename)%(Extension)" />
     <!-- gamepad: the controller binding table, stick curves and device-switch rule, engine-free (PadHost, the Godot side, is not linked). -->
     <Compile Include="..\..\client\Gamepad\GamepadRules.cs" Link="ClientGamepad\GamepadRules.cs" />
+    <!-- ui/keybinds: the key and controller bindings store (defaults, conflicts, saving, sampling), engine-free (ControlsInput and ControlsView, the Godot side, are not linked). -->
+    <Compile Include="..\..\client\Controls\ControlBindings.cs" Link="ClientControls\ControlBindings.cs" />
   </ItemGroup>
 
   <ItemGroup>

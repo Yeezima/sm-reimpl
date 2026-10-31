@@ -37,6 +37,8 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         /// its graph state has no light transition out (<see cref="MeleeStep.StringEnd"/>).
         /// </summary>
         public bool LoopLights { get; init; } = true;
+        /// <summary>sim/stomp-in-place: the blast strikes of this map (the heavy classes' stomp) keep the body in place (<see cref="MeleeStep.InPlace"/>; no root-motion lunge).</summary>
+        public bool InPlaceStomp { get; init; }
         /// <summary>
         /// Weapons C: per light attack, the heavy strike (1-based) a heavy press in its combo window chains to; 0 (or missing): the old rule
         /// (strike n + 1 after attack n), -1: none (<see cref="MeleeStep.HeavyNext"/>; read off the graph's <c>BTN_Melee_Stun</c> transitions).
@@ -193,7 +195,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     {
         HeavySequencers = ["Sequencer15a"], HeavyAbilities = ["ability_displace_slam"],
         LoopLights = false, LightHeavyNext = [1],
-        ExtendedRules = true,
+        ExtendedRules = true, InPlaceStomp = true,
     };
 
     public static MeleeTuning Load(string gameDir, WeaponMap? weapon = null) => Load(gameDir, RigProfiles.Marine, weapon ?? CombatKnife);
@@ -373,7 +375,8 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
                 // Weapons C: the axe's 250. Only for the Weapons C maps: the choppa's 5 (light attacks) would change the Ork's balanced combo (open question).
                 ShieldDamage = weapon.ExtendedRules ? primary?.ShieldDamage ?? 0f : 0f, SecondaryShieldDamage = weapon.ExtendedRules ? secondary?.ShieldDamage ?? 0f : 0f,
                 // feel/melee-lock: the alignment window, distance variants and root motion.
-                Reach = reach is null ? null : MeleeMotion.ReachOf(graph.Name, seq, duration, reach, weapon.DefaultTargetDistance, notes, move),
+                InPlace = weapon.InPlaceStomp && stomp is not null,
+                Reach = reach is null || (weapon.InPlaceStomp && stomp is not null) ? null : MeleeMotion.ReachOf(graph.Name, seq, duration, reach, weapon.DefaultTargetDistance, notes, move),
                 EvadeAt = evadeAt,
             };
             if (Problem(step) is { } problem) throw new InvalidDataException($"{seq.Name}: {problem}.");

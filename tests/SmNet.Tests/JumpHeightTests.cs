@@ -284,8 +284,8 @@ public class JumpHeightTests(ITestOutputHelper output)
         var plain = Protocol.Write(new Snapshot(1, 1, 1, [p with { JumpCut = false }], Self: 7));
         int at = Enumerable.Range(0, bytes.Length).Single(i => bytes[i] != plain[i]);
         Assert.Equal(64, bytes[at] ^ plain[at]);
-        var hang = (byte[])bytes.Clone(); hang[at] = (byte)((hang[at] & ~7) | (int)JumpPhase.Hang);
-        Assert.Null(Protocol.Read(hang));            // the cut outside the ascent
+        var hang = (byte[])bytes.Clone(); hang[at] = (byte)((hang[at] & ~7) | (int)JumpPhase.Fall);
+        Assert.Null(Protocol.Read(hang));            // the cut outside the ascent (in the hang bit 6 is the small jump's: sim/jump-hang)
         var holding = (byte[])bytes.Clone(); holding[at] |= 16;
         Assert.Null(Protocol.Read(holding));         // a cut rise that still holds
         Assert.NotEqual(Off.Hash(), On.Hash());

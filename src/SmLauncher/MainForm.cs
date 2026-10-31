@@ -993,7 +993,7 @@ sealed class MainForm : Form
         _firstRun = state == "setup";
         _main.Visible = !_firstRun;
         _setup.Visible = _firstRun;
-        _folder.Text = _firstRun ? "" : @"Install folder: C:\Users\someone-with-a-long-name\AppData\Local\SM Reimpl\a\very\deep\folder\structure\for\the\playtest";
+        _folder.Text = _firstRun ? "" : @"Install folder: D:\Games\A Rather Long Library Folder Name\SM Reimpl\a\very\deep\folder\structure\for\the\playtest";
         _installed.Text = $"Installed: {tag}";
         _installedSub.Text = "published 30 Oct 2026 · installed 31 Oct 2026 09:41 · previous: tester-2026-10-30-7cd91e2";
         _notesTitle.Text = $"What's new in {tag}";
@@ -1030,7 +1030,7 @@ sealed class MainForm : Form
                 _lnkSelfUpdate.Visible = true;
                 break;
             case "setup":
-                _setupFolder.Text = @"C:\Users\someone-with-a-long-name\AppData\Local\SM Reimpl";
+                _setupFolder.Text = @"D:\Games\A Rather Long Library Folder Name\SM Reimpl";
                 _rbAdopt.Text = $"Use the build in this folder: {tag} (copied, no download)";
                 _rbAdopt.Visible = true;
                 _rbAdopt.Checked = true;

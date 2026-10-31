@@ -50,7 +50,7 @@ public static class Combat
             Heat = 0, Overheated = false, SinceHeat = 0, OtherHeat = 0, OtherOverheated = false, OtherSinceHeat = 0,
             Charging = false, ChargeTime = 0, PendingShot = 0, PendingLeft = 0,
             Grenades = Loadouts.Equipment(c, s)?.SpawnCount ?? 0, GrenadeCooldown = 0, Throwing = false, ThrowTime = 0, StimLeft = 0,
-            Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSlash = false, Aiming = false,
+            Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpSlash = false, Aiming = false,
             JumpPower = Loadouts.JumpPack(c, s)?.MaxPower ?? 0f,
             EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLock = 0, EvadeLanded = false, JumpDashDirection = EvadeDirection.Forward,
             MeleeHeavy = false, MeleeQueuedHeavy = false,
@@ -113,7 +113,7 @@ public static class Combat
         Alive = false, Health = 0f, Shield = 0f, RespawnLeft = Loadouts.RespawnTime(c, s), Velocity = Vector3.Zero, ReloadLeft = 0f, OtherReloadLeft = 0f, ThirdReloadLeft = 0f, SwitchLeft = 0f,
         MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false,
         Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Throwing = false, ThrowTime = 0f, StimLeft = 0f,
-        Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSlash = false, Aiming = false,
+        Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpSlash = false, Aiming = false,
         EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLock = 0, EvadeLanded = false, JumpDashDirection = EvadeDirection.Forward,
         Brace = BracePhase.None, BraceTicks = 0, Venting = false,
         Buffered = BufferedAction.None, BufferTicks = 0, BufferedCharge = false, SprintStop = false,
@@ -494,7 +494,7 @@ public static class Combat
         if (switchLeft <= 1e-6f) switchLeft = 0f;
         // Fire drives the weapon (M31, owner's decision 2026-10-28): on a charge weapon a press starts the charge and a tap's
         // release fires the basic shot (below); on any other weapon it is the basic trigger.
-        var charge = weapon?.Charge is { Stages.Count: > 0 } spec ? spec : null;
+        var charge = weapon?.Charge is { Stages.Count: > 0, FiresOnPress: false } spec ? spec : null;   // sim/instant-fire: the lascannon has no charge to hold, its press fires
         bool chargeDown = charge is not null && fireDown;
         bool chargePress = charge is not null && firePress;
         bool basicDown = charge is null && fireDown;
@@ -550,6 +550,7 @@ public static class Combat
         // sim/combat-2 (item 39; the owner's decision of 2026-10-30: "the step forward of melee swings and F stun strikes starts the instant the button is pressed"):
         // the body's root motion runs one tick ahead of the attack's clock (the tick covering (t, t + dt] moves the body by the clip's (t + dt, t + 2dt]), so the press
         // tick itself already steps (0, dt]; before, the lunge began 1/30 s after the press. The attack's own clock, hit time and windows are unchanged.
+        if (step > 0 && steps[step - 1].InPlace) motionStep = null;   // sim/stomp-in-place: the tick a chain starts the stomp carries no motion of the strike before it
         if (startedNow && steps[step - 1].Reach is not null) (motionStep, motionFrom, motionTo) = (steps[step - 1], 0f, MathF.Min(dt, steps[step - 1].Duration));
         if (step > 0 && !s.Throwing && (shotWanted || (chargePress && switchLeft <= 0f)) && (time >= steps[step - 1].RangedAt || (s.Slot == WeaponSlot.Pistol && basicPress && !startedNow && s.Clip > 0 && !s.Overheated && s.ReloadLeft <= 1e-6f && MathF.Max(0f, s.Cooldown - dt) <= TimeEpsilon)))   // review: only a shot that really leaves cancels
         {
@@ -780,9 +781,8 @@ public static class Combat
                     if (stage > 0)
                     {
                         raise = 0;   // the charged shot is the one that leaves; no basic shot after the raise
-                        float delay = charge.Stages[stage - 1].Shot!.FireDelay;
-                        if (delay <= 1e-6f) ChargedShot(weapon, stage);
-                        else { pending = stage; pendingLeft = delay; }
+                        // sim/instant-fire (owner, 2026-10-31): the charged shot leaves on the release tick; the data's FireDelay (plasma cannon 0.1 s) is not applied.
+                        ChargedShot(weapon, stage);
                     }
                     else if (raise == 0 && clip > 0 && cooldown <= 1e-6f) BasicShot(weapon);
                 }
@@ -890,13 +890,13 @@ public static class Combat
         var beforeMove = s;
         s = (reacting || rushing ? (reacting ? Reaction.Move(s, input.Sanitized().Yaw, c, world) : Rush.Move(s, c, world, rushHeld)) with
             {
-                JumpPower = pack is not null ? jump.Power : s.JumpPower, Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false,
+                JumpPower = pack is not null ? jump.Power : s.JumpPower, Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false,
                 JumpSlash = false,
             }
             : evading ? Evade.Step(s, evadeSpec!, evade, c, world, out wallHit, out dashLanded) with
             {
                 // M44: a dash (jump-pack classes) keeps the pack's power and recharge; no jump runs during it.
-                JumpPower = pack is not null ? jump.Power : s.JumpPower, Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false,
+                JumpPower = pack is not null ? jump.Power : s.JumpPower, Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false,
                 JumpSlash = false,
             }
             : pack is not null ? JumpPack.Move(s, moveInput, c, pack, world, speedScale, jump, out jumpEvent, aiming) : Movement.Step(s, moveInput, c, world, speedScale, aiming))
@@ -912,6 +912,11 @@ public static class Combat
             var velocity = glided.Grounded ? glided.Velocity : new Vector3(0f, 0f, glided.Velocity.Z);
             s = s with { Position = glided.Position, Velocity = velocity, Yaw = glided.Yaw, Grounded = glided.Grounded };
         }
+        // sim/stomp-in-place (protocol 49; owner, 2026-10-31): the heavy classes' stomp keeps the body exactly where it stands until the strike lets movement return
+        // (no lunge, and the speed it began with does not carry it on): grounded, horizontal position and velocity held; a reaction, charge or evade overrides it as before.
+        if (step > 0 && steps[step - 1].InPlace && meleeGlide is null && !reacting && !rushing && !evading && beforeMove.Grounded && s.Grounded
+            && jump.Phase == JumpPhase.None && !jump.Started && time < MoveAtOf(steps[step - 1], c))
+            s = s with { Position = new Vector3(beforeMove.Position.X, beforeMove.Position.Y, s.Position.Z), Velocity = new Vector3(0f, 0f, s.Velocity.Z) };
         // feel/locks-sprint-stop (the owner's change): the sprint stop (SprintStop). With every movement key let go after a sprint the body slows along its
         // velocity (v² falling at SprintStop.Rate) instead of braking at once; a movement key, Jump, Fire or Aim, or an action that moves the body, cancels it
         // into the normal movement (the walk above). The jump pack's bookkeeping of the walk tick stays, as for the attack's motion.
