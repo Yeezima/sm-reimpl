@@ -10,7 +10,7 @@ namespace SmClient.Customizer;
 
 /// <summary>
 /// The loadout chips (docs/customizer-design.md section 3): the three DEFAULTS loadouts and CUSTOM 1 to 10, each with its name and class and the words
-/// ACTIVE / UNSAVED / EMPTY (the ACTIVE one also a star). Used by the Join screen and the creator. The strip only reports clicks; the screen decides what a click does.
+/// ACTIVE / UNSAVED / EMPTY (the ACTIVE one also a star). Used by the creator. The strip only reports clicks; the screen decides what a click does.
 /// </summary>
 public sealed partial class SlotStrip : VBoxContainer
 {
@@ -136,21 +136,21 @@ public sealed partial class SlotStrip : VBoxContainer
             TooltipText = tags.Count > 0 ? string.Join(" - ", tags) : "",
             ClipText = true,
         };
-        chip.AddThemeFontSizeOverride("font_size", _compact ? 17 : UiKit.CaptionSize);
-        var border = active ? UiKit.Gold : detail is null && selection.Kind == SelectionKind.Custom ? new Color(0.3f, 0.3f, 0.3f) : new Color(0.55f, 0.45f, 0.1f);
-        var normal = UiKit.Box(new Color(0.06f, 0.06f, 0.06f, 0.92f), border, active ? 3 : 2, 8);
+        chip.AddThemeFontSizeOverride("font_size", _compact ? 13 : UiKit.CaptionSize);
+        var clear = new Color(0f, 0f, 0f, 0f);
+        var normal = UiKit.Box(clear, clear, 0, 8);
         normal.ContentMarginTop = 28;
         chip.AddThemeStyleboxOverride("normal", normal);
-        var hover = UiKit.Box(UiKit.Hover, UiKit.Gold, 2, 8);
+        var hover = UiKit.Box(clear, clear, 0, 8);
         hover.ContentMarginTop = 28;
         chip.AddThemeStyleboxOverride("hover", hover);
-        var pressed = UiKit.Box(UiKit.Hover, UiKit.Gold, 3, 8);
+        var pressed = UiKit.Box(clear, clear, 0, 8);
         pressed.ContentMarginTop = 28;
         chip.AddThemeStyleboxOverride("pressed", pressed);
         // The state words sit on the first line at the right; the star marks the active chip.
         if (tags.Count > 0)
         {
-            var label = UiKit.Text(string.Join("  ", tags), 16, active ? UiKit.Gold : unsaved ? UiKit.LightRed : UiKit.Grey);
+            var label = UiKit.Text(string.Join("  ", tags), 12, active ? UiKit.Gold : unsaved ? UiKit.LightRed : UiKit.Grey);
             label.SetAnchorsPreset(Control.LayoutPreset.TopWide);
             label.OffsetLeft = active ? 34 : 10;
             label.OffsetRight = -6;
@@ -168,7 +168,7 @@ public sealed partial class SlotStrip : VBoxContainer
 
     static string Trim(string text, int max) => text.Length <= max ? text : text[..(max - 1)] + ".";
 
-    /// <summary>Marks the open selection's chip with a heavier gold frame.</summary>
+    /// <summary>Marks the open selection's chip with a line under it.</summary>
     void ApplyOpen()
     {
         foreach (var (selection, chip) in _chips)
@@ -179,8 +179,7 @@ public sealed partial class SlotStrip : VBoxContainer
             if (open)
             {
                 copy.BorderColor = UiKit.White;
-                copy.SetBorderWidthAll(4);
-                copy.BgColor = new Color(0.14f, 0.12f, 0.04f, 0.95f);
+                copy.BorderWidthBottom = 2;
             }
             chip.AddThemeStyleboxOverride("normal", copy);
         }

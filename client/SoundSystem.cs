@@ -632,7 +632,8 @@ public partial class SoundSystem : Node
     void Volume(Active a)
     {
         var mix = MixOf(a).With(a.Offset);
-        float db = mix.VolumeDb + GlobalGainDb + (a.Footstep ? FootstepGainDb : 0f);
+        // ui/menu-rebuild: the Options menu's music, effects and voice volumes (0 dB at the default).
+        float db = mix.VolumeDb + GlobalGainDb + (a.Footstep ? FootstepGainDb : 0f) + SmClient.Customizer.Model.LiveOptions.GainDb(SmClient.Customizer.Model.GameOptions.CategoryOf(a.Event));
         if (a.FadeUntil > 0) db += 20f * MathF.Log10(Math.Max(0.001f, (float)Math.Clamp((a.FadeUntil - _now) / KillFade, 0.0, 1.0)));   // killed by an instance limit: linear fade out
         if (a.Player is AudioStreamPlayer3D p3 && Distance(a.Emitter) is var (pos, _)) p3.GlobalPosition = pos;
         a.Effective = db;

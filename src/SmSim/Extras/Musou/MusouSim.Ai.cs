@@ -2,7 +2,10 @@ using System.Numerics;
 
 namespace SmSim.Extras.Musou;
 
-/// <summary>A player as the enemies see it in a tick (<see cref="MusouSim.Step"/>): its id, feet and whether it is alive.</summary>
+/// <summary>
+/// A target as the enemies see it in a tick (<see cref="MusouSim.Step"/>): its id, feet and whether it is alive. A player, or in the Three-Front War a Guard squad (a negative id,
+/// <c>TfwContracts.GuardTargetId</c>; never 0, which is "no target").
+/// </summary>
 public readonly record struct MusouTarget(int Id, Vector3 Position, bool Alive);
 
 /// <summary>
@@ -56,6 +59,9 @@ public sealed partial class MusouSim
     readonly byte[] _relocations = new byte[Capacity];      // times the failsafe moved it to a gate
     readonly List<ushort> _stranded = new();
     readonly Dictionary<int, int> _lastNode = new();        // per player id: the last graph node it stood on or above
+    readonly Vector3[] _home = new Vector3[Capacity];       // a leashed defender's place (SpawnLeashed)
+    readonly float[] _aggro = new float[Capacity];          // how near its home a target wakes it (infinite: no leash)
+    readonly int[] _group = new int[Capacity];              // its group (0: none, or released)
     readonly SpatialGrid _grid;
     readonly Vector3[] _gridPos = new Vector3[Capacity];
     readonly int[] _gridSlot = new int[Capacity];
@@ -82,6 +88,7 @@ public sealed partial class MusouSim
     {
         _cooldown[i] = 0; _burst[i] = 0; _roundTicks[i] = 0; _losTick[i] = 0; _los[i] = false;
         _blocked[i] = 0; _flowTicks[i] = 0; _transit[i] = -1; _aim[i] = -1;
+        _aggro[i] = float.PositiveInfinity; _group[i] = 0;
         SpawnedCombat(i);   // MU3 (MusouCombat.cs): no script, no drive
         _relocations[i] = 0;
         _ring[i] = Rules.CircleMin + (Rules.CircleMax - Rules.CircleMin) * Unit(Mix((uint)i * 2654435761u, 0x9E3779B9u));
@@ -143,6 +150,15 @@ public sealed partial class MusouSim
             }
             if (_cooldown[i] > 0) _cooldown[i]--;
             var spec = Rules.Of(_type[i]);
+            if (!float.IsPositiveInfinity(_aggro[i]) && !_scripted[i] && !Woken(i, targets))
+            {
+                // A leashed defender (SpawnLeashed) with nobody near its home: no target, no token, back to its place; the failsafe leaves it alone.
+                _target[i] = 0; _token[i] = 0; _burst[i] = 0; _aim[i] = -1;
+                if (state != MusouEnemyState.Seek) SetState(i, MusouEnemyState.Seek);
+                Move(i, spec, HomeWay(i, spec), targets, near);
+                _headwayTick[i] = Tick; _anchor[i] = _position[i];
+                continue;
+            }
             int t = Target(i, targets);
             Vector2 desired = Vector2.Zero;
             if (_scripted[i]) { }   // MU3: the boss's ability drives it (MusouBoss)
@@ -168,6 +184,28 @@ public sealed partial class MusouSim
             if (_shotWant[t] >= 0 && _shotHeld[t] < Rules.ShooterTokens) { _token[_shotWant[t]] = ShooterToken; _losTick[_shotWant[t]] = 0; }
         }
         CheckLinesOfSight(targets, collision);
+    }
+
+    /// <summary>Whether a living target is within the leashed enemy's aggro of its home (flat).</summary>
+    bool Woken(int i, ReadOnlySpan<MusouTarget> targets)
+    {
+        float r2 = _aggro[i] * _aggro[i];
+        var home = _home[i];
+        foreach (var t in targets)
+        {
+            if (!t.Alive) continue;
+            float dx = t.Position.X - home.X, dy = t.Position.Y - home.Y;
+            if (dx * dx + dy * dy <= r2) return true;
+        }
+        return false;
+    }
+
+    /// <summary>The way back to a leashed enemy's home at its speed (none within half a metre, so a packed group does not shuffle).</summary>
+    Vector2 HomeWay(int i, MusouTypeSpec spec)
+    {
+        var way = new Vector2(_home[i].X - _position[i].X, _home[i].Y - _position[i].Y);
+        float distance = way.Length();
+        return distance > 0.5f ? way / distance * spec.Speed : Vector2.Zero;
     }
 
     /// <summary>
@@ -294,14 +332,17 @@ public sealed partial class MusouSim
             int owner = reachable ? IndexOf(targets, Flow.Owner(_node[i])) : -1;
             if (reachable && owner < 0) owner = best;   // the field's player died or left since the refresh: the nearest living one until the next
             if (owner != current) { _token[i] = 0; _burst[i] = 0; _losTick[i] = 0; }
-            _target[i] = owner >= 0 ? (ushort)Math.Clamp(targets[owner].Id, 0, ushort.MaxValue) : (ushort)0;
+            _target[i] = owner >= 0 ? TargetKey(targets[owner].Id) : 0;
             return owner;
         }
         if (current >= 0 && !(bestScore < 0.6f * currentScore)) return current;
         if (best != current) { _token[i] = 0; _burst[i] = 0; _losTick[i] = 0; }
-        _target[i] = best >= 0 ? (ushort)Math.Clamp(targets[best].Id, 0, ushort.MaxValue) : (ushort)0;
+        _target[i] = best >= 0 ? TargetKey(targets[best].Id) : 0;
         return best;
     }
+
+    /// <summary>A target's id as stored: a Guard squad's stays negative (it was once clamped to 0 and lost every tick); a player's as it always was.</summary>
+    static int TargetKey(int id) => id < 0 ? id : Math.Clamp(id, 0, ushort.MaxValue);
 
     /// <summary>One enemy's decision against its target: the attack state machine, the token requests, and the way it wants to move.</summary>
     Vector2 Behave(int i, int t, ReadOnlySpan<MusouTarget> targets, MusouTypeSpec spec, bool fight, CollisionWorld? collision, List<MusouAttack> attacks)
@@ -668,12 +709,12 @@ public sealed partial class MusouSim
 
     // ---------------------------------------------------------------- deterministic hashing
 
-    static uint Mix(uint a, uint b)
+    internal static uint Mix(uint a, uint b)
     {
         uint h = a * 0x9E3779B1u ^ (b + 0x7F4A7C15u);
         h ^= h >> 16; h *= 0x85EBCA6Bu; h ^= h >> 13; h *= 0xC2B2AE35u; h ^= h >> 16;
         return h;
     }
 
-    static float Unit(uint h) => (h >> 8) * (1f / 16777216f);
+    internal static float Unit(uint h) => (h >> 8) * (1f / 16777216f);
 }

@@ -124,30 +124,7 @@ public sealed partial class World
         return true;
     }
 
-    /// <summary>
-    /// The enemies against the players until TF3's fight (<c>TfwGuardsStep</c>) is in <see cref="TfwStep"/>: the same steps without the Guardsmen. INTEGRATION: that call replaces this one;
-    /// both together would count each shot twice.
-    /// </summary>
-    void TfwMarinesFight()
-    {
-        var musou = _musou!;
-        if (musou.Count == 0) return;
-        bool playing = _state == MatchState.Playing;
-        if (_musouTargets.Length < _players.Count) _musouTargets = new MusouTarget[Math.Max(8, _players.Count * 2)];
-        _musouIds.Clear();
-        foreach (int id in _players.Keys) _musouIds.Add(id);
-        _musouIds.Sort();
-        int n = 0;
-        foreach (int id in _musouIds) { var p = _players[id]; _musouTargets[n++] = new MusouTarget(id, p.Position, p.Alive); }
-        if (playing) MusouPlayerShots();
-        MusouCreditKills();
-        _musouAttacks.Clear();
-        musou.Step(_musouTargets.AsSpan(0, n), Collision, playing, _musouAttacks);
-        foreach (var attack in _musouAttacks) MusouHit(attack);
-        MusouCreditKills();
-    }
-
-    /// <summary>The puppets' tick, after the fight (in <see cref="TfwStep"/>): the orders that came in, the recoveries, each puppet's death, ammunition and revive.</summary>
+    /// <summary>The puppets' tick, after the fight (<c>TfwGuardsStep</c>, in <see cref="TfwStep"/>): the orders that came in, the recoveries, each puppet's death, ammunition and revive.</summary>
     void TfwPuppetsStep()
     {
         var run = _tfw!;

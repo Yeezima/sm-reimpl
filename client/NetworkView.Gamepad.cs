@@ -111,8 +111,8 @@ public partial class NetworkView
         var t = _aimBlend >= 0.5f ? aim : ex;   // the set of the camera that is mostly in use
         float speedH = Lerp(ex?.SpeedHorizontal, aim?.SpeedHorizontal, _aimBlend, GamepadRules.FallbackHorizontal);
         float speedV = Lerp(ex?.SpeedVertical, aim?.SpeedVertical, _aimBlend, GamepadRules.FallbackVertical);
-        float yawRate = GamepadRules.LookRate(rx, _padHeldX, speedH, t?.StickMapping, t?.StickDamping);
-        float pitchRate = GamepadRules.LookRate(ry, _padHeldY, speedV, t?.StickMapping, t?.StickDamping);
+        float yawRate = GamepadRules.LookRate(rx, _padHeldX, speedH, t?.StickMapping, t?.StickDamping) * SmClient.Customizer.Model.LiveOptions.PadLook;
+        float pitchRate = GamepadRules.LookRate(ry, _padHeldY, speedV, t?.StickMapping, t?.StickDamping) * SmClient.Customizer.Model.LiveOptions.PadLook * SmClient.Customizer.Model.LiveOptions.PadVertical;
         // Right is a turn to the right (yaw decreases); the stick's Y is down positive, like the mouse's: down lowers the pitch.
         _yaw -= Mathf.DegToRad(yawRate) * dt;
         _pitch = Math.Clamp(_pitch - Mathf.DegToRad(pitchRate) * dt, _pitchMin, _pitchMax);

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Godot;
 using SmClient.Customizer;
+using SmClient.FrontEnd;
 using SmClient.Customizer.Model;
 using SmClient.Looks;
 using SmContent.Customization;
@@ -30,6 +31,9 @@ public partial class NetworkView
     CanvasLayer? _pickerLayer, _hintLayer;
     CreatorView? _pickerCreator;
     AppearanceView? _pickerAppearance;
+    MatchMenu? _pickerMenu;        // ui/menu-rebuild: the Esc menu (Esc, Start); a picker opened by itself on death has none
+    OptionsView? _pickerOptions;
+    ControlsView? _pickerControls;
     Label? _loadoutHint;
     bool _pickerWanted, _pickerForced;
     double _pickerOpenedAt, _ackShownUntil;
@@ -54,7 +58,7 @@ public partial class NetworkView
     /// <summary>The menu is open or being opened (the customizer is still loading): the mouse is free and the game takes no input.</summary>
     bool PickerBusy => _pickerLayer is not null || _pickerWanted;
 
-    /// <summary>Set by the shell that started this view (<c>ModelViewer</c>): returns to the front end's Join screen (the T8 back path). Null: no "LEAVE MATCH" button.</summary>
+    /// <summary>Set by the shell that started this view (<c>ModelViewer</c>): returns to the front end's main menu (the T8 back path). Null: no "LEAVE MATCH" button.</summary>
     public Action? LeaveToMenu { get; set; }
 
     /// <summary>The own player counts as alive until the first snapshot has told who it is (id 0 is the state before it): no "dead" flash while joining.</summary>
@@ -163,6 +167,7 @@ public partial class NetworkView
         if (_pickerCreator is null || key == _bannerShown) return;
         _bannerShown = key;
         _pickerCreator.Banner = PickerRules.Banner(me.Alive, me.RespawnLeft) + (_pickerNote.Length > 0 ? "\n" + _pickerNote : "");
+        if (_pickerMenu is not null) _pickerMenu.Banner = _pickerCreator.Banner;
     }
 
     void FailOpen() { _pickerWanted = false; PadMenuClosed(); RestoreMouse(leaving: false); }
@@ -202,10 +207,23 @@ public partial class NetworkView
         _pickerLayer = new CanvasLayer { Name = "LoadoutPicker", Layer = 60 };
         var root = new Control { Name = "PickerRoot", Theme = UiKit.Theme };
         root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        _pickerCreator = new CreatorView(services, () => ClosePicker(), ShowPickerAppearance) { Name = "Creator" };
+        _pickerCreator = new CreatorView(services, PickerBack, ShowPickerAppearance) { Name = "Creator" };
         _pickerAppearance = new AppearanceView(services, ShowPickerCreator) { Name = "Appearance", Visible = false };
         root.AddChild(_pickerCreator);
         root.AddChild(_pickerAppearance);
+        if (_pickerForced)
+        {
+            // The Esc menu over the running match: the loadout screens wait behind it, options and keybinds stand on the same dim.
+            _pickerMenu = new MatchMenu(() => ClosePicker(), ShowPickerLoadout, ShowPickerOptions, LeaveToMenu is null ? null : () => _pickerCreator?.ConfirmLeave(_pickerMenu)) { Visible = false };
+            _pickerOptions = new OptionsView(services, ShowPickerMenu, ShowPickerControls);
+            _pickerOptions.AddChild(MatchDim());
+            _pickerOptions.MoveChild(_pickerOptions.GetChild(_pickerOptions.GetChildCount() - 1), 0);
+            _pickerControls = new ControlsView(() => { _pickerControls!.Close(); ShowPickerOptions(); }, MatchDim());
+            root.AddChild(_pickerMenu);
+            root.AddChild(_pickerOptions);
+            root.AddChild(_pickerControls);
+            _pickerCreator.Visible = false;
+        }
         _pickerLayer.AddChild(root);
         AddChild(_pickerLayer);
         UiSounds.Current?.Attach(_pickerLayer);   // menu sounds on the picker's buttons (fidelity gap 9); the handler ends with the layer
@@ -217,14 +235,60 @@ public partial class NetworkView
         _pickerCreator.Activate = ActivateFromPicker;
         _pickerDeployed = false;
         _pickerInEffect = ActiveKey(services);
-        if (_pickerForced) _pickerCreator.BackText = $"RESUME ({PadHost.Hint("Esc", "B")})";
         if (LeaveToMenu is not null) _pickerCreator.Leave = LeaveMatchNow;
+        if (_pickerForced) _pickerCreator.ShowLeave = false;   // the Esc menu has LEAVE MATCH
         _overlayTranslucent = null;
         ApplyPickerLook(PickerRules.Translucent(UiAlive(me), _client.Match.State == MatchState.Ended));
         _pickerCreator.SetPreviewRace(me.Team == Team.Chaos ? SmContent.CustomizationCatalog.Chaos : SmContent.CustomizationCatalog.SpaceMarine);
-        _pickerCreator.FocusList();
+        if (_pickerMenu is not null) _pickerMenu.Open(UiAlive(me)); else _pickerCreator.FocusList();
         _pickerOpenedAt = _connectedFor;
         GD.Print($"t {_connectedFor:F1} s: loadout picker opened ({(me.Alive ? "alive, forced" : "dead")}); mouse free");
+    }
+
+    static ColorRect MatchDim()
+    {
+        var dim = new ColorRect { Name = "MatchDim", Color = new Color(0f, 0f, 0f, MatchMenu.DimAlpha + 0.2f), MouseFilter = Control.MouseFilterEnum.Stop };
+        dim.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        return dim;
+    }
+
+    /// <summary>The creator's BACK: to the Esc menu it was opened from, else (opened by itself on death, or a test aid with the creator hidden) the menu closes.</summary>
+    void PickerBack()
+    {
+        if (_pickerMenu is not null && _pickerCreator?.Visible == true) ShowPickerMenu();
+        else ClosePicker();
+    }
+
+    void ShowPickerMenu()
+    {
+        if (_pickerMenu is null || _pickerCreator is null) return;
+        _pickerCreator.Visible = false;
+        if (_pickerAppearance is not null) _pickerAppearance.Visible = false;
+        if (_pickerOptions is not null) _pickerOptions.Visible = false;
+        _pickerMenu.Open(_client is null || UiAlive(_client.Predicted));
+    }
+
+    void ShowPickerLoadout()
+    {
+        if (_pickerMenu is null || _pickerCreator is null) return;
+        _pickerMenu.Visible = false;
+        _pickerCreator.Visible = true;
+        _pickerCreator.Reenter();
+        _pickerCreator.FocusList();
+    }
+
+    void ShowPickerOptions()
+    {
+        if (_pickerMenu is null || _pickerOptions is null) return;
+        _pickerMenu.Visible = false;
+        _pickerOptions.Open(OptionsView.Graphics);
+    }
+
+    void ShowPickerControls()
+    {
+        if (_pickerOptions is null || _pickerControls is null) return;
+        _pickerOptions.Visible = false;
+        _pickerControls.Open();
     }
 
     void ClosePicker(bool leaving = false)
@@ -241,7 +305,7 @@ public partial class NetworkView
         _pickerLayer.QueueFree();
         PadMenuClosed();   // a pad press of this frame closed it: not also a Use (NetworkView.Gamepad.cs)
         if (_pickerServices is not null) _pickerServices.InMatch = false;
-        _pickerLayer = null; _pickerCreator = null; _pickerAppearance = null; _pickerForced = false; _pickerWanted = false;
+        _pickerLayer = null; _pickerCreator = null; _pickerAppearance = null; _pickerMenu = null; _pickerOptions = null; _pickerControls = null; _pickerForced = false; _pickerWanted = false;
         UiKit.LeaveVirtualSpace(GetWindow());
         RestoreMouse(leaving);
         GD.Print($"t {_connectedFor:F1} s: loadout picker closed; mouse {(Input.MouseMode == Input.MouseModeEnum.Captured ? "captured again" : "left free")}");

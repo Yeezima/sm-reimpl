@@ -12,6 +12,11 @@
     <ProjectReference Include="..\src\SmNet\SmNet.csproj" />
   </ItemGroup>
 
+  <!-- The menus' font (DejaVu Sans Bold, licence in assets/fonts/LICENSE-DejaVu.txt): embedded, so no Godot import is needed and every build has it. -->
+  <ItemGroup>
+    <EmbeddedResource Include="assets/fonts/DejaVuSans-Bold.ttf" LogicalName="Fonts/DejaVuSans-Bold.ttf" />
+  </ItemGroup>
+
   <!--
     Added content's own files (docs/added-content.md): embedded in the client assembly (Extras/<Feature>/assets/, which a .gdignore keeps out of Godot's
     import and export), so a build without added content (-p:SmExtras=false, faithful-build.cmd) carries none of them (Directory.Build.targets).

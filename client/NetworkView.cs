@@ -216,7 +216,7 @@ public partial class NetworkView : Node3D
     /// </summary>
     internal static ContentExtras ContentArg()
     {
-        // Added content E2: a match joined from the front end (or with a profile) plays the profile the Join screen showed (seeded from --content, else the saved choice).
+        // Added content E2: a match joined from the front end (or with a profile) plays the profile the lobby menu showed (seeded from --content, else the saved choice).
         if (SmClient.FrontEnd.FrontEndLaunch.Current is { } joined) return joined.Content ?? joined.Services.Content;
         var args = OS.GetCmdlineUserArgs();
         int i = Array.IndexOf(args, "--content");
@@ -387,7 +387,7 @@ public partial class NetworkView : Node3D
         if (e is InputEventMouseMotion motion && MouseCaptured && !OwnDead)
         {
             _yaw -= motion.Relative.X * MouseYawPerPixel * MouseLook;   // mouse right turns right (clockwise seen from above)
-            _pitch = Math.Clamp(_pitch - motion.Relative.Y * MouseYawPerPixel * MouseLook, _pitchMin, _pitchMax);   // mouse up aims up
+            _pitch = Math.Clamp(_pitch - motion.Relative.Y * SmClient.Customizer.Model.LiveOptions.MouseVertical * MouseYawPerPixel * MouseLook, _pitchMin, _pitchMax);   // mouse up aims up
         }
         else if (e is InputEventKey { Pressed: true, PhysicalKeycode: Key.Escape })
         {
@@ -758,6 +758,7 @@ public partial class NetworkView : Node3D
         if (JumpTest && JumpTestInput(me, tick) is { } jumpTest) return jumpTest;   // M44 test aid (NetworkView.JumpFx.cs)
         if (SlashTestInput(me, tick) is { } slashTest) return slashTest;   // feel/jump-pack test aid --slash-test (NetworkView.DashAttack.cs)
         if (StompMoveTestInput(me, tick) is { } stompMove) return stompMove;   // anim/stomp-to-move test aid --stomp-move-test (NetworkView.StompMoveTest.cs)
+        if (CameraTestInput(me, tick) is { } cameraTest) return cameraTest;   // camera/hop-and-walls test aid --camera-test (NetworkView.CameraTest.cs)
         if (CarryTestInput(me, tick) is { } carry) return carry;   // anim/relic-bolter-idle test aid --carry-test (NetworkView.CarryTest.cs)
         if (DashWallTestInput(me, tick) is { } dashWall) return dashWall;   // feel/jump-pack-2 test aid --dash-wall-test (NetworkView.DashAttack.cs)
         // A navigation jump in flight keeps its checked controls (NetworkView.Nav.cs).

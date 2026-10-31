@@ -30,7 +30,33 @@ public static class RenderQuality
 {
     static readonly Dictionary<string, string?> Args = ParseArgs(OS.GetCmdlineUserArgs());
 
-    public static AaMode Aa { get; } = ParseAa(Args.GetValueOrDefault("aa"));
+    public static AaMode Aa { get; private set; } = ParseAa(Args.GetValueOrDefault("aa"));
+
+    static readonly AaMode StartingAa = Aa;
+
+    /// <summary><c>--aa</c> was given: it wins over the Options menu.</summary>
+    public static bool AaFromCommandLine => Args.ContainsKey("aa");
+
+    /// <summary>What the Options menu offers on this renderer (the Compatibility renderer has MSAA, but neither SMAA nor TAA).</summary>
+    public static Customizer.Model.AaChoice[] Choices => SafeMode.Compatibility
+        ? [Customizer.Model.AaChoice.Default, Customizer.Model.AaChoice.Off, Customizer.Model.AaChoice.Msaa]
+        : [Customizer.Model.AaChoice.Default, Customizer.Model.AaChoice.Off, Customizer.Model.AaChoice.Msaa, Customizer.Model.AaChoice.MsaaSmaa, Customizer.Model.AaChoice.Taa];
+
+    public static string ChoiceName(Customizer.Model.AaChoice choice) => choice switch
+    {
+        Customizer.Model.AaChoice.Off => "OFF", Customizer.Model.AaChoice.Msaa => "MSAA 4X", Customizer.Model.AaChoice.MsaaSmaa => "MSAA 4X + SMAA", Customizer.Model.AaChoice.Taa => "TAA", _ => "DEFAULT",
+    };
+
+    /// <summary>The Options menu's choice (ui/menu-rebuild); false when <c>--aa</c> holds it. A caller applies it with <see cref="Apply"/>; cut-out materials follow it when they are next made.</summary>
+    public static bool Choose(Customizer.Model.AaChoice choice)
+    {
+        if (AaFromCommandLine) return false;
+        Aa = choice switch
+        {
+            Customizer.Model.AaChoice.Off => AaMode.Off, Customizer.Model.AaChoice.Msaa => AaMode.Msaa, Customizer.Model.AaChoice.MsaaSmaa => AaMode.MsaaSmaa, Customizer.Model.AaChoice.Taa => AaMode.Taa, _ => StartingAa,
+        };
+        return true;
+    }
 
     /// <summary>True when the cut-out materials should use alpha-to-coverage (needs MSAA).</summary>
     public static bool AlphaToCoverage => Aa is AaMode.Msaa or AaMode.MsaaSmaa;

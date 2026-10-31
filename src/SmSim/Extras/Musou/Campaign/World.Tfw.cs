@@ -45,8 +45,8 @@ public sealed partial class World
     {
         MusouBeginTick();
         MusouArm();
-        TfwMarinesFight();   // World.TfwPuppets.cs: TF5's stand-in for TF3's TfwGuardsStep; that call replaces this line
-        TfwPuppetsStep();    // World.TfwPuppets.cs: the AI Marines
+        TfwGuardsStep();    // World.TfwGuards.cs: the one fight of the tick (shots, enemies, Guardsmen)
+        TfwPuppetsStep();   // World.TfwPuppets.cs: the AI Marines
     }
 
     /// <summary>
@@ -54,8 +54,8 @@ public sealed partial class World
     /// </summary>
     bool TfwStepMatch() => false;
 
-    /// <summary>An Ork's attack on a Guard squad (<see cref="MusouAttack.Player"/> below 0: <see cref="TfwContracts.SquadOf"/>). TF0: nothing to hit; TF3 hits the squad's nearest member.</summary>
-    void TfwGuardHit(MusouAttack attack) { }
+    /// <summary>An Ork's attack on a Guard squad (<see cref="MusouAttack.Player"/> below 0: <see cref="TfwContracts.SquadOf"/>): it lands on the squad's nearest man (World.TfwGuards.cs).</summary>
+    void TfwGuardHit(MusouAttack attack) => TfwGuardsHit(attack);
 
     /// <summary>
     /// A fresh life for player <paramref name="id"/> at <paramref name="at"/>, alive or dead (the Deploy, an extraction): the core has no respawn routine to call (its respawn is inline in

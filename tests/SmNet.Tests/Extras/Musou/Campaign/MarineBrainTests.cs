@@ -199,6 +199,22 @@ public class MarineBrainTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void A_puppets_shot_counts_once_in_the_tick()
+    {
+        var w = Playing(Lz);
+        int r = w.TfwSpawnRetainer(Human, Lz + new Vector3(5f, 0f, 0f))!.Value;
+        var musou = w.Musou!;
+        musou.Spawn(MusouEnemyType.Boy, w.Players[r].Position + new Vector3(12f, 0f, 0f), 0f, 50000f);
+        int shots = 0, hits = 0;
+        Run(w, 1.5f, null, () =>
+        {
+            int shot = w.LastShots.Count(x => x.Shooter == r), hit = musou.Events.Count(e => e.Kind == MusouEventKind.Hit);
+            Assert.True(hit <= shot, $"{hit} hits from {shot} shots in a tick");
+            shots += shot; hits += hit;
+        });
+        Assert.True(hits > 0, $"{hits} hits from {shots} shots");
+    }
+    [Fact]
     public void Hold_stays_where_ordered_and_engages_within_its_radius()
     {
         var w = Playing(Lz);
