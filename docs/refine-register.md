@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1874 spec table rows: **1300 tagged**, 420 not tagged (read from data with high confidence), 154 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 414 rows of the changes document.
+Scanned 1883 spec table rows: **1309 tagged**, 420 not tagged (read from data with high confidence), 154 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 414 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,24 +50,24 @@ Scanned 1874 spec table rows: **1300 tagged**, 420 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 128 | 113 | 111 | 13 | 1 |
+| Core simulation (provisional values) | 137 | 122 | 120 | 14 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1300** | 1078 | 1046 | 400 | 38 |
+| **All areas** | **1309** | 1087 | 1055 | 401 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 527 |
-| confidence: low | 469 |
+| kind: ours | 529 |
+| confidence: low | 478 |
 | confidence: medium | 460 |
 | kind: interpretation | 329 |
-| notes: ours | 291 |
+| notes: ours | 292 |
 | confidence: none (low) | 117 |
 | kind: provisional | 100 |
+| kind: estimate | 51 |
 | kind: user's knowledge | 45 |
-| kind: estimate | 44 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
 | notes: provisional | 31 |
@@ -1735,7 +1735,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (128)
+### Core simulation (provisional values) (137)
 
 *Spec section: Provisional values in use*
 
@@ -1841,6 +1841,20 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-11D349F6` | War battle layout | landing zone (0, -100) r 10; positions (-40, -45), the depot (35, 10), (-25, 60), r 12; HQ (0, 105) r 15; sources (-110, -40), (110, 15), (-110, 70), (60, 112) (m) | kind: ours; confidence: low | the architect's proposal | War battle layout: compare with SM1 by measuring on a flat spot of the same map. Ours: landing zone (0, -100) r 10; positions (-40, -45), the depot (35… | ☐ |
 | `R-D3A3B1CE` | War commands | a client's command (message kind 17) carries at most 64 payload bytes; the server takes 8 a second per client (burst 8) and queues at most 64 between ticks (/s) | kind: ours | the architect's proposal | War commands: compare with SM1 by feel or video. Ours: a client's command (message kind 17) carries at most 64 payload… | ☐ |
 | `R-FC7D8173` | AI Marine ids | the server-side AI Marines are players 65520 to 65527, without a client; a joining player's id skips any held id | kind: ours | the architect's proposal | AI Marine ids: compare with SM1 by feel or video. Ours: the server-side AI Marines are players 65520 to 65527, without a… | ☐ |
+
+*Spec section: Added content: Musou — the Three-Front War: the war between the battles (TF2: `WarSim`, not yet driven by a match)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-51DE673A` | War time scale | 0.25 in the hub; 1.0 in travel, battle and pickup; 0 in the final assault and after the end; the battle's own lane is frozen in the Battle phase only (so it runs during a pickup); the wound timers run on the war clock even there (× real time) | kind: ours; confidence: low | the design's calibrated proposal (section C), unchanged by TF2's tuning; the pickup and the wound timer our reading | War time scale: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 0.25 in the hub; 1.0 in travel, battle and pickup; 0 in the final… | ☐ |
+| `R-7FDD76E9` | War start | Imperial 100, Ork 110; fronts A 1, B 0, C 1; progress 0 (strength, front) | kind: estimate; confidence: low | the design's calibrated proposal (section C), unchanged by TF2's tuning | War start: compare with SM1 by feel or video. Ours: Imperial 100, Ork 110; fronts A 1, B 0, C 1; progress 0. | ☐ |
+| `R-B381EAE0` | War front step | m = (lord present 1.25) × (front -1: 1.5); a = (m·I − O)/(m·I + O), 0 when both are 0; progress += a·dt/30, within -1 to 1 | kind: estimate; confidence: low | the design's calibrated proposal (section C), unchanged by TF2's tuning | War front step: compare with SM1 by feel or video. Ours: m = (lord present 1.25) × (front -1: 1.5); a = (m·I − O)/(m·I + O), 0… | ☐ |
+| `R-B3C3FC4E` | War strengths | I −= 0.0002·O·dt, O −= 0.0002·I·dt; I += 0.03·dt, cap 200; O += 0.035·(1 + clock/1800)·dt, cap 250; both from the step's starting values, floor 0 (strength) | kind: estimate; confidence: low; notes: ours | the design's calibrated proposal (section C), unchanged by TF2's tuning; the floor ours | War strengths: compare with SM1 by feel or video. Ours: I −= 0.0002·O·dt, O −= 0.0002·I·dt; I += 0.03·dt, cap 200; O +=… | ☐ |
+| `R-468CF08B` | War nodes | progress ≥ 1: node taken, front + 1 (at front 3 it stays at 1); ≤ -1: node lost, front − 1; ≤ -1 at front -1: the run is lost; either change sets progress 0 and a 60 s gather, in which the progress holds and the strengths run on; front 3 opens the final… (war s) | kind: ours; confidence: low | the design's calibrated proposal (section C), unchanged by TF2's tuning; progress 0, what a gather holds and a lost stronghold closing the final our reading | War nodes: compare with SM1 by feel or video. Ours: progress ≥ 1: node taken, front + 1 (at front 3 it stays at 1); ≤ -1:… | ☐ |
+| `R-EA1A28BA` | War: player's win | node captured (front + 1, progress 0), O × 0.6, I + 20 (under the cap), 30 s gather | kind: estimate; confidence: low | the design's calibrated proposal (section C), unchanged by TF2's tuning | War: player's win: compare with SM1 by feel or video. Ours: node captured (front + 1, progress 0), O × 0.6, I + 20 (under the… | ☐ |
+| `R-3AD26EA5` | War: player left or lost | progress = clamp(-0.2 + 0.25·secured, -1, 0.6), secured 0 to 3; O −= 0.05·Orks killed; I −= 0.1·Guards lost; no gather | kind: estimate; confidence: low | the design's calibrated proposal (section C), unchanged by TF2's tuning | War: player left or lost: compare with SM1 by feel or video. Ours: progress = clamp(-0.2 + 0.25·secured, -1, 0.6), secured 0 to 3; O −=… | ☐ |
+| `R-3B7E8909` | War: wounded lord | a lord killed in a battle is wounded 300 war s (no 1.25 on his lane); a second wound restarts it (war s) | kind: estimate; confidence: low | the design's calibrated proposal (section C), unchanged by TF2's tuning | War: wounded lord: compare with SM1 by feel or video. Ours: a lord killed in a battle is wounded 300 war s (no 1.25 on his lane)… | ☐ |
+| `R-8D4DA7E9` | War: final bonus | per lane other than the assault's at front ≥ 2: Warboss HP × 0.85, +2 squads (at the calibrated run both other lanes still stand at 2: see the milestone note) | kind: estimate; confidence: low | the design's calibrated proposal (section C), unchanged by TF2's tuning | War: final bonus: compare with SM1 by feel or video. Ours: per lane other than the assault's at front ≥ 2: Warboss HP × 0.85, +2… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
