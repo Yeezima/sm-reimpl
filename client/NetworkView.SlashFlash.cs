@@ -19,13 +19,32 @@ public partial class NetworkView
     const string SlashFlashEffect = "jumppack_land_extreme_mp";
     const float SlashFlashScale = 1.4f;
     /// <summary>Ours: the flash's life (s), the light's range (m), its peak energy, the screen flash's reach (m) and peak.</summary>
-    const float SlashFlashSeconds = 0.4f, SlashFlashLightRange = 14f, SlashFlashLightEnergy = 8f, SlashFlashScreenReach = 14f, SlashFlashScreenPeak = 1.0f;
+    const float SlashFlashSeconds = 0.4f, SlashFlashLightRange = 14f, SlashFlashLightEnergy = 8f, SlashFlashScreenReach = 14f, SlashFlashScreenPeak = 0.6f;
 
     /// <summary>Ours (the reference shows only blue-white; the data's burst is orange-white): the effect's hue.</summary>
     static readonly Color SlashFlashTint = new(0.5f, 0.78f, 1f);
 
     bool NoSlashFlash => _noSlashFlash ??= CmdFlag("no-slash-flash");
     bool? _noSlashFlash;
+
+    MeshInstance3D? _slashCore;
+    ShaderMaterial? _slashCoreMaterial;
+    const float SlashCoreRadius = 2.1f;
+    const string SlashCoreShader = @"
+shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, depth_test_disabled, fog_disabled;
+uniform float strength = 0.0;
+void vertex() {
+    MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+    MODELVIEW_MATRIX = MODELVIEW_MATRIX * mat4(vec4(MODEL_MATRIX[0].x,0.0,0.0,0.0), vec4(0.0,MODEL_MATRIX[1].y,0.0,0.0), vec4(0.0,0.0,MODEL_MATRIX[2].z,0.0), vec4(0.0,0.0,0.0,1.0));
+}
+void fragment() {
+    float r = length(UV - vec2(0.5)) * 2.0;
+    float core = clamp(1.0 - r * 1.25, 0.0, 1.0);
+    float rim = exp(-pow((r - 0.62) / 0.28, 2.0));
+    vec3 rimc = vec3(0.35, 0.72, 1.0) * rim * 0.9;
+    ALBEDO = (vec3(1.0) * pow(core, 0.7) * 3.0 + rimc) * strength * (1.0 - smoothstep(0.85, 1.0, r));
+}";
 
     OmniLight3D? _slashLight;
     double _slashFlashStart = -10;
@@ -58,6 +77,14 @@ void fragment() {
             e.Life = Math.Max(e.Life, e.System.CollisionLife + 0.1f);
         }
         _slashFlashStart = _connectedFor;
+        if (_slashCore is null || !IsInstanceValid(_slashCore))
+        {
+            _slashCoreMaterial = new ShaderMaterial { Shader = new Shader { Code = SlashCoreShader } };
+            _slashCore = new MeshInstance3D { Name = "SlashFlashCore", Mesh = new QuadMesh { Size = Vector2.One }, MaterialOverride = _slashCoreMaterial, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, TopLevel = true, ExtraCullMargin = 16f };
+            AddChild(_slashCore);
+        }
+        _slashCore.GlobalPosition = point + up * 2.6f;
+        _slashCore.Scale = new Vector3(SlashCoreRadius * 2f, SlashCoreRadius * 2f, SlashCoreRadius * 2f);
         SlashShotsBegin();
         if (_slashLight is null || !IsInstanceValid(_slashLight))
         {
@@ -90,6 +117,13 @@ void fragment() {
             float k = live ? MathF.Pow(1f - (float)(age / SlashFlashSeconds), 2f) * Math.Clamp((float)(age / 0.02), 0f, 1f) : 0f;
             _slashLight.LightEnergy = SlashFlashLightEnergy * k;
             _slashLight.Visible = live;
+        }
+        if (_slashCore is not null && _slashCoreMaterial is not null && IsInstanceValid(_slashCore))
+        {
+            float k = live ? MathF.Pow(1f - (float)(age / (SlashFlashSeconds * 0.7)), 1.5f) * Math.Clamp((float)(age / 0.02), 0f, 1f) : 0f;
+            _slashCore.Visible = live && k > 0.002f;
+            _slashCore.Scale = Vector3.One * SlashCoreRadius * 2f * (0.7f + 0.3f * Math.Clamp((float)(age / 0.1), 0f, 1f));
+            _slashCoreMaterial.SetShaderParameter("strength", k);
         }
         if (_slashScreen is not null && _slashScreenMaterial is not null)
         {
