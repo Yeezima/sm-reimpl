@@ -300,7 +300,8 @@ public sealed partial class FrontEndView : Control
         bar.AddChild(_joinButton);
         column.AddChild(bar);
         var footer = UiKit.HBox(24);
-        footer.AddChild(UiKit.FovRow(_services.Settings.FovDegrees, f => _services.UpdateSettings(x => x with { FovDegrees = f })));   // ui/fov-slider (ours)
+        footer.AddChild(UiKit.FovRow(_services.Settings.FovDegrees, f => _services.UpdateSettings(x => x with { FovDegrees = f }), compact: true));   // ui/fov-slider (ours)
+        footer.AddChild(UiKit.MouseSensitivityRow(_services.Settings.MouseSensitivity, m => _services.UpdateSettings(x => x with { MouseSensitivity = m }), compact: true));   // ui/mouse-sensitivity (ours); both compact: the footer keeps the width and height it had (the Join screen's fit checks)
         footer.AddChild(UiKit.Button("CONTROLS", ShowControls, 200, "Rebind the keyboard, mouse and controller").With(b => { b.Name = "ControlsButton"; b.CustomMinimumSize = new Vector2(200, 28); b.AddThemeFontSizeOverride("font_size", UiKit.CaptionSize);
             // The footer is one slider high: slim styles (the theme's boxes carry 12 px of margin all round), so the Join screen keeps its room.
             foreach (var (state, box) in new[] { ("normal", UiKit.Box(new Color(0.06f, 0.06f, 0.06f, 0.92f), new Color(0.55f, 0.45f, 0.1f), 2, 12)), ("hover", UiKit.Box(UiKit.Hover, UiKit.Gold, 2, 12)), ("pressed", UiKit.Box(new Color(0.25f, 0.2f, 0.03f, 0.98f), UiKit.Gold, 2, 12)) })

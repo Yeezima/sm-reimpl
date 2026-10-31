@@ -103,7 +103,12 @@ public sealed partial class CreatorView : Control
         _sideCaption = UiKit.Text("Preview side:", UiKit.CaptionSize, UiKit.Grey).With(l => l.VerticalAlignment = VerticalAlignment.Center);
         header.AddChild(_sideCaption);
         header.AddChild(_sideToggle);
-        header.AddChild(UiKit.FovRow(services.Settings.FovDegrees, f => services.UpdateSettings(x => x with { FovDegrees = f }), compact: true));   // ui/fov-slider (ours)
+        // The two slim sliders (FOV and mouse sensitivity) stack in the height of one button, so the header keeps its room for BACK and LEAVE MATCH.
+        var sliders = UiKit.VBox(2);
+        sliders.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        sliders.AddChild(UiKit.FovRow(services.Settings.FovDegrees, f => services.UpdateSettings(x => x with { FovDegrees = f }), compact: true));   // ui/fov-slider (ours)
+        sliders.AddChild(UiKit.MouseSensitivityRow(services.Settings.MouseSensitivity, m => services.UpdateSettings(x => x with { MouseSensitivity = m }), compact: true));   // ui/mouse-sensitivity (ours)
+        header.AddChild(sliders);
         _controlsButton = UiKit.Button("CONTROLS", OpenControls, 170, "Rebind the keyboard, mouse and controller");   // ui/keybinds (ours)
         _controlsButton.Name = "ControlsButton";
         header.AddChild(_controlsButton);
