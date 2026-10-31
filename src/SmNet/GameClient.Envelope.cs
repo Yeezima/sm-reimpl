@@ -33,6 +33,17 @@ public sealed partial class GameClient
         if (over > 0) { _extras.RemoveRange(0, over); ExtrasOverflow += over; }
     }
 
+    /// <summary>
+    /// Sends one added-content command to the server (message kind 17, <see cref="ExtrasCommandMessage"/>). False, and nothing sent, unless connected to a match that runs added
+    /// content reading commands (<c>ContentExtras.CommandUsers</c>). One datagram, unacknowledged: a feature that needs it delivered resends until its own state echoes it.
+    /// </summary>
+    public bool SendExtrasCommand(byte tag, byte[] payload)
+    {
+        if (Status != ClientStatus.Connected || (_config.Extras & ContentExtras.CommandUsers) == 0) return false;
+        _transport.Send(Protocol.Write(new ExtrasCommandMessage(_session, tag, payload)));
+        return true;
+    }
+
     /// <summary>The extras sections received since the last call (each once), oldest first.</summary>
     public IReadOnlyList<ExtrasSection> TakeExtras()
     {

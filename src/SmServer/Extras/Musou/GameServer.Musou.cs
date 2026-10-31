@@ -26,7 +26,7 @@ public sealed partial class GameServer
 
     void CreateMusou()
     {
-        if (!World.Config.Extras.HasFlag(ContentExtras.Musou)) return;
+        if (!World.Config.Extras.HasFlag(ContentExtras.Musou) || Map?.Name == SmSim.Extras.Musou.Campaign.TfwMap.Name) return;   // the war's map: CreateTfw
         NavGraph? nav = null;
         string navNote;
         if (Map is not { } map) navNote = "no map (flat ground): no nav graph";

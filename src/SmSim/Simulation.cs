@@ -1153,7 +1153,11 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         _jumps.Clear();
         foreach (var id in _players.Keys.ToList())
         {
-            var input = (State == MatchState.Countdown ? MatchFlow.Locked(inputFor(id)) : inputFor(id)).Sanitized() with { Tick = Tick };   // no attacks before the match begins (ours)
+            PlayerInput extraInput = default;
+            bool extraHandled = false;
+            ExtrasPlayerInput(id, ref extraInput, ref extraHandled);   // EXTRAS-HOOK: added content's players without a client (the Three-Front War's AI Marines)
+            var sampled = extraHandled ? extraInput : inputFor(id);
+            var input = (State == MatchState.Countdown ? MatchFlow.Locked(sampled) : sampled).Sanitized() with { Tick = Tick };   // no attacks before the match begins (ours)
             NoteInteract(id, input);   // fidelity gap 1: pickups (Pickups.cs)
             PlayerState next;
             SelfEvents events;
@@ -1315,6 +1319,13 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
     /// before the projectile counts and the deaths are resolved. Implemented in an <c>Extras/</c> folder; returns at once unless its feature runs.
     /// </summary>
     partial void ExtrasStep();
+
+    /// <summary>
+    /// Hook for added content: before <see cref="Step"/> asks its input source for player <paramref name="id"/>. An implementation that owns the player (one without a
+    /// client) sets <paramref name="input"/> and <paramref name="handled"/>, and the input source is not asked for it (a server has no peer to ask). Implemented in an
+    /// <c>Extras/</c> folder; returns at once unless its feature runs.
+    /// </summary>
+    partial void ExtrasPlayerInput(int id, ref PlayerInput input, ref bool handled);
 
     /// <summary>
     /// Hook for added content: at the end of <see cref="ResolveMelee"/> (after the players it hit and its stomp), with the attacker's state this tick

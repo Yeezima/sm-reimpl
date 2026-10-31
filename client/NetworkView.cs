@@ -2075,6 +2075,9 @@ public partial class NetworkView : Node3D
     /// </summary>
     LoadedMap? LoadMap(string name)
     {
+        LoadedMap? generated = null;
+        ExtrasLoadMap(name, ref generated);   // EXTRAS-HOOK: a map added content generates in code (the Three-Front War's tfw_war); nothing below reads it from the install
+        if (generated is not null) return generated;
         var watch = System.Diagnostics.Stopwatch.StartNew();
         Ph("map load: collision and content");
         MemStep("before map"); var map = MapContent.Load(_gameDir, name); MemStep("map content");
@@ -2170,6 +2173,9 @@ public partial class NetworkView : Node3D
         _jumpGround = world;   // M45: the flight pose's height above the ground
         return new LoadedMap(world, map.Hash);
     }
+
+    /// <summary>Hook for added content, at the top of <see cref="LoadMap"/>: sets <paramref name="loaded"/> for a map it generates (and draws it). Implemented in an <c>Extras/</c> folder.</summary>
+    partial void ExtrasLoadMap(string name, ref LoadedMap? loaded);
 
     void AddGroundCameraAndLights()
     {

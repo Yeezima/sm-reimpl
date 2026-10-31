@@ -34,6 +34,12 @@ public class ExtrasBoundaryTests
         ("src/SmSim/Teams.cs", "ExtrasStepMatch"),                 // World.ExtrasStepMatch(ref bool handled), top of StepMatch; the core skips its flow when handled (Musou: one side)
         ("src/SmSim/Teams.cs", "ExtrasJoinSide"),                  // World.ExtrasJoinSide(ref Team, ref bool forced), in AssignClass / AssignSide (Musou: Space Marines only, no balance)
         ("src/SmServer/GameServer.cs", "ExtrasCreated"),           // GameServer.ExtrasCreated(), end of the constructor when Extras is not None (Musou: the nav graph, World.StartMusou)
+        // Three-Front War (TF0): each returns at once unless World.Tfw is set (World.StartTfw, only on the map tfw_war under ContentExtras.Musou), or for another map.
+        ("src/SmSim/Simulation.cs", "ExtrasPlayerInput"),          // World.ExtrasPlayerInput(int, ref PlayerInput, ref bool handled), before Step asks for a player's input (the AI Marines have no client)
+        ("src/SmServer/GameServer.cs", "ExtrasGeneratedMap"),      // static GameServer.ExtrasGeneratedMap(ContentExtras, ref string?, ref GameMap?, ref string?), in GeneratedMap, which Program.cs calls (tfw_war)
+        ("src/SmServer/GameServer.cs", "ExtrasPlayerName"),        // GameServer.ExtrasPlayerName(int, ref string), in ScoreboardOf (the AI Marines' names)
+        ("src/SmServer/GameServer.Envelope.cs", "ExtrasCommand"),  // GameServer.ExtrasCommand(int, byte, byte[]), a client's command (message kind 17), only under ContentExtras.CommandUsers
+        ("client/NetworkView.cs", "ExtrasLoadMap"),                // NetworkView.ExtrasLoadMap(string, ref LoadedMap?), top of LoadMap (tfw_war: collision, placeholder look, warm-ups)
     ];
 
     /// <summary>

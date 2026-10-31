@@ -206,10 +206,18 @@ static string Describe(ProjectileSpec p, float blindView = 180f)
         $"{p.MaxBounces} bounces{(p.MaxActive > 0 ? $", max {p.MaxActive} active" : "")}; {blast}{direct}";
 }
 var available = MapContent.Available(install);
+// Added content may generate its map in code (docs/added-content.md section 8: Musou's tfw_war, also its default map); nothing of it comes from the install.
+var generatedMap = GameServer.GeneratedMap(contentExtras, ref mapName, out string? mapError);
+if (mapError is not null)
+{
+    Console.Error.WriteLine($"smserver: {mapError}");
+    return ServerCommandLine.UsageError;
+}
 mapName ??= available.Contains("mp_tdm_09") ? "mp_tdm_09" : "none";
-GameMap? map = null;
+GameMap? map = generatedMap;
 IReadOnlyList<MapBlocker> mapBlockers = [];
-if (mapName != "none")
+if (map is not null) Console.WriteLine($"map {mapName} (generated in code, nothing from the install): {map.Collision.Character.TriangleCount} character triangles, {map.Spawns.Count} spawns; map hash {map.Hash:X16}");
+else if (mapName != "none")
 {
     if (!available.Contains(mapName)) { Console.Error.WriteLine($"unknown map '{mapName}'; installed: {string.Join(", ", available)}"); return 1; }
     var content = MapContent.Load(install, mapName);
