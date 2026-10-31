@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1763 spec table rows: **1210 tagged**, 403 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 375 rows of the changes document.
+Scanned 1764 spec table rows: **1211 tagged**, 403 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 376 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -42,7 +42,7 @@ Scanned 1763 spec table rows: **1210 tagged**, 403 not tagged (read from data wi
 | Camera (critical) | 28 | 27 | 17 | 18 | 0 |
 | HUD and hit feedback (critical) | 53 | 48 | 42 | 10 | 0 |
 | Sound mix (critical) | 56 | 50 | 48 | 10 | 0 |
-| Effects (critical) | 71 | 62 | 61 | 37 | 0 |
+| Effects (critical) | 72 | 63 | 62 | 38 | 0 |
 | Game modes | 38 | 35 | 36 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
@@ -53,15 +53,15 @@ Scanned 1763 spec table rows: **1210 tagged**, 403 not tagged (read from data wi
 | Core simulation (provisional values) | 100 | 86 | 85 | 12 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1210** | 997 | 967 | 387 | 38 |
+| **All areas** | **1211** | 998 | 968 | 388 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 458 |
+| kind: ours | 459 |
 | confidence: medium | 431 |
-| confidence: low | 421 |
+| confidence: low | 422 |
 | kind: interpretation | 321 |
 | notes: ours | 285 |
 | confidence: none (low) | 115 |
@@ -80,9 +80,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: interpretation | 14 |
 | notes: not reproduced (gap) | 13 |
 | notes: open question | 13 |
+| notes: estimate | 10 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
-| notes: estimate | 9 |
 | kind: guess | 4 |
 | section: approximation | 3 |
 | kind: inferred | 2 |
@@ -1213,7 +1213,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5FBBC333` | Menu sound cost | its own catalogue of two packages (`init`, `in_game_default`) opens in the background in 65 to 130 ms when the first root is attached (not before a button exists) and is disposed when a match starts, one still loading too (the match's sound system plays the… (ms) | kind: ours; confidence: medium | measured | Menu sound cost: compare with SM1 by listening A/B at the same distance and state. Ours: its own catalogue of two packages (init, in_game_default) opens in… | ☐ |
 | `R-30F789A0` | Not played | `Play_Menu_Expand_Main` (the menu opening), `Play_Multiplayer_Select`, `Play_Cooperative_Select`, `Play_Network_Select`, `Play_Campaign_Select` (screens we do not have in that form), `play_mp_point_captured` and `play_mp_bonus` (exist; no trigger found)… | kind: gap (not reproduced); confidence: none (low) | gap | Not played: compare with SM1 by listening A/B at the same distance and state. Ours: Play_Menu_Expand_Main (the menu opening), Play_Multiplayer_Select… | ☐ |
 
-### Effects (gameplay-critical) (71)
+### Effects (gameplay-critical) (72)
 
 *Spec section: Jump-pack feel: fuel, air control, the air slash and impact effects (feel/jump-pack; protocol 31, used by the simulation)*
 
@@ -1265,6 +1265,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-CFD49A14` | Lascannon beam: one straight static line (owner, 2026-10-30) | the beam is one straight ribbon from the muzzle position at the shot to the end point, both snapshotted when the shot is seen; nothing later (shooter, camera, weapon bone) moves it (before: muzzle, join point, end, which read as a V once the shooter moved) (m) | kind: ours; confidence: medium | ours (owner's change) | Lascannon beam: one straight static line (owner, 2026-10-30): compare with SM1 by measuring on a flat spot of the same map. Ours: the beam is one straight ribbon from the muzzle position at the shot… | ☐ |
 | `R-8FBC5C9A` | Muzzle leg of a bullet stays drawn (owner, 2026-10-30) | the pooled streak from the muzzle to the join point stays in the world as a fading line for 0.12 s after the head has crossed it, so tracers are seen to start at the barrel; the ballistic and hit origin is unchanged. `--old-muzzle-leg` restores it (s) | kind: ours; confidence: low; notes: estimate | ours (owner's change) | Muzzle leg of a bullet stays drawn (owner, 2026-10-30): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the pooled streak from the muzzle to the join point stays in the… | ☐ |
 | `R-5C7C8A38` | Melta blast cone (owner, 2026-10-30; fuzzy since 2026-10-31) | the data's `meltagun_cylinder_blast_1..4` (rings and beams, read as purple-blue haze) are replaced by a drawn cone from the muzzle along the shot, always the 20 m cone length (the data's; walls hide the part behind them), radius 0.12 m + 0.065 m per metre… (m, s) | kind: ours; confidence: low; notes: estimate | ours (owner's change) | Melta blast cone (owner, 2026-10-30; fuzzy since 2026-10-31): compare with SM1 by measuring on a flat spot of the same map. Ours: the data's meltagun_cylinder_blast_1..4 (rings and beams, read as… | ☐ |
+| `R-714843D3` | Weapon effects start at the barrel (fx/barrel-origin; owner, 2026-10-31: "for all guns the… | **Client presentation only; the server's shot origin, ray and projectile paths are unchanged.** Already at the barrel (`fx_Muzzle`, or the effect's own marker, read from the weapon model's locator in the hand, own and others', hip, aim, scope, braced): muzzle… (m, s) | kind: ours; confidence: low; notes: estimate | ours (owner's change) | Weapon effects start at the barrel (fx/barrel-origin…: compare with SM1 with side-by-side video of the same action. Ours: Client presentation only; the server's shot origin, ray and… | ☐ |
 | `R-0336DBB6` | Plasma ball (owner, 2026-10-30) | a plasma gun, pistol or cannon shot also draws its projectile sphere (radius 0.2 m, charged 0.35 m) with a shader: alpha 0.94 including the edge, roiling noise from a pale core to the side's plasma colour; the data's trail plays around it. `--old-plasma-ball`… (m) | kind: ours; confidence: low; notes: estimate | ours (owner's change) | Plasma ball (owner, 2026-10-30): compare with SM1 by measuring on a flat spot of the same map. Ours: a plasma gun, pistol or cannon shot also draws its projectile sphere… | ☐ |
 | `R-FFB8D733` | Jump pack thrust and fire stop at the peak (owner, 2026-10-30) | the thrust fades in 0.08 s at the peak (before 0.35 s) and the data's looping fall effect (`action_descending_regular`) is not played; the dive's thrust and the apex burst are unchanged. `--old-pack-fall` restores both (s) | kind: ours; confidence: medium | ours (owner's change) | Jump pack thrust and fire stop at the peak (owner…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the thrust fades in 0.08 s at the peak (before 0.35 s) and the data's… | ☐ |
 | `R-8C9EA950` | Armour backpack hidden under a worn pack in `_bp` sets (owner, 2026-10-30) | the armour's backpack piece is hidden under a worn pack or weapon backpack whether the set names it `_backpack` or `_bp` (before only `_backpack`; the `_bp` sets left it inside the Devastator's pack: flicker). Not reproduced in a still frame; the cause is the… | confidence: medium; notes: ours | ours | Armour backpack hidden under a worn pack in _bp sets…: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the armour's backpack piece is hidden under a worn pack or weapon… | ☐ |
@@ -2428,6 +2429,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-810E5266` | Weapon effects pass (2026-10-30) | Lascannon beam straight and static; tracer muzzle leg lingers 0.12 s; melta blast a drawn cone instead of the data's haze; plasma shots drawn as a near-opaque roiling ball; jump pack thrust stops at the peak. All ours at the owner's request; values are estimates in the refine register | Weapon effects pass (2026-10-30): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-C77587B7` | Visuals pass 2 (fx/visuals-2, owner 2026-10-30 round 2: items 34, 35, 38, 40, 45, 46, 48) | Ours: the recharge glow and break flash are soft halos behind the figure, not a model-surface layer (`--old-flash-outline`); the air-slash landing adds a dust cone (apex at the feet, the sim's 60 degree, 4 m cone; `--no-slash-cone`); the pistol's tracer waits for the raise (`--old-pistol-tracer`); bolt tracers 0.42 x… | Visuals pass 2 (fx/visuals-2, owner 2026-10-30 round 2:…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-55031529` | Melta cone, fuzzy (fx/melta-fuzzy, owner 2026-10-31) | Ours: the melta's drawn blast cone is always the data's 20 m long, soft all through (nine nested shells, view-angle fade on the walls, muzzle and tip fades, scrolling cloud noise, depth fade at walls and floor, fade near the camera) in the data's purple-blue, with no hard outline; length, width, brightness, noise and… | Melta cone, fuzzy (fx/melta-fuzzy, owner 2026-10-31): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-DA95ED95` | Projectiles leave the barrel (fx/barrel-origin, owner 2026-10-31) | Ours: the drawn ball or grenade of a projectile weapon starts at the weapon's muzzle and falls onto the server's path over 3 m (a streak from the muzzle to where it first shows); the launch point, path, speed and detonation are the server's, unchanged. Own charged shots released from the pending state now draw their… | Projectiles leave the barrel (fx/barrel-origin, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-92C86CDD` | HUD and camera pass 2 (ui/hud-camera-2, owner 2026-10-30) | Ours: the third-person camera is 1.3 times as far back as the data's rig (3.38 m to 4.40 m; aim unchanged); the score block's dark band is opaque (80 to 86 percent) and holds the timer, scores, bars and limit; the armour bar is plain yellow for everyone but the Iron Halo's carrier (cyan and white with the medallion)… | HUD and camera pass 2 (ui/hud-camera-2, owner 2026-10-30): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-C69D928F` | Melee lunge longer (sim/melee-lunge, owner 2026-10-31) | Ours: every melee attack's forward step is 25% longer (scale 1.3 to 1.625, an estimate to review in a playtest); a locked swing closes on its target with a front-loaded burst (settled by 0.6 of the way to the hit, at most 28 m/s, the bull rush's slowest burst; farther target, bigger step), never nearer than 1 m. The… | Melee lunge longer (sim/melee-lunge, owner 2026-10-31): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-37420BF6` | Armour regen sound level (owner 2026-10-31) | Ours: the regeneration sound is 50% of its earlier volume (-6 dB), and another player's regen would fade to silence at 20 ft (6.1 m, "roughly"; none is posted today, the data makes it the local player's only). Spec "Shield sounds". `--regen-sound-old` restores the old level | Armour regen sound level (owner 2026-10-31): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |

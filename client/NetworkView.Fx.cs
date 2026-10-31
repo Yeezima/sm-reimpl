@@ -306,15 +306,25 @@ public partial class NetworkView
         // The charged shot's stage: remembered while the charge builds, used by the shot that follows within a second.
         if (me.Charging && weapon?.Charge is { } ch) { _fxChargeStage = Combat.ChargeStage(ch, me.ChargeTime, firing: true); _fxChargeStageAt = _connectedFor; }
         bool comparable = me.Alive && p.Alive && me.Slot == p.Slot && me.Class == p.Class && me.MeleeStep == 0 && p.MeleeStep == 0 && !me.Throwing;
+        if (BarrelProbe && me.Clip < p.Clip) GD.Print($"barrel-probe: clip {p.Clip}->{me.Clip}: comparable {comparable} (alive {me.Alive}/{p.Alive}, slot {me.Slot}/{p.Slot}, melee {me.MeleeStep}/{p.MeleeStep}, throwing {me.Throwing}), weapon {(weapon is null ? "none" : weapon.Name)}");
         if (!comparable || weapon is null) { return; }
+        if (BarrelProbe && p.Charging && !me.Charging) GD.Print($"barrel-probe: charge ended: clip {p.Clip}->{me.Clip} heat {p.Heat:F2}->{me.Heat:F2} cooldown {p.Cooldown:F2}->{me.Cooldown:F2} pending {p.PendingShot}->{me.PendingShot} held {me.FireHeld} fired events {_frameOwnEvents.Count(e => e.Events.Fired)} stage {_fxChargeStage}");
         int shots = Math.Max(0, p.Clip - me.Clip);
         // Weapons without a clip cost (or a shot that spends a recharged round in one frame): the cooldown restarting, or heat rising, is a shot.
         if (shots == 0 && me.SwitchLeft <= 0f && (me.Cooldown > p.Cooldown + 0.002f || (me.Heat > p.Heat + 0.001f && !me.Charging && me.FireHeld))) shots = 1;
         if (shots == 0 && me.Reserve < p.Reserve && me.Clip <= p.Clip) shots = 1;
+        // fx/barrel-origin: a shot the clip, cooldown and heat did not show (a charged shot released from the pending state costs nothing at that moment) is still a fired event of the
+        // prediction: it gets its flash, its tracer or ball origin and its note like any other (before: none of its effects played).
+        if (shots == 0 && _frameOwnEvents.Count(e => e.Events.Fired) is > 0 and var fired && !OldBarrel)
+        {
+            shots = fired;
+            if (BarrelProbe) GD.Print($"barrel-probe: a fired event of {weapon.Name} with no clip, cooldown or heat change: drawn as {shots} shot(s) (clip {p.Clip}->{me.Clip}, heat {p.Heat:F2}->{me.Heat:F2}, charging {me.Charging}, stage {_fxChargeStage})");
+        }
         if (shots <= 0) return;
         shots = Math.Min(shots, 3);
         int stage = _connectedFor - _fxChargeStageAt < 1.0 && !me.Charging ? _fxChargeStage : 0;
         if (stage > 0) { _fxChargeStage = 0; _fxChargeStageAt = double.NegativeInfinity; }
+        if (stage > 0 && !OldBarrel) shots = 1;   // fx/barrel-origin: a charged shot costs several rounds (the plasma gun's 15) but is one shot: one flash, one ball, not three
         int index = Loadouts.WeaponIndex(_config, me, me.Slot);
         _fxOwnShots += shots;
         for (int i = 0; i < shots; i++) FxPlayOwnShot(me, weapon, index, stage, i, shots);
@@ -334,6 +344,8 @@ public partial class NetworkView
         var start = _traceOwnStart;
         if (BulletProbe && hitScan && MuzzleWorld(_client!.PlayerId) is { } muzzle)
             BulletProbeShot("own", _client.PlayerId, weapon.Name, start, dir, end, ToGame(muzzle.Position), RemoteShotOrigin(me), Combat.EyePosition(me, _config!), $"; camera drawn {V(ToGame(_camera!.GlobalPosition))} rebuilt {V(_rebuiltCamera)}, aim blend {_aimBlend:F2}, pitch {me.Pitch:F3} view {_pitch:F3}");
+        if (BarrelProbe && BarrelCanLaunch(weapon)) GD.Print($"barrel-probe: own shot of {weapon.Name} ({weapon.Delivery}), muzzle {(FxPlace(_client!.PlayerId, w.MuzzleMarker) is null ? "none" : "found")} marker '{w.MuzzleMarker}'");
+        if (BarrelCanLaunch(weapon) && FxPlace(_client!.PlayerId, w.MuzzleMarker) is { } ownMuzzle) BarrelNoteShot(_client.PlayerId, index, start, ownMuzzle.Position);   // fx/barrel-origin
         FxShot(_client!.PlayerId, weapon, w, index, stage, endG, hit, surface, normalG, dirG, Combat.EyePosition(me, _config!), own: true, victim, ArmourUpForHit(hit, victim, own: true, OwnHitArmoured(victim)),   // protocol 22: the last hit report on this victim
                hitScan ? ToGodot(start) : null, hitScan ? dirG : null);
     }
@@ -421,6 +433,7 @@ public partial class NetworkView
             if (world.Weapons.Raycast(origin, dir, dist + 0.4f) is { } wall)
                 normalG = DirToGodot(Num.Vector3.Dot(wall.Normal, dir) > 0f ? -wall.Normal : wall.Normal).Normalized();
         }
+        if (BarrelCanLaunch(spec) && shooter.PlayerId == shot.Shooter && FxPlace(shot.Shooter, w.MuzzleMarker) is { } theirMuzzle) BarrelNoteShot(shot.Shooter, shot.Weapon, RemoteShotOrigin(shooter), theirMuzzle.Position);   // fx/barrel-origin
         int victim = shot.Hit is ShotHit.Body or ShotHit.Head ? VictimAt(shot.End, shot.Shooter) : -1;
         FxShot(shot.Shooter, spec, w, shot.Weapon, shot.Stage, endG, shot.Hit, shot.Surface, normalG, dirG, eye, own: false, victim, ArmourUpForHit(shot.Hit, victim, own: false, shot.Armoured),   // protocol 22: the server's armour bit
                rayOrigin, rayDir);
@@ -463,6 +476,7 @@ public partial class NetworkView
         var fallback = FxFallback(eye, dir);
         _fxLastShot[shooter] = (_connectedFor, weaponIndex, false);
         _fxLastShotAt = _connectedFor; _fxLastEnd = end; _fxLastFrom = fallback.Position;
+        if ((FxPlace(shooter, w.MuzzleMarker) ?? fallback) is var camMuzzle && (BarrelCamRemote ? shooter != _client?.PlayerId : shooter == _client?.PlayerId || _barrelCam is null || _connectedFor - _barrelCam.Value.At > 2.0)) _barrelCam = (_connectedFor, camMuzzle.Position, camMuzzle.Axes.Y);   // fx/barrel-origin: --spectate barrel
         var played = _fxPlayedScratch;   // feel/bullets: reused (it was a new set per shot)
         played.Clear();
         float travel = 0f;
@@ -793,7 +807,7 @@ public partial class NetworkView
         _fxLogAt = _connectedFor;
         GD.Print($"t {_connectedFor:F0} s: effects: update avg {_fx.CostSum / _fx.CostFrames:F2} ms, max {_fx.CostMax:F2} ms over {_fx.CostFrames} frames; live {_fx.Live}, quads {_fx.LastQuads} ({_fx.AdditiveQuads} additive, {_fx.AlphaQuads} alpha, dropped {_fx.DroppedTotal}), lights {_fx.LastLights}, decals {_fx.LiveDecals}; " +
                  $"quads a frame avg {(double)_fx.QuadSum / _fx.CostFrames:F0} ({(double)_fx.AlphaQuadSum / _fx.CostFrames:F0} alpha), max {_fx.QuadMax}, smoke {(FxPlayer.ShowSmoke ? "on" : "off")}; " +
-                 $"own shots {_fxOwnShots}, remote shots {_fxRemoteShots}, tracers {_fxTracers} ({BulletStats()}), impacts {_fxImpacts} (on players {_fxBodyImpacts}), detonations {_fxDetonations}, trails {_fxTrails}; {JumpFxLog()}; {MeleeFxLog()}; spawned {_fx.Spawned}, culled {_fx.Culled}; " +
+                 $"own shots {_fxOwnShots}, remote shots {_fxRemoteShots}, tracers {_fxTracers} ({BulletStats()}; {BarrelStats()}), impacts {_fxImpacts} (on players {_fxBodyImpacts}), detonations {_fxDetonations}, trails {_fxTrails}; {JumpFxLog()}; {MeleeFxLog()}; spawned {_fx.Spawned}, culled {_fx.Culled}; " +
                  (_fx.Missing.Count > 0 ? $"missing: {string.Join(", ", _fx.Missing.Take(6))}" : "nothing missing"));
         _fx.CostSum = 0; _fx.CostMax = 0; _fx.CostFrames = 0; _fx.QuadSum = 0; _fx.AlphaQuadSum = 0; _fx.QuadMax = 0;
     }

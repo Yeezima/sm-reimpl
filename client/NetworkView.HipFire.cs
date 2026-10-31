@@ -54,7 +54,7 @@ public partial class NetworkView
     /// <summary>Hysteresis (ours) on the walk/run split (m/s each side) and on the direction sector borders (degrees), against stance flicker.</summary>
     const float HipBandHold = 0.25f, HipDirectionHold = 8f;
     /// <summary>Largest distance (m) between a new projectile and the muzzle area of the player it is attributed to.</summary>
-    const float HipProjectileReach = 8f;
+    const float HipProjectileReach = 12f;   // fx/barrel-origin: 8 m before; the charged plasma pistol ball is first seen 11 m from its shooter (measured), the others 3 to 9 m
     /// <summary>The grenade launcher's recoil clip (not additive in the original) and the weight it is laid over the upper body at (ours).</summary>
     const string GrenadeRecoilClip = "SM_RNG_GL_FireIdle_01";
     const float GrenadeRecoilWeight = 0.5f;
@@ -202,6 +202,7 @@ public partial class NetworkView
             if (best is not { } shooter || shooter.PlayerId == me.PlayerId) continue;   // the own shots come from the prediction
             var track = HipOf(shooter.PlayerId);
             track.ShotAt = track.RecoilAt = now; track.Shots++; _hipProjectileShots++;
+            FxProjectileLaunch(shooter, q);   // fx/barrel-origin: the muzzle effects of another player's projectile shot (no shot record is sent for it)
         }
         // Projectiles already out when the first snapshot arrived have no shooter to find; later ones do.
         if (snapshotSeen) _hipProjectilesInit = true;

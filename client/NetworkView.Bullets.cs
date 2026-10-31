@@ -212,7 +212,7 @@ public partial class NetworkView
 
     // ---- pooled streaks and debug rays: one immediate mesh, rebuilt each frame while something is on ----
 
-    struct Streak { public Vector3 From, Via, To; public float Speed; public double Start; public bool Live, Shown; }
+    struct Streak { public Vector3 From, Via, To; public float Speed; public double Start; public bool Live, Shown; public Color? Tint; }
     struct DebugRay { public bool Own; public Vector3 Origin, End, Muzzle, Join; public bool HasOrigin, HasJoin; public double Start; public bool Live; }
     readonly Streak[] _streaks = new Streak[32];
     readonly DebugRay[] _debugRays = new DebugRay[24];
@@ -222,9 +222,9 @@ public partial class NetworkView
     ImmediateMesh? _bulletMesh;
     int _fallbackStreaks;
 
-    void StreakAdd(Vector3 from, Vector3 via, Vector3 to, float speed)
+    void StreakAdd(Vector3 from, Vector3 via, Vector3 to, float speed, Color? tint = null)
     {
-        _streaks[_streakNext] = new Streak { From = from, Via = via, To = to, Speed = speed, Start = _connectedFor, Live = true };
+        _streaks[_streakNext] = new Streak { From = from, Via = via, To = to, Speed = speed, Start = _connectedFor, Live = true, Tint = tint };
         _streakNext = (_streakNext + 1) % _streaks.Length;
         _fallbackStreaks++;
     }
@@ -278,7 +278,7 @@ public partial class NetworkView
                 float since = (head - tail - legA - legB) / MathF.Max(1f, s.Speed);
                 float glow = OldMuzzleLeg ? 0f : 1f - since / MuzzleLegGlowSeconds;
                 if (glow <= 0f || _connectedFor - s.Start > 2.0) { s.Live = false; continue; }
-                var warm = new Color(1f, 0.82f, 0.4f, 0.9f * glow);
+                var warm = s.Tint is { } gt ? new Color(gt.R, gt.G, gt.B, 0.9f * glow) : new Color(1f, 0.82f, 0.4f, 0.9f * glow);
                 Ribbon(camera, s.From, s.Via, 0.05f, new Color(warm.R, warm.G, warm.B, 0.35f * glow), warm);
                 if (legB > 1e-3f) Ribbon(camera, s.Via, s.To, 0.05f, warm, new Color(warm.R, warm.G, warm.B, 0.35f * glow));
                 continue;
@@ -287,8 +287,10 @@ public partial class NetworkView
             // Head and tail as distances along the path, clipped to it; the bent path is drawn as its two legs.
             float h = MathF.Min(head, legA + legB), t = MathF.Max(0f, head - tail);
             if (!s.Shown) { s.Shown = true; if (head > legA + legB) { h = legA + legB; t = 0f; } }
-            if (t < legA) Ribbon(camera, PointAt(s, t, legA, legB), PointAt(s, MathF.Min(h, legA), legA, legB), 0.05f, new Color(1f, 0.85f, 0.45f, 0.0f), new Color(1f, 0.95f, 0.7f, 1f));
-            if (h > legA) Ribbon(camera, PointAt(s, MathF.Max(t, legA), legA, legB), PointAt(s, h, legA, legB), 0.05f, new Color(1f, 0.85f, 0.45f, 0.0f), new Color(1f, 0.95f, 0.7f, 1f));
+            var cold = s.Tint is { } ct ? new Color(ct.R, ct.G, ct.B, 0f) : new Color(1f, 0.85f, 0.45f, 0.0f);
+            var hot = s.Tint is { } ht ? new Color(ht.Lerp(Colors.White, 0.5f), 1f) : new Color(1f, 0.95f, 0.7f, 1f);
+            if (t < legA) Ribbon(camera, PointAt(s, t, legA, legB), PointAt(s, MathF.Min(h, legA), legA, legB), 0.05f, cold, hot);
+            if (h > legA) Ribbon(camera, PointAt(s, MathF.Max(t, legA), legA, legB), PointAt(s, h, legA, legB), 0.05f, cold, hot);
         }
         for (int i = 0; i < _debugRays.Length; i++)
         {
