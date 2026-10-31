@@ -34,12 +34,12 @@ public sealed partial class World
         n += guards.AppendTargets(_musouTargets.AsSpan(n));
 
         if (playing) MusouPlayerShots();
-        MusouCreditKills();
+        TfwCreditKills();
         _musouAttacks.Clear();
         musou.Step(_musouTargets.AsSpan(0, n), Collision, playing, _musouAttacks);
         foreach (var attack in _musouAttacks) MusouHit(attack);
         guards.Step(playing);
-        MusouCreditKills();
+        TfwCreditKills();
         musou.LastStepMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
     }
 

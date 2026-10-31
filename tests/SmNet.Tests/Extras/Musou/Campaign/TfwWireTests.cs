@@ -36,8 +36,10 @@ public class TfwWireTests(ITestOutputHelper output)
     {
         string? name = null;
         var map = GameServer.GeneratedMap(ContentExtras.Musou, ref name, out _)!;
-        return new Harness(link ?? LinkConditions.Perfect, 5, clients, ConfigFor(ContentExtras.Musou), new ServerOptions { Match = Rules }, map: map,
+        var h = new Harness(link ?? LinkConditions.Perfect, 5, clients, ConfigFor(ContentExtras.Musou), new ServerOptions { Match = Rules }, map: map,
             clientOptions: new ClientOptions { LoadMap = _ => new LoadedMap(map.Collision, map.Hash) });
+        h.Server.World.Tfw!.Idle = true;   // these tests are the queue's and the feed's own (TF4's run would take both)
+        return h;
     }
 
     /// <summary>A war with a director (the box), the war's clock and the given men around the origin.</summary>

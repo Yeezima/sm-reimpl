@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1926 spec table rows: **1349 tagged**, 420 not tagged (read from data with high confidence), 157 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 420 rows of the changes document.
+Scanned 1942 spec table rows: **1365 tagged**, 420 not tagged (read from data with high confidence), 157 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 420 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,23 +50,23 @@ Scanned 1926 spec table rows: **1349 tagged**, 420 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 160 | 145 | 133 | 20 | 1 |
+| Core simulation (provisional values) | 176 | 161 | 145 | 22 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 78 | 72 | 40 | 8 | 0 |
-| **All areas** | **1349** | 1126 | 1083 | 407 | 38 |
+| **All areas** | **1365** | 1142 | 1095 | 409 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 561 |
-| confidence: low | 500 |
+| kind: ours | 575 |
+| confidence: low | 512 |
 | confidence: medium | 466 |
 | kind: interpretation | 330 |
-| notes: ours | 297 |
+| notes: ours | 299 |
 | confidence: none (low) | 117 |
 | kind: provisional | 100 |
-| kind: estimate | 57 |
+| kind: estimate | 59 |
 | kind: user's knowledge | 45 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
@@ -1771,7 +1771,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (160)
+### Core simulation (provisional values) (176)
 
 *Spec section: Provisional values in use*
 
@@ -1912,6 +1912,27 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E10738F6` | Orders with a place | Hold and Attack carry the sender's crosshair point: 3 × i16 in 0.1 m after the frozen 4 bytes, 10 bytes in all, reaching ±3276.7 m; Follow, Deploy and the pickup commands stay 4 bytes (m, B) | kind: ours | ours (the design's positions; the server has no camera to find the point) | Orders with a place: compare with SM1 by feel or video. Ours: Hold and Attack carry the sender's crosshair point: 3 × i16 in 0.1 m… | ☐ |
 | `R-97586DFF` | Command delivery | one command at a time, oldest first; resent every 250 ms until tag 7 echoes it, at least 125 ms between sends, 8 waiting at most; the server takes each sequence once, compared across the 16-bit wrap, and echoes it only once queued (s, commands) | kind: ours | the design's 250 ms and 8 a second; the rest ours | Command delivery: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one command at a time, oldest first; resent every 250 ms until tag 7… | ☐ |
 | `R-1156B9D2` | War sections on a client | a man is dropped 2 s after his last record; 4 records kept a man; tags 8 to 10 held until the director's box, 64 sections at most; a section 300 ticks older than the newest means a restarted server (s, sections, ticks) | kind: ours | ours, as Musou's | War sections on a client: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a man is dropped 2 s after his last record; 4 records kept a man… | ☐ |
+
+*Spec section: Added content: Musou — the Three-Front War: the battle and the run (TF4)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-0EDD4D89` | War reserves | start 5 transport, 4 supplies; a deploy costs 1 transport; an early pickup 1 transport, charged on arrival, free after a win; an emergency extraction 2 supplies; the depot +2 transport, +1 supply; the HQ +1 transport every 600 war s | kind: estimate; confidence: low; notes: ours | the owner's decision (2026-11-01) on the architect's proposal; charged on arrival ours | War reserves: compare with SM1 by feel or video. Ours: start 5 transport, 4 supplies; a deploy costs 1 transport; an early… | ☐ |
+| `R-FC43368B` | War field clearing | a battle's end, by any way, clears the enemies, the Guardsmen, the drops and the players' projectiles, lingering blasts and perk blasts; the enemies have no projectile of their own (hit rolls with tracers); a human who joined after the landing waits in the… | kind: ours | ours | War field clearing: compare with SM1 by feel or video. Ours: a battle's end, by any way, clears the enemies, the Guardsmen, the… | ☐ |
+| `R-C0D18A0C` | War deploy | only in the hub, from inside the Stormbird (not only at the station: the client decides that); 5 s travel, then a fresh life at the landing zone with the waiting Setup and the pistol; a lane at front 3 lands the final assault (s) | kind: ours; confidence: low | the architect's proposal; the Stormbird check ours | War deploy: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: only in the hub, from inside the Stormbird (not only at the station:… | ☐ |
+| `R-C41AD22E` | Battle layout by node | the node fought is the front + 1; even nodes mirror x, lane C turns 90 degrees about the origin | kind: ours; confidence: low | the architect's proposal | Battle layout by node: compare with SM1 by feel or video. Ours: the node fought is the front + 1; even nodes mirror x, lane C turns… | ☐ |
+| `R-39BC08CA` | Position chain | P1, P2, P3 in order: Held, Clearing with any living player (AI Marines too) within 30 m, Securing with its defenders dead and no Ork within 12 m, Secured after 25 s with a Guardsman inside and no Ork; an Ork pauses it; a wiped squad loses 2 % a second and… (m, s) | kind: ours; confidence: low | the architect's proposal; the reserve's order and the human's half rate ours | Position chain: compare with SM1 by feel or video. Ours: P1, P2, P3 in order: Held, Clearing with any living player (AI… | ☐ |
+| `R-2A9FF3C5` | Position defenders | 20 at each position (12 Boyz, 5 Shootas, 3 'Ard Boyz), all spawned at the landing, leashed at aggro 30 m (enemies, m) | kind: ours; confidence: low | the architect's proposal; spawning all three at once ours | Position defenders: compare with SM1 by feel or video. Ours: 20 at each position (12 Boyz, 5 Shootas, 3 'Ard Boyz), all spawned at… | ☐ |
+| `R-C0A83303` | Battle arrivals | every 15 s each active source sends clamp(round(4 x O / 100), 2, 10), seven Boyz in ten, the rest Shootas, on a 5 x 5 grid 1.5 m apart; O as the lane stood at landing; at most 140 alive solo, +40 per extra human; a source stops with its position, the HQ's at… (enemies, s) | kind: ours; confidence: low | the architect's proposal; the mix, the grid and the final's four ours | Battle arrivals: compare with SM1 by feel or video. Ours: every 15 s each active source sends clamp(round(4 x O / 100), 2, 10)… | ☐ |
+| `R-EF698201` | Battle Guardsmen | clamp(round(I / 15), 4, 12) squads, at most 6 in the field, 12 in the final with the final bonus's squads; the rest in reserve, refilled to 6 at each secured position; the living squads move up to the last secured position, then the HQ (squads) | kind: ours; confidence: low | the architect's proposal; the refill and the moving up ours | Battle Guardsmen: compare with SM1 by feel or video. Ours: clamp(round(I / 15), 4, 12) squads, at most 6 in the field, 12 in the… | ☐ |
+| `R-D3D1E46B` | Battle commander | after P3: a Nob at the HQ, 1500 x player scale health, a Nob and five 'Ard Boyz, all leashed at 30 m; the boss bar shows him; his death wins; he has the Warboss's abilities too, his three Waaagh!s bring 20 Boyz each (hit points) | kind: ours; confidence: low | the architect's proposal; the leash and the abilities ours, to check in a playtest | Battle commander: compare with SM1 by feel or video. Ours: after P3: a Nob at the HQ, 1500 x player scale health, a Nob and five… | ☐ |
+| `R-D7A4DE6C` | Boss against squads | the commander and the Warboss count squads as targets; a slam or charge on a squad lands on one man | kind: ours; confidence: low | ours | Boss against squads: compare with SM1 by feel or video. Ours: the commander and the Warboss count squads as targets; a slam or… | ☐ |
+| `R-006B034C` | War pickup | 20 s while the battle goes on, cancelled by the player or any human's death; then to the Stormbird with a fresh life, the field cleared; without a win the battle counts as left; leaving the final assault, by pickup or extraction, counts as 3 positions secured… (s) | kind: ours; confidence: low | the architect's proposal; the final's count ours | War pickup: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 20 s while the battle goes on, cancelled by the player or any human's… | ☐ |
+| `R-AED947D2` | War downed | a dead human's respawn is held; a standing retainer gives 25 s to revive; with nobody fighting and no window open a 3 s prompt, then 2 supplies and the whole team to the Stormbird, the battle left; under 2 supplies the run is lost. After a won battle an… (s, supplies) | kind: estimate; confidence: low; notes: ours | the owner's decision (2026-11-01); several humans ours | War downed: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a dead human's respawn is held; a standing retainer gives 25 s to… | ☐ |
+| `R-7D947923` | War failsafe | an enemy without headway for 8 s, a woken defender with no reachable target among them, goes to the first source still sending; the second time it is removed, nobody's KO and not counted in `orksKilled`; the boss is only moved (s) | kind: ours | the 5-wave run's rule | War failsafe: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: an enemy without headway for 8 s, a woken defender with no reachable… | ☐ |
+| `R-1DDBB6FB` | War final assault | landing on a lane at front 3: the Warboss at the HQ, no positions, the lords of all three lanes unless wounded; his health 4000 x player scale x the final bonus; his death wins the run; the Waaagh!s' Boyz come from the sources | kind: ours; confidence: low | the architect's proposal | War final assault: compare with SM1 by feel or video. Ours: landing on a lane at front 3: the Warboss at the HQ, no positions… | ☐ |
+| `R-36D0FDDF` | War orders | Follow, Hold and Attack count only from a human in a battle; Hold's and Attack's point, the sender's crosshair, is clamped to the arena and is where the retainer holds or goes (no point: Hold where it stands, Attack the active position); a recovered… (m) | kind: ours | ours | War orders: compare with SM1 by measuring on a flat spot of the same map. Ours: Follow, Hold and Attack count only from a human in a battle; Hold's… | ☐ |
+| `R-2922655C` | War end | the run lost: the Chaos side wins, nobody returns; won: the Space Marines; after the rules' restart delay a new run; every human gone: warm-up and a new run (AI Marines do not count) | kind: ours | the architect's proposal | War end: compare with SM1 by feel or video. Ours: the run lost: the Chaos side wins, nobody returns; won: the Space… | ☐ |
 
 *Spec section: Added content: Musou — the Three-Front War: the AI Marines (TF5: `MarineBrain`, `World.TfwPuppets.cs`; not yet brought in by a match: TF4 does)*
 

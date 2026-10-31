@@ -67,6 +67,8 @@ public sealed class Marine(int id, MarineRole role, int owner, TfwLane lane, str
     public string Name { get; } = name;
     /// <summary>The place a Hold order holds.</summary>
     public Vector3 HoldAt { get; set; }
+    /// <summary>Where its player's Attack sent it (null: the battle's active position).</summary>
+    public Vector3? AttackAt { get; set; }
     /// <summary>The enemy it is after (0: none).</summary>
     public ushort Target { get; set; }
     /// <summary>Ticks in a row within reach of the body it revives.</summary>

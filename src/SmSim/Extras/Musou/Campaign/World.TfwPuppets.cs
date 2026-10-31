@@ -105,9 +105,14 @@ public sealed partial class World
     public bool TfwOrderMarines(int player, TfwCommandRecord command)
     {
         if (_tfw is not { } run || !run.Orders.Apply(player, command)) return false;
-        if (run.Orders.Of(player) == MarineOrder.Hold)
-            foreach (var m in run.Marines)
-                if (m.Role == MarineRole.Retainer && m.Owner == player && _players.TryGetValue(m.Id, out var p)) m.HoldAt = p.Position;
+        var order = run.Orders.Of(player);
+        foreach (var m in run.Marines)
+        {
+            if (m.Role != MarineRole.Retainer || m.Owner != player || !_players.TryGetValue(m.Id, out var p)) continue;
+            bool place = command.Point != default;   // the sender's crosshair, clamped by the run; none: where the retainer stands
+            if (order == MarineOrder.Hold) m.HoldAt = place ? command.Point : p.Position;
+            m.AttackAt = order == MarineOrder.Attack && place ? command.Point : null;
+        }
         return true;
     }
 
@@ -174,7 +179,9 @@ public sealed partial class World
         }
         else if (m.Role != MarineRole.Lord && run.RecoveryLeft(recovery) <= 0f)
         {
-            TfwRespawnAt(m.Id, TfwMap.LandingZone, 0f);
+            var landing = run.Battle?.Layout.LandingZone ?? TfwMap.LandingZone;
+            TfwRespawnAt(m.Id, landing, 0f);
+            m.HoldAt = landing;   // its post fell with it
             m.Down = false;
             return;
         }
@@ -231,7 +238,7 @@ public sealed partial class World
         }
 
         bool strikesOnly = Loadouts.Weapon(Config, self, WeaponSlot.Ranged) is null;
-        var goal = MarineBrain.Plan(new MarineSituation(order, self.Position, ownerAt, revive, m.HoldAt, run.ActivePosition, enemyAt, strikesOnly));
+        var goal = MarineBrain.Plan(new MarineSituation(order, self.Position, ownerAt, revive, m.HoldAt, m.AttackAt ?? run.ActivePosition, enemyAt, strikesOnly));
         return MarineBrain.Decide(self, Loadouts.InHand(Config, self), goal, chest, distance, Config.EyeHeight, Tick);
     }
 }

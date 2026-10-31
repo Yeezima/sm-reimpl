@@ -37,6 +37,7 @@ public class MarineBrainTests(ITestOutputHelper output)
         var map = TfwMap.Build();
         var w = new World(Config, map.Collision, map.Spawns) { Rules = Rules };
         Assert.True(w.StartTfw(null));
+        w.Tfw!.Idle = true;   // the Marines alone: these tests set the order, the place and the clock themselves (TF4's run would)
         return w;
     }
 
@@ -456,6 +457,7 @@ public class MarineBrainTests(ITestOutputHelper output)
             var map = TfwMap.Build();
             var w = new World(config, map.Collision, map.Spawns) { Rules = Rules };
             Assert.True(w.StartTfw(null));
+            w.Tfw!.Idle = true;   // the Marines alone: these tests set the order, the place and the clock themselves (TF4's run would)
             w.Spawn(Human, 0);
             for (int k = 0; k < 400 && w.State != MatchState.Playing; k++) Tick(w);
             Assert.Equal(MatchState.Playing, w.State);
@@ -505,6 +507,7 @@ public class MarineBrainTests(ITestOutputHelper output)
         h.Run(TimeSpan.FromSeconds(3));
         var w = h.Server.World;
         var run = w.Tfw!;
+        run.Idle = true;   // the Marines alone
         int human = Assert.Single(h.Server.Players);
         Assert.NotNull(w.TfwSpawnRetainer(human, Lz));
         foreach (var lane in new[] { TfwLane.A, TfwLane.B, TfwLane.C }) Assert.NotNull(w.TfwSpawnLord(lane, Lz + new Vector3((int)lane * 4f - 4f, 0f, 0f)));
