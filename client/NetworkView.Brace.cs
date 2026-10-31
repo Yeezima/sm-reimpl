@@ -169,7 +169,7 @@ public partial class NetworkView
                 if (!character.Stance("brace idle", idle.Down, idle.Forward, idle.Up, pitchT, 1f, BraceBlend)) return false;
                 double since = _connectedFor - HipOf(state.PlayerId).RecoilAt;
                 if (b.FireClip is { } fire && _assets?.Animation(fire) is { } recoil && since >= 0.0 && since < recoil.Animation.Duration)
-                    character.SetPoseLayer(fire, (float)since, 1f, additive: true);
+                    character.SetPoseLayer(fire, (float)since, RecoilWeight(state), additive: true);
                 return true;
             case BracePhase.Exiting:
                 PlaceLocomotion(character, state, own);

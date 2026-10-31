@@ -500,6 +500,7 @@ public partial class NetworkView
                 if (b.UseTerrainMaterial || b.IsFootstep) SurfaceUnder(t, s);
                 var play = PostBinding(b, t.Emitter, own, b.IsFootstep ? "footstep" : "tag");
                 if (play is not null && !b.IsFootstep && b.StopEvent.Length > 0) t.TagStops.Started(b.StopEvent, _connectedFor);   // sound/regen-loop-2: owed when the action ends
+                if (b.IsFootstep && own) HeavyFootfall(s);   // feel/weight-impact (the camera only; the sound above is the data's)
                 if (b.IsFootstep && LogSound("footstep")) LogFootstep(tag, b, t, s, own, play);
                 any = true;
             }

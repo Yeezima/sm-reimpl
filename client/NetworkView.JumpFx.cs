@@ -296,7 +296,8 @@ public partial class NetworkView
         // M45: even cycles a middle jump (Space let go 20 ticks after the press, about 12 m), odd cycles the full jump and its pound.
         uint hold = _jumpTestCycle % 2 == 0 && pack.HoldTiers ? 8u : pack.ReleaseCut && _jumpTestCycle % 2 == 0 ? 20u : full;
         if (k < hold) { buttons = InputButtons.Jump; if (k < 12) my = 1f; }
-        if (k is 48 && _jumpTestCycle % 2 == 1) buttons |= InputButtons.Melee;
+        bool pound = OS.GetCmdlineUserArgs().Contains("--jump-test-pound");   // feel/weight-impact capture aid: the melee press at the full jump's apex, above MinPoundHeight
+        if ((pound ? k is 29 : k is 48) && _jumpTestCycle % 2 == 1) buttons |= InputButtons.Melee;
         if (k is 150) { buttons = InputButtons.Jump; mx = 1f; my = 1f; }
         else if (k is 151) { mx = 1f; my = 1f; }
         else if (k is 190) { buttons = InputButtons.Jump; mx = -1f; my = -1f; }

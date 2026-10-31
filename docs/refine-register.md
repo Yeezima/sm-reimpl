@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1859 spec table rows: **1286 tagged**, 420 not tagged (read from data with high confidence), 153 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 409 rows of the changes document.
+Scanned 1870 spec table rows: **1296 tagged**, 420 not tagged (read from data with high confidence), 154 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 413 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -39,7 +39,7 @@ Scanned 1859 spec table rows: **1286 tagged**, 420 not tagged (read from data wi
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
 | Charge (critical) | 44 | 35 | 37 | 20 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
-| Camera (critical) | 28 | 27 | 17 | 18 | 0 |
+| Camera (critical) | 38 | 37 | 27 | 18 | 0 |
 | HUD and hit feedback (critical) | 56 | 51 | 45 | 10 | 0 |
 | Sound mix (critical) | 56 | 50 | 48 | 10 | 0 |
 | Effects (critical) | 72 | 63 | 62 | 38 | 0 |
@@ -53,15 +53,15 @@ Scanned 1859 spec table rows: **1286 tagged**, 420 not tagged (read from data wi
 | Core simulation (provisional values) | 124 | 109 | 109 | 13 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1286** | 1064 | 1034 | 400 | 38 |
+| **All areas** | **1296** | 1074 | 1044 | 400 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 513 |
+| kind: ours | 523 |
+| confidence: low | 467 |
 | confidence: medium | 460 |
-| confidence: low | 457 |
 | kind: interpretation | 329 |
 | notes: ours | 291 |
 | confidence: none (low) | 117 |
@@ -1071,7 +1071,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C1D7E018` | Not simulated | `min_hit_reaction_time` 1 (read as the flinches' spacing), flinches, the displace kick and slam (`ability_displace_kick`: stagger 5 m over 0.3 s, in the heavy evade and knife files; how a player triggers it is not in the data read), the bull rush… | notes: not reproduced (gap) | — | Not simulated: compare with SM1 by feel or video. Ours: min_hit_reaction_time 1 (read as the flinches' spacing), flinches… | ☐ |
 | `R-8B2013F2` | Client | poses the reaction clip at the reaction's time (remote players at the snapshot's value), the heavy strikes' clips like light attacks; the own view shook 0.35 s on a reaction start (0.012 / 0.03 / 0.022 rad for interrupt / stun / stagger; **off by default… (s, rad) | kind: placeholder; confidence: none (low); notes: ours | ours | Client: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: poses the reaction clip at the reaction's time (remote players at the… | ☐ |
 
-### Camera (gameplay-critical) (28)
+### Camera (gameplay-critical) (38)
 
 *Spec section: Camera, aim mode, shot convergence and hit confirmation (M20; protocol 12)*
 
@@ -1115,6 +1115,21 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-7C0A3F2A` | Body push (spectator, death, rig cameras) | every living player's capsule padded by 0.35 m (radius 0.8 m); each body's push on the camera is a horizontal vector that follows what the body now needs by an exponential rate 12 /s, at most 15 m/s, and decays the same way when out of reach (review fix: the… (m, m/s) | kind: provisional; notes: ours | ours | Body push (spectator, death, rig cameras): compare with SM1 by timing a run over a known distance. Ours: every living player's capsule padded by 0.35 m (radius 0.8 m); each… | ☐ |
 | `R-EE0A6B04` | Fixed and exempt views | `--spectate cam:x,y,z,tx,ty,tz` is placed exactly (no springs, cast, push-out or depenetration: measured matched views for lighting comparisons and recorded footage); `inspect` keeps no distance from bodies; `overview` is not cast | notes: ours | ours | Fixed and exempt views: compare with SM1 with side-by-side screenshots in the same spot. Ours: --spectate cam:x,y,z,tx,ty,tz is placed exactly (no springs, cast… | ☐ |
 | `R-90EA2E09` | Cast start | the spectator and death casts start from the look target moved off any surface within 0.33 m (3 passes of the depenetration rays): a target between two players fighting beside a railing, or inside a wall between them, otherwise starts in collision and the… (m) | kind: provisional; notes: ours | ours | Cast start: compare with SM1 by measuring on a flat spot of the same map. Ours: the spectator and death casts start from the look target moved off… | ☐ |
+
+*Spec section: The weight pass: landing, recoil, flinch, strike entries, camera impulses (feel/weight-impact; client only, not simulated, no protocol or config-hash change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-3CB9B65D` | Landing settle | a rifle-family fall below the hard clip's speed lays a share of the data's landing crouch `SM_ACT_B_button_drop_land_01` on the hard clip's envelope: none under **8 m/s** down (about a 1.6 m drop), **0.3** there, rising to **0.8** at 20 m/s; a moving marine… (m/s, share) | kind: ours; confidence: low | ours (owner's "floaty"); the clip and envelope are the data's | Landing settle: compare with SM1 by timing a run over a known distance. Ours: a rifle-family fall below the hard clip's speed lays a share of the… | ☐ |
+| `R-39231D2E` | Camera impulse | pitch only, on the shaken copy of the camera (the aim is not moved): each kick adds to a target that decays with **0.09 s**, the shown value follows with **0.018 s**, the total held within **2** degrees (s, degrees) | kind: ours; confidence: low | ours | Camera impulse: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: pitch only, on the shaken copy of the camera (the aim is not moved):… | ☐ |
+| `R-916F55DB` | Landing dip | the own camera dips by the fall speed: none under 8 m/s, **0.35** degrees there, **1.2** from 20 m/s up; a jump pack's landing the same by its drop; the data's landing shake is unchanged (degrees) | kind: ours; confidence: low | ours | Landing dip: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the own camera dips by the fall speed: none under 8 m/s, 0.35 degrees… | ☐ |
+| `R-3FA9AACC` | Ground pound dip | the own pound's landing dips the own camera **1.1** degrees on top of the unchanged shake (0.09) (degrees) | kind: ours; confidence: low | ours | Ground pound dip: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the own pound's landing dips the own camera 1.1 degrees on top of the… | ☐ |
+| `R-2A12C60A` | Blast jolt | an explosion dips the own camera up to **0.9** degrees, by the square of 1 - distance / 25 m, on top of the unchanged shake (degrees, m) | kind: ours; confidence: low | ours | Blast jolt: compare with SM1 by measuring on a flat spot of the same map. Ours: an explosion dips the own camera up to 0.9 degrees, by the square of… | ☐ |
+| `R-D0EC11B2` | Heavy weapon camera kick | the own view kicks up per shot: lascannon, plasma cannon **0.7**; melta, grenade launcher **0.45**; plasma gun charged **0.35**; heavy bolter **0.16**; others none; half while aiming. On top of the data's climb and sway, and not part of the aim (degrees) | kind: ours; confidence: low | ours | Heavy weapon camera kick: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the own view kicks up per shot: lascannon, plasma cannon 0.7; melta… | ☐ |
+| `R-AE0E568D` | Body recoil strength | the data's additive recoil clip (and the brace's fire clip) laid at: lascannon, plasma cannon **1.5**; heavy bolter, melta, grenade launcher **1.35**; pistols **1**; others **1.15**; every player seen (multiple) | kind: ours; confidence: low | ours; the clips are the data's | Body recoil strength: compare with SM1 with side-by-side screenshots in the same spot. Ours: the data's additive recoil clip (and the brace's fire clip) laid at:… | ☐ |
+| `R-46B5E705` | Flinch strength | the additive flinch laid at **1.3** for a shot and **1.6** for the own melee hit's victim; its 0.05 s in and 0.333 s out are the owner's and unchanged (multiple) | kind: ours; confidence: low | ours; the clips are the data's | Flinch strength: compare with SM1 by watching the reaction and timing it frame by frame. Ours: the additive flinch laid at 1.3 for a shot and 1.6 for the own melee… | ☐ |
+| `R-C9703C8F` | Strike and reaction entry floor | a melee strike's and a hit reaction's entry fade has a floor of **0.125** s instead of 0.1875 s, so the graphs' 0.1 s and 0.167 s are nearer met; not the charge, the roll, the stomp (a Devastator's or Havoc's heavy strike) or any exit (s) | kind: ours; confidence: low | ours | Strike and reaction entry floor: compare with SM1 by watching the reaction and timing it frame by frame. Ours: a melee strike's and a hit reaction's entry fade has a floor of 0.125… | ☐ |
+| `R-79ECC932` | Heavy footfall | a moving Devastator's or Havoc's own footfall dips the camera **0.05** degrees (**0.09** above 7 m/s); the sound is the data's; the data has no camera footfall (degrees) | kind: ours; confidence: low | ours | Heavy footfall: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a moving Devastator's or Havoc's own footfall dips the camera 0.05… | ☐ |
 
 ### HUD and hit feedback (gameplay-critical) (56)
 
@@ -2563,6 +2578,15 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-0CC01B8C` | Steering a charge off a ledge | A charge held in the air turns with A / D at up to 60 degrees per second (ours) at its held speed, for the Assault, Raptor, Tactical and Chaos Tactical (the owner's requests of 2026-11-01); the Ork's sprint attack does not | The original's air steering of a ledge charge (no data value); the rate | same | Steering a charge off a ledge: compare with SM1 by feel or video. Ours: A charge held in the air turns with A / D at up to 60 degrees per… | ☐ |
 | `C-1766C557` | Rolls and hops falling off a drop show the fall pose | After 0.3 s in the air past their own lift (the charge's delay, ours) | The original's evade-to-fall blend timing | same | Rolls and hops falling off a drop show the fall pose: compare with SM1 by timing a run over a known distance. Ours: After 0.3 s in the air past their own lift (the charge's delay, ours). | ☐ |
 
+#### The weight pass (feel/weight-impact; client only)
+
+| ID | Rule | What we do | What is unknown | Spec section | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-655E78F7` | Landing settle below the hard speed | A fall of 8 to 20 m/s shows 0.3 to 0.8 of the data's landing crouch; the graph lets the legs go with none | Whether the original showed any settle on a softer landing | "The weight pass" | Landing settle below the hard speed: compare with SM1 by feel or video. Ours: A fall of 8 to 20 m/s shows 0.3 to 0.8 of the data's landing crouch… | ☐ |
+| `C-91EA28FD` | Camera impulses | Dips on landings, the own pound and blasts, a kick on heavy-weapon shots, a tiny dip on heavy footfalls, all in the camera's picture only, on top of the data's shake and climb | The original's camera on these events beyond the data's shake | same | Camera impulses: compare with SM1 with an overlaid screenshot taken from the same position. Ours: Dips on landings, the own pound and blasts, a kick on heavy-weapon… | ☐ |
+| `C-01B0AD06` | Stronger recoil and flinch clips | The data's additive clips laid at up to 1.5 (recoil) and 1.6 (melee flinch) | How the original weighted them | same | Stronger recoil and flinch clips: compare with SM1 by watching the reaction and timing it frame by frame. Ours: The data's additive clips laid at up to 1.5 (recoil) and 1.6 (melee… | ☐ |
+| `C-20E6583A` | Strike and reaction entries | Fade floor 0.125 s instead of 0.1875 s, nearer the graphs' blends | The original's blending curve | same | Strike and reaction entries: compare with SM1 by watching the reaction and timing it frame by frame. Ours: Fade floor 0.125 s instead of 0.1875 s, nearer the graphs' blends. | ☐ |
+
 ### Not yet reproduced
 
 | ID | Missing | Note | Compare in a playtest | Result |
@@ -2776,5 +2800,6 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-7B32DDE7` | Protocol 45 | Combat pass: the charge key, holstered reloads, headshots, directional melee, the ledge charge's fall (sim/combat-pass; protocol 45, used by the simulation) |
 | `R-1082D317` | Probe result (`feel/sweep1`, `--no-feel` / this build) | The feel pass: the roll's blending for every action (anim/feel-pass; client only, not simulated, no protocol change) |
 | `R-DB189635` | Wire | Sticky launcher grenades (sim/sticky-launcher; protocol 48, used by the simulation) |
+| `R-3826420A` | Test aids | The weight pass: landing, recoil, flinch, strike entries, camera impulses (feel/weight-impact; client only, not simulated, no protocol or config-hash change) |
 | `R-752D26F1` | Protocol 51 | Movement fixes: the heavy hop down stairs and off ledges, the pound in a full jump, the short hop while falling, steering a ledge charge (sim/movement-fixes; protocol 51, no wire change) |
 
