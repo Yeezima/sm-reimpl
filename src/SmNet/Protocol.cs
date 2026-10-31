@@ -429,7 +429,11 @@ public static partial class Protocol
     //     player's round-trip time as a u16 (ms, 0..999; 65535 not known yet) before its name: 16 to 40 bytes a row (16 rows: at most 640 bytes; the fullest
     //     scoreboard with the Seize Ground layout and four spectators 1145 bytes). The server measures it from snapshot acknowledgements (RttEstimator).
     //     Snapshots unchanged (worst case 1194)
-    public const ushort Version = 50;
+    // 51 (sim/no-fire-while-sprinting; the owner 2026-11-01: "you should not be able to shoot while sprinting"): no wire change. While the sprint is applied on the ground
+    //     (Sprint held, stick forward) the trigger does nothing for every weapon (no shot, charge or raise); the sprint cancels a held charge, a pending charged shot, a raise
+    //     and a burst's later rounds, and the held trigger no longer ends the sprint (M27's rule). Also sim/stomp-uninterruptible (owner 2026-11-01): the heavy classes'
+    //     stomp is ended by no shot or melee press, only by the hop. Snapshots unchanged (worst case 1194)
+    public const ushort Version = 51;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>

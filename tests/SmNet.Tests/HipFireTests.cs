@@ -9,7 +9,7 @@ namespace SmNet.Tests;
 /// <summary>
 /// M27 hip fire (spec/behavior.md "Hip fire"): shooting without the Aim button is as accurate as aimed fire (no scatter,
 /// owner's direction), works on the move at the full fire rate, and a shot ends the sprint (the behaviour graphs have no
-/// sprint-fire state). Synthetic configs only.
+/// sprint-fire state; superseded by protocol 51, sim/no-fire-while-sprinting: the sprint blocks the trigger, NoFireWhileSprintingTests). Synthetic configs only.
 /// </summary>
 public class HipFireTests(ITestOutputHelper output)
 {
@@ -49,26 +49,29 @@ public class HipFireTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Sprint_with_the_trigger_held_moves_at_run_speed_and_fires()
+    public void Superseded_by_protocol_51_sprint_with_the_trigger_held_sprints_and_fires_nothing()
     {
+        // M27 had the held trigger end the sprint (run speed, firing); sim/no-fire-while-sprinting (protocol 51, the owner 2026-11-01): the sprint blocks the trigger.
         var (state, shots) = Hold(Speeds, InputButtons.Sprint | InputButtons.Fire, 60);
-        Assert.Equal(6.5f, Speed(state), 1e-3f);   // not the sprint speed
-        Assert.True(shots >= 14);
-        // The same input without the trigger sprints.
-        Assert.Equal(10f, Speed(Hold(Speeds, InputButtons.Sprint, 60).State), 1e-3f);
+        Assert.Equal(10f, Speed(state), 1e-3f);
+        Assert.Equal(0, shots);
+        // The same trigger without Sprint fires on the move.
+        Assert.True(Hold(Speeds, InputButtons.Fire, 60).Shots >= 14);
     }
 
     [Fact]
-    public void Sprint_resumes_when_the_trigger_is_released_and_a_semi_auto_hold_does_not_flicker()
+    public void Firing_resumes_when_the_sprint_is_let_go_and_an_empty_clip_trigger_starts_no_reload_while_sprinting()
     {
         var (state, _) = Hold(Speeds, InputButtons.Sprint | InputButtons.Fire, 30);
-        Assert.Equal(6.5f, Speed(state), 1e-3f);
-        var (after, shots) = Hold(Speeds, InputButtons.Sprint, 40, state, 31);
-        Assert.Equal(0, shots);
-        Assert.Equal(10f, Speed(after), 1e-3f);
-        // A trigger held with the clip empty (reload) is still "shooting": the sprint stays off while the trigger is down.
-        var dry = Fresh(Speeds) with { Clip = 0 };
-        Assert.Equal(6.5f, Speed(Hold(Speeds, InputButtons.Sprint | InputButtons.Fire, 30, dry).State), 1e-3f);
+        Assert.Equal(10f, Speed(state), 1e-3f);
+        var (after, shots) = Hold(Speeds, InputButtons.Fire, 40, state, 31);
+        Assert.True(shots >= 8);
+        Assert.Equal(6.5f, Speed(after), 1e-3f);
+        // A trigger held with the clip empty while sprinting asks for nothing (the trigger is ignored); Reload still reloads.
+        var dry = Fresh(Speeds) with { Clip = 0, Reserve = 30 };
+        var (dryState, _) = Hold(Speeds, InputButtons.Sprint | InputButtons.Fire, 30, dry);
+        Assert.Equal(10f, Speed(dryState), 1e-3f);
+        Assert.Equal(0f, dryState.ReloadLeft);
     }
 
     [Fact]
@@ -154,8 +157,9 @@ public class HipFireTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void A_charge_held_with_sprint_and_its_delayed_shot_after_release_run_at_run_speed_then_the_sprint_returns()
+    public void Superseded_by_protocol_51_fire_held_while_sprinting_starts_no_charge_and_the_sprint_goes_on()
     {
+        // M31 let Fire held during a sprint charge the plasma gun at run speed and fire on the release; sim/no-fire-while-sprinting (protocol 51): no charge, no shot.
         var c = Armed(new SimConfig
         {
             Weapons = [ChargeTests.PlasmaGun], Classes = [new ClassLoadout("test - plasma", 0, -1, [])], HealthMax = 1e6f,
@@ -164,23 +168,22 @@ public class HipFireTests(ITestOutputHelper output)
         uint tick = 1;
         for (; tick <= 40; tick++) s = Combat.StepSelf(s, new PlayerInput(tick, 0, 1f, 0f, InputButtons.Sprint), c, out _);
         Assert.Equal(10f, Speed(s), 1e-3f);
-        // Fire held charges the plasma gun (M31); the heavy stage needs 1.1 s (33 ticks); Sprint stays held throughout.
+        int shots = 0;
         for (int k = 0; k < 45; k++, tick++)
         {
-            s = Combat.StepSelf(s, new PlayerInput(tick, 0, 1f, 0f, InputButtons.Sprint | InputButtons.Fire), c, out _);
-            Assert.True(s.Charging);
-            if (k >= 8) Assert.Equal(6.5f, Speed(s), 1e-3f);   // run speed (the charge's own multiplier is 1), not sprint
+            s = Combat.StepSelf(s, new PlayerInput(tick, 0, 1f, 0f, InputButtons.Sprint | InputButtons.Fire), c, out bool f);
+            if (f) shots++;
+            Assert.False(s.Charging);
+            Assert.Equal(10f, Speed(s), 1e-3f);
         }
-        // Release with Sprint still held: the shot comes after its delay (pending); while it is pending the sprint is still off.
-        int pendingTicks = 0, shots = 0;
-        for (int k = 0; k < 90; k++, tick++)
+        // Released with Sprint still held: nothing.
+        for (int k = 0; k < 30; k++, tick++)
         {
             s = Combat.StepSelf(s, new PlayerInput(tick, 0, 1f, 0f, InputButtons.Sprint), c, out bool f);
             if (f) shots++;
-            if (s.PendingShot > 0) { pendingTicks++; Assert.True(Speed(s) < 6.5f + 1e-3f, $"pending shot at {Speed(s)} m/s"); }
+            Assert.Equal(0, s.PendingShot);
         }
-        Assert.Equal(0, pendingTicks);   // sim/instant-fire: the shot leaves on the release tick, nothing stays pending
-        Assert.True(shots >= 1);
+        Assert.Equal(0, shots);
         Assert.Equal(10f, Speed(s), 1e-3f);
     }
 
@@ -303,7 +306,7 @@ public class HipFireTests(ITestOutputHelper output)
         var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true), c);
         uint tick = 1;
         for (; tick <= 15; tick++) s = Combat.StepSelf(s, new PlayerInput(tick, 0f, 1f, 0f, held), c, out _);
-        Assert.Equal((held & InputButtons.Sprint) != 0 && (held & InputButtons.Fire) == 0 ? c.SprintSpeed : c.RunSpeed, Speed(s), 1e-3f);
+        Assert.Equal((held & InputButtons.Sprint) != 0 ? c.SprintSpeed : c.RunSpeed, Speed(s), 1e-3f);   // protocol 51: the held trigger no longer ends the sprint
         s = Combat.StepSelf(s, new PlayerInput(tick++, 0f, 1f, 0f, held | InputButtons.MeleeHeavy), c, out bool firedOnPress);
         Assert.False(firedOnPress);
         if (charges) Assert.Equal((RushPhase.Rush, 0), (s.Rush, s.MeleeStep));

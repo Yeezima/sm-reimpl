@@ -399,7 +399,7 @@ public class MeleeTests(ITestOutputHelper output)
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(5, 4, 1, [p, q], Self: 3))));
         Assert.Equal(new[] { p, Protocol.Slim(q) }, back.Players);
         Assert.Equal((2, 0.3f), (back.Players[0].MeleeStep, back.Players[0].MeleeTime));
-        Assert.Equal(50, Protocol.Version);
+        Assert.Equal(51, Protocol.Version);
         var bytes = Protocol.Write(new Snapshot(5, 4, 1, [p], Self: 3));
         // The own record's melee flag byte (4 reaction bytes follow since protocol 17, then the match block, kill count, point
         // count, hit block and shot count): a heavy buffered press (128) without a buffered press (1) is refused (64 is the heavy held flag).
