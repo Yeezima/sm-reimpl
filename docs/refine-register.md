@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1794 spec table rows: **1237 tagged**, 406 not tagged (read from data with high confidence), 151 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 390 rows of the changes document.
+Scanned 1797 spec table rows: **1240 tagged**, 406 not tagged (read from data with high confidence), 151 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 390 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,17 +50,17 @@ Scanned 1794 spec table rows: **1237 tagged**, 406 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 117 | 102 | 102 | 13 | 1 |
+| Core simulation (provisional values) | 120 | 105 | 105 | 13 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1237** | 1021 | 992 | 392 | 38 |
+| **All areas** | **1240** | 1024 | 995 | 392 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 478 |
-| confidence: low | 439 |
+| kind: ours | 481 |
+| confidence: low | 442 |
 | confidence: medium | 438 |
 | kind: interpretation | 321 |
 | notes: ours | 288 |
@@ -1633,7 +1633,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (117)
+### Core simulation (provisional values) (120)
 
 *Spec section: Provisional values in use*
 
@@ -1723,6 +1723,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-7396A782` | Musou lives | a shared pool of 3, plus 2 per player beyond the most seen; a respawn spends one; with none left the dead wait; every player dead with none left loses (Chaos); the Warboss's death wins (lives) | kind: ours; confidence: low | the lead's design | Musou lives: compare with SM1 by feel or video. Ours: a shared pool of 3, plus 2 per player beyond the most seen; a respawn… | ☐ |
 | `R-763C55D4` | Musou spawns and loadout | every player spawns and respawns in the Space Marine start area (the owner, 2026-10-31); every life starts with the class's default pistol only: no primary, grenades or special melee (the owner: "the player starts with a bolt pistol only"); basic melee… | confidence: medium; notes: ours | the owner (2026-10-31); the rest ours | Musou spawns and loadout: compare with SM1 by feel or video. Ours: every player spawns and respawns in the Space Marine start area (the… | ☐ |
 | `R-93DCACD0` | Musou score | KOs to the scoreboard, points per type with a chain multiplier (+0.2 per KO within 2 s, up to × 3); the Space Marines' team score is the KOs; neither the host's score limit nor its time limit ends a Musou match | kind: ours; confidence: low | the lead's design | Musou score: compare with SM1 by feel or video. Ours: KOs to the scoreboard, points per type with a chain multiplier (+0.2… | ☐ |
+| `R-C51713F0` | Musou player hits on enemies | rays: the nearest enemy (a cylinder of its radius plus a head sphere 0.22 × height / 1.9) takes the carried weapon's damage with its fall-off and head multiplier, and the tracer ends on it; cones: coverage (21 samples) × the cone multiplier with line of… | kind: ours; confidence: low | the lead's design (MU3) | Musou player hits on enemies: compare with SM1 by feel or video. Ours: rays: the nearest enemy (a cylinder of its radius plus a head sphere… | ☐ |
+| `R-A292D7C6` | Musou cleave | Musou only: every enemy within the melee range + 0.5 m and 1.5 × the melee cone, with line of sight, up to 8 nearest, takes the step's full damage (× the health multiplier and melee stims); a heavy step (heavy strike, stun or stagger reaction, stomp) staggers… (m, °) | kind: ours; confidence: low | the owner ("melee cleave hitting many enemies"); the numbers ours | Musou cleave: compare with SM1 with an overlaid screenshot taken from the same position. Ours: Musou only: every enemy within the melee range + 0.5 m and 1.5 × the… | ☐ |
+| `R-E70F52E2` | Musou Warboss abilities | Ground slam: a player within 4 m, 0.8 s telegraph, 40 dmg within 6 m with a stagger, 10 s cooldown; Charge: a player at 6–15 m, 1 s wind-up, 15 m at 12 m/s, 1.5 m wide, 50 dmg and a 3 m knockback, 12 s cooldown; Waaagh! at 75, 50 and 25 % health: 20 Boyz… (s, m, dmg) | kind: ours; confidence: low | the lead's design; the owner ("a few special abilities") | Musou Warboss abilities: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Ground slam: a player within 4 m, 0.8 s telegraph, 40 dmg within 6 m… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 

@@ -100,8 +100,26 @@ public sealed class MusouDirector
         Wave = 0; Scale = 1f; WaveTotal = 0; Released = 0; Killed = 0; MaxAlive = 0; BreakTicksLeft = 0;
         Lives = 0; PlayersCounted = 0; BossId = 0; BossMaxHealth = 0f; Kos = 0;
         _gateCursor = 0; _spawned = 0;
+        _summons = 0;
         _scores.Clear();
         Relocated = 0; Removed = 0;
+    }
+
+    int _summons;
+    MusouEnemyType _summonType;
+
+    /// <summary>Enemies a summon (the Warboss's Waaagh!) has yet to release.</summary>
+    public int Summons => _summons;
+
+    /// <summary>
+    /// MU3, the Warboss's Waaagh!: <paramref name="count"/> more enemies of <paramref name="type"/> come through the gates during the boss (as a wave's: at most
+    /// <see cref="MusouRules.ReleasesPerTick"/> a tick, under the hard cap); each counts into the wave's enemies when it is released.
+    /// </summary>
+    public void Summon(MusouEnemyType type, int count)
+    {
+        if (count <= 0 || Phase != MusouPhase.Boss) return;
+        _summonType = type;
+        _summons += count;
     }
 
     /// <summary>Play begins with <paramref name="players"/> players: the lives pool and the first wave.</summary>
@@ -188,6 +206,14 @@ public sealed class MusouDirector
                 }
                 break;
             }
+            case MusouPhase.Boss:
+                // MU3: the Waaagh!'s summons.
+                for (int k = 0; !Hold && k < _rules.ReleasesPerTick && _summons > 0 && _sim.Alive < Math.Min(_rules.HardCap, MusouSim.Capacity); k++)
+                {
+                    if (SpawnAtGate(_summonType, _rules.Of(_summonType).Health, targets) == 0) break;
+                    _summons--; WaveTotal++; Released++;
+                }
+                break;
             case MusouPhase.Break:
                 if (Hold) break;
                 if (--BreakTicksLeft <= 0) { BreakTicksLeft = 0; BeginWave(Wave + 1, players); change |= MusouDirectorChange.WaveStarted; }
@@ -347,7 +373,7 @@ public sealed class MusouDirector
         int left = Phase switch
         {
             MusouPhase.Wave => WaveTotal - Killed,
-            MusouPhase.Boss => Math.Max(0, WaveTotal - Killed) + (bossHealth > 0f ? 1 : 0),
+            MusouPhase.Boss => Math.Max(0, WaveTotal - Killed) + _summons + (bossHealth > 0f ? 1 : 0),   // MU3: summons still to come count
             _ => 0,
         };
         return new MusouDirectorView((byte)Math.Clamp(Wave, 0, 255), (byte)Math.Clamp(Waves, 0, 255), Phase, (ushort)Math.Clamp(BreakTicksLeft, 0, ushort.MaxValue),
