@@ -63,6 +63,18 @@ static class SelfUpdate
         Process.Start(psi)?.Dispose();
     }
 
+    /// <summary>
+    /// Hands over to another launcher (<see cref="LauncherHandoff"/>): starts it with the same arguments plus the loop guard. True when it started; the caller
+    /// then exits.
+    /// </summary>
+    public static bool StartInstalled(string exe, IEnumerable<string> args)
+    {
+        var psi = new ProcessStartInfo(exe) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(exe)! };
+        foreach (var a in LauncherHandoff.ArgumentsFor(args)) psi.ArgumentList.Add(a);
+        using var p = Process.Start(psi);
+        return p is not null;
+    }
+
     /// <summary>The helper (the --install-self command): its request from the command line, run by <see cref="SelfUpdateHelper.Run"/>.</summary>
     public static int RunHelper(Args a, Action<string> log)
     {
