@@ -87,9 +87,11 @@ public static class OwnerBalance
         float cooldown = OrkBalance.EffectiveCooldown(w.ShotCooldown, tickSeconds);
         int rounds = w.Bursts ? w.BurstLength : 1;   // a burst's later rounds share the first's cooldown (Combat.StepPlayer)
         float burstRaw = cooldown > 0f ? rounds * raw / cooldown : 0f;
-        int pulls = (w.ClipSize + rounds - 1) / rounds;
+        int ammo = Math.Max(1, w.AmmoPerShot);   // sim/stormbolter-ammo: the storm bolter spends 2 rounds a shot
+        int shots = (w.ClipSize + ammo - 1) / ammo;
+        int pulls = (shots + rounds - 1) / rounds;
         float clipTime = pulls * cooldown + w.ReloadTime;
-        float sustainedRaw = clipTime > 0f ? w.ClipSize * raw / clipTime : 0f;
+        float sustainedRaw = clipTime > 0f ? shots * raw / clipTime : 0f;
         // Against a full marine: raw damage to kill = shield / shield multiplier + health / body multiplier (Combat.ApplyDamage; a shield
         // multiplier of 0 never touches the shield, so only health counts).
         float needed = (w.ShieldBodyMultiplier > 0f && shield > 0f ? shield / w.ShieldBodyMultiplier : 0f)
