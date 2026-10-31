@@ -8,8 +8,7 @@ namespace SmSim;
 /// The Three-Front War in the World (TF0: the contract and stubs; the owner's decision of 2026-11-01: Musou mode is this war). <see cref="World.Musou"/> and its pool run a war
 /// too; <see cref="_tfw"/>, set only by <see cref="StartTfw"/>, sends the World's Musou hooks here instead of the 5-wave director, which stays reachable as a test aid
 /// (<c>--map mp_tdm_09</c>). Without a war every method here returns at once and the Skirmish replay is unchanged (<c>MusouSkirmishPinTests</c>).
-/// INTEGRATION (TF5): <c>TfwRetainerUp</c> lives in <c>TfwMarineSeam.cs</c> until then; its real body is
-/// <c>_tfw!.RetainerOf(id) is { } m &amp;&amp; _players.TryGetValue(m.Id, out var p) &amp;&amp; p.Alive</c>.
+/// /// <c>_tfw!.RetainerOf(id) is { } m &amp;&amp; _players.TryGetValue(m.Id, out var p) &amp;&amp; p.Alive</c>.
 /// </summary>
 public sealed partial class World
 {
@@ -133,6 +132,9 @@ public sealed partial class World
         TfwDismissMarines();
         _musouBoss = null;
     }
+
+    /// <summary>Whether <paramref name="id"/>'s retainer stands and can revive it.</summary>
+    internal bool TfwRetainerUp(int id) => _tfw!.RetainerOf(id) is { } m && _players.TryGetValue(m.Id, out var p) && p.Alive;
 
     /// <summary>A dead player waits (the core's timer would bring it back in the Stormbird).</summary>
     internal void TfwHoldRespawn(int id)

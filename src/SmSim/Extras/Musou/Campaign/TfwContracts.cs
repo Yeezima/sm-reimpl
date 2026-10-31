@@ -92,6 +92,6 @@ public sealed partial class TfwRun
     /// <summary>The AI Marines' inputs (TF5's MarineBrain): the input for a puppet this tick; null: it stands still.</summary>
     public Func<int, PlayerState, PlayerInput>? PuppetBrain { get; set; }
 
-    /// <summary>An AI Marine's scoreboard name ("" for any other id). A placeholder until TF5 names the lords and retainers.</summary>
-    public string PuppetName(int id) => TfwContracts.IsPuppet(id) ? $"Marine {id - TfwContracts.PuppetIdFirst + 1}" : "";
+    /// <summary>An AI Marine's scoreboard name ("" for any other id; TF5's roster, MarineBrain.cs).</summary>
+    public string PuppetName(int id) => TfwContracts.IsPuppet(id) ? MarineName(id) : "";
 }

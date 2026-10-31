@@ -75,6 +75,48 @@ public class TfwRunTests
     }
 
     [Fact]
+    public void Hold_and_attack_take_the_clamped_point_a_retainer_stands_after_a_deploy_and_leaves_with_the_battle()
+    {
+        var w = TfwRig.War();
+        var run = w.Tfw!;
+        run.RetainerUp = null;
+        TfwRig.Deploy(w);
+        var retainer = Assert.IsType<Marine>(run.RetainerOf(Human));
+        run.Enqueue(Human, new TfwCommandRecord(1, TfwCommand.Hold, 0, new Vector3(3277f, 10f, 0f)));
+        TfwRig.Steps(w, 1);
+        Assert.Equal(new Vector3(TfwMap.ArenaHalf, 10f, 0f), retainer.HoldAt);
+        run.Enqueue(Human, new TfwCommandRecord(2, TfwCommand.Attack, 0, new Vector3(5f, -3277f, 0f)));
+        TfwRig.Steps(w, 1);
+        Assert.Equal(new Vector3(5f, -TfwMap.ArenaHalf, 0f), retainer.AttackAt);
+        run.Enqueue(Human, new TfwCommandRecord(3, TfwCommand.Follow, 0));
+        TfwRig.Steps(w, 1);
+        Assert.Null(retainer.AttackAt);
+        Assert.True(w.TfwKillForTests(Human));                               // the real retainer: a window opens, the respawn is held
+        TfwRig.Steps(w, 2);
+        Assert.True(run.ReviveWanted(Human));
+        var body = w.Players[Human].Position;
+        for (int t = 0; t < 25 * 30 && !w.Players[Human].Alive; t++) w.Step(_ => default);
+        Assert.True(w.Players[Human].Alive, "the retainer came and revived");
+        Assert.Equal(body.X, w.Players[Human].Position.X, 2);                // where it fell, not in the Stormbird
+        Assert.Equal(4, run.Supplies);
+        TfwRig.Steps(w, 2);
+        Assert.False(run.ReviveWanted(Human));
+    }
+
+    [Fact]
+    public void The_last_human_leaving_takes_the_marines_with_it()
+    {
+        var w = TfwRig.War();
+        TfwRig.Deploy(w);
+        Assert.NotEmpty(w.Tfw!.Marines);                                     // a retainer and the lane's lord with his own
+        w.Remove(Human);
+        TfwRig.Steps(w, 2);
+        Assert.Equal(MatchState.Warmup, w.State);
+        Assert.Empty(w.Tfw.Marines);
+        Assert.Empty(w.Players);
+    }
+
+    [Fact]
     public void A_flood_of_deploys_is_drained_each_tick_and_starves_no_order()
     {
         var w = TfwRig.War();
@@ -275,6 +317,7 @@ public class TfwRunTests
         var run = w.Tfw!;
         run.RetainerUp = _ => true;
         TfwRig.Deploy(w);
+        w.TfwDismissMarines();                                               // a stand-in that never comes: the window alone
         Assert.True(w.TfwKillForTests(Human));
         TfwRig.Steps(w, 2);
         Assert.True(run.ReviveWanted(Human));

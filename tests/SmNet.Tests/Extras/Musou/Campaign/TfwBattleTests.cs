@@ -25,6 +25,7 @@ internal static class TfwRig
         var map = TfwMap.Build();
         var w = new World(Config, map.Collision, TfwMap.Spawns) { Rules = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2, RestartDelay = 2f }, StartAreas = TfwMap.StartAreas };
         Assert.True(w.StartTfw(nav));
+        w.Tfw!.RetainerUp = _ => false;   // the tests of the extraction; those of the revive set their own
         w.Spawn(Human, w.AssignClass(0));
         Steps(w, 30);
         Assert.Equal(MatchState.Playing, w.State);
