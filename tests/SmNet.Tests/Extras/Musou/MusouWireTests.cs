@@ -133,6 +133,16 @@ public class MusouWireTests
         Assert.Null(MusouWire.ReadDirector(badPhase));
         var nan = (byte[])dir.Clone(); BitConverter.TryWriteBytes(nan.AsSpan(20), float.NaN);
         Assert.Null(MusouWire.ReadDirector(nan));
+
+        // MU2: an id twice, an id beyond the pool, an inverted, flat or huge box.
+        var twice = MusouWire.WriteEntities([new MusouEntity(4, Vector3.Zero, 0f, MusouEnemyType.Boy, MusouEnemyState.Seek), new MusouEntity(4, Vector3.One, 0f, MusouEnemyType.Boy, MusouEnemyState.Seek)], Box);
+        Assert.Null(MusouWire.ReadEntities(twice, Box));
+        var beyond = MusouWire.WriteEntities([new MusouEntity(MusouSim.Capacity + 1, Vector3.Zero, 0f, MusouEnemyType.Boy, MusouEnemyState.Seek)], Box);
+        Assert.Null(MusouWire.ReadEntities(beyond, Box));
+        var d = new MusouDirectorView(1, 5, MusouPhase.Wave, 0, 80, 80, 0, 0f, 0f, 3, Box);
+        Assert.Null(MusouWire.ReadDirector(MusouWire.WriteDirector(d with { Box = new MusouBox(Box.Max, Box.Min) })));
+        Assert.Null(MusouWire.ReadDirector(MusouWire.WriteDirector(d with { Box = new MusouBox(Vector3.Zero, new Vector3(10f, 10f, 0f)) })));
+        Assert.Null(MusouWire.ReadDirector(MusouWire.WriteDirector(d with { Box = new MusouBox(new Vector3(-3e38f), new Vector3(3e38f)) })));
     }
 
     [Theory]
