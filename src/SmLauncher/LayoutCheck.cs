@@ -65,6 +65,9 @@ static class LayoutCheck
             if (order.Count == 0 || !order[0].StartsWith("Button[PLAY", StringComparison.Ordinal)) { Console.WriteLine("tab order: FAILED, PLAY is not first"); failures++; }
             form.Close();
         }
+        // the repaint check (the live window against a full repaint after state changes, with the safe-mode box's row): at 100, 150 and 200 %
+        foreach (string sc in new[] { "1", "1.5", "2" })
+            if (RowCheck.Run(Path.Combine(folder, "repaint-" + sc), sc == "1" ? null : sc, initialize: false) != 0) failures++;
         Theme.SimScale = 1.0;
         Console.WriteLine(failures == 0 ? $"layout check: ok ({shots} states, no overlaps, nothing outside its container)" : $"layout check: FAILED ({failures} of {shots} states)");
         return failures == 0 ? 0 : 1;
