@@ -71,7 +71,7 @@ public partial class NetworkView
     float MouseLook => SmClient.Customizer.Model.MouseSensitivity.Look(_mouseScale);
     float _mouseScale = 1f;                // speed_mouse / 100 of the current camera
     float _pitchMin = -MaxPitchDown, _pitchMax = MaxPitchUp;
-    float _rigFraction = 1f;               // how much of the way from the pivot to the wanted eye the camera is (wall pull-in, smoothed outward)
+    readonly CameraBoom _rigFraction = new();   // how much of the way from the pivot to the wanted eye the camera is (wall pull-in, smoothed outward)
     bool _rigLogged;
     // Last hit report (TakeHits), for the aimed enemy's health bar.
     int _lastVictim = -1;
@@ -281,21 +281,24 @@ public partial class NetworkView
         }
         _aheadFrom.Clear(); _aheadTo.Clear();
         for (int i = 0; i < ahead; i++) { _aheadFrom.Add(_aheadHead[i]); _aheadTo.Add(_aheadPivot[i]); }
-        pivotWorld = DampFraction(ref _rigFractionA, _cameraPlaced, head, pivotWorld, delta, _aheadFrom, _aheadTo);
+        pivotWorld = DampFraction(_rigFractionA, _cameraPlaced, head, pivotWorld, delta, _aheadFrom, _aheadTo);
         _aheadFrom.Clear(); _aheadTo.Clear();
         for (int i = 0; i < ahead; i++)
         {
-            _aheadFrom.Add(_aheadHead[i] + (_aheadPivot[i] - _aheadHead[i]) * _rigFractionA);
+            _aheadFrom.Add(_aheadHead[i] + (_aheadPivot[i] - _aheadHead[i]) * _rigFractionA.Fraction);
             _aheadTo.Add(_aheadEye[i]);
         }
-        var damped = DampFraction(ref _rigFraction, _cameraPlaced, pivotWorld, wanted, delta, _aheadFrom, _aheadTo);
+        var damped = DampFraction(_rigFraction, _cameraPlaced, pivotWorld, wanted, delta, _aheadFrom, _aheadTo);
         var position = Depenetrate(ClearOfBodies(damped, me, includeOwn: false, pivotWorld, delta));   // an enemy in melee range is not in the lens
         _cameraPlaced = true;
 
         var aimGame = Combat.AimDirection(_yaw, pitch);
         var look = (_gameSpace.Basis * new Vector3(aimGame.X, aimGame.Y, aimGame.Z)).Normalized();
+        // camera/hop-and-walls: the crosshair stays on the world point the uncollided rig camera looks at while the boom is short (CameraBoom.StableLook, NetworkView.CameraAim.cs).
+        var focusPoint = RigFocusPoint(wanted, look, head, delta);
+        if (!OldCameraCollision) look = StableLook(wanted, position, look);
         _camera.GlobalTransform = new Transform3D(Basis.LookingAt(look, Vector3.Up), position);
-        CameraTestNote(me, position, wanted, look, 0f);   // --camera-test (NetworkView.CameraTest.cs)
+        CameraTestNote(me, position, wanted, look, (focusPoint - position).Cross(look).Length());   // --camera-test (NetworkView.CameraTest.cs)
         NoteCameraPlaced(_yaw, pitch, me.Position);   // feel/controls: the view the converged shot's ray is turned from (FreshCenterRay)
         _camera.Fov = fov;
         var feet = _gameSpace.Transform * new Vector3(me.Position.X, me.Position.Y, me.Position.Z);

@@ -10,14 +10,13 @@ namespace SmClient;
 /// <summary>
 /// M40-T6: cameras that never clip or cut. Everything the follow, death and spectator cameras share:
 /// <list type="bullet">
-/// <item><b>Sphere cast</b> (<see cref="CastClear"/>): a camera is a sphere, not a ray. The cast sends the centre ray and a ring
-/// of eight parallel rays (offset by the radius, perpendicular to the cast) through both collision meshes (the shots' and the
+/// <item><b>Sphere cast</b> (<see cref="CastClear"/>): a camera is a sphere, not a ray. The cast sweeps a sphere
+/// (<see cref="StaticMesh.SweepSphere"/>; camera/hop-and-walls, before it a centre ray and a ring of eight parallel rays) through both collision meshes (the shots' and the
 /// characters' layer), so a wall at a glancing angle, a railing or a ceiling edge beside the path stops the camera at the
 /// right distance. Two radii: the <i>soft</i> one (<see cref="CameraSoftRadius"/>) is what the camera tries to keep, the
 /// <i>hard</i> one (<see cref="CameraHardRadius"/>, the near plane's frustum corner distance with a margin) is never violated.</item>
-/// <item><b>Damped pull-in</b> (<see cref="DampFraction"/>): the camera's place on its cast is a fraction that moves toward the
-/// soft cast's free fraction fast (<see cref="CameraPullRate"/>, capped at <see cref="CameraPullMaxSpeed"/>) but continuously, and
-/// back out slowly (<see cref="CameraReleaseRate"/>); the hard cast then clamps it. <b>The hard clamp is the one place a pull-in is
+/// <item><b>Damped pull-in</b> (<see cref="DampFraction"/>, <see cref="SmNet.CameraBoom"/>): the camera's place on its cast is a fraction that moves toward the
+/// soft cast's free fraction fast but continuously, and back out slowly after a hold and only for a real gain; the hard cast then clamps it. <b>The hard clamp is the one place a pull-in is
 /// instantaneous</b>: a wall the lookahead did not foresee (a corner crossing the camera's line as the view turns, a ceiling met
 /// in a flight, a player's own sudden turn) is met by the hard cast the frame it reaches the camera, and then the camera moves by
 /// whatever lies between its smoothed place and the wall, up to the leg's length (a few metres) in one frame. The lookahead
@@ -53,16 +52,19 @@ public partial class NetworkView
     static readonly float[] SpectateLookAheadSeconds = [0.2f, 0.5f, 1.0f];
     const float BodyKeepOut = 0.35f;              // m kept clear of a player's capsule by spectator and death cameras (ours)
 
+    /// <summary><c>--old-camera-collision</c> (test aid, camera/hop-and-walls): every follow camera's M40-T6 behaviour: the ring of rays, no release hold or margin, no aim correction.</summary>
+    static readonly bool OldCameraCollision = CmdFlag("old-camera-collision");
+
     bool? _spectateCuts;
     /// <summary><c>--spectate-cuts</c> (capture aid, read from the command line): spectator views jump to their raw pose instead of blending.</summary>
     bool SpectateCuts => _spectateCuts ??= OS.GetCmdlineUserArgs().Contains("--spectate-cuts");
 
     // Spectator state.
     Vector3 _specEye, _specTarget, _specOffset, _specOffsetVel, _specTargetVel;
-    float _specFraction = 1f;
+    readonly SmNet.CameraBoom _specFraction = new();
     bool _specInit;
-    // The rig camera's two fractions (head to pivot, pivot to eye); _rigFraction (Camera.cs) is the second.
-    float _rigFractionA = 1f;
+    // The rig camera's two booms (head to pivot, pivot to eye); _rigFraction (Camera.cs) is the second.
+    readonly SmNet.CameraBoom _rigFractionA = new();
     // The rig camera's lookahead (see RigCamera): seconds ahead, scratch lines, and the view's turn rate.
     static readonly float[] RigLookAheadSeconds = [0.12f, 0.25f];
     readonly Vector3[] _aheadHead = new Vector3[2], _aheadPivot = new Vector3[2], _aheadEye = new Vector3[2];
@@ -88,6 +90,10 @@ public partial class NetworkView
         var up = MathF.Abs(dir.Z) < 0.9f ? Num.Vector3.UnitZ : Num.Vector3.UnitX;
         var u = Num.Vector3.Normalize(Num.Vector3.Cross(dir, up));
         var v = Num.Vector3.Cross(dir, u);
+        // camera/hop-and-walls: a real swept sphere. The ring below starts its rays a radius beside the cast, so near a wall a ring ray began behind it and the cast read 0 (the camera
+        // collapsed to its start and came back: the snapping strafing along walls and pillars).
+        if (!OldCameraCollision)
+            return Math.Clamp(MathF.Min(SweptHit(world.Weapons, origin, dir, radius, length), SweptHit(world.Character, origin, dir, radius, length)), 0f, length);
         float reach = length + radius;
         float best = length;
         // The centre ray: the sphere stops a radius short of the surface it meets head on.
@@ -101,6 +107,9 @@ public partial class NetworkView
         }
         return Math.Clamp(best, 0f, length);
     }
+
+    static float SweptHit(StaticMesh mesh, Num.Vector3 origin, Num.Vector3 dir, float radius, float length) =>
+        mesh.SweepSphere(origin, dir, radius, length) is { } hit ? hit.Distance : length;
 
     static float NearestHit(CollisionWorld world, Num.Vector3 origin, Num.Vector3 dir, float reach)
     {
@@ -127,10 +136,10 @@ public partial class NetworkView
     /// Damps <paramref name="fraction"/> (the camera's place along <paramref name="from"/> to <paramref name="to"/>) toward what
     /// the soft cast leaves free, then clamps it to what the hard cast leaves free; returns the position. See the class comment.
     /// </summary>
-    Vector3 DampFraction(ref float fraction, bool placed, Vector3 from, Vector3 to, float delta, List<Vector3>? aheadFrom = null, List<Vector3>? aheadTo = null, float pullMaxSpeed = CameraPullMaxSpeed)
+    Vector3 DampFraction(SmNet.CameraBoom boom, bool placed, Vector3 from, Vector3 to, float delta, List<Vector3>? aheadFrom = null, List<Vector3>? aheadTo = null, float pullMaxSpeed = CameraPullMaxSpeed)
     {
         float length = from.DistanceTo(to);
-        if (length < 1e-3f || _client?.Collision is null) { fraction = 1f; return to; }
+        if (length < 1e-3f || _client?.Collision is null) { boom.Reset(); return to; }
         float soft = Math.Clamp(CastClear(from, to, CameraSoftRadius) / length, 0f, 1f);
         // The lines the same leg will have shortly (the soft target only: the hard clamp is for the present pose).
         if (aheadFrom is not null && aheadTo is not null)
@@ -140,16 +149,22 @@ public partial class NetworkView
                 if (l > 1e-3f) soft = MathF.Min(soft, Math.Clamp(CastClear(aheadFrom[i], aheadTo[i], CameraSoftRadius) / l, 0f, 1f));
             }
         float hard = Math.Clamp(CastClear(from, to, CameraHardRadius) / length, 0f, 1f);
-        if (!placed) fraction = soft;
-        else if (soft < fraction)
+        if (!OldCameraCollision) boom.Step(soft, hard, length, delta, placed);
+        else
         {
-            float next = Mathf.Lerp(fraction, soft, 1f - MathF.Exp(-CameraPullRate * delta));
-            fraction = MathF.Max(next, fraction - pullMaxSpeed * delta / length);
-            fraction = MathF.Max(fraction, soft);
+            // M40-T6, for before captures: no hold, no margin, the release runs at once.
+            float fraction = boom.Fraction;
+            if (!placed) fraction = soft;
+            else if (soft < fraction)
+            {
+                float next = Mathf.Lerp(fraction, soft, 1f - MathF.Exp(-CameraPullRate * delta));
+                fraction = MathF.Max(next, fraction - pullMaxSpeed * delta / length);
+                fraction = MathF.Max(fraction, soft);
+            }
+            else fraction = Mathf.Lerp(fraction, soft, 1f - MathF.Exp(-CameraReleaseRate * delta));
+            boom.Fraction = MathF.Min(fraction, hard);
         }
-        else fraction = Mathf.Lerp(fraction, soft, 1f - MathF.Exp(-CameraReleaseRate * delta));
-        fraction = MathF.Min(fraction, hard);
-        return from + (to - from) * fraction;
+        return from + (to - from) * boom.Fraction;
     }
 
     static readonly Num.Vector3[] FanDirs = BuildFanDirs();
@@ -457,9 +472,9 @@ public partial class NetworkView
             // fighting beside a railing, or in a wall between them, would otherwise start inside collision: free fraction 0 and the
             // camera collapses onto it).
             var castFrom = Depenetrate(_specTarget, CameraSoftRadius + 0.05f, 3);
-            eye = DampFraction(ref _specFraction, !(first || teleported || SpectateCuts), castFrom, eye, delta, _aheadFrom, _aheadTo, SpectatePullMaxSpeed);
+            eye = DampFraction(_specFraction, !(first || teleported || SpectateCuts), castFrom, eye, delta, _aheadFrom, _aheadTo, SpectatePullMaxSpeed);
         }
-        else _specFraction = 1f;
+        else _specFraction.Reset();
         if (mode != "inspect") eye = ClearOfBodies(eye, me, includeOwn: true, _specTarget, delta);
         eye = Depenetrate(eye);
         _cameraPlaced = true;
