@@ -29,6 +29,10 @@ static class Theme
 
     static Bitmap? _tile;
 
+    /// <summary>1 normally; the layout check (--ui-scale) sets 1.25 / 1.5 / 2 to simulate a high-DPI display (fonts and sizes are scaled by MainForm).</summary>
+    public static double SimScale = 1.0;
+    public static double Scale(Control c) => c.DeviceDpi / 96.0 * SimScale;
+
     /// <summary>The background tile: 8x8, the base colour with a faint diagonal weave (+3 / -3 per channel), made once and tiled.</summary>
     public static Bitmap Tile()
     {
@@ -72,11 +76,9 @@ static class Theme
                 break;
             case LinkLabel l:
                 l.LinkColor = Accent; l.ActiveLinkColor = AccentHover; l.VisitedLinkColor = Accent; l.DisabledLinkColor = Muted;
-                l.BackColor = Color.Transparent;
                 if (l.ForeColor == SystemColors.ControlText) l.ForeColor = Text;
                 break;
             case Label l:
-                l.BackColor = Color.Transparent;
                 if (l.ForeColor == SystemColors.ControlText) l.ForeColor = Text;
                 break;
             case TextBox t:
@@ -88,7 +90,6 @@ static class Theme
                 StyleButton(b);
                 break;
             case Panel or TableLayoutPanel or FlowLayoutPanel:
-                if (c.BackColor == SystemColors.Control || c.BackColor == SystemColors.Window || c.BackColor.A == 0) c.BackColor = Color.Transparent;
                 c.ForeColor = Text;
                 break;
         }
@@ -146,8 +147,9 @@ static class Theme
 /// <summary>A dark check box: the box, the tick and the focus ring are drawn here; behaviour is the stock CheckBox's.</summary>
 sealed class DarkCheckBox : CheckBox
 {
-    public DarkCheckBox() { SetStyle(ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true); BackColor = Color.Transparent; }
-    protected override void OnPaintBackground(PaintEventArgs e) { if (BackColor.A == 255) base.OnPaintBackground(e); else DarkGlyph.ParentBackground(this, e); }
+    public DarkCheckBox() { SetStyle(ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true); BackColor = Theme.Base; }
+    protected override void OnPaintBackground(PaintEventArgs e) => DarkGlyph.PaintBackdrop(this, e.Graphics, e.ClipRectangle);
+    protected override void OnTextChanged(EventArgs e) { base.OnTextChanged(e); Invalidate(); }
     public override Size GetPreferredSize(Size proposedSize) => DarkGlyph.Preferred(this);
     protected override void OnPaint(PaintEventArgs e) => DarkGlyph.Paint(this, e, radio: false, Checked);
 }
@@ -155,16 +157,17 @@ sealed class DarkCheckBox : CheckBox
 /// <summary>A dark radio button, drawn like <see cref="DarkCheckBox"/>.</summary>
 sealed class DarkRadioButton : RadioButton
 {
-    public DarkRadioButton() { SetStyle(ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true); BackColor = Color.Transparent; }
-    protected override void OnPaintBackground(PaintEventArgs e) { if (BackColor.A == 255) base.OnPaintBackground(e); else DarkGlyph.ParentBackground(this, e); }
+    public DarkRadioButton() { SetStyle(ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true); BackColor = Theme.Base; }
+    protected override void OnPaintBackground(PaintEventArgs e) => DarkGlyph.PaintBackdrop(this, e.Graphics, e.ClipRectangle);
+    protected override void OnTextChanged(EventArgs e) { base.OnTextChanged(e); Invalidate(); }
     public override Size GetPreferredSize(Size proposedSize) => DarkGlyph.Preferred(this);
     protected override void OnPaint(PaintEventArgs e) => DarkGlyph.Paint(this, e, radio: true, Checked);
 }
 
 static class DarkGlyph
 {
-    static int BoxSize(Control c) => (int)Math.Round(16 * c.DeviceDpi / 96.0);
-    static int Gap(Control c) => (int)Math.Round(8 * c.DeviceDpi / 96.0);
+    static int BoxSize(Control c) => (int)Math.Round(16 * Theme.Scale(c));
+    static int Gap(Control c) => (int)Math.Round(8 * Theme.Scale(c));
 
     public static Size Preferred(ButtonBase c)
     {
@@ -172,15 +175,24 @@ static class DarkGlyph
         return new Size(BoxSize(c) + Gap(c) + t.Width + 2, Math.Max(BoxSize(c), t.Height) + 6);
     }
 
-    /// <summary>A transparent control shows what is behind it: the parent's background, tile included, at the right offset.</summary>
-    public static void ParentBackground(Control c, PaintEventArgs e)
+    /// <summary>Paints what a control sits on, itself, with no reliance on transparency: a solid colour when an ancestor is a <see cref="IBackdrop"/> with one
+    /// (the header), else the form's tile at the right offset. Every label, link, check box and panel of the launcher paints its own background this way, so a
+    /// text change can never leave old glyphs behind.</summary>
+    public static void PaintBackdrop(Control c, Graphics g, Rectangle clip)
+    {
+        for (Control? p = c.Parent; p is not null; p = p.Parent)
+            if (p is IBackdrop { Solid: { } col }) { using var sb = new SolidBrush(col); g.FillRectangle(sb, clip); return; }
+        PaintTile(c, g, clip);
+    }
+
+    public static void PaintTile(Control c, Graphics g, Rectangle clip)
     {
         var top = c.TopLevelControl;
-        if (top is null) { e.Graphics.Clear(Theme.Base); return; }
+        if (top is null) { g.Clear(Theme.Base); return; }
         var origin = top.PointToClient(c.PointToScreen(Point.Empty));      // the form's tile starts at its client origin
         using var brush = new TextureBrush(Theme.Tile(), WrapMode.Tile);
         brush.TranslateTransform(-origin.X, -origin.Y);
-        e.Graphics.FillRectangle(brush, c.ClientRectangle);
+        g.FillRectangle(brush, clip);
     }
 
     public static void Paint(ButtonBase c, PaintEventArgs e, bool radio, bool isChecked)
@@ -283,15 +295,15 @@ static class DarkBox
         {
             Text = caption, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false, ShowInTaskbar = owner is null,
             StartPosition = owner is null ? FormStartPosition.CenterScreen : FormStartPosition.CenterParent,
-            AutoScaleMode = AutoScaleMode.Font, Font = new Font("Segoe UI", 9.5f), AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            AutoScaleDimensions = new SizeF(96f, 96f), AutoScaleMode = AutoScaleMode.Dpi, Font = new Font("Segoe UI", 9.5f), AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Padding = new Padding(16),
         };
-        var glyph = new Label { AutoSize = false, Size = new Size(36, 36), Text = GlyphFor(icon), TextAlign = ContentAlignment.MiddleCenter, ForeColor = GlyphColor(icon), Font = new Font("Segoe UI", 16f, FontStyle.Bold), Margin = new Padding(0, 0, 12, 0) };
-        var message = new Label { AutoSize = true, MaximumSize = new Size(520, 0), Text = text ?? "", ForeColor = Theme.Text };
-        var top = new FlowLayoutPanel { AutoSize = true, WrapContents = false, Margin = new Padding(0) };
+        var glyph = new DarkLabel { AutoSize = false, Size = new Size(36, 36), Text = GlyphFor(icon), TextAlign = ContentAlignment.MiddleCenter, ForeColor = GlyphColor(icon), Font = new Font("Segoe UI", 16f, FontStyle.Bold), Margin = new Padding(0, 0, 12, 0) };
+        var message = new DarkLabel { AutoSize = true, MaximumSize = new Size(520, 0), Text = text ?? "", ForeColor = Theme.Text };
+        var top = new TileFlow { AutoSize = true, WrapContents = false, Margin = new Padding(0) };
         if (icon != MessageBoxIcon.None) top.Controls.Add(glyph);
         top.Controls.Add(message);
-        var row = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.RightToLeft, Anchor = AnchorStyles.Right, Margin = new Padding(0, 18, 0, 0) };
+        var row = new TileFlow { AutoSize = true, FlowDirection = FlowDirection.RightToLeft, Anchor = AnchorStyles.Right, Margin = new Padding(0, 18, 0, 0) };
         (string, DialogResult)[] defs = buttons switch
         {
             MessageBoxButtons.YesNo => [("No", DialogResult.No), ("Yes", DialogResult.Yes)],
@@ -307,7 +319,7 @@ static class DarkBox
         }
         f.AcceptButton = row.Controls.OfType<Button>().FirstOrDefault(b => b.DialogResult is DialogResult.Yes or DialogResult.OK);
         f.CancelButton = row.Controls.OfType<Button>().FirstOrDefault(b => b.DialogResult is DialogResult.No or DialogResult.Cancel or DialogResult.OK);
-        var layout = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, WrapContents = false, Dock = DockStyle.Fill };
+        var layout = new TileFlow { FlowDirection = FlowDirection.TopDown, AutoSize = true, WrapContents = false, Dock = DockStyle.Fill };
         layout.Controls.Add(top);
         layout.Controls.Add(row);
         f.Controls.Add(layout);
@@ -337,9 +349,77 @@ static class DarkBox
 /// <summary>A link label whose disabled state is plain muted text (the stock one draws an embossed shadow that looks wrong on dark).</summary>
 sealed class DarkLink : LinkLabel
 {
+    public DarkLink() { SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true); BackColor = Theme.Base; }
+    protected override void OnPaintBackground(PaintEventArgs e) => DarkGlyph.PaintBackdrop(this, e.Graphics, e.ClipRectangle);
+    protected override void OnTextChanged(EventArgs e) { base.OnTextChanged(e); Invalidate(); }
+    protected override void SetBoundsCore(int x, int y, int width, int height, BoundsSpecified specified) { Parent?.Invalidate(Bounds); base.SetBoundsCore(x, y, width, height, specified); }
     protected override void OnPaint(PaintEventArgs e)
     {
         if (Enabled) { base.OnPaint(e); return; }
         TextRenderer.DrawText(e.Graphics, Text, Font, ClientRectangle, Color.FromArgb(0x8A, 0x84, 0x80), TextFormatFlags.Left | TextFormatFlags.NoPadding | TextFormatFlags.WordBreak);
+    }
+}
+
+/// <summary>Something that is a solid colour under its children (the header) instead of the form's tile.</summary>
+interface IBackdrop { Color? Solid { get; } }
+
+/// <summary>A label that paints its own background (the tile or its solid parent) and repaints the area it leaves when its text or size changes. With
+/// <see cref="Ellipsize"/> it is one line that ends in "..." instead of growing or being cut (paths).</summary>
+sealed class DarkLabel : Label
+{
+    [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)] public bool Ellipsize { get; set; }
+    public DarkLabel() { SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true); BackColor = Theme.Base; }
+    protected override void OnPaintBackground(PaintEventArgs e) => DarkGlyph.PaintBackdrop(this, e.Graphics, e.ClipRectangle);
+    protected override void OnTextChanged(EventArgs e) { base.OnTextChanged(e); Invalidate(); }
+    protected override void SetBoundsCore(int x, int y, int width, int height, BoundsSpecified specified)
+    {
+        Parent?.Invalidate(Bounds);
+        if (Ellipsize && !AutoSize) height = GetPreferredSize(Size.Empty).Height;       // one line: as tall as the text and its padding, whatever the font or scale
+        base.SetBoundsCore(x, y, width, height, specified);
+    }
+    protected override void OnFontChanged(EventArgs e) { base.OnFontChanged(e); if (Ellipsize && !AutoSize) Height = GetPreferredSize(Size.Empty).Height; }
+    protected override void OnPaddingChanged(EventArgs e) { base.OnPaddingChanged(e); if (Ellipsize && !AutoSize) Height = GetPreferredSize(Size.Empty).Height; }
+    public override Size GetPreferredSize(Size proposedSize)
+    {
+        if (!Ellipsize) return base.GetPreferredSize(proposedSize);
+        var t = TextRenderer.MeasureText("Xg", Font, new Size(int.MaxValue, 0), TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
+        return new Size(Padding.Horizontal + 20, t.Height + Padding.Vertical);
+    }
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        if (!Ellipsize) { base.OnPaint(e); return; }
+        var r = new Rectangle(Padding.Left, Padding.Top, Math.Max(1, Width - Padding.Horizontal), Math.Max(1, Height - Padding.Vertical));
+        TextRenderer.DrawText(e.Graphics, Text, Font, r, ForeColor, TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding | TextFormatFlags.EndEllipsis);
+    }
+}
+
+/// <summary>Panels that paint the tile (or a solid colour) themselves, so nothing on the window depends on transparent controls.</summary>
+sealed class TilePanel : Panel, IBackdrop
+{
+    [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)] public Color? Solid { get; set; }
+    public TilePanel() { SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true); }
+    protected override void OnPaintBackground(PaintEventArgs e) => TilePaint.Paint(this, Solid, e);
+}
+
+sealed class TileTable : TableLayoutPanel, IBackdrop
+{
+    [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)] public Color? Solid { get; set; }
+    public TileTable() { SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true); }
+    protected override void OnPaintBackground(PaintEventArgs e) => TilePaint.Paint(this, Solid, e);
+}
+
+sealed class TileFlow : FlowLayoutPanel, IBackdrop
+{
+    [Browsable(false), DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)] public Color? Solid { get; set; }
+    public TileFlow() { SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true); }
+    protected override void OnPaintBackground(PaintEventArgs e) => TilePaint.Paint(this, Solid, e);
+}
+
+static class TilePaint
+{
+    public static void Paint(Control c, Color? solid, PaintEventArgs e)
+    {
+        if (solid is { } col) { using var b = new SolidBrush(col); e.Graphics.FillRectangle(b, e.ClipRectangle); }
+        else DarkGlyph.PaintTile(c, e.Graphics, e.ClipRectangle);
     }
 }
