@@ -67,7 +67,7 @@ public partial class NetworkView
     bool HandoffAttack(CharacterViewer character, PlayerState s, bool own, string clip, float time, float? clipTime = null)
     {
         var t = LocoOf(s.PlayerId);
-        if (ActionHandoff.AttackChanged(t.HandStep, t.HandHeavy, t.HandTime, s.MeleeStep, s.MeleeHeavy, s.MeleeTime)) t.AttackHand = false;   // a new step or attack: by the state's own time
+        if (ActionHandoff.AttackChanged(t.HandStep, t.HandHeavy, t.HandTime, s.MeleeStep, s.MeleeHeavy, s.MeleeTime)) { t.AttackHand = false; HandoffEnded(s.PlayerId); }   // a new step or attack: by the state's own time (and its own fade)
         t.HandStep = s.MeleeStep; t.HandHeavy = s.MeleeHeavy; t.HandTime = s.MeleeTime;
         if (NoHandoff || _config is null || Combat.MeleeStepOf(_config, s) is not { } step || ActionMask() is not { } mask) { t.AttackHand = false; return false; }
         // feel/melee-lock: motion that is the attack's own root motion (the stick idle after MoveAt) keeps the legs in the clip.
