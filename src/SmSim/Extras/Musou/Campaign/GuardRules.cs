@@ -12,6 +12,8 @@ public sealed record GuardRules
     /// <summary>A Guardsman's speed; the squad's place in the world moves at <see cref="SquadSpeedScale"/> of it, so the men keep up.</summary>
     public float Speed { get; init; } = 4.5f;
     public float SquadSpeedScale { get; init; } = 0.9f;
+    /// <summary>A squad gives up an order after this long without getting nearer to it (a place it cannot walk to).</summary>
+    public float StallSeconds { get; init; } = 1f;
     /// <summary>The formation's spacing (two rows of five).</summary>
     public float Spacing { get; init; } = 1.5f;
     /// <summary>Body radius for the men's separation, the hash's cell, how hard they push apart (m/s per metre of overlap) and the neighbours considered.</summary>

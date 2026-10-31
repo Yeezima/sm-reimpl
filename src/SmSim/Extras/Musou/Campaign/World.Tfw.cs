@@ -24,6 +24,7 @@ public sealed partial class World
     {
         if (!StartMusou(nav)) return false;
         _tfw ??= new TfwRun();
+        _musou!.WidenBox(TfwMap.WireBox);   // the Stormbird lies outside the arena's graph
         _musou!.Director = default;   // no 5-wave director to show (nothing is sent; TF4 shows MusouPhase.Campaign with the run)
         return true;
     }
@@ -52,7 +53,7 @@ public sealed partial class World
     /// </summary>
     bool TfwStepMatch() => false;
 
-    /// <summary>An Ork's attack on a Guard squad (<see cref="MusouAttack.Player"/> below 0: <see cref="TfwContracts.SquadOf"/>). TF0: nothing to hit; TF3 hits the squad's nearest member.</summary>
+    /// <summary>An Ork's attack on a Guard squad (<see cref="MusouAttack.Player"/> below 0: <see cref="TfwContracts.SquadOf"/>): it lands on the squad's nearest man (World.TfwGuards.cs).</summary>
     void TfwGuardHit(MusouAttack attack) => TfwGuardsHit(attack);
 
     /// <summary>

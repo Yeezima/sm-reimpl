@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1891 spec table rows: **1317 tagged**, 420 not tagged (read from data with high confidence), 154 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 415 rows of the changes document.
+Scanned 1896 spec table rows: **1321 tagged**, 420 not tagged (read from data with high confidence), 155 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 415 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,23 +50,23 @@ Scanned 1891 spec table rows: **1317 tagged**, 420 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 142 | 127 | 124 | 14 | 1 |
+| Core simulation (provisional values) | 146 | 131 | 125 | 15 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 78 | 72 | 40 | 8 | 0 |
-| **All areas** | **1317** | 1095 | 1060 | 401 | 38 |
+| **All areas** | **1321** | 1099 | 1061 | 402 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 537 |
-| confidence: low | 483 |
+| kind: ours | 540 |
+| confidence: low | 484 |
 | confidence: medium | 460 |
 | kind: interpretation | 329 |
-| notes: ours | 292 |
+| notes: ours | 293 |
 | confidence: none (low) | 117 |
 | kind: provisional | 100 |
-| kind: estimate | 51 |
+| kind: estimate | 52 |
 | kind: user's knowledge | 45 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
@@ -576,7 +576,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-ABEF115E` | Musou enemy movement | one shared flow field from the players' nodes (incremental, 20k expansions a tick, refresh 0.5 s; a player off the graph uses the node within 6 m sideways and 12 m below, else its last); at most 4 melee and 6 shooters engage a player, the others circle at 3–6… (m, s) | kind: ours; confidence: low | ours (MU1) | Musou enemy movement: compare with SM1 by timing a run over a known distance. Ours: one shared flow field from the players' nodes (incremental, 20k… | ☐ |
 
-*Spec section: Added content: Musou — the Three-Front War (TF0: contracts and a stub map; TF3: Guardsmen and leashed defenders; no protocol change)*
+*Spec section: Added content: Musou — the Three-Front War (TF0 contracts, TF1 map, TF3 Guardsmen and leashed defenders; no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -639,7 +639,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-9432FECF` | Regeneration timing | shield and health regenerate once the time since the last damage reaches their delays; `reload` refills when its time has fully elapsed; the bolter fires on the first tick its cooldown has elapsed (0.133 s rounds up to 4 ticks at 30 Hz, so 7.5 shots/s instead… | confidence: low; notes: ours; section: placeholder; section: provisional | tick quantisation is ours | Regeneration timing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: shield and health regenerate once the time since the last damage… | ☐ |
 | `R-9F8281FF` | Time to kill (derived) | 14 body hits from full health and shield: 9 on the shield alone (22 × 0.505 each), a 10th that breaks it and spills into health, then 4 on health; about 1.7 s of continuous fire at 0.133 s per shot (s) | confidence: low; notes: unverified; section: placeholder; section: provisional | unverified against the original | Time to kill (derived): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 14 body hits from full health and shield: 9 on the shield alone (22 ×… | ☐ |
 
-*Spec section: Added content: Musou — the Three-Front War (TF0: contracts and a stub map; TF3: Guardsmen and leashed defenders; no protocol change)*
+*Spec section: Added content: Musou — the Three-Front War (TF0 contracts, TF1 map, TF3 Guardsmen and leashed defenders; no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -1747,7 +1747,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (142)
+### Core simulation (provisional values) (146)
 
 *Spec section: Provisional values in use*
 
@@ -1845,11 +1845,15 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-F64DD798` | Musou weapon drops | the owner (2026-10-31): "each player sees weapons when 'boss' enemies die ... only one drops. When picking the weapon up the player equips the item ... glow golden"; a credited KO of a Nob or (the owner, 2026-10-31: "Make Chaos Marines drop weapons too.") a… (m, s) | kind: ours; confidence: low | the owner's request; "boss" = Nobs and Chaos Marines (the owner), the rest ours | Musou weapon drops: compare with SM1 by feel or video. Ours: the owner (2026-10-31): "each player sees weapons when 'boss' enemies… | ☐ |
 | `R-4DCA9897` | Musou drop look | the weapon's own held model recoloured gold and emissive (a gold bar if it cannot be read), 1.4 ×, 0.9 m above the floor, spinning 1.2 rad/s and bobbing 0.08 m at 0.5 Hz; a 16 m additive light beam fading within 2–9 m of the camera, a 2.6 m floor glow, an… (m) | kind: ours; confidence: low | the owner ("glow golden ... easy to see"); the values ours | Musou drop look: compare with SM1 by measuring on a flat spot of the same map. Ours: the weapon's own held model recoloured gold and emissive (a gold bar… | ☐ |
 
-*Spec section: Added content: Musou — the Three-Front War (TF0: contracts and a stub map; TF3: Guardsmen and leashed defenders; no protocol change)*
+*Spec section: Added content: Musou — the Three-Front War (TF0 contracts, TF1 map, TF3 Guardsmen and leashed defenders; no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-0932D9C7` | War map | arena 240 × 240 m around the origin, walls 1 m thick and 12 m high; Stormbird room 10 × 10 × 5 m centred at (0, -200), stations Destination (-3.5, -196.5) and Equipment (3.5, -196.5), r 1.5 m; four Space Marine spawns at (±2, -202 ±1) facing north; TF0 builds… (m) | kind: ours; confidence: low | the owner (empty boxes, a 10 m control room); the sizes and places the architect's | War map: compare with SM1 by measuring on a flat spot of the same map. Ours: arena 240 × 240 m around the origin, walls 1 m thick and 12 m high… | ☐ |
+| `R-0932D9C7` | War map | arena 240 × 240 m around the origin (57,600 m², Manufactorum's footprint about 58,800 m²), empty, open above, floor top at z = 0, walls 1 m thick outside that square; Stormbird room 10 × 10 × 5 m inside, closed by 1 m of floor, walls and ceiling, centred at… (m) | kind: ours; confidence: low | the owner (an empty square box the size of Manufactorum, a control room of about 10 × 10 m); the sizes and places the architect's | War map: compare with SM1 by measuring on a flat spot of the same map. Ours: arena 240 × 240 m around the origin (57,600 m², Manufactorum's… | ☐ |
+| `R-A9743FB4` | War arena wall height | 24 m, not the design's 12 m: the design's "apex 7.4 to 8.9 m" is the Manufactorum spawn room's ceiling; a full jump in the open tops out at 17.54 m and clears a 12 m wall (`TfwMapTests`, on the install-shaped synthetic pack); 24 m is that apex plus 6.46 m of… (m) | kind: estimate; notes: ours | ours (the 17.54 m measured, spec "Measured apexes"); owner to confirm | War arena wall height: compare with SM1 by measuring on a flat spot of the same map. Ours: 24 m, not the design's 12 m: the design's "apex 7.4 to 8.9 m" is the… | ☐ |
+| `R-01A2A865` | War walking graph | the arena alone, 0.5 m cells, seeded from the landing zone, the positions, the HQ and the sources: 229,441 nodes at the default capsule (99.6 % of the floor, nothing within 0.5 m of a wall), no node in the Stormbird; cached as `tfw_war-musou-<key>.nav` (m) | kind: ours | the architect's proposal | War walking graph: compare with SM1 by measuring on a flat spot of the same map. Ours: the arena alone, 0.5 m cells, seeded from the landing zone, the… | ☐ |
+| `R-26CC0F55` | War map look | placeholder demonstration: the arena in the flat ground's checker, the Stormbird's shell tinted (0.55, 0.6, 0.68), two omni lights 0.4 m under its ceiling (energy 1.6, range 10 m), consoles 0.8 × 0.8 × 1.2 m and pads of the station radius, blue for… (m) | kind: ours; confidence: low | ours | War map look: compare with SM1 by measuring on a flat spot of the same map. Ours: placeholder demonstration: the arena in the flat ground's checker… | ☐ |
+| `R-F0EF8891` | War camera in the room | the follow camera in the 5 m room, `--camera-probe`, an Assault bot's `--jump-test` for 35 s: no frame with the near plane in collision, nearest surface 0.20 m, 5 of 4,820 frames flagged as a jump over 0.5 m at 60 fps (0.55 to 0.77 m, at most 0.33 m of it… (m) | kind: ours | measured | War camera in the room: compare with SM1 by measuring on a flat spot of the same map. Ours: the follow camera in the 5 m room, --camera-probe, an Assault bot's… | ☐ |
 | `R-11D349F6` | War battle layout | landing zone (0, -100) r 10; positions (-40, -45), the depot (35, 10), (-25, 60), r 12; HQ (0, 105) r 15; sources (-110, -40), (110, 15), (-110, 70), (60, 112) (m) | kind: ours; confidence: low | the architect's proposal | War battle layout: compare with SM1 by measuring on a flat spot of the same map. Ours: landing zone (0, -100) r 10; positions (-40, -45), the depot (35… | ☐ |
 | `R-D3A3B1CE` | War commands | a client's command (message kind 17) carries at most 64 payload bytes; the server takes 8 a second per client (burst 8) and queues at most 64 between ticks (/s) | kind: ours | the architect's proposal | War commands: compare with SM1 by feel or video. Ours: a client's command (message kind 17) carries at most 64 payload… | ☐ |
 | `R-FC7D8173` | AI Marine ids | the server-side AI Marines are players 65520 to 65527, without a client; a joining player's id skips any held id | kind: ours | the architect's proposal | AI Marine ids: compare with SM1 by feel or video. Ours: the server-side AI Marines are players 65520 to 65527, without a… | ☐ |
@@ -2121,7 +2125,7 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-12ACD6D8` | A saved Ork loadout in a profile without the Orks (E2) | the slot stays in the profile file untouched, shows "unavailable here" on its chip (tooltip names the profile) and joins as the first role's DEFAULTS on the side (the Tactical), with the reason in the plan's summary; it is the player's again as soon as the… | kind: ours | ours | A saved Ork loadout in a profile without the Orks (E2): compare with SM1 by feel or video. Ours: the slot stays in the profile file untouched, shows "unavailable… | ☐ |
 | `R-4DA7105A` | A faithful server and the Ork (E2) | a Hello or Setup asking for an Ork class (or any class the config does not have) gets the default class with the item choices reset to the defaults (a Setup's ack says `Defaulted`); the Hello's and Setup's Ork look byte is ignored (read as automatic); nobody… | kind: ours | ours | A faithful server and the Ork (E2): compare with SM1 by feel or video. Ours: a Hello or Setup asking for an Ork class (or any class the config… | ☐ |
 
-*Spec section: Added content: Musou — the Three-Front War (TF0: contracts and a stub map; TF3: Guardsmen and leashed defenders; no protocol change)*
+*Spec section: Added content: Musou — the Three-Front War (TF0 contracts, TF1 map, TF3 Guardsmen and leashed defenders; no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -2840,6 +2844,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-0A2FD8A3` | Loading | Added content: loyalist barks — voice lines for loyalist marines and the FOR THE EMPEROR key (client and server; no protocol change, extras wire 2) |
 | `R-CC3EE3F5` | Test aids | Added content: loyalist barks — voice lines for loyalist marines and the FOR THE EMPEROR key (client and server; no protocol change, extras wire 2) |
 | `R-6C5E4C60` | Musou send budget | Added content: Musou — an experimental one-sided mode against swarms (server and client; no protocol change, extras wire 2) |
+| `R-2C299735` | War wire box | Added content: Musou — the Three-Front War (TF0 contracts, TF1 map, TF3 Guardsmen and leashed defenders; no protocol change) |
 | `R-3C893894` | Test aids | Death effects (F-D1; client only, not simulated, no protocol change) |
 | `R-54698497` | `--bot-damage-scale f` | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
 | `R-5601E474` | Protocol 37 (on top of main's 36) | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |

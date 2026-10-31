@@ -39,6 +39,8 @@ public sealed class GuardSim
     readonly float[] _squadYaw = new float[MaxSquads];
     readonly Vector3[] _order = new Vector3[MaxSquads];
     readonly bool[] _moving = new bool[MaxSquads];
+    readonly float[] _orderBest = new float[MaxSquads];      // the nearest it has come to its order
+    readonly ushort[] _stallTicks = new ushort[MaxSquads];   // ticks since it last came nearer
     readonly Vector3[] _centre = new Vector3[MaxSquads];     // the living men's centre
     readonly ushort[] _seen = new ushort[MaxSquads * GuardRules.SeenPerSquad];
     readonly int[] _seenCount = new int[MaxSquads];
@@ -118,12 +120,13 @@ public sealed class GuardSim
         if (AliveIn(squad) == 0 || !Finite(destination)) return false;
         _order[squad] = destination;
         _moving[squad] = true;
+        _orderBest[squad] = float.PositiveInfinity; _stallTicks[squad] = 0;
         var way = new Vector2(destination.X - _anchor[squad].X, destination.Y - _anchor[squad].Y);
         if (way.LengthSquared() > 1e-4f) _squadYaw[squad] = YawOf(way);
         return true;
     }
 
-    /// <summary>Whether a squad has arrived (or stands).</summary>
+    /// <summary>Whether a squad is done with its order: it arrived, stands, or gave up on a place it cannot walk to (<see cref="GuardRules.StallSeconds"/>).</summary>
     public bool Arrived(int squad) => squad is >= 0 and < MaxSquads && !_moving[squad];
 
     /// <summary>Men alive in a squad (0 for an unknown one).</summary>
@@ -274,7 +277,12 @@ public sealed class GuardSim
         var way = new Vector2(_order[s].X - p.X, _order[s].Y - p.Y);
         float left = way.Length(), stride = MathF.Min(left, Rules.Speed * Rules.SquadSpeedScale * Dt);
         if (left > 1e-4f) Walk(ref _anchor[s], ref _anchorNode[s], way / left * stride);
-        if (left <= stride + 0.01f) _moving[s] = false;
+        // By where it now stands, not by the step it wanted: the walk may have gone nowhere.
+        var now = _anchor[s];
+        float remaining = new Vector2(_order[s].X - now.X, _order[s].Y - now.Y).Length();
+        if (remaining <= 0.01f) { _moving[s] = false; return; }
+        if (remaining < _orderBest[s] - 0.001f) { _orderBest[s] = remaining; _stallTicks[s] = 0; }
+        else if (++_stallTicks[s] >= Ticks(Rules.StallSeconds)) _moving[s] = false;
     }
 
     void MoveMan(int i, int s, int m, Span<int> near)
