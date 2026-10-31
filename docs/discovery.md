@@ -2220,7 +2220,7 @@ campaign has its own copies and variants (`ebp_sets__guardsman`, `ebp_sets__mixe
 | Head | `guardsman_head_basic_001.dcm` (1 skinned block, `ig_head`, bones `RIG_Head`, `RIG_Neck`, `RIG_Chest`); `guardsman_ingame_d`, `guardsman_cinematic_d` (`IGHead_D`) are the other heads in the set | decode, `_001` drawn |
 | Other bodies | `melta_guard_body` (4 blocks: static, 2 skinned `ig_body`, 1 skinned `Body_Mira`), `storm_trooper_body` / `_head`, `psyker` | `melta_guard_body` decodes; the others not checked |
 | Rig | `havok_guardsman_a_coop__hkxx` (1.66 MB): 47 bones (`RIG_Root` ... `RIG_Prop_RHand`, `RIG_Prop_LHand`, `RIG_Head`), 148 clips, 6 behaviour graphs (`IG_Base_Coop`, `IG_RANGED_REACTIONS(_CS_Coop)`, `IG_Import_REACTIONS(_CS_Coop)`, `IG_IMPORT_FLINCH`), a ragdoll instance and 2 skeleton mappers. Every bone of the body and head meshes is in the skeleton | read (`smtool graph-dump --list|--animations|--bones --archive data/chunks/ebp_sets__mp_coop_set_sm.oppc --entry havok_guardsman_a_coop__hkxx`) |
-| Lasgun | `lasgun.dcm` (1 static block, material `Standard_20`, textures `lasgun_*`), wargear `ig_coop_lasgun` (visual and package `lasgun`; raycast, damage 1, clip 40, `weapon_2hand_range_light`, effects `lasgun_tracer` / `lasgun_muzzle` in `master_fx`) | decodes, drawn on `RIG_Prop_RHand` with an identity offset: the grip sits in the hand but the gun points backwards (the wargear's hand mount is not read yet) |
+| Lasgun | `lasgun.dcm` (1 static block, material `Standard_20`, textures `lasgun_*`), wargear `ig_coop_lasgun` (visual and package `lasgun`; raycast, damage 1, clip 40, `weapon_2hand_range_light`, effects `lasgun_tracer` / `lasgun_muzzle` in `master_fx`) | decodes; the wield entry puts the model's `rig_prop_m_chest` node on the rig bone `RIG_Prop_M_Chest`, read by `GuardLasgun` (TF7a) and `--guard-test`: in both hands, pointing forward; `fx_muzzle` at (-0.327, 0.394, 1.518) in the model's root |
 | Materials | `ig_body.bmat`, `ig_head.bmat`, `IGHead_D.bmat`, `Standard_20.bmat` and their `_dif` / `_nrm` / `_spc` / `_lp` textures, all in the set | 3/3 drawn surfaces with the original diffuse |
 
 The multi-material `guardsman_cinematic` that M24 recorded as the one failing package mesh reads since the bone-palette fix (Ork O1): 1 block,
@@ -2235,6 +2235,5 @@ flinches `IG_REC_Flinch_High|Mid|Low_L|R_01` (additive: **not bound** by our rea
 deaths `IG_DIE_Basic_01` 0.4 s, `_03` 0.6 s, `IG_DIE_FallForward_01` 0.467 s, `IG_DIE_Headshot_01` 0.533 s, `IG_DIE_Explode_01` 3 s, `IG_REC_Death_02`
 2.233 s; melee `IG_MEL_Attack_F_01` 2 s and the chainsword guardsman's `IG_CS_MEL_*`.
 
-Left for animated Guardsmen in a match (estimate): a `RigProfile` for the Guardsman with its clip table (idle, run blend, aim pitch, recoil, reload, reactions,
-deaths) as the Ork's; a weapon mount for the lasgun (as `OrkWeaponMounts`); the ragdoll (`havok_guardsman_a_coop`, 16 bodies, not read yet);
-the six additive flinches' extra track; then the Musou crowd/ally drawing (`MusouLooks`, the VAT path) and the simulation side of an ally.
+Done in TF7a: `GuardRig` (profile, clip table), `GuardLasgun` (the mount from the data, no table of ours), the crowd (`GuardCrowd`). Left: the rig's graphs are not read, so the clip choices are ours;
+the ragdoll (`havok_guardsman_a_coop`, 16 bodies, not read yet); the six additive flinches' extra track.

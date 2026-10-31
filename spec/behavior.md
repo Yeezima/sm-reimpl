@@ -3203,6 +3203,24 @@ Envelope tags 7 to 10 and the commands of message kind 17 (layouts: `TfwWire`). 
 | Orders with a place | Hold and Attack carry the sender's crosshair point: 3 × i16 in 0.1 m after the frozen 4 bytes, 10 bytes in all, reaching ±3276.7 m; Follow, Deploy and the pickup commands stay 4 bytes | m, B | per command | `TfwWire`, `TfwCommandRecord.Point` | ours (the design's positions; the server has no camera to find the point) | ours | med |
 | Command delivery | one command at a time, oldest first; resent every 250 ms until tag 7 echoes it, at least 125 ms between sends, 8 waiting at most; the server takes each sequence once, compared across the 16-bit wrap, and echoes it only once queued | s, commands | per client | `TfwCommandSender`, `GameServer.TfwCommands` | the design's 250 ms and 8 a second; the rest ours | ours | med |
 | War sections on a client | a man is dropped 2 s after his last record; 4 records kept a man; tags 8 to 10 held until the director's box, 64 sections at most; a section 300 ticks older than the newest means a restarted server | s, sections, ticks | per client | `TfwClientState` | ours, as Musou's | ours | med |
+### Added content: Musou — the Three-Front War: the Guardsmen as drawn (TF7a; client only, no protocol change)
+
+The Exterminatus `ig_coop_guardsman` from the player's install: body `guardsman_a`, head `guardsman_head_basic_001`, rig `havok_guardsman_a_coop`, lasgun `lasgun` (`GuardRig`, `GuardLooks`, `GuardCrowd`). Drawn from tags 9 and 10. Everything here is client presentation; no value reaches the simulation.
+
+| Parameter (the Guardsmen as drawn) | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Lasgun mount | the model's `rig_prop_m_chest` node on the rig bone `RIG_Prop_M_Chest`, scale 1 | nodes | once at load | `GuardLasgun`, read from `ig_coop_lasgun` `wield_info_by_upgrade` | the install | data | high |
+| Shot effects | `lasgun_muzzle` scale 0.35 at `fx_muzzle`, `lasgun_tracer` scale 1 from `fx_muzzle` to the hit point | names, scale | per shot | `GuardRig`; the names and scales from `ig_coop_lasgun` `fire_fx`, `hit_fx` | the install | data | high |
+| Crowd budget | 120 drawn (60 in safe mode, `GuardCrowd.LowVisible`; the design's Low), at most 20 skinned within 25 m, posed every second frame beyond 12 m, the rest vertex-animated; 40 skinned before the bake is done; 40 bodies | men, m | per frame | `GuardCrowd` | the design's section E, the rest as `MusouCrowd` | ours | medium |
+| Which clip plays | out of a fight `IG_NAV_Idle_01` and `IG_NAV_Run_F_01`; for 3 s after a shot the aim set: `IG_NAV_Idle_AimForward` with `AimDown` / `AimUp`, the four `IG_NAV_Run_*_AimForward` | clips, s | per frame | `GuardRig.ClipNames`, `GuardCrowd.EngagedSeconds` | our reading of the clip names: the rig's graphs are not read | estimate | low |
+| Aim pitch range | all down or all up at 0.8 | rad | per pose (skinned) | `GuardRig.MaxAimPitch` | ours: the clips' range is not in the data read | estimate | low |
+| Run playback | clip rate = speed / 6.25, clamped to 0.3..1.5 | m/s | per frame | `GuardRig.RunRate` | the blueprint's run speed; that the clips were authored at it is an interpretation | estimate | medium |
+| Recoil | `IG_RNG_Fire_S_01` laid over the pose at each shot (0.167 s), skinned tier only | clip | per shot | `GuardCrowd` | the clip is the install's; far men show none (ours) | ours | medium |
+| Hurt reaction | `IG_REC_Light_Front_Hi_Left`, whole, only on a man standing; a moving man shows nothing | clip | per Hurt event | `GuardRig`, `GuardCrowd` | ours: hit direction is not on the wire | estimate | low |
+| Death | a death clip by id and tick out of `IG_DIE_Basic_01`, `_03`, `IG_DIE_FallForward_01`, `IG_DIE_Headshot_01`, `IG_REC_Death_02`, last frame held, sinks after 3 s over 1.5 s (no ragdoll yet) | clips, s | per Death event | `GuardRig.DeathClip`, `GuardCrowd` | the owner's order for now; the rule is ours | ours | low |
+| Clip fade | 0.15 | s | per clip change, skinned tier | `GuardCrowd.FadeSeconds` | ours | ours | medium |
+| Shot effects' reach | muzzle within 45 m of the camera, tracer within 90 m, at most 12 shots with effects a frame | m, shots | per frame | `NetworkView.TfwGuards.cs` | ours: `FxPlayer` keeps 160 effects | ours | medium |
+
 ### Death effects (F-D1; client only, not simulated, no protocol change)
 
 The effects the original multiplayer data itself binds to a marine's or Chaos marine's death (faithful content, not the gore extras of `docs/gore-design.md`). Read at run time from the install by `SmContent/DeathEffects.cs`

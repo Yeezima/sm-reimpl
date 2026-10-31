@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1918 spec table rows: **1341 tagged**, 420 not tagged (read from data with high confidence), 157 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 419 rows of the changes document.
+Scanned 1929 spec table rows: **1349 tagged**, 422 not tagged (read from data with high confidence), 158 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 420 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 344 | 292 | 296 | 98 | 12 |
+| Movement (critical) | 345 | 293 | 297 | 99 | 12 |
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 113 | 66 | 98 | 50 | 3 |
 | Melee (critical) | 64 | 51 | 60 | 11 | 5 |
@@ -50,23 +50,23 @@ Scanned 1918 spec table rows: **1341 tagged**, 420 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 153 | 138 | 126 | 16 | 1 |
+| Core simulation (provisional values) | 160 | 145 | 133 | 19 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 78 | 72 | 40 | 8 | 0 |
-| **All areas** | **1341** | 1118 | 1075 | 403 | 38 |
+| **All areas** | **1349** | 1126 | 1083 | 407 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 557 |
-| confidence: low | 492 |
-| confidence: medium | 466 |
+| kind: ours | 561 |
+| confidence: low | 496 |
+| confidence: medium | 470 |
 | kind: interpretation | 330 |
-| notes: ours | 294 |
+| notes: ours | 297 |
 | confidence: none (low) | 117 |
 | kind: provisional | 100 |
-| kind: estimate | 53 |
+| kind: estimate | 57 |
 | kind: user's knowledge | 45 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
@@ -77,8 +77,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: placeholder | 22 |
 | notes: placeholder | 18 |
 | kind: gap (not reproduced) | 16 |
+| notes: interpretation | 15 |
 | notes: open question | 15 |
-| notes: interpretation | 14 |
 | notes: not reproduced (gap) | 13 |
 | notes: estimate | 10 |
 | notes: gap (not reproduced) | 10 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (344)
+### Movement (gameplay-critical) (345)
 
 *Spec section: Extracted parameters*
 
@@ -581,6 +581,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-E24D28CB` | War Guardsman speed | 4.5 (the install's `ig_coop_guardsman` run 6.25, walk 3.6: not used, for the owner to choose) (m/s) | kind: ours; confidence: low | the architect's proposal; data values as read from the install | War Guardsman speed: compare with SM1 by timing a run over a known distance. Ours: 4.5 (the install's ig_coop_guardsman run 6.25, walk 3.6: not used… | ☐ |
+
+*Spec section: Added content: Musou — the Three-Front War: the Guardsmen as drawn (TF7a; client only, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-EE36D2CF` | Aim pitch range | all down or all up at 0.8 (rad) | kind: estimate; confidence: low; notes: ours | ours: the clips' range is not in the data read | Aim pitch range: compare with SM1 by measuring on a flat spot of the same map. Ours: all down or all up at 0.8. | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -1765,7 +1771,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (153)
+### Core simulation (provisional values) (160)
 
 *Spec section: Provisional values in use*
 
@@ -1906,6 +1912,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E10738F6` | Orders with a place | Hold and Attack carry the sender's crosshair point: 3 × i16 in 0.1 m after the frozen 4 bytes, 10 bytes in all, reaching ±3276.7 m; Follow, Deploy and the pickup commands stay 4 bytes (m, B) | kind: ours | ours (the design's positions; the server has no camera to find the point) | Orders with a place: compare with SM1 by feel or video. Ours: Hold and Attack carry the sender's crosshair point: 3 × i16 in 0.1 m… | ☐ |
 | `R-97586DFF` | Command delivery | one command at a time, oldest first; resent every 250 ms until tag 7 echoes it, at least 125 ms between sends, 8 waiting at most; the server takes each sequence once, compared across the 16-bit wrap, and echoes it only once queued (s, commands) | kind: ours | the design's 250 ms and 8 a second; the rest ours | Command delivery: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one command at a time, oldest first; resent every 250 ms until tag 7… | ☐ |
 | `R-1156B9D2` | War sections on a client | a man is dropped 2 s after his last record; 4 records kept a man; tags 8 to 10 held until the director's box, 64 sections at most; a section 300 ticks older than the newest means a restarted server (s, sections, ticks) | kind: ours | ours, as Musou's | War sections on a client: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a man is dropped 2 s after his last record; 4 records kept a man… | ☐ |
+
+*Spec section: Added content: Musou — the Three-Front War: the Guardsmen as drawn (TF7a; client only, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-8937FCEB` | Which clip plays | out of a fight `IG_NAV_Idle_01` and `IG_NAV_Run_F_01`; for 3 s after a shot the aim set: `IG_NAV_Idle_AimForward` with `AimDown` / `AimUp`, the four `IG_NAV_Run_*_AimForward` (clips, s) | kind: estimate; confidence: low; notes: ours | our reading of the clip names: the rig's graphs are not read | Which clip plays: compare with SM1 by feel or video. Ours: out of a fight IG_NAV_Idle_01 and IG_NAV_Run_F_01; for 3 s after a… | ☐ |
+| `R-5C1AC734` | Run playback | clip rate = speed / 6.25, clamped to 0.3..1.5 (m/s) | kind: estimate; confidence: medium; notes: interpretation | the blueprint's run speed; that the clips were authored at it is an interpretation | Run playback: compare with SM1 by timing a run over a known distance. Ours: clip rate = speed / 6.25, clamped to 0.3..1.5. | ☐ |
+| `R-170F2A45` | Recoil | `IG_RNG_Fire_S_01` laid over the pose at each shot (0.167 s), skinned tier only (clip) | kind: ours; confidence: medium | the clip is the install's; far men show none (ours) | Recoil: compare with SM1 by feel or video. Ours: IG_RNG_Fire_S_01 laid over the pose at each shot (0.167 s), skinned… | ☐ |
+| `R-42F2F2C3` | Hurt reaction | `IG_REC_Light_Front_Hi_Left`, whole, only on a man standing; a moving man shows nothing (clip) | kind: estimate; confidence: low; notes: ours | ours: hit direction is not on the wire | Hurt reaction: compare with SM1 by watching the reaction and timing it frame by frame. Ours: IG_REC_Light_Front_Hi_Left, whole, only on a man standing; a moving… | ☐ |
+| `R-851CB6C3` | Death | a death clip by id and tick out of `IG_DIE_Basic_01`, `_03`, `IG_DIE_FallForward_01`, `IG_DIE_Headshot_01`, `IG_REC_Death_02`, last frame held, sinks after 3 s over 1.5 s (no ragdoll yet) (clips, s) | kind: ours; confidence: low | the owner's order for now; the rule is ours | Death: compare with SM1 by feel or video. Ours: a death clip by id and tick out of IG_DIE_Basic_01, _03… | ☐ |
+| `R-922C604C` | Clip fade | 0.15 (s) | kind: ours; confidence: medium | ours | Clip fade: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 0.15. | ☐ |
+| `R-72A7F09E` | Shot effects' reach | muzzle within 45 m of the camera, tracer within 90 m, at most 12 shots with effects a frame (m, shots) | kind: ours; confidence: medium | ours: `FxPlayer` keeps 160 effects | Shot effects' reach: compare with SM1 by measuring on a flat spot of the same map. Ours: muzzle within 45 m of the camera, tracer within 90 m, at most 12… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -2212,6 +2230,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-D5938EAB` | Golden weapon drops from Nobs and Chaos Marines | the owner's requests (2026-10-31) | each Nob or Chaos Marine KO drops one weapon per player from their class's pool, E equips it, 60 s | Musou weapon drops | Golden weapon drops from Nobs and Chaos Marines: compare with SM1 by feel or video. Ours: the owner's requests (2026-10-31). | ☐ |
 | `C-21B5B32C` | Musou mode is the Three-Front War | the owner's decision (2026-11-01) | `--content musou` runs the war on the generated map `tfw_war`; the 5-wave run stays only as a test aid (`--map mp_tdm_09`) | War map | Musou mode is the Three-Front War: compare with SM1 by feel or video. Ours: the owner's decision (2026-11-01). | ☐ |
 | `C-A5D8C2C2` | Guard squads fight beside the players; leashed Ork defenders | the design of the war (2026-11-01); SM1 has no such allies (the Guardsman is the Exterminatus co-op blueprint) | squads of 10 shoot and are struck server-side; defenders hold until a target is within 30 m or their group is hurt | War Guard squads, Leashed defenders | Guard squads fight beside the players; leashed Ork defenders: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01); SM1 has no such allies (the… | ☐ |
+| `C-599F9281` | Guardsmen drawn as a crowd | the design of the war (2026-11-01) and the owner: real models, death clips rather than the ragdoll for now | the co-op Guardsman with original clips and effects; which clip plays when is ours (the rig's graphs are not read) | Crowd budget, Which clip plays, Death | Guardsmen drawn as a crowd: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01) and the owner: real models, death… | ☐ |
 
 ### Deliberate changes (owner's decisions)
 
@@ -2881,6 +2900,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-6C5E4C60` | Musou send budget | Added content: Musou — an experimental one-sided mode against swarms (server and client; no protocol change, extras wire 2) |
 | `R-2C299735` | War wire box | Added content: Musou — the Three-Front War (TF0 contracts, TF1 map, TF3 Guardsmen and leashed defenders; no protocol change) |
 | `R-D62C8E23` | War's budget | Added content: Musou — the Three-Front War on the wire (TF6; no protocol change, `TfwRules.Version` 2) |
+| `R-6C0C42B0` | Crowd budget | Added content: Musou — the Three-Front War: the Guardsmen as drawn (TF7a; client only, no protocol change) |
 | `R-3C893894` | Test aids | Death effects (F-D1; client only, not simulated, no protocol change) |
 | `R-54698497` | `--bot-damage-scale f` | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
 | `R-5601E474` | Protocol 37 (on top of main's 36) | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
