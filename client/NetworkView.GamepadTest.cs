@@ -20,7 +20,7 @@ public partial class NetworkView
     int _padNext;
     int _padMaxStep, _padMinClip = int.MaxValue; bool _padSawAim, _padSawAir; RushPhase _padRush = RushPhase.None; WeaponSlot? _padSlot;
     System.Numerics.Vector3 _padPos; float _padYaw;
-    int _padCorrections0, _padClip0;
+    int _padCorrections0, _padClip0, _padUses0;
 
     static void PadAxis(JoyAxis axis, float value) => Input.ParseInputEvent(new InputEventJoypadMotion { Device = 0, Axis = axis, AxisValue = value });
     static void PadButton(JoyButton button, bool pressed) => Input.ParseInputEvent(new InputEventJoypadButton { Device = 0, ButtonIndex = button, Pressed = pressed, Pressure = pressed ? 1f : 0f });
@@ -70,6 +70,14 @@ public partial class NetworkView
             At(0.2, "pad again", () => PadButton(JoyButton.B, true));
             At(0.1, "pad again B up", () => PadButton(JoyButton.B, false));
             At(0.2, "scheme after pad button", () => { Log("scheme after a pad button: " + (PadHost.Active ? "Gamepad" : "KeyboardMouse")); _padCorrections0 = 0; });
+            // B is back in a menu (owner 2026-11-01) and Use in the game: Start opens the Esc menu, B closes it without a Use, B alone is a Use again.
+            At(0.3, "menu: Start", () => { PadButton(JoyButton.Start, true); PadButton(JoyButton.Start, false); });
+            At(1.5, "menu state", () => Log($"menu: open or loading {PickerBusy}"));
+            At(0.1, "menu: B down", () => { _padUses0 = _padInteractSamples; PadButton(JoyButton.B, true); });
+            At(0.4, "menu: B up", () => PadButton(JoyButton.B, false));
+            At(0.5, "menu result", () => Log($"menu: after B the menu is {(PickerBusy ? "STILL OPEN" : "closed")}; Use samples from that press {_padInteractSamples - _padUses0} (0 expected)"));
+            At(0.2, "use: B tap", () => { _padUses0 = _padInteractSamples; PadButton(JoyButton.B, true); PadButton(JoyButton.B, false); });
+            At(0.3, "use result", () => Log($"use: Use samples from a B tap with no menu {_padInteractSamples - _padUses0} (1 expected)"));
             At(0.5, "end", () =>
             {
                 var errors = _client.CorrectionErrors;

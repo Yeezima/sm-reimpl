@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Godot;
 using SmContent;
 using SmNet;
@@ -19,6 +20,9 @@ public partial class NetworkView
     PadHost? _pad;
     int _padZoom;   // the scope zoom level R3 cycles to (reset when aim ends)
     bool _padInteractLatched;
+    int _padInteractSamples;      // test aid (--pad-test): the samples that asked for a Use
+    bool _padUseBlocked;          // the B that closed a menu (or was pressed under one) is not a "use" until it is let go
+    ulong _padMenuClosedFrame = ulong.MaxValue;   // the frame the Esc menu closed (a B press in that same frame closed it)
     float _padHeldX, _padHeldY;   // seconds each look axis has been out of its dead zone (the data's request damping)
 
     /// <summary>From <c>_Ready</c>: the device node and its event hooks (a bot or a spectator window takes no pad).</summary>
@@ -53,6 +57,12 @@ public partial class NetworkView
     {
         if (!PadHost.Active) return;
         var actions = ControlsInput.PadActions(code);
+        // B closes a menu (PadHost.IsBack): the press that did it, or that came while a menu or the death screen had the game, never acts as Use, nor does its hold after the menu is gone.
+        if (actions.Contains(GameAction.Use))
+        {
+            if (pressed && (!PadLive || Engine.GetProcessFrames() == _padMenuClosedFrame)) { _padUseBlocked = true; _padInteractLatched = false; }
+            else if (!pressed) _padUseBlocked = false;
+        }
         if (!PadLive)
         {
             if (!pressed) foreach (var a in actions) if ((ControlActions.Info(a).Buttons & PadHoldButtons) != 0) _latch.Release(ControlActions.Info(a).Buttons);
@@ -65,11 +75,19 @@ public partial class NetworkView
             if (!pressed) continue;
             switch (action)
             {
-                case GameAction.Use: _padInteractLatched = true; break;
+                case GameAction.Use: if (!_padUseBlocked) _padInteractLatched = true; break;
                 case GameAction.ZoomCycle: if (_client?.Predicted.Aiming == true) _padZoom++; break;   // the zoom cycle (the levels of the scoped weapons)
                 case GameAction.Weapon1 or GameAction.Weapon2 or GameAction.Weapon3 or GameAction.NextWeapon: _latch.Press(button); _latch.Release(button); break;   // one tick (the simulation acts on the press edge)
             }
         }
+    }
+
+    /// <summary>A menu (the Esc menu, or its loading request) went away this frame: a pad press of this frame was the one that closed it, so it is not a Use.</summary>
+    void PadMenuClosed()
+    {
+        _padMenuClosedFrame = Engine.GetProcessFrames();
+        if (_pad is not null && ControlsInput.PadHeld(_pad, GameAction.Use)) _padUseBlocked = true;
+        _padInteractLatched = false;
     }
 
     void OnPadTrigger(int trigger, bool pressed) => PadInputChanged(ControlsInput.TriggerCode(trigger), pressed);
@@ -113,8 +131,10 @@ public partial class NetworkView
         var (x, y) = GamepadRules.MoveStick(pad.LeftStick.X, pad.LeftStick.Y);
         // The bound actions as buttons (sprint is a hold on the stick click by default: owner 2026-10-30); the sprint, charge and strikes read the same bits as the keyboard's.
         var buttons = BindingSet.Sample(a => ControlsInput.PadHeld(pad, a), captured: true, includeMove: false).Buttons;
-        bool interact = _padInteractLatched || ControlsInput.PadHeld(pad, GameAction.Use);
+        if (_padUseBlocked && !ControlsInput.PadHeld(pad, GameAction.Use)) _padUseBlocked = false;
+        bool interact = !_padUseBlocked && (_padInteractLatched || ControlsInput.PadHeld(pad, GameAction.Use));
         _padInteractLatched = false;
+        if (interact) _padInteractSamples++;
         if (interact && !NoPickups) buttons |= InputButtons.Interact;
         buttons = LatchButtons(buttons);
         return Converged(new PlayerInput(tick, x, y, _yaw, buttons, _pitch));
