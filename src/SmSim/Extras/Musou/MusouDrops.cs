@@ -17,10 +17,10 @@ public readonly record struct MusouDrop(ushort Id, int Player, Vector3 Position,
 public static class MusouDropRules
 {
     /// <summary>
-    /// The enemies whose death drops a weapon (the lead's reading of the owner's "boss" enemies: the Nobs; the Warboss's death ends the run). Add a type
-    /// here (such as <see cref="MusouEnemyType.ChaosMarine"/>) to make it drop too.
+    /// The enemies whose death drops a weapon: the owner's "boss" enemies, the Nobs and (the owner, 2026-10-31) the Chaos Marines; the Warboss's death
+    /// ends the run.
     /// </summary>
-    public static readonly IReadOnlyList<MusouEnemyType> DropFrom = [MusouEnemyType.Nob];
+    public static readonly IReadOnlyList<MusouEnemyType> DropFrom = [MusouEnemyType.Nob, MusouEnemyType.ChaosMarine];
 
     /// <summary>Whether a KO of <paramref name="type"/> drops (see <see cref="DropFrom"/>).</summary>
     public static bool Drops(MusouEnemyType type)

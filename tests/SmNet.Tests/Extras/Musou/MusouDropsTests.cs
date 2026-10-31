@@ -108,16 +108,30 @@ public class MusouDropsTests
     }
 
     [Fact]
+    public void A_chaos_marine_drops_like_a_nob()
+    {
+        // The owner (2026-10-31): "Make Chaos Marines drop weapons too."
+        var w = NewWorld();
+        w.Spawn(1, w.AssignClass(0));
+        w.Step(_ => default);
+        var spot = new Vector3(5f, 3f, 0f);
+        ushort marine = KillAt(w, MusouEnemyType.ChaosMarine, spot);
+        var drop = Assert.Single(w.MusouDrops);
+        Assert.Equal((spot, marine, MusouDropState.Live, 1), (drop.Position, drop.Enemy, drop.State, drop.Player));
+        Assert.True(MusouDropRules.Drops(MusouEnemyType.ChaosMarine));
+    }
+
+    [Fact]
     public void Kills_of_other_enemies_never_drop()
     {
         var w = NewWorld();
         w.Spawn(1, w.AssignClass(0));
         w.Step(_ => default);
-        foreach (var type in new[] { MusouEnemyType.Boy, MusouEnemyType.ShootaBoy, MusouEnemyType.ArdBoy, MusouEnemyType.Gretchin, MusouEnemyType.ChaosMarine })
+        foreach (var type in new[] { MusouEnemyType.Boy, MusouEnemyType.ShootaBoy, MusouEnemyType.ArdBoy, MusouEnemyType.Gretchin })
             KillAt(w, type, new Vector3(4f, 0f, 0f));
         for (int t = 0; t < 10; t++) w.Step(_ => default);
         Assert.Empty(w.MusouDrops);
-        Assert.Equal([MusouEnemyType.Nob], MusouDropRules.DropFrom);
+        Assert.Equal([MusouEnemyType.Nob, MusouEnemyType.ChaosMarine], MusouDropRules.DropFrom);
         // A Nob the stranded-enemy failsafe removes (a KO for nobody, by the world) drops nothing either.
         ushort id = w.Musou!.Spawn(MusouEnemyType.Nob, new Vector3(4f, 0f, 0f), 0f, 10f);
         w.Musou.Damage(id, 0, 1e6f, Vector3.Zero, out _, marker: 0, cause: MusouDeathKind.World);
