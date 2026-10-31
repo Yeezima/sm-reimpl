@@ -730,7 +730,8 @@ sealed class MainForm : Form
         string? newer = SelfUpdate.NewerBundled(_updater.CurrentDir(), _layout.LauncherExe);
         _newerLauncher = newer;
         UpdateLinks();
-        if (newer is null || (ask && _args.Has("screenshot"))) return;     // no modal question in a screenshot run
+        if (newer is null) { RelaunchInstalledIfNewer(); return; }          // nothing to install: but this copy may still be older than the installed launcher
+        if (ask && _args.Has("screenshot")) return;     // no modal question in a screenshot run
         var v = SelfUpdate.FileVersionOf(newer);
         if (ask && DarkBox.Show(this, $"This build comes with a newer launcher ({v?.ToString(3)}). Update the launcher now? It restarts by itself.", Text,
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
@@ -755,6 +756,7 @@ sealed class MainForm : Form
                 return;
             }
             if (outcome == SelfUpdate.Outcome.Installed) SetLine($"The launcher in {_layout.Root} was updated to {v?.ToString(3)}.", Good);
+            if (RelaunchInstalledIfNewer()) return;
         }
         catch (Exception e)
         {
@@ -763,6 +765,31 @@ sealed class MainForm : Form
         }
         _newerLauncher = SelfUpdate.NewerBundled(_updater.CurrentDir(), _layout.LauncherExe);
         UpdateLinks();
+    }
+
+    /// <summary>
+    /// This process is an older copy outside the install folder (an unpacked zip) and the install folder now holds a newer launcher: start that one
+    /// with this run's arguments and close, instead of carrying on with the old window.
+    /// </summary>
+    bool RelaunchInstalledIfNewer()
+    {
+        if (_layout is null || _args.Has("handed-off") || LauncherHandoff.IsTestOrHelperRun(_args.Values.Keys.Where(k => k != "handed-off" && k != "root"))) return false;
+        string installed = _layout.LauncherExe;
+        string? target = LauncherHandoff.Decide(LauncherInfo.ExePath, LauncherInfo.Version, false, installed, LauncherVersions.Of(installed), null, null);
+        if (target is null) return false;
+        try
+        {
+            var forward = Environment.GetCommandLineArgs().Skip(1).ToList();
+            if (!_args.Has("root")) { forward.Add("--root"); forward.Add(_layout.Root); }
+            _lock?.Dispose();
+            _lock = null;
+            if (!SelfUpdate.StartInstalled(target, forward)) return false;
+            _log?.Write("launcher: this copy is older than the installed launcher; started " + target + " and closing");
+            _handedOver = true;
+            Close();
+            return true;
+        }
+        catch (Exception e) { _log?.Write("launcher: hand-over failed: " + e.Message); return false; }
     }
 
     // ---- play ----------------------------------------------------------------------------------------------------------------

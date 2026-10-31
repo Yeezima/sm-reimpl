@@ -42,11 +42,34 @@ static class Program
             try { return Cli.Run(a); }
             catch (Exception e) { Console.Error.WriteLine("error: " + e.Message); return 1; }
         }
+        if (TryHandOff(a, args)) return 0;
         ApplicationConfiguration.Initialize();
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += (_, e) => DarkBox.Show(e.Exception.Message, "SM Reimpl Launcher", MessageBoxButtons.OK, MessageBoxIcon.Error);
         Application.Run(new MainForm(a));
         return Environment.ExitCode;
+    }
+
+    /// <summary>
+    /// A launcher that is not the install folder's one (an old unpacked zip) starts the installed launcher, or the verified one of the active build, when
+    /// that is newer, with the same arguments, and exits (<see cref="LauncherHandoff"/>). True when it did.
+    /// </summary>
+    static bool TryHandOff(Args a, string[] args)
+    {
+        try
+        {
+            if (LauncherHandoff.IsTestOrHelperRun(a.Values.Keys)) return false;
+            string? root = RootFinder.Find(a);
+            if (root is null || LauncherInfo.ExePath is not { } me) return false;
+            var layout = new InstallLayout(root);
+            string installed = layout.LauncherExe;
+            string? bundled = null;
+            if (!SelfUpdate.IsRunning(installed)) try { bundled = LauncherVersions.NewerBundled(new Updater(layout, null).CurrentDir(), LauncherVersions.Of(installed) ?? new Version(0, 0)); } catch (Exception) { }
+            string? target = LauncherHandoff.Decide(me, LauncherInfo.Version, false, installed, LauncherVersions.Of(installed), bundled, bundled is null ? null : LauncherVersions.Of(bundled));
+            if (target is null) return false;
+            return SelfUpdate.StartInstalled(target, args);
+        }
+        catch (Exception) { return false; }
     }
 }
 
