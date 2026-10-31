@@ -92,7 +92,7 @@ public partial class NetworkView
     {
         if (weapon.Recharge is not null || weapon.ClipSize <= 0 || weapon.ReloadTime <= 0f) return null;
         // Ork O7b: the boy has its own families (RigProfiles.OrkBoy: the shoota and the slugga share the one reload clip) and its own rig to check the clip against.
-        var family = _reloadAssets is null ? ReloadAnimations.FamilyOf(weapon.Name) : RigProfiles.OrkBoy.ReloadFamilyOf(weapon.Name);
+        var family = _reloadAssets is null ? ReloadAnimationFamilyOf(weapon.Name) : RigProfiles.OrkBoy.ReloadFamilyOf(weapon.Name);
         if (family is not { } fam || data.For(fam) is not { } clip) return null;
         if ((_reloadAssets ?? _assets!).Animation(clip.Clip) is null)
         {

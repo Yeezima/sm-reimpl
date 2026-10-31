@@ -23,3 +23,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Devastator and Havoc: the hop now goes down stairs and off ledges while it keeps going forward, instead of floating at the height you started from and then dropping straight down.
 - Assault Marine and Raptor: tapping Space while falling (off a ledge, at the top of a jump or on the way down) now does the short hop in the air. Holding Space while falling still jumps again as soon as you land.
 - Assault Marine, Raptor and Tactical: a charge that runs off a ledge can now be steered a little left and right with A and D while it flies, at the same speed.
+- True Grit: the Bolter and Relic Bolter in the pistol slot now hang down at the side at rest, like the bolt pistol, instead of being held out level, and walk, run, sprint, raise, shoot and reload one-handed like the bolt pistol (seen by you and by other players). Their first shot from the lowered gun now comes as quickly as the bolt pistol's.

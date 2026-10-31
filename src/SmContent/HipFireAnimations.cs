@@ -106,15 +106,24 @@ public sealed record HipFireAnimations(IReadOnlyList<HipFireSet> Sets)
     public HipFireSet? For(HipFireWeaponClass weaponClass) => Sets.FirstOrDefault(s => s.Class == weaponClass);
 
     /// <summary>
-    /// The family whose navigation and recoil graphs a weapon plays, by its wargear name: pistol (bolt pistol, plasma pistol:
-    /// interpretation, it has a fire graph of its own), heavy (heavy bolter), rifle (every other weapon: the rifle graph's ready
-    /// posture covers the lascannon and plasma cannon too; also the bolters in the pistol slot, <c>sm_mp_pistol_bolter</c>, whose
-    /// name names the slot, not a pistol: interpretation).
+    /// The family by the wargear name alone: pistol (bolt pistol, plasma pistol: interpretation, it has a fire graph of its own),
+    /// heavy (heavy bolter), rifle (every other name: the rifle graph's ready posture covers the lascannon and plasma cannon too).
+    /// The pistol-slot bolters (True Grit, <c>*_pistol_bolter</c>, <c>*_pistol_bolter_gold</c>) are rifles to this name rule, but their wargear
+    /// names <c>animation_set = "pistol"</c> as the bolt pistol's does, so both users treat them as pistols: the simulation's raise reads the set
+    /// (<see cref="MpClasses.WithRaise"/> with <see cref="MpClasses.AnimationSetOf"/>), the client's animations match the names
+    /// (<c>NetworkView.AnimationFamilyOf</c>); an install test (<c>PistolAnimationSetInstallTests</c>) pins that the two agree.
     /// </summary>
     public static HipFireWeaponClass FamilyOf(string weaponName) =>
         weaponName.Contains("bolt_pistol", StringComparison.OrdinalIgnoreCase) || weaponName.Contains("plasma_pistol", StringComparison.OrdinalIgnoreCase) ? HipFireWeaponClass.Pistol
         : weaponName.Contains("heavy_bolter", StringComparison.OrdinalIgnoreCase) ? HipFireWeaponClass.Heavy
         : HipFireWeaponClass.Rifle;
+
+    /// <summary>
+    /// The family whose animations a weapon plays (the client's choice, anim/relic-bolter-idle): <see cref="FamilyOf"/>, except the True Grit pistol-slot
+    /// bolters (<see cref="SmSim.Loadouts.IsPistolBolterName"/>), which play the bolt pistol's one-handed set (their wargear's <c>animation_set = "pistol"</c>).
+    /// </summary>
+    public static HipFireWeaponClass AnimationFamilyOf(string weaponName) =>
+        SmSim.Loadouts.IsPistolBolterName(weaponName) ? HipFireWeaponClass.Pistol : FamilyOf(weaponName);
 
     /// <summary>
     /// Whether a weapon's ready posture is always on (M31): its family has no relaxed posture (<see cref="HipFireSet.ReadyCondition"/>

@@ -25,7 +25,7 @@ public partial class NetworkView
     /// <summary>The seconds left until <paramref name="shooter"/>'s pistol is in its ready position when a shot of <paramref name="spec"/> is seen now (0: it is up, or this is no pistol).</summary>
     float PistolRaiseWait(int shooter, WeaponSpec spec)
     {
-        if (OldPistolTracer || HipFireAnimations.FamilyOf(spec.Name) != HipFireWeaponClass.Pistol || !_hip.TryGetValue(shooter, out var t) || t.Kind != PoseKind.Hip) return 0f;
+        if (OldPistolTracer || AnimationFamilyOf(spec.Name) != HipFireWeaponClass.Pistol || !_hip.TryGetValue(shooter, out var t) || t.Kind != PoseKind.Hip) return 0f;
         float blend = _hipAnims?.For(HipFireWeaponClass.Pistol)?.RelaxedToReadyBlend is { } b and > 0f ? b : (float)HipRaiseSeconds;
         float left = blend - (float)(_connectedFor - t.HipSince);
         return left is > 0.01f and <= 1f ? left : 0f;

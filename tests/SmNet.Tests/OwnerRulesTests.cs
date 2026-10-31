@@ -148,6 +148,26 @@ public class OwnerRulesTests(ITestOutputHelper output)
         Assert.Equal(0, TicksToShot(c, from: s with { Cooldown = 0f }));
     }
 
+    /// <summary>anim/relic-bolter-idle: the True Grit bolter (animation_set "pistol" in its wargear) raises as the bolt pistol: 5 ticks from the press to the shot, not the rifle's 6.</summary>
+    [Fact]
+    public void The_true_grit_bolter_raises_in_the_pistols_five_ticks()
+    {
+        static HipFireSet Set(HipFireWeaponClass k, float delay, string? condition) =>
+            new(k, "nav", "Run Ready", [], "fire", null, delay, 0.1f, 0.1f, null, condition, 0.2f, 0.2f, null, null, []);
+        var data = new HipFireAnimations(
+        [
+            Set(HipFireWeaponClass.Rifle, 0.2f, "any[BOOL_IsReady, any[BOOL_Melta]]"),
+            Set(HipFireWeaponClass.Pistol, 1f / 6f, "all[any[BOOL_IsReady, BOOL_IsAiming], any[BOOL_Pistol, BOOL_PlasmaPistol]]"),
+        ]);
+        var doc = SmFormats.Baf.BafDocument.Read(SmFormats.Baf.SyntheticBafWriter.Build(
+            ("common_data", new (string, object)[] { ("fire_mode_primary", new (string, object)[] { ("entry", new (string, object)[] { ("animation_set", "pistol"), ("upgrade_granted", "pistol_bolter") }) }) })));
+        Assert.Equal("pistol", MpClasses.AnimationSetOf(doc));
+        var gun = MpClasses.WithRaise(Gun("sm_mp_pistol_bolter_gold"), data, [], MpClasses.AnimationSetOf(doc));
+        Assert.Equal(5, TicksToShot(RaiseConfig(gun)));
+        Assert.Equal(6, TicksToShot(RaiseConfig(MpClasses.WithRaise(Gun("sm_mp_pistol_bolter_gold"), data, []))));   // by name alone (before): the rifle's 6
+        Assert.Null(MpClasses.AnimationSetOf(SmFormats.Baf.BafDocument.Read(SmFormats.Baf.SyntheticBafWriter.Build(("common_data", new (string, object)[] { ("slot", "pistol") })))));
+    }
+
     [Fact]
     public void Always_ready_weapons_aim_mode_and_weapons_without_data_never_wait()
     {
@@ -606,7 +626,11 @@ public class OwnerRulesTests(ITestOutputHelper output)
         (float, bool) Of(string name) { var w = MpClasses.WithRaise(Gun(name), data, notes); return (w.RaiseDelay, w.AlwaysReady); }
         Assert.Equal((0.2f, false), Of("sm_mp_ranged_bolter"));
         Assert.Equal((0.2f, false), Of("sm_mp_ranged_plasma_gun"));
-        Assert.Equal((0.2f, false), Of("sm_mp_pistol_bolter"));               // a bolter in the pistol slot: the rifle family
+        Assert.Equal((0.2f, false), Of("sm_mp_pistol_bolter"));               // by name alone a bolter in the pistol slot is a rifle ...
+        // ... but its wargear names animation_set "pistol" (anim/relic-bolter-idle): the pistol's raise.
+        Assert.Equal(1f / 6f, MpClasses.WithRaise(Gun("sm_mp_pistol_bolter"), data, notes, "pistol").RaiseDelay);
+        Assert.Equal(1f / 6f, MpClasses.WithRaise(Gun("csm_mp_pistol_bolter_gold"), data, notes, "pistol").RaiseDelay);
+        Assert.Equal(0.2f, MpClasses.WithRaise(Gun("sm_mp_ranged_bolter"), data, notes, "bolter").RaiseDelay);
         Assert.Equal((1f / 6f, false), Of("sm_mp_pistol_bolt_pistol"));
         Assert.Equal((1f / 6f, false), Of("csm_mp_pistol_plasma_pistol"));      // not "ready while carrying" (that list is the pistol family's gate)
         Assert.Equal((1f / 3f, true), Of("sm_mp_exotic_heavy_bolter"));

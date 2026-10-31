@@ -120,7 +120,7 @@ public partial class NetworkView
     }
 
     /// <summary>Whether the follow camera is the rig's: human views (and the bot's with <c>--aim-test</c>), not the spectator cameras.</summary>
-    bool RigCameraWanted => Spectate is null && (!_bot || AimTest || SlashTest && float.IsFinite(SlashViewPitch) || StompMoveTest) && _cameraRig is not null && _cameraTuning is not null;   // anim/air-slash-character: --slash-view-pitch gives the slash test the human camera; anim/stomp-to-move: --stomp-move-test too
+    bool RigCameraWanted => Spectate is null && (!_bot || AimTest || SlashTest && float.IsFinite(SlashViewPitch) || StompMoveTest || CarryTest) && _cameraRig is not null && _cameraTuning is not null;   // anim/air-slash-character: --slash-view-pitch gives the slash test the human camera; anim/stomp-to-move: --stomp-move-test too; anim/relic-bolter-idle: --carry-test too
 
     static float Finite(float v, float fallback) => float.IsFinite(v) ? v : fallback;
 
