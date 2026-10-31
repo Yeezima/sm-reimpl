@@ -42,6 +42,7 @@ public sealed partial class HostPanel : PanelContainer
     readonly List<(string Mode, Button Button)> _modeButtons = new();
     readonly List<(bool Local, Button Button)> _reachButtons = new();
     bool? _musouShown;   // the Musou lock last applied to the mode, reach and bots rows (null: not yet)
+    (string Mode, bool LocalOnly)? _beforeMusou;   // the mode and reach chosen before the Musou lock, restored when it lifts
     bool _pendingJoin;
     double _startedAt;
     bool _autoDone, _stopOtherDone;
@@ -80,7 +81,8 @@ public sealed partial class HostPanel : PanelContainer
         bool musou = Musou;
         if (_musouShown == musou) return;
         _musouShown = musou;
-        if (musou) { _mode = ServerLaunch.ModeAnnihilation; _localOnly = true; }
+        if (musou) { _beforeMusou ??= (_mode, _localOnly); _mode = ServerLaunch.ModeAnnihilation; _localOnly = true; }
+        else if (_beforeMusou is { } before) { (_mode, _localOnly) = before; _beforeMusou = null; }
         foreach (var (mode, b) in _modeButtons) { b.Disabled = musou; b.SetPressedNoSignal(_mode == mode); }
         foreach (var (local, b) in _reachButtons) { b.Disabled = musou; b.SetPressedNoSignal(_localOnly == local); }
         if (_hostButton is not null)
