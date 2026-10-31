@@ -333,6 +333,7 @@ public partial class NetworkView
         for (int i = 0; i < shots; i++) FxPlayOwnShot(me, weapon, index, stage, i, shots);
         // Camera kick: a little per shot, more for the heavy weapons (placeholder; with the data's handling on, the climb and sway kick instead: NetworkView.Spread.cs).
         if (!HandlingActive) FxKick(weapon, stage);
+        HeavyWeaponKick(me, weapon, stage);   // feel/weight-impact (NetworkView.CameraImpulse.cs)
     }
 
     void FxPlayOwnShot(PlayerState me, WeaponSpec weapon, int index, int stage, int nth = 0, int of = 1)
@@ -663,6 +664,7 @@ public partial class NetworkView
             float distance = ToGodot(client.Predicted.Position).DistanceTo(pos);
             float radius = d.Thrown ? 4f : 6f;
             if (distance < 25f) FxShake(Math.Clamp(1f - distance / 25f, 0f, 1f) * (radius > 5f ? 0.9f : 0.6f) * 0.012f * 3f);
+            CameraKick(WeightFeel.BlastJoltDegrees(distance), "blast");   // feel/weight-impact
             string name = d.Thrown && d.Weapon >= 0 && d.Weapon < _config.Thrown.Count ? _config.Thrown[d.Weapon].Name : "";
             if (name.Contains("krak", StringComparison.OrdinalIgnoreCase) && client.Predicted.Alive && distance < 7f)
             {
