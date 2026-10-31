@@ -104,9 +104,10 @@ public partial class NetworkView
                 if (events.MeleeHitStep <= 0) continue;
                 int victim = MeleePresentation.Victim(me, others, _config, _client.MeleeLockTarget);
                 if (victim <= 0) continue;
+                double flinchBefore = _loco.TryGetValue(victim, out var before) ? before.FlinchAt : double.NegativeInfinity;
                 FlinchHit(victim, me.PlayerId, false, me);
                 FeelShotTrigger("melee");
-                if (!OldFlinchWeight && _loco.TryGetValue(victim, out var flinched)) flinched.FlinchPeak = WeightFeel.FlinchMeleePeak;   // feel/weight-impact
+                if (!OldFlinchWeight && _loco.TryGetValue(victim, out var flinched) && flinched.FlinchAt != flinchBefore) flinched.FlinchPeak = WeightFeel.FlinchMeleePeak;   // feel/weight-impact
                 _reactionSource[victim] = (me.PlayerId, now, false);
                 _hitFlinches++;
             }
