@@ -40,6 +40,8 @@ public sealed class MusouDirector
     readonly MusouSim _sim;
     readonly MusouRules _rules;
     readonly List<Gate> _gates = new();
+    readonly List<Vector3> _gatePositions = new();
+    readonly List<ushort> _stranded = new();
     int _gateCursor, _spawned;
     int[] _mixCounts = [];
     readonly Dictionary<int, MusouPlayerScore> _scores = new();
@@ -51,11 +53,15 @@ public sealed class MusouDirector
         _sim = sim;
         _rules = sim.Rules;
         BuildGates(spawnMarkers);
+        foreach (var g in _gates) _gatePositions.Add(g.Position);
         Reset();
     }
 
     /// <summary>Where the enemies come from (the gates' centres).</summary>
-    public IReadOnlyList<Vector3> Gates => _gates.Select(g => g.Position).ToList();
+    public IReadOnlyList<Vector3> Gates => _gatePositions;
+    /// <summary>Stranded enemies the failsafe moved to a gate, and removed (a KO for nobody), this round.</summary>
+    public int Relocated { get; private set; }
+    public int Removed { get; private set; }
     public MusouPhase Phase { get; private set; }
     /// <summary>The wave under way or last played (1-based; 0 before the first).</summary>
     public int Wave { get; private set; }
@@ -79,6 +85,11 @@ public sealed class MusouDirector
     public int Kos { get; private set; }
     /// <summary>Each player's KOs, points and chain this round.</summary>
     public IReadOnlyDictionary<int, MusouPlayerScore> Scores => _scores;
+    /// <summary>
+    /// Where the Warboss comes (owner, 2026-10-31: the Chaos spawn room; the World sets the map's Chaos start area here); null: at a gate. On a graph he
+    /// stands on the node there, or, when no player can be walked to from it (a room sealed for the enemies), on the reachable node nearest it.
+    /// </summary>
+    public System.Numerics.Vector3? BossSpawn { get; set; }
     /// <summary>Test aid (ours): no releases while set (the waves and breaks wait).</summary>
     public bool Hold { get; set; }
 
@@ -90,6 +101,7 @@ public sealed class MusouDirector
         Lives = 0; PlayersCounted = 0; BossId = 0; BossMaxHealth = 0f; Kos = 0;
         _gateCursor = 0; _spawned = 0;
         _scores.Clear();
+        Relocated = 0; Removed = 0;
     }
 
     /// <summary>Play begins with <paramref name="players"/> players: the lives pool and the first wave.</summary>
@@ -156,6 +168,7 @@ public sealed class MusouDirector
     {
         var change = MusouDirectorChange.None;
         int players = targets.Length;
+        Unstrand(targets);
         switch (Phase)
         {
             case MusouPhase.Wave:
@@ -211,27 +224,83 @@ public sealed class MusouDirector
         }
     }
 
+    /// <summary>
+    /// The stranded-enemy failsafe (<see cref="MusouRules.StrandedSeconds"/>): each enemy the simulation listed goes to the next gate clear of the players;
+    /// one already moved <see cref="MusouRules.StrandedRelocations"/> times is removed instead, a KO for nobody (the wave's count goes on). The Warboss is
+    /// only ever moved. It runs while <see cref="Hold"/> is set too (that holds only the releases), not out of play.
+    /// </summary>
+    void Unstrand(ReadOnlySpan<MusouTarget> targets)
+    {
+        _stranded.Clear();
+        _sim.TakeStranded(_stranded);
+        if (Phase is not (MusouPhase.Wave or MusouPhase.Break or MusouPhase.Boss)) return;
+        foreach (ushort id in _stranded)
+        {
+            if (!_sim.TryGet(id, out var e) || !e.Alive) continue;
+            if (id == BossId || _sim.Relocations(id) < _rules.StrandedRelocations)
+            {
+                var (at, node) = NextGateSpot(targets);
+                if (_sim.Relocate(id, at, node)) Relocated++;
+            }
+            else if (_sim.Damage(id, 0, e.Health, Vector3.Zero, out _, marker: 0, cause: MusouDeathKind.World)) Removed++;
+        }
+    }
+
     bool SpawnBoss(ReadOnlySpan<MusouTarget> targets)
     {
         float health = _rules.BossHealth * Scale;
-        ushort id = SpawnAtGate(MusouEnemyType.Warboss, health, targets);
+        ushort id = BossSpawn is { } room ? SpawnInRoom(room, health, targets) : SpawnAtGate(MusouEnemyType.Warboss, health, targets);
         if (id == 0) return false;
         BossId = id;
         BossMaxHealth = health;
         return true;
     }
 
+    ushort SpawnInRoom(Vector3 room, float health, ReadOnlySpan<MusouTarget> targets)
+    {
+        var at = room;
+        int node = -1;
+        if (_sim.Walk is { } nav)
+        {
+            node = nav.Nearest(room, 3f, 3f);
+            if (_sim.Flow is { Ready: true } flow && (node < 0 || float.IsPositiveInfinity(flow.Distance(node))))
+            {
+                // Sealed for the enemies (or off the graph): the nearest node a player can be walked to from.
+                float best = float.PositiveInfinity;
+                for (int n = 0; n < nav.NodeCount; n++)
+                {
+                    if (float.IsPositiveInfinity(flow.Distance(n))) continue;
+                    float d = Vector3.DistanceSquared(nav.Position(n), room);
+                    if (d < best) { best = d; node = n; }
+                }
+            }
+            if (node >= 0) at = nav.Position(node);
+        }
+        var toward = NearestPlayer(at, targets) is { } p ? new Vector2(p.X - at.X, p.Y - at.Y) : Vector2.UnitY;
+        float yaw = toward.LengthSquared() > 1e-6f ? MathF.Atan2(-toward.X, toward.Y) : 0f;
+        return _sim.Spawn(MusouEnemyType.Warboss, at, yaw, health, node);
+    }
+
     /// <summary>Spawns at the next usable gate (one of the nodes around it, in turn); its id, or 0 (no gate, the pool is full).</summary>
     ushort SpawnAtGate(MusouEnemyType type, float health, ReadOnlySpan<MusouTarget> targets)
     {
         if (_gates.Count == 0) return 0;
+        var (at, node) = NextGateSpot(targets);
+        var toward = NearestPlayer(at, targets) is { } p ? new Vector2(p.X - at.X, p.Y - at.Y) : Vector2.UnitY;
+        float yaw = toward.LengthSquared() > 1e-6f ? MathF.Atan2(-toward.X, toward.Y) : 0f;
+        return _sim.Spawn(type, at, yaw, health, node);
+    }
+
+    /// <summary>The next usable gate's next spot (a gate at least the gate distance from every living player that can walk to one; none: the farthest).</summary>
+    (Vector3 At, int Node) NextGateSpot(ReadOnlySpan<MusouTarget> targets)
+    {
         int chosen = -1;
         float min2 = _rules.GateMinDistance * _rules.GateMinDistance;
         for (int k = 0; k < _gates.Count; k++)
         {
             int g = (_gateCursor + k) % _gates.Count;
             if (NearestPlayerSquared(_gates[g].Position, targets) < min2) continue;
-            if (_sim.Flow is { Generation: > 0 } flow && _gates[g].Node >= 0 && float.IsPositiveInfinity(flow.Distance(_gates[g].Node)) && AnyAlive(targets)) continue;
+            if (_sim.Flow is { Ready: true } flow && _gates[g].Node >= 0 && float.IsPositiveInfinity(flow.Distance(_gates[g].Node)) && AnyAlive(targets)) continue;
             chosen = g;
             break;
         }
@@ -247,10 +316,7 @@ public sealed class MusouDirector
         _gateCursor = (chosen + 1) % _gates.Count;
         var gate = _gates[chosen];
         int spot = _spawned++ % gate.Spots.Length;
-        var at = gate.Spots[spot];
-        var toward = NearestPlayer(at, targets) is { } p ? new Vector2(p.X - at.X, p.Y - at.Y) : Vector2.UnitY;
-        float yaw = toward.LengthSquared() > 1e-6f ? MathF.Atan2(-toward.X, toward.Y) : 0f;
-        return _sim.Spawn(type, at, yaw, health, gate.SpotNodes[spot]);
+        return (gate.Spots[spot], gate.SpotNodes[spot]);
     }
 
     static bool AnyAlive(ReadOnlySpan<MusouTarget> targets)

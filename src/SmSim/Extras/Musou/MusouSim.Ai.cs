@@ -50,11 +50,18 @@ public sealed partial class MusouSim
     readonly ushort[] _flowTicks = new ushort[Capacity];    // ticks left following the flow even near the target
     readonly int[] _transit = new int[Capacity];            // the node a drop link is taking it to (-1: none)
     readonly int[] _aim = new int[Capacity];                // the flow's next node this tick (-1: none; a move into its cell takes it)
+    readonly Vector3[] _anchor = new Vector3[Capacity];     // where it stood when it last made headway
+    readonly float[] _best = new float[Capacity];           // its lowest distance to a player since then (flow, else straight)
+    readonly uint[] _headwayTick = new uint[Capacity];      // when it last made headway
+    readonly byte[] _relocations = new byte[Capacity];      // times the failsafe moved it to a gate
+    readonly List<ushort> _stranded = new();
+    readonly Dictionary<int, int> _lastNode = new();        // per player id: the last graph node it stood on or above
     readonly SpatialGrid _grid;
     readonly Vector3[] _gridPos = new Vector3[Capacity];
     readonly int[] _gridSlot = new int[Capacity];
+    readonly Vector3[] _startPos = new Vector3[Capacity];   // where each stood at the tick's start: separation reads these, so the order of moves does not bias it
     readonly List<int> _dead = new();
-    int[] _targetNode = new int[16], _sources = new int[16], _meleeHeld = new int[16], _shotHeld = new int[16], _meleeWant = new int[16], _shotWant = new int[16];
+    int[] _targetNode = new int[16], _sources = new int[16], _owners = new int[16], _meleeHeld = new int[16], _shotHeld = new int[16], _meleeWant = new int[16], _shotWant = new int[16];
     float[] _meleeWantD = new float[16], _shotWantD = new float[16];
     int _losCursor;
 
@@ -72,9 +79,11 @@ public sealed partial class MusouSim
     {
         _cooldown[i] = 0; _burst[i] = 0; _roundTicks[i] = 0; _losTick[i] = 0; _los[i] = false;
         _blocked[i] = 0; _flowTicks[i] = 0; _transit[i] = -1; _aim[i] = -1;
+        _relocations[i] = 0;
         _ring[i] = Rules.CircleMin + (Rules.CircleMax - Rules.CircleMin) * Unit(Mix((uint)i * 2654435761u, 0x9E3779B9u));
         if (Walk is not null && _node[i] < 0) _node[i] = Walk.Nearest(_position[i]);
         if (Walk is not null && _node[i] >= 0) _position[i] = _position[i] with { Z = Walk.Z(_node[i]) };
+        _anchor[i] = _position[i]; _best[i] = float.PositiveInfinity; _headwayTick[i] = Tick;
     }
 
     /// <summary>
@@ -89,18 +98,19 @@ public sealed partial class MusouSim
         int ns = 0;
         for (int t = 0; t < nt; t++)
         {
-            _targetNode[t] = targets[t].Alive && Walk is not null ? Walk.Nearest(targets[t].Position) : -1;
-            if (_targetNode[t] >= 0) _sources[ns++] = _targetNode[t];
+            _targetNode[t] = targets[t].Alive ? SourceNode(targets[t]) : -1;
+            if (_targetNode[t] >= 0) { _sources[ns] = _targetNode[t]; _owners[ns] = targets[t].Id; ns++; }
             _meleeHeld[t] = 0; _shotHeld[t] = 0; _meleeWant[t] = -1; _shotWant[t] = -1;
             _meleeWantD[t] = float.MaxValue; _shotWantD[t] = float.MaxValue;
         }
-        Flow?.Step(_sources.AsSpan(0, ns), Rules.FlowExpansionsPerTick, Ticks(Rules.FlowRefreshSeconds));
+        Flow?.Step(_sources.AsSpan(0, ns), _owners.AsSpan(0, ns), Rules.FlowExpansionsPerTick, Ticks(Rules.FlowRefreshSeconds));
 
         int gn = 0;
         for (int i = 0; i < Capacity; i++)
         {
             if (!_used[i] || _state[i] == MusouEnemyState.Dying) continue;
             _gridPos[gn] = _position[i]; _gridSlot[gn] = i; gn++;
+            _startPos[i] = _position[i];
             if (_token[i] == 0) continue;
             int t = IndexOf(targets, _target[i]);
             if (t < 0) { _token[i] = 0; continue; }
@@ -109,7 +119,7 @@ public sealed partial class MusouSim
         _grid.Build(_gridPos, _gridSlot, gn);
 
         _dead.Clear();
-        Span<int> near = stackalloc int[32];
+        Span<int> near = stackalloc int[64];
         for (int i = 0; i < Capacity; i++)
         {
             if (!_used[i]) continue;
@@ -140,6 +150,7 @@ public sealed partial class MusouSim
                 desired = Behave(i, t, targets, spec, fight, collision, attacks);
             }
             Move(i, spec, desired, targets, near);
+            Headway(i, spec, targets);
         }
         foreach (int i in _dead) Remove((ushort)(i + 1));
 
@@ -152,10 +163,87 @@ public sealed partial class MusouSim
         CheckLinesOfSight(targets, collision);
     }
 
+    /// <summary>
+    /// The graph node a player counts from in the flow field: the one under its feet, else (in a jump-pack flight, on a ledge the graph leaves out) the
+    /// nearest within 6 m around and 12 m below it, else the last one it had; -1 when it never had one.
+    /// </summary>
+    int SourceNode(MusouTarget target)
+    {
+        if (Walk is null) return -1;
+        int node = Walk.Nearest(target.Position);
+        if (node < 0) node = Walk.Graph.Nearest(target.Position - new Vector3(0f, 0f, 5f), 6f, 7f);
+        if (node >= 0) _lastNode[target.Id] = node;
+        else if (_lastNode.TryGetValue(target.Id, out int last)) node = last;
+        return node;
+    }
+
+    /// <summary>
+    /// The stranded-enemy failsafe's bookkeeping (ours): headway is a step of 1 m nearer a player (by the flow field, else straight), 2 m away from where
+    /// it last made some, being near a player (12 m; a shooter within its band's far edge plus 3 m), attacking, or there being no player to go for. An
+    /// enemy in play without headway for <see cref="MusouRules.StrandedSeconds"/> is listed for the director (<see cref="TakeStranded"/>).
+    /// </summary>
+    void Headway(int i, MusouTypeSpec spec, ReadOnlySpan<MusouTarget> targets)
+    {
+        var p = _position[i];
+        float straight = float.PositiveInfinity;
+        foreach (var t in targets) if (t.Alive) straight = MathF.Min(straight, Vector3.Distance(t.Position, p));
+        float arrived = spec.Ranged ? MathF.Max(12f, spec.RangedMax + 3f) : 12f;
+        float metric = Flow is { Ready: true } && _node[i] >= 0 && !float.IsPositiveInfinity(Flow.Distance(_node[i])) ? Flow.Distance(_node[i]) : straight;
+        bool near = float.IsPositiveInfinity(straight) || straight <= arrived;
+        if (near || _state[i] != MusouEnemyState.Seek || metric < _best[i] - 1f || Vector3.DistanceSquared(p, _anchor[i]) > 4f)
+        {
+            _headwayTick[i] = Tick; _anchor[i] = p;
+            _best[i] = near ? metric : MathF.Min(_best[i], metric);
+            return;
+        }
+        if (Tick - _headwayTick[i] < Ticks(Rules.StrandedSeconds)) return;
+        _stranded.Add((ushort)(i + 1));
+        _headwayTick[i] = Tick;   // listed once; again only after another spell without headway
+    }
+
+    /// <summary>The enemies the failsafe listed since the last call (in the order they were), moved into <paramref name="into"/>; the number moved.</summary>
+    public int TakeStranded(List<ushort> into)
+    {
+        into.AddRange(_stranded);
+        int n = _stranded.Count;
+        _stranded.Clear();
+        return n;
+    }
+
+    /// <summary>Times the failsafe has moved this enemy (0 for an unknown one).</summary>
+    public int Relocations(ushort id) => id >= 1 && id <= Capacity && _used[id - 1] ? _relocations[id - 1] : 0;
+
+    /// <summary>
+    /// The failsafe's move (the director's, to a gate): the enemy alive and in play stands at <paramref name="position"/> on <paramref name="node"/> (-1:
+    /// found from the position), seeking afresh, its token given back; false for an unknown, dying or dead one, or a position that is not finite.
+    /// </summary>
+    public bool Relocate(ushort id, Vector3 position, int node = -1)
+    {
+        int i = id - 1;
+        if (i < 0 || i >= Capacity || !_used[i] || _state[i] == MusouEnemyState.Dying || !float.IsFinite(position.X) || !float.IsFinite(position.Y) || !float.IsFinite(position.Z)) return false;
+        _position[i] = position; _node[i] = node; _velocity[i] = Vector2.Zero;
+        _token[i] = 0; _burst[i] = 0; _transit[i] = -1; _aim[i] = -1; _blocked[i] = 0; _flowTicks[i] = 0;
+        if (Walk is not null && _node[i] < 0) _node[i] = Walk.Nearest(position);
+        if (Walk is not null && _node[i] >= 0) _position[i] = position with { Z = Walk.Z(_node[i]) };
+        SetState(i, MusouEnemyState.Seek);
+        _anchor[i] = _position[i]; _best[i] = float.PositiveInfinity; _headwayTick[i] = Tick;
+        if (_relocations[i] < 255) _relocations[i]++;
+        return true;
+    }
+
+    /// <summary>Forgets the AI's own state between rounds (the flow field, the players' last nodes, the round-robin, the failsafe's list).</summary>
+    void ResetAi()
+    {
+        Flow?.Reset();
+        _lastNode.Clear();
+        _stranded.Clear();
+        _losCursor = 0;
+    }
+
     void Grow(int n)
     {
         int size = Math.Max(n, _targetNode.Length * 2);
-        _targetNode = new int[size]; _sources = new int[size]; _meleeHeld = new int[size]; _shotHeld = new int[size];
+        _targetNode = new int[size]; _sources = new int[size]; _owners = new int[size]; _meleeHeld = new int[size]; _shotHeld = new int[size];
         _meleeWant = new int[size]; _shotWant = new int[size]; _meleeWantD = new float[size]; _shotWantD = new float[size];
     }
 
@@ -172,7 +260,12 @@ public sealed partial class MusouSim
         _stateTicks[i] = 0;
     }
 
-    /// <summary>The target's index: the current one while it lives (a token holder keeps it), re-chosen every half second (staggered) when much nearer.</summary>
+    /// <summary>
+    /// The target's index: the current one while it lives (a token holder keeps it), re-chosen every half second (staggered). On the graph the choice is the
+    /// player the flow field says is nearest by walking, unless one is within direct reach (<see cref="MusouRules.DirectSeekDistance"/> with height x 3);
+    /// an enemy no player can be walked to from has no target (it holds, and the failsafe moves it). Off the graph: the nearest straight (height x 3),
+    /// switched to only when much nearer.
+    /// </summary>
     int Target(int i, ReadOnlySpan<MusouTarget> targets)
     {
         int current = IndexOf(targets, _target[i]);
@@ -186,6 +279,13 @@ public sealed partial class MusouSim
             float score = d.X * d.X + d.Y * d.Y + 9f * d.Z * d.Z;
             if (t == current) currentScore = score;
             if (score < bestScore) { bestScore = score; best = t; }
+        }
+        if (Flow is { Ready: true } && _node[i] >= 0 && !(bestScore <= Rules.DirectSeekDistance * Rules.DirectSeekDistance))
+        {
+            int owner = float.IsPositiveInfinity(Flow.Distance(_node[i])) ? -1 : IndexOf(targets, Flow.Owner(_node[i]));
+            if (owner != current) { _token[i] = 0; _burst[i] = 0; _losTick[i] = 0; }
+            _target[i] = owner >= 0 ? (ushort)Math.Clamp(targets[owner].Id, 0, ushort.MaxValue) : (ushort)0;
+            return owner;
         }
         if (current >= 0 && !(bestScore < 0.6f * currentScore)) return current;
         if (best != current) { _token[i] = 0; _burst[i] = 0; _losTick[i] = 0; }
@@ -330,6 +430,8 @@ public sealed partial class MusouSim
                 float l = to.Length();
                 if (l > 1e-4f) return to / l * speed;
             }
+            // No way down the field from here (no player can be walked to): hold rather than walk into a wall.
+            if (Flow!.Ready && float.IsPositiveInfinity(Flow.Distance(_node[i]))) return Vector2.Zero;
         }
         return distance > 1e-4f ? flat / distance * speed : Vector2.Zero;
     }
@@ -373,17 +475,31 @@ public sealed partial class MusouSim
             return;
         }
         var push = Vector2.Zero;
-        int found = _grid.Around(p, near), used = 0;
-        for (int k = 0; k < found && used < Rules.MaxNeighbours; k++)
+        // The nearest overlapping neighbours, at most MaxNeighbours (nearest first; ties: the hash's order), so a dense pile pushes evenly.
+        int found = _grid.Around(p, near), kept = 0, most = Math.Clamp(Rules.MaxNeighbours, 0, 16);
+        Span<int> keptSlot = stackalloc int[16];
+        Span<float> keptDist = stackalloc float[16];
+        for (int k = 0; k < found; k++)
         {
             int j = near[k];
             if (j == i) continue;
-            var o = _position[j];
+            var o = _startPos[j];
             if (MathF.Abs(o.Z - p.Z) > 1.2f) continue;
+            float dist = new Vector2(p.X - o.X, p.Y - o.Y).Length();
+            if (dist >= Rules.Of(_type[j]).Radius + spec.Radius) continue;
+            int at = kept;
+            while (at > 0 && keptDist[at - 1] > dist) at--;
+            if (at >= most) continue;
+            for (int m = Math.Min(kept, most - 1); m > at; m--) { keptSlot[m] = keptSlot[m - 1]; keptDist[m] = keptDist[m - 1]; }
+            keptSlot[at] = j; keptDist[at] = dist;
+            if (kept < most) kept++;
+        }
+        for (int k = 0; k < kept; k++)
+        {
+            int j = keptSlot[k];
+            var o = _startPos[j];
             var away = new Vector2(p.X - o.X, p.Y - o.Y);
-            float gap = Rules.Of(_type[j]).Radius + spec.Radius, dist = away.Length();
-            if (dist >= gap) continue;
-            used++;
+            float gap = Rules.Of(_type[j]).Radius + spec.Radius, dist = keptDist[k];
             var dir = dist > 1e-4f ? away / dist : Forward((i - j) * 2.399963f);
             push += dir * (gap - dist) * Rules.SeparationStrength;
         }

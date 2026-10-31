@@ -19,6 +19,8 @@ public sealed partial class World
     readonly List<MusouAttack> _musouAttacks = new();
     readonly List<MusouKill> _musouKills = new();
     MusouTarget[] _musouTargets = [];
+    readonly List<int> _musouIds = new();
+    readonly List<(float RespawnLeft, int Id)> _musouDead = new();
 
     /// <summary>The Musou enemies of this match; null unless <see cref="StartMusou"/> ran (every match that is not Musou).</summary>
     public MusouSim? Musou => _musou;
@@ -38,6 +40,9 @@ public sealed partial class World
         if (_musou is not null) return true;
         _musou = new MusouSim(nav, Config.MusouRules) { TickRate = Config.TickRate };
         _musouDirector = new MusouDirector(_musou, _spawns.Select(s => s.Position).ToList());
+        // The Warboss comes out of the Chaos spawn room (owner, 2026-10-31): the spot of the map's Chaos start area nearest its centre.
+        int chaosArea = Array.FindIndex(_startAreas, a => a.Side == Team.Chaos);
+        if (chaosArea >= 0) _musouDirector.BossSpawn = SpotsIn(chaosArea)[0];
         _musou.Director = _musouDirector.View();
         return true;
     }
@@ -53,7 +58,10 @@ public sealed partial class World
         // The players this tick, in id order (deterministic).
         int n = 0;
         if (_musouTargets.Length < _players.Count) _musouTargets = new MusouTarget[Math.Max(8, _players.Count * 2)];
-        foreach (int id in _players.Keys.Order()) { var p = _players[id]; _musouTargets[n++] = new MusouTarget(id, p.Position, p.Alive); }
+        _musouIds.Clear();
+        foreach (int id in _players.Keys) _musouIds.Add(id);
+        _musouIds.Sort();
+        foreach (int id in _musouIds) { var p = _players[id]; _musouTargets[n++] = new MusouTarget(id, p.Position, p.Alive); }
         var targets = _musouTargets.AsSpan(0, n);
 
         if (playing)
@@ -80,10 +88,10 @@ public sealed partial class World
         else if (playing && director.Phase == MusouPhase.Lost) End(Team.Chaos);
         else if (_state == MatchState.Ended && director.Phase == MusouPhase.Lost) MusouHoldRespawns(0);   // nobody comes back on the end screen of a loss
 
-        // Scores: the Space Marines' team score is the KOs; marine deaths never feed a Chaos score that could end the match (ResolveDeaths adds this tick's
-        // deaths after this hook, and both stay below the score limit).
-        int limit = Math.Max(1, Rules!.ScoreLimit - 1);
-        _teamScores[(int)Team.SpaceMarines] = Math.Min(director.Kos, limit);
+        // Scores: the Space Marines' team score is the KOs (kept under the score limit when it allows one), Chaos has none; ResolveDeaths still adds this
+        // tick's marine deaths after this hook, and a core end that brings about is undone in the Musou flow (ExtrasStepMatch), whatever the host's limits.
+        int limit = Rules!.ScoreLimit;
+        _teamScores[(int)Team.SpaceMarines] = limit > 1 ? Math.Min(director.Kos, limit - 1) : director.Kos;
         _teamScores[(int)Team.Chaos] = 0;
         _musou.Director = director.View();
         _musou.LastStepMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
@@ -130,18 +138,25 @@ public sealed partial class World
     }
 
     /// <summary>
-    /// The shared lives pool: each respawn this tick takes a life and moves the player to the spawn farthest from the horde; while the pool cannot cover every
+    /// The shared lives pool: each respawn this tick takes a life (the core places it, in the Space Marines' spawn room); while the pool cannot cover every
     /// dead player the rest wait (the soonest first); every player dead with no life left loses.
     /// </summary>
     void MusouLives()
     {
         var director = _musouDirector!;
         if (director.Phase is not (MusouPhase.Wave or MusouPhase.Break or MusouPhase.Boss)) return;
-        foreach (int id in _respawns)
+        for (int k = 0; k < _respawns.Count; k++)
         {
+            int id = _respawns[k];
             if (!_players.TryGetValue(id, out var p) || !p.Alive) continue;
-            director.SpendLife();
-            if (MusouSafestSpawn() is { } spawn) _players[id] = p with { Position = spawn.Position, Yaw = spawn.Yaw };
+            if (director.Lives == 0)
+            {
+                // The core respawned someone the hold did not catch (a respawn time under a tick, a death with the timer already short): back to dead, held.
+                _players[id] = Combat.Killed(p, Config) with { RespawnLeft = MusouRespawnHold };
+                _respawns.RemoveAt(k--);
+                continue;
+            }
+            director.SpendLife();   // where: the core's, the Space Marines' spawn room (owner, 2026-10-31)
         }
         MusouHoldRespawns(director.Lives);
         bool anyAlive = false;
@@ -152,28 +167,27 @@ public sealed partial class World
     /// <summary>Lets at most <paramref name="lives"/> dead players' timers run out (the soonest first, ties by id); the others wait at the hold.</summary>
     void MusouHoldRespawns(int lives)
     {
-        var dead = _players.Values.Where(p => !p.Alive).OrderBy(p => p.RespawnLeft).ThenBy(p => p.PlayerId).ToList();
-        for (int k = lives; k < dead.Count; k++)
-            if (dead[k].RespawnLeft < MusouRespawnHold) _players[dead[k].PlayerId] = dead[k] with { RespawnLeft = MusouRespawnHold };
-    }
-
-    /// <summary>The map spawn whose nearest enemy is farthest (ties: the first); null without spawns or enemies.</summary>
-    SpawnPoint? MusouSafestSpawn()
-    {
-        if (_spawns.Length == 0 || _musou!.Alive == 0) return null;
-        int best = -1; float far = -1f;
-        for (int k = 0; k < _spawns.Length; k++)
+        _musouDead.Clear();
+        foreach (var (id, p) in _players) if (!p.Alive) _musouDead.Add((p.RespawnLeft, id));
+        if (_musouDead.Count <= lives) return;
+        _musouDead.Sort();   // the soonest first, ties by id
+        for (int k = Math.Max(0, lives); k < _musouDead.Count; k++)
         {
-            float d = _musou.NearestSquared(_spawns[k].Position);
-            if (d > far) { far = d; best = k; }
+            int id = _musouDead[k].Id;
+            if (_musouDead[k].RespawnLeft < MusouRespawnHold) _players[id] = _players[id] with { RespawnLeft = MusouRespawnHold };
         }
-        return best >= 0 ? _spawns[best] : null;
     }
 
-    /// <summary>The break's refill: every living player's health, shield, reserves and grenades back to full (clips as they are).</summary>
+    /// <summary>
+    /// The break's refill: every living player's health and shield back to full, and the reserve of each weapon it carries (clips as they are). A slot the
+    /// Musou loadout left empty stays empty, and grenades are not given back (it spawns without them).
+    /// </summary>
     void MusouRefill()
     {
-        foreach (int id in _players.Keys.Order().ToList())
+        _musouIds.Clear();
+        foreach (int id in _players.Keys) _musouIds.Add(id);
+        _musouIds.Sort();
+        foreach (int id in _musouIds)
         {
             var p = _players[id];
             if (!p.Alive) continue;
@@ -185,7 +199,6 @@ public sealed partial class World
             {
                 Health = body.HealthMax, Shield = body.ShieldMax,
                 Reserve = inHand?.ReserveSize ?? p.Reserve, OtherReserve = other?.ReserveSize ?? p.OtherReserve, ThirdReserve = third?.ReserveSize ?? p.ThirdReserve,
-                Grenades = Math.Max(p.Grenades, Loadouts.Equipment(Config, p)?.SpawnCount ?? 0),
             };
         }
     }
@@ -223,7 +236,7 @@ public sealed partial class World
         switch (_state)
         {
             case MatchState.Warmup:
-                if (marines) { MusouNewRound(); BeginRound(respawnWithoutCountdown: false); }
+                if (marines) { MusouNewRound(); MusouRearm(); BeginRound(respawnWithoutCountdown: false); }
                 break;
             case MatchState.Countdown:
                 if (!marines) { _state = MatchState.Warmup; TicksLeft = 0; }
@@ -236,8 +249,18 @@ public sealed partial class World
                 break;
             case MatchState.Playing:
                 if (!marines) { _state = MatchState.Warmup; TicksLeft = 0; MusouNewRound(); }
+                else TicksLeft = uint.MaxValue;   // no time limit, whatever the host's (only the director ends the match)
                 break;
             case MatchState.Ended:
+                if (_musouDirector!.Phase is MusouPhase.Wave or MusouPhase.Break or MusouPhase.Boss)
+                {
+                    // The core's score limit ended it this tick (a host limit at or under the KOs or this tick's deaths): only the director ends a Musou match.
+                    _state = marines ? MatchState.Playing : MatchState.Warmup;
+                    Winner = Team.None;
+                    TicksLeft = marines ? uint.MaxValue : 0;
+                    if (!marines) MusouNewRound();
+                    break;
+                }
                 if (Tick > _endedTick && TicksLeft > 0) TicksLeft--;
                 if (TicksLeft == 0)
                 {
@@ -246,10 +269,12 @@ public sealed partial class World
                     Array.Clear(_teamScores);
                     ResetPoints();
                     MusouNewRound();
+                    MusouRearm();
                     if (marines) BeginRound(respawnWithoutCountdown: true);
                 }
                 break;
         }
+        MusouArm();   // World.MusouLoadout.cs: every new life with the pistol alone
     }
 
     void MusouNewRound()

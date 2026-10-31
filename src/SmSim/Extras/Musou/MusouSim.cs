@@ -141,12 +141,14 @@ public sealed partial class MusouSim
         return true;
     }
 
-    /// <summary>Frees every slot (a new round), in id order.</summary>
+    /// <summary>Frees every slot (a new round), in id order, and forgets the round's own state (the flow field, the dropped-event count, the AI's bookkeeping).</summary>
     public void Clear()
     {
         for (int i = 0; i < Capacity; i++) if (_used[i]) Remove((ushort)(i + 1));
         _events.Clear();
         _kills.Clear();
+        EventsDropped = 0;
+        ResetAi();
     }
 
     /// <summary>
