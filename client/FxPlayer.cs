@@ -50,6 +50,8 @@ public sealed class FxEffect
     /// then shows only its ground burst where it is placed, not its flames).
     /// </summary>
     public bool GroundOnly;
+    /// <summary>fx/air-slash-landing: the effect's decals (crater, cracks) are not placed (the air slash's flash is the pound's burst without its ground marks).</summary>
+    public bool NoDecals;
     /// <summary>feel/muzzle-smoke (owner's change of 2026-10-29, ours): 1 plays the data's look; below 1 a weapon's smoke elements (smoke trail beams and streamers, smoke puffs, sprays that emit them) keep this fraction of their width, radius and sideways speed. Set by the networked view for weapon fire, tracer and stop-fire effects only.</summary>
     public float SmokeRein = 1f;
     /// <summary>feel/scope-lascannon: seconds after its start that <see cref="Follow"/> keeps moving the effect (an effect a shot attaches to the weapon follows its marker for the first frames only); infinity: as long as it lives.</summary>
@@ -478,7 +480,7 @@ public sealed partial class FxPlayer : Node3D
             case CBeam beam: DrawBeam(e, beam, c, age, seed); break;
             case CStreamer streamer: DrawStreamer(e, streamer, c, age, seed); break;
             case CLight light: DrawLight(e, light, c, age, seed); break;
-            case CDecal decal: DrawDecal(e, decal, c, age, seed); break;
+            case CDecal decal: if (!e.NoDecals) DrawDecal(e, decal, c, age, seed); break;
             case CMesh mesh: DrawMesh(e, mesh, c, age, seed); break;
         }
     }

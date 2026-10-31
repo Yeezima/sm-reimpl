@@ -312,6 +312,8 @@ public readonly record struct PlayerState(int PlayerId, Vector3 Position, Vector
     /// lift-off tick: let go and pressed again during the take-off is no cut) (<see cref="JumpPackSpec.ReleaseCut"/>); <see cref="JumpMark"/> is then the tick the cut's delay counts from. False in every other phase.
     /// </summary>
     public bool JumpCut { get; init; }
+    /// <summary>sim/jump-hang: in <see cref="JumpPhase.Hang"/>, the jump is the small jump (a medium hold), which hangs <see cref="JumpPackSpec.SmallHangTime"/> longer. False in every other phase.</summary>
+    public bool JumpSmall { get; init; }
     /// <summary>
     /// Protocol 30: the <see cref="JumpPhase.Dive"/> or <see cref="JumpPhase.Recover"/> is the sword slash's (<see cref="SlashSpec"/>), not the ground
     /// pound's. Protocol 31 (feel/jump-pack): in the take-off and on the lift-off tick (phase Ascent), a slash press is buffered (<see cref="JumpPack"/>). False in every

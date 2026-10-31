@@ -274,7 +274,7 @@ public class JumpHeightTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_27_carries_the_cut_in_the_own_record_and_refuses_it_elsewhere_and_the_config_hash_covers_it()
     {
-        Assert.Equal(48, Protocol.Version);
+        Assert.Equal(49, Protocol.Version);
         var s = Jump(On, 15);
         var p = s.First(x => x.JumpCut) with { PlayerId = 7 };
         var bytes = Protocol.Write(new Snapshot(1, 1, 1, [p], Self: 7));
@@ -284,8 +284,8 @@ public class JumpHeightTests(ITestOutputHelper output)
         var plain = Protocol.Write(new Snapshot(1, 1, 1, [p with { JumpCut = false }], Self: 7));
         int at = Enumerable.Range(0, bytes.Length).Single(i => bytes[i] != plain[i]);
         Assert.Equal(64, bytes[at] ^ plain[at]);
-        var hang = (byte[])bytes.Clone(); hang[at] = (byte)((hang[at] & ~7) | (int)JumpPhase.Hang);
-        Assert.Null(Protocol.Read(hang));            // the cut outside the ascent
+        var hang = (byte[])bytes.Clone(); hang[at] = (byte)((hang[at] & ~7) | (int)JumpPhase.Fall);
+        Assert.Null(Protocol.Read(hang));            // the cut outside the ascent (in the hang bit 6 is the small jump's: sim/jump-hang)
         var holding = (byte[])bytes.Clone(); holding[at] |= 16;
         Assert.Null(Protocol.Read(holding));         // a cut rise that still holds
         Assert.NotEqual(Off.Hash(), On.Hash());

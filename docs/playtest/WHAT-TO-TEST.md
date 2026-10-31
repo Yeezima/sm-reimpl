@@ -55,7 +55,7 @@ Items in the [Deliberate changes](#deliberate-changes-do-not-report-these-as-bug
 - `R-9A32D372` **No lunge.** Attacks do not step you toward the enemy (not applied). Compare with SM1: does your marine move forward when you swing?
 - `R-0B7E5FFB` **Stun strike (F) chaining.** Heavy presses buffer and chain like light ones (interpretation). Compare with SM1: can you chain a stun strike after a light attack, and when?
 - `R-5E05702F` **Stun damage does nothing on its own.** The stun meter is not reachable; the strikes stun directly. Compare with SM1: do repeated knife hits stun an enemy over time?
-- `R-5CE08395` **Charge start.** W + F, no sprint needed (owner's rule, 2026-10-29; replaces the sprint gate `R-98B884B3`). Compare with SM1: can you start a charge from a standstill or a walk?
+- `R-5CE08395` **Charge start.** Shift + W + F (owner's rule, 2026-10-31; replaces the W-only rule of 2026-10-29); F without Shift is the stun strike in the held direction. Compare with SM1: does the charge need the sprint held, and can you start it from a standstill?
 - `R-758EB91D` **Side charge.** W + A or W + D with F turns the charge 25 degrees to that side (our angle for "a bit"). Compare with SM1: how far to the side does it go?
 - `R-8A127BAB` **Dash attack directions.** During the Assault / Raptor dash, right mouse with W, A, S, D or a diagonal lunges that way (the body turns and plays the forward clip). Compare with SM1: do the eight directions and the turned body match?
 - `R-23BBFED5` **Charger's hyper armour.** First 0.333 s of the charge (owner: "wears off roughly halfway"). Compare with SM1: how far into the charge can you be stunned?

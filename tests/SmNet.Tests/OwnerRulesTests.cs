@@ -42,17 +42,20 @@ public class OwnerRulesTests(ITestOutputHelper output)
         Combat.StepPlayer(s, new PlayerInput(0, 0f, my, 0f, b), c, out _, world);
 
     [Fact]
-    public void Superseded_by_protocol_39_the_charge_needs_W_held_not_the_sprint()
+    public void Superseded_by_protocol_49_the_charge_needs_the_sprint_held_as_well_as_W()
     {
-        // M31's sprint gate (sprint applied, speed above run + 0.25 x (sprint - run)) is superseded by the owner's rule of 2026-10-29
-        // (feel/charge-directions): "just be holding w when you press f". Running, standing, aiming or firing with W held: the charge starts.
+        // Protocol 39 dropped M31's speed gate ("just be holding w when you press f"); protocol 49 (sim/charge-needs-sprint, owner 2026-10-31): "you also need to be
+        // holding shift". Only the held Sprint button and W matter (not the speed, aim mode or the trigger).
         var s = Fresh(RushConfig, Tactical);
-        Assert.True(Rush.CanStart(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.None), RushTests.Spec, RushConfig));   // standing
+        Assert.True(Rush.CanStart(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.Sprint), RushTests.Spec, RushConfig));    // standing, Shift + W
+        Assert.False(Rush.CanStart(s, new PlayerInput(0, 0f, 1f, 0f, InputButtons.None), RushTests.Spec, RushConfig));     // W alone
         for (int k = 0; k < 20; k++) s = Step(s, RushConfig, InputButtons.None);
         Assert.Equal(6.5f, s.Velocity.Y, 3);
-        foreach (var b in new[] { InputButtons.None, InputButtons.Sprint, InputButtons.Sprint | InputButtons.Aim, InputButtons.Sprint | InputButtons.Fire, InputButtons.Aim })
+        foreach (var b in new[] { InputButtons.Sprint, InputButtons.Sprint | InputButtons.Aim, InputButtons.Sprint | InputButtons.Fire })
             Assert.True(Rush.CanStart(s, new PlayerInput(0, 0f, 1f, 0f, b), RushTests.Spec, RushConfig), b.ToString());
-        Assert.False(Rush.CanStart(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Sprint), RushTests.Spec, RushConfig));   // no W
+        foreach (var b in new[] { InputButtons.None, InputButtons.Aim, InputButtons.Fire })
+            Assert.False(Rush.CanStart(s, new PlayerInput(0, 0f, 1f, 0f, b), RushTests.Spec, RushConfig), b.ToString());
+        Assert.False(Rush.CanStart(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Sprint), RushTests.Spec, RushConfig));   // Shift without W
     }
 
     [Theory]
@@ -64,10 +67,10 @@ public class OwnerRulesTests(ITestOutputHelper output)
         var s = Fresh(RushConfig, cls);
         for (int k = 0; k < 10; k++) s = Step(s, RushConfig, InputButtons.Sprint);
         Assert.Equal(RushPhase.Rush, Step(s, RushConfig, InputButtons.Sprint | InputButtons.MeleeHeavy).Rush);
-        // Running without the sprint: since protocol 39 the charge too (W held).
+        // Running without the sprint: protocol 49 (owner 2026-10-31): no charge, the stun strike.
         var run = Fresh(RushConfig, cls);
         for (int k = 0; k < 20; k++) run = Step(run, RushConfig, InputButtons.None);
-        Assert.Equal(RushPhase.Rush, Step(run, RushConfig, InputButtons.MeleeHeavy).Rush);
+        Assert.Equal(RushPhase.None, Step(run, RushConfig, InputButtons.MeleeHeavy).Rush);
 
         // Sprint, then jump with W and Sprint held and press F in every tick of the jump: take-off, ascent, hang, fall, landing.
         s = Fresh(RushConfig, cls);
@@ -298,7 +301,7 @@ public class OwnerRulesTests(ITestOutputHelper output)
     };
 
     [Theory]
-    [InlineData(0, 45)]   // lascannon: charged at 1.5 s
+    [InlineData(0, 45)]   // lascannon held-charge variant (max_charge_time 0): charged at 1.5 s; the real lascannon fires on the press (below)
     [InlineData(1, 33)]   // plasma gun: 1.1 s
     [InlineData(2, 20)]   // plasma pistol (its charge on the primary ability): 0.65 s
     [InlineData(3, 90)]   // plasma cannon: 3 s
@@ -330,6 +333,46 @@ public class OwnerRulesTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void The_lascannon_fires_its_shot_on_the_press_tick_and_holding_charges_nothing()
+    {
+        var c = ChargeConfig with { Weapons = [ChargeTests.LasPress, ChargeTests.PlasmaGun, ChargeTests.PlasmaPistol, ChargeTests.Cannon] };
+        var s = Fresh(c, 0);
+        var weapon = Loadouts.InHand(c, s)!;
+        Assert.Equal(1.5f, weapon.Charge!.MaxChargeTime);
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire), c, out var press);
+        Assert.Equal((true, 0, false), (press.Fired, press.ShotStage, s.Charging));   // the press tick; the basic shot, no charge
+        Assert.Equal(weapon.ClipSize - Math.Max(1, weapon.AmmoPerShot), s.Clip);
+        // Holding on (past the old 1.5 s charge) fires nothing more, and the release fires nothing.
+        for (int k = 0; k < 60; k++)
+        {
+            s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire), c, out var held);
+            Assert.False(held.Fired);
+            Assert.False(s.Charging);
+        }
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), c, out var rel);
+        Assert.False(rel.Fired);
+    }
+
+    [Fact]
+    public void A_charged_shot_with_a_data_fire_delay_leaves_on_the_release_tick()
+    {
+        var c = ChargeConfig;
+        foreach (int cls in new[] { 1, 2, 3 })
+        {
+            var s = Fresh(c, cls);
+            var weapon = Loadouts.InHand(c, s)!;
+            Assert.True(weapon.Charge!.Stages.Any(st => st.Shot is { FireDelay: > 0f }), weapon.Name);   // the data does carry a delay
+            int need = (int)MathF.Ceiling(weapon.Charge.Stages.Last(st => st.Shot is not null).MinTime / (1f / 30f)) + 1;
+            for (int k = 0; k < need; k++) s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire), c, out var held);
+            Assert.True(Combat.ChargeStage(weapon.Charge, s.ChargeTime, firing: true) > 0);
+            s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), c, out var rel);
+            Assert.True(rel.Fired, weapon.Name);
+            Assert.True(rel.ShotStage > 0, weapon.Name);
+            Assert.Equal(0, s.PendingShot);
+        }
+    }
+
+    [Fact]
     public void A_tap_on_a_lowered_charge_weapon_waits_for_the_raise_and_a_hold_charges_through_it()
     {
         var gun = ChargeTests.PlasmaGun with { RaiseDelay = 0.2f };
@@ -349,8 +392,8 @@ public class OwnerRulesTests(ITestOutputHelper output)
         int shots = 0;
         for (int k = 0; k < 34; k++) { s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire), c, out var e); if (e.Fired) shots++; }
         Assert.Equal((0, true, 0), (shots, s.Charging, s.RaiseTicks));
-        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), c, out _);
-        Assert.Equal(2, s.PendingShot);
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), c, out var rel);
+        Assert.Equal((true, 2, 0), (rel.Fired, rel.ShotStage, s.PendingShot));   // sim/instant-fire: on the release tick
     }
 
     [Fact]
@@ -439,7 +482,7 @@ public class OwnerRulesTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_21_carries_the_raise_and_a_ten_second_hold_in_the_own_record_and_weapon_up_in_slim_ones_within_the_budget()
     {
-        Assert.Equal(48, Protocol.Version);
+        Assert.Equal(49, Protocol.Version);
         Assert.Equal(1194, Protocol.MaxSnapshotBytes);   // protocol 23: + the perk word (21: ready ticks in 2 bytes, 1198; 20: 1197)
         Assert.True(Protocol.MaxSnapshotBytes <= Protocol.SnapshotBudget);
         var me = new PlayerState(3, Vector3.One, Vector3.Zero, 0f, true) { Alive = true, ReadyTicks = 300, RaiseTicks = 6 };

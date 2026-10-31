@@ -229,7 +229,7 @@ public partial class NetworkView
         if (_pickupPrompt is not null)
         {
             _pickupPrompt.Visible = prompt is not null && _hudView is not { DrawsPrompt: true };
-            if (prompt is not null) _pickupPrompt.Text = $"[{PadHost.Hint("E", "B")}]  {prompt}";
+            if (prompt is not null) _pickupPrompt.Text = $"[{ControlsInput.Prompt(GameAction.Use)}]  {prompt}";
         }
         if (_bot && _connectedFor - _pickupLogAt >= 10.0)
         {
@@ -253,7 +253,7 @@ public partial class NetworkView
     /// <summary>From <c>_UnhandledInput</c>: latches an E press while the mouse is captured.</summary>
     void PickupKey(InputEvent e)
     {
-        if (e is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.E } && Input.MouseMode == Input.MouseModeEnum.Captured) _interactLatched = true;
+        if (e is InputEventKey { Pressed: true, Echo: false } or InputEventMouseButton { Pressed: true } && ControlsInput.Is(e, GameAction.Use) && Input.MouseMode == Input.MouseModeEnum.Captured) _interactLatched = true;
     }
 
     /// <summary>
@@ -264,7 +264,7 @@ public partial class NetworkView
     {
         bool latched = _interactLatched;
         _interactLatched = false;
-        return !NoPickups && Input.MouseMode == Input.MouseModeEnum.Captured && (latched || Input.IsPhysicalKeyPressed(Key.E)) ? InputButtons.Interact : InputButtons.None;
+        return !NoPickups && Input.MouseMode == Input.MouseModeEnum.Captured && (latched || ControlsInput.Held(GameAction.Use)) ? InputButtons.Interact : InputButtons.None;
     }
 
     // ---------------------------------------------------------------- bots (test aid)

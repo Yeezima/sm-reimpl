@@ -48,10 +48,14 @@ public partial class NetworkView
             At(0.5, "fire release", () => { PadAxis(JoyAxis.TriggerRight, 0f); Log($"fire: clip {_padClip0} -> lowest {_padMinClip} after RT held 0.5 s"); });
             At(0.5, "melee: X tap", () => { _padMaxStep = 0; PadButton(JoyButton.X, true); PadButton(JoyButton.X, false); });
             At(1.0, "melee result", () => Log($"melee: attack step reached {_padMaxStep} after one X tap"));
-            At(0.5, "charge: LS forward then Y", () => { _padRush = RushPhase.None; PadAxis(JoyAxis.LeftY, -1f); });
+            At(0.5, "stun: LS forward, no sprint, Y", () => { _padRush = RushPhase.None; _padMaxStep = 0; PadAxis(JoyAxis.LeftY, -1f); });
+            At(0.4, "Y press (no sprint)", () => PadButton(JoyButton.Y, true));
+            At(0.15, "Y release (no sprint)", () => PadButton(JoyButton.Y, false));
+            At(1.2, "forward stun result", () => Log($"stun with the stick forward but no sprint (protocol 49): rush phase {_padRush}, attack step {_padMaxStep} (no charge expected)"));
+            At(0.3, "charge: L3 held, stick forward, then Y", () => { _padRush = RushPhase.None; PadButton(JoyButton.LeftStick, true); });
             At(0.4, "Y press", () => PadButton(JoyButton.Y, true));
             At(0.15, "Y release", () => PadButton(JoyButton.Y, false));
-            At(1.2, "charge result", () => { PadAxis(JoyAxis.LeftY, 0f); Log($"charge: rush phase seen {_padRush} with the stick forward at Y"); });
+            At(1.2, "charge result", () => { PadAxis(JoyAxis.LeftY, 0f); PadButton(JoyButton.LeftStick, false); Log($"charge: rush phase seen {_padRush} with the sprint held and the stick forward at Y"); });
             At(0.8, "heavy without stick", () => { _padRush = RushPhase.None; _padMaxStep = 0; PadButton(JoyButton.Y, true); PadButton(JoyButton.Y, false); });
             At(1.2, "heavy result", () => Log($"stun without the stick: rush phase {_padRush}, attack step {_padMaxStep} (no charge expected)"));
             At(0.3, "jump: A", () => { _padSawAir = false; PadButton(JoyButton.A, true); });

@@ -40,24 +40,24 @@ sealed class MainForm : Form
     bool _handedOver;
 
     // controls
-    readonly Panel _main = new() { Dock = DockStyle.Fill };
-    readonly Panel _setup = new() { Dock = DockStyle.Fill, Visible = false };
-    readonly Label _installed = new() { AutoSize = true, Font = new Font("Segoe UI", 12f, FontStyle.Bold) };
-    readonly Label _installedSub = new() { AutoSize = true, ForeColor = Muted };
-    readonly Label _notice = new() { AutoSize = true, ForeColor = Warn, Visible = false, MaximumSize = new Size(700, 0) };
-    readonly Label _update = new() { AutoSize = true, MaximumSize = new Size(560, 0), Font = new Font("Segoe UI", 10f) };
+    readonly TilePanel _main = new() { Dock = DockStyle.Fill };
+    readonly TilePanel _setup = new() { Dock = DockStyle.Fill, Visible = false };
+    readonly DarkLabel _installed = new() { AutoSize = true, Font = new Font("Segoe UI", 12f, FontStyle.Bold) };
+    readonly DarkLabel _installedSub = new() { AutoSize = true, ForeColor = Muted };
+    readonly DarkLabel _notice = new() { AutoSize = true, ForeColor = Warn, Visible = false };
+    readonly DarkLabel _update = new() { AutoSize = true, Font = new Font("Segoe UI", 10f) };
     readonly Button _btnUpdate = new() { Text = "Update", AutoSize = true, Visible = false };
-    readonly Label _notesTitle = new() { AutoSize = true, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), Text = "What's new" };
+    readonly DarkLabel _notesTitle = new() { AutoSize = true, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), Text = "What's new" };
     readonly TextBox _notes = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill, BackColor = Theme.Input, BorderStyle = BorderStyle.FixedSingle };
-    readonly TableLayoutPanel _progressPanel = new() { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, Visible = false, Padding = new Padding(16, 4, 16, 4) };
-    readonly DarkProgress _progress = new() { Dock = DockStyle.Fill, Maximum = 1000, Height = 22 };
-    readonly Label _progressText = new() { AutoSize = true };
+    readonly TileTable _progressPanel = new() { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, Visible = false, Padding = new Padding(16, 4, 16, 4) };
+    readonly DarkProgress _progress = new() { Dock = DockStyle.Fill, Maximum = 1000, Height = 22, MinimumSize = new Size(40, 22), Margin = new Padding(0, 3, 8, 3) };
+    readonly DarkLabel _progressText = new() { AutoSize = true };
     readonly Button _btnCancel = new() { Text = "Cancel", AutoSize = true };
     readonly Button _btnPlay = new() { Text = "PLAY", AutoSize = false, Size = new Size(150, 44), Font = new Font("Segoe UI", 12f, FontStyle.Bold) };
     readonly Button _btnHost = new() { Text = "Host a match on this PC", AutoSize = true, Height = 44 };
     readonly Button _btnJoin = new() { Text = "Join a server...", AutoSize = true, Height = 44 };
     readonly Button _btnLan = new() { Text = "Host for friends (LAN)", AutoSize = true, Height = 44 };
-    readonly DarkCheckBox _cbSafeMode = new() { AutoSize = true, Text = "Old GPU / safe mode (simpler graphics for old graphics cards)", Margin = new Padding(16, 14, 3, 3) };
+    readonly DarkCheckBox _cbSafeMode = new() { AutoSize = true, Text = "Old GPU / safe mode (simpler graphics for old graphics cards)", Margin = new Padding(0, 10, 3, 3) };
     readonly LinkLabel _lnkCheck = Link("Check files");
     readonly LinkLabel _lnkRollback = Link("Roll back to the previous version");
     readonly LinkLabel _lnkRelease = Link("Open the release page");
@@ -65,15 +65,15 @@ sealed class MainForm : Form
     readonly LinkLabel _lnkFolder = Link("Open the install folder");
     readonly LinkLabel _lnkCaches = Link("Repair: clear caches");
     readonly LinkLabel _lnkSelfUpdate = Link("A newer launcher came with this build: update the launcher");
-    readonly Label _folder = new() { AutoSize = true, ForeColor = Muted, Padding = new Padding(16, 0, 16, 8) };
+    readonly DarkLabel _folder = new() { AutoSize = false, Ellipsize = true, ForeColor = Muted, Padding = new Padding(16, 2, 16, 8) };
     // set-up (first run)
-    readonly TextBox _setupFolder = new() { Width = 600 };
+    readonly TextBox _setupFolder = new() { Dock = DockStyle.Fill, Margin = new Padding(0, 3, 8, 3) };
     readonly Button _btnBrowse = new() { Text = "Browse...", AutoSize = true };
     readonly DarkRadioButton _rbAdopt = new() { AutoSize = true };
     readonly DarkRadioButton _rbDownload = new() { AutoSize = true, Text = "Download the newest build (looking it up...)" };
     readonly DarkCheckBox _cbShortcuts = new() { AutoSize = true, Checked = true, Text = "Create shortcuts on the desktop and in the Start menu" };
     readonly Button _btnInstall = new() { Text = "Install", AutoSize = false, Size = new Size(150, 40), Font = new Font("Segoe UI", 11f, FontStyle.Bold) };
-    readonly Label _setupStatus = new() { AutoSize = true, MaximumSize = new Size(680, 0) };
+    readonly DarkLabel _setupStatus = new() { AutoSize = true, Margin = new Padding(3, 10, 3, 3) };
 
     public MainForm(Args args)
     {
@@ -83,9 +83,10 @@ sealed class MainForm : Form
         _adoptVersion = _adoptCandidate is null ? null : PackageLayout.ReadVersion(_adoptCandidate);
         Text = "SM Reimpl Launcher";
         Font = new Font("Segoe UI", 9.5f);
-        AutoScaleMode = AutoScaleMode.Font;
-        ClientSize = new Size(780, 600);
-        MinimumSize = new Size(640, 520);
+        AutoScaleDimensions = new SizeF(96f, 96f);       // sizes are in pixels at 96 dpi and scale with the display (fonts are in points)
+        AutoScaleMode = AutoScaleMode.Dpi;
+        ClientSize = new Size(780, 680);
+        MinimumSize = new Size(660, 620);
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = Theme.Base;
         try { Icon = Icon.ExtractAssociatedIcon(LauncherInfo.ExePath ?? ""); } catch (Exception) { }
@@ -98,9 +99,43 @@ sealed class MainForm : Form
         BuildLayout();
         Theme.Apply(this);
         WireEvents();
+        if (_args["ui-workarea"] is { } wk && wk.Split('x') is [var ww, var wh] && int.TryParse(ww, out int wwi) && int.TryParse(wh, out int whi)) _simWork = new Rectangle(0, 0, wwi, whi);
+        if (_args["ui-scale"] is { } us && double.TryParse(us, System.Globalization.CultureInfo.InvariantCulture, out double sim) && sim is > 0.5 and < 4) SimulateScale(sim);
+    }
+
+    Rectangle? _simWork;
+
+    protected override void OnLoad(EventArgs e) { base.OnLoad(e); FitToWorkArea(); }
+
+    /// <summary>Keeps the window inside the screen's work area (above the taskbar) after DPI scaling and centres it there; the notes box takes the lost height, and a
+    /// work area too small for the content makes the panels scroll instead of cutting the controls off.</summary>
+    internal void FitToWorkArea()
+    {
+        var wa = _simWork ?? Screen.FromControl(this).WorkingArea;
+        int w = Math.Min(Width, wa.Width), h = Math.Min(Height, wa.Height);
+        MinimumSize = new Size(Math.Min(MinimumSize.Width, w), Math.Min(MinimumSize.Height, h));
+        Size = new Size(w, h);
+        if (!_args.Has("screenshot"))
+        {
+            StartPosition = FormStartPosition.Manual;
+            Location = new Point(wa.X + (wa.Width - w) / 2, wa.Y + (wa.Height - h) / 2);
+        }
+        _main.AutoScroll = true;
+        _main.AutoScrollMinSize = new Size(0, (int)(330 * Theme.Scale(this)));
+        _setup.AutoScroll = true;
+        _setup.AutoScrollMinSize = new Size(0, (int)(480 * Theme.Scale(this)));
     }
 
     protected override bool ShowWithoutActivation => _args.Has("screenshot");
+
+    /// <summary>Lets a wrapping label use the width of its host (minus the label's margin and the host's padding) instead of a fixed pixel width.</summary>
+    static void WrapTo(Label l, Control host, int reserve = 0)
+    {
+        void Fit() { int w = host.ClientSize.Width - host.Padding.Horizontal - l.Margin.Horizontal - reserve; if (w > 40) l.MaximumSize = new Size(w, 0); }
+        host.Resize += (_, _) => Fit();
+        host.HandleCreated += (_, _) => Fit();
+        Fit();
+    }
 
     static LinkLabel Link(string text) => new DarkLink { Text = text, AutoSize = true, LinkColor = Theme.Accent, ActiveLinkColor = Theme.AccentHover, Margin = new Padding(0, 2, 18, 2) };
 
@@ -115,36 +150,42 @@ sealed class MainForm : Form
 
     void BuildLayout()
     {
-        var header = new Panel { Dock = DockStyle.Top, Height = 74, BackColor = Theme.Header };
-        var title = new Label { Text = "SM REIMPL", ForeColor = Theme.Text, Font = new Font("Segoe UI", 18f, FontStyle.Bold), AutoSize = true, Location = new Point(16, 8) };
-        var subtitle = new Label { Text = "Space Marine (2011) multiplayer playtest launcher", ForeColor = Theme.Muted, AutoSize = true, Location = new Point(19, 46) };
-        var version = new Label { Text = "launcher " + LauncherInfo.VersionText, ForeColor = Theme.Muted, AutoSize = true, Anchor = AnchorStyles.Top | AnchorStyles.Right };
-        header.Controls.AddRange([title, subtitle, version]);
-        header.Resize += (_, _) => version.Location = new Point(header.ClientSize.Width - version.Width - 14, 50);
+        // Nothing here uses transparent controls, fixed pixel positions or fixed wrap widths: every label paints its own background (DarkLabel), every
+        // container is a table or flow that sizes to its content, and wrapping labels take the width of the cell they are in.
+        var header = new TileTable { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, RowCount = 2, Solid = Theme.Header, Padding = new Padding(16, 8, 16, 10) };
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        var title = new DarkLabel { Text = "SM REIMPL", ForeColor = Theme.Text, Font = new Font("Segoe UI", 18f, FontStyle.Bold), AutoSize = true, Margin = new Padding(0) };
+        var subtitle = new DarkLabel { Text = "Space Marine (2011) multiplayer playtest launcher", ForeColor = Theme.Muted, AutoSize = true, Margin = new Padding(3, 0, 0, 0) };
+        var version = new DarkLabel { Text = "launcher " + LauncherInfo.VersionText, ForeColor = Theme.Muted, AutoSize = true, Anchor = AnchorStyles.Bottom | AnchorStyles.Right, Margin = new Padding(12, 0, 0, 0) };
+        header.Controls.Add(title, 0, 0);
+        header.Controls.Add(subtitle, 0, 1);
+        header.Controls.Add(version, 1, 1);
 
         // the main view
-        var grid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(16, 12, 16, 4) };
+        var grid = new TileTable { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(16, 12, 16, 4) };
         grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        var updateRow = new TableLayoutPanel { AutoSize = true, ColumnCount = 2, Dock = DockStyle.Top, Margin = new Padding(0, 8, 0, 6) };
+        var updateRow = new TileTable { AutoSize = true, ColumnCount = 2, Dock = DockStyle.Top, Margin = new Padding(0, 8, 0, 6) };
         updateRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         updateRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         updateRow.Controls.Add(_update, 0, 0);
         updateRow.Controls.Add(_btnUpdate, 1, 0);
         _update.Anchor = AnchorStyles.Left;
+        _btnUpdate.Anchor = AnchorStyles.Right;
+        _btnUpdate.Margin = new Padding(12, 3, 0, 3);
         Accentuate(_btnUpdate, Accent);
         _btnUpdate.Padding = new Padding(14, 4, 14, 4);
         _btnUpdate.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
-        var buttons = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Top, WrapContents = true, Margin = new Padding(0, 10, 0, 0) };
+        var buttons = new TileFlow { AutoSize = true, Dock = DockStyle.Top, WrapContents = true, Margin = new Padding(0, 10, 0, 0) };
         Accentuate(_btnPlay, PlayGreen);
         foreach (var b in new[] { _btnHost, _btnJoin, _btnLan }) { b.AutoSize = false; b.Size = new Size(b.PreferredSize.Width + 20, 44); }
-        buttons.Controls.AddRange([_btnPlay, _btnHost, _btnJoin, _btnLan, _cbSafeMode]);
-        grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        buttons.Controls.AddRange([_btnPlay, _btnHost, _btnJoin, _btnLan]);
+        for (int i = 0; i < 5; i++) grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         grid.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        _notes.MinimumSize = new Size(100, 90);
+        _notes.Margin = new Padding(3, 3, 3, 6);
         grid.Controls.Add(_installed, 0, 0);
         grid.Controls.Add(_installedSub, 0, 1);
         grid.Controls.Add(_notice, 0, 2);
@@ -152,21 +193,34 @@ sealed class MainForm : Form
         grid.Controls.Add(_notesTitle, 0, 4);
         grid.Controls.Add(_notes, 0, 5);
         grid.Controls.Add(buttons, 0, 6);
+        grid.Controls.Add(_cbSafeMode, 0, 7);
+        WrapTo(_installedSub, grid);
+        WrapTo(_notice, grid);
+        updateRow.Resize += (_, _) => WrapUpdate(updateRow);
+        _btnUpdate.VisibleChanged += (_, _) => WrapUpdate(updateRow);
+        _btnUpdate.SizeChanged += (_, _) => WrapUpdate(updateRow);
+        buttons.TabIndex = 0; _cbSafeMode.TabIndex = 1; updateRow.TabIndex = 2; _notes.TabIndex = 3;      // tab order: PLAY first, then Host, Join, LAN, safe mode, Update, the notes
+        _btnPlay.TabIndex = 0; _btnHost.TabIndex = 1; _btnJoin.TabIndex = 2; _btnLan.TabIndex = 3;
         _main.Controls.Add(grid);
 
         // the set-up panel (first run)
-        var s = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(16, 12, 16, 4) };
-        var welcome = new Label { AutoSize = true, Font = new Font("Segoe UI", 12f, FontStyle.Bold), Text = "Welcome! Let's install the playtest build." };
-        var explain = new Label
+        var s = new TileTable { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(16, 12, 16, 4) };
+        s.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        var welcome = new DarkLabel { AutoSize = true, Font = new Font("Segoe UI", 12f, FontStyle.Bold), Text = "Welcome! Let's install the playtest build." };
+        var explain = new DarkLabel
         {
-            AutoSize = true, MaximumSize = new Size(700, 0), ForeColor = Muted,
+            AutoSize = true, ForeColor = Muted,
             Text = "The launcher keeps the build up to date and starts it. It needs no administrator rights. Your profile and settings stay in " +
                    "%APPDATA%\\sm-reimpl and are never changed by an update. You need your own Space Marine (2011) installed through Steam.",
         };
-        var folderTitle = new Label { AutoSize = true, Text = "Install folder:", Margin = new Padding(3, 14, 3, 2) };
-        var folderRow = new FlowLayoutPanel { AutoSize = true, WrapContents = false };
-        folderRow.Controls.AddRange([_setupFolder, _btnBrowse]);
-        var choiceTitle = new Label { AutoSize = true, Text = "What to install:", Margin = new Padding(3, 14, 3, 2) };
+        var folderTitle = new DarkLabel { AutoSize = true, Text = "Install folder:", Margin = new Padding(3, 14, 3, 2) };
+        var folderRow = new TileTable { AutoSize = true, ColumnCount = 2, Dock = DockStyle.Top };
+        folderRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        folderRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        _setupFolder.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+        folderRow.Controls.Add(_setupFolder, 0, 0);
+        folderRow.Controls.Add(_btnBrowse, 1, 0);
+        var choiceTitle = new DarkLabel { AutoSize = true, Text = "What to install:", Margin = new Padding(3, 14, 3, 2) };
         Accentuate(_btnInstall, PlayGreen);
         foreach (var c in new Control[] { welcome, explain, folderTitle, folderRow, choiceTitle, _rbAdopt, _rbDownload, _cbShortcuts, _btnInstall, _setupStatus })
         {
@@ -174,6 +228,8 @@ sealed class MainForm : Form
             s.Controls.Add(c);
         }
         _cbShortcuts.Margin = new Padding(3, 12, 3, 8);
+        WrapTo(explain, s);
+        WrapTo(_setupStatus, s);
         _setup.Controls.Add(s);
 
         // progress, links, folder
@@ -183,12 +239,15 @@ sealed class MainForm : Form
         _progressPanel.Controls.Add(_btnCancel, 1, 0);
         _progressPanel.Controls.Add(_progressText, 0, 1);
         _progressPanel.SetColumnSpan(_progressText, 2);
-        var links = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(16, 6, 16, 4), WrapContents = true };
+        _progress.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+        _btnCancel.Anchor = AnchorStyles.Right;
+        WrapTo(_progressText, _progressPanel);
+        var links = new TileFlow { Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(16, 6, 16, 4), WrapContents = true };
         links.Controls.AddRange([_lnkCheck, _lnkRollback, _lnkRelease, _lnkIssues, _lnkFolder, _lnkCaches, _lnkSelfUpdate]);
         _lnkSelfUpdate.Visible = false;
         _folder.Dock = DockStyle.Bottom;
 
-        var content = new Panel { Dock = DockStyle.Fill };
+        var content = new TilePanel { Dock = DockStyle.Fill };
         content.Controls.Add(_main);
         content.Controls.Add(_setup);
         Controls.Add(content);
@@ -198,11 +257,28 @@ sealed class MainForm : Form
         Controls.Add(header);
         // docking (last added docks first): the header at the top; from the bottom edge up the folder line, the links, the progress; the content fills the rest
         _progressPanel.Dock = DockStyle.Bottom;
+        content.TabIndex = 0; _progressPanel.TabIndex = 1; links.TabIndex = 2; _folder.TabStop = false; header.TabStop = false;
+    }
+
+    /// <summary>The update line may use the row's width minus the Update button's, whether that button is showing or not.</summary>
+    void WrapUpdate(Control row)
+    {
+        int reserve = _btnUpdate.Visible ? _btnUpdate.Width + _btnUpdate.Margin.Horizontal : 0;
+        int w = row.ClientSize.Width - _update.Margin.Horizontal - reserve;
+        if (w > 40) _update.MaximumSize = new Size(w, 0);
     }
 
     void WireEvents()
     {
-        Shown += async (_, _) => await StartAsync();
+        Shown += async (_, _) =>
+        {
+            if (_args["ui-state"] is { } state)         // test aid: a fixed state of the window without install folder or network (layout check)
+            {
+                ApplyDemoState(state);
+                if (_args["screenshot"] is { } shot) { await Task.Delay(300); CaptureTo(shot); }
+            }
+            else await StartAsync();
+        };
         FormClosing += OnClosing;
         _btnUpdate.Click += async (_, _) => await UpdateAsync();
         _btnCancel.Click += (_, _) => { _cts?.Cancel(); _btnCancel.Enabled = false; };
@@ -412,7 +488,7 @@ sealed class MainForm : Form
         bool older = UpdateOffer.Classify(p.Current, p.Current is null ? null : p.Versions.GetValueOrDefault(p.Current), _newest) == OfferKind.Older;
         SetLine(older
             ? $"The current playtest build is {_newest.Tag}, published {_newest.PublishedAt.LocalDateTime:d MMM yyyy} ({size}); yours is newer. Everyone in a match needs the same build."
-            : $"A new build is available: {_newest.Tag}, published {_newest.PublishedAt.LocalDateTime:d MMM yyyy} ({size}).", Accent);
+            : $"A new build is available: {_newest.Tag}, published {_newest.PublishedAt.LocalDateTime:d MMM yyyy} ({size}).", Theme.Accent);
         _btnUpdate.Text = resume ? "Resume update" : older ? "Switch to it" : "Update";
         _btnUpdate.Visible = !_busy;
     }
@@ -872,17 +948,96 @@ sealed class MainForm : Form
         _lock = null;
     }
 
+    /// <summary>The window as it is drawn now (the layout check and --screenshot use it).</summary>
+    internal Bitmap Snapshot()
+    {
+        var bmp = new Bitmap(Width, Height);
+        DrawToBitmap(bmp, new Rectangle(0, 0, Width, Height));
+        return bmp;
+    }
+
     void CaptureTo(string png)
     {
         try
         {
-            using var bmp = new Bitmap(Width, Height);
-            DrawToBitmap(bmp, new Rectangle(0, 0, Width, Height));
+            using var bmp = Snapshot();
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(png))!);
             bmp.Save(png, ImageFormat.Png);
+            if (_args.Has("ui-check") && LayoutCheck.Problems(this) is { Count: > 0 } bad) { foreach (var line in bad) _log?.Write("layout: " + line); File.WriteAllLines(Path.ChangeExtension(png, ".layout.txt"), bad); Environment.ExitCode = 2; }
         }
         catch (Exception e) { _log?.Write("screenshot: " + e.Message); }
         Close();
+    }
+
+    // ---- test aids: simulated display scale and fixed states (--ui-scale, --ui-state; used by --layout-check) ------------------------
+
+    /// <summary>Simulates a display at <paramref name="f"/> times 96 dpi: every font and every pixel size is scaled, as Windows does at 125 / 150 / 200 %.</summary>
+    void SimulateScale(double f)
+    {
+        Theme.SimScale = f;
+        var fonts = new List<(Control, Font)>();
+        void Collect(Control c) { fonts.Add((c, c.Font)); foreach (Control k in c.Controls) Collect(k); }
+        Collect(this);
+        foreach (var (c, font) in fonts) c.Font = new Font(font.FontFamily, font.Size * (float)f, font.Style);
+        Scale(new SizeF((float)f, (float)f));
+    }
+
+    internal static readonly string[] DemoStates = ["idle", "checking", "offered", "downloading", "error", "setup"];
+
+    /// <summary>Puts the window into one of its states with realistic (long) texts and no install folder behind it: idle, checking, offered (an update line
+    /// as long as it gets), downloading, error (with a notice and the launcher-update link) and setup.</summary>
+    internal void ApplyDemoState(string state)
+    {
+        const string tag = "tester-2026-10-30-3abb29b";
+        string notes = string.Join(Environment.NewLine, Enumerable.Range(1, 24).Select(i => $"- Playtest change {i}: the sound hunt, a very long line about melee interactions and the charge that has to wrap inside the box instead of running past its edge ({i})."));
+        _firstRun = state == "setup";
+        _main.Visible = !_firstRun;
+        _setup.Visible = _firstRun;
+        _folder.Text = _firstRun ? "" : @"Install folder: D:\Games\A Rather Long Library Folder Name\SM Reimpl\a\very\deep\folder\structure\for\the\playtest";
+        _installed.Text = $"Installed: {tag}";
+        _installedSub.Text = "published 30 Oct 2026 · installed 31 Oct 2026 09:41 · previous: tester-2026-10-30-7cd91e2";
+        _notesTitle.Text = $"What's new in {tag}";
+        _notes.Text = Lines(notes);
+        _notice.Visible = false;
+        _btnUpdate.Visible = false;
+        _progressPanel.Visible = false;
+        _lnkSelfUpdate.Visible = false;
+        foreach (var b in new[] { _btnPlay, _btnHost, _btnJoin, _btnLan }) b.Enabled = true;
+        foreach (var l in new[] { _lnkCheck, _lnkRollback, _lnkRelease, _lnkIssues, _lnkFolder, _lnkCaches }) l.Enabled = true;
+        _cbSafeMode.Checked = true;
+        switch (state)
+        {
+            case "idle": SetLine("You have the newest build (published 30 Oct 2026).", Good); break;
+            case "checking": SetLine("Looking for updates...", Muted); break;
+            case "offered":
+                SetLine("The current playtest build is tester-2026-10-29-aaaaaaa, published 29 Oct 2026 (1,020.4 MB download); yours is newer. Everyone in a match needs the same build.", Theme.Accent);
+                _btnUpdate.Text = "Switch to it";
+                _btnUpdate.Visible = true;
+                break;
+            case "downloading":
+                SetLine("A new build is available: tester-2026-10-31-bbbbbbb, published 31 Oct 2026 (1,020.4 MB download).", Theme.Accent);
+                _progressPanel.Visible = true;
+                _progress.Value = 430;
+                _progressText.Text = "Downloading: 438.8 MB of 1,020.4 MB (43 %) · 18.4 MB/s · about 32 s left · retrying after a short pause (the connection was reset)";
+                foreach (var b in new[] { _btnPlay, _btnHost, _btnJoin, _btnLan }) b.Enabled = false;
+                break;
+            case "error":
+                SetLine("Offline: the installed build can be played. The update check failed: The remote name could not be resolved: 'api.github.com'. An unfinished update is kept and continues when GitHub is reachable.", Warn);
+                _notice.Text = "A newer release could not be offered: it has two playtest zips." + Environment.NewLine + "The new launcher did not start, so the previous one was kept. Please report it (Report an issue).";
+                _notice.Visible = true;
+                _btnUpdate.Text = "Try again";
+                _btnUpdate.Visible = true;
+                _lnkSelfUpdate.Visible = true;
+                break;
+            case "setup":
+                _setupFolder.Text = @"D:\Games\A Rather Long Library Folder Name\SM Reimpl";
+                _rbAdopt.Text = $"Use the build in this folder: {tag} (copied, no download)";
+                _rbAdopt.Visible = true;
+                _rbAdopt.Checked = true;
+                _rbDownload.Text = "Download the newest build: tester-2026-10-31-bbbbbbb (1,020.4 MB)";
+                SetLine("The update check failed: The remote name could not be resolved: 'api.github.com'. Choose the build in this folder or try again later.", Warn);
+                break;
+        }
     }
 
     protected override void Dispose(bool disposing)
@@ -895,14 +1050,16 @@ sealed class MainForm : Form
 /// <summary>Asks for a server address (host or host:port; the default port is 27015).</summary>
 sealed class JoinDialog : Form
 {
-    readonly TextBox _box = new() { Width = 300 };
-    readonly Label _error = new() { AutoSize = true, ForeColor = Theme.BadText };
+    readonly TextBox _box = new() { Width = 380 };
+    readonly DarkLabel _error = new() { AutoSize = true, ForeColor = Theme.BadText, MaximumSize = new Size(420, 0) };
     public string? Address { get; private set; }
 
     public JoinDialog(string initial)
     {
         Text = "Join a server";
         Font = new Font("Segoe UI", 9.5f);
+        AutoScaleDimensions = new SizeF(96f, 96f);
+        AutoScaleMode = AutoScaleMode.Dpi;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = MinimizeBox = false;
         StartPosition = FormStartPosition.CenterParent;
@@ -920,10 +1077,10 @@ sealed class JoinDialog : Form
         };
         AcceptButton = ok;
         CancelButton = cancel;
-        var layout = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, Dock = DockStyle.Fill };
-        var buttons = new FlowLayoutPanel { AutoSize = true };
+        var layout = new TileFlow { FlowDirection = FlowDirection.TopDown, AutoSize = true, Dock = DockStyle.Fill };
+        var buttons = new TileFlow { AutoSize = true };
         buttons.Controls.AddRange([ok, cancel]);
-        layout.Controls.AddRange([new Label { AutoSize = true, Text = "Server address (host or host:port; 127.0.0.1 = this PC):" }, _box, _error, buttons]);
+        layout.Controls.AddRange([new DarkLabel { AutoSize = true, MaximumSize = new Size(420, 0), Text = "Server address (host or host:port; 127.0.0.1 = this PC):" }, _box, _error, buttons]);
         Controls.Add(layout);
         Theme.Apply(this);
     }

@@ -292,7 +292,9 @@ public sealed partial class UiSelfTest : Node
         await PreviewPoseChecks();
         await OrkChecks();
         await HostChecks();
+        await ControlsChecks();   // ui/keybinds (UiSelfTest.Controls.cs)
         await FitChecks();
+        await ScoreBoxChecks();   // ui/score-box-center: the HUD score box holds its block (UiSelfTest.ScoreBox.cs)
     }
 
     /// <summary>
@@ -463,6 +465,7 @@ public sealed partial class UiSelfTest : Node
                 _front.ShowAppearance();
                 await Frames(6);
                 CheckFits($"fit {at}: appearance editor", appearance, view);
+                await ControlsFitChecks(view, at);   // ui/keybinds
             }
         }
         finally

@@ -344,6 +344,7 @@ public partial class NetworkView : Node3D
         }
         foreach (var n in _notes) GD.Print("  note: " + n);
         if (!_bot && !ModelViewer.TestWindow && _demoPlayback is null && _error == "") Input.MouseMode = Input.MouseModeEnum.Captured;
+        ControlsInput.Ensure();   // ui/keybinds: the player's bindings are in the InputMap before the first input
         PadSetup();   // controller (NetworkView.Gamepad.cs)
     }
 
@@ -392,8 +393,8 @@ public partial class NetworkView : Node3D
         }
         else if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelUp or MouseButton.WheelDown })
         {
-            // Either direction switches (to the next weapon: two weapons toggle, three cycle; protocol 44); only while the mouse is captured, like Fire.
-            if (Input.MouseMode == Input.MouseModeEnum.Captured) _switchPending = true;
+            // Either direction switches (to the next weapon: two weapons toggle, three cycle; protocol 44) when the wheel is bound to Next weapon (it is by default; ui/keybinds); only while the mouse is captured, like Fire.
+            if (Input.MouseMode == Input.MouseModeEnum.Captured && ControlsInput.Is(e, GameAction.NextWeapon)) _switchPending = true;
         }
         else if (e is InputEventMouseButton { Pressed: true } && Input.MouseMode != Input.MouseModeEnum.Captured && !ModelViewer.TestWindow)
             Input.MouseMode = Input.MouseModeEnum.Captured;
@@ -714,44 +715,14 @@ public partial class NetworkView : Node3D
             return BulletProbe ? Converged(botInput) : botInput;   // feel/bullets --bullet-probe: a bot with --aim-test sends the converged shot of a human (offsets and origin)
         }
         if (_pad is not null && PadHost.Active) return SamplePad(tick);   // controller: the last device used wins (NetworkView.Gamepad.cs)
-        float x = (Input.IsPhysicalKeyPressed(Key.D) ? 1f : 0f) - (Input.IsPhysicalKeyPressed(Key.A) ? 1f : 0f);
-        float y = (Input.IsPhysicalKeyPressed(Key.W) ? 1f : 0f) - (Input.IsPhysicalKeyPressed(Key.S) ? 1f : 0f);
-        var buttons = Input.IsPhysicalKeyPressed(Key.Shift) ? InputButtons.Sprint : InputButtons.None;
-        // Fire only while the mouse is captured (a click on a released mouse recaptures it; holding on fires from the next tick).
-        if (MouseCaptured && Input.IsMouseButtonPressed(MouseButton.Left)) buttons |= InputButtons.Fire;
-        // On a charge weapon (plasma gun, plasma cannon, lascannon, plasma pistol) the same button taps for the normal shot and is
-        // held for the charged shot (M31; owner's decision 2026-10-28; the simulation does the press edges and counts held ticks).
-        // Bindings (right mouse button melee, F stun strike, Left Ctrl aim): from the user's knowledge of the original
-        // (PC defaults are not in the data read).
-        // Aim mode while Left Ctrl is held (from the user's knowledge of the original); the camera and the movement speed follow
-        // the predicted aim state. Ctrl is the physical key, left or right.
-        if (MouseCaptured && Input.IsPhysicalKeyPressed(Key.Ctrl)) buttons |= InputButtons.Aim;
-        // Melee while held (the simulation acts on the press edge): the right mouse button (from the user's knowledge of
-        // the original); V stays as an extra client bind. Like Fire, only while the mouse is captured.
-        if (MouseCaptured && (Input.IsMouseButtonPressed(MouseButton.Right) || Input.IsPhysicalKeyPressed(Key.V)))
-            buttons |= InputButtons.Melee;
-        // Heavy strike, "Stun / Alt Strike" (M28; protocol 17): F, while held (the simulation acts on the press edge). F is the
-        // stun strike in the original (user's knowledge of the original, 2026-10-28).
-        if (MouseCaptured && Input.IsPhysicalKeyPressed(Key.F))
-            buttons |= InputButtons.MeleeHeavy;
-        // Reload while held (the simulation acts on the press edge; with grenades out the press detonates them).
-        if (Input.IsPhysicalKeyPressed(Key.R)) buttons |= InputButtons.Reload;
-        // Throw the equipment item while G is held (the simulation acts on the press edge). G is a client preference,
-        // not the original binding (not decoded); like Fire, only while the mouse is captured.
-        if (MouseCaptured && Input.IsPhysicalKeyPressed(Key.G)) buttons |= InputButtons.Grenade;
-        // Switch weapons while X is held or for one tick per mouse-wheel notch (the simulation acts on the press edge).
-        // X and the wheel are a client preference, not the original bindings (not decoded); E is Interact.
-        if (_switchPending || (MouseCaptured && Input.IsPhysicalKeyPressed(Key.X))) buttons |= InputButtons.Switch;
-        // Jump pack while Space is held, every tick (the simulation starts a jump on the press edge and the hold length
-        // sets the height; classes without a pack ignore it). Melee (right mouse / V) in the air is the ground pound.
-        // Space is a client preference, not the original binding (not decoded).
-        if (Input.IsPhysicalKeyPressed(Key.Space)) buttons |= InputButtons.Jump;
-        // Weapon slots (protocol 14): 1 = pistol, 2 = primary, on the press edge (held keys are harmless: the simulation does
-        // nothing when that weapon is already in hand). From the user's knowledge of the original; the digit row only (not the keypad).
-        if (Input.IsPhysicalKeyPressed(Key.Key1)) buttons |= InputButtons.SlotPistol;
-        if (Input.IsPhysicalKeyPressed(Key.Key2)) buttons |= InputButtons.SlotPrimary;
-        if (Input.IsPhysicalKeyPressed(Key.Key3)) buttons |= InputButtons.SlotSecond;   // protocol 44: the second primary (Weapon Versatility; nothing without it)
-        // Interact (protocol 26, fidelity gap 1): E picks up a dropped pickup in reach (NetworkView.Pickups.cs; the PC key is ours).
+        // ui/keybinds (ours, an added option): the keyboard and mouse bindings are the player's (ControlsInput, controls.json); the defaults are the old keys. Fire, Aim, Melee, the stun strike,
+        // the grenade and the weapon switch act only while the mouse is captured (a click on a released mouse recaptures it). The melee strike and the stun strike are the same bits as ever,
+        // so the sim's charge (sprint + forward + stun strike) and the directional strikes follow whichever inputs those actions are bound to. The wheel (if bound) is _switchPending.
+        var sampled = BindingSet.Sample(ControlsInput.Held, MouseCaptured);
+        float x = sampled.X, y = sampled.Y;
+        var buttons = sampled.Buttons;
+        if (_switchPending) buttons |= InputButtons.Switch;
+        // Interact (protocol 26, fidelity gap 1): the Use action picks up a dropped pickup in reach (NetworkView.Pickups.cs).
         buttons |= InteractButton();
         buttons = LatchButtons(buttons);   // feel/controls: a tap since the last sample is held for this one (NetworkView.Controls.cs)
         _switchPending = false;
@@ -904,7 +875,7 @@ public partial class NetworkView : Node3D
             GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} detonates {me.ProjectilesOut} grenade(s) ({why}; requests {_detonateRequests})");
         }
 
-        if (weapon.Charge is { Stages.Count: > 0 } charge)
+        if (weapon.Charge is { Stages.Count: > 0, FiresOnPress: false } charge)   // sim/instant-fire: the lascannon press-fires like any basic weapon
         {
             int lastFiring = 0;
             for (int i = 0; i < charge.Stages.Count; i++) if (charge.Stages[i].Shot is not null) lastFiring = i + 1;
@@ -1846,7 +1817,7 @@ public partial class NetworkView : Node3D
                 lines.Add($"RTT {_client.HandshakeRoundTrip.TotalMilliseconds:F0} ms (handshake)   players {1 + _remotes.Count}   tick {_client.Tick}");
                 lines.Add($"position {me.Position.X:F1}, {me.Position.Y:F1}, {me.Position.Z:F1} m   speed {MathF.Sqrt(me.Velocity.X * me.Velocity.X + me.Velocity.Y * me.Velocity.Y):F1} m/s   {_local?.Playing}");
             }
-            lines.Add(_bot ? (_botMelee ? "bot input (runs at the nearest living player; melee within 3 m)" : $"bot input (aims at and fires on the nearest living enemy (anyone without teams; on a map only one it sees within its weapon's range (--bot-range) and not one in its spawn room; shots get aim error (--bot-accuracy); otherwise it walks toward the nearest enemy, waits 8-15 m from a sealed spawn door, or goes to the map centre), charges charge weapons, detonates grenades, throws grenades at 6-{_botThrowMax:F0} m, closes in with the melta, jumps at 8-30 m and pounds from above with a jump pack, switches when empty or overheated; melee within 3 m)") : "WASD move, Shift sprint, mouse aim, Left/Right arrows turn, E pick up, left mouse fire (charge weapons: tap = normal shot, hold = charged shot; the first shot waits for the weapon to come up), right mouse / V melee, F stun strike (heavy melee; W + F: the charge, W + A / W + D + F a bit to that side), hold Left Ctrl aim mode, G throw grenade, Space jump pack (hold: higher; V in the air: ground pound), R reload (detonates grenades out), X / mouse wheel switch weapon, Tab scoreboard, Esc frees the mouse");
+            lines.Add(_bot ? (_botMelee ? "bot input (runs at the nearest living player; melee within 3 m)" : $"bot input (aims at and fires on the nearest living enemy (anyone without teams; on a map only one it sees within its weapon's range (--bot-range) and not one in its spawn room; shots get aim error (--bot-accuracy); otherwise it walks toward the nearest enemy, waits 8-15 m from a sealed spawn door, or goes to the map centre), charges charge weapons, detonates grenades, throws grenades at 6-{_botThrowMax:F0} m, closes in with the melta, jumps at 8-30 m and pounds from above with a jump pack, switches when empty or overheated; melee within 3 m)") : "WASD move, Shift sprint, mouse aim, Left/Right arrows turn, E pick up, left mouse fire (charge weapons: tap = normal shot, hold = charged shot; the first shot waits for the weapon to come up), right mouse / V melee, F stun strike (heavy melee, in the direction of the keys held; Shift + W + F: the charge, Shift + W + A / W + D + F a bit to that side), hold Left Ctrl aim mode, G throw grenade, Space jump pack (hold: higher; V in the air: ground pound), R reload (detonates grenades out), X / mouse wheel switch weapon, Tab scoreboard, Esc frees the mouse");
             lines.Add(_cameraNote + (_cameraInfo.Length > 0 && RigCameraWanted ? "; now " + _cameraInfo : ""));
             if (_mapNote is not null) lines.Add(_mapNote);
             else if (_client?.MapError is { } mapError) lines.Add("map not loaded: " + mapError);
@@ -1904,7 +1875,7 @@ public partial class NetworkView : Node3D
             f.HasWeapon = true;
             f.WeaponName = Capitalized(WeaponLabel(inHand)); f.WeaponWargear = inHand.Name;   // M44: the wargear names the weapon's picture
             f.Clip = me.Clip; f.ClipMax = inHand.ClipSize; f.Reserve = me.Reserve; f.ReserveMax = inHand.ReserveSize;
-            f.HasCharge = inHand.Charge is { Stages.Count: > 0 };
+            f.HasCharge = inHand.Charge is { Stages.Count: > 0, FiresOnPress: false };
             // A self-recharging clip (the melta) shows the time to its next round instead of RELOADING.
             f.WeaponState = me.SwitchLeft > 0f ? "SWITCHING"
                 : me.ReloadLeft > 0f ? (inHand.Recharge is not null ? $"RECHARGING {me.ReloadLeft:F1} s" : "RELOADING") : "";

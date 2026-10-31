@@ -43,8 +43,9 @@ public partial class NetworkView
     {
         if (!_clipClocks.TryGetValue(s.PlayerId, out var clock)) _clipClocks[s.PlayerId] = clock = new ClipClock();
         var (kind, key, target, length) = ClipTargetOf(s);
-        if (kind == ClipKind.None) { clock.Stop(); NoteClipStats(s.PlayerId, -1, 0f, 0f, 0f, 0f); return null; }
+        if (kind == ClipKind.None) { clock.Stop(); NoteShownAttack(s.PlayerId, kind, 0f); NoteClipStats(s.PlayerId, -1, 0f, 0f, 0f, 0f); return null; }
         float shown = clock.Step(key, target, delta, length);
+        NoteShownAttack(s.PlayerId, kind, shown);
         NoteClipStats(s.PlayerId, key, target, shown, delta, length);
         return new SmoothClip(kind, shown);
     }

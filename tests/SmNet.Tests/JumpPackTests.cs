@@ -697,7 +697,7 @@ public class JumpPackTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_9_carries_the_jump_state_in_full_and_flags_in_slim_records_within_1200_bytes()
     {
-        Assert.Equal(48, Protocol.Version);
+        Assert.Equal(49, Protocol.Version);
         PlayerState Loaded(int id) => new(id, new Vector3(1e4f), new Vector3(100f), 3f, false)
         {
             Alive = true, Health = 1e3f, Shield = 1e3f, Class = Protocol.MaxClasses - 1, Slot = WeaponSlot.Pistol, Clip = 65535, Reserve = 65535, OtherClip = 65535, OtherReserve = 65535,
@@ -736,7 +736,7 @@ public class JumpPackTests(ITestOutputHelper output)
         // and those before the match block, kill count and point count (11 bytes since protocol 11) and the hit block (12
         // bytes since protocol 12): phase byte at [^56] (protocol 21: ready ticks in 2 bytes).
         Assert.Equal((byte)((int)JumpPhase.Hang | 8), own[^56]);
-        var unknown = (byte[])own.Clone(); unknown[^56] |= 64;
+        var unknown = (byte[])own.Clone(); unknown[^56] = (byte)((unknown[^56] & ~7) | (int)JumpPhase.Fall | 64);   // sim/jump-hang: bit 6 is the small hang's in the hang, unknown in the fall
         Assert.Null(Protocol.Read(unknown));
         var disagree = (byte[])own.Clone(); disagree[^56] = (byte)JumpPhase.Dive;   // slim flags say jumping
         Assert.Null(Protocol.Read(disagree));

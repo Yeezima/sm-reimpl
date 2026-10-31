@@ -7,6 +7,7 @@ static class Cli
 {
     public static int Run(Args a)
     {
+        if (a.Has("layout-check")) return LayoutCheck.Run(a["layout-check"]);
         if (a.Has("selftest")) return SelfTest(a);
         if (a.Has("install-self"))
         {
