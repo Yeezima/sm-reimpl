@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1783 spec table rows: **1227 tagged**, 406 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 390 rows of the changes document.
+Scanned 1788 spec table rows: **1231 tagged**, 406 not tagged (read from data with high confidence), 151 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 390 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 1783 spec table rows: **1227 tagged**, 406 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 108 | 94 | 93 | 12 | 1 |
+| Core simulation (provisional values) | 112 | 98 | 97 | 12 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1227** | 1012 | 982 | 391 | 38 |
+| **All areas** | **1231** | 1016 | 986 | 391 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 469 |
+| kind: ours | 473 |
 | confidence: medium | 437 |
-| confidence: low | 430 |
+| confidence: low | 434 |
 | kind: interpretation | 321 |
 | notes: ours | 287 |
 | confidence: none (low) | 115 |
@@ -1627,7 +1627,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (108)
+### Core simulation (provisional values) (112)
 
 *Spec section: Provisional values in use*
 
@@ -1708,6 +1708,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-92A4F1ED` | Musou flow | warm-up until a Space Marine is in, then the usual countdown and play with no score or time limit (score limit int.MaxValue/2, shown clamped to 65535); every player gone sends it back to warm-up and clears the enemies | kind: ours; confidence: low | ours (MU0; MU1 adds the waves and the end) | Musou flow: compare with SM1 by feel or video. Ours: warm-up until a Space Marine is in, then the usual countdown and play… | ☐ |
 | `R-43CEFC27` | Musou sides | every player joins the Space Marines, whatever side is asked; no balance or per-side limit | kind: ours; confidence: medium | the lead's default, 2026-10-31 (the owner may allow Chaos) | Musou sides: compare with SM1 by feel or video. Ours: every player joins the Space Marines, whatever side is asked; no… | ☐ |
 | `R-DA4A124C` | Musou mode and reach | Annihilation only (any other `--mode` exits 2); the front end hosts it on this PC only (127.0.0.1) without bots | kind: ours; confidence: medium | the owner ("runs locally"); the rest ours | Musou mode and reach: compare with SM1 by measuring on a flat spot of the same map. Ours: Annihilation only (any other --mode exits 2); the front end hosts it… | ☐ |
+| `R-BF97BDCB` | Musou enemy interest | per client and enemy, a priority gains 1.0 a tick within 15 m, 0.5 at 15–40 m, 0.2 beyond (and 1.0 on a state change); sent at 1.0 and reset; the Warboss and Nobs first and never under 0.5 a tick; at most 4 messages a tick (ticks) | kind: ours; confidence: low | the lead's design (MU2) | Musou enemy interest: compare with SM1 by feel or video. Ours: per client and enemy, a priority gains 1.0 a tick within 15 m, 0.5 at… | ☐ |
+| `R-049FE802` | Musou client tracks | 4 records per enemy interpolated at the render clock; a Seek enemy carries on along its last step up to 6 ticks; an id is dropped after its death or 2 s of silence; a new track on Spawning or a gap over 30 ticks; a section 300 ticks older than the newest is a… (ticks) | kind: ours; confidence: low | ours (MU2) | Musou client tracks: compare with SM1 by feel or video. Ours: 4 records per enemy interpolated at the render clock; a Seek enemy… | ☐ |
+| `R-8EBEBCEA` | Musou crowd drawing | the nearest 150 drawn (`--musou-visible`), up to 40 skinned within 25 m (posed every 2nd frame beyond 12 m), the rest vertex-animation textures baked at 15 fps (at most 4,096 rows a look, else skinned; skinned-only fallback cap 80); bodies sink 1.2 m over 1.5… | kind: ours; confidence: low | ours (MU2) | Musou crowd drawing: compare with SM1 by feel or video. Ours: the nearest 150 drawn (--musou-visible), up to 40 skinned within 25 m… | ☐ |
+| `R-7B2725E5` | Musou looks | Boy `boy_melee`, Shoota Boy `boy_ranged`, 'Ard Boy `boy_ardboy`, Nob `nob_melee`, Warboss `nob_melee` × 1.25, Gretchin `boy_melee` × 0.7 (no Gretchin model verified), Chaos Marine the PvP default Chaos look (far tier tinted by its primary colour) | kind: ours; confidence: low | models from the install; the choices ours | Musou looks: compare with SM1 by feel or video. Ours: Boy boy_melee, Shoota Boy boy_ranged, 'Ard Boy boy_ardboy, Nob… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -2633,6 +2637,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-443D5755` | The key on the wire | Added content: loyalist barks — voice lines for loyalist marines and the FOR THE EMPEROR key (client and server; no protocol change, extras wire 2) |
 | `R-0A2FD8A3` | Loading | Added content: loyalist barks — voice lines for loyalist marines and the FOR THE EMPEROR key (client and server; no protocol change, extras wire 2) |
 | `R-CC3EE3F5` | Test aids | Added content: loyalist barks — voice lines for loyalist marines and the FOR THE EMPEROR key (client and server; no protocol change, extras wire 2) |
+| `R-6C5E4C60` | Musou send budget | Added content: Musou — an experimental one-sided mode against swarms (server and client; no protocol change, extras wire 2) |
 | `R-3C893894` | Test aids | Death effects (F-D1; client only, not simulated, no protocol change) |
 | `R-54698497` | `--bot-damage-scale f` | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
 | `R-5601E474` | Protocol 37 (on top of main's 36) | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
