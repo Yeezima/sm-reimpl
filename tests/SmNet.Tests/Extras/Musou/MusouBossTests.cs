@@ -119,6 +119,31 @@ public class MusouBossTests
     }
 
     [Fact]
+    public void A_warboss_relocated_mid_charge_drops_it_seeks_and_charges_again_on_its_cooldown()
+    {
+        var f = new Fight(Rules(1000f, 0f), new Vector3(0f, 10f, 0f));
+        uint t0 = f.StepUntil(MusouBossAbility.Charge);
+        for (int k = 0; k < 35; k++) f.Step();   // the wind-up and a few ticks of the run
+        Assert.Equal(MusouBossAction.Charging, f.Boss.Action);
+        Assert.True(f.Me.Position.Y > 1f);
+        // The stranded failsafe moves him.
+        var away = new Vector3(50f, 0f, 0f);
+        Assert.True(f.Sim.Relocate(f.Boss.Id, away));
+        f.Targets[0] = f.Targets[0] with { Position = away + new Vector3(0f, 20f, 0f) };   // out of the charge's reach for now
+        for (int k = 0; k < 10; k++) f.Step();
+        Assert.Equal((MusouBossAction.None, MusouEnemyState.Seek), (f.Boss.Action, f.Me.State));
+        Assert.True(Vector3.Distance(f.Me.Position, away) < 0.01f);   // no drive left: he stands (speed 0)
+        Assert.Empty(f.Strikes);
+        // Back in reach: the next charge comes on the cooldown started by the first (12 s after its telegraph), from the new place.
+        f.Targets[0] = f.Targets[0] with { Position = away + new Vector3(0f, 10f, 0f) };
+        uint t1 = f.StepUntil(MusouBossAbility.Charge);
+        Assert.Equal(t0 + 360, t1);
+        Assert.Equal(15f, f.Events.Last(e => e.Event.Kind == MusouEventKind.Telegraph).Event.Vector.Y, 3);
+        for (int k = 0; k < 75; k++) f.Step();   // the 1 s wind-up and the 1.25 s run
+        Assert.True(f.Me.Position.Y > 10f, $"{f.Me.Position}");   // it ran
+    }
+
+    [Fact]
     public void Each_waaagh_fires_once_summons_through_the_gates_and_the_enrage_shortens_the_cooldowns()
     {
         var rules = Rules(0f, 1000f) with { Waves = [new MusouWaveSpec(0, 1, [(MusouEnemyType.Boy, 1f)])] };

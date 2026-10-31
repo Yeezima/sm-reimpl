@@ -85,6 +85,7 @@ public sealed class MusouBoss
     Vector3 _last;
     float _travelled;
     int _recoverTicks;
+    int _relocations;   // the failsafe's moves of him seen so far
 
     /// <param name="director">The director the Waaagh!'s summons go through (null: none, the speed still applies).</param>
     /// <param name="maxHealth">The boss's full health (the shares are of it).</param>
@@ -100,6 +101,7 @@ public sealed class MusouBoss
         _waaagh = new bool[_rules.WaaaghAt.Count];
         SlamCooldown = Ticks(_rules.SlamFirst);
         ChargeCooldown = Ticks(_rules.ChargeFirst);
+        _relocations = sim.Relocations(id);
     }
 
     public ushort Id { get; }
@@ -124,6 +126,9 @@ public sealed class MusouBoss
     public void Step(ReadOnlySpan<MusouTarget> targets, bool fight, List<MusouBossStrike> strikes)
     {
         if (!_sim.TryGet(Id, out var boss) || !boss.Alive) return;
+        // The stranded failsafe moved him (MusouSim.Relocate clears the script and the drive): the ability under way is dropped, the cooldowns kept.
+        int relocations = _sim.Relocations(Id);
+        if (relocations != _relocations) { _relocations = relocations; Action = MusouBossAction.None; ActionTicks = 0; _charged.Clear(); }
         if (SlamCooldown > 0) SlamCooldown--;
         if (ChargeCooldown > 0) ChargeCooldown--;
         if (fight) Thresholds(boss);

@@ -230,6 +230,7 @@ public sealed partial class MusouSim
         if (i < 0 || i >= Capacity || !_used[i] || _state[i] == MusouEnemyState.Dying || !float.IsFinite(position.X) || !float.IsFinite(position.Y) || !float.IsFinite(position.Z)) return false;
         _position[i] = position; _node[i] = node; _velocity[i] = Vector2.Zero;
         _token[i] = 0; _burst[i] = 0; _transit[i] = -1; _aim[i] = -1; _blocked[i] = 0; _flowTicks[i] = 0;
+        SpawnedCombat(i);   // MU3: no script, no drive (a Warboss moved mid-ability starts afresh; MusouBoss sees the relocation)
         if (Walk is not null && _node[i] < 0) _node[i] = Walk.Nearest(position);
         if (Walk is not null && _node[i] >= 0) _position[i] = position with { Z = Walk.Z(_node[i]) };
         SetState(i, MusouEnemyState.Seek);
