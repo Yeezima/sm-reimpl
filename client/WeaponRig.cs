@@ -144,6 +144,8 @@ public sealed class WeaponAssets
     {
         var rigidMesh = new ArrayMesh();
         var magazineMesh = new ArrayMesh();
+        var stowHiddenMesh = new ArrayMesh();   // visual/lascannon-stow: the simulated parts (cable) of a model whose stow is ours, drawn only in hand
+        bool splitSimulated = !attachment.IsWorn && WeaponStowSpots.HidesSimulatedWhenStowed(attachment);
         Vector3 magazineCentre = Vector3.Zero, magazineSize = Vector3.Zero;
         string? magazineNode = null;
         var wornMeshes = new Dictionary<string, ArrayMesh>(StringComparer.Ordinal);
@@ -164,7 +166,7 @@ public sealed class WeaponAssets
                 if (!wornMeshes.TryGetValue(bone, out target!)) wornMeshes[bone] = target = new ArrayMesh();
                 matrix = placed.PartToBone;
             }
-            else { target = rigidMesh; matrix = part.ToRoot; }
+            else { target = splitSimulated && part.Simulated ? stowHiddenMesh : rigidMesh; matrix = part.ToRoot; }
             var block0 = model.Model.Mesh.Blocks[part.BlockIndex];
 
             // M35: the detachable magazine is a mesh of its own around its own centre (so a copy can fall as a body of its own): a part of its own, or
@@ -265,7 +267,8 @@ public sealed class WeaponAssets
         }
         var magazine = magazineNode is not null && magazineMesh.GetSurfaceCount() > 0 ? new WeaponMagazine(magazineNode, magazineMesh, magazineCentre, magazineSize) : null;
         var paintable = wornMeshes.Where(w => wornPaint.TryGetValue(w.Value, out var l) && l.Any(s => s is not null)).ToDictionary(w => w.Key, w => wornPaint[w.Value].ToArray(), StringComparer.Ordinal);
-        return new WeaponAsset(model, attachment.IsWorn ? null : rigidMesh, wornMeshes, triangles, drawn, hidden, rigid, magazine) { WornPaint = paintable };
+        return new WeaponAsset(model, attachment.IsWorn ? null : rigidMesh, wornMeshes, triangles, drawn, hidden, rigid, magazine)
+            { WornPaint = paintable, StowHidden = stowHiddenMesh.GetSurfaceCount() > 0 ? stowHiddenMesh : null };
     }
 }
 
@@ -290,6 +293,8 @@ public sealed class WeaponAsset
     public WeaponMagazine? Magazine { get; }
     /// <summary>For a worn model: per rig bone (as <see cref="Worn"/>), the paintable surface at each surface index of that mesh (null: unpainted); bones with none are absent.</summary>
     public IReadOnlyDictionary<string, WornPaintSurface?[]> WornPaint { get; init; } = new Dictionary<string, WornPaintSurface?[]>();
+    /// <summary>visual/lascannon-stow: parts drawn only while the weapon is in hand (the lascannon's simulated cable, drawn rigid; see <see cref="WeaponStowSpots"/>), in the same root space as <see cref="Mesh"/>; null for most models.</summary>
+    public ArrayMesh? StowHidden { get; init; }
 
     public WeaponAsset(WeaponModel model, ArrayMesh? mesh, IReadOnlyDictionary<string, ArrayMesh> worn, int triangles, int parts, int hidden, int rigid, WeaponMagazine? magazine = null)
     {
@@ -322,6 +327,7 @@ public sealed class WeaponRig
         public BoneAttachment3D Node = null!;
         public Node3D Holder = null!;
         public MeshInstance3D? Magazine;   // M35: the detachable magazine, a mesh of its own under the holder (null: the model has none)
+        public MeshInstance3D? StowHidden;   // visual/lascannon-stow: parts drawn only in hand (null: none)
         public Transform3D Wield, Stow;
         public string? Bone;
         public int Mode = -1;          // 0 stowed, 1 in hand, 2 hidden
@@ -455,13 +461,15 @@ public sealed class WeaponRig
         if (wargear is null || _assets.Catalogue.Held(wargear) is not { } attachment || _assets.Get(attachment) is not { Mesh: { } mesh } asset) return;
         var item = new Item { Role = role, Attachment = attachment, Asset = asset };
         if (attachment.Wield is { Bone: not null } wield) item.Wield = MarineAssets.ToGodot(asset.Model.RootToBone(wield));
-        if (attachment.Stow is { Bone: not null } stow) item.Stow = MarineAssets.ToGodot(asset.Model.RootToBone(stow));
+        if (WeaponStowSpots.For(attachment) is { Bone: not null } stow) item.Stow = MarineAssets.ToGodot(asset.Model.RootToBone(stow));   // visual/lascannon-stow: ours for the lascannon
         item.Node = new BoneAttachment3D { Name = $"Weapon_{role}_{attachment.VisualName}", Visible = false };
         _skeleton.AddChild(item.Node);
         item.Holder = new Node3D { Name = "Holder" };
         item.Holder.AddChild(new MeshInstance3D { Name = "Mesh", Mesh = mesh });
         if (asset.Magazine is { } magazine)
             item.Holder.AddChild(item.Magazine = new MeshInstance3D { Name = "Magazine", Mesh = magazine.Mesh, Position = magazine.Centre });
+        if (asset.StowHidden is { } inHandOnly)
+            item.Holder.AddChild(item.StowHidden = new MeshInstance3D { Name = "InHandOnly", Mesh = inHandOnly });
         item.Node.AddChild(item.Holder);
         _items.Add(item);
     }
@@ -587,6 +595,7 @@ public sealed class WeaponRig
         if (mode == 2) return;
         if (i.Bone != mount!.Bone) { i.Bone = mount.Bone; i.Node.BoneName = mount.Bone; }
         i.Holder.Transform = inHand ? i.Wield : i.Stow;
+        if (i.StowHidden is { } inHandOnly) inHandOnly.Visible = inHand;
     }
 
     /// <summary>

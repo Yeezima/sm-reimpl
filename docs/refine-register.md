@@ -28,13 +28,13 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1803 spec table rows: **1246 tagged**, 406 not tagged (read from data with high confidence), 151 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 393 rows of the changes document.
+Scanned 1804 spec table rows: **1247 tagged**, 406 not tagged (read from data with high confidence), 151 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 393 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 308 | 262 | 267 | 91 | 12 |
 | Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
-| Weapons (critical) | 112 | 65 | 97 | 49 | 3 |
+| Weapons (critical) | 113 | 66 | 98 | 49 | 3 |
 | Melee (critical) | 63 | 50 | 59 | 11 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
 | Charge (critical) | 44 | 35 | 37 | 20 | 0 |
@@ -53,18 +53,18 @@ Scanned 1803 spec table rows: **1246 tagged**, 406 not tagged (read from data wi
 | Core simulation (provisional values) | 124 | 109 | 109 | 13 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1246** | 1030 | 1001 | 392 | 38 |
+| **All areas** | **1247** | 1031 | 1002 | 392 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 487 |
+| kind: ours | 488 |
 | confidence: low | 447 |
 | confidence: medium | 439 |
 | kind: interpretation | 321 |
 | notes: ours | 288 |
-| confidence: none (low) | 115 |
+| confidence: none (low) | 116 |
 | kind: provisional | 100 |
 | kind: estimate | 43 |
 | kind: user's knowledge | 41 |
@@ -568,7 +568,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-9432FECF` | Regeneration timing | shield and health regenerate once the time since the last damage reaches their delays; `reload` refills when its time has fully elapsed; the bolter fires on the first tick its cooldown has elapsed (0.133 s rounds up to 4 ticks at 30 Hz, so 7.5 shots/s instead… | confidence: low; notes: ours; section: placeholder; section: provisional | tick quantisation is ours | Regeneration timing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: shield and health regenerate once the time since the last damage… | ☐ |
 | `R-9F8281FF` | Time to kill (derived) | 14 body hits from full health and shield: 9 on the shield alone (22 × 0.505 each), a 10th that breaks it and spills into health, then 4 on health; about 1.7 s of continuous fire at 0.133 s per shot (s) | confidence: low; notes: unverified; section: placeholder; section: provisional | unverified against the original | Time to kill (derived): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 14 body hits from full health and shield: 9 on the shield alone (22 ×… | ☐ |
 
-### Weapons (gameplay-critical) (112)
+### Weapons (gameplay-critical) (113)
 
 *Spec section: Classes and default loadouts (M10, used by the simulation)*
 
@@ -674,6 +674,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-F49B5988` | Stow scale | chainswords 0.9, power axe and chain axe 0.85, power swords and combat knives 0.8, others 1; applied uniformly about the handle node (factor) | kind: interpretation; confidence: medium | `stow_info/scale` | Stow scale: compare with SM1 by feel or video. Ours: chainswords 0.9, power axe and chain axe 0.85, power swords and… | ☐ |
+| `R-F97C040A` | Stowed lascannon | both lascannon models (`lascannon_mp_basic`, `chaos_lascannon_mp`) are stowed upright behind the backpack instead of on `MKR_Stow_Bolter`: handle on `RIG_SpineD` at (0, −0.57, 0.15) (up, forward, left), barrel 20° from straight up toward the marine's right… (m, degrees) | kind: ours; confidence: none (low) | ours (tuned against screenshots) | Stowed lascannon: compare with SM1 with an overlaid screenshot taken from the same position. Ours: both lascannon models (lascannon_mp_basic, chaos_lascannon_mp) are… | ☐ |
 | `R-E50A169E` | Stow handle fallback | the thunder hammer and power mace name `rig_prop_rhand` as stow handle, which their object trees lack (their handle is `RIG_Prop_M_Chest`); the model root is used | kind: interpretation; confidence: low; notes: ours | ours | Stow handle fallback: compare with SM1 by feel or video. Ours: the thunder hammer and power mace name rig_prop_rhand as stow handle… | ☐ |
 | `R-5842BB7D` | Muzzle | node `fx_Muzzle` of the weapon's object tree (the marker the wargear's fire and hit effects name); storm bolters also `fx_Muzzle01`; the locator's +Y axis is the barrel direction (all 23 gun models) (m, unit vector in the weapon root's space) | kind: inferred | weapon `.O3d`; wargear `play_fx/marker` | Muzzle: compare with SM1 by feel or video. Ours: node fx_Muzzle of the weapon's object tree (the marker the wargear's… | ☐ |
 | `R-79154EE7` | Default look | drawn: visuals with `LODLevel` bit 0 (or −1); hidden: `_LODL` twins (16) and upgrade geometry (nodes a perk upgrade shows, e.g. `GEO_upg_barrel`, gathered over every wargear drawing the same model: the Devastator bolt pistol lists no upgrades but hides the… | kind: inferred; confidence: medium | weapon `.O3d`, `upgrades/upgrades` | Default look: compare with SM1 by feel or video. Ours: drawn: visuals with LODLevel bit 0 (or −1); hidden: _LODL twins (16)… | ☐ |
