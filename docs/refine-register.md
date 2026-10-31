@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1780 spec table rows: **1224 tagged**, 406 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 387 rows of the changes document.
+Scanned 1783 spec table rows: **1227 tagged**, 406 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 390 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 1780 spec table rows: **1224 tagged**, 406 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 105 | 91 | 90 | 12 | 1 |
+| Core simulation (provisional values) | 108 | 94 | 93 | 12 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1224** | 1009 | 979 | 391 | 38 |
+| **All areas** | **1227** | 1012 | 982 | 391 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 466 |
-| confidence: medium | 435 |
-| confidence: low | 429 |
+| kind: ours | 469 |
+| confidence: medium | 437 |
+| confidence: low | 430 |
 | kind: interpretation | 321 |
 | notes: ours | 287 |
 | confidence: none (low) | 115 |
@@ -1627,7 +1627,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (105)
+### Core simulation (provisional values) (108)
 
 *Spec section: Provisional values in use*
 
@@ -1700,6 +1700,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-9D99FE25` | SM1 speech precedence | random barks yield to Space Marine's own exertion and action lines (M33): not started while one plays, stopped when one starts; the key's shout cuts the SM1 line instead | kind: ours; confidence: medium | ours (chosen in review: yield or alternate) | SM1 speech precedence: compare with SM1 by feel or video. Ours: random barks yield to Space Marine's own exertion and action lines… | ☐ |
 | `R-1DD0225C` | The key | T (unused by any other binding): a FOR THE EMPEROR take at any time, at most every 2 s (60 ticks; the server and the shouting client count it in ticks), only for a living loyalist; the press sends input bit 13 for 4 ticks; it plays no animation and changes no… (s, ticks) | kind: ours; confidence: low | the owner asked for a key at any time, without interrupting or animating; the key, the cooldown and the hold: ours | The key: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: T (unused by any other binding): a FOR THE EMPEROR take at any time… | ☐ |
 | `R-D1CAC64A` | Level and position | others in 3D from their characters (full level within 8 m, inverse distance, silent beyond 70 m), the own player without position; sound bus with the master bus volume and `--sound-gain`; base -2 dB; the pack's helmet filter is not applied again (dB, m) | kind: ours; confidence: low | ours (the pack: normalised toward -16 LUFS / -1.5 dBTP) | Level and position: compare with SM1 by feel or video. Ours: others in 3D from their characters (full level within 8 m, inverse… | ☐ |
+
+*Spec section: Added content: Musou — an experimental one-sided mode against swarms (server and client; no protocol change, extras wire 2)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-92A4F1ED` | Musou flow | warm-up until a Space Marine is in, then the usual countdown and play with no score or time limit (score limit int.MaxValue/2, shown clamped to 65535); every player gone sends it back to warm-up and clears the enemies | kind: ours; confidence: low | ours (MU0; MU1 adds the waves and the end) | Musou flow: compare with SM1 by feel or video. Ours: warm-up until a Space Marine is in, then the usual countdown and play… | ☐ |
+| `R-43CEFC27` | Musou sides | every player joins the Space Marines, whatever side is asked; no balance or per-side limit | kind: ours; confidence: medium | the lead's default, 2026-10-31 (the owner may allow Chaos) | Musou sides: compare with SM1 by feel or video. Ours: every player joins the Space Marines, whatever side is asked; no… | ☐ |
+| `R-DA4A124C` | Musou mode and reach | Annihilation only (any other `--mode` exits 2); the front end hosts it on this PC only (127.0.0.1) without bots | kind: ours; confidence: medium | the owner ("runs locally"); the rest ours | Musou mode and reach: compare with SM1 by measuring on a flat spot of the same map. Ours: Annihilation only (any other --mode exits 2); the front end hosts it… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -1987,6 +1995,14 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-D6694B0D` | SM1 speech first | ours | random barks yield to SM1's exertion and action lines; the key's shout cuts them | SM1 speech precedence | SM1 speech first: compare with SM1 by feel or video. Ours: ours. | ☐ |
 | `C-B0816781` | The FOR THE EMPEROR key | the owner's decision: at any time, no animation, no interruption; key T and the 2 s cooldown: ours | others hear it from the shouter | The key, The key on the wire | The FOR THE EMPEROR key: compare with SM1 by feel or video. Ours: the owner's decision: at any time, no animation, no interruption; key… | ☐ |
 | `C-343A74CB` | Level and range | ours | -2 dB on the sound bus, full within 8 m, silent beyond 70 m | Level and position | Level and range: compare with SM1 by measuring on a flat spot of the same map. Ours: ours. | ☐ |
+
+#### Musou (`Musou`; experimental mode, spec "Added content: Musou")
+
+| ID | What | Ours / the owner's | Value | Spec row | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-3BF7D39D` | A one-sided co-op mode against swarms | the owner's request (2026-10-31); SM1 has no such mode (Exterminatus is the nearest) | `--content musou`, Annihilation rules replaced by the Musou flow | Musou flow | A one-sided co-op mode against swarms: compare with SM1 by feel or video. Ours: the owner's request (2026-10-31); SM1 has no such mode (Exterminatus… | ☐ |
+| `C-804C1BF1` | Space Marines only, no balance | ours (the lead's default; the owner may change it) | every player joins the Space Marines, no per-side limit | Musou sides | Space Marines only, no balance: compare with SM1 by feel or video. Ours: ours (the lead's default; the owner may change it). | ☐ |
+| `C-9A202D59` | Endless match until the run ends | ours | warm-up until a Space Marine is in, countdown, play; no score or time limit; an empty server goes back to warm-up | Musou flow | Endless match until the run ends: compare with SM1 by timing a run over a known distance. Ours: ours. | ☐ |
 
 ### Deliberate changes (owner's decisions)
 

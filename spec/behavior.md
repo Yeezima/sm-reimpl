@@ -2997,6 +2997,17 @@ voiceline 'FOR THE EMPEROR' at any time. it shouldn't interrupt any action or pl
 | Loading | the 32 takes are read on a worker at the match start and their streams built on the main thread, two a frame (a press never decodes; a failed take stays failed; a malformed manifest turns the feature off); nothing is decided before the sound system and the takes are ready, so no cooldown is spent on a silent bark | — | at the match start | `NetworkView.BarksReady` | ours | ours | — |
 | Test aids | `--no-loyalist-barks`, `--log-sound loyalist`, `--loyalist-gain <dB>`, `--bot-shout <s>`; the server logs each accepted shout; bots print a summary every 10 s | — | — | `client/Extras/LoyalistBarks/NetworkView.LoyalistBarks.cs` | ours | test aid | — |
 
+### Added content: Musou — an experimental one-sided mode against swarms (server and client; no protocol change, extras wire 2)
+
+The owner (2026-10-31): a new experimental game mode, "labeled Musou", toggled in the menu like Faithful and Extended, that must not change the existing
+modes. Not SM1: added content behind `ContentExtras.Musou` (flag 8, a profile of its own, not in `extended`). Contract and code: `docs/added-content.md`
+section 8; tests `MusouIsolationTests`, `MusouSwitchTests`, `MusouWireTests`. Built in milestones MU0–MU4; MU0 is the switch alone (no enemies yet).
+
+| Parameter (Musou) | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Musou flow | warm-up until a Space Marine is in, then the usual countdown and play with no score or time limit (score limit int.MaxValue/2, shown clamped to 65535); every player gone sends it back to warm-up and clears the enemies | — | per tick | `World.ExtrasStepMatch` (Musou) | ours (MU0; MU1 adds the waves and the end) | ours | low |
+| Musou sides | every player joins the Space Marines, whatever side is asked; no balance or per-side limit | — | per join | `World.ExtrasJoinSide` (Musou) | the lead's default, 2026-10-31 (the owner may allow Chaos) | ours | medium |
+| Musou mode and reach | Annihilation only (any other `--mode` exits 2); the front end hosts it on this PC only (127.0.0.1) without bots | — | at start | `Program.cs`, `HostPanel` | the owner ("runs locally"); the rest ours | ours | medium |
 ### Death effects (F-D1; client only, not simulated, no protocol change)
 
 The effects the original multiplayer data itself binds to a marine's or Chaos marine's death (faithful content, not the gore extras of `docs/gore-design.md`). Read at run time from the install by `SmContent/DeathEffects.cs`
