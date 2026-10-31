@@ -430,7 +430,9 @@ public class TeamsTests(ITestOutputHelper output)
             Assert.Equal(uint.MaxValue, c.Match.TicksLeft);
             var board = Assert.IsType<Scoreboard>(c.Scoreboard);
             Assert.True(board.Teams && !board.FriendlyFire && board.ScoreLimit == Rules.ScoreLimit);
-            Assert.Equal([new ScoreEntry(a.PlayerId, Team.SpaceMarines, SmTac, 1, 0, 0, Loadouts.EquipmentIndex(Fragile, SmTac)), new ScoreEntry(b.PlayerId, Team.Chaos, CsmTac, 0, 1, 0, Loadouts.EquipmentIndex(Fragile, CsmTac))], board.Players);   // protocol 40: the equipment
+            Assert.Equal([new ScoreEntry(a.PlayerId, Team.SpaceMarines, SmTac, 1, 0, 0, Loadouts.EquipmentIndex(Fragile, SmTac)), new ScoreEntry(b.PlayerId, Team.Chaos, CsmTac, 0, 1, 0, Loadouts.EquipmentIndex(Fragile, CsmTac))],
+                board.Players.Select(p => p with { PingMs = -1 }));   // protocol 40: the equipment (protocol 50's ping: ScoreboardPingTests)
+            Assert.All(board.Players, p => Assert.InRange(p.PingMs, 30, 120));   // 20 ms each way, jitter and loss: a measured ping
         }
     }
 
@@ -458,7 +460,7 @@ public class TeamsTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_10_carries_teams_the_match_and_the_kill_feed_within_the_budget()
     {
-        Assert.Equal(49, Protocol.Version);
+        Assert.Equal(50, Protocol.Version);
         Assert.Equal(1194, Protocol.MaxSnapshotBytes);   // protocol 23: + the 2-byte perk word; protocol 21: + 1 ready-tick byte; protocol 11: + the point count and 8 points; protocol 12: + the hit block; protocol 13: + the evade bytes − 1 projectile record; 16: − 3 projectile records + 5 shot records; 17: + 4 reaction bytes − 1 shot record
         Assert.True(Protocol.MaxSnapshotBytes <= 1200);   // protocol 12: 13 bytes of headroom; protocol 13: 9; protocol 15: 5; protocol 16: 1 (more shot records fill smaller snapshots); protocol 23: 0
         var hello = new Hello(Protocol.Version, 1, 2, 3, 4, 5, 6, 2, 1, 0, 7, 1, (byte)Team.Chaos);
@@ -613,7 +615,7 @@ public class TeamsTests(ITestOutputHelper output)
         var back = Assert.IsType<Scoreboard>(Protocol.Read(bytes));
         Assert.Equal((board.ServerTick, board.Teams, board.ScoreLimit, board.TimeLimit, board.FriendlyFire), (back.ServerTick, back.Teams, back.ScoreLimit, back.TimeLimit, back.FriendlyFire));
         Assert.Equal(board.Players, back.Players);
-        Assert.Equal(1 + 4 + 1 + 2 + 4 + 1 + 2 * 14, bytes.Length);   // protocol 22: 12-byte rows (appearance version); protocol 40: 13 (equipment); protocol 41: 14 (an empty name)
+        Assert.Equal(1 + 4 + 1 + 2 + 4 + 1 + 2 * 16, bytes.Length);   // protocol 22: 12-byte rows (appearance version); protocol 40: 13 (equipment); protocol 41: 14 (an empty name); protocol 50: 16 (the ping)
         Assert.Null(Protocol.Read(Patch(bytes, 5, 8)));                       // unknown flag
         Assert.Null(Protocol.Read(Patch(bytes, 5, 4)));                       // Seize Ground flag without its block
         Assert.Null(Protocol.Read(Patch(bytes, 13 + 4, 3)));                  // team 3

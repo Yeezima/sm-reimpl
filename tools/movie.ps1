@@ -85,8 +85,17 @@ try {
 
     Write-Host "Recording ${w}x${h} @ $fps FPS -> $out" -ForegroundColor Yellow
     $positionArgs = if ($position) { @('--position', $position) } else { @() }
-    & $Godot --path $shadow --write-movie $out --fixed-fps $fps @positionArgs '--' @rest
-    $exit = $LASTEXITCODE
+    if ($rest -contains '--test-window') {
+        # tools/no-focus-steal: a test recording runs on the private test desktop (never on the owner's screen, never takes the focus).
+        . (Join-Path $PSScriptRoot 'quiet-launch.ps1')
+        $mlog = Join-Path $runDir 'movie.log'
+        $mp = Start-QuietProcess -FilePath $Godot -ArgumentList (@('--path', $shadow, '--write-movie', $out, '--fixed-fps', "$fps") + $positionArgs + @('--') + $rest) `
+            -WorkingDirectory $RepoRoot -StdOut $mlog -Desktop 'sm-reimpl-test'
+        $exit = Wait-QuietProcess $mp -Log $mlog
+    } else {
+        & $Godot --path $shadow --write-movie $out --fixed-fps $fps @positionArgs '--' @rest
+        $exit = $LASTEXITCODE
+    }
 }
 finally {
     # Remove the link itself first (non-recursive), and prove it is gone before any recursive delete: Remove-Item -Recurse on

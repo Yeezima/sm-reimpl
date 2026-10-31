@@ -274,7 +274,7 @@ public class JumpHeightTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_27_carries_the_cut_in_the_own_record_and_refuses_it_elsewhere_and_the_config_hash_covers_it()
     {
-        Assert.Equal(49, Protocol.Version);
+        Assert.Equal(50, Protocol.Version);
         var s = Jump(On, 15);
         var p = s.First(x => x.JumpCut) with { PlayerId = 7 };
         var bytes = Protocol.Write(new Snapshot(1, 1, 1, [p], Self: 7));

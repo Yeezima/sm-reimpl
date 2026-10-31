@@ -32,6 +32,7 @@ $Name = 'Godot_v4.7.2-stable_mono_win64'
 $Godot = Join-Path $Tools "godot\$Name\$($Name)_console.exe"
 $State = Join-Path $env:LOCALAPPDATA 'sm-reimpl\tmp-build\bots'
 $PidFile = Join-Path $State 'bots.pids'
+. (Join-Path $PSScriptRoot 'quiet-launch.ps1')   # tools/no-focus-steal: no console window, no focus change (Start-QuietProcess)
 $MaxPerSide = 6
 
 function Show-Usage { (Get-Help $PSCommandPath).Description.Text | Write-Host }
@@ -182,7 +183,10 @@ if (-not $opt.nobuild) {
     dotnet build (Join-Path $client 'SmClient.csproj') -nologo -v quiet
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
-if (-not (Test-Path -LiteralPath (Join-Path $client '.godot'))) { & $Godot --headless --path $client --import | Out-Null }
+if (-not (Test-Path -LiteralPath (Join-Path $client '.godot'))) {
+    New-Item -ItemType Directory -Force -Path $State | Out-Null
+    $null = Wait-QuietProcess (Start-QuietProcess -FilePath $Godot -ArgumentList @('--headless', '--path', $client, '--import') -WorkingDirectory $RepoRoot -StdOut (Join-Path $State 'import.log'))
+}
 
 
 $logDir = if ($opt.logdir) { $opt.logdir } else { Join-Path $State ('run-' + (Get-Date -Format 'yyyyMMdd-HHmmss')) }
@@ -208,9 +212,9 @@ foreach ($b in $order) {
     if ($null -ne $opt.range)    { $cargs += @('--bot-range', $opt.range.ToString([Globalization.CultureInfo]::InvariantCulture)) }
     if ($opt.tracedir) { New-Item -ItemType Directory -Force -Path $opt.tracedir | Out-Null; $cargs += @('--bot-trace', (Join-Path $opt.tracedir ("$label.csv"))) }
     $cargs += $extra
-    $argLine = ($cargs | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
-    $p = Start-Process -FilePath $Godot -ArgumentList $argLine -WorkingDirectory $RepoRoot -PassThru -WindowStyle Hidden `
-        -RedirectStandardOutput (Join-Path $logDir "$label.log") -RedirectStandardError (Join-Path $logDir "$label.err")
+    # No console window at all (CREATE_NO_WINDOW; the real Godot child inherits the window-less console) and no focus change.
+    $p = Start-QuietProcess -FilePath $Godot -ArgumentList $cargs -WorkingDirectory $RepoRoot `
+        -StdOut (Join-Path $logDir "$label.log") -StdErr (Join-Path $logDir "$label.err")
     Add-Content -LiteralPath $PidFile -Value ("{0} {1} {2}" -f $p.Id, $p.StartTime.ToFileTimeUtc(), $label) -Encoding ascii
     Write-Host ("started {0} (pid {1}): --class '{2}' --side {3}" -f $label, $p.Id, $cls, $b.Side)
     if ($opt.stagger -gt 0 -and $n -lt $order.Count) { Start-Sleep -Milliseconds ([int]($opt.stagger * 1000)) }
