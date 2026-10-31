@@ -2200,3 +2200,37 @@ is a dropper whose collision content holds a crack and a crater decal, smoke and
 `trigger_point` is `other` for the plasma, melta, burning body and pre-death effects and `self` for the jump deaths; for the Chaos Bloodletter's `actn_death_vanish` (`bloodletter_limb_vanish`, a demon that dissolves) it is `other` too, so `other` is read as the dying body's own bones.
 
 **Left open.** Whether the plasma and melta deaths visibly removed a limb or the body in the original (the graph's death clips are short and the corpse is a powered ragdoll); `remove_wargear` suggests the corpse's gun vanished. The sprint, headshot, lascannon and bullrush deaths bind no effect.
+
+## Guardsman (Three-Front War dependency, 2026-11-01)
+
+The Musou "Three-Front War" mode (added content) wants Imperial Guardsmen allies drawn with the original model and clips. **Original assets loaded**
+(`client.cmd --guard-test`, a windowed still per angle; `client/GuardsmanTestView.cs`). The usable Guardsman is **not singleplayer content**: it is the
+Exterminatus co-op Guardsman, in the co-op sets `data/chunks/ebp_sets__mp_coop_set_sm.oppc` and `ebp_sets__mp_coop_set_factory.oppc` (same entries). The
+campaign has its own copies and variants (`ebp_sets__guardsman`, `ebp_sets__mixed_core_units` with the renegade guard and `chaos_lasgun`, the
+`guardsman_cinematic*` / `guardsman_ingame_*` head packages and the 13 KB rig `havok_guardsman_cinematic`); Musou does not need them.
+
+| Piece | Entry (co-op set) | Status |
+|---|---|---|
+| Blueprint | `ebps` `ig_coop_guardsman` (also `_shotgun`, `_chainsword`, `_grenade_launcher`): visual `guardsman_a`, animation package `havok_guardsman_a_coop` (project `guardsman_a`), wargear `guardsman_basic_head`, `ig_coop_lasgun`, `sm_coop_evade`; `health_max` 85, run 6.25, sprint 9, walk 3.6 | read (`smtool baf-dump data/packages/ebps.oppc --entry ig_coop_guardsman`) |
+| Body | `guardsman_a.dcm` (2 skinned blocks of material `ig_body`, 33 bones; block 1 is the far level of detail by the object tree) | decodes, drawn |
+| Head | `guardsman_head_basic_001.dcm` (1 skinned block, `ig_head`, bones `RIG_Head`, `RIG_Neck`, `RIG_Chest`); `guardsman_ingame_d`, `guardsman_cinematic_d` (`IGHead_D`) are the other heads in the set | decode, `_001` drawn |
+| Other bodies | `melta_guard_body` (4 blocks: static, 2 skinned `ig_body`, 1 skinned `Body_Mira`), `storm_trooper_body` / `_head`, `psyker` | `melta_guard_body` decodes; the others not checked |
+| Rig | `havok_guardsman_a_coop__hkxx` (1.66 MB): 47 bones (`RIG_Root` ... `RIG_Prop_RHand`, `RIG_Prop_LHand`, `RIG_Head`), 148 clips, 6 behaviour graphs (`IG_Base_Coop`, `IG_RANGED_REACTIONS(_CS_Coop)`, `IG_Import_REACTIONS(_CS_Coop)`, `IG_IMPORT_FLINCH`), a ragdoll instance and 2 skeleton mappers. Every bone of the body and head meshes is in the skeleton | read (`smtool graph-dump --list|--animations|--bones --archive data/chunks/ebp_sets__mp_coop_set_sm.oppc --entry havok_guardsman_a_coop__hkxx`) |
+| Lasgun | `lasgun.dcm` (1 static block, material `Standard_20`, textures `lasgun_*`), wargear `ig_coop_lasgun` (visual and package `lasgun`; raycast, damage 1, clip 40, `weapon_2hand_range_light`, effects `lasgun_tracer` / `lasgun_muzzle` in `master_fx`) | decodes, drawn on `RIG_Prop_RHand` with an identity offset: the grip sits in the hand but the gun points backwards (the wargear's hand mount is not read yet) |
+| Materials | `ig_body.bmat`, `ig_head.bmat`, `IGHead_D.bmat`, `Standard_20.bmat` and their `_dif` / `_nrm` / `_spc` / `_lp` textures, all in the set | 3/3 drawn surfaces with the original diffuse |
+
+The multi-material `guardsman_cinematic` that M24 recorded as the one failing package mesh reads since the bone-palette fix (Ork O1): 1 block,
+`GuardsmanHead_003` (palette 38) and `ig_head` (palette 2). No reader change was needed for the Guardsman.
+
+Clips (lengths from the rig; all bind except the six additive flinches): idle `IG_NAV_Idle_01` 3 s (also `_02` 8.33 s, `_03` 3 s, `_Tense_01` 4 s,
+`_Relax_02..04`, kneeling aims); aim idles `IG_NAV_Idle_AimDown|AimForward|AimUp` 1.5 s; walk `IG_NAV_Walk_F|B|L|R_01` and the aimed `_AimDown|Forward|Up`
+1.33 s; run `IG_NAV_Run_F|B|L|R_01` and the aimed sets 0.867 s; sprint only in the chainsword (`CS`) set `IG_CS_NAV_Sprint_F_01` 2 s; shoot
+`IG_RNG_Fire_S_01` 0.167 s (additive recoil); reload `IG_RNG_Reload_01` 3.2 s; grenade `IG_RNG_GrenadeToss` 2.33 s; evades `IG_NAV_Evade_L|R_3M|6M_01`
+1.87-2.3 s; hit reactions `IG_REC_Light_*` 2 s (8 directions), `IG_REC_HVY_*` 2-2.47 s (8), `IG_REC_BlownAway_F|B_6M|15M` 1.4-2 s, get-ups 2.7 / 3.2 s;
+flinches `IG_REC_Flinch_High|Mid|Low_L|R_01` (additive: **not bound** by our reader, "track 47 maps to bone 47 of 47", one track more than bones);
+deaths `IG_DIE_Basic_01` 0.4 s, `_03` 0.6 s, `IG_DIE_FallForward_01` 0.467 s, `IG_DIE_Headshot_01` 0.533 s, `IG_DIE_Explode_01` 3 s, `IG_REC_Death_02`
+2.233 s; melee `IG_MEL_Attack_F_01` 2 s and the chainsword guardsman's `IG_CS_MEL_*`.
+
+Left for animated Guardsmen in a match (estimate): a `RigProfile` for the Guardsman with its clip table (idle, run blend, aim pitch, recoil, reload, reactions,
+deaths) as the Ork's; a weapon mount for the lasgun (as `OrkWeaponMounts`); the ragdoll (`havok_guardsman_a_coop`, 16 bodies, not read yet);
+the six additive flinches' extra track; then the Musou crowd/ally drawing (`MusouLooks`, the VAT path) and the simulation side of an ally.
