@@ -61,7 +61,7 @@ public static class LeanBot
         // anim/melee-interaction: the charge impact's log and the capture of its frames
         "log-charge-impact", "charge-shots",
         // feel/weight-impact: the weight pass before / after, whole and by part, and its log
-        "old-feel", "old-camera-impulse", "old-landing-settle", "old-recoil-weight", "old-flinch-weight", "old-strike-entry", "old-heavy-footfall", "log-weight-feel", "feel-shots",
+        "old-feel", "old-camera-impulse", "old-landing-settle", "old-recoil-weight", "old-flinch-weight", "old-strike-entry", "old-heavy-footfall", "log-weight-feel", "feel-shots", "jump-test-pound",
     };
 
     /// <summary>

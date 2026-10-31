@@ -30,7 +30,7 @@ public partial class NetworkView
 
     readonly CameraImpulse _cameraImpulse = new();
 
-    // --feel-shots <dir> --feel-shots-on <event> [--feel-shots-max n] (capture aid): the frames after an event (landing, pack landing, ground pound, shot, melee, flinch, blast), for the before / after sheets.
+    // --feel-shots <dir> --feel-shots-on <event> [--feel-shots-max n] (capture aid): the frames after an event (landing, pack-landing, pound, shot, melee, flinch, blast), for the before / after sheets.
     static readonly string? FeelShotsDir = ArgAfter("--feel-shots");
     static readonly string FeelShotsOn = ArgAfter("--feel-shots-on") ?? "";
     static readonly int FeelShotsMax = (int)(FloatArg("feel-shots-max") ?? 3f);
