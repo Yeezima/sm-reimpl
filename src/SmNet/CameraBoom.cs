@@ -133,24 +133,36 @@ public sealed class CameraSide
     /// <summary>Ours: seconds of the whole crossing.</summary>
     public const float Travel = 0.8f;
 
+    /// <summary>Ours: seconds of the way back to the right shoulder when the player aims (shorter: the aim camera is arriving, blend 0.15 s, on the right shoulder).</summary>
+    public const float AimTravel = 0.3f;
+
     float _target = 1f, _position = 1f, _held;
+
+    /// <summary>Whether the camera is on, or on its way to or from, the left shoulder (the left side's cast is then wanted).</summary>
+    public bool OnLeft => _target < 0f || _position < 1f;
 
     /// <summary>Back to the right shoulder (a respawn).</summary>
     public void Reset() { _target = 1f; _position = 1f; _held = 0f; }
 
-    /// <summary>One frame, from the free fractions of the two sides. Returns the side's factor: 1 the rig's right shoulder, -1 mirrored, smooth in between. Unplaced: directly at the side wanted.</summary>
-    public float Step(float rightFree, float leftFree, float delta, bool placed)
+    /// <summary>
+    /// One frame, from the free fractions of the two sides. While <paramref name="aiming"/> (aim mode, scopes included) the camera holds the right shoulder and never crosses: the shot's
+    /// picture is the rig's. On the left it comes back when the right is free, or sooner when the left is blocked and the right is freer. Returns the side's factor: 1 the rig's right
+    /// shoulder, -1 mirrored, smooth in between. Unplaced: directly at the side wanted.
+    /// </summary>
+    public float Step(float rightFree, float leftFree, float delta, bool placed, bool aiming = false)
     {
         delta = MathF.Max(delta, 0f);
-        bool cross = _target > 0f ? rightFree < BlockedBelow && leftFree >= FreeFrom : rightFree >= FreeFrom;
+        bool squeezed = _target < 0f && leftFree < BlockedBelow && rightFree > leftFree;
+        bool cross = _target > 0f ? rightFree < BlockedBelow && leftFree >= FreeFrom : rightFree >= FreeFrom || squeezed;
         _held = cross ? _held + delta : 0f;
-        if (_held >= (_target > 0f ? CrossHold : BackHold)) { _target = -_target; _held = 0f; }
+        if (aiming) { _target = 1f; _held = 0f; }
+        else if (_held >= (_target > 0f || squeezed ? CrossHold : BackHold)) { _target = -_target; _held = 0f; }
         if (!placed)
         {
-            if (rightFree < BlockedBelow && leftFree >= FreeFrom) _target = -1f;
+            if (!aiming && rightFree < BlockedBelow && leftFree >= FreeFrom) _target = -1f;
             _position = _target;
         }
-        float step = 2f * delta / Travel;
+        float step = 2f * delta / (aiming ? AimTravel : Travel);
         _position = _target > _position ? MathF.Min(_position + step, _target) : MathF.Max(_position - step, _target);
         float x = (_position + 1f) * 0.5f;
         return 2f * (x * x * (3f - 2f * x)) - 1f;

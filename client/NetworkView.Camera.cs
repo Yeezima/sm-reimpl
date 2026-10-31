@@ -272,8 +272,8 @@ public partial class NetworkView
             var sideRight = ToWorld(shoulderRig) - ToWorld(heightRig);
             float sideLength = sideRight.Length();
             float rightFree = sideLength > 1e-3f ? CastClear(raised, raised + sideRight, CameraSoftRadius) / sideLength : 1f;
-            float leftFree = sideLength > 1e-3f && rightFree < CameraSide.BlockedBelow ? CastClear(raised, raised - sideRight, CameraSoftRadius) / sideLength : 0f;
-            float side = _rigSide.Step(rightFree, leftFree, delta, _cameraPlaced);
+            float leftFree = sideLength > 1e-3f && (rightFree < CameraSide.BlockedBelow || _rigSide.OnLeft) ? CastClear(raised, raised - sideRight, CameraSoftRadius) / sideLength : 0f;
+            float side = _rigSide.Step(rightFree, leftFree, delta, _cameraPlaced, me.Alive && me.Aiming);
             shoulderRig.X *= side; pivotSided.X *= side; camSided.X *= side;
             // No lookahead on these short legs: a head foreseen against a wall starts inside the soft radius, and its leg read 0 for the frames of every wall contact.
             legStart = DampFraction(_rigFractionS, _cameraPlaced, raised, raised + sideRight * side, delta);

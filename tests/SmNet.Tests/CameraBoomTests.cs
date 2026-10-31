@@ -177,6 +177,20 @@ public class CameraBoomTests
         Assert.True(look.Z < 1f);
     }
 
+    [Fact]
+    public void WhereTheVerticalIsTheLimitTheLookStopsShortOfIt()
+    {
+        const float pitch = 1.55f;   // 1.2 degrees from straight up: well under the 10 degree cap
+        float room = MathF.PI / 2f - pitch;
+        Assert.True(room < CameraBoom.AimMaxTurn);
+        var view = new Vector3(0f, MathF.Cos(pitch), MathF.Sin(pitch));
+        var look = CameraBoom.StableLook(Vector3.Zero, new Vector3(0f, 4f, -3f), view, 4f, Vector3.UnitZ);
+        float toUp = MathF.Acos(Math.Clamp(Vector3.Dot(look, Vector3.UnitZ), -1f, 1f));
+        Assert.True(toUp > 0.001f, $"{toUp} radians from straight up");
+        Assert.True(toUp < room, "the look still turned toward the focus");
+        Assert.True(look.Y > 0f, "the look stayed on the view's side of the vertical");
+    }
+
     // ---- fresh aim with a ray off the view ----
 
     static float PitchOf(Vector3 d) => MathF.Asin(Math.Clamp(d.Z, -1f, 1f));
@@ -208,6 +222,37 @@ public class CameraBoomTests
         Assert.True(Vector3.Distance(o, new Vector3(0f, 1f, 2f)) < 1e-5f);
     }
 
+    [Theory]
+    [InlineData(0f, 0f, 0.05f, 0.03f)]
+    [InlineData(1.2f, -1.4f, -0.02f, -0.01f)]   // the view at its lower limit
+    [InlineData(-2f, 1.5f, 0.02f, 0.0f)]        // near straight up
+    [InlineData(0.4f, 1.566f, 0.5f, 0.0f)]      // a fast turn at the upper limit
+    public void TurnRigidKeepsARayOffTheViewInsideTheShotCone(float yaw, float pitch, float deltaYaw, float deltaPitch)
+    {
+        float cone = new SimConfig().ShotConeDegrees * (MathF.PI / 180f);
+        var view = Combat.AimDirection(yaw, pitch);
+        var up = MathF.Abs(view.Z) < 0.9f ? Vector3.UnitZ : Vector3.UnitX;
+        var right = Vector3.Normalize(Vector3.Cross(view, up));
+        var above = Vector3.Cross(right, view);
+        foreach (float around in new[] { 0f, 1.2f, 2.5f, 4f, 5.5f })
+        {
+            // The ray at the camera's largest correction, every way round the view.
+            var off = right * MathF.Cos(around) + above * MathF.Sin(around);
+            var ray = Vector3.Normalize(view * MathF.Cos(CameraBoom.AimMaxTurn) + off * MathF.Sin(CameraBoom.AimMaxTurn));
+            float turnedPitch = pitch + deltaPitch;
+            var (_, d) = FreshAim.TurnRigid(Vector3.Zero, ray, Vector3.Zero, deltaYaw, deltaPitch, yaw + deltaYaw);
+            var turnedView = Combat.AimDirection(yaw + deltaYaw, turnedPitch);
+            float angle = MathF.Acos(Math.Clamp(Vector3.Dot(d, turnedView), -1f, 1f));
+            Assert.True(angle < cone, $"{angle} radians off the view");
+            Assert.Equal(CameraBoom.AimMaxTurn, angle, 3);   // rigid: the offset is kept exactly
+            // And the server takes it as sent: inside the cone, not turned back onto its edge.
+            var input = new PlayerInput(1, 0f, 0f, yaw + deltaYaw, InputButtons.None, turnedPitch).WithShotDirection(d);
+            var shot = Combat.ShotDirection(input, new SimConfig());
+            Assert.True(MathF.Acos(Math.Clamp(Vector3.Dot(shot, turnedView), -1f, 1f)) <= cone + 1e-3f);
+            if (MathF.Abs(turnedPitch) + CameraBoom.AimMaxTurn < MathF.PI / 2f) Assert.True(Vector3.Distance(shot, d) < 1e-3f, $"shot {shot}, ray {d}");
+        }
+    }
+
     // ---- the shoulder side ----
 
     static float RunSide(CameraSide side, float right, float left, float seconds)
@@ -233,6 +278,53 @@ public class CameraBoomTests
         Assert.True(biggest < 0.09f, $"step {biggest}");
         Assert.Equal(-1f, RunSide(side, 1f, 1f, CameraSide.BackHold - 0.05f), 3);
         Assert.Equal(1f, RunSide(side, 1f, 1f, CameraSide.Travel + 0.2f), 3);
+    }
+
+    [Fact]
+    public void AimingNeverCrossesToTheLeft()
+    {
+        var side = new CameraSide();
+        for (int i = 0; i < 300; i++) Assert.Equal(1f, side.Step(0.1f, 1f, Dt, true, aiming: true));
+        Assert.False(side.OnLeft);
+        Assert.Equal(1f, side.Step(0.1f, 1f, Dt, false, aiming: true));   // nor a first frame
+    }
+
+    [Fact]
+    public void AimingOnTheLeftReturnsSmoothlyToTheRight()
+    {
+        var side = new CameraSide();
+        Assert.Equal(-1f, RunSide(side, 0.1f, 1f, 2f), 3);
+        float previous = -1f, biggest = 0f;
+        for (int i = 0; i < (int)(CameraSide.AimTravel / Dt) + 2; i++)
+        {
+            float s = side.Step(0.1f, 1f, Dt, true, aiming: true);
+            Assert.True(s >= previous);
+            biggest = MathF.Max(biggest, s - previous);
+            previous = s;
+        }
+        Assert.Equal(1f, previous, 3);
+        Assert.True(biggest < 0.2f, $"step {biggest}");
+        // Letting go of aim with the right still blocked crosses again only after the hold.
+        Assert.Equal(1f, RunSide(side, 0.1f, 1f, CameraSide.CrossHold - 0.05f));
+    }
+
+    [Fact]
+    public void ABlockedLeftComesBackWhenTheRightIsFreer()
+    {
+        var side = new CameraSide();
+        Assert.Equal(-1f, RunSide(side, 0.1f, 1f, 2f), 3);
+        // The left closes in; the right is not free, but it is the freer: back after the short hold, not the long one.
+        Assert.Equal(-1f, RunSide(side, 0.45f, 0.2f, CameraSide.CrossHold - 0.05f), 3);
+        Assert.Equal(1f, RunSide(side, 0.45f, 0.2f, CameraSide.Travel + 0.2f), 3);
+        Assert.False(side.OnLeft);
+    }
+
+    [Fact]
+    public void ABlockedLeftWithAWorseRightStaysLeft()
+    {
+        var side = new CameraSide();
+        RunSide(side, 0.1f, 1f, 2f);
+        Assert.Equal(-1f, RunSide(side, 0.1f, 0.3f, 3f), 3);
     }
 
     [Fact]
