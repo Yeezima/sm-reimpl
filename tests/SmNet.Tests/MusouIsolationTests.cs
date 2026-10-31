@@ -90,7 +90,7 @@ public class MusouIsolationTests(ITestOutputHelper output)
     [Fact]
     public void Musou_changes_neither_the_protocol_version_nor_the_extended_profile()
     {
-        Assert.Equal(50u, (uint)Protocol.Version);   // 50: net/scoreboard-ping (the scoreboard's ping), not Musou
+        Assert.Equal(51u, (uint)Protocol.Version);   // 51: sim/no-fire-while-sprinting (50: the scoreboard's ping), not Musou
         Assert.Equal(2u, ContentExtras.WireVersion);
         Assert.False(ContentExtras.All.HasFlag(ContentExtras.Musou));
         Assert.Equal(ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks, ContentExtras.All);

@@ -9,3 +9,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+
+- New network version: this build does not play with earlier ones, so everyone must update together.
+- No shooting while sprinting, with any weapon: while you sprint (Shift and W) the trigger does nothing, the lascannon included. A charge you were holding is lost when you start to sprint, and letting go of the trigger mid-sprint fires nothing. Let go of Shift to shoot: the gun comes up as it always did after a sprint (the heavy weapons, melta and grenade launcher at once); single-shot and charge weapons need a fresh click. Holding the trigger no longer slows your sprint.
+- Devastator and Havoc: the stomp can no longer be cut short by shooting, aiming, melee or any other button; only a hop (Space) cancels it, from the same moment as before.
