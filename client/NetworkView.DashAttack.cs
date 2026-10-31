@@ -118,6 +118,7 @@ public partial class NetworkView
         foreach (var gone in _remoteDash.Keys.Where(id => id != -1 && others.All(o => o.PlayerId != id)).ToList()) _remoteDash.Remove(gone);
         if (LogFalls) FallLog(me);
         SlashTestFrame(me);
+        StompMoveTestFrame(me);   // anim/stomp-to-move test aid (NetworkView.StompMoveTest.cs)
         ChargeTravelFrame(me);   // feel/charge-directions: the own charge's heading and travel against the view (bots; NetworkView.ChargeDirections.cs)
 
         void Note(PlayerState s, bool own)

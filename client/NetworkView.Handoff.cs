@@ -76,7 +76,9 @@ public partial class NetworkView
         if (!t.AttackHand) { HandoffEnded(s.PlayerId); return false; }
         PlaceHandedOver(character, s, own);
         // anim/melee-flow: the upper body leaves the strike over the graph's move-on exit from the hand-over on (HandoffUpperWeight), as the graph leaves the whole attack state.
-        character.SetPoseLayer(clip, clipTime ?? time, HandoffUpperWeight(s, step, time), additive: false, mask);   // feel/melee-lock: the clip at its own time (a variant of another length)
+        float upper = HandoffUpperWeight(s, step, time);
+        if (own) _ownHandWeight = upper;   // anim/stomp-to-move: the test aid's log
+        character.SetPoseLayer(clip, clipTime ?? time, upper, additive: false, mask);   // feel/melee-lock: the clip at its own time (a variant of another length)
         return true;
     }
 
