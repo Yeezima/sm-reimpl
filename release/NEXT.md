@@ -9,4 +9,3 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
-- The launcher now switches to the newest installed launcher by itself: starting an old copy from an unpacked download opens the up-to-date launcher instead.
