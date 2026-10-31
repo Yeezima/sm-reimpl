@@ -64,7 +64,8 @@ public partial class NetworkView
     readonly SmNet.CameraBoom _specFraction = new();
     bool _specInit;
     // The rig camera's two booms (head to pivot, pivot to eye); _rigFraction (Camera.cs) is the second.
-    readonly SmNet.CameraBoom _rigFractionA = new(), _rigFractionS = new();   // S: head to shoulder (camera/hop-and-walls), before the pivot leg
+    readonly SmNet.CameraBoom _rigFractionA = new(), _rigFractionS = new(), _rigFractionU = new();   // U: head up to the shoulder's height, S: out to its side (camera/hop-and-walls), before the pivot leg
+    readonly SmNet.CameraSide _rigSide = new();
     // The rig camera's lookahead (see RigCamera): seconds ahead, scratch lines, and the view's turn rate.
     static readonly float[] RigLookAheadSeconds = [0.12f, 0.25f];
     readonly Vector3[] _aheadHead = new Vector3[2], _aheadShoulder = new Vector3[2], _aheadPivot = new Vector3[2], _aheadEye = new Vector3[2];
@@ -149,7 +150,7 @@ public partial class NetworkView
                 if (l > 1e-3f) soft = MathF.Min(soft, Math.Clamp(CastClear(aheadFrom[i], aheadTo[i], CameraSoftRadius) / l, 0f, 1f));
             }
         float hard = Math.Clamp(CastClear(from, to, CameraHardRadius) / length, 0f, 1f);
-        if (!OldCameraCollision) boom.Step(soft, hard, length, delta, placed);
+        if (!OldCameraCollision) boom.Step(soft, hard, length, delta, placed, pullMaxSpeed);
         else
         {
             // M40-T6, for before captures: no hold, no margin, the release runs at once.

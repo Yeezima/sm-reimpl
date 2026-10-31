@@ -113,7 +113,7 @@ public class CameraBoomTests
         var view = Vector3.UnitY;
         var actual = rig + new Vector3(-0.64f, 1.5f, 0f);   // a wall on the right moved the pivot
         const float focus = 30f;
-        var look = CameraBoom.StableLook(rig, actual, view, focus);
+        var look = CameraBoom.StableLook(rig, actual, view, focus, Vector3.UnitZ);
         var point = rig + view * focus;
         var miss = Vector3.Cross(point - actual, look).Length();
         Assert.True(miss < 1e-3f, $"missed by {miss} m");
@@ -123,20 +123,20 @@ public class CameraBoomTests
     public void StableLookLeavesAnUncollidedCameraAlone()
     {
         var view = Vector3.Normalize(new Vector3(0.3f, 0.9f, -0.2f));
-        Assert.Equal(view, CameraBoom.StableLook(Vector3.Zero, Vector3.Zero, view, 20f));
+        Assert.Equal(view, CameraBoom.StableLook(Vector3.Zero, Vector3.Zero, view, 20f, Vector3.UnitZ));
     }
 
     [Fact]
     public void AMoveAlongTheViewNeedsNoTurn()
     {
-        var look = CameraBoom.StableLook(Vector3.Zero, Vector3.UnitY * 2f, Vector3.UnitY, 30f);
+        var look = CameraBoom.StableLook(Vector3.Zero, Vector3.UnitY * 2f, Vector3.UnitY, 30f, Vector3.UnitZ);
         Assert.True(Vector3.Distance(look, Vector3.UnitY) < 1e-5f);
     }
 
     [Fact]
     public void StableLookTurnsAtMostTheLimit()
     {
-        var look = CameraBoom.StableLook(Vector3.Zero, new Vector3(-2f, 0f, 0f), Vector3.UnitY, 4f);
+        var look = CameraBoom.StableLook(Vector3.Zero, new Vector3(-2f, 0f, 0f), Vector3.UnitY, 4f, Vector3.UnitZ);
         float angle = MathF.Acos(Math.Clamp(Vector3.Dot(look, Vector3.UnitY), -1f, 1f));
         Assert.InRange(angle, CameraBoom.AimMaxTurn - 1e-3f, CameraBoom.AimMaxTurn + 1e-3f);
         Assert.Equal(1f, look.Length(), 3);
@@ -152,6 +152,106 @@ public class CameraBoomTests
         Assert.True(f > 50f);   // one frame does not cut it
         for (int i = 0; i < 120; i++) f = CameraBoom.StepFocus(f, 5f, Dt, true);
         Assert.Equal(5f, f, 1);
+    }
+
+    [Fact]
+    public void TheSpectatorsPullInCapReachesTheBoom()
+    {
+        var slow = new CameraBoom(); var fast = new CameraBoom();
+        slow.Step(0f, 1f, 40f, Dt, true);
+        fast.Step(0f, 1f, 40f, Dt, true, 30f);
+        Assert.Equal(1f - CameraBoom.PullMaxSpeed * Dt / 40f, slow.Fraction, 4);
+        Assert.Equal(1f - 30f * Dt / 40f, fast.Fraction, 4);
+    }
+
+    [Theory]
+    [InlineData(1.3f)]
+    [InlineData(1.55f)]
+    [InlineData(1.569f)]
+    public void StableLookNeverCrossesTheVertical(float pitch)
+    {
+        var view = new Vector3(0f, MathF.Cos(pitch), MathF.Sin(pitch));
+        // A camera below and behind the rig ray: the unlimited turn would pass straight up.
+        var look = CameraBoom.StableLook(Vector3.Zero, new Vector3(0f, 4f, -3f), view, 4f, Vector3.UnitZ);
+        Assert.True(look.Y > 0f, $"look {look}");
+        Assert.True(look.Z < 1f);
+    }
+
+    // ---- fresh aim with a ray off the view ----
+
+    static float PitchOf(Vector3 d) => MathF.Asin(Math.Clamp(d.Z, -1f, 1f));
+
+    [Fact]
+    public void TurnRigidMatchesAViewOnTheAxis()
+    {
+        float yaw = 0.7f, pitch = 0.3f;
+        var (_, d) = FreshAim.TurnRigid(Vector3.Zero, Combat.AimDirection(yaw, pitch), Vector3.Zero, 0.1f, 0.05f, yaw + 0.1f);
+        Assert.True(Vector3.Distance(d, Combat.AimDirection(yaw + 0.1f, pitch + 0.05f)) < 1e-5f);
+    }
+
+    [Theory]
+    [InlineData(-1.4f, -0.1f, -0.02f)]   // the view at its lower limit, the ray 6 degrees below it
+    [InlineData(-1.38f, -0.1f, -0.02f)]
+    public void TurnRigidKeepsARayOffTheViewAtTheLowerLimit(float view, float off, float delta)
+    {
+        var ray = Combat.AimDirection(0f, view + off);
+        var (_, clamped) = FreshAim.Turn(Vector3.Zero, ray, Vector3.Zero, 0f, delta, -1.4f, 1.568f);
+        var (_, rigid) = FreshAim.TurnRigid(Vector3.Zero, ray, Vector3.Zero, 0f, delta, 0f);
+        Assert.Equal(-1.4f, PitchOf(clamped), 3);   // what the clamp did: a bend of the whole offset
+        Assert.Equal(view + off + delta, PitchOf(rigid), 3);
+    }
+
+    [Fact]
+    public void TurnRigidTurnsTheOriginAboutThePivotOnly()
+    {
+        var (o, _) = FreshAim.TurnRigid(new Vector3(1f, 0f, 2f), Vector3.UnitY, Vector3.Zero, MathF.PI / 2f, 0.2f, 0f);
+        Assert.True(Vector3.Distance(o, new Vector3(0f, 1f, 2f)) < 1e-5f);
+    }
+
+    // ---- the shoulder side ----
+
+    static float RunSide(CameraSide side, float right, float left, float seconds)
+    {
+        float s = 1f;
+        for (int i = 0; i < (int)(seconds / Dt); i++) s = side.Step(right, left, Dt, true);
+        return s;
+    }
+
+    [Fact]
+    public void ABlockedRightCrossesOverSmoothlyAndComesBack()
+    {
+        var side = new CameraSide();
+        Assert.Equal(1f, RunSide(side, 0.2f, 1f, CameraSide.CrossHold - 0.05f));
+        float previous = 1f, biggest = 0f;
+        for (int i = 0; i < 120; i++)
+        {
+            float s = side.Step(0.2f, 1f, Dt, true);
+            biggest = MathF.Max(biggest, previous - s);
+            previous = s;
+        }
+        Assert.Equal(-1f, previous, 3);
+        Assert.True(biggest < 0.09f, $"step {biggest}");
+        Assert.Equal(-1f, RunSide(side, 1f, 1f, CameraSide.BackHold - 0.05f), 3);
+        Assert.Equal(1f, RunSide(side, 1f, 1f, CameraSide.Travel + 0.2f), 3);
+    }
+
+    [Fact]
+    public void BothSidesBlockedStaysRight() => Assert.Equal(1f, RunSide(new CameraSide(), 0.1f, 0.2f, 3f));
+
+    [Fact]
+    public void AFlickeringRightDoesNotSwapSides()
+    {
+        var side = new CameraSide();
+        for (int i = 0; i < 600; i++) Assert.Equal(1f, side.Step((i / 6) % 2 == 0 ? 0.2f : 1f, 1f, Dt, true));
+    }
+
+    [Fact]
+    public void ResetAndUnplacedGoStraightThere()
+    {
+        var side = new CameraSide();
+        Assert.Equal(-1f, side.Step(0f, 1f, Dt, false), 3);
+        side.Reset();
+        Assert.Equal(1f, side.Step(1f, 0f, Dt, true));
     }
 
     // ---- the swept sphere ----

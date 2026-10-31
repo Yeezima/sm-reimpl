@@ -151,6 +151,28 @@ public sealed class OwnClipClock
 /// </summary>
 public static class FreshAim
 {
+    /// <summary>
+    /// The ray turned as a rigid whole (camera/hop-and-walls): by <paramref name="deltaYaw"/> about the vertical through <paramref name="pivot"/>, then by <paramref name="deltaPitch"/>
+    /// about the horizontal axis to the right of a view at <paramref name="viewYaw"/> (the yaw after the turn). No clamp and no read-back: a ray off the view (<c>CameraBoom.StableLook</c>)
+    /// keeps its offset at the pitch limits and past the vertical; the caller's <paramref name="deltaPitch"/> is the view's own, within its limits.
+    /// </summary>
+    public static (Vector3 Origin, Vector3 Direction) TurnRigid(Vector3 origin, Vector3 direction, Vector3 pivot, float deltaYaw, float deltaPitch, float viewYaw)
+    {
+        if (!float.IsFinite(deltaYaw) || !float.IsFinite(deltaPitch) || !float.IsFinite(viewYaw) || direction.LengthSquared() < 1e-12f) return (origin, direction);
+        float s = MathF.Sin(deltaYaw), c = MathF.Cos(deltaYaw);
+        var rel = origin - pivot;
+        var o = pivot + new Vector3(rel.X * c - rel.Y * s, rel.X * s + rel.Y * c, rel.Z);
+        var d = Vector3.Normalize(direction);
+        d = new Vector3(d.X * c - d.Y * s, d.X * s + d.Y * c, d.Z);
+        if (deltaPitch != 0f)
+        {
+            var axis = new Vector3(MathF.Cos(viewYaw), MathF.Sin(viewYaw), 0f);
+            float sp = MathF.Sin(deltaPitch), cp = MathF.Cos(deltaPitch);
+            d = Vector3.Normalize(d * cp + Vector3.Cross(axis, d) * sp + axis * (Vector3.Dot(axis, d) * (1f - cp)));   // Rodrigues
+        }
+        return (o, d);
+    }
+
     /// <summary>The ray (origin, unit direction; game space, Z up) turned by <paramref name="deltaYaw"/> about the vertical through <paramref name="pivot"/>, and its pitch raised by <paramref name="deltaPitch"/> (kept within ±<paramref name="maxPitch"/>).</summary>
     public static (Vector3 Origin, Vector3 Direction) Turn(Vector3 origin, Vector3 direction, Vector3 pivot, float deltaYaw, float deltaPitch, float maxPitch) =>
         Turn(origin, direction, pivot, deltaYaw, deltaPitch, -maxPitch, maxPitch);

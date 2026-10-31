@@ -135,6 +135,10 @@ public partial class NetworkView
     Vector3 _ctPrevPos, _ctPrevWanted;
     bool _ctPrevValid;
     int _ctReversals, _ctFrames;
+    long _ctCostTotal, _ctCostMax;
+
+    /// <summary>The frame's collision work in <see cref="RigCamera"/>, in stopwatch ticks.</summary>
+    void CameraTestCost(long ticks) { _ctCostTotal += ticks; _ctCostMax = Math.Max(_ctCostMax, ticks); }
 
     /// <summary>Per frame from <see cref="RigCamera"/> (with <c>--camera-test</c>); see the class comment. <paramref name="aimShift"/>: metres between the crosshair's world point and the uncollided rig's.</summary>
     void CameraTestNote(PlayerState me, Vector3 position, Vector3 wanted, Vector3 look, float aimShift)
@@ -168,8 +172,8 @@ public partial class NetworkView
         if (_connectedFor - _ctSumAt >= 5.0)
         {
             _ctSumAt = _connectedFor;
-            GD.Print($"t {_connectedFor:F2} s: CAMSUM {CameraTestMode} {_ctFrames} frames: chest off axis at most {_ctMaxOff:F1} deg, collision step at most {_ctMaxStep:F3} m, head distance {_ctMinDist:F2}..{_ctMaxDist:F2} m, {_ctReversals} reversals, aim shift at most {_ctMaxAimShift:F2} m");
-            _ctMaxOff = _ctMaxStep = _ctMaxDist = _ctMaxAimShift = 0f; _ctMinDist = float.MaxValue; _ctReversals = 0; _ctFrames = 0;
+            GD.Print($"t {_connectedFor:F2} s: CAMSUM {CameraTestMode} {_ctFrames} frames: chest off axis at most {_ctMaxOff:F1} deg, collision step at most {_ctMaxStep:F3} m, head distance {_ctMinDist:F2}..{_ctMaxDist:F2} m, {_ctReversals} reversals, aim shift at most {_ctMaxAimShift:F2} m, casts {_ctCostTotal * 1000.0 / System.Diagnostics.Stopwatch.Frequency / Math.Max(_ctFrames, 1):F3} ms a frame, at most {_ctCostMax * 1000.0 / System.Diagnostics.Stopwatch.Frequency:F2} ms");
+            _ctMaxOff = _ctMaxStep = _ctMaxDist = _ctMaxAimShift = 0f; _ctMinDist = float.MaxValue; _ctReversals = 0; _ctFrames = 0; _ctCostTotal = 0; _ctCostMax = 0;
         }
     }
 }
