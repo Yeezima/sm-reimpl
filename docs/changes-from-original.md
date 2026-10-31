@@ -520,6 +520,15 @@ the hit is engine code, so these rules are ours (spec "Melee interaction pass").
 | Steering a charge off a ledge | A charge held in the air turns with A / D at up to 60 degrees per second (ours) at its held speed, for the Assault, Raptor, Tactical and Chaos Tactical (the owner's requests of 2026-11-01); the Ork's sprint attack does not | The original's air steering of a ledge charge (no data value); the rate | same |
 | Rolls and hops falling off a drop show the fall pose | After 0.3 s in the air past their own lift (the charge's delay, ours) | The original's evade-to-fall blend timing | same |
 
+### The weight pass (feel/weight-impact; client only)
+
+| Rule | What we do | What is unknown | Spec section |
+|---|---|---|---|
+| Landing settle below the hard speed | A fall of 8 to 20 m/s shows 0.3 to 0.8 of the data's landing crouch; the graph lets the legs go with none | Whether the original showed any settle on a softer landing | "The weight pass" |
+| Camera impulses | Dips on landings, the own pound and blasts, a kick on heavy-weapon shots, a tiny dip on heavy footfalls, all in the camera's picture only, on top of the data's shake and climb | The original's camera on these events beyond the data's shake | same |
+| Stronger recoil and flinch clips | The data's additive clips laid at up to 1.5 (recoil) and 1.6 (melee flinch) | How the original weighted them | same |
+| Strike and reaction entries | Fade floor 0.125 s instead of 0.1875 s, nearer the graphs' blends | The original's blending curve | same |
+
 ## 3. Not yet reproduced
 
 Known original features missing from the alpha (alpha scope: Annihilation and Seize Ground on Manufactorum only).
