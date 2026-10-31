@@ -359,6 +359,18 @@ public sealed partial class FxPlayer : Node3D
             : new Ctx(pos, b, s, seed);
     }
 
+    /// <summary>
+    /// The owner (2026-11-01): spent casings "should fall to the ground faster. they are far too floaty". A spray that carries a mesh (the ejected shell
+    /// casing, the only effect mesh) falls with its data's gravity times this (ours; the other sprays keep the data's gravity).
+    /// </summary>
+    public const float CasingGravityScale = 2.5f;
+
+    static bool CarriesMesh(CSpray n)
+    {
+        foreach (var child in n.Children) if (child is CMesh) return true;
+        return false;
+    }
+
     static Vector3 ParticlePos(in Ctx c, float tau)
     {
         float d = c.Drag;
@@ -552,7 +564,7 @@ public sealed partial class FxPlayer : Node3D
                     }
                     continue;
                 }
-                float g = n.Gravity;
+                float g = n.Gravity * (CarriesMesh(n) ? CasingGravityScale : 1f);
                 var pc = new Ctx(origin, FromY(dir, R(ps, 6) * MathF.Tau), c.S, ps, origin, moveDir, speed, n.Drag, g, tau);
                 var pos = ParticlePos(pc, tau);
                 float scale = c.S * At(n.ParticleScale, Math.Clamp(tau / life, 0f, 1f), 1f);
