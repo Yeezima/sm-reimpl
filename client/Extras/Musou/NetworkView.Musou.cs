@@ -40,7 +40,7 @@ public partial class NetworkView
     {
         if (!MusouActive || _client is not { } client) return;
         double now = Time.GetTicksUsec() / 1e6;
-        foreach (var section in sections) _musouState.Apply(section, now);
+        foreach (var section in sections) if (!MusouDropSection(section)) _musouState.Apply(section, now);   // MU-D: tag 6 to the drops (MusouDrops.cs)
         var (renderTick, _) = client.RemotePlayers();
         var shown = _musouState.Sample(renderTick > 0 ? renderTick : _musouState.NewestTick, now);
 
@@ -57,6 +57,7 @@ public partial class NetworkView
             if (_gameSpace is not null) MusouDraw(shown, (float)delta);
         }
         _musouState.TakeNew();
+        MusouDropsFrame(me, (float)delta);   // MU-D: the own weapon drops (MusouDrops.cs)
         MusouLog(delta, shown.Count);
     }
 

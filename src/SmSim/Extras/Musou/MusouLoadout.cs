@@ -53,13 +53,14 @@ public static class MusouLoadout
     /// </summary>
     public static PlayerState? Give(SimConfig c, PlayerState s, int weapon)
     {
-        if (!s.Alive || weapon < 0 || weapon >= c.Weapons.Count) return null;
+        if (!s.Alive || weapon < 0 || weapon >= c.Weapons.Count || Busy(s)) return null;   // as the core's switch: not mid-strike, queued, charging or throwing
         WeaponSlot slot;
         if (Loadouts.ValidWeapon(c, s.Class, WeaponSlot.Ranged, weapon)) slot = WeaponSlot.Ranged;
         else if (Loadouts.ValidWeapon(c, s.Class, WeaponSlot.Pistol, weapon)) slot = WeaponSlot.Pistol;
         else return null;
-        var w = c.Weapons[weapon];
         var p = Calm(slot == WeaponSlot.Ranged ? s with { Primary = weapon } : s with { Pistol = weapon });
+        // The clip and reserve as the player's perks change them (as the strip and the refill read them), not the base weapon's.
+        if (Loadouts.Weapon(c, p, slot) is not { } w) return null;
         if (p.Slot == slot)   // the same slot in hand: the new weapon replaces it there
             return p with { Clip = w.ClipSize, Reserve = w.ReserveSize, ReloadLeft = 0f, Heat = 0f, Overheated = false, SinceHeat = 0f };
         if (Loadouts.Other(p.Slot) == slot || p.Slot == WeaponSlot.Second)
@@ -73,6 +74,26 @@ public static class MusouLoadout
         }
         return null;
     }
+
+    /// <summary>
+    /// The player given drop item <paramref name="item"/> (<see cref="MusouDropItem"/>): a weapon by <see cref="Give"/>; a melee weapon of the class's
+    /// <see cref="ClassLoadout.MeleeChoices"/> becomes its melee combo (only between attacks: not during a strike, a combo or a charge). Null when it cannot
+    /// be given now.
+    /// </summary>
+    public static PlayerState? GiveItem(SimConfig c, PlayerState s, ushort item)
+    {
+        if (!MusouDropItem.IsMelee(item)) return Give(c, s, MusouDropItem.Index(item));
+        int choice = MusouDropItem.Index(item);
+        if (!s.Alive || Loadouts.ClassOf(c, s.Class) is not { } loadout || choice >= loadout.MeleeChoices.Count) return null;
+        if (Busy(s)) return null;
+        return s with { MeleeChoice = choice };
+    }
+
+    /// <summary>
+    /// Whether a gift waits (the drop stays): the core allows no weapon switch during a melee step (a queued attack only exists in one), a charge (its
+    /// input is cleared while rushing) or a throw (<c>Combat.StepPlayer</c>), and a melee weapon changes no combo under way.
+    /// </summary>
+    public static bool Busy(PlayerState s) => s.MeleeStep != 0 || s.MeleeQueued || s.MeleeQueuedHeavy || s.Rush != RushPhase.None || s.Throwing;
 
     /// <summary>Nothing of the weapon in hand in flight: no switch, charge, burst, brace or vent under way.</summary>
     static PlayerState Calm(PlayerState s) => s with

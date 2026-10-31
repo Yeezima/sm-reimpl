@@ -53,6 +53,7 @@ public sealed partial class World
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
         var director = _musouDirector;
         MusouBeginTick();   // World.MusouCombat.cs: once a tick (a cleave or a blast earlier in the tick may have begun it)
+        MusouArm();   // World.MusouLoadout.cs: anyone not armed yet (also at the end of the match step)
         bool playing = _state == MatchState.Playing;
 
         // The players this tick, in id order (deterministic).
@@ -85,6 +86,7 @@ public sealed partial class World
         foreach (var attack in _musouAttacks) MusouHit(attack);
         MusouBossStep(targets, fight);   // World.MusouCombat.cs: the Warboss's abilities
         MusouCreditKills();   // KOs of this tick's step
+        MusouDropsStep();   // World.MusouDrops.cs: pickups (E), expiry
 
         if (playing && director.Phase == MusouPhase.Won) End(Team.SpaceMarines);
         else if (playing && director.Phase == MusouPhase.Lost) End(Team.Chaos);
@@ -108,6 +110,7 @@ public sealed partial class World
         {
             if (_state != MatchState.Playing) continue;
             _musouDirector!.OnKill(kill);
+            MusouDropFor(kill);   // World.MusouDrops.cs: a Nob's weapon drop
             if (kill.Player != 0 && _players.ContainsKey(kill.Player))
             {
                 var score = _scores.GetValueOrDefault(kill.Player);
@@ -285,6 +288,7 @@ public sealed partial class World
     void MusouNewRound()
     {
         _musou!.Clear();
+        MusouClearDrops();   // World.MusouDrops.cs
         _musouDirector!.Reset();
         _musou.Director = _musouDirector.View();
     }
