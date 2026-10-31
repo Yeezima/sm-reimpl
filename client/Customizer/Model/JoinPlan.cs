@@ -26,7 +26,7 @@ public sealed record FrontEndSettings(string Host, SideChoice Side, bool ReduceM
     BotDifficulty BotDifficulty = BotDifficulty.Easy, float FovDegrees = 0f, float MouseSensitivity = SmClient.Customizer.Model.MouseSensitivity.Default, GameOptions? SavedOptions = null)
 {
     /// <summary>The Options menu's settings (ui/menu-rebuild).</summary>
-    public GameOptions Options { get => SavedOptions ?? GameOptions.Default; init => SavedOptions = value; }
+    public GameOptions Options { get => SavedOptions ?? GameOptions.Default; init => SavedOptions = value == GameOptions.Default ? null : value; }
 
     public const string FileName = "frontend.json", DefaultHost = "127.0.0.1:27015";
     public static FrontEndSettings Default => new(DefaultHost, SideChoice.Auto, false, true);
@@ -58,7 +58,7 @@ public sealed record FrontEndSettings(string Host, SideChoice Side, bool ReduceM
             float fov = o["fovDegrees"] is JsonValue fv && fv.TryGetValue<double>(out var fd) && double.IsFinite(fd) && fd is > 0 and <= FovMath.Maximum ? (float)fd : 0f;
             // ui/mouse-sensitivity: the factor on the mouse look (1 = the original feel); a wrong value is the default.
             float sens = o["mouseSensitivity"] is JsonValue mv && mv.TryGetValue<double>(out var md) && double.IsFinite(md) && md is >= SmClient.Customizer.Model.MouseSensitivity.Minimum - 1e-6 and <= SmClient.Customizer.Model.MouseSensitivity.Maximum + 1e-6 ? SmClient.Customizer.Model.MouseSensitivity.Clamp((float)md) : SmClient.Customizer.Model.MouseSensitivity.Default;
-            return new FrontEndSettings(host, side, Flag("reduceMotion", false), Flag("showOthersEmblems", true), content, difficulty, fov, sens, GameOptions.Read(o["options"]));
+            return new FrontEndSettings(host, side, Flag("reduceMotion", false), Flag("showOthersEmblems", true), content, difficulty, fov, sens) { Options = GameOptions.Read(o["options"]) };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or ArgumentException) { return Default; }
     }

@@ -317,6 +317,7 @@ public sealed partial class FrontEndView : Control
         if (hosting == _contentLocked) return;
         _contentLocked = hosting;
         _contentRow.SetDisabled(hosting);
+        if (!hosting && _services.Content.HasFlag(ContentExtras.Musou) && !CommandLineMusou) _services.Content = _services.Settings.ContentExtras;   // a stopped Musou server ends the session's Musou
         RefreshContent();
     }
 
