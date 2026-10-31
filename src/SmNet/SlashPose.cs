@@ -64,6 +64,82 @@ public static class SlashPose
         return Math.Clamp(h10 * d + h01 * flightEnd + h11 * d, 0f, flightEnd);
     }
 
+    // ---- anim/air-slash-character (the owner, 2026-10-31: "focus on the character in the reference video and the way the animation plays and looks") ----
+    // The data plays the whole clip at its own rate (both sequencers speed 1): the wind-up 0 to FlightClipEnd in the flight, the strike from ImpactClipStart on the
+    // landing, the hit HitTime after it (clip ImpactClipStart + HitTime = 0.6 s: the hand halfway down). The reference footage shows the same order at about the
+    // clip's rate: the sword still rising as he lands, the chop with the hit, the follow-through as he moves on. Our dive (ours: 40 m/s, 0.13 to 0.3 s) is shorter
+    // than the 0.4667 s wind-up, and SmoothDiveTime fitted the whole wind-up into it (a middle rate up to 4 x the clip's: the raise a flick, the sword overhead
+    // before the landing). Here the one clip time from the dive's start runs to the strike's sync point (ImpactClipStart + HitTime) at the server's hit, so the
+    // wind-up spreads over the dive and the first HitTime of the landing: the rate stays nearer the data's 1 (0.6 / (dive + 0.133): about 1.4 to 2.3), the raise
+    // reaches over the landing and the chop meets the hit as before. A dive long enough for the data's rate (dive + HitTime >= the sync point) plays the data's
+    // way: the wind-up at rate 1 held at its end, the strike from ImpactClipStart. Ours (the curve); the clip, crops, rates and hit time are the data's.
+
+    /// <summary>The sync point's clip time: where the strike is at the hit (<paramref name="impactStart"/> + <paramref name="hitTime"/>; 0.6 s on the install).</summary>
+    public static float StrikeSync(float impactStart, float hitTime) => impactStart + MathF.Max(0f, hitTime);
+
+    /// <summary>
+    /// True when the data's own playback fits (the wind-up at rate 1 reaches the sync point by the hit: <paramref name="expectedDive"/> + <paramref name="hitTime"/> at least
+    /// <see cref="StrikeSync"/>) or the strike curve cannot be used (no crops, no hit time, an unknown dive).
+    /// </summary>
+    public static bool DataPlayback(float expectedDive, float flightEnd, float impactStart, float hitTime) =>
+        !(flightEnd > 0f) || !(impactStart > 0f) || !(hitTime > 0f) || !float.IsFinite(expectedDive) || expectedDive + hitTime >= StrikeSync(impactStart, hitTime) - 1e-4f;
+
+    /// <summary>
+    /// The clip time in the dive, <paramref name="sinceDive"/> s after it started: a cubic Hermite from 0 (at the clip's mean rate over the curve, the sync point over
+    /// <paramref name="expectedDive"/> + <paramref name="hitTime"/>) to the sync point (at the clip's own rate, which the strike then keeps), never past the wind-up's end
+    /// <paramref name="flightEnd"/> while still in the air (the flight sequencer's last frame). <see cref="DataPlayback"/>: the clip's rate, held at <paramref name="flightEnd"/>.
+    /// </summary>
+    public static float StrikeDiveTime(float sinceDive, float expectedDive, float flightEnd, float impactStart, float hitTime)
+    {
+        if (!(flightEnd > 0f)) return 0f;
+        float t = MathF.Max(0f, sinceDive);
+        if (DataPlayback(expectedDive, flightEnd, impactStart, hitTime)) return MathF.Min(t, flightEnd);
+        float span = MathF.Max(expectedDive, 0f) + hitTime, sync = StrikeSync(impactStart, hitTime);
+        if (t >= span) return flightEnd;
+        return MathF.Min(Hermite(t / span, span, 0f, sync / span, sync, 1f), flightEnd);
+    }
+
+    /// <summary>The rate (clip seconds per second) of <see cref="StrikeDiveTime"/> at <paramref name="sinceDive"/> (0 where it is held at the wind-up's end).</summary>
+    public static float StrikeDiveRate(float sinceDive, float expectedDive, float flightEnd, float impactStart, float hitTime)
+    {
+        if (!(flightEnd > 0f)) return 0f;
+        float t = MathF.Max(0f, sinceDive);
+        if (DataPlayback(expectedDive, flightEnd, impactStart, hitTime)) return t < flightEnd ? 1f : 0f;
+        float span = MathF.Max(expectedDive, 0f) + hitTime, sync = StrikeSync(impactStart, hitTime);
+        if (t >= span || StrikeDiveTime(t, expectedDive, flightEnd, impactStart, hitTime) >= flightEnd) return 0f;
+        return HermiteRate(t / span, span, 0f, sync / span, sync, 1f);
+    }
+
+    /// <summary>
+    /// The clip time <paramref name="sinceImpact"/> s after the landing, the dive having left the clip at <paramref name="landedAt"/> moving at <paramref name="landedRate"/>:
+    /// a Hermite from there to the sync point at the hit (<paramref name="hitTime"/> after the landing; the clip's own rate there), then the clip's rate to
+    /// <paramref name="clipLength"/>. A landing at or past the impact's crop start (the data's playback) runs from <paramref name="impactStart"/> at the clip's rate.
+    /// A dive that landed sooner or later than expected is caught up here, without a step in time or rate.
+    /// </summary>
+    public static float StrikeImpactTime(float sinceImpact, float landedAt, float landedRate, float impactStart, float hitTime, float clipLength)
+    {
+        float s = MathF.Max(0f, sinceImpact), end = MathF.Max(clipLength, impactStart);
+        if (!float.IsFinite(landedAt) || landedAt >= impactStart - 1e-4f || !(hitTime > 0f) || s >= hitTime)
+            return Math.Clamp(impactStart + s, 0f, end);
+        float sync = StrikeSync(impactStart, hitTime), mean = (sync - landedAt) / hitTime;
+        float m0 = Math.Clamp(float.IsFinite(landedRate) ? landedRate : 1f, 0f, 3f * mean);   // within 3 x the mean: the curve never turns back
+        return Math.Clamp(Hermite(s / hitTime, hitTime, landedAt, m0, sync, 1f), landedAt, end);
+    }
+
+    static float Hermite(float u, float span, float p0, float m0, float p1, float m1)
+    {
+        u = Math.Clamp(u, 0f, 1f);
+        float u2 = u * u, u3 = u2 * u;
+        return (2f * u3 - 3f * u2 + 1f) * p0 + (u3 - 2f * u2 + u) * span * m0 + (-2f * u3 + 3f * u2) * p1 + (u3 - u2) * span * m1;
+    }
+
+    static float HermiteRate(float u, float span, float p0, float m0, float p1, float m1)
+    {
+        u = Math.Clamp(u, 0f, 1f);
+        float u2 = u * u;
+        return ((6f * u2 - 6f * u) * p0 + (3f * u2 - 4f * u + 1f) * span * m0 + (-6f * u2 + 6f * u) * p1 + (3f * u2 - 2f * u) * span * m1) / span;
+    }
+
     /// <summary>The graph's flight-to-impact transition ("Blend Slo-mo", 0.033 s): a dive that landed before its wind-up's end catches up over it.</summary>
     public const float ImpactCatchUp = 1f / 30f;
 

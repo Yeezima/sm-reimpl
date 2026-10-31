@@ -78,6 +78,35 @@ public partial class NetworkView
         CharacterViewer.NoFeel ? SmNet.SlashPose.DiveTime(sinceDive, expectedDive, flightEnd, CharacterViewer.MinEntryBlendSeconds) : SmNet.SlashPose.SmoothDiveTime(sinceDive, expectedDive, flightEnd);
 
     /// <summary>
+    /// anim/air-slash-character: <c>--old-slash-windup</c> restores the feel pass's wind-up (the whole wind-up fitted into the dive, <see cref="SmNet.SlashPose.SmoothDiveTime"/>,
+    /// and the 0.1 s catch-up at the landing) instead of the one curve from the dive to the strike at the hit (<see cref="SmNet.SlashPose.StrikeDiveTime"/>). <c>--no-feel</c> implies it.
+    /// </summary>
+    static readonly bool OldSlashWindup = OS.GetCmdlineUserArgs().Contains("--old-slash-windup");
+    /// <summary>
+    /// anim/air-slash-character: the slash's follow-through leaves the moving marine's upper body over the jump-pack graph's own impact-to-run blend, 'Fast Blend BranchIn' 0.167 s
+    /// (<c>MP_SM_NAV_JP_Sim</c>: GroundPoundImpact to GroundPoundRun on <c>BRANCH_to_Getup</c> with stick input; the slash's impact state has no exit of its own in that graph, so the pound's,
+    /// its sibling, is used: an interpretation). The feel pass held it over the base graph's 0.333 s conduit: with the simulation freeing the marine 0.3 s after the landing (ours) the
+    /// strike's low pose stayed on him until 0.63 s; now he is upright in the run by about 0.47 s (the reference: upright about 15 frames after the landing flash, walking by 18).
+    /// <c>--old-slash-windup</c> restores the 0.333 s.
+    /// </summary>
+    public const float SlashRunBlend = 5f / 30f;
+    static bool StrikeCurve => !OldSlashWindup && !CharacterViewer.NoFeel;
+
+    /// <summary>The slash clip's time <paramref name="sinceDive"/> s into <paramref name="s"/>'s dive (the strike curve, or <see cref="SlashDiveTime"/> with <c>--old-slash-windup</c>).</summary>
+    float SlashDiveTimeOf(PlayerState s, float sinceDive, float expectedDive)
+    {
+        var slash = SlashOf(s);
+        float flightEnd = slash?.FlightClipEnd ?? 0f;
+        return StrikeCurve && slash is not null
+            ? SmNet.SlashPose.StrikeDiveTime(sinceDive, expectedDive, flightEnd, slash.ImpactClipStart, slash.HitTime)
+            : SlashDiveTime(sinceDive, expectedDive, flightEnd);
+    }
+
+    /// <summary>The rate of <see cref="SlashDiveTimeOf"/> at <paramref name="sinceDive"/> (NaN with <c>--old-slash-windup</c>: the old catch-up needs none).</summary>
+    float SlashDiveRateOf(PlayerState s, float sinceDive, float expectedDive) =>
+        StrikeCurve && SlashOf(s) is { } slash ? SmNet.SlashPose.StrikeDiveRate(sinceDive, expectedDive, slash.FlightClipEnd, slash.ImpactClipStart, slash.HitTime) : float.NaN;
+
+    /// <summary>
     /// Called when the slash's get-up view ends because the marine moves on (<c>NetworkView.Jump.cs</c>): the follow-through is handed to the upper body from now, unless it is over.
     /// </summary>
     void SlashMovedOn(JumpTrack t, double now, double sinceImpact, double clipLeft)
@@ -95,7 +124,7 @@ public partial class NetworkView
     {
         if (CharacterViewer.NoFeel || _slashClip is null || !_jumpTracks.TryGetValue(s.PlayerId, out var t) || double.IsNaN(t.SlashHandAt)) return false;
         float since = (float)(_connectedFor - t.SlashHandAt);
-        float exit = MeleeExitBlendOf(s, _slashClip) ?? NavConduitBlend;
+        float exit = OldSlashWindup ? MeleeExitBlendOf(s, _slashClip) ?? NavConduitBlend : SlashRunBlend;   // anim/air-slash-character: the jump-pack graph's impact-to-run blend
         float clipTime = SlashImpactTime(s, (float)(_connectedFor - t.SlashHandImpactAt));
         if (!s.Alive || t.View != JumpView.None || since < 0f || since >= exit || clipTime >= ClipLength(_slashClip, 1.733f) || ActionMask() is not { } mask)
         {

@@ -102,4 +102,82 @@ public class SlashPoseTests
         Assert.Equal(0.1f, SlashPose.SmoothDiveTime(0.1f, float.PositiveInfinity, Crop), 4);
         Assert.Equal(0f, SlashPose.SmoothDiveTime(0.1f, dive, 0f));
     }
+
+    // ---- anim/air-slash-character: one curve from the dive's start to the strike at the hit ----
+    const float Hit = 0.1333f;
+
+    [Fact]
+    public void The_strike_curve_reaches_the_strike_at_the_hit_and_never_runs_backwards()
+    {
+        foreach (float dive in new[] { 0.13f, 0.2f, 0.267f, 0.3f })
+        {
+            float sync = SlashPose.StrikeSync(Crop, Hit), prev = -1f;
+            Assert.False(SlashPose.DataPlayback(dive, Crop, Crop, Hit));
+            Assert.Equal(0f, SlashPose.StrikeDiveTime(0f, dive, Crop, Crop, Hit));
+            for (float t = 0f; t <= dive + 1e-4f; t += 1f / 120f)
+            {
+                float c = SlashPose.StrikeDiveTime(t, dive, Crop, Crop, Hit);
+                Assert.True(c >= prev - 1e-5f && c <= Crop + 1e-5f, $"dive {dive}: {c} at {t}");
+                prev = c;
+            }
+            // The landing as expected: the clip goes on from where the dive left it, at its rate, to the sync point at the hit, then at the clip's rate.
+            float landed = SlashPose.StrikeDiveTime(dive, dive, Crop, Crop, Hit), rate = SlashPose.StrikeDiveRate(dive, dive, Crop, Crop, Hit);
+            Assert.True(landed < Crop, $"dive {dive}: the sword is still rising at the landing ({landed})");
+            Assert.Equal(landed, SlashPose.StrikeImpactTime(0f, landed, rate, Crop, Hit, Length), 4);
+            Assert.Equal(sync, SlashPose.StrikeImpactTime(Hit, landed, rate, Crop, Hit, Length), 4);
+            Assert.Equal(sync + 0.2f, SlashPose.StrikeImpactTime(Hit + 0.2f, landed, rate, Crop, Hit, Length), 4);
+            Assert.Equal(Length, SlashPose.StrikeImpactTime(5f, landed, rate, Crop, Hit, Length));
+            for (float s = 0f; s <= Hit + 0.05f; s += 1f / 120f)
+            {
+                float c = SlashPose.StrikeImpactTime(s, landed, rate, Crop, Hit, Length);
+                Assert.True(c >= prev - 1e-5f, $"dive {dive}: back to {c} at impact+{s}");
+                prev = c;
+            }
+            // The same curve across the landing: no step in time or rate (the first 1/60 s after it moves as the dive did).
+            float step = SlashPose.StrikeImpactTime(1f / 60f, landed, rate, Crop, Hit, Length) - landed;
+            Assert.InRange(step * 60f, rate * 0.8f, rate * 1.2f + 0.05f);
+        }
+    }
+
+    [Fact]
+    public void The_strike_curve_plays_the_wind_up_slower_than_the_feel_pass_did()
+    {
+        // A 0.2 s dive: the feel pass fitted the whole 0.4667 s wind-up into it (a middle rate near 3); the strike curve spreads it to the hit (at most about 2).
+        float dive = 0.2f, peakOld = 0f, peakNew = 0f, dt = 1f / 240f;
+        for (float t = 0f; t < dive; t += dt)
+        {
+            peakOld = MathF.Max(peakOld, (SlashPose.SmoothDiveTime(t + dt, dive, Crop) - SlashPose.SmoothDiveTime(t, dive, Crop)) / dt);
+            peakNew = MathF.Max(peakNew, (SlashPose.StrikeDiveTime(t + dt, dive, Crop, Crop, Hit) - SlashPose.StrikeDiveTime(t, dive, Crop, Crop, Hit)) / dt);
+        }
+        Assert.True(peakOld > 2.8f, $"feel pass peak {peakOld}");
+        Assert.True(peakNew < 2.3f, $"strike curve peak {peakNew}");
+    }
+
+    [Fact]
+    public void A_dive_long_enough_plays_the_data_way()
+    {
+        // dive + hit at least the sync point (0.6 s): the wind-up at the clip's rate, held at its end; the landing from the impact's crop start (the data's sequencers).
+        Assert.True(SlashPose.DataPlayback(0.5f, Crop, Crop, Hit));
+        Assert.Equal(0.3f, SlashPose.StrikeDiveTime(0.3f, 0.5f, Crop, Crop, Hit), 4);
+        Assert.Equal(Crop, SlashPose.StrikeDiveTime(0.49f, 0.5f, Crop, Crop, Hit), 4);
+        Assert.Equal(Crop + 0.05f, SlashPose.StrikeImpactTime(0.05f, Crop, 0f, Crop, Hit, Length), 4);
+        // No crops or no hit time: the data's playback too.
+        Assert.True(SlashPose.DataPlayback(0.2f, 0f, Crop, Hit));
+        Assert.True(SlashPose.DataPlayback(0.2f, Crop, Crop, 0f));
+        Assert.True(SlashPose.DataPlayback(float.PositiveInfinity, Crop, Crop, Hit));
+        Assert.Equal(0f, SlashPose.StrikeDiveTime(0.1f, 0.2f, 0f, Crop, Hit));
+    }
+
+    [Fact]
+    public void A_landing_sooner_than_expected_catches_up_by_the_hit()
+    {
+        // Expected 0.3 s, landed at 0.15 s: the strike still meets the hit, never runs backwards.
+        float landed = SlashPose.StrikeDiveTime(0.15f, 0.3f, Crop, Crop, Hit), rate = SlashPose.StrikeDiveRate(0.15f, 0.3f, Crop, Crop, Hit), prev = landed;
+        for (float s = 0f; s <= Hit; s += 1f / 120f)
+        {
+            float c = SlashPose.StrikeImpactTime(s, landed, rate, Crop, Hit, Length);
+            Assert.True(c >= prev - 1e-5f); prev = c;
+        }
+        Assert.Equal(SlashPose.StrikeSync(Crop, Hit), SlashPose.StrikeImpactTime(Hit, landed, rate, Crop, Hit, Length), 4);
+    }
 }

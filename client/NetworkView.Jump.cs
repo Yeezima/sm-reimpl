@@ -49,6 +49,8 @@ public partial class NetworkView
         public float DiveExpected = float.PositiveInfinity;
         // feel/jump-pack-2: the wind-up's clip time when the dive landed (the impact eases from it to the strike's; NaN: none).
         public float LandedClip = float.NaN;
+        // anim/air-slash-character: the wind-up's rate at the landing (clip s per s; NaN: none, the old catch-up).
+        public float LandedRate = float.NaN;
         // anim/feel-pass (NetworkView.Feel.cs): the slash's follow-through handed to the upper body when the marine moved on (connected time; NaN: none) and that slash's impact time.
         public double SlashHandAt = double.NaN, SlashHandImpactAt;
     }
@@ -237,8 +239,13 @@ public partial class NetworkView
                     break;
                 case JumpView.Impact:
                 case JumpView.Getup when prev == JumpView.Dive:   // the recovery was not seen
-                    if (t.Slash && prev == JumpView.Dive) t.LandedClip = SlashDiveTime((float)(now - t.DiveAt), t.DiveExpected, SlashOf(s)?.FlightClipEnd ?? 0f);   // anim/feel-pass: the smooth wind-up
-                    else t.LandedClip = float.NaN;
+                    if (t.Slash && prev == JumpView.Dive)
+                    {
+                        // anim/air-slash-character: where the wind-up was and how fast it ran at the landing (the strike curve carries on from there to the hit).
+                        t.LandedClip = SlashDiveTimeOf(s, (float)(now - t.DiveAt), t.DiveExpected);
+                        t.LandedRate = SlashDiveRateOf(s, (float)(now - t.DiveAt), t.DiveExpected);
+                    }
+                    else t.LandedClip = t.LandedRate = float.NaN;
                     t.ImpactAt = now;
                     t.Slash |= s.JumpSlash;
                     if (t.Slash) { SlashLanded(s, own, pack, MathF.Max(0f, t.ApexZ - s.Position.Z)); break; }   // protocol 30: no pound blast, crater or ring
@@ -347,9 +354,9 @@ public partial class NetworkView
             // end), fitted to the dive; the impact the impact sequencer's part, the strike, from its crop start. (feel/jump-pack held frame 0 through the
             // dive and restarted the clip at 0 on landing: the landing showed the wind-up, the blade rising, as the swing seen backwards.)
             case JumpView.Dive when t.Slash && _slashClip is not null:
-                return (_slashClip, SlashDiveTime((float)(now - t.DiveAt), t.DiveExpected, SlashOf(s)?.FlightClipEnd ?? 0f));   // anim/feel-pass: the smooth wind-up (NetworkView.Feel.cs)
+                return (_slashClip, SlashDiveTimeOf(s, (float)(now - t.DiveAt), t.DiveExpected));   // anim/air-slash-character: the strike curve (NetworkView.Feel.cs)
             case JumpView.Impact when t.Slash && _slashClip is not null:
-                return (_slashClip, SlashImpactTime(s, sinceImpact, t.LandedClip));
+                return (_slashClip, SlashImpactTime(s, sinceImpact, t.LandedClip, t.LandedRate));
             case JumpView.Dive when _jmpDive is not null:
                 return (_jmpDive, null);
             case JumpView.Impact when _jmpImpact is not null:
@@ -377,9 +384,11 @@ public partial class NetworkView
     SlashSpec? SlashOf(PlayerState s) => _config is null ? null : Loadouts.JumpPack(_config, s)?.Slash;
 
     /// <summary>feel/jump-pack-2: the slash clip's time <paramref name="sinceImpact"/> s after the landing (SmNet.SlashPose.ImpactTime from the impact's crop start).</summary>
-    float SlashImpactTime(PlayerState s, float sinceImpact, float landedAt = float.NaN) =>
-        SmNet.SlashPose.ImpactTime(sinceImpact, SlashOf(s)?.ImpactClipStart ?? 0f, ClipLength(_slashClip, 1.733f), landedAt,
-            NoMeleeFlow ? SmNet.SlashPose.ImpactCatchUp : SmNet.SlashPose.EasedCatchUp);   // anim/melee-flow: the early landing's catch-up eased over 0.1 s
+    float SlashImpactTime(PlayerState s, float sinceImpact, float landedAt = float.NaN, float landedRate = float.NaN) =>
+        StrikeCurve && SlashOf(s) is { } slash && float.IsFinite(landedAt) && float.IsFinite(landedRate)
+            ? SmNet.SlashPose.StrikeImpactTime(sinceImpact, landedAt, landedRate, slash.ImpactClipStart, slash.HitTime, ClipLength(_slashClip, 1.733f))   // anim/air-slash-character
+            : SmNet.SlashPose.ImpactTime(sinceImpact, SlashOf(s)?.ImpactClipStart ?? 0f, ClipLength(_slashClip, 1.733f), landedAt,
+                NoMeleeFlow ? SmNet.SlashPose.ImpactCatchUp : SmNet.SlashPose.EasedCatchUp);   // anim/melee-flow: the early landing's catch-up eased over 0.1 s
 
     /// <summary>feel/jump-pack-2: how long after the landing the slash clip has left to show.</summary>
     double SlashAfterImpact(PlayerState s) => SmNet.SlashPose.AfterImpact(SlashOf(s)?.ImpactClipStart ?? 0f, ClipLength(_slashClip, 1.733f));

@@ -271,6 +271,15 @@ public partial class NetworkView
     System.Numerics.Vector3 _slashTargetAt;
 
     /// <summary>
+    /// anim/air-slash-character capture aids with <c>--slash-test</c> (not original behaviour): <c>--slash-view-pitch &lt;rad&gt;</c> turns the view to this pitch once the slash is
+    /// pressed and gives the bot the human follow camera (framing the dive and landing like the reference footage; the dive's direction is taken on the press tick only); <c>--slash-move-on &lt;s&gt;</c> aims the slash
+    /// about 2 m right of the target (it lands beside it) and pushes the stick forward from that long after the landing for 1.2 s (the player moving on, as in the reference).
+    /// </summary>
+    static readonly float SlashViewPitch = CmdFloat("slash-view-pitch");
+    static readonly float SlashMoveOn = CmdFloat("slash-move-on");
+    bool SlashMovingOn => float.IsFinite(SlashMoveOn) && _slashLandAt >= 0 && _connectedFor - _slashLandAt >= SlashMoveOn && _connectedFor - _slashLandAt < SlashMoveOn + 1.2;
+
+    /// <summary>
     /// <c>--slash-test</c>: with a living enemy in sight 3 to 10 m away (horizontally) the own Assault / Raptor faces it and jumps (Jump held 6, 8, 10 or 12 ticks in turn: with the
     /// three jumps (feel/jump-pack-2) all the small jump, apex about 7.7 m; M45's middle jump gave about 2, 3.5, 5 and 6.5 m), presses melee at the apex aimed at the enemy's feet (the slash's dive goes toward the point under the aim) and then waits; farther away it walks to it.
     /// The log (<see cref="SlashTestFrame"/>) has, per slash, the press-to-dive, dive, landing-to-free and press-to-free times (client frames), where it landed against the target,
@@ -290,6 +299,8 @@ public partial class NetworkView
         if (target is not { } t) return null;
         float dx = t.Position.X - me.Position.X, dy = t.Position.Y - me.Position.Y;
         _yaw = MathF.Atan2(-dx, dy);
+        // anim/air-slash-character (--slash-move-on): aim about 2 m to the right of the target so the slash lands beside it and the walk on goes past it.
+        if (float.IsFinite(SlashMoveOn)) _yaw -= MathF.Atan2(2f, MathF.Max(1f, best));
         int[] holds = [6, 8, 10, 12];
         switch (me.Jump)
         {
@@ -313,8 +324,11 @@ public partial class NetworkView
                 _slashJumpHeld = true;   // feel/buffer-speed: Space held through the landing
                 return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.Jump, _pitch);
             case JumpPhase.Dive or JumpPhase.Recover or JumpPhase.Landed:
-                return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch);
+                // anim/air-slash-character (capture aid): the view's pitch after the press (the dive's direction is set on the press tick only).
+                if (float.IsFinite(SlashViewPitch)) _pitch = SlashViewPitch;
+                return new PlayerInput(tick, 0f, SlashMovingOn ? 1f : 0f, _yaw, InputButtons.None, _pitch);
         }
+        if (SlashMovingOn) return new PlayerInput(tick, 0f, 1f, _yaw, InputButtons.None, float.IsFinite(SlashViewPitch) ? SlashViewPitch : 0f);
         _pitch = 0f;
         if (!me.Grounded || me.MeleeStep > 0 || me.JumpHeld || me.MeleeHeld || Rush.IsDash(me.Rush) || Evade.Evading(me)) return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, 0f);
         // feel/jump-pack-2: stand still for 2 s after a slash first (the get-up's clip plays out: --slash-trace sees all of it), then walk to or back off.
