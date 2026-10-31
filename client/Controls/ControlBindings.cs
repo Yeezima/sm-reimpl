@@ -290,7 +290,7 @@ public sealed class BindingSet
         if (string.IsNullOrWhiteSpace(json)) return set;
         JsonNode? root;
         try { root = JsonNode.Parse(json); }
-        catch (JsonException) { notes.Add("The controls file could not be read; the default controls are used."); return set; }
+        catch (Exception) { notes.Add("The controls file could not be read; the default controls are used."); return set; }
         if (root is not JsonObject obj) { notes.Add("The controls file could not be read; the default controls are used."); return set; }
         foreach (var device in new[] { BindDevice.Keyboard, BindDevice.Controller })
         {
@@ -326,7 +326,7 @@ public sealed class BindingSet
             string path = Path.Combine(directory, FileName);
             return File.Exists(path) ? FromJson(File.ReadAllText(path), out notes) : Defaults();
         }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        catch (Exception)
         {
             notes.Add("The controls file could not be read; the default controls are used.");
             return Defaults();
