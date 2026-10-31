@@ -14,14 +14,14 @@ namespace SmClient;
 /// <c>IG_NAV_Idle_01</c>; <c>--list-clips</c> prints the rig's clips), <c>--time &lt;s&gt;</c> (hold the clip there), <c>--head &lt;mesh&gt;</c>,
 /// <c>--no-lasgun</c>, <c>--shots 0,180</c> (turntable angles, 0 = front) saved to <c>--out</c> (default <c>%LOCALAPPDATA%\sm-reimpl\cache\guardsman</c>;
 /// never inside the repository or the install) as <c>&lt;--name&gt;_&lt;angle&gt;.png</c>, then quit (a capture needs <c>godot.cmd --windowed</c>).
-/// The lasgun hangs on <c>RIG_Prop_RHand</c> with an identity offset (**provisional approximation**: the wargear's hand mount is not read here).
+/// The lasgun hangs as its wargear <c>ig_coop_lasgun</c> says: the model's <c>rig_prop_m_chest</c> node on the rig bone of that name (**supported by evidence**).
 /// **Placeholder demonstration** around original assets.
 /// </summary>
 public partial class GuardsmanTestView : Node3D
 {
     /// <summary>The co-op set holding the Guardsman's rig, meshes, materials and lasgun (Exterminatus content).</summary>
     public const string Archive = "data/chunks/ebp_sets__mp_coop_set_sm.oppc";
-    public const string RigEntry = "havok_guardsman_a_coop__hkxx", Body = "guardsman_a", Head = "guardsman_head_basic_001", Lasgun = "lasgun", HandBone = "RIG_Prop_RHand";
+    public const string RigEntry = "havok_guardsman_a_coop__hkxx", Body = "guardsman_a", Head = "guardsman_head_basic_001", Wargear = "ig_coop_lasgun";
 
     /// <summary>The Guardsman's rig: only its archive, packfile and body visual (the analyzers' graph names stay the marine defaults; nothing here uses them).</summary>
     public static readonly RigProfile Profile = new("guardsman", Archive, RigEntry, Body);
@@ -36,8 +36,21 @@ public partial class GuardsmanTestView : Node3D
     public GuardsmanTestView(string gameDir, Dictionary<string, string?> args) { _gameDir = gameDir; _args = args; }
     public GuardsmanTestView() : this("", new Dictionary<string, string?>()) { }
 
-    /// <summary>One piece of the look: the visuals of the object tree's nearest level of detail, unskinned blocks hung under their tree bone (or <paramref name="rigidBone"/>).</summary>
-    static CharacterPiece LoadPiece(string archive, string name, RigAssets rig, string? rigidBone, List<string> notes)
+    /// <summary>The lasgun on the mount its wargear names.</summary>
+    CharacterPiece LasgunPiece(RigAssets rig, List<string> notes)
+    {
+        var catalogue = WeaponModels.Load(_gameDir, Profile, notes, [Wargear], rig.Rig.Skeleton.BoneNames);
+        var attachment = catalogue.Held(Wargear) ?? throw new InvalidOperationException($"{Wargear}: no wield entry");
+        var wield = attachment.Wield!;
+        var weapon = WeaponModel.Load(_gameDir, attachment, notes);
+        var toBone = weapon.RootToBone(wield, notes);
+        var rigid = weapon.Parts.Where(p => p.Visible).ToDictionary(p => p.BlockIndex, p => new RigidBlock(wield.Bone ?? throw new InvalidOperationException($"{Wargear}: wield on no bone"), p.ToRoot * toBone));
+        notes.Add($"{Wargear}: {wield.HandleNode} on {wield.Bone}");
+        return new CharacterPiece("ig_lasgun", weapon.Model, null) { Rigid = rigid, Hidden = Enumerable.Range(0, weapon.Model.Mesh.Blocks.Count).Where(b => !rigid.ContainsKey(b)).ToHashSet() };
+    }
+
+    /// <summary>One piece of the look: the visuals of the object tree's nearest level of detail, unskinned blocks hung under their tree bone.</summary>
+    static CharacterPiece LoadPiece(string archive, string name, RigAssets rig, List<string> notes)
     {
         var model = StaticModel.Load(archive, name, notes);
         var tree = ObjectTree.Load(archive, name, notes);
@@ -48,11 +61,8 @@ public partial class GuardsmanTestView : Node3D
             var drawn = tree.Visuals.Where(v => v.Renderable && v.NearLevel && v.MeshId >= 0 && v.MeshId < model.Mesh.Blocks.Count).ToList();
             if (drawn.Count > 0) hidden = Enumerable.Range(0, model.Mesh.Blocks.Count).Where(b => drawn.All(v => v.MeshId != b)).ToHashSet();
             foreach (var v in drawn.Where(v => model.Mesh.Blocks[v.MeshId].Skin is null))
-                if (rigidBone is null && tree.UnderBone(v.RefNode, rig.BoneNames.Contains) is { } placed) rigid[v.MeshId] = new RigidBlock(placed.Bone, placed.Local);
+                if (tree.UnderBone(v.RefNode, rig.BoneNames.Contains) is { } placed) rigid[v.MeshId] = new RigidBlock(placed.Bone, placed.Local);
         }
-        if (rigidBone is not null)
-            for (int b = 0; b < model.Mesh.Blocks.Count; b++)
-                if (model.Mesh.Blocks[b].Skin is null && !hidden.Contains(b)) rigid[b] = new RigidBlock(rigidBone, System.Numerics.Matrix4x4.Identity);
         foreach (var bone in model.Mesh.Blocks.SelectMany(b => b.Skin?.Bones ?? []).Select(b => b.Name).Distinct())
             if (!rig.BoneNames.Contains(bone)) notes.Add($"{name}: bone '{bone}' is not in the Guardsman skeleton");
         notes.Add($"{name}: {model.Mesh.Blocks.Count} blocks, drawn {model.Mesh.Blocks.Count - hidden.Count} (hidden {string.Join(",", hidden.OrderBy(h => h))}), materials {string.Join(", ", model.Surfaces.Select(s => s.Material?.Name ?? "?").Distinct())}");
@@ -81,14 +91,13 @@ public partial class GuardsmanTestView : Node3D
                     GD.Print($"  {n,-36} {(rig.Animation(n) is { } a ? $"{a.Animation.Duration:F2} s" : "not bound")}");
             var pieces = new PieceCache(_gameDir, rig, notes);
             string archive = Profile.ArchivePath(_gameDir);
-            var parts = new List<(string Name, string? Bone)> { (Body, null), (_args.GetValueOrDefault("head") ?? Head, null) };
-            if (!_args.ContainsKey("no-lasgun")) parts.Add((Lasgun, HandBone));
+            var parts = new List<CharacterPiece> { LoadPiece(archive, Body, rig, notes), LoadPiece(archive, _args.GetValueOrDefault("head") ?? Head, rig, notes) };
+            if (!_args.ContainsKey("no-lasgun")) parts.Add(LasgunPiece(rig, notes));
             var assetsList = new List<AssetPiece>();
             int textured = 0, surfaces = 0;
-            foreach (var (name, bone) in parts)
+            foreach (var piece in parts)
             {
-                var piece = LoadPiece(archive, name, rig, bone, notes);
-                if (pieces.Build(piece.Name, piece, vertexColours: true) is not { } asset) { notes.Add($"{name}: nothing to draw"); continue; }
+                if (pieces.Build(piece.Name, piece, vertexColours: true) is not { } asset) { notes.Add($"{piece.Name}: nothing to draw"); continue; }
                 assetsList.Add(new AssetPiece(piece.Name, asset.Mesh, asset.Skin, new Material?[asset.Surfaces.Count]));
                 textured += asset.Surfaces.Count(s => s.HasDiffuse); surfaces += asset.Surfaces.Count;
             }
