@@ -13,14 +13,14 @@ namespace SmClient.FrontEnd;
 /// <summary>Which screen the front end opens on (<c>--menu</c>, <c>--customizer</c>, <c>--appearance</c>).</summary>
 public enum StartScreen { Join, Creator, Appearance }
 
-/// <summary>What the Join button hands over: the server, the plan for the active loadout (class, item indices, perks, looks) and the shared services.</summary>
-/// <param name="Content">The content profile the match is joined with (added content E2: the Join screen's picker, or <c>--content</c>); null: <c>--content</c> / the default.</param>
+/// <summary>What a join hands over: the server, the plan for the active loadout (class, item indices, perks, looks) and the shared services.</summary>
+/// <param name="Content">The content profile the match is joined with (added content E2: the lobby's choice, or <c>--content</c>); null: <c>--content</c> / the default.</param>
 public sealed record JoinRequest(string Host, JoinPlan Plan, CustomizerServices Services, SmSim.ContentExtras? Content = null, bool Spectate = false);
 
 /// <summary>
-/// The front end (docs/customizer-design.md F1, F3): a shell that waits for the install to be read, then shows the Join screen (server, side, the loadout strip with
-/// the ACTIVE one, CUSTOMIZE, JOIN), the creator and the appearance editor in turn. It owns the 1920 x 1080 UI space of the window while it is shown and gives it
-/// back when a match starts. The client's Join goes through <see cref="JoinRequest"/>; <c>ModelViewer</c> turns it into the existing connect path.
+/// The front end (ui/menu-rebuild, the owner's Half-Life 2 style menu): a shell that waits for the install to be read, then shows the main menu (JOIN OR HOST LOBBY, MUSOU MODE, OPTIONS,
+/// CUSTOMIZER, QUIT) over the shared background image and its pages in turn; the customizer keeps its own dark background. It owns the 1920 x 1080 UI space of the window while it is shown
+/// and gives it back when a match starts. A join goes through <see cref="JoinRequest"/>; <c>ModelViewer</c> turns it into the existing connect path.
 /// </summary>
 public sealed partial class FrontEndView : Control
 {
@@ -32,29 +32,26 @@ public sealed partial class FrontEndView : Control
 
     Control? _loading;
     Label? _loadingText;
-    Control? _joinScreen;
     CreatorView? _creator;
     AppearanceView? _appearance;
     ControlsView? _controls;
-    SlotStrip? _strip;
-    LineEdit? _host;
-    Label? _activeLabel, _summary, _message;
-    ScrollContainer? _middle;
-    VBoxContainer? _middleContent;
+    UiKit.MenuPage? _main, _lobby, _hostPage, _joinLocalPage, _page;
+    OptionsView? _options;
+    readonly Dictionary<UiKit.MenuPage, Control> _first = new();
+    LineEdit? _address;
+    Label? _activeLabel, _summary, _message, _contentNote;
+    UiKit.MenuChoice? _sideRow, _contentRow, _spectate;
     HostPanel? _hostPanel;
 
-    /// <summary>What <see cref="JoinMiddle"/> scrolls (its height is what the middle needs).</summary>
-    public VBoxContainer? JoinMiddleContent => _middleContent;
-    /// <summary>The Join screen's Host panel, or null when no server executable was found.</summary>
+    /// <summary>The menu pages (the self-test's tree and fit checks read them).</summary>
+    public UiKit.MenuPage? MainPage => _main;
+    public UiKit.MenuPage? LobbyPage => _lobby;
+    public UiKit.MenuPage? HostPage => _hostPage;
+    public UiKit.MenuPage? JoinLocalPage => _joinLocalPage;
+    public OptionsView? Options => _options;
+    /// <summary>The Host panel, or null when no server executable was found.</summary>
     public HostPanel? JoinHostPanel => _hostPanel;
 
-    /// <summary>The Join screen's scrolling middle (server, host, loadouts) between the title and the action bar; the UI self-test's fit check reads it.</summary>
-    public ScrollContainer? JoinMiddle => _middle;
-    /// <summary>The Join screen's root (the fit check lays it out at several window sizes).</summary>
-    public Control? JoinScreen => _joinScreen;
-    readonly List<Button> _sideButtons = new();
-    Button? _spectate;   // observer tooling (protocol 46): the Join screen's SPECTATE toggle
-    Button? _joinButton;
     bool _built;
     int _frames;
     double _builtAt;
@@ -69,14 +66,17 @@ public sealed partial class FrontEndView : Control
     bool _switchChecked;
     PreviewStage? CurrentPreview => _creator?.Visible == true ? _creator.Preview : _appearance?.Visible == true ? _appearance.Preview : null;
 
+    /// <summary>The player launched with <c>--content musou</c> (a test aid that keeps working and never overwrites the remembered profile).</summary>
+    bool CommandLineMusou => _args.GetValueOrDefault("content") == ContentProfiles.Musou;
+
     public CustomizerServices Services => _services;
     public CreatorView? Creator => _creator;
     public AppearanceView? Appearance => _appearance;
-    public bool ShowsJoin => _joinScreen?.Visible == true;
+    public bool ShowsMainMenu => _main?.Visible == true;
 
     readonly string? _startMessage;
 
-    /// <param name="startMessage">Shown on the Join screen when it opens (why the last join failed).</param>
+    /// <param name="startMessage">Shown on the main menu when it opens (why the last join failed).</param>
     public FrontEndView(Func<CustomizerServices> makeServices, Action<JoinRequest> join, StartScreen start, Dictionary<string, string?> args, string? startMessage = null)
     {
         _makeServices = makeServices; _join = join; _start = start; _args = args; _startMessage = startMessage; _services = makeServices();
@@ -88,7 +88,7 @@ public sealed partial class FrontEndView : Control
     public override void _Ready()
     {
         UiKit.EnterVirtualSpace(GetWindow());
-        AddChild(UiKit.Background().With(n => n.SetAnchorsPreset(LayoutPreset.FullRect)));
+        AddChild(UiKit.MenuBackground().With(n => n.SetAnchorsPreset(LayoutPreset.FullRect)));
         ShowLoading("Reading your Space Marine install...");
     }
 
@@ -144,7 +144,7 @@ public sealed partial class FrontEndView : Control
         SyncContentLock();
         if (!_warmed) _warmed = _services.Previews.WarmStep();   // the default look is built while the menu is up
         if (!_scripted && _frames > 3) { _scripted = true; _scriptFrame = _frames; RunScript(); }
-        else if (_scripted && !_autoJoined && _args.ContainsKey("auto-join") && _frames > _scriptFrame + 10) { _autoJoined = true; TryJoin(); }
+        else if (_scripted && !_autoJoined && _args.ContainsKey("auto-join") && _frames > _scriptFrame + 10) { _autoJoined = true; JoinLocal(); }
         if (_scripted && _args.GetValueOrDefault("preview-switch-to") is { } to) SwitchCheck(to);
     }
 
@@ -190,14 +190,23 @@ public sealed partial class FrontEndView : Control
         _built = true;
         _loading?.QueueFree();
         _loading = null;
-        _joinScreen = BuildJoin();
-        AddChild(_joinScreen);
-        _creator = new CreatorView(_services, ShowJoin, ShowAppearance) { Visible = false };
+        BuildPages();
+        _creator = new CreatorView(_services, ShowMainMenu, ShowAppearance) { Visible = false };
         _appearance = new AppearanceView(_services, ShowCreatorAgain) { Visible = false };
         AddChild(_creator);
         AddChild(_appearance);
-        _controls = new ControlsView(ShowJoin);   // ui/keybinds (ours)
+        _controls = new ControlsView(() => ShowOptions(OptionsView.Controls));   // ui/keybinds (ours)
         AddChild(_controls);
+        _message = UiKit.MenuText("", null, clip: false);
+        _message.Name = "MenuMessage";
+        _message.ClipText = false;
+        _message.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _message.VerticalAlignment = VerticalAlignment.Bottom;
+        _message.Visible = false;
+        _message.SetAnchorsPreset(LayoutPreset.BottomLeft);
+        _message.GrowVertical = GrowDirection.Begin;
+        _message.OffsetLeft = UiKit.MenuLeft + 1f; _message.OffsetRight = UiKit.MenuLeft + 1f + 1100f; _message.OffsetBottom = -24f; _message.OffsetTop = -24f - 90f;
+        AddChild(_message);
         if (_args.ContainsKey("ui-selftest")) AddChild(new UiSelfTest(this, _services));
         // The profile's own notices (a repaired, corrupt or read-only file) show once.
         var notices = _services.Session!.Notices();
@@ -207,263 +216,231 @@ public sealed partial class FrontEndView : Control
         {
             case StartScreen.Creator: ShowCreator(); break;
             case StartScreen.Appearance: ShowAppearance(); break;
-            default: ShowJoin(); break;
+            default: ShowMainMenu(); break;
         }
     }
 
-    Control BuildJoin()
+    /// <summary>The tree of pages (the owner's menu, 2026-11-01): main, JOIN OR HOST LOBBY, HOST LOCAL LOBBY, JOIN LOCAL LOBBY and OPTIONS; the customizer and the keybinds are their own screens.</summary>
+    void BuildPages()
     {
-        var root = new MarginContainer { Name = "Join" };
-        root.SetAnchorsPreset(LayoutPreset.FullRect);
-        foreach (var (side, v) in new[] { ("left", 84), ("right", 84), ("top", 28), ("bottom", 22) }) root.AddThemeConstantOverride("margin_" + side, v);
-        // The title on top and the action bar at the bottom always stay in the window; the part between them (server, host, loadouts) scrolls when it does not fit
-        // (fix/frontend-fit, release issue 1: with the Host panel the column was taller than the 1080-high UI space, so the bar fell off the window's bottom edge).
-        var column = UiKit.VBox(14);
-        root.AddChild(column);
-        var middle = UiKit.VBox(12);
+        // The remembered Musou of an earlier build is not a lobby profile any more: MUSOU MODE is the way in (a --content musou launch keeps it).
+        if (_services.Settings.ContentExtras.HasFlag(ContentExtras.Musou) && !CommandLineMusou) _services.SetContent(ContentExtras.All);
 
-        var title = UiKit.HBox(16);
-        title.AddChild(UiKit.Text("SPACE MARINE", UiKit.TitleSize, UiKit.Gold));
-        title.AddChild(UiKit.Text("MULTIPLAYER", UiKit.TitleSize, UiKit.White));
-        title.AddChild(UiKit.Spacer());
-        title.AddChild(UiKit.Text("Reimplementation - alpha", UiKit.CaptionSize, UiKit.Grey).With(l => l.VerticalAlignment = VerticalAlignment.Center));
-        column.AddChild(title);
+        var main = new UiKit.MenuPage("MainMenu");
+        var joinRow = UiKit.MenuButton("Join or host lobby", () => ShowPage(_lobby!));
+        _first[main] = joinRow;
+        main.Rows.AddChild(joinRow);
+        if (ContentExtras.Compiled) main.Rows.AddChild(UiKit.MenuButton("Musou mode", StartMusou, "The Three-Front War, on this PC"));   // added content: never in a faithful build
+        main.Rows.AddChild(UiKit.MenuButton("Options", () => ShowOptions()));
+        main.Rows.AddChild(UiKit.MenuButton("Customizer", ShowCreator, "Edit your loadouts and your armour"));
+        main.Rows.AddChild(UiKit.MenuButton("Quit", () => GetTree().Quit()));
+        _main = main;
 
-        // Server and side.
-        var connect = UiKit.VBox(10);
-        var serverRow = UiKit.HBox(12);
-        serverRow.AddChild(UiKit.Text("SERVER", UiKit.CaptionSize, UiKit.Grey).With(l => { l.CustomMinimumSize = new Vector2(120, 0); l.VerticalAlignment = VerticalAlignment.Center; }));
-        _host = new LineEdit { Text = _args.GetValueOrDefault("host") ?? _services.Settings.Host, CustomMinimumSize = new Vector2(560, UiKit.MinHit), PlaceholderText = "host:port", MaxLength = 253, FocusMode = FocusModeEnum.All, SelectAllOnFocus = true };
-        _host.TextSubmitted += _ => TryJoin();
-        _host.TextChanged += _ => Say("");
-        serverRow.AddChild(_host);
-        serverRow.AddChild(UiKit.Text("host or host:port (default port 27015)", UiKit.CaptionSize, UiKit.Grey).With(l => l.VerticalAlignment = VerticalAlignment.Center));
-        connect.AddChild(serverRow);
-        var sideRow = UiKit.HBox(12);
-        sideRow.AddChild(UiKit.Text("SIDE", UiKit.CaptionSize, UiKit.Grey).With(l => { l.CustomMinimumSize = new Vector2(120, 0); l.VerticalAlignment = VerticalAlignment.Center; }));
-        foreach (var (side, text) in new[] { (SideChoice.Auto, "Auto"), (SideChoice.SpaceMarines, "Space Marines"), (SideChoice.Chaos, "Chaos") })
-        {
-            var s = side;
-            var b = new Button { Text = text, ToggleMode = true, ButtonPressed = _services.Settings.Side == side, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(210, UiKit.MinHit) };
-            b.Pressed += () => { _services.UpdateSettings(x => x with { Side = s }); RefreshSide(); RefreshSummary(); };
-            sideRow.AddChild(b);
-            _sideButtons.Add(b);
-        }
-        UiKit.ChainHorizontal(_sideButtons.Cast<Control>().ToList());
-        // Observer tooling (protocol 46; ours): join as a spectator (a free camera, no side, slot or score) instead of a player. Not remembered: every Join is a player's unless this is pressed again.
-        _spectate = new Button { Text = "Spectate", ToggleMode = true, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(150, UiKit.MinHit), TooltipText = "Watch with a free camera instead of playing (footage tool)" };
-        sideRow.AddChild(_spectate);
-        sideRow.AddChild(UiKit.Text("Auto lets the server balance the teams.", UiKit.CaptionSize, UiKit.Grey).With(l => l.VerticalAlignment = VerticalAlignment.Center));
-        connect.AddChild(sideRow);
-        connect.AddChild(BuildContentRow());
-        middle.AddChild(UiKit.Panel(connect, 16));
-
-        // Host a match (ours): only when the dedicated server is bundled next to the client (beside it, in server\ below it, or in ..\server: the tester zip's game\ and server\).
-        // The UI self-test always lays the panel out (its fit checks need it; it never presses HOST A MATCH), with or without a server next to the client.
+        var lobby = new UiKit.MenuPage("LobbyMenu", "Join or host lobby");
+        // The dedicated server is bundled next to the client (beside it, in server\ below it, or in ..\server: the tester zip's game\ and server\). The UI self-test always builds the
+        // panel (it never presses HOST A MATCH), with or without a server next to the client.
         string? serverExe = ServerLaunch.FindExecutable(OS.GetExecutablePath().GetBaseDir(), _args.GetValueOrDefault("server-exe"))
             ?? (_args.ContainsKey("ui-selftest") ? "SmServer (UI self-test: not started)" : null);
+        var hostRow = UiKit.MenuButton("Host local lobby", () => ShowPage(_hostPage!));
+        if (serverExe is null) { hostRow.Disabled = true; hostRow.TooltipText = "No server was found next to the game."; }
+        _first[lobby] = hostRow;
+        lobby.Rows.AddChild(hostRow);
+        lobby.Rows.AddChild(UiKit.MenuButton("Join server", JoinPublicServer, "Connects to the project's server, " + JoinTargets.PublicServer));
+        lobby.Rows.AddChild(UiKit.MenuButton("Join local lobby", () => ShowPage(_joinLocalPage!), "A lobby hosted on another PC: type its address"));
+        lobby.Rows.AddChild(UiKit.MenuGap(0.5f));
+        lobby.Rows.AddChild(_sideRow = new UiKit.MenuChoice("Side", ["AUTO", "SPACE MARINES", "CHAOS"], (int)_services.Settings.Side, i => { _services.UpdateSettings(x => x with { Side = (SideChoice)i }); RefreshSummary(); }, "Auto lets the server balance the teams."));
+        lobby.Rows.AddChild(BuildContentRow());
+        // Observer tooling (protocol 46; ours): join as a spectator (a free camera, no side, slot or score) instead of a player. Not remembered: every Join is a player's unless this is set again.
+        lobby.Rows.AddChild(_spectate = new UiKit.MenuChoice("Spectate", ["OFF", "ON"], 0, null, "Watch with a free camera instead of playing (footage tool)"));
+        lobby.Rows.AddChild(UiKit.MenuGap(0.5f));
+        lobby.Rows.AddChild(_activeLabel = UiKit.MenuText("", UiKit.White));
+        lobby.Rows.AddChild(_summary = UiKit.MenuText("", UiKit.Grey));
+        lobby.Rows.AddChild(_contentNote = UiKit.MenuText("", UiKit.Grey));
+        lobby.Rows.AddChild(UiKit.MenuGap(0.5f));
+        lobby.Rows.AddChild(UiKit.MenuButton("Back", () => ShowMainMenu()));
+        _lobby = lobby;
+
+        var host = new UiKit.MenuPage("HostMenu", "Host local lobby");
         if (serverExe is not null)
         {
-            _hostPanel = new HostPanel(serverExe, _services.GameDir, _args, ConnectToHost, Say, () => _services.Content, _services);
-            middle.AddChild(_hostPanel);
+            _hostPanel = new HostPanel(serverExe, _services.GameDir, _args, ConnectToHost, Say, () => _services.Content, _services, () => ShowPage(_lobby!));
+            _hostPanel.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            host.Rows.AddChild(_hostPanel);
         }
+        _hostPage = host;
 
-        // The loadout strip (chips 150 wide: the CUSTOM row leaves room for the scroll bar when the middle scrolls).
-        middle.AddChild(UiKit.Text("YOUR LOADOUT", UiKit.CaptionSize, UiKit.Gold));
-        _strip = new SlotStrip(_services, showDefaults: true, chipWidth: 150) { Picked = OnPick };
-        middle.AddChild(_strip);
-        _activeLabel = UiKit.Text("", UiKit.HeaderSize, UiKit.Gold);
-        middle.AddChild(_activeLabel);
-        _summary = UiKit.Text("", UiKit.BodySize, UiKit.White, HorizontalAlignment.Left, true);
-        middle.AddChild(_summary);
-        _middleContent = middle;
-        _middle = UiKit.Scroll(middle);
-        _middle.Name = "JoinMiddle";
-        _middle.CustomMinimumSize = new Vector2(0, 240);   // never squeezed to a sliver by a long message
-        column.AddChild(_middle);
+        var joinLocal = new UiKit.MenuPage("JoinLocalMenu", "Join local lobby");
+        _address = new LineEdit { Text = _args.GetValueOrDefault("host") ?? _services.Settings.Host, PlaceholderText = "host:port", MaxLength = 253, FocusMode = FocusModeEnum.All, SelectAllOnFocus = true, Name = "LobbyAddress" };
+        _address.TextSubmitted += _ => JoinLocal();
+        _address.TextChanged += _ => Say("");
+        joinLocal.Rows.AddChild(UiKit.MenuField("Address", _address));
+        joinLocal.Rows.AddChild(UiKit.MenuText("HOST OR HOST:PORT (DEFAULT PORT 27015)", UiKit.Grey));
+        joinLocal.Rows.AddChild(UiKit.MenuGap(0.5f));
+        joinLocal.Rows.AddChild(UiKit.MenuButton("Connect", JoinLocal));
+        joinLocal.Rows.AddChild(UiKit.MenuButton("Back", () => ShowPage(_lobby!)));
+        _joinLocalPage = joinLocal;
 
-        // The message line (why a join failed, a profile notice) sits just above the bar, so it is always on screen; it takes room only while it says something.
-        _message = UiKit.Text("", UiKit.BodySize, UiKit.White, HorizontalAlignment.Left, true);
-        _message.Visible = false;
-        column.AddChild(_message);
+        var foot = UiKit.VBox(2);
+        if (GameFoundNote is { Length: > 0 }) foot.AddChild(UiKit.MenuText(GameFoundNote, UiKit.Grey).With(l => l.TooltipText = GameFoundNote));
+        foot.AddChild(new LinkButton { Text = "Builds and issues: " + ServerLaunch.ReleasesUrl.Replace("https://", ""), Uri = ServerLaunch.ReleasesUrl }.With(l => { l.AddThemeFontSizeOverride("font_size", UiKit.MenuTextSize); l.AddThemeColorOverride("font_color", UiKit.Grey); l.AddThemeColorOverride("font_hover_color", UiKit.White); }));
+        _options = new OptionsView(_services, () => ShowMainMenu(), ShowControls, foot);
 
-        var bar = UiKit.HBox(16);
-        bar.AddChild(UiKit.Button("CUSTOMIZE", ShowCreator, 280, "Edit your loadouts and your armour"));
-        bar.AddChild(StateToggle("Reduce motion", _services.Settings.ReduceMotion, on => _services.UpdateSettings(x => x with { ReduceMotion = on }), 280));
-        bar.AddChild(StateToggle("Show others' emblems", _services.Settings.ShowOthersEmblems, on => _services.UpdateSettings(x => x with { ShowOthersEmblems = on }), 380));
-        bar.AddChild(UiKit.Spacer());
-        bar.AddChild(UiKit.Button("QUIT", () => GetTree().Quit(), 160));
-        _joinButton = UiKit.Button("JOIN", TryJoin, 320);
-        _joinButton.AddThemeFontSizeOverride("font_size", UiKit.HeaderSize);
-        _joinButton.CustomMinimumSize = new Vector2(320, 64);
-        _joinButton.AddThemeStyleboxOverride("normal", UiKit.Box(new Color(0.2f, 0.16f, 0.02f, 0.97f), UiKit.Gold, 4, 12));
-        bar.AddChild(_joinButton);
-        column.AddChild(bar);
-        var footer = UiKit.HBox(24);
-        footer.AddChild(UiKit.FovRow(_services.Settings.FovDegrees, f => _services.UpdateSettings(x => x with { FovDegrees = f }), compact: true));   // ui/fov-slider (ours)
-        footer.AddChild(UiKit.MouseSensitivityRow(_services.Settings.MouseSensitivity, m => _services.UpdateSettings(x => x with { MouseSensitivity = m }), compact: true));   // ui/mouse-sensitivity (ours); both compact: the footer keeps the width and height it had (the Join screen's fit checks)
-        footer.AddChild(UiKit.Button("CONTROLS", ShowControls, 200, "Rebind the keyboard, mouse and controller").With(b => { b.Name = "ControlsButton"; b.CustomMinimumSize = new Vector2(200, 28); b.AddThemeFontSizeOverride("font_size", UiKit.CaptionSize);
-            // The footer is one slider high: slim styles (the theme's boxes carry 12 px of margin all round), so the Join screen keeps its room.
-            foreach (var (state, box) in new[] { ("normal", UiKit.Box(new Color(0.06f, 0.06f, 0.06f, 0.92f), new Color(0.55f, 0.45f, 0.1f), 2, 12)), ("hover", UiKit.Box(UiKit.Hover, UiKit.Gold, 2, 12)), ("pressed", UiKit.Box(new Color(0.25f, 0.2f, 0.03f, 0.98f), UiKit.Gold, 2, 12)) })
-            { box.ContentMarginTop = 1; box.ContentMarginBottom = 1; b.AddThemeStyleboxOverride(state, box); } }));   // ui/keybinds (ours)
-        if (GameFoundNote is { Length: > 0 }) footer.AddChild(UiKit.Text(GameFoundNote, UiKit.CaptionSize, UiKit.Grey).With(l => { l.ClipText = true; l.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; l.TooltipText = GameFoundNote; l.MouseFilter = Control.MouseFilterEnum.Pass; }));
-        else footer.AddChild(UiKit.Spacer());
-        footer.AddChild(new LinkButton { Text = "Builds and issues: " + ServerLaunch.ReleasesUrl.Replace("https://", ""), Uri = ServerLaunch.ReleasesUrl }.With(l => l.AddThemeFontSizeOverride("font_size", UiKit.CaptionSize)));
-        column.AddChild(footer);
-        return root;
+        foreach (var page in new Control[] { _main, _lobby, _hostPage, _joinLocalPage, _options }) { page.Visible = false; AddChild(page); }
+        RefreshContent();
     }
 
     // ---- the content profile (added content E2, docs/added-content.md) ----
 
-    readonly List<Button> _contentButtons = new();
-    Label? _contentNote;
-
     /// <summary>
-    /// CONTENT on the Join screen: Faithful (SM1 multiplayer alone) or Extended (the added content this build has: the Ork Boy, later gore). The choice is remembered
-    /// next to the profile, is what Join and Host a match use, and must match the server's (a server with another profile refuses the client and says which it runs).
-    /// A build without added content shows only Faithful. Musou (experimental added content): the third button, a mode of its own (<c>--content musou</c>: waves of
-    /// Orks on Manufactorum, on this PC); disabled without added content, and the Host panel then hosts it on this PC only. Hidden until Musou is ready (the owner,
-    /// 2026-10-31): shown only with <c>--musou</c> or <c>SM_MUSOU=1</c>; a remembered Musou choice falls back to Extended while it is hidden.
+    /// CONTENT in the lobby menu: Faithful (SM1 multiplayer alone) or Extended (the added content this build has: the Ork Boy, later gore). The choice is remembered next to the profile, is what
+    /// the joins and the host use, and must match the server's (a server with another profile refuses the client and says which it runs). A build without added content has only Faithful.
+    /// Musou is not a choice here: it has its own row on the main menu (the owner, 2026-11-01).
     /// </summary>
     Control BuildContentRow()
     {
-        var row = UiKit.HBox(12);
-        row.AddChild(UiKit.Text("CONTENT", UiKit.CaptionSize, UiKit.Grey).With(l => { l.CustomMinimumSize = new Vector2(120, 0); l.VerticalAlignment = VerticalAlignment.Center; }));
-        bool showMusou = MusouShown;
-        if (!showMusou && _services.Content.HasFlag(SmSim.ContentExtras.Musou)) _services.SetContent(SmSim.ContentExtras.All);
-        foreach (var (name, text) in new[] { (SmSim.ContentProfiles.Faithful, "Faithful"), (SmSim.ContentProfiles.Extended, "Extended"), (SmSim.ContentProfiles.Musou, "Musou") })
+        string[] names = ContentExtras.Compiled ? [ContentProfiles.Faithful, ContentProfiles.Extended] : [ContentProfiles.Faithful];
+        _contentRow = new UiKit.MenuChoice("Content", names.Select(n => n.ToUpperInvariant()).ToArray(), 0, i =>
         {
-            string profile = name;
-            bool available = name == SmSim.ContentProfiles.Faithful || SmSim.ContentExtras.Compiled;
-            var b = new Button { Text = text, ToggleMode = true, ButtonPressed = false, Disabled = !available, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(showMusou ? 170 : 210, UiKit.MinHit), Name = "Content" + text };
-            if (name == SmSim.ContentProfiles.Musou) b.Visible = showMusou;
-            b.Pressed += () =>
-            {
-                SmSim.ContentProfiles.TryParse(profile, out var extras, out _);
-                _services.SetContent(extras);
-                RefreshContent();
-                RefreshSummary();
-            };
-            row.AddChild(b);
-            _contentButtons.Add(b);
-        }
-        UiKit.ChainHorizontal(_contentButtons.Where(b => b.Visible).Cast<Control>().ToList());
-        _contentNote = UiKit.Text("", UiKit.CaptionSize, UiKit.Grey).With(l => l.VerticalAlignment = VerticalAlignment.Center);
-        row.AddChild(_contentNote);
-        RefreshContent();
-        return row;
+            ContentProfiles.TryParse(names[i], out var extras, out _);
+            _services.SetContent(extras);
+            RefreshContent();
+            RefreshSummary();
+        });
+        return _contentRow;
     }
 
-    /// <summary>The Musou button is shown (<c>--musou</c>, <c>--content musou</c> or <c>SM_MUSOU=1</c>): hidden until the mode is ready. A command-line
-    /// <c>--content musou</c> shows it, so the test aid keeps working and never overwrites the remembered profile.</summary>
-    public bool MusouShown => _args.ContainsKey("musou") || _args.GetValueOrDefault("content") == SmSim.ContentProfiles.Musou
-        || System.Environment.GetEnvironmentVariable("SM_MUSOU") == "1";
-
-    bool _contentLocked;
-
-    /// <summary>While the Host panel's server runs the profile cannot change (the server was started with it, and a client with another one is refused).</summary>
+    /// <summary>The Host panel's server fixes the profile while it runs (a client with another one is refused).</summary>
     void SyncContentLock()
     {
-        if (_contentButtons.Count < 3) return;
+        if (_contentRow is null) return;
         bool hosting = HostedServer.Running;
         if (hosting == _contentLocked) return;
         _contentLocked = hosting;
-        _contentButtons[0].Disabled = hosting;
-        _contentButtons[1].Disabled = hosting || !ContentExtras.Compiled;
-        _contentButtons[2].Disabled = hosting || !ContentExtras.Compiled;
+        _contentRow.SetDisabled(hosting);
         RefreshContent();
     }
+
+    bool _contentLocked;
 
     void RefreshContent()
     {
         var extras = _services.Content;
-        bool musou = extras.HasFlag(SmSim.ContentExtras.Musou);
-        _contentButtons[0].SetPressedNoSignal(extras == SmSim.ContentExtras.None);
-        _contentButtons[1].SetPressedNoSignal(extras != SmSim.ContentExtras.None && !musou);
-        _contentButtons[2].SetPressedNoSignal(musou);
-        if (_contentNote is not null)
-            _contentNote.Text = _contentLocked ? $"Fixed while your server runs ({ContentProfiles.Name(extras)}). Stop the server to change it."
-                : !SmSim.ContentExtras.Compiled ? "This build has no added content: faithful only."
-                : extras == SmSim.ContentExtras.None ? "SM1 multiplayer alone. The server must run --content faithful."
-                : musou ? "Musou (experimental): waves of Orks on Manufactorum, on your PC. The server runs --content musou."
-                : "Adds the Ork Boy (and later gore). The server must run the same profile (the default).";
+        _contentRow?.SetIndex(extras == ContentExtras.None ? 0 : 1);
+        if (_contentNote is null) return;
+        _contentNote.Text = (_contentLocked ? $"Content is fixed while your server runs ({ContentProfiles.Name(extras)}). Stop the server to change it."
+            : !ContentExtras.Compiled ? "This build has no added content: faithful only."
+            : extras == ContentExtras.None ? "SM1 multiplayer alone. The server must run --content faithful."
+            : "Adds the Ork Boy (and later gore). The server must run the same profile (the default).").ToUpperInvariant();
     }
 
-    /// <summary>Where the game folder was found (shown small on the Join screen); set by the launcher.</summary>
+    /// <summary>Where the game folder was found (shown small under OPTIONS); set by the launcher.</summary>
     public string? GameFoundNote { get; init; }
 
     /// <summary>The Host panel's hand-over: join the server it started.</summary>
-    void ConnectToHost(string host)
-    {
-        _host!.Text = host;
-        TryJoin();
-    }
-
-    /// <summary>A toggle whose state is in its words (ON / OFF), not only in its colour.</summary>
-    static Button StateToggle(string label, bool on, Action<bool> changed, int width)
-    {
-        var b = UiKit.Toggle($"{label}: {(on ? "ON" : "OFF")}", on, _ => { }, width);
-        b.Toggled += v => { b.Text = $"{label}: {(v ? "ON" : "OFF")}"; changed(v); };
-        return b;
-    }
-
-    void RefreshSide()
-    {
-        var order = new[] { SideChoice.Auto, SideChoice.SpaceMarines, SideChoice.Chaos };
-        for (int i = 0; i < _sideButtons.Count; i++) _sideButtons[i].SetPressedNoSignal(_services.Settings.Side == order[i]);
-    }
+    void ConnectToHost(string host) => TryJoin(host, remember: false);
 
     void RefreshSummary()
     {
         var session = _services.Session;
         var catalog = _services.Catalog;
-        if (session is null || catalog is null) return;
+        if (session is null || catalog is null || _activeLabel is null) return;
         var profile = session.Working;
         var active = LoadoutEdits.Active(profile, catalog, out bool fellBack);
-        _strip!.SetOpen(null);
-        _strip.Refresh();
         var plan = _services.PlanFor(active);
         string name = active.Kind == SelectionKind.Custom && profile.ClassAt(active.Slot) is { } c ? $"CUSTOM {active.Slot}  \"{c.Name}\"" : "DEFAULTS";
-        _activeLabel!.Text = "ACTIVE: " + name;
-        _summary!.Text = plan?.Summary ?? "";
+        _activeLabel.Text = "ACTIVE LOADOUT: " + name;
+        _activeLabel.TooltipText = _activeLabel.Text;
+        _summary!.Text = (plan?.Summary ?? "").ToUpperInvariant();
+        _summary.TooltipText = _summary.Text;
         if (fellBack && profile.Selected.Kind == SelectionKind.Custom)
             Say($"Slot {profile.Selected.Slot} is empty, so {(active.Kind == SelectionKind.Custom ? $"slot {active.Slot}" : "the Tactical defaults")} is used.", false);
     }
 
     // ---- screens ----
 
-    public void ShowJoin()
+    void HideAll()
     {
-        if (!_built) return;
-        _creator!.Visible = false; _appearance!.Visible = false; _joinScreen!.Visible = true;
-        bool fromControls = _controls?.Visible == true;
+        foreach (var page in new Control?[] { _main, _lobby, _hostPage, _joinLocalPage, _options }) if (page is not null) page.Visible = false;
         _controls?.Close();
-        RefreshSummary();
-        if (fromControls && FindChild("ControlsButton", true, false) is Button controlsButton) controlsButton.FocusLater(); else _joinButton!.FocusLater();
+        _creator!.Visible = false; _appearance!.Visible = false;
+        _page = null;
     }
 
-    /// <summary>The CONTROLS screen (key and controller rebinding; ui/keybinds), reached from the Join screen's footer.</summary>
+    void ShowPage(UiKit.MenuPage page)
+    {
+        HideAll();
+        page.Visible = true;
+        _page = page;
+        Say("");
+        RefreshSummary();
+        RefreshContent();
+        if (page == _hostPage) _hostPanel?.FocusFirst();
+        else if (page == _joinLocalPage) { _address!.Text = _args.GetValueOrDefault("host") ?? _services.Settings.Host; _address.FocusLater(); }
+        else _first.GetValueOrDefault(page)?.FocusLater();
+    }
+
+    /// <summary>The main menu. A session's Musou ends here: the lobby's remembered profile is back (unless a server fixes it, or <c>--content musou</c> asked for it).</summary>
+    public void ShowMainMenu()
+    {
+        if (!_built) return;
+        if (_services.Content.HasFlag(ContentExtras.Musou) && !CommandLineMusou && !HostedServer.Running) _services.Content = _services.Settings.ContentExtras;
+        string kept = _message?.Text ?? "";
+        bool wasProblem = _messageProblem;
+        ShowPage(_main!);
+        if (_opening) { _opening = false; if (kept.Length > 0) Say(kept, wasProblem); }   // the notices of the start stay on the first page
+    }
+
+    bool _opening = true, _messageProblem;
+
+    /// <summary>Shows a page by name (<c>--menu-screen</c>, the self-test): lobby, host, joinlocal or a tab of options.</summary>
+    public void ShowMenuPage(string name)
+    {
+        switch (name.ToLowerInvariant())
+        {
+            case "lobby": ShowPage(_lobby!); break;
+            case "host": ShowPage(_hostPage!); break;
+            case "joinlocal": ShowPage(_joinLocalPage!); break;
+            case "graphics": ShowOptions(OptionsView.Graphics); break;
+            case "sound": ShowOptions(OptionsView.Sound); break;
+            case "controls" or "options": ShowOptions(OptionsView.Controls); break;
+            default: ShowMainMenu(); break;
+        }
+    }
+
+    /// <summary>OPTIONS, on a tab (null: the last one).</summary>
+    public void ShowOptions(string? tab = null)
+    {
+        if (!_built) return;
+        HideAll();
+        Say("");
+        _options!.Open(tab);
+        _page = null;   // it takes its own Esc and B
+    }
+
+    /// <summary>The keybind screen (key and controller rebinding; ui/keybinds), reached from OPTIONS, CONTROLS.</summary>
     public void ShowControls()
     {
         if (!_built) return;
-        _creator!.Visible = false; _appearance!.Visible = false; _joinScreen!.Visible = false;
+        HideAll();
         _controls!.Open();
     }
 
-    /// <summary>The CONTROLS screen, or null before the screens are built (the self-test and the screenshots read it).</summary>
+    /// <summary>The keybind screen, or null before the screens are built (the self-test and the screenshots read it).</summary>
     public ControlsView? Controls => _controls;
 
     public void ShowCreator()
     {
         if (!_built) return;
-        _joinScreen!.Visible = false; _appearance!.Visible = false; _creator!.Visible = true;
+        HideAll();
+        _creator!.Visible = true;
         _creator.Reenter();
         _creator.FocusList();
     }
 
     void ShowCreatorAgain()
     {
-        _appearance!.Visible = false; _creator!.Visible = true;
+        HideAll();
+        _creator!.Visible = true;
         _creator.Reenter();
         _creator.FocusList();
     }
@@ -475,7 +452,8 @@ public sealed partial class FrontEndView : Control
         if (_creator.IsOrkOpen)
         {
             // The Ork Boy has no armour or colours (ui/customizer-ork): his look choice, the creator's LOOK step, instead of the appearance editor.
-            _joinScreen!.Visible = false; _appearance!.Visible = false; _creator.Visible = true;
+            HideAll();
+            _creator.Visible = true;
             _creator.OpenStep("LOOK");
             _creator.FocusList();
             return;
@@ -496,41 +474,74 @@ public sealed partial class FrontEndView : Control
             _creator.OpenSelection(Selection.CustomSlot(slot));
         }
         string race = _services.Settings.Side == SideChoice.Chaos ? CustomizationCatalog.Chaos : CustomizationCatalog.SpaceMarine;
-        _creator.Visible = false; _joinScreen!.Visible = false; _appearance!.Visible = true;
+        HideAll();
+        _appearance!.Visible = true;
         _appearance.Open(slot, race);
+    }
+
+    /// <summary>Esc or B steps back one page; the main menu stays.</summary>
+    public override void _Input(InputEvent e)
+    {
+        if (_page is null || _page == _main || !_page.IsVisibleInTree() || !PadHost.IsBack(e)) return;
+        GetViewport().SetInputAsHandled();
+        if (_page == _lobby) ShowMainMenu(); else ShowPage(_lobby!);
     }
 
     // ---- joining ----
 
-    void OnPick(Selection selection)
+    /// <summary>JOIN SERVER: the fixed address, nothing to type (<see cref="JoinTargets.PublicServer"/>).</summary>
+    void JoinPublicServer() => TryJoin(JoinTargets.PublicServer, remember: false);
+
+    /// <summary>CONNECT in JOIN LOCAL LOBBY: the one place an address is typed; it is remembered for next time.</summary>
+    void JoinLocal()
     {
-        var session = _services.Session!;
-        if (!LoadoutEdits.IsValid(session.Working, selection)) { Say($"Slot {selection.Slot} is empty. Choose CUSTOMIZE to fill it.", false); return; }
-        session.Edit(p => LoadoutEdits.Select(p, selection));
-        string? error = session.Save();
-        if (error is not null) Say("Could not remember your choice: " + error, true);
-        RefreshSummary();
+        string host = _address!.Text.Trim();
+        if (FrontEndSettings.ValidateHost(host) is { } problem) { Say(problem, true); _address.GrabFocus(); return; }
+        TryJoin(host, remember: true);
     }
 
-    void TryJoin()
+    void TryJoin(string host, bool remember)
     {
-        string host = _host!.Text.Trim();
-        if (FrontEndSettings.ValidateHost(host) is { } problem) { Say(problem, true); _host.GrabFocus(); return; }
         if (_services.Session!.Dirty)
         {
             // Unsaved edits are not part of what you join with.
             _services.Session.Revert();
         }
-        _services.UpdateSettings(x => x with { Host = host });
+        if (remember) _services.UpdateSettings(x => x with { Host = host });
         var plan = _services.PlanFor();
         if (plan is null) { Say("The game data is not ready yet.", true); return; }
-        _join(new JoinRequest(host, plan, _services, _services.Content, _spectate?.ButtonPressed ?? false));
+        var request = new JoinRequest(host, plan, _services, _services.Content, _spectate?.Index == 1);
+        LastJoin = request;
+        if (JoinOverride is { } test) test(request); else _join(request);
     }
 
-    /// <summary>Sets the Join screen's message line; empty hides it (the UI self-test's fit check measures the screen with and without one).</summary>
+    /// <summary>MUSOU MODE (the owner, 2026-11-01): the Three-Front War as the Host panel's Musou path starts it: this PC only, <c>--content musou</c>, joined by itself. The lobby's remembered profile is not touched.</summary>
+    void StartMusou()
+    {
+        if (_hostPanel is null) { Say("No server was found next to the game, so Musou cannot start.", true); return; }
+        if (HostedServer.Running)
+        {
+            if (HostedServer.Options is { Content: ContentProfiles.Musou, Port: var port }) { TryJoin(ServerLaunch.LocalHost(port), remember: false); return; }
+            Say("A server is running. Stop it in HOST LOCAL LOBBY first.", true);
+            return;
+        }
+        _services.Content = ContentExtras.Musou;
+        if (MusouOverride is { } test) { test(); return; }
+        _hostPanel.StartHosting();
+        if (!HostedServer.Running) _services.Content = _services.Settings.ContentExtras;   // it could not start: the message says why
+    }
+
+    /// <summary>Self-test: receives what a join would hand over, so no match starts.</summary>
+    public Action<JoinRequest>? JoinOverride { get; set; }
+    /// <summary>Self-test: MUSOU MODE stops before starting the server.</summary>
+    public Action? MusouOverride { get; set; }
+    /// <summary>What the last join asked for.</summary>
+    public JoinRequest? LastJoin { get; private set; }
+
+    /// <summary>Sets the message line (empty hides it).</summary>
     public void ShowMessage(string text, bool problem = false) => Say(text, problem);
 
-    /// <summary>The Join screen has the Host panel (a server executable was found next to the client or given with <c>--server-exe</c>).</summary>
+    /// <summary>The front end has the Host panel (a server executable was found next to the client or given with <c>--server-exe</c>).</summary>
     public bool HasHostPanel => _hostPanel is not null;
 
     void Say(string text, bool problem = false)
@@ -538,6 +549,7 @@ public sealed partial class FrontEndView : Control
         if (_message is null) return;
         _message.Text = text;
         _message.Visible = text.Length > 0;
+        _messageProblem = problem;
         _message.AddThemeColorOverride("font_color", problem ? UiKit.LightRed : UiKit.White);
     }
 
@@ -554,6 +566,8 @@ public sealed partial class FrontEndView : Control
             _controls!.Open(args["controls-screen"] is { } which && which.StartsWith("c", StringComparison.OrdinalIgnoreCase) ? BindDevice.Controller : BindDevice.Keyboard);
             if (args.ContainsKey("controls-conflict")) _controls.DemoConflict();
         }
+        // --menu-screen lobby|host|joinlocal|graphics|sound|controls: opens that page (screenshots).
+        if (args.GetValueOrDefault("menu-screen") is { } menuScreen) ShowMenuPage(menuScreen);
         if (args.ContainsKey("demo-look")) DemoLook();
         // --loadout <default:role|1..10>: the loadout to open with (held in memory, not saved), as at a --connect launch.
         if (args.GetValueOrDefault("loadout") is { } wanted && LaunchOptions.ParseLoadout(wanted, _services.Catalog!) is { } chosen && LoadoutEdits.IsValid(_services.Session!.Working, chosen))
@@ -626,7 +640,6 @@ public sealed partial class FrontEndView : Control
         p = LoadoutEdits.Rename(p, 3, "Jump trooper").Profile;
         p = LoadoutEdits.Select(p, Selection.CustomSlot(1));
         session.Seed(p);
-        _strip?.Refresh();
         RefreshSummary();
         _creator?.Reenter();
     }

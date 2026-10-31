@@ -91,7 +91,7 @@ public sealed partial class UiSelfTest
             session.Seed(keptProfile);
             await Frames(3);
         }
-        _front.ShowJoin();
+        _front.ShowMainMenu();
         await Frames(3);
     }
 
@@ -120,10 +120,10 @@ public sealed partial class UiSelfTest
             Check("ork: the customizer's configuration has the Ork Boy's class", orkClass >= 0 && _services.HasOrkClass, orkClass.ToString());
             Check("extended: the faction step offers the Orks", _services.Factions().Any(f => f.Race == OrkLoadout.Race) && _services.Roles().Contains(OrkLoadout.Role));
 
-            // The Join screen's DEFAULTS row has the Ork Boy.
-            _front.ShowJoin();
+            // The customizer's DEFAULTS row has the Ork Boy.
+            _front.ShowCreator();
             await Frames(4);
-            Check("extended: the Join screen offers the Ork Boy's DEFAULTS", FindButton(_front.JoinScreen!, b => b.Text.Contains("Ork Boy")) is not null);
+            Check("extended: the customizer offers the Ork Boy's DEFAULTS", FindButton(creator, b => b.Text.Contains("Ork Boy")) is not null);
 
             // The creator: faction button, class tab, DEFAULTS preview on the Ork rig in his idle.
             _front.ShowCreator();
@@ -213,7 +213,7 @@ public sealed partial class UiSelfTest
 
             // Faithful: nothing of the Ork is offered; the saved Ork loadout is kept and joins as the side's default.
             _services.SetContent(ContentExtras.None);
-            _front.ShowJoin();
+            _front.ShowMainMenu();
             await Frames(4);
             _front.ShowCreator();
             await Frames(4);
@@ -230,11 +230,9 @@ public sealed partial class UiSelfTest
             creator.OpenSelection(Selection.DefaultFor(OrkLoadout.Role));
             await Frames(3);
             Check("faithful: opening the Ork DEFAULTS directly falls back to a marine loadout", !creator.IsOrkOpen);
-            _front.ShowJoin();
-            await Frames(4);
-            Check("faithful: the Join screen offers no Ork DEFAULTS", FindButton(_front.JoinScreen!, b => b.Text.Contains("Ork Boy (either side)")) is null);
             _front.ShowCreator();
             await Frames(4);
+            Check("faithful: the customizer offers no Ork DEFAULTS", FindButton(creator, b => b.Text.Contains("Ork Boy (either side)")) is null);
             Check("faithful: the creator has no Orks faction and no Ork Boy tab", FindButton(creator, b => b.Text == "Orks") is null && FindButton(creator, b => b.Text == "Ork Boy" && b.ToggleMode) is null);
             var faithfulPlan = _services.PlanFor(Selection.CustomSlot(slot));
             Check("faithful: the saved Ork loadout joins as the side's default class with no Ork look",
@@ -252,7 +250,7 @@ public sealed partial class UiSelfTest
             session.Seed(kept);
             session.Save();   // the file as the run found it before these checks (they saved an Ork loadout into it)
             await Frames(3);
-            _front.ShowJoin();
+            _front.ShowMainMenu();
             await Frames(3);
         }
     }

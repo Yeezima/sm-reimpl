@@ -240,7 +240,7 @@ public sealed partial class UiSelfTest : Node
         Check("leaving with edits asks Save / Discard / Cancel", dialog is not null && new[] { "Save", "Discard", "Cancel" }.All(t => FindButton(dialog, b => b.Text == t) is not null));
         ClickDialog("Discard");
         await Frames(4);
-        Check("Discard reverts and shows the Join screen", !session.Dirty && session.Working.ClassAt(4)?.Name == "Zed the Bold" && _front.ShowsJoin);
+        Check("Discard reverts and shows the Join screen", !session.Dirty && session.Working.ClassAt(4)?.Name == "Zed the Bold" && _front.ShowsMainMenu);
 
         // 9. the appearance editor: a preset, a colour, a badge, then undo.
         _front.ShowCreator();
@@ -295,49 +295,55 @@ public sealed partial class UiSelfTest : Node
         await MouseSensitivityChecks();   // ui/mouse-sensitivity (UiSelfTest.MouseSensitivity.cs)
         await ControlsChecks();   // ui/keybinds (UiSelfTest.Controls.cs)
         await PadBackChecks();   // ui/pad-b-back: B on the controller backs out of menus (UiSelfTest.PadBack.cs)
+        await MenuChecks();   // ui/menu-rebuild: the tree, JOIN SERVER, the bot buttons (UiSelfTest.Menus.cs)
+        await OptionsChecks();   // ui/menu-rebuild: the options' rows, effects and persistence
         await FitChecks();
         await ArmourBarChecks();   // ui/armour-bar-fix: one armour bar layer (UiSelfTest.ArmourBar.cs)
         await ScoreBoxChecks();   // ui/score-box-center: the HUD score box holds its block (UiSelfTest.ScoreBox.cs)
     }
 
     /// <summary>
-    /// fix/connect-timeout, fix/hosting-bots-logs: the HOST panel's BOTS stepper (no bots by default in every reach, never remembered, 0 to 15, - / + at the ends
-    /// disabled), the Easy default, STOP SERVER disabled while nothing of this game runs, no live + BOT / - BOT on the running row, and an old saved 4v4 fill that
-    /// brings back no bots. Needs a server executable (<c>--server-exe</c> in a dev run); starts nothing. Leaves the saved choices at the defaults.
+    /// fix/connect-timeout, fix/hosting-bots-logs, ui/menu-rebuild: the bots of the host page (none by default in every reach, never remembered, a side at a time up to its limit), the Easy default,
+    /// STOP SERVER disabled while nothing of this game runs, no live add or remove on the running rows, and an old saved 4v4 fill that brings back no bots. Starts nothing. Leaves the saved choices at the defaults.
     /// </summary>
     async Task HostChecks()
     {
-        _front.ShowJoin();
+        _front.ShowMenuPage("host");
         await Frames(4);
         var panel = FindNode<HostPanel>(_front);
         if (panel is null) { GD.Print("SELFTEST SKIP host panel: no server executable next to the client (pass --server-exe <SmServer> to include it)"); return; }
         var original = _services.Settings;
-        Check("host: This PC only starts no bots by default, on Easy", panel.BotCount == 0 && panel.Difficulty == BotDifficulty.Easy && HostBots.Plan(panel.BotCount, false).Count == 0,
-              $"{panel.BotCount} {panel.Difficulty}");
-        Check("host: the BOTS stepper shows No bots", panel.BotsShown == ("No bots", "Easy"), panel.BotsShown.ToString());
-        Check("host: - is disabled at no bots, + is enabled", FindButton(panel, b => b.Name == "BotsFewer") is { Disabled: true } && FindButton(panel, b => b.Name == "BotsMore") is { Disabled: false });
+        Check("host: This PC only starts no bots by default, on Easy", panel.BotCount == 0 && panel.Difficulty == BotDifficulty.Easy && HostBots.PlanSides(0, 0, false).Count == 0, $"{panel.BotCount} {panel.Difficulty}");
+        Check("host: the rows show no bots", panel.BotsShown == ("0", "0", "EASY"), panel.BotsShown.ToString());
+        Check("host: CLEAR BOTS is disabled with no bots", FindButton(panel, b => b.Name == "ClearBots") is { Disabled: true });
         Check("host: STOP SERVER is disabled with no server of this game running", FindButton(panel, b => b.Text == "STOP SERVER")?.Disabled == true || HostedServer.Running);
-        Check("host: no live + BOT / - BOT buttons", FindButton(panel, b => b.Text is "+ BOT" or "- BOT") is null);
-        panel.ShowRunningForTest("Hosting Annihilation on port 27015, this PC only · no bots");
+        panel.ShowRunningForTest("Hosting Annihilation on port 27015, this PC only, no bots");
         await Frames(3);
-        Check("host: the running row has JOIN YOUR SERVER and STOP SERVER and no bot buttons", FindButton(panel.RunningActions, b => b.Text == "STOP SERVER") is not null
-              && FindButton(panel.RunningActions, b => b.Text == "JOIN YOUR SERVER") is not null && FindButton(panel.RunningActions, b => b.Text is "+ BOT" or "- BOT") is null);
+        Check("host: the running rows have JOIN YOUR SERVER and STOP SERVER and no bot buttons", FindButton(panel, b => b.Text == "STOP SERVER") is not null
+              && FindButton(panel, b => b.Text == "JOIN YOUR SERVER") is not null && FindButton(panel, b => b.Name == "AddLoyalistBot") is null && FindButton(panel, b => b.Name == "AddChaosBot") is null);
         panel.ShowRunningForTest(null);
         await Frames(2);
 
-        panel.ChooseForTest(1, null);
+        panel.ChooseForTest(1, 0, null);
         await Frames(2);
-        Check("host: + gives 1 bot", panel.BotCount == 1 && panel.BotsShown.Count == "1 bot", panel.BotsShown.ToString());
-        panel.ChooseForTest(20, null);
+        Check("host: ADD LOYALIST BOT adds a bot on the Space Marines' side", panel.Bots == (1, 0) && panel.BotCount == 1 && panel.BotsShown.Loyalists == "1", panel.BotsShown.ToString());
+        panel.ChooseForTest(0, 2, null);
         await Frames(2);
-        Check("host: the stepper stops at 15, + disabled there", panel.BotCount == HostBots.MaxBots && panel.BotsShown.Count == "15 bots" && FindButton(panel, b => b.Name == "BotsMore") is { Disabled: true });
-        Press(panel, "LAN / Internet");
+        Check("host: ADD CHAOS BOT adds bots on the Chaos side", panel.Bots == (1, 2) && panel.BotsShown.Chaos == "2", panel.BotsShown.ToString());
+        var plan = HostBots.PlanSides(panel.Bots.Loyalists, panel.Bots.Chaos, false);
+        Check("host: the plan starts those bots", plan.Count(b => b.Side == HostBots.Marines) == 1 && plan.Count(b => b.Side == HostBots.Chaos) == 2);
+        panel.ChooseForTest(20, 20, null);
         await Frames(2);
-        Check("host: the number stays when the reach changes", panel.BotCount == HostBots.MaxBots);
-        Press(panel, "This PC only");
-        panel.ChooseForTest(-20, BotDifficulty.Normal);
+        Check("host: the sides stop at 15 bots beside the human (7 and 8), the buttons disabled there", panel.BotCount == HostBots.MaxBots && panel.Bots == (7, 8)
+              && FindButton(panel, b => b.Name == "AddLoyalistBot") is { Disabled: true } && FindButton(panel, b => b.Name == "AddChaosBot") is { Disabled: true }, panel.Bots.ToString());
+        ((UiKit.MenuChoice)FindButton(panel, b => b.Text == "WHO CAN JOIN")!).Step(1);
         await Frames(2);
-        Check("host: - goes back to No bots", panel.BotCount == 0 && panel.BotsShown.Count == "No bots");
+        Check("host: the numbers stay when the reach changes", panel.BotCount == HostBots.MaxBots);
+        ((UiKit.MenuChoice)FindButton(panel, b => b.Text == "WHO CAN JOIN")!).Step(1);
+        FindButton(panel, b => b.Name == "ClearBots")?.EmitSignal(BaseButton.SignalName.Pressed);
+        panel.ChooseForTest(0, 0, BotDifficulty.Normal);
+        await Frames(2);
+        Check("host: CLEAR BOTS goes back to no bots", panel.BotCount == 0 && panel.BotsShown.Loyalists == "0" && panel.BotsShown.Chaos == "0");
         Check("host: the difficulty is remembered", FrontEndSettings.Load(_services.SettingsDirectory).BotDifficulty == BotDifficulty.Normal);
         // An earlier build's saved fill ("hostBotsLocal": "FourVsFour" = 7 bots) is ignored and dropped at the next save.
         string file = System.IO.Path.Combine(_services.SettingsDirectory, FrontEndSettings.FileName);
@@ -355,11 +361,12 @@ public sealed partial class UiSelfTest : Node
             Check("host: an old saved 4v4 fill is not read back", false, e.Message);
         }
 
-        // How the panel fits the window (setup with the BOTS row, running row) is checked at every size by FitChecks.
+        // How the panel fits the window is checked at every size by FitChecks.
         _services.UpdateSettings(_ => original with { BotDifficulty = BotDifficulty.Easy });
-        panel.ChooseForTest(0, BotDifficulty.Easy);
+        panel.ChooseForTest(0, 0, BotDifficulty.Easy);
         await Frames(2);
         Check("host: the choices are back at the defaults", FrontEndSettings.Load(_services.SettingsDirectory) is { BotDifficulty: BotDifficulty.Easy } && panel.BotCount == 0);
+        _front.ShowMainMenu();
     }
 
     /// <summary>A toggle button pressed as a click does it (pressed state, then the Pressed signal the panel listens to).</summary>
@@ -412,28 +419,8 @@ public sealed partial class UiSelfTest : Node
                 string at = $"{size.X}x{size.Y} (UI {view.Size.X:F0}x{view.Size.Y:F0})";
                 Check($"fit {at}: the window takes the size", window.Size == size, window.Size.ToString());
 
-                _front.ShowJoin();
-                _front.ShowMessage("");
-                await Frames(4);
-                Check($"fit {at}: the Join screen has the Host panel (forced on in the self-test)", _front.HasHostPanel);
-                CheckJoinFits($"fit {at}: Join screen with the Host panel", view);
-                if (Mathf.IsEqualApprox(view.Size.Y, UiKit.VirtualHeight) && _front.JoinMiddle is { } middle && _front.JoinMiddleContent is { } content)
-                    Check($"fit {at}: a 16:9-or-wider window shows the whole Join screen without scrolling", !middle.GetVScrollBar().Visible,
-                        $"content {content.GetCombinedMinimumSize().Y:F0} in {middle.Size.Y:F0}");
-                // A long message (a failed join's reason) takes room above the bar: the middle gives it up and scrolls, the bar stays.
-                _front.ShowMessage("Could not connect to the server. " + string.Concat(Enumerable.Repeat("The server did not answer in time; check the address and that it runs the same content profile. ", 3)), true);
-                await Frames(4);
-                CheckJoinFits($"fit {at}: Join screen with a three-line message", view);
-                _front.ShowMessage("");
-                // The Host panel with a server running: the longest status line and four more buttons in its action row (what later server controls add).
-                if (_front.JoinHostPanel is { } host)
-                {
-                    host.ShowRunningForTest("Server running: Seize Ground, UDP 27015, all interfaces, content extended (starting...) - waiting for the game files", 4);
-                    await Frames(4);
-                    CheckJoinFits($"fit {at}: Join screen with a running server and 4 extra server buttons", view);
-                    host.ShowRunningForTest(null);
-                    await Frames(2);
-                }
+                Check($"fit {at}: the front end has the Host panel (forced on in the self-test)", _front.HasHostPanel);
+                await MenuFitChecks(view, at);   // ui/menu-rebuild (UiSelfTest.Menus.cs)
 
                 _front.ShowCreator();
                 creator.OpenSelection(Selection.CustomSlot(10));
@@ -456,6 +443,7 @@ public sealed partial class UiSelfTest : Node
                 creator.Deploy = _ => { };
                 creator.Leave = () => { };
                 creator.BackText = "RESUME (Esc)";
+                creator.ShowLeave = true;
                 creator.OpenSelection(Selection.CustomSlot(10));
                 await Frames(4);
                 CheckFits($"fit {at}: in-match loadout picker", creator, view);
@@ -477,17 +465,8 @@ public sealed partial class UiSelfTest : Node
             _front.JoinHostPanel?.ShowRunningForTest(null);
             session.Seed(kept);
             await Frames(3);
-            _front.ShowJoin();
+            _front.ShowMainMenu();
         }
-    }
-
-    /// <summary>The Join screen's controls fit, JOIN is in the window outside the scrolling part, and the scrolling part keeps a usable height.</summary>
-    void CheckJoinFits(string name, Rect2 view)
-    {
-        CheckFits(name, _front.JoinScreen!, view);
-        var join = FindButton(_front.JoinScreen!, b => b.Text == "JOIN");
-        Check($"{name}: JOIN is in the window and outside the scrolling part", join is not null && Encloses(view, join.GetGlobalRect()) && !IsInside(join, _front.JoinMiddle));
-        Check($"{name}: the scrolling part is at least 300 high", _front.JoinMiddle is { } m && m.Size.Y >= 300f, $"{_front.JoinMiddle?.Size.Y:F0}");
     }
 
     static bool Encloses(Rect2 outer, Rect2 inner) =>
@@ -853,54 +832,29 @@ public sealed partial class UiSelfTest : Node
         var kept = session.Working;
         string originalName = _services.Settings.Content;   // restored at the end: the run must not leave its own choice in the settings file
         var originalContent = _services.Content;
-        _front.ShowJoin();
+        _front.ShowMenuPage("lobby");
         await Frames(4);
-        var faithfulButton = FindButton(_front, b => b.Name == "ContentFaithful");
-        var extendedButton = FindButton(_front, b => b.Name == "ContentExtended");
-        Check("the Join screen has the content picker", faithfulButton is not null && extendedButton is not null);
+        var row = FindButton(_front.LobbyPage!, b => b.Text == "CONTENT") as UiKit.MenuChoice;
+        Check("the lobby page has the content choice", row is not null);
 
         // Extended is the default and the one that adds content; Faithful removes it, and the choice is remembered next to the profile.
         if (ContentExtras.Compiled)
         {
-            extendedButton?.EmitSignal(BaseButton.SignalName.Pressed);
+            Check("the lobby offers Faithful and Extended only: Musou has its own row", row?.Values.SequenceEqual(["FAITHFUL", "EXTENDED"]) == true, string.Join(",", row?.Values ?? []));
+            row?.SetIndex(0);
+            row?.Step(1);
             await Frames(2);
             Check("Extended plays every added content and is remembered", _services.Content == ContentExtras.All && FrontEndSettings.Load(_services.SettingsDirectory).Content == ContentProfiles.Extended, _services.Content.ToString());
             Check("the default profile is extended", ContentProfiles.DefaultName == ContentProfiles.Extended && FrontEndSettings.Default.Content == ContentProfiles.Extended);
-        }
-        else Check("a build without added content cannot pick Extended", extendedButton?.Disabled == true);
-
-        // Musou (experimental added content, MU0): its own button; Extended never selects it; it is remembered as "musou" and the Host panel hosts it on this PC only.
-        var musouButton = FindButton(_front, b => b.Name == "ContentMusou");
-        // Hidden until the mode is ready (the owner, 2026-10-31): shown only with --musou or SM_MUSOU=1.
-        if (!_front.MusouShown)
-        {
-            Check("the Musou button is hidden without --musou", musouButton is null || !musouButton.Visible);
-            Check("hidden Musou: the profile and the Host panel are not Musou", !_services.Content.HasFlag(ContentExtras.Musou) && _front.JoinHostPanel?.Musou != true, _services.Content.ToString());
-        }
-        else
-        {
-            Check("the content picker has the Musou button", musouButton is not null);
-            Check("Extended never includes Musou", !ContentExtras.All.HasFlag(ContentExtras.Musou) && !_services.Content.HasFlag(ContentExtras.Musou) && musouButton?.ButtonPressed == false, _services.Content.ToString());
-        }
-        if (ContentExtras.Compiled && _front.MusouShown)
-        {
-            musouButton?.EmitSignal(BaseButton.SignalName.Pressed);
-            await Frames(3);
-            Check("Musou plays the Musou mode alone and is remembered", _services.Content == ContentExtras.Musou && FrontEndSettings.Load(_services.SettingsDirectory).Content == ContentProfiles.Musou, _services.Content.ToString());
-            Check("the picker shows Musou, not Extended", musouButton?.ButtonPressed == true && extendedButton?.ButtonPressed == false && faithfulButton?.ButtonPressed == false);
-            if (_front.JoinHostPanel is { } host)
-                Check("the Host panel starts Musou on this PC without bots", host.Musou && host.HostButtonText == "START MUSOU" && host.BotCount == 0, host.HostButtonText);
-            extendedButton?.EmitSignal(BaseButton.SignalName.Pressed);
-            await Frames(3);
-            Check("choosing Extended after Musou leaves Musou", _services.Content == ContentExtras.All && musouButton?.ButtonPressed == false && extendedButton?.ButtonPressed == true, _services.Content.ToString());
+            Check("Extended never includes Musou", !ContentExtras.All.HasFlag(ContentExtras.Musou) && !_services.Content.HasFlag(ContentExtras.Musou), _services.Content.ToString());
             if (_front.JoinHostPanel is { } back)
-                Check("the Host panel is back to HOST A MATCH", !back.Musou && back.HostButtonText == "HOST A MATCH", back.HostButtonText);
+                Check("the Host panel hosts a match", !back.Musou && back.HostButtonText == "HOST A MATCH", back.HostButtonText);
+            row?.Step(1);
+            await Frames(2);
         }
-        else if (!ContentExtras.Compiled && _front.MusouShown) Check("a build without added content cannot pick Musou", musouButton?.Disabled == true);
-        faithfulButton?.EmitSignal(BaseButton.SignalName.Pressed);
-        await Frames(2);
+        else Check("a build without added content offers Faithful alone", row?.Values.Count == 1);
         Check("Faithful plays no added content and is remembered", _services.Content == ContentExtras.None && FrontEndSettings.Load(_services.SettingsDirectory).Content == ContentProfiles.Faithful);
-        Check("the picker shows the choice", faithfulButton?.ButtonPressed == true && extendedButton?.ButtonPressed == false);
+        Check("the row shows the choice", row?.Value == "FAITHFUL");
 
         // The customizer's faction step and the class creator do not offer the Ork in the faithful profile.
         var factions = _services.Factions();
@@ -918,7 +872,7 @@ public sealed partial class UiSelfTest : Node
         var ork = new CustomClass(9, "Boyz", SmContent.OrkClass.Role, null, null, null, null, [null, null], AppearanceRefs.None);
         var withOrk = new CustomizationProfile(kept.Schema, Selection.CustomSlot(9), kept.Classes.Where(c => c.Slot != 9).Append(ork).ToList(), kept.Appearances);
         session.Seed(withOrk);
-        _front.ShowJoin();
+        _front.ShowCreator();
         await Frames(4);
         Check("the Ork slot stays in the profile", session.Working.ClassAt(9)?.Role == SmContent.OrkClass.Role);
         Check("the Ork slot is shown as unavailable in the faithful profile", FindButton(_front, b => b.TooltipText.Contains("added content", StringComparison.OrdinalIgnoreCase)) is not null);
@@ -945,6 +899,6 @@ public sealed partial class UiSelfTest : Node
         _services.UpdateSettings(x => x with { Content = originalName });
         await Frames(2);
         Check("the saved content choice is restored", FrontEndSettings.Load(_services.SettingsDirectory).Content == originalName && _services.Content == originalContent, FrontEndSettings.Load(_services.SettingsDirectory).Content);
-        _front.ShowJoin();
+        _front.ShowMainMenu();
     }
 }

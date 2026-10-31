@@ -23,8 +23,11 @@ public enum SideChoice { Auto, SpaceMarines, Chaos }
 /// never remembered (hosting starts none unless the player picks a number); the old <c>hostBotsLocal</c> / <c>hostBotsLan</c> fills of earlier builds are ignored
 /// when read and dropped at the next save, so they cannot bring back the 7 bots.</remarks>
 public sealed record FrontEndSettings(string Host, SideChoice Side, bool ReduceMotion, bool ShowOthersEmblems, string Content = ContentProfiles.DefaultName,
-    BotDifficulty BotDifficulty = BotDifficulty.Easy, float FovDegrees = 0f, float MouseSensitivity = SmClient.Customizer.Model.MouseSensitivity.Default)
+    BotDifficulty BotDifficulty = BotDifficulty.Easy, float FovDegrees = 0f, float MouseSensitivity = SmClient.Customizer.Model.MouseSensitivity.Default, GameOptions? SavedOptions = null)
 {
+    /// <summary>The Options menu's settings (ui/menu-rebuild).</summary>
+    public GameOptions Options { get => SavedOptions ?? GameOptions.Default; init => SavedOptions = value; }
+
     public const string FileName = "frontend.json", DefaultHost = "127.0.0.1:27015";
     public static FrontEndSettings Default => new(DefaultHost, SideChoice.Auto, false, true);
 
@@ -55,7 +58,7 @@ public sealed record FrontEndSettings(string Host, SideChoice Side, bool ReduceM
             float fov = o["fovDegrees"] is JsonValue fv && fv.TryGetValue<double>(out var fd) && double.IsFinite(fd) && fd is > 0 and <= FovMath.Maximum ? (float)fd : 0f;
             // ui/mouse-sensitivity: the factor on the mouse look (1 = the original feel); a wrong value is the default.
             float sens = o["mouseSensitivity"] is JsonValue mv && mv.TryGetValue<double>(out var md) && double.IsFinite(md) && md is >= SmClient.Customizer.Model.MouseSensitivity.Minimum - 1e-6 and <= SmClient.Customizer.Model.MouseSensitivity.Maximum + 1e-6 ? SmClient.Customizer.Model.MouseSensitivity.Clamp((float)md) : SmClient.Customizer.Model.MouseSensitivity.Default;
-            return new FrontEndSettings(host, side, Flag("reduceMotion", false), Flag("showOthersEmblems", true), content, difficulty, fov, sens);
+            return new FrontEndSettings(host, side, Flag("reduceMotion", false), Flag("showOthersEmblems", true), content, difficulty, fov, sens, GameOptions.Read(o["options"]));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or ArgumentException) { return Default; }
     }
@@ -67,7 +70,7 @@ public sealed record FrontEndSettings(string Host, SideChoice Side, bool ReduceM
         {
             Directory.CreateDirectory(directory);
             var o = new JsonObject { ["host"] = Host, ["side"] = Side.ToString(), ["reduceMotion"] = ReduceMotion, ["showOthersEmblems"] = ShowOthersEmblems, ["content"] = Content,
-                ["hostBotDifficulty"] = BotDifficulty.ToString(), ["fovDegrees"] = Math.Round(FovDegrees, 1), ["mouseSensitivity"] = Math.Round(MouseSensitivity, 2) };
+                ["hostBotDifficulty"] = BotDifficulty.ToString(), ["fovDegrees"] = Math.Round(FovDegrees, 1), ["mouseSensitivity"] = Math.Round(MouseSensitivity, 2), ["options"] = Options.Write() };
             string path = Path.Combine(directory, FileName), temp = path + ".tmp-" + Guid.NewGuid().ToString("N");
             try
             {

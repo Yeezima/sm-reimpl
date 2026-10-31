@@ -46,18 +46,22 @@ public sealed partial class CreatorView : Control
     /// <summary>In a match (M44): shows "LEAVE MATCH" (with a confirmation) and calls this when confirmed; null hides the button.</summary>
     public Action? Leave { get => _leave; set { _leave = value; if (_leaveButton is not null) _leaveButton.Visible = value is not null; } }
     Action? _leave;
+    /// <summary>In the Esc menu's picker LEAVE MATCH is a row of that menu: the creator keeps the action (<see cref="ConfirmLeave"/>) but not the button.</summary>
+    public bool ShowLeave { set { if (_leaveButton is not null) _leaveButton.Visible = value && _leave is not null; } }
 
     /// <summary>LEAVE MATCH: unsaved edits go through the same Save / Discard / Cancel prompt as RESUME, then the player leaves; without edits a plain confirmation.</summary>
-    void ConfirmLeave()
+    /// <param name="over">What the question dims and blocks (the screen it was asked from; default this view).</param>
+    public void ConfirmLeave(Control? over = null)
     {
+        Control background = over ?? this;
         if (PickerRules.LeaveStep(_session.Dirty) == PickerRules.LeavePrompt.SaveFirst)
-            UiKit.Dialog.Open(this, Host, "Unsaved changes", "Save your loadouts and looks before you leave the match?", ["Save", "Discard", "Cancel"], i =>
+            UiKit.Dialog.Open(background, Host, "Unsaved changes", "Save your loadouts and looks before you leave the match?", ["Save", "Discard", "Cancel"], i =>
             {
                 if (i == 0) { string? error = _session.Save(); if (error is null) _leave?.Invoke(); else Say("Could not save: " + error); }
                 else if (i == 1) { _session.Revert(); _leave?.Invoke(); }
             });
         else
-            UiKit.Dialog.Open(this, Host, "Leave the match?", "You go back to the main menu.", ["Leave", "Stay"], i => { if (i == 0) _leave?.Invoke(); });
+            UiKit.Dialog.Open(background, Host, "Leave the match?", "You go back to the main menu.", ["Leave", "Stay"], i => { if (i == 0) _leave?.Invoke(); });
     }
 
     Selection _open;
@@ -74,8 +78,7 @@ public sealed partial class CreatorView : Control
     readonly PreviewStage _preview;
     readonly List<Button> _stepButtons = new(), _tabButtons = new();
     readonly HBoxContainer _sideToggle = UiKit.HBox(8);
-    Button? _backButton, _leaveButton, _controlsButton;
-    ControlsView? _controlsView;
+    Button? _backButton, _leaveButton;
     Button? _save, _setActive, _revert, _rename, _copy, _reset, _clear, _look, _deployButton;
     double _statusUntil;
 
@@ -103,15 +106,6 @@ public sealed partial class CreatorView : Control
         _sideCaption = UiKit.Text("Preview side:", UiKit.CaptionSize, UiKit.Grey).With(l => l.VerticalAlignment = VerticalAlignment.Center);
         header.AddChild(_sideCaption);
         header.AddChild(_sideToggle);
-        // The two slim sliders (FOV and mouse sensitivity) stack in the height of one button, so the header keeps its room for BACK and LEAVE MATCH.
-        var sliders = UiKit.VBox(2);
-        sliders.SizeFlagsVertical = SizeFlags.ShrinkCenter;
-        sliders.AddChild(UiKit.FovRow(services.Settings.FovDegrees, f => services.UpdateSettings(x => x with { FovDegrees = f }), compact: true));   // ui/fov-slider (ours)
-        sliders.AddChild(UiKit.MouseSensitivityRow(services.Settings.MouseSensitivity, m => services.UpdateSettings(x => x with { MouseSensitivity = m }), compact: true));   // ui/mouse-sensitivity (ours)
-        header.AddChild(sliders);
-        _controlsButton = UiKit.Button("CONTROLS", OpenControls, 170, "Rebind the keyboard, mouse and controller");   // ui/keybinds (ours)
-        _controlsButton.Name = "ControlsButton";
-        header.AddChild(_controlsButton);
         // The ACTIVE line fills the space up to the buttons and is cut (full text in its tooltip) rather than pushing BACK / LEAVE MATCH off the window (fix/frontend-fit).
         _activeLabel = UiKit.Text("", UiKit.CaptionSize, UiKit.Gold, HorizontalAlignment.Right);
         _activeLabel.VerticalAlignment = VerticalAlignment.Center;
@@ -121,12 +115,10 @@ public sealed partial class CreatorView : Control
         header.AddChild(_activeLabel);
         _backButton = UiKit.Button("BACK (Esc)", () => Back(), 190);
         header.AddChild(_backButton);
-        _leaveButton = UiKit.Button("LEAVE MATCH", ConfirmLeave, 220);
+        _leaveButton = UiKit.Button("LEAVE MATCH", () => ConfirmLeave(), 220);
         _leaveButton.Visible = false;
         header.AddChild(_leaveButton);
         root.AddChild(header);
-        _controlsView = new ControlsView(CloseControls);
-        AddChild(_controlsView);
         _banner = UiKit.Text("", UiKit.BodySize, UiKit.Gold);
         _banner.Visible = false;
         root.AddChild(_banner);
@@ -374,7 +366,7 @@ public sealed partial class CreatorView : Control
         for (int i = 0; i < StepNames.Length; i++)
         {
             int index = i;
-            var b = new Button { Text = $"{i + 1}  {StepNames[i]}", Alignment = HorizontalAlignment.Left, ToggleMode = true, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(0, 56) };
+            var b = new Button { Text = $"{i + 1}  {StepNames[i]}", Alignment = HorizontalAlignment.Left, ToggleMode = true, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(0, 44) };
             b.Pressed += () => { _step = (Step)index; Refresh(focusList: true); };
             _steps.AddChild(b);
             _stepButtons.Add(b);
@@ -973,7 +965,7 @@ public sealed partial class CreatorView : Control
 
     public override void _UnhandledKeyInput(InputEvent e)
     {
-        if (!IsVisibleInTree() || _controlsView?.Visible == true || e is not InputEventKey { Pressed: true } key) return;
+        if (!IsVisibleInTree() || e is not InputEventKey { Pressed: true } key) return;
         bool ctrl = key.CtrlPressed || key.MetaPressed;
         switch (key.PhysicalKeycode)
         {
@@ -989,7 +981,7 @@ public sealed partial class CreatorView : Control
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (!IsVisibleInTree() || _controlsView?.Visible == true) return;   // the CONTROLS screen over this one owns the keys and the pad
+        if (!IsVisibleInTree()) return;
         if (PadHost.IsBack(e)) { GetViewport().SetInputAsHandled(); Back(); return; }
         if (e is InputEventJoypadButton { Pressed: true } pad)
         {
@@ -1012,17 +1004,6 @@ public sealed partial class CreatorView : Control
         _step = (Step)(((int)_step + delta + StepCount) % StepCount);
         Refresh(focusList: false);
     }
-
-    void OpenControls() => _controlsView?.Open();
-
-    void CloseControls()
-    {
-        _controlsView?.Close();
-        _controlsButton?.FocusLater();
-    }
-
-    /// <summary>The CONTROLS screen laid over this one (key and controller rebinding; ui/keybinds).</summary>
-    public ControlsView? ControlsScreen => _controlsView;
 
     /// <summary>Focuses the first control (screens and tests).</summary>
     public void FocusList() => Refresh(true);

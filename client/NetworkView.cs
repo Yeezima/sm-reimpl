@@ -387,7 +387,7 @@ public partial class NetworkView : Node3D
         if (e is InputEventMouseMotion motion && MouseCaptured && !OwnDead)
         {
             _yaw -= motion.Relative.X * MouseYawPerPixel * MouseLook;   // mouse right turns right (clockwise seen from above)
-            _pitch = Math.Clamp(_pitch - motion.Relative.Y * MouseYawPerPixel * MouseLook, _pitchMin, _pitchMax);   // mouse up aims up
+            _pitch = Math.Clamp(_pitch - motion.Relative.Y * SmClient.Customizer.Model.LiveOptions.MouseVertical * MouseYawPerPixel * MouseLook, _pitchMin, _pitchMax);   // mouse up aims up
         }
         else if (e is InputEventKey { Pressed: true, PhysicalKeycode: Key.Escape })
         {

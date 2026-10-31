@@ -37,7 +37,7 @@ public sealed partial class GameFolderSetup : Control
     {
         UiKit.EnterVirtualSpace(GetWindow());
         GD.Print("game folder setup: Space Marine (2011, Steam) not found");
-        AddChild(UiKit.Background().With(n => n.SetAnchorsPreset(LayoutPreset.FullRect)));
+        AddChild(UiKit.MenuBackground().With(n => n.SetAnchorsPreset(LayoutPreset.FullRect)));
 
         var box = UiKit.VBox(16);
         box.CustomMinimumSize = new Vector2(1000, 0);
@@ -75,7 +75,7 @@ public sealed partial class GameFolderSetup : Control
         box.AddChild(new LinkButton { Text = "Help, builds and issues: " + ServerLaunch.ReleasesUrl, Uri = ServerLaunch.ReleasesUrl }.With(l => l.AddThemeFontSizeOverride("font_size", UiKit.CaptionSize)));
 
         var panel = UiKit.Panel(box, 28);
-        panel.AddThemeStyleboxOverride("panel", UiKit.Box(UiKit.PanelSolid, UiKit.Gold, 3, 28));
+        panel.AddThemeStyleboxOverride("panel", UiKit.Box(UiKit.PanelSolid, UiKit.PanelSolid, 0, 28));
         var center = new CenterContainer();
         center.SetAnchorsPreset(LayoutPreset.FullRect);
         center.AddChild(panel);

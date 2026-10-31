@@ -11,6 +11,29 @@ namespace SmFormats.Tests;
 public sealed class HostBotsTests
 {
     [Fact]
+    public void Plan_sides_starts_the_bots_each_side_asked_for()
+    {
+        var plan = HostBots.PlanSides(2, 3, humanChaos: false);
+        Assert.Equal(2, plan.Count(b => b.Side == HostBots.Marines));
+        Assert.Equal(3, plan.Count(b => b.Side == HostBots.Chaos));
+        Assert.Equal(HostBots.Chaos, plan[0].Side);   // the human's side has a player already
+        Assert.Equal(["chaos tactical", "havoc", "raptor"], plan.Where(b => b.Side == HostBots.Chaos).Select(b => b.Class));
+        Assert.All(HostBots.PlanSides(0, 4, false), b => Assert.Equal(HostBots.Chaos, b.Side));
+        Assert.Empty(HostBots.PlanSides(0, 0, true));
+    }
+
+    [Fact]
+    public void Plan_sides_keeps_eight_a_side_with_the_human()
+    {
+        Assert.Equal(7, HostBots.MaxForSide(HostBots.Marines, humanChaos: false));
+        Assert.Equal(8, HostBots.MaxForSide(HostBots.Chaos, humanChaos: false));
+        Assert.Equal(7, HostBots.MaxForSide(HostBots.Chaos, humanChaos: true));
+        var full = HostBots.PlanSides(99, 99, humanChaos: false);
+        Assert.Equal(HostBots.MaxBots, full.Count);
+        Assert.Equal(7, full.Count(b => b.Side == HostBots.Marines));
+    }
+
+    [Fact]
     public void Start_state_maps_the_servers_exit_and_listening_line()
     {
         Assert.Equal(HostStartState.Starting, HostStart.StateOf(running: true, ready: false, exitCode: null, secondsSinceStart: 5));

@@ -65,7 +65,7 @@ public partial class NetworkView
     CameraSet? _lastEvadeSet;
     bool _evadeCamLogged;
     /// <summary>The mouse look scale: the camera tuning's speed_mouse / 100 times the player's sensitivity option (ui/mouse-sensitivity; 1 = the original feel).</summary>
-    float MouseLook => SmClient.Customizer.Model.MouseSensitivity.Look(_mouseScale);
+    float MouseLook => SmClient.Customizer.Model.MouseSensitivity.Look(_mouseScale) * SmClient.Customizer.Model.LiveOptions.MouseAim(_client?.Predicted.Aiming == true);
     float _mouseScale = 1f;                // speed_mouse / 100 of the current camera
     float _pitchMin = -MaxPitchDown, _pitchMax = MaxPitchUp;
     float _rigFraction = 1f;               // how much of the way from the pivot to the wanted eye the camera is (wall pull-in, smoothed outward)

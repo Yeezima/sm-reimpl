@@ -61,13 +61,13 @@ public sealed partial class UiSelfTest
         const BindDevice KB = BindDevice.Keyboard, Pad = BindDevice.Controller;
         try
         {
-            _front.ShowJoin();
-            await Frames(3);
-            var open = FindButton(_front.JoinScreen!, b => b.Name == "ControlsButton");
-            Check("controls: the Join footer has a CONTROLS button", open is not null);
+            _front.ShowOptions(OptionsView.Controls);
+            await Frames(4);
+            var open = FindButton(_front.Options!, b => b.Name == "ControlsButton");
+            Check("controls: OPTIONS, CONTROLS has a KEYBINDS row", open is not null);
             open?.EmitSignal(BaseButton.SignalName.Pressed);
             await Frames(4);
-            Check("controls: it opens over the Join screen on the keyboard tab", controls.Visible && !_front.ShowsJoin && controls.Device == KB);
+            Check("controls: it opens on the keyboard tab", controls.Visible && !_front.Options!.Visible && controls.Device == KB);
             bool listed = true;
             string missing = "";
             foreach (var info in ControlActions.For(KB, ContentExtras.Compiled))
@@ -183,29 +183,15 @@ public sealed partial class UiSelfTest
             await AnswerControlsDialog(controls, "Reset");
             Check("controls: Reset puts the controller tab back", controls.Working.IsDefault(Pad) && ControlsInput.Bindings.IsDefault(Pad) && !File.Exists(file));
 
-            // Back (Esc) returns to the Join screen.
+            // Back (Esc) returns to OPTIONS.
             await SendKey(Key.Escape);
-            Check("controls: Esc goes back to the Join screen", !controls.Visible && _front.ShowsJoin);
-
-            // The same screen over the loadout creator (the in-match menu).
-            _front.ShowCreator();
-            await Frames(4);
-            var creator = _front.Creator!;
-            var inCreator = FindButton(creator, b => b.Name == "ControlsButton");
-            Check("controls: the loadout screen (also the in-match menu) has a CONTROLS button", inCreator is not null);
-            inCreator?.EmitSignal(BaseButton.SignalName.Pressed);
-            await Frames(4);
-            var overlay = creator.ControlsScreen;
-            Check("controls: it opens over the loadouts", overlay is { Visible: true });
-            overlay?.BackButton.EmitSignal(BaseButton.SignalName.Pressed);
-            await Frames(3);
-            Check("controls: BACK returns to the loadouts", overlay is { Visible: false } && creator.Visible);
+            Check("controls: Esc goes back to OPTIONS", !controls.Visible && _front.Options!.Visible);
         }
         finally
         {
             ControlsInput.Use(BindingSet.Defaults());
             controls.Close();
-            _front.ShowJoin();
+            _front.ShowMainMenu();
             await Frames(2);
         }
     }
@@ -223,6 +209,6 @@ public sealed partial class UiSelfTest
         CheckFits($"fit {at}: controls, controller tab", controls, view);
         controls.Open(BindDevice.Keyboard);
         await Frames(2);
-        _front.ShowJoin();
+        _front.ShowMainMenu();
     }
 }
