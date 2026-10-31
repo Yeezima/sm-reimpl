@@ -41,7 +41,7 @@ public static class LeanBot
         "frame-profile", "frame-stats", "look-churn", "look-log", "look-closeup", "picker-demo", "picker-on-death", "picker-deploy", "bot-change-loadout",
         "bot-gait", "gait-sweep", "action-sweep", "bot-turn-sweep", "turn-sweep-fire", "latency-probe", "bullet-probe", "show-shot-rays", "camera-hide-log",
         "slash-trace", "run-start-log", "log-sound", "log-footsteps", "reload-capture", "reload-probe", "ork-capture", "screenshot", "screenshot-every",
-        "record-demo", "spectate", "ragdoll-debug", "damage-demo", "aim-test", "hud-demo", "hud-rewards-demo", "hud-switch-demo", "hud-launcher-demo", "scope-spread-demo", "pound-marker-demo",
+        "record-demo", "spectate", "ragdoll-debug", "damage-demo", "aim-test", "hud-demo", "hud-rewards-demo", "hud-score-demo", "hud-switch-demo", "hud-launcher-demo", "scope-spread-demo", "pound-marker-demo",
         // review round (L2): the remaining probes, logs, captures and sweeps of the client
         "pose-pop-probe", "turn-probe", "turn-probe-events", "turn-probe-trace", "transition-probe-csv", "transition-probe-trace", "anim-probe-csv", "motion-probe-worst",
         "gait-sweep-fire", "ui-sound-probe", "log-fall", "log-falls", "log-upper", "log-sprint-edges", "log-death-fx", "bot-ledge", "ledge-charge",
@@ -56,7 +56,7 @@ public static class LeanBot
         // fix/stow-right: the switch test view and its probe, the capture window, the bot that switches for the capture
         "switch-test", "switch-probe", "wait-switch-window", "bot-switch-every",
         // fx/character-visuals: the armour flash demo
-        "armour-flash-demo", "slash-cone-demo", "stim-glow-demo", "old-bolt-tracer", "old-pistol-tracer",
+        "armour-flash-demo", "slash-cone-demo", "stim-glow-demo", "old-bolt-tracer", "old-score-box", "old-pistol-tracer",
         // anim/melee-interaction: the charge impact's log and the capture of its frames
         "log-charge-impact", "charge-shots",
     };

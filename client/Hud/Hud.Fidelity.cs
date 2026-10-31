@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using SmContent;
+using SmFormats.Gfx;
 using SmSim;
 
 namespace SmClient;
@@ -162,7 +163,10 @@ public sealed partial class Hud
         // The footage's panel sits 17 stage pixels right of the movie's place (its emblem where the movie's would be): measured side by side (ours).
         var root = Stage(vs, -1) * new Transform2D(0f, new Vector2(ScoreShift, 0f)) * ToXf(panel.ToStage);
         root *= new Transform2D(Mathf.DegToRad(ScoreTilt), new Vector2(200f, 70f)) * new Transform2D(0f, new Vector2(-200f, -70f));
-        var band = new Vector2[] { new(104f, BandTop), new(BandRight, BandTop), new(BandRight, BandBottom), new(92f, BandBottom) };   // ui/hud-3: ends where the bars' troughs end, as the owner's reference (ours)
+        // ui/score-box-center (owner, 2026-10-31): the box is laid out around the block (scores, bars, timer over the limit) and the block is centred in it (Hud.ScoreBox.cs); until the bars are
+        // measured the earlier box and drawing stand.
+        var layout = LayoutScoreBox(text, d.OwnScore.ToString(), d.EnemyScore.ToString(), d.ScoreLimit > 0 ? d.ScoreLimit.ToString() : "-", d.Clock);
+        var band = layout is { } l0 ? ScoreBoxCorners(l0) : new Vector2[] { new(104f, BandTop), new(BandRight, BandTop), new(BandRight, BandBottom), new(92f, BandBottom) };
         var bandV = new Vector2[4];
         for (int i = 0; i < 4; i++) bandV[i] = root * band[i];
         DrawPolygon(bandV, [new Color(0f, 0f, 0f, 0.8f), new Color(0f, 0f, 0f, 0.86f), new Color(0f, 0f, 0f, 0.86f), new Color(0f, 0f, 0f, 0.8f)]);
@@ -176,23 +180,40 @@ public sealed partial class Hud
         int ownSprite = text.Find("mp_score_mc/sm_bar_mc")?.Placement.Character ?? -1, enemySprite = text.Find("mp_score_mc/chaos_bar_mc")?.Placement.Character ?? -1;
         int marker = text.Find("mp_score_mc/objective_marker1")?.Placement.Character ?? -1;
         var markerLabels = marker >= 0 ? text.Labels(marker) : new Dictionary<string, int>();
-        DrawWalk(text, panel.Placement.Character, 0, root, (path, _) => path switch
+        bool IsMarker(string path) => path.StartsWith("objective_marker", StringComparison.Ordinal);
+        // The points' markers sit above the box, where the movie puts them.
+        if (d.Seize)
+            DrawWalk(text, panel.Placement.Character, 0, root, (path, _) => path switch
+            {
+                "objective_marker1" or "objective_marker2" or "objective_marker3" => PointIndex(path) is int i && i < d.Points.Count ? markerLabels.GetValueOrDefault(PointLabel(d.Points[i]), 0) : 0,
+                _ => null,
+            }, ch => ch == marker, _ => null, null, 1f,
+                skip: path => !IsMarker(path) || path == "objective_marker4" || (PointIndex(path) is int j && j >= d.Points.Count));
+        // The block: moved to the box's middle; the timer and the limit are centred on the right column's line.
+        var content = layout is { } l1 ? root * new Transform2D(0f, l1.Shift) : root;
+        DrawWalk(text, panel.Placement.Character, 0, content, (path, _) => path switch
         {
             "sm_bar_mc" => own,
             "chaos_bar_mc" => enemy,
-            "objective_marker1" or "objective_marker2" or "objective_marker3" => d.Seize && PointIndex(path) is int i && i < d.Points.Count ? markerLabels.GetValueOrDefault(PointLabel(d.Points[i]), 0) : 0,
             _ => null,
-        }, ch => ch == ownSprite || ch == enemySprite || ch == marker,
+        }, ch => ch == ownSprite || ch == enemySprite,
             path => path switch
             {
                 "marine_kills" => d.OwnScore.ToString(),
                 "chaos_kills" => d.EnemyScore.ToString(),
-                "kill_number" => d.ScoreLimit > 0 ? d.ScoreLimit.ToString() : "-",
-                "mp_timer_txt" => d.Clock,
+                "kill_number" when layout is null => d.ScoreLimit > 0 ? d.ScoreLimit.ToString() : "-",
+                "mp_timer_txt" when layout is null => d.Clock,
                 _ => null,
             }, path => path == "marine_kills" ? MovieGold : path == "chaos_kills" ? MovieRed : null,
-            1f, skip: path => path is "team_1" or "team_2" || path == "objective_marker4" || (!d.Seize && path.StartsWith("objective_marker", StringComparison.Ordinal))
-                || (path.StartsWith("objective_marker", StringComparison.Ordinal) && PointIndex(path) is int j && j >= d.Points.Count));
+            1f, skip: path => path is "team_1" or "team_2" || IsMarker(path));
+        if (layout is { } l)
+        {
+            var timerField = text.Movie.EditTexts[text.Find("mp_score_mc/mp_timer_txt")!.Value.Placement.Character];
+            var limitField = text.Movie.EditTexts[text.Find("mp_score_mc/kill_number")!.Value.Placement.Character];
+            Color FieldColour(GfxEditText t) => new(t.Colour.R, t.Colour.G, t.Colour.B, t.Colour.A);
+            if (d.Clock.Length > 0) Txt(d.Clock, (content * new Vector2(l.ColumnCentre, l.TimerBase)).X, (content * new Vector2(l.ColumnCentre, l.TimerBase)).Y, l.TimerSize, FieldColour(timerField), 0, 0, l.TimerStyle);
+            Txt(d.ScoreLimit > 0 ? d.ScoreLimit.ToString() : "-", (content * new Vector2(l.ColumnCentre, l.LimitBase)).X, (content * new Vector2(l.ColumnCentre, l.LimitBase)).Y, l.LimitSize, FieldColour(limitField), 0, 0, l.LimitStyle);
+        }
         return true;
     }
 

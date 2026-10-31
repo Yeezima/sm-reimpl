@@ -250,6 +250,7 @@ public sealed partial class Hud : Control
         _events.RemoveAll(e => _time - e.At > EventSeconds);
         TrackRewards();
         RunRewardsDemo();
+        RunScoreDemo();   // ui/score-box-center (Hud/Hud.ScoreBox.cs)
         if (SwitchCardsDemo && Data.InGame) _popupAt = _time - 1.0;   // --hud-switch-demo (test aid): the switch cards stay open for screenshots
         TrackPoints();
         MovieProcess();
