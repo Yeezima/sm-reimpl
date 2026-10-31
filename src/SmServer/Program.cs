@@ -58,6 +58,18 @@ ulong fingerprint = ContentFingerprint.Compute(install);
 var contentExtras = cli.Content;
 Console.WriteLine($"content: {ContentProfiles.Describe(contentExtras)}{(contentExtras == ContentExtras.None ? " (SM1 multiplayer alone: no added content)" : "")}; " +
     $"build {(ContentExtras.Compiled ? "with" : "without")} added content; clients need --content {ContentProfiles.Name(contentExtras)}");
+// Musou (added content, experimental): the mode comes from the profile alone (there is no --mode musou). It plays on Annihilation's rules, endless (no score
+// or time limit: its own flow ends a round); any other --mode is refused.
+if (contentExtras.HasFlag(ContentExtras.Musou))
+{
+    if (mode != GameMode.Annihilation || !teams)
+    {
+        Console.Error.WriteLine("smserver: --content musou plays on Annihilation's rules only; leave --mode out (or give --mode annihilation)");
+        return ServerCommandLine.UsageError;
+    }
+    rules = rules with { ScoreLimit = int.MaxValue / 2, TimeLimit = 0f };
+    Console.WriteLine("musou: Space Marines only, no score or time limit (experimental)");
+}
 if (cli.OrkData && !contentExtras.HasFlag(ContentExtras.Orks)) Console.WriteLine("--ork-data: ignored, this profile has no Ork");
 // Ork O5: the Ork Boy plays (class 6) when the profile has it, in the owner's Tactical parity unless --ork-data (test aid; clients need the same flag).
 var tuning = GameplayTuning.LoadForMatch(install, contentExtras, cli.OrkData);

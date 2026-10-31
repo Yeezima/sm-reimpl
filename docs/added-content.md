@@ -149,3 +149,20 @@ voiceline 'FOR THE EMPEROR' at any time. it shouldn't interrupt any action or pl
 | Test aids | `--no-loyalist-barks`, `--log-sound loyalist` (every decision: said, chance, cooldown, spacing, phrase cooldown, speaking, SM1 speech), `--loyalist-gain <dB>`, `--bot-shout <s>` (a bot presses T every s seconds); bots print a summary every 10 s; the server logs each accepted shout. |
 | Code | `src/SmContent/Extras/LoyalistBarks/` (`LoyalistBarkPack`, `LoyalistBarkRules`), `src/SmNet/Extras/LoyalistBarks/LoyalistShoutWire.cs`, `src/SmServer/Extras/LoyalistBarks/GameServer.LoyalistBarks.cs`, `client/Extras/LoyalistBarks/NetworkView.LoyalistBarks.cs`; tests in `tests/*/Extras/LoyalistBarks/`. |
 
+## 8. Musou (`Musou`, flag 8; experimental, MU0 of MU0–MU4)
+
+The owner (2026-10-31): a separate experimental game mode, "labeled Musou", toggled in the menu like Faithful and Extended, which must not
+change the existing modes at all: local play on Manufactorum, massive simple swarm enemies (Orks, Chaos) in about five waves converging
+on the player, an Ork Warboss with a few abilities at the end, melee cleave in this mode only. Design: the lead's Musou design note
+(milestones MU0 switch, MU1 sim and director, MU2 network and crowd, MU3 combat, boss and HUD, MU4 tuning).
+
+| Piece | What |
+|---|---|
+| Switch | `--content musou` (`ContentProfiles.Musou`): a profile of its own, never combined with another flag and **not** in `ContentExtras.All`, so `extended` and its config hash are unchanged (`ContentExtras.Known` = All + Musou). Its own version (`MusouSim.Version`) is hashed in its `ExtrasHash` block; `ContentExtras.WireVersion` stays 2, the protocol stays 49. No `--mode musou`: the server refuses any mode but Annihilation under Musou (exit 2), with no score or time limit. |
+| Hooks (MU0) | `World.ExtrasStep` (after the perk blasts), `ExtrasMelee` (end of `ResolveMelee`), `ExtrasBlast` (end of `ApplyBlast`, also on its blind-only return), `ExtrasStepMatch(ref handled)` (top of `StepMatch`), `ExtrasJoinSide(ref want, ref forced)` (`AssignClass`, `AssignSide`), `GameServer.ExtrasCreated` (end of the constructor). Each is a no-op unless `World.StartMusou` ran, which only a Musou profile does. |
+| Dispatchers | one implementation per partial method: `GameServer.Extras.cs` (`ExtrasSend`: barks, then Musou; `ExtrasCreated`), `client/Extras/NetworkView.Extras.cs` (`ExtrasFrame` drains the envelope queue once and routes by tag: 2 barks, 3–5 Musou), `SimConfig.Extras.cs` (`ExtrasHash`), `GameplayTuning.Extras.cs` (`ExtrasLoad`). |
+| Wire | envelope tags 3 (enemies, 10-byte records quantised over the nav box), 4 (events, 16 bytes), 5 (director, 44 bytes); `MusouWire`. |
+| Front end | CONTENT reads Faithful / Extended / Musou; with Musou the Host panel is This PC only, Annihilation, no bots, START MUSOU, and gives back the earlier mode and reach when Musou is deselected. |
+| Isolation | `MusouIsolationTests` (core) pins the faithful and extended config hashes and a 900-tick replay hash captured on the code before the hooks; a loopback test shows faithful and extended servers never send tags 3–5. |
+| Code | `src/*/Extras/Musou/`, `client/Extras/Musou/`, `tests/SmNet.Tests/Extras/Musou/`. |
+

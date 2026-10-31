@@ -20,6 +20,12 @@ public enum ContentExtras : uint
     /// and the T key shouts FOR THE EMPEROR for everyone to hear, at any time, without an animation (docs/added-content.md section 7).
     /// </summary>
     LoyalistBarks = 4,
+    /// <summary>
+    /// Musou (experimental; the owner, 2026-10-31: "This game mode should be labeled Musou"): waves of Orks on Manufactorum converging on Space Marine
+    /// players, played on the player's own PC. A mode, not an addition to the existing ones: not in <see cref="ContentExtrasInfo.All"/> (so <c>extended</c>
+    /// and its config hash are unchanged), and <c>--content musou</c> only alone (never combined with another flag).
+    /// </summary>
+    Musou = 8,
 }
 
 /// <summary>The build-wide facts about <see cref="ContentExtras"/> (C# 14 static extension members: <c>ContentExtras.WireVersion</c>, <c>ContentExtras.Compiled</c>).</summary>
@@ -51,8 +57,14 @@ public static class ContentExtrasInfo
         /// </summary>
         public static ContentExtras ActionKeyUsers => ContentExtras.LoyalistBarks;
 
-        /// <summary>Every flag this source tree knows.</summary>
+        /// <summary>
+        /// Every added content of the <c>extended</c> profile. <see cref="ContentExtras.Musou"/> is a mode of its own and not in it (its profile is
+        /// <c>musou</c> alone); <see cref="Known"/> has every flag.
+        /// </summary>
         public static ContentExtras All => ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks;
+
+        /// <summary>Every flag this source tree knows: <see cref="All"/> and <see cref="ContentExtras.Musou"/>.</summary>
+        public static ContentExtras Known => ContentExtras.All | ContentExtras.Musou;
     }
 }
 
@@ -64,6 +76,8 @@ public static class ContentProfiles
 {
     public const string Faithful = "faithful";
     public const string Extended = "extended";
+    /// <summary>The Musou mode's profile (<see cref="ContentExtras.Musou"/> alone).</summary>
+    public const string Musou = "musou";
 
     /// <summary>
     /// The profile a server or client runs without <c>--content</c> (the owner's default, 2026-10-28: he plays the Ork and gore). A one-line change
@@ -75,11 +89,12 @@ public static class ContentProfiles
     public static ContentExtras Default => ContentExtras.Compiled && TryParse(DefaultName, out var extras, out _) ? extras : ContentExtras.None;
 
     /// <summary>The flag names of a list (lower case, as <c>--content</c> takes them).</summary>
-    static readonly (string Name, ContentExtras Flag)[] Flags = [("orks", ContentExtras.Orks), ("gore", ContentExtras.Gore), ("loyalist-barks", ContentExtras.LoyalistBarks)];
+    static readonly (string Name, ContentExtras Flag)[] Flags = [("orks", ContentExtras.Orks), ("gore", ContentExtras.Gore), ("loyalist-barks", ContentExtras.LoyalistBarks), (Musou, ContentExtras.Musou)];
 
     /// <summary>
-    /// Parses a <c>--content</c> value: <c>faithful</c>, <c>extended</c> or flags such as <c>orks,gore</c> (case and spaces ignored). False with a
-    /// one-line <paramref name="error"/> for an empty or unknown name, and for any added content in a build without extras.
+    /// Parses a <c>--content</c> value: <c>faithful</c>, <c>extended</c>, <c>musou</c> or flags such as <c>orks,gore</c> (case and spaces ignored). False
+    /// with a one-line <paramref name="error"/> for an empty or unknown name, for <c>musou</c> with any other flag (a mode of its own), and for any added
+    /// content in a build without extras.
     /// </summary>
     public static bool TryParse(string? text, out ContentExtras extras, out string error)
     {
@@ -107,6 +122,12 @@ public static class ContentProfiles
                 }
                 extras |= Flags[i].Flag;
             }
+            if (extras.HasFlag(ContentExtras.Musou) && extras != ContentExtras.Musou)
+            {
+                extras = ContentExtras.None;
+                error = $"--content '{text}': {Musou} is a mode of its own and takes no other added content; use --content {Musou}";
+                return false;
+            }
         }
         if (extras != ContentExtras.None && !ContentExtras.Compiled)
         {
@@ -118,15 +139,15 @@ public static class ContentProfiles
     }
 
     /// <summary>What <c>--content</c> takes, for messages.</summary>
-    public static string Expected => $"{Faithful}, {Extended} or a list of {string.Join(", ", Flags.Select(f => f.Name))} (such as orks,gore)";
+    public static string Expected => $"{Faithful}, {Extended}, {Musou} or a list of {string.Join(", ", Flags.Where(f => f.Flag != ContentExtras.Musou).Select(f => f.Name))} (such as orks,gore)";
 
-    /// <summary>The profile's name for messages and logs: <c>faithful</c>, <c>extended</c> (every known flag) or the flag list (<c>orks</c>).</summary>
+    /// <summary>The profile's name for messages and logs: <c>faithful</c>, <c>extended</c> (every flag of <c>All</c>), <c>musou</c> or the flag list (<c>orks</c>).</summary>
     public static string Name(ContentExtras extras)
     {
         if (extras == ContentExtras.None) return Faithful;
         if (extras == ContentExtras.All) return Extended;
         var names = Flags.Where(f => extras.HasFlag(f.Flag)).Select(f => f.Name).ToList();
-        uint unknown = (uint)(extras & ~ContentExtras.All);
+        uint unknown = (uint)(extras & ~ContentExtras.Known);
         if (unknown != 0) names.Add($"0x{unknown:X}");
         return string.Join(",", names);
     }

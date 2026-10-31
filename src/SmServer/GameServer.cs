@@ -162,7 +162,14 @@ public sealed partial class GameServer
         World = new World(config, map?.Collision, map?.Spawns) { BoundBodies = true, Rules = _options.Match, ControlPoints = map?.ControlPoints ?? [], StartAreas = map?.StartAreas ?? [], SpawnBlockers = map?.Blockers ?? map?.Collision?.Blockers ?? [] };
         _emblems = new EmblemCache(Math.Max(1, _options.MaxCachedEmblems));
         _contentFingerprint = contentFingerprint; _transport = transport; _clock = clock;
+        if (config.Extras != ContentExtras.None) ExtrasCreated();   // EXTRAS-HOOK: added content's set-up of this server's match (Musou: the nav graph, the mode)
     }
+
+    /// <summary>
+    /// Hook for added content (docs/added-content.md): at the end of the constructor, only when <see cref="SimConfig.Extras"/> is not None (<see cref="World"/>
+    /// and <see cref="Map"/> are set; <c>Log</c> is not yet). Implemented in an <c>Extras/</c> folder; each feature returns at once unless its flag is set.
+    /// </summary>
+    partial void ExtrasCreated();
 
     public void Update()
     {

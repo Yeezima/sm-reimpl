@@ -45,6 +45,14 @@ and gore are listed in their own design documents for now (the rest of section 0
 | The FOR THE EMPEROR key | the owner's decision: at any time, no animation, no interruption; key T and the 2 s cooldown: ours | others hear it from the shouter | The key, The key on the wire |
 | Level and range | ours | -2 dB on the sound bus, full within 8 m, silent beyond 70 m | Level and position |
 
+### Musou (`Musou`; experimental mode, spec "Added content: Musou")
+
+| What | Ours / the owner's | Value | Spec row |
+|---|---|---|---|
+| A one-sided co-op mode against swarms | the owner's request (2026-10-31); SM1 has no such mode (Exterminatus is the nearest) | `--content musou`, Annihilation rules replaced by the Musou flow | Musou flow |
+| Space Marines only, no balance | ours (the lead's default; the owner may change it) | every player joins the Space Marines, no per-side limit | Musou sides |
+| Endless match until the run ends | ours | warm-up until a Space Marine is in, countdown, play; no score or time limit; an empty server goes back to warm-up | Musou flow |
+
 ## 1. Deliberate changes (owner's decisions)
 
 The original's behaviour is known (or believed known) and we chose to differ.

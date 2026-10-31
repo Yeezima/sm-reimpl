@@ -320,17 +320,18 @@ public sealed partial class FrontEndView : Control
     /// <summary>
     /// CONTENT on the Join screen: Faithful (SM1 multiplayer alone) or Extended (the added content this build has: the Ork Boy, later gore). The choice is remembered
     /// next to the profile, is what Join and Host a match use, and must match the server's (a server with another profile refuses the client and says which it runs).
-    /// A build without added content shows only Faithful.
+    /// A build without added content shows only Faithful. Musou (experimental added content): the third button, a mode of its own (<c>--content musou</c>: waves of
+    /// Orks on Manufactorum, on this PC); disabled without added content, and the Host panel then hosts it on this PC only.
     /// </summary>
     Control BuildContentRow()
     {
         var row = UiKit.HBox(12);
         row.AddChild(UiKit.Text("CONTENT", UiKit.CaptionSize, UiKit.Grey).With(l => { l.CustomMinimumSize = new Vector2(120, 0); l.VerticalAlignment = VerticalAlignment.Center; }));
-        foreach (var (name, text) in new[] { (SmSim.ContentProfiles.Faithful, "Faithful"), (SmSim.ContentProfiles.Extended, "Extended") })
+        foreach (var (name, text) in new[] { (SmSim.ContentProfiles.Faithful, "Faithful"), (SmSim.ContentProfiles.Extended, "Extended"), (SmSim.ContentProfiles.Musou, "Musou") })
         {
             string profile = name;
             bool available = name == SmSim.ContentProfiles.Faithful || SmSim.ContentExtras.Compiled;
-            var b = new Button { Text = text, ToggleMode = true, ButtonPressed = false, Disabled = !available, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(210, UiKit.MinHit), Name = "Content" + text };
+            var b = new Button { Text = text, ToggleMode = true, ButtonPressed = false, Disabled = !available, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(170, UiKit.MinHit), Name = "Content" + text };
             b.Pressed += () =>
             {
                 SmSim.ContentProfiles.TryParse(profile, out var extras, out _);
@@ -353,24 +354,28 @@ public sealed partial class FrontEndView : Control
     /// <summary>While the Host panel's server runs the profile cannot change (the server was started with it, and a client with another one is refused).</summary>
     void SyncContentLock()
     {
-        if (_contentButtons.Count < 2) return;
+        if (_contentButtons.Count < 3) return;
         bool hosting = HostedServer.Running;
         if (hosting == _contentLocked) return;
         _contentLocked = hosting;
         _contentButtons[0].Disabled = hosting;
         _contentButtons[1].Disabled = hosting || !ContentExtras.Compiled;
+        _contentButtons[2].Disabled = hosting || !ContentExtras.Compiled;
         RefreshContent();
     }
 
     void RefreshContent()
     {
         var extras = _services.Content;
+        bool musou = extras.HasFlag(SmSim.ContentExtras.Musou);
         _contentButtons[0].SetPressedNoSignal(extras == SmSim.ContentExtras.None);
-        _contentButtons[1].SetPressedNoSignal(extras != SmSim.ContentExtras.None);
+        _contentButtons[1].SetPressedNoSignal(extras != SmSim.ContentExtras.None && !musou);
+        _contentButtons[2].SetPressedNoSignal(musou);
         if (_contentNote is not null)
             _contentNote.Text = _contentLocked ? $"Fixed while your server runs ({ContentProfiles.Name(extras)}). Stop the server to change it."
                 : !SmSim.ContentExtras.Compiled ? "This build has no added content: faithful only."
                 : extras == SmSim.ContentExtras.None ? "SM1 multiplayer alone. The server must run --content faithful."
+                : musou ? "Musou (experimental): waves of Orks on Manufactorum, on your PC. The server runs --content musou."
                 : "Adds the Ork Boy (and later gore). The server must run the same profile (the default).";
     }
 
