@@ -68,6 +68,7 @@ public partial class NetworkView
     void BoltFxDemo(System.Collections.Generic.IReadOnlyList<PlayerState> others)
     {
         if (!BoltFxDemoOn || _camera is null || _config is null || _client is null) return;
+        if (CmdFloat("time-scale") is var ts && float.IsFinite(ts) && ts > 0f && Engine.TimeScale != ts) Engine.TimeScale = ts;   // slow motion for the tracer capture (the head crosses a shot in 0.1 s)
         PlayerState? victim = null;
         foreach (var o in others) if (o.Alive) { victim = o; break; }
         if (victim is not { } v) return;
