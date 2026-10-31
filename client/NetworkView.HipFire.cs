@@ -151,14 +151,15 @@ public partial class NetworkView
     /// <c>*_pistol_bolter_gold</c>, both races), which play the bolt pistol's one-handed set (anim/relic-bolter-idle, the owner 2026-11-01: "the gun and
     /// arm need to point straight down at the ground at idle ... the same idle animation as bolt pistol"). Supported by the data: their wargear files
     /// name <c>weapon_type = "weapon_1hand"</c> and <c>animation_set = "pistol"</c>, as the bolt pistol's do (the primary bolter: <c>weapon_2hand_range_light</c>,
-    /// <c>bolter</c>). The simulation's raise delay reads the same data (<c>MpClasses.WithRaise</c>: the pistol's 5 ticks).
+    /// <c>bolter</c>). The simulation's raise delay reads the same data (<c>MpClasses.WithRaise</c>: the pistol's 5 ticks). The mapping is
+    /// <see cref="HipFireAnimations.AnimationFamilyOf"/> (unit-tested in SmContent); this wrapper adds the before switch.
     /// </summary>
     internal static HipFireWeaponClass AnimationFamilyOf(string weaponName) =>
-        !OldPistolBolterAnim && Loadouts.IsPistolBolterName(weaponName) ? HipFireWeaponClass.Pistol : HipFireAnimations.FamilyOf(weaponName);
+        OldPistolBolterAnim ? HipFireAnimations.FamilyOf(weaponName) : HipFireAnimations.AnimationFamilyOf(weaponName);
 
-    /// <summary>The reload family of a weapon for its clip: the bolt pistol's for the pistol-slot bolters (their <c>animation_set</c> "pistol", <see cref="AnimationFamilyOf"/>), else <see cref="ReloadAnimations.FamilyOf"/>.</summary>
+    /// <summary>The reload family of a weapon for its clip: <see cref="ReloadAnimations.AnimationFamilyOf"/> (the bolt pistol's for the pistol-slot bolters), with the before switch.</summary>
     internal static ReloadFamily? ReloadAnimationFamilyOf(string weaponName) =>
-        !OldPistolBolterAnim && Loadouts.IsPistolBolterName(weaponName) ? ReloadFamily.BoltPistol : ReloadAnimations.FamilyOf(weaponName);
+        OldPistolBolterAnim ? ReloadAnimations.FamilyOf(weaponName) : ReloadAnimations.AnimationFamilyOf(weaponName);
 
     // ------------------------------------------------------------------ shots seen
 

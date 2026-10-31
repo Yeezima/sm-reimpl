@@ -103,6 +103,13 @@ public sealed record ReloadAnimations(IReadOnlyList<ReloadClip> Clips)
         return null;
     }
 
+    /// <summary>
+    /// The reload clip family the client plays for a weapon (anim/relic-bolter-idle): <see cref="FamilyOf"/>, except the True Grit pistol-slot bolters, which
+    /// reload with the bolt pistol's clip (their <c>animation_set = "pistol"</c>; **interpretation**: which graph state the original enters is not read).
+    /// </summary>
+    public static ReloadFamily? AnimationFamilyOf(string wargear) =>
+        SmSim.Loadouts.IsPistolBolterName(wargear) ? ReloadFamily.BoltPistol : FamilyOf(wargear);
+
     public static ReloadAnimations Load(string gameDir) => Load(gameDir, RigProfiles.Marine);
 
     /// <summary>A profile's reload clips (Ork O2).</summary>
