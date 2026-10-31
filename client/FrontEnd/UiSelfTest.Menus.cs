@@ -154,6 +154,7 @@ public sealed partial class UiSelfTest
     {
         var kept = _services.Settings;
         var options = _front.Options!;
+        var startMode = GetWindow().Mode;
         try
         {
             _front.ShowOptions(OptionsView.Graphics);
@@ -227,7 +228,7 @@ public sealed partial class UiSelfTest
             }
             finally { try { System.IO.Directory.Delete(damagedDir, true); } catch (System.IO.IOException) { } }
 
-            Check("options: the self-test never changes the window", GetWindow().Mode == Window.ModeEnum.Windowed, GetWindow().Mode.ToString());
+            Check("options: the self-test never changes the window", GetWindow().Mode == startMode, GetWindow().Mode.ToString());
 
             // Esc leaves; B too.
             await SendKey(Key.Escape);
