@@ -14,6 +14,8 @@ public partial class NetworkView
 {
     /// <summary>The share of the data's beam width and of its 40 m trail the bolt tracers keep (ours).</summary>
     const float BoltTracerWidth = 0.42f, BoltTracerTrail = 0.3f;
+    /// <summary>fx/bolt-tracer-impact (ours): the owner still read the tracer as thick and long; 0.28 of the data's width, 0.22 of its trail.</summary>
+    const float BoltTracerWidthNow = 0.28f, BoltTracerTrailNow = 0.22f;
 
     bool OldBoltTracer => _oldBoltTracer ??= CmdFlag("old-bolt-tracer");
     bool? _oldBoltTracer;
@@ -24,7 +26,7 @@ public partial class NetworkView
     void ThinBoltTracer(FxEffect e, string effect)
     {
         if (OldBoltTracer || !IsBoltTracer(effect)) return;
-        e.TracerWidthScale = BoltTracerWidth;
-        e.TracerTrailScale = BoltTracerTrail;
+        e.TracerWidthScale = OldBoltFx ? BoltTracerWidth : BoltTracerWidthNow;   // fx/bolt-tracer-impact: thinner and shorter again (--old-bolt-fx: the values of #30)
+        e.TracerTrailScale = OldBoltFx ? BoltTracerTrail : BoltTracerTrailNow;
     }
 }

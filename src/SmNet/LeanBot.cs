@@ -56,7 +56,7 @@ public static class LeanBot
         // fix/stow-right: the switch test view and its probe, the capture window, the bot that switches for the capture
         "switch-test", "switch-probe", "wait-switch-window", "bot-switch-every",
         // fx/character-visuals: the armour flash demo
-        "armour-flash-demo", "slash-cone-demo", "stim-glow-demo", "old-bolt-tracer", "old-score-box", "old-pistol-tracer",
+        "armour-flash-demo", "slash-cone-demo", "stim-glow-demo", "old-bolt-tracer", "old-bolt-fx", "bolt-fx-demo", "old-score-box", "old-pistol-tracer",
         // anim/melee-interaction: the charge impact's log and the capture of its frames
         "log-charge-impact", "charge-shots",
     };

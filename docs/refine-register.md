@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1776 spec table rows: **1220 tagged**, 406 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 385 rows of the changes document.
+Scanned 1779 spec table rows: **1223 tagged**, 406 not tagged (read from data with high confidence), 150 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 386 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -37,7 +37,7 @@ Scanned 1776 spec table rows: **1220 tagged**, 406 not tagged (read from data wi
 | Weapons (critical) | 112 | 65 | 97 | 49 | 3 |
 | Melee (critical) | 63 | 50 | 59 | 11 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
-| Charge (critical) | 41 | 32 | 34 | 18 | 0 |
+| Charge (critical) | 44 | 35 | 37 | 20 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 28 | 27 | 17 | 18 | 0 |
 | HUD and hit feedback (critical) | 53 | 48 | 42 | 10 | 0 |
@@ -53,19 +53,19 @@ Scanned 1776 spec table rows: **1220 tagged**, 406 not tagged (read from data wi
 | Core simulation (provisional values) | 104 | 90 | 89 | 12 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1220** | 1005 | 975 | 389 | 38 |
+| **All areas** | **1223** | 1008 | 978 | 391 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 464 |
+| kind: ours | 465 |
 | confidence: medium | 435 |
-| confidence: low | 425 |
+| confidence: low | 428 |
 | kind: interpretation | 321 |
-| notes: ours | 285 |
+| notes: ours | 287 |
 | confidence: none (low) | 115 |
-| kind: provisional | 98 |
+| kind: provisional | 100 |
 | kind: estimate | 43 |
 | kind: user's knowledge | 41 |
 | section: provisional | 38 |
@@ -905,7 +905,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-540B3991` | Jump pack: flight wobble | The jump state's `Noise` blend plays `SM_JMP_Blend_90_Pos_Fast` (1 s, looping). Taken as the offset from its own first pose, laid over the flight pose in slot `Wobble` at weight 1 (ours: the graph's blend weight is not read), from the end of the take-off… (s) | kind: interpretation; confidence: low; notes: ours | graph (the clip); the offset form and the weight are ours | Jump pack: flight wobble: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The jump state's Noise blend plays SM_JMP_Blend_90_Pos_Fast (1 s… | ☐ |
 | `R-CD9FB0C1` | Jump pack: actions in flight | In the flight view the recoil of a shot, the reload and the grenade toss are laid over the flight pose as over the locomotion (the toss over the upper-body mask, the others as before); before, the flight pose returned before them and a marine that fired in… | kind: interpretation; confidence: low; notes: ours | the jump graph (`MP_SM_NAV_JP_Sim`) is the navigation layer; the base graph's upper-body actions are separate layers that are not tied to the navigation state… | Jump pack: actions in flight: compare with SM1 by feel or video. Ours: In the flight view the recoil of a shot, the reload and the grenade… | ☐ |
 
-### Charge (gameplay-critical) (41)
+### Charge (gameplay-critical) (44)
 
 *Spec section: The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21)*
 
@@ -972,6 +972,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-51E8194A` | Charge request (protocol 49) | an F press (`InputButtons.MeleeHeavy`) with **Sprint held** (Shift; the pad's left-stick-click hold) **and W held** (the stick's forward part at least 0.7, `RushSpec.MinForwardStick`) starts the bull rush, if the other gates hold (on the ground, no jump-pack… | notes: ours; notes: user's knowledge | the owner's rule, 2026-10-31 (user's knowledge of the original); the 0.7 share ours | Charge request (protocol 49): compare with SM1 by feel or video. Ours: an F press (InputButtons.MeleeHeavy) with Sprint held (Shift; the… | ☐ |
 | `R-19B32FEA` | Buffered press (protocol 49) | the 0.3 s input buffer (`BufferedCharge`) records, at the press, whether Shift and W were both held: a charge request waiting in the charge's spacing or a combo replays as the charge while W is still held (Shift may have been let go; the replay supplies it)… (s) | kind: ours; confidence: low | the owner's rule applied to the buffer; letting Shift go before the replay: ours | Buffered press (protocol 49): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the 0.3 s input buffer (BufferedCharge) records, at the press… | ☐ |
 | `R-6DD64B13` | Controller (protocol 49) | Y with the sprint held (left stick click) and the stick forward (at least 0.7 after the dead zone) is the charge; Y otherwise is the stun strike in the stick's direction (the simulation's eight directions around the view; stick neutral: forward) | confidence: medium; notes: user's knowledge | the owner's rule 2026-10-31; the pad's sprint (L3 hold) is the owner's recollection of 2026-10-30 | Controller (protocol 49): compare with SM1 by feel or video. Ours: Y with the sprint held (left stick click) and the stick forward (at… | ☐ |
+| `R-29F2972E` | Bolt streak softness (fx/bolt-tracer-impact; owner 2026-10-31) | the pooled bolt streaks (muzzle leg, fallback bullet) are a soft glow ribbon (clear at both edges) with a thin hot core instead of one flat hard-edged ribbon: glow 0.16 m, core 0.022 m wide; the data's textured tracer beam is unchanged (soft texture already) (m) | kind: provisional; confidence: low; notes: ours | ours (reference r6: thin bright line in a soft glow) | Bolt streak softness (fx/bolt-tracer-impact; owner…: compare with SM1 by measuring on a flat spot of the same map. Ours: the pooled bolt streaks (muzzle leg, fallback bullet) are a soft glow… | ☐ |
+| `R-6B15307F` | Armour-hit sparks (fx/bolt-tracer-impact) | a bullet on raised armour also plays the data's `hit_ranged_armour_generic` (warm flash, fan of `metal_sparks_beam_tp_01` streaks, coarse spark spray, light) at x0.8, plus a copy turned a quarter about the axis at x0.64 (its fan is a flat card); the weapon's… (scale) | kind: provisional; confidence: low; notes: ours | effect data; choice of effect and scales ours | Armour-hit sparks (fx/bolt-tracer-impact): compare with SM1 by counting hits to kill and by video of the health bar. Ours: a bullet on raised armour also plays the data's… | ☐ |
+| `R-C17F6A44` | Bolt tracers thinner again (fx/bolt-tracer-impact) | the data beam's width scale 0.28 (was 0.42), trail 0.22 (was 0.3); `--old-bolt-fx` restores the earlier values (factor) | kind: ours; confidence: low | owner (2026-10-31: still wrong) | Bolt tracers thinner again (fx/bolt-tracer-impact): compare with SM1 by feel or video. Ours: the data beam's width scale 0.28 (was 0.42), trail 0.22 (was 0.3)… | ☐ |
 
 ### Reactions (gameplay-critical) (15)
 
@@ -2462,6 +2465,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-E10F6713` | Launcher grenades stick at once | no bounce off the level (the data's `max_bounce_count` 1 is ignored for sticky projectiles); a grenade stuck to a player drops and falls when they die or leave | The original's exact behaviour on the host's death (ours: falls) | "Sticky launcher grenades" | Launcher grenades stick at once: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-F76A5DC5` | Air-slash landing burst (owner 2026-10-31) | Plays the jump pack's perk landing effect `jumppack_land_extreme_mp` small (0.6 instead of the data's 1.4), blue-white, with a blue-white light, no full-screen flash (switches `--slash-big-flash`, `--no-slash-flash`, `--slash-cone`) | The data binds no effect to the MP slash itself; size and colour are estimates | Air slash landing flash | Air-slash landing burst (owner 2026-10-31): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-A6BD3B61` | Devastator / Havoc stomp stays in place | the owner's decision (2026-10-31): no step forward, no lunge or burst, no coasting; fixes the slide from chaining the kick (click) and the stomp (F) | the body is held in place until the stomp's move-again branch; protocol 49 | "Stomp stays in place" | Devastator / Havoc stomp stays in place: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-5318F1D9` | Bolt tracer softness and armour-hit sparks (fx/bolt-tracer-impact, owner 2026-10-31) | Ours: the pooled bolt streaks are soft glow ribbons with a thin hot core (were flat hard ribbons); a hit on raised armour adds the data's `hit_ranged_armour_generic` sparks (two copies) on top of the weapon's own armour effect; client only, no protocol change; `--old-bolt-fx` restores both; `--old-bolt-tracer` still… | the owner's reference r6 shows thin streaks and a white-gold flash | the sizes and scales are estimates for a playtest | Bolt tracer softness and armour-hit sparks…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

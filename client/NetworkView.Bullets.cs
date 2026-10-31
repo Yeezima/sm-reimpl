@@ -279,8 +279,8 @@ public partial class NetworkView
                 float glow = OldMuzzleLeg ? 0f : 1f - since / MuzzleLegGlowSeconds;
                 if (glow <= 0f || _connectedFor - s.Start > 2.0) { s.Live = false; continue; }
                 var warm = s.Tint is { } gt ? new Color(gt.R, gt.G, gt.B, 0.9f * glow) : new Color(1f, 0.82f, 0.4f, 0.9f * glow);
-                Ribbon(camera, s.From, s.Via, 0.05f, new Color(warm.R, warm.G, warm.B, 0.35f * glow), warm);
-                if (legB > 1e-3f) Ribbon(camera, s.Via, s.To, 0.05f, warm, new Color(warm.R, warm.G, warm.B, 0.35f * glow));
+                SoftStreak(camera, s.From, s.Via, new Color(warm.R, warm.G, warm.B, 0.35f * glow), warm);
+                if (legB > 1e-3f) SoftStreak(camera, s.Via, s.To, warm, new Color(warm.R, warm.G, warm.B, 0.35f * glow));
                 continue;
             }
             if (_connectedFor - s.Start > 2.0) { s.Live = false; continue; }
@@ -289,8 +289,8 @@ public partial class NetworkView
             if (!s.Shown) { s.Shown = true; if (head > legA + legB) { h = legA + legB; t = 0f; } }
             var cold = s.Tint is { } ct ? new Color(ct.R, ct.G, ct.B, 0f) : new Color(1f, 0.85f, 0.45f, 0.0f);
             var hot = s.Tint is { } ht ? new Color(ht.Lerp(Colors.White, 0.5f), 1f) : new Color(1f, 0.95f, 0.7f, 1f);
-            if (t < legA) Ribbon(camera, PointAt(s, t, legA, legB), PointAt(s, MathF.Min(h, legA), legA, legB), 0.05f, cold, hot);
-            if (h > legA) Ribbon(camera, PointAt(s, MathF.Max(t, legA), legA, legB), PointAt(s, h, legA, legB), 0.05f, cold, hot);
+            if (t < legA) SoftStreak(camera, PointAt(s, t, legA, legB), PointAt(s, MathF.Min(h, legA), legA, legB), cold, hot);
+            if (h > legA) SoftStreak(camera, PointAt(s, MathF.Max(t, legA), legA, legB), PointAt(s, h, legA, legB), cold, hot);
         }
         for (int i = 0; i < _debugRays.Length; i++)
         {
