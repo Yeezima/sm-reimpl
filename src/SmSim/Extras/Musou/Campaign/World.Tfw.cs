@@ -140,6 +140,14 @@ public sealed partial class World
         if (_players.TryGetValue(id, out var p) && !p.Alive && p.RespawnLeft < TfwBattleRules.RespawnHold) _players[id] = p with { RespawnLeft = TfwBattleRules.RespawnHold };
     }
 
+    /// <summary>Test aid: player <paramref name="id"/> dies where it stands; false outside a war, for an unknown or dead player.</summary>
+    public bool TfwKillForTests(int id)
+    {
+        if (_tfw is null || !_players.TryGetValue(id, out var p) || !p.Alive) return false;
+        _players[id] = Combat.Killed(p, Config);
+        return true;
+    }
+
     /// <summary>A new run: the war from its start and an empty field.</summary>
     void TfwNewRun()
     {

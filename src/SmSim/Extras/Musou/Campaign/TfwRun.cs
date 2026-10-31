@@ -42,6 +42,9 @@ public sealed partial class TfwRun
     /// <summary>Test seam for the AI Marines: whether a player's retainer can revive it (null: the World asks the roster).</summary>
     public Func<int, bool>? RetainerUp { get; set; }
 
+    /// <summary>Test seam: an order as it reaches the Marines.</summary>
+    public Action<int, TfwCommandRecord>? OrderSeen { get; set; }
+
     public TfwRunPhase Phase => War.Phase;
     public bool Ended => Phase is TfwRunPhase.Won or TfwRunPhase.Lost;
 
@@ -100,9 +103,20 @@ public sealed partial class TfwRun
                 case TfwCommand.Deploy: Deploy(w, player, c.Argument, rate); break;
                 case TfwCommand.RequestPickup: RequestPickup(w, player, rate); break;
                 case TfwCommand.CancelPickup: CancelPickup(player); break;
-                default: w.TfwOrderMarines(player, c); break;
+                default: Order(w, player, c); break;
             }
         }
+    }
+
+    /// <summary>An order to the Marines: only with a battle on, from a human in it; its point is the client's, so it is kept inside the arena.</summary>
+    void Order(World w, int player, TfwCommandRecord c)
+    {
+        if (Battle is null || !_deployed.Contains(player)) return;
+        float half = TfwMap.ArenaHalf;
+        var point = new Vector3(Math.Clamp(c.Point.X, -half, half), Math.Clamp(c.Point.Y, -half, half), Math.Clamp(c.Point.Z, 0f, TfwMap.WallHeight));
+        var order = c with { Point = point };
+        OrderSeen?.Invoke(player, order);
+        w.TfwOrderMarines(player, order);
     }
 
     void Deploy(World w, int player, byte lane, int rate)

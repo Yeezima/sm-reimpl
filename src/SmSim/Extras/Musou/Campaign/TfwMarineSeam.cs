@@ -27,7 +27,7 @@ namespace SmSim
         public void TfwResetMarines() { }
         public bool TfwOrderMarines(int player, TfwCommandRecord command) => false;
         void TfwPuppetsStep() { }
-        bool TfwRetainerUp(int id) => false;
+        internal bool TfwRetainerUp(int id) => false;
 
         /// <summary>TF5's revive: back where it fell with half its health and shield, keeping what it carries.</summary>
         public bool TfwRevive(int id)
