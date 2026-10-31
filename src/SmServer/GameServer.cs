@@ -145,7 +145,31 @@ public sealed partial class GameServer
         /// <summary>Display name (protocol 41, sanitised; "" none: "P&lt;id&gt;"); <see cref="NameRace"/> the race whose pool gave it (None: not a pool name).</summary>
         public string Name = "";
         public Race NameRace;
+        /// <summary>
+        /// Protocol 50 (net/scoreboard-ping; ours): when each recent snapshot went to this peer (by its tick; at most <see cref="MaxTimedSnapshots"/>),
+        /// and the round-trip time measured from the first acknowledgement of each (<see cref="NoteSnapshotAck"/>).
+        /// </summary>
+        public Dictionary<uint, TimeSpan> SnapshotSentAt { get; } = new();
+        public RttEstimator Rtt { get; } = new();
     }
+
+    /// <summary>Snapshot send times kept per peer for the ping (protocol 50): 64 snapshots, 3.2 s at 20 a second; an older acknowledgement gives no sample.</summary>
+    const int MaxTimedSnapshots = 64;
+
+    /// <summary>
+    /// Protocol 50 (net/scoreboard-ping; ours): an input batch acknowledges <paramref name="acked"/>; the first acknowledgement of a snapshot sent to this peer
+    /// gives a round-trip sample (now - its send time: the network both ways, the client's wait for its next input send, and the server's packet loop).
+    /// A repeated or older acknowledgement gives none; send times up to the acknowledged snapshot are forgotten.
+    /// </summary>
+    void NoteSnapshotAck(Peer peer, uint acked)
+    {
+        if (acked <= peer.AckedSnapshot || peer.SnapshotSentAt.Count == 0) return;
+        if (peer.SnapshotSentAt.TryGetValue(acked, out var sentAt)) peer.Rtt.Add((_clock.Now - sentAt).TotalMilliseconds);
+        foreach (var old in peer.SnapshotSentAt.Keys.Where(k => k <= acked).ToList()) peer.SnapshotSentAt.Remove(old);
+    }
+
+    /// <summary>Test seam: a player's smoothed ping (ms; -1 not measured yet).</summary>
+    internal int PingOfForTests(int id) => _peers.Values.Single(p => p.PlayerId == id).Rtt.Ms;
 
     /// <summary>The map this server runs, or null for the flat placeholder ground.</summary>
     public GameMap? Map { get; }
@@ -435,6 +459,7 @@ public sealed partial class GameServer
         peer.LastHeard = _clock.Now;
         if (batch.SnapshotTick <= World.Tick)
         {
+            NoteSnapshotAck(peer, batch.SnapshotTick);   // protocol 50: the ping, before the acknowledgement moves on
             peer.AckedSnapshot = Math.Max(peer.AckedSnapshot, batch.SnapshotTick);
             // That snapshot carried the kills after the ones acknowledged when it was sent, so everything up to its newest has arrived.
             if (peer.SentKills.TryGetValue(peer.AckedSnapshot, out int newest)) peer.AckedKill = Math.Max(peer.AckedKill, newest);
@@ -638,6 +663,8 @@ public sealed partial class GameServer
         var kills = KillsFor(World, peer.AckedKill);
         if (kills.Length > 0) peer.SentKills[World.Tick] = kills[^1].Sequence;
         while (peer.SentKills.Count > 256) peer.SentKills.Remove(peer.SentKills.Keys.Min());
+        peer.SnapshotSentAt.TryAdd(World.Tick, _clock.Now);   // protocol 50: the ping's send time (a snapshot sent twice in one tick keeps its first)
+        while (peer.SnapshotSentAt.Count > MaxTimedSnapshots) peer.SnapshotSentAt.Remove(peer.SnapshotSentAt.Keys.Min());
         _transport.Send(connection, Protocol.Write(new Snapshot(World.Tick, peer.LastAppliedFromClient, lead, players, Self: peer.PlayerId,
             Projectiles: ProjectilesFor(World, viewer), Match: match, Kills: kills, Points: points, Hits: peer.Spectator ? null : peer.Hits,
             Shots: ShotsFor(_pendingShots, peer.PlayerId, viewer, World.Tick))));
@@ -667,7 +694,7 @@ public sealed partial class GameServer
         world.KillLog.Where(k => k.Sequence > acked).Take(Protocol.MaxSnapshotKills)
             .Select(k => new KillView(k.Sequence & 0xFFFF, k.Killer, k.Victim, k.Cause, k.Index, k.Direction)).ToArray();
 
-    /// <summary>The scoreboard every client gets: the rules and each player's side, class, kills and deaths (by id).</summary>
+    /// <summary>The scoreboard every client gets: the rules and each player's side, class, kills and deaths (by id), and its ping (protocol 50).</summary>
     public Scoreboard ScoreboardOf() => new(World.Tick, World.Rules is not null, World.Rules?.ScoreLimit ?? 0, World.Rules?.TimeLimit ?? 0f, World.Rules?.FriendlyFire ?? true,
         World.Players.Values.OrderBy(p => p.PlayerId).Select(p =>
         {
@@ -675,7 +702,8 @@ public sealed partial class GameServer
             var peer = PeerOf(p.PlayerId);
             return new ScoreEntry(p.PlayerId, p.Team, p.Class, s.Kills, s.Deaths, peer?.Appearance.Version ?? 0,
                 Loadouts.EquipmentIndex(World.Config, p),   // protocol 40 (perks/inert-2)
-                peer?.Name ?? "");                         // protocol 41 (names/bot-lore)
+                peer?.Name ?? "",                          // protocol 41 (names/bot-lore)
+                peer?.Rtt.Ms ?? -1);                       // protocol 50 (net/scoreboard-ping): -1 not measured yet
         }).ToArray(), SeizeOf(World),
         Spectators: _peers.Values.Where(p => p.Spectator).OrderBy(p => p.PlayerId).Take(Protocol.MaxSpectators).Select(p => new SpectatorEntry(p.PlayerId, p.Name)).ToArray() is { Length: > 0 } listed ? listed : null);   // protocol 46
 

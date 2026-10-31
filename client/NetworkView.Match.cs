@@ -70,7 +70,7 @@ public partial class NetworkView
         _scoreboardPanel = new PanelContainer
         {
             AnchorLeft = 0.5f, AnchorRight = 0.5f, AnchorTop = 0.5f, AnchorBottom = 0.5f,
-            OffsetLeft = -526, OffsetRight = 526, OffsetTop = -40, OffsetBottom = 40,   // grows with the text (names/bot-lore: 31-character name column)
+            OffsetLeft = -560, OffsetRight = 560, OffsetTop = -40, OffsetBottom = 40,   // grows with the text (names/bot-lore: 31-character name column; protocol 50: + the 6-character PING column)
             GrowHorizontal = Control.GrowDirection.Both, GrowVertical = Control.GrowDirection.Both,
             Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore,
         };
@@ -244,7 +244,7 @@ public partial class NetworkView
         if (_bot && (int)(_connectedFor / 5.0) != (int)((_connectedFor - GetProcessDeltaTime()) / 5.0))
             GD.Print($"t {_connectedFor:F0} s: id {_client.PlayerId} side {SideName(_client.Predicted.Team)} match: {MatchText(match).Replace('\n', ';')}" +
                      (SeizeGround ? $"; points {PointsLogText()}; bot {_botSeizeNote}" : "") +
-                     (_client.Scoreboard is { } sb ? $"; board: {string.Join(", ", sb.Players.Select(e => $"P{e.PlayerId}{(e.Name.Length > 0 ? $" \"{e.Name}\"" : "")} {SideName(e.Team)} '{ClassLabel(e.Class)}' {e.Kills}/{e.Deaths}"))}" : ""));
+                     (_client.Scoreboard is { } sb ? $"; board: {string.Join(", ", sb.Players.Select(e => $"P{e.PlayerId}{(e.Name.Length > 0 ? $" \"{e.Name}\"" : "")} {SideName(e.Team)} '{ClassLabel(e.Class)}' {e.Kills}/{e.Deaths} ping {RttEstimator.Display(e.PingMs)}"))}" : ""));
     }
 
     /// <summary>Once the scoreboard names this player: the class and side actually given (the server may balance them).</summary>
@@ -384,6 +384,17 @@ public partial class NetworkView
 
     const string GoldTag = "[color=#ffcc00]", RedTag = "[color=#e01414]", GreyTag = "[color=#9a9a9a]", EndTag = "[/color]";
 
+    /// <summary>The PING column's width (net/scoreboard-ping, protocol 50): a space and up to four characters, right-aligned.</summary>
+    const int PingColumn = 6;
+
+    /// <summary>A row's PING cell, right-aligned: green below 80 ms, yellow below 150, red from 150 (ours; <see cref="RttEstimator.QualityOf"/>), "—" plain when not measured.</summary>
+    static string PingCell(int ms)
+    {
+        string text = RttEstimator.Display(ms).PadLeft(PingColumn);
+        string? colour = RttEstimator.QualityOf(ms) switch { PingQuality.Good => "#4cd964", PingQuality.Fair => "#ffd60a", PingQuality.Poor => "#ff453a", _ => null };
+        return colour is null ? text : $"[color={colour}]{text}{EndTag}";
+    }
+
     /// <summary>
     /// The scoreboard as BBCode (dark panel, gold header; own side gold, enemy red): per side (or one list without
     /// teams), players by kills (then fewer deaths, then id).
@@ -414,14 +425,15 @@ public partial class NetworkView
             bool seizeMode = board.Seize is not null;
             string Cell(string text, int width) => text.Length >= width ? text[..(width - 1)] + " " : text.PadLeft(width);
             string extraHead = seizeMode ? Cell(t.Seized, 9) + Cell(t.Defended, 10) : Cell(t.Ratio, 8) + Cell(t.Assists, 9);
-            sb.AppendLine($"{GreyTag}    {PlayerNames.Cell(t.Player, NameColumn)}{"CLASS",-20}{Cell(t.Kills, 7)}{Cell(t.Deaths, 8)}{extraHead}{EndTag}");
+            // net/scoreboard-ping (protocol 50; ours): a PING column at the right end, the server's smoothed round trip in ms ("—" not measured yet).
+            sb.AppendLine($"{GreyTag}    {PlayerNames.Cell(t.Player, NameColumn)}{"CLASS",-20}{Cell(t.Kills, 7)}{Cell(t.Deaths, 8)}{extraHead}{Cell("PING", PingColumn)}{EndTag}");
             foreach (var e in rows)
             {
                 bool me = e.PlayerId == _client.PlayerId;
                 string extra = seizeMode ? Cell("—", 9) + Cell("—", 10)
                     : Cell(BattleRecord.Ratio(e.Kills, e.Deaths).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture), 8) + Cell("—", 9);
                 // names/bot-lore: a name of up to 24 characters, " (you)" and a space fit the name column (31; PlayerNameTests)
-                string line = $"{(me ? " >  " : "    ")}{Esc(PlayerNames.Cell(HudName(e.PlayerId) + (me ? " (you)" : ""), NameColumn))}{Esc(Trim(ClassLabel(e.Class), 19)),-20}{e.Kills,7}{e.Deaths,8}{extra}";
+                string line = $"{(me ? " >  " : "    ")}{Esc(PlayerNames.Cell(HudName(e.PlayerId) + (me ? " (you)" : ""), NameColumn))}{Esc(Trim(ClassLabel(e.Class), 19)),-20}{e.Kills,7}{e.Deaths,8}{extra}{PingCell(e.PingMs)}";
                 sb.AppendLine(me ? GoldTag + line + EndTag : line);
             }
             if (rows.Count == 0) sb.AppendLine("    (nobody)");
