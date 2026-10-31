@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1788 spec table rows: **1231 tagged**, 406 not tagged (read from data with high confidence), 151 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 390 rows of the changes document.
+Scanned 1794 spec table rows: **1237 tagged**, 406 not tagged (read from data with high confidence), 151 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 390 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 307 | 261 | 266 | 91 | 12 |
+| Movement (critical) | 308 | 262 | 267 | 91 | 12 |
 | Combat core (critical) | 10 | 1 | 10 | 9 | 9 |
 | Weapons (critical) | 112 | 65 | 97 | 49 | 3 |
 | Melee (critical) | 63 | 50 | 59 | 11 | 5 |
@@ -50,20 +50,20 @@ Scanned 1788 spec table rows: **1231 tagged**, 406 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 112 | 98 | 97 | 12 | 1 |
+| Core simulation (provisional values) | 117 | 102 | 102 | 13 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 77 | 71 | 40 | 8 | 0 |
-| **All areas** | **1231** | 1016 | 986 | 391 | 38 |
+| **All areas** | **1237** | 1021 | 992 | 392 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 473 |
-| confidence: medium | 437 |
-| confidence: low | 434 |
+| kind: ours | 478 |
+| confidence: low | 439 |
+| confidence: medium | 438 |
 | kind: interpretation | 321 |
-| notes: ours | 287 |
+| notes: ours | 288 |
 | confidence: none (low) | 115 |
 | kind: provisional | 100 |
 | kind: estimate | 43 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (307)
+### Movement (gameplay-critical) (308)
 
 *Spec section: Extracted parameters*
 
@@ -520,6 +520,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-320F45AE` | Players colliding with each other | no | confidence: none (low); notes: gap (not reproduced); section: placeholder; section: provisional | not implemented; the original surely blocks | Players colliding with each other: compare with SM1 by feel or video. Ours: no. | ☐ |
 | `R-14D25338` | Fall-off shape | ×1 up to the last ×1 point, linear to the final point's multiplier, constant beyond; nothing beyond `max_range` (m) | confidence: low; section: placeholder; section: provisional | linear interpolation between the file's points is **inferred** | Fall-off shape: compare with SM1 by timing a run over a known distance. Ours: ×1 up to the last ×1 point, linear to the final point's multiplier… | ☐ |
 | `R-3D8E8E3C` | Aim pitch limit | ±1.4 (rad (≈ ±80°)) | confidence: none (low); notes: placeholder; section: placeholder; section: provisional | placeholder; the camera sets' own limits (rig degrees, M20: exploration 20–160 = ±70°, rifle aim 5–175 = ±85°, heavy 30–145 = −60…+55°) are for the client's… | Aim pitch limit: compare with SM1 with an overlaid screenshot taken from the same position. Ours: ±1.4. | ☐ |
+
+*Spec section: Added content: Musou — an experimental one-sided mode against swarms (server and client; no protocol change, extras wire 2)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-ABEF115E` | Musou enemy movement | one shared flow field from the players' nodes (incremental, 20k expansions a tick, refresh 0.5 s; a player off the graph uses the node within 6 m sideways and 12 m below, else its last); at most 4 melee and 6 shooters engage a player, the others circle at 3–6… (m, s) | kind: ours; confidence: low | ours (MU1) | Musou enemy movement: compare with SM1 by timing a run over a known distance. Ours: one shared flow field from the players' nodes (incremental, 20k… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -1627,7 +1633,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (112)
+### Core simulation (provisional values) (117)
 
 *Spec section: Provisional values in use*
 
@@ -1712,6 +1718,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-049FE802` | Musou client tracks | 4 records per enemy interpolated at the render clock; a Seek enemy carries on along its last step up to 6 ticks; an id is dropped after its death or 2 s of silence; a new track on Spawning or a gap over 30 ticks; a section 300 ticks older than the newest is a… (ticks) | kind: ours; confidence: low | ours (MU2) | Musou client tracks: compare with SM1 by feel or video. Ours: 4 records per enemy interpolated at the render clock; a Seek enemy… | ☐ |
 | `R-8EBEBCEA` | Musou crowd drawing | the nearest 150 drawn (`--musou-visible`), up to 40 skinned within 25 m (posed every 2nd frame beyond 12 m), the rest vertex-animation textures baked at 15 fps (at most 4,096 rows a look, else skinned; skinned-only fallback cap 80); bodies sink 1.2 m over 1.5… | kind: ours; confidence: low | ours (MU2) | Musou crowd drawing: compare with SM1 by feel or video. Ours: the nearest 150 drawn (--musou-visible), up to 40 skinned within 25 m… | ☐ |
 | `R-7B2725E5` | Musou looks | Boy `boy_melee`, Shoota Boy `boy_ranged`, 'Ard Boy `boy_ardboy`, Nob `nob_melee`, Warboss `nob_melee` × 1.25, Gretchin `boy_melee` × 0.7 (no Gretchin model verified), Chaos Marine the PvP default Chaos look (far tier tinted by its primary colour) | kind: ours; confidence: low | models from the install; the choices ours | Musou looks: compare with SM1 by feel or video. Ours: Boy boy_melee, Shoota Boy boy_ranged, 'Ard Boy boy_ardboy, Nob… | ☐ |
+| `R-45CAAC91` | Musou enemy types | Boy 85 hp (data), 5.2 m/s, melee 8 per 1.4 s reach 1.6 m, 10 points; Shoota Boy 85 hp (data), 4.8 m/s, holds 12–20 m, 3 × 3 dmg every 1.6 s, hit 0.45 near → 0.25 far; 'Ard Boy 170 hp, 4.4 m/s, melee 10 per 1.5 s, 20 points; Gretchin 30 hp, 6.2 m/s, melee 4… (hp, m/s, s) | kind: ours; confidence: low | the Boy's health from the data; the rest the lead's design and MU1 (2026-10-31) | Musou enemy types: compare with SM1 by timing a run over a known distance. Ours: Boy 85 hp (data), 5.2 m/s, melee 8 per 1.4 s reach 1.6 m, 10 points… | ☐ |
+| `R-8A969C83` | Musou waves | 5 waves scaled 1 + 0.5 × (players − 1): totals / most alive 80/80, 120/120, 160/160 (+2 Nobs), 220/200 (+3 Nobs, Chaos), 300/250 (+4 Nobs); mixes from 70 % Boyz / 30 % Shootas (wave 1) to 30/20/15/15/20 % Boy/Shoota/'Ard/Gretchin/Chaos (wave 5); 20 s break… (enemies, s) | kind: ours; confidence: low | the lead's design; the mixes ours (MU1) | Musou waves: compare with SM1 by feel or video. Ours: 5 waves scaled 1 + 0.5 × (players − 1): totals / most alive 80/80… | ☐ |
+| `R-7396A782` | Musou lives | a shared pool of 3, plus 2 per player beyond the most seen; a respawn spends one; with none left the dead wait; every player dead with none left loses (Chaos); the Warboss's death wins (lives) | kind: ours; confidence: low | the lead's design | Musou lives: compare with SM1 by feel or video. Ours: a shared pool of 3, plus 2 per player beyond the most seen; a respawn… | ☐ |
+| `R-763C55D4` | Musou spawns and loadout | every player spawns and respawns in the Space Marine start area (the owner, 2026-10-31); every life starts with the class's default pistol only: no primary, grenades or special melee (the owner: "the player starts with a bolt pistol only"); basic melee… | confidence: medium; notes: ours | the owner (2026-10-31); the rest ours | Musou spawns and loadout: compare with SM1 by feel or video. Ours: every player spawns and respawns in the Space Marine start area (the… | ☐ |
+| `R-93DCACD0` | Musou score | KOs to the scoreboard, points per type with a chain multiplier (+0.2 per KO within 2 s, up to × 3); the Space Marines' team score is the KOs; neither the host's score limit nor its time limit ends a Musou match | kind: ours; confidence: low | the lead's design | Musou score: compare with SM1 by feel or video. Ours: KOs to the scoreboard, points per type with a chain multiplier (+0.2… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 

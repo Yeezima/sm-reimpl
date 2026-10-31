@@ -39,7 +39,7 @@ public enum MusouEnemyState : byte
 /// <summary>
 /// One enemy as <see cref="MusouSim"/> hands it out (a copy of its slot in the pool's arrays; design section B, about 48 bytes a slot). <see cref="Id"/>
 /// 1..<see cref="MusouSim.Capacity"/> (0: none); <see cref="Node"/> the nav node it stands on (-1 none); <see cref="TargetPlayer"/> the player it goes for
-/// (0 none); <see cref="StateTicks"/> ticks in <see cref="State"/>; <see cref="AttackToken"/> the attack slot it holds on its target (0 none).
+/// (0 none); <see cref="StateTicks"/> ticks in <see cref="State"/>; <see cref="AttackToken"/> the attack token it holds on its target (0 none, <see cref="MusouSim.MeleeToken"/>, <see cref="MusouSim.ShooterToken"/>).
 /// </summary>
 public readonly record struct MusouEnemy(ushort Id, MusouEnemyType Type, MusouEnemyState State, Vector3 Position, Vector2 Velocity, float Yaw, float Health,
     int Node, ushort TargetPlayer, ushort StateTicks, byte AttackToken)
