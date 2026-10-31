@@ -11,3 +11,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 -->
 
 - The launcher window is readable again: no more overwritten or garbled text, nothing overlaps at 125%, 150% or 200% display scaling, and long status lines wrap inside their own space.
+- The score box at the bottom left of the screen now holds its contents centred: the team scores, the two bars, the time left and the score limit sit in the middle of the black box with even room on every side, and nothing touches its edges, even with three-digit scores or a timer past ten minutes.
