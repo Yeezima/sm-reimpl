@@ -165,7 +165,7 @@ public sealed partial class Hud
         root *= new Transform2D(Mathf.DegToRad(ScoreTilt), new Vector2(200f, 70f)) * new Transform2D(0f, new Vector2(-200f, -70f));
         // ui/score-box-center (owner, 2026-10-31): the box is laid out around the block (scores, bars, timer over the limit) and the block is centred in it (Hud.ScoreBox.cs); until the bars are
         // measured the earlier box and drawing stand.
-        var layout = LayoutScoreBox(text, d.OwnScore.ToString(), d.EnemyScore.ToString(), d.ScoreLimit > 0 ? d.ScoreLimit.ToString() : "-", d.Clock);
+        var layout = LayoutScoreBox(text, d.OwnScore, d.EnemyScore, d.ScoreLimit, d.Clock);
         var band = layout is { } l0 ? ScoreBoxCorners(l0) : new Vector2[] { new(104f, BandTop), new(BandRight, BandTop), new(BandRight, BandBottom), new(92f, BandBottom) };
         var bandV = new Vector2[4];
         for (int i = 0; i < 4; i++) bandV[i] = root * band[i];
@@ -183,7 +183,7 @@ public sealed partial class Hud
         bool IsMarker(string path) => path.StartsWith("objective_marker", StringComparison.Ordinal);
         // The points' markers sit above the box, where the movie puts them.
         if (d.Seize)
-            DrawWalk(text, panel.Placement.Character, 0, root, (path, _) => path switch
+            DrawWalk(text, panel.Placement.Character, 0, layout is null ? root : root * new Transform2D(0f, new Vector2(0f, -ScoreMarkerLift)), (path, _) => path switch
             {
                 "objective_marker1" or "objective_marker2" or "objective_marker3" => PointIndex(path) is int i && i < d.Points.Count ? markerLabels.GetValueOrDefault(PointLabel(d.Points[i]), 0) : 0,
                 _ => null,

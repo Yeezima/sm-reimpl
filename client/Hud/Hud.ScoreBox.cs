@@ -13,6 +13,9 @@ public sealed partial class Hud
     /// <summary>Even padding between the block and the box (movie pixels; ours), the left edge's slant (as before, 12) and the least clearance the fit check demands.</summary>
     const float ScoreBoxPadX = 20f, ScoreBoxPadY = 10f, ScoreBoxSlant = 12f;
 
+    /// <summary>How far (movie pixels) the Seize Ground markers are lifted so that they stand above the box's top edge instead of crossing it (measured in a screenshot; ours).</summary>
+    const float ScoreMarkerLift = 19f;
+
     /// <summary>How much nearer the slanted left edge is than its middle at the block's corners (add it to the left gap to compare with the right gap).</summary>
     public const float ScoreBoxHalfSlant = ScoreBoxSlant / 2f;
 
@@ -80,7 +83,20 @@ public sealed partial class Hud
     /// limit, both centred on one line), the box sized for the nominal block (two-digit scores, the widest timer and limit) plus even padding, and the shift that centres the actual block in it.
     /// Null while the bars are being built or the font is missing (the caller keeps the earlier drawing).
     /// </summary>
-    ScoreBoxLayout? LayoutScoreBox(HudMovie text, string own, string enemy, string limit, string clock)
+    ScoreBoxLayout? LayoutScoreBox(HudMovie text, int own, int enemy, int limit, string clock)
+    {
+        // Kept while the strings and the viewport size stay the same (the measuring allocates and measures text).
+        var key = (own, enemy, limit, clock, Size.Y);
+        if (_scoreLayoutKey == key && _scoreLayout is { } kept) return kept;
+        var made = MeasureScoreBox(text, own.ToString(), enemy.ToString(), limit > 0 ? limit.ToString() : "-", clock);
+        if (made is not null) { _scoreLayoutKey = key; _scoreLayout = made; }
+        return made;
+    }
+
+    (int, int, int, string, float) _scoreLayoutKey;
+    ScoreBoxLayout? _scoreLayout;
+
+    ScoreBoxLayout? MeasureScoreBox(HudMovie text, string own, string enemy, string limit, string clock)
     {
         if (OldScoreBox || FontOf(2) is null) return null;
         if (text.Find("mp_score_mc") is not { } panel) return null;
@@ -133,7 +149,7 @@ public sealed partial class Hud
     {
         if (OldHud || _movieArt?.Movies?.Text is not { } text) return null;
         var d = Data;
-        if (LayoutScoreBox(text, d.OwnScore.ToString(), d.EnemyScore.ToString(), d.ScoreLimit > 0 ? d.ScoreLimit.ToString() : "-", d.Clock) is not { } l) return null;
+        if (LayoutScoreBox(text, d.OwnScore, d.EnemyScore, d.ScoreLimit, d.Clock) is not { } l) return null;
         var c = new Rect2(l.Content.Position + l.Shift, l.Content.Size);
         float EdgeX(float y) => Mathf.Lerp(l.BoxLeft + ScoreBoxSlant / 2f, l.BoxLeft - ScoreBoxSlant / 2f, Mathf.Clamp((y - l.BoxTop) / (l.BoxBottom - l.BoxTop), 0f, 1f));
         float leftGap = MathF.Min(c.Position.X - EdgeX(c.Position.Y), c.Position.X - EdgeX(c.End.Y));
