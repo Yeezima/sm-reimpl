@@ -8,7 +8,7 @@ namespace SmContent;
 public enum ScopeKind { Stalker, Lascannon }
 
 /// <summary>One rendered scope picture: the normal layer (straight RGBA) and the layer the movie draws with the "add" blend mode (RGB, alpha 255), both <see cref="Width"/> x <see cref="Height"/>.</summary>
-public sealed record ScopePicture(byte[] Normal, byte[] Additive, int Width, int Height, float EdgeAlpha);
+public sealed record ScopePicture(byte[] Normal, byte[] Additive, int Width, int Height, float EdgeAlpha, float EdgeR = 0f, float EdgeG = 0f, float EdgeB = 0f);
 
 /// <summary>
 /// The scope's reticle clip at one spread frame (ui/hud-2): straight RGBA and the additive layer, <see cref="Width"/> x <see cref="Height"/> pixels; <see cref="OriginX"/>, <see cref="OriginY"/> is where the
@@ -202,7 +202,7 @@ public sealed class ScopeArt
     /// <summary>
     /// Renders the finished overlay (<paramref name="active"/>: the variant shown with an enemy in the sights) for a screen of <paramref name="width"/> x <paramref name="height"/> (rendered at
     /// <see cref="MaxRenderHeight"/> at most; <see cref="ScopePicture.Width"/> and <see cref="ScopePicture.Height"/> say the size made): the stage fitted to the height and centred; the area beside
-    /// it (wider screens) is left transparent (the caller fills it with <see cref="ScopePicture.EdgeAlpha"/>).
+    /// it (wider screens) is filled out (filled with the mask's edge column, so the picture covers the whole width; <see cref="ScopePicture.EdgeAlpha"/> and the edge colour are for a stale picture shown on a wider screen).
     /// </summary>
     public ScopePicture Render(ScopeKind kind, bool active, int width, int height, CancellationToken cancel = default)
     {
@@ -232,7 +232,13 @@ public sealed class ScopeArt
         for (int x = x0; x < leftCol; x++) normal.CopyColumn(leftCol, x);
         int rightCol = x1; while (rightCol > (x0 + x1) / 2 && normal.AlphaAt(rightCol, 3) < full) rightCol--;
         for (int x = x1; x > rightCol; x--) normal.CopyColumn(rightCol, x);
-        return new ScopePicture(normal.ToRgba8(), additive.ToRgba8(), width, height, edge);
+        // hud/scope-overlay-fill (owner, 2026-11-01: "stalker overlay doesn't reach the edge of the screen"): beside the 16:9 stage (a wider window) the tint is the mask's own edge column carried to
+        // the screen's edges, in the mask's own colour and alpha (the old black bar at the same alpha was lighter than the mask, which is not black), so the picture covers the whole screen.
+        for (int x = Math.Min(x0, width) - 1; x >= 0; x--) normal.CopyColumn(x0, x);
+        for (int x = x1 + 1; x < width; x++) normal.CopyColumn(x1, x);
+        var (er, eg, eb, ea) = normal.At(Math.Min(x1, x0 + 12), height / 2);
+        float inv = ea > 1e-5f ? 1f / ea : 0f;
+        return new ScopePicture(normal.ToRgba8(), additive.ToRgba8(), width, height, edge, er * inv, eg * inv, eb * inv);
     }
 
     GfxBitmap? Bitmap(int id)

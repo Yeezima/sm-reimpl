@@ -72,7 +72,7 @@ public sealed partial class ScopeView : Control
     }
 
     readonly record struct Key(ScopeKind Kind, bool Active);
-    sealed class Slot { public ImageTexture? Normal, Add; public int Width, Height; public float Edge; }
+    sealed class Slot { public ImageTexture? Normal, Add; public int Width, Height; public Color Edge; }
     readonly record struct Result(Key Key, ScopePicture Picture, int Generation);
 
     Lane? _lane;
@@ -203,7 +203,7 @@ public sealed partial class ScopeView : Control
                 var slot = _slots.TryGetValue(r.Key, out var old) ? old : _slots[r.Key] = new Slot();
                 slot.Normal = ImageTexture.CreateFromImage(Image.CreateFromData(p.Width, p.Height, false, Image.Format.Rgba8, p.Normal));
                 slot.Add = ImageTexture.CreateFromImage(Image.CreateFromData(p.Width, p.Height, false, Image.Format.Rgba8, p.Additive));
-                slot.Width = p.Width; slot.Height = p.Height; slot.Edge = p.EdgeAlpha;   // the bytes are not kept
+                slot.Width = p.Width; slot.Height = p.Height; slot.Edge = new Color(p.EdgeR, p.EdgeG, p.EdgeB, p.EdgeAlpha);   // the bytes are not kept
                 if (_art is { } art && !_fades.ContainsKey(r.Key.Kind))
                 {
                     var f = new float[art.FrameCount(r.Key.Kind)];
@@ -304,10 +304,10 @@ public sealed partial class ScopeView : Control
         if (slot?.Normal is null) return;
         var vs = GetViewportRect().Size;
         var rect = Fit(slot, vs);
-        // Beside the picture (a wider screen) the mask's own black.
+        // Beside a stale picture (the window just got wider) the mask's own colour; a fresh picture already covers the screen.
         if (rect.Position.X > 0.5f)
         {
-            var side = new Color(0f, 0f, 0f, slot.Edge * fade);
+            var side = new Color(slot.Edge.R, slot.Edge.G, slot.Edge.B, slot.Edge.A * fade);
             DrawRect(new Rect2(0, 0, rect.Position.X + 1f, vs.Y), side);
             DrawRect(new Rect2(rect.End.X - 1f, 0, vs.X - rect.End.X + 1f, vs.Y), side);
         }

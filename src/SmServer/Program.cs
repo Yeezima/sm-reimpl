@@ -154,7 +154,7 @@ for (int i = 0; i < config.JumpPacks.Count; i++)
 }
 foreach (var w in config.Weapons)
 {
-    Console.WriteLine($"  weapon {w.Name}: {w.Slot}, {w.Trigger}, damage {w.Damage}, cooldown {w.ShotCooldown} s, clip {w.ClipSize}/{w.ReserveSize}, reload {w.ReloadTime} s, range {w.MaxRange} m, fall-off {w.FallOffStart}-{w.FallOffEnd} m to x{w.FallOffEndMultiplier}, head x{w.HeadMultiplier}, body x{w.BodyMultiplier}, shield head x{w.ShieldHeadMultiplier}, body x{w.ShieldBodyMultiplier}");
+    Console.WriteLine($"  weapon {w.Name}: {w.Slot}, {w.Trigger}, damage {w.Damage}, cooldown {w.ShotCooldown} s, clip {w.ClipSize}/{w.ReserveSize}{(w.AmmoPerShot > 1 && w.Projectile is null ? $" ({w.AmmoPerShot} rounds per shot)" : "")}, reload {w.ReloadTime} s, range {w.MaxRange} m, fall-off {w.FallOffStart}-{w.FallOffEnd} m to x{w.FallOffEndMultiplier}, head x{w.HeadMultiplier}, body x{w.BodyMultiplier}, shield head x{w.ShieldHeadMultiplier}, body x{w.ShieldBodyMultiplier}");
     Console.WriteLine($"    raise (M31): {(w.AlwaysReady ? "always ready, never waits" : w.RaiseDelay > 0f ? $"{w.RaiseDelay:F3} s ({Combat.RaiseTicksOf(w, config)} ticks) when down" : "no data, never waits")}");
     if (w.Pierce is { } pierce)
         Console.WriteLine($"    pierces props (M39): {Pierce(pierce)}");

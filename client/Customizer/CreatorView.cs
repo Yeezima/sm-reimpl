@@ -985,7 +985,7 @@ public sealed partial class CreatorView : Control
     public override void _UnhandledInput(InputEvent e)
     {
         if (!IsVisibleInTree() || _controlsView?.Visible == true) return;   // the CONTROLS screen over this one owns the keys and the pad
-        if (e.IsActionPressed("ui_cancel")) { GetViewport().SetInputAsHandled(); Back(); return; }
+        if (PadHost.IsBack(e)) { GetViewport().SetInputAsHandled(); Back(); return; }
         if (e is InputEventJoypadButton { Pressed: true } pad)
         {
             switch (pad.ButtonIndex)

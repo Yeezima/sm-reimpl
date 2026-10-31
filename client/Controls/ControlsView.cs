@@ -220,7 +220,7 @@ public sealed partial class ControlsView : Control
         if (!IsVisibleInTree() || _dialogOpen) return;
         if (_capture is { } capture) { CaptureEvent(e, capture); return; }
         if (e is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.Delete or Key.Backspace } && FocusedBind() is { } at) { Accept(); ClearBinding(at.Action, at.Slot); return; }
-        if (e.IsActionPressed("ui_cancel")) { Accept(); _onBack(); return; }
+        if (PadHost.IsBack(e)) { Accept(); _onBack(); return; }
         if (e is InputEventJoypadButton { Pressed: true } pad)
         {
             switch (pad.ButtonIndex)
@@ -249,7 +249,8 @@ public sealed partial class ControlsView : Control
         bool bindable = e is InputEventKey or InputEventMouseButton or InputEventJoypadButton;
         if (bindable) Accept();   // nothing under the screen sees what is being bound (releases included)
         if (Time.GetTicksMsec() / 1000.0 - _captureAt < 0.15) return;   // the press that opened the entry
-        if (e is InputEventKey { Pressed: true, PhysicalKeycode: Key.Escape } || e is InputEventJoypadButton { Pressed: true, ButtonIndex: JoyButton.Start } && capture.Device == BindDevice.Controller)
+        if (e is InputEventKey { Pressed: true, PhysicalKeycode: Key.Escape } || e is InputEventJoypadButton { Pressed: true, ButtonIndex: JoyButton.Start } && capture.Device == BindDevice.Controller
+            || e is InputEventJoypadButton { Pressed: true, ButtonIndex: JoyButton.B } && capture.Device == BindDevice.Keyboard)   // B is bindable on the controller tab only; on the keyboard tab it cancels like Esc
         {
             _capture = null;
             Say("Cancelled.");

@@ -471,7 +471,7 @@ public static partial class UiKit
         public override void _Input(InputEvent e)
         {
             if (_closed) return;
-            if (e.IsActionPressed("ui_cancel")) { GetViewport().SetInputAsHandled(); Choose(_cancelIndex); }
+            if (PadHost.IsBack(e)) { GetViewport().SetInputAsHandled(); Choose(_cancelIndex); }
         }
 
         void Choose(int index)

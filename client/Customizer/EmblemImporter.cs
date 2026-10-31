@@ -239,7 +239,7 @@ public sealed partial class EmblemImporter : Control
     public override void _Input(InputEvent e)
     {
         if (_closedOnce) return;
-        if (e.IsActionPressed("ui_cancel")) { GetViewport().SetInputAsHandled(); Close(); }
+        if (PadHost.IsBack(e)) { GetViewport().SetInputAsHandled(); Close(); }
     }
 
     // ---- the cropping surface ----

@@ -48,7 +48,7 @@ public class ScoreboardPingTests(ITestOutputHelper output)
     [Fact]
     public void The_ping_round_trips_in_the_scoreboard_row_and_the_reader_refuses_values_above_999()
     {
-        Assert.Equal(50, Protocol.Version);
+        Assert.Equal(51, Protocol.Version);
         Assert.Equal(16, Protocol.ScoreRowBytes);
         var board = new Scoreboard(9, true, 41, 600f, false,
         [

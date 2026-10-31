@@ -11,7 +11,7 @@ namespace SmClient;
 
 /// <summary>
 /// Hip fire in the networked view (M27): shooting without the Aim button, on the move, with the animations and effects that
-/// go with it. The simulation side: a shot ends the sprint, and (M31) the weapon is raised or lowered (<see cref="PlayerState.ReadyTicks"/>,
+/// go with it. The simulation side: a sprint blocks the trigger (protocol 51; before it a shot ended the sprint), and (M31) the weapon is raised or lowered (<see cref="PlayerState.ReadyTicks"/>,
 /// <see cref="PlayerState.RaiseTicks"/>: the first shot from a lowered weapon waits for its raise; <c>Combat.StepPlayer</c>,
 /// spec/behavior.md "Hip fire"); accuracy is the same as aimed fire (shots converge on the crosshair in both modes).
 /// <para>
@@ -524,7 +524,7 @@ public partial class NetworkView
         return $"Hip fire (M27, M31): ready posture {(_hipAnims is null ? _hipNote : "from the behaviour graphs")} while the simulation holds the weapon up ({_config?.ReadyHold:F2} s after a shot, the owner's rough estimate, unverified; " +
                "the first shot from a lowered weapon waits for its raise: rifle 0.2, pistol 0.167 s, from the graphs; heavy bolter, grenade launcher, melta, lascannon, plasma cannon always up), " +
                "movement clips blended between the neighbouring directions and speed bands by the damped velocity (M40-T4; the nearest clip when the gait data is missing or with --no-gait-blend), and by pitch; recoil = the original additive clip per shot (grenade launcher: partial overlay, approximation); " +
-               "shots as accurate as aimed fire; a shot ends the sprint, a sprint lowers the weapon. " +
+               "shots as accurate as aimed fire; a sprint lowers the weapon and blocks the trigger (protocol 51). " +
                (own is null ? "" : $"Now: {(HipReady(_client!.Predicted) ? (_client.Predicted.RaiseTicks > 0 ? "raising" : "ready") : "relaxed")}, {own.Shots} own shots, last {(_connectedFor - own.ShotAt < 1e6 ? $"{_connectedFor - own.ShotAt:F1} s ago" : "never")}.");
     }
 }

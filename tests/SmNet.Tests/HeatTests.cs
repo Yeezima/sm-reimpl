@@ -361,7 +361,7 @@ public class HeatTests(ITestOutputHelper output)
         Assert.Equal(hello, Protocol.Read(Protocol.Write(hello)));
         Assert.Equal((Protocol.DefaultChoice, Protocol.DefaultChoice, Protocol.DefaultChoice), (new Hello(Protocol.Version, 1, 2, 3).RequestedPrimary,
             new Hello(Protocol.Version, 1, 2, 3).RequestedPistol, new Hello(Protocol.Version, 1, 2, 3).RequestedMelee));
-        Assert.Equal(50, Protocol.Version);
+        Assert.Equal(51, Protocol.Version);
 
         var joined = new List<PlayerState>();
         var link = new LinkConditions(TimeSpan.FromMilliseconds(10), TimeSpan.Zero, 0);
