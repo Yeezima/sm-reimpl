@@ -133,7 +133,7 @@ public class CustomizationProfileTests : IDisposable
             // The jump pack: the catalogue marks the classes that carry one (ClassCustomization.JumpPack), and the resolver hides their backpack.
             Entry("sm_mp_abil_jumppack", Baf(("common_data", T(("slot", "coreability"))), ("ability_data", T(("ability_definitions", T(("ability_jumppack", T()))))))),
             Entry("sm_mp_exotic_heavy_bolter", Gear("ranged")), Entry("sm_mp_exotic_las_cannon", Gear("ranged")),
-            Entry("mp_perk_a", Gear("perk", upgrade: "mp_perk_a")), Entry("mp_perk_weap_x", Gear("perk", upgrade: "x")),
+            Entry("mp_perk_a", Gear("perk", ["sm_acc_perk_a"], upgrade: "mp_perk_a")), Entry("mp_perk_weap_x", Gear("perk", upgrade: "x")),
             Entry("mp_perk_secondary_weapon", Gear("perk")), Entry("mp_perk_bolter_in_place_of_pistol", Gear("perk")),
         };
         string[] slots = ["head", "torso", "leftshoulder", "rightshoulder", "leftarm", "rightarm", "leftleg", "rightleg", "backpack"];
@@ -875,6 +875,17 @@ public class CustomizationProfileTests : IDisposable
         // The Space Marine Assault class hides its backpack too.
         Assert.Null(AppearanceResolver.Resolve(AppearanceCode.Default, "sm - assault marine", Catalog).Piece("backpack"));
         Assert.NotNull(AppearanceResolver.Resolve(AppearanceCode.Default, "sm - tactical", Catalog).Piece("backpack"));
+    }
+
+    [Fact]
+    public void A_carried_perks_own_model_is_drawn_last_and_only_while_carried()
+    {
+        var with = AppearanceResolver.Resolve(AppearanceCode.Default, "sm - devastator", Catalog, new ResolveOptions { Carried = ["sm_mp_exotic_las_cannon", "mp_perk_a"] });
+        var last = with.Pieces[^1];
+        Assert.Equal(("perk", "mp_perk_a"), (last.Slot, last.Name));
+        Assert.Equal(["sm_acc_perk_a"], last.Packages);
+        var without = AppearanceResolver.Resolve(AppearanceCode.Default, "sm - devastator", Catalog, new ResolveOptions { Carried = ["sm_mp_exotic_las_cannon"] });
+        Assert.DoesNotContain(without.Pieces, p => p.Slot == "perk");
     }
 
     [Fact]

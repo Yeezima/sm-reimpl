@@ -110,6 +110,8 @@ public partial class NetworkView
         public float SwitchStartWeight;   // sim/switch-cancel: the layer weight a cancelled switch had, so the restart blends in from it instead of from nothing
         public SwitchPlan? Switch;   // fix/stow-right: the old weapon's draw backwards, then the new one's (SwitchPlan)
         public FlinchClip? Flinch;
+        public float FlinchPeak = 1f;   // feel/weight-impact: the flinch's strength over its clip
+        public float SettleWeight;   // feel/weight-impact: the share of the landing crouch a softer landing shows (0: none)
         public double FlinchAt = double.NegativeInfinity, FlinchLast = double.NegativeInfinity, HeadHitAt = double.NegativeInfinity;
         public bool WasSprint, WasCharging, WasAirborne;
         public float SprintBlend; public double SprintBlendAt = double.NegativeInfinity;   // animation pass 3: the damped strafe blend of the sprint

@@ -384,7 +384,7 @@ public partial class NetworkView
         if (_hipAnims is null || !s.Alive || HipFamilyOf(s) is not { } family || HipRecoilOf(s, family) is not { } recoil) { character.ClearPoseLayer(); return; }
         float age = (float)(_connectedFor - t.RecoilAt);
         if (age < 0f || age >= recoil.Length) { character.ClearPoseLayer(); return; }
-        if (recoil.Additive) character.SetPoseLayer(recoil.Clip, age, 1f, additive: true);
+        if (recoil.Additive) character.SetPoseLayer(recoil.Clip, age, RecoilWeight(s), additive: true);
         else
         {
             // A whole pose, not a difference: laid over the arms and spine only, easing in and out, so the legs keep moving.

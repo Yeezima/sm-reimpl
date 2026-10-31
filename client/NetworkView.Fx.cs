@@ -333,6 +333,7 @@ public partial class NetworkView
         for (int i = 0; i < shots; i++) FxPlayOwnShot(me, weapon, index, stage, i, shots);
         // Camera kick: a little per shot, more for the heavy weapons (placeholder; with the data's handling on, the climb and sway kick instead: NetworkView.Spread.cs).
         if (!HandlingActive) FxKick(weapon, stage);
+        HeavyWeaponKick(me, weapon, stage);   // feel/weight-impact (NetworkView.CameraImpulse.cs)
     }
 
     void FxPlayOwnShot(PlayerState me, WeaponSpec weapon, int index, int stage, int nth = 0, int of = 1)
@@ -663,6 +664,7 @@ public partial class NetworkView
             float distance = ToGodot(client.Predicted.Position).DistanceTo(pos);
             float radius = d.Thrown ? 4f : 6f;
             if (distance < 25f) FxShake(Math.Clamp(1f - distance / 25f, 0f, 1f) * (radius > 5f ? 0.9f : 0.6f) * 0.012f * 3f);
+            CameraKick(WeightFeel.BlastJoltDegrees(distance), "blast");   // feel/weight-impact
             string name = d.Thrown && d.Weapon >= 0 && d.Weapon < _config.Thrown.Count ? _config.Thrown[d.Weapon].Name : "";
             if (name.Contains("krak", StringComparison.OrdinalIgnoreCase) && client.Predicted.Alive && distance < 7f)
             {
@@ -727,7 +729,7 @@ public partial class NetworkView
         var bob = LandShakeOffset();   // animation pass 1 (NetworkView.Fall.cs): the landing's camera shake, a position offset along the camera's own axes
         bool rotate = amount >= 0.0004f;
         if (!rotate) _shake = Vector3.Zero;
-        float punch = PunchNow();   // anim/melee-interaction: the charge connect's camera kick (NetworkView.MeleeInteraction.cs)
+        float punch = PunchNow() + CameraImpulseNow(delta);   // feel/weight-impact: the impulses (NetworkView.CameraImpulse.cs); anim/melee-interaction: the charge connect's camera kick (NetworkView.MeleeInteraction.cs)
         if (!rotate && bob == Vector3.Zero && punch == 0f) return;
         _unshaken = _camera.GlobalTransform;
         var t = _unshaken;

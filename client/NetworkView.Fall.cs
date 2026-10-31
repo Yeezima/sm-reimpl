@@ -175,6 +175,9 @@ public partial class NetworkView
         // The heavy bolter's landing needs the drop (1 m above the ground) and begins at 0.5 m, usually before touchdown; the rifle's needs the speed.
         bool hard = set is not null && (set.Family == FallFamily.Heavy ? fall.DropStarted : FallRules.IsHard(fall.PeakDown, threshold));
         if (set is not null && !fall.HeavyLanded) BeginLanding(s, t, set, hard, own, 0f);
+        // feel/weight-impact: a fall below the hard clip's speed shows a share of the crouch, and the own camera dips by the fall speed.
+        t.SettleWeight = !OldLandingSettle && !hard && set is { Family: FallFamily.Rifle } ? WeightFeel.SettleWeight(fall.PeakDown) : 0f;
+        if (own) CameraKick(WeightFeel.LandingDipDegrees(fall.PeakDown), "landing");
         // The same air-time threshold as the landing sound (NetworkView.Sound.cs): FallRules.LandingFeelSeconds.
         if (own && airTime >= FallRules.LandingFeelSeconds) LandingFeel(s);
         if (!hard) _landingsSoft++;
@@ -245,6 +248,20 @@ public partial class NetworkView
             t.LandKeep = Mathf.MoveToward(t.LandKeep, FallRules.MoveKeep(speed, _config?.MoveSpeedScale ?? 1f), dt / LandKeepSeconds);
             float weight = FallRules.LandWeight(since, set.LandBlend, exit) * t.LandKeep;
             if (weight > 1e-3f) character.SetLayer(PoseSlots.Land, set.Land.Clip, since, CharacterViewer.Smooth(weight), false, null);   // animation pass 3: the smooth curve
+        }
+        else if (t.SettleWeight > 0f && !t.Fall.Falling)
+        {
+            // feel/weight-impact: the softer landing's settle, the hard clip's envelope at the fall's share; a marine on the move keeps less of it, as there.
+            var exit = t.LandProtected ? set.ProtectedExit : set.Exit;
+            float since = (float)(now - t.Fall.LandAt);
+            if (FallRules.LandOver(since, exit)) t.SettleWeight = 0f;
+            else
+            {
+                float speed = MathF.Sqrt(s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y);
+                t.LandKeep = Mathf.MoveToward(t.LandKeep, FallRules.MoveKeep(speed, _config?.MoveSpeedScale ?? 1f), dt / LandKeepSeconds);
+                float weight = FallRules.LandWeight(since, set.LandBlend, exit) * t.LandKeep * t.SettleWeight;
+                if (weight > 1e-3f) character.SetLayer(PoseSlots.Land, set.Land.Clip, since, CharacterViewer.Smooth(weight), false, null);
+            }
         }
         if ((LogFall || _bot) && character.ActiveLayers > 0 && now - t.FallLogAt >= 0.1)
         {
