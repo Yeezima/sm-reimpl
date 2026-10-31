@@ -52,6 +52,8 @@ and gore are listed in their own design documents for now (the rest of section 0
 | A one-sided co-op mode against swarms | the owner's request (2026-10-31); SM1 has no such mode (Exterminatus is the nearest) | `--content musou`, Annihilation rules replaced by the Musou flow | Musou flow |
 | Space Marines only, no balance | ours (the lead's default; the owner may change it) | every player joins the Space Marines, no per-side limit | Musou sides |
 | Endless match until the run ends | ours | warm-up until a Space Marine is in, countdown, play; no score or time limit; an empty server goes back to warm-up | Musou flow |
+| Enemies ignore spawn-room blockers | ours (the lead, 2026-10-31) | Musou enemies walk through both sides' spawn-room blockers (the Warboss leaves the Chaos room; enemies may enter the Space Marine room); players keep them | Musou enemies and the spawn rooms |
+| Pistol-only start, Space Marine spawn room, Warboss in the Chaos room | the owner's request (2026-10-31) | every life starts with the class's bolt pistol only; everyone spawns in the Space Marine room | Musou spawns and loadout |
 
 ## 1. Deliberate changes (owner's decisions)
 

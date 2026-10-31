@@ -10,7 +10,8 @@ namespace SmServer;
 /// <summary>
 /// Added content "Musou" on the server (design sections A and C), only when the match runs <see cref="ContentExtras.Musou"/>. At the end of the constructor
 /// (<see cref="CreateMusou"/>, from the <c>ExtrasCreated</c> hook) the server builds or reads the walking graph of the map (the test bots' graph setup and
-/// cache, <see cref="BotNavigation"/>, around the map's spawns, points and start areas, on the Space Marines' collision: the side the players are on) and
+/// cache, <see cref="BotNavigation"/>, around the map's spawns, points and start areas, on the level's collision without the spawn-room blockers: the
+/// enemies leave the Chaos spawn room, where the Warboss starts, and may enter the Space Marines'; the players keep their side's collision) and
 /// makes the world a Musou match (<see cref="World.StartMusou"/>). Once a tick (<see cref="SendMusou"/>, from the envelope hook) it sends each client the
 /// director, the events and the enemies due by that client's interest (<see cref="MusouInterest"/>: <c>MusouWire</c> tags 3 to 5, at most 4 messages a tick
 /// within the client's budget; MU2). Nothing is sent while the pool is empty and the director unset (MU0's state).
@@ -44,8 +45,20 @@ public sealed partial class GameServer
             : "musou: not started (the match has no team rules)";
     }
 
-    /// <summary>The map's walking graph for the enemies (the bots' setup and cache; <see cref="BotNavigation.LoadOrBuildWalk"/> over the map's own spawns, points and start areas).</summary>
-    static NavGraph? BuildMusouNav(GameMap map, SimConfig config, out string note)
+    /// <summary>
+    /// The suffix of the Musou graph's cache name (<c>&lt;map&gt;-musou-&lt;key&gt;.nav</c>): a file apart from the bots' graphs (<c>&lt;map&gt;-&lt;key&gt;.nav</c>),
+    /// so neither replaces nor prunes the other (<see cref="NavCache.Prune"/> keeps each name's own newest graphs).
+    /// </summary>
+    internal const string MusouNavCacheSuffix = "-musou";
+
+    /// <summary>
+    /// The map's walking graph for the enemies: the bots' setup and cache (<see cref="BotNavigation.Margin"/> around the map's own spawns, points and start
+    /// areas; <see cref="NavCache.LoadOrBuild"/>) over <see cref="CollisionWorld.Character"/>, the level and its props without the spawn-room blockers (lead's
+    /// decision 2026-10-31, Musou only, kind: ours): the Chaos room is open for the enemies, so the Warboss starts inside it, and the enemies may walk into the
+    /// Space Marines' room too. The players move on their side's collision as before (<see cref="CollisionWorld.CharacterFor"/>); only this graph changes.
+    /// <paramref name="cacheDirectory"/>: the cache folder (null: the private cache, <see cref="BotNavigation.CacheDirectory"/>; tests pass their own).
+    /// </summary>
+    internal static NavGraph? BuildMusouNav(GameMap map, SimConfig config, out string note, string? cacheDirectory = null)
     {
         var seeds = map.Spawns.Select(s => s.Position)
             .Concat((map.ControlPoints ?? []).Select(p => p.Center))
@@ -53,9 +66,12 @@ public sealed partial class GameServer
         if (seeds.Count == 0) { note = "no spawns or points to build the nav graph around"; return null; }
         var settings = NavSettings.From(config);
         var area = NavArea.Around(seeds, BotNavigation.Margin);
-        var mesh = map.Collision.CharacterFor(Team.SpaceMarines);
+        var mesh = map.Collision.Character;   // no spawn-room blockers (CharacterFor(Team.None))
         ulong key = NavGraph.KeyFor(mesh, map.Collision.KillVolumes, settings, area);
-        return NavCache.LoadOrBuild(BotNavigation.CacheDirectory, map.Name, key, settings, () => NavGraph.Build(mesh, map.Collision.KillVolumes, settings, area), out note);
+        var graph = NavCache.LoadOrBuild(cacheDirectory ?? BotNavigation.CacheDirectory, map.Name + MusouNavCacheSuffix, key, settings,
+            () => NavGraph.Build(mesh, map.Collision.KillVolumes, settings, area), out note);
+        note = $"enemies' graph without the spawn-room blockers: {note}";
+        return graph;
     }
 
     readonly Dictionary<int, MusouInterest> _musouInterest = new();
