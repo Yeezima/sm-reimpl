@@ -189,15 +189,17 @@ public class TfwPass2ContractTests
     public void The_two_commands_round_trip_and_a_card_must_exist()
     {
         var change = new TfwCommandRecord(5, TfwCommand.ChangeClass, 0);
-        var choose = new TfwCommandRecord(6, TfwCommand.ChooseReward, 2);
+        var choose = new TfwCommandRecord(6, TfwCommand.ChooseReward, 2, Offer: 41);
         Assert.Equal(change, TfwWire.ReadCommand(TfwWire.WriteCommand(change)));
         Assert.Equal(choose, TfwWire.ReadCommand(TfwWire.WriteCommand(choose)));
         Assert.False(TfwWire.HasPoint(TfwCommand.ChangeClass));
         Assert.Null(TfwWire.ReadCommand(TfwWire.WriteCommand(choose with { Argument = TfwWire.RewardCards })));
+        Assert.Null(TfwWire.ReadCommand(TfwWire.WriteCommand(choose with { Offer = 0 })));   // a pick names its offer (M0's review)
+        Assert.Null(TfwWire.ReadCommand(TfwWire.WriteCommand(choose)[..TfwWire.CommandBytes]));
     }
 
     [Fact]
-    public void The_two_commands_do_nothing_in_a_war_yet()
+    public void A_class_change_and_a_pick_with_no_offer_do_nothing_in_a_war()
     {
         var w = new World(Config, null, TfwTestArena.Spawns) { Rules = Rules };
         Assert.True(w.StartTfw(null, TfwTestArena.Field));
@@ -206,7 +208,7 @@ public class TfwPass2ContractTests
         var run = w.Tfw!;
         var before = (w.Players[1], run.Phase, run.Transport, run.Supplies);
         Assert.True(run.Enqueue(1, new TfwCommandRecord(1, TfwCommand.ChangeClass, 0)));
-        Assert.True(run.Enqueue(1, new TfwCommandRecord(2, TfwCommand.ChooseReward, 1)));
+        Assert.True(run.Enqueue(1, new TfwCommandRecord(2, TfwCommand.ChooseReward, 1, Offer: 7)));
         w.Step(_ => default);
         Assert.Equal(0, run.QueuedCommands);          // taken, not left to pile up
         Assert.Equal((before.Item2, before.Transport, before.Supplies), (run.Phase, run.Transport, run.Supplies));
@@ -285,14 +287,14 @@ public class TfwPass2ContractTests
         var heard = new List<byte>();
         h.Run(TimeSpan.FromSeconds(2), after: () => heard.AddRange(h.Clients[0].TakeExtras().Select(s => s.Tag)));
         Assert.Equal(ClientStatus.Connected, h.Clients[0].Status);
-        Assert.DoesNotContain(heard, t => t is >= TfwWire.FireTag and <= TfwWire.RewardTag);
+        Assert.DoesNotContain(heard, t => t is >= TfwWire.FireTag and <= TfwWire.ArsenalTag);
         h.Clients[0].SendExtrasCommand(TfwWire.CommandTag, TfwWire.WriteCommand(new TfwCommandRecord(1, TfwCommand.ChangeClass, 0)));
         h.Run(TimeSpan.FromMilliseconds(100));
         Assert.Equal((ushort)0, h.Server.TfwCommandEcho(h.Clients[0].PlayerId));
     }
 
     [Fact]
-    public void A_war_sends_none_of_the_new_tags_yet()
+    public void A_war_sends_the_score_and_the_slots_and_no_tag_it_has_no_use_for_yet()
     {
         var map = TfwTestArena.ServerMap();
         var h = new Harness(LinkConditions.Perfect, 5, 1, Config, new ServerOptions { Match = Rules }, map: map,
@@ -300,6 +302,9 @@ public class TfwPass2ContractTests
         var heard = new List<byte>();
         h.Run(TimeSpan.FromSeconds(3), after: () => heard.AddRange(h.Clients[0].TakeExtras().Select(s => s.Tag)));
         Assert.Contains(TfwWire.WarTag, heard);
-        Assert.DoesNotContain(heard, t => t is >= TfwWire.FireTag and <= TfwWire.RewardTag);
+        Assert.Contains(TfwWire.ScoreTag, heard);
+        Assert.Contains(TfwWire.ArsenalTag, heard);
+        Assert.DoesNotContain(TfwWire.FireTag, heard);
+        Assert.DoesNotContain(TfwWire.BarsTag, heard);
     }
 }

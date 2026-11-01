@@ -12,10 +12,4 @@ public partial class NetworkView
 
     /// <summary>Tag 13: the elites' health bars (M11).</summary>
     void TfwBarsFrame() { }
-
-    /// <summary>Tag 12: the shown score and its panels (M6b).</summary>
-    void TfwScoreFrame(in TfwWarView war) { }
-
-    /// <summary>Tag 14: the reward cards (M6).</summary>
-    void TfwRewardFrame(in TfwWarView war) { }
 }

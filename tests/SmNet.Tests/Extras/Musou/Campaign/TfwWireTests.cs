@@ -195,10 +195,11 @@ public class TfwWireTests(ITestOutputHelper output)
         foreach (var command in Enum.GetValues<TfwCommand>())
         {
             var point = TfwWire.HasPoint(command) ? new Vector3(-40.3f, 60.7f, 1.2f) : default;
-            var c = new TfwCommandRecord(0xFFFE, command, command == TfwCommand.Deploy ? (byte)TfwLane.C : (byte)0, point);
+            byte argument = command switch { TfwCommand.Deploy => (byte)TfwLane.C, TfwCommand.SelectSlot => 4, _ => 0 };
+            var c = new TfwCommandRecord(0xFFFE, command, argument, point, command == TfwCommand.ChooseReward ? (ushort)9 : (ushort)0);
             var bytes = TfwWire.WriteCommand(c);
             Assert.True(bytes.Length <= Protocol.MaxExtrasCommandPayload);
-            Assert.Equal(TfwWire.HasPoint(command) ? TfwWire.PointCommandBytes : TfwWire.CommandBytes, bytes.Length);
+            Assert.Equal(TfwWire.HasPoint(command) ? TfwWire.PointCommandBytes : command == TfwCommand.ChooseReward ? TfwWire.OfferCommandBytes : TfwWire.CommandBytes, bytes.Length);
             var read = TfwWire.ReadCommand(bytes)!.Value;
             Assert.Equal(c with { Point = default }, read with { Point = default });
             Assert.True(Vector3.Distance(point, read.Point) < 0.1f, $"{read.Point}");

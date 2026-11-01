@@ -9,7 +9,7 @@ namespace SmSim.Extras.Musou.Campaign;
 /// </summary>
 public static class TfwRules
 {
-    public const uint Version = 7;   // 2: TF6, the war's sections on the wire and the commands with a place; 3: TF4, the war runs (the battle, the run, the extraction); 4: TF7b, tag 7 carries the own block (TfwOwnView); 5: the own block's deployed flag, and an extraction after a won battle never ends the run; 6: pass 2's contracts (tags 11 to 14, the commands ChangeClass and ChooseReward, Knocked, the deaths Barrage and Strafe); 7: battles on Manufactorum (M1: the map's points, drawn sites, tag 8 carries each radius and the sites)
+    public const uint Version = 8;   // 2: TF6, the war's sections on the wire and the commands with a place; 3: TF4, the war runs (the battle, the run, the extraction); 4: TF7b, tag 7 carries the own block (TfwOwnView); 5: the own block's deployed flag, and an extraction after a won battle never ends the run; 6: pass 2's contracts (tags 11 to 14, the commands ChangeClass and ChooseReward, Knocked, the deaths Barrage and Strafe); 7: battles on Manufactorum (M1: the map's points, drawn sites, tag 8 carries each radius and the sites); 8: rewards and scoring (M6, M6b: the full loadout from the start, enemy boxes, crates, reward cards, slots 3 to 5, TfwScore, tag 15, SelectSlot, ChooseReward names its offer)
 }
 
 /// <summary>The contract the war's milestones share (TF0, frozen): ids and how the war's actors are named across the simulation, the server and the client.</summary>
@@ -40,11 +40,11 @@ public enum TfwRunPhase : byte { Hub = 0, Travel = 1, Battle = 2, Pickup = 3, Fi
 /// <summary>A capture position in a battle (design section D): the chain goes Locked, Held, Clearing, Securing, Secured.</summary>
 public enum TfwPositionState : byte { Locked = 0, Held = 1, Clearing = 2, Securing = 3, Secured = 4 }
 
-/// <summary>A client's command (message kind 17, tag <c>TfwWire.CommandTag</c>; design section H). Deploy's argument is the lane; Hold and Attack carry a place (<see cref="TfwCommandRecord.Point"/>); ChooseReward's argument is the card (0 to <c>TfwWire.RewardCards</c> - 1).</summary>
-public enum TfwCommand : byte { Deploy = 1, RequestPickup = 2, CancelPickup = 3, Follow = 4, Hold = 5, Attack = 6, ChangeClass = 7, ChooseReward = 8 }
+/// <summary>A client's command (message kind 17, tag <c>TfwWire.CommandTag</c>; design section H). Deploy's argument is the lane; Hold and Attack carry a place (<see cref="TfwCommandRecord.Point"/>); ChooseReward's argument is the card (0 to <c>TfwWire.RewardCards</c> - 1) and <see cref="TfwCommandRecord.Offer"/> the offer it answers; SelectSlot's argument is the weapon key (1 to 5).</summary>
+public enum TfwCommand : byte { Deploy = 1, RequestPickup = 2, CancelPickup = 3, Follow = 4, Hold = 5, Attack = 6, ChangeClass = 7, ChooseReward = 8, SelectSlot = 9 }
 
-/// <summary>One decoded command: its sequence (resent until tag 7 echoes it, idempotent by it), what it asks, its argument and, for Hold and Attack, the point of the sender's crosshair (metres; untrusted, within about 3 km on each axis).</summary>
-public readonly record struct TfwCommandRecord(ushort Sequence, TfwCommand Command, byte Argument, Vector3 Point = default);
+/// <summary>One decoded command: its sequence (resent until tag 7 echoes it, idempotent by it), what it asks, its argument and, for Hold and Attack, the point of the sender's crosshair (metres; untrusted, within about 3 km on each axis). <see cref="Offer"/>: ChooseReward's offer sequence, so a delayed pick never lands on a newer offer.</summary>
+public readonly record struct TfwCommandRecord(ushort Sequence, TfwCommand Command, byte Argument, Vector3 Point = default, ushort Offer = 0);
 
 /// <summary>One front as the simulation holds it and tag 7 carries it (design section C): front -1 (HQ besieged) to 3 (stronghold), progress -1 to 1, the strengths, each position's owner bit, the gather time left, the lord's state.</summary>
 public readonly record struct TfwLaneState(sbyte Front, float Progress, float Imperial, float Ork, byte OwnedMask, float GatherLeft, byte LordState);
@@ -107,6 +107,18 @@ public readonly record struct TfwRewardCard(TfwRewardKind Kind, ushort Item);
 
 /// <summary>The cards offered to one client after a win (tag 14); the newest <see cref="Sequence"/> stands.</summary>
 public readonly record struct TfwRewardOffer(ushort Sequence, TfwRewardCard First, TfwRewardCard Second, TfwRewardCard Third);
+
+/// <summary>
+/// One client's extra primary slots (tag 15; owner's item 26): the weapon index in keys 3, 4 and 5 (-1: empty), and which key holds the weapon now in the player's primary and pistol fields
+/// (0: its own, never an extra). The HUD draws the slots; the client needs the two so that keys 2 and 1 bring its own weapon back.
+/// </summary>
+public readonly record struct TfwArsenalView(short Slot3, short Slot4, short Slot5, byte LoadedPrimary, byte LoadedPistol)
+{
+    /// <summary>The empty slots.</summary>
+    public static readonly TfwArsenalView Empty = new(-1, -1, -1, 0, 0);
+    /// <summary>The weapon in key <paramref name="key"/> (3 to 5), or -1.</summary>
+    public int Weapon(int key) => key switch { 3 => Slot3, 4 => Slot4, 5 => Slot5, _ => -1 };
+}
 
 /// <summary>
 /// The war of one match (<see cref="World.Tfw"/>; set only by <see cref="World.StartTfw"/>). TF0 holds the contract alone: the command queue, the AI Marines' input source and

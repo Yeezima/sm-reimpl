@@ -90,6 +90,7 @@ public partial class NetworkView
 
     partial void ExtrasInput(ref PlayerInput input)
     {
+        TfwTestInput(ref input);   // Musou Mode's scripted player: off outside its script
         if (!BarksActive || _client is null || _config is null) return;
         var me = _client.Predicted;
         bool canShout = me.Alive && !OwnDead && IsLoyalist(me);

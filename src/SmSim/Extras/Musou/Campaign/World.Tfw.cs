@@ -50,13 +50,16 @@ public sealed partial class World
         MusouBeginTick();
         MusouArm();
         TfwCreditKills();   // the strikes and blasts earlier in the tick: a battle may end below
+        TfwBoxAmmo();   // World.TfwArsenal.cs: last tick's ammunition boxes reach the weapons in the bank
         if (_state == MatchState.Playing && !run.Idle) run.Step(this);
         else if (!run.Idle) run.Commands(null, Config.TickRate);
         TfwGuardsStep();   // World.TfwGuards.cs
         TfwBossStep();
         TfwPuppetsStep();
         MusouDropsStep();   // World.MusouDrops.cs: pickups (E), expiry
+        TfwSlotsStep();   // World.TfwArsenal.cs: a key pressed during a strike waits for its end
         run.HoldRespawns(this);
+        if (run.Ended) run.Score.Bank(run.Phase == TfwRunPhase.Won ? TfwMapResult.Won : TfwMapResult.Lost);   // the run's end banks the map under way, however it came
         if (_state == MatchState.Playing && run.Phase == TfwRunPhase.Won) End(Team.SpaceMarines);
         else if (_state == MatchState.Playing && run.Phase == TfwRunPhase.Lost) End(Team.Chaos);
         TfwShowDirector();
@@ -79,7 +82,7 @@ public sealed partial class World
 
     /// <summary>
     /// The credit of the KOs, and the battle's count of them: a Guardsman's KO names no player, so <c>orksKilled</c> reads what <see cref="MusouSim.TakeKills"/> gave (<see cref="MusouCreditKills"/>
-    /// leaves it in its list).
+    /// leaves it in its list). In play each KO may leave a box (owner's item 3) and a human's scores (item 17).
     /// </summary>
     void TfwCreditKills()
     {
@@ -88,6 +91,9 @@ public sealed partial class World
         {
             _tfw!.Battle?.NoteKill(kill);
             if (kill.Player != 0) _tfwKos++;
+            if (_state != MatchState.Playing || _tfw.Battle is null) continue;
+            TfwDropBox(kill);
+            if (!TfwContracts.IsPuppet(kill.Player) && _players.ContainsKey(kill.Player)) _tfw.Score.Note(kill, _musou!.Rules, Config.TickRate, Tick);
         }
     }
 
@@ -132,6 +138,7 @@ public sealed partial class World
         _projectiles.Clear(); _areas.Clear(); _perkBlasts.Clear();   // the players' own: nothing of this battle lands in the next or in the Stormbird
         CountProjectilesOut();
         MusouClearDrops();
+        ClearPickups();   // the boxes stay with their battle (no events: the clients drop what the next message no longer lists)
         TfwDismissMarines();
         _musouBoss = null;
     }
@@ -144,6 +151,9 @@ public sealed partial class World
     {
         if (_players.TryGetValue(id, out var p) && !p.Alive && p.RespawnLeft < TfwBattleRules.RespawnHold) _players[id] = p with { RespawnLeft = TfwBattleRules.RespawnHold };
     }
+
+    /// <summary>Test aid: a new run at once, as the end of the last one brings.</summary>
+    public void TfwNewRunForTests() { if (_tfw is not null) { TfwNewRun(); MusouRearm(); } }
 
     /// <summary>Test aid: player <paramref name="id"/> dies where it stands; false outside a war, for an unknown or dead player.</summary>
     public bool TfwKillForTests(int id)
@@ -187,6 +197,7 @@ public sealed partial class World
     {
         TfwResetMarines();
         _tfw!.Reset();
+        TfwForgetArsenals();
         _tfwKos = 0;
         MusouNewRound();
         TfwGuards!.Clear();
@@ -247,7 +258,7 @@ public sealed partial class World
                 }
                 break;
         }
-        MusouArm();   // World.MusouLoadout.cs: every new life with the pistol alone
+        MusouArm();   // World.TfwArsenal.cs: every new life with the full loadout and the run's kit
         if (_state == MatchState.Playing) TicksLeft = uint.MaxValue;
         _teamScores[(int)Team.Chaos] = 0;
         return true;
@@ -259,7 +270,7 @@ public sealed partial class World
     /// <summary>
     /// A fresh life for player <paramref name="id"/> at <paramref name="at"/>, alive or dead (the Deploy, an extraction): the core has no respawn routine to call (its respawn is inline in
     /// <see cref="Step"/>), so this does what that does: the waiting loadout change (a customizer Setup) applies, <see cref="Combat.Respawned"/> restores the player, and the tick's
-    /// <see cref="LastRespawns"/> gets it so the server promotes the pending look; the next <see cref="MusouArm"/> strips it to the pistol. Call it inside the step
+    /// <see cref="LastRespawns"/> gets it so the server promotes the pending look; the next <see cref="MusouArm"/> gives it the run's kit (<see cref="TfwArmAll"/>). Call it inside the step
     /// (<see cref="TfwStep"/>): <see cref="LastRespawns"/> is cleared when a tick begins. False, and nothing changed, outside a war or for an unknown player.
     /// </summary>
     public bool TfwRespawnAt(int id, Vector3 at, float yaw)

@@ -307,12 +307,18 @@ public sealed partial class World
             foreach (int victim in active ? aliveBefore : [])
             {
                 if (!_players.TryGetValue(victim, out var dead) || dead.Alive) continue;
-                int type = Pickups.Draw(spec, Tick, victim);
-                if (type < 0 || GroundUnder(dead.Position, spec.GroundSearch) is not { } ground) continue;
-                SpawnPickup(type, ground, victim);
+                DropPickup(spec, victim, dead.Position);
             }
         }
         finally { _interactPresses.Clear(); }
+    }
+
+    /// <summary>One death's drop: a type by <see cref="Pickups.Draw"/>, on the ground under <paramref name="at"/> (<see cref="GroundUnder"/>); none when the draw or the ground gives none.</summary>
+    void DropPickup(PickupSpec spec, int victim, Vector3 at)
+    {
+        int type = Pickups.Draw(spec, Tick, victim);
+        if (type < 0 || GroundUnder(at, spec.GroundSearch) is not { } ground) return;
+        SpawnPickup(type, ground, victim);
     }
 
     /// <summary>
