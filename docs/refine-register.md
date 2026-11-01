@@ -29,13 +29,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 2135 spec table rows: **1524 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 455 rows of the changes document.
+Scanned 2137 spec table rows: **1526 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 455 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 352 | 297 | 303 | 100 | 12 |
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 116 | 69 | 101 | 52 | 3 |
-| Melee (critical) | 86 | 73 | 76 | 20 | 5 |
+| Melee (critical) | 90 | 77 | 77 | 23 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
 | Charge (critical) | 44 | 35 | 37 | 20 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -54,15 +55,17 @@ Scanned 2135 spec table rows: **1524 tagged**, 441 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 109 | 102 | 61 | 12 | 0 |
 | **All areas** | **1524** | 1296 | 1214 | 435 | 38 |
+| **All areas** | **1526** | 1298 | 1215 | 438 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 708 |
+| kind: ours | 709 |
 | confidence: low | 571 |
-| confidence: medium | 515 |
-| kind: interpretation | 335 |
+| confidence: medium | 516 |
+| kind: interpretation | 336 |
 | notes: ours | 310 |
 | confidence: none (low) | 128 |
 | kind: provisional | 99 |
@@ -72,8 +75,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | section: placeholder | 35 |
 | notes: provisional | 31 |
 | kind: choice | 29 |
+| notes: estimate | 26 |
 | notes: user's knowledge | 26 |
-| notes: estimate | 23 |
 | kind: approximation | 22 |
 | kind: placeholder | 22 |
 | notes: placeholder | 19 |
@@ -821,7 +824,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (86)
+### Melee (gameplay-critical) (90)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -963,6 +966,15 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-7F88CFCA` | Slow strikes in Musou Mode | enemies carry no player lock, so the cleave of these strikes reaches **1** m farther (m) | kind: ours; notes: estimate | owner, as above | Slow strikes in Musou Mode: compare with SM1 by measuring on a flat spot of the same map. Ours: enemies carry no player lock, so the cleave of these strikes reaches… | ☐ |
 | `R-FDCD970A` | Power weapons' blue cloud | the cloud is half its size: `PowerFlash.CloudBoost` **0.575** (was 1.15); the data's own hit effects keep their size (factor) | kind: ours; notes: estimate | owner 2026-11-02 | Power weapons' blue cloud: compare with SM1 by feel or video. Ours: the cloud is half its size: PowerFlash.CloudBoost 0.575 (was 1.15)… | ☐ |
 | `R-1F0F1FA6` | Stalker bolter wall crater | a world hit plays the bolter's crater effect for the surface (`bolter_dmg_metal` on metal, else `bolter_dmg_stone`) at **1.6** times its size, instead of the data's (no effect on stone, the faint husk elsewhere) (factor) | kind: ours; notes: estimate | owner 2026-11-02 "larger than bolt pistol and bolter wall decal bullet holes" | Stalker bolter wall crater: compare with SM1 by feel or video. Ours: a world hit plays the bolter's crater effect for the surface… | ☐ |
+
+*Spec section: Melee cooldown, Musou melee spam, charges ignore the stick, the designator beam (feel/melee-cooldown-charge; protocol 53)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-D3589F5A` | Melee lock (classic PvP) | after an attack starts, no melee attack starts until its combo window opens (`ComboOpen` of that step); a shot, roll, jump or hit that ends the attack does not free it; firing may still cancel; a normal combo in its window is unchanged (s) | kind: ours; notes: estimate | owner 2026-11-02 ("don't ever let another one be started ... unless the amount of time has passed that the next melee attack animation would be ready") | Melee lock (classic PvP): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: after an attack starts, no melee attack starts until its combo window… | ☐ |
+| `R-3AA1D586` | Musou melee spam | a light melee press once the swing's hit has landed (time at least `HitTime`) restarts the current light attack at once from its start; before the hit it queues as usual; heavy strikes and the in-place stomp keep their rules; no lock (s) | kind: ours; notes: estimate | owner 2026-11-02 | Musou melee spam: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a light melee press once the swing's hit has landed (time at least… | ☐ |
+| `R-E73859C3` | Charge ignores the stick | no stick direction (W, A, S, D or a mix) ends the bull rush; it ends at its clip's end, on a hit or wall (the recoil clip), on Jump, melee or a grenade press, a reaction or death. Kept: the clip's data ends, the ledge hold and landing rules, the recoil's, the… | kind: interpretation; confidence: medium | owner 2026-11-02 | Charge ignores the stick: compare with SM1 by feel or video. Ours: no stick direction (W, A, S, D or a mix) ends the bull rush; it ends… | ☐ |
+| `R-EE938A5A` | Designator beam | at the artillery call the lascannon's red beam runs from the weapon's muzzle to the aimed point, at **0.18** of its width scale (the basic shot draws at 0.5) and **0.5** of its life (0.2 s core, 0.3 s glow); never under 2.2 px on screen (factor) | kind: ours; notes: estimate | owner 2026-11-02 | Designator beam: compare with SM1 by feel or video. Ours: at the artillery call the lascannon's red beam runs from the weapon's… | ☐ |
 
 ### Jump pack (gameplay-critical) (67)
 
@@ -3071,6 +3083,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-74F3FFE3` | Damage flash restarts (fix/spawn-room-light, 2026-11-01) | Ours: a hit while a damage flash still runs lifts it back to the plateau after the peak (envelope 0.45) and never re-peaks it; a hit with no flash running peaks as before. `--old-damage-flash` restores restarting at the peak on every hit. The Musou vista's far explosions (`oob_explosions_artillery_less`, the flak)… | The original's rule for hits during a flash is not known; a crowd strobed the screen | Musou Mode crowds; flash feel in classic play | Damage flash restarts (fix/spawn-room-light, 2026-11-01): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-80EA67D1` | Musou boss, trickle and cards (hotfix/boss-trickle, owner 2026-11-01) | Ours (added content, Musou Mode only): the final Warboss starts in the courtyard outside the HQ room and is a 1.6 times Nob body always; an unleashed Ork trickles from each sending source every 1.5 s up to the crowds' cap again; the reward cards after a won map are off (`TfwRewardRules.Enabled`). | The original has no Musou Mode; the owner's words of 2026-11-01. | Musou Mode only; classic PvP is untouched. Spec rows: Final boss courtyard, Warboss size, The trickle, Reward cards off. | Musou boss, trickle and cards (hotfix/boss-trickle, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-A8CF39A2` | Pad strike, menu A and ADS sensitivity (owner 2026-11-02) | Ours (the strike is added content, Musou Mode only): left on the D-pad calls the orbital strike; a menu opened with the pad focuses its first control so A presses like a left click; a separate gamepad aim sensitivity (default 1.00x) in Options. | The owner's words of 2026-11-02. | Classic PvP keeps R3 as the zoom cycle. Spec rows: Musou orbital strike on the pad, Pad aim sensitivity. | Pad strike, menu A and ADS sensitivity (owner 2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-D6437A7E` | Melee lock, Musou melee spam, charges ignore the stick, designator beam (feel/melee-cooldown-charge; protocol 53) | A shot ending a melee attack let a new one start at once (melee, hit, shoot, melee chained); the stick ended the bull rush at its stick branch; no artillery call effect | Classic PvP: after an attack starts no melee attack starts before its combo window (`ComboOpen`), however the attack ended; Musou Mode: a light press after the hit restarts the swing at once; all modes: no stick direction ends a charge (clip end, hit, wall recoil, Jump, melee, grenade still do); Musou's artillery call… | The owner, 2026-11-02; waiting exactly `ComboOpen`, restarting only after the hit, and the beam's 0.18 width and 0.5 life are ours, **estimates to review**; spec "Melee cooldown, Musou melee spam, charges ignore the stick, the designator beam" | Melee lock, Musou melee spam, charges ignore the stick…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

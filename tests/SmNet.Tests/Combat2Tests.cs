@@ -41,9 +41,10 @@ public class Combat2Tests
         pistol = Combat.StepPlayer(pistol, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire), Cfg, out var e);
         Assert.Equal(0, pistol.MeleeStep);
         Assert.True(e.Fired);
-        // Free for any new action on the next tick: a new swing.
+        // Free for any new action on the next tick, except a new swing: feel/melee-cooldown (the owner 2026-11-02, classic PvP) holds the next attack back until the cancelled one's combo window.
         pistol = Combat.StepPlayer(pistol, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Melee), Cfg, out _);
-        Assert.Equal(1, pistol.MeleeStep);
+        Assert.Equal(0, pistol.MeleeStep);
+        Assert.True(pistol.MeleeLock > 0f);
         // A pistol that cannot fire (empty, or cooling down after a shot) does not cancel the swing: a dry press costs nothing.
         var dry = Swing(WeaponSlot.Pistol) with { Clip = 0 };
         dry = Combat.StepPlayer(dry, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire), Cfg, out var e3);

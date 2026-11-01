@@ -214,6 +214,8 @@ public readonly record struct PlayerState(int PlayerId, Vector3 Position, Vector
     public int MeleeStep { get; init; }
     /// <summary>Seconds into the current melee attack (0 when not attacking).</summary>
     public float MeleeTime { get; init; }
+    /// <summary>Protocol 53 (feel/melee-cooldown; classic PvP): seconds until a melee attack may start again, from an attack's start to its combo window; it outlives the attack (a shot, a roll or a hit ends it early).</summary>
+    public float MeleeLock { get; init; }
     /// <summary>A melee press is buffered and moves on to the next attack when the combo window opens.</summary>
     public bool MeleeQueued { get; init; }
     /// <summary>The previous input's melee bit (an attack starts on a press edge only).</summary>

@@ -176,10 +176,10 @@ public class NoFireInChargeTests(ITestOutputHelper output)
         s = Tick(s, c, InputButtons.Sprint | InputButtons.MeleeHeavy).S;
         int clip = s.Clip;
         bool shot = false;
-        // S (stick back) ends the charge from its move-on time; Fire pressed on the same tick fires nothing, and released it is gone.
+        // A grenade press ends the charge from its move-on time (a stick no longer does: feel/charge-no-cancel); Fire pressed on the same tick fires nothing, and released it is gone.
         for (int k = 1; k < 60 && s.Rush != RushPhase.None; k++)
         {
-            var (n, f) = Tick(s, c, InputButtons.Fire, -1f);
+            var (n, f) = Tick(s, c, InputButtons.Fire | (k % 2 == 1 ? InputButtons.Grenade : InputButtons.None));
             shot |= f; s = n;
         }
         Assert.False(shot);

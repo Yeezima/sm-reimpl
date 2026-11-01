@@ -56,8 +56,8 @@ public class MusouIsolationTests(ITestOutputHelper output)
 
     const ulong FixtureFaithfulHash = 0x2235C9DFF926583FUL, FixtureExtendedHash = 0x54B88195AFC434B4UL, DefaultFaithfulHash = 0xA57B097C29D78EABUL, DefaultExtendedHash = 0x0CA292E1A0338C00UL;
     // sim/light-melee-flinch (protocol 52): the classic baseline changed (the script's 49 light melee hits now flinch instead of interrupting), so both goldens moved together
-    // (05F93BCF… before); faithful and extended still replay to the same hash.
-    const string FaithfulReplay = "AC20C18394EDB7608BB27C6603F717F50B23DB20452B904BB4FE6E7C73BEDC41", ExtendedReplay = "AC20C18394EDB7608BB27C6603F717F50B23DB20452B904BB4FE6E7C73BEDC41";
+    // (05F93BCF… before); faithful and extended still replay to the same hash. feel/melee-cooldown and feel/charge-no-cancel (protocol 53, 2026-11-02): the melee lock and the stick no longer ending a charge moved both again.
+    const string FaithfulReplay = "0B11EC110AD62700E689E1945CF81B1DECA645C46C2A533DD7AD967788AA5044", ExtendedReplay = "0B11EC110AD62700E689E1945CF81B1DECA645C46C2A533DD7AD967788AA5044";
 
     [Fact]
     public void The_faithful_and_extended_config_hashes_are_unchanged()
@@ -92,7 +92,7 @@ public class MusouIsolationTests(ITestOutputHelper output)
     [Fact]
     public void Musou_changes_neither_the_protocol_version_nor_the_extended_profile()
     {
-        Assert.Equal(52u, (uint)Protocol.Version);   // 52: sim/light-melee-flinch (the flinch byte); 51: sim/no-fire-while-sprinting and sim/movement-fixes (50: the scoreboard's ping), not Musou
+        Assert.Equal(53u, (uint)Protocol.Version);   // 53: feel/melee-cooldown (the melee lock); 52: sim/light-melee-flinch (the flinch byte); 51: sim/no-fire-while-sprinting and sim/movement-fixes (50: the scoreboard's ping), not Musou
         Assert.Equal(2u, ContentExtras.WireVersion);
         Assert.False(ContentExtras.All.HasFlag(ContentExtras.Musou));
         Assert.Equal(ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks, ContentExtras.All);

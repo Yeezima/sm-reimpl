@@ -53,8 +53,8 @@ public partial class NetworkView
     {
         if (_bot) return;
         bool enabled = TfwHudModel.InBattle(war.Phase) && me.Alive && !PickerBusy;
-        bool orbital = Input.IsPhysicalKeyPressed(Key.B) || (_pad is not null && PadHost.Active && _pad.Button(JoyButton.DpadLeft));
         if (orbital && !_tfwOrbitalKey && enabled) { _tfwState.Commands.Issue(TfwCommand.Orbital, 0, TfwCrosshairPoint(me)); _tfwOrbitalCalled = _connectedFor; }   // the server decides
+        if (orbital && !_tfwOrbitalKey && enabled) { var target = TfwCrosshairPoint(me); _tfwState.Commands.Issue(TfwCommand.Orbital, 0, target); _tfwOrbitalCalled = _connectedFor; TfwDesignatorBeam(me, target); }   // the server decides
         _tfwOrbitalKey = orbital;
         var press = _tfwKeys.Update(Input.IsPhysicalKeyPressed(Key.Z), Input.IsPhysicalKeyPressed(Key.X), Input.IsPhysicalKeyPressed(Key.V), Input.IsPhysicalKeyPressed(Key.P), delta, enabled);
         if (press == TfwOrderPress.None) return;
@@ -78,6 +78,27 @@ public partial class NetworkView
         float cos = MathF.Cos(_pitch);
         return (me.Position + new Num.Vector3(0f, 0f, _config?.EyeHeight ?? 1.8f), new Num.Vector3(-MathF.Sin(_yaw) * cos, MathF.Cos(_yaw) * cos, MathF.Sin(_pitch)));
     }
+
+    /// <summary>
+    /// fx/designator (the owner 2026-11-02: "a laser designator effect similar to a lascannon shot visual effect, but thinner and smaller ... when calling an artillery strike"): at the call
+    /// a beam runs from the weapon in hand's muzzle to the aimed point, the lascannon's own hard red beam (<see cref="LaserAdd"/>) at <see cref="DesignatorWidth"/> of its width and
+    /// <see cref="DesignatorLife"/> of its life. Ours: both numbers, tagged in the refine register. Cosmetic only; the call itself is the server's.
+    /// </summary>
+    void TfwDesignatorBeam(PlayerState me, Num.Vector3 target)
+    {
+        if (_fx is null) return;
+        var (eye, direction) = TfwCrosshairRay(me);
+        var from = (_config is not null && Loadouts.InHand(_config, me) is { } weapon && FxWeapon(weapon.Name) is { } w ? FxPlace(me.PlayerId, w.MuzzleMarker) : null)
+            ?? FxFallback(eye, G(direction));
+        var to = ToGodot(target);
+        if (from.Position.DistanceTo(to) < 0.4f) return;
+        LaserAdd(from.Position, null, to, DesignatorWidth, DesignatorLife);
+    }
+
+    /// <summary>The designator beam's width against the lascannon's basic shot (which draws at 0.5; ours).</summary>
+    const float DesignatorWidth = 0.18f;
+    /// <summary>The designator beam's life against the lascannon's (0.4 s core, 0.6 s glow; ours).</summary>
+    const float DesignatorLife = 0.5f;
 
     /// <summary>The ground or wall under the crosshair; looking at the sky, the floor beneath the ray's end.</summary>
     Num.Vector3 TfwCrosshairPoint(PlayerState me)
