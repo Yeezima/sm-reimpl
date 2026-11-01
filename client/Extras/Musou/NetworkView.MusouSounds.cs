@@ -54,6 +54,8 @@ public partial class NetworkView
     double _musouChooseAt, _musouSoundLogAt;
     int _musouLiveVoices, _musouLiveSpeech, _musouPeakVoices, _musouPeakSpeech, _musouAllPeakStart;
     bool _musouOwnAlive = true;
+    double _musouSoundMs, _musouSoundMaxMs;
+    int _musouSoundFrames;
 
     bool MusouOrkSoundsOff => _musouOrkSoundsOff ??= CmdFlag("no-musou-ork-sounds");
     bool? _musouOrkSoundsOff;
@@ -105,6 +107,7 @@ public partial class NetworkView
     void MusouSoundsFrame(PlayerState me, IReadOnlyList<MusouShown> shown, float delta)
     {
         if (MusouOrkSoundsOff || _camera is not { } cam || !MusouSoundsReady() || _sound is null) return;
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
         double now = _connectedFor;
         var camera = new Num.Vector3(cam.GlobalPosition.X, -cam.GlobalPosition.Z, cam.GlobalPosition.Y);   // Godot to game space, as MusouPresent
         _musouBudget.Refill(delta);
@@ -122,7 +125,9 @@ public partial class NetworkView
         if (_musouOwnAlive && !me.Alive && _musouNear.Count > 0 && shown.Count > _musouNear[0].Index && MusouSetOf(shown[_musouNear[0].Index].Type) is { } nearest
             && MusouSlotOf(shown[_musouNear[0].Index].Id) is { } speaker) MusouCue(nearest.Celebrate, nearest, speaker.Emitter, MusouSoundGroup.Celebrate, MathF.Sqrt(_musouNear[0].Distance), "celebrate");
         _musouOwnAlive = me.Alive;
-        if (now >= _musouSoundLogAt) { _musouSoundLogAt = now + 10.0; MusouSoundLog(shown.Count); }
+        double ms = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        _musouSoundMs += ms; _musouSoundMaxMs = Math.Max(_musouSoundMaxMs, ms); _musouSoundFrames++;
+        if (now >= _musouSoundLogAt) { _musouSoundLogAt = now + 10.0; MusouSoundLog(shown.Count); _musouSoundMs = _musouSoundMaxMs = 0.0; _musouSoundFrames = 0; }
     }
 
     MusouSoundSet? MusouSetOf(MusouEnemyType type) => (int)type < _musouSets!.Length ? _musouSets[(int)type] : null;
@@ -246,7 +251,7 @@ public partial class NetworkView
     }
 
     /// <summary>A sound at one place (a shot, a hit, a fall), on an emitter of its own; none is made for what the budget would refuse by distance.</summary>
-    void MusouCueAt(MusouSoundCue cue, MusouSoundSet set, Num.Vector3 at, MusouSoundGroup group, float distance, string what, string surface = MaterialEffectTable.DefaultKey)
+    void MusouCueAt(MusouSoundCue cue, MusouSoundSet set, Num.Vector3 at, MusouSoundGroup group, float distance, string what, string surface = "stone")
     {
         if (cue.Empty || distance > MusouSoundRules.LimitOf(group).Range) return;
         var emitter = new SoundEmitter { Position = ToGodot(at) + Vector3.Up * 1.2f, OneShot = true, Label = "musou " + what, Group = MusouSoundEmitters };
@@ -266,11 +271,11 @@ public partial class NetworkView
             case MusouEventKind.Tracer:
                 if (MusouSlotOf(enemy.Id) is { } shooter) MusouCue(set.Fire, set, shooter.Emitter, MusouSoundGroup.Gun, distance, "fire");
                 else MusouCueAt(set.Fire, set, enemy.Position, MusouSoundGroup.Gun, distance, "fire");
-                MusouCueAt(set.GunImpact, set, e.Vector, MusouSoundGroup.GunImpact, Num.Vector3.Distance(e.Vector, camera), "gun impact", e.Player != 0 ? "armour" : MaterialEffectTable.DefaultKey);
+                MusouCueAt(set.GunImpact, set, e.Vector, MusouSoundGroup.GunImpact, Num.Vector3.Distance(e.Vector, camera), "gun impact", e.Player != 0 ? "armour" : "stone");
                 break;
             case MusouEventKind.Strike:
                 var cue = e.Value switch { (byte)MusouBossAbility.GroundSlam => set.SlamHit, (byte)MusouBossAbility.Charge => set.ChargeHit, _ => set.MeleeHit };
-                MusouCueAt(cue, set, e.Vector, e.Value != 0 ? MusouSoundGroup.Boss : MusouSoundGroup.MeleeHit, Num.Vector3.Distance(e.Vector, camera), "strike");
+                MusouCueAt(cue, set, e.Vector, e.Value != 0 ? MusouSoundGroup.Boss : MusouSoundGroup.MeleeHit, Num.Vector3.Distance(e.Vector, camera), "strike", "armour");
                 break;
             case MusouEventKind.Hit:
                 if (MusouSlotOf(enemy.Id) is not { } hurt || now - hurt.LastHurt < MusouSoundRules.HurtSpacing) break;
@@ -346,6 +351,6 @@ public partial class NetworkView
         var parts = Enum.GetValues<MusouSoundGroup>().Select(g => (g, posted: _musouBudget.Count(g, MusouSoundVerdict.Post), rate: _musouBudget.Count(g, MusouSoundVerdict.OverRate), cap: _musouBudget.Count(g, MusouSoundVerdict.VoiceCap) + _musouBudget.Count(g, MusouSoundVerdict.SpeechCap), far: _musouBudget.Count(g, MusouSoundVerdict.TooFar)))
             .Where(p => p.posted + p.rate + p.cap + p.far > 0).Select(p => $"{p.g} {p.posted} (rate {p.rate}, cap {p.cap}, far {p.far})");
         GD.Print($"musou sounds: t {_connectedFor:F0} s: enemies {known}, slots {_musouSlots.Count(s => s.Bound)}, crowd voices now {_musouLiveVoices} peak {_musouPeakVoices} of {MusouSoundRules.MaxVoices} (lines peak {_musouPeakSpeech} of {MusouSoundRules.MaxSpeech}), " +
-                 $"all voices now {_sound.ActiveCount} peak {_sound.PeakActive} of {SoundSystem.Max3D}+{SoundSystem.Max2D}, steals {_sound.Steals}, late {_sound.Late}; {string.Join(", ", parts)}");
+                 $"all voices now {_sound.ActiveCount} peak {_sound.PeakActive} of {SoundSystem.Max3D}+{SoundSystem.Max2D}, steals {_sound.Steals}, late {_sound.Late}, cost mean {_musouSoundMs / Math.Max(1, _musouSoundFrames):F2} ms max {_musouSoundMaxMs:F2} ms; {string.Join(", ", parts)}");
     }
 }

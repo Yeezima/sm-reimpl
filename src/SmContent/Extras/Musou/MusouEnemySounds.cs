@@ -22,8 +22,11 @@ public static class MusouSoundRules
     public const int Slots = 16, Stepping = 6;
     /// <summary>The farthest enemy that gets an emitter (m).</summary>
     public const float SlotRange = 30f;
-    /// <summary>Most voices of the crowd at once (of <c>SoundSystem.Max3D</c>, 48: more than half stays the players'), and most character lines among them (design section D's 6).</summary>
-    public const int MaxVoices = 20, MaxSpeech = 6;
+    /// <summary>
+    /// The crowd's voices above which nothing new posts (of <c>SoundSystem.Max3D</c>, 48; a soft cap, one post can hold up to 11 voices, so the live count goes a little over), and likewise its character
+    /// lines (design section D's 6). Measured under 300 enemies: docs/discovery.md, "Musou enemy sounds".
+    /// </summary>
+    public const int MaxVoices = 14, MaxSpeech = 6;
     /// <summary>Seconds between one enemy's running grunts (the data's clips carry one about every 1.2 s; thinned for a crowd) and between its barks (no such tag in the data's timing: a clip's).</summary>
     public const float GruntEveryMin = 2.5f, GruntEveryMax = 5f, BarkEveryMin = 6f, BarkEveryMax = 14f;
     /// <summary>Seconds between one enemy's grunts for being hit.</summary>
@@ -237,6 +240,7 @@ public sealed class MusouSoundSet
         if (melee is not null) Sound(set.MeleeHit, triggers.MeleeHitSound(melee.Name));
         if (melee is not null && set.MeleeHit.Empty)   // the plain attack's, where the heavy one binds its swing too
             AddOption(set.MeleeHit, melee.Of("hit_audio").Where(b => b.Ability.Equals("ability_melee_light", StringComparison.OrdinalIgnoreCase)).Concat(melee.Of("actn_smash")), []);
+        if (melee is not null && set.MeleeHit.Empty) AddOption(set.MeleeHit, melee.Of("hit_audio"), []);   // a weapon whose only hit is a heavy one
         if (set.MeleeHit.Empty) Each(set.MeleeHit, body, "actn_snd_choppa_hit_ground");
         if (gun is not null) { AddOption(set.Fire, gun.Fire(null), []); Sound(set.GunImpact, triggers.ShotHitSound(gun.Name)); }
         First(set.HurtSmall, voice, "actn_snd_vox_sync_damage_small", "actn_snd_vox_pain_m_s");

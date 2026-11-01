@@ -23,7 +23,7 @@ public sealed class SoundEmitter
     /// <summary>The local player's own emitter: its 3D sounds are kept at least <see cref="SoundSystem.OwnMinDistance"/> close.</summary>
     public bool Own;
     public string Label = "";
-    /// <summary>A crowd's sounds counted together (<see cref="SoundSystem.GroupVoices"/>; null: none).</summary>
+    /// <summary>A crowd's sounds counted together (<see cref="SoundSystem.GroupVoices"/>) and kept off the others' voices (a full pool costs them nothing); null: none.</summary>
     public string? Group;
     /// <summary>A one-shot place (an impact, a launch, a detonation): its container histories are dropped once its voices end.</summary>
     public bool OneShot;
@@ -567,7 +567,8 @@ public partial class SoundSystem : Node
         bool positioned = a.Voice.Is3D;
         if (_active.Count(x => x.Player is not null && x.Voice.Is3D == positioned) >= (positioned ? Max3D : Max2D))
         {
-            var victim = _active.Where(x => x.Player is not null && x.Voice.Is3D == positioned)
+            // A crowd's voice (SoundEmitter.Group) takes a player only from its own crowd: it never cuts a player's sounds.
+            var victim = _active.Where(x => x.Player is not null && x.Voice.Is3D == positioned && (a.Emitter.Group is null || x.Emitter.Group == a.Emitter.Group))
                 .OrderBy(x => x.Voice.Priority).ThenBy(x => x.Effective).ThenBy(x => x.Started).FirstOrDefault();
             if (victim is null || victim.Voice.Priority > a.Voice.Priority) return false;
             // A waiting loop takes over only from a voice at least 6 dB quieter than it would be (no swapping back and forth).

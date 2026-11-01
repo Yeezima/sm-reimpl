@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2105 spec table rows: **1496 tagged**, 439 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 449 rows of the changes document.
+Scanned 2121 spec table rows: **1510 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 450 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,21 +52,21 @@ Scanned 2105 spec table rows: **1496 tagged**, 439 not tagged (read from data wi
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
 | Core simulation (provisional values) | 255 | 239 | 213 | 26 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 93 | 86 | 48 | 10 | 0 |
-| **All areas** | **1496** | 1268 | 1201 | 423 | 38 |
+| Ork faction | 107 | 100 | 61 | 11 | 0 |
+| **All areas** | **1510** | 1282 | 1214 | 424 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 681 |
-| confidence: low | 568 |
-| confidence: medium | 505 |
+| kind: ours | 694 |
+| confidence: low | 571 |
+| confidence: medium | 515 |
 | kind: interpretation | 335 |
-| notes: ours | 309 |
+| notes: ours | 310 |
 | confidence: none (low) | 128 |
 | kind: provisional | 99 |
-| kind: estimate | 77 |
+| kind: estimate | 78 |
 | kind: user's knowledge | 51 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
@@ -2411,6 +2411,25 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-A03BADB8` | Crowd drawn | at most 240 Orks drawn at once (was 150), so 200 alive and those dying show; 200 vertex-animated, 40 skinned (enemies) | kind: ours; confidence: low | the owner's count; not measured for frame time yet (M12) | Crowd drawn: compare with SM1 by feel or video. Ours: at most 240 Orks drawn at once (was 150), so 200 alive and those… | ☐ |
 | `R-5C9E7ED8` | First-run start | the server builds the war's graph before it prints its listening line and the client waits for that line: up to 600 s for Musou (a match server keeps 180 s), with "Preparing the battlefield" on the menu. Cold start measured at 5.1 s on 12 cores, of which… (s) | kind: ours | measured; 600 ours | First-run start: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the server builds the war's graph before it prints its listening line… | ☐ |
 
+*Spec section: Added content: Musou enemy sounds (sound/musou-ork-sounds; client only, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-42404CA3` | Which files each type sounds from | Boy `ork_coop_boy` + choppa; Shoota Boy `ork_coop_boy_2hand_shoota` + `ork_coop_boy_2hand_shoota_rapid`; 'Ard Boy `ork_coop_boy_pro` + `ork_coop_boy_choppa_pro`; Gretchin `ork_coop_gretchin` + `ork_coop_grot_choppa`; Nob `ork_coop_nob` +… | kind: ours; confidence: medium | names read from the install; the pairing with Musou's types is ours | Which files each type sounds from: compare with SM1 by feel or video. Ours: Boy ork_coop_boy + choppa; Shoota Boy ork_coop_boy_2hand_shoota +… | ☐ |
+| `R-36CB1B9D` | Warboss's voice | the `ork_nob` lines of `ork_coop_nob_pro`: the character `warboss` has no exertion lines in the speech bank | kind: ours; confidence: medium | `smtool musou-sounds --files ork_coop_warboss` | Warboss's voice: compare with SM1 by listening A/B at the same distance and state. Ours: the ork_nob lines of ork_coop_nob_pro: the character warboss has no… | ☐ |
+| `R-5A7159F1` | Chaos Marine's voice | `chaos_space_marine`'s plain exertions (`csm - tactical`'s character): the blueprint names no character and binds no lines | kind: ours; confidence: low | global's class table | Chaos Marine's voice: compare with SM1 by listening A/B at the same distance and state. Ours: chaos_space_marine's plain exertions (csm - tactical's character):… | ☐ |
+| `R-2995F20F` | Which trigger stands for which moment | wind-up and swing from the enemy's state changes; footsteps from the ground it covers; shots, strikes, hits, deaths and the boss's abilities from the crowd's events; the running grunt (`actn_snd_vox_nav`), barks, stun, knock-down, landing and celebration from… | kind: ours; confidence: medium | the crowd plays no clip tags: ours | Which trigger stands for which moment: compare with SM1 by feel or video. Ours: wind-up and swing from the enemy's state changes; footsteps from the… | ☐ |
+| `R-F274A5E7` | Emitters | 16 nearest enemies within 30 m; the Warboss always has one; chosen every 0.1 s; kept 1.5 s after leaving the nearest (enemies, m, s) | kind: ours; confidence: medium | ours | Emitters: compare with SM1 by feel or video. Ours: 16 nearest enemies within 30 m; the Warboss always has one; chosen… | ☐ |
+| `R-BA116759` | Who steps aloud | the 6 nearest with an emitter; Nobs and the Warboss always (enemies) | kind: ours; confidence: medium | ours | Who steps aloud: compare with SM1 by feel or video. Ours: the 6 nearest with an emitter; Nobs and the Warboss always. | ☐ |
+| `R-CCB2F24C` | Metres between footfalls | 2 Boys, 1.4 Gretchin, 2.4 Nob, 2.2 Chaos Marine, 3 Warboss (m) | kind: estimate; confidence: low; notes: ours | ours: about 2.5 steps a second; the crowd's clips are not read | Metres between footfalls: compare with SM1 by measuring on a flat spot of the same map. Ours: 2 Boys, 1.4 Gretchin, 2.4 Nob, 2.2 Chaos Marine, 3 Warboss. | ☐ |
+| `R-95B6DC17` | Crowd voice cap | 14 voices (soft: nothing new posts above it; measured peak 21 under 300 enemies), of 48 positioned (voices) | kind: ours; confidence: medium | ours | Crowd voice cap: compare with SM1 by listening A/B at the same distance and state. Ours: 14 voices (soft: nothing new posts above it; measured peak 21 under… | ☐ |
+| `R-CDB895C8` | Crowd line cap | 6 character lines (soft) (voices) | kind: ours; confidence: medium | design section D's 6 | Crowd line cap: compare with SM1 by feel or video. Ours: 6 character lines (soft). | ☐ |
+| `R-EDF1FB1B` | A crowd voice and the pool | at a full pool a crowd voice takes a player only from its own crowd, never from a player's sounds; a player's sound may take one from the crowd | kind: ours | ours | A crowd voice and the pool: compare with SM1 by listening A/B at the same distance and state. Ours: at a full pool a crowd voice takes a player only from its own crowd… | ☐ |
+| `R-399A1FD8` | Range, posts a second, burst | footstep 14 m, 14, 6; grunt 12, 2.5, 3; bark 14, 0.8, 2; effort 12, 3, 3; swing 18, 5, 3; melee hit 20, 6, 4; gun 50, 6, 4; gun impact 15, 6, 3; hurt 12, 4, 3; stun 12, 1, 1; death 20, 4, 3; body fall 20, 5, 3; boss 80, 20, 8 (no cap); celebration 25, 0.5, 1 (m, 1/s, posts) | kind: ours; confidence: medium | ours; ranges follow the data's attenuation | Range, posts a second, burst: compare with SM1 by measuring on a flat spot of the same map. Ours: footstep 14 m, 14, 6; grunt 12, 2.5, 3; bark 14, 0.8, 2; effort 12… | ☐ |
+| `R-270641A7` | Grunt and bark spacing of one enemy | grunt every 2.5 to 5 s (the data's clips carry one about every 1.2 s; thinned for a crowd), bark every 6 to 14 s (s) | kind: ours; confidence: medium | ours | Grunt and bark spacing of one enemy: compare with SM1 by listening A/B at the same distance and state. Ours: grunt every 2.5 to 5 s (the data's clips carry one about every 1.2 s… | ☐ |
+| `R-6FC2CF1A` | Hurt grunt spacing of one enemy | 1 (s) | kind: ours; confidence: medium | ours | Hurt grunt spacing of one enemy: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1. | ☐ |
+| `R-86B9A918` | Impact surfaces | a gun's or blow's hit on a Marine plays on `armour`, a miss on `stone`, whatever is really there | kind: ours; confidence: low | ours | Impact surfaces: compare with SM1 by feel or video. Ours: a gun's or blow's hit on a Marine plays on armour, a miss on stone… | ☐ |
+
 ## Part C: Deliberate changes (keep or revert after playtest)
 
 Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our choices where the original is unknown, and what is not reproduced yet. Nothing is classified here; every row is listed. The prompt says what to ask after the playtest.
@@ -2462,6 +2481,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-D5938EAB` | Golden weapon drops from Nobs and Chaos Marines | the owner's requests (2026-10-31) | each Nob or Chaos Marine KO drops one weapon per player from their class's pool, E equips it, 60 s | Musou weapon drops | Golden weapon drops from Nobs and Chaos Marines: compare with SM1 by feel or video. Ours: the owner's requests (2026-10-31). | ☐ |
 | `C-6A2CB579` | Musou Mode: an extraction after a won battle never ends the run | the owner's decision (2026-11-01) | the supplies fall by up to 2, never below 0, and the run goes on; from a battle not won, under 2 supplies still loses the run | War downed | Musou Mode: an extraction after a won battle never ends the…: compare with SM1 by timing a run over a known distance. Ours: the owner's decision (2026-11-01). | ☐ |
 | `C-2E0C8FD7` | Musou Mode: orbital support and the far war | the owner's items 10 and 12 and his decision of 2026-11-01: artillery only when a player calls it with B on the crosshair's point, starting at once; Thunderhawk runs paused by him the same day; SM1 multiplayer has none of this | a walking barrage on the called point, no cooldown (the owner, 2026-11-01), friend and foe hurt; a muffled war round the map; the optional local whistle `client/assets/musou/whistle.ogg` is never shipped | Musou Mode: fire support | Musou Mode: orbital support and the far war: compare with SM1 by feel or video. Ours: the owner's items 10 and 12 and his decision of 2026-11-01: artillery… | ☐ |
+| `C-8D1FAC43` | Musou enemy sounds: only the nearest enemies are heard | ours (a crowd of hundreds against the original's dozens): the events and mix are the data's, when they play and how many are ours | 16 emitters within 30 m, 6 stepping, at most about 14 voices and 6 lines, a crowd voice never cuts a player's; the Warboss speaks with the `ork_nob` lines; the crowd's clip tags are stood in for by state changes and ground covered | Musou enemy sounds | Musou enemy sounds: only the nearest enemies are heard: compare with SM1 by feel or video. Ours: ours (a crowd of hundreds against the original's dozens): the events… | ☐ |
 | `C-09C74C8A` | Musou Mode replaces the 5-wave run | the owner's decision (2026-11-01) | `--content musou` runs the war on `tfw_war`, Manufactorum from the install with a generated Stormbird beside it and no spawn-room blockers; the 5-wave run stays only as a test aid (`--map mp_tdm_09`) | War map | Musou Mode replaces the 5-wave run: compare with SM1 by timing a run over a known distance. Ours: the owner's decision (2026-11-01). | ☐ |
 | `C-38A58728` | AI Marines in the war | the owner's decisions (2026-11-01) and ours | server-side puppets: a retainer per player who follows orders and revives, three lords with retainers who act alone; ammunition without end, placeholder names | Retainer orders | AI Marines in the war: compare with SM1 by feel or video. Ours: the owner's decisions (2026-11-01) and ours. | ☐ |
 | `C-A5D8C2C2` | Guard squads fight beside the players; leashed Ork defenders | the design of the war (2026-11-01); SM1 has no such allies (the Guardsman is the Exterminatus co-op blueprint) | squads of 10 shoot and are struck server-side; defenders hold until a target is within 30 m or their group is hurt | War Guard squads, Leashed defenders | Guard squads fight beside the players; leashed Ork defenders: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01); SM1 has no such allies (the… | ☐ |
