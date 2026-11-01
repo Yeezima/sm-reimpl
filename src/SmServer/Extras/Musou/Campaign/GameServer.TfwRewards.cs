@@ -14,7 +14,9 @@ public sealed partial class GameServer
 {
     sealed class TfwSent
     {
-        public byte[]? Own, History, Offer, Arsenal;
+        public byte[]? Offer, Arsenal;
+        public bool OwnSent, HistorySent;
+        public int Revision, HistoryRevision;
         public uint OwnTick, OthersTick, HistoryTick, OfferTick, ArsenalTick;
     }
 
@@ -24,14 +26,21 @@ public sealed partial class GameServer
     readonly Dictionary<int, TfwSent> _tfwSent = new();
     readonly Dictionary<int, int> _tfwLoggedMaps = new();
     bool _tfwLoggedEnd;
+    readonly List<TfwScorePlayer> _tfwOthers = new();
+    int _tfwOthersRevision = -1;
 
     void SendTfwRewards()
     {
         if (World.Tfw is not { Idle: false } run) return;   // a test's standing run feeds no wire
         TfwLogScores(run);
         uint tick = World.Tick, second = (uint)Math.Max(1, World.Config.TickRate);
-        var others = new List<TfwScorePlayer>();
-        foreach (int id in run.Score.Players) if (id is > 0 and <= ushort.MaxValue) others.Add(new TfwScorePlayer((ushort)id, run.Score.TotalOf(id)));
+        if (_tfwOthersRevision != run.Score.Revision)
+        {
+            _tfwOthersRevision = run.Score.Revision;
+            _tfwOthers.Clear();
+            foreach (int id in run.Score.Players) if (id is > 0 and <= ushort.MaxValue) _tfwOthers.Add(new TfwScorePlayer((ushort)id, run.Score.TotalOf(id)));
+        }
+        var others = _tfwOthers;
 
         foreach (var peer in _peers.Values)
         {
@@ -40,19 +49,17 @@ public sealed partial class GameServer
             bool Due(uint last) => tick - last >= second || tick < last;
             var sections = new List<(byte, byte[])>(3);
 
-            var own = TfwWire.WriteScore(new TfwScoreUpdate(run.Score.OwnOf(id)));
-            bool ownDue = sent.Own is null || Due(sent.OwnTick) || (tick - sent.OwnTick >= TfwScoreEveryTicks && !sent.Own.AsSpan().SequenceEqual(own));
-            var history = run.Score.HistoryOf(id);
-            int skip = Math.Max(0, history.Count - TfwWire.MaxScoreMaps);
-            var historyBytes = TfwWire.WriteScore(new TfwScoreUpdate(null, History: history.Skip(skip).ToList()));
-            bool historyDue = sent.History is null || !sent.History.AsSpan().SequenceEqual(historyBytes) || Due(sent.HistoryTick);
+            bool ownDue = !sent.OwnSent || Due(sent.OwnTick) || (sent.Revision != run.Score.Revision && tick - sent.OwnTick >= TfwScoreEveryTicks);
+            bool historyDue = !sent.HistorySent || sent.HistoryRevision != run.Score.HistoryRevision || Due(sent.HistoryTick);
             bool othersDue = Due(sent.OthersTick);
             if (ownDue || historyDue || othersDue)
             {
+                var history = run.Score.HistoryOf(id);
+                int skip = Math.Max(0, history.Count - TfwWire.MaxScoreMaps);
                 var update = new TfwScoreUpdate(ownDue ? run.Score.OwnOf(id) : null, othersDue ? others.Where(o => o.Player != id).Take(TfwWire.MaxScorePlayers).ToList() : null, historyDue ? history.Skip(skip).ToList() : null);
                 sections.Add((TfwWire.ScoreTag, TfwWire.WriteScore(update)));
-                if (ownDue) { sent.Own = own; sent.OwnTick = tick; }
-                if (historyDue) { sent.History = historyBytes; sent.HistoryTick = tick; }
+                if (ownDue) { sent.OwnSent = true; sent.Revision = run.Score.Revision; sent.OwnTick = tick; }
+                if (historyDue) { sent.HistorySent = true; sent.HistoryRevision = run.Score.HistoryRevision; sent.HistoryTick = tick; }
                 if (othersDue) sent.OthersTick = tick;
             }
 

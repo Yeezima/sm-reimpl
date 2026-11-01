@@ -330,12 +330,14 @@ public sealed partial class World
     }
 
     /// <summary>
-    /// A client's pick (ChooseReward): only for the offer standing now. A weapon goes in a slot, an equipment, perk or melee choice on the kit, and the next tick arms the player afresh: the kit lies on top of its loadout.
+    /// A client's pick (ChooseReward): only for the offer standing now, and only from a living player in the Stormbird, since the fresh arming it ends with would otherwise be a free refill in the field; a pick from
+    /// anywhere else leaves the offer standing. A weapon goes in a slot, an equipment, perk or melee choice on the kit, and the next tick arms the player afresh: the kit lies on top of its loadout.
     /// </summary>
     internal void TfwChooseReward(int id, TfwCommandRecord c)
     {
         var rewards = _tfw!.Rewards;
-        if (!_players.TryGetValue(id, out var p) || rewards.Pick(id, c.Offer, c.Argument, out int offered) is not { } card) return;
+        if (_tfw.Phase != TfwRunPhase.Hub || !_players.TryGetValue(id, out var p) || !p.Alive || !_tfw.Field.Hub.Contains(p.Position)) return;
+        if (rewards.Pick(id, c.Offer, c.Argument, out int offered) is not { } card) return;
         var kit = rewards.Kit(id, offered);
         switch (card.Kind)
         {
@@ -346,6 +348,9 @@ public sealed partial class World
                     var a = ArsenalOf(id);
                     bool here = offered == p.Class;   // the class in hand: its slots' state counts
                     int slot = TfwRewards.SlotFor(kit, here && Loadouts.SecondIndex(Config, p) >= 0 ? 1 : 0, here ? ExtraInHand(a, p) : -1, here ? a.LastInHand : -1);
+                    // A full kit replaces a slot: an extra standing in a field goes first, so the player's own weapon comes home (as TfwTake).
+                    if (here && kit.Weapons[slot] >= 0 && slot == a.LoadedPrimary) _players[id] = p = TfwUnload(a, p, WeaponSlot.Ranged, p.Slot);
+                    else if (here && kit.Weapons[slot] >= 0 && slot == a.LoadedPistol) _players[id] = p = TfwUnload(a, p, WeaponSlot.Pistol, p.Slot);
                     kit.Weapons[slot] = MusouDropItem.Index(card.Item);
                 }
                 break;

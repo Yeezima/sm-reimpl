@@ -490,6 +490,42 @@ public class TfwRewardsTests
     }
 
     [Fact]
+    public void A_pick_in_the_field_is_no_free_refill_and_the_offer_waits_for_the_stormbird()
+    {
+        var w = War();
+        var offer = Won(w);
+        TfwRig.Deploy(w);
+        for (int k = 0; k < 20; k++) w.Step(_ => new PlayerInput(0, 0f, 0f, 0f, InputButtons.Fire));
+        int spent = Me(w).Clip;
+        Assert.True(spent < 30);
+        Pick(w, offer.Sequence, 0);
+        Assert.True(Me(w).Clip <= spent);                                  // no fresh arming
+        Assert.Equal(TfwArsenalView.Empty, w.TfwArsenalOf(Human));
+        Assert.Equal(offer, w.Tfw!.Rewards.Offer(Human));                  // still standing
+        TfwRig.Command(w, TfwCommand.RequestPickup);
+        TfwRig.Seconds(w, TfwBattleRules.PickupSeconds + 0.2f);
+        Assert.Equal(TfwRunPhase.Hub, w.Tfw.Phase);
+        Pick(w, offer.Sequence, 0);
+        Assert.Null(w.Tfw.Rewards.Offer(Human));
+        Assert.Equal(offer.First.Item, (ushort)w.TfwArsenalOf(Human).Slot3);
+    }
+
+    [Fact]
+    public void A_weapon_card_over_a_loaded_slot_brings_the_own_weapon_home()
+    {
+        var w = War();
+        Won(w);
+        Keep(w, 1, 2, 3);
+        Key(w, 4);                                                         // in hand, in the primary's field
+        Assert.Equal((byte)4, w.TfwArsenalOf(Human).LoadedPrimary);
+        var offer = w.Tfw!.Rewards.Roll(w.Config, Me(w), w.Tfw.Rewards.Kit(Human, 0), w.Tick, Human)!.Value;
+        Assert.Equal(TfwRewardKind.Weapon, offer.First.Kind);
+        Pick(w, offer.Sequence, 0);
+        Assert.Equal(new TfwArsenalView(1, (short)offer.First.Item, 3, 0, 0), w.TfwArsenalOf(Human));
+        Assert.Equal((0, 30), (Me(w).Primary, Me(w).Clip));                // the own primary, never lost
+    }
+
+    [Fact]
     public void The_equipment_and_perk_cards_lie_on_the_loadout_for_the_run()
     {
         var w = War();

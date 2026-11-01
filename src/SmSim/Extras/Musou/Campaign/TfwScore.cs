@@ -21,6 +21,10 @@ public sealed class TfwScore
     TfwLane _lane;
     byte _node;
 
+    /// <summary>Moves whenever any figure changes, and <see cref="HistoryRevision"/> whenever a history does: the server rebuilds its bytes only then.</summary>
+    public int Revision { get; private set; }
+    public int HistoryRevision { get; private set; }
+
     /// <summary>Whether a map is under way (begun and not banked).</summary>
     public bool MapOpen { get; private set; }
 
@@ -33,6 +37,8 @@ public sealed class TfwScore
         _players.Clear();
         _order.Clear();
         MapOpen = false;
+        Revision++;
+        HistoryRevision++;
     }
 
     Entry Of(int player)
@@ -52,6 +58,7 @@ public sealed class TfwScore
         MapOpen = true;
         foreach (var e in _players.Values) { e.MapPoints = 0; e.Kos = e.BestChain = e.Chain = 0; e.AnyKo = false; }
         foreach (int id in humans) Of(id);
+        Revision++;
     }
 
     /// <summary>What one KO earns at chain <paramref name="chain"/> (0: the first of a chain): the type's points times min(max, 1 + step x chain), rounded as the director rounds.</summary>
@@ -72,6 +79,7 @@ public sealed class TfwScore
         e.BestChain = Math.Max(e.BestChain, e.Chain + 1);
         e.LastKoTick = tick;
         e.AnyKo = true;
+        Revision++;
     }
 
     /// <summary>The map under way ends with <paramref name="result"/>: each player's row joins its history. Nothing when no map is open, so the run's end can always call it.</summary>
@@ -79,6 +87,8 @@ public sealed class TfwScore
     {
         if (!MapOpen) return;
         MapOpen = false;
+        Revision++;
+        HistoryRevision++;
         foreach (var e in _players.Values)
             e.History.Add(new TfwMapScore(_lane, _node, result, Saturate(e.Kos), Saturate(e.BestChain), e.MapPoints));
     }
