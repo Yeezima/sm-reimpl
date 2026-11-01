@@ -452,8 +452,7 @@ public partial class ModelViewer : Node3D
     }
 
     /// <summary>
-    /// F11 switches fullscreen on and off anywhere (ours): the front end, the menus, the Options screen, a match, the customizer and the loadout picker. It runs here, on the root, before any screen or text field
-    /// sees the key, and changes the Options screen's WINDOW MODE setting (saved like it). A held key does not repeat. In a match the captured mouse is captured again afterwards.
+    /// F11 switches fullscreen on and off anywhere (ours): the front end, the menus, the Options screen, a match, the customizer and the loadout picker. It runs here, on the root, after the screens' own input (Godot delivers _Input to children first), and changes the Options screen's WINDOW MODE setting (saved like it). A held key does not repeat. In a match the captured mouse is captured again afterwards.
     /// </summary>
     public override void _Input(InputEvent e)
     {
@@ -462,9 +461,11 @@ public partial class ModelViewer : Node3D
         bool captured = Input.MouseMode == Input.MouseModeEnum.Captured;
         try
         {
-            // The services made last hold the settings; with none yet (a plain --connect, or the game folder screen) a set is made, the way the loadout picker makes one.
+            // The services made last hold the settings; with none yet (no profile file, the game folder screen) a set is made, the way the loadout picker makes one. Making it applies the saved
+            // options, so a saved fullscreen mode is this press's result: toggling on top would go straight back to a window and save that.
+            bool fresh = CustomizerServices.Latest is null;
             var services = CustomizerServices.Latest ?? new CustomizerServices(_gameDir, _launchArgs.GetValueOrDefault("profile"), lockDemo: false);
-            services.ToggleFullscreen();
+            if (!fresh || services.Settings.Options.Window == WindowChoice.Windowed) services.ToggleFullscreen();
             GD.Print($"F11: window mode {services.Settings.Options.Window}");
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
