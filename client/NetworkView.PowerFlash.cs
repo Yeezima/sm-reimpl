@@ -50,7 +50,8 @@ public partial class NetworkView
     /// <summary>The hammer's blast sounds for the hammer and the maul (data events, <see cref="PowerFlash.BlastEvents"/>); the weapon's own hit sound is posted elsewhere. Returns the events posted.</summary>
     string PostPowerBlast(PowerKind kind, Vector3 at)
     {
-        if (_sound is null || _soundTriggers is null || NoMeleeSounds || kind is not (PowerKind.Hammer or PowerKind.Maul)) return "-";
+        // fx/melee-hit-sound: the generated roar replaces the hammer's and maul's hit sound; a second boom under it would fight it, so the blast layer only plays with --old-melee-hit-sound.
+        if (_sound is null || _soundTriggers is null || NoMeleeSounds || !OldMeleeHitSound || kind is not (PowerKind.Hammer or PowerKind.Maul)) return "-";
         foreach (var evt in PowerFlash.BlastEvents)
         {
             var emitter = new SoundEmitter { Position = at, Label = $"power flash {kind}", OneShot = true };

@@ -765,7 +765,16 @@ public partial class NetworkView
         }
         else if (hits.LastMelee)
         {
-            if (MeleeWargear(me) is { } m && _soundTriggers.File(m) is { } mf)
+            if (ProceduralHitSound(me, charge: false, dash: false) is { } synth)
+            {
+                // fx/melee-hit-sound: the generated sound, at the victim's chest (or at the own marine when the victim is not known), instead of the weapon's own.
+                var struck = _lastOthers.FirstOrDefault(o => o.PlayerId == hits.LastVictim);
+                var spot = (struck.PlayerId == hits.LastVictim && hits.LastVictim > 0 ? struck.Position : me.Position) + new System.Numerics.Vector3(0f, 0f, 1.2f);
+                string played = PlayProceduralHit(synth, ToGodot(spot), $"own melee hit on P{hits.LastVictim}");
+                CountSound("melee hit");
+                if (LogSound("melee") || LogSound("tag")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} {MeleeWargear(me)} on P{hits.LastVictim} (own hit report) event {played}");
+            }
+            else if (MeleeWargear(me) is { } m && _soundTriggers.File(m) is { } mf)
             {
                 var audio = mf.Of("hit_audio").Take(1).ToList();
                 PostAll(audio, t.Emitter, true, "melee hit");
