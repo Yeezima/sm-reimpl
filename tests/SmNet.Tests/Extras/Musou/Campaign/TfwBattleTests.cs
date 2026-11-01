@@ -174,7 +174,7 @@ public class TfwBattleTests
         var sim = new MusouSim(null);
         var guards = new GuardSim(sim);
         var layout = TfwTestArena.Layout(TfwLane.A, 1);
-        var battle = new TfwBattle(sim, guards, layout, 10.0, 1);     // 4 squads, all in the field
+        var battle = new TfwBattle(sim, guards, layout, 10.0, 1) { Trickle = false };     // 4 squads, all in the field
         battle.Start();
         Assert.Equal(0, battle.Reserves);
         Vector3[] at = [layout.Positions[0]], away = [layout.LandingZone];
@@ -246,7 +246,7 @@ public class TfwBattleTests
     public void A_waaagh_brings_its_boyz_from_the_sources()
     {
         var sim = new MusouSim(null);
-        var battle = new TfwBattle(sim, new GuardSim(sim), TfwTestArena.Layout(TfwLane.A, 1), 100.0, 1);
+        var battle = new TfwBattle(sim, new GuardSim(sim), TfwTestArena.Layout(TfwLane.A, 1), 100.0, 1) { Trickle = false };
         battle.Start();
         int before = sim.Alive;
         battle.NoteWaaaghs(1);
@@ -264,7 +264,7 @@ public class TfwBattleTests
         var guards = new GuardSim(sim);
         var near = new Vector3(35f, 2f, 0f);
         var layout = new TfwLayout(near, [new(10f, 10f, 0f), new(10f, 12f, 0f), new(10f, 14f, 0f)], new Vector3(10f, 16f, 0f), [new(8f, 8f, 0f), new(8f, 8f, 0f), new(8f, 8f, 0f), new(8f, 8f, 0f)]);
-        var battle = new TfwBattle(sim, guards, layout, 100.0, 1);
+        var battle = new TfwBattle(sim, guards, layout, 100.0, 1) { Trickle = false };
         ushort id = sim.SpawnLeashed(MusouEnemyType.Boy, new Vector3(10f, 2f, 0f), 0f, 85f, 9, TfwBattleRules.DefenderAggro);
         MusouTarget[] targets = [new(1, near, true)];
         var attacks = new List<MusouAttack>();
@@ -289,7 +289,7 @@ public class TfwBattleTests
     public void The_full_cap_holds_back_the_arrivals()
     {
         var sim = new MusouSim(null) { Frozen = true };
-        var battle = new TfwBattle(sim, new GuardSim(sim), TfwTestArena.Layout(TfwLane.A, 1), 100.0, 1);
+        var battle = new TfwBattle(sim, new GuardSim(sim), TfwTestArena.Layout(TfwLane.A, 1), 100.0, 1) { Trickle = false };
         battle.Start();
         for (int k = 0; k < 400 * 30; k++) battle.Step([]);
         Assert.Equal(TfwBattleRules.AliveCapSolo + 3 * TfwBattleRules.Garrison, sim.Alive);   // the crowds and swarms are the cap; the garrisons stand beside it

@@ -52,6 +52,15 @@ public static class TfwBattleRules
     public const int AliveCapSolo = 150, AliveCapPerExtraHuman = 80, AliveCapMost = 460;
     public const int ReleasesPerTick = 6;
 
+    // The trickle (owner, 2026-11-01: "re add in the trickling enemies resulting in roughly 2x the current ork enemy count on the map"; every value ours, spec "the trickle"): beside the pools and swarms, each source that sends
+    // also lets one unleashed Ork walk to the players every TrickleSeconds, up to as many trickled Orks alive as the crowds' cap (so about twice the Orks on the map), and never past TrickleTotalMax in all (the pool has 512 slots).
+    /// <summary>Seconds between two trickled Orks from one sending source (ours; three held points send two a second together).</summary>
+    public const float TrickleSeconds = 1.5f;
+    /// <summary>Most Orks alive (garrisons not counted) while a trickled one is added: the pool's 512 slots less the garrisons (36), those dying and a margin.</summary>
+    public const int TrickleTotalMax = 470;
+    /// <summary>Most trickled Orks alive at once with <paramref name="humans"/> humans: the crowds' cap again, so the map holds about twice <see cref="AliveCap"/>.</summary>
+    public static int TrickleCap(int humans) => AliveCap(humans);
+
     // What the Orks are made of (the design's section B; the owner's item 6). Of every 100 fodder and of every 100 elites:
     public const float EliteBase = 0.10f, EliteSlope = 0.50f;
     public const float FodderBoyz = 0.55f, FodderShootas = 0.30f, EliteArds = 0.75f;
@@ -89,8 +98,11 @@ public static class TfwBattleRules
 }
 
 /// <summary>The places of one battle (<see cref="TfwSites.Layout"/>): each position's radius and half height are the map's point's (without them, the defaults below).</summary>
-public sealed record TfwLayout(Vector3 LandingZone, Vector3[] Positions, Vector3 Hq, Vector3[] Sources, float[]? Radii = null, float[]? HalfHeights = null)
+public sealed record TfwLayout(Vector3 LandingZone, Vector3[] Positions, Vector3 Hq, Vector3[] Sources, float[]? Radii = null, float[]? HalfHeights = null, Vector3? Boss = null)
 {
+    /// <summary>Where the final boss comes: the open courtyard just outside the HQ's room (<see cref="TfwSites.Courtyard"/>), else the HQ itself.</summary>
+    public Vector3 BossSpot => Boss ?? Hq;
+
     /// <summary>A position's radius and half height when the layout names none (the spec's "Musou Mode's map"; the map's markers give the real ones).</summary>
     public const float DefaultRadius = 12f, DefaultHalfHeight = 2.5f;
 
@@ -150,6 +162,8 @@ public sealed class TfwBattle
     readonly float _scale;
     readonly int[] _tideTicks = new int[Positions + 1];   // ticks to the point's next Ork; 0: on this tick
     readonly int[] _lastTide = new int[Positions + 1];    // the battle's tick of its last
+    readonly int[] _trickleTicks = new int[Positions + 1];   // ticks to the source's next trickled Ork
+    readonly List<ushort> _trickled = new();                 // the trickled Orks standing (pruned each tick)
     int _now, _humansNow, _swarms;
     const int CrowdGroupFirst = Positions + 2;   // after the garrisons' (1 to 3) and the commander's (4): the positions' crowds, then the HQ source's
     readonly int[] _holder = [-1, -1, -1];                  // the squad holding a secured position
@@ -171,6 +185,7 @@ public sealed class TfwBattle
         _scale = 1f + enemies.Rules.ScalePerExtraPlayer * (_humans - 1);
         Squads = guardsmen ? TfwBattleRules.SquadsAt(imperial) + (final ? bonus.ExtraSquads : 0) : 0;
         Array.Fill(_squadGoal, -1);
+        Array.Fill(_trickleTicks, Ticks(TfwBattleRules.TrickleSeconds));
     }
 
     float Dt => 1f / Math.Max(1, _enemies.TickRate);
@@ -384,7 +399,7 @@ public sealed class TfwBattle
 
     void SpawnBoss(MusouEnemyType type, float health, bool leashed)
     {
-        var hq = _layout.Hq;
+        var hq = type == MusouEnemyType.Warboss ? _layout.BossSpot : _layout.Hq;   // the final boss stands in the courtyard outside the HQ's room (owner, 2026-11-01); the commander keeps the HQ
         float yaw = YawTo(hq, _layout.LandingZone);
         BossId = leashed ? _enemies.SpawnLeashed(type, hq, yaw, health, CommanderGroup, TfwBattleRules.DefenderAggro) : _enemies.Spawn(type, hq, yaw, health);
         BossMaxHealth = health;
@@ -650,7 +665,8 @@ public sealed class TfwBattle
     void StepArrivals()
     {
         int cap = TfwBattleRules.AliveCap(_humansNow);
-        int counted = Counted();
+        _trickled.RemoveAll(_notTrickling);
+        int counted = Counted() - _trickled.Count;   // the crowds' cap counts the crowds and swarms; the trickle has its own
         for (int k = 0; k <= Positions; k++)
         {
             if (!SourceActive(k) || --_tideTicks[k] > 0) continue;
@@ -659,13 +675,44 @@ public sealed class TfwBattle
             if (counted >= cap) continue;
             if (AddToCrowd(k)) { _released++; counted++; }
         }
-        for (int k = 0; k < TfwBattleRules.ReleasesPerTick && _summons > 0 && Counted() < cap; k++)
+        StepTrickle();
+        for (int k = 0; k < TfwBattleRules.ReleasesPerTick && _summons > 0 && Counted() - _trickled.Count < cap; k++)
         {
             _summons--;
             var at = SourceSpot(_summons % _layout.Sources.Length);
             _enemies.Spawn(MusouEnemyType.Boy, at, YawTo(at, _layout.LandingZone), Health(MusouEnemyType.Boy));
         }
     }
+
+    Predicate<ushort>? _notTricklingCache;
+    Predicate<ushort> _notTrickling => _notTricklingCache ??= id => !_enemies.TryGet(id, out var e) || !e.Alive;
+
+    /// <summary>
+    /// The trickle (ours; the owner's "trickling enemies"): every source that sends (a position only while Held, so a capture in progress pauses it and a full capture stops it; the HQ's from the commander on; all four in the
+    /// final assault) lets one unleashed Ork go every <see cref="TfwBattleRules.TrickleSeconds"/>. It spawns at the source and walks to the players like a swarm's; none is in a crowd, so none keeps a crowd from swarming.
+    /// </summary>
+    void StepTrickle()
+    {
+        if (!Trickle) return;
+        int cap = TfwBattleRules.TrickleCap(_humansNow);
+        for (int k = 0; k <= Positions; k++)
+        {
+            if (!SourceActive(k)) { _trickleTicks[k] = Ticks(TfwBattleRules.TrickleSeconds); continue; }
+            if (--_trickleTicks[k] > 0) continue;
+            _trickleTicks[k] = Ticks(TfwBattleRules.TrickleSeconds);
+            if (_trickled.Count >= cap || Counted() >= TfwBattleRules.TrickleTotalMax) continue;
+            var type = NextType();
+            var at = SourceSpot(k);
+            ushort id = _enemies.Spawn(type, at, YawTo(at, _layout.LandingZone), Health(type));
+            if (id != 0) _trickled.Add(id);
+        }
+    }
+
+    /// <summary>Whether the trickle runs (ours; false only in tests that count the crowds alone).</summary>
+    public bool Trickle { get; set; } = true;
+
+    /// <summary>Test aid: the trickled Orks alive now.</summary>
+    public int Trickled => _trickled.Count;
 
     /// <summary>A spot round a drawn source (the failsafe's, and the Waaagh!s' Boyz).</summary>
     Vector3 SourceSpot(int source) => DiscSpot(_layout.Sources[source]);

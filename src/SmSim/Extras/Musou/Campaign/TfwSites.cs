@@ -19,6 +19,10 @@ public sealed class TfwSites
     public const float SourceSpacing = 12f;
     /// <summary>An open node has this much walkable ground in each of four directions (the spawn spots round a source fit).</summary>
     public const float OpenRoom = 4f;
+    /// <summary>The final boss's courtyard (ours; owner, 2026-11-01: "in the courtyard area just outside the room he is currently in"): ground this far from the HQ's centre (past the HQ ring and its wall), no farther than <see cref="CourtyardFar"/>, with <see cref="CourtyardRoom"/> of walkable ground in eight directions.</summary>
+    public const float CourtyardNear = 22f, CourtyardFar = 70f, CourtyardRoom = 8f;
+    /// <summary>The courtyard's walk from the HQ is at most this many times the straight distance (a spot behind a wall across the building is not "just outside").</summary>
+    public const float CourtyardDetour = 2.5f;
     /// <summary>Weapon crates in a battle (the lead: 6) and the least room between two (design: 15 m).</summary>
     public const int CrateCount = 6;
     public const float CrateSpacing = 15f;
@@ -37,6 +41,39 @@ public sealed class TfwSites
         _nav = nav is { NodeCount: > 0 } ? nav : null;
         _world = world;
         _open = _nav is null ? [] : OpenNodes(_nav);
+    }
+
+    /// <summary>
+    /// The open courtyard nearest to <paramref name="hq"/> on foot: of the graph's nodes (the HQ's connected part) at <see cref="CourtyardNear"/> to <see cref="CourtyardFar"/> from it with <see cref="CourtyardRoom"/> of ground each way,
+    /// the first (by straight distance) whose walk from the HQ exists, is whole and is at most <see cref="CourtyardDetour"/> times as long as the straight line. Fixed by the map alone (no dice). Null without a graph or such a node:
+    /// the boss then comes at the HQ.
+    /// </summary>
+    public Vector3? Courtyard(Vector3 hq)
+    {
+        if (_nav is null) return null;
+        var nav = _nav;
+        var ways = new Vector2[8];
+        for (int k = 0; k < 8; k++) ways[k] = new Vector2(MathF.Cos(k * MathF.PI / 4f), MathF.Sin(k * MathF.PI / 4f)) * CourtyardRoom;
+        var found = new List<(float Flat, int Node)>();
+        foreach (int node in _open)
+        {
+            var at = nav.Position(node);
+            float d = Flat(at, hq);
+            if (d < CourtyardNear || d > CourtyardFar || MathF.Abs(at.Z - hq.Z) > 3f) continue;
+            found.Add((d, node));
+        }
+        found.Sort((a, b) => a.Flat != b.Flat ? a.Flat.CompareTo(b.Flat) : a.Node.CompareTo(b.Node));
+        int tried = 0;
+        foreach (var (d, node) in found)
+        {
+            var at = nav.Position(node);
+            bool room = true;
+            foreach (var way in ways) if (!nav.CanWalk(at, way)) { room = false; break; }
+            if (!room) continue;
+            if (++tried > 60) break;
+            if (nav.FindPath(hq, at) is { Partial: false } path && path.Length <= d * CourtyardDetour) return at;
+        }
+        return null;
     }
 
     /// <summary>The nodes a place can use.</summary>
@@ -133,7 +170,7 @@ public sealed class TfwSites
         Vector3[] anchors = [positions[0], positions[1], positions[2], hq];
         var sources = new Vector3[anchors.Length];
         for (int k = 0; k < sources.Length; k++) sources[k] = Source(ref dice, anchors[k], landing, sources.AsSpan(0, k).ToArray());
-        return new TfwLayout(landing, positions, hq, sources, order.Select(k => points[k].Radius).ToArray(), order.Select(k => points[k].HalfHeight).ToArray());
+        return new TfwLayout(landing, positions, hq, sources, order.Select(k => points[k].Radius).ToArray(), order.Select(k => points[k].HalfHeight).ToArray(), Courtyard(hq));
     }
 
     /// <summary>

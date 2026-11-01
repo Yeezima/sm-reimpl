@@ -19,3 +19,6 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Classic matches: the dark gore effects are removed from classic PvP completely (Extended and Faithful alike keep the original blood); they stay in Musou Mode only.
 - Gore: a big mass kill (many Orks at once, an orbital strike) now costs far less: blast clouds in one spot merge into a few large banks, the number of flying drops per frame is capped, and the cloud shader is cheaper. A single hit still makes its big cloud.
 - Gore: blood on the floor and the flying flecks are now matte and dark in sun and shadow; they no longer show as bright white-grey shiny splashes.
+- Musou Mode: the final boss now starts in the open courtyard just outside his room, and he is always a big, tall Ork, never a small one. Play with everyone on the same new version.
+- Musou Mode: Orks trickle out of every point still in enemy hands and walk to you, on top of the crowds, so about twice as many Orks are on the map. Capturing a point still pauses its trickle and a full capture stops it.
+- Musou Mode: the reward cards after a won map are switched off for now, so a run flows straight on. The scores still show.

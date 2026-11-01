@@ -16,7 +16,7 @@ namespace SmClient;
 /// same archive, read on a worker); the Chaos Marine is the PvP Chaos model the networked view has already built. Read from the player's install at run time only.
 /// <para>
 /// Which mesh and clip each kind uses, and the scales, are **ours** (interpretation: the install has no Musou): Boy boy_melee, Shoota Boy boy_ranged, 'Ard Boy
-/// boy_ardboy, Gretchin boy_melee at 0.7 (no Gretchin mesh verified), Nob nob_melee (else boy_melee_pro at 1.2), Warboss nob_melee at 1.25 (else boy_melee_pro at 1.5).
+/// boy_ardboy, Gretchin boy_melee at 0.7 (no Gretchin mesh verified), Nob nob_melee (else boy_melee_pro at 1.2), Warboss nob_melee at 1.6 (else boy_melee_pro at 1.9, else the Boy at 2.0; the owner, 2026-11-01: "always a large orc, never small"; 1.6 is the sim's BossScale).
 /// </para>
 /// </summary>
 public sealed class MusouLooks
@@ -39,6 +39,9 @@ public sealed class MusouLooks
         public bool BakeFailed;
     }
 
+    /// <summary>The Warboss's model scale: the sim's body (<see cref="MusouRules.BossScale"/>), so what is drawn is what is shot.</summary>
+    static readonly float BossScale = new MusouRules().BossScale;
+
     sealed record Wanted(MusouEnemyType Type, string Mesh, float Scale, string? Fallback, float FallbackScale, bool Ranged);
 
     static readonly Wanted[] Plan =
@@ -48,7 +51,7 @@ public sealed class MusouLooks
         new(MusouEnemyType.ArdBoy, "boy_ardboy", 1f, "boy_melee_pro", 1f, false),
         new(MusouEnemyType.Gretchin, "boy_melee", 0.7f, null, 0.7f, false),
         new(MusouEnemyType.Nob, "nob_melee", 1f, "boy_melee_pro", 1.2f, false),
-        new(MusouEnemyType.Warboss, "nob_melee", 1.25f, "boy_melee_pro", 1.5f, false),
+        new(MusouEnemyType.Warboss, "nob_melee", BossScale, "boy_melee_pro", 1.9f, false),
     ];
 
     readonly string _gameDir;
@@ -72,7 +75,7 @@ public sealed class MusouLooks
     }
 
     /// <summary>The look of a kind (null: not built yet; the crowd then draws the Boy's, or nothing).</summary>
-    public Look? For(MusouEnemyType type) => _looks[(int)type] ?? (type == MusouEnemyType.ChaosMarine ? null : _looks[(int)MusouEnemyType.Boy]);
+    public Look? For(MusouEnemyType type) => _looks[(int)type] ?? (type is MusouEnemyType.ChaosMarine or MusouEnemyType.Warboss or MusouEnemyType.Nob ? null : _looks[(int)MusouEnemyType.Boy]);   // the big ones wait for their own body: never a small Boy standing in (owner, 2026-11-01)
 
     /// <summary>Builds at most one look a call (main thread) once its files are read; returns the one built, or null.</summary>
     public Look? Step()
@@ -96,6 +99,10 @@ public sealed class MusouLooks
             var look = new Look { Name = $"{w.Type}:{(scale == w.Scale ? w.Mesh : w.Fallback)}", Assets = mesh, Scale = scale, Clips = OrkClips(mesh, w.Ranged) };
             return _looks[(int)w.Type] = look;
         }
+        if (_looks[(int)MusouEnemyType.Warboss] is null && _looks[(int)MusouEnemyType.Boy] is { } boy)   // no Nob and no pro mesh to be had: the Boy's body, big
+            _looks[(int)MusouEnemyType.Warboss] = new Look { Name = "Warboss:boy_melee", Assets = boy.Assets, Scale = 2.0f, Clips = boy.Clips };
+        if (_looks[(int)MusouEnemyType.Nob] is null && _looks[(int)MusouEnemyType.Boy] is { } boyNob)   // the same for the Nob: never left invisible
+            _looks[(int)MusouEnemyType.Nob] = new Look { Name = "Nob:boy_melee", Assets = boyNob.Assets, Scale = 1.4f, Clips = boyNob.Clips };
         if (!_chaosTried && _chaos() is { } chaos)
         {
             _chaosTried = true;

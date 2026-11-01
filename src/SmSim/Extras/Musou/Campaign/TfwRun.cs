@@ -303,7 +303,7 @@ public sealed partial class TfwRun
             var spawn = Field.Hub.Spawns[k % Field.Hub.Spawns.Count];
             if (w.Players.ContainsKey(_deployed[k])) w.TfwRespawnAt(_deployed[k], spawn.Position, spawn.Yaw);
         }
-        if (result == TfwMapResult.Won) w.TfwOfferRewards(_deployed);
+        if (result == TfwMapResult.Won && Rewards.Offering) w.TfwOfferRewards(_deployed);
         w.TfwClearField();
         Battle = null;
         ActivePosition = null;

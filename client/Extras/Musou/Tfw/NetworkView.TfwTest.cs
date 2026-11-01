@@ -343,6 +343,12 @@ public partial class NetworkView
         }
         await TfwShot($"map-score-{number}");
         await TfwTap(Key.Enter);
+        if (!SmSim.Extras.Musou.Campaign.TfwRewardRules.Enabled)   // the cards are off (hotfix 2026-11-01): Enter closes the panel and the run flows on
+        {
+            await TfwWait(0.5);
+            TfwCheck($"battle {number}: with the cards off Enter closes the panel and nothing waits", _tfwModal is null && !PickerBusy, _tfwModal?.Name.ToString() ?? "");
+            return true;
+        }
         if (!await TfwUntil($"battle {number}: Enter goes on to the reward cards", () => _tfwModal is TfwRewardPanel, 5.0)) return false;
         var cards = (TfwRewardPanel)_tfwModal!;
         await TfwFrames(4);

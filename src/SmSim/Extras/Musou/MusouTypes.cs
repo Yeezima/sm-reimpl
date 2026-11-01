@@ -117,7 +117,8 @@ public sealed record MusouRules
 
     /// <summary>The Warboss's hit points at one player, times the wave scale (design: 4000) and its model scale (design: 1.25).</summary>
     public float BossHealth { get; init; } = 4000f;
-    public float BossScale { get; init; } = 1.25f;
+    /// <summary>The Warboss's body and model scale: 1.6 (owner, 2026-11-01: "always a large orc, never small"; was 1.25; kind: ours). The client draws the largest Ork body at this scale.</summary>
+    public float BossScale { get; init; } = 1.6f;
 
     /// <summary>The players' attacks on the enemies (MU3: the cleave, the staggers, the knockbacks; <see cref="MusouCombatRules"/>).</summary>
     public MusouCombatRules Combat { get; init; } = MusouCombatRules.Default;
