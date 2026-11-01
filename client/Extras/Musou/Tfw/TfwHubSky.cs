@@ -17,7 +17,7 @@ public static class TfwHubSky
     /// <summary>The planet's angular radius, and how far its centre lies below the horizon looking north (the ramp's way): the limb then crosses the open door a little above the horizon (ours, from the references).</summary>
     public const float PlanetRadius = 1.0f, PlanetBelowHorizon = 0.93f;
     /// <summary>With the owner's picture: its centre this far below the horizon and turned left of the ramp's axis (radians), spanning <see cref="ImageSpan"/> degrees across.</summary>
-    public const float ImagePitch = 0.245f, ImageTurn = 0.45f, ImageSpan = 120f;
+    public const float ImagePitch = 0.26f, ImageTurn = 0.44f, ImageSpan = 90f;
 
     /// <summary>Whether the last <see cref="Build"/> found the owner's image.</summary>
     public static bool UsedImage { get; private set; }
@@ -62,7 +62,7 @@ public static class TfwHubSky
         // The ramp looks south (-Y). Without the picture the planet is a sphere; with it, the picture hangs as a flat far backdrop, turned a little to the left so its city stands in the door.
         var toPlanet = image is null ? World(0f, -MathF.Cos(PlanetBelowHorizon), -MathF.Sin(PlanetBelowHorizon))
             : World(MathF.Cos(ImagePitch) * MathF.Sin(ImageTurn), -MathF.Cos(ImagePitch) * MathF.Cos(ImageTurn), -MathF.Sin(ImagePitch));
-        material.SetShaderParameter("image_half_width", MathF.Tan(ImageSpan / 2f * MathF.PI / 180f));
+        material.SetShaderParameter("image_span", ImageSpan * MathF.PI / 180f);
         material.SetShaderParameter("planet_dir", toPlanet.Normalized());
         material.SetShaderParameter("planet_up", Vector3.Up);
         material.SetShaderParameter("planet_radius", PlanetRadius);
@@ -94,7 +94,7 @@ public static class TfwHubSky
         uniform vec3 planet_dir = vec3(0.0, -0.8, -0.6);
         uniform vec3 planet_up = vec3(0.0, 1.0, 0.0);
         uniform float planet_radius = 1.0;
-        uniform float image_half_width = 1.73;
+        uniform float image_span = 2.6;
         uniform vec3 rim_light = vec3(0.5, 0.6, -0.6);
 
         float hash31(vec3 p) {
@@ -148,15 +148,20 @@ public static class TfwHubSky
                 // The picture as a flat far backdrop in its own framing (a gnomonic view: straight lines stay straight, no warping), black space and stars beyond its edges.
                 vec3 f = normalize(planet_dir);
                 float k = dot(d, f);
-                if (k > 0.05) {
+                {
                     vec3 r = normalize(cross(planet_up, f));
                     vec3 u = cross(f, r);
                     vec2 size = vec2(textureSize(planet_image, 0));
-                    float half_h = image_half_width * size.y / size.x;
-                    vec2 t = vec2(dot(d, r), dot(d, u)) / k;
-                    vec2 uv = vec2(0.5 + t.x / (2.0 * image_half_width), 0.5 - t.y / (2.0 * half_h));
-                    if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) {
-                        float edge = smoothstep(0.0, 0.03, min(min(uv.x, 1.0 - uv.x), 1.0 - uv.y));
+                    float span_y = image_span * size.y / size.x;
+                    float dr = dot(d, r);
+                    float az = atan(dr, k);                                   // an angular view of the picture: its own framing, straight enough at this span
+                    float el = atan(dot(d, u), length(vec2(dr, k)));
+                    vec2 uv = vec2(0.5 + az / image_span, 0.5 - el / span_y);
+                    // Left and below the picture the planet goes on (the picture's dark corners mirrored); above and to the right it ends in space, as the picture does at its rim.
+                    if (uv.x < 0.0) uv.x = min(-uv.x, 1.0);
+                    if (uv.y > 1.0) uv.y = max(2.0 - uv.y, 0.0);
+                    if (uv.x < 1.0 && uv.y > 0.0) {
+                        float edge = smoothstep(0.0, 0.06, min(1.0 - uv.x, uv.y));
                         vec3 pic = texture(planet_image, uv).rgb;
                         col = mix(col, pic, edge);
                     }
