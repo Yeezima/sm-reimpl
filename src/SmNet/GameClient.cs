@@ -231,7 +231,10 @@ public sealed partial class GameClient
     {
         MarkUpdated();   // fix/stall-keepalive: the main thread is alive
         while (_transport.TryReceive(out var packet))
-            switch (Protocol.Read(packet))
+        {
+            var message = Protocol.Read(packet);
+            if (message is null && Protocol.IsSnapshot(packet)) RefuseSnapshot();
+            switch (message)
             {
                 case Challenge c when c.Nonce == _nonce && Status == ClientStatus.Connecting:
                     _cookie = c.Cookie;
@@ -257,6 +260,7 @@ public sealed partial class GameClient
                 case PickupUpdate p when Status == ClientStatus.Connected: OnPickups(p); break;   // protocol 26 (GameClient.Pickups.cs)
                 case ExtrasUpdate x when Status == ClientStatus.Connected: OnExtras(x); break;   // added content's envelope (GameClient.Envelope.cs)
             }
+        }
 
         var now = _clock.Now;
         if (Status == ClientStatus.Connecting)
@@ -445,9 +449,10 @@ public sealed partial class GameClient
     void OnSnapshot(Snapshot s)
     {
         if (s.ServerTick <= _latestSnapshotTick && _snapshots.Count > 0) return;   // late or duplicate
-        if (!s.Players.All(Plausible)) return;   // a broken or hostile server: replaying from it could stall prediction
+        if (!s.Players.All(Plausible)) { RefuseSnapshot(); return; }   // a broken or hostile server: replaying from it could stall prediction
         var projectiles = s.Projectiles ?? [];
-        if (!projectiles.All(Plausible)) return;
+        if (!projectiles.All(Plausible)) { RefuseSnapshot(); return; }
+        RefusedSinceSnapshot = 0;
         _latestSnapshotTick = s.ServerTick;
         _latestSnapshotAt = _clock.Now;
         _snapshots.Add((s.ServerTick, s.Players.ToDictionary(p => p.PlayerId), projectiles.ToDictionary(q => q.Id)));

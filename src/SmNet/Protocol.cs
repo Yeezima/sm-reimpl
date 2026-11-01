@@ -691,7 +691,7 @@ public static partial class Protocol
                     w.U16(PerkWord(p));
                     // Protocol 44 (14 bytes): the second holstered weapon's index, the real slot (bits 0..1) with its overheat (2) and the SlotSecond held flag (3), its clip,
                     // reserve, heat and heat age. Right after the perk word, so the fields at the record's end keep their offsets from the end.
-                    w.U8(Index(third)); w.U8((byte)(((int)p.Slot & 3) | (p.ThirdOverheated ? 4 : 0) | (p.SlotSecondHeld ? 8 : 0) | (((int)p.MeleeDirection & 7) << 4) | (p.BufferedCharge ? 128 : 0)));   // protocol 45: bits 4..6 the melee attack's direction
+                    w.U8(Index(third)); w.U8((byte)(((int)p.Slot & 3) | (p.ThirdOverheated ? 4 : 0) | (p.SlotSecondHeld ? 8 : 0) | (((int)WireMeleeDirection(p) & 7) << 4) | (p.BufferedCharge ? 128 : 0)));   // protocol 45: bits 4..6 the melee attack's direction
                     w.U16(Ammo(p.ThirdClip)); w.U16(Ammo(p.ThirdReserve)); w.F32(p.ThirdHeat); w.F32(p.ThirdSinceHeat);
                     w.F32(p.OtherReloadLeft); w.F32(p.ThirdReloadLeft);   // protocol 45: the holstered weapons' reloads (8 bytes)
                     w.U8((byte)Math.Clamp(p.FlinchTicks, 0, Spread.MaxFlinchTicks));   // protocol 52 (sim/light-melee-flinch): the flinch's ticks left; here so the tail keeps its offsets
@@ -833,6 +833,9 @@ public static partial class Protocol
         }
         return w.ToArray();
     }
+
+    /// <summary>fix/dead-melee-direction: whether a packet says it is a snapshot (what a client counts when <see cref="Read"/> refuses one).</summary>
+    public static bool IsSnapshot(ReadOnlySpan<byte> packet) => packet.Length > 0 && packet[0] == (byte)Kind.Snapshot;
 
     /// <summary>Parses a packet; returns null for anything malformed (wrong length, unknown type, bad counts).</summary>
     public static Message? Read(ReadOnlySpan<byte> packet)
@@ -1385,6 +1388,12 @@ public static partial class Protocol
         if (step == 0 && p.SprintStop) return (64, 0f);   // protocol 36: the sprint stop
         return ((byte)(step | (step > 0 && p.MeleeHeavy ? 64 : 0)), p.MeleeTime);
     }
+
+    /// <summary>
+    /// fix/dead-melee-direction: the melee direction an own record carries: the attack's while the melee field (<see cref="MeleeField"/>) carries an attack, else Forward. A reaction or a
+    /// charge takes that field, and the reader refuses a direction without an attack, so a stale direction would cost every snapshot until it clears.
+    /// </summary>
+    static EvadeDirection WireMeleeDirection(PlayerState p) => (MeleeField(p).Byte & (128 | 32 | 31)) is > 0 and <= 31 ? p.MeleeDirection : EvadeDirection.Forward;
 
     static bool WholeTicks(float time, int max) => time >= 0f && time <= max && time == MathF.Floor(time);
 
