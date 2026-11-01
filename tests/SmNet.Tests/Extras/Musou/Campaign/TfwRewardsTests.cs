@@ -36,7 +36,12 @@ public class TfwRewardsTests
 
     static readonly SimConfig Config = MusouLoadout.Prepare(Raw with { MusouRules = MusouRules.Default with { PlayerDamageScale = 0f } });
 
-    static World War() => TfwRig.War(null, Config);
+    static World War()
+    {
+        var w = TfwRig.War(null, Config);
+        w.Tfw!.Rewards.Offering = true;   // the cards are switched off by default (TfwRewardRules.Enabled); these tests are of the cards
+        return w;
+    }
 
     static void Keep(World w, params int[] weapons)
     {

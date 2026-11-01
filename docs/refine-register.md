@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2100 spec table rows: **1492 tagged**, 438 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 446 rows of the changes document.
+Scanned 2104 spec table rows: **1495 tagged**, 439 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 447 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -43,30 +43,30 @@ Scanned 2100 spec table rows: **1492 tagged**, 438 not tagged (read from data wi
 | HUD and hit feedback (critical) | 65 | 60 | 49 | 10 | 0 |
 | Sound mix (critical) | 56 | 50 | 48 | 10 | 0 |
 | Effects (critical) | 72 | 63 | 62 | 38 | 0 |
-| Game modes | 40 | 37 | 37 | 19 | 1 |
+| Game modes | 41 | 38 | 38 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
 | Customizer and paint | 48 | 45 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 255 | 239 | 213 | 26 | 1 |
+| Core simulation (provisional values) | 256 | 240 | 214 | 26 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 92 | 85 | 47 | 10 | 0 |
-| **All areas** | **1492** | 1264 | 1198 | 422 | 38 |
+| Ork faction | 93 | 86 | 48 | 10 | 0 |
+| **All areas** | **1495** | 1267 | 1201 | 422 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 677 |
-| confidence: low | 566 |
+| kind: ours | 680 |
+| confidence: low | 569 |
 | confidence: medium | 504 |
 | kind: interpretation | 335 |
 | notes: ours | 309 |
 | confidence: none (low) | 128 |
 | kind: provisional | 99 |
-| kind: estimate | 74 |
+| kind: estimate | 77 |
 | kind: user's knowledge | 51 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
@@ -1527,7 +1527,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-14AADBDD` | Not drawn | the plasma death's `remove_wargear` (the corpse's ranged weapon gone 1.2 s after death: `WeaponRig` has no hide); any limb or body removal (no geometry); the original's death clips before the ragdoll (`SM_REC_MP_*Death*`, `Powered Ragdoll Controls Modifier`… | notes: not reproduced (gap); kind: gap (not reproduced); confidence: none (low) | graph `SM_Base_MP` | Not drawn: compare with SM1 with side-by-side video of the same action. Ours: the plasma death's remove_wargear (the corpse's ranged weapon gone… | ☐ |
 | `R-029F8653` | Cost | choosing and queueing 0.3 to 0.5 ms in the death frame, of which 0.3 ms is the first death's JIT (the marker-to-bone lookup is cached: 0.02 ms a call, the effect starts 0.01 ms each); the due steps of one death 0.3 to 6 ms in their frame, no JIT and no GC in… (ms) | confidence: low | measured (bots, headless) | Cost: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: choosing and queueing 0.3 to 0.5 ms in the death frame, of which 0.3… | ☐ |
 
-### Game modes (40)
+### Game modes (41)
 
 *Spec section: Teams and Annihilation (M15, used by the simulation)*
 
@@ -1592,6 +1592,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
+| `R-D7F8AB04` | Final boss courtyard (hotfix/boss-trickle, owner 2026-11-01: "the final boss should spawn in the… | The final assault's Warboss starts on the walking graph's open ground just outside the HQ room, not inside it: the first node (by straight distance) on the HQ's connected part that is 22 to 70 m from the HQ's centre, within 3 m of its height, has 8 m of… (m) | kind: ours; kind: estimate; confidence: low | the owner's words; the numbers ours | Final boss courtyard (hotfix/boss-trickle, owner…: compare with SM1 by measuring on a flat spot of the same map. Ours: The final assault's Warboss starts on the walking graph's open ground… | ☐ |
 | `R-08E1FB24` | War spawn-room blockers | none: the commander stands in the Chaos room and Marines must reach him on foot (the design kept them; with them he could only be fought if he came out) | kind: ours | ours | War spawn-room blockers: compare with SM1 by feel or video. Ours: none: the commander stands in the Chaos room and Marines must reach… | ☐ |
 
 ### Perks (59)
@@ -1840,7 +1841,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (255)
+### Core simulation (provisional values) (256)
 
 *Spec section: Provisional values in use*
 
@@ -2028,6 +2029,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-DDD29D15` | War reserves | start 5 transport, 4 supplies; a deploy costs 1 transport; an early pickup 1 transport, charged on arrival, free after a win; an emergency extraction 2 supplies; the depot +2 transport, +1 supply; the HQ +1 transport every 600 war s | kind: estimate; confidence: low; notes: ours | the owner's decision (2026-11-01) on the architect's proposal; charged on arrival ours | War reserves: compare with SM1 by feel or video. Ours: start 5 transport, 4 supplies; a deploy costs 1 transport; an early… | ☐ |
+| `R-E4DF2ABD` | Warboss size (hotfix/boss-trickle) | The Warboss is always the large Nob body (`nob_melee`) at 1.6 times (sim body radius 0.75 m and height 2.9 m times 1.6; was 1.25); the client never draws a Boy in his place while his look is built (nothing shows for a moment instead), falls back to the pro… (scale) | kind: ours; kind: estimate; confidence: low | the owner's words ("always make him be a large orc, never small"); the scale ours | Warboss size (hotfix/boss-trickle): compare with SM1 by measuring on a flat spot of the same map. Ours: The Warboss is always the large Nob body (nob_melee) at 1.6 times… | ☐ |
 | `R-C889B1E2` | War field clearing | a battle's end, by any way, clears the enemies, the Guardsmen, the drops and the players' projectiles, lingering blasts and perk blasts; the enemies have no projectile of their own (hit rolls with tracers); a human who joined after the landing waits in the… | kind: ours | ours | War field clearing: compare with SM1 by feel or video. Ours: a battle's end, by any way, clears the enemies, the Guardsmen, the… | ☐ |
 | `R-0D0FB257` | War deploy | only in the hub, from inside the Stormbird (not only at the station: the client decides that); 5 s travel, then a fresh life at the landing zone with the waiting Setup and the pistol; a lane at front 3 lands the final assault (s) | kind: ours; confidence: low | the architect's proposal; the Stormbird check ours | War deploy: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: only in the hub, from inside the Stormbird (not only at the station:… | ☐ |
 | `R-82E59EE7` | Battle layout by node | the node fought is the front + 1; odd nodes run A, B, C, even nodes C, B, A; B is always the depot; lanes differ only by the draw | kind: ours; confidence: low | the architect's proposal | Battle layout by node: compare with SM1 by feel or video. Ours: the node fought is the front + 1; odd nodes run A, B, C, even nodes… | ☐ |
@@ -2382,6 +2384,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-C5366517` | Orks against Guard squads | enemies target a squad at its men's centre like a player (tokens per squad since M3: section "the Orks") and a blow lands on the man nearest the attacker, without any player damage scale; events on a squad carry player 0 | kind: ours | the architect's proposal | Orks against Guard squads: compare with SM1 by feel or video. Ours: enemies target a squad at its men's centre like a player (tokens per… | ☐ |
+
+*Spec section: Added content: Musou Mode: the battle and the run (TF4; `TfwRules.Version` 5 since an extraction after a won battle)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-363BE4DA` | The trickle (hotfix/boss-trickle, owner 2026-11-01: "re add in the trickling enemies resulting in… | Besides the pools and swarms, each source that sends (a position only while Held: a capture in progress pauses it, a full capture stops it and a retake starts it again; the HQ's from the commander on; all four in the final assault) lets one unleashed Ork go… (s, count) | kind: ours; kind: estimate; confidence: low | the owner's words; the numbers ours | The trickle (hotfix/boss-trickle, owner 2026-11-01: "re add…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Besides the pools and swarms, each source that sends (a position only… | ☐ |
 
 *Spec section: Added content: Musou Mode: the Orks (pass 2's M3; `TfwRules.Version` 11, `MusouSim.Version` 6)*
 
@@ -2995,6 +3003,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-CC9ECC86` | Power weapons flash on a hit (fx/power-flash, owner 2026-11-01) | Ours (provisional approximation, to refine against the trailer): a melee hit with the thunder hammer, power sword, power axe or daemon maul plays the hammer's own `thunderhammer_dmg_body` and `_secondary` effects (original data) plus a layered soft cloud of the package's own sprites, bigger than a body; blue, the… | scale 0.6 to 1, tint (0.8, 0.1, 1.0), cap 1 + 5 per 0.6 s, close camera x0.22 inside 1.2 m | "Power weapon hit flash" | Power weapons flash on a hit (fx/power-flash, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-948148FE` | Generated on-hit sounds for melee weapons (fx/melee-hit-sound, owner 2026-11-01) | Ours (provisional approximation; nobody has heard it yet): the original on-hit sounds of two groups are replaced by sounds generated at run time (no asset), measured from two reference clips. Sound A (a 0.64 s pink sizzle swelling over 100 ms): power axe, power sword, combat knife. Sound B (an instant roar of about a… | A: 0.64 s, rms -18.2 dB re full scale, centroid 1.7 kHz; B: 1.6 s, rms -19.9 dB, centroid 2.6 kHz; speed +-7%, level +-1.5 dB | "Generated melee hit sounds" | Generated on-hit sounds for melee weapons…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-74F3FFE3` | Damage flash restarts (fix/spawn-room-light, 2026-11-01) | Ours: a hit while a damage flash still runs lifts it back to the plateau after the peak (envelope 0.45) and never re-peaks it; a hit with no flash running peaks as before. `--old-damage-flash` restores restarting at the peak on every hit. The Musou vista's far explosions (`oob_explosions_artillery_less`, the flak)… | The original's rule for hits during a flash is not known; a crowd strobed the screen | Musou Mode crowds; flash feel in classic play | Damage flash restarts (fix/spawn-room-light, 2026-11-01): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-80EA67D1` | Musou boss, trickle and cards (hotfix/boss-trickle, owner 2026-11-01) | Ours (added content, Musou Mode only): the final Warboss starts in the courtyard outside the HQ room and is a 1.6 times Nob body always; an unleashed Ork trickles from each sending source every 1.5 s up to the crowds' cap again; the reward cards after a won map are off (`TfwRewardRules.Enabled`). | The original has no Musou Mode; the owner's words of 2026-11-01. | Musou Mode only; classic PvP is untouched. Spec rows: Final boss courtyard, Warboss size, The trickle, Reward cards off. | Musou boss, trickle and cards (hotfix/boss-trickle, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

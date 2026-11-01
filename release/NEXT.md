@@ -12,3 +12,6 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 
 - Musou Mode: the Thunderhawk's troop bay now ends in an invisible wall at the top of the ramp, so you can no longer walk or jump down it and see the unfinished scene beyond. The planet still shows through.
 - The menus have a new background picture, and the Thunderhawk hub shows a new planet picture.
+- Musou Mode: the final boss now starts in the open courtyard just outside his room, and he is always a big, tall Ork, never a small one. Play with everyone on the same new version.
+- Musou Mode: Orks trickle out of every point still in enemy hands and walk to you, on top of the crowds, so about twice as many Orks are on the map. Capturing a point still pauses its trickle and a full capture stops it.
+- Musou Mode: the reward cards after a won map are switched off for now, so a run flows straight on. The scores still show.

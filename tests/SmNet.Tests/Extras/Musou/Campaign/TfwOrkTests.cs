@@ -12,7 +12,7 @@ public class TfwOrkTests
     {
         var sim = new MusouSim(null) { Frozen = true };
         var layout = TfwTestArena.Layout();
-        var battle = new TfwBattle(sim, new GuardSim(sim), layout, 100.0, 1, final, default, elite, guardsmen);
+        var battle = new TfwBattle(sim, new GuardSim(sim), layout, 100.0, 1, final, default, elite, guardsmen) { Trickle = false };
         battle.Start();
         return (sim, battle, layout);
     }
@@ -129,7 +129,7 @@ public class TfwOrkTests
     {
         var sim = new MusouSim(null) { Swarm = MusouSwarmRules.Default };
         var layout = TfwTestArena.Layout();
-        var battle = new TfwBattle(sim, new GuardSim(sim), layout, 100.0, 1, false, default, TfwBattleRules.EliteBase, false);
+        var battle = new TfwBattle(sim, new GuardSim(sim), layout, 100.0, 1, false, default, TfwBattleRules.EliteBase, false) { Trickle = false };
         battle.Start();
         var attacks = new List<MusouAttack>();
         var swarms = new List<TfwSwarm>();
@@ -576,7 +576,7 @@ public class TfwOrkTests
     {
         var sim = new MusouSim(null) { Frozen = true };
         var layout = TfwTestArena.Layout();
-        var battle = new TfwBattle(sim, new GuardSim(sim), layout, 100.0, 1, false, default, TfwBattleRules.EliteBase, false);
+        var battle = new TfwBattle(sim, new GuardSim(sim), layout, 100.0, 1, false, default, TfwBattleRules.EliteBase, false) { Trickle = false };
         battle.Start();
         battle.Step([]);
         Assert.Empty(sim.KeepOut);                                            // Held: nobody on it
@@ -617,5 +617,76 @@ public class TfwOrkTests
         var w = TfwRig.War();
         Assert.NotNull(w.Musou!.Swarm);
         Assert.Null(new MusouSim(null).Swarm);
+    }
+
+    // ---- the hotfix of 2026-11-01: the trickle, the courtyard boss, the cards off
+
+    static (MusouSim Sim, TfwBattle Battle, TfwLayout Layout) Trickling(bool final = false, TfwLayout? layout = null)
+    {
+        var sim = new MusouSim(null) { Frozen = true };
+        layout ??= TfwTestArena.Layout();
+        var battle = new TfwBattle(sim, new GuardSim(sim), layout, 100.0, 1, final, default, TfwBattleRules.EliteBase, false);
+        battle.Start();
+        return (sim, battle, layout);
+    }
+
+    [Fact]
+    public void Held_points_let_unleashed_orks_trickle_up_to_the_crowds_cap_again_about_twice_the_orks()
+    {
+        var (sim, battle, _) = Trickling();
+        for (int t = 0; t < 10 * 30; t++) battle.Step([]);
+        Assert.InRange(battle.Trickled, 18, 21);                              // three points, one each 1.5 s: about 2 a second
+        for (int t = 0; t < 400 * 30; t++) battle.Step([]);
+        Assert.Equal(TfwBattleRules.TrickleCap(1), battle.Trickled);
+        Assert.Equal(TfwBattleRules.AliveCap(1) + TfwBattleRules.TrickleCap(1) + TfwTestArena.StartAlive, sim.Alive);   // the crowds at their cap, and as many trickled
+        Assert.True(sim.Alive <= MusouSim.Capacity - 40);
+    }
+
+    [Fact]
+    public void A_full_capture_stops_a_points_trickle()
+    {
+        var (sim, battle, layout) = Trickling();
+        for (int t = 0; t < 30 * 30; t++) battle.Step([]);
+        Capture(sim, battle, layout, 0);
+        Assert.False(battle.SourceActive(0));                                 // no trickle from a secured point; the held ones go on
+        Assert.True(battle.SourceActive(1));
+        Assert.True(battle.Trickled > 0);
+    }
+
+    [Fact]
+    public void A_point_being_captured_pauses_its_own_trickle()
+    {
+        var (sim, battle, layout) = Trickling();
+        ClearPoint(sim, layout, 0);
+        Vector3[] on = [layout.Positions[0]];
+        battle.Step(on);
+        Assert.Equal(TfwPositionState.Securing, battle.Objectives[0].State);
+        int before = battle.Trickled;
+        for (int t = 0; t < 4 * 30; t++) battle.Step(on);                     // 4 s of capture: the other two points send (about 2), this one none
+        Assert.Equal(TfwPositionState.Securing, battle.Objectives[0].State);
+        Assert.InRange(battle.Trickled - before, 1, 5);   // two points send 4 in 4 s; a third would make 6
+    }
+
+    [Fact]
+    public void The_final_boss_stands_in_the_courtyard_and_the_commander_at_the_HQ()
+    {
+        var plain = TfwTestArena.Layout();
+        var courtyard = plain.Hq + new Vector3(30f, 0f, 0f);
+        var (sim, battle, layout) = Trickling(final: true, layout: plain with { Boss = courtyard });
+        Assert.True(sim.TryGet(battle.BossId, out var boss));
+        Assert.Equal(MusouEnemyType.Warboss, boss.Type);
+        Assert.Equal(courtyard, layout.BossSpot);
+        Assert.True(Vector3.Distance(boss.Position, courtyard) < 1f);
+        var (sim2, battle2, _) = Trickling(final: true);                      // no courtyard found: the HQ, as before
+        Assert.True(sim2.TryGet(battle2.BossId, out var boss2));
+        Assert.True(Vector3.Distance(boss2.Position, plain.Hq) < 1f);
+    }
+
+    [Fact]
+    public void The_warboss_is_a_large_body_and_the_cards_are_off_by_default()
+    {
+        Assert.True(MusouRules.Default.BossScale >= 1.5f);
+        Assert.False(TfwRewardRules.Enabled);
+        Assert.False(new TfwRewards().Offering);
     }
 }
