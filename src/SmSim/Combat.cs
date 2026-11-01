@@ -687,7 +687,7 @@ public static class Combat
         // Aim mode (protocol 12; interpretation, spec/behavior.md): the Aim button held with a ranged weapon in hand, outside
         // melee attacks, throws, jump-pack jumps and dives, and evades.
         bool aiming = aimDown && weapon is not null && step == 0 && !throwing && !threw
-            && !JumpPack.Jumping(jump.Phase) && !JumpPack.Pounding(jump.Phase) && !evading;
+            && !JumpPack.Pounding(jump.Phase) && !evading;   // the owner, 2026-11-02: zoom in the air as on the ground
         // Raising the weapon (M31; see the summary): what lowered it this tick, the raise under way, and whether it is up.
         bool lowering = reacting || rushing || step > 0 || throwing || threw || evading || switched || jump.Started || jump.PoundStart || jumpBusy
             || sprintNoFire;   // sim/no-fire-while-sprinting: the sprint drops a raise and its waiting shot, and a burst's later rounds
