@@ -28,13 +28,13 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2065 spec table rows: **1468 tagged**, 430 not tagged (read from data with high confidence), 167 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 436 rows of the changes document.
+Scanned 2066 spec table rows: **1469 tagged**, 430 not tagged (read from data with high confidence), 167 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 437 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 346 | 294 | 298 | 99 | 12 |
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
-| Weapons (critical) | 114 | 67 | 99 | 50 | 3 |
+| Weapons (critical) | 115 | 68 | 100 | 51 | 3 |
 | Melee (critical) | 78 | 65 | 74 | 14 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
 | Charge (critical) | 44 | 35 | 37 | 20 | 0 |
@@ -53,7 +53,7 @@ Scanned 2065 spec table rows: **1468 tagged**, 430 not tagged (read from data wi
 | Core simulation (provisional values) | 242 | 227 | 202 | 25 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 89 | 82 | 46 | 9 | 0 |
-| **All areas** | **1468** | 1244 | 1178 | 417 | 38 |
+| **All areas** | **1469** | 1245 | 1179 | 418 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -63,10 +63,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: low | 566 |
 | confidence: medium | 494 |
 | kind: interpretation | 335 |
-| notes: ours | 305 |
-| confidence: none (low) | 118 |
+| notes: ours | 306 |
+| confidence: none (low) | 119 |
 | kind: provisional | 100 |
-| kind: estimate | 70 |
+| kind: estimate | 71 |
 | kind: user's knowledge | 49 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
@@ -657,7 +657,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-62C36356` | War Guardsman health | 85, the install's `ig_coop_guardsman` value, in place of the design's 40: with 40 the 6 squads lost to 60 Boyz in the box (all 60 men dead by 45 s, 39 Boyz left), with 85 they win in 34.4 s losing 20 (hit points) | kind: ours | the install's data; the choice is TF3's measure | War Guardsman health: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 85, the install's ig_coop_guardsman value, in place of the design's… | ☐ |
 
-### Weapons (gameplay-critical) (114)
+### Weapons (gameplay-critical) (115)
 
 *Spec section: Classes and default loadouts (M10, used by the simulation)*
 
@@ -765,6 +765,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-F49B5988` | Stow scale | chainswords 0.9, power axe and chain axe 0.85, power swords and combat knives 0.8, others 1; applied uniformly about the handle node (factor) | kind: interpretation; confidence: medium | `stow_info/scale` | Stow scale: compare with SM1 by feel or video. Ours: chainswords 0.9, power axe and chain axe 0.85, power swords and… | ☐ |
 | `R-F97C040A` | Stowed lascannon | both lascannon models (`lascannon_mp_basic`, `chaos_lascannon_mp`) are stowed upright behind the backpack instead of on `MKR_Stow_Bolter`: handle on `RIG_SpineD` at (0, −0.57, 0.15) (up, forward, left), barrel 20° from straight up toward the marine's right… (m, degrees) | kind: ours; confidence: none (low) | ours (tuned against screenshots) | Stowed lascannon: compare with SM1 with an overlaid screenshot taken from the same position. Ours: both lascannon models (lascannon_mp_basic, chaos_lascannon_mp) are… | ☐ |
+| `R-B1CEE447` | Power weapon hit flash | a hit with the thunder hammer, power sword, power axe or daemon maul plays the data's `thunderhammer_dmg_body` and `thunderhammer_dmg_body_secondary` at the contact point (x0.85) and our layered cloud (`power_flash_cloud`, x1.15, additive soft sprites, about… (scale, seconds) | kind: estimate; confidence: none (low); notes: ours | ours (sized by eye against the trailer; the effects are the hammer's own data) | Power weapon hit flash: compare with SM1 by feel or video. Ours: a hit with the thunder hammer, power sword, power axe or daemon maul… | ☐ |
 | `R-E50A169E` | Stow handle fallback | the thunder hammer and power mace name `rig_prop_rhand` as stow handle, which their object trees lack (their handle is `RIG_Prop_M_Chest`); the model root is used | kind: interpretation; confidence: low; notes: ours | ours | Stow handle fallback: compare with SM1 by feel or video. Ours: the thunder hammer and power mace name rig_prop_rhand as stow handle… | ☐ |
 | `R-5842BB7D` | Muzzle | node `fx_Muzzle` of the weapon's object tree (the marker the wargear's fire and hit effects name); storm bolters also `fx_Muzzle01`; the locator's +Y axis is the barrel direction (all 23 gun models) (m, unit vector in the weapon root's space) | kind: inferred | weapon `.O3d`; wargear `play_fx/marker` | Muzzle: compare with SM1 by feel or video. Ours: node fx_Muzzle of the weapon's object tree (the marker the wargear's… | ☐ |
 | `R-79154EE7` | Default look | drawn: visuals with `LODLevel` bit 0 (or −1); hidden: `_LODL` twins (16) and upgrade geometry (nodes a perk upgrade shows, e.g. `GEO_upg_barrel`, gathered over every wargear drawing the same model: the Devastator bolt pistol lists no upgrades but hides the… | kind: inferred; confidence: medium | weapon `.O3d`, `upgrades/upgrades` | Default look: compare with SM1 by feel or video. Ours: drawn: visuals with LODLevel bit 0 (or −1); hidden: _LODL twins (16)… | ☐ |
@@ -2941,6 +2942,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-A6BD3B61` | Devastator / Havoc stomp stays in place | the owner's decision (2026-10-31): no step forward, no lunge or burst, no coasting; fixes the slide from chaining the kick (click) and the stomp (F) | the body is held in place until the stomp's move-again branch; protocol 49 | "Stomp stays in place" | Devastator / Havoc stomp stays in place: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-5318F1D9` | Bolt tracer softness and armour-hit sparks (fx/bolt-tracer-impact, owner 2026-10-31) | Ours: the pooled bolt streaks are soft glow ribbons with a thin hot core (were flat hard ribbons); a hit on raised armour adds the data's `hit_ranged_armour_generic` sparks (two copies) on top of the weapon's own armour effect; client only, no protocol change; `--old-bolt-fx` restores both; `--old-bolt-tracer` still… | the owner's reference r6 shows thin streaks and a white-gold flash | the sizes and scales are estimates for a playtest | Bolt tracer softness and armour-hit sparks…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-4A7397B2` | Stowed lascannon hangs behind the backpack (visual/lascannon-stow, owner 2026-10-31) | Ours: the data's stow marker (lower back, barrel across to the right) lets the lascannon's 1.39 m barrel through the right forearm and leg, so the two lascannon models hang upright behind the Devastator's / Havoc's backpack on `RIG_SpineD`, the barrel 20 degrees from straight up toward the marine's right; the loyalist… | the data's `stow_info` marker for every weapon | "Stowed lascannon" | Stowed lascannon hangs behind the backpack…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-CC9ECC86` | Power weapons flash on a hit (fx/power-flash, owner 2026-11-01) | Ours (provisional approximation, to refine against the trailer): a melee hit with the thunder hammer, power sword, power axe or daemon maul plays the hammer's own `thunderhammer_dmg_body` and `_secondary` effects (original data) plus a layered soft cloud of the package's own sprites, bigger than a body; blue, the… | scale 0.6 to 1, tint (0.8, 0.1, 1.0), cap 1 + 5 per 0.6 s | "Power weapon hit flash" | Power weapons flash on a hit (fx/power-flash, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

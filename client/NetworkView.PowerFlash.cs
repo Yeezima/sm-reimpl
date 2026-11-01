@@ -1,0 +1,79 @@
+using System;
+using System.Collections.Generic;
+using Godot;
+using SmContent;
+using SmNet;
+using Num = System.Numerics;
+
+namespace SmClient;
+
+/// <summary>
+/// fx/power-flash (the owner's request of 2026-11-01; client presentation only: no simulation, wire or config-hash change; NOT under Extras, so Faithful builds have it).
+/// The blue (the daemon maul's: purple) flash and cloud when a power weapon's melee attack connects: the thunder hammer, the power sword, the power axe and the daemon maul
+/// (<c>csm_mp_melee_2hand_power_mace</c>), in classic PvP and in Musou Mode. **Original assets**: the hammer's own hit effects <c>thunderhammer_dmg_body</c> and
+/// <c>thunderhammer_dmg_body_secondary</c> (flash, soft balls, glitter, arcs), played at the contact point. **Ours (provisional approximation)**: the layered cloud of
+/// <see cref="PowerFlash.Build"/>, the per-weapon scale, the purple, the cap on a swing's bursts. Sound: the weapon's own hit event (existing) plus the hammer's blast events.
+/// Test aids: <c>--no-power-flash</c> (before / after), <c>--power-flash-demo sword|axe|hammer|maul</c> (a comma list takes them in turn; <c>--power-flash-at x,y,z</c>), <c>--log-power-flash</c>.
+/// </summary>
+public partial class NetworkView
+{
+    bool NoPowerFlash => _noPowerFlash ??= CmdFlag("no-power-flash");
+    bool? _noPowerFlash;
+    readonly Dictionary<int, (double At, int Count)> _powerSwing = new();
+    int _powerFlashes, _powerFlashSmall;
+
+    /// <summary>A power weapon's hit: the lead burst of a swing is the big one, the next hits of the same swing (a Musou cleave) are small and capped.</summary>
+    internal void PowerHit(int attackerId, string? wargear, Vector3 contact, Vector3 outward, string source)
+    {
+        if (NoPowerFlash || _fx is null || PowerFlash.KindOf(wargear) is not { } kind) return;
+        _powerSwing.TryGetValue(attackerId, out var swing);
+        if (_connectedFor - swing.At > PowerFlash.SwingSeconds) swing = (_connectedFor, 0);
+        bool lead = swing.Count == 0;
+        _powerSwing[attackerId] = (swing.At, swing.Count + 1);
+        if (!lead && swing.Count > PowerFlash.SmallPerSwing) return;
+        var axes = AxesFromY(outward.LengthSquared() > 1e-6f ? outward.Normalized() : Vector3.Up);
+        float scale = PowerFlash.Scale(kind) * (lead ? 1f : PowerFlash.SmallScale);
+        var tint = PowerFlash.Tint(kind);
+        int started = 0;
+        if (_fx.Play(PowerFlash.MainEffect, contact, axes, scale * PowerFlash.DataBoost, null, null, 0f, 0.0, false, 3, false, tint) is not null) started++;
+        if (lead && _fx.Play(PowerFlash.SecondaryEffect, contact, axes, scale * PowerFlash.DataBoost, null, null, 0f, 0.0, false, 3, false, tint) is not null) started++;
+        if (_fx.Play(PowerFlash.CloudName, contact, axes, scale * PowerFlash.CloudBoost, null, null, 0f, 0.0, false, 3, false, tint) is not null) started++;
+        string sounds = lead ? PostPowerBlast(kind, contact) : "-";
+        if (lead) _powerFlashes++; else _powerFlashSmall++;
+        _fxLastShotAt = _connectedFor; _fxLastEnd = contact; _fxLastFrom = contact;
+        if (_bot || CmdFlag("log-power-flash") || CmdFlag("log-melee-fx"))
+            GD.Print($"POWERFLASH t {_connectedFor:F2} P{attackerId} {kind} {(lead ? "lead" : "small")} x{scale:0.##} at {contact.X:F1},{contact.Y:F1},{contact.Z:F1} ({source}); {started} effects; blast sounds {sounds}; shown {_powerFlashes} big, {_powerFlashSmall} small");
+    }
+
+    /// <summary>The hammer's blast sounds for the hammer and the maul (data events, <see cref="PowerFlash.BlastEvents"/>); the weapon's own hit sound is posted elsewhere. Returns the events posted.</summary>
+    string PostPowerBlast(PowerKind kind, Vector3 at)
+    {
+        if (_sound is null || _soundTriggers is null || NoMeleeSounds || kind is not (PowerKind.Hammer or PowerKind.Maul)) return "-";
+        foreach (var evt in PowerFlash.BlastEvents)
+            PostPlayerHitSound(evt, new SoundEmitter { Position = at, Label = $"power flash {kind}", OneShot = true });
+        return string.Join("+", PowerFlash.BlastEvents);
+    }
+
+    // ---- --power-flash-demo ----
+
+    string[]? _pfCases;
+    double _pfNext = -1, _pfStart;
+
+    void PowerFlashDemo()
+    {
+        _pfCases ??= CmdArg("power-flash-demo") is { } a ? a.Split(',', StringSplitOptions.RemoveEmptyEntries) : [];
+        if (_pfCases.Length == 0 || _camera is null) return;
+        if (_pfNext < 0) { _pfNext = _connectedFor + 3.0; _pfStart = _pfNext; }
+        if (_connectedFor < _pfNext) return;
+        _pfNext = _connectedFor + 2.5;
+        string name = _pfCases[(int)((_connectedFor - _pfStart) / 2.5) % _pfCases.Length];
+        var cam = _camera.GlobalPosition;
+        Vector3 at = cam + (-_camera.GlobalTransform.Basis.Z) * 4f;
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        if (CmdArg("power-flash-at") is { } s && s.Split(',') is { Length: 3 } p
+            && float.TryParse(p[0], inv, out float x) && float.TryParse(p[1], inv, out float y) && float.TryParse(p[2], inv, out float z)) at = ToGodot(new Num.Vector3(x, y, z));
+        string wargear = name switch { "hammer" => "sm_mp_melee_2hand_thunder_hammer", "maul" => "csm_mp_melee_2hand_power_mace", "axe" => "sm_mp_melee_power_axe", _ => "sm_mp_melee_powersword" };
+        _powerSwing.Remove(-1);
+        PowerHit(-1, wargear, at, (cam - at).Normalized(), "demo");
+    }
+}
