@@ -20,7 +20,7 @@ public sealed partial class GameServer
         feed.Objectives.Clear();
         feed.Objectives.AddRange(run.Objectives);
         feed.Sites.Clear();
-        if (run.Battle?.Layout is { } layout) { feed.Sites.Add(layout.LandingZone); feed.Sites.AddRange(layout.Sources); }
+        if (run.Battle?.Layout is { } layout) { feed.Sites.Add(layout.LandingZone); feed.Sites.AddRange(layout.Positions); feed.Sites.Add(layout.Sources[^1]); }   // the pillars stand where Orks come from
         feed.GuardCount = guards.CopyTo(feed.Guards);
         foreach (var e in guards.Events)
             feed.AddEvent(new TfwGuardEvent((TfwGuardEventKind)e.Kind, e.Tick, e.Guard, e.Enemy, e.Vector));

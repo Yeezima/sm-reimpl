@@ -26,6 +26,7 @@ internal static class TfwRig
         var w = new World(config ?? Config, map.Collision, TfwTestArena.Spawns) { Rules = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2, RestartDelay = 2f }, StartAreas = TfwTestArena.Data.StartAreas };
         Assert.True(w.StartTfw(nav, TfwTestArena.Field));
         w.Tfw!.RetainerUp = _ => false;   // the tests of the extraction; those of the revive set their own
+        w.Tfw.Guardsmen = true;   // these tests are of the battle with its squads; TfwOrkTests of the switch
         w.Spawn(Human, w.AssignClass(0));
         Steps(w, 30);
         Assert.Equal(MatchState.Playing, w.State);
@@ -92,13 +93,6 @@ internal static class TfwRig
 public class TfwBattleTests
 {
     [Theory]
-    [InlineData(10.0, 2)]
-    [InlineData(100.0, 4)]
-    [InlineData(110.0, 4)]
-    [InlineData(250.0, 10)]
-    public void Arrivals_follow_the_ork_strength(double ork, int each) => Assert.Equal(each, TfwBattleRules.ArrivalsAt(ork));
-
-    [Theory]
     [InlineData(10.0, 4)]
     [InlineData(100.0, 7)]
     [InlineData(200.0, 12)]
@@ -109,7 +103,7 @@ public class TfwBattleTests
     {
         var w = TfwRig.War();
         var battle = TfwRig.Deploy(w);
-        Assert.Equal(60, w.Musou!.Alive);
+        Assert.Equal(3 * TfwBattleRules.Garrison, w.Musou!.Alive);
         var at = new MusouEnemy[MusouSim.Capacity];
         int n = w.Musou.CopyTo(at);
         Assert.All(at.Take(n), e => Assert.True(w.Musou.Leashed(e.Id)));
@@ -117,7 +111,7 @@ public class TfwBattleTests
         Assert.Equal(TfwPositionState.Held, battle.Objectives[1].State);       // all three live
         w.Musou.Damage(at[0].Id, TfwRig.Human, 1f, Vector3.Zero, out _);
         int free = at.Take(n).Count(e => !w.Musou.Leashed(e.Id));
-        Assert.Equal(TfwBattleRules.Defenders, free);
+        Assert.Equal(TfwBattleRules.Garrison, free);
     }
 
     [Fact]
@@ -180,7 +174,7 @@ public class TfwBattleTests
         var sim = new MusouSim(null);
         var guards = new GuardSim(sim);
         var layout = TfwTestArena.Layout(TfwLane.A, 1);
-        var battle = new TfwBattle(sim, guards, layout, 100.0, 10.0, 1);     // 4 squads, all in the field
+        var battle = new TfwBattle(sim, guards, layout, 10.0, 1);     // 4 squads, all in the field
         battle.Start();
         Assert.Equal(0, battle.Reserves);
         Vector3[] at = [layout.Positions[0]], away = [layout.LandingZone];
@@ -247,11 +241,11 @@ public class TfwBattleTests
     public void A_waaagh_brings_its_boyz_from_the_sources()
     {
         var sim = new MusouSim(null);
-        var battle = new TfwBattle(sim, new GuardSim(sim), TfwTestArena.Layout(TfwLane.A, 1), 100.0, 100.0, 1);
+        var battle = new TfwBattle(sim, new GuardSim(sim), TfwTestArena.Layout(TfwLane.A, 1), 100.0, 1);
         battle.Start();
         int before = sim.Alive;
         battle.NoteWaaaghs(1);
-        for (int k = 0; k < 10; k++) battle.Step([]);
+        for (int k = 0; k < 5; k++) battle.Step([]);
         Assert.Equal(before + sim.Rules.Boss.WaaaghBoyz, sim.Alive);
     }
 
@@ -265,7 +259,7 @@ public class TfwBattleTests
         var guards = new GuardSim(sim);
         var near = new Vector3(35f, 2f, 0f);
         var layout = new TfwLayout(near, [new(10f, 10f, 0f), new(10f, 12f, 0f), new(10f, 14f, 0f)], new Vector3(10f, 16f, 0f), [new(8f, 8f, 0f), new(8f, 8f, 0f), new(8f, 8f, 0f), new(8f, 8f, 0f)]);
-        var battle = new TfwBattle(sim, guards, layout, 100.0, 100.0, 1);
+        var battle = new TfwBattle(sim, guards, layout, 100.0, 1);
         ushort id = sim.SpawnLeashed(MusouEnemyType.Boy, new Vector3(10f, 2f, 0f), 0f, 85f, 9, TfwBattleRules.DefenderAggro);
         MusouTarget[] targets = [new(1, near, true)];
         var attacks = new List<MusouAttack>();
@@ -281,8 +275,8 @@ public class TfwBattleTests
         var kills = new List<MusouKill>();
         sim.TakeKills(kills);
         foreach (var k in kills) battle.NoteKill(k);
-        Assert.Single(kills);                                              // moved once, stranded again, removed
-        Assert.Equal(MusouDeathKind.World, kills[0].Cause);
+        var kill = Assert.Single(kills, k => k.Enemy == id);               // moved once, stranded again, removed
+        Assert.Equal(MusouDeathKind.World, kill.Cause);
         Assert.Equal(0, battle.OrksKilled);                                // nobody's KO
     }
 
@@ -290,7 +284,7 @@ public class TfwBattleTests
     public void The_full_cap_holds_back_the_arrivals()
     {
         var sim = new MusouSim(null) { Frozen = true };
-        var battle = new TfwBattle(sim, new GuardSim(sim), TfwTestArena.Layout(TfwLane.A, 1), 250.0, 100.0, 1);
+        var battle = new TfwBattle(sim, new GuardSim(sim), TfwTestArena.Layout(TfwLane.A, 1), 100.0, 1);
         battle.Start();
         for (int k = 0; k < 400 * 30; k++) battle.Step([]);
         Assert.Equal(TfwBattleRules.AliveCapSolo, sim.Alive);

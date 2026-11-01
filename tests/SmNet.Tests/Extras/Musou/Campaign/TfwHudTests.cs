@@ -218,7 +218,11 @@ public class TfwHudTests
         TfwObjective[] list = [O(0, TfwPositionState.Secured), O(1, TfwPositionState.Held), O(2, TfwPositionState.Locked), O(3, TfwPositionState.Locked)];
         Assert.False(TfwHudModel.SourceActive(0, list, false, false));
         Assert.True(TfwHudModel.SourceActive(1, list, false, false));
+        Assert.False(TfwHudModel.SourceActive(3, list, false, false));         // the HQ sends from the commander's coming
+        list[3] = O(3, TfwPositionState.Held);
         Assert.True(TfwHudModel.SourceActive(3, list, false, false));
+        list[1] = O(1, TfwPositionState.Securing);
+        Assert.False(TfwHudModel.SourceActive(1, list, false, false));         // a capture pauses it
         Assert.True(TfwHudModel.SourceActive(0, list, false, true));
         Assert.False(TfwHudModel.SourceActive(3, list, true, false));
     }

@@ -91,6 +91,7 @@ public sealed partial class MusouSim
         _blocked[i] = 0; _flowTicks[i] = 0; _transit[i] = -1; _aim[i] = -1;
         _aggro[i] = float.PositiveInfinity; _group[i] = 0;
         SpawnedCombat(i);   // MU3 (MusouCombat.cs): no script, no drive
+        SpawnedSwarm(i);
         _relocations[i] = 0;
         _ring[i] = Rules.CircleMin + (Rules.CircleMax - Rules.CircleMin) * Unit(Mix((uint)i * 2654435761u, 0x9E3779B9u));
         if (Walk is not null && _node[i] < 0) _node[i] = Walk.Nearest(_position[i]);
@@ -151,7 +152,9 @@ public sealed partial class MusouSim
             }
             if (_cooldown[i] > 0) _cooldown[i]--;
             var spec = Rules.Of(_type[i]);
-            if (!float.IsPositiveInfinity(_aggro[i]) && !_scripted[i] && !Woken(i, targets))
+            bool leashed = !float.IsPositiveInfinity(_aggro[i]) && !_scripted[i], woken = leashed && Woken(i, targets);
+            if (woken && Swarm is not null) { _aggro[i] = float.PositiveInfinity; _group[i] = 0; }   // once woken it never walks home: no yo-yo
+            if (leashed && !woken)
             {
                 // A leashed defender (SpawnLeashed) with nobody near its home: no target, no token, back to its place; the failsafe leaves it alone.
                 _target[i] = 0; _token[i] = 0; _burst[i] = 0; _aim[i] = -1;
@@ -181,8 +184,11 @@ public sealed partial class MusouSim
         // Tokens: each player's free slots go to the nearest enemy that asked this tick (one of each kind a tick).
         for (int t = 0; t < nt; t++)
         {
-            if (_meleeWant[t] >= 0 && _meleeHeld[t] < Rules.MeleeTokens) _token[_meleeWant[t]] = MeleeToken;
-            if (_shotWant[t] >= 0 && _shotHeld[t] < Rules.ShooterTokens) { _token[_shotWant[t]] = ShooterToken; _losTick[_shotWant[t]] = 0; }
+            bool squad = targets[t].Id < 0;
+            int meleeMost = Swarm is { } swarm ? (squad ? swarm.MeleeTokensSquad : swarm.MeleeTokensPlayer) : Rules.MeleeTokens;
+            int shotMost = Swarm is { } crowd ? (squad ? crowd.ShooterTokensSquad : crowd.ShooterTokensPlayer) : Rules.ShooterTokens;
+            if (_meleeWant[t] >= 0 && _meleeHeld[t] < meleeMost) _token[_meleeWant[t]] = MeleeToken;
+            if (_shotWant[t] >= 0 && _shotHeld[t] < shotMost) { _token[_shotWant[t]] = ShooterToken; _losTick[_shotWant[t]] = 0; }
         }
         CheckLinesOfSight(targets, collision);
     }
@@ -194,7 +200,7 @@ public sealed partial class MusouSim
         var home = _home[i];
         foreach (var t in targets)
         {
-            if (!t.Alive) continue;
+            if (!t.Alive || t.Goal) continue;
             float dx = t.Position.X - home.X, dy = t.Position.Y - home.Y;
             if (dx * dx + dy * dy <= r2) return true;
         }
@@ -318,14 +324,21 @@ public sealed partial class MusouSim
         int current = IndexOf(targets, _target[i]);
         bool look = current < 0 || (_token[i] == 0 && (Tick + (uint)i) % 15u == 0u);
         if (!look) return current;
-        int best = -1; float bestScore = float.MaxValue, currentScore = float.MaxValue;
+        int best = -1, second = -1; float bestScore = float.MaxValue, secondScore = float.MaxValue, currentScore = float.MaxValue;
         for (int t = 0; t < targets.Length; t++)
         {
             if (!targets[t].Alive) continue;
             var d = targets[t].Position - _position[i];
             float score = d.X * d.X + d.Y * d.Y + 9f * d.Z * d.Z;
             if (t == current) currentScore = score;
-            if (score < bestScore) { bestScore = score; best = t; }
+            if (score < bestScore) { second = best; secondScore = bestScore; bestScore = score; best = t; }
+            else if (score < secondScore) { second = t; secondScore = score; }
+        }
+        if (Flank(i, best, second, secondScore, targets) is var flank and >= 0)
+        {
+            if (flank != current) { _token[i] = 0; _burst[i] = 0; _losTick[i] = 0; }
+            _target[i] = TargetKey(targets[flank].Id);
+            return flank;
         }
         if (Flow is { Ready: true } && _node[i] >= 0 && !(bestScore <= Rules.DirectSeekDistance * Rules.DirectSeekDistance))
         {
@@ -353,6 +366,9 @@ public sealed partial class MusouSim
         var flat = new Vector2(d.X, d.Y);
         float distance = flat.Length();
         var toward = distance > 1e-4f ? flat / distance : Forward(_yaw[i]);
+        float reach = MathF.Max(0f, distance - target.Radius);   // a squad is reached at its men, not at its centre
+        var swarm = Swarm;
+        if (swarm is not null) _spread[i] = distance > swarm.SpreadBeyond;
         switch (_state[i])
         {
             case MusouEnemyState.WindUp:
@@ -362,7 +378,7 @@ public sealed partial class MusouSim
                     SetState(i, MusouEnemyState.Strike);
                     // The strike lands only on a target still in reach and in front (a step back or aside dodges it).
                     bool inCone = distance <= 1e-4f || Vector2.Dot(toward, Forward(_yaw[i])) >= MathF.Cos(spec.MeleeConeDegrees * MathF.PI / 180f);
-                    if (fight && distance <= spec.MeleeRange + 0.3f && MathF.Abs(d.Z) <= 1.5f && inCone)
+                    if (fight && reach <= spec.MeleeRange + 0.3f && MathF.Abs(d.Z) <= 1.5f && inCone)
                     {
                         attacks.Add(new MusouAttack((ushort)(i + 1), target.Id, spec.MeleeDamage, true, spec.MeleeStaggers, _position[i]));
                         AddEvent(new MusouEvent(MusouEventKind.Strike, Tick, (ushort)(i + 1), (ushort)Math.Clamp(target.Id, 0, ushort.MaxValue), 0, target.Position));
@@ -380,6 +396,13 @@ public sealed partial class MusouSim
                 return Vector2.Zero;
         }
 
+        if (target.Goal)
+        {
+            // A place to retake: no token, no blow, just go and stand on it.
+            _token[i] = 0; _burst[i] = 0;
+            if (swarm is null || distance <= swarm.GoalStand) return Vector2.Zero;
+            return SwarmWay(i, t, target, d, spec.Speed, slot: false, hold: false, swarm);
+        }
         bool melee = spec.Melee && (!spec.Hybrid || distance <= spec.HybridMeleeDistance);
         bool ranged = spec.Ranged && !melee;
         if ((_token[i] == ShooterToken && !ranged) || (_token[i] == MeleeToken && !melee)) { _token[i] = 0; _burst[i] = 0; }
@@ -388,8 +411,8 @@ public sealed partial class MusouSim
         {
             if (_token[i] == MeleeToken)
             {
-                if (distance > Rules.MeleeTokenDistance * 2f) _token[i] = 0;
-                else if (fight && level && distance <= spec.MeleeRange && _cooldown[i] == 0)
+                if (reach > Rules.MeleeTokenDistance * 2f) _token[i] = 0;
+                else if (fight && level && reach <= spec.MeleeRange && _cooldown[i] == 0)
                 {
                     SetState(i, MusouEnemyState.WindUp);
                     _cooldown[i] = Ticks(spec.MeleePeriod);
@@ -398,13 +421,13 @@ public sealed partial class MusouSim
                         _position[i] + new Vector3(Forward(_yaw[i]) * spec.MeleeRange, 0f)));
                     return Vector2.Zero;
                 }
-                if (distance <= spec.MeleeRange * 0.8f && level) { Face(i, toward); return Vector2.Zero; }   // in reach: wait for the cooldown
+                if (reach <= spec.MeleeRange * 0.8f && level) { Face(i, toward); return Vector2.Zero; }   // in reach: wait for the cooldown
                 return Approach(i, t, d, spec.Speed);
             }
-            if (distance <= Rules.MeleeTokenDistance && MathF.Abs(d.Z) <= 2.5f && distance < _meleeWantD[t]) { _meleeWantD[t] = distance; _meleeWant[t] = i; }
-            return Circle(i, t, d, spec.Speed);
+            if (reach <= Rules.MeleeTokenDistance && MathF.Abs(d.Z) <= 2.5f && reach < _meleeWantD[t]) { _meleeWantD[t] = reach; _meleeWant[t] = i; }
+            return swarm is null ? Circle(i, t, d, spec.Speed) : SwarmWay(i, t, target, d, spec.Speed, slot: true, hold: true, swarm);
         }
-        if (!ranged) return Approach(i, t, d, spec.Speed);
+        if (!ranged) return swarm is null ? Approach(i, t, d, spec.Speed) : SwarmWay(i, t, target, d, spec.Speed, slot: true, hold: false, swarm);
 
         bool fresh = _losTick[i] != 0 && Tick - _losTick[i] <= (uint)Rules.LosValidTicks;
         if (_token[i] == ShooterToken)
@@ -436,7 +459,7 @@ public sealed partial class MusouSim
         }
         else if (distance <= spec.RangedMax * 1.2f && distance < _shotWantD[t]) { _shotWantD[t] = distance; _shotWant[t] = i; }
         // The band: closer backs off, farther or blind closes in, else holds facing the target.
-        if (distance > spec.RangedMax || (fresh && !_los[i])) return Approach(i, t, d, spec.Speed);
+        if (distance > spec.RangedMax || (fresh && !_los[i])) return swarm is null ? Approach(i, t, d, spec.Speed) : SwarmWay(i, t, target, d, spec.Speed, slot: false, hold: false, swarm);
         if (distance < spec.RangedMin) return -toward * spec.Speed * 0.6f;
         Face(i, toward);
         return Vector2.Zero;
@@ -528,6 +551,7 @@ public sealed partial class MusouSim
             return;
         }
         var push = Vector2.Zero;
+        float spread = Swarm is { } crowd && _spread[i] ? crowd.SpreadScale : 1f;
         // The nearest overlapping neighbours, at most MaxNeighbours (nearest first; ties: the hash's order), so a dense pile pushes evenly.
         int found = _grid.Around(p, near), kept = 0, most = Math.Clamp(Rules.MaxNeighbours, 0, 16);
         Span<int> keptSlot = stackalloc int[16];
@@ -539,7 +563,7 @@ public sealed partial class MusouSim
             var o = _startPos[j];
             if (MathF.Abs(o.Z - p.Z) > 1.2f) continue;
             float dist = new Vector2(p.X - o.X, p.Y - o.Y).Length();
-            if (dist >= Rules.Of(_type[j]).Radius + spec.Radius) continue;
+            if (dist >= (Rules.Of(_type[j]).Radius + spec.Radius) * spread) continue;
             int at = kept;
             while (at > 0 && keptDist[at - 1] > dist) at--;
             if (at >= most) continue;
@@ -552,13 +576,13 @@ public sealed partial class MusouSim
             int j = keptSlot[k];
             var o = _startPos[j];
             var away = new Vector2(p.X - o.X, p.Y - o.Y);
-            float gap = Rules.Of(_type[j]).Radius + spec.Radius, dist = keptDist[k];
+            float gap = (Rules.Of(_type[j]).Radius + spec.Radius) * spread, dist = keptDist[k];
             var dir = dist > 1e-4f ? away / dist : Forward((i - j) * 2.399963f);
             push += dir * (gap - dist) * Rules.SeparationStrength;
         }
         foreach (var target in targets)
         {
-            if (!target.Alive || MathF.Abs(target.Position.Z - p.Z) > 1.5f) continue;
+            if (!target.Alive || target.Goal || target.Radius > 0f || MathF.Abs(target.Position.Z - p.Z) > 1.5f) continue;
             var away = new Vector2(p.X - target.Position.X, p.Y - target.Position.Y);
             float gap = Rules.PlayerRing + spec.Radius, dist = away.Length();
             if (dist >= gap) continue;

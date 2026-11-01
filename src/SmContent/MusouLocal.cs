@@ -33,6 +33,11 @@ public static class MusouLocal
     /// <summary>STOP MUSOU SERVER shows only while a Musou server started by this client runs (starting or ready).</summary>
     public static bool ShowStopRow(bool running, bool musouProfile) => running && musouProfile;
 
+    /// <summary>Musou Mode's first run builds its walking graph before the server listens: 3 s on 12 cores, 72 s on one busy core (measured), and an interrupted build starts over, so this start may run longer than a match server's.</summary>
+    public const double StartLimitSeconds = 600;
+    /// <summary>What the player reads while it starts.</summary>
+    public const string PreparingText = "Preparing the battlefield (the first run maps it, this can take a few minutes)...";
+
     public const string StartingText = "The Musou server is starting (it reads the game files first, this can take a minute). You join when it is ready.";
     public const string StoppedText = "Musou server stopped.";
 }

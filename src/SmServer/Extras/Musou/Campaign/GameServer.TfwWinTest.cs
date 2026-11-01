@@ -16,7 +16,7 @@ namespace SmServer;
 /// </para>
 /// <para>
 /// <c>SM_TFW_FIGHT_LOG=&lt;s&gt;</c>: every that many seconds of a battle one <c>TFWFIGHT</c> line: the Orks alive and their attack tokens, how many strike, Guardsmen, losses and shots, the points, and how the crowd lies (a heading
-/// spread and the 3 m cells it covers). <c>SM_TFW_KEEP_HUMAN=1</c>: a human in the field who falls stands up where it fell (a scripted player stays in the fight while it is filmed). Neither touches an enemy.
+/// spread and the 3 m cells it covers). <c>SM_TFW_KEEP_HUMAN=1</c>: a human in the field who falls stands up where it fell (a scripted player stays in the fight while it is filmed). Neither touches an enemy. <c>SM_TFW_GUARDSMEN=1</c>: battles land Guardsmen, whatever <see cref="TfwBattleRules.GuardsmenEnabled"/> says.
 /// </para>
 /// </summary>
 public sealed partial class GameServer
@@ -25,6 +25,7 @@ public sealed partial class GameServer
     static readonly (int Orks, int Squads)? TfwStress = ParseStress(Environment.GetEnvironmentVariable("SM_TFW_STRESS"));
     static readonly double TfwFightSeconds = double.TryParse(Environment.GetEnvironmentVariable("SM_TFW_FIGHT_LOG"), CultureInfo.InvariantCulture, out double f) ? f : 0.0;
     static readonly bool TfwKeepHuman = Environment.GetEnvironmentVariable("SM_TFW_KEEP_HUMAN") == "1";
+    static readonly bool TfwGuardsmenOn = Environment.GetEnvironmentVariable("SM_TFW_GUARDSMEN") == "1";
     MusouEnemy[]? _tfwFightEnemies;
     double _tfwLandSeen;
 
@@ -36,7 +37,8 @@ public sealed partial class GameServer
 
     void TfwTestAids()
     {
-        if ((TfwWinRadius < 0f && TfwStress is null && TfwFightSeconds <= 0.0 && !TfwKeepHuman) || World.Tfw is not { } run) return;
+        if ((TfwWinRadius < 0f && TfwStress is null && TfwFightSeconds <= 0.0 && !TfwKeepHuman && !TfwGuardsmenOn) || World.Tfw is not { } run) return;
+        if (TfwGuardsmenOn) run.Guardsmen = true;
         int rate = Math.Max(1, World.Config.TickRate);
         if (TickStatsSeconds > 0.0 && World.Tick % Math.Max(1u, (uint)(rate * TickStatsSeconds)) == 0)
             Console.WriteLine($"TFWSTATS tick {World.Tick}: {run.Phase}, enemies {World.Musou?.Alive}, guards {World.TfwGuards?.Alive}, marines {run.Marines.Count}, players {World.Players.Count}");
@@ -55,6 +57,7 @@ public sealed partial class GameServer
     void TfwFightLog(TfwRun run, int rate)
     {
         if (TfwFightSeconds <= 0.0 || World.Musou is not { } orks || World.TfwGuards is not { } guards || run.Battle is not { } battle) return;
+        if (orks.LastStepMilliseconds >= 40.0) Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"TFWSLOW tick {World.Tick}: fight step {orks.LastStepMilliseconds:F1} ms, guards {guards.LastStepMilliseconds:F1} ms, generation 2 collections {GC.CollectionCount(2)}"));
         if (run.LastLandMilliseconds != _tfwLandSeen)
         {
             _tfwLandSeen = run.LastLandMilliseconds;

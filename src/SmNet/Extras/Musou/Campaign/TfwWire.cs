@@ -57,9 +57,9 @@ public static class TfwWire
     public const int WarBytes = WarHeadBytes + 3 * LaneBytes + OwnBytes, ObjectiveBytes = 11, SiteBytes = 6, GuardBytes = 10, GuardEventBytes = 15;
     /// <summary>The objectives' section is at most this long (design section H).</summary>
     public const int MaxObjectivesBytes = 180;
-    /// <summary>Most objectives in one section: (180 - 1) / 10 = 17.</summary>
+    /// <summary>Most objectives in one section: what the section leaves after its two count bytes and <see cref="MaxSites"/> sites, in records.</summary>
     public const int MaxObjectives = (MaxObjectivesBytes - 2 - MaxSites * SiteBytes) / ObjectiveBytes;
-    /// <summary>Sites in tag 8: the landing zone, then the sources.</summary>
+    /// <summary>Sites in tag 8: the landing zone, the three points, the HQ's source: where the Orks come from.</summary>
     public const int MaxSites = 5;
     /// <summary>A radius travels in quarters of a metre.</summary>
     const float RadiusStep = 0.25f;
