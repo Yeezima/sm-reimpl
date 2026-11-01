@@ -22,8 +22,10 @@ public static class TfwFireRules
     public const float AimAtMass = 0.7f;
     /// <summary>Seconds from a strike's call to its first impact, and between each shell's record and its landing: the whistle's time (the owner: "the barrage should start instantly"; about 1 s keeps a whistle before each impact).</summary>
     public const float ShellDelay = 1f;
-    /// <summary>A shell's sphere round its impact (m, the owner, 2026-11-01: "kill anything it touches", matching the blast's visual): every enemy inside dies, bosses too.</summary>
+    /// <summary>A shell's sphere round its impact (m, the owner, 2026-11-01: "kill anything it touches", matching the blast's visual): every enemy inside dies but the boss.</summary>
     public const float BlastRadius = 12f;
+    /// <summary>What a shell deals the battle's boss, the Warboss or a commander (the owner, 2026-11-01: "bosses only take minor damage"; the value is ours).</summary>
+    public const float BossDamage = 30f;
     /// <summary>What a shell deals a player or AI Marine at the point of impact, falling off linearly to nothing at <see cref="BlastRadius"/>.</summary>
     public const float PlayerDamage = 60f;
     /// <summary>A shell looks for its ground this far above the aim (m, ours): the steps and ramps of a walking line, but no roof overhead.</summary>
