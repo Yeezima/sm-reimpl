@@ -22,6 +22,19 @@ public sealed class GameOptionsTests
     }
 
     [Fact]
+    public void F11_toggles_between_the_window_and_the_last_fullscreen_choice()
+    {
+        var window = GameOptions.Default with { WindowWidth = 1600, WindowHeight = 900, FpsCap = 60 };
+        var full = window.WithFullscreenToggled(WindowChoice.Fullscreen);
+        Assert.Equal(WindowChoice.Fullscreen, full.Window);
+        Assert.Equal(window with { Window = WindowChoice.Fullscreen }, full);   // nothing but the mode changes
+        Assert.Equal(window, full.WithFullscreenToggled(WindowChoice.Fullscreen));
+        Assert.Equal(WindowChoice.Borderless, window.WithFullscreenToggled(WindowChoice.Borderless).Window);
+        Assert.Equal(WindowChoice.Windowed, (window with { Window = WindowChoice.Borderless }).WithFullscreenToggled(WindowChoice.Fullscreen).Window);
+        Assert.Equal(WindowChoice.Fullscreen, window.WithFullscreenToggled(WindowChoice.Windowed).Window);   // no usable memory: fullscreen
+    }
+
+    [Fact]
     public void Options_round_trip_through_frontend_json()
     {
         string dir = Directory.CreateTempSubdirectory("sm-options").FullName;

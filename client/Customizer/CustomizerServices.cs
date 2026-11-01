@@ -82,6 +82,8 @@ public sealed class CustomizerServices
         FovMath.Selected = Settings.FovDegrees;
         MouseSensitivity.Selected = Settings.MouseSensitivity;
         LiveOptions.Current = Settings.Options;
+        NoteWindowChoice();
+        Latest = this;
         SmClient.FrontEnd.OptionsHost.Apply(Settings.Options);   // ui/menu-rebuild: the saved options, from the first frame
         Previews = new PreviewAssets(this);
         LoadTask = Task.Run(Load);
@@ -118,8 +120,30 @@ public sealed class CustomizerServices
         FovMath.Selected = Settings.FovDegrees;
         MouseSensitivity.Selected = Settings.MouseSensitivity;
         LiveOptions.Current = Settings.Options;
+        NoteWindowChoice();
         SmClient.FrontEnd.OptionsHost.Apply(Settings.Options);
         Settings.Save(SettingsDirectory);
+    }
+
+    /// <summary>The services made last (the front end's, or the match's own): F11 changes the window mode in these, so it is saved like the Options screen's row.</summary>
+    public static CustomizerServices? Latest { get; private set; }
+
+    /// <summary>The fullscreen choice (fullscreen or borderless) the player used last; F11 from a window goes back to it. Fullscreen until one is chosen.</summary>
+    static WindowChoice _lastFullChoice = WindowChoice.Fullscreen;
+
+    /// <summary>Raised after F11 changed the window mode, with the new options: an open Options screen shows the new value at once.</summary>
+    public static event Action<GameOptions>? WindowModeToggled;
+
+    void NoteWindowChoice()
+    {
+        if (Settings.Options.Window != WindowChoice.Windowed) _lastFullChoice = Settings.Options.Window;
+    }
+
+    /// <summary>F11 (ours): fullscreen on, or off again, through the same setting and the same save as the Options screen's WINDOW MODE row.</summary>
+    public void ToggleFullscreen()
+    {
+        UpdateSettings(x => x with { Options = x.Options.WithFullscreenToggled(_lastFullChoice) });
+        WindowModeToggled?.Invoke(Settings.Options);
     }
 
     /// <summary>The lobby menu's CONTENT row: plays <paramref name="extras"/> from now on and remembers it (outside the repository, next to the profile).</summary>

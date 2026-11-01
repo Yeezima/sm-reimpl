@@ -172,7 +172,7 @@ public sealed partial class ControlsView : Control
         // What cannot be rebound, so nobody looks for it.
         _rows.AddChild(UiKit.Text("FIXED", UiKit.BodySize, UiKit.Gold).With(l => l.CustomMinimumSize = new Vector2(0, 36)));
         var fixedRows = _device == BindDevice.Keyboard
-            ? new[] { ("Look", "Mouse"), ("Turn (keyboard)", "Left / Right arrows"), ("Game menu", "Esc"), ("Info overlay", "F1") }
+            ? new[] { ("Look", "Mouse"), ("Turn (keyboard)", "Left / Right arrows"), ("Game menu", "Esc"), ("Info overlay", "F1"), ("Fullscreen", "F11") }
             : new[] { ("Move", "Left stick"), ("Look", "Right stick"), ("Game menu", "Start") };
         foreach (var (label, value) in fixedRows)
         {
