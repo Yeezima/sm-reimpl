@@ -194,7 +194,7 @@ region; DLC predefined sets; Havoc default look.
 6. Other players' custom emblems shown by default? [yes, with a hide toggle]
 7. Level gates for slots 7–10 when progression arrives? [open]
 8. Predefined/DLC sets: lock paint, offer at all? [offer all, lock paint]
-9. Lens colour: free RGB or palette; glow? [palette plus free RGB; the Chaos eye-glow effect follows the lens colour (owner, 2026-10-28)]
+9. Lens colour: free RGB or palette; glow? [palette plus free RGB; the lens texels are recoloured in the helmet's material, no glow (owner, 2026-11-01; the 2026-10-28 rule that the Chaos eye-glow effect follows the colour is withdrawn)]
 10. `C` as the in-match loadout key? [yes]
 11. Havoc default armour per the data (`chaos_default`) instead of M17's `havoc_01`? [**yes, owner 2026-10-28**; done]
 12. 10 appearance profiles per race? [yes]
