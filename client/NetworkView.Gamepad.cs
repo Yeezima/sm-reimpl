@@ -76,7 +76,7 @@ public partial class NetworkView
             switch (action)
             {
                 case GameAction.Use: if (!_padUseBlocked) _padInteractLatched = true; break;
-                case GameAction.ZoomCycle: if (_client?.Predicted.Aiming == true && !_tfwPadOrbital) _padZoom++; break;   // the zoom cycle (the levels of the scoped weapons)
+                case GameAction.ZoomCycle: if (_client?.Predicted.Aiming == true) _padZoom++; break;   // the zoom cycle (the levels of the scoped weapons)
                 case GameAction.Weapon1 or GameAction.Weapon2 or GameAction.Weapon3 or GameAction.NextWeapon: _latch.Press(button); _latch.Release(button); break;   // one tick (the simulation acts on the press edge)
             }
         }

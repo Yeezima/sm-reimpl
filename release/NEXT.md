@@ -23,6 +23,6 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Musou Mode: the small Orks are gone; normal Ork Boyz take their place, so the enemy count is the same.
 - Musou Mode: explosions you cannot see no longer light up the room you are in through its walls.
 - Musou Mode: Orks now react reliably to being shot, including the head, chest and shoulders, and while they run.
-- Musou Mode: click the right stick on a controller to call the artillery strike.
+- Musou Mode: press left on the D-pad on a controller to call the artillery strike.
 - Controller: pressing A now selects in every menu, which also gets a highlighted choice as soon as it opens.
 - Controller: a new aiming sensitivity option in Options sets how fast the right stick turns while aiming down sights.

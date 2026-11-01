@@ -193,7 +193,7 @@ public class TfwFireTests
         var war = new TfwWarView(TfwRunPhase.Battle, TfwLane.B, 1f, 1f, 1, 1, 0, default, default, default, new TfwOwnView(0, 0, 0, 0, 0, false, TfwRetainerState.None, default, 0, 0, 0, 0, 0, true, 37));
         Assert.Equal(37, TfwWire.ReadWar(TfwWire.WriteWar(war))!.Value.Own.OrbitalSeconds);
         Assert.Equal("B ORBITAL STRIKE READY", TfwHudModel.OrbitalText);
-        Assert.Equal("R3 ORBITAL STRIKE READY", TfwHudModel.OrbitalTextFor(true));
+        Assert.Equal("D-PAD LEFT ORBITAL STRIKE READY", TfwHudModel.OrbitalTextFor(true));
         Assert.Equal(TfwHudModel.OrbitalText, TfwHudModel.OrbitalTextFor(false));
     }
 

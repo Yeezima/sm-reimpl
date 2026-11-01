@@ -147,8 +147,8 @@ public static class TfwHudModel
     /// <summary>The orbital strike's line: always ready, there is no cooldown.</summary>
     public const string OrbitalText = "B ORBITAL STRIKE READY";
 
-    /// <summary>The same line with the controller's prompt (the right stick's click) when the pad is the scheme.</summary>
-    public static string OrbitalTextFor(bool pad) => pad ? "R3 ORBITAL STRIKE READY" : OrbitalText;
+    /// <summary>The same line with the controller's prompt (left on the D-pad) when the pad is the scheme.</summary>
+    public static string OrbitalTextFor(bool pad) => pad ? "D-PAD LEFT ORBITAL STRIKE READY" : OrbitalText;
 
     public static string GuardsText(in TfwOwnView own) => own.Guards == 0 && own.Squads == 0 && own.Reserves == 0 ? "" : $"GUARDS {own.Guards}, {own.Squads} SQUADS + {own.Reserves} IN RESERVE";
 
