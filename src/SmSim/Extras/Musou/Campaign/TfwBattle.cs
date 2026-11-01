@@ -35,8 +35,8 @@ public static class TfwBattleRules
     // "pools replace the tide"; "50 per point, 150 total. Each point swarms on its own."
     /// <summary>The crowd of one spawn point: it stands there leashed, one more every <see cref="CrowdFillSeconds"/>, and at this many all of it swarms at once. The owner's number.</summary>
     public const int CrowdSize = 50;
-    /// <summary>A crowd's Orks notice a target this near their own places (a crowd wakes as one when any of it does, or is hurt). Ours: a standoff further out than the point's ring lets the crowd grow.</summary>
-    public const float CrowdAggro = 12f;
+    /// <summary>A crowd's Orks notice a target this near their own places (a crowd wakes as one when any of it does, or is hurt). Ours: a player at the ring (13.5 to 15 m out) wakes a fresh small crowd on the far side of the disc (about 30 m).</summary>
+    public const float CrowdAggro = 30f;
 
     /// <summary>
     /// A held point adds one Ork to its crowd every this many seconds (the owner's tide of 1 s, now the crowd's fill: 50 s for a crowd). The owner, 2026-11-01: "you have to fully capture a point to disable the spawning
@@ -138,6 +138,12 @@ public sealed class TfwBattle
     readonly List<ushort>[] _crowds = [new(), new(), new(), new()];   // each spawn point's crowd: the three positions', then the HQ's source
     readonly List<ushort>[] _garrisons = [new(), new(), new()];       // each position's garrison still standing at its post
     readonly List<ushort> _stranded = new();
+    Predicate<ushort>? _notAtPostCache;
+    Predicate<ushort> _notAtPost => _notAtPostCache ??= id => !_enemies.TryGet(id, out var e) || !e.Alive || !_enemies.Leashed(id);
+    // The stuck-Ork failsafe of a position being cleared (ours): an Ork in its volume that stays within StuckRadius of one spot, seeking and attacking nothing, for StuckSeconds is removed (a World KO for nobody).
+    readonly Dictionary<ushort, (Vector3 Anchor, uint Since)> _idleInside = new();
+    uint _clearTick;
+    public const float StuckSeconds = 6f, StuckRadius = 2.5f;
     readonly bool _final, _guardsmen;
     readonly WarFinalBonus _bonus;
     readonly int _humans;
@@ -358,7 +364,7 @@ public sealed class TfwBattle
     /// </summary>
     void TidyCrowds()
     {
-        foreach (var garrison in _garrisons) garrison.RemoveAll(id => !_enemies.TryGet(id, out var e) || !e.Alive || !_enemies.Leashed(id));   // the garrison is those still at their post
+        foreach (var garrison in _garrisons) garrison.RemoveAll(_notAtPost);   // the garrison is those still at their post
         for (int point = 0; point <= Positions; point++)
         {
             var crowd = _crowds[point];
@@ -436,6 +442,7 @@ public sealed class TfwBattle
         }
         if (!_final)
         {
+            _clearTick++;
             for (int k = 0; k < Positions; k++) change |= StepPosition(k, players);
             // A position being taken is kept clear of shooters: they hold their band, which lies inside its ring (see MusouSim.KeepOut).
             for (int k = 0; k < Positions; k++)
@@ -467,7 +474,7 @@ public sealed class TfwBattle
             if (o.State != TfwPositionState.Held) SendAgain(k);
             o = o with { State = TfwPositionState.Held, Progress = MathF.Max(0f, o.Progress - TfwBattleRules.SecureDecayPerSecond * Dt) };
         }
-        else if (orks) o = o with { State = TfwPositionState.Clearing };
+        else if (orks) { o = o with { State = TfwPositionState.Clearing }; RemoveStuck(k); }
         else
         {
             float rate = guards || !_guardsmen ? 1f : TfwBattleRules.HumanSecureRate;
@@ -516,6 +523,26 @@ public sealed class TfwBattle
             if (_enemies.TryGet(ids[i], out var e) && e.State == MusouEnemyState.Seek)
                 sample.Add($"#{ids[i]} {e.Type} at {e.Position.X - _layout.Positions[k].X:F0},{e.Position.Y - _layout.Positions[k].Y:F0},{e.Position.Z - _layout.Positions[k].Z:F1} speed {e.Velocity.Length():F1} target {e.TargetPlayer} node {e.Node}");
         return string.Join(", ", counts.Select(c => $"{c.Key} {c.Value}")) + (sample.Count > 0 ? " e.g. " + string.Join("; ", sample) : "");
+    }
+
+    /// <summary>While position <paramref name="k"/> is Clearing: an unleashed Ork in its volume that has stayed in one spot seeking (no attack, no headway) for <see cref="StuckSeconds"/> is removed, so one on a ledge it cannot leave never keeps the point from being taken.</summary>
+    void RemoveStuck(int k)
+    {
+        Span<ushort> ids = stackalloc ushort[96];
+        int n = _enemies.Query(_layout.Positions[k], _layout.Radius(k), ids, _layout.Reach(k));
+        uint limit = (uint)MathF.Ceiling(StuckSeconds / Dt);
+        for (int i = 0; i < n; i++)
+        {
+            ushort id = ids[i];
+            if (id == BossId || _enemies.Leashed(id) || !_enemies.TryGet(id, out var e) || !e.Alive) continue;
+            if (e.State is not (MusouEnemyState.Seek or MusouEnemyState.Spawning)) { _idleInside.Remove(id); continue; }
+            if (!_idleInside.TryGetValue(id, out var seen) || Vector3.DistanceSquared(seen.Anchor, e.Position) > StuckRadius * StuckRadius)
+            { _idleInside[id] = (e.Position, _clearTick); continue; }
+            if (_clearTick - seen.Since < limit) continue;
+            _idleInside.Remove(id);
+            _enemies.Damage(id, 0, e.Health, Vector3.Zero, out _, marker: 0, cause: MusouDeathKind.World);
+        }
+        if (_idleInside.Count > 256) _idleInside.Clear();
     }
 
     bool OrksInside(int k)

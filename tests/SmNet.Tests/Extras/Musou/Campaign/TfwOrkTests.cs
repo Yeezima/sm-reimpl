@@ -146,7 +146,7 @@ public class TfwOrkTests
         Assert.Equal(8, battle.Pooled(2));
         var near = layout.Positions[2] + new Vector3(TfwBattleRules.SpawnDisc + TfwBattleRules.CrowdAggro - 6f, 0f, 0f);   // near the closest of the disc, far from most of it
         for (int k = 0; k < 3 * 30; k++) Tick(near);
-        var swarm = Assert.Single(swarms, s => s.Point == 2);
+        var swarm = swarms.First(s => s.Point == 2);   // a fresh crowd of 1 to 3 may wake again at once with the player still near (CrowdAggro 30)
         Assert.Equal(TfwSwarmWhy.Woken, swarm.Why);
         Assert.InRange(swarm.Size, 8, 12);
         Assert.All(swarm.Ids, id => Assert.False(sim.Leashed(id)));            // the whole crowd, not the few the target was near
@@ -531,6 +531,25 @@ public class TfwOrkTests
         Assert.False(sim.Leashed(id));
         Run(sim, [new MusouTarget(1, new Vector3(190f, 60f, 0f), true)], 120, ref tick);
         Assert.True(sim.TryGet(id, out var e) && e.Position.X > 110f, $"{e.Position}");
+    }
+
+    [Fact]
+    public void A_stuck_unreachable_Ork_and_an_off_centre_shooter_do_not_keep_a_point_from_being_taken()
+    {
+        var (sim, battle, layout) = Frozen();
+        ClearPoint(sim, layout, 0);
+        var at = layout.Positions[0];
+        ushort stuck = sim.Spawn(MusouEnemyType.Boy, at + new Vector3(8f, 0f, 0f), 0f, 85f);      // frozen: it never moves, attacks nothing
+        ushort shooter = sim.Spawn(MusouEnemyType.ShootaBoy, at + new Vector3(-10f, 3f, 0f), 0f, 85f);
+        Vector3[] me = [at];
+        for (int t = 0; t < 4 * 30; t++) battle.Step(me);
+        Assert.Equal(TfwPositionState.Clearing, battle.Objectives[0].State);    // not yet: they have not stood idle for long
+        Assert.True(sim.TryGet(stuck, out var e) && e.Alive);
+        for (int t = 0; t < 12 * 30; t++) battle.Step(me);
+        Assert.False(sim.TryGet(stuck, out e) && e.Alive);
+        Assert.False(sim.TryGet(shooter, out e) && e.Alive);
+        for (int t = 0; t < 40 * 30 && battle.Objectives[0].State != TfwPositionState.Secured; t++) battle.Step(me);
+        Assert.Equal(TfwPositionState.Secured, battle.Objectives[0].State);
     }
 
     [Fact]
