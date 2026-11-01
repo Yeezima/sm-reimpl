@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1972 spec table rows: **1390 tagged**, 423 not tagged (read from data with high confidence), 159 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 424 rows of the changes document.
+Scanned 1983 spec table rows: **1397 tagged**, 423 not tagged (read from data with high confidence), 163 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 427 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 1972 spec table rows: **1390 tagged**, 423 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 189 | 174 | 154 | 24 | 1 |
+| Core simulation (provisional values) | 196 | 181 | 161 | 24 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 78 | 72 | 40 | 8 | 0 |
-| **All areas** | **1390** | 1167 | 1110 | 412 | 38 |
+| **All areas** | **1397** | 1174 | 1117 | 412 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 596 |
-| confidence: low | 521 |
-| confidence: medium | 471 |
+| kind: ours | 603 |
+| confidence: low | 523 |
+| confidence: medium | 476 |
 | kind: interpretation | 331 |
 | notes: ours | 301 |
 | confidence: none (low) | 118 |
@@ -1798,7 +1798,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (189)
+### Core simulation (provisional values) (196)
 
 *Spec section: Provisional values in use*
 
@@ -1990,6 +1990,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-427BCAF1` | Retainer revive | before any order, while the run keeps the window open (25 s, TF4's): sprints to the body, 3 s in a row within 2 m bring the player back where it fell at 50 % of health and shield, carrying what it had (no new life, no ammunition) (s, m, share) | kind: estimate; confidence: low; notes: ours | the design (section E), the owner (2026-11-01: revive, then extract); what the player keeps ours | Retainer revive: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: before any order, while the run keeps the window open (25 s, TF4's):… | ☐ |
 | `R-073002CD` | Retainer recovery | a dead retainer (a player's or a lord's) is out 180 war s, on the war's time scale, in or out of a battle, then returns at the landing zone; it stays dead until then (the respawn timer held) (war s) | kind: estimate; confidence: low; notes: ours | the design (section E: 3 war-minutes); the return place ours | Retainer recovery: compare with SM1 by feel or video. Ours: a dead retainer (a player's or a lord's) is out 180 war s, on the… | ☐ |
 | `R-61D3899C` | Lords | one per lane: A Assault "Brother-Captain Aurex", B Tactical "Brother-Captain Tolmar", C Devastator "Brother-Captain Severin", each with a Tactical "Retainer of ..." who follows him and, once he falls, attacks; autonomous, no player orders them; attack-move to… (m) | kind: ours; confidence: low; notes: placeholder; notes: open question | the design (section E, open question 7: placeholder names), the owner (2026-11-01: one lord per lane, autonomous); the 10 m ours | Lords: compare with SM1 by measuring on a flat spot of the same map. Ours: one per lane: A Assault "Brother-Captain Aurex", B Tactical… | ☐ |
+
+*Spec section: Added content: Musou Mode: retainer paint, the class change in the Stormbird and the elites' bars (pass 2, M7 and M11; no protocol change, `TfwRules.Version` 8)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-77B12C62` | Retainer paint | a retainer (not a lord's retainer, not a lord) reports its owner's appearance version, race and published code: the scoreboard row of the retainer names the owner's version (the snapshot path: a client asks for a look only when a row names a version it does… | kind: ours; confidence: medium | the owner's item 1; which pieces follow is ours | Retainer paint: compare with SM1 by feel or video. Ours: a retainer (not a lord's retainer, not a lord) reports its owner's… | ☐ |
+| `R-25C3E4DE` | Class change: the rule | the picker's DEPLOY sends the loadout as a Setup; once its acknowledgement is in, the client sends the command `ChangeClass`; the server makes a fresh life at the spot (`World.TfwRespawnAt`: the waiting loadout applies, the player is restored, `LastRespawns`… | kind: ours; confidence: medium | the owner's item 2; the refill of a fresh life and the Setup-first order are ours | Class change: the rule: compare with SM1 by feel or video. Ours: the picker's DEPLOY sends the loadout as a Setup; once its… | ☐ |
+| `R-BAD03FBF` | Class change: what a life carries | whatever the war gives a fresh life (today the class's pistol alone, `MusouArm`); the change adds no rule of its own, so the reward milestone's extra weapon slots follow `TfwRespawnAt` and `MusouArm` | kind: ours; confidence: medium | ours | Class change: what a life carries: compare with SM1 by feel or video. Ours: whatever the war gives a fresh life (today the class's pistol alone… | ☐ |
+| `R-8B0D1774` | Class change: the smoke | 26 soft billboard puffs in an ellipsoid 1.1 m across and 2.3 m tall round the feet, each 1.25 to 2.15 m across, grey 0.58 to 0.78, drifting up 0.25 to 0.65 m/s and swelling by 22 %; fully opaque for **0.5 s** (the model swaps under it), then fading smoothly… (s, m) | kind: ours; confidence: low | the owner's 2 s; the opaque 0.5 s, shape and colour ours | Class change: the smoke: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 26 soft billboard puffs in an ellipsoid 1.1 m across and 2.3 m tall… | ☐ |
+| `R-6B5AFB05` | Elite bars: who | the 'Ard Boy, the Nob (the commander is one) and the Warboss (who keeps the boss bar too); not the Boy, the Shoota, the Gretchin or the Chaos Marine | kind: ours; confidence: medium | the design (section H); the Warboss's bar too is ours | Elite bars: who: compare with SM1 by feel or video. Ours: the 'Ard Boy, the Nob (the commander is one) and the Warboss (who… | ☐ |
+| `R-2BC314D4` | Elite bars: always visible | one bar over every living elite the client shows, whatever its health, for as long as it lives; no hide timer, no distance cull beyond the server's cap; depth-tested (a wall hides it); gone with the death state | kind: ours; confidence: medium | the owner's item 14; depth test ours | Elite bars: always visible: compare with SM1 by feel or video. Ours: one bar over every living elite the client shows, whatever its… | ☐ |
+| `R-377280B3` | Elite bars: the look | a frame, a dark back and a red fill as long as the health, 1.15 × 0.14 m at 14 m, growing with distance to 2.5 times (so it reads across a swarm), 0.32 m above the head (the type's height; the Warboss's scaled), the Warboss and the commander 1.45 times wider.… (m) | kind: ours; confidence: low | ours | Elite bars: the look: compare with SM1 by measuring on a flat spot of the same map. Ours: a frame, a dark back and a red fill as long as the health, 1.15 ×… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -2300,6 +2312,9 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-A5D8C2C2` | Guard squads fight beside the players; leashed Ork defenders | the design of the war (2026-11-01); SM1 has no such allies (the Guardsman is the Exterminatus co-op blueprint) | squads of 10 shoot and are struck server-side; defenders hold until a target is within 30 m or their group is hurt | War Guard squads, Leashed defenders | Guard squads fight beside the players; leashed Ork defenders: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01); SM1 has no such allies (the… | ☐ |
 | `C-ADD505EB` | The war's client: stations, war map, order keys | the design of the war (2026-11-01), the keys the owner's (M, Z, X, V, P); SM1 has no such screens | E at the Stormbird's consoles, the war map held on M, orders on Z, X, V and P held 1 s; in a war's match X and V are order keys, not Next weapon and Melee (the wheel and the right mouse button stay); a fallen player sees no respawn line: the run holds it | added content, ours (spec "the HUD, the war map and the orders") | The war's client: stations, war map, order keys: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01), the keys the owner's (M, Z, X, V… | ☐ |
 | `C-599F9281` | Guardsmen drawn as a crowd | the design of the war (2026-11-01) and the owner: real models, death clips rather than the ragdoll for now | the co-op Guardsman with original clips and effects; which clip plays when is ours (the rig's graphs are not read) | Crowd budget, Which clip plays, Death | Guardsmen drawn as a crowd: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01) and the owner: real models, death… | ☐ |
+| `C-950DF11A` | Musou Mode: retainers wear their player's armour colours | the owner's item 1 (2026-11-01) | a retainer reports its owner's appearance version, race and code, so clients draw it in the colours, pieces and badges of the player's loadout; lords and their retainers keep the default look | Retainer paint | Musou Mode: retainers wear their player's armour colours: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner's item 1 (2026-11-01). | ☐ |
+| `C-B2C3F020` | Musou Mode: a class change in the Stormbird with no death | the owner's item 2 (2026-11-01) | DEPLOY in the Stormbird's loadout screen makes a fresh life of the chosen class on the spot (full health, the class's starting weapon) under a 2 s smoke cloud; only in the hub, inside the Stormbird, with a loadout waiting; in a match elsewhere a loadout still applies at the next respawn | Class change | Musou Mode: a class change in the Stormbird with no death: compare with SM1 by feel or video. Ours: the owner's item 2 (2026-11-01). | ☐ |
+| `C-7464C6DC` | Musou Mode: health bars over the elites | the owner's item 14 (2026-11-01) | every living 'Ard Boy, Nob and Warboss shows a bar; a client is sent the 64 nearest of up to 120 | Elite bars | Musou Mode: health bars over the elites: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner's item 14 (2026-11-01). | ☐ |
 
 ### Deliberate changes (owner's decisions)
 
@@ -2972,6 +2987,10 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-6EA20ECA` | War's budget | Added content: Musou Mode on the wire (TF6; no protocol change, `TfwRules.Version` 2) |
 | `R-07694DAC` | Crowd budget | Added content: Musou Mode: the Guardsmen as drawn (TF7a; client only, no protocol change) |
 | `R-B57B28D0` | War test aids (TF9) | Added content: Musou Mode: the battle and the run (TF4; `TfwRules.Version` 5 since an extraction after a won battle) |
+| `R-B9129FD7` | Class change: the smoke on the wire | Added content: Musou Mode: retainer paint, the class change in the Stormbird and the elites' bars (pass 2, M7 and M11; no protocol change, `TfwRules.Version` 8) |
+| `R-E00CD2F7` | Elite bars: the wire | Added content: Musou Mode: retainer paint, the class change in the Stormbird and the elites' bars (pass 2, M7 and M11; no protocol change, `TfwRules.Version` 8) |
+| `R-DBF9DB11` | Elite bars: beyond the budget | Added content: Musou Mode: retainer paint, the class change in the Stormbird and the elites' bars (pass 2, M7 and M11; no protocol change, `TfwRules.Version` 8) |
+| `R-2884CE4D` | Test aids | Added content: Musou Mode: retainer paint, the class change in the Stormbird and the elites' bars (pass 2, M7 and M11; no protocol change, `TfwRules.Version` 8) |
 | `R-3C893894` | Test aids | Death effects (F-D1; client only, not simulated, no protocol change) |
 | `R-54698497` | `--bot-damage-scale f` | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
 | `R-5601E474` | Protocol 37 (on top of main's 36) | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |

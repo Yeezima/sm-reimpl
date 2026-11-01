@@ -63,10 +63,24 @@ public sealed partial class GameServer
     /// <summary>The appearance version and code others see for <paramref name="playerId"/> (version 0: the default look), or null when it is not a player here.</summary>
     public (ushort Version, Race Race, AppearanceCode Code)? AppearanceOf(int playerId)
     {
-        if (PeerOf(playerId) is not { } peer) return null;
+        if (PeerOf(playerId) is not { } peer) return PeerlessLook(playerId);
         var a = peer.Appearance;
         return (a.Version, a.Race, Published(a));
     }
+
+    /// <summary>
+    /// The look of a player that has no peer, as the scoreboard's version and an <see cref="AppearanceQuery"/> answer need it: none in the core (null). Added content may give a
+    /// player without a client a look (Musou Mode's retainers wear their owner's), through <see cref="ExtrasPuppetAppearance"/>.
+    /// </summary>
+    (ushort Version, Race Race, AppearanceCode Code)? PeerlessLook(int playerId)
+    {
+        (ushort Version, Race Race, AppearanceCode Code)? look = null;
+        ExtrasPuppetAppearance(playerId, ref look);   // EXTRAS-HOOK
+        return look;
+    }
+
+    /// <summary>Hook for added content: the look (appearance version, race and code) of player <paramref name="playerId"/>, who has no peer. Implemented in an <c>Extras/</c> folder; leaves <paramref name="look"/> null unless its feature runs.</summary>
+    partial void ExtrasPuppetAppearance(int playerId, ref (ushort Version, Race Race, AppearanceCode Code)? look);
 
     /// <summary>Whether the server holds a verified emblem with this hash.</summary>
     public bool HasEmblem(EmblemHash hash) => _emblems.Contains(hash);
@@ -251,7 +265,12 @@ public sealed partial class GameServer
         foreach (int id in q.PlayerIds)
         {
             if (!peer.Appearance.Queries.TryTake(now)) break;
-            if (PeerOf(id) is not { } other || other.Appearance.Version == 0) continue;
+            if (PeerOf(id) is not { } other)
+            {
+                if (PeerlessLook(id) is { Version: not 0 } look) _transport.Send(connection, Protocol.Write(new Appearance(id, look.Version, look.Race, look.Code)));
+                continue;
+            }
+            if (other.Appearance.Version == 0) continue;
             var a = other.Appearance;
             _transport.Send(connection, Protocol.Write(new Appearance(id, a.Version, a.Race, Published(a))));
         }

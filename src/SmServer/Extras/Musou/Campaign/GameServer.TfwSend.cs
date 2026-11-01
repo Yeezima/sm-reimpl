@@ -38,6 +38,8 @@ public sealed partial class GameServer
         var feed = TfwFeed;
         uint tick = World.Tick;
         int tickRate = World.Config.TickRate;
+        SendTfwSmoke(tick);   // GameServer.TfwClass.cs (M7): the class change's smoke, tag 11
+        SendTfwBars(tick, tickRate);   // GameServer.TfwBars.cs (M11): the elites' bars, tag 13
         bool hasBox = sim.Director != default;
         var box = hasBox ? MusouSend.EffectiveBox(sim.Director.Box, _musouNavBox) : default;
         byte[]? objectives = hasBox ? TfwWire.WriteObjectives(feed.Objectives, box, feed.Sites) : null;
