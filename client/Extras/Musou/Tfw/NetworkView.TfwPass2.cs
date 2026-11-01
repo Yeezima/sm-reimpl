@@ -7,6 +7,6 @@ namespace SmClient;
 /// </summary>
 public partial class NetworkView
 {
-    // Tag 11's shells and the far war: TfwFireView.cs (M8, M9). Tag 13, the elites' health bars, and tag 11's class-change smoke: NetworkView.TfwClass.cs (M7, M11).
+    // Tag 11's shells and the far war: TfwFireView.cs (M8, M9). Tag 11's class-change smoke: NetworkView.TfwClass.cs (M7, M11).
     // Tags 12, 14 and 15: NetworkView.TfwRewards.cs (M6, M6b).
 }

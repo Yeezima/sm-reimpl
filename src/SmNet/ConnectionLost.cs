@@ -17,13 +17,16 @@ public static class ConnectionLost
     /// <param name="longestFrame">The longest frame since the client connected, seconds, and <paramref name="longestFrameAt"/> when (seconds since it connected).</param>
     /// <param name="keepAlives">Keep-alive batches the background thread sent (<see cref="GameClient.KeepAlivesSent"/>); <paramref name="keepAliveOn"/>: it was running.</param>
     /// <param name="serverTimeout">The client's timeout, seconds (the server's is the same 5 s).</param>
+    /// <param name="refusedSnapshots">Snapshots that arrived and were refused since the last accepted one (fix/dead-melee-direction).</param>
     public static string Text(ClientStatus status, double connectedFor, double sinceSnapshot, double worstFrameSinceSnapshot, double longestFrame, double longestFrameAt,
-        int keepAlives, bool keepAliveOn, double serverTimeout)
+        int keepAlives, bool keepAliveOn, double serverTimeout, int refusedSnapshots = 0)
     {
         double freeze = FreezeSeconds(serverTimeout);
         string keep = keepAliveOn ? $"the keep-alive sent {keepAlives} packets" : "no keep-alive was running";
         string cause =
-            worstFrameSinceSnapshot >= freeze
+            refusedSnapshots > 0
+                ? $"CAUSE: snapshots kept arriving but this client refused them ({refusedSnapshots} unreadable or implausible since the last good one in {sinceSnapshot:F1} s): a bug in the protocol or the state sent, not the network and not a freeze."
+            : worstFrameSinceSnapshot >= freeze
                 ? $"CAUSE: a freeze of this client: one frame took {worstFrameSinceSnapshot:F1} s (its main thread was blocked), so no snapshot was read for {sinceSnapshot:F1} s; {keep}."
             : longestFrame >= freeze
                 ? $"CAUSE: probably a freeze of this client earlier: one frame took {longestFrame:F1} s at t {longestFrameAt:F1} s ({keep}); the server may have dropped the player then, and the " +

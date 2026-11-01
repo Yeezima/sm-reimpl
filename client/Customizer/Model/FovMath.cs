@@ -38,6 +38,26 @@ public static class FovMath
         return h <= MinimumHorizontal(aspect) ? 1f : MathF.Max(1f, scale);
     }
 
+    /// <summary>
+    /// Ours (estimate, camera/right-shoulder-fov, owner 2026-11-02): metres the camera moves right per unit of <see cref="Scale"/> over 1. Holding the character where the default view draws
+    /// it would take the rig's whole 0.64 m per unit; this modest part keeps the crosshair's surroundings clearer without leaving the shoulder (0.34 m at 120 degrees at 16:9).
+    /// </summary>
+    public const float ShiftPerScale = 0.2f;
+    /// <summary>Ours (estimate): the most the camera moves right; a narrower window has a larger <see cref="Scale"/> at the same slider value.</summary>
+    public const float MaxShift = 0.35f;
+    /// <summary>Ours: metres kept inside the server's shot origin limit by <see cref="LimitShift"/> (the drawn player and the predicted one differ a little).</summary>
+    public const float OriginMargin = 0.1f;
+
+    /// <summary>Metres to the right of the rig's place for this <see cref="Scale"/>: 0 at the default view, growing with the slider up to <see cref="MaxShift"/>. The view stays parallel, so the crosshair and the shot move with it.</summary>
+    public static float CameraShift(float scale) => float.IsFinite(scale) ? MathF.Min(MaxShift, ShiftPerScale * MathF.Max(0f, scale - 1f)) : 0f;
+
+    /// <summary>
+    /// <paramref name="shift"/> cut so the crosshair's ray stays within <paramref name="limit"/> metres of the eye: the server shortens a farther shot origin, which would put the shot beside the
+    /// crosshair. <paramref name="side"/> and <paramref name="across"/> are the unshifted ray's offsets from the eye to the right and across the view in the vertical plane. Never below 0.
+    /// </summary>
+    public static float LimitShift(float shift, float side, float across, float limit) =>
+        MathF.Max(0f, MathF.Min(shift, MathF.Sqrt(MathF.Max(0f, limit * limit - across * across)) - side));
+
     /// <summary>A data vertical angle widened by <paramref name="scale"/>.</summary>
     public static float Apply(float verticalDegrees, float scale) => scale == 1f ? verticalDegrees : Deg(2f * MathF.Atan(MathF.Tan(Rad(verticalDegrees) / 2f) * scale));
 

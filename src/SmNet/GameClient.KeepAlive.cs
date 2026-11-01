@@ -36,6 +36,12 @@ public sealed partial class GameClient
     /// <summary>How long ago the newest snapshot arrived (diagnostics: the line that says a connection is gone).</summary>
     public TimeSpan SinceLastSnapshot => _clock.Now - _latestSnapshotAt;
 
+    /// <summary>fix/dead-melee-direction: snapshots that arrived and were refused (unreadable or implausible) since the last accepted one, and in the whole connection.</summary>
+    public int RefusedSinceSnapshot { get; private set; }
+    public int RefusedSnapshots { get; private set; }
+
+    void RefuseSnapshot() { RefusedSinceSnapshot++; RefusedSnapshots++; }
+
     void MarkUpdated() => Interlocked.Exchange(ref _updatedAtTicks, _clock.Now.Ticks);
 
     void StartKeepAlive()

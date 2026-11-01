@@ -233,6 +233,12 @@ public partial class NetworkView
         }
         _lastCam = cam; _lastPivot = pivot; _lastFov = fov;   // what was placed (a switch during a blend continues from here)
 
+        // camera/right-shoulder-fov (ours, owner 2026-11-02): a wider field of view draws the character nearer the crosshair, so the camera and its pivot sit further right (FovMath.CameraShift).
+        // The view stays parallel, so the crosshair's ray moves with the camera and the converged shot (Converged) with it. A scope's zoom is not widened: no shift there.
+        // The rig's place changes with the pitch and the evade curves, so the shift gives way where the ray would pass the server's shot origin limit.
+        float fovShift = FovMath.LimitShift(FovMath.CameraShift(fovScale) * (scoped ? 1f - w : 1f), cam.X, cam.Y * MathF.Sin(pitch) - (cam.Z - _config.EyeHeight) * MathF.Cos(pitch), _config.MaxShotOriginOffset - FovMath.OriginMargin);
+        cam.X += fovShift; pivot.X += fovShift;
+
         // Character frame (X right, Y forward, Z up) rotated by the view's yaw about the feet, into Godot space.
         float sin = MathF.Sin(_yaw), cos = MathF.Cos(_yaw);
         Vector3 ToWorld(System.Numerics.Vector3 v)
@@ -260,25 +266,17 @@ public partial class NetworkView
         // camera/hop-and-walls: a shoulder leg first. The rig's pivot is beside, above and behind the head; a single leg from the head to it shrank all three together, so a wall behind
         // the character took the camera into the head and across the view (0.07 m from it, the world sliding sideways and down). Now the side and height come first (head to shoulder) and
         // only the way back meets the wall behind. The shoulder is the pivot's place without its distance along the facing.
-        // Review pass: the height comes before the side (a pillar at the right shoulder took the height too), and a blocked right side crosses to the left (CameraSide).
+        // Review pass: the height comes before the side (a pillar at the right shoulder took the height too). camera/right-shoulder-fov (owner 2026-11-02): the camera stays on the right shoulder, a blocked side only pulls it in.
         var shoulderRig = new System.Numerics.Vector3(pivot.X, 0f, pivot.Z);
         var legStart = head;
-        var pivotSided = pivot; var camSided = cam; var eyeWanted = wanted;
         if (!OldCameraCollision)
         {
-            if (!_cameraPlaced) { _rigFocus = 0f; _rigSide.Reset(); }   // a respawn or first frame: nothing carries over
+            if (!_cameraPlaced) _rigFocus = 0f;   // a respawn or first frame: nothing carries over
             var heightRig = new System.Numerics.Vector3(0f, 0f, pivot.Z);
             var raised = DampFraction(_rigFractionU, _cameraPlaced, head, head + (ToWorld(heightRig) - drawnHead), delta);
             var sideRight = ToWorld(shoulderRig) - ToWorld(heightRig);
-            float sideLength = sideRight.Length();
-            float rightFree = sideLength > 1e-3f ? CastClear(raised, raised + sideRight, CameraSoftRadius) / sideLength : 1f;
-            float leftFree = sideLength > 1e-3f && (rightFree < CameraSide.BlockedBelow || _rigSide.OnLeft) ? CastClear(raised, raised - sideRight, CameraSoftRadius) / sideLength : 0f;
-            float side = _rigSide.Step(rightFree, leftFree, delta, _cameraPlaced, me.Alive && me.Aiming);
-            shoulderRig.X *= side; pivotSided.X *= side; camSided.X *= side;
             // No lookahead on these short legs: a head foreseen against a wall starts inside the soft radius, and its leg read 0 for the frames of every wall contact.
-            legStart = DampFraction(_rigFractionS, _cameraPlaced, raised, raised + sideRight * side, delta);
-            pivotWorld = ToWorld(pivotSided);
-            eyeWanted = ToWorld(camSided);
+            legStart = DampFraction(_rigFractionS, _cameraPlaced, raised, raised + sideRight, delta);
         }
         int ahead = 0;
         float yawStep = _rigYawInit ? Mathf.Wrap(_yaw - _rigYaw, -MathF.PI, MathF.PI) : 0f;
@@ -299,7 +297,7 @@ public partial class NetworkView
                     var g = me.Position + new System.Numerics.Vector3(v.X * c2 - v.Y * s2, v.X * s2 + v.Y * c2, v.Z);
                     return _gameSpace.Transform * new Vector3(g.X, g.Y, g.Z) + step;
                 }
-                _aheadHead[ahead] = head + step; _aheadShoulder[ahead] = AtAhead(shoulderRig); _aheadPivot[ahead] = AtAhead(pivotSided); _aheadEye[ahead] = AtAhead(camSided);
+                _aheadHead[ahead] = head + step; _aheadShoulder[ahead] = AtAhead(shoulderRig); _aheadPivot[ahead] = AtAhead(pivot); _aheadEye[ahead] = AtAhead(cam);
                 ahead++;
             }
         }
@@ -314,7 +312,7 @@ public partial class NetworkView
             _aheadFrom.Add(_aheadHead[i] + (_aheadPivot[i] - _aheadHead[i]) * _rigFractionA.Fraction);
             _aheadTo.Add(_aheadEye[i]);
         }
-        var damped = DampFraction(_rigFraction, _cameraPlaced, pivotWorld, eyeWanted, delta, _aheadFrom, _aheadTo);
+        var damped = DampFraction(_rigFraction, _cameraPlaced, pivotWorld, wanted, delta, _aheadFrom, _aheadTo);
         var position = Depenetrate(ClearOfBodies(damped, me, includeOwn: false, pivotWorld, delta));   // an enemy in melee range is not in the lens
         _cameraPlaced = true;
 
