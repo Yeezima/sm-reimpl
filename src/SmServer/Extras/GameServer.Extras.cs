@@ -30,6 +30,9 @@ public sealed partial class GameServer
     /// <summary>A scoreboard name: Musou Mode's AI Marines.</summary>
     partial void ExtrasPlayerName(int id, ref string name) => TfwPlayerName(id, ref name);
 
+    /// <summary>The look of a player without a peer: Musou Mode's retainers wear their owner's.</summary>
+    partial void ExtrasPuppetAppearance(int playerId, ref (ushort Version, Race Race, AppearanceCode Code)? look) => TfwPuppetAppearance(playerId, ref look);
+
     /// <summary>A map generated in code: Musou Mode's.</summary>
     static partial void ExtrasGeneratedMap(ContentExtras extras, string install, ref string? name, ref GameMap? map, ref string? error) => TfwGeneratedMap(extras, install, ref name, ref map, ref error);
 }

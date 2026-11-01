@@ -10,8 +10,7 @@ public partial class NetworkView
     /// <summary>Tag 11 (<c>_tfwState.NewFire</c>, taken in <see cref="TfwGuardsFrame"/>): barrages, Thunderhawk runs and the class-change smoke (M8, M9).</summary>
     void TfwFireFrame(in TfwWarView war, double delta) { }
 
-    /// <summary>Tag 13: the elites' health bars (M11).</summary>
-    void TfwBarsFrame() { }
+    // Tag 13, the elites' health bars, and tag 11's class-change smoke: NetworkView.TfwClass.cs (M7, M11).
 
     /// <summary>Tag 12: the shown score and its panels (M6b).</summary>
     void TfwScoreFrame(in TfwWarView war) { }

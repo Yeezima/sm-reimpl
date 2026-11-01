@@ -43,6 +43,7 @@ public partial class NetworkView
         foreach (var section in sections) if (!MusouDropSection(section)) _musouState.Apply(section, now);   // MU-D: tag 6 to the drops (MusouDrops.cs)
         var (renderTick, _) = client.RemotePlayers();
         var shown = _musouState.Sample(renderTick > 0 ? renderTick : _musouState.NewestTick, now);
+        _tfwShown = shown;   // the elites' bars read the enemies as shown (Tfw/NetworkView.TfwClass.cs)
 
         if (!_musouDrawChecked)
         {
