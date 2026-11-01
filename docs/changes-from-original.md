@@ -174,6 +174,7 @@ The original's behaviour is known (or believed known) and we chose to differ.
 | Blue cloud of the power weapons' hits halved | the owner's request (2026-11-02) | ours to start with (fx/power-flash); half its size | Melee reliability |
 | Stalker bolter wall crater | the owner's request (2026-11-02); the data leaves stone unmarked | the bolter's crater at 1.6 times its size | Melee reliability |
 | Jump pack flame trail removed | the owner's request (2026-11-02) | one quick flash at the start of a jump, hop, dive, dash or air charge, no flame or trail | Jump pack |
+| Zoom while flying with the jump pack | the owner's request (2026-11-02) | aim mode holds in the jump pack's phases, except the ground pound | Jump pack |
 
 ## 2. Our choices where the original is unknown
 
