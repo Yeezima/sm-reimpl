@@ -82,8 +82,7 @@ public class ConnectTimeoutTests
         clock.Advance(TimeSpan.FromSeconds(30));
         client.Update(Idle);
         Assert.Equal(ClientStatus.Rejected, client.Status);   // a refusal is never turned into "no answer"
-        Assert.Contains("settings differ", ConnectFailure.RejectText(client.RejectedBecause, client.RejectDetail));
-        Assert.Contains("content profile faithful", ConnectFailure.RejectText(client.RejectedBecause, client.RejectDetail));
+        Assert.Contains("Enable extended mode before reconnecting to the server", ConnectFailure.RejectText(client.RejectedBecause, client.RejectDetail));
     }
 
     [Fact]
