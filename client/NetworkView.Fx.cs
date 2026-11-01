@@ -529,6 +529,11 @@ public partial class NetworkView
         // blueprint's armour-hit or broken-armour-hit effects. Unknown (armourUp null: no real knowledge, owner's direction: no guessing) uses the armour variant.
         bool up = armourUp ?? true;
         var plays = _catalogue.Resolve(se.HitMaterial, hit, surface, up);
+        if (hit == ShotHit.World && StalkerCrater.Is(w.Wargear))   // the owner, 2026-11-02: a crater bigger than the bolter's, where the data leaves none
+        {
+            _fx.Play(StalkerCrater.Effect(_catalogue.SurfaceName(surface)), end + normal * 0.02f, AxesFromY(normal), StalkerCrater.Scale, null, null, 0f, delay, false, 0);
+            plays = [];
+        }
         if (hit != ShotHit.World) FxArmourHit(up, end, dir, victim, delay);
         if (hit != ShotHit.World && up) ArmourSparks(end, dir, delay);   // fx/bolt-tracer-impact
         if (hit != ShotHit.World && armourUp == false) BloodSplashAt(end, dir, delay);   // fx/red-glow-blood: no armour left, a red splash

@@ -17,8 +17,8 @@ public static class PowerFlash
     /// <summary>The sound events of the hammer's blast, posted on a hammer or maul hit besides the weapon's hit sound (data: the hammer's displace blast and its arcs).</summary>
     public static readonly string[] BlastEvents = ["play_sm_thunderhammer_displace", "play_sm_thunderhammer_displace_arcs"];
     public const string CloudName = "power_flash_cloud";
-    /// <summary>How much bigger than the data's size the effects are played (ours, from the reference clip: the burst is bigger than a body).</summary>
-    public const float DataBoost = 0.85f, CloudBoost = 1.15f;
+    /// <summary>How much bigger than the data's size the effects are played (ours, from the reference clip). The owner (2026-11-02): the blue clouds half the size they were (1.15).</summary>
+    public const float DataBoost = 0.85f, CloudBoost = 0.575f;
 
     public static float Scale(PowerKind k) => PowerFlashRules.Scale(k);
 

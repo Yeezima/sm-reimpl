@@ -102,7 +102,7 @@ public partial class NetworkView
         if (show.Step != s.MeleeStep || show.Heavy != s.MeleeHeavy || s.MeleeTime + 1e-4f < show.Time)
         {
             show.Step = s.MeleeStep; show.Heavy = s.MeleeHeavy;
-            show.StartDistance = MeleePresentation.StartDistance(reach, step.Duration, s.MeleeTime, TargetDistance(s, own));
+            show.StartDistance = MeleePresentation.StartDistance(reach, step.Duration, MeleeLock.MotionTime(step, s.MeleeTime, _config), TargetDistance(s, own));
             if (own && _bot && _client is not null) { if (_client.MeleeLockTarget > 0) _meleeLockSwings++; }
         }
         show.Time = s.MeleeTime;

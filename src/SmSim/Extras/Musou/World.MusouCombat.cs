@@ -245,7 +245,7 @@ public sealed partial class World
         bool heavy = MusouSim.Heavy(state, step);
         float damage = step.Damage * step.HealthMultiplier * Stims.MeleeDealt(Config, state);
         if (!(damage > 0f) && !heavy) return;
-        float range = Config.MeleeRange + rules.CleaveExtraRange;
+        float range = Config.MeleeRange + rules.CleaveExtraRange + (step.TrackToHit ? MusouCombatRules.CleaveTrackRange : 0f);
         float minCos = MathF.Cos(MathF.Min(180f, Config.MeleeConeDegrees * rules.CleaveConeScale) * MathF.PI / 180f);
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
         var eye = state.Position + new Vector3(0, 0, Config.EyeHeight);

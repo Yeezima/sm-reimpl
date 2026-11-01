@@ -167,6 +167,16 @@ public sealed record MeleeLockSpec
     /// later up to the hit, then earlier; 0.2 s.
     /// </summary>
     public float MinAlignSpan { get; init; } = 0.2f;
+    /// <summary>
+    /// feel/melee-reliability (owner, 2026-11-02: "make the step forward happen sooner in the melee swing animation timeline"; ours): the swing's root motion runs this many times faster up to
+    /// where the clip has reached its hit time, then slower so the attack's whole motion is unchanged (<see cref="MeleeLock.MotionTime"/>). 1: the clip's own timing. The install's value: <see cref="InstallStepEarly"/>.
+    /// </summary>
+    public float StepEarly { get; init; } = 1f;
+    public const float InstallStepEarly = 1.5f;
+    /// <summary>feel/melee-reliability (ours): a <see cref="MeleeStep.TrackToHit"/> strike reaches its locked target this many metres past the melee range …</summary>
+    public float TrackReach { get; init; } = 1.5f;
+    /// <summary>… and this many degrees either side of its facing.</summary>
+    public float TrackCone { get; init; } = 90f;
 
     internal void Write(BinaryWriter w)
     {
@@ -175,6 +185,8 @@ public sealed record MeleeLockSpec
         if (BurstSpeed != 28f || BurstFraction != 0.6f) { w.Write((byte)0xE3); w.Write(BurstSpeed); w.Write(BurstFraction); }
         // feel/melee-charge-2: only when not the M32 rule, so a spec from before hashes as it did when both are off.
         if (AlignEase || Hysteresis != 0f) { w.Write((byte)0xE2); w.Write(AlignEase); w.Write(Hysteresis); w.Write(MinAlignSpan); }
+        if (StepEarly != 1f) { w.Write((byte)0xE4); w.Write(StepEarly); }
+        w.Write((byte)0xE5); w.Write(TrackReach); w.Write(TrackCone);
     }
 }
 
@@ -464,6 +476,7 @@ public static class MeleeLock
     {
         if (m.Reach is not { } r) return (0f, 0f);
         float open = r.AlignFrom, close = r.AlignTo, min = c.MeleeLock.MinAlignSpan;
+        if (m.TrackToHit && close > open) close = MathF.Max(close, m.HitTime);   // feel/melee-reliability: the slow strikes keep turning to a moving target until they land
         if (!c.MeleeLock.AlignEase || !(min > 0f) || !float.IsFinite(min) || close <= open || close - open >= min) return (open, close);
         close = MathF.Max(close, MathF.Min(open + min, MathF.Max(m.HitTime, close)));
         open = MathF.Max(0f, MathF.Min(open, close - min));
@@ -490,6 +503,18 @@ public static class MeleeLock
     }
 
     /// <summary>
+    /// feel/melee-reliability: where in the clip's root motion the body is <paramref name="time"/> seconds into step <paramref name="m"/>: with <see cref="MeleeLockSpec.StepEarly"/> above 1 the motion
+    /// up to the hit plays that many times faster, the rest stretches to the attack's end, so the step comes sooner and is no longer. The attack's clock, hit time and windows are unchanged.
+    /// </summary>
+    public static float MotionTime(MeleeStep m, float time, SimConfig c)
+    {
+        float early = c.MeleeLock.StepEarly, hit = m.HitTime, duration = m.Duration;
+        if (!(early > 1f) || !(hit > 0f) || !(duration > hit)) return time;
+        float knot = hit / early;
+        return time <= knot ? time * early : MathF.Min(duration, hit + (time - knot) * (duration - hit) / (duration - knot));
+    }
+
+    /// <summary>
     /// The lunge: metres the attack moves the body along <paramref name="heading"/> over the tick (<paramref name="from"/>, <paramref name="to"/>]
     /// of step <paramref name="m"/> (negative: back), see the class summary. <paramref name="toTarget"/>: the flat offset to the locked target, or null.
     /// feel/melee-charge-2: forward motion × <see cref="SimConfig.MeleeLungeScale"/> (backward motion as the clip), still never nearer the target than the separation.
@@ -499,18 +524,19 @@ public static class MeleeLock
         if (m.Reach is not { } reach || reach.Variants.Count == 0 || !(to > from)) return 0f;
         float duration = m.Duration;
         var (low, high) = reach.Range;
+        float clipFrom = MotionTime(m, from, c), clipTo = MotionTime(m, to, c);
         float k = c.LungeScale * m.LungeFactorApplied;   // feel/melee-charge-2: forward motion × the lunge scale (an estimate, owner's request); anim/hammer-swing: × the strike's own factor (the hammer's light strikes)
         if (toTarget is not { } offset)
         {
             float d0 = Math.Clamp(reach.DefaultDistance, low, high);
-            float free = reach.ForwardAt(to, duration, d0) - reach.ForwardAt(from, duration, d0);
+            float free = reach.ForwardAt(clipTo, duration, d0) - reach.ForwardAt(clipFrom, duration, d0);
             return free > 0f ? free * k : free;
         }
         // The blend this attack has followed: the target's distance when it began, solved from its distance now and the clip's motion so far (a moving
         // target re-solves it every tick, so the lunge chases or eases). The clips at that blend end where they were made to strike from.
         // feel/melee-charge-2: solved unscaled (self-correcting: a scaled approach that is ahead picks a nearer blend), the step then × the lunge scale.
-        float start = reach.StartDistance(from, duration, offset.Length());
-        float step = reach.ForwardAt(to, duration, start) - reach.ForwardAt(from, duration, start);
+        float start = reach.StartDistance(clipFrom, duration, offset.Length());
+        float step = reach.ForwardAt(clipTo, duration, start) - reach.ForwardAt(clipFrom, duration, start);
         if (step > 0f) step *= k;
         // sim/melee-lunge (owner 2026-10-31: a locked step covers the gap quicker and more forcefully; the further the target, the bigger and faster; ours): a front-loaded
         // burst closes the remaining gap to the separation by BurstFraction of the way to the hit, the remaining gap falling quadratically (fast, then settling), at most
