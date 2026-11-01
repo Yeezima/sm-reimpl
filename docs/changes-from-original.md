@@ -58,6 +58,7 @@ and gore are listed in their own design documents for now (the rest of section 0
 | Musou mode is the Three-Front War | the owner's decision (2026-11-01) | `--content musou` runs the war on the generated map `tfw_war`; the 5-wave run stays only as a test aid (`--map mp_tdm_09`) | War map |
 | AI Marines in the war | the owner's decisions (2026-11-01) and ours | server-side puppets: a retainer per player who follows orders and revives, three lords with retainers who act alone; ammunition without end, placeholder names | Retainer orders |
 | Guard squads fight beside the players; leashed Ork defenders | the design of the war (2026-11-01); SM1 has no such allies (the Guardsman is the Exterminatus co-op blueprint) | squads of 10 shoot and are struck server-side; defenders hold until a target is within 30 m or their group is hurt | War Guard squads, Leashed defenders |
+| Guardsmen drawn as a crowd | the design of the war (2026-11-01) and the owner: real models, death clips rather than the ragdoll for now | the co-op Guardsman with original clips and effects; which clip plays when is ours (the rig's graphs are not read) | Crowd budget, Which clip plays, Death |
 
 ## 1. Deliberate changes (owner's decisions)
 

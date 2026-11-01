@@ -7,7 +7,7 @@ using SmFormats.Havok;
 namespace SmClient;
 
 /// <summary>
-/// The Musou crowd's mid and far tier (design section D): each look's five clips are baked once, at load, into vertex-animation textures (the skinned
+/// The crowds' mid and far tier (design section D; since TF7a also the Guardsmen's): each look's clips (the five of Musou, TF7a: any list, with its own rule for which loop) are baked once, at load, into vertex-animation textures (the skinned
 /// vertex positions and normals of every frame at <see cref="Fps"/> frames a second, in memory only, never written to disk), then drawn by one
 /// <see cref="MultiMeshInstance3D"/> per look with an embedded shader that reads the vertex's place in two frames and blends them (the frames and the blend in
 /// <c>INSTANCE_CUSTOM</c>, with the sink of a body in its fourth value). The mesh data and skin binds are read on the main thread; the skinning runs on a worker.
@@ -46,7 +46,7 @@ public static class MusouVat
     }
 
     /// <summary>Reads what the bake needs from <paramref name="assets"/> (main thread) and starts the bake on a worker; null when there is nothing to bake.</summary>
-    public static Task<Baked?>? Start(MarineAssets assets, HavokBoundAnimation?[] clips)
+    public static Task<Baked?>? Start(MarineAssets assets, HavokBoundAnimation?[] clips, Func<int, bool>? loops = null)
     {
         if (assets.Pieces.Count == 0) return null;
         var skeleton = assets.Model.Rig.Skeleton;
@@ -79,10 +79,10 @@ public static class MusouVat
             }
         }
         if (surfaces.Count == 0) return null;
-        return Task.Run(() => Bake(parents, rest, surfaces.ToArray(), bindBones.ToArray(), bindPoses.ToArray(), clips));
+        return Task.Run(() => Bake(parents, rest, surfaces.ToArray(), bindBones.ToArray(), bindPoses.ToArray(), clips, loops ?? MusouLooks.Loops));
     }
 
-    static Baked? Bake(int[] parents, Transform3D[] rest, SurfaceData[] surfaces, int[][] bindBones, Transform3D[][] bindPoses, HavokBoundAnimation?[] clips)
+    static Baked? Bake(int[] parents, Transform3D[] rest, SurfaceData[] surfaces, int[][] bindBones, Transform3D[][] bindPoses, HavokBoundAnimation?[] clips, Func<int, bool> loops)
     {
         var watch = System.Diagnostics.Stopwatch.StartNew();
         int vertices = 0;
@@ -96,7 +96,7 @@ public static class MusouVat
         {
             float duration = clips[c]?.Animation.Duration ?? 0f;
             int n = Math.Max(2, (int)MathF.Ceiling(duration * Fps));
-            rows[c] = new ClipRows(frames, n, MathF.Max(duration, 1e-3f), MusouLooks.Loops(c));
+            rows[c] = new ClipRows(frames, n, MathF.Max(duration, 1e-3f), loops(c));
             frames += n;
         }
         int height = frames * rowsPerFrame;
