@@ -79,6 +79,7 @@ public partial class NetworkView
             await TfwShot($"capture-{name}");
         }
         TfwCheck("all three points were secured", taken == 3, taken.ToString());
+        if (taken == 3) await TfwWait(5.0);   // the commander shows on the next snapshots
         if (taken == 3) TfwCheck("the commander came", _tfwState.Objectives[TfwBattle.CommanderObjective].State != TfwPositionState.Locked, _tfwState.Objectives[TfwBattle.CommanderObjective].State.ToString());
     }
 
