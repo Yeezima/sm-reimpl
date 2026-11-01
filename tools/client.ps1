@@ -51,6 +51,17 @@ elseif ($userArgs -contains '--test-window' -or $userArgs -contains '--bot') {
     & (Join-Path $PSScriptRoot 'godot.ps1') @mode '--' @userArgs
     exit $LASTEXITCODE
 }
+# fix/musou-local-server: the editor binary lives in Godot's tools folder, so the client finds no SmServer next to itself (a released build carries one).
+# Build the server and hand it over with --server-exe (MUSOU MODE and HOST LOCAL LOBBY need it), unless the caller gave one. A failed build never stops the client.
+if (-not ($userArgs -contains '--server-exe')) {
+    try {
+        $serverProj = Join-Path $RepoRoot 'src\SmServer\SmServer.csproj'
+        dotnet build $serverProj -nologo -v quiet | Out-Null
+        $serverExe = Join-Path $RepoRoot 'src\SmServer\bin\Debug\net10.0\SmServer.exe'
+        if ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $serverExe)) { $userArgs = @('--server-exe', $serverExe) + $userArgs }
+        else { Write-Host 'The dedicated server did not build: the client starts without MUSOU MODE and HOST LOCAL LOBBY (dotnet build src\SmServer).' -ForegroundColor Yellow }
+    } catch { Write-Host "The dedicated server did not build ($($_.Exception.Message)): the client starts without it." -ForegroundColor Yellow }
+}
 # Quoted so the separator always reaches Godot; arguments after it go to the client (OS.GetCmdlineUserArgs).
 & $Godot --path $client '--' @userArgs
 exit $LASTEXITCODE

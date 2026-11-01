@@ -142,6 +142,7 @@ public sealed partial class FrontEndView : Control
             return;
         }
         SyncContentLock();
+        SyncMusouRow();
         if (!_warmed) _warmed = _services.Previews.WarmStep();   // the default look is built while the menu is up
         if (!_scripted && _frames > 3) { _scripted = true; _scriptFrame = _frames; RunScript(); }
         else if (_scripted && !_autoJoined && _args.ContainsKey("auto-join") && _frames > _scriptFrame + 10) { _autoJoined = true; JoinLocal(); }
@@ -230,7 +231,13 @@ public sealed partial class FrontEndView : Control
         var joinRow = UiKit.MenuButton("Join or host lobby", () => ShowPage(_lobby!));
         _first[main] = joinRow;
         main.Rows.AddChild(joinRow);
-        if (ContentExtras.Compiled) main.Rows.AddChild(UiKit.MenuButton("Musou Mode", StartMusou, "The war of the three fronts, on this PC"));   // added content: never in a faithful build
+        if (ContentExtras.Compiled)   // added content: never in a faithful build
+        {
+            main.Rows.AddChild(UiKit.MenuButton("Musou Mode", StartMusou, "The war of the three fronts, on this PC"));
+            _stopMusou = UiKit.MenuButton("Stop Musou server", StopMusou, "Stops the Musou server this game started on this PC");
+            _stopMusou.Visible = false;   // only while that server runs (SyncMusouRow)
+            main.Rows.AddChild(_stopMusou);
+        }
         main.Rows.AddChild(UiKit.MenuButton("Options", () => ShowOptions()));
         main.Rows.AddChild(UiKit.MenuButton("Customizer", ShowCreator, "Edit your loadouts and your armour"));
         main.Rows.AddChild(UiKit.MenuButton("Quit", () => GetTree().Quit()));
@@ -385,6 +392,7 @@ public sealed partial class FrontEndView : Control
     {
         if (!_built) return;
         if (_services.Content.HasFlag(ContentExtras.Musou) && !CommandLineMusou && !HostedServer.Running) _services.Content = _services.Settings.ContentExtras;
+        SyncMusouRow();
         string kept = _message?.Text ?? "";
         bool wasProblem = _messageProblem;
         ShowPage(_main!);
@@ -519,18 +527,76 @@ public sealed partial class FrontEndView : Control
     /// <summary>MUSOU MODE (the owner, 2026-11-01): Musou Mode as the Host panel's Musou path starts it: this PC only, <c>--content musou</c>, joined by itself. The lobby's remembered profile is not touched.</summary>
     void StartMusou()
     {
-        if (_hostPanel is null) { Say("No server was found next to the game, so Musou cannot start.", true); return; }
-        if (HostedServer.Running)
+        var (running, ready, musou) = MusouServerState();
+        switch (MusouLocal.OnPress(_hostPanel is not null, running, ready, musou))
         {
-            if (HostedServer.Options is { Content: ContentProfiles.Musou, Port: var port }) { TryJoin(ServerLaunch.LocalHost(port), remember: false); return; }
-            Say("A server is running. Stop it in HOST LOCAL LOBBY first.", true);
-            return;
+            case MusouPress.NoServer: Say("No server was found next to the game, so Musou cannot start.", true); return;
+            case MusouPress.OtherServer: Say("A server is running. Stop it in HOST LOCAL LOBBY first.", true); return;
+            case MusouPress.Wait:   // the first press started it and the Host panel joins by itself once it listens: no second server, no early join
+                Say(MusouLocal.StartingText, false);
+                return;
+            case MusouPress.Join:
+                _services.Content = ContentExtras.Musou;
+                TryJoin(ServerLaunch.LocalHost(HostedServer.Options?.Port ?? ServerLaunch.DefaultPort), remember: false);
+                return;
         }
         _services.Content = ContentExtras.Musou;
         if (MusouOverride is { } test) { test(); return; }
-        _hostPanel.StartHosting();
+        _hostPanel!.StartHosting();
         if (!HostedServer.Running) _services.Content = _services.Settings.ContentExtras;   // it could not start: the message says why
     }
+
+    /// <summary>
+    /// Test aid <c>--auto-musou --musou-cycle</c> (fix/musou-local-server end-to-end run): after the first press, presses MUSOU MODE again while the server starts, lets the
+    /// start finish and the client join (the join is logged instead of loading a match), presses it a third time (joins the running server), presses STOP MUSOU SERVER
+    /// and logs whether the very process it started is gone, then quits. Every step prints a "musou-cycle:" line.
+    /// </summary>
+    async void StartMusouCycle()
+    {
+        int joins = 0;
+        JoinOverride = r => { joins++; GD.Print($"musou-cycle: join #{joins} -> {r.Host}, content {ContentProfiles.Name(r.Content ?? ContentExtras.None)}"); };
+        int? pid = HostedServer.ProcessId;
+        GD.Print($"musou-cycle: first press started server pid {pid}, ready {HostedServer.Ready}, bind this PC only {HostedServer.Options?.LocalOnly}, port {HostedServer.Options?.Port}, content {HostedServer.Options?.Content}");
+        await ToSignal(GetTree().CreateTimer(0.5), SceneTreeTimer.SignalName.Timeout);
+        StartMusou();   // second press while it starts
+        GD.Print($"musou-cycle: second press while starting: server pid {HostedServer.ProcessId} (same: {HostedServer.ProcessId == pid}), joins {joins}, stop row shown {_stopMusou?.Visible}");
+        for (int i = 0; i < 600 && joins < 1 && HostedServer.Running; i++) await ToSignal(GetTree().CreateTimer(0.5), SceneTreeTimer.SignalName.Timeout);
+        GD.Print($"musou-cycle: start finished: ready {HostedServer.Ready}, joins {joins}");
+        StartMusou();   // third press: a running Musou server is joined
+        GD.Print($"musou-cycle: press on the ready server: joins {joins}, server pid {HostedServer.ProcessId} (same: {HostedServer.ProcessId == pid}), stop row shown {_stopMusou?.Visible}");
+        StopMusou();
+        bool alive = false;
+        if (pid is { } p) { try { alive = !System.Diagnostics.Process.GetProcessById(p).WaitForExit(5000); } catch (ArgumentException) { } }
+        GD.Print($"musou-cycle: STOP MUSOU SERVER: pid {pid} still alive {alive}, running {HostedServer.Running}, stop row shown {_stopMusou?.Visible}, content {ContentProfiles.Name(_services.Content)}");
+        GetTree().Quit();
+    }
+
+    /// <summary>The server this client started: running, listening, and Musou. (Self-test: <see cref="MusouStateForTest"/> stands in.)</summary>
+    (bool Running, bool Ready, bool Musou) MusouServerState() =>
+        MusouStateForTest ?? (HostedServer.Running, HostedServer.Ready, HostedServer.Options is { Content: ContentProfiles.Musou });
+
+    public (bool Running, bool Ready, bool Musou)? MusouStateForTest { get; set; }
+
+    /// <summary>STOP MUSOU SERVER: stops the server this client started (only that process), puts the lobby's profile back and hides the row.</summary>
+    void StopMusou()
+    {
+        _hostPanel?.StopHosted(MusouLocal.StoppedText);   // HostedServer.Stop: the one process started here; the Host panel's own state is reset with it
+        if (!CommandLineMusou) _services.Content = _services.Settings.ContentExtras;
+        SyncMusouRow();
+    }
+
+    /// <summary>The row follows the server: it is shown while a Musou server of this client runs, wherever the player came from (a match, the Host panel) and when the server dies by itself.</summary>
+    void SyncMusouRow()
+    {
+        if (_stopMusou is null) return;
+        var (running, _, musou) = MusouServerState();
+        bool show = MusouLocal.ShowStopRow(running, musou);
+        if (_stopMusou.Visible == show) return;
+        _stopMusou.Visible = show;
+        if (!show && _stopMusou.HasFocus() && _main is not null) _first.GetValueOrDefault(_main)?.FocusLater();   // the focus must not be lost with the row
+    }
+
+    Button? _stopMusou;
 
     /// <summary>Self-test: receives what a join would hand over, so no match starts.</summary>
     public Action<JoinRequest>? JoinOverride { get; set; }
@@ -570,6 +636,7 @@ public sealed partial class FrontEndView : Control
         // --menu-screen lobby|host|joinlocal|graphics|sound|controls: opens that page (screenshots).
         if (args.GetValueOrDefault("menu-screen") is { } menuScreen) ShowMenuPage(menuScreen);
         if (args.ContainsKey("auto-musou")) StartMusou();   // test aid: presses MUSOU MODE once
+        if (args.ContainsKey("auto-musou") && args.ContainsKey("musou-cycle")) StartMusouCycle();
         if (args.ContainsKey("demo-look")) DemoLook();
         // --loadout <default:role|1..10>: the loadout to open with (held in memory, not saved), as at a --connect launch.
         if (args.GetValueOrDefault("loadout") is { } wanted && LaunchOptions.ParseLoadout(wanted, _services.Catalog!) is { } chosen && LoadoutEdits.IsValid(_services.Session!.Working, chosen))

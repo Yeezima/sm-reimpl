@@ -34,6 +34,8 @@ public static class HostedServer
     {
         try { if (_process is { HasExited: true } p) _exitCode = p.ExitCode; } catch (InvalidOperationException) { }
     }
+    /// <summary>The id of the server process started here while it runs (test aids and logs); null otherwise.</summary>
+    public static int? ProcessId { get { lock (_lock) { try { return _process is { } p && Alive(p) ? p.Id : null; } catch (InvalidOperationException) { return null; } } } }
     public static bool Running { get { lock (_lock) return _process is { } p && Alive(p); } }
     /// <summary>The server printed that it is listening: a client can join.</summary>
     public static bool Ready { get { lock (_lock) return _ready && _process is { } p && Alive(p); } }
