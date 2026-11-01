@@ -16,6 +16,13 @@ public sealed partial class TfwRun
     /// <summary>Class changes since the server last took them: the smoke clouds (tag 11, <see cref="TfwFireKind.Smoke"/>).</summary>
     public IReadOnlyList<TfwFireEvent> Smoke => _smoke;
 
+    /// <summary>Another record for tag 11 (a big frag's blast, <see cref="World"/>): the smoke's list is the list of what waits for the server.</summary>
+    internal void AddFire(TfwFireEvent fire)
+    {
+        if (_smoke.Count >= MaxSmoke) _smoke.RemoveAt(0);
+        _smoke.Add(fire);
+    }
+
     /// <summary>The server took the smoke records.</summary>
     public void ClearSmoke() => _smoke.Clear();
 

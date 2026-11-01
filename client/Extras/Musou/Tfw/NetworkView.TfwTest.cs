@@ -148,6 +148,7 @@ public partial class NetworkView
         var path = _tfwTestNav.FindPath(client.Predicted.Position, at);
         if (path is null || path.Partial) { TfwCheck(what, false, $"no way from {client.Predicted.Position} to {at}"); return false; }
         var points = path.Waypoints;
+        int replans = 0;
         GD.Print($"TFWTEST note: {what}: from {client.Predicted.Position} to {at}, {points.Count} waypoints, the last {points[^1].Position}, {path.Length:F0} m");
         TfwKey(Key.W, true);
         await TfwFrames(2);
@@ -156,14 +157,25 @@ public partial class NetworkView
         while (next < points.Count && _connectedFor < end && over?.Invoke() != true)
         {
             var me = client.Predicted.Position;
-            // The farthest waypoint within 3 m ahead: corners are cut as a player cuts them.
-            while (next + 1 < points.Count && new Vector2(points[next + 1].Position.X - me.X, points[next + 1].Position.Y - me.Y).Length() < 3f) next++;
+            // The farthest waypoint within 3 m ahead and on the walker's level: corners are cut as a player cuts them, and a ramp's top is not "near" from the ground beside it. A height check
+            // on reaching one too: beside a ramp's kerb the waypoint on the ramp lies under 0.7 m away, flat, and the next one is on top of what the kerb leads to.
+            while (next + 1 < points.Count && new Vector2(points[next + 1].Position.X - me.X, points[next + 1].Position.Y - me.Y).Length() < 3f && MathF.Abs(points[next + 1].Position.Z - me.Z) < 1f
+                && points[next].Kind == SmSim.NavLinkKind.Walk && points[next + 1].Kind == SmSim.NavLinkKind.Walk) next++;
             var to = points[next].Position;
-            if (new Vector2(to.X - me.X, to.Y - me.Y).Length() < 0.7f) next++;
+            if (new Vector2(to.X - me.X, to.Y - me.Y).Length() < 0.7f && MathF.Abs(to.Z - me.Z) < 0.3f) next++;
             _yaw = MathF.Atan2(-(to.X - me.X), to.Y - me.Y);
             stuckFrames = Num.Vector3.Distance(me, last) < 0.001f ? stuckFrames + 1 : 0;
             last = me;
             if (stuckFrames == 120) GD.Print($"TFWTEST note: held up at {me} on the way to {to}");
+            // Off the way (held up against something): a new way from here, as a player would look again. 15 ticks' worth of standing still.
+            if (stuckFrames == 30 && replans < 8 && _tfwTestNav.FindPath(me, at) is { Partial: false } again)
+            {
+                replans++;
+                points = again.Waypoints;
+                next = 0;
+                stuckFrames = 0;
+                GD.Print($"TFWTEST note: {what}: a new way from {me}, {points.Count} waypoints");
+            }
             await TfwFrames();
         }
         TfwKey(Key.W, false);
@@ -365,6 +377,7 @@ public partial class NetworkView
         var client = _client!;
         if (!await TfwUntil("the war is on, in the hub", () => client.Match.State == MatchState.Playing && _tfwState.War is { Phase: TfwRunPhase.Hub } && client.Predicted.Alive, 60.0)) return;
         if (CmdFlag("tfw-test-fight")) { await TfwTestFight(); return; }
+        if (CmdFlag("tfw-test-melee")) { await TfwTestMelee(); return; }
         var start = TfwNow;
         TfwCheck("the reserves are the run's", start.Transport == TfwBattleRules.StartTransport && start.Supplies == TfwBattleRules.StartSupplies, $"{start.Transport}, {start.Supplies}");
         TfwCheck("the station prompt fits the spot", _tfwAt == TfwHudModel.StationAt(client.Predicted.Position, TfwHub!), $"{_tfwAt} at {client.Predicted.Position}");   // a respawn point is anywhere in the room

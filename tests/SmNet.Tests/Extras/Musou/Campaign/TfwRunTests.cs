@@ -569,7 +569,7 @@ public class TfwRunTests
         Assert.Equal(0, w.TfwGuards!.Alive);
         Assert.DoesNotContain(w.MusouDrops, d => d.State == MusouDropState.Live);
         TfwRig.Deploy(w);
-        Assert.Equal(60, w.TfwGuards.Alive);
+        Assert.Equal(60, w.TfwGuards.Alive + w.TfwGuards.Lost);   // a Marine landing among them may shove one to death (M5): he is still of this battle
     }
 
     [Fact]

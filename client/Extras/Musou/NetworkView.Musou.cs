@@ -58,6 +58,7 @@ public partial class NetworkView
             if (_musouDeaths.Count > MusouCrowd.MaxBodies) _musouDeaths.RemoveRange(0, _musouDeaths.Count - MusouCrowd.MaxBodies);
             if (_gameSpace is not null) MusouDraw(shown, (float)delta);
             MusouPresent(me, shown, (float)delta);   // MU3: the HUD, hit feedback, telegraphs and voices (MusouFx.cs)
+            TfwMeleeCount(shown);   // Tfw/NetworkView.TfwMelee.cs: the test aid's counts, nothing without it
             MusouGoreFrame(me, shown, (float)delta);   // M10: gibs, sprays, pools and the cleave slashes (Gore/NetworkView.MusouGore.cs)
         }
         _musouState.TakeNew();

@@ -82,7 +82,7 @@ public sealed partial class MusouSim
     {
         int i = id - 1;
         if (i < 0 || i >= Capacity || !_used[i] || _state[i] == MusouEnemyState.Dying || _type[i] == MusouEnemyType.Warboss) return false;
-        SetState(i, MusouEnemyState.Stagger);
+        if (_state[i] != MusouEnemyState.Knocked) SetState(i, MusouEnemyState.Stagger);   // one on the ground stays down: a war's fodder (MusouSim.Knock.cs)
         _token[i] = 0; _burst[i] = 0;
         if (_type[i] == MusouEnemyType.Nob) distance *= Rules.Combat.NobKnockbackScale;
         Knock(i, push, distance);

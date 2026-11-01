@@ -9,7 +9,7 @@ namespace SmSim.Extras.Musou.Campaign;
 /// </summary>
 public static class TfwRules
 {
-    public const uint Version = 12;   // 2: TF6, the war's sections on the wire and the commands with a place; 3: TF4, the war runs (the battle, the run, the extraction); 4: TF7b, tag 7 carries the own block (TfwOwnView); 5: the own block's deployed flag, and an extraction after a won battle never ends the run; 6: pass 2's contracts (tags 11 to 14, the commands ChangeClass and ChooseReward, Knocked, the deaths Barrage and Strafe); 7: battles on Manufactorum (M1: the map's points, drawn sites, tag 8 carries each radius and the sites); 8: M7 and M11 (the class change in the Stormbird: the command ChangeClass and its smoke on tag 11; the elites' bars on tag 13; a retainer wears its owner's look; 9: the hub is the Thunderhawk's interior, map version 4); 10: taken by the rewards (M6); 11: allied navigation and line of sight (M2: the Guardsmen and AI Marines go by the walking graph, shots need a sight, squads go for the nearest position not secured, all three live from the landing) and the Orks (M3: garrisons, the tide from each point, retaking, elites by the run's wins, the crowd; the owner's changes: spawning stops only with a full capture, 200 alive, no Guardsmen for now); 12: the spawn points' crowds (the Orks of a point pool there until 50, then swarm; no lone tide, no garrison rebuilding)
+    public const uint Version = 14;   // 2: TF6, the war's sections on the wire and the commands with a place; 3: TF4, the war runs (the battle, the run, the extraction); 4: TF7b, tag 7 carries the own block (TfwOwnView); 5: the own block's deployed flag, and an extraction after a won battle never ends the run; 6: pass 2's contracts (tags 11 to 14, the commands ChangeClass and ChooseReward, Knocked, the deaths Barrage and Strafe); 7: battles on Manufactorum (M1: the map's points, drawn sites, tag 8 carries each radius and the sites); 8: M7 and M11 (the class change in the Stormbird: the command ChangeClass and its smoke on tag 11; the elites' bars on tag 13; a retainer wears its owner's look; 9: the hub is the Thunderhawk's interior, map version 4); 10: taken by the rewards (M6); 11: allied navigation and line of sight (M2: the Guardsmen and AI Marines go by the walking graph, shots need a sight, squads go for the nearest position not secured, all three live from the landing) and the Orks (M3: garrisons, the tide from each point, retaking, elites by the run's wins, the crowd; the owner's changes: spawning stops only with a full capture, 200 alive, no Guardsmen for now); 12: taken by the rewards; 13: M5, the shove and the fall (Knocked), three big frags, the 20-enemy cleave, piercing shots; 14: the spawn points' crowds (the Orks of a point pool there until 50, then swarm; no lone tide, no garrison rebuilding)
 }
 
 /// <summary>The contract the war's milestones share (TF0, frozen): ids and how the war's actors are named across the simulation, the server and the client.</summary>
@@ -74,13 +74,13 @@ public readonly record struct TfwObjective(byte Index, TfwPositionState State, f
 /// <summary>One Guardsman as tag 9 carries it (10-byte records, as the enemies').</summary>
 public readonly record struct TfwGuard(ushort Id, Vector3 Position, float Yaw, byte State);
 
-/// <summary>What a fire record reports (tag 11): a shell's landing, a Thunderhawk run, one round of its guns, the smoke of a class change.</summary>
-public enum TfwFireKind : byte { Shell = 1, Run = 2, Round = 3, Smoke = 4 }
+/// <summary>What a fire record reports (tag 11): a shell's landing, a Thunderhawk run, one round of its guns, the smoke of a class change, a frag's big blast.</summary>
+public enum TfwFireKind : byte { Shell = 1, Run = 2, Round = 3, Smoke = 4, Frag = 5 }
 
 /// <summary>
 /// One record of tag 11; a client plays each (<see cref="Kind"/>, <see cref="Tick"/>, <see cref="Subject"/>) once. Shell: <see cref="Tick"/> the landing tick, <see cref="Subject"/> its number in the barrage,
 /// <see cref="At"/> the impact. Run: the first tick, the run's number, the path from <see cref="At"/> to <see cref="To"/>. Round: the firing tick, a running count, muzzle to impact. Smoke: the first tick, the player,
-/// <see cref="At"/> his feet.
+/// <see cref="At"/> his feet. Frag: the tick it went off, the projectile, <see cref="At"/> the blast, <see cref="To"/> X the thrown item and Y the blast's radius.
 /// </summary>
 public readonly record struct TfwFireEvent(TfwFireKind Kind, uint Tick, ushort Subject, Vector3 At, Vector3 To = default);
 

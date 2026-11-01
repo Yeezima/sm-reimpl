@@ -108,6 +108,7 @@ public partial class NetworkView
     void TfwBarsFrame()
     {
         TfwSmokeFrame();
+        TfwFragFrame();   // NetworkView.TfwMelee.cs
         if (Lean || _gameSpace is null || DisplayServer.GetName() == "headless") return;
         if (_tfwBarsView is null)
         {
