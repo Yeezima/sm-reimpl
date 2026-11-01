@@ -125,6 +125,10 @@ public static class PvpGoreRules
     /// </summary>
     public static bool Enabled(SmSim.ContentExtras extras) => extras.HasFlag(SmSim.ContentExtras.Gore) && !extras.HasFlag(SmSim.ContentExtras.Musou);
 
+    /// <summary>PvP: at most this many puffs for a death, drawn at <see cref="MistScale"/> of Musou's size; a victim gets a hit cloud at most once in <see cref="HitInterval"/> seconds, sized by the health lost in that time.</summary>
+    public const int MaxDeathPuffs = 4;
+    public const float MistScale = 0.5f, HitInterval = 0.3f;
+
     /// <summary>The look of a health loss between two snapshots (a hit): a shot under 20, a blow or burst of fire under 60, a blast beyond.</summary>
     public static GoreField.HitKind HitKindOf(float healthLost) => healthLost < 20f ? GoreField.HitKind.Shot : healthLost < 60f ? GoreField.HitKind.Melee : GoreField.HitKind.Blast;
 
@@ -133,6 +137,7 @@ public static class PvpGoreRules
     {
         if (cause == SmSim.KillCause.World) return GoreBurst.Nothing;
         bool blast = splash || cause is SmSim.KillCause.Thrown or SmSim.KillCause.JumpPack or SmSim.KillCause.Perk;
-        return GoreRules.Burst(blast ? GoreClass.Explosion : GoreClass.Gore, cause == SmSim.KillCause.Melee ? 0 : 2, 1.6f, metres, load, false);
+        var burst = GoreRules.Burst(blast ? GoreClass.Explosion : GoreClass.Gore, cause == SmSim.KillCause.Melee ? 0 : 2, 1.6f, metres, load, false);
+        return burst with { Mist = Math.Min(burst.Mist, MaxDeathPuffs) };   // fights stay readable: at most 4 puffs, drawn at half the Musou size (MistScale)
     }
 }

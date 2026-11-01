@@ -123,7 +123,7 @@ public sealed class GoreField
     /// Makes one death's burst at <paramref name="at"/> (the body's centre): <paramref name="push"/> the death event's direction (0: none), <paramref name="floor"/> the
     /// ground under the enemy, <paramref name="ork"/> whether chunks may be green hide.
     /// </summary>
-    public void Spawn(in GoreBurst b, Vector3 at, Vector3 push, float floor, bool ork)
+    public void Spawn(in GoreBurst b, Vector3 at, Vector3 push, float floor, bool ork, float mistScale = 1f)
     {
         if (b.Class == GoreClass.None || b.Lod == GoreLod.None) return;
         bool boom = b.Class == GoreClass.Explosion;
@@ -172,11 +172,11 @@ public sealed class GoreField
             ref var m = ref NextMist();
             // A cloud that blooms outward, hangs and thins slowly: muddy brown-red, some puffs darker. An explosion's is a huge bank several Marines across.
             float dark = F();
-            var tone = Vector3.Lerp(new Vector3(0.11f, 0.038f, 0.028f), new Vector3(0.045f, 0.014f, 0.011f), dark);
+            var tone = Vector3.Lerp(new Vector3(0.077f, 0.027f, 0.02f), new Vector3(0.032f, 0.01f, 0.008f), dark);
             var h = new Vector3(Unit().X, Unit().Y, 0f);
             m = boom
-                ? new GoreMist { Live = true, Pos = at + h * Range(0.4f, 3.2f) + new Vector3(0f, 0f, Range(-0.4f, 1.8f)), Vel = Unit() * 1.4f + new Vector3(0f, 0f, 0.5f), Size = Range(4.5f, 8f), Life = Range(5f, 8.5f), Colour = tone, Seed = F() }
-                : new GoreMist { Live = true, Pos = at + h * 0.5f + pd * 0.3f, Vel = pd * 1.0f + Unit() * 0.5f + new Vector3(0f, 0f, 0.4f), Size = Range(2.6f, 3.8f) * MathF.Sqrt(power), Life = Range(3.4f, 5f), Colour = tone, Seed = F() };
+                ? new GoreMist { Live = true, Pos = at + h * Range(0.4f, 3.2f) + new Vector3(0f, 0f, Range(-0.4f, 1.8f)), Vel = Unit() * 1.4f + new Vector3(0f, 0f, 0.5f), Size = Range(4.5f, 8f) * mistScale, Life = Range(5f, 8.5f), Colour = tone, Seed = F() }
+                : new GoreMist { Live = true, Pos = at + h * 0.5f + pd * 0.3f, Vel = pd * 1.0f + Unit() * 0.5f + new Vector3(0f, 0f, 0.4f), Size = Range(2.6f, 3.8f) * MathF.Sqrt(power) * mistScale, Life = Range(3.4f, 5f), Colour = tone, Seed = F() };
         }
         Recount();
     }
@@ -240,7 +240,7 @@ public sealed class GoreField
         {
             Live = true, Pos = at + new Vector3(Unit().X, Unit().Y, 0f) * 0.25f + d0 * 0.3f, Vel = d0 * Range(0.6f, 1.4f) + Unit() * 0.4f + new Vector3(0f, 0f, 0.4f),
             Size = Range(2.2f, 3.2f) * (0.55f + 0.45f * big) * (kind == HitKind.Shot ? 1.0f : 1.15f), Life = Range(3f, 4.6f), Seed = F(),
-            Colour = Vector3.Lerp(new Vector3(0.11f, 0.038f, 0.028f), new Vector3(0.045f, 0.014f, 0.011f), dark),
+            Colour = Vector3.Lerp(new Vector3(0.077f, 0.027f, 0.02f), new Vector3(0.032f, 0.01f, 0.008f), dark),
         };
         int n = (int)MathF.Round((kind == HitKind.Melee ? 14 : kind == HitKind.Shot ? 6 : 10) * GoreRules.Amount * Math.Clamp(load, 0.3f, 1f));
         for (int i = 0; i < n; i++)

@@ -49,10 +49,10 @@ void fragment() {
 //BUMP
     } else {
         ALBEDO = tint * mix(1.25, 0.75, a);
-        EMISSION = ALBEDO * 0.3;
+        EMISSION = ALBEDO * 0.02;
         ROUGHNESS = 1.0;
         SPECULAR = 0.0;
-        ALPHA = a * cd.y * COLOR.a * smoothstep(2.5, 9.0, -VERTEX.z);   // a cloud thins out as the camera nears it, so it never fills the view
+        ALPHA = a * cd.y * COLOR.a * smoothstep(4.0, 14.0, -VERTEX.z);   // a cloud thins out as the camera nears it, so it never fills the view
 //CLOUDBUMP
     }
 }

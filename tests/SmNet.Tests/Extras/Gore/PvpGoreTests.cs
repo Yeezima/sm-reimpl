@@ -53,6 +53,7 @@ public class PvpGoreTests
         Assert.Equal(expected, burst.Class);
         Assert.False(burst.Gibbed);   // the ragdoll stays: no body is removed in PvP
         if (expected != GoreClass.None) Assert.True(burst.Mist >= 1 && burst.Droplets > 0);
+        Assert.True(burst.Mist <= PvpGoreRules.MaxDeathPuffs);   // fights stay readable
     }
 
     [Fact]

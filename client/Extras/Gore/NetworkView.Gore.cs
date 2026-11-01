@@ -20,6 +20,10 @@ public partial class NetworkView
     static readonly bool PvpGoreOff = CmdFlag("no-gore");
     GoreView? _pvpGore;
     readonly Dictionary<int, (float Health, bool Alive)> _pvpGoreSeen = new();
+    readonly Dictionary<int, (double At, float Lost)> _pvpGoreHurt = new();
+    readonly HashSet<int> _pvpGorePresent = new();
+    MatchState? _pvpGoreState;
+    GameClient? _pvpGoreClient;
     int _pvpGoreHits, _pvpGoreDeaths;
     double _pvpGoreLogAt;
 
@@ -36,6 +40,11 @@ public partial class NetworkView
         var cam = _camera is null ? Num.Vector3.Zero : new Num.Vector3(_camera.GlobalPosition.X, -_camera.GlobalPosition.Z, _camera.GlobalPosition.Y);
         int ownId = _client.PlayerId;
         int clouds = 0;
+        // a new match or connection, and players who left, forget their state (a reused id fires no false burst)
+        if (!ReferenceEquals(_pvpGoreClient, _client) || _pvpGoreState != _client.Match.State) { _pvpGoreSeen.Clear(); _pvpGoreHurt.Clear(); _pvpGoreClient = _client; _pvpGoreState = _client.Match.State; }
+        _pvpGorePresent.Clear(); _pvpGorePresent.Add(me.PlayerId);
+        for (int i = 0; i < others.Count; i++) _pvpGorePresent.Add(others[i].PlayerId);
+        foreach (int id in new List<int>(_pvpGoreSeen.Keys)) if (!_pvpGorePresent.Contains(id)) { _pvpGoreSeen.Remove(id); _pvpGoreHurt.Remove(id); }
         PvpGoreWatch(me, ownId, cam, ref clouds);
         for (int i = 0; i < others.Count; i++) PvpGoreWatch(others[i], ownId, cam, ref clouds);
         _pvpGore.Frame((float)delta);
@@ -63,16 +72,22 @@ public partial class NetworkView
             if (plan.Class != GoreClass.None && plan.Lod != GoreLod.None)
             {
                 var push = kill is { HasDirection: true } d ? new Num.Vector3(d.Direction.X, d.Direction.Y, d.Direction.Z) : Num.Vector3.Zero;
-                view.Field.Spawn(plan, chest, push, p.Position.Z, false);
+                view.Field.Spawn(plan, chest, push, p.Position.Z, false, PvpGoreRules.MistScale);
                 _pvpGoreDeaths++;
             }
             return;
         }
         float lost = before.Health - p.Health;
-        if (p.Alive && before.Alive && lost > 0.5f && metres <= GoreRules.HitMetres && clouds < GoreRules.HitsPerFrame)
+        if (!(p.Alive && before.Alive && lost > 0.5f)) return;
+        // one cloud per victim per 0.3 s, sized by the health lost in that window
+        _pvpGoreHurt.TryGetValue(p.PlayerId, out var hurt);
+        float sum = hurt.Lost + lost;
+        if (_connectedFor - hurt.At < PvpGoreRules.HitInterval) { _pvpGoreHurt[p.PlayerId] = (hurt.At, sum); return; }
+        _pvpGoreHurt[p.PlayerId] = (_connectedFor, 0f);
+        if (metres <= GoreRules.HitMetres && clouds < GoreRules.HitsPerFrame)
         {
             clouds++; _pvpGoreHits++;
-            view.Field.HitCloud(chest, Num.Vector3.Zero, PvpGoreRules.HitKindOf(lost), view.Field.LoadScale());
+            view.Field.HitCloud(chest, Num.Vector3.Zero, PvpGoreRules.HitKindOf(sum), view.Field.LoadScale());
         }
     }
 }
