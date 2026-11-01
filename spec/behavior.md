@@ -3217,6 +3217,23 @@ The client's side of the war, bound to tags 7 and 8. Checked by a scripted playe
 | Keys in a war's match | X gives up Next weapon and V gives up Melee (and any action the player bound to Z, P or M gives up that key) for this match, in the InputMap only: the wheel and the right mouse button keep those actions, `controls.json` and the controls screen stay as they are; the orders have no controller binding yet | — | at the first war section | `TfwOrderKeysFree` | ours: the owner's approved keys clash with the defaults | ours | med |
 | Death in a battle | the match HUD's respawn line is hidden (the run holds the respawn); KILLED and the revive or extraction prompt show | — | per frame | `TfwHudFrame`, `TfwHud` | ours | ours | med |
 | Markers | ring of each position's radius (12 m, HQ 15 m) coloured by state; a 40 m pillar at each source still sending; a beacon at the landing zone | m | per frame | `TfwMarkers` | the design's section G; sizes and colours ours | ours | low |
+### Added content: Musou — the Three-Front War: the Guardsmen as drawn (TF7a; client only, no protocol change)
+
+The Exterminatus `ig_coop_guardsman` from the player's install: body `guardsman_a`, head `guardsman_head_basic_001`, rig `havok_guardsman_a_coop`, lasgun `lasgun` (`GuardRig`, `GuardLooks`, `GuardCrowd`). Drawn from tags 9 and 10. Everything here is client presentation; no value reaches the simulation.
+
+| Parameter (the Guardsmen as drawn) | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Lasgun mount | the model's `rig_prop_m_chest` node on the rig bone `RIG_Prop_M_Chest`, scale 1 | nodes | once at load | `GuardLasgun`, read from `ig_coop_lasgun` `wield_info_by_upgrade` | the install | data | high |
+| Shot effects | `lasgun_muzzle` scale 0.35 at `fx_muzzle`, `lasgun_tracer` scale 1 from `fx_muzzle` to the hit point | names, scale | per shot | `GuardRig`; the names and scales from `ig_coop_lasgun` `fire_fx`, `hit_fx` | the install | data | high |
+| Crowd budget | 120 drawn (60 in safe mode, `GuardCrowd.LowVisible`; the design's Low), at most 20 skinned within 25 m, posed every second frame beyond 12 m, the rest vertex-animated; 40 skinned before the bake is done; 40 bodies | men, m | per frame | `GuardCrowd` | the design's section E, the rest as `MusouCrowd` | ours | medium |
+| Which clip plays | out of a fight `IG_NAV_Idle_01` and `IG_NAV_Run_F_01`; for 3 s after a shot the aim set: `IG_NAV_Idle_AimForward` with `AimDown` / `AimUp`, the four `IG_NAV_Run_*_AimForward` | clips, s | per frame | `GuardRig.ClipNames`, `GuardCrowd.EngagedSeconds` | our reading of the clip names: the rig's graphs are not read | estimate | low |
+| Aim pitch range | all down or all up at 0.8 | rad | per pose (skinned) | `GuardRig.MaxAimPitch` | ours: the clips' range is not in the data read | estimate | low |
+| Run playback | clip rate = speed / 6.25, clamped to 0.3..1.5 | m/s | per frame | `GuardRig.RunRate` | the blueprint's run speed; that the clips were authored at it is an interpretation | estimate | medium |
+| Recoil | `IG_RNG_Fire_S_01` laid over the pose at each shot (0.167 s), skinned tier only | clip | per shot | `GuardCrowd` | the clip is the install's; far men show none (ours) | ours | medium |
+| Hurt reaction | `IG_REC_Light_Front_Hi_Left`, whole, only on a man standing; a moving man shows nothing | clip | per Hurt event | `GuardRig`, `GuardCrowd` | ours: hit direction is not on the wire | estimate | low |
+| Death | a death clip by id and tick out of `IG_DIE_Basic_01`, `_03`, `IG_DIE_FallForward_01`, `IG_DIE_Headshot_01`, `IG_REC_Death_02`, last frame held, sinks after 3 s over 1.5 s (no ragdoll yet) | clips, s | per Death event | `GuardRig.DeathClip`, `GuardCrowd` | the owner's order for now; the rule is ours | ours | low |
+| Clip fade | 0.15 | s | per clip change, skinned tier | `GuardCrowd.FadeSeconds` | ours | ours | medium |
+| Shot effects' reach | muzzle within 45 m of the camera, tracer within 90 m, at most 12 shots with effects a frame | m, shots | per frame | `NetworkView.TfwGuards.cs` | ours: `FxPlayer` keeps 160 effects | ours | medium |
 
 ### Added content: Musou — the Three-Front War: the battle and the run (TF4)
 

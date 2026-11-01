@@ -53,10 +53,10 @@ public partial class NetworkView
         bool enabled = TfwHudModel.InBattle(war.Phase) && me.Alive && !PickerBusy;
         var press = _tfwKeys.Update(Input.IsPhysicalKeyPressed(Key.Z), Input.IsPhysicalKeyPressed(Key.X), Input.IsPhysicalKeyPressed(Key.V), Input.IsPhysicalKeyPressed(Key.P), delta, enabled);
         if (press == TfwOrderPress.None) return;
-        if (press.HasFlag(TfwOrderPress.Follow)) _tfwWar.Commands.Issue(TfwCommand.Follow);
-        if (press.HasFlag(TfwOrderPress.Hold)) _tfwWar.Commands.Issue(TfwCommand.Hold, 0, TfwCrosshairPoint(me));
-        if (press.HasFlag(TfwOrderPress.Attack)) _tfwWar.Commands.Issue(TfwCommand.Attack, 0, TfwCrosshairEnemy(me) ?? TfwCrosshairPoint(me));
-        if (press.HasFlag(TfwOrderPress.Pickup)) _tfwWar.Commands.Issue(war.Phase == TfwRunPhase.Pickup ? TfwCommand.CancelPickup : TfwCommand.RequestPickup);
+        if (press.HasFlag(TfwOrderPress.Follow)) _tfwState.Commands.Issue(TfwCommand.Follow);
+        if (press.HasFlag(TfwOrderPress.Hold)) _tfwState.Commands.Issue(TfwCommand.Hold, 0, TfwCrosshairPoint(me));
+        if (press.HasFlag(TfwOrderPress.Attack)) _tfwState.Commands.Issue(TfwCommand.Attack, 0, TfwCrosshairEnemy(me) ?? TfwCrosshairPoint(me));
+        if (press.HasFlag(TfwOrderPress.Pickup)) _tfwState.Commands.Issue(war.Phase == TfwRunPhase.Pickup ? TfwCommand.CancelPickup : TfwCommand.RequestPickup);
     }
 
     /// <summary>The crosshair's ray in game space: the fresh centre ray, the camera's, or (no camera: headless) the view from the eye.</summary>

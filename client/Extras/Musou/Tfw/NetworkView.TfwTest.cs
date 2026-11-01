@@ -48,20 +48,20 @@ public partial class NetworkView
         if (war.Phase == TfwRunPhase.Hub && client.Match.State == MatchState.Playing && me.Alive && _connectedFor - _tfwBotSent > 2.0)
         {
             _tfwBotSent = _connectedFor;
-            _tfwWar.Commands.Issue(TfwCommand.Deploy, (byte)TfwLane.B);
+            _tfwState.Commands.Issue(TfwCommand.Deploy, (byte)TfwLane.B);
             GD.Print($"t {_connectedFor:F1} s: TFWBOT deploys to front B");
         }
         if (war.Phase is not (TfwRunPhase.Battle or TfwRunPhase.Pickup)) return;
         if (_tfwBotLanded < 0)
         {
             _tfwBotLanded = _connectedFor;
-            GD.Print($"t {_connectedFor:F1} s: TFWBOT landed at ({me.Position.X:F0}, {me.Position.Y:F0}); {_tfwWar.Objectives.Count} objectives, guards {war.Own.Guards}, retainer {war.Own.Retainer}");
+            GD.Print($"t {_connectedFor:F1} s: TFWBOT landed at ({me.Position.X:F0}, {me.Position.Y:F0}); {_tfwState.Objectives.Count} objectives, guards {war.Own.Guards}, retainer {war.Own.Retainer}");
         }
         // It walks into the fight, and a death calls a pickup off: it asks again.
         if (war.Phase == TfwRunPhase.Battle && _connectedFor - _tfwBotLanded > 5.0 && _connectedFor - _tfwBotCalled > 5.0)
         {
             _tfwBotCalled = _connectedFor;
-            _tfwWar.Commands.Issue(TfwCommand.RequestPickup);
+            _tfwState.Commands.Issue(TfwCommand.RequestPickup);
             GD.Print($"t {_connectedFor:F1} s: TFWBOT calls the pickup");
         }
     }
@@ -101,7 +101,7 @@ public partial class NetworkView
         double end = _connectedFor + seconds;
         while (!done())
         {
-            if (_connectedFor > end) { TfwCheck(what, false, $"not within {seconds:F0} s (phase {_tfwWar.War?.Phase}, at {_client?.Predicted.Position})"); return false; }
+            if (_connectedFor > end) { TfwCheck(what, false, $"not within {seconds:F0} s (phase {_tfwState.War?.Phase}, at {_client?.Predicted.Position})"); return false; }
             await TfwFrames();
         }
         TfwCheck(what, true);
@@ -139,9 +139,9 @@ public partial class NetworkView
         GD.Print(GetViewport().GetTexture().GetImage().SavePng(path) == Error.Ok ? $"tfw shot -> {path}" : $"tfw shot failed: {path}");
     }
 
-    TfwWarView TfwNow => _tfwWar.War!.Value;
+    TfwWarView TfwNow => _tfwState.War!.Value;
 
-    string TfwPromptNow => _tfwWar.War is { } war ? TfwHudModel.Prompt(war, _client!.Predicted.Alive) : "";
+    string TfwPromptNow => _tfwState.War is { } war ? TfwHudModel.Prompt(war, _client!.Predicted.Alive) : "";
 
     /// <summary>An order key: the order the server reports follows, the key's old action does not.</summary>
     async Task TfwOrder(Key key, MarineOrder order, GameAction? old)
@@ -161,17 +161,17 @@ public partial class NetworkView
         await TfwFrames(4);
         _tfwPanel!.DeployButton(lane)!.GrabFocus();
         await TfwFrames(2);
-        int waiting = _tfwWar.Commands.Pending;
+        int waiting = _tfwState.Commands.Pending;
         await TfwTap(Key.Enter);
-        TfwCheck("Enter on DEPLOY sends a command", _tfwPanel is null && (_tfwWar.Commands.Pending > waiting || TfwNow.Phase != TfwRunPhase.Hub), $"pending {_tfwWar.Commands.Pending}");
+        TfwCheck("Enter on DEPLOY sends a command", _tfwPanel is null && (_tfwState.Commands.Pending > waiting || TfwNow.Phase != TfwRunPhase.Hub), $"pending {_tfwState.Commands.Pending}");
         if (!await TfwUntil("the server echoes it: travel", () => TfwNow.Phase == TfwRunPhase.Travel, 5.0)) return false;
-        return await TfwUntil("the Stormbird lands: the battle", () => TfwNow.Phase == TfwRunPhase.Battle && _tfwWar.Objectives.Count == TfwBattle.CommanderObjective + 1, 10.0);
+        return await TfwUntil("the Stormbird lands: the battle", () => TfwNow.Phase == TfwRunPhase.Battle && _tfwState.Objectives.Count == TfwBattle.CommanderObjective + 1, 10.0);
     }
 
     async Task TfwTestScript()
     {
         var client = _client!;
-        if (!await TfwUntil("the war is on, in the hub", () => client.Match.State == MatchState.Playing && _tfwWar.War is { Phase: TfwRunPhase.Hub } && client.Predicted.Alive, 60.0)) return;
+        if (!await TfwUntil("the war is on, in the hub", () => client.Match.State == MatchState.Playing && _tfwState.War is { Phase: TfwRunPhase.Hub } && client.Predicted.Alive, 60.0)) return;
         var start = TfwNow;
         TfwCheck("the reserves are the run's", start.Transport == TfwBattleRules.StartTransport && start.Supplies == TfwBattleRules.StartSupplies, $"{start.Transport}, {start.Supplies}");
         TfwCheck("no station prompt at the spawn", _tfwAt == TfwStation.None);
@@ -246,11 +246,11 @@ public partial class NetworkView
         var landed = TfwNow;
         TfwCheck("Deploy took one transport", landed.Transport == start.Transport - TfwBattleRules.DeployCost, landed.Transport.ToString());
         await TfwWait(0.5);
-        var layout = TfwHudModel.LayoutOf(TfwLane.B, _tfwWar.Objectives);
+        var layout = TfwHudModel.LayoutOf(TfwLane.B, _tfwState.Objectives);
         var me = client.Predicted.Position;
         TfwCheck("the player stands at the landing zone", layout is not null && Num.Vector2.Distance(new(me.X, me.Y), new(layout.LandingZone.X, layout.LandingZone.Y)) < TfwMap.LandingRadius, $"{me}");
         TfwCheck("the HUD shows the Guardsmen and the retainer", landed.Own.Guards > 0 && landed.Own.Squads > 0 && landed.Own.Retainer == TfwRetainerState.Ready, TfwHudModel.GuardsText(landed.Own) + "; " + TfwHudModel.RetainerText(landed.Own));
-        TfwCheck("the first position is held", _tfwWar.Objectives[0].State >= TfwPositionState.Held);
+        TfwCheck("the first position is held", _tfwState.Objectives[0].State >= TfwPositionState.Held);
         await TfwWait(1.5);
         await TfwShot("battle-hud");
         await TfwOrder(Key.X, MarineOrder.Hold, GameAction.NextWeapon);
@@ -277,7 +277,7 @@ public partial class NetworkView
         var home = TfwNow;
         TfwCheck("the pickup took one transport", home.Transport == landed.Transport - TfwBattleRules.PickupCost, home.Transport.ToString());
         TfwCheck("the player is in the Stormbird", client.Predicted.Position.Y < -190f, client.Predicted.Position.ToString());
-        TfwCheck("the objectives are gone", _tfwWar.Objectives.Count == 0 || TfwNow.Own.Guards == 0);
+        TfwCheck("the objectives are gone", _tfwState.Objectives.Count == 0 || TfwNow.Own.Guards == 0);
         if (System.Environment.GetEnvironmentVariable("SM_TFW_DOWN_TEST") is null && !CmdFlag("tfw-test-downs")) return;
 
         // The second battle: down alone, the retainer revives

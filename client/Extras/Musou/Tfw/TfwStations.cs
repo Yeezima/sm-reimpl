@@ -97,7 +97,7 @@ public partial class NetworkView
     /// <summary>A DEPLOY row: the command goes out (resent until echoed) and the map closes. The server decides whether it stands.</summary>
     void TfwDeploy(TfwLane lane)
     {
-        var sequence = _tfwWar.Commands.Issue(TfwCommand.Deploy, (byte)lane);
+        var sequence = _tfwState.Commands.Issue(TfwCommand.Deploy, (byte)lane);
         GD.Print($"t {_connectedFor:F1} s: war: deploy to front {lane} (sequence {sequence})");
         TfwCloseWarMap();
     }
