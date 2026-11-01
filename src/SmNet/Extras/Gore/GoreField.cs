@@ -1,6 +1,6 @@
 using System.Numerics;
 
-namespace SmNet.Extras.Musou;
+namespace SmNet.Extras.Gore;
 
 /// <summary>A chunk or a limb flying, bouncing and then lying about (<see cref="Kind"/> 0 chunk, 1 limb). Game space, Z up.</summary>
 public struct GoreGib
@@ -54,18 +54,18 @@ public struct GoreSlash
 }
 
 /// <summary>
-/// The simulation of Musou Mode's gore, engine-free (M10): fixed pools of gibs (256), droplets, ground pools (a ring of 64), spatter, mist and cleave slashes, stepped
+/// The simulation of the dark gore, engine-free (M10): fixed pools of gibs (256), droplets, ground pools (a ring of 64), spatter, mist and cleave slashes, stepped
 /// ballistically with a cheap bounce on the floor under the enemy (no physics). Nothing is allocated after construction; a full pool recycles its oldest particle
-/// (counted). The Godot view (<c>client/Extras/Musou/Gore/MusouGoreView.cs</c>) only draws these arrays. Game space (metres, Z up). Every number is ours.
+/// (counted). The Godot view (<c>client/Extras/Gore/GoreView.cs</c>) only draws these arrays. Game space (metres, Z up). Every number is ours.
 /// </summary>
-public sealed class MusouGoreField
+public sealed class GoreField
 {
-    public readonly GoreGib[] Gibs = new GoreGib[MusouGoreRules.GibPool];
-    public readonly GoreDrop[] Drops = new GoreDrop[MusouGoreRules.DropletPool];
-    public readonly GorePool[] Pools = new GorePool[MusouGoreRules.PoolRing];
-    public readonly GoreSpatter[] Spatters = new GoreSpatter[MusouGoreRules.SpatterRing];
-    public readonly GoreMist[] Mists = new GoreMist[MusouGoreRules.MistPool];
-    public readonly GoreSlash[] Slashes = new GoreSlash[MusouGoreRules.SlashPool];
+    public readonly GoreGib[] Gibs = new GoreGib[GoreRules.GibPool];
+    public readonly GoreDrop[] Drops = new GoreDrop[GoreRules.DropletPool];
+    public readonly GorePool[] Pools = new GorePool[GoreRules.PoolRing];
+    public readonly GoreSpatter[] Spatters = new GoreSpatter[GoreRules.SpatterRing];
+    public readonly GoreMist[] Mists = new GoreMist[GoreRules.MistPool];
+    public readonly GoreSlash[] Slashes = new GoreSlash[GoreRules.SlashPool];
 
     readonly Random _rng;
     int _gibNext, _dropNext, _poolNext, _spatterNext, _mistNext, _slashNext;
@@ -85,7 +85,7 @@ public sealed class MusouGoreField
     /// <summary>Raised whenever a pool or spot is made or ends: the ground changed (the view rebuilds it then, and otherwise only a few times a second for the spreading and fading).</summary>
     public int GroundVersion { get; private set; }
 
-    public MusouGoreField(int seed = 40_000) => _rng = new Random(seed);
+    public GoreField(int seed = 40_000) => _rng = new Random(seed);
 
     float F() => _rng.NextSingle();
     float Range(float a, float b) => a + (b - a) * F();
@@ -98,10 +98,10 @@ public sealed class MusouGoreField
 
     static Vector3 Norm(Vector3 v, Vector3 fallback) { float l = v.Length(); return l > 1e-5f ? v / l : fallback; }
 
-    /// <summary>How much of a burst to make while the pools fill (0.25 to 1; <see cref="MusouGoreRules.Plan"/>'s load).</summary>
+    /// <summary>How much of a burst to make while the pools fill (0.25 to 1; <see cref="GoreRules.Plan"/>'s load).</summary>
     public float LoadScale()
     {
-        float load = MathF.Max(LiveGibs / (float)MusouGoreRules.GibPool, LiveDrops / (float)MusouGoreRules.DropletPool);
+        float load = MathF.Max(LiveGibs / (float)GoreRules.GibPool, LiveDrops / (float)GoreRules.DropletPool);
         return Math.Clamp(1.3f - load, 0.25f, 1f);
     }
 
@@ -162,20 +162,21 @@ public sealed class MusouGoreField
         for (int i = 0; i < b.Pools; i++)
         {
             ref var p = ref NextPool();
-            float radius = boom ? Range(1.2f, 1.9f) * (i == 0 ? 1f : 0.55f) : Range(0.38f, 0.65f) * MathF.Sqrt(power);
-            var off = i == 0 ? Vector3.Zero : new Vector3(Unit().X, Unit().Y, 0f) * 0.9f;
+            float radius = (boom ? Range(1.2f, 1.9f) * (i == 0 ? 1f : 0.55f) : Range(0.38f, 0.65f) * MathF.Sqrt(power)) * 2.4f;
+            var off = i == 0 ? Vector3.Zero : new Vector3(Unit().X, Unit().Y, 0f) * (boom ? 2.4f : 1.4f);
             GroundVersion++;
             p = new GorePool { Live = true, Pos = new Vector3(at.X + off.X, at.Y + off.Y, floor), Colour = new Vector3(Range(0.02f, 0.04f), 0.003f, 0.004f), Radius = radius, Seed = F() };
         }
         for (int i = 0; i < b.Mist; i++)
         {
             ref var m = ref NextMist();
-            // A cloud that blooms outward, hangs and thins slowly: muddy brown-red, some puffs darker.
+            // A cloud that blooms outward, hangs and thins slowly: muddy brown-red, some puffs darker. An explosion's is a huge bank several Marines across.
             float dark = F();
             var tone = Vector3.Lerp(new Vector3(0.11f, 0.038f, 0.028f), new Vector3(0.045f, 0.014f, 0.011f), dark);
+            var h = new Vector3(Unit().X, Unit().Y, 0f);
             m = boom
-                ? new GoreMist { Live = true, Pos = at + new Vector3(Unit().X, Unit().Y, MathF.Abs(Unit().Z) * 0.6f) * 0.8f, Vel = Unit() * 1.1f + new Vector3(0f, 0f, 0.5f), Size = Range(1.3f, 2.3f), Life = Range(3.8f, 6.2f), Colour = tone, Seed = F() }
-                : new GoreMist { Live = true, Pos = at + Unit() * 0.25f + pd * 0.3f, Vel = pd * 1.0f + Unit() * 0.5f + new Vector3(0f, 0f, 0.4f), Size = Range(1.1f, 1.7f) * MathF.Sqrt(power), Life = Range(2.2f, 3.4f), Colour = tone, Seed = F() };
+                ? new GoreMist { Live = true, Pos = at + h * Range(0.4f, 3.2f) + new Vector3(0f, 0f, Range(-0.4f, 1.8f)), Vel = Unit() * 1.4f + new Vector3(0f, 0f, 0.5f), Size = Range(4.5f, 8f), Life = Range(5f, 8.5f), Colour = tone, Seed = F() }
+                : new GoreMist { Live = true, Pos = at + h * 0.5f + pd * 0.3f, Vel = pd * 1.0f + Unit() * 0.5f + new Vector3(0f, 0f, 0.4f), Size = Range(2.6f, 3.8f) * MathF.Sqrt(power), Life = Range(3.4f, 5f), Colour = tone, Seed = F() };
         }
         Recount();
     }
@@ -192,7 +193,7 @@ public sealed class MusouGoreField
         var axis = Norm(right * MathF.Cos(angle) * side + up * MathF.Sin(angle), right);
         ref var s = ref NextSlash();
         s = new GoreSlash { Live = true, Pos = at + view * 0.45f, Axis = axis, Up = Norm(Vector3.Cross(view, axis), up), Normal = view, Length = Range(1.3f, 1.9f), Seed = F() };
-        int n = (int)MathF.Round(9 * LoadScale());
+        int n = (int)MathF.Round(9 * GoreRules.Amount * LoadScale());
         for (int i = 0; i < n; i++)
         {
             ref var d = ref NextDrop();
@@ -222,6 +223,41 @@ public sealed class MusouGoreField
         Recount();
     }
 
+    /// <summary>What kind of damage a <see cref="HitCloud"/> shows: it sets the size of the cloud and the amount of ink.</summary>
+    public enum HitKind : byte { Shot = 0, Head = 1, Melee = 2, Blast = 3, Fire = 4 }
+
+    /// <summary>
+    /// Every damaging hit on an enemy: a blood cloud at <paramref name="at"/> (its chest), always, never thinned (a melee hit's is at least a Marine across), and an ink spray
+    /// thrown <paramref name="dir"/> (the way the blow or shot went), three times the first pass's amount. Pools recycle their oldest.
+    /// </summary>
+    public void HitCloud(Vector3 at, Vector3 dir, HitKind kind, float load = 1f)
+    {
+        var d0 = Norm(new Vector3(dir.X, dir.Y, 0f), Vector3.UnitY);
+        float big = kind switch { HitKind.Melee => 1f, HitKind.Blast => 1.3f, HitKind.Fire => 1.25f, HitKind.Head => 0.8f, _ => 0.65f };
+        ref var m = ref NextMist();
+        float dark = F();
+        m = new GoreMist
+        {
+            Live = true, Pos = at + new Vector3(Unit().X, Unit().Y, 0f) * 0.25f + d0 * 0.3f, Vel = d0 * Range(0.6f, 1.4f) + Unit() * 0.4f + new Vector3(0f, 0f, 0.4f),
+            Size = Range(2.2f, 3.2f) * (0.55f + 0.45f * big) * (kind == HitKind.Shot ? 1.0f : 1.15f), Life = Range(3f, 4.6f), Seed = F(),
+            Colour = Vector3.Lerp(new Vector3(0.11f, 0.038f, 0.028f), new Vector3(0.045f, 0.014f, 0.011f), dark),
+        };
+        int n = (int)MathF.Round((kind == HitKind.Melee ? 14 : kind == HitKind.Shot ? 6 : 10) * GoreRules.Amount * Math.Clamp(load, 0.3f, 1f));
+        for (int i = 0; i < n; i++)
+        {
+            var v = Norm(d0 * (F() < 0.3f ? -0.7f : 1.1f) + Unit() * 0.9f, d0);
+            bool ink = i % 3 == 0;
+            ref var d = ref NextDrop();
+            d = new GoreDrop
+            {
+                Live = true, Ink = ink, Seed = F(), Rot = Range(0f, MathF.Tau), Spin = Range(-6f, 6f), Pos = at + Unit() * 0.12f, Floor = at.Z - 1.1f, Colour = Blood(),
+                Size = ink ? Range(0.08f, 0.2f) : Range(0.014f, 0.036f), Life = ink ? Range(1.2f, 2.4f) : Range(0.7f, 1.6f),
+                Vel = v * Range(2.5f, 8f) * (kind == HitKind.Melee ? 1.2f : 1f) + new Vector3(0f, 0f, Range(0.8f, 3f)),
+            };
+        }
+        Recount();
+    }
+
     ref GoreGib NextGib() { ref var g = ref Gibs[_gibNext]; if (g.Live) Recycled++; Spawned++; _gibNext = (_gibNext + 1) % Gibs.Length; return ref g; }
     ref GoreDrop NextDrop() { ref var g = ref Drops[_dropNext]; if (g.Live) Recycled++; Spawned++; _dropNext = (_dropNext + 1) % Drops.Length; return ref g; }
     ref GorePool NextPool() { ref var g = ref Pools[_poolNext]; if (g.Live) Recycled++; Spawned++; _poolNext = (_poolNext + 1) % Pools.Length; return ref g; }
@@ -233,7 +269,7 @@ public sealed class MusouGoreField
     {
         ref var s = ref NextSpatter();
         GroundVersion++;
-        s = new GoreSpatter { Live = true, Pos = new Vector3(at.X, at.Y, floor), Size = size, Rotation = Range(0f, MathF.Tau), Colour = colour * 0.9f, Seed = F() };
+        s = new GoreSpatter { Live = true, Pos = new Vector3(at.X, at.Y, floor), Size = size * 2.2f, Rotation = Range(0f, MathF.Tau), Colour = colour * 0.9f, Seed = F() };
     }
 
     /// <summary>Advances every particle by <paramref name="seconds"/> (at most 0.1).</summary>
@@ -241,7 +277,7 @@ public sealed class MusouGoreField
     {
         float dt = Math.Clamp(seconds, 0f, 0.1f);
         Time += dt;
-        float dropLoad = LiveDrops / (float)MusouGoreRules.DropletPool;
+        float dropLoad = LiveDrops / (float)GoreRules.DropletPool;
         for (int i = 0; i < Gibs.Length; i++)
         {
             ref var g = ref Gibs[i];
@@ -249,10 +285,10 @@ public sealed class MusouGoreField
             g.Age += dt;
             if (g.Resting)
             {
-                if (g.Age > MusouGoreRules.GibRestSeconds + MusouGoreRules.FadeSeconds) g.Live = false;
+                if (g.Age > GoreRules.GibRestSeconds + GoreRules.FadeSeconds) g.Live = false;
                 continue;
             }
-            g.Vel.Z -= MusouGoreRules.Gravity * dt;
+            g.Vel.Z -= GoreRules.Gravity * dt;
             g.Pos += g.Vel * dt;
             g.Angle += g.Spin * dt;
             g.Drip -= dt;
@@ -287,7 +323,7 @@ public sealed class MusouGoreField
             ref var d = ref Drops[i];
             if (!d.Live) continue;
             d.Age += dt;
-            d.Vel.Z -= MusouGoreRules.Gravity * dt;
+            d.Vel.Z -= GoreRules.Gravity * dt;
             d.Pos += d.Vel * dt;
             d.Rot += d.Spin * dt;
             if (d.Pos.Z <= d.Floor)
@@ -298,8 +334,8 @@ public sealed class MusouGoreField
             }
             else if (d.Age > d.Life) d.Live = false;
         }
-        for (int i = 0; i < Pools.Length; i++) { ref var p = ref Pools[i]; if (p.Live) { p.Age += dt; if (p.Age > MusouGoreRules.PoolSeconds) { p.Live = false; GroundVersion++; } } }
-        for (int i = 0; i < Spatters.Length; i++) { ref var s = ref Spatters[i]; if (s.Live) { s.Age += dt; if (s.Age > MusouGoreRules.SpatterSeconds) { s.Live = false; GroundVersion++; } } }
+        for (int i = 0; i < Pools.Length; i++) { ref var p = ref Pools[i]; if (p.Live) { p.Age += dt; if (p.Age > GoreRules.PoolSeconds) { p.Live = false; GroundVersion++; } } }
+        for (int i = 0; i < Spatters.Length; i++) { ref var s = ref Spatters[i]; if (s.Live) { s.Age += dt; if (s.Age > GoreRules.SpatterSeconds) { s.Live = false; GroundVersion++; } } }
         for (int i = 0; i < Mists.Length; i++)
         {
             ref var m = ref Mists[i];
@@ -309,7 +345,7 @@ public sealed class MusouGoreField
             m.Vel *= MathF.Max(0f, 1f - 1.1f * dt);
             if (m.Age > m.Life) m.Live = false;
         }
-        for (int i = 0; i < Slashes.Length; i++) { ref var s = ref Slashes[i]; if (s.Live) { s.Age += dt; if (s.Age > MusouGoreRules.SlashSeconds) s.Live = false; } }
+        for (int i = 0; i < Slashes.Length; i++) { ref var s = ref Slashes[i]; if (s.Live) { s.Age += dt; if (s.Age > GoreRules.SlashSeconds) s.Live = false; } }
         Recount();
     }
 

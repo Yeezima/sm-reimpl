@@ -1,18 +1,18 @@
 using System;
 using Godot;
-using SmNet.Extras.Musou;
+using SmNet.Extras.Gore;
 using Num = System.Numerics;
 
 namespace SmClient;
 
 /// <summary>
-/// The gore as drawn (the simulation is the engine-free <see cref="MusouGoreField"/>). The look follows the game's own trailer (owner, 2026-11-01): blood is a dark oxblood to near black,
+/// The gore as drawn (the simulation is the engine-free <see cref="GoreField"/>). The look follows the game's own trailer (owner, 2026-11-01): blood is a dark oxblood to near black,
 /// never bright red, in two shapes. (a) Soft billowing mist that blooms outward, hangs and thins slowly. (b) Ink-like splatter: irregular, jagged, stringy shapes with holes and tendrils, like
 /// spilled ink frozen mid-air, tumbling in small numbers beside a few small round droplets; the same shapes stain the ground, beside dark pools with ragged edges. There are no lumps and no flat
 /// streaks. Nothing is loaded from the install (its decals are not read); the shapes are made in code at start (<see cref="GoreTextures"/>) and drawn as lit billboards and ground quads, so the
 /// scene's lights and ambient colour them. One node in game space (Z up), five <see cref="MultiMeshInstance3D"/>s. Every size and colour is ours (kind: ours).
 /// </summary>
-public partial class MusouGoreView : Node3D
+public partial class GoreView : Node3D
 {
     // Shared by the ink and the mist: an atlas cell chosen by the instance, a lit surface, the thick parts nearly black and the thin rim brown-red.
     // //BILLBOARD and //BUMP are filled in for the camera-facing variant; //PLANE for the ground and the slash.
@@ -33,20 +33,26 @@ void fragment() {
     float cell = floor(cd.x + 0.5);
     vec2 uv = (vec2(mod(cell, cols), floor(cell / cols)) + UV) / cols;
     float a = texture(atlas, uv).r;
+    if (ink < 0.5) {
+        // a second look at another cell, turned a quarter, breaks the soft lobes up (cheap)
+        float cell2 = mod(cell + 1.0 + floor(cd.w * 2.0), cols * cols);
+        vec2 uv2 = (vec2(mod(cell2, cols), floor(cell2 / cols)) + vec2(UV.y, 1.0 - UV.x)) / cols;
+        a = clamp(a * (0.55 + 0.9 * texture(atlas, uv2).r), 0.0, 1.0);
+    }
     if (ink > 0.5) {
         float body = smoothstep(0.12, 0.55, a);
         ALBEDO = mix(tint * 2.0, tint * 0.5, smoothstep(0.35, 0.95, a));
         EMISSION = ALBEDO * 0.1;
         ROUGHNESS = 0.18;
         SPECULAR = 0.8;
-        ALPHA = body * cd.y;
+        ALPHA = body * cd.y * smoothstep(1.5, 5.0, -VERTEX.z);
 //BUMP
     } else {
         ALBEDO = tint * mix(1.25, 0.75, a);
         EMISSION = ALBEDO * 0.3;
         ROUGHNESS = 1.0;
         SPECULAR = 0.0;
-        ALPHA = a * cd.y * COLOR.a;
+        ALPHA = a * cd.y * COLOR.a * smoothstep(2.5, 9.0, -VERTEX.z);   // a cloud thins out as the camera nears it, so it never fills the view
 //CLOUDBUMP
     }
 }
@@ -116,7 +122,7 @@ void fragment() {
     readonly Layer _air, _pools, _spatters, _mist, _slashes;
     readonly Layer[] _all;
 
-    public MusouGoreField Field { get; } = new();
+    public GoreField Field { get; } = new();
     /// <summary>Total milliseconds spent in <see cref="Frame"/> and the frames counted (for the log's mean), and the worst frame.</summary>
     public double TotalMs, PreMs, MaxMs;
     public int Frames;
@@ -133,9 +139,9 @@ void fragment() {
         return m;
     }
 
-    public MusouGoreView()
+    public GoreView()
     {
-        Name = "MusouGore";
+        Name = "Gore";
         var ink = GoreTextures.Ink();
         var cloud = GoreTextures.Cloud();
         var noise = GoreTextures.Ground();
@@ -147,11 +153,11 @@ void fragment() {
         poolMaterial.SetShaderParameter("noise", noise);
         var poolQuad = new QuadMesh { Size = Vector2.One, Material = poolMaterial };
 
-        _air = Make("Ink", inkQuad, MusouGoreRules.GibPool + MusouGoreRules.DropletPool);
-        _pools = Make("Pools", poolQuad, MusouGoreRules.PoolRing);
-        _spatters = Make("Stains", stainQuad, MusouGoreRules.SpatterRing);
-        _mist = Make("Mist", mistQuad, MusouGoreRules.MistPool);
-        _slashes = Make("Slashes", slashQuad, MusouGoreRules.SlashPool);
+        _air = Make("Ink", inkQuad, GoreRules.GibPool + GoreRules.DropletPool);
+        _pools = Make("Pools", poolQuad, GoreRules.PoolRing);
+        _spatters = Make("Stains", stainQuad, GoreRules.SpatterRing);
+        _mist = Make("Mist", mistQuad, GoreRules.MistPool);
+        _slashes = Make("Slashes", slashQuad, GoreRules.SlashPool);
         _all = [_air, _pools, _spatters, _mist, _slashes];
     }
 
@@ -205,7 +211,7 @@ void fragment() {
             if (!g.Live) continue;
             bool limb = g.Kind == 1;
             float cell = limb ? Cell(g.Size * 31f % 1f, 6, 4) : Cell(g.Size * 17f % 1f, 10, 4);
-            float s = g.Size * (limb ? 4.6f : 2.6f);
+            float s = g.Size * (limb ? 11f : 6.5f);
             Put(_air, new Basis(Vector3.Right * s, Vector3.Up * s * (limb ? 0.55f : 1f), Vector3.Back), V(g.Pos), g.Colour.X * 1.8f, g.Colour.Y * 1.8f, g.Colour.Z * 1.8f, 1f, cell, 0.97f, g.Angle.Z);
         }
         for (int i = 0; i < f.Drops.Length; i++)
@@ -215,12 +221,12 @@ void fragment() {
             float fadeOut = Math.Clamp((d.Life - d.Age) / 0.25f, 0f, 1f);
             if (d.Ink)
             {
-                float s = d.Size * 2.4f;
+                float s = d.Size * 7f;
                 Put(_air, new Basis(Vector3.Right * s, Vector3.Up * s, Vector3.Back), V(d.Pos), d.Colour.X * 1.8f, d.Colour.Y * 1.8f, d.Colour.Z * 1.8f, 1f, Cell(d.Seed, 0, 10), 0.97f * fadeOut, d.Rot);
             }
             else
             {
-                float s = d.Size * 2.6f;
+                float s = d.Size * 4.5f;
                 Put(_air, new Basis(Vector3.Right * s, Vector3.Up * s, Vector3.Back), V(d.Pos), d.Colour.X, d.Colour.Y, d.Colour.Z, 1f, 14f + (d.Seed > 0.5f ? 1f : 0f), 0.97f * fadeOut, d.Rot);
             }
         }
@@ -230,14 +236,14 @@ void fragment() {
             if (!p.Live) continue;
             float spread = 1f - MathF.Exp(-p.Age / 1.6f);   // spilling out over a few seconds
             float radius = p.Radius * (0.12f + 0.88f * spread);
-            float alpha = Math.Clamp((MusouGoreRules.PoolSeconds - p.Age) / MusouGoreRules.FadeSeconds, 0f, 1f);
+            float alpha = Math.Clamp((GoreRules.PoolSeconds - p.Age) / GoreRules.FadeSeconds, 0f, 1f);
             Put(_pools, new Basis(new Vector3(radius * 2f, 0, 0), new Vector3(0, radius * 2f, 0), Vector3.Back), new Vector3(p.Pos.X, p.Pos.Y, p.Pos.Z + 0.02f + i * 0.0003f), p.Colour.X, p.Colour.Y, p.Colour.Z, 1f, p.Seed, alpha);
         }
         for (int i = 0; ground && i < f.Spatters.Length; i++)
         {
             ref readonly var s = ref f.Spatters[i];
             if (!s.Live) continue;
-            float alpha = Math.Clamp((MusouGoreRules.SpatterSeconds - s.Age) / MusouGoreRules.FadeSeconds, 0f, 1f);
+            float alpha = Math.Clamp((GoreRules.SpatterSeconds - s.Age) / GoreRules.FadeSeconds, 0f, 1f);
             var basis = new Basis(Vector3.Back, s.Rotation) * Basis.FromScale(new Vector3(s.Size * 2f, s.Size * 2f, 1f));
             Put(_spatters, basis, new Vector3(s.Pos.X, s.Pos.Y, s.Pos.Z + 0.03f + i * 0.0003f), s.Colour.X, s.Colour.Y, s.Colour.Z, 1f, Cell(s.Seed, 0, 6), alpha);
         }
@@ -247,16 +253,18 @@ void fragment() {
             if (!m.Live) continue;
             float t = m.Age / m.Life;
             // blooms outward fast, then hangs and keeps swelling slowly; in quickly, out slowly
-            float size = m.Size * (0.45f + 0.8f * (1f - MathF.Pow(1f - t, 3f)) + 0.2f * t);
-            float alpha = 0.88f * MathF.Min(1f, t / 0.05f) * (1f - Smooth(0.5f, 1f, t));
-            Put(_mist, new Basis(Vector3.Right * size, Vector3.Up * size, Vector3.Back), V(m.Pos), m.Colour.X, m.Colour.Y, m.Colour.Z, 1f, Cell(m.Seed * 3.7f % 1f, 0, 4), alpha, m.Seed * MathF.Tau + m.Age * (m.Seed < 0.5f ? 0.18f : -0.18f));
+            float size = m.Size * (0.45f + 0.8f * (1f - MathF.Pow(1f - t, 3f)) + 0.25f * t);
+            // in over the first 5 %, dense while it hangs, then thinning smoothly to nothing (no pop at the end)
+            float alpha = 0.72f * MathF.Min(1f, t / 0.05f) * MathF.Pow(1f - Smooth(0.25f, 1f, t), 1.6f);
+            float wide = 1f + 0.35f * MathF.Sin(m.Seed * 40f), tall = 1f - 0.25f * MathF.Sin(m.Seed * 40f);   // each puff its own proportions: varied lobes
+            Put(_mist, new Basis(Vector3.Right * size * wide, Vector3.Up * size * tall, Vector3.Back * size), V(m.Pos), m.Colour.X, m.Colour.Y, m.Colour.Z, 1f, Cell(m.Seed * 3.7f % 1f, 0, 4), alpha, m.Seed * MathF.Tau + m.Age * (m.Seed < 0.5f ? 0.18f : -0.18f));
         }
         for (int i = 0; i < f.Slashes.Length; i++)
         {
             ref readonly var s = ref f.Slashes[i];
             if (!s.Live) continue;
             // The stroke sweeps in over the first 0.1 s (it grows from its start toward its end) and fades by the end: an ink streak across the enemy.
-            float age = s.Age / MusouGoreRules.SlashSeconds;
+            float age = s.Age / GoreRules.SlashSeconds;
             float reveal = Math.Clamp(age / 0.4f, 0.08f, 1f);
             float fade = 1f - Math.Clamp((age - 0.5f) / 0.5f, 0f, 1f);
             var axis = V(s.Axis);
