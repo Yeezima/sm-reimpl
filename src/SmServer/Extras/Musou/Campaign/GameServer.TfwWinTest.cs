@@ -29,10 +29,10 @@ public sealed partial class GameServer
     {
         if ((TfwWinRadius < 0f && TfwStress is null) || World.Tfw is not { } run) return;
         int rate = Math.Max(1, World.Config.TickRate);
-        if (TickStatsSeconds > 0.0 && World.Tick % (uint)(rate * TickStatsSeconds) == 0)
+        if (TickStatsSeconds > 0.0 && World.Tick % Math.Max(1u, (uint)(rate * TickStatsSeconds)) == 0)
             Console.WriteLine($"TFWSTATS tick {World.Tick}: {run.Phase}, enemies {World.Musou?.Alive}, guards {World.TfwGuards?.Alive}, marines {run.Marines.Count}, players {World.Players.Count}");
         if (run.Battle is null) return;
-        if (TfwStress is { } stress)
+        if (TfwStress is not null)
             foreach (int human in run.InField)
                 if (World.Players.TryGetValue(human, out var p) && !p.Alive) World.TfwRespawnAt(human, p.Position, p.Yaw);
         if (World.Tick % (uint)rate != 0) return;
