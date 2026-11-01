@@ -8,7 +8,7 @@ namespace SmClient.Customizer;
 
 /// <summary>
 /// The shared look and widgets of the front end and the customizer: one <see cref="Theme"/> (ui/menu-rebuild, the owner's Half-Life 2 style menus: DejaVu Sans Bold, white text, transparent
-/// text buttons that brighten on hover and focus, an underline on a chosen toggle, no boxes or borders), text for every state (colour is never the only signal),
+/// text buttons that brighten on hover and focus, white text on a chosen toggle, no boxes or borders), text for every state (colour is never the only signal),
 /// a "Reduce motion" switch, and the small modal dialogs. Everything is real Controls in a 1920 x 1080 virtual space (the window scales it). The page layout is in MenuKit.cs.
 /// </summary>
 public static partial class UiKit
@@ -95,21 +95,19 @@ public static partial class UiKit
             t.SetStylebox("hover", type, Clear(8));
             t.SetStylebox("disabled", type, Clear(8));
             t.SetStylebox("focus", type, new StyleBoxEmpty());
-            t.SetStylebox("pressed", type, Underline(8));
-            t.SetStylebox("hover_pressed", type, Underline(8));
+            t.SetStylebox("pressed", type, Clear(8));
+            t.SetStylebox("hover_pressed", type, Clear(8));
         }
         t.SetStylebox("panel", "PanelContainer", Clear(12));
         t.SetStylebox("panel", "Panel", Clear(12));
-        var field = Underline(6, 1);
-        field.BorderColor = new Color(White, 0.6f);
-        t.SetStylebox("normal", "LineEdit", field);
-        t.SetStylebox("focus", "LineEdit", Underline(6, 2));
+        t.SetStylebox("normal", "LineEdit", Clear(6));
+        t.SetStylebox("focus", "LineEdit", Clear(6));
         t.SetColor("caret_color", "LineEdit", White);
         t.SetColor("selection_color", "LineEdit", new Color(White, 0.3f));
         t.SetTypeVariation("SmMenuField", "LineEdit");
         t.SetFontSize("font_size", "SmMenuField", MenuTextSize);
-        t.SetStylebox("normal", "SmMenuField", Underline(1, 1));
-        t.SetStylebox("focus", "SmMenuField", Underline(1, 2));
+        t.SetStylebox("normal", "SmMenuField", Clear(1));
+        t.SetStylebox("focus", "SmMenuField", Clear(1));
         // Scroll bars: wide enough to grab (a StyleBoxFlat has no size of its own, so without content margins the bar measured 0 px: fix/customizer-weapons-perks).
         var track = new StyleBoxFlat { BgColor = new Color(1f, 1f, 1f, 0.08f), ContentMarginLeft = 6, ContentMarginRight = 6, ContentMarginTop = 6, ContentMarginBottom = 6 };
         var grab = new StyleBoxFlat { BgColor = new Color(White, 0.55f), ContentMarginLeft = 4, ContentMarginRight = 4, ContentMarginTop = 4, ContentMarginBottom = 4 };

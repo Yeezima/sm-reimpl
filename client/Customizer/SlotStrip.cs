@@ -94,7 +94,6 @@ public sealed partial class SlotStrip : VBoxContainer
         }
         AddChild(custom);
         if (hadFocus && focusedSelection is { } fs && ChipOf(fs) is { } chip) chip.FocusLater();
-        ApplyOpen();
     }
 
     static Label Caption(string text)
@@ -168,27 +167,10 @@ public sealed partial class SlotStrip : VBoxContainer
 
     static string Trim(string text, int max) => text.Length <= max ? text : text[..(max - 1)] + ".";
 
-    /// <summary>Marks the open selection's chip with a line under it.</summary>
-    void ApplyOpen()
-    {
-        foreach (var (selection, chip) in _chips)
-        {
-            bool open = Open is { } o && o == selection;
-            var box = (StyleBoxFlat)chip.GetThemeStylebox("normal");
-            var copy = (StyleBoxFlat)box.Duplicate();
-            if (open)
-            {
-                copy.BorderColor = UiKit.White;
-                copy.BorderWidthBottom = 2;
-            }
-            chip.AddThemeStyleboxOverride("normal", copy);
-        }
-    }
-
+    /// <summary>Remembers the open selection.</summary>
     public void SetOpen(Selection? selection)
     {
         Open = selection;
-        ApplyOpen();
     }
 
     /// <summary>Digits 1 to 9 and 0 (slot 10) jump to a slot when the strip has the focus.</summary>
