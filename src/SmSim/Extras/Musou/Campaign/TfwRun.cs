@@ -49,6 +49,18 @@ public sealed partial class TfwRun
     /// <summary>Test seam for the AI Marines: whether a player's retainer can revive it (null: the World asks the roster).</summary>
     public Func<int, bool>? RetainerUp { get; set; }
 
+    /// <summary>Battles won this run: the elites rise with them.</summary>
+    public int Wins { get; private set; }
+    /// <summary>Whether a battle lands Guardsmen (<see cref="TfwBattleRules.GuardsmenEnabled"/>; tests and a test aid set it).</summary>
+    public bool Guardsmen { get; set; } = TfwBattleRules.GuardsmenEnabled;
+
+    /// <summary>The wins a run needs on <paramref name="lane"/> from its start.</summary>
+    public static int WinsNeeded(TfwLane lane) => WarRules.FrontStronghold - (lane switch { TfwLane.A => WarRules.StartFrontA, TfwLane.B => WarRules.StartFrontB, _ => WarRules.StartFrontC });
+
+    /// <summary>Wall-clock milliseconds of the last landing and of its sites' draw (for the cost report).</summary>
+    public double LastLandMilliseconds { get; private set; }
+    public double LastSitesMilliseconds { get; private set; }
+
     /// <summary>Test aid (ours): the run stands still: it takes no command from the queue and feeds no wire, for tests of the queue and of the wire themselves.</summary>
     public bool Idle { get; set; }
 
@@ -76,6 +88,7 @@ public sealed partial class TfwRun
         Supplies = TfwBattleRules.StartSupplies;
         TravelTicks = PickupTicks = ExtractionTicks = 0;
         Deployed = false;
+        Wins = 0;
         ActivePosition = null;
         _deployed.Clear();
         _reviveTicks.Clear();
@@ -166,13 +179,15 @@ public sealed partial class TfwRun
         var state = War.LaneState(lane);
         bool final = state.Front == WarRules.FrontStronghold;
         int node = final ? WarRules.Positions : state.Front + 1;
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
         var layout = Sites.Layout(lane, node, w.Tick);
+        LastSitesMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
         var bonus = final ? War.FinalBonus(lane) : default;
         w.TfwClearField();
         _deployed.Clear();
         foreach (int id in w.Players.Keys) if (!TfwContracts.IsPuppet(id)) _deployed.Add(id);
         _deployed.Sort();
-        Battle = new TfwBattle(w.Musou!, w.TfwGuards!, layout, state.Ork, state.Imperial, _deployed.Count, final, bonus);
+        Battle = new TfwBattle(w.Musou!, w.TfwGuards!, layout, state.Imperial, _deployed.Count, final, bonus, TfwBattleRules.EliteShare(TfwBattleRules.RunProgress(Wins, WinsNeeded(lane), final)), Guardsmen);
         Battle.Start();
         _fighting = final ? TfwRunPhase.FinalAssault : TfwRunPhase.Battle;
         War.Enter(_fighting, lane);
@@ -191,6 +206,7 @@ public sealed partial class TfwRun
             if ((final || other == lane) && War.LaneState(other).LordState == WarRules.LordPresent)
                 w.TfwSpawnLord(other, Ashore(w, layout, new Vector3(l * 3f - 3f, 3f, 0f)), yaw);
         }
+        LastLandMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
     }
 
     /// <summary>A place <paramref name="offset"/> from the landing zone, on the graph's ground; the landing zone itself when that falls in a wall.</summary>
@@ -211,9 +227,9 @@ public sealed partial class TfwRun
         if (_feet.Length < w.Players.Count * 2) _feet = new Vector3[w.Players.Count * 4];
         int n = 0;
         foreach (var p in w.Players.Values) if (p.Alive) _feet[n++] = p.Position;
-        int humans = n;
-        foreach (int id in _deployed) if (w.Players[id] is { Alive: true } p) _feet[humans++] = p.Position;
-        var change = battle.Step(_feet.AsSpan(0, n), _feet.AsSpan(n, humans - n));
+        int humans = 0;
+        foreach (int id in w.Players.Keys) if (!TfwContracts.IsPuppet(id)) humans++;
+        var change = battle.Step(_feet.AsSpan(0, n), humans);
         if (change.HasFlag(TfwBattleChange.DepotSecured))
         {
             Transport += TfwBattleRules.DepotTransport;
@@ -222,6 +238,7 @@ public sealed partial class TfwRun
         if (change.HasFlag(TfwBattleChange.Won))
         {
             if (_fighting == TfwRunPhase.FinalAssault) { PickupTicks = 0; War.Enter(TfwRunPhase.Won); return; }
+            Wins++;
             War.PlayerWon(War.BattleLane);
         }
         Downed(w, rate);

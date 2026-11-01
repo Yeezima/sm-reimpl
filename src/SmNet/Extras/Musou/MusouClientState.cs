@@ -83,6 +83,21 @@ public sealed class MusouClientState
     public IReadOnlyList<MusouEvent> NewEvents => _newEvents;
     public IReadOnlyList<MusouDeathShown> NewDeaths => _newDeaths;
 
+    /// <summary>Test aid: the middle of the enemies known within <paramref name="within"/> of <paramref name="from"/> (null: none), at their newest records.</summary>
+    public Vector3? MiddleNear(Vector3 from, float within)
+    {
+        var sum = Vector3.Zero;
+        int n = 0;
+        foreach (var track in _tracks.Values)
+        {
+            if (track.Count == 0) continue;
+            var p = track.Positions[(track.Count - 1) % History];
+            if (Vector3.DistanceSquared(p, from) > within * within) continue;
+            sum += p; n++;
+        }
+        return n > 0 ? sum / n : null;
+    }
+
     /// <summary>Clears <see cref="NewEvents"/> and <see cref="NewDeaths"/> (the view took them).</summary>
     public void TakeNew() { _newEvents.Clear(); _newDeaths.Clear(); }
 

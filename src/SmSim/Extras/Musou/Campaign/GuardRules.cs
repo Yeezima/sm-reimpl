@@ -14,6 +14,12 @@ public sealed record GuardRules
     public float SquadSpeedScale { get; init; } = 0.9f;
     /// <summary>A squad gives up an order after this long without getting nearer to it (a place it cannot walk to).</summary>
     public float StallSeconds { get; init; } = 1f;
+    /// <summary>On a way (M2): the last metres to an order are straight; a man this far ahead of his squad on the way slows to <see cref="WaitScale"/> of his speed.</summary>
+    public float LastStraight { get; init; } = 4f;
+    public float AheadOfSquad { get; init; } = 3f;
+    public float WaitScale { get; init; } = 0.35f;
+    /// <summary>A squad on the graph stops walking while an enemy is this near its centre (M2: it stands and fights, a front forms).</summary>
+    public float HaltDistance { get; init; } = 8f;
     /// <summary>The formation's spacing (two rows of five).</summary>
     public float Spacing { get; init; } = 1.5f;
     /// <summary>Body radius for the men's separation, the hash's cell, how hard they push apart (m/s per metre of overlap) and the neighbours considered.</summary>
@@ -28,10 +34,14 @@ public sealed record GuardRules
     /// <summary>A man fires every <see cref="FirePeriod"/> plus or minus <see cref="FireJitter"/> seconds.</summary>
     public float FirePeriod { get; init; } = 1f;
     public float FireJitter { get; init; } = 0.2f;
-    /// <summary>Chance a shot hits: <see cref="HitNear"/> up to <see cref="HitNearDistance"/>, falling linearly to <see cref="HitFar"/> at <see cref="Range"/>. No line of sight (an empty box).</summary>
+    /// <summary>Chance a shot hits: <see cref="HitNear"/> up to <see cref="HitNearDistance"/>, falling linearly to <see cref="HitFar"/> at <see cref="Range"/>. A shot needs a line of sight (M2).</summary>
     public float HitNear { get; init; } = 0.65f;
     public float HitNearDistance { get; init; } = 10f;
     public float HitFar { get; init; } = 0.2f;
+    /// <summary>A shot's line of sight: from this high over his feet to this high over the enemy's, on the weapons mesh; a man looks at most at this many enemies for a shot.</summary>
+    public float EyeHeight { get; init; } = 1.5f;
+    public float ChestHeight { get; init; } = 1.2f;
+    public int SightTries { get; init; } = 3;
     /// <summary>A shot's damage.</summary>
     public float Damage { get; init; } = 5f;
     /// <summary>Seconds a dead man's slot is kept for the client's death.</summary>

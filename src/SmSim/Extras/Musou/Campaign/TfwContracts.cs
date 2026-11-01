@@ -9,7 +9,7 @@ namespace SmSim.Extras.Musou.Campaign;
 /// </summary>
 public static class TfwRules
 {
-    public const uint Version = 9;   // 2: TF6, the war's sections on the wire and the commands with a place; 3: TF4, the war runs (the battle, the run, the extraction); 4: TF7b, tag 7 carries the own block (TfwOwnView); 5: the own block's deployed flag, and an extraction after a won battle never ends the run; 6: pass 2's contracts (tags 11 to 14, the commands ChangeClass and ChooseReward, Knocked, the deaths Barrage and Strafe); 7: battles on Manufactorum (M1: the map's points, drawn sites, tag 8 carries each radius and the sites); 8: M7 and M11 (the class change in the Stormbird: the command ChangeClass and its smoke on tag 11; the elites' bars on tag 13; a retainer wears its owner's look; 9: the hub is the Thunderhawk's interior, map version 4)
+    public const uint Version = 11;   // 2: TF6, the war's sections on the wire and the commands with a place; 3: TF4, the war runs (the battle, the run, the extraction); 4: TF7b, tag 7 carries the own block (TfwOwnView); 5: the own block's deployed flag, and an extraction after a won battle never ends the run; 6: pass 2's contracts (tags 11 to 14, the commands ChangeClass and ChooseReward, Knocked, the deaths Barrage and Strafe); 7: battles on Manufactorum (M1: the map's points, drawn sites, tag 8 carries each radius and the sites); 8: M7 and M11 (the class change in the Stormbird: the command ChangeClass and its smoke on tag 11; the elites' bars on tag 13; a retainer wears its owner's look; 9: the hub is the Thunderhawk's interior, map version 4); 10: taken by the rewards (M6); 11: allied navigation and line of sight (M2: the Guardsmen and AI Marines go by the walking graph, shots need a sight, squads go for the nearest position not secured, all three live from the landing) and the Orks (M3: garrisons, the tide from each point, retaking, elites by the run's wins, the crowd; the owner's changes: spawning stops only with a full capture, 200 alive, no Guardsmen for now)
 }
 
 /// <summary>The contract the war's milestones share (TF0, frozen): ids and how the war's actors are named across the simulation, the server and the client.</summary>
@@ -20,6 +20,9 @@ public static class TfwContracts
 
     /// <summary>Whether <paramref name="id"/> is one of the AI Marines' ids. Means nothing outside a war (<see cref="World.Tfw"/> null): a human may hold such an id there.</summary>
     public static bool IsPuppet(int id) => id is >= PuppetIdFirst and <= PuppetIdLast;
+
+    /// <summary>The <see cref="MusouTarget.Id"/> of a secured position as the place the Orks go to retake (<see cref="MusouTarget.Goal"/>): over the AI Marines' ids, under 16 bits.</summary>
+    public static int PointTargetId(int position) => PuppetIdLast + 3 + position;
 
     /// <summary>The <see cref="MusouTarget.Id"/> of Guard squad <paramref name="squad"/> (0-based): -2 and down, so it never meets a player's id or <see cref="FlowField"/>'s -1 for an unreached node.</summary>
     public static int GuardTargetId(int squad) => -(squad + 2);
