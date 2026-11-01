@@ -18,3 +18,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Thunder hammer and daemon maul strikes follow their target and land more reliably.
 - The blue clouds from power weapon hits are half the size.
 - The stalker bolter leaves a wall crater, larger than the bolter's.
+- Musou Mode: Orks killed by artillery, frag grenades and plasma cannon blasts are now thrown by the explosion and tumble to the ground.
