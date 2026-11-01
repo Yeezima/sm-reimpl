@@ -63,7 +63,7 @@ public static class TfwBattleRules
 
     // What the Orks are made of (the design's section B; the owner's item 6). Of every 100 fodder and of every 100 elites:
     public const float EliteBase = 0.10f, EliteSlope = 0.50f;
-    public const float FodderBoyz = 0.55f, FodderShootas = 0.30f, EliteArds = 0.75f;
+    public const float FodderBoyz = 0.70f, FodderShootas = 0.30f, EliteArds = 0.75f;   // the owner, 2026-11-02: no Gretchin; their 0.15 went to the Boyz, the head count is unchanged
 
     // The commander.
     public const float CommanderHealth = 1500f;
@@ -312,7 +312,7 @@ public sealed class TfwBattle
         int n = _picked++;
         double elite = n * 0.6180339887498949 % 1.0, kind = n * 0.7548776662466927 % 1.0;
         if (elite < EliteShare) return kind < TfwBattleRules.EliteArds ? MusouEnemyType.ArdBoy : MusouEnemyType.Nob;
-        return kind < TfwBattleRules.FodderBoyz ? MusouEnemyType.Boy : kind < TfwBattleRules.FodderBoyz + TfwBattleRules.FodderShootas ? MusouEnemyType.ShootaBoy : MusouEnemyType.Gretchin;
+        return kind < TfwBattleRules.FodderBoyz ? MusouEnemyType.Boy : MusouEnemyType.ShootaBoy;
     }
 
     /// <summary>The next spot of a disc round <paramref name="centre"/>, jittered, on the graph's ground (the centre when it fell in a wall).</summary>

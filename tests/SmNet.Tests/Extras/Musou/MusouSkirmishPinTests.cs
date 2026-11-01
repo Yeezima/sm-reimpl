@@ -38,7 +38,7 @@ public class MusouSkirmishPinTests(ITestOutputHelper output)
 
     // ---------------------------------------------------------------- the golden (captured on main 2ed1501e, before TF0's hooks)
 
-    const string Golden = "55605AFF06EE5C496052981812E40B0ED62D2DA66E8C2857A8C297F92219FA2B";
+    const string Golden = "6EE11B7EF324B7B56DB41EA9E1703FABFD74DDAB1A185AF4BC6E52B6DC33C14C";
 
     [Fact]
     public void The_skirmish_replay_is_unchanged()

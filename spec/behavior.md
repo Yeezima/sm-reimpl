@@ -3857,3 +3857,18 @@ Musou Mode's enemies sound with the original events through `SoundSystem`, so th
 | Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
 |---|---|---|---|---|---|---|---|
 | Commander status text | font size **14** (the position letters 40), shown only within **6** degrees of the crosshair | points, degrees | per frame | `TfwMarkers` | owner 2026-11-02 | ours | estimate |
+
+### Musou Mode: no Gretchin, flashes behind walls (fix/orks-and-spawn-lights; client and simulation, Musou Mode only)
+
+| Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Fodder mix | Boyz **0.70**, Shoota Boyz **0.30**, no Gretchin; the waves' Gretchin shares go to the Boyz; head counts unchanged | share | per spawn | `TfwBattleRules`, `MusouRules` | owner 2026-11-02 | ours | decided |
+| Flash lights need a clear line to the camera | an effect's or blast's flash with a wall between it and the camera draws no light; the last **1** m counts as clear; map lamps are not affected | m | per frame | `MusouLightSeen` | owner 2026-11-02, the spawn area's flashing | ours | estimate |
+
+### Musou Mode: the enemies' bodies for shots (used by the simulation, Musou Mode only)
+
+| Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Shot body height | Boy, Shoota Boy, 'Ard Boy **2.15**, Nob **3.0**, Gretchin 1.5, others their walking height | m | per shot | `MusouSim.ShotBody` | the drawn models (docs/discovery.md); owner 2026-11-02 | ours | estimate |
+| Shot body radius | **1.5** times the walking radius | factor | per shot | `MusouSim.ShotRadiusScale` | owner 2026-11-02 | ours | estimate |
+| Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks | s | server ticks | `MusouSim.TrailTicks` | owner 2026-11-02 | ours | estimate |

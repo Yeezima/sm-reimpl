@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2128 spec table rows: **1517 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 454 rows of the changes document.
+Scanned 2133 spec table rows: **1522 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 454 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -49,17 +49,17 @@ Scanned 2128 spec table rows: **1517 tagged**, 441 not tagged (read from data wi
 | Customizer and paint | 48 | 45 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
-| Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 256 | 240 | 213 | 27 | 1 |
+| Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
+| Core simulation (provisional values) | 258 | 242 | 213 | 29 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 107 | 100 | 61 | 11 | 0 |
-| **All areas** | **1517** | 1289 | 1214 | 431 | 38 |
+| Ork faction | 109 | 102 | 61 | 12 | 0 |
+| **All areas** | **1522** | 1294 | 1214 | 435 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 701 |
+| kind: ours | 706 |
 | confidence: low | 571 |
 | confidence: medium | 515 |
 | kind: interpretation | 335 |
@@ -73,9 +73,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: provisional | 31 |
 | kind: choice | 29 |
 | notes: user's knowledge | 26 |
+| notes: estimate | 23 |
 | kind: approximation | 22 |
 | kind: placeholder | 22 |
-| notes: estimate | 19 |
 | notes: placeholder | 19 |
 | kind: gap (not reproduced) | 17 |
 | notes: open question | 16 |
@@ -1832,7 +1832,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC513790` | Look SSR by preset (fx/impact-pass review) | a look's `ssr.on` (the remaster's) turns screen-space reflections on at medium and high only; low and off never run SSR (older hardware is the next priority); high has SSR anyway. Off = the M40-T7 renderer features alone (no shadows, SSAO, SSIL, volumetric… | kind: ours | ours | Look SSR by preset (fx/impact-pass review): compare with SM1 with side-by-side screenshots in the same spot. Ours: a look's ssr.on (the remaster's) turns screen-space reflections on at… | ☐ |
 | `R-6E7116B1` | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical… | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat… | confidence: medium | measured | Effect checks after the review fixes (demo replays on Godot…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: own bolter tracer and the enemy's shots from the follow camera, own… | ☐ |
 
-### Networking and render smoothing (10)
+### Networking and render smoothing (11)
 
 *Spec section: Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated)*
 
@@ -1854,7 +1854,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (256)
+*Spec section: Musou Mode: the enemies' bodies for shots (used by the simulation, Musou Mode only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-EB03504B` | Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks (s) | kind: ours; notes: estimate | owner 2026-11-02 | Shot lag allowance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each shot is also tried on the enemy's places over the last 0.2 s… | ☐ |
+
+### Core simulation (provisional values) (258)
 
 *Spec section: Provisional values in use*
 
@@ -2252,6 +2258,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-29BD2B26` | Commander status text | font size **14** (the position letters 40), shown only within **6** degrees of the crosshair (points, degrees) | kind: ours; notes: estimate | owner 2026-11-02 | Commander status text: compare with SM1 with an overlaid screenshot taken from the same position. Ours: font size 14 (the position letters 40), shown only within 6 degrees… | ☐ |
 
+*Spec section: Musou Mode: the enemies' bodies for shots (used by the simulation, Musou Mode only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-ADFB4783` | Shot body height | Boy, Shoota Boy, 'Ard Boy **2.15**, Nob **3.0**, Gretchin 1.5, others their walking height (m) | kind: ours; notes: estimate | the drawn models (docs/discovery.md); owner 2026-11-02 | Shot body height: compare with SM1 by measuring on a flat spot of the same map. Ours: Boy, Shoota Boy, 'Ard Boy 2.15, Nob 3.0, Gretchin 1.5, others their… | ☐ |
+| `R-184E977E` | Shot body radius | **1.5** times the walking radius (factor) | kind: ours; notes: estimate | owner 2026-11-02 | Shot body radius: compare with SM1 by measuring on a flat spot of the same map. Ours: 1.5 times the walking radius. | ☐ |
+
 ### General game design (7)
 
 *Spec section: Known behavior (public, unverified)*
@@ -2446,6 +2459,13 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-270641A7` | Grunt and bark spacing of one enemy | grunt every 2.5 to 5 s (the data's clips carry one about every 1.2 s; thinned for a crowd), bark every 6 to 14 s (s) | kind: ours; confidence: medium | ours | Grunt and bark spacing of one enemy: compare with SM1 by listening A/B at the same distance and state. Ours: grunt every 2.5 to 5 s (the data's clips carry one about every 1.2 s… | ☐ |
 | `R-6FC2CF1A` | Hurt grunt spacing of one enemy | 1 (s) | kind: ours; confidence: medium | ours | Hurt grunt spacing of one enemy: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1. | ☐ |
 | `R-86B9A918` | Impact surfaces | a gun's or blow's hit on a Marine plays on `armour`, a miss on `stone`, whatever is really there | kind: ours; confidence: low | ours | Impact surfaces: compare with SM1 by feel or video. Ours: a gun's or blow's hit on a Marine plays on armour, a miss on stone… | ☐ |
+
+*Spec section: Musou Mode: no Gretchin, flashes behind walls (fix/orks-and-spawn-lights; client and simulation, Musou Mode only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-376BD3E5` | Fodder mix | Boyz **0.70**, Shoota Boyz **0.30**, no Gretchin; the waves' Gretchin shares go to the Boyz; head counts unchanged (share) | kind: ours | owner 2026-11-02 | Fodder mix: compare with SM1 by listening A/B at the same distance and state. Ours: Boyz 0.70, Shoota Boyz 0.30, no Gretchin; the waves' Gretchin shares… | ☐ |
+| `R-9738BA5B` | Flash lights need a clear line to the camera | an effect's or blast's flash with a wall between it and the camera draws no light; the last **1** m counts as clear; map lamps are not affected (m) | kind: ours; notes: estimate | owner 2026-11-02, the spawn area's flashing | Flash lights need a clear line to the camera: compare with SM1 by measuring on a flat spot of the same map. Ours: an effect's or blast's flash with a wall between it and the camera… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 

@@ -136,6 +136,26 @@ public sealed partial class MusouSim
         return (spec.Radius * scale, spec.Height * scale);
     }
 
+    /// <summary>How much wider a shot finds an enemy than its walking radius (ours: the shoulders and arms are outside it).</summary>
+    public const float ShotRadiusScale = 1.5f;
+
+    /// <summary>
+    /// An enemy's body as a shot sees it: the height of the model drawn (Boy 2.15 m, Nob 3.0 m, docs/discovery.md; the type's <see cref="MusouTypeSpec.Height"/> is its walking size, and the top of the model was
+    /// left without a body), <see cref="ShotRadiusScale"/> wide.
+    /// </summary>
+    public (float Radius, float Height) ShotBody(MusouEnemyType type)
+    {
+        var (radius, height) = Body(type);
+        height = type switch
+        {
+            MusouEnemyType.Boy or MusouEnemyType.ShootaBoy or MusouEnemyType.ArdBoy => 2.15f,
+            MusouEnemyType.Gretchin => 1.5f,
+            MusouEnemyType.Nob => 3f,
+            _ => height,
+        };
+        return (radius * ShotRadiusScale, height);
+    }
+
     /// <summary>The point a blast or a cone measures an enemy's distance to: its chest (0.55 of its height; ours).</summary>
     public static Vector3 Chest(Vector3 feet, float height) => feet + new Vector3(0f, 0f, height * 0.55f);
 

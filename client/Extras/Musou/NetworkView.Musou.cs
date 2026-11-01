@@ -67,8 +67,24 @@ public partial class NetworkView
         MusouLog(delta, shown.Count);
     }
 
+    /// <summary>
+    /// Whether the camera has a clear line to a flash (Godot space): the effect lights cast no shadows, so in Musou Mode a blast outside lit the spawn room through its walls, again and again. The last metre
+    /// counts as clear, so a blast against a wall still lights that wall.
+    /// </summary>
+    bool MusouLightSeen(Vector3 at)
+    {
+        if (_camera is not { } camera || _gameSpace is null || _client?.Collision is not { } world) return true;
+        var toGame = _gameSpace.GlobalTransform.AffineInverse();
+        Vector3 from = toGame * camera.GlobalPosition, to = toGame * at;
+        var way = new System.Numerics.Vector3(to.X - from.X, to.Y - from.Y, to.Z - from.Z);
+        float length = way.Length();
+        if (length <= 1f) return true;
+        return !(world.Weapons.Raycast(new System.Numerics.Vector3(from.X, from.Y, from.Z), way / length, length) is { } wall && wall.Distance < length - 1f);
+    }
+
     void MusouDraw(IReadOnlyList<MusouShown> shown, float delta)
     {
+        if (_fx is not null) _fx.LightFilter ??= MusouLightSeen;
         if (_musouStarted < 0) _musouStarted = _connectedFor;
         if (_musouLooks is null)
         {

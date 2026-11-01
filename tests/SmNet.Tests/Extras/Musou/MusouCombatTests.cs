@@ -102,11 +102,11 @@ public class MusouCombatTests
         Assert.Equal(0, shot.Target);
         Assert.True(sim.TryGet(boy, out var e));
         Assert.True(e.Health < 85f);
-        // The end lies on the boy's near surface: its body cylinder (0.4 m off its axis) or its head sphere (0.22 m from its centre at 1.68 m).
+        // The end lies on the boy's near surface: its body cylinder (0.6 m off its axis) or its head sphere (0.22 m from its centre at the top).
         float off = shot.Hit == ShotHit.Head
-            ? Vector3.Distance(shot.End, e.Position + new Vector3(0f, 0f, 1.68f))
+            ? Vector3.Distance(shot.End, e.Position + new Vector3(0f, 0f, 2.15f - 0.22f * 2.15f / 1.9f))
             : new Vector2(shot.End.X - e.Position.X, shot.End.Y - e.Position.Y).Length();
-        Assert.Equal(shot.Hit == ShotHit.Head ? 0.22f : 0.4f, off, 2);
+        Assert.Equal(shot.Hit == ShotHit.Head ? 0.22f : 0.6f, off, 2);
         Assert.True(shot.End.Y < e.Position.Y);
     }
 
@@ -447,7 +447,7 @@ public class MusouCombatTests
         int glance = flight.FindIndex(f => f.P.Bounces == 0 && f.P.Velocity.Length() < 0.2f * speed);
         Assert.True(glance > 0);
         Assert.True(flight[glance].T <= free[k].T);
-        Assert.True(new Vector2(flight[glance].P.Position.X - at.X, flight[glance].P.Position.Y - at.Y).Length() < 0.6f);
+        Assert.True(new Vector2(flight[glance].P.Position.X - at.X, flight[glance].P.Position.Y - at.Y).Length() < 1f);
         Assert.True(flight[glance].P.Position.Y < at.Y);
         Assert.True(flight.Skip(glance).Count() > 10);   // still there for a while: no detonation on contact
         // Its fuse: it went off at the boy's feet and the blast killed it.
