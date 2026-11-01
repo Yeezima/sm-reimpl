@@ -7,7 +7,7 @@ namespace SmNet.Tests.Extras.Musou;
 /// <summary>
 /// Musou pass 2 M10: the gore's rules and its field (engine-free; the Godot view only draws these arrays). Who makes gore, the owner's item 23 (explosions, frag grenades, artillery and
 /// lascannon shots burst the enemy), the distance bands, and the count limits under the heavy death rates of 200 enemies: no pool ever holds more than its size, no frame turns more than
-/// 12 deaths into bursts, the queue holds at most 96.
+/// 12 deaths into bursts, the queue holds at most 512.
 /// </summary>
 public class MusouGoreTests
 {
@@ -191,16 +191,16 @@ public class MusouGoreTests
     public void The_queue_holds_ninety_six_and_a_frame_takes_twelve()
     {
         var q = new GoreQueue<int>();
-        for (int i = 0; i < 200; i++) q.Add(i);   // a barrage of 200
+        for (int i = 0; i < 1000; i++) q.Add(i);   // far more than a barrage of 200
         Assert.Equal(MusouGoreRules.QueueMax, q.Count);
-        Assert.Equal(200 - MusouGoreRules.QueueMax, q.Dropped);
+        Assert.Equal(1000 - MusouGoreRules.QueueMax, q.Dropped);
         var batch = new List<int>();
         Assert.Equal(12, q.Take(batch));
         Assert.Equal(12, batch.Count);
-        Assert.Equal(200 - MusouGoreRules.QueueMax, batch[0]);   // the oldest kept go first
+        Assert.Equal(1000 - MusouGoreRules.QueueMax, batch[0]);   // the oldest kept go first
         int frames = 1;
         while (q.Count > 0) { batch.Clear(); Assert.True(q.Take(batch) <= MusouGoreRules.DeathsPerFrame); frames++; }
-        Assert.Equal(8, frames);   // 96 deaths in 8 frames
+        Assert.Equal(43, frames);   // 512 deaths in 43 frames
     }
 
     [Fact]
@@ -237,7 +237,7 @@ public class MusouGoreTests
         Assert.True(burstsMade > 0);
         Assert.True(f.Recycled > 0);   // the pools were full: the oldest were recycled, never grown
         Assert.True(f.LoadScale() < 1f);
-        Assert.True(q.Dropped > 0);   // the barrages overflowed the queue and the oldest were dropped
+        Assert.Equal(0, q.Dropped);   // a barrage fits the queue: a body that vanished always got its gore
         Assert.True(gibsFirstSecond > 0 && gibsLast >= 0);
     }
 

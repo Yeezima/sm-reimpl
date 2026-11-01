@@ -33,7 +33,7 @@ public static class MusouGoreRules
     /// <summary>Particle pools: gibs (chunks and limbs together), flying droplets, big ground pools (design: a ring of 64), small spatter, red mist puffs, cleave slashes.</summary>
     public const int GibPool = 256, DropletPool = 768, PoolRing = 64, SpatterRing = 192, MistPool = 48, SlashPool = 48;
     /// <summary>Deaths turned into bursts in one frame (design: 12); the rest wait in the queue, which holds at most <see cref="QueueMax"/> (the oldest go first).</summary>
-    public const int DeathsPerFrame = 12, QueueMax = 96;
+    public const int DeathsPerFrame = 12, QueueMax = 512;
     /// <summary>Cleave slashes and hit sprays made in one frame (ours: a swing hits up to 20 enemies).</summary>
     public const int SlashesPerFrame = 24, SpraysPerFrame = 10;
     /// <summary>Distance bands (m; design section D) and the farthest a cleave slash is drawn (ours).</summary>

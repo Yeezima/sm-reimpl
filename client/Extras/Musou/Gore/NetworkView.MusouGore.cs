@@ -20,7 +20,7 @@ namespace SmClient;
 /// <item>Item 22: each melee hit (marker 3) by a player or retainer draws a slash across the enemy hit (<see cref="MusouCleaveSlash"/>, the call a cleave's developer can use
 /// for any other source; the hit events that exist drive it already: a swing that hits 20 draws 20 within <see cref="MusouGoreRules.SlashesPerFrame"/> a frame). A charge's
 /// contact is a marker 3 too and draws the same slash.</item>
-/// <item>Budget: 12 deaths a frame (the rest wait, at most 96), full detail under 15 m, half to 35 m, one spray to 60 m, nothing beyond; the counts thin while the pools fill.</item>
+/// <item>Budget: 12 deaths a frame (the rest wait, at most 512), full detail under 15 m, half to 35 m, one spray to 60 m, nothing beyond; the counts thin while the pools fill.</item>
 /// </list>
 /// Test aids: <c>--no-musou-gore</c>, <c>--musou-gore-demo [N]</c> (<see cref="MusouGoreDemoFeed"/>, at <c>--musou-gore-at x,y,z</c> with z the floor, else the own place).
 /// A line every 10 s: <c>musou gore:</c> with the cost of the frame (mean and worst ms), the particles drawn, the spawned and recycled ones and the queue.
