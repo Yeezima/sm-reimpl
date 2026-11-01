@@ -26,6 +26,7 @@ public partial class NetworkView
     readonly TfwOrderKeys _tfwKeys = new();
     BindingSet? _tfwKeysFreed;
     bool _tfwOrbitalKey;
+    bool _tfwPadOrbital;   // set while a Musou Mode match runs: R3 calls the strike (and no longer cycles the scope zoom)
     double _tfwOrbitalCalled = -1;
 
     /// <summary>Every action bound to an order key gives that key up for this match; again after a rebinding in the match (<see cref="ControlsInput.Use"/> rebuilds the InputMap and makes a new set).</summary>
@@ -53,7 +54,8 @@ public partial class NetworkView
     {
         if (_bot) return;
         bool enabled = TfwHudModel.InBattle(war.Phase) && me.Alive && !PickerBusy;
-        bool orbital = Input.IsPhysicalKeyPressed(Key.B);
+        _tfwPadOrbital = !_bot;   // Musou Mode: the right stick's click is the strike, not the scope zoom (NetworkView.Gamepad.cs)
+        bool orbital = Input.IsPhysicalKeyPressed(Key.B) || (_pad is not null && PadHost.Active && _pad.Button(JoyButton.RightStick));
         if (orbital && !_tfwOrbitalKey && enabled) { _tfwState.Commands.Issue(TfwCommand.Orbital, 0, TfwCrosshairPoint(me)); _tfwOrbitalCalled = _connectedFor; }   // the server decides
         _tfwOrbitalKey = orbital;
         var press = _tfwKeys.Update(Input.IsPhysicalKeyPressed(Key.Z), Input.IsPhysicalKeyPressed(Key.X), Input.IsPhysicalKeyPressed(Key.V), Input.IsPhysicalKeyPressed(Key.P), delta, enabled);

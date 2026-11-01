@@ -104,7 +104,7 @@ public sealed partial class TfwBattlePanel : Control
         Txt(_kosText, rx, y + RowH, 16, Gold, 1);
         Txt(_pointsText, lx, y + 2 * RowH, 16, Gold);
         Txt(data.Slots, lx, y + 3 * RowH, 14, White);
-        Txt(TfwHudModel.OrbitalText, lx, y + 4 * RowH, 16, Gold);
+        Txt(TfwHudModel.OrbitalTextFor(PadHost.Active), lx, y + 4 * RowH, 16, Gold);
         Txt("Z FOLLOW   X HOLD   V ATTACK   HOLD P PICKUP", lx, y + 122f, 14, Grey);
     }
 }

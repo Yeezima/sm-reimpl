@@ -89,4 +89,24 @@ public sealed class GameOptionsTests
         Assert.Equal("64.177.51.188:27015", JoinTargets.PublicServer);
         Assert.Null(FrontEndSettings.ValidateHost(JoinTargets.PublicServer));
     }
+
+    [Fact]
+    public void Pad_aim_sensitivity_defaults_to_the_old_look_saves_clamps_and_applies_only_while_aiming()
+    {
+        Assert.Equal(1f, GameOptions.Default.PadAimSensitivity);
+        Assert.Equal(1f, GameOptions.Read(null).PadAimSensitivity);
+        var o = GameOptions.Default with { PadLookSensitivity = 2f, PadAimSensitivity = 0.5f };
+        Assert.Equal(0.5f, GameOptions.Read(o.Write()).PadAimSensitivity, 3);
+        Assert.Equal(GameOptions.MaxLook, (GameOptions.Default with { PadAimSensitivity = 99f }).Clamped().PadAimSensitivity);
+        var before = LiveOptions.Current;
+        try
+        {
+            LiveOptions.Current = o;
+            Assert.Equal(2f, LiveOptions.PadLookAim(false), 3);
+            Assert.Equal(1f, LiveOptions.PadLookAim(true), 3);
+            LiveOptions.Current = GameOptions.Default;
+            Assert.Equal(LiveOptions.PadLook, LiveOptions.PadLookAim(true), 3);   // the default turns as before
+        }
+        finally { LiveOptions.Current = before; }
+    }
 }

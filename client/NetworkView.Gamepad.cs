@@ -76,7 +76,7 @@ public partial class NetworkView
             switch (action)
             {
                 case GameAction.Use: if (!_padUseBlocked) _padInteractLatched = true; break;
-                case GameAction.ZoomCycle: if (_client?.Predicted.Aiming == true) _padZoom++; break;   // the zoom cycle (the levels of the scoped weapons)
+                case GameAction.ZoomCycle: if (_client?.Predicted.Aiming == true && !_tfwPadOrbital) _padZoom++; break;   // the zoom cycle (the levels of the scoped weapons)
                 case GameAction.Weapon1 or GameAction.Weapon2 or GameAction.Weapon3 or GameAction.NextWeapon: _latch.Press(button); _latch.Release(button); break;   // one tick (the simulation acts on the press edge)
             }
         }
@@ -111,8 +111,9 @@ public partial class NetworkView
         var t = _aimBlend >= 0.5f ? aim : ex;   // the set of the camera that is mostly in use
         float speedH = Lerp(ex?.SpeedHorizontal, aim?.SpeedHorizontal, _aimBlend, GamepadRules.FallbackHorizontal);
         float speedV = Lerp(ex?.SpeedVertical, aim?.SpeedVertical, _aimBlend, GamepadRules.FallbackVertical);
-        float yawRate = GamepadRules.LookRate(rx, _padHeldX, speedH, t?.StickMapping, t?.StickDamping) * SmClient.Customizer.Model.LiveOptions.PadLook;
-        float pitchRate = GamepadRules.LookRate(ry, _padHeldY, speedV, t?.StickMapping, t?.StickDamping) * SmClient.Customizer.Model.LiveOptions.PadLook * SmClient.Customizer.Model.LiveOptions.PadVertical;
+        float lookFactor = SmClient.Customizer.Model.LiveOptions.PadLookAim(_client.Predicted.Aiming);   // the ADS factor applies while aiming down sights
+        float yawRate = GamepadRules.LookRate(rx, _padHeldX, speedH, t?.StickMapping, t?.StickDamping) * lookFactor;
+        float pitchRate = GamepadRules.LookRate(ry, _padHeldY, speedV, t?.StickMapping, t?.StickDamping) * lookFactor * SmClient.Customizer.Model.LiveOptions.PadVertical;
         // Right is a turn to the right (yaw decreases); the stick's Y is down positive, like the mouse's: down lowers the pitch.
         _yaw -= Mathf.DegToRad(yawRate) * dt;
         _pitch = Math.Clamp(_pitch - Mathf.DegToRad(pitchRate) * dt, _pitchMin, _pitchMax);

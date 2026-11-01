@@ -144,6 +144,8 @@ public sealed partial class OptionsView : UiKit.MenuPage
         Choice("Invert Y", OffOn, O.InvertY ? 1 : 0, i => Set(x => x with { InvertY = i == 1 }));
         Add(new UiKit.MenuSlider("Gamepad look sensitivity", GameOptions.MinLook, GameOptions.MaxLook, GameOptions.LookStep, O.PadLookSensitivity, v => $"{v:F2}x", v => Set(x => x with { PadLookSensitivity = (float)v }), "PadLookSlider",
             "A factor on the right stick's turn rates. 1.00x is the original game's data."));
+        Add(new UiKit.MenuSlider("Gamepad aim sensitivity", GameOptions.MinLook, GameOptions.MaxLook, GameOptions.LookStep, O.PadAimSensitivity, v => $"{v:F2}x", v => Set(x => x with { PadAimSensitivity = (float)v }), "PadAimSlider",
+            "A factor on the right stick's turn rates while aiming down sights, on top of the gamepad look sensitivity. 1.00x turns as fast as without aiming."));
         Choice("Invert gamepad Y", OffOn, O.InvertPadY ? 1 : 0, i => Set(x => x with { InvertPadY = i == 1 }));
         var keybinds = UiKit.MenuButton("Keybinds", () => _onKeybinds(), "Rebind the keyboard, mouse and controller");
         keybinds.Name = "ControlsButton";

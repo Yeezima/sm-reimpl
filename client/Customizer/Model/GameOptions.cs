@@ -24,7 +24,7 @@ public sealed record GameOptions(
     int WindowWidth = 0, int WindowHeight = 0, WindowChoice Window = WindowChoice.Windowed, bool Vsync = true, int FpsCap = 0, float RenderScale = 1f,
     ShadowChoice Shadows = ShadowChoice.Default, AaChoice Aa = AaChoice.Default, float Brightness = 1f,
     float MasterVolume = 1f, float MusicVolume = 1f, float EffectsVolume = 1f, float VoiceVolume = 1f, bool MuteUnfocused = false,
-    bool InvertY = false, float AimSensitivity = 1f, float PadLookSensitivity = 1f, bool InvertPadY = false)
+    bool InvertY = false, float AimSensitivity = 1f, float PadLookSensitivity = 1f, bool InvertPadY = false, float PadAimSensitivity = 1f)
 {
     public static GameOptions Default => new();
 
@@ -61,7 +61,7 @@ public sealed record GameOptions(
         RenderScale = Snap(RenderScale, MinRenderScale, MaxRenderScale, RenderScaleStep, 1f), Brightness = Snap(Brightness, MinBrightness, MaxBrightness, BrightnessStep, 1f),
         MasterVolume = Snap(MasterVolume, 0f, 1f, VolumeStep, 1f), MusicVolume = Snap(MusicVolume, 0f, 1f, VolumeStep, 1f),
         EffectsVolume = Snap(EffectsVolume, 0f, 1f, VolumeStep, 1f), VoiceVolume = Snap(VoiceVolume, 0f, 1f, VolumeStep, 1f),
-        AimSensitivity = Snap(AimSensitivity, MinLook, MaxLook, LookStep, 1f), PadLookSensitivity = Snap(PadLookSensitivity, MinLook, MaxLook, LookStep, 1f),
+        AimSensitivity = Snap(AimSensitivity, MinLook, MaxLook, LookStep, 1f), PadLookSensitivity = Snap(PadLookSensitivity, MinLook, MaxLook, LookStep, 1f), PadAimSensitivity = Snap(PadAimSensitivity, MinLook, MaxLook, LookStep, 1f),
     };
 
     /// <summary>Reads the <c>"options"</c> object of <c>frontend.json</c>; missing or wrong values are their defaults.</summary>
@@ -74,7 +74,7 @@ public sealed record GameOptions(
         T E<T>(string name, T fallback) where T : struct, Enum => o[name] is JsonValue v && v.TryGetValue<string>(out var s) && Enum.TryParse<T>(s, true, out var e) && Enum.IsDefined(e) ? e : fallback;
         return new GameOptions(I("windowWidth"), I("windowHeight"), E("window", WindowChoice.Windowed), B("vsync", true), I("fpsCap"), F("renderScale", 1f), E("shadows", ShadowChoice.Default), E("antiAliasing", AaChoice.Default),
             F("brightness", 1f), F("masterVolume", 1f), F("musicVolume", 1f), F("effectsVolume", 1f), F("voiceVolume", 1f), B("muteUnfocused", false),
-            B("invertY", false), F("aimSensitivity", 1f), F("padLookSensitivity", 1f), B("invertPadY", false)).Clamped();
+            B("invertY", false), F("aimSensitivity", 1f), F("padLookSensitivity", 1f), B("invertPadY", false), F("padAimSensitivity", 1f)).Clamped();
     }
 
     /// <summary>The object saved in <c>frontend.json</c>.</summary>
@@ -83,7 +83,7 @@ public sealed record GameOptions(
         ["windowWidth"] = WindowWidth, ["windowHeight"] = WindowHeight, ["window"] = Window.ToString(), ["vsync"] = Vsync, ["fpsCap"] = FpsCap, ["renderScale"] = Math.Round(RenderScale, 3),
         ["shadows"] = Shadows.ToString(), ["antiAliasing"] = Aa.ToString(), ["brightness"] = Math.Round(Brightness, 3),
         ["masterVolume"] = Math.Round(MasterVolume, 3), ["musicVolume"] = Math.Round(MusicVolume, 3), ["effectsVolume"] = Math.Round(EffectsVolume, 3), ["voiceVolume"] = Math.Round(VoiceVolume, 3), ["muteUnfocused"] = MuteUnfocused,
-        ["invertY"] = InvertY, ["aimSensitivity"] = Math.Round(AimSensitivity, 3), ["padLookSensitivity"] = Math.Round(PadLookSensitivity, 3), ["invertPadY"] = InvertPadY,
+        ["invertY"] = InvertY, ["aimSensitivity"] = Math.Round(AimSensitivity, 3), ["padLookSensitivity"] = Math.Round(PadLookSensitivity, 3), ["invertPadY"] = InvertPadY, ["padAimSensitivity"] = Math.Round(PadAimSensitivity, 3),
     };
 
     /// <summary>A slider value (0 to 1) as decibels: 1 is 0 dB, 0 is silence (-80 dB).</summary>
@@ -118,6 +118,9 @@ public static class LiveOptions
 
     /// <summary>The factor on the right stick's turn rates.</summary>
     public static float PadLook => Current.PadLookSensitivity;
+
+    /// <summary>The factor on the right stick's turn rates: <see cref="GameOptions.PadAimSensitivity"/> on top of the look factor while aiming down sights (1 = as before).</summary>
+    public static float PadLookAim(bool aiming) => aiming ? Current.PadLookSensitivity * Current.PadAimSensitivity : Current.PadLookSensitivity;
 
     /// <summary>The sign of the right stick's vertical turn (-1 with Invert gamepad Y).</summary>
     public static float PadVertical => Current.InvertPadY ? -1f : 1f;

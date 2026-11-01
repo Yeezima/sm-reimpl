@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2133 spec table rows: **1522 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 454 rows of the changes document.
+Scanned 2135 spec table rows: **1524 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 455 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,16 +50,16 @@ Scanned 2133 spec table rows: **1522 tagged**, 441 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
-| Core simulation (provisional values) | 258 | 242 | 213 | 29 | 1 |
+| Core simulation (provisional values) | 260 | 244 | 213 | 29 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 109 | 102 | 61 | 12 | 0 |
-| **All areas** | **1522** | 1294 | 1214 | 435 | 38 |
+| **All areas** | **1524** | 1296 | 1214 | 435 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 706 |
+| kind: ours | 708 |
 | confidence: low | 571 |
 | confidence: medium | 515 |
 | kind: interpretation | 335 |
@@ -1860,7 +1860,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-EB03504B` | Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks (s) | kind: ours; notes: estimate | owner 2026-11-02 | Shot lag allowance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each shot is also tried on the enemy's places over the last 0.2 s… | ☐ |
 
-### Core simulation (provisional values) (258)
+### Core simulation (provisional values) (260)
 
 *Spec section: Provisional values in use*
 
@@ -2201,6 +2201,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-FD94D3A9` | Aim (hold) | left trigger; press at 0.5, release below 0.35 (trigger) | kind: estimate; confidence: low | owner's screenshot ("Aim"); locale 110660 | Aim (hold): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: left trigger; press at 0.5, release below 0.35. | ☐ |
 | `R-E3B4EE6B` | Weapon swap | the D-pad, as the radial weapon menu: up the pistol, right the primary, down the second primary (Weapon Versatility; the south slot); left nothing for now. The radial menu's stick selection (`GamepadRules.RadialSlot`: the quadrant of the held stick) uses the… (D-pad) | confidence: medium | owner's screenshot ("Weapon Swap" on the D-pad); the owner's answer 2026-10-30 for the directions; locale 120990 (four slots) | Weapon swap: compare with SM1 by feel or video. Ours: the D-pad, as the radial weapon menu: up the pistol, right the… | ☐ |
 | `R-21376237` | Scope zoom cycle | press the right stick (R3) while aiming: steps through the weapon's `zoom_levels` (`WeaponCamera.ZoomFovs`: the stalker bolter and the lascannon have a level 1 and more; a weapon with one level does nothing). The level resets when aim ends. Client only: the… (stick click) | confidence: medium; notes: user's knowledge | locale 122097 "Camera (Press - Lascannon Zoom)"; owner's recollection (R3); the tutorial strings 105867 and 111535 say [L3] | Scope zoom cycle: compare with SM1 by feel or video. Ours: press the right stick (R3) while aiming: steps through the weapon's… | ☐ |
+| `R-BAFE7260` | Musou orbital strike on the pad | the right stick click (R3) calls the orbital strike in Musou Mode, as B does on the keyboard (fixed, not in the controls table); the HUD line reads "R3 ORBITAL STRIKE READY" while the pad is the scheme. In Musou Mode R3 no longer cycles the scope zoom… (stick click) | kind: ours | owner request 2026-11-02 | Musou orbital strike on the pad: compare with SM1 by feel or video. Ours: the right stick click (R3) calls the orbital strike in Musou Mode, as… | ☐ |
+| `R-74E2217D` | Pad aim sensitivity | the Options controls page: "Gamepad aim sensitivity", a factor on the right stick turn rates while aiming down sights, on top of the gamepad look sensitivity; the look range, step as the look slider; default 1.00x = the current behaviour; saved in… (factor) | kind: ours | owner request 2026-11-02 | Pad aim sensitivity: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: the Options controls page: "Gamepad aim sensitivity", a factor on the… | ☐ |
 | `R-354554D8` | Game menu | Start: opens the Esc menu (loadout, resume, leave); inside the customizer Start saves (already so before this feature) and B goes back (button) | confidence: medium; notes: user's knowledge | owner's recollection | Game menu: compare with SM1 by feel or video. Ours: Start: opens the Esc menu (loadout, resume, leave); inside the… | ☐ |
 | `R-4939B80B` | Device rule | a controller that connects becomes the scheme at once; a disconnect, a key, a click or a mouse movement (3 px at once, or 6 px in small steps) swaps back; a pad button or a stick or trigger past 0.5 swaps to the pad; last used wins; no restart; the menu… | kind: ours; confidence: medium | the owner's request | Device rule: compare with SM1 by feel or video. Ours: a controller that connects becomes the scheme at once; a disconnect… | ☐ |
 
@@ -3068,6 +3070,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-948148FE` | Generated on-hit sounds for melee weapons (fx/melee-hit-sound, owner 2026-11-01) | Ours (provisional approximation; nobody has heard it yet): the original on-hit sounds of two groups are replaced by sounds generated at run time (no asset), measured from two reference clips. Sound A (a 0.64 s pink sizzle swelling over 100 ms): power axe, power sword, combat knife. Sound B (an instant roar of about a… | A: 0.64 s, rms -18.2 dB re full scale, centroid 1.7 kHz; B: 1.6 s, rms -19.9 dB, centroid 2.6 kHz; speed +-7%, level +-1.5 dB | "Generated melee hit sounds" | Generated on-hit sounds for melee weapons…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-74F3FFE3` | Damage flash restarts (fix/spawn-room-light, 2026-11-01) | Ours: a hit while a damage flash still runs lifts it back to the plateau after the peak (envelope 0.45) and never re-peaks it; a hit with no flash running peaks as before. `--old-damage-flash` restores restarting at the peak on every hit. The Musou vista's far explosions (`oob_explosions_artillery_less`, the flak)… | The original's rule for hits during a flash is not known; a crowd strobed the screen | Musou Mode crowds; flash feel in classic play | Damage flash restarts (fix/spawn-room-light, 2026-11-01): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-80EA67D1` | Musou boss, trickle and cards (hotfix/boss-trickle, owner 2026-11-01) | Ours (added content, Musou Mode only): the final Warboss starts in the courtyard outside the HQ room and is a 1.6 times Nob body always; an unleashed Ork trickles from each sending source every 1.5 s up to the crowds' cap again; the reward cards after a won map are off (`TfwRewardRules.Enabled`). | The original has no Musou Mode; the owner's words of 2026-11-01. | Musou Mode only; classic PvP is untouched. Spec rows: Final boss courtyard, Warboss size, The trickle, Reward cards off. | Musou boss, trickle and cards (hotfix/boss-trickle, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-A8CF39A2` | Pad strike, menu A and ADS sensitivity (owner 2026-11-02) | Ours (the strike is added content, Musou Mode only): R3 calls the orbital strike and no longer cycles the scope zoom there; a menu opened with the pad focuses its first control so A presses like a left click; a separate gamepad aim sensitivity (default 1.00x) in Options. | The owner's words of 2026-11-02. | Classic PvP keeps R3 as the zoom cycle. Spec rows: Musou orbital strike on the pad, Pad aim sensitivity. | Pad strike, menu A and ADS sensitivity (owner 2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
