@@ -11,7 +11,7 @@ using SmSim.Extras.Musou.Campaign;
 namespace SmClient;
 
 /// <summary>
-/// Musou Mode pass 2 on the client: the class change in the Stormbird (item 2) and the elites' bars (item 14).
+/// Musou Mode pass 2 on the client: the class change in the Stormbird (item 2).
 /// <para>
 /// Item 2. The picker's DEPLOY already sends the loadout as a Setup (<see cref="DeployFromPicker"/>: the server stores it for the next life and acknowledges it). In the Stormbird that is not
 /// enough, so once the acknowledgement of that very Setup is in, the frame sends <see cref="TfwCommand.ChangeClass"/> (resent until the war's echo, like the Deploy), and the server makes a fresh life on
@@ -19,7 +19,7 @@ namespace SmClient;
 /// (<see cref="OwnLooks"/> would wait for a respawn or a scoreboard), so the colours change with the model, under the smoke (<see cref="TfwSmoke"/>, tag 11).
 /// </para>
 /// <para>
-/// Item 14. Tag 13 names the elites' health; <see cref="TfwBarsView"/> draws one bar over each head the crowd shows.
+/// Item 14's bars over the elites are gone (the owner, 2026-11-02): tag 13 still arrives and fills <c>_tfwState.Bars</c>, and nothing draws it.
 /// </para>
 /// </summary>
 public partial class NetworkView
@@ -28,13 +28,11 @@ public partial class NetworkView
     double _tfwClassWaitingSince;
     int _tfwClassFrom = -1;
     int _tfwSmokes;
-    TfwBarsView? _tfwBarsView;
     System.Collections.Generic.IReadOnlyList<MusouShown> _tfwShown = [];
 
-    /// <summary>Class changes the Deploy button has sent a command for, smoke clouds started, and bars drawn last frame (the scripted test and the log).</summary>
+    /// <summary>Class changes the Deploy button has sent a command for, and smoke clouds started (the scripted test and the log).</summary>
     public int TfwClassChangesSent { get; private set; }
     public int TfwSmokesStarted => _tfwSmokes;
-    public int TfwBarsDrawn { get; private set; }
 
     /// <summary>The Setup the Deploy button just sent waits for its acknowledgement, then the command goes; the own look follows the class.</summary>
     void TfwClassFrame(in TfwWarView war, PlayerState me)
@@ -104,17 +102,10 @@ public partial class NetworkView
             foreach (var key in new System.Collections.Generic.List<(uint, ushort)>(_tfwSmokePlayed.Keys)) if (_connectedFor - _tfwSmokePlayed[key] > 10.0) _tfwSmokePlayed.Remove(key);
     }
 
-    /// <summary>Tag 13: a bar over each elite the crowd shows (never on a lean or headless client).</summary>
-    void TfwBarsFrame()
+    /// <summary>The smoke and the frags of the war's frame.</summary>
+    void TfwCloudsFrame()
     {
         TfwSmokeFrame();
         TfwFragFrame();   // NetworkView.TfwMelee.cs
-        if (Lean || _gameSpace is null || DisplayServer.GetName() == "headless") return;
-        if (_tfwBarsView is null)
-        {
-            _tfwBarsView = new TfwBarsView();
-            _gameSpace.AddChild(_tfwBarsView);
-        }
-        TfwBarsDrawn = _tfwBarsView.Show(_tfwState.Bars, _tfwShown, _config?.MusouRules ?? MusouRules.Default, _musouState.Director?.BossId ?? (ushort)0);
     }
 }

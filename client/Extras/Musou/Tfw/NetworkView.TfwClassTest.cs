@@ -162,7 +162,7 @@ public partial class NetworkView
         await TfwWait(1.0);
         await TfwShot("retainer-1-player-and-retainer");
 
-        // Item 14: the nearest elite is walked to until 20 m away, then faced: its bar is over its head.
+        // Item 14's data: the nearest elite is walked to until 20 m away, then faced; tag 13 still names it, no bar is drawn (the owner, 2026-11-02).
         TfwNearestElite(out var elite, out float away);
         TfwClassCheck("an elite is known (bars named)", elite is not null && _tfwState.Bars.Count > 0, $"{_tfwState.Bars.Count} named, {away:F0} m to the nearest");
         if (elite is { } target)
@@ -176,7 +176,7 @@ public partial class NetworkView
             _yaw = MathF.Atan2(-(near.Position.X - mine.X), near.Position.Y - mine.Y);
         }
         await TfwWait(0.6);
-        TfwClassCheck("elites are in view with bars over them", TfwBarsDrawn >= 1 && away < 40f, $"{TfwBarsDrawn} bars, {_tfwState.Bars.Count} named, {away:F0} m to the nearest");
+        TfwClassCheck("elites are in view", away < 40f, $"{_tfwState.Bars.Count} named, {away:F0} m to the nearest");
         await TfwShot("bars-1-first-sight");
         // The pistol is semi-automatic and the elites move: each shot is a press of its own, aimed at the nearest elite again.
         double fireUntil = _connectedFor + 20.0;

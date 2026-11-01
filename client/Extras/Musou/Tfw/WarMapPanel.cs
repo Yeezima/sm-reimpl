@@ -10,12 +10,13 @@ namespace SmClient;
 /// <summary>
 /// The war map (design section G): full screen in the menus' style (<c>MenuKit.cs</c>: DejaVu Sans Bold, transparent text buttons, a brightness change on hover and focus): the three fronts with their
 /// pips, progress bars, strengths, gather time and lords, the HQ, the war's clock and scale, the reserves, and a DEPLOY row per front. With a <c>deploy</c> action it is the Destination station's screen:
-/// keyboard, mouse and controller, Esc or B closes it. Without one it is the M overlay: no buttons, and it takes no input. Fed by <see cref="Show"/>; a text is set only when it changes. Laid out in the
+/// keyboard, mouse and controller, Esc or B closes it. Without one it is the M overlay: no buttons, it takes no input, and in a battle the <see cref="TfwBattlePanel"/> stands in the DEPLOY column. Fed by <see cref="Show"/>; a text is set only when it changes. Laid out in the
 /// 1920 by 1080 space from the top left, ours.
 /// </summary>
 public sealed partial class WarMapPanel : Control
 {
     const float Left = UiKit.MenuLeft, Top = 196f, LaneHeight = 196f, BarWidth = 620f, BarHeight = 34f, DeployColumn = Left + BarWidth + 48f;
+    static readonly Color HereGold = new(0.98f, 0.8f, 0.12f);
 
     /// <summary>A front's pips (-1 to 3) and its progress, from the middle: to the right the Imperials are winning, to the left the Orks.</summary>
     sealed partial class LaneBar : Control
@@ -48,6 +49,7 @@ public sealed partial class WarMapPanel : Control
     readonly Row[] _rows = new Row[3];
     readonly Label _clock, _reserves, _note;
     readonly Button? _closeButton;
+    readonly TfwBattlePanel? _battle;
     TfwWarView? _shown;
     bool _shownPlaying;
 
@@ -56,6 +58,8 @@ public sealed partial class WarMapPanel : Control
     /// <summary>The CLOSE row (null on the overlay).</summary>
     public Button? CloseButton => _closeButton;
     public Button? DeployButton(TfwLane lane) => _rows[(int)lane].Deploy;
+    /// <summary>The battle's panel (null on the station's screen, which only opens in the hub).</summary>
+    public TfwBattlePanel? Battle => _battle;
     /// <summary>What the map says under the rows (why a Deploy cannot be asked for).</summary>
     public string Note => _note.Text;
 
@@ -78,7 +82,13 @@ public sealed partial class WarMapPanel : Control
         _reserves = Text("WarMapReserves", Left, 170f, 16, 1200f);
         for (int l = 0; l < 3; l++) _rows[l] = MakeRow((TfwLane)l, Top + 30f + l * LaneHeight);
         _note = Text("WarMapNote", Left, Top + 30f + 3 * LaneHeight, 16, 1200f);
-        if (deploy is null) return;
+        if (deploy is null)
+        {
+            _battle = new TfwBattlePanel { Name = "TfwBattlePanel", Visible = false };
+            Place(_battle, DeployColumn, Top + 30f, TfwBattlePanel.PanelWidth, TfwBattlePanel.PanelMaxHeight);
+            AddChild(_battle);
+            return;
+        }
         _closeButton = UiKit.MenuButton("Close", () => _close?.Invoke(), "Back to the Stormbird (Esc, or B on a controller)");
         Place(_closeButton, Left, Top + 60f + 3 * LaneHeight, 240f, 30f);
         _closeButton.AddThemeFontSizeOverride("font_size", 18);
@@ -147,6 +157,8 @@ public sealed partial class WarMapPanel : Control
             var row = _rows[l];
             var state = TfwHudModel.Lane(war, (TfwLane)l);
             Set(row.Name, $"FRONT {(TfwLane)l}");
+            if (TfwHudModel.InBattle(war.Phase) && war.BattleLane == (TfwLane)l) row.Name.AddThemeColorOverride("font_color", HereGold);   // the front of this battle
+            else row.Name.RemoveThemeColorOverride("font_color");
             Set(row.Lord, TfwHudModel.LordText((TfwLane)l, state.LordState));
             int pips = TfwHudModel.Pips(state.Front);
             if (row.Bar.Pips != pips || row.Bar.Progress != state.Progress) { row.Bar.Pips = pips; row.Bar.Progress = state.Progress; row.Bar.QueueRedraw(); }

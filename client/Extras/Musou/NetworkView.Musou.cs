@@ -44,7 +44,7 @@ public partial class NetworkView
         var (renderTick, _) = client.RemotePlayers();
         renderTick = MusouGoreRenderTick(renderTick);
         var shown = _musouState.Sample(renderTick > 0 ? renderTick : _musouState.NewestTick, now);
-        _tfwShown = shown;   // the elites' bars read the enemies as shown (Tfw/NetworkView.TfwClass.cs)
+        _tfwShown = shown;   // the scripted class test finds the elites here (Tfw/NetworkView.TfwClassTest.cs)
 
         if (!_musouDrawChecked)
         {
