@@ -42,8 +42,7 @@ public class TfwContractTests
             clientOptions: new ClientOptions { LoadMap = _ => new LoadedMap(map.Collision, map.Hash) });
     }
 
-    static bool InStormbird(Vector3 p) =>
-        MathF.Abs(p.X - TfwTestArena.Hub.Centre.X) <= TfwMap.StormbirdSize.X / 2f && MathF.Abs(p.Y - TfwTestArena.Hub.Centre.Y) <= TfwMap.StormbirdSize.Y / 2f;
+    static bool InStormbird(Vector3 p) => TfwTestArena.Hub.Contains(p);
 
     // ---------------------------------------------------------------- the map and its choice
 
@@ -55,7 +54,7 @@ public class TfwContractTests
         Assert.Equal(a.Hash, b.Hash);
         Assert.True(Protocol.IsMapName(TfwMap.Name));
         Assert.All(a.Spawns, s => Assert.True(InStormbird(s.Position), $"{s.Position}"));
-        Assert.Equal(0f, a.Spawns[0].Yaw);   // facing north
+        Assert.Equal(TfwShip.RampYaw, a.Spawns[0].Yaw);   // facing the open ramp
         Assert.Contains(a.StartAreas, s => s.Side == Team.SpaceMarines && s.Center == TfwTestArena.Hub.Centre);
         foreach (var at in new[] { TfwTestArena.Position1, TfwTestArena.Position2, TfwTestArena.Position3, TfwTestArena.Hq, TfwTestArena.LandingZone, TfwTestArena.Hub.DestinationStation, TfwTestArena.Hub.EquipmentStation, TfwTestArena.Hub.Centre }.Concat(TfwTestArena.Sources))
             Assert.NotNull(a.Collision.Character.Raycast(at + new Vector3(0f, 0f, 1f), -Vector3.UnitZ, 2f));   // every place stands on the floor

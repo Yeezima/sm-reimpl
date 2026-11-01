@@ -2285,3 +2285,19 @@ The weapon crate proper, `case_weapon.dcm` (blueprints `pickup_weapons`, `pickup
 | Ambient war | none named: the 82 named `play_*` of `ambiences` are machines and set pieces (`play_titan_footstep` the only distant-war candidate); `mp_tdm_09` has 9 events, no ambience; land vehicles en masse have no event | | **missing**; build it from the far explosions, the Valkyrie flybys, `play_sm_heavy_bolter_fire` and the anti-aircraft FX, low-passed |
 
 Unnamed events remain (`in_game_default` 1,232 of 2,129, `ambiences` 375 of 493), so "none" means none among the names known: a whistle or a war bed may sit unnamed. The region packages `air_rgn_*` hold sounds with no events and were not opened.
+
+## Musou Mode pass 2: the hub, the Thunderhawk's interior (2026-11-01)
+
+Owner's item 29: the hub is the inside of the campaign Thunderhawk. **Singleplayer-content dependency (CLAUDE.md scope note):** the model is in a campaign chunk, read from the player's install at run time; an install without it draws the generated shell instead (`TfwMapView`). The chunk has no collision, so `TfwShip` generates it from measures.
+
+| Piece | Where | State |
+|---|---|---|
+| Model | `thunderhawk_interior.dcm` (blueprint `thunderhawk_interior`, object tree of the same name) in `data/chunks/part_01__s_002_r001_new_greybox_1.oppc` (12 MB, loads in about 0.3 s with its textures) | **original asset loaded**: 15 static blocks (no skinned one), 28 surfaces, every diffuse map present (43 KB to 1.4 MB DDS) |
+| Placement | the object tree's nodes: every block sits at the origin of its node except `GEO_monitor` (to (0, 19.58, 5.27), hanging from the roof) and `GEO_rearGate_releaseHandle` (to (2.16, 21.84, 3.53)); `ModelSpace(node)` applies them | read |
+| Door | block 0 `valk_Int_rearDoor`, node `GEO_hawkInt_rear_door` under bone `RIG_Frt_Dr` (hinge (0, 22.162, 1.942)); closed in the mesh (a slab from the hinge up 4.5 m and back 3.4 m); a further -54 degrees about X lies it flat, its top at z 2.03 to 2.12, reaching y 27.74 (at -50 its far end is 0.2 m above the floor, at -58 it dips below) | **supported by evidence** (measured); the `idle` clip's end pose was not read |
+| Corridor | block 3 `GEO_hawkInt_roof_floor_front` (floor, deck, ceiling), block 11 stairs, blocks 7 and 13 the hull's side walls (inner faces at x 2.3 and -2.2), blocks 6 and 9 the tech panels (faces at -1.67 and 1.715, y 5.38 to 20.5, up to z 5.3), blocks 8 and 12 low railings inside them, block 10 a bulkhead frame at y 2.1 to 3.4, block 14 roof pipes, block 5 pipework | read |
+| Heights | the low floor is z 2.03 for y 4.6 to 22.0; the deck at the cockpit end is z 3.35 for y -4.9 to 3.0; five stair treads 0.2 m apart in height and 0.32 in depth join them (about 30 degrees); the roof is 5.75 at the front, 6.3 at y 7.5 and 5.45 at y 24.9 | **supported by evidence**: the measures `TfwShip` holds |
+| Props for the stations | `Monitor_Hub_01` (block 2), the tech panels (blocks 6, 9), the release panel `GEO_rearGate_releasePanel` (block 4, x 2.08 to 2.39, y 21.4 to 22.3) | read |
+| Lights | the object tree names 55 `fx_light_*` nodes (red and blue point markers along the walls) and `fx_light_sun` at (-5.8, 36.9, 1.6); none is used: the look's lights are ours | read, unused |
+
+Placed in the world turned half a circle about Z (`TfwShip.ToWorld`) so the ramp looks south: the first captures, with the ramp toward the level, showed Manufactorum's skyline through the door. Outside is `TfwHubSky` (a sky shader on the camera's own environment while aboard) with the owner's planet picture at `client/assets/musou/planet.jpg` (git-ignored, left out of exports, `.gdignore`; read from the project or beside the game; `planet.png` and `planet.webp` are accepted too), else a procedural brown planet. Checks: `TfwMapTests` (closed from every place, the measured corridor, walks, jumps, the door's pose) and `--tfw-test`'s hub tour (docs/commands.md).
