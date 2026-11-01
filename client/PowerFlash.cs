@@ -2,12 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using SmClient.ImpactRules;
 using SmFormats.Fx;
 
 namespace SmClient;
-
-/// <summary>The power weapons that flash on a hit (fx/power-flash).</summary>
-public enum PowerKind { Sword, Axe, Hammer, Maul }
 
 /// <summary>
 /// fx/power-flash: rules and the built cloud for the power weapons' hit flash (see <c>NetworkView.PowerFlash.cs</c>). Everything here is client presentation.
@@ -19,25 +17,10 @@ public static class PowerFlash
     /// <summary>The sound events of the hammer's blast, posted on a hammer or maul hit besides the weapon's hit sound (data: the hammer's displace blast and its arcs).</summary>
     public static readonly string[] BlastEvents = ["play_sm_thunderhammer_displace", "play_sm_thunderhammer_displace_arcs"];
     public const string CloudName = "power_flash_cloud";
-    /// <summary>A swing's hits within this many seconds share one budget: one big burst, then at most <see cref="SmallPerSwing"/> small ones (ours).</summary>
-    public const double SwingSeconds = 0.6;
-    public const int SmallPerSwing = 5;
-    public const float SmallScale = 0.35f;
     /// <summary>How much bigger than the data's size the effects are played (ours, from the reference clip: the burst is bigger than a body).</summary>
     public const float DataBoost = 0.85f, CloudBoost = 1.15f;
 
-    public static PowerKind? KindOf(string? wargear)
-    {
-        if (wargear is null) return null;
-        if (wargear.Contains("thunder_hammer", StringComparison.OrdinalIgnoreCase)) return PowerKind.Hammer;
-        if (wargear.Contains("power_mace", StringComparison.OrdinalIgnoreCase)) return PowerKind.Maul;
-        if (wargear.Contains("power_axe", StringComparison.OrdinalIgnoreCase)) return PowerKind.Axe;
-        if (wargear.Contains("powersword", StringComparison.OrdinalIgnoreCase)) return PowerKind.Sword;
-        return null;
-    }
-
-    /// <summary>Scale of the effects per weapon (ours, estimates: the hammer is the reference clip).</summary>
-    public static float Scale(PowerKind k) => k switch { PowerKind.Hammer => 1f, PowerKind.Maul => 1f, PowerKind.Axe => 0.75f, _ => 0.6f };
+    public static float Scale(PowerKind k) => PowerFlashRules.Scale(k);
 
     /// <summary>The daemon maul's recolour: a true purple (ours); the others keep the data's blue.</summary>
     public static Color? Tint(PowerKind k) => k == PowerKind.Maul ? new Color(0.80f, 0.10f, 1f) : null;

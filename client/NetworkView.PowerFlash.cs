@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using SmClient.ImpactRules;
 using SmContent;
 using SmNet;
 using Num = System.Numerics;
@@ -19,30 +20,31 @@ public partial class NetworkView
 {
     bool NoPowerFlash => _noPowerFlash ??= CmdFlag("no-power-flash");
     bool? _noPowerFlash;
-    readonly Dictionary<int, (double At, int Count)> _powerSwing = new();
+    readonly PowerFlashRules.Budget _powerSwing = new();
     int _powerFlashes, _powerFlashSmall;
 
     /// <summary>A power weapon's hit: the lead burst of a swing is the big one, the next hits of the same swing (a Musou cleave) are small and capped.</summary>
-    internal void PowerHit(int attackerId, string? wargear, Vector3 contact, Vector3 outward, string source)
+    internal void PowerHit(int attackerId, string? wargear, Vector3 contact, Vector3 outward, string source, bool slam = false)
     {
-        if (NoPowerFlash || _fx is null || PowerFlash.KindOf(wargear) is not { } kind) return;
-        _powerSwing.TryGetValue(attackerId, out var swing);
-        if (_connectedFor - swing.At > PowerFlash.SwingSeconds) swing = (_connectedFor, 0);
-        bool lead = swing.Count == 0;
-        _powerSwing[attackerId] = (swing.At, swing.Count + 1);
-        if (!lead && swing.Count > PowerFlash.SmallPerSwing) return;
+        if (NoPowerFlash || _fx is null || PowerFlashRules.KindOf(wargear) is not { } kind) return;
+        var burst = _powerSwing.Take(attackerId, _connectedFor);
+        if (burst == PowerBurst.None) return;
+        bool lead = burst == PowerBurst.Lead;
         var axes = AxesFromY(outward.LengthSquared() > 1e-6f ? outward.Normalized() : Vector3.Up);
-        float scale = PowerFlash.Scale(kind) * (lead ? 1f : PowerFlash.SmallScale);
+        // fx/power-flash (owner, 2026-11-01): a camera close to the burst sees a smaller one, so the screen is never whited out.
+        float dist = _camera is null ? float.PositiveInfinity : _camera.GlobalPosition.DistanceTo(contact);
+        float scale = PowerFlashRules.Scale(kind) * (lead ? 1f : PowerFlashRules.SmallScale) * PowerFlashRules.CloseFactor(dist);
         var tint = PowerFlash.Tint(kind);
         int started = 0;
-        if (_fx.Play(PowerFlash.MainEffect, contact, axes, scale * PowerFlash.DataBoost, null, null, 0f, 0.0, false, 3, false, tint) is not null) started++;
-        if (lead && _fx.Play(PowerFlash.SecondaryEffect, contact, axes, scale * PowerFlash.DataBoost, null, null, 0f, 0.0, false, 3, false, tint) is not null) started++;
-        if (_fx.Play(PowerFlash.CloudName, contact, axes, scale * PowerFlash.CloudBoost, null, null, 0f, 0.0, false, 3, false, tint) is not null) started++;
+        // A slam (a strike with a blast) brings the data's own displace flash, ball and cloud: no second copy of the hammer's hit effects on top, and a smaller cloud.
+        if (!slam && _fx.Play(PowerFlash.MainEffect, contact, axes, scale * PowerFlash.DataBoost, null, null, 0f, 0.0, false, 3, false, tint) is not null) started++;
+        if (!slam && lead && _fx.Play(PowerFlash.SecondaryEffect, contact, axes, scale * PowerFlash.DataBoost, null, null, 0f, 0.0, false, 3, false, tint) is not null) started++;
+        if (_fx.Play(PowerFlash.CloudName, contact, axes, scale * PowerFlash.CloudBoost * (slam ? PowerFlashRules.SlamCloud : 1f), null, null, 0f, 0.0, false, 3, false, tint) is not null) started++;
         string sounds = lead ? PostPowerBlast(kind, contact) : "-";
         if (lead) _powerFlashes++; else _powerFlashSmall++;
         _fxLastShotAt = _connectedFor; _fxLastEnd = contact; _fxLastFrom = contact;
         if (_bot || CmdFlag("log-power-flash") || CmdFlag("log-melee-fx"))
-            GD.Print($"POWERFLASH t {_connectedFor:F2} P{attackerId} {kind} {(lead ? "lead" : "small")} x{scale:0.##} at {contact.X:F1},{contact.Y:F1},{contact.Z:F1} ({source}); {started} effects; blast sounds {sounds}; shown {_powerFlashes} big, {_powerFlashSmall} small");
+            GD.Print($"POWERFLASH t {_connectedFor:F2} P{attackerId} {kind} {(lead ? "lead" : "small")} x{scale:0.##}{(slam ? " slam" : "")} cam {dist:0.#} m at {contact.X:F1},{contact.Y:F1},{contact.Z:F1} ({source}); {started} effects; blast sounds {sounds}; shown {_powerFlashes} big, {_powerFlashSmall} small");
     }
 
     /// <summary>The hammer's blast sounds for the hammer and the maul (data events, <see cref="PowerFlash.BlastEvents"/>); the weapon's own hit sound is posted elsewhere. Returns the events posted.</summary>
@@ -50,7 +52,11 @@ public partial class NetworkView
     {
         if (_sound is null || _soundTriggers is null || NoMeleeSounds || kind is not (PowerKind.Hammer or PowerKind.Maul)) return "-";
         foreach (var evt in PowerFlash.BlastEvents)
-            PostPlayerHitSound(evt, new SoundEmitter { Position = at, Label = $"power flash {kind}", OneShot = true });
+        {
+            var emitter = new SoundEmitter { Position = at, Label = $"power flash {kind}", OneShot = true };
+            var play = _sound.Post(evt, emitter);
+            if (LogSound("melee") || CmdFlag("log-power-flash")) GD.Print($"POWERBLAST t {_connectedFor:F3} {kind} event {evt} | {VoiceMixText(play, emitter, default)}");
+        }
         return string.Join("+", PowerFlash.BlastEvents);
     }
 
@@ -73,7 +79,7 @@ public partial class NetworkView
         if (CmdArg("power-flash-at") is { } s && s.Split(',') is { Length: 3 } p
             && float.TryParse(p[0], inv, out float x) && float.TryParse(p[1], inv, out float y) && float.TryParse(p[2], inv, out float z)) at = ToGodot(new Num.Vector3(x, y, z));
         string wargear = name switch { "hammer" => "sm_mp_melee_2hand_thunder_hammer", "maul" => "csm_mp_melee_2hand_power_mace", "axe" => "sm_mp_melee_power_axe", _ => "sm_mp_melee_powersword" };
-        _powerSwing.Remove(-1);
+        _powerSwing.Forget(-1);
         PowerHit(-1, wargear, at, (cam - at).Normalized(), "demo");
     }
 }

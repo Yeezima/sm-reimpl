@@ -128,3 +128,54 @@ public class ImpactRulesTests
         Assert.False(gate.Passed(1, 1, true, MeleeHitGate.EffectTime(0.8f, 0.83f, fx, hit), fx, 130));
     }
 }
+
+/// <summary>fx/power-flash: the power weapons' hit flash rules (client/ImpactRules/PowerFlashRules.cs).</summary>
+public class PowerFlashRulesTests
+{
+    [Theory]
+    [InlineData("sm_mp_melee_2hand_thunder_hammer", PowerKind.Hammer)]
+    [InlineData("csm_mp_melee_2hand_power_mace", PowerKind.Maul)]
+    [InlineData("sm_mp_melee_power_axe", PowerKind.Axe)]
+    [InlineData("sm_mp_melee_powersword", PowerKind.Sword)]
+    [InlineData("csm_mp_melee_powersword", PowerKind.Sword)]
+    public void Each_power_wargear_names_its_weapon(string wargear, PowerKind kind) => Assert.Equal(kind, PowerFlashRules.KindOf(wargear));
+
+    [Theory]
+    [InlineData("sm_mp_melee_chainsword")]
+    [InlineData("csm_mp_melee_chain_axe")]
+    [InlineData("sm_mp_melee_combat_knife")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void Other_melee_weapons_do_not_flash(string? wargear) => Assert.Null(PowerFlashRules.KindOf(wargear));
+
+    [Fact]
+    public void A_swing_gets_one_big_burst_then_five_small_then_none_and_the_next_swing_starts_again()
+    {
+        var b = new PowerFlashRules.Budget();
+        Assert.Equal(PowerBurst.Lead, b.Take(1, 10.0));
+        for (int i = 0; i < PowerFlashRules.SmallPerSwing; i++) Assert.Equal(PowerBurst.Small, b.Take(1, 10.0 + 0.01 * i));
+        for (int i = 0; i < 14; i++) Assert.Equal(PowerBurst.None, b.Take(1, 10.1));   // the 20-enemy cleave: 1 + 5 + 14
+        Assert.Equal(PowerBurst.Lead, b.Take(1, 10.0 + PowerFlashRules.SwingSeconds + 0.1));
+    }
+
+    [Fact]
+    public void Another_attackers_swing_has_its_own_budget()
+    {
+        var b = new PowerFlashRules.Budget();
+        Assert.Equal(PowerBurst.Lead, b.Take(1, 5.0));
+        Assert.Equal(PowerBurst.Lead, b.Take(2, 5.0));
+        Assert.Equal(PowerBurst.Small, b.Take(1, 5.1));
+    }
+
+    [Fact]
+    public void A_camera_close_to_the_burst_sees_a_smaller_one_and_a_far_one_the_whole()
+    {
+        Assert.Equal(PowerFlashRules.CloseMin, PowerFlashRules.CloseFactor(0f));
+        Assert.Equal(PowerFlashRules.CloseMin, PowerFlashRules.CloseFactor(PowerFlashRules.CloseNear));
+        Assert.Equal(1f, PowerFlashRules.CloseFactor(PowerFlashRules.CloseFar));
+        Assert.Equal(1f, PowerFlashRules.CloseFactor(30f));
+        float prev = 0f;
+        for (float d = 0f; d <= 6f; d += 0.25f) { float f = PowerFlashRules.CloseFactor(d); Assert.InRange(f, PowerFlashRules.CloseMin, 1f); Assert.True(f >= prev); prev = f; }
+        Assert.False(float.IsNaN(PowerFlashRules.CloseFactor(float.NaN)));
+    }
+}

@@ -158,13 +158,13 @@ public partial class NetworkView
         long start = ImpactRules.MeleeHitGate.StartTick(tick, s.MeleeTime, _config!.TickSeconds);
         if (!_meleeFxGate.Passed(s.PlayerId, s.MeleeStep, s.MeleeHeavy, GateTime(s, step), FxTime(step), start)) return;   // sim/stomp-in-place: the drawn pose's time (the foot's landing), not the state's
         if (step.Stomp is { } blast && !NoStompFx) PlayStomp(s, own, character, wargear, blast);
-        if (PowerFlash.KindOf(wargear) is not null && !(PowerBlade.IsPowerSword(wargear) && NoSwordFx) && character is not null)
+        if (ImpactRules.PowerFlashRules.KindOf(wargear) is not null && !(PowerBlade.IsPowerSword(wargear) && NoSwordFx) && character is not null)
         {
             // The attacker itself is no enemy of its own, so the whole list is passed.
             int victim = MeleePresentation.Victim(s, all, _config!, own ? _client.MeleeLockTarget : 0);
             if (victim > 0)
                 for (int i = 0; i < all.Count; i++)
-                    if (all[i].PlayerId == victim) { SwordHit(s, character, all[i], wargear); break; }
+                    if (all[i].PlayerId == victim) { SwordHit(s, character, all[i], wargear, step.Stomp is not null); break; }
         }
     }
 
@@ -271,7 +271,7 @@ public partial class NetworkView
         }
     }
 
-    void SwordHit(PlayerState attacker, CharacterViewer character, PlayerState victim, string? wargear)
+    void SwordHit(PlayerState attacker, CharacterViewer character, PlayerState victim, string? wargear, bool slam)
     {
         // The contact point (ours): for the sword the point of the blade nearest the victim's chest, else (the hammer's, the axe's, the maul's heads have other markers) the chest itself,
         // brought to the body's surface (a body about 0.4 m in radius) on the attacker's side.
@@ -291,7 +291,7 @@ public partial class NetworkView
             contact = chest.DistanceTo(onBlade) > 0.4f ? chest + outward * 0.4f : onBlade;
         }
         // fx/power-flash: the layered blue flash and cloud for every power weapon (the old small star and spark effect, powersword_dmg, is replaced).
-        PowerHit(attacker.PlayerId, wargear, contact, outward + Vector3.Up * 0.3f, $"hit on P{victim.PlayerId}");
+        PowerHit(attacker.PlayerId, wargear, contact, outward + Vector3.Up * 0.3f, $"hit on P{victim.PlayerId}", slam);
         if (PowerBlade.IsPowerSword(wargear)) { _fx!.Play(PowerBlade.FlareName, contact, AxesFromY(outward), 1f, null, null, 0f, 0.0, false, 2); _swordFlareAt[attacker.PlayerId] = _connectedFor; }
         _swordHits++;
         _fxLastShotAt = _connectedFor; _fxLastEnd = contact; _fxLastFrom = onBlade;
