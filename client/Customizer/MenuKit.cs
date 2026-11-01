@@ -74,7 +74,7 @@ public static partial class UiKit
         t.SetTypeVariation(MenuButtonType, "Button");
         t.SetTypeVariation(MenuLabelType, "Label");
         foreach (var state in new[] { "normal", "hover", "focus", "disabled" }) t.SetStylebox(state, MenuButtonType, new StyleBoxEmpty());
-        foreach (var state in new[] { "pressed", "hover_pressed" }) t.SetStylebox(state, MenuButtonType, Underline(0, 1));
+        foreach (var state in new[] { "pressed", "hover_pressed" }) t.SetStylebox(state, MenuButtonType, new StyleBoxEmpty());
         t.SetFontSize("font_size", MenuButtonType, MenuTextSize);
         t.SetFontSize("font_size", MenuLabelType, MenuTextSize);
         t.SetColor("font_color", MenuButtonType, MenuIdle);
@@ -84,14 +84,6 @@ public static partial class UiKit
         t.SetColor("font_pressed_color", MenuButtonType, White);
         t.SetColor("font_disabled_color", MenuButtonType, new Color(0.56f, 0.56f, 0.56f));
         t.SetColor("font_color", MenuLabelType, MenuIdle);
-    }
-
-    /// <summary>A line under the text and nothing else: what marks a chosen toggle now that buttons have no box (so a state is never colour alone).</summary>
-    public static StyleBoxFlat Underline(int margin, int width = 2)
-    {
-        var box = new StyleBoxFlat { BgColor = new Color(0, 0, 0, 0), BorderColor = White, BorderWidthBottom = width, AntiAliasing = false };
-        box.SetContentMarginAll(margin);
-        return box;
     }
 
     /// <summary>A menu row: a transparent text button in capitals.</summary>
