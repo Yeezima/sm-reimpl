@@ -22,6 +22,11 @@ public interface IClientTransport
 {
     void Send(byte[] packet);
     bool TryReceive(out byte[] packet);
+    /// <summary>
+    /// True when <see cref="Send"/> may be called from a second thread while the main thread sends and receives (fix/stall-keepalive: the keep-alive thread
+    /// of <see cref="GameClient"/>). Only the real UDP client says so; the in-process, recording and replay transports do not, and the keep-alive never runs on them.
+    /// </summary>
+    bool ThreadSafeSend => false;
 }
 
 /// <summary>Unreliable, unordered datagrams to and from many clients, identified by a connection id.</summary>

@@ -94,6 +94,20 @@ public sealed record ClientOptions
     /// <summary>Protocol 46 (ours; observer tooling): join as a spectator (<c>client.cmd --observe</c>). The client has no player: it predicts and sends no input (only the
     /// acknowledgements that keep the connection alive) and receives everyone's snapshots; <see cref="GameClient.Predicted"/> stays empty.</summary>
     public bool Observer { get; init; }
+
+    // ---- fix/stall-keepalive (ours; GameClient.KeepAlive.cs) ----
+    /// <summary>
+    /// A background thread keeps the server from timing this player out while the main thread is blocked (a first draw that compiles shaders for 13 s, a driver stall): off by
+    /// default so the engine-free tests stay single-threaded; the Godot client turns it on (test aid <c>--no-stall-keepalive</c> turns it off). It only runs on a transport
+    /// that allows a second sending thread (<see cref="IClientTransport.ThreadSafeSend"/>).
+    /// </summary>
+    public bool StallKeepAlive { get; init; }
+    /// <summary>No <see cref="GameClient.Update"/> for this long counts as a stall, and the keep-alive starts.</summary>
+    public TimeSpan KeepAliveAfter { get; init; } = TimeSpan.FromSeconds(1);
+    /// <summary>While stalled, one keep-alive this often.</summary>
+    public TimeSpan KeepAliveInterval { get; init; } = TimeSpan.FromSeconds(0.5);
+    /// <summary>A stall longer than this gets no more keep-alives, so a client that is truly hung still times out on the server.</summary>
+    public TimeSpan KeepAliveBound { get; init; } = TimeSpan.FromSeconds(30);
 }
 
 /// <summary>
@@ -215,6 +229,7 @@ public sealed partial class GameClient
     /// </summary>
     public void Update(Func<uint, PlayerInput> sampleInput, bool tickNow = false)
     {
+        MarkUpdated();   // fix/stall-keepalive: the main thread is alive
         while (_transport.TryReceive(out var packet))
             switch (Protocol.Read(packet))
             {
@@ -293,7 +308,9 @@ public sealed partial class GameClient
             // Protocol 46: a spectator has no player to drive: an empty batch (the session and the newest snapshot acknowledged) keeps it connected and lets the server
             // drop what it kept for it. One a tick, as a player's batches go.
             PlayerInput[] camera = ObserverCamera is { } at ? [new PlayerInput(Tick, at.X, at.Y, at.Z, InputButtons.None)] : [];
-            _transport.Send(Protocol.Write(new InputBatch(camera, _session, _latestSnapshotTick)));
+            var observed = new InputBatch(camera, _session, _latestSnapshotTick);
+            _lastBatch = observed;
+            _transport.Send(Protocol.Write(observed));
             return;
         }
         // The view tick tells the server which past world this input was aimed at (lag compensation).
@@ -337,7 +354,9 @@ public sealed partial class GameClient
         _history[Tick] = (input, Predicted);
         while (_history.Count > _options.MaxHistory) _history.Remove(_history.Keys.First());
         var recent = _history.Keys.Reverse().Take(_options.InputRedundancy).Select(t => _history[t].Input).ToArray();
-        _transport.Send(Protocol.Write(new InputBatch(recent, _session, _latestSnapshotTick)));
+        var batch = new InputBatch(recent, _session, _latestSnapshotTick);
+        _lastBatch = batch;   // fix/stall-keepalive: what the keep-alive repeats
+        _transport.Send(Protocol.Write(batch));
     }
 
     /// <summary>The map the server named in its Challenge ("" for flat ground) and its collision, loaded from this install.</summary>
@@ -370,6 +389,7 @@ public sealed partial class GameClient
     /// <summary>Tells the server this player is leaving (sent three times; UDP is best effort). The client stops here.</summary>
     public void Leave()
     {
+        StopKeepAlive();   // fix/stall-keepalive: before the Leaves, so no keep-alive follows them
         if (Status == ClientStatus.Connected)
             for (int i = 0; i < 3; i++) _transport.Send(Protocol.Write(new Leave(_session)));
         Status = ClientStatus.Disconnected;
@@ -393,6 +413,7 @@ public sealed partial class GameClient
         PreviousPredicted = default;
         _prePrevious = default;
         _earlyRanAt = null;
+        StartKeepAlive();   // fix/stall-keepalive
     }
 
     /// <summary>

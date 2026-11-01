@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2070 spec table rows: **1470 tagged**, 433 not tagged (read from data with high confidence), 167 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 437 rows of the changes document.
+Scanned 2080 spec table rows: **1478 tagged**, 433 not tagged (read from data with high confidence), 169 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 438 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,21 +50,21 @@ Scanned 2070 spec table rows: **1470 tagged**, 433 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 242 | 227 | 202 | 25 | 1 |
+| Core simulation (provisional values) | 250 | 235 | 210 | 25 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 89 | 82 | 46 | 9 | 0 |
-| **All areas** | **1470** | 1246 | 1180 | 417 | 38 |
+| **All areas** | **1478** | 1254 | 1188 | 417 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 662 |
+| kind: ours | 670 |
 | confidence: low | 568 |
 | confidence: medium | 494 |
 | kind: interpretation | 335 |
 | notes: ours | 305 |
-| confidence: none (low) | 118 |
+| confidence: none (low) | 126 |
 | kind: provisional | 100 |
 | kind: estimate | 72 |
 | kind: user's knowledge | 49 |
@@ -1829,7 +1829,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (242)
+### Core simulation (provisional values) (250)
 
 *Spec section: Provisional values in use*
 
@@ -2198,6 +2198,19 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E71CE7E1` | End-of-run panel | on Won or Lost: one row per map (the last 16), TOTAL, the outcome, the humans ranked, NEW BEST, COPY RESULT. It stays until closed, so the 15 s restart delay need not change: a new run waits behind it | kind: ours; confidence: low | the addendum; the hold ours | End-of-run panel: compare with SM1 by timing a run over a known distance. Ours: on Won or Lost: one row per map (the last 16), TOTAL, the outcome… | ☐ |
 | `R-0DE87C04` | Local best | `musou-best.json` beside `frontend.json`: total, day, outcome, `TfwRules.Version`; only the current version counts, a damaged file reads as no best. No online leaderboard. A local server is under the player's control, so a shared line is honest but unverified | kind: ours | the addendum | Local best: compare with SM1 by feel or video. Ours: musou-best.json beside frontend.json: total, day, outcome… | ☐ |
 
+*Spec section: Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-D29B5413` | Stall keep-alive: start | when no `GameClient.Update` has begun for **1 s**, a background thread (checks every 100 ms) re-sends the newest input batch (s) | kind: ours; confidence: none (low) | ours (the server's own silence rule is 0.5 s neutral, 5 s timeout) | Stall keep-alive: start: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: when no GameClient.Update has begun for 1 s, a background thread… | ☐ |
+| `R-804365BD` | Stall keep-alive: interval | one keep-alive every **0.5 s** while stalled (ten times inside the server's 5 s timeout) (s) | kind: ours; confidence: none (low) | ours | Stall keep-alive: interval: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one keep-alive every 0.5 s while stalled (ten times inside the… | ☐ |
+| `R-A9B08743` | Stall keep-alive: bound | none after **30 s** of stall, so a client that is truly hung still times out (s) | kind: ours; confidence: none (low) | ours | Stall keep-alive: bound: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: none after 30 s of stall, so a client that is truly hung still times… | ☐ |
+| `R-ECF314B5` | Stall keep-alive: content | the newest batch with every input made neutral (no movement, no buttons, no melee target; ticks, heading, pitch and view fields kept); a spectator's batch (its camera) as it is. A server of the same protocol takes it as a batch that sets `LastHeard`; its… | kind: ours; confidence: none (low) | ours | Stall keep-alive: content: compare with SM1 by feel or video. Ours: the newest batch with every input made neutral (no movement, no… | ☐ |
+| `R-6F965540` | Watchdog for human players | the frame watchdog now also runs for a human's client, reporting a frame that has not finished for **3 s** (bots and `--frame-profile`: 2 s, unchanged) in the client log (s) | kind: ours; confidence: none (low) | ours | Watchdog for human players: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the frame watchdog now also runs for a human's client, reporting a… | ☐ |
+| `R-599C739E` | Slow-frame line | a frame that took **1 s** or more while connected is written to the log with the keep-alive packets sent meanwhile (s) | kind: ours; confidence: none (low) | ours | Slow-frame line: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a frame that took 1 s or more while connected is written to the log… | ☐ |
+| `R-89EEAE92` | "Connection is gone" line | names the cause: a freeze of this client (a frame of at least server timeout minus 1 s since the last snapshot), a freeze earlier in the session, or a server or network that went silent while frames ran normally; with the worst frame, the time since the last… | kind: ours; confidence: none (low) | ours | "Connection is gone" line: compare with SM1 by feel or video. Ours: names the cause: a freeze of this client (a frame of at least server… | ☐ |
+| `R-96F42DFA` | Hosted server lines in the client log | every join, every leave with its reason, every refusal, every fault note (" failed: ", "dropped after", "FATAL") with up to **14** stack lines after it, as "hosted server: ..."; the server's own throttle (the first 20 faults in full, then one in 10 s; stacks… (lines) | kind: ours; confidence: none (low) | ours | Hosted server lines in the client log: compare with SM1 by feel or video. Ours: every join, every leave with its reason, every refusal, every fault… | ☐ |
+
 ### General game design (7)
 
 *Spec section: Known behavior (public, unverified)*
@@ -2540,6 +2553,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-11F01086` | Simultaneous shots | All shots of a tick resolve after everyone has moved: a shooter killed in the same tick still lands its shot (a trade) | The original's ordering | Provisional values in use | Simultaneous shots: compare with SM1 by feel or video. Ours: All shots of a tick resolve after everyone has moved: a shooter… | ☐ |
 | `C-C329C2BA` | Silent players | After 500 ms without packets the player stops; after 5 s the player times out | Original behaviour for frozen or departed peers | Provisional values in use | Silent players: compare with SM1 by feel or video. Ours: After 500 ms without packets the player stops; after 5 s the player… | ☐ |
 | `C-1D3A41D6` | Players and joins per address | At most 4 players per IP address and one new join per address every 5 s (later Hellos wait unanswered); a joined client's repeated Hello no longer counts as being heard from | Not applicable: the original was peer-hosted with a lobby | Dedicated server hardening | Players and joins per address: compare with SM1 by feel or video. Ours: At most 4 players per IP address and one new join per address every 5… | ☐ |
+| `C-0DBFDE35` | Stall keep-alive (fix/stall-keepalive) | While the client's main thread is blocked (a first draw compiling shaders on a slow GPU, a driver stall), a background thread re-sends the newest input batch, made neutral, every 0.5 s after the first second, for at most 30 s, so the server does not time the player out after 5 s; the frozen player stands still. The… | Not applicable: the original was peer-hosted | Stall keep-alive and freeze diagnostics (fix/stall-keepalive) | Stall keep-alive (fix/stall-keepalive): compare with SM1 by feel or video. Ours: While the client's main thread is blocked (a first draw compiling… | ☐ |
 | `C-9403940B` | Idle kick | A player without movement, buttons or customizer use for 300 s while the match is played is dropped (no reason shown) | The original's idle rule, if any | Dedicated server hardening | Idle kick: compare with SM1 by feel or video. Ours: A player without movement, buttons or customizer use for 300 s while… | ☐ |
 | `C-7019C5AB` | Loopback exemption | Players on loopback (this machine) are exempt from the per-address cap, the join rate and the idle kick unless `--limit-loopback` (local bot playtests run up to 12 clients) | Not applicable | Dedicated server hardening | Loopback exemption: compare with SM1 by feel or video. Ours: Players on loopback (this machine) are exempt from the per-address… | ☐ |
 | `C-070CE588` | Re-join while dead | A new client on a dead player's connection or address waits until that player's respawn time has run out; a leaver's death is not scored | The original's rule for players who leave or rejoin | Dedicated server hardening | Re-join while dead: compare with SM1 by feel or video. Ours: A new client on a dead player's connection or address waits until… | ☐ |
@@ -3123,4 +3137,6 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-752D26F1` | Protocol 51 | Movement fixes: the heavy hop down stairs and off ledges, the pound in a full jump, the short hop while falling, steering a ledge charge (sim/movement-fixes; protocol 51, no wire change) |
 | `R-628FFD94` | Score on the wire | Added content: Musou Mode: rewards, extra slots and the score (pass 2 M6, M6b; `TfwRules.Version` 12; no protocol change) |
 | `R-48FF3A72` | Extra slots on the wire | Added content: Musou Mode: rewards, extra slots and the score (pass 2 M6, M6b; `TfwRules.Version` 12; no protocol change) |
+| `R-F987BDB3` | Stall keep-alive: scope | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
+| `R-E085B984` | Test aids | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
 
