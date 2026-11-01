@@ -249,6 +249,15 @@ public partial class NetworkView
         return Mathf.Lerp(0.2f, 0f, (t - 0.47f) / 0.53f);
     }
 
+    static readonly bool OldDamageFlash = OS.GetCmdlineUserArgs().Contains("--old-damage-flash");
+
+    /// <summary>
+    /// The age a flash restarts at when another hit lands (fix/spawn-room-light; ours: the original's rule for a hit during a flash is not known). A fresh hit starts at the peak, as always;
+    /// a hit while a flash still runs only lifts it back to the plateau after the peak (envelope 0.45) and never re-peaks it. A crowd hitting every few ticks (Musou Mode) used to restart the
+    /// 1.0 peak each time and strobed the whole screen between 1.0 and 0.45; now it holds a steady wash. <c>--old-damage-flash</c>: every hit restarts at the peak.
+    /// </summary>
+    static float FlashRestartAge(float age) => OldDamageFlash || age >= FlashSeconds ? 0f : Math.Min(age, FlashSeconds * 0.18f);
+
     ColorRect? _damageRect;
     ShaderMaterial? _damageMaterial;
     float _armourFlashAge = 9f, _healthFlashAge = 9f;
@@ -282,8 +291,8 @@ public partial class NetworkView
         if (_damagePrevSeen && HitFeedbackRules.FlashDamage(_damagePrev.Alive, _damagePrev.Shield, _damagePrev.Health, me.Alive, me.Shield, me.Health) is var (shield, health) && (shield > 0f || health > 0f))
         {
             var dir = DamageDirection(me);
-            if (shield > 0f) { _armourFlashAge = 0f; _armourFlashDir = dir; _armourFlashes++; }
-            if (health > 0f) { _healthFlashAge = 0f; _healthFlashDir = dir; _healthFlashes++; }
+            if (shield > 0f) { _armourFlashAge = FlashRestartAge(_armourFlashAge); _armourFlashDir = dir; _armourFlashes++; }
+            if (health > 0f) { _healthFlashAge = FlashRestartAge(_healthFlashAge); _healthFlashDir = dir; _healthFlashes++; }
             if (_bot && _connectedFor - _damageLogAt > 1.0)
             {
                 _damageLogAt = _connectedFor;
