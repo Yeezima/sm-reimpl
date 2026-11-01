@@ -175,7 +175,8 @@ public partial class NetworkView
         float blend = _meleeShows.TryGetValue(s.PlayerId, out var show) && show.Step == s.MeleeStep && show.Heavy == s.MeleeHeavy
             ? show.StartDistance : Math.Clamp(reach.DefaultDistance, reach.Range.Min, reach.Range.Max);
         const float h = 1f / 60f;
-        float perSecond = (reach.ForwardAt(time + h, step.Duration, blend) - reach.ForwardAt(MathF.Max(0f, time - h), step.Duration, blend)) / (time + h - MathF.Max(0f, time - h));
+        float From(float t) => reach.ForwardAt(MeleeLock.MotionTime(step, t, _config), step.Duration, blend);   // the body's motion, as the simulation runs it
+        float perSecond = (From(time + h) - From(MathF.Max(0f, time - h))) / (time + h - MathF.Max(0f, time - h));
         return float.IsFinite(perSecond) ? perSecond * step.Duration / clipLength : float.NaN;
     }
 

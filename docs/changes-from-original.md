@@ -169,6 +169,10 @@ The original's behaviour is known (or believed known) and we chose to differ.
 | Countdown swell plays once (sound-hunt) | The match flow posts `play_mp_countdown` (an endless container) and the bank stops it only on a cancelled countdown | Posted once per countdown (first pick only), so it no longer repeats every ~10 s through the match and stacks per round | Owner 2026-10-31 (a repeating sound); spec "Sound hunt" |
 | Seize Ground tick sounds off (sound-hunt) | A capture click while capturing and a score tick a second apart while scoring | Neither plays; `--sound-seize-ticks` restores them; objective-complete and the end tally stay | Owner 2026-10-31; ours (which sounds to silence); spec "Sound hunt" |
 | Player hit sound follows the victim's armour (fx/hit-armour-sound) | The weapon's hit event switches armour clangs / flesh by the victim | Bullets and rays: armour up plays the clangs only, armour down the flesh layers only, unknown both (the owner's 2026-10-28 "always both" is now the unknown case); melee and charge hits still both; `--combined-hit-sounds` restores | Owner's item 59; spec "Hit sound by the victim's armour" |
+| Melee step sooner | the owner's request (2026-11-02) | a swing's root motion reaches its hit point 1.5 times sooner, the same distance in all | Melee reliability |
+| Thunder hammer and daemon maul track to the hit | the owner's request (2026-11-02) | their strikes turn to the lock until the hit and reach it 1.5 m farther and 90 degrees either side; in Musou Mode the cleave reaches 1 m farther | Melee reliability |
+| Blue cloud of the power weapons' hits halved | the owner's request (2026-11-02) | ours to start with (fx/power-flash); half its size | Melee reliability |
+| Stalker bolter wall crater | the owner's request (2026-11-02); the data leaves stone unmarked | the bolter's crater at 1.6 times its size | Melee reliability |
 
 ## 2. Our choices where the original is unknown
 

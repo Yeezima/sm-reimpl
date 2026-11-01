@@ -18,7 +18,7 @@ public static class MeleeLockTuning
     /// <summary>The spec with every usable value of <paramref name="global"/>'s extension (finite, at least 0; angles at most 180); others noted and kept.</summary>
     public static MeleeLockSpec Read(BafDocument global, List<string> notes)
     {
-        var spec = MeleeLockSpec.Default;
+        var spec = MeleeLockSpec.Default with { StepEarly = MeleeLockSpec.InstallStepEarly };
         var ext = global.Root.Table(Extension);
         if (ext is null) { notes.Add($"melee lock: no {Extension}; our values"); return spec; }
         float Value(BafTable? table, string field, float fallback, float max = float.MaxValue)

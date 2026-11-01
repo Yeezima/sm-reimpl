@@ -96,6 +96,11 @@ public readonly record struct MeleeStep(
     /// (<c>MeleeTuning.WeaponMap.LightLungeFactor</c>); hashed only when it is not 1.
     /// </summary>
     public float LungeFactor { get; init; } = 1f;
+    /// <summary>
+    /// feel/melee-reliability (owner, 2026-11-02; ours; the thunder hammer's and the daemon maul's slow strikes): the alignment turn runs up to <see cref="HitTime"/>, and the locked target is
+    /// struck within <see cref="MeleeLockSpec.TrackReach"/> more reach and <see cref="MeleeLockSpec.TrackCone"/> degrees (<see cref="MeleeLock.AlignWindow"/>, <c>World.ResolveMelee</c>).
+    /// </summary>
+    public bool TrackToHit { get; init; }
     /// <summary><see cref="LungeFactor"/> as applied (a factor that is not finite or not above 0 counts as 1).</summary>
     public float LungeFactorApplied => float.IsFinite(LungeFactor) && LungeFactor > 0f ? LungeFactor : 1f;
 
@@ -129,6 +134,7 @@ public readonly record struct MeleeStep(
         // feel/melee-lock: only when set, so a step without it hashes as before.
         if (Reach is { } reach) { w.Write((byte)0xA1); reach.Write(w); }
         if (InPlace) w.Write((byte)0xA2);   // sim/stomp-in-place: only when set
+        if (TrackToHit) w.Write((byte)0xA4);
         if (LungeFactorApplied != 1f) { w.Write((byte)0xA3); w.Write(LungeFactorApplied); }   // anim/hammer-swing: only when not 1
         if (Kick) w.Write((byte)0xA4);   // sim/light-melee-flinch: only when set
         // feel/locks-sprint-stop: only when read, so a step without it hashes as before.

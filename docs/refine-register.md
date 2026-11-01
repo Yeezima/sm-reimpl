@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2121 spec table rows: **1510 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 450 rows of the changes document.
+Scanned 2127 spec table rows: **1516 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 454 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 352 | 297 | 303 | 100 | 12 |
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 116 | 69 | 101 | 52 | 3 |
-| Melee (critical) | 80 | 67 | 76 | 14 | 5 |
+| Melee (critical) | 86 | 73 | 76 | 20 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
 | Charge (critical) | 44 | 35 | 37 | 20 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -53,13 +53,13 @@ Scanned 2121 spec table rows: **1510 tagged**, 441 not tagged (read from data wi
 | Core simulation (provisional values) | 255 | 239 | 213 | 26 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 107 | 100 | 61 | 11 | 0 |
-| **All areas** | **1510** | 1282 | 1214 | 424 | 38 |
+| **All areas** | **1516** | 1288 | 1214 | 430 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 694 |
+| kind: ours | 700 |
 | confidence: low | 571 |
 | confidence: medium | 515 |
 | kind: interpretation | 335 |
@@ -76,11 +76,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: approximation | 22 |
 | kind: placeholder | 22 |
 | notes: placeholder | 19 |
+| notes: estimate | 18 |
 | kind: gap (not reproduced) | 17 |
 | notes: open question | 16 |
 | notes: interpretation | 15 |
 | notes: not reproduced (gap) | 13 |
-| notes: estimate | 12 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
 | kind: guess | 4 |
@@ -821,7 +821,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (80)
+### Melee (gameplay-critical) (86)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -952,6 +952,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-87D37C7C` | A melee find | a melee item changes the combo for the run, as in the 5-wave run; the old combo is not kept in a slot | kind: ours; confidence: low | ours | A melee find: compare with SM1 by feel or video. Ours: a melee item changes the combo for the run, as in the 5-wave run; the… | ☐ |
+
+*Spec section: Melee reliability, the sooner step and the stalker crater (feel/melee-reliability; used by the simulation, config hash, no wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-F3F8BE48` | The step sooner | the root motion of every melee attack with reach data up to the hit runs **1.5** times faster, the rest stretches to the attack's end, so the whole step is unchanged; the attack's clock, hit time and windows are unchanged; the clip is not retimed (factor) | kind: ours; notes: estimate | owner 2026-11-02 "make the step forward happen sooner in the melee swing animation timeline" | The step sooner: compare with SM1 by feel or video. Ours: the root motion of every melee attack with reach data up to the hit… | ☐ |
+| `R-66B149F1` | Slow strikes track to the hit | the thunder hammer's and the daemon maul's strikes keep turning to their locked target until the hit (the data's alignment window ended 0.1 to 0.2 s before it) (s) | kind: ours; notes: estimate | owner 2026-11-02 "more reliable at hitting their targets" | Slow strikes track to the hit: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the thunder hammer's and the daemon maul's strikes keep turning to… | ☐ |
+| `R-C5C35633` | Slow strikes deliver on the lock | the locked target is struck within the melee range plus **1.5** m and **90** degrees either side of the facing, and is the primary target; the height and line-of-sight checks stay (m, degrees) | kind: ours; notes: estimate | owner, as above | Slow strikes deliver on the lock: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the locked target is struck within the melee range plus 1.5 m and 90… | ☐ |
+| `R-7F88CFCA` | Slow strikes in Musou Mode | enemies carry no player lock, so the cleave of these strikes reaches **1** m farther (m) | kind: ours; notes: estimate | owner, as above | Slow strikes in Musou Mode: compare with SM1 by measuring on a flat spot of the same map. Ours: enemies carry no player lock, so the cleave of these strikes reaches… | ☐ |
+| `R-FDCD970A` | Power weapons' blue cloud | the cloud is half its size: `PowerFlash.CloudBoost` **0.575** (was 1.15); the data's own hit effects keep their size (factor) | kind: ours; notes: estimate | owner 2026-11-02 | Power weapons' blue cloud: compare with SM1 by feel or video. Ours: the cloud is half its size: PowerFlash.CloudBoost 0.575 (was 1.15)… | ☐ |
+| `R-1F0F1FA6` | Stalker bolter wall crater | a world hit plays the bolter's crater effect for the surface (`bolter_dmg_metal` on metal, else `bolter_dmg_stone`) at **1.6** times its size, instead of the data's (no effect on stone, the faint husk elsewhere) (factor) | kind: ours; notes: estimate | owner 2026-11-02 "larger than bolt pistol and bolter wall decal bullet holes" | Stalker bolter wall crater: compare with SM1 by feel or video. Ours: a world hit plays the bolter's crater effect for the surface… | ☐ |
 
 ### Jump pack (gameplay-critical) (67)
 
@@ -2591,6 +2602,10 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-13887ADF` | Countdown swell plays once (sound-hunt) | The match flow posts `play_mp_countdown` (an endless container) and the bank stops it only on a cancelled countdown | Posted once per countdown (first pick only), so it no longer repeats every ~10 s through the match and stacks per round | Owner 2026-10-31 (a repeating sound); spec "Sound hunt" | Countdown swell plays once (sound-hunt): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-1014E5A2` | Seize Ground tick sounds off (sound-hunt) | A capture click while capturing and a score tick a second apart while scoring | Neither plays; `--sound-seize-ticks` restores them; objective-complete and the end tally stay | Owner 2026-10-31; ours (which sounds to silence); spec "Sound hunt" | Seize Ground tick sounds off (sound-hunt): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-503CE466` | Player hit sound follows the victim's armour (fx/hit-armour-sound) | The weapon's hit event switches armour clangs / flesh by the victim | Bullets and rays: armour up plays the clangs only, armour down the flesh layers only, unknown both (the owner's 2026-10-28 "always both" is now the unknown case); melee and charge hits still both; `--combined-hit-sounds` restores | Owner's item 59; spec "Hit sound by the victim's armour" | Player hit sound follows the victim's armour…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-8D979389` | Melee step sooner | the owner's request (2026-11-02) | a swing's root motion reaches its hit point 1.5 times sooner, the same distance in all | Melee reliability | Melee step sooner: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-F8B5CB3A` | Thunder hammer and daemon maul track to the hit | the owner's request (2026-11-02) | their strikes turn to the lock until the hit and reach it 1.5 m farther and 90 degrees either side; in Musou Mode the cleave reaches 1 m farther | Melee reliability | Thunder hammer and daemon maul track to the hit: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-11C5C90C` | Blue cloud of the power weapons' hits halved | the owner's request (2026-11-02) | ours to start with (fx/power-flash); half its size | Melee reliability | Blue cloud of the power weapons' hits halved: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-A30FD437` | Stalker bolter wall crater | the owner's request (2026-11-02); the data leaves stone unmarked | the bolter's crater at 1.6 times its size | Melee reliability | Stalker bolter wall crater: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 
 ### Our choices where the original is unknown
 
