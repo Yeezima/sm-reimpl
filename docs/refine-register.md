@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2100 spec table rows: **1492 tagged**, 438 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 446 rows of the changes document.
+Scanned 2099 spec table rows: **1491 tagged**, 438 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 446 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,17 +50,17 @@ Scanned 2100 spec table rows: **1492 tagged**, 438 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 255 | 239 | 213 | 26 | 1 |
+| Core simulation (provisional values) | 254 | 238 | 212 | 26 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 92 | 85 | 47 | 10 | 0 |
-| **All areas** | **1492** | 1264 | 1198 | 422 | 38 |
+| **All areas** | **1491** | 1263 | 1197 | 422 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 677 |
-| confidence: low | 566 |
+| kind: ours | 676 |
+| confidence: low | 565 |
 | confidence: medium | 504 |
 | kind: interpretation | 335 |
 | notes: ours | 309 |
@@ -1840,7 +1840,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (255)
+### Core simulation (provisional values) (254)
 
 *Spec section: Provisional values in use*
 
@@ -2020,7 +2020,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-35C4D987` | Every damaging hit makes a cloud | any Hit event of a player, a retainer or a Marine (player above 0), and of fire support (orbital strike, Thunderhawk: player 0 with marker 0, counted as the player's; a World removal is not): a blood cloud, always (never thinned by the load or the distance… | kind: ours; confidence: medium | the owner's "always appear when damaging" | Every damaging hit makes a cloud: compare with SM1 by feel or video. Ours: any Hit event of a player, a retainer or a Marine (player above 0)… | ☐ |
 | `R-CE45AF98` | Cloud size | a hit's puff 2.2 to 3.2 m at birth scaled by kind (melee full, blast 1.3, fire 1.25, head 0.8, shot 0.65), swelling to about 1.5 times: a melee hit's cloud is at least a Marine across; a death's 2.6 to 3.8 m; an explosion makes 14 puffs of 4.5 to 8 m spread… (m) | kind: ours; confidence: medium | the owner's "much much bigger" | Cloud size: compare with SM1 by measuring on a flat spot of the same map. Ours: a hit's puff 2.2 to 3.2 m at birth scaled by kind (melee full, blast… | ☐ |
 | `R-D1A7697A` | Cloud life | a hit's 3 to 4.6 s, a death's 3.4 to 5 s, an explosion's 5 to 8.5 s: in over the first 5 %, dense while it hangs, then thinning smoothly to nothing; each puff its own proportions and lobes (a second cell sampled a quarter turn over the first) (s) | kind: ours; confidence: medium | the owner's reference ("hanging, thinning slowly") | Cloud life: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a hit's 3 to 4.6 s, a death's 3.4 to 5 s, an explosion's 5 to 8.5 s:… | ☐ |
-| `R-AE95914C` | Classic PvP | with `ContentExtras.Gore` (Extended; never with Musou): another player's health drop between snapshots (above 0.5) makes a hit cloud (a shot under 20 health lost, a blow under 60, a blast beyond), their alive-to-dead edge a burst by the kill feed's cause (a… | kind: ours; confidence: low | the owner's "classic pvp mode with the extended toggle on" | Classic PvP: compare with SM1 by feel or video. Ours: with ContentExtras.Gore (Extended; never with Musou): another… | ☐ |
 | `R-20C5A8B8` | Cost | the log line `musou gore:` / `gore:` every 10 s gives the frame cost; with 200 enemies and about 30 kills a second, every pool full, the gore's step and upload cost 1.6 ms a frame on average (3.9 ms worst) on the development PC (ms) | confidence: medium | measured (`--musou-gore-demo 200 --musou-gore-case churn`) | Cost: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the log line musou gore: / gore: every 10 s gives the frame cost… | ☐ |
 
 *Spec section: Added content: Musou Mode: the battle and the run (TF4; `TfwRules.Version` 5 since an extraction after a won battle)*
@@ -2466,7 +2465,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-DDCD7802` | Musou Mode: Orks pool into crowds of 50 at three spawn points; a garrison that never respawns | the owner's item 32 and his answers (2026-11-01); SM1's Exterminatus sends Orks in waves | each of the battle's three positions (and the HQ source after the commander comes) pools Orks standing still, one more a second, and lets the whole crowd go at 50, each point on its own; 150 alive at most; 12 garrison Orks a position that are never rebuilt; no lone tide | Crowd size | Musou Mode: Orks pool into crowds of 50 at three spawn…: compare with SM1 by feel or video. Ours: the owner's item 32 and his answers (2026-11-01); SM1's Exterminatus… | ☐ |
 | `C-7464C6DC` | Musou Mode: health bars over the elites | the owner's item 14 (2026-11-01) | every living 'Ard Boy, Nob and Warboss shows a bar; a client is sent the 64 nearest of up to 120 | Elite bars | Musou Mode: health bars over the elites: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner's item 14 (2026-11-01). | ☐ |
 | `C-7B12D4F2` | Musou Mode: excessive gore and bloody explosions | the owner's items 8, 22 and 23 (2026-11-01); SM1's gore is a red splash and a ragdoll | gibs, sprays, spatter and pools from a player's, a retainer's or a Thunderhawk's kills, a bloody explosion for blast, frag, artillery and lascannon kills, a slash on each enemy a cleave hits; no blood on the screen; Musou Mode only | Who makes gore, Explosions, Burst size, Cleave slash | Musou Mode: excessive gore and bloody explosions: compare with SM1 by feel or video. Ours: the owner's items 8, 22 and 23 (2026-11-01); SM1's gore is a red… | ☐ |
-| `C-0588EC9D` | The dark gore: dark blood clouds and ink on every damaging hit and death (Musou Mode, and classic PvP in Extended) | the owner (2026-11-01); the game's own trailer is the reference; SM1's blood is a red glow and a ragdoll | dark oxblood ink splatter and big brown-red clouds, three times the amount, on every hit and death of an enemy (Musou Mode) or of another player (PvP with `ContentExtras.Gore`); a Faithful match has none (no gore view is created); client only, no wire change | Added content: Gore: the dark blood | The dark gore: dark blood clouds and ink on every damaging…: compare with SM1 by feel or video. Ours: the owner (2026-11-01); the game's own trailer is the reference… | ☐ |
+| `C-C7584B78` | The dark gore: dark blood clouds and ink on every damaging hit and death (Musou Mode only; removed from classic PvP by hotfix 2026-11-01) | the owner (2026-11-01); the game's own trailer is the reference; SM1's blood is a red glow and a ragdoll | dark oxblood ink splatter and big brown-red clouds, three times the amount, on every hit and death of an enemy (Musou Mode); classic PvP, Extended or Faithful, keeps the original blood and creates no gore view; `ContentExtras.Gore` is now unused by any code (kept so the config hash does not change); client only, no… | Added content: Gore: the dark blood | The dark gore: dark blood clouds and ink on every damaging…: compare with SM1 by feel or video. Ours: the owner (2026-11-01); the game's own trailer is the reference… | ☐ |
 | `C-7C39B7CA` | Musou Mode: Marines throw fodder down | the owner's item 7 (2026-11-01); SM1 has no crowd collision | a Marine moving, sprinting, charging or landing into a Boy, Shoota, Gretchin or Guardsman throws him down for 2.5 s, sometimes killing him; any melee hit does the same to fodder; elites stagger as before | Melee and firepower | Musou Mode: Marines throw fodder down: compare with SM1 by feel or video. Ours: the owner's item 7 (2026-11-01); SM1 has no crowd collision. | ☐ |
 | `C-9E329822` | Musou Mode: three big frags | the owner's item 21 (2026-11-01) | one grenade throws three frags 24 degrees apart, each with twice the data's blast radius and sparing the thrower; every human life carries grenades | Melee and firepower | Musou Mode: three big frags: compare with SM1 by feel or video. Ours: the owner's item 21 (2026-11-01). | ☐ |
 | `C-E41F34C3` | Musou Mode: a cleave of 20 | the owner's item 22 (2026-11-01) | a swing strikes up to 20 enemies | Melee and firepower | Musou Mode: a cleave of 20: compare with SM1 by feel or video. Ours: the owner's item 22 (2026-11-01). | ☐ |

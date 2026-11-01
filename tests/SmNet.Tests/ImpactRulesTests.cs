@@ -254,28 +254,17 @@ public class MeleeHitSynthTests
     [InlineData("sm_mp_melee_powersword", HitSound.Sizzle)]
     [InlineData("csm_mp_melee_powersword", HitSound.Sizzle)]
     [InlineData("sm_mp_melee_power_axe", HitSound.Sizzle)]
-    [InlineData("sm_mp_melee_combat_knife", HitSound.Sizzle)]
-    [InlineData("csm_mp_melee_combat_knife", HitSound.Sizzle)]
-    [InlineData("sm_mp_melee_chainsword", HitSound.Roar)]
-    [InlineData("csm_mp_melee_chainsword_gold", HitSound.Roar)]
     [InlineData("sm_mp_melee_2hand_thunder_hammer", HitSound.Roar)]
     [InlineData("csm_mp_melee_2hand_power_mace", HitSound.Roar)]
     public void Each_replaced_weapon_gets_its_sound(string wargear, HitSound expected) => Assert.Equal(expected, MeleeHitSynth.Replaces(wargear));
 
     [Theory]
     [InlineData("csm_mp_melee_chain_axe")]
+    [InlineData("sm_mp_melee_combat_knife")]
+    [InlineData("csm_mp_melee_combat_knife")]
+    [InlineData("sm_mp_melee_chainsword")]
+    [InlineData("csm_mp_melee_chainsword_gold")]
     [InlineData("")]
     [InlineData(null)]
     public void Other_weapons_keep_their_own(string? wargear) => Assert.Null(MeleeHitSynth.Replaces(wargear));
-
-    [Theory]
-    [InlineData("sm - tactical", true)]
-    [InlineData("sm - assault marine", true)]
-    [InlineData("csm - tactical", true)]
-    [InlineData("csm - raptor", true)]
-    [InlineData("sm - devastator", false)]
-    [InlineData("csm - havoc", false)]
-    [InlineData("ork - boy", false)]
-    [InlineData(null, false)]
-    public void The_charge_hit_sound_B_is_for_the_tactical_and_assault_classes_and_their_chaos_mirrors(string? className, bool roar) => Assert.Equal(roar, MeleeHitSynth.ChargeUsesRoar(className));
 }

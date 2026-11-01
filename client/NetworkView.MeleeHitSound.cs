@@ -27,7 +27,7 @@ public partial class NetworkView
     HitSound? ProceduralHitSound(PlayerState attacker, bool charge, bool dash)
     {
         if (OldMeleeHitSound || _config is null) return null;
-        if (charge) return !dash && Loadouts.ClassOf(_config, attacker.Class) is { } cls && MeleeHitSynth.ChargeUsesRoar(cls.Name) ? HitSound.Roar : null;
+        if (charge) return null;   // every charge keeps its original sound (hotfix 2026-11-01)
         return MeleeHitSynth.Replaces(MeleeWargear(attacker));
     }
 
@@ -72,6 +72,9 @@ public partial class NetworkView
     }
 
     /// <summary>Plays a procedural melee hit sound at <paramref name="at"/> (Godot space): one of four renders at a slightly different speed and level every time. Returns the text for the log.</summary>
+    /// <summary>Hotfix 2026-11-01: the generated hit sounds 40% quieter (volume x 0.6, about -4.4 dB).</summary>
+    static readonly float HitVolumeScaleDb = 20f * MathF.Log10(0.6f);
+
     string PlayProceduralHit(HitSound sound, Vector3 at, string label)
     {
         var streams = HitStreams(sound);
@@ -80,7 +83,7 @@ public partial class NetworkView
         _hitSoundCount++; _proceduralHits++;
         var player = new AudioStreamPlayer3D
         {
-            Stream = stream, Bus = SoundSystem.BusName, PitchScale = pitch, VolumeDb = db + SoundGainDb, GlobalPosition = at,
+            Stream = stream, Bus = SoundSystem.BusName, PitchScale = pitch, VolumeDb = db + SoundGainDb + HitVolumeScaleDb, GlobalPosition = at,
             AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.InverseDistance, UnitSize = 8f, MaxDistance = 90f,
         };
         player.Finished += player.QueueFree;
