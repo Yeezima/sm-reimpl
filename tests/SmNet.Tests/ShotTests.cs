@@ -29,7 +29,7 @@ public class ShotTests(ITestOutputHelper output)
     [Fact]
     public void Shot_records_round_trip_relative_to_their_shooter()
     {
-        Assert.Equal(52, Protocol.Version);   // protocol 16 brought the shot records; 17 (M28) left them as they are
+        Assert.Equal(53, Protocol.Version);   // protocol 16 brought the shot records; 17 (M28) left them as they are
         Assert.Equal(9, Protocol.ShotBytes);
         PlayerState[] players = [Player(3, new Vector3(100.3f, -812.7f, 4.1f)), Player(65535, new Vector3(-5f, 7f, 0f))];
         ShotView[] shots =
@@ -100,7 +100,7 @@ public class ShotTests(ITestOutputHelper output)
             Kills: [.. Enumerable.Range(0, Protocol.MaxSnapshotKills).Select(k => new KillView(k, 1, 2, KillCause.Weapon, 0, Vector3.UnitX))],
             Points: [.. Enumerable.Repeat(new ControlPointView(Team.Chaos, Team.Chaos, 1f, true), Protocol.MaxSnapshotPoints)], Shots: shots));
         output.WriteLine($"fullest snapshot: {full.Length} bytes, {Protocol.MinSnapshotShots} shot records");
-        Assert.Equal((Protocol.MaxSnapshotBytes, 1195), (full.Length, full.Length));   // protocol 45: 1194;   // protocol 23: 1200 (21, 22: 1198) (20: 1197); protocol 17: 4 guaranteed shot records (16: 5, 1199 bytes)
+        Assert.Equal((Protocol.MaxSnapshotBytes, 1199), (full.Length, full.Length));   // protocol 53: 1199; protocol 45: 1194;   // protocol 23: 1200 (21, 22: 1198) (20: 1197); protocol 17: 4 guaranteed shot records (16: 5, 1199 bytes)
         Assert.Equal(Protocol.MinSnapshotShots, Assert.IsType<Snapshot>(Protocol.Read(full)).Shots!.Length);
         // With fewer projectile records the freed bytes carry more shots, never past the budget; the first ones are kept.
         for (int p = 0; p <= Protocol.MaxSnapshotProjectiles; p++)

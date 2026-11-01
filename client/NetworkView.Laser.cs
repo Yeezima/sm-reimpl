@@ -48,13 +48,13 @@ public partial class NetworkView
     static bool IsLaserTracer(string effect) =>
         effect.Contains("lascannon", StringComparison.OrdinalIgnoreCase) && effect.Contains("tracer", StringComparison.OrdinalIgnoreCase);
 
-    struct LaserBeam { public Vector3 From, Via, To; public bool Bent; public float Scale; public double Start; public bool Live; }
+    struct LaserBeam { public Vector3 From, Via, To; public bool Bent; public float Scale, LifeScale; public double Start; public bool Live; }
     readonly LaserBeam[] _lasers = new LaserBeam[12];
     int _laserNext, _lasersFired;
 
-    void LaserAdd(Vector3 from, Vector3? via, Vector3 to, float scale)
+    void LaserAdd(Vector3 from, Vector3? via, Vector3 to, float scale, float lifeScale = 1f)
     {
-        _lasers[_laserNext] = new LaserBeam { From = from, Via = via ?? to, To = to, Bent = via is not null, Scale = scale <= 0f ? 1f : scale, Start = _connectedFor, Live = true };
+        _lasers[_laserNext] = new LaserBeam { From = from, Via = via ?? to, To = to, Bent = via is not null, Scale = scale <= 0f ? 1f : scale, LifeScale = lifeScale <= 0f ? 1f : lifeScale, Start = _connectedFor, Live = true };
         _laserNext = (_laserNext + 1) % _lasers.Length;
         _lasersFired++;
     }
@@ -83,7 +83,7 @@ public partial class NetworkView
         {
             ref var b = ref _lasers[i];
             if (!b.Live) continue;
-            float age = (float)(_connectedFor - b.Start);
+            float age = (float)(_connectedFor - b.Start) / b.LifeScale;   // fx/designator: a shorter-lived beam runs its fade faster
             if (age > LaserGlowSeconds) { b.Live = false; continue; }
             float core = CoreAlpha(age), glow = GlowAlpha(age);
             // Full width in metres: 0.2 m at the data's x1 scale (the basic shot's x0.5: 0.1 m), narrowing a little as it fades; never under MinCorePixels on screen.

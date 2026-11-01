@@ -23,3 +23,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Musou Mode: the small Orks are gone; normal Ork Boyz take their place, so the enemy count is the same.
 - Musou Mode: explosions you cannot see no longer light up the room you are in through its walls.
 - Musou Mode: Orks now react reliably to being shot, including the head, chest and shoulders, and while they run.
+- Melee attacks can no longer be chained faster than the combo allows by shooting between swings: after a swing starts you must wait until its combo window before the next one starts. This build does not play with earlier ones: everyone must update.
+- Musou Mode: you can start a new melee swing whenever you like by pressing melee again once the previous swing has hit, without shooting or waiting for it to finish.
+- Charges are no longer cancelled by movement keys: only hitting an enemy or a wall (the recoil), jumping, attacking or throwing ends one.
+- Musou Mode: calling an artillery strike with B now shows a thin red laser beam from your weapon to the target.

@@ -29,7 +29,7 @@ public class RushTests(ITestOutputHelper output)
     static readonly MeleeStep Heavy = new(1.2f, 0.3f, 0f, 0f, 0.8f, 0.9f, 20f, 5f, 3.5f) { PrimaryReaction = new(0f, ReactionKind.Stun) };
     const int Marine = 0, Chaos = 1;
 
-    static readonly SimConfig Config = new()
+    internal static readonly SimConfig Config = new()
     {
         Weapons = [Rifle],
         Classes =
@@ -411,7 +411,7 @@ public class RushTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_18_carries_the_rush_phase_in_every_record_and_refuses_malformed_ones()
     {
-        Assert.Equal(52, Protocol.Version);
+        Assert.Equal(53, Protocol.Version);
         var p = new PlayerState(4, Vector3.One, Vector3.Zero, 1f, true) { Alive = true, Rush = RushPhase.Collision, RushTicks = 17, RushLock = 9 };
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(9, 1, 1, [p, p with { PlayerId = 5 }], Self: 4))));
         Assert.Equal(p, back.Players[0]);
@@ -429,7 +429,7 @@ public class RushTests(ITestOutputHelper output)
         var half = (byte[])slim.Clone(); BitConverter.GetBytes(2.5f).CopyTo(half, half.Length - 29);
         Assert.Null(Protocol.Read(half));              // ticks not whole
         Assert.Equal(31, Protocol.MaxMeleeStep);
-        Assert.Equal(1195, Protocol.MaxSnapshotBytes);
+        Assert.Equal(1199, Protocol.MaxSnapshotBytes);
     }
 
     [Theory]

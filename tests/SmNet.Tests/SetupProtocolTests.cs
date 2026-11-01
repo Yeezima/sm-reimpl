@@ -37,9 +37,9 @@ public class SetupProtocolTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_22_bumps_the_version_and_keeps_snapshots_as_they_were()
     {
-        Assert.Equal(52, Protocol.Version);
-        Assert.Equal(1195, Protocol.MaxSnapshotBytes);   // protocol 21's worst case: no snapshot change
-        Assert.Equal((47, 167), (Protocol.SlimRecordBytes, Protocol.FullRecordBytes));   // protocol 52: + the flinch byte; protocol 44: + 14 (the third weapon), 45: + 8 (the holstered reloads)   // protocol 23: + the perk word
+        Assert.Equal(53, Protocol.Version);
+        Assert.Equal(1199, Protocol.MaxSnapshotBytes);   // protocol 21's worst case: no snapshot change
+        Assert.Equal((47, 171), (Protocol.SlimRecordBytes, Protocol.FullRecordBytes));   // protocol 53: + the melee lock; protocol 52: + the flinch byte; protocol 44: + 14 (the third weapon), 45: + 8 (the holstered reloads)   // protocol 23: + the perk word
         Assert.Equal((178, 140, 14, 68, 22, 21), (Protocol.HelloBytes, Protocol.SetupBytes, Protocol.SetupAckBytes, Protocol.AppearanceBytes,   // protocol 28: + the Ork look
             Protocol.BlobRequestBytes, Protocol.BlobChunkHeaderBytes));
     }

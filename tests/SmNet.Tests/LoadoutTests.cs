@@ -297,7 +297,7 @@ public class LoadoutTests(ITestOutputHelper output)
         var hello = new Hello(Protocol.Version, 1, 2, 3, 4, 5, 6, 2);
         Assert.Equal(hello, Protocol.Read(Protocol.Write(hello)));
         Assert.Equal(Protocol.ServerDefaultClass, new Hello(Protocol.Version, 1, 2, 3).RequestedClass);
-        Assert.Equal(52, Protocol.Version);
+        Assert.Equal(53, Protocol.Version);
     }
 
     // ---------------------------------------------------------------- per-recipient snapshots

@@ -46,7 +46,7 @@ public static class Combat
             OtherClip = other?.ClipSize ?? 0, OtherReserve = other?.ReserveSize ?? 0, SwitchLeft = 0,
             ThirdClip = third?.ClipSize ?? 0, ThirdReserve = third?.ReserveSize ?? 0, ThirdHeat = 0, ThirdOverheated = false, ThirdSinceHeat = 0,
             Cooldown = 0, ReloadLeft = 0, OtherReloadLeft = 0, ThirdReloadLeft = 0, SinceDamage = 0, RespawnLeft = 0, Velocity = Vector3.Zero, Grounded = true,
-            MeleeStep = 0, MeleeTime = 0, MeleeQueued = false, MeleeDirection = EvadeDirection.Forward,
+            MeleeStep = 0, MeleeTime = 0, MeleeQueued = false, MeleeDirection = EvadeDirection.Forward, MeleeLock = 0f,
             Heat = 0, Overheated = false, SinceHeat = 0, OtherHeat = 0, OtherOverheated = false, OtherSinceHeat = 0,
             Charging = false, ChargeTime = 0, PendingShot = 0, PendingLeft = 0,
             Grenades = Loadouts.Equipment(c, s)?.SpawnCount ?? 0, GrenadeCooldown = 0, Throwing = false, ThrowTime = 0, StimLeft = 0,
@@ -112,7 +112,7 @@ public static class Combat
         Reaction = ReactionKind.None, ReactionDirection = ReactionDirection.Front, ReactionTicks = 0, PushYaw = 0, PushDistance = 0, PushTicks = 0, BlindTicks = 0,
         Rush = RushPhase.None, RushTicks = 0, RushLock = 0,
         Alive = false, Health = 0f, Shield = 0f, RespawnLeft = Loadouts.RespawnTime(c, s), Velocity = Vector3.Zero, ReloadLeft = 0f, OtherReloadLeft = 0f, ThirdReloadLeft = 0f, SwitchLeft = 0f,
-        MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeDirection = EvadeDirection.Forward,   // fix/dead-melee-direction: it outlived the attack and the reader refuses that
+        MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeDirection = EvadeDirection.Forward, MeleeLock = 0f,   // fix/dead-melee-direction: it outlived the attack and the reader refuses that
         Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Throwing = false, ThrowTime = 0f, StimLeft = 0f,
         Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpSlash = false, Aiming = false,
         EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLock = 0, EvadeLanded = false, JumpDashDirection = EvadeDirection.Forward,
@@ -399,7 +399,7 @@ public static class Combat
             events = default;
             return s with
             {
-                RespawnLeft = MathF.Max(0f, s.RespawnLeft - dt), Velocity = Vector3.Zero, MeleeHeld = meleeDown, MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false,
+                RespawnLeft = MathF.Max(0f, s.RespawnLeft - dt), Velocity = Vector3.Zero, MeleeHeld = meleeDown, MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeLock = 0f,
                 FireHeld = fireDown, SwitchHeld = switchDown, SlotPistolHeld = slotPistolDown, SlotPrimaryHeld = slotPrimaryDown, SlotSecondHeld = slotSecondDown, SwitchLeft = 0f,
                 ReloadHeld = reloadDown, Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, ReadyTicks = 0, RaiseTicks = 0,
                 DetonateHeld = reloadBlocked, GrenadeHeld = grenadeDown, Throwing = false, ThrowTime = 0f, StimLeft = 0f, JumpHeld = jumpDown,
@@ -423,9 +423,10 @@ public static class Combat
         if (!reacting)
         {
             // BR-02: the Tactical classes' charge is not ended by Fire (and fires nothing; below); every other class's is, as before.
-            // sim/combat-2 (item 31, owner's decision 2026-10-30): W does not end the bull rush (it was started with W held and ended at its stick branch when W was
-            // still down); any other stick direction (S, A / D alone) still does.
-            bool stickEnds = (sanitized.MoveX != 0f || sanitized.MoveY != 0f) && !(s.Rush == RushPhase.Rush && Loadouts.Rush(c, s) is { } rushSpec && Rush.WHeld(input, rushSpec));
+            // sim/combat-2 (item 31, owner's decision 2026-10-30): W did not end the bull rush. feel/charge-no-cancel (protocol 53, the owner 2026-11-02: "movement keys should not end
+            // the animation of the charge - the only way to end a charge movement is for it to hit an enemy or wall"): no stick direction ends the bull rush any more. What ends it
+            // is still the clip's end, a hit or wall (its recoil), Jump, melee, a grenade, a reaction or death; the stick still ends the recoil, the dash attack's hit and its run-out.
+            bool stickEnds = (sanitized.MoveX != 0f || sanitized.MoveY != 0f) && s.Rush != RushPhase.Rush;
             // sim/no-fire-charging-all (protocol 48; owner 2026-10-31): neither Fire nor Aim ends the charge (for every class); only the stick (not W), a grenade, Jump,
             // melee or the clip's end do. They are ignored while it plays: no shot, no aim state (the camera stays), nothing buffered.
             bool other = stickEnds || grenadePress;
@@ -512,6 +513,11 @@ public static class Combat
         if (step == 0) { heavy = false; steps = lightSteps; }
         float time = step > 0 ? s.MeleeTime : 0f;
         bool queued = step > 0 && s.MeleeQueued;
+        // feel/melee-cooldown (protocol 53; the owner 2026-11-02, classic PvP only): once an attack starts, no melee attack may start until that attack's combo window opens
+        // (ComboOpen, when the next one of a string may follow), whatever ended it (a shot, a roll, a jump, a hit); firing may still cancel. Musou Mode has no such wait.
+        bool musou = c.Extras.HasFlag(ContentExtras.Musou);
+        float meleeLock = musou ? 0f : MathF.Max(0f, s.MeleeLock - dt);
+        if (meleeLock <= TimeEpsilon) meleeLock = 0f;
         bool queuedHeavy = queued && s.MeleeQueuedHeavy;
         // sim/no-fire-while-sprinting (protocol 51; the owner 2026-11-01: "you should not be able to shoot while sprinting"): while the sprint is applied (Sprint held with
         // the stick forward, on the ground; not in aim mode, a jump-pack phase, an evade, a reaction, the charge, a brace, or a melee attack's movement lock) the trigger does
@@ -547,6 +553,15 @@ public static class Combat
             // Buffering (M28 adds heavy presses): before the combo window closes a press is kept for the next attack; a heavy
             // press during a light attack replaces a buffered light one; heavy presses during a heavy strike do nothing, except in
             // its Y-chain window (Weapons C: the Y,Y finishers, MeleeStep.YNext). A light press after an attack that ends the string does nothing.
+            // feel/musou-melee-spam (the owner 2026-11-02; Musou Mode only): a light press once the swing's hit has landed restarts the attack at once from its start (a press
+            // before the hit queues as usual); the heavy strikes and the in-place stomp keep their rules.
+            if (musou && meleePress && !heavy && !m.InPlace && time >= m.HitTime)
+            {
+                used |= InputBuffer.Bit(BufferedAction.Melee);
+                time = 0f; queued = false; queuedHeavy = false; startedNow = true; meleePress = false;
+                if (m.HitTime <= 0f) { meleeHitStep = step; hitHeavy = false; }
+                if (m.Reach is not null) (motionStep, motionFrom, motionTo) = (m, 0f, MathF.Min(dt, m.Duration));
+            }
             if (heavyPress && !heavy && before < m.ComboClose) { queued = true; queuedHeavy = true; heavyPress = false; used |= InputBuffer.Bit(BufferedAction.MeleeHeavy); }
             if (heavyPress && heavy && m.YNext > 0 && before < m.YComboClose) { queued = true; queuedHeavy = true; heavyPress = false; used |= InputBuffer.Bit(BufferedAction.MeleeHeavy); }
             if (meleePress && before < m.ComboClose && (heavy || !m.StringEnd)) { queued = true; meleePress = false; used |= InputBuffer.Bit(BufferedAction.Melee); }   // a later press does nothing (feel/buffer-speed: InputBuffer keeps it for the next attack)
@@ -566,7 +581,7 @@ public static class Combat
             else if (time >= m.Duration) { step = 0; time = 0f; queued = false; queuedHeavy = false; heavy = false; steps = lightSteps; }
         }
         // From rest a heavy press starts heavy strike 1 (it wins over a light press in the same tick), a light press attack 1.
-        if (step == 0 && !s.Throwing && ((heavyPress && heavySteps.Count > 0) || (meleePress && lightSteps.Count > 0)))
+        if (step == 0 && !s.Throwing && meleeLock <= 0f && ((heavyPress && heavySteps.Count > 0) || (meleePress && lightSteps.Count > 0)))
         {
             heavy = heavyPress && heavySteps.Count > 0;
             used |= InputBuffer.Bit(heavy ? BufferedAction.MeleeHeavy : BufferedAction.Melee);
@@ -574,6 +589,7 @@ public static class Combat
             step = 1; time = 0f; queued = false; queuedHeavy = false; cancelReload = true; startedNow = true;
             if (steps[0].HitTime <= 0f) { meleeHitStep = 1; hitHeavy = heavy; }
         }
+        if (startedNow && !musou) meleeLock = MathF.Max(0f, steps[step - 1].ComboOpen);   // the lock runs from the attack's start (this very tick) to its combo window
         // sim/combat-2 (item 39; the owner's decision of 2026-10-30: "the step forward of melee swings and F stun strikes starts the instant the button is pressed"):
         // the body's root motion runs one tick ahead of the attack's clock (the tick covering (t, t + dt] moves the body by the clip's (t + dt, t + 2dt]), so the press
         // tick itself already steps (0, dt]; before, the lunge began 1/30 s after the press. The attack's own clock, hit time and windows are unchanged.
@@ -968,7 +984,7 @@ public static class Combat
             ThirdClip = thirdClip, ThirdReserve = thirdReserve, ThirdHeat = thirdHeat, ThirdOverheated = thirdOverheated, ThirdSinceHeat = thirdSinceHeat,
             Heat = heat, Overheated = overheated, SinceHeat = sinceHeat, OtherHeat = otherHeat, OtherOverheated = otherOverheated, OtherSinceHeat = otherSinceHeat,
             FireHeld = fireDown || fireHeldThroughSprint, SwitchHeld = switchDown, SlotPistolHeld = slotPistolDown, SlotPrimaryHeld = slotPrimaryDown, SlotSecondHeld = slotSecondDown,
-            MeleeStep = step, MeleeTime = time, MeleeQueued = queued, MeleeHeld = meleeDown,
+            MeleeStep = step, MeleeTime = time, MeleeQueued = queued, MeleeHeld = meleeDown, MeleeLock = meleeLock,
             ReloadHeld = reloadDown, Charging = charging, ChargeTime = chargeTime, PendingShot = pending, PendingLeft = pendingLeft,
             ReadyTicks = readyTicks, RaiseTicks = raise, BurstLeft = burstLeft,
             DetonateHeld = (detonate || reloadBlocked) && reloadDown,
