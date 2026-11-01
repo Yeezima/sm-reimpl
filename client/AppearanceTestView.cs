@@ -18,7 +18,7 @@ namespace SmClient;
 /// <c>--piece slot=wargear,...</c>, <c>--lens r,g,b</c>, <c>--emblem-test</c> (a synthetic 128x128 BC3 emblem on the right pad), <c>--carried a,b</c> (wargear for class overrides).
 /// Output: <c>--shots 0,90,180,270</c> (turntable angles, degrees; 0 = front) saved to <c>--out</c> (default <c>%LOCALAPPDATA%\sm-reimpl\cache\cust-t6</c>; never inside the
 /// repository or the install) as <c>&lt;--name&gt;_&lt;angle&gt;.png</c>, then quit; <c>--closeup head|shoulder|torso</c> frames a part; <c>--turn &lt;deg/s&gt;</c> turns it live.
-/// <c>--try-build</c> builds through the non-blocking <c>TryBuild</c> and reports the call times; <c>--perf &lt;n&gt;</c> builds n different looks (every set with every preset, in turn) and prints the time and the GPU memory of each.
+/// <c>--list-heads</c> prints every head piece with its packages and lens rectangle counts. <c>--try-build</c> builds through the non-blocking <c>TryBuild</c> and reports the call times; <c>--perf &lt;n&gt;</c> builds n different looks (every set with every preset, in turn) and prints the time and the GPU memory of each.
 /// </summary>
 public partial class AppearanceTestView : Node3D
 {
@@ -123,6 +123,11 @@ public partial class AppearanceTestView : Node3D
             var watch = Stopwatch.StartNew();
             var catalog = CustomizationCatalog.Load(_gameDir, notes);
             GD.Print($"appearance test: catalogue {watch.ElapsedMilliseconds} ms");
+            // --list-heads: every head piece of the catalogue with its helmet packages and whether the lens recolour has rectangles for them (check every helmet one by one with --piece head=<name>).
+            if (_args.ContainsKey("list-heads"))
+                foreach (var race0 in new[] { CustomizationCatalog.SpaceMarine, CustomizationCatalog.Chaos })
+                    foreach (var head in catalog.Race(race0)!.PiecesFor("head"))
+                        GD.Print($"head piece: {race0} {head.Name}: packages [{string.Join(", ", head.Packages)}]; lens rectangles {string.Join("+", head.Packages.Select(p => LensRegions.For(p).Count))}");
             string race = _args.GetValueOrDefault("race") is { } r ? (r.StartsWith("c", StringComparison.OrdinalIgnoreCase) ? CustomizationCatalog.Chaos : CustomizationCatalog.SpaceMarine)
                 : _args.GetValueOrDefault("class") is { } cl && cl.StartsWith("csm", StringComparison.OrdinalIgnoreCase) || _args.GetValueOrDefault("class") is "raptor" or "havoc" ? CustomizationCatalog.Chaos
                 : CustomizationCatalog.SpaceMarine;
@@ -185,7 +190,7 @@ public partial class AppearanceTestView : Node3D
             _character = new CharacterViewer(model, "SM_NAV_IdleL_S_Relaxed_LE", gameSpaceRoot: true) { Name = "Marine" };
             AddChild(_character);
             _character.Pose("SM_NAV_IdleL_S_Relaxed_LE", 0.4f, 0f);   // held, so every run shows the same pose (pixel comparisons)
-            if (_args.ContainsKey("eye-glow")) AddChild(new EyeGlowTest(_gameDir, _character, look.Lens, _args.GetValueOrDefault("eye-glow"), _camera!) { Name = "EyeGlow" });   // M40-T13 test aid
+            if (_args.ContainsKey("eye-glow")) AddChild(new EyeGlowTest(_gameDir, _character, _args.GetValueOrDefault("eye-glow"), _camera!) { Name = "EyeGlow" });   // M40-T13 test aid
             GD.Print($"appearance test: total {total.ElapsedMilliseconds} ms; GPU memory: textures {RenderingServer.GetRenderingInfo(RenderingServer.RenderingInfo.TextureMemUsed) / 1048576.0:F1} MB, buffers {RenderingServer.GetRenderingInfo(RenderingServer.RenderingInfo.BufferMemUsed) / 1048576.0:F1} MB");
         }
         catch (Exception ex) { GD.PrintErr("appearance test: " + ex); _quit = true; _shots = []; }

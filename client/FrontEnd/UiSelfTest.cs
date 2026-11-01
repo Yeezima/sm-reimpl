@@ -263,6 +263,7 @@ public sealed partial class UiSelfTest : Node
         look = session.Working.Appearance(session.Working.ClassAt(4)?.Appearance.SpaceMarine);
         Check("a palette colour applies to all parts", look is not null && look.Paint.Count == 9 && look.PresetApplied is null);
         await PackPaintChecks(appearance);
+        await LensChecks(appearance);
         appearance.OpenSection("badges");
         await Frames(5);
         Click(b => b.Text == "None" && b is UiKit.Row);
@@ -556,6 +557,42 @@ public sealed partial class UiSelfTest : Node
         again?.EmitSignal(BaseButton.SignalName.Pressed);
         var packSecond = await PackAfter(packFirst);
         Check("changing the backpack colour changes the pack's material colour", packSecond is { } b2 && packFirst is { } b1 && !Near(b1, b2) && Near(b2, secondColour), $"{packFirst} -> {packSecond} (wanted {secondColour})");
+    }
+
+    /// <summary>
+    /// The eye lens colour (owner, 2026-11-01): the chosen colour recolours the lens texels in the helmet's material (the painted shader's lens colour), and nothing glows: no glow
+    /// node on the character. "Default (original look)" switches the recolour off again. The colours on offer are the palette's, as before.
+    /// </summary>
+    async Task LensChecks(AppearanceView appearance)
+    {
+        var preview = appearance.Preview;
+        async Task<(bool On, Color Colour, int GlowNodes)?> Settled(Func<(bool On, Color Colour, int GlowNodes), bool> wanted)
+        {
+            (bool On, Color Colour, int GlowNodes)? state = null;
+            for (int i = 0; i < 900; i++)
+            {
+                await Frames(1);
+                state = preview.LensState();
+                if (preview.Loaded && state is { } s && wanted(s)) return state;
+            }
+            return state;
+        }
+        appearance.OpenSection("eyes");
+        await Frames(5);
+        var swatches = new List<Button>();
+        FindButtons(appearance, swatches);
+        swatches = swatches.Where(b => b is UiKit.ColourButton).ToList();
+        Check("the eyes section lists the palette's colours", swatches.Count > 20, swatches.Count.ToString());
+        if (swatches.Count < 21) return;
+        var pick = swatches[Math.Min(swatches.Count - 1, 9)];
+        var colour = SwatchOf(pick);
+        pick.EmitSignal(BaseButton.SignalName.Pressed);
+        var on = await Settled(s => s.On && Near(s.Colour, colour));
+        Check("a lens colour recolours the helmet's lens in its material", on is { On: true } s1 && Near(s1.Colour, colour), $"{on} vs {colour}");
+        Check("the lens colour adds no glow node to the character", on is { GlowNodes: 0 }, on?.GlowNodes.ToString() ?? "no character");
+        FindButton(appearance, b => b.Text.StartsWith("Default (original look)"))?.EmitSignal(BaseButton.SignalName.Pressed);
+        var off = await Settled(s => !s.On);
+        Check("Default (original look) switches the lens recolour off", off is { On: false, GlowNodes: 0 }, off?.ToString() ?? "no character");
     }
 
     static bool Near(Color a, Color b) => Math.Abs(a.R - b.R) < 0.004f && Math.Abs(a.G - b.G) < 0.004f && Math.Abs(a.B - b.B) < 0.004f;

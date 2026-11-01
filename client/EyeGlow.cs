@@ -13,8 +13,8 @@ namespace SmClient;
 /// M40-T13: the Chaos eye glow of one character. The data's glow is an effect, not a material (<see cref="EyeGlowData"/>): while a Chaos weapon that binds
 /// <c>csm_mp_eye_*</c> is deployed (in hand), the effect plays at each of the helmet's eye markers (<c>fx_lefteye</c>, <c>fx_righteye</c>), attached
 /// (it follows the head). Its colours are the data's (blue for the bolters and melee weapons, red-orange for the lascannon, purple for the plasma
-/// weapons; spec "Chaos eye glow"). Stopping (another weapon, death, hidden model) ends it; the <c>stop_emitting</c> fade-out is not reproduced. The lens
-/// colour (customizer, ours) recolours it through <see cref="FxEffect.Tint"/>. Space Marine helmets have no eye markers, so they never glow this way.
+/// weapons; spec "Chaos eye glow"). Stopping (another weapon, death, hidden model) ends it; the <c>stop_emitting</c> fade-out is not reproduced. The customizer's lens
+/// colour does not drive it (the lens itself is recoloured, in the helmet's material). Space Marine helmets have no eye markers, so they never glow this way.
 /// The helmets' markers are read off the main thread (<see cref="PreloadMarkers"/>, or one background read per helmet seen first in <see cref="Update"/>).
 /// </summary>
 public sealed class EyeGlow
@@ -28,7 +28,7 @@ public sealed class EyeGlow
 
     readonly List<FxEffect> _playing = new();
     string _key = "";
-    (MarineAssets?, ulong, string?, bool, Color?) _last;
+    (MarineAssets?, ulong, string?, bool) _last;
     bool _waiting, _backedOff;
 
     /// <summary>The helmet's markers are not read yet (a background read runs, or a failed one waits out its back-off): the glow starts when they are.</summary>
@@ -42,7 +42,7 @@ public sealed class EyeGlow
 
     /// <summary>Effects alive now (0 or 2).</summary>
     public int Live => _playing.Count;
-    /// <summary>The last state started: helmet, skeleton, effects and tint (for logs).</summary>
+    /// <summary>The last state started: helmet, skeleton and effects (for logs).</summary>
     public string Key => _key;
 
     /// <summary>The helmet piece package a character wears (the first piece whose name contains "_helmet"), or null.</summary>
@@ -98,13 +98,13 @@ public sealed class EyeGlow
 
     /// <summary>
     /// Per frame: plays the eye effects of <paramref name="deployedWargear"/> at the character's eye markers, or stops them when <paramref name="show"/> is false,
-    /// the weapon binds none, or the helmet, the skeleton, the effects or the tint changed, or the effect player dropped them (then they start again).
+    /// the weapon binds none, or the helmet, the skeleton or the effects changed, or the effect player dropped them (then they start again).
     /// </summary>
-    public void Update(FxPlayer fx, string gameDir, EyeGlowData data, CharacterViewer character, string? deployedWargear, bool show, Color? tint)
+    public void Update(FxPlayer fx, string gameDir, EyeGlowData data, CharacterViewer character, string? deployedWargear, bool show)
     {
         if (Off || !fx.IsReady || character.Skeleton is not { } skeleton || character.Assets is not { } assets) { Stop(); _key = ""; _last = default; return; }
         // The common frame: nothing changed and the effects still run (no lookups, no strings).
-        var input = (assets, skeleton.GetInstanceId(), deployedWargear, show, tint);
+        var input = (assets, skeleton.GetInstanceId(), deployedWargear, show);
         bool lost = false;
         foreach (var e in _playing) lost |= e.Dead || e.Age > e.Life;   // ended, evicted by a busier frame (FxPlayer.Play) or cleared
         if (input == _last && !_waiting && !lost) return;
@@ -118,7 +118,7 @@ public sealed class EyeGlow
             if (MarkersOf(gameDir, helmet, assets.Rig.BoneNames, out bool backedOff) is { } m) markers = m;
             else { _waiting = true; _backedOff = backedOff; }
         }
-        string key = markers.Count == 0 ? "" : $"{helmet}|{skeleton.GetInstanceId()}|{string.Join(",", plays.Select(p => p.Name + "@" + p.Marker))}|{(tint is { } t ? t.ToHtml(false) : "-")}";
+        string key = markers.Count == 0 ? "" : $"{helmet}|{skeleton.GetInstanceId()}|{string.Join(",", plays.Select(p => p.Name + "@" + p.Marker))}";
         if (key == _key && _playing.Count > 0 && !lost) return;
         Stop();
         _key = key;
@@ -140,7 +140,6 @@ public sealed class EyeGlow
             var e = fx.Play(p.Name, at.Position, at.Axes, p.Scale <= 0f ? 1f : p.Scale, null, Place, 0f, 0.0, repeat: true, priority: 1);
             if (e is null) continue;
             e.StopOnLost = true;
-            if (tint is { } c) e.Tint = c;
             _playing.Add(e);
         }
     }
@@ -160,7 +159,4 @@ public sealed class EyeGlow
         _last = default;
         _waiting = false;
     }
-
-    /// <summary>The tint a lens colour gives the effect (<see cref="EyeGlowData.TintOf"/>); null (the data's colours) without a lens colour.</summary>
-    public static Color? TintOf((byte R, byte G, byte B)? lens) => EyeGlowData.TintOf(lens) is { } t ? new Color(t.R, t.G, t.B) : null;
 }

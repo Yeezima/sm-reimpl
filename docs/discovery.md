@@ -1863,9 +1863,9 @@ Read-only investigation for the eye-lens colour option (our addition; the origin
   `while_deployed` actions play `csm_mp_eye_*` (`master_fx`; meleehammer, bolter_heavy, lascannon, plasmacannon)
   at the eye markers — additive "colour glow" (r 0.15 m) and "point centre" (r 0.02 m) sprites. Played by the client since
   M40-T13 (see "Light property maps").
-- Recommendation: a shader rule (lens colour where the rule holds inside the helmet's rectangles; null = original look);
-  for Chaos also tint the eye effects once they play (the only route for `berserk_01/02`); a material-only tint is not
-  possible (one surface per helmet).
+- Recommendation: a shader rule (lens colour where the rule holds inside the helmet's rectangles; null = original look); a material-only tint is not
+  possible (one surface per helmet). (The idea of also tinting the Chaos eye effects, the only route for `berserk_01/02`, was dropped on 2026-11-01: the owner wants the
+  lens itself recoloured and no glow, so `berserk_01/02`, whose visor slit has no lens texels, keep their look.)
 - Implemented (customizer T6, 2026-10-28): the table is `SmContent.Customization.LensRegions` (numbers only), the rule is in the painted
   shader (`MapMaterials.PaintShaderCode`, `use_lens`). Checked by eye on all 13 helmets with lens texels (magenta lens, head close-ups): every
   rectangle lands on the lens or lenses, none on armour; the Relic's small side lamp and the Mk6 dome lamp stay as they were, the Relic's green

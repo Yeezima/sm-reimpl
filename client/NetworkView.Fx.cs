@@ -231,7 +231,6 @@ public partial class NetworkView
         UpdateFlash(delta);
         CharacterFlashFrame();   // fx/character-visuals: armour flashes on the models
         StimGlowFrame();   // fx/visuals-2 (item 48): the stim's red aura and cross (NetworkView.Stims.cs)
-        LensGlowFrame();   // fx/character-visuals: the eye glow in the lens colour (NetworkView.LensGlow.cs)
         RequestPoundRings();   // M41
         if (!FxReady() || !FxActive) { _fxPrev = me; _fxPrevSeen = true; return; }
         try
