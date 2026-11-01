@@ -617,6 +617,7 @@ public sealed partial class CollisionWorld
         _levelShotTriangles = weapons.SourceTriangles;
         _propStarts = CollisionProp.Starts(_levelShotTriangles, Props);
         _levelWeapons = weapons;
+        _levelCharacter = character;
         _propMin = Props.Select(p => p.Vertices.Aggregate(new Vector3(float.MaxValue), Vector3.Min)).ToArray();
         _propMax = Props.Select(p => p.Vertices.Aggregate(new Vector3(float.MinValue), Vector3.Max)).ToArray();
         KillVolumes = killVolumes?.ToArray() ?? [];
@@ -656,7 +657,7 @@ public sealed partial class CollisionWorld
     readonly int _levelShotTriangles;
     readonly int[] _propStarts;
     // The level's weapon mesh without the props (M39: the level stops every shot), and each prop's bounds.
-    readonly StaticMesh _levelWeapons;
+    readonly StaticMesh _levelWeapons, _levelCharacter;
     readonly Vector3[] _propMin, _propMax;
 
     /// <summary>The blockers checked (<see cref="SpawnBlocker.Checked"/>) and raised to <see cref="SpawnBlocker.AboveLevel"/> above the level's top (M31).</summary>

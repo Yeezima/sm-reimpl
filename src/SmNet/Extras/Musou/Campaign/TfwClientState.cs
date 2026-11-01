@@ -100,6 +100,7 @@ public sealed class TfwClientState
     readonly List<TfwGuardEvent> _newEvents = new();
     readonly List<TfwGuardShown> _shown = new();
     TfwObjective[] _objectives = [];
+    Vector3[] _sites = [];
     uint? _warTick, _objectivesTick, _scoreOwnTick, _scoreOthersTick, _scoreHistoryTick, _barsTick;
     double _now;
     readonly Dictionary<(TfwFireKind, uint, ushort), double> _firePlayed = new();
@@ -120,6 +121,8 @@ public sealed class TfwClientState
     public TfwWarView? War { get; private set; }
     /// <summary>The newest objectives heard (empty outside a battle).</summary>
     public IReadOnlyList<TfwObjective> Objectives => _objectives;
+    /// <summary>The battle's sites as tag 8 gave them: the landing zone, then the Ork sources (empty outside a battle).</summary>
+    public IReadOnlyList<Vector3> Sites => _sites;
     /// <summary>The commands on their way; tag 7's echo answers them.</summary>
     public TfwCommandSender Commands { get; } = new();
     /// <summary>Guardsmen known now.</summary>
@@ -255,6 +258,7 @@ public sealed class TfwClientState
                 if (_objectivesTick is { } shown && section.ServerTick < shown) { StaleSections++; return true; }
                 _objectivesTick = section.ServerTick;
                 _objectives = objectives;
+                _sites = TfwWire.ReadSites(section.Payload, box);
                 return true;
             case TfwWire.GuardsTag:
                 if (TfwWire.ReadGuards(section.Payload, box) is not { } guards) break;

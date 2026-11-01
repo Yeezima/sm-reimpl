@@ -26,12 +26,12 @@ public partial class NetworkView
     /// (the collision world, built before this) and nothing else: no map meshes, textures, lighting, grey collision, blocker planes, props, ragdoll world,
     /// look or weapon warm-ups. The returned map (collision and hash) is the one the full load returns, so the handshake's map check and the prediction are the same.
     /// </summary>
-    LoadedMap LeanMapLoaded(string name, SmContent.MapContent map, SmSim.CollisionWorld world, long collisionMs, System.Diagnostics.Stopwatch watch)
+    LoadedMap LeanMapLoaded(string name, ulong hash, SmSim.CollisionWorld world, long collisionMs, System.Diagnostics.Stopwatch watch)
     {
         _jumpGround = world;   // M45: the flight pose's height above the ground (the same probe as the full load)
         _mapNote = $"map {name}: collision only (lean bot: nothing is drawn; --{LeanBot.FullLoadFlag} loads the visuals)";
         GD.Print($"{_mapNote}; collision {collisionMs} ms, total {watch.ElapsedMilliseconds} ms");
-        return new LoadedMap(world, map.Hash);
+        return new LoadedMap(world, hash);
     }
 
     /// <summary>

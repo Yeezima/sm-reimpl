@@ -215,16 +215,16 @@ public sealed partial class GameServer
     /// The map added content generates in code instead of reading it from the install (the console server asks before it loads a map): null when <paramref name="name"/> is a map of
     /// the install. <paramref name="name"/> may be set when none was asked for (the profile's default map). <paramref name="error"/>: why the request is refused (exit code 2).
     /// </summary>
-    public static GameMap? GeneratedMap(ContentExtras extras, ref string? name, out string? error)
+    public static GameMap? GeneratedMap(ContentExtras extras, string install, ref string? name, out string? error)
     {
         GameMap? map = null;
         error = null;
-        ExtrasGeneratedMap(extras, ref name, ref map, ref error);   // EXTRAS-HOOK: a generated map (Musou Mode's tfw_war)
+        ExtrasGeneratedMap(extras, install, ref name, ref map, ref error);   // EXTRAS-HOOK: a generated map (Musou Mode's tfw_war)
         return map;
     }
 
     /// <summary>Hook for added content, called by <see cref="GeneratedMap"/>: sets <paramref name="map"/> (and <paramref name="name"/>) for a map it generates, or <paramref name="error"/>. Implemented in an <c>Extras/</c> folder.</summary>
-    static partial void ExtrasGeneratedMap(ContentExtras extras, ref string? name, ref GameMap? map, ref string? error);
+    static partial void ExtrasGeneratedMap(ContentExtras extras, string install, ref string? name, ref GameMap? map, ref string? error);
 
     public void Update()
     {

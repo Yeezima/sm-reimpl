@@ -22,11 +22,12 @@ public sealed partial class World
     /// Makes this match the war (a Musou match, <see cref="StartMusou"/>, whose hooks go to the war). False, and nothing changed, under the same conditions as
     /// <see cref="StartMusou"/>; a second call keeps the first's.
     /// </summary>
-    public bool StartTfw(NavGraph? nav)
+    public bool StartTfw(NavGraph? nav, TfwBattlefield field)
     {
         if (!StartMusou(nav)) return false;
-        _tfw ??= new TfwRun();
-        _musou!.WidenBox(TfwMap.WireBox);   // the Stormbird lies outside the arena's graph
+        _tfw ??= new TfwRun(field, new TfwSites(field, nav, Collision));
+        _musou!.WidenBox(field.Hub.Box);   // the Stormbird lies outside the graph
+        _musou!.WidenBox(field.Bounds);   // a jump goes above it
         _musou!.Director = default;   // no 5-wave director to show (nothing is sent until the first deploy: TfwShowDirector)
         return true;
     }
@@ -168,11 +169,15 @@ public sealed partial class World
     {
         if (_tfw?.Battle is not { } battle || _musou is not { } enemies || TfwGuards is not { } guards) return;
         var lz = battle.Layout.LandingZone;
+        var nav = enemies.Nav;
         float boy = enemies.Rules.Of(MusouEnemyType.Boy).Health;
         for (int k = 0; enemies.Alive < orks && k < orks; k++)
         {
             float angle = k * 2.399963f, ring = 25f + k % 7 * 2f;
-            if (enemies.Spawn(MusouEnemyType.Boy, lz + new Vector3(MathF.Cos(angle) * ring, MathF.Sin(angle) * ring, 0f), angle, boy) == 0) break;
+            var at = lz + new Vector3(MathF.Cos(angle) * ring, MathF.Sin(angle) * ring, 0f);
+            if (nav?.Nearest(at, 6f, 8f) is int node and >= 0) at = nav.Position(node);
+            else if (nav is not null) at = lz;
+            if (enemies.Spawn(MusouEnemyType.Boy, at, angle, boy) == 0) break;
         }
         while (guards.SquadsAlive < squads && guards.SpawnSquad(lz) >= 0) { }
     }

@@ -34,8 +34,7 @@ public class TfwWireTests(ITestOutputHelper output)
 
     static Harness WarServer(int clients = 1, LinkConditions? link = null)
     {
-        string? name = null;
-        var map = GameServer.GeneratedMap(ContentExtras.Musou, ref name, out _)!;
+        var map = TfwTestArena.ServerMap();
         var h = new Harness(link ?? LinkConditions.Perfect, 5, clients, ConfigFor(ContentExtras.Musou), new ServerOptions { Match = Rules }, map: map,
             clientOptions: new ClientOptions { LoadMap = _ => new LoadedMap(map.Collision, map.Hash) });
         h.Server.World.Tfw!.Idle = true;   // these tests are the queue's and the feed's own (TF4's run would take both)

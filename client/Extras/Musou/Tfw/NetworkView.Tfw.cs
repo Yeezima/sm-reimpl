@@ -70,6 +70,7 @@ public partial class NetworkView
             _tfwMarkers = new TfwMarkers { Name = "TfwMarkers" };
             _gameSpace.AddChild(_tfwMarkers);
         }
-        _tfwMarkers.Show(war, _tfwState.Objectives);
+        _tfwMarkers.Show(war, _tfwState.Objectives, _tfwState.Sites, _client?.Predicted.Position ?? default);
+        TfwHubFrame(war);
     }
 }

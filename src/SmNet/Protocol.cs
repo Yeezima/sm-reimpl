@@ -133,7 +133,11 @@ public sealed record Challenge(uint Nonce, ulong Cookie, uint EchoSentMs, string
 /// Movement takes them from <paramref name="Collision"/> (solid for the other side's players), which the client loads from its
 /// own install like the rest of the level; <paramref name="Hash"/> covers the layers they come from.
 public sealed record GameMap(string Name, CollisionWorld Collision, IReadOnlyList<SpawnPoint> Spawns, ulong Hash,
-    IReadOnlyList<ControlPoint>? ControlPoints = null, IReadOnlyList<StartArea>? StartAreas = null, IReadOnlyList<SpawnBlocker>? Blockers = null);
+    IReadOnlyList<ControlPoint>? ControlPoints = null, IReadOnlyList<StartArea>? StartAreas = null, IReadOnlyList<SpawnBlocker>? Blockers = null)
+{
+    /// <summary>What added content keeps with a map it composed (Musou Mode: the battlefield's places); null for every other map. Never sent, never hashed.</summary>
+    public object? AddedContent { get; init; }
+}
 /// <summary>What a client's map loader returns: the collision to predict with and the hash the server checks.</summary>
 public sealed record LoadedMap(CollisionWorld Collision, ulong Hash);
 /// <summary>

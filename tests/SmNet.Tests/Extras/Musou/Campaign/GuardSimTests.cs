@@ -26,7 +26,7 @@ public class GuardSimTests(ITestOutputHelper output)
         var mesh = new NavigationTests.Level().Floor(-half, -half, half, half).Mesh();
         var collision = new CollisionWorld(mesh, mesh);
         var w = new World(Config, collision, [new SpawnPoint(new Vector3(-half + 2f, -half + 2f, 0f), 0f)]) { Rules = Rules };
-        Assert.True(w.StartTfw(NavGraph.Build(mesh, null, NavSettings.From(Config))));
+        Assert.True(w.StartTfw(NavGraph.Build(mesh, null, NavSettings.From(Config)), TfwTestArena.Field));
         w.Spawn(1, w.AssignClass(0));
         for (int k = 0; k < 60 && w.State != MatchState.Playing; k++) w.Step(_ => default);
         Assert.Equal(MatchState.Playing, w.State);

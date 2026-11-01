@@ -19,6 +19,8 @@ public sealed partial class GameServer
         feed.Supplies = (byte)Math.Clamp(run.Supplies, 0, byte.MaxValue);
         feed.Objectives.Clear();
         feed.Objectives.AddRange(run.Objectives);
+        feed.Sites.Clear();
+        if (run.Battle?.Layout is { } layout) { feed.Sites.Add(layout.LandingZone); feed.Sites.AddRange(layout.Sources); }
         feed.GuardCount = guards.CopyTo(feed.Guards);
         foreach (var e in guards.Events)
             feed.AddEvent(new TfwGuardEvent((TfwGuardEventKind)e.Kind, e.Tick, e.Guard, e.Enemy, e.Vector));

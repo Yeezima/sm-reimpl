@@ -17,12 +17,19 @@ public sealed partial class TfwRun
     double _nextHqTransport;
     int _warTicks;
 
-    public TfwRun()
+    public TfwRun(TfwBattlefield field, TfwSites? sites = null)
     {
+        Field = field;
+        Sites = sites ?? new TfwSites(field, null, null);
         Reset();
         ReviveWindow = ReviveOpen;
         LordFallen = lane => War.WoundLord(lane);
     }
+
+    /// <summary>The places of the battlefield.</summary>
+    public TfwBattlefield Field { get; }
+    /// <summary>Where a battle's drawn places fall.</summary>
+    public TfwSites Sites { get; }
 
     /// <summary>The war of this run.</summary>
     public WarSim War { get; private set; } = new();
@@ -112,13 +119,11 @@ public sealed partial class TfwRun
         }
     }
 
-    /// <summary>An order to the Marines: only with a battle on, from a human in it; its point is the client's, so it is kept inside the arena.</summary>
+    /// <summary>An order to the Marines: only with a battle on, from a human in it; its point is the client's, so it is kept inside the battlefield.</summary>
     void Order(World w, int player, TfwCommandRecord c)
     {
         if (Battle is null || !_deployed.Contains(player)) return;
-        float half = TfwMap.ArenaHalf;
-        var point = new Vector3(Math.Clamp(c.Point.X, -half, half), Math.Clamp(c.Point.Y, -half, half), Math.Clamp(c.Point.Z, 0f, TfwMap.WallHeight));
-        var order = c with { Point = point };
+        var order = c with { Point = Field.Clamp(c.Point) };
         OrderSeen?.Invoke(player, order);
         w.TfwOrderMarines(player, order);
     }
@@ -126,15 +131,12 @@ public sealed partial class TfwRun
     void Deploy(World w, int player, byte lane, int rate)
     {
         if (Phase != TfwRunPhase.Hub || lane > (byte)TfwLane.C || Transport < TfwBattleRules.DeployCost) return;
-        if (TfwContracts.IsPuppet(player) || !w.Players.TryGetValue(player, out var p) || !p.Alive || !InStormbird(p.Position)) return;
+        if (TfwContracts.IsPuppet(player) || !w.Players.TryGetValue(player, out var p) || !p.Alive || !Field.Hub.Contains(p.Position)) return;
         Transport -= TfwBattleRules.DeployCost;
         TravelTicks = Math.Max(1, (int)MathF.Round(TfwBattleRules.TravelSeconds * rate));
         Deployed = true;
         War.Enter(TfwRunPhase.Travel, (TfwLane)lane);
     }
-
-    static bool InStormbird(Vector3 p) =>
-        MathF.Abs(p.X - TfwMap.StormbirdCentre.X) <= TfwMap.StormbirdSize.X / 2f + 1f && MathF.Abs(p.Y - TfwMap.StormbirdCentre.Y) <= TfwMap.StormbirdSize.Y / 2f + 1f;
 
     void RequestPickup(World w, int player, int rate)
     {
@@ -162,7 +164,8 @@ public sealed partial class TfwRun
         var lane = War.BattleLane;
         var state = War.LaneState(lane);
         bool final = state.Front == WarRules.FrontStronghold;
-        var layout = TfwLayout.For(lane, final ? WarRules.Positions : state.Front + 1);
+        int node = final ? WarRules.Positions : state.Front + 1;
+        var layout = Sites.Layout(lane, node, w.Tick);
         var bonus = final ? War.FinalBonus(lane) : default;
         w.TfwClearField();
         _deployed.Clear();
@@ -177,16 +180,25 @@ public sealed partial class TfwRun
         for (int k = 0; k < _deployed.Count; k++)
         {
             int id = _deployed[k];
-            var at = layout.LandingZone + new Vector3(k % 2 * 3f - 1.5f, k / 2 * -3f, 0f);
+            var at = Ashore(w, layout, new Vector3(k % 2 * 3f - 1.5f, k / 2 * -3f, 0f));
             w.TfwRespawnAt(id, at, yaw);
-            w.TfwSpawnRetainer(id, at + new Vector3(0f, -2f, 0f), yaw);
+            w.TfwSpawnRetainer(id, Ashore(w, layout, at - layout.LandingZone + new Vector3(0f, -2f, 0f)), yaw);
         }
         for (int l = 0; l < 3; l++)
         {
             var other = (TfwLane)l;
             if ((final || other == lane) && War.LaneState(other).LordState == WarRules.LordPresent)
-                w.TfwSpawnLord(other, layout.LandingZone + new Vector3(l * 3f - 3f, 3f, 0f), yaw);
+                w.TfwSpawnLord(other, Ashore(w, layout, new Vector3(l * 3f - 3f, 3f, 0f)), yaw);
         }
+    }
+
+    /// <summary>A place <paramref name="offset"/> from the landing zone, on the graph's ground; the landing zone itself when that falls in a wall.</summary>
+    static Vector3 Ashore(World w, TfwLayout layout, Vector3 offset)
+    {
+        var at = layout.LandingZone + offset;
+        if (w.Musou?.Nav is not { } nav) return at;
+        int node = nav.Nearest(at, 1.5f, 2.5f);
+        return node >= 0 ? nav.Position(node) : layout.LandingZone;
     }
 
     void Fight(World w, int rate)
@@ -258,7 +270,7 @@ public sealed partial class TfwRun
         if (left) War.PlayerLeft(War.BattleLane, battle.Secured, battle.OrksKilled, w.TfwGuards!.Lost);
         for (int k = 0; k < _deployed.Count; k++)
         {
-            var spawn = TfwMap.Spawns[k % TfwMap.Spawns.Length];
+            var spawn = Field.Hub.Spawns[k % Field.Hub.Spawns.Count];
             if (w.Players.ContainsKey(_deployed[k])) w.TfwRespawnAt(_deployed[k], spawn.Position, spawn.Yaw);
         }
         w.TfwClearField();

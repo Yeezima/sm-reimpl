@@ -20,7 +20,7 @@ public readonly record struct TfwGuardEvent(TfwGuardEventKind Kind, uint Tick, u
 /// lane <c>[i8 front][f32 progress][f32 imperial][f32 ork][u8 owned mask][f32 gather left][u8 lord state]</c>, then the own block (TF7b, <see cref="TfwOwnView"/>) <c>[u8 travel s][u8 pickup s][u8 revive s]
 /// [u8 extraction s][u8 revive tenths][u8 flags: bit 0 battle won, bit 1 deployed][u8 retainer][u8 order][u16 recovery s][u8 guards][u8 squads][u8 reserves][u8 secured]</c>. On a change and once a second; per client
 /// (the echo and the own block are the client's).</item>
-/// <item>Tag 8, the objectives: <c>[u8 n]</c> then n records of 10 bytes <c>[u8 index][u8 state][u16 progress 0..1][u16 x][u16 y][u16 z]</c>, at most <see cref="MaxObjectives"/>
+/// <item>Tag 8, the objectives: <c>[u8 n]</c> then n records of 11 bytes <c>[u8 index][u8 state][u16 progress 0..1][u16 x][u16 y][u16 z][u8 radius in quarters of a metre]</c>, then the sites <c>[u8 m]{[u16 x][u16 y][u16 z]}</c> (the landing zone, then the sources), at most <see cref="MaxObjectives"/>
 /// (180 bytes in all), the whole list every 10 ticks; n 0 outside a battle.</item>
 /// <item>Tag 9, the Guardsmen: <c>[u8 n]</c> then n records of 10 bytes <c>[u16 id][u16 x][u16 y][u16 z][u8 yaw][u8 state]</c>, at most <see cref="MaxGuards"/>, by interest
 /// (<see cref="TfwGuardInterest"/>).</item>
@@ -54,11 +54,15 @@ public static class TfwWire
     const int WarHeadBytes = 14, LaneBytes = 19, OwnBytes = 14, OwnWon = 1, OwnDeployed = 2;
     /// <summary>The fullest revive progress on the wire (<see cref="TfwOwnView.ReviveTenths"/>).</summary>
     public const byte MaxReviveTenths = 10;
-    public const int WarBytes = WarHeadBytes + 3 * LaneBytes + OwnBytes, ObjectiveBytes = 10, GuardBytes = 10, GuardEventBytes = 15;
+    public const int WarBytes = WarHeadBytes + 3 * LaneBytes + OwnBytes, ObjectiveBytes = 11, SiteBytes = 6, GuardBytes = 10, GuardEventBytes = 15;
     /// <summary>The objectives' section is at most this long (design section H).</summary>
     public const int MaxObjectivesBytes = 180;
     /// <summary>Most objectives in one section: (180 - 1) / 10 = 17.</summary>
-    public const int MaxObjectives = (MaxObjectivesBytes - 1) / ObjectiveBytes;
+    public const int MaxObjectives = (MaxObjectivesBytes - 2 - MaxSites * SiteBytes) / ObjectiveBytes;
+    /// <summary>Sites in tag 8: the landing zone, then the sources.</summary>
+    public const int MaxSites = 5;
+    /// <summary>A radius travels in quarters of a metre.</summary>
+    const float RadiusStep = 0.25f;
     /// <summary>Most Guardsmen in one section: (1191 - 1) / 10 = 119.</summary>
     public const int MaxGuards = (Protocol.MaxExtrasPayloadBytes - 1) / GuardBytes;
     /// <summary>Most Guard events in one section: (1191 - 1) / 15 = 79.</summary>
@@ -226,11 +230,15 @@ public static class TfwWire
     // ---------------------------------------------------------------- tag 8: the objectives
 
     /// <summary>The objectives payload of <paramref name="objectives"/> (the first <see cref="MaxObjectives"/>).</summary>
-    public static byte[] WriteObjectives(IReadOnlyList<TfwObjective> objectives, MusouBox box)
+    public static byte[] WriteObjectives(IReadOnlyList<TfwObjective> objectives, MusouBox box, IReadOnlyList<Vector3>? sites = null)
     {
         int n = Math.Min(objectives.Count, MaxObjectives);
-        var bytes = new byte[1 + n * ObjectiveBytes];
+        int m = Math.Min(sites?.Count ?? 0, MaxSites);
+        var bytes = new byte[2 + n * ObjectiveBytes + m * SiteBytes];
         bytes[0] = (byte)n;
+        int after = 1 + n * ObjectiveBytes;
+        bytes[after] = (byte)m;
+        for (int i = 0; i < m; i++) WritePosition(bytes.AsSpan(after + 1 + i * SiteBytes, SiteBytes), sites![i], box);
         for (int i = 0; i < n; i++)
         {
             var o = objectives[i];
@@ -239,16 +247,28 @@ public static class TfwWire
             s[1] = (byte)o.State;
             BinaryPrimitives.WriteUInt16LittleEndian(s[2..], Quantise(o.Progress, 0f, 1f));
             WritePosition(s[4..], o.Position, box);
+            s[10] = (byte)Math.Clamp((int)MathF.Round(o.Radius / RadiusStep), 0, byte.MaxValue);
         }
         return bytes;
     }
 
-    /// <summary>The objectives of a payload; null for a malformed one (wrong length, an index twice, an unknown state).</summary>
+    /// <summary>The sites of a payload <see cref="ReadObjectives"/> took: the landing zone, then the sources (none outside a battle).</summary>
+    public static Vector3[] ReadSites(ReadOnlySpan<byte> payload, MusouBox box)
+    {
+        int after = 1 + payload[0] * ObjectiveBytes, m = payload[after];
+        var sites = new Vector3[m];
+        for (int i = 0; i < m; i++) sites[i] = ReadPosition(payload.Slice(after + 1 + i * SiteBytes, SiteBytes), box);
+        return sites;
+    }
+
+    /// <summary>The objectives of a payload; null for a malformed one (wrong length, too many sites, an index twice, an unknown state).</summary>
     public static TfwObjective[]? ReadObjectives(ReadOnlySpan<byte> payload, MusouBox box)
     {
-        if (payload.Length < 1) return null;
+        if (payload.Length < 2) return null;
         int n = payload[0];
-        if (n > MaxObjectives || payload.Length != 1 + n * ObjectiveBytes) return null;
+        if (n > MaxObjectives || payload.Length < 2 + n * ObjectiveBytes) return null;
+        int m = payload[1 + n * ObjectiveBytes];
+        if (m > MaxSites || payload.Length != 2 + n * ObjectiveBytes + m * SiteBytes) return null;
         var list = new TfwObjective[n];
         for (int i = 0; i < n; i++)
         {
@@ -256,7 +276,7 @@ public static class TfwWire
             var state = (TfwPositionState)s[1];
             if (!Enum.IsDefined(state)) return null;
             for (int k = 0; k < i; k++) if (list[k].Index == s[0]) return null;
-            list[i] = new TfwObjective(s[0], state, Dequantise(BinaryPrimitives.ReadUInt16LittleEndian(s[2..]), 0f, 1f), ReadPosition(s[4..], box));
+            list[i] = new TfwObjective(s[0], state, Dequantise(BinaryPrimitives.ReadUInt16LittleEndian(s[2..]), 0f, 1f), ReadPosition(s[4..], box), s[10] * RadiusStep);
         }
         return list;
     }

@@ -6,7 +6,7 @@ namespace SmServer;
 /// <summary>
 /// Test aids of Musou Mode on a real server (TF9; <c>GameServer.TfwDownTest.cs</c> is their sibling). Off without their variables.
 /// <para>
-/// <c>SM_TFW_WIN_TEST=&lt;m&gt;</c>: once a second every enemy within that many metres of a human in the field falls, the boss too, credited to that human. The positions, the Guardsmen's securing, the depot, the commander's
+/// <c>SM_TFW_WIN_TEST=&lt;m&gt;</c>: once a second every enemy within that many metres of a human in the field falls, the boss too, credited to that human. The positions, the Guardsmen's securing (their walk left out: the nearest squad is set down on a position once it is securing, until allied navigation, M2), the depot, the commander's
 /// coming, the win, the free pickup, the front's move and the final assault all stay the run's own: only the fighting is left out, so a scripted player (<c>--tfw-test-win</c>) can walk a whole run.
 /// </para>
 /// <para>
@@ -38,6 +38,8 @@ public sealed partial class GameServer
         if (World.Tick % (uint)rate != 0) return;
         if (TfwStress is { } fill) World.TfwFillForTests(fill.Orks, fill.Squads);
         if (TfwWinRadius < 0f) return;
+        foreach (var o in run.Objectives)
+            if (o.State == SmSim.Extras.Musou.Campaign.TfwPositionState.Securing && World.TfwGuards is { } guards) guards.PlaceForTests(guards.NearestSquad(o.Position), o.Position);
         foreach (int human in run.InField)
             if (World.Players.TryGetValue(human, out var p) && p.Alive) World.TfwSmiteForTests(human, p.Position, TfwWinRadius);
     }
