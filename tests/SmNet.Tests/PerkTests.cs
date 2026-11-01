@@ -416,7 +416,7 @@ public class PerkTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_23_carries_the_own_perks_and_burst_and_not_the_others()
     {
-        Assert.Equal(51, Protocol.Version);
+        Assert.Equal(52, Protocol.Version);
         var me = new PlayerState(3, Vector3.One, Vector3.Zero, 0f, true) { Alive = true, Perk1 = 5, Perk2 = 126, BurstLeft = 1 };
         var other = new PlayerState(4, Vector3.One, Vector3.Zero, 0f, true) { Alive = true, Perk1 = 7, Perk2 = 8 };
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(1, 1, 1, [me, other], Self: 3))));
@@ -424,7 +424,7 @@ public class PerkTests(ITestOutputHelper output)
         Assert.Equal((-1, -1, 0), (back.Players[1].Perk1, back.Players[1].Perk2, back.Players[1].BurstLeft));   // slim: none
         var none = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(1, 1, 1, [me with { Perk1 = -1, Perk2 = 200, BurstLeft = 9 }], Self: 3)))).Players[0];
         Assert.Equal((-1, -1, Protocol.MaxBurstLeft), (none.Perk1, none.Perk2, none.BurstLeft));   // out of the field's range: none; the burst clamped
-        Assert.Equal(1194, Protocol.MaxSnapshotBytes);
+        Assert.Equal(1195, Protocol.MaxSnapshotBytes);
     }
 
     // ---------------------------------------------------------------- prediction

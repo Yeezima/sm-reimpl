@@ -6,6 +6,9 @@ namespace SmSim;
 /// <param name="Source">The attacker or the blast's owner (0: none).</param>
 public readonly record struct ReactionEvent(uint Tick, int Source, int Target, ReactionKind Kind, ReactionDirection Direction, int PushDistance);
 
+/// <summary>A player a light melee hit flinched in the last tick (sim/light-melee-flinch; diagnostics, tests): its aim thrown off for <paramref name="Ticks"/>.</summary>
+public readonly record struct FlinchEvent(uint Tick, int Source, int Target, int Ticks);
+
 /// <summary>A player a blind grenade's blast blinded in the last tick (M37; diagnostics, tests, server log).</summary>
 /// <param name="Source">The grenade's owner.</param>
 /// <param name="Distance">From the blast point to the player's eye, m.</param>
@@ -24,9 +27,23 @@ public sealed partial class World
 {
     readonly List<ReactionEvent> _reactions = new();
     readonly List<BlindEvent> _blindings = new();
+    readonly List<FlinchEvent> _flinches = new();
 
     /// <summary>Reactions started during the last <see cref="Step"/>.</summary>
     public IReadOnlyList<ReactionEvent> LastReactions => _reactions;
+
+    /// <summary>Flinches (light melee hits) started during the last <see cref="Step"/> (sim/light-melee-flinch).</summary>
+    public IReadOnlyList<FlinchEvent> LastFlinches => _flinches;
+
+    /// <summary>sim/light-melee-flinch: <paramref name="target"/> flinched by <paramref name="source"/>'s light hit (<see cref="Spread.Flinch"/>); recorded when it took.</summary>
+    void Flinch(int source, int target)
+    {
+        var before = _players[target];
+        var after = Spread.Flinch(before, Config);
+        if (after.FlinchTicks == before.FlinchTicks) return;
+        _players[target] = after;
+        _flinches.Add(new FlinchEvent(Tick, source, target, after.FlinchTicks));
+    }
 
     /// <summary>Players blind grenades blinded during the last <see cref="Step"/> (M37).</summary>
     public IReadOnlyList<BlindEvent> LastBlindings => _blindings;

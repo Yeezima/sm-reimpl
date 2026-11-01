@@ -133,8 +133,9 @@ public static class Spread
     /// <summary>
     /// The version of these rules (movement bands, the draw, the bloom's order), written into the hashed <see cref="SpreadSpec"/>: raise it with
     /// any rule change here so a code-only change also changes the config hash and old clients are refused (review, weapons/spread).
+    /// 2: sim/light-melee-flinch (the flinch's extra on a shot; protocol 52).
     /// </summary>
-    public const int RulesVersion = 1;
+    public const int RulesVersion = 2;
 
     const float Deg = MathF.PI / 180f;
 
@@ -156,12 +157,49 @@ public static class Spread
     public static SpreadSet? SetFor(WeaponSpec? weapon, PlayerState s, int stage = 0, float speedScale = 1f) =>
         weapon?.Spread?.For(stage).SetFor(s.Aiming ? SpreadStance.Aiming : SpreadStance.Standing, MovementOf(s.Velocity, speedScale));
 
-    /// <summary>The half-widths (degrees, horizontal and vertical) the next shot of <paramref name="stage"/> would be drawn in (for the crosshair).</summary>
-    public static (float Horizontal, float Vertical) HalfWidths(WeaponSpec? weapon, PlayerState s, int stage = 0, float speedScale = 1f)
+    /// <summary>
+    /// The half-widths (degrees, horizontal and vertical) the next shot of <paramref name="stage"/> would be drawn in (for the crosshair); with
+    /// <paramref name="c"/>, the flinch's extra (<see cref="FlinchDegrees"/>) on top (sim/light-melee-flinch).
+    /// </summary>
+    public static (float Horizontal, float Vertical) HalfWidths(WeaponSpec? weapon, PlayerState s, int stage = 0, float speedScale = 1f, SimConfig? c = null)
     {
-        if (SetFor(weapon, s, stage, speedScale)?.Scatter is not { } sc) return (0f, 0f);
+        float flinch = c is null ? 0f : FlinchDegrees(c, s.FlinchTicks);
+        if (SetFor(weapon, s, stage, speedScale)?.Scatter is not { } sc) return weapon is null ? (0f, 0f) : (flinch, flinch);
         float bloom = MathF.Max(0f, s.SpreadBloom);
-        return (MathF.Min(sc.MaxHorizontal, sc.InitialHorizontal + bloom), MathF.Min(sc.MaxVertical, sc.InitialVertical + bloom));
+        return (MathF.Min(sc.MaxHorizontal, sc.InitialHorizontal + bloom) + flinch, MathF.Min(sc.MaxVertical, sc.InitialVertical + bloom) + flinch);
+    }
+
+    // ---- sim/light-melee-flinch (protocol 52; the owner, 2026-11-01): a light melee hit throws the victim's aim off and does nothing else ----
+
+    /// <summary>The ticks a flinch lasts: <see cref="SimConfig.MeleeFlinchSeconds"/> rounded up to whole ticks (at least 1 when the flinch is on; at most 255, one byte on the wire).</summary>
+    public static int FlinchTicksOf(SimConfig c) =>
+        !(c.MeleeFlinchDegrees > 0f) || !float.IsFinite(c.MeleeFlinchSeconds) || c.MeleeFlinchSeconds <= 0f ? 0
+        : Math.Clamp((int)MathF.Ceiling(c.MeleeFlinchSeconds / c.TickSeconds - 1e-3f), 1, MaxFlinchTicks);
+
+    /// <summary>Largest <see cref="PlayerState.FlinchTicks"/> (one byte on the wire).</summary>
+    public const int MaxFlinchTicks = byte.MaxValue;
+
+    /// <summary>
+    /// The extra scatter (degrees, on both half-widths, past the set's maximum) of a shot fired with <paramref name="ticksLeft"/> flinch ticks left at
+    /// its tick's start: <see cref="SimConfig.MeleeFlinchDegrees"/> × ticksLeft / the full flinch, so a hit's first tick takes the whole value and it falls
+    /// linearly to nothing (ours).
+    /// </summary>
+    public static float FlinchDegrees(SimConfig c, int ticksLeft)
+    {
+        int total = FlinchTicksOf(c);
+        if (total <= 0 || ticksLeft <= 0) return 0f;
+        return c.MeleeFlinchDegrees * Math.Min(ticksLeft, total) / total;
+    }
+
+    /// <summary>
+    /// <paramref name="s"/> flinched by a light melee hit (applied by the world after the victim's tick, as a reaction is): its flinch restarts at the full
+    /// <see cref="FlinchTicksOf"/> (a second hit never shortens one under way). A dead player, or a config without the flinch, is unchanged. Nothing else
+    /// changes: no reaction, no knockback, no action ended (the owner's rule: a light hit interrupts nothing).
+    /// </summary>
+    public static PlayerState Flinch(PlayerState s, SimConfig c)
+    {
+        int total = FlinchTicksOf(c);
+        return !s.Alive || total <= 0 || s.FlinchTicks >= total ? s : s with { FlinchTicks = total };
     }
 
     /// <summary>
@@ -199,21 +237,24 @@ public static class Spread
         // A reset leaves every spread field 0 (a weapon without spread never changes them, so such states match the wire's).
         float since = reset || !float.IsFinite(before.SpreadSince) ? 0f : MathF.Min(Rested, MathF.Max(0f, before.SpreadSince) + dt);
         float yaw = next.SpreadYaw, pitch = next.SpreadPitch;
+        // sim/light-melee-flinch: the flinch left at this tick's start scatters this tick's shot (past the set's maximum; a weapon without spread too), then one tick passes.
+        int flinchLeft = next.Alive ? Math.Clamp(before.FlinchTicks, 0, MaxFlinchTicks) : 0;
+        float flinch = FlinchDegrees(c, flinchLeft);
         // The decay follows the set the weapon would shoot with now.
         if (!reset && SetFor(weapon, next, 0, c.MoveSpeedScale)?.Scatter is { } now && since >= now.DecreaseDelay)
             bloom = MathF.Max(0f, bloom - MathF.Max(0f, now.DecreasePerSecond) * dt);
         if (events.Fired && weapon is not null)
         {
             var sc = SetFor(weapon, next, events.ShotStage, c.MoveSpeedScale)?.Scatter ?? ScatterSet.None;
-            float h = MathF.Max(0f, MathF.Min(sc.MaxHorizontal, sc.InitialHorizontal + bloom));
-            float v = MathF.Max(0f, MathF.Min(sc.MaxVertical, sc.InitialVertical + bloom));
+            float h = MathF.Max(0f, MathF.Min(sc.MaxHorizontal, sc.InitialHorizontal + bloom)) + flinch;
+            float v = MathF.Max(0f, MathF.Min(sc.MaxVertical, sc.InitialVertical + bloom)) + flinch;
             var p = Draw(next.PlayerId, input.Tick);
             yaw = p.X * h * Deg; pitch = p.Y * v * Deg;
             bloom = MathF.Min(bloom + MathF.Max(0f, sc.IncreasePerShot), sc.MaxBloom);
             since = 0f;
         }
         if (reset && !events.Fired) { yaw = 0f; pitch = 0f; }
-        return next with { SpreadBloom = bloom, SpreadSince = since, SpreadYaw = yaw, SpreadPitch = pitch };
+        return next with { SpreadBloom = bloom, SpreadSince = since, SpreadYaw = yaw, SpreadPitch = pitch, FlinchTicks = Math.Max(0, flinchLeft - 1) };
     }
 
     /// <summary>Whether two states of one player hold the same bloom's owner: alive alike, same class, weapon slot and chosen primary and pistol.</summary>

@@ -78,6 +78,8 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
 
     /// <summary>The heavy combo's stomp: the sequencer's action tag and the wargear's triggered action it fires.</summary>
     public const string StompTag = "DISPLACE_FootStomp", StompAction = "displace_footstomp";
+    /// <summary>The heavy classes' kick ability (sim/light-melee-flinch: <see cref="MeleeStep.Kick"/>).</summary>
+    public const string KickAbility = "ability_displace_kick";
 
     /// <summary>
     /// The combat knife: Tactical and Devastator melee in multiplayer (unlock level 1). Combo order CK 1 → CK 2 → CK 3 is
@@ -376,6 +378,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
                 ShieldDamage = weapon.ExtendedRules ? primary?.ShieldDamage ?? 0f : 0f, SecondaryShieldDamage = weapon.ExtendedRules ? secondary?.ShieldDamage ?? 0f : 0f,
                 // feel/melee-lock: the alignment window, distance variants and root motion.
                 InPlace = weapon.InPlaceStomp && stomp is not null,
+                Kick = abilityName == KickAbility,   // sim/light-melee-flinch: the heavy classes' kick keeps its reaction though it is their light attack
                 Reach = reach is null || (weapon.InPlaceStomp && stomp is not null) ? null : MeleeMotion.ReachOf(graph.Name, seq, duration, reach, weapon.DefaultTargetDistance, notes, move),
                 EvadeAt = evadeAt,
             };
