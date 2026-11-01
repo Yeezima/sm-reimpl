@@ -9,7 +9,7 @@ namespace SmSim.Extras.Musou.Campaign;
 /// </summary>
 public static class TfwRules
 {
-    public const uint Version = 3;   // 2: TF6, the war's sections on the wire and the commands with a place; 3: TF4, the war runs (the battle, the run, the extraction)
+    public const uint Version = 4;   // 2: TF6, the war's sections on the wire and the commands with a place; 3: TF4, the war runs (the battle, the run, the extraction); 4: TF7b, tag 7 carries the own block (TfwOwnView)
 }
 
 /// <summary>The contract the war's milestones share (TF0, frozen): ids and how the war's actors are named across the simulation, the server and the client.</summary>
@@ -49,9 +49,20 @@ public readonly record struct TfwCommandRecord(ushort Sequence, TfwCommand Comma
 /// <summary>One front as the simulation holds it and tag 7 carries it (design section C): front -1 (HQ besieged) to 3 (stronghold), progress -1 to 1, the strengths, each position's owner bit, the gather time left, the lord's state.</summary>
 public readonly record struct TfwLaneState(sbyte Front, float Progress, float Imperial, float Ork, byte OwnedMask, float GatherLeft, byte LordState);
 
-/// <summary>The war as tag 7 carries it: the phase, the battle's lane, the war clock (seconds), the time scale, the reserves, the newest command sequence applied per the sender (filled per client), and the three fronts.</summary>
+/// <summary>The war as tag 7 carries it: the phase, the battle's lane, the war clock (seconds), the time scale, the reserves, the newest command sequence applied per the sender (filled per client), the three fronts, and what only this client's HUD needs (<see cref="TfwOwnView"/>, per client as the echo).</summary>
 public readonly record struct TfwWarView(TfwRunPhase Phase, TfwLane BattleLane, float Clock, float TimeScale, byte Transport, byte Supplies, ushort CommandEcho,
-    TfwLaneState A, TfwLaneState B, TfwLaneState C);
+    TfwLaneState A, TfwLaneState B, TfwLaneState C, TfwOwnView Own = default);
+
+/// <summary>A player's retainer as the HUD shows it (TF7b): none yet (in the Stormbird), up, reviving its player, or down and recovering.</summary>
+public enum TfwRetainerState : byte { None = 0, Ready = 1, Reviving = 2, Recovering = 3 }
+
+/// <summary>
+/// What one client's HUD needs of the run beyond the fronts (TF7b, the end of tag 7): the seconds left, rounded up (so a countdown changes the record once a second) of the travel, the pickup, the
+/// own revive window and the extraction's prompt; the revive's progress in tenths; whether the battle is won (a pickup is then free); the own retainer, its order and its recovery (war seconds, rounded
+/// up); and the battle's Guardsmen alive, squads in the field, squads in reserve and positions secured.
+/// </summary>
+public readonly record struct TfwOwnView(byte TravelSeconds, byte PickupSeconds, byte ReviveSeconds, byte ExtractionSeconds, byte ReviveTenths, bool BattleWon,
+    TfwRetainerState Retainer, MarineOrder Order, ushort RecoverySeconds, byte Guards, byte Squads, byte Reserves, byte Secured);
 
 /// <summary>One capture position as tag 8 carries it (positions quantised over the Musou box).</summary>
 public readonly record struct TfwObjective(byte Index, TfwPositionState State, float Progress, Vector3 Position);

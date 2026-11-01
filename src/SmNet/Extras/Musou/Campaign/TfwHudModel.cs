@@ -1,0 +1,201 @@
+using System.Globalization;
+using System.Numerics;
+using SmSim;
+using SmSim.Extras.Musou.Campaign;
+
+namespace SmNet.Extras.Musou.Campaign;
+
+/// <summary>The Stormbird's two stations (design section G; client-side prompts, the positions only are the map's).</summary>
+public enum TfwStation : byte { None = 0, Destination = 1, Equipment = 2 }
+
+/// <summary>The order keys pressed this frame (design section G: Z, X and V act on the press, P held for <see cref="TfwOrderKeys.PickupHoldSeconds"/>).</summary>
+[Flags]
+public enum TfwOrderPress : byte { None = 0, Follow = 1, Hold = 2, Attack = 4, Pickup = 8 }
+
+/// <summary>
+/// The order keys, engine-free: edges of Z, X and V, and a press of P that counts only after it has been held for <see cref="PickupHoldSeconds"/>, once a press. The view reads the keys in <c>TfwFrame</c>;
+/// <paramref name="enabled"/> in <see cref="Update"/> is false while they mean nothing (no battle, a menu open): a key held then does not act when they mean something again.
+/// </summary>
+public sealed class TfwOrderKeys
+{
+    /// <summary>How long P is held for a pickup, or to call one off (design section G).</summary>
+    public const float PickupHoldSeconds = 1f;
+
+    bool _z, _x, _v, _pickupDone;
+    float _held;
+
+    /// <summary>How far the hold of P has come, 0 to 1 (the HUD's bar).</summary>
+    public float PickupHold => Math.Clamp(_held / PickupHoldSeconds, 0f, 1f);
+
+    public TfwOrderPress Update(bool z, bool x, bool v, bool p, float seconds, bool enabled)
+    {
+        var press = TfwOrderPress.None;
+        if (enabled)
+        {
+            if (z && !_z) press |= TfwOrderPress.Follow;
+            if (x && !_x) press |= TfwOrderPress.Hold;
+            if (v && !_v) press |= TfwOrderPress.Attack;
+        }
+        _z = z; _x = x; _v = v;
+        if (!p) { _held = 0f; _pickupDone = false; return press; }
+        if (!enabled) { _held = 0f; _pickupDone = true; return press; }
+        if (_pickupDone) return press;
+        _held += Math.Max(0f, seconds);
+        if (_held < PickupHoldSeconds) return press;
+        _held = 0f;
+        _pickupDone = true;
+        return press | TfwOrderPress.Pickup;
+    }
+}
+
+/// <summary>The words and rules of the war's HUD and war map (design section G), engine-free so the tests read them. Layout, wording and colours are ours (kind: ours).</summary>
+public static class TfwHudModel
+{
+    /// <summary>The station whose pad <paramref name="feet"/> stands on: in the hub only (the prompts are client-side; the server checks a Deploy itself).</summary>
+    public static TfwStation StationAt(Vector3 feet)
+    {
+        float r2 = TfwMap.StationRadius * TfwMap.StationRadius;
+        if (Flat(feet, TfwMap.DestinationStation) <= r2) return TfwStation.Destination;
+        return Flat(feet, TfwMap.EquipmentStation) <= r2 ? TfwStation.Equipment : TfwStation.None;
+    }
+
+    static float Flat(Vector3 a, Vector3 b) => new Vector2(a.X - b.X, a.Y - b.Y).LengthSquared();
+
+    /// <summary>The station's prompt ("E: DESTINATION"); <paramref name="key"/>: the Use action's key on the device in use. Empty at none.</summary>
+    public static string StationPrompt(TfwStation station, string key) => station switch
+    {
+        TfwStation.Destination => $"{key}: DESTINATION",
+        TfwStation.Equipment => $"{key}: EQUIPMENT",
+        _ => "",
+    };
+
+    public static TfwLaneState Lane(in TfwWarView war, TfwLane lane) => lane switch { TfwLane.A => war.A, TfwLane.B => war.B, _ => war.C };
+
+    /// <summary>Whether a Deploy can be asked for now: the hub, the match in play, a transport left. The server decides again.</summary>
+    public static bool CanDeploy(in TfwWarView war, bool playing) => playing && war.Phase == TfwRunPhase.Hub && war.Transport >= TfwBattleRules.DeployCost;
+
+    /// <summary>Why a Deploy cannot be asked for, in words; empty when it can.</summary>
+    public static string DeployNote(in TfwWarView war, bool playing) =>
+        war.Phase != TfwRunPhase.Hub ? "NOT WHILE THE STORMBIRD IS AWAY" : !playing ? "THE WAR HAS NOT STARTED" : war.Transport < TfwBattleRules.DeployCost ? "NO TRANSPORT LEFT" : "";
+
+    /// <summary>Whether the lane's next battle is the final assault.</summary>
+    public static bool IsFinal(in TfwLaneState lane) => lane.Front == WarRules.FrontStronghold;
+
+    /// <summary>A front in words.</summary>
+    public static string FrontText(sbyte front) => front switch
+    {
+        WarRules.FrontBesieged => "HQ BESIEGED",
+        WarRules.FrontStronghold => "STRONGHOLD",
+        _ => $"NODE {front}",
+    };
+
+    /// <summary>The front as filled pips, 0 to 4 of them (front -1 to 3).</summary>
+    public static int Pips(sbyte front) => Math.Clamp(front - WarRules.FrontBesieged, 0, WarRules.FrontStronghold - WarRules.FrontBesieged);
+
+    /// <summary>What the map says of a lane's lord.</summary>
+    public static string LordText(TfwLane lane, byte state) =>
+        World.TfwLordName(lane).ToUpperInvariant() + (state == WarRules.LordWounded ? " (WOUNDED)" : "");
+
+    /// <summary>The HQ's line: its lanes under siege, or that it stands.</summary>
+    public static string HqText(in TfwWarView war)
+    {
+        string siege = "";
+        for (int l = 0; l < 3; l++)
+            if (Lane(war, (TfwLane)l).Front == WarRules.FrontBesieged) siege += (siege.Length > 0 ? ", " : "") + (TfwLane)l;
+        return siege.Length > 0 ? $"HQ BESIEGED: {siege}" : "HQ HOLDS";
+    }
+
+    /// <summary>The war clock as minutes and seconds.</summary>
+    public static string ClockText(float seconds)
+    {
+        int s = Math.Max(0, (int)seconds);
+        return string.Create(CultureInfo.InvariantCulture, $"{s / 60}:{s % 60:00}");
+    }
+
+    /// <summary>The war's time scale ("WAR TIME x0.25").</summary>
+    public static string ScaleText(float scale) => string.Create(CultureInfo.InvariantCulture, $"WAR TIME x{scale:0.##}");
+
+    public static string ObjectiveName(int index, bool final) =>
+        index == TfwBattle.CommanderObjective ? final ? "WARBOSS" : "COMMANDER" : index == 1 ? "P2 DEPOT" : $"P{index + 1}";
+
+    /// <summary>One line of the objective tracker.</summary>
+    public static string ObjectiveState(in TfwObjective o) => o.State switch
+    {
+        TfwPositionState.Locked => "LOCKED",
+        TfwPositionState.Held => "HELD",
+        TfwPositionState.Clearing => "CLEARING",
+        TfwPositionState.Securing => string.Create(CultureInfo.InvariantCulture, $"SECURING {MathF.Floor(o.Progress * 100f):0}%"),
+        _ => "SECURED",
+    };
+
+    /// <summary>The Guardsmen's line.</summary>
+    public static string GuardsText(in TfwOwnView own) => $"GUARDS {own.Guards}, {own.Squads} SQUADS + {own.Reserves} IN RESERVE";
+
+    /// <summary>The retainer's line: its state and the order in force.</summary>
+    public static string RetainerText(in TfwOwnView own) => own.Retainer switch
+    {
+        TfwRetainerState.Ready => $"RETAINER: {OrderText(own.Order)}",
+        TfwRetainerState.Reviving => "RETAINER: REVIVING YOU",
+        TfwRetainerState.Recovering => $"RETAINER RECOVERING: {ClockText(own.RecoverySeconds)} WAR TIME",
+        _ => "RETAINER: STANDING BY",
+    };
+
+    public static string OrderText(MarineOrder order) => order switch { MarineOrder.Hold => "HOLD", MarineOrder.Attack => "ATTACK", _ => "FOLLOW" };
+
+    /// <summary>The big line in the middle of the screen, for what the run asks of the player now; empty when nothing does.</summary>
+    public static string Prompt(in TfwWarView war, bool alive)
+    {
+        var own = war.Own;
+        switch (war.Phase)
+        {
+            case TfwRunPhase.Won: return "THE WARBOSS IS DEAD. THE WAR IS WON";
+            case TfwRunPhase.Lost: return "THE WAR IS LOST";
+            case TfwRunPhase.Travel: return $"THE STORMBIRD LANDS IN {own.TravelSeconds} S";
+            case TfwRunPhase.Hub: return "";
+        }
+        if (!alive)
+        {
+            if (own.ReviveSeconds > 0 && own.ReviveTenths > 0) return $"YOUR RETAINER REVIVES YOU: {own.ReviveTenths * 10}%";
+            if (own.ReviveSeconds > 0) return $"YOUR RETAINER IS COMING: {own.ReviveSeconds} S";
+            if (own.ExtractionSeconds > 0)
+                return war.Supplies >= TfwBattleRules.ExtractionSupplies
+                    ? $"EMERGENCY EXTRACTION IN {own.ExtractionSeconds} S: IT COSTS {TfwBattleRules.ExtractionSupplies} SUPPLIES"
+                    : $"NO SUPPLIES FOR AN EXTRACTION: THE WAR IS LOST IN {own.ExtractionSeconds} S";
+            return "";
+        }
+        if (war.Phase == TfwRunPhase.Pickup) return $"PICKUP IN {own.PickupSeconds} S: STAY ALIVE";
+        return own.BattleWon ? "BATTLE WON: HOLD P FOR A FREE PICKUP" : "";
+    }
+
+    /// <summary>Whether P held means a pickup now (a request, or calling a running one off), and what it says beside the bar.</summary>
+    public static string PickupKeyText(in TfwWarView war) => war.Phase switch
+    {
+        TfwRunPhase.Pickup => "CALLING THE PICKUP OFF",
+        TfwRunPhase.Battle or TfwRunPhase.FinalAssault => "CALLING A PICKUP",
+        _ => "",
+    };
+
+    /// <summary>Whether a battle is on for the player: the order keys mean something.</summary>
+    public static bool InBattle(TfwRunPhase phase) => phase is TfwRunPhase.Battle or TfwRunPhase.FinalAssault or TfwRunPhase.Pickup;
+
+    /// <summary>
+    /// The layout of the battle under way on <paramref name="lane"/>, found from its first objective (a node's layout is the map's, mirrored on even nodes: the client has no node on the wire, and the front
+    /// can move during a pickup). Null without objectives.
+    /// </summary>
+    public static TfwLayout? LayoutOf(TfwLane lane, IReadOnlyList<TfwObjective> objectives)
+    {
+        if (objectives.Count == 0) return null;
+        var one = TfwLayout.For(lane, 1);
+        var two = TfwLayout.For(lane, 2);
+        var at = objectives[0].Position;
+        return Flat(at, one.Positions[0]) <= Flat(at, two.Positions[0]) ? one : two;
+    }
+
+    /// <summary>Whether a battle's source still sends (the battle's own rule, <see cref="TfwBattle.SourceActive"/>, from the objectives): every source in the final assault.</summary>
+    public static bool SourceActive(int index, IReadOnlyList<TfwObjective> objectives, bool won, bool final)
+    {
+        if (won) return false;
+        if (final || index >= objectives.Count || index >= WarRules.Positions) return true;
+        return objectives[index].State != TfwPositionState.Secured;
+    }
+}

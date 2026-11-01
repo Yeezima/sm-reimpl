@@ -43,7 +43,7 @@ public static class LeanBot
         "slash-trace", "run-start-log", "log-sound", "log-footsteps", "reload-capture", "reload-probe", "ork-capture", "screenshot", "screenshot-every",
         "record-demo", "spectate", "ragdoll-debug", "damage-demo", "aim-test", "hud-demo", "hud-rewards-demo", "hud-score-demo", "hud-vitals-demo", "hud-switch-demo", "hud-launcher-demo", "scope-spread-demo", "pound-marker-demo",
         "musou-hud-demo",   // added content Musou (MU3): the Musou HUD and telegraphs with made-up values
-        "guard-demo", "guard-demo-at", "guard-no-vat", "tfw-deploy",   // added content Musou (TF7a): the scripted Guardsmen, the skinned crowd only, a scripted Deploy
+        "guard-demo", "guard-demo-at", "guard-no-vat", "tfw-deploy", "tfw-test", "tfw-test-downs",   // added content Musou (TF7a): the scripted Guardsmen, the skinned crowd only, a scripted Deploy
         // review round (L2): the remaining probes, logs, captures and sweeps of the client
         "pose-pop-probe", "turn-probe", "turn-probe-events", "turn-probe-trace", "transition-probe-csv", "transition-probe-trace", "anim-probe-csv", "motion-probe-worst",
         "gait-sweep-fire", "ui-sound-probe", "log-fall", "log-falls", "log-upper", "log-sprint-edges", "log-death-fx", "bot-ledge", "ledge-charge",
@@ -71,7 +71,7 @@ public static class LeanBot
     /// </summary>
     /// <remarks>perf/pass-1's <c>--perf-probe</c> only reads the engine's and runtime's counters (frame times, renderer, memory, GC), so a lean bot keeps it: it
     /// measures the lean bot itself.</remarks>
-    public static readonly IReadOnlySet<string> LeanSafeAids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase) { "bot-trace", "test-window", "perf-probe" };
+    public static readonly IReadOnlySet<string> LeanSafeAids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase) { "tfw-bot", "bot-trace", "test-window", "perf-probe" };
 
     /// <summary>A flag name that reads like a test aid (a probe, log, trace, capture, sweep, test, screenshot, wait or demo): each must be classified (tested).</summary>
     public static bool LooksLikeAid(string name) =>
