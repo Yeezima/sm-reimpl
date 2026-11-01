@@ -1281,7 +1281,8 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         var origin = state.Position + new Vector3(0, 0, Config.EyeHeight);
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
         float minCos = MathF.Cos(Config.MeleeConeDegrees * MathF.PI / 180f);
-        int tracked = step.TrackToHit ? input.Sanitized().MeleeTarget : 0;   // feel/melee-reliability: a slow strike delivers on its lock (MeleeStep.TrackToHit)
+        int tracked = step.TrackToHit && MeleeLock.Target(state, input.Sanitized(), input.Sanitized().MeleeTarget, seen, Config, Collision, MeleeLock.Phase.Melee) is not null
+            ? input.Sanitized().MeleeTarget : 0;   // feel/melee-reliability: a slow strike delivers on its lock (MeleeStep.TrackToHit), the lock checked as the lunge checks it: the input's id alone proves nothing
         var targets = new List<(float Distance, int Id)>();
         foreach (var (id, then) in seen)
         {
