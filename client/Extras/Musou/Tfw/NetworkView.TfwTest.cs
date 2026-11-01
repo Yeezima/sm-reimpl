@@ -381,7 +381,10 @@ public partial class NetworkView
         var near = crates.OrderBy(d => Num.Vector3.DistanceSquared(d.Position, client.Predicted.Position)).First();
         await TfwShot("slots-before");
         if (!await TfwPathTo(near.Position, "walked to the nearest crate", 120.0)) return false;
-        await TfwWait(0.3);
+        TfwKey(Key.S, true);   // a step back: a player opens it from beside it, in reach (1.5 m)
+        await TfwWait(0.15);
+        TfwKey(Key.S, false);
+        await TfwWait(0.5);
         await TfwShot("crate");
         var before = _tfwState.Arsenal;
         int primaryBefore = client.Predicted.Primary, pistolBefore = client.Predicted.Pistol;
