@@ -106,6 +106,7 @@ public sealed partial class TfwRun
                 case TfwCommand.Deploy: Deploy(w, player, c.Argument, rate); break;
                 case TfwCommand.RequestPickup: RequestPickup(w, player, rate); break;
                 case TfwCommand.CancelPickup: CancelPickup(player); break;
+                case TfwCommand.ChangeClass or TfwCommand.ChooseReward: break;   // pass 2's contracts (M0); M6 and M7 give them their rules
                 default: Order(w, player, c); break;
             }
         }

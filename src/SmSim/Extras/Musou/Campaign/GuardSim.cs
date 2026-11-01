@@ -3,7 +3,7 @@ using System.Numerics;
 namespace SmSim.Extras.Musou.Campaign;
 
 /// <summary>What a Guardsman is doing (<see cref="TfwGuard.State"/>).</summary>
-public enum GuardState : byte { Free = 0, Idle = 1, Moving = 2, Dying = 3 }
+public enum GuardState : byte { Free = 0, Idle = 1, Moving = 2, Dying = 3, Knocked = 4 }
 
 /// <summary>What a Guard event reports: a shot (<see cref="GuardEvent.Vector"/> where the tracer ends), a man hurt, a man dead (the vector his feet).</summary>
 public enum GuardEventKind : byte { Shot = 1, Hurt = 2, Death = 3 }

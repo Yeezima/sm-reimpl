@@ -2239,3 +2239,49 @@ deaths `IG_DIE_Basic_01` 0.4 s, `_03` 0.6 s, `IG_DIE_FallForward_01` 0.467 s, `I
 
 Done in TF7a: `GuardRig` (profile, clip table), `GuardLasgun` (the mount from the data, no table of ours), the crowd (`GuardCrowd`). Left: the rig's graphs are not read, so the clip choices are ours;
 the ragdoll (`havok_guardsman_a_coop`, 16 bodies, not read yet); the six additive flinches' extra track.
+
+## Musou Mode pass 2: asset spike S0 (2026-11-01)
+
+Read with `smtool list`, `fx-dump`, `audio-list`, `audio-event`, `baf-dump`, `nav-stats`, and `DcmMesh.Read` and `MapContent.Load` from a throwaway program outside the repository. Nothing was drawn or played: "decodes" means the reader took it, not that it looks right in the client. No sound was decoded (`audio-decode` may fetch ww2ogg's codebooks); "resolves" means `audio-event` reached .wem ids.
+
+**The Stormbird is the Thunderhawk.** The data has no "stormbird" in any entry name; the owner confirmed (2026-11-01) that the Thunderhawk stands in for it.
+
+**Singleplayer-content dependency (scope note, CLAUDE.md):** item 13's aircraft needs campaign content, loaded at runtime from the player's install. `thunderhawk.dcm` is in no multiplayer archive: there is no `data/packages/thunderhawk.oppc`, and the mesh sits only in campaign chunks (`ebp_sets__s002-001`, three `part_05__*` chunks). `play_thunderhawk_pass` plays only with a campaign region bank loaded. The rest of the table is multiplayer or shared content.
+
+| Need | Asset | Where | State |
+|---|---|---|---|
+| Aircraft mesh | `thunderhawk.dcm`: 15 blocks (1 skinned), 15,048 triangles, bounds 34.1 x 35.5 x 19.0 (m, as read); materials `thunderhawk*`; rig `havok_thunderhawk__hkxx` | chunk `ebp_sets__s002-001` (singleplayer) | decodes; materials and rig not loaded in the client |
+| Aircraft textures | `mtl_thunderhawk_{detail_dif,nrml_nrm,spec_spc}` also at a larger size | `mp_tdm_17__r000_main` (multiplayer; no mesh there) | present, not read |
+| Blueprints | `thunderhawk` (`visual_package` thunderhawk, `graph_package` havok_thunderhawk), `sm_vehicle_thunderhawk_player`, `sm_turret_thunderhawk_{front,wings}` | `ebps` | read |
+| Side guns | `hbolter_thunderhawk_front.dcm` (732 tris), `hbolter_thunderhawk_wings.dcm` (580 tris) | `data/packages` | decode |
+| Engine FX | `thunderhawk_jet`, `thunderhawk_jet_distortion`, `valkyrie_jet` | `master_fx` | load (`fx-dump`) |
+| Tracer FX | `heavy_bolter_thunderhawk_tracer` (1.2 s) | `master_fx` | loads |
+| Explosion FX | `artillery_explosion` (0.3 s), `oob_explosions_artillery(_less)`, `oob_explosion_huge` (the last three looping: the client must stop them) | `master_fx` | load |
+| Ambient FX | `amb_anti_aircraft_fire_valkyries` (looping) | `master_fx` | loads |
+| Gore FX | `blood_death`, `body_dismemberment{,_head,_limb}`, `blood_hvy_bltr_dmg`, `blood_exit_wound_decal` | `master_fx` | load |
+| Decal textures | `metal_crater_dif`, `blood_splats_dif` | `master_fx` | present, not read |
+| Drops | `pickup_mp_drop_ammo` and `pickup_mp_drop_grenades` both draw `ammocase_bolter_small.dcm` (0.90 x 0.66 x 0.39, 324 tris) | `ebp_sets__mp_versus_set` (multiplayer) | decodes |
+| Crates | `ammocase_bolter_healthy.dcm` (1.37 x 1.97 x 1.96, 2,318 tris) | `ebp_sets__mp_versus_set` | decodes; the nearest fit, see below |
+| Capture points | A `mkr_objective_1` (110, -785, 4), B `mkr_objective_2` (200, -800, 0), C `mkr_objective_3` (290, -815, 4); cylinders, r 15, 13.5, 15 (scale 30, 27, 30), height 20 | `MapContent.ControlPoints` on `mp_tdm_09` | read; agrees with the design |
+| Start areas | marines (245, -937.4, 5.5), Chaos (154.5, -664.4, 5.6) | same | read |
+| Navigation | our `NavGraph`: 104,929 cells (Marines), 105,071 (Chaos), the bots' graph, built or read by `nav-stats`; two `mp_tdm_09-musou-*.nav` in the private cache | private cache | exists; not rebuilt with the hub seeds M1 needs |
+
+The weapon crate proper, `case_weapon.dcm` (blueprints `pickup_weapons`, `pickup_weapons_new`), is only in campaign chunks (`part_0*`), so a crate uses the multiplayer `ammocase_bolter_healthy` unless another singleplayer dependency is accepted. `weapon_drop` was not found as a mesh in any archive. The grenade box `ammocase_grenade_healthy` is campaign-only too, but multiplayer draws its grenade drops with the small case anyway.
+
+**Sounds.** `in_game_default` (in `AudioCatalog.BasePackages`) names many events whose sounds live in other banks; the list below says which bank made each resolve.
+
+| Need | Event | Banks | State |
+|---|---|---|---|
+| Flyby | `play_thunderhawk_pass` (the blueprint's `flybysound`; 3 wems) | sounds in `rgn_s27_r500` (singleplayer) or `animation_test_grid`; not in the default set | resolves only with one of those banks |
+| Flyby, no extra bank | `play_ig_valkyrie_flyby`, `play_valkyrie_s13_flyby` | `in_game_default`, `vehicles` | resolve in the default set; the nearest alternative |
+| Engine | `play_sm_thunderhawk_engine` / `stop_` (the blueprint's `thunderhawk_flying`) | event in `in_game_default`; sounds not in the default set, `ambiences_ram` or `vehicles`; also listed in `rgn_s27_r500`, `rgn_s28_r000`, `animation_test_grid` | unresolved in the default set; `rgn_s27_r500` not tried for it |
+| Heavy bolter | `play_sm_heavy_bolter_fire`, `_single` | `in_game_default` (bank `weapon_heavy_bolter` holds the weapon's sounds) | resolve in the default set |
+| Rounds hitting | `play_heavybolter_valkyrie_hits` | `in_game_default` | resolves in part (2 of its targets missing) |
+| Explosion | `play_big_damage_large_explosion`, `play_sm_missile_explosion`, `play_powersource_explode_distant` | `in_game_default`, `explosions` | resolve |
+| Far explosion | `play_ork_rokk_distant_explosion`, `play_impact_distant` | `in_game_default`, `explosions` | resolve |
+| Near explosion | `play_huge_explosion_near_stereo` | event in `in_game_default`; its 3 targets not found in the default set, `explosions`, `vehicles` or `rgn_s27_r500` | **missing**; use `play_big_damage_large_explosion` |
+| Artillery | none: no named event says artillery, mortar or bombard | | **missing**; the explosions above stand in |
+| Whistle | none: no named event says whistle or shell in flight (`play_shell_*` are the campaign's cannon loader) | | **missing**; nearest `play_droppod_incoming` (`vehicles`, 3 wems), else the design's falling-pitch treatment of a bank sound, tagged |
+| Ambient war | none named: the 82 named `play_*` of `ambiences` are machines and set pieces (`play_titan_footstep` the only distant-war candidate); `mp_tdm_09` has 9 events, no ambience; land vehicles en masse have no event | | **missing**; build it from the far explosions, the Valkyrie flybys, `play_sm_heavy_bolter_fire` and the anti-aircraft FX, low-passed |
+
+Unnamed events remain (`in_game_default` 1,232 of 2,129, `ambiences` 375 of 493), so "none" means none among the names known: a whistle or a war bed may sit unnamed. The region packages `air_rgn_*` hold sounds with no events and were not opened.

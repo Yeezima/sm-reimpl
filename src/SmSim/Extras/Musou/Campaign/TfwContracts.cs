@@ -9,7 +9,7 @@ namespace SmSim.Extras.Musou.Campaign;
 /// </summary>
 public static class TfwRules
 {
-    public const uint Version = 5;   // 2: TF6, the war's sections on the wire and the commands with a place; 3: TF4, the war runs (the battle, the run, the extraction); 4: TF7b, tag 7 carries the own block (TfwOwnView); 5: the own block's deployed flag, and an extraction after a won battle never ends the run
+    public const uint Version = 6;   // 2: TF6, the war's sections on the wire and the commands with a place; 3: TF4, the war runs (the battle, the run, the extraction); 4: TF7b, tag 7 carries the own block (TfwOwnView); 5: the own block's deployed flag, and an extraction after a won battle never ends the run; 6: pass 2's contracts (tags 11 to 14, the commands ChangeClass and ChooseReward, Knocked, the deaths Barrage and Strafe)
 }
 
 /// <summary>The contract the war's milestones share (TF0, frozen): ids and how the war's actors are named across the simulation, the server and the client.</summary>
@@ -40,8 +40,8 @@ public enum TfwRunPhase : byte { Hub = 0, Travel = 1, Battle = 2, Pickup = 3, Fi
 /// <summary>A capture position in a battle (design section D): the chain goes Locked, Held, Clearing, Securing, Secured.</summary>
 public enum TfwPositionState : byte { Locked = 0, Held = 1, Clearing = 2, Securing = 3, Secured = 4 }
 
-/// <summary>A client's command (message kind 17, tag <c>TfwWire.CommandTag</c>; design section H). Deploy's argument is the lane; Hold and Attack carry a place (<see cref="TfwCommandRecord.Point"/>).</summary>
-public enum TfwCommand : byte { Deploy = 1, RequestPickup = 2, CancelPickup = 3, Follow = 4, Hold = 5, Attack = 6 }
+/// <summary>A client's command (message kind 17, tag <c>TfwWire.CommandTag</c>; design section H). Deploy's argument is the lane; Hold and Attack carry a place (<see cref="TfwCommandRecord.Point"/>); ChooseReward's argument is the card (0 to <c>TfwWire.RewardCards</c> - 1).</summary>
+public enum TfwCommand : byte { Deploy = 1, RequestPickup = 2, CancelPickup = 3, Follow = 4, Hold = 5, Attack = 6, ChangeClass = 7, ChooseReward = 8 }
 
 /// <summary>One decoded command: its sequence (resent until tag 7 echoes it, idempotent by it), what it asks, its argument and, for Hold and Attack, the point of the sender's crosshair (metres; untrusted, within about 3 km on each axis).</summary>
 public readonly record struct TfwCommandRecord(ushort Sequence, TfwCommand Command, byte Argument, Vector3 Point = default);
@@ -70,6 +70,43 @@ public readonly record struct TfwObjective(byte Index, TfwPositionState State, f
 
 /// <summary>One Guardsman as tag 9 carries it (10-byte records, as the enemies').</summary>
 public readonly record struct TfwGuard(ushort Id, Vector3 Position, float Yaw, byte State);
+
+/// <summary>What a fire record reports (tag 11): a shell's landing, a Thunderhawk run, one round of its guns, the smoke of a class change.</summary>
+public enum TfwFireKind : byte { Shell = 1, Run = 2, Round = 3, Smoke = 4 }
+
+/// <summary>
+/// One record of tag 11; a client plays each (<see cref="Kind"/>, <see cref="Tick"/>, <see cref="Subject"/>) once. Shell: <see cref="Tick"/> the landing tick, <see cref="Subject"/> its number in the barrage,
+/// <see cref="At"/> the impact. Run: the first tick, the run's number, the path from <see cref="At"/> to <see cref="To"/>. Round: the firing tick, a running count, muzzle to impact. Smoke: the first tick, the player,
+/// <see cref="At"/> his feet.
+/// </summary>
+public readonly record struct TfwFireEvent(TfwFireKind Kind, uint Tick, ushort Subject, Vector3 At, Vector3 To = default);
+
+/// <summary>One elite's health as tag 13 carries it: the enemy's id, 0 to 255 of its full health.</summary>
+public readonly record struct TfwBar(ushort Enemy, byte Health);
+
+/// <summary>How a map ended for the score (tag 12's history).</summary>
+public enum TfwMapResult : byte { Won = 1, Left = 2, Lost = 3, Extracted = 4 }
+
+/// <summary>This client's own score (tag 12): the map's points, the run's total, the map's KOs and its best chain.</summary>
+public readonly record struct TfwScoreOwn(uint MapPoints, uint RunTotal, ushort Kos, ushort BestChain);
+
+/// <summary>Another human's run total (tag 12).</summary>
+public readonly record struct TfwScorePlayer(ushort Player, uint RunTotal);
+
+/// <summary>One finished map of the run (tag 12's history).</summary>
+public readonly record struct TfwMapScore(TfwLane Lane, byte Node, TfwMapResult Result, ushort Kos, ushort BestChain, uint Points);
+
+/// <summary>One tag 12 section: the parts it carries (null: not in this section; a client keeps what it has). Each part has its own rate.</summary>
+public readonly record struct TfwScoreUpdate(TfwScoreOwn? Own, IReadOnlyList<TfwScorePlayer>? Others = null, IReadOnlyList<TfwMapScore>? History = null);
+
+/// <summary>What a reward card gives (tag 14); None: a card left empty when the class has too few choices.</summary>
+public enum TfwRewardKind : byte { None = 0, Weapon = 1, Equipment = 2, Perk = 3 }
+
+/// <summary>One reward card: its kind and the item (a <see cref="MusouDropItem"/>, an equipment or a perk index, by kind).</summary>
+public readonly record struct TfwRewardCard(TfwRewardKind Kind, ushort Item);
+
+/// <summary>The cards offered to one client after a win (tag 14); the newest <see cref="Sequence"/> stands.</summary>
+public readonly record struct TfwRewardOffer(ushort Sequence, TfwRewardCard First, TfwRewardCard Second, TfwRewardCard Third);
 
 /// <summary>
 /// The war of one match (<see cref="World.Tfw"/>; set only by <see cref="World.StartTfw"/>). TF0 holds the contract alone: the command queue, the AI Marines' input source and

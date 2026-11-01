@@ -26,16 +26,24 @@ public readonly record struct TfwGuardEvent(TfwGuardEventKind Kind, uint Tick, u
 /// (<see cref="TfwGuardInterest"/>).</item>
 /// <item>Tag 10, the Guard events: <c>[u8 n]</c> then n records of 15 bytes <c>[u8 kind][u32 tick][u16 guard][u16 enemy][u16 x][u16 y][u16 z]</c>, at most <see cref="MaxGuardEvents"/>; a client
 /// plays each (kind, tick, guard, enemy) once.</item>
+/// <item>Tag 11, fire support (pass 2): <c>[u8 n]</c> then n records of 19 bytes <c>[u8 kind][u32 tick][u16 subject][i16 x][i16 y][i16 z][i16 to x][i16 to y][i16 to z]</c>, points in decimetres as a command's
+/// (<see cref="PointStep"/>; an aircraft flies above the box, so no box here), at most <see cref="MaxFire"/>; a client plays each (kind, tick, subject) once.</item>
+/// <item>Tag 12, the score (per client): <c>[u8 parts]</c> (bit 0 own, 1 others, 2 history) then each part present, in that order: own <c>[u32 map points][u32 run total][u16 KOs][u16 best chain]</c>; others <c>[u8 n]</c> then
+/// n of <c>[u16 player][u32 run total]</c>, humans only, at most <see cref="MaxScorePlayers"/>; history <c>[u8 n]</c> then n of <c>[u8 lane][u8 node][u8 result][u16 KOs][u16 best chain][u32 points]</c>, at most <see cref="MaxScoreMaps"/>.
+/// The parts bit is ours: the three go at different rates.</item>
+/// <item>Tag 13, elite bars: <c>[u8 n]</c> then n records of 3 bytes <c>[u16 id][u8 health]</c>, at most <see cref="MaxBars"/>.</item>
+/// <item>Tag 14, a reward offer (per client): <see cref="RewardBytes"/> bytes <c>[u16 sequence]</c> then 3 cards <c>[u8 kind][u16 item]</c>.</item>
 /// </list>
+/// Tags 11 to 14 need no box. Pass 2's M0 fixes these layouts; nothing sends them yet.
 /// A client's commands are message kind 17 under <see cref="CommandTag"/>: <c>[u16 sequence][u8 command][u8 argument]</c>, and for an order with a place (<see cref="HasPoint"/>: Hold and
 /// Attack) then <c>[i16 x][i16 y][i16 z]</c> in decimetres (<see cref="PointStep"/>): the point of the client's crosshair, which the server cannot work out itself (it has no camera), in a form that
 /// needs no box (a client may order before its first director) and cannot carry a NaN or an infinity. Resent every 250 ms until tag 7 echoes the sequence (<see cref="TfwCommandSender"/>).
-/// A faithful or extended server never sends 7 to 10 and drops 17.
+/// A faithful or extended server never sends 7 to 14 and drops 17.
 /// </summary>
 public static class TfwWire
 {
     /// <summary>The envelope tags (gore 1, loyalist barks 2, Musou 3 to 6).</summary>
-    public const byte WarTag = 7, ObjectivesTag = 8, GuardsTag = 9, GuardEventsTag = 10;
+    public const byte WarTag = 7, ObjectivesTag = 8, GuardsTag = 9, GuardEventsTag = 10, FireTag = 11, ScoreTag = 12, BarsTag = 13, RewardTag = 14;
     /// <summary>The tag of the war's commands in message kind 17 (another namespace than the envelope's: client to server).</summary>
     public const byte CommandTag = 7;
     /// <summary>Bytes of a command's payload, and of one with a place (at most <see cref="Protocol.MaxExtrasCommandPayload"/>).</summary>
@@ -58,8 +66,17 @@ public static class TfwWire
     /// <summary>The highest Guardsman id (design section E's pool: ids are slot + 1).</summary>
     public const int GuardCapacity = 256;
 
-    /// <summary>Whether an envelope tag is the war's (7 to 10).</summary>
-    public static bool Owns(byte tag) => tag is WarTag or ObjectivesTag or GuardsTag or GuardEventsTag;
+    public const int FireBytes = 19, ScoreOwnBytes = 12, ScorePlayerBytes = 6, ScoreMapBytes = 11, BarBytes = 3, RewardCards = 3, RewardCardBytes = 3, RewardBytes = 2 + RewardCards * RewardCardBytes;
+    /// <summary>Most fire records in one section: (1191 - 1) / 19 = 62.</summary>
+    public const int MaxFire = (Protocol.MaxExtrasPayloadBytes - 1) / FireBytes;
+    /// <summary>Most elite bars in one section (the count's byte; 766 bytes at most).</summary>
+    public const int MaxBars = byte.MaxValue;
+    /// <summary>Most other humans in one score section, and most maps in its history (the addendum's 16).</summary>
+    public const int MaxScorePlayers = 16, MaxScoreMaps = 16;
+    const int ScoreHasOwn = 1, ScoreHasOthers = 2, ScoreHasHistory = 4;
+
+    /// <summary>Whether an envelope tag is the war's (7 to 14).</summary>
+    public static bool Owns(byte tag) => tag is >= WarTag and <= RewardTag;
 
     /// <summary>Whether sequence <paramref name="a"/> is after <paramref name="b"/>, across the 16-bit wrap.</summary>
     public static bool IsNewer(ushort a, ushort b) => (short)(a - b) > 0;
@@ -84,13 +101,14 @@ public static class TfwWire
         return bytes;
     }
 
-    /// <summary>The command of a payload; null for a malformed one (a length that is not the command's, an unknown command, a Deploy to an unknown lane).</summary>
+    /// <summary>The command of a payload; null for a malformed one (a length that is not the command's, an unknown command, a Deploy to an unknown lane, a card that does not exist).</summary>
     public static TfwCommandRecord? ReadCommand(ReadOnlySpan<byte> payload)
     {
         if (payload.Length < CommandBytes) return null;
         var command = (TfwCommand)payload[2];
         if (!Enum.IsDefined(command) || payload.Length != (HasPoint(command) ? PointCommandBytes : CommandBytes)) return null;
         if (command == TfwCommand.Deploy && !Enum.IsDefined((TfwLane)payload[3])) return null;
+        if (command == TfwCommand.ChooseReward && payload[3] >= RewardCards) return null;
         var point = HasPoint(command)
             ? new Vector3(BinaryPrimitives.ReadInt16LittleEndian(payload[4..]), BinaryPrimitives.ReadInt16LittleEndian(payload[6..]), BinaryPrimitives.ReadInt16LittleEndian(payload[8..])) * PointStep
             : default;
@@ -322,5 +340,214 @@ public static class TfwWire
                 BinaryPrimitives.ReadUInt16LittleEndian(s[7..]), ReadPosition(s[9..], box));
         }
         return list;
+    }
+
+    // ---------------------------------------------------------------- tag 11: fire support
+
+    static void WritePoint(Span<byte> s, Vector3 p)
+    {
+        BinaryPrimitives.WriteInt16LittleEndian(s, Decimetres(p.X));
+        BinaryPrimitives.WriteInt16LittleEndian(s[2..], Decimetres(p.Y));
+        BinaryPrimitives.WriteInt16LittleEndian(s[4..], Decimetres(p.Z));
+    }
+
+    static Vector3 ReadPoint(ReadOnlySpan<byte> s) =>
+        new Vector3(BinaryPrimitives.ReadInt16LittleEndian(s), BinaryPrimitives.ReadInt16LittleEndian(s[2..]), BinaryPrimitives.ReadInt16LittleEndian(s[4..])) * PointStep;
+
+    /// <summary>The fire payload of <paramref name="fire"/> (the first <see cref="MaxFire"/>).</summary>
+    public static byte[] WriteFire(IReadOnlyList<TfwFireEvent> fire)
+    {
+        int n = Math.Min(fire.Count, MaxFire);
+        var bytes = new byte[1 + n * FireBytes];
+        bytes[0] = (byte)n;
+        for (int i = 0; i < n; i++)
+        {
+            var f = fire[i];
+            var s = bytes.AsSpan(1 + i * FireBytes, FireBytes);
+            s[0] = (byte)f.Kind;
+            BinaryPrimitives.WriteUInt32LittleEndian(s[1..], f.Tick);
+            BinaryPrimitives.WriteUInt16LittleEndian(s[5..], f.Subject);
+            WritePoint(s[7..], f.At);
+            WritePoint(s[13..], f.To);
+        }
+        return bytes;
+    }
+
+    /// <summary>The fire records of a payload; null for a malformed one (wrong length, an unknown kind).</summary>
+    public static TfwFireEvent[]? ReadFire(ReadOnlySpan<byte> payload)
+    {
+        if (payload.Length < 1) return null;
+        int n = payload[0];
+        if (n > MaxFire || payload.Length != 1 + n * FireBytes) return null;
+        var list = new TfwFireEvent[n];
+        for (int i = 0; i < n; i++)
+        {
+            var s = payload.Slice(1 + i * FireBytes, FireBytes);
+            var kind = (TfwFireKind)s[0];
+            if (!Enum.IsDefined(kind)) return null;
+            list[i] = new TfwFireEvent(kind, BinaryPrimitives.ReadUInt32LittleEndian(s[1..]), BinaryPrimitives.ReadUInt16LittleEndian(s[5..]), ReadPoint(s[7..]), ReadPoint(s[13..]));
+        }
+        return list;
+    }
+
+    // ---------------------------------------------------------------- tag 12: the score
+
+    /// <summary>The score payload of <paramref name="score"/> (the first <see cref="MaxScorePlayers"/> others and <see cref="MaxScoreMaps"/> maps).</summary>
+    public static byte[] WriteScore(in TfwScoreUpdate score)
+    {
+        int others = Math.Min(score.Others?.Count ?? 0, MaxScorePlayers), maps = Math.Min(score.History?.Count ?? 0, MaxScoreMaps);
+        var bytes = new byte[1 + (score.Own is null ? 0 : ScoreOwnBytes) + (score.Others is null ? 0 : 1 + others * ScorePlayerBytes) + (score.History is null ? 0 : 1 + maps * ScoreMapBytes)];
+        var s = bytes.AsSpan();
+        s[0] = (byte)((score.Own is null ? 0 : ScoreHasOwn) | (score.Others is null ? 0 : ScoreHasOthers) | (score.History is null ? 0 : ScoreHasHistory));
+        int at = 1;
+        if (score.Own is { } own)
+        {
+            BinaryPrimitives.WriteUInt32LittleEndian(s[at..], own.MapPoints);
+            BinaryPrimitives.WriteUInt32LittleEndian(s[(at + 4)..], own.RunTotal);
+            BinaryPrimitives.WriteUInt16LittleEndian(s[(at + 8)..], own.Kos);
+            BinaryPrimitives.WriteUInt16LittleEndian(s[(at + 10)..], own.BestChain);
+            at += ScoreOwnBytes;
+        }
+        if (score.Others is { } players)
+        {
+            s[at++] = (byte)others;
+            for (int i = 0; i < others; i++, at += ScorePlayerBytes)
+            {
+                BinaryPrimitives.WriteUInt16LittleEndian(s[at..], players[i].Player);
+                BinaryPrimitives.WriteUInt32LittleEndian(s[(at + 2)..], players[i].RunTotal);
+            }
+        }
+        if (score.History is { } history)
+        {
+            s[at++] = (byte)maps;
+            for (int i = 0; i < maps; i++, at += ScoreMapBytes)
+            {
+                var m = history[i];
+                s[at] = (byte)m.Lane;
+                s[at + 1] = m.Node;
+                s[at + 2] = (byte)m.Result;
+                BinaryPrimitives.WriteUInt16LittleEndian(s[(at + 3)..], m.Kos);
+                BinaryPrimitives.WriteUInt16LittleEndian(s[(at + 5)..], m.BestChain);
+                BinaryPrimitives.WriteUInt32LittleEndian(s[(at + 7)..], m.Points);
+            }
+        }
+        return bytes;
+    }
+
+    /// <summary>The score of a payload; null for a malformed one (no part or an unknown part, a wrong length, too many records, player 0, an AI Marine or a player twice, an unknown lane or result).</summary>
+    public static TfwScoreUpdate? ReadScore(ReadOnlySpan<byte> s)
+    {
+        if (s.Length < 1) return null;
+        int parts = s[0];
+        if (parts == 0 || (parts & ~(ScoreHasOwn | ScoreHasOthers | ScoreHasHistory)) != 0) return null;
+        int at = 1;
+        TfwScoreOwn? own = null;
+        TfwScorePlayer[]? others = null;
+        TfwMapScore[]? history = null;
+        if ((parts & ScoreHasOwn) != 0)
+        {
+            if (s.Length < at + ScoreOwnBytes) return null;
+            own = new TfwScoreOwn(BinaryPrimitives.ReadUInt32LittleEndian(s[at..]), BinaryPrimitives.ReadUInt32LittleEndian(s[(at + 4)..]),
+                BinaryPrimitives.ReadUInt16LittleEndian(s[(at + 8)..]), BinaryPrimitives.ReadUInt16LittleEndian(s[(at + 10)..]));
+            at += ScoreOwnBytes;
+        }
+        if ((parts & ScoreHasOthers) != 0)
+        {
+            if (s.Length < at + 1) return null;
+            int n = s[at++];
+            if (n > MaxScorePlayers || s.Length < at + n * ScorePlayerBytes) return null;
+            others = new TfwScorePlayer[n];
+            for (int i = 0; i < n; i++, at += ScorePlayerBytes)
+            {
+                ushort player = BinaryPrimitives.ReadUInt16LittleEndian(s[at..]);
+                if (player == 0 || TfwContracts.IsPuppet(player)) return null;
+                for (int k = 0; k < i; k++) if (others[k].Player == player) return null;
+                others[i] = new TfwScorePlayer(player, BinaryPrimitives.ReadUInt32LittleEndian(s[(at + 2)..]));
+            }
+        }
+        if ((parts & ScoreHasHistory) != 0)
+        {
+            if (s.Length < at + 1) return null;
+            int n = s[at++];
+            if (n > MaxScoreMaps || s.Length < at + n * ScoreMapBytes) return null;
+            history = new TfwMapScore[n];
+            for (int i = 0; i < n; i++, at += ScoreMapBytes)
+            {
+                var lane = (TfwLane)s[at];
+                var result = (TfwMapResult)s[at + 2];
+                if (!Enum.IsDefined(lane) || !Enum.IsDefined(result)) return null;
+                history[i] = new TfwMapScore(lane, s[at + 1], result, BinaryPrimitives.ReadUInt16LittleEndian(s[(at + 3)..]),
+                    BinaryPrimitives.ReadUInt16LittleEndian(s[(at + 5)..]), BinaryPrimitives.ReadUInt32LittleEndian(s[(at + 7)..]));
+            }
+        }
+        return at == s.Length ? new TfwScoreUpdate(own, others, history) : null;
+    }
+
+    // ---------------------------------------------------------------- tag 13: elite bars
+
+    /// <summary>The bars payload of <paramref name="bars"/> (the first <see cref="MaxBars"/>).</summary>
+    public static byte[] WriteBars(IReadOnlyList<TfwBar> bars)
+    {
+        int n = Math.Min(bars.Count, MaxBars);
+        var bytes = new byte[1 + n * BarBytes];
+        bytes[0] = (byte)n;
+        for (int i = 0; i < n; i++)
+        {
+            var s = bytes.AsSpan(1 + i * BarBytes, BarBytes);
+            BinaryPrimitives.WriteUInt16LittleEndian(s, bars[i].Enemy);
+            s[2] = bars[i].Health;
+        }
+        return bytes;
+    }
+
+    /// <summary>The bars of a payload; null for a malformed one (wrong length, id 0 or above the pool).</summary>
+    public static TfwBar[]? ReadBars(ReadOnlySpan<byte> payload)
+    {
+        if (payload.Length < 1) return null;
+        int n = payload[0];
+        if (payload.Length != 1 + n * BarBytes) return null;
+        var list = new TfwBar[n];
+        for (int i = 0; i < n; i++)
+        {
+            var s = payload.Slice(1 + i * BarBytes, BarBytes);
+            ushort id = BinaryPrimitives.ReadUInt16LittleEndian(s);
+            if (id == 0 || id > MusouSim.Capacity) return null;
+            list[i] = new TfwBar(id, s[2]);
+        }
+        return list;
+    }
+
+    // ---------------------------------------------------------------- tag 14: a reward offer
+
+    static void WriteCard(Span<byte> s, TfwRewardCard card)
+    {
+        s[0] = (byte)card.Kind;
+        BinaryPrimitives.WriteUInt16LittleEndian(s[1..], card.Item);
+    }
+
+    static TfwRewardCard? ReadCard(ReadOnlySpan<byte> s)
+    {
+        var kind = (TfwRewardKind)s[0];
+        return Enum.IsDefined(kind) ? new TfwRewardCard(kind, BinaryPrimitives.ReadUInt16LittleEndian(s[1..])) : null;
+    }
+
+    public static byte[] WriteReward(in TfwRewardOffer offer)
+    {
+        var bytes = new byte[RewardBytes];
+        var s = bytes.AsSpan();
+        BinaryPrimitives.WriteUInt16LittleEndian(s, offer.Sequence);
+        WriteCard(s[2..], offer.First);
+        WriteCard(s[(2 + RewardCardBytes)..], offer.Second);
+        WriteCard(s[(2 + 2 * RewardCardBytes)..], offer.Third);
+        return bytes;
+    }
+
+    /// <summary>The offer of a payload; null for a malformed one (wrong length, sequence 0, an unknown kind).</summary>
+    public static TfwRewardOffer? ReadReward(ReadOnlySpan<byte> s)
+    {
+        if (s.Length != RewardBytes) return null;
+        ushort sequence = BinaryPrimitives.ReadUInt16LittleEndian(s);
+        if (sequence == 0 || ReadCard(s[2..]) is not { } first || ReadCard(s[(2 + RewardCardBytes)..]) is not { } second || ReadCard(s[(2 + 2 * RewardCardBytes)..]) is not { } third) return null;
+        return new TfwRewardOffer(sequence, first, second, third);
     }
 }

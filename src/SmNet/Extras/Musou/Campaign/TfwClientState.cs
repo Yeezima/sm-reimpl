@@ -100,8 +100,21 @@ public sealed class TfwClientState
     readonly List<TfwGuardEvent> _newEvents = new();
     readonly List<TfwGuardShown> _shown = new();
     TfwObjective[] _objectives = [];
-    uint? _warTick, _objectivesTick;
+    uint? _warTick, _objectivesTick, _scoreOwnTick, _scoreOthersTick, _scoreHistoryTick, _barsTick;
     double _now;
+    readonly Dictionary<(TfwFireKind, uint, ushort), double> _firePlayed = new();
+    readonly List<TfwFireEvent> _newFire = new();
+
+    /// <summary>Fire records seen for the first time since the last <see cref="TakeNew"/> (each once), in arrival order.</summary>
+    public IReadOnlyList<TfwFireEvent> NewFire => _newFire;
+    /// <summary>The newest score parts heard (tag 12); null or empty before the first.</summary>
+    public TfwScoreOwn? ScoreOwn { get; private set; }
+    public IReadOnlyList<TfwScorePlayer> ScoreOthers { get; private set; } = [];
+    public IReadOnlyList<TfwMapScore> ScoreHistory { get; private set; } = [];
+    /// <summary>The newest elite bars heard (tag 13).</summary>
+    public IReadOnlyList<TfwBar> Bars { get; private set; } = [];
+    /// <summary>The newest reward offer heard (tag 14); null before the first.</summary>
+    public TfwRewardOffer? Reward { get; private set; }
 
     /// <summary>The newest war heard; null before the first.</summary>
     public TfwWarView? War { get; private set; }
@@ -125,7 +138,7 @@ public sealed class TfwClientState
     public IReadOnlyList<TfwGuardEvent> NewEvents => _newEvents;
 
     /// <summary>Clears <see cref="NewEvents"/> (the view took them).</summary>
-    public void TakeNew() => _newEvents.Clear();
+    public void TakeNew() { _newEvents.Clear(); _newFire.Clear(); }
 
     /// <summary>
     /// Reads one section (the war's tags) at local time <paramref name="now"/> (seconds); false for a malformed one. <paramref name="box"/>: the current director's box (<c>MusouClientState.Director</c>,
@@ -139,6 +152,7 @@ public sealed class TfwClientState
             _tracks.Clear(); _played.Clear(); _dead.Clear();
             NewestTick = section.ServerTick;
             _warTick = _objectivesTick = null;
+            ForgetBoxless();
             Restarts++;
         }
         if (box is { } known && _pending.Count > 0)
@@ -148,6 +162,7 @@ public sealed class TfwClientState
             foreach (var s in held) Read(s, known);
         }
         if (section.Tag == TfwWire.WarTag) return ReadWar(section);
+        if (section.Tag is >= TfwWire.FireTag and <= TfwWire.RewardTag) return ReadBoxless(section);
         if (box is { } ready) return Read(section, ready);
 
         // No box yet: hold it (the oldest goes first when full), after the length checks.
@@ -174,6 +189,60 @@ public sealed class TfwClientState
         War = war;
         Commands.Acknowledge(war.CommandEcho);
         return true;
+    }
+
+    /// <summary>Tags 11 to 14 (pass 2): read and kept for the views, which come with their milestones.</summary>
+    bool ReadBoxless(in ExtrasSection section)
+    {
+        switch (section.Tag)
+        {
+            case TfwWire.FireTag:
+                if (TfwWire.ReadFire(section.Payload) is not { } fire) break;
+                Heard(section);
+                foreach (var f in fire)
+                {
+                    var key = (f.Kind, f.Tick, f.Subject);
+                    if (_firePlayed.ContainsKey(key)) { EventCopies++; continue; }
+                    _firePlayed[key] = _now;
+                    _newFire.Add(f);
+                }
+                return true;
+            case TfwWire.ScoreTag:
+                if (TfwWire.ReadScore(section.Payload) is not { } score) break;
+                Heard(section);
+                if (score.Own is { } own && !Stale(ref _scoreOwnTick, section.ServerTick)) ScoreOwn = own;
+                if (score.Others is { } others && !Stale(ref _scoreOthersTick, section.ServerTick)) ScoreOthers = others;
+                if (score.History is { } history && !Stale(ref _scoreHistoryTick, section.ServerTick)) ScoreHistory = history;
+                return true;
+            case TfwWire.BarsTag:
+                if (TfwWire.ReadBars(section.Payload) is not { } bars) break;
+                Heard(section);
+                if (!Stale(ref _barsTick, section.ServerTick)) Bars = bars;
+                return true;
+            case TfwWire.RewardTag:
+                if (TfwWire.ReadReward(section.Payload) is not { } offer) break;
+                Heard(section);
+                if (Reward is { } held && !TfwWire.IsNewer(offer.Sequence, held.Sequence)) { StaleSections++; return true; }
+                Reward = offer;
+                return true;
+        }
+        SectionsMalformed++;
+        return false;
+    }
+
+    /// <summary>Whether a section is older than the one shown of its kind; else it becomes the newest.</summary>
+    bool Stale(ref uint? shown, uint tick)
+    {
+        if (shown is { } newest && tick < newest) { StaleSections++; return true; }
+        shown = tick;
+        return false;
+    }
+
+    void ForgetBoxless()
+    {
+        _firePlayed.Clear(); _newFire.Clear();
+        _scoreOwnTick = _scoreOthersTick = _scoreHistoryTick = _barsTick = null;
+        ScoreOwn = null; ScoreOthers = []; ScoreHistory = []; Bars = []; Reward = null;
     }
 
     bool Read(in ExtrasSection section, MusouBox box)
@@ -260,6 +329,7 @@ public sealed class TfwClientState
         foreach (ushort id in _tracks.Where(t => _now - t.Value.Heard > SilenceSeconds).Select(t => t.Key).ToArray()) _tracks.Remove(id);
         foreach (var key in _played.Where(p => _now - p.Value > MemorySeconds).Select(p => p.Key).ToArray()) _played.Remove(key);
         foreach (ushort id in _dead.Where(d => _now - d.Value.At > MemorySeconds).Select(d => d.Key).ToArray()) _dead.Remove(id);
+        foreach (var key in _firePlayed.Where(p => _now - p.Value > MemorySeconds).Select(p => p.Key).ToArray()) _firePlayed.Remove(key);
 
         _shown.Clear();
         foreach (var t in _tracks.Values)
@@ -288,6 +358,7 @@ public sealed class TfwClientState
         _tracks.Clear(); _played.Clear(); _dead.Clear(); _pending.Clear(); _newEvents.Clear();
         _objectives = [];
         _warTick = _objectivesTick = null;
+        ForgetBoxless();
         War = null;
         NewestTick = 0;
         Commands.Clear();
