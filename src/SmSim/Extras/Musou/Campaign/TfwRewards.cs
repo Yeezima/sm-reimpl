@@ -41,6 +41,7 @@ public sealed class TfwRewards
 {
     readonly Dictionary<(int Player, int Class), TfwKit> _kits = new();
     readonly Dictionary<int, TfwRewardOffer> _offers = new();
+    readonly Dictionary<int, int> _offerClass = new();
     ushort _sequence;
 
     /// <summary>A new run: no kit and no offer. Offer numbers run on, so a pick from the last run answers nothing.</summary>
@@ -48,6 +49,7 @@ public sealed class TfwRewards
     {
         _kits.Clear();
         _offers.Clear();
+        _offerClass.Clear();
     }
 
     /// <summary>The player's kit with <paramref name="playerClass"/>.</summary>
@@ -106,12 +108,17 @@ public sealed class TfwRewards
         _sequence = next;
         var offer = new TfwRewardOffer(next, weapon, equipment, perk);
         _offers[player] = offer;
+        _offerClass[player] = home.Class;
         return offer;
     }
 
-    /// <summary>The card a pick names: only for the offer standing now, so a late command for an older offer does nothing (M0's review). The offer is then gone.</summary>
-    public TfwRewardCard? Pick(int player, ushort offer, byte card)
+    /// <summary>
+    /// The card a pick names: only for the offer standing now, so a late command for an older offer does nothing (M0's review). The offer is then gone. <paramref name="playerClass"/>: the class it was rolled for, whose kit
+    /// takes it, whatever class the player has changed to in the Stormbird since: a card holds that class's weapon.
+    /// </summary>
+    public TfwRewardCard? Pick(int player, ushort offer, byte card, out int playerClass)
     {
+        playerClass = _offerClass.GetValueOrDefault(player);
         if (!_offers.TryGetValue(player, out var open) || open.Sequence != offer) return null;
         var chosen = card switch { 0 => open.First, 1 => open.Second, 2 => open.Third, _ => default };
         if (chosen.Kind == TfwRewardKind.None) return null;

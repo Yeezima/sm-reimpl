@@ -283,7 +283,7 @@ public sealed partial class MusouDropView : Node3D
         var view = new MusouDropView { Id = id, Item = item, Title = title, Name = $"MusouDrop{id}", Crate = crate };
         if (crate)
         {
-            const float size = 3f;   // ours
+            const float size = 1.5f;   // ours: a crate a Marine stands beside
             var body = crateModel is not null
                 ? new MeshInstance3D { Mesh = crateModel, Scale = new Vector3(size, size, size), Layers = 2 }
                 : new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(1.1f, 0.8f, 0.7f) }, Position = new Vector3(0f, 0f, 0.35f), Layers = 2 };

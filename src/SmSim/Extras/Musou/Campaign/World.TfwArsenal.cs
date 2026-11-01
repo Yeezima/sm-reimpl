@@ -24,6 +24,8 @@ public sealed partial class World
         public int LoadedPrimary = -1, LoadedPistol = -1;
         /// <summary>The extra slot last in hand (-1: none), and a key waiting for the end of a strike (0: none).</summary>
         public int LastInHand = -1, PendingKey;
+        /// <summary>The class these fields were armed for (-1: none yet): after a change of class nothing here speaks for the player's fields.</summary>
+        public int Class = -1;
     }
 
     readonly Dictionary<int, Arsenal> _tfwArsenals = new();
@@ -38,7 +40,7 @@ public sealed partial class World
     /// <summary>The player as its own loadout stands, with no extra in its fields.</summary>
     PlayerState TfwHome(int id, PlayerState p)
     {
-        if (!_tfwArsenals.TryGetValue(id, out var a)) return p;
+        if (!_tfwArsenals.TryGetValue(id, out var a) || a.Class != p.Class) return p;
         if (a.LoadedPrimary >= 0) p = p with { Primary = a.HomePrimary };
         if (a.LoadedPistol >= 0) p = p with { Pistol = a.HomePistol };
         return p;
@@ -49,9 +51,14 @@ public sealed partial class World
     {
         var a = ArsenalOf(id);
         var kit = _tfw!.Rewards.Kit(id, p.Class);
-        // An extra left in a field goes home; a field that holds something else took a new customizer choice at this respawn, which stands.
-        if (a.LoadedPrimary >= 0 && p.Primary == kit.Weapons[a.LoadedPrimary]) p = p with { Primary = a.HomePrimary };
-        if (a.LoadedPistol >= 0 && p.Pistol == kit.Weapons[a.LoadedPistol]) p = p with { Pistol = a.HomePistol };
+        // An extra left in a field goes home; a field that holds something else took a new customizer choice at this respawn, which stands. After a change of class the fields are the new class's alone.
+        if (a.Class == p.Class)
+        {
+            if (a.LoadedPrimary >= 0 && p.Primary == kit.Weapons[a.LoadedPrimary]) p = p with { Primary = a.HomePrimary };
+            if (a.LoadedPistol >= 0 && p.Pistol == kit.Weapons[a.LoadedPistol]) p = p with { Pistol = a.HomePistol };
+        }
+        else a.LastInHand = -1;
+        a.Class = p.Class;
         int primary = Loadouts.WeaponIndex(Config, p, WeaponSlot.Ranged);
         if (primary < 0) primary = MusouLoadout.DefaultPrimary(Config, p.Class);
         p = p with { Primary = primary };
@@ -328,8 +335,8 @@ public sealed partial class World
     internal void TfwChooseReward(int id, TfwCommandRecord c)
     {
         var rewards = _tfw!.Rewards;
-        if (!_players.TryGetValue(id, out var p) || rewards.Pick(id, c.Offer, c.Argument) is not { } card) return;
-        var kit = rewards.Kit(id, p.Class);
+        if (!_players.TryGetValue(id, out var p) || rewards.Pick(id, c.Offer, c.Argument, out int offered) is not { } card) return;
+        var kit = rewards.Kit(id, offered);
         switch (card.Kind)
         {
             case TfwRewardKind.Weapon:
@@ -337,7 +344,8 @@ public sealed partial class World
                 else
                 {
                     var a = ArsenalOf(id);
-                    int slot = TfwRewards.SlotFor(kit, Loadouts.SecondIndex(Config, p) >= 0 ? 1 : 0, ExtraInHand(a, p), a.LastInHand);
+                    bool here = offered == p.Class;   // the class in hand: its slots' state counts
+                    int slot = TfwRewards.SlotFor(kit, here && Loadouts.SecondIndex(Config, p) >= 0 ? 1 : 0, here ? ExtraInHand(a, p) : -1, here ? a.LastInHand : -1);
                     kit.Weapons[slot] = MusouDropItem.Index(card.Item);
                 }
                 break;

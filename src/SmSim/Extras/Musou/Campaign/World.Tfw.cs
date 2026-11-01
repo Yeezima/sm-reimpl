@@ -276,6 +276,7 @@ public sealed partial class World
     public bool TfwRespawnAt(int id, Vector3 at, float yaw)
     {
         if (_tfw is null || !_players.TryGetValue(id, out var p)) return false;
+        if (_nextLoadouts.ContainsKey(id) && _tfwArsenals.TryGetValue(id, out var arsenal)) arsenal.LoadedPrimary = arsenal.LoadedPistol = -1;   // a Setup's choice stands: no extra is left to send home
         _players[id] = Combat.Respawned(WithNextLoadout(p) with { Position = at, Yaw = yaw }, Config);
         _respawns.Add(id);
         _musouArmed.Remove(id);

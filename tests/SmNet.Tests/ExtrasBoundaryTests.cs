@@ -40,6 +40,7 @@ public class ExtrasBoundaryTests
         ("src/SmServer/GameServer.cs", "ExtrasPlayerName"),        // GameServer.ExtrasPlayerName(int, ref string), in ScoreboardOf (the AI Marines' names)
         ("src/SmServer/GameServer.Envelope.cs", "ExtrasCommand"),  // GameServer.ExtrasCommand(int, byte, byte[]), a client's command (message kind 17), only under ContentExtras.CommandUsers
         ("client/NetworkView.cs", "ExtrasMapFile"),                // NetworkView.ExtrasMapFile(ref string), the install's map behind a map name (tfw_war: Manufactorum), in LoadMap and for the map's effects and sounds
+        ("src/SmServer/GameServer.Appearance.cs", "ExtrasPuppetAppearance"),   // GameServer.ExtrasPuppetAppearance(int, ref (ushort, Race, AppearanceCode)?), in PeerlessLook (scoreboard version, appearance query): Musou Mode's retainers wear their owner's look
         ("client/NetworkView.cs", "ExtrasMapCollision"),           // NetworkView.ExtrasMapCollision(string, ref CollisionWorld, ref ulong), in LoadMap after the level's collision (tfw_war: the Stormbird and the composed hash)
     ];
 

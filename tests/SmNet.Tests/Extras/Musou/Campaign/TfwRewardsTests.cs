@@ -233,6 +233,88 @@ public class TfwRewardsTests
         Assert.Equal(new TfwArsenalView(1, -1, -1, 0, 0), w.TfwArsenalOf(Human));
     }
 
+    static void Swap(World w, LoadoutChoice choice)
+    {
+        Assert.NotNull(w.SetNextLoadout(Human, choice));
+        Assert.True(w.Tfw!.Enqueue(Human, new TfwCommandRecord(90, TfwCommand.ChangeClass, 0)));
+        TfwRig.Steps(w, 3);
+    }
+
+    [Fact]
+    public void The_slots_follow_a_class_change_in_the_stormbird_and_come_back_with_the_class()
+    {
+        var w = War();
+        Keep(w, 1, 2);
+        Key(w, 3);                                                        // an extra in hand as the class changes
+        Assert.True(TfwTestArena.Hub.Contains(Me(w).Position));
+        Swap(w, LoadoutChoice.Default with { Class = 1 });
+        Assert.Equal((1, -1, 5, WeaponSlot.Pistol), (Me(w).Class, Me(w).Primary, Me(w).Pistol, Me(w).Slot));   // none of the old class's weapons
+        Assert.Equal(TfwArsenalView.Empty, w.TfwArsenalOf(Human));
+        Key(w, 3);
+        Assert.Equal(-1, Me(w).Primary);                                  // the empty slot does nothing
+        Keep(w, 6);                                                       // the new class's own kit
+        Assert.Equal(new TfwArsenalView(6, -1, -1, 0, 0), w.TfwArsenalOf(Human));
+        Swap(w, LoadoutChoice.Default with { Class = 0 });
+        Assert.Equal((0, 0, WeaponSlot.Ranged, 30), (Me(w).Class, Me(w).Primary, Me(w).Slot, Me(w).Clip));     // the default primary, not the extra it left in hand
+        Assert.Equal(new TfwArsenalView(1, 2, -1, 0, 0), w.TfwArsenalOf(Human));
+        Key(w, 4);
+        Assert.Equal((2, 5), (Me(w).Primary, Me(w).Clip));                // full, and it works
+        Key(w, 2);
+        Assert.Equal(0, Me(w).Primary);
+    }
+
+    [Fact]
+    public void A_setup_of_the_same_class_with_an_extra_in_hand_stands_even_on_that_weapon()
+    {
+        var w = War();
+        Keep(w, 1);
+        Key(w, 3);
+        Swap(w, LoadoutChoice.Default with { Class = 0, Primary = 1 });   // chooses as its primary the very weapon in the slot
+        Assert.Equal((1, (byte)0), (Me(w).Primary, w.TfwArsenalOf(Human).LoadedPrimary));
+        Key(w, 2);
+        Assert.Equal(1, Me(w).Primary);
+    }
+
+    [Fact]
+    public void The_kits_equipment_and_perk_follow_their_class()
+    {
+        var w = War();
+        var kit = w.Tfw!.Rewards.Kit(Human, 0);
+        kit.Equipment = 1;
+        kit.Perk = 1;
+        Swap(w, LoadoutChoice.Default with { Class = 0 });
+        Assert.Equal((1, 1), (Me(w).Equipment, Me(w).Perk2));
+        Swap(w, LoadoutChoice.Default with { Class = 1 });
+        Assert.Equal((0, -1), (Me(w).Equipment, Me(w).Perk2));
+        Swap(w, LoadoutChoice.Default with { Class = 0 });
+        Assert.Equal((1, 1), (Me(w).Equipment, Me(w).Perk2));
+    }
+
+    [Fact]
+    public void A_card_picked_after_a_class_change_stays_with_the_class_it_was_offered_to()
+    {
+        var w = War();
+        var offer = Won(w);
+        Assert.Equal(TfwRewardKind.Weapon, offer.First.Kind);
+        Swap(w, LoadoutChoice.Default with { Class = 1 });
+        Pick(w, offer.Sequence, 0);
+        Assert.Equal(TfwArsenalView.Empty, w.TfwArsenalOf(Human));        // nothing of the Tactical's in the Assault's slots
+        Assert.Equal(offer.First.Item, (ushort)w.Tfw!.Rewards.Kit(Human, 0).Weapons[0]);
+    }
+
+    [Fact]
+    public void A_class_change_outside_the_stormbird_changes_nothing()
+    {
+        var w = War();
+        Keep(w, 1);
+        TfwRig.Deploy(w);
+        Assert.NotNull(w.SetNextLoadout(Human, LoadoutChoice.Default with { Class = 1 }));
+        Assert.True(w.Tfw!.Enqueue(Human, new TfwCommandRecord(90, TfwCommand.ChangeClass, 0)));
+        TfwRig.Steps(w, 3);
+        Assert.Equal(0, Me(w).Class);
+        Assert.Equal(new TfwArsenalView(1, -1, -1, 0, 0), w.TfwArsenalOf(Human));
+    }
+
     [Fact]
     public void A_key_during_a_strike_waits_for_its_end()
     {

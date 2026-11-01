@@ -119,7 +119,7 @@ public sealed partial class TfwRun
                 case TfwCommand.Deploy: Deploy(w, player, c.Argument, rate); break;
                 case TfwCommand.RequestPickup: RequestPickup(w, player, rate); break;
                 case TfwCommand.CancelPickup: CancelPickup(player); break;
-                case TfwCommand.ChangeClass: break;   // pass 2's contract (M0); M7 gives it its rules
+                case TfwCommand.ChangeClass: ChangeClass(w, player); break;   // TfwRun.Class.cs (M7)
                 case TfwCommand.ChooseReward: w.TfwChooseReward(player, c); break;
                 case TfwCommand.SelectSlot: w.TfwSelectSlot(player, c.Argument); break;
                 default: Order(w, player, c); break;
