@@ -92,7 +92,7 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         _runningText = UiKit.MenuText("", UiKit.White);
         _runningText.MouseFilter = MouseFilterEnum.Pass;
         _joinOwn = UiKit.MenuButton("Join your server", () => { if (HostedServer.Options is { } o) _connect(ServerLaunch.LocalHost(o.Port)); });
-        var stop = UiKit.MenuButton("Stop server", StopHosted, "Stop the server this menu started and its bots (to change the number of bots, stop it and host again)");
+        var stop = UiKit.MenuButton("Stop server", () => StopHosted(), "Stop the server this menu started and its bots (to change the number of bots, stop it and host again)");
         foreach (var row in new Control[] { _runningText, _joinOwn, stop })
         {
             AddChild(row);
@@ -286,11 +286,12 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         Refresh();
     }
 
-    void StopHosted()
+    /// <summary>Stops the server this client started (STOP SERVER here; STOP MUSOU SERVER on the main menu): only that process, and a start still being watched is dropped.</summary>
+    public void StopHosted(string message = "Server stopped.")
     {
         HostedServer.Stop();
         _pendingJoin = false;
-        Say("Server stopped.", false);
+        Say(message, false);
         Refresh();
     }
 

@@ -102,6 +102,39 @@ public sealed partial class UiSelfTest
                 _front.ShowMainMenu();
                 await Frames(3);
                 Check("menu: back on the main menu the lobby's profile is in use", !_services.Content.HasFlag(ContentExtras.Musou), _services.Content.ToString());
+
+                // fix/musou-local-server: STOP MUSOU SERVER under MUSOU MODE, only while a Musou server of this client runs; a press while it starts waits.
+                Check("menu: no server, no STOP MUSOU SERVER row", FindButton(main, b => b.Text == "STOP MUSOU SERVER") is null);
+                _front.MusouStateForTest = (true, true, false);   // another profile's server (the Host panel's)
+                await Frames(3);
+                Check("menu: a server of another profile does not show the row", FindButton(main, b => b.Text == "STOP MUSOU SERVER") is null);
+                _front.MusouStateForTest = (true, false, true);   // Musou, still starting
+                await Frames(3);
+                var stopRow = FindButton(main, b => b.Text == "STOP MUSOU SERVER");
+                var musouRow = FindButton(main, b => b.Text == "MUSOU MODE");
+                Check("menu: a starting Musou server shows STOP MUSOU SERVER directly under MUSOU MODE", stopRow is not null && musouRow is not null
+                      && stopRow.GetParent() == musouRow.GetParent() && stopRow.GetIndex() == musouRow.GetIndex() + 1);
+                musouStarted = false; joined = null;
+                await PressRow("MUSOU MODE", main);
+                Check("menu: a press while the server starts neither starts a second server nor joins", !musouStarted && joined is null);
+                Check("menu: ... and the player is told it is starting", AllLabels(_front).Any(l => l.Visible && l.Text == MusouLocal.StartingText));
+                _front.MusouStateForTest = (true, true, true);    // listening
+                await Frames(2);
+                await PressRow("MUSOU MODE", main);
+                Check("menu: a press on a ready Musou server joins it on this PC, Musou", !musouStarted && joined is { Host: var h } && h.StartsWith("127.0.0.1", StringComparison.Ordinal) && _services.Content == ContentExtras.Musou, joined?.Host);
+                await PressRow("STOP MUSOU SERVER", main);
+                Check("menu: STOP MUSOU SERVER puts the lobby's profile back", !_services.Content.HasFlag(ContentExtras.Musou), _services.Content.ToString());
+                _front.MusouStateForTest = (false, false, false); // the process ended
+                await Frames(3);
+                Check("menu: the row is gone once the server is", FindButton(main, b => b.Text == "STOP MUSOU SERVER") is null);
+                _front.MusouStateForTest = (true, true, true);
+                await Frames(3);
+                Check("menu: the row follows a Musou server again (back from a match)", FindButton(main, b => b.Text == "STOP MUSOU SERVER") is not null);
+                _front.MusouStateForTest = (false, false, false); // the server died by itself
+                await Frames(3);
+                Check("menu: a server that dies by itself takes the row with it", FindButton(main, b => b.Text == "STOP MUSOU SERVER") is null);
+                _front.MusouStateForTest = null;
+                _services.Content = _services.Settings.ContentExtras;
             }
 
             // The customizer stands on its own dark background.

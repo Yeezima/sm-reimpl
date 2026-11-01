@@ -1270,6 +1270,29 @@ if ($Smoke) {
         if (-not $hosted -or -not $localOnly -or $feText -cmatch 'Unhandled exception|FileNotFoundException|Could not load file or assembly') {
             $fail = $true; Write-Host "  front end: FAILED (game\sm-reimpl.exe running: $gameFromGame; HOST A MATCH started server\SmServer.exe: $hosted; this PC only: $localOnly)" -ForegroundColor Red
         } else { Write-Host '  front end: game\sm-reimpl.exe started by the Play launcher; HOST A MATCH found server\ and started it on 127.0.0.1 only' -ForegroundColor Green }
+        Stop-SmokeProcesses $pkg
+
+        # 5. MUSOU MODE (fix/musou-local-server): --auto-musou presses the main menu's button; the shipped server\ must start with --content musou (it is built with the
+        # added content) on 127.0.0.1 only, and the game must be able to join it (the player joins as soon as the server listens).
+        $port3 = Free-Port ($port2 + 1) @($port, $port2)
+        Step "Smoke: MUSOU MODE (front end, headless) on 127.0.0.1:$port3"
+        $env:SM_ENGINE_ARGS = "--headless --log-file `"$(Join-Path $smokeDir 'musou.log')`""
+        $env:SM_NO_WATCH = '1'
+        $mp = Start-QuietProcess -FilePath "$env:ComSpec" -RawArguments "/d /c `"`"$playCmd`" --profile `"$profileFile`" --auto-musou --host-port $port3 --quit-after 40`"" -WorkingDirectory $pkg `
+            -StdOut (Join-Path $smokeDir 'musou.out.txt')
+        $null = $mp.WaitForExit(30000)
+        Remove-Item Env:\SM_ENGINE_ARGS -ErrorAction SilentlyContinue
+        Remove-Item Env:\SM_NO_WATCH -ErrorAction SilentlyContinue
+        $musouProc = $null
+        for ($i = 0; $i -lt 120 -and -not $musouProc; $i++) {
+            $musouProc = Get-CimInstance Win32_Process -Filter "Name = 'SmServer.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.ExecutablePath -and (Is-Inside $_.ExecutablePath $serverDir) -and $_.CommandLine -match "--port $port3(\s|$)" } | Select-Object -First 1
+            if (-not $musouProc) { Start-Sleep -Seconds 1 }
+        }
+        $musouOk = $musouProc -and ($musouProc.CommandLine -match '--bind 127\.0\.0\.1') -and ($musouProc.CommandLine -match '--content musou')
+        $musouGame = Get-CimInstance Win32_Process -Filter "Name = 'sm-reimpl.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.ExecutablePath -and (Is-Inside $_.ExecutablePath $pkg) } | Select-Object -First 1
+        if ($musouGame) { Wait-Process -Id $musouGame.ProcessId -Timeout 90 -ErrorAction SilentlyContinue }
+        if (-not $musouOk) { $fail = $true; Write-Host "  musou: FAILED (the shipped server did not start with --content musou on 127.0.0.1 after --auto-musou)" -ForegroundColor Red }
+        else { Write-Host '  musou: MUSOU MODE started server\SmServer.exe with --content musou on 127.0.0.1 only' -ForegroundColor Green }
     } finally {
         Remove-Item Env:\SM_ENGINE_ARGS -ErrorAction SilentlyContinue
         Stop-SmokeProcesses $pkg
