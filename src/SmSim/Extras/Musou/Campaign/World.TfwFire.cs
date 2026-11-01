@@ -7,9 +7,8 @@ namespace SmSim;
 /// <summary>
 /// Fire support in the World (Musou pass 2, M8; design section E, the owner's orbital support): a called strike's validation, its barrage and damage, and the Thunderhawk's path and guns (paused: <see cref="TfwFireRules.RunsEnabled"/>). Runs from <see cref="TfwStep"/> after the fight, only with a battle
 /// on and the match in play; the enemies' deaths carry <see cref="MusouDeathKind.Barrage"/> or <see cref="MusouDeathKind.Strafe"/> and no player, so they score nothing and the kills are credited by
-/// the next <see cref="TfwCreditKills"/>. Rules: a shell kills fodder within <see cref="TfwFireRules.FodderRadius"/> and throws those to <see cref="TfwFireRules.OuterRadius"/>, hurts elites, bosses,
-/// players and AI Marines (never spared: friendly fire is the risk) falling off to that radius, and kills Guardsmen within <see cref="TfwFireRules.GuardRadius"/>. Line of sight is ignored: heavy
-/// shell fire. A run hurts enemies only.
+/// the next <see cref="TfwCreditKills"/>. Rules: a shell kills every enemy and Guardsman in the sphere of <see cref="TfwFireRules.BlastRadius"/> round its impact, bosses too, and hurts
+/// players and AI Marines (never spared: friendly fire is the risk) falling off to that radius. Line of sight is ignored: heavy shell fire. A run hurts enemies only.
 /// </summary>
 public sealed partial class World
 {
@@ -116,21 +115,16 @@ public sealed partial class World
         var fire = _tfw!.Fire;
         var musou = _musou!;
         MusouBeginTick();
-        int n = musou.Query(at, TfwFireRules.OuterRadius, _fireNear, TfwFireRules.VerticalReach);
+        int n = musou.Query(at, TfwFireRules.BlastRadius, _fireNear, TfwFireRules.BlastRadius);
         for (int k = 0; k < n; k++)
         {
             if (!musou.TryGet(_fireNear[k], out var e)) continue;
+            if (Vector3.Distance(MusouSim.Chest(e.Position, musou.Body(e.Type).Height), at) > TfwFireRules.BlastRadius && Vector3.Distance(e.Position, at) > TfwFireRules.BlastRadius) continue;
             var away = new Vector2(e.Position.X - at.X, e.Position.Y - at.Y);
             float distance = away.Length();
             var push = distance > 1e-3f ? away / distance : new Vector2(-MathF.Sin(e.Yaw), MathF.Cos(e.Yaw));
-            bool fodder = e.Type is MusouEnemyType.Boy or MusouEnemyType.ShootaBoy or MusouEnemyType.Gretchin;
-            bool killed = false;
-            if (fodder && distance <= TfwFireRules.FodderRadius)
-                musou.Damage(e.Id, 0, e.Health, new Vector3(push, 0.8f), out killed, marker: 0, cause: MusouDeathKind.Barrage);
-            else if (!fodder)
-                musou.Damage(e.Id, 0, TfwFireRules.EliteDamage * Falloff(distance), new Vector3(push, 0.8f), out killed, marker: 0, cause: MusouDeathKind.Barrage);
+            musou.Damage(e.Id, 0, MathF.Max(e.Health, 1f), new Vector3(push, 0.8f), out bool killed, marker: 0, cause: MusouDeathKind.Barrage);
             if (killed) fire.ShellKills++;
-            else musou.Stagger(e.Id, push, TfwFireRules.Knockback * MathF.Min(1f, 1.5f * Falloff(distance)));
         }
         _fireIds.Clear();
         foreach (int id in _players.Keys) _fireIds.Add(id);
@@ -138,15 +132,15 @@ public sealed partial class World
         foreach (int id in _fireIds)
         {
             var p = _players[id];
-            if (!p.Alive || MathF.Abs(p.Position.Z - at.Z) > TfwFireRules.VerticalReach) continue;
-            float distance = new Vector2(p.Position.X - at.X, p.Position.Y - at.Y).Length();
-            if (distance >= TfwFireRules.OuterRadius) continue;
-            MusouHit(new MusouAttack(0, id, TfwFireRules.PlayerDamage * Falloff(distance), Melee: false, Staggers: distance <= TfwFireRules.FodderRadius, at));
+            if (!p.Alive) continue;
+            float distance = Vector3.Distance(p.Position, at);
+            if (distance >= TfwFireRules.BlastRadius) continue;
+            MusouHit(new MusouAttack(0, id, TfwFireRules.PlayerDamage * Falloff(distance), Melee: false, Staggers: distance <= TfwFireRules.BlastRadius / 2f, at));
         }
-        TfwGuards?.KillWithin(at, TfwFireRules.GuardRadius);
+        TfwGuards?.KillWithin(at, TfwFireRules.BlastRadius);
     }
 
-    static float Falloff(float distance) => Math.Clamp(1f - distance / TfwFireRules.OuterRadius, 0f, 1f);
+    static float Falloff(float distance) => Math.Clamp(1f - distance / TfwFireRules.BlastRadius, 0f, 1f);
 
     /// <summary>A run begins, over <paramref name="aim"/> on <paramref name="heading"/>: at <see cref="TfwFireRules.RunHeight"/> over the aim's ground and clear of everything under the path.</summary>
     void TfwBeginRun(Vector3 aim, float heading, int rate)

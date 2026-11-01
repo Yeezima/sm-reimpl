@@ -22,18 +22,10 @@ public static class TfwFireRules
     public const float AimAtMass = 0.7f;
     /// <summary>Seconds from a strike's call to its first impact, and between each shell's record and its landing: the whistle's time (the owner: "the barrage should start instantly"; about 1 s keeps a whistle before each impact).</summary>
     public const float ShellDelay = 1f;
-    /// <summary>Within this flat distance of the impact fodder dies (m).</summary>
-    public const float FodderRadius = 6f;
-    /// <summary>Elites, bosses, players and AI Marines are hurt, falling off linearly to nothing at this flat distance (m).</summary>
-    public const float OuterRadius = 12f;
-    /// <summary>Guardsmen within this flat distance die (m).</summary>
-    public const float GuardRadius = 4f;
-    /// <summary>What a shell deals at the point of impact: an elite or boss, a player or AI Marine.</summary>
-    public const float EliteDamage = 150f, PlayerDamage = 60f;
-    /// <summary>A shell reaches this far up and down from its impact (m): one on a roof spares those under it.</summary>
-    public const float VerticalReach = 6f;
-    /// <summary>How far the shock throws what it does not kill (m, at the rim of <see cref="FodderRadius"/> and within).</summary>
-    public const float Knockback = 2.5f;
+    /// <summary>A shell's sphere round its impact (m, the owner, 2026-11-01: "kill anything it touches", matching the blast's visual): every enemy inside dies, bosses too.</summary>
+    public const float BlastRadius = 12f;
+    /// <summary>What a shell deals a player or AI Marine at the point of impact, falling off linearly to nothing at <see cref="BlastRadius"/>.</summary>
+    public const float PlayerDamage = 60f;
 
     /// <summary>A run never starts sooner than this after the last (s; the owner's item 13).</summary>
     public const float RunGapSeconds = 45f;
