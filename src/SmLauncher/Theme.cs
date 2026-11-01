@@ -380,15 +380,11 @@ static class DarkBox
 /// <summary>A link label whose disabled state is plain muted text (the stock one draws an embossed shadow that looks wrong on dark).</summary>
 sealed class DarkLink : LinkLabel
 {
-    public DarkLink() { SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true); BackColor = Theme.Base; }
+    public DarkLink() { SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true); BackColor = Theme.Base; DisabledLinkColor = Color.FromArgb(0x8A, 0x84, 0x80); }
     protected override void OnPaintBackground(PaintEventArgs e) => DarkGlyph.PaintBackdrop(this, e.Graphics, e.ClipRectangle);
     protected override void OnTextChanged(EventArgs e) { base.OnTextChanged(e); Invalidate(); }
+    protected override void OnEnabledChanged(EventArgs e) { base.OnEnabledChanged(e); Invalidate(); }
     protected override void SetBoundsCore(int x, int y, int width, int height, BoundsSpecified specified) { Parent?.Invalidate(Bounds); base.SetBoundsCore(x, y, width, height, specified); }
-    protected override void OnPaint(PaintEventArgs e)
-    {
-        if (Enabled) { base.OnPaint(e); return; }
-        TextRenderer.DrawText(e.Graphics, Text, Font, ClientRectangle, Color.FromArgb(0x8A, 0x84, 0x80), TextFormatFlags.Left | TextFormatFlags.NoPadding | TextFormatFlags.WordBreak);
-    }
 }
 
 /// <summary>Something that is a solid colour under its children (the header) instead of the form's tile.</summary>

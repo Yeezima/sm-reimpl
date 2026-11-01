@@ -148,7 +148,7 @@ static class RowCheck
 
     /// <summary>The check itself (SmLauncher.UiTests runs it too): the problems found, none when every frame is clean. A null <paramref name="folder"/> saves no
     /// frames. <paramref name="width"/> sets the window's outer width first and starts in the owner's state of 2026-10-31 (a window about 735 px wide, a
-    /// released build's tag with a previous build to roll back to, the mouse over "Host a match on this PC").</summary>
+    /// released build's tag with a previous build to roll back to, the mouse over PLAY").</summary>
     public static List<string> Check(string? folder, string? scaleText, int? width, Action<string> log, out int frames)
     {
         if (folder is not null) Directory.CreateDirectory(folder);
@@ -187,8 +187,8 @@ static class RowCheck
         if (width is not null)
         {
             Check("owner");
-            form.HoverForTest(true, hostOnly: true); Check("owner-host-hovered");
-            form.HoverForTest(false, hostOnly: true); Check("owner-host-unhovered");
+            form.HoverForTest(true); Check("owner-play-hovered");
+            form.HoverForTest(false); Check("owner-play-unhovered");
             form.ApplyDemoState("idle");
         }
         Check("idle");
@@ -197,6 +197,10 @@ static class RowCheck
             form.ApplyDemoState(s);
             Check("state-" + s);
         }
+        form.BusyForTest(0); Check("download-begun");              // the real download path: the progress panel appears, the rows below it move
+        form.BusyForTest(1); Check("download-progress");
+        form.BusyForTest(2); Check("download-retry-note");
+        form.BusyForTest(3); Check("download-ended");
         form.ToggleSafeModeForTest(); Check("checkbox-toggled");
         form.ToggleSafeModeForTest(); Check("checkbox-toggled-back");
         form.FocusSafeModeForTest(true); Check("checkbox-focused");
