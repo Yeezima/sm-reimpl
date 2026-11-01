@@ -12,3 +12,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Fixed a disconnect: dying during a directional melee attack could end your connection with 'Disconnected (no snapshot from the server)'.
 - The camera now always stays over the right shoulder; it no longer swaps to the left shoulder near walls.
 - At a higher field of view the camera sits slightly further right, so your character covers less of the crosshair. Shots still land on the crosshair, and the default field of view looks the same as before.
+- Musou Mode: the information panels left the top of the screen and now show on the war map, while you hold M.
+- Musou Mode: point markers are now just the small A, B and C letters, and enemies no longer show health bars over their heads.
