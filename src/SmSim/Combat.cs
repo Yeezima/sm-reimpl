@@ -46,7 +46,7 @@ public static class Combat
             OtherClip = other?.ClipSize ?? 0, OtherReserve = other?.ReserveSize ?? 0, SwitchLeft = 0,
             ThirdClip = third?.ClipSize ?? 0, ThirdReserve = third?.ReserveSize ?? 0, ThirdHeat = 0, ThirdOverheated = false, ThirdSinceHeat = 0,
             Cooldown = 0, ReloadLeft = 0, OtherReloadLeft = 0, ThirdReloadLeft = 0, SinceDamage = 0, RespawnLeft = 0, Velocity = Vector3.Zero, Grounded = true,
-            MeleeStep = 0, MeleeTime = 0, MeleeQueued = false,
+            MeleeStep = 0, MeleeTime = 0, MeleeQueued = false, MeleeDirection = EvadeDirection.Forward,
             Heat = 0, Overheated = false, SinceHeat = 0, OtherHeat = 0, OtherOverheated = false, OtherSinceHeat = 0,
             Charging = false, ChargeTime = 0, PendingShot = 0, PendingLeft = 0,
             Grenades = Loadouts.Equipment(c, s)?.SpawnCount ?? 0, GrenadeCooldown = 0, Throwing = false, ThrowTime = 0, StimLeft = 0,
@@ -112,7 +112,7 @@ public static class Combat
         Reaction = ReactionKind.None, ReactionDirection = ReactionDirection.Front, ReactionTicks = 0, PushYaw = 0, PushDistance = 0, PushTicks = 0, BlindTicks = 0,
         Rush = RushPhase.None, RushTicks = 0, RushLock = 0,
         Alive = false, Health = 0f, Shield = 0f, RespawnLeft = Loadouts.RespawnTime(c, s), Velocity = Vector3.Zero, ReloadLeft = 0f, OtherReloadLeft = 0f, ThirdReloadLeft = 0f, SwitchLeft = 0f,
-        MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false,
+        MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeDirection = EvadeDirection.Forward,   // fix/dead-melee-direction: it outlived the attack and the reader refuses that
         Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Throwing = false, ThrowTime = 0f, StimLeft = 0f,
         Jump = JumpPhase.None, JumpTicks = 0, JumpMark = 0, JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpSlash = false, Aiming = false,
         EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLock = 0, EvadeLanded = false, JumpDashDirection = EvadeDirection.Forward,
