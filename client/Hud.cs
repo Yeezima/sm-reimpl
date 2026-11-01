@@ -486,7 +486,7 @@ public sealed partial class Hud : Control
             if (d.Alive) Sprite(HudSprites.BarHealth, R(12, 10, 376, 16), new Color(pulse, pulse, pulse), hf);
             // The armour glow's lines run from texture x 4 to 405: cut it there, with a white cap at the cut (as in the footage).
             float cut = (4f + sf * 401f) / 412f;
-            if (d.Alive && sf > 0f) Sprite(HudSprites.BarArmour, R(0, 0, 412, 36), null, sf >= 0.999f ? 1f : cut);
+            if (d.Alive && sf > 0f && Sprite(HudSprites.BarArmour, R(0, 0, 412, 36), null, sf >= 0.999f ? 1f : cut)) NoteArmourDraw("m44");
             if (d.Alive && sf > 0.005f && sf < 0.999f)
             {
                 float x = tl.X + cut * 412f * sx;
