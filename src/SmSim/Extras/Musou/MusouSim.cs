@@ -246,6 +246,20 @@ public sealed partial class MusouSim
         return n;
     }
 
+    /// <summary>For the fight's report: the melee and shooter tokens held and the enemies in a strike's wind-up, blow or recovery.</summary>
+    public (int Melee, int Shooters, int Striking) Tally()
+    {
+        int melee = 0, shooters = 0, striking = 0;
+        for (int i = 0; i < Capacity; i++)
+        {
+            if (!_used[i] || _state[i] == MusouEnemyState.Dying) continue;
+            if (_token[i] == MeleeToken) melee++;
+            else if (_token[i] == ShooterToken) shooters++;
+            if (_state[i] is MusouEnemyState.WindUp or MusouEnemyState.Strike or MusouEnemyState.Recover) striking++;
+        }
+        return (melee, shooters, striking);
+    }
+
     /// <summary>Records an event of this tick (dropped and counted over <see cref="MaxEventsPerTick"/>).</summary>
     public void AddEvent(MusouEvent e)
     {

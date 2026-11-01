@@ -49,6 +49,10 @@ public sealed partial class TfwRun
     /// <summary>Test seam for the AI Marines: whether a player's retainer can revive it (null: the World asks the roster).</summary>
     public Func<int, bool>? RetainerUp { get; set; }
 
+    /// <summary>Wall-clock milliseconds of the last landing and of its sites' draw (for the cost report).</summary>
+    public double LastLandMilliseconds { get; private set; }
+    public double LastSitesMilliseconds { get; private set; }
+
     /// <summary>Test aid (ours): the run stands still: it takes no command from the queue and feeds no wire, for tests of the queue and of the wire themselves.</summary>
     public bool Idle { get; set; }
 
@@ -165,7 +169,9 @@ public sealed partial class TfwRun
         var state = War.LaneState(lane);
         bool final = state.Front == WarRules.FrontStronghold;
         int node = final ? WarRules.Positions : state.Front + 1;
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
         var layout = Sites.Layout(lane, node, w.Tick);
+        LastSitesMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
         var bonus = final ? War.FinalBonus(lane) : default;
         w.TfwClearField();
         _deployed.Clear();
@@ -190,6 +196,7 @@ public sealed partial class TfwRun
             if ((final || other == lane) && War.LaneState(other).LordState == WarRules.LordPresent)
                 w.TfwSpawnLord(other, Ashore(w, layout, new Vector3(l * 3f - 3f, 3f, 0f)), yaw);
         }
+        LastLandMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
     }
 
     /// <summary>A place <paramref name="offset"/> from the landing zone, on the graph's ground; the landing zone itself when that falls in a wall.</summary>

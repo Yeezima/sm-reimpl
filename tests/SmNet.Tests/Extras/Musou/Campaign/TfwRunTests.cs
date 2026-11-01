@@ -231,15 +231,13 @@ public class TfwRunTests
         TfwRig.Secure(w, battle, 0);
         Assert.False(battle.SourceActive(0));
         Assert.True(battle.SourceActive(1));
-        Assert.NotEqual(TfwPositionState.Locked, battle.Objectives[1].State);
-        Assert.Equal(TfwPositionState.Locked, battle.Objectives[2].State);
         Assert.Equal((4, 4), (run.Transport, run.Supplies));
 
         TfwRig.Secure(w, battle, 1);
         Assert.Equal((6, 5), (run.Transport, run.Supplies));                 // the depot
         Assert.False(battle.SourceActive(1));
 
-        Assert.Equal(0, battle.BossId);
+        Assert.Equal(battle.Secured == 3, battle.BossId != 0);               // the squads walk on: the third may fall by itself
         TfwRig.Secure(w, battle, 2);
         Assert.False(battle.SourceActive(2));
         Assert.True(battle.SourceActive(3));                                 // the HQ's stops only at victory
@@ -291,7 +289,7 @@ public class TfwRunTests
         Assert.Equal(TfwRunPhase.Hub, run.Phase);
         Assert.Equal(3, run.Transport);
         var after = run.War.LaneState(TfwLane.A);
-        Assert.Equal((float)WarRules.LeftProgress(1), after.Progress, 4);
+        Assert.Equal((float)WarRules.LeftProgress(battle.Secured), after.Progress, 4);   // the squads walk on: a further point may have fallen meanwhile
         Assert.Equal(before.Ork - 0.05f * kills, after.Ork, 0.1f);
         Assert.Equal(before.Imperial - 0.1f * lost, after.Imperial, 0.1f);
         Assert.True(TfwRig.InStormbird(w.Players[Human].Position), $"{w.Players[Human].Position}");
@@ -349,7 +347,7 @@ public class TfwRunTests
         Assert.Equal(4, run.Transport);                                      // no pickup fee
         Assert.True(w.Players[Human].Alive);
         Assert.True(TfwRig.InStormbird(w.Players[Human].Position));
-        Assert.Equal((float)WarRules.LeftProgress(1), run.War.LaneState(TfwLane.A).Progress, 4);
+        Assert.Equal((float)WarRules.LeftProgress(battle.Secured), run.War.LaneState(TfwLane.A).Progress, 4);
     }
 
     /// <summary>The run's reserves set by hand (test only: a won battle always holds the depot's supply, so 0 cannot come by itself).</summary>

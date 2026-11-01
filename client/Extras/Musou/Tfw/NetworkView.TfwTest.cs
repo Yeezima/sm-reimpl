@@ -273,10 +273,43 @@ public partial class NetworkView
         await TfwShot("war-won");
     }
 
+    /// <summary>
+    /// Test aid <c>--tfw-test-fight</c> (with <c>--tfw-test &lt;dir&gt;</c>): the player deploys, walks to the point nearest it and stands near it looking at it, for <c>--tfw-fight-seconds</c> (default 90), and a PNG goes to the
+    /// folder every 6 s of a windowed run. It fires nothing: the fight on the screen is the allies' and the Orks'.
+    /// </summary>
+    async Task TfwTestFight()
+    {
+        var client = _client!;
+        if (!await TfwTestDeploy(TfwLane.B)) return;
+        await TfwWait(1.0);
+        await TfwShot("fight-00-landing");
+        double seconds = double.TryParse(CmdArg("tfw-fight-seconds"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double s) ? s : 90.0, start = _connectedFor;
+        Num.Vector3 Nearest()
+        {
+            var me = client.Predicted.Position;
+            var best = _tfwState.Objectives[0].Position;
+            for (int k = 1; k < TfwBattle.CommanderObjective; k++)
+                if (Num.Vector3.Distance(_tfwState.Objectives[k].Position, me) < Num.Vector3.Distance(best, me)) best = _tfwState.Objectives[k].Position;
+            return best;
+        }
+        var point = Nearest();
+        await TfwPathTo(point, "walked towards the nearest point", 45.0, () => Num.Vector3.Distance(client.Predicted.Position, point) < 26f || !client.Predicted.Alive);
+        int shot = 1;
+        while (_connectedFor - start < seconds && TfwNow.Phase == TfwRunPhase.Battle)
+        {
+            var me = client.Predicted.Position;
+            _yaw = MathF.Atan2(-(point.X - me.X), point.Y - me.Y);
+            await TfwWait(6.0);
+            await TfwShot($"fight-{shot++:00}");
+        }
+        TfwCheck("the fight was filmed", shot > 1, TfwNow.Phase.ToString());
+    }
+
     async Task TfwTestScript()
     {
         var client = _client!;
         if (!await TfwUntil("the war is on, in the hub", () => client.Match.State == MatchState.Playing && _tfwState.War is { Phase: TfwRunPhase.Hub } && client.Predicted.Alive, 60.0)) return;
+        if (CmdFlag("tfw-test-fight")) { await TfwTestFight(); return; }
         var start = TfwNow;
         TfwCheck("the reserves are the run's", start.Transport == TfwBattleRules.StartTransport && start.Supplies == TfwBattleRules.StartSupplies, $"{start.Transport}, {start.Supplies}");
         TfwCheck("the station prompt fits the spot", _tfwAt == TfwHudModel.StationAt(client.Predicted.Position, TfwHub!), $"{_tfwAt} at {client.Predicted.Position}");   // a respawn point is anywhere in the room

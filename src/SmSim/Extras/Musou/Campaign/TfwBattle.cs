@@ -8,14 +8,18 @@ namespace SmSim.Extras.Musou.Campaign;
 /// </summary>
 public static class TfwBattleRules
 {
-    // The chain of positions.
-    public const float ClearingRadius = 30f;
+    // The positions (all three live from the landing, M2).
     public const float SecureSeconds = 25f;
-    /// <summary>The share of a position's progress lost a second while its squad is wiped.</summary>
+    /// <summary>The share of a position's progress lost a second with no Imperial on it.</summary>
     public const float SecureDecayPerSecond = 0.02f;
+    /// <summary>A field short of squads gets the next reserve after this long.</summary>
     public const float ReserveSeconds = 15f;
-    /// <summary>With every Guardsman dead and no reserve, a human inside secures at this share of the rate (ours: a position never dead-ends).</summary>
+    /// <summary>A human on a position with no Guardsman there secures it at this share of the rate; an AI Marine holds it up but does not secure it (ours: a position never dead-ends).</summary>
     public const float HumanSecureRate = 0.5f;
+    /// <summary>The squads' orders are looked at every this many seconds.</summary>
+    public const float SquadOrderSeconds = 1f;
+    /// <summary>A squad stands on a point at most this share of the point's radius from its centre (the squads must stand inside to take it).</summary>
+    public const float SquadOnPoint = 0.7f;
 
     // The defenders of one position.
     public const int DefenderBoyz = 12, DefenderShootas = 5, DefenderArds = 3, Defenders = DefenderBoyz + DefenderShootas + DefenderArds;
@@ -86,9 +90,9 @@ public enum TfwBattleChange : byte
 }
 
 /// <summary>
-/// One battle (design section D), or the final assault: the chain of positions, their leashed defenders, the arrivals from the sources, the securing by a Guard squad, the commander, and
-/// the failsafe for enemies nobody can reach. Works on the enemies' pool and the Guardsmen alone, deterministically; the run (<see cref="TfwRun"/>) owns everything around it. A position
-/// goes Locked, Held, Clearing (a player within <see cref="TfwBattleRules.ClearingRadius"/>), Securing (its defenders dead and no Ork inside), Secured.
+/// One battle (design sections D and I), or the final assault: the three positions, their leashed defenders, the arrivals from the sources, the Guard squads, each going for the nearest position not
+/// secured, the commander, and the failsafe for enemies nobody can reach. Works on the enemies' pool and the Guardsmen alone, deterministically; the run (<see cref="TfwRun"/>) owns everything around it. A
+/// position is Held with no Imperial on it, Clearing with Imperials and Orks on it, Securing with Imperials alone, Secured when that has run its time. A secured position keeps one squad as long as two are free.
 /// </summary>
 public sealed class TfwBattle
 {
@@ -106,7 +110,10 @@ public sealed class TfwBattle
     readonly WarFinalBonus _bonus;
     readonly int _humans, _arrivalsEach;
     readonly float _scale;
-    int _reserves, _arrivalTicks, _released, _secureSquad = -1, _wipedTicks, _summons, _waaaghs, _next;
+    readonly int[] _holder = [-1, -1, -1];                  // the squad holding a secured position
+    readonly int[] _squadGoal = new int[GuardSim.MaxSquads];   // the objective a squad was sent to (-1: none)
+    int _reserves, _arrivalTicks, _released, _reserveTicks, _squadTicks, _summons, _waaaghs;
+    bool _commander, _depotPaid;
 
     public TfwBattle(MusouSim enemies, GuardSim guards, TfwLayout layout, double ork, double imperial, int humans, bool final = false, WarFinalBonus bonus = default)
     {
@@ -119,6 +126,7 @@ public sealed class TfwBattle
         _arrivalsEach = TfwBattleRules.ArrivalsAt(ork);
         _scale = 1f + enemies.Rules.ScalePerExtraPlayer * (_humans - 1);
         Squads = TfwBattleRules.SquadsAt(imperial) + (final ? bonus.ExtraSquads : 0);
+        Array.Fill(_squadGoal, -1);
     }
 
     float Dt => 1f / Math.Max(1, _enemies.TickRate);
@@ -134,7 +142,7 @@ public sealed class TfwBattle
     /// <summary>The enemy the boss bar shows (0: none).</summary>
     public ushort BossId { get; private set; }
     public float BossMaxHealth { get; private set; }
-    /// <summary>The positions secured so far.</summary>
+    /// <summary>The positions secured now.</summary>
     public int Secured { get; private set; }
     /// <summary>Arrivals released from the sources so far (the Waaagh!s' Boyz not counted).</summary>
     public int Arrivals => _released;
@@ -146,7 +154,29 @@ public sealed class TfwBattle
     public IReadOnlyList<TfwObjective> Objectives => _objectives;
 
     /// <summary>Where the fight is: the first position not secured, then the HQ; null once won (<see cref="TfwRun.ActivePosition"/>).</summary>
-    public Vector3? ActivePosition => Won ? null : _next < Positions ? _layout.Positions[_next] : _layout.Hq;
+    public Vector3? ActivePosition => Won ? null : FirstOpen() is var k and >= 0 ? _layout.Positions[k] : _layout.Hq;
+
+    int FirstOpen()
+    {
+        for (int k = 0; k < Positions; k++) if (_objectives[k].State != TfwPositionState.Secured) return k;
+        return -1;
+    }
+
+    /// <summary>The nearest place from <paramref name="at"/> that needs taking: the nearest position not secured, then the HQ; null once won.</summary>
+    public Vector3? GoalFrom(Vector3 at) => Won ? null : Nearest(at) is var k and >= 0 ? _layout.Positions[k] : _layout.Hq;
+
+    int Nearest(Vector3 at)
+    {
+        int best = -1;
+        float bestD = float.PositiveInfinity;
+        for (int k = 0; k < Positions; k++)
+        {
+            if (_objectives[k].State == TfwPositionState.Secured) continue;
+            float d = Vector3.DistanceSquared(_layout.Positions[k], at);
+            if (d < bestD) { bestD = d; best = k; }
+        }
+        return best;
+    }
 
     /// <summary>Whether source <paramref name="index"/> still sends enemies: until its position is secured, the HQ's until victory; every source in the final assault.</summary>
     public bool SourceActive(int index) => !Won && (_final || index >= Positions || _objectives[index].State != TfwPositionState.Secured);
@@ -154,17 +184,16 @@ public sealed class TfwBattle
     /// <summary>The start: the defenders at their posts, the field's squads at the landing zone and, in the final assault, the Warboss.</summary>
     public void Start()
     {
-        for (int k = 0; k < Positions; k++) _objectives[k] = new TfwObjective((byte)k, _final ? TfwPositionState.Secured : k == 0 ? TfwPositionState.Held : TfwPositionState.Locked, _final ? 1f : 0f, _layout.Positions[k], _layout.Radius(k));
+        for (int k = 0; k < Positions; k++) _objectives[k] = new TfwObjective((byte)k, _final ? TfwPositionState.Secured : TfwPositionState.Held, _final ? 1f : 0f, _layout.Positions[k], _layout.Radius(k));
         _objectives[CommanderObjective] = new TfwObjective(CommanderObjective, TfwPositionState.Locked, 0f, _layout.Hq, TfwMap.HqRadius);
         int field = Math.Min(Squads, _final ? TfwBattleRules.FinalFieldSquads : TfwBattleRules.FieldSquads);
         _reserves = Squads - field;
         for (int s = 0; s < field; s++) _guards.SpawnSquad(Ground(_layout.LandingZone + SquadOffset(s), _layout.LandingZone), YawTo(_layout.LandingZone, _layout.Hq));
         if (_final)
         {
-            _next = Positions;
             Secured = Positions;
+            _commander = true;
             SpawnBoss(MusouEnemyType.Warboss, _enemies.Rules.BossHealth * _scale * _bonus.BossHealthFactor, leashed: false);
-            Advance(_layout.Hq);
             return;
         }
         for (int k = 0; k < Positions; k++) SpawnDefenders(k);
@@ -222,7 +251,7 @@ public sealed class TfwBattle
             float angle = k * MathF.Tau / escorts;
             _enemies.SpawnLeashed(type, Ground(_layout.Hq + new Vector3(MathF.Cos(angle) * 3f, MathF.Sin(angle) * 3f, 0f), _layout.Hq), angle, Health(type), CommanderGroup, TfwBattleRules.DefenderAggro);
         }
-        Advance(_layout.Hq);
+        _commander = true;
     }
 
     /// <summary>A KO, from the World's <see cref="MusouSim.TakeKills"/> (a Guardsman's KO names no player, so the players' scores would miss it).</summary>
@@ -257,40 +286,39 @@ public sealed class TfwBattle
             }
             _objectives[CommanderObjective] = _objectives[CommanderObjective] with { Progress = 1f - boss.Health / MathF.Max(1f, BossMaxHealth) };
         }
-        if (_next < Positions) change |= StepPosition(_next, players, humans);
+        if (!_final) for (int k = 0; k < Positions; k++) change |= StepPosition(k, players, humans);
+        StepSquads();
+        StepReserves();
         StepArrivals();
         return change;
     }
 
+    /// <summary>One tick of a position: who stands on it says what it does (the type's summary).</summary>
     TfwBattleChange StepPosition(int k, ReadOnlySpan<Vector3> players, ReadOnlySpan<Vector3> humans)
     {
         var o = _objectives[k];
-        switch (o.State)
+        if (o.State == TfwPositionState.Secured) return TfwBattleChange.None;
+        bool guards = _guards.CountInside(o.Position, _layout.Radius(k)) > 0, imperial = guards || AnyInside(k, players);
+        if (!imperial) o = o with { State = TfwPositionState.Held, Progress = MathF.Max(0f, o.Progress - TfwBattleRules.SecureDecayPerSecond * Dt) };
+        else if (OrksInside(k)) o = o with { State = TfwPositionState.Clearing };
+        else
         {
-            case TfwPositionState.Held:
-                float r2 = TfwBattleRules.ClearingRadius * TfwBattleRules.ClearingRadius;
-                foreach (var p in players)
-                    if (new Vector2(p.X - o.Position.X, p.Y - o.Position.Y).LengthSquared() <= r2) { o = o with { State = TfwPositionState.Clearing }; break; }
-                break;
-            case TfwPositionState.Clearing:
-                if (_defenders[k].Count == 0 && !OrksInside(k))
-                {
-                    o = o with { State = TfwPositionState.Securing };
-                    _wipedTicks = 0;
-                    AssignSquad(o.Position);
-                }
-                break;
-            case TfwPositionState.Securing:
-                o = o with { Progress = Securing(k, o, humans) };
-                if (o.Progress >= 1f)
-                {
-                    _objectives[k] = o with { State = TfwPositionState.Secured, Progress = 1f };
-                    return Secure(k);
-                }
-                break;
+            float rate = guards ? 1f : AnyInside(k, humans) ? TfwBattleRules.HumanSecureRate : 0f;
+            o = o with { State = TfwPositionState.Securing, Progress = o.Progress + rate * Dt / TfwBattleRules.SecureSeconds };
         }
-        _objectives[k] = o;
-        return TfwBattleChange.None;
+        if (o.Progress < 1f) { _objectives[k] = o; return TfwBattleChange.None; }
+        _objectives[k] = o with { State = TfwPositionState.Secured, Progress = 1f };
+        return Secure(k);
+    }
+
+    /// <summary>Whether any of <paramref name="feet"/> stands on position <paramref name="k"/>.</summary>
+    bool AnyInside(int k, ReadOnlySpan<Vector3> feet)
+    {
+        var at = _layout.Positions[k];
+        float r2 = _layout.Radius(k) * _layout.Radius(k), reach = _layout.Reach(k);
+        foreach (var p in feet)
+            if (MathF.Abs(p.Z - at.Z) <= reach && new Vector2(p.X - at.X, p.Y - at.Y).LengthSquared() <= r2) return true;
+        return false;
     }
 
     bool OrksInside(int k)
@@ -299,66 +327,95 @@ public sealed class TfwBattle
         return _enemies.Query(_layout.Positions[k], _layout.Radius(k), one, _layout.Reach(k)) > 0;
     }
 
-    /// <summary>One tick of a position's securing: a Guardsman inside and no Ork moves it, an Ork pauses it, a wiped squad lets it decay until the reserve is sent. With no Guardsman and no reserve left, a human inside takes over at <see cref="TfwBattleRules.HumanSecureRate"/>.</summary>
-    float Securing(int k, in TfwObjective o, ReadOnlySpan<Vector3> humans)
-    {
-        float radius = _layout.Radius(k);
-        bool inside = _guards.CountInside(o.Position, radius) > 0;
-        if (_guards.Alive == 0 && _reserves == 0 && HumanInside(o.Position, radius, humans))
-        {
-            _wipedTicks = 0;
-            return OrksInside(k) ? o.Progress : o.Progress + TfwBattleRules.HumanSecureRate * Dt / TfwBattleRules.SecureSeconds;
-        }
-        if (inside || _guards.AliveIn(_secureSquad) > 0)
-        {
-            _wipedTicks = 0;
-            return inside && !OrksInside(k) ? o.Progress + Dt / TfwBattleRules.SecureSeconds : o.Progress;
-        }
-        if (++_wipedTicks >= Ticks(TfwBattleRules.ReserveSeconds))
-        {
-            _wipedTicks = 0;
-            if (_reserves > 0 && _guards.SpawnSquad(_layout.LandingZone, YawTo(_layout.LandingZone, o.Position)) >= 0) _reserves--;
-            AssignSquad(o.Position);
-        }
-        return MathF.Max(0f, o.Progress - TfwBattleRules.SecureDecayPerSecond * Dt);
-    }
-
-    static bool HumanInside(Vector3 at, float radius, ReadOnlySpan<Vector3> humans)
-    {
-        foreach (var h in humans)
-            if (new Vector2(h.X - at.X, h.Y - at.Y).LengthSquared() <= radius * radius) return true;
-        return false;
-    }
-
-    void AssignSquad(Vector3 position)
-    {
-        _secureSquad = _guards.NearestSquad(position);
-        if (_secureSquad >= 0) _guards.Order(_secureSquad, position);
-    }
-
     TfwBattleChange Secure(int k)
     {
-        Secured = k + 1;
-        _next = k + 1;
-        _secureSquad = -1;
-        var change = TfwBattleChange.PositionSecured | (k == 1 ? TfwBattleChange.DepotSecured : TfwBattleChange.None);
+        Secured++;
+        var change = TfwBattleChange.PositionSecured;
+        if (k == 1 && !_depotPaid) { _depotPaid = true; change |= TfwBattleChange.DepotSecured; }
         for (int field = _guards.SquadsAlive; field < TfwBattleRules.FieldSquads && _reserves > 0; field++)
             if (_guards.SpawnSquad(Ground(_layout.LandingZone + SquadOffset(field), _layout.LandingZone), YawTo(_layout.LandingZone, _layout.Positions[k])) >= 0) _reserves--;
-        if (_next < Positions)
-        {
-            _objectives[_next] = _objectives[_next] with { State = TfwPositionState.Held };
-            Advance(_layout.Positions[k]);
-            return change;
-        }
+        if (Secured < Positions || _commander) return change;
         SpawnCommander();
         return change | TfwBattleChange.CommanderCame;
     }
 
-    /// <summary>Every living squad moves up around <paramref name="to"/>.</summary>
-    void Advance(Vector3 to)
+    /// <summary>
+    /// The squads' orders, once a second: a secured position without a squad keeps the nearest one while two or more are free (it cannot be left empty for nothing); every other squad goes for the
+    /// nearest position not secured, then the HQ. A squad is sent again when its goal changed, or when it stopped outside it.
+    /// </summary>
+    void StepSquads()
     {
+        if (--_squadTicks > 0) return;
+        _squadTicks = Ticks(TfwBattleRules.SquadOrderSeconds);
+        int free = 0;
+        for (int s = 0; s < GuardSim.MaxSquads; s++) if (_guards.AliveIn(s) > 0) free++;
+        for (int k = 0; k < Positions; k++)
+        {
+            if (_holder[k] >= 0 && (_guards.AliveIn(_holder[k]) == 0 || _objectives[k].State != TfwPositionState.Secured)) _holder[k] = -1;
+            if (_holder[k] >= 0) free--;
+        }
+        for (int k = 0; k < Positions && !_final; k++)
+        {
+            if (_objectives[k].State != TfwPositionState.Secured || _holder[k] >= 0 || free < 2) continue;
+            int squad = NearestFree(_layout.Positions[k]);
+            if (squad < 0) break;
+            _holder[k] = squad;
+            free--;
+            Send(squad, k);
+        }
         for (int s = 0; s < GuardSim.MaxSquads; s++)
-            if (_guards.AliveIn(s) > 0) _guards.Order(s, to + SquadOffset(s));
+        {
+            if (_guards.AliveIn(s) == 0) { _squadGoal[s] = -1; continue; }
+            if (Holds(s)) continue;
+            int goal = Nearest(_guards.Centre(s));
+            if (goal < 0) { if (!_commander) continue; goal = CommanderObjective; }
+            if (goal != _squadGoal[s] || (_guards.Arrived(s) && !OnGoal(s, goal))) Send(s, goal);
+        }
+    }
+
+    bool Holds(int squad)
+    {
+        foreach (int s in _holder) if (s == squad) return true;
+        return false;
+    }
+
+    int NearestFree(Vector3 at)
+    {
+        int best = -1;
+        float bestD = float.PositiveInfinity;
+        for (int s = 0; s < GuardSim.MaxSquads; s++)
+        {
+            if (_guards.AliveIn(s) == 0 || Holds(s)) continue;
+            float d = Vector3.DistanceSquared(_guards.Centre(s), at);
+            if (d < bestD) { bestD = d; best = s; }
+        }
+        return best;
+    }
+
+    Vector3 PlaceOf(int goal) => goal == CommanderObjective ? _layout.Hq : _layout.Positions[goal];
+
+    float RadiusOf(int goal) => goal == CommanderObjective ? TfwMap.HqRadius : _layout.Radius(goal);
+
+    bool OnGoal(int squad, int goal) => new Vector2(_guards.Centre(squad).X - PlaceOf(goal).X, _guards.Centre(squad).Y - PlaceOf(goal).Y).Length() <= RadiusOf(goal);
+
+    /// <summary>Squad <paramref name="s"/> goes to its own place on an objective: all by the objective's way, each to its own spot inside the radius.</summary>
+    void Send(int s, int goal)
+    {
+        _squadGoal[s] = goal;
+        var at = PlaceOf(goal);
+        var offset = SquadOffset(s);
+        float most = RadiusOf(goal) * TfwBattleRules.SquadOnPoint;
+        if (offset.Length() > most) offset *= most / offset.Length();
+        _guards.Order(s, Ground(at + offset, at), at);
+    }
+
+    /// <summary>A field short of squads gets the next reserve every <see cref="TfwBattleRules.ReserveSeconds"/>, from the landing zone.</summary>
+    void StepReserves()
+    {
+        if (_reserves == 0 || _guards.SquadsAlive >= Math.Min(Squads, _final ? TfwBattleRules.FinalFieldSquads : TfwBattleRules.FieldSquads)) { _reserveTicks = 0; return; }
+        if (++_reserveTicks < Ticks(TfwBattleRules.ReserveSeconds)) return;
+        _reserveTicks = 0;
+        if (_guards.SpawnSquad(_layout.LandingZone, YawTo(_layout.LandingZone, _layout.Hq)) >= 0) _reserves--;
     }
 
     void StepArrivals()
@@ -384,7 +441,7 @@ public sealed class TfwBattle
     bool SpawnAtSource(int source, MusouEnemyType type)
     {
         var at = SourceSpot(source);
-        return _enemies.Spawn(type, at, YawTo(at, _layout.Positions[Math.Min(_next, Positions - 1)]), Health(type)) != 0;
+        return _enemies.Spawn(type, at, YawTo(at, _layout.LandingZone), Health(type)) != 0;
     }
 
     int _spot;

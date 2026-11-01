@@ -4,9 +4,10 @@ namespace SmSim.Extras.Musou;
 
 /// <summary>
 /// A target as the enemies see it in a tick (<see cref="MusouSim.Step"/>): its id, feet and whether it is alive. A player, or in Musou Mode a Guard squad (a negative id,
-/// <c>TfwContracts.GuardTargetId</c>; never 0, which is "no target").
+/// <c>TfwContracts.GuardTargetId</c>; never 0, which is "no target"). <paramref name="Radius"/>: how far round its position a target reaches (a squad's men; a player 0). <paramref name="Goal"/>: a place to go to, not to fight
+/// (Musou Mode: a secured point the Orks retake), which the flow field leads to and nobody strikes.
 /// </summary>
-public readonly record struct MusouTarget(int Id, Vector3 Position, bool Alive);
+public readonly record struct MusouTarget(int Id, Vector3 Position, bool Alive, float Radius = 0f, bool Goal = false);
 
 /// <summary>
 /// An enemy's attack that landed this tick (<see cref="MusouSim.Step"/>), for the World to apply: the enemy, the player, the damage (before the player's own
