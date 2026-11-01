@@ -9,3 +9,6 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Musou Mode: press left on the D-pad on a controller to call the artillery strike.
+- Controller: pressing A now selects in every menu, which also gets a highlighted choice as soon as it opens.
+- Controller: a new aiming sensitivity option in Options sets how fast the right stick turns while aiming down sights.

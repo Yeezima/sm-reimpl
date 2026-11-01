@@ -148,6 +148,7 @@ public partial class PadHost : Node
     {
         // A screen that sets the mouse visible while the pad is in use (the loadout menu opening): hide it again.
         if (Tracker.Scheme == InputScheme.Gamepad && Input.MouseMode == Input.MouseModeEnum.Visible) ApplyCursor();
+        AutoFocus();
     }
 
     /// <summary>
@@ -169,6 +170,21 @@ public partial class PadHost : Node
         if (target is null) { _nextScan = now + 0.25; return; }
         target.GrabFocus();
         viewport.SetInputAsHandled();
+    }
+
+    /// <summary>
+    /// A menu opened while the pad is in use gets a focused control at once (owner 2026-11-02: A must press like a left click, and a press needs a focus): when the pad is the scheme, the mouse is not
+    /// captured by a match and nothing has the focus, the first focusable control of the topmost layer takes it (scanned at most four times a second, and only while something is visible to take it).
+    /// </summary>
+    void AutoFocus()
+    {
+        if (Tracker.Scheme != InputScheme.Gamepad || Input.MouseMode == Input.MouseModeEnum.Captured) return;
+        var viewport = GetViewport();
+        if (viewport is null || viewport.GuiGetFocusOwner() is not null) return;
+        double now = Time.GetTicksMsec() / 1000.0;
+        if (now < _nextScan) return;
+        _nextScan = now + 0.25;
+        FirstFocusable(GetTree().Root, out _)?.GrabFocus();
     }
 
     /// <summary>The first control, in the topmost canvas layer, that is visible and takes focus.</summary>
