@@ -22,3 +22,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Musou Mode: the commander's status text is much smaller and shows only while you aim close to his position.
 - Musou Mode: the small Orks are gone; normal Ork Boyz take their place, so the enemy count is the same.
 - Musou Mode: explosions you cannot see no longer light up the room you are in through its walls.
+- Musou Mode: Orks now react reliably to being shot, including the head, chest and shoulders, and while they run.

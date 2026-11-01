@@ -47,6 +47,13 @@ public sealed partial class MusouSim
     readonly ushort[] _cooldown = new ushort[Capacity];    // ticks until the next attack may start
     readonly byte[] _burst = new byte[Capacity];            // rounds left in the burst
     readonly ushort[] _roundTicks = new ushort[Capacity];   // ticks to the burst's next round
+    /// <summary>
+    /// Where each enemy stood over the last ticks: clients draw the crowd about 0.1 s behind and shots arrive later still, and a running Ork is a body's width away by then. Ticks tried back (0.2 s at 30 Hz), the
+    /// step between tries, and the farthest such a path can be from the enemy (m; beyond it, a teleport). All ours.
+    /// </summary>
+    public const int TrailTicks = 6, TrailStep = 2, TrailLength = TrailTicks + 1;
+    public const float TrailReach = 1.5f;
+    readonly Vector3[] _trail = new Vector3[Capacity * TrailLength];
     readonly uint[] _losTick = new uint[Capacity];          // when the line of sight was last raycast (0: never)
     readonly bool[] _los = new bool[Capacity];
     readonly float[] _ring = new float[Capacity];           // the circling radius
@@ -106,6 +113,7 @@ public sealed partial class MusouSim
     /// </summary>
     public void Step(ReadOnlySpan<MusouTarget> targets, CollisionWorld? collision, bool fight, List<MusouAttack> attacks)
     {
+        for (int i = 0; i < Capacity; i++) if (_used[i]) _trail[i * TrailLength + (int)(Tick % TrailLength)] = _position[i];
         if (Frozen) { LastLosChecks = 0; return; }
         int nt = targets.Length;
         if (_targetNode.Length < nt) Grow(nt);
@@ -682,13 +690,12 @@ public sealed partial class MusouSim
         for (int i = 0; i < Capacity; i++)
         {
             if (!_used[i] || _state[i] == MusouEnemyState.Dying || past.Contains((ushort)(i + 1))) continue;
-            var spec = Rules.Of(_type[i]);
-            float scale = _type[i] == MusouEnemyType.Warboss ? Rules.BossScale : 1f;
-            float r = spec.Radius * scale, height = spec.Height * scale, headRadius = 0.22f * height / 1.9f;
-            var c = _position[i];
-            var m = new Vector2(origin.X - c.X, origin.Y - c.Y);
-            // Quick reject: the ray's line passes farther than the body's radius from the axis.
-            float reach = r + headRadius;
+            var (r, height) = ShotBody(_type[i]);
+            float headRadius = 0.22f * height / 1.9f;
+            var now = _position[i];
+            // Quick reject: the ray's line passes farther than the body and its recent path from the axis.
+            float reach = r + headRadius + TrailReach;
+            var m = new Vector2(origin.X - now.X, origin.Y - now.Y);
             if (a > 1e-9f)
             {
                 float along = -Vector2.Dot(m, dxy) / a;
@@ -697,20 +704,35 @@ public sealed partial class MusouSim
                 if (closest.LengthSquared() > reach * reach) continue;
             }
             else if (m.LengthSquared() > reach * reach) continue;
-            // Head: a sphere at the top.
-            var headCentre = c + new Vector3(0f, 0f, height - headRadius);
-            if (RaySphere(origin, direction, headCentre, headRadius) is { } th && th < distance) { distance = th; best = (ushort)(i + 1); head = true; }
-            // Body: the vertical cylinder from the feet to under the head.
-            if (a > 1e-9f)
+            // The shooter saw the enemy a moment ago: the shot is tried on where it is and where it was over the last TrailTicks.
+            for (int back = 0; back <= TrailTicks; back += TrailStep)
             {
-                float b = Vector2.Dot(m, dxy), cc = Vector2.Dot(m, m) - r * r, disc = b * b - a * cc;
-                if (disc >= 0f)
+                var c = back == 0 ? now : _trail[i * TrailLength + (int)((Tick + TrailLength - (uint)back) % TrailLength)];
+                if (back > 0 && Vector3.DistanceSquared(c, now) > TrailReach * TrailReach) continue;   // a teleport or a fresh slot, not a path
+                // Head: a sphere at the top.
+                var headCentre = c + new Vector3(0f, 0f, height - headRadius);
+                if (RaySphere(origin, direction, headCentre, headRadius) is { } th && th < distance) { distance = th; best = (ushort)(i + 1); head = true; }
+                // Body: a closed cylinder from the feet to under the head: its side, its top and its bottom all count.
+                float from = 0f, to = distance;
+                if (a > 1e-9f)
                 {
-                    float tb = (-b - MathF.Sqrt(disc)) / a;
-                    if (tb < 0f && cc <= 0f) tb = 0f;   // starts inside
-                    float z = origin.Z + direction.Z * tb;
-                    if (tb >= 0f && tb < distance && z >= c.Z && z <= c.Z + height - 2f * headRadius) { distance = tb; best = (ushort)(i + 1); head = false; }
+                    var mc = new Vector2(origin.X - c.X, origin.Y - c.Y);
+                    float bb = Vector2.Dot(mc, dxy), cc = Vector2.Dot(mc, mc) - r * r, disc = bb * bb - a * cc;
+                    if (disc < 0f) continue;
+                    float root = MathF.Sqrt(disc);
+                    from = MathF.Max(from, (-bb - root) / a);
+                    to = MathF.Min(to, (-bb + root) / a);
                 }
+                else if (new Vector2(origin.X - c.X, origin.Y - c.Y).LengthSquared() > r * r) continue;
+                float low = c.Z, high = c.Z + height - headRadius;
+                if (MathF.Abs(direction.Z) > 1e-6f)
+                {
+                    float t1 = (low - origin.Z) / direction.Z, t2 = (high - origin.Z) / direction.Z;
+                    from = MathF.Max(from, MathF.Min(t1, t2));
+                    to = MathF.Min(to, MathF.Max(t1, t2));
+                }
+                else if (origin.Z < low || origin.Z > high) continue;
+                if (from <= to && from < distance) { distance = from; best = (ushort)(i + 1); head = false; }
             }
         }
         if (best == 0) distance = 0f;

@@ -94,6 +94,7 @@ public sealed partial class MusouSim
         _used[i] = true;
         _type[i] = type; _state[i] = MusouEnemyState.Spawning;
         _position[i] = position; _velocity[i] = Vector2.Zero; _yaw[i] = yaw;
+        Array.Fill(_trail, position, i * TrailLength, TrailLength);
         _health[i] = MathF.Max(1f, health); _node[i] = node;
         _target[i] = 0; _stateTicks[i] = 0; _token[i] = 0;
         SpawnedAi(i);

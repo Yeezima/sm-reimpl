@@ -343,7 +343,7 @@ public class TfwMeleeTests
         Assert.True(1000f - healths[1] < 1000f - healths[0] && 1000f - healths[2] < 1000f - healths[1], string.Join(", ", healths));
         Assert.Equal(1000f, healths[3]);
         Assert.Equal(3, w.TfwBestPierce);
-        Assert.InRange(w.LastShots[^1].End.Y - me.Y, 9.5f, 11f);
+        Assert.InRange(w.LastShots[^1].End.Y - me.Y, 9.3f, 11f);
     }
 
     [Fact]
