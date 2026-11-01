@@ -50,24 +50,24 @@ Scanned 2087 spec table rows: **1481 tagged**, 437 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 249 | 234 | 209 | 25 | 1 |
+| Core simulation (provisional values) | 249 | 234 | 208 | 25 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 89 | 82 | 46 | 9 | 0 |
-| **All areas** | **1481** | 1254 | 1191 | 418 | 38 |
+| **All areas** | **1481** | 1254 | 1190 | 418 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 670 |
-| confidence: low | 567 |
+| kind: ours | 669 |
+| confidence: low | 566 |
 | confidence: medium | 498 |
 | kind: interpretation | 335 |
 | notes: ours | 306 |
 | confidence: none (low) | 126 |
 | kind: provisional | 99 |
 | kind: estimate | 72 |
-| kind: user's knowledge | 50 |
+| kind: user's knowledge | 51 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
 | notes: provisional | 31 |
@@ -2062,8 +2062,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-AA530FC4` | Orbital strike | B calls one on the point under the crosshair (the key given up by any action for the match, restored on exit; keyboard and mouse only). The server decides: a battle on, the caller in it and alive, the point on the battlefield, the cooldown over. No barrage at… | kind: user's knowledge | the owner (2026-11-01) | Orbital strike: compare with SM1 by feel or video. Ours: B calls one on the point under the crosshair (the key given up by any… | ☐ |
-| `R-58C64589` | Strike cooldown | 60 s per player, cleared by a new run; the HUD shows B ready or the seconds left (s) | kind: ours; confidence: low | the owner asked for a cooldown; the value the lead's | Strike cooldown: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 60 s per player, cleared by a new run; the HUD shows B ready or the… | ☐ |
+| `R-AA530FC4` | Orbital strike | B calls one on the point under the crosshair (the key given up by any action for the match, restored on exit; keyboard and mouse only). The server decides: a battle on, the caller in it and alive, the point on the battlefield. No barrage at random | kind: user's knowledge | the owner (2026-11-01) | Orbital strike: compare with SM1 by feel or video. Ours: B calls one on the point under the crosshair (the key given up by any… | ☐ |
+| `R-58C64589` | Strike cooldown | none: every B press in a battle calls one strike (a press, not a held key), barrages may overlap; the HUD always reads ready; own block byte 14 stays, always 0 (s) | kind: user's knowledge | the owner (2026-11-01: "simply completely remove the cooldown") | Strike cooldown: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: none: every B press in a battle calls one strike (a press, not a held… | ☐ |
 | `R-55F42C2B` | Barrage size | 16 to 24 shells on a line of 60 to 100 m, 0.35 s between impacts, scatter ±6 m on each axis. The design's "about 10 m apart" does not fit its own counts, which give 2.6 to 6.7 m: the counts and the length were kept (shells, m, s) | kind: ours; confidence: low | the design; the reference's walking barrage | Barrage size: compare with SM1 by measuring on a flat spot of the same map. Ours: 16 to 24 shells on a line of 60 to 100 m, 0.35 s between impacts… | ☐ |
 | `R-C466F7CF` | Barrage aim | centred on the called point, walking across the caller's view. A paused run's aim: 70% through a living enemy at random, 30% through a random place, heading random (fraction) | kind: ours; confidence: low | the owner (the point); the rest ours | Barrage aim: compare with SM1 with an overlaid screenshot taken from the same position. Ours: centred on the called point, walking across the caller's view. A… | ☐ |
 | `R-2073CE8A` | Shell warning | the first impact 1 s after the call, each shell's record 1 s before it lands, for the whistle; measured on a real server: first impact 0.86 s after the key (s) | kind: ours; confidence: medium | the owner ("start instantly"); about 1 s the lead's, to keep a whistle | Shell warning: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the first impact 1 s after the call, each shell's record 1 s before… | ☐ |
@@ -2081,7 +2081,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-4F0E94C0` | Whistle | before each impact within 160 m, 0.9 s ahead: `client/assets/musou/whistle.ogg` (git-ignored, left out of exports, also read from `<exe dir>/assets/musou`) on the sound bus at -6 dB, played so its end meets the impact; without the file… (s, m, dB) | kind: ours; confidence: low | the owner's cue; level ours | Whistle: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: before each impact within 160 m, 0.9 s ahead:… | ☐ |
 | `R-82ACA5B8` | Burst sound | within 130 m one of `play_sm_missile_explosion`, `play_powersource_explode_distant`, `play_ork_rokk_distant_explosion` in turn at +4 dB (+8 dB and the missile's on top within 45 m); past that a far one; late by the distance. `play_big_damage_large_explosion`… (dB, m) | kind: ours; confidence: low | ours | Burst sound: compare with SM1 by listening A/B at the same distance and state. Ours: within 130 m one of play_sm_missile_explosion… | ☐ |
 | `R-26C2FF49` | Flyby (paused) | `play_thunderhawk_pass` from the campaign's bank `rgn_s27_r500` (loaded at run time only with the runs on; it resolved), 2.5 s into the run and stopped at its end, with `play_sm_thunderhawk_engine`; else `play_ig_valkyrie_flyby` (s) | kind: ours; confidence: medium | the blueprint's `flybysound`; the timing ours | Flyby (paused): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: play_thunderhawk_pass from the campaign's bank rgn_s27_r500 (loaded… | ☐ |
-| `R-1E92B5E4` | The war round the walls | a far sound every 0.5 to 2.2 s from a random bearing, 22 to 36 m from the listener: far explosions, a titan's step, far Valkyries, heavy bolters; -22 dB and LPF 62 (about 900 Hz) on top of the data's mix in a battle, -28 dB and LPF 82 inside the Stormbird… (dB, s, m) | kind: ours; confidence: low | the owner's item 10; the mix ours | The war round the walls: compare with SM1 by feel or video. Ours: a far sound every 0.5 to 2.2 s from a random bearing, 22 to 36 m from… | ☐ |
+| `R-1E92B5E4` | The war round the walls | a far sound every 0.5 to 2.2 s from a random bearing, 22 to 36 m from the listener: far explosions, a titan's step, heavy bolters (no flyby: the owner took the far Valkyries out, 2026-11-01); -22 dB and LPF 62 (about 900 Hz) on top of the data's mix in a… (dB, s, m) | kind: ours; confidence: low | the owner's item 10; the mix ours | The war round the walls: compare with SM1 by feel or video. Ours: a far sound every 0.5 to 2.2 s from a random bearing, 22 to 36 m from… | ☐ |
 | `R-030BF90E` | Far fires | 7 places 240 m round the points: `oob_explosions_artillery_less` x2.2 and `amb_anti_aircraft_fire_valkyries` x1.5 on repeat. Not seen in the captures: to check (m) | kind: ours; confidence: low | the design | Far fires: compare with SM1 by measuring on a flat spot of the same map. Ours: 7 places 240 m round the points: oob_explosions_artillery_less x2.2… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
@@ -2436,7 +2436,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-0BAAC3C5` | Pistol-only start, Space Marine spawn room, Warboss in the Chaos room | the owner's request (2026-10-31) | every life starts with the class's bolt pistol only; everyone spawns in the Space Marine room | Musou spawns and loadout | Pistol-only start, Space Marine spawn room, Warboss in the…: compare with SM1 by feel or video. Ours: the owner's request (2026-10-31). | ☐ |
 | `C-D5938EAB` | Golden weapon drops from Nobs and Chaos Marines | the owner's requests (2026-10-31) | each Nob or Chaos Marine KO drops one weapon per player from their class's pool, E equips it, 60 s | Musou weapon drops | Golden weapon drops from Nobs and Chaos Marines: compare with SM1 by feel or video. Ours: the owner's requests (2026-10-31). | ☐ |
 | `C-6A2CB579` | Musou Mode: an extraction after a won battle never ends the run | the owner's decision (2026-11-01) | the supplies fall by up to 2, never below 0, and the run goes on; from a battle not won, under 2 supplies still loses the run | War downed | Musou Mode: an extraction after a won battle never ends the…: compare with SM1 by timing a run over a known distance. Ours: the owner's decision (2026-11-01). | ☐ |
-| `C-2E0C8FD7` | Musou Mode: orbital support and the far war | the owner's items 10 and 12 and his decision of 2026-11-01: artillery only when a player calls it with B on the crosshair's point, starting at once; Thunderhawk runs paused by him the same day; SM1 multiplayer has none of this | a walking barrage on the called point, 60 s cooldown (ours), friend and foe hurt; a muffled war round the map; the optional local whistle `client/assets/musou/whistle.ogg` is never shipped | Musou Mode: fire support | Musou Mode: orbital support and the far war: compare with SM1 by feel or video. Ours: the owner's items 10 and 12 and his decision of 2026-11-01: artillery… | ☐ |
+| `C-2E0C8FD7` | Musou Mode: orbital support and the far war | the owner's items 10 and 12 and his decision of 2026-11-01: artillery only when a player calls it with B on the crosshair's point, starting at once; Thunderhawk runs paused by him the same day; SM1 multiplayer has none of this | a walking barrage on the called point, no cooldown (the owner, 2026-11-01), friend and foe hurt; a muffled war round the map; the optional local whistle `client/assets/musou/whistle.ogg` is never shipped | Musou Mode: fire support | Musou Mode: orbital support and the far war: compare with SM1 by feel or video. Ours: the owner's items 10 and 12 and his decision of 2026-11-01: artillery… | ☐ |
 | `C-09C74C8A` | Musou Mode replaces the 5-wave run | the owner's decision (2026-11-01) | `--content musou` runs the war on `tfw_war`, Manufactorum from the install with a generated Stormbird beside it and no spawn-room blockers; the 5-wave run stays only as a test aid (`--map mp_tdm_09`) | War map | Musou Mode replaces the 5-wave run: compare with SM1 by timing a run over a known distance. Ours: the owner's decision (2026-11-01). | ☐ |
 | `C-38A58728` | AI Marines in the war | the owner's decisions (2026-11-01) and ours | server-side puppets: a retainer per player who follows orders and revives, three lords with retainers who act alone; ammunition without end, placeholder names | Retainer orders | AI Marines in the war: compare with SM1 by feel or video. Ours: the owner's decisions (2026-11-01) and ours. | ☐ |
 | `C-A5D8C2C2` | Guard squads fight beside the players; leashed Ork defenders | the design of the war (2026-11-01); SM1 has no such allies (the Guardsman is the Exterminatus co-op blueprint) | squads of 10 shoot and are struck server-side; defenders hold until a target is within 30 m or their group is hurt | War Guard squads, Leashed defenders | Guard squads fight beside the players; leashed Ork defenders: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01); SM1 has no such allies (the… | ☐ |

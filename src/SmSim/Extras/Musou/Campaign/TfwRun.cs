@@ -94,7 +94,6 @@ public sealed partial class TfwRun
         Deployed = false;
         Wins = 0;
         ActivePosition = null;
-        Fire.NewRun();
         _deployed.Clear();
         _reviveTicks.Clear();
         _nextHqTransport = TfwBattleRules.HqTransportSeconds;
