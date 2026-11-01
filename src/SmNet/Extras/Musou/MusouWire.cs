@@ -9,7 +9,7 @@ namespace SmNet.Extras.Musou;
 public readonly record struct MusouEntity(ushort Id, Vector3 Position, float Yaw, MusouEnemyType Type, MusouEnemyState State);
 
 /// <summary>One weapon drop as it travels (tag 6): id, position (quantised over the director's box), item (<see cref="MusouDropItem"/>) and state.</summary>
-public readonly record struct MusouDropRecord(ushort Id, Vector3 Position, ushort Item, MusouDropState State);
+public readonly record struct MusouDropRecord(ushort Id, Vector3 Position, ushort Item, MusouDropState State, bool Crate = false);
 
 /// <summary>
 /// Added content "Musou" on the wire (design section C): three sections of the extras envelope (message kind 16), no protocol bump, sent only by a server whose
@@ -37,6 +37,8 @@ public static class MusouWire
     /// <summary>The envelope tags (gore 1, loyalist barks 2).</summary>
     public const byte EntitiesTag = 3, EventsTag = 4, DirectorTag = 5, DropsTag = 6;
     public const int EntityBytes = 10, EventBytes = 16, DirectorBytes = 44, DropBytes = 11;
+    /// <summary>The state byte's top bit in tag 6: a Musou Mode weapon crate (M6).</summary>
+    const int DropCrateBit = 0x80;
     /// <summary>Most drops in one section: (1191 - 1) / 11 = 108.</summary>
     public const int MaxDrops = (Protocol.MaxExtrasPayloadBytes - 1) / DropBytes;
     /// <summary>Most entities in one section: (1191 - 1) / 10 = 119 (one section alone in a full message).</summary>
@@ -241,7 +243,7 @@ public static class MusouWire
             BinaryPrimitives.WriteUInt16LittleEndian(s, d.Id);
             WritePosition(s[2..], d.Position, box);
             BinaryPrimitives.WriteUInt16LittleEndian(s[8..], d.Item);
-            s[10] = (byte)d.State;
+            s[10] = (byte)((byte)d.State | (d.Crate ? DropCrateBit : 0));
         }
         return bytes;
     }
@@ -257,10 +259,10 @@ public static class MusouWire
         {
             var s = payload.Slice(1 + i * DropBytes, DropBytes);
             ushort id = BinaryPrimitives.ReadUInt16LittleEndian(s);
-            var state = (MusouDropState)s[10];
+            var state = (MusouDropState)(s[10] & ~DropCrateBit);
             if (id == 0 || !Enum.IsDefined(state)) return null;
             for (int k = 0; k < i; k++) if (list[k].Id == id) return null;
-            list[i] = new MusouDropRecord(id, ReadPosition(s[2..], box), BinaryPrimitives.ReadUInt16LittleEndian(s[8..]), state);
+            list[i] = new MusouDropRecord(id, ReadPosition(s[2..], box), BinaryPrimitives.ReadUInt16LittleEndian(s[8..]), state, (s[10] & DropCrateBit) != 0);
         }
         return list;
     }

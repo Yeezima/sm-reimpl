@@ -11,10 +11,5 @@ public partial class NetworkView
     void TfwFireFrame(in TfwWarView war, double delta) { }
 
     // Tag 13, the elites' health bars, and tag 11's class-change smoke: NetworkView.TfwClass.cs (M7, M11).
-
-    /// <summary>Tag 12: the shown score and its panels (M6b).</summary>
-    void TfwScoreFrame(in TfwWarView war) { }
-
-    /// <summary>Tag 14: the reward cards (M6).</summary>
-    void TfwRewardFrame(in TfwWarView war) { }
+    // Tags 12, 14 and 15: NetworkView.TfwRewards.cs (M6, M6b).
 }

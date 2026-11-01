@@ -74,6 +74,7 @@ public partial class NetworkView
     void TfwTestInput(ref PlayerInput input)
     {
         if (_tfwTestButtons != InputButtons.None) input = input with { Buttons = input.Buttons | _tfwTestButtons };
+        TfwTestUseInput(ref input);
     }
 
     void TfwAction(GameAction action, bool down)

@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2022 spec table rows: **1431 tagged**, 427 not tagged (read from data with high confidence), 164 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 433 rows of the changes document.
+Scanned 2043 spec table rows: **1447 tagged**, 430 not tagged (read from data with high confidence), 166 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 435 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 346 | 294 | 298 | 99 | 12 |
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 114 | 67 | 99 | 50 | 3 |
-| Melee (critical) | 77 | 64 | 73 | 14 | 5 |
+| Melee (critical) | 78 | 65 | 74 | 14 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
 | Charge (critical) | 44 | 35 | 37 | 20 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -50,18 +50,18 @@ Scanned 2022 spec table rows: **1431 tagged**, 427 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 206 | 191 | 169 | 24 | 1 |
+| Core simulation (provisional values) | 221 | 206 | 182 | 25 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 89 | 82 | 46 | 9 | 0 |
-| **All areas** | **1431** | 1207 | 1144 | 416 | 38 |
+| **All areas** | **1447** | 1223 | 1158 | 417 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 627 |
-| confidence: low | 542 |
-| confidence: medium | 484 |
+| kind: ours | 643 |
+| confidence: low | 550 |
+| confidence: medium | 490 |
 | kind: interpretation | 335 |
 | notes: ours | 305 |
 | confidence: none (low) | 118 |
@@ -80,7 +80,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: open question | 16 |
 | notes: interpretation | 15 |
 | notes: not reproduced (gap) | 13 |
-| notes: estimate | 10 |
+| notes: estimate | 11 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
 | kind: guess | 4 |
@@ -808,7 +808,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (77)
+### Melee (gameplay-critical) (78)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -926,6 +926,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-51BAC41F` | Melee impact: victim reaction | already data-driven: a light hit is the interrupt clip (`SM_REC_Light_Itrpt_*`), heavy hits the stun / stagger clips (M28), a ranged hit the flinch (pass 2); this pass only makes them leave over 0.333 s; the strikes' wind-up and recovery are the data's whole… | confidence: medium | the data | Melee impact: victim reaction: compare with SM1 by watching the reaction and timing it frame by frame. Ours: already data-driven: a light hit is the interrupt clip… | ☐ |
+
+*Spec section: Added content: Musou Mode: rewards, extra slots and the score (pass 2 M6, M6b; `TfwRules.Version` 12; no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-87D37C7C` | A melee find | a melee item changes the combo for the run, as in the 5-wave run; the old combo is not kept in a slot | kind: ours; confidence: low | ours | A melee find: compare with SM1 by feel or video. Ours: a melee item changes the combo for the run, as in the 5-wave run; the… | ☐ |
 
 ### Jump pack (gameplay-critical) (67)
 
@@ -1816,7 +1822,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (206)
+### Core simulation (provisional values) (221)
 
 *Spec section: Provisional values in use*
 
@@ -2139,6 +2145,26 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-4D303E08` | A switch can be cancelled by a new switch | while a switch (the old weapon lowering, the new one raising) is playing, a switch request (keys 1/2/3, the cycle, the wheel, the D-pad) takes effect at once: the requested weapon is put in hand and the full switch time starts over, so firing and reloading… (s (the switch time, placeholder × 0.8)) | confidence: medium; notes: user's knowledge | the owner's recollection, 2026-10-31: "while the switching weapon animation is playing you should be able to switch weapons again instantly and cancel the… | A switch can be cancelled by a new switch: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while a switch (the old weapon lowering, the new one raising) is… | ☐ |
 | `R-BDAA0553` | The switch animation restarts without a pop | the client starts the new switch clip pieces from the layer weight the cancelled one had reached (fading in from there over the same 0.1 s smooth curve) (s) | kind: ours; confidence: low | ours | The switch animation restarts without a pop: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the client starts the new switch clip pieces from the layer weight… | ☐ |
 
+*Spec section: Added content: Musou Mode: rewards, extra slots and the score (pass 2 M6, M6b; `TfwRules.Version` 12; no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-E8A81256` | Boxes from enemies | a KO in a battle may leave the core's own pickup: type by the data's weights (ammunition 3, grenades 1), life 25 s, reach 4 m, E, the core's amounts and caps; a box also tops up weapons waiting in the bank | kind: ours; confidence: medium | the data (the pickup); the owner (item 3: "a chance") | Boxes from enemies: compare with SM1 by feel or video. Ours: a KO in a battle may leave the core's own pickup: type by the data's… | ☐ |
+| `R-4C3B357A` | Box chance | fodder 0.08, elites ('Ard Boy, Nob, Chaos Marine, Warboss) 0.40 (fraction) | kind: ours; confidence: low; notes: estimate | the design's estimate; the original's chance is every player death, which would bury the map at 100 Orks | Box chance: compare with SM1 by feel or video. Ours: fodder 0.08, elites ('Ard Boy, Nob, Chaos Marine, Warboss) 0.40. | ☐ |
+| `R-47A1F861` | Weapon crates | 6 a battle at open nodes on the main walking area, at least 15 m apart, drawn from the battle's seed; each holds one roll per human from its class's list, without what it owns; last the battle, outlive a death, do not count against the 16 live drops; reach… (count, m) | kind: ours; confidence: medium | the owner (item 9: "randomly placed boxes", class-matched); the count from the lead; the rest ours | Weapon crates: compare with SM1 by feel or video. Ours: 6 a battle at open nodes on the main walking area, at least 15 m… | ☐ |
+| `R-BD171B6C` | Crate look | the install's ammunition case at 1.5 times its size, the weapon gold above it, the drop's beam | kind: ours; confidence: low | ours (the model: *original asset loaded*) | Crate look: compare with SM1 by feel or video. Ours: the install's ammunition case at 1.5 times its size, the weapon gold… | ☐ |
+| `R-2EDB93B6` | Reward offer | after a won map, in the Stormbird: 3 cards, one weapon (as a crate's), one equipment the player does not carry, one perk it does not have (never Weapon Versatility); a kind with nothing to give stays empty, and none at all makes no offer. A left, extracted or… | kind: ours; confidence: medium | the owner (item 11); the three kinds per card ours | Reward offer: compare with SM1 by feel or video. Ours: after a won map, in the Stormbird: 3 cards, one weapon (as a… | ☐ |
+| `R-5762E856` | Reward pick | a pick names its offer (`TfwCommandRecord.Offer`): an older offer's pick does nothing | kind: ours | M0's review | Reward pick: compare with SM1 by feel or video. Ours: a pick names its offer (TfwCommandRecord.Offer): an older offer's… | ☐ |
+| `R-8A5D7078` | What a reward lasts | the rest of the run, per class: a class change in the Stormbird takes up that class's kit and slots, and changing back finds the first class's again; a card stays with the class it was offered to; a perk fills an empty second slot, else replaces the second… | kind: ours; confidence: low | design section F; the slot rule ours | What a reward lasts: compare with SM1 by feel or video. Ours: the rest of the run, per class: a class change in the Stormbird takes… | ☐ |
+| `R-CAEBD5CB` | Key 3 with a second primary | a Tactical with Weapon Versatility keeps key 3 for its second primary, as the core does; its finds go to keys 4 and 5, so it has two extra slots | kind: ours; confidence: low | ours (the owner named 3, 4, 5 and Weapon Versatility already holds 3) | Key 3 with a second primary: compare with SM1 by feel or video. Ours: a Tactical with Weapon Versatility keeps key 3 for its second… | ☐ |
+| `R-7404F5BB` | Using a slot | a key press puts the slot in hand at once, with no switch time, each weapon keeping its clip, reserve and heat; keys 1 and 2 bring the own pistol and primary back; a key during a strike, charge or throw waits for its end. An extra stands in the primary's or… | kind: ours; confidence: low | ours | Using a slot: compare with SM1 by feel or video. Ours: a key press puts the slot in hand at once, with no switch time, each… | ☐ |
+| `R-2F2E961A` | Score: a KO | a human's own credited KO earns the type's points times min(3, 1 + 0.2 × chain), rounded; a KO within 2 s of the same player's last chains; the chain and the map's figures start over at a landing (points) | kind: ours; confidence: medium | item 17 and the 5-wave run's rule and values (`MusouDirector.OnKill`, which a war never reaches: its phase stays Waiting; pinned by a test) | Score: a KO: compare with SM1 by feel or video. Ours: a human's own credited KO earns the type's points times min(3, 1 +… | ☐ |
+| `R-D40F2A1C` | Score: who scores | humans only: the AI Marines, the Guardsmen and fire support score nothing, because they name no human | kind: ours; confidence: medium | the addendum | Score: who scores: compare with SM1 by feel or video. Ours: humans only: the AI Marines, the Guardsmen and fire support score… | ☐ |
+| `R-C0935838` | Score: map and run totals | a map's total is its points, with no bonus for a win; a map left, lost or extracted from still banks; the run's total adds them and shows on a loss too (points) | kind: ours; confidence: medium | the addendum | Score: map and run totals: compare with SM1 by timing a run over a known distance. Ours: a map's total is its points, with no bonus for a win; a map left… | ☐ |
+| `R-DCA2D052` | End-of-map panel | in the Stormbird before the cards: the map, KOs, best chain, map points, run total; Enter or CONTINUE goes on | kind: ours; confidence: low | the addendum | End-of-map panel: compare with SM1 by feel or video. Ours: in the Stormbird before the cards: the map, KOs, best chain, map… | ☐ |
+| `R-E71CE7E1` | End-of-run panel | on Won or Lost: one row per map (the last 16), TOTAL, the outcome, the humans ranked, NEW BEST, COPY RESULT. It stays until closed, so the 15 s restart delay need not change: a new run waits behind it | kind: ours; confidence: low | the addendum; the hold ours | End-of-run panel: compare with SM1 by timing a run over a known distance. Ours: on Won or Lost: one row per map (the last 16), TOTAL, the outcome… | ☐ |
+| `R-0DE87C04` | Local best | `musou-best.json` beside `frontend.json`: total, day, outcome, `TfwRules.Version`; only the current version counts, a damaged file reads as no best. No online leaderboard. A local server is under the player's control, so a shared line is honest but unverified | kind: ours | the addendum | Local best: compare with SM1 by feel or video. Ours: musou-best.json beside frontend.json: total, day, outcome… | ☐ |
+
 ### General game design (7)
 
 *Spec section: Known behavior (public, unverified)*
@@ -2360,6 +2386,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-38A58728` | AI Marines in the war | the owner's decisions (2026-11-01) and ours | server-side puppets: a retainer per player who follows orders and revives, three lords with retainers who act alone; ammunition without end, placeholder names | Retainer orders | AI Marines in the war: compare with SM1 by feel or video. Ours: the owner's decisions (2026-11-01) and ours. | ☐ |
 | `C-A5D8C2C2` | Guard squads fight beside the players; leashed Ork defenders | the design of the war (2026-11-01); SM1 has no such allies (the Guardsman is the Exterminatus co-op blueprint) | squads of 10 shoot and are struck server-side; defenders hold until a target is within 30 m or their group is hurt | War Guard squads, Leashed defenders | Guard squads fight beside the players; leashed Ork defenders: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01); SM1 has no such allies (the… | ☐ |
 | `C-5493CF9D` | Musou Mode's hub is the inside of the campaign Thunderhawk | the owner's pass 2 item 29 (2026-11-01) | the Stormbird is the model `thunderhawk_interior` of the singleplayer chunk (a singleplayer-content dependency, read from the install at run time), its ramp open on black space and a planet; generated collision (the chunk has none); stations at the monitor and a tech panel; warm work lights ours | War map, War map look | Musou Mode's hub is the inside of the campaign Thunderhawk: compare with SM1 by feel or video. Ours: the owner's pass 2 item 29 (2026-11-01). | ☐ |
+| `C-7A2FCDE6` | Musou Mode's rewards and slots | the owner's items 3, 9, 11, 25, 26, 27 (2026-11-01); the numbers ours | full loadout from the start, enemies drop the core's boxes (fodder 8%, elites 40%), 6 class crates a battle, 3 reward cards after a won map, found weapons in keys 3, 4, 5 that never replace the primary, keyboard only | Boxes from enemies, Box chance, Weapon crates, Reward offer, Extra primary slots | Musou Mode's rewards and slots: compare with SM1 by feel or video. Ours: the owner's items 3, 9, 11, 25, 26, 27 (2026-11-01); the numbers ours. | ☐ |
+| `C-89AFC966` | Musou Mode's score | the owner's item 17 (2026-11-01); the addendum's rules | chain points as the 5-wave run's, map and run totals, end-of-map and end-of-run panels, a local best and COPY RESULT; no online leaderboard | Score: a KO, Score: map and run totals, Local best | Musou Mode's score: compare with SM1 by feel or video. Ours: the owner's item 17 (2026-11-01); the addendum's rules. | ☐ |
 | `C-ADD505EB` | The war's client: stations, war map, order keys | the design of the war (2026-11-01), the keys the owner's (M, Z, X, V, P); SM1 has no such screens | E at the Stormbird's consoles, the war map held on M, orders on Z, X, V and P held 1 s; in a war's match X and V are order keys, not Next weapon and Melee (the wheel and the right mouse button stay); a fallen player sees no respawn line: the run holds it | added content, ours (spec "the HUD, the war map and the orders") | The war's client: stations, war map, order keys: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01), the keys the owner's (M, Z, X, V… | ☐ |
 | `C-599F9281` | Guardsmen drawn as a crowd | the design of the war (2026-11-01) and the owner: real models, death clips rather than the ragdoll for now | the co-op Guardsman with original clips and effects; which clip plays when is ours (the rig's graphs are not read) | Crowd budget, Which clip plays, Death | Guardsmen drawn as a crowd: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01) and the owner: real models, death… | ☐ |
 | `C-950DF11A` | Musou Mode: retainers wear their player's armour colours | the owner's item 1 (2026-11-01) | a retainer reports its owner's appearance version, race and code, so clients draw it in the colours, pieces and badges of the player's loadout; lords and their retainers keep the default look | Retainer paint | Musou Mode: retainers wear their player's armour colours: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner's item 1 (2026-11-01). | ☐ |
@@ -3057,4 +3085,6 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-DB189635` | Wire | Sticky launcher grenades (sim/sticky-launcher; protocol 48, used by the simulation) |
 | `R-3826420A` | Test aids | The weight pass: landing, recoil, flinch, strike entries, camera impulses (feel/weight-impact; client only, not simulated, no protocol or config-hash change) |
 | `R-752D26F1` | Protocol 51 | Movement fixes: the heavy hop down stairs and off ledges, the pound in a full jump, the short hop while falling, steering a ledge charge (sim/movement-fixes; protocol 51, no wire change) |
+| `R-628FFD94` | Score on the wire | Added content: Musou Mode: rewards, extra slots and the score (pass 2 M6, M6b; `TfwRules.Version` 12; no protocol change) |
+| `R-48FF3A72` | Extra slots on the wire | Added content: Musou Mode: rewards, extra slots and the score (pass 2 M6, M6b; `TfwRules.Version` 12; no protocol change) |
 

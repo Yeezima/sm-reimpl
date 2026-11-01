@@ -178,7 +178,7 @@ public sealed partial class GameServer
         bool refresh = n > 0 && known && (tick - sent.Tick >= MusouDropRefreshTicks || tick < sent.Tick);
         if (!changed && !refresh) return;
         _musouDropRecords.Clear();
-        foreach (var d in _musouDropList) _musouDropRecords.Add(new MusouDropRecord(d.Id, d.Position, d.Item, d.State));
+        foreach (var d in _musouDropList) _musouDropRecords.Add(new MusouDropRecord(d.Id, d.Position, d.Item, d.State, d.Crate));
         (byte, byte[]) section = (MusouWire.DropsTag, MusouWire.WriteDrops(_musouDropRecords, box));
         if (!AppendMusouSection(messages, section, tick)) return;   // no room this tick: sent the next
         _musouDropSent[playerId] = (version, tick);

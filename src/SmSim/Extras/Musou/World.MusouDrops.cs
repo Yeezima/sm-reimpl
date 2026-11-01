@@ -37,18 +37,18 @@ public sealed partial class World
     /// outside Musou, for an unknown player or a point that is not finite. Used by the KOs, the server's test aid and the tests. One over
     /// <see cref="MusouDropRules.MaxLivePerPlayer"/> expires the player's oldest.
     /// </summary>
-    public MusouDrop? MusouSpawnDrop(int playerId, Vector3 at, ushort item, ushort enemy = 0)
+    public MusouDrop? MusouSpawnDrop(int playerId, Vector3 at, ushort item, ushort enemy = 0, bool crate = false)
     {
         if (_musou is null || !_players.ContainsKey(playerId) || !float.IsFinite(at.X + at.Y + at.Z)) return null;
-        uint life = (uint)MathF.Max(1f, MathF.Round(MusouDropRules.LifetimeSeconds * Config.TickRate));
-        var drop = new MusouDrop(MusouDropId(), playerId, at, item, MusouDropState.Live, Tick, Tick + life, enemy);
+        uint life = crate ? uint.MaxValue - Tick : (uint)MathF.Max(1f, MathF.Round(MusouDropRules.LifetimeSeconds * Config.TickRate));   // a crate goes with the battle (TfwClearField)
+        var drop = new MusouDrop(MusouDropId(), playerId, at, item, MusouDropState.Live, Tick, Tick + life, enemy, crate);
         _musouDrops.Add(drop);
         MusouDropChanged(playerId);
         int live = 0;
         for (int i = _musouDrops.Count - 1; i >= 0; i--)
         {
             var d = _musouDrops[i];
-            if (d.Player != playerId || d.State != MusouDropState.Live) continue;
+            if (d.Player != playerId || d.State != MusouDropState.Live || d.Crate) continue;
             if (++live > MusouDropRules.MaxLivePerPlayer) MusouEndDrop(i, MusouDropState.Expired);
         }
         return drop;
@@ -61,7 +61,7 @@ public sealed partial class World
     public MusouDrop? MusouSpawnTestDrop(int playerId, float ahead = 3f)
     {
         if (_musou is null || !_players.TryGetValue(playerId, out var p) || !p.Alive) return null;
-        var from = !_musouArmed.Contains(playerId) && MusouLoadout.Prepared(Config) ? MusouLoadout.Stripped(Config, p) : p;
+        var from = _tfw is null && !_musouArmed.Contains(playerId) && MusouLoadout.Prepared(Config) ? MusouLoadout.Stripped(Config, p) : p;
         if (MusouDropRules.Roll(Config, from, Tick, 0, playerId) is not { } item) return null;
         var forward = new Vector3(-MathF.Sin(p.Yaw), MathF.Cos(p.Yaw), 0f);
         var right = new Vector3(MathF.Cos(p.Yaw), MathF.Sin(p.Yaw), 0f);
@@ -106,6 +106,7 @@ public sealed partial class World
         {
             var p = _players[id];
             if (!p.Alive) continue;
+            if (_tfw is not null && SmSim.Extras.Musou.Campaign.TfwContracts.IsPuppet(id)) continue;   // the AI Marines pick nothing up
             if (MusouDropRules.Roll(Config, p, Tick, kill.Enemy, id) is { } item) MusouSpawnDrop(id, at, item, kill.Enemy);
         }
     }
@@ -153,7 +154,7 @@ public sealed partial class World
             var d = _musouDrops[i];
             if (!_players.TryGetValue(d.Player, out var owner)) { _musouDrops.RemoveAt(i); MusouDropChanged(d.Player); continue; }
             // Drops are tied to a life (the lead, 2026-10-31): a dead player's live drops end (sent as expired).
-            if (d.State == MusouDropState.Live && (d.EndTick <= Tick || !owner.Alive)) MusouEndDrop(i, MusouDropState.Expired);
+            if (d.State == MusouDropState.Live && (d.EndTick <= Tick || (!owner.Alive && !d.Crate))) MusouEndDrop(i, MusouDropState.Expired);
             else if (d.State != MusouDropState.Live && Tick - d.EndTick >= keep) { _musouDrops.RemoveAt(i); MusouDropChanged(d.Player); }
         }
     }

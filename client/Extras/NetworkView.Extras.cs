@@ -10,7 +10,7 @@ namespace SmClient;
 /// <summary>
 /// The networked view's frame hook for added content (docs/added-content.md): the one implementation of <see cref="ExtrasFrame"/>, a dispatcher. Once a frame it
 /// drains the envelope queue (<c>GameClient.TakeExtras</c>) exactly once and hands each section to the feature that owns its tag (the loyalist barks: 2;
-/// Musou: 3 to 6; Musou Mode: 7 to 14); a section of a tag nobody here owns (gore's 1, a newer build's) is counted and skipped. Then each feature's frame runs, in a fixed
+/// Musou: 3 to 6; Musou Mode: 7 to 15); a section of a tag nobody here owns (gore's 1, a newer build's) is counted and skipped. Then each feature's frame runs, in a fixed
 /// order; each returns at once unless its flag is set in the match's config.
 /// </summary>
 public partial class NetworkView

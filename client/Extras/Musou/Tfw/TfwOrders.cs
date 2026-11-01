@@ -21,7 +21,7 @@ public partial class NetworkView
     const float OrderReach = 340f;
     /// <summary>How far from the crosshair's ray an enemy still counts as aimed at (m, ours).</summary>
     const float OrderEnemyRadius = 3f;
-    static readonly string[] TfwOrderInputs = ["Key:Z", "Key:X", "Key:V", "Key:P", "Key:M"];
+    static readonly string[] TfwOrderInputs = ["Key:Z", "Key:X", "Key:V", "Key:P", "Key:M", "Key:Key4", "Key:Key5"];
 
     readonly TfwOrderKeys _tfwKeys = new();
     BindingSet? _tfwKeysFreed;
