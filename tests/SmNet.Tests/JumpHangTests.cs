@@ -132,7 +132,7 @@ public class JumpHangTests
     [Fact]
     public void The_wire_carries_the_small_hang_and_the_config_hash_covers_it()
     {
-        Assert.Equal(51, Protocol.Version);
+        Assert.Equal(52, Protocol.Version);
         var hang = Jump(On, 8).First(s => s.Jump == JumpPhase.Hang && s.JumpSmall) with { PlayerId = 7 };
         var bytes = Protocol.Write(new Snapshot(1, 1, 1, [hang], Self: 7));
         var back = Assert.IsType<Snapshot>(Protocol.Read(bytes)).Players[0];

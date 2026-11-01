@@ -18,26 +18,26 @@ namespace SmClient;
 /// <see cref="TfwFireRules.RunsEnabled"/>; nothing of it loads or plays), and the muffled war round the battlefield. Strikes are called with B (<c>TfwOrders.cs</c>). Only under Musou Mode's frame (<see cref="TfwFrame"/>), never on a lean bot; nothing here touches another match.
 /// <para>
 /// What loads, on first use, from the player's install: the effects (<see cref="FxNames"/>), the crater decal, the aircraft (<c>thunderhawk.dcm</c>, in a campaign chunk: a singleplayer-content
-/// dependency, docs/discovery.md, S0) and the guns; the banks <c>vehicles</c> and, for the flyby, the campaign's <c>rgn_s27_r500</c>. A flyby or engine event that cannot sound falls back
+/// dependency, docs/discovery.md, S0) and the guns; the banks <c>vehicles</c> and, for a run's flyby, the campaign's <c>rgn_s27_r500</c>. A run's flyby or engine event that cannot sound falls back
 /// (<see cref="FlybyEvents"/>).
 /// </para>
 /// <para>
-/// Test aids: <c>--tfw-fire-test [s]</c> on a server with <c>SM_TFW_FIRE_TEST</c>: in a battle, s seconds after the landing and then every 30 s, a barrage across the view, with no cooldown; F9 a barrage; <c>--tfw-fire-at x,y,z</c> sets the aim. <c>--tfw-fire-cam [x,y,z]</c>: a fixed camera on it (windowed captures), <c>--tfw-fire-cam-run</c> turning it to the aircraft. <c>--tfw-reduce-motion</c>: the Reduce motion setting for this run. <c>--log-sound tfw</c>: a line for each thing played.
+/// Test aids: <c>--tfw-fire-test [s]</c> on a server with <c>SM_TFW_FIRE_TEST</c>: in a battle, s seconds after the landing and then every 30 s, a barrage across the view; F9 a barrage; <c>--tfw-fire-at x,y,z</c> sets the aim. <c>--tfw-fire-cam [x,y,z]</c>: a fixed camera on it (windowed captures), <c>--tfw-fire-cam-run</c> turning it to the aircraft. <c>--tfw-reduce-motion</c>: the Reduce motion setting for this run. <c>--log-sound tfw</c>: a line for each thing played.
 /// </para>
 /// </summary>
 public partial class NetworkView
 {
     /// <summary>The effects this view plays (<c>master_fx</c>).</summary>
     static readonly string[] FxNames = ["artillery_explosion", "oob_explosions_artillery", "oob_explosions_artillery_less", "oob_explosion_huge", "amb_anti_aircraft_fire_valkyries", "thunderhawk_jet", "heavy_bolter_thunderhawk_tracer"];
-    /// <summary>The flyby, best first: the aircraft's own (needs the campaign's bank), then the Valkyrie's.</summary>
+    /// <summary>A Thunderhawk run's flyby (paused, played only by <see cref="TfwRunBegins"/>), best first: the aircraft's own (needs the campaign's bank), then the Valkyrie's.</summary>
     static readonly string[] FlybyEvents = ["play_thunderhawk_pass", "play_ig_valkyrie_flyby", "play_valkyrie_s13_flyby"];
     /// <summary>Shells: near, far.</summary>
     static readonly string[] BurstEvents = ["play_sm_missile_explosion", "play_powersource_explode_distant", "play_ork_rokk_distant_explosion"], FarBurstEvents = ["play_ork_rokk_distant_explosion", "play_impact_distant"];
-    /// <summary>The war beyond the walls: (event, weight, gain dB). Named banks have no artillery or war bed (S0), so it is built of far explosions, flybys and guns.</summary>
+    /// <summary>The war beyond the walls: (event, weight, gain dB). Named banks have no artillery or war bed (S0), so it is built of far explosions and guns; no flybys (the owner took them out, 2026-11-01).</summary>
     static readonly (string Event, float Weight, float Gain)[] WarEvents =
     [
         ("play_ork_rokk_distant_explosion", 5f, 0f), ("play_impact_distant", 4f, 0f), ("play_powersource_explode_distant", 2f, 0f),
-        ("play_titan_footstep", 1f, -2f), ("play_ig_valkyrie_flyby", 0.6f, -6f), ("play_sm_heavy_bolter_fire_single", 2f, -8f), ("play_sm_missile_explosion", 2f, -6f),
+        ("play_titan_footstep", 1f, -2f), ("play_sm_heavy_bolter_fire_single", 2f, -8f), ("play_sm_missile_explosion", 2f, -6f),
     ];
 
     /// <summary>The bank of the aircraft's flyby.</summary>
@@ -60,8 +60,8 @@ public partial class NetworkView
     const float WarGainDb = -22f, WarLpf = 62f, HubGainDb = -28f, HubLpf = 82f;
     /// <summary>The emitter's distance round the listener (m; ours: its direction is what counts).</summary>
     const float WarNear = 22f, WarFar = 36f;
-    /// <summary>A far aircraft's looping voices are stopped after this long (s), crossing the sky at <see cref="WarFlyby"/> m/s.</summary>
-    const float WarLoopSeconds = 7f, WarFlyby = 30f;
+    /// <summary>A looping voice on a one-shot place is stopped after this long (s).</summary>
+    const float WarLoopSeconds = 7f;
     /// <summary>Seconds between two of the war's sounds, drawn in this range (ours).</summary>
     const float WarGapMin = 0.5f, WarGapMax = 2.2f;
     /// <summary>Round the battle's points: the far fires and flak (m; ours).</summary>
@@ -227,7 +227,7 @@ public partial class NetworkView
     {
         if (_sound?.Post(name, emitter, delay, offset: offset) is not { Found: true } play || play.Voices.Count == 0) return false;
         _tfwFirePosted[name] = _tfwFirePosted.GetValueOrDefault(name) + 1;
-        if (emitter.OneShot && play.Voices.Exists(v => v.LoopCount == 0)) _tfwLoopStops.Add((_connectedFor + WarLoopSeconds, emitter));   // a flyby's voices loop: nothing else stops them on a one-shot place
+        if (emitter.OneShot && play.Voices.Exists(v => v.LoopCount == 0)) _tfwLoopStops.Add((_connectedFor + WarLoopSeconds, emitter));   // nothing else stops a looping voice on a one-shot place
         if (LogSound("tfw")) GD.Print($"t {_connectedFor:F1} s: TFWSOUND {name} {play.Voices.Count} voices, delay {delay:F2}, offset {offset}, at {emitter.Current}");
         return true;
     }
@@ -426,9 +426,6 @@ public partial class NetworkView
         var at = camera.GlobalPosition + new Vector3(MathF.Cos(bearing) * far, 6f, MathF.Sin(bearing) * far);
         var offset = new VoiceOffset(GainDb: (inside ? HubGainDb : WarGainDb) + pick.Gain, PitchCents: (_tfwRoll.NextSingle() - 0.5f) * 300f - 150f, Lpf: inside ? HubLpf : WarLpf);
         var emitter = new SoundEmitter { Position = at, OneShot = true, Label = "tfw war" };
-        double from = _connectedFor;
-        var across = new Vector3(-MathF.Sin(bearing), 0f, MathF.Cos(bearing)) * WarFlyby;
-        if (pick.Event.Contains("flyby", StringComparison.Ordinal)) emitter.Follow = () => at + across * (float)(_connectedFor - from - WarLoopSeconds / 2.0);
         if (TfwPost(pick.Event, emitter, 0f, offset)) _tfwWarPlayed++;
         else _tfwWarSilent++;
     }
@@ -508,7 +505,7 @@ public partial class NetworkView
 
     /// <summary>
     /// <c>--tfw-orbital-test</c> (a scripted player, not <c>--bot</c>, with <c>--tfw-deploy</c>): looks at the ground, presses the real key B, and checks that the shells start about 1 s later, centred on
-    /// the point under the crosshair; that the HUD's cooldown runs; and that the server refuses a second call asked for during it. Quits 0, or 1 when any failed.
+    /// the point under the crosshair; that the HUD reads ready with no cooldown; and that the server takes a second call at once. Quits 0, or 1 when any failed.
     /// </summary>
     void TfwOrbitalTestFrame(in TfwWarView war)
     {
@@ -539,13 +536,13 @@ public partial class NetworkView
                 centre /= Math.Max(1, _tfwOrbitalSeen.Count);
                 float off = new Num.Vector2(centre.X - _tfwOrbitalChosen.X, centre.Y - _tfwOrbitalChosen.Y).Length();
                 TfwOrbitalCheck($"the barrage's centre ({centre.X:F1}, {centre.Y:F1}) is {off:F1} m from the crosshair's point", off < 2f * TfwFireRules.Scatter);
-                TfwOrbitalCheck($"the cooldown shows {war.Own.OrbitalSeconds} s: {TfwHudModel.OrbitalText(war.Own)}", war.Own.OrbitalSeconds is > 30 and < 60);
+                TfwOrbitalCheck($"no cooldown: {war.Own.OrbitalSeconds} s, {TfwHudModel.OrbitalText}", war.Own.OrbitalSeconds == 0);
                 _tfwOrbitalSeen.Clear();
                 _tfwState.Commands.Issue(TfwCommand.Orbital, 0, _tfwOrbitalChosen);
                 _tfwOrbitalStage = 3; _tfwOrbitalAt = _connectedFor + 3.0;
                 break;
             case 3:
-                TfwOrbitalCheck("the server refused a call during the cooldown", _tfwOrbitalSeen.Count == 0);
+                TfwOrbitalCheck("the server took a second call at once", _tfwOrbitalSeen.Count > 0);
                 GD.Print($"TFWTEST orbital done: {_tfwOrbitalFailed} failed; posted: {string.Join(", ", _tfwFirePosted.Select(kv => $"{kv.Key} {kv.Value}"))}");
                 GetTree().Quit(_tfwOrbitalFailed == 0 ? 0 : 1);
                 _tfwOrbitalStage = 4;

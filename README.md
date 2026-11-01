@@ -56,6 +56,7 @@ client.cmd --anim SM_NAV_IdleL_S_01 --bones
 ::  right mouse (or V) for melee, G to throw a grenade (--equipment frag|blind; the files call the blind grenade krak, which is accepted too), 1 pistol, 2 primary, X or the mouse wheel to toggle weapons; --class tactical|assault|devastator|raptor|havoc;
 ::  --primary/--pistol/--melee <name> pick from the class's choices, e.g. --primary "plasma gun"; the HUD shows heat).
 ::  F1 shows or hides the info overlay (status, controls, provenance notes; --show-info starts with it shown).
+::  F11 switches fullscreen on and off anywhere (it changes the Options screen's Window mode and is remembered).
 ::  The key bindings are from knowledge of the original's PC defaults; they are not in the data read.
 :: Teams: --side marines|chaos (the server may balance you onto the other side), Tab shows the scoreboard.
 :: Server modes: server.cmd --mode annihilation|ffa --score-limit 41 --time-limit 10 --friendly-fire off

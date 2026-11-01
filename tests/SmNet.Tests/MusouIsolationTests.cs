@@ -55,7 +55,9 @@ public class MusouIsolationTests(ITestOutputHelper output)
     // ---------------------------------------------------------------- the goldens (captured on main 35deb39, before MU0's hooks)
 
     const ulong FixtureFaithfulHash = 0x2235C9DFF926583FUL, FixtureExtendedHash = 0x54B88195AFC434B4UL, DefaultFaithfulHash = 0xA57B097C29D78EABUL, DefaultExtendedHash = 0x0CA292E1A0338C00UL;
-    const string FaithfulReplay = "05F93BCF2093221D9B4356450A324E43A06B7135AE2CE10E4D53D8A851C08F81", ExtendedReplay = "05F93BCF2093221D9B4356450A324E43A06B7135AE2CE10E4D53D8A851C08F81";
+    // sim/light-melee-flinch (protocol 52): the classic baseline changed (the script's 49 light melee hits now flinch instead of interrupting), so both goldens moved together
+    // (05F93BCF… before); faithful and extended still replay to the same hash.
+    const string FaithfulReplay = "AC20C18394EDB7608BB27C6603F717F50B23DB20452B904BB4FE6E7C73BEDC41", ExtendedReplay = "AC20C18394EDB7608BB27C6603F717F50B23DB20452B904BB4FE6E7C73BEDC41";
 
     [Fact]
     public void The_faithful_and_extended_config_hashes_are_unchanged()
@@ -90,7 +92,7 @@ public class MusouIsolationTests(ITestOutputHelper output)
     [Fact]
     public void Musou_changes_neither_the_protocol_version_nor_the_extended_profile()
     {
-        Assert.Equal(51u, (uint)Protocol.Version);   // 51: sim/no-fire-while-sprinting and sim/movement-fixes (50: the scoreboard's ping), not Musou
+        Assert.Equal(52u, (uint)Protocol.Version);   // 52: sim/light-melee-flinch (the flinch byte); 51: sim/no-fire-while-sprinting and sim/movement-fixes (50: the scoreboard's ping), not Musou
         Assert.Equal(2u, ContentExtras.WireVersion);
         Assert.False(ContentExtras.All.HasFlag(ContentExtras.Musou));
         Assert.Equal(ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks, ContentExtras.All);

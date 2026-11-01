@@ -31,18 +31,6 @@ public sealed class EyeGlowData
         && Markers.Contains(p.Marker, StringComparer.OrdinalIgnoreCase)
         && (b.Path.Contains("while_deployed_actions/", StringComparison.Ordinal) || b.Path.Contains("lifetime_actions/", StringComparison.Ordinal));
 
-    /// <summary>
-    /// The hue the eye glow takes from a lens colour (owner's decision 2026-10-28: "eye lens glow should change with eye lens colour"; ours, the original has no lens colour):
-    /// the lens colour brought to full brightness (its largest channel 1), so a dark lens colour still glows; the effect keeps its own brightness (<c>FxPlayer.Recolour</c>).
-    /// Null without a lens colour: the effect keeps the data's colours. A black lens colour gives white (nothing to scale).
-    /// </summary>
-    public static (float R, float G, float B)? TintOf((byte R, byte G, byte B)? lens)
-    {
-        if (lens is not { } l) return null;
-        float max = Math.Max(l.R, Math.Max(l.G, l.B));
-        return max < 1f ? (1f, 1f, 1f) : (l.R / max, l.G / max, l.B / max);
-    }
-
     /// <summary>From already-read wargear files (testable without an install).</summary>
     public static EyeGlowData Build(IReadOnlyDictionary<string, BafDocument> wargear)
     {

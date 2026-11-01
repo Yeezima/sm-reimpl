@@ -186,7 +186,7 @@ public sealed partial class TfwHud : Control
         Txt(_kosText, rx, y + 24f, 16, Gold, 1);
         Txt(_pointsText, lx, y + 48f, 16, Gold);
         Txt(Data.Slots, lx, y + 72f, 14, White);
-        if (Data.War is { } war) Txt(TfwHudModel.OrbitalText(war.Own), lx, y + 96f, 16, war.Own.OrbitalSeconds == 0 ? Gold : Grey);
+        if (Data.War is { } war) Txt(TfwHudModel.OrbitalText, lx, y + 96f, 16, Gold);
         Txt("Z FOLLOW   X HOLD   V ATTACK   HOLD P PICKUP", lx, y + 122f, 14, Grey);
     }
 

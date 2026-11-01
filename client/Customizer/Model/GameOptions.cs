@@ -44,6 +44,15 @@ public sealed record GameOptions(
         return MathF.Round(Math.Clamp(v, min, max) * 1000f) / 1000f;
     }
 
+    /// <summary>
+    /// What F11 does (ours): from a window to <paramref name="lastFull"/> (the fullscreen choice the player used last; Fullscreen when there is none), from fullscreen or borderless back to the window.
+    /// Only the window mode changes: the window size, and every other option, stay as they are.
+    /// </summary>
+    public GameOptions WithFullscreenToggled(WindowChoice lastFull) => this with
+    {
+        Window = Window != WindowChoice.Windowed ? WindowChoice.Windowed : lastFull == WindowChoice.Windowed ? WindowChoice.Fullscreen : lastFull,
+    };
+
     /// <summary>The options with every value in its range (what a damaged file or a hand edit gets).</summary>
     public GameOptions Clamped() => this with
     {

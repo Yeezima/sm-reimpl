@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using SmNet;
 using SmSim;
 
 namespace SmClient;
@@ -18,7 +19,7 @@ namespace SmClient;
 /// <item>test aids: <c>--bot-dash-attack</c> (the bot dashes at a target 5 to 14 m away and presses melee in the window), <c>--log-falls</c> (the own
 /// player's walk-off drops and charges in the air: horizontal speed when it left the ground and where it landed).</item>
 /// </list>
-/// The hammer's own clips (<c>SM_JMP_TH_DashAtk_F</c>, <c>SM_MEL_TH_XATK_Combo3</c>) are not used: the simulation reads the sword's (a gap).
+/// The hammer's dash attack clip (<c>SM_JMP_TH_DashAtk_F</c>) is not used (a gap); its air slash clip (<c>SM_MEL_TH_XATK_Combo3</c>) is since anim/hammer-swing (<see cref="HammerSlashPose"/>).
 /// </summary>
 public partial class NetworkView
 {
@@ -56,6 +57,8 @@ public partial class NetworkView
                 else _notes.Add($"sword slash clip '{slash.Animation}' not in the rig or not decodable; the slash shows the pound's clips");
             }
         }
+        if (_hammerSlashClip is null && Usable(HammerSlashPose.Clip)) _hammerSlashClip = HammerSlashPose.Clip;   // anim/hammer-swing: the hammer's own air slash clip (NetworkView.HammerSwing.cs)
+        else if (_hammerSlashClip is null) _notes.Add($"hammer slash clip '{HammerSlashPose.Clip}' not in the rig or not decodable; the hammer's air slash shows the sword's clip");
         SlashMark.Request(_config.MeleeRange, _config.MeleeConeDegrees);   // feel/jump-pack: the hit mark's texture, made on a worker thread
     }
 

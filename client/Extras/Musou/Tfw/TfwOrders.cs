@@ -54,7 +54,7 @@ public partial class NetworkView
         if (_bot) return;
         bool enabled = TfwHudModel.InBattle(war.Phase) && me.Alive && !PickerBusy;
         bool orbital = Input.IsPhysicalKeyPressed(Key.B);
-        if (orbital && !_tfwOrbitalKey && enabled && war.Own.OrbitalSeconds == 0) { _tfwState.Commands.Issue(TfwCommand.Orbital, 0, TfwCrosshairPoint(me)); _tfwOrbitalCalled = _connectedFor; }   // the server decides
+        if (orbital && !_tfwOrbitalKey && enabled) { _tfwState.Commands.Issue(TfwCommand.Orbital, 0, TfwCrosshairPoint(me)); _tfwOrbitalCalled = _connectedFor; }   // the server decides
         _tfwOrbitalKey = orbital;
         var press = _tfwKeys.Update(Input.IsPhysicalKeyPressed(Key.Z), Input.IsPhysicalKeyPressed(Key.X), Input.IsPhysicalKeyPressed(Key.V), Input.IsPhysicalKeyPressed(Key.P), delta, enabled);
         if (press == TfwOrderPress.None) return;

@@ -111,7 +111,7 @@ public partial class NetworkView
                 _reactionSource[victim] = (me.PlayerId, now, false);
                 _hitFlinches++;
             }
-        ChargeShotsFrame(); SlashShotsFrame();
+        ChargeShotsFrame(); SlashShotsFrame(); SwingTestFrame(all);
         // Expired stops and players gone.
         _chargeStopsDone.Clear();
         foreach (var (id, start) in _chargeStops) if (!MeleeInteraction.ChargeHoldActive((float)(now - start))) _chargeStopsDone.Add(id);

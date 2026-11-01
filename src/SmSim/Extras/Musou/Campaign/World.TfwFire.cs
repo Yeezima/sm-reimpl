@@ -40,16 +40,15 @@ public sealed partial class World
 
     /// <summary>
     /// A player's call for an orbital strike on <paramref name="point"/> (the command Orbital; the client only asks): refused, with nothing changed, unless a battle is on, the player is in it and alive,
-    /// the point lies on the battlefield and the cooldown is over. The walking barrage then starts at once, centred on the point, across the caller's view. Whether it was accepted.
+    /// and the point lies on the battlefield; no cooldown (the owner, 2026-11-01), and a barrage under way stops nothing. The walking barrage then starts at once, centred on the point, across the caller's view. Whether it was accepted.
     /// </summary>
     public bool TfwOrbital(int player, Vector3 point)
     {
         if (_tfw is not { } run || run.Battle is null || _state != MatchState.Playing || !run.InField.Contains(player)) return false;
-        if (!_players.TryGetValue(player, out var p) || !p.Alive || run.Fire.StrikeTicksLeft(player, Tick) > 0) return false;
+        if (!_players.TryGetValue(player, out var p) || !p.Alive) return false;
         var box = run.Field.Bounds;
         if (!float.IsFinite(point.X + point.Y + point.Z) || point.X < box.Min.X || point.X > box.Max.X || point.Y < box.Min.Y || point.Y > box.Max.Y) return false;
         int rate = Math.Max(1, Config.TickRate);
-        run.Fire.StrikeCalled(player, Tick, rate);
         point = run.Field.Clamp(point);
         point.Z = TfwGroundAt(point, point.Z);
         TfwBarrage(point, TfwFireTestHeading(player, point), rate);

@@ -50,6 +50,7 @@ The first shot from a lowered weapon waits for the weapon to come up (about 0.2 
 | Esc | Opens the customizer (class creator and armour editor) over the match, with the mouse free | The match keeps running and your character stands still while the menu is open. Changes apply at your next respawn. Esc again, or RESUME, closes it. LEAVE MATCH returns to the Join screen. |
 | C (while dead) | Open the loadout picker from the death screen | Ours. Not available while you are alive. |
 | F1 | Show or hide the info overlay | Status, controls and notes about what is a placeholder. |
+| F11 | Fullscreen on or off | Works everywhere: menus, Options, in a match, the customizer. It changes OPTIONS, GRAPHICS, WINDOW MODE and is remembered. Not rebindable. |
 | T | Shout FOR THE EMPEROR | Added content (loyalist barks; on in the extended profile, off with `--content faithful`). Loyalist Space Marines only, at any time, at most every 2 s; everyone near you hears it. It never interrupts what you are doing and plays no animation. |
 | Click in the window | Recapture the mouse after Esc | |
 

@@ -168,9 +168,8 @@ public partial class NetworkView
         _musouHud.Fed();
         _musouHud.Visible = _endPhase == MatchEndPhase.Splash;   // the match's own end screens after the splash (count-up, record, scoreboard) cover the screen
 
-        // The match HUD's score box: Musou has no score limit (the server's is int.MaxValue / 2, which travels clamped to 65535): no limit shown ("-").
-        // Its bars would then fill by a limit of 1: the scores are zeroed too, so the bars stay empty (the KOs are in the run panel).
-        if (_hudView is not null) { _hudView.Data.ScoreLimit = 0; _hudView.Data.OwnScore = 0; _hudView.Data.EnemyScore = 0; }
+        // The match HUD's score box: Musou has no team scores (the owner, 2026-11-01: removed; the KOs and points are in the run panel).
+        if (_hudView is not null) _hudView.Data.NoScorePanel = true;
 
         // The HUD's frame.
         var f = _musouHud.Data;

@@ -59,30 +59,4 @@ public class EyeGlowDataTests
         Assert.Empty(data.For(null));
         Assert.Equal(["test_chaos_hammer", "test_chaos_rifle"], data.Wargear.Order(StringComparer.Ordinal));
     }
-
-    [Fact]
-    public void WithoutALensColourTheGlowKeepsTheDatasColours()
-    {
-        Assert.Null(EyeGlowData.TintOf(null));
-    }
-
-    [Theory]
-    [InlineData(255, 0, 0, 1f, 0f, 0f)]
-    [InlineData(40, 255, 40, 40 / 255f, 1f, 40 / 255f)]   // a lens colour is brought to full brightness: the largest channel becomes 1, the hue stays
-    [InlineData(60, 30, 0, 1f, 0.5f, 0f)]                 // a dark lens colour still glows
-    [InlineData(0, 0, 0, 1f, 1f, 1f)]                     // black has no hue to give: white
-    public void TheLensColourGivesTheGlowItsHueAtFullBrightness(byte r, byte g, byte b, float er, float eg, float eb)
-    {
-        var tint = EyeGlowData.TintOf((r, g, b));
-        Assert.NotNull(tint);
-        Assert.Equal(er, tint!.Value.R, 4);
-        Assert.Equal(eg, tint.Value.G, 4);
-        Assert.Equal(eb, tint.Value.B, 4);
-    }
-
-    [Fact]
-    public void TwoDifferentLensColoursGiveTwoDifferentGlows()
-    {
-        Assert.NotEqual(EyeGlowData.TintOf((255, 40, 40)), EyeGlowData.TintOf((40, 255, 40)));
-    }
 }

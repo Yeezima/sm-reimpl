@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Godot;
+using SmNet;
 using SmSim;
 
 namespace SmClient;
@@ -355,10 +356,10 @@ public partial class NetworkView
             // protocol 30: the slash's clip. feel/jump-pack-2 (SmNet.SlashPose): the dive plays the flight sequencer's part, the wind-up (0 to the flight's crop
             // end), fitted to the dive; the impact the impact sequencer's part, the strike, from its crop start. (feel/jump-pack held frame 0 through the
             // dive and restarted the clip at 0 on landing: the landing showed the wind-up, the blade rising, as the swing seen backwards.)
-            case JumpView.Dive when t.Slash && _slashClip is not null:
-                return (_slashClip, SlashDiveTimeOf(s, (float)(now - t.DiveAt), t.DiveExpected));   // anim/air-slash-character: the strike curve (NetworkView.Feel.cs)
-            case JumpView.Impact when t.Slash && _slashClip is not null:
-                return (_slashClip, SlashImpactTime(s, sinceImpact, t.LandedClip, t.LandedRate));
+            case JumpView.Dive when t.Slash && SlashClipOf(s) is { } slashDive:
+                return (slashDive, SlashDiveTimeOf(s, (float)(now - t.DiveAt), t.DiveExpected));   // anim/air-slash-character: the strike curve (NetworkView.Feel.cs)
+            case JumpView.Impact when t.Slash && SlashClipOf(s) is { } slashImpact:
+                return (slashImpact, SlashImpactTime(s, sinceImpact, t.LandedClip, t.LandedRate));
             case JumpView.Dive when _jmpDive is not null:
                 return (_jmpDive, null);
             case JumpView.Impact when _jmpImpact is not null:
@@ -369,8 +370,8 @@ public partial class NetworkView
         {
             case JumpView.Landing when (t.LandMoving ? _jmpLandRun ?? _jmpLandIdle : _jmpLandIdle ?? _jmpLandRun) is { } land:
                 return (land, (float)(now - t.Since));
-            case JumpView.Getup when t.Slash && _slashClip is not null:
-                return (_slashClip, SlashImpactTime(s, sinceImpact));
+            case JumpView.Getup when t.Slash && SlashClipOf(s) is { } slashGetup:
+                return (slashGetup, SlashImpactTime(s, sinceImpact));
             case JumpView.Getup when t.GetupRun && UpperJump is { RunClip: not null } run:
                 return (run.RunClip!, (float)(sinceImpact - run.FromImpact));
             case JumpView.Getup:
@@ -387,13 +388,14 @@ public partial class NetworkView
 
     /// <summary>feel/jump-pack-2: the slash clip's time <paramref name="sinceImpact"/> s after the landing (SmNet.SlashPose.ImpactTime from the impact's crop start).</summary>
     float SlashImpactTime(PlayerState s, float sinceImpact, float landedAt = float.NaN, float landedRate = float.NaN) =>
-        StrikeCurve && SlashOf(s) is { } slash && float.IsFinite(landedAt) && float.IsFinite(landedRate)
+        HammerSlash(s) ? HammerSlashPose.ImpactTime(sinceImpact, landedAt, ClipLength(_hammerSlashClip, 2.333f), NoMeleeFlow ? SmNet.SlashPose.ImpactCatchUp : SmNet.SlashPose.EasedCatchUp)   // anim/hammer-swing: the hammer's own air slash clip
+        : StrikeCurve && SlashOf(s) is { } slash && float.IsFinite(landedAt) && float.IsFinite(landedRate)
             ? SmNet.SlashPose.StrikeImpactTime(sinceImpact, landedAt, landedRate, slash.ImpactClipStart, slash.HitTime, ClipLength(_slashClip, 1.733f))   // anim/air-slash-character
             : SmNet.SlashPose.ImpactTime(sinceImpact, SlashOf(s)?.ImpactClipStart ?? 0f, ClipLength(_slashClip, 1.733f), landedAt,
                 NoMeleeFlow ? SmNet.SlashPose.ImpactCatchUp : SmNet.SlashPose.EasedCatchUp);   // anim/melee-flow: the early landing's catch-up eased over 0.1 s
 
     /// <summary>feel/jump-pack-2: how long after the landing the slash clip has left to show.</summary>
-    double SlashAfterImpact(PlayerState s) => SmNet.SlashPose.AfterImpact(SlashOf(s)?.ImpactClipStart ?? 0f, ClipLength(_slashClip, 1.733f));
+    double SlashAfterImpact(PlayerState s) => HammerSlash(s) ? HammerSlashPose.AfterImpact(ClipLength(_hammerSlashClip, 2.333f)) : SmNet.SlashPose.AfterImpact(SlashOf(s)?.ImpactClipStart ?? 0f, ClipLength(_slashClip, 1.733f));
 
     /// <summary>feel/jump-pack-2 (bot log): metres from the head (2 m above the feet) up to the map's character collision (60 m at most; none: infinity).</summary>
     float CeilingAbove(PlayerState s)

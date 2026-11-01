@@ -24,6 +24,7 @@ return args switch
     ["ork-actions", var gameDir] => SmTool.OrkCommands.Actions(gameDir),
     ["ork-sounds", var gameDir, .. var rest] => SmTool.OrkSoundCommands.Run(gameDir, rest),
     ["weapon-dps", var gameDir, .. var rest] => SmTool.DpsCommands.Run(gameDir, rest),
+    ["melee-steps", var gameDir, .. var rest] => SmTool.MeleeStepsCommand.Run(gameDir, rest),
     ["hitbox-probe", var gameDir, .. var rest] => SmTool.HitboxCommands.Probe(gameDir, rest),
     ["race-parity", var gameDir, .. var rest] => SmTool.ParityCommands.Run(gameDir, rest),
     ["armour-audit", var gameDir, .. var rest] => SmTool.ArmourAuditCommand.Run(gameDir, rest),

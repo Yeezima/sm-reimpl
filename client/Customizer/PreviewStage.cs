@@ -389,12 +389,10 @@ public sealed partial class PreviewStage : SubViewportContainer
         UpdateEyeGlow(delta);
     }
 
-    // ---- the Chaos eye glow (owner's request 2026-10-28: it follows the lens colour; PreviewEyeGlow) ----
+    // ---- the Chaos eye glow (the data's weapon effect; PreviewEyeGlow) ----
 
     PreviewEyeGlow? _eye;
-    LensGlow? _lensGlow;
     string? _deployed;
-    (byte R, byte G, byte B)? _lens;
 
     /// <summary>
     /// The wargear the preview holds in hand: the melee weapon for the classes that always hold it, else the pistol when the pose is the bolt pistol's idle
@@ -417,17 +415,34 @@ public sealed partial class PreviewStage : SubViewportContainer
     void UpdateEyeGlow(double delta)
     {
         if (_subject is null || _character is null || !_services.Ready) return;
-        // fx/character-visuals (owner, 2026-10-30): every Marine and Chaos preview glows at the eyes in the lens colour (the Ork has none).
-        if (_subject.Race != SmContent.Customization.ProfileWire.Ork) (_lensGlow ??= new LensGlow()).Update(_character, LensGlow.ColourFor(_lens, _subject.Race == CustomizationCatalog.Chaos), _character.Visible);
-        else _lensGlow?.Hide();
         // A Space Marine preview, or the in-match picker (the match has its own effects): no glow, and none left on the stage from the last frame.
         if (_subject.Race != CustomizationCatalog.Chaos || _services.InMatch) { _eye?.Clear(delta, _camera); return; }
         _eye ??= new PreviewEyeGlow(_viewport);
-        _eye.Update(delta, _camera, _character, _services, _deployed, EyeGlow.TintOf(_lens));
+        _eye.Update(delta, _camera, _character, _services, _deployed);
     }
 
     /// <summary>The worn jump pack's primary colour as drawn now (test aid: the shader value of its first painted surface), or null without a painted pack.</summary>
     public Color? PackPrimaryColour => _rig?.PackPrimaryColour;
+    /// <summary>
+    /// The lens recolour as drawn now (test aid): whether a helmet surface of the preview's character has the lens shader switched on and the colour it holds (the last such surface),
+    /// and how many glow nodes (anything named <c>LensGlow*</c>, which the client no longer makes) hang on the character. Null without a character.
+    /// </summary>
+    public (bool On, Color Colour, int GlowNodes)? LensState()
+    {
+        if (_character is null || !GodotObject.IsInstanceValid(_character)) return null;
+        bool on = false; var colour = Colors.Black; int glow = 0;
+        void Walk(Node node)
+        {
+            if (node.Name.ToString().StartsWith("LensGlow", StringComparison.Ordinal)) glow++;
+            if (node is MeshInstance3D mesh && mesh.Mesh is { } m)
+                for (int i = 0; i < m.GetSurfaceCount(); i++)
+                    if (mesh.GetActiveMaterial(i) is ShaderMaterial sm && sm.GetShaderParameter("use_lens").AsBool()) { on = true; colour = sm.GetShaderParameter("lens_colour").AsColor(); }
+            foreach (var child in node.GetChildren()) Walk(child);
+        }
+        Walk(_character);
+        return (on, colour, glow);
+    }
+
     /// <summary>The pack paint the preview applies now (the backpack's of the look shown), or null.</summary>
     public SmContent.Customization.ResolvedPaint? PackPaint => _rig?.PackPaint;
 
@@ -475,7 +490,6 @@ public sealed partial class PreviewStage : SubViewportContainer
             return false;
         }
         ShowCharacter(model, RigProfiles.Marine.Clips.PreviewIdleCandidates);
-        _lens = resolved.Lens;
         _shownKey = key;
         return true;
     }
@@ -499,7 +513,6 @@ public sealed partial class PreviewStage : SubViewportContainer
             return false;
         }
         ShowCharacter(model, RigProfiles.OrkBoy.Clips.PreviewIdleCandidates);
-        _lens = null;
         _shownKey = key;
         return true;
     }
