@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2096 spec table rows: **1489 tagged**, 437 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 442 rows of the changes document.
+Scanned 2094 spec table rows: **1487 tagged**, 437 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 442 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,20 +50,20 @@ Scanned 2096 spec table rows: **1489 tagged**, 437 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 257 | 241 | 215 | 25 | 1 |
+| Core simulation (provisional values) | 255 | 239 | 213 | 26 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 89 | 82 | 46 | 9 | 0 |
-| **All areas** | **1489** | 1261 | 1197 | 418 | 38 |
+| **All areas** | **1487** | 1259 | 1195 | 419 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 676 |
-| confidence: low | 567 |
+| kind: ours | 674 |
+| confidence: low | 565 |
 | confidence: medium | 504 |
 | kind: interpretation | 335 |
-| notes: ours | 306 |
+| notes: ours | 307 |
 | confidence: none (low) | 126 |
 | kind: provisional | 99 |
 | kind: estimate | 72 |
@@ -1838,7 +1838,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (257)
+### Core simulation (provisional values) (255)
 
 *Spec section: Provisional values in use*
 
@@ -2012,7 +2012,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-E26EF3C9` | Blood colour | dark oxblood to near black, never bright red: droplets and clots linear (0.012..0.04, 0.003..0.007, 0.003..0.006) (flying ink drawn at 1.8 times that), pools (0.02..0.04, 0.003, 0.004); the mist a muddy brown-red (0.11, 0.038, 0.028) to (0.045, 0.014, 0.011)… (linear RGB) | kind: ours; confidence: medium | the owner's reference and words | Blood colour: compare with SM1 by feel or video. Ours: dark oxblood to near black, never bright red: droplets and clots… | ☐ |
+| `R-E26EF3C9` | Blood colour | dark oxblood to near black, never bright red: droplets and clots linear (0.012..0.04, 0.003..0.007, 0.003..0.006) (flying ink drawn at 1.8 times that), pools (0.02..0.04, 0.003, 0.004); the mist a dark oxblood-brown (0.077, 0.027, 0.02) to (0.032, 0.01… (linear RGB) | kind: ours; confidence: medium | the owner's reference and words | Blood colour: compare with SM1 by feel or video. Ours: dark oxblood to near black, never bright red: droplets and clots… | ☐ |
 | `R-EADBB8D1` | Shapes | two: soft billowing mist clouds, and ink-like splatter (irregular, jagged, stringy, with holes, tendrils, beads and satellite droplets; 16 shapes in a 4 x 4 atlas of 128 px) beside a few small round droplets; no meshes, no lumps, no flat streaks; made in code… | kind: ours; confidence: medium | the owner's reference | Shapes: compare with SM1 by feel or video. Ours: two: soft billowing mist clouds, and ink-like splatter (irregular… | ☐ |
 | `R-FB5522E3` | Amount | `GoreRules.Amount` = 3: three times the clots, droplets and cleave drops of the first pass; ground stains and pools bigger (stains 2.2 times, pools 2.4 times), flying ink 2.5 to 3 times (factor) | kind: ours | the owner's "turn up the gore 200%" | Amount: compare with SM1 by feel or video. Ours: GoreRules.Amount = 3: three times the clots, droplets and cleave… | ☐ |
 | `R-35C4D987` | Every damaging hit makes a cloud | any Hit event of a player, a retainer or a Marine (player above 0), and of fire support (orbital strike, Thunderhawk: player 0 with marker 0, counted as the player's; a World removal is not): a blood cloud, always (never thinned by the load or the distance… | kind: ours; confidence: medium | the owner's "always appear when damaging" | Every damaging hit makes a cloud: compare with SM1 by feel or video. Ours: any Hit event of a player, a retainer or a Marine (player above 0)… | ☐ |
@@ -2080,11 +2080,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-55F42C2B` | Barrage size | 16 to 24 shells on a line of 60 to 100 m, 0.35 s between impacts, scatter ±6 m on each axis. The design's "about 10 m apart" does not fit its own counts, which give 2.6 to 6.7 m: the counts and the length were kept (shells, m, s) | kind: ours; confidence: low | the design; the reference's walking barrage | Barrage size: compare with SM1 by measuring on a flat spot of the same map. Ours: 16 to 24 shells on a line of 60 to 100 m, 0.35 s between impacts… | ☐ |
 | `R-C466F7CF` | Barrage aim | centred on the called point, walking across the caller's view. A paused run's aim: 70% through a living enemy at random, 30% through a random place, heading random (fraction) | kind: ours; confidence: low | the owner (the point); the rest ours | Barrage aim: compare with SM1 with an overlaid screenshot taken from the same position. Ours: centred on the called point, walking across the caller's view. A… | ☐ |
 | `R-2073CE8A` | Shell warning | the first impact 1 s after the call, each shell's record 1 s before it lands, for the whistle; measured on a real server: first impact 0.86 s after the key (s) | kind: ours; confidence: medium | the owner ("start instantly"); about 1 s the lead's, to keep a whistle | Shell warning: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the first impact 1 s after the call, each shell's record 1 s before… | ☐ |
-| `R-3D3CF5B9` | Shell on fodder | Boy, Shoota, Gretchin within 6 m (flat) die, no line of sight needed; to 12 m they stagger (m) | kind: estimate; kind: user's knowledge; confidence: low | the owner (item 12: "instantly killed"); the radius from the design | Shell on fodder: compare with SM1 by measuring on a flat spot of the same map. Ours: Boy, Shoota, Gretchin within 6 m (flat) die, no line of sight needed… | ☐ |
-| `R-615982A9` | Shell on elites and bosses | 150 at the impact, linear to 0 at 12 m, and a stagger (hit points, m) | kind: ours; confidence: low | the design | Shell on elites and bosses: compare with SM1 by feel or video. Ours: 150 at the impact, linear to 0 at 12 m, and a stagger. | ☐ |
-| `R-DDCD1052` | Shell on players and AI Marines | 60 at the impact, linear to 0 at 12 m, through the received-damage multipliers; a stagger within 6 m; nobody is spared (hit points, m) | kind: estimate; kind: user's knowledge; confidence: low | the owner (item 12: "space marines take damage"); the values from the design | Shell on players and AI Marines: compare with SM1 by feel or video. Ours: 60 at the impact, linear to 0 at 12 m, through the received-damage… | ☐ |
-| `R-856266F2` | Shell on Guardsmen | die within 4 m. Guardsmen are off for now (item 19), so this is implemented but unplayed (m) | kind: ours; confidence: low | the design | Shell on Guardsmen: compare with SM1 by measuring on a flat spot of the same map. Ours: die within 4 m. Guardsmen are off for now (item 19), so this is… | ☐ |
-| `R-41276715` | Shell's reach up and down | 6 m: a shell on a roof spares those under it (m) | kind: ours; confidence: low | ours | Shell's reach up and down: compare with SM1 by measuring on a flat spot of the same map. Ours: 6 m: a shell on a roof spares those under it. | ☐ |
+| `R-D8E313A4` | Shell's ground | the first surface under the aim, looked for from 3 m above it: a strike lands where it was aimed, not on a gantry or roof overhead (m) | kind: ours; confidence: low | ours | Shell's ground: compare with SM1 by measuring on a flat spot of the same map. Ours: the first surface under the aim, looked for from 3 m above it: a… | ☐ |
+| `R-720F3EEF` | Shell on enemies | every enemy, elites too, dies in a sphere of 12 m; a boss (the Warboss, a commander) takes 30 a shell (`TfwFireRules.BossDamage`, the owner: "bosses only take minor damage", the value ours) round the impact (either its feet or its chest inside), no falloff… (m) | kind: estimate; kind: user's knowledge; confidence: low; notes: ours | the owner, 2026-11-01: "kill anything it touches", "a spere extending upward from the ground matching the placement of the explosion visual effects"; 12 m is… | Shell on enemies: compare with SM1 by measuring on a flat spot of the same map. Ours: every enemy, elites too, dies in a sphere of 12 m; a boss (the… | ☐ |
+| `R-DDCD1052` | Shell on players and AI Marines | 60 at the impact, linear to 0 at 12 m (the sphere), through the received-damage multipliers; a stagger within 6 m; nobody is spared (hit points, m) | kind: estimate; kind: user's knowledge; confidence: low | the owner (item 12: "space marines take damage"); the values from the design | Shell on players and AI Marines: compare with SM1 by feel or video. Ours: 60 at the impact, linear to 0 at 12 m (the sphere), through the… | ☐ |
 | `R-AF73E808` | Run cadence (paused) | `max(45, 45 + hash x 75)` after the last; never under 45 (s) | kind: estimate; kind: user's knowledge; confidence: medium | the owner (45 s); the spread from the design | Run cadence (paused): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: max(45, 45 + hash x 75) after the last; never under 45. | ☐ |
 | `R-89BB5092` | Run path (paused) | a straight line 300 m either side of its aim at 60 m/s, at least 35 m over the aim's ground and 8 m over the collision under the path (sampled every 20 m); a client flies it from one record (m, m/s) | kind: ours; confidence: low | the design | Run path (paused): compare with SM1 by timing a run over a known distance. Ours: a straight line 300 m either side of its aim at 60 m/s, at least 35 m… | ☐ |
 | `R-39D2DF6C` | Run guns (paused) | a side gun each, 7 m out and 2 m under the path: every 0.1 s two rounds each at an enemy of its side within 30 m of the path, 10 m behind to 45 m ahead, with a clear line (5 tries), by hash; 75% hit for 40 and the rest strike the ground by the target; enemies… (m, s, hit points) | kind: ours; confidence: low | the owner (item 13); the values from the design | Run guns (paused): compare with SM1 by timing a run over a known distance. Ours: a side gun each, 7 m out and 2 m under the path: every 0.1 s two… | ☐ |

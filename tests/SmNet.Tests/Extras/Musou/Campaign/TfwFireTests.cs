@@ -32,50 +32,27 @@ public class TfwFireTests
         return id;
     }
 
-    static (MusouEnemyType, float, bool)[] Fodder => [(MusouEnemyType.Boy, 5.9f, true), (MusouEnemyType.ShootaBoy, 3f, true), (MusouEnemyType.Gretchin, 0f, true), (MusouEnemyType.Boy, 6.5f, false)];
-
-    [Fact]
-    public void A_shell_kills_fodder_within_6_m_and_only_there_as_a_barrage_death_of_nobody()
-    {
-        foreach (var (type, distance, dies) in Fodder)
-        {
-            var w = Battle();
-            ushort id = Enemy(w, type, Open + new Vector3(distance, 0f, 0f));
-            w.Musou!.BeginTick(w.Tick);
-            w.TfwShellForTests(Open);
-            Assert.True(w.Musou.TryGet(id, out var e));
-            Assert.Equal(dies, e.State == MusouEnemyState.Dying);
-            if (!dies) { Assert.Equal(w.Musou.Rules.Of(type).Health, e.Health); continue; }
-            var death = Assert.Single(w.Musou.Events, x => x.Kind == MusouEventKind.Death && x.Enemy == id);
-            Assert.Equal((0, (byte)MusouDeathKind.Barrage), (death.Player, death.Value));
-        }
-    }
-
     [Theory]
-    [InlineData(0f, 150f)]
-    [InlineData(6f, 75f)]
-    [InlineData(11.9f, 1.25f)]
-    public void Elites_and_bosses_take_150_falling_off_to_12_m(float distance, float expected)
-    {
-        foreach (var type in new[] { MusouEnemyType.Nob, MusouEnemyType.ArdBoy })
-        {
-            var w = Battle();
-            ushort id = Enemy(w, type, Open + new Vector3(distance, 0f, 0f));
-            float health = w.Musou!.Rules.Of(type).Health;
-            w.TfwShellForTests(Open);
-            Assert.True(w.Musou.TryGet(id, out var e));
-            if (expected < health) Assert.Equal(health - expected, e.Health, 2);
-            else Assert.Equal(MusouEnemyState.Dying, e.State);
-        }
-    }
-
-    [Fact]
-    public void A_shell_on_a_roof_spares_those_under_it()
+    [InlineData(MusouEnemyType.Boy, 11.9f, 0f, true)]
+    [InlineData(MusouEnemyType.ShootaBoy, 3f, 0f, true)]
+    [InlineData(MusouEnemyType.Gretchin, 0f, 0f, true)]
+    [InlineData(MusouEnemyType.Nob, 11.9f, 0f, true)]
+    [InlineData(MusouEnemyType.ArdBoy, 6f, 0f, true)]
+    [InlineData(MusouEnemyType.Boy, 0f, 11f, true)]
+    [InlineData(MusouEnemyType.Boy, 8f, 8f, true)]
+    [InlineData(MusouEnemyType.Boy, 12.5f, 0f, false)]
+    [InlineData(MusouEnemyType.Nob, 0f, 16f, false)]
+    public void A_shell_kills_every_enemy_in_its_12_m_sphere_as_a_barrage_death_of_nobody(MusouEnemyType type, float flat, float up, bool dies)
     {
         var w = Battle();
-        ushort id = Enemy(w, MusouEnemyType.Boy, Open);
-        w.TfwShellForTests(Open + new Vector3(0f, 0f, TfwFireRules.VerticalReach + 1f));
-        Assert.True(w.Musou!.TryGet(id, out var e) && e.State != MusouEnemyState.Dying);
+        ushort id = Enemy(w, type, Open + new Vector3(flat, 0f, up));
+        w.Musou!.BeginTick(w.Tick);
+        w.TfwShellForTests(Open);
+        Assert.True(w.Musou.TryGet(id, out var e));
+        Assert.Equal(dies, e.State == MusouEnemyState.Dying);
+        if (!dies) { Assert.Equal(w.Musou.Rules.Of(type).Health, e.Health); return; }
+        var death = Assert.Single(w.Musou.Events, x => x.Kind == MusouEventKind.Death && x.Enemy == id);
+        Assert.Equal((0, (byte)MusouDeathKind.Barrage), (death.Player, death.Value));
     }
 
     [Theory]
@@ -93,17 +70,17 @@ public class TfwFireTests
     }
 
     [Fact]
-    public void Guardsmen_die_within_4_m()
+    public void Guardsmen_die_within_the_sphere()
     {
         var w = Battle();
         var guards = w.TfwGuards!;
         int squad = guards.SpawnSquad(Open);
         Assert.True(squad >= 0);
-        int inside = guards.CountInside(Open, TfwFireRules.GuardRadius);
+        int inside = guards.CountInside(Open, TfwFireRules.BlastRadius);
         int alive = guards.Alive;
         Assert.True(inside > 0);
         w.TfwShellForTests(Open);
-        Assert.Equal(0, guards.CountInside(Open, TfwFireRules.GuardRadius));
+        Assert.Equal(0, guards.CountInside(Open, TfwFireRules.BlastRadius));
         Assert.Equal(alive - inside, guards.Alive);
     }
 
