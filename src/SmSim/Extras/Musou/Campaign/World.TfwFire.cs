@@ -7,7 +7,7 @@ namespace SmSim;
 /// <summary>
 /// Fire support in the World (Musou pass 2, M8; design section E, the owner's orbital support): a called strike's validation, its barrage and damage, and the Thunderhawk's path and guns (paused: <see cref="TfwFireRules.RunsEnabled"/>). Runs from <see cref="TfwStep"/> after the fight, only with a battle
 /// on and the match in play; the enemies' deaths carry <see cref="MusouDeathKind.Barrage"/> or <see cref="MusouDeathKind.Strafe"/> and no player, so they score nothing and the kills are credited by
-/// the next <see cref="TfwCreditKills"/>. Rules: a shell kills every enemy and Guardsman in the sphere of <see cref="TfwFireRules.BlastRadius"/> round its impact, bosses too, and hurts
+/// the next <see cref="TfwCreditKills"/>. Rules: a shell kills every enemy and Guardsman in the sphere of <see cref="TfwFireRules.BlastRadius"/> round its impact, deals a boss <see cref="TfwFireRules.BossDamage"/>, and hurts
 /// players and AI Marines (never spared: friendly fire is the risk) falling off to that radius. Line of sight is ignored: heavy shell fire. A run hurts enemies only.
 /// </summary>
 public sealed partial class World
@@ -131,7 +131,8 @@ public sealed partial class World
             var away = new Vector2(e.Position.X - at.X, e.Position.Y - at.Y);
             float distance = away.Length();
             var push = distance > 1e-3f ? away / distance : new Vector2(-MathF.Sin(e.Yaw), MathF.Cos(e.Yaw));
-            musou.Damage(e.Id, 0, MathF.Max(e.Health, 1f), new Vector3(push, 0.8f), out bool killed, marker: 0, cause: MusouDeathKind.Barrage);
+            float damage = e.Id == _tfw.Battle?.BossId ? TfwFireRules.BossDamage : MathF.Max(e.Health, 1f);
+            musou.Damage(e.Id, 0, damage, new Vector3(push, 0.8f), out bool killed, marker: 0, cause: MusouDeathKind.Barrage);
             if (killed) fire.ShellKills++;
         }
         _fireIds.Clear();
