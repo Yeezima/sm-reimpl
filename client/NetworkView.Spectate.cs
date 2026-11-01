@@ -65,7 +65,6 @@ public partial class NetworkView
     bool _specInit;
     // The rig camera's two booms (head to pivot, pivot to eye); _rigFraction (Camera.cs) is the second.
     readonly SmNet.CameraBoom _rigFractionA = new(), _rigFractionS = new(), _rigFractionU = new();   // U: head up to the shoulder's height, S: out to its side (camera/hop-and-walls), before the pivot leg
-    readonly SmNet.CameraSide _rigSide = new();
     // The rig camera's lookahead (see RigCamera): seconds ahead, scratch lines, and the view's turn rate.
     static readonly float[] RigLookAheadSeconds = [0.12f, 0.25f];
     readonly Vector3[] _aheadHead = new Vector3[2], _aheadShoulder = new Vector3[2], _aheadPivot = new Vector3[2], _aheadEye = new Vector3[2];

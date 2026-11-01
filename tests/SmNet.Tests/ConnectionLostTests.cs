@@ -36,6 +36,14 @@ public class ConnectionLostTests
     }
 
     [Fact]
+    public void Snapshots_that_arrived_and_were_refused_are_named_before_any_other_cause()
+    {
+        string t = ConnectionLost.Text(ClientStatus.Disconnected, 42.0, 5.1, 0.034, 0.2, 3.0, 0, true, 5.0, refusedSnapshots: 102);
+        Assert.Contains("this client refused them (102", t);
+        Assert.DoesNotContain("went silent", t);
+    }
+
+    [Fact]
     public void The_line_says_how_many_keep_alives_were_sent_and_keeps_the_status()
     {
         string t = Text(sinceSnapshot: 40, worstSinceSnapshot: 40, longest: 40, longestAt: 1, keepAlives: 59);
