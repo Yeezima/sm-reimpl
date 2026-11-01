@@ -19,3 +19,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - The blue clouds from power weapon hits are half the size.
 - The stalker bolter leaves a wall crater, larger than the bolter's.
 - Musou Mode: Orks killed by artillery, frag grenades and plasma cannon blasts are now thrown by the explosion and tumble to the ground.
+- Musou Mode: a new button on the wall of the Thunderhawk's troop bay takes you, after a confirm, to the Firing Range, a plain walled 100 m square where 200 Orks keep coming at you, to try the artillery strike and other new things. A pad at the range brings you back.

@@ -90,8 +90,8 @@ public class TfwWorldTests
         Assert.Equal(data.Hash, hash);
         Assert.Equal(data.Field.Hub, hub);
         Assert.Equal(data.Collision.ContentHash, world.ContentHash);
-        Assert.Equal(world.ContentHash ^ 0x7466775F7761725FUL ^ 5UL, hash);
-        Assert.Equal(5u, TfwMap.Version);
+        Assert.Equal(world.ContentHash ^ 0x7466775F7761725FUL ^ 6UL, hash);
+        Assert.Equal(6u, TfwMap.Version);
         Assert.NotEqual(hash, TfwMap.WithHub(Level(blockers: false)).Hash ^ 1UL);
     }
 
@@ -100,7 +100,7 @@ public class TfwWorldTests
     {
         var level = Level();
         var (world, hub, _) = TfwMap.WithHub(level);
-        int hubTriangles = hub.Corners().Length / 3;
+        int hubTriangles = hub.Corners().Length / 3 + TfwRange.For(level).Corners().Length / 3;   // the ship and the Firing Range
         Assert.Single(world.KillVolumes);
         Assert.Empty(world.Blockers);   // the commander stands in the Chaos room: Marines must reach him
         Assert.Equal(level.Character.TriangleCount + hubTriangles, world.Character.TriangleCount);

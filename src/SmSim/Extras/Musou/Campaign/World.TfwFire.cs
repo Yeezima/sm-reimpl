@@ -23,9 +23,10 @@ public sealed partial class World
     {
         var run = _tfw!;
         var fire = run.Fire;
-        if (run.Battle is not { } battle || _state != MatchState.Playing) { fire.Stop(); return; }
+        object? following = run.Battle is { } battle ? battle : run.RangeOn ? run : null;   // the Firing Range keeps the fire support alive without a battle
+        if (following is null || _state != MatchState.Playing) { fire.Stop(); return; }
         int rate = Math.Max(1, Config.TickRate);
-        fire.Follow(battle, Tick, rate);
+        fire.Follow(following, Tick, rate);
         if (!fire.NoSchedule)
         {
             if (TfwFireRules.RunsEnabled && Tick >= fire.NextRunTick && fire.Run is null) TfwBeginRun(TfwAim(2), TfwFireHeading(2), rate);
@@ -43,12 +44,14 @@ public sealed partial class World
     /// </summary>
     public bool TfwOrbital(int player, Vector3 point)
     {
-        if (_tfw is not { } run || run.Battle is null || _state != MatchState.Playing || !run.InField.Contains(player)) return false;
+        if (_tfw is not { } run || _state != MatchState.Playing) return false;
+        bool atRange = run.Battle is null && run.RangeOn && run.Field.Range is not null && run.InRange.Contains(player);
+        if (!atRange && (run.Battle is null || !run.InField.Contains(player))) return false;
         if (!_players.TryGetValue(player, out var p) || !p.Alive) return false;
-        var box = run.Field.Bounds;
+        var box = atRange ? run.Field.Range!.Box : run.Field.Bounds;
         if (!float.IsFinite(point.X + point.Y + point.Z) || point.X < box.Min.X || point.X > box.Max.X || point.Y < box.Min.Y || point.Y > box.Max.Y) return false;
         int rate = Math.Max(1, Config.TickRate);
-        point = run.Field.Clamp(point);
+        point = atRange ? Vector3.Clamp(point, box.Min, box.Max) : run.Field.Clamp(point);
         point.Z = TfwGroundBelow(point, point.Z);
         TfwBarrage(point, TfwFireTestHeading(player, point), rate);
         return true;
@@ -103,7 +106,7 @@ public sealed partial class World
         int shells = TfwFireRules.ShellsMin + (int)(fire.Roll(t, 60) * (TfwFireRules.ShellsMax - TfwFireRules.ShellsMin + 1));
         float length = TfwFireRules.LineMin + fire.Roll(t, 61) * (TfwFireRules.LineMax - TfwFireRules.LineMin);
         var way = new Vector3(MathF.Cos(heading), MathF.Sin(heading), 0f);
-        var box = _tfw.Field.Bounds;
+        var box = _tfw.Battle is null && _tfw.RangeOn && _tfw.Field.Range is { } rangeArea ? rangeArea.Box : _tfw.Field.Bounds;   // the Firing Range keeps its shells on its own floor
         uint first = t + (uint)MathF.Round(TfwFireRules.ShellDelay * rate);
         for (int k = 0; k < shells; k++)
         {

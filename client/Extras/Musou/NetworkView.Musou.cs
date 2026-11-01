@@ -28,6 +28,9 @@ public partial class NetworkView
     readonly List<float> _musouFrames = new();
     readonly List<MusouDeathShown> _musouDeaths = new();   // deaths not yet given a body (kept while the crowd is being made; at most MaxBodies)
 
+    /// <summary>Enemy deaths the client has been told of (a test aid's count).</summary>
+    internal long MusouDeathsSeen { get; private set; }
+
     bool MusouActive => _config is { } c && c.Extras.HasFlag(ContentExtras.Musou);
 
     /// <summary>The latest director the server sent (null: none yet, or not a Musou match).</summary>
@@ -61,6 +64,7 @@ public partial class NetworkView
             TfwMeleeCount(shown);   // Tfw/NetworkView.TfwMelee.cs: the test aid's counts, nothing without it
             MusouGoreFrame(me, shown, (float)delta);   // M10: gibs, sprays, pools and the cleave slashes (Gore/NetworkView.MusouGore.cs)
         }
+        MusouDeathsSeen += _musouState.NewDeaths.Count;   // the Firing Range script counts the strike's kills
         _musouState.TakeNew();
         MusouDropsFrame(me, (float)delta);   // MU-D: the own weapon drops (MusouDrops.cs)
         MusouLog(delta, shown.Count);

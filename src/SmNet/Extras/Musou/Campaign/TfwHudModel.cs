@@ -6,7 +6,7 @@ using SmSim.Extras.Musou.Campaign;
 namespace SmNet.Extras.Musou.Campaign;
 
 /// <summary>The Stormbird's two stations (design section G; client-side prompts, the positions only are the map's).</summary>
-public enum TfwStation : byte { None = 0, Destination = 1, Equipment = 2 }
+public enum TfwStation : byte { None = 0, Destination = 1, Equipment = 2, Range = 3, Return = 4 }
 
 /// <summary>The order keys pressed this frame (design section G: Z, X and V act on the press, P held for <see cref="TfwOrderKeys.PickupHoldSeconds"/>).</summary>
 [Flags]
@@ -52,10 +52,12 @@ public sealed class TfwOrderKeys
 public static class TfwHudModel
 {
     /// <summary>The station whose pad <paramref name="feet"/> stands on: in the hub only (the prompts are client-side; the server checks a Deploy itself).</summary>
-    public static TfwStation StationAt(Vector3 feet, TfwHub hub)
+    public static TfwStation StationAt(Vector3 feet, TfwHub hub, TfwRange? range = null)
     {
         float r2 = TfwMap.StationRadius * TfwMap.StationRadius;
+        if (range is not null && Flat(feet, range.ReturnStation) <= r2) return TfwStation.Return;
         if (Flat(feet, hub.DestinationStation) <= r2) return TfwStation.Destination;
+        if (range is not null && Flat(feet, hub.RangeStation) <= r2) return TfwStation.Range;
         return Flat(feet, hub.EquipmentStation) <= r2 ? TfwStation.Equipment : TfwStation.None;
     }
 
@@ -66,6 +68,8 @@ public static class TfwHudModel
     {
         TfwStation.Destination => $"{key}: DESTINATION",
         TfwStation.Equipment => $"{key}: EQUIPMENT",
+        TfwStation.Range => $"{key}: FIRING RANGE",
+        TfwStation.Return => $"{key}: BACK TO THE STORMBIRD",
         _ => "",
     };
 

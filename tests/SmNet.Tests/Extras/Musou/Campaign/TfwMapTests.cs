@@ -45,7 +45,7 @@ public class TfwMapTests
         Assert.Equal(World.Character.ContentHash, World.Weapons.ContentHash);   // shots meet what walkers meet
     }
 
-    const ulong PinnedHash = 12827541487155090671UL;
+    const ulong PinnedHash = 6980734556804054000UL;
 
     // ---------------------------------------------------------------- the solids
 
@@ -232,10 +232,15 @@ public class TfwMapTests
             var config = new SimConfig { Extras = ContentExtras.Musou };
             var nav = GameServer.BuildTfwNav(map, TfwTestArena.Field, config, out _, dir);
             float cell = nav.Settings.CellSize;
-            Assert.True(nav.NodeCount * cell * cell >= 0.98f * (2f * Half) * (2f * Half), $"{nav.NodeCount} nodes");
+            var range = Assert.IsType<TfwRange>(TfwTestArena.Field.Range);   // the Firing Range is the graph's second, separate part
+            int arenaNodes = 0;
+            for (int n = 0; n < nav.NodeCount; n++) if (!range.Contains(nav.Position(n))) arenaNodes++;
+            Assert.True(arenaNodes * cell * cell >= 0.98f * (2f * Half) * (2f * Half), $"{arenaNodes} nodes");
+            Assert.True(nav.NodeCount - arenaNodes > 1000, "the range has its own nodes");
             for (int n = 0; n < nav.NodeCount; n++)
             {
                 var p = nav.Position(n);
+                if (range.Contains(p)) continue;
                 Assert.True(MathF.Abs(p.X) < Half && MathF.Abs(p.Y) < Half, $"node {n} at {p}");
                 Assert.Equal(0f, p.Z, 3);
             }
