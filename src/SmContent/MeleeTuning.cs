@@ -44,6 +44,8 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         /// (<see cref="MeleeStep.LungeFactor"/>); 1: none. The thunder hammer's and the daemon maul's: <see cref="HammerLightLungeFactor"/>.
         /// </summary>
         public float LightLungeFactor { get; init; } = 1f;
+        /// <summary>feel/melee-reliability: every strike of this weapon is a <see cref="MeleeStep.TrackToHit"/> one.</summary>
+        public bool TrackToHit { get; init; }
         /// <summary>
         /// Weapons C: per light attack, the heavy strike (1-based) a heavy press in its combo window chains to; 0 (or missing): the old rule
         /// (strike n + 1 after attack n), -1: none (<see cref="MeleeStep.HeavyNext"/>; read off the graph's <c>BTN_Melee_Stun</c> transitions).
@@ -188,6 +190,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         YComboBranches = ["BRANCH_To_Slam"],
         ExtendedRules = true,
         LightLungeFactor = HammerLightLungeFactor,
+        TrackToHit = true,
     };
 
     /// <summary>
@@ -259,7 +262,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             var (step, animation) = Step(weapon.Sequencers[i], weapon.Abilities[i]);
             // Weapons C: where the graph leaves this attack for a heavy strike, and whether a light press goes on from it.
             int heavyNext = i < weapon.LightHeavyNext.Length ? weapon.LightHeavyNext[i] : 0;
-            step = step with { HeavyNext = Math.Max(-1, heavyNext), StringEnd = !weapon.LoopLights && i == weapon.Sequencers.Length - 1, LungeFactor = OldHammerLunge ? 1f : weapon.LightLungeFactor };
+            step = step with { HeavyNext = Math.Max(-1, heavyNext), StringEnd = !weapon.LoopLights && i == weapon.Sequencers.Length - 1, LungeFactor = OldHammerLunge ? 1f : weapon.LightLungeFactor, TrackToHit = weapon.TrackToHit };
             steps.Add(step);
             animations.Add(animation);
         }
@@ -292,7 +295,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
                         }
                     }
                 }
-                heavy.Add(step);
+                heavy.Add(step with { TrackToHit = weapon.TrackToHit });
                 heavyAnimations.Add(animation);
             }
             catch (InvalidDataException e) { notes.Add($"heavy strike {i + 1}: {e.Message}; the heavy chain stops before it"); break; }

@@ -10,6 +10,8 @@ public sealed record MusouCombatRules
 {
     /// <summary>The cleave reaches this much past the core's <see cref="SimConfig.MeleeRange"/> (design: 0.5 m) …</summary>
     public float CleaveExtraRange { get; init; } = 0.5f;
+    /// <summary>A <see cref="MeleeStep.TrackToHit"/> strike's cleave reaches this much farther (ours, feel/melee-reliability: enemies carry no player lock).</summary>
+    public const float CleaveTrackRange = 1f;
     /// <summary>… within the core's <see cref="SimConfig.MeleeConeDegrees"/> times this (design: 1.5) …</summary>
     public float CleaveConeScale { get; init; } = 1.5f;
     /// <summary>… on at most this many enemies, nearest first (design: 8).</summary>

@@ -1281,6 +1281,8 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         var origin = state.Position + new Vector3(0, 0, Config.EyeHeight);
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
         float minCos = MathF.Cos(Config.MeleeConeDegrees * MathF.PI / 180f);
+        int tracked = step.TrackToHit && MeleeLock.Target(state, input.Sanitized(), input.Sanitized().MeleeTarget, seen, Config, Collision, MeleeLock.Phase.Melee) is not null
+            ? input.Sanitized().MeleeTarget : 0;   // feel/melee-reliability: a slow strike delivers on its lock (MeleeStep.TrackToHit), the lock checked as the lunge checks it: the input's id alone proves nothing
         var targets = new List<(float Distance, int Id)>();
         foreach (var (id, then) in seen)
         {
@@ -1289,8 +1291,9 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             var offset = then.Position - state.Position;
             var flat = new Vector2(offset.X, offset.Y);
             float distance = flat.Length();
-            if (distance > Config.MeleeRange || MathF.Abs(offset.Z) > Config.MeleeVerticalReach) continue;
-            if (distance > 1e-4f && Vector2.Dot(flat / distance, forward) < minCos) continue;   // overlapping players count as in front
+            bool locked = id == tracked;
+            if (distance > Config.MeleeRange + (locked ? Config.MeleeLock.TrackReach : 0f) || MathF.Abs(offset.Z) > Config.MeleeVerticalReach) continue;
+            if (distance > 1e-4f && Vector2.Dot(flat / distance, forward) < (locked ? MathF.Cos(Config.MeleeLock.TrackCone * MathF.PI / 180f) : minCos)) continue;   // overlapping players count as in front
             if (Collision is not null)
             {
                 var toChest = then.Position + new Vector3(0, 0, ChestOf(then)) - origin;
@@ -1300,6 +1303,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             targets.Add((distance, id));
         }
         targets.Sort();
+        if (targets.FindIndex(t => t.Id == tracked) is > 0 and var at) { var first = targets[at]; targets.RemoveAt(at); targets.Insert(0, first); }   // the lock is the primary target
         for (int i = 0; i < targets.Count; i++)
         {
             var (distance, target) = targets[i];
