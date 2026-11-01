@@ -10,3 +10,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Add your bullets in the same pull request as the change, when it merges.
 -->
 - Fixed a disconnect: dying during a directional melee attack could end your connection with 'Disconnected (no snapshot from the server)'.
+- The camera now always stays over the right shoulder; it no longer swaps to the left shoulder near walls.
+- At a higher field of view the camera sits slightly further right, so your character covers less of the crosshair. Shots still land on the crosshair, and the default field of view looks the same as before.
