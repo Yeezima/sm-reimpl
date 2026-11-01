@@ -40,7 +40,7 @@ public partial class NetworkView
             var point = _tfwState.Objectives[k].Position;
             GD.Print($"TFWCAP going to point {name} ({k}) at {point}, radius {_tfwState.Objectives[k].Radius:F1}");
             await TfwPathTo(point, $"walked to point {name}", 120.0, () => !client.Predicted.Alive || TfwNow.Phase != TfwRunPhase.Battle || TfwFlat(client.Predicted.Position, point) < 3f || _tfwState.Objectives[k].State == TfwPositionState.Secured);
-            double stop = Math.Min(limit, _connectedFor + 120.0), logAt = 0.0, reloadAt = 0.0, cleared = 0.0;
+            double stop = Math.Min(limit, _connectedFor + 240.0), logAt = 0.0, reloadAt = 0.0, cleared = 0.0;
             bool inside = false;
             while (_connectedFor < stop && _tfwState.Objectives[k].State != TfwPositionState.Secured && TfwNow.Phase == TfwRunPhase.Battle)
             {
