@@ -76,6 +76,8 @@ public sealed partial class TfwBlastCloud : Node3D
     readonly float[] _buffer = new float[Capacity * Stride];
     readonly Random _rng = new(9);
     readonly OmniLight3D[] _lights = new OmniLight3D[Lights];
+    /// <summary>When set, a blast the camera cannot see flashes no light (they cast no shadows: it would light the room behind the wall).</summary>
+    public Func<Vector3, bool>? LightSeen;
     readonly float[] _lightLeft = new float[Lights];
     readonly MeshInstance3D[] _rings = new MeshInstance3D[Rings];
     readonly ShaderMaterial[] _ringMaterials = new ShaderMaterial[Rings];
@@ -200,10 +202,13 @@ public sealed partial class TfwBlastCloud : Node3D
             var way = new Vector3(MathF.Cos(a) * (1f - up), up, MathF.Sin(a) * (1f - up));
             Add(at + Vector3.Up * R(0.3f, 2f), way * R(9f, 30f), R(0.55f, 1.15f), R(3.5f, 5.5f), R(9f, 14f), -1.5f, 2.4f, 1f, 1f, new Color(0.2f, 0.09f, 0.05f));
         }
-        _lights[_light].GlobalPosition = at + Vector3.Up * 3f;
-        _lights[_light].Visible = true;
-        _lightLeft[_light] = 0.22f;
-        _light = (_light + 1) % Lights;
+        if (LightSeen?.Invoke(at + Vector3.Up * 3f) != false)
+        {
+            _lights[_light].GlobalPosition = at + Vector3.Up * 3f;
+            _lights[_light].Visible = true;
+            _lightLeft[_light] = 0.22f;
+            _light = (_light + 1) % Lights;
+        }
         _rings[_ring].GlobalPosition = at + Vector3.Up * 0.18f;
         _ringAge[_ring] = 0f;
         _rings[_ring].Visible = true;

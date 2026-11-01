@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2128 spec table rows: **1517 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 454 rows of the changes document.
+Scanned 2130 spec table rows: **1519 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 454 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,14 +52,14 @@ Scanned 2128 spec table rows: **1517 tagged**, 441 not tagged (read from data wi
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
 | Core simulation (provisional values) | 256 | 240 | 213 | 27 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 107 | 100 | 61 | 11 | 0 |
-| **All areas** | **1517** | 1289 | 1214 | 431 | 38 |
+| Ork faction | 109 | 102 | 61 | 12 | 0 |
+| **All areas** | **1519** | 1291 | 1214 | 432 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 701 |
+| kind: ours | 703 |
 | confidence: low | 571 |
 | confidence: medium | 515 |
 | kind: interpretation | 335 |
@@ -75,7 +75,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: user's knowledge | 26 |
 | kind: approximation | 22 |
 | kind: placeholder | 22 |
-| notes: estimate | 19 |
+| notes: estimate | 20 |
 | notes: placeholder | 19 |
 | kind: gap (not reproduced) | 17 |
 | notes: open question | 16 |
@@ -2446,6 +2446,13 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-270641A7` | Grunt and bark spacing of one enemy | grunt every 2.5 to 5 s (the data's clips carry one about every 1.2 s; thinned for a crowd), bark every 6 to 14 s (s) | kind: ours; confidence: medium | ours | Grunt and bark spacing of one enemy: compare with SM1 by listening A/B at the same distance and state. Ours: grunt every 2.5 to 5 s (the data's clips carry one about every 1.2 s… | ☐ |
 | `R-6FC2CF1A` | Hurt grunt spacing of one enemy | 1 (s) | kind: ours; confidence: medium | ours | Hurt grunt spacing of one enemy: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1. | ☐ |
 | `R-86B9A918` | Impact surfaces | a gun's or blow's hit on a Marine plays on `armour`, a miss on `stone`, whatever is really there | kind: ours; confidence: low | ours | Impact surfaces: compare with SM1 by feel or video. Ours: a gun's or blow's hit on a Marine plays on armour, a miss on stone… | ☐ |
+
+*Spec section: Musou Mode: no Gretchin, flashes behind walls (fix/orks-and-spawn-lights; client and simulation, Musou Mode only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-376BD3E5` | Fodder mix | Boyz **0.70**, Shoota Boyz **0.30**, no Gretchin; the waves' Gretchin shares go to the Boyz; head counts unchanged (share) | kind: ours | owner 2026-11-02 | Fodder mix: compare with SM1 by listening A/B at the same distance and state. Ours: Boyz 0.70, Shoota Boyz 0.30, no Gretchin; the waves' Gretchin shares… | ☐ |
+| `R-9738BA5B` | Flash lights need a clear line to the camera | an effect's or blast's flash with a wall between it and the camera draws no light; the last **1** m counts as clear; map lamps are not affected (m) | kind: ours; notes: estimate | owner 2026-11-02, the spawn area's flashing | Flash lights need a clear line to the camera: compare with SM1 by measuring on a flat spot of the same map. Ours: an effect's or blast's flash with a wall between it and the camera… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 

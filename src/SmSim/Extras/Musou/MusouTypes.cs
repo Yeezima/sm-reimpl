@@ -165,9 +165,9 @@ public sealed record MusouRules
         // Totals and caps from the design; the mixes ours.
         new(80, 80, [(MusouEnemyType.Boy, 0.7f), (MusouEnemyType.ShootaBoy, 0.3f)]),
         new(120, 120, [(MusouEnemyType.Boy, 0.55f), (MusouEnemyType.ShootaBoy, 0.3f), (MusouEnemyType.ArdBoy, 0.15f)]),
-        new(160, 160, [(MusouEnemyType.Boy, 0.45f), (MusouEnemyType.ShootaBoy, 0.25f), (MusouEnemyType.ArdBoy, 0.15f), (MusouEnemyType.Gretchin, 0.15f)], Nobs: 2),
-        new(220, 200, [(MusouEnemyType.Boy, 0.35f), (MusouEnemyType.ShootaBoy, 0.25f), (MusouEnemyType.ArdBoy, 0.15f), (MusouEnemyType.Gretchin, 0.1f), (MusouEnemyType.ChaosMarine, 0.15f)], Nobs: 3),
-        new(300, 250, [(MusouEnemyType.Boy, 0.3f), (MusouEnemyType.ShootaBoy, 0.2f), (MusouEnemyType.ArdBoy, 0.15f), (MusouEnemyType.Gretchin, 0.15f), (MusouEnemyType.ChaosMarine, 0.2f)], Nobs: 4),
+        new(160, 160, [(MusouEnemyType.Boy, 0.6f), (MusouEnemyType.ShootaBoy, 0.25f), (MusouEnemyType.ArdBoy, 0.15f)], Nobs: 2),
+        new(220, 200, [(MusouEnemyType.Boy, 0.45f), (MusouEnemyType.ShootaBoy, 0.25f), (MusouEnemyType.ArdBoy, 0.15f), (MusouEnemyType.ChaosMarine, 0.15f)], Nobs: 3),
+        new(300, 250, [(MusouEnemyType.Boy, 0.45f), (MusouEnemyType.ShootaBoy, 0.2f), (MusouEnemyType.ArdBoy, 0.15f), (MusouEnemyType.ChaosMarine, 0.2f)], Nobs: 4),
     ];
 
     // Last: static fields initialise in order, and the default needs the tables above.

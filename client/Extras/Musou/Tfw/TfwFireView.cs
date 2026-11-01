@@ -166,7 +166,7 @@ public partial class NetworkView
         GD.Print($"tfw fire: {a.Systems.Count} of {FxNames.Length} effects, crater {(a.Decals.Count > 0 ? "yes" : "no")}, aircraft {(a.Aircraft is null ? "no" : a.Aircraft.MeshName)}");
         foreach (string note in a.Notes.Take(10)) GD.Print("  tfw fire note: " + note);
         if (!draw) return;
-        _tfwCloud = new TfwBlastCloud { Name = "TfwBlastCloud" };
+        _tfwCloud = new TfwBlastCloud { Name = "TfwBlastCloud", LightSeen = MusouLightSeen };
         AddChild(_tfwCloud);
         if (TfwFireRules.RunsEnabled) _tfwAircraft = TfwBuildAircraft(a.Aircraft, a.Gun);
     }

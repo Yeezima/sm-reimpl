@@ -3857,3 +3857,10 @@ Musou Mode's enemies sound with the original events through `SoundSystem`, so th
 | Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
 |---|---|---|---|---|---|---|---|
 | Commander status text | font size **14** (the position letters 40), shown only within **6** degrees of the crosshair | points, degrees | per frame | `TfwMarkers` | owner 2026-11-02 | ours | estimate |
+
+### Musou Mode: no Gretchin, flashes behind walls (fix/orks-and-spawn-lights; client and simulation, Musou Mode only)
+
+| Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Fodder mix | Boyz **0.70**, Shoota Boyz **0.30**, no Gretchin; the waves' Gretchin shares go to the Boyz; head counts unchanged | share | per spawn | `TfwBattleRules`, `MusouRules` | owner 2026-11-02 | ours | decided |
+| Flash lights need a clear line to the camera | an effect's or blast's flash with a wall between it and the camera draws no light; the last **1** m counts as clear; map lamps are not affected | m | per frame | `MusouLightSeen` | owner 2026-11-02, the spawn area's flashing | ours | estimate |

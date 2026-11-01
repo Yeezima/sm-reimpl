@@ -114,6 +114,8 @@ public sealed partial class FxPlayer : Node3D
     /// <summary>Live shot, hit and explosion effects (not the ambient map ones): what the <c>MaxEffects</c> cap counts.</summary>
     public int ShotEffectCount => _effects.Count - _ambientCount;
     readonly List<LightRequest> _lights = new();
+    /// <summary>When set, a flash at a place this says the camera cannot see draws no light (Godot space; the map's lamps are not asked). The lights cast no shadows, so a blast behind a wall would light the room in front of it.</summary>
+    public Func<Vector3, bool>? LightFilter;
     readonly OmniLight3D[] _lightNodes = new OmniLight3D[MaxLights];
     readonly Dictionary<string, Texture2D?> _decalTextures = new(StringComparer.OrdinalIgnoreCase);
     readonly HashSet<string> _missing = new(StringComparer.Ordinal);
@@ -777,6 +779,7 @@ public sealed partial class FxPlayer : Node3D
         float range = At(n.AttenEnd, t, 4f) * c.S;
         if (range < 0.3f || intensity <= 0f) return;
         var pos = c.Pos + c.B * (new Vector3(At(n.OffX, t, 0f), At(n.OffY, t, 0f), At(n.OffZ, t, 0f)) * c.S);
+        if (!n.Looping && LightFilter is { } seen && !seen(pos)) return;
         float fade = n.Looping ? 1f : 1f - t;
         float energy = intensity * 1.6f * fade;
         _lights.Add(new LightRequest { Pos = pos, Colour = new Color(col.R, col.G, col.B), Energy = energy, Range = range, Priority = energy * range / (1f + _camPos.DistanceTo(pos)) });
