@@ -322,6 +322,7 @@ public partial class NetworkView : Node3D
                 MeleeLock = !NoMeleeLock,   // feel/melee-lock (NetworkView.MeleeLock.cs)
                 Bot = _bot,   // protocol 37: the Hello marks a test bot (the server's --bot-damage-scale)
                 Observer = Observe,   // protocol 46: a spectator (NetworkView.Observer.cs)
+                StallKeepAlive = !NoStallKeepAlive,   // fix/stall-keepalive: a blocked main thread no longer gets the player timed out (NetworkView.Stall.cs)
             };
             // The front end's perks, looks and emblems (customizer, T8); a replayed demo keeps its recorded Hello.
             if (_demoPlayback is null) clientOptions = SmClient.FrontEnd.FrontEndLaunch.WithProfile(clientOptions);
@@ -412,8 +413,11 @@ public partial class NetworkView : Node3D
 
     public override void _Process(double delta)
     {
+        // fix/stall-keepalive: humans have the watchdog too (a freeze of theirs is then in godot.log), reporting from 3 s; bots and --frame-profile as before (2 s, and the optional file).
         if (_bot || FrameProfileOn) _watchdog ??= new FrameWatchdog(_className ?? "bot", System.Environment.GetEnvironmentVariable("SM_WATCHDOG_FILE") is { Length: > 0 } wf ? wf + "." + System.Environment.ProcessId + ".log" : null) { Profile = FrameProfileOn ? NewFrameProfile() : null };
+        else _watchdog ??= new FrameWatchdog("player", null, FrameWatchdog.HumanStallSeconds);
         Ph("frame start");
+        StallFrameStart();   // fix/stall-keepalive (NetworkView.Stall.cs)
         _frameNo = (long)Engine.GetProcessFrames();   // qc/reference-pass review: read once per frame (the sprint edges' staleness)
         ProcessFrame(delta);
         _watchdog?.Frame();
@@ -442,6 +446,7 @@ public partial class NetworkView : Node3D
         DemoBeforeUpdate(delta);   // M40 T0: a replayed demo advances its clock by this frame and sets the recorded view
         LatencyProbeBeforeUpdate();   // feel/controls test aid (--latency-probe)
         _client.Update(SampleInput, EarlyTickWanted);   // feel/controls: an input edge runs the next tick now (NetworkView.Controls.cs)
+        StallFrameUpdated();   // fix/stall-keepalive
         DemoAfterUpdate(delta);    // M40 T0: records the view / ends the replay
         PadTestFrame();   // --pad-test (NetworkView.GamepadTest.cs)
         if (_client.Status != ClientStatus.Connected)
@@ -451,9 +456,7 @@ public partial class NetworkView : Node3D
             if (_connectedFor > 0 && !_goneNoted)
             {
                 _goneNoted = true;
-                GD.PrintErr($"t {_connectedFor:F1} s: the connection is gone ({_client.Status}); frames since the last snapshot are not sent. " +
-                            (_watchdog is { } w ? $"Longest frame so far {w.LongestFrameSeconds:F1} s (server and client time out after 5 s without a frame). " : "") +
-                            (_bot ? "The bot ends." : ""));
+                GD.PrintErr(ConnectionGoneText() + (_bot ? " The bot ends." : ""));   // fix/stall-keepalive: a freeze of the client or a silent server (NetworkView.Stall.cs)
                 if (_bot) GetTree().Quit(3);
             }
             if (_client.Status == ClientStatus.Rejected && !_goneNoted)
@@ -475,6 +478,7 @@ public partial class NetworkView : Node3D
         }
         if (_connectedFor == 0) GD.Print($"connected as player {_client.PlayerId}; handshake round trip {_client.HandshakeRoundTrip.TotalMilliseconds:F0} ms; map '{_client.MapName}'");
         _connectedFor += delta;
+        StallTestFreeze();   // fix/stall-keepalive test aid (--test-freeze-at)
         MemoryReportFrame();   // perf/lean-bots: one memory line (bots at 30 s; --mem-report [s]) (NetworkView.Lean.cs)
 
         if (Observe) { ObserverFrame(delta); return; }   // protocol 46: a spectator draws the world without a player of its own (NetworkView.Observer.cs)

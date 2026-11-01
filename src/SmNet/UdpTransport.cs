@@ -114,7 +114,18 @@ public sealed class UdpClientTransport : IClientTransport, IDisposable
         _datagrams = new SocketDatagrams(_socket);
     }
 
-    public void Send(byte[] packet) { try { _socket.Send(packet); } catch (SocketException) { } }
+    readonly object _sendLock = new();
+
+    /// <summary>Safe from a second thread beside the main thread's sends (fix/stall-keepalive): one datagram at a time; a send after <see cref="Dispose"/> is dropped.</summary>
+    public void Send(byte[] packet)
+    {
+        lock (_sendLock)
+        {
+            try { _socket.Send(packet); } catch (Exception e) when (e is SocketException or ObjectDisposedException) { }
+        }
+    }
+
+    public bool ThreadSafeSend => true;
 
     public bool TryReceive(out byte[] packet)
     {
