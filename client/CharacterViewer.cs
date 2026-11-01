@@ -855,6 +855,7 @@ public partial class CharacterViewer : Node3D
         if (_entryFootLock) { if (keep > 0f) EntryFootLock(local); else _entryFootLock = false; }
         _clipEntryKeep = keep;   // anim/melee-flow: the melee variant layer fades in with the entry (CharacterViewer.Layers.cs)
         ApplyPoseLayer(stanceMode: false);
+        _lockSampled = local; _lockSampledAnimation = _animation;
         ApplyClipFootLock();   // anim/melee-flow (CharacterViewer.ClipFootLock.cs): the feet the clip puts down stay where they were put down
         RecordApplied();   // animation pass 3 (CharacterViewer.Transitions.cs)
         DrawBones();

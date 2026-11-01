@@ -499,7 +499,7 @@ public static class MeleeLock
         if (m.Reach is not { } reach || reach.Variants.Count == 0 || !(to > from)) return 0f;
         float duration = m.Duration;
         var (low, high) = reach.Range;
-        float k = c.LungeScale;   // feel/melee-charge-2: forward motion × the lunge scale (an estimate, owner's request)
+        float k = c.LungeScale * m.LungeFactorApplied;   // feel/melee-charge-2: forward motion × the lunge scale (an estimate, owner's request); anim/hammer-swing: × the strike's own factor (the hammer's light strikes)
         if (toTarget is not { } offset)
         {
             float d0 = Math.Clamp(reach.DefaultDistance, low, high);

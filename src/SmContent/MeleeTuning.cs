@@ -40,6 +40,11 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         /// <summary>sim/stomp-in-place: the blast strikes of this map (the heavy classes' stomp) keep the body in place (<see cref="MeleeStep.InPlace"/>; no root-motion lunge).</summary>
         public bool InPlaceStomp { get; init; }
         /// <summary>
+        /// anim/hammer-swing (owner, 2026-11-01): the factor on the forward lunge of this weapon's light (standard) strikes on top of <see cref="SimConfig.MeleeLungeScale"/>
+        /// (<see cref="MeleeStep.LungeFactor"/>); 1: none. The thunder hammer's and the daemon maul's: <see cref="HammerLightLungeFactor"/>.
+        /// </summary>
+        public float LightLungeFactor { get; init; } = 1f;
+        /// <summary>
         /// Weapons C: per light attack, the heavy strike (1-based) a heavy press in its combo window chains to; 0 (or missing): the old rule
         /// (strike n + 1 after attack n), -1: none (<see cref="MeleeStep.HeavyNext"/>; read off the graph's <c>BTN_Melee_Stun</c> transitions).
         /// </summary>
@@ -180,7 +185,19 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         YNext = [4, 4, 5, 0, 0],
         YComboBranches = ["BRANCH_To_Slam"],
         ExtendedRules = true,
+        LightLungeFactor = HammerLightLungeFactor,
     };
+
+    /// <summary>
+    /// anim/hammer-swing (owner, 2026-11-01: "the step forward distance for the standard melee swings needs to be reduced slightly, maybe by 1 to 2 meters. You can also judge it"):
+    /// the hammer's three light strikes lunge this much of the lunge every melee weapon has (<see cref="SimConfig.MeleeLungeScale"/> 1.625 x 0.82 = 1.3325 times the clip's root motion).
+    /// Measured with no target in a live bot run, in the chain pressed as soon as each combo window opens, before: 7.94, 8.51 and 7.35 m (strike 1, 2, 3); after: 6.5, 7.0, 6.0 m
+    /// (1.4, 1.5 and 1.3 m less; over a whole clip 1.8, 1.7 and 1.3 m less). An **estimate (owner's knowledge of the size, our value)**, to review in a playtest.
+    /// </summary>
+    public const float HammerLightLungeFactor = 0.82f;
+
+    /// <summary>Test aid: the environment variable <c>SM_OLD_HAMMER_LUNGE=1</c> (set for the server and the client alike) restores the hammer's lunge before anim/hammer-swing (factor 1), for before / after runs on one build.</summary>
+    static readonly bool OldHammerLunge = Environment.GetEnvironmentVariable("SM_OLD_HAMMER_LUNGE") == "1";
 
     /// <summary>
     /// The Devastator's and the Havoc's melee (Weapons C): their core ability <c>sm_mp_core_abil_heavy_evade</c> (both races) with the
@@ -240,7 +257,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             var (step, animation) = Step(weapon.Sequencers[i], weapon.Abilities[i]);
             // Weapons C: where the graph leaves this attack for a heavy strike, and whether a light press goes on from it.
             int heavyNext = i < weapon.LightHeavyNext.Length ? weapon.LightHeavyNext[i] : 0;
-            step = step with { HeavyNext = Math.Max(-1, heavyNext), StringEnd = !weapon.LoopLights && i == weapon.Sequencers.Length - 1 };
+            step = step with { HeavyNext = Math.Max(-1, heavyNext), StringEnd = !weapon.LoopLights && i == weapon.Sequencers.Length - 1, LungeFactor = OldHammerLunge ? 1f : weapon.LightLungeFactor };
             steps.Add(step);
             animations.Add(animation);
         }
