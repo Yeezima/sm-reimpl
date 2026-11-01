@@ -71,6 +71,7 @@ public partial class GuardsmanTestView : Node3D
 
     public override void _Ready()
     {
+        if (_gameDir.Length == 0) { GD.PrintErr("guardsman test: no game folder"); GetTree().Quit(1); return; }
         var notes = new List<string>();
         _name = _args.GetValueOrDefault("name") ?? "guardsman";
         if (_name.Length == 0 || _name.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0 || _name.Contains("..", StringComparison.Ordinal)) _name = "guardsman";
@@ -78,12 +79,12 @@ public partial class GuardsmanTestView : Node3D
         foreach (var x in (_args.GetValueOrDefault("shots") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             if (float.TryParse(x, NumberStyles.Float, CultureInfo.InvariantCulture, out var v)) _shots = [.. _shots, v];
         var repoRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
-        string fullOut = System.IO.Path.GetFullPath(_outDir);
-        if (SmFormats.InstallPaths.IsWithin(fullOut, repoRoot) || SmFormats.InstallPaths.IsWithin(fullOut, _gameDir))
-        { GD.PrintErr($"guardsman test: {_outDir} is inside the repository or the game folder; screenshots refused"); _shots = []; }
 
         try
         {
+            string fullOut = System.IO.Path.GetFullPath(_outDir);   // a bad --out throws: reported below
+            if (SmFormats.InstallPaths.IsWithin(fullOut, repoRoot) || SmFormats.InstallPaths.IsWithin(fullOut, _gameDir))
+            { GD.PrintErr($"guardsman test: {_outDir} is inside the repository or the game folder; screenshots refused"); _shots = []; }
             var rig = RigAssets.Load(_gameDir, Profile, notes);
             GD.Print($"guardsman test: rig {RigEntry}: {rig.Rig.Skeleton.BoneNames.Count} bones, {rig.Rig.AnimationNames.Count} animations");
             if (_args.ContainsKey("list-clips"))

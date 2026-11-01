@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1961 spec table rows: **1381 tagged**, 422 not tagged (read from data with high confidence), 158 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 422 rows of the changes document.
+Scanned 1962 spec table rows: **1382 tagged**, 422 not tagged (read from data with high confidence), 158 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 422 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 1961 spec table rows: **1381 tagged**, 422 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 183 | 168 | 152 | 25 | 1 |
+| Core simulation (provisional values) | 184 | 169 | 153 | 25 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 78 | 72 | 40 | 8 | 0 |
-| **All areas** | **1381** | 1158 | 1106 | 413 | 38 |
+| **All areas** | **1382** | 1159 | 1107 | 413 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 587 |
+| kind: ours | 588 |
 | confidence: low | 519 |
-| confidence: medium | 470 |
+| confidence: medium | 471 |
 | kind: interpretation | 330 |
 | notes: ours | 302 |
 | confidence: none (low) | 117 |
@@ -1790,7 +1790,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (183)
+### Core simulation (provisional values) (184)
 
 *Spec section: Provisional values in use*
 
@@ -1941,6 +1941,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-170F2A45` | Recoil | `IG_RNG_Fire_S_01` laid over the pose at each shot (0.167 s), skinned tier only (clip) | kind: ours; confidence: medium | the clip is the install's; far men show none (ours) | Recoil: compare with SM1 by feel or video. Ours: IG_RNG_Fire_S_01 laid over the pose at each shot (0.167 s), skinned… | ☐ |
 | `R-42F2F2C3` | Hurt reaction | `IG_REC_Light_Front_Hi_Left`, whole, only on a man standing; a moving man shows nothing (clip) | kind: estimate; confidence: low; notes: ours | ours: hit direction is not on the wire | Hurt reaction: compare with SM1 by watching the reaction and timing it frame by frame. Ours: IG_REC_Light_Front_Hi_Left, whole, only on a man standing; a moving… | ☐ |
 | `R-851CB6C3` | Death | a death clip by id and tick out of `IG_DIE_Basic_01`, `_03`, `IG_DIE_FallForward_01`, `IG_DIE_Headshot_01`, `IG_REC_Death_02`, last frame held, sinks after 3 s over 1.5 s (no ragdoll yet) (clips, s) | kind: ours; confidence: low | the owner's order for now; the rule is ours | Death: compare with SM1 by feel or video. Ours: a death clip by id and tick out of IG_DIE_Basic_01, _03… | ☐ |
+| `R-C61BC6E8` | One body a death | a man's death is remembered by id for 90 ticks from the first report (Death event or Dying record); later reports add no body and his live records are not drawn (ticks) | kind: ours; confidence: medium | ours: longer than the 60 ticks a slot stays Dying | One body a death: compare with SM1 by feel or video. Ours: a man's death is remembered by id for 90 ticks from the first report… | ☐ |
 | `R-922C604C` | Clip fade | 0.15 (s) | kind: ours; confidence: medium | ours | Clip fade: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 0.15. | ☐ |
 | `R-72A7F09E` | Shot effects' reach | muzzle within 45 m of the camera, tracer within 90 m, at most 12 shots with effects a frame (m, shots) | kind: ours; confidence: medium | ours: `FxPlayer` keeps 160 effects | Shot effects' reach: compare with SM1 by measuring on a flat spot of the same map. Ours: muzzle within 45 m of the camera, tracer within 90 m, at most 12… | ☐ |
 
