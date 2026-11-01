@@ -272,7 +272,7 @@ public class TfwRunTests
         TfwRig.KillAll(w);
         TfwRig.Steps(w, 1);
         int lost = guards.Lost, kills = battle.OrksKilled;
-        Assert.True(kills >= TfwBattleRules.Garrison, $"{kills}");
+        Assert.True(kills >= TfwTestArena.StartAlive, $"{kills}");
         Assert.True(lost >= 3);
 
         TfwRig.Command(w, TfwCommand.RequestPickup);
@@ -445,8 +445,8 @@ public class TfwRunTests
         Assert.Equal(0, new World(TfwRig.Config).TfwSmiteForTests(Human, Vector3.Zero, 500f));
         var battle = TfwRig.Deploy(w);
         int before = w.Musou!.Alive;
-        Assert.Equal(TfwBattleRules.Garrison, w.TfwSmiteForTests(Human, battle.Layout.Positions[0], 15f));
-        Assert.Equal(before - TfwBattleRules.Garrison, w.Musou.Alive);
+        Assert.Equal(TfwBattleRules.CrowdStart(0, 3), w.TfwSmiteForTests(Human, battle.Layout.Positions[0], 15f));
+        Assert.Equal(before - TfwBattleRules.CrowdStart(0, 3), w.Musou.Alive);
     }
 
     [Fact]
@@ -671,7 +671,7 @@ public class TfwRunTests
         var nav = Assert.IsType<NavGraph>(h.Server.World.Musou!.Nav);
         var w = TfwRig.War(nav);
         var battle = TfwRig.Deploy(w);
-        Assert.Equal(3 * TfwBattleRules.Garrison, w.Musou!.Alive);
+        Assert.Equal(TfwTestArena.StartAlive, w.Musou!.Alive);
         TfwRig.Secure(w, battle, 0);
         TfwRig.Secure(w, battle, 1);
         Assert.Equal((6, 5), (w.Tfw!.Transport, w.Tfw.Supplies));

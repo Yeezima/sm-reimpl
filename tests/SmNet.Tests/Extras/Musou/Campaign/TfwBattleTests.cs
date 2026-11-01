@@ -99,11 +99,11 @@ public class TfwBattleTests
     public void Squads_follow_the_imperial_strength(double imperial, int squads) => Assert.Equal(squads, TfwBattleRules.SquadsAt(imperial));
 
     [Fact]
-    public void The_defenders_hold_until_a_target_comes_near_and_a_hurt_one_wakes_its_position()
+    public void The_crowds_hold_until_a_target_comes_near_and_a_hurt_one_wakes_its_crowd()
     {
         var w = TfwRig.War();
         var battle = TfwRig.Deploy(w);
-        Assert.Equal(3 * TfwBattleRules.Garrison, w.Musou!.Alive);
+        Assert.Equal(TfwTestArena.StartAlive, w.Musou!.Alive);
         var at = new MusouEnemy[MusouSim.Capacity];
         int n = w.Musou.CopyTo(at);
         Assert.All(at.Take(n), e => Assert.True(w.Musou.Leashed(e.Id)));
@@ -111,7 +111,7 @@ public class TfwBattleTests
         Assert.Equal(TfwPositionState.Held, battle.Objectives[1].State);       // all three live
         w.Musou.Damage(at[0].Id, TfwRig.Human, 1f, Vector3.Zero, out _);
         int free = at.Take(n).Count(e => !w.Musou.Leashed(e.Id));
-        Assert.Equal(TfwBattleRules.Garrison, free);
+        Assert.Equal(TfwBattleRules.CrowdStart(0, 3), free);
     }
 
     [Fact]
@@ -218,7 +218,7 @@ public class TfwBattleTests
         Assert.Equal(MusouPhase.Campaign, w.Musou.Director.Phase);
         Assert.Equal(battle.BossId, w.Musou.Director.BossId);
         Assert.Equal(TfwBattleRules.CommanderHealth, w.Musou.Director.BossMaxHealth);
-        Assert.Equal(7, w.Musou.Alive);                                    // him, a Nob and five 'Ard Boyz
+        Assert.Equal(7 + TfwBattleRules.CrowdStartFill, w.Musou.Alive);   // him, a Nob and five 'Ard Boyz, and the HQ's crowd
     }
 
     [Fact]

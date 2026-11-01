@@ -276,7 +276,7 @@ public partial class NetworkView
     }
 
     /// <summary>
-    /// Test aid <c>--tfw-test-fight</c> (with <c>--tfw-test &lt;dir&gt;</c>): the player deploys, walks to the point nearest it and stands near it looking at it, for <c>--tfw-fight-seconds</c> (default 90), and a PNG goes to the
+    /// Test aid <c>--tfw-test-fight</c> (with <c>--tfw-test &lt;dir&gt;</c>): the player deploys, walks to the point nearest it and stands near it looking at it (<c>--tfw-fight-hold</c>: stays at the landing), for <c>--tfw-fight-seconds</c> (default 90), and a PNG goes to the
     /// folder every 6 s of a windowed run. It fires nothing: the fight on the screen is the allies' and the Orks'.
     /// </summary>
     async Task TfwTestFight()
@@ -295,7 +295,8 @@ public partial class NetworkView
             return best;
         }
         var point = Nearest();
-        await TfwPathTo(point, "walked towards the nearest point", 45.0, () => Num.Vector3.Distance(client.Predicted.Position, point) < 26f || !client.Predicted.Alive);
+        if (!CmdFlag("tfw-fight-hold"))   // --tfw-fight-hold: stay where the landing put the player (the crowds' swarms come to it)
+            await TfwPathTo(point, "walked towards the nearest point", 45.0, () => Num.Vector3.Distance(client.Predicted.Position, point) < 26f || !client.Predicted.Alive);
         int shot = 1;
         while (_connectedFor - start < seconds && TfwNow.Phase == TfwRunPhase.Battle)
         {
