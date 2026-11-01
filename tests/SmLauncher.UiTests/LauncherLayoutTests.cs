@@ -77,7 +77,7 @@ public class LauncherLayoutTests
         Assert.Equal(HighDpiMode.PerMonitorV2, OnUiThread(() => Application.HighDpiMode));
 
     [Theory]
-    [InlineData(1.0, LayoutCheck.OwnerWidth)]      // the owner's screenshot: a 735 px window, the mouse over "Host a match on this PC"
+    [InlineData(1.0, LayoutCheck.OwnerWidth)]      // the owner's screenshot: a 735 px window, the mouse over PLAY
     [InlineData(1.5, null)]
     public void The_live_window_always_equals_a_full_repaint(double scale, int? width)
     {

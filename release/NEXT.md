@@ -12,3 +12,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 
 - Musou Mode: the Thunderhawk's troop bay now ends in an invisible wall at the top of the ramp, so you can no longer walk or jump down it and see the unfinished scene beyond. The planet still shows through.
 - The menus have a new background picture, and the Thunderhawk hub shows a new planet picture.
+- The launcher no longer has the "Host a match on this PC", "Join a server..." and "Host for friends (LAN)" buttons: hosting and joining are done in the game now. PLAY is the only game button left.

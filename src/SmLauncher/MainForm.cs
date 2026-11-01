@@ -54,9 +54,6 @@ sealed class MainForm : Form
     readonly DarkLabel _progressText = new() { AutoSize = true };
     readonly Button _btnCancel = new() { Text = "Cancel", AutoSize = true };
     readonly Button _btnPlay = new() { Text = "PLAY", AutoSize = false, Size = new Size(150, 44), Font = new Font("Segoe UI", 12f, FontStyle.Bold) };
-    readonly Button _btnHost = new() { Text = "Host a match on this PC", AutoSize = true, Height = 44 };
-    readonly Button _btnJoin = new() { Text = "Join a server...", AutoSize = true, Height = 44 };
-    readonly Button _btnLan = new() { Text = "Host for friends (LAN)", AutoSize = true, Height = 44 };
     readonly DarkCheckBox _cbSafeMode = new() { AutoSize = true, Text = "Old GPU / safe mode (simpler graphics for old graphics cards)", Margin = new Padding(0, 10, 3, 3) };
     readonly LinkLabel _lnkCheck = Link("Check files");
     readonly LinkLabel _lnkRollback = Link("Roll back to the previous version");
@@ -259,9 +256,7 @@ sealed class MainForm : Form
         _btnUpdate.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
         var buttons = new TileFlow { AutoSize = true, Dock = DockStyle.Top, WrapContents = true, Margin = new Padding(0, 10, 0, 0) };
         Accentuate(_btnPlay, PlayGreen);
-        // sized by their text in the font they really get (a width measured here, before the display's scaling, would be scaled a second time)
-        foreach (var b in new[] { _btnHost, _btnJoin, _btnLan }) { b.AutoSize = true; b.AutoSizeMode = AutoSizeMode.GrowAndShrink; b.Padding = new Padding(8, 0, 8, 0); b.MinimumSize = new Size(0, 44); }
-        buttons.Controls.AddRange([_btnPlay, _btnHost, _btnJoin, _btnLan]);
+        buttons.Controls.Add(_btnPlay);
         for (int i = 0; i < 5; i++) grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         grid.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         grid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -280,8 +275,8 @@ sealed class MainForm : Form
         Wrap(_notice);
         Wrap(_cbSafeMode);          // the check box's text wraps inside its row instead of running past the window's edge (narrow window, large text)
         KeepRowsApart(grid, _notes, _main);
-        buttons.TabIndex = 0; _cbSafeMode.TabIndex = 1; updateRow.TabIndex = 2; _notes.TabIndex = 3;      // tab order: PLAY first, then Host, Join, LAN, safe mode, Update, the notes
-        _btnPlay.TabIndex = 0; _btnHost.TabIndex = 1; _btnJoin.TabIndex = 2; _btnLan.TabIndex = 3;
+        buttons.TabIndex = 0; _cbSafeMode.TabIndex = 1; updateRow.TabIndex = 2; _notes.TabIndex = 3;      // tab order: PLAY first, then safe mode, Update, the notes
+        _btnPlay.TabIndex = 0;
         _main.Controls.Add(grid);
 
         // the set-up panel (first run)
@@ -357,9 +352,6 @@ sealed class MainForm : Form
         _btnCancel.Click += (_, _) => { _cts?.Cancel(); _btnCancel.Enabled = false; };
         _btnPlay.Click += (_, _) => PlayGame();
         _cbSafeMode.CheckedChanged += (_, _) => SaveSafeMode();
-        _btnHost.Click += (_, _) => Start(GameStart.Host, "Starting a server only this PC can join (its window lists what to do next)...");
-        _btnLan.Click += (_, _) => Start(GameStart.HostLan, "Starting a server other PCs can join (Windows Firewall may ask once)...");
-        _btnJoin.Click += (_, _) => Join();
         _lnkCheck.LinkClicked += async (_, _) => await CheckFilesAsync();
         _lnkRollback.LinkClicked += (_, _) => Rollback();
         _lnkRelease.LinkClicked += (_, _) => GameStart.OpenUrl(ReleasePage());
@@ -589,7 +581,7 @@ sealed class MainForm : Form
     {
         bool playable = _playable;                     // cached by RefreshInstalled: this runs on every progress report
         bool locked = _busy && _busyPhase is not null and not UpdatePhase.Downloading;
-        foreach (var b in new[] { _btnPlay, _btnHost, _btnJoin, _btnLan }) b.Enabled = playable && !locked;
+        foreach (var b in new[] { _btnPlay }) b.Enabled = playable && !locked;
         _btnInstall.Enabled = !_busy;
         _btnBrowse.Enabled = !_busy;
     }
@@ -929,23 +921,6 @@ sealed class MainForm : Form
         catch (Exception e) { _log?.Write("watching the game: " + e.Message); }
     }
 
-    void Join()
-    {
-        string? dir = _updater?.CurrentDir();
-        if (dir is null || _layout is null) return;
-        var settings = Store.ReadSettings(_layout);
-        using var dialog = new JoinDialog(settings.LastServer ?? "127.0.0.1:27015");
-        if (dialog.ShowDialog(this) != DialogResult.OK || dialog.Address is not { } address) return;
-        try
-        {
-            settings.LastServer = address;
-            Store.WriteSettings(_layout, settings);
-            GameStart.Join(dir, address, _cbSafeMode.Checked);
-            SetLine($"Joining {address}...", Muted);
-        }
-        catch (Exception e) { SetLine(e.Message, Bad); }
-    }
-
     // ---- check files, rollback, caches ----------------------------------------------------------------------------------------
 
     async Task CheckFilesAsync()
@@ -1085,11 +1060,22 @@ sealed class MainForm : Form
     internal Rectangle SafeModeRowBounds() => RectangleToClient(_cbSafeMode.Parent!.RectangleToScreen(_cbSafeMode.Bounds));
     internal void ToggleSafeModeForTest() => _cbSafeMode.Checked = !_cbSafeMode.Checked;
     internal void FocusSafeModeForTest(bool on) { if (on) _cbSafeMode.Focus(); else _btnPlay.Focus(); }
+    /// <summary>The real download path (BeginBusy, progress ticks, EndBusy) without a network: step 0 starts it, 1 a progress tick, 2 a tick with a long retry note, 3 ends it.</summary>
+    internal void BusyForTest(int step)
+    {
+        switch (step)
+        {
+            case 0: BeginBusy(UpdatePhase.Downloading); break;
+            case 1: OnProgress(new UpdateStatus(UpdatePhase.Downloading, "", 0.52, new DownloadProgress(81_000_000, 156_900_000, 1_400_000, TimeSpan.FromSeconds(54), 0, null))); break;
+            case 2: OnProgress(new UpdateStatus(UpdatePhase.Downloading, "", 0.6, new DownloadProgress(94_000_000, 156_900_000, 0, null, 2, "retrying after a short pause (the connection was reset)"))); break;
+            default: EndBusy(); break;
+        }
+    }
     internal Size PlayButtonSize() => _btnPlay.Size;
-    internal void HoverForTest(bool on, bool hostOnly = false)
+    internal void HoverForTest(bool on)
     {
         var m = typeof(Control).GetMethod(on ? "OnMouseEnter" : "OnMouseLeave", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
-        foreach (var b in hostOnly ? [_btnHost] : new[] { _btnHost, _btnJoin, _btnPlay }) m.Invoke(b, [EventArgs.Empty]);
+        m.Invoke(_btnPlay, [EventArgs.Empty]);
     }
 
     internal static readonly string[] DemoStates = ["idle", "checking", "offered", "downloading", "error", "setup"];
@@ -1124,7 +1110,7 @@ sealed class MainForm : Form
         _btnUpdate.Visible = false;
         _progressPanel.Visible = false;
         _lnkSelfUpdate.Visible = false;
-        foreach (var b in new[] { _btnPlay, _btnHost, _btnJoin, _btnLan }) b.Enabled = true;
+        foreach (var b in new[] { _btnPlay }) b.Enabled = true;
         foreach (var l in new[] { _lnkCheck, _lnkRollback, _lnkRelease, _lnkIssues, _lnkFolder, _lnkCaches }) l.Enabled = true;
         _cbSafeMode.Checked = true;
         switch (state)
@@ -1141,7 +1127,7 @@ sealed class MainForm : Form
                 _progressPanel.Visible = true;
                 _progress.Value = 430;
                 _progressText.Text = "Downloading: 438.8 MB of 1,020.4 MB (43 %) · 18.4 MB/s · about 32 s left · retrying after a short pause (the connection was reset)";
-                foreach (var b in new[] { _btnPlay, _btnHost, _btnJoin, _btnLan }) b.Enabled = false;
+                foreach (var b in new[] { _btnPlay }) b.Enabled = false;
                 break;
             case "error":
                 SetLine("Offline: the installed build can be played. The update check failed: The remote name could not be resolved: 'api.github.com'. An unfinished update is kept and continues when GitHub is reachable.", Warn);
@@ -1166,47 +1152,5 @@ sealed class MainForm : Form
     {
         if (disposing) { _lock?.Dispose(); _http.Dispose(); _cts?.Dispose(); }
         base.Dispose(disposing);
-    }
-}
-
-/// <summary>Asks for a server address (host or host:port; the default port is 27015).</summary>
-sealed class JoinDialog : Form
-{
-    readonly TextBox _box = new() { Width = 380 };
-    readonly DarkLabel _error = new() { AutoSize = true, ForeColor = Theme.BadText, MaximumSize = new Size(420, 0) };
-    public string? Address { get; private set; }
-
-    public JoinDialog(string initial)
-    {
-        SuspendLayout();          // scaled once at the end, with its contents (see MainForm)
-        Text = "Join a server";
-        Font = new Font("Segoe UI", 9.5f);
-        AutoScaleDimensions = new SizeF(96f, 96f);
-        AutoScaleMode = AutoScaleMode.Dpi;
-        FormBorderStyle = FormBorderStyle.FixedDialog;
-        MaximizeBox = MinimizeBox = false;
-        StartPosition = FormStartPosition.CenterParent;
-        AutoSize = true;
-        AutoSizeMode = AutoSizeMode.GrowAndShrink;
-        Padding = new Padding(12);
-        _box.Text = initial;
-        var ok = new Button { Text = "Join", DialogResult = DialogResult.None, AutoSize = true };
-        var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, AutoSize = true };
-        ok.Click += (_, _) =>
-        {
-            Address = ServerAddress.Normalise(_box.Text);
-            if (Address is null) { _error.Text = "Type an address such as 192.168.1.20 or 203.0.113.5:27015."; return; }
-            DialogResult = DialogResult.OK;
-        };
-        AcceptButton = ok;
-        CancelButton = cancel;
-        var layout = new TileFlow { FlowDirection = FlowDirection.TopDown, AutoSize = true, Dock = DockStyle.Fill };
-        var buttons = new TileFlow { AutoSize = true };
-        buttons.Controls.AddRange([ok, cancel]);
-        layout.Controls.AddRange([new DarkLabel { AutoSize = true, MaximumSize = new Size(420, 0), Text = "Server address (host or host:port; 127.0.0.1 = this PC):" }, _box, _error, buttons]);
-        Controls.Add(layout);
-        Theme.Apply(this);
-        ResumeLayout(false);
-        PerformLayout();
     }
 }

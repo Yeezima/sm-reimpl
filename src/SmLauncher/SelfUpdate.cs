@@ -170,29 +170,11 @@ static class Shortcuts
     }
 }
 
-/// <summary>Starts the active version's numbered launchers, or the game itself for Join.</summary>
+/// <summary>Starts the active version's "2 - Play.cmd".</summary>
 static class GameStart
 {
     /// <summary>"2 - Play.cmd": it starts the game and returns, so it runs without a console window.</summary>
     public static void Play(string versionDir, bool safeMode = false) => RunCmd(versionDir, 2, visible: false, safeMode, launcherWatches: true);
-    /// <summary>"3 - Host a match on this PC.cmd": the server's console window stays open while it runs.</summary>
-    public static void Host(string versionDir) => RunCmd(versionDir, 3, visible: true);
-    /// <summary>"5 - Host a match for friends (LAN).cmd".</summary>
-    public static void HostLan(string versionDir) => RunCmd(versionDir, 5, visible: true);
-
-    /// <summary>Join: the game with --connect, as "4 - Join a server by address.cmd" starts it (that script asks in a console; the launcher asks in its window).</summary>
-    public static void Join(string versionDir, string address, bool safeMode = false)
-    {
-        string game = Path.Combine(versionDir, PackageLayout.GameExe);
-        if (!File.Exists(game)) throw new FileNotFoundException("The game is missing from the installed build; use Check files.");
-        var psi = new ProcessStartInfo(game) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(game)! };
-        if (safeMode) foreach (var a in SafeModePolicy.EngineArgs) psi.ArgumentList.Add(a);   // Godot's own options go before "--"
-        psi.ArgumentList.Add("--");
-        foreach (var a in SafeModePolicy.ExtraGameArgs(safeMode)) psi.ArgumentList.Add(a);
-        psi.ArgumentList.Add("--connect");
-        psi.ArgumentList.Add(address);
-        Process.Start(psi)?.Dispose();
-    }
 
     /// <summary>
     /// hotfix/old-gpu: after "2 - Play.cmd" ran, finds the game it started and waits up to <see cref="SafeModePolicy.EarlyExitWindow"/> for it to end. Returns the exit code and how long it ran,
