@@ -17,7 +17,7 @@ namespace SmClient;
 /// </summary>
 public partial class TfwMapView : Node3D
 {
-    static readonly Color DestinationColor = new(0.25f, 0.6f, 1f), EquipmentColor = new(1f, 0.65f, 0.2f);
+    static readonly Color DestinationColor = new(0.25f, 0.6f, 1f), EquipmentColor = new(1f, 0.65f, 0.2f), RangeColor = new(0.35f, 1f, 0.45f);
 
     /// <summary>What the last <see cref="Build"/> drew: surfaces with their original texture of those the model has (28 in the install), 0 for the fallback shell.</summary>
     public static (int Textured, int Surfaces) LastModel { get; private set; }
@@ -44,9 +44,33 @@ public partial class TfwMapView : Node3D
         view.AddChild(ship);
         view.AddStation(hub.DestinationStation, DestinationColor);
         view.AddStation(hub.EquipmentStation, EquipmentColor);
+        view.AddStation(hub.RangeStation, RangeColor);
+        view.AddChild(new MeshInstance3D   // the Firing Range's button on the wall: a small lit plate (placeholder demonstration)
+        {
+            Name = "RangeButton",
+            Mesh = new BoxMesh { Size = new Vector3(0.1f, 0.5f, 0.35f) },
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = RangeColor, EmissionEnabled = true, Emission = RangeColor, EmissionEnergyMultiplier = 2f, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded },
+            Position = new Vector3(hub.RangeButton.X, hub.RangeButton.Y, hub.RangeButton.Z),
+            Rotation = new Vector3(0f, 0f, hub.ToWorld(new Num.Vector3(1f, 0f, 0f)).X < hub.ToWorld(Num.Vector3.Zero).X ? MathF.PI : 0f),
+        });
         view.AddLights(hub);
         var body = new StaticBody3D { Name = "HubRagdollWorld", CollisionLayer = Ragdoll.WorldLayer, CollisionMask = 0 };
         body.AddChild(new CollisionShape3D { Shape = new ConcavePolygonShape3D { Data = hub.Corners().Select(v => new Vector3(v.X, v.Y, v.Z)).ToArray(), BackfaceCollision = true } });
+        view.AddChild(body);
+        return view;
+    }
+
+    /// <summary>The Firing Range: a flat walled square (generated, placeholder demonstration) with its return pad, and its collision for the ragdolls' world.</summary>
+    public static Node3D BuildRange(TfwRange range, StandardMaterial3D ground)
+    {
+        var view = new TfwMapView { Name = "TfwRange" };
+        var material = (StandardMaterial3D)ground.Duplicate();
+        material.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
+        material.AlbedoColor = new Color(0.62f, 0.64f, 0.68f);
+        view.AddChild(new MeshInstance3D { Name = "RangeShell", Mesh = Shell(range.Corners()), MaterialOverride = material });
+        view.AddStation(range.ReturnStation, RangeColor);
+        var body = new StaticBody3D { Name = "RangeRagdollWorld", CollisionLayer = Ragdoll.WorldLayer, CollisionMask = 0 };
+        body.AddChild(new CollisionShape3D { Shape = new ConcavePolygonShape3D { Data = range.Corners().Select(v => new Vector3(v.X, v.Y, v.Z)).ToArray(), BackfaceCollision = true } });
         view.AddChild(body);
         return view;
     }
@@ -153,9 +177,10 @@ public partial class TfwMapView : Node3D
     static Vector3 ToVector(Num.Vector3 v) => new(v.X, v.Y, v.Z);
 
     /// <summary>The boxes as one flat-shaded surface. Godot's front faces wind clockwise, so each outward triangle is written a, c, b.</summary>
-    static ArrayMesh Shell(TfwHub hub)
+    static ArrayMesh Shell(TfwHub hub) => Shell(hub.Corners());
+
+    static ArrayMesh Shell(Num.Vector3[] corners)
     {
-        var corners = hub.Corners();
         var vertices = new Vector3[corners.Length];
         var normals = new Vector3[corners.Length];
         for (int t = 0; t + 2 < corners.Length; t += 3)

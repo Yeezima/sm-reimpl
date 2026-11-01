@@ -116,6 +116,7 @@ public sealed partial class TfwRun
         }
         WarTimeScale = (float)War.TimeScale;
         if (Ended) return;
+        RangeStep(w, rate);
         if (Phase == TfwRunPhase.Travel) { if (--TravelTicks <= 0) Land(w, rate); }
         else if (Phase is TfwRunPhase.Battle or TfwRunPhase.FinalAssault or TfwRunPhase.Pickup) Fight(w, rate);
         ActivePosition = Battle?.ActivePosition;
@@ -135,6 +136,8 @@ public sealed partial class TfwRun
                 case TfwCommand.ChangeClass: ChangeClass(w, player); break;   // TfwRun.Class.cs (M7)
                 case TfwCommand.ChooseReward: w.TfwChooseReward(player, c); break;
                 case TfwCommand.SelectSlot: w.TfwSelectSlot(player, c.Argument); break;
+                case TfwCommand.RangeGo: RangeGo(w, player); break;   // TfwRun.Range.cs
+                case TfwCommand.RangeBack: RangeBack(w, player); break;
                 case TfwCommand.Orbital: w.TfwOrbital(player, c.Point); break;   // World.TfwFire.cs: the server decides
                 case TfwCommand.FireTest: if (Fire.TestCommands) w.TfwFireForTests((c.Argument & 1) != 0, TfwFireRules.RunsEnabled && (c.Argument & 2) != 0, Field.Clamp(c.Point), w.TfwFireTestHeading(player, c.Point)); break;   // test aid (SM_TFW_FIRE_TEST)
                 default: Order(w, player, c); break;
@@ -155,6 +158,7 @@ public sealed partial class TfwRun
     {
         if (Phase != TfwRunPhase.Hub || lane > (byte)TfwLane.C || Transport < TfwBattleRules.DeployCost) return;
         if (TfwContracts.IsPuppet(player) || !w.Players.TryGetValue(player, out var p) || !p.Alive || !Field.Hub.Contains(p.Position)) return;
+        RangeEnd(w);   // a Deploy takes the whole company: the range is closed first and its field cleared
         Transport -= TfwBattleRules.DeployCost;
         TravelTicks = Math.Max(1, (int)MathF.Round(TfwBattleRules.TravelSeconds * rate));
         Deployed = true;

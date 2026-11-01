@@ -33,3 +33,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Musou Mode: you can start a new melee swing whenever you like by pressing melee again once the previous swing has hit, without shooting or waiting for it to finish.
 - Charges are no longer cancelled by movement keys: only hitting an enemy or a wall (the recoil), jumping, attacking or throwing ends one.
 - Musou Mode: calling an artillery strike with B now shows a thin red laser beam from your weapon to the target.
+- Musou Mode: Orks killed by artillery, frag grenades and plasma cannon blasts are now thrown by the explosion and tumble to the ground.
+- Musou Mode: a new button on the wall of the Thunderhawk's troop bay takes you, after a confirm, to the Firing Range, a plain walled 100 m square where 200 Orks keep coming at you, to try the artillery strike and other new things. A pad at the range brings you back.

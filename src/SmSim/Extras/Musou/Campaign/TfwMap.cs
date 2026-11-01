@@ -34,6 +34,11 @@ public sealed record TfwHub(Vector3 Centre)
     public Vector3 DestinationStation => OnFloor(TfwShip.Monitor);
     public Vector3 EquipmentStation => OnFloor(TfwShip.Panel);
 
+    /// <summary>The Firing Range's button: on the left wall's tech panel between the other two stations (ours, spec "The Firing Range"); its pad is on the floor before it.</summary>
+    public Vector3 RangeStation => OnFloor(RangeButtonModel);
+    public Vector3 RangeButton => ToWorld(new Vector3(TfwShip.LeftPanel, RangeButtonModel.Y, TfwShip.FloorZ + 1.3f));
+    static readonly Vector2 RangeButtonModel = new(-0.9f, 13.5f);
+
     /// <summary>Four Space Marine spawns in the middle of the corridor, facing the open ramp (south).</summary>
     public IReadOnlyList<SpawnPoint> Spawns => TfwShip.Spawns.Select(s => new SpawnPoint(OnFloor(s), TfwShip.RampYaw)).ToArray();
 
@@ -61,6 +66,14 @@ public sealed record TfwHub(Vector3 Centre)
     /// </summary>
     public static TfwHub Beyond(CollisionWorld level)
     {
+        var (lo, hi) = Extent(level);
+        float y = MathF.Floor(lo.Y) - TfwMap.HubClearance - MathF.Ceiling(TfwShip.Fore);
+        return new TfwHub(new Vector3(MathF.Round((lo.X + hi.X) / 2f), y, 0f));
+    }
+
+    /// <summary>The level's solid and deadly extent.</summary>
+    internal static (Vector3 Lo, Vector3 Hi) Extent(CollisionWorld level)
+    {
         var lo = Vector3.Min(level.Character.Min, level.Weapons.Min);
         var hi = Vector3.Max(level.Character.Max, level.Weapons.Max);
         foreach (var k in level.KillVolumes)
@@ -69,16 +82,65 @@ public sealed record TfwHub(Vector3 Centre)
             lo = Vector3.Min(lo, k.Center - new Vector3(reach, reach, k.HalfExtents.Z));
             hi = Vector3.Max(hi, k.Center + new Vector3(reach, reach, k.HalfExtents.Z));
         }
-        float y = MathF.Floor(lo.Y) - TfwMap.HubClearance - MathF.Ceiling(TfwShip.Fore);
-        return new TfwHub(new Vector3(MathF.Round((lo.X + hi.X) / 2f), y, 0f));
+        return (lo, hi);
     }
+}
+
+/// <summary>
+/// The Firing Range (the owner, 2026-11-02): the first blank map concept, a flat walled square of <see cref="Size"/> m on a side, generated in the same world east of the level (the server cannot change maps),
+/// a test ground for the artillery strike and the new features. <paramref name="Centre"/> is the floor's middle (z = 0). The player arrives at <see cref="Spawn"/> by the south wall and the way back is the pad <see cref="ReturnStation"/> beside it. Every number is ours.
+/// </summary>
+public sealed record TfwRange(Vector3 Centre)
+{
+    /// <summary>The floor's side, the walls' thickness and height, the gap to the level's east edge (metres).</summary>
+    public const float Size = 100f, Thickness = 2f, WallHeight = 24f, Clearance = 60f;
+
+    float Half => Size / 2f;
+
+    /// <summary>The range east of <paramref name="level"/>, at ground height, level with its middle, by whole metres: the same place for the server and every client.</summary>
+    public static TfwRange For(CollisionWorld level)
+    {
+        var (lo, hi) = TfwHub.Extent(level);
+        return new TfwRange(new Vector3(MathF.Ceiling(hi.X) + Clearance + Size / 2f + Thickness, MathF.Round((lo.Y + hi.Y) / 2f), 0f));
+    }
+
+    /// <summary>Where a player arrives (a few metres inside the south wall, facing north) and the pad that brings them back.</summary>
+    public SpawnPoint Spawn => new(Centre + new Vector3(0f, -Half + 8f, 0f), 0f);
+    public Vector3 ReturnStation => Centre + new Vector3(-6f, -Half + 5f, 0f);
+
+    /// <summary>Whether <paramref name="p"/> stands on the floor or in its walls.</summary>
+    public bool Contains(Vector3 p) => MathF.Abs(p.X - Centre.X) <= Half + Thickness && MathF.Abs(p.Y - Centre.Y) <= Half + Thickness && p.Z > -Thickness && p.Z < WallHeight + 40f;
+
+    /// <summary>The wire's box: the range with its walls and the air above them.</summary>
+    public MusouBox Box => new(Centre + new Vector3(-Half - Thickness, -Half - Thickness, -Thickness - 1f), Centre + new Vector3(Half + Thickness, Half + Thickness, WallHeight + 30f));
+
+    /// <summary>The floor and the four walls.</summary>
+    public IReadOnlyList<TfwSolid> Solids
+    {
+        get
+        {
+            float h = Half, t = Thickness, w = WallHeight;
+            var c = Centre;
+            return
+            [
+                new(c + new Vector3(-h - t, -h - t, -t), c + new Vector3(h + t, h + t, 0f)),
+                new(c + new Vector3(-h - t, -h - t, 0f), c + new Vector3(h + t, -h, w)),
+                new(c + new Vector3(-h - t, h, 0f), c + new Vector3(h + t, h + t, w)),
+                new(c + new Vector3(-h - t, -h, 0f), c + new Vector3(-h, h, w)),
+                new(c + new Vector3(h, -h, 0f), c + new Vector3(h + t, h, w)),
+            ];
+        }
+    }
+
+    /// <summary>The corners of every solid's triangles, three a triangle.</summary>
+    public Vector3[] Corners() => Solids.SelectMany(TfwMap.Triangles).ToArray();
 }
 
 /// <summary>
 /// The fixed places of the battlefield, read from the map once (design section A): the Stormbird, the Seize Ground points A, B and C (position 1, the depot, position 3), the Chaos start
 /// area, where the commander stands, the Space Marine start area, one possible landing zone, and the map's own markers, which seed the enemies' graph (never the Stormbird).
 /// </summary>
-public sealed record TfwBattlefield(TfwHub Hub, IReadOnlyList<TfwPoint> Points, Vector3 Commander, Vector3 MarineStart, IReadOnlyList<Vector3> WalkSeeds, MusouBox Bounds)
+public sealed record TfwBattlefield(TfwHub Hub, IReadOnlyList<TfwPoint> Points, Vector3 Commander, Vector3 MarineStart, IReadOnlyList<Vector3> WalkSeeds, MusouBox Bounds, TfwRange? Range = null)
 {
     /// <summary>Where the enemies walk: around the map's own markers. No cell of the Stormbird: no marker is there and the box leaves it out.</summary>
     public NavArea WalkArea() => NavArea.Around(WalkSeeds, TfwMap.WalkMargin);
@@ -99,7 +161,7 @@ public static class TfwMap
     /// <summary>The install's map every battle is fought on.</summary>
     public const string Battlefield = "mp_tdm_09";
     /// <summary>Raised with any change of how the world is composed (hashed into <see cref="TfwMapData.Hash"/>; 2: TF1's arena and Stormbird replace TF0's flat slab; 3: Manufactorum replaces the empty arena; 4: the Thunderhawk's interior replaces the Stormbird's box).</summary>
-    public const uint Version = 5;
+    public const uint Version = 6;
     /// <summary>"tfw_war_", the hash's salt.</summary>
     const ulong HashSalt = 0x7466775F7761725FUL;
 
@@ -143,7 +205,7 @@ public static class TfwMap
     public static (CollisionWorld World, TfwHub Hub, ulong Hash) WithHub(CollisionWorld level)
     {
         var hub = TfwHub.Beyond(level);
-        var world = level.WithSolids(hub.Corners());
+        var world = level.WithSolids([.. hub.Corners(), .. TfwRange.For(level).Corners()]);   // the Firing Range stands beside the level
         return (world, hub, world.ContentHash ^ HashSalt ^ Version);
     }
 
@@ -162,7 +224,8 @@ public static class TfwMap
         var low = seeds.Aggregate(seeds[0], Vector3.Min) - margin;
         var high = seeds.Aggregate(seeds[0], Vector3.Max) + margin;
         var bounds = new MusouBox(low with { Z = MathF.Min(low.Z, level.Character.Min.Z) }, high with { Z = MathF.Max(high.Z, level.Character.Max.Z) });
-        var field = new TfwBattlefield(hub, points.Take(PointsNeeded).Select(p => new TfwPoint(p.Center, p.Radius, p.HalfHeight)).ToArray(), chaos.Center, marines.Center, seeds, bounds);
+        var range = TfwRange.For(level);
+        var field = new TfwBattlefield(hub, points.Take(PointsNeeded).Select(p => new TfwPoint(p.Center, p.Radius, p.HalfHeight)).ToArray(), chaos.Center, marines.Center, [.. seeds, range.Centre], bounds, range);   // the range's seed last: its own part of the graph
         return new TfwMapData(world, hub.Spawns, [hub.Area, chaos], hash, field);
     }
 }
