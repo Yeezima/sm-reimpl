@@ -90,8 +90,8 @@ public class TfwWorldTests
         Assert.Equal(data.Hash, hash);
         Assert.Equal(data.Field.Hub, hub);
         Assert.Equal(data.Collision.ContentHash, world.ContentHash);
-        Assert.Equal(world.ContentHash ^ 0x7466775F7761725FUL ^ 4UL, hash);
-        Assert.Equal(4u, TfwMap.Version);
+        Assert.Equal(world.ContentHash ^ 0x7466775F7761725FUL ^ 5UL, hash);
+        Assert.Equal(5u, TfwMap.Version);
         Assert.NotEqual(hash, TfwMap.WithHub(Level(blockers: false)).Hash ^ 1UL);
     }
 

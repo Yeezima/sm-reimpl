@@ -45,7 +45,7 @@ public partial class NetworkView
     const string WhistleEvent = "play_droppod_incoming", EngineEvent = "play_sm_thunderhawk_engine", EngineStop = "stop_sm_thunderhawk_engine", GunEvent = "play_sm_heavy_bolter_fire_single", HitsEvent = "play_heavybolter_valkyrie_hits";
     /// <summary>A whistle starts this long before its shell lands (s, ours; every third shell has one).</summary>
     const float WhistleLead = 0.9f;
-    /// <summary>The local whistle: optional, git-ignored and left out of exports (as the menu background): the project's, or beside the exported game. Without it the bank's stand-in plays.</summary>
+    /// <summary>The local whistle: optional, git-ignored and left out of exports (unlike the menu background, which ships): the project's, or beside the exported game. Without it the bank's stand-in plays.</summary>
     const string WhistleFile = "res://assets/musou/whistle.ogg";
     const int WhistlePlayers = 10;
     /// <summary>Its level on the sound bus (dB; ours, near the bank's whistle) and its reach (m).</summary>

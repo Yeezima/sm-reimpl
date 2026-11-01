@@ -6,7 +6,7 @@ namespace SmClient;
 /// <summary>
 /// What lies outside the hub (owner's item 29): black space with small dim white stars and the planet far below the open ramp, a huge curved surface with a bright atmosphere rim. It is a sky shader on an
 /// <see cref="Godot.Environment"/> that the camera carries while the player is aboard (so the map's fog, sky and sun never reach the hub, and the hub's choices never reach the battle).
-/// The planet's picture is <c>assets/musou/planet.jpg</c> (the owner's own image: git-ignored, left out of exports; read as a file from the project or beside the game); without it the shader paints a
+/// The planet's picture is <c>assets/musou/planet.jpg</c> (the owner's own image: committed, left out of the Godot export and copied beside the exe by the release script; read as a file from the project or beside the game); without it the shader paints a
 /// brown planet of its own (placeholder demonstration). The stars and that fallback are procedural. Nothing here comes from the install.
 /// </summary>
 public static class TfwHubSky

@@ -511,16 +511,16 @@ public partial class NetworkView
         await TfwFrames(20);
         await TfwShot("hub-spawn-forward");
         _yaw = TfwShip.RampYaw;
-        // Down the ramp, to the wall at its end (model Y is the world's -Y from the centre's row).
+        // Down the corridor, to the end wall at the ramp's top (model Y is the world's -Y from the centre's row).
         double end = _connectedFor + 25.0;
         TfwKey(Key.W, true);
-        while (_connectedFor < end && client.Predicted.Position.Y - hub.ToWorld(new Num.Vector3(0f, TfwShip.RampEndY, 0f)).Y > 1.0f) await TfwFrames();
+        while (_connectedFor < end && client.Predicted.Position.Y - hub.ToWorld(new Num.Vector3(0f, TfwShip.EndWallY, 0f)).Y > 1.0f) await TfwFrames();
         await TfwShot("hub-ramp-out");
         await TfwWait(2.0);
         TfwKey(Key.W, false);
         var at = client.Predicted.Position;
         float along = hub.Centre.Y + TfwShip.MidY - at.Y;   // the model's Y
-        TfwCheck("W up the ramp stops at its end wall, aboard", hub.Contains(at) && along > TfwShip.RampEndY - 1.2f && along < TfwShip.RampEndY, at.ToString());
+        TfwCheck("W down the corridor stops at the end wall before the ramp", hub.Contains(at) && along > TfwShip.EndWallY - 1.2f && along < TfwShip.EndWallY, at.ToString());
         TfwCheck("the ramp is the floor's height", MathF.Abs(at.Z - hub.Centre.Z) < 0.15f, at.ToString());
         _pitch = -0.35f;
         await TfwFrames(20);

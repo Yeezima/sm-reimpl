@@ -1051,6 +1051,14 @@ if (-not $SkipBuild) {
         if (-not (Test-Path -LiteralPath (Join-Path $exportDir 'sm-reimpl.exe'))) { Fail 'The export produced no sm-reimpl.exe.' }
         Get-ChildItem -LiteralPath $exportDir -Recurse -File | Where-Object { $_.Extension -in '.pdb', '.xml' } | Remove-Item -Force
 
+        # The owner's menu background and hub planet are loaded as plain files, outside the Godot export (export_presets.cfg leaves them out): beside the exe.
+        foreach ($img in @('assets/menu/background.jpg', 'assets/musou/planet.jpg')) {
+            $imgSrc = Join-Path $client $img
+            if (-not (Test-Path -LiteralPath $imgSrc)) { Fail "Missing $img in the clean copy (it is committed)." }
+            New-Item -ItemType Directory -Force -Path (Split-Path -Parent (Join-Path $exportDir $img)) | Out-Null
+            Copy-Item -LiteralPath $imgSrc -Destination (Join-Path $exportDir $img)
+        }
+
         Time-Step 'zips'
         Step "Assembling $PlaytestName.zip"
         $d = Join-Path $Stage 'pkg-playtest'

@@ -45,7 +45,7 @@ public class TfwMapTests
         Assert.Equal(World.Character.ContentHash, World.Weapons.ContentHash);   // shots meet what walkers meet
     }
 
-    const ulong PinnedHash = 11149641394443700838UL;
+    const ulong PinnedHash = 12827541487155090671UL;
 
     // ---------------------------------------------------------------- the solids
 
@@ -60,7 +60,7 @@ public class TfwMapTests
         for (int x = -1; x <= 1; x++) for (int y = -1; y <= 1; y++) for (int z = -1; z <= 1; z++) if (x != 0 || y != 0 || z != 0) directions.Add(Vector3.Normalize(new Vector3(x, y, z)));
         for (int k = 0; k < 24; k++) directions.Add(new Vector3(MathF.Cos(k * MathF.Tau / 24f), MathF.Sin(k * MathF.Tau / 24f), 0.1f));
         int rays = 0;
-        foreach (float y in new[] { -4.5f, -2f, 2f, 4f, 6f, 9f, 12f, 16f, 20f, 22.5f, 24f, 26f, 27f })
+        foreach (float y in new[] { -4.5f, -2f, 2f, 4f, 6f, 9f, 12f, 16f, 20f, 21.5f, 24f, 26f, 27f })
             foreach (float x in new[] { -1.4f, 0f, 1.4f })
                 foreach (float up in new[] { 1.5f, 3.2f })
                 {
@@ -82,7 +82,7 @@ public class TfwMapTests
         var hub = TfwTestArena.Hub;
         var mid = Inside(0f, TfwShip.MidY, 1f);
         Assert.Equal(TfwShip.RightPanel - TfwShip.LeftPanel, Distance(mid, Vector3.UnitX) + Distance(mid, -Vector3.UnitX), 3);   // between the tech panels
-        Assert.Equal(TfwShip.RampEndY - TfwShip.MidY, Distance(mid, -Vector3.UnitY), 3);                                         // to the ramp's end
+        Assert.Equal(TfwShip.EndWallY - TfwShip.MidY, Distance(mid, -Vector3.UnitY), 3);                                         // to the end wall
         Assert.Equal(TfwShip.MidY - TfwShip.FrontY, Distance(mid + new Vector3(0f, 0f, 2f), Vector3.UnitY), 3);               // to the cockpit end, above the deck
         Assert.Equal(1f, Distance(mid, -Vector3.UnitZ), 3);                                                                       // the floor is at the centre's height
         Assert.InRange(Distance(mid, Vector3.UnitZ), 2.5f, 3.5f);                                                                 // the roof, sloping toward the ramp
@@ -146,12 +146,12 @@ public class TfwMapTests
     static PlayerState StartAt(Vector3 p) => Combat.Respawned(new PlayerState(1, p, default, 0f, true) { Class = Assault }, Raptor);
 
     [Fact]
-    public void A_walker_goes_up_the_ramp_to_its_end_and_no_further()
+    public void A_walker_goes_to_the_end_wall_and_no_further()
     {
         var hub = TfwTestArena.Hub;
         var s = Walk(StartAt(hub.Spawns[0].Position), 1f, 0f, 900, p => Assert.True(hub.Contains(p.Position), $"{p.Position}"));
-        Assert.InRange(ModelY(s.Position), TfwShip.RampEndY - 1f, TfwShip.RampEndY);   // stopped by the wall at the ramp's end
-        Assert.InRange(s.Position.Z - hub.Centre.Z, 0.03f, 0.1f);   // on the ramp, a few centimetres above the corridor's floor
+        Assert.InRange(ModelY(s.Position), TfwShip.EndWallY - 1f, TfwShip.EndWallY);   // stopped by the end wall at the ramp's top
+        Assert.InRange(s.Position.Z - hub.Centre.Z, -0.05f, 0.1f);   // still on the corridor's floor, never on the ramp
     }
 
     [Fact]
@@ -196,13 +196,21 @@ public class TfwMapTests
     }
 
     [Fact]
-    public void A_raptors_full_jump_in_the_corridor_stays_under_the_roof_and_one_on_the_ramp_stays_aboard()
+    public void A_raptors_full_jump_in_the_corridor_stays_under_the_roof_and_one_at_the_end_wall_never_reaches_the_ramp()
     {
         var hub = TfwTestArena.Hub;
         var roof = FullJump(World, hub.Centre, new Vector2(0f, -1f));
         Assert.All(roof, s => Assert.True(s.Position.Z - hub.Centre.Z + Raptor.CapsuleHeight <= 4.1f && hub.Contains(s.Position), $"{s.Position}"));
-        var ramp = FullJump(World, hub.OnFloor(new Vector2(0f, 25f)) + new Vector3(0f, 0f, 0.06f), new Vector2(0f, -1f));
-        Assert.All(ramp, s => Assert.True(s.Position.Z - hub.Centre.Z + Raptor.CapsuleHeight <= TfwShip.CapZ - TfwShip.FloorZ + 0.05f && hub.Contains(s.Position), $"{s.Position}"));
+        // Jump packs and charges at the end wall (the ramp's top), the stick both ways: none passes it, and one of the two does press against it.
+        float nearest = float.MaxValue;
+        foreach (float dir in new[] { -1f, 1f })
+            foreach (float y in new[] { 20.5f, 21.5f })
+            {
+                var jump = FullJump(World, hub.OnFloor(new Vector2(0f, y)), new Vector2(0f, dir));
+                Assert.All(jump, s => Assert.True(ModelY(s.Position) < TfwShip.EndWallY && hub.Contains(s.Position), $"{s.Position}"));
+                nearest = MathF.Min(nearest, TfwShip.EndWallY - jump.Max(s => ModelY(s.Position)));
+            }
+        Assert.InRange(nearest, 0f, 1.2f);
     }
 
     // ---------------------------------------------------------------- the enemies' graph

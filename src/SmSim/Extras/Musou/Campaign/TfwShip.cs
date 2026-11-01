@@ -28,6 +28,8 @@ public static class TfwShip
     /// <summary>The floor of the long corridor (z), the front deck above it, the ramp (the posed door's top is about 2.12) and where each ends along Y.</summary>
     public const float FloorZ = 2.05f, DeckZ = 3.35f, RampZ = 2.11f;
     public const float FrontY = -5f, DeckEndY = 3.02f, StairsEndY = 5.3f, HingeY = 22.1f, RampEndY = 27.6f;
+    /// <summary>Where the invisible end wall stands: the top of the ramp, where the troop bay's walls start, so nobody steps onto the ramp and sees the unfinished scene past it.</summary>
+    public const float EndWallY = HingeY;
     /// <summary>The side walls' inner faces: the hull is not symmetric (the left face is at -2.2, the right at 2.3), the ramp (the door's width) is 2.6 each side.</summary>
     public const float LeftWall = -2.2f, RightWall = 2.3f, RampHalfWidth = 2.6f;
     /// <summary>The tech panels along the walls (their faces; they reach up to <see cref="PanelTop"/> and span <see cref="PanelFrom"/> to <see cref="PanelTo"/> along Y).</summary>
@@ -83,7 +85,8 @@ public static class TfwShip
             new(new Vector3(rl, HingeY, bottom), new Vector3(-RampHalfWidth, RampEndY + T, WallTop)),               // the ramp's invisible side walls
             new(new Vector3(RampHalfWidth, HingeY, bottom), new Vector3(rr, RampEndY + T, WallTop)),
             new(new Vector3(left, FrontY - T, bottom), new Vector3(right, FrontY, WallTop)),                         // the cockpit end
-            new(new Vector3(rl, RampEndY, bottom), new Vector3(rr, RampEndY + T, WallTop)),                          // the ramp's end: the player cannot leave
+            new(new Vector3(rl, RampEndY, bottom), new Vector3(rr, RampEndY + T, WallTop)),                          // the ramp's far end, closing the ramp behind the end wall
+            new(new Vector3(left, EndWallY, bottom), new Vector3(right, EndWallY + T, WallTop)),                      // the end wall at the ramp's top, full width and height: the player cannot reach the ramp
             new(new Vector3(LeftWall, PanelFrom, FloorZ), new Vector3(LeftPanel, PanelTo, PanelTop)),               // the tech panels, so a player stands before them, not in them
             new(new Vector3(RightPanel, PanelFrom, FloorZ), new Vector3(RightWall, PanelTo, PanelTop)),
             new(new Vector3(rl, Ceiling[^1].Y, CapZ), new Vector3(rr, RampEndY + T, WallTop)),                       // the cap over the open ramp
