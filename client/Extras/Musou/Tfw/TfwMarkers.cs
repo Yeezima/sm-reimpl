@@ -8,8 +8,8 @@ using Num = System.Numerics;
 namespace SmClient;
 
 /// <summary>
-/// The battle's markers in the world (design section G): a ring of each capture position's radius and the HQ's, coloured by its state; a pillar at each Ork source still sending; a beacon at the landing
-/// zone. Placeholder demonstration, drawn from tag 8 and the map's layout. Lives in game space (Z up, metres); hidden outside a battle. Colours and sizes are ours.
+/// The battle's markers in the world (design section G): a ring of each capture position's radius and the HQ's, coloured by its state, with a small letter over A, B and C and no other text (the owner, 2026-11-02;
+/// the tracker with the states is on the M map); a pillar at each Ork source still sending; a beacon at the landing zone. Placeholder demonstration, drawn from tag 8 and the map's layout. Lives in game space (Z up, metres); hidden outside a battle. Colours and sizes are ours.
 /// </summary>
 public partial class TfwMarkers : Node3D
 {
@@ -21,10 +21,7 @@ public partial class TfwMarkers : Node3D
     readonly MeshInstance3D[] _rings = new MeshInstance3D[WarRules.Positions + 1];
     readonly StandardMaterial3D[] _ringPaint = new StandardMaterial3D[WarRules.Positions + 1];
     readonly MeshInstance3D[] _pillars = new MeshInstance3D[TfwWire.MaxSites - 1];
-    readonly Label3D[] _labels = new Label3D[WarRules.Positions + 1];
-    /// <summary>Hotfix 2026-11-01 (owner): the state text under each letter, 60% of the old size, shown only while the crosshair is within <see cref="AimDegrees"/> of the marker (ours, see spec).</summary>
-    readonly Label3D[] _states = new Label3D[WarRules.Positions + 1];
-    public const float AimDegrees = 6f, StateSizeScale = 0.6f;
+    readonly Label3D[] _labels = new Label3D[WarRules.Positions];
     MeshInstance3D _beacon = null!;
 
     static StandardMaterial3D Paint(Color c, float alpha) => new()
@@ -50,30 +47,19 @@ public partial class TfwMarkers : Node3D
         }
         for (int k = 0; k < _labels.Length; k++)
         {
-            // A letter and the state over each position, seen through walls and from afar (placeholder look, ours): the letter is the position's name on the HUD too.
+            // A letter over each position, seen through walls and from afar (placeholder look, ours): the letter is the position's name on the map too.
             _labels[k] = new Label3D { Name = "Label" + k, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true, FixedSize = true, PixelSize = 0.0012f, FontSize = 40, OutlineSize = 14, Modulate = Locked, OutlineModulate = new Color(0f, 0f, 0f, 0.9f), RenderPriority = 10, TextureFilter = BaseMaterial3D.TextureFilterEnum.Linear };
             AddChild(_labels[k]);
-            _states[k] = new Label3D { Name = "State" + k, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true, FixedSize = true, PixelSize = 0.0012f, FontSize = (int)(40 * StateSizeScale), OutlineSize = (int)(14 * StateSizeScale), Modulate = Locked, OutlineModulate = new Color(0f, 0f, 0f, 0.9f), RenderPriority = 10, TextureFilter = BaseMaterial3D.TextureFilterEnum.Linear, Offset = new Vector2(0f, -52f), Visible = false };
-            AddChild(_states[k]);
         }
         for (int k = 0; k < _pillars.Length; k++) _pillars[k] = Pillar("Source" + k, Held, 1f);
         _beacon = Pillar("Beacon", new Color(0.3f, 0.7f, 1f), 0.5f);
-    }
-
-    /// <summary>Whether the crosshair (the screen centre) is within <see cref="AimDegrees"/> of a world point.</summary>
-    bool Aimed(Vector3 point)
-    {
-        if (GetViewport()?.GetCamera3D() is not { } cam) return false;
-        var to = point - cam.GlobalPosition;
-        if (to.LengthSquared() < 1e-6f) return false;
-        return Mathf.RadToDeg((-cam.GlobalTransform.Basis.Z).AngleTo(to.Normalized())) <= AimDegrees;
     }
 
     /// <summary>A pillar shows only from afar: seen from beside or inside it, it would tint the whole screen.</summary>
     static bool Far(Num.Vector3 pillar, Num.Vector3 viewer) => new Vector2(pillar.X - viewer.X, pillar.Y - viewer.Y).Length() > TfwMap.LandingRadius;
 
     /// <summary>The markers of the war as it stands; <paramref name="viewer"/>: the own player's feet.</summary>
-    public void Show(in TfwWarView war, IReadOnlyList<TfwObjective> objectives, IReadOnlyList<Num.Vector3> sites, Num.Vector3 viewer, Func<TfwObjective, int>? orksOn = null)
+    public void Show(in TfwWarView war, IReadOnlyList<TfwObjective> objectives, IReadOnlyList<Num.Vector3> sites, Num.Vector3 viewer)
     {
         if (_beacon is null) return;
         bool battle = TfwHudModel.InBattle(war.Phase) && objectives.Count > 0;
@@ -83,8 +69,7 @@ public partial class TfwMarkers : Node3D
         {
             bool shown = k < objectives.Count;
             _rings[k].Visible = shown;
-            _labels[k].Visible = shown;
-            _states[k].Visible = false;
+            if (k < _labels.Length) _labels[k].Visible = shown;
             if (!shown) continue;
             var o = objectives[k];
             float radius = MathF.Max(o.Radius, 1f);
@@ -95,16 +80,10 @@ public partial class TfwMarkers : Node3D
                 TfwPositionState.Held => Held, TfwPositionState.Clearing => Clearing, TfwPositionState.Securing => Securing, TfwPositionState.Secured => Secured, _ => Locked,
             };
             _ringPaint[k].AlbedoColor = paint;
-            string full = TfwHudModel.ObjectiveLabel(o, war.Phase == TfwRunPhase.FinalAssault, o.State == TfwPositionState.Clearing ? orksOn?.Invoke(o) ?? 0 : 0);
-            int cut = full.IndexOf(' ');
-            _labels[k].Visible = true;
-            _labels[k].Text = cut < 0 ? full : full[..cut];   // the letter: always shown, so the point can be found
+            if (k >= _labels.Length) continue;   // the commander's position has its ring and no text
+            _labels[k].Text = ((char)('A' + k)).ToString();
             _labels[k].Modulate = paint;
             _labels[k].Position = new Vector3(o.Position.X, o.Position.Y, o.Position.Z + LabelHeight);
-            _states[k].Text = cut < 0 ? "" : full[(cut + 1)..].Trim();
-            _states[k].Modulate = paint;
-            _states[k].Position = _labels[k].Position;   // the offset below puts it just under the letter, in screen pixels
-            _states[k].Visible = _states[k].Text.Length > 0 && Aimed(_labels[k].GlobalPosition);
         }
         bool final = war.Phase == TfwRunPhase.FinalAssault;
         for (int k = 0; k < _pillars.Length; k++)

@@ -639,6 +639,17 @@ public partial class NetworkView
         TfwCheck("the first position is held", _tfwState.Objectives[0].State >= TfwPositionState.Held);
         await TfwWait(1.5);
         await TfwShot("battle-hud");
+        TfwKey(Key.M, true);
+        await TfwFrames(4);
+        TfwCheck("M in a battle shows the battle's panel on the map", _tfwMapHeld && _tfwPeek?.Battle is { Visible: true } panel && panel.Tracker.Contains("NEXT", StringComparison.Ordinal) && panel.Retainer.Length > 0, _tfwPeek?.Battle?.Tracker ?? "no panel");
+        await TfwShot("war-map-battle");
+        TfwKey(Key.M, false);
+        await TfwFrames(4);
+        TfwCheck("M let go in a battle hides it", !_tfwMapHeld && !_tfwPeekLayer!.Visible);
+        var pointA = _tfwState.Objectives[0].Position;
+        _yaw = MathF.Atan2(-(pointA.X - me.X), pointA.Y - me.Y);   // the world's markers: the letter and nothing else
+        await TfwWait(0.5);
+        await TfwShot("markers-letters");
         await TfwOrder(Key.X, MarineOrder.Hold, GameAction.NextWeapon);
         await TfwOrder(Key.V, MarineOrder.Attack, GameAction.Melee);
         await TfwOrder(Key.Z, MarineOrder.Follow, null);

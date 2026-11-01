@@ -30,7 +30,7 @@ public partial class NetworkView
         TfwMarkersFrame(war);
         TfwFireFrame(war, delta);
         TfwFireCamFrame();
-        TfwBarsFrame();
+        TfwCloudsFrame();
         TfwClassFrame(war, me);
         TfwScoreFrame(war, me);   // NetworkView.TfwRewards.cs
         TfwRewardFrame(war, me);
@@ -60,6 +60,7 @@ public partial class NetworkView
         f.RunTotal = _tfwState.ScoreOwn?.RunTotal ?? 0;
         f.Slots = TfwSlotsLine(me);
         _tfwHud.Fed();
+        if (_tfwMapHeld) _tfwPeek?.Battle?.Feed(f);
         _tfwHud.Visible = _endPhase == MatchEndPhase.Splash && !_tfwMapHeld;
         // The match HUD's "RESPAWN IN n" would lie: a fallen player in the field waits for its retainer or the extraction, held by the run. TfwHud says KILLED and what happens instead. One who
         // joined after the landing is not in the field: the core's respawn runs and its line is true.
@@ -79,7 +80,7 @@ public partial class NetworkView
             _tfwMarkers = new TfwMarkers { Name = "TfwMarkers" };
             _gameSpace.AddChild(_tfwMarkers);
         }
-        _tfwMarkers.Show(war, _tfwState.Objectives, _tfwState.Sites, _client?.Predicted.Position ?? default, TfwOrksOn);
+        _tfwMarkers.Show(war, _tfwState.Objectives, _tfwState.Sites, _client?.Predicted.Position ?? default);
         TfwHubFrame(war);
     }
 }

@@ -18,7 +18,7 @@ namespace SmClient;
 /// <item>under the reward lines, the break's countdown to the next wave; call-outs ("WAAAGH!", "ENRAGED") with a short screen flash;</item>
 /// <item>the end-of-run panel for a victory or a defeat (the wave reached, the KOs and points, the next run's start) during the match end splash.</item>
 /// </list>
-/// In Musou Mode (<see cref="MusouPhase.Campaign"/>) there are no waves or shared lives: the run panel goes (<see cref="TfwHud"/> stands there) and the boss bar shows the battle's commander.
+/// In Musou Mode (<see cref="MusouPhase.Campaign"/>) there are no waves or shared lives: the run panel goes (its figures are on the M map, <see cref="TfwBattlePanel"/>) and the boss bar shows the battle's commander.
 /// Layout, sizes and colours are ours (kind: ours; the original has no such mode). <see cref="NetworkView"/> fills <see cref="Data"/> every frame and calls
 /// <see cref="Fed"/>; without that call for two frames (the view stops its added content while it is not connected) the HUD hides itself. No allocation per
 /// frame: the texts are rebuilt only when what they show changes.
