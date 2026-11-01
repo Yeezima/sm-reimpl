@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Godot;
 using SmClient.ImpactRules;
 using SmSim;
@@ -33,15 +34,41 @@ public partial class NetworkView
     AudioStreamWav[] HitStreams(HitSound sound)
     {
         if (_hitStreams.TryGetValue(sound, out var known)) return known;
-        var set = new AudioStreamWav[4];
+        var renders = HitRender(sound).GetAwaiter().GetResult();   // built off the main thread when the sound system came up (PrewarmHitSounds): the first hit doesn't stall
+        var set = new AudioStreamWav[renders.Length];
         for (int i = 0; i < set.Length; i++)
-        {
-            var pcm = MeleeHitSynth.ToPcm16(MeleeHitSynth.Render(sound, 1000 * (int)sound + i + 1));
-            var bytes = new byte[pcm.Length * 2];
-            Buffer.BlockCopy(pcm, 0, bytes, 0, bytes.Length);
-            set[i] = new AudioStreamWav { Data = bytes, Format = AudioStreamWav.FormatEnum.Format16Bits, MixRate = MeleeHitSynth.SampleRate, Stereo = false };
-        }
+            set[i] = new AudioStreamWav { Data = renders[i], Format = AudioStreamWav.FormatEnum.Format16Bits, MixRate = MeleeHitSynth.SampleRate, Stereo = false };
         return _hitStreams[sound] = set;
+    }
+
+    static readonly Dictionary<HitSound, Task<byte[][]>> HitRenders = new();
+
+    /// <summary>A sound's four renders as 16-bit bytes, computed once on a worker thread.</summary>
+    static Task<byte[][]> HitRender(HitSound sound)
+    {
+        lock (HitRenders)
+        {
+            if (HitRenders.TryGetValue(sound, out var known)) return known;
+            return HitRenders[sound] = Task.Run(() =>
+            {
+                var set = new byte[4][];
+                for (int i = 0; i < set.Length; i++)
+                {
+                    var pcm = MeleeHitSynth.ToPcm16(MeleeHitSynth.Render(sound, 1000 * (int)sound + i + 1));
+                    set[i] = new byte[pcm.Length * 2];
+                    Buffer.BlockCopy(pcm, 0, set[i], 0, set[i].Length);
+                }
+                return set;
+            });
+        }
+    }
+
+    /// <summary>Starts both sounds' renders in the background, once the sound system is up.</summary>
+    void PrewarmHitSounds()
+    {
+        if (OldMeleeHitSound) return;
+        HitRender(HitSound.Sizzle);
+        HitRender(HitSound.Roar);
     }
 
     /// <summary>Plays a procedural melee hit sound at <paramref name="at"/> (Godot space): one of four renders at a slightly different speed and level every time. Returns the text for the log.</summary>

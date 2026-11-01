@@ -144,6 +144,7 @@ public partial class NetworkView
             }
             (_audio, _soundTriggers, double ms) = load.Result;
             _sound = new SoundSystem(_audio) { GlobalGainDb = SoundGainDb, Limits = SoundLimitsMode, FootstepGainDb = FootstepGainDbArg, RtpcCap = RtpcCapArg, LimitLog = LogSound("footstep") ? GD.Print : null };
+            PrewarmHitSounds();
             AddChild(_sound);
             _worldEmitter = new SoundEmitter { Label = "world" };
             _soundNote = $"{_audio.LoadedPackages.Count} packages, {_audio.Library.ObjectCount:N0} objects, {_soundTriggers.Files.Count} files, " +
