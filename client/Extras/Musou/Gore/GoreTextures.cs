@@ -208,7 +208,8 @@ public static class GoreTextures
                     float n = noise.Fbm((u + wx * 0.9f) * 2.6f + ox, (v + wy * 0.9f) * 2.6f + oy, 5);
                     float radial = Math.Clamp(1f - r / 0.95f, 0f, 1f);
                     radial = radial * radial * (3f - 2f * radial);
-                    float a = Math.Clamp((n - 0.4f) * 2.3f, 0f, 1f) * MathF.Pow(radial, 0.7f) * (0.55f + 0.45f * noise.Fbm(u * 5f + oy, v * 5f + ox, 2));
+                    float lobes = 0.75f + 0.5f * noise.Fbm(u * 2.2f + oy, v * 2.2f + ox, 3);   // big soft lobes
+                    float a = Math.Clamp((n - 0.22f) * 3.2f * lobes, 0f, 1f) * MathF.Pow(radial, 0.45f);
                     px[((c / 2) * cell + y) * size + (c % 2) * cell + x] = (byte)(a * 255f + 0.5f);
                 }
         }

@@ -35,10 +35,10 @@ void fragment() {
     float a = texture(atlas, uv).r;
     if (ink > 0.5) {
         float body = smoothstep(0.12, 0.55, a);
-        ALBEDO = mix(tint * 1.35, tint * 0.5, smoothstep(0.35, 0.95, a));
+        ALBEDO = mix(tint * 2.0, tint * 0.5, smoothstep(0.35, 0.95, a));
         EMISSION = ALBEDO * 0.1;
-        ROUGHNESS = 0.3;
-        SPECULAR = 0.45;
+        ROUGHNESS = 0.18;
+        SPECULAR = 0.8;
         ALPHA = body * cd.y;
 //BUMP
     } else {
@@ -47,6 +47,7 @@ void fragment() {
         ROUGHNESS = 1.0;
         SPECULAR = 0.0;
         ALPHA = a * cd.y * COLOR.a;
+//CLOUDBUMP
     }
 }
 """;
@@ -57,6 +58,11 @@ void fragment() {
     float sx = length(MODEL_MATRIX[0].xyz), sy = length(MODEL_MATRIX[1].xyz);
     MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
     VERTEX = vec3(v.x * sx, v.y * sy, 0.0);
+""";
+
+    // soft lobes lit from the scene: the cloud's own density leans its normal, so the light finds a side
+    const string CloudBump = """
+        NORMAL = normalize(vec3(-dFdx(a) * 10.0, -dFdy(a) * 10.0, 1.0));
 """;
 
     // A little relief from the shape's own edge, so a fleck reads as a wet clot and sits in the light.
@@ -119,7 +125,7 @@ void fragment() {
 
     static ShaderMaterial AtlasMaterial(string render, bool billboard, Texture2D atlas, float cols, bool ink, int priority)
     {
-        string code = AtlasShader.Replace("//RENDER", render).Replace("//BILLBOARD", billboard ? BillboardCode : "").Replace("//BUMP", billboard ? BumpCode : "");
+        string code = AtlasShader.Replace("//RENDER", render).Replace("//BILLBOARD", billboard ? BillboardCode : "").Replace("//BUMP", billboard ? BumpCode : "").Replace("//CLOUDBUMP", billboard ? CloudBump : "");
         var m = new ShaderMaterial { Shader = new Shader { Code = code }, RenderPriority = priority };
         m.SetShaderParameter("atlas", atlas);
         m.SetShaderParameter("cols", cols);
@@ -175,6 +181,8 @@ void fragment() {
         l.Count++;
     }
 
+    static float Smooth(float a, float b, float x) { float k = Math.Clamp((x - a) / (b - a), 0f, 1f); return k * k * (3f - 2f * k); }
+
     static Vector3 V(Num.Vector3 v) => new(v.X, v.Y, v.Z);
 
     /// <summary>Atlas cells of the ink: 0 to 5 splats with tendrils, 6 to 9 streaks, 10 to 13 jagged shards, 14 and 15 round droplets.</summary>
@@ -198,7 +206,7 @@ void fragment() {
             bool limb = g.Kind == 1;
             float cell = limb ? Cell(g.Size * 31f % 1f, 6, 4) : Cell(g.Size * 17f % 1f, 10, 4);
             float s = g.Size * (limb ? 4.6f : 2.6f);
-            Put(_air, new Basis(Vector3.Right * s, Vector3.Up * s * (limb ? 0.55f : 1f), Vector3.Back), V(g.Pos), g.Colour.X, g.Colour.Y, g.Colour.Z, 1f, cell, 0.97f, g.Angle.Z);
+            Put(_air, new Basis(Vector3.Right * s, Vector3.Up * s * (limb ? 0.55f : 1f), Vector3.Back), V(g.Pos), g.Colour.X * 1.8f, g.Colour.Y * 1.8f, g.Colour.Z * 1.8f, 1f, cell, 0.97f, g.Angle.Z);
         }
         for (int i = 0; i < f.Drops.Length; i++)
         {
@@ -208,7 +216,7 @@ void fragment() {
             if (d.Ink)
             {
                 float s = d.Size * 2.4f;
-                Put(_air, new Basis(Vector3.Right * s, Vector3.Up * s, Vector3.Back), V(d.Pos), d.Colour.X, d.Colour.Y, d.Colour.Z, 1f, Cell(d.Seed, 0, 10), 0.97f * fadeOut, d.Rot);
+                Put(_air, new Basis(Vector3.Right * s, Vector3.Up * s, Vector3.Back), V(d.Pos), d.Colour.X * 1.8f, d.Colour.Y * 1.8f, d.Colour.Z * 1.8f, 1f, Cell(d.Seed, 0, 10), 0.97f * fadeOut, d.Rot);
             }
             else
             {
@@ -239,8 +247,8 @@ void fragment() {
             if (!m.Live) continue;
             float t = m.Age / m.Life;
             // blooms outward fast, then hangs and keeps swelling slowly; in quickly, out slowly
-            float size = m.Size * (0.4f + 0.95f * (1f - MathF.Pow(1f - t, 3f)) + 0.15f * t);
-            float alpha = 0.62f * MathF.Min(1f, t / 0.07f) * MathF.Pow(1f - t, 1.4f);
+            float size = m.Size * (0.45f + 0.8f * (1f - MathF.Pow(1f - t, 3f)) + 0.2f * t);
+            float alpha = 0.88f * MathF.Min(1f, t / 0.05f) * (1f - Smooth(0.5f, 1f, t));
             Put(_mist, new Basis(Vector3.Right * size, Vector3.Up * size, Vector3.Back), V(m.Pos), m.Colour.X, m.Colour.Y, m.Colour.Z, 1f, Cell(m.Seed * 3.7f % 1f, 0, 4), alpha, m.Seed * MathF.Tau + m.Age * (m.Seed < 0.5f ? 0.18f : -0.18f));
         }
         for (int i = 0; i < f.Slashes.Length; i++)

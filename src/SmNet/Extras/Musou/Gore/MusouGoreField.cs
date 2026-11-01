@@ -148,14 +148,14 @@ public sealed class MusouGoreField
         }
         for (int i = 0; i < b.Droplets; i++)
         {
-            var dir = boom ? Norm(new Vector3(Unit().X, Unit().Y, MathF.Abs(F()) * 0.9f + 0.1f), Vector3.UnitZ) : Norm(pd * 1.2f + Unit() * 0.9f, Vector3.UnitZ);
+            var dir = boom ? Norm(new Vector3(Unit().X, Unit().Y, MathF.Abs(F()) * 0.9f + 0.1f), Vector3.UnitZ) : Norm(pd * (F() < 0.3f ? -0.9f : 1.2f) + Unit() * 0.9f, Vector3.UnitZ);   // most of it carries on with the blow, some flies back at the attacker
             float speed = Range(3f, boom ? 14f : 10f) * power;
             ref var d = ref NextDrop();
-            bool ink = F() < (boom ? 0.3f : 0.22f);
+            bool ink = F() < (boom ? 0.3f : 0.45f);
             d = new GoreDrop
             {
                 Live = true, Ink = ink, Seed = F(), Rot = Range(0f, MathF.Tau), Spin = Range(-6f, 6f), Pos = at + Unit() * 0.15f, Floor = floor, Colour = Blood(),
-                Size = ink ? Range(0.06f, 0.17f) * (0.8f + 0.25f * power) : Range(0.016f, 0.04f) * (0.8f + 0.25f * power), Life = ink ? Range(1.5f, 2.8f) : Range(1.2f, 2.4f),
+                Size = ink ? Range(0.12f, 0.28f) * (0.8f + 0.25f * power) : Range(0.016f, 0.04f) * (0.8f + 0.25f * power), Life = ink ? Range(1.5f, 2.8f) : Range(1.2f, 2.4f),
                 Vel = new Vector3(dir.X * speed, dir.Y * speed, dir.Z * speed + Range(1f, 3.5f)),
             };
         }
@@ -172,10 +172,10 @@ public sealed class MusouGoreField
             ref var m = ref NextMist();
             // A cloud that blooms outward, hangs and thins slowly: muddy brown-red, some puffs darker.
             float dark = F();
-            var tone = Vector3.Lerp(new Vector3(0.12f, 0.032f, 0.02f), new Vector3(0.05f, 0.009f, 0.007f), dark);
+            var tone = Vector3.Lerp(new Vector3(0.11f, 0.038f, 0.028f), new Vector3(0.045f, 0.014f, 0.011f), dark);
             m = boom
-                ? new GoreMist { Live = true, Pos = at + Unit() * 0.7f, Vel = Unit() * 2.0f + new Vector3(0f, 0f, 0.5f), Size = Range(1.5f, 2.6f), Life = Range(2.6f, 4.4f), Colour = tone, Seed = F() }
-                : new GoreMist { Live = true, Pos = at + Unit() * 0.25f, Vel = Unit() * 0.7f + new Vector3(0f, 0f, 0.4f), Size = Range(0.8f, 1.3f) * MathF.Sqrt(power), Life = Range(1.6f, 2.6f), Colour = tone, Seed = F() };
+                ? new GoreMist { Live = true, Pos = at + new Vector3(Unit().X, Unit().Y, MathF.Abs(Unit().Z) * 0.6f) * 0.8f, Vel = Unit() * 1.1f + new Vector3(0f, 0f, 0.5f), Size = Range(1.3f, 2.3f), Life = Range(3.8f, 6.2f), Colour = tone, Seed = F() }
+                : new GoreMist { Live = true, Pos = at + Unit() * 0.25f + pd * 0.3f, Vel = pd * 1.0f + Unit() * 0.5f + new Vector3(0f, 0f, 0.4f), Size = Range(1.1f, 1.7f) * MathF.Sqrt(power), Life = Range(2.2f, 3.4f), Colour = tone, Seed = F() };
         }
         Recount();
     }

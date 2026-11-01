@@ -224,8 +224,8 @@ public sealed class MusouGoreDemoFeed
     /// <summary>One melee kill: a hit (marker 3) and a Melee death on one enemy in the front rows (for a still of a single kill).</summary>
     void MeleeKill(float t)
     {
-        int i = Pick(o => o.Home.Y < _centre.Y - 5f && Math.Abs(o.Home.X - _centre.X) < 3f);
-        if (i < 0) i = Pick(_ => true);
+        int i = -1;   // the enemy nearest the camera's side (the lowest y), so a still sees it clear of the crowd
+        for (int k = 0; k < _orks.Length; k++) if (_orks[k].Alive && (i < 0 || _orks[k].Home.Y < _orks[i].Home.Y)) i = k;
         if (i < 0) return;
         var at = Where(i, t);
         Hit(i, t, 3);

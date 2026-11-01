@@ -31,7 +31,7 @@ public readonly record struct GoreBurst(GoreClass Class, GoreLod Lod, int Gibs, 
 public static class MusouGoreRules
 {
     /// <summary>Particle pools: gibs (chunks and limbs together), flying droplets, big ground pools (design: a ring of 64), small spatter, red mist puffs, cleave slashes.</summary>
-    public const int GibPool = 256, DropletPool = 768, PoolRing = 64, SpatterRing = 192, MistPool = 48, SlashPool = 48;
+    public const int GibPool = 256, DropletPool = 768, PoolRing = 64, SpatterRing = 192, MistPool = 96, SlashPool = 48;
     /// <summary>Deaths turned into bursts in one frame (design: 12); the rest wait in the queue, which holds at most <see cref="QueueMax"/> (the oldest go first).</summary>
     public const int DeathsPerFrame = 12, QueueMax = 512;
     /// <summary>Cleave slashes and hit sprays made in one frame (ours: a swing hits up to 20 enemies).</summary>
@@ -102,10 +102,10 @@ public static class MusouGoreRules
         float size = MathF.Pow(weight, 0.75f);
         int gibs, limbs, droplets, pools, mist;
         float power;
-        if (cls == GoreClass.Explosion) { gibs = 14; limbs = 5; droplets = 80; pools = 2; mist = 7; power = 1.8f; }
+        if (cls == GoreClass.Explosion) { gibs = 14; limbs = 5; droplets = 80; pools = 2; mist = 10; power = 1.8f; }
         else switch (cause)
         {
-            case MusouDeathKind.Melee: gibs = 4; limbs = 2; droplets = 36; pools = 1; mist = 1; power = 1f; break;   // melee and charges weigh heaviest
+            case MusouDeathKind.Melee: gibs = 4; limbs = 2; droplets = 44; pools = 1; mist = 1; power = 1f; break;   // melee and charges weigh heaviest
             case MusouDeathKind.Strafe: gibs = 6; limbs = 3; droplets = 44; pools = 1; mist = 2; power = 1.2f; break;
             default: gibs = 2; limbs = 0; droplets = 16; pools = 1; mist = 0; power = 0.7f; break;
         }
