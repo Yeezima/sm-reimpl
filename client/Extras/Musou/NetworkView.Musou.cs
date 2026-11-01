@@ -16,7 +16,7 @@ namespace SmClient;
 /// clock (the remote players' interpolated tick); the crowd (<see cref="MusouCrowd"/>) draws the result, the dead play their death where they fell, with the
 /// red splash of a body hit (<see cref="BloodSplashAt"/>) within 25 m. Test aids: <c>--musou-visible N</c> (most drawn, default 150), <c>--musou-no-vat</c>
 /// (skinned only, the fallback). Every 10 s one log line: the frame times (mean fps, p50 and p99 ms) and what the crowd drew. A lean bot or a headless client
-/// keeps the state and draws nothing (no HUD node either). MU3: the HUD, the hit feedback, the telegraphs and the voices (<c>MusouFx.cs</c>, <see cref="MusouHud"/>).
+/// keeps the state and draws nothing (no HUD node either). MU3: the HUD, the hit feedback and the telegraphs (<c>MusouFx.cs</c>, <see cref="MusouHud"/>); the enemies' sounds are <c>NetworkView.MusouSounds.cs</c>.
 /// </summary>
 public partial class NetworkView
 {
@@ -57,7 +57,8 @@ public partial class NetworkView
             foreach (var d in _musouState.NewDeaths) _musouDeaths.Add(d);
             if (_musouDeaths.Count > MusouCrowd.MaxBodies) _musouDeaths.RemoveRange(0, _musouDeaths.Count - MusouCrowd.MaxBodies);
             if (_gameSpace is not null) MusouDraw(shown, (float)delta);
-            MusouPresent(me, shown, (float)delta);   // MU3: the HUD, hit feedback, telegraphs and voices (MusouFx.cs)
+            MusouPresent(me, shown, (float)delta);   // MU3: the HUD, hit feedback and telegraphs (MusouFx.cs)
+            MusouSoundsFrame(me, shown, (float)delta);   // the enemies' original sounds (NetworkView.MusouSounds.cs)
             TfwMeleeCount(shown);   // Tfw/NetworkView.TfwMelee.cs: the test aid's counts, nothing without it
             MusouGoreFrame(me, shown, (float)delta);   // M10: gibs, sprays, pools and the cleave slashes (Gore/NetworkView.MusouGore.cs)
         }

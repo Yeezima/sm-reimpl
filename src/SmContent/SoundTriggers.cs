@@ -174,6 +174,10 @@ public sealed partial class SoundTriggers
 
     /// <summary>The hit sound event of a file's impacts (<see cref="HitContainers"/> → <see cref="ContainerSound"/>), or null.</summary>
     public string? HitSound(string file) => HitContainers.TryGetValue(file, out var c) ? ContainerSound(c) : null;
+    /// <summary>A gun's bullet impact: the container of the first default <c>hit_fx</c> under a ranged ability's <c>delivery</c>, by file (<see cref="HitContainers"/> takes the file's first, a gun butt's on the Ork guns).</summary>
+    public IReadOnlyDictionary<string, string> ShotHitContainers { get; init; } = new Dictionary<string, string>();
+    /// <summary>The sound of a gun's bullet impact, or null.</summary>
+    public string? ShotHitSound(string file) => ShotHitContainers.TryGetValue(file, out var c) ? ContainerSound(c) : null;
     /// <summary>
     /// feel/melee-charge-2: a melee wargear's hit effect container by file: the first default <c>trigger_material_effect</c> of a light attack's
     /// (<c>ability_melee_x…</c>) <c>primary_target_actions/hit_fx</c> (the power sword's <c>…\melee_weapons\power_sword</c>, the chainsword's
@@ -207,6 +211,9 @@ public sealed partial class SoundTriggers
     /// Ork's reload clip can never be picked for a marine's weapon (or the other way round) once both rigs' tags share <see cref="ClipTags"/>.
     /// </summary>
     public IReadOnlyCollection<string> OrkOnlyClips { get; init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The speech character each loaded blueprint names (<c>extensions/audio_ext/character</c>), by blueprint name; a blueprint without one is absent.</summary>
+    public IReadOnlyDictionary<string, string> BlueprintCharacters { get; init; } = new Dictionary<string, string>();
 
     public SoundFile? File(string name) => Files.GetValueOrDefault(name);
 
@@ -338,6 +345,7 @@ public sealed partial class SoundTriggers
         var hits = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var meleeHits = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var chargeHits = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var shotHits = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var (name, doc) in docs)
         {
             var fx = FxBinding.Collect(doc.Root);
@@ -349,6 +357,7 @@ public sealed partial class SoundTriggers
                 .OrderBy(b => b.Ability, StringComparer.Ordinal).FirstOrDefault() is { } melee)
                 meleeHits[name] = melee.Material!.Container;
             if (ChargeHitContainer(fx) is { } chargeHit) chargeHits[name] = chargeHit;
+            if (fx.FirstOrDefault(b => b.IsDefault && b.Event == "hit_fx" && b.Material is { Container.Length: > 0 } && b.Path.Contains("/delivery/", StringComparison.Ordinal)) is { } shot) shotHits[name] = shot.Material!.Container;
         }
         // Ork O8: the Ork class is ours (no entry in global's class table); its voice is the blueprint's audio_ext character.
         var speechCharacters = new Dictionary<string, string>(LoadSpeechCharacters(gameDir, notes), StringComparer.OrdinalIgnoreCase);
@@ -356,7 +365,8 @@ public sealed partial class SoundTriggers
         return new SoundTriggers
         {
             Files = built.Files, ContainerSounds = built.ContainerSounds, ClipTags = built.ClipTags, Notes = built.Notes, HitContainers = hits, MeleeHitContainers = meleeHits, ChargeHitContainers = chargeHits,
-            SpeechCharacters = speechCharacters, OrkOnlyClips = built.OrkOnlyClips,
+            SpeechCharacters = speechCharacters, OrkOnlyClips = built.OrkOnlyClips, ShotHitContainers = shotHits,
+            BlueprintCharacters = docs.Where(kv => ebps.Contains(kv.Key) && OrkSounds.SpeechCharacter(kv.Value) is not null).ToDictionary(kv => kv.Key, kv => OrkSounds.SpeechCharacter(kv.Value)!, StringComparer.OrdinalIgnoreCase),
         };
     }
 

@@ -11,7 +11,7 @@ using Num = System.Numerics;
 namespace SmClient;
 
 /// <summary>
-/// Added content "Musou", MU3 on the client: the HUD (<see cref="MusouHud"/>), the hit feedback, the attack telegraphs and the Orks' voices, driven by the crowd
+/// Added content "Musou", MU3 on the client: the HUD (<see cref="MusouHud"/>), the hit feedback and the attack telegraphs, driven by the crowd
 /// state's new events each frame (<see cref="MusouPresent"/>, from <c>NetworkView.Musou.cs</c>; only on a client that draws: never headless or on a lean bot).
 /// <list type="bullet">
 /// <item>Hit feedback: the match HUD's hit marker for the own hits on enemies (a head hit in its warm colour) and the kill marker for an own KO; at enemy hits
@@ -19,9 +19,7 @@ namespace SmClient;
 /// flesh-penetrating variant, <see cref="EffectCatalogue.Impact"/>), at most <see cref="FxPerSecond"/> a second.</item>
 /// <item>Telegraphs (<see cref="MusouTelegraphs"/>): a faint wedge on the ground in front of an enemy winding up a melee blow (its reach and cone, filling over the
 /// wind-up); the Warboss's Ground Slam as a ring of its radius filling over its wind-up, its Charge as a lane of its width to its end point; Waaagh! and the
-/// enrage as call-outs with a screen flash and a roar.</item>
-/// <item>Voices: the Ork Boy's lines (<c>ork_boy_2</c>, the blueprint's tags as the Ork class uses them: the death yell, the taunt at an attack, the roar for the
-/// boss) from at most <see cref="VoiceSlots"/> emitters at once; a line with no free emitter is dropped (the boss's take the oldest).</item>
+/// enrage as call-outs with a screen flash. Their sounds are <c>NetworkView.MusouSounds.cs</c>.</item>
 /// <item>The run's own score: the KOs and the points with the server's chain rule (<see cref="MusouRules.ChainSeconds"/>, <see cref="MusouRules.ChainStep"/>,
 /// <see cref="MusouRules.ChainMax"/>) counted from the own KOs' death events (the points are not on the wire: an estimate that matches the server's while no
 /// death event is lost); the KOs never fall below the scoreboard's kills.</item>
@@ -36,12 +34,6 @@ public partial class NetworkView
     const float FxRange = 30f;
     /// <summary>Most hit effects a second (a token bucket of <see cref="FxBurst"/>; ours).</summary>
     const float FxPerSecond = 16f, FxBurst = 8f;
-    /// <summary>Most Ork voices at once (design section D: ork_boy_2 at most 6), the least time between two new ones (s), and how far they are posted (m); ours.</summary>
-    const int VoiceSlots = 6;
-    const double VoiceSpacing = 0.1;
-    const float VoiceRange = 40f, AttackVoiceRange = 20f, AttackVoiceChance = 0.3f;
-    /// <summary>A voice slot whose line length is not known is held this long (s, ours).</summary>
-    const double VoiceHold = 1.5;
     MusouHud? _musouHud;
     int _musouLivesMax;
     uint _musouRunTick;
@@ -51,12 +43,7 @@ public partial class NetworkView
     bool _musouEnraged;
     ushort _musouBossId;
     float _musouFxTokens = FxBurst;
-    readonly SoundEmitter?[] _musouVoices = new SoundEmitter?[VoiceSlots];
-    readonly double[] _musouVoiceUntil = new double[VoiceSlots];
-    readonly double[] _musouVoiceStarted = new double[VoiceSlots];
-    double _musouLastVoiceAt = double.NegativeInfinity;
-    int _musouVoicesPosted, _musouVoicesDropped, _musouHitFx, _musouHitMarkers;
-    readonly Random _musouVoiceRoll = new(5);
+    int _musouHitFx, _musouHitMarkers;
     readonly MusouScoreTracker _musouScore = new();
     string? _musouDemo;
     bool _musouDemoRead;
@@ -94,7 +81,7 @@ public partial class NetworkView
     }
 
     /// <summary>
-    /// This frame's HUD, hit feedback, telegraphs and voices (a client that draws only; before the crowd state's new events are taken). The view is single-use
+    /// This frame's HUD, hit feedback and telegraphs (a client that draws only; before the crowd state's new events are taken). The view is single-use
     /// for Musou: its config (so <see cref="MusouActive"/>) is set once per connection; a new run on the same server is found from the director (back to
     /// waiting, out of a won or lost run, or the wave counting back; a late or repeated director is ignored by the crowd state) and forgets the crowd's enemies,
     /// the run's own counts and the telegraphs, keeping the new director and this frame's events. The events of a frame
@@ -138,7 +125,7 @@ public partial class NetworkView
             _musouDirectorAt = now;
         }
 
-        // Events: the score always; the hit marker, the effects, the telegraphs and the voices once the HUD is there.
+        // Events: the score always; the hit marker, the effects and the telegraphs once the HUD is there.
         var events = _musouState.NewEvents;
         for (int i = 0; i < events.Count; i++)
         {
@@ -151,13 +138,12 @@ public partial class NetworkView
                     MusouHitFx(e, shown, camera, own: e.Player == ownId, me);
                     break;
                 case MusouEventKind.Death:
-                    var (place, type) = MusouDeathOf(e);
+                    var (_, type) = MusouDeathOf(e);
                     if (e.Player == ownId && e.Player != 0)
                     {
                         if (present) _hudView?.ShowHitMarker(true);
                         _musouScore.Ko(type, e.Tick, now, rules, _config.TickRate);
                     }
-                    if (present && Num.Vector3.DistanceSquared(place, camera) <= VoiceRange * VoiceRange) MusouVoice(OrkSounds.DeathTag, place, force: false);
                     break;
                 case MusouEventKind.Telegraph:
                     if (present) MusouTelegraph(e, shown, camera, boss);
@@ -287,7 +273,7 @@ public partial class NetworkView
     }
     int _musouHitSoundsThisSwing;
 
-    /// <summary>A telegraph: the boss's ring, lane and call-outs, the attack taunt of a melee wind-up.</summary>
+    /// <summary>A telegraph: the boss's ring, lane and call-outs.</summary>
     void MusouTelegraph(in MusouEvent e, IReadOnlyList<MusouShown> shown, Num.Vector3 camera, MusouBossRules boss)
     {
         int i = MusouFind(shown, e.Enemy);
@@ -296,71 +282,24 @@ public partial class NetworkView
         {
             case MusouBossAbility.GroundSlam:
                 _musouTelegraphs?.Ring(e.Vector, boss.SlamRadius, boss.SlamWindUp);
-                MusouVoice(OrkSounds.RoarTag, from, force: true);
                 break;
             case MusouBossAbility.Charge:
                 _musouTelegraphs?.Lane(from, e.Vector, boss.ChargeWidth, boss.ChargeWindUp);
-                MusouVoice(OrkSounds.RoarTag, from, force: true);
                 break;
             case MusouBossAbility.Waaagh:
                 _musouHud?.Waaagh();
-                MusouVoice(OrkSounds.RoarTag, from, force: true);
                 break;
             case MusouBossAbility.Enrage:
                 _musouEnraged = true;
                 _musouHud?.Enraged();
-                MusouVoice(OrkSounds.RoarTag, from, force: true);
                 break;
-            default:   // MusouSim.MeleeWindUpTelegraph: the wedge comes from the enemy's state (MusouTelegraphs); a taunt now and then
-                if (_musouVoiceRoll.NextSingle() < AttackVoiceChance && Num.Vector3.DistanceSquared(from, camera) <= AttackVoiceRange * AttackVoiceRange) MusouVoice(OrkSounds.BarkTag, from, force: false);
+            default:   // MusouSim.MeleeWindUpTelegraph: the wedge comes from the enemy's state (MusouTelegraphs)
                 break;
         }
-    }
-
-    /// <summary>
-    /// One Ork line (the boy blueprint's tag: its sound events and its voice lines for <c>ork_boy_2</c>) from a free voice slot at <paramref name="at"/> (game space);
-    /// without a free slot it is dropped, unless <paramref name="force"/> (the boss), which cuts the oldest. False when nothing was posted.
-    /// </summary>
-    bool MusouVoice(string tag, Num.Vector3 at, bool force)
-    {
-        double now = _connectedFor;
-        if (!force && now - _musouLastVoiceAt < VoiceSpacing) { _musouVoicesDropped++; return false; }   // the cheap check first
-        if (_sound is null || _soundTriggers is null || !float.IsFinite(at.X) || at.X == float.MaxValue) return false;
-        _musouOrkFile ??= _soundTriggers.File(OrkSounds.Blueprint);
-        _musouOrkCharacter ??= _soundTriggers.SpeechCharacter(OrkClass.Key);
-        if (_musouOrkFile is not { } file || _musouOrkCharacter is not { } character) return false;
-        int slot = -1, oldest = 0;
-        for (int i = 0; i < VoiceSlots; i++)
-        {
-            _musouVoices[i] ??= new SoundEmitter { Label = $"musou voice {i}" };
-            bool busy = now < _musouVoiceUntil[i] || _sound.SpeechBusy(_musouVoices[i]!);
-            if (!busy) { slot = i; break; }
-            if (_musouVoiceStarted[i] < _musouVoiceStarted[oldest]) oldest = i;
-        }
-        if (slot < 0)
-        {
-            if (!force) { _musouVoicesDropped++; return false; }
-            slot = oldest;
-            _sound.StopSpeech(_musouVoices[slot]!);
-            _sound.StopEmitter(_musouVoices[slot]!);
-        }
-        var emitter = _musouVoices[slot]!;
-        emitter.Position = ToGodot(at) + new Vector3(0f, 1.6f, 0f);
-        bool posted = false;
-        var events = file.Tag(tag);
-        for (int k = 0; k < events.Count; k++) posted |= _sound.Post(events[k].StartEvent, emitter) is { Found: true };
-        var lines = file.SpeechTag(tag);
-        for (int k = 0; k < lines.Count; k++) posted |= _sound.PostSpeech(lines[k], character, emitter) == SpeechResult.Started;
-        if (!posted) return false;
-        _musouVoiceStarted[slot] = now;
-        _musouVoiceUntil[slot] = now + VoiceHold;
-        _musouLastVoiceAt = now;
-        _musouVoicesPosted++;
-        return true;
     }
 
     /// <summary>The note for the 10 s log line.</summary>
-    string MusouPresentNote() => _musouHud is null ? "hud none" : $"hud on, hit markers {_musouHitMarkers}, hit fx {_musouHitFx}, voices {_musouVoicesPosted} (+{_musouVoicesDropped} dropped), " +
+    string MusouPresentNote() => _musouHud is null ? "hud none" : $"hud on, hit markers {_musouHitMarkers}, hit fx {_musouHitFx}, " +
                                                                   $"telegraphs {_musouTelegraphs?.Shown ?? 0}, KOs {_musouScore.Kos} pts {_musouScore.Points}";
 
     /// <summary><c>--musou-hud-demo</c>: made-up values for screenshots (the phase held, or wave, break, boss, won, lost in turn every 4 s).</summary>
@@ -400,8 +339,6 @@ public partial class NetworkView
     static readonly string[] DemoPhases = ["wave", "break", "boss", "won", "lost"];
     string? _musouDemoPhase;
     int _musouDemoCycle = -1;
-    SoundFile? _musouOrkFile;
-    string? _musouOrkCharacter;
     readonly List<MusouShown> _musouDemoShown = new();
 }
 
