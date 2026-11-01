@@ -52,6 +52,8 @@ public sealed class FxEffect
     /// then shows only its ground burst where it is placed, not its flames).
     /// </summary>
     public bool GroundOnly;
+    /// <summary>fx/jump-flash (the owner, 2026-11-02): draw only the jump pack thrust's <c>quick flash</c>, no flame or trail.</summary>
+    public bool FlashOnly;
     /// <summary>fx/air-slash-landing: the effect's decals (crater, cracks) are not placed (the air slash's flash is the pound's burst without its ground marks).</summary>
     public bool NoDecals;
     /// <summary>feel/muzzle-smoke (owner's change of 2026-10-29, ours): 1 plays the data's look; below 1 a weapon's smoke elements (smoke trail beams and streamers, smoke puffs, sprays that emit them) keep this fraction of their width, radius and sideways speed. Set by the networked view for weapon fire, tracer and stop-fire effects only.</summary>
@@ -473,6 +475,7 @@ public sealed partial class FxPlayer : Node3D
 
     void DrawNode(FxEffect e, CNode n, in Ctx c, double age, int depth, uint seed)
     {
+        if (e.FlashOnly && n.Name is not ("quick flash" or "JET" or "")) return;
         if (n.Hide || depth > MaxDepth || age < 0.0) return;
         // fx/no-smoke: smoke, dust, mist and haze are not drawn (the owner's change). A smoke sprite is not drawn; its collision content (a dropper collider's decal or debris) is
         // played by DrawSpray's collision path, not from here, so its parents are skipped whole only when that content is smoke too (SmokeOnly).

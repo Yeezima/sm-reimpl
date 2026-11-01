@@ -12,3 +12,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Musou Mode: press left on the D-pad on a controller to call the artillery strike.
 - Controller: pressing A now selects in every menu, which also gets a highlighted choice as soon as it opens.
 - Controller: a new aiming sensitivity option in Options sets how fast the right stick turns while aiming down sights.
+- Jump pack: the flame trail is gone. A jump, hop, dive, dash or a charge started mid hop now gives one quick flash at its start.
+- The chunks of ground thrown up by a ground pound now look like Manufactorum's floor.

@@ -161,22 +161,35 @@ public sealed partial class GroundShards : Node3D
     }
 
     /// <summary>Greys, browns and tans by the surface the pound hit (ours: a few shades of one colour each; the level's own texture is not sampled).</summary>
+    static NoiseTexture2D? _floorLook;
+
+    /// <summary>
+    /// Ours, generated (no original bytes): Manufactorum's floor as the owner's reference shows it: gritty grey-brown stone with tan flecks and dark oily stains, from one fractal noise through a colour ramp.
+    /// </summary>
+    static NoiseTexture2D FloorLook() => _floorLook ??= new NoiseTexture2D
+    {
+        Width = 512, Height = 512, Seamless = true,
+        Noise = new FastNoiseLite { NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin, Frequency = 0.012f, FractalType = FastNoiseLite.FractalTypeEnum.Fbm, FractalOctaves = 7, FractalLacunarity = 2.4f, FractalGain = 0.62f, Seed = 31 },
+        ColorRamp = new Gradient
+        {
+            Offsets = [0.30f, 0.40f, 0.46f, 0.55f, 0.66f, 0.76f],
+            Colors = [new Color(0.075f, 0.058f, 0.045f), new Color(0.11f, 0.085f, 0.06f), new Color(0.27f, 0.22f, 0.17f), new Color(0.235f, 0.22f, 0.235f), new Color(0.33f, 0.27f, 0.2f), new Color(0.46f, 0.37f, 0.27f)],
+        },
+    };
+
     StandardMaterial3D[] Tints(string surface)
     {
         if (_materials.TryGetValue(surface, out var made)) return made;
-        var (r, g, b) = surface switch
-        {
-            "dirt" => (0.30f, 0.23f, 0.16f),
-            "gravel" => (0.36f, 0.33f, 0.28f),
-            "sand" => (0.52f, 0.44f, 0.30f),
-            "metal" => (0.27f, 0.28f, 0.30f),
-            _ => (0.38f, 0.36f, 0.33f),   // stone and the default
-        };
+        // The owner (2026-11-02): the look of Manufactorum's floor on every surface; three brightnesses, as before.
         var list = new StandardMaterial3D[3];
         for (int i = 0; i < list.Length; i++)
         {
-            float k = 0.8f + 0.2f * i;
-            list[i] = new StandardMaterial3D { AlbedoColor = new Color(r * k, g * k, b * k), Roughness = 0.9f, Metallic = surface == "metal" ? 0.4f : 0f, CullMode = BaseMaterial3D.CullModeEnum.Disabled };
+            float k = 0.85f + 0.2f * i;
+            list[i] = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(k, k, k), AlbedoTexture = FloorLook(), Uv1Triplanar = true, Uv1WorldTriplanar = false, Uv1Scale = Vector3.One * 0.6f, Roughness = 0.92f,
+                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            };
         }
         return _materials[surface] = list;
     }
