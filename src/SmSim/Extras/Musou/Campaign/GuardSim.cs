@@ -31,6 +31,9 @@ public sealed class GuardSim
     readonly int[] _node = new int[Capacity];
     readonly ushort[] _shotTicks = new ushort[Capacity];
     readonly ushort[] _stateTicks = new ushort[Capacity];
+    readonly Vector2[] _throw = new Vector2[Capacity];       // Knocked: the velocity of the throw under way
+    readonly ushort[] _throwTicks = new ushort[Capacity];
+    readonly ushort[] _downTicks = new ushort[Capacity];     // Knocked: ticks he stays down in all
 
     readonly bool[] _active = new bool[MaxSquads];           // any man in the squad's slots, dying included
     readonly int[] _living = new int[MaxSquads];
@@ -215,10 +218,51 @@ public sealed class GuardSim
         }
         _health[best] = MathF.Max(0f, _health[best] - damage);
         if (_health[best] > 0f) { AddEvent(new GuardEvent(GuardEventKind.Hurt, Tick, (ushort)(best + 1), 0, _position[best])); return true; }
-        _state[best] = GuardState.Dying; _stateTicks[best] = 0;
-        _living[squad]--; Alive--; Lost++;
-        AddEvent(new GuardEvent(GuardEventKind.Death, Tick, (ushort)(best + 1), 0, _position[best]));
+        Fall(best);
         return true;
+    }
+
+    void Fall(int i)
+    {
+        _state[i] = GuardState.Dying; _stateTicks[i] = 0;
+        _living[i / SquadSize]--; Alive--; Lost++;
+        AddEvent(new GuardEvent(GuardEventKind.Death, Tick, (ushort)(i + 1), 0, _position[i]));
+    }
+
+    /// <summary>
+    /// A Marine's shove (Musou pass 2, item 7): the standing men within <paramref name="reach"/> of <paramref name="at"/> (flat), in front of <paramref name="heading"/> (zero: all round), at most
+    /// <see cref="TfwCombatRules.ShoveTests"/> of them, are thrown <paramref name="distance"/> and fall (<see cref="GuardState.Knocked"/>); with <paramref name="deathChance"/> a man dies instead,
+    /// counted in <see cref="Lost"/> with no credit, as any Guardsman lost. How many were shoved.
+    /// </summary>
+    public int Shove(Vector3 at, float reach, Vector2 heading, float distance, float deathChance, TfwCombatRules rules)
+    {
+        int shoved = 0;
+        ushort ticks = Ticks(_enemies.Rules.Combat.KnockbackSeconds);
+        for (int i = 0; i < Capacity && shoved < rules.ShoveTests; i++)
+        {
+            if (!Standing(i) || MathF.Abs(_position[i].Z - at.Z) > 1.5f) continue;
+            var flat = new Vector2(_position[i].X - at.X, _position[i].Y - at.Y);
+            float d = flat.Length();
+            if (d > reach) continue;
+            var away = d > 1e-4f ? flat / d : heading;
+            if (heading != Vector2.Zero && Vector2.Dot(away, heading) < 0f) continue;
+            shoved++;
+            if (MusouSim.Unit(MusouSim.Mix(Tick, (uint)i * 0xC2B2AE35u + 0x165667B1u)) < deathChance) { Fall(i); continue; }
+            var push = heading + away;
+            float length = push.Length();
+            _throw[i] = length > 1e-4f ? push / length * (distance / (ticks * Dt)) : Vector2.Zero;
+            _throwTicks[i] = ticks;
+            _downTicks[i] = Ticks(rules.KnockedSeconds);
+            _state[i] = GuardState.Knocked; _stateTicks[i] = 0;
+        }
+        return shoved;
+    }
+
+    /// <summary>One tick on the ground: the throw under way, then he stands. He neither walks nor fires.</summary>
+    void StepKnocked(int i)
+    {
+        if (_throwTicks[i] > 0) { _throwTicks[i]--; Walk(ref _position[i], ref _node[i], _throw[i] * Dt); }
+        if (++_stateTicks[i] >= _downTicks[i]) { _state[i] = GuardState.Idle; _stateTicks[i] = 0; }
     }
 
     /// <summary>Frees every man and squad and the counters (a new battle).</summary>
@@ -250,7 +294,8 @@ public sealed class GuardSim
         LastStepMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
     }
 
-    bool Living(int i) => _state[i] is GuardState.Idle or GuardState.Moving;
+    bool Living(int i) => _state[i] is GuardState.Idle or GuardState.Moving or GuardState.Knocked;
+    bool Standing(int i) => _state[i] is GuardState.Idle or GuardState.Moving;
 
     void StepSquad(int s, bool fight, Span<int> near)
     {
@@ -275,8 +320,12 @@ public sealed class GuardSim
                 continue;
             }
             used++;
-            MoveMan(i, s, m, near);
-            if (fight) Shoot(i, s, m);
+            if (_state[i] == GuardState.Knocked) StepKnocked(i);
+            else
+            {
+                MoveMan(i, s, m, near);
+                if (fight) Shoot(i, s, m);
+            }
             sum += _position[i]; living++;
         }
         if (living > 0)

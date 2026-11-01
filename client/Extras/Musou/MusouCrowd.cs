@@ -54,7 +54,7 @@ public partial class MusouCrowd : CrowdView
             _seen.Add(e.Id);
             float time;
             if (MusouLooks.Loops(clip)) { _clocks.TryGetValue(e.Id, out time); time += delta; _clocks[e.Id] = time; }
-            else time = e.StateSeconds;
+            else time = e.State == MusouEnemyState.Knocked ? KnockedTime(e) : e.StateSeconds;
             Items.Add(new Item { Key = e.Id, Type = (int)e.Type, Position = p, Yaw = e.Yaw, Time = time, Clip = clip, Distance = p.DistanceTo(camera) });
         }
         _gone.Clear();
@@ -64,12 +64,16 @@ public partial class MusouCrowd : CrowdView
         Draw(delta);
     }
 
+    /// <summary>A knocked Ork plays his death clip, lies at its last frame, and plays it backwards to stand (the crowd has no get-up clip baked).</summary>
+    float KnockedTime(in MusouShown e) =>
+        SmSim.Extras.Musou.Campaign.TfwCombatRules.Default.FallClipTime(e.StateSeconds, _looks.For(e.Type)?.Clips[MusouLooks.Death]?.Animation.Duration ?? 1f);
+
     static int ClipOf(MusouEnemyState state) => state switch
     {
         MusouEnemyState.Seek => MusouLooks.Run,
         MusouEnemyState.WindUp or MusouEnemyState.Strike or MusouEnemyState.Recover => MusouLooks.Attack,
         MusouEnemyState.Stagger => MusouLooks.Stagger,
-        MusouEnemyState.Dying => MusouLooks.Death,
+        MusouEnemyState.Dying or MusouEnemyState.Knocked => MusouLooks.Death,
         _ => MusouLooks.Idle,
     };
 }

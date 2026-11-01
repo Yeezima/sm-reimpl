@@ -66,6 +66,10 @@ and gore are listed in their own design documents for now (the rest of section 0
 | Musou Mode: a class change in the Stormbird with no death | the owner's item 2 (2026-11-01) | DEPLOY in the Stormbird's loadout screen makes a fresh life of the chosen class on the spot (full health, the class's starting weapon) under a 2 s smoke cloud; only in the hub, inside the Stormbird, with a loadout waiting; in a match elsewhere a loadout still applies at the next respawn | Class change |
 | Musou Mode: health bars over the elites | the owner's item 14 (2026-11-01) | every living 'Ard Boy, Nob and Warboss shows a bar; a client is sent the 64 nearest of up to 120 | Elite bars |
 | Musou Mode: excessive gore and bloody explosions | the owner's items 8, 22 and 23 (2026-11-01); SM1's gore is a red splash and a ragdoll | gibs, sprays, spatter and pools from a player's, a retainer's or a Thunderhawk's kills, a bloody explosion for blast, frag, artillery and lascannon kills, a slash on each enemy a cleave hits; no blood on the screen; Musou Mode only | Who makes gore, Explosions, Burst size, Cleave slash |
+| Musou Mode: Marines throw fodder down | the owner's item 7 (2026-11-01); SM1 has no crowd collision | a Marine moving, sprinting, charging or landing into a Boy, Shoota, Gretchin or Guardsman throws him down for 2.5 s, sometimes killing him; any melee hit does the same to fodder; elites stagger as before | Melee and firepower |
+| Musou Mode: three big frags | the owner's item 21 (2026-11-01) | one grenade throws three frags 24 degrees apart, each with twice the data's blast radius and sparing the thrower; every human life carries grenades | Melee and firepower |
+| Musou Mode: a cleave of 20 | the owner's item 22 (2026-11-01) | a swing strikes up to 20 enemies | Melee and firepower |
+| Musou Mode: shots pierce | the owner's item 24 (2026-11-01); SM1's shots stop on the first body | every ranged weapon goes through 1 to 8 enemies by weight | Melee and firepower |
 
 ## 1. Deliberate changes (owner's decisions)
 

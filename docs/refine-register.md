@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2008 spec table rows: **1418 tagged**, 426 not tagged (read from data with high confidence), 164 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 429 rows of the changes document.
+Scanned 2022 spec table rows: **1431 tagged**, 427 not tagged (read from data with high confidence), 164 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 433 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 346 | 294 | 298 | 99 | 12 |
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 114 | 67 | 99 | 50 | 3 |
-| Melee (critical) | 64 | 51 | 60 | 11 | 5 |
+| Melee (critical) | 77 | 64 | 73 | 14 | 5 |
 | Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
 | Charge (critical) | 44 | 35 | 37 | 20 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -53,20 +53,20 @@ Scanned 2008 spec table rows: **1418 tagged**, 426 not tagged (read from data wi
 | Core simulation (provisional values) | 206 | 191 | 169 | 24 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 89 | 82 | 46 | 9 | 0 |
-| **All areas** | **1418** | 1194 | 1131 | 413 | 38 |
+| **All areas** | **1431** | 1207 | 1144 | 416 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 620 |
-| confidence: low | 535 |
-| confidence: medium | 478 |
-| kind: interpretation | 334 |
-| notes: ours | 302 |
+| kind: ours | 627 |
+| confidence: low | 542 |
+| confidence: medium | 484 |
+| kind: interpretation | 335 |
+| notes: ours | 305 |
 | confidence: none (low) | 118 |
 | kind: provisional | 100 |
-| kind: estimate | 62 |
+| kind: estimate | 67 |
 | kind: user's knowledge | 45 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
@@ -808,7 +808,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (64)
+### Melee (gameplay-critical) (77)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -896,6 +896,24 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-60E21DD0` | Melee bark | an attack line, chance 0.15, at a melee attack's start (not the charge) (probability) | kind: ours; confidence: low | ours | Melee bark: compare with SM1 by listening A/B at the same distance and state. Ours: an attack line, chance 0.15, at a melee attack's start (not the… | ☐ |
+
+*Spec section: Added content: Musou Mode: melee and firepower (pass 2, M5, owner items 7, 21, 22, 24; `TfwRules.Version` 13, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-1D072D80` | Who falls | Boy, Shoota Boy, Gretchin, Guardsman; 'Ard Boy, Nob, Chaos Marine and Warboss never fall (a heavy step staggers them as before) | kind: ours; confidence: medium | owner item 7, design C | Who falls: compare with SM1 by feel or video. Ours: Boy, Shoota Boy, Gretchin, Guardsman; 'Ard Boy, Nob, Chaos Marine and… | ☐ |
+| `R-1B2329DB` | What shoves | a Marine (human or retainer) moving at 1.5 m/s or more, contact within `PlayerRing` + 0.25 + the body's radius, in the front half of the move, at most 16 bodies a tick (m/s, m) | kind: estimate; confidence: low | design C | What shoves: compare with SM1 by timing a run over a known distance. Ours: a Marine (human or retainer) moving at 1.5 m/s or more, contact… | ☐ |
+| `R-FA69EFB2` | The fall | down 1.8, up 0.7: no move of his own, no attack; a blast on him keeps him down and pushes him (s) | kind: estimate; confidence: low | design C | The fall: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: down 1.8, up 0.7: no move of his own, no attack; a blast on him keeps… | ☐ |
+| `R-E71C1C96` | The throw | walk 1.5, sprint 3, charge 4, landing 4 (over the 0.25 s knockback), any melee hit 2 (m) | kind: estimate; confidence: low; notes: ours | design C; melee ours | The throw: compare with SM1 by measuring on a flat spot of the same map. Ours: walk 1.5, sprint 3, charge 4, landing 4 (over the 0.25 s knockback)… | ☐ |
+| `R-865EE6D3` | Death by the fall | walk 3, sprint 10, charge 25, landing 25, melee 10; the KO is the Marine's; a Guardsman counts as lost with no credit (%) | kind: estimate; confidence: low; notes: ours | design C; landing and melee ours | Death by the fall: compare with SM1 by timing a run over a known distance. Ours: walk 3, sprint 10, charge 25, landing 25, melee 10; the KO is the… | ☐ |
+| `R-DA85B25E` | A landing | a fall of at least 4 m/s ending on the ground shoves all round within 2.5 m (m/s, m) | kind: estimate; confidence: low; notes: ours | ours | A landing: compare with SM1 by timing a run over a known distance. Ours: a fall of at least 4 m/s ending on the ground shoves all round within… | ☐ |
+| `R-FE29B7C5` | Melee on fodder | every melee hit a fodder Ork survives throws him down, a light step too (the design said heavy steps; the brief says melee attacks) | kind: interpretation; confidence: medium | owner item 7 | Melee on fodder: compare with SM1 by feel or video. Ours: every melee hit a fodder Ork survives throws him down, a light step… | ☐ |
+| `R-6F99415B` | The fall as drawn | the death clip in at most 0.8 s, held, then backwards over the get-up time (clip only: no ragdoll for a crowd member; a thrown body is not lowered for shots) (s) | kind: ours; confidence: medium | design C's fallback | The fall as drawn: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the death clip in at most 0.8 s, held, then backwards over the get-up… | ☐ |
+| `R-41B48EF6` | The frag | one grenade spent, three frags thrown: the player's and one each way 24 degrees apart, a human's only (degrees) | kind: ours; confidence: medium | owner item 21 | The frag: compare with SM1 with an overlaid screenshot taken from the same position. Ours: one grenade spent, three frags thrown: the player's and one each way… | ☐ |
+| `R-D8FDC67E` | The frag's blast | radius and fall-off distances times 2 (the data's 10 m to 20 m), the data's damage, the thrower spared; drawn as the original detonation in two rings at 0.4 and 0.8 of the radius (6 and 10 effects) (m) | kind: ours; confidence: medium | owner item 21 | The frag's blast: compare with SM1 by measuring on a flat spot of the same map. Ours: radius and fall-off distances times 2 (the data's 10 m to 20 m), the… | ☐ |
+| `R-46610662` | Grenades in the war | a human life carries its item's full count (the strip to the starting weapons would take them; the frag's data carries 2) | kind: ours; confidence: medium | needed by item 21 | Grenades in the war: compare with SM1 by feel or video. Ours: a human life carries its item's full count (the strip to the starting… | ☐ |
+| `R-E75D89A0` | Piercing | enemies a shot goes through before the one that stops it: lascannon 8, heavy bolter and plasma cannon 5, stalker bolter 4, storm bolter and melta 3, other ranged 2, pistols 1; each next enemy takes 0.85 of the last's damage (hit-scan); a projectile deals its… (enemies) | kind: ours; confidence: low | owner item 24 | Piercing: compare with SM1 by feel or video. Ours: enemies a shot goes through before the one that stops it: lascannon… | ☐ |
+| `R-311A51BE` | Cones | at most 40 enemies a cone shot (the 5-wave aid's 24) (enemies) | kind: ours; confidence: low | owner item 24 | Cones: compare with SM1 by feel or video. Ours: at most 40 enemies a cone shot (the 5-wave aid's 24). | ☐ |
 
 *Spec section: Player collision (sim/player-collision; protocol 43, used by the simulation)*
 
@@ -2348,6 +2366,10 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-B2C3F020` | Musou Mode: a class change in the Stormbird with no death | the owner's item 2 (2026-11-01) | DEPLOY in the Stormbird's loadout screen makes a fresh life of the chosen class on the spot (full health, the class's starting weapon) under a 2 s smoke cloud; only in the hub, inside the Stormbird, with a loadout waiting; in a match elsewhere a loadout still applies at the next respawn | Class change | Musou Mode: a class change in the Stormbird with no death: compare with SM1 by feel or video. Ours: the owner's item 2 (2026-11-01). | ☐ |
 | `C-7464C6DC` | Musou Mode: health bars over the elites | the owner's item 14 (2026-11-01) | every living 'Ard Boy, Nob and Warboss shows a bar; a client is sent the 64 nearest of up to 120 | Elite bars | Musou Mode: health bars over the elites: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner's item 14 (2026-11-01). | ☐ |
 | `C-7B12D4F2` | Musou Mode: excessive gore and bloody explosions | the owner's items 8, 22 and 23 (2026-11-01); SM1's gore is a red splash and a ragdoll | gibs, sprays, spatter and pools from a player's, a retainer's or a Thunderhawk's kills, a bloody explosion for blast, frag, artillery and lascannon kills, a slash on each enemy a cleave hits; no blood on the screen; Musou Mode only | Who makes gore, Explosions, Burst size, Cleave slash | Musou Mode: excessive gore and bloody explosions: compare with SM1 by feel or video. Ours: the owner's items 8, 22 and 23 (2026-11-01); SM1's gore is a red… | ☐ |
+| `C-7C39B7CA` | Musou Mode: Marines throw fodder down | the owner's item 7 (2026-11-01); SM1 has no crowd collision | a Marine moving, sprinting, charging or landing into a Boy, Shoota, Gretchin or Guardsman throws him down for 2.5 s, sometimes killing him; any melee hit does the same to fodder; elites stagger as before | Melee and firepower | Musou Mode: Marines throw fodder down: compare with SM1 by feel or video. Ours: the owner's item 7 (2026-11-01); SM1 has no crowd collision. | ☐ |
+| `C-9E329822` | Musou Mode: three big frags | the owner's item 21 (2026-11-01) | one grenade throws three frags 24 degrees apart, each with twice the data's blast radius and sparing the thrower; every human life carries grenades | Melee and firepower | Musou Mode: three big frags: compare with SM1 by feel or video. Ours: the owner's item 21 (2026-11-01). | ☐ |
+| `C-E41F34C3` | Musou Mode: a cleave of 20 | the owner's item 22 (2026-11-01) | a swing strikes up to 20 enemies | Melee and firepower | Musou Mode: a cleave of 20: compare with SM1 by feel or video. Ours: the owner's item 22 (2026-11-01). | ☐ |
+| `C-079F9B9C` | Musou Mode: shots pierce | the owner's item 24 (2026-11-01); SM1's shots stop on the first body | every ranged weapon goes through 1 to 8 enemies by weight | Melee and firepower | Musou Mode: shots pierce: compare with SM1 by shooting through a crate or a line of players and counting who is hit. Ours: the owner's item 24 (2026-11-01); SM1's shots stop on the first body. | ☐ |
 
 ### Deliberate changes (owner's decisions)
 

@@ -39,6 +39,7 @@ public sealed partial class World
         _musouAttacks.Clear();
         musou.Step(_musouTargets.AsSpan(0, n), Collision, playing, _musouAttacks);
         foreach (var attack in _musouAttacks) MusouHit(attack);
+        if (playing) TfwShoves();   // World.TfwMelee.cs
         guards.Step(playing);
         TfwCreditKills();
         musou.LastStepMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
