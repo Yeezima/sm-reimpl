@@ -150,6 +150,7 @@ public sealed partial class MusouSim
                 if (_stateTicks[i] >= Ticks(Rules.SpawnSeconds)) SetState(i, MusouEnemyState.Seek);
                 continue;
             }
+            if (state == MusouEnemyState.Knocked) { StepKnocked(i, targets, near); continue; }   // Campaign/MusouSim.Knock.cs: only a war's fodder falls
             if (_cooldown[i] > 0) _cooldown[i]--;
             var spec = Rules.Of(_type[i]);
             bool leashed = !float.IsPositiveInfinity(_aggro[i]) && !_scripted[i], woken = leashed && Woken(i, targets);
@@ -670,14 +671,17 @@ public sealed partial class MusouSim
     /// <paramref name="maxDistance"/>: its id (0: none), the distance and whether it struck the head (a sphere at the top of the body; the body a vertical
     /// cylinder below it, the type's radius). Ties: the lowest id.
     /// </summary>
-    public ushort Raycast(Vector3 origin, Vector3 direction, float maxDistance, out float distance, out bool head)
+    public ushort Raycast(Vector3 origin, Vector3 direction, float maxDistance, out float distance, out bool head) => Raycast(origin, direction, maxDistance, out distance, out head, default);
+
+    /// <summary><see cref="Raycast(Vector3, Vector3, float, out float, out bool)"/> past the enemies in <paramref name="past"/> (a shot that has gone through them).</summary>
+    public ushort Raycast(Vector3 origin, Vector3 direction, float maxDistance, out float distance, out bool head, ReadOnlySpan<ushort> past)
     {
         ushort best = 0; distance = maxDistance; head = false;
         var dxy = new Vector2(direction.X, direction.Y);
         float a = Vector2.Dot(dxy, dxy);
         for (int i = 0; i < Capacity; i++)
         {
-            if (!_used[i] || _state[i] == MusouEnemyState.Dying) continue;
+            if (!_used[i] || _state[i] == MusouEnemyState.Dying || past.Contains((ushort)(i + 1))) continue;
             var spec = Rules.Of(_type[i]);
             float scale = _type[i] == MusouEnemyType.Warboss ? Rules.BossScale : 1f;
             float r = spec.Radius * scale, height = spec.Height * scale, headRadius = 0.22f * height / 1.9f;

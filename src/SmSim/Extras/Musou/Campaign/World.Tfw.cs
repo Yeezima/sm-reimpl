@@ -27,6 +27,7 @@ public sealed partial class World
         if (!StartMusou(nav)) return false;
         _tfw ??= new TfwRun(field, new TfwSites(field, nav, Collision));
         _musou!.Swarm = MusouSwarmRules.Default;   // the 5-wave run never gets it (MusouSkirmishPinTests)
+        _musou!.War = TfwCombatRules.Default;   // nor this
         _musou!.WidenBox(field.Hub.Box);   // the Stormbird lies outside the graph
         _musou!.WidenBox(field.Bounds);   // a jump goes above it
         _musou!.Director = default;   // no 5-wave director to show (nothing is sent until the first deploy: TfwShowDirector)
@@ -50,6 +51,8 @@ public sealed partial class World
         var run = _tfw!;
         MusouBeginTick();
         MusouArm();
+        TfwGiveFrags();   // World.TfwMelee.cs
+        TfwFrags();
         TfwCreditKills();   // the strikes and blasts earlier in the tick: a battle may end below
         if (_state == MatchState.Playing && !run.Idle) run.Step(this);
         else if (!run.Idle) run.Commands(null, Config.TickRate);
@@ -269,6 +272,7 @@ public sealed partial class World
         _players[id] = Combat.Respawned(WithNextLoadout(p) with { Position = at, Yaw = yaw }, Config);
         _respawns.Add(id);
         _musouArmed.Remove(id);
+        _tfwFragged.Remove(id);
         return true;
     }
 }

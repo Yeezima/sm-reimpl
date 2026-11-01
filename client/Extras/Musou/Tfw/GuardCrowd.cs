@@ -34,7 +34,7 @@ public partial class GuardCrowd : CrowdView
     {
         public Vector3 Position, Last;
         public Vector2 Travel;      // m/s, on the man (X his right, Y his front)
-        public float Yaw, Pitch, Speed, Clock;
+        public float Yaw, Pitch, Speed, Clock, Down;
         public float SinceShot = float.PositiveInfinity, SinceHurt = float.PositiveInfinity, Fade;
         public int Clip = -1;
         public bool Seen;
@@ -118,6 +118,15 @@ public partial class GuardCrowd : CrowdView
             }
             if (_deaths.IsGone(g.Id, tick)) continue;   // a record behind his death: the body is drawn, not him
             Step(man, p, g.Yaw, delta);
+            if (g.State == (byte)GuardState.Knocked)
+            {
+                // Down (a Marine's shove): a death clip, held, then backwards to stand, as the Orks' (MusouCrowd.KnockedTime).
+                man.Down += delta;
+                float length = _looks.Look?.Clips[GuardRig.FirstDeath]?.Animation.Duration ?? 1f;
+                Items.Add(new Item { Key = g.Id, Position = p, Yaw = man.Yaw, Time = TfwCombatRules.Default.FallClipTime(man.Down, length), Clip = GuardRig.FirstDeath, Distance = p.DistanceTo(camera) });
+                continue;
+            }
+            man.Down = 0f;
             bool moving = g.State == (byte)GuardState.Moving && man.Speed > StandingSpeed;
             int clip = ClipOf(man, moving);
             if (clip != man.Clip)
