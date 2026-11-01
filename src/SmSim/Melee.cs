@@ -91,6 +91,15 @@ public readonly record struct MeleeStep(
     public bool InPlace { get; init; }
 
     /// <summary>
+    /// anim/hammer-swing (owner, 2026-11-01: the thunder hammer's standard swings "step forward" too far): a factor on this strike's forward lunge on top of
+    /// <see cref="SimConfig.MeleeLungeScale"/> (<see cref="MeleeLock.LungeStep"/>); 1 (the default): none. Set by the content loader for the hammer's light strikes
+    /// (<c>MeleeTuning.WeaponMap.LightLungeFactor</c>); hashed only when it is not 1.
+    /// </summary>
+    public float LungeFactor { get; init; } = 1f;
+    /// <summary><see cref="LungeFactor"/> as applied (a factor that is not finite or not above 0 counts as 1).</summary>
+    public float LungeFactorApplied => float.IsFinite(LungeFactor) && LungeFactor > 0f ? LungeFactor : 1f;
+
+    /// <summary>
     /// feel/locks-sprint-stop: the attack's <c>BRANCH_Evade</c> (the start of its first window, seconds from the attack's start): from here (scaled by
     /// <see cref="SimConfig.ActionLockScale"/>, never before <see cref="HitTime"/>) a Jump press ends the attack and evades or takes off in the same tick
     /// (<see cref="Combat"/>). Infinity (the default: tests, a sequencer without the tag): no Jump during the attack, as before.
@@ -120,6 +129,7 @@ public readonly record struct MeleeStep(
         // feel/melee-lock: only when set, so a step without it hashes as before.
         if (Reach is { } reach) { w.Write((byte)0xA1); reach.Write(w); }
         if (InPlace) w.Write((byte)0xA2);   // sim/stomp-in-place: only when set
+        if (LungeFactorApplied != 1f) { w.Write((byte)0xA3); w.Write(LungeFactorApplied); }   // anim/hammer-swing: only when not 1
         if (Kick) w.Write((byte)0xA4);   // sim/light-melee-flinch: only when set
         // feel/locks-sprint-stop: only when read, so a step without it hashes as before.
         if (float.IsFinite(EvadeAt)) { w.Write((byte)0xE5); w.Write(EvadeAt); }

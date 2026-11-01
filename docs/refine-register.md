@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2080 spec table rows: **1475 tagged**, 436 not tagged (read from data with high confidence), 169 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 438 rows of the changes document.
+Scanned 2087 spec table rows: **1481 tagged**, 437 not tagged (read from data with high confidence), 169 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 441 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 346 | 294 | 298 | 99 | 12 |
+| Movement (critical) | 352 | 297 | 303 | 100 | 12 |
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 114 | 67 | 99 | 50 | 3 |
 | Melee (critical) | 80 | 67 | 76 | 14 | 5 |
@@ -53,21 +53,21 @@ Scanned 2080 spec table rows: **1475 tagged**, 436 not tagged (read from data wi
 | Core simulation (provisional values) | 249 | 234 | 209 | 25 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 89 | 82 | 46 | 9 | 0 |
-| **All areas** | **1475** | 1251 | 1186 | 417 | 38 |
+| **All areas** | **1481** | 1254 | 1191 | 418 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 669 |
-| confidence: low | 566 |
-| confidence: medium | 494 |
+| kind: ours | 670 |
+| confidence: low | 567 |
+| confidence: medium | 498 |
 | kind: interpretation | 335 |
-| notes: ours | 305 |
+| notes: ours | 306 |
 | confidence: none (low) | 126 |
 | kind: provisional | 99 |
-| kind: estimate | 71 |
-| kind: user's knowledge | 49 |
+| kind: estimate | 72 |
+| kind: user's knowledge | 50 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
 | notes: provisional | 31 |
@@ -76,7 +76,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: approximation | 22 |
 | kind: placeholder | 22 |
 | notes: placeholder | 19 |
-| kind: gap (not reproduced) | 16 |
+| kind: gap (not reproduced) | 17 |
 | notes: open question | 16 |
 | notes: interpretation | 15 |
 | notes: not reproduced (gap) | 13 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (346)
+### Movement (gameplay-critical) (352)
 
 *Spec section: Extracted parameters*
 
@@ -521,6 +521,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-2854D975` | Pistol twist idle (test aid) | `--pistol-twist-idle` (off by default): the pistol posture at rest stands in the ready posture's "Twist Idle" (pitch clips, the spine twist toward the aim, the turn clips) instead of "Idle Relaxed", for the owner to compare against the video. Not the data's… | kind: interpretation; confidence: low; notes: ours | ours | Pistol twist idle (test aid): compare with SM1 by feel or video. Ours: --pistol-twist-idle (off by default): the pistol posture at rest… | ☐ |
 | `R-44FC88E6` | Stop: straight to the final idle (qc/reference-pass) | When the run's blend space lets go of a marine in the middle of its placement (damped speed below the leave speed), the stand (aim-offset idle, twist idle) is decided again there, so the run blends straight into the final idle over the posture's stop blend… (s) | kind: ours; confidence: medium | graph (the stop blend); ours (the order fix) | Stop: straight to the final idle (qc/reference-pass): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: When the run's blend space lets go of a marine in the middle of its… | ☐ |
 | `R-2EB73FCF` | Transition probe: two-handed melee bones | The probe measures `RIG_Prop_M_*` only on a character carrying a two-handed melee weapon (the thunder hammer, the daemon maul; the networked view sets the character's `melee_2h` meta); on every other character they carry no mesh and gave "move -> idle-plain"… | kind: ours | ours | Transition probe: two-handed melee bones: compare with SM1 by feel or video. Ours: The probe measures RIG_Prop_M_* only on a character carrying a… | ☐ |
+
+*Spec section: The hammer's swings and air slash (anim/hammer-swing; the step is simulated, the legs and the air slash clip are client presentation)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-B232FE15` | Hammer standard swings: the step forward | The thunder hammer's and the daemon maul's three light strikes (`SM_MEL_TH_XATK_Combo2`, `_Combo3`, `SM_MEL_TH_HeavyATK02`; X, X, X) move the body **0.82** times what every melee weapon's lunge does (`MeleeLungeScale` 1.625 x 0.82 = **1.3325** times the… (m) | kind: estimate; kind: user's knowledge; confidence: low; notes: ours | the owner's request ("reduced slightly, maybe by 1 to 2 meters. You can also judge it"); the factor 0.82: ours (1.3 to 1.8 m less) | Hammer standard swings: the step forward: compare with SM1 by measuring on a flat spot of the same map. Ours: The thunder hammer's and the daemon maul's three light strikes… | ☐ |
+| `R-A7E7D31D` | Hammer swings: the stretched stride | A hammer light strike posed on the ground stretches the clip's feet along the heading by the body's extra travel over the clip's root motion (`ClipStrideScale` = 1.625 x 0.82: the foot's forward offset from the character times 1.3325, two-bone IK of the leg… | kind: ours; confidence: medium | ours (the owner: "the feet should step along with the lunge"); the clips, the entry, chain and exit blends: the graph's (anim/melee-flow) | Hammer swings: the stretched stride: compare with SM1 by feel or video. Ours: A hammer light strike posed on the ground stretches the clip's feet… | ☐ |
+| `R-159C35EA` | Hammer swings: result | `--swing-test stand`, before (`st1`, the build before) -> after (`st5`): legs at the reach limit (stretch over 0.985) in **1001 / 1042 / 1850 -> 114 / 144 / 118** foot-frames of the three strikes (58 / 59 / 51 % -> 8 / 11 / 4.5 %); the ankle trailing the body… | confidence: medium | measured | Hammer swings: result: compare with SM1 by feel or video. Ours: --swing-test stand, before (st1, the build before) -> after (st5):… | ☐ |
+| `R-1C5A777D` | Hammer air slash: the clip | A marine holding the thunder hammer or the daemon maul shows `SM_MEL_TH_XATK_Combo3` (the hammer's second standard swing, 2.333 s) for the jump pack's air slash instead of the sword's `SM_MEL_CS_XATK_Hv1_LS_2_7m`: in the dive from 0.4333 s of the clip at… (s of clip) | confidence: medium | graph (data; the crops and speeds read off the dump by hand, the reader takes the sword's sequencers only) | Hammer air slash: the clip: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A marine holding the thunder hammer or the daemon maul shows… | ☐ |
+| `R-B78380EF` | Hammer air slash: blends | The dive and the landing take the jump pose entry blends and the get-up the follow-through hand-over of the sword's slash (anim/air-slash-character: the jump-pack graph's impact-to-run blend 'Fast Blend BranchIn' 0.167 s, over the upper body, the legs from… | confidence: medium | measured | Hammer air slash: blends: compare with SM1 by feel or video. Ours: The dive and the landing take the jump pose entry blends and the… | ☐ |
+| `R-98DA01C8` | Not done | The hammer's own dash attack clip (`SM_JMP_TH_DashAtk_F`, the graph's "ThunderHammer Jump Dash Attack") and ground-pound clips (`SM_JMP_TH_GP_*`) are not posed (the simulation's dash attack and pound read the sword's); the hammer's heavy strikes and slams… | kind: gap (not reproduced) | - | Not done: compare with SM1 by feel or video. Ours: The hammer's own dash attack clip (SM_JMP_TH_DashAtk_F, the graph's… | ☐ |
 
 *Spec section: Power sword, power axe, thunder hammer and the heavy classes' kick and stomp (Weapons C, used by the simulation)*
 
@@ -2480,6 +2491,9 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-7B51C356` | Sprint stop (feel/locks-sprint-stop) | The ground acceleration rule: letting go of the keys at sprint speed stops the body in 0.16 to 0.25 s and 0.5 to 1.25 m; the original's sprint-to-idle clip (`SM_NAV_Bullrush2Idle_F_01`, 5.79 m of root motion over 1.2 s, `BRANCH_Sprint_Finished` 0.833 s) could not be played on it | With every movement key let go after a sprint (faster than run + 0.25 × (sprint − run)) the body slows along its velocity, v² falling at a constant rate from at most sprint speed so that a stop from sprint speed lasts **0.833 s** (the clip's `BRANCH_Sprint_Finished`) and covers 2/3 × 9 × 0.833 = **5.0 m** (the clip:… | Owner's request 2026-10-29 ("a 'slowdown' when you stop sprinting where an animation plays of the character model slowing down from the sprint back to a stop, if movement keys are let go of entirely"); the curve and the cancels ours, the time from the data; spec "Action lock scale and the sprint stop" | Sprint stop (feel/locks-sprint-stop): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-14CF4462` | Ledge charge ends on landing (feel/melee-charge-2) | As we read it (protocol 30, the maintainer's recommendation): a bull rush that leaves a ledge is held in the air and its clip resumes at its time on landing, so the shoulder bash plays again and contacts count again | A landing after a real fall (at least the speed of a 0.5 m free fall, ours) ends the charge on that tick: no resumed clip, no second contact window; the normal movement follows (run with a movement key, else the slowdown to a stand), the speed kept up to sprint speed (ours); the landing tick's contact still counts… | Owner's request 2026-10-29 ("when you hit the ground you start doing the charge animation again. that is wrong. you should in a blended fluid way transition to a running or standing animation"); spec "Melee and charge, second pass" | Ledge charge ends on landing (feel/melee-charge-2): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-1E760DF5` | Longer melee lunges (feel/melee-charge-2) | Each attack moves the body by its clips' root motion (feel/melee-lock), the blend at the target's distance ending at the clip's strike distance | Every melee attack's forward root motion × **1.3** (`SimConfig.MeleeLungeScale`); with a lock the approach still aims at the strike distance and the extra shows in the follow-through, never nearer than 1 m; backward motion, the charge, the dash attack, the slash and the pound unchanged | Owner's request 2026-10-29 ("make all melee step forwards step forward more"); 1.3 is an **estimate (owner's request)** to review; spec "Melee and charge, second pass" | Longer melee lunges (feel/melee-charge-2): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-F2A6F702` | Hammer standard swings step less (anim/hammer-swing) | The three light strikes' root motion is 6.04, 5.74 and 4.50 m (single clips); with the lunge scale 1.625 the body moved 7.9, 8.5 and 7.4 m in a chain | The thunder hammer's and the daemon maul's light strikes move 0.82 of that lunge (1.3325 x the clip): 6.5, 7.0 and 6.0 m, 1.3 to 1.6 m less (hit time 4.4 to 5.3 m); a locked target is still closed to 1 m by the hit | Owner's request 2026-11-01 ("reduced slightly, maybe by 1 to 2 meters. You can also judge it"); the factor is an **estimate (owner's knowledge of the size, our value)**; spec "The hammer's swings and air slash"; refine register | Hammer standard swings step less (anim/hammer-swing): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-E82413BE` | Hammer swings: stretched stride (anim/hammer-swing) | The clip's feet are authored for the clip's root motion | The hammer's light strikes' feet are stretched along the heading by the body's extra travel, a held foot out of reach is let go, and the leg is no longer dragged straight along the ground | The owner: "the legs are doing really crazy things ... the feet should step along with the lunge"; ours (client presentation) | Hammer swings: stretched stride (anim/hammer-swing): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-991EBBDF` | Hammer air slash plays the hammer's clip (anim/hammer-swing) | The graph's "Hammer Dash State" plays `SM_MEL_TH_XATK_Combo3` (flight at 0.2 speed, landing from 0.5667 s at 0.8) | We pose that clip for the hammer and the daemon maul (before: the sword's); damage, stagger, effects, sound and timing are the sword slash's | Owner's request 2026-11-01; data (graph); hit and release times: ours as before | Hammer air slash plays the hammer's clip (anim/hammer-swing): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-31B0CF9B` | Faster weapon switch (feel/melee-charge-2) | Not measured: our placeholder 0.6 s (the data's switch clips: rifle 0.467 s, pistol 0.667 s; the original's timer is in code) | 0.6 × **0.8 = 0.48 s** (15 ticks); the raise after a switch unchanged | Owner's request 2026-10-29 ("weapon switching is slightly faster ... make a note that this is an estimation and needs to be measured against the original"); an **estimate (owner's request)**, to measure against the original; spec "Melee and charge, second pass" | Faster weapon switch (feel/melee-charge-2): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-88653021` | Dash attack ends on landing (feel/melee-charge-2) | As we read it (protocol 30): a dash attack's lunge that reaches its end in the air is held there until it lands, then plays its run-out (the "Dash to Idle" clip, `SM_NAV_Sprint_to_Idle_F`, 0.9 s) | The landing ends the dash attack on that tick: no run-out; the normal movement follows (speed kept up to sprint speed); the landing tick's contact still counts. A lunge begun in the air that lands before its end goes on as before | Owner's request 2026-10-29 for the ledge charge, applied to the dash attack alike at the lead's instruction ("the dash attack's equivalent must behave the same way"); spec "Melee and charge, second pass" | Dash attack ends on landing (feel/melee-charge-2): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-3C22065E` | The air slash (feel/jump-pack) | The slash used the pound's dive (50 m/s, 75 m/s²: 53 to 60 m/s into the ground, 3.8 to 7.7 m ahead whatever the aim), a dead stop, 0.638 s frozen (the clip's `BRANCH_Run`), the pound's smash sound; a press in the take-off and, with Air-Cooled Thrusters, in a jump's first 2 s was lost | Its own straight 40 m/s dive toward the point under the aim (at least 40 degrees down), a 6 m/s landing lunge for 0.2 s ("move forward a bit"), free 0.3 s after the landing (hit at the data's 0.133 s; damage and interrupt the data's), a melee press in the take-off is buffered to the tick after the lift-off, no pound… | Owner's requests 2026-10-29 ("feels terrible to use"; "move forward a bit, add a hit effect that shows roughly where the attack hitbox landed"); values ours; spec "Jump-pack feel" | The air slash (feel/jump-pack): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |

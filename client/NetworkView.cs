@@ -761,6 +761,7 @@ public partial class NetworkView : Node3D
         var me = _client!.Predicted;
         if (JumpTest && JumpTestInput(me, tick) is { } jumpTest) return jumpTest;   // M44 test aid (NetworkView.JumpFx.cs)
         if (SlashTestInput(me, tick) is { } slashTest) return slashTest;   // feel/jump-pack test aid --slash-test (NetworkView.DashAttack.cs)
+        if (SwingTestInput(me, tick) is { } swingTest) return swingTest;   // anim/hammer-swing test aid --swing-test (NetworkView.SwingTest.cs)
         if (StompMoveTestInput(me, tick) is { } stompMove) return stompMove;   // anim/stomp-to-move test aid --stomp-move-test (NetworkView.StompMoveTest.cs)
         if (CameraTestInput(me, tick) is { } cameraTest) return cameraTest;   // camera/hop-and-walls test aid --camera-test (NetworkView.CameraTest.cs)
         if (CarryTestInput(me, tick) is { } carry) return carry;   // anim/relic-bolter-idle test aid --carry-test (NetworkView.CarryTest.cs)
@@ -1419,6 +1420,7 @@ public partial class NetworkView : Node3D
     {
         // qc/reference-pass: the transition probe measures the melee prop bones (RIG_Prop_M_*) only where a mesh can hang on them: a marine with a two-handed melee weapon, and every
         // Ork (the boy's shoota rides RIG_Prop_M_Chest); on other marines they carry nothing.
+        LungeLogSample(state);   // anim/hammer-swing test aid (NetworkView.LungeLog.cs)
         if (TransitionProbe.Enabled) character.SetMeta(TransitionProbe.TwoHandedMeta, IsOrkCharacter(character) || MeleeWargear(state)?.Contains("_2hand_", StringComparison.OrdinalIgnoreCase) == true);
         if (IsOrkCharacter(character)) { PlaceOrk(character, state, throwTime, own, smooth); return; }   // Ork O7a (NetworkView.Ork.cs): the boy's rig has its own clips
         character.ClearPoseLayers();  // M27: the recoil layer is laid again by PlaceLocomotion when it applies (animation pass 1: every layer slot, CharacterViewer.Layers.cs; the fall slots by FallLayers)
@@ -1437,6 +1439,7 @@ public partial class NetworkView : Node3D
         if (character.GetNodeOrNull<Node3D>("ChargeGlow") is { } glow) glow.Visible = state.Alive && state.Charging && !NoMarkers;
         // Reacting (M28): the reaction clip at the reaction's time; a reaction ends any attack, throw, evade or jump on the ground.
         character.ClipFootLock = false;   // anim/melee-flow: only the strikes and the charge below hold their put-down feet (CharacterViewer.ClipFootLock.cs)
+        character.ClipStrideScale = 1f;   // anim/hammer-swing: only a hammer strike below stretches the clip's stride (NetworkView.HammerSwing.cs)
         if (ReactionPose(state) is { } reaction && PoseSharp(character, reaction.Clip, MathF.Max(0f, (smooth is { Kind: ClipKind.Reaction } sr ? sr.Time : reaction.Time) - HitStopHold(state.PlayerId)), ClipBlends.Reaction)) return;   // feel/melee-lock: the hit-stop holds it
         // Charging (M29): the rush or its collision stop, at the phase's time.
         // feel/jump-pack (the owner, 2026-10-29): a charge held in the air off a ledge shows the fall pose (the locomotion path below), not its clip frozen (NetworkView.Fall.cs).
@@ -1464,6 +1467,7 @@ public partial class NetworkView : Node3D
             // anim/melee-flow (NetworkView.MeleeFlow.cs): the blend into the strike from its graph (entry or chain); noted every frame the strike shows, handed over or not.
             float entryBlend = NoMeleeFlow ? ClipBlends.Melee(state.MeleeStep) : MeleeEntryBlend(state);
             if (HandoffAttack(character, state, own, baseClip, attackTime, baseTime)) return;
+            character.ClipStrideScale = HammerStrideScale(state);   // anim/hammer-swing: the legs travel the body's lunge, not the clip's
             if (PoseSharp(character, baseClip, baseTime, entryBlend, sharp: !(state.MeleeHeavy && HeavyClass(state))))   // feel/weight-impact: not the stomp
             {
                 if (overClip is not null) character.SetLayer(PoseSlots.MeleeVariant, overClip, overTime, overWeight, additive: false);
