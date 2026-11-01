@@ -150,6 +150,7 @@ public partial class NetworkView
         var path = _tfwTestNav.FindPath(client.Predicted.Position, at);
         if (path is null || path.Partial) { TfwCheck(what, false, $"no way from {client.Predicted.Position} to {at}"); return false; }
         var points = path.Waypoints;
+        GD.Print($"TFWTEST note: {what}: from {client.Predicted.Position} to {at}, {points.Count} waypoints, the last {points[^1].Position}, {path.Length:F0} m");
         TfwKey(Key.W, true);
         await TfwFrames(2);
         int next = 0, stuckFrames = 0;
@@ -169,6 +170,7 @@ public partial class NetworkView
         }
         TfwKey(Key.W, false);
         await TfwWait(0.3);
+        GD.Print($"TFWTEST note: {what}: stopped at {client.Predicted.Position}, alive {client.Predicted.Alive}, waypoint {next} of {points.Count}");
         bool there = _connectedFor < end;
         TfwCheck(what, there, $"stopped at {client.Predicted.Position}");
         return there;
@@ -213,7 +215,7 @@ public partial class NetworkView
         return await TfwUntil($"the Stormbird lands: {battle}", () => TfwNow.Phase == battle && _tfwState.Objectives.Count == TfwBattle.CommanderObjective + 1, 10.0);
     }
 
-    /// <summary>One battle won on <paramref name="lane"/>: the player walks to each position in turn, a real squad secures it, the commander comes and falls (<c>SM_TFW_WIN_TEST</c>), and the free pickup brings it home.</summary>
+    /// <summary>One battle won on <paramref name="lane"/>: the player walks to each position in turn, it is secured, the commander comes and falls (<c>SM_TFW_WIN_TEST</c>), and the free pickup brings it home.</summary>
     async Task<bool> TfwTestWinBattle(TfwLane lane, int number)
     {
         var client = _client!;
@@ -228,7 +230,7 @@ public partial class NetworkView
             string name = $"battle {number}: {TfwHudModel.ObjectiveName(k, false)}";
             if (!await TfwPathTo(_tfwState.Objectives[k].Position, $"{name}: walked there", 90.0)) return false;
             if (!await TfwUntil($"{name}: cleared, the HUD says SECURING", () => TfwHudModel.ObjectiveState(_tfwState.Objectives[index]).StartsWith("SECURING", StringComparison.Ordinal) || _tfwState.Objectives[index].State == TfwPositionState.Secured, 30.0)) return false;
-            if (!await TfwUntil($"{name}: secured by the Guardsmen", () => _tfwState.Objectives[index].State == TfwPositionState.Secured, 120.0)) return false;
+            if (!await TfwUntil($"{name}: secured", () => _tfwState.Objectives[index].State == TfwPositionState.Secured, 120.0)) return false;
             if (k == 1)
             {
                 await TfwWait(0.3);
@@ -446,6 +448,39 @@ public partial class NetworkView
     }
 
     /// <summary>
+    /// Test aid <c>--tfw-test-fight</c> (with <c>--tfw-test &lt;dir&gt;</c>): the player deploys, walks to the point nearest it and stands near it looking at it, for <c>--tfw-fight-seconds</c> (default 90), and a PNG goes to the
+    /// folder every 6 s of a windowed run. It fires nothing: the fight on the screen is the allies' and the Orks'.
+    /// </summary>
+    async Task TfwTestFight()
+    {
+        var client = _client!;
+        if (!await TfwTestDeploy(TfwLane.B)) return;
+        await TfwWait(1.0);
+        await TfwShot("fight-00-landing");
+        double seconds = double.TryParse(CmdArg("tfw-fight-seconds"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double s) ? s : 90.0, start = _connectedFor;
+        Num.Vector3 Nearest()
+        {
+            var me = client.Predicted.Position;
+            var best = _tfwState.Objectives[0].Position;
+            for (int k = 1; k < TfwBattle.CommanderObjective; k++)
+                if (Num.Vector3.Distance(_tfwState.Objectives[k].Position, me) < Num.Vector3.Distance(best, me)) best = _tfwState.Objectives[k].Position;
+            return best;
+        }
+        var point = Nearest();
+        await TfwPathTo(point, "walked towards the nearest point", 45.0, () => Num.Vector3.Distance(client.Predicted.Position, point) < 26f || !client.Predicted.Alive);
+        int shot = 1;
+        while (_connectedFor - start < seconds && TfwNow.Phase == TfwRunPhase.Battle)
+        {
+            var me = client.Predicted.Position;
+            var look = _musouState.MiddleNear(me, 45f) ?? point;   // towards the crowd
+            _yaw = MathF.Atan2(-(look.X - me.X), look.Y - me.Y);
+            await TfwWait(6.0);
+            await TfwShot($"fight-{shot++:00}");
+        }
+        TfwCheck("the fight was filmed", shot > 1, TfwNow.Phase.ToString());
+    }
+
+    /// <summary>
     /// The hub's look and its walls (item 29): shots from the spawn looking out the ramp and forward, a walk up the ramp to its end (it must stop there, aboard, with the hub's own environment on the camera
     /// and the map's sun off), shots there looking out and back, then a push against each side wall of the corridor and the end wall (the player must not leave the ship).
     /// </summary>
@@ -500,6 +535,7 @@ public partial class NetworkView
     {
         var client = _client!;
         if (!await TfwUntil("the war is on, in the hub", () => client.Match.State == MatchState.Playing && _tfwState.War is { Phase: TfwRunPhase.Hub } && client.Predicted.Alive, 60.0)) return;
+        if (CmdFlag("tfw-test-fight")) { await TfwTestFight(); return; }
         var start = TfwNow;
         TfwCheck("the reserves are the run's", start.Transport == TfwBattleRules.StartTransport && start.Supplies == TfwBattleRules.StartSupplies, $"{start.Transport}, {start.Supplies}");
         TfwCheck("the station prompt fits the spot", _tfwAt == TfwHudModel.StationAt(client.Predicted.Position, TfwHub!), $"{_tfwAt} at {client.Predicted.Position}");   // a respawn point is anywhere in the room
@@ -578,7 +614,7 @@ public partial class NetworkView
         await TfwWait(0.5);
         var me = client.Predicted.Position;
         TfwCheck("the player stands at the landing zone", _tfwState.Sites.Count > 0 && Num.Vector2.Distance(new(me.X, me.Y), new(_tfwState.Sites[0].X, _tfwState.Sites[0].Y)) < TfwMap.LandingRadius, $"{me}");
-        TfwCheck("the HUD shows the Guardsmen and the retainer", landed.Own.Guards > 0 && landed.Own.Squads > 0 && landed.Own.Retainer == TfwRetainerState.Ready, TfwHudModel.GuardsText(landed.Own) + "; " + TfwHudModel.RetainerText(landed.Own));
+        TfwCheck("the HUD shows the retainer, and the Guardsmen when there are any", (landed.Own.Guards > 0) == (TfwHudModel.GuardsText(landed.Own).Length > 0) && landed.Own.Retainer == TfwRetainerState.Ready, TfwHudModel.GuardsText(landed.Own) + "; " + TfwHudModel.RetainerText(landed.Own));
         TfwCheck("the first position is held", _tfwState.Objectives[0].State >= TfwPositionState.Held);
         await TfwWait(1.5);
         await TfwShot("battle-hud");

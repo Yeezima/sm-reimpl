@@ -226,20 +226,18 @@ public class TfwRunTests
         var w = TfwRig.War();
         var run = w.Tfw!;
         var battle = TfwRig.Deploy(w);
-        Assert.All(Enumerable.Range(0, 4), s => Assert.True(battle.SourceActive(s)));
+        Assert.All(Enumerable.Range(0, 3), s => Assert.True(battle.SourceActive(s)));
+        Assert.False(battle.SourceActive(3));                                // the HQ's starts with the commander
 
         TfwRig.Secure(w, battle, 0);
         Assert.False(battle.SourceActive(0));
-        Assert.True(battle.SourceActive(1));
-        Assert.NotEqual(TfwPositionState.Locked, battle.Objectives[1].State);
-        Assert.Equal(TfwPositionState.Locked, battle.Objectives[2].State);
         Assert.Equal((4, 4), (run.Transport, run.Supplies));
 
         TfwRig.Secure(w, battle, 1);
         Assert.Equal((6, 5), (run.Transport, run.Supplies));                 // the depot
         Assert.False(battle.SourceActive(1));
 
-        Assert.Equal(0, battle.BossId);
+        Assert.Equal(battle.Secured == 3, battle.BossId != 0);               // the squads walk on: the third may fall by itself
         TfwRig.Secure(w, battle, 2);
         Assert.False(battle.SourceActive(2));
         Assert.True(battle.SourceActive(3));                                 // the HQ's stops only at victory
@@ -274,7 +272,7 @@ public class TfwRunTests
         TfwRig.KillAll(w);
         TfwRig.Steps(w, 1);
         int lost = guards.Lost, kills = battle.OrksKilled;
-        Assert.True(kills >= TfwBattleRules.Defenders, $"{kills}");
+        Assert.True(kills >= TfwBattleRules.Garrison, $"{kills}");
         Assert.True(lost >= 3);
 
         TfwRig.Command(w, TfwCommand.RequestPickup);
@@ -291,7 +289,7 @@ public class TfwRunTests
         Assert.Equal(TfwRunPhase.Hub, run.Phase);
         Assert.Equal(3, run.Transport);
         var after = run.War.LaneState(TfwLane.A);
-        Assert.Equal((float)WarRules.LeftProgress(1), after.Progress, 4);
+        Assert.Equal((float)WarRules.LeftProgress(battle.Secured), after.Progress, 4);   // the squads walk on: a further point may have fallen meanwhile
         Assert.Equal(before.Ork - 0.05f * kills, after.Ork, 0.1f);
         Assert.Equal(before.Imperial - 0.1f * lost, after.Imperial, 0.1f);
         Assert.True(TfwRig.InStormbird(w.Players[Human].Position), $"{w.Players[Human].Position}");
@@ -349,7 +347,7 @@ public class TfwRunTests
         Assert.Equal(4, run.Transport);                                      // no pickup fee
         Assert.True(w.Players[Human].Alive);
         Assert.True(TfwRig.InStormbird(w.Players[Human].Position));
-        Assert.Equal((float)WarRules.LeftProgress(1), run.War.LaneState(TfwLane.A).Progress, 4);
+        Assert.Equal((float)WarRules.LeftProgress(battle.Secured), run.War.LaneState(TfwLane.A).Progress, 4);
     }
 
     /// <summary>The run's reserves set by hand (test only: a won battle always holds the depot's supply, so 0 cannot come by itself).</summary>
@@ -447,8 +445,8 @@ public class TfwRunTests
         Assert.Equal(0, new World(TfwRig.Config).TfwSmiteForTests(Human, Vector3.Zero, 500f));
         var battle = TfwRig.Deploy(w);
         int before = w.Musou!.Alive;
-        Assert.Equal(TfwBattleRules.Defenders, w.TfwSmiteForTests(Human, battle.Layout.Positions[0], 15f));
-        Assert.Equal(before - TfwBattleRules.Defenders, w.Musou.Alive);
+        Assert.Equal(TfwBattleRules.Garrison, w.TfwSmiteForTests(Human, battle.Layout.Positions[0], 15f));
+        Assert.Equal(before - TfwBattleRules.Garrison, w.Musou.Alive);
     }
 
     [Fact]
@@ -622,6 +620,25 @@ public class TfwRunTests
     public void A_whole_scripted_run_reaches_the_final_assault_and_wins_the_same_way_twice() => Assert.Equal(WholeRun(), WholeRun());
 
     [Fact]
+    public void Without_guardsmen_the_wire_carries_the_war_and_no_guardsman()
+    {
+        var map = TfwTestArena.ServerMap();
+        var h = new Harness(LinkConditions.Perfect, 5, 1, TfwRig.Config, new SmServer.ServerOptions { Match = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2 } }, map: map,
+            clientOptions: new ClientOptions { LoadMap = _ => new LoadedMap(map.Collision, map.Hash) });
+        h.Run(TimeSpan.FromSeconds(1));
+        var run = h.Server.World.Tfw!;
+        run.Guardsmen = false;
+        Assert.True(run.Enqueue(h.Clients[0].PlayerId, new TfwCommandRecord(1, TfwCommand.Deploy, 0)));
+        h.Clients[0].TakeExtras();
+        h.Run(TimeSpan.FromSeconds(TfwBattleRules.TravelSeconds + 1f));
+        Assert.Equal(TfwRunPhase.Battle, run.Phase);
+        Assert.Equal(0, h.Server.TfwFeed.GuardCount);
+        var tags = h.Clients[0].TakeExtras().Select(s => s.Tag).ToHashSet();
+        Assert.Contains(TfwWire.WarTag, tags);
+        Assert.DoesNotContain(TfwWire.GuardsTag, tags);
+    }
+
+    [Fact]
     public void The_server_feeds_the_wire_from_the_run_each_guardsman_once()
     {
         var map = TfwTestArena.ServerMap();
@@ -630,6 +647,7 @@ public class TfwRunTests
         h.Run(TimeSpan.FromSeconds(1));
         var run = h.Server.World.Tfw!;
         Assert.Same(run.War, h.Server.TfwFeed.War);                          // set from the hub on
+        run.Guardsmen = true;
         Assert.True(run.Enqueue(h.Clients[0].PlayerId, new TfwCommandRecord(1, TfwCommand.Deploy, 0)));
         h.Clients[0].TakeExtras();
         h.Run(TimeSpan.FromSeconds(TfwBattleRules.TravelSeconds + 1f));
@@ -653,7 +671,7 @@ public class TfwRunTests
         var nav = Assert.IsType<NavGraph>(h.Server.World.Musou!.Nav);
         var w = TfwRig.War(nav);
         var battle = TfwRig.Deploy(w);
-        Assert.Equal(60, w.Musou!.Alive);
+        Assert.Equal(3 * TfwBattleRules.Garrison, w.Musou!.Alive);
         TfwRig.Secure(w, battle, 0);
         TfwRig.Secure(w, battle, 1);
         Assert.Equal((6, 5), (w.Tfw!.Transport, w.Tfw.Supplies));

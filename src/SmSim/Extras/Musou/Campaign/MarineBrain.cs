@@ -30,6 +30,10 @@ public static class MarineRules
     public const float GunStandOff = 12f, StrikeStandOff = 1.5f;
     /// <summary>A puppet without a primary leaves its way to strike an enemy within this.</summary>
     public const float StrikeChase = 10f;
+    /// <summary>A puppet takes up a new way when its goal has moved this far from the last (a follower behind a walking owner).</summary>
+    public const float WayRefresh = 5f;
+    /// <summary>A puppet's target is the nearest of this many enemies in its sight.</summary>
+    public const int SightCandidates = 4;
     /// <summary>A puppet sprints when it has this far to go and nobody to shoot.</summary>
     public const float SprintBeyond = 12f;
 
@@ -69,6 +73,9 @@ public sealed class Marine(int id, MarineRole role, int owner, TfwLane lane, str
     public Vector3 HoldAt { get; set; }
     /// <summary>Where its player's Attack sent it (null: the battle's active position).</summary>
     public Vector3? AttackAt { get; set; }
+    /// <summary>The graph node and the place its way leads to (-1: none yet).</summary>
+    public int WayGoal { get; set; } = -1;
+    public Vector3 WayPoint { get; set; }
     /// <summary>The enemy it is after (0: none).</summary>
     public ushort Target { get; set; }
     /// <summary>Ticks in a row within reach of the body it revives.</summary>
@@ -77,8 +84,8 @@ public sealed class Marine(int id, MarineRole role, int owner, TfwLane lane, str
     public bool Down { get; set; }
 }
 
-/// <summary>Where a puppet wants to be: within <see cref="Near"/> to <see cref="Far"/> of <see cref="Point"/>, flat (it stands inside the band, and backs off under it).</summary>
-public readonly record struct MarineGoal(Vector3 Point, float Near, float Far, bool Sprint);
+/// <summary>Where a puppet wants to be: within <see cref="Near"/> to <see cref="Far"/> of <see cref="Point"/>, flat (it stands inside the band, and backs off under it). <see cref="Via"/>: the next place on the way there (the walking graph's; none: straight).</summary>
+public readonly record struct MarineGoal(Vector3 Point, float Near, float Far, bool Sprint, Vector3? Via = null);
 
 /// <summary>What <see cref="MarineBrain.Plan"/> weighs: the order in force, the places, a body to revive, the enemy, and whether the puppet has no primary.</summary>
 public readonly record struct MarineSituation(MarineOrder Order, Vector3 Self, Vector3? Owner, bool Revive, Vector3 HoldAt, Vector3? Objective, Vector3? Enemy, bool StrikesOnly);
@@ -125,7 +132,12 @@ public static class MarineBrain
         {
             var to = new Vector2(g.Point.X - self.Position.X, g.Point.Y - self.Position.Y);
             float d = to.Length();
-            if (d > g.Far && d > 1e-4f) { move = to / d; sprint = g.Sprint; }
+            if (d > g.Far && d > 1e-4f)
+            {
+                var way = g.Via is { } via ? new Vector2(via.X - self.Position.X, via.Y - self.Position.Y) : to;
+                move = way.LengthSquared() > 1e-6f ? Vector2.Normalize(way) : to / d;
+                sprint = g.Sprint;
+            }
             else if (d < g.Near && d > 1e-4f) move = -to / d;
         }
 

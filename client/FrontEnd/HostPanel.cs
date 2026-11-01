@@ -282,7 +282,7 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         GD.Print($"host: server started on UDP {port} ({(_localOnly ? "this PC only" : "all interfaces")}); kill-on-close job: {HostedServer.Guarded}; bots planned: {plan.Count} ({options.Difficulty})");
         _pendingJoin = true;
         _startedAt = Time.GetTicksMsec() / 1000.0;
-        Say("Starting the server (it reads the game files first, this can take a minute)...", false);
+        Say(musou ? MusouLocal.PreparingText : "Starting the server (it reads the game files first, this can take a minute)...", false);
         Refresh();
     }
 
@@ -321,7 +321,7 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         if (_pendingJoin)
         {
             int port = HostedServer.Options?.Port ?? ServerLaunch.DefaultPort;
-            switch (HostStart.StateOf(HostedServer.Running, HostedServer.Ready, HostedServer.ExitCode, Time.GetTicksMsec() / 1000.0 - _startedAt))
+            switch (HostStart.StateOf(HostedServer.Running, HostedServer.Ready, HostedServer.ExitCode, Time.GetTicksMsec() / 1000.0 - _startedAt, HostedServer.Options is { Content: SmSim.ContentProfiles.Musou } ? MusouLocal.StartLimitSeconds : HostStart.StartLimitSeconds))
             {
                 case HostStartState.Ready:
                     _pendingJoin = false;

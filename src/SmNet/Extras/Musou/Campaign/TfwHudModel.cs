@@ -129,7 +129,7 @@ public static class TfwHudModel
     };
 
     /// <summary>The Guardsmen's line.</summary>
-    public static string GuardsText(in TfwOwnView own) => $"GUARDS {own.Guards}, {own.Squads} SQUADS + {own.Reserves} IN RESERVE";
+    public static string GuardsText(in TfwOwnView own) => own.Guards == 0 && own.Squads == 0 && own.Reserves == 0 ? "" : $"GUARDS {own.Guards}, {own.Squads} SQUADS + {own.Reserves} IN RESERVE";
 
     /// <summary>The retainer's line: its state and the order in force.</summary>
     public static string RetainerText(in TfwOwnView own) => own.Retainer switch
@@ -193,7 +193,7 @@ public static class TfwHudModel
     public static bool SourceActive(int index, IReadOnlyList<TfwObjective> objectives, bool won, bool final)
     {
         if (won) return false;
-        if (final || index >= objectives.Count || index >= WarRules.Positions) return true;
-        return objectives[index].State != TfwPositionState.Secured;
+        if (final || index >= objectives.Count) return true;
+        return index < WarRules.Positions ? objectives[index].State == TfwPositionState.Held : objectives[index].State != TfwPositionState.Locked;
     }
 }

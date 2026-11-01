@@ -26,6 +26,7 @@ public sealed partial class World
     {
         if (!StartMusou(nav)) return false;
         _tfw ??= new TfwRun(field, new TfwSites(field, nav, Collision));
+        _musou!.Swarm = MusouSwarmRules.Default;   // the 5-wave run never gets it (MusouSkirmishPinTests)
         _musou!.WidenBox(field.Hub.Box);   // the Stormbird lies outside the graph
         _musou!.WidenBox(field.Bounds);   // a jump goes above it
         _musou!.Director = default;   // no 5-wave director to show (nothing is sent until the first deploy: TfwShowDirector)

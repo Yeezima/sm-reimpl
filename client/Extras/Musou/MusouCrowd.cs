@@ -16,7 +16,7 @@ namespace SmClient;
 /// </summary>
 public partial class MusouCrowd : CrowdView
 {
-    public const int DefaultVisible = 150, MaxSkinned = 40, MaxVat = 200, FallbackSkinned = 80;
+    public const int DefaultVisible = 240, MaxSkinned = 40, MaxVat = 200, FallbackSkinned = 80;
     public const float NearMetres = 25f, HalfRateMetres = 12f, SinkAfter = 3f, SinkSeconds = 1.5f, SinkDepth = 1.2f;
     /// <summary>Bodies kept at once (ours); the oldest go first.</summary>
     public const int MaxBodies = 60;

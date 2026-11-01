@@ -224,8 +224,11 @@ public sealed partial class World
                 MarineOrder.Hold => (m.HoldAt, MarineRules.HoldRadius),
                 _ => (self.Position, MarineRules.AttackSight),
             };
-            Span<ushort> nearest = stackalloc ushort[1];
-            m.Target = musou.Query(centre, radius, nearest) > 0 ? nearest[0] : (ushort)0;
+            Span<ushort> nearest = stackalloc ushort[MarineRules.SightCandidates];
+            int seen = musou.Query(centre, radius, nearest);
+            m.Target = 0;
+            for (int k = 0; k < seen && m.Target == 0; k++)
+                if (TfwMarineSees(self, nearest[k])) m.Target = nearest[k];
         }
 
         Vector3? enemyAt = null, chest = null;
@@ -238,7 +241,24 @@ public sealed partial class World
         }
 
         bool strikesOnly = Loadouts.Weapon(Config, self, WeaponSlot.Ranged) is null;
-        var goal = MarineBrain.Plan(new MarineSituation(order, self.Position, ownerAt, revive, m.HoldAt, m.AttackAt ?? run.ActivePosition, enemyAt, strikesOnly));
+        var objective = m.AttackAt ?? run.Battle?.GoalFrom(self.Position) ?? run.ActivePosition;
+        var goal = MarineBrain.Plan(new MarineSituation(order, self.Position, ownerAt, revive, m.HoldAt, objective, enemyAt, strikesOnly));
+        if (goal is { } g && g.Point != enemyAt && MarineBrain.Flat(self.Position, g.Point) > g.Far && TfwGuards?.Ways is { } ways)
+        {
+            if (m.WayGoal < 0 || MarineBrain.Flat(m.WayPoint, g.Point) > MarineRules.WayRefresh) { m.WayPoint = g.Point; m.WayGoal = ways.GoalNode(g.Point); }
+            if (ways.Carrot(self.Position, m.WayGoal) is { } next) goal = g with { Via = next };
+        }
         return MarineBrain.Decide(self, Loadouts.InHand(Config, self), goal, chest, distance, Config.EyeHeight, Tick);
+    }
+
+    /// <summary>Whether the enemy's chest is in sight of the puppet's eyes: the weapons mesh, as its shot will meet it.</summary>
+    bool TfwMarineSees(in PlayerState self, ushort enemy)
+    {
+        var musou = _musou!;
+        if (!musou.TryGet(enemy, out var e)) return false;
+        var eye = self.Position + new Vector3(0f, 0f, Config.EyeHeight);
+        var ray = MusouSim.Chest(e.Position, musou.Body(e.Type).Height) - eye;
+        float length = ray.Length();
+        return length < 1e-3f || Collision is not { } world || !(world.Weapons.Raycast(eye, ray / length, length) is { } wall && wall.Distance < length - 0.1f);
     }
 }

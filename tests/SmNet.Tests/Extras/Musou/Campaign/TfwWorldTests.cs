@@ -263,7 +263,7 @@ public class TfwWorldTests
         var p = w.Players[TfwRig.Human].Position;
         Assert.False(data.Field.Hub.Contains(p));
         Assert.True(Vector2.Distance(new(p.X, p.Y), new(battle.Layout.LandingZone.X, battle.Layout.LandingZone.Y)) < TfwMap.LandingRadius);
-        Assert.True(w.Musou!.Alive >= TfwBattleRules.Defenders * WarRules.Positions - 2);
+        Assert.True(w.Musou!.Alive >= TfwBattleRules.Garrison * WarRules.Positions - 2);
         Assert.True(w.Musou.Box.Min.Y <= data.Field.Hub.Box.Min.Y, "the wire's box holds the Stormbird");
     }
 

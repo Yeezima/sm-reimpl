@@ -15,7 +15,7 @@ public sealed partial class MusouSim
     /// The Musou version: its simulation rules and its wire sections (<c>MusouWire.Version</c> is this). Hashed into the config only under
     /// <see cref="ContentExtras.Musou"/> (<c>SimConfig.Extras.cs</c>); raise it for any Musou-only change (never <see cref="ContentExtras.WireVersion"/>).
     /// </summary>
-    public const uint Version = 5;   // 2: MU3's combat and the Warboss's abilities; 3: the Nobs' weapon drops (wire tag 6); 4: Chaos Marines drop too; 5: Musou Mode (TfwRules.Version in the same hash block, phase 6, command kind 17)
+    public const uint Version = 6;   // 2: MU3's combat and the Warboss's abilities; 3: the Nobs' weapon drops (wire tag 6); 4: Chaos Marines drop too; 5: Musou Mode (TfwRules.Version in the same hash block, phase 6, command kind 17); 6: the crowd's rules, MusouSim.Swarm (a war's alone: the 5-wave run is unchanged)
     /// <summary>The pool's slots (design: 512; the hard cap of enemies alive is lower, 400).</summary>
     public const int Capacity = 512;
     /// <summary>The most events one tick keeps (ours; more are dropped and counted in <see cref="EventsDropped"/>).</summary>
@@ -244,6 +244,20 @@ public sealed partial class MusouSim
         for (int i = 0; i < Capacity && n < into.Length; i++)
             if (_used[i]) into[n++] = new MusouEnemy((ushort)(i + 1), _type[i], _state[i], _position[i], _velocity[i], _yaw[i], _health[i], _node[i], TargetPlayer(i), _stateTicks[i], _token[i]);
         return n;
+    }
+
+    /// <summary>For the fight's report: the melee and shooter tokens held and the enemies in a strike's wind-up, blow or recovery.</summary>
+    public (int Melee, int Shooters, int Striking) Tally()
+    {
+        int melee = 0, shooters = 0, striking = 0;
+        for (int i = 0; i < Capacity; i++)
+        {
+            if (!_used[i] || _state[i] == MusouEnemyState.Dying) continue;
+            if (_token[i] == MeleeToken) melee++;
+            else if (_token[i] == ShooterToken) shooters++;
+            if (_state[i] is MusouEnemyState.WindUp or MusouEnemyState.Strike or MusouEnemyState.Recover) striking++;
+        }
+        return (melee, shooters, striking);
     }
 
     /// <summary>Records an event of this tick (dropped and counted over <see cref="MaxEventsPerTick"/>).</summary>
