@@ -465,7 +465,7 @@ public partial class ModelViewer : Node3D
             // options, so a saved fullscreen mode is this press's result: toggling on top would go straight back to a window and save that.
             bool fresh = CustomizerServices.Latest is null;
             var services = CustomizerServices.Latest ?? new CustomizerServices(_gameDir, _launchArgs.GetValueOrDefault("profile"), lockDemo: false);
-            if (!fresh || services.Settings.Options.Window == WindowChoice.Windowed) services.ToggleFullscreen();
+            if (!fresh || services.Settings.Options.Window == Customizer.Model.WindowChoice.Windowed) services.ToggleFullscreen();
             GD.Print($"F11: window mode {services.Settings.Options.Window}");
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
