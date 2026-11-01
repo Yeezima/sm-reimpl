@@ -97,6 +97,13 @@ public readonly record struct MeleeStep(
     /// </summary>
     public float EvadeAt { get; init; } = float.PositiveInfinity;
 
+    /// <summary>
+    /// sim/light-melee-flinch (protocol 52; the owner, 2026-11-01: "only stun strikes, charges, stomps, and kicks should heavy stagger/stun"): the strike is the heavy
+    /// classes' kick (the Devastator's and the Havoc's light attack, <c>ability_displace_kick</c>; set by the content reader): though a light press, its hit keeps the
+    /// data's reaction (the stagger). False (the default): a light attack of the normal combo, which only flinches (<see cref="Spread.Flinch"/>).
+    /// </summary>
+    public bool Kick { get; init; }
+
     /// <summary>Writes the fields added in M28 (and M43, Weapons C) for a config hash.</summary>
     internal void WriteExtras(BinaryWriter w)
     {
@@ -113,6 +120,7 @@ public readonly record struct MeleeStep(
         // feel/melee-lock: only when set, so a step without it hashes as before.
         if (Reach is { } reach) { w.Write((byte)0xA1); reach.Write(w); }
         if (InPlace) w.Write((byte)0xA2);   // sim/stomp-in-place: only when set
+        if (Kick) w.Write((byte)0xA4);   // sim/light-melee-flinch: only when set
         // feel/locks-sprint-stop: only when read, so a step without it hashes as before.
         if (float.IsFinite(EvadeAt)) { w.Write((byte)0xE5); w.Write(EvadeAt); }
     }

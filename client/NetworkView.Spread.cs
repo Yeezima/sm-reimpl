@@ -53,7 +53,7 @@ public partial class NetworkView
     float SpreadPixels(PlayerState me, SimConfig c)
     {
         if (_camera is null || !me.Alive) return 0f;
-        var (h, _) = Spread.HalfWidths(Loadouts.InHand(c, me), me, 0, c.MoveSpeedScale);
+        var (h, _) = Spread.HalfWidths(Loadouts.InHand(c, me), me, 0, c.MoveSpeedScale, c);   // sim/light-melee-flinch: the flinch widens it too
         if (h <= 0f) return 0f;
         float half = Mathf.DegToRad(Math.Clamp(_camera.Fov, 5f, 170f)) * 0.5f;
         return 540f * MathF.Tan(Mathf.DegToRad(h)) / MathF.Tan(half);

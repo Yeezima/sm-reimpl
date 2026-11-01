@@ -538,7 +538,7 @@ public class InputBufferTests(ITestOutputHelper output)
     [Fact]
     public void The_own_record_carries_the_buffer_and_a_full_snapshot_stays_at_1200_bytes()
     {
-        Assert.Equal(51, Protocol.Version);
+        Assert.Equal(52, Protocol.Version);
         foreach (var action in Enum.GetValues<BufferedAction>())
             foreach (int ticks in action == BufferedAction.None ? new[] { 0 } : new[] { 0, 1, 4, 9, 15 })
             {
@@ -559,7 +559,7 @@ public class InputBufferTests(ITestOutputHelper output)
             Kills: [.. Enumerable.Range(0, Protocol.MaxSnapshotKills).Select(k => new KillView(65535 - k, 65535, 1, KillCause.Thrown, 254))],
             Points: [.. Enumerable.Repeat(new ControlPointView(Team.Chaos, Team.Chaos, 1f, true), Protocol.MaxSnapshotPoints)], Shots: ShotTests.ManyShots(players, Protocol.MaxSnapshotShots)));
         output.WriteLine($"16 players, the own record's buffer set: {bytes.Length} bytes (protocol {Protocol.Version})");
-        Assert.Equal(1194, Protocol.MaxSnapshotBytes);
+        Assert.Equal(1195, Protocol.MaxSnapshotBytes);
         Assert.Equal(Protocol.MaxSnapshotBytes, bytes.Length);
         var read = Assert.IsType<Snapshot>(Protocol.Read(bytes));
         Assert.Equal((BufferedAction.Reload, InputBuffer.MaxTicks, Combat.MaxRaiseTicks), (read.Players[6].Buffered, read.Players[6].BufferTicks, read.Players[6].RaiseTicks));

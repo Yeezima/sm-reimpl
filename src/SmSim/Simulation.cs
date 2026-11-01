@@ -406,6 +406,12 @@ public readonly record struct PlayerState(int PlayerId, Vector3 Position, Vector
     public float SpreadYaw { get; init; }
     /// <summary>See <see cref="SpreadYaw"/>.</summary>
     public float SpreadPitch { get; init; }
+    /// <summary>
+    /// sim/light-melee-flinch (protocol 52; the owner, 2026-11-01): ticks left of the aim thrown off by a light melee hit (<see cref="Spread.Flinch"/>):
+    /// every shot fired while it lasts scatters by up to <see cref="SimConfig.MeleeFlinchDegrees"/> more, falling to 0 over the ticks. Nothing else: no reaction,
+    /// no knockback, no action interrupted. On the wire in the own record (one byte), so the client's prediction of its own shots stays exact.
+    /// </summary>
+    public int FlinchTicks { get; init; }
 
     // ---- teams (see World and MatchRules; protocol 10) ----
     /// <summary>The player's side, set when it joins and kept across respawns; <see cref="Team.None"/> without <see cref="MatchRules"/>.</summary>
@@ -493,6 +499,14 @@ public sealed partial record SimConfig
     /// not finite or not above 0 counts as 1).
     /// </summary>
     public float LockTime(float time) => float.IsFinite(ActionLockScale) && ActionLockScale > 0f && ActionLockScale != 1f ? time * ActionLockScale : time;
+    /// <summary>
+    /// sim/light-melee-flinch (protocol 52; the owner, 2026-11-01: a light melee hit "should only 'throw off the aim' of a player attempting to shoot a ranged weapon";
+    /// a **deliberate change**, the values **ours**): degrees of extra scatter (added to both half-widths, past the set's maximum) a shot fired on the tick of a light
+    /// melee hit takes, falling to 0 over <see cref="MeleeFlinchSeconds"/> (<see cref="Spread.Flinch"/>, <see cref="PlayerState.FlinchTicks"/>). 0: no flinch. Hashed when not the default.
+    /// </summary>
+    public float MeleeFlinchDegrees { get; init; } = 6f;
+    /// <summary>sim/light-melee-flinch: seconds the flinch lasts (rounded up to ticks, at most 255); 0.5 s is ours, a playtest value. Hashed when not the default.</summary>
+    public float MeleeFlinchSeconds { get; init; } = 0.5f;
     /// <summary>
     /// feel/locks-sprint-stop (the owner's request of 2026-10-29: "a 'slowdown' when you stop sprinting where an animation plays of the character model slowing
     /// down from the sprint back to a stop, if movement keys are let go of entirely"; a **deliberate change** to the simulation, the curve **ours**): seconds a
@@ -793,6 +807,7 @@ public sealed partial record SimConfig
             if (ActionLockScale != 1f) { w.Write("lock-scale"); w.Write(ActionLockScale); }   // feel/locks-sprint-stop: only when not the default (older hashes unchanged)
             if (SprintStopTime > 0f) { w.Write("sprint-stop"); w.Write(SprintStopTime); }   // feel/locks-sprint-stop: only when on
             if (MeleeLungeScale != 1f) { w.Write("lunge-scale"); w.Write(MeleeLungeScale); }   // feel/melee-charge-2: only when not the default (older hashes unchanged)
+            if (MeleeFlinchDegrees != 6f || MeleeFlinchSeconds != 0.5f) { w.Write("melee-flinch"); w.Write(MeleeFlinchDegrees); w.Write(MeleeFlinchSeconds); }   // sim/light-melee-flinch: only when not the default
             // Added content (ContentExtras.cs): only when any is on, so a faithful config hashes byte for byte as before the switch.
             if (Extras != ContentExtras.None) { w.Write("extras"); w.Write((uint)Extras); w.Write(ContentExtras.WireVersion); ExtrasHash(w); }   // EXTRAS-HOOK
         }
@@ -1137,6 +1152,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         _shots.Clear();
         _reactions.Clear();
         _blindings.Clear();
+        _flinches.Clear();
         _rushes.Clear();
         _respawns.Clear();
         _pickupSpawns.Clear(); _pickupEvents.Clear();   // fidelity gap 1 (Pickups.cs)
@@ -1221,9 +1237,12 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             if (ResolveShot(shooter, input, state, weapon, stage) is { } outcome)
                 _shots[index] = _shots[index] with { Origin = outcome.Origin, End = outcome.End, Hit = outcome.Hit, Surface = outcome.Surface, Target = outcome.Target, Armoured = outcome.Armoured };
         foreach (var (attacker, input, state, step, heavy) in swings)
-            ResolveMelee(attacker, input, state, (heavy ? Loadouts.MeleeHeavy(Config, state) : Loadouts.Melee(Config, state))[step - 1]);
-        // Protocol 30: the sword slash's cone (the melee cone, every target the ability's one profile: the light interrupt, no stun or knockback).
-        foreach (var (attacker, input, state, step) in slashes) ResolveMelee(attacker, input, state, step);
+        {
+            var strike = (heavy ? Loadouts.MeleeHeavy(Config, state) : Loadouts.Melee(Config, state))[step - 1];
+            ResolveMelee(attacker, input, state, strike, light: !heavy && !strike.Kick);   // sim/light-melee-flinch: a light attack (not the heavy classes' kick) only flinches
+        }
+        // Protocol 30: the sword slash's cone (the melee cone, every target the ability's one profile). sim/light-melee-flinch: a light attack, it flinches (no interrupt).
+        foreach (var (attacker, input, state, step) in slashes) ResolveMelee(attacker, input, state, step, light: true);
         var connected = new List<int>();   // M29: charges, after melee; M32: their stops once all have resolved
         foreach (var (player, input, before, state) in rushes) if (ResolveRush(player, input, before, state)) connected.Add(player);
         StopRushes(connected, landedCharges);
@@ -1248,8 +1267,15 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
     /// when still alive, the step's PrimaryReaction or SecondaryReaction (M28; <see cref="TryReact"/>, the knockback along the
     /// attacker-to-target direction). A step with a <see cref="MeleeStep.Stomp"/> then sets off that blast at the attacker's
     /// chest height (the heavy combo's foot stomp; as a jump-pack blast: <see cref="ApplyBlast"/>).
+    /// <para>
+    /// sim/light-melee-flinch (protocol 52; the owner, 2026-11-01: "combat knife should not stagger or stun an enemy, nor any light melee attack ... a melee
+    /// attack landing on a player shouldn't interrupt a melee attack, hop, charge, or any other action animation. it should only 'throw off the aim'"): a
+    /// <paramref name="light"/> hit (every attack of the normal melee combo, the sword slash; not the heavy strikes, the heavy classes' kick or the stomp's
+    /// blast) puts no target in any reaction or knockback, whatever its table says; instead every living target it damages is flinched
+    /// (<see cref="Spread.Flinch"/>: its shots scatter more for a while), through hyper armour and reaction immunity alike (a flinch is not a reaction, ours).
+    /// </para>
     /// </summary>
-    void ResolveMelee(int attacker, PlayerInput input, PlayerState state, MeleeStep step)
+    void ResolveMelee(int attacker, PlayerInput input, PlayerState state, MeleeStep step, bool light = false)
     {
         var seen = SeenBy(input);
         var origin = state.Position + new Vector3(0, 0, Config.EyeHeight);
@@ -1307,7 +1333,9 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
                 ShieldBroke(target, before, after, shieldDamage);
                 Heal(attacker, i == 0 ? step.Heal : step.SecondaryHeal);   // M43: the heal-on-hit perks
             }
-            if (_players[target].Alive) TryReact(attacker, target, reaction, state.Position, new Vector2(pushDirection.X, pushDirection.Y));
+            if (!_players[target].Alive) continue;
+            if (light) Flinch(attacker, target);   // sim/light-melee-flinch: the aim thrown off, nothing else
+            else TryReact(attacker, target, reaction, state.Position, new Vector2(pushDirection.X, pushDirection.Y));
         }
         if (step.Stomp is { } stomp)
             ApplyBlast(attacker, 0, state.Position + new Vector3(0, 0, ChestOf(state)), stomp, melee: true);   // a stomp kill is a melee kill
