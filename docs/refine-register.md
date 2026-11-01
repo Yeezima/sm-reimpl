@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1972 spec table rows: **1390 tagged**, 423 not tagged (read from data with high confidence), 159 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 424 rows of the changes document.
+Scanned 1982 spec table rows: **1399 tagged**, 423 not tagged (read from data with high confidence), 160 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 425 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,19 +50,19 @@ Scanned 1972 spec table rows: **1390 tagged**, 423 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 189 | 174 | 154 | 24 | 1 |
+| Core simulation (provisional values) | 198 | 183 | 161 | 24 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 78 | 72 | 40 | 8 | 0 |
-| **All areas** | **1390** | 1167 | 1110 | 412 | 38 |
+| **All areas** | **1399** | 1176 | 1117 | 412 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 596 |
-| confidence: low | 521 |
-| confidence: medium | 471 |
-| kind: interpretation | 331 |
+| kind: ours | 602 |
+| confidence: low | 526 |
+| confidence: medium | 473 |
+| kind: interpretation | 334 |
 | notes: ours | 301 |
 | confidence: none (low) | 118 |
 | kind: provisional | 100 |
@@ -1798,7 +1798,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (189)
+### Core simulation (provisional values) (198)
 
 *Spec section: Provisional values in use*
 
@@ -1951,6 +1951,20 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-41745417` | One body a death | a man's death is remembered by id for 90 ticks from the first report (Death event or Dying record); later reports add no body and his live records are not drawn (ticks) | kind: ours; confidence: medium | ours: longer than the 60 ticks a slot stays Dying | One body a death: compare with SM1 by feel or video. Ours: a man's death is remembered by id for 90 ticks from the first report… | ☐ |
 | `R-88A2304A` | Clip fade | 0.15 (s) | kind: ours; confidence: medium | ours | Clip fade: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 0.15. | ☐ |
 | `R-8AB2FFB7` | Shot effects' reach | muzzle within 45 m of the camera, tracer within 90 m, at most 12 shots with effects a frame (m, shots) | kind: ours; confidence: medium | ours: `FxPlayer` keeps 160 effects | Shot effects' reach: compare with SM1 by measuring on a flat spot of the same map. Ours: muzzle within 45 m of the camera, tracer within 90 m, at most 12… | ☐ |
+
+*Spec section: Added content: Musou Mode: gore (Musou pass 2 M10, owner items 8, 22 and 23; client only, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-EC580A35` | Who makes gore | a death whose killer is a player or a retainer (event player above 0; Guardsmen's kills carry 0, tag 10's deaths never reach it) or a Thunderhawk strafe; a World death (the failsafe) none | kind: interpretation | the owner's item 8 and the design's section D | Who makes gore: compare with SM1 by feel or video. Ours: a death whose killer is a player or a retainer (event player above 0… | ☐ |
+| `R-0FFE849E` | Explosions | cause Blast (frag grenade, launcher, plasma burst), cause Barrage (artillery) and a Shot whose killer holds a lascannon (the killer's weapon in hand at the time the client reads the death) burst the enemy: more gibs and limbs, 3 red mist puffs, two pools, no… | kind: interpretation; confidence: medium | the owner's item 23 ("explosions" includes artillery: the lead's reading) | Explosions: compare with SM1 by feel or video. Ours: cause Blast (frag grenade, launcher, plasma burst), cause Barrage… | ☐ |
+| `R-1F3950D1` | Burst size | melee: 5 chunks, 2 limbs, 36 droplets, one pool; strafe 7, 3, 44; a shot 2, 0, 16; an explosion 20, 7, 80, mist 3, two pools; times the enemy's weight to the 0.75 (Gretchin 0.5, Boy and Shoota 1, 'Ard Boy 1.5, Chaos Marine 1.6, Nob 2.2, Warboss 4) (particles) | kind: ours; confidence: low | ours: melee and charges weigh heaviest (the owner's reference mod's chainsaw-and-shotgun style) | Burst size: compare with SM1 by measuring on a flat spot of the same map. Ours: melee: 5 chunks, 2 limbs, 36 droplets, one pool; strafe 7, 3, 44; a… | ☐ |
+| `R-7D3E76FB` | Corpse gibbed | an explosion always; melee 35 % (15 % for the big), strafe 60 %, a shot never; decided from the enemy id and death tick, so every client agrees (chance) | kind: ours; confidence: low | ours | Corpse gibbed: compare with SM1 by feel or video. Ours: an explosion always; melee 35 % (15 % for the big), strafe 60 %, a… | ☐ |
+| `R-2BC1DFB3` | Distance bands | full detail within 15 m, half the counts to 35 m, one spray (at most 14 droplets, nothing that lies about) to 60 m, nothing beyond (an explosion's corpse is still gibbed) (m) | kind: ours; confidence: medium | the design's section D | Distance bands: compare with SM1 by measuring on a flat spot of the same map. Ours: full detail within 15 m, half the counts to 35 m, one spray (at most… | ☐ |
+| `R-C27772C0` | Motion | gravity 9.8, a gib bounces off the floor under the enemy (up to 3 times, losing 62 % of its speed, spots on each), rests, lies 30 s and shrinks away over 6 s; a droplet lands (45 % leave a spot) or ends after 1.2 to 2.4 s; a pool spreads over about 5 s and… (m/s2, s) | kind: ours; confidence: low | ours | Motion: compare with SM1 by timing a run over a known distance. Ours: gravity 9.8, a gib bounces off the floor under the enemy (up to 3… | ☐ |
+| `R-1B313791` | Cleave slash | a stroke across the chest of each enemy hit by a melee blow of a player or retainer (Hit event, marker 3) within 40 m: 1.3 to 1.9 m long, diagonal (25 to 60 degrees) in the plane facing the camera, sweeping in over 0.1 s and fading by 0.26 s, bright core on a… (m, s) | kind: ours; confidence: low | the owner's item 22 | Cleave slash: compare with SM1 by feel or video. Ours: a stroke across the chest of each enemy hit by a melee blow of a… | ☐ |
+| `R-86455B5C` | Hit sprays | a Hit event (marker 1 or 2) by a player or retainer within 35 m: 6 droplets (10 on a head hit) along the shot, at most 10 a frame (droplets) | kind: ours; confidence: low | ours | Hit sprays: compare with SM1 by feel or video. Ours: a Hit event (marker 1 or 2) by a player or retainer within 35 m: 6… | ☐ |
+| `R-3360C0C8` | Not on the screen | no overlay, canvas item, screen-reading shader or light: every particle is a MultiMesh instance in the world (a test reads the folder for them) | kind: interpretation | the owner's item 8 | Not on the screen: compare with SM1 by feel or video. Ours: no overlay, canvas item, screen-reading shader or light: every… | ☐ |
 
 *Spec section: Added content: Musou Mode: the battle and the run (TF4; `TfwRules.Version` 5 since an extraction after a won battle)*
 
@@ -2300,6 +2314,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-A5D8C2C2` | Guard squads fight beside the players; leashed Ork defenders | the design of the war (2026-11-01); SM1 has no such allies (the Guardsman is the Exterminatus co-op blueprint) | squads of 10 shoot and are struck server-side; defenders hold until a target is within 30 m or their group is hurt | War Guard squads, Leashed defenders | Guard squads fight beside the players; leashed Ork defenders: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01); SM1 has no such allies (the… | ☐ |
 | `C-ADD505EB` | The war's client: stations, war map, order keys | the design of the war (2026-11-01), the keys the owner's (M, Z, X, V, P); SM1 has no such screens | E at the Stormbird's consoles, the war map held on M, orders on Z, X, V and P held 1 s; in a war's match X and V are order keys, not Next weapon and Melee (the wheel and the right mouse button stay); a fallen player sees no respawn line: the run holds it | added content, ours (spec "the HUD, the war map and the orders") | The war's client: stations, war map, order keys: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01), the keys the owner's (M, Z, X, V… | ☐ |
 | `C-599F9281` | Guardsmen drawn as a crowd | the design of the war (2026-11-01) and the owner: real models, death clips rather than the ragdoll for now | the co-op Guardsman with original clips and effects; which clip plays when is ours (the rig's graphs are not read) | Crowd budget, Which clip plays, Death | Guardsmen drawn as a crowd: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01) and the owner: real models, death… | ☐ |
+| `C-7B12D4F2` | Musou Mode: excessive gore and bloody explosions | the owner's items 8, 22 and 23 (2026-11-01); SM1's gore is a red splash and a ragdoll | gibs, sprays, spatter and pools from a player's, a retainer's or a Thunderhawk's kills, a bloody explosion for blast, frag, artillery and lascannon kills, a slash on each enemy a cleave hits; no blood on the screen; Musou Mode only | Who makes gore, Explosions, Burst size, Cleave slash | Musou Mode: excessive gore and bloody explosions: compare with SM1 by feel or video. Ours: the owner's items 8, 22 and 23 (2026-11-01); SM1's gore is a red… | ☐ |
 
 ### Deliberate changes (owner's decisions)
 
@@ -2971,6 +2986,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-F49ED538` | War wire box | Added content: Musou Mode (TF0 contracts, TF1 map, TF3 Guardsmen and leashed defenders; no protocol change) |
 | `R-6EA20ECA` | War's budget | Added content: Musou Mode on the wire (TF6; no protocol change, `TfwRules.Version` 2) |
 | `R-07694DAC` | Crowd budget | Added content: Musou Mode: the Guardsmen as drawn (TF7a; client only, no protocol change) |
+| `R-4624D11C` | Budgets | Added content: Musou Mode: gore (Musou pass 2 M10, owner items 8, 22 and 23; client only, no protocol change) |
 | `R-B57B28D0` | War test aids (TF9) | Added content: Musou Mode: the battle and the run (TF4; `TfwRules.Version` 5 since an extraction after a won battle) |
 | `R-3C893894` | Test aids | Death effects (F-D1; client only, not simulated, no protocol change) |
 | `R-54698497` | `--bot-damage-scale f` | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |

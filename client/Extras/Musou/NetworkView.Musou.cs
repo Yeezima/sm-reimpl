@@ -40,8 +40,9 @@ public partial class NetworkView
     {
         if (!MusouActive || _client is not { } client) { if (_musouHud is not null) _musouHud.Visible = false; return; }
         double now = Time.GetTicksUsec() / 1e6;
-        foreach (var section in sections) if (!MusouDropSection(section)) _musouState.Apply(section, now);   // MU-D: tag 6 to the drops (MusouDrops.cs)
+        foreach (var section in MusouGoreFeed(me, sections, delta)) if (!MusouDropSection(section)) _musouState.Apply(section, now);   // MU-D: tag 6 to the drops (MusouDrops.cs); M10: --musou-gore-demo replaces the server's sections
         var (renderTick, _) = client.RemotePlayers();
+        renderTick = MusouGoreRenderTick(renderTick);
         var shown = _musouState.Sample(renderTick > 0 ? renderTick : _musouState.NewestTick, now);
 
         if (!_musouDrawChecked)
@@ -56,6 +57,7 @@ public partial class NetworkView
             if (_musouDeaths.Count > MusouCrowd.MaxBodies) _musouDeaths.RemoveRange(0, _musouDeaths.Count - MusouCrowd.MaxBodies);
             if (_gameSpace is not null) MusouDraw(shown, (float)delta);
             MusouPresent(me, shown, (float)delta);   // MU3: the HUD, hit feedback, telegraphs and voices (MusouFx.cs)
+            MusouGoreFrame(me, shown, (float)delta);   // M10: gibs, sprays, pools and the cleave slashes (Gore/NetworkView.MusouGore.cs)
         }
         _musouState.TakeNew();
         MusouDropsFrame(me, (float)delta);   // MU-D: the own weapon drops (MusouDrops.cs)
@@ -81,7 +83,7 @@ public partial class NetworkView
         var camera = _camera is null ? Vector3.Zero : new Vector3(_camera.GlobalPosition.X, -_camera.GlobalPosition.Z, _camera.GlobalPosition.Y);   // Godot to game space
         foreach (var d in _musouDeaths)
         {
-            _musouCrowd!.AddBody(d);
+            if (!MusouGoreRegister(d, camera)) _musouCrowd!.AddBody(d);   // M10: a gibbed body leaves no corpse
             var at = new Vector3(d.Position.X, d.Position.Y, d.Position.Z + 1.1f);
             if (at.DistanceTo(camera) <= MusouCrowd.NearMetres)
                 BloodSplashAt(_gameSpace!.Transform * at, -(_gameSpace.Transform.Basis * new Vector3(d.Push.X, d.Push.Y, d.Push.Z)), 0.0);
