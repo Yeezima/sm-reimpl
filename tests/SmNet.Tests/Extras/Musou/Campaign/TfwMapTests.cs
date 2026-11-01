@@ -45,39 +45,57 @@ public class TfwMapTests
         Assert.Equal(World.Character.ContentHash, World.Weapons.ContentHash);   // shots meet what walkers meet
     }
 
-    const ulong PinnedHash = 16110256361378542445UL;
+    const ulong PinnedHash = 11149641394443700838UL;
 
     // ---------------------------------------------------------------- the solids
 
-    [Theory]
-    [InlineData(1f, 0f, 0f)]
-    [InlineData(-1f, 0f, 0f)]
-    [InlineData(0f, 1f, 0f)]
-    [InlineData(0f, -1f, 0f)]
-    [InlineData(0f, 0f, 1f)]
-    [InlineData(0f, 0f, -1f)]
-    [InlineData(1f, 1f, 0.3f)]
-    [InlineData(-1f, -1f, 0.3f)]
-    public void The_stormbird_is_closed_on_every_side(float x, float y, float z)
+    /// <summary>A point inside the corridor, 1.5 m up, at the model's <paramref name="x"/> and <paramref name="y"/>.</summary>
+    static Vector3 Inside(float x, float y, float up = 1.5f) => TfwTestArena.Hub.OnFloor(new Vector2(x, y)) + new Vector3(0f, 0f, up);
+
+    [Fact]
+    public void The_hub_is_closed_on_every_side_from_every_place_inside()
     {
-        var inside = TfwTestArena.Hub.Centre + new Vector3(0f, 0f, 2f);
-        Assert.InRange(Distance(inside, Vector3.Normalize(new Vector3(x, y, z))), 0.1f, 9f);
+        // A sweep of rays from a grid of places in the corridor, on the ramp and above the stairs: every one meets a surface well within the ship (no gap between solids, no way out).
+        var directions = new List<Vector3>();
+        for (int x = -1; x <= 1; x++) for (int y = -1; y <= 1; y++) for (int z = -1; z <= 1; z++) if (x != 0 || y != 0 || z != 0) directions.Add(Vector3.Normalize(new Vector3(x, y, z)));
+        for (int k = 0; k < 24; k++) directions.Add(new Vector3(MathF.Cos(k * MathF.Tau / 24f), MathF.Sin(k * MathF.Tau / 24f), 0.1f));
+        int rays = 0;
+        foreach (float y in new[] { -4.5f, -2f, 2f, 4f, 6f, 9f, 12f, 16f, 20f, 22.5f, 24f, 26f, 27f })
+            foreach (float x in new[] { -1.4f, 0f, 1.4f })
+                foreach (float up in new[] { 1.5f, 3.2f })
+                {
+                    float baseZ = y < 3f ? TfwShip.DeckZ - TfwShip.FloorZ : 0f;
+                    var from = Inside(x, y, baseZ + up);
+                    foreach (var d in directions)
+                    {
+                        var hit = World.Character.Raycast(from, d, 80f);
+                        Assert.True(hit is RayHit, $"a ray from model ({x}, {y}, up {up}) along {d} leaves the ship");
+                        rays++;
+                    }
+                }
+        Assert.True(rays > 3000);
     }
 
     [Fact]
-    public void The_stormbird_interior_is_10_by_10_by_5()
+    public void The_corridor_is_as_measured_and_lies_clear_of_the_level()
     {
-        var c = TfwTestArena.Hub.Centre;
-        var inside = c + new Vector3(0f, 0f, 2f);
-        Assert.Equal(10f, Distance(inside, Vector3.UnitX) + Distance(inside, -Vector3.UnitX), 3);
-        Assert.Equal(10f, Distance(inside, Vector3.UnitY) + Distance(inside, -Vector3.UnitY), 3);
-        Assert.Equal(5f, Distance(inside, Vector3.UnitZ) + Distance(inside, -Vector3.UnitZ), 3);
-        Assert.All(TfwTestArena.Spawns, s => Assert.True(MathF.Abs(s.Position.X - c.X) + 1f < 5f && MathF.Abs(s.Position.Y - c.Y) + 1f < 5f, "a capsule fits between a spawn and the walls"));
-        Assert.Equal(-TfwTestArena.ArenaHalf - TfwMap.WallThickness - TfwMap.HubClearance, c.Y + TfwMap.StormbirdSize.Y / 2f + TfwMap.WallThickness);   // apart from the level: a walker cannot cross
+        var hub = TfwTestArena.Hub;
+        var mid = Inside(0f, TfwShip.MidY, 1f);
+        Assert.Equal(TfwShip.RightPanel - TfwShip.LeftPanel, Distance(mid, Vector3.UnitX) + Distance(mid, -Vector3.UnitX), 3);   // between the tech panels
+        Assert.Equal(TfwShip.RampEndY - TfwShip.MidY, Distance(mid, -Vector3.UnitY), 3);                                         // to the ramp's end
+        Assert.Equal(TfwShip.MidY - TfwShip.FrontY, Distance(mid + new Vector3(0f, 0f, 2f), Vector3.UnitY), 3);               // to the cockpit end, above the deck
+        Assert.Equal(1f, Distance(mid, -Vector3.UnitZ), 3);                                                                       // the floor is at the centre's height
+        Assert.InRange(Distance(mid, Vector3.UnitZ), 2.5f, 3.5f);                                                                 // the roof, sloping toward the ramp
+        // Apart from the level: a walker cannot cross, and the north end of the ship is the clearance short of the level's edge.
+        Assert.Equal(-TfwTestArena.ArenaHalf - TfwMap.WallThickness - TfwMap.HubClearance, hub.Centre.Y + MathF.Ceiling(TfwShip.Fore));
+        Assert.All(TfwTestArena.Spawns, s => Assert.True(hub.Contains(s.Position) && MathF.Abs(s.Position.X - hub.Centre.X) + TfwShip.HalfWidth - 2f < 3f, "a spawn is aboard, clear of the walls"));
+        Assert.True(hub.Contains(hub.DestinationStation) && hub.Contains(hub.EquipmentStation));
+        Assert.False(hub.Contains(hub.Centre + new Vector3(0f, TfwShip.Fore + 0.5f, 0f)));
+        Assert.False(hub.Contains(hub.Centre + new Vector3(TfwShip.HalfWidth + 0.5f, 0f, 0f)));
     }
 
     [Fact]
-    public void Every_triangle_faces_out_of_its_box()
+    public void Every_triangle_faces_out_of_its_solid()
     {
         foreach (var solid in TfwTestArena.Hub.Solids)
         {
@@ -90,6 +108,101 @@ public class TfwMapTests
                 Assert.True(Vector3.Dot(normal, corners[t] - mid) > 0f, $"{solid} triangle {t / 3}");
             }
         }
+        var prism = TfwShip.Prism(-1f, 1f, [(0f, 0f), (2f, 0.5f), (2f, 3f), (0f, 3f)]);
+        var centre = prism.Aggregate(Vector3.Zero, (a, b) => a + b) / prism.Length;
+        for (int t = 0; t < prism.Length; t += 3)
+            Assert.True(Vector3.Dot(Vector3.Cross(prism[t + 1] - prism[t], prism[t + 2] - prism[t]), prism[t] - centre) > 0f, $"prism triangle {t / 3}");
+    }
+
+    [Fact]
+    public void The_open_door_lies_flat_at_the_floor_and_reaches_about_four_and_a_half_metres_past_it()
+    {
+        // The measured corners of the closed door (block 0: the hinge's line at the floor, the top edge 4.5 m up and 3.4 m back): posed open, the top edge lies in the floor's plane.
+        var hinge = TfwShip.DoorHinge;
+        var topEdge = new Vector3(0f, 25.6f, 6.3f);
+        var open = Vector3.Transform(topEdge, TfwShip.DoorOpen);
+        Assert.Equal(hinge.Z, open.Z, 0.25f);
+        Assert.InRange(open.Y - hinge.Y, 5f, 6f);
+        Assert.Equal(topEdge.X, open.X, 4);
+        Assert.True(Vector3.Distance(hinge, Vector3.Transform(hinge, TfwShip.DoorOpen)) < 1e-3f);   // the hinge stays
+        Assert.InRange(TfwShip.RampEndY - TfwShip.HingeY, 5f, 5.6f);
+    }
+
+    // ---------------------------------------------------------------- walking in the hub
+
+    static PlayerState Walk(PlayerState s, float forward, float side, int ticks, Action<PlayerState>? each = null, InputButtons buttons = 0, float yaw = TfwShip.RampYaw)
+    {
+        for (int k = 0; k < ticks; k++)
+        {
+            s = Combat.StepPlayer(s, new PlayerInput(0, side, forward, yaw, buttons, 0f), Raptor, out _, World);
+            each?.Invoke(s);
+        }
+        return s;
+    }
+
+    /// <summary>The model's Y of a world position (the ship is turned half a circle).</summary>
+    static float ModelY(Vector3 p) => TfwTestArena.Hub.Centre.Y + TfwShip.MidY - p.Y;
+
+    static PlayerState StartAt(Vector3 p) => Combat.Respawned(new PlayerState(1, p, default, 0f, true) { Class = Assault }, Raptor);
+
+    [Fact]
+    public void A_walker_goes_up_the_ramp_to_its_end_and_no_further()
+    {
+        var hub = TfwTestArena.Hub;
+        var s = Walk(StartAt(hub.Spawns[0].Position), 1f, 0f, 900, p => Assert.True(hub.Contains(p.Position), $"{p.Position}"));
+        Assert.InRange(ModelY(s.Position), TfwShip.RampEndY - 1f, TfwShip.RampEndY);   // stopped by the wall at the ramp's end
+        Assert.InRange(s.Position.Z - hub.Centre.Z, 0.03f, 0.1f);   // on the ramp, a few centimetres above the corridor's floor
+    }
+
+    [Fact]
+    public void The_stairs_can_be_walked_down_from_the_deck_and_up_again()
+    {
+        var hub = TfwTestArena.Hub;
+        float deck = TfwShip.DeckZ - TfwShip.FloorZ;
+        var s = StartAt(hub.OnFloor(new Vector2(0f, -3f)) + new Vector3(0f, 0f, deck));
+        for (int k = 0; k < 100 && ModelY(s.Position) < TfwShip.StairsEndY + 1f; k++) s = Walk(s, 1f, 0f, 5);
+        Assert.Equal(0f, s.Position.Z - hub.Centre.Z, 0.05f);   // down on the corridor's floor
+        Assert.True(ModelY(s.Position) > TfwShip.StairsEndY, $"{s.Position}");
+        s = Walk(s, -1f, 0f, 300);   // backwards, up the stairs
+        Assert.Equal(deck, s.Position.Z - hub.Centre.Z, 0.05f);   // and up to the deck again
+        Assert.True(ModelY(s.Position) < TfwShip.DeckEndY, $"{s.Position}");
+    }
+
+    [Fact]
+    public void No_scripted_walk_leaves_the_ship_or_gets_under_the_floor_or_over_the_cap()
+    {
+        var hub = TfwTestArena.Hub;
+        var rng = new Random(4);
+        int steps = 0;
+        foreach (var start in new[] { hub.Spawns[0].Position, hub.Spawns[3].Position, hub.DestinationStation, hub.EquipmentStation })
+        {
+            for (int trial = 0; trial < 12; trial++)
+            {
+                var s = StartAt(start);
+                for (int leg = 0; leg < 14; leg++)
+                {
+                    float yaw = (float)(rng.NextDouble() * MathF.Tau);
+                    var buttons = (rng.Next(3) == 0 ? InputButtons.Sprint : 0) | (rng.Next(4) == 0 ? InputButtons.Jump : 0);
+                    s = Walk(s, (float)rng.NextDouble() * 2f - 0.5f, (float)rng.NextDouble() * 2f - 1f, 40 + rng.Next(80), p =>
+                    {
+                        steps++;
+                        Assert.True(hub.Contains(p.Position), $"left the ship at {p.Position}");
+                        Assert.InRange(p.Position.Z - hub.Centre.Z, -0.05f, TfwShip.Height);
+                    }, buttons, yaw);
+                }
+            }
+        }
+        Assert.True(steps > 20000);
+    }
+
+    [Fact]
+    public void A_raptors_full_jump_in_the_corridor_stays_under_the_roof_and_one_on_the_ramp_stays_aboard()
+    {
+        var hub = TfwTestArena.Hub;
+        var roof = FullJump(World, hub.Centre, new Vector2(0f, -1f));
+        Assert.All(roof, s => Assert.True(s.Position.Z - hub.Centre.Z + Raptor.CapsuleHeight <= 4.1f && hub.Contains(s.Position), $"{s.Position}"));
+        var ramp = FullJump(World, hub.OnFloor(new Vector2(0f, 25f)) + new Vector3(0f, 0f, 0.06f), new Vector2(0f, -1f));
+        Assert.All(ramp, s => Assert.True(s.Position.Z - hub.Centre.Z + Raptor.CapsuleHeight <= TfwShip.CapZ - TfwShip.FloorZ + 0.05f && hub.Contains(s.Position), $"{s.Position}"));
     }
 
     // ---------------------------------------------------------------- the enemies' graph
@@ -182,13 +295,5 @@ public class TfwMapTests
             if (k > 20 && s.Jump is JumpPhase.Landed or JumpPhase.Recover) break;
         }
         return states;
-    }
-
-    [Fact]
-    public void A_full_jump_in_the_stormbird_stays_under_its_ceiling()
-    {
-        var c = TfwTestArena.Hub.Centre;
-        var states = FullJump(World, c, new Vector2(0f, 1f));
-        Assert.All(states, s => Assert.True(s.Position.Z + Raptor.CapsuleHeight <= TfwMap.StormbirdSize.Z + 0.05f && s.Position.Y < c.Y + 5f, $"{s.Position}"));
     }
 }
