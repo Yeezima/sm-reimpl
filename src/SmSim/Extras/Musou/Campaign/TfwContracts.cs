@@ -9,7 +9,7 @@ namespace SmSim.Extras.Musou.Campaign;
 /// </summary>
 public static class TfwRules
 {
-    public const uint Version = 7;   // 2: TF6, the war's sections on the wire and the commands with a place; 3: TF4, the war runs (the battle, the run, the extraction); 4: TF7b, tag 7 carries the own block (TfwOwnView); 5: the own block's deployed flag, and an extraction after a won battle never ends the run; 6: pass 2's contracts (tags 11 to 14, the commands ChangeClass and ChooseReward, Knocked, the deaths Barrage and Strafe); 7: battles on Manufactorum (M1: the map's points, drawn sites, tag 8 carries each radius and the sites)
+    public const uint Version = 8;   // 8: fire support (M8: tag 11 is sent, the commands FireTest and Orbital, the own block's cooldown); 2: TF6, the war's sections on the wire and the commands with a place; 3: TF4, the war runs (the battle, the run, the extraction); 4: TF7b, tag 7 carries the own block (TfwOwnView); 5: the own block's deployed flag, and an extraction after a won battle never ends the run; 6: pass 2's contracts (tags 11 to 14, the commands ChangeClass and ChooseReward, Knocked, the deaths Barrage and Strafe); 7: battles on Manufactorum (M1: the map's points, drawn sites, tag 8 carries each radius and the sites)
 }
 
 /// <summary>The contract the war's milestones share (TF0, frozen): ids and how the war's actors are named across the simulation, the server and the client.</summary>
@@ -40,8 +40,8 @@ public enum TfwRunPhase : byte { Hub = 0, Travel = 1, Battle = 2, Pickup = 3, Fi
 /// <summary>A capture position in a battle (design section D): the chain goes Locked, Held, Clearing, Securing, Secured.</summary>
 public enum TfwPositionState : byte { Locked = 0, Held = 1, Clearing = 2, Securing = 3, Secured = 4 }
 
-/// <summary>A client's command (message kind 17, tag <c>TfwWire.CommandTag</c>; design section H). Deploy's argument is the lane; Hold and Attack carry a place (<see cref="TfwCommandRecord.Point"/>); ChooseReward's argument is the card (0 to <c>TfwWire.RewardCards</c> - 1).</summary>
-public enum TfwCommand : byte { Deploy = 1, RequestPickup = 2, CancelPickup = 3, Follow = 4, Hold = 5, Attack = 6, ChangeClass = 7, ChooseReward = 8 }
+/// <summary>A client's command (message kind 17, tag <c>TfwWire.CommandTag</c>; design section H). Deploy's argument is the lane; Hold and Attack carry a place (<see cref="TfwCommandRecord.Point"/>); ChooseReward's argument is the card (0 to <c>TfwWire.RewardCards</c> - 1); FireTest is a test aid: a barrage (argument bit 0) and/or a run (bit 1) through its point, ignored by a server without <c>SM_TFW_FIRE_TEST</c>; Orbital calls a strike on its point, which the server may refuse.</summary>
+public enum TfwCommand : byte { Deploy = 1, RequestPickup = 2, CancelPickup = 3, Follow = 4, Hold = 5, Attack = 6, ChangeClass = 7, ChooseReward = 8, FireTest = 9, Orbital = 10 }
 
 /// <summary>One decoded command: its sequence (resent until tag 7 echoes it, idempotent by it), what it asks, its argument and, for Hold and Attack, the point of the sender's crosshair (metres; untrusted, within about 3 km on each axis).</summary>
 public readonly record struct TfwCommandRecord(ushort Sequence, TfwCommand Command, byte Argument, Vector3 Point = default);
@@ -60,10 +60,10 @@ public enum TfwRetainerState : byte { None = 0, Ready = 1, Reviving = 2, Recover
 /// What one client's HUD needs of the run beyond the fronts (TF7b, the end of tag 7): the seconds left, rounded up (so a countdown changes the record once a second) of the travel, the pickup, the
 /// own revive window and the extraction's prompt; the revive's progress in tenths; whether the battle is won (a pickup is then free); the own retainer, its order and its recovery (war seconds, rounded
 /// up); the battle's Guardsmen alive, squads in the field, squads in reserve and positions secured; and whether this player is in the run's field (<see cref="TfwRun.InField"/>: one who joined after the
-/// landing is not, so the run does not hold its respawn).
+/// landing is not, so the run does not hold its respawn); and the seconds, rounded up, until this player may call an orbital strike.
 /// </summary>
 public readonly record struct TfwOwnView(byte TravelSeconds, byte PickupSeconds, byte ReviveSeconds, byte ExtractionSeconds, byte ReviveTenths, bool BattleWon,
-    TfwRetainerState Retainer, MarineOrder Order, ushort RecoverySeconds, byte Guards, byte Squads, byte Reserves, byte Secured, bool Deployed = false);
+    TfwRetainerState Retainer, MarineOrder Order, ushort RecoverySeconds, byte Guards, byte Squads, byte Reserves, byte Secured, bool Deployed = false, byte OrbitalSeconds = 0);
 
 /// <summary>One capture position as tag 8 carries it (positions quantised over the Musou box).</summary>
 public readonly record struct TfwObjective(byte Index, TfwPositionState State, float Progress, Vector3 Position, float Radius = 0f);

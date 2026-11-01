@@ -29,6 +29,7 @@ public partial class NetworkView
         TfwHudFrame(war, me);
         TfwMarkersFrame(war);
         TfwFireFrame(war, delta);
+        TfwFireCamFrame();
         TfwBarsFrame();
         TfwScoreFrame(war);
         TfwRewardFrame(war);

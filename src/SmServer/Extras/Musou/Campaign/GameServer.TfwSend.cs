@@ -35,6 +35,7 @@ public sealed partial class GameServer
         TfwDownTest();   // GameServer.TfwDownTest.cs: a test aid, off without its variable
         TfwTestAids();   // GameServer.TfwWinTest.cs: the same
         FeedTfw();   // GameServer.TfwFeedRun.cs
+        SendTfwFire();   // GameServer.TfwFire.cs: tag 11
         var feed = TfwFeed;
         uint tick = World.Tick;
         int tickRate = World.Config.TickRate;

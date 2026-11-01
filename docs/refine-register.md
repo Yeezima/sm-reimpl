@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1972 spec table rows: **1390 tagged**, 423 not tagged (read from data with high confidence), 159 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 424 rows of the changes document.
+Scanned 1994 spec table rows: **1411 tagged**, 423 not tagged (read from data with high confidence), 160 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 425 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,24 +50,24 @@ Scanned 1972 spec table rows: **1390 tagged**, 423 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 189 | 174 | 154 | 24 | 1 |
+| Core simulation (provisional values) | 210 | 195 | 174 | 24 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 78 | 72 | 40 | 8 | 0 |
-| **All areas** | **1390** | 1167 | 1110 | 412 | 38 |
+| **All areas** | **1411** | 1188 | 1130 | 412 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 596 |
-| confidence: low | 521 |
-| confidence: medium | 471 |
+| kind: ours | 613 |
+| confidence: low | 537 |
+| confidence: medium | 475 |
 | kind: interpretation | 331 |
 | notes: ours | 301 |
 | confidence: none (low) | 118 |
 | kind: provisional | 100 |
-| kind: estimate | 62 |
-| kind: user's knowledge | 45 |
+| kind: estimate | 65 |
+| kind: user's knowledge | 49 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
 | notes: provisional | 31 |
@@ -1798,7 +1798,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (189)
+### Core simulation (provisional values) (210)
 
 *Spec section: Provisional values in use*
 
@@ -1990,6 +1990,32 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-427BCAF1` | Retainer revive | before any order, while the run keeps the window open (25 s, TF4's): sprints to the body, 3 s in a row within 2 m bring the player back where it fell at 50 % of health and shield, carrying what it had (no new life, no ammunition) (s, m, share) | kind: estimate; confidence: low; notes: ours | the design (section E), the owner (2026-11-01: revive, then extract); what the player keeps ours | Retainer revive: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: before any order, while the run keeps the window open (25 s, TF4's):… | ☐ |
 | `R-073002CD` | Retainer recovery | a dead retainer (a player's or a lord's) is out 180 war s, on the war's time scale, in or out of a battle, then returns at the landing zone; it stays dead until then (the respawn timer held) (war s) | kind: estimate; confidence: low; notes: ours | the design (section E: 3 war-minutes); the return place ours | Retainer recovery: compare with SM1 by feel or video. Ours: a dead retainer (a player's or a lord's) is out 180 war s, on the… | ☐ |
 | `R-61D3899C` | Lords | one per lane: A Assault "Brother-Captain Aurex", B Tactical "Brother-Captain Tolmar", C Devastator "Brother-Captain Severin", each with a Tactical "Retainer of ..." who follows him and, once he falls, attacks; autonomous, no player orders them; attack-move to… (m) | kind: ours; confidence: low; notes: placeholder; notes: open question | the design (section E, open question 7: placeholder names), the owner (2026-11-01: one lord per lane, autonomous); the 10 m ours | Lords: compare with SM1 by measuring on a flat spot of the same map. Ours: one per lane: A Assault "Brother-Captain Aurex", B Tactical… | ☐ |
+
+*Spec section: Added content: Musou Mode: fire support (M8, M9: `TfwFire`, `World.TfwFire.cs`, `TfwFireView.cs`; no protocol change, `TfwRules.Version` 8)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-AA530FC4` | Orbital strike | B calls one on the point under the crosshair (the key given up by any action for the match, restored on exit; keyboard and mouse only). The server decides: a battle on, the caller in it and alive, the point on the battlefield, the cooldown over. No barrage at… | kind: user's knowledge | the owner (2026-11-01) | Orbital strike: compare with SM1 by feel or video. Ours: B calls one on the point under the crosshair (the key given up by any… | ☐ |
+| `R-58C64589` | Strike cooldown | 60 s per player, cleared by a new run; the HUD shows B ready or the seconds left (s) | kind: ours; confidence: low | the owner asked for a cooldown; the value the lead's | Strike cooldown: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 60 s per player, cleared by a new run; the HUD shows B ready or the… | ☐ |
+| `R-55F42C2B` | Barrage size | 16 to 24 shells on a line of 60 to 100 m, 0.35 s between impacts, scatter ±6 m on each axis. The design's "about 10 m apart" does not fit its own counts, which give 2.6 to 6.7 m: the counts and the length were kept (shells, m, s) | kind: ours; confidence: low | the design; the reference's walking barrage | Barrage size: compare with SM1 by measuring on a flat spot of the same map. Ours: 16 to 24 shells on a line of 60 to 100 m, 0.35 s between impacts… | ☐ |
+| `R-C466F7CF` | Barrage aim | centred on the called point, walking across the caller's view. A paused run's aim: 70% through a living enemy at random, 30% through a random place, heading random (fraction) | kind: ours; confidence: low | the owner (the point); the rest ours | Barrage aim: compare with SM1 with an overlaid screenshot taken from the same position. Ours: centred on the called point, walking across the caller's view. A… | ☐ |
+| `R-2073CE8A` | Shell warning | the first impact 1 s after the call, each shell's record 1 s before it lands, for the whistle; measured on a real server: first impact 0.86 s after the key (s) | kind: ours; confidence: medium | the owner ("start instantly"); about 1 s the lead's, to keep a whistle | Shell warning: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the first impact 1 s after the call, each shell's record 1 s before… | ☐ |
+| `R-3D3CF5B9` | Shell on fodder | Boy, Shoota, Gretchin within 6 m (flat) die, no line of sight needed; to 12 m they stagger (m) | kind: estimate; kind: user's knowledge; confidence: low | the owner (item 12: "instantly killed"); the radius from the design | Shell on fodder: compare with SM1 by measuring on a flat spot of the same map. Ours: Boy, Shoota, Gretchin within 6 m (flat) die, no line of sight needed… | ☐ |
+| `R-615982A9` | Shell on elites and bosses | 150 at the impact, linear to 0 at 12 m, and a stagger (hit points, m) | kind: ours; confidence: low | the design | Shell on elites and bosses: compare with SM1 by feel or video. Ours: 150 at the impact, linear to 0 at 12 m, and a stagger. | ☐ |
+| `R-DDCD1052` | Shell on players and AI Marines | 60 at the impact, linear to 0 at 12 m, through the received-damage multipliers; a stagger within 6 m; nobody is spared (hit points, m) | kind: estimate; kind: user's knowledge; confidence: low | the owner (item 12: "space marines take damage"); the values from the design | Shell on players and AI Marines: compare with SM1 by feel or video. Ours: 60 at the impact, linear to 0 at 12 m, through the received-damage… | ☐ |
+| `R-856266F2` | Shell on Guardsmen | die within 4 m. Guardsmen are off for now (item 19), so this is implemented but unplayed (m) | kind: ours; confidence: low | the design | Shell on Guardsmen: compare with SM1 by measuring on a flat spot of the same map. Ours: die within 4 m. Guardsmen are off for now (item 19), so this is… | ☐ |
+| `R-41276715` | Shell's reach up and down | 6 m: a shell on a roof spares those under it (m) | kind: ours; confidence: low | ours | Shell's reach up and down: compare with SM1 by measuring on a flat spot of the same map. Ours: 6 m: a shell on a roof spares those under it. | ☐ |
+| `R-AF73E808` | Run cadence (paused) | `max(45, 45 + hash x 75)` after the last; never under 45 (s) | kind: estimate; kind: user's knowledge; confidence: medium | the owner (45 s); the spread from the design | Run cadence (paused): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: max(45, 45 + hash x 75) after the last; never under 45. | ☐ |
+| `R-89BB5092` | Run path (paused) | a straight line 300 m either side of its aim at 60 m/s, at least 35 m over the aim's ground and 8 m over the collision under the path (sampled every 20 m); a client flies it from one record (m, m/s) | kind: ours; confidence: low | the design | Run path (paused): compare with SM1 by timing a run over a known distance. Ours: a straight line 300 m either side of its aim at 60 m/s, at least 35 m… | ☐ |
+| `R-39D2DF6C` | Run guns (paused) | a side gun each, 7 m out and 2 m under the path: every 0.1 s two rounds each at an enemy of its side within 30 m of the path, 10 m behind to 45 m ahead, with a clear line (5 tries), by hash; 75% hit for 40 and the rest strike the ground by the target; enemies… (m, s, hit points) | kind: ours; confidence: low | the owner (item 13); the values from the design | Run guns (paused): compare with SM1 by timing a run over a known distance. Ours: a side gun each, 7 m out and 2 m under the path: every 0.1 s two… | ☐ |
+| `R-749B8B10` | Who a fire KO belongs to | nobody: `Player` 0, cause Barrage or Strafe, no score; the gore milestone reads the cause | kind: ours; confidence: medium | the design | Who a fire KO belongs to: compare with SM1 by feel or video. Ours: nobody: Player 0, cause Barrage or Strafe, no score; the gore… | ☐ |
+| `R-CB426D08` | Burst | the install's `artillery_explosion` (x1.2), `oob_explosion_huge` every third shell, `metal_crater_dif` 11 m for 40 s, over a plume, clods, dust skirt and fireball made in the client (`TfwBlastCloud`, at most 3,072 puffs); plume about 25 m high; detail falls… (m, s) | kind: ours; confidence: low | ours, on the reference | Burst: compare with SM1 by feel or video. Ours: the install's artillery_explosion (x1.2), oob_explosion_huge every… | ☐ |
+| `R-95477525` | Shake | 0.05 rad at 0 m, falling to none at 110 m, late by the distance at 340 m/s; adds up to at most 0.07 rad; the aircraft adds a little within 70 m (paused); none under Reduce motion (rad, m) | kind: ours; confidence: low | the owner's item 12; the values ours | Shake: compare with SM1 by feel or video. Ours: 0.05 rad at 0 m, falling to none at 110 m, late by the distance at… | ☐ |
+| `R-4F0E94C0` | Whistle | before each impact within 160 m, 0.9 s ahead: `client/assets/musou/whistle.ogg` (git-ignored, left out of exports, also read from `<exe dir>/assets/musou`) on the sound bus at -6 dB, played so its end meets the impact; without the file… (s, m, dB) | kind: ours; confidence: low | the owner's cue; level ours | Whistle: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: before each impact within 160 m, 0.9 s ahead:… | ☐ |
+| `R-82ACA5B8` | Burst sound | within 130 m one of `play_sm_missile_explosion`, `play_powersource_explode_distant`, `play_ork_rokk_distant_explosion` in turn at +4 dB (+8 dB and the missile's on top within 45 m); past that a far one; late by the distance. `play_big_damage_large_explosion`… (dB, m) | kind: ours; confidence: low | ours | Burst sound: compare with SM1 by listening A/B at the same distance and state. Ours: within 130 m one of play_sm_missile_explosion… | ☐ |
+| `R-26C2FF49` | Flyby (paused) | `play_thunderhawk_pass` from the campaign's bank `rgn_s27_r500` (loaded at run time only with the runs on; it resolved), 2.5 s into the run and stopped at its end, with `play_sm_thunderhawk_engine`; else `play_ig_valkyrie_flyby` (s) | kind: ours; confidence: medium | the blueprint's `flybysound`; the timing ours | Flyby (paused): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: play_thunderhawk_pass from the campaign's bank rgn_s27_r500 (loaded… | ☐ |
+| `R-1E92B5E4` | The war round the walls | a far sound every 0.5 to 2.2 s from a random bearing, 22 to 36 m from the listener: far explosions, a titan's step, far Valkyries, heavy bolters; -22 dB and LPF 62 (about 900 Hz) on top of the data's mix in a battle, -28 dB and LPF 82 inside the Stormbird… (dB, s, m) | kind: ours; confidence: low | the owner's item 10; the mix ours | The war round the walls: compare with SM1 by feel or video. Ours: a far sound every 0.5 to 2.2 s from a random bearing, 22 to 36 m from… | ☐ |
+| `R-030BF90E` | Far fires | 7 places 240 m round the points: `oob_explosions_artillery_less` x2.2 and `amb_anti_aircraft_fire_valkyries` x1.5 on repeat. Not seen in the captures: to check (m) | kind: ours; confidence: low | the design | Far fires: compare with SM1 by measuring on a flat spot of the same map. Ours: 7 places 240 m round the points: oob_explosions_artillery_less x2.2… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -2295,6 +2321,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-0BAAC3C5` | Pistol-only start, Space Marine spawn room, Warboss in the Chaos room | the owner's request (2026-10-31) | every life starts with the class's bolt pistol only; everyone spawns in the Space Marine room | Musou spawns and loadout | Pistol-only start, Space Marine spawn room, Warboss in the…: compare with SM1 by feel or video. Ours: the owner's request (2026-10-31). | ☐ |
 | `C-D5938EAB` | Golden weapon drops from Nobs and Chaos Marines | the owner's requests (2026-10-31) | each Nob or Chaos Marine KO drops one weapon per player from their class's pool, E equips it, 60 s | Musou weapon drops | Golden weapon drops from Nobs and Chaos Marines: compare with SM1 by feel or video. Ours: the owner's requests (2026-10-31). | ☐ |
 | `C-6A2CB579` | Musou Mode: an extraction after a won battle never ends the run | the owner's decision (2026-11-01) | the supplies fall by up to 2, never below 0, and the run goes on; from a battle not won, under 2 supplies still loses the run | War downed | Musou Mode: an extraction after a won battle never ends the…: compare with SM1 by timing a run over a known distance. Ours: the owner's decision (2026-11-01). | ☐ |
+| `C-2E0C8FD7` | Musou Mode: orbital support and the far war | the owner's items 10 and 12 and his decision of 2026-11-01: artillery only when a player calls it with B on the crosshair's point, starting at once; Thunderhawk runs paused by him the same day; SM1 multiplayer has none of this | a walking barrage on the called point, 60 s cooldown (ours), friend and foe hurt; a muffled war round the map; the optional local whistle `client/assets/musou/whistle.ogg` is never shipped | Musou Mode: fire support | Musou Mode: orbital support and the far war: compare with SM1 by feel or video. Ours: the owner's items 10 and 12 and his decision of 2026-11-01: artillery… | ☐ |
 | `C-09C74C8A` | Musou Mode replaces the 5-wave run | the owner's decision (2026-11-01) | `--content musou` runs the war on `tfw_war`, Manufactorum from the install with a generated Stormbird beside it and no spawn-room blockers; the 5-wave run stays only as a test aid (`--map mp_tdm_09`) | War map | Musou Mode replaces the 5-wave run: compare with SM1 by timing a run over a known distance. Ours: the owner's decision (2026-11-01). | ☐ |
 | `C-38A58728` | AI Marines in the war | the owner's decisions (2026-11-01) and ours | server-side puppets: a retainer per player who follows orders and revives, three lords with retainers who act alone; ammunition without end, placeholder names | Retainer orders | AI Marines in the war: compare with SM1 by feel or video. Ours: the owner's decisions (2026-11-01) and ours. | ☐ |
 | `C-A5D8C2C2` | Guard squads fight beside the players; leashed Ork defenders | the design of the war (2026-11-01); SM1 has no such allies (the Guardsman is the Exterminatus co-op blueprint) | squads of 10 shoot and are struck server-side; defenders hold until a target is within 30 m or their group is hurt | War Guard squads, Leashed defenders | Guard squads fight beside the players; leashed Ork defenders: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01); SM1 has no such allies (the… | ☐ |
@@ -2972,6 +2999,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-6EA20ECA` | War's budget | Added content: Musou Mode on the wire (TF6; no protocol change, `TfwRules.Version` 2) |
 | `R-07694DAC` | Crowd budget | Added content: Musou Mode: the Guardsmen as drawn (TF7a; client only, no protocol change) |
 | `R-B57B28D0` | War test aids (TF9) | Added content: Musou Mode: the battle and the run (TF4; `TfwRules.Version` 5 since an extraction after a won battle) |
+| `R-6D0F2490` | Wire | Added content: Musou Mode: fire support (M8, M9: `TfwFire`, `World.TfwFire.cs`, `TfwFireView.cs`; no protocol change, `TfwRules.Version` 8) |
 | `R-3C893894` | Test aids | Death effects (F-D1; client only, not simulated, no protocol change) |
 | `R-54698497` | `--bot-damage-scale f` | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
 | `R-5601E474` | Protocol 37 (on top of main's 36) | Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37) |
