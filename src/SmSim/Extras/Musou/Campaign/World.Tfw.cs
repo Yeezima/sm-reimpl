@@ -59,6 +59,7 @@ public sealed partial class World
         else if (!run.Idle) run.Commands(null, Config.TickRate);
         TfwGuardsStep();   // World.TfwGuards.cs
         TfwBossStep();
+        TfwFireStep();   // World.TfwFire.cs: the barrages and the Thunderhawk (their KOs are credited next tick)
         TfwPuppetsStep();
         MusouDropsStep();   // World.MusouDrops.cs: pickups (E), expiry
         TfwSlotsStep();   // World.TfwArsenal.cs: a key pressed during a strike waits for its end

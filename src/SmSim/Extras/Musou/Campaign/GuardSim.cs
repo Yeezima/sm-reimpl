@@ -193,6 +193,22 @@ public sealed class GuardSim
         return n;
     }
 
+    /// <summary>Every man within <paramref name="radius"/> of <paramref name="centre"/> (flat) dies (a shell, World.TfwFire.cs); how many.</summary>
+    public int KillWithin(Vector3 centre, float radius)
+    {
+        int n = 0; float r2 = radius * radius;
+        for (int i = 0; i < Capacity; i++)
+        {
+            if (!Living(i)) continue;
+            float dx = _position[i].X - centre.X, dy = _position[i].Y - centre.Y;
+            if (dx * dx + dy * dy > r2) continue;
+            _health[i] = 0f; _state[i] = GuardState.Dying; _stateTicks[i] = 0;
+            _living[i / SquadSize]--; Alive--; Lost++; n++;
+            AddEvent(new GuardEvent(GuardEventKind.Death, Tick, (ushort)(i + 1), 0, _position[i]));
+        }
+        return n;
+    }
+
     /// <summary>Every man in a slot (alive or dying), in slot order, for tag 9 (id = slot + 1); the number written.</summary>
     public int CopyTo(Span<TfwGuard> into)
     {

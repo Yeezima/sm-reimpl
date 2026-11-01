@@ -170,7 +170,7 @@ public sealed partial class TfwHud : Control
     {
         float y0 = PanelY + 3 * RowH + 3 * 26f + 22f + 12f;
         int rows = Math.Min(_objectiveNames.Length, Data.Objectives.Count);
-        float h = rows * 24f + 5 * 24f + 44f;
+        float h = rows * 24f + 6 * 24f + 44f;
         Panel(PanelX, y0, PanelW, h);
         float lx = PanelX + 18f, rx = PanelX + PanelW - 18f, y = y0 + 26f;
         for (int k = 0; k < rows; k++, y += 24f)
@@ -186,7 +186,8 @@ public sealed partial class TfwHud : Control
         Txt(_kosText, rx, y + 24f, 16, Gold, 1);
         Txt(_pointsText, lx, y + 48f, 16, Gold);
         Txt(Data.Slots, lx, y + 72f, 14, White);
-        Txt("Z FOLLOW   X HOLD   V ATTACK   HOLD P PICKUP", lx, y + 98f, 14, Grey);
+        if (Data.War is { } war) Txt(TfwHudModel.OrbitalText(war.Own), lx, y + 96f, 16, war.Own.OrbitalSeconds == 0 ? Gold : Grey);
+        Txt("Z FOLLOW   X HOLD   V ATTACK   HOLD P PICKUP", lx, y + 122f, 14, Grey);
     }
 
     void DrawPrompts(Vector2 vs)

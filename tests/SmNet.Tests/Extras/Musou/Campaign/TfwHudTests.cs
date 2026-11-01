@@ -19,7 +19,7 @@ public class TfwHudTests
     {
         var war = War(TfwRunPhase.Pickup, Own);
         var bytes = TfwWire.WriteWar(war);
-        Assert.Equal(85, TfwWire.WarBytes);
+        Assert.Equal(86, TfwWire.WarBytes);
         Assert.Equal(TfwWire.WarBytes, bytes.Length);
         Assert.Equal(war, TfwWire.ReadWar(bytes));
     }
@@ -33,7 +33,7 @@ public class TfwHudTests
     public void AnOwnBlockOutOfRangeIsRefused(int offset, byte value)
     {
         var bytes = TfwWire.WriteWar(War(TfwRunPhase.Battle, Own));
-        bytes[TfwWire.WarBytes - 14 + offset] = value;
+        bytes[TfwWire.WarBytes - 15 + offset] = value;
         Assert.Null(TfwWire.ReadWar(bytes));
     }
 

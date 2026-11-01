@@ -11,7 +11,7 @@ namespace SmClient;
 
 /// <summary>
 /// The war's order keys (design section G; the owner's approved choice, fixed keys, read here in <see cref="TfwFrame"/>): Z follow, X hold at the ground point under the crosshair, V attack the enemy or
-/// the point under the crosshair, P held 1 s for a pickup (or to call a running one off). Two of them clash with the defaults, X next weapon and V melee: in a war's match the order keys win, each action
+/// the point under the crosshair, P held 1 s for a pickup (or to call a running one off), B an orbital strike on the point under the crosshair (the owner, 2026-11-01). Two of them clash with the defaults, X next weapon and V melee: in a war's match the order keys win, each action
 /// keeps its other input (the wheel, the right mouse button). <see cref="TfwOrderKeysFree"/> takes these keys out of the InputMap for this match only: nothing is saved, the player's
 /// <c>controls.json</c> and the controls screen are unchanged, and the node <see cref="TfwKeysBack"/> puts them back when the view goes. There is no controller binding for the orders yet.
 /// </summary>
@@ -21,10 +21,12 @@ public partial class NetworkView
     const float OrderReach = 340f;
     /// <summary>How far from the crosshair's ray an enemy still counts as aimed at (m, ours).</summary>
     const float OrderEnemyRadius = 3f;
-    static readonly string[] TfwOrderInputs = ["Key:Z", "Key:X", "Key:V", "Key:P", "Key:M", "Key:Key4", "Key:Key5"];
+    static readonly string[] TfwOrderInputs = ["Key:Z", "Key:X", "Key:V", "Key:P", "Key:M", "Key:Key4", "Key:Key5", "Key:B"];
 
     readonly TfwOrderKeys _tfwKeys = new();
     BindingSet? _tfwKeysFreed;
+    bool _tfwOrbitalKey;
+    double _tfwOrbitalCalled = -1;
 
     /// <summary>Every action bound to an order key gives that key up for this match; again after a rebinding in the match (<see cref="ControlsInput.Use"/> rebuilds the InputMap and makes a new set).</summary>
     void TfwOrderKeysFree()
@@ -51,6 +53,9 @@ public partial class NetworkView
     {
         if (_bot) return;
         bool enabled = TfwHudModel.InBattle(war.Phase) && me.Alive && !PickerBusy;
+        bool orbital = Input.IsPhysicalKeyPressed(Key.B);
+        if (orbital && !_tfwOrbitalKey && enabled && war.Own.OrbitalSeconds == 0) { _tfwState.Commands.Issue(TfwCommand.Orbital, 0, TfwCrosshairPoint(me)); _tfwOrbitalCalled = _connectedFor; }   // the server decides
+        _tfwOrbitalKey = orbital;
         var press = _tfwKeys.Update(Input.IsPhysicalKeyPressed(Key.Z), Input.IsPhysicalKeyPressed(Key.X), Input.IsPhysicalKeyPressed(Key.V), Input.IsPhysicalKeyPressed(Key.P), delta, enabled);
         if (press == TfwOrderPress.None) return;
         if (press.HasFlag(TfwOrderPress.Follow)) _tfwState.Commands.Issue(TfwCommand.Follow);

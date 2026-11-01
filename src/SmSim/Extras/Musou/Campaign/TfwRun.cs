@@ -94,6 +94,7 @@ public sealed partial class TfwRun
         Deployed = false;
         Wins = 0;
         ActivePosition = null;
+        Fire.NewRun();
         _deployed.Clear();
         _reviveTicks.Clear();
         _nextHqTransport = TfwBattleRules.HqTransportSeconds;
@@ -135,6 +136,8 @@ public sealed partial class TfwRun
                 case TfwCommand.ChangeClass: ChangeClass(w, player); break;   // TfwRun.Class.cs (M7)
                 case TfwCommand.ChooseReward: w.TfwChooseReward(player, c); break;
                 case TfwCommand.SelectSlot: w.TfwSelectSlot(player, c.Argument); break;
+                case TfwCommand.Orbital: w.TfwOrbital(player, c.Point); break;   // World.TfwFire.cs: the server decides
+                case TfwCommand.FireTest: if (Fire.TestCommands) w.TfwFireForTests((c.Argument & 1) != 0, TfwFireRules.RunsEnabled && (c.Argument & 2) != 0, Field.Clamp(c.Point), w.TfwFireTestHeading(player, c.Point)); break;   // test aid (SM_TFW_FIRE_TEST)
                 default: Order(w, player, c); break;
             }
         }
@@ -310,6 +313,9 @@ public sealed partial class TfwRun
         _reviveTicks.Clear();
         War.Enter(TfwRunPhase.Hub, War.BattleLane);
     }
+
+    /// <summary>Test aid: the battle is left at once.</summary>
+    public void PickupForTests(World w) { if (Battle is not null) Leave(w, left: false, TfwMapResult.Won); }
 
     /// <summary>After the fight: the humans in the field who are down wait (the core's timer must not bring them back in the Stormbird), and after a lost run nobody returns until the new one.</summary>
     internal void HoldRespawns(World w)

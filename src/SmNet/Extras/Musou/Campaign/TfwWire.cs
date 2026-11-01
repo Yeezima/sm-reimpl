@@ -52,7 +52,7 @@ public static class TfwWire
     /// <summary>The metres of one step of a command's point: 0.1 m, so a point reaches 3276.7 m from the origin on each axis.</summary>
     public const float PointStep = 0.1f;
 
-    const int WarHeadBytes = 14, LaneBytes = 19, OwnBytes = 14, OwnWon = 1, OwnDeployed = 2;
+    const int WarHeadBytes = 14, LaneBytes = 19, OwnBytes = 15, OwnWon = 1, OwnDeployed = 2;
     /// <summary>The fullest revive progress on the wire (<see cref="TfwOwnView.ReviveTenths"/>).</summary>
     public const byte MaxReviveTenths = 10;
     public const int WarBytes = WarHeadBytes + 3 * LaneBytes + OwnBytes, ObjectiveBytes = 11, SiteBytes = 6, GuardBytes = 10, GuardEventBytes = 15;
@@ -89,7 +89,7 @@ public static class TfwWire
     // ---------------------------------------------------------------- commands (message kind 17)
 
     /// <summary>Whether a command names a place (the payload is <see cref="PointCommandBytes"/> long).</summary>
-    public static bool HasPoint(TfwCommand command) => command is TfwCommand.Hold or TfwCommand.Attack;
+    public static bool HasPoint(TfwCommand command) => command is TfwCommand.Hold or TfwCommand.Attack or TfwCommand.FireTest or TfwCommand.Orbital;
 
     /// <summary>The length of a command's payload.</summary>
     static int CommandLength(TfwCommand command) => HasPoint(command) ? PointCommandBytes : command == TfwCommand.ChooseReward ? OfferCommandBytes : CommandBytes;
@@ -189,6 +189,7 @@ public static class TfwWire
         s[11] = own.Squads;
         s[12] = own.Reserves;
         s[13] = own.Secured;
+        s[14] = own.OrbitalSeconds;
     }
 
     static TfwOwnView? ReadOwn(ReadOnlySpan<byte> s)
@@ -196,7 +197,7 @@ public static class TfwWire
         var retainer = (TfwRetainerState)s[6];
         var order = (MarineOrder)s[7];
         if (s[4] > MaxReviveTenths || (s[5] & ~(OwnWon | OwnDeployed)) != 0 || !Enum.IsDefined(retainer) || !Enum.IsDefined(order) || s[13] > WarRules.Positions) return null;
-        return new TfwOwnView(s[0], s[1], s[2], s[3], s[4], (s[5] & OwnWon) != 0, retainer, order, BinaryPrimitives.ReadUInt16LittleEndian(s[8..]), s[10], s[11], s[12], s[13], (s[5] & OwnDeployed) != 0);
+        return new TfwOwnView(s[0], s[1], s[2], s[3], s[4], (s[5] & OwnWon) != 0, retainer, order, BinaryPrimitives.ReadUInt16LittleEndian(s[8..]), s[10], s[11], s[12], s[13], (s[5] & OwnDeployed) != 0, s[14]);
     }
 
     static void WriteLane(Span<byte> s, in TfwLaneState lane)
