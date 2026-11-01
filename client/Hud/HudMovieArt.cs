@@ -94,6 +94,7 @@ public sealed class HudMovieArt
         _scale = scale;
         _generation++;
         _asked.Clear();
+        _wanted.Clear();
     }
 
     /// <summary>
@@ -106,11 +107,13 @@ public sealed class HudMovieArt
         Start();
         if (_asked.Add(key))
         {
+            _wanted[key] = 0;
             if (group is not null) Admit(key, group, groupMax);
             int gen = _generation; double scale = _scale;
             _work.Add(() =>
             {
-                if (gen != _generation) { _done.Enqueue((key, null, -1)); return; }
+                // Skipped by a scale change, or let go from its group before its turn came (a bar swept through many frames): not rendered (ui/hud-bar-colours).
+                if (gen != _generation || !_wanted.ContainsKey(key)) { _done.Enqueue((key, null, -1)); return; }
                 var movies = _movies;
                 HudPicture? p = null;
                 if (movies is not null) p = make(movies, scale);
@@ -129,16 +132,28 @@ public sealed class HudMovieArt
         if (!_groups.TryGetValue(group, out var list)) _groups[group] = list = new List<string>();
         list.Remove(key);
         list.Add(key);
+        _held.TryGetValue(group, out var held);
         while (groupMax > 0 && list.Count > groupMax)
         {
-            string old = list[0];
-            list.RemoveAt(0);
+            // The oldest piece goes, but never the one the caller still draws (Hold): it stays until another is held.
+            int at = list[0] == held && list.Count > 1 ? 1 : 0;
+            string old = list[at];
+            list.RemoveAt(at);
             _asked.Remove(old);
+            _wanted.TryRemove(old, out _);
             if (_pics.Remove(old, out var gone) && gone is not null) { gone.Normal.Dispose(); gone.Add?.Dispose(); }
         }
     }
 
     readonly Dictionary<string, List<string>> _groups = new();
+    readonly Dictionary<string, string> _held = new();
+    readonly ConcurrentDictionary<string, byte> _wanted = new();
+
+    /// <summary>
+    /// Marks <paramref name="key"/> as the piece of <paramref name="group"/> the caller is drawing now (ui/hud-bar-colours: the bar keeps its last picture while the next renders): the group's
+    /// eviction passes it over, so the picture is never freed while it is on screen.
+    /// </summary>
+    public void Hold(string group, string key) => _held[group] = key;
 
     /// <summary>Whether the piece has been asked for and finished (drawn or found empty).</summary>
     public bool Known(string key) => _pics.ContainsKey(key);
