@@ -75,9 +75,9 @@ public class TfwWorldTests
         var hub = data.Field.Hub;
         var inside = hub.Centre + new Vector3(0f, 0f, 2f);
         foreach (var way in new[] { Vector3.UnitX, -Vector3.UnitX, Vector3.UnitY, -Vector3.UnitY, Vector3.UnitZ, -Vector3.UnitZ })
-            Assert.NotNull(data.Collision.Character.Raycast(inside, way, 12f));
+            Assert.NotNull(data.Collision.Character.Raycast(inside, way, 20f));
         Assert.All(data.Spawns, s => Assert.True(hub.Contains(s.Position)));
-        Assert.Equal(new Vector3(-3.5f, 3.5f, 0f), hub.DestinationStation - hub.Centre);
+        Assert.True(hub.Contains(hub.DestinationStation) && hub.Contains(hub.EquipmentStation));
     }
 
     // ---------------------------------------------------------------- the composed world
@@ -90,8 +90,8 @@ public class TfwWorldTests
         Assert.Equal(data.Hash, hash);
         Assert.Equal(data.Field.Hub, hub);
         Assert.Equal(data.Collision.ContentHash, world.ContentHash);
-        Assert.Equal(world.ContentHash ^ 0x7466775F7761725FUL ^ 3UL, hash);
-        Assert.Equal(3u, TfwMap.Version);
+        Assert.Equal(world.ContentHash ^ 0x7466775F7761725FUL ^ 4UL, hash);
+        Assert.Equal(4u, TfwMap.Version);
         Assert.NotEqual(hash, TfwMap.WithHub(Level(blockers: false)).Hash ^ 1UL);
     }
 
@@ -99,11 +99,12 @@ public class TfwWorldTests
     public void The_kill_volumes_stay_the_blockers_go_and_the_hub_comes_to_both_meshes()
     {
         var level = Level();
-        var world = TfwMap.WithHub(level).World;
+        var (world, hub, _) = TfwMap.WithHub(level);
+        int hubTriangles = hub.Corners().Length / 3;
         Assert.Single(world.KillVolumes);
         Assert.Empty(world.Blockers);   // the commander stands in the Chaos room: Marines must reach him
-        Assert.Equal(level.Character.TriangleCount + 72, world.Character.TriangleCount);
-        Assert.Equal(level.Weapons.TriangleCount + 72, world.Weapons.TriangleCount);
+        Assert.Equal(level.Character.TriangleCount + hubTriangles, world.Character.TriangleCount);
+        Assert.Equal(level.Weapons.TriangleCount + hubTriangles, world.Weapons.TriangleCount);
     }
 
     [Fact]
@@ -305,13 +306,16 @@ public class TfwWorldTests
         Assert.True(TfwWire.MaxObjectives >= 4);
     }
 
-    [Theory]
-    [InlineData(-3.5f, 3.5f, TfwStation.Destination)]
-    [InlineData(3.5f, 3.5f, TfwStation.Equipment)]
-    [InlineData(0f, 0f, TfwStation.None)]
-    public void The_stations_follow_the_hub(float x, float y, TfwStation station)
+    [Fact]
+    public void The_stations_follow_the_hub()
     {
         var hub = Compose().Field.Hub;
-        Assert.Equal(station, TfwHudModel.StationAt(hub.Centre + new Vector3(x, y, 0f), hub));
+        Assert.Equal(TfwStation.Destination, TfwHudModel.StationAt(hub.DestinationStation, hub));
+        Assert.Equal(TfwStation.Destination, TfwHudModel.StationAt(hub.DestinationStation + new Vector3(0.9f, 0.9f, 0f), hub));
+        Assert.Equal(TfwStation.Equipment, TfwHudModel.StationAt(hub.EquipmentStation, hub));
+        Assert.Equal(TfwStation.None, TfwHudModel.StationAt(hub.Centre, hub));
+        Assert.Equal(TfwStation.None, TfwHudModel.StationAt(hub.OnFloor(new Vector2(0f, TfwShip.RampEndY - 1f)), hub));   // the ramp's end
+        Assert.All(hub.Spawns, s => Assert.Equal(TfwStation.None, TfwHudModel.StationAt(s.Position, hub)));   // nobody spawns on a pad
+        Assert.True(Vector3.Distance(hub.DestinationStation, hub.EquipmentStation) > 2f * TfwMap.StationRadius, "the two pads do not touch");
     }
 }

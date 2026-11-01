@@ -308,6 +308,57 @@ public partial class NetworkView
         TfwCheck("the fight was filmed", shot > 1, TfwNow.Phase.ToString());
     }
 
+    /// <summary>
+    /// The hub's look and its walls (item 29): shots from the spawn looking out the ramp and forward, a walk up the ramp to its end (it must stop there, aboard, with the hub's own environment on the camera
+    /// and the map's sun off), shots there looking out and back, then a push against each side wall of the corridor and the end wall (the player must not leave the ship).
+    /// </summary>
+    async Task<bool> TfwHubTour()
+    {
+        var client = _client!;
+        var hub = TfwHub!;
+        await TfwFrames(20);
+        // A headless run draws nothing (TfwMarkersFrame), so there is no sky to check there; the walls below are checked either way.
+        TfwCheck("the camera is aboard: the hub's sky is on and the map's sun is off", DisplayServer.GetName() == "headless" || (_tfwAboard && _camera!.Environment is not null && _sun is { Visible: false }));
+        _yaw = TfwShip.RampYaw; _pitch = 0f;
+        await TfwFrames(15);
+        await TfwShot("hub-spawn-out");
+        _yaw = 0f;
+        await TfwFrames(20);
+        await TfwShot("hub-spawn-forward");
+        _yaw = TfwShip.RampYaw;
+        // Down the ramp, to the wall at its end (model Y is the world's -Y from the centre's row).
+        double end = _connectedFor + 25.0;
+        TfwKey(Key.W, true);
+        while (_connectedFor < end && client.Predicted.Position.Y - hub.ToWorld(new Num.Vector3(0f, TfwShip.RampEndY, 0f)).Y > 1.0f) await TfwFrames();
+        await TfwShot("hub-ramp-out");
+        await TfwWait(2.0);
+        TfwKey(Key.W, false);
+        var at = client.Predicted.Position;
+        float along = hub.Centre.Y + TfwShip.MidY - at.Y;   // the model's Y
+        TfwCheck("W up the ramp stops at its end wall, aboard", hub.Contains(at) && along > TfwShip.RampEndY - 1.2f && along < TfwShip.RampEndY, at.ToString());
+        TfwCheck("the ramp is the floor's height", MathF.Abs(at.Z - hub.Centre.Z) < 0.15f, at.ToString());
+        _pitch = -0.35f;
+        await TfwFrames(20);
+        await TfwShot("hub-ramp-end-down");
+        _pitch = 0f; _yaw = 0f;
+        await TfwFrames(20);
+        await TfwShot("hub-ramp-back");
+        // Push against the walls: the side walls from the middle of the corridor, then the end wall again.
+        bool aboard = true;
+        foreach (var (name, key, yaw) in new[] { ("east", Key.W, -MathF.PI / 2f), ("west", Key.W, MathF.PI / 2f), ("cockpit", Key.W, 0f), ("ramp", Key.W, TfwShip.RampYaw) })
+        {
+            await TfwWalkTo(hub.OnFloor(new Num.Vector2(0f, TfwShip.MidY + 3f)), "back in the corridor", 20.0);
+            _yaw = yaw;
+            TfwKey(key, true);
+            for (int i = 0; i < 90; i++) { await TfwFrames(); aboard &= hub.Contains(client.Predicted.Position); }
+            TfwKey(key, false);
+            await TfwWait(0.3);
+            TfwCheck($"walking {name} into the wall stops inside the ship", aboard && hub.Contains(client.Predicted.Position), client.Predicted.Position.ToString());
+        }
+        _yaw = 0f;
+        return true;
+    }
+
     async Task TfwTestScript()
     {
         var client = _client!;
@@ -316,6 +367,8 @@ public partial class NetworkView
         var start = TfwNow;
         TfwCheck("the reserves are the run's", start.Transport == TfwBattleRules.StartTransport && start.Supplies == TfwBattleRules.StartSupplies, $"{start.Transport}, {start.Supplies}");
         TfwCheck("the station prompt fits the spot", _tfwAt == TfwHudModel.StationAt(client.Predicted.Position, TfwHub!), $"{_tfwAt} at {client.Predicted.Position}");   // a respawn point is anywhere in the room
+
+        if (!await TfwHubTour()) return;
 
         // Equipment
         if (!await TfwWalkTo(TfwHub!.EquipmentStation, "walked to Equipment")) return;

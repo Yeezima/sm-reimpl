@@ -12,58 +12,48 @@ public readonly record struct TfwSolid(Vector3 Min, Vector3 Max);
 public readonly record struct TfwPoint(Vector3 Centre, float Radius, float HalfHeight);
 
 /// <summary>
-/// The Stormbird: the closed room the run starts from, at <paramref name="Centre"/> (the middle of its floor), placed apart from the battlefield by <see cref="Beyond"/>. Stations and
-/// spawns follow from the centre (every value ours). It is one world with the battlefield: the server cannot change maps (design section A).
+/// The Stormbird, the hub of Musou Mode: the inside of the campaign Thunderhawk in orbit (<see cref="TfwShip"/>: a corridor about 4.5 m wide and 30 m long with its ramp open), placed apart from the
+/// battlefield by <see cref="Beyond"/>. <paramref name="Centre"/> is the floor point at the middle of the corridor (its z is the floor's). Stations and spawns follow from the centre (every place ours).
+/// It is one world with the battlefield: the server cannot change maps (design section A).
 /// </summary>
 public sealed record TfwHub(Vector3 Centre)
 {
+    /// <summary>A point of <see cref="TfwShip"/>'s model space as the world's (the ship is turned half a circle: its ramp looks south, away from the battlefield).</summary>
+    public Vector3 ToWorld(Vector3 model) => TfwShip.ToWorld(model, Centre);
+
+    /// <summary>The model's matrix to the world's (row-vector).</summary>
+    public Matrix4x4 ModelToWorld => TfwShip.ModelToWorld(Centre);
+
+    /// <summary>A place of the model's (X, Y on the floor) as the world's, standing on the corridor's floor.</summary>
+    public Vector3 OnFloor(Vector2 model) => ToWorld(new Vector3(model.X, model.Y, TfwShip.FloorZ));
+
     /// <summary>The start area a respawn and an extraction land in.</summary>
-    public StartArea Area => new(Team.SpaceMarines, Centre, TfwMap.StormbirdSize, 0f);
+    public StartArea Area => new(Team.SpaceMarines, Centre, new Vector3(3f, 8f, 4f), 0f);
 
-    public Vector3 DestinationStation => Centre + new Vector3(-3.5f, 3.5f, 0f);
-    public Vector3 EquipmentStation => Centre + new Vector3(3.5f, 3.5f, 0f);
+    /// <summary>Destination stands under the hanging monitor (<c>Monitor_Hub_01</c>), Equipment before the right tech panel.</summary>
+    public Vector3 DestinationStation => OnFloor(TfwShip.Monitor);
+    public Vector3 EquipmentStation => OnFloor(TfwShip.Panel);
 
-    /// <summary>Four Space Marine spawns, facing north.</summary>
-    public IReadOnlyList<SpawnPoint> Spawns =>
-    [
-        new(Centre + new Vector3(-2f, -3f, 0f), 0f), new(Centre + new Vector3(2f, -3f, 0f), 0f), new(Centre + new Vector3(-2f, -1f, 0f), 0f), new(Centre + new Vector3(2f, -1f, 0f), 0f),
-    ];
+    /// <summary>Four Space Marine spawns in the middle of the corridor, facing the open ramp (south).</summary>
+    public IReadOnlyList<SpawnPoint> Spawns => TfwShip.Spawns.Select(s => new SpawnPoint(OnFloor(s), TfwShip.RampYaw)).ToArray();
 
-    /// <summary>Whether <paramref name="p"/> stands in the Stormbird (flat, its walls included).</summary>
-    public bool Contains(Vector3 p) => MathF.Abs(p.X - Centre.X) <= TfwMap.StormbirdSize.X / 2f + TfwMap.WallThickness && MathF.Abs(p.Y - Centre.Y) <= TfwMap.StormbirdSize.Y / 2f + TfwMap.WallThickness;
+    /// <summary>Whether <paramref name="p"/> stands in the ship (flat: the corridor, the ramp and their walls).</summary>
+    public bool Contains(Vector3 p) => MathF.Abs(p.X - Centre.X) <= TfwShip.HalfWidth && p.Y - Centre.Y >= -TfwShip.Aft && p.Y - Centre.Y <= TfwShip.Fore;
 
-    /// <summary>The room with its shell, for the wire's box.</summary>
-    public MusouBox Box
-    {
-        get
+    /// <summary>The ship with its walls and its cap, for the wire's box.</summary>
+    public MusouBox Box => new(Centre + new Vector3(-TfwShip.HalfWidth, -TfwShip.Aft, -TfwShip.Thickness - 1f), Centre + new Vector3(TfwShip.HalfWidth, TfwShip.Fore, TfwShip.Height + 1f));
+
+    /// <summary>The boxes of the walls, floors and caps, in the world (the prisms of the stairs and the ceiling come with <see cref="Corners"/>).</summary>
+    public IReadOnlyList<TfwSolid> Solids =>
+        TfwShip.Boxes().Select(b =>
         {
-            var half = new Vector3(TfwMap.StormbirdSize.X / 2f + TfwMap.WallThickness, TfwMap.StormbirdSize.Y / 2f + TfwMap.WallThickness, 0f);
-            return new MusouBox(Centre - half - new Vector3(0f, 0f, TfwMap.WallThickness + 1f), Centre + half + new Vector3(0f, 0f, TfwMap.StormbirdSize.Z + TfwMap.WallThickness + 1f));
-        }
-    }
-
-    /// <summary>Everything solid: the floor, four walls and the ceiling.</summary>
-    public IReadOnlyList<TfwSolid> Solids
-    {
-        get
-        {
-            const float T = TfwMap.WallThickness;
-            Vector3 c = Centre;
-            float hx = TfwMap.StormbirdSize.X / 2f, hy = TfwMap.StormbirdSize.Y / 2f, top = c.Z + TfwMap.StormbirdSize.Z;
-            return
-            [
-                new(new Vector3(c.X - hx - T, c.Y - hy - T, c.Z - T), new Vector3(c.X + hx + T, c.Y + hy + T, c.Z)),
-                new(new Vector3(c.X - hx - T, c.Y - hy - T, c.Z), new Vector3(c.X + hx + T, c.Y - hy, top)),
-                new(new Vector3(c.X - hx - T, c.Y + hy, c.Z), new Vector3(c.X + hx + T, c.Y + hy + T, top)),
-                new(new Vector3(c.X - hx - T, c.Y - hy, c.Z), new Vector3(c.X - hx, c.Y + hy, top)),
-                new(new Vector3(c.X + hx, c.Y - hy, c.Z), new Vector3(c.X + hx + T, c.Y + hy, top)),
-                new(new Vector3(c.X - hx - T, c.Y - hy - T, top), new Vector3(c.X + hx + T, c.Y + hy + T, top + T)),
-            ];
-        }
-    }
+            var a = ToWorld(b.Min);
+            var c = ToWorld(b.Max);
+            return new TfwSolid(Vector3.Min(a, c), Vector3.Max(a, c));
+        }).ToArray();
 
     /// <summary>The corners of every solid's triangles, three a triangle.</summary>
-    public Vector3[] Corners() => Solids.SelectMany(TfwMap.Triangles).ToArray();
+    public Vector3[] Corners() => TfwShip.Corners(Centre);
 
     /// <summary>
     /// The place for <paramref name="level"/>: at ground height (z = 0, not above: a blocker reaches over the level's top), south of everything solid or deadly, by whole metres, so the
@@ -79,7 +69,7 @@ public sealed record TfwHub(Vector3 Centre)
             lo = Vector3.Min(lo, k.Center - new Vector3(reach, reach, k.HalfExtents.Z));
             hi = Vector3.Max(hi, k.Center + new Vector3(reach, reach, k.HalfExtents.Z));
         }
-        float y = MathF.Floor(lo.Y) - TfwMap.HubClearance - TfwMap.StormbirdSize.Y / 2f - TfwMap.WallThickness;
+        float y = MathF.Floor(lo.Y) - TfwMap.HubClearance - MathF.Ceiling(TfwShip.Fore);
         return new TfwHub(new Vector3(MathF.Round((lo.X + hi.X) / 2f), y, 0f));
     }
 }
@@ -99,8 +89,8 @@ public sealed record TfwBattlefield(TfwHub Hub, IReadOnlyList<TfwPoint> Points, 
 
 /// <summary>
 /// Musou Mode's one map (design section A; the owner, 2026-11-01: "use manufactorum as the battleground map for all musou mode nodes for now"): the server cannot change maps, so the
-/// battlefield (Manufactorum, read from the player's install: original asset loaded) and the Stormbird (generated; every size ours) are one world under one name. <see cref="Compose"/> makes
-/// it from any level, so tests use synthetic ones; <c>SmContent.Extras.Musou.TfwWorld</c> feeds it the install's.
+/// battlefield (Manufactorum, read from the player's install: original asset loaded) and the Stormbird (generated from measures of the Thunderhawk's interior, <see cref="TfwShip"/>) are one world under one
+/// name. <see cref="Compose"/> makes it from any level, so tests use synthetic ones; <c>SmContent.Extras.Musou.TfwWorld</c> feeds it the install's.
 /// </summary>
 public static class TfwMap
 {
@@ -108,17 +98,16 @@ public static class TfwMap
     public const string Name = "tfw_war";
     /// <summary>The install's map every battle is fought on.</summary>
     public const string Battlefield = "mp_tdm_09";
-    /// <summary>Raised with any change of how the world is composed (hashed into <see cref="TfwMapData.Hash"/>; 2: TF1's arena and Stormbird replace TF0's flat slab; 3: Manufactorum replaces the empty arena).</summary>
-    public const uint Version = 3;
+    /// <summary>Raised with any change of how the world is composed (hashed into <see cref="TfwMapData.Hash"/>; 2: TF1's arena and Stormbird replace TF0's flat slab; 3: Manufactorum replaces the empty arena; 4: the Thunderhawk's interior replaces the Stormbird's box).</summary>
+    public const uint Version = 4;
     /// <summary>"tfw_war_", the hash's salt.</summary>
     const ulong HashSalt = 0x7466775F7761725FUL;
 
-    /// <summary>The Stormbird's interior (its floor, walls and ceiling are <see cref="WallThickness"/> thick).</summary>
-    public static readonly Vector3 StormbirdSize = new(10f, 10f, 5f);
-    public const float WallThickness = 1f, StationRadius = 1.5f;
+    /// <summary>The hub's walls and floors are this thick (<see cref="TfwShip.Thickness"/>); a station's ring is this wide.</summary>
+    public const float WallThickness = TfwShip.Thickness, StationRadius = 1.5f;
     /// <summary>The enemies' graph reaches this far around the map's markers (the bots' margin, <c>BotNavigation.Margin</c>).</summary>
     public const float WalkMargin = 30f;
-    /// <summary>Metres between the Stormbird's shell and the level's edge: the graph's margin (<see cref="WalkMargin"/>) and 80 m more (estimate, spec "Musou Mode's map").</summary>
+    /// <summary>Metres between the ship's north end (the cockpit's) and the level's edge: the graph's margin (<see cref="WalkMargin"/>) and 80 m more (estimate, spec "Musou Mode's map").</summary>
     public const float HubClearance = WalkMargin + 80f;
 
     /// <summary>The landing zone's ring and the commander's (ours; a capture point's radius is the map's).</summary>
