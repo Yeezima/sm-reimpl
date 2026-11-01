@@ -15,7 +15,7 @@ public sealed partial class MusouSim
     /// The Musou version: its simulation rules and its wire sections (<c>MusouWire.Version</c> is this). Hashed into the config only under
     /// <see cref="ContentExtras.Musou"/> (<c>SimConfig.Extras.cs</c>); raise it for any Musou-only change (never <see cref="ContentExtras.WireVersion"/>).
     /// </summary>
-    public const uint Version = 5;   // 2: MU3's combat and the Warboss's abilities; 3: the Nobs' weapon drops (wire tag 6); 4: Chaos Marines drop too; 5: the Three-Front War (TfwRules.Version in the same hash block, phase 6, command kind 17)
+    public const uint Version = 5;   // 2: MU3's combat and the Warboss's abilities; 3: the Nobs' weapon drops (wire tag 6); 4: Chaos Marines drop too; 5: Musou Mode (TfwRules.Version in the same hash block, phase 6, command kind 17)
     /// <summary>The pool's slots (design: 512; the hard cap of enemies alive is lower, 400).</summary>
     public const int Capacity = 512;
     /// <summary>The most events one tick keeps (ours; more are dropped and counted in <see cref="EventsDropped"/>).</summary>
@@ -102,7 +102,7 @@ public sealed partial class MusouSim
     }
 
     /// <summary>
-    /// <see cref="Spawn"/> for a leashed defender (Three-Front War, design section D): it stands at home until a target comes within <paramref name="aggro"/> metres of that home
+    /// <see cref="Spawn"/> for a leashed defender (Musou Mode, design section D): it stands at home until a target comes within <paramref name="aggro"/> metres of that home
     /// (flat), goes back when none is, and is free for good once any member of <paramref name="group"/> (above 0) is hurt or <see cref="ReleaseGroup"/> is called. Its id, or 0 as
     /// <see cref="Spawn"/>, or for a group that is not above 0 or an aggro that is not 0 or more. A plain <see cref="Spawn"/> has no leash (aggro infinite), so the 5-wave run is unchanged.
     /// </summary>

@@ -33,6 +33,7 @@ public sealed partial class GameServer
     {
         if (World.Tfw is null || World.Musou is not { } sim) return;
         TfwDownTest();   // GameServer.TfwDownTest.cs: a test aid, off without its variable
+        TfwTestAids();   // GameServer.TfwWinTest.cs: the same
         FeedTfw();   // GameServer.TfwFeedRun.cs
         var feed = TfwFeed;
         uint tick = World.Tick;

@@ -7,8 +7,8 @@ using Xunit.Abstractions;
 namespace SmNet.Tests.Extras.Musou;
 
 /// <summary>
-/// The Skirmish pin (Three-Front War milestone TF0, design section A): the 5-wave Musou run stays reachable (<c>--content musou --map mp_tdm_09</c>, a test aid since the
-/// Three-Front War took over the mode) and must not change while the war is built beside it. The golden was captured on main 2ed1501e BEFORE any TF0 hook landed: a
+/// The Skirmish pin (Musou Mode milestone TF0, design section A): the 5-wave Musou run stays reachable (<c>--content musou --map mp_tdm_09</c>, a test aid since the
+/// Musou Mode took over the mode) and must not change while the war is built beside it. The golden was captured on main 2ed1501e BEFORE any TF0 hook landed: a
 /// scripted 600-tick World replay with two players on a synthetic floor with a walled gap, as SHA-256 over every tick's players, match, director, enemies and events.
 /// The fixture lives here (do not change it: the golden depends on every value). A deliberate change of the Skirmish rules is the only reason to recapture it.
 /// </summary>

@@ -182,7 +182,7 @@ public sealed partial class TfwHud : Control
     void DrawPrompts(Vector2 vs)
     {
         float cx = vs.X / 2f;
-        if (!Data.Alive && Data.War is { } war && TfwHudModel.InBattle(war.Phase)) Txt("KILLED", cx, 330f, 52, RedText, 0, 6, true);
+        if (!Data.Alive && Data.War is { } war && TfwHudModel.RunHoldsRespawn(war)) Txt("KILLED", cx, 330f, 52, RedText, 0, 6, true);
         if (Data.Station.Length > 0) Txt(Data.Station, cx, 640f, 30, Gold, 0, 4, true);
         else Txt(_prompt, cx, 640f, 34, _prompt.StartsWith("THE WAR IS LOST", StringComparison.Ordinal) ? RedText : Gold, 0, 5, true);
         if (Data.PickupHold <= 0f) return;

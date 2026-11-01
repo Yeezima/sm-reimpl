@@ -10,7 +10,7 @@ using Xunit.Abstractions;
 namespace SmNet.Tests.Extras.Musou.Campaign;
 
 /// <summary>
-/// The Three-Front War on the wire (TF6): every section and command round-trips and fits its limit; a malformed one is refused; the commands are idempotent by sequence, resent until tag 7 echoes them
+/// Musou Mode on the wire (TF6): every section and command round-trips and fits its limit; a malformed one is refused; the commands are idempotent by sequence, resent until tag 7 echoes them
 /// and held at the core's rate; a client stays within 60 KB/s at 160 Orks and 120 Guardsmen; faithful, extended and 5-wave servers never send tags 7 to 10.
 /// </summary>
 public class TfwWireTests(ITestOutputHelper output)

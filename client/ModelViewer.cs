@@ -170,7 +170,7 @@ public partial class ModelViewer : Node3D
             if (args.ContainsKey("switch-test")) { AddChild(new SwitchTestView(gameDir, args) { Name = "SwitchTest" }); return; }   // fix/stow-right test aid
             if (args.ContainsKey("appearance-test")) { AddChild(new AppearanceTestView(gameDir, args) { Name = "AppearanceTest" }); return; }   // customizer T6 test aid
             if (args.ContainsKey("ork-test")) { AddChild(new OrkTestView(gameDir, args) { Name = "OrkTest" }); return; }   // Ork O3 test aid
-            if (args.ContainsKey("guard-test")) { AddChild(new GuardsmanTestView(gameDir, args) { Name = "GuardsmanTest" }); return; }   // Guardsman asset check (Three-Front War dependency)
+            if (args.ContainsKey("guard-test")) { AddChild(new GuardsmanTestView(gameDir, args) { Name = "GuardsmanTest" }); return; }   // Guardsman asset check (Musou Mode dependency)
             if (args.ContainsKey("connect") || args.ContainsKey("play-demo"))   // M40 T0: --play-demo replays a recorded client without a server
             {
                 // M44: "Leave match" in the in-match menu goes back to the front end from a plain --connect too. A copy taken before ApplyProfileLoadout adds the class and item

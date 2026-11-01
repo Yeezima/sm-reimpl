@@ -9,7 +9,7 @@ using SmSim.Extras.Musou.Campaign;
 namespace SmClient;
 
 /// <summary>
-/// The Three-Front War on the client. The map is <c>NetworkView.TfwMap.cs</c> (TF1). <see cref="TfwGuardsFrame"/> (TF7a) reads the sections into <see cref="_tfwState"/> and sends its commands; then the frame runs the stations (<c>TfwStations.cs</c>), the orders (<c>TfwOrders.cs</c>), the HUD (<see cref="TfwHud"/>) and the markers (<see cref="TfwMarkers"/>).
+/// Musou Mode on the client. The map is <c>NetworkView.TfwMap.cs</c> (TF1). <see cref="TfwGuardsFrame"/> (TF7a) reads the sections into <see cref="_tfwState"/> and sends its commands; then the frame runs the stations (<c>TfwStations.cs</c>), the orders (<c>TfwOrders.cs</c>), the HUD (<see cref="TfwHud"/>) and the markers (<see cref="TfwMarkers"/>).
 /// All of it waits for the first tag 7, which only a war's server sends.
 /// </summary>
 public partial class NetworkView
@@ -51,9 +51,10 @@ public partial class NetworkView
         f.Kos = _musouScore.Kos;
         _tfwHud.Fed();
         _tfwHud.Visible = _endPhase == MatchEndPhase.Splash && !_tfwMapHeld;
-        // The match HUD's "RESPAWN IN n" would lie: a fallen player waits for its retainer or the extraction, held by the run. TfwHud says KILLED and what happens instead.
-        if (!f.Alive && TfwHudModel.InBattle(war.Phase) && _hudView is { } hud) hud.Data.Alive = true;
-        if (_musouHud is { } musou) musou.Data.BossName = war.Phase == TfwRunPhase.FinalAssault || _tfwState.Objectives.Count == 0 ? "ORK WARBOSS" : "ORK COMMANDER";
+        // The match HUD's "RESPAWN IN n" would lie: a fallen player in the field waits for its retainer or the extraction, held by the run. TfwHud says KILLED and what happens instead. One who
+        // joined after the landing is not in the field: the core's respawn runs and its line is true.
+        if (!f.Alive && TfwHudModel.RunHoldsRespawn(war) && _hudView is { } hud) hud.Data.Alive = true;
+        if (_musouHud is { } musou) musou.Data.BossName = TfwHudModel.BossName(war, _tfwState.Objectives);
     }
 
     /// <summary>The rings, the pillars and the beacon (a client with a game space and a look at it: never lean or headless).</summary>

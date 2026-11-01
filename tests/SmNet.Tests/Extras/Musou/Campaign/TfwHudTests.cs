@@ -11,7 +11,7 @@ namespace SmNet.Tests.Extras.Musou.Campaign;
 public class TfwHudTests
 {
     static readonly TfwLaneState Lane = new(1, 0.25f, 100f, 110f, 1, 0f, WarRules.LordPresent);
-    static readonly TfwOwnView Own = new(3, 17, 22, 2, 4, true, TfwRetainerState.Reviving, MarineOrder.Attack, 171, 57, 6, 2, 1);
+    static readonly TfwOwnView Own = new(3, 17, 22, 2, 4, true, TfwRetainerState.Reviving, MarineOrder.Attack, 171, 57, 6, 2, 1, Deployed: true);
     static TfwWarView War(TfwRunPhase phase, TfwOwnView own = default, byte supplies = 4) => new(phase, TfwLane.B, 120f, 1f, 5, supplies, 9, Lane, Lane, Lane, own);
 
     [Fact]
@@ -26,7 +26,7 @@ public class TfwHudTests
 
     [Theory]
     [InlineData(4, 11)]    // the revive's tenths
-    [InlineData(5, 2)]     // an unknown flag
+    [InlineData(5, 4)]     // an unknown flag
     [InlineData(6, 4)]     // the retainer
     [InlineData(7, 3)]     // the order
     [InlineData(13, 4)]    // positions secured
@@ -35,6 +35,50 @@ public class TfwHudTests
         var bytes = TfwWire.WriteWar(War(TfwRunPhase.Battle, Own));
         bytes[TfwWire.WarBytes - 14 + offset] = value;
         Assert.Null(TfwWire.ReadWar(bytes));
+    }
+
+    [Theory]
+    [InlineData(4, "EMERGENCY EXTRACTION IN 2 S: IT COSTS 2 SUPPLIES")]
+    [InlineData(1, "EMERGENCY EXTRACTION IN 2 S: IT COSTS 1 SUPPLY")]
+    [InlineData(0, "EMERGENCY EXTRACTION IN 2 S")]
+    public void AfterAWonBattleTheExtractionPromptNeverSaysTheWarIsLost(byte supplies, string prompt) =>
+        Assert.Equal(prompt, TfwHudModel.Prompt(War(TfwRunPhase.Battle, new TfwOwnView { ExtractionSeconds = 2, BattleWon = true }, supplies), false));
+
+    [Fact]
+    public void BothFlagsRoundTripAlone()
+    {
+        foreach (var own in new[] { new TfwOwnView { BattleWon = true }, new TfwOwnView { Deployed = true }, new TfwOwnView { BattleWon = true, Deployed = true }, default })
+            Assert.Equal(own, TfwWire.ReadWar(TfwWire.WriteWar(War(TfwRunPhase.Battle, own)))!.Value.Own);
+    }
+
+    [Theory]
+    [InlineData(TfwRunPhase.Battle, true, true)]
+    [InlineData(TfwRunPhase.Pickup, true, true)]
+    [InlineData(TfwRunPhase.FinalAssault, true, true)]
+    [InlineData(TfwRunPhase.Battle, false, false)]    // joined after the landing: the core's respawn runs
+    [InlineData(TfwRunPhase.Hub, true, false)]
+    [InlineData(TfwRunPhase.Lost, true, false)]
+    public void TheRunHoldsARespawnOnlyInTheField(TfwRunPhase phase, bool deployed, bool held) =>
+        Assert.Equal(held, TfwHudModel.RunHoldsRespawn(War(phase, new TfwOwnView { Deployed = deployed })));
+
+    [Fact]
+    public void TheWorldReportsWhoIsInTheField()
+    {
+        var w = TfwRig.War();
+        Assert.False(w.TfwOwn(TfwRig.Human).Deployed);                       // the hub
+        TfwRig.Deploy(w);
+        Assert.True(w.TfwOwn(TfwRig.Human).Deployed);
+        w.Spawn(2, w.AssignClass(0));                                        // joins mid-battle
+        TfwRig.Steps(w, 2);
+        Assert.False(w.TfwOwn(2).Deployed);
+        Assert.True(w.TfwKillForTests(2));
+        TfwRig.Steps(w, 2);
+        var joiner = w.Tfw!.War.View() with { Own = w.TfwOwn(2) };
+        Assert.False(TfwHudModel.RunHoldsRespawn(joiner));
+        Assert.True(w.Players[2].RespawnLeft > TfwBattleRules.RespawnHold);  // not held: the core's timer runs
+        Assert.True(w.TfwKillForTests(TfwRig.Human));
+        TfwRig.Steps(w, 2);
+        Assert.True(TfwHudModel.RunHoldsRespawn(w.Tfw.War.View() with { Own = w.TfwOwn(TfwRig.Human) }));
     }
 
     [Fact]
@@ -127,6 +171,7 @@ public class TfwHudTests
         Assert.Contains("REVIVES YOU: 40%", TfwHudModel.Prompt(War(TfwRunPhase.Battle, new TfwOwnView { ReviveSeconds = 20, ReviveTenths = 4 }), false));
         Assert.Contains("EMERGENCY EXTRACTION IN 2", TfwHudModel.Prompt(War(TfwRunPhase.Battle, new TfwOwnView { ExtractionSeconds = 2 }), false));
         Assert.Contains("THE WAR IS LOST IN 2", TfwHudModel.Prompt(War(TfwRunPhase.Battle, new TfwOwnView { ExtractionSeconds = 2 }, supplies: 1), false));
+        Assert.Contains("IT COSTS 2 SUPPLIES", TfwHudModel.Prompt(War(TfwRunPhase.Battle, new TfwOwnView { ExtractionSeconds = 2 }), false));
         Assert.Contains("FREE PICKUP", TfwHudModel.Prompt(War(TfwRunPhase.Battle, new TfwOwnView { BattleWon = true }), true));
         Assert.Equal("", TfwHudModel.Prompt(War(TfwRunPhase.Battle), true));
     }

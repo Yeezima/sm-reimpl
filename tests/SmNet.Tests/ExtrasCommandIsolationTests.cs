@@ -5,7 +5,7 @@ using SmSim;
 namespace SmNet.Tests;
 
 /// <summary>
-/// Message kind 17, added content's commands from client to server (Three-Front War TF0; no protocol bump): its layout, and that it changes nothing on a faithful or extended
+/// Message kind 17, added content's commands from client to server (Musou Mode TF0; no protocol bump): its layout, and that it changes nothing on a faithful or extended
 /// server: such a server drops every command, valid session or not, sends nothing back and keeps its client; a client of those profiles sends none. Core folder (not
 /// <c>Extras/</c>), so it also runs in <c>faithful-build.cmd</c>; tags and payloads here are made up on purpose (the core never reads them).
 /// </summary>

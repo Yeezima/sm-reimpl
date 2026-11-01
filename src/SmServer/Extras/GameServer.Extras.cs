@@ -24,12 +24,12 @@ public sealed partial class GameServer
         CreateTfw();
     }
 
-    /// <summary>A client's command (message kind 17, only under <c>ContentExtras.CommandUsers</c>): the Three-Front War's.</summary>
+    /// <summary>A client's command (message kind 17, only under <c>ContentExtras.CommandUsers</c>): Musou Mode's.</summary>
     partial void ExtrasCommand(int player, byte tag, byte[] payload) => OnTfwCommand(player, tag, payload);
 
-    /// <summary>A scoreboard name: the Three-Front War's AI Marines.</summary>
+    /// <summary>A scoreboard name: Musou Mode's AI Marines.</summary>
     partial void ExtrasPlayerName(int id, ref string name) => TfwPlayerName(id, ref name);
 
-    /// <summary>A map generated in code: the Three-Front War's.</summary>
+    /// <summary>A map generated in code: Musou Mode's.</summary>
     static partial void ExtrasGeneratedMap(ContentExtras extras, ref string? name, ref GameMap? map, ref string? error) => TfwGeneratedMap(extras, ref name, ref map, ref error);
 }

@@ -1155,7 +1155,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         {
             PlayerInput extraInput = default;
             bool extraHandled = false;
-            ExtrasPlayerInput(id, ref extraInput, ref extraHandled);   // EXTRAS-HOOK: added content's players without a client (the Three-Front War's AI Marines)
+            ExtrasPlayerInput(id, ref extraInput, ref extraHandled);   // EXTRAS-HOOK: added content's players without a client (Musou Mode's AI Marines)
             var sampled = extraHandled ? extraInput : inputFor(id);
             var input = (State == MatchState.Countdown ? MatchFlow.Locked(sampled) : sampled).Sanitized() with { Tick = Tick };   // no attacks before the match begins (ours)
             NoteInteract(id, input);   // fidelity gap 1: pickups (Pickups.cs)

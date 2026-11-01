@@ -77,7 +77,7 @@ public static class ServerCommandLine
           --name-seed <0-4294967295>    the seed of the test bots' names (per-race pools, ours; default random, printed at start): the same seed and join order give the same names
           --honor-side-requests         switch: keep the side a client asks for up to the per-side limit (test aid for bot fills; the balance applies only to joins with no side)
           --content <profile>           added content: faithful (SM1 alone), extended (every added content: the Ork, gore), musou (the experimental
-                                        Musou mode, alone; Annihilation rules only) or a list such as orks,gore
+                                        Musou Mode, alone; Annihilation rules only) or a list such as orks,gore
                                         (default extended; a build without extras runs faithful only); clients need the same --content
           --ork-data                    switch: test aid: the Ork Boy with the data's values instead of the Tactical parity (clients need --ork-data too)
           --no-player-collision         switch: test aid: players pass through each other as before protocol 43 (clients need --no-player-collision too)

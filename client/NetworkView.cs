@@ -2077,7 +2077,7 @@ public partial class NetworkView : Node3D
     LoadedMap? LoadMap(string name)
     {
         LoadedMap? generated = null;
-        ExtrasLoadMap(name, ref generated);   // EXTRAS-HOOK: a map added content generates in code (the Three-Front War's tfw_war); nothing below reads it from the install
+        ExtrasLoadMap(name, ref generated);   // EXTRAS-HOOK: a map added content generates in code (Musou Mode's tfw_war); nothing below reads it from the install
         if (generated is not null) return generated;
         var watch = System.Diagnostics.Stopwatch.StartNew();
         Ph("map load: collision and content");

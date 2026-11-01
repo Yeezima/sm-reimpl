@@ -5,7 +5,7 @@ using SmSim.Extras.Musou.Campaign;
 namespace SmSim;
 
 /// <summary>
-/// The Three-Front War in the World (TF0: the contract and stubs; the owner's decision of 2026-11-01: Musou mode is this war). <see cref="World.Musou"/> and its pool run a war
+/// Musou Mode in the World (TF0: the contract and stubs; the owner's decision of 2026-11-01: this war is Musou Mode). <see cref="World.Musou"/> and its pool run a war
 /// too; <see cref="_tfw"/>, set only by <see cref="StartTfw"/>, sends the World's Musou hooks here instead of the 5-wave director, which stays reachable as a test aid
 /// (<c>--map mp_tdm_09</c>). Without a war every method here returns at once and the Skirmish replay is unchanged (<c>MusouSkirmishPinTests</c>).
 /// /// <c>_tfw!.RetainerOf(id) is { } m &amp;&amp; _players.TryGetValue(m.Id, out var p) &amp;&amp; p.Alive</c>.
@@ -150,6 +150,31 @@ public sealed partial class World
         if (_tfw is null || !_players.TryGetValue(id, out var p) || !p.Alive) return false;
         _players[id] = Combat.Killed(p, Config);
         return true;
+    }
+
+    /// <summary>Test aid (<c>SM_TFW_WIN_TEST</c>): every enemy within <paramref name="radius"/> metres of <paramref name="at"/> falls, credited to <paramref name="by"/>, the boss too; how many. Nothing outside a war.</summary>
+    public int TfwSmiteForTests(int by, Vector3 at, float radius)
+    {
+        if (_tfw is null || _musou is not { } enemies) return 0;
+        var near = new ushort[MusouSim.Capacity];
+        int n = enemies.Query(at, radius, near), fell = 0;
+        for (int k = 0; k < n; k++)
+            if (enemies.TryGet(near[k], out var e) && e.Alive && enemies.Damage(near[k], by, e.Health, Vector3.Zero, out bool killed, marker: 0) && killed) fell++;
+        return fell;
+    }
+
+    /// <summary>Test aid (<c>SM_TFW_STRESS</c>): tops the enemies up to <paramref name="orks"/> in a ring round the landing zone and the Guard squads up to <paramref name="squads"/>. Nothing outside a battle.</summary>
+    public void TfwFillForTests(int orks, int squads)
+    {
+        if (_tfw?.Battle is not { } battle || _musou is not { } enemies || TfwGuards is not { } guards) return;
+        var lz = battle.Layout.LandingZone;
+        float boy = enemies.Rules.Of(MusouEnemyType.Boy).Health;
+        for (int k = 0; enemies.Alive < orks && k < orks; k++)
+        {
+            float angle = k * 2.399963f, ring = 25f + k % 7 * 2f;
+            if (enemies.Spawn(MusouEnemyType.Boy, lz + new Vector3(MathF.Cos(angle) * ring, MathF.Sin(angle) * ring, 0f), angle, boy) == 0) break;
+        }
+        while (guards.SquadsAlive < squads && guards.SpawnSquad(lz) >= 0) { }
     }
 
     /// <summary>A new run: the war from its start and an empty field.</summary>

@@ -16,7 +16,8 @@ namespace SmClient;
 /// <c>--tfw-test [dir]</c>: a scripted player (not <c>--bot</c>) plays through the real keys, mouse and pad events on a real server and checks the HUD's data: E at Equipment opens the picker (needs
 /// <c>--profile</c>), M shows the map, E at Destination opens it, Esc, B and the CLOSE row close it, Enter on DEPLOY sends the command and the server echoes it, the travel, the landing, X, V and Z
 /// change the order the server reports, X and V no longer switch or strike, P held calls a pickup, held again calls it off, and the pickup brings the player home. With a server started with
-/// <c>SM_TFW_DOWN_TEST=&lt;s&gt;</c> it plays on: a second battle with the revive, a third with the extraction. One <c>TFWTEST PASS</c> or <c>FAIL</c> line per step; quits with 0, or 1 when any failed.
+/// <c>SM_TFW_DOWN_TEST=&lt;s&gt;</c> it plays on: a second battle with the revive, a third with the extraction. With <c>--tfw-test-win</c> and a server started with <c>SM_TFW_WIN_TEST=&lt;m&gt;</c> it walks a whole
+/// run instead: two battles won on one front through all three positions and the commander, each left by the free pickup, and the final assault to the Warboss's death. One <c>TFWTEST PASS</c> or <c>FAIL</c> line per step; quits with 0, or 1 when any failed.
 /// In a windowed run <c>dir</c> gets a PNG of the Stormbird's prompt, the war map, the battle's HUD, the revive and the extraction.
 /// </para>
 /// <para>
@@ -113,13 +114,13 @@ public partial class NetworkView
     async Task TfwTap(Key key) { TfwKey(key, true); await TfwFrames(4); TfwKey(key, false); await TfwFrames(4); }
 
     /// <summary>Walks with the W key, looking at <paramref name="at"/>, onto its pad.</summary>
-    async Task<bool> TfwWalkTo(Num.Vector3 at, string what)
+    async Task<bool> TfwWalkTo(Num.Vector3 at, string what, double seconds = 20.0, Func<bool>? over = null)
     {
         var client = _client!;
-        double end = _connectedFor + 20.0;
+        double end = _connectedFor + seconds;
         TfwKey(Key.W, true);
         await TfwFrames(2);
-        while (new Vector2(client.Predicted.Position.X - at.X, client.Predicted.Position.Y - at.Y).Length() > 0.7f && _connectedFor < end)
+        while (new Vector2(client.Predicted.Position.X - at.X, client.Predicted.Position.Y - at.Y).Length() > 0.7f && _connectedFor < end && over?.Invoke() != true)
         {
             _yaw = MathF.Atan2(-(at.X - client.Predicted.Position.X), at.Y - client.Predicted.Position.Y);
             await TfwFrames();
@@ -153,7 +154,7 @@ public partial class NetworkView
         await TfwUntil($"{key}: the server reports the order {order}", () => TfwNow.Own.Order == order, 5.0);
     }
 
-    async Task<bool> TfwTestDeploy(TfwLane lane)
+    async Task<bool> TfwTestDeploy(TfwLane lane, bool final = false)
     {
         if (!await TfwWalkTo(TfwMap.DestinationStation, "walked to Destination")) return false;
         await TfwTap(Key.E);
@@ -165,7 +166,71 @@ public partial class NetworkView
         await TfwTap(Key.Enter);
         TfwCheck("Enter on DEPLOY sends a command", _tfwPanel is null && (_tfwState.Commands.Pending > waiting || TfwNow.Phase != TfwRunPhase.Hub), $"pending {_tfwState.Commands.Pending}");
         if (!await TfwUntil("the server echoes it: travel", () => TfwNow.Phase == TfwRunPhase.Travel, 5.0)) return false;
-        return await TfwUntil("the Stormbird lands: the battle", () => TfwNow.Phase == TfwRunPhase.Battle && _tfwState.Objectives.Count == TfwBattle.CommanderObjective + 1, 10.0);
+        var battle = final ? TfwRunPhase.FinalAssault : TfwRunPhase.Battle;
+        return await TfwUntil($"the Stormbird lands: {battle}", () => TfwNow.Phase == battle && _tfwState.Objectives.Count == TfwBattle.CommanderObjective + 1, 10.0);
+    }
+
+    /// <summary>One battle won on <paramref name="lane"/>: the player walks to each position in turn, a real squad secures it, the commander comes and falls (<c>SM_TFW_WIN_TEST</c>), and the free pickup brings it home.</summary>
+    async Task<bool> TfwTestWinBattle(TfwLane lane, int number)
+    {
+        var client = _client!;
+        var before = TfwNow;
+        sbyte front = TfwHudModel.Lane(before, lane).Front;
+        if (!await TfwTestDeploy(lane)) return false;
+        for (int k = 0; k < TfwBattle.CommanderObjective; k++)
+        {
+            int index = k;
+            string name = $"battle {number}: {TfwHudModel.ObjectiveName(k, false)}";
+            if (!await TfwWalkTo(_tfwState.Objectives[k].Position, $"{name}: walked there", 60.0)) return false;
+            if (!await TfwUntil($"{name}: cleared, the HUD says SECURING", () => TfwHudModel.ObjectiveState(_tfwState.Objectives[index]).StartsWith("SECURING", StringComparison.Ordinal) || _tfwState.Objectives[index].State == TfwPositionState.Secured, 30.0)) return false;
+            if (!await TfwUntil($"{name}: secured by the Guardsmen", () => _tfwState.Objectives[index].State == TfwPositionState.Secured, 120.0)) return false;
+            if (k == 1)
+            {
+                await TfwWait(0.3);
+                var depot = TfwNow;
+                TfwCheck($"{name}: the depot's transport and supply", depot.Transport >= before.Transport - TfwBattleRules.DeployCost + TfwBattleRules.DepotTransport && depot.Supplies == before.Supplies + TfwBattleRules.DepotSupplies, $"{depot.Transport}, {depot.Supplies}");
+            }
+        }
+        if (!await TfwUntil($"battle {number}: the commander stands at the HQ", () => _tfwState.Objectives[TfwBattle.CommanderObjective].State >= TfwPositionState.Held, 5.0)) return false;
+        await TfwFrames(3);
+        TfwCheck($"battle {number}: the boss bar names the commander", TfwHudModel.BossName(TfwNow, _tfwState.Objectives) == "ORK COMMANDER");
+        await TfwShot($"commander-{number}");
+        if (!await TfwWalkTo(_tfwState.Objectives[TfwBattle.CommanderObjective].Position, $"battle {number}: walked to the HQ", 60.0)) return false;
+        if (!await TfwUntil($"battle {number}: the commander falls and the battle is won", () => TfwNow.Own.BattleWon, 15.0)) return false;
+        await TfwUntil($"battle {number}: the prompt offers the free pickup", () => TfwPromptNow == "BATTLE WON: HOLD P FOR A FREE PICKUP", 3.0);
+        await TfwShot($"battle-won-{number}");
+        var won = TfwNow;
+        TfwCheck($"battle {number}: the front moved up", TfwHudModel.Lane(won, lane).Front == front + 1, TfwHudModel.FrontText(TfwHudModel.Lane(won, lane).Front));
+        TfwKey(Key.P, true);
+        await TfwUntil($"battle {number}: P held calls the free pickup", () => TfwNow.Phase == TfwRunPhase.Pickup, 4.0);
+        TfwKey(Key.P, false);
+        await TfwUntil($"battle {number}: the countdown shows", () => TfwPromptNow.StartsWith("PICKUP IN", StringComparison.Ordinal), 3.0);
+        if (!await TfwUntil($"battle {number}: the free pickup brings the player home", () => TfwNow.Phase == TfwRunPhase.Hub, 25.0)) return false;
+        await TfwWait(0.5);
+        var home = TfwNow;
+        TfwCheck($"battle {number}: the pickup was free", home.Transport >= won.Transport, $"{won.Transport} to {home.Transport}");
+        TfwCheck($"battle {number}: the player is in the Stormbird", client.Predicted.Position.Y < -190f, client.Predicted.Position.ToString());
+        return true;
+    }
+
+    /// <summary>A whole run: from front 1 two wins reach the stronghold, then the final assault to the Warboss's death.</summary>
+    async Task TfwTestWinRun()
+    {
+        const TfwLane lane = TfwLane.A;
+        for (int number = 1; TfwHudModel.Lane(TfwNow, lane).Front < WarRules.FrontStronghold; number++)
+            if (number > 3 || !await TfwTestWinBattle(lane, number)) { TfwCheck("the stronghold is reached", false, TfwHudModel.FrontText(TfwHudModel.Lane(TfwNow, lane).Front)); return; }
+        TfwCheck("the front stands at the stronghold: the final assault is open", TfwHudModel.IsFinal(TfwHudModel.Lane(TfwNow, lane)));
+        if (!await TfwTestDeploy(lane, final: true)) return;
+        TfwCheck("all three positions stand secured", _tfwState.Objectives[0].State == TfwPositionState.Secured && _tfwState.Objectives[2].State == TfwPositionState.Secured);
+        TfwCheck("the tracker names the Warboss", TfwHudModel.ObjectiveName(TfwBattle.CommanderObjective, TfwNow.Phase == TfwRunPhase.FinalAssault) == "WARBOSS");
+        await TfwWait(1.0);
+        TfwCheck("the boss bar names the Warboss", TfwHudModel.BossName(TfwNow, _tfwState.Objectives) == "ORK WARBOSS");
+        await TfwShot("final-assault");
+        // The Warboss has no leash: he comes to meet the player and may fall on the way.
+        await TfwWalkTo(_tfwState.Objectives[TfwBattle.CommanderObjective].Position, "walked towards the HQ, or the Warboss fell first", 90.0, () => TfwNow.Phase == TfwRunPhase.Won);
+        if (!await TfwUntil("the Warboss falls: the war is won", () => TfwNow.Phase == TfwRunPhase.Won, 30.0)) return;
+        await TfwUntil("the prompt says the war is won", () => TfwPromptNow == "THE WARBOSS IS DEAD. THE WAR IS WON", 3.0);
+        await TfwShot("war-won");
     }
 
     async Task TfwTestScript()
@@ -174,7 +239,7 @@ public partial class NetworkView
         if (!await TfwUntil("the war is on, in the hub", () => client.Match.State == MatchState.Playing && _tfwState.War is { Phase: TfwRunPhase.Hub } && client.Predicted.Alive, 60.0)) return;
         var start = TfwNow;
         TfwCheck("the reserves are the run's", start.Transport == TfwBattleRules.StartTransport && start.Supplies == TfwBattleRules.StartSupplies, $"{start.Transport}, {start.Supplies}");
-        TfwCheck("no station prompt at the spawn", _tfwAt == TfwStation.None);
+        TfwCheck("the station prompt fits the spot", _tfwAt == TfwHudModel.StationAt(client.Predicted.Position), $"{_tfwAt} at {client.Predicted.Position}");   // a respawn point is anywhere in the room
 
         // Equipment
         if (!await TfwWalkTo(TfwMap.EquipmentStation, "walked to Equipment")) return;
@@ -278,6 +343,7 @@ public partial class NetworkView
         TfwCheck("the pickup took one transport", home.Transport == landed.Transport - TfwBattleRules.PickupCost, home.Transport.ToString());
         TfwCheck("the player is in the Stormbird", client.Predicted.Position.Y < -190f, client.Predicted.Position.ToString());
         TfwCheck("the objectives are gone", _tfwState.Objectives.Count == 0 || TfwNow.Own.Guards == 0);
+        if (CmdFlag("tfw-test-win")) { await TfwTestWinRun(); return; }
         if (System.Environment.GetEnvironmentVariable("SM_TFW_DOWN_TEST") is null && !CmdFlag("tfw-test-downs")) return;
 
         // The second battle: down alone, the retainer revives

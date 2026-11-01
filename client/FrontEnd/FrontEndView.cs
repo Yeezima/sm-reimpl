@@ -230,7 +230,7 @@ public sealed partial class FrontEndView : Control
         var joinRow = UiKit.MenuButton("Join or host lobby", () => ShowPage(_lobby!));
         _first[main] = joinRow;
         main.Rows.AddChild(joinRow);
-        if (ContentExtras.Compiled) main.Rows.AddChild(UiKit.MenuButton("Musou mode", StartMusou, "The Three-Front War, on this PC"));   // added content: never in a faithful build
+        if (ContentExtras.Compiled) main.Rows.AddChild(UiKit.MenuButton("Musou Mode", StartMusou, "The war of the three fronts, on this PC"));   // added content: never in a faithful build
         main.Rows.AddChild(UiKit.MenuButton("Options", () => ShowOptions()));
         main.Rows.AddChild(UiKit.MenuButton("Customizer", ShowCreator, "Edit your loadouts and your armour"));
         main.Rows.AddChild(UiKit.MenuButton("Quit", () => GetTree().Quit()));
@@ -516,7 +516,7 @@ public sealed partial class FrontEndView : Control
         if (JoinOverride is { } test) test(request); else _join(request);
     }
 
-    /// <summary>MUSOU MODE (the owner, 2026-11-01): the Three-Front War as the Host panel's Musou path starts it: this PC only, <c>--content musou</c>, joined by itself. The lobby's remembered profile is not touched.</summary>
+    /// <summary>MUSOU MODE (the owner, 2026-11-01): Musou Mode as the Host panel's Musou path starts it: this PC only, <c>--content musou</c>, joined by itself. The lobby's remembered profile is not touched.</summary>
     void StartMusou()
     {
         if (_hostPanel is null) { Say("No server was found next to the game, so Musou cannot start.", true); return; }
