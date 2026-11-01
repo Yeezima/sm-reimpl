@@ -38,16 +38,16 @@ public sealed partial class UiSelfTest
             _front.ShowMainMenu();
             await Frames(4);
             var main = _front.MainPage!;
-            var wanted = new List<string> { "JOIN OR HOST LOBBY" };
+            var wanted = new List<string> { "PLAYER VERSUS PLAYER" };
             if (ContentExtras.Compiled) wanted.Add("MUSOU MODE");
             wanted.AddRange(["OPTIONS", "CUSTOMIZER", "QUIT"]);
             Check("menu: the main menu's rows, in order", RowTexts(main).SequenceEqual(wanted), string.Join(", ", RowTexts(main)));
             Check("menu: the title is the project's name", main.TitleLabel.Text == "SM - REIMPL", main.TitleLabel.Text);
-            Check("menu: a first row has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: "JOIN OR HOST LOBBY" } || FindButton(main, b => b.Text == "JOIN OR HOST LOBBY") is not null);
-            foreach (var row in new[] { "JOIN OR HOST LOBBY", "OPTIONS" })
+            Check("menu: a first row has the focus", GetViewport().GuiGetFocusOwner() is Button { Text: "PLAYER VERSUS PLAYER" } || FindButton(main, b => b.Text == "PLAYER VERSUS PLAYER") is not null);
+            foreach (var row in new[] { "PLAYER VERSUS PLAYER", "OPTIONS" })
                 Check($"menu: {row} is transparent (no box)", FindButton(main, b => b.Text == row)?.GetThemeStylebox("normal") is StyleBoxEmpty);
 
-            await PressRow("JOIN OR HOST LOBBY", main);
+            await PressRow("PLAYER VERSUS PLAYER", main);
             var lobby = _front.LobbyPage!;
             Check("menu: the lobby page opens", lobby.Visible && !_front.ShowsMainMenu);
             var lobbyRows = RowTexts(lobby);
@@ -288,7 +288,7 @@ public sealed partial class UiSelfTest
         await Frames(4);
         var main = _front.MainPage!;
         float f = view.Size.Y / UiKit.VirtualHeight;
-        var firstRow = FindButton(main.Rows, b => b.Text == "JOIN OR HOST LOBBY")!;
+        var firstRow = FindButton(main.Rows, b => b.Text == "PLAYER VERSUS PLAYER")!;
         var quit = FindButton(main.Rows, b => b.Text == "QUIT")!;
         Check($"fit {at}: the rows start at the reference's height", Mathf.Abs(firstRow.GetGlobalRect().GetCenter().Y - UiKit.MenuFirstRowCentre * f) < 1.5f && Mathf.Abs(firstRow.GlobalPosition.X - 119f) < 1.5f, firstRow.GetGlobalRect().ToString());
         Check($"fit {at}: the rows are 22.5 apart", Mathf.Abs(quit.GlobalPosition.Y - firstRow.GlobalPosition.Y - 22.5f * (RowTexts(main).Count - 1)) < 1.5f);

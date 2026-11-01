@@ -18,7 +18,7 @@ public enum StartScreen { Join, Creator, Appearance }
 public sealed record JoinRequest(string Host, JoinPlan Plan, CustomizerServices Services, SmSim.ContentExtras? Content = null, bool Spectate = false);
 
 /// <summary>
-/// The front end (ui/menu-rebuild, the owner's Half-Life 2 style menu): a shell that waits for the install to be read, then shows the main menu (JOIN OR HOST LOBBY, MUSOU MODE, OPTIONS,
+/// The front end (ui/menu-rebuild, the owner's Half-Life 2 style menu): a shell that waits for the install to be read, then shows the main menu (PLAYER VERSUS PLAYER, MUSOU MODE, OPTIONS,
 /// CUSTOMIZER, QUIT) over the shared background image and its pages in turn; the customizer keeps its own dark background. It owns the 1920 x 1080 UI space of the window while it is shown
 /// and gives it back when a match starts. A join goes through <see cref="JoinRequest"/>; <c>ModelViewer</c> turns it into the existing connect path.
 /// </summary>
@@ -221,14 +221,14 @@ public sealed partial class FrontEndView : Control
         }
     }
 
-    /// <summary>The tree of pages (the owner's menu, 2026-11-01): main, JOIN OR HOST LOBBY, HOST LOCAL LOBBY, JOIN LOCAL LOBBY and OPTIONS; the customizer and the keybinds are their own screens.</summary>
+    /// <summary>The tree of pages (the owner's menu, 2026-11-01): main, PLAYER VERSUS PLAYER, HOST LOCAL LOBBY, JOIN LOCAL LOBBY and OPTIONS; the customizer and the keybinds are their own screens.</summary>
     void BuildPages()
     {
         // The remembered Musou of an earlier build is not a lobby profile any more: MUSOU MODE is the way in (a --content musou launch keeps it).
         if (_services.Settings.ContentExtras.HasFlag(ContentExtras.Musou) && !CommandLineMusou) _services.SetContent(ContentExtras.All);
 
         var main = new UiKit.MenuPage("MainMenu");
-        var joinRow = UiKit.MenuButton("Join or host lobby", () => ShowPage(_lobby!));
+        var joinRow = UiKit.MenuButton("Player versus Player", () => ShowPage(_lobby!));
         _first[main] = joinRow;
         main.Rows.AddChild(joinRow);
         if (ContentExtras.Compiled)   // added content: never in a faithful build
