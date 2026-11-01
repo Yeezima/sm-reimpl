@@ -141,7 +141,7 @@ public partial class NetworkView
         // The blend shown (AttackVariants' start distance for this attack), else the start blend.
         float blend = _meleeShows.TryGetValue(s.PlayerId, out var show) && show.Step == s.MeleeStep && show.Heavy == s.MeleeHeavy
             ? show.StartDistance : Math.Clamp(reach.DefaultDistance, reach.Range.Min, reach.Range.Max);
-        return MeleePresentation.RootDriven(step, time, new V2(s.Velocity.X, s.Velocity.Y), s.Yaw, _config.TickSeconds, blend, _config.LungeScale);
+        return MeleePresentation.RootDriven(step, time, new V2(s.Velocity.X, s.Velocity.Y), s.Yaw, _config.TickSeconds, blend, _config.LungeScale * step.LungeFactorApplied);
     }
 
     void MeleeLockForget(int id) { _meleeShows.Remove(id); _hitStops.Remove(id); }

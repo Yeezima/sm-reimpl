@@ -442,7 +442,13 @@ public static partial class Protocol
     //     Raptor Space tap is the dash at any moment while falling (off a ledge, at a jump's apex or in its fall); a charge off a ledge steers with A / D in the air. Snapshot layout and sizes unchanged (worst case 1194)
     // 51 (sim/evade-cooldowns; the owner 2026-11-01; part of the same unreleased batch): no wire change, no config hash change. The roll, the hop and the dash take the data's
     //     cooldown, min_time_between_activations 0.8 s (24 ticks; the 0.7 lock scale made it 0.56 s, 17 ticks), in the own record's existing EvadeLock; a Jump press in it ends nothing and starts no take-off.
-    public const ushort Version = 51;
+    // 52 (sim/light-melee-flinch; the owner 2026-11-01: "combat knife should not stagger or stun an enemy, nor any light melee attack ... it should only 'throw off the aim'
+    //     of a player attempting to shoot a ranged weapon"): the own record carries one more byte after the charge lock, the flinch's ticks left (PlayerState.FlinchTicks,
+    //     0..255), placed right after the holstered reloads so the record's tail keeps its offsets from the end. A light melee hit (the normal combo, the sword slash;
+    //     not the heavy strikes, the heavy classes' kick, the charge or the stomp's blast) starts no reaction or knockback and ends no action: it flinches the victim,
+    //     whose shots scatter by up to MeleeFlinchDegrees more, falling over MeleeFlinchSeconds (ours). Full record 167 bytes; worst case 1195 (4 guaranteed shot
+    //     records still fit, 5 under the budget). The spread rules version is 2 (the config hash changes).
+    public const ushort Version = 52;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>
@@ -512,15 +518,15 @@ public static partial class Protocol
     /// <summary>Bytes of a slim player record (protocol 13: 46 + the evade byte).</summary>
     public const int SlimRecordBytes = 47;
     /// <summary>Bytes of the recipient's full record (protocol 13: the slim part, 85 more, and 2 evade bytes; protocol 17: 4 reaction bytes; 18: the charge lock; 20: ready and raise ticks; 21: ready ticks in 2 bytes; 23: the perk word).</summary>
-    public const int FullRecordBytes = SlimRecordBytes + 97 + 14 + 8;   // protocol 44: + the third weapon's 14 bytes (and one projectile record fewer)
+    public const int FullRecordBytes = SlimRecordBytes + 97 + 14 + 8 + 1;   // protocol 44: + the third weapon's 14 bytes (and one projectile record fewer); protocol 52: + the flinch byte
     /// <summary>Most kill-feed entries in one snapshot (protocol 10; the server sends the newest).</summary>
     public const int MaxSnapshotKills = 4;
     /// <summary>
     /// The largest snapshot with every other block full: 1200 bytes (protocol 11: 1175; protocol 12: + the 12-byte hit block =
     /// 1187; protocol 13: + 16 evade bytes in the player records + 2 in the own record − one 14-byte projectile record = 1191;
     /// protocol 15: + 4 kill-feed direction bytes = 1195; protocol 16: − three projectile records (42) + the shot count and
-    /// five shot records (46) = 1199; protocol 17: + 4 reaction bytes in the own record − one guaranteed shot record (9) = 1194; protocol 18: + 1 charge-lock byte = 1195; protocol 20: + 2 raise bytes = 1197; protocol 21: ready ticks in 2 bytes = 1198; protocol 23: + the 2-byte perk word = 1200; protocol 44: + 14 bytes, - one projectile record = 1200; protocol 45: + 8 bytes, - one projectile record = 1194),
-    /// at most the 1200-byte <see cref="SnapshotBudget"/> (no headroom left). A smaller snapshot
+    /// five shot records (46) = 1199; protocol 17: + 4 reaction bytes in the own record − one guaranteed shot record (9) = 1194; protocol 18: + 1 charge-lock byte = 1195; protocol 20: + 2 raise bytes = 1197; protocol 21: ready ticks in 2 bytes = 1198; protocol 23: + the 2-byte perk word = 1200; protocol 44: + 14 bytes, - one projectile record = 1200; protocol 45: + 8 bytes, - one projectile record = 1194; protocol 52: + the flinch byte = 1195),
+    /// at most the 1200-byte <see cref="SnapshotBudget"/> (5 bytes of headroom since protocol 52). A smaller snapshot
     /// carries more shot records, up to <see cref="MaxSnapshotShots"/>, but never more than the budget.
     /// </summary>
     public const int MaxSnapshotBytes = 13 + 1 + MaxSnapshotProjectiles * 14 + 1 + (MaxPlayers - 1) * SlimRecordBytes + FullRecordBytes + 9 + 1 + MaxSnapshotKills * KillEntryBytes
@@ -688,6 +694,7 @@ public static partial class Protocol
                     w.U8(Index(third)); w.U8((byte)(((int)p.Slot & 3) | (p.ThirdOverheated ? 4 : 0) | (p.SlotSecondHeld ? 8 : 0) | (((int)p.MeleeDirection & 7) << 4) | (p.BufferedCharge ? 128 : 0)));   // protocol 45: bits 4..6 the melee attack's direction
                     w.U16(Ammo(p.ThirdClip)); w.U16(Ammo(p.ThirdReserve)); w.F32(p.ThirdHeat); w.F32(p.ThirdSinceHeat);
                     w.F32(p.OtherReloadLeft); w.F32(p.ThirdReloadLeft);   // protocol 45: the holstered weapons' reloads (8 bytes)
+                    w.U8((byte)Math.Clamp(p.FlinchTicks, 0, Spread.MaxFlinchTicks));   // protocol 52 (sim/light-melee-flinch): the flinch's ticks left; here so the tail keeps its offsets
                     w.F32(p.Health); w.F32(p.Shield);
                     w.U16(Ammo(p.Clip)); w.U16(Ammo(p.Reserve)); w.U16(Ammo(p.OtherClip)); w.U16(Ammo(p.OtherReserve));
                     w.F32(p.Cooldown); w.F32(p.ReloadLeft); w.F32(p.SinceDamage); w.F32(p.RespawnLeft); w.F32(p.SwitchLeft);
@@ -1004,6 +1011,7 @@ public static partial class Protocol
                 if ((realSlot == WeaponSlot.Pistol) != (slot == (int)WeaponSlot.Pistol)) return null;   // disagrees with the slim slot bit
                 p = p with { MeleeDirection = meleeDirection, ThirdOverheated = (ext & 4) != 0, SlotSecondHeld = (ext & 8) != 0, ThirdClip = r.U16(), ThirdReserve = r.U16(), ThirdHeat = r.F32(), ThirdSinceHeat = r.F32() };
                 p = p with { OtherReloadLeft = r.F32(), ThirdReloadLeft = r.F32() };   // protocol 45
+                p = p with { FlinchTicks = r.U8() };   // protocol 52 (sim/light-melee-flinch)
                 p = p with
                 {
                     Health = r.F32(), Shield = r.F32(), Clip = r.U16(), Reserve = r.U16(), OtherClip = r.U16(), OtherReserve = r.U16(),

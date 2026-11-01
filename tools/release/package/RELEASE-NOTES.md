@@ -64,6 +64,7 @@ Everyone in a match must use this same build: different versions refuse each oth
 | T | Shout "FOR THE EMPEROR" (added content: Extended profile, loyalist Space Marines) |
 | Tab (hold) | Scoreboard |
 | F1 | Info overlay |
+| F11 | Fullscreen on or off |
 | Esc | Menu: change loadout (alive or dead, for your next life), class creator, armour editor, leave match |
 | Left / Right arrows | Turn with the keyboard |
 

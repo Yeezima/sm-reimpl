@@ -14,7 +14,6 @@ public partial class EyeGlowTest : Node3D
 {
     readonly string _gameDir, _wargear;
     readonly CharacterViewer _character;
-    readonly (byte R, byte G, byte B)? _lens;
     readonly Camera3D _camera;
     FxPlayer? _fx;
     EyeGlowData? _data;
@@ -22,12 +21,12 @@ public partial class EyeGlowTest : Node3D
     bool _reported;
     double _age;
 
-    public EyeGlowTest(string gameDir, CharacterViewer character, (byte R, byte G, byte B)? lens, string? wargear, Camera3D camera)
+    public EyeGlowTest(string gameDir, CharacterViewer character, string? wargear, Camera3D camera)
     {
-        _gameDir = gameDir; _character = character; _lens = lens; _camera = camera;
+        _gameDir = gameDir; _character = character; _camera = camera;
         _wargear = string.IsNullOrEmpty(wargear) ? "csm_mp_ranged_bolter" : wargear;
     }
-    public EyeGlowTest() : this("", null!, null, null, null!) { }
+    public EyeGlowTest() : this("", null!, null, null!) { }
 
     public override void _Ready()
     {
@@ -42,7 +41,7 @@ public partial class EyeGlowTest : Node3D
             var failures = new List<string>();
             _fx.Preload(NetworkView.CompileSystems(library, names, failures), new Dictionary<string, byte[]>());
             if (EyeGlow.HelmetOf(_character) is { } helmet && _character.Assets is { } assets) EyeGlow.PreloadMarkers(_gameDir, [helmet], assets.Rig.BoneNames, failures);
-            GD.Print($"eye glow test: {_wargear} binds [{string.Join(", ", _data.For(_wargear).Select(p => p.Name + "@" + p.Marker))}]{(failures.Count > 0 ? "; not parsed: " + string.Join(", ", failures) : "")}; lens tint {(EyeGlow.TintOf(_lens) is { } t ? t.ToHtml(false) : "none (data colour)")}");
+            GD.Print($"eye glow test: {_wargear} binds [{string.Join(", ", _data.For(_wargear).Select(p => p.Name + "@" + p.Marker))}]{(failures.Count > 0 ? "; not parsed: " + string.Join(", ", failures) : "")}");
         }
         catch (Exception ex) when (ex is System.IO.IOException or System.IO.InvalidDataException or NotSupportedException or UnauthorizedAccessException)
         {
@@ -55,7 +54,7 @@ public partial class EyeGlowTest : Node3D
     {
         if (_fx is null || _data is null || !GodotObject.IsInstanceValid(_character)) return;
         _age += delta;
-        _glow.Update(_fx, _gameDir, _data, _character, _wargear, true, EyeGlow.TintOf(_lens));
+        _glow.Update(_fx, _gameDir, _data, _character, _wargear, true);
         _fx.Update(delta, _camera);
         if (!_reported && _age > 0.5) { _reported = true; GD.Print($"eye glow test: {_glow.Live} effects live ({_glow.Key}), {_fx.LastQuads} quads; helmet {EyeGlow.HelmetOf(_character) ?? "none"}"); }
     }

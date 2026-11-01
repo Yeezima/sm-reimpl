@@ -8,7 +8,7 @@ namespace SmServer;
 /// Tag 11 on the server (Musou pass 2, M8): fire support's records go to every client, each shell and run in <see cref="TfwSendRules.FireCopies"/> messages on consecutive ticks (the envelope is not
 /// reliable; a client plays each once), a round once (a lost tracer matters to nobody). A section holds at most <see cref="TfwWire.MaxFire"/>. Only in a war: <see cref="SendTfw"/> calls this.
 /// <para>
-/// Test aid <c>SM_TFW_FIRE_TEST=1</c>: the server takes the command FireTest (a barrage on demand, no cooldown; client <c>--tfw-fire-test</c>, key F9) and prints a <c>TFWFIRE</c> line for every shell.
+/// Test aid <c>SM_TFW_FIRE_TEST=1</c>: the server takes the command FireTest (a barrage on demand; client <c>--tfw-fire-test</c>, key F9) and prints a <c>TFWFIRE</c> line for every shell.
 /// </para>
 /// </summary>
 public sealed partial class GameServer

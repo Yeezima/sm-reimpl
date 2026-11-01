@@ -8,9 +8,9 @@ using SmContent;
 namespace SmClient.Customizer;
 
 /// <summary>
-/// The Chaos eye glow in the customizer's 3D preview (owner's request 2026-10-28: the eye glow follows the lens colour option, also in the previews). The same
+/// The Chaos eye glow in the customizer's 3D preview. The same
 /// <see cref="EyeGlow"/> the match plays, in the preview's own <see cref="FxPlayer"/> (one per <see cref="PreviewStage"/>, inside its viewport): the effect of the weapon the
-/// preview holds in hand, at the helmet's eye markers, in the data's colour or (a lens colour chosen) tinted with it (<see cref="EyeGlow.TintOf"/>). The effects package,
+/// preview holds in hand, at the helmet's eye markers, in the data's colour (the lens colour option does not drive it). The effects package,
 /// the wargear files and the effect atlas are read once in the background the first time a Chaos character is previewed (<see cref="Forget"/> drops them when the match
 /// starts); until they are in, the preview shows no glow. Space Marine previews never start the load: the data has no eye effects for their helmets (spec "Chaos eye glow").
 /// </summary>
@@ -34,7 +34,7 @@ sealed class PreviewEyeGlow
     public int Live => _glow.Live;
     /// <summary>Effect quads drawn in the last frame the player ran (0 after <see cref="Clear"/>).</summary>
     public int Quads => _fx?.LastQuads ?? 0;
-    /// <summary>The state the glow was last started in (helmet, skeleton, effects, tint).</summary>
+    /// <summary>The state the glow was last started in (helmet, skeleton, effects).</summary>
     public string Key => _glow.Key;
 
     /// <summary>Whether the glow is switched off for this run (<c>SM_NO_EYE_GLOW=1</c> or <c>--no-eye-glow</c>).</summary>
@@ -48,15 +48,15 @@ sealed class PreviewEyeGlow
     }
 
     /// <summary>
-    /// Per frame: starts, keeps or ends the glow of <paramref name="character"/> holding <paramref name="deployed"/> (the wargear in hand), tinted by <paramref name="tint"/>,
+    /// Per frame: starts, keeps or ends the glow of <paramref name="character"/> holding <paramref name="deployed"/> (the wargear in hand),
     /// and advances the effects. Call with the preview's camera after it is placed.
     /// </summary>
-    public void Update(double delta, Camera3D camera, CharacterViewer character, CustomizerServices services, string? deployed, Color? tint)
+    public void Update(double delta, Camera3D camera, CharacterViewer character, CustomizerServices services, string? deployed)
     {
         if (_failed || Off || !GodotObject.IsInstanceValid(character)) return;
         if (_fx is null && !TryCreate(services)) return;
         if (_fx is not { } fx || _data is not { } data) return;
-        _glow.Update(fx, services.GameDir, data, character, deployed, character.Visible, tint);
+        _glow.Update(fx, services.GameDir, data, character, deployed, character.Visible);
         if (_glow.Live > 0 || fx.Live > 0) fx.Update(delta, camera);
         _frames++;
     }

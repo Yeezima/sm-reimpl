@@ -313,8 +313,9 @@ public class PlayerCollisionTests(ITestOutputHelper output)
     [Fact]
     public void A_knockback_does_not_carry_the_victim_into_a_bystander()
     {
+        // sim/light-melee-flinch: a light hit knocks nobody back any more, so the shove is a heavy strike (the stagger).
         var shove = new MeleeStep(1f, 0.2f, 0.4f, 0.6f, 0.5f, 0.7f, 10f, 0f, 0f) { PrimaryReaction = new ReactionEntry(0f, ReactionKind.Stagger, Backward: 3f, Duration: 0.4f) };
-        var c0 = Config with { MeleeSteps = [shove], MeleeRange = 4f, MeleeConeDegrees = 30f, HealthMax = 1000f };
+        var c0 = Config with { Classes = [new ClassLoadout("default", 0, -1, [shove]) { MeleeHeavy = [shove] }], MeleeRange = 4f, MeleeConeDegrees = 30f, HealthMax = 1000f };
         foreach (bool on in new[] { false, true })
         {
             var c = c0 with { PlayerBodies = on };
@@ -324,7 +325,7 @@ public class PlayerCollisionTests(ITestOutputHelper output)
             float worst23 = float.MaxValue;
             int k = 0;
             bool pushed = false;
-            Run(w, 40, (id, p) => new PlayerInput(0, 0f, 0f, id == 1 ? 0f : MathF.PI, id == 1 && k == 0 ? InputButtons.Melee : InputButtons.None), 2, () =>
+            Run(w, 40, (id, p) => new PlayerInput(0, 0f, 0f, id == 1 ? 0f : MathF.PI, id == 1 && k == 0 ? InputButtons.MeleeHeavy : InputButtons.None), 2, () =>
             {
                 k++;
                 pushed |= w.Players[2].PushDistance > 0;
@@ -543,7 +544,7 @@ public class PlayerCollisionTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_43_carries_the_body_tick_as_a_lag_byte_and_drops_it_out_of_range()
     {
-        Assert.Equal(51, Protocol.Version);
+        Assert.Equal(52, Protocol.Version);
         Assert.Equal(40, Protocol.InputBytes);
         var inputs = new[]
         {

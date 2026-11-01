@@ -18,7 +18,7 @@ public sealed partial class Hud
     void DrawScorePanel(Vector2 vs)
     {
         var d = Data;
-        if (!d.Teams) return;
+        if (!d.Teams || d.NoScorePanel) return;
         if (DrawMovieScorePanel(vs)) return;   // ui/hud-fidelity: the HudText movie's panel (Hud.Fidelity.cs)
         float b = vs.Y;   // bottom edge
         // The panel: a dark band whose top and bottom lines rise slightly to the right (footage: from (231, b-199) to (537, b-209) and

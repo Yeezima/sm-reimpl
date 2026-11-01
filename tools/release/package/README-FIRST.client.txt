@@ -89,6 +89,7 @@ CONTROLS (F1 in a match shows them too). Every binding can be changed: CONTROLS 
   T                    shout "FOR THE EMPEROR" (added content: Extended profile, loyalist Space Marines)
   Tab (hold)           scoreboard
   F1                   info overlay
+  F11                  fullscreen on or off
   Esc                  menu: change loadout (alive or dead), class creator, armour editor, leave match
   Controller           plug in an Xbox-style pad and it takes over (the original's layout)
   Left / Right arrows  turn with the keyboard

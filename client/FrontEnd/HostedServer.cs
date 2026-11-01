@@ -25,6 +25,7 @@ public static class HostedServer
     static readonly object _lock = new();
     static BotLaunch? _bots;   // fix/connect-timeout: started once the server prints its listening line (HostedBots)
     static int? _exitCode;
+    static readonly HostedServerLog Log = new();
 
     public static HostOptions? Options => _options;
     /// <summary>The exit code of the last server started here once it ended (null while it runs or before any); 3 = its port was in use.</summary>
@@ -126,10 +127,9 @@ public static class HostedServer
             while (_tail.Count > 12) _tail.Dequeue();
         }
         if (begin is not null) HostedBots.Begin(begin);   // outside the lock: HostedBots asks this class whether the server runs
-        // Joins, leaves and refusals in the client's log too (the hosted server has no console of its own).
-        if (line.StartsWith("player ", StringComparison.Ordinal) && (line.Contains(" joined", StringComparison.Ordinal) || line.Contains(" left", StringComparison.Ordinal))
-            || line.Contains("refused", StringComparison.OrdinalIgnoreCase))
-            Godot.GD.Print("hosted server: " + line);
+        // Joins, leaves with their reasons, refusals and the server's fault notes in the client's log too (the hosted server has no console or file of its own;
+        // fix/stall-keepalive: the lines carry a timestamp, which the old filter did not allow for, so no leave reached the log). HostedServerLog says which lines.
+        if (Log.Filter(line) is { } shown) Godot.GD.Print("hosted server: " + shown);
     }
 
     /// <summary>The last lines the server printed (a reason when it died during start-up).</summary>

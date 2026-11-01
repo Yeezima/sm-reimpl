@@ -263,6 +263,25 @@ public sealed partial class UiSelfTest
 
             Check("options: the self-test never changes the window", GetWindow().Mode == startMode, GetWindow().Mode.ToString());
 
+            // F11 (ours): the same setting and the same save as the WINDOW MODE row, with the Options screen open (it follows at once); a held key does not repeat.
+            options.ShowTab(OptionsView.Graphics);
+            await Frames(3);
+            var windowRow = (UiKit.MenuChoice)FindButton(options, b => b.Text == "WINDOW MODE")!;
+            resolutionRow = (UiKit.MenuChoice)FindButton(options, b => b.Text == "RESOLUTION")!;
+            Check("F11: starts on BORDERLESS", _services.Settings.Options.Window == WindowChoice.Borderless && windowRow.Index == (int)WindowChoice.Borderless);
+            await SendKey(Key.F11);
+            Check("F11: borderless goes to the window, the open row and the resolution follow", _services.Settings.Options.Window == WindowChoice.Windowed && windowRow.Value == "WINDOWED" && !resolutionRow.Disabled, windowRow.Value);
+            Check("F11: it is saved like the row", FrontEndSettings.Load(_services.SettingsDirectory).Options.Window == WindowChoice.Windowed);
+            Input.ParseInputEvent(new InputEventKey { PhysicalKeycode = Key.F11, Keycode = Key.F11, Pressed = true });
+            await Frames(2);
+            Input.ParseInputEvent(new InputEventKey { PhysicalKeycode = Key.F11, Keycode = Key.F11, Pressed = true, Echo = true });
+            Input.ParseInputEvent(new InputEventKey { PhysicalKeycode = Key.F11, Keycode = Key.F11, Pressed = true, Echo = true });
+            await Frames(2);
+            Input.ParseInputEvent(new InputEventKey { PhysicalKeycode = Key.F11, Keycode = Key.F11, Pressed = false });
+            await Frames(2);
+            Check("F11: the window goes back to the fullscreen choice used last, and a held key does not repeat", _services.Settings.Options.Window == WindowChoice.Borderless && windowRow.Value == "BORDERLESS" && resolutionRow.Disabled, _services.Settings.Options.Window.ToString());
+            Check("F11: no binding can take the key", BindingSet.Reserved(BindDevice.Keyboard, "Key:F11") is not null);
+
             // Esc leaves; B too.
             await SendKey(Key.Escape);
             Check("options: Esc goes back to the main menu", _front.ShowsMainMenu);

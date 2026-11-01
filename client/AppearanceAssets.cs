@@ -183,7 +183,7 @@ public sealed class AppearanceAssets : IDisposable
                     (byte, byte, byte)? lensKey = null;
                     if (piece.Slot == "head" && look.Lens is { } lc && LensRegions.For(package).Count > 0)
                     {
-                        lens = new MapMaterials.LensSetting(new Color(lc.R / 255f, lc.G / 255f, lc.B / 255f), LensRegions.Slots(package));
+                        lens = new MapMaterials.LensSetting(new Color(lc.R / 255f, lc.G / 255f, lc.B / 255f), LensRegions.Slots(package), LensRegions.Gain(package));
                         lensKey = lc;
                     }
                     string key = PaintedMaterialKey.Of(surface.Key, paint, decalKey, lensKey);

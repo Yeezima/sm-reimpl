@@ -662,7 +662,7 @@ public sealed partial class FrontEndView : Control
 
     /// <summary>
     /// <c>--demo-look</c> (with <c>--demo-profile</c>; held in memory): a Space Marine look that uses every kind of edit, for screenshots of the appearance screens:
-    /// a chapter, another helmet, a colour on the torso, a badge, an own emblem on the left pad and a red lens.
+    /// a chapter, another helmet, a colour on the torso, a badge, an own emblem on the left pad and a red lens (<c>--demo-look r,g,b</c>: that lens colour instead).
     /// </summary>
     void DemoLook()
     {
@@ -690,7 +690,9 @@ public sealed partial class FrontEndView : Control
             }
         var emblem = EmblemPipeline.Add(_services.Store, EmblemPipeline.Build(rgba, 256, 256, EmblemPipeline.CropFor(256, 256, EmblemPipeline.InsetZoom(256, 256), 128f, 128f))).Hash;
         if (!emblem.IsNone) look = AppearanceEdits.ApplyEmblem(look, ["leftshoulder"], emblem.ToHex()).Look;
-        look = AppearanceEdits.SetLens(look, new LensColour(255, 40, 40));
+        var lens = new LensColour(255, 40, 40);
+        if (_args.GetValueOrDefault("demo-look")?.Split(',') is { Length: 3 } c && byte.TryParse(c[0], out var lr) && byte.TryParse(c[1], out var lg) && byte.TryParse(c[2], out var lb)) lens = new LensColour(lr, lg, lb);
+        look = AppearanceEdits.SetLens(look, lens);
         session.Seed(AppearanceEdits.ReplaceAppearance(withLook, look));
     }
 
