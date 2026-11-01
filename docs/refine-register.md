@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2084 spec table rows: **1478 tagged**, 437 not tagged (read from data with high confidence), 169 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 441 rows of the changes document.
+Scanned 2085 spec table rows: **1479 tagged**, 437 not tagged (read from data with high confidence), 169 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 441 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,17 +50,17 @@ Scanned 2084 spec table rows: **1478 tagged**, 437 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 246 | 231 | 205 | 26 | 1 |
+| Core simulation (provisional values) | 247 | 232 | 206 | 26 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 89 | 82 | 46 | 9 | 0 |
-| **All areas** | **1478** | 1251 | 1187 | 419 | 38 |
+| **All areas** | **1479** | 1252 | 1188 | 419 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 666 |
-| confidence: low | 563 |
+| kind: ours | 667 |
+| confidence: low | 564 |
 | confidence: medium | 498 |
 | kind: interpretation | 335 |
 | notes: ours | 307 |
@@ -1838,7 +1838,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (246)
+### Core simulation (provisional values) (247)
 
 *Spec section: Provisional values in use*
 
@@ -2067,6 +2067,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-55F42C2B` | Barrage size | 16 to 24 shells on a line of 60 to 100 m, 0.35 s between impacts, scatter ±6 m on each axis. The design's "about 10 m apart" does not fit its own counts, which give 2.6 to 6.7 m: the counts and the length were kept (shells, m, s) | kind: ours; confidence: low | the design; the reference's walking barrage | Barrage size: compare with SM1 by measuring on a flat spot of the same map. Ours: 16 to 24 shells on a line of 60 to 100 m, 0.35 s between impacts… | ☐ |
 | `R-C466F7CF` | Barrage aim | centred on the called point, walking across the caller's view. A paused run's aim: 70% through a living enemy at random, 30% through a random place, heading random (fraction) | kind: ours; confidence: low | the owner (the point); the rest ours | Barrage aim: compare with SM1 with an overlaid screenshot taken from the same position. Ours: centred on the called point, walking across the caller's view. A… | ☐ |
 | `R-2073CE8A` | Shell warning | the first impact 1 s after the call, each shell's record 1 s before it lands, for the whistle; measured on a real server: first impact 0.86 s after the key (s) | kind: ours; confidence: medium | the owner ("start instantly"); about 1 s the lead's, to keep a whistle | Shell warning: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the first impact 1 s after the call, each shell's record 1 s before… | ☐ |
+| `R-D8E313A4` | Shell's ground | the first surface under the aim, looked for from 3 m above it: a strike lands where it was aimed, not on a gantry or roof overhead (m) | kind: ours; confidence: low | ours | Shell's ground: compare with SM1 by measuring on a flat spot of the same map. Ours: the first surface under the aim, looked for from 3 m above it: a… | ☐ |
 | `R-720F3EEF` | Shell on enemies | every enemy, elites and bosses too, dies in a sphere of 12 m round the impact (either its feet or its chest inside), no falloff, no line of sight; a Guardsman too (m) | kind: estimate; kind: user's knowledge; confidence: low; notes: ours | the owner, 2026-11-01: "kill anything it touches", "a spere extending upward from the ground matching the placement of the explosion visual effects"; 12 m is… | Shell on enemies: compare with SM1 by measuring on a flat spot of the same map. Ours: every enemy, elites and bosses too, dies in a sphere of 12 m round… | ☐ |
 | `R-DDCD1052` | Shell on players and AI Marines | 60 at the impact, linear to 0 at 12 m (the sphere), through the received-damage multipliers; a stagger within 6 m; nobody is spared (hit points, m) | kind: estimate; kind: user's knowledge; confidence: low | the owner (item 12: "space marines take damage"); the values from the design | Shell on players and AI Marines: compare with SM1 by feel or video. Ours: 60 at the impact, linear to 0 at 12 m (the sphere), through the… | ☐ |
 | `R-AF73E808` | Run cadence (paused) | `max(45, 45 + hash x 75)` after the last; never under 45 (s) | kind: estimate; kind: user's knowledge; confidence: medium | the owner (45 s); the spread from the design | Run cadence (paused): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: max(45, 45 + hash x 75) after the last; never under 45. | ☐ |

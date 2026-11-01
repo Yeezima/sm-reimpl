@@ -26,6 +26,8 @@ public static class TfwFireRules
     public const float BlastRadius = 12f;
     /// <summary>What a shell deals a player or AI Marine at the point of impact, falling off linearly to nothing at <see cref="BlastRadius"/>.</summary>
     public const float PlayerDamage = 60f;
+    /// <summary>A shell looks for its ground this far above the aim (m, ours): the steps and ramps of a walking line, but no roof overhead.</summary>
+    public const float GroundLookUp = 3f;
 
     /// <summary>A run never starts sooner than this after the last (s; the owner's item 13).</summary>
     public const float RunGapSeconds = 45f;

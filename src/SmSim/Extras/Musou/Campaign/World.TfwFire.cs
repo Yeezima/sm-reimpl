@@ -49,7 +49,7 @@ public sealed partial class World
         if (!float.IsFinite(point.X + point.Y + point.Z) || point.X < box.Min.X || point.X > box.Max.X || point.Y < box.Min.Y || point.Y > box.Max.Y) return false;
         int rate = Math.Max(1, Config.TickRate);
         point = run.Field.Clamp(point);
-        point.Z = TfwGroundAt(point, point.Z);
+        point.Z = TfwGroundBelow(point, point.Z);
         TfwBarrage(point, TfwFireTestHeading(player, point), rate);
         return true;
     }
@@ -87,6 +87,14 @@ public sealed partial class World
         return Collision.Weapons.Raycast(new Vector3(at.X, at.Y, top), -Vector3.UnitZ, top - Collision.Weapons.Min.Z + 1f) is { } hit ? hit.Point.Z : fallback;
     }
 
+    /// <summary>The surface at or under <paramref name="at"/> seen from just above <paramref name="z"/>: a strike lands where it was aimed, not on a gantry or roof far overhead; with none, <paramref name="z"/>.</summary>
+    float TfwGroundBelow(Vector3 at, float z)
+    {
+        if (Collision is null) return z;
+        float top = z + TfwFireRules.GroundLookUp;
+        return Collision.Weapons.Raycast(new Vector3(at.X, at.Y, top), -Vector3.UnitZ, top - Collision.Weapons.Min.Z + 1f) is { } hit ? hit.Point.Z : z;
+    }
+
     /// <summary>A barrage walks along a line through <paramref name="aim"/> on <paramref name="heading"/> (radians); the shells are laid at once and the records go out as each one's telegraph falls due.</summary>
     void TfwBarrage(Vector3 aim, float heading, int rate)
     {
@@ -103,7 +111,7 @@ public sealed partial class World
             var scatter = new Vector3(fire.Roll(t, 62, (ulong)k) * 2f - 1f, fire.Roll(t, 63, (ulong)k) * 2f - 1f, 0f) * TfwFireRules.Scatter;
             var at = aim + way * along + scatter;
             at = new Vector3(Math.Clamp(at.X, box.Min.X, box.Max.X), Math.Clamp(at.Y, box.Min.Y, box.Max.Y), 0f);
-            at.Z = TfwGroundAt(at, aim.Z);
+            at.Z = TfwGroundBelow(at, aim.Z);
             fire.AddShell(new TfwShell(first + (uint)MathF.Round(k * TfwFireRules.ShellStep * rate), (ushort)k, at, false));
         }
         fire.Started(t);
