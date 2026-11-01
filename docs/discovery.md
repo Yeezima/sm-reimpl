@@ -1863,9 +1863,9 @@ Read-only investigation for the eye-lens colour option (our addition; the origin
   `while_deployed` actions play `csm_mp_eye_*` (`master_fx`; meleehammer, bolter_heavy, lascannon, plasmacannon)
   at the eye markers — additive "colour glow" (r 0.15 m) and "point centre" (r 0.02 m) sprites. Played by the client since
   M40-T13 (see "Light property maps").
-- Recommendation: a shader rule (lens colour where the rule holds inside the helmet's rectangles; null = original look);
-  for Chaos also tint the eye effects once they play (the only route for `berserk_01/02`); a material-only tint is not
-  possible (one surface per helmet).
+- Recommendation: a shader rule (lens colour where the rule holds inside the helmet's rectangles; null = original look); a material-only tint is not
+  possible (one surface per helmet). (The idea of also tinting the Chaos eye effects, the only route for `berserk_01/02`, was dropped on 2026-11-01: the owner wants the
+  lens itself recoloured and no glow, so `berserk_01/02`, whose visor slit has no lens texels, keep their look.)
 - Implemented (customizer T6, 2026-10-28): the table is `SmContent.Customization.LensRegions` (numbers only), the rule is in the painted
   shader (`MapMaterials.PaintShaderCode`, `use_lens`). Checked by eye on all 13 helmets with lens texels (magenta lens, head close-ups): every
   rectangle lands on the lens or lenses, none on armour; the Relic's small side lamp and the Mk6 dome lamp stay as they were, the Relic's green
@@ -2282,7 +2282,7 @@ The weapon crate proper, `case_weapon.dcm` (blueprints `pickup_weapons`, `pickup
 | Near explosion | `play_huge_explosion_near_stereo` | event in `in_game_default`; its 3 targets not found in the default set, `explosions`, `vehicles` or `rgn_s27_r500` | **missing**; use `play_big_damage_large_explosion` |
 | Artillery | none: no named event says artillery, mortar or bombard | | **missing**; the explosions above stand in |
 | Whistle | none: no named event says whistle or shell in flight (`play_shell_*` are the campaign's cannon loader) | | **missing**; nearest `play_droppod_incoming` (`vehicles`, 3 wems), else the design's falling-pitch treatment of a bank sound, tagged |
-| Ambient war | none named: the 82 named `play_*` of `ambiences` are machines and set pieces (`play_titan_footstep` the only distant-war candidate); `mp_tdm_09` has 9 events, no ambience; land vehicles en masse have no event | | **missing**; build it from the far explosions, the Valkyrie flybys, `play_sm_heavy_bolter_fire` and the anti-aircraft FX, low-passed |
+| Ambient war | none named: the 82 named `play_*` of `ambiences` are machines and set pieces (`play_titan_footstep` the only distant-war candidate); `mp_tdm_09` has 9 events, no ambience; land vehicles en masse have no event | | **missing**; build it from the far explosions, `play_sm_heavy_bolter_fire` and the anti-aircraft FX, low-passed (the Valkyrie flybys were in it until the owner took them out, 2026-11-01) |
 
 Unnamed events remain (`in_game_default` 1,232 of 2,129, `ambiences` 375 of 493), so "none" means none among the names known: a whistle or a war bed may sit unnamed. The region packages `air_rgn_*` hold sounds with no events and were not opened.
 

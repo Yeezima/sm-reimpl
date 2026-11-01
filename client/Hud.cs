@@ -97,6 +97,8 @@ public sealed partial class Hud : Control
         public Team OwnTeam;
         public bool Teams;
         public int OwnScore, EnemyScore, ScoreLimit;
+        /// <summary>Added content sets this: the mode has its own HUD, and no team score panel is drawn.</summary>
+        public bool NoScorePanel;
         public string Clock = "";
         /// <summary>Centre banner: warm-up or match over; empty while playing.</summary>
         public string Banner = "";

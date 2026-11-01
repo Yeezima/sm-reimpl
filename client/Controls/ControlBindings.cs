@@ -150,7 +150,7 @@ public sealed class BindingSet
 
     // ---- editing ----
 
-    /// <summary>Why an input cannot be bound on a device (null: it can). Esc cancels the capture and opens the menu; F1 is the info overlay; Start is the controller's menu button.</summary>
+    /// <summary>Why an input cannot be bound on a device (null: it can). Esc cancels the capture and opens the menu; F1 is the info overlay; F11 is fullscreen; Start is the controller's menu button.</summary>
     public static string? Reserved(BindDevice device, string input)
     {
         if (!ValidFor(device, input)) return "That input is not available on this device.";
@@ -158,6 +158,7 @@ public sealed class BindingSet
         {
             "Key:Escape" => "Esc is the menu key and cancels a rebinding.",
             "Key:F1" => "F1 is the info overlay.",
+            "Key:F11" => "F11 switches between fullscreen and the window.",
             "Pad:Start" => "Start is the game menu.",
             _ => null,
         };

@@ -1,5 +1,6 @@
 using System;
 using Godot;
+using SmNet;
 using SmSim;
 
 namespace SmClient;
@@ -95,6 +96,7 @@ public partial class NetworkView
     /// <summary>The slash clip's time <paramref name="sinceDive"/> s into <paramref name="s"/>'s dive (the strike curve, or <see cref="SlashDiveTime"/> with <c>--old-slash-windup</c>).</summary>
     float SlashDiveTimeOf(PlayerState s, float sinceDive, float expectedDive)
     {
+        if (HammerSlash(s)) return HammerSlashPose.DiveTime(sinceDive);   // anim/hammer-swing: the hammer's own flight clip at its own rate
         var slash = SlashOf(s);
         float flightEnd = slash?.FlightClipEnd ?? 0f;
         return StrikeCurve && slash is not null
@@ -104,7 +106,8 @@ public partial class NetworkView
 
     /// <summary>The rate of <see cref="SlashDiveTimeOf"/> at <paramref name="sinceDive"/> (NaN with <c>--old-slash-windup</c>: the old catch-up needs none).</summary>
     float SlashDiveRateOf(PlayerState s, float sinceDive, float expectedDive) =>
-        StrikeCurve && SlashOf(s) is { } slash ? SmNet.SlashPose.StrikeDiveRate(sinceDive, expectedDive, slash.FlightClipEnd, slash.ImpactClipStart, slash.HitTime) : float.NaN;
+        HammerSlash(s) ? (HammerSlashPose.FlightStart + HammerSlashPose.FlightRate * MathF.Max(0f, sinceDive) < HammerSlashPose.FlightEnd ? HammerSlashPose.FlightRate : 0f)
+        : StrikeCurve && SlashOf(s) is { } slash ? SmNet.SlashPose.StrikeDiveRate(sinceDive, expectedDive, slash.FlightClipEnd, slash.ImpactClipStart, slash.HitTime) : float.NaN;
 
     /// <summary>
     /// Called when the slash's get-up view ends because the marine moves on (<c>NetworkView.Jump.cs</c>): the follow-through is handed to the upper body from now, unless it is over.
@@ -122,17 +125,17 @@ public partial class NetworkView
     /// </summary>
     bool SlashHandoff(CharacterViewer character, PlayerState s, bool own)
     {
-        if (CharacterViewer.NoFeel || _slashClip is null || !_jumpTracks.TryGetValue(s.PlayerId, out var t) || double.IsNaN(t.SlashHandAt)) return false;
+        if (CharacterViewer.NoFeel || SlashClipOf(s) is not { } slashClip || !_jumpTracks.TryGetValue(s.PlayerId, out var t) || double.IsNaN(t.SlashHandAt)) return false;
         float since = (float)(_connectedFor - t.SlashHandAt);
-        float exit = OldSlashWindup ? MeleeExitBlendOf(s, _slashClip) ?? NavConduitBlend : SlashRunBlend;   // anim/air-slash-character: the jump-pack graph's impact-to-run blend
+        float exit = OldSlashWindup ? MeleeExitBlendOf(s, slashClip) ?? NavConduitBlend : SlashRunBlend;   // anim/air-slash-character: the jump-pack graph's impact-to-run blend
         float clipTime = SlashImpactTime(s, (float)(_connectedFor - t.SlashHandImpactAt));
-        if (!s.Alive || t.View != JumpView.None || since < 0f || since >= exit || clipTime >= ClipLength(_slashClip, 1.733f) || ActionMask() is not { } mask)
+        if (!s.Alive || t.View != JumpView.None || since < 0f || since >= exit || clipTime >= ClipLength(slashClip, 1.733f) || ActionMask() is not { } mask)
         {
             t.SlashHandAt = double.NaN;
             return false;
         }
         PlaceHandedOver(character, s, own);
-        character.SetPoseLayer(_slashClip, clipTime, 1f - CharacterViewer.Smooth(since / exit), additive: false, mask);
+        character.SetPoseLayer(slashClip, clipTime, 1f - CharacterViewer.Smooth(since / exit), additive: false, mask);
         return true;
     }
 }

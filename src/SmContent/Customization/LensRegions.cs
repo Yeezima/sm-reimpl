@@ -41,6 +41,13 @@ public static class LensRegions
         ["csm_armour_mp_raptor_01_helmet"] = [new(206, 346, 254, 373), new(260, 210, 278, 226)],
     };
 
+    // The Mk6 lens texels are dark (brightest channel 68 of 255, a tenth of the others' light), so a recoloured Mk6 lens would be near black: its colour is scaled up
+    // (a measured number, ours). No other helmet needs a gain.
+    static readonly Dictionary<string, float> GainTable = new(StringComparer.OrdinalIgnoreCase) { ["sm_armour_mp_mk6_helmet"] = 8f };
+
+    /// <summary>How much brighter a helmet's recoloured lens is drawn than its texels (1 for every helmet but the Mk6, whose lens texels are very dark).</summary>
+    public static float Gain(string package) => GainTable.TryGetValue(package, out var g) ? g : 1f;
+
     /// <summary>The helmet packages that have lens rectangles.</summary>
     public static IEnumerable<string> Packages => Table.Keys;
 

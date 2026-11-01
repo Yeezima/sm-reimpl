@@ -322,6 +322,7 @@ public partial class NetworkView : Node3D
                 MeleeLock = !NoMeleeLock,   // feel/melee-lock (NetworkView.MeleeLock.cs)
                 Bot = _bot,   // protocol 37: the Hello marks a test bot (the server's --bot-damage-scale)
                 Observer = Observe,   // protocol 46: a spectator (NetworkView.Observer.cs)
+                StallKeepAlive = !NoStallKeepAlive,   // fix/stall-keepalive: a blocked main thread no longer gets the player timed out (NetworkView.Stall.cs)
             };
             // The front end's perks, looks and emblems (customizer, T8); a replayed demo keeps its recorded Hello.
             if (_demoPlayback is null) clientOptions = SmClient.FrontEnd.FrontEndLaunch.WithProfile(clientOptions);
@@ -412,8 +413,11 @@ public partial class NetworkView : Node3D
 
     public override void _Process(double delta)
     {
+        // fix/stall-keepalive: humans have the watchdog too (a freeze of theirs is then in godot.log), reporting from 3 s; bots and --frame-profile as before (2 s, and the optional file).
         if (_bot || FrameProfileOn) _watchdog ??= new FrameWatchdog(_className ?? "bot", System.Environment.GetEnvironmentVariable("SM_WATCHDOG_FILE") is { Length: > 0 } wf ? wf + "." + System.Environment.ProcessId + ".log" : null) { Profile = FrameProfileOn ? NewFrameProfile() : null };
+        else _watchdog ??= new FrameWatchdog("player", null, FrameWatchdog.HumanStallSeconds);
         Ph("frame start");
+        StallFrameStart();   // fix/stall-keepalive (NetworkView.Stall.cs)
         _frameNo = (long)Engine.GetProcessFrames();   // qc/reference-pass review: read once per frame (the sprint edges' staleness)
         ProcessFrame(delta);
         _watchdog?.Frame();
@@ -442,6 +446,7 @@ public partial class NetworkView : Node3D
         DemoBeforeUpdate(delta);   // M40 T0: a replayed demo advances its clock by this frame and sets the recorded view
         LatencyProbeBeforeUpdate();   // feel/controls test aid (--latency-probe)
         _client.Update(SampleInput, EarlyTickWanted);   // feel/controls: an input edge runs the next tick now (NetworkView.Controls.cs)
+        StallFrameUpdated();   // fix/stall-keepalive
         DemoAfterUpdate(delta);    // M40 T0: records the view / ends the replay
         PadTestFrame();   // --pad-test (NetworkView.GamepadTest.cs)
         if (_client.Status != ClientStatus.Connected)
@@ -451,9 +456,7 @@ public partial class NetworkView : Node3D
             if (_connectedFor > 0 && !_goneNoted)
             {
                 _goneNoted = true;
-                GD.PrintErr($"t {_connectedFor:F1} s: the connection is gone ({_client.Status}); frames since the last snapshot are not sent. " +
-                            (_watchdog is { } w ? $"Longest frame so far {w.LongestFrameSeconds:F1} s (server and client time out after 5 s without a frame). " : "") +
-                            (_bot ? "The bot ends." : ""));
+                GD.PrintErr(ConnectionGoneText() + (_bot ? " The bot ends." : ""));   // fix/stall-keepalive: a freeze of the client or a silent server (NetworkView.Stall.cs)
                 if (_bot) GetTree().Quit(3);
             }
             if (_client.Status == ClientStatus.Rejected && !_goneNoted)
@@ -475,6 +478,7 @@ public partial class NetworkView : Node3D
         }
         if (_connectedFor == 0) GD.Print($"connected as player {_client.PlayerId}; handshake round trip {_client.HandshakeRoundTrip.TotalMilliseconds:F0} ms; map '{_client.MapName}'");
         _connectedFor += delta;
+        StallTestFreeze();   // fix/stall-keepalive test aid (--test-freeze-at)
         MemoryReportFrame();   // perf/lean-bots: one memory line (bots at 30 s; --mem-report [s]) (NetworkView.Lean.cs)
 
         if (Observe) { ObserverFrame(delta); return; }   // protocol 46: a spectator draws the world without a player of its own (NetworkView.Observer.cs)
@@ -757,6 +761,7 @@ public partial class NetworkView : Node3D
         var me = _client!.Predicted;
         if (JumpTest && JumpTestInput(me, tick) is { } jumpTest) return jumpTest;   // M44 test aid (NetworkView.JumpFx.cs)
         if (SlashTestInput(me, tick) is { } slashTest) return slashTest;   // feel/jump-pack test aid --slash-test (NetworkView.DashAttack.cs)
+        if (SwingTestInput(me, tick) is { } swingTest) return swingTest;   // anim/hammer-swing test aid --swing-test (NetworkView.SwingTest.cs)
         if (StompMoveTestInput(me, tick) is { } stompMove) return stompMove;   // anim/stomp-to-move test aid --stomp-move-test (NetworkView.StompMoveTest.cs)
         if (CameraTestInput(me, tick) is { } cameraTest) return cameraTest;   // camera/hop-and-walls test aid --camera-test (NetworkView.CameraTest.cs)
         if (CarryTestInput(me, tick) is { } carry) return carry;   // anim/relic-bolter-idle test aid --carry-test (NetworkView.CarryTest.cs)
@@ -1415,6 +1420,7 @@ public partial class NetworkView : Node3D
     {
         // qc/reference-pass: the transition probe measures the melee prop bones (RIG_Prop_M_*) only where a mesh can hang on them: a marine with a two-handed melee weapon, and every
         // Ork (the boy's shoota rides RIG_Prop_M_Chest); on other marines they carry nothing.
+        LungeLogSample(state);   // anim/hammer-swing test aid (NetworkView.LungeLog.cs)
         if (TransitionProbe.Enabled) character.SetMeta(TransitionProbe.TwoHandedMeta, IsOrkCharacter(character) || MeleeWargear(state)?.Contains("_2hand_", StringComparison.OrdinalIgnoreCase) == true);
         if (IsOrkCharacter(character)) { PlaceOrk(character, state, throwTime, own, smooth); return; }   // Ork O7a (NetworkView.Ork.cs): the boy's rig has its own clips
         character.ClearPoseLayers();  // M27: the recoil layer is laid again by PlaceLocomotion when it applies (animation pass 1: every layer slot, CharacterViewer.Layers.cs; the fall slots by FallLayers)
@@ -1433,6 +1439,7 @@ public partial class NetworkView : Node3D
         if (character.GetNodeOrNull<Node3D>("ChargeGlow") is { } glow) glow.Visible = state.Alive && state.Charging && !NoMarkers;
         // Reacting (M28): the reaction clip at the reaction's time; a reaction ends any attack, throw, evade or jump on the ground.
         character.ClipFootLock = false;   // anim/melee-flow: only the strikes and the charge below hold their put-down feet (CharacterViewer.ClipFootLock.cs)
+        character.ClipStrideScale = 1f;   // anim/hammer-swing: only a hammer strike below stretches the clip's stride (NetworkView.HammerSwing.cs)
         if (ReactionPose(state) is { } reaction && PoseSharp(character, reaction.Clip, MathF.Max(0f, (smooth is { Kind: ClipKind.Reaction } sr ? sr.Time : reaction.Time) - HitStopHold(state.PlayerId)), ClipBlends.Reaction)) return;   // feel/melee-lock: the hit-stop holds it
         // Charging (M29): the rush or its collision stop, at the phase's time.
         // feel/jump-pack (the owner, 2026-10-29): a charge held in the air off a ledge shows the fall pose (the locomotion path below), not its clip frozen (NetworkView.Fall.cs).
@@ -1460,6 +1467,7 @@ public partial class NetworkView : Node3D
             // anim/melee-flow (NetworkView.MeleeFlow.cs): the blend into the strike from its graph (entry or chain); noted every frame the strike shows, handed over or not.
             float entryBlend = NoMeleeFlow ? ClipBlends.Melee(state.MeleeStep) : MeleeEntryBlend(state);
             if (HandoffAttack(character, state, own, baseClip, attackTime, baseTime)) return;
+            character.ClipStrideScale = HammerStrideScale(state);   // anim/hammer-swing: the legs travel the body's lunge, not the clip's
             if (PoseSharp(character, baseClip, baseTime, entryBlend, sharp: !(state.MeleeHeavy && HeavyClass(state))))   // feel/weight-impact: not the stomp
             {
                 if (overClip is not null) character.SetLayer(PoseSlots.MeleeVariant, overClip, overTime, overWeight, additive: false);
@@ -1824,7 +1832,7 @@ public partial class NetworkView : Node3D
                 lines.Add($"RTT {_client.HandshakeRoundTrip.TotalMilliseconds:F0} ms (handshake)   players {1 + _remotes.Count}   tick {_client.Tick}");
                 lines.Add($"position {me.Position.X:F1}, {me.Position.Y:F1}, {me.Position.Z:F1} m   speed {MathF.Sqrt(me.Velocity.X * me.Velocity.X + me.Velocity.Y * me.Velocity.Y):F1} m/s   {_local?.Playing}");
             }
-            lines.Add(_bot ? (_botMelee ? "bot input (runs at the nearest living player; melee within 3 m)" : $"bot input (aims at and fires on the nearest living enemy (anyone without teams; on a map only one it sees within its weapon's range (--bot-range) and not one in its spawn room; shots get aim error (--bot-accuracy); otherwise it walks toward the nearest enemy, waits 8-15 m from a sealed spawn door, or goes to the map centre), charges charge weapons, detonates grenades, throws grenades at 6-{_botThrowMax:F0} m, closes in with the melta, jumps at 8-30 m and pounds from above with a jump pack, switches when empty or overheated; melee within 3 m)") : "WASD move, Shift sprint, mouse aim, Left/Right arrows turn, E pick up, left mouse fire (charge weapons: tap = normal shot, hold = charged shot; the first shot waits for the weapon to come up), right mouse / V melee, F stun strike (heavy melee, in the direction of the keys held; Shift + W + F: the charge, Shift + W + A / W + D + F a bit to that side), hold Left Ctrl aim mode, G throw grenade, Space jump pack (hold: higher; V in the air: ground pound), R reload (detonates grenades out), X / mouse wheel switch weapon, Tab scoreboard, Esc frees the mouse");
+            lines.Add(_bot ? (_botMelee ? "bot input (runs at the nearest living player; melee within 3 m)" : $"bot input (aims at and fires on the nearest living enemy (anyone without teams; on a map only one it sees within its weapon's range (--bot-range) and not one in its spawn room; shots get aim error (--bot-accuracy); otherwise it walks toward the nearest enemy, waits 8-15 m from a sealed spawn door, or goes to the map centre), charges charge weapons, detonates grenades, throws grenades at 6-{_botThrowMax:F0} m, closes in with the melta, jumps at 8-30 m and pounds from above with a jump pack, switches when empty or overheated; melee within 3 m)") : "WASD move, Shift sprint, mouse aim, Left/Right arrows turn, E pick up, left mouse fire (charge weapons: tap = normal shot, hold = charged shot; the first shot waits for the weapon to come up), right mouse / V melee, F stun strike (heavy melee, in the direction of the keys held; Shift + W + F: the charge, Shift + W + A / W + D + F a bit to that side), hold Left Ctrl aim mode, G throw grenade, Space jump pack (hold: higher; V in the air: ground pound), R reload (detonates grenades out), X / mouse wheel switch weapon, Tab scoreboard, F11 fullscreen, Esc frees the mouse");
             lines.Add(_cameraNote + (_cameraInfo.Length > 0 && RigCameraWanted ? "; now " + _cameraInfo : ""));
             if (_mapNote is not null) lines.Add(_mapNote);
             else if (_client?.MapError is { } mapError) lines.Add("map not loaded: " + mapError);

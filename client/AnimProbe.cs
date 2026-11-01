@@ -76,7 +76,25 @@ public partial class AnimProbe : Node
         public double MoveRun;   // seconds the clip has been showing while the body moved
         public Quaternion[] PreviousPose = Array.Empty<Quaternion>();
         public bool HavePose;
+        // anim/hammer-swing: the swing probe's previous frame (ankle in the world and in the body's frame, the body's place, the clip).
+        public Vector2[] SwingAnkle = new Vector2[2], SwingLocal = new Vector2[2];
+        public Vector2 SwingBody; public string SwingClip = ""; public bool HaveSwing;
+        public float SwingBodyTravel; public readonly float[] SwingFootTravel = new float[2];
     }
+
+    /// <summary>
+    /// anim/hammer-swing (test aid, ours): per melee clip shown on the whole body, how the legs follow the body. Per frame: the body's travel (m), each ankle's travel in the world, the leg's
+    /// stretch (hip to ankle over the leg's length; 1 = fully straight), how far behind the body the ankle trails (m), the ankle's step in the body's own frame between frames (cm), and per
+    /// stretch of one clip the body's travel against the two ankles' travel.
+    /// </summary>
+    sealed class SwingStat
+    {
+        public int Frames, Stretched;
+        public readonly List<float> BodySpeed = new(), AnkleSpeed = new(), Stretch = new(), Behind = new(), LocalStep = new();
+        public readonly List<(float Body, float Feet)> Runs = new();
+        public float MaxStretch, MaxBehind;
+    }
+    readonly Dictionary<string, SwingStat> _swing = new();
 
     /// <summary>The biggest single-frame bone turns seen (degrees, time, player, bone, the layers then), for the report.</summary>
     readonly List<(float Degrees, double T, string Player, string Bone, string Layers)> _jumps = new();
@@ -267,6 +285,7 @@ public partial class AnimProbe : Node
             track.Previous[f] = p;
         }
         track.HavePrevious = true;
+        SampleSwing(character, skeleton, track, meleeClip, here, forward, delta);
         if (CsvPath is not null)
         {
             _csv ??= new System.IO.StreamWriter(CsvPath) { AutoFlush = false };
@@ -379,6 +398,68 @@ public partial class AnimProbe : Node
         }
     }
 
+
+    /// <summary>The swing probe's per-frame sample (see <see cref="SwingStat"/>).</summary>
+    void SampleSwing(CharacterViewer character, Skeleton3D skeleton, Track track, bool meleeClip, Vector2 here, Vector2 forward, double delta)
+    {
+        string clip = meleeClip ? character.Playing ?? "" : "";
+        var xf = skeleton.GlobalTransform;
+        var ankle = new Vector2[2]; var local = new Vector2[2]; var stretch = new float[2];
+        var right = new Vector2(forward.Y, -forward.X);
+        for (int f = 0; f < 2; f++)
+        {
+            var a = xf * skeleton.GetBoneGlobalPose(track.Ankles[f]).Origin;
+            ankle[f] = new Vector2(a.X, a.Z);
+            var d = ankle[f] - here;
+            local[f] = new Vector2(d.Dot(right), d.Dot(forward));
+            var hip = skeleton.GetBoneGlobalPose(track.Hips[f]).Origin; var knee = skeleton.GetBoneGlobalPose(track.Knees[f]).Origin; var ank = skeleton.GetBoneGlobalPose(track.Ankles[f]).Origin;
+            float len = hip.DistanceTo(knee) + knee.DistanceTo(ank);
+            stretch[f] = len > 1e-4f ? hip.DistanceTo(ank) / len : 0f;
+        }
+        if (SwingTrace is not null && clip.Length > 0 && character.Name == SwingTrace)
+            GD.Print($"SWTRACE {_clock:F3} {clip} t {character.ClipTime?.Time ?? -1f:F3} body {(here - track.SwingBody).Length() / (float)delta:F2} m/s stretch {stretch[0]:F3} {stretch[1]:F3} ankle fwd {local[0].Y:F2} {local[1].Y:F2} side {local[0].X:F2} {local[1].X:F2} pins {character.ClipLockDebug()}");
+        if (clip.Length > 0 && track.HaveSwing && track.SwingClip == clip && track.Frames > WarmUpFrames)
+        {
+            if (!_swing.TryGetValue(clip, out var st)) _swing[clip] = st = new SwingStat();
+            st.Frames++;
+            float body = (here - track.SwingBody).Length();
+            st.BodySpeed.Add(body / (float)delta);
+            track.SwingBodyTravel += body;
+            for (int f = 0; f < 2; f++)
+            {
+                float step = (ankle[f] - track.SwingAnkle[f]).Length();
+                st.AnkleSpeed.Add(step / (float)delta);
+                track.SwingFootTravel[f] += step;
+                st.Stretch.Add(stretch[f]); st.MaxStretch = MathF.Max(st.MaxStretch, stretch[f]);
+                if (stretch[f] > 0.985f) st.Stretched++;
+                st.Behind.Add(-local[f].Y); st.MaxBehind = MathF.Max(st.MaxBehind, -local[f].Y);
+                st.LocalStep.Add((local[f] - track.SwingLocal[f]).Length() * 100f);
+            }
+        }
+        else if (track.HaveSwing && track.SwingClip.Length > 0 && track.SwingClip != clip && _swing.TryGetValue(track.SwingClip, out var done))
+        {
+            done.Runs.Add((track.SwingBodyTravel, (track.SwingFootTravel[0] + track.SwingFootTravel[1]) * 0.5f));
+        }
+        if (track.SwingClip != clip) { track.SwingBodyTravel = 0f; track.SwingFootTravel[0] = track.SwingFootTravel[1] = 0f; }
+        track.SwingClip = clip; track.SwingBody = here; track.HaveSwing = true;
+        track.SwingAnkle[0] = ankle[0]; track.SwingAnkle[1] = ankle[1]; track.SwingLocal[0] = local[0]; track.SwingLocal[1] = local[1];
+    }
+
+    /// <summary><c>--swing-trace &lt;character name&gt;</c> (test aid): one SWTRACE line per frame of that character's whole-body melee clips (body speed, leg stretch, ankles in the body frame, the foot pins).</summary>
+    static readonly string? SwingTrace = OS.GetCmdlineUserArgs() is var sta && Array.IndexOf(sta, "--swing-trace") is var sti and >= 0 && sti + 1 < sta.Length ? sta[sti + 1] : null;
+
+    void ReportSwing(string tag)
+    {
+        if (_swing.Count == 0) return;
+        GD.Print($"{tag} SWING (anim/hammer-swing; whole-body melee clips): per clip: frames, body travel per stretch of the clip (median m), the two ankles' mean travel (median m), body speed p90 (m/s), ankle speed median / p90 (m/s), leg stretch max / p99 (1 = straight), frames >= 0.985, ankle behind the body max (m), ankle step in the body frame p99 / max (cm per frame)");
+        foreach (var kv in _swing.Where(k => k.Value.Frames >= 30).OrderByDescending(k => k.Value.Frames).Take(40))
+        {
+            var st = kv.Value;
+            var runs = st.Runs.Where(r => r.Body > 0.05f).ToList();
+            GD.Print($"{tag} SWING {kv.Key,-36} {st.Frames,5} fr, runs {runs.Count,3}: body {(runs.Count > 0 ? Median(runs.Select(r => r.Body).ToList()) : float.NaN):F2} m, ankles {(runs.Count > 0 ? Median(runs.Select(r => r.Feet).ToList()) : float.NaN):F2} m; body p90 {Percentile(st.BodySpeed, 0.9f):F1} m/s; ankle {Median(st.AnkleSpeed):F2} / {Percentile(st.AnkleSpeed, 0.9f):F2} m/s; stretch {st.MaxStretch:F3} / {Percentile(st.Stretch, 0.99f):F3}, straight {st.Stretched}; behind {st.MaxBehind:F2} m; local step {Percentile(st.LocalStep, 0.99f):F1} / {st.LocalStep.Max():F1} cm");
+        }
+    }
+
     void ReportJumps(string tag)
     {
         if (_jumps.Count == 0) return;
@@ -388,5 +469,5 @@ public partial class AnimProbe : Node
             GD.Print($"    {j.Degrees:F0} deg {j.Bone} at {j.T:F2} s {j.Player}: {j.Layers}");
     }
 
-    public override void _ExitTree() { Report(true); ReportJumps("ANIMPROBE final"); _csv?.Dispose(); }
+    public override void _ExitTree() { Report(true); ReportSwing("ANIMPROBE final"); ReportJumps("ANIMPROBE final"); _csv?.Dispose(); }
 }

@@ -176,11 +176,11 @@ public class TfwFireTests
         var records = new List<TfwFireEvent>();
         fire.TakeEvents(records);
         Assert.Contains(records, r => r.Kind == TfwFireKind.Shell);
-        Assert.Equal((byte)TfwFireRules.StrikeCooldownSeconds, w.TfwOwn(Human).OrbitalSeconds);
+        Assert.Equal(0, w.TfwOwn(Human).OrbitalSeconds);
     }
 
     [Fact]
-    public void The_server_refuses_a_strike_on_cooldown_off_the_battlefield_from_the_dead_or_outside_a_battle()
+    public void The_server_refuses_a_strike_off_the_battlefield_from_the_dead_or_outside_a_battle()
     {
         var hub = TfwRig.War();
         Assert.False(hub.TfwOrbital(Human, Open));
@@ -190,11 +190,7 @@ public class TfwFireTests
         Assert.False(w.TfwOrbital(Human, new Vector3(box.Max.X + 5f, 0f, 0f)));
         Assert.False(w.TfwOrbital(Human, new Vector3(float.NaN, 0f, 0f)));
         Assert.False(w.TfwOrbital(Human + 1, Open));
-        Assert.Equal(0, fire.StrikeTicksLeft(Human, w.Tick));
         Assert.True(w.TfwOrbital(Human, Open));
-        Assert.False(w.TfwOrbital(Human, Open));
-        TfwRig.Seconds(w, 12f);
-        if (w.Players[Human].Alive) Assert.False(w.TfwOrbital(Human, Open));
         Assert.Equal(1, fire.Barrages);
         var dead = Battle();
         Assert.True(dead.TfwKillForTests(Human));
@@ -202,23 +198,24 @@ public class TfwFireTests
     }
 
     [Fact]
-    public void The_cooldown_ends_after_60_s()
+    public void Every_call_is_a_strike_even_with_a_barrage_under_way()
     {
-        var fire = new TfwFire();
-        fire.StrikeCalledForTests(1, 100, 30);
-        Assert.Equal(1800, fire.StrikeTicksLeft(1, 100));
-        Assert.True(fire.StrikeTicksLeft(1, 1899) > 0);
-        Assert.Equal(0, fire.StrikeTicksLeft(1, 1900));
-        Assert.Equal(0, fire.StrikeTicksLeft(2, 100));
+        var w = Battle();
+        var fire = w.Tfw!.Fire;
+        Assert.True(w.TfwOrbital(Human, Open));
+        int first = fire.Shells.Count;
+        Assert.True(w.TfwOrbital(Human, Open));
+        Assert.Equal(2, fire.Barrages);
+        Assert.True(fire.Shells.Count > first);
+        Assert.Equal(0, w.TfwOwn(Human).OrbitalSeconds);
     }
 
     [Fact]
-    public void The_cooldown_travels_in_the_own_block_and_the_hud_says_it()
+    public void The_spare_byte_still_travels_in_the_own_block_and_the_hud_is_always_ready()
     {
         var war = new TfwWarView(TfwRunPhase.Battle, TfwLane.B, 1f, 1f, 1, 1, 0, default, default, default, new TfwOwnView(0, 0, 0, 0, 0, false, TfwRetainerState.None, default, 0, 0, 0, 0, 0, true, 37));
         Assert.Equal(37, TfwWire.ReadWar(TfwWire.WriteWar(war))!.Value.Own.OrbitalSeconds);
-        Assert.Equal("ORBITAL STRIKE IN 37 S", TfwHudModel.OrbitalText(war.Own));
-        Assert.Equal("B ORBITAL STRIKE READY", TfwHudModel.OrbitalText(default));
+        Assert.Equal("B ORBITAL STRIKE READY", TfwHudModel.OrbitalText);
     }
 
     [Fact]

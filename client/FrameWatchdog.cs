@@ -17,6 +17,9 @@ sealed class FrameWatchdog : IDisposable
 {
     /// <summary>Seconds without a finished frame after which a report is printed (and every this long again while it lasts).</summary>
     public const double StallSeconds = 2.0;
+    /// <summary>fix/stall-keepalive: the threshold for a human player's client (bots and <c>--frame-profile</c> keep <see cref="StallSeconds"/>); the cost is a thread that wakes four times a second.</summary>
+    public const double HumanStallSeconds = 3.0;
+    readonly double _stallSeconds;
 
     readonly Thread _thread;
     readonly Process _process = Process.GetCurrentProcess();
@@ -29,9 +32,10 @@ sealed class FrameWatchdog : IDisposable
     readonly string? _file;
 
     /// <param name="file">Optional file the reports and a 5 s heartbeat are also appended to, independent of the engine's console (test aid).</param>
-    public FrameWatchdog(string name, string? file = null)
+    public FrameWatchdog(string name, string? file = null, double stallSeconds = StallSeconds)
     {
         _name = name;
+        _stallSeconds = stallSeconds;
         _file = file;
         _thread = new Thread(Run) { IsBackground = true, Name = "FrameWatchdog" };
         _thread.Start();
@@ -79,8 +83,8 @@ sealed class FrameWatchdog : IDisposable
                 Write($"{DateTime.Now:HH:mm:ss} heartbeat {_name}: frame {Interlocked.Read(ref _frames)}, last frame {Stopwatch.GetElapsedTime(Interlocked.Read(ref _frameAt), now).TotalSeconds:F1} s ago, phase '{_phase}' for {Stopwatch.GetElapsedTime(Interlocked.Read(ref _phaseAt), now).TotalSeconds:F1} s, cpu {CpuSeconds():F0} s");
             }
             double silent = Stopwatch.GetElapsedTime(Interlocked.Read(ref _frameAt), now).TotalSeconds;
-            if (silent < StallSeconds) { lastReportAt = 0; lastCpu = CpuSeconds(); lastGcPause = (long)GC.GetTotalPauseDuration().TotalMilliseconds; continue; }
-            if (silent - lastReportAt < StallSeconds) continue;
+            if (silent < _stallSeconds) { lastReportAt = 0; lastCpu = CpuSeconds(); lastGcPause = (long)GC.GetTotalPauseDuration().TotalMilliseconds; continue; }
+            if (silent - lastReportAt < _stallSeconds) continue;
             lastReportAt = silent;
             double inPhase = Stopwatch.GetElapsedTime(Interlocked.Read(ref _phaseAt), now).TotalSeconds;
             double cpu = CpuSeconds();

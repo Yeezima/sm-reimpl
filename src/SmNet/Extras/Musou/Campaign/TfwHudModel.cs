@@ -144,8 +144,8 @@ public static class TfwHudModel
     };
 
     /// <summary>The Guardsmen's line.</summary>
-    /// <summary>The orbital strike's line: its key when ready, else the seconds left.</summary>
-    public static string OrbitalText(in TfwOwnView own) => own.OrbitalSeconds == 0 ? "B ORBITAL STRIKE READY" : string.Create(CultureInfo.InvariantCulture, $"ORBITAL STRIKE IN {own.OrbitalSeconds} S");
+    /// <summary>The orbital strike's line: always ready, there is no cooldown.</summary>
+    public const string OrbitalText = "B ORBITAL STRIKE READY";
 
     public static string GuardsText(in TfwOwnView own) => own.Guards == 0 && own.Squads == 0 && own.Reserves == 0 ? "" : $"GUARDS {own.Guards}, {own.Squads} SQUADS + {own.Reserves} IN RESERVE";
 

@@ -37,7 +37,7 @@ public sealed class FxEffect
     public bool Ambient;
     /// <summary>Stops soon after <see cref="Follow"/> is lost (a projectile's trail when it is gone).</summary>
     public bool StopOnLost;
-    /// <summary>M40-T13 (ours): recolours the effect's sprites, beams and streamers to this hue at their own brightness (the lens colour on the Chaos eye glow); null: the data's colours.</summary>
+    /// <summary>M40-T13 (ours): recolours the effect's sprites, beams and streamers to this hue at their own brightness (plasma); null: the data's colours.</summary>
     public Color? Tint;
     /// <summary>Metres per second of a clamped beam's bright head, replacing the element's <c>USpeed</c> (0: the element's own); set for tracers whose flight is capped.</summary>
     public float HeadSpeed;

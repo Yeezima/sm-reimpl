@@ -108,6 +108,19 @@ public class AppearanceRenderingTests
     [InlineData("nothing", 0)]
     public void Lens_rectangles_per_helmet(string package, int count) => Assert.Equal(count, LensRegions.For(package).Count);
 
+    [Theory]
+    [InlineData("sm_armour_mp_mk6_helmet", 8f)]   // the Mk6's lens texels are very dark: its recoloured lens is scaled up so the chosen colour reads
+    [InlineData("sm_armour_mp_basic_helmet", 1f)]
+    [InlineData("csm_armour_mp_havoc_02_helmet", 1f)]
+    [InlineData("nothing", 1f)]
+    public void The_recoloured_lens_is_scaled_only_where_the_texels_are_dark(string package, float gain) => Assert.Equal(gain, LensRegions.Gain(package));
+
+    [Fact]
+    public void Every_lens_helmet_has_a_usable_gain()
+    {
+        foreach (var package in LensRegions.Packages) Assert.InRange(LensRegions.Gain(package), 1f, 16f);
+    }
+
     [Fact]
     public void The_slots_are_padded_to_the_shaders_four_rectangles()
     {

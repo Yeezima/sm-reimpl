@@ -16,7 +16,7 @@ namespace SmClient;
 /// the mask; dirt mixed in by its alpha; the paint's specular colour sets the specular scale there).
 /// M40-T13: the <c>LightPropMap</c> (<c>_lp</c>, DXT1) is read too (docs/discovery.md "Light property maps"): R a per-material property (most likely the specular power) used as a roughness scale
 /// (lowest on metal ornaments, highest on cables and undersuit; the scale is R over the plates' value; low confidence), G the
-/// self-illumination mask (eye lenses, plasma coils; emission = albedo x G x <see cref="LpGlowGain"/>, the gain ours), B the reflection mask
+/// self-illumination mask (eye lenses, plasma coils; emission = albedo x G x <see cref="LpGlowGain"/>, the gain ours; none inside the lens rectangles of a recoloured helmet: the chosen lens colour is the lens's colour, not a glow), B the reflection mask
 /// (the gold ornaments; drawn as partial metalness and lower roughness, ours). The paint gain (<see cref="PaintGain"/>) is 3.1 since M40-T13,
 /// measured against the pre-painted Ultramarine set (it was 2.5 by eye).
 /// </summary>
@@ -150,7 +150,7 @@ public sealed partial class MapMaterials
     }
 
     /// <summary>A lens colour and the helmet's lens rectangles (<see cref="SmContent.Customization.LensRegions.Slots"/>) for the painted shader.</summary>
-    public sealed record LensSetting(Color Colour, (float U0, float V0, float U1, float V1)[] Rects);
+    public sealed record LensSetting(Color Colour, (float U0, float V0, float U1, float V1)[] Rects, float Gain = 1f);
 
     /// <summary>
     /// A painted material for <paramref name="colours"/>, with the <paramref name="decal"/> (null: none) and the <paramref name="lens"/> recolouring
@@ -194,6 +194,7 @@ public sealed partial class MapMaterials
         {
             material.SetShaderParameter("use_lens", true);
             material.SetShaderParameter("lens_colour", lens.Colour);
+            material.SetShaderParameter("lens_gain", lens.Gain);
             for (int i = 0; i < lens.Rects.Length && i < 4; i++)
             {
                 var r = lens.Rects[i];
@@ -312,9 +313,11 @@ public sealed partial class MapMaterials
         uniform float glow_gain = 4.0;
         uniform float reflect_metal = 0.5;
         // Eye lens colour (ours; discovery.md "Helmet eye lenses"): inside the helmet's lens rectangles (0..1 over the diffuse, rows from the top), texels
-        // that are saturated, not dark and outside the paint mask are the lens; they take lens_colour at the texel's own brightness.
+        // that are saturated, not dark and outside the paint mask are the lens; they take lens_colour at the texel's own brightness. The lens is recoloured,
+        // it does not glow: inside the rectangles the light property map's self-illumination is switched off while a lens colour is chosen.
         uniform bool use_lens = false;
         uniform vec3 lens_colour : source_color = vec3(1.0, 0.0, 0.0);
+        uniform float lens_gain = 1.0;
         uniform vec4 lens_rect0 = vec4(0.0);
         uniform vec4 lens_rect1 = vec4(0.0);
         uniform vec4 lens_rect2 = vec4(0.0);
@@ -331,17 +334,19 @@ public sealed partial class MapMaterials
             vec3 colour = (primary * m.r + secondary * m.g + tertiary * m.b) / max(m.r + m.g + m.b, 0.001);
             vec3 albedo = mix(base, colour * shade, w);
             albedo = mix(albedo, dirt_colour * shade, m.a * dirt_amount);
+            float lens_zone = 0.0;
             if (use_lens) {
                 vec2 t = fract(UV);
                 float inside = max(max(in_rect(t, lens_rect0), in_rect(t, lens_rect1)), max(in_rect(t, lens_rect2), in_rect(t, lens_rect3)));
                 if (inside > 0.5) {
+                    lens_zone = 1.0;
                     // The rule is stated on sRGB-coded values (saturation above 0.4, brightest channel above 30/255, mask sum under 110/255); the soft
                     // edges only keep the lens outline from aliasing.
                     vec3 s = mix(base * 12.92, 1.055 * pow(max(base, vec3(0.0001)), vec3(1.0 / 2.4)) - 0.055, step(0.0031308, base));
                     float mx = max(s.r, max(s.g, s.b));
                     float sat = (mx - min(s.r, min(s.g, s.b))) / max(mx, 0.0001);
                     float w_lens = smoothstep(0.36, 0.44, sat) * smoothstep(0.10, 0.13, mx) * (1.0 - smoothstep(0.40, 0.46, m.r + m.g + m.b));
-                    albedo = mix(albedo, lens_colour * max(base.r, max(base.g, base.b)), w_lens);
+                    albedo = mix(albedo, lens_colour * (lens_gain * max(base.r, max(base.g, base.b))), w_lens);
                 }
             }
             if (use_decal) {
@@ -359,11 +364,11 @@ public sealed partial class MapMaterials
             float roughness = rough * (use_gloss ? texture(gloss_tex, UV).r : 1.0);
             if (use_lp) {
                 // R scales the roughness around the plates' value (metal ornaments a little smoother, cables a little rougher); B (reflective gold) is
-                // partly metallic and smoother; G glows in the texel's own colour (the lens colour where it was recoloured). Factors: ours.
+                // partly metallic and smoother; G glows in the texel's own colour (not inside a recoloured lens's rectangles: the lens takes the colour, no glow). Factors: ours.
                 vec3 lp = texture(lp_tex, UV).rgb;
                 roughness *= clamp(lp.r / lp_ref, 0.5, 1.2) * (1.0 - 0.35 * lp.b);
                 METALLIC = lp.b * reflect_metal;
-                EMISSION = albedo * lp.g * glow_gain;
+                EMISSION = albedo * lp.g * glow_gain * (1.0 - lens_zone);
             }
             ROUGHNESS = clamp(roughness, 0.04, 1.0);
             float paint_s = (paint_spec.x * m.r + paint_spec.y * m.g + paint_spec.z * m.b) / max(m.r + m.g + m.b, 0.001);
