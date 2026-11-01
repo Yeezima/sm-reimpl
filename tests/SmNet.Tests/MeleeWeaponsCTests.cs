@@ -333,6 +333,7 @@ public class MeleeWeaponsCTests(ITestOutputHelper output)
         {
             truth[h.Server.World.Tick] = new Dictionary<int, PlayerState>(h.Server.World.Players);
             foreach (var r in h.Server.World.LastReactions) reactedAt.Add((r.Tick, r.Target));
+            foreach (var f in h.Server.World.LastFlinches) reactedAt.Add((f.Tick, f.Target));   // sim/light-melee-flinch: a flinch is as unpredictable as a reaction
             heavySteps += h.Server.World.Players.Values.Count(p => p.MeleeHeavy && p.MeleeStep >= 3);
             for (int i = 0; i < n; i++)
                 if (h.Clients[i].Status == ClientStatus.Connected) predicted[i][h.Clients[i].Tick] = h.Clients[i].Predicted;

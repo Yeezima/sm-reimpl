@@ -9,7 +9,7 @@ namespace SmSim.Extras.Musou.Campaign;
 /// </summary>
 public static class TfwRules
 {
-    public const uint Version = 14;   // 2: TF6, the war's sections on the wire and the commands with a place; 3: TF4, the war runs (the battle, the run, the extraction); 4: TF7b, tag 7 carries the own block (TfwOwnView); 5: the own block's deployed flag, and an extraction after a won battle never ends the run; 6: pass 2's contracts (tags 11 to 14, the commands ChangeClass and ChooseReward, Knocked, the deaths Barrage and Strafe); 7: battles on Manufactorum (M1: the map's points, drawn sites, tag 8 carries each radius and the sites); 8: M7 and M11 (the class change in the Stormbird: the command ChangeClass and its smoke on tag 11; the elites' bars on tag 13; a retainer wears its owner's look; 9: the hub is the Thunderhawk's interior, map version 4); 10: taken by the rewards (M6); 11: allied navigation and line of sight (M2: the Guardsmen and AI Marines go by the walking graph, shots need a sight, squads go for the nearest position not secured, all three live from the landing) and the Orks (M3: garrisons, the tide from each point, retaking, elites by the run's wins, the crowd; the owner's changes: spawning stops only with a full capture, 200 alive, no Guardsmen for now); 12: taken by the rewards; 13: M5, the shove and the fall (Knocked), three big frags, the 20-enemy cleave, piercing shots; 14: the spawn points' crowds (the Orks of a point pool there until 50, then swarm; no lone tide, no garrison rebuilding)
+    public const uint Version = 16;   // 2: TF6, the war's sections on the wire and the commands with a place; 3: TF4, the war runs (the battle, the run, the extraction); 4: TF7b, tag 7 carries the own block (TfwOwnView); 5: the own block's deployed flag, and an extraction after a won battle never ends the run; 6: pass 2's contracts (tags 11 to 14, the commands ChangeClass and ChooseReward, Knocked, the deaths Barrage and Strafe); 7: battles on Manufactorum (M1: the map's points, drawn sites, tag 8 carries each radius and the sites); 8: M7 and M11 (the class change in the Stormbird: the command ChangeClass and its smoke on tag 11; the elites' bars on tag 13; a retainer wears its owner's look; 9: the hub is the Thunderhawk's interior, map version 4); 10: taken by the rewards (M6); 11: allied navigation and line of sight (M2: the Guardsmen and AI Marines go by the walking graph, shots need a sight, squads go for the nearest position not secured, all three live from the landing) and the Orks (M3: garrisons, the tide from each point, retaking, elites by the run's wins, the crowd; the owner's changes: spawning stops only with a full capture, 200 alive, no Guardsmen for now); 12: taken by the rewards; 13: M5, the shove and the fall (Knocked), three big frags, the 20-enemy cleave, piercing shots; 14: rewards, slots and scores merged with 13; 15: fire support (M8: tag 11 carries the shells, the commands FireTest and Orbital, the own block's cooldown); 16: the spawn points' crowds (the Orks of a point pool there until 50, then swarm; no lone tide, no garrison rebuilding)
 }
 
 /// <summary>The contract the war's milestones share (TF0, frozen): ids and how the war's actors are named across the simulation, the server and the client.</summary>
@@ -43,11 +43,11 @@ public enum TfwRunPhase : byte { Hub = 0, Travel = 1, Battle = 2, Pickup = 3, Fi
 /// <summary>A capture position in a battle (design section D): the chain goes Locked, Held, Clearing, Securing, Secured.</summary>
 public enum TfwPositionState : byte { Locked = 0, Held = 1, Clearing = 2, Securing = 3, Secured = 4 }
 
-/// <summary>A client's command (message kind 17, tag <c>TfwWire.CommandTag</c>; design section H). Deploy's argument is the lane; Hold and Attack carry a place (<see cref="TfwCommandRecord.Point"/>); ChooseReward's argument is the card (0 to <c>TfwWire.RewardCards</c> - 1).</summary>
-public enum TfwCommand : byte { Deploy = 1, RequestPickup = 2, CancelPickup = 3, Follow = 4, Hold = 5, Attack = 6, ChangeClass = 7, ChooseReward = 8 }
+/// <summary>A client's command (message kind 17, tag <c>TfwWire.CommandTag</c>; design section H). Deploy's argument is the lane; Hold and Attack carry a place (<see cref="TfwCommandRecord.Point"/>); ChooseReward's argument is the card (0 to <c>TfwWire.RewardCards</c> - 1) and <see cref="TfwCommandRecord.Offer"/> the offer it answers; SelectSlot's argument is the weapon key (1 to 5).</summary>
+public enum TfwCommand : byte { Deploy = 1, RequestPickup = 2, CancelPickup = 3, Follow = 4, Hold = 5, Attack = 6, ChangeClass = 7, ChooseReward = 8, SelectSlot = 9, Orbital = 10, FireTest = 11 }
 
-/// <summary>One decoded command: its sequence (resent until tag 7 echoes it, idempotent by it), what it asks, its argument and, for Hold and Attack, the point of the sender's crosshair (metres; untrusted, within about 3 km on each axis).</summary>
-public readonly record struct TfwCommandRecord(ushort Sequence, TfwCommand Command, byte Argument, Vector3 Point = default);
+/// <summary>One decoded command: its sequence (resent until tag 7 echoes it, idempotent by it), what it asks, its argument and, for Hold and Attack, the point of the sender's crosshair (metres; untrusted, within about 3 km on each axis). <see cref="Offer"/>: ChooseReward's offer sequence, so a delayed pick never lands on a newer offer.</summary>
+public readonly record struct TfwCommandRecord(ushort Sequence, TfwCommand Command, byte Argument, Vector3 Point = default, ushort Offer = 0);
 
 /// <summary>One front as the simulation holds it and tag 7 carries it (design section C): front -1 (HQ besieged) to 3 (stronghold), progress -1 to 1, the strengths, each position's owner bit, the gather time left, the lord's state.</summary>
 public readonly record struct TfwLaneState(sbyte Front, float Progress, float Imperial, float Ork, byte OwnedMask, float GatherLeft, byte LordState);
@@ -63,10 +63,10 @@ public enum TfwRetainerState : byte { None = 0, Ready = 1, Reviving = 2, Recover
 /// What one client's HUD needs of the run beyond the fronts (TF7b, the end of tag 7): the seconds left, rounded up (so a countdown changes the record once a second) of the travel, the pickup, the
 /// own revive window and the extraction's prompt; the revive's progress in tenths; whether the battle is won (a pickup is then free); the own retainer, its order and its recovery (war seconds, rounded
 /// up); the battle's Guardsmen alive, squads in the field, squads in reserve and positions secured; and whether this player is in the run's field (<see cref="TfwRun.InField"/>: one who joined after the
-/// landing is not, so the run does not hold its respawn).
+/// landing is not, so the run does not hold its respawn); and the seconds, rounded up, until this player may call an orbital strike.
 /// </summary>
 public readonly record struct TfwOwnView(byte TravelSeconds, byte PickupSeconds, byte ReviveSeconds, byte ExtractionSeconds, byte ReviveTenths, bool BattleWon,
-    TfwRetainerState Retainer, MarineOrder Order, ushort RecoverySeconds, byte Guards, byte Squads, byte Reserves, byte Secured, bool Deployed = false);
+    TfwRetainerState Retainer, MarineOrder Order, ushort RecoverySeconds, byte Guards, byte Squads, byte Reserves, byte Secured, bool Deployed = false, byte OrbitalSeconds = 0);
 
 /// <summary>One capture position as tag 8 carries it (positions quantised over the Musou box).</summary>
 public readonly record struct TfwObjective(byte Index, TfwPositionState State, float Progress, Vector3 Position, float Radius = 0f);
@@ -110,6 +110,18 @@ public readonly record struct TfwRewardCard(TfwRewardKind Kind, ushort Item);
 
 /// <summary>The cards offered to one client after a win (tag 14); the newest <see cref="Sequence"/> stands.</summary>
 public readonly record struct TfwRewardOffer(ushort Sequence, TfwRewardCard First, TfwRewardCard Second, TfwRewardCard Third);
+
+/// <summary>
+/// One client's extra primary slots (tag 15; owner's item 26): the weapon index in keys 3, 4 and 5 (-1: empty), and which key holds the weapon now in the player's primary and pistol fields
+/// (0: its own, never an extra). The HUD draws the slots; the client needs the two so that keys 2 and 1 bring its own weapon back.
+/// </summary>
+public readonly record struct TfwArsenalView(short Slot3, short Slot4, short Slot5, byte LoadedPrimary, byte LoadedPistol)
+{
+    /// <summary>The empty slots.</summary>
+    public static readonly TfwArsenalView Empty = new(-1, -1, -1, 0, 0);
+    /// <summary>The weapon in key <paramref name="key"/> (3 to 5), or -1.</summary>
+    public int Weapon(int key) => key switch { 3 => Slot3, 4 => Slot4, 5 => Slot5, _ => -1 };
+}
 
 /// <summary>
 /// The war of one match (<see cref="World.Tfw"/>; set only by <see cref="World.StartTfw"/>). TF0 holds the contract alone: the command queue, the AI Marines' input source and

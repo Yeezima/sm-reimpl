@@ -58,6 +58,7 @@ public static class Combat
             Rush = RushPhase.None, RushTicks = 0, RushLock = 0, ReadyTicks = 0, RaiseTicks = 0,
             Brace = BracePhase.None, BraceTicks = 0, Venting = false,
             SpreadBloom = 0f, SpreadSince = 0f, SpreadYaw = 0f, SpreadPitch = 0f,   // weapons/spread: a respawn (a round restart too) rests the weapon
+            FlinchTicks = 0,   // sim/light-melee-flinch
             Buffered = BufferedAction.None, BufferTicks = 0, BufferedCharge = false,   // feel/buffer-speed
             SprintStop = false,   // feel/locks-sprint-stop
         };

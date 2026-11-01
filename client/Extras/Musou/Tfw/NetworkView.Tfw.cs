@@ -17,7 +17,7 @@ public partial class NetworkView
     TfwHud? _tfwHud;
     TfwMarkers? _tfwMarkers;
 
-    /// <summary>Once a frame, with this frame's sections of tags 7 to 14 (the dispatcher <c>NetworkView.Extras.cs</c>). Runs after <see cref="MusouFrame"/>, which reads the director these need.</summary>
+    /// <summary>Once a frame, with this frame's sections of tags 7 to 15 (the dispatcher <c>NetworkView.Extras.cs</c>). Runs after <see cref="MusouFrame"/>, which reads the director these need.</summary>
     void TfwFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta, List<ExtrasSection> sections)
     {
         if (!MusouActive || _client is null) return;
@@ -29,10 +29,11 @@ public partial class NetworkView
         TfwHudFrame(war, me);
         TfwMarkersFrame(war);
         TfwFireFrame(war, delta);
+        TfwFireCamFrame();
         TfwBarsFrame();
         TfwClassFrame(war, me);
-        TfwScoreFrame(war);
-        TfwRewardFrame(war);
+        TfwScoreFrame(war, me);   // NetworkView.TfwRewards.cs
+        TfwRewardFrame(war, me);
         TfwBotFrame(war, me);
         TfwTestFrame();
     }
@@ -55,6 +56,9 @@ public partial class NetworkView
         f.Station = _tfwAt == TfwStation.None ? "" : TfwHudModel.StationPrompt(_tfwAt, ControlsInput.Prompt(GameAction.Use));
         f.PickupHold = _tfwKeys.PickupHold;
         f.Kos = _musouScore.Kos;
+        f.MapPoints = _tfwState.ScoreOwn?.MapPoints ?? 0;   // tag 12: the server's, never the client's tracker
+        f.RunTotal = _tfwState.ScoreOwn?.RunTotal ?? 0;
+        f.Slots = TfwSlotsLine(me);
         _tfwHud.Fed();
         _tfwHud.Visible = _endPhase == MatchEndPhase.Splash && !_tfwMapHeld;
         // The match HUD's "RESPAWN IN n" would lie: a fallen player in the field waits for its retainer or the extraction, held by the run. TfwHud says KILLED and what happens instead. One who

@@ -636,7 +636,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void The_slash_hits_everyone_in_the_cone_with_the_interrupt_no_stun_no_knockback_and_no_pound_blast()
+    public void The_slash_hits_everyone_in_the_cone_with_a_flinch_no_reaction_no_knockback_and_no_pound_blast()
     {
         var w = new World(JumpConfig, null,
         [
@@ -663,8 +663,9 @@ public class JumpPackAttackTests(ITestOutputHelper output)
         Assert.Equal(4, hitAt - landedAt);   // the impact clip's hit event (0.133 s)
         Assert.Equal([2, 3], melee.Select(h => h.Target).Order());   // the two in front, not the one behind
         Assert.All(melee, h => Assert.Equal(60f, h.ShieldDamage + h.HealthDamage, 3));   // every target the one profile
-        Assert.All([2, 3], id => Assert.Equal((ReactionKind.Interrupt, 0), (w.Players[id].Reaction, w.Players[id].PushDistance)));
-        Assert.Equal(ReactionKind.None, w.Players[4].Reaction);
+        // sim/light-melee-flinch: the slash is a light attack: its profile's interrupt is a flinch now (no reaction, no knockback).
+        Assert.All([2, 3], id => Assert.Equal((ReactionKind.None, 0, true), (w.Players[id].Reaction, w.Players[id].PushDistance, w.Players[id].FlinchTicks > 0)));
+        Assert.Equal((ReactionKind.None, 0), (w.Players[4].Reaction, w.Players[4].FlinchTicks));
         // No pound blast (25 + 50 shield, 7 m): only the regular landing's (5, 4 m) as any landing (ours).
         Assert.All(splash, h => Assert.True(h.Landing && h.ShieldDamage + h.HealthDamage <= 5f + 1e-3f, $"{h}"));
         Assert.Equal(JumpPhase.Recover, w.Players[1].Jump);
@@ -785,8 +786,8 @@ public class JumpPackAttackTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_30_carries_the_dash_attacks_phases_and_the_slash_and_a_full_snapshot_stays_within_1200_bytes()
     {
-        Assert.Equal(51, Protocol.Version);
-        Assert.Equal(1194, Protocol.MaxSnapshotBytes);
+        Assert.Equal(52, Protocol.Version);
+        Assert.Equal(1195, Protocol.MaxSnapshotBytes);
         foreach (var phase in new[] { RushPhase.DashAttack, RushPhase.DashHit, RushPhase.DashStop, RushPhase.DashCollision })
         {
             var p = new PlayerState(4, Vector3.One, Vector3.Zero, 1f, false) { Alive = true, Rush = phase, RushTicks = 25, RushLock = 7 };

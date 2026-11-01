@@ -29,12 +29,12 @@ public sealed class TfwCommandSender
     public int Pending => _pending.Count;
 
     /// <summary>Queues a command; its sequence, or null when <see cref="MaxPending"/> wait. <paramref name="point"/>: the crosshair's point, for Hold and Attack. Sequence 0 is never used (the echo before any command).</summary>
-    public ushort? Issue(TfwCommand command, byte argument = 0, Vector3 point = default)
+    public ushort? Issue(TfwCommand command, byte argument = 0, Vector3 point = default, ushort offer = 0)
     {
         if (_pending.Count >= MaxPending) return null;
         if (++_sequence == 0) _sequence = 1;
         if (_pending.Count == 0) _dueAt = _lastSent + MinGapSeconds;
-        _pending.Enqueue(new TfwCommandRecord(_sequence, command, argument, point));
+        _pending.Enqueue(new TfwCommandRecord(_sequence, command, argument, point, offer));
         return _sequence;
     }
 
@@ -101,7 +101,7 @@ public sealed class TfwClientState
     readonly List<TfwGuardShown> _shown = new();
     TfwObjective[] _objectives = [];
     Vector3[] _sites = [];
-    uint? _warTick, _objectivesTick, _scoreOwnTick, _scoreOthersTick, _scoreHistoryTick, _barsTick;
+    uint? _warTick, _objectivesTick, _scoreOwnTick, _scoreOthersTick, _scoreHistoryTick, _barsTick, _arsenalTick;
     double _now;
     readonly Dictionary<(TfwFireKind, uint, ushort), double> _firePlayed = new();
     readonly List<TfwFireEvent> _newFire = new();
@@ -116,6 +116,10 @@ public sealed class TfwClientState
     public IReadOnlyList<TfwBar> Bars { get; private set; } = [];
     /// <summary>The newest reward offer heard (tag 14); null before the first.</summary>
     public TfwRewardOffer? Reward { get; private set; }
+    /// <summary>The server tick of the last copy of <see cref="Reward"/>: a standing offer repeats every second, one no longer heard is gone.</summary>
+    public uint RewardTick { get; private set; }
+    /// <summary>The newest extra slots heard (tag 15).</summary>
+    public TfwArsenalView Arsenal { get; private set; } = TfwArsenalView.Empty;
 
     /// <summary>The newest war heard; null before the first.</summary>
     public TfwWarView? War { get; private set; }
@@ -165,7 +169,7 @@ public sealed class TfwClientState
             foreach (var s in held) Read(s, known);
         }
         if (section.Tag == TfwWire.WarTag) return ReadWar(section);
-        if (section.Tag is >= TfwWire.FireTag and <= TfwWire.RewardTag) return ReadBoxless(section);
+        if (section.Tag is >= TfwWire.FireTag and <= TfwWire.ArsenalTag) return ReadBoxless(section);
         if (box is { } ready) return Read(section, ready);
 
         // No box yet: hold it (the oldest goes first when full), after the length checks.
@@ -225,8 +229,15 @@ public sealed class TfwClientState
             case TfwWire.RewardTag:
                 if (TfwWire.ReadReward(section.Payload) is not { } offer) break;
                 Heard(section);
-                if (Reward is { } held && !TfwWire.IsNewer(offer.Sequence, held.Sequence)) { StaleSections++; return true; }
+                if (Reward is { } held && held.Sequence == offer.Sequence) { RewardTick = Math.Max(RewardTick, section.ServerTick); return true; }
+                if (Reward is { } older && !TfwWire.IsNewer(offer.Sequence, older.Sequence)) { StaleSections++; return true; }
                 Reward = offer;
+                RewardTick = section.ServerTick;
+                return true;
+            case TfwWire.ArsenalTag:
+                if (TfwWire.ReadArsenal(section.Payload) is not { } arsenal) break;
+                Heard(section);
+                if (!Stale(ref _arsenalTick, section.ServerTick)) Arsenal = arsenal;
                 return true;
         }
         SectionsMalformed++;
@@ -244,8 +255,8 @@ public sealed class TfwClientState
     void ForgetBoxless()
     {
         _firePlayed.Clear(); _newFire.Clear();
-        _scoreOwnTick = _scoreOthersTick = _scoreHistoryTick = _barsTick = null;
-        ScoreOwn = null; ScoreOthers = []; ScoreHistory = []; Bars = []; Reward = null;
+        _scoreOwnTick = _scoreOthersTick = _scoreHistoryTick = _barsTick = _arsenalTick = null;
+        ScoreOwn = null; ScoreOthers = []; ScoreHistory = []; Bars = []; Reward = null; RewardTick = 0; Arsenal = TfwArsenalView.Empty;
     }
 
     bool Read(in ExtrasSection section, MusouBox box)

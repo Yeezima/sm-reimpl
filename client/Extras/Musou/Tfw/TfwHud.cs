@@ -26,6 +26,9 @@ public sealed partial class TfwHud : Control
         public string Station = "";
         public float PickupHold;
         public int Kos;
+        /// <summary>The map's points and the run's total (tag 12), and the line of keys 3 to 5.</summary>
+        public uint MapPoints, RunTotal;
+        public string Slots = "";
     }
 
     public Frame Data = new();
@@ -43,6 +46,8 @@ public sealed partial class TfwHud : Control
     bool _aliveFor;
     string _hq = "", _reserves = "", _clock = "", _prompt = "", _guards = "", _retainer = "", _kosText = "", _pickupText = "";
     int _kosFor = -1;
+    uint _pointsFor = uint.MaxValue, _totalFor = uint.MaxValue;
+    string _pointsText = "";
     readonly string[] _lanes = new string[3], _objectiveNames = new string[4], _objectiveStates = new string[4];
 
     /// <summary>The big line now (the tests read it).</summary>
@@ -76,12 +81,15 @@ public sealed partial class TfwHud : Control
         if (Data.War is not { } war) return;
         int orksSig = 0;
         foreach (int n in Data.OrksOn) orksSig = orksSig * 31 + n;
-        if (_textFor is { } was && was == war && ReferenceEquals(_objectivesFor, Data.Objectives) && _aliveFor == Data.Alive && _kosFor == Data.Kos && _orksFor == orksSig) return;
+        if (_textFor is { } was && was == war && ReferenceEquals(_objectivesFor, Data.Objectives) && _aliveFor == Data.Alive && _kosFor == Data.Kos && _orksFor == orksSig && _pointsFor == Data.MapPoints && _totalFor == Data.RunTotal) return;
         _orksFor = orksSig;
         _textFor = war;
         _objectivesFor = Data.Objectives;
         _aliveFor = Data.Alive;
         _kosFor = Data.Kos;
+        _pointsFor = Data.MapPoints;
+        _totalFor = Data.RunTotal;
+        _pointsText = string.Create(System.Globalization.CultureInfo.InvariantCulture, $"POINTS {Data.MapPoints:N0}    RUN {Data.RunTotal:N0}");
         _hq = TfwHudModel.HqText(war);
         _reserves = $"TRANSPORT {war.Transport}    SUPPLIES {war.Supplies}";
         _clock = $"WAR {TfwHudModel.ClockText(war.Clock)}    {TfwHudModel.ScaleText(war.TimeScale)}";
@@ -172,7 +180,7 @@ public sealed partial class TfwHud : Control
     {
         float y0 = PanelY + 3 * RowH + 3 * 26f + 22f + 12f;
         int rows = Math.Min(_objectiveNames.Length, Data.Objectives.Count);
-        float h = rows * 24f + 3 * 24f + 44f;
+        float h = rows * 24f + 6 * 24f + 44f;
         Panel(PanelX, y0, PanelW, h);
         float lx = PanelX + 18f, rx = PanelX + PanelW - 18f, y = y0 + 26f;
         for (int k = 0; k < rows; k++, y += 24f)
@@ -186,7 +194,10 @@ public sealed partial class TfwHud : Control
         Txt(_guards, lx, y, 16, White);
         Txt(_retainer, lx, y + 24f, 16, White);
         Txt(_kosText, rx, y + 24f, 16, Gold, 1);
-        Txt("Z FOLLOW   X HOLD   V ATTACK   HOLD P PICKUP", lx, y + 50f, 14, Grey);
+        Txt(_pointsText, lx, y + 48f, 16, Gold);
+        Txt(Data.Slots, lx, y + 72f, 14, White);
+        if (Data.War is { } war) Txt(TfwHudModel.OrbitalText(war.Own), lx, y + 96f, 16, war.Own.OrbitalSeconds == 0 ? Gold : Grey);
+        Txt("Z FOLLOW   X HOLD   V ATTACK   HOLD P PICKUP", lx, y + 122f, 14, Grey);
     }
 
     void DrawPrompts(Vector2 vs)

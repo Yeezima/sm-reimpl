@@ -60,6 +60,7 @@ public partial class NetworkView
             _guardFrameMs += watch.Elapsed.TotalMilliseconds;
             _guardFrames++;
         }
+        TfwFireTake();   // TfwFireView.cs: tag 11's records, read later in the frame
         _tfwState.TakeNew();
     }
 

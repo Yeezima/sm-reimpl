@@ -22,7 +22,7 @@ public sealed partial class World
             (byte)Math.Clamp(MathF.Ceiling(run.ReviveProgress(id, rate) * 10f), 0f, 10f), battle?.Won ?? false, TfwRetainerOf(id, run), run.Orders.Of(id),
             (ushort)Math.Clamp(MathF.Ceiling(run.RecoveryLeft(id)), 0f, ushort.MaxValue),
             (byte)Math.Clamp(guards?.Alive ?? 0, 0, byte.MaxValue), (byte)Math.Clamp(guards?.SquadsAlive ?? 0, 0, byte.MaxValue),
-            (byte)Math.Clamp(battle?.Reserves ?? 0, 0, byte.MaxValue), (byte)Math.Clamp(battle?.Secured ?? 0, 0, WarRules.Positions), run.InField.Contains(id));
+            (byte)Math.Clamp(battle?.Reserves ?? 0, 0, byte.MaxValue), (byte)Math.Clamp(battle?.Secured ?? 0, 0, WarRules.Positions), run.InField.Contains(id), Seconds(run.Fire.StrikeTicksLeft(id, Tick), rate));
     }
 
     TfwRetainerState TfwRetainerOf(int id, TfwRun run)

@@ -19,6 +19,9 @@ public sealed class TfwSites
     public const float SourceSpacing = 12f;
     /// <summary>An open node has this much walkable ground in each of four directions (the spawn spots round a source fit).</summary>
     public const float OpenRoom = 4f;
+    /// <summary>Weapon crates in a battle (the lead: 6) and the least room between two (design: 15 m).</summary>
+    public const int CrateCount = 6;
+    public const float CrateSpacing = 15f;
     /// <summary>Draws per place before a rule is dropped.</summary>
     const int Tries = 600;
     const float EyeHeight = 1.8f;
@@ -131,6 +134,31 @@ public sealed class TfwSites
         var sources = new Vector3[anchors.Length];
         for (int k = 0; k < sources.Length; k++) sources[k] = Source(ref dice, anchors[k], landing, sources.AsSpan(0, k).ToArray());
         return new TfwLayout(landing, positions, hq, sources, order.Select(k => points[k].Radius).ToArray(), order.Select(k => points[k].HalfHeight).ToArray());
+    }
+
+    /// <summary>
+    /// Where a battle's weapon crates stand (owner's item 9; design section F): <see cref="CrateCount"/> open nodes at least <see cref="CrateSpacing"/> apart, drawn from <paramref name="seed"/>; a place that
+    /// cannot keep the spacing is left out. Without a graph (tests, a failed build) a ring round the landing zone.
+    /// </summary>
+    public IReadOnlyList<Vector3> Crates(TfwLayout layout, ulong seed)
+    {
+        var sites = new List<Vector3>(CrateCount);
+        if (_nav is null)
+        {
+            for (int k = 0; k < CrateCount; k++)
+            {
+                float angle = k * MathF.Tau / CrateCount;
+                sites.Add(layout.LandingZone + new Vector3(MathF.Cos(angle), MathF.Sin(angle), 0f) * CrateSpacing);
+            }
+            return sites;
+        }
+        ulong dice = Hash(Hash(14695981039346656037UL, seed), 0xC7A7E5UL);
+        while (sites.Count < CrateCount && Draw(ref dice, at =>
+        {
+            foreach (var s in sites) if (Flat(at, s) < CrateSpacing) return false;
+            return true;
+        }) is { } spot) sites.Add(spot);
+        return sites;
     }
 
     /// <summary><paramref name="p"/> on the ground under it, when the graph has a node near; else as it is.</summary>

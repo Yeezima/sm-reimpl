@@ -7,9 +7,10 @@ public enum MusouDropState : byte { Live = 0, Picked = 1, Expired = 2 }
 
 /// <summary>
 /// One weapon drop of one player (owner, 2026-10-31: "each player sees weapons when 'boss' enemies die"; <see cref="World.MusouDrops"/>): its id, the player
-/// it is for (only that player sees it and can pick it up), where it lies, what it holds (<see cref="MusouDropItem"/>), its state and its ticks.
+/// it is for (only that player sees it and can pick it up), where it lies, what it holds (<see cref="MusouDropItem"/>), its state and its ticks. <see cref="Crate"/>: a Musou Mode weapon crate (owner's item 9),
+/// which lies for the whole battle, outlives a death and does not count against <see cref="MusouDropRules.MaxLivePerPlayer"/>.
 /// </summary>
-public readonly record struct MusouDrop(ushort Id, int Player, Vector3 Position, ushort Item, MusouDropState State, uint SpawnTick, uint EndTick, ushort Enemy = 0);
+public readonly record struct MusouDrop(ushort Id, int Player, Vector3 Position, ushort Item, MusouDropState State, uint SpawnTick, uint EndTick, ushort Enemy = 0, bool Crate = false);
 
 /// <summary>
 /// The Musou drop rules (owner's request 2026-10-31, the lead's design; Musou only). Every value here is ours (kind: ours, to refine in a playtest).
