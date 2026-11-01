@@ -16,6 +16,7 @@ public static class PackageScanCommand
     public static readonly string[] BinaryProfileExtensions =
     [
         ".exe", ".dll", ".so", ".json", ".cmd", ".ps1", ".sh", ".txt", ".md",
+        ".jpg",   // the owner's menu background and hub planet, copied beside the exe by release.ps1
     ];
 
     /// <summary>Test hook: called with each package path right before it is scanned (a test makes it throw to prove an unexpected crash exits 2).</summary>

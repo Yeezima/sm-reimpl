@@ -99,7 +99,7 @@ public static class TfwMap
     /// <summary>The install's map every battle is fought on.</summary>
     public const string Battlefield = "mp_tdm_09";
     /// <summary>Raised with any change of how the world is composed (hashed into <see cref="TfwMapData.Hash"/>; 2: TF1's arena and Stormbird replace TF0's flat slab; 3: Manufactorum replaces the empty arena; 4: the Thunderhawk's interior replaces the Stormbird's box).</summary>
-    public const uint Version = 4;
+    public const uint Version = 5;
     /// <summary>"tfw_war_", the hash's salt.</summary>
     const ulong HashSalt = 0x7466775F7761725FUL;
 
