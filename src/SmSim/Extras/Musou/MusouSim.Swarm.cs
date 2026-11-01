@@ -44,6 +44,27 @@ public sealed partial class MusouSim
     readonly bool[] _flank = new bool[Capacity];       // it takes the second-nearest target
     readonly bool[] _spread = new bool[Capacity];      // far from its target: it keeps wider apart
 
+    /// <summary>
+    /// Places a ranged Ork holding its band keeps out of: a capture position being taken (centre, flat radius, vertical reach). A shooter holds 12 m or more from its target, so with the target on a point's centre the idle
+    /// shooters stood just inside the point's 13.5 to 15 m ring and kept it Clearing for as long as they lived, while a player had to hunt each one down. Only a war fills it (<see cref="TfwBattle"/>); empty, nothing changes.
+    /// </summary>
+    public List<(Vector3 Centre, float Radius, float Reach)> KeepOut { get; } = new();
+
+    /// <summary>The way out of a keep-out place for the ranged Ork <paramref name="i"/> that would hold where it stands (zero when it stands outside every one, or in the 5-wave run).</summary>
+    Vector2 KeepOutWay(int i, float speed)
+    {
+        if (Swarm is null || KeepOut.Count == 0) return Vector2.Zero;
+        foreach (var (centre, radius, reach) in KeepOut)
+        {
+            float dx = _position[i].X - centre.X, dy = _position[i].Y - centre.Y;
+            if (MathF.Abs(_position[i].Z - centre.Z) > reach) continue;
+            float flat = MathF.Sqrt(dx * dx + dy * dy);
+            if (flat >= radius + 1f) continue;
+            return flat > 1e-3f ? new Vector2(dx, dy) / flat * speed : Vector2.UnitX * speed;
+        }
+        return Vector2.Zero;
+    }
+
     /// <summary>The crowd's rules; null: the 5-wave run's way. Only <see cref="World.StartTfw"/> sets them.</summary>
     public MusouSwarmRules? Swarm { get; set; }
 

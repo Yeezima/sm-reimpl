@@ -98,6 +98,36 @@ public sealed class MusouClientState
         return n > 0 ? sum / n : null;
     }
 
+    /// <summary>The enemies known within <paramref name="radius"/> of <paramref name="centre"/> (flat) and <paramref name="vertical"/> above or below it, at their newest records: what a capture position still has standing on it, as far as this client knows.</summary>
+    public int CountWithin(Vector3 centre, float radius, float vertical)
+    {
+        int n = 0;
+        float r2 = radius * radius;
+        foreach (var track in _tracks.Values)
+        {
+            if (track.Count == 0) continue;
+            var p = track.Positions[(track.Count - 1) % History];
+            float dx = p.X - centre.X, dy = p.Y - centre.Y;
+            if (dx * dx + dy * dy <= r2 && MathF.Abs(p.Z - centre.Z) <= vertical) n++;
+        }
+        return n;
+    }
+
+    /// <summary>Test aid: the enemy known nearest to <paramref name="from"/> within <paramref name="within"/> (null: none), at its newest record.</summary>
+    public Vector3? NearestTo(Vector3 from, float within)
+    {
+        Vector3? best = null;
+        float bestD = within * within;
+        foreach (var track in _tracks.Values)
+        {
+            if (track.Count == 0) continue;
+            var p = track.Positions[(track.Count - 1) % History];
+            float d = Vector3.DistanceSquared(p, from);
+            if (d <= bestD) { bestD = d; best = p; }
+        }
+        return best;
+    }
+
     /// <summary>Clears <see cref="NewEvents"/> and <see cref="NewDeaths"/> (the view took them).</summary>
     public void TakeNew() { _newEvents.Clear(); _newDeaths.Clear(); }
 

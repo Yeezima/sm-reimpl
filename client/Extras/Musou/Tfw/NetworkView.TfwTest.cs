@@ -460,7 +460,7 @@ public partial class NetworkView
     }
 
     /// <summary>
-    /// Test aid <c>--tfw-test-fight</c> (with <c>--tfw-test &lt;dir&gt;</c>): the player deploys, walks to the point nearest it and stands near it looking at it, for <c>--tfw-fight-seconds</c> (default 90), and a PNG goes to the
+    /// Test aid <c>--tfw-test-fight</c> (with <c>--tfw-test &lt;dir&gt;</c>): the player deploys, walks to the point nearest it and stands near it looking at it (<c>--tfw-fight-hold</c>: stays at the landing), for <c>--tfw-fight-seconds</c> (default 90), and a PNG goes to the
     /// folder every 6 s of a windowed run. It fires nothing: the fight on the screen is the allies' and the Orks'.
     /// </summary>
     async Task TfwTestFight()
@@ -479,7 +479,8 @@ public partial class NetworkView
             return best;
         }
         var point = Nearest();
-        await TfwPathTo(point, "walked towards the nearest point", 45.0, () => Num.Vector3.Distance(client.Predicted.Position, point) < 26f || !client.Predicted.Alive);
+        if (!CmdFlag("tfw-fight-hold"))   // --tfw-fight-hold: stay where the landing put the player (the crowds' swarms come to it)
+            await TfwPathTo(point, "walked towards the nearest point", 45.0, () => Num.Vector3.Distance(client.Predicted.Position, point) < 26f || !client.Predicted.Alive);
         int shot = 1;
         while (_connectedFor - start < seconds && TfwNow.Phase == TfwRunPhase.Battle)
         {
@@ -549,6 +550,7 @@ public partial class NetworkView
         if (!await TfwUntil("the war is on, in the hub", () => client.Match.State == MatchState.Playing && _tfwState.War is { Phase: TfwRunPhase.Hub } && client.Predicted.Alive, 60.0)) return;
         if (CmdFlag("tfw-test-fight")) { await TfwTestFight(); return; }
         if (CmdFlag("tfw-test-melee")) { await TfwTestMelee(); return; }
+        if (CmdFlag("tfw-test-capture")) { await TfwTestCapture(); return; }
         var start = TfwNow;
         TfwCheck("the reserves are the run's", start.Transport == TfwBattleRules.StartTransport && start.Supplies == TfwBattleRules.StartSupplies, $"{start.Transport}, {start.Supplies}");
         TfwCheck("the station prompt fits the spot", _tfwAt == TfwHudModel.StationAt(client.Predicted.Position, TfwHub!), $"{_tfwAt} at {client.Predicted.Position}");   // a respawn point is anywhere in the room

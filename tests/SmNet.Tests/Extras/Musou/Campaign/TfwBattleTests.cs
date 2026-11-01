@@ -99,11 +99,11 @@ public class TfwBattleTests
     public void Squads_follow_the_imperial_strength(double imperial, int squads) => Assert.Equal(squads, TfwBattleRules.SquadsAt(imperial));
 
     [Fact]
-    public void The_defenders_hold_until_a_target_comes_near_and_a_hurt_one_wakes_its_position()
+    public void The_crowds_hold_until_a_target_comes_near_and_a_hurt_one_wakes_its_crowd()
     {
         var w = TfwRig.War();
         var battle = TfwRig.Deploy(w);
-        Assert.Equal(3 * TfwBattleRules.Garrison, w.Musou!.Alive);
+        Assert.Equal(TfwTestArena.StartAlive, w.Musou!.Alive);
         var at = new MusouEnemy[MusouSim.Capacity];
         int n = w.Musou.CopyTo(at);
         Assert.All(at.Take(n), e => Assert.True(w.Musou.Leashed(e.Id)));
@@ -292,6 +292,6 @@ public class TfwBattleTests
         var battle = new TfwBattle(sim, new GuardSim(sim), TfwTestArena.Layout(TfwLane.A, 1), 100.0, 1);
         battle.Start();
         for (int k = 0; k < 400 * 30; k++) battle.Step([]);
-        Assert.Equal(TfwBattleRules.AliveCapSolo, sim.Alive);
+        Assert.Equal(TfwBattleRules.AliveCapSolo + 3 * TfwBattleRules.Garrison, sim.Alive);   // the crowds and swarms are the cap; the garrisons stand beside it
     }
 }

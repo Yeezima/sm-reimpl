@@ -116,7 +116,22 @@ public static class TfwHudModel
     public static string ScaleText(float scale) => string.Create(CultureInfo.InvariantCulture, $"WAR TIME x{scale:0.##}");
 
     public static string ObjectiveName(int index, bool final) =>
-        index == TfwBattle.CommanderObjective ? final ? "WARBOSS" : "COMMANDER" : index == 1 ? "P2 DEPOT" : $"P{index + 1}";
+        index == TfwBattle.CommanderObjective ? final ? "WARBOSS" : "COMMANDER" : index == 1 ? "B  DEPOT" : $"{(char)('A' + Math.Clamp(index, 0, 25))}";
+
+    /// <summary>
+    /// The label over a position in the world and its row on the HUD (owner, 2026-11-01: "label each point so the player can easily identify what he can work on capturing next"): its letter (A, B, C in the order a
+    /// battle takes them) and its state, for example "A  HELD" or "C  SECURING 42%".
+    /// </summary>
+    public static string ObjectiveLabel(in TfwObjective o, bool final, int orksOn = 0) => $"{ObjectiveName(o.Index, final)}  {ObjectiveState(o)}{ClearingNote(o, orksOn)}";
+
+    /// <summary>
+    /// What stops a capture, said where the player looks: a position being cleared shows how many Orks the client knows standing in it (" - 7 ORKS"); a point is taken with none alive inside its volume, whatever they are doing.
+    /// The count is the client's own (the enemies it was sent, inside the radius and <see cref="ClearingReach"/> up and down), a hint and not the server's count.
+    /// </summary>
+    public static string ClearingNote(in TfwObjective o, int orksOn) => o.State == TfwPositionState.Clearing && orksOn > 0 ? $" - {orksOn} ORK{(orksOn == 1 ? "" : "S")}" : "";
+
+    /// <summary>The up and down reach the client counts Orks over (the map's own volumes are 10 m; the client does not know the server's value).</summary>
+    public const float ClearingReach = 10f;
 
     /// <summary>One line of the objective tracker.</summary>
     public static string ObjectiveState(in TfwObjective o) => o.State switch
