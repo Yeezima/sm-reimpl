@@ -73,6 +73,7 @@ public partial class NetworkView
         {
             if (!LoadMeleeFx()) return;
         }
+        PowerFlashDemo();   // fx/power-flash test aid
         var all = _meleeFxAll;
         all.Clear();
         all.Add(me);
@@ -115,7 +116,7 @@ public partial class NetworkView
                 try
                 {
                     var data = MeleeEffects.Load(dir, names);
-                    var wanted = data.EffectNames.Append(SwordHitFx).Concat(ChargeImpactEffects).Concat(chargeContainerFx).Distinct(StringComparer.Ordinal).ToList();
+                    var wanted = data.EffectNames.Append(SwordHitFx).Append(PowerFlash.MainEffect).Append(PowerFlash.SecondaryEffect).Concat(ChargeImpactEffects).Concat(chargeContainerFx).Distinct(StringComparer.Ordinal).ToList();
                     var systems = library is null ? new Dictionary<string, CSystem>() : CompileSystems(library, wanted, new List<string>());
                     var decals = library is null ? new Dictionary<string, byte[]>() : library.Textures(FxPlayer.DecalNames(systems.Values));
                     return new MeleeFxLoad(data, systems, decals);
@@ -134,6 +135,7 @@ public partial class NetworkView
         var loaded = _meleeFxLoad.Result;
         _fx!.Preload(loaded.Systems, loaded.Decals);
         if (PowerBlade.BuildFlare(loaded.Systems.Values) is { } flare) _fx.Preload(new Dictionary<string, CSystem> { [PowerBlade.FlareName] = flare }, new Dictionary<string, byte[]>());
+        if (PowerFlash.Build(loaded.Systems.Values) is { } powerCloud) _fx.Preload(new Dictionary<string, CSystem> { [PowerFlash.CloudName] = powerCloud }, new Dictionary<string, byte[]>());
         if (StompFx.Build(loaded.Systems.Values, CmdArg("stomp-ring")) is { } shockwave) _fx.Preload(new Dictionary<string, CSystem> { [StompFx.ShockwaveName] = shockwave }, new Dictionary<string, byte[]>());
         _meleeFx = loaded.Data;
         foreach (var w in _meleeFx.Wargear) foreach (var a in _meleeFx.Stomps(w)) foreach (var e in a.Entries) if (e.Radius > 0f) PoundRing.Request(e.Radius);   // the rings' pixels on a worker now
@@ -156,13 +158,13 @@ public partial class NetworkView
         long start = ImpactRules.MeleeHitGate.StartTick(tick, s.MeleeTime, _config!.TickSeconds);
         if (!_meleeFxGate.Passed(s.PlayerId, s.MeleeStep, s.MeleeHeavy, GateTime(s, step), FxTime(step), start)) return;   // sim/stomp-in-place: the drawn pose's time (the foot's landing), not the state's
         if (step.Stomp is { } blast && !NoStompFx) PlayStomp(s, own, character, wargear, blast);
-        if (PowerBlade.IsPowerSword(wargear) && !NoSwordFx && character is not null)
+        if (ImpactRules.PowerFlashRules.KindOf(wargear) is not null && !(PowerBlade.IsPowerSword(wargear) && NoSwordFx) && character is not null)
         {
             // The attacker itself is no enemy of its own, so the whole list is passed.
             int victim = MeleePresentation.Victim(s, all, _config!, own ? _client.MeleeLockTarget : 0);
             if (victim > 0)
                 for (int i = 0; i < all.Count; i++)
-                    if (all[i].PlayerId == victim) { SwordHit(s, character, all[i]); break; }
+                    if (all[i].PlayerId == victim) { SwordHit(s, character, all[i], wargear, step.Stomp is not null); break; }
         }
     }
 
@@ -269,23 +271,31 @@ public partial class NetworkView
         }
     }
 
-    void SwordHit(PlayerState attacker, CharacterViewer character, PlayerState victim)
+    void SwordHit(PlayerState attacker, CharacterViewer character, PlayerState victim, string? wargear, bool slam)
     {
-        if (character.Weapons is not { } rig || !rig.TryMeleeMarker(PowerBlade.GripLocator, out var grip) || !rig.TryMeleeMarker(PowerBlade.TipLocator, out var tip)) return;
-        // The contact point (ours): the point of the blade nearest the victim's chest, brought to the body's surface (a body about 0.4 m in radius).
+        // The contact point (ours): for the sword the point of the blade nearest the victim's chest, else (the hammer's, the axe's, the maul's heads have other markers) the chest itself,
+        // brought to the body's surface (a body about 0.4 m in radius) on the attacker's side.
         var chest = ToGodot(victim.Position + new Num.Vector3(0f, 0f, 1.35f));
-        var along = tip.Origin - grip.Origin;
-        float f = along.LengthSquared() > 1e-6f ? Math.Clamp((chest - grip.Origin).Dot(along) / along.LengthSquared(), 0.2f, 1f) : 0.6f;
-        var onBlade = grip.Origin + along * f;
-        var outward = onBlade - chest;
-        outward = outward.LengthSquared() > 1e-6f ? outward.Normalized() : (ToGodot(attacker.Position) - ToGodot(victim.Position)).Normalized();
-        var contact = chest.DistanceTo(onBlade) > 0.4f ? chest + outward * 0.4f : onBlade;
-        _fx!.Play(SwordHitFx, contact, AxesFromY(outward), 1f, null, null, 0f, 0.0, false, 2);
-        _fx.Play(PowerBlade.FlareName, contact, AxesFromY(outward), 1f, null, null, 0f, 0.0, false, 2);
-        _swordFlareAt[attacker.PlayerId] = _connectedFor;
+        var toward = ToGodot(attacker.Position) - ToGodot(victim.Position);
+        toward.Y = 0f;
+        var outward = toward.LengthSquared() > 1e-6f ? toward.Normalized() : Vector3.Up;
+        var contact = chest + outward * 0.3f;
+        var onBlade = contact;
+        if (PowerBlade.IsPowerSword(wargear) && character.Weapons is { } rig && rig.TryMeleeMarker(PowerBlade.GripLocator, out var grip) && rig.TryMeleeMarker(PowerBlade.TipLocator, out var tip))
+        {
+            var along = tip.Origin - grip.Origin;
+            float f = along.LengthSquared() > 1e-6f ? Math.Clamp((chest - grip.Origin).Dot(along) / along.LengthSquared(), 0.2f, 1f) : 0.6f;
+            onBlade = grip.Origin + along * f;
+            var o = onBlade - chest;
+            outward = o.LengthSquared() > 1e-6f ? o.Normalized() : outward;
+            contact = chest.DistanceTo(onBlade) > 0.4f ? chest + outward * 0.4f : onBlade;
+        }
+        // fx/power-flash: the layered blue flash and cloud for every power weapon (the old small star and spark effect, powersword_dmg, is replaced).
+        PowerHit(attacker.PlayerId, wargear, contact, outward + Vector3.Up * 0.3f, $"hit on P{victim.PlayerId}", slam);
+        if (PowerBlade.IsPowerSword(wargear)) { _fx!.Play(PowerBlade.FlareName, contact, AxesFromY(outward), 1f, null, null, 0f, 0.0, false, 2); _swordFlareAt[attacker.PlayerId] = _connectedFor; }
         _swordHits++;
         _fxLastShotAt = _connectedFor; _fxLastEnd = contact; _fxLastFrom = onBlade;
-        if (_bot || CmdFlag("log-melee-fx")) GD.Print($"t {_connectedFor:F1} s: P{attacker.PlayerId} power sword hit on P{victim.PlayerId} at {contact.X:F1},{contact.Y:F1},{contact.Z:F1} (sword hits shown {_swordHits})");
+        if (_bot || CmdFlag("log-melee-fx")) GD.Print($"t {_connectedFor:F1} s: P{attacker.PlayerId} {wargear} hit on P{victim.PlayerId} at {contact.X:F1},{contact.Y:F1},{contact.Z:F1} (power hits shown {_swordHits})");
     }
 
     /// <summary>For the effects log line.</summary>

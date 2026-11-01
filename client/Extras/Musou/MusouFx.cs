@@ -244,6 +244,7 @@ public partial class NetworkView
         // A hit reported at the feet (the enemy's place) is raised to the chest; a real hit point higher up stays.
         if (i >= 0 && at.Z < shown[i].Position.Z + 0.5f) at = new Num.Vector3(at.X, at.Y, shown[i].Position.Z + 1.1f);
         else if (i < 0 && own) at = new Num.Vector3(at.X, at.Y, at.Z + 1.1f);
+        if (e.Value == 3) { MusouPowerFlash(e, at, camera, me); MusouMeleeHitSound(e, at, camera, me); }   // fx/power-flash: a power weapon's cleave (the swing's budget caps the bursts)
         if (_musouFxTokens < 1f || Num.Vector3.DistanceSquared(at, camera) > FxRange * FxRange) return;
         _musouFxTokens -= 1f;
         _musouHitFx++;
@@ -256,6 +257,35 @@ public partial class NetworkView
         for (int k = 0; k < plays.Count; k++)
             if (plays[k] is var p) _fx.Play(p.Name, end - dir * 0.05f, AxesFromY(-dir), p.Scale <= 0f ? 1f : p.Scale, null, null, p.Lifetime, 0.0, false, 0);
     }
+
+    /// <summary>fx/power-flash: the flash of a melee hit (marker 3) by a player holding a power weapon, on the enemy at <paramref name="at"/> (game space); within <see cref="FxRange"/> only.</summary>
+    void MusouPowerFlash(in MusouEvent e, Num.Vector3 at, Num.Vector3 camera, PlayerState me)
+    {
+        if (e.Player == 0 || _client is null || Num.Vector3.DistanceSquared(at, camera) > FxRange * FxRange) return;
+        PlayerState? attacker = e.Player == _client.PlayerId ? me : null;
+        if (attacker is null) for (int k = 0; k < _lastOthers.Count; k++) if (_lastOthers[k].PlayerId == e.Player) { attacker = _lastOthers[k]; break; }
+        if (attacker is not { } who || MeleeWargear(who) is not { } wargear) return;
+        var contact = ToGodot(at);
+        var toward = ToGodot(who.Position) - contact; toward.Y = 0f;
+        PowerHit(e.Player, wargear, contact, (toward.LengthSquared() > 1e-6f ? toward.Normalized() : Vector3.Up) + Vector3.Up * 0.3f, "musou hit");
+    }
+
+    /// <summary>fx/melee-hit-sound: the generated hit sound of a melee hit (marker 3) on a Musou enemy at <paramref name="at"/> (game space); one swing sounds at most three times (ours).</summary>
+    readonly SmClient.ImpactRules.PowerFlashRules.Budget _musouHitSoundSwing = new();
+    void MusouMeleeHitSound(in MusouEvent e, Num.Vector3 at, Num.Vector3 camera, PlayerState me)
+    {
+        if (e.Player == 0 || _client is null || Num.Vector3.DistanceSquared(at, camera) > FxRange * FxRange) return;
+        PlayerState? attacker = e.Player == _client.PlayerId ? me : null;
+        if (attacker is null) for (int k = 0; k < _lastOthers.Count; k++) if (_lastOthers[k].PlayerId == e.Player) { attacker = _lastOthers[k]; break; }
+        if (attacker is not { } who || ProceduralHitSound(who, charge: false, dash: false) is not { } synth) return;
+        var burst = _musouHitSoundSwing.Take(e.Player, _connectedFor);
+        if (burst == SmClient.ImpactRules.PowerBurst.Lead) _musouHitSoundsThisSwing = 0;
+        else if (burst != SmClient.ImpactRules.PowerBurst.Small || ++_musouHitSoundsThisSwing > 2) return;
+        string played = PlayProceduralHit(synth, ToGodot(at), $"musou melee hit by P{e.Player}");
+        CountSound("melee hit");
+        if (LogSound("melee")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} P{e.Player} musou hit event {played}");
+    }
+    int _musouHitSoundsThisSwing;
 
     /// <summary>A telegraph: the boss's ring, lane and call-outs, the attack taunt of a melee wind-up.</summary>
     void MusouTelegraph(in MusouEvent e, IReadOnlyList<MusouShown> shown, Num.Vector3 camera, MusouBossRules boss)

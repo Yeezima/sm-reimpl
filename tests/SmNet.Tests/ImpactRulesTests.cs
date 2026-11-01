@@ -128,3 +128,154 @@ public class ImpactRulesTests
         Assert.False(gate.Passed(1, 1, true, MeleeHitGate.EffectTime(0.8f, 0.83f, fx, hit), fx, 130));
     }
 }
+
+/// <summary>fx/power-flash: the power weapons' hit flash rules (client/ImpactRules/PowerFlashRules.cs).</summary>
+public class PowerFlashRulesTests
+{
+    [Theory]
+    [InlineData("sm_mp_melee_2hand_thunder_hammer", PowerKind.Hammer)]
+    [InlineData("csm_mp_melee_2hand_power_mace", PowerKind.Maul)]
+    [InlineData("sm_mp_melee_power_axe", PowerKind.Axe)]
+    [InlineData("sm_mp_melee_powersword", PowerKind.Sword)]
+    [InlineData("csm_mp_melee_powersword", PowerKind.Sword)]
+    public void Each_power_wargear_names_its_weapon(string wargear, PowerKind kind) => Assert.Equal(kind, PowerFlashRules.KindOf(wargear));
+
+    [Theory]
+    [InlineData("sm_mp_melee_chainsword")]
+    [InlineData("csm_mp_melee_chain_axe")]
+    [InlineData("sm_mp_melee_combat_knife")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void Other_melee_weapons_do_not_flash(string? wargear) => Assert.Null(PowerFlashRules.KindOf(wargear));
+
+    [Fact]
+    public void A_swing_gets_one_big_burst_then_five_small_then_none_and_the_next_swing_starts_again()
+    {
+        var b = new PowerFlashRules.Budget();
+        Assert.Equal(PowerBurst.Lead, b.Take(1, 10.0));
+        for (int i = 0; i < PowerFlashRules.SmallPerSwing; i++) Assert.Equal(PowerBurst.Small, b.Take(1, 10.0 + 0.01 * i));
+        for (int i = 0; i < 14; i++) Assert.Equal(PowerBurst.None, b.Take(1, 10.1));   // the 20-enemy cleave: 1 + 5 + 14
+        Assert.Equal(PowerBurst.Lead, b.Take(1, 10.0 + PowerFlashRules.SwingSeconds + 0.1));
+    }
+
+    [Fact]
+    public void Another_attackers_swing_has_its_own_budget()
+    {
+        var b = new PowerFlashRules.Budget();
+        Assert.Equal(PowerBurst.Lead, b.Take(1, 5.0));
+        Assert.Equal(PowerBurst.Lead, b.Take(2, 5.0));
+        Assert.Equal(PowerBurst.Small, b.Take(1, 5.1));
+    }
+
+    [Fact]
+    public void A_camera_close_to_the_burst_sees_a_smaller_one_and_a_far_one_the_whole()
+    {
+        Assert.Equal(PowerFlashRules.CloseMin, PowerFlashRules.CloseFactor(0f));
+        Assert.Equal(PowerFlashRules.CloseMin, PowerFlashRules.CloseFactor(PowerFlashRules.CloseNear));
+        Assert.Equal(1f, PowerFlashRules.CloseFactor(PowerFlashRules.CloseFar));
+        Assert.Equal(1f, PowerFlashRules.CloseFactor(30f));
+        float prev = 0f;
+        for (float d = 0f; d <= 6f; d += 0.25f) { float f = PowerFlashRules.CloseFactor(d); Assert.InRange(f, PowerFlashRules.CloseMin, 1f); Assert.True(f >= prev); prev = f; }
+        Assert.False(float.IsNaN(PowerFlashRules.CloseFactor(float.NaN)));
+    }
+}
+
+/// <summary>fx/melee-hit-sound: the procedural on-hit sounds (client/ImpactRules/MeleeHitSynth.cs).</summary>
+public class MeleeHitSynthTests
+{
+    static double RmsDb(float[] x, float a, float b)
+    {
+        int i0 = (int)(a * MeleeHitSynth.SampleRate), i1 = Math.Min(x.Length, (int)(b * MeleeHitSynth.SampleRate));
+        double s = 0; for (int i = i0; i < i1; i++) s += x[i] * x[i];
+        return 10 * Math.Log10(s / Math.Max(1, i1 - i0) + 1e-12);
+    }
+
+    [Fact]
+    public void Test_aid_renders_the_sounds_to_wav_files_when_a_folder_is_named()
+    {
+        // SM_RENDER_HIT_DIR=<folder> dotnet test --filter MeleeHitSynthTests: writes a_<seed>.wav and b_<seed>.wav for measuring against the references (no assertion without the variable).
+        var dir = Environment.GetEnvironmentVariable("SM_RENDER_HIT_DIR");
+        if (string.IsNullOrEmpty(dir)) return;
+        Directory.CreateDirectory(dir);
+        foreach (var (sound, tag) in new[] { (HitSound.Sizzle, "a"), (HitSound.Roar, "b") })
+            for (int seed = 1; seed <= 3; seed++)
+            {
+                var pcm = MeleeHitSynth.ToPcm16(MeleeHitSynth.Render(sound, seed));
+                using var w = new BinaryWriter(File.Create(Path.Combine(dir, $"{tag}_{seed}.wav")));
+                w.Write("RIFF"u8); w.Write(36 + pcm.Length * 2); w.Write("WAVEfmt "u8); w.Write(16); w.Write((short)1); w.Write((short)1);
+                w.Write(MeleeHitSynth.SampleRate); w.Write(MeleeHitSynth.SampleRate * 2); w.Write((short)2); w.Write((short)16);
+                w.Write("data"u8); w.Write(pcm.Length * 2); foreach (var s in pcm) w.Write(s);
+            }
+    }
+
+    [Theory]
+    [InlineData(HitSound.Sizzle)]
+    [InlineData(HitSound.Roar)]
+    public void A_render_is_finite_quiet_at_its_ends_and_at_the_target_level(HitSound sound)
+    {
+        var x = MeleeHitSynth.Render(sound, 5);
+        Assert.Equal((int)(MeleeHitSynth.Seconds(sound) * MeleeHitSynth.SampleRate), x.Length);
+        Assert.All(x, v => Assert.True(float.IsFinite(v) && Math.Abs(v) <= 1f));
+        Assert.InRange(RmsDb(x, 0f, MeleeHitSynth.Seconds(sound)), 20 * Math.Log10(MeleeHitSynth.TargetRms(sound)) - 0.5, 20 * Math.Log10(MeleeHitSynth.TargetRms(sound)) + 0.5);
+        Assert.True(Math.Abs(x[^1]) < 0.02f);
+    }
+
+    [Fact]
+    public void Sound_A_swells_over_about_a_tenth_of_a_second_and_sound_B_starts_at_once()
+    {
+        var a = MeleeHitSynth.Render(HitSound.Sizzle, 1);
+        var b = MeleeHitSynth.Render(HitSound.Roar, 1);
+        Assert.True(RmsDb(a, 0.02f, 0.04f) < RmsDb(a, 0.15f, 0.25f) - 8);
+        Assert.True(RmsDb(b, 0.02f, 0.04f) > RmsDb(b, 0.2f, 0.4f) - 4);
+    }
+
+    [Fact]
+    public void Another_seed_is_another_noise_and_the_same_seed_is_the_same()
+    {
+        Assert.NotEqual(MeleeHitSynth.Render(HitSound.Sizzle, 1)[5000], MeleeHitSynth.Render(HitSound.Sizzle, 2)[5000]);
+        Assert.Equal(MeleeHitSynth.Render(HitSound.Roar, 3)[7000], MeleeHitSynth.Render(HitSound.Roar, 3)[7000]);
+    }
+
+    [Fact]
+    public void The_variation_stays_within_its_spreads_and_differs_between_hits()
+    {
+        var seen = new HashSet<float>();
+        for (uint i = 0; i < 200; i++)
+        {
+            var (pitch, db) = MeleeHitSynth.Variation(i);
+            Assert.InRange(pitch, 1f - MeleeHitSynth.PitchSpread, 1f + MeleeHitSynth.PitchSpread);
+            Assert.InRange(db, -MeleeHitSynth.LevelSpreadDb, MeleeHitSynth.LevelSpreadDb);
+            seen.Add(pitch);
+        }
+        Assert.True(seen.Count > 150);
+    }
+
+    [Theory]
+    [InlineData("sm_mp_melee_powersword", HitSound.Sizzle)]
+    [InlineData("csm_mp_melee_powersword", HitSound.Sizzle)]
+    [InlineData("sm_mp_melee_power_axe", HitSound.Sizzle)]
+    [InlineData("sm_mp_melee_combat_knife", HitSound.Sizzle)]
+    [InlineData("csm_mp_melee_combat_knife", HitSound.Sizzle)]
+    [InlineData("sm_mp_melee_chainsword", HitSound.Roar)]
+    [InlineData("csm_mp_melee_chainsword_gold", HitSound.Roar)]
+    [InlineData("sm_mp_melee_2hand_thunder_hammer", HitSound.Roar)]
+    [InlineData("csm_mp_melee_2hand_power_mace", HitSound.Roar)]
+    public void Each_replaced_weapon_gets_its_sound(string wargear, HitSound expected) => Assert.Equal(expected, MeleeHitSynth.Replaces(wargear));
+
+    [Theory]
+    [InlineData("csm_mp_melee_chain_axe")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void Other_weapons_keep_their_own(string? wargear) => Assert.Null(MeleeHitSynth.Replaces(wargear));
+
+    [Theory]
+    [InlineData("sm - tactical", true)]
+    [InlineData("sm - assault marine", true)]
+    [InlineData("csm - tactical", true)]
+    [InlineData("csm - raptor", true)]
+    [InlineData("sm - devastator", false)]
+    [InlineData("csm - havoc", false)]
+    [InlineData("ork - boy", false)]
+    [InlineData(null, false)]
+    public void The_charge_hit_sound_B_is_for_the_tactical_and_assault_classes_and_their_chaos_mirrors(string? className, bool roar) => Assert.Equal(roar, MeleeHitSynth.ChargeUsesRoar(className));
+}

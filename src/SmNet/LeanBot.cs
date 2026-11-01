@@ -42,6 +42,7 @@ public static class LeanBot
         "bot-gait", "gait-sweep", "action-sweep", "bot-turn-sweep", "turn-sweep-fire", "latency-probe", "bullet-probe", "show-shot-rays", "camera-hide-log",
         "slash-trace", "run-start-log", "log-sound", "log-footsteps", "reload-capture", "reload-probe", "ork-capture", "screenshot", "screenshot-every",
         "record-demo", "spectate", "ragdoll-debug", "damage-demo", "aim-test", "hud-demo", "hud-rewards-demo", "hud-score-demo", "hud-vitals-demo", "hud-switch-demo", "hud-launcher-demo", "scope-spread-demo", "pound-marker-demo",
+        "power-flash-demo", "log-power-flash", "power-flash-at",   // fx/power-flash: the hit flash demo and its log
         "musou-hud-demo",   // added content Musou (MU3): the Musou HUD and telegraphs with made-up values
         "musou-gore-demo",   // added content Musou (pass 2 M10): the scripted feed of the gore
         "guard-demo", "guard-demo-at", "guard-no-vat", "tfw-deploy", "tfw-test", "tfw-test-downs", "tfw-test-win", "tfw-test-fight", "tfw-fight-seconds", "tfw-test-capture", "tfw-capture-seconds", "tfw-capture-weak", "tfw-fire-test", "tfw-fire-at", "tfw-fire-cam", "tfw-fire-cam-run", "tfw-reduce-motion", "tfw-orbital-test",   // added content Musou (TF7a): the scripted Guardsmen, the skinned crowd only, a scripted Deploy
