@@ -36,6 +36,7 @@ public partial class NetworkView
         LoyalistBarksFrame(me, others, delta, _barkSections);
         MusouFrame(me, others, delta, _musouSections);
         TfwFrame(me, others, delta, _tfwSections);
+        PvpGoreFrame(me, others, delta);   // the dark gore in classic PvP: returns at once unless the match runs ContentExtras.Gore
     }
 
     /// <summary>A map added content composes: Musou Mode's.</summary>

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using SmNet;
+using SmNet.Extras.Gore;
 using SmNet.Extras.Musou;
 using SmSim;
 using SmSim.Extras.Musou;
@@ -11,14 +12,14 @@ namespace SmClient;
 
 /// <summary>
 /// Musou Mode's gore in the networked view (Musou pass 2 M10, owner items 8, 22 and 23; design section D). Only under <see cref="ContentExtras.Musou"/>, on a client that draws,
-/// and not with <c>--no-musou-gore</c>. No blood on the screen: everything is in the world (<see cref="MusouGoreView"/>).
+/// and not with <c>--no-musou-gore</c>. No blood on the screen: everything is in the world (<see cref="GoreView"/>).
 /// <list type="bullet">
 /// <item>Who makes gore: the death event's killer is a player or a retainer (id above 0; Guardsmen's kills carry 0, the Guard events of tag 10 never reach here), or a Thunderhawk
 /// strafe. Melee and charges weigh heaviest, shots least (<see cref="MusouGoreRules.Plan"/>).</item>
 /// <item>Item 23: an enemy killed by a blast (a frag grenade, a launcher), by artillery (the Barrage kind, overriding the design's "no gore") or by a lascannon shot (the killer's
 /// weapon in hand, read from its state) bursts in a bloody explosion, whoever the killer, and leaves no corpse.</item>
 /// <item>Item 22: each melee hit (marker 3) by a player or retainer draws a slash across the enemy hit (<see cref="MusouCleaveSlash"/>, the call a cleave's developer can use
-/// for any other source; the hit events that exist drive it already: a swing that hits 20 draws 20 within <see cref="MusouGoreRules.SlashesPerFrame"/> a frame). A charge's
+/// for any other source; the hit events that exist drive it already: a swing that hits 20 draws 20 within <see cref="GoreRules.SlashesPerFrame"/> a frame). A charge's
 /// contact is a marker 3 too and draws the same slash.</item>
 /// <item>Budget: 12 deaths a frame (the rest wait, at most 512), full detail under 15 m, half to 35 m, one spray to 60 m, nothing beyond; the counts thin while the pools fill.</item>
 /// </list>
@@ -30,7 +31,7 @@ public partial class NetworkView
     readonly record struct GoreWork(MusouDeathShown Death, bool Lascannon, float Metres);
 
     static readonly bool GoreOff = CmdFlag("no-musou-gore");
-    MusouGoreView? _gore;
+    GoreView? _gore;
     readonly GoreQueue<GoreWork> _goreQueue = new();
     readonly List<GoreWork> _goreBatch = new();
     MusouGoreDemoFeed? _goreDemo;
@@ -78,12 +79,12 @@ public partial class NetworkView
         return name.Contains("lascannon", StringComparison.OrdinalIgnoreCase) || name.Contains("las_cannon", StringComparison.OrdinalIgnoreCase);
     }
 
-    MusouGoreView? GoreView()
+    GoreView? GoreView()
     {
         if (GoreOff || _gameSpace is null) return null;
         if (_gore is null)
         {
-            _gore = new MusouGoreView();
+            _gore = new GoreView();
             _gameSpace.AddChild(_gore);
             GD.Print("musou gore: view added");
         }
@@ -107,6 +108,12 @@ public partial class NetworkView
         return plan.Gibbed;
     }
 
+    static bool MusouWorldDeath(IReadOnlyList<MusouEvent> events, ushort enemy)
+    {
+        for (int i = 0; i < events.Count; i++) if (events[i].Kind == MusouEventKind.Death && events[i].Enemy == enemy && (MusouDeathKind)events[i].Value == MusouDeathKind.World) return true;
+        return false;
+    }
+
     static float GoreChestHeight(MusouEnemyType type) => type switch
     {
         MusouEnemyType.Gretchin => 0.7f,
@@ -119,7 +126,7 @@ public partial class NetworkView
     /// <summary>Item 22: a slash across the enemy at <paramref name="chest"/> (game space) struck from <paramref name="from"/>; the budget and the distance apply. False when none was drawn.</summary>
     internal bool MusouCleaveSlash(Num.Vector3 chest, Num.Vector3 from)
     {
-        if (GoreView() is not { } view || _goreFrameSlashes >= MusouGoreRules.SlashesPerFrame) return false;
+        if (GoreView() is not { } view || _goreFrameSlashes >= GoreRules.SlashesPerFrame) return false;
         var cam = _camera is null ? Num.Vector3.Zero : new Num.Vector3(_camera.GlobalPosition.X, -_camera.GlobalPosition.Z, _camera.GlobalPosition.Y);
         if (!MusouGoreRules.SlashDrawn(1, Num.Vector3.Distance(chest, cam))) return false;
         _goreFrameSlashes++; _goreSlashes++;
@@ -140,24 +147,26 @@ public partial class NetworkView
         for (int i = 0; i < events.Count; i++)
         {
             var e = events[i];
-            if (e.Kind != MusouEventKind.Hit || e.Player == 0) continue;
+            if (e.Kind != MusouEventKind.Hit) continue;
+            // Who makes gore: the player's, a retainer's or a Marine's attack (player above 0), and fire support, which counts as the player's (player 0, marker 0: the orbital
+            // strike and the Thunderhawk's rounds; a failsafe removal is the same pair but dies of cause World in the same batch).
+            bool fire = e.Player == 0 && e.Value == 0;
+            if (e.Player == 0 && !fire) continue;
+            if (fire && MusouWorldDeath(events, e.Enemy)) continue;
             int at = MusouFind(shown, e.Enemy);
             var type = at >= 0 ? shown[at].Type : MusouEnemyType.Boy;
             var feet = at >= 0 ? shown[at].Position : e.Vector;
             var chest = new Num.Vector3(feet.X, feet.Y, feet.Z + GoreChestHeight(type));
-            if (e.Value == 3)
-            {
-                // The attacker's place: the own player's, another's from the last snapshot, else a metre and a half in front of the enemy as seen from the camera.
-                var from = cam;
-                if (e.Player == ownId) from = me.Position;
-                else foreach (var o in _lastOthers) if (o.PlayerId == e.Player) { from = o.Position; break; }
-                MusouCleaveSlash(chest, from);
-            }
-            else if (_goreFrameSprays < MusouGoreRules.SpraysPerFrame && Num.Vector3.DistanceSquared(chest, cam) <= MusouGoreRules.HalfMetres * MusouGoreRules.HalfMetres)
-            {
-                _goreFrameSprays++; _goreSprays++;
-                view.Field.Spray(chest, chest - cam, e.Value == 2 ? 10 : 6, 1f);
-            }
+            float metres = Num.Vector3.Distance(chest, cam);
+            if (metres > GoreRules.HitMetres) continue;
+            // The attacker's place: the own player's, another's from the last snapshot, else the camera.
+            var from = cam;
+            if (e.Player == ownId) from = me.Position;
+            else if (e.Player > 0) foreach (var o in _lastOthers) if (o.PlayerId == e.Player) { from = o.Position; break; }
+            if (e.Value == 3) MusouCleaveSlash(chest, from);
+            if (_goreFrameSprays >= GoreRules.HitsPerFrame) continue;
+            _goreFrameSprays++; _goreSprays++;
+            view.Field.HitCloud(chest, fire ? Num.Vector3.Zero : chest - from, e.Value == 3 ? GoreField.HitKind.Melee : fire ? GoreField.HitKind.Fire : e.Value == 2 ? GoreField.HitKind.Head : GoreField.HitKind.Shot, view.Field.LoadScale());
         }
         _goreBatch.Clear();
         _goreQueue.Take(_goreBatch);
@@ -177,7 +186,7 @@ public partial class NetworkView
         GoreLog(view);
     }
 
-    void GoreLog(MusouGoreView view)
+    void GoreLog(GoreView view)
     {
         if (_connectedFor < _goreLogAt || view.Frames == 0) return;
         _goreLogAt = _connectedFor + 10.0;

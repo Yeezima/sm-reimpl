@@ -1,4 +1,5 @@
 using System.Numerics;
+using SmNet.Extras.Gore;
 using SmNet.Extras.Musou;
 using SmSim.Extras.Musou;
 
@@ -34,13 +35,13 @@ public class MusouGoreTests
     [Fact]
     public void The_distance_bands_are_the_designs()
     {
-        Assert.Equal(GoreLod.Full, MusouGoreRules.LodOf(0f));
-        Assert.Equal(GoreLod.Full, MusouGoreRules.LodOf(15f));
-        Assert.Equal(GoreLod.Half, MusouGoreRules.LodOf(15.1f));
-        Assert.Equal(GoreLod.Half, MusouGoreRules.LodOf(35f));
-        Assert.Equal(GoreLod.Spray, MusouGoreRules.LodOf(35.1f));
-        Assert.Equal(GoreLod.Spray, MusouGoreRules.LodOf(60f));
-        Assert.Equal(GoreLod.None, MusouGoreRules.LodOf(60.1f));
+        Assert.Equal(GoreLod.Full, GoreRules.LodOf(0f));
+        Assert.Equal(GoreLod.Full, GoreRules.LodOf(15f));
+        Assert.Equal(GoreLod.Half, GoreRules.LodOf(15.1f));
+        Assert.Equal(GoreLod.Half, GoreRules.LodOf(35f));
+        Assert.Equal(GoreLod.Spray, GoreRules.LodOf(35.1f));
+        Assert.Equal(GoreLod.Spray, GoreRules.LodOf(60f));
+        Assert.Equal(GoreLod.None, GoreRules.LodOf(60.1f));
     }
 
     [Fact]
@@ -66,7 +67,7 @@ public class MusouGoreTests
         Assert.True(melee.Gibs > shot.Gibs && melee.Droplets > shot.Droplets);
         Assert.True(strafe.Gibs >= melee.Gibs);
         Assert.True(boom.Gibs > strafe.Gibs && boom.Droplets > strafe.Droplets && boom.Mist > 0 && boom.Pools >= 2);
-        Assert.Equal(0, melee.Mist);
+        Assert.True(melee.Mist >= 1 && boom.Mist > melee.Mist);   // every gore death makes a cloud; an explosion a bank of them
     }
 
     [Fact]
@@ -113,26 +114,26 @@ public class MusouGoreTests
     public void A_cleave_slash_is_drawn_for_a_marines_hit_within_range_only()
     {
         Assert.True(MusouGoreRules.SlashDrawn(1, 10f));
-        Assert.True(MusouGoreRules.SlashDrawn(65521, 40f));
+        Assert.True(MusouGoreRules.SlashDrawn(65521, 60f));
         Assert.False(MusouGoreRules.SlashDrawn(0, 10f));   // no attacker: not a Marine's blow
-        Assert.False(MusouGoreRules.SlashDrawn(1, 41f));
+        Assert.False(MusouGoreRules.SlashDrawn(1, 61f));
     }
 
     // ---------------------------------------------------------------- the field and the count limits
 
-    static void AssertWithinPools(MusouGoreField f)
+    static void AssertWithinPools(GoreField f)
     {
-        Assert.InRange(f.LiveGibs, 0, MusouGoreRules.GibPool);
-        Assert.InRange(f.LiveDrops, 0, MusouGoreRules.DropletPool);
-        Assert.InRange(f.LivePools, 0, MusouGoreRules.PoolRing);
-        Assert.InRange(f.LiveSpatters, 0, MusouGoreRules.SpatterRing);
-        Assert.InRange(f.LiveMists, 0, MusouGoreRules.MistPool);
-        Assert.InRange(f.LiveSlashes, 0, MusouGoreRules.SlashPool);
-        Assert.Equal(MusouGoreRules.GibPool, f.Gibs.Length);
-        Assert.Equal(MusouGoreRules.PoolRing, f.Pools.Length);
+        Assert.InRange(f.LiveGibs, 0, GoreRules.GibPool);
+        Assert.InRange(f.LiveDrops, 0, GoreRules.DropletPool);
+        Assert.InRange(f.LivePools, 0, GoreRules.PoolRing);
+        Assert.InRange(f.LiveSpatters, 0, GoreRules.SpatterRing);
+        Assert.InRange(f.LiveMists, 0, GoreRules.MistPool);
+        Assert.InRange(f.LiveSlashes, 0, GoreRules.SlashPool);
+        Assert.Equal(GoreRules.GibPool, f.Gibs.Length);
+        Assert.Equal(GoreRules.PoolRing, f.Pools.Length);
     }
 
-    static void AssertFinite(MusouGoreField f)
+    static void AssertFinite(GoreField f)
     {
         foreach (var g in f.Gibs) if (g.Live) Assert.True(float.IsFinite(g.Pos.X + g.Pos.Y + g.Pos.Z + g.Vel.Length()));
         foreach (var d in f.Drops) if (d.Live) Assert.True(float.IsFinite(d.Pos.X + d.Pos.Y + d.Pos.Z + d.Vel.Length()));
@@ -141,23 +142,64 @@ public class MusouGoreTests
     [Fact]
     public void A_thousand_explosions_in_one_frame_never_exceed_a_pool()
     {
-        var f = new MusouGoreField(1);
+        var f = new GoreField(1);
         var burst = Plan(MusouDeathKind.Barrage, killer: 0);
         for (int i = 0; i < 1000; i++) f.Spawn(burst, new Vector3(i % 20, i / 20, 1f), new Vector3(0, 1, 0.2f), 0f, ork: true);
         AssertWithinPools(f);
-        Assert.Equal(MusouGoreRules.GibPool, f.LiveGibs);   // full, and the oldest were recycled
+        Assert.Equal(GoreRules.GibPool, f.LiveGibs);   // full, and the oldest were recycled
         Assert.True(f.Recycled > 0);
         for (int i = 0; i < 600; i++) { f.Step(1f / 60f); AssertWithinPools(f); }
         AssertFinite(f);
     }
 
+    [Theory]
+    [InlineData(GoreField.HitKind.Shot)]
+    [InlineData(GoreField.HitKind.Head)]
+    [InlineData(GoreField.HitKind.Melee)]
+    [InlineData(GoreField.HitKind.Blast)]
+    [InlineData(GoreField.HitKind.Fire)]
+    public void Every_damaging_hit_makes_a_blood_cloud_and_ink(GoreField.HitKind kind)
+    {
+        var f = new GoreField(3);
+        f.HitCloud(new Vector3(0, 0, 1.2f), new Vector3(1, 0, 0), kind);
+        Assert.Equal(1, f.LiveMists);
+        Assert.True(f.LiveDrops >= 10);
+        Assert.True(f.Mists[0].Size >= 2f);   // at least a Marine across once it has bloomed
+    }
+
+    [Fact]
+    public void A_twenty_enemy_cleave_and_a_strike_over_a_crowd_lose_no_cloud_and_a_full_pool_recycles_the_oldest()
+    {
+        var f = new GoreField(4);
+        for (int i = 0; i < 20; i++) f.HitCloud(new Vector3(i, 0, 1.2f), new Vector3(1, 0, 0), GoreField.HitKind.Melee);
+        Assert.Equal(20, f.LiveMists);
+        for (int i = 0; i < 200; i++) f.HitCloud(new Vector3(i, 5, 1.2f), Vector3.Zero, GoreField.HitKind.Fire);
+        Assert.Equal(220, f.LiveMists);
+        for (int i = 0; i < 100; i++) f.HitCloud(new Vector3(i, 9, 1.2f), Vector3.Zero, GoreField.HitKind.Shot);
+        Assert.Equal(GoreRules.MistPool, f.LiveMists);   // full: the oldest were recycled, nothing skipped
+        Assert.True(f.Recycled > 0);
+    }
+
+    [Fact]
+    public void A_cloud_thins_before_it_ends_and_the_amount_is_three_times_the_first_pass()
+    {
+        Assert.Equal(3f, GoreRules.Amount);
+        var f = new GoreField(5);
+        f.HitCloud(new Vector3(0, 0, 1.2f), new Vector3(1, 0, 0), GoreField.HitKind.Melee);
+        float life = f.Mists[0].Life;
+        for (int i = 0; i < (int)((life - 0.2f) * 60f); i++) f.Step(1f / 60f);
+        Assert.True(f.Mists[0].Live);   // still there near its end (the view has thinned it to almost nothing by then)
+        for (int i = 0; i < 30; i++) f.Step(1f / 60f);
+        Assert.Equal(0, f.LiveMists);
+    }
+
     [Fact]
     public void Everything_settles_on_the_floor_and_fades_out()
     {
-        var f = new MusouGoreField(2);
+        var f = new GoreField(2);
         f.Spawn(Plan(MusouDeathKind.Blast), new Vector3(0, 0, 3f), new Vector3(1, 0, 0), 2f, ork: false);
         Assert.True(f.LiveGibs > 0 && f.LiveDrops > 0 && f.LivePools > 0 && f.LiveMists > 0);
-        for (int i = 0; i < 6 * 60; i++) f.Step(1f / 60f);
+        for (int i = 0; i < 10 * 60; i++) f.Step(1f / 60f);
         foreach (var g in f.Gibs) if (g.Live) { Assert.True(g.Resting); Assert.True(g.Pos.Z >= 2f - 1e-3f); Assert.True(g.Pos.Z < 2.3f); }   // on the floor under the enemy (z 2)
         Assert.Equal(0, f.LiveDrops);
         Assert.Equal(0, f.LiveMists);
@@ -170,7 +212,7 @@ public class MusouGoreTests
     [Fact]
     public void A_swing_that_hits_twenty_draws_twenty_slashes_that_expire()
     {
-        var f = new MusouGoreField(3);
+        var f = new GoreField(3);
         var cam = new Vector3(0, -10, 3);
         for (int i = 0; i < 20; i++) f.Cleave(new Vector3(i * 0.4f, 0, 1.1f), new Vector3(0, -2, 1), cam);
         Assert.Equal(20, f.LiveSlashes);
@@ -184,7 +226,7 @@ public class MusouGoreTests
         for (int i = 0; i < 30; i++) f.Step(1f / 60f);
         Assert.Equal(0, f.LiveSlashes);
         for (int i = 0; i < 200; i++) f.Cleave(new Vector3(i, 0, 1.1f), default, cam);
-        Assert.Equal(MusouGoreRules.SlashPool, f.LiveSlashes);   // a full pool recycles
+        Assert.Equal(GoreRules.SlashPool, f.LiveSlashes);   // a full pool recycles
     }
 
     [Fact]
@@ -192,21 +234,21 @@ public class MusouGoreTests
     {
         var q = new GoreQueue<int>();
         for (int i = 0; i < 1000; i++) q.Add(i);   // far more than a barrage of 200
-        Assert.Equal(MusouGoreRules.QueueMax, q.Count);
-        Assert.Equal(1000 - MusouGoreRules.QueueMax, q.Dropped);
+        Assert.Equal(GoreRules.QueueMax, q.Count);
+        Assert.Equal(1000 - GoreRules.QueueMax, q.Dropped);
         var batch = new List<int>();
         Assert.Equal(12, q.Take(batch));
         Assert.Equal(12, batch.Count);
-        Assert.Equal(1000 - MusouGoreRules.QueueMax, batch[0]);   // the oldest kept go first
+        Assert.Equal(1000 - GoreRules.QueueMax, batch[0]);   // the oldest kept go first
         int frames = 1;
-        while (q.Count > 0) { batch.Clear(); Assert.True(q.Take(batch) <= MusouGoreRules.DeathsPerFrame); frames++; }
+        while (q.Count > 0) { batch.Clear(); Assert.True(q.Take(batch) <= GoreRules.DeathsPerFrame); frames++; }
         Assert.Equal(43, frames);   // 512 deaths in 43 frames
     }
 
     [Fact]
     public void Two_hundred_enemies_dying_at_heavy_rates_hold_every_limit_and_the_load_thins_the_bursts()
     {
-        var f = new MusouGoreField(4);
+        var f = new GoreField(4);
         var q = new GoreQueue<(MusouDeathKind Cause, float Metres)>();
         var batch = new List<(MusouDeathKind, float)>();
         var rng = new Random(9);
@@ -219,8 +261,8 @@ public class MusouGoreTests
             if (frame % 300 == 0) for (int k = 0; k < 200; k++) q.Add((MusouDeathKind.Barrage, 5f + rng.NextSingle() * 40f));
             batch.Clear();
             int taken = q.Take(batch);
-            Assert.True(taken <= MusouGoreRules.DeathsPerFrame);
-            Assert.True(q.Count <= MusouGoreRules.QueueMax);
+            Assert.True(taken <= GoreRules.DeathsPerFrame);
+            Assert.True(q.Count <= GoreRules.QueueMax);
             float load = f.LoadScale();
             long before = f.Spawned;
             foreach (var (cause, metres) in batch)
@@ -244,7 +286,7 @@ public class MusouGoreTests
     [Fact]
     public void Nothing_is_made_for_no_gore_and_nothing_beyond_sixty_metres()
     {
-        var f = new MusouGoreField(5);
+        var f = new GoreField(5);
         f.Spawn(GoreBurst.Nothing, Vector3.Zero, Vector3.UnitY, 0f, false);
         f.Spawn(Plan(MusouDeathKind.Melee, metres: 80f), Vector3.Zero, Vector3.UnitY, 0f, false);
         Assert.Equal(0L, f.Spawned);
