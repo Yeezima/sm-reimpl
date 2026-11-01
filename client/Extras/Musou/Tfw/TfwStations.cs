@@ -43,7 +43,7 @@ public partial class NetworkView
         }
         TfwPeekFrame(war);
 
-        _tfwAt = war.Phase == TfwRunPhase.Hub && me.Alive && !PickerBusy ? TfwHudModel.StationAt(me.Position) : TfwStation.None;
+        _tfwAt = war.Phase == TfwRunPhase.Hub && me.Alive && !PickerBusy ? TfwHub is { } hub ? TfwHudModel.StationAt(me.Position, hub) : TfwStation.None : TfwStation.None;
         bool use = ControlsInput.Held(GameAction.Use) || _pad is not null && PadHost.Active && !_padUseBlocked && ControlsInput.PadHeld(_pad, GameAction.Use);
         bool press = use && !_tfwUseWas;
         _tfwUseWas = use;

@@ -38,7 +38,7 @@ public class TfwRunTests
         Assert.Equal(TfwLane.B, run.War.BattleLane);
         Assert.Null(w.NextLoadout(Human));                                  // the customizer's Setup applied
         var p = w.Players[Human];
-        Assert.True(Vector3.Distance(p.Position with { Z = 0f }, TfwMap.LandingZone) < 3f, $"{p.Position}");
+        Assert.True(Vector3.Distance(p.Position with { Z = 0f }, TfwTestArena.LandingZone) < 3f, $"{p.Position}");
         Assert.Equal((-1, WeaponSlot.Pistol), (p.Primary, p.Slot));
         Assert.Equal(6, w.TfwGuards!.SquadsAlive);                          // 7 at Imperial 100, at most 6 in the field
         Assert.Equal(run.Battle!.Layout.Positions[0], run.ActivePosition);
@@ -71,7 +71,7 @@ public class TfwRunTests
         run.Enqueue(TfwContracts.PuppetIdFirst, new TfwCommandRecord(3, TfwCommand.Attack, 0, Vector3.Zero));   // nobody in the field
         TfwRig.Steps(w, 2);
         var order = Assert.Single(seen);
-        Assert.Equal(new Vector3(TfwMap.ArenaHalf, -TfwMap.ArenaHalf, 0f), order.Point);
+        Assert.Equal(TfwTestArena.Field.Clamp(new Vector3(3277f, -3277f, -3277f)), order.Point);
     }
 
     [Fact]
@@ -84,10 +84,10 @@ public class TfwRunTests
         var retainer = Assert.IsType<Marine>(run.RetainerOf(Human));
         run.Enqueue(Human, new TfwCommandRecord(1, TfwCommand.Hold, 0, new Vector3(3277f, 10f, 0f)));
         TfwRig.Steps(w, 1);
-        Assert.Equal(new Vector3(TfwMap.ArenaHalf, 10f, 0f), retainer.HoldAt);
+        Assert.Equal(new Vector3(TfwTestArena.Field.Bounds.Max.X, 10f, 0f), retainer.HoldAt);
         run.Enqueue(Human, new TfwCommandRecord(2, TfwCommand.Attack, 0, new Vector3(5f, -3277f, 0f)));
         TfwRig.Steps(w, 1);
-        Assert.Equal(new Vector3(5f, -TfwMap.ArenaHalf, 0f), retainer.AttackAt);
+        Assert.Equal(new Vector3(5f, TfwTestArena.Field.Bounds.Min.Y, 0f), retainer.AttackAt);
         run.Enqueue(Human, new TfwCommandRecord(3, TfwCommand.Follow, 0));
         TfwRig.Steps(w, 1);
         Assert.Null(retainer.AttackAt);
@@ -214,7 +214,7 @@ public class TfwRunTests
         TfwRig.Steps(w, 2);
         Assert.Equal((TfwRunPhase.Battle, TfwLane.A, 4), (run.Phase, run.War.BattleLane, run.Transport));
         var fresh = TfwRig.War();
-        TfwRig.Teleport(fresh, TfwMap.LandingZone);
+        TfwRig.Teleport(fresh, TfwTestArena.LandingZone);
         TfwRig.Command(fresh, TfwCommand.Deploy);
         TfwRig.Steps(fresh, 2);
         Assert.Equal((TfwRunPhase.Hub, 5), (fresh.Tfw!.Phase, fresh.Tfw.Transport));
@@ -269,7 +269,7 @@ public class TfwRunTests
         var battle = TfwRig.Deploy(w);
         TfwRig.Secure(w, battle, 0);
         var guards = w.TfwGuards!;
-        int squad = guards.NearestSquad(TfwMap.LandingZone);
+        int squad = guards.NearestSquad(TfwTestArena.LandingZone);
         for (int k = 0; k < 3; k++) guards.Hit(squad, 1e6f, Vector3.Zero);
         TfwRig.KillAll(w);
         TfwRig.Steps(w, 1);
@@ -565,7 +565,7 @@ public class TfwRunTests
     {
         var w = TfwRig.War();
         TfwRig.Deploy(w);
-        Assert.NotNull(w.MusouSpawnDrop(Human, TfwMap.LandingZone, 0));
+        Assert.NotNull(w.MusouSpawnDrop(Human, TfwTestArena.LandingZone, 0));
         Assert.True(w.TfwKillForTests(Human));
         TfwRig.Seconds(w, TfwBattleRules.ExtractionPromptSeconds + 0.3f);
         Assert.Equal(0, w.TfwGuards!.Alive);
@@ -624,8 +624,7 @@ public class TfwRunTests
     [Fact]
     public void The_server_feeds_the_wire_from_the_run_each_guardsman_once()
     {
-        string? name = null;
-        var map = Assert.IsType<GameMap>(SmServer.GameServer.GeneratedMap(ContentExtras.Musou, ref name, out _));
+        var map = TfwTestArena.ServerMap();
         var h = new Harness(LinkConditions.Perfect, 5, 1, TfwRig.Config, new SmServer.ServerOptions { Match = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2 } }, map: map,
             clientOptions: new ClientOptions { LoadMap = _ => new LoadedMap(map.Collision, map.Hash) });
         h.Run(TimeSpan.FromSeconds(1));
@@ -649,8 +648,7 @@ public class TfwRunTests
     [Fact]
     public void A_position_is_secured_on_the_real_walking_graph()
     {
-        string? name = null;
-        var map = Assert.IsType<GameMap>(SmServer.GameServer.GeneratedMap(ContentExtras.Musou, ref name, out _));
+        var map = TfwTestArena.ServerMap();
         var h = new Harness(LinkConditions.Perfect, 5, 0, TfwRig.Config, new SmServer.ServerOptions { Match = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2 } }, map: map);
         var nav = Assert.IsType<NavGraph>(h.Server.World.Musou!.Nav);
         var w = TfwRig.War(nav);

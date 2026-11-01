@@ -9,7 +9,7 @@ namespace SmSim.Extras.Musou.Campaign;
 /// </summary>
 public static class TfwRules
 {
-    public const uint Version = 6;   // 2: TF6, the war's sections on the wire and the commands with a place; 3: TF4, the war runs (the battle, the run, the extraction); 4: TF7b, tag 7 carries the own block (TfwOwnView); 5: the own block's deployed flag, and an extraction after a won battle never ends the run; 6: pass 2's contracts (tags 11 to 14, the commands ChangeClass and ChooseReward, Knocked, the deaths Barrage and Strafe)
+    public const uint Version = 7;   // 2: TF6, the war's sections on the wire and the commands with a place; 3: TF4, the war runs (the battle, the run, the extraction); 4: TF7b, tag 7 carries the own block (TfwOwnView); 5: the own block's deployed flag, and an extraction after a won battle never ends the run; 6: pass 2's contracts (tags 11 to 14, the commands ChangeClass and ChooseReward, Knocked, the deaths Barrage and Strafe); 7: battles on Manufactorum (M1: the map's points, drawn sites, tag 8 carries each radius and the sites)
 }
 
 /// <summary>The contract the war's milestones share (TF0, frozen): ids and how the war's actors are named across the simulation, the server and the client.</summary>
@@ -66,7 +66,7 @@ public readonly record struct TfwOwnView(byte TravelSeconds, byte PickupSeconds,
     TfwRetainerState Retainer, MarineOrder Order, ushort RecoverySeconds, byte Guards, byte Squads, byte Reserves, byte Secured, bool Deployed = false);
 
 /// <summary>One capture position as tag 8 carries it (positions quantised over the Musou box).</summary>
-public readonly record struct TfwObjective(byte Index, TfwPositionState State, float Progress, Vector3 Position);
+public readonly record struct TfwObjective(byte Index, TfwPositionState State, float Progress, Vector3 Position, float Radius = 0f);
 
 /// <summary>One Guardsman as tag 9 carries it (10-byte records, as the enemies').</summary>
 public readonly record struct TfwGuard(ushort Id, Vector3 Position, float Yaw, byte State);

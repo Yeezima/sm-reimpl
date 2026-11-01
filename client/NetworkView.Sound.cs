@@ -154,7 +154,8 @@ public partial class NetworkView
         if (_soundMap is null && _client is { Status: ClientStatus.Connected, MapName.Length: > 0 } c)
         {
             _soundMap = c.MapName;
-            SetUpMapSound(c.MapName);
+            try { SetUpMapSound(MapFileOf(c.MapName)); }
+            catch (System.IO.IOException e) { GD.Print($"sound: no map sounds: {e.Message}"); }   // a composed map missing from the install: the status line says why
         }
         return true;
     }

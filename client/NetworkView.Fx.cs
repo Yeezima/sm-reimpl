@@ -771,7 +771,7 @@ public partial class NetworkView
             var library = _fx.Library;
             _fxMapLoad = Task.Run(() =>
             {
-                var objects = MapEffects.Load(dir, map);
+                var objects = MapEffects.Load(dir, MapFileOf(map));
                 var failures = new List<string>();
                 var systems = library is null ? new Dictionary<string, CSystem>() : CompileSystems(library, objects.Where(o => o.AutoTrigger && o.Fx.Length > 0).Select(o => o.Fx).Distinct(StringComparer.Ordinal), failures);
                 var decals = library is null ? new Dictionary<string, byte[]>() : library.Textures(FxPlayer.DecalNames(systems.Values));

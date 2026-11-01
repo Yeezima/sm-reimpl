@@ -30,13 +30,13 @@ public class MarineBrainTests(ITestOutputHelper output)
     static MatchRules Rules => new() { CountdownTime = 1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2 };
 
     const int Human = 1;
-    static readonly Vector3 Lz = TfwMap.LandingZone;
+    static readonly Vector3 Lz = TfwTestArena.LandingZone;
 
     static World War()
     {
-        var map = TfwMap.Build();
+        var map = TfwTestArena.Build();
         var w = new World(Config, map.Collision, map.Spawns) { Rules = Rules };
-        Assert.True(w.StartTfw(null));
+        Assert.True(w.StartTfw(null, TfwTestArena.Field));
         w.Tfw!.Idle = true;   // the Marines alone: these tests set the order, the place and the clock themselves (TF4's run would)
         return w;
     }
@@ -240,14 +240,14 @@ public class MarineBrainTests(ITestOutputHelper output)
         var w = Playing(Lz);
         int r = w.TfwSpawnRetainer(Human, Lz + new Vector3(0f, -6f, 0f))!.Value;
         var run = w.Tfw!;
-        run.ActivePosition = TfwMap.Position1;
+        run.ActivePosition = TfwTestArena.Position1;
         var attack = new TfwCommandRecord(1, TfwCommand.Attack, 0);
         run.Enqueue(Human, attack);
         run.Enqueue(Human, attack);
         run.Enqueue(Human, new TfwCommandRecord(2, TfwCommand.Deploy, 1));   // not an order: it stays in the queue for the run
         Run(w, 15f);
         Assert.Equal(MarineOrder.Attack, run.Orders.Of(Human));
-        Assert.True(MarineBrain.Flat(w.Players[r].Position, TfwMap.Position1) <= MarineRules.ArriveRadius);
+        Assert.True(MarineBrain.Flat(w.Players[r].Position, TfwTestArena.Position1) <= MarineRules.ArriveRadius);
         Assert.Equal(1, run.QueuedCommands);
         Assert.True(run.TryDequeue(out _, out var left));
         Assert.Equal(TfwCommand.Deploy, left.Command);
@@ -385,12 +385,12 @@ public class MarineBrainTests(ITestOutputHelper output)
             int lord = w.TfwSpawnLord(lane, Lz)!.Value;
             var run = w.Tfw!;
             Assert.Equal(lane switch { TfwLane.A => "assault", TfwLane.B => "tactical", _ => "heavy" }, w.Config.Classes[w.Players[lord].Class].Role);
-            run.ActivePosition = TfwMap.Position1;
+            run.ActivePosition = TfwTestArena.Position1;
             Run(w, 20f);
-            Assert.True(MarineBrain.Flat(w.Players[lord].Position, TfwMap.Position1) <= MarineRules.ArriveRadius, $"{lane} stopped at {w.Players[lord].Position}");
+            Assert.True(MarineBrain.Flat(w.Players[lord].Position, TfwTestArena.Position1) <= MarineRules.ArriveRadius, $"{lane} stopped at {w.Players[lord].Position}");
             var marines = run.Marines.Select(m => m.Id).ToList();
             for (int k = 0; k < 6; k++)
-                w.Musou!.Spawn(MusouEnemyType.Boy, TfwMap.Position1 + new Vector3(4f + k, 5f, 0f), 0f, 85f);
+                w.Musou!.Spawn(MusouEnemyType.Boy, TfwTestArena.Position1 + new Vector3(4f + k, 5f, 0f), 0f, 85f);
             Run(w, 30f);
             Assert.True(Kills(w, lord) >= 1, $"lord of {lane} killed none");
             Assert.True(marines.Sum(id => Kills(w, id)) >= 4, $"{lane}: {marines.Sum(id => Kills(w, id))} kills");
@@ -415,7 +415,7 @@ public class MarineBrainTests(ITestOutputHelper output)
         var w = Playing(new Vector3(0f, -200f, 0f));
         int lord = w.TfwSpawnLord(TfwLane.C, Lz)!.Value;
         var run = w.Tfw!;
-        run.ActivePosition = TfwMap.Position1;
+        run.ActivePosition = TfwTestArena.Position1;
         var fallen = new List<TfwLane>();
         run.LordFallen = fallen.Add;
         Kill(w, lord, 0.5f);
@@ -454,19 +454,19 @@ public class MarineBrainTests(ITestOutputHelper output)
         var config = GameplayTuning.LoadForMatch(Game.Value!, ContentExtras.Musou).Config;
         foreach (var lane in new[] { TfwLane.A, TfwLane.B, TfwLane.C })
         {
-            var map = TfwMap.Build();
+            var map = TfwTestArena.Build();
             var w = new World(config, map.Collision, map.Spawns) { Rules = Rules };
-            Assert.True(w.StartTfw(null));
+            Assert.True(w.StartTfw(null, TfwTestArena.Field));
             w.Tfw!.Idle = true;   // the Marines alone: these tests set the order, the place and the clock themselves (TF4's run would)
             w.Spawn(Human, 0);
             for (int k = 0; k < 400 && w.State != MatchState.Playing; k++) Tick(w);
             Assert.Equal(MatchState.Playing, w.State);
             int lord = w.TfwSpawnLord(lane, Lz)!.Value;
             int retainer = w.Tfw!.Marines.Single(m => m.Role == MarineRole.LordRetainer).Id;
-            w.Tfw.ActivePosition = TfwMap.Position1;
+            w.Tfw.ActivePosition = TfwTestArena.Position1;
             Run(w, 25f);
-            Assert.True(MarineBrain.Flat(w.Players[lord].Position, TfwMap.Position1) <= MarineRules.ArriveRadius, $"{lane} stopped at {w.Players[lord].Position}");
-            for (int k = 0; k < 6; k++) w.Musou!.Spawn(MusouEnemyType.Boy, TfwMap.Position1 + new Vector3(4f + k, 5f, 0f), 0f, 85f);
+            Assert.True(MarineBrain.Flat(w.Players[lord].Position, TfwTestArena.Position1) <= MarineRules.ArriveRadius, $"{lane} stopped at {w.Players[lord].Position}");
+            for (int k = 0; k < 6; k++) w.Musou!.Spawn(MusouEnemyType.Boy, TfwTestArena.Position1 + new Vector3(4f + k, 5f, 0f), 0f, 85f);
             Run(w, 45f);
             var p = w.Players[lord];
             output.WriteLine($"{lane}: {config.Classes[p.Class].Name}, primary {p.Primary}, slot {p.Slot}, alive {p.Alive}, lord kills {Kills(w, lord)}, retainer kills {Kills(w, retainer)}, left {w.Musou!.Alive}");
@@ -500,8 +500,7 @@ public class MarineBrainTests(ITestOutputHelper output)
     [Fact]
     public void Seven_puppets_run_ten_simulated_minutes_on_a_loopback_server()
     {
-        string? name = null;
-        var map = GameServer.GeneratedMap(ContentExtras.Musou, ref name, out _)!;
+        var map = TfwTestArena.ServerMap();
         var h = new Harness(LinkConditions.Perfect, 5, 1, Config, new ServerOptions { Match = Rules }, map: map,
             clientOptions: new ClientOptions { LoadMap = _ => new LoadedMap(map.Collision, map.Hash) });
         h.Run(TimeSpan.FromSeconds(3));
@@ -513,7 +512,7 @@ public class MarineBrainTests(ITestOutputHelper output)
         foreach (var lane in new[] { TfwLane.A, TfwLane.B, TfwLane.C }) Assert.NotNull(w.TfwSpawnLord(lane, Lz + new Vector3((int)lane * 4f - 4f, 0f, 0f)));
         Assert.Equal(7, run.Marines.Count);
         Assert.Null(w.TfwSpawnLord(TfwLane.A, Lz));
-        run.ActivePosition = TfwMap.Position2;
+        run.ActivePosition = TfwTestArena.Position2;
         run.WarTimeScale = 1f;
 
         uint started = w.Tick;
@@ -523,7 +522,7 @@ public class MarineBrainTests(ITestOutputHelper output)
             h.Run(TimeSpan.FromSeconds(5));
             if (second == 300)   // deaths on the server too: a lord stays down, a retainer comes back on the war clock
                 foreach (var m in run.Marines.Where(m => m.Role != MarineRole.LordRetainer || m.Lane == TfwLane.A).ToList()) if (m.Role != MarineRole.Lord || m.Lane == TfwLane.B) Kill(w, m.Id, 0.2f);
-            run.ActivePosition = (second / 60 % 3) switch { 0 => TfwMap.Position1, 1 => TfwMap.Position2, _ => TfwMap.Position3 };
+            run.ActivePosition = (second / 60 % 3) switch { 0 => TfwTestArena.Position1, 1 => TfwTestArena.Position2, _ => TfwTestArena.Position3 };
             for (int k = 0; k < 4 && w.Musou!.Alive < 40; k++)
                 w.Musou.Spawn(k == 0 ? MusouEnemyType.ShootaBoy : MusouEnemyType.Boy, run.ActivePosition!.Value + new Vector3(rng.NextSingle() * 30f - 15f, rng.NextSingle() * 30f - 15f, 0f), 0f, 85f);
         }

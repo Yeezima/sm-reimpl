@@ -2076,18 +2076,18 @@ public partial class NetworkView : Node3D
     /// </summary>
     LoadedMap? LoadMap(string name)
     {
-        LoadedMap? generated = null;
-        ExtrasLoadMap(name, ref generated);   // EXTRAS-HOOK: a map added content generates in code (Musou Mode's tfw_war); nothing below reads it from the install
-        if (generated is not null) return generated;
         var watch = System.Diagnostics.Stopwatch.StartNew();
+        string file = MapFileOf(name);
         Ph("map load: collision and content");
-        MemStep("before map"); var map = MapContent.Load(_gameDir, name); MemStep("map content");
+        MemStep("before map"); var map = MapContent.Load(_gameDir, file); MemStep("map content");
         var world = map.ToCollisionWorld(); MemStep("collision world");
+        ulong hash = map.Hash;
+        ExtrasMapCollision(name, ref world, ref hash);   // EXTRAS-HOOK: added content's solids beside the level, and the hash of the whole (Musou Mode's Stormbird)
         if (!Lean) BuildRagdollWorld(map);
         PrepareNavigation(map, world); MemStep("navigation");
         _mapCentre = map.Spawns.Count > 0 ? new Vector2(map.Spawns.Average(sp => sp.Position.X), map.Spawns.Average(sp => sp.Position.Y)) : null;
         long collisionMs = watch.ElapsedMilliseconds;
-        if (Lean) return LeanMapLoaded(name, map, world, collisionMs, watch);   // perf/lean-bots: collision, navigation and the jump ground only (NetworkView.Lean.cs)
+        if (Lean) return LeanMapLoaded(name, hash, world, collisionMs, watch);   // perf/lean-bots: collision, navigation and the jump ground only (NetworkView.Lean.cs)
         _gameSpace?.GetNodeOrNull("MapCollision")?.QueueFree();
         _gameSpace?.GetNodeOrNull("MapVisuals")?.QueueFree();
 
@@ -2099,7 +2099,7 @@ public partial class NetworkView : Node3D
         try
         {
             Ph("map load: visuals");
-            var scene = MapScene.Load(_gameDir, name);
+            var scene = MapScene.Load(_gameDir, file);
             visualNotes.AddRange(scene.Notes);
             view = MapView.Build(scene, visualNotes);
             if (view.Instances == 0)
@@ -2172,11 +2172,21 @@ public partial class NetworkView : Node3D
         PrewarmPickups();   // perf/pass-1: the drops' models (the first drop cost a 100 ms frame); a lean bot returned above (LeanMapLoaded) and warms none
         PrewarmCollision(world);   // M40-T9: the crosshair's first ray
         _jumpGround = world;   // M45: the flight pose's height above the ground
-        return new LoadedMap(world, map.Hash);
+        return new LoadedMap(world, hash);
     }
 
-    /// <summary>Hook for added content, at the top of <see cref="LoadMap"/>: sets <paramref name="loaded"/> for a map it generates (and draws it). Implemented in an <c>Extras/</c> folder.</summary>
-    partial void ExtrasLoadMap(string name, ref LoadedMap? loaded);
+    /// <summary>The install's map behind the server's map name: the name itself, unless added content composes that map from another (every read of map files goes through this).</summary>
+    string MapFileOf(string name)
+    {
+        ExtrasMapFile(ref name);   // EXTRAS-HOOK: Musou Mode's tfw_war is Manufactorum in the install
+        return name;
+    }
+
+    /// <summary>Hook for added content: replaces <paramref name="file"/> with the install's map behind a map it composes. Implemented in an <c>Extras/</c> folder.</summary>
+    partial void ExtrasMapFile(ref string file);
+
+    /// <summary>Hook for added content, in <see cref="LoadMap"/> after the level's collision: replaces <paramref name="world"/> and <paramref name="hash"/> for a map it composes. Implemented in an <c>Extras/</c> folder.</summary>
+    partial void ExtrasMapCollision(string name, ref SmSim.CollisionWorld world, ref ulong hash);
 
     void AddGroundCameraAndLights()
     {

@@ -1,7 +1,9 @@
+﻿using System;
 using System.Collections.Generic;
 using Godot;
 using SmNet.Extras.Musou.Campaign;
 using SmSim.Extras.Musou.Campaign;
+using Num = System.Numerics;
 
 namespace SmClient;
 
@@ -18,7 +20,7 @@ public partial class TfwMarkers : Node3D
 
     readonly MeshInstance3D[] _rings = new MeshInstance3D[WarRules.Positions + 1];
     readonly StandardMaterial3D[] _ringPaint = new StandardMaterial3D[WarRules.Positions + 1];
-    readonly MeshInstance3D[] _pillars = new MeshInstance3D[TfwMap.Sources.Length];
+    readonly MeshInstance3D[] _pillars = new MeshInstance3D[TfwWire.MaxSites - 1];
     MeshInstance3D _beacon = null!;
 
     static StandardMaterial3D Paint(Color c, float alpha) => new()
@@ -38,17 +40,19 @@ public partial class TfwMarkers : Node3D
     {
         for (int k = 0; k < _rings.Length; k++)
         {
-            float radius = k == TfwBattle.CommanderObjective ? TfwMap.HqRadius : TfwMap.CaptureRadius;
             _ringPaint[k] = Paint(Locked, 1f);
-            _rings[k] = new MeshInstance3D { Name = "Ring" + k, Mesh = new TorusMesh { InnerRadius = radius - 0.2f, OuterRadius = radius + 0.2f, Rings = 96, RingSegments = 6 }, MaterialOverride = _ringPaint[k], Basis = Upright, Visible = false };
+            _rings[k] = new MeshInstance3D { Name = "Ring" + k, Mesh = new TorusMesh { InnerRadius = 0.98f, OuterRadius = 1.02f, Rings = 96, RingSegments = 6 }, MaterialOverride = _ringPaint[k], Basis = Upright, Visible = false };
             AddChild(_rings[k]);
         }
-        for (int k = 0; k < _pillars.Length; k++) _pillars[k] = Pillar("Source" + k, Held, 2.5f);
-        _beacon = Pillar("Beacon", new Color(0.3f, 0.7f, 1f), TfwMap.LandingRadius / 5f);
+        for (int k = 0; k < _pillars.Length; k++) _pillars[k] = Pillar("Source" + k, Held, 1f);
+        _beacon = Pillar("Beacon", new Color(0.3f, 0.7f, 1f), 0.5f);
     }
 
-    /// <summary>The markers of the war as it stands.</summary>
-    public void Show(in TfwWarView war, IReadOnlyList<TfwObjective> objectives)
+    /// <summary>A pillar shows only from afar: seen from beside or inside it, it would tint the whole screen.</summary>
+    static bool Far(Num.Vector3 pillar, Num.Vector3 viewer) => new Vector2(pillar.X - viewer.X, pillar.Y - viewer.Y).Length() > TfwMap.LandingRadius;
+
+    /// <summary>The markers of the war as it stands; <paramref name="viewer"/>: the own player's feet.</summary>
+    public void Show(in TfwWarView war, IReadOnlyList<TfwObjective> objectives, IReadOnlyList<Num.Vector3> sites, Num.Vector3 viewer)
     {
         if (_beacon is null) return;
         bool battle = TfwHudModel.InBattle(war.Phase) && objectives.Count > 0;
@@ -60,21 +64,24 @@ public partial class TfwMarkers : Node3D
             _rings[k].Visible = shown;
             if (!shown) continue;
             var o = objectives[k];
+            float radius = MathF.Max(o.Radius, 1f);
+            _rings[k].Basis = Upright.Scaled(new Vector3(radius, radius, 1f));
             _rings[k].Position = new Vector3(o.Position.X, o.Position.Y, o.Position.Z + RingHeight);
             _ringPaint[k].AlbedoColor = o.State switch
             {
                 TfwPositionState.Held => Held, TfwPositionState.Clearing => Clearing, TfwPositionState.Securing => Securing, TfwPositionState.Secured => Secured, _ => Locked,
             };
         }
-        if (TfwHudModel.LayoutOf(war.BattleLane, objectives) is not { } layout) return;
         bool final = war.Phase == TfwRunPhase.FinalAssault;
         for (int k = 0; k < _pillars.Length; k++)
         {
-            var at = layout.Sources[k];
-            _pillars[k].Position = new Vector3(at.X, at.Y, PillarHeight / 2f);
-            _pillars[k].Visible = TfwHudModel.SourceActive(k, objectives, war.Own.BattleWon, final);
+            bool shown = k + 1 < sites.Count;
+            _pillars[k].Visible = shown && TfwHudModel.SourceActive(k, objectives, war.Own.BattleWon, final) && Far(sites[k + 1], viewer);
+            if (!shown) continue;
+            var at = sites[k + 1];
+            _pillars[k].Position = new Vector3(at.X, at.Y, at.Z + PillarHeight / 2f);
         }
-        _beacon.Position = new Vector3(layout.LandingZone.X, layout.LandingZone.Y, PillarHeight / 2f);
-        _beacon.Visible = true;
+        _beacon.Visible = sites.Count > 0 && Far(sites[0], viewer);
+        if (sites.Count > 0) _beacon.Position = new Vector3(sites[0].X, sites[0].Y, sites[0].Z + PillarHeight / 2f);
     }
 }

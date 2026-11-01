@@ -22,9 +22,9 @@ internal static class TfwRig
 
     public static World War(NavGraph? nav = null, SimConfig? config = null)
     {
-        var map = TfwMap.Build();
-        var w = new World(config ?? Config, map.Collision, TfwMap.Spawns) { Rules = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2, RestartDelay = 2f }, StartAreas = TfwMap.StartAreas };
-        Assert.True(w.StartTfw(nav));
+        var map = TfwTestArena.Build();
+        var w = new World(config ?? Config, map.Collision, TfwTestArena.Spawns) { Rules = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2, RestartDelay = 2f }, StartAreas = TfwTestArena.Data.StartAreas };
+        Assert.True(w.StartTfw(nav, TfwTestArena.Field));
         w.Tfw!.RetainerUp = _ => false;   // the tests of the extraction; those of the revive set their own
         w.Spawn(Human, w.AssignClass(0));
         Steps(w, 30);
@@ -85,28 +85,12 @@ internal static class TfwRig
         Assert.Equal(TfwRunPhase.Hub, w.Tfw!.Phase);
     }
 
-    public static bool InStormbird(Vector3 p) => MathF.Abs(p.X) <= 5f && MathF.Abs(p.Y + 200f) <= 5f;
+    public static bool InStormbird(Vector3 p) => TfwTestArena.Hub.Contains(p);
 }
 
 /// <summary>A battle (TF4, design section D): the layout, the chain of positions, the defenders, the arrivals, the securing, the commander and the failsafe.</summary>
 public class TfwBattleTests
 {
-    [Fact]
-    public void Even_nodes_mirror_x_lane_c_turns_and_all_stand_in_the_arena()
-    {
-        var a1 = TfwLayout.For(TfwLane.A, 1);
-        Assert.Equal(TfwMap.Position1, a1.Positions[0]);
-        Assert.Equal(-TfwMap.Position1.X, TfwLayout.For(TfwLane.A, 2).Positions[0].X);
-        Assert.Equal(new Vector3(-TfwMap.Position1.Y, TfwMap.Position1.X, 0f), TfwLayout.For(TfwLane.C, 1).Positions[0]);
-        foreach (var lane in new[] { TfwLane.A, TfwLane.B, TfwLane.C })
-            for (int node = 0; node <= 3; node++)
-            {
-                var l = TfwLayout.For(lane, node);
-                foreach (var p in l.Positions.Concat(l.Sources).Append(l.Hq).Append(l.LandingZone))
-                    Assert.True(MathF.Abs(p.X) < TfwMap.ArenaHalf && MathF.Abs(p.Y) < TfwMap.ArenaHalf, $"{lane} {node} {p}");
-            }
-    }
-
     [Theory]
     [InlineData(10.0, 2)]
     [InlineData(100.0, 4)]
@@ -153,7 +137,7 @@ public class TfwBattleTests
         int ticks = 0;
         for (; ticks < 90 * 30 && battle.Objectives[0].Progress <= 0f; ticks++) { TfwRig.KillAll(w); w.Step(_ => default); }
         Assert.True(battle.Objectives[0].Progress > 0f);
-        Assert.True(w.TfwGuards!.CountInside(battle.Layout.Positions[0], TfwMap.CaptureRadius) > 0);
+        Assert.True(w.TfwGuards!.CountInside(battle.Layout.Positions[0], TfwTestArena.CaptureRadius) > 0);
         var ork = w.Musou!.Spawn(MusouEnemyType.Boy, battle.Layout.Positions[0], 0f, 85f);
         w.Musou.Frozen = true;
         TfwRig.Steps(w, 2);
@@ -193,7 +177,7 @@ public class TfwBattleTests
     {
         var sim = new MusouSim(null);
         var guards = new GuardSim(sim);
-        var layout = TfwLayout.For(TfwLane.A, 1);
+        var layout = TfwTestArena.Layout(TfwLane.A, 1);
         var battle = new TfwBattle(sim, guards, layout, 100.0, 10.0, 1);     // 4 squads, all in the field
         battle.Start();
         Assert.Equal(0, battle.Reserves);
@@ -263,7 +247,7 @@ public class TfwBattleTests
     public void A_waaagh_brings_its_boyz_from_the_sources()
     {
         var sim = new MusouSim(null);
-        var battle = new TfwBattle(sim, new GuardSim(sim), TfwLayout.For(TfwLane.A, 1), 100.0, 100.0, 1);
+        var battle = new TfwBattle(sim, new GuardSim(sim), TfwTestArena.Layout(TfwLane.A, 1), 100.0, 100.0, 1);
         battle.Start();
         int before = sim.Alive;
         battle.NoteWaaaghs(1);
@@ -306,7 +290,7 @@ public class TfwBattleTests
     public void The_full_cap_holds_back_the_arrivals()
     {
         var sim = new MusouSim(null) { Frozen = true };
-        var battle = new TfwBattle(sim, new GuardSim(sim), TfwLayout.For(TfwLane.A, 1), 250.0, 100.0, 1);
+        var battle = new TfwBattle(sim, new GuardSim(sim), TfwTestArena.Layout(TfwLane.A, 1), 250.0, 100.0, 1);
         battle.Start();
         for (int k = 0; k < 400 * 30; k++) battle.Step([]);
         Assert.Equal(TfwBattleRules.AliveCapSolo, sim.Alive);

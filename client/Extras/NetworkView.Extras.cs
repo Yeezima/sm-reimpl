@@ -38,6 +38,8 @@ public partial class NetworkView
         TfwFrame(me, others, delta, _tfwSections);
     }
 
-    /// <summary>A map generated in code: Musou Mode's.</summary>
-    partial void ExtrasLoadMap(string name, ref LoadedMap? loaded) => TfwLoadMap(name, ref loaded);
+    /// <summary>A map added content composes: Musou Mode's.</summary>
+    partial void ExtrasMapFile(ref string file) => TfwMapFile(ref file);
+
+    partial void ExtrasMapCollision(string name, ref SmSim.CollisionWorld world, ref ulong hash) => TfwMapCollision(name, ref world, ref hash);
 }

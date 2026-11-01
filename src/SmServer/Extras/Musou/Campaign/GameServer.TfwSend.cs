@@ -40,7 +40,7 @@ public sealed partial class GameServer
         int tickRate = World.Config.TickRate;
         bool hasBox = sim.Director != default;
         var box = hasBox ? MusouSend.EffectiveBox(sim.Director.Box, _musouNavBox) : default;
-        byte[]? objectives = hasBox ? TfwWire.WriteObjectives(feed.Objectives, box) : null;
+        byte[]? objectives = hasBox ? TfwWire.WriteObjectives(feed.Objectives, box, feed.Sites) : null;
         IReadOnlyList<TfwGuardEvent> events = hasBox ? _tfwEvents.Step(tick, feed.Events, TfwSendRules.EventsPerTick(tickRate)) : [];
         var guards = new ReadOnlySpan<TfwGuard>(feed.Guards, 0, hasBox ? Math.Clamp(feed.GuardCount, 0, feed.Guards.Length) : 0);
         Vector3? anyone = null;

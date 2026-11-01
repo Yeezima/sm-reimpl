@@ -27,13 +27,12 @@ public class TfwContractTests
     };
     static MatchRules Rules => new() { CountdownTime = 1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2 };
 
+    /// <summary>A folder that holds no game.</summary>
+    static string NoInstall => Path.Combine(Path.GetTempPath(), "sm-no-install-" + Guid.NewGuid().ToString("N"));
+
     static GameMap WarMap()
     {
-        string? name = null;
-        var map = GameServer.GeneratedMap(ContentExtras.Musou, ref name, out string? error);
-        Assert.Null(error);
-        Assert.Equal(TfwMap.Name, name);
-        return Assert.IsType<GameMap>(map);
+        return TfwTestArena.ServerMap();
     }
 
     static Harness WarServer(int clients = 1)
@@ -44,22 +43,21 @@ public class TfwContractTests
     }
 
     static bool InStormbird(Vector3 p) =>
-        MathF.Abs(p.X - TfwMap.StormbirdCentre.X) <= TfwMap.StormbirdSize.X / 2f && MathF.Abs(p.Y - TfwMap.StormbirdCentre.Y) <= TfwMap.StormbirdSize.Y / 2f;
+        MathF.Abs(p.X - TfwTestArena.Hub.Centre.X) <= TfwMap.StormbirdSize.X / 2f && MathF.Abs(p.Y - TfwTestArena.Hub.Centre.Y) <= TfwMap.StormbirdSize.Y / 2f;
 
     // ---------------------------------------------------------------- the map and its choice
 
     [Fact]
     public void The_map_is_generated_the_same_every_time_and_holds_the_layout()
     {
-        var a = TfwMap.Build();
-        var b = TfwMap.Build();
+        var a = TfwTestArena.Build();
+        var b = TfwTestArena.Build();
         Assert.Equal(a.Hash, b.Hash);
         Assert.True(Protocol.IsMapName(TfwMap.Name));
         Assert.All(a.Spawns, s => Assert.True(InStormbird(s.Position), $"{s.Position}"));
         Assert.Equal(0f, a.Spawns[0].Yaw);   // facing north
-        Assert.Equal(80f, -TfwMap.ArenaHalf - TfwMap.StormbirdCentre.Y);   // 80 m from the arena
-        Assert.Contains(a.StartAreas, s => s.Side == Team.SpaceMarines && s.Center == TfwMap.StormbirdCentre);
-        foreach (var at in new[] { TfwMap.Position1, TfwMap.Position2, TfwMap.Position3, TfwMap.Hq, TfwMap.LandingZone, TfwMap.DestinationStation, TfwMap.EquipmentStation, TfwMap.StormbirdCentre }.Concat(TfwMap.Sources))
+        Assert.Contains(a.StartAreas, s => s.Side == Team.SpaceMarines && s.Center == TfwTestArena.Hub.Centre);
+        foreach (var at in new[] { TfwTestArena.Position1, TfwTestArena.Position2, TfwTestArena.Position3, TfwTestArena.Hq, TfwTestArena.LandingZone, TfwTestArena.Hub.DestinationStation, TfwTestArena.Hub.EquipmentStation, TfwTestArena.Hub.Centre }.Concat(TfwTestArena.Sources))
             Assert.NotNull(a.Collision.Character.Raycast(at + new Vector3(0f, 0f, 1f), -Vector3.UnitZ, 2f));   // every place stands on the floor
     }
 
@@ -73,9 +71,10 @@ public class TfwContractTests
     public void A_server_generates_the_war_map_for_musou_alone(ContentExtras extras, string? asked, bool generated, string? named)
     {
         string? name = asked;
-        var map = GameServer.GeneratedMap(extras, ref name, out string? error);
-        Assert.Null(error);
-        Assert.Equal(generated, map is not null);
+        var map = GameServer.GeneratedMap(extras, NoInstall, ref name, out string? error);
+        Assert.Equal(generated, error is not null);   // the map would be composed: this install has no Manufactorum
+        if (generated) Assert.Contains(TfwMap.Battlefield, error);
+        Assert.Null(map);
         Assert.Equal(named, name);
     }
 
@@ -86,7 +85,7 @@ public class TfwContractTests
     public void The_war_map_without_musou_is_refused(ContentExtras extras)
     {
         string? name = TfwMap.Name;
-        Assert.Null(GameServer.GeneratedMap(extras, ref name, out string? error));
+        Assert.Null(GameServer.GeneratedMap(extras, NoInstall, ref name, out string? error));
         Assert.Contains("--content musou", error);
     }
 
@@ -105,14 +104,14 @@ public class TfwContractTests
     [Fact]
     public void The_war_starts_only_under_the_flag_and_with_rules()
     {
-        Assert.False(new World(Config with { Extras = ContentExtras.All }) { Rules = Rules }.StartTfw(null));
-        Assert.False(new World(Config).StartTfw(null));
+        Assert.False(new World(Config with { Extras = ContentExtras.All }) { Rules = Rules }.StartTfw(null, TfwTestArena.Field));
+        Assert.False(new World(Config).StartTfw(null, TfwTestArena.Field));
         var w = new World(Config) { Rules = Rules };
-        Assert.True(w.StartTfw(null));
+        Assert.True(w.StartTfw(null, TfwTestArena.Field));
         var first = w.Tfw;
         Assert.NotNull(first);
         Assert.NotNull(w.Musou);
-        Assert.True(w.StartTfw(null));
+        Assert.True(w.StartTfw(null, TfwTestArena.Field));
         Assert.Same(first, w.Tfw);
     }
 
@@ -226,7 +225,7 @@ public class TfwContractTests
         h.Run(TimeSpan.FromMilliseconds(100));
         Assert.Equal(8, h.Server.ExtrasCommandsAccepted);    // the burst
         Assert.Equal(22, h.Server.ExtrasCommandsDropped);
-        var run = new TfwRun();
+        var run = new TfwRun(TfwTestArena.Field);
         for (int k = 0; k < TfwRun.MaxQueuedCommands; k++) Assert.True(run.Enqueue(1, default));
         Assert.False(run.Enqueue(1, default));
     }
@@ -236,15 +235,15 @@ public class TfwContractTests
     [Fact]
     public void The_wars_respawn_applies_the_waiting_loadout_and_a_fresh_life_with_the_pistol()
     {
-        var w = new World(Config, null, TfwMap.Spawns) { Rules = Rules };
+        var w = new World(Config, null, TfwTestArena.Spawns) { Rules = Rules };
         Assert.False(w.TfwRespawnAt(1, Vector3.Zero, 0f));   // outside a war
-        Assert.True(w.StartTfw(null));
+        Assert.True(w.StartTfw(null, TfwTestArena.Field));
         Assert.False(w.TfwRespawnAt(1, Vector3.Zero, 0f));   // nobody of that id
         w.Spawn(1, 0);
         for (int k = 0; k < 60; k++) w.Step(_ => default);
         Assert.NotNull(w.SetNextLoadout(1, LoadoutChoice.Default with { Class = 0, Primary = 0 }));
         Assert.NotNull(w.NextLoadout(1));
-        var lz = TfwMap.LandingZone;
+        var lz = TfwTestArena.LandingZone;
         Assert.True(w.TfwRespawnAt(1, lz, 1f));
         Assert.Null(w.NextLoadout(1));                       // the waiting change is consumed, as the core's respawn does
         Assert.Contains(1, w.LastRespawns);                  // so the server promotes the pending look

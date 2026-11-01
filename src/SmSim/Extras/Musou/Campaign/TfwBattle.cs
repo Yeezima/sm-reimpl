@@ -60,20 +60,17 @@ public static class TfwBattleRules
     public static int SquadsAt(double imperial) => Math.Clamp((int)Math.Round(imperial / ImperialPerSquad, MidpointRounding.AwayFromZero), SquadsMin, SquadsMax);
 }
 
-/// <summary>The places of one battle: the map's layout, x mirrored on even nodes and turned 90 degrees on lane C (design section B).</summary>
-public sealed record TfwLayout(Vector3 LandingZone, Vector3[] Positions, Vector3 Hq, Vector3[] Sources)
+/// <summary>The places of one battle (<see cref="TfwSites.Layout"/>): each position's radius and half height are the map's point's (without them, the defaults below).</summary>
+public sealed record TfwLayout(Vector3 LandingZone, Vector3[] Positions, Vector3 Hq, Vector3[] Sources, float[]? Radii = null, float[]? HalfHeights = null)
 {
-    /// <summary>The layout of <paramref name="node"/> (0 to 3) on <paramref name="lane"/>.</summary>
-    public static TfwLayout For(TfwLane lane, int node)
-    {
-        bool mirror = node % 2 == 0;
-        Vector3 Place(Vector3 p)
-        {
-            if (mirror) p.X = -p.X;
-            return lane == TfwLane.C ? new Vector3(-p.Y, p.X, p.Z) : p;
-        }
-        return new TfwLayout(Place(TfwMap.LandingZone), [Place(TfwMap.Position1), Place(TfwMap.Position2), Place(TfwMap.Position3)], Place(TfwMap.Hq), TfwMap.Sources.Select(Place).ToArray());
-    }
+    /// <summary>A position's radius and half height when the layout names none (the spec's "Musou Mode's map"; the map's markers give the real ones).</summary>
+    public const float DefaultRadius = 12f, DefaultHalfHeight = 2.5f;
+
+    /// <summary>The radius of position <paramref name="k"/>.</summary>
+    public float Radius(int k) => Radii is { } r && k < r.Length ? r[k] : DefaultRadius;
+
+    /// <summary>How far above or below position <paramref name="k"/> an Ork still holds it (points differ in height; never less than a storey's <see cref="DefaultHalfHeight"/>).</summary>
+    public float Reach(int k) => MathF.Max(DefaultHalfHeight, HalfHeights is { } h && k < h.Length ? h[k] : 0f);
 }
 
 /// <summary>What one <see cref="TfwBattle.Step"/> changed that the run acts on.</summary>
@@ -157,11 +154,11 @@ public sealed class TfwBattle
     /// <summary>The start: the defenders at their posts, the field's squads at the landing zone and, in the final assault, the Warboss.</summary>
     public void Start()
     {
-        for (int k = 0; k < Positions; k++) _objectives[k] = new TfwObjective((byte)k, _final ? TfwPositionState.Secured : k == 0 ? TfwPositionState.Held : TfwPositionState.Locked, _final ? 1f : 0f, _layout.Positions[k]);
-        _objectives[CommanderObjective] = new TfwObjective(CommanderObjective, TfwPositionState.Locked, 0f, _layout.Hq);
+        for (int k = 0; k < Positions; k++) _objectives[k] = new TfwObjective((byte)k, _final ? TfwPositionState.Secured : k == 0 ? TfwPositionState.Held : TfwPositionState.Locked, _final ? 1f : 0f, _layout.Positions[k], _layout.Radius(k));
+        _objectives[CommanderObjective] = new TfwObjective(CommanderObjective, TfwPositionState.Locked, 0f, _layout.Hq, TfwMap.HqRadius);
         int field = Math.Min(Squads, _final ? TfwBattleRules.FinalFieldSquads : TfwBattleRules.FieldSquads);
         _reserves = Squads - field;
-        for (int s = 0; s < field; s++) _guards.SpawnSquad(_layout.LandingZone + SquadOffset(s), YawTo(_layout.LandingZone, _layout.Hq));
+        for (int s = 0; s < field; s++) _guards.SpawnSquad(Ground(_layout.LandingZone + SquadOffset(s), _layout.LandingZone), YawTo(_layout.LandingZone, _layout.Hq));
         if (_final)
         {
             _next = Positions;
@@ -171,6 +168,14 @@ public sealed class TfwBattle
             return;
         }
         for (int k = 0; k < Positions; k++) SpawnDefenders(k);
+    }
+
+    /// <summary><paramref name="spot"/> on the graph's ground; <paramref name="anchor"/> when it fell in a wall or off the graph (without a graph, as it is). Every place round a site passes here: the real map's sites have walls and heights near.</summary>
+    Vector3 Ground(Vector3 spot, Vector3 anchor)
+    {
+        if (_enemies.Nav is not { } nav) return spot;
+        int node = nav.Nearest(spot, 1.5f, 2.5f);
+        return node >= 0 ? nav.Position(node) : anchor;
     }
 
     static Vector3 SquadOffset(int s)
@@ -192,7 +197,7 @@ public sealed class TfwBattle
         {
             var type = k < TfwBattleRules.DefenderBoyz ? MusouEnemyType.Boy : k < TfwBattleRules.DefenderBoyz + TfwBattleRules.DefenderShootas ? MusouEnemyType.ShootaBoy : MusouEnemyType.ArdBoy;
             float angle = k * 2.399963f, radius = 1.5f + 0.5f * MathF.Sqrt(k) * 2f;
-            var at = centre + new Vector3(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius, 0f);
+            var at = Ground(centre + new Vector3(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius, 0f), centre);
             ushort id = _enemies.SpawnLeashed(type, at, angle, Health(type), position + 1, TfwBattleRules.DefenderAggro);
             if (id != 0) _defenders[position].Add(id);
         }
@@ -215,7 +220,7 @@ public sealed class TfwBattle
         {
             var type = k < TfwBattleRules.CommanderNobs ? MusouEnemyType.Nob : MusouEnemyType.ArdBoy;
             float angle = k * MathF.Tau / escorts;
-            _enemies.SpawnLeashed(type, _layout.Hq + new Vector3(MathF.Cos(angle) * 3f, MathF.Sin(angle) * 3f, 0f), angle, Health(type), CommanderGroup, TfwBattleRules.DefenderAggro);
+            _enemies.SpawnLeashed(type, Ground(_layout.Hq + new Vector3(MathF.Cos(angle) * 3f, MathF.Sin(angle) * 3f, 0f), _layout.Hq), angle, Health(type), CommanderGroup, TfwBattleRules.DefenderAggro);
         }
         Advance(_layout.Hq);
     }
@@ -268,7 +273,7 @@ public sealed class TfwBattle
                     if (new Vector2(p.X - o.Position.X, p.Y - o.Position.Y).LengthSquared() <= r2) { o = o with { State = TfwPositionState.Clearing }; break; }
                 break;
             case TfwPositionState.Clearing:
-                if (_defenders[k].Count == 0 && !OrksInside(o.Position))
+                if (_defenders[k].Count == 0 && !OrksInside(k))
                 {
                     o = o with { State = TfwPositionState.Securing };
                     _wipedTicks = 0;
@@ -276,7 +281,7 @@ public sealed class TfwBattle
                 }
                 break;
             case TfwPositionState.Securing:
-                o = o with { Progress = Securing(o, humans) };
+                o = o with { Progress = Securing(k, o, humans) };
                 if (o.Progress >= 1f)
                 {
                     _objectives[k] = o with { State = TfwPositionState.Secured, Progress = 1f };
@@ -288,25 +293,26 @@ public sealed class TfwBattle
         return TfwBattleChange.None;
     }
 
-    bool OrksInside(Vector3 at)
+    bool OrksInside(int k)
     {
         Span<ushort> one = stackalloc ushort[1];
-        return _enemies.Query(at, TfwMap.CaptureRadius, one) > 0;
+        return _enemies.Query(_layout.Positions[k], _layout.Radius(k), one, _layout.Reach(k)) > 0;
     }
 
     /// <summary>One tick of a position's securing: a Guardsman inside and no Ork moves it, an Ork pauses it, a wiped squad lets it decay until the reserve is sent. With no Guardsman and no reserve left, a human inside takes over at <see cref="TfwBattleRules.HumanSecureRate"/>.</summary>
-    float Securing(in TfwObjective o, ReadOnlySpan<Vector3> humans)
+    float Securing(int k, in TfwObjective o, ReadOnlySpan<Vector3> humans)
     {
-        bool inside = _guards.CountInside(o.Position, TfwMap.CaptureRadius) > 0;
-        if (_guards.Alive == 0 && _reserves == 0 && HumanInside(o.Position, humans))
+        float radius = _layout.Radius(k);
+        bool inside = _guards.CountInside(o.Position, radius) > 0;
+        if (_guards.Alive == 0 && _reserves == 0 && HumanInside(o.Position, radius, humans))
         {
             _wipedTicks = 0;
-            return OrksInside(o.Position) ? o.Progress : o.Progress + TfwBattleRules.HumanSecureRate * Dt / TfwBattleRules.SecureSeconds;
+            return OrksInside(k) ? o.Progress : o.Progress + TfwBattleRules.HumanSecureRate * Dt / TfwBattleRules.SecureSeconds;
         }
         if (inside || _guards.AliveIn(_secureSquad) > 0)
         {
             _wipedTicks = 0;
-            return inside && !OrksInside(o.Position) ? o.Progress + Dt / TfwBattleRules.SecureSeconds : o.Progress;
+            return inside && !OrksInside(k) ? o.Progress + Dt / TfwBattleRules.SecureSeconds : o.Progress;
         }
         if (++_wipedTicks >= Ticks(TfwBattleRules.ReserveSeconds))
         {
@@ -317,10 +323,10 @@ public sealed class TfwBattle
         return MathF.Max(0f, o.Progress - TfwBattleRules.SecureDecayPerSecond * Dt);
     }
 
-    static bool HumanInside(Vector3 at, ReadOnlySpan<Vector3> humans)
+    static bool HumanInside(Vector3 at, float radius, ReadOnlySpan<Vector3> humans)
     {
         foreach (var h in humans)
-            if (new Vector2(h.X - at.X, h.Y - at.Y).LengthSquared() <= TfwMap.CaptureRadius * TfwMap.CaptureRadius) return true;
+            if (new Vector2(h.X - at.X, h.Y - at.Y).LengthSquared() <= radius * radius) return true;
         return false;
     }
 
@@ -337,7 +343,7 @@ public sealed class TfwBattle
         _secureSquad = -1;
         var change = TfwBattleChange.PositionSecured | (k == 1 ? TfwBattleChange.DepotSecured : TfwBattleChange.None);
         for (int field = _guards.SquadsAlive; field < TfwBattleRules.FieldSquads && _reserves > 0; field++)
-            if (_guards.SpawnSquad(_layout.LandingZone + SquadOffset(field), YawTo(_layout.LandingZone, _layout.Positions[k])) >= 0) _reserves--;
+            if (_guards.SpawnSquad(Ground(_layout.LandingZone + SquadOffset(field), _layout.LandingZone), YawTo(_layout.LandingZone, _layout.Positions[k])) >= 0) _reserves--;
         if (_next < Positions)
         {
             _objectives[_next] = _objectives[_next] with { State = TfwPositionState.Held };
@@ -387,7 +393,8 @@ public sealed class TfwBattle
     Vector3 SourceSpot(int source)
     {
         int spot = _spot++ % 25;
-        return _layout.Sources[source] + new Vector3((spot % 5 - 2) * 1.5f, (spot / 5 - 2) * 1.5f, 0f);
+        var at = _layout.Sources[source];
+        return Ground(at + new Vector3((spot % 5 - 2) * 1.5f, (spot / 5 - 2) * 1.5f, 0f), at);
     }
 
     /// <summary>

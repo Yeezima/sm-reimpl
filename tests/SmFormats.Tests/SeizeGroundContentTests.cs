@@ -26,18 +26,18 @@ public class SeizeGroundContentTests
         new Ref(new Struct(cls, ("MarkerShape", new I(shape)), ("Position", new Vec(position)), ("Rotation", new Vec(0f, 0f, yawDegrees)), ("Scale", new Vec(scale)),
             ("Shape", new I(shape)), ("Name", new S(name)), ("Disabled", new B(disabled))));
 
-    static byte[] Layer(params Node[] markers) =>
+    internal static byte[] Layer(params Node[] markers) =>
         Document(new Struct("RegionLayer", ("ID", new I(26)), ("Root", new Ref(new Struct("WorldGroup", ("Name", new S("")), ("Objects", new List(markers)))))));
 
     /// <summary>A stand-in for a compiled region script: a Lua 5.1 signature and length-prefixed, NUL-terminated strings.</summary>
-    static byte[] Script(params string[] strings)
+    internal static byte[] Script(params string[] strings)
     {
         var b = new List<byte>([0x1B, 0x4C, 0x75, 0x61, 0x51, 0, 1, 4, 4, 4, 8, 0]);
         foreach (var s in strings) { b.Add(4); b.AddRange(BitConverter.GetBytes(s.Length + 1)); b.AddRange(Encoding.ASCII.GetBytes(s)); b.Add(0); }
         return [.. b];
     }
 
-    static string Install(string map, byte[]? script, params (string Name, byte[] Data)[] layers)
+    internal static string Install(string map, byte[]? script, params (string Name, byte[] Data)[] layers)
     {
         string dir = Path.Combine(Path.GetTempPath(), "sm-seize-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(Path.Combine(dir, "data", "chunks"));
@@ -49,7 +49,7 @@ public class SeizeGroundContentTests
         return dir;
     }
 
-    static readonly Node[] Markers =
+    internal static readonly Node[] Markers =
     [
         Marker("mkr_start_marine", [245f, -937.38f, 5.5f], [10f, 8f, 5f], 1),
         Marker("mkr_Start_Ork", [154.5f, -664.4f, 5.55f], [10f, 8f, 5f], 1, 180f),

@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using SmServer;
 using SmSim;
 using SmSim.Extras.Musou;
@@ -7,26 +7,25 @@ using SmSim.Extras.Musou.Campaign;
 namespace SmNet.Tests.Extras.Musou.Campaign;
 
 /// <summary>
-/// The war's generated map (TF1): the arena and the Stormbird as solids, the hash both ends compare, the enemies' graph over the arena alone, the wire's box, and a Raptor's full jump
-/// staying inside. The pack is the install-shaped synthetic one (<see cref="JumpPackDashTests"/>) with the owner's hold tiers and air control; no original bytes.
+/// The war's composed map on a synthetic level (TF1, M1): the Stormbird's solids, the hash both ends compare, the enemies' graph over the level alone, the wire's box, and a Raptor's full jump
+/// staying inside the room. The pack is the install-shaped synthetic one (<see cref="JumpPackDashTests"/>) with the owner's hold tiers and air control; no original bytes.
 /// </summary>
 public class TfwMapTests
 {
     const int Assault = 0;
-    const float Half = TfwMap.ArenaHalf;
+    const float Half = TfwTestArena.ArenaHalf;
 
-    /// <summary>The Raptor's rules as the install's: the hold tiers and the owner's 8 m/s, 15 m/s² air control (spec "Jump-pack feel").</summary>
+    /// <summary>The Raptor's rules as the install's: the hold tiers and the owner's 8 m/s, 15 m/sÂ² air control (spec "Jump-pack feel").</summary>
     static readonly SimConfig Raptor = JumpPackDashTests.Config with
     {
         JumpPacks = [JumpPackDashTests.Config.JumpPacks[0] with { HoldTiers = true, AirSpeed = 8f, AirAcceleration = 15f }],
     };
 
-    static readonly TfwMapData Map = TfwMap.Build();
+    static readonly TfwMapData Map = TfwTestArena.Build();
     static CollisionWorld World => Map.Collision;
     static GameMap ServerMap(out ulong hash)
     {
-        string? name = null;
-        var map = Assert.IsType<GameMap>(GameServer.GeneratedMap(ContentExtras.Musou, ref name, out _));
+        var map = TfwTestArena.ServerMap();
         hash = map.Hash;
         return map;
     }
@@ -40,31 +39,15 @@ public class TfwMapTests
     public void The_server_and_the_client_hash_the_same_map_and_a_change_moves_the_pin()
     {
         ServerMap(out ulong server);   // what GameServer.GeneratedMap offers
-        ulong client = TfwMap.Build().Hash;   // what NetworkView.TfwLoadMap answers with
+        ulong client = TfwMap.WithHub(TfwTestArena.Level()).Hash;   // what NetworkView.TfwMapCollision answers with, from the level alone
         Assert.Equal(server, client);
         Assert.Equal(PinnedHash, client);   // a geometry change: raise TfwMap.Version and take the new value
         Assert.Equal(World.Character.ContentHash, World.Weapons.ContentHash);   // shots meet what walkers meet
     }
 
-    const ulong PinnedHash = 5922244319279579540UL;
+    const ulong PinnedHash = 16110256361378542445UL;
 
     // ---------------------------------------------------------------- the solids
-
-    [Fact]
-    public void The_arena_is_an_empty_square_as_large_as_manufactorum_with_a_floor_at_zero()
-    {
-        var eye = new Vector3(0f, 0f, 1f);
-        Assert.Equal(Half, Distance(eye, Vector3.UnitX), 3);
-        Assert.Equal(Half, Distance(eye, -Vector3.UnitX), 3);
-        Assert.Equal(Half, Distance(eye, Vector3.UnitY), 3);
-        Assert.Equal(Half, Distance(eye, -Vector3.UnitY), 3);
-        Assert.Equal(1f, Distance(eye, -Vector3.UnitZ), 3);
-        Assert.Null(World.Character.Raycast(eye, Vector3.UnitZ, 400f));   // open above
-        float area = (2f * Half) * (2f * Half);
-        Assert.InRange(area / (210f * 280f), 0.95f, 1.05f);   // Manufactorum's footprint, about 210 x 280 m
-        foreach (var solid in TfwMap.Solids.Where(s => !s.Stormbird))
-            Assert.True(solid.Max.Z <= TfwMap.WallHeight);
-    }
 
     [Theory]
     [InlineData(1f, 0f, 0f)]
@@ -77,26 +60,26 @@ public class TfwMapTests
     [InlineData(-1f, -1f, 0.3f)]
     public void The_stormbird_is_closed_on_every_side(float x, float y, float z)
     {
-        var inside = TfwMap.StormbirdCentre + new Vector3(0f, 0f, 2f);
+        var inside = TfwTestArena.Hub.Centre + new Vector3(0f, 0f, 2f);
         Assert.InRange(Distance(inside, Vector3.Normalize(new Vector3(x, y, z))), 0.1f, 9f);
     }
 
     [Fact]
     public void The_stormbird_interior_is_10_by_10_by_5()
     {
-        var c = TfwMap.StormbirdCentre;
+        var c = TfwTestArena.Hub.Centre;
         var inside = c + new Vector3(0f, 0f, 2f);
         Assert.Equal(10f, Distance(inside, Vector3.UnitX) + Distance(inside, -Vector3.UnitX), 3);
         Assert.Equal(10f, Distance(inside, Vector3.UnitY) + Distance(inside, -Vector3.UnitY), 3);
         Assert.Equal(5f, Distance(inside, Vector3.UnitZ) + Distance(inside, -Vector3.UnitZ), 3);
-        Assert.All(TfwMap.Spawns, s => Assert.True(MathF.Abs(s.Position.X - c.X) + 1f < 5f && MathF.Abs(s.Position.Y - c.Y) + 1f < 5f, "a capsule fits between a spawn and the walls"));
-        Assert.Equal(-TfwMap.ArenaHalf - 74f, c.Y + TfwMap.StormbirdSize.Y / 2f + TfwMap.WallThickness);   // apart from the arena's wall: a walker cannot cross
+        Assert.All(TfwTestArena.Spawns, s => Assert.True(MathF.Abs(s.Position.X - c.X) + 1f < 5f && MathF.Abs(s.Position.Y - c.Y) + 1f < 5f, "a capsule fits between a spawn and the walls"));
+        Assert.Equal(-TfwTestArena.ArenaHalf - TfwMap.WallThickness - TfwMap.HubClearance, c.Y + TfwMap.StormbirdSize.Y / 2f + TfwMap.WallThickness);   // apart from the level: a walker cannot cross
     }
 
     [Fact]
     public void Every_triangle_faces_out_of_its_box()
     {
-        foreach (var solid in TfwMap.Solids)
+        foreach (var solid in TfwTestArena.Hub.Solids)
         {
             var mid = (solid.Min + solid.Max) / 2f;
             var corners = TfwMap.Triangles(solid);
@@ -126,7 +109,7 @@ public class TfwMapTests
         {
             var map = ServerMap(out _);
             var config = new SimConfig { Extras = ContentExtras.Musou };
-            var nav = GameServer.BuildTfwNav(map, config, out _, dir);
+            var nav = GameServer.BuildTfwNav(map, TfwTestArena.Field, config, out _, dir);
             float cell = nav.Settings.CellSize;
             Assert.True(nav.NodeCount * cell * cell >= 0.98f * (2f * Half) * (2f * Half), $"{nav.NodeCount} nodes");
             for (int n = 0; n < nav.NodeCount; n++)
@@ -135,13 +118,13 @@ public class TfwMapTests
                 Assert.True(MathF.Abs(p.X) < Half && MathF.Abs(p.Y) < Half, $"node {n} at {p}");
                 Assert.Equal(0f, p.Z, 3);
             }
-            foreach (var at in new[] { TfwMap.Position1, TfwMap.Position2, TfwMap.Position3, TfwMap.Hq }.Concat(TfwMap.Sources))
+            foreach (var at in new[] { TfwTestArena.Position1, TfwTestArena.Position2, TfwTestArena.Position3, TfwTestArena.Hq }.Concat(TfwTestArena.Sources))
             {
-                var path = nav.FindPath(TfwMap.LandingZone, at);
+                var path = nav.FindPath(TfwTestArena.LandingZone, at);
                 Assert.False(Assert.IsType<NavPath>(path).Partial, $"to {at}");
             }
             Assert.Single(Directory.GetFiles(dir, $"{TfwMap.Name}{GameServer.MusouNavCacheSuffix}-*.nav"));
-            var again = GameServer.BuildTfwNav(map, config, out _, dir);
+            var again = GameServer.BuildTfwNav(map, TfwTestArena.Field, config, out _, dir);
             Assert.Equal(nav.NodeCount, again.NodeCount);
             Assert.Equal(0, again.BuildMilliseconds);   // read, not built
         }
@@ -152,12 +135,13 @@ public class TfwMapTests
     public void The_box_holds_the_stormbird_and_every_place_of_the_battle()
     {
         var sim = new MusouSim(null);
-        sim.WidenBox(TfwMap.WireBox);
-        var places = new[] { TfwMap.LandingZone, TfwMap.Position1, TfwMap.Position2, TfwMap.Position3, TfwMap.Hq, TfwMap.StormbirdCentre, TfwMap.DestinationStation, TfwMap.EquipmentStation }
-            .Concat(TfwMap.Sources).Concat(TfwMap.Spawns.Select(s => s.Position));
+        sim.WidenBox(TfwTestArena.Hub.Box);
+        sim.WidenBox(TfwTestArena.Field.Bounds);
+        var places = new[] { TfwTestArena.LandingZone, TfwTestArena.Position1, TfwTestArena.Position2, TfwTestArena.Position3, TfwTestArena.Hq, TfwTestArena.Hub.Centre, TfwTestArena.Hub.DestinationStation, TfwTestArena.Hub.EquipmentStation }
+            .Concat(TfwTestArena.Sources).Concat(TfwTestArena.Spawns.Select(s => s.Position));
         foreach (var p in places)
             Assert.True(Vector3.Min(p, sim.Box.Min) == sim.Box.Min && Vector3.Max(p, sim.Box.Max) == sim.Box.Max, $"{p} outside {sim.Box}");
-        Assert.True(sim.Box.Max.Z >= TfwMap.WallHeight);
+        Assert.True(sim.Box.Max.Z >= TfwTestArena.WallHeight);   // the level's top, for a jump
     }
 
     [Fact]
@@ -171,15 +155,15 @@ public class TfwMapTests
             Extras = ContentExtras.Musou,
         };
         var h = new Harness(LinkConditions.Perfect, 5, 0, config, new ServerOptions { Match = new MatchRules { CountdownTime = 1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2 } }, map: map);
-        h.AddClient(nonce: 1, options: new ClientOptions { LoadMap = _ => { var c = TfwMap.Build(); return new LoadedMap(c.Collision, c.Hash); } });
+        h.AddClient(nonce: 1, options: new ClientOptions { LoadMap = _ => { var c = TfwTestArena.Build(); return new LoadedMap(c.Collision, c.Hash); } });
         h.Run(TimeSpan.FromSeconds(1));
         Assert.Equal(ClientStatus.Connected, h.Clients[0].Status);   // the client's own build of the map passes the hash check
         var sim = Assert.IsType<MusouSim>(h.Server.World.Musou);
         Assert.NotNull(sim.Nav);
-        Assert.True(sim.Box.Min.Y < TfwMap.StormbirdCentre.Y - 5f);
+        Assert.True(sim.Box.Min.Y < TfwTestArena.Hub.Centre.Y - 5f);
         Assert.Contains("nodes", h.Server.MusouNote);
         var p = Assert.Single(h.Server.World.Players.Values).Position;
-        Assert.True(MathF.Abs(p.X) < 5f && MathF.Abs(p.Y - TfwMap.StormbirdCentre.Y) < 5f, $"spawned at {p}");
+        Assert.True(MathF.Abs(p.X) < 5f && MathF.Abs(p.Y - TfwTestArena.Hub.Centre.Y) < 5f, $"spawned at {p}");
         Assert.Equal(hash, map.Hash);
     }
 
@@ -200,43 +184,10 @@ public class TfwMapTests
         return states;
     }
 
-    /// <summary>The map with its walls cut down to <paramref name="height"/>.</summary>
-    static CollisionWorld WallsOf(float height)
-    {
-        var corners = TfwMap.Solids.Select(s => s with { Max = s.Max with { Z = MathF.Min(s.Max.Z, height) } }).SelectMany(TfwMap.Triangles).ToArray();
-        var mesh = new StaticMesh(corners, Enumerable.Range(0, corners.Length).ToArray());
-        return new CollisionWorld(mesh, mesh);
-    }
-
-    [Fact]
-    public void A_full_jump_clears_the_designs_12_m_wall_which_is_why_the_wall_is_higher()
-    {
-        float apex = FullJump(null, Vector3.Zero, Vector2.Zero).Max(s => s.Position.Z);
-        Assert.InRange(apex, 17f, 18f);
-        Assert.True(TfwMap.WallHeight > apex + 2f, "the wall stands clear above the highest feet");
-        var over = FullJump(WallsOf(12f), new Vector3(118f, 0f, 0f), new Vector2(1f, 0f));
-        Assert.Contains(over, s => s.Position.X > Half + TfwMap.WallThickness || s.Position.Z >= 12f && s.Grounded);   // over it, or on top of it
-    }
-
-    [Theory]
-    [InlineData(118f, 0f, 1f, 0f)]
-    [InlineData(-118f, 0f, -1f, 0f)]
-    [InlineData(0f, 118f, 0f, 1f)]
-    [InlineData(0f, -118f, 0f, -1f)]
-    [InlineData(118f, 118f, 0.7071f, 0.7071f)]
-    [InlineData(-118f, -118f, -0.7071f, -0.7071f)]
-    public void A_full_jump_at_a_wall_stays_in_the_arena(float x, float y, float stickX, float stickY)
-    {
-        var states = FullJump(World, new Vector3(x, y, 0f), new Vector2(stickX, stickY));
-        Assert.Contains(states, s => s.Position.Z > 15f);   // it flew
-        Assert.All(states, s => Assert.True(MathF.Abs(s.Position.X) < Half && MathF.Abs(s.Position.Y) < Half && s.Position.Z < TfwMap.WallHeight, $"{s.Position}"));
-        Assert.Equal(0f, states[^1].Position.Z, 2);   // back on the arena's floor
-    }
-
     [Fact]
     public void A_full_jump_in_the_stormbird_stays_under_its_ceiling()
     {
-        var c = TfwMap.StormbirdCentre;
+        var c = TfwTestArena.Hub.Centre;
         var states = FullJump(World, c, new Vector2(0f, 1f));
         Assert.All(states, s => Assert.True(s.Position.Z + Raptor.CapsuleHeight <= TfwMap.StormbirdSize.Z + 0.05f && s.Position.Y < c.Y + 5f, $"{s.Position}"));
     }

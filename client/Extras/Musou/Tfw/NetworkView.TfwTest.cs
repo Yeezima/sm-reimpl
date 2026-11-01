@@ -132,6 +132,46 @@ public partial class NetworkView
         return there;
     }
 
+    SmSim.NavGraph? _tfwTestNav;
+
+    /// <summary>Walks to <paramref name="at"/> along the battlefield's walking graph, as a player finds the way: it proves the place can be reached on foot. The graph is the server's own (the same cache file).</summary>
+    async Task<bool> TfwPathTo(Num.Vector3 at, string what, double seconds = 60.0, Func<bool>? over = null)
+    {
+        var client = _client!;
+        if (_tfwTestNav is null)
+        {
+            var data = SmContent.Extras.Musou.TfwWorld.Load(_gameDir, out string? problem);
+            if (data is null || _config is null) { TfwCheck(what, false, problem ?? "no config"); return false; }
+            _tfwTestNav = SmContent.Extras.Musou.TfwWorld.Nav(data.Collision, data.Field, _config, out _);
+        }
+        double end = _connectedFor + seconds;
+        var path = _tfwTestNav.FindPath(client.Predicted.Position, at);
+        if (path is null || path.Partial) { TfwCheck(what, false, $"no way from {client.Predicted.Position} to {at}"); return false; }
+        var points = path.Waypoints;
+        TfwKey(Key.W, true);
+        await TfwFrames(2);
+        int next = 0, stuckFrames = 0;
+        var last = client.Predicted.Position;
+        while (next < points.Count && _connectedFor < end && over?.Invoke() != true)
+        {
+            var me = client.Predicted.Position;
+            // The farthest waypoint within 3 m ahead: corners are cut as a player cuts them.
+            while (next + 1 < points.Count && new Vector2(points[next + 1].Position.X - me.X, points[next + 1].Position.Y - me.Y).Length() < 3f) next++;
+            var to = points[next].Position;
+            if (new Vector2(to.X - me.X, to.Y - me.Y).Length() < 0.7f) next++;
+            _yaw = MathF.Atan2(-(to.X - me.X), to.Y - me.Y);
+            stuckFrames = Num.Vector3.Distance(me, last) < 0.001f ? stuckFrames + 1 : 0;
+            last = me;
+            if (stuckFrames == 120) GD.Print($"TFWTEST note: held up at {me} on the way to {to}");
+            await TfwFrames();
+        }
+        TfwKey(Key.W, false);
+        await TfwWait(0.3);
+        bool there = _connectedFor < end;
+        TfwCheck(what, there, $"stopped at {client.Predicted.Position}");
+        return there;
+    }
+
     async Task TfwShot(string name)
     {
         if (_tfwShots is null || DisplayServer.GetName() == "headless") return;
@@ -156,7 +196,7 @@ public partial class NetworkView
 
     async Task<bool> TfwTestDeploy(TfwLane lane, bool final = false)
     {
-        if (!await TfwWalkTo(TfwMap.DestinationStation, "walked to Destination")) return false;
+        if (!await TfwWalkTo(TfwHub!.DestinationStation, "walked to Destination")) return false;
         await TfwTap(Key.E);
         if (!await TfwUntil("E at Destination opens the war map", () => _tfwPanel is not null, 3.0)) return false;
         await TfwFrames(4);
@@ -181,7 +221,7 @@ public partial class NetworkView
         {
             int index = k;
             string name = $"battle {number}: {TfwHudModel.ObjectiveName(k, false)}";
-            if (!await TfwWalkTo(_tfwState.Objectives[k].Position, $"{name}: walked there", 60.0)) return false;
+            if (!await TfwPathTo(_tfwState.Objectives[k].Position, $"{name}: walked there", 90.0)) return false;
             if (!await TfwUntil($"{name}: cleared, the HUD says SECURING", () => TfwHudModel.ObjectiveState(_tfwState.Objectives[index]).StartsWith("SECURING", StringComparison.Ordinal) || _tfwState.Objectives[index].State == TfwPositionState.Secured, 30.0)) return false;
             if (!await TfwUntil($"{name}: secured by the Guardsmen", () => _tfwState.Objectives[index].State == TfwPositionState.Secured, 120.0)) return false;
             if (k == 1)
@@ -195,7 +235,7 @@ public partial class NetworkView
         await TfwFrames(3);
         TfwCheck($"battle {number}: the boss bar names the commander", TfwHudModel.BossName(TfwNow, _tfwState.Objectives) == "ORK COMMANDER");
         await TfwShot($"commander-{number}");
-        if (!await TfwWalkTo(_tfwState.Objectives[TfwBattle.CommanderObjective].Position, $"battle {number}: walked to the HQ", 60.0)) return false;
+        if (!await TfwPathTo(_tfwState.Objectives[TfwBattle.CommanderObjective].Position, $"battle {number}: walked to the HQ", 90.0)) return false;
         if (!await TfwUntil($"battle {number}: the commander falls and the battle is won", () => TfwNow.Own.BattleWon, 15.0)) return false;
         await TfwUntil($"battle {number}: the prompt offers the free pickup", () => TfwPromptNow == "BATTLE WON: HOLD P FOR A FREE PICKUP", 3.0);
         await TfwShot($"battle-won-{number}");
@@ -209,7 +249,7 @@ public partial class NetworkView
         await TfwWait(0.5);
         var home = TfwNow;
         TfwCheck($"battle {number}: the pickup was free", home.Transport >= won.Transport, $"{won.Transport} to {home.Transport}");
-        TfwCheck($"battle {number}: the player is in the Stormbird", client.Predicted.Position.Y < -190f, client.Predicted.Position.ToString());
+        TfwCheck($"battle {number}: the player is in the Stormbird", TfwHub!.Contains(client.Predicted.Position), client.Predicted.Position.ToString());
         return true;
     }
 
@@ -227,7 +267,7 @@ public partial class NetworkView
         TfwCheck("the boss bar names the Warboss", TfwHudModel.BossName(TfwNow, _tfwState.Objectives) == "ORK WARBOSS");
         await TfwShot("final-assault");
         // The Warboss has no leash: he comes to meet the player and may fall on the way.
-        await TfwWalkTo(_tfwState.Objectives[TfwBattle.CommanderObjective].Position, "walked towards the HQ, or the Warboss fell first", 90.0, () => TfwNow.Phase == TfwRunPhase.Won);
+        await TfwPathTo(_tfwState.Objectives[TfwBattle.CommanderObjective].Position, "walked towards the HQ, or the Warboss fell first", 90.0, () => TfwNow.Phase == TfwRunPhase.Won);
         if (!await TfwUntil("the Warboss falls: the war is won", () => TfwNow.Phase == TfwRunPhase.Won, 30.0)) return;
         await TfwUntil("the prompt says the war is won", () => TfwPromptNow == "THE WARBOSS IS DEAD. THE WAR IS WON", 3.0);
         await TfwShot("war-won");
@@ -239,10 +279,10 @@ public partial class NetworkView
         if (!await TfwUntil("the war is on, in the hub", () => client.Match.State == MatchState.Playing && _tfwState.War is { Phase: TfwRunPhase.Hub } && client.Predicted.Alive, 60.0)) return;
         var start = TfwNow;
         TfwCheck("the reserves are the run's", start.Transport == TfwBattleRules.StartTransport && start.Supplies == TfwBattleRules.StartSupplies, $"{start.Transport}, {start.Supplies}");
-        TfwCheck("the station prompt fits the spot", _tfwAt == TfwHudModel.StationAt(client.Predicted.Position), $"{_tfwAt} at {client.Predicted.Position}");   // a respawn point is anywhere in the room
+        TfwCheck("the station prompt fits the spot", _tfwAt == TfwHudModel.StationAt(client.Predicted.Position, TfwHub!), $"{_tfwAt} at {client.Predicted.Position}");   // a respawn point is anywhere in the room
 
         // Equipment
-        if (!await TfwWalkTo(TfwMap.EquipmentStation, "walked to Equipment")) return;
+        if (!await TfwWalkTo(TfwHub!.EquipmentStation, "walked to Equipment")) return;
         await TfwFrames(3);
         TfwCheck("the Equipment prompt shows", _tfwHud is { Data.Station: "E: EQUIPMENT" }, _tfwHud?.Data.Station ?? "no HUD");
         await TfwShot("stormbird-prompt");
@@ -253,7 +293,7 @@ public partial class NetworkView
         await TfwUntil("BACK returns to the game", () => !PickerBusy, 3.0);
 
         // Destination, the overlay and the ways out
-        if (!await TfwWalkTo(TfwMap.DestinationStation, "walked to Destination")) return;
+        if (!await TfwWalkTo(TfwHub!.DestinationStation, "walked to Destination")) return;
         await TfwFrames(3);
         TfwCheck("the Destination prompt shows", _tfwHud is { Data.Station: "E: DESTINATION" }, _tfwHud?.Data.Station ?? "no HUD");
         await TfwShot("destination-prompt");
@@ -311,9 +351,8 @@ public partial class NetworkView
         var landed = TfwNow;
         TfwCheck("Deploy took one transport", landed.Transport == start.Transport - TfwBattleRules.DeployCost, landed.Transport.ToString());
         await TfwWait(0.5);
-        var layout = TfwHudModel.LayoutOf(TfwLane.B, _tfwState.Objectives);
         var me = client.Predicted.Position;
-        TfwCheck("the player stands at the landing zone", layout is not null && Num.Vector2.Distance(new(me.X, me.Y), new(layout.LandingZone.X, layout.LandingZone.Y)) < TfwMap.LandingRadius, $"{me}");
+        TfwCheck("the player stands at the landing zone", _tfwState.Sites.Count > 0 && Num.Vector2.Distance(new(me.X, me.Y), new(_tfwState.Sites[0].X, _tfwState.Sites[0].Y)) < TfwMap.LandingRadius, $"{me}");
         TfwCheck("the HUD shows the Guardsmen and the retainer", landed.Own.Guards > 0 && landed.Own.Squads > 0 && landed.Own.Retainer == TfwRetainerState.Ready, TfwHudModel.GuardsText(landed.Own) + "; " + TfwHudModel.RetainerText(landed.Own));
         TfwCheck("the first position is held", _tfwState.Objectives[0].State >= TfwPositionState.Held);
         await TfwWait(1.5);
@@ -341,7 +380,7 @@ public partial class NetworkView
         await TfwWait(0.5);
         var home = TfwNow;
         TfwCheck("the pickup took one transport", home.Transport == landed.Transport - TfwBattleRules.PickupCost, home.Transport.ToString());
-        TfwCheck("the player is in the Stormbird", client.Predicted.Position.Y < -190f, client.Predicted.Position.ToString());
+        TfwCheck("the player is in the Stormbird", TfwHub!.Contains(client.Predicted.Position), client.Predicted.Position.ToString());
         TfwCheck("the objectives are gone", _tfwState.Objectives.Count == 0 || TfwNow.Own.Guards == 0);
         if (CmdFlag("tfw-test-win")) { await TfwTestWinRun(); return; }
         if (System.Environment.GetEnvironmentVariable("SM_TFW_DOWN_TEST") is null && !CmdFlag("tfw-test-downs")) return;

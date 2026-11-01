@@ -52,11 +52,11 @@ public sealed class TfwOrderKeys
 public static class TfwHudModel
 {
     /// <summary>The station whose pad <paramref name="feet"/> stands on: in the hub only (the prompts are client-side; the server checks a Deploy itself).</summary>
-    public static TfwStation StationAt(Vector3 feet)
+    public static TfwStation StationAt(Vector3 feet, TfwHub hub)
     {
         float r2 = TfwMap.StationRadius * TfwMap.StationRadius;
-        if (Flat(feet, TfwMap.DestinationStation) <= r2) return TfwStation.Destination;
-        return Flat(feet, TfwMap.EquipmentStation) <= r2 ? TfwStation.Equipment : TfwStation.None;
+        if (Flat(feet, hub.DestinationStation) <= r2) return TfwStation.Destination;
+        return Flat(feet, hub.EquipmentStation) <= r2 ? TfwStation.Equipment : TfwStation.None;
     }
 
     static float Flat(Vector3 a, Vector3 b) => new Vector2(a.X - b.X, a.Y - b.Y).LengthSquared();
@@ -188,19 +188,6 @@ public static class TfwHudModel
 
     /// <summary>Whether a battle is on for the player: the order keys mean something.</summary>
     public static bool InBattle(TfwRunPhase phase) => phase is TfwRunPhase.Battle or TfwRunPhase.FinalAssault or TfwRunPhase.Pickup;
-
-    /// <summary>
-    /// The layout of the battle under way on <paramref name="lane"/>, found from its first objective (a node's layout is the map's, mirrored on even nodes: the client has no node on the wire, and the front
-    /// can move during a pickup). Null without objectives.
-    /// </summary>
-    public static TfwLayout? LayoutOf(TfwLane lane, IReadOnlyList<TfwObjective> objectives)
-    {
-        if (objectives.Count == 0) return null;
-        var one = TfwLayout.For(lane, 1);
-        var two = TfwLayout.For(lane, 2);
-        var at = objectives[0].Position;
-        return Flat(at, one.Positions[0]) <= Flat(at, two.Positions[0]) ? one : two;
-    }
 
     /// <summary>Whether a battle's source still sends (the battle's own rule, <see cref="TfwBattle.SourceActive"/>, from the objectives): every source in the final assault.</summary>
     public static bool SourceActive(int index, IReadOnlyList<TfwObjective> objectives, bool won, bool final)

@@ -179,7 +179,7 @@ public sealed partial class World
         }
         else if (m.Role != MarineRole.Lord && run.RecoveryLeft(recovery) <= 0f)
         {
-            var landing = run.Battle?.Layout.LandingZone ?? TfwMap.LandingZone;
+            var landing = run.Battle?.Layout.LandingZone ?? run.Field.MarineStart;
             TfwRespawnAt(m.Id, landing, 0f);
             m.HoldAt = landing;   // its post fell with it
             m.Down = false;

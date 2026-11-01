@@ -50,6 +50,8 @@ public sealed class TfwFeed
     public byte Supplies { get; set; }
     /// <summary>The battle's objectives, all of them (empty outside a battle).</summary>
     public List<TfwObjective> Objectives { get; } = new();
+    /// <summary>The battle's sites: the landing zone, then the sources (empty outside a battle).</summary>
+    public List<Vector3> Sites { get; } = new();
     /// <summary>The Guardsmen in the first <see cref="GuardCount"/> places (<c>GuardSim.CopyTo</c> fills it).</summary>
     public TfwGuard[] Guards { get; } = new TfwGuard[TfwWire.GuardCapacity];
     public int GuardCount { get; set; }

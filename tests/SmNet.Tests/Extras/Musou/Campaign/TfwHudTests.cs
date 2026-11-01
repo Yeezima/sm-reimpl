@@ -120,10 +120,10 @@ public class TfwHudTests
     [Fact]
     public void TheStationsAreTheirPads()
     {
-        Assert.Equal(TfwStation.Destination, TfwHudModel.StationAt(TfwMap.DestinationStation + new Vector3(1f, 0.5f, 0f)));
-        Assert.Equal(TfwStation.Equipment, TfwHudModel.StationAt(TfwMap.EquipmentStation));
-        Assert.Equal(TfwStation.None, TfwHudModel.StationAt(TfwMap.StormbirdCentre));
-        Assert.Equal(TfwStation.None, TfwHudModel.StationAt(TfwMap.DestinationStation + new Vector3(TfwMap.StationRadius + 0.1f, 0f, 0f)));
+        Assert.Equal(TfwStation.Destination, TfwHudModel.StationAt(TfwTestArena.Hub.DestinationStation + new Vector3(1f, 0.5f, 0f), TfwTestArena.Hub));
+        Assert.Equal(TfwStation.Equipment, TfwHudModel.StationAt(TfwTestArena.Hub.EquipmentStation, TfwTestArena.Hub));
+        Assert.Equal(TfwStation.None, TfwHudModel.StationAt(TfwTestArena.Hub.Centre, TfwTestArena.Hub));
+        Assert.Equal(TfwStation.None, TfwHudModel.StationAt(TfwTestArena.Hub.DestinationStation + new Vector3(TfwMap.StationRadius + 0.1f, 0f, 0f), TfwTestArena.Hub));
         Assert.Equal("E: DESTINATION", TfwHudModel.StationPrompt(TfwStation.Destination, "E"));
         Assert.Equal("B: EQUIPMENT", TfwHudModel.StationPrompt(TfwStation.Equipment, "B"));
     }
@@ -209,23 +209,6 @@ public class TfwHudTests
         Assert.Equal("RETAINER: HOLD", TfwHudModel.RetainerText(new TfwOwnView { Retainer = TfwRetainerState.Ready, Order = MarineOrder.Hold }));
         Assert.Equal("RETAINER: REVIVING YOU", TfwHudModel.RetainerText(new TfwOwnView { Retainer = TfwRetainerState.Reviving }));
         Assert.Contains("3:00", TfwHudModel.RetainerText(new TfwOwnView { Retainer = TfwRetainerState.Recovering, RecoverySeconds = 180 }));
-    }
-
-    [Theory]
-    [InlineData(TfwLane.A, 1)]
-    [InlineData(TfwLane.A, 2)]
-    [InlineData(TfwLane.C, 1)]
-    [InlineData(TfwLane.C, 2)]
-    [InlineData(TfwLane.C, 3)]
-    public void TheClientFindsTheLayoutFromItsObjectives(TfwLane lane, int node)
-    {
-        var layout = TfwLayout.For(lane, node);
-        var objectives = layout.Positions.Select((p, i) => new TfwObjective((byte)i, TfwPositionState.Held, 0f, p)).ToArray();
-        var found = TfwHudModel.LayoutOf(lane, objectives);
-        Assert.NotNull(found);
-        Assert.Equal(layout.Sources, found.Sources);
-        Assert.Equal(layout.LandingZone, found.LandingZone);
-        Assert.Null(TfwHudModel.LayoutOf(lane, []));
     }
 
     [Fact]

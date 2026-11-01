@@ -173,6 +173,26 @@ public sealed class GuardSim
         return n;
     }
 
+    /// <summary>Test aid (<c>SM_TFW_WIN_TEST</c>): squad <paramref name="squad"/>'s living men stand round <paramref name="centre"/> at once. Ally navigation is milestone M2; until then a real server's squad stalls on the first wall.</summary>
+    public void PlaceForTests(int squad, Vector3 centre)
+    {
+        if (squad is < 0 or >= MaxSquads) return;
+        var walk = _enemies.Walk;
+        int anchorNode = walk?.Nearest(centre) ?? -1;
+        _anchor[squad] = _order[squad] = _centre[squad] = centre;
+        _anchorNode[squad] = anchorNode;
+        _moving[squad] = false;
+        for (int m = 0; m < SquadSize; m++)
+        {
+            int i = squad * SquadSize + m;
+            if (!Living(i)) continue;
+            var place = Place(squad, m);
+            int node = walk?.Nearest(place, 6f, 8f) ?? -1;
+            _position[i] = node >= 0 ? place with { Z = walk!.Z(node) } : centre;
+            _node[i] = node >= 0 ? node : anchorNode;
+        }
+    }
+
     /// <summary>Every man in a slot (alive or dying), in slot order, for tag 9 (id = slot + 1); the number written.</summary>
     public int CopyTo(Span<TfwGuard> into)
     {

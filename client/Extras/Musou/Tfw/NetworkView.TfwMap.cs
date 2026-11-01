@@ -1,60 +1,50 @@
 using System.Linq;
 using Godot;
-using SmNet;
+using SmContent;
+using SmContent.Extras.Musou;
+using SmNet.Extras.Musou.Campaign;
+using SmSim;
 using SmSim.Extras.Musou.Campaign;
 
 namespace SmClient;
 
 /// <summary>
-/// The war's map on the client (TF1). <see cref="TfwLoadMap"/> answers for the generated map, whatever this client's profile (a client of another profile is then refused by the config
-/// check, which names the server's profile): the collision from <see cref="TfwMap.Build"/>, the same map the server hashes; the arena and Stormbird drawn from it
-/// (<see cref="TfwMapView"/>, placeholder demonstration, nothing from the install); the ragdolls' world on its walls and floors; the warm-ups of a full load.
+/// The war's map on the client (TF1, M1). The core's <see cref="LoadMap"/> reads Manufactorum from the install as any map (<see cref="TfwMapFile"/> names it, so its visuals, lighting, effects and
+/// sounds load unchanged); <see cref="TfwMapCollision"/> then adds the Stormbird the server adds, gives the hash the handshake compares and draws the room. This answers whatever this client's
+/// profile: a client of another profile is refused by the config check, which names the server's profile.
 /// </summary>
 public partial class NetworkView
 {
-    void TfwLoadMap(string name, ref LoadedMap? loaded)
+    /// <summary>The Stormbird of this map (null until the map is loaded, and on any other map).</summary>
+    internal TfwHub? TfwHub { get; private set; }
+
+    TfwMapView? _tfwHubView;
+
+    void TfwMapFile(ref string file)
     {
-        if (name != TfwMap.Name) return;
-        var watch = System.Diagnostics.Stopwatch.StartNew();
-        var data = TfwMap.Build();
-        var world = data.Collision;
-        _jumpGround = world;   // M45: the flight pose's height above the ground
-        _mapCentre = new Vector2(TfwMap.Position2.X, TfwMap.Position2.Y);
-        loaded = new LoadedMap(world, data.Hash);
-        if (Lean)
-        {
-            _mapNote = $"map {name}: generated collision only (lean bot)";
-            GD.Print(_mapNote);
-            return;
-        }
-        _gameSpace?.GetNodeOrNull("MapCollision")?.QueueFree();
-        _gameSpace?.GetNodeOrNull("MapVisuals")?.QueueFree();
-        if (_gameSpace is not null && _groundMaterial is not null) _gameSpace.AddChild(TfwMapView.Build(_groundMaterial));
-        if (GetNodeOrNull<Node3D>("Ground") is { } ground) ground.Visible = false;
-        TfwRagdollWorld();
-        _warmClock = System.Diagnostics.Stopwatch.StartNew();
-        WarmLooks();
-        WarmOrk();
-        PrewarmWeaponDefaults();
-        PrewarmPickups();
-        PrewarmCollision(world);
-        _mapNote = $"map {name}: generated arena and Stormbird (placeholder demonstration, nothing from the install)";
-        GD.Print($"{_mapNote}; total {watch.ElapsedMilliseconds} ms");
+        if (file != TfwMap.Name) return;
+        if (!MapContent.Available(_gameDir).Contains(TfwMap.Battlefield)) throw new System.IO.FileNotFoundException(TfwWorld.Missing("the map is not in this install"));
+        file = TfwMap.Battlefield;
     }
 
-    /// <summary>The ragdolls' world on the map's solids, as <see cref="BuildRagdollWorld"/> does for a map of the install (the flat fallback would let a body fall through a wall).</summary>
-    void TfwRagdollWorld()
+    void TfwMapCollision(string name, ref CollisionWorld world, ref ulong hash)
     {
-        _ragdollWorld?.QueueFree();
-        _ragdollWorld = null;
-        if (_gameSpace is null) return;
-        var faces = TfwMap.Solids.SelectMany(TfwMap.Triangles).Select(v => new Vector3(v.X, v.Y, v.Z)).ToArray();
-        Ragdoll.LostBelowY = (_gameSpace.Transform * new Vector3(0f, 0f, -TfwMap.WallThickness - 50f)).Y;
-        var body = new StaticBody3D { Name = "RagdollWorld", CollisionLayer = Ragdoll.WorldLayer, CollisionMask = 0 };
-        body.AddChild(new CollisionShape3D { Shape = new ConcavePolygonShape3D { Data = faces, BackfaceCollision = true } });
-        _gameSpace.AddChild(body);
-        _ragdollWorld = body;
-        _ragdollWorldNote = $"the war map's solids, {faces.Length / 3:N0} triangles";
-        GD.Print("ragdoll world: " + _ragdollWorldNote);
+        if (name != TfwMap.Name) return;
+        var (composed, hub, composedHash) = TfwMap.WithHub(world);
+        world = composed;
+        hash = composedHash;
+        TfwHub = hub;
+        GD.Print($"map {name}: {TfwMap.Battlefield} from the install and the Stormbird at {hub.Centre}; map hash {hash:X16}");
+        if (Lean) return;
+        _gameSpace?.GetNodeOrNull("TfwHub")?.QueueFree();
+        if (_gameSpace is null || _groundMaterial is null) return;
+        _tfwHubView = TfwMapView.Build(hub, _groundMaterial);
+        _gameSpace.AddChild(_tfwHubView);
+    }
+
+    /// <summary>The Stormbird is drawn only while the player can be in it: from the battlefield it would hang in the sky beyond the level, its lights among the map's.</summary>
+    void TfwHubFrame(in TfwWarView war)
+    {
+        if (_tfwHubView is not null && IsInstanceValid(_tfwHubView)) _tfwHubView.Visible = !TfwHudModel.InBattle(war.Phase);
     }
 }

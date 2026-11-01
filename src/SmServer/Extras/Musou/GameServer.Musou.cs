@@ -26,7 +26,7 @@ public sealed partial class GameServer
 
     void CreateMusou()
     {
-        if (!World.Config.Extras.HasFlag(ContentExtras.Musou) || Map?.Name == SmSim.Extras.Musou.Campaign.TfwMap.Name) return;   // the war's map: CreateTfw
+        if (!World.Config.Extras.HasFlag(ContentExtras.Musou) || Map?.AddedContent is not null) return;   // the war's map: CreateTfw
         NavGraph? nav = null;
         string navNote;
         if (Map is not { } map) navNote = "no map (flat ground): no nav graph";
@@ -50,7 +50,7 @@ public sealed partial class GameServer
     /// The suffix of the Musou graph's cache name (<c>&lt;map&gt;-musou-&lt;key&gt;.nav</c>): a file apart from the bots' graphs (<c>&lt;map&gt;-&lt;key&gt;.nav</c>),
     /// so neither replaces nor prunes the other (<see cref="NavCache.Prune"/> keeps each name's own newest graphs).
     /// </summary>
-    internal const string MusouNavCacheSuffix = "-musou";
+    internal const string MusouNavCacheSuffix = SmContent.Extras.Musou.TfwWorld.CacheSuffix;
 
     /// <summary>
     /// The map's walking graph for the enemies: the bots' setup and cache (<see cref="BotNavigation.Margin"/> around the map's own spawns, points and start
