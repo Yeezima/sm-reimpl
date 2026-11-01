@@ -3819,6 +3819,28 @@ Source: a playtester on the Compatibility renderer (AMD integrated GPU) was drop
 | Hosted server lines in the client log | every join, every leave with its reason, every refusal, every fault note (" failed: ", "dropped after", "FATAL") with up to **14** stack lines after it, as "hosted server: ..."; the server's own throttle (the first 20 faults in full, then one in 10 s; stacks for the first 5) is the only limit | lines | per line | `HostedServerLog` | ours | ours | none |
 | Test aids | `--test-freeze-at <s> --test-freeze-seconds <n>` (the main thread sleeps n s once the client has been connected s seconds), `--no-stall-keepalive` | - | - | `NetworkView.Stall.cs` | - | test aid | - |
 
+### Added content: Musou enemy sounds (sound/musou-ork-sounds; client only, no protocol change)
+
+Musou Mode's enemies sound with the original events through `SoundSystem`, so the data's mix applies; no sound is made up and no gain is added. The events and lines are the data's; when each plays, and how much of a crowd is heard, are ours. Nothing here reaches Annihilation or Seize Ground: the code is in `Extras` and runs behind `MusouActive`.
+
+| Parameter (Musou sounds) | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Which files each type sounds from | Boy `ork_coop_boy` + choppa; Shoota Boy `ork_coop_boy_2hand_shoota` + `ork_coop_boy_2hand_shoota_rapid`; 'Ard Boy `ork_coop_boy_pro` + `ork_coop_boy_choppa_pro`; Gretchin `ork_coop_gretchin` + `ork_coop_grot_choppa`; Nob `ork_coop_nob` + `ork_coop_nob_uge_axe`; Chaos Marine the player blueprint + `chaos_coop_chainaxe`, `chaos_coop_bolter`; Warboss `ork_coop_warboss` + `ork_coop_warboss_power_klaw`, `ork_coop_warboss_bullrush` | - | per post | `MusouSoundSet.Files` | names read from the install; the pairing with Musou's types is ours | ours | medium: by ear |
+| Warboss's voice | the `ork_nob` lines of `ork_coop_nob_pro`: the character `warboss` has no exertion lines in the speech bank | - | per line | `MusouSoundSet.Files` | `smtool musou-sounds --files ork_coop_warboss` | ours | medium: by ear |
+| Chaos Marine's voice | `chaos_space_marine`'s plain exertions (`csm - tactical`'s character): the blueprint names no character and binds no lines | - | per line | `MusouSoundSet.Files` | global's class table | ours | low |
+| Which trigger stands for which moment | wind-up and swing from the enemy's state changes; footsteps from the ground it covers; shots, strikes, hits, deaths and the boss's abilities from the crowd's events; the running grunt (`actn_snd_vox_nav`), barks, stun, knock-down, landing and celebration from the blueprint's tags | - | per event | `NetworkView.MusouSounds.cs`, `MusouSoundSet.Build` | the crowd plays no clip tags: ours | ours | medium: by ear |
+| Emitters | 16 nearest enemies within 30 m; the Warboss always has one; chosen every 0.1 s; kept 1.5 s after leaving the nearest | enemies, m, s | client frame | `MusouSoundRules.Slots`, `SlotRange`, `ChooseEvery`, `SlotHold` | ours | ours | medium: by ear |
+| Who steps aloud | the 6 nearest with an emitter; Nobs and the Warboss always | enemies | client frame | `MusouSoundRules.Stepping`, `HeavyStep` | ours | ours | medium: by ear |
+| Metres between footfalls | 2 Boys, 1.4 Gretchin, 2.4 Nob, 2.2 Chaos Marine, 3 Warboss | m | ground covered | `MusouSoundRules.StepMetres` | ours: about 2.5 steps a second; the crowd's clips are not read | estimate | low |
+| Crowd voice cap | 14 voices (soft: nothing new posts above it; measured peak 21 under 300 enemies), of 48 positioned | voices | client frame | `MusouSoundRules.MaxVoices` | ours | ours | medium: measured, by ear |
+| Crowd line cap | 6 character lines (soft) | voices | client frame | `MusouSoundRules.MaxSpeech` | design section D's 6 | ours | medium |
+| A crowd voice and the pool | at a full pool a crowd voice takes a player only from its own crowd, never from a player's sounds; a player's sound may take one from the crowd | - | per voice | `SoundSystem.Acquire`, `SoundEmitter.Group` | ours | ours | high: rule |
+| Range, posts a second, burst | footstep 14 m, 14, 6; grunt 12, 2.5, 3; bark 14, 0.8, 2; effort 12, 3, 3; swing 18, 5, 3; melee hit 20, 6, 4; gun 50, 6, 4; gun impact 15, 6, 3; hurt 12, 4, 3; stun 12, 1, 1; death 20, 4, 3; body fall 20, 5, 3; boss 80, 20, 8 (no cap); celebration 25, 0.5, 1 | m, 1/s, posts | client frame | `MusouSoundRules.Limits` | ours; ranges follow the data's attenuation | ours | medium: by ear |
+| Grunt and bark spacing of one enemy | grunt every 2.5 to 5 s (the data's clips carry one about every 1.2 s; thinned for a crowd), bark every 6 to 14 s | s | random | `GruntEveryMin` and the like | ours | ours | medium: by ear |
+| Hurt grunt spacing of one enemy | 1 | s | per enemy | `HurtSpacing` | ours | ours | medium: by ear |
+| Impact surfaces | a gun's or blow's hit on a Marine plays on `armour`, a miss on `stone`, whatever is really there | - | per post | `NetworkView.MusouSounds.cs` | ours | ours | low |
+| Instance limits | every crowd post is `limited`: the banks' own per-node limits apply (Ork voices 1 per emitter, klaw 4 global, kill shot 6 global) | - | per voice | `SoundSystem.Post`, `PostSpeech` | read from the banks | read | high |
+| Gain | 0 dB; footsteps -3 dB as every character's (`FootstepLevel`). `--musou-ork-gain` is a listening aid, off by default | dB | per voice | `MusouOrkOffset` | the owner: the original sounds and mix | read | high |
 ### Melee reliability, the sooner step and the stalker crater (feel/melee-reliability; used by the simulation, config hash, no wire change)
 
 | Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
@@ -3829,3 +3851,9 @@ Source: a playtester on the Compatibility renderer (AMD integrated GPU) was drop
 | Slow strikes in Musou Mode | enemies carry no player lock, so the cleave of these strikes reaches **1** m farther | m | at the hit | `MusouCombatRules.CleaveTrackRange` | owner, as above | ours | estimate |
 | Power weapons' blue cloud | the cloud is half its size: `PowerFlash.CloudBoost` **0.575** (was 1.15); the data's own hit effects keep their size | factor | per burst | `client/PowerFlash.cs` | owner 2026-11-02 | ours | estimate |
 | Stalker bolter wall crater | a world hit plays the bolter's crater effect for the surface (`bolter_dmg_metal` on metal, else `bolter_dmg_stone`) at **1.6** times its size, instead of the data's (no effect on stone, the faint husk elsewhere) | factor | per hit | `StalkerCrater` | owner 2026-11-02 "larger than bolt pistol and bolter wall decal bullet holes" | ours | estimate |
+
+### Commander status marker (Musou Mode; client only)
+
+| Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Commander status text | font size **14** (the position letters 40), shown only within **6** degrees of the crosshair | points, degrees | per frame | `TfwMarkers` | owner 2026-11-02 | ours | estimate |

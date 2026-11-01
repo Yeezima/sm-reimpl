@@ -23,6 +23,9 @@ return args switch
     ["ork-balance", var gameDir, .. var rest] => SmTool.OrkCommands.Balance(gameDir, rest),
     ["ork-actions", var gameDir] => SmTool.OrkCommands.Actions(gameDir),
     ["ork-sounds", var gameDir, .. var rest] => SmTool.OrkSoundCommands.Run(gameDir, rest),
+#if SM_EXTRAS
+    ["musou-sounds", var musouDir, .. var musouRest] => SmTool.MusouSoundCommands.Run(musouDir, musouRest),
+#endif
     ["weapon-dps", var gameDir, .. var rest] => SmTool.DpsCommands.Run(gameDir, rest),
     ["melee-steps", var gameDir, .. var rest] => SmTool.MeleeStepsCommand.Run(gameDir, rest),
     ["hitbox-probe", var gameDir, .. var rest] => SmTool.HitboxCommands.Probe(gameDir, rest),

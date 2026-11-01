@@ -23,6 +23,8 @@ public sealed class SoundEmitter
     /// <summary>The local player's own emitter: its 3D sounds are kept at least <see cref="SoundSystem.OwnMinDistance"/> close.</summary>
     public bool Own;
     public string Label = "";
+    /// <summary>A crowd's sounds counted together (<see cref="SoundSystem.GroupVoices"/>) and kept off the others' voices (a full pool costs them nothing); null: none.</summary>
+    public string? Group;
     /// <summary>A one-shot place (an impact, a launch, a detonation): its container histories are dropped once its voices end.</summary>
     public bool OneShot;
     /// <summary>
@@ -260,8 +262,9 @@ public partial class SoundSystem : Node
     /// Posts an event for an emitter now; returns the catalogue's answer (null when the name is empty). <paramref name="footstep"/>: an <c>is_footstep_sound</c>
     /// post (instance limits, <see cref="FootstepGainDb"/>); <paramref name="offset"/>: added to every voice of the post (volume, pitch, low-pass: the owner's
     /// footstep level, the deeper impacts and the soft hit confirm). <paramref name="once"/>: play the first pick only and drop the container's continuation (BR-03).
+    /// <paramref name="limited"/>: the data's instance limits and the 2D threshold apply whatever <see cref="Limits"/> says (a crowd's posts).
     /// </summary>
-    public SoundPlay? Post(string eventName, SoundEmitter emitter, float extraDelay = 0f, bool footstep = false, VoiceOffset offset = default, bool once = false)
+    public SoundPlay? Post(string eventName, SoundEmitter emitter, float extraDelay = 0f, bool footstep = false, VoiceOffset offset = default, bool once = false, bool limited = false)
     {
         if (string.IsNullOrEmpty(eventName) || _catalog is null) return null;
         Posts++;
@@ -271,7 +274,7 @@ public partial class SoundSystem : Node
         if (NetworkView.LogSoundKinds.Contains("post")) GD.Print($"POST {eventName} label '{emitter.Label}' at {emitter.Current.X:F1},{emitter.Current.Y:F1},{emitter.Current.Z:F1} found {play.Found} voices {play.Voices.Count}");   // --log-sound post (map-silence test aid)
         if (!play.Found) { Misses[eventName] = Misses.GetValueOrDefault(eventName) + 1; return play; }
         if (once) play.Repeats.Clear();   // BR-03: a trigger-rate container asks to be continued for ever; a one-shot post plays its first pick only
-        Schedule(play, emitter, extraDelay, eventName, footstep, offset);
+        Schedule(play, emitter, extraDelay, eventName, footstep, offset, limited);
         if (emitter.OneShot) _oneShots.Add(emitter);
         return play;
     }
@@ -281,7 +284,7 @@ public partial class SoundSystem : Node
     /// character and the binding's arguments (<c>autodetect</c> threat reads as <c>high</c>: interpretation). One line at a time per
     /// emitter (the speech containers allow one instance; a line posted while the last plays is dropped, interpretation).
     /// </summary>
-    public SpeechResult PostSpeech(SpeechBinding b, string character, SoundEmitter emitter, float extraDelay = 0f)
+    public SpeechResult PostSpeech(SpeechBinding b, string character, SoundEmitter emitter, float extraDelay = 0f, VoiceOffset offset = default, bool limited = false)
     {
         if (_catalog is null || character.Length == 0) return SpeechResult.NoSpeech;
         Posts++;
@@ -300,12 +303,21 @@ public partial class SoundSystem : Node
         if (play.Voices.Count == 0) { BarksSilent++; return SpeechResult.NoLine; }
         double end = _now + extraDelay + play.Voices.Max(x => x.Delay + _catalog.Duration(x.WemId) / Math.Max(0.05f, x.PitchScale));
         _speechUntil[emitter.Id] = end;   // armed at the post; Start re-arms it from the real start and frees it when the voice is culled or late
-        Schedule(play, emitter, extraDelay, label);
+        Schedule(play, emitter, extraDelay, label, offset: offset, force: limited);
         if (emitter.OneShot) _oneShots.Add(emitter);
         return SpeechResult.Started;
     }
 
     static bool IsSpeech(string evt) => evt.StartsWith("speech/", StringComparison.Ordinal);
+
+    /// <summary>The voices of an emitter group playing or about to (<see cref="SoundEmitter.Group"/>): all of them, and the character lines among them. Virtual voices do not count.</summary>
+    public (int Voices, int Speech) GroupVoices(string group)
+    {
+        int voices = 0, speech = 0;
+        foreach (var a in _active) if (a.Player is not null && a.Emitter.Group == group) { voices++; if (IsSpeech(a.Event)) speech++; }
+        foreach (var p in _pending) if (p.Emitter.Group == group) { voices++; if (IsSpeech(p.Event)) speech++; }
+        return (voices, speech);
+    }
 
     /// <summary>Whether a character voice line (<see cref="PostSpeech"/>) of the emitter is playing or about to (a line posted now would be dropped as busy).</summary>
     public bool SpeechBusy(SoundEmitter emitter) => _speechUntil.TryGetValue(emitter.Id, out double until) && _now < until;
@@ -318,10 +330,10 @@ public partial class SoundSystem : Node
         _speechUntil.Remove(emitter.Id);
     }
 
-    void Schedule(SoundPlay play, SoundEmitter emitter, float extraDelay, string evt, bool footstep = false, VoiceOffset offset = default)
+    void Schedule(SoundPlay play, SoundEmitter emitter, float extraDelay, string evt, bool footstep = false, VoiceOffset offset = default, bool force = false)
     {
         long post = ++_posts;
-        bool limited = Limits == InstanceLimits.All || (Limits == InstanceLimits.Footsteps && footstep);
+        bool limited = force || Limits == InstanceLimits.All || (Limits == InstanceLimits.Footsteps && footstep);
         UnsupportedActions += play.UnsupportedActions;
         MissingMedia += play.MissingMedia;
         foreach (var (target, delay) in play.Stops) _stops.Add((target, emitter, _now + extraDelay + delay));
@@ -555,7 +567,8 @@ public partial class SoundSystem : Node
         bool positioned = a.Voice.Is3D;
         if (_active.Count(x => x.Player is not null && x.Voice.Is3D == positioned) >= (positioned ? Max3D : Max2D))
         {
-            var victim = _active.Where(x => x.Player is not null && x.Voice.Is3D == positioned)
+            // A crowd's voice (SoundEmitter.Group) takes a player only from its own crowd: it never cuts a player's sounds.
+            var victim = _active.Where(x => x.Player is not null && x.Voice.Is3D == positioned && (a.Emitter.Group is null || x.Emitter.Group == a.Emitter.Group))
                 .OrderBy(x => x.Voice.Priority).ThenBy(x => x.Effective).ThenBy(x => x.Started).FirstOrDefault();
             if (victim is null || victim.Voice.Priority > a.Voice.Priority) return false;
             // A waiting loop takes over only from a voice at least 6 dB quieter than it would be (no swapping back and forth).

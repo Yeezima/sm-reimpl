@@ -18,3 +18,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Thunder hammer and daemon maul strikes follow their target and land more reliably.
 - The blue clouds from power weapon hits are half the size.
 - The stalker bolter leaves a wall crater, larger than the bolter's.
+- Musou Mode: Orks, Gretchin, Nobs, Chaos Marines and the Warboss now have their original sounds: guns, melee swings, footsteps, grunts, shouts and deaths.
+- Musou Mode: the commander's status text is much smaller and shows only while you aim close to his position.
