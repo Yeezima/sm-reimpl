@@ -35,7 +35,7 @@ public partial class NetworkView
         public readonly List<FxEffect> Looping = new();
         public readonly List<FxEffect> Idle = new();
         public float IdleLevel = float.NaN;
-        public bool Dashing;
+        public bool Dashing, Rushing;
         public int DashTicks;
         public EvadeDirection DashDirection;
     }
@@ -86,7 +86,7 @@ public partial class NetworkView
     }
 
     /// <summary>Starts the plays at their markers (attached when the data says so); returns the effects started.</summary>
-    List<FxEffect> PlayOnPack(int id, IReadOnlyList<FxPlay> plays, bool repeat, string what, bool exhaust = false)
+    List<FxEffect> PlayOnPack(int id, IReadOnlyList<FxPlay> plays, bool repeat, string what, bool exhaust = false, bool flashOnly = false)
     {
         var started = new List<FxEffect>();
         exhaust &= PackTrailScale > 0f;   // --old-pack-trail: the old placement too
@@ -99,9 +99,10 @@ public partial class NetworkView
                 continue;
             }
             Func<(Vector3, Basis)?>? follow = p.Attached ? () => PackMarker(id, marker, exhaust) : null;
-            float lifetime = repeat ? 0f : p.Lifetime;
+            float lifetime = flashOnly ? PackFlashSeconds : repeat ? 0f : p.Lifetime;
             if (_fx!.Play(p.Name, place.Position, place.Axes, p.Scale <= 0f ? 1f : p.Scale, null, follow, lifetime, 0.0, repeat, 1) is { } e)
             {
+                e.FlashOnly = flashOnly;
                 e.TrailScale = PackTrailScale;   // fx/impact-pass: the thrust's trail is the last few metres of the nozzle's path
                 if (exhaust) e.BeamScale = PackTrailScale;   // ... and its flame a third as long
                 started.Add(e);
@@ -110,6 +111,12 @@ public partial class NetworkView
         }
         return started;
     }
+
+    /// <summary>fx/jump-flash (the owner, 2026-11-02): how long the one blue flash at a jump, hop, dive, dash or air charge's start lives (s, ours). The flame and trail are gone.</summary>
+    const float PackFlashSeconds = 0.35f;
+
+    /// <summary>The pack's one blue flash at the start of a move.</summary>
+    void PackFlash(int id, JumpPackEffects effects) => PlayOnPack(id, effects.Ascending, repeat: false, "flash", exhaust: true, flashOnly: true);
 
     static void Fade(List<FxEffect> effects, double fade)
     {
@@ -139,7 +146,7 @@ public partial class NetworkView
             switch (mode)
             {
                 case PackMode.Rise:
-                    t.Looping.AddRange(PlayOnPack(s.PlayerId, effects.Ascending, repeat: true, "thrust", exhaust: true));
+                    PackFlash(s.PlayerId, effects);
                     if (t.Mode == PackMode.Ground) TakeOffBurst(s, effects.Ascending);
                     _thrustFx++;
                     break;
@@ -149,7 +156,7 @@ public partial class NetworkView
                     if (OldPackFall) t.Looping.AddRange(PlayOnPack(s.PlayerId, effects.Descending, repeat: true, "fall"));
                     break;
                 case PackMode.Dive:
-                    t.Looping.AddRange(PlayOnPack(s.PlayerId, effects.Dive, repeat: true, "dive", exhaust: true));
+                    PackFlash(s.PlayerId, effects);
                     _diveFx++;
                     break;
             }
@@ -177,11 +184,15 @@ public partial class NetworkView
         bool restart = dashing && (!t.Dashing || s.EvadeTicks < t.DashTicks || s.EvadeDirection != t.DashDirection);
         if (restart && Loadouts.Evade(_config!, s) is { } dash)
         {
-            if (_catalogue!.Dashes.GetValueOrDefault(dash.Name) is { Count: > 0 } burst) { PlayOnPack(s.PlayerId, burst, repeat: false, "dash", exhaust: true); TakeOffBurst(s, burst); _dashFx++; }
+            if (_catalogue!.Dashes.GetValueOrDefault(dash.Name) is { Count: > 0 } burst) { PackFlash(s.PlayerId, effects); TakeOffBurst(s, burst); _dashFx++; }
             DashSound(s, dash, own);
             if (_bot) GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId}{(own ? "" : $" sees P{s.PlayerId}")} dash {s.EvadeDirection} (burst {(_catalogue.Dashes.ContainsKey(dash.Name) ? "on" : "none")}; dashes shown {_dashFx})");
         }
         t.Dashing = dashing; t.DashTicks = s.EvadeTicks; t.DashDirection = s.EvadeDirection;
+        // A charge started in the air (a hop): the same flash.
+        bool rushing = s.Rush != RushPhase.None;
+        if (rushing && !t.Rushing && !s.Grounded) PackFlash(s.PlayerId, effects);
+        t.Rushing = rushing;
     }
 
     /// <summary>The thrust's ground burst under a player leaving the ground (<see cref="GroundPoundFx.PlayBurst"/>), within <see cref="PoundDetailRange"/> of the camera.</summary>

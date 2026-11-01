@@ -448,7 +448,9 @@ public static partial class Protocol
     //     not the heavy strikes, the heavy classes' kick, the charge or the stomp's blast) starts no reaction or knockback and ends no action: it flinches the victim,
     //     whose shots scatter by up to MeleeFlinchDegrees more, falling over MeleeFlinchSeconds (ours). Full record 167 bytes; worst case 1195 (4 guaranteed shot
     //     records still fit, 5 under the budget). The spread rules version is 2 (the config hash changes).
-    public const ushort Version = 52;
+    // 53 (feel/melee-cooldown; the owner 2026-11-02, classic PvP): the own record carries the melee lock, a float (PlayerState.MeleeLock: seconds until a melee attack may start again; an attack
+    //     locks out the next one until its combo window opens, however it ended), right after the flinch byte. Full record 171 bytes; worst case 1199 (the budget is 1200).
+    public const ushort Version = 53;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>
@@ -518,15 +520,15 @@ public static partial class Protocol
     /// <summary>Bytes of a slim player record (protocol 13: 46 + the evade byte).</summary>
     public const int SlimRecordBytes = 47;
     /// <summary>Bytes of the recipient's full record (protocol 13: the slim part, 85 more, and 2 evade bytes; protocol 17: 4 reaction bytes; 18: the charge lock; 20: ready and raise ticks; 21: ready ticks in 2 bytes; 23: the perk word).</summary>
-    public const int FullRecordBytes = SlimRecordBytes + 97 + 14 + 8 + 1;   // protocol 44: + the third weapon's 14 bytes (and one projectile record fewer); protocol 52: + the flinch byte
+    public const int FullRecordBytes = SlimRecordBytes + 97 + 14 + 8 + 1 + 4;   // protocol 44: + the third weapon's 14 bytes (and one projectile record fewer); protocol 52: + the flinch byte; protocol 53: + the melee lock
     /// <summary>Most kill-feed entries in one snapshot (protocol 10; the server sends the newest).</summary>
     public const int MaxSnapshotKills = 4;
     /// <summary>
     /// The largest snapshot with every other block full: 1200 bytes (protocol 11: 1175; protocol 12: + the 12-byte hit block =
     /// 1187; protocol 13: + 16 evade bytes in the player records + 2 in the own record − one 14-byte projectile record = 1191;
     /// protocol 15: + 4 kill-feed direction bytes = 1195; protocol 16: − three projectile records (42) + the shot count and
-    /// five shot records (46) = 1199; protocol 17: + 4 reaction bytes in the own record − one guaranteed shot record (9) = 1194; protocol 18: + 1 charge-lock byte = 1195; protocol 20: + 2 raise bytes = 1197; protocol 21: ready ticks in 2 bytes = 1198; protocol 23: + the 2-byte perk word = 1200; protocol 44: + 14 bytes, - one projectile record = 1200; protocol 45: + 8 bytes, - one projectile record = 1194; protocol 52: + the flinch byte = 1195),
-    /// at most the 1200-byte <see cref="SnapshotBudget"/> (5 bytes of headroom since protocol 52). A smaller snapshot
+    /// five shot records (46) = 1199; protocol 17: + 4 reaction bytes in the own record − one guaranteed shot record (9) = 1194; protocol 18: + 1 charge-lock byte = 1195; protocol 20: + 2 raise bytes = 1197; protocol 21: ready ticks in 2 bytes = 1198; protocol 23: + the 2-byte perk word = 1200; protocol 44: + 14 bytes, - one projectile record = 1200; protocol 45: + 8 bytes, - one projectile record = 1194; protocol 52: + the flinch byte = 1195; protocol 53: + the melee lock's 4 bytes = 1199),
+    /// at most the 1200-byte <see cref="SnapshotBudget"/> (1 byte of headroom since protocol 53). A smaller snapshot
     /// carries more shot records, up to <see cref="MaxSnapshotShots"/>, but never more than the budget.
     /// </summary>
     public const int MaxSnapshotBytes = 13 + 1 + MaxSnapshotProjectiles * 14 + 1 + (MaxPlayers - 1) * SlimRecordBytes + FullRecordBytes + 9 + 1 + MaxSnapshotKills * KillEntryBytes
@@ -695,6 +697,7 @@ public static partial class Protocol
                     w.U16(Ammo(p.ThirdClip)); w.U16(Ammo(p.ThirdReserve)); w.F32(p.ThirdHeat); w.F32(p.ThirdSinceHeat);
                     w.F32(p.OtherReloadLeft); w.F32(p.ThirdReloadLeft);   // protocol 45: the holstered weapons' reloads (8 bytes)
                     w.U8((byte)Math.Clamp(p.FlinchTicks, 0, Spread.MaxFlinchTicks));   // protocol 52 (sim/light-melee-flinch): the flinch's ticks left; here so the tail keeps its offsets
+                    w.F32(p.MeleeLock);   // protocol 53 (feel/melee-cooldown)
                     w.F32(p.Health); w.F32(p.Shield);
                     w.U16(Ammo(p.Clip)); w.U16(Ammo(p.Reserve)); w.U16(Ammo(p.OtherClip)); w.U16(Ammo(p.OtherReserve));
                     w.F32(p.Cooldown); w.F32(p.ReloadLeft); w.F32(p.SinceDamage); w.F32(p.RespawnLeft); w.F32(p.SwitchLeft);
@@ -1015,6 +1018,9 @@ public static partial class Protocol
                 p = p with { MeleeDirection = meleeDirection, ThirdOverheated = (ext & 4) != 0, SlotSecondHeld = (ext & 8) != 0, ThirdClip = r.U16(), ThirdReserve = r.U16(), ThirdHeat = r.F32(), ThirdSinceHeat = r.F32() };
                 p = p with { OtherReloadLeft = r.F32(), ThirdReloadLeft = r.F32() };   // protocol 45
                 p = p with { FlinchTicks = r.U8() };   // protocol 52 (sim/light-melee-flinch)
+                float meleeLock = r.F32();   // protocol 53 (feel/melee-cooldown)
+                if (!(meleeLock >= 0f && meleeLock <= 10f)) return null;
+                p = p with { MeleeLock = meleeLock };
                 p = p with
                 {
                     Health = r.F32(), Shield = r.F32(), Clip = r.U16(), Reserve = r.U16(), OtherClip = r.U16(), OtherReserve = r.U16(),

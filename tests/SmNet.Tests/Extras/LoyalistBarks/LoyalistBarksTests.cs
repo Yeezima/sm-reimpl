@@ -363,6 +363,6 @@ public class LoyalistBarksTests(ITestOutputHelper output)
         Assert.Equal("loyalist-barks", ContentProfiles.Name(ContentExtras.LoyalistBarks));
         Assert.NotEqual(new SimConfig { Extras = ContentExtras.Orks | ContentExtras.Gore }.Hash(), new SimConfig { Extras = ContentExtras.All }.Hash());
         Assert.Equal(InputButtons.ExtraAction, Protocol.Quantize(new PlayerInput(1, 0, 0, 0, InputButtons.ExtraAction)).Buttons);
-        Assert.Equal(1195, Protocol.MaxSnapshotBytes);
+        Assert.Equal(1199, Protocol.MaxSnapshotBytes);
     }
 }

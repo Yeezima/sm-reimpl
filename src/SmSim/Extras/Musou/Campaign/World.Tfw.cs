@@ -30,6 +30,7 @@ public sealed partial class World
         _musou!.War = TfwCombatRules.Default;   // nor this
         _musou!.WidenBox(field.Hub.Box);   // the Stormbird lies outside the graph
         _musou!.WidenBox(field.Bounds);   // a jump goes above it
+        if (field.Range is { } range) _musou!.WidenBox(range.Box);   // the Firing Range stands apart too
         _musou!.Director = default;   // no 5-wave director to show (nothing is sent until the first deploy: TfwShowDirector)
         return true;
     }

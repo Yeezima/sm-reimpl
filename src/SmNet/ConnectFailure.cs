@@ -27,12 +27,12 @@ public static class ConnectFailure
         {
             RejectReason.ProtocolMismatch => "The server runs another version of the game. Everyone in a match needs the same version",
             RejectReason.ContentMismatch => "The server's game files differ from yours",
-            RejectReason.ConfigMismatch => "The server's settings differ from yours",
+            RejectReason.ConfigMismatch => "Enable extended mode before reconnecting to the server",
             RejectReason.MapMismatch => "The server's map could not be loaded here, or differs from yours",
             RejectReason.ServerFull => "The server is full",
             null => "The server refused to let you in",
             _ => $"The server refused to let you in ({reason})",
         };
-        return string.IsNullOrWhiteSpace(detail) ? plain + "." : $"{plain} ({detail.Trim()}).";
+        return reason == RejectReason.ConfigMismatch || string.IsNullOrWhiteSpace(detail) ? plain + "." : $"{plain} ({detail.Trim()}).";   // the owner, 2026-11-02: that one line alone
     }
 }

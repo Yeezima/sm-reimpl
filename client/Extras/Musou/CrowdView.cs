@@ -26,7 +26,9 @@ public abstract partial class CrowdView : Node3D
     /// <summary>Skinned only (the fallback).</summary>
     public bool NoVat { get; set; }
 
-    sealed class Body { public Vector3 Position; public float Yaw, Age; public int Type, Clip, Serial; }
+    sealed class Body { public Vector3 Position, Velocity; public float Yaw, Age, Ground; public int Type, Clip, Serial; public bool Flung, Landed; }
+    /// <summary>Bodies flung by a blast and still moving or lying (they count against the cap of the flung).</summary>
+    public int Flung { get { int n = 0; foreach (var b in _bodies) if (b.Flung) n++; return n; } }
     int _bodySerial;
     readonly List<Body> _bodies = new();
 
@@ -91,6 +93,33 @@ public abstract partial class CrowdView : Node3D
         _bodies.Add(new Body { Position = position, Yaw = yaw, Type = type, Clip = clip, Serial = ++_bodySerial });
     }
 
+    /// <summary>A body thrown by a blast: it leaves with <paramref name="velocity"/> (m/s, game space), plays its clip in the air, falls under gravity to the ground it stood on, bounces once and slides to rest.</summary>
+    protected void AddFlungBody(Vector3 position, float yaw, int type, int clip, Vector3 velocity)
+    {
+        if (_bodies.Count >= Limits.MaxBodies) _bodies.RemoveAt(0);
+        _bodies.Add(new Body { Position = position, Yaw = yaw, Type = type, Clip = clip, Serial = ++_bodySerial, Flung = true, Velocity = velocity, Ground = position.Z });
+    }
+
+    /// <summary>Gravity and the ground's bounce for a flung body (ours, spec "Flung corpses").</summary>
+    const float FlungGravity = 9.8f, FlungBounce = 0.3f, FlungSlide = 4f;
+
+    static void StepFlung(Body b, float dt)
+    {
+        if (b.Landed && b.Velocity.LengthSquared() < 0.01f) return;
+        var v = b.Velocity;
+        if (b.Position.Z > b.Ground + 0.001f || v.Z > 0f) v.Z -= FlungGravity * dt;
+        var p = b.Position + v * dt;
+        if (p.Z <= b.Ground)
+        {
+            p.Z = b.Ground;
+            if (v.Z < -2f && !b.Landed) { v.Z = -v.Z * FlungBounce; b.Landed = true; }
+            else { v.Z = 0f; }
+            float keep = Mathf.Max(0f, 1f - FlungSlide * dt);   // sliding on the floor
+            v.X *= keep; v.Y *= keep;
+        }
+        b.Position = p; b.Velocity = v;
+    }
+
     /// <summary>Looks whose bake finished are uploaded once, then the far tier can use them. One bake per look, ever: a failure (nothing to bake, too large, an exception) leaves the look skinned for good.</summary>
     protected void UpkeepLooks(string log)
     {
@@ -119,6 +148,7 @@ public abstract partial class CrowdView : Node3D
         {
             var b = _bodies[i];
             b.Age += delta;
+            if (b.Flung) StepFlung(b, delta);
             if (b.Age > Limits.SinkAfter + Limits.SinkSeconds) { _bodies.RemoveAt(i); continue; }
         }
         for (int i = 0; i < _bodies.Count; i++)

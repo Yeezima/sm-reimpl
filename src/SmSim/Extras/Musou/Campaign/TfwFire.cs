@@ -76,7 +76,7 @@ public sealed class TfwFire
 {
     readonly List<TfwShell> _shells = new();
     readonly List<TfwFireEvent> _events = new();
-    TfwBattle? _battle;
+    object? _battle;
     uint _nextRun;
     ushort _runs, _rounds;
 
@@ -128,7 +128,7 @@ public sealed class TfwFire
     }
 
     /// <summary>Whether a new battle began: the schedule starts over from <paramref name="tick"/>.</summary>
-    internal bool Follow(TfwBattle battle, uint tick, int rate)
+    internal bool Follow(object battle, uint tick, int rate)
     {
         if (ReferenceEquals(_battle, battle)) return false;
         _battle = battle;

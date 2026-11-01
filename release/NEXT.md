@@ -12,3 +12,26 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Musou Mode: press left on the D-pad on a controller to call the artillery strike.
 - Controller: pressing A now selects in every menu, which also gets a highlighted choice as soon as it opens.
 - Controller: a new aiming sensitivity option in Options sets how fast the right stick turns while aiming down sights.
+- Jump pack: the flame trail is gone. A jump, hop, dive, dash or a charge started mid hop now gives one quick flash at its start.
+- The chunks of ground thrown up by a ground pound now look like Manufactorum's floor.
+- Fixed a disconnect: dying during a directional melee attack could end your connection with 'Disconnected (no snapshot from the server)'.
+- The camera now always stays over the right shoulder; it no longer swaps to the left shoulder near walls.
+- At a higher field of view the camera sits slightly further right, so your character covers less of the crosshair. Shots still land on the crosshair, and the default field of view looks the same as before.
+- Musou Mode: the information panels left the top of the screen and now show on the war map, while you hold M.
+- Musou Mode: point markers are now just the small A, B and C letters, and enemies no longer show health bars over their heads.
+- Melee swings step forward sooner.
+- Thunder hammer and daemon maul strikes follow their target and land more reliably.
+- The blue clouds from power weapon hits are half the size.
+- The stalker bolter leaves a wall crater, larger than the bolter's.
+- Musou Mode: Orks, Gretchin, Nobs, Chaos Marines and the Warboss now have their original sounds: guns, melee swings, footsteps, grunts, shouts and deaths.
+- Musou Mode: the commander's status text is much smaller and shows only while you aim close to his position.
+- Musou Mode: the small Orks are gone; normal Ork Boyz take their place, so the enemy count is the same.
+- Musou Mode: explosions you cannot see no longer light up the room you are in through its walls.
+- Musou Mode: Orks now react reliably to being shot, including the head, chest and shoulders, and while they run.
+- Assault Marine and Raptor: you can now zoom while flying with the jump pack, as on the ground.
+- Melee attacks can no longer be chained faster than the combo allows by shooting between swings: after a swing starts you must wait until its combo window before the next one starts. This build does not play with earlier ones: everyone must update.
+- Musou Mode: you can start a new melee swing whenever you like by pressing melee again once the previous swing has hit, without shooting or waiting for it to finish.
+- Charges are no longer cancelled by movement keys: only hitting an enemy or a wall (the recoil), jumping, attacking or throwing ends one.
+- Musou Mode: calling an artillery strike with B now shows a thin red laser beam from your weapon to the target.
+- Musou Mode: Orks killed by artillery, frag grenades and plasma cannon blasts are now thrown by the explosion and tumble to the ground.
+- Musou Mode: a new button on the wall of the Thunderhawk's troop bay takes you, after a confirm, to the Firing Range, a plain walled 100 m square where 200 Orks keep coming at you, to try the artillery strike and other new things. A pad at the range brings you back.

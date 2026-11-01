@@ -44,7 +44,7 @@ public enum TfwRunPhase : byte { Hub = 0, Travel = 1, Battle = 2, Pickup = 3, Fi
 public enum TfwPositionState : byte { Locked = 0, Held = 1, Clearing = 2, Securing = 3, Secured = 4 }
 
 /// <summary>A client's command (message kind 17, tag <c>TfwWire.CommandTag</c>; design section H). Deploy's argument is the lane; Hold and Attack carry a place (<see cref="TfwCommandRecord.Point"/>); ChooseReward's argument is the card (0 to <c>TfwWire.RewardCards</c> - 1) and <see cref="TfwCommandRecord.Offer"/> the offer it answers; SelectSlot's argument is the weapon key (1 to 5).</summary>
-public enum TfwCommand : byte { Deploy = 1, RequestPickup = 2, CancelPickup = 3, Follow = 4, Hold = 5, Attack = 6, ChangeClass = 7, ChooseReward = 8, SelectSlot = 9, Orbital = 10, FireTest = 11 }
+public enum TfwCommand : byte { Deploy = 1, RequestPickup = 2, CancelPickup = 3, Follow = 4, Hold = 5, Attack = 6, ChangeClass = 7, ChooseReward = 8, SelectSlot = 9, Orbital = 10, FireTest = 11, RangeGo = 12, RangeBack = 13 }
 
 /// <summary>One decoded command: its sequence (resent until tag 7 echoes it, idempotent by it), what it asks, its argument and, for Hold and Attack, the point of the sender's crosshair (metres; untrusted, within about 3 km on each axis). <see cref="Offer"/>: ChooseReward's offer sequence, so a delayed pick never lands on a newer offer.</summary>
 public readonly record struct TfwCommandRecord(ushort Sequence, TfwCommand Command, byte Argument, Vector3 Point = default, ushort Offer = 0);

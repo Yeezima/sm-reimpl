@@ -430,7 +430,7 @@ public class ProjectileTests(ITestOutputHelper output)
             Points: [.. Enumerable.Repeat(new ControlPointView(Team.Chaos, Team.Chaos, 1f, true), Protocol.MaxSnapshotPoints)], Shots: ShotTests.ManyShots(players, Protocol.MaxSnapshotShots)));
         output.WriteLine($"16 players and {projectiles.Length} projectiles (protocol {Protocol.Version}): {bytes.Length} bytes");
         Assert.Equal(Protocol.MaxSnapshotBytes, bytes.Length);   // protocol 16: 16 projectile records (19 in 13-15, 20 in 10-12, 26 before), the other blocks and the shot records that fit
-        Assert.Equal(1195, bytes.Length);   // protocol 45: 14 projectile records and the own record's 8 reload bytes (44: 1200); protocol 23: + the 2-byte perk word, exactly the budget (21, 22: 1198); protocol 21: 16 projectile records, 4 shot records, the own record's reaction and raise bytes (ready ticks in 2), 2 under the 1200-byte budget (20: 1197; 17-19: 1195; 16: 1199; 15: 1195; 13: 1191; 12: 1187; 11: 1175)
+        Assert.Equal(1199, bytes.Length);   // protocol 45: 14 projectile records and the own record's 8 reload bytes (44: 1200); protocol 23: + the 2-byte perk word, exactly the budget (21, 22: 1198); protocol 21: 16 projectile records, 4 shot records, the own record's reaction and raise bytes (ready ticks in 2), 2 under the 1200-byte budget (20: 1197; 17-19: 1195; 16: 1199; 15: 1195; 13: 1191; 12: 1187; 11: 1175)
         Assert.True(bytes.Length <= UdpServerTransport.MaxPacket);
         var back = Assert.IsType<Snapshot>(Protocol.Read(bytes));
         Assert.Equal(players.Select(p => p.PlayerId == 7 ? p : Protocol.Slim(p)), back.Players);

@@ -36,6 +36,7 @@ public partial class NetworkView
         TfwRewardFrame(war, me);
         TfwBotFrame(war, me);
         TfwTestFrame();
+        TfwRangeTestFrame();   // the Firing Range script (NetworkView.TfwRangeTest.cs); off without --tfw-test-range
     }
 
     /// <summary>The HUD's frame (a client that draws, or the scripted test: a lean bot has no HUD). <see cref="MusouHud"/> keeps the boss bar: here it learns whose it is.</summary>

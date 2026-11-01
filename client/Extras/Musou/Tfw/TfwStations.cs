@@ -41,15 +41,64 @@ public partial class NetworkView
             else if (war.Phase != TfwRunPhase.Hub || !me.Alive) TfwCloseWarMap();
             else _tfwPanel.Show(war, _client?.Match.State == MatchState.Playing);
         }
+        if (_tfwConfirm is not null && (_pickerLayer is null || war.Phase != TfwRunPhase.Hub || !me.Alive)) TfwCloseConfirm();
         TfwPeekFrame(war);
 
-        _tfwAt = war.Phase == TfwRunPhase.Hub && me.Alive && !PickerBusy ? TfwHub is { } hub ? TfwHudModel.StationAt(me.Position, hub) : TfwStation.None : TfwStation.None;
+        _tfwAt = war.Phase == TfwRunPhase.Hub && me.Alive && !PickerBusy ? TfwHub is { } hub ? TfwHudModel.StationAt(me.Position, hub, TfwRangeArea) : TfwStation.None : TfwStation.None;
         bool use = ControlsInput.Held(GameAction.Use) || _pad is not null && PadHost.Active && !_padUseBlocked && ControlsInput.PadHeld(_pad, GameAction.Use);
         bool press = use && !_tfwUseWas;
         _tfwUseWas = use;
         if (!press) return;
         if (_tfwAt == TfwStation.Destination) TfwOpenWarMap(war);
         else if (_tfwAt == TfwStation.Equipment) TfwOpenEquipment();
+        else if (_tfwAt == TfwStation.Range) TfwOpenRangeConfirm();
+        else if (_tfwAt == TfwStation.Return)
+        {
+            var sequence = _tfwState.Commands.Issue(TfwCommand.RangeBack);
+            GD.Print($"t {_connectedFor:F1} s: war: back from the Firing Range (sequence {sequence})");
+        }
+    }
+
+    Control? _tfwConfirm;
+
+    /// <summary>The range button's confirm: a small panel over the game (the mouse is free, the game takes no input) with TELEPORT and CANCEL; Esc or B cancels.</summary>
+    void TfwOpenRangeConfirm()
+    {
+        if (PickerBusy) return;
+        Input.MouseMode = Input.MouseModeEnum.Visible;
+        UiKit.EnterVirtualSpace(GetWindow());
+        _pickerForced = true;
+        _pickerLayer = new CanvasLayer { Name = "RangeConfirm", Layer = 60 };
+        var root = new Control { Name = "RangeConfirmRoot", Theme = UiKit.Theme };
+        root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        var panel = new TfwRangeConfirm(TfwGoToRange, TfwCloseConfirm);
+        root.AddChild(panel);
+        _pickerLayer.AddChild(root);
+        AddChild(_pickerLayer);
+        UiSounds.Current?.Attach(_pickerLayer);
+        _tfwConfirm = panel;
+        panel.Focus();
+        GD.Print($"t {_connectedFor:F1} s: war: the Firing Range's confirm opened");
+    }
+
+    /// <summary>Test aid and the panel's TELEPORT: the command goes out (resent until echoed) and the panel closes. The server decides.</summary>
+    internal void TfwGoToRange()
+    {
+        var sequence = _tfwState.Commands.Issue(TfwCommand.RangeGo);
+        GD.Print($"t {_connectedFor:F1} s: war: to the Firing Range (sequence {sequence})");
+        TfwCloseConfirm();
+    }
+
+    void TfwCloseConfirm()
+    {
+        if (_tfwConfirm is null) return;
+        _tfwConfirm = null;
+        _pickerLayer?.QueueFree();
+        _pickerLayer = null;
+        _pickerForced = false;
+        PadMenuClosed();
+        UiKit.LeaveVirtualSpace(GetWindow());
+        RestoreMouse(leaving: false);
     }
 
     bool _tfwEquipmentShown;

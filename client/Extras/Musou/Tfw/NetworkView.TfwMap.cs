@@ -17,6 +17,8 @@ public partial class NetworkView
 {
     /// <summary>The Stormbird of this map (null until the map is loaded, and on any other map).</summary>
     internal TfwHub? TfwHub { get; private set; }
+    /// <summary>The Firing Range beside the level (null as above).</summary>
+    internal TfwRange? TfwRangeArea { get; private set; }
 
     TfwMapView? _tfwHubView;
 
@@ -30,6 +32,7 @@ public partial class NetworkView
     void TfwMapCollision(string name, ref CollisionWorld world, ref ulong hash)
     {
         if (name != TfwMap.Name) return;
+        TfwRangeArea = TfwRange.For(world);
         var (composed, hub, composedHash) = TfwMap.WithHub(world);
         world = composed;
         hash = composedHash;
@@ -44,6 +47,8 @@ public partial class NetworkView
         foreach (var note in notes) GD.Print("  hub note: " + note);
         GD.Print($"hub: {(TfwMapView.LastModel.Surfaces > 0 ? $"the Thunderhawk's interior from the install, {TfwMapView.LastModel.Textured} of {TfwMapView.LastModel.Surfaces} surfaces with their original texture" : "the generated shell (placeholder demonstration)")}");
         _gameSpace.AddChild(_tfwHubView);
+        _gameSpace.GetNodeOrNull("TfwRange")?.QueueFree();
+        _gameSpace.AddChild(TfwMapView.BuildRange(TfwRangeArea, _groundMaterial));
     }
 
     Godot.Environment? _tfwHubEnvironment;
@@ -59,6 +64,7 @@ public partial class NetworkView
         if (_tfwHubView is not null && IsInstanceValid(_tfwHubView)) _tfwHubView.Visible = drawn;
         bool aboard = drawn && TfwHub is { } hub && _camera is not null
             && (hub.Contains(new System.Numerics.Vector3(_camera.GlobalPosition.X, -_camera.GlobalPosition.Z, _camera.GlobalPosition.Y)) || (_client is not null && hub.Contains(_client.Predicted.Position)));
+        if (_gameSpace?.GetNodeOrNull<Node3D>("TfwRange") is { } rangeNode) rangeNode.Visible = !aboard;   // from the ship the walls would hang in the sky
         if (aboard == _tfwAboard || _camera is null) return;
         _tfwAboard = aboard;
         _camera.Environment = aboard ? _tfwHubEnvironment ??= TfwHubSky.Build() : null;
