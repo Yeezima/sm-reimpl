@@ -17,7 +17,7 @@ public partial class NetworkView
     TfwHud? _tfwHud;
     TfwMarkers? _tfwMarkers;
 
-    /// <summary>Once a frame, with this frame's sections of tags 7 to 10 (the dispatcher <c>NetworkView.Extras.cs</c>). Runs after <see cref="MusouFrame"/>, which reads the director these need.</summary>
+    /// <summary>Once a frame, with this frame's sections of tags 7 to 14 (the dispatcher <c>NetworkView.Extras.cs</c>). Runs after <see cref="MusouFrame"/>, which reads the director these need.</summary>
     void TfwFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta, List<ExtrasSection> sections)
     {
         if (!MusouActive || _client is null) return;
@@ -28,6 +28,10 @@ public partial class NetworkView
         TfwStationsFrame(war, me);
         TfwHudFrame(war, me);
         TfwMarkersFrame(war);
+        TfwFireFrame(war, delta);
+        TfwBarsFrame();
+        TfwScoreFrame(war);
+        TfwRewardFrame(war);
         TfwBotFrame(war, me);
         TfwTestFrame();
     }

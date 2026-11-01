@@ -34,6 +34,8 @@ public enum MusouEnemyState : byte
     Recover = 4,
     Stagger = 5,
     Dying = 6,
+    /// <summary>Thrown down by a Marine's shove (Musou pass 2; M0 is the contract alone, nothing enters it yet). The 4 bits on the wire hold 16 states.</summary>
+    Knocked = 7,
 }
 
 /// <summary>

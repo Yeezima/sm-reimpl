@@ -261,13 +261,13 @@ public class TfwContractTests
     public void The_wars_tags_are_its_own_and_a_command_round_trips()
     {
         for (int tag = 0; tag <= 255; tag++)
-            Assert.Equal(tag is >= 7 and <= 10, TfwWire.Owns((byte)tag));
-        for (byte tag = 7; tag <= 10; tag++) Assert.False(MusouWire.Owns(tag));
+            Assert.Equal(tag is >= 7 and <= 14, TfwWire.Owns((byte)tag));
+        for (byte tag = 7; tag <= 14; tag++) Assert.False(MusouWire.Owns(tag));
         var c = new TfwCommandRecord(0xABCD, TfwCommand.Attack, 3);
         Assert.Equal(c, TfwWire.ReadCommand(TfwWire.WriteCommand(c)));
         Assert.Null(TfwWire.ReadCommand([1, 2, 3]));
         Assert.Null(TfwWire.ReadCommand([1, 2, 0, 3]));      // command 0 is none
-        Assert.Null(TfwWire.ReadCommand([1, 2, 7, 3]));
+        Assert.Null(TfwWire.ReadCommand([1, 2, 9, 3]));      // past the last command
     }
 
     [Fact]
