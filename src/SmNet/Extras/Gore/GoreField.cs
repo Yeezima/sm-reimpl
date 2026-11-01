@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Numerics;
 
 namespace SmNet.Extras.Gore;
@@ -85,6 +86,47 @@ public sealed class GoreField
     /// <summary>Raised whenever a pool or spot is made or ends: the ground changed (the view rebuilds it then, and otherwise only a few times a second for the spreading and fading).</summary>
     public int GroundVersion { get; private set; }
 
+    /// <summary>
+    /// Hotfix 2026-11-01 (blood hung in the air): resolves the real ground under a point (the highest solid surface at or below it within a short reach), or null for none. Set by the client from the
+    /// collision world; null (tests, the headless sim) keeps the old flat guess. A particle reaching its guessed floor asks it once: lower ground lets it keep falling, none removes it, and a stain is laid only on a surface.
+    /// </summary>
+    public Func<Vector3, float?>? GroundAt { get; set; }
+
+    // Hotfix 2026-11-01 (performance pass, owner: major fps drops exploding many Orks at once; all ours):
+    // flying pieces made in one step are budgeted (a mass kill scales each death down), blast clouds merge per ~8 m cell, large puffs are capped, and landing rays are limited per step.
+    public const int FlyingPerStep = 520, MinFlyingPerDeath = 14, RaysPerStep = 96, MaxLargePuffs = 72, BankPuffsPerWindow = 18;
+    public const float BankCell = 8f, BankWindow = 1.2f, LargePuff = 3.5f;
+    int _flyingThisStep, _raysThisStep;
+    readonly Dictionary<(int, int), (double At, int Puffs)> _banks = new();
+    /// <summary>Large (blast) puffs live now.</summary>
+    public int LiveLargePuffs { get; private set; }
+    /// <summary>Flying pieces (droplets and clots) the budget took away from bursts since the start.</summary>
+    public long Trimmed { get; private set; }
+
+    /// <summary>How many flying pieces a burst or spray of <paramref name="want"/> may make now: the rest of this step's budget, but never fewer than a small share, so every death still shows something.</summary>
+    int Allow(int want)
+    {
+        int left = Math.Max(MinFlyingPerDeath, FlyingPerStep - _flyingThisStep);
+        int n = Math.Min(want, left);
+        Trimmed += want - n;
+        _flyingThisStep += n;
+        return n;
+    }
+
+    /// <summary>How many of <paramref name="want"/> blast puffs at <paramref name="at"/> may be made: a cell shares a window's allowance (the first deaths make full banks, later ones add a puff or none), and the large puffs live are capped.</summary>
+    int AllowPuffs(Vector3 at, int want)
+    {
+        if (LiveLargePuffs >= MaxLargePuffs) return 0;
+        var cell = ((int)MathF.Floor(at.X / BankCell), (int)MathF.Floor(at.Y / BankCell));
+        _banks.TryGetValue(cell, out var bank);
+        if (Time - bank.At > BankWindow) bank = (Time, 0);
+        int n = Math.Clamp(BankPuffsPerWindow - bank.Puffs, 0, want);
+        if (n == 0 && bank.Puffs < BankPuffsPerWindow * 2) n = 1;   // a late death in a busy bank still thickens it by one
+        _banks[cell] = (bank.At, bank.Puffs + n);
+        if (_banks.Count > 64) foreach (var k in new List<(int, int)>(_banks.Keys)) if (Time - _banks[k].At > BankWindow) _banks.Remove(k);
+        return n;
+    }
+
     public GoreField(int seed = 40_000) => _rng = new Random(seed);
 
     float F() => _rng.NextSingle();
@@ -146,7 +188,7 @@ public sealed class GoreField
                 Drip = Range(0f, 0.08f),
             };
         }
-        for (int i = 0; i < b.Droplets; i++)
+        for (int i = 0, nd = Allow(b.Droplets); i < nd; i++)
         {
             var dir = boom ? Norm(new Vector3(Unit().X, Unit().Y, MathF.Abs(F()) * 0.9f + 0.1f), Vector3.UnitZ) : Norm(pd * (F() < 0.3f ? -0.9f : 1.2f) + Unit() * 0.9f, Vector3.UnitZ);   // most of it carries on with the blow, some flies back at the attacker
             float speed = Range(3f, boom ? 14f : 10f) * power;
@@ -161,13 +203,15 @@ public sealed class GoreField
         }
         for (int i = 0; i < b.Pools; i++)
         {
+            float poolFloor = floor;
+            if (GroundAt is { } gp) { if (gp(at + new Vector3(0f, 0f, 0.5f)) is { } pz) poolFloor = pz; else continue; }
             ref var p = ref NextPool();
             float radius = (boom ? Range(1.2f, 1.9f) * (i == 0 ? 1f : 0.55f) : Range(0.38f, 0.65f) * MathF.Sqrt(power)) * 2.4f;
             var off = i == 0 ? Vector3.Zero : new Vector3(Unit().X, Unit().Y, 0f) * (boom ? 2.4f : 1.4f);
             GroundVersion++;
-            p = new GorePool { Live = true, Pos = new Vector3(at.X + off.X, at.Y + off.Y, floor), Colour = new Vector3(Range(0.02f, 0.04f), 0.003f, 0.004f), Radius = radius, Seed = F() };
+            p = new GorePool { Live = true, Pos = new Vector3(at.X + off.X, at.Y + off.Y, poolFloor), Colour = new Vector3(Range(0.02f, 0.04f), 0.003f, 0.004f), Radius = radius, Seed = F() };
         }
-        for (int i = 0; i < b.Mist; i++)
+        for (int i = 0, nm = boom ? AllowPuffs(at, b.Mist) : b.Mist; i < nm; i++)
         {
             ref var m = ref NextMist();
             // A cloud that blooms outward, hangs and thins slowly: muddy brown-red, some puffs darker. An explosion's is a huge bank several Marines across.
@@ -193,7 +237,7 @@ public sealed class GoreField
         var axis = Norm(right * MathF.Cos(angle) * side + up * MathF.Sin(angle), right);
         ref var s = ref NextSlash();
         s = new GoreSlash { Live = true, Pos = at + view * 0.45f, Axis = axis, Up = Norm(Vector3.Cross(view, axis), up), Normal = view, Length = Range(1.3f, 1.9f), Seed = F() };
-        int n = (int)MathF.Round(9 * GoreRules.Amount * LoadScale());
+        int n = Allow((int)MathF.Round(9 * GoreRules.Amount * LoadScale()));
         for (int i = 0; i < n; i++)
         {
             ref var d = ref NextDrop();
@@ -210,6 +254,7 @@ public sealed class GoreField
     public void Spray(Vector3 at, Vector3 dir, int count, float power)
     {
         var d0 = Norm(dir, Vector3.UnitY);
+        count = Allow(count);
         for (int i = 0; i < count; i++)
         {
             var v = Norm(d0 * 1.1f + Unit() * 0.8f, d0);
@@ -242,7 +287,7 @@ public sealed class GoreField
             Size = Range(2.2f, 3.2f) * (0.55f + 0.45f * big) * (kind == HitKind.Shot ? 1.0f : 1.15f), Life = Range(3f, 4.6f), Seed = F(),
             Colour = Vector3.Lerp(new Vector3(0.077f, 0.027f, 0.02f), new Vector3(0.032f, 0.01f, 0.008f), dark),
         };
-        int n = (int)MathF.Round((kind == HitKind.Melee ? 14 : kind == HitKind.Shot ? 6 : 10) * GoreRules.Amount * Math.Clamp(load, 0.3f, 1f));
+        int n = Allow((int)MathF.Round((kind == HitKind.Melee ? 14 : kind == HitKind.Shot ? 6 : 10) * GoreRules.Amount * Math.Clamp(load, 0.3f, 1f)));
         for (int i = 0; i < n; i++)
         {
             var v = Norm(d0 * (F() < 0.3f ? -0.7f : 1.1f) + Unit() * 0.9f, d0);
@@ -277,6 +322,7 @@ public sealed class GoreField
     {
         float dt = Math.Clamp(seconds, 0f, 0.1f);
         Time += dt;
+        _flyingThisStep = 0; _raysThisStep = 0;
         float dropLoad = LiveDrops / (float)GoreRules.DropletPool;
         for (int i = 0; i < Gibs.Length; i++)
         {
@@ -302,6 +348,15 @@ public sealed class GoreField
             float rest = g.Floor + g.Size * 0.4f;
             if (g.Pos.Z <= rest)
             {
+                if (GroundAt is { } gg)
+                {
+                    if (++_raysThisStep > RaysPerStep) { g.Pos.Z = rest; g.Vel = Vector3.Zero; continue; }
+                    float? hit = gg(g.Pos);
+                    if (hit is null) { g.Live = false; continue; }
+                    if (hit.Value < g.Pos.Z - 0.05f) { g.Floor = hit.Value; continue; }
+                    g.Floor = hit.Value;
+                    rest = g.Floor + g.Size * 0.4f;
+                }
                 g.Pos.Z = rest;
                 if (g.Vel.Z < -1.3f && g.Bounces < 3)
                 {
@@ -328,6 +383,14 @@ public sealed class GoreField
             d.Rot += d.Spin * dt;
             if (d.Pos.Z <= d.Floor)
             {
+                if (GroundAt is { } gd)
+                {
+                    if (++_raysThisStep > RaysPerStep) { d.Pos.Z = d.Floor; d.Vel = Vector3.Zero; continue; }   // over this step's ray budget: wait for the next
+                    float? hit = gd(d.Pos);
+                    if (hit is null) { d.Live = false; continue; }                       // nothing solid under it: gone, never parked
+                    if (hit.Value < d.Pos.Z - 0.05f) { d.Floor = hit.Value; continue; }   // the ground is lower than guessed: keep falling
+                    d.Floor = hit.Value;
+                }
                 if (d.Ink) Splat(d.Pos, d.Floor, d.Size * Range(3f, 5f), d.Colour);
                 else if (F() < 0.45f) Splat(d.Pos, d.Floor, d.Size * Range(4f, 9f), d.Colour);
                 d.Live = false;
@@ -356,7 +419,9 @@ public sealed class GoreField
         foreach (ref readonly var x in Drops.AsSpan()) if (x.Live) d++;
         foreach (ref readonly var x in Pools.AsSpan()) if (x.Live) p++;
         foreach (ref readonly var x in Spatters.AsSpan()) if (x.Live) s++;
-        foreach (ref readonly var x in Mists.AsSpan()) if (x.Live) m++;
+        int big = 0;
+        foreach (ref readonly var x in Mists.AsSpan()) if (x.Live) { m++; if (x.Size >= LargePuff) big++; }
+        LiveLargePuffs = big;
         foreach (ref readonly var x in Slashes.AsSpan()) if (x.Live) l++;
         LiveGibs = g; LiveDrops = d; LivePools = p; LiveSpatters = s; LiveMists = m; LiveSlashes = l;
     }

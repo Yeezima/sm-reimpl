@@ -177,22 +177,13 @@ public static class MeleeHitSynth
         return (1f + (a * 2f - 1f) * PitchSpread, (b * 2f - 1f) * LevelSpreadDb);
     }
 
-    /// <summary>Which procedural sound replaces a melee wargear file's on-hit sound, or null (it keeps its own): A for the power axe, power sword and combat knife; B for the chainsword (gold too), thunder hammer and daemon maul; both races.</summary>
+    /// <summary>Which procedural sound replaces a melee wargear file's on-hit sound, or null (it keeps its own): A for the power axe and power sword; B for the thunder hammer and daemon maul; both races. The chainsword, combat knife and every charge keep their original sounds (hotfix 2026-11-01).</summary>
     public static HitSound? Replaces(string? wargear)
     {
         if (wargear is null) return null;
         if (wargear.Contains("thunder_hammer", StringComparison.OrdinalIgnoreCase) || wargear.Contains("power_mace", StringComparison.OrdinalIgnoreCase)
-            || wargear.Contains("chainsword", StringComparison.OrdinalIgnoreCase)) return HitSound.Roar;
-        if (wargear.Contains("power_axe", StringComparison.OrdinalIgnoreCase) || wargear.Contains("powersword", StringComparison.OrdinalIgnoreCase)
-            || wargear.Contains("combat_knife", StringComparison.OrdinalIgnoreCase)) return HitSound.Sizzle;
+            ) return HitSound.Roar;
+        if (wargear.Contains("power_axe", StringComparison.OrdinalIgnoreCase) || wargear.Contains("powersword", StringComparison.OrdinalIgnoreCase)) return HitSound.Sizzle;
         return null;
-    }
-
-    /// <summary>Whether a class's charge hit (key F, the bull rush) plays sound B: the Tactical and Assault marines and their Chaos mirrors (<c>csm - tactical</c>, <c>csm - raptor</c>), which share that charge; not the heavy classes (Devastator, Havoc) or the Ork.</summary>
-    public static bool ChargeUsesRoar(string? className)
-    {
-        if (className is null) return false;
-        return className.Contains("tactical", StringComparison.OrdinalIgnoreCase) || className.Contains("assault", StringComparison.OrdinalIgnoreCase)
-            || className.Contains("raptor", StringComparison.OrdinalIgnoreCase);
     }
 }

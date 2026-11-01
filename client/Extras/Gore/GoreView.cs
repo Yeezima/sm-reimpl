@@ -33,23 +33,20 @@ void fragment() {
     float cell = floor(cd.x + 0.5);
     vec2 uv = (vec2(mod(cell, cols), floor(cell / cols)) + UV) / cols;
     float a = texture(atlas, uv).r;
-    if (ink < 0.5) {
-        // a second look at another cell, turned a quarter, breaks the soft lobes up (cheap)
-        float cell2 = mod(cell + 1.0 + floor(cd.w * 2.0), cols * cols);
-        vec2 uv2 = (vec2(mod(cell2, cols), floor(cell2 / cols)) + vec2(UV.y, 1.0 - UV.x)) / cols;
-        a = clamp(a * (0.55 + 0.9 * texture(atlas, uv2).r), 0.0, 1.0);
-    }
     if (ink > 0.5) {
         float body = smoothstep(0.12, 0.55, a);
         ALBEDO = mix(tint * 2.0, tint * 0.5, smoothstep(0.35, 0.95, a));
-        EMISSION = ALBEDO * 0.1;
-        ROUGHNESS = 0.18;
-        SPECULAR = 0.8;
+        // matte and dark in sun and shadow (lighting fix 2026-11-01): no emission, rough, almost no specular, so no sun or sky mirror shows as a bright splash
+        EMISSION = vec3(0.0);
+        ROUGHNESS = 0.85;
+        SPECULAR = 0.02;
+        METALLIC = 0.0;
         ALPHA = body * cd.y * smoothstep(1.5, 5.0, -VERTEX.z);
 //BUMP
     } else {
+        // one texture read and no screen-derivative normal (performance pass, 2026-11-01): the mist is many big overlapping quads, so its per-pixel cost is what the card pays
         ALBEDO = tint * mix(1.25, 0.75, a);
-        EMISSION = ALBEDO * 0.02;
+        EMISSION = vec3(0.0);
         ROUGHNESS = 1.0;
         SPECULAR = 0.0;
         ALPHA = a * cd.y * COLOR.a * smoothstep(4.0, 14.0, -VERTEX.z);   // a cloud thins out as the camera nears it, so it never fills the view
@@ -102,9 +99,9 @@ void fragment() {
     float body = smoothstep(0.0, 0.05, h);
     float holes = smoothstep(0.1, 0.2, n2 + h * 0.4);
     ALBEDO = mix(tint * 1.35, tint * 0.45, smoothstep(0.02, 0.4, h));
-    EMISSION = ALBEDO * 0.1;
-    ROUGHNESS = 0.12;
-    SPECULAR = 0.6;
+    EMISSION = vec3(0.0);   // lighting fix 2026-11-01: matte, never brighter than the floor (a wet mirror caught the sun and sky)
+    ROUGHNESS = 0.85;
+    SPECULAR = 0.02;
     METALLIC = 0.0;
     ALPHA = body * holes * 0.93 * fade;
 }
@@ -131,7 +128,7 @@ void fragment() {
 
     static ShaderMaterial AtlasMaterial(string render, bool billboard, Texture2D atlas, float cols, bool ink, int priority)
     {
-        string code = AtlasShader.Replace("//RENDER", render).Replace("//BILLBOARD", billboard ? BillboardCode : "").Replace("//BUMP", billboard ? BumpCode : "").Replace("//CLOUDBUMP", billboard ? CloudBump : "");
+        string code = AtlasShader.Replace("//RENDER", render).Replace("//BILLBOARD", billboard ? BillboardCode : "").Replace("//BUMP", billboard ? BumpCode : "").Replace("//CLOUDBUMP", "");
         var m = new ShaderMaterial { Shader = new Shader { Code = code }, RenderPriority = priority };
         m.SetShaderParameter("atlas", atlas);
         m.SetShaderParameter("cols", cols);

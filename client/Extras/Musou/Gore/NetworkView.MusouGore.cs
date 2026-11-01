@@ -79,12 +79,17 @@ public partial class NetworkView
         return name.Contains("lascannon", StringComparison.OrdinalIgnoreCase) || name.Contains("las_cannon", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>Hotfix 2026-11-01: the real ground under a gore particle (a ray down through the collision world, 6 m of reach), or null: flying blood lands only on solid surfaces (<see cref="GoreField.GroundAt"/>).</summary>
+    Func<Num.Vector3, float?> GoreGround => p =>
+        _client?.Collision is { } world && world.Weapons.Raycast(p + new Num.Vector3(0f, 0f, 0.4f), new Num.Vector3(0f, 0f, -1f), 6f) is { } hit ? p.Z + 0.4f - hit.Distance : null;
+
     GoreView? GoreView()
     {
         if (GoreOff || _gameSpace is null) return null;
         if (_gore is null)
         {
             _gore = new GoreView();
+            _gore.Field.GroundAt = GoreGround;
             _gameSpace.AddChild(_gore);
             GD.Print("musou gore: view added");
         }
