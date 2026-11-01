@@ -34,6 +34,7 @@ public partial class NetworkView
         world = composed;
         hash = composedHash;
         TfwHub = hub;
+        _tfwAboard = false;   // a new map (a new camera) gets the hub sky again
         GD.Print($"map {name}: {TfwMap.Battlefield} from the install and the Stormbird at {hub.Centre}; map hash {hash:X16}");
         if (Lean) return;
         _gameSpace?.GetNodeOrNull("TfwHub")?.QueueFree();

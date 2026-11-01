@@ -16,6 +16,8 @@ public static class TfwHubSky
 
     /// <summary>The planet's angular radius, and how far its centre lies below the horizon looking north (the ramp's way): the limb then crosses the open door a little above the horizon (ours, from the references).</summary>
     public const float PlanetRadius = 1.0f, PlanetBelowHorizon = 0.93f;
+    /// <summary>With the owner's picture: its centre this far below the horizon and turned left of the ramp's axis (radians), spanning <see cref="ImageSpan"/> degrees across.</summary>
+    public const float ImagePitch = 0.245f, ImageTurn = 0.45f, ImageSpan = 120f;
 
     /// <summary>Whether the last <see cref="Build"/> found the owner's image.</summary>
     public static bool UsedImage { get; private set; }
@@ -57,7 +59,10 @@ public static class TfwHubSky
         var material = new ShaderMaterial { Shader = new Shader { Code = Code } };
         // Game space (north is +Y, up is +Z) to the world's (x, z, -y).
         static Vector3 World(float x, float y, float z) => new(x, z, -y);
-        var toPlanet = World(0f, -MathF.Cos(PlanetBelowHorizon), -MathF.Sin(PlanetBelowHorizon));   // the ramp looks south (-Y)
+        // The ramp looks south (-Y). Without the picture the planet is a sphere; with it, the picture hangs as a flat far backdrop, turned a little to the left so its city stands in the door.
+        var toPlanet = image is null ? World(0f, -MathF.Cos(PlanetBelowHorizon), -MathF.Sin(PlanetBelowHorizon))
+            : World(MathF.Cos(ImagePitch) * MathF.Sin(ImageTurn), -MathF.Cos(ImagePitch) * MathF.Cos(ImageTurn), -MathF.Sin(ImagePitch));
+        material.SetShaderParameter("image_half_width", MathF.Tan(ImageSpan / 2f * MathF.PI / 180f));
         material.SetShaderParameter("planet_dir", toPlanet.Normalized());
         material.SetShaderParameter("planet_up", Vector3.Up);
         material.SetShaderParameter("planet_radius", PlanetRadius);
@@ -89,6 +94,7 @@ public static class TfwHubSky
         uniform vec3 planet_dir = vec3(0.0, -0.8, -0.6);
         uniform vec3 planet_up = vec3(0.0, 1.0, 0.0);
         uniform float planet_radius = 1.0;
+        uniform float image_half_width = 1.73;
         uniform vec3 rim_light = vec3(0.5, 0.6, -0.6);
 
         float hash31(vec3 p) {
@@ -117,7 +123,7 @@ public static class TfwHubSky
         vec3 stars(vec3 d) {
             vec3 col = vec3(0.0);
             for (int layer = 0; layer < 2; layer++) {
-                float scale = layer == 0 ? 60.0 : 170.0;
+                float scale = layer == 0 ? 90.0 : 200.0;
                 vec3 id = floor(d * scale);
                 float h = hash31(id + float(layer) * 31.7);
                 float density = layer == 0 ? 0.80 : 0.72;
@@ -125,9 +131,9 @@ public static class TfwHubSky
                     vec3 c = vec3(0.3) + 0.4 * vec3(hash31(id + 1.3), hash31(id + 2.7), hash31(id + 5.1));
                     vec3 s = normalize(id + c);
                     float dist = length(d - s) * scale;
-                    float radius = layer == 0 ? 0.11 : 0.10;
+                    float radius = layer == 0 ? 0.16 : 0.26;
                     float body = smoothstep(radius, radius * 0.25, dist);
-                    float level = (layer == 0 ? 0.55 : 0.28) * (0.25 + 0.75 * hash31(id + 9.9));
+                    float level = (layer == 0 ? 0.42 : 0.22) * (0.25 + 0.75 * hash31(id + 9.9));
                     vec3 tint = mix(vec3(0.85, 0.9, 1.0), vec3(1.0, 0.94, 0.86), hash31(id + 4.2));
                     col += tint * body * level;
                 }
@@ -138,6 +144,25 @@ public static class TfwHubSky
         void sky() {
             vec3 d = normalize(EYEDIR);
             vec3 col = stars(d);
+            if (use_image) {
+                // The picture as a flat far backdrop in its own framing (a gnomonic view: straight lines stay straight, no warping), black space and stars beyond its edges.
+                vec3 f = normalize(planet_dir);
+                float k = dot(d, f);
+                if (k > 0.05) {
+                    vec3 r = normalize(cross(planet_up, f));
+                    vec3 u = cross(f, r);
+                    vec2 size = vec2(textureSize(planet_image, 0));
+                    float half_h = image_half_width * size.y / size.x;
+                    vec2 t = vec2(dot(d, r), dot(d, u)) / k;
+                    vec2 uv = vec2(0.5 + t.x / (2.0 * image_half_width), 0.5 - t.y / (2.0 * half_h));
+                    if (uv.x > 0.0 && uv.x < 1.0 && uv.y > 0.0 && uv.y < 1.0) {
+                        float edge = smoothstep(0.0, 0.03, min(min(uv.x, 1.0 - uv.x), 1.0 - uv.y));
+                        vec3 pic = texture(planet_image, uv).rgb;
+                        col = mix(col, pic, edge);
+                    }
+                }
+                COLOR = col;
+            } else {
             float cosA = clamp(dot(d, planet_dir), -1.0, 1.0);
             float ang = acos(cosA);
             float R = planet_radius;
@@ -183,6 +208,7 @@ public static class TfwHubSky
                 col = col * (1.0 - clamp(glow, 0.0, 1.0)) + atmosphere * glow * bright * 1.2;
             }
             COLOR = col;
+            }
         }
         """;
 }

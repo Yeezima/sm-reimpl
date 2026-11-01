@@ -29,7 +29,7 @@ public partial class TfwMapView : Node3D
         Node3D? ship = null;
         LastModel = (0, 0);
         try { if (gameDir is not null) ship = Thunderhawk(hub, gameDir, notes); }
-        catch (Exception e) when (e is System.IO.IOException or InvalidOperationException or NotSupportedException or ArgumentException or InvalidCastException or UnauthorizedAccessException)
+        catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
         {
             notes.Add($"hub: the Thunderhawk could not be built ({e.GetType().Name}: {e.Message}); the generated shell is drawn instead");
             ship = null;
