@@ -446,8 +446,8 @@ public partial class NetworkView
         {
             float a = k * MathF.Tau / VistaCount + 0.4f;
             var at = middle + new Vector3(MathF.Cos(a) * VistaRadius, 0f, MathF.Sin(a) * VistaRadius);
-            fx.Play("oob_explosions_artillery_less", at, Basis.Identity, 2.2f, repeat: true, ambient: true);
-            fx.Play("amb_anti_aircraft_fire_valkyries", at + Vector3.Up * 30f, Basis.Identity, 1.5f, repeat: true, ambient: true);
+            if (fx.Play("oob_explosions_artillery_less", at, Basis.Identity, 2.2f, repeat: true, ambient: true) is { } vista) vista.NoLights = true;   // its data lights, scaled, reach 270 m: the arena flashed cream
+            if (fx.Play("amb_anti_aircraft_fire_valkyries", at + Vector3.Up * 30f, Basis.Identity, 1.5f, repeat: true, ambient: true) is { } flak) flak.NoLights = true;
         }
     }
 

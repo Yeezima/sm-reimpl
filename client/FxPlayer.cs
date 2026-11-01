@@ -35,6 +35,8 @@ public sealed class FxEffect
     public string Name = "";
     public float DistanceFade = 1f;
     public bool Ambient;
+    /// <summary>Draws no lights (a distant backdrop effect whose data lights, scaled up, would reach across the whole arena).</summary>
+    public bool NoLights;
     /// <summary>Stops soon after <see cref="Follow"/> is lost (a projectile's trail when it is gone).</summary>
     public bool StopOnLost;
     /// <summary>M40-T13 (ours): recolours the effect's sprites, beams and streamers to this hue at their own brightness (plasma); null: the data's colours.</summary>
@@ -765,6 +767,7 @@ public sealed partial class FxPlayer : Node3D
     void DrawLight(FxEffect e, CLight n, in Ctx c, double age, uint seed)
     {
         // A light flashes for its duration (at least 0.1 s: the data's lights are 0 to 5 ms long, one frame) and fades out over it.
+        if (e.NoLights) return;
         double show = Math.Max(n.Duration, 0.1);
         if (age < 0 || (!n.Looping && age > show)) return;
         // A looping light (the map's lamps) stays on at its first key; the flash fades out.

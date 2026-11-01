@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2080 spec table rows: **1475 tagged**, 436 not tagged (read from data with high confidence), 169 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 438 rows of the changes document.
+Scanned 2080 spec table rows: **1475 tagged**, 436 not tagged (read from data with high confidence), 169 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 439 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -2960,6 +2960,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-A6BD3B61` | Devastator / Havoc stomp stays in place | the owner's decision (2026-10-31): no step forward, no lunge or burst, no coasting; fixes the slide from chaining the kick (click) and the stomp (F) | the body is held in place until the stomp's move-again branch; protocol 49 | "Stomp stays in place" | Devastator / Havoc stomp stays in place: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-5318F1D9` | Bolt tracer softness and armour-hit sparks (fx/bolt-tracer-impact, owner 2026-10-31) | Ours: the pooled bolt streaks are soft glow ribbons with a thin hot core (were flat hard ribbons); a hit on raised armour adds the data's `hit_ranged_armour_generic` sparks (two copies) on top of the weapon's own armour effect; client only, no protocol change; `--old-bolt-fx` restores both; `--old-bolt-tracer` still… | the owner's reference r6 shows thin streaks and a white-gold flash | the sizes and scales are estimates for a playtest | Bolt tracer softness and armour-hit sparks…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-4A7397B2` | Stowed lascannon hangs behind the backpack (visual/lascannon-stow, owner 2026-10-31) | Ours: the data's stow marker (lower back, barrel across to the right) lets the lascannon's 1.39 m barrel through the right forearm and leg, so the two lascannon models hang upright behind the Devastator's / Havoc's backpack on `RIG_SpineD`, the barrel 20 degrees from straight up toward the marine's right; the loyalist… | the data's `stow_info` marker for every weapon | "Stowed lascannon" | Stowed lascannon hangs behind the backpack…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-74F3FFE3` | Damage flash restarts (fix/spawn-room-light, 2026-11-01) | Ours: a hit while a damage flash still runs lifts it back to the plateau after the peak (envelope 0.45) and never re-peaks it; a hit with no flash running peaks as before. `--old-damage-flash` restores restarting at the peak on every hit. The Musou vista's far explosions (`oob_explosions_artillery_less`, the flak)… | The original's rule for hits during a flash is not known; a crowd strobed the screen | Musou Mode crowds; flash feel in classic play | Damage flash restarts (fix/spawn-room-light, 2026-11-01): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
