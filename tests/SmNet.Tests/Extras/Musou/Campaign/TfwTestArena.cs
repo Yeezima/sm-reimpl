@@ -51,8 +51,8 @@ public static class TfwTestArena
     public static IReadOnlyList<SpawnPoint> Spawns => Data.Spawns;
 
     /// <summary>The fixed layout of the old arena's tests, in order: the drawn one is <see cref="TfwSites"/>'s.</summary>
-    /// <summary>The Orks standing at the start of a battle: each of the three spawn points' part-grown crowd (<see cref="TfwBattleRules.CrowdStart"/>).</summary>
-    public static int StartAlive => Enumerable.Range(0, 3).Sum(k => TfwBattleRules.CrowdStart(k, 3));
+    /// <summary>The Orks standing at the start of a battle: each of the three positions' garrison.</summary>
+    public static int StartAlive => 3 * TfwBattleRules.Garrison;
 
     public static TfwLayout Layout(TfwLane lane = TfwLane.A, int node = 1) =>
         new(LandingZone, [Position1, Position2, Position3], Hq, Sources, [CaptureRadius, CaptureRadius, CaptureRadius]);

@@ -67,6 +67,8 @@ public sealed partial class GameServer
             _tfwHooked = battle;
             _tfwWatching.Clear();
             _tfwLastArrival = 0; _tfwQuietFrom = 0;
+            for (int k = 0; k < 3; k++)
+                Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"TFWPOINT {(char)('A' + k)} at {battle.Layout.Positions[k].X:F1},{battle.Layout.Positions[k].Y:F1},{battle.Layout.Positions[k].Z:F1}: radius {battle.Layout.Radius(k):F1} m, vertical reach {battle.Layout.Reach(k):F1} m"));
             battle.OnSwarm = swarm =>
             {
                 _tfwWatching.Add((swarm, World.Tick));
@@ -141,6 +143,6 @@ public sealed partial class GameServer
         var marines = string.Join(" ", run.Marines.Select(m => World.Players.TryGetValue(m.Id, out var p) ? $"{m.Role}:{(p.Alive ? "up" : "down")}@{p.Position.X:F0},{p.Position.Y:F0}" : "gone"));
         var squads = string.Join(" ", Enumerable.Range(0, GuardSim.MaxSquads).Where(s => guards.AliveIn(s) > 0).Select(s => $"{guards.AliveIn(s)}@{guards.Centre(s).X:F0},{guards.Centre(s).Y:F0}{(guards.Arrived(s) ? "" : ">")}"));
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
-            $"TFWFIGHT tick {World.Tick}: orks {orks.Alive}, melee tokens {melee}, shooter tokens {shooters}, striking {striking}, moving {moving}, heading {heading:F2}, cells {cells.Count}; guards {guards.Alive}, lost {guards.Lost}, shots {guards.Shots}, hit {guards.ShotsHit}; killed {battle.OrksKilled}, sent {battle.Arrivals}, crowds {string.Join("/", Enumerable.Range(0, 4).Select(battle.Pooled))}, swarms {battle.Swarms}; points {points}; squads {squads}; marines {marines}; step {orks.LastStepMilliseconds:F2} ms; down {orks.KnockedDown}, down dead {orks.KnockKills}, best cleave {World.TfwBestCleave}, best pierce {World.TfwBestPierce}, frags out {World.TfwFragsOut}"));
+            $"TFWFIGHT tick {World.Tick}: orks {orks.Alive}, melee tokens {melee}, shooter tokens {shooters}, striking {striking}, moving {moving}, heading {heading:F2}, cells {cells.Count}; guards {guards.Alive}, lost {guards.Lost}, shots {guards.Shots}, hit {guards.ShotsHit}; killed {battle.OrksKilled}, sent {battle.Arrivals}, crowds {string.Join("/", Enumerable.Range(0, 4).Select(battle.Pooled))}, swarms {battle.Swarms}, orks on points {string.Join("/", Enumerable.Range(0, 3).Select(battle.OrksOn))}{string.Concat(Enumerable.Range(0, 3).Where(k => battle.Objectives[k].State == TfwPositionState.Clearing).Select(k => $" [clearing {(char)('A' + k)}: {battle.OrksOnReport(k)}]"))}; points {points}; squads {squads}; marines {marines}; step {orks.LastStepMilliseconds:F2} ms; down {orks.KnockedDown}, down dead {orks.KnockKills}, best cleave {World.TfwBestCleave}, best pierce {World.TfwBestPierce}, frags out {World.TfwFragsOut}"));
     }
 }

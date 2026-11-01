@@ -445,8 +445,8 @@ public class TfwRunTests
         Assert.Equal(0, new World(TfwRig.Config).TfwSmiteForTests(Human, Vector3.Zero, 500f));
         var battle = TfwRig.Deploy(w);
         int before = w.Musou!.Alive;
-        Assert.Equal(TfwBattleRules.CrowdStart(0, 3), w.TfwSmiteForTests(Human, battle.Layout.Positions[0], 15f));
-        Assert.Equal(before - TfwBattleRules.CrowdStart(0, 3), w.Musou.Alive);
+        Assert.Equal(TfwBattleRules.Garrison, w.TfwSmiteForTests(Human, battle.Layout.Positions[0], 15f));
+        Assert.Equal(before - TfwBattleRules.Garrison, w.Musou.Alive);
     }
 
     [Fact]

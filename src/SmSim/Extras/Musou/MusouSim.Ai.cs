@@ -463,7 +463,7 @@ public sealed partial class MusouSim
         if (distance > spec.RangedMax || (fresh && !_los[i])) return swarm is null ? Approach(i, t, d, spec.Speed) : SwarmWay(i, t, target, d, spec.Speed, slot: false, hold: false, swarm);
         if (distance < spec.RangedMin) return -toward * spec.Speed * 0.6f;
         Face(i, toward);
-        return Vector2.Zero;
+        return KeepOutWay(i, spec.Speed);
     }
 
     /// <summary>One round of a burst: the hit roll by distance (a hash of the tick and the enemy), the tracer, and the damage on a hit.</summary>

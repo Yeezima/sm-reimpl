@@ -19,6 +19,8 @@ public sealed partial class TfwHud : Control
     {
         public TfwWarView? War;
         public IReadOnlyList<TfwObjective> Objectives = Array.Empty<TfwObjective>();
+        /// <summary>The Orks the client knows standing in each position now (only a position being cleared is counted).</summary>
+        public readonly int[] OrksOn = new int[WarRules.Positions + 1];
         public bool Alive = true;
         /// <summary>The station's prompt ("" away from one).</summary>
         public string Station = "";
@@ -37,6 +39,7 @@ public sealed partial class TfwHud : Control
     ulong _fedFrame;
     TfwWarView? _textFor;
     IReadOnlyList<TfwObjective>? _objectivesFor;
+    int _orksFor;
     bool _aliveFor;
     string _hq = "", _reserves = "", _clock = "", _prompt = "", _guards = "", _retainer = "", _kosText = "", _pickupText = "";
     int _kosFor = -1;
@@ -71,7 +74,10 @@ public sealed partial class TfwHud : Control
     {
         _fedFrame = Engine.GetProcessFrames();
         if (Data.War is not { } war) return;
-        if (_textFor is { } was && was == war && ReferenceEquals(_objectivesFor, Data.Objectives) && _aliveFor == Data.Alive && _kosFor == Data.Kos) return;
+        int orksSig = 0;
+        foreach (int n in Data.OrksOn) orksSig = orksSig * 31 + n;
+        if (_textFor is { } was && was == war && ReferenceEquals(_objectivesFor, Data.Objectives) && _aliveFor == Data.Alive && _kosFor == Data.Kos && _orksFor == orksSig) return;
+        _orksFor = orksSig;
         _textFor = war;
         _objectivesFor = Data.Objectives;
         _aliveFor = Data.Alive;
@@ -90,8 +96,12 @@ public sealed partial class TfwHud : Control
         {
             var o = Data.Objectives[k];
             _objectiveNames[k] = TfwHudModel.ObjectiveName(o.Index, final);
-            _objectiveStates[k] = TfwHudModel.ObjectiveState(o);
+            _objectiveStates[k] = TfwHudModel.ObjectiveState(o) + TfwHudModel.ClearingNote(o, k < Data.OrksOn.Length ? Data.OrksOn[k] : 0);
         }
+        // The one to work on next: the first position not secured, then the HQ (the battle's active position; the retainer's Attack goes there too).
+        int next = -1;
+        for (int k = 0; k < Math.Min(_objectiveStates.Length, Data.Objectives.Count) && next < 0; k++) if (Data.Objectives[k].State != TfwPositionState.Secured) next = k;
+        if (next >= 0 && Data.Objectives[next].State != TfwPositionState.Locked) _objectiveStates[next] += "   < NEXT";
     }
 
     public override void _Process(double delta)

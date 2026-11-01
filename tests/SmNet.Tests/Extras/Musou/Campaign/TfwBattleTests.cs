@@ -111,7 +111,7 @@ public class TfwBattleTests
         Assert.Equal(TfwPositionState.Held, battle.Objectives[1].State);       // all three live
         w.Musou.Damage(at[0].Id, TfwRig.Human, 1f, Vector3.Zero, out _);
         int free = at.Take(n).Count(e => !w.Musou.Leashed(e.Id));
-        Assert.Equal(TfwBattleRules.CrowdStart(0, 3), free);
+        Assert.Equal(TfwBattleRules.Garrison, free);
     }
 
     [Fact]
@@ -218,7 +218,7 @@ public class TfwBattleTests
         Assert.Equal(MusouPhase.Campaign, w.Musou.Director.Phase);
         Assert.Equal(battle.BossId, w.Musou.Director.BossId);
         Assert.Equal(TfwBattleRules.CommanderHealth, w.Musou.Director.BossMaxHealth);
-        Assert.Equal(7 + TfwBattleRules.CrowdStartFill, w.Musou.Alive);   // him, a Nob and five 'Ard Boyz, and the HQ's crowd
+        Assert.Equal(7, w.Musou.Alive);                                    // him, a Nob and five 'Ard Boyz
     }
 
     [Fact]
@@ -292,6 +292,6 @@ public class TfwBattleTests
         var battle = new TfwBattle(sim, new GuardSim(sim), TfwTestArena.Layout(TfwLane.A, 1), 100.0, 1);
         battle.Start();
         for (int k = 0; k < 400 * 30; k++) battle.Step([]);
-        Assert.Equal(TfwBattleRules.AliveCapSolo, sim.Alive);
+        Assert.Equal(TfwBattleRules.AliveCapSolo + 3 * TfwBattleRules.Garrison, sim.Alive);   // the crowds and swarms are the cap; the garrisons stand beside it
     }
 }

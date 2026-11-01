@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2022 spec table rows: **1431 tagged**, 427 not tagged (read from data with high confidence), 164 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 433 rows of the changes document.
+Scanned 2025 spec table rows: **1433 tagged**, 428 not tagged (read from data with high confidence), 164 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 434 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,14 +52,14 @@ Scanned 2022 spec table rows: **1431 tagged**, 427 not tagged (read from data wi
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
 | Core simulation (provisional values) | 206 | 191 | 169 | 24 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 89 | 82 | 46 | 9 | 0 |
-| **All areas** | **1431** | 1207 | 1144 | 416 | 38 |
+| Ork faction | 91 | 84 | 46 | 10 | 0 |
+| **All areas** | **1433** | 1209 | 1144 | 417 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 627 |
+| kind: ours | 629 |
 | confidence: low | 542 |
 | confidence: medium | 484 |
 | kind: interpretation | 335 |
@@ -86,7 +86,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: guess | 4 |
 | section: approximation | 3 |
 | kind: inferred | 2 |
-| notes: guess | 1 |
+| notes: guess | 2 |
 | notes: unverified | 1 |
 
 ## Part A: gameplay areas, critical first
@@ -2294,10 +2294,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-430F819E` | Enemies alive | 200 with one human, +80 a further human, never over 460 (the pool has 512 slots, a dead enemy holds its slot 2 s) (enemies) | notes: ours | the owner (2026-11-01): "Double the enemy count again"; the design's 100 + 40 doubled; 460 ours | Enemies alive: compare with SM1 by feel or video. Ours: 200 with one human, +80 a further human, never over 460 (the pool has… | ☐ |
-| `R-17EAB347` | Garrison | 12 on each point at the landing, leashed; rebuilt there, one every 4 s, while the point sends and fewer than 12 stand leashed (enemies, s) | kind: ours; confidence: low | the design's section I | Garrison: compare with SM1 by feel or video. Ours: 12 on each point at the landing, leashed; rebuilt there, one every 4… | ☐ |
-| `R-5E9CCD8B` | Tide | each sending point sends one Ork every 1 s, on a jittered 8 m disc round the point, up to the cap; the HQ's source from the commander's coming until victory; all four in the final assault (s, m) | kind: ours; confidence: low | the design's 2 s halved with the owner's doubled count (ours), to tune in M4 | Tide: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each sending point sends one Ork every 1 s, on a jittered 8 m disc… | ☐ |
-| `R-B311A55B` | Leash | a garrison Ork woken by a target within 30 m of its home is free for good: it never walks home (m) | kind: ours | the design's section I (the yo-yo) | Leash: compare with SM1 by measuring on a flat spot of the same map. Ours: a garrison Ork woken by a target within 30 m of its home is free for… | ☐ |
+| `R-430F819E` | Enemies alive | 150 with one human (three crowds of 50: the Orks of the crowds and the swarms alive at once), +80 a further human, never over 460; a garrison still at its post is not counted (12 a point, never rebuilt), and the pool has 512 slots (enemies) | notes: ours | the owner (2026-11-01): "50 per point, 150 total"; before: "Double the enemy count again" (200); 460 ours | Enemies alive: compare with SM1 by feel or video. Ours: 150 with one human (three crowds of 50: the Orks of the crowds and… | ☐ |
+| `R-8F462A52` | Crowd places | the three points are the battle's positions (Manufactorum's own markers, put on the walking graph), not new places: spread by the map's design, reachable by construction, and tied to the owner's rule that only a full capture stops a point's spawning; the HQ's… (m) | kind: ours | ours: the owner's "3 major spawn points" read as the map's three positions, because they are his three spawning places | Crowd places: compare with SM1 by measuring on a flat spot of the same map. Ours: the three points are the battle's positions (Manufactorum's own… | ☐ |
+| `R-E451C0ED` | Crowd fill | one Ork joins a sending point's crowd every 1 s (50 s a crowd, the owner's tide rate now filling the crowd); it counts into the alive cap, so a crowd refills as its point's swarm is killed, and a crowd waits at its size while the cap is full of free Orks; it… (s) | kind: ours; confidence: low; notes: guess | the owner's tide (2026-11-01: "Double the enemy count again" halved it to 1 s); the fill time is a first guess to tune by playtest | Crowd fill: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one Ork joins a sending point's crowd every 1 s (50 s a crowd, the… | ☐ |
+| `R-17EAB347` | Garrison | 12 Orks stand leashed on each position's disc from the landing and defend it (they wake at a target within 30 m, or when one is hurt); they are never rebuilt; the final assault has none (enemies, m) | kind: ours | the owner (2026-11-01): "there is always a consistent ork garrison waiting on each point that never respawns. they defend each point"; the 12 is the earlier… | Garrison: compare with SM1 by feel or video. Ours: 12 Orks stand leashed on each position's disc from the landing and… | ☐ |
+| `R-C098CCAD` | Crowd wake | a crowd stands still until it is full, but a target within 12 m of any one of its Orks (flat), or a hurt Ork, wakes the whole crowd at once as a swarm of its size so far (a crowd never trickles out; the garrison is a separate group); the free Orks take the… (m) | kind: ours; confidence: low | ours: a target on the point must be able to clear it, a standoff outside lets the crowd grow | Crowd wake: compare with SM1 by measuring on a flat spot of the same map. Ours: a crowd stands still until it is full, but a target within 12 m of… | ☐ |
+| `R-B311A55B` | Leash | a leashed Ork (the commander's group, a crowd's Orks) woken by a target within its aggro of its home is free for good: it never walks home (m) | kind: ours | the design's section I (the yo-yo) | Leash: compare with SM1 by measuring on a flat spot of the same map. Ours: a leashed Ork (the commander's group, a crowd's Orks) woken by a… | ☐ |
 | `R-AFABEDF0` | Retake | a secured point with Orks alone on it falls in 20 s back to Held; an Imperial on it, or no Ork, winds that back at the same rate; secured points draw the Orks as places to go, not to strike (s) | kind: ours; confidence: low | the owner's item 15, the design's 20 s; the places ours | Retake: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a secured point with Orks alone on it falls in 20 s back to Held; an… | ☐ |
 | `R-EE1F9C8C` | Commander's coming | once each point has fallen, whether or not all three still stand (ours: with no Guardsmen a point falls again before a player can reach the third, so holding all three at once could hang a battle) | kind: ours | ours | Commander's coming: compare with SM1 by feel or video. Ours: once each point has fallen, whether or not all three still stand… | ☐ |
 | `R-9C2950AA` | Elite share | 0.10 + 0.50 p of the Orks sent; p = wins so far / wins needed on the lane, the final assault 1; elites 75 % 'Ard Boyz, 25 % Nobs; fodder 55 % Boyz, 30 % Shootas, 15 % Gretchin, spread by two low-discrepancy sequences (share) | kind: ours | the owner's item 6; the formula as briefed; the kinds the design's | Elite share: compare with SM1 by feel or video. Ours: 0.10 + 0.50 p of the Orks sent; p = wins so far / wins needed on the… | ☐ |
@@ -2364,6 +2366,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-599F9281` | Guardsmen drawn as a crowd | the design of the war (2026-11-01) and the owner: real models, death clips rather than the ragdoll for now | the co-op Guardsman with original clips and effects; which clip plays when is ours (the rig's graphs are not read) | Crowd budget, Which clip plays, Death | Guardsmen drawn as a crowd: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01) and the owner: real models, death… | ☐ |
 | `C-950DF11A` | Musou Mode: retainers wear their player's armour colours | the owner's item 1 (2026-11-01) | a retainer reports its owner's appearance version, race and code, so clients draw it in the colours, pieces and badges of the player's loadout; lords and their retainers keep the default look | Retainer paint | Musou Mode: retainers wear their player's armour colours: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner's item 1 (2026-11-01). | ☐ |
 | `C-B2C3F020` | Musou Mode: a class change in the Stormbird with no death | the owner's item 2 (2026-11-01) | DEPLOY in the Stormbird's loadout screen makes a fresh life of the chosen class on the spot (full health, the class's starting weapon) under a 2 s smoke cloud; only in the hub, inside the Stormbird, with a loadout waiting; in a match elsewhere a loadout still applies at the next respawn | Class change | Musou Mode: a class change in the Stormbird with no death: compare with SM1 by feel or video. Ours: the owner's item 2 (2026-11-01). | ☐ |
+| `C-DDCD7802` | Musou Mode: Orks pool into crowds of 50 at three spawn points; a garrison that never respawns | the owner's item 32 and his answers (2026-11-01); SM1's Exterminatus sends Orks in waves | each of the battle's three positions (and the HQ source after the commander comes) pools Orks standing still, one more a second, and lets the whole crowd go at 50, each point on its own; 150 alive at most; 12 garrison Orks a position that are never rebuilt; no lone tide | Crowd size | Musou Mode: Orks pool into crowds of 50 at three spawn…: compare with SM1 by feel or video. Ours: the owner's item 32 and his answers (2026-11-01); SM1's Exterminatus… | ☐ |
 | `C-7464C6DC` | Musou Mode: health bars over the elites | the owner's item 14 (2026-11-01) | every living 'Ard Boy, Nob and Warboss shows a bar; a client is sent the 64 nearest of up to 120 | Elite bars | Musou Mode: health bars over the elites: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner's item 14 (2026-11-01). | ☐ |
 | `C-7B12D4F2` | Musou Mode: excessive gore and bloody explosions | the owner's items 8, 22 and 23 (2026-11-01); SM1's gore is a red splash and a ragdoll | gibs, sprays, spatter and pools from a player's, a retainer's or a Thunderhawk's kills, a bloody explosion for blast, frag, artillery and lascannon kills, a slash on each enemy a cleave hits; no blood on the screen; Musou Mode only | Who makes gore, Explosions, Burst size, Cleave slash | Musou Mode: excessive gore and bloody explosions: compare with SM1 by feel or video. Ours: the owner's items 8, 22 and 23 (2026-11-01); SM1's gore is a red… | ☐ |
 | `C-7C39B7CA` | Musou Mode: Marines throw fodder down | the owner's item 7 (2026-11-01); SM1 has no crowd collision | a Marine moving, sprinting, charging or landing into a Boy, Shoota, Gretchin or Guardsman throws him down for 2.5 s, sometimes killing him; any melee hit does the same to fodder; elites stagger as before | Melee and firepower | Musou Mode: Marines throw fodder down: compare with SM1 by feel or video. Ours: the owner's item 7 (2026-11-01); SM1 has no crowd collision. | ☐ |
