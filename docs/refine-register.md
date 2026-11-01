@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 1964 spec table rows: **1384 tagged**, 422 not tagged (read from data with high confidence), 158 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 422 rows of the changes document.
+Scanned 1964 spec table rows: **1384 tagged**, 422 not tagged (read from data with high confidence), 158 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 423 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -2803,6 +2803,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-CFB2B524` | Heavy classes draw one pack | Interpretation: a weapon's `backpack` attachment is not drawn (the fixed sidearm's `sm_lascannon_backpack_001`); the armour slot's class override is the only pack, so the Havoc wears no loyalist pack | one pack | "Heavy classes' back" | Heavy classes draw one pack: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-A6BD3B61` | Devastator / Havoc stomp stays in place | the owner's decision (2026-10-31): no step forward, no lunge or burst, no coasting; fixes the slide from chaining the kick (click) and the stomp (F) | the body is held in place until the stomp's move-again branch; protocol 49 | "Stomp stays in place" | Devastator / Havoc stomp stays in place: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-5318F1D9` | Bolt tracer softness and armour-hit sparks (fx/bolt-tracer-impact, owner 2026-10-31) | Ours: the pooled bolt streaks are soft glow ribbons with a thin hot core (were flat hard ribbons); a hit on raised armour adds the data's `hit_ranged_armour_generic` sparks (two copies) on top of the weapon's own armour effect; client only, no protocol change; `--old-bolt-fx` restores both; `--old-bolt-tracer` still… | the owner's reference r6 shows thin streaks and a white-gold flash | the sizes and scales are estimates for a playtest | Bolt tracer softness and armour-hit sparks…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-4A7397B2` | Stowed lascannon hangs behind the backpack (visual/lascannon-stow, owner 2026-10-31) | Ours: the data's stow marker (lower back, barrel across to the right) lets the lascannon's 1.39 m barrel through the right forearm and leg, so the two lascannon models hang upright behind the Devastator's / Havoc's backpack on `RIG_SpineD`, the barrel 20 degrees from straight up toward the marine's right; the loyalist… | the data's `stow_info` marker for every weapon | "Stowed lascannon" | Stowed lascannon hangs behind the backpack…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

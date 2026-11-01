@@ -329,6 +329,7 @@ public sealed class WeaponRig
         public MeshInstance3D? Magazine;   // M35: the detachable magazine, a mesh of its own under the holder (null: the model has none)
         public MeshInstance3D? StowHidden;   // visual/lascannon-stow: parts drawn only in hand (null: none)
         public Transform3D Wield, Stow;
+        public WeaponMount? StowMount;   // visual/lascannon-stow: the stow mount in effect (ours for the lascannon, else the data's): its bone and the Stow transform always agree
         public string? Bone;
         public int Mode = -1;          // 0 stowed, 1 in hand, 2 hidden
         public bool InHand;
@@ -461,7 +462,8 @@ public sealed class WeaponRig
         if (wargear is null || _assets.Catalogue.Held(wargear) is not { } attachment || _assets.Get(attachment) is not { Mesh: { } mesh } asset) return;
         var item = new Item { Role = role, Attachment = attachment, Asset = asset };
         if (attachment.Wield is { Bone: not null } wield) item.Wield = MarineAssets.ToGodot(asset.Model.RootToBone(wield));
-        if (WeaponStowSpots.For(attachment) is { Bone: not null } stow) item.Stow = MarineAssets.ToGodot(asset.Model.RootToBone(stow));   // visual/lascannon-stow: ours for the lascannon
+        item.StowMount = WeaponStowSpots.For(attachment);
+        if (item.StowMount is { Bone: not null } stow) item.Stow = MarineAssets.ToGodot(asset.Model.RootToBone(stow));   // visual/lascannon-stow: ours for the lascannon
         item.Node = new BoneAttachment3D { Name = $"Weapon_{role}_{attachment.VisualName}", Visible = false };
         _skeleton.AddChild(item.Node);
         item.Holder = new Node3D { Name = "Holder" };
@@ -587,7 +589,7 @@ public sealed class WeaponRig
     void Apply(Item i, bool inHand, bool hide = false)
     {
         i.InHand = inHand;
-        var mount = inHand ? i.Attachment.Wield : i.Attachment.Stow;
+        var mount = inHand ? i.Attachment.Wield : i.StowMount;
         int mode = hide || mount?.Bone is null || (!inHand && i.Attachment.HideOnStow) ? 2 : inHand ? 1 : 0;
         if (mode == i.Mode) return;
         i.Mode = mode;
@@ -734,7 +736,7 @@ public sealed class WeaponRig
         foreach (var i in _items)
         {
             if (i.Mode is not (0 or 1) || i.Bone is null || _skeleton.FindBone(i.Bone) is not (var bone and >= 0)) continue;
-            var mount = i.Mode == 1 ? i.Attachment.Wield : i.Attachment.Stow;
+            var mount = i.Mode == 1 ? i.Attachment.Wield : i.StowMount;
             var handle = mount is not null && i.Asset.Model.Tree.Contains(mount.HandleNode) ? MarineAssets.ToGodot(i.Asset.Model.Tree.ModelSpace(mount.HandleNode)).Origin : Vector3.Zero;
             yield return (i.Role, i.Mode == 1 ? "hand" : "stowed", _skeleton.GetBoneGlobalPose(bone) * i.Holder.Transform * handle);
         }

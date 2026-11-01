@@ -86,7 +86,7 @@ public static class WeaponStowSpots
     /// </summary>
     public static bool HidesSimulatedWhenStowed(WeaponAttachment attachment) => !Old && attachment.Stow is { Bone: not null } && ByModel.ContainsKey(attachment.VisualName);
 
-    /// <summary>The stow mount to use for an attachment: ours for the models in <see cref="ByModel"/> (same bone as the data's, the spot in its space), else the data's.</summary>
+    /// <summary>The stow mount to use for an attachment: ours for the models in <see cref="ByModel"/> (the spot's own bone, RIG_SpineD, and the spot in its space), else the data's. The rig keeps the result as the item's stow mount, so the attachment bone and the transform always agree.</summary>
     public static WeaponMount? For(WeaponAttachment attachment)
     {
         if (Old || attachment.Stow is not { Bone: not null } stow || !ByModel.TryGetValue(attachment.VisualName, out var spot)) return attachment.Stow;
