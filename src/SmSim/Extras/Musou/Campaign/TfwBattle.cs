@@ -25,21 +25,31 @@ public static class TfwBattleRules
     /// <summary>A squad stands on a point at most this share of the point's radius from its centre (the squads must stand inside to take it).</summary>
     public const float SquadOnPoint = 0.7f;
 
-    // The garrison of one position: it stands leashed on the point and is rebuilt there, one at a time, to this many.
-    public const int Garrison = 12;
-    public const float GarrisonSeconds = 4f;
-    /// <summary>A leashed Ork wakes when a target comes this near its home (<see cref="MusouSim.SpawnLeashed"/>), and is free for good.</summary>
+    /// <summary>A leashed Ork wakes when a target comes this near its home (<see cref="MusouSim.SpawnLeashed"/>), and is free for good: a garrison and the commander's group.</summary>
     public const float DefenderAggro = 30f;
 
+    // The garrison of one position (owner, 2026-11-01: "there is always a consistent ork garrison waiting on each point that never respawns. they defend each point"): it stands leashed on the point from the landing and is never rebuilt.
+    public const int Garrison = 12;
+
+    // The crowds (owner, 2026-11-01): "the orks should pool up at their spawn point until they reach a crowd of 50 orks, then swarm at the player. there should be 3 major spawn points across the map doing this";
+    // "pools replace the tide"; "50 per point, 150 total. Each point swarms on its own."
+    /// <summary>The crowd of one spawn point: it stands there leashed, one more every <see cref="CrowdFillSeconds"/>, and at this many all of it swarms at once. The owner's number.</summary>
+    public const int CrowdSize = 50;
+    /// <summary>A crowd's Orks notice a target this near their own places (a crowd wakes as one when any of it does, or is hurt). Ours: a player at the ring (13.5 to 15 m out) wakes a fresh small crowd on the far side of the disc (about 30 m).</summary>
+    public const float CrowdAggro = 30f;
+
     /// <summary>
-    /// The tide: a point the Orks hold sends one Ork every this many seconds (the design's 2 halved for the owner's doubled count). The owner, 2026-11-01: "you have to fully capture a point to disable the spawning from that
-    /// point. But it's temporarily paused while the point is being actively captured"; "Orks should begin spawning again immediately".
+    /// A held point adds one Ork to its crowd every this many seconds (the owner's tide of 1 s, now the crowd's fill: 50 s for a crowd). The owner, 2026-11-01: "you have to fully capture a point to disable the spawning
+    /// from that point. But it's temporarily paused while the point is being actively captured"; "Orks should begin spawning again immediately".
     /// </summary>
-    public const float TideSeconds = 1f;
-    /// <summary>Orks spawn on a disc this wide round their point.</summary>
+    public const float CrowdFillSeconds = 1f;
+    /// <summary>A crowd and a garrison stand on a disc this wide round their point.</summary>
     public const float SpawnDisc = 8f;
-    /// <summary>The owner, 2026-11-01: "Double the enemy count again": 200 alive, 80 more a further human; never over <see cref="AliveCapMost"/>, which leaves the pool's 512 slots room for those dying.</summary>
-    public const int AliveCapSolo = 200, AliveCapPerExtraHuman = 80, AliveCapMost = 460;
+    /// <summary>
+    /// The owner, 2026-11-01: "50 per point, 150 total": the Orks of the crowds and the swarms alive at once, a garrison not counted (it never respawns, 12 a point); 80 more a further human; never over
+    /// <see cref="AliveCapMost"/>, which leaves the pool's 512 slots room for the garrisons and those dying.
+    /// </summary>
+    public const int AliveCapSolo = 150, AliveCapPerExtraHuman = 80, AliveCapMost = 460;
     public const int ReleasesPerTick = 6;
 
     // What the Orks are made of (the design's section B; the owner's item 6). Of every 100 fodder and of every 100 elites:
@@ -91,6 +101,12 @@ public sealed record TfwLayout(Vector3 LandingZone, Vector3[] Positions, Vector3
     public float Reach(int k) => MathF.Max(DefaultHalfHeight, HalfHeights is { } h && k < h.Length ? h[k] : 0f);
 }
 
+/// <summary>Why a crowd swarmed: it reached <see cref="TfwBattleRules.CrowdSize"/>; or a target came near it, or one of it was hurt, and it went with what it had.</summary>
+public enum TfwSwarmWhy : byte { Full = 0, Woken = 1 }
+
+/// <summary>A crowd let loose (<see cref="TfwBattle.OnSwarm"/>): the spawn point (0 to 2 the positions, 3 the HQ's source), how many Orks went, why, and who.</summary>
+public readonly record struct TfwSwarm(int Point, int Size, TfwSwarmWhy Why, ushort[] Ids);
+
 /// <summary>What one <see cref="TfwBattle.Step"/> changed that the run acts on.</summary>
 [Flags]
 public enum TfwBattleChange : byte
@@ -104,7 +120,7 @@ public enum TfwBattleChange : byte
 }
 
 /// <summary>
-/// One battle (design sections D and I), or the final assault: the three positions, their garrisons, the tide from each, the Guard squads, each going for the nearest position not secured, the commander
+/// One battle (design sections D and I), or the final assault: the three positions, the crowd each spawn point pools and then swarms with (owner, 2026-11-01), the Guard squads, each going for the nearest position not secured, the commander
 /// (he comes once each point has fallen, whatever has been retaken since, so a battle cannot hang on holding all three at once), and the failsafe for enemies nobody can reach. Works on the enemies' pool and the Guardsmen alone, deterministically; the run (<see cref="TfwRun"/>) owns everything around it. A
 /// position is Held with no Imperial on it, Clearing with Imperials and Orks on it, Securing with Imperials alone, Secured when that has run its time; only Held sends Orks (a capture pauses it, a full one stops it, and the
 /// tick a capture ends or a retake is done it sends again). A secured position with Orks alone on it falls back to Held in <see cref="TfwBattleRules.RetakeSeconds"/>. A secured position keeps one squad as long as two are free.
@@ -119,15 +135,23 @@ public sealed class TfwBattle
     readonly GuardSim _guards;
     readonly TfwLayout _layout;
     readonly TfwObjective[] _objectives = new TfwObjective[Positions + 1];
-    readonly List<ushort>[] _defenders = [new(), new(), new()];
+    readonly List<ushort>[] _crowds = [new(), new(), new(), new()];   // each spawn point's crowd: the three positions', then the HQ's source
+    readonly List<ushort>[] _garrisons = [new(), new(), new()];       // each position's garrison still standing at its post
     readonly List<ushort> _stranded = new();
+    Predicate<ushort>? _notAtPostCache;
+    Predicate<ushort> _notAtPost => _notAtPostCache ??= id => !_enemies.TryGet(id, out var e) || !e.Alive || !_enemies.Leashed(id);
+    // The stuck-Ork failsafe of a position being cleared (ours): an Ork in its volume that stays within StuckRadius of one spot, seeking and attacking nothing, for StuckSeconds is removed (a World KO for nobody).
+    readonly Dictionary<ushort, (Vector3 Anchor, uint Since)> _idleInside = new();
+    uint _clearTick;
+    public const float StuckSeconds = 6f, StuckRadius = 2.5f;
     readonly bool _final, _guardsmen;
     readonly WarFinalBonus _bonus;
     readonly int _humans;
     readonly float _scale;
-    readonly int[] _tideTicks = new int[Positions + 1], _garrisonTicks = new int[Positions];   // ticks to the next; 0: on this tick
-    readonly int[] _lastTide = new int[Positions + 1], _lastGarrison = new int[Positions];     // the battle's tick of the last send
-    int _now, _humansNow;
+    readonly int[] _tideTicks = new int[Positions + 1];   // ticks to the point's next Ork; 0: on this tick
+    readonly int[] _lastTide = new int[Positions + 1];    // the battle's tick of its last
+    int _now, _humansNow, _swarms;
+    const int CrowdGroupFirst = Positions + 2;   // after the garrisons' (1 to 3) and the commander's (4): the positions' crowds, then the HQ source's
     readonly int[] _holder = [-1, -1, -1];                  // the squad holding a secured position
     readonly int[] _squadGoal = new int[GuardSim.MaxSquads];   // the objective a squad was sent to (-1: none)
     int _reserves, _released, _picked, _spots, _reserveTicks, _squadTicks, _summons, _waaaghs, _taken;
@@ -166,8 +190,19 @@ public sealed class TfwBattle
     public float BossMaxHealth { get; private set; }
     /// <summary>The positions secured now.</summary>
     public int Secured { get; private set; }
-    /// <summary>Orks sent by the tide and the garrisons' rebuilding so far (the Waaagh!s' Boyz not counted).</summary>
+    /// <summary>Orks added to the crowds so far (the Waaagh!s' Boyz not counted).</summary>
     public int Arrivals => _released;
+    /// <summary>Swarms let loose so far (a full crowd, a woken one, a stalled one).</summary>
+    public int Swarms => _swarms;
+    /// <summary>The Orks standing in spawn point <paramref name="point"/>'s crowd now (0 to 2 the positions, 3 the HQ's source).</summary>
+    public int Pooled(int point) => _crowds[point].Count;
+    /// <summary>The Orks of position <paramref name="position"/>'s garrison still standing at its post (never rebuilt: 12 at the landing).</summary>
+    public int Garrisoned(int position) => _garrisons[position].Count;
+    /// <summary>The ids standing in spawn point <paramref name="point"/>'s crowd now, and in position <paramref name="position"/>'s garrison (for tests).</summary>
+    public ushort[] CrowdIds(int point) => _crowds[point].ToArray();
+    public ushort[] GarrisonIds(int position) => _garrisons[position].ToArray();
+    /// <summary>Test aid: called once for every swarm let loose, with the Orks that were in it.</summary>
+    public Action<TfwSwarm>? OnSwarm { get; set; }
     /// <summary>Squads still in reserve.</summary>
     public int Reserves => _reserves;
     /// <summary>The places of this battle.</summary>
@@ -213,7 +248,7 @@ public sealed class TfwBattle
     }
 
 
-    /// <summary>The start: the defenders at their posts, the field's squads at the landing zone and, in the final assault, the Warboss.</summary>
+    /// <summary>The start: the crowds part-grown at their points, the field's squads at the landing zone and, in the final assault, the Warboss.</summary>
     public void Start()
     {
         for (int k = 0; k < Positions; k++) _objectives[k] = new TfwObjective((byte)k, _final ? TfwPositionState.Secured : TfwPositionState.Held, _final ? 1f : 0f, _layout.Positions[k], _layout.Radius(k));
@@ -225,15 +260,14 @@ public sealed class TfwBattle
         {
             Secured = Positions;
             _commander = true;
-            for (int k = 0; k <= Positions; k++) _tideTicks[k] = Ticks(TfwBattleRules.TideSeconds);
+            for (int k = 0; k <= Positions; k++) _tideTicks[k] = Ticks(TfwBattleRules.CrowdFillSeconds);
             SpawnBoss(MusouEnemyType.Warboss, _enemies.Rules.BossHealth * _scale * _bonus.BossHealthFactor, leashed: false);
             return;
         }
         for (int k = 0; k < Positions; k++)
         {
-            for (int n = 0; n < TfwBattleRules.Garrison; n++) SpawnGarrison(k);
-            _tideTicks[k] = Ticks(TfwBattleRules.TideSeconds) * (k + 1) / Positions;   // out of step
-            _garrisonTicks[k] = Ticks(TfwBattleRules.GarrisonSeconds);
+            for (int n = 0; n < TfwBattleRules.Garrison; n++) SpawnGarrison(k);   // once: a garrison is never rebuilt
+            _tideTicks[k] = Ticks(TfwBattleRules.CrowdFillSeconds);
         }
     }
 
@@ -274,12 +308,78 @@ public sealed class TfwBattle
         return Ground(centre + new Vector3(MathF.Cos(angle) * radius, MathF.Sin(angle) * radius, 0f), centre);
     }
 
+    /// <summary>The group a spawn point's crowd is leashed under (<see cref="MusouSim.ReleaseGroup"/> frees all of it), apart from the garrisons' and the commander's.</summary>
+    static int CrowdGroup(int point) => CrowdGroupFirst + point;
+
+    /// <summary>Where spawn point <paramref name="point"/>'s crowd stands: a position's own ground, the HQ's source.</summary>
+    Vector3 CrowdAnchor(int point) => point < Positions ? _layout.Positions[point] : _layout.Sources[point];
+
+    /// <summary>One Ork of position <paramref name="position"/>'s garrison: leashed on the point's disc, woken by a target within <see cref="TfwBattleRules.DefenderAggro"/>, never replaced.</summary>
     void SpawnGarrison(int position)
     {
         var type = NextType();
         var at = DiscSpot(_layout.Positions[position]);
         ushort id = _enemies.SpawnLeashed(type, at, YawTo(at, _layout.LandingZone), Health(type), position + 1, TfwBattleRules.DefenderAggro);
-        if (id != 0) _defenders[position].Add(id);
+        if (id != 0) _garrisons[position].Add(id);
+    }
+
+    /// <summary>The Orks that count against the cap: all alive but the garrisons still standing at their posts (they never respawn; 12 a point).</summary>
+    int Counted()
+    {
+        int garrison = 0;
+        foreach (var g in _garrisons) garrison += g.Count;
+        return _enemies.Alive - garrison;
+    }
+
+    /// <summary>One more Ork in spawn point <paramref name="point"/>'s crowd (leashed on its disc); false when the pool had no room. The crowd that reaches <see cref="TfwBattleRules.CrowdSize"/> swarms.</summary>
+    bool AddToCrowd(int point)
+    {
+        var type = NextType();
+        var at = DiscSpot(CrowdAnchor(point));
+        ushort id = _enemies.SpawnLeashed(type, at, YawTo(at, _layout.LandingZone), Health(type), CrowdGroup(point), TfwBattleRules.CrowdAggro);
+        if (id == 0) return false;
+        _crowds[point].Add(id);
+        if (_crowds[point].Count >= TfwBattleRules.CrowdSize) Swarm(point, TfwSwarmWhy.Full);
+        return true;
+    }
+
+    /// <summary>Lets spawn point <paramref name="point"/>'s whole crowd go: every one of them is free for good and goes for the players; the point starts a new crowd. <paramref name="extra"/>: Orks of it already woken.</summary>
+    void Swarm(int point, TfwSwarmWhy why, IReadOnlyList<ushort>? extra = null)
+    {
+        var crowd = _crowds[point];
+        _enemies.ReleaseGroup(CrowdGroup(point));
+        _swarms++;
+        if (OnSwarm is { } watch)
+        {
+            var ids = new List<ushort>(crowd);
+            if (extra is not null) ids.AddRange(extra);
+            watch(new TfwSwarm(point, ids.Count, why, ids.ToArray()));
+        }
+        crowd.Clear();
+    }
+
+    /// <summary>
+    /// Each tick: a crowd's Orks that died are forgotten, and a crowd with one awake (a target came near it, or one was hurt, which frees that one's group) is woken as a whole, so a crowd never trickles out.
+    /// Each is seen before its slot can be reused (the dying keep it for seconds).
+    /// </summary>
+    void TidyCrowds()
+    {
+        foreach (var garrison in _garrisons) garrison.RemoveAll(_notAtPost);   // the garrison is those still at their post
+        for (int point = 0; point <= Positions; point++)
+        {
+            var crowd = _crowds[point];
+            if (crowd.Count == 0) continue;
+            List<ushort>? awake = null;
+            for (int n = crowd.Count - 1; n >= 0; n--)
+            {
+                ushort id = crowd[n];
+                bool alive = _enemies.TryGet(id, out var e) && e.Alive;
+                if (alive && _enemies.Leashed(id)) continue;
+                if (alive) (awake ??= new()).Add(id);
+                crowd.RemoveAt(n);
+            }
+            if (awake is not null) Swarm(point, TfwSwarmWhy.Woken, awake);
+        }
     }
 
     void SpawnBoss(MusouEnemyType type, float health, bool leashed)
@@ -302,7 +402,7 @@ public sealed class TfwBattle
             _enemies.SpawnLeashed(type, Ground(_layout.Hq + new Vector3(MathF.Cos(angle) * 3f, MathF.Sin(angle) * 3f, 0f), _layout.Hq), angle, Health(type), CommanderGroup, TfwBattleRules.DefenderAggro);
         }
         _commander = true;
-        _tideTicks[Positions] = Ticks(TfwBattleRules.TideSeconds);
+        _tideTicks[Positions] = Ticks(TfwBattleRules.CrowdFillSeconds);
     }
 
     /// <summary>A KO, from the World's <see cref="MusouSim.TakeKills"/> (a Guardsman's KO names no player, so the players' scores would miss it).</summary>
@@ -326,7 +426,8 @@ public sealed class TfwBattle
         _now++;
         if (humans > 0) _humansNow = humans;
         Unstrand();
-        foreach (var defenders in _defenders) defenders.RemoveAll(id => !_enemies.TryGet(id, out var e) || !e.Alive || !_enemies.Leashed(id));   // the garrison is those still at their post; each is seen before its slot can be reused (the dying keep it for seconds)
+        TidyCrowds();
+        _enemies.KeepOut.Clear();
         if (Won) return change;
         if (BossId != 0)
         {
@@ -339,7 +440,14 @@ public sealed class TfwBattle
             }
             _objectives[CommanderObjective] = _objectives[CommanderObjective] with { Progress = 1f - boss.Health / MathF.Max(1f, BossMaxHealth) };
         }
-        if (!_final) for (int k = 0; k < Positions; k++) change |= StepPosition(k, players);
+        if (!_final)
+        {
+            _clearTick++;
+            for (int k = 0; k < Positions; k++) change |= StepPosition(k, players);
+            // A position being taken is kept clear of shooters: they hold their band, which lies inside its ring (see MusouSim.KeepOut).
+            for (int k = 0; k < Positions; k++)
+                if (_objectives[k].State is TfwPositionState.Clearing or TfwPositionState.Securing) _enemies.KeepOut.Add((_layout.Positions[k], _layout.Radius(k), _layout.Reach(k)));
+        }
         StepSquads();
         StepReserves();
         StepArrivals();
@@ -366,7 +474,7 @@ public sealed class TfwBattle
             if (o.State != TfwPositionState.Held) SendAgain(k);
             o = o with { State = TfwPositionState.Held, Progress = MathF.Max(0f, o.Progress - TfwBattleRules.SecureDecayPerSecond * Dt) };
         }
-        else if (orks) o = o with { State = TfwPositionState.Clearing };
+        else if (orks) { o = o with { State = TfwPositionState.Clearing }; RemoveStuck(k); }
         else
         {
             float rate = guards || !_guardsmen ? 1f : TfwBattleRules.HumanSecureRate;
@@ -377,12 +485,8 @@ public sealed class TfwBattle
         return Secure(k);
     }
 
-    /// <summary>The owner: "Orks should begin spawning again immediately": the tide and the garrison's rebuilding are due on this tick, if their interval has passed since the point last sent, so stepping on and off a point sends no faster than holding it.</summary>
-    void SendAgain(int k)
-    {
-        _tideTicks[k] = Math.Max(0, _lastTide[k] + Ticks(TfwBattleRules.TideSeconds) - _now);
-        _garrisonTicks[k] = Math.Max(0, _lastGarrison[k] + Ticks(TfwBattleRules.GarrisonSeconds) - _now);
-    }
+    /// <summary>The owner: "Orks should begin spawning again immediately": the point's next Ork is due on this tick, if its interval has passed since the point last sent, so stepping on and off a point sends no faster than holding it.</summary>
+    void SendAgain(int k) => _tideTicks[k] = Math.Max(0, _lastTide[k] + Ticks(TfwBattleRules.CrowdFillSeconds) - _now);
 
     /// <summary>Whether any of <paramref name="feet"/> stands on position <paramref name="k"/>.</summary>
     bool AnyInside(int k, ReadOnlySpan<Vector3> feet)
@@ -392,6 +496,53 @@ public sealed class TfwBattle
         foreach (var p in feet)
             if (MathF.Abs(p.Z - at.Z) <= reach && new Vector2(p.X - at.X, p.Y - at.Y).LengthSquared() <= r2) return true;
         return false;
+    }
+
+    /// <summary>Test aid: the Orks (up to 64) inside position <paramref name="k"/>'s capture volume now.</summary>
+    public int OrksOn(int k)
+    {
+        Span<ushort> ids = stackalloc ushort[64];
+        return _enemies.Query(_layout.Positions[k], _layout.Radius(k), ids, _layout.Reach(k));
+    }
+
+    /// <summary>Test aid: what the Orks inside position <paramref name="k"/>'s capture volume are doing, for example "Seek 3, Knocked 7, leashed 2" (empty: none).</summary>
+    public string OrksOnReport(int k)
+    {
+        var ids = new ushort[64];
+        int n = _enemies.Query(_layout.Positions[k], _layout.Radius(k), ids, _layout.Reach(k));
+        var counts = new SortedDictionary<string, int>();
+        for (int i = 0; i < n; i++)
+        {
+            if (!_enemies.TryGet(ids[i], out var e)) continue;
+            float dz = e.Position.Z - _layout.Positions[k].Z;
+            string key = (_enemies.Leashed(ids[i]) ? "leashed" : e.State.ToString()) + (dz > 2.5f ? " above" : dz < -2.5f ? " below" : "");
+            counts[key] = counts.GetValueOrDefault(key) + 1;
+        }
+        var sample = new List<string>();
+        for (int i = 0; i < n && sample.Count < 3; i++)
+            if (_enemies.TryGet(ids[i], out var e) && e.State == MusouEnemyState.Seek)
+                sample.Add($"#{ids[i]} {e.Type} at {e.Position.X - _layout.Positions[k].X:F0},{e.Position.Y - _layout.Positions[k].Y:F0},{e.Position.Z - _layout.Positions[k].Z:F1} speed {e.Velocity.Length():F1} target {e.TargetPlayer} node {e.Node}");
+        return string.Join(", ", counts.Select(c => $"{c.Key} {c.Value}")) + (sample.Count > 0 ? " e.g. " + string.Join("; ", sample) : "");
+    }
+
+    /// <summary>While position <paramref name="k"/> is Clearing: an unleashed Ork in its volume that has stayed in one spot seeking (no attack, no headway) for <see cref="StuckSeconds"/> is removed, so one on a ledge it cannot leave never keeps the point from being taken.</summary>
+    void RemoveStuck(int k)
+    {
+        Span<ushort> ids = stackalloc ushort[96];
+        int n = _enemies.Query(_layout.Positions[k], _layout.Radius(k), ids, _layout.Reach(k));
+        uint limit = (uint)MathF.Ceiling(StuckSeconds / Dt);
+        for (int i = 0; i < n; i++)
+        {
+            ushort id = ids[i];
+            if (id == BossId || _enemies.Leashed(id) || !_enemies.TryGet(id, out var e) || !e.Alive) continue;
+            if (e.State is not (MusouEnemyState.Seek or MusouEnemyState.Spawning)) { _idleInside.Remove(id); continue; }
+            if (!_idleInside.TryGetValue(id, out var seen) || Vector3.DistanceSquared(seen.Anchor, e.Position) > StuckRadius * StuckRadius)
+            { _idleInside[id] = (e.Position, _clearTick); continue; }
+            if (_clearTick - seen.Since < limit) continue;
+            _idleInside.Remove(id);
+            _enemies.Damage(id, 0, e.Health, Vector3.Zero, out _, marker: 0, cause: MusouDeathKind.World);
+        }
+        if (_idleInside.Count > 256) _idleInside.Clear();
     }
 
     bool OrksInside(int k)
@@ -492,37 +643,28 @@ public sealed class TfwBattle
         if (_guards.SpawnSquad(_layout.LandingZone, YawTo(_layout.LandingZone, _layout.Hq)) >= 0) _reserves--;
     }
 
+    /// <summary>
+    /// The crowds grow: one Ork per <see cref="TfwBattleRules.CrowdFillSeconds"/> from each point that sends, up to the cap (a crowd counts into it, so a crowd refills as the swarms are killed; a crowd is never let
+    /// go below 50 for the cap's sake, and the stranded-Ork failsafe removes the Orks nobody can reach). The Waaagh!s' Boyz come from the sources at once.
+    /// </summary>
     void StepArrivals()
     {
         int cap = TfwBattleRules.AliveCap(_humansNow);
+        int counted = Counted();
         for (int k = 0; k <= Positions; k++)
         {
-            if (!SourceActive(k)) continue;
-            if (--_tideTicks[k] <= 0)
-            {
-                _tideTicks[k] = Ticks(TfwBattleRules.TideSeconds);
-                _lastTide[k] = _now;
-                if (_enemies.Alive < cap && SpawnTide(k)) _released++;
-            }
-            if (k == Positions || _final || --_garrisonTicks[k] > 0) continue;
-            _garrisonTicks[k] = Ticks(TfwBattleRules.GarrisonSeconds);
-            _lastGarrison[k] = _now;
-            if (_defenders[k].Count < TfwBattleRules.Garrison && _enemies.Alive < cap) { SpawnGarrison(k); _released++; }
+            if (!SourceActive(k) || --_tideTicks[k] > 0) continue;
+            _tideTicks[k] = Ticks(TfwBattleRules.CrowdFillSeconds);
+            _lastTide[k] = _now;
+            if (counted >= cap) continue;
+            if (AddToCrowd(k)) { _released++; counted++; }
         }
-        for (int k = 0; k < TfwBattleRules.ReleasesPerTick && _summons > 0 && _enemies.Alive < cap; k++)
+        for (int k = 0; k < TfwBattleRules.ReleasesPerTick && _summons > 0 && Counted() < cap; k++)
         {
             _summons--;
             var at = SourceSpot(_summons % _layout.Sources.Length);
             _enemies.Spawn(MusouEnemyType.Boy, at, YawTo(at, _layout.LandingZone), Health(MusouEnemyType.Boy));
         }
-    }
-
-    /// <summary>One Ork of the tide from its point (the HQ's from its source).</summary>
-    bool SpawnTide(int k)
-    {
-        var type = NextType();
-        var at = DiscSpot(k < Positions ? _layout.Positions[k] : _layout.Sources[k]);
-        return _enemies.Spawn(type, at, YawTo(at, _layout.LandingZone), Health(type)) != 0;
     }
 
     /// <summary>A spot round a drawn source (the failsafe's, and the Waaagh!s' Boyz).</summary>

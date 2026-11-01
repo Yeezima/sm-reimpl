@@ -51,6 +51,7 @@ public partial class NetworkView
         var f = _tfwHud.Data;
         f.War = war;
         f.Objectives = _tfwState.Objectives;
+        for (int k = 0; k < f.OrksOn.Length; k++) f.OrksOn[k] = k < _tfwState.Objectives.Count && _tfwState.Objectives[k].State == TfwPositionState.Clearing ? TfwOrksOn(_tfwState.Objectives[k]) : 0;
         f.Alive = me.Alive || Spectate is not null;   // a spectator was never killed
         f.Station = _tfwAt == TfwStation.None ? "" : TfwHudModel.StationPrompt(_tfwAt, ControlsInput.Prompt(GameAction.Use));
         f.PickupHold = _tfwKeys.PickupHold;
@@ -66,6 +67,9 @@ public partial class NetworkView
         if (_musouHud is { } musou) musou.Data.BossName = TfwHudModel.BossName(war, _tfwState.Objectives);
     }
 
+    /// <summary>The Orks this client knows standing in position <paramref name="o"/> (its radius, <see cref="TfwHudModel.ClearingReach"/> up and down).</summary>
+    int TfwOrksOn(TfwObjective o) => _musouState.CountWithin(new System.Numerics.Vector3(o.Position.X, o.Position.Y, o.Position.Z), o.Radius, TfwHudModel.ClearingReach);
+
     /// <summary>The rings, the pillars and the beacon (a client with a game space and a look at it: never lean or headless).</summary>
     void TfwMarkersFrame(in TfwWarView war)
     {
@@ -75,7 +79,7 @@ public partial class NetworkView
             _tfwMarkers = new TfwMarkers { Name = "TfwMarkers" };
             _gameSpace.AddChild(_tfwMarkers);
         }
-        _tfwMarkers.Show(war, _tfwState.Objectives, _tfwState.Sites, _client?.Predicted.Position ?? default);
+        _tfwMarkers.Show(war, _tfwState.Objectives, _tfwState.Sites, _client?.Predicted.Position ?? default, TfwOrksOn);
         TfwHubFrame(war);
     }
 }

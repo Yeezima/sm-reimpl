@@ -13,7 +13,7 @@ namespace SmClient;
 /// </summary>
 public partial class TfwMarkers : Node3D
 {
-    const float RingHeight = 0.15f, PillarHeight = 40f;
+    const float RingHeight = 0.15f, PillarHeight = 40f, LabelHeight = 9f;
     /// <summary>Godot's meshes stand along Y; game space stands along Z.</summary>
     static readonly Basis Upright = new(Vector3.Right, Mathf.Pi / 2f);
     static readonly Color Locked = new(0.45f, 0.45f, 0.48f), Held = new(0.9f, 0.12f, 0.08f), Clearing = new(1f, 0.5f, 0.08f), Securing = new(1f, 0.85f, 0.2f), Secured = new(0.3f, 0.9f, 0.35f);
@@ -21,6 +21,7 @@ public partial class TfwMarkers : Node3D
     readonly MeshInstance3D[] _rings = new MeshInstance3D[WarRules.Positions + 1];
     readonly StandardMaterial3D[] _ringPaint = new StandardMaterial3D[WarRules.Positions + 1];
     readonly MeshInstance3D[] _pillars = new MeshInstance3D[TfwWire.MaxSites - 1];
+    readonly Label3D[] _labels = new Label3D[WarRules.Positions + 1];
     MeshInstance3D _beacon = null!;
 
     static StandardMaterial3D Paint(Color c, float alpha) => new()
@@ -44,6 +45,12 @@ public partial class TfwMarkers : Node3D
             _rings[k] = new MeshInstance3D { Name = "Ring" + k, Mesh = new TorusMesh { InnerRadius = 0.98f, OuterRadius = 1.02f, Rings = 96, RingSegments = 6 }, MaterialOverride = _ringPaint[k], Basis = Upright, Visible = false };
             AddChild(_rings[k]);
         }
+        for (int k = 0; k < _labels.Length; k++)
+        {
+            // A letter and the state over each position, seen through walls and from afar (placeholder look, ours): the letter is the position's name on the HUD too.
+            _labels[k] = new Label3D { Name = "Label" + k, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true, FixedSize = true, PixelSize = 0.0012f, FontSize = 40, OutlineSize = 14, Modulate = Locked, OutlineModulate = new Color(0f, 0f, 0f, 0.9f), RenderPriority = 10, TextureFilter = BaseMaterial3D.TextureFilterEnum.Linear };
+            AddChild(_labels[k]);
+        }
         for (int k = 0; k < _pillars.Length; k++) _pillars[k] = Pillar("Source" + k, Held, 1f);
         _beacon = Pillar("Beacon", new Color(0.3f, 0.7f, 1f), 0.5f);
     }
@@ -52,7 +59,7 @@ public partial class TfwMarkers : Node3D
     static bool Far(Num.Vector3 pillar, Num.Vector3 viewer) => new Vector2(pillar.X - viewer.X, pillar.Y - viewer.Y).Length() > TfwMap.LandingRadius;
 
     /// <summary>The markers of the war as it stands; <paramref name="viewer"/>: the own player's feet.</summary>
-    public void Show(in TfwWarView war, IReadOnlyList<TfwObjective> objectives, IReadOnlyList<Num.Vector3> sites, Num.Vector3 viewer)
+    public void Show(in TfwWarView war, IReadOnlyList<TfwObjective> objectives, IReadOnlyList<Num.Vector3> sites, Num.Vector3 viewer, Func<TfwObjective, int>? orksOn = null)
     {
         if (_beacon is null) return;
         bool battle = TfwHudModel.InBattle(war.Phase) && objectives.Count > 0;
@@ -62,15 +69,21 @@ public partial class TfwMarkers : Node3D
         {
             bool shown = k < objectives.Count;
             _rings[k].Visible = shown;
+            _labels[k].Visible = shown;
             if (!shown) continue;
             var o = objectives[k];
             float radius = MathF.Max(o.Radius, 1f);
             _rings[k].Basis = Upright.Scaled(new Vector3(radius, radius, 1f));
             _rings[k].Position = new Vector3(o.Position.X, o.Position.Y, o.Position.Z + RingHeight);
-            _ringPaint[k].AlbedoColor = o.State switch
+            var paint = o.State switch
             {
                 TfwPositionState.Held => Held, TfwPositionState.Clearing => Clearing, TfwPositionState.Securing => Securing, TfwPositionState.Secured => Secured, _ => Locked,
             };
+            _ringPaint[k].AlbedoColor = paint;
+            _labels[k].Visible = true;
+            _labels[k].Text = TfwHudModel.ObjectiveLabel(o, war.Phase == TfwRunPhase.FinalAssault, o.State == TfwPositionState.Clearing ? orksOn?.Invoke(o) ?? 0 : 0);
+            _labels[k].Modulate = paint;
+            _labels[k].Position = new Vector3(o.Position.X, o.Position.Y, o.Position.Z + LabelHeight);
         }
         bool final = war.Phase == TfwRunPhase.FinalAssault;
         for (int k = 0; k < _pillars.Length; k++)
