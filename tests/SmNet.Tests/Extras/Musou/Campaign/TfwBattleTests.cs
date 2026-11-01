@@ -169,7 +169,7 @@ public class TfwBattleTests
     }
 
     [Fact]
-    public void With_every_guardsman_dead_and_no_reserve_a_human_secures_at_half_rate()
+    public void With_no_guardsman_on_it_a_player_or_marine_secures_at_half_rate()
     {
         var sim = new MusouSim(null);
         var guards = new GuardSim(sim);
@@ -185,18 +185,23 @@ public class TfwBattleTests
             while (guards.AliveIn(s) > 0) guards.Hit(s, 1e6f, Vector3.Zero);
         Assert.Equal(0, guards.Alive);
 
-        for (int k = 0; k < 30; k++) battle.Step(at, []);                    // an AI Marine alone does not count
-        Assert.Equal(0f, battle.Objectives[0].Progress);
-        for (int k = 0; k < 30; k++) battle.Step(at, away);                  // nor a human elsewhere
+        for (int k = 0; k < 30; k++) battle.Step(away);                      // nobody on it
         Assert.Equal(0f, battle.Objectives[0].Progress);
         ushort ork = sim.Spawn(MusouEnemyType.Boy, layout.Positions[0], 0f, 85f);
-        for (int k = 0; k < 30; k++) battle.Step(at, at);
+        for (int k = 0; k < 30; k++) battle.Step(at);
         Assert.Equal(0f, battle.Objectives[0].Progress);                     // an Ork pauses it
         sim.Damage(ork, 1, 1e6f, Vector3.Zero, out _);
-        for (int k = 0; k < 25 * 30; k++) battle.Step(at, at);
+        for (int k = 0; k < 25 * 30; k++) { ClearAll(sim); battle.Step(at); }
         Assert.InRange(battle.Objectives[0].Progress, 0.499f, 0.501f);       // half the rate
-        for (int k = 0; k < 25 * 30 + 2; k++) battle.Step(at, at);
+        for (int k = 0; k < 25 * 30 + 2; k++) { ClearAll(sim); battle.Step(at); }
         Assert.Equal(TfwPositionState.Secured, battle.Objectives[0].State);
+    }
+
+    static void ClearAll(MusouSim sim)
+    {
+        var all = new MusouEnemy[MusouSim.Capacity];
+        int n = sim.CopyTo(all);
+        for (int k = 0; k < n; k++) if (all[k].Alive) sim.Damage(all[k].Id, 1, 1e6f, Vector3.Zero, out _);
     }
 
     [Fact]

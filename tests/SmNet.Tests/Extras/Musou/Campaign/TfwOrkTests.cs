@@ -34,7 +34,7 @@ public class TfwOrkTests
     static void Capture(MusouSim sim, TfwBattle battle, TfwLayout layout, int k)
     {
         Vector3[] at = [layout.Positions[k]];
-        for (int t = 0; t < 30 * 30 && battle.Objectives[k].State != TfwPositionState.Secured; t++) { ClearPoint(sim, layout, k); battle.Step(at, at); }
+        for (int t = 0; t < 30 * 30 && battle.Objectives[k].State != TfwPositionState.Secured; t++) { ClearPoint(sim, layout, k); battle.Step(at); }
         Assert.Equal(TfwPositionState.Secured, battle.Objectives[k].State);
     }
 
@@ -71,17 +71,38 @@ public class TfwOrkTests
         ClearPoint(sim, layout, 0);
         for (int t = 0; t < 5 * 30; t++)
         {
-            battle.Step(at, at);
+            battle.Step(at);
             Assert.False(battle.SourceActive(0));
             Assert.Equal(0, OnPoint(sim, layout, 0));                         // neither tide nor garrison
         }
         Assert.Equal(TfwPositionState.Securing, battle.Objectives[0].State);
         float progress = battle.Objectives[0].Progress;
         Assert.True(progress is > 0f and < 1f);
-        battle.Step(away, away);                                              // the capture stops
+        battle.Step(away);                                              // the capture stops
         Assert.Equal(TfwPositionState.Held, battle.Objectives[0].State);
         Assert.True(battle.SourceActive(0));
         Assert.True(OnPoint(sim, layout, 0) >= 2, "tide and garrison on that very tick");
+    }
+
+    [Fact]
+    public void Stepping_on_and_off_a_point_sends_no_faster_than_holding_it()
+    {
+        var (sim, battle, layout) = Frozen();
+        ClearPoint(sim, layout, 0);
+        Vector3[] at = [layout.Positions[0]], away = [layout.LandingZone];
+        for (int t = 0; t < 10 * 30; t++) battle.Step(t % 2 == 0 ? at : away);
+        int sent = OnPoint(sim, layout, 0);
+        Assert.InRange(sent, 8, 13);                                          // 10 of the tide and 2 or 3 of the garrison, not 15 a second
+    }
+
+    [Fact]
+    public void A_late_human_raises_the_cap()
+    {
+        var (sim, battle, _) = Frozen();
+        for (int t = 0; t < 200 * 30; t++) battle.Step([]);
+        Assert.Equal(TfwBattleRules.AliveCap(1), sim.Alive);
+        for (int t = 0; t < 40 * 30; t++) battle.Step([], 2);
+        Assert.Equal(TfwBattleRules.AliveCap(2), sim.Alive);
     }
 
     [Fact]
@@ -90,7 +111,7 @@ public class TfwOrkTests
         var (sim, battle, layout) = Frozen();
         Vector3[] at = [layout.Positions[0]];
         int before = OnPoint(sim, layout, 0);
-        for (int t = 0; t < 5 * 30; t++) battle.Step(at, at);
+        for (int t = 0; t < 5 * 30; t++) battle.Step(at);
         Assert.Equal(TfwPositionState.Clearing, battle.Objectives[0].State);  // its garrison still stands there
         Assert.Equal(before, OnPoint(sim, layout, 0));
         Assert.Equal(0f, battle.Objectives[0].Progress);
@@ -102,7 +123,7 @@ public class TfwOrkTests
         var (sim, battle, layout) = Frozen();
         Capture(sim, battle, layout, 0);
         Vector3[] away = [layout.LandingZone];
-        for (int t = 0; t < 10 * 30; t++) battle.Step(away, away);
+        for (int t = 0; t < 10 * 30; t++) battle.Step(away);
         Assert.False(battle.SourceActive(0));
         Assert.Equal(0, OnPoint(sim, layout, 0));                             // nobody on it, and nobody sent
 
@@ -111,7 +132,7 @@ public class TfwOrkTests
         while (battle.Objectives[0].State == TfwPositionState.Secured && ticks < 40 * 30)
         {
             Assert.False(battle.SourceActive(0));                             // a falling point sends nothing until it has fallen
-            battle.Step(away, away);
+            battle.Step(away);
             ticks++;
         }
         Assert.Equal(TfwPositionState.Held, battle.Objectives[0].State);
@@ -129,9 +150,9 @@ public class TfwOrkTests
         Capture(sim, battle, layout, 0);
         Vector3[] at = [layout.Positions[0]], away = [layout.LandingZone];
         sim.Spawn(MusouEnemyType.Boy, layout.Positions[0], 0f, 85f);
-        for (int t = 0; t < 10 * 30; t++) battle.Step(away, away);
+        for (int t = 0; t < 10 * 30; t++) battle.Step(away);
         Assert.InRange(battle.Objectives[0].Progress, 0.45f, 0.55f);
-        for (int t = 0; t < 12 * 30; t++) battle.Step(at, at);
+        for (int t = 0; t < 12 * 30; t++) battle.Step(at);
         Assert.Equal(TfwPositionState.Secured, battle.Objectives[0].State);
         Assert.Equal(1f, battle.Objectives[0].Progress);
     }
@@ -144,7 +165,7 @@ public class TfwOrkTests
         Capture(sim, battle, layout, 1);
         Vector3[] away = [layout.LandingZone];
         sim.Spawn(MusouEnemyType.Boy, layout.Positions[0], 0f, 85f);
-        for (int t = 0; t < 21 * 30; t++) battle.Step(away, away);
+        for (int t = 0; t < 21 * 30; t++) battle.Step(away);
         Assert.Equal(TfwPositionState.Held, battle.Objectives[0].State);
         Assert.Equal((ushort)0, battle.BossId);
         Capture(sim, battle, layout, 2);
@@ -249,7 +270,7 @@ public class TfwOrkTests
     }
 
     [Fact]
-    public void Without_guardsmen_an_ai_marine_alone_takes_a_point_and_with_them_it_does_not()
+    public void An_ai_marine_alone_takes_a_point_at_the_full_rate_without_guardsmen_and_at_half_with_them()
     {
         var (sim, without, layout) = Frozen(guardsmen: false);
         ClearPoint(sim, layout, 0);
@@ -258,8 +279,9 @@ public class TfwOrkTests
         Assert.Equal(TfwPositionState.Secured, without.Objectives[0].State);
 
         var (other, with, place) = Frozen(guardsmen: true);
-        for (int t = 0; t < 30; t++) { ClearPoint(other, place, 0); with.Step(marine); }
-        Assert.Equal(0f, with.Objectives[0].Progress);
+        for (int t = 0; t < 26 * 30; t++) { ClearPoint(other, place, 0); with.Step(marine); }
+        Assert.Equal(TfwPositionState.Securing, with.Objectives[0].State);    // never stuck at rate 0
+        Assert.InRange(with.Objectives[0].Progress, 0.5f, 0.55f);
     }
 
     [Fact]
@@ -340,6 +362,20 @@ public class TfwOrkTests
             float moved = before.Average(p => sim.TryGet(p.Key, out var e) ? Vector3.Distance(e.Position, p.Value) : 0f);
             Assert.True(moved < 1.5f, $"the waiting moved {moved:F2} m in 2 s");   // the old ring walked about 4.7 m
         }
+    }
+
+    [Fact]
+    public void A_melee_token_goes_only_to_those_who_can_strike_and_comes_back_when_they_cannot()
+    {
+        var sim = Crowd();
+        for (int k = 0; k < 12; k++) sim.Spawn(MusouEnemyType.Boy, new Vector3(100f + MathF.Cos(k) * 4f, 60f + MathF.Sin(k) * 4f, 0f), 0f, 85f);
+        uint tick = 0;
+        Run(sim, [new MusouTarget(1, new Vector3(100f, 60f, 2f), true)], 3 * 30, ref tick);
+        Assert.Equal(0, sim.Tally().Melee);                                   // 2 m above: in the old gap, no blow could land
+        Run(sim, [new MusouTarget(1, new Vector3(100f, 60f, 0f), true)], 3 * 30, ref tick);
+        Assert.Equal(6, sim.Tally().Melee);
+        Run(sim, [new MusouTarget(1, new Vector3(100f, 60f, 2f), true)], 3 * 30, ref tick);   // a blow under way finishes first
+        Assert.Equal(0, sim.Tally().Melee);                                   // six can no longer block the player's melee from there
     }
 
     [Fact]

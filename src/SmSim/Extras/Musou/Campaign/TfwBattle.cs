@@ -18,7 +18,7 @@ public static class TfwBattleRules
     public const float RetakeSeconds = 20f;
     /// <summary>A field short of squads gets the next reserve after this long.</summary>
     public const float ReserveSeconds = 15f;
-    /// <summary>A human on a position with no Guardsman there secures it at this share of the rate; an AI Marine holds it up but does not secure it (ours: a position never dead-ends).</summary>
+    /// <summary>A human or an AI Marine on a position with no Guardsman there secures it at this share of the rate (ours: a position never dead-ends).</summary>
     public const float HumanSecureRate = 0.5f;
     /// <summary>The squads' orders are looked at every this many seconds.</summary>
     public const float SquadOrderSeconds = 1f;
@@ -126,6 +126,8 @@ public sealed class TfwBattle
     readonly int _humans;
     readonly float _scale;
     readonly int[] _tideTicks = new int[Positions + 1], _garrisonTicks = new int[Positions];   // ticks to the next; 0: on this tick
+    readonly int[] _lastTide = new int[Positions + 1], _lastGarrison = new int[Positions];     // the battle's tick of the last send
+    int _now, _humansNow;
     readonly int[] _holder = [-1, -1, -1];                  // the squad holding a secured position
     readonly int[] _squadGoal = new int[GuardSim.MaxSquads];   // the objective a squad was sent to (-1: none)
     int _reserves, _released, _picked, _spots, _reserveTicks, _squadTicks, _summons, _waaaghs, _taken;
@@ -141,6 +143,7 @@ public sealed class TfwBattle
         _final = final;
         _bonus = bonus;
         _humans = Math.Max(1, humans);
+        _humansNow = _humans;
         _scale = 1f + enemies.Rules.ScalePerExtraPlayer * (_humans - 1);
         Squads = guardsmen ? TfwBattleRules.SquadsAt(imperial) + (final ? bonus.ExtraSquads : 0) : 0;
         Array.Fill(_squadGoal, -1);
@@ -316,10 +319,12 @@ public sealed class TfwBattle
         _waaaghs = waaaghs;
     }
 
-    /// <summary>One tick, before the fight: <paramref name="players"/> are the feet of the living players, AI Marines included; <paramref name="humans"/> those of the living humans in the field.</summary>
-    public TfwBattleChange Step(ReadOnlySpan<Vector3> players, ReadOnlySpan<Vector3> humans = default)
+    /// <summary>One tick, before the fight: <paramref name="players"/> are the feet of the living players, AI Marines included; <paramref name="humans"/> the humans in the match now (a late joiner raises the cap; 0: as at the landing).</summary>
+    public TfwBattleChange Step(ReadOnlySpan<Vector3> players, int humans = 0)
     {
         var change = TfwBattleChange.None;
+        _now++;
+        if (humans > 0) _humansNow = humans;
         Unstrand();
         foreach (var defenders in _defenders) defenders.RemoveAll(id => !_enemies.TryGet(id, out var e) || !e.Alive || !_enemies.Leashed(id));   // the garrison is those still at their post; each is seen before its slot can be reused (the dying keep it for seconds)
         if (Won) return change;
@@ -334,7 +339,7 @@ public sealed class TfwBattle
             }
             _objectives[CommanderObjective] = _objectives[CommanderObjective] with { Progress = 1f - boss.Health / MathF.Max(1f, BossMaxHealth) };
         }
-        if (!_final) for (int k = 0; k < Positions; k++) change |= StepPosition(k, players, humans);
+        if (!_final) for (int k = 0; k < Positions; k++) change |= StepPosition(k, players);
         StepSquads();
         StepReserves();
         StepArrivals();
@@ -342,7 +347,7 @@ public sealed class TfwBattle
     }
 
     /// <summary>One tick of a position: who stands on it says what it does (the type's summary).</summary>
-    TfwBattleChange StepPosition(int k, ReadOnlySpan<Vector3> players, ReadOnlySpan<Vector3> humans)
+    TfwBattleChange StepPosition(int k, ReadOnlySpan<Vector3> players)
     {
         var o = _objectives[k];
         bool guards = _guards.CountInside(o.Position, _layout.Radius(k)) > 0, imperial = guards || AnyInside(k, players), orks = OrksInside(k);
@@ -364,7 +369,7 @@ public sealed class TfwBattle
         else if (orks) o = o with { State = TfwPositionState.Clearing };
         else
         {
-            float rate = guards || !_guardsmen ? 1f : AnyInside(k, humans) ? TfwBattleRules.HumanSecureRate : 0f;
+            float rate = guards || !_guardsmen ? 1f : TfwBattleRules.HumanSecureRate;
             o = o with { State = TfwPositionState.Securing, Progress = o.Progress + rate * Dt / TfwBattleRules.SecureSeconds };
         }
         if (o.Progress < 1f) { _objectives[k] = o; return TfwBattleChange.None; }
@@ -372,8 +377,12 @@ public sealed class TfwBattle
         return Secure(k);
     }
 
-    /// <summary>The owner: "Orks should begin spawning again immediately": the tide and the garrison's rebuilding are due on this tick.</summary>
-    void SendAgain(int k) { _tideTicks[k] = 0; _garrisonTicks[k] = 0; }
+    /// <summary>The owner: "Orks should begin spawning again immediately": the tide and the garrison's rebuilding are due on this tick, if their interval has passed since the point last sent, so stepping on and off a point sends no faster than holding it.</summary>
+    void SendAgain(int k)
+    {
+        _tideTicks[k] = Math.Max(0, _lastTide[k] + Ticks(TfwBattleRules.TideSeconds) - _now);
+        _garrisonTicks[k] = Math.Max(0, _lastGarrison[k] + Ticks(TfwBattleRules.GarrisonSeconds) - _now);
+    }
 
     /// <summary>Whether any of <paramref name="feet"/> stands on position <paramref name="k"/>.</summary>
     bool AnyInside(int k, ReadOnlySpan<Vector3> feet)
@@ -485,17 +494,19 @@ public sealed class TfwBattle
 
     void StepArrivals()
     {
-        int cap = TfwBattleRules.AliveCap(_humans);
+        int cap = TfwBattleRules.AliveCap(_humansNow);
         for (int k = 0; k <= Positions; k++)
         {
             if (!SourceActive(k)) continue;
             if (--_tideTicks[k] <= 0)
             {
                 _tideTicks[k] = Ticks(TfwBattleRules.TideSeconds);
+                _lastTide[k] = _now;
                 if (_enemies.Alive < cap && SpawnTide(k)) _released++;
             }
             if (k == Positions || _final || --_garrisonTicks[k] > 0) continue;
             _garrisonTicks[k] = Ticks(TfwBattleRules.GarrisonSeconds);
+            _lastGarrison[k] = _now;
             if (_defenders[k].Count < TfwBattleRules.Garrison && _enemies.Alive < cap) { SpawnGarrison(k); _released++; }
         }
         for (int k = 0; k < TfwBattleRules.ReleasesPerTick && _summons > 0 && _enemies.Alive < cap; k++)

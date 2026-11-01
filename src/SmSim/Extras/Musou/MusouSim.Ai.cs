@@ -411,7 +411,7 @@ public sealed partial class MusouSim
         {
             if (_token[i] == MeleeToken)
             {
-                if (reach > Rules.MeleeTokenDistance * 2f) _token[i] = 0;
+                if (reach > Rules.MeleeTokenDistance * 2f || (swarm is not null && !level)) _token[i] = 0;   // in a crowd a token out of reach of a blow is given back
                 else if (fight && level && reach <= spec.MeleeRange && _cooldown[i] == 0)
                 {
                     SetState(i, MusouEnemyState.WindUp);
@@ -424,7 +424,7 @@ public sealed partial class MusouSim
                 if (reach <= spec.MeleeRange * 0.8f && level) { Face(i, toward); return Vector2.Zero; }   // in reach: wait for the cooldown
                 return Approach(i, t, d, spec.Speed);
             }
-            if (reach <= Rules.MeleeTokenDistance && MathF.Abs(d.Z) <= 2.5f && reach < _meleeWantD[t]) { _meleeWantD[t] = reach; _meleeWant[t] = i; }
+            if (reach <= Rules.MeleeTokenDistance && MathF.Abs(d.Z) <= (swarm is null ? 2.5f : 1.5f) && reach < _meleeWantD[t]) { _meleeWantD[t] = reach; _meleeWant[t] = i; }
             return swarm is null ? Circle(i, t, d, spec.Speed) : SwarmWay(i, t, target, d, spec.Speed, slot: true, hold: true, swarm);
         }
         if (!ranged) return swarm is null ? Approach(i, t, d, spec.Speed) : SwarmWay(i, t, target, d, spec.Speed, slot: true, hold: false, swarm);
