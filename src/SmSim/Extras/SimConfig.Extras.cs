@@ -13,7 +13,7 @@ public sealed partial record SimConfig
     partial void ExtrasHash(BinaryWriter w)
     {
         // Musou: its own version (simulation and wire sections), so a Musou-only change never touches ContentExtras.WireVersion or the extended hash.
-        // The Three-Front War is Musou's war: its rules' version sits in the same block.
+        // Musou Mode's war rules: their version sits in the same block.
         if (Extras.HasFlag(ContentExtras.Musou)) { w.Write("musou"); w.Write(MusouSim.Version); w.Write(SmSim.Extras.Musou.Campaign.TfwRules.Version); }
     }
 }

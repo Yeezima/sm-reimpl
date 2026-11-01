@@ -8,7 +8,7 @@ using SmContent;
 namespace SmClient;
 
 /// <summary>
-/// Test aid (Three-Front War dependency, docs/discovery.md "Guardsman"): the Exterminatus Guardsman (<c>ig_coop_guardsman</c>) with its original body
+/// Test aid (Musou Mode dependency, docs/discovery.md "Guardsman"): the Exterminatus Guardsman (<c>ig_coop_guardsman</c>) with its original body
 /// (<c>guardsman_a</c>), head (<c>guardsman_head_basic_001</c>), rig and clips (<c>havok_guardsman_a_coop</c>) and its lasgun, all read from
 /// <c>data/chunks/ebp_sets__mp_coop_set_sm.oppc</c>, on a plain stage without a server. <c>--guard-test</c> with <c>--anim &lt;clip&gt;</c> (default
 /// <c>IG_NAV_Idle_01</c>; <c>--list-clips</c> prints the rig's clips), <c>--time &lt;s&gt;</c> (hold the clip there), <c>--head &lt;mesh&gt;</c>,

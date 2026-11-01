@@ -81,7 +81,7 @@ Only the map Manufactorum (`mp_tdm_09`) is developed further; it is the alpha ar
 
 ## Current state (2026-10-29)
 A playable pre-alpha ships to playtesters through the SM Reimpl Launcher (releases repository Yeezima/sm-reimpl-releases): Annihilation and
-Seize Ground on Manufactorum, the six classes plus the Ork Boy (added content), customizer, perks, bots, the launcher and updater. Protocol 51 (since 2026-11-01: no firing while sprinting).
+Seize Ground on Manufactorum, the six classes plus the Ork Boy (added content), customizer, perks, bots, the launcher and updater. Protocol 51 (since 2026-11-01: no firing while sprinting). Musou Mode (added content; `Tfw` in code) runs a whole run on a real server, with test aids leaving out the fighting (milestones TF9); no human has played it.
 The history of every milestone and fix (formats, systems, decisions, test aids, the switches that restore old behaviour) is in
 `docs/milestones.md`; search it for a system's name before changing that system. Add a short paragraph there after each milestone.
 This repository was published fresh on 2026-10-29 (one root commit); never merge a branch from the older private history.

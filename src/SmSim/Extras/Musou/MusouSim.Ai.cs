@@ -3,7 +3,7 @@ using System.Numerics;
 namespace SmSim.Extras.Musou;
 
 /// <summary>
-/// A target as the enemies see it in a tick (<see cref="MusouSim.Step"/>): its id, feet and whether it is alive. A player, or in the Three-Front War a Guard squad (a negative id,
+/// A target as the enemies see it in a tick (<see cref="MusouSim.Step"/>): its id, feet and whether it is alive. A player, or in Musou Mode a Guard squad (a negative id,
 /// <c>TfwContracts.GuardTargetId</c>; never 0, which is "no target").
 /// </summary>
 public readonly record struct MusouTarget(int Id, Vector3 Position, bool Alive);

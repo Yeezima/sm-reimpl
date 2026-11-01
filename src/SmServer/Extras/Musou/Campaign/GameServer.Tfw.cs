@@ -5,8 +5,8 @@ using SmSim.Extras.Musou.Campaign;
 namespace SmServer;
 
 /// <summary>
-/// The Three-Front War on the server (TF0: the contract and stubs). <c>--content musou</c> runs on the generated map <see cref="TfwMap.Name"/> by default
-/// (<see cref="TfwGeneratedMap"/>; the owner, 2026-11-01: "the three-front war mode is Musou mode"); a named map of the install (<c>--map mp_tdm_09</c>) keeps the 5-wave run as a test aid.
+/// Musou Mode on the server (TF0: the contract and stubs). <c>--content musou</c> runs on the generated map <see cref="TfwMap.Name"/> by default
+/// (<see cref="TfwGeneratedMap"/>; the owner's decision of 2026-11-01: this war is Musou Mode); a named map of the install (<c>--map mp_tdm_09</c>) keeps the 5-wave run as a test aid.
 /// </summary>
 public sealed partial class GameServer
 {
@@ -14,7 +14,7 @@ public sealed partial class GameServer
     static void TfwGeneratedMap(ContentExtras extras, ref string? name, ref GameMap? map, ref string? error)
     {
         bool musou = extras.HasFlag(ContentExtras.Musou);
-        if (name == TfwMap.Name && !musou) { error = $"--map {TfwMap.Name} is the Three-Front War's map: it needs --content {ContentProfiles.Musou}"; return; }
+        if (name == TfwMap.Name && !musou) { error = $"--map {TfwMap.Name} is Musou Mode's map: it needs --content {ContentProfiles.Musou}"; return; }
         if (!musou || name is not (null or TfwMap.Name)) return;
         name = TfwMap.Name;
         var data = TfwMap.Build();
@@ -28,6 +28,6 @@ public sealed partial class GameServer
         var nav = TfwNav(out string navNote);
         bool started = World.StartTfw(nav);
         if (started) { PlayerJoined += p => World.MusouJoined(p.PlayerId); TfwUseWireBox(); }
-        _musouNote = started ? $"musou: the Three-Front War runs on {TfwMap.Name} (placeholder arena and Stormbird; Space Marines only, no limits); {navNote}" : "musou: not started (the match has no team rules)";
+        _musouNote = started ? $"musou: Musou Mode runs on {TfwMap.Name} (placeholder arena and Stormbird; Space Marines only, no limits); {navNote}" : "musou: not started (the match has no team rules)";
     }
 }

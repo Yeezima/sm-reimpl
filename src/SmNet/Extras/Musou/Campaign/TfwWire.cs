@@ -13,12 +13,12 @@ public enum TfwGuardEventKind : byte { Shot = 1, Hurt = 2, Death = 3 }
 public readonly record struct TfwGuardEvent(TfwGuardEventKind Kind, uint Tick, ushort Guard, ushort Enemy, Vector3 Vector);
 
 /// <summary>
-/// The Three-Front War on the wire (design section H; no protocol bump, Musou's config hash keeps other profiles out). Values are little-endian; positions are quantised to
+/// Musou Mode on the wire (design section H; no protocol bump, Musou's config hash keeps other profiles out). Values are little-endian; positions are quantised to
 /// 0..65535 over the director's <see cref="MusouBox"/> (tag 5), as Musou's. The server's sections are envelope tags (message kind 16), sent only under <c>World.Tfw</c>:
 /// <list type="bullet">
 /// <item>Tag 7, the war: one record of <see cref="WarBytes"/> bytes <c>[u8 phase][u8 battle lane][f32 clock][f32 time scale][u8 transport][u8 supplies][u16 command echo]</c> then per
 /// lane <c>[i8 front][f32 progress][f32 imperial][f32 ork][u8 owned mask][f32 gather left][u8 lord state]</c>, then the own block (TF7b, <see cref="TfwOwnView"/>) <c>[u8 travel s][u8 pickup s][u8 revive s]
-/// [u8 extraction s][u8 revive tenths][u8 flags: bit 0 battle won][u8 retainer][u8 order][u16 recovery s][u8 guards][u8 squads][u8 reserves][u8 secured]</c>. On a change and once a second; per client
+/// [u8 extraction s][u8 revive tenths][u8 flags: bit 0 battle won, bit 1 deployed][u8 retainer][u8 order][u16 recovery s][u8 guards][u8 squads][u8 reserves][u8 secured]</c>. On a change and once a second; per client
 /// (the echo and the own block are the client's).</item>
 /// <item>Tag 8, the objectives: <c>[u8 n]</c> then n records of 10 bytes <c>[u8 index][u8 state][u16 progress 0..1][u16 x][u16 y][u16 z]</c>, at most <see cref="MaxObjectives"/>
 /// (180 bytes in all), the whole list every 10 ticks; n 0 outside a battle.</item>
@@ -43,7 +43,7 @@ public static class TfwWire
     /// <summary>The metres of one step of a command's point: 0.1 m, so a point reaches 3276.7 m from the origin on each axis.</summary>
     public const float PointStep = 0.1f;
 
-    const int WarHeadBytes = 14, LaneBytes = 19, OwnBytes = 14;
+    const int WarHeadBytes = 14, LaneBytes = 19, OwnBytes = 14, OwnWon = 1, OwnDeployed = 2;
     /// <summary>The fullest revive progress on the wire (<see cref="TfwOwnView.ReviveTenths"/>).</summary>
     public const byte MaxReviveTenths = 10;
     public const int WarBytes = WarHeadBytes + 3 * LaneBytes + OwnBytes, ObjectiveBytes = 10, GuardBytes = 10, GuardEventBytes = 15;
@@ -152,7 +152,7 @@ public static class TfwWire
         s[2] = own.ReviveSeconds;
         s[3] = own.ExtractionSeconds;
         s[4] = own.ReviveTenths;
-        s[5] = (byte)(own.BattleWon ? 1 : 0);
+        s[5] = (byte)((own.BattleWon ? OwnWon : 0) | (own.Deployed ? OwnDeployed : 0));
         s[6] = (byte)own.Retainer;
         s[7] = (byte)own.Order;
         BinaryPrimitives.WriteUInt16LittleEndian(s[8..], own.RecoverySeconds);
@@ -166,8 +166,8 @@ public static class TfwWire
     {
         var retainer = (TfwRetainerState)s[6];
         var order = (MarineOrder)s[7];
-        if (s[4] > MaxReviveTenths || s[5] > 1 || !Enum.IsDefined(retainer) || !Enum.IsDefined(order) || s[13] > WarRules.Positions) return null;
-        return new TfwOwnView(s[0], s[1], s[2], s[3], s[4], s[5] == 1, retainer, order, BinaryPrimitives.ReadUInt16LittleEndian(s[8..]), s[10], s[11], s[12], s[13]);
+        if (s[4] > MaxReviveTenths || (s[5] & ~(OwnWon | OwnDeployed)) != 0 || !Enum.IsDefined(retainer) || !Enum.IsDefined(order) || s[13] > WarRules.Positions) return null;
+        return new TfwOwnView(s[0], s[1], s[2], s[3], s[4], (s[5] & OwnWon) != 0, retainer, order, BinaryPrimitives.ReadUInt16LittleEndian(s[8..]), s[10], s[11], s[12], s[13], (s[5] & OwnDeployed) != 0);
     }
 
     static void WriteLane(Span<byte> s, in TfwLaneState lane)

@@ -21,7 +21,7 @@ public enum ContentExtras : uint
     /// </summary>
     LoyalistBarks = 4,
     /// <summary>
-    /// Musou (experimental; the owner, 2026-10-31: "This game mode should be labeled Musou"; 2026-11-01: "the three-front war mode is Musou mode"): the Three-Front War,
+    /// Musou (experimental; the owner, 2026-10-31: "This game mode should be labeled Musou"; 2026-11-01: this war is the mode, called Musou Mode): Musou Mode,
     /// played on the player's own PC. A mode, not an addition to the existing ones: not in <see cref="ContentExtrasInfo.All"/> (so <c>extended</c>
     /// and its config hash are unchanged), and <c>--content musou</c> only alone (never combined with another flag).
     /// </summary>
@@ -82,7 +82,7 @@ public static class ContentProfiles
 {
     public const string Faithful = "faithful";
     public const string Extended = "extended";
-    /// <summary>The Musou mode's profile (<see cref="ContentExtras.Musou"/> alone).</summary>
+    /// <summary>Musou Mode's profile (<see cref="ContentExtras.Musou"/> alone).</summary>
     public const string Musou = "musou";
 
     /// <summary>

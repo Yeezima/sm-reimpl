@@ -36,7 +36,7 @@ public readonly record struct MusouEvent(MusouEventKind Kind, uint Tick, ushort 
 public enum MusouPhase : byte
 {
     Waiting = 0, Wave = 1, Break = 2, Boss = 3, Won = 4, Lost = 5,
-    /// <summary>The Three-Front War is on (the run's own state travels in tag 7): no waves, no lives pool.</summary>
+    /// <summary>Musou Mode's war is on (the run's own state travels in tag 7): no waves, no lives pool.</summary>
     Campaign = 6,
 }
 

@@ -352,6 +352,117 @@ public class TfwRunTests
         Assert.Equal((float)WarRules.LeftProgress(1), run.War.LaneState(TfwLane.A).Progress, 4);
     }
 
+    /// <summary>The run's reserves set by hand (test only: a won battle always holds the depot's supply, so 0 cannot come by itself).</summary>
+    static void SetReserves(TfwRun run, int supplies, int? transport = null)
+    {
+        typeof(TfwRun).GetProperty(nameof(TfwRun.Supplies))!.SetValue(run, supplies);
+        if (transport is { } t) typeof(TfwRun).GetProperty(nameof(TfwRun.Transport))!.SetValue(run, t);
+    }
+
+    static TfwBattle WinWithoutLeaving(World w)
+    {
+        var battle = TfwRig.Deploy(w);
+        for (int k = 0; k < 3; k++) TfwRig.Secure(w, battle, k);
+        TfwRig.KillAll(w);
+        TfwRig.Steps(w, 2);
+        Assert.True(battle.Won);
+        return battle;
+    }
+
+    [Theory]
+    [InlineData(4, 2)]
+    [InlineData(3, 1)]
+    [InlineData(2, 0)]
+    [InlineData(1, 0)]   // under the price: it takes what is left
+    [InlineData(0, 0)]   // nothing left: never below 0
+    public void An_extraction_after_a_won_battle_never_ends_the_run(int supplies, int left)
+    {
+        var w = TfwRig.War();
+        var run = w.Tfw!;
+        var battle = WinWithoutLeaving(w);
+        var progress = run.War.LaneState(TfwLane.A);
+        SetReserves(run, supplies);
+        Assert.True(w.TfwKillForTests(Human));
+        TfwRig.Steps(w, 2);
+        Assert.True(run.ExtractionTicks > 0);
+        TfwRig.Seconds(w, TfwBattleRules.ExtractionPromptSeconds + 0.3f);
+        Assert.Equal((TfwRunPhase.Hub, left), (run.Phase, run.Supplies));
+        Assert.Equal(MatchState.Playing, w.State);
+        Assert.True(w.Players[Human].Alive);
+        Assert.True(TfwRig.InStormbird(w.Players[Human].Position));
+        Assert.Equal(progress.Front, run.War.LaneState(TfwLane.A).Front);    // a won battle does not count as left
+        Assert.Equal(progress.Progress, run.War.LaneState(TfwLane.A).Progress, 3);
+        TfwRig.Deploy(w);                                                    // the run goes on: no supply is asked for a deploy
+        Assert.Equal(TfwRunPhase.Battle, run.Phase);
+    }
+
+    [Fact]
+    public void A_won_extraction_with_nothing_left_waits_in_the_hub_for_a_transport()
+    {
+        var w = TfwRig.War();
+        var run = w.Tfw!;
+        WinWithoutLeaving(w);
+        SetReserves(run, 0, transport: 0);
+        Assert.True(w.TfwKillForTests(Human));
+        TfwRig.Seconds(w, TfwBattleRules.ExtractionPromptSeconds + 0.3f);
+        Assert.Equal((TfwRunPhase.Hub, 0, 0), (run.Phase, run.Transport, run.Supplies));
+        TfwRig.Command(w, TfwCommand.Deploy);
+        TfwRig.Seconds(w, 3f);
+        Assert.Equal(TfwRunPhase.Hub, run.Phase);                            // refused, and nothing ended: the HQ's next transport opens the way
+        Assert.Equal(MatchState.Playing, w.State);
+    }
+
+    [Fact]
+    public void An_extraction_from_a_battle_not_won_under_the_price_still_ends_the_run()
+    {
+        var w = TfwRig.War();
+        var run = w.Tfw!;
+        var battle = TfwRig.Deploy(w);
+        SetReserves(run, 1);
+        Assert.True(w.TfwKillForTests(Human));
+        TfwRig.Seconds(w, TfwBattleRules.ExtractionPromptSeconds + 0.3f);
+        Assert.Equal((TfwRunPhase.Lost, 1), (run.Phase, run.Supplies));
+    }
+
+    [Fact]
+    public void A_run_left_short_by_a_won_extraction_is_lost_by_the_next_extraction_not_won()
+    {
+        var w = TfwRig.War();
+        var run = w.Tfw!;
+        WinWithoutLeaving(w);
+        SetReserves(run, 1);
+        Assert.True(w.TfwKillForTests(Human));
+        TfwRig.Seconds(w, TfwBattleRules.ExtractionPromptSeconds + 0.3f);
+        Assert.Equal((TfwRunPhase.Hub, 0), (run.Phase, run.Supplies));
+        TfwRig.Deploy(w);
+        Assert.True(w.TfwKillForTests(Human));
+        TfwRig.Seconds(w, TfwBattleRules.ExtractionPromptSeconds + 0.3f);
+        Assert.Equal(TfwRunPhase.Lost, run.Phase);
+    }
+
+    [Fact]
+    public void The_win_aid_fells_only_what_stands_near_and_outside_a_war_does_nothing()
+    {
+        var w = TfwRig.War();
+        Assert.Equal(0, new World(TfwRig.Config).TfwSmiteForTests(Human, Vector3.Zero, 500f));
+        var battle = TfwRig.Deploy(w);
+        int before = w.Musou!.Alive;
+        Assert.Equal(TfwBattleRules.Defenders, w.TfwSmiteForTests(Human, battle.Layout.Positions[0], 15f));
+        Assert.Equal(before - TfwBattleRules.Defenders, w.Musou.Alive);
+    }
+
+    [Fact]
+    public void The_stress_aid_tops_up_only_in_a_battle()
+    {
+        var w = TfwRig.War();
+        w.TfwFillForTests(180, 20);
+        Assert.Equal(0, w.Musou!.Alive);
+        TfwRig.Deploy(w);
+        w.TfwFillForTests(180, 20);
+        Assert.Equal(180, w.Musou.Alive);
+        Assert.Equal(20, w.TfwGuards!.SquadsAlive);
+    }
+
     [Fact]
     public void An_unpaid_extraction_ends_the_run_and_a_new_run_follows_the_delay()
     {

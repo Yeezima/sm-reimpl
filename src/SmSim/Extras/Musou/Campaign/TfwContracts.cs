@@ -3,13 +3,13 @@ using System.Numerics;
 namespace SmSim.Extras.Musou.Campaign;
 
 /// <summary>
-/// The Three-Front War (Musou's war, owner 2026-11-01: "the three-front war mode is Musou mode"): the rules' version. Hashed into the config inside Musou's block
+/// Musou Mode (the war; <c>Tfw</c> in code means Musou Mode, docs/added-content.md): the rules' version. Hashed into the config inside Musou's block
 /// (<c>SimConfig.Extras.cs</c>), so a war-only change raises this and touches neither <see cref="MusouSim.Version"/> nor <see cref="ContentExtras.WireVersion"/>.
 /// The war's own numbers (kind ours; design sections C to F) join this class with the milestones that use them.
 /// </summary>
 public static class TfwRules
 {
-    public const uint Version = 4;   // 2: TF6, the war's sections on the wire and the commands with a place; 3: TF4, the war runs (the battle, the run, the extraction); 4: TF7b, tag 7 carries the own block (TfwOwnView)
+    public const uint Version = 5;   // 2: TF6, the war's sections on the wire and the commands with a place; 3: TF4, the war runs (the battle, the run, the extraction); 4: TF7b, tag 7 carries the own block (TfwOwnView); 5: the own block's deployed flag, and an extraction after a won battle never ends the run
 }
 
 /// <summary>The contract the war's milestones share (TF0, frozen): ids and how the war's actors are named across the simulation, the server and the client.</summary>
@@ -59,10 +59,11 @@ public enum TfwRetainerState : byte { None = 0, Ready = 1, Reviving = 2, Recover
 /// <summary>
 /// What one client's HUD needs of the run beyond the fronts (TF7b, the end of tag 7): the seconds left, rounded up (so a countdown changes the record once a second) of the travel, the pickup, the
 /// own revive window and the extraction's prompt; the revive's progress in tenths; whether the battle is won (a pickup is then free); the own retainer, its order and its recovery (war seconds, rounded
-/// up); and the battle's Guardsmen alive, squads in the field, squads in reserve and positions secured.
+/// up); the battle's Guardsmen alive, squads in the field, squads in reserve and positions secured; and whether this player is in the run's field (<see cref="TfwRun.InField"/>: one who joined after the
+/// landing is not, so the run does not hold its respawn).
 /// </summary>
 public readonly record struct TfwOwnView(byte TravelSeconds, byte PickupSeconds, byte ReviveSeconds, byte ExtractionSeconds, byte ReviveTenths, bool BattleWon,
-    TfwRetainerState Retainer, MarineOrder Order, ushort RecoverySeconds, byte Guards, byte Squads, byte Reserves, byte Secured);
+    TfwRetainerState Retainer, MarineOrder Order, ushort RecoverySeconds, byte Guards, byte Squads, byte Reserves, byte Secured, bool Deployed = false);
 
 /// <summary>One capture position as tag 8 carries it (positions quantised over the Musou box).</summary>
 public readonly record struct TfwObjective(byte Index, TfwPositionState State, float Progress, Vector3 Position);

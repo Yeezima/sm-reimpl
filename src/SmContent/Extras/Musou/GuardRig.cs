@@ -3,7 +3,7 @@ using System.Numerics;
 namespace SmContent.Extras.Musou;
 
 /// <summary>
-/// The Three-Front War's Guardsman on his own rig (TF7a; docs/discovery.md "Guardsman"): the Exterminatus <c>ig_coop_guardsman</c>, read from the co-op set. The rig, meshes, clips and
+/// Musou Mode's Guardsman on his own rig (TF7a; docs/discovery.md "Guardsman"): the Exterminatus <c>ig_coop_guardsman</c>, read from the co-op set. The rig, meshes, clips and
 /// lasgun are original assets of the player's install. Which clip plays when is **ours** (the graphs of <c>havok_guardsman_a_coop</c> are not read): the names are the clips the discovery
 /// lists for each job, as <see cref="RigClipTable.OrkBoy"/> names the boy's.
 /// </summary>

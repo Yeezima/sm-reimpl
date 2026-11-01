@@ -218,7 +218,7 @@ public sealed partial class TfwRun
 
     /// <summary>
     /// The fallen: a death cancels a pickup; a retainer standing gives a revive window; with nobody left fighting and no window open the extraction's prompt runs, then it is paid for or
-    /// the run is lost.
+    /// the run is lost. After a won battle it always happens (the owner, 2026-11-01): the supplies fall by what they can and the run goes on.
     /// </summary>
     void Downed(World w, int rate)
     {
@@ -237,11 +237,16 @@ public sealed partial class TfwRun
         if (fighting || waiting) { ExtractionTicks = 0; return; }
         if (ExtractionTicks == 0) ExtractionTicks = Math.Max(1, (int)MathF.Round(TfwBattleRules.ExtractionPromptSeconds * rate));
         else if (--ExtractionTicks > 0) return;
-        else if (Supplies < TfwBattleRules.ExtractionSupplies) { War.Enter(TfwRunPhase.Lost); return; }
+        else if (Battle!.Won)
+        {
+            Supplies = Math.Max(0, Supplies - TfwBattleRules.ExtractionSupplies);
+            Leave(w, left: false);
+        }
+        else if (Supplies < TfwBattleRules.ExtractionSupplies) War.Enter(TfwRunPhase.Lost);
         else
         {
             Supplies -= TfwBattleRules.ExtractionSupplies;
-            Leave(w, !Battle!.Won);
+            Leave(w, left: true);
         }
     }
 

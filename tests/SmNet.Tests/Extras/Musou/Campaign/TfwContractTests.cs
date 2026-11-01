@@ -9,7 +9,7 @@ using SmSim.Extras.Musou.Campaign;
 namespace SmNet.Tests.Extras.Musou.Campaign;
 
 /// <summary>
-/// The Three-Front War's contracts (TF0): the generated map and how a server picks it (Musou mode is the war; a named map keeps the 5-wave run), a client joining it as a Space
+/// Musou Mode's contracts (TF0): the generated map and how a server picks it (Musou Mode is the war; a named map keeps the 5-wave run), a client joining it as a Space
 /// Marine in the Stormbird, the AI Marines as players without a peer (input, name, loadout, the ids a join skips), the commands of message kind 17, the war's respawn, the wire's tags.
 /// </summary>
 public class TfwContractTests
@@ -64,7 +64,7 @@ public class TfwContractTests
     }
 
     [Theory]
-    [InlineData(ContentExtras.Musou, null, true, TfwMap.Name)]        // Musou mode is the war
+    [InlineData(ContentExtras.Musou, null, true, TfwMap.Name)]        // Musou Mode is the war
     [InlineData(ContentExtras.Musou, TfwMap.Name, true, TfwMap.Name)]
     [InlineData(ContentExtras.Musou, "mp_tdm_09", false, "mp_tdm_09")]   // the 5-wave run's test aid
     [InlineData(ContentExtras.Musou, "none", false, "none")]
@@ -124,7 +124,7 @@ public class TfwContractTests
         var h = WarServer(0);
         h.AddClient(nonce: 1, options: new ClientOptions { RequestedSide = Team.Chaos, LoadMap = _ => new LoadedMap(h.Server.Map!.Collision, h.Server.Map.Hash) });
         Assert.NotNull(h.Server.World.Tfw);
-        Assert.Contains("Three-Front War", h.Server.MusouNote);
+        Assert.Contains("Musou Mode", h.Server.MusouNote);
         var log = new List<string>();
         h.Server.Log += log.Add;
         h.Run(TimeSpan.FromSeconds(3));
@@ -138,7 +138,7 @@ public class TfwContractTests
         Assert.Equal(MusouPhase.Waiting, h.Server.World.MusouDirector!.Phase);   // the 5-wave director never starts
         Assert.Equal(default, h.Server.World.Musou.Director);                    // and nothing goes out for it
         Assert.All(h.Clients[0].TakeExtras(), s => Assert.Equal(TfwWire.WarTag, s.Tag));   // TF4: the war alone (tag 7), which echoes the commands
-        Assert.Contains(log, l => l.StartsWith("musou: the Three-Front War", StringComparison.Ordinal));
+        Assert.Contains(log, l => l.StartsWith("musou: Musou Mode", StringComparison.Ordinal));
     }
 
     [Fact]

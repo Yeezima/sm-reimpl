@@ -2205,9 +2205,9 @@ is a dropper whose collision content holds a crack and a crater decal, smoke and
 
 **Left open.** Whether the plasma and melta deaths visibly removed a limb or the body in the original (the graph's death clips are short and the corpse is a powered ragdoll); `remove_wargear` suggests the corpse's gun vanished. The sprint, headshot, lascannon and bullrush deaths bind no effect.
 
-## Guardsman (Three-Front War dependency, 2026-11-01)
+## Guardsman (Musou Mode dependency, 2026-11-01)
 
-The Musou "Three-Front War" mode (added content) wants Imperial Guardsmen allies drawn with the original model and clips. **Original assets loaded**
+Musou Mode (added content) wants Imperial Guardsmen allies drawn with the original model and clips. **Original assets loaded**
 (`client.cmd --guard-test`, a windowed still per angle; `client/GuardsmanTestView.cs`). The usable Guardsman is **not singleplayer content**: it is the
 Exterminatus co-op Guardsman, in the co-op sets `data/chunks/ebp_sets__mp_coop_set_sm.oppc` and `ebp_sets__mp_coop_set_factory.oppc` (same entries). The
 campaign has its own copies and variants (`ebp_sets__guardsman`, `ebp_sets__mixed_core_units` with the renegade guard and `chaos_lasgun`, the

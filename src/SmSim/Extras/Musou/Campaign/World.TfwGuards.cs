@@ -4,7 +4,7 @@ using SmSim.Extras.Musou.Campaign;
 namespace SmSim;
 
 /// <summary>
-/// The fight of the Three-Front War in the World (TF3): the enemies' pool against the players and the Guard squads, and the Guardsmen against the enemies. Runs from
+/// The fight of Musou Mode in the World (TF3): the enemies' pool against the players and the Guard squads, and the Guardsmen against the enemies. Runs from
 /// <see cref="TfwStep"/> and only while anyone is in the pool or the squads, so a war without a battle costs nothing.
 /// </summary>
 public sealed partial class World

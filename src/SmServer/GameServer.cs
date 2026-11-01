@@ -201,7 +201,7 @@ public sealed partial class GameServer
             if (!Protocol.IsMapName(p.Name)) throw new ArgumentException($"Control point name '{p.Name}' cannot travel (letters, digits, '_'; at most {Protocol.MaxMapName}).");
         World = new World(config, map?.Collision, map?.Spawns) { BoundBodies = true, Rules = _options.Match, ControlPoints = map?.ControlPoints ?? [], StartAreas = map?.StartAreas ?? [], SpawnBlockers = map?.Blockers ?? map?.Collision?.Blockers ?? [] };
         _emblems = new EmblemCache(Math.Max(1, _options.MaxCachedEmblems));
-        _contentFingerprint = contentFingerprint; _transport = transport; _clock = clock;
+        _contentFingerprint = contentFingerprint; _transport = Counted(transport); _clock = clock;
         if (config.Extras != ContentExtras.None) ExtrasCreated();   // EXTRAS-HOOK: added content's set-up of this server's match (Musou: the nav graph, the mode)
     }
 
@@ -219,7 +219,7 @@ public sealed partial class GameServer
     {
         GameMap? map = null;
         error = null;
-        ExtrasGeneratedMap(extras, ref name, ref map, ref error);   // EXTRAS-HOOK: a generated map (the Three-Front War's tfw_war)
+        ExtrasGeneratedMap(extras, ref name, ref map, ref error);   // EXTRAS-HOOK: a generated map (Musou Mode's tfw_war)
         return map;
     }
 
@@ -253,6 +253,7 @@ public sealed partial class GameServer
         for (int ran = 0; now >= _nextTickAt; ran++)
         {
             if (_options.MaxCatchUpTicks > 0 && ran >= _options.MaxCatchUpTicks) { SkipLateTicks(now, tickLength); break; }
+            long tickStarted = TickStatsBegin();   // test aid SM_TICK_STATS (GameServer.TickStats.cs)
             GuardTick();   // a fault is logged; too many in a row stop the server for its supervisor (GameServer.Guard.cs)
             _nextTickAt += tickLength;
             if (_nextTickAt > _nextSnapshotAt) { Guard("snapshots", SendSnapshots); _nextSnapshotAt += snapshotLength; }
@@ -260,6 +261,7 @@ public sealed partial class GameServer
             Guard("bars", SendBars);   // protocol 44: Tactical Readout / Signum Link (GameServer.Bars.cs)
             Guard("pickups", SendPickups);   // protocol 26: dropped pickups, outside the snapshots (GameServer.Pickups.cs)
             Guard("extras", SendExtrasDue);   // added content's envelope, never on a faithful server (GameServer.Envelope.cs)
+            TickStatsEnd(tickStarted);
         }
     }
 
@@ -428,7 +430,7 @@ public sealed partial class GameServer
     internal PlayerInput LastAppliedForTests(int id) => _peers.Values.Single(p => p.PlayerId == id).LastApplied;
 
     /// <summary>
-    /// Ids no joining player gets, on any profile: added content's players without a peer live here (the Three-Front War's AI Marines; a test pins these to its contract, which the
+    /// Ids no joining player gets, on any profile: added content's players without a peer live here (Musou Mode's AI Marines; a test pins these to its contract, which the
     /// core cannot name). A plain range, not a hook: skipping 8 of 65535 ids changes nothing a faithful match can see.
     /// </summary>
     internal const int ReservedPlayerIdFirst = 65520, ReservedPlayerIdLast = 65527;
@@ -739,7 +741,7 @@ public sealed partial class GameServer
             var s = World.Scores.GetValueOrDefault(p.PlayerId);
             var peer = PeerOf(p.PlayerId);
             string name = peer?.Name ?? "";
-            ExtrasPlayerName(p.PlayerId, ref name);   // EXTRAS-HOOK: the name of a player without a peer (the Three-Front War's AI Marines)
+            ExtrasPlayerName(p.PlayerId, ref name);   // EXTRAS-HOOK: the name of a player without a peer (Musou Mode's AI Marines)
             return new ScoreEntry(p.PlayerId, p.Team, p.Class, s.Kills, s.Deaths, peer?.Appearance.Version ?? 0,
                 Loadouts.EquipmentIndex(World.Config, p),   // protocol 40 (perks/inert-2)
                 name,                                      // protocol 41 (names/bot-lore)

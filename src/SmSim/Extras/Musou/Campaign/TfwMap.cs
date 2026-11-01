@@ -9,7 +9,7 @@ public sealed record TfwMapData(CollisionWorld Collision, IReadOnlyList<SpawnPoi
 public readonly record struct TfwSolid(Vector3 Min, Vector3 Max, bool Stormbird);
 
 /// <summary>
-/// The Three-Front War's one map (design section B, every value ours; the owner, 2026-11-01: for now an empty square box the size of Manufactorum and a small Stormbird control room):
+/// Musou Mode's one map (design section B, every value ours; the owner, 2026-11-01: for now an empty square box the size of Manufactorum and a small Stormbird control room):
 /// the server cannot change maps, so the battle arena and the Stormbird are one generated map (game metres, Z up). Everything solid is one list of boxes, <see cref="Solids"/>: the
 /// collision, the client's drawing and the client's ragdoll world are all made from it. Placeholder demonstration: nothing here comes from the install.
 /// </summary>

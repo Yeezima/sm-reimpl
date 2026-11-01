@@ -158,9 +158,11 @@ public static class TfwHudModel
             if (own.ReviveSeconds > 0 && own.ReviveTenths > 0) return $"YOUR RETAINER REVIVES YOU: {own.ReviveTenths * 10}%";
             if (own.ReviveSeconds > 0) return $"YOUR RETAINER IS COMING: {own.ReviveSeconds} S";
             if (own.ExtractionSeconds > 0)
-                return war.Supplies >= TfwBattleRules.ExtractionSupplies
-                    ? $"EMERGENCY EXTRACTION IN {own.ExtractionSeconds} S: IT COSTS {TfwBattleRules.ExtractionSupplies} SUPPLIES"
-                    : $"NO SUPPLIES FOR AN EXTRACTION: THE WAR IS LOST IN {own.ExtractionSeconds} S";
+            {
+                if (!own.BattleWon && war.Supplies < TfwBattleRules.ExtractionSupplies) return $"NO SUPPLIES FOR AN EXTRACTION: THE WAR IS LOST IN {own.ExtractionSeconds} S";
+                int cost = ExtractionCost(war);   // after a won battle what is left pays, and the run goes on
+                return cost == 0 ? $"EMERGENCY EXTRACTION IN {own.ExtractionSeconds} S" : $"EMERGENCY EXTRACTION IN {own.ExtractionSeconds} S: IT COSTS {cost} {(cost == 1 ? "SUPPLY" : "SUPPLIES")}";
+            }
             return "";
         }
         if (war.Phase == TfwRunPhase.Pickup) return $"PICKUP IN {own.PickupSeconds} S: STAY ALIVE";
@@ -174,6 +176,15 @@ public static class TfwHudModel
         TfwRunPhase.Battle or TfwRunPhase.FinalAssault => "CALLING A PICKUP",
         _ => "",
     };
+
+    /// <summary>The boss bar's name: the battle's commander, or the Warboss in the final assault.</summary>
+    public static string BossName(in TfwWarView war, IReadOnlyList<TfwObjective> objectives) => war.Phase == TfwRunPhase.FinalAssault || objectives.Count == 0 ? "ORK WARBOSS" : "ORK COMMANDER";
+
+    /// <summary>What an extraction takes now: its price, or after a won battle what is left of it.</summary>
+    public static int ExtractionCost(in TfwWarView war) => Math.Min((int)war.Supplies, TfwBattleRules.ExtractionSupplies);
+
+    /// <summary>Whether the run holds this client's respawn: it is in the battle under way. One who joined after the landing waits in the Stormbird on the core's respawn, so the match HUD's line is true for it and there is no KILLED banner.</summary>
+    public static bool RunHoldsRespawn(in TfwWarView war) => InBattle(war.Phase) && war.Own.Deployed;
 
     /// <summary>Whether a battle is on for the player: the order keys mean something.</summary>
     public static bool InBattle(TfwRunPhase phase) => phase is TfwRunPhase.Battle or TfwRunPhase.FinalAssault or TfwRunPhase.Pickup;
