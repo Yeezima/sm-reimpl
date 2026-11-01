@@ -451,6 +451,38 @@ public partial class ModelViewer : Node3D
         UiSounds.Current?.Attach(layer);   // the menus' sounds on every button of this screen
     }
 
+    /// <summary>
+    /// F11 switches fullscreen on and off anywhere (ours): the front end, the menus, the Options screen, a match, the customizer and the loadout picker. It runs here, on the root, before any screen or text field
+    /// sees the key, and changes the Options screen's WINDOW MODE setting (saved like it). A held key does not repeat. In a match the captured mouse is captured again afterwards.
+    /// </summary>
+    public override void _Input(InputEvent e)
+    {
+        if (e is not InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.F11 }) return;
+        GetViewport().SetInputAsHandled();
+        bool captured = Input.MouseMode == Input.MouseModeEnum.Captured;
+        try
+        {
+            // The services made last hold the settings; with none yet (a plain --connect, or the game folder screen) a set is made, the way the loadout picker makes one.
+            var services = CustomizerServices.Latest ?? new CustomizerServices(_gameDir, _launchArgs.GetValueOrDefault("profile"), lockDemo: false);
+            services.ToggleFullscreen();
+            GD.Print($"F11: window mode {services.Settings.Options.Window}");
+        }
+        catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
+        {
+            GD.PrintErr("F11: could not switch the window mode: " + ex.Message);
+        }
+        if (captured) CallDeferred(MethodName.RecaptureMouse, true);
+    }
+
+    /// <summary>A window mode change can drop the operating system's hold on the cursor: capture the mouse again (now, and once more when the new window has settled), unless the player has freed it since.</summary>
+    void RecaptureMouse(bool again)
+    {
+        if (Input.MouseMode != Input.MouseModeEnum.Captured) return;
+        Input.MouseMode = Input.MouseModeEnum.Visible;
+        Input.MouseMode = Input.MouseModeEnum.Captured;
+        if (again) GetTree().CreateTimer(0.3).Timeout += () => RecaptureMouse(false);
+    }
+
     public override void _UnhandledInput(InputEvent e)
     {
         if (_fromFrontEnd && _network is { } n && (n.ConnectionFailed || n.StillConnecting) && (e is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.Escape } || e is InputEventJoypadButton { Pressed: true, ButtonIndex: JoyButton.B }))

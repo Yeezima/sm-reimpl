@@ -22,6 +22,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
     readonly Dictionary<string, Button> _tabs = new();
     readonly UiKit.MenuColumn _page = new() { Name = "OptionsRows" };
     public string Tab { get; private set; } = Graphics;
+    UiKit.MenuChoice? _windowRow, _resolutionRow;   // the Graphics rows F11 changes behind the player's back
 
     GameOptions O => _services.Settings.Options;
     void Set(Func<GameOptions, GameOptions> change) => _services.UpdateSettings(x => x with { Options = change(x.Options) });
@@ -95,11 +96,13 @@ public sealed partial class OptionsView : UiKit.MenuPage
             i => Set(x => x with { WindowWidth = sizes[i].Item1, WindowHeight = sizes[i].Item2 }), "The window's size. Fullscreen and borderless use the desktop's resolution.");
         resolution.SetDisabled(O.Window != WindowChoice.Windowed);
         Add(resolution);
-        Choice("Window mode", ["WINDOWED", "BORDERLESS", "FULLSCREEN"], (int)O.Window, i =>
+        _resolutionRow = resolution;
+        _windowRow = new UiKit.MenuChoice("Window mode", ["WINDOWED", "BORDERLESS", "FULLSCREEN"], (int)O.Window, i =>
         {
             Set(x => x with { Window = (WindowChoice)i });
             resolution.SetDisabled(O.Window != WindowChoice.Windowed);
-        });
+        }, "F11 switches between fullscreen and the window, anywhere.");
+        Add(_windowRow);
         Choice("Vsync", OffOn, O.Vsync ? 1 : 0, i => Set(x => x with { Vsync = i == 1 }));
         var caps = GameOptions.FpsCaps;
         Choice("FPS cap", caps.Select(c => c == 0 ? "UNLIMITED" : c.ToString()).ToArray(), Array.IndexOf(caps, O.FpsCap), i => Set(x => x with { FpsCap = caps[i] }));
@@ -145,6 +148,18 @@ public sealed partial class OptionsView : UiKit.MenuPage
         var keybinds = UiKit.MenuButton("Keybinds", () => _onKeybinds(), "Rebind the keyboard, mouse and controller");
         keybinds.Name = "ControlsButton";
         Add(keybinds);
+    }
+
+    public override void _EnterTree() => CustomizerServices.WindowModeToggled += OnWindowModeToggled;
+
+    public override void _ExitTree() => CustomizerServices.WindowModeToggled -= OnWindowModeToggled;
+
+    /// <summary>F11 changed the window mode: the open page shows it at once (the rows keep their focus).</summary>
+    void OnWindowModeToggled(GameOptions options)
+    {
+        if (_windowRow is null || !GodotObject.IsInstanceValid(_windowRow)) return;
+        _windowRow.SetIndex((int)options.Window);
+        if (_resolutionRow is not null && GodotObject.IsInstanceValid(_resolutionRow)) _resolutionRow.SetDisabled(options.Window != WindowChoice.Windowed);
     }
 
     public override void _Input(InputEvent e)
