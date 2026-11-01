@@ -15,8 +15,10 @@ public struct GoreGib
 public struct GoreDrop
 {
     public bool Live;
+    /// <summary>True for an ink fleck (a jagged, stringy shape that tumbles); false for a small round droplet.</summary>
+    public bool Ink;
     public Vector3 Pos, Vel, Colour;
-    public float Size, Age, Life, Floor;
+    public float Size, Age, Life, Floor, Rot, Spin, Seed;
 }
 
 /// <summary>A pool on the ground: it spreads to <see cref="Radius"/> and stays.</summary>
@@ -39,8 +41,8 @@ public struct GoreSpatter
 public struct GoreMist
 {
     public bool Live;
-    public Vector3 Pos, Vel;
-    public float Size, Age, Life;
+    public Vector3 Pos, Vel, Colour;
+    public float Size, Age, Life, Seed;
 }
 
 /// <summary>A cleave's slash across one enemy's body: <see cref="Axis"/> the stroke, <see cref="Up"/> across it, both in the plane facing the camera.</summary>
@@ -103,18 +105,18 @@ public sealed class MusouGoreField
         return Math.Clamp(1.3f - load, 0.25f, 1f);
     }
 
+    /// <summary>Dark oxblood to near black (the trailer's blood: never bright red; linear colour).</summary>
     Vector3 Blood()
     {
         float shade = F();
-        return new Vector3(Range(0.3f, 0.75f) * (0.6f + 0.4f * shade), Range(0.004f, 0.02f), Range(0.008f, 0.04f));
+        return new Vector3(Range(0.012f, 0.04f) * (0.55f + 0.45f * shade), Range(0.003f, 0.007f), Range(0.003f, 0.006f));
     }
 
     Vector3 Flesh(bool ork)
     {
         float r = F();
-        if (ork && r < 0.14f) return new Vector3(Range(0.07f, 0.13f), Range(0.14f, 0.24f), Range(0.04f, 0.08f));   // green hide
-        if (r < 0.88f) return new Vector3(Range(0.2f, 0.38f), Range(0.015f, 0.04f), Range(0.015f, 0.04f));   // dark meat
-        return new Vector3(Range(0.45f, 0.58f), Range(0.14f, 0.22f), Range(0.13f, 0.2f));   // pale flesh and fat
+        if (ork && r < 0.1f) return new Vector3(Range(0.01f, 0.02f), Range(0.02f, 0.035f), Range(0.006f, 0.012f));   // dark green hide
+        return Blood() * Range(0.8f, 1.15f);
     }
 
     /// <summary>
@@ -139,8 +141,8 @@ public sealed class MusouGoreField
                 Vel = new Vector3(dir.X, dir.Y, 0f) * speed + new Vector3(0f, 0f, Range(2f, 6.5f) * MathF.Sqrt(power) * (boom ? 1.4f : 1f)),
                 Angle = new Vector3(Range(0f, MathF.Tau), Range(0f, MathF.Tau), Range(0f, MathF.Tau)),
                 Spin = new Vector3(Range(-12f, 12f), Range(-12f, 12f), Range(-12f, 12f)),
-                Size = limb ? Range(0.13f, 0.22f) * (0.8f + 0.3f * power) : Range(0.06f, 0.17f) * (0.8f + 0.3f * power),
-                Colour = limb ? (F() < 0.18f ? new Vector3(0.6f, 0.56f, 0.48f) : Flesh(ork)) : Flesh(ork),
+                Size = limb ? Range(0.16f, 0.26f) * (0.8f + 0.3f * power) : Range(0.1f, 0.2f) * (0.8f + 0.3f * power),
+                Colour = Flesh(ork),
                 Drip = Range(0f, 0.08f),
             };
         }
@@ -149,9 +151,11 @@ public sealed class MusouGoreField
             var dir = boom ? Norm(new Vector3(Unit().X, Unit().Y, MathF.Abs(F()) * 0.9f + 0.1f), Vector3.UnitZ) : Norm(pd * 1.2f + Unit() * 0.9f, Vector3.UnitZ);
             float speed = Range(3f, boom ? 14f : 10f) * power;
             ref var d = ref NextDrop();
+            bool ink = F() < (boom ? 0.3f : 0.22f);
             d = new GoreDrop
             {
-                Live = true, Pos = at + Unit() * 0.15f, Floor = floor, Colour = Blood(), Size = Range(0.02f, 0.055f) * (0.8f + 0.25f * power), Life = Range(1.2f, 2.4f),
+                Live = true, Ink = ink, Seed = F(), Rot = Range(0f, MathF.Tau), Spin = Range(-6f, 6f), Pos = at + Unit() * 0.15f, Floor = floor, Colour = Blood(),
+                Size = ink ? Range(0.06f, 0.17f) * (0.8f + 0.25f * power) : Range(0.016f, 0.04f) * (0.8f + 0.25f * power), Life = ink ? Range(1.5f, 2.8f) : Range(1.2f, 2.4f),
                 Vel = new Vector3(dir.X * speed, dir.Y * speed, dir.Z * speed + Range(1f, 3.5f)),
             };
         }
@@ -161,12 +165,17 @@ public sealed class MusouGoreField
             float radius = boom ? Range(1.2f, 1.9f) * (i == 0 ? 1f : 0.55f) : Range(0.38f, 0.65f) * MathF.Sqrt(power);
             var off = i == 0 ? Vector3.Zero : new Vector3(Unit().X, Unit().Y, 0f) * 0.9f;
             GroundVersion++;
-            p = new GorePool { Live = true, Pos = new Vector3(at.X + off.X, at.Y + off.Y, floor), Colour = new Vector3(Range(0.42f, 0.6f), 0.008f, 0.02f), Radius = radius, Seed = F() };
+            p = new GorePool { Live = true, Pos = new Vector3(at.X + off.X, at.Y + off.Y, floor), Colour = new Vector3(Range(0.02f, 0.04f), 0.003f, 0.004f), Radius = radius, Seed = F() };
         }
         for (int i = 0; i < b.Mist; i++)
         {
             ref var m = ref NextMist();
-            m = new GoreMist { Live = true, Pos = at + Unit() * 0.5f, Vel = Unit() * 1.2f + new Vector3(0f, 0f, 0.7f), Size = Range(1.5f, 2.6f), Life = Range(0.8f, 1.3f) };
+            // A cloud that blooms outward, hangs and thins slowly: muddy brown-red, some puffs darker.
+            float dark = F();
+            var tone = Vector3.Lerp(new Vector3(0.12f, 0.032f, 0.02f), new Vector3(0.05f, 0.009f, 0.007f), dark);
+            m = boom
+                ? new GoreMist { Live = true, Pos = at + Unit() * 0.7f, Vel = Unit() * 2.0f + new Vector3(0f, 0f, 0.5f), Size = Range(1.5f, 2.6f), Life = Range(2.6f, 4.4f), Colour = tone, Seed = F() }
+                : new GoreMist { Live = true, Pos = at + Unit() * 0.25f, Vel = Unit() * 0.7f + new Vector3(0f, 0f, 0.4f), Size = Range(0.8f, 1.3f) * MathF.Sqrt(power), Life = Range(1.6f, 2.6f), Colour = tone, Seed = F() };
         }
         Recount();
     }
@@ -189,7 +198,7 @@ public sealed class MusouGoreField
             ref var d = ref NextDrop();
             d = new GoreDrop
             {
-                Live = true, Pos = at + axis * Range(-0.7f, 0.7f), Floor = at.Z - 1.1f, Colour = Blood(), Size = Range(0.02f, 0.05f), Life = Range(0.8f, 1.8f),
+                Live = true, Ink = i % 4 == 0, Seed = F(), Rot = Range(0f, MathF.Tau), Spin = Range(-6f, 6f), Pos = at + axis * Range(-0.7f, 0.7f), Floor = at.Z - 1.1f, Colour = Blood(), Size = i % 4 == 0 ? Range(0.05f, 0.12f) : Range(0.016f, 0.036f), Life = Range(0.8f, 1.8f),
                 Vel = axis * Range(2.5f, 8f) + Unit() * 1.4f + new Vector3(0f, 0f, Range(0.5f, 2.5f)),
             };
         }
@@ -206,7 +215,7 @@ public sealed class MusouGoreField
             ref var d = ref NextDrop();
             d = new GoreDrop
             {
-                Live = true, Pos = at, Floor = at.Z - 1.1f, Colour = Blood(), Size = Range(0.015f, 0.04f), Life = Range(0.6f, 1.4f),
+                Live = true, Ink = i % 5 == 0, Seed = F(), Rot = Range(0f, MathF.Tau), Spin = Range(-6f, 6f), Pos = at, Floor = at.Z - 1.1f, Colour = Blood(), Size = i % 5 == 0 ? Range(0.04f, 0.09f) : Range(0.012f, 0.03f), Life = Range(0.6f, 1.4f),
                 Vel = v * Range(2f, 7f) * power + new Vector3(0f, 0f, Range(0.5f, 2f)),
             };
         }
@@ -252,7 +261,7 @@ public sealed class MusouGoreField
                 // A trail: a drop falls off the flying piece now and then.
                 g.Drip = Range(0.05f, 0.1f);
                 ref var d = ref NextDrop();
-                d = new GoreDrop { Live = true, Pos = g.Pos, Floor = g.Floor, Colour = Blood(), Size = Range(0.015f, 0.035f), Life = 1.5f, Vel = Unit() * 0.6f + g.Vel * 0.2f };
+                d = new GoreDrop { Live = true, Pos = g.Pos, Floor = g.Floor, Colour = Blood(), Size = Range(0.012f, 0.028f), Life = 1.5f, Vel = Unit() * 0.6f + g.Vel * 0.2f };
             }
             float rest = g.Floor + g.Size * 0.4f;
             if (g.Pos.Z <= rest)
@@ -267,8 +276,9 @@ public sealed class MusouGoreField
                 }
                 else
                 {
-                    g.Resting = true; g.Vel = Vector3.Zero; g.Spin = Vector3.Zero; g.Age = 0f;
-                    Splat(g.Pos, g.Floor, g.Size * Range(2.2f, 3.6f), Blood());
+                    // No lump lies about: a flying clot lands as a dark stain.
+                    g.Live = false;
+                    Splat(g.Pos, g.Floor, g.Size * Range(3f, 5f), g.Colour);
                 }
             }
         }
@@ -279,9 +289,11 @@ public sealed class MusouGoreField
             d.Age += dt;
             d.Vel.Z -= MusouGoreRules.Gravity * dt;
             d.Pos += d.Vel * dt;
+            d.Rot += d.Spin * dt;
             if (d.Pos.Z <= d.Floor)
             {
-                if (F() < 0.45f) Splat(d.Pos, d.Floor, d.Size * Range(3f, 7f), d.Colour);
+                if (d.Ink) Splat(d.Pos, d.Floor, d.Size * Range(3f, 5f), d.Colour);
+                else if (F() < 0.45f) Splat(d.Pos, d.Floor, d.Size * Range(4f, 9f), d.Colour);
                 d.Live = false;
             }
             else if (d.Age > d.Life) d.Live = false;
@@ -294,7 +306,7 @@ public sealed class MusouGoreField
             if (!m.Live) continue;
             m.Age += dt;
             m.Pos += m.Vel * dt;
-            m.Vel *= MathF.Max(0f, 1f - 2f * dt);
+            m.Vel *= MathF.Max(0f, 1f - 1.1f * dt);
             if (m.Age > m.Life) m.Live = false;
         }
         for (int i = 0; i < Slashes.Length; i++) { ref var s = ref Slashes[i]; if (s.Live) { s.Age += dt; if (s.Age > MusouGoreRules.SlashSeconds) s.Live = false; } }

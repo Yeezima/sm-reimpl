@@ -87,7 +87,7 @@ public partial class NetworkView
         {
             if (!MusouGoreRegister(d, camera)) _musouCrowd!.AddBody(d);   // M10: a gibbed body leaves no corpse
             var at = new Vector3(d.Position.X, d.Position.Y, d.Position.Z + 1.1f);
-            if (at.DistanceTo(camera) <= MusouCrowd.NearMetres)
+            if (GoreOff && at.DistanceTo(camera) <= MusouCrowd.NearMetres)   // the dark gore draws the death blood; the red glow only with --no-musou-gore
                 BloodSplashAt(_gameSpace!.Transform * at, -(_gameSpace.Transform.Basis * new Vector3(d.Push.X, d.Push.Y, d.Push.Z)), 0.0);
         }
         _musouDeaths.Clear();

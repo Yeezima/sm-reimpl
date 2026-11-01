@@ -102,15 +102,15 @@ public static class MusouGoreRules
         float size = MathF.Pow(weight, 0.75f);
         int gibs, limbs, droplets, pools, mist;
         float power;
-        if (cls == GoreClass.Explosion) { gibs = 20; limbs = 7; droplets = 80; pools = 2; mist = 3; power = 1.8f; }
+        if (cls == GoreClass.Explosion) { gibs = 14; limbs = 5; droplets = 80; pools = 2; mist = 7; power = 1.8f; }
         else switch (cause)
         {
-            case MusouDeathKind.Melee: gibs = 5; limbs = 2; droplets = 36; pools = 1; mist = 0; power = 1f; break;   // melee and charges weigh heaviest
-            case MusouDeathKind.Strafe: gibs = 7; limbs = 3; droplets = 44; pools = 1; mist = 0; power = 1.2f; break;
+            case MusouDeathKind.Melee: gibs = 4; limbs = 2; droplets = 36; pools = 1; mist = 1; power = 1f; break;   // melee and charges weigh heaviest
+            case MusouDeathKind.Strafe: gibs = 6; limbs = 3; droplets = 44; pools = 1; mist = 2; power = 1.2f; break;
             default: gibs = 2; limbs = 0; droplets = 16; pools = 1; mist = 0; power = 0.7f; break;
         }
         float scale = size * Math.Clamp(load, 0.25f, 1f) * (lod == GoreLod.Half ? 0.5f : 1f);
-        gibs = Count(gibs * scale); limbs = Count(limbs * scale); droplets = Count(droplets * scale); mist = Count(mist * scale * (cls == GoreClass.Explosion ? 1f : 0f));
+        gibs = Count(gibs * scale); limbs = Count(limbs * scale); droplets = Count(droplets * scale); mist = Count(mist * scale);
         if (lod == GoreLod.Spray)
         {
             // One spray and, for an explosion, one puff: nothing that lies about on the ground.

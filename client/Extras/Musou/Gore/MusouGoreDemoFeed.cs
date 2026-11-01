@@ -146,6 +146,7 @@ public sealed class MusouGoreDemoFeed
             var list = _case.Split(',');
             switch (list[n % list.Length])
             {
+                case "melee": if (Once(k, 0.4f, 80 + n)) MeleeKill(t); break;
                 case "sweep": if (k is >= 0.4f and < 0.7f && _tick % 4 == 0) Sweep(t); break;
                 case "shot": if (k is >= 0.4f and < 1.2f && _tick % 4 == 0) Shoot(t); break;
                 case "lascannon": if (Once(k, 0.4f, 20 + n)) Lascannon(t); break;
@@ -220,6 +221,17 @@ public sealed class MusouGoreDemoFeed
         for (int k = 0; k < near.Count && k < 3; k++) Kill(near[k].I, t, MusouDeathKind.Melee, Killer, Away(from, Where(near[k].I, t)));
     }
 
+    /// <summary>One melee kill: a hit (marker 3) and a Melee death on one enemy in the front rows (for a still of a single kill).</summary>
+    void MeleeKill(float t)
+    {
+        int i = Pick(o => o.Home.Y < _centre.Y - 5f && Math.Abs(o.Home.X - _centre.X) < 3f);
+        if (i < 0) i = Pick(_ => true);
+        if (i < 0) return;
+        var at = Where(i, t);
+        Hit(i, t, 3);
+        Kill(i, t, MusouDeathKind.Melee, Killer, Away(at + new Vector3(0f, -1.8f, 0f), at));
+    }
+
     void Shoot(float t)
     {
         int i = Pick(o => o.Home.Y < _centre.Y);
@@ -241,7 +253,8 @@ public sealed class MusouGoreDemoFeed
 
     void Frag(float t)
     {
-        int i = Pick(_ => true);
+        int i = Pick(o => o.Home.Y < _centre.Y - 4.5f && Math.Abs(o.Home.X - _centre.X) < 3f);   // the front rows, so a still sees it
+        if (i < 0) i = Pick(_ => true);
         if (i < 0) return;
         var at = Where(i, t);
         for (int k = 0; k < _orks.Length; k++)
