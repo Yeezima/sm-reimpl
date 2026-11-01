@@ -56,7 +56,7 @@ public partial class NetworkView
     /// <summary>The line for a connection that was up and is gone (see <see cref="ConnectionLost"/>).</summary>
     string ConnectionGoneText() =>
         ConnectionLost.Text(_client!.Status, _connectedFor, _client.SinceLastSnapshot.TotalSeconds, _worstFrameSinceSnapshot, _longestConnectedFrame, _longestConnectedFrameAt,
-            _client.KeepAlivesSent, _client.KeepAliveRunning || _client.KeepAlivesSent > 0, ConnectionTimeoutSeconds);
+            _client.KeepAlivesSent, _client.KeepAliveRunning || _client.KeepAlivesSent > 0, ConnectionTimeoutSeconds, _client.RefusedSinceSnapshot);
 
     /// <summary>The client's own timeout for silence from the server (<see cref="ClientOptions.ServerTimeout"/>).</summary>
     static double ConnectionTimeoutSeconds => new ClientOptions().ServerTimeout.TotalSeconds;
