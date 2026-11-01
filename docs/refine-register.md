@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2127 spec table rows: **1516 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 454 rows of the changes document.
+Scanned 2128 spec table rows: **1517 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 454 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,16 +50,16 @@ Scanned 2127 spec table rows: **1516 tagged**, 441 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 10 | 1 | 9 | 8 | 7 |
-| Core simulation (provisional values) | 255 | 239 | 213 | 26 | 1 |
+| Core simulation (provisional values) | 256 | 240 | 213 | 27 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 107 | 100 | 61 | 11 | 0 |
-| **All areas** | **1516** | 1288 | 1214 | 430 | 38 |
+| **All areas** | **1517** | 1289 | 1214 | 431 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 700 |
+| kind: ours | 701 |
 | confidence: low | 571 |
 | confidence: medium | 515 |
 | kind: interpretation | 335 |
@@ -75,8 +75,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: user's knowledge | 26 |
 | kind: approximation | 22 |
 | kind: placeholder | 22 |
+| notes: estimate | 19 |
 | notes: placeholder | 19 |
-| notes: estimate | 18 |
 | kind: gap (not reproduced) | 17 |
 | notes: open question | 16 |
 | notes: interpretation | 15 |
@@ -1854,7 +1854,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
 
-### Core simulation (provisional values) (255)
+### Core simulation (provisional values) (256)
 
 *Spec section: Provisional values in use*
 
@@ -2245,6 +2245,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-599C739E` | Slow-frame line | a frame that took **1 s** or more while connected is written to the log with the keep-alive packets sent meanwhile (s) | kind: ours; confidence: none (low) | ours | Slow-frame line: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a frame that took 1 s or more while connected is written to the log… | ☐ |
 | `R-89EEAE92` | "Connection is gone" line | names the cause: a freeze of this client (a frame of at least server timeout minus 1 s since the last snapshot), a freeze earlier in the session, or a server or network that went silent while frames ran normally; with the worst frame, the time since the last… | kind: ours; confidence: none (low) | ours | "Connection is gone" line: compare with SM1 by feel or video. Ours: names the cause: a freeze of this client (a frame of at least server… | ☐ |
 | `R-96F42DFA` | Hosted server lines in the client log | every join, every leave with its reason, every refusal, every fault note (" failed: ", "dropped after", "FATAL") with up to **14** stack lines after it, as "hosted server: ..."; the server's own throttle (the first 20 faults in full, then one in 10 s; stacks… (lines) | kind: ours; confidence: none (low) | ours | Hosted server lines in the client log: compare with SM1 by feel or video. Ours: every join, every leave with its reason, every refusal, every fault… | ☐ |
+
+*Spec section: Commander status marker (Musou Mode; client only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-29BD2B26` | Commander status text | font size **14** (the position letters 40), shown only within **6** degrees of the crosshair (points, degrees) | kind: ours; notes: estimate | owner 2026-11-02 | Commander status text: compare with SM1 with an overlaid screenshot taken from the same position. Ours: font size 14 (the position letters 40), shown only within 6 degrees… | ☐ |
 
 ### General game design (7)
 

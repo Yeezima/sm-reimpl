@@ -3851,3 +3851,9 @@ Musou Mode's enemies sound with the original events through `SoundSystem`, so th
 | Slow strikes in Musou Mode | enemies carry no player lock, so the cleave of these strikes reaches **1** m farther | m | at the hit | `MusouCombatRules.CleaveTrackRange` | owner, as above | ours | estimate |
 | Power weapons' blue cloud | the cloud is half its size: `PowerFlash.CloudBoost` **0.575** (was 1.15); the data's own hit effects keep their size | factor | per burst | `client/PowerFlash.cs` | owner 2026-11-02 | ours | estimate |
 | Stalker bolter wall crater | a world hit plays the bolter's crater effect for the surface (`bolter_dmg_metal` on metal, else `bolter_dmg_stone`) at **1.6** times its size, instead of the data's (no effect on stone, the faint husk elsewhere) | factor | per hit | `StalkerCrater` | owner 2026-11-02 "larger than bolt pistol and bolter wall decal bullet holes" | ours | estimate |
+
+### Commander status marker (Musou Mode; client only)
+
+| Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Commander status text | font size **14** (the position letters 40), shown only within **6** degrees of the crosshair | points, degrees | per frame | `TfwMarkers` | owner 2026-11-02 | ours | estimate |
