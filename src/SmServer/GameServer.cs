@@ -742,7 +742,7 @@ public sealed partial class GameServer
             var peer = PeerOf(p.PlayerId);
             string name = peer?.Name ?? "";
             ExtrasPlayerName(p.PlayerId, ref name);   // EXTRAS-HOOK: the name of a player without a peer (Musou Mode's AI Marines)
-            return new ScoreEntry(p.PlayerId, p.Team, p.Class, s.Kills, s.Deaths, peer?.Appearance.Version ?? 0,
+            return new ScoreEntry(p.PlayerId, p.Team, p.Class, s.Kills, s.Deaths, peer is not null ? peer.Appearance.Version : PeerlessLook(p.PlayerId)?.Version ?? 0,
                 Loadouts.EquipmentIndex(World.Config, p),   // protocol 40 (perks/inert-2)
                 name,                                      // protocol 41 (names/bot-lore)
                 peer?.Rtt.Ms ?? -1);                       // protocol 50 (net/scoreboard-ping): -1 not measured yet
