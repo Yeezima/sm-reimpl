@@ -2282,7 +2282,7 @@ The weapon crate proper, `case_weapon.dcm` (blueprints `pickup_weapons`, `pickup
 | Near explosion | `play_huge_explosion_near_stereo` | event in `in_game_default`; its 3 targets not found in the default set, `explosions`, `vehicles` or `rgn_s27_r500` | **missing**; use `play_big_damage_large_explosion` |
 | Artillery | none: no named event says artillery, mortar or bombard | | **missing**; the explosions above stand in |
 | Whistle | none: no named event says whistle or shell in flight (`play_shell_*` are the campaign's cannon loader) | | **missing**; nearest `play_droppod_incoming` (`vehicles`, 3 wems), else the design's falling-pitch treatment of a bank sound, tagged |
-| Ambient war | none named: the 82 named `play_*` of `ambiences` are machines and set pieces (`play_titan_footstep` the only distant-war candidate); `mp_tdm_09` has 9 events, no ambience; land vehicles en masse have no event | | **missing**; build it from the far explosions, the Valkyrie flybys, `play_sm_heavy_bolter_fire` and the anti-aircraft FX, low-passed |
+| Ambient war | none named: the 82 named `play_*` of `ambiences` are machines and set pieces (`play_titan_footstep` the only distant-war candidate); `mp_tdm_09` has 9 events, no ambience; land vehicles en masse have no event | | **missing**; build it from the far explosions, `play_sm_heavy_bolter_fire` and the anti-aircraft FX, low-passed (the Valkyrie flybys were in it until the owner took them out, 2026-11-01) |
 
 Unnamed events remain (`in_game_default` 1,232 of 2,129, `ambiences` 375 of 493), so "none" means none among the names known: a whistle or a war bed may sit unnamed. The region packages `air_rgn_*` hold sounds with no events and were not opened.
 

@@ -10,8 +10,6 @@ public static class TfwFireRules
 {
     /// <summary>Thunderhawk runs: paused by the owner (2026-11-01). While false no run starts in a match and the client loads neither the aircraft nor the campaign's bank. Set it true to pick the runs up: what is left to do is in docs/milestones.md, M8 and M9.</summary>
     public static readonly bool RunsEnabled = false;
-    /// <summary>Seconds a player waits between two orbital strikes (ours; the owner asked for a cooldown, 60 s the lead's default).</summary>
-    public const float StrikeCooldownSeconds = 60f;
     /// <summary>Shells in a barrage, both ends included.</summary>
     public const int ShellsMin = 16, ShellsMax = 24;
     /// <summary>The length of the line a barrage walks (m), drawn in this range.</summary>
@@ -83,7 +81,6 @@ public sealed class TfwFire
     readonly List<TfwShell> _shells = new();
     readonly List<TfwFireEvent> _events = new();
     TfwBattle? _battle;
-    readonly Dictionary<int, uint> _strikeReady = new();
     uint _nextRun;
     ushort _runs, _rounds;
 
@@ -152,18 +149,6 @@ public sealed class TfwFire
         _shells.Clear();
         Run = null;
     }
-
-    /// <summary>A new run: every cooldown is over.</summary>
-    internal void NewRun() => _strikeReady.Clear();
-
-    /// <summary>Ticks until <paramref name="player"/> may call a strike.</summary>
-    public int StrikeTicksLeft(int player, uint tick) => _strikeReady.TryGetValue(player, out uint ready) && ready > tick ? (int)(ready - tick) : 0;
-
-    /// <summary>Test aid: as <see cref="StrikeCalled"/>.</summary>
-    public void StrikeCalledForTests(int player, uint tick, int rate) => StrikeCalled(player, tick, rate);
-
-    /// <summary><paramref name="player"/> called a strike on <paramref name="tick"/>.</summary>
-    internal void StrikeCalled(int player, uint tick, int rate) => _strikeReady[player] = tick + (uint)MathF.Ceiling(TfwFireRules.StrikeCooldownSeconds * rate);
 
     /// <summary>The next run (the design's <c>max(45 s, 45 + hash·75)</c>): never under <see cref="TfwFireRules.RunGapSeconds"/> from <paramref name="tick"/>.</summary>
     internal void ScheduleRun(uint tick, int rate) => _nextRun = tick + (uint)MathF.Ceiling(RunGap(tick) * rate);
