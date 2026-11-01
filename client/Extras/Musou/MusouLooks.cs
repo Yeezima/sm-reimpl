@@ -101,6 +101,8 @@ public sealed class MusouLooks
         }
         if (_looks[(int)MusouEnemyType.Warboss] is null && _looks[(int)MusouEnemyType.Boy] is { } boy)   // no Nob and no pro mesh to be had: the Boy's body, big
             _looks[(int)MusouEnemyType.Warboss] = new Look { Name = "Warboss:boy_melee", Assets = boy.Assets, Scale = 2.0f, Clips = boy.Clips };
+        if (_looks[(int)MusouEnemyType.Nob] is null && _looks[(int)MusouEnemyType.Boy] is { } boyNob)   // the same for the Nob: never left invisible
+            _looks[(int)MusouEnemyType.Nob] = new Look { Name = "Nob:boy_melee", Assets = boyNob.Assets, Scale = 1.4f, Clips = boyNob.Clips };
         if (!_chaosTried && _chaos() is { } chaos)
         {
             _chaosTried = true;
