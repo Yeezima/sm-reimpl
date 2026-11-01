@@ -45,14 +45,14 @@ public partial class NetworkView
         var f = _tfwHud.Data;
         f.War = war;
         f.Objectives = _tfwState.Objectives;
-        f.Alive = me.Alive;
+        f.Alive = me.Alive || Spectate is not null;   // a spectator was never killed
         f.Station = _tfwAt == TfwStation.None ? "" : TfwHudModel.StationPrompt(_tfwAt, ControlsInput.Prompt(GameAction.Use));
         f.PickupHold = _tfwKeys.PickupHold;
         f.Kos = _musouScore.Kos;
         _tfwHud.Fed();
         _tfwHud.Visible = _endPhase == MatchEndPhase.Splash && !_tfwMapHeld;
         // The match HUD's "RESPAWN IN n" would lie: a fallen player waits for its retainer or the extraction, held by the run. TfwHud says KILLED and what happens instead.
-        if (!me.Alive && TfwHudModel.InBattle(war.Phase) && _hudView is { } hud) hud.Data.Alive = true;
+        if (!f.Alive && TfwHudModel.InBattle(war.Phase) && _hudView is { } hud) hud.Data.Alive = true;
         if (_musouHud is { } musou) musou.Data.BossName = war.Phase == TfwRunPhase.FinalAssault || _tfwState.Objectives.Count == 0 ? "ORK WARBOSS" : "ORK COMMANDER";
     }
 
