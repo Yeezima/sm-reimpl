@@ -89,24 +89,27 @@ public class ReactionTests(ITestOutputHelper output)
     // ---------------------------------------------------------------- sources
 
     [Fact]
-    public void A_light_hit_interrupts_its_target_from_the_front_and_a_heavy_strike_from_rest_stuns_it_with_knockback()
+    public void A_light_hit_flinches_its_target_without_a_reaction_and_a_heavy_strike_from_rest_stuns_it_with_knockback()
     {
+        // sim/light-melee-flinch (the owner, 2026-11-01): a light hit starts no reaction; it flinches (the aim thrown off, LightMeleeFlinchTests).
         var w = Arena(Config, null, (Tactical, Vector3.Zero), (Tactical, new Vector3(0, 2, 0)));
         var reactions = new List<ReactionEvent>();
-        Run(w, 8, (k, id) => id == 1 && k == 0 ? Press(InputButtons.Melee) : None, _ => reactions.AddRange(w.LastReactions));
-        var e = Assert.Single(reactions);
-        Assert.Equal((1, 2, ReactionKind.Interrupt, ReactionDirection.Front, 0), (e.Source, e.Target, e.Kind, e.Direction, e.PushDistance));
-        Assert.Equal(8u, e.Tick);   // the press is world tick 1 (attack time 0), the hit lands 7 ticks later
+        var flinches = new List<FlinchEvent>();
+        Run(w, 8, (k, id) => id == 1 && k == 0 ? Press(InputButtons.Melee) : None, _ => { reactions.AddRange(w.LastReactions); flinches.AddRange(w.LastFlinches); });
+        Assert.Empty(reactions);
+        var f = Assert.Single(flinches);
+        Assert.Equal((1, 2, 15), (f.Source, f.Target, f.Ticks));
+        Assert.Equal(8u, f.Tick);   // the press is world tick 1 (attack time 0), the hit lands 7 ticks later
         var v = w.Players[2];
-        Assert.Equal((ReactionKind.Interrupt, 0), (v.Reaction, v.ReactionTicks));
-        Assert.Equal(ReactionKind.None, w.Players[1].Reaction);   // the attacker is not affected
+        Assert.Equal((ReactionKind.None, 0, 0, 15), (v.Reaction, v.ReactionTicks, v.PushDistance, v.FlinchTicks));
+        Assert.Equal((ReactionKind.None, 0), (w.Players[1].Reaction, w.Players[1].FlinchTicks));   // the attacker is not affected
 
         var w2 = Arena(Config, null, (Tactical, Vector3.Zero), (Tactical, new Vector3(0, 2, 0)));
         var start = w2.Players[2].Position;
         reactions.Clear();
         Run(w2, 11, (k, id) => id == 1 && k == 0 ? Press(InputButtons.MeleeHeavy) : None, _ => reactions.AddRange(w2.LastReactions));
         Assert.True(w2.Players[1].MeleeHeavy);
-        e = Assert.Single(reactions);
+        var e = Assert.Single(reactions);
         Assert.Equal((ReactionKind.Stun, 32), (e.Kind, e.PushDistance));   // 2 m in 1/16 m
         var stunned = w2.Players[2];
         Assert.Equal((6, 0), (stunned.PushTicks, Reaction.YawByte(Vector2.UnitY)));
@@ -131,9 +134,8 @@ public class ReactionTests(ITestOutputHelper output)
         });
         Assert.Contains((2, true), steps);
         Assert.Equal(13, steps.IndexOf((2, true)));   // light 1's combo window opens 13 ticks after its press
-        // Light 1's interrupt (front clip) is 16 ticks (0.53 s) old when heavy 2 lands, past its HitReact branch (0.37 s): the
-        // stagger replaces it.
-        Assert.Equal([ReactionKind.Interrupt, ReactionKind.Stagger], kinds);
+        // Light 1 flinches only (sim/light-melee-flinch); heavy 2's stagger is the one reaction.
+        Assert.Equal([ReactionKind.Stagger], kinds);
 
         // A heavy press during a heavy strike does nothing; a light press in its window is not possible (no window): the strike ends.
         var w2 = Arena(Config, null, (Tactical, Vector3.Zero), (Tactical, new Vector3(0, 30, 0)));
@@ -277,15 +279,16 @@ public class ReactionTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void An_attack_in_its_window_without_HitReact_is_not_interrupted_and_outside_it_is()
+    public void An_attack_in_its_window_without_HitReact_is_not_stunned_and_outside_it_is()
     {
-        foreach (var (victimPress, interrupted) in new[] { (1, false), (4, true) })
+        // sim/light-melee-flinch: a light hit interrupts nothing, so the attacker strikes heavy (the stun lands at tick 10, when the victim's own
+        // light attack is at tick 10 − press: 7 is inside its no-HitReact window 5.5..8.5, 2 is before it).
+        foreach (var (victimPress, stunned) in new[] { (3, false), (8, true) })
         {
-            // Both swing at each other: the attacker's hit lands at tick 7, when the victim's own attack is at tick 7 − press.
             var w = Arena(Config, null, (Tactical, Vector3.Zero), (Tactical, new Vector3(0, 2, 0)));
-            Run(w, 8, (k, id) => (id == 1 && k == 0) || (id == 2 && k == victimPress) ? Press(InputButtons.Melee) : None);
+            Run(w, 11, (k, id) => id == 1 && k == 0 ? Press(InputButtons.MeleeHeavy) : id == 2 && k == victimPress ? Press(InputButtons.Melee) : None);
             var victim = w.Players[2];
-            if (interrupted) Assert.Equal((ReactionKind.Interrupt, 0), (victim.Reaction, victim.MeleeStep));
+            if (stunned) Assert.Equal((ReactionKind.Stun, 0), (victim.Reaction, victim.MeleeStep));
             else Assert.Equal((ReactionKind.None, 1), (victim.Reaction, victim.MeleeStep));
         }
     }
@@ -475,10 +478,11 @@ public class ReactionTests(ITestOutputHelper output)
         {
             truth[h.Server.World.Tick] = new Dictionary<int, PlayerState>(h.Server.World.Players);
             foreach (var r in h.Server.World.LastReactions) reactedAt.Add((r.Tick, r.Target));
+            foreach (var f in h.Server.World.LastFlinches) reactedAt.Add((f.Tick, f.Target));   // sim/light-melee-flinch: a flinch is as unpredictable as a reaction
             for (int i = 0; i < n; i++)
                 if (h.Clients[i].Status == ClientStatus.Connected) predicted[i][h.Clients[i].Tick] = h.Clients[i].Predicted;
         });
-        // A client cannot predict being hit: ticks within Window of a reaction started on it are not compared.
+        // A client cannot predict being hit: ticks within Window of a reaction (or a flinch) started on it are not compared.
         const uint Window = 16;
         int reactingCompared = 0, pushingCompared = 0;
         for (int i = 0; i < n; i++)
@@ -534,7 +538,7 @@ public class ReactionTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_17_carries_reactions_and_heavy_strikes_in_every_record_and_the_knockback_and_blindness_in_the_own()
     {
-        Assert.Equal(51, Protocol.Version);
+        Assert.Equal(52, Protocol.Version);
         var me = new PlayerState(3, Vector3.One, Vector3.Zero, 0f, true)
         {
             Alive = true, Reaction = ReactionKind.Stagger, ReactionDirection = ReactionDirection.Left, ReactionTicks = 7,
@@ -609,7 +613,7 @@ public class ReactionTests(ITestOutputHelper output)
         var back = Assert.IsType<Snapshot>(Protocol.Read(bytes));
         output.WriteLine($"protocol {Protocol.Version}: {bytes.Length} bytes with {back.Shots!.Length} shot records (budget {Protocol.SnapshotBudget})");
         // Protocol 17: the own record's 4 reaction bytes cost the fifth guaranteed shot record of protocol 16 (1199 bytes).
-        Assert.Equal((1194, Protocol.MaxSnapshotBytes, 4, Protocol.MinSnapshotShots), (bytes.Length, bytes.Length, back.Shots.Length, back.Shots.Length));
+        Assert.Equal((1195, Protocol.MaxSnapshotBytes, 4, Protocol.MinSnapshotShots), (bytes.Length, bytes.Length, back.Shots.Length, back.Shots.Length));
         Assert.True(bytes.Length <= Protocol.SnapshotBudget && bytes.Length + Protocol.ShotBytes > Protocol.SnapshotBudget);
         Assert.Equal(players.Select(p => p.PlayerId == 7 ? p : Protocol.Slim(p)), back.Players);
     }

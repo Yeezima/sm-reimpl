@@ -33,6 +33,8 @@ public class StimTests(Xunit.Abstractions.ITestOutputHelper output)
     static readonly ReactionEntry Interrupt = new(0f, ReactionKind.Interrupt);
     /// <summary>A light attack: hit at tick 7 (0.2 s), 40 damage (20 secondary), an interrupt.</summary>
     static readonly MeleeStep Light = new MeleeStep(1f, 0.2f, 0.4f, 0.6f, 0.5f, 0.7f, 40f, 20f, 3.5f) { PrimaryReaction = Interrupt, SecondaryReaction = Interrupt };
+    /// <summary>A heavy strike with the same timing: a stun (sim/light-melee-flinch: a light hit no longer interrupts, so the reaction tests strike heavy).</summary>
+    static readonly MeleeStep Heavy = Light with { PrimaryReaction = new(0f, ReactionKind.Stun), SecondaryReaction = Interrupt };
     static readonly WeaponSpec Rifle = new("rifle", WeaponSlot.Ranged, TriggerKind.FullAuto, 20f, 0.15f, 30, 270, 1.5f, 250f, 245f, 250f, 1f, 2.5f, 1f, 1f, 1f) { HitType = DamageType.Ranged };
 
     static readonly SimConfig Config = new()
@@ -42,8 +44,8 @@ public class StimTests(Xunit.Abstractions.ITestOutputHelper output)
         Perks = [new PerkSpec(Armory, Armory, PerkKind.Class, 1), new PerkSpec(Master, Master, PerkKind.Class, 1)],
         Classes =
         [
-            new ClassLoadout("tac", 0, -1, [Light]) { PrimaryChoices = [0], EquipmentChoices = [0, 1], Side = Team.SpaceMarines, PerkChoices = [0, 1] },
-            new ClassLoadout("chaos", 0, -1, [Light]) { PrimaryChoices = [0], EquipmentChoices = [0, 1], Side = Team.Chaos, PerkChoices = [0, 1] },
+            new ClassLoadout("tac", 0, -1, [Light]) { MeleeHeavy = [Heavy], PrimaryChoices = [0], EquipmentChoices = [0, 1], Side = Team.SpaceMarines, PerkChoices = [0, 1] },
+            new ClassLoadout("chaos", 0, -1, [Light]) { MeleeHeavy = [Heavy], PrimaryChoices = [0], EquipmentChoices = [0, 1], Side = Team.Chaos, PerkChoices = [0, 1] },
         ],
         MeleeRange = 4f, MeleeConeDegrees = 60f, MeleeVerticalReach = 1.5f,
         HealthMax = 1000f, ShieldMax = 0f, HealthRegenDelay = 1e6f, ShieldRegenDelay = 1e6f,
@@ -163,11 +165,16 @@ public class StimTests(Xunit.Abstractions.ITestOutputHelper output)
             var w = Arena(Config, 2f);
             if (stim) Run(w, 12, (t, id) => id == 2 && t == 0 ? InputButtons.Grenade : InputButtons.None);
             var seen = ReactionKind.None;
-            Run(w, 10, (t, id) => id == 1 && t == 0 ? InputButtons.Melee : InputButtons.None, each: _ => { if (w.Players[2].Reaction != ReactionKind.None) seen = w.Players[2].Reaction; });
+            Run(w, 10, (t, id) => id == 1 && t == 0 ? InputButtons.MeleeHeavy : InputButtons.None, each: _ => { if (w.Players[2].Reaction != ReactionKind.None) seen = w.Players[2].Reaction; });
             return seen;
         }
-        Assert.Equal(ReactionKind.Interrupt, Reacted(false));
+        Assert.Equal(ReactionKind.Stun, Reacted(false));   // sim/light-melee-flinch: the stun strike (a light hit reacts nobody now)
         Assert.Equal(ReactionKind.None, Reacted(true));
+        // The flinch is not a reaction: a light hit throws the stimmed player's aim off all the same (ours).
+        var stimmed = Arena(Config, 2f);
+        Run(stimmed, 12, (t, id) => id == 2 && t == 0 ? InputButtons.Grenade : InputButtons.None);
+        Run(stimmed, 10, (t, id) => id == 1 && t == 0 ? InputButtons.Melee : InputButtons.None);
+        Assert.True(stimmed.Players[2].StimLeft > 0f && stimmed.Players[2].FlinchTicks > 0);
     }
 
     [Fact]
@@ -254,7 +261,7 @@ public class StimTests(Xunit.Abstractions.ITestOutputHelper output)
         // The server names the resolved item: the choice, else the class default.
         var w = Arena(Config, 50f, equipment1: 0, equipment2: 1);
         Assert.Equal((0, 1), (Loadouts.EquipmentIndex(Config, w.Players[1]), Loadouts.EquipmentIndex(Config, w.Players[2])));
-        Assert.Equal(51, Protocol.Version);
+        Assert.Equal(52, Protocol.Version);
     }
 
     [Theory]
@@ -271,7 +278,8 @@ public class StimTests(Xunit.Abstractions.ITestOutputHelper output)
         var config = Config with
         {
             Thrown = [many, GrenadeTests.Frag],
-            Classes = Config.Classes.Select(k => k with { Side = Team.None, Melee = [Light with { Damage = 0.01f, SecondaryDamage = 0f }] }).ToArray(),
+            // sim/light-melee-flinch: the attacker's stun strike cuts the throw (a light hit interrupts nothing any more).
+            Classes = Config.Classes.Select(k => k with { Side = Team.None, MeleeHeavy = [Heavy with { Damage = 0.01f, SecondaryDamage = 0f }] }).ToArray(),
         };
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
         var map = new GameMap("flat", collision, [new SpawnPoint(new Vector3(0, 0, 0), 0f), new SpawnPoint(new Vector3(0, 2, 0), 0f)], 93);
@@ -287,7 +295,7 @@ public class StimTests(Xunit.Abstractions.ITestOutputHelper output)
         PlayerInput Input(int i, uint t)
         {
             uint cycle = t % 150;
-            if (i == 1) return new PlayerInput(t, 0f, 0f, YawTo(1), cycle == 21 ? InputButtons.Melee : InputButtons.None);
+            if (i == 1) return new PlayerInput(t, 0f, 0f, YawTo(1), cycle == 21 ? InputButtons.MeleeHeavy : InputButtons.None);
             return new PlayerInput(t, 0f, 0f, YawTo(0), cycle is 20 or 100 ? InputButtons.Grenade : InputButtons.None);
         }
         var truth = new Dictionary<uint, PlayerState>();

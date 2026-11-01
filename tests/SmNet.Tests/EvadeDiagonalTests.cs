@@ -270,7 +270,7 @@ public class EvadeDiagonalTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_14_carries_all_eight_directions_in_slim_and_own_records_and_refuses_malformed_ones()
     {
-        Assert.Equal(51, Protocol.Version);
+        Assert.Equal(52, Protocol.Version);
         var players = Enumerable.Range(1, 16).Select(id => new PlayerState(id, new Vector3(id), Vector3.Zero, 0.5f, true)
         {
             Alive = true, Slot = id % 3 == 0 ? WeaponSlot.Pistol : WeaponSlot.Ranged, EvadeTicks = id * 4, EvadeDirection = (EvadeDirection)(id % 8), EvadeLock = 3,
@@ -300,6 +300,6 @@ public class EvadeDiagonalTests(ITestOutputHelper output)
         var orphanLanding = (byte[])idleBytes.Clone(); orphanLanding[^31] |= 8;   // no evade, but the landing bit
         Assert.Null(Protocol.Read(orphanLanding));
         // The worst case is unchanged (the bit uses a spare one).
-        Assert.Equal(1194, Protocol.MaxSnapshotBytes);   // protocol 23: + the perk word (21, 22: 1198; 20: 1197; 17-19: 1195; 16: 1199; 15: 1195)
+        Assert.Equal(1195, Protocol.MaxSnapshotBytes);   // protocol 23: + the perk word (21, 22: 1198; 20: 1197; 17-19: 1195; 16: 1199; 15: 1195)
     }
 }

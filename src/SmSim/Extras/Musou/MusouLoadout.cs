@@ -25,7 +25,16 @@ public static class MusouLoadout
             Primary = -1,
             PrimaryChoices = c.PrimaryChoices.Count > 0 ? (c.PrimaryChoices.Contains(c.Primary) ? c.PrimaryChoices : [c.Primary, .. c.PrimaryChoices]) : [c.Primary],
         }).ToList();
-        return config with { Classes = classes };
+        return config with { Classes = classes, MusouDefaultPrimaries = config.MusouDefaultPrimaries.Count > 0 ? config.MusouDefaultPrimaries : config.Classes.Select(c => c.Primary).ToList() };
+    }
+
+    /// <summary>The class's default primary, whether or not <see cref="Prepare"/> took it away; -1: none (Musou Mode's full loadout).</summary>
+    public static int DefaultPrimary(SimConfig c, int playerClass)
+    {
+        int own = Loadouts.WeaponIndex(c, playerClass, WeaponSlot.Ranged);
+        if (own >= 0) return own;
+        var list = c.MusouDefaultPrimaries;
+        return playerClass >= 0 && playerClass < list.Count && list[playerClass] >= 0 && list[playerClass] < c.Weapons.Count ? list[playerClass] : -1;
     }
 
     /// <summary>Whether <paramref name="config"/> went through <see cref="Prepare"/> (no class has a default primary).</summary>
@@ -96,7 +105,7 @@ public static class MusouLoadout
     public static bool Busy(PlayerState s) => s.MeleeStep != 0 || s.MeleeQueued || s.MeleeQueuedHeavy || s.Rush != RushPhase.None || s.Throwing;
 
     /// <summary>Nothing of the weapon in hand in flight: no switch, charge, burst, brace or vent under way.</summary>
-    static PlayerState Calm(PlayerState s) => s with
+    internal static PlayerState Calm(PlayerState s) => s with
     {
         SwitchLeft = 0f, Cooldown = 0f, BurstLeft = 0, Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f,
         Brace = BracePhase.None, BraceTicks = 0, Venting = false,

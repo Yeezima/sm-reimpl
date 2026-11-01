@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Godot;
 using SmNet;
@@ -17,7 +18,8 @@ namespace SmClient;
 /// <c>--profile</c>), M shows the map, E at Destination opens it, Esc, B and the CLOSE row close it, Enter on DEPLOY sends the command and the server echoes it, the travel, the landing, X, V and Z
 /// change the order the server reports, X and V no longer switch or strike, P held calls a pickup, held again calls it off, and the pickup brings the player home. With a server started with
 /// <c>SM_TFW_DOWN_TEST=&lt;s&gt;</c> it plays on: a second battle with the revive, a third with the extraction. With <c>--tfw-test-win</c> and a server started with <c>SM_TFW_WIN_TEST=&lt;m&gt;</c> it walks a whole
-/// run instead: two battles won on one front through all three positions and the commander, each left by the free pickup, and the final assault to the Warboss's death. One <c>TFWTEST PASS</c> or <c>FAIL</c> line per step; quits with 0, or 1 when any failed.
+/// run instead: two battles won on one front through all three positions and the commander, each left by the free pickup, and the final assault to the Warboss's death; on the way it reads each map's score panel, picks a reward card, opens a crate, equips slots with keys 3 and
+/// 2, reads the run's panel and copies the result, and with <c>--tfw-server-log &lt;file&gt;</c> (the server's output) holds every shown score against the server's <c>TFWSCORE</c> lines. One <c>TFWTEST PASS</c> or <c>FAIL</c> line per step; quits with 0, or 1 when any failed.
 /// In a windowed run <c>dir</c> gets a PNG of the Stormbird's prompt, the war map, the battle's HUD, the revive and the extraction.
 /// </para>
 /// <para>
@@ -148,6 +150,7 @@ public partial class NetworkView
         var path = _tfwTestNav.FindPath(client.Predicted.Position, at);
         if (path is null || path.Partial) { TfwCheck(what, false, $"no way from {client.Predicted.Position} to {at}"); return false; }
         var points = path.Waypoints;
+        int replans = 0;
         GD.Print($"TFWTEST note: {what}: from {client.Predicted.Position} to {at}, {points.Count} waypoints, the last {points[^1].Position}, {path.Length:F0} m");
         TfwKey(Key.W, true);
         await TfwFrames(2);
@@ -156,14 +159,25 @@ public partial class NetworkView
         while (next < points.Count && _connectedFor < end && over?.Invoke() != true)
         {
             var me = client.Predicted.Position;
-            // The farthest waypoint within 3 m ahead: corners are cut as a player cuts them.
-            while (next + 1 < points.Count && new Vector2(points[next + 1].Position.X - me.X, points[next + 1].Position.Y - me.Y).Length() < 3f) next++;
+            // The farthest waypoint within 3 m ahead and on the walker's level: corners are cut as a player cuts them, and a ramp's top is not "near" from the ground beside it. A height check
+            // on reaching one too: beside a ramp's kerb the waypoint on the ramp lies under 0.7 m away, flat, and the next one is on top of what the kerb leads to.
+            while (next + 1 < points.Count && new Vector2(points[next + 1].Position.X - me.X, points[next + 1].Position.Y - me.Y).Length() < 3f && MathF.Abs(points[next + 1].Position.Z - me.Z) < 1f
+                && points[next].Kind == SmSim.NavLinkKind.Walk && points[next + 1].Kind == SmSim.NavLinkKind.Walk) next++;
             var to = points[next].Position;
-            if (new Vector2(to.X - me.X, to.Y - me.Y).Length() < 0.7f) next++;
+            if (new Vector2(to.X - me.X, to.Y - me.Y).Length() < 0.7f && MathF.Abs(to.Z - me.Z) < 0.3f) next++;
             _yaw = MathF.Atan2(-(to.X - me.X), to.Y - me.Y);
             stuckFrames = Num.Vector3.Distance(me, last) < 0.001f ? stuckFrames + 1 : 0;
             last = me;
             if (stuckFrames == 120) GD.Print($"TFWTEST note: held up at {me} on the way to {to}");
+            // Off the way (held up against something): a new way from here, as a player would look again. 15 ticks' worth of standing still.
+            if (stuckFrames == 30 && replans < 8 && _tfwTestNav.FindPath(me, at) is { Partial: false } again)
+            {
+                replans++;
+                points = again.Waypoints;
+                next = 0;
+                stuckFrames = 0;
+                GD.Print($"TFWTEST note: {what}: a new way from {me}, {points.Count} waypoints");
+            }
             await TfwFrames();
         }
         TfwKey(Key.W, false);
@@ -198,6 +212,7 @@ public partial class NetworkView
 
     async Task<bool> TfwTestDeploy(TfwLane lane, bool final = false)
     {
+        await TfwTestPanelsAway();
         if (!await TfwWalkTo(TfwHub!.DestinationStation, "walked to Destination")) return false;
         await TfwTap(Key.E);
         if (!await TfwUntil("E at Destination opens the war map", () => _tfwPanel is not null, 3.0)) return false;
@@ -219,6 +234,8 @@ public partial class NetworkView
         var before = TfwNow;
         sbyte front = TfwHudModel.Lane(before, lane).Front;
         if (!await TfwTestDeploy(lane)) return false;
+        await TfwTestLoadout();
+        if (number == 2 && !await TfwTestCrateAndSlot()) return false;
         for (int k = 0; k < TfwBattle.CommanderObjective; k++)
         {
             int index = k;
@@ -252,7 +269,7 @@ public partial class NetworkView
         var home = TfwNow;
         TfwCheck($"battle {number}: the pickup was free", home.Transport >= won.Transport, $"{won.Transport} to {home.Transport}");
         TfwCheck($"battle {number}: the player is in the Stormbird", TfwHub!.Contains(client.Predicted.Position), client.Predicted.Position.ToString());
-        return true;
+        return await TfwTestMapPanel(number);
     }
 
     /// <summary>A whole run: from front 1 two wins reach the stronghold, then the final assault to the Warboss's death.</summary>
@@ -273,6 +290,173 @@ public partial class NetworkView
         if (!await TfwUntil("the Warboss falls: the war is won", () => TfwNow.Phase == TfwRunPhase.Won, 30.0)) return;
         await TfwUntil("the prompt says the war is won", () => TfwPromptNow == "THE WARBOSS IS DEAD. THE WAR IS WON", 3.0);
         await TfwShot("war-won");
+        await TfwTestRunPanel();
+    }
+
+    /// <summary>Panels a scripted step does not read go away as a player sends them: Enter on CONTINUE; a card is picked.</summary>
+    async Task TfwTestPanelsAway()
+    {
+        await TfwWait(0.4);
+        for (int k = 0; k < 8 && _tfwModal is not null; k++)
+        {
+            await TfwTap(Key.Enter);
+            await TfwWait(0.3);
+        }
+    }
+
+    /// <summary>Every <c>TFWSCORE</c> line of the server's output for this player (<c>--tfw-server-log</c>); empty without it.</summary>
+    string[] TfwServerScores()
+    {
+        if (CmdArg("tfw-server-log") is not { Length: > 0 } path || _client is null) return [];
+        using var stream = new FileStream(path, FileMode.Open, System.IO.FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        using var reader = new StreamReader(stream);
+        string prefix = $"TFWSCORE player {_client.PlayerId} ";
+        return reader.ReadToEnd().Split('\n').Select(l => l.Trim()).Where(l => l.Contains(prefix, StringComparison.Ordinal)).ToArray();
+    }
+
+    static long TfwServerFigure(string line, string word)
+    {
+        int at = line.LastIndexOf(word + " ", StringComparison.Ordinal);
+        if (at < 0) return -1;
+        var digits = new string(line[(at + word.Length + 1)..].TakeWhile(char.IsDigit).ToArray());
+        return long.TryParse(digits, out long v) ? v : -1;
+    }
+
+    static string TfwThousands(long v) => v.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>The map's panel: every figure as tag 12 gave it and, with the server's log, as the server banked it; Enter goes on to the cards, one is picked, tag 15 confirms a weapon.</summary>
+    async Task<bool> TfwTestMapPanel(int number)
+    {
+        if (!await TfwUntil($"battle {number}: the end-of-map panel shows", () => _tfwModal is TfwScorePanel, 5.0)) return false;
+        var panel = (TfwScorePanel)_tfwModal!;
+        var row = _tfwState.ScoreHistory[^1];
+        TfwCheck($"battle {number}: the panel shows tag 12's map points", panel.MapPoints == TfwThousands(row.Points), $"{panel.MapPoints} against {row.Points}");
+        TfwCheck($"battle {number}: the panel shows tag 12's run total", panel.RunTotal == TfwThousands(_tfwState.ScoreOwn?.RunTotal ?? 0), panel.RunTotal);
+        TfwCheck($"battle {number}: the map was won", row.Result == TfwMapResult.Won, row.Result.ToString());
+        await TfwWait(0.3);
+        if (TfwServerScores() is { Length: > 0 } server)
+        {
+            var line = server.Last(l => l.Contains(" map ", StringComparison.Ordinal));
+            GD.Print($"TFWTEST note: server says: {line}");
+            TfwCheck($"battle {number}: shown map points equal the server's", TfwThousands(TfwServerFigure(line, "points")) == panel.MapPoints, line);
+            TfwCheck($"battle {number}: shown run total equals the server's", TfwThousands(TfwServerFigure(line, "total")) == panel.RunTotal, line);
+        }
+        await TfwShot($"map-score-{number}");
+        await TfwTap(Key.Enter);
+        if (!await TfwUntil($"battle {number}: Enter goes on to the reward cards", () => _tfwModal is TfwRewardPanel, 5.0)) return false;
+        var cards = (TfwRewardPanel)_tfwModal!;
+        await TfwFrames(4);
+        await TfwShot($"reward-cards-{number}");
+        var offer = _tfwState.Reward!.Value;
+        TfwCheck($"battle {number}: the cards offer a weapon, an equipment or a perk", cards.Card(0) is not null || cards.Card(1) is not null || cards.Card(2) is not null);
+        // The first battle takes the weapon card, for slot 3; the second a perk or the equipment, if offered.
+        int pick = number == 1 ? 0 : cards.Card(2) is not null ? 2 : cards.Card(1) is not null ? 1 : 0;
+        if (cards.Card(pick) is null) pick = cards.Card(1) is not null ? 1 : cards.Card(2) is not null ? 2 : 0;
+        cards.Card(pick)?.GrabFocus();
+        await TfwFrames(2);
+        var chosen = pick switch { 0 => offer.First, 1 => offer.Second, _ => offer.Third };
+        int before = _tfwState.Commands.Pending;
+        await TfwTap(Key.Enter);
+        TfwCheck($"battle {number}: Enter picks a card, and the panel closes", _tfwModal is null, _tfwModal?.Name.ToString() ?? "");
+        if (chosen.Kind == TfwRewardKind.Weapon && !SmSim.Extras.Musou.MusouDropItem.IsMelee(chosen.Item))
+            await TfwUntil($"battle {number}: the picked weapon stands in an extra slot", () => Enumerable.Range(3, 3).Any(k => _tfwState.Arsenal.Weapon(k) == chosen.Item), 3.0);
+        else await TfwWait(0.5);
+        await TfwWait(0.3);
+        TfwCheck($"battle {number}: the offer is answered", _tfwModal is null && !PickerBusy);
+        return true;
+    }
+
+    /// <summary>Owner's item 25: the landing gives the full chosen loadout, not the pistol alone.</summary>
+    async Task TfwTestLoadout()
+    {
+        await TfwWait(0.3);
+        var me = _client!.Predicted;
+        bool hasPrimary = _config is { } c && SmSim.Extras.Musou.MusouLoadout.DefaultPrimary(c, me.Class) >= 0;
+        TfwCheck("the landing gives the full loadout, not the pistol alone", !hasPrimary || Loadouts.Weapon(_config!, me, WeaponSlot.Ranged) is not null, $"primary {me.Primary}, pistol {me.Pistol}, class {me.Class}");
+    }
+
+    int _tfwTestUseTicks;
+
+    /// <summary>The Interact bit for the scripted player's next inputs (<see cref="TfwTestCrateAndSlot"/>).</summary>
+    void TfwTestUseInput(ref PlayerInput input)
+    {
+        if (_tfwTestUseTicks <= 0) return;
+        _tfwTestUseTicks--;
+        input = input with { Buttons = input.Buttons | InputButtons.Interact };
+    }
+
+    /// <summary>A crate opened on foot, then slot 3 equipped with its key, and key 2 back on the own primary.</summary>
+    async Task<bool> TfwTestCrateAndSlot()
+    {
+        var client = _client!;
+        await TfwUntil("the crates are listed for this client", () => _musouDropLive.Values.Any(d => d.Crate), 5.0);
+        var crates = _musouDropLive.Values.Where(d => d.Crate).ToList();
+        TfwCheck("six crates at most, one per site", crates.Count is > 0 and <= TfwSites.CrateCount, crates.Count.ToString());
+        var near = crates.OrderBy(d => Num.Vector3.DistanceSquared(d.Position, client.Predicted.Position)).First();
+        await TfwShot("slots-before");
+        if (!await TfwPathTo(near.Position, "walked to the nearest crate", 120.0)) return false;
+        TfwKey(Key.S, true);   // a step back: a player opens it from beside it, in reach (1.5 m)
+        await TfwWait(0.15);
+        TfwKey(Key.S, false);
+        await TfwWait(0.5);
+        await TfwShot("crate");
+        var before = _tfwState.Arsenal;
+        int primaryBefore = client.Predicted.Primary, pistolBefore = client.Predicted.Pistol;
+        _tfwTestUseTicks = 4;   // the script's mouse is not captured, which the core's E asks for: the same input bit, sent by hand
+        await TfwFrames(8);
+        bool taken = await TfwUntil("E opens the crate: the weapon stands in an extra slot", () => _tfwState.Arsenal != before || !_musouDropLive.ContainsKey(near.Id), 3.0);
+        await TfwWait(0.4);
+        TfwCheck("the crate left the primary alone", client.Predicted.Primary == primaryBefore && client.Predicted.Pistol == pistolBefore, $"{client.Predicted.Primary}, {client.Predicted.Pistol}");
+        int key = Enumerable.Range(3, 3).FirstOrDefault(k => _tfwState.Arsenal.Weapon(k) >= 0);
+        TfwCheck("an extra slot is filled", key >= 3, _tfwState.Arsenal.ToString());
+        if (key < 3) return taken;
+        int weapon = _tfwState.Arsenal.Weapon(key);
+        await TfwTap(key == 3 ? Key.Key3 : key == 4 ? Key.Key4 : Key.Key5);
+        await TfwUntil($"key {key} equips the extra slot", () => _tfwState.Arsenal.LoadedPrimary == key || _tfwState.Arsenal.LoadedPistol == key, 3.0);
+        await TfwUntil($"the slot's weapon is in hand", () => Loadouts.WeaponIndex(_config!, client.Predicted, client.Predicted.Slot) == weapon, 3.0);
+        await TfwFrames(6);
+        await TfwShot("slot-in-hand");
+        bool primary = _tfwState.Arsenal.LoadedPrimary == key;
+        await TfwTap(primary ? Key.Key2 : Key.Key1);
+        await TfwUntil("the own weapon comes back with its key", () => _tfwState.Arsenal.LoadedPrimary == 0 && _tfwState.Arsenal.LoadedPistol == 0, 3.0);
+        await TfwUntil("the original weapon is in its field again", () => client.Predicted.Primary == primaryBefore && client.Predicted.Pistol == pistolBefore, 3.0);
+        return true;
+    }
+
+    /// <summary>The run's panel: the rows and the total against tag 12 and the server, the local best, and COPY RESULT.</summary>
+    async Task TfwTestRunPanel()
+    {
+        if (!await TfwUntil("the end-of-run panel shows", () => _tfwModal is TfwRunPanel, 6.0)) return;
+        var panel = (TfwRunPanel)_tfwModal!;
+        long sum = _tfwState.ScoreHistory.Sum(m => (long)m.Points);
+        TfwCheck("the run's total is the sum of its maps", panel.Total == TfwThousands(sum), $"{panel.Total} against {sum}");
+        TfwCheck("one row per map", panel.Rows.Count == _tfwState.ScoreHistory.Count, panel.Rows.Count.ToString());
+        await TfwWait(0.5);
+        if (TfwServerScores() is { Length: > 0 } server)
+        {
+            var line = server.Last();
+            GD.Print($"TFWTEST note: server says: {line}");
+            TfwCheck("shown run total equals the server's", TfwThousands(TfwServerFigure(line, "total")) == panel.Total, line);
+            var maps = server.Where(l => l.Contains(" map ", StringComparison.Ordinal)).ToArray();
+            TfwCheck("one server map line per shown row", maps.Length == panel.Rows.Count, $"{maps.Length} against {panel.Rows.Count}");
+            for (int k = 0; k < Math.Min(maps.Length, panel.Rows.Count); k++)
+                TfwCheck($"map {k + 1}'s row equals the server's", panel.Rows[k].EndsWith(TfwThousands(TfwServerFigure(maps[k], "points")), StringComparison.Ordinal), $"{panel.Rows[k]} against {maps[k]}");
+        }
+        else GD.Print("TFWTEST note: no --tfw-server-log: the server's figures were not compared");
+        await TfwFrames(4);
+        await TfwShot("run-score");
+        var best = TfwBest.Load(TfwBestDirectory());
+        TfwCheck("the local best holds the run", best is not null && TfwThousands(best.Total) is var saved && (saved == panel.Total || best.Total >= sum), best?.ToString() ?? "none");
+        panel.CopyButton.GrabFocus();
+        await TfwFrames(2);
+        await TfwTap(Key.Enter);
+        TfwCheck("COPY RESULT makes the line", panel.Result.Contains(panel.Total, StringComparison.Ordinal) && panel.Result.Contains("VICTORY", StringComparison.Ordinal), panel.Result);
+        if (DisplayServer.GetName() != "headless") TfwCheck("the line is on the clipboard", DisplayServer.ClipboardGet() == panel.Result, DisplayServer.ClipboardGet());
+        await TfwShot("run-score-copied");
+        panel.CloseButton.GrabFocus();
+        await TfwFrames(2);
+        await TfwTap(Key.Enter);
+        TfwCheck("CLOSE closes the panel", _tfwModal is null);
     }
 
     /// <summary>
@@ -364,6 +548,7 @@ public partial class NetworkView
         var client = _client!;
         if (!await TfwUntil("the war is on, in the hub", () => client.Match.State == MatchState.Playing && _tfwState.War is { Phase: TfwRunPhase.Hub } && client.Predicted.Alive, 60.0)) return;
         if (CmdFlag("tfw-test-fight")) { await TfwTestFight(); return; }
+        if (CmdFlag("tfw-test-melee")) { await TfwTestMelee(); return; }
         var start = TfwNow;
         TfwCheck("the reserves are the run's", start.Transport == TfwBattleRules.StartTransport && start.Supplies == TfwBattleRules.StartSupplies, $"{start.Transport}, {start.Supplies}");
         TfwCheck("the station prompt fits the spot", _tfwAt == TfwHudModel.StationAt(client.Predicted.Position, TfwHub!), $"{_tfwAt} at {client.Predicted.Position}");   // a respawn point is anywhere in the room
@@ -467,6 +652,7 @@ public partial class NetworkView
         TfwKey(Key.P, false);
         if (!await TfwUntil("the pickup brings the player home", () => TfwNow.Phase == TfwRunPhase.Hub, 25.0)) return;
         await TfwWait(0.5);
+        await TfwTestPanelsAway();   // the map's score: a left map shows it too
         var home = TfwNow;
         TfwCheck("the pickup took one transport", home.Transport == landed.Transport - TfwBattleRules.PickupCost, home.Transport.ToString());
         TfwCheck("the player is in the Stormbird", TfwHub!.Contains(client.Predicted.Position), client.Predicted.Position.ToString());
@@ -500,6 +686,7 @@ public partial class NetworkView
         var last = TfwNow;
         TfwCheck("it cost the supplies", last.Supplies == supplies - TfwBattleRules.ExtractionSupplies, last.Supplies.ToString());
         TfwCheck("the retainer recovers", last.Own.Retainer == TfwRetainerState.Recovering && last.Own.RecoverySeconds > 0, TfwHudModel.RetainerText(last.Own));
+        await TfwTestPanelsAway();
         await TfwShot("hub-after-extraction");
     }
 }

@@ -30,6 +30,7 @@ public sealed partial class World
     /// </summary>
     public bool MusouGiveItem(int playerId, ushort item)
     {
+        if (_tfw is not null) return TfwTake(playerId, item);   // Campaign/World.TfwArsenal.cs: Musou Mode keeps the primary and fills slots 3 to 5
         if (_musou is null || !_players.TryGetValue(playerId, out var p) || !p.Alive) return false;
         var from = !_musouArmed.Contains(playerId) && MusouLoadout.Prepared(Config) ? MusouLoadout.Stripped(Config, p) : p;
         if (MusouLoadout.GiveItem(Config, from, item) is not { } given) return false;
@@ -44,6 +45,7 @@ public sealed partial class World
     /// </summary>
     public void MusouJoined(int playerId)
     {
+        if (_tfw is not null) { TfwArmAll(); return; }   // Campaign/World.TfwArsenal.cs: the full loadout (owner's item 25), never the strip
         if (_musou is null || !MusouLoadout.Prepared(Config) || !_players.TryGetValue(playerId, out var p) || !p.Alive) return;
         _musouArmed.Add(playerId);
         _players[playerId] = MusouLoadout.Stripped(Config, p);
@@ -52,13 +54,13 @@ public sealed partial class World
     /// <summary>Strips every player alive and not yet armed this life (in id order); the dead are forgotten so their next life is armed again.</summary>
     void MusouArm()
     {
+        if (_tfw is not null) { TfwArmAll(); return; }
         if (!MusouLoadout.Prepared(Config)) return;   // a config the match tuning did not prepare: the core gives the class default primary anyway
         _musouArmIds.Clear();
         foreach (int id in _players.Keys) _musouArmIds.Add(id);
         _musouArmIds.Sort();
         foreach (int id in _musouArmIds)
         {
-            if (_tfw is not null && SmSim.Extras.Musou.Campaign.TfwContracts.IsPuppet(id)) continue;   // the AI Marines keep their class loadout (pistol-only is the players' rule)
             var p = _players[id];
             if (!p.Alive) { _musouArmed.Remove(id); continue; }
             if (_musouArmed.Add(id)) _players[id] = MusouLoadout.Stripped(Config, p);

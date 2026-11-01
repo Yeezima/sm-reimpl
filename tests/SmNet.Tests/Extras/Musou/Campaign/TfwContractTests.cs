@@ -135,7 +135,7 @@ public class TfwContractTests
         Assert.Equal(0, h.Server.World.Musou!.Count);
         Assert.Equal(MusouPhase.Waiting, h.Server.World.MusouDirector!.Phase);   // the 5-wave director never starts
         Assert.Equal(default, h.Server.World.Musou.Director);                    // and nothing goes out for it
-        Assert.All(h.Clients[0].TakeExtras(), s => Assert.Equal(TfwWire.WarTag, s.Tag));   // TF4: the war alone (tag 7), which echoes the commands
+        Assert.All(h.Clients[0].TakeExtras(), s => Assert.Contains(s.Tag, new[] { TfwWire.WarTag, TfwWire.ScoreTag, TfwWire.ArsenalTag }));   // TF4: the war (tag 7), which echoes the commands, and M6's own score and slots
         Assert.Contains(log, l => l.StartsWith("musou: Musou Mode", StringComparison.Ordinal));
     }
 
@@ -232,7 +232,7 @@ public class TfwContractTests
     // ---------------------------------------------------------------- the war's respawn
 
     [Fact]
-    public void The_wars_respawn_applies_the_waiting_loadout_and_a_fresh_life_with_the_pistol()
+    public void The_wars_respawn_applies_the_waiting_loadout_with_a_fresh_life()
     {
         var w = new World(Config, null, TfwTestArena.Spawns) { Rules = Rules };
         Assert.False(w.TfwRespawnAt(1, Vector3.Zero, 0f));   // outside a war
@@ -250,7 +250,7 @@ public class TfwContractTests
         Assert.Equal(1f, w.Players[1].Yaw);
         Assert.Equal(0, w.Players[1].Primary);               // the class change took
         w.Step(_ => new PlayerInput(0, 0f, 0f, 1f, InputButtons.None));
-        Assert.Equal((-1, WeaponSlot.Pistol), (w.Players[1].Primary, w.Players[1].Slot));   // the next arm strips it: pistol-only per deploy
+        Assert.Equal((0, WeaponSlot.Ranged), (w.Players[1].Primary, w.Players[1].Slot));   // the next arm keeps it: the full loadout per deploy (owner's item 25)
     }
 
     // ---------------------------------------------------------------- the wire
@@ -259,13 +259,13 @@ public class TfwContractTests
     public void The_wars_tags_are_its_own_and_a_command_round_trips()
     {
         for (int tag = 0; tag <= 255; tag++)
-            Assert.Equal(tag is >= 7 and <= 14, TfwWire.Owns((byte)tag));
-        for (byte tag = 7; tag <= 14; tag++) Assert.False(MusouWire.Owns(tag));
+            Assert.Equal(tag is >= 7 and <= 15, TfwWire.Owns((byte)tag));
+        for (byte tag = 7; tag <= 15; tag++) Assert.False(MusouWire.Owns(tag));
         var c = new TfwCommandRecord(0xABCD, TfwCommand.Attack, 3);
         Assert.Equal(c, TfwWire.ReadCommand(TfwWire.WriteCommand(c)));
         Assert.Null(TfwWire.ReadCommand([1, 2, 3]));
         Assert.Null(TfwWire.ReadCommand([1, 2, 0, 3]));      // command 0 is none
-        Assert.Null(TfwWire.ReadCommand([1, 2, 9, 3]));      // past the last command
+        Assert.Null(TfwWire.ReadCommand([1, 2, 10, 3]));     // past the last command
     }
 
     [Fact]

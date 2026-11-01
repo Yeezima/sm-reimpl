@@ -35,6 +35,7 @@ captures/
 
 # The front end's menu background: the final image is not settled; the client falls back to a dark background without it
 client/assets/menu/background.jpg
+client/assets/musou/whistle.ogg
 
 # Musou Mode's hub: the owner's planet picture (read as a file, never committed or exported; without it the hub paints a procedural planet)
 client/assets/musou/*

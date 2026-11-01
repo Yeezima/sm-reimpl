@@ -21,7 +21,7 @@ public class TfwRunTests
     }
 
     [Fact]
-    public void A_deploy_costs_1_takes_5_s_and_lands_a_fresh_pistol_life_at_the_landing_zone()
+    public void A_deploy_costs_1_takes_5_s_and_lands_a_fresh_life_with_the_full_loadout_at_the_landing_zone()
     {
         var w = TfwRig.War();
         var run = w.Tfw!;
@@ -39,7 +39,7 @@ public class TfwRunTests
         Assert.Null(w.NextLoadout(Human));                                  // the customizer's Setup applied
         var p = w.Players[Human];
         Assert.True(Vector3.Distance(p.Position with { Z = 0f }, TfwTestArena.LandingZone) < 3f, $"{p.Position}");
-        Assert.Equal((-1, WeaponSlot.Pistol), (p.Primary, p.Slot));
+        Assert.Equal((0, WeaponSlot.Ranged), (p.Primary, p.Slot));         // the customizer's primary stands (owner's item 25)
         Assert.Equal(6, w.TfwGuards!.SquadsAlive);                          // 7 at Imperial 100, at most 6 in the field
         Assert.Equal(run.Battle!.Layout.Positions[0], run.ActivePosition);
     }
@@ -569,7 +569,7 @@ public class TfwRunTests
         Assert.Equal(0, w.TfwGuards!.Alive);
         Assert.DoesNotContain(w.MusouDrops, d => d.State == MusouDropState.Live);
         TfwRig.Deploy(w);
-        Assert.Equal(60, w.TfwGuards.Alive);
+        Assert.Equal(60, w.TfwGuards.Alive + w.TfwGuards.Lost);   // a Marine landing among them may shove one to death (M5): he is still of this battle
     }
 
     [Fact]

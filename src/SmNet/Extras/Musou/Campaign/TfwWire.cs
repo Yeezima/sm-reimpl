@@ -32,26 +32,27 @@ public readonly record struct TfwGuardEvent(TfwGuardEventKind Kind, uint Tick, u
 /// n of <c>[u16 player][u32 run total]</c>, humans only, at most <see cref="MaxScorePlayers"/>; history <c>[u8 n]</c> then n of <c>[u8 lane][u8 node][u8 result][u16 KOs][u16 best chain][u32 points]</c>, at most <see cref="MaxScoreMaps"/>.
 /// The parts bit is ours: the three go at different rates.</item>
 /// <item>Tag 13, elite bars: <c>[u8 n]</c> then n records of 3 bytes <c>[u16 id][u8 health]</c>, at most <see cref="MaxBars"/>.</item>
-/// <item>Tag 14, a reward offer (per client): <see cref="RewardBytes"/> bytes <c>[u16 sequence]</c> then 3 cards <c>[u8 kind][u16 item]</c>.</item>
+/// <item>Tag 14, a reward offer (per client): <see cref="RewardBytes"/> bytes <c>[u16 sequence]</c> then 3 cards <c>[u8 kind][u16 item]</c>; repeated every second while it stands.</item>
+/// <item>Tag 15, the extra slots (per client; M6): <see cref="ArsenalBytes"/> bytes <c>[i16 key 3][i16 key 4][i16 key 5][u8 key in the primary's field][u8 key in the pistol's field]</c>; weapon indices, -1 empty; keys 0: the player's own weapon.</item>
 /// </list>
-/// Tags 11 to 14 need no box. Pass 2's M0 fixes these layouts; nothing sends them yet.
+/// Tags 11 to 15 need no box.
 /// A client's commands are message kind 17 under <see cref="CommandTag"/>: <c>[u16 sequence][u8 command][u8 argument]</c>, and for an order with a place (<see cref="HasPoint"/>: Hold and
-/// Attack) then <c>[i16 x][i16 y][i16 z]</c> in decimetres (<see cref="PointStep"/>): the point of the client's crosshair, which the server cannot work out itself (it has no camera), in a form that
+/// Attack) then <c>[i16 x][i16 y][i16 z]</c> in decimetres (<see cref="PointStep"/>), for ChooseReward then <c>[u16 offer]</c> (M6: a delayed pick cannot land on a newer offer): the point of the client's crosshair, which the server cannot work out itself (it has no camera), in a form that
 /// needs no box (a client may order before its first director) and cannot carry a NaN or an infinity. Resent every 250 ms until tag 7 echoes the sequence (<see cref="TfwCommandSender"/>).
-/// A faithful or extended server never sends 7 to 14 and drops 17.
+/// A faithful or extended server never sends 7 to 15 and drops 17.
 /// </summary>
 public static class TfwWire
 {
     /// <summary>The envelope tags (gore 1, loyalist barks 2, Musou 3 to 6).</summary>
-    public const byte WarTag = 7, ObjectivesTag = 8, GuardsTag = 9, GuardEventsTag = 10, FireTag = 11, ScoreTag = 12, BarsTag = 13, RewardTag = 14;
+    public const byte WarTag = 7, ObjectivesTag = 8, GuardsTag = 9, GuardEventsTag = 10, FireTag = 11, ScoreTag = 12, BarsTag = 13, RewardTag = 14, ArsenalTag = 15;
     /// <summary>The tag of the war's commands in message kind 17 (another namespace than the envelope's: client to server).</summary>
     public const byte CommandTag = 7;
     /// <summary>Bytes of a command's payload, and of one with a place (at most <see cref="Protocol.MaxExtrasCommandPayload"/>).</summary>
-    public const int CommandBytes = 4, PointCommandBytes = CommandBytes + 6;
+    public const int CommandBytes = 4, PointCommandBytes = CommandBytes + 6, OfferCommandBytes = CommandBytes + 2;
     /// <summary>The metres of one step of a command's point: 0.1 m, so a point reaches 3276.7 m from the origin on each axis.</summary>
     public const float PointStep = 0.1f;
 
-    const int WarHeadBytes = 14, LaneBytes = 19, OwnBytes = 14, OwnWon = 1, OwnDeployed = 2;
+    const int WarHeadBytes = 14, LaneBytes = 19, OwnBytes = 15, OwnWon = 1, OwnDeployed = 2;
     /// <summary>The fullest revive progress on the wire (<see cref="TfwOwnView.ReviveTenths"/>).</summary>
     public const byte MaxReviveTenths = 10;
     public const int WarBytes = WarHeadBytes + 3 * LaneBytes + OwnBytes, ObjectiveBytes = 11, SiteBytes = 6, GuardBytes = 10, GuardEventBytes = 15;
@@ -70,7 +71,7 @@ public static class TfwWire
     /// <summary>The highest Guardsman id (design section E's pool: ids are slot + 1).</summary>
     public const int GuardCapacity = 256;
 
-    public const int FireBytes = 19, ScoreOwnBytes = 12, ScorePlayerBytes = 6, ScoreMapBytes = 11, BarBytes = 3, RewardCards = 3, RewardCardBytes = 3, RewardBytes = 2 + RewardCards * RewardCardBytes;
+    public const int FireBytes = 19, ScoreOwnBytes = 12, ScorePlayerBytes = 6, ScoreMapBytes = 11, BarBytes = 3, RewardCards = 3, RewardCardBytes = 3, RewardBytes = 2 + RewardCards * RewardCardBytes, ArsenalBytes = 8;
     /// <summary>Most fire records in one section: (1191 - 1) / 19 = 62.</summary>
     public const int MaxFire = (Protocol.MaxExtrasPayloadBytes - 1) / FireBytes;
     /// <summary>Most elite bars in one section (the count's byte; 766 bytes at most).</summary>
@@ -79,8 +80,8 @@ public static class TfwWire
     public const int MaxScorePlayers = 16, MaxScoreMaps = 16;
     const int ScoreHasOwn = 1, ScoreHasOthers = 2, ScoreHasHistory = 4;
 
-    /// <summary>Whether an envelope tag is the war's (7 to 14).</summary>
-    public static bool Owns(byte tag) => tag is >= WarTag and <= RewardTag;
+    /// <summary>Whether an envelope tag is the war's (7 to 15).</summary>
+    public static bool Owns(byte tag) => tag is >= WarTag and <= ArsenalTag;
 
     /// <summary>Whether sequence <paramref name="a"/> is after <paramref name="b"/>, across the 16-bit wrap.</summary>
     public static bool IsNewer(ushort a, ushort b) => (short)(a - b) > 0;
@@ -88,14 +89,18 @@ public static class TfwWire
     // ---------------------------------------------------------------- commands (message kind 17)
 
     /// <summary>Whether a command names a place (the payload is <see cref="PointCommandBytes"/> long).</summary>
-    public static bool HasPoint(TfwCommand command) => command is TfwCommand.Hold or TfwCommand.Attack;
+    public static bool HasPoint(TfwCommand command) => command is TfwCommand.Hold or TfwCommand.Attack or TfwCommand.FireTest or TfwCommand.Orbital;
+
+    /// <summary>The length of a command's payload.</summary>
+    static int CommandLength(TfwCommand command) => HasPoint(command) ? PointCommandBytes : command == TfwCommand.ChooseReward ? OfferCommandBytes : CommandBytes;
 
     public static byte[] WriteCommand(TfwCommandRecord c)
     {
-        var bytes = new byte[HasPoint(c.Command) ? PointCommandBytes : CommandBytes];
+        var bytes = new byte[CommandLength(c.Command)];
         BinaryPrimitives.WriteUInt16LittleEndian(bytes, c.Sequence);
         bytes[2] = (byte)c.Command;
         bytes[3] = c.Argument;
+        if (c.Command == TfwCommand.ChooseReward) BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(4), c.Offer);
         if (HasPoint(c.Command))
         {
             BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(4), Decimetres(c.Point.X));
@@ -105,18 +110,20 @@ public static class TfwWire
         return bytes;
     }
 
-    /// <summary>The command of a payload; null for a malformed one (a length that is not the command's, an unknown command, a Deploy to an unknown lane, a card that does not exist).</summary>
+    /// <summary>The command of a payload; null for a malformed one (a length that is not the command's, an unknown command, a Deploy to an unknown lane, a card that does not exist, a pick of offer 0, a weapon key that does not exist).</summary>
     public static TfwCommandRecord? ReadCommand(ReadOnlySpan<byte> payload)
     {
         if (payload.Length < CommandBytes) return null;
         var command = (TfwCommand)payload[2];
-        if (!Enum.IsDefined(command) || payload.Length != (HasPoint(command) ? PointCommandBytes : CommandBytes)) return null;
+        if (!Enum.IsDefined(command) || payload.Length != CommandLength(command)) return null;
         if (command == TfwCommand.Deploy && !Enum.IsDefined((TfwLane)payload[3])) return null;
-        if (command == TfwCommand.ChooseReward && payload[3] >= RewardCards) return null;
+        ushort offer = command == TfwCommand.ChooseReward ? BinaryPrimitives.ReadUInt16LittleEndian(payload[4..]) : (ushort)0;
+        if (command == TfwCommand.ChooseReward && (payload[3] >= RewardCards || offer == 0)) return null;
+        if (command == TfwCommand.SelectSlot && payload[3] is < 1 or > 5) return null;
         var point = HasPoint(command)
             ? new Vector3(BinaryPrimitives.ReadInt16LittleEndian(payload[4..]), BinaryPrimitives.ReadInt16LittleEndian(payload[6..]), BinaryPrimitives.ReadInt16LittleEndian(payload[8..])) * PointStep
             : default;
-        return new TfwCommandRecord(BinaryPrimitives.ReadUInt16LittleEndian(payload), command, payload[3], point);
+        return new TfwCommandRecord(BinaryPrimitives.ReadUInt16LittleEndian(payload), command, payload[3], point, offer);
     }
 
     static short Decimetres(float metres) =>
@@ -182,6 +189,7 @@ public static class TfwWire
         s[11] = own.Squads;
         s[12] = own.Reserves;
         s[13] = own.Secured;
+        s[14] = own.OrbitalSeconds;
     }
 
     static TfwOwnView? ReadOwn(ReadOnlySpan<byte> s)
@@ -189,7 +197,7 @@ public static class TfwWire
         var retainer = (TfwRetainerState)s[6];
         var order = (MarineOrder)s[7];
         if (s[4] > MaxReviveTenths || (s[5] & ~(OwnWon | OwnDeployed)) != 0 || !Enum.IsDefined(retainer) || !Enum.IsDefined(order) || s[13] > WarRules.Positions) return null;
-        return new TfwOwnView(s[0], s[1], s[2], s[3], s[4], (s[5] & OwnWon) != 0, retainer, order, BinaryPrimitives.ReadUInt16LittleEndian(s[8..]), s[10], s[11], s[12], s[13], (s[5] & OwnDeployed) != 0);
+        return new TfwOwnView(s[0], s[1], s[2], s[3], s[4], (s[5] & OwnWon) != 0, retainer, order, BinaryPrimitives.ReadUInt16LittleEndian(s[8..]), s[10], s[11], s[12], s[13], (s[5] & OwnDeployed) != 0, s[14]);
     }
 
     static void WriteLane(Span<byte> s, in TfwLaneState lane)
@@ -569,5 +577,26 @@ public static class TfwWire
         ushort sequence = BinaryPrimitives.ReadUInt16LittleEndian(s);
         if (sequence == 0 || ReadCard(s[2..]) is not { } first || ReadCard(s[(2 + RewardCardBytes)..]) is not { } second || ReadCard(s[(2 + 2 * RewardCardBytes)..]) is not { } third) return null;
         return new TfwRewardOffer(sequence, first, second, third);
+    }
+
+    // ---------------------------------------------------------------- tag 15: the extra slots
+
+    public static byte[] WriteArsenal(in TfwArsenalView a)
+    {
+        var bytes = new byte[ArsenalBytes];
+        var s = bytes.AsSpan();
+        BinaryPrimitives.WriteInt16LittleEndian(s, a.Slot3);
+        BinaryPrimitives.WriteInt16LittleEndian(s[2..], a.Slot4);
+        BinaryPrimitives.WriteInt16LittleEndian(s[4..], a.Slot5);
+        s[6] = a.LoadedPrimary;
+        s[7] = a.LoadedPistol;
+        return bytes;
+    }
+
+    /// <summary>The slots of a payload; null for a malformed one (wrong length, a key that is not 0 or 3 to 5).</summary>
+    public static TfwArsenalView? ReadArsenal(ReadOnlySpan<byte> s)
+    {
+        if (s.Length != ArsenalBytes || s[6] is not (0 or >= 3 and <= 5) || s[7] is not (0 or >= 3 and <= 5)) return null;
+        return new TfwArsenalView(BinaryPrimitives.ReadInt16LittleEndian(s), BinaryPrimitives.ReadInt16LittleEndian(s[2..]), BinaryPrimitives.ReadInt16LittleEndian(s[4..]), s[6], s[7]);
     }
 }

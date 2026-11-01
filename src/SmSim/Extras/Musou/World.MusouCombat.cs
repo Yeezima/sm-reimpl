@@ -74,6 +74,7 @@ public sealed partial class World
                     _shots[k] = shot with { Hit = ShotHit.Body, Surface = -1, Target = 0, Armoured = false };
                 continue;
             }
+            if (musou.War is { } war) { TfwPierceShot(k, shot, weapon, direction, length, war); continue; }   // Campaign/World.TfwMelee.cs: Musou Mode's shots go through
             ushort enemy = musou.Raycast(shot.Origin, direction, length, out float distance, out bool head);
             if (enemy == 0) continue;
             var spec = Shots.ChargeShotOf(weapon, shot.Stage)?.Damage ?? weapon.DirectDamage with { Damage = Combat.DamageAt(distance, weapon) };
@@ -98,7 +99,8 @@ public sealed partial class World
         int n = musou.Query(origin, cone.Length + 2f, _musouNear, verticalReach: cone.Length + 2f);
         bool any = false;
         int covered = 0;
-        for (int k = 0; k < n && covered < musou.Rules.Combat.ConeTargets; k++)
+        int most = musou.War?.ConeTargets ?? musou.Rules.Combat.ConeTargets;
+        for (int k = 0; k < n && covered < most; k++)
         {
             if (!musou.TryGet(_musouNear[k], out var e)) continue;
             var (radius, height) = musou.Body(e.Type);
@@ -137,7 +139,8 @@ public sealed partial class World
             float length = segment.Length();
             if (!(length > 1e-4f)) continue;
             var direction = segment / length;
-            ushort enemy = musou.Raycast(from, direction, length, out float distance, out bool head);
+            float distance; bool head;
+            ushort enemy = musou.War is not null && !p.Thrown ? TfwPierceProjectile(p, from, direction, length, out distance, out head) : musou.Raycast(from, direction, length, out distance, out head);
             if (enemy == 0 || (_musouProjectileStruck.TryGetValue(id, out var struck) && struck == enemy)) continue;
             var point = from + direction * distance;
             var spec = SpecOf(p);
@@ -164,6 +167,7 @@ public sealed partial class World
         foreach (var p in _projectiles) _musouProjectileFrom[p.Id] = p.Position;
         Prune(_musouProjectileFrom);
         Prune(_musouProjectileStruck);
+        if (musou.War is not null) TfwPrunePierced();
 
         void Prune<T>(Dictionary<int, T> of)
         {
@@ -218,7 +222,9 @@ public sealed partial class World
                 var push = forward + (side.LengthSquared() > 1e-8f ? Vector2.Normalize(side) * 0.5f : Vector2.Zero);
                 float damage = spec.Primary.Damage * spec.Primary.BodyMultiplier * Stims.MeleeDealt(Config, p);
                 musou.Damage(e.Id, id, damage, new Vector3(push, 0f), out bool killed, marker: 3, cause: MusouDeathKind.Melee);
-                if (!killed) musou.Stagger(e.Id, push, rules.HeavyKnockback);
+                if (killed) continue;
+                if (musou.War is { } war && MusouSim.Fodder(e.Type)) musou.KnockDown(e.Id, push, war.ChargePush, id, war.ChargeDeath);   // Musou Mode's fodder falls
+                else musou.Stagger(e.Id, push, rules.HeavyKnockback);
             }
         }
         if (_musouCharged.Count > 0)
@@ -245,7 +251,8 @@ public sealed partial class World
         var eye = state.Position + new Vector3(0, 0, Config.EyeHeight);
         int n = musou.Query(state.Position, range, _musouNear, Config.MeleeVerticalReach);
         int struck = 0;
-        for (int k = 0; k < n && struck < rules.CleaveTargets; k++)
+        int most = musou.War?.CleaveTargets ?? rules.CleaveTargets;
+        for (int k = 0; k < n && struck < most; k++)
         {
             if (!musou.TryGet(_musouNear[k], out var e)) continue;
             var flat = new Vector2(e.Position.X - state.Position.X, e.Position.Y - state.Position.Y);
@@ -258,9 +265,12 @@ public sealed partial class World
             // The lead's rule (MU3a review): an enemy inside the step's stomp and its cleave takes the larger of the two, not both.
             float stomped = _musouStompTick == Tick && _musouStompBy == attacker ? _musouStomped.GetValueOrDefault(e.Id) : 0f;
             if (damage > stomped) musou.Damage(e.Id, attacker, damage - stomped, new Vector3(push, 0f), out killed, marker: 3, cause: MusouDeathKind.Melee);
-            if (heavy && !killed) musou.Stagger(e.Id, push, rules.HeavyKnockback);
+            if (killed) continue;
+            if (musou.War is { } war && MusouSim.Fodder(e.Type)) musou.KnockDown(e.Id, push, war.MeleePush, attacker, war.MeleeDeath);   // Musou Mode's fodder falls to any melee hit
+            else if (heavy) musou.Stagger(e.Id, push, rules.HeavyKnockback);
         }
         _musouStomped.Clear();
+        if (musou.War is not null) TfwBestCleave = Math.Max(TfwBestCleave, struck);
     }
 
     /// <summary>A blast on the enemies (see the class summary).</summary>

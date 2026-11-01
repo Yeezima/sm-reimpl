@@ -105,6 +105,10 @@ public partial class NetworkView
         TfwClassCheck("one cloud, not several", TfwSmokesStarted == smokesBefore + 1, $"{TfwSmokesStarted - smokesBefore}");
         TfwClassCheck("the smoke started with or before the new class (it covers the swap)", started >= 0 && classChanged >= started - 0.25, $"smoke {started:F2} class {classChanged:F2}");
         await TfwWait(0.5);
+        // M6: the life after a change is whole, and the new class has its own kit: no slot follows it.
+        var changed = client.Predicted;
+        TfwClassCheck("the new class has its full loadout", _config is { } c && (SmSim.Extras.Musou.MusouLoadout.DefaultPrimary(c, changed.Class) < 0 || Loadouts.Weapon(c, changed, WeaponSlot.Ranged) is not null), $"primary {changed.Primary}, pistol {changed.Pistol}");
+        TfwClassCheck("no extra slot followed it", _tfwState.Arsenal == TfwArsenalView.Empty, _tfwState.Arsenal.ToString());
 
         // Item 1: into a battle, the retainer wears the player's colours.
         if (!await TfwTestDeploy(TfwLane.B)) { _tfwClassFailed++; return; }
@@ -174,11 +178,23 @@ public partial class NetworkView
         await TfwWait(0.6);
         TfwClassCheck("elites are in view with bars over them", TfwBarsDrawn >= 1 && away < 40f, $"{TfwBarsDrawn} bars, {_tfwState.Bars.Count} named, {away:F0} m to the nearest");
         await TfwShot("bars-1-first-sight");
-        Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, ButtonMask = MouseButtonMask.Left });
-        double fireUntil = _connectedFor + 12.0;
-        while (_connectedFor < fireUntil && client.Predicted.Alive && !_tfwState.Bars.Any(b => b.Health < 255)) await TfwFrames();
+        // The pistol is semi-automatic and the elites move: each shot is a press of its own, aimed at the nearest elite again.
+        double fireUntil = _connectedFor + 20.0;
+        while (_connectedFor < fireUntil && client.Predicted.Alive && !_tfwState.Bars.Any(b => b.Health < 255))
+        {
+            TfwNearestElite(out var aim, out float reach);
+            if (aim is { } goal)
+            {
+                var from = client.Predicted.Position;
+                _yaw = MathF.Atan2(-(goal.Position.X - from.X), goal.Position.Y - from.Y);
+                _pitch = MathF.Atan2(goal.Position.Z - from.Z, MathF.Max(1f, reach));
+            }
+            Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, ButtonMask = MouseButtonMask.Left });
+            await TfwFrames(4);
+            Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false });
+            await TfwWait(0.3);
+        }
         await TfwWait(0.6);
-        Input.ParseInputEvent(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false });
         await TfwShot("bars-2-under-fire");
         TfwClassCheck("a bar was hurt", _tfwState.Bars.Any(b => b.Health < 255), string.Join(",", _tfwState.Bars.Select(b => b.Enemy + ":" + b.Health)));
         await TfwWait(1.5);

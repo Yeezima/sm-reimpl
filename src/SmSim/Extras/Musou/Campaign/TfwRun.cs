@@ -33,6 +33,10 @@ public sealed partial class TfwRun
 
     /// <summary>The war of this run.</summary>
     public WarSim War { get; private set; } = new();
+    /// <summary>The players' kits and reward offers (M6; <see cref="TfwRewards"/>).</summary>
+    public TfwRewards Rewards { get; } = new();
+    /// <summary>The run's scores (M6b; <see cref="TfwScore"/>).</summary>
+    public TfwScore Score { get; } = new();
     /// <summary>The battle under way (null in the hub and in travel).</summary>
     public TfwBattle? Battle { get; private set; }
     public int Transport { get; private set; }
@@ -90,10 +94,13 @@ public sealed partial class TfwRun
         Deployed = false;
         Wins = 0;
         ActivePosition = null;
+        Fire.NewRun();
         _deployed.Clear();
         _reviveTicks.Clear();
         _nextHqTransport = TfwBattleRules.HqTransportSeconds;
         _warTicks = 0;
+        Rewards.NewRun();
+        Score.NewRun();
     }
 
     /// <summary>One tick in play, before the fight.</summary>
@@ -127,7 +134,10 @@ public sealed partial class TfwRun
                 case TfwCommand.RequestPickup: RequestPickup(w, player, rate); break;
                 case TfwCommand.CancelPickup: CancelPickup(player); break;
                 case TfwCommand.ChangeClass: ChangeClass(w, player); break;   // TfwRun.Class.cs (M7)
-                case TfwCommand.ChooseReward: break;   // pass 2's contract (M0); M6 gives it its rule
+                case TfwCommand.ChooseReward: w.TfwChooseReward(player, c); break;
+                case TfwCommand.SelectSlot: w.TfwSelectSlot(player, c.Argument); break;
+                case TfwCommand.Orbital: w.TfwOrbital(player, c.Point); break;   // World.TfwFire.cs: the server decides
+                case TfwCommand.FireTest: if (Fire.TestCommands) w.TfwFireForTests((c.Argument & 1) != 0, TfwFireRules.RunsEnabled && (c.Argument & 2) != 0, Field.Clamp(c.Point), w.TfwFireTestHeading(player, c.Point)); break;   // test aid (SM_TFW_FIRE_TEST)
                 default: Order(w, player, c); break;
             }
         }
@@ -189,6 +199,7 @@ public sealed partial class TfwRun
         _deployed.Sort();
         Battle = new TfwBattle(w.Musou!, w.TfwGuards!, layout, state.Imperial, _deployed.Count, final, bonus, TfwBattleRules.EliteShare(TfwBattleRules.RunProgress(Wins, WinsNeeded(lane), final)), Guardsmen);
         Battle.Start();
+        Score.BeginMap(lane, (byte)node, _deployed);
         _fighting = final ? TfwRunPhase.FinalAssault : TfwRunPhase.Battle;
         War.Enter(_fighting, lane);
         var way = new Vector2(layout.Hq.X - layout.LandingZone.X, layout.Hq.Y - layout.LandingZone.Y);
@@ -200,6 +211,7 @@ public sealed partial class TfwRun
             w.TfwRespawnAt(id, at, yaw);
             w.TfwSpawnRetainer(id, Ashore(w, layout, at - layout.LandingZone + new Vector3(0f, -2f, 0f)), yaw);
         }
+        w.TfwPlaceCrates(Sites.Crates(layout, w.Tick), _deployed);
         for (int l = 0; l < 3; l++)
         {
             var other = (TfwLane)l;
@@ -222,7 +234,7 @@ public sealed partial class TfwRun
     {
         var battle = Battle!;
         _deployed.RemoveAll(id => !w.Players.ContainsKey(id));
-        if (_deployed.Count == 0) { Leave(w, !battle.Won); return; }
+        if (_deployed.Count == 0) { Leave(w, !battle.Won, battle.Won ? TfwMapResult.Won : TfwMapResult.Left); return; }
 
         if (_feet.Length < w.Players.Count * 2) _feet = new Vector3[w.Players.Count * 4];
         int n = 0;
@@ -244,7 +256,7 @@ public sealed partial class TfwRun
         Downed(w, rate);
         if (Ended || Battle is null || Phase != TfwRunPhase.Pickup || --PickupTicks > 0) return;
         if (!battle.Won) Transport -= TfwBattleRules.PickupCost;
-        Leave(w, !battle.Won);
+        Leave(w, !battle.Won, battle.Won ? TfwMapResult.Won : TfwMapResult.Left);
     }
 
     /// <summary>
@@ -271,26 +283,28 @@ public sealed partial class TfwRun
         else if (Battle!.Won)
         {
             Supplies = Math.Max(0, Supplies - TfwBattleRules.ExtractionSupplies);
-            Leave(w, left: false);
+            Leave(w, left: false, TfwMapResult.Won);
         }
         else if (Supplies < TfwBattleRules.ExtractionSupplies) War.Enter(TfwRunPhase.Lost);
         else
         {
             Supplies -= TfwBattleRules.ExtractionSupplies;
-            Leave(w, left: true);
+            Leave(w, left: true, TfwMapResult.Extracted);
         }
     }
 
-    /// <summary>Back to the Stormbird, each with a fresh life: <paramref name="left"/>, the battle counts as left.</summary>
-    void Leave(World w, bool left)
+    /// <summary>Back to the Stormbird, each with a fresh life: <paramref name="left"/>, the battle counts as left. The map's score is banked, and a won map offers each human its cards.</summary>
+    void Leave(World w, bool left, TfwMapResult result)
     {
         var battle = Battle!;
+        Score.Bank(result);
         if (left) War.PlayerLeft(War.BattleLane, battle.Secured, battle.OrksKilled, w.TfwGuards!.Lost);
         for (int k = 0; k < _deployed.Count; k++)
         {
             var spawn = Field.Hub.Spawns[k % Field.Hub.Spawns.Count];
             if (w.Players.ContainsKey(_deployed[k])) w.TfwRespawnAt(_deployed[k], spawn.Position, spawn.Yaw);
         }
+        if (result == TfwMapResult.Won) w.TfwOfferRewards(_deployed);
         w.TfwClearField();
         Battle = null;
         ActivePosition = null;
@@ -299,6 +313,9 @@ public sealed partial class TfwRun
         _reviveTicks.Clear();
         War.Enter(TfwRunPhase.Hub, War.BattleLane);
     }
+
+    /// <summary>Test aid: the battle is left at once.</summary>
+    public void PickupForTests(World w) { if (Battle is not null) Leave(w, left: false, TfwMapResult.Won); }
 
     /// <summary>After the fight: the humans in the field who are down wait (the core's timer must not bring them back in the Stormbird), and after a lost run nobody returns until the new one.</summary>
     internal void HoldRespawns(World w)

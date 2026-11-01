@@ -95,7 +95,7 @@ public partial class NetworkView
             {
                 MusouRemoveDropView(id);
                 string? wargear = _config is null ? null : MusouDropItem.Wargear(_config, me.Class, d.Item);
-                view = MusouDropView.Create(id, d.Item, MusouDropMesh(wargear), MusouDropName(wargear));
+                view = MusouDropView.Create(id, d.Item, MusouDropMesh(wargear), MusouDropName(wargear), d.Crate, d.Crate ? PickupModel(0) : null);
                 _gameSpace.AddChild(view);
                 _musouDropViews[id] = view;
                 _musouDropsSeen++;
@@ -135,7 +135,7 @@ public partial class NetworkView
         else if (near.Id != _musouDropPromptFor || _musouDropPromptText is null)
         {
             _musouDropPromptFor = near.Id;
-            _musouDropPromptText = $"{ControlsInput.Prompt(GameAction.Use)}: PICK UP {near.Title.ToUpperInvariant()}";
+            _musouDropPromptText = $"{ControlsInput.Prompt(GameAction.Use)}: {(near.Crate ? "OPEN CRATE" : "PICK UP")} {near.Title.ToUpperInvariant()}";
         }
         MusouDropPromptShow(near is null ? null : _musouDropPromptText);
     }
@@ -215,6 +215,8 @@ public sealed partial class MusouDropView : Node3D
     public ushort Item { get; private set; }
     public string Title { get; private set; } = "";
     public bool Original { get; private set; }
+    /// <summary>A Musou Mode weapon crate (M6): the install's ammunition case made large under the weapon, so it reads apart from a boss's drop and from the small boxes on the floor.</summary>
+    public bool Crate { get; private set; }
     Node3D? _spin;
     float _age;
 
@@ -276,9 +278,17 @@ public sealed partial class MusouDropView : Node3D
         return new GradientTexture2D { Gradient = g, Width = 128, Height = 128, Fill = GradientTexture2D.FillEnum.Radial, FillFrom = new Vector2(0.5f, 0.5f), FillTo = new Vector2(1f, 0.5f) };
     }
 
-    public static MusouDropView Create(ushort id, ushort item, Mesh? model, string title)
+    public static MusouDropView Create(ushort id, ushort item, Mesh? model, string title, bool crate = false, Mesh? crateModel = null)
     {
-        var view = new MusouDropView { Id = id, Item = item, Title = title, Name = $"MusouDrop{id}" };
+        var view = new MusouDropView { Id = id, Item = item, Title = title, Name = $"MusouDrop{id}", Crate = crate };
+        if (crate)
+        {
+            const float size = 1.5f;   // ours: a crate a Marine stands beside
+            var body = crateModel is not null
+                ? new MeshInstance3D { Mesh = crateModel, Scale = new Vector3(size, size, size), Layers = 2 }
+                : new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(1.1f, 0.8f, 0.7f) }, Position = new Vector3(0f, 0f, 0.35f), Layers = 2 };
+            view.AddChild(body);
+        }
         view._spin = new Node3D { Name = "Spin", Position = new Vector3(0f, 0f, Lift), Scale = new Vector3(ModelScale, ModelScale, ModelScale) };
         view.AddChild(view._spin);
         if (model is not null)
