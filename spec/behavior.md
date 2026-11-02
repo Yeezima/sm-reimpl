@@ -148,6 +148,8 @@ marked as estimations to be reviewed later: the rows that rest on them have kind
 
 ### Owner's bolter balance (2026-10-28; deliberate change from the original)
 
+Stalker bolter (owner, 2026-11-02): armour head multiplier 10 instead of the data's 2.5, both races and variants (`OwnerBalance.StalkerShieldHead`, ours as the value that meets the owner's target).
+
 The owner (2026-10-28): "buff that true grit bolter to be moderately more dps than bolt pistol. it should be powerful to use. buff the
 standard bolter as well to match the dps of the bolt pistol as well." Applied in one table, `SmContent.OwnerBalance` (rules for both races and
 the gold twins), after the classes and the Ork are read (`GameplayTuning.WithClasses`; the Ork's parity reference stays the data's bolter);
