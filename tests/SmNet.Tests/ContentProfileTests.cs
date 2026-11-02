@@ -145,6 +145,7 @@ public class ContentProfileTests
     public void Extended_is_every_compiled_extra_and_the_default()
     {
         Assert.Equal(ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks, ContentExtras.All);
+        Assert.NotEqual(default, ContentExtras.ActionKeyUsers & ContentExtras.Musou);   // T shouts in Musou Mode
         Assert.Equal(ContentProfiles.Extended, ContentProfiles.DefaultName);   // the owner's default (2026-10-28): a one-line change
         bool ok = ContentProfiles.TryParse("extended", out var extended, out string error);
         if (ContentExtras.Compiled)

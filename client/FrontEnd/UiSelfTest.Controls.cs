@@ -131,6 +131,20 @@ public sealed partial class UiSelfTest
             await AnswerControlsDialog(controls, "Replace");
             Check("controls: after Replace the wheel is Weapon 1's", controls.Working.Get(KB, GameAction.Weapon1, 1) == "Mouse:Wheel" && controls.Working.Get(KB, GameAction.NextWeapon, 1) is null);
 
+            // A on a controller presses the focused control.
+            var padProbe = new Button { Text = "probe", FocusMode = Control.FocusModeEnum.All };
+            int padPresses = 0;
+            padProbe.Pressed += () => padPresses++;
+            controls.AddChild(padProbe);
+            padProbe.GrabFocus();
+            await Frames(2);
+            Input.ParseInputEvent(new InputEventJoypadButton { ButtonIndex = JoyButton.A, Pressed = true });
+            await Frames(2);
+            Input.ParseInputEvent(new InputEventJoypadButton { ButtonIndex = JoyButton.A, Pressed = false });
+            await Frames(2);
+            Check("menus: A on a controller presses the focused button", padPresses == 1, $"{padPresses} presses");
+            padProbe.QueueFree();
+
             // Clearing: Delete on the focused entry.
             controls.BindButton(GameAction.Jump, 1)!.GrabFocus();
             await Frames(2);

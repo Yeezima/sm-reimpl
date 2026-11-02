@@ -84,7 +84,7 @@ public partial class NetworkView
     (uint Tick, byte Sequence)? _ownShoutPending;
     double _botShoutAt, _barkLogAt;
 
-    bool BarksActive => !NoLoyalistBarks && _config is { } c && c.Extras.HasFlag(ContentExtras.LoyalistBarks);
+    bool BarksActive => !NoLoyalistBarks && _config is { } c && (c.Extras & ContentExtras.ActionKeyUsers) != 0;   // Musou Mode has the key too (owner, 2026-11-02), not the automatic barks (BarkSay)
 
     bool IsLoyalist(PlayerState s) => _config is not null && Races.Of(_config, s.Class, s.Team) == Race.SpaceMarines;
 
@@ -239,7 +239,7 @@ public partial class NetworkView
     void BarkSay(int id, PlayerState s, BarkMoment moment, long seed, bool own)
     {
         if (_config is null || _barkRules is null) return;
-        if (moment != BarkMoment.Key && !LoyalistAutoBarks) return;
+        if (moment != BarkMoment.Key && (!LoyalistAutoBarks || _config.Extras.HasFlag(ContentExtras.Musou))) return;
         var sp = BarkSpeakerOf(id);
         bool speaking = sp.Until > _connectedFor;
         bool sm1 = _sound is not null && _soundTracks.TryGetValue(id, out var track) && _sound.SpeechBusy(track.Emitter);

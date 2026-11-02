@@ -1440,7 +1440,7 @@ public partial class NetworkView : Node3D
         // Reacting (M28): the reaction clip at the reaction's time; a reaction ends any attack, throw, evade or jump on the ground.
         character.ClipFootLock = false;   // anim/melee-flow: only the strikes and the charge below hold their put-down feet (CharacterViewer.ClipFootLock.cs)
         character.ClipStrideScale = 1f;   // anim/hammer-swing: only a hammer strike below stretches the clip's stride (NetworkView.HammerSwing.cs)
-        if (ReactionPose(state) is { } reaction && PoseSharp(character, reaction.Clip, MathF.Max(0f, (smooth is { Kind: ClipKind.Reaction } sr ? sr.Time : reaction.Time) - HitStopHold(state.PlayerId)), ClipBlends.Reaction)) return;   // feel/melee-lock: the hit-stop holds it
+        if (ReactionPose(state) is { } reaction && PoseSharp(character, reaction.Clip, MathF.Max(0f, (smooth is { Kind: ClipKind.Reaction } sr ? sr.Time : reaction.Time) - ReactionHold(state.PlayerId)), ClipBlends.Reaction)) return;   // feel/melee-lock: the hit-stop holds it
         // Charging (M29): the rush or its collision stop, at the phase's time.
         // feel/jump-pack (the owner, 2026-10-29): a charge held in the air off a ledge shows the fall pose (the locomotion path below), not its clip frozen (NetworkView.Fall.cs).
         // anim/melee-flow: nor, once landed, the rush clip again in that charge (RushRebashHeld: no second bash).

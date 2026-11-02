@@ -29,7 +29,7 @@ public sealed partial class GameServer
     /// <summary>This feature's part of the envelope hook (called by the dispatcher <c>GameServer.Extras.cs</c>).</summary>
     void SendLoyalistBarks()
     {
-        if (!World.Config.Extras.HasFlag(ContentExtras.LoyalistBarks)) return;
+        if ((World.Config.Extras & ContentExtras.ActionKeyUsers) == 0) return;
         uint tick = World.Tick;
         var present = _shoutPresent;
         present.Clear();

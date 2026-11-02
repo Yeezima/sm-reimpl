@@ -261,6 +261,7 @@ public partial class NetworkView
     void MusouMeleeHitSound(in MusouEvent e, Num.Vector3 at, Num.Vector3 camera, PlayerState me)
     {
         if (e.Player == 0 || _client is null || Num.Vector3.DistanceSquared(at, camera) > FxRange * FxRange) return;
+        if (e.Player == _client.PlayerId && OwnStrikeSounded) return;   // already played at the strike (OwnStrikeHitSound)
         PlayerState? attacker = e.Player == _client.PlayerId ? me : null;
         if (attacker is null) for (int k = 0; k < _lastOthers.Count; k++) if (_lastOthers[k].PlayerId == e.Player) { attacker = _lastOthers[k]; break; }
         if (attacker is not { } who || ProceduralHitSound(who, charge: false, dash: false) is not { } synth) return;
@@ -272,6 +273,34 @@ public partial class NetworkView
         if (LogSound("melee")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} P{e.Player} musou hit event {played}");
     }
     int _musouHitSoundsThisSwing;
+
+    /// <summary>The nearest shown enemy the own strike should reach (game space, its chest): the cleave's rule (<see cref="MusouCombatRules"/>), for the hit sound at the strike.</summary>
+    void MusouMeleeTarget(PlayerState me, MeleeStep step, ref Num.Vector3? at)
+    {
+        if (!MusouActive || _config is null) return;
+        var rules = MusouCombatRules.Default;
+        float reach = _config.MeleeRange + rules.CleaveExtraRange + (step.TrackToHit ? MusouCombatRules.CleaveTrackRange : 0f);
+        float minCos = MathF.Cos(MathF.Min(180f, _config.MeleeConeDegrees * rules.CleaveConeScale) * MathF.PI / 180f);
+        var forward = new Num.Vector2(-MathF.Sin(me.Yaw), MathF.Cos(me.Yaw));
+        float best = float.PositiveInfinity;
+        for (int i = 0; i < _tfwShown.Count; i++)
+        {
+            var e = _tfwShown[i];
+            var offset = e.Position - me.Position;
+            float distance = new Num.Vector2(offset.X, offset.Y).Length();
+            if (distance > reach || distance >= best || MathF.Abs(offset.Z) > _config.MeleeVerticalReach) continue;
+            if (distance > 1e-4f && Num.Vector2.Dot(new Num.Vector2(offset.X, offset.Y) / distance, forward) < minCos) continue;
+            var chest = new Num.Vector3(e.Position.X, e.Position.Y, e.Position.Z + GoreChestHeight(e.Type));
+            if (_client?.Collision is { } world)   // as the cleave: no hit through a wall
+            {
+                var eye = me.Position + new Num.Vector3(0f, 0f, _config.EyeHeight);
+                float length = Num.Vector3.Distance(eye, chest);
+                if (length > 1e-4f && world.Weapons.Raycast(eye, (chest - eye) / length, length) is { } wall && wall.Distance < length) continue;
+            }
+            best = distance;
+            at = chest;
+        }
+    }
 
     /// <summary>A telegraph: the boss's ring, lane and call-outs.</summary>
     void MusouTelegraph(in MusouEvent e, IReadOnlyList<MusouShown> shown, Num.Vector3 camera, MusouBossRules boss)

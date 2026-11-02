@@ -766,7 +766,8 @@ public partial class NetworkView
         }
         else if (hits.LastMelee)
         {
-            if (ProceduralHitSound(me, charge: false, dash: false) is { } synth)
+            if (OwnStrikeSounded && ProceduralHitSound(me, charge: false, dash: false) is not null) { }   // already played at the strike (OwnStrikeHitSound)
+            else if (ProceduralHitSound(me, charge: false, dash: false) is { } synth)
             {
                 // fx/melee-hit-sound: the generated sound, at the victim's chest (or at the own marine when the victim is not known), instead of the weapon's own.
                 var struck = _lastOthers.FirstOrDefault(o => o.PlayerId == hits.LastVictim);

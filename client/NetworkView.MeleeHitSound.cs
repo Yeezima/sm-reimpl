@@ -9,8 +9,8 @@ namespace SmClient;
 
 /// <summary>
 /// fx/melee-hit-sound (the owner's requests of 2026-11-01; client presentation only: no simulation, wire or config-hash change; not under Extras: Faithful and Extended, classic PvP and Musou alike).
-/// The on-hit sounds of two groups of melee weapons are **generated at run time** (<see cref="MeleeHitSynth"/>, no asset file; a provisional approximation measured from two reference clips; nobody
-/// has heard it yet): sound A (a pink sizzle) for the power axe and power sword; sound B (an instant roar with a crackling tail) for the thunder hammer and the daemon maul (hotfix 2026-11-01: the chainsword, combat knife and every charge keep their originals, and these play 40% quieter).
+/// The on-hit sounds of two groups of melee weapons are **generated at run time** (<see cref="MeleeHitSynth"/>, no asset file; a provisional approximation; nobody
+/// has heard it yet): sound A (a short deep impact) for the power axe and power sword; sound B (a heavier, lower impact) for the thunder hammer and the daemon maul (hotfix 2026-11-01: the chainsword, combat knife and every charge keep their originals).
 /// The own player's hit reports and the others' inferred hits both come here. The hammer's and maul's blast layer
 /// (<see cref="PowerFlash.BlastEvents"/>) is not played with sound B: a second boom under a roar of the same kind would fight it. <c>--old-melee-hit-sound</c> restores every original sound (and the blast layer).
 /// Test aids: <c>--old-melee-hit-sound</c>, <c>--log-sound melee</c> (prints "procedural sound A/B" as the event).
@@ -29,6 +29,34 @@ public partial class NetworkView
         if (OldMeleeHitSound || _config is null) return null;
         if (charge) return null;   // every charge keeps its original sound (hotfix 2026-11-01)
         return MeleeHitSynth.Replaces(MeleeWargear(attacker));
+    }
+
+    /// <summary>Seconds after the own strike's sound during which the server's reports of that swing stay silent: past a normal round trip, short of the next swing's hit (ours).</summary>
+    const double OwnStrikeWindow = 0.35;
+    double _ownStrikeSoundAt = double.NegativeInfinity;
+
+    /// <summary>Whether the own swing's hit sound has just been played at the strike.</summary>
+    bool OwnStrikeSounded => _connectedFor - _ownStrikeSoundAt <= OwnStrikeWindow;
+
+    /// <summary>An added mode's own melee targets (Musou's enemies): the nearest one this strike should reach, at its chest (game space).</summary>
+    partial void ExtrasMeleeTarget(PlayerState me, MeleeStep step, ref System.Numerics.Vector3? at);
+
+    /// <summary>
+    /// The owner, 2026-11-02: the sound was late. A server's hit report comes a round trip after the blow, so the own swing's generated sound plays on the frame its hit time passes (the moment the
+    /// damage is dealt, from <see cref="MeleeFxFor"/>) when an enemy stands in reach; the report then adds nothing. With nobody in reach the report still sounds, and a target that dodged in the last moment sounds a hit that dealt nothing (ours: rare, and the price of no delay).
+    /// </summary>
+    void OwnStrikeHitSound(PlayerState me, MeleeStep step, List<PlayerState> all)
+    {
+        if (NoMeleeSounds || NoSound || Lean || _sound is null || _client is null || _config is null || ProceduralHitSound(me, charge: false, dash: false) is not { } synth) return;
+        System.Numerics.Vector3? at = null;
+        int victim = SmNet.MeleePresentation.Victim(me, all, _config, _client.MeleeLockTarget);
+        if (victim > 0) foreach (var p in all) if (p.PlayerId == victim) { at = p.Position + new System.Numerics.Vector3(0f, 0f, 1.2f); break; }
+        ExtrasMeleeTarget(me, step, ref at);   // EXTRAS-HOOK
+        if (at is not { } spot) return;
+        _ownStrikeSoundAt = _connectedFor;
+        string played = PlayProceduralHit(synth, ToGodot(spot), "own strike");
+        CountSound("melee hit");
+        if (LogSound("melee") || LogSound("tag")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} {MeleeWargear(me)} at the strike, event {played}");
     }
 
     AudioStreamWav[] HitStreams(HitSound sound)
@@ -71,8 +99,8 @@ public partial class NetworkView
         HitRender(HitSound.Roar);
     }
 
-    /// <summary>Hotfix 2026-11-01: the generated hit sounds 40% quieter (volume x 0.6, about -4.4 dB).</summary>
-    static readonly float HitVolumeScaleDb = 20f * MathF.Log10(0.6f);
+    /// <summary>Hotfix 2026-11-01: the generated hit sounds quieter (volume x 0.5, -6 dB; the owner: 40% quieter, then "slightly lowered" on 2026-11-02).</summary>
+    static readonly float HitVolumeScaleDb = 20f * MathF.Log10(0.5f);
 
     /// <summary>Plays a procedural melee hit sound at <paramref name="at"/> (Godot space): one of four renders at a slightly different speed and level every time. Returns the text for the log.</summary>
     string PlayProceduralHit(HitSound sound, Vector3 at, string label)

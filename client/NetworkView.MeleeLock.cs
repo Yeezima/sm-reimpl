@@ -83,6 +83,9 @@ public partial class NetworkView
     /// <summary>Seconds the player's attack or reaction clip is held back by a hit-stop now (0 without one).</summary>
     float HitStopHold(int id) => MathF.Max(_hitStops.TryGetValue(id, out double start) ? MeleePresentation.Hold((float)(_connectedFor - start)) : 0f, ChargeStopHold(id));   // anim/melee-interaction: a charge connect's
 
+    /// <summary>Seconds a reaction clip is held back: a melee hit's hit-stop only. A charge connect no longer holds the victim (owner, 2026-11-02: the reaction to a charge was late): it starts on the hit.</summary>
+    float ReactionHold(int id) => _hitStops.TryGetValue(id, out double start) ? MeleePresentation.Hold((float)(_connectedFor - start)) : 0f;
+
     MeleeShow ShowOf(int id)
     {
         if (!_meleeShows.TryGetValue(id, out var show)) _meleeShows[id] = show = new MeleeShow();

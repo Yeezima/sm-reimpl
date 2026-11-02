@@ -45,6 +45,18 @@ public sealed class ArmourFlashTracker
         e.RegenAt = now + Math.Max(0f, regenDelay);
     }
 
+    /// <summary>The own hit report says another player's armour is gone after this hit (owner, 2026-11-02: the red glow the instant it breaks): the break flash now, once, not on the next hit.</summary>
+    public void Broke(int id, double now, float regenDelay)
+    {
+        var e = Of(id);
+        if (e.Armour != 2) e.BreakAt = now;
+        e.Armour = 2;
+        e.RegenAt = now + Math.Max(0f, regenDelay);
+    }
+
+    /// <summary>Whether the armour's break flash runs now: red in the recharge glow's ring (owner, 2026-11-02), rather than the engulfing glow of later hits on bare armour.</summary>
+    public bool BreakRing(int id, double now) => _byId.TryGetValue(id, out var e) && now - e.BreakAt >= 0.0 && now - e.BreakAt < BreakSeconds;
+
     /// <summary>The player died or respawned: no flash, no pending glow.</summary>
     public void Reset(int id) => _byId.Remove(id);
 
