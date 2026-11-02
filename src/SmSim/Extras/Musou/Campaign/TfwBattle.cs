@@ -382,6 +382,7 @@ public sealed class TfwBattle
             if (id != 0) _crowds[point].Add(id);
         }
         _tideTicks[point] = Ticks(TfwBattleRules.CrowdFillSeconds) * squad;
+        _lastTide[point] = _now + Ticks(TfwBattleRules.CrowdFillSeconds) * (squad - 1);   // SendAgain keeps the wait too
         if (_crowds[point].Count >= TfwBattleRules.CrowdSize) Swarm(point, TfwSwarmWhy.Full);
         return true;
     }
