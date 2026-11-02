@@ -120,7 +120,7 @@ public abstract partial class CrowdView : Node3D
             if (along.LengthSquared() > 1e-6f && solid(chest, chest + along) is not null) { v.X *= -0.25f; v.Y *= -0.25f; p.X = b.Position.X; p.Y = b.Position.Y; }
             if (v.Z > 0f && solid(chest, chest + new Vector3(0f, 0f, v.Z * dt + 1f)) is not null) v.Z = 0f;   // a ceiling
             // The floor under the next place, wherever the body has gone: up a step, or none near (off a ledge, or high in the air) and it keeps falling.
-            float top = MathF.Max(b.Position.Z, p.Z) + 0.6f, bottom = MathF.Min(b.Position.Z, p.Z) - 1.5f;
+            float top = MathF.Max(b.Position.Z, p.Z) + 0.25f, bottom = MathF.Min(b.Position.Z, p.Z) - 1.5f;
             b.Ground = solid(new Vector3(p.X, p.Y, top), new Vector3(p.X, p.Y, bottom)) is { } drop ? top - drop : bottom;
         }
         if (p.Z <= b.Ground)
