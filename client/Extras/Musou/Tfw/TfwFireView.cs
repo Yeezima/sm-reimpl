@@ -28,7 +28,7 @@ namespace SmClient;
 public partial class NetworkView
 {
     /// <summary>The effects this view plays (<c>master_fx</c>).</summary>
-    static readonly string[] FxNames = ["artillery_explosion", "oob_explosions_artillery", "oob_explosions_artillery_less", "oob_explosion_huge", "amb_anti_aircraft_fire_valkyries", "thunderhawk_jet", "heavy_bolter_thunderhawk_tracer"];
+    static readonly string[] FxNames = ["artillery_explosion", "oob_explosion_huge", "thunderhawk_jet", "heavy_bolter_thunderhawk_tracer"];
     /// <summary>A Thunderhawk run's flyby (paused, played only by <see cref="TfwRunBegins"/>), best first: the aircraft's own (needs the campaign's bank), then the Valkyrie's.</summary>
     static readonly string[] FlybyEvents = ["play_thunderhawk_pass", "play_ig_valkyrie_flyby", "play_valkyrie_s13_flyby"];
     /// <summary>Shells: near, far.</summary>
@@ -64,9 +64,6 @@ public partial class NetworkView
     const float WarLoopSeconds = 7f;
     /// <summary>Seconds between two of the war's sounds, drawn in this range (ours).</summary>
     const float WarGapMin = 0.5f, WarGapMax = 2.2f;
-    /// <summary>Round the battle's points: the far fires and flak (m; ours).</summary>
-    const float VistaRadius = 240f;
-    const int VistaCount = 7;
 
     sealed record FireAssets(Dictionary<string, CSystem> Systems, Dictionary<string, byte[]> Decals, StaticModel? Aircraft, StaticModel? Gun, List<string> Notes);
 
@@ -81,7 +78,7 @@ public partial class NetworkView
     readonly List<(double At, SoundEmitter Emitter)> _tfwLoopStops = new();
     readonly Random _tfwRoll = new(77);
     Task<FireAssets>? _tfwFireLoad;
-    bool _tfwFireLoaded, _tfwBanksLoaded, _tfwVista;
+    bool _tfwFireLoaded, _tfwBanksLoaded;
     TfwBlastCloud? _tfwCloud;
     Node3D? _tfwAircraft;
     TfwFireEvent? _tfwRun;
@@ -128,7 +125,6 @@ public partial class NetworkView
         TfwShockFrame();
         _tfwCloud?.Frame((float)delta);
         TfwWarSoundFrame(war);
-        TfwVistaFrame(war);
         if (_connectedFor >= _tfwFireLogAt && (_tfwShellsPlayed + _tfwRoundsPlayed + _tfwWarPlayed) > 0)
         {
             _tfwFireLogAt = _connectedFor + 10.0;
@@ -428,24 +424,6 @@ public partial class NetworkView
         var emitter = new SoundEmitter { Position = at, OneShot = true, Label = "tfw war" };
         if (TfwPost(pick.Event, emitter, 0f, offset)) _tfwWarPlayed++;
         else _tfwWarSilent++;
-    }
-
-    /// <summary>Far fires and flak round the battlefield, once its points are known (they stand as long as the map does).</summary>
-    void TfwVistaFrame(in TfwWarView war)
-    {
-        if (_tfwVista || _fx is not { } fx || !_tfwFireLoaded || _tfwCloud is null || _tfwState.Objectives.Count == 0) return;
-        _tfwVista = true;
-        var centre = Num.Vector3.Zero;
-        foreach (var o in _tfwState.Objectives) centre += o.Position;
-        centre /= _tfwState.Objectives.Count;
-        var middle = ToGodot(centre);
-        for (int k = 0; k < VistaCount; k++)
-        {
-            float a = k * MathF.Tau / VistaCount + 0.4f;
-            var at = middle + new Vector3(MathF.Cos(a) * VistaRadius, 0f, MathF.Sin(a) * VistaRadius);
-            if (fx.Play("oob_explosions_artillery_less", at, Basis.Identity, 2.2f, repeat: true, ambient: true) is { } vista) vista.NoLights = true;   // its data lights, scaled, reach 270 m: the arena flashed cream
-            if (fx.Play("amb_anti_aircraft_fire_valkyries", at + Vector3.Up * 30f, Basis.Identity, 1.5f, repeat: true, ambient: true) is { } flak) flak.NoLights = true;
-        }
     }
 
     // ---------------------------------------------------------------- test aids

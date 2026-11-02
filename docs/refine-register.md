@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2165 spec table rows: **1554 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 466 rows of the changes document.
+Scanned 2164 spec table rows: **1553 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 466 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,17 +50,17 @@ Scanned 2165 spec table rows: **1554 tagged**, 441 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
-| Core simulation (provisional values) | 266 | 250 | 214 | 34 | 1 |
+| Core simulation (provisional values) | 265 | 249 | 213 | 34 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 113 | 106 | 61 | 15 | 0 |
-| **All areas** | **1554** | 1326 | 1216 | 461 | 38 |
+| **All areas** | **1553** | 1325 | 1215 | 461 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 737 |
-| confidence: low | 571 |
+| kind: ours | 736 |
+| confidence: low | 570 |
 | confidence: medium | 517 |
 | kind: interpretation | 336 |
 | notes: ours | 310 |
@@ -1900,7 +1900,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-EB03504B` | Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks (s) | kind: ours; notes: estimate | owner 2026-11-02 | Shot lag allowance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each shot is also tried on the enemy's places over the last 0.2 s… | ☐ |
 
-### Core simulation (provisional values) (266)
+### Core simulation (provisional values) (265)
 
 *Spec section: Provisional values in use*
 
@@ -2155,7 +2155,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-82ACA5B8` | Burst sound | within 130 m one of `play_sm_missile_explosion`, `play_powersource_explode_distant`, `play_ork_rokk_distant_explosion` in turn at +4 dB (+8 dB and the missile's on top within 45 m); past that a far one; late by the distance. `play_big_damage_large_explosion`… (dB, m) | kind: ours; confidence: low | ours | Burst sound: compare with SM1 by listening A/B at the same distance and state. Ours: within 130 m one of play_sm_missile_explosion… | ☐ |
 | `R-26C2FF49` | Flyby (paused) | `play_thunderhawk_pass` from the campaign's bank `rgn_s27_r500` (loaded at run time only with the runs on; it resolved), 2.5 s into the run and stopped at its end, with `play_sm_thunderhawk_engine`; else `play_ig_valkyrie_flyby` (s) | kind: ours; confidence: medium | the blueprint's `flybysound`; the timing ours | Flyby (paused): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: play_thunderhawk_pass from the campaign's bank rgn_s27_r500 (loaded… | ☐ |
 | `R-1E92B5E4` | The war round the walls | a far sound every 0.5 to 2.2 s from a random bearing, 22 to 36 m from the listener: far explosions, a titan's step, heavy bolters (no flyby: the owner took the far Valkyries out, 2026-11-01); -22 dB and LPF 62 (about 900 Hz) on top of the data's mix in a… (dB, s, m) | kind: ours; confidence: low | the owner's item 10; the mix ours | The war round the walls: compare with SM1 by feel or video. Ours: a far sound every 0.5 to 2.2 s from a random bearing, 22 to 36 m from… | ☐ |
-| `R-030BF90E` | Far fires | 7 places 240 m round the points: `oob_explosions_artillery_less` x2.2 and `amb_anti_aircraft_fire_valkyries` x1.5 on repeat. Not seen in the captures: to check (m) | kind: ours; confidence: low | the design | Far fires: compare with SM1 by measuring on a flat spot of the same map. Ours: 7 places 240 m round the points: oob_explosions_artillery_less x2.2… | ☐ |
 
 *Spec section: Flying hitboxes, the view fraction, the grenade bounce and the bots' damage scale (fix/hitboxes-grenades-bots; protocol 37)*
 
@@ -2579,7 +2578,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-0BAAC3C5` | Pistol-only start, Space Marine spawn room, Warboss in the Chaos room | the owner's request (2026-10-31) | every life starts with the class's bolt pistol only; everyone spawns in the Space Marine room | Musou spawns and loadout | Pistol-only start, Space Marine spawn room, Warboss in the…: compare with SM1 by feel or video. Ours: the owner's request (2026-10-31). | ☐ |
 | `C-D5938EAB` | Golden weapon drops from Nobs and Chaos Marines | the owner's requests (2026-10-31) | each Nob or Chaos Marine KO drops one weapon per player from their class's pool, E equips it, 60 s | Musou weapon drops | Golden weapon drops from Nobs and Chaos Marines: compare with SM1 by feel or video. Ours: the owner's requests (2026-10-31). | ☐ |
 | `C-6A2CB579` | Musou Mode: an extraction after a won battle never ends the run | the owner's decision (2026-11-01) | the supplies fall by up to 2, never below 0, and the run goes on; from a battle not won, under 2 supplies still loses the run | War downed | Musou Mode: an extraction after a won battle never ends the…: compare with SM1 by timing a run over a known distance. Ours: the owner's decision (2026-11-01). | ☐ |
-| `C-2E0C8FD7` | Musou Mode: orbital support and the far war | the owner's items 10 and 12 and his decision of 2026-11-01: artillery only when a player calls it with B on the crosshair's point, starting at once; Thunderhawk runs paused by him the same day; SM1 multiplayer has none of this | a walking barrage on the called point, no cooldown (the owner, 2026-11-01), friend and foe hurt; a muffled war round the map; the optional local whistle `client/assets/musou/whistle.ogg` is never shipped | Musou Mode: fire support | Musou Mode: orbital support and the far war: compare with SM1 by feel or video. Ours: the owner's items 10 and 12 and his decision of 2026-11-01: artillery… | ☐ |
+| `C-2E0C8FD7` | Musou Mode: orbital support and the far war | the owner's items 10 and 12 and his decision of 2026-11-01: artillery only when a player calls it with B on the crosshair's point, starting at once; Thunderhawk runs paused by him the same day; SM1 multiplayer has none of this | a walking barrage on the called point, no cooldown (the owner, 2026-11-01), friend and foe hurt; a muffled war heard round the map (sound only; the far fires and flak were taken out, 2026-11-02); the optional local whistle `client/assets/musou/whistle.ogg` is never shipped | Musou Mode: fire support | Musou Mode: orbital support and the far war: compare with SM1 by feel or video. Ours: the owner's items 10 and 12 and his decision of 2026-11-01: artillery… | ☐ |
 | `C-8D1FAC43` | Musou enemy sounds: only the nearest enemies are heard | ours (a crowd of hundreds against the original's dozens): the events and mix are the data's, when they play and how many are ours | 16 emitters within 30 m, 6 stepping, at most about 14 voices and 6 lines, a crowd voice never cuts a player's; the Warboss speaks with the `ork_nob` lines; the crowd's clip tags are stood in for by state changes and ground covered | Musou enemy sounds | Musou enemy sounds: only the nearest enemies are heard: compare with SM1 by feel or video. Ours: ours (a crowd of hundreds against the original's dozens): the events… | ☐ |
 | `C-09C74C8A` | Musou Mode replaces the 5-wave run | the owner's decision (2026-11-01) | `--content musou` runs the war on `tfw_war`, Manufactorum from the install with a generated Stormbird beside it and no spawn-room blockers; the 5-wave run stays only as a test aid (`--map mp_tdm_09`) | War map | Musou Mode replaces the 5-wave run: compare with SM1 by timing a run over a known distance. Ours: the owner's decision (2026-11-01). | ☐ |
 | `C-38A58728` | AI Marines in the war | the owner's decisions (2026-11-01) and ours | server-side puppets: a retainer per player who follows orders and revives, three lords with retainers who act alone; ammunition without end, placeholder names | Retainer orders | AI Marines in the war: compare with SM1 by feel or video. Ours: the owner's decisions (2026-11-01) and ours. | ☐ |
