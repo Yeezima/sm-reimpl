@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
   Builds the tester release of sm-reimpl into %LOCALAPPDATA%\sm-reimpl\release\<version>\ (never inside the repository or the game install):
-    SM-Reimpl-Playtest-<date>-<ver>-Windows.zip   THE tester download (the only asset of a release unless -ServerAssets), laid out for testers:
+    SM-Reimpl-Playtest-<date>-<ver>-Windows.zip   THE tester download (a ship adds the linux-x64 server package; launchers ignore other assets), laid out for testers:
         0 - SM Reimpl Launcher.exe                  the launcher and updater (src/SmLauncher; self-contained single file): installs into its own
                                                     folder, keeps the build up to date from this repository's releases, starts Play / Host / Join
         1 - READ ME FIRST.txt
@@ -128,8 +128,9 @@ if ($Repo -ne 'Yeezima/sm-reimpl-releases' -and -not $AllowOtherRepo) {
     throw "Publishing is pinned to Yeezima/sm-reimpl-releases; '$Repo' needs the explicit -AllowOtherRepo switch."
 }
 if ($Ship) {
-    if ($Commit -or $Publish -or $SkipBuild -or $SkipClient -or $AllowDirty) { throw '-Ship builds and publishes HEAD of a clean main by itself; do not combine it with -Commit, -Publish, -SkipBuild, -SkipClient or -AllowDirty.' }
+    if ($Commit -or $Publish -or $SkipBuild -or $SkipClient -or $SkipServer -or $AllowDirty) { throw '-Ship builds and publishes HEAD of a clean main by itself; do not combine it with -Commit, -Publish, -SkipBuild, -SkipClient, -SkipServer or -AllowDirty.' }
     $Smoke = $true             # a ship always runs the smoke test
+    $Linux = $true             # every release carries the linux-x64 server: the VM downloads it from GitHub (the owner's PC to the VM can be very slow)
 }
 if ($ServerAssets) { $Linux = $true }      # the server assets include the Linux package
 foreach ($pair in @(@('SkipTests', $SkipTests), @('Draft', $Draft), @('Supersede', $Supersede), @('NotPrerelease', $NotPrerelease), @('NoPush', $NoPush), @('AllowEmptyNotes', $AllowEmptyNotes), @('ArchiveOnly', $ArchiveOnly), @('KeepPrevious', $KeepPrevious))) {
@@ -582,7 +583,7 @@ function Ship-CreateArgs {
     $a = @('release', 'create', $Tag, '--repo', $Repo, '--title', "sm-reimpl tester build $Version", '--notes-file', $Notes)
     if ($Draft) { $a += '--draft' }
     if ($NotPrerelease) { if (-not $Draft) { $a += '--latest' } } else { $a += '--prerelease' }
-    return ,($a + @($Zips.playtest))
+    return ,($a + @($Zips.playtest, $Zips.serverLinux))
 }
 # The newest published (not draft) release other than this one: the one -Supersede points at the new build. Empty when there is none or gh fails.
 function Previous-Release {
@@ -1350,9 +1351,9 @@ if ($Ship) {
     Step "Ship: publishing $Tag to $Repo"
     # Re-scan right before the upload, the description too (it is public).
     Write-ReleaseNotes
-    $again = Invoke-Scan @($Zips.playtest, $Notes) -Rehash      # the last scan before an upload trusts no stored hash
+    $again = Invoke-Scan @($Zips.playtest, $Zips.serverLinux, $Notes) -Rehash      # the last scan before an upload trusts no stored hash
     if ($again -ne 0) { Fail "The content guard refused the packages or the description just before publishing (exit $again). Nothing was uploaded." }
-    Test-Sums -Require @($Zips.playtest)
+    Test-Sums -Require @($Zips.playtest, $Zips.serverLinux)
     if ((Quiet-Exit { gh release view $Tag --repo $Repo }) -eq 0) { Fail "$Tag appeared in $Repo while building; nothing was uploaded." }
     $create = Ship-CreateArgs
     Write-Host "  $(Format-Command 'gh' $create)"
