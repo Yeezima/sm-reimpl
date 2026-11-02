@@ -266,7 +266,7 @@ public class MovementFixesTests(ITestOutputHelper output)
         var states = new List<PlayerState>();
         for (int k = 0; k < 200 && states.Count(p => p.Jump == JumpPhase.Ascent) < 3; k++) { s = Step(s, InputButtons.Jump); states.Add(s); }
         Assert.DoesNotContain(states, p => p.EvadeTicks > 0);
-        Assert.Contains(states, p => p.Jump == JumpPhase.Landed);
+        Assert.Contains(states, p => p.Jump == JumpPhase.Ascent && !p.Grounded);   // feel/melee-cancels (protocol 54): the hold lifts in the air at once, not on landing
         Assert.Contains(states, p => p.Jump == JumpPhase.Ascent);
         // A tap in the ascent (still rising): Space is the hold there; no dash in the air.
         var r = Flyer(Vector3.Zero);
@@ -325,7 +325,7 @@ public class MovementFixesTests(ITestOutputHelper output)
         h = h with { EvadeLock = 3 };
         h = Step(h, InputButtons.Jump, 0f, Platform); h = Step(h, InputButtons.None, 0f, Platform);
         for (int k = 0; k < 10; k++) { h = Step(h, InputButtons.Jump, 0f, Platform); Assert.Equal(0, h.EvadeTicks); }
-        Assert.Equal(BufferedAction.JumpLong, h.Buffered);
+        Assert.Equal(JumpPhase.Ascent, h.Jump);   // feel/melee-cancels (protocol 54): the hold is the pack jump in the air, not a long press kept for the landing
     }
 
     [Fact]

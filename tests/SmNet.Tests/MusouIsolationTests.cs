@@ -92,7 +92,7 @@ public class MusouIsolationTests(ITestOutputHelper output)
     [Fact]
     public void Musou_changes_neither_the_protocol_version_nor_the_extended_profile()
     {
-        Assert.Equal(53u, (uint)Protocol.Version);   // 53: feel/melee-cooldown (the melee lock); 52: sim/light-melee-flinch (the flinch byte); 51: sim/no-fire-while-sprinting and sim/movement-fixes (50: the scoreboard's ping), not Musou
+        Assert.Equal(54u, (uint)Protocol.Version);   // 54: feel/melee-cancels; 53: feel/melee-cooldown (the melee lock); 52: sim/light-melee-flinch (the flinch byte); 51: sim/no-fire-while-sprinting and sim/movement-fixes (50: the scoreboard's ping), not Musou
         Assert.Equal(2u, ContentExtras.WireVersion);
         Assert.False(ContentExtras.All.HasFlag(ContentExtras.Musou));
         Assert.Equal(ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks, ContentExtras.All);

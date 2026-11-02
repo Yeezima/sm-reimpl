@@ -216,11 +216,11 @@ public class JumpTierTests(ITestOutputHelper output)
             states.Add(s);
             if (states.Count(p => p.Jump == JumpPhase.Landed) > 0 && s.Jump == JumpPhase.Hang) break;   // the second jump's apex
         }
-        int landing = states.FindIndex(p => p.Jump == JumpPhase.Landed);
-        int second = states.FindIndex(landing, p => p.Jump == JumpPhase.TakeOff);
-        output.WriteLine($"landed on tick {landing}; the held Space took off again on tick {second} ({second - landing} ticks later); its apex {Apex(states.Skip(second).ToList()):F2} m");
-        Assert.True(second > landing);
-        Assert.Equal(Apex(Jump(On, 400)), Apex(states.Skip(second).ToList()), 2);   // held on: the full jump
+        // feel/melee-cancels (protocol 54): Space held from the fall lifts the pack in the air at once (before, it waited for the landing).
+        int fall = states.FindIndex(p => p.Jump == JumpPhase.Fall);
+        int air = states.FindIndex(fall, p => p.Jump == JumpPhase.Ascent);
+        output.WriteLine($"fall from tick {fall}; the held Space lifted again on tick {air}");
+        Assert.True(air > fall && !states[air].Grounded);
         // A tap in the fall (one tick) is buffered for 0.3 s: replayed after the landing as a one-tick press, it is the dash.
         var t = Fresh(c);
         var taps = new List<PlayerState>();
@@ -253,7 +253,7 @@ public class JumpTierTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_38_carries_the_small_jump_s_cut_and_the_config_hash_covers_the_tiers()
     {
-        Assert.Equal(53, Protocol.Version);
+        Assert.Equal(54, Protocol.Version);
         var s = Jump(On, 10);
         var p = s.First(x => x.JumpCut) with { PlayerId = 7 };
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(1, 1, 1, [p], Self: 7)))).Players[0];

@@ -419,7 +419,8 @@ public static class Combat
         s = reacted with { RushLock = Math.Max(0, reacted.RushLock - 1) };   // the charge's spacing counts down every living tick, as the evade's
         // The charge, i.e. the bull rush (Rush; M29): under way, ended by time or input, or started by a heavy press while running forward.
         // Protocol 30: also the dash attack (a melee press in a jump-pack dash's window), and a charge held in the air (Rush.Held).
-        bool rushing = false, rushHeld = false, fireDropped = false;
+        bool rushing = false, rushHeld = false, fireDropped = false, cancelStart = false;
+        float cancelLock = 0f;
         if (!reacting)
         {
             // BR-02: the Tactical classes' charge is not ended by Fire (and fires nothing; below); every other class's is, as before.
@@ -430,6 +431,8 @@ public static class Combat
             // sim/no-fire-charging-all (protocol 48; owner 2026-10-31): neither Fire nor Aim ends the charge (for every class); only the stick (not W), a grenade, Jump,
             // melee or the clip's end do. They are ignored while it plays: no shot, no aim state (the camera stays), nothing buffered.
             bool other = stickEnds || grenadePress;
+            // feel/melee-cancels (protocol 54): a melee press ends the hop or the bull rush and swings at once; the swing after it waits for the cancelled clip's end (MeleeCancel).
+            if (MeleeCancel.Apply(s, c, meleePress, jumpPressed, world) is { } cancel) { s = cancel.State; cancelLock = cancel.Lock; cancelStart = meleePress; }
             var rushBefore = s;
             var rush = Rush.Begin(s, input, c, heavyPress, jumpPressed, meleePress, other, world);
             (rushing, rushHeld, s) = (rush.Active, rush.Held, rush.State);
@@ -516,7 +519,8 @@ public static class Combat
         // feel/melee-cooldown (protocol 53; the owner 2026-11-02, classic PvP only): once an attack starts, no melee attack may start until that attack's combo window opens
         // (ComboOpen, when the next one of a string may follow), whatever ended it (a shot, a roll, a jump, a hit); firing may still cancel. Musou Mode has no such wait.
         bool musou = c.Extras.HasFlag(ContentExtras.Musou);
-        float meleeLock = musou ? 0f : MathF.Max(0f, s.MeleeLock - dt);
+        float meleeLock = MathF.Max(0f, s.MeleeLock - dt);   // Musou never sets it but through a cancel (feel/melee-cancels)
+        meleeLock = MathF.Max(meleeLock, cancelLock);
         if (meleeLock <= TimeEpsilon) meleeLock = 0f;
         bool queuedHeavy = queued && s.MeleeQueuedHeavy;
         // sim/no-fire-while-sprinting (protocol 51; the owner 2026-11-01: "you should not be able to shoot while sprinting"): while the sprint is applied (Sprint held with
@@ -581,7 +585,7 @@ public static class Combat
             else if (time >= m.Duration) { step = 0; time = 0f; queued = false; queuedHeavy = false; heavy = false; steps = lightSteps; }
         }
         // From rest a heavy press starts heavy strike 1 (it wins over a light press in the same tick), a light press attack 1.
-        if (step == 0 && !s.Throwing && meleeLock <= 0f && ((heavyPress && heavySteps.Count > 0) || (meleePress && lightSteps.Count > 0)))
+        if (step == 0 && !s.Throwing && (meleeLock <= 0f || cancelStart) && ((heavyPress && heavySteps.Count > 0) || (meleePress && lightSteps.Count > 0)))
         {
             heavy = heavyPress && heavySteps.Count > 0;
             used |= InputBuffer.Bit(heavy ? BufferedAction.MeleeHeavy : BufferedAction.Melee);
@@ -589,7 +593,7 @@ public static class Combat
             step = 1; time = 0f; queued = false; queuedHeavy = false; cancelReload = true; startedNow = true;
             if (steps[0].HitTime <= 0f) { meleeHitStep = 1; hitHeavy = heavy; }
         }
-        if (startedNow && !musou) meleeLock = MathF.Max(0f, steps[step - 1].ComboOpen);   // the lock runs from the attack's start (this very tick) to its combo window
+        if (startedNow && !musou) meleeLock = MathF.Max(MathF.Max(0f, steps[step - 1].ComboOpen), cancelLock);   // the lock runs from the attack's start (this very tick) to its combo window, a cancel's to its clip's end
         // sim/combat-2 (item 39; the owner's decision of 2026-10-30: "the step forward of melee swings and F stun strikes starts the instant the button is pressed"):
         // the body's root motion runs one tick ahead of the attack's clock (the tick covering (t, t + dt] moves the body by the clip's (t + dt, t + 2dt]), so the press
         // tick itself already steps (0, dt]; before, the lunge began 1/30 s after the press. The attack's own clock, hit time and windows are unchanged.
