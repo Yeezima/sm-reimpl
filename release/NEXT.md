@@ -16,3 +16,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - When a player's armour breaks they now flash a red ring, the same shape as the yellow armour recharge glow. Your own armour and anything you hit show it the moment it breaks; other players' fights show it on the next hit they land.
 - Stalker bolter: a headshot now strips a full marine's armour and takes most of their health: down to 50% with Impenetrable, 20% without. This build does not play with earlier servers: everyone must update.
 - Musou Mode: weapon drops and weapon crates are switched off for now. Only ammunition and equipment boxes drop.
+- Using a combat stim no longer leaves your weapon floating in the air beside you: your weapons are put away while the stim is used, and come back after.
+- The combat knife no longer points up in front of your chest at the end of a swing: it now leaves the hand together with the swing animation.

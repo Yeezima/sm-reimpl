@@ -83,6 +83,8 @@ public partial class NetworkView
         public double GaitAt = double.NegativeInfinity;   // _connectedFor at the last blend update
         // The action-clip hand-off (NetworkView.Handoff.cs): the locomotion has the legs under the attack / the throw in progress.
         public bool AttackHand, HandHeavy, ThrowHand;
+        /// <summary>fix/stim-knife-visuals: the strike's upper-body weight as last posed (1 whole; falls to 0 over the hand-over's exit): the melee weapon leaves the hand with it.</summary>
+        public float MeleeWeight = 1f;
         public int HandStep;
         public float HandTime, HandThrowTime;
         public bool GaitMoving, HipGaitMoving;   // hysteresis of the moving / standing choice (GaitLeaveSpeed): relaxed run, ready run

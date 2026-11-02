@@ -1119,3 +1119,5 @@ Owner's item: the first blank map concept, 100 m x 100 m, reached by a button on
 **Stalker armour headshot (2026-11-02):** owner's choice after seeing the numbers: armour head x10 (`OwnerBalance.WithStalkerHeadshot`), so a headshot leaves 50 health through Impenetrable and 20 without.
 
 **Musou weapon drops off (2026-11-02):** owner: temporary. `MusouDropRules.WeaponDrops` = false stops KO drops and the map's crates; the core's boxes stay (`TfwDropBox`). All code kept; tests turn it on with `World.MusouWeaponDrops`.
+
+**Stim and knife visuals (2026-11-02):** `fix/stim-knife-visuals`, client only. Stim: the "Equip - StimPack" upper-body clip leaves the hands away from the weapon mounts, so the gun floated; `WeaponRig.StimStowed` puts every weapon on its stow marker (or hides it) while a stim is used. Knife: a swing handed over to the legs fades its upper-body weight to 0 over the graph exit while the simulation step goes on, so the knife stayed in a rifle-posed hand; the melee weapon now shows only while that weight is above 0.25 (`LocoTrack.MeleeWeight`, `MeleeVisibleWeight`, ours). Not seen in the engine.

@@ -69,14 +69,15 @@ public partial class NetworkView
         var t = LocoOf(s.PlayerId);
         if (ActionHandoff.AttackChanged(t.HandStep, t.HandHeavy, t.HandTime, s.MeleeStep, s.MeleeHeavy, s.MeleeTime)) { t.AttackHand = false; HandoffEnded(s.PlayerId); }   // a new step or attack: by the state's own time (and its own fade)
         t.HandStep = s.MeleeStep; t.HandHeavy = s.MeleeHeavy; t.HandTime = s.MeleeTime;
-        if (NoHandoff || _config is null || Combat.MeleeStepOf(_config, s) is not { } step || ActionMask() is not { } mask) { t.AttackHand = false; return false; }
+        if (NoHandoff || _config is null || Combat.MeleeStepOf(_config, s) is not { } step || ActionMask() is not { } mask) { t.AttackHand = false; t.MeleeWeight = 1f; return false; }
         // feel/melee-lock: motion that is the attack's own root motion (the stick idle after MoveAt) keeps the legs in the clip.
         // feel/locks-sprint-stop: from the move gate the simulation applies (MoveAt × the action lock scale).
         if (!t.AttackHand && ActionHandoff.AttackHandsOver(time, Combat.MoveAtOf(step, _config), HandoffMoving(s) && !AttackRootDriven(s, step, time))) t.AttackHand = true;
-        if (!t.AttackHand) { HandoffEnded(s.PlayerId); return false; }
+        if (!t.AttackHand) { HandoffEnded(s.PlayerId); t.MeleeWeight = 1f; return false; }
         PlaceHandedOver(character, s, own);
         // anim/melee-flow: the upper body leaves the strike over the graph's move-on exit from the hand-over on (HandoffUpperWeight), as the graph leaves the whole attack state.
         float upper = HandoffUpperWeight(s, step, time);
+        t.MeleeWeight = upper;
         if (own) _ownHandWeight = upper;   // anim/stomp-to-move: the test aid's log
         character.SetPoseLayer(clip, clipTime ?? time, upper, additive: false, mask);   // feel/melee-lock: the clip at its own time (a variant of another length)
         return true;
