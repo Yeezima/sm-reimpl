@@ -296,8 +296,13 @@ public static partial class JumpPack
         // feel/jump-pack-2: the three jumps by the hold (JumpPackSpec.HoldTiers): d is the dash's decision tick, its hold the small jump's.
         bool tiers = pack.HoldTiers && dashAt is not null;
         int decision = tiers ? DecisionTick(pack, dashAt!.Value, dt) : 0;
-        bool canStart = phase == JumpPhase.None || (phase == JumpPhase.Landed && T(ticks) + Eps >= JumpLock(pack, landMoving, c));
-        if (canStart && jumpPress && s.Grounded && !meleeBusy && !meleePress && (dashAt is not null || power + Eps >= pack.CostAt(0f)))
+        // feel/melee-cancels (protocol 54; the owner 2026-11-02: "jump with space bar hold when falling, or charging at any time no restrictions"): with a dash (the Assault and Raptor) a Space
+        // press in the air while falling (no phase, or after a jump's apex: hang or fall) starts the take-off as on the ground, the tap still the dash and the hold the jump (the lift-off launches in the air);
+        // the pack's power and the dash's spacing still apply.
+        bool airLong = dashAt is not null && !s.Grounded && longJump != LongJump.None;   // a press held past the dash's decision, replayed from the buffer (BufferedAction.JumpLong)
+        bool airFall = airLong && phase is JumpPhase.Hang or JumpPhase.Fall;
+        bool canStart = phase == JumpPhase.None || airFall || (phase == JumpPhase.Landed && T(ticks) + Eps >= JumpLock(pack, landMoving, c));
+        if (canStart && jumpPress && (s.Grounded || airLong) && !meleeBusy && !meleePress && (dashAt is not null || power + Eps >= pack.CostAt(0f)))
         {
             phase = JumpPhase.TakeOff; ticks = 0; mark = 0; landMoving = false; started = true;
             if (dashAt is null) power = MathF.Max(0f, power - pack.CostAt(0f));   // with a dash: spent when the jump commits (below)
@@ -344,6 +349,7 @@ public static partial class JumpPack
             }
         }
         bool tierCut = false;
+        bool airStart = started && !s.Grounded;
         if (!decided && holding && phase is JumpPhase.TakeOff or JumpPhase.Ascent && !started)
         {
             if (!jumpDown)
@@ -370,7 +376,9 @@ public static partial class JumpPack
         else if (!(phase is JumpPhase.TakeOff or JumpPhase.Ascent)) holding = false;
         float newHold = phase is JumpPhase.TakeOff or JumpPhase.Ascent ? MathF.Min(T(mark), pack.MaxHold) : 0f;
 
-        bool launch = false;
+        // An air start (above) has no take-off to wait for: the pack lifts at once, committed to the small jump and still growing while Space is held.
+        bool launch = airStart;
+        if (airStart) phase = JumpPhase.Ascent;
         if (phase == JumpPhase.TakeOff && T(ticks) + Eps >= pack.TakeOffDelay)
         {
             // Lift-off needs the ground: a player who left it during the take-off (walked off a ledge) just falls (power stays spent).

@@ -494,11 +494,11 @@ public class JumpPackAttackTests(ITestOutputHelper output)
     [Fact]
     public void A_melee_press_from_the_dash_attack_branch_and_within_3_m_of_the_ground_starts_the_lunge()
     {
-        // Before BRANCH_Dash_Attack (0.333 s = 10 ticks played): the press does nothing (an evade ignores melee).
+        // Before BRANCH_Dash_Attack (0.333 s = 10 ticks played): the press cancels the hop into a swing (it was ignored before protocol 54).
         var early = DashTo(Config, 9);
         Assert.False(Rush.CanDashAttack(early, Config, null));
         Step(ref early, Config, InputButtons.Melee);
-        Assert.Equal((RushPhase.None, true, 0), (early.Rush, Evade.Evading(early), early.MeleeStep));
+        Assert.Equal((RushPhase.None, false, 1), (early.Rush, Evade.Evading(early), early.MeleeStep));   // feel/melee-cancels (protocol 54): the press ends the hop and swings at once
         // From it: the lunge starts, the dash ends, the body faces the view.
         var s = DashTo(Config, 10);
         Assert.True(Rush.CanDashAttack(s, Config, null));
@@ -786,7 +786,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_30_carries_the_dash_attacks_phases_and_the_slash_and_a_full_snapshot_stays_within_1200_bytes()
     {
-        Assert.Equal(53, Protocol.Version);
+        Assert.Equal(54, Protocol.Version);
         Assert.Equal(1199, Protocol.MaxSnapshotBytes);
         foreach (var phase in new[] { RushPhase.DashAttack, RushPhase.DashHit, RushPhase.DashStop, RushPhase.DashCollision })
         {

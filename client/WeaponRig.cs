@@ -560,19 +560,22 @@ public sealed class WeaponRig
         if (_shown != WeaponSlot.Pistol) _lastPrimary = _shown;
         bool hasSecond = false;
         foreach (var i in _items) hasSecond |= i.Role == Role.Second;
-        var onBack = BackWeapon.Owner(_shown, hasSecond, _lastPrimary, _empty);
-        bool melee = AlwaysMelee || meleeOut;
+        var onBack = BackWeapon.Owner(_shown, hasSecond, _lastPrimary, _empty || StimStowed);
+        bool melee = (AlwaysMelee || meleeOut) && !StimStowed;
         string? meleeBone = null;
         foreach (var i in _items) if (i.Role == Role.Melee && melee) meleeBone = i.Attachment.Wield?.Bone;
         foreach (var i in _items)
         {
-            bool inHand = (!_empty || i.Role is not (Role.Primary or Role.Second or Role.Pistol))
+            bool inHand = ((!_empty && !StimStowed) || i.Role is not (Role.Primary or Role.Second or Role.Pistol))
                           && WeaponHands.InHand(i.Role, _shown, melee, _grenadeHeld, i.Attachment.TwoHanded, i.Attachment.Wield?.Bone, meleeBone);
             if (StowPistol && i.Role == Role.Pistol) inHand = false;   // anim/melee-flow: both hands on the hammer
             // With two primaries only the one swapped out last hangs on the back; the other is not drawn.
             Apply(i, inHand, hasSecond && i.Role is Role.Primary or Role.Second && !inHand && i.Role != onBack);
         }
     }
+
+    /// <summary>fix/stim-knife-visuals: a combat stim is being used; every ranged and melee weapon is on its stow marker (or hidden) for the use, not floating where the stim clip's hands left it.</summary>
+    public bool StimStowed { get; set; }
 
     /// <summary>anim/melee-flow: the pistol goes to its holster (the marine holds the thunder hammer or the daemon maul in both hands); set by the networked view before <see cref="Update"/>.</summary>
     public bool StowPistol { get; set; }
