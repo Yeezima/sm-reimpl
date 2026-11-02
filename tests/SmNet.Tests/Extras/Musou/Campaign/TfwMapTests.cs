@@ -45,7 +45,7 @@ public class TfwMapTests
         Assert.Equal(World.Character.ContentHash, World.Weapons.ContentHash);   // shots meet what walkers meet
     }
 
-    const ulong PinnedHash = 6980734556804054000UL;
+    const ulong PinnedHash = 18350789297221020021UL;
 
     // ---------------------------------------------------------------- the solids
 

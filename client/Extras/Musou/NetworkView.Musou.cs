@@ -118,6 +118,7 @@ public partial class NetworkView
                 BloodSplashAt(_gameSpace!.Transform * at, -(_gameSpace.Transform.Basis * new Vector3(d.Push.X, d.Push.Y, d.Push.Z)), 0.0);
         }
         _musouDeaths.Clear();
+        foreach (var e in _musouState.NewEvents) if (e.Kind == MusouEventKind.Hit && e.Value is 1 or 2) _musouCrowd!.Flinch(e.Enemy);   // markers 1 and 2: a shot's hit
         _musouCrowd!.Frame(shown, camera, delta);
         _musouRagdolls?.Frame(delta, MusouCrowd.SinkSeconds, MusouCrowd.SinkDepth);
     }

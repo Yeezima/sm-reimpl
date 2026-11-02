@@ -1046,8 +1046,19 @@ public static class Loadouts
         ClassOf(c, playerClass) is { JumpPack: var i } && i >= 0 && i < c.JumpPacks.Count ? c.JumpPacks[i] : null;
 
     /// <summary>The player's jump pack (its class's) as its perks change it (M43: <see cref="JumpPackSpec.With"/>), or null.</summary>
-    public static JumpPackSpec? JumpPack(SimConfig c, PlayerState s) =>
-        JumpPack(c, s.Class) is { } pack ? (pack.Variants.Count == 0 ? pack : pack.With(Upgrades(c, s))) : null;
+    public static JumpPackSpec? JumpPack(SimConfig c, PlayerState s)
+    {
+        if (JumpPack(c, s.Class) is not { } pack) return null;
+        var worn = pack.Variants.Count == 0 ? pack : pack.With(Upgrades(c, s));
+        return worn.PoundDelay > 0f && WieldsHammer(c, s) ? worn with { PoundDelay = 0f } : worn;
+    }
+
+    /// <summary>
+    /// The thunder hammer or the daemon maul in hand. The owner, 2026-11-02 (classic PvP and Musou Mode): the hammer's air slash and ground pound by "the same rules ... that exist for power sword": nothing in a pack's rules
+    /// looks at the weapon, so the one delay a player can meet is the pound's 2 s under Air-Cooled Thrusters (<c>smash_available_delay</c>), which a hammer does not wait for (protocol 55; ours, an interpretation).
+    /// </summary>
+    public static bool WieldsHammer(SimConfig c, PlayerState s) =>
+        MeleeChoiceOf(c, s) is var i and >= 0 && ClassOf(c, s.Class)!.MeleeChoices[i].Wargear is { } w && (w.EndsWith("_mp_melee_2hand_thunder_hammer", StringComparison.OrdinalIgnoreCase) || w.EndsWith("_mp_melee_2hand_power_mace", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// The class's evade (<see cref="ClassLoadout.Evade"/> when in range of <see cref="SimConfig.Evades"/>), or null; for a class with

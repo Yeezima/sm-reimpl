@@ -36,8 +36,26 @@ public static class MeleeHitSynth
 
     static Recipe RecipeOf(HitSound s) => s == HitSound.Sizzle ? new(150, 62, 0.03, 0.15, 420, 0.12) : new(120, 46, 0.04, 0.26, 300, 0.20);
 
-    /// <summary>One rendition (mono, <see cref="SampleRate"/>) at <see cref="TargetRms"/>.</summary>
-    public static float[] Render(HitSound sound, int seed)
+    /// <summary>
+    /// Musou Mode (the owner, 2026-11-02: "remove the bass from the power weapon sound effects"): a four-pole high-pass at <see cref="BassCut"/> Hz over a render, in place; returns the sum of the squares left.
+    /// </summary>
+    static double CutBass(float[] x)
+    {
+        double a = Math.Exp(-2.0 * Math.PI * BassCut / SampleRate), sum = 0;
+        for (int pole = 0; pole < 4; pole++)
+        {
+            double input = 0, output = 0;
+            for (int i = 0; i < x.Length; i++) { output = a * (output + x[i] - input); input = x[i]; x[i] = (float)output; }
+        }
+        foreach (float y in x) sum += y * y;
+        return sum;
+    }
+
+    /// <summary>Where <see cref="CutBass"/> cuts (Hz, ours).</summary>
+    public const double BassCut = 350.0;
+
+    /// <summary>One rendition (mono, <see cref="SampleRate"/>) at <see cref="TargetRms"/>; <paramref name="noBass"/>: with the bass cut (<see cref="CutBass"/>).</summary>
+    public static float[] Render(HitSound sound, int seed, bool noBass = false)
     {
         var r = RecipeOf(sound);
         int n = (int)(Seconds(sound) * SampleRate);
@@ -66,6 +84,7 @@ public static class MeleeHitSynth
             x[i] = (float)y;
             sum += y * y;
         }
+        if (noBass) sum = CutBass(x);
         // Scaled to the target level through a soft knee; the gain is refined for the knee's loss.
         float gain = (float)(TargetRms(sound) / Math.Sqrt(sum / n));
         for (int pass = 0; pass < 3; pass++)

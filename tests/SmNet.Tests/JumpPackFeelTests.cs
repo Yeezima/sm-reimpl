@@ -416,6 +416,43 @@ public class JumpPackFeelTests(ITestOutputHelper output)
         Assert.Equal(JumpPhase.Hang, s.Jump);   // 13 m up, under 2 s after the lift-off: no pound yet
     }
 
+    [Theory]
+    [InlineData("sm_mp_melee_2hand_thunder_hammer", true)]
+    [InlineData("csm_mp_melee_2hand_power_mace", true)]
+    [InlineData("sm_mp_melee_power_sword", false)]
+    public void A_hammer_or_maul_never_waits_for_the_pounds_delay(string wargear, bool free)
+    {
+        // Classic PvP and Musou Mode alike (the owner, 2026-11-02): only the weapon in hand decides; protocol 55.
+        var classes = Config.Classes.Select(k => k with { MeleeChoices = [new MeleeCombo(wargear, k.Melee)] }).ToArray();
+        var delayed = Config with { JumpPacks = [Pack with { PoundDelay = 2f }], Classes = classes };
+        var s = Fresh(delayed);
+        Assert.Equal(free, Loadouts.WieldsHammer(delayed, s));
+        for (int k = 0; k < 13; k++) Step(ref s, delayed, InputButtons.Jump);
+        while (s.Jump != JumpPhase.Hang) Step(ref s, delayed, InputButtons.None);
+        Step(ref s, delayed, InputButtons.Melee, pitch: -1.2f);
+        Assert.Equal(free ? JumpPhase.Dive : JumpPhase.Hang, s.Jump);   // 13 m up, under 2 s after the lift-off
+        Assert.False(s.JumpSlash);                                       // and it is the pound, not the slash
+    }
+
+    [Fact]
+    public void Right_click_is_never_dead_in_a_hammers_jump_from_the_first_tick_with_the_delay_of_the_perk()
+    {
+        // The owner, 2026-11-02: "right click doing nothing for the first part of a jump": a press on any tick of the climb starts the slash or the pound, in the take-off at the lift-off.
+        var classes = Config.Classes.Select(k => k with { MeleeChoices = [new MeleeCombo("sm_mp_melee_2hand_thunder_hammer", k.Melee)] }).ToArray();
+        var delayed = Config with { JumpPacks = [Pack with { PoundDelay = 2f }], Classes = classes };
+        for (int press = 1; press <= 40; press++)
+        {
+            var s = Fresh(delayed);
+            bool struck = false;
+            for (int t = 0; t < press + 14 && !struck; t++)
+            {
+                Step(ref s, delayed, (t < 13 ? InputButtons.Jump : InputButtons.None) | (t == press ? InputButtons.Melee : InputButtons.None), pitch: -0.5f);
+                struck = s.Jump is JumpPhase.Dive or JumpPhase.Recover;
+            }
+            Assert.True(struck, $"a press on tick {press} did nothing");
+        }
+    }
+
     [Fact]
     public void Without_the_feel_values_the_slash_is_the_protocol_30_one()
     {
@@ -440,7 +477,7 @@ public class JumpPackFeelTests(ITestOutputHelper output)
         Assert.True(seen.Add((plain with { JumpPacks = [JumpPackTests.Pack with { Slash = JumpPackAttackTests.Slash }] }).Hash()));
         Assert.True(seen.Add((plain with { JumpPacks = [JumpPackTests.Pack with { Slash = Snappy }] }).Hash()));
         Assert.True(seen.Add((plain with { JumpPacks = [JumpPackTests.Pack with { Slash = Snappy with { LungeSpeed = 5f } }] }).Hash()));
-        Assert.Equal(54, Protocol.Version);
+        Assert.Equal(55, Protocol.Version);
         Assert.Equal(1199, Protocol.MaxSnapshotBytes);
     }
 

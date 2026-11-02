@@ -247,6 +247,24 @@ public class MeleeHitSynthTests
         Assert.True(lpEnergy > 4 * hpEnergy, $"low {lpEnergy}, rest {hpEnergy}");
     }
 
+    [Theory]
+    [InlineData(HitSound.Sizzle)]
+    [InlineData(HitSound.Roar)]
+    public void Musous_render_has_no_bass_left_at_the_same_length_and_within_full_scale(HitSound sound)
+    {
+        var x = MeleeHitSynth.Render(sound, 1, noBass: true);
+        Assert.Equal(MeleeHitSynth.Render(sound, 1).Length, x.Length);
+        Assert.All(x, v => Assert.True(float.IsFinite(v) && Math.Abs(v) <= 1f));
+        double Low(float[] y)
+        {
+            double a = 1 - Math.Exp(-2 * Math.PI * 150.0 / MeleeHitSynth.SampleRate), p = 0, q = 0, low = 0, all = 0;
+            foreach (var v in y) { p += a * (v - p); q += a * (p - q); low += q * q; all += v * v; }
+            return low / all;
+        }
+        Assert.True(Low(x) < 0.08, $"{Low(x)} of the energy under 150 Hz");
+        Assert.True(Low(MeleeHitSynth.Render(sound, 1)) > 0.4);
+    }
+
     [Fact]
     public void Another_seed_is_another_noise_and_the_same_seed_is_the_same()
     {

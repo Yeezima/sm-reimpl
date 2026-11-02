@@ -44,16 +44,16 @@ public class TfwOrkTests
         var (sim, battle, layout) = Frozen();
         Assert.Equal(TfwTestArena.StartAlive, sim.Alive);
         Assert.Equal(3 * TfwBattleRules.Garrison, sim.Alive);
-        Assert.Equal([12, 12, 12], Enumerable.Range(0, 3).Select(battle.Garrisoned));
+        Assert.Equal([24, 24, 24], Enumerable.Range(0, 3).Select(battle.Garrisoned));
         Assert.Equal([0, 0, 0, 0], Enumerable.Range(0, 4).Select(battle.Pooled));   // the crowds start from none: no stagger
-        Assert.Equal(50, TfwBattleRules.CrowdSize);
+        Assert.Equal(100, TfwBattleRules.CrowdSize);
         Assert.All(Enumerable.Range(0, 3), k => Assert.True(battle.SourceActive(k)));
         Assert.False(battle.SourceActive(3));                                 // the HQ waits for the commander
         for (int t = 0; t < 10 * 30; t++) battle.Step([]);
-        Assert.Equal(TfwTestArena.StartAlive + 30, sim.Alive);                // one a second from each point
-        Assert.Equal([10, 10, 10], Enumerable.Range(0, 3).Select(battle.Pooled));
-        Assert.Equal([12, 12, 12], Enumerable.Range(0, 3).Select(battle.Garrisoned));   // and the garrisons are never rebuilt
-        Assert.All(Enumerable.Range(0, 3), k => Assert.True(OnPoint(sim, layout, k) >= 22));
+        Assert.Equal(TfwTestArena.StartAlive + 60, sim.Alive);                // two a second from each point
+        Assert.Equal([20, 20, 20], Enumerable.Range(0, 3).Select(battle.Pooled));
+        Assert.Equal([24, 24, 24], Enumerable.Range(0, 3).Select(battle.Garrisoned));   // and the garrisons are never rebuilt
+        Assert.All(Enumerable.Range(0, 3), k => Assert.True(OnPoint(sim, layout, k) >= 44));
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class TfwOrkTests
         Assert.Equal(0, battle.Garrisoned(0));
         for (int t = 0; t < 60 * 30; t++) battle.Step([]);
         Assert.Equal(0, battle.Garrisoned(0));                                // 60 s later: still none
-        Assert.InRange(battle.Pooled(0), 9, 11);                              // 50 swarmed at 50 s, the next crowd has 10
+        Assert.InRange(battle.Pooled(0), 18, 22);                             // 100 swarmed at 50 s, the next crowd has 20
     }
 
     [Fact]
@@ -81,13 +81,13 @@ public class TfwOrkTests
             Assert.All(s.Ids, id => Assert.False(sim.Leashed(id)));            // free for good, every one of them
             foreach (ushort id in s.Ids) sim.Damage(id, 1, 1e7f, Vector3.Zero, out _);   // a player who kills each swarm
         };
-        for (tick = 1; tick <= 160 * 30; tick++) battle.Step([]);
-        Assert.Equal(9, swarms.Count);                                        // three rounds of three, 50 s a crowd
+        for (tick = 1; tick <= 55 * 30; tick++) battle.Step([]);   // one round: this test steps no simulation, so the killed keep their slots of the pool
+        Assert.Equal(3, swarms.Count);                                        // three at 50 s
         Assert.All(swarms, s => { Assert.Equal(TfwSwarmWhy.Full, s.Swarm.Why); Assert.Equal(TfwBattleRules.CrowdSize, s.Swarm.Size); });
         Assert.Equal([0, 1, 2], swarms.Take(3).Select(s => s.Swarm.Point).Order());
-        Assert.Equal(3, swarms.Select(s => s.Tick).Distinct().Count());       // no stagger: the three points swarm together
-        for (int round = 0; round < 3; round++) Assert.Equal(50 * 30 * (round + 1), swarms[round * 3].Tick);
-        Assert.Equal(9, battle.Swarms);
+        Assert.Single(swarms.Select(s => s.Tick).Distinct());                 // no stagger: the three points swarm together
+        Assert.Equal(50 * 30, swarms[0].Tick);
+        Assert.Equal(3, battle.Swarms);
         Assert.Equal(3 * TfwBattleRules.Garrison, sim.Alive - battle.Pooled(0) - battle.Pooled(1) - battle.Pooled(2));   // the garrisons stood the whole time
     }
 
@@ -99,17 +99,17 @@ public class TfwOrkTests
         TfwSwarm? seen = null;
         battle.OnSwarm = s => seen = s;
         var crowd = battle.CrowdIds(1);
-        Assert.Equal(10, crowd.Length);
+        Assert.Equal(20, crowd.Length);
         sim.Damage(crowd[0], 1, 1f, Vector3.Zero, out _);                     // one hurt: MusouSim frees its group
         battle.Step([]);
         Assert.NotNull(seen);
-        Assert.Equal((1, TfwSwarmWhy.Woken, 10), (seen!.Value.Point, seen.Value.Why, seen.Value.Size));
+        Assert.Equal((1, TfwSwarmWhy.Woken, 20), (seen!.Value.Point, seen.Value.Why, seen.Value.Size));
         Assert.Equal(0, battle.Pooled(1));
         Assert.All(seen.Value.Ids, id => Assert.False(sim.Leashed(id)));
-        Assert.Equal(12, battle.Garrisoned(1));                               // the garrison stands
-        Assert.Equal(10, battle.Pooled(0));                                   // so do the other crowds
+        Assert.Equal(24, battle.Garrisoned(1));                               // the garrison stands
+        Assert.Equal(20, battle.Pooled(0));                                   // so do the other crowds
         for (int t = 0; t < 10 * 30; t++) battle.Step([]);
-        Assert.InRange(battle.Pooled(1), 9, 11);                              // and the point grows a new one
+        Assert.InRange(battle.Pooled(1), 18, 22);                             // and the point grows a new one
     }
 
     [Fact]
@@ -120,8 +120,8 @@ public class TfwOrkTests
         sim.Damage(battle.GarrisonIds(2)[0], 1, 1f, Vector3.Zero, out _);
         battle.Step([]);
         Assert.Equal(0, battle.Garrisoned(2));
-        Assert.Equal(12, battle.Garrisoned(1));
-        Assert.Equal(5, battle.Pooled(2));                                    // the crowd keeps pooling
+        Assert.Equal(24, battle.Garrisoned(1));
+        Assert.Equal(10, battle.Pooled(2));                                   // the crowd keeps pooling
     }
 
     [Fact]
@@ -143,14 +143,14 @@ public class TfwOrkTests
         }
         for (int k = 0; k < 8 * 30; k++) Tick(layout.LandingZone);            // a standoff 55 m or more from every crowd
         Assert.Empty(swarms);
-        Assert.Equal(8, battle.Pooled(2));
+        Assert.Equal(16, battle.Pooled(2));
         var near = layout.Positions[2] + new Vector3(TfwBattleRules.SpawnDisc + TfwBattleRules.CrowdAggro - 6f, 0f, 0f);   // near the closest of the disc, far from most of it
         for (int k = 0; k < 3 * 30; k++) Tick(near);
         var swarm = swarms.First(s => s.Point == 2);   // a fresh crowd of 1 to 3 may wake again at once with the player still near (CrowdAggro 30)
         Assert.Equal(TfwSwarmWhy.Woken, swarm.Why);
-        Assert.InRange(swarm.Size, 8, 12);
+        Assert.InRange(swarm.Size, 16, 24);
         Assert.All(swarm.Ids, id => Assert.False(sim.Leashed(id)));            // the whole crowd, not the few the target was near
-        Assert.InRange(battle.Pooled(2), 0, 3);                                // and the point has begun a new crowd
+        Assert.InRange(battle.Pooled(2), 0, 6);                                // and the point has begun a new crowd
     }
 
     [Fact]
@@ -182,7 +182,7 @@ public class TfwOrkTests
         Vector3[] at = [layout.Positions[0]], away = [layout.LandingZone];
         for (int t = 0; t < 10 * 30; t++) battle.Step(t % 2 == 0 ? at : away);
         int sent = OnPoint(sim, layout, 0);
-        Assert.InRange(sent, 8, 11);                                          // about 10 in 10 s as when holding it, not one a tick of the Held ones
+        Assert.InRange(sent, 16, 22);                                         // about 20 in 10 s as when holding it, not one a tick of the Held ones
     }
 
     [Fact]
@@ -192,7 +192,7 @@ public class TfwOrkTests
         for (int t = 0; t < 200 * 30; t++) battle.Step([]);
         Assert.Equal(TfwBattleRules.AliveCap(1) + TfwTestArena.StartAlive, sim.Alive);   // the garrisons stand outside the cap
         for (int t = 0; t < 120 * 30; t++) battle.Step([], 2);
-        Assert.Equal(TfwBattleRules.AliveCap(2) + TfwTestArena.StartAlive, sim.Alive);
+        Assert.Equal(MusouSim.Capacity - TfwBattleRules.PoolReserve, sim.Alive);   // the pool's reserve is met first
     }
 
     [Fact]
@@ -264,10 +264,10 @@ public class TfwOrkTests
     }
 
     [Theory]
-    [InlineData(1, 150)]
-    [InlineData(2, 230)]
-    [InlineData(4, 390)]
-    [InlineData(8, 460)]
+    [InlineData(1, 300)]
+    [InlineData(2, 420)]
+    [InlineData(4, 420)]
+    [InlineData(8, 420)]
     public void The_count_is_the_owners_and_stays_inside_the_pool(int humans, int cap)
     {
         Assert.Equal(cap, TfwBattleRules.AliveCap(humans));
@@ -285,25 +285,25 @@ public class TfwOrkTests
         Assert.Equal(TfwBattleRules.AliveCapSolo + TfwTestArena.StartAlive, sim.Alive);   // never over: 150 and the garrisons
         Assert.Equal(3, swarms.Count);                                        // one round only: the free Orks hold the next crowds at nothing
         Assert.All(swarms, s => Assert.Equal(TfwBattleRules.CrowdSize, s.Size));
+        Assert.Equal([0, 0, 0], Enumerable.Range(0, 3).Select(battle.Pooled));
     }
 
     [Fact]
-    public void With_the_cap_full_of_free_orks_a_crowd_waits_at_its_size_and_never_swarms_below_fifty()
+    public void With_the_cap_full_of_free_orks_a_far_crowd_still_swarms_with_what_it_has_after_its_wait()
     {
-        // Free Orks fill the cap while the crowds are part-grown (swarms nobody kills): the crowds wait, they are not let go small; as the free Orks fall they fill again and swarm at 50.
+        // Free Orks fill the cap while the crowds are part-grown (swarms nobody kills): the crowds stop growing, and the owner's "even if far away": each goes on its own after the wait.
         var (sim, battle, layout) = Frozen();
         var swarms = new List<TfwSwarm>();
         battle.OnSwarm = swarms.Add;
         for (int t = 0; t < 20 * 30; t++) battle.Step([]);
         var free = new List<ushort>();
         while (sim.Alive - TfwTestArena.StartAlive < TfwBattleRules.AliveCapSolo) free.Add(sim.Spawn(MusouEnemyType.Boy, layout.LandingZone, 0f, 85f));   // the cap is reached by Orks that stay
-        for (int t = 0; t < 60 * 30; t++) battle.Step([]);
+        for (int t = 0; t < 30 * 30; t++) battle.Step([]);
         Assert.Empty(swarms);
-        Assert.Equal([20, 20, 20], Enumerable.Range(0, 3).Select(battle.Pooled));   // held at what they had
-        foreach (ushort id in free) sim.Damage(id, 1, 1e7f, Vector3.Zero, out _);
-        for (int t = 0; t < 40 * 30; t++) battle.Step([]);
+        Assert.Equal([40, 40, 40], Enumerable.Range(0, 3).Select(battle.Pooled));   // held at what they had
+        for (int t = 0; t < 11 * 30; t++) battle.Step([]);                    // 60 s from the battle's start
         Assert.Equal(3, swarms.Count);
-        Assert.All(swarms, s => { Assert.Equal(TfwSwarmWhy.Full, s.Why); Assert.Equal(TfwBattleRules.CrowdSize, s.Size); });
+        Assert.All(swarms, s => { Assert.Equal(TfwSwarmWhy.Waited, s.Why); Assert.Equal(40, s.Size); Assert.All(s.Ids, id => Assert.False(sim.Leashed(id))); });
     }
 
     [Fact]
@@ -348,9 +348,34 @@ public class TfwOrkTests
         var all = new MusouEnemy[MusouSim.Capacity];
         int n = sim.CopyTo(all);
         float Share(MusouEnemyType type) => all.Take(n).Count(e => e.Type == type) / (float)n;
-        Assert.InRange(Share(MusouEnemyType.ArdBoy) + Share(MusouEnemyType.Nob), share - 0.02f, share + 0.02f);
+        Assert.InRange((Share(MusouEnemyType.ArdBoy) + Share(MusouEnemyType.Nob)) * n / (n - TfwTestArena.StartAlive), share - 0.1f, share + 0.1f);   // the garrisons' fodder aside
         Assert.InRange(Share(MusouEnemyType.ArdBoy) / (Share(MusouEnemyType.ArdBoy) + Share(MusouEnemyType.Nob)), 0.6f, 0.9f);
         Assert.True(Share(MusouEnemyType.Boy) > Share(MusouEnemyType.ShootaBoy) && Share(MusouEnemyType.ShootaBoy) > Share(MusouEnemyType.Gretchin));
+    }
+
+    [Fact]
+    public void Elites_come_in_squads_of_at_least_twenty_that_stand_together()
+    {
+        var (sim, battle, _) = Frozen(elite: TfwBattleRules.EliteShare(1f));
+        var swarms = new List<TfwSwarm>();
+        battle.OnSwarm = swarms.Add;
+        for (int t = 0; t < 52 * 30; t++) battle.Step([]);
+        Assert.Equal(3, swarms.Count);
+        foreach (var swarm in swarms)
+        {
+            int run = 0;
+            var runs = new List<int>();
+            foreach (ushort id in swarm.Ids.OrderBy(i => i))
+            {
+                Assert.True(sim.TryGet(id, out var e));
+                bool elite = e.Type is MusouEnemyType.ArdBoy or MusouEnemyType.Nob;
+                if (elite) run++;
+                else { if (run > 0) runs.Add(run); run = 0; }
+            }
+            if (run > 0) runs.Add(run);
+            Assert.NotEmpty(runs);
+            Assert.All(runs, r => Assert.True(r >= TfwBattleRules.EliteSquad, $"a run of {r}"));
+        }
     }
 
     [Theory]
@@ -637,8 +662,8 @@ public class TfwOrkTests
         for (int t = 0; t < 10 * 30; t++) battle.Step([]);
         Assert.InRange(battle.Trickled, 18, 21);                              // three points, one each 1.5 s: about 2 a second
         for (int t = 0; t < 400 * 30; t++) battle.Step([]);
-        Assert.Equal(TfwBattleRules.TrickleCap(1), battle.Trickled);
-        Assert.Equal(TfwBattleRules.AliveCap(1) + TfwBattleRules.TrickleCap(1) + TfwTestArena.StartAlive, sim.Alive);   // the crowds at their cap, and as many trickled
+        Assert.Equal(TfwBattleRules.TrickleTotalMax - TfwBattleRules.AliveCap(1), battle.Trickled);   // the pool's 512 slots end the trickle before its own cap
+        Assert.Equal(TfwBattleRules.TrickleTotalMax + TfwTestArena.StartAlive, sim.Alive);
         Assert.True(sim.Alive <= MusouSim.Capacity - 40);
     }
 

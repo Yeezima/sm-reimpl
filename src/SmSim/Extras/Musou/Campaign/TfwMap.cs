@@ -134,6 +134,54 @@ public sealed record TfwRange(Vector3 Centre)
 
     /// <summary>The corners of every solid's triangles, three a triangle.</summary>
     public Vector3[] Corners() => Solids.SelectMany(TfwMap.Triangles).ToArray();
+
+    /// <summary>
+    /// Manufactorum's backdrop stands in the range: it has no collision, so the range's place (from the level's collision) falls on it. The owner, 2026-11-02: "add collision to the 2 large cylinders ... as well as the
+    /// ramp". Measured from the render meshes <c>factory_tanks_lodh</c> and <c>factory_geo_lodh</c> in metres from <see cref="Centre"/> (each slope to the walls): two tanks and three slopes, all drawn by the level.
+    /// </summary>
+    public const float TankRadius = 10.7f, TankTop = 14.2f;
+    static readonly Vector2[] Tanks = [new(-38.1f, 25.1f), new(-38.1f, 0.07f)];
+    static readonly (float Y0, float Y1, Vector2[] Side)[] Slopes =
+    [
+        (-50f, 50f, [new(41.8f, 0f), new(50f, 0f), new(50f, 9.8f)]),                                  // the wide slope along the east wall
+        (-17.5f, -9.9f, [new(33.4f, 0f), new(50f, 0f), new(50f, 19.7f)]),                             // the narrow ramp on it
+        (-50f, -46f, [new(-2.5f, 0f), new(50f, 0f), new(50f, 42f), new(43.2f, 42f)]),                 // the ramp along the south wall
+    ];
+
+    /// <summary>Everything solid here, three corners a triangle: <see cref="Corners"/> (which the range draws) and the level's backdrop (which the level draws).</summary>
+    public Vector3[] Collision()
+    {
+        var all = new List<Vector3>(Corners());
+        foreach (var tank in Tanks)
+        {
+            const int sides = 24;
+            var at = Centre + new Vector3(tank, 0f);
+            Vector3 Rim(int k, float z) => at + new Vector3(MathF.Cos(k * MathF.Tau / sides) * TankRadius, MathF.Sin(k * MathF.Tau / sides) * TankRadius, z);
+            for (int k = 0; k < sides; k++)
+            {
+                all.AddRange([Rim(k, 0f), Rim(k + 1, 0f), Rim(k + 1, TankTop), Rim(k, 0f), Rim(k + 1, TankTop), Rim(k, TankTop)]);
+                all.AddRange([at + new Vector3(0f, 0f, TankTop), Rim(k, TankTop), Rim(k + 1, TankTop)]);
+            }
+        }
+        foreach (var (y0, y1, side) in Slopes)
+        {
+            Vector3 P(Vector2 p, float y) => Centre + new Vector3(p.X, y, p.Y);
+            for (int k = 0; k < side.Length; k++)
+            {
+                Vector2 a = side[k], b = side[(k + 1) % side.Length];
+                all.AddRange([P(a, y0), P(b, y0), P(b, y1), P(a, y0), P(b, y1), P(a, y1)]);
+            }
+            for (int k = 1; k + 1 < side.Length; k++)
+            {
+                all.AddRange([P(side[0], y0), P(side[k + 1], y0), P(side[k], y0)]);
+                all.AddRange([P(side[0], y1), P(side[k], y1), P(side[k + 1], y1)]);
+            }
+        }
+        // The south ramp rises past the walls' 24 m: the walls go on above it, unseen, so nobody walks out over them.
+        all.AddRange(TfwMap.Triangles(new TfwSolid(Centre + new Vector3(0f, -Half - Thickness, WallHeight), Centre + new Vector3(Half + Thickness, -Half, WallHeight + 40f))));
+        all.AddRange(TfwMap.Triangles(new TfwSolid(Centre + new Vector3(Half, -Half, WallHeight), Centre + new Vector3(Half + Thickness, -40f, WallHeight + 40f))));
+        return all.ToArray();
+    }
 }
 
 /// <summary>
@@ -161,7 +209,7 @@ public static class TfwMap
     /// <summary>The install's map every battle is fought on.</summary>
     public const string Battlefield = "mp_tdm_09";
     /// <summary>Raised with any change of how the world is composed (hashed into <see cref="TfwMapData.Hash"/>; 2: TF1's arena and Stormbird replace TF0's flat slab; 3: Manufactorum replaces the empty arena; 4: the Thunderhawk's interior replaces the Stormbird's box).</summary>
-    public const uint Version = 6;
+    public const uint Version = 7;
     /// <summary>"tfw_war_", the hash's salt.</summary>
     const ulong HashSalt = 0x7466775F7761725FUL;
 
@@ -205,7 +253,7 @@ public static class TfwMap
     public static (CollisionWorld World, TfwHub Hub, ulong Hash) WithHub(CollisionWorld level)
     {
         var hub = TfwHub.Beyond(level);
-        var world = level.WithSolids([.. hub.Corners(), .. TfwRange.For(level).Corners()]);   // the Firing Range stands beside the level
+        var world = level.WithSolids([.. hub.Corners(), .. TfwRange.For(level).Collision()]);   // the Firing Range stands beside the level
         return (world, hub, world.ContentHash ^ HashSalt ^ Version);
     }
 

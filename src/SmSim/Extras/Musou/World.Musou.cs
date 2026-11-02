@@ -129,6 +129,7 @@ public sealed partial class World
     {
         if (attack.Player < 0) { TfwGuardHit(attack); return; }   // a Guard squad (Campaign/World.Tfw.cs): before the player lookup, which would drop it
         if (!_players.TryGetValue(attack.Player, out var before) || !before.Alive) return;
+        if (_tfw is { } run && run.InRange.Contains(attack.Player)) return;   // the owner, 2026-11-02: at the Firing Range the Orks deal no damage
         var type = attack.Melee ? DamageType.Melee : DamageType.Ranged;
         float damage = attack.Damage * _musou!.Rules.PlayerDamageScale * Loadouts.Body(Config, before).Received(type);
         if (!(damage > 0f)) return;

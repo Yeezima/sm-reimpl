@@ -270,8 +270,24 @@ public sealed partial class World
             else if (heavy) musou.Stagger(e.Id, push, rules.HeavyKnockback);
         }
         _musouStomped.Clear();
+        if (struck > 0) MusouMeleeHeal(attacker);
         if (musou.War is not null) TfwBestCleave = Math.Max(TfwBestCleave, struck);
     }
+
+    /// <summary>
+    /// The owner, 2026-11-02: "regerate 5% of your health every time your melee attack hits at least 1 opponent": once a tick, however many it struck (a stomp and its cleave are one attack). Of the player's whole
+    /// health, never over it; the armour shield is left alone.
+    /// </summary>
+    void MusouMeleeHeal(int attacker)
+    {
+        if (_musouHealTick.TryGetValue(attacker, out uint last) && last == Tick) return;
+        if (!_players.TryGetValue(attacker, out var p) || !p.Alive) return;
+        _musouHealTick[attacker] = Tick;
+        float most = Loadouts.Body(Config, p).HealthMax;
+        _players[attacker] = p with { Health = MathF.Min(most, p.Health + most * MusouCombatRules.MeleeHealShare) };
+    }
+
+    readonly Dictionary<int, uint> _musouHealTick = new();
 
     /// <summary>A blast on the enemies (see the class summary).</summary>
     void MusouBlast(int owner, Vector3 point, SplashSpec splash, bool melee)
@@ -297,6 +313,7 @@ public sealed partial class World
             if (damage > 0f) musou.Damage(e.Id, owner, damage, new Vector3(push, 0.3f), out killed, cause: melee ? MusouDeathKind.Melee : MusouDeathKind.Blast);
             if (melee && damage > 0f)
             {
+                MusouMeleeHeal(owner);
                 // A stomp: the step's cleave follows at once (ResolveMelee) and gives each enemy only what it adds to this.
                 if (_musouStompTick != Tick || _musouStompBy != owner) { _musouStomped.Clear(); _musouStompTick = Tick; _musouStompBy = owner; }
                 _musouStomped[e.Id] = _musouStomped.GetValueOrDefault(e.Id) + damage;
