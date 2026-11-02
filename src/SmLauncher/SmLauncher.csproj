@@ -18,6 +18,7 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationVisualStyles>true</ApplicationVisualStyles>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>../../client/icon.ico</ApplicationIcon>
     <Version>1.0.0</Version>
     <Product>SM Reimpl Launcher</Product>
     <Description>Keeps the sm-reimpl playtest build up to date and starts it.</Description>

@@ -10,6 +10,8 @@ config/use_custom_user_dir=true
 config/custom_user_dir_name="sm-reimpl"
 run/main_scene="res://Main.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+config/icon="res://icon.png"
+config/windows_native_icon="res://icon.ico"
 
 [display]
 
