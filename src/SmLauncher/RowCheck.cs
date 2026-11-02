@@ -169,8 +169,17 @@ static class RowCheck
             // paint whatever is still waiting to be painted (a busy PC delays WM_PAINT), without invalidating anything: a region nobody invalidated stays stale
             RedrawWindow(form.Handle, IntPtr.Zero, IntPtr.Zero, RDW_UPDATENOW | RDW_ALLCHILDREN);
             int before = problems.Count;
-            using var live = Live(form);
+            var live = Live(form);
             using var fresh = Fresh(form);
+            // a busy PC can still have repaints on their way when the picture is taken; nothing here invalidates, so a really stale region stays different through every look
+            for (int look = 0; look < 5 && Differences(live, fresh, NativeBorders(form)).Count > 0; look++)
+            {
+                Pump(200);
+                RedrawWindow(form.Handle, IntPtr.Zero, IntPtr.Zero, RDW_UPDATENOW | RDW_ALLCHILDREN);
+                live.Dispose();
+                live = Live(form);
+            }
+            using var _ = live;
             string name = $"{++step:00}-{what}";
             if (unsettled is not null) problems.Add($"{name}: {unsettled}");
             if (folder is not null) live.Save(Path.Combine(folder, "live-" + name + ".png"), ImageFormat.Png);
