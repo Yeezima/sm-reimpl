@@ -30,6 +30,9 @@ public static class MusouDropRules
         return false;
     }
 
+    /// <summary>The one switch for weapon drops, KO drops and the map's crates alike (owner, 2026-11-02: temporarily off; only the ammunition and equipment boxes drop). The code stays.</summary>
+    public const bool WeaponDrops = false;
+
     /// <summary>Pickup reach (ours, the lead: about 1.5 m): feet to the drop, horizontally; and at most <see cref="ReachHeight"/> above or below.</summary>
     public const float ReachMetres = 1.5f, ReachHeight = 1.5f;
     /// <summary>Seconds a drop lies there before it goes (ours, the lead: 60 s).</summary>

@@ -271,7 +271,9 @@ public sealed partial class World
     // ---------------------------------------------------------------- crates and boxes
 
     /// <summary>A battle's weapon crates (owner's item 9): each site holds one roll per human from its class's list, seen by that human alone. A human with nothing left to find gets none.</summary>
-    internal void TfwPlaceCrates(IReadOnlyList<Vector3> sites, IReadOnlyList<int> humans)
+    internal void TfwPlaceCrates(IReadOnlyList<Vector3> sites, IReadOnlyList<int> humans) { if (MusouWeaponDrops) TfwFillCrates(sites, humans); }
+
+    void TfwFillCrates(IReadOnlyList<Vector3> sites, IReadOnlyList<int> humans)
     {
         foreach (int id in humans)
         {

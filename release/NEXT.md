@@ -15,3 +15,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Musou Mode: T now shouts FOR THE EMPEROR, as in Extended matches.
 - When a player's armour breaks they now flash a red ring, the same shape as the yellow armour recharge glow. Your own armour and anything you hit show it the moment it breaks; other players' fights show it on the next hit they land.
 - Stalker bolter: a headshot now strips a full marine's armour and takes most of their health: down to 50% with Impenetrable, 20% without. This build does not play with earlier servers: everyone must update.
+- Musou Mode: weapon drops and weapon crates are switched off for now. Only ammunition and equipment boxes drop.

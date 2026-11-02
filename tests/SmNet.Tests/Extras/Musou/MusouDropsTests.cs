@@ -45,7 +45,7 @@ public class MusouDropsTests
 
     static World NewWorld(SimConfig? config = null)
     {
-        var w = new World(config ?? Prepared) { Rules = MusouSimTests.Endless, StartAreas = MusouDirectorTests.Rooms };
+        var w = new World(config ?? Prepared) { Rules = MusouSimTests.Endless, StartAreas = MusouDirectorTests.Rooms, MusouWeaponDrops = true };
         Assert.True(w.StartMusou(null));
         w.MusouDirector!.Hold = true;
         w.Musou!.Frozen = true;
@@ -391,7 +391,7 @@ public class MusouDropsTests
     public void Drops_end_when_their_player_dies()
     {
         var config = Prepared with { RespawnTime = 1f, MusouRules = Prepared.MusouRules! with { PlayerDamageScale = 100f } };
-        var w = new World(config) { Rules = MusouSimTests.Endless, StartAreas = MusouDirectorTests.Rooms };
+        var w = new World(config) { Rules = MusouSimTests.Endless, StartAreas = MusouDirectorTests.Rooms, MusouWeaponDrops = true };
         Assert.True(w.StartMusou(null));
         w.MusouDirector!.Hold = true;
         w.Spawn(1, w.AssignClass(0));
