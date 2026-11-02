@@ -311,6 +311,19 @@ public sealed class PackageScannerTests : IDisposable
     }
 
     [Fact]
+    public void TheLinuxBotExportIsCheckedLikeTheWindowsClient()
+    {
+        string[] fine = ["project.binary", "Main.tscn.remap"];
+        void Require(PackageScanner s) { s.RequireVerifiedPack = true; s.AllowedExtensions = BinaryProfile(); }
+        // the headless-bot export: sm-reimpl.x86_64 with an embedded pack, and the smbots script (no extension)
+        Assert.Empty(Scan(Zip(("top/sm-reimpl.x86_64", GodotExe(4, 2, true, false, fine)), ("top/smbots", Text("#!/usr/bin/env bash"))), Require));
+        // game content inside its pack is refused
+        Assert.Contains(Scan(Zip(("top/sm-reimpl.x86_64", GodotExe(4, 2, true, false, [.. fine, "x/y.wem"]))), Require), f => f.Rule == "game-content-in-pack");
+        // an export without a verifiable pack is not accepted as the client
+        Assert.Contains(Scan(Zip(("top/sm-reimpl.x86_64", Filler(3000))), Require), f => f.Rule == "pack-unverifiable");
+    }
+
+    [Fact]
     public void AClientPackageWithoutAVerifiedGodotPackIsRefused()
     {
         string[] fine = ["project.binary", "Main.tscn.remap"];

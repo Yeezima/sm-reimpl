@@ -118,6 +118,40 @@ timeout /t 5 /nobreak >nul
 goto again
 ```
 
+## Bots on a Linux server (`smbots`, ours)
+
+Test aid for a demo server: the owner adds bots over SSH. The bots are the headless Godot client (`--bot --no-sound`, lean mode) run on the
+same VM, so it needs a **bots package of the same build as the server** (same protocol and config hash, or the server refuses the bots):
+`sm-reimpl-bots-linux-x64-<version>.tar.gz`, built privately with `release.cmd -Commit <sha> -Linux -LinuxBots -SkipClient` (the Godot
+preset "Linux/X11" in `client/export_presets.cfg`; it needs the Linux export templates, which `release.cmd` downloads once with the others;
+the package is never published). It holds the exported client and the `smbots` script; no game bytes (the bots read the install at
+`/srv/sm1` at run time, read only).
+
+Install (on the VM, as root; `setup-smserver.sh` is the owner's private script from the release folder, which also installs the
+`smserver` service, now with `--honor-side-requests`, so bots keep the sides they ask for):
+
+```sh
+bash setup-smserver.sh sm-reimpl-server-linux-x64-<version>.tar.gz annihilation --bots sm-reimpl-bots-linux-x64-<version>.tar.gz
+```
+
+Without the script: extract the package to `/opt/smbots`, `ln -sfn <folder> /opt/smbots/current`, `install -m 0755 current/smbots
+/usr/local/bin/smbots`, `chown -R smserver:smserver /opt/smbots`, and add `--honor-side-requests` to the service's `ExecStart` (then
+`systemctl daemon-reload && systemctl restart smserver`; restart only while no one is playing).
+
+```sh
+smbots add 2 2                                  # 2 Space Marine and 2 Chaos bots join 127.0.0.1:27015 (classes rotate tactical, assault, devastator)
+smbots add 3 3 --classes tactical,assault --accuracy 0.1 --range 40
+smbots list                                     # id, side, class, uptime, RSS, CPU; free memory and how many more fit
+smbots remove 2                                 # the 2 newest;  smbots remove all [--side marines|chaos]
+smbots stop                                     # every bot smbots started, nothing else
+```
+
+Each bot is a transient systemd unit `smbot-<id>` run as `smserver` (so it survives the SSH logout), niced below the server (`nice 10`,
+low CPU weight, a memory cap, read-only system), with its log in `/opt/smbots/log/bot-<id>.log` and a record in `/opt/smbots/run`.
+`stop` and `remove` stop only units named in those records. `add` refuses a count that does not fit: about 300 MB per bot
+(`SMBOTS_MB_PER_BOT`) and at least 1 GB left free (`SMBOTS_KEEP_FREE_MB`); the numbers are estimates, see the milestone for the measured
+ones. At most 8 per side (the server's limit). Bots are lost when the server restarts (they are not a service); add them again.
+
 ## Not done
 
 - No encryption or authentication of players beyond the handshake cookie and session token (hardening review: later).

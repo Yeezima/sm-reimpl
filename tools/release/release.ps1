@@ -15,6 +15,8 @@
         notes\    VERSION.txt, LICENSE.txt, THIRD_PARTY_NOTICES.md, licenses\, changes-from-original.md, refine-register.md, playtest\, CONTENTS-SHA256.txt
     sm-reimpl-server-win64-<ver>.zip              dedicated server for server hosts, self-contained (published only with -ServerAssets)
     sm-reimpl-server-linux-x64-<ver>.tar.gz       the same for linux-x64 (server.sh; a tar.gz keeps the 0755 mode bits that a zip may lose); only with -Linux or -ServerAssets
+    sm-reimpl-bots-linux-x64-<ver>.tar.gz         the Godot client exported for headless bots on a Linux server (preset "Linux/X11") with the smbots script
+                                                  (smbots add/list/remove/stop; docs/dedicated-server.md); only with -LinuxBots; private, never published
     sm-reimpl-source-<ver>.zip                    git archive of the commit (also inside the playtest zip)
     SHA256SUMS.txt                                over all of them (local; the release description shows the hashes instead)
     RELEASE-NOTES.md                              the release description for testers (tools/release/package/RELEASE-NOTES.md, tokens filled)
@@ -37,6 +39,11 @@
 .PARAMETER PrepareOnly   only download and install Godot and the export templates, then stop
 .PARAMETER SkipClient    do not build the playtest zip
 .PARAMETER SkipServer    do not build the stand-alone server packages (the playtest zip always bundles its own win64 server)
+.PARAMETER LinuxBots     also build sm-reimpl-bots-linux-x64-<ver>.tar.gz (the headless bot client for a Linux server plus the smbots script). Needs the Linux
+                         export templates (first use downloads the pinned templates archive and keeps the linux_* files too). A private package for the
+                         owner's VM: it is not published by -Publish or -Ship. With -Commit of an older build the "Linux/X11" preset is added to the
+                         copy when that commit lacks it. A bots-only build: -LinuxBots -SkipClient -SkipServer. The bots must be of the same commit as the
+                         server (protocol and config hash): build both with  release.cmd -Commit <sha> -Linux -LinuxBots -SkipClient
 .PARAMETER Linux         also build the linux-x64 server package (sm-reimpl-server-linux-x64-<ver>.tar.gz). Off by default: the playtest zip and its smoke
                          test need only the win64 server and the source zip, so a hotfix skips the Linux publish. -ServerAssets turns it on by itself.
 .PARAMETER SkipBuild     do not rebuild: re-scan and (with -Publish) publish the packages already in the output folder of this version
@@ -96,7 +103,7 @@ param(
     [string]$GameDir,
     [switch]$Publish, [switch]$ServerAssets, [switch]$NoDraft, [Alias('WhatIf')][switch]$DryRun,
     [switch]$Ship, [switch]$SkipTests, [switch]$Draft, [switch]$Supersede, [switch]$NotPrerelease, [switch]$NoPush, [switch]$AllowEmptyNotes, [switch]$Playtest, [switch]$ArchiveOnly, [switch]$KeepPrevious,
-    [switch]$Linux,
+    [switch]$Linux, [switch]$LinuxBots,
     [string]$Repo = 'Yeezima/sm-reimpl-releases', [switch]$AllowOtherRepo
 )
 # Step timings: every step's seconds and the total, printed as a table at the end (also when a step fails).
@@ -158,6 +165,7 @@ $TemplatesName = "Godot_v$($GodotVersion)_mono_export_templates.tpz"
 $TemplatesSha512 = 'BB5C41D72370ED743660361F6228006F808AB04CA33ABDC545D740B044F3FE057F32AE8CB7873A1BC86DDCD82AE683B9F6DFDFE4179852F2C0F1ACDE2FF6BD5A'   # downloaded, verified against SHA512-SUMS.txt, 2026-10-28
 $TemplatesDir = Join-Path $env:APPDATA 'Godot\export_templates\4.7.2.stable.mono'
 $Preset = 'Windows Desktop'
+$BotsPreset = 'Linux/X11'      # client/export_presets.cfg: the headless bot client for a Linux server (-LinuxBots)
 # Godot's own licence texts for the playtest zip (notes/licenses/godot/), fetched from the engine's repository at the release tag, SHA-256 pinned.
 $GodotLicenceFiles = [ordered]@{
     'COPYRIGHT.txt' = 'CB1980C88089573BCACD7221D777C689BB8BBD778799F24C27FCA0FE5F774D6D'
@@ -260,7 +268,9 @@ function Ensure-Godot {
 
 function Ensure-Templates {
     $marker = Join-Path $TemplatesDir 'windows_release_x86_64.exe'
-    if ((Test-Path -LiteralPath $marker) -and (Test-Path -LiteralPath (Join-Path $TemplatesDir 'version.txt'))) { return }
+    $linuxMarker = Join-Path $TemplatesDir 'linux_release.x86_64'
+    $needLinux = [bool]$LinuxBots
+    if ((Test-Path -LiteralPath $marker) -and (Test-Path -LiteralPath (Join-Path $TemplatesDir 'version.txt')) -and (-not $needLinux -or (Test-Path -LiteralPath $linuxMarker))) { return }
     $dl = Join-Path $Tools 'download'
     New-Item -ItemType Directory -Force -Path $dl | Out-Null
     $tpz = Join-Path $dl $TemplatesName
@@ -273,17 +283,18 @@ function Ensure-Templates {
         Invoke-WebRequest -UseBasicParsing -Uri "$base/$TemplatesName" -OutFile $tpz
         if ((Get-FileHash -Algorithm SHA512 -LiteralPath $tpz).Hash -ne $expected) { Remove-Item -LiteralPath $tpz; Fail 'The export templates download failed its SHA-512 check.' }
     }
-    Step "Installing the Windows export templates into $TemplatesDir"
+    Step "Installing the $(if ($needLinux) { 'Windows and Linux' } else { 'Windows' }) export templates into $TemplatesDir"
     New-Item -ItemType Directory -Force -Path $TemplatesDir | Out-Null
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $zip = [IO.Compression.ZipFile]::OpenRead($tpz)
     try {
         foreach ($e in $zip.Entries) {
-            if ($e.FullName -notmatch '^templates/(windows_.*|version\.txt)$') { continue }
+            if ($e.FullName -notmatch $(if ($needLinux) { '^templates/(windows_.*|linux_.*|version\.txt)$' } else { '^templates/(windows_.*|version\.txt)$' })) { continue }
             [IO.Compression.ZipFileExtensions]::ExtractToFile($e, (Join-Path $TemplatesDir ($e.FullName -replace '^templates/', '')), $true)
         }
     } finally { $zip.Dispose() }
     if (-not (Test-Path -LiteralPath $marker)) { Fail 'The templates archive has no windows_release_x86_64.exe.' }
+    if ($needLinux -and -not (Test-Path -LiteralPath $linuxMarker)) { Fail 'The templates archive has no linux_release.x86_64.' }
     Remove-Item -LiteralPath $tpz
 }
 
@@ -393,6 +404,7 @@ $Zips = [ordered]@{
     playtest = Join-Path $OutDir "$PlaytestName.zip"
     serverWin = Join-Path $OutDir "sm-reimpl-server-win64-$Version.zip"
     serverLinux = Join-Path $OutDir "sm-reimpl-server-linux-x64-$Version.tar.gz"
+    botsLinux = Join-Path $OutDir "sm-reimpl-bots-linux-x64-$Version.tar.gz"
     source = Join-Path $OutDir "sm-reimpl-source-$Version.zip"
 }
 $SourceZipName = Split-Path -Leaf $Zips.source
@@ -417,7 +429,7 @@ function Expand-Tokens([string]$text, [hashtable]$tokens) {
 function Copy-Text([string]$src, [string]$dst, [hashtable]$tokens = @{}) {
     $text = Expand-Tokens (Read-Utf8 $src) $tokens
     $text = $text -replace "`r`n", "`n"
-    if ([IO.Path]::GetExtension($dst) -ne '.sh') { $text = $text -replace "`n", "`r`n" }
+    if ([IO.Path]::GetExtension($dst) -ne '.sh' -and (Split-Path -Leaf $dst) -ne 'smbots') { $text = $text -replace "`n", "`r`n" }
     Write-Utf8 $dst $text
 }
 
@@ -429,6 +441,7 @@ function Notices-Text([string]$kind) {
 function Version-Text([string]$kind) {
     $lines = @("sm-reimpl $Version", "commit: $CommitSha", "protocol: $Protocol", "built: $BuildDate (UTC)", "package: $kind")
     if ($kind -like 'playtest*') { $lines += "godot: $GodotVersion (.NET), Windows Desktop export, ExportRelease" }
+    if ($kind -like 'bots*') { $lines += "godot: $GodotVersion (.NET), $BotsPreset export (headless bots), ExportRelease" }
     if ($kind -ne 'source') { $rid = if ($kind -like '*linux*') { 'linux-x64' } else { 'win-x64' }; $lines += "dotnet runtime: $($script:RuntimeVersions[$rid]) ($rid, self-contained)" }
     return (($lines -join "`r`n") + "`r`n")
 }
@@ -500,8 +513,8 @@ function Invoke-Scan([string[]]$paths, [switch]$Rehash) {
     # Profiles by the file's leaf name (never the folder).
     $leaf = { param($p) Split-Path -Leaf $p }
     $playtest = @($paths | Where-Object { (& $leaf $_) -match '^SM-Reimpl-Playtest-' })
-    $server = @($paths | Where-Object { (& $leaf $_) -match '^sm-reimpl-server-' })
-    $other = @($paths | Where-Object { (& $leaf $_) -notmatch '^(SM-Reimpl-Playtest-|sm-reimpl-server-)' })
+    $server = @($paths | Where-Object { (& $leaf $_) -match '^sm-reimpl-(server|bots)-' })
+    $other = @($paths | Where-Object { (& $leaf $_) -notmatch '^(SM-Reimpl-Playtest-|sm-reimpl-server-|sm-reimpl-bots-)' })
     # Anything but a clean exit 0 is a refusal: a crashed process exits with a large or negative code (0xE0434352), or leaves no code at all.
     # The first real non-zero code is returned (-1 when there was no code), so the failure message can show it.
     $result = 0
@@ -1105,6 +1118,66 @@ if (-not $SkipBuild) {
         $want = @(@($LauncherTop) + @($TopFiles.Values | ForEach-Object { $_.Name }) + @('game', 'notes', 'server', 'source') | Sort-Object)
         if (($top -join '|') -ne ($want -join '|')) { Fail "The playtest zip's top level is not what testers are told: $($top -join ', ')" }
         New-Zip $d $Zips.playtest '' @()
+    }
+
+    # ---- the headless bot client for a Linux server (-LinuxBots) ----
+    if ($LinuxBots) {
+        Time-Step 'linux bots'
+        Ensure-Godot
+        Ensure-Templates
+        $botsExport = Join-Path $Stage 'bots-export'
+        New-Item -ItemType Directory -Force -Path $botsExport | Out-Null
+        $client = Join-Path $SrcCopy 'client'
+        # The preset lives in client/export_presets.cfg; a build of an older commit that lacks it gets it from this checkout's file (the preset only
+        # names the platform and the resource filter, nothing of the build depends on it).
+        $presets = Join-Path $client 'export_presets.cfg'
+        $presetText = Read-Utf8 $presets
+        if ($presetText -notmatch ('name="' + [regex]::Escape($BotsPreset) + '"')) {
+            $own = (Read-Utf8 (Join-Path $RepoRoot 'client\export_presets.cfg')) -replace "`r`n", "`n"
+            $m = [regex]::Match($own, '(?ms)^\[preset\.(\d+)\]\s*\nname="' + [regex]::Escape($BotsPreset) + '".*?(?=^\[preset\.\d+\]\s*$|\z)')
+            if (-not $m.Success) { Fail "client/export_presets.cfg has no '$BotsPreset' preset to add to this older build." }
+            $idx = ([regex]::Matches($presetText, '(?m)^\[preset\.(\d+)\]\s*$') | ForEach-Object { [int]$_.Groups[1].Value } | Measure-Object -Maximum).Maximum + 1
+            $presetBlock = $m.Value -replace ('\[preset\.' + $m.Groups[1].Value + '(\.options)?\]'), ('[preset.' + $idx + '$1]')
+            Write-Utf8 $presets (($presetText.TrimEnd() -replace "`r`n", "`n") + "`n`n" + $presetBlock.TrimEnd() + "`n")
+            Write-Host "  the build commit has no '$BotsPreset' preset: added from this checkout (as preset $idx)"
+        }
+        Step "Building the game (Release) and exporting '$BotsPreset' (headless bot client) with Godot"
+        $env:InformationalVersion = $Info; $env:DebugType = 'none'; $env:DebugSymbols = 'false'; $env:IncludeSourceRevisionInInformationalVersion = 'false'; $env:PathMap = "$SrcCopy=/sm-reimpl"
+        $sln = Join-Path $client 'SmClient.sln'
+        $madeSln = $false
+        try {
+            if (-not (Test-Path -LiteralPath $sln)) {
+                Run-Native 'dotnet new sln' { dotnet new sln --format sln -n SmClient -o $client --force | Out-Null }
+                Run-Native 'dotnet sln add' { dotnet sln $sln add (Join-Path $client 'SmClient.csproj') | Out-Null }
+                $madeSln = $true
+            }
+            Run-Native 'dotnet build client' { dotnet build (Join-Path $client 'SmClient.csproj') -c Release -nologo -v quiet }
+            Invoke-Godot @('--headless', '--path', $client, '--import') 'import' -Lenient | Out-Null
+            Invoke-Godot @('--headless', '--quiet', '--path', $client, '--export-release', $BotsPreset, (Join-Path $botsExport 'sm-reimpl.x86_64')) 'linux export' | Out-Null
+        } finally {
+            Remove-Item Env:\InformationalVersion, Env:\DebugType, Env:\DebugSymbols, Env:\IncludeSourceRevisionInInformationalVersion, Env:\PathMap -ErrorAction SilentlyContinue
+            if ($madeSln -and (Test-Path -LiteralPath $sln)) { Remove-Item -LiteralPath $sln -Force }
+        }
+        if (-not (Test-Path -LiteralPath (Join-Path $botsExport 'sm-reimpl.x86_64'))) { Fail 'The Linux export produced no sm-reimpl.x86_64.' }
+        Get-ChildItem -LiteralPath $botsExport -Recurse -File | Where-Object { $_.Extension -in '.pdb', '.xml' } | Remove-Item -Force
+        # The runtime pack version, from the export's own dependency file (the bots package carries the .NET runtime's licence like the server does).
+        if (-not $script:RuntimeVersions['linux-x64']) {
+            $deps = Get-ChildItem -LiteralPath $botsExport -Recurse -Filter '*.deps.json' | Select-Object -First 1
+            $rm = if ($deps) { [regex]::Match((Read-Utf8 $deps.FullName), 'runtimepack\.Microsoft\.NETCore\.App\.Runtime\.linux-x64/([\d.]+)') } else { $null }
+            if (-not $rm -or -not $rm.Success) { Fail 'Could not read the linux-x64 runtime pack version of the bot export (*.deps.json).' }
+            $script:RuntimeVersions['linux-x64'] = $rm.Groups[1].Value
+        }
+        Step "Assembling sm-reimpl-bots-linux-x64-$Version.tar.gz"
+        $d = Join-Path $Stage 'pkg-bots-linux-x64'
+        Copy-Item -LiteralPath $botsExport -Destination $d -Recurse
+        Copy-Text (Join-Path $Template 'smbots') (Join-Path $d 'smbots')
+        Add-DotnetLicences $d 'linux-x64'
+        $godotLic = Join-Path $d 'licenses\godot'
+        New-Item -ItemType Directory -Force -Path $godotLic | Out-Null
+        $licSrc = Ensure-GodotLicences
+        foreach ($f in $GodotLicenceFiles.Keys) { Copy-Item -LiteralPath (Join-Path $licSrc $f) -Destination $godotLic }
+        Common-Files $d 'README-FIRST.bots.txt' 'bots-linux-x64' $Tokens
+        Run-Native 'smtool make-tar' { dotnet run --project (Join-Path $RepoRoot 'src\SmTool\SmTool.csproj') -c Release --no-build -- make-tar $d $Zips.botsLinux --prefix "sm-reimpl-bots-linux-x64-$Version" --exec 'sm-reimpl.x86_64,smbots' | Out-Host }
     }
 }
 
