@@ -55,7 +55,7 @@ public static class ContentExtrasInfo
         /// The added content that reads <see cref="InputButtons.ExtraAction"/> (input bit 13): a server whose match runs none of it drops the bit
         /// from every input it receives.
         /// </summary>
-        public static ContentExtras ActionKeyUsers => ContentExtras.LoyalistBarks;
+        public static ContentExtras ActionKeyUsers => ContentExtras.LoyalistBarks | ContentExtras.Musou;   // Musou Mode: the FOR THE EMPEROR key alone (owner, 2026-11-02)
 
         /// <summary>
         /// The added content that reads the client-to-server extras commands (message kind 17, docs/added-content.md section 4): a server whose match runs none

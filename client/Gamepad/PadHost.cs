@@ -52,6 +52,7 @@ public partial class PadHost : Node
     public override void _EnterTree()
     {
         Current = this;
+        BindMenuAccept();
         Tracker.Changed += s =>
         {
             ApplyCursor();
@@ -63,6 +64,13 @@ public partial class PadHost : Node
         // A pad already plugged in at start is the scheme (the owner: "autodetect when a controller is connected").
         if (pads.Count > 0 && !DisplayServer.GetName().Equals("headless", StringComparison.OrdinalIgnoreCase)) Tracker.Connect((int)pads[0], true, pads.Count);
         else Tracker.Connect(-1, false, pads.Count);
+    }
+
+    /// <summary>A on a controller presses what has the focus, as a left click does (owner 2026-11-02). Godot 4's built-in <c>ui_accept</c> holds only Enter, Keypad Enter and Space, so the pad's A is added to it here.</summary>
+    static void BindMenuAccept()
+    {
+        var a = new InputEventJoypadButton { ButtonIndex = JoyButton.A, Device = -1 };
+        if (!InputMap.ActionHasEvent("ui_accept", a)) InputMap.ActionAddEvent("ui_accept", a);
     }
 
     public override void _ExitTree()

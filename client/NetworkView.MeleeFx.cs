@@ -157,6 +157,7 @@ public partial class NetworkView
         long tick = own ? _client!.Tick : _client!.LatestSnapshotTick;
         long start = ImpactRules.MeleeHitGate.StartTick(tick, s.MeleeTime, _config!.TickSeconds);
         if (!_meleeFxGate.Passed(s.PlayerId, s.MeleeStep, s.MeleeHeavy, GateTime(s, step), FxTime(step), start)) return;   // sim/stomp-in-place: the drawn pose's time (the foot's landing), not the state's
+        if (own) OwnStrikeHitSound(s, step, all);
         if (step.Stomp is { } blast && !NoStompFx) PlayStomp(s, own, character, wargear, blast);
         if (ImpactRules.PowerFlashRules.KindOf(wargear) is not null && !(PowerBlade.IsPowerSword(wargear) && NoSwordFx) && character is not null)
         {

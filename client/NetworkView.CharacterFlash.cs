@@ -51,6 +51,15 @@ public partial class NetworkView
         _armourFlash.Hit(victim, _connectedFor, armourUp ?? true, delay);
     }
 
+    /// <summary>An own hit left <paramref name="victim"/> with no armour (the hit report's shield after the hit): its red ring at once.</summary>
+    void CharacterFlashBroke(int victim)
+    {
+        if (victim <= 0 || _client is null || victim == _client.PlayerId || _config is null || NoArmourFlash) return;
+        float delay = 5f;
+        foreach (var o in _lastOthers) if (o.PlayerId == victim) { delay = HitBars.BodyOf(_config, o.Class).ShieldRegenDelay; break; }
+        _armourFlash.Broke(victim, _connectedFor, delay);
+    }
+
     /// <summary>Per frame: the flashes of the own model and of every other drawn model.</summary>
     void CharacterFlashFrame()
     {
@@ -71,16 +80,16 @@ public partial class NetworkView
             if (ArmourFlashDemoMode is { Length: > 0 } demo)
             {
                 var d = demo switch { "hit" => (0.6f, 0f, 0f), "break" => (0f, 0.6f, 0f), "glow" => (0f, 0f, 0.6f), _ => ArmourFlashDemoAt(_connectedFor) };
-                _local.SetArmourFlash(d.Item1, d.Item2, d.Item3);
+                _local.SetArmourFlash(d.Item1, d.Item2, d.Item3, ring: true);
             }
-            else { var f = _armourFlash.At(own, _connectedFor); _local.SetArmourFlash(f.Hit, f.Break, f.Glow); }
+            else { var f = _armourFlash.At(own, _connectedFor); _local.SetArmourFlash(f.Hit, f.Break, f.Glow, _armourFlash.BreakRing(own, _connectedFor)); }
         }
         foreach (var state in _lastOthers)
         {
             if (!state.Alive) { _armourFlash.Reset(state.PlayerId); }
             if (!_remotes.TryGetValue(state.PlayerId, out var character)) continue;
             var f = state.Alive ? _armourFlash.At(state.PlayerId, _connectedFor) : (0f, 0f, 0f);
-            character.SetArmourFlash(f.Item1, f.Item2, f.Item3);
+            character.SetArmourFlash(f.Item1, f.Item2, f.Item3, _armourFlash.BreakRing(state.PlayerId, _connectedFor));
         }
         _armourFlash.Prune(id => id == own || _remotes.ContainsKey(id));
     }

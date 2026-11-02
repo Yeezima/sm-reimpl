@@ -39,6 +39,8 @@ public partial class NetworkView
     }
 
     /// <summary>A map added content composes: Musou Mode's.</summary>
+    partial void ExtrasMeleeTarget(PlayerState me, MeleeStep step, ref System.Numerics.Vector3? at) => MusouMeleeTarget(me, step, ref at);
+
     partial void ExtrasMapFile(ref string file) => TfwMapFile(ref file);
 
     partial void ExtrasMapCollision(string name, ref SmSim.CollisionWorld world, ref ulong hash) => TfwMapCollision(name, ref world, ref hash);

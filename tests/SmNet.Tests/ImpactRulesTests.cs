@@ -180,6 +180,21 @@ public class PowerFlashRulesTests
     }
 }
 
+public class ArmourBreakRingTests
+{
+    [Fact]
+    public void A_report_of_no_armour_flashes_at_once_and_only_once()
+    {
+        var t = new ArmourFlashTracker();
+        t.Hit(2, 0.0, armourUp: true, regenDelay: 7f);
+        t.Broke(2, 1.0, 7f);
+        Assert.True(t.At(2, 1.0).Break > 0.9f);
+        Assert.True(t.BreakRing(2, 1.0));
+        t.Broke(2, 2.5, 7f);                       // still down: no new break
+        Assert.False(t.BreakRing(2, 2.5));
+    }
+}
+
 /// <summary>fx/melee-hit-sound: the procedural on-hit sounds (client/ImpactRules/MeleeHitSynth.cs).</summary>
 public class MeleeHitSynthTests
 {
@@ -220,13 +235,16 @@ public class MeleeHitSynthTests
         Assert.True(Math.Abs(x[^1]) < 0.02f);
     }
 
-    [Fact]
-    public void Sound_A_swells_over_about_a_tenth_of_a_second_and_sound_B_starts_at_once()
+    [Theory]
+    [InlineData(HitSound.Sizzle)]
+    [InlineData(HitSound.Roar)]
+    public void A_hit_peaks_at_once_and_is_all_bass(HitSound sound)
     {
-        var a = MeleeHitSynth.Render(HitSound.Sizzle, 1);
-        var b = MeleeHitSynth.Render(HitSound.Roar, 1);
-        Assert.True(RmsDb(a, 0.02f, 0.04f) < RmsDb(a, 0.15f, 0.25f) - 8);
-        Assert.True(RmsDb(b, 0.02f, 0.04f) > RmsDb(b, 0.2f, 0.4f) - 4);
+        var x = MeleeHitSynth.Render(sound, 1);
+        Assert.True(RmsDb(x, 0f, 0.05f) > RmsDb(x, 0.2f, 0.4f) + 3);     // loud at the contact, with no swell
+        double lp = 0, lpEnergy = 0, hpEnergy = 0, a = 1 - Math.Exp(-2 * Math.PI * 400.0 / MeleeHitSynth.SampleRate);
+        foreach (var v in x) { lp += a * (v - lp); lpEnergy += lp * lp; hpEnergy += (v - lp) * (v - lp); }
+        Assert.True(lpEnergy > 4 * hpEnergy, $"low {lpEnergy}, rest {hpEnergy}");
     }
 
     [Fact]

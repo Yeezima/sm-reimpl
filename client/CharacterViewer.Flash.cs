@@ -183,9 +183,9 @@ void fragment() {
 
     /// <summary>
     /// Sets the flashes of this frame (each 0..1; <paramref name="hit"/> yellow on the armour, <paramref name="broke"/> the red halo, <paramref name="glow"/> the yellowish recharge halo). All zero
-    /// puts the model back (the side tint) and hides the halo. Cheap while nothing runs.
+    /// puts the model back (the side tint) and hides the halo. <paramref name="ring"/>: the red is the armour's break, drawn in the recharge glow's ring (owner, 2026-11-02). Cheap while nothing runs.
     /// </summary>
-    public void SetArmourFlash(float hit, float broke, float glow)
+    public void SetArmourFlash(float hit, float broke, float glow, bool ring = false)
     {
         if (_skeleton is null) return;
         bool old = OldFlashOutline;
@@ -219,8 +219,8 @@ void fragment() {
             if (halo.Visible != show) halo.Visible = show;
             if (show)
             {
-                _haloMaterial!.SetShaderParameter("halo_mix", new Vector4(broke, glow, OldBreakGlow ? 0f : 1f, 1f));
-                halo.Scale = broke > 0.001f && !OldBreakGlow ? new Vector3(RedGlowScale * 0.9f, RedGlowScale, 1f) : Vector3.One;
+                _haloMaterial!.SetShaderParameter("halo_mix", new Vector4(broke, glow, OldBreakGlow || ring ? 0f : 1f, 1f));
+                halo.Scale = broke > 0.001f && !OldBreakGlow && !ring ? new Vector3(RedGlowScale * 0.9f, RedGlowScale, 1f) : Vector3.One;
                 // The model's body is not at the viewer's origin (the rig's root is offset): centre the halo on the lower spine, where the body is.
                 if (_haloBone == -2) _haloBone = _skeleton.FindBone("RIG_SpineA");
                 if (_haloBone >= 0) halo.GlobalPosition = _skeleton.ToGlobal(_skeleton.GetBoneGlobalPose(_haloBone).Origin) + Vector3.Up * 0.12f;
