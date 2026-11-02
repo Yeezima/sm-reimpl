@@ -11,3 +11,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 -->
 
 - Musou Mode: the distant fires, flashes and explosions that burned around the edges of the battlefield are gone. The only blasts left are real ones, such as the artillery you call in with B. The muffled battle noise in the distance is still there.
+
+- Manufactorum: the lines in the floor no longer show through smoke, blast and blood clouds.

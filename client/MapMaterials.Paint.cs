@@ -160,7 +160,7 @@ public sealed partial class MapMaterials
     {
         if (!PaintShaders.TryGetValue((s.CutOut, s.TwoSided), out var shader))
             PaintShaders[(s.CutOut, s.TwoSided)] = shader = new Shader { Code = PaintShaderCode(s.CutOut, s.TwoSided) };
-        var material = new ShaderMaterial { Shader = shader };
+        var material = new ShaderMaterial { Shader = shader, RenderPriority = s.CutOut ? RenderQuality.CutOutPriority : 0 };
         if (s.CutOut) CutOut++;
         material.SetShaderParameter("albedo_tex", s.Diffuse);
         material.SetShaderParameter("paint_mask", s.Mask);
