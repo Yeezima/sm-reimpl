@@ -116,11 +116,20 @@ public static class RenderQuality
     /// <summary>Cut-out standard materials use alpha-to-coverage with MSAA (smooth edges on grates and fences).</summary>
     public static void ApplyCutOut(BaseMaterial3D material)
     {
-        if (AlphaToCoverage) material.AlphaAntialiasingMode = BaseMaterial3D.AlphaAntiAliasing.AlphaToCoverage;
+        if (!AlphaToCoverage) return;
+        material.AlphaAntialiasingMode = BaseMaterial3D.AlphaAntiAliasing.AlphaToCoverage;
+        material.DepthDrawMode = BaseMaterial3D.DepthDrawModeEnum.Always;
+        material.RenderPriority = CutOutPriority;
     }
 
     /// <summary>Render-mode text a cut-out shader adds for alpha-to-coverage (empty when off).</summary>
-    public static string CutOutRenderMode => AlphaToCoverage ? ", alpha_to_coverage" : "";
+    public static string CutOutRenderMode => AlphaToCoverage ? ", alpha_to_coverage, depth_draw_always" : "";
+
+    /// <summary>
+    /// fix/ground-lines-over-smoke (the owner, 2026-11-02; ours): an alpha-to-coverage cut-out is drawn among the transparent effects, so a floor overlay such as Manufactorum's strips
+    /// could land on top of smoke, blast and blood clouds. Cut-outs go first in that pass and write depth, so every effect draws after them and is still hidden behind a fence.
+    /// </summary>
+    public const int CutOutPriority = -100;
 
     /// <summary>Extra fragment lines for alpha-to-coverage on a cut-out shader (the antialiasing edge scales with the texture's texels).</summary>
     public static string CutOutShaderLines(string texture) => AlphaToCoverage

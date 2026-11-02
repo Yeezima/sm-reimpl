@@ -123,7 +123,7 @@ public sealed partial class MapMaterials
         var flat = _flatNormal ??= ImageTexture.CreateFromImage(FlatNormal());
         Texture2D normal1 = normalMaps && bmat.Textures.TryGetValue("NormalMap", out var n1) && Load(n1, dds, notes) is { } a ? a : flat;
         Texture2D normal2 = normalMaps && bmat.Textures.TryGetValue("NormalMap2", out var n2) && Load(n2, dds, notes) is { } b ? b : flat;
-        var material = new ShaderMaterial { Shader = ShaderFor(cutOut, twoSided) };
+        var material = new ShaderMaterial { Shader = ShaderFor(cutOut, twoSided), RenderPriority = cutOut ? RenderQuality.CutOutPriority : 0 };
         material.SetShaderParameter("albedo1", diffuse);
         material.SetShaderParameter("albedo2", diffuse2);
         material.SetShaderParameter("normal1", normal1);
