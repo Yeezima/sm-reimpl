@@ -1,5 +1,6 @@
 using System.Numerics;
 using SmSim;
+using SmSim.Extras.Musou;
 using SmSim.Extras.Musou.Campaign;
 
 namespace SmNet.Tests.Extras.Musou.Campaign;
@@ -31,6 +32,39 @@ public class TfwRangeTests
         Assert.NotNull(world.Character.Raycast(spawn, -Vector3.UnitZ, 5f));   // the floor
         foreach (var way in new[] { Vector3.UnitX, -Vector3.UnitX, Vector3.UnitY, -Vector3.UnitY })
             Assert.NotNull(world.Character.Raycast(range.Centre + new Vector3(0f, 0f, 2f), way, 80f));   // a wall on every side, 50 m off
+    }
+
+    [Fact]
+    public void The_two_tanks_and_the_slopes_of_the_backdrop_are_solid_and_the_spawn_stays_clear()
+    {
+        var range = TfwRange.For(TfwTestArena.Level());
+        var world = Data.Collision;
+        var west = range.Centre + new Vector3(-20f, 25.1f, 2f);
+        var hit = world.Character.Raycast(west, -Vector3.UnitX, 30f);
+        Assert.NotNull(hit);
+        Assert.InRange(hit!.Value.Distance, 7f, 8f);                     // the north tank's side, at -38.1 + 10.7
+        Assert.NotNull(world.Character.Raycast(range.Centre + new Vector3(-20f, 0f, 2f), -Vector3.UnitX, 8f));   // the south tank
+        Assert.NotNull(world.Character.Raycast(range.Centre + new Vector3(-38f, 0f, 20f), -Vector3.UnitZ, 7f));   // the tank's top
+        Assert.NotNull(world.Character.Raycast(range.Centre + new Vector3(46f, 20f, 20f), -Vector3.UnitZ, 19f));  // the wide slope, about 5 m up there
+        Assert.NotNull(world.Character.Raycast(range.Centre + new Vector3(45f, -13f, 22f), -Vector3.UnitZ, 12f)); // the ramp on it, about 14 m up
+        Assert.NotNull(world.Character.Raycast(range.Centre + new Vector3(30f, -48f, 40f), -Vector3.UnitZ, 15f)); // the south ramp
+        Assert.Null(world.Character.Raycast(range.Spawn.Position + new Vector3(0f, 0f, 1f), Vector3.UnitY, 40f)); // the way north from the spawn is open
+        Assert.Equal(TfwRange.For(TfwTestArena.Level()).Corners().Length, range.Corners().Length);
+    }
+
+    [Fact]
+    public void At_the_range_the_orks_deal_no_damage()
+    {
+        var w = TfwRig.War();
+        TfwRig.Command(w, TfwCommand.RangeGo);
+        TfwRig.Seconds(w, 0.5f);
+        var range = Assert.IsType<TfwRange>(TfwTestArena.Field.Range);
+        var me = w.Players[TfwRig.Human];
+        Assert.True(range.Contains(me.Position));
+        for (int k = 0; k < 8; k++) w.Musou!.Spawn(MusouEnemyType.Boy, me.Position + new Vector3(MathF.Cos(k) * 2f, MathF.Sin(k) * 2f, 0f), 0f, 85f);
+        TfwRig.Seconds(w, 12f);
+        var after = w.Players[TfwRig.Human];
+        Assert.Equal((me.Health, me.Shield, true), (after.Health, after.Shield, after.Alive));
     }
 
     [Fact]

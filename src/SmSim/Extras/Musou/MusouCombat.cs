@@ -10,6 +10,8 @@ public sealed record MusouCombatRules
 {
     /// <summary>The cleave reaches this much past the core's <see cref="SimConfig.MeleeRange"/> (design: 0.5 m) …</summary>
     public float CleaveExtraRange { get; init; } = 0.5f;
+    /// <summary>The share of a player's whole health a melee attack that strikes anybody gives back (the owner, 2026-11-02).</summary>
+    public const float MeleeHealShare = 0.05f;
     /// <summary>A <see cref="MeleeStep.TrackToHit"/> strike's cleave reaches this much farther (ours, feel/melee-reliability: enemies carry no player lock).</summary>
     public const float CleaveTrackRange = 1f;
     /// <summary>… within the core's <see cref="SimConfig.MeleeConeDegrees"/> times this (design: 1.5) …</summary>

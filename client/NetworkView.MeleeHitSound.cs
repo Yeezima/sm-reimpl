@@ -19,7 +19,7 @@ public partial class NetworkView
 {
     bool OldMeleeHitSound => _oldMeleeHitSound ??= CmdFlag("old-melee-hit-sound");
     bool? _oldMeleeHitSound;
-    readonly Dictionary<HitSound, AudioStreamWav[]> _hitStreams = new();
+    readonly Dictionary<(HitSound, bool), AudioStreamWav[]> _hitStreams = new();
     uint _hitSoundCount;
     int _proceduralHits;
 
@@ -61,28 +61,32 @@ public partial class NetworkView
 
     AudioStreamWav[] HitStreams(HitSound sound)
     {
-        if (_hitStreams.TryGetValue(sound, out var known)) return known;
-        var renders = HitRender(sound).GetAwaiter().GetResult();   // built off the main thread when the sound system came up (PrewarmHitSounds): the first hit doesn't stall
+        bool noBass = HitNoBass;
+        if (_hitStreams.TryGetValue((sound, noBass), out var known)) return known;
+        var renders = HitRender(sound, noBass).GetAwaiter().GetResult();   // built off the main thread when the sound system came up (PrewarmHitSounds): the first hit doesn't stall
         var set = new AudioStreamWav[renders.Length];
         for (int i = 0; i < set.Length; i++)
             set[i] = new AudioStreamWav { Data = renders[i], Format = AudioStreamWav.FormatEnum.Format16Bits, MixRate = MeleeHitSynth.SampleRate, Stereo = false };
-        return _hitStreams[sound] = set;
+        return _hitStreams[(sound, noBass)] = set;
     }
 
-    static readonly Dictionary<HitSound, Task<byte[][]>> HitRenders = new();
+    /// <summary>Musou Mode's hit sounds have no bass (the owner, 2026-11-02); classic PvP keeps it, a question left to the owner.</summary>
+    bool HitNoBass => _config?.Extras.HasFlag(SmSim.ContentExtras.Musou) == true;
+
+    static readonly Dictionary<(HitSound, bool), Task<byte[][]>> HitRenders = new();
 
     /// <summary>A sound's four renders as 16-bit bytes, computed once on a worker thread.</summary>
-    static Task<byte[][]> HitRender(HitSound sound)
+    static Task<byte[][]> HitRender(HitSound sound, bool noBass)
     {
         lock (HitRenders)
         {
-            if (HitRenders.TryGetValue(sound, out var known)) return known;
-            return HitRenders[sound] = Task.Run(() =>
+            if (HitRenders.TryGetValue((sound, noBass), out var known)) return known;
+            return HitRenders[(sound, noBass)] = Task.Run(() =>
             {
                 var set = new byte[4][];
                 for (int i = 0; i < set.Length; i++)
                 {
-                    var pcm = MeleeHitSynth.ToPcm16(MeleeHitSynth.Render(sound, 1000 * (int)sound + i + 1));
+                    var pcm = MeleeHitSynth.ToPcm16(MeleeHitSynth.Render(sound, 1000 * (int)sound + i + 1, noBass));
                     set[i] = new byte[pcm.Length * 2];
                     Buffer.BlockCopy(pcm, 0, set[i], 0, set[i].Length);
                 }
@@ -95,8 +99,8 @@ public partial class NetworkView
     void PrewarmHitSounds()
     {
         if (OldMeleeHitSound) return;
-        HitRender(HitSound.Sizzle);
-        HitRender(HitSound.Roar);
+        HitRender(HitSound.Sizzle, HitNoBass);
+        HitRender(HitSound.Roar, HitNoBass);
     }
 
     /// <summary>Hotfix 2026-11-01: the generated hit sounds quieter (volume x 0.5, -6 dB; the owner: 40% quieter, then "slightly lowered" on 2026-11-02).</summary>

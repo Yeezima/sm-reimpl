@@ -16,7 +16,7 @@ namespace SmClient;
 /// same archive, read on a worker); the Chaos Marine is the PvP Chaos model the networked view has already built. Read from the player's install at run time only.
 /// <para>
 /// Which mesh and clip each kind uses, and the scales, are **ours** (interpretation: the install has no Musou): Boy boy_melee, Shoota Boy boy_ranged, 'Ard Boy
-/// boy_ardboy, Gretchin boy_melee at 0.7 (no Gretchin mesh verified), Nob nob_melee (else boy_melee_pro at 1.2), Warboss nob_melee at 1.6 (else boy_melee_pro at 1.9, else the Boy at 2.0; the owner, 2026-11-01: "always a large orc, never small"; 1.6 is the sim's BossScale).
+/// boy_ardboy, Gretchin boy_melee at 0.7 (no Gretchin mesh verified), Nob nob_melee (else boy_melee_pro at 1.2), Warboss nob_melee at the sim's BossScale, 3 (else boy_melee_pro, else the Boy, at the same; the owner, 2026-11-01: "always a large orc, never small", and 2026-11-02: 3x).
 /// </para>
 /// </summary>
 public sealed class MusouLooks
@@ -51,7 +51,7 @@ public sealed class MusouLooks
         new(MusouEnemyType.ArdBoy, "boy_ardboy", 1f, "boy_melee_pro", 1f, false),
         new(MusouEnemyType.Gretchin, "boy_melee", 0.7f, null, 0.7f, false),
         new(MusouEnemyType.Nob, "nob_melee", 1f, "boy_melee_pro", 1.2f, false),
-        new(MusouEnemyType.Warboss, "nob_melee", BossScale, "boy_melee_pro", 1.9f, false),
+        new(MusouEnemyType.Warboss, "nob_melee", BossScale, "boy_melee_pro", BossScale, false),
     ];
 
     readonly string _gameDir;
@@ -100,7 +100,7 @@ public sealed class MusouLooks
             return _looks[(int)w.Type] = look;
         }
         if (_looks[(int)MusouEnemyType.Warboss] is null && _looks[(int)MusouEnemyType.Boy] is { } boy)   // no Nob and no pro mesh to be had: the Boy's body, big
-            _looks[(int)MusouEnemyType.Warboss] = new Look { Name = "Warboss:boy_melee", Assets = boy.Assets, Scale = 2.0f, Clips = boy.Clips };
+            _looks[(int)MusouEnemyType.Warboss] = new Look { Name = "Warboss:boy_melee", Assets = boy.Assets, Scale = BossScale, Clips = boy.Clips };
         if (_looks[(int)MusouEnemyType.Nob] is null && _looks[(int)MusouEnemyType.Boy] is { } boyNob)   // the same for the Nob: never left invisible
             _looks[(int)MusouEnemyType.Nob] = new Look { Name = "Nob:boy_melee", Assets = boyNob.Assets, Scale = 1.4f, Clips = boyNob.Clips };
         if (!_chaosTried && _chaos() is { } chaos)

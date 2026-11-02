@@ -29,12 +29,12 @@ public static class TfwBattleRules
     public const float DefenderAggro = 30f;
 
     // The garrison of one position (owner, 2026-11-01: "there is always a consistent ork garrison waiting on each point that never respawns. they defend each point"): it stands leashed on the point from the landing and is never rebuilt.
-    public const int Garrison = 12;
+    public const int Garrison = 24;   // the owner, 2026-11-02: double the Orks of the battle (was 12)
 
     // The crowds (owner, 2026-11-01): "the orks should pool up at their spawn point until they reach a crowd of 50 orks, then swarm at the player. there should be 3 major spawn points across the map doing this";
     // "pools replace the tide"; "50 per point, 150 total. Each point swarms on its own."
     /// <summary>The crowd of one spawn point: it stands there leashed, one more every <see cref="CrowdFillSeconds"/>, and at this many all of it swarms at once. The owner's number.</summary>
-    public const int CrowdSize = 50;
+    public const int CrowdSize = 100;   // the owner, 2026-11-02: double the Orks of the battle (was 50, a fill of 1 s)
     /// <summary>A crowd's Orks notice a target this near their own places (a crowd wakes as one when any of it does, or is hurt). Ours: a player at the ring (13.5 to 15 m out) wakes a fresh small crowd on the far side of the disc (about 30 m).</summary>
     public const float CrowdAggro = 30f;
 
@@ -42,22 +42,29 @@ public static class TfwBattleRules
     /// A held point adds one Ork to its crowd every this many seconds (the owner's tide of 1 s, now the crowd's fill: 50 s for a crowd). The owner, 2026-11-01: "you have to fully capture a point to disable the spawning
     /// from that point. But it's temporarily paused while the point is being actively captured"; "Orks should begin spawning again immediately".
     /// </summary>
-    public const float CrowdFillSeconds = 1f;
+    public const float CrowdFillSeconds = 0.5f;
+    /// <summary>
+    /// The owner, 2026-11-02: "the reinforcements that spawn at all points pool and then swarm the player even if far away". The alive cap counts the swarms still fighting, so a far crowd could stall under
+    /// <see cref="CrowdSize"/> and stand for good: a crowd goes with what it has this long after the point's last swarm (ours; a crowd under no cap fills in 50 s).
+    /// </summary>
+    public const float CrowdWaitSeconds = 60f;
+    /// <summary>The owner, 2026-11-02: "elite ork enemies should spawn in packs or squads of at least 20": a crowd's elites come as runs of this many, the same share of the head count.</summary>
+    public const int EliteSquad = 20;
     /// <summary>A crowd and a garrison stand on a disc this wide round their point.</summary>
     public const float SpawnDisc = 8f;
     /// <summary>
     /// The owner, 2026-11-01: "50 per point, 150 total": the Orks of the crowds and the swarms alive at once, a garrison not counted (it never respawns, 12 a point); 80 more a further human; never over
     /// <see cref="AliveCapMost"/>, which leaves the pool's 512 slots room for the garrisons and those dying.
     /// </summary>
-    public const int AliveCapSolo = 150, AliveCapPerExtraHuman = 80, AliveCapMost = 460;
+    public const int AliveCapSolo = 300, AliveCapPerExtraHuman = 160, AliveCapMost = 420;   // the owner, 2026-11-02: double (150 and 80); the most leaves the pool's 512 room for the 72 of the garrisons and those dying
     public const int ReleasesPerTick = 6;
 
     // The trickle (owner, 2026-11-01: "re add in the trickling enemies resulting in roughly 2x the current ork enemy count on the map"; every value ours, spec "the trickle"): beside the pools and swarms, each source that sends
     // also lets one unleashed Ork walk to the players every TrickleSeconds, up to as many trickled Orks alive as the crowds' cap (so about twice the Orks on the map), and never past TrickleTotalMax in all (the pool has 512 slots).
     /// <summary>Seconds between two trickled Orks from one sending source (ours; three held points send two a second together).</summary>
     public const float TrickleSeconds = 1.5f;
-    /// <summary>Most Orks alive (garrisons not counted) while a trickled one is added: the pool's 512 slots less the garrisons (36), those dying and a margin.</summary>
-    public const int TrickleTotalMax = 470;
+    /// <summary>Most Orks alive (garrisons not counted) while a trickled one is added: the pool's 512 slots less the garrisons (72), those dying and a margin; so the trickle adds 100 to the crowds' 300 for one human, where doubling asks 300 (the pool ends it).</summary>
+    public const int TrickleTotalMax = 400;
     /// <summary>Most trickled Orks alive at once with <paramref name="humans"/> humans: the crowds' cap again, so the map holds about twice <see cref="AliveCap"/>.</summary>
     public static int TrickleCap(int humans) => AliveCap(humans);
 
@@ -114,7 +121,7 @@ public sealed record TfwLayout(Vector3 LandingZone, Vector3[] Positions, Vector3
 }
 
 /// <summary>Why a crowd swarmed: it reached <see cref="TfwBattleRules.CrowdSize"/>; or a target came near it, or one of it was hurt, and it went with what it had.</summary>
-public enum TfwSwarmWhy : byte { Full = 0, Woken = 1 }
+public enum TfwSwarmWhy : byte { Full = 0, Woken = 1, Waited = 2 }
 
 /// <summary>A crowd let loose (<see cref="TfwBattle.OnSwarm"/>): the spawn point (0 to 2 the positions, 3 the HQ's source), how many Orks went, why, and who.</summary>
 public readonly record struct TfwSwarm(int Point, int Size, TfwSwarmWhy Why, ushort[] Ids);
@@ -160,6 +167,8 @@ public sealed class TfwBattle
     readonly WarFinalBonus _bonus;
     readonly int _humans;
     readonly float _scale;
+    readonly int[] _crowdWait = new int[Positions + 1], _eliteLeft = new int[Positions + 1];   // ticks a crowd has waited; a squad's elites still to come
+    readonly float[] _eliteOwed = [10f, 10f, 10f, 10f];   // elites the share has earned that no squad has spent
     readonly int[] _tideTicks = new int[Positions + 1];   // ticks to the point's next Ork; 0: on this tick
     readonly int[] _lastTide = new int[Positions + 1];    // the battle's tick of its last
     readonly int[] _trickleTicks = new int[Positions + 1];   // ticks to the source's next trickled Ork
@@ -306,14 +315,25 @@ public sealed class TfwBattle
         return way.LengthSquared() > 1e-6f ? MathF.Atan2(-way.X, way.Y) : 0f;
     }
 
-    /// <summary>The next Ork of the mix: elites by <see cref="EliteShare"/>, each kind by its share, spread evenly (two low-discrepancy sequences, no dice).</summary>
-    MusouEnemyType NextType()
+    /// <summary>The next Ork of spawn point <paramref name="point"/>'s mix: elites by <see cref="EliteShare"/>, but in squads of <see cref="TfwBattleRules.EliteSquad"/> that stand together, each kind by its share (a low-discrepancy sequence, no dice). <paramref name="room"/>: Orks that still fit its crowd.</summary>
+    MusouEnemyType NextType(int point, int room)
     {
         int n = _picked++;
-        double elite = n * 0.6180339887498949 % 1.0, kind = n * 0.7548776662466927 % 1.0;
-        if (elite < EliteShare) return kind < TfwBattleRules.EliteArds ? MusouEnemyType.ArdBoy : MusouEnemyType.Nob;
-        return kind < TfwBattleRules.FodderBoyz ? MusouEnemyType.Boy : MusouEnemyType.ShootaBoy;
+        double kind = n * 0.7548776662466927 % 1.0;
+        var elite = kind < TfwBattleRules.EliteArds ? MusouEnemyType.ArdBoy : MusouEnemyType.Nob;
+        _eliteOwed[point] += EliteShare;
+        if (_eliteLeft[point] > 0) { _eliteLeft[point]--; return elite; }
+        if (_eliteOwed[point] >= TfwBattleRules.EliteSquad && room >= TfwBattleRules.EliteSquad)   // a whole squad fits this crowd, so no swarm splits it
+        {
+            _eliteOwed[point] -= TfwBattleRules.EliteSquad;
+            _eliteLeft[point] = TfwBattleRules.EliteSquad - 1;
+            return elite;
+        }
+        return Fodder(n);
     }
+
+    /// <summary>A Boy or a Shoota by its share: the trickle's, one at a time (an elite only ever comes in a squad).</summary>
+    static MusouEnemyType Fodder(int n) => n * 0.7548776662466927 % 1.0 < TfwBattleRules.FodderBoyz ? MusouEnemyType.Boy : MusouEnemyType.ShootaBoy;
 
     /// <summary>The next spot of a disc round <paramref name="centre"/>, jittered, on the graph's ground (the centre when it fell in a wall).</summary>
     Vector3 DiscSpot(Vector3 centre)
@@ -332,7 +352,7 @@ public sealed class TfwBattle
     /// <summary>One Ork of position <paramref name="position"/>'s garrison: leashed on the point's disc, woken by a target within <see cref="TfwBattleRules.DefenderAggro"/>, never replaced.</summary>
     void SpawnGarrison(int position)
     {
-        var type = NextType();
+        var type = NextType(position, _garrisons[position].Count == 0 ? TfwBattleRules.Garrison : 0);
         var at = DiscSpot(_layout.Positions[position]);
         ushort id = _enemies.SpawnLeashed(type, at, YawTo(at, _layout.LandingZone), Health(type), position + 1, TfwBattleRules.DefenderAggro);
         if (id != 0) _garrisons[position].Add(id);
@@ -349,7 +369,7 @@ public sealed class TfwBattle
     /// <summary>One more Ork in spawn point <paramref name="point"/>'s crowd (leashed on its disc); false when the pool had no room. The crowd that reaches <see cref="TfwBattleRules.CrowdSize"/> swarms.</summary>
     bool AddToCrowd(int point)
     {
-        var type = NextType();
+        var type = NextType(point, TfwBattleRules.CrowdSize - _crowds[point].Count);
         var at = DiscSpot(CrowdAnchor(point));
         ushort id = _enemies.SpawnLeashed(type, at, YawTo(at, _layout.LandingZone), Health(type), CrowdGroup(point), TfwBattleRules.CrowdAggro);
         if (id == 0) return false;
@@ -364,6 +384,7 @@ public sealed class TfwBattle
         var crowd = _crowds[point];
         _enemies.ReleaseGroup(CrowdGroup(point));
         _swarms++;
+        _crowdWait[point] = 0;
         if (OnSwarm is { } watch)
         {
             var ids = new List<ushort>(crowd);
@@ -669,6 +690,7 @@ public sealed class TfwBattle
         int counted = Counted() - _trickled.Count;   // the crowds' cap counts the crowds and swarms; the trickle has its own
         for (int k = 0; k <= Positions; k++)
         {
+            if (_crowds[k].Count > 0 && ++_crowdWait[k] >= Ticks(TfwBattleRules.CrowdWaitSeconds)) Swarm(k, TfwSwarmWhy.Waited);
             if (!SourceActive(k) || --_tideTicks[k] > 0) continue;
             _tideTicks[k] = Ticks(TfwBattleRules.CrowdFillSeconds);
             _lastTide[k] = _now;
@@ -701,7 +723,7 @@ public sealed class TfwBattle
             if (--_trickleTicks[k] > 0) continue;
             _trickleTicks[k] = Ticks(TfwBattleRules.TrickleSeconds);
             if (_trickled.Count >= cap || Counted() >= TfwBattleRules.TrickleTotalMax) continue;
-            var type = NextType();
+            var type = Fodder(_picked++);
             var at = SourceSpot(k);
             ushort id = _enemies.Spawn(type, at, YawTo(at, _layout.LandingZone), Health(type));
             if (id != 0) _trickled.Add(id);

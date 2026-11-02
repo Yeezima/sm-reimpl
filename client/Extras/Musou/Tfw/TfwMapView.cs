@@ -70,7 +70,7 @@ public partial class TfwMapView : Node3D
         view.AddChild(new MeshInstance3D { Name = "RangeShell", Mesh = Shell(range.Corners()), MaterialOverride = material });
         view.AddStation(range.ReturnStation, RangeColor);
         var body = new StaticBody3D { Name = "RangeRagdollWorld", CollisionLayer = Ragdoll.WorldLayer, CollisionMask = 0 };
-        body.AddChild(new CollisionShape3D { Shape = new ConcavePolygonShape3D { Data = range.Corners().Select(v => new Vector3(v.X, v.Y, v.Z)).ToArray(), BackfaceCollision = true } });
+        body.AddChild(new CollisionShape3D { Shape = new ConcavePolygonShape3D { Data = range.Collision().Select(v => new Vector3(v.X, v.Y, v.Z)).ToArray(), BackfaceCollision = true } });
         view.AddChild(body);
         return view;
     }

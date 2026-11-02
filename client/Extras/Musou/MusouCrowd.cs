@@ -16,7 +16,7 @@ namespace SmClient;
 /// </summary>
 public partial class MusouCrowd : CrowdView
 {
-    public const int DefaultVisible = 240, MaxSkinned = 40, MaxVat = 200, FallbackSkinned = 80;
+    public const int DefaultVisible = 480, MaxSkinned = 40, MaxVat = 200, FallbackSkinned = 80;
     public const float NearMetres = 25f, HalfRateMetres = 12f, SinkAfter = 3f, SinkSeconds = 1.5f, SinkDepth = 1.2f;
     /// <summary>Bodies kept at once (ours); the oldest go first.</summary>
     public const int MaxBodies = 100;
@@ -52,6 +52,17 @@ public partial class MusouCrowd : CrowdView
         AddFlungBody(new Vector3(d.Position.X, d.Position.Y, d.Position.Z), d.Yaw, (int)d.Type, MusouLooks.Death, velocity, new Vector3(Spin(11u), Spin(12u), Spin(13u)));
     }
 
+    /// <summary>Seconds a shot Ork's flinch plays, how soon a new shot restarts it, and how far it rocks him back (m). The owner, 2026-11-02: "add hit reactions to the orks getting shot". Drawn only: the simulation's Ork does not stop. Ours.</summary>
+    public const float FlinchSeconds = 0.4f, FlinchAgain = 0.2f, FlinchBack = 0.22f;
+    readonly Dictionary<int, float> _flinch = new();   // per id: seconds into its flinch
+    readonly List<int> _flinchOver = new();
+
+    /// <summary>A shot struck this Ork.</summary>
+    public void Flinch(int id)
+    {
+        if (!_flinch.TryGetValue(id, out float age) || age >= FlinchAgain) _flinch[id] = 0f;
+    }
+
     /// <summary>The frame: <paramref name="shown"/> at the render tick, the camera in game space.</summary>
     public void Frame(IReadOnlyList<MusouShown> shown, Vector3 camera, float delta)
     {
@@ -66,8 +77,17 @@ public partial class MusouCrowd : CrowdView
             float time;
             if (MusouLooks.Loops(clip)) { _clocks.TryGetValue(e.Id, out time); time += delta; _clocks[e.Id] = time; }
             else time = e.State == MusouEnemyState.Knocked ? KnockedTime(e) : e.StateSeconds;
+            if (_flinch.TryGetValue(e.Id, out float flinch) && e.Type != MusouEnemyType.Warboss && e.State is MusouEnemyState.Seek or MusouEnemyState.WindUp or MusouEnemyState.Recover)
+            {
+                clip = MusouLooks.Stagger; time = flinch;
+                p -= new Vector3(-MathF.Sin(e.Yaw), MathF.Cos(e.Yaw), 0f) * (FlinchBack * MathF.Sin(MathF.PI * MathF.Min(1f, flinch / FlinchSeconds)));
+            }
             Items.Add(new Item { Key = e.Id, Type = (int)e.Type, Position = p, Yaw = e.Yaw, Time = time, Clip = clip, Distance = p.DistanceTo(camera) });
         }
+        _flinchOver.Clear();
+        foreach (var (id, age) in _flinch) if (age + delta >= FlinchSeconds || !_seen.Contains(id)) _flinchOver.Add(id);
+        foreach (var id in _flinchOver) _flinch.Remove(id);
+        foreach (var id in new List<int>(_flinch.Keys)) _flinch[id] += delta;
         _gone.Clear();
         foreach (var id in _clocks.Keys) if (!_seen.Contains(id)) _gone.Add(id);
         foreach (var id in _gone) _clocks.Remove(id);

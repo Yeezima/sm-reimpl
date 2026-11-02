@@ -197,6 +197,29 @@ public class MusouCombatTests
         Assert.Equal(85f, o.Health);
     }
 
+    static void SetHealth(World w, float health)
+    {
+        var players = (Dictionary<int, PlayerState>)typeof(World).GetField("_players", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(w)!;
+        players[1] = players[1] with { Health = health };
+    }
+
+    [Fact]
+    public void A_melee_attack_that_strikes_anybody_gives_back_five_percent_of_the_health_once()
+    {
+        var w = NewWorld();
+        var body = Loadouts.Body(w.Config, w.Players[1]);
+        SetHealth(w, body.HealthMax * 0.5f);
+        var me = Me(w);
+        for (int k = 0; k < 4; k++) w.Musou!.Spawn(MusouEnemyType.Boy, me + new Vector3(k * 0.3f - 0.5f, 1.5f, 0f), 0f, 85f);
+        Run(w, 20, InputButtons.Melee);
+        Assert.Equal(body.HealthMax * 0.55f, w.Players[1].Health, 2);
+
+        var alone = NewWorld();
+        SetHealth(alone, 50f);
+        Run(alone, 20, InputButtons.Melee);
+        Assert.Equal(50f, alone.Players[1].Health);                      // a swing at nobody heals nothing
+    }
+
     [Fact]
     public void The_cleave_hits_at_most_eight_nearest_first_and_only_in_its_cone()
     {
