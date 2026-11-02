@@ -31,8 +31,8 @@ public partial class NetworkView
         return MeleeHitSynth.Replaces(MeleeWargear(attacker));
     }
 
-    /// <summary>Seconds after the own strike's sound during which the server's reports of that swing stay silent: past any round trip (ours).</summary>
-    const double OwnStrikeWindow = 0.6;
+    /// <summary>Seconds after the own strike's sound during which the server's reports of that swing stay silent: past a normal round trip, short of the next swing's hit (ours).</summary>
+    const double OwnStrikeWindow = 0.35;
     double _ownStrikeSoundAt = double.NegativeInfinity;
 
     /// <summary>Whether the own swing's hit sound has just been played at the strike.</summary>
@@ -47,7 +47,7 @@ public partial class NetworkView
     /// </summary>
     void OwnStrikeHitSound(PlayerState me, MeleeStep step, List<PlayerState> all)
     {
-        if (NoMeleeSounds || _client is null || _config is null || ProceduralHitSound(me, charge: false, dash: false) is not { } synth) return;
+        if (NoMeleeSounds || NoSound || Lean || _sound is null || _client is null || _config is null || ProceduralHitSound(me, charge: false, dash: false) is not { } synth) return;
         System.Numerics.Vector3? at = null;
         int victim = SmNet.MeleePresentation.Victim(me, all, _config, _client.MeleeLockTarget);
         if (victim > 0) foreach (var p in all) if (p.PlayerId == victim) { at = p.Position + new System.Numerics.Vector3(0f, 0f, 1.2f); break; }

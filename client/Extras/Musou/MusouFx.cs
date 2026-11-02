@@ -290,8 +290,15 @@ public partial class NetworkView
             float distance = new Num.Vector2(offset.X, offset.Y).Length();
             if (distance > reach || distance >= best || MathF.Abs(offset.Z) > _config.MeleeVerticalReach) continue;
             if (distance > 1e-4f && Num.Vector2.Dot(new Num.Vector2(offset.X, offset.Y) / distance, forward) < minCos) continue;
+            var chest = new Num.Vector3(e.Position.X, e.Position.Y, e.Position.Z + GoreChestHeight(e.Type));
+            if (_client?.Collision is { } world)   // as the cleave: no hit through a wall
+            {
+                var eye = me.Position + new Num.Vector3(0f, 0f, _config.EyeHeight);
+                float length = Num.Vector3.Distance(eye, chest);
+                if (length > 1e-4f && world.Weapons.Raycast(eye, (chest - eye) / length, length) is { } wall && wall.Distance < length) continue;
+            }
             best = distance;
-            at = new Num.Vector3(e.Position.X, e.Position.Y, e.Position.Z + GoreChestHeight(e.Type));
+            at = chest;
         }
     }
 
