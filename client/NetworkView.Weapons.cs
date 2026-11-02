@@ -86,7 +86,11 @@ public partial class NetworkView
             }
             rig.StowPistol = !ork && HammerHoldsBothHands(state);   // anim/melee-flow (NetworkView.MeleeFlow.cs): the hammer in both hands holsters the pistol
             var (release, take) = ork ? (0.5f, 0.5f) : SwapFractionsFor(state);   // fix/stow-right: the old weapon leaves the hand on its marker, the new one comes at its draw's tag
-            rig.Update(state.Slot, state.Alive && state.MeleeStep > 0, state.Alive, delta, _config.WeaponSwitchTime, release, take);
+            // fix/stim-knife-visuals: the strike's weapon leaves the hand with the strike's upper-body weight (a swing handed over to the legs fades out over the graph's exit while the simulation's
+            // step goes on; the knife used to stay in the now rifle-posed hand, pointing up before the step ended), and every weapon is stowed while a combat stim is used (the stim clip's hands left it floating).
+            rig.StimStowed = !ork && state.Alive && state.Throwing && StimOf(state) is not null;
+            bool meleeShown = state.Alive && state.MeleeStep > 0 && (_loco.TryGetValue(state.PlayerId, out var loco) ? loco.MeleeWeight : 1f) > MeleeVisibleWeight;
+            rig.Update(state.Slot, meleeShown, state.Alive, delta, _config.WeaponSwitchTime, release, take);
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
         {
@@ -98,6 +102,8 @@ public partial class NetworkView
         if (!rig.Faulted) ReloadSyncSafe(character, rig, state, ReferenceEquals(character, _local), delta);   // M35 (NetworkView.Reload.cs)
     }
 
+    /// <summary>fix/stim-knife-visuals (ours): below this upper-body weight a handed-over strike no longer shows its melee weapon in the hand.</summary>
+    const float MeleeVisibleWeight = 0.25f;
     int _weaponFaults;
     readonly Dictionary<int, Color> _packLogged = new();   // per player: the pack colour last logged (--bot / --look-log)
 

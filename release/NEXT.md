@@ -18,3 +18,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Musou Mode: weapon drops and weapon crates are switched off for now. Only ammunition and equipment boxes drop.
 - Assault Marine and Raptor: press melee during a short hop or a charge and the hop or charge ends at once and your swing starts, with no cancel timing needed. Tactical Marine and Chaos Tactical can do the same out of a charge. After such a cancel you cannot start another swing until the move you cut short would have finished, so it cannot be spammed. Rolls, the Devastator and Havoc hop and charge, and the Ork Boy are unchanged.
 - Assault Marine and Raptor: hold Space while falling, or during a charge, and the jump pack fires (a tap is still the short hop). It uses fuel as usual. This build does not play with earlier servers: everyone must update.
+- Using a combat stim no longer leaves your weapon floating in the air beside you: your weapons are put away while the stim is used, and come back after.
+- The combat knife no longer points up in front of your chest at the end of a swing: it now leaves the hand together with the swing animation.
