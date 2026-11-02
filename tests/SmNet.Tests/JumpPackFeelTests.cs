@@ -435,6 +435,25 @@ public class JumpPackFeelTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Right_click_is_never_dead_in_a_hammers_jump_from_the_first_tick_with_the_delay_of_the_perk()
+    {
+        // The owner, 2026-11-02: "right click doing nothing for the first part of a jump": a press on any tick of the climb starts the slash or the pound, in the take-off at the lift-off.
+        var classes = Config.Classes.Select(k => k with { MeleeChoices = [new MeleeCombo("sm_mp_melee_2hand_thunder_hammer", k.Melee)] }).ToArray();
+        var delayed = Config with { JumpPacks = [Pack with { PoundDelay = 2f }], Classes = classes };
+        for (int press = 1; press <= 40; press++)
+        {
+            var s = Fresh(delayed);
+            bool struck = false;
+            for (int t = 0; t < press + 14 && !struck; t++)
+            {
+                Step(ref s, delayed, (t < 13 ? InputButtons.Jump : InputButtons.None) | (t == press ? InputButtons.Melee : InputButtons.None), pitch: -0.5f);
+                struck = s.Jump is JumpPhase.Dive or JumpPhase.Recover;
+            }
+            Assert.True(struck, $"a press on tick {press} did nothing");
+        }
+    }
+
+    [Fact]
     public void Without_the_feel_values_the_slash_is_the_protocol_30_one()
     {
         var old = Config with { JumpPacks = [Pack with { Slash = JumpPackAttackTests.Slash }] };
