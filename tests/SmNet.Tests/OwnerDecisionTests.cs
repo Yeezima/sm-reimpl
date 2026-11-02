@@ -19,6 +19,18 @@ public class OwnerDecisionTests(ITestOutputHelper output)
 
     // ---------------------------------------------------------------- perks in either slot, everything unlocked
 
+    [Theory]
+    [InlineData(0.7f, 0f, 50f)]    // Impenetrable: the owner's target
+    [InlineData(1f, 0f, 20f)]      // no perk
+    public void A_stalker_headshot_on_full_armour(float received, float shield, float health)
+    {
+        var c = new SimConfig();
+        var marine = new PlayerState { Alive = true, Health = 100f, Shield = 100f };
+        var (after, _, _) = Combat.ApplyDamage(marine, 50f * received, OwnerBalance.StalkerShieldHead, 2f, c);
+        Assert.Equal(shield, after.Shield, 3);
+        Assert.Equal(health, after.Health, 3);
+    }
+
     [Fact]
     public void Any_perk_of_the_class_goes_in_either_slot_and_only_a_repeat_is_dropped()
     {

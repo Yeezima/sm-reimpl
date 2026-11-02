@@ -263,8 +263,8 @@ public sealed record MpClasses(IReadOnlyList<MpClass> Classes, IReadOnlyList<Wea
     /// </summary>
     public static MpClasses WithOwnerBalance(MpClasses classes, float tickSeconds, float shield, float health)
     {
-        var (weapons, rows) = OwnerBalance.Apply(classes.Weapons, tickSeconds, shield, health);
-        return rows.Count == 0 ? classes : classes with { Weapons = weapons, OwnerRows = rows };
+        var (weapons, rows) = OwnerBalance.Apply(OwnerBalance.WithStalkerHeadshot(classes.Weapons), tickSeconds, shield, health);
+        return classes with { Weapons = weapons, OwnerRows = rows.Count == 0 ? classes.OwnerRows : rows };
     }
 
     /// <summary>

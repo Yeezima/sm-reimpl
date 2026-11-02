@@ -160,6 +160,20 @@ public static class OwnerBalance
         return (result, rows);
     }
 
+    /// <summary>
+    /// The owner, 2026-11-02 (<b>deliberate change</b>): a stalker bolter headshot takes a marine with Impenetrable to no armour and 50% health. The data's armour head multiplier is 2.5; 10 does it: 50 x 0.7 = 35 raw, 10 of it
+    /// strips 100 armour, the other 25 at the data's head x2 takes 50 health. Without the perk the same shot leaves 20 health. Both races and the perk variants.
+    /// </summary>
+    public const float StalkerShieldHead = 10f;
+
+    /// <summary>The weapons with <see cref="StalkerShieldHead"/> on the stalker bolter (default entry and variants).</summary>
+    public static IReadOnlyList<WeaponSpec> WithStalkerHeadshot(IReadOnlyList<WeaponSpec> weapons) =>
+        weapons.Select(w => !StalkerCrater.Is(w.Name) ? w : w with
+        {
+            ShieldHeadMultiplier = StalkerShieldHead,
+            Variants = w.Variants.Select(v => v with { Spec = v.Spec with { ShieldHeadMultiplier = StalkerShieldHead } }).ToList(),
+        }).ToList();
+
     /// <summary>The owner's grenade decision (2026-10-29, verbatim): "grenades shouldn't bounce so far when thrown".</summary>
     public const string GrenadeBounceDecision = "owner 2026-10-29: grenades shouldn't bounce so far when thrown";
 
