@@ -50,6 +50,8 @@ public static class TfwBattleRules
     public const float CrowdWaitSeconds = 60f;
     /// <summary>The owner, 2026-11-02: "elite ork enemies should spawn in packs or squads of at least 20": a crowd's elites come as runs of this many, the same share of the head count.</summary>
     public const int EliteSquad = 20;
+    /// <summary>Slots of the pool's 512 no crowd or trickle may take: the commander, his escorts and the Warboss spawn only if the pool has room, and a battle cannot end without its boss.</summary>
+    public const int PoolReserve = 40;
     /// <summary>A crowd and a garrison stand on a disc this wide round their point.</summary>
     public const float SpawnDisc = 8f;
     /// <summary>
@@ -167,8 +169,8 @@ public sealed class TfwBattle
     readonly WarFinalBonus _bonus;
     readonly int _humans;
     readonly float _scale;
-    readonly int[] _crowdWait = new int[Positions + 1], _eliteLeft = new int[Positions + 1];   // ticks a crowd has waited; a squad's elites still to come
-    readonly float[] _eliteOwed = [10f, 10f, 10f, 10f];   // elites the share has earned that no squad has spent
+    readonly int[] _crowdWait = new int[Positions + 1];   // ticks a crowd has waited
+    readonly float[] _eliteOwed = [15f, 15f, 15f, 15f];   // elites the share has earned that no squad has spent
     readonly int[] _tideTicks = new int[Positions + 1];   // ticks to the point's next Ork; 0: on this tick
     readonly int[] _lastTide = new int[Positions + 1];    // the battle's tick of its last
     readonly int[] _trickleTicks = new int[Positions + 1];   // ticks to the source's next trickled Ork
@@ -315,24 +317,7 @@ public sealed class TfwBattle
         return way.LengthSquared() > 1e-6f ? MathF.Atan2(-way.X, way.Y) : 0f;
     }
 
-    /// <summary>The next Ork of spawn point <paramref name="point"/>'s mix: elites by <see cref="EliteShare"/>, but in squads of <see cref="TfwBattleRules.EliteSquad"/> that stand together, each kind by its share (a low-discrepancy sequence, no dice). <paramref name="room"/>: Orks that still fit its crowd.</summary>
-    MusouEnemyType NextType(int point, int room)
-    {
-        int n = _picked++;
-        double kind = n * 0.7548776662466927 % 1.0;
-        var elite = kind < TfwBattleRules.EliteArds ? MusouEnemyType.ArdBoy : MusouEnemyType.Nob;
-        _eliteOwed[point] += EliteShare;
-        if (_eliteLeft[point] > 0) { _eliteLeft[point]--; return elite; }
-        if (_eliteOwed[point] >= TfwBattleRules.EliteSquad && room >= TfwBattleRules.EliteSquad)   // a whole squad fits this crowd, so no swarm splits it
-        {
-            _eliteOwed[point] -= TfwBattleRules.EliteSquad;
-            _eliteLeft[point] = TfwBattleRules.EliteSquad - 1;
-            return elite;
-        }
-        return Fodder(n);
-    }
-
-    /// <summary>A Boy or a Shoota by its share: the trickle's, one at a time (an elite only ever comes in a squad).</summary>
+        /// <summary>A Boy or a Shoota by its share, a low-discrepancy sequence, no dice (an elite only ever comes in a squad: <see cref="AddSquad"/>).</summary>
     static MusouEnemyType Fodder(int n) => n * 0.7548776662466927 % 1.0 < TfwBattleRules.FodderBoyz ? MusouEnemyType.Boy : MusouEnemyType.ShootaBoy;
 
     /// <summary>The next spot of a disc round <paramref name="centre"/>, jittered, on the graph's ground (the centre when it fell in a wall).</summary>
@@ -352,7 +337,7 @@ public sealed class TfwBattle
     /// <summary>One Ork of position <paramref name="position"/>'s garrison: leashed on the point's disc, woken by a target within <see cref="TfwBattleRules.DefenderAggro"/>, never replaced.</summary>
     void SpawnGarrison(int position)
     {
-        var type = NextType(position, _garrisons[position].Count == 0 ? TfwBattleRules.Garrison : 0);
+        var type = Fodder(_picked++);
         var at = DiscSpot(_layout.Positions[position]);
         ushort id = _enemies.SpawnLeashed(type, at, YawTo(at, _layout.LandingZone), Health(type), position + 1, TfwBattleRules.DefenderAggro);
         if (id != 0) _garrisons[position].Add(id);
@@ -369,11 +354,34 @@ public sealed class TfwBattle
     /// <summary>One more Ork in spawn point <paramref name="point"/>'s crowd (leashed on its disc); false when the pool had no room. The crowd that reaches <see cref="TfwBattleRules.CrowdSize"/> swarms.</summary>
     bool AddToCrowd(int point)
     {
-        var type = NextType(point, TfwBattleRules.CrowdSize - _crowds[point].Count);
+        if (_enemies.Alive >= MusouSim.Capacity - TfwBattleRules.PoolReserve) return false;
+        var type = Fodder(_picked++);
         var at = DiscSpot(CrowdAnchor(point));
         ushort id = _enemies.SpawnLeashed(type, at, YawTo(at, _layout.LandingZone), Health(type), CrowdGroup(point), TfwBattleRules.CrowdAggro);
         if (id == 0) return false;
         _crowds[point].Add(id);
+        if (_crowds[point].Count >= TfwBattleRules.CrowdSize) Swarm(point, TfwSwarmWhy.Full);
+        return true;
+    }
+
+    /// <summary>
+    /// A whole squad of <see cref="TfwBattleRules.EliteSquad"/> elites joins spawn point <paramref name="point"/>'s crowd at once, when <see cref="EliteShare"/> has earned one and it fits the crowd, the cap (<paramref name="spare"/>) and the pool:
+    /// at once, so no swarm splits it and no stall leaves it short. The point's next arrival waits as long as those Orks would have taken. True when it came.
+    /// </summary>
+    bool AddSquad(int point, int spare)
+    {
+        int squad = TfwBattleRules.EliteSquad;
+        if (_eliteOwed[point] < squad || spare < squad || TfwBattleRules.CrowdSize - _crowds[point].Count < squad || _enemies.Alive + squad > MusouSim.Capacity - TfwBattleRules.PoolReserve) return false;
+        _eliteOwed[point] -= squad - EliteShare * (squad - 1);   // the squad's own head count earns its share too
+        for (int k = 0; k < squad; k++)
+        {
+            int n = _picked++;
+            var type = n * 0.7548776662466927 % 1.0 < TfwBattleRules.EliteArds ? MusouEnemyType.ArdBoy : MusouEnemyType.Nob;
+            var at = DiscSpot(CrowdAnchor(point));
+            ushort id = _enemies.SpawnLeashed(type, at, YawTo(at, _layout.LandingZone), Health(type), CrowdGroup(point), TfwBattleRules.CrowdAggro);
+            if (id != 0) _crowds[point].Add(id);
+        }
+        _tideTicks[point] = Ticks(TfwBattleRules.CrowdFillSeconds) * squad;
         if (_crowds[point].Count >= TfwBattleRules.CrowdSize) Swarm(point, TfwSwarmWhy.Full);
         return true;
     }
@@ -695,6 +703,8 @@ public sealed class TfwBattle
             _tideTicks[k] = Ticks(TfwBattleRules.CrowdFillSeconds);
             _lastTide[k] = _now;
             if (counted >= cap) continue;
+            _eliteOwed[k] += EliteShare;
+            if (AddSquad(k, cap - counted)) { _released += TfwBattleRules.EliteSquad; counted += TfwBattleRules.EliteSquad; continue; }
             if (AddToCrowd(k)) { _released++; counted++; }
         }
         StepTrickle();
@@ -722,7 +732,7 @@ public sealed class TfwBattle
             if (!SourceActive(k)) { _trickleTicks[k] = Ticks(TfwBattleRules.TrickleSeconds); continue; }
             if (--_trickleTicks[k] > 0) continue;
             _trickleTicks[k] = Ticks(TfwBattleRules.TrickleSeconds);
-            if (_trickled.Count >= cap || Counted() >= TfwBattleRules.TrickleTotalMax) continue;
+            if (_trickled.Count >= cap || Counted() >= TfwBattleRules.TrickleTotalMax || _enemies.Alive >= MusouSim.Capacity - TfwBattleRules.PoolReserve) continue;
             var type = Fodder(_picked++);
             var at = SourceSpot(k);
             ushort id = _enemies.Spawn(type, at, YawTo(at, _layout.LandingZone), Health(type));

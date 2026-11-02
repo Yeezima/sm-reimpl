@@ -177,6 +177,9 @@ public sealed record TfwRange(Vector3 Centre)
                 all.AddRange([P(side[0], y1), P(side[k], y1), P(side[k + 1], y1)]);
             }
         }
+        // The south ramp rises past the walls' 24 m: the walls go on above it, unseen, so nobody walks out over them.
+        all.AddRange(TfwMap.Triangles(new TfwSolid(Centre + new Vector3(0f, -Half - Thickness, WallHeight), Centre + new Vector3(Half + Thickness, -Half, WallHeight + 40f))));
+        all.AddRange(TfwMap.Triangles(new TfwSolid(Centre + new Vector3(Half, -Half, WallHeight), Centre + new Vector3(Half + Thickness, -40f, WallHeight + 40f))));
         return all.ToArray();
     }
 }
