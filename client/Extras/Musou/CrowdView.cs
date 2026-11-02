@@ -118,8 +118,10 @@ public abstract partial class CrowdView : Node3D
             var chest = b.Position + new Vector3(0f, 0f, FlungPivot);
             var along = new Vector3(v.X, v.Y, 0f) * dt;
             if (along.LengthSquared() > 1e-6f && solid(chest, chest + along) is not null) { v.X *= -0.25f; v.Y *= -0.25f; p.X = b.Position.X; p.Y = b.Position.Y; }
-            if (v.Z < 0f && solid(b.Position + new Vector3(0f, 0f, 0.2f), new Vector3(b.Position.X, b.Position.Y, p.Z - 0.05f)) is { } drop) b.Ground = b.Position.Z + 0.2f - drop;
             if (v.Z > 0f && solid(chest, chest + new Vector3(0f, 0f, v.Z * dt + 1f)) is not null) v.Z = 0f;   // a ceiling
+            // The floor under the next place, wherever the body has gone: up a step, or none near (off a ledge, or high in the air) and it keeps falling.
+            float top = MathF.Max(b.Position.Z, p.Z) + 0.6f, bottom = MathF.Min(b.Position.Z, p.Z) - 1.5f;
+            b.Ground = solid(new Vector3(p.X, p.Y, top), new Vector3(p.X, p.Y, bottom)) is { } drop ? top - drop : bottom;
         }
         if (p.Z <= b.Ground)
         {
@@ -133,7 +135,7 @@ public abstract partial class CrowdView : Node3D
         if (b.Landed) b.Turn = b.Turn.Slerp(Quaternion.Identity, Mathf.Min(1f, FlungRollOut * dt));
         else if (b.Spin.LengthSquared() > 1e-4f) b.Turn = (new Quaternion(b.Spin.Normalized(), b.Spin.Length() * dt) * b.Turn).Normalized();
         b.Position = p; b.Velocity = v;
-        b.Resting = (b.Landed && v.LengthSquared() < 0.05f) || b.Flight >= FlungMaxFlight;
+        b.Resting = (b.Landed && p.Z <= b.Ground + 0.01f && v.LengthSquared() < 0.05f) || b.Flight >= FlungMaxFlight;
     }
 
     /// <summary>Looks whose bake finished are uploaded once, then the far tier can use them. One bake per look, ever: a failure (nothing to bake, too large, an exception) leaves the look skinned for good.</summary>
