@@ -54,6 +54,15 @@ public class MeleeCancelTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void A_wait_still_running_keeps_the_hop_so_swing_hop_cancel_swing_is_no_loophole()
+    {
+        var s = Hopping() with { MeleeLock = 1f };
+        s = Step(s, Pack, InputButtons.Melee);
+        Assert.True(Evade.Evading(s));
+        Assert.Equal(0, s.MeleeStep);
+    }
+
+    [Fact]
     public void Assault_a_melee_press_in_a_hop_ends_it_and_swings_at_once_then_the_cooldown_holds_the_next_swing()
     {
         var s = Hopping();

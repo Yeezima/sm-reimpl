@@ -11,7 +11,7 @@ public static class MeleeCancel
 {
     /// <summary>Whether the class may cancel: a jump pack (Assault, Raptor), or a roll evade with a charge (the Tactical classes).</summary>
     public static bool Eligible(SimConfig c, PlayerState s) =>
-        Loadouts.JumpPack(c, s) is not null || (Loadouts.Rush(c, s) is not null && Combat.IsRoll(Loadouts.Evade(c, s)));
+        Races.Of(c, s.Class, s.Team) != Race.Orks && (Loadouts.JumpPack(c, s) is not null || (Loadouts.Rush(c, s) is not null && Combat.IsRoll(Loadouts.Evade(c, s))));
 
     /// <summary>
     /// The cancel this tick: the state with the hop or bull rush ended and the seconds the next swing must wait (0 for none), or null when nothing is cancelled.
@@ -19,6 +19,7 @@ public static class MeleeCancel
     /// </summary>
     internal static (PlayerState State, float Lock)? Apply(PlayerState s, SimConfig c, bool meleePress, bool jumpPress, CollisionWorld? world)
     {
+        meleePress = meleePress && s.MeleeLock <= c.TickSeconds;   // a swing's or an earlier cancel's wait still running: no cancel, or swing, hop, cancel, swing would get round it
         if (!s.Alive || s.Reaction != ReactionKind.None || (!meleePress && !jumpPress) || !Eligible(c, s)) return null;
         bool pack = Loadouts.JumpPack(c, s) is not null;
         if (s.Rush == RushPhase.Rush && Rush.MoveOf(c, s) is { } move)

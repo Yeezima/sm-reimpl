@@ -89,7 +89,9 @@ public partial class NetworkView
             // fix/stim-knife-visuals: the strike's weapon leaves the hand with the strike's upper-body weight (a swing handed over to the legs fades out over the graph's exit while the simulation's
             // step goes on; the knife used to stay in the now rifle-posed hand, pointing up before the step ended), and every weapon is stowed while a combat stim is used (the stim clip's hands left it floating).
             rig.StimStowed = !ork && state.Alive && state.Throwing && StimOf(state) is not null;
-            bool meleeShown = state.Alive && state.MeleeStep > 0 && (_loco.TryGetValue(state.PlayerId, out var loco) ? loco.MeleeWeight : 1f) > MeleeVisibleWeight;
+            bool hasLoco = _loco.TryGetValue(state.PlayerId, out var loco);
+            if (hasLoco && state.MeleeStep == 0) loco!.MeleeWeight = 1f;   // the handed-over swing's fade ends with it: the next swing never starts hidden
+            bool meleeShown = state.Alive && state.MeleeStep > 0 && (hasLoco ? loco!.MeleeWeight : 1f) > MeleeVisibleWeight;
             rig.Update(state.Slot, meleeShown, state.Alive, delta, _config.WeaponSwitchTime, release, take);
         }
         catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
