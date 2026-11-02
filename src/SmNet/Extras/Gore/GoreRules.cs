@@ -42,6 +42,8 @@ public static class GoreRules
     /// <summary>The design's cost: mean milliseconds a frame (scoped timer).</summary>
     public const double BudgetMilliseconds = 0.8;
     /// <summary>Gravity (m/s squared) and the seconds a pool, stain, resting gib and slash last.</summary>
+    /// <summary>How solid a cloud is at its thickest (a view may set its own: Musou Mode's <c>MusouGoreRules.CloudAlpha</c>).</summary>
+    public const float CloudAlpha = 0.72f;
     public const float Gravity = 9.8f, PoolSeconds = 90f, SpatterSeconds = 60f, GibRestSeconds = 30f, SlashSeconds = 0.26f, FadeSeconds = 6f;
 
     public static GoreLod LodOf(float metres) => metres <= FullMetres ? GoreLod.Full : metres <= HalfMetres ? GoreLod.Half : metres <= SprayMetres ? GoreLod.Spray : GoreLod.None;

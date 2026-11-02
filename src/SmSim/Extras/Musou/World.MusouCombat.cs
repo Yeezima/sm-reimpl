@@ -145,7 +145,7 @@ public sealed partial class World
             var point = from + direction * distance;
             var spec = SpecOf(p);
             if (!p.Thrown && Shots.DirectDamageOf(WeaponOf(p), p.Stage) is { } direct)
-                musou.Damage(enemy, p.Owner, direct.Damage * (head ? direct.HeadMultiplier : direct.BodyMultiplier), direction, out _, marker: head ? (byte)2 : (byte)1, cause: MusouDeathKind.Shot);
+                musou.Damage(enemy, p.Owner, direct.Damage * (head ? direct.HeadMultiplier : direct.BodyMultiplier), direction, out _, marker: head ? (byte)2 : (byte)1, cause: spec.DetonateOnCollision ? MusouDeathKind.Blast : MusouDeathKind.Shot);   // a launcher's or plasma round that bursts on him kills as a blast
             if (spec.DetonateOnCollision)
             {
                 if (spec.DetonateDamage is { } blast) musou.Damage(enemy, p.Owner, blast.Damage * blast.BodyMultiplier, direction, out _, cause: MusouDeathKind.Blast);

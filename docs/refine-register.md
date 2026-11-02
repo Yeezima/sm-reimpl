@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2147 spec table rows: **1536 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 463 rows of the changes document.
+Scanned 2154 spec table rows: **1543 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 464 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 352 | 297 | 303 | 100 | 12 |
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 116 | 69 | 101 | 52 | 3 |
-| Melee (critical) | 92 | 79 | 77 | 25 | 5 |
+| Melee (critical) | 99 | 86 | 77 | 32 | 5 |
 | Jump pack (critical) | 73 | 65 | 57 | 18 | 0 |
 | Charge (critical) | 44 | 35 | 37 | 20 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -53,13 +53,13 @@ Scanned 2147 spec table rows: **1536 tagged**, 441 not tagged (read from data wi
 | Core simulation (provisional values) | 260 | 244 | 213 | 29 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 109 | 102 | 61 | 12 | 0 |
-| **All areas** | **1536** | 1308 | 1215 | 446 | 38 |
+| **All areas** | **1543** | 1315 | 1215 | 453 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 719 |
+| kind: ours | 726 |
 | confidence: low | 571 |
 | confidence: medium | 516 |
 | kind: interpretation | 336 |
@@ -68,9 +68,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: provisional | 99 |
 | kind: estimate | 78 |
 | kind: user's knowledge | 51 |
+| notes: estimate | 39 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
-| notes: estimate | 33 |
 | notes: provisional | 31 |
 | kind: choice | 29 |
 | notes: user's knowledge | 26 |
@@ -78,8 +78,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: placeholder | 22 |
 | notes: placeholder | 19 |
 | kind: gap (not reproduced) | 17 |
+| notes: interpretation | 16 |
 | notes: open question | 16 |
-| notes: interpretation | 15 |
 | notes: not reproduced (gap) | 13 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
@@ -821,7 +821,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (92)
+### Melee (gameplay-critical) (99)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -969,11 +969,23 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-D3589F5A` | Melee lock (classic PvP) | after an attack starts, no melee attack starts until its combo window opens (`ComboOpen` of that step); a shot, roll, jump or hit that ends the attack does not free it; firing may still cancel; a normal combo in its window is unchanged (s) | kind: ours; notes: estimate | owner 2026-11-02 ("don't ever let another one be started ... unless the amount of time has passed that the next melee attack animation would be ready") | Melee lock (classic PvP): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: after an attack starts, no melee attack starts until its combo window… | ☐ |
-| `R-3AA1D586` | Musou melee spam | a light melee press once the swing's hit has landed (time at least `HitTime`) restarts the current light attack at once from its start; before the hit it queues as usual; heavy strikes and the in-place stomp keep their rules; no lock (s) | kind: ours; notes: estimate | owner 2026-11-02 | Musou melee spam: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a light melee press once the swing's hit has landed (time at least… | ☐ |
+| `R-3AA1D586` | Musou melee spam | a light melee press once the swing's hit has landed (time at least `HitTime`) starts a new light attack at once, a random other swing of the weapon's chain (see "Musou: random swings" below); before the hit it queues as usual; heavy strikes and the in-place… | kind: ours; notes: estimate | owner 2026-11-02 | Musou melee spam: compare with SM1 by feel or video. Ours: a light melee press once the swing's hit has landed (time at least… | ☐ |
 | `R-E73859C3` | Charge ignores the stick | no stick direction (W, A, S, D or a mix) ends the bull rush; it ends at its clip's end, on a hit or wall (the recoil clip), on Jump, melee or a grenade press, a reaction or death. Kept: the clip's data ends, the ledge hold and landing rules, the recoil's, the… | kind: interpretation; confidence: medium | owner 2026-11-02 | Charge ignores the stick: compare with SM1 by feel or video. Ours: no stick direction (W, A, S, D or a mix) ends the bull rush; it ends… | ☐ |
 | `R-EE938A5A` | Designator beam | at the artillery call the lascannon's red beam runs from the weapon's muzzle to the aimed point, at **0.18** of its width scale (the basic shot draws at 0.5) and **0.5** of its life (0.2 s core, 0.3 s glow); never under 2.2 px on screen (factor) | kind: ours; notes: estimate | owner 2026-11-02 | Designator beam: compare with SM1 by feel or video. Ours: at the artillery call the lascannon's red beam runs from the weapon's… | ☐ |
-| `R-C7CB4EC6` | Flung corpses (Musou) | an Ork killed by a blast (frag, plasma cannon, launcher) or by artillery (kinds Blast, Barrage) within **40** m of the camera is thrown along the death push (a barrage has none: a spread by id) at **7** m/s horizontal scaled 0.5 to 1 by the push, Gretchin… (m, m/s, m/s2) | kind: ours; notes: estimate | owner 2026-11-02 "ork corpses ragdolling from the artillery strike and frag grenade and plasma cannon explosions" | Flung corpses (Musou): compare with SM1 by timing a run over a known distance. Ours: an Ork killed by a blast (frag, plasma cannon, launcher) or by… | ☐ |
+| `R-C7CB4EC6` | Flung corpses (Musou) | an Ork killed by a blast (frag, plasma cannon, launcher, also a round that bursts on him) or by artillery (kinds Blast, Barrage) always leaves a body, thrown through the gore's unchanged burst: see "Musou: explosive kills" below for the values | kind: ours; notes: estimate | owner 2026-11-02 | Flung corpses (Musou): compare with SM1 by feel or video. Ours: an Ork killed by a blast (frag, plasma cannon, launcher, also a round… | ☐ |
 | `R-DDC821ED` | The Firing Range (Musou Mode) | a flat floor of **100** m x **100** m with walls **2** m thick and **24** m high, generated beside the level (east of its extent by **60** m, level with its middle) in the same world; the Stormbird's left tech panel carries a button (a pad **1.5** m round); E… (m, s, count) | kind: ours; notes: estimate | owner 2026-11-02 "reimplement the 'firing range' map ... 100m x 100m ... spawns continuously 200 orks" | The Firing Range (Musou Mode): compare with SM1 by measuring on a flat spot of the same map. Ours: a flat floor of 100 m x 100 m with walls 2 m thick and 24 m high… | ☐ |
+
+*Spec section: Musou Mode: random swings, thrown bodies, thinner clouds (musou/melee-ragdoll-clouds; Musou Mode only, no protocol change, `TfwRules.Version` 23)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-99E504A3` | Musou: random swings | every light attack in Musou Mode (from rest, a queued press, or a press after the hit) is drawn from the weapon's whole light chain, never the swing just played and never an in-place stomp, from the input's tick and the player's id so prediction and server… | kind: ours; notes: estimate | owner 2026-11-02 | Musou: random swings: compare with SM1 by feel or video. Ours: every light attack in Musou Mode (from rest, a queued press, or a… | ☐ |
+| `R-D441C333` | Musou: blast kill cause | a launcher's or plasma round that bursts on an enemy and kills him with its direct damage counts as a blast, so the Ork it hit is thrown like his neighbours; pierced enemies and non-bursting rounds stay shots; a lascannon shot still bursts with no corpse | kind: ours; notes: interpretation | owner 2026-11-02 | Musou: blast kill cause: compare with SM1 by measuring on a flat spot of the same map. Ours: a launcher's or plasma round that bursts on an enemy and kills him… | ☐ |
+| `R-1F605BAF` | Musou: the throw | three throws by a repeatable roll: 30 % mostly up (**1.5 to 4** sideways, **11 to 15** up), 30 % mostly sideways (**11 to 16** sideways, **1.5 to 3.5** up), 40 % both (**8 to 12** each); away from the blast give or take **35** degrees; Gretchin x**1.3**, 'Ard… (m/s) | kind: ours; notes: estimate | owner 2026-11-02 | Musou: the throw: compare with SM1 by timing a run over a known distance. Ours: three throws by a repeatable roll: 30 % mostly up (1.5 to 4 sideways… | ☐ |
+| `R-EC3C37DC` | Musou: ragdolls | a pool of **20** physics ragdolls of the boy rig's original ragdoll (15 bodies, 14 joints), made one a frame at load, thrown within **45** m of the camera for Boy, Shoota, 'Ard Boy, Gretchin and Nob (a Gretchin is the same physics drawn smaller round the… (m, s) | kind: ours; notes: estimate | owner 2026-11-02 | Musou: ragdolls: compare with SM1 by feel or video. Ours: a pool of 20 physics ragdolls of the boy rig's original ragdoll (15… | ☐ |
+| `R-3E2104BE` | Musou: tumbling bodies | past the pool, beyond 45 m, or a Warboss or Chaos Marine: the body keeps its death clip and tumbles at up to **9** rad/s about **0.9** m up, under **9.8** m/s2, stops at walls and ceilings (reversed at **0.25**), follows the floor under it (up steps, off… (m/s, s) | kind: ours; notes: estimate | owner 2026-11-02 | Musou: tumbling bodies: compare with SM1 by timing a run over a known distance. Ours: past the pool, beyond 45 m, or a Warboss or Chaos Marine: the body… | ☐ |
+| `R-08560E01` | Musou: bodies kept | **100** (was 60) (bodies) | kind: ours; notes: estimate | owner 2026-11-02 | Musou: bodies kept: compare with SM1 by feel or video. Ours: 100 (was 60). | ☐ |
+| `R-F3F59A24` | Musou: cloud opacity | a gore cloud's thickest alpha **0.58** in Musou Mode (about a fifth thinner); classic PvP's Extended gore keeps **0.72** (0 to 1) | kind: ours; notes: estimate | owner 2026-11-02 | Musou: cloud opacity: compare with SM1 by feel or video. Ours: a gore cloud's thickest alpha 0.58 in Musou Mode (about a fifth… | ☐ |
 
 ### Jump pack (gameplay-critical) (73)
 
@@ -3098,7 +3110,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-80EA67D1` | Musou boss, trickle and cards (hotfix/boss-trickle, owner 2026-11-01) | Ours (added content, Musou Mode only): the final Warboss starts in the courtyard outside the HQ room and is a 1.6 times Nob body always; an unleashed Ork trickles from each sending source every 1.5 s up to the crowds' cap again; the reward cards after a won map are off (`TfwRewardRules.Enabled`). | The original has no Musou Mode; the owner's words of 2026-11-01. | Musou Mode only; classic PvP is untouched. Spec rows: Final boss courtyard, Warboss size, The trickle, Reward cards off. | Musou boss, trickle and cards (hotfix/boss-trickle, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-A8CF39A2` | Pad strike, menu A and ADS sensitivity (owner 2026-11-02) | Ours (the strike is added content, Musou Mode only): left on the D-pad calls the orbital strike; a menu opened with the pad focuses its first control so A presses like a left click; a separate gamepad aim sensitivity (default 1.00x) in Options. | The owner's words of 2026-11-02. | Classic PvP keeps R3 as the zoom cycle. Spec rows: Musou orbital strike on the pad, Pad aim sensitivity. | Pad strike, menu A and ADS sensitivity (owner 2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-D6437A7E` | Melee lock, Musou melee spam, charges ignore the stick, designator beam (feel/melee-cooldown-charge; protocol 53) | A shot ending a melee attack let a new one start at once (melee, hit, shoot, melee chained); the stick ended the bull rush at its stick branch; no artillery call effect | Classic PvP: after an attack starts no melee attack starts before its combo window (`ComboOpen`), however the attack ended; Musou Mode: a light press after the hit restarts the swing at once; all modes: no stick direction ends a charge (clip end, hit, wall recoil, Jump, melee, grenade still do); Musou's artillery call… | The owner, 2026-11-02; waiting exactly `ComboOpen`, restarting only after the hit, and the beam's 0.18 width and 0.5 life are ours, **estimates to review**; spec "Melee cooldown, Musou melee spam, charges ignore the stick, the designator beam" | Melee lock, Musou melee spam, charges ignore the stick…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
-| `C-ADCABC31` | Flung Ork corpses (Musou Mode, 2026-11-02) | Ours (added content): Orks killed by a blast or an artillery strike near the camera are thrown by it and fall (a flung arc, not bone ragdolls; the gore burst still plays), at most 16 at a time | Owner's words "ork corpses ragdolling from the artillery strike and frag grenade and plasma cannon explosions" | Musou Mode only; shot and melee deaths unchanged. Spec row: Flung corpses. | Flung Ork corpses (Musou Mode, 2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-78D8EC19` | Thrown Ork bodies (Musou Mode, 2026-11-02) | No Musou Mode in the original | Ours (added content): Orks killed by a blast or artillery are thrown up, sideways or both as real ragdolls near the camera (a pool of 20) and tumbling bodies beyond it, through the unchanged bloody burst | Musou Mode only; shot and melee deaths unchanged. Spec "Musou Mode: random swings, thrown bodies, thinner clouds". | Thrown Ork bodies (Musou Mode, 2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-86FC1C90` | Random Musou swings, thinner Musou clouds (2026-11-02) | No Musou Mode in the original | Ours (added content): each light attack in Musou Mode is a random swing of the weapon's chain, never the same twice running, and Musou's gore clouds are about a fifth more see-through (0.58 against 0.72) | Classic PvP keeps its chain order and clouds. Same spec section. | Random Musou swings, thinner Musou clouds (2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-4E94CBCD` | The Firing Range (Musou Mode, 2026-11-02) | Ours (added content): a flat walled 100 m square generated in the war's world, reached by a wall button in the Stormbird's troop bay, with 200 Orks kept alive and the orbital strike working; the way back is a pad at the range. A test ground, not a mission: no score, no objectives | Owner's words "reimplement the 'firing range' map that was the first blank map concept 100m x 100m ... a test range for the artillery strike and other new features" | Musou Mode only; `TfwMap.Version` 6 and `MusouSim` box widened, so old and new builds do not connect. Spec row: The Firing Range. | The Firing Range (Musou Mode, 2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-351CC1A4` | Melee cancels of hops and charges, the jump pack from a fall or a charge (feel/melee-cancels; protocol 54) | A melee press in a hop was ignored until the dash attack's window, in a bull rush until its clip's melee branch; Space held while falling waited for the landing; Space did not end a held charge | Assault / Raptor: melee ends a hop or a charge at once and swings; Tactical classes: melee ends a charge; the next swing waits for the cancelled clip's end; Assault / Raptor: Space held in the air or during a charge lifts the pack (a tap is the hop). Roll, Devastator / Havoc, Ork Boy, the collision stop unchanged.… | Owner's words, 2026-11-02: "you should be able to end assault marine/raptor charges and hops with a melee attack. but implement the same strict cooldown based on the intended timing of the end of the animation." Builds with protocol 53 do not connect. Spec rows: Melee cancels of hops and charges. | Melee cancels of hops and charges, the jump pack from a…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 

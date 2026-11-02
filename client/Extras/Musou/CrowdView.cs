@@ -26,8 +26,8 @@ public abstract partial class CrowdView : Node3D
     /// <summary>Skinned only (the fallback).</summary>
     public bool NoVat { get; set; }
 
-    sealed class Body { public Vector3 Position, Velocity; public float Yaw, Age, Ground; public int Type, Clip, Serial; public bool Flung, Landed; }
-    /// <summary>Bodies flung by a blast and still moving or lying (they count against the cap of the flung).</summary>
+    sealed class Body { public Vector3 Position, Velocity, Spin; public Quaternion Turn = Quaternion.Identity; public float Yaw, Age, Flight, Ground; public int Type, Clip, Serial; public bool Flung, Landed, Resting; }
+    /// <summary>Bodies flung by a blast and still moving or lying.</summary>
     public int Flung { get { int n = 0; foreach (var b in _bodies) if (b.Flung) n++; return n; } }
     int _bodySerial;
     readonly List<Body> _bodies = new();
@@ -40,6 +40,7 @@ public abstract partial class CrowdView : Node3D
         public Vector3 Position;
         public float Yaw, Time, Sink, Distance;
         public int Clip;
+        public Quaternion Turn;    // a thrown body's tumble on top of its yaw (all zero: none)
     }
     /// <summary>This frame's list: the crowd fills it before <see cref="Draw"/>.</summary>
     protected readonly List<Item> Items = new();
@@ -93,31 +94,48 @@ public abstract partial class CrowdView : Node3D
         _bodies.Add(new Body { Position = position, Yaw = yaw, Type = type, Clip = clip, Serial = ++_bodySerial });
     }
 
-    /// <summary>A body thrown by a blast: it leaves with <paramref name="velocity"/> (m/s, game space), plays its clip in the air, falls under gravity to the ground it stood on, bounces once and slides to rest.</summary>
-    protected void AddFlungBody(Vector3 position, float yaw, int type, int clip, Vector3 velocity)
+    /// <summary>A body thrown by a blast: it leaves with <paramref name="velocity"/> (m/s, game space) turning at <paramref name="spin"/> (rad/s, game space), plays its clip in the air, falls under gravity, stops at the walls (<see cref="SolidBetween"/>), bounces once, rolls out of its tumble and slides to rest. It starts to sink only once it rests.</summary>
+    protected void AddFlungBody(Vector3 position, float yaw, int type, int clip, Vector3 velocity, Vector3 spin)
     {
         if (_bodies.Count >= Limits.MaxBodies) _bodies.RemoveAt(0);
-        _bodies.Add(new Body { Position = position, Yaw = yaw, Type = type, Clip = clip, Serial = ++_bodySerial, Flung = true, Velocity = velocity, Ground = position.Z });
+        _bodies.Add(new Body { Position = position, Yaw = yaw, Type = type, Clip = clip, Serial = ++_bodySerial, Flung = true, Velocity = velocity, Spin = spin, Ground = position.Z });
     }
 
-    /// <summary>Gravity and the ground's bounce for a flung body (ours, spec "Flung corpses").</summary>
-    const float FlungGravity = 9.8f, FlungBounce = 0.3f, FlungSlide = 4f;
+    /// <summary>The distance to the first solid thing on the way from one point to another (null: clear, or no collision to ask). Set by the view.</summary>
+    public Func<Vector3, Vector3, float?>? SolidBetween { get; set; }
 
-    static void StepFlung(Body b, float dt)
+    /// <summary>Gravity, the ground's bounce, the slide, the height a body turns about, how fast it rolls out of its tumble, and the most seconds in the air (ours, spec "Flung corpses").</summary>
+    const float FlungGravity = 9.8f, FlungBounce = 0.3f, FlungSlide = 4f, FlungPivot = 0.9f, FlungRollOut = 6f, FlungMaxFlight = 8f;
+
+    void StepFlung(Body b, float dt)
     {
-        if (b.Landed && b.Velocity.LengthSquared() < 0.01f) return;
+        b.Flight += dt;
         var v = b.Velocity;
         if (b.Position.Z > b.Ground + 0.001f || v.Z > 0f) v.Z -= FlungGravity * dt;
         var p = b.Position + v * dt;
+        if (SolidBetween is { } solid)
+        {
+            var chest = b.Position + new Vector3(0f, 0f, FlungPivot);
+            var along = new Vector3(v.X, v.Y, 0f) * dt;
+            if (along.LengthSquared() > 1e-6f && solid(chest, chest + along) is not null) { v.X *= -0.25f; v.Y *= -0.25f; p.X = b.Position.X; p.Y = b.Position.Y; }
+            if (v.Z > 0f && solid(chest, chest + new Vector3(0f, 0f, v.Z * dt + 1f)) is not null) v.Z = 0f;   // a ceiling
+            // The floor under the next place, wherever the body has gone: up a step, or none near (off a ledge, or high in the air) and it keeps falling.
+            float top = MathF.Max(b.Position.Z, p.Z) + 0.25f, bottom = MathF.Min(b.Position.Z, p.Z) - 1.5f;
+            b.Ground = solid(new Vector3(p.X, p.Y, top), new Vector3(p.X, p.Y, bottom)) is { } drop ? top - drop : bottom;
+        }
         if (p.Z <= b.Ground)
         {
             p.Z = b.Ground;
-            if (v.Z < -2f && !b.Landed) { v.Z = -v.Z * FlungBounce; b.Landed = true; }
-            else { v.Z = 0f; }
+            if (v.Z < -2f && !b.Landed) v.Z = -v.Z * FlungBounce;
+            else v.Z = 0f;
+            b.Landed = true;
             float keep = Mathf.Max(0f, 1f - FlungSlide * dt);   // sliding on the floor
             v.X *= keep; v.Y *= keep;
         }
+        if (b.Landed) b.Turn = b.Turn.Slerp(Quaternion.Identity, Mathf.Min(1f, FlungRollOut * dt));
+        else if (b.Spin.LengthSquared() > 1e-4f) b.Turn = (new Quaternion(b.Spin.Normalized(), b.Spin.Length() * dt) * b.Turn).Normalized();
         b.Position = p; b.Velocity = v;
+        b.Resting = (b.Landed && p.Z <= b.Ground + 0.01f && v.LengthSquared() < 0.05f) || b.Flight >= FlungMaxFlight;
     }
 
     /// <summary>Looks whose bake finished are uploaded once, then the far tier can use them. One bake per look, ever: a failure (nothing to bake, too large, an exception) leaves the look skinned for good.</summary>
@@ -147,15 +165,17 @@ public abstract partial class CrowdView : Node3D
         for (int i = _bodies.Count - 1; i >= 0; i--)
         {
             var b = _bodies[i];
-            b.Age += delta;
-            if (b.Flung) StepFlung(b, delta);
+            if (b.Flung && !b.Resting) StepFlung(b, delta);
+            else b.Age += delta;
             if (b.Age > Limits.SinkAfter + Limits.SinkSeconds) { _bodies.RemoveAt(i); continue; }
         }
         for (int i = 0; i < _bodies.Count; i++)
         {
             var b = _bodies[i];
             float sink = b.Age <= Limits.SinkAfter ? 0f : (b.Age - Limits.SinkAfter) / Limits.SinkSeconds * Limits.SinkDepth;
-            Items.Add(new Item { Key = -b.Serial, Type = b.Type, Position = b.Position, Yaw = b.Yaw, Time = b.Age, Sink = sink, Clip = b.Clip, Distance = b.Position.DistanceTo(camera) });
+            var at = b.Position;
+            if (b.Flung) at += new Vector3(0f, 0f, FlungPivot) - b.Turn * new Vector3(0f, 0f, FlungPivot);   // tumbling about the chest, not the feet
+            Items.Add(new Item { Key = -b.Serial, Type = b.Type, Position = at, Yaw = b.Yaw, Time = b.Age + b.Flight, Sink = sink, Clip = b.Clip, Distance = b.Position.DistanceTo(camera), Turn = b.Flung ? b.Turn : default });
         }
     }
 
@@ -229,7 +249,7 @@ public abstract partial class CrowdView : Node3D
         }
         s.Used = true;
         s.Root.Visible = true;
-        s.Root.Transform = new Transform3D(new Basis(new Vector3(0, 0, 1), it.Yaw).Scaled(Vector3.One * look.Scale), it.Position - new Vector3(0, 0, it.Sink));
+        s.Root.Transform = new Transform3D(BasisOf(it).Scaled(Vector3.One * look.Scale), it.Position - new Vector3(0, 0, it.Sink));
         // Beyond the half-rate distance every second frame, half the members on each (by the key's parity; the frames between keep the last pose); a changed clip poses at once.
         bool due = it.Clip != s.Clip || it.Distance <= Limits.HalfRateMetres || ((it.Key & 1) == 0) == _odd;
         if (!due) return true;
@@ -284,6 +304,12 @@ public abstract partial class CrowdView : Node3D
         }
     }
 
+    static Basis BasisOf(in Item it)
+    {
+        var yaw = new Basis(new Vector3(0, 0, 1), it.Yaw);
+        return it.Turn.W == 0f && it.Turn.X == 0f && it.Turn.Y == 0f && it.Turn.Z == 0f ? yaw : new Basis(it.Turn) * yaw;
+    }
+
     bool AddFar(MusouLooks.Look look, in Item it)
     {
         if (!_far.TryGetValue(look, out var f))
@@ -297,7 +323,7 @@ public abstract partial class CrowdView : Node3D
         if (f.Count >= Limits.MaxVat) return false;
         var vat = look.Vat!;
         var (r0, r1, blend) = MusouVat.FramesAt(vat.Clips[it.Clip], it.Time);
-        var basis = new Basis(new Vector3(0, 0, 1), it.Yaw).Scaled(Vector3.One * look.Scale);
+        var basis = BasisOf(it).Scaled(Vector3.One * look.Scale);
         var o = it.Position;
         int at = f.Count * 16;
         var buf = f.Buffer;

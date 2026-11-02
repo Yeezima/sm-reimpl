@@ -120,6 +120,8 @@ void fragment() {
     readonly Layer[] _all;
 
     public GoreField Field { get; } = new();
+    /// <summary>How solid a cloud is at its thickest.</summary>
+    public float CloudAlpha { get; init; } = GoreRules.CloudAlpha;
     /// <summary>Total milliseconds spent in <see cref="Frame"/> and the frames counted (for the log's mean), and the worst frame.</summary>
     public double TotalMs, PreMs, MaxMs;
     public int Frames;
@@ -252,7 +254,7 @@ void fragment() {
             // blooms outward fast, then hangs and keeps swelling slowly; in quickly, out slowly
             float size = m.Size * (0.45f + 0.8f * (1f - MathF.Pow(1f - t, 3f)) + 0.25f * t);
             // in over the first 5 %, dense while it hangs, then thinning smoothly to nothing (no pop at the end)
-            float alpha = 0.72f * MathF.Min(1f, t / 0.05f) * MathF.Pow(1f - Smooth(0.25f, 1f, t), 1.6f);
+            float alpha = CloudAlpha * MathF.Min(1f, t / 0.05f) * MathF.Pow(1f - Smooth(0.25f, 1f, t), 1.6f);
             float wide = 1f + 0.35f * MathF.Sin(m.Seed * 40f), tall = 1f - 0.25f * MathF.Sin(m.Seed * 40f);   // each puff its own proportions: varied lobes
             Put(_mist, new Basis(Vector3.Right * size * wide, Vector3.Up * size * tall, Vector3.Back * size), V(m.Pos), m.Colour.X, m.Colour.Y, m.Colour.Z, 1f, Cell(m.Seed * 3.7f % 1f, 0, 4), alpha, m.Seed * MathF.Tau + m.Age * (m.Seed < 0.5f ? 0.18f : -0.18f));
         }

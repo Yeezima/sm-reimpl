@@ -11,6 +11,33 @@ namespace SmNet.Extras.Musou;
 /// </summary>
 public static class MusouGoreRules
 {
+    /// <summary>How solid a gore cloud is at its thickest in Musou Mode (the owner, 2026-11-02: "slightly more see through"; the shared cloud's is <see cref="GoreRules.CloudAlpha"/>).</summary>
+    public const float CloudAlpha = 0.58f;
+
+    /// <summary>Whether a death throws the body (the owner, 2026-11-02): artillery, a frag, a launcher's or a plasma cannon's blast. A lascannon shot still bursts with no corpse.</summary>
+    public static bool Thrown(MusouDeathKind cause) => cause is MusouDeathKind.Blast or MusouDeathKind.Barrage;
+
+    /// <summary>
+    /// The velocity (m/s) a blast gives a body: one of three throws by a repeatable roll, mostly up, mostly sideways or both, away from the blast along <paramref name="push"/> (no push: a direction
+    /// by id) give or take 35 degrees; small bodies fly further, big ones less. Every number is ours (spec "Flung corpses").
+    /// </summary>
+    public static Vector3 BlastThrow(Vector3 push, ushort id, uint tick, MusouEnemyType type)
+    {
+        float kind = GoreRules.Roll(id, tick), a = GoreRules.Roll(id, tick + 1u), b = GoreRules.Roll(id, tick + 2u), turn = (GoreRules.Roll(id, tick + 3u) * 2f - 1f) * 35f * MathF.PI / 180f;
+        var (side, up) = kind < 0.3f ? (1.5f + 2.5f * a, 11f + 4f * b) : kind < 0.6f ? (11f + 5f * a, 1.5f + 2f * b) : (8f + 4f * a, 8f + 4f * b);
+        var flat = new Vector2(push.X, push.Y);
+        float angle = flat.LengthSquared() > 0.0025f ? MathF.Atan2(flat.Y, flat.X) + turn : id * 2.399963f;
+        float weight = type switch
+        {
+            MusouEnemyType.Gretchin => 1.3f,
+            MusouEnemyType.ArdBoy => 0.9f,
+            MusouEnemyType.Nob or MusouEnemyType.ChaosMarine => 0.7f,
+            MusouEnemyType.Warboss => 0.4f,
+            _ => 1f,
+        };
+        return new Vector3(MathF.Cos(angle) * side, MathF.Sin(angle) * side, up) * weight;
+    }
+
     /// <summary>
     /// What a death is. The killer is the death event's player (0: none; a human's id or a retainer's; Guardsmen's kills carry 0). A blast (a frag, a launcher or plasma
     /// burst), artillery (Barrage) and a lascannon shot (<paramref name="killerHasLascannon"/>: the killer's weapon in hand, read by the view) burst whoever the killer; a

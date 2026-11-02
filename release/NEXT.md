@@ -10,3 +10,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Add your bullets in the same pull request as the change, when it merges.
 -->
 - New icon: the game and the launcher now show the Space Marine helmet.
+
+- Musou Mode: spamming melee now plays a random swing from your weapon's attacks each time, instead of the same first swing over and over.
+- Musou Mode: Orks killed by artillery, frag grenades, grenade launcher and plasma cannon explosions no longer vanish. Their bodies ragdoll through the air, some flung up, some sideways, some both, and the bloody explosions stay.
+- Musou Mode: the blood clouds are a little more see-through.

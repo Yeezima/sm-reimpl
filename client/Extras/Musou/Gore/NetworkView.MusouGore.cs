@@ -17,7 +17,7 @@ namespace SmClient;
 /// <item>Who makes gore: the death event's killer is a player or a retainer (id above 0; Guardsmen's kills carry 0, the Guard events of tag 10 never reach here), or a Thunderhawk
 /// strafe. Melee and charges weigh heaviest, shots least (<see cref="MusouGoreRules.Plan"/>).</item>
 /// <item>Item 23: an enemy killed by a blast (a frag grenade, a launcher), by artillery (the Barrage kind, overriding the design's "no gore") or by a lascannon shot (the killer's
-/// weapon in hand, read from its state) bursts in a bloody explosion, whoever the killer, and leaves no corpse.</item>
+/// weapon in hand, read from its state) bursts in a bloody explosion, whoever the killer; the lascannon's victim leaves no corpse, a blast's or artillery's is thrown (<see cref="MusouRagdolls"/>).</item>
 /// <item>Item 22: each melee hit (marker 3) by a player or retainer draws a slash across the enemy hit (<see cref="MusouCleaveSlash"/>, the call a cleave's developer can use
 /// for any other source; the hit events that exist drive it already: a swing that hits 20 draws 20 within <see cref="GoreRules.SlashesPerFrame"/> a frame). A charge's
 /// contact is a marker 3 too and draws the same slash.</item>
@@ -88,7 +88,7 @@ public partial class NetworkView
         if (GoreOff || _gameSpace is null) return null;
         if (_gore is null)
         {
-            _gore = new GoreView();
+            _gore = new GoreView { CloudAlpha = MusouGoreRules.CloudAlpha };
             _gore.Field.GroundAt = GoreGround;
             _gameSpace.AddChild(_gore);
             GD.Print("musou gore: view added");

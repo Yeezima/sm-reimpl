@@ -19,7 +19,7 @@ public partial class MusouCrowd : CrowdView
     public const int DefaultVisible = 240, MaxSkinned = 40, MaxVat = 200, FallbackSkinned = 80;
     public const float NearMetres = 25f, HalfRateMetres = 12f, SinkAfter = 3f, SinkSeconds = 1.5f, SinkDepth = 1.2f;
     /// <summary>Bodies kept at once (ours); the oldest go first.</summary>
-    public const int MaxBodies = 60;
+    public const int MaxBodies = 100;
 
     static readonly int[] TypeIds = Enum.GetValues<MusouEnemyType>().Select(t => (int)t).ToArray();
 
@@ -41,23 +41,15 @@ public partial class MusouCrowd : CrowdView
     public void AddBody(in MusouDeathShown death) =>
         AddBody(new Vector3(death.Position.X, death.Position.Y, death.Position.Z), death.Yaw, (int)death.Type, MusouLooks.Death);
 
-    /// <summary>Most bodies flung by blasts alive at once, and the distance within which a blast death is flung (ours; the rest stay as they are).</summary>
-    public const int MaxFlung = 16;
-    public const float FlungMetres = 40f;
-    public const float FlungSpeed = 7f, FlungLift = 5.5f;
+    /// <summary>How fast a thrown body turns end over end at most (rad/s, ours).</summary>
+    public const float FlungSpin = 9f;
 
-    /// <summary>Whether a death of this cause is thrown: a blast or an artillery strike, near the camera, with a free slot of the cap.</summary>
-    public bool CanFling(in MusouDeathShown d, float metres) =>
-        d.Cause is MusouDeathKind.Blast or MusouDeathKind.Barrage && metres <= FlungMetres && Flung < MaxFlung;
-
-    /// <summary>A blast death: the body is thrown along the push (a direction up to length 1; a barrage has none, so a spread by id) and falls where it lands.</summary>
-    public void AddFlung(in MusouDeathShown d)
+    /// <summary>A blast death with no ragdoll to spare, or far off: the body tumbles along <paramref name="velocity"/> and falls where it lands (<see cref="MusouRagdolls"/> throws the near ones).</summary>
+    public void AddFlung(in MusouDeathShown d, Vector3 velocity)
     {
-        float px = d.Push.X, py = d.Push.Y, len = MathF.Sqrt(px * px + py * py);
-        if (len < 0.05f) { float a = d.Id * 2.399963f; px = MathF.Cos(a); py = MathF.Sin(a); len = 0.6f; }
-        else { px /= len; py /= len; len = Math.Min(len, 1f); }
-        float speed = FlungSpeed * (0.5f + 0.5f * len) * (d.Type == MusouEnemyType.Gretchin ? 1.3f : d.Type is MusouEnemyType.Nob or MusouEnemyType.Warboss ? 0.6f : 1f);
-        AddFlungBody(new Vector3(d.Position.X, d.Position.Y, d.Position.Z), d.Yaw, (int)d.Type, MusouLooks.Death, new Vector3(px * speed, py * speed, FlungLift * (0.7f + 0.3f * len)));
+        var (id, tick) = (d.Id, d.Tick);
+        float Spin(uint k) => (SmNet.Extras.Gore.GoreRules.Roll(id, tick + k) * 2f - 1f) * FlungSpin;
+        AddFlungBody(new Vector3(d.Position.X, d.Position.Y, d.Position.Z), d.Yaw, (int)d.Type, MusouLooks.Death, velocity, new Vector3(Spin(11u), Spin(12u), Spin(13u)));
     }
 
     /// <summary>The frame: <paramref name="shown"/> at the render tick, the camera in game space.</summary>
