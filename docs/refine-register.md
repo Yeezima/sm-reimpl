@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2141 spec table rows: **1530 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 462 rows of the changes document.
+Scanned 2147 spec table rows: **1536 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 463 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -36,7 +36,7 @@ Scanned 2141 spec table rows: **1530 tagged**, 441 not tagged (read from data wi
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 116 | 69 | 101 | 52 | 3 |
 | Melee (critical) | 92 | 79 | 77 | 25 | 5 |
-| Jump pack (critical) | 67 | 59 | 57 | 12 | 0 |
+| Jump pack (critical) | 73 | 65 | 57 | 18 | 0 |
 | Charge (critical) | 44 | 35 | 37 | 20 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 52 | 50 | 41 | 19 | 0 |
@@ -53,13 +53,13 @@ Scanned 2141 spec table rows: **1530 tagged**, 441 not tagged (read from data wi
 | Core simulation (provisional values) | 260 | 244 | 213 | 29 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 109 | 102 | 61 | 12 | 0 |
-| **All areas** | **1530** | 1302 | 1215 | 440 | 38 |
+| **All areas** | **1536** | 1308 | 1215 | 446 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 713 |
+| kind: ours | 719 |
 | confidence: low | 571 |
 | confidence: medium | 516 |
 | kind: interpretation | 336 |
@@ -70,9 +70,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: user's knowledge | 51 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
+| notes: estimate | 33 |
 | notes: provisional | 31 |
 | kind: choice | 29 |
-| notes: estimate | 28 |
 | notes: user's knowledge | 26 |
 | kind: approximation | 22 |
 | kind: placeholder | 22 |
@@ -84,9 +84,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
 | kind: guess | 4 |
+| notes: guess | 3 |
 | section: approximation | 3 |
 | kind: inferred | 2 |
-| notes: guess | 2 |
 | notes: unverified | 1 |
 
 ## Part A: gameplay areas, critical first
@@ -975,7 +975,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C7CB4EC6` | Flung corpses (Musou) | an Ork killed by a blast (frag, plasma cannon, launcher) or by artillery (kinds Blast, Barrage) within **40** m of the camera is thrown along the death push (a barrage has none: a spread by id) at **7** m/s horizontal scaled 0.5 to 1 by the push, Gretchin… (m, m/s, m/s2) | kind: ours; notes: estimate | owner 2026-11-02 "ork corpses ragdolling from the artillery strike and frag grenade and plasma cannon explosions" | Flung corpses (Musou): compare with SM1 by timing a run over a known distance. Ours: an Ork killed by a blast (frag, plasma cannon, launcher) or by… | ☐ |
 | `R-DDC821ED` | The Firing Range (Musou Mode) | a flat floor of **100** m x **100** m with walls **2** m thick and **24** m high, generated beside the level (east of its extent by **60** m, level with its middle) in the same world; the Stormbird's left tech panel carries a button (a pad **1.5** m round); E… (m, s, count) | kind: ours; notes: estimate | owner 2026-11-02 "reimplement the 'firing range' map ... 100m x 100m ... spawns continuously 200 orks" | The Firing Range (Musou Mode): compare with SM1 by measuring on a flat spot of the same map. Ours: a flat floor of 100 m x 100 m with walls 2 m thick and 24 m high… | ☐ |
 
-### Jump pack (gameplay-critical) (67)
+### Jump pack (gameplay-critical) (73)
 
 *Spec section: Jump pack and ground pound (M14, used by the simulation)*
 
@@ -1068,6 +1068,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-3F55AE8A` | Death hit: hold | The body plays the clip (cross-fade 0.167 s, the graph's "Fast Blend") from the frame the death is seen until the clip's powered-ragdoll tag (at most 1.5 s: ours), then the ragdoll starts from that pose with the killing blow's push, unchanged (`DeathKick`… (s) | kind: ours; confidence: medium | graph (tag); the cap and the own delay are ours | Death hit: hold: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The body plays the clip (cross-fade 0.167 s, the graph's "Fast… | ☐ |
 | `R-540B3991` | Jump pack: flight wobble | The jump state's `Noise` blend plays `SM_JMP_Blend_90_Pos_Fast` (1 s, looping). Taken as the offset from its own first pose, laid over the flight pose in slot `Wobble` at weight 1 (ours: the graph's blend weight is not read), from the end of the take-off… (s) | kind: interpretation; confidence: low; notes: ours | graph (the clip); the offset form and the weight are ours | Jump pack: flight wobble: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The jump state's Noise blend plays SM_JMP_Blend_90_Pos_Fast (1 s… | ☐ |
 | `R-CD9FB0C1` | Jump pack: actions in flight | In the flight view the recoil of a shot, the reload and the grenade toss are laid over the flight pose as over the locomotion (the toss over the upper-body mask, the others as before); before, the flight pose returned before them and a marine that fired in… | kind: interpretation; confidence: low; notes: ours | the jump graph (`MP_SM_NAV_JP_Sim`) is the navigation layer; the base graph's upper-body actions are separate layers that are not tied to the navigation state… | Jump pack: actions in flight: compare with SM1 by feel or video. Ours: In the flight view the recoil of a shot, the reload and the grenade… | ☐ |
+
+*Spec section: Melee cancels of hops and charges, the jump pack from a fall or a charge (feel/melee-cancels; protocol 54)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-54AEA1B4` | Melee cancels a hop | Assault / Raptor: a melee press in the jump-pack dash (the short hop), in its flight or its landing part, at any time, ends it and starts the weapon's swing in that tick (the swing is the ordinary one, so every melee weapon of the class); from the dash… | kind: ours; notes: estimate | owner 2026-11-02 | Melee cancels a hop: compare with SM1 by feel or video. Ours: Assault / Raptor: a melee press in the jump-pack dash (the short… | ☐ |
+| `R-4AA4EA47` | Melee cancels a bull rush | Assault, Raptor, Tactical Marine, Chaos Tactical (a jump pack, or a roll evade with a charge): a melee press in the charge (the rush phase, on the ground or held in the air) ends it at any time and swings in that tick; before, only from the clip's melee branch | kind: ours; notes: estimate | owner 2026-11-02 | Melee cancels a bull rush: compare with SM1 by feel or video. Ours: Assault, Raptor, Tactical Marine, Chaos Tactical (a jump pack, or a… | ☐ |
+| `R-1B3DDBF4` | Cancel cooldown | after a cancel the next swing cannot START before the moment the cancelled clip would have ended: the bull rush's clip end (`RushMove.End`) minus the time played; the hop's flight end (`EvadeMove.Duration`) minus the time played, plus its landing clip… (s) | kind: ours; notes: estimate | owner 2026-11-02 ("strict cooldown based on the intended timing of the end of the animation") | Cancel cooldown: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: after a cancel the next swing cannot START before the moment the… | ☐ |
+| `R-308D6CF2` | Not cancelled | the Tactical roll (its data branches only, as before); the Devastator and Havoc hop and charge; the Ork Boy; the charge's collision stop (the recoil after a hit or wall keeps its data branches: a charge that has connected is no longer in its rush phase, so it… | kind: ours; notes: guess | owner 2026-11-02 + our reading of "connected" | Not cancelled: compare with SM1 by feel or video. Ours: the Tactical roll (its data branches only, as before); the Devastator… | ☐ |
+| `R-3024F53E` | Jump press ends a bull rush | Assault / Raptor: a Space press in the bull rush (rush phase, ground or held in the air) ends it at once and the pack takes the press as on any tick: a tap is the hop, a hold the jump; Tactical classes unchanged | kind: ours; notes: estimate | owner 2026-11-02 | Jump press ends a bull rush: compare with SM1 by feel or video. Ours: Assault / Raptor: a Space press in the bull rush (rush phase, ground… | ☐ |
+| `R-311459CF` | Jump pack from a fall | Assault / Raptor: Space held past the hop's decision tick (the long press, `BufferedAction.JumpLong`) while falling (no phase, or the jump's hang or fall) lifts the pack at once in the air, committed to the small jump and growing while held; a tap is still… | kind: ours; notes: estimate | owner 2026-11-02 | Jump pack from a fall: compare with SM1 by timing a run over a known distance. Ours: Assault / Raptor: Space held past the hop's decision tick (the long… | ☐ |
 
 ### Charge (gameplay-critical) (44)
 
@@ -3089,6 +3100,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-D6437A7E` | Melee lock, Musou melee spam, charges ignore the stick, designator beam (feel/melee-cooldown-charge; protocol 53) | A shot ending a melee attack let a new one start at once (melee, hit, shoot, melee chained); the stick ended the bull rush at its stick branch; no artillery call effect | Classic PvP: after an attack starts no melee attack starts before its combo window (`ComboOpen`), however the attack ended; Musou Mode: a light press after the hit restarts the swing at once; all modes: no stick direction ends a charge (clip end, hit, wall recoil, Jump, melee, grenade still do); Musou's artillery call… | The owner, 2026-11-02; waiting exactly `ComboOpen`, restarting only after the hit, and the beam's 0.18 width and 0.5 life are ours, **estimates to review**; spec "Melee cooldown, Musou melee spam, charges ignore the stick, the designator beam" | Melee lock, Musou melee spam, charges ignore the stick…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-ADCABC31` | Flung Ork corpses (Musou Mode, 2026-11-02) | Ours (added content): Orks killed by a blast or an artillery strike near the camera are thrown by it and fall (a flung arc, not bone ragdolls; the gore burst still plays), at most 16 at a time | Owner's words "ork corpses ragdolling from the artillery strike and frag grenade and plasma cannon explosions" | Musou Mode only; shot and melee deaths unchanged. Spec row: Flung corpses. | Flung Ork corpses (Musou Mode, 2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-4E94CBCD` | The Firing Range (Musou Mode, 2026-11-02) | Ours (added content): a flat walled 100 m square generated in the war's world, reached by a wall button in the Stormbird's troop bay, with 200 Orks kept alive and the orbital strike working; the way back is a pad at the range. A test ground, not a mission: no score, no objectives | Owner's words "reimplement the 'firing range' map that was the first blank map concept 100m x 100m ... a test range for the artillery strike and other new features" | Musou Mode only; `TfwMap.Version` 6 and `MusouSim` box widened, so old and new builds do not connect. Spec row: The Firing Range. | The Firing Range (Musou Mode, 2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-351CC1A4` | Melee cancels of hops and charges, the jump pack from a fall or a charge (feel/melee-cancels; protocol 54) | A melee press in a hop was ignored until the dash attack's window, in a bull rush until its clip's melee branch; Space held while falling waited for the landing; Space did not end a held charge | Assault / Raptor: melee ends a hop or a charge at once and swings; Tactical classes: melee ends a charge; the next swing waits for the cancelled clip's end; Assault / Raptor: Space held in the air or during a charge lifts the pack (a tap is the hop). Roll, Devastator / Havoc, Ork Boy, the collision stop unchanged.… | Owner's words, 2026-11-02: "you should be able to end assault marine/raptor charges and hops with a melee attack. but implement the same strict cooldown based on the intended timing of the end of the animation." Builds with protocol 53 do not connect. Spec rows: Melee cancels of hops and charges. | Melee cancels of hops and charges, the jump pack from a…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
