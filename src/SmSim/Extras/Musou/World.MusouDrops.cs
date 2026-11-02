@@ -90,10 +90,13 @@ public sealed partial class World
         MusouDropChanged(d.Player);
     }
 
+    /// <summary>Whether weapons drop here (<see cref="MusouDropRules.WeaponDrops"/>; tests of the drops turn it on).</summary>
+    public bool MusouWeaponDrops { get; set; } = MusouDropRules.WeaponDrops;
+
     /// <summary>A KO (from <see cref="MusouCreditKills"/>, in play): one drop for every living player when the enemy is one that drops.</summary>
     void MusouDropFor(MusouKill kill)
     {
-        if (!MusouDropRules.Drops(kill.Type) || kill.Cause == MusouDeathKind.World) return;   // a stranded enemy removed by the failsafe drops nothing
+        if (!MusouWeaponDrops || !MusouDropRules.Drops(kill.Type) || kill.Cause == MusouDeathKind.World) return;   // a stranded enemy removed by the failsafe drops nothing
         if (!_musou!.TryGet(kill.Enemy, out var enemy)) return;
         var at = enemy.Position;
         // On the floor: the height of the enemy's walking-graph node (the flat ground without a graph).

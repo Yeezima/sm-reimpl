@@ -1117,3 +1117,5 @@ Owner's item: the first blank map concept, 100 m x 100 m, reached by a button on
 **Armour break ring (2026-11-02):** the first break flash is red in the recharge glow's ring (`BreakRing`, `SetArmourFlash(ring:)`); later hits on bare armour keep the engulfing glow. An own hit report with the victim's shield at 0 flashes it at once (`ArmourFlashTracker.Broke`); a third party's view still waits for the next hit that shows the armour down, because no other player's shield is on the wire.
 
 **Stalker armour headshot (2026-11-02):** owner's choice after seeing the numbers: armour head x10 (`OwnerBalance.WithStalkerHeadshot`), so a headshot leaves 50 health through Impenetrable and 20 without.
+
+**Musou weapon drops off (2026-11-02):** owner: temporary. `MusouDropRules.WeaponDrops` = false stops KO drops and the map's crates; the core's boxes stay (`TfwDropBox`). All code kept; tests turn it on with `World.MusouWeaponDrops`.
