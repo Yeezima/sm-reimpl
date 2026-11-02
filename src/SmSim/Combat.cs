@@ -557,11 +557,13 @@ public static class Combat
             // Buffering (M28 adds heavy presses): before the combo window closes a press is kept for the next attack; a heavy
             // press during a light attack replaces a buffered light one; heavy presses during a heavy strike do nothing, except in
             // its Y-chain window (Weapons C: the Y,Y finishers, MeleeStep.YNext). A light press after an attack that ends the string does nothing.
-            // feel/musou-melee-spam (the owner 2026-11-02; Musou Mode only): a light press once the swing's hit has landed restarts the attack at once from its start (a press
-            // before the hit queues as usual); the heavy strikes and the in-place stomp keep their rules.
+            // feel/musou-melee-spam (the owner 2026-11-02; Musou Mode only): a light press once the swing's hit has landed starts a new attack at once, a random other swing of the
+            // weapon's light chain (MeleeChain.MusouSwing; a press before the hit queues as usual); the heavy strikes and the in-place stomp keep their rules.
             if (musou && meleePress && !heavy && !m.InPlace && time >= m.HitTime)
             {
                 used |= InputBuffer.Bit(BufferedAction.Melee);
+                step = MeleeChain.MusouSwing(lightSteps, step, input.Tick, s.PlayerId);
+                m = lightSteps[step - 1];
                 time = 0f; queued = false; queuedHeavy = false; startedNow = true; meleePress = false;
                 if (m.HitTime <= 0f) { meleeHitStep = step; hitHeavy = false; }
                 if (m.Reach is not null) (motionStep, motionFrom, motionTo) = (m, 0f, MathF.Min(dt, m.Duration));
@@ -577,7 +579,7 @@ public static class Combat
             if (queued && time >= open && before < close && time >= m.HitTime)
             {
                 if (queuedHeavy) { step = heavyTarget; heavy = true; }
-                else { step = heavy ? 1 : step % lightSteps.Count + 1; heavy = false; }   // after a heavy strike, light attack 1
+                else { step = musou ? MeleeChain.MusouSwing(lightSteps, heavy ? 0 : step, input.Tick, s.PlayerId) : heavy ? 1 : step % lightSteps.Count + 1; heavy = false; }   // after a heavy strike, light attack 1
                 steps = heavy ? heavySteps : lightSteps;
                 time = 0f; queued = false; queuedHeavy = false; startedNow = true;
                 if (steps[step - 1].HitTime <= 0f) { meleeHitStep = step; hitHeavy = heavy; }
@@ -590,8 +592,9 @@ public static class Combat
             heavy = heavyPress && heavySteps.Count > 0;
             used |= InputBuffer.Bit(heavy ? BufferedAction.MeleeHeavy : BufferedAction.Melee);
             steps = heavy ? heavySteps : lightSteps;
-            step = 1; time = 0f; queued = false; queuedHeavy = false; cancelReload = true; startedNow = true;
-            if (steps[0].HitTime <= 0f) { meleeHitStep = 1; hitHeavy = heavy; }
+            step = musou && !heavy ? MeleeChain.MusouSwing(lightSteps, 0, input.Tick, s.PlayerId) : 1;
+            time = 0f; queued = false; queuedHeavy = false; cancelReload = true; startedNow = true;
+            if (steps[step - 1].HitTime <= 0f) { meleeHitStep = step; hitHeavy = heavy; }
         }
         if (startedNow && !musou) meleeLock = MathF.Max(MathF.Max(0f, steps[step - 1].ComboOpen), cancelLock);   // the lock runs from the attack's start (this very tick) to its combo window, a cancel's to its clip's end
         // sim/combat-2 (item 39; the owner's decision of 2026-10-30: "the step forward of melee swings and F stun strikes starts the instant the button is pressed"):

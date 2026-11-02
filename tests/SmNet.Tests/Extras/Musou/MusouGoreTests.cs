@@ -15,6 +15,47 @@ public class MusouGoreTests
     static GoreBurst Plan(MusouDeathKind cause, int killer = 1, float metres = 5f, MusouEnemyType type = MusouEnemyType.Boy, bool lascannon = false, float load = 1f, ushort id = 7, uint tick = 100) =>
         MusouGoreRules.Plan(cause, type, killer, lascannon, metres, load, id, tick);
 
+    [Fact]
+    public void Blast_and_artillery_deaths_throw_the_body_and_nothing_else_does()
+    {
+        Assert.True(MusouGoreRules.Thrown(MusouDeathKind.Blast));
+        Assert.True(MusouGoreRules.Thrown(MusouDeathKind.Barrage));
+        foreach (var cause in new[] { MusouDeathKind.Melee, MusouDeathKind.Shot, MusouDeathKind.Strafe, MusouDeathKind.World }) Assert.False(MusouGoreRules.Thrown(cause));
+    }
+
+    [Fact]
+    public void A_blast_throws_some_bodies_up_some_sideways_and_some_both_and_away_from_it()
+    {
+        int up = 0, side = 0, both = 0;
+        var push = new Vector3(1f, 0f, 0.3f);
+        for (ushort id = 1; id <= 600; id++)
+        {
+            var v = MusouGoreRules.BlastThrow(push, id, 1000u + id, MusouEnemyType.Boy);
+            float flat = new Vector2(v.X, v.Y).Length();
+            Assert.True(v.X > 0f, "away from the blast, within 35 degrees");
+            Assert.InRange(MathF.Abs(MathF.Atan2(v.Y, v.X)), 0f, 35.01f * MathF.PI / 180f);
+            Assert.InRange(v.Length(), 8f, 18f);
+            if (v.Z > flat * 2f) up++; else if (flat > v.Z * 2f) side++; else both++;
+        }
+        Assert.All(new[] { up, side, both }, n => Assert.InRange(n, 120, 300));
+    }
+
+    [Fact]
+    public void A_throw_is_repeatable_has_a_direction_without_a_push_and_small_bodies_fly_further()
+    {
+        Assert.Equal(MusouGoreRules.BlastThrow(Vector3.UnitY, 7, 9u, MusouEnemyType.Boy), MusouGoreRules.BlastThrow(Vector3.UnitY, 7, 9u, MusouEnemyType.Boy));
+        var none = MusouGoreRules.BlastThrow(Vector3.Zero, 7, 9u, MusouEnemyType.Boy);
+        Assert.True(new Vector2(none.X, none.Y).Length() > 1f);
+        Assert.True(MusouGoreRules.BlastThrow(Vector3.UnitY, 7, 9u, MusouEnemyType.Gretchin).Length() > none.Length());
+        Assert.True(MusouGoreRules.BlastThrow(Vector3.UnitY, 7, 9u, MusouEnemyType.Warboss).Length() < none.Length());
+    }
+
+    [Fact]
+    public void Musou_clouds_are_a_little_more_see_through_than_the_shared_ones()
+    {
+        Assert.InRange(MusouGoreRules.CloudAlpha, 0.5f, GoreRules.CloudAlpha - 0.05f);
+    }
+
     [Theory]
     [InlineData(MusouDeathKind.Melee, 1, false, GoreClass.Gore)]
     [InlineData(MusouDeathKind.Melee, 65520, false, GoreClass.Gore)]   // a retainer

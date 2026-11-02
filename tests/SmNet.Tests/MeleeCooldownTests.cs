@@ -52,7 +52,7 @@ public class MeleeCooldownTests
     public void Musou_has_no_melee_lock_so_the_same_presses_start_at_once()
     {
         var r = FireCancelThenPresses(Musou);
-        Assert.Equal(1, r.States[10].MeleeStep);
+        Assert.True(r.States[10].MeleeStep > 0);
         Assert.All(r.States, s => Assert.Equal(0f, s.MeleeLock));
     }
 
@@ -80,15 +80,52 @@ public class MeleeCooldownTests
     public void Musou_a_light_press_after_the_hit_restarts_the_swing_at_once_and_before_the_hit_it_queues()
     {
         var r = new Run(Musou).Tick(InputButtons.Melee).Ticks(7).Tick(InputButtons.Melee);   // tick 8: the hit (6.5) has landed
-        Assert.Equal((1, 0f, false), (r.State.MeleeStep, r.State.MeleeTime, r.State.MeleeQueued));
+        Assert.NotEqual(r.States[7].MeleeStep, r.State.MeleeStep);                            // a different swing of the chain
+        Assert.Equal((0f, false), (r.State.MeleeTime, r.State.MeleeQueued));
         r.Ticks(8);
         Assert.Equal(2, r.Hits.Count(h => h > 0));                                            // the restarted swing hits again
         var early = new Run(Musou).Tick(InputButtons.Melee).Ticks(2).Tick(InputButtons.Melee);   // tick 3: before the hit
-        Assert.Equal((1, true), (early.State.MeleeStep, early.State.MeleeQueued));
+        Assert.Equal((early.States[2].MeleeStep, true), (early.State.MeleeStep, early.State.MeleeQueued));
         Assert.Equal(T(3), early.State.MeleeTime, 4);
         var classic = new Run(Classic).Tick(InputButtons.Melee).Ticks(7).Tick(InputButtons.Melee);
         Assert.Equal((1, true), (classic.State.MeleeStep, classic.State.MeleeQueued));        // classic: buffered for the next step, not a restart
         Assert.Equal(T(8), classic.State.MeleeTime, 4);
+    }
+
+    [Fact]
+    public void Musou_spammed_swings_use_the_whole_light_chain_and_never_repeat_one_at_once()
+    {
+        var r = new Run(Musou);
+        var swings = new List<int>();
+        for (int k = 0; k < 40; k++)
+        {
+            r.Tick(InputButtons.Melee).Ticks(7);
+            if (swings.Count == 0 || swings[^1] != r.State.MeleeStep) swings.Add(r.State.MeleeStep);
+            else Assert.Fail($"swing {k} repeated step {r.State.MeleeStep}");
+        }
+        Assert.Equal([1, 2, 3], swings.Distinct().Order());
+    }
+
+    [Fact]
+    public void Musou_a_swing_never_picks_an_in_place_stomp_and_one_step_weapons_keep_it()
+    {
+        var light = new[] { Step(), Step() with { InPlace = true }, Step() };
+        for (uint tick = 0; tick < 200; tick++) Assert.NotEqual(2, MeleeChain.MusouSwing(light, 1, tick, 3));
+        Assert.Equal(1, MeleeChain.MusouSwing([Step()], 1, 5, 3));
+        Assert.Equal(1, MeleeChain.MusouSwing([Step()], 0, 5, 3));
+    }
+
+    [Fact]
+    public void Musou_the_swing_is_the_same_for_the_same_tick_and_player()
+    {
+        var light = new[] { Step(), Step(), Step() };
+        for (uint tick = 0; tick < 50; tick++) Assert.Equal(MeleeChain.MusouSwing(light, 1, tick, 4), MeleeChain.MusouSwing(light, 1, tick, 4));
+    }
+
+    [Fact]
+    public void Classic_the_first_swing_is_always_the_first_of_the_chain()
+    {
+        for (int wait = 0; wait < 30; wait++) Assert.Equal(1, new Run(Classic).Ticks(wait).Tick(InputButtons.Melee).State.MeleeStep);
     }
 
     // ---------------------------------------------------------------- feel/charge-no-cancel

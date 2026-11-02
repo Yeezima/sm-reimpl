@@ -156,6 +156,22 @@ public static class MeleeChain
         return next >= 1 && next <= heavyCount ? next : 0;
     }
 
+    /// <summary>
+    /// Musou Mode's next light swing (the owner, 2026-11-02: "randomize what animation each attack is"): one of the weapon's light steps, never the one just played
+    /// (<paramref name="previous"/>, 0 for none) and never an in-place stomp. Drawn from the input's tick and the player, so the client's prediction and the server agree. Ours.
+    /// </summary>
+    public static int MusouSwing(IReadOnlyList<MeleeStep> light, int previous, uint tick, int player)
+    {
+        int choices = 0;
+        for (int i = 0; i < light.Count; i++) if (i + 1 != previous && !light[i].InPlace) choices++;
+        if (choices == 0) return Math.Clamp(previous, 1, light.Count);
+        uint mixed = (tick * 2654435761u) ^ ((uint)player * 40503u);
+        int pick = (int)((mixed ^ (mixed >> 15)) % (uint)choices);
+        for (int i = 0; i < light.Count; i++)
+            if (i + 1 != previous && !light[i].InPlace && pick-- == 0) return i + 1;
+        return 1;
+    }
+
     /// <summary>The window in which a buffered press of the given kind moves on from step <paramref name="m"/>: the Y-chain window for a heavy press during a heavy strike, else the combo window.</summary>
     public static (float Open, float Close) Window(MeleeStep m, bool heavy, bool queuedHeavy) =>
         heavy && queuedHeavy ? (m.YComboOpen, m.YComboClose) : (m.ComboOpen, m.ComboClose);

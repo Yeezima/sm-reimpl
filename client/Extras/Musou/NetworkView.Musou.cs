@@ -23,6 +23,8 @@ public partial class NetworkView
     readonly MusouClientState _musouState = new();
     MusouLooks? _musouLooks;
     MusouCrowd? _musouCrowd;
+    MusouRagdolls? _musouRagdolls;
+    bool _musouRagdollsTried;
     bool _musouNoDraw, _musouDrawChecked;
     double _musouStarted = -1, _musouLogAt;
     readonly List<float> _musouFrames = new();
@@ -94,12 +96,13 @@ public partial class NetworkView
         {
             if (Orks() is not { } orks) return;
             _musouLooks = new MusouLooks(_gameDir, orks, MusouChaosLook);
-            _musouCrowd = new MusouCrowd(_musouLooks) { Visible = MusouArg("musou-visible") ?? MusouCrowd.DefaultVisible, NoVat = CmdFlag("musou-no-vat") };
+            _musouCrowd = new MusouCrowd(_musouLooks) { Visible = MusouArg("musou-visible") ?? MusouCrowd.DefaultVisible, NoVat = CmdFlag("musou-no-vat"), SolidBetween = MusouSolidBetween };
             _gameSpace!.AddChild(_musouCrowd);
         }
         var watch = System.Diagnostics.Stopwatch.StartNew();
         while (watch.ElapsedMilliseconds < 8 && _musouLooks.Step() is { } built) GD.Print($"musou: look {built.Name} ready ({OrkAssets.Describe(built.Assets)})");
         if (_connectedFor - _musouStarted > 15) _musouLooks.StopWaiting();
+        MusouRagdollsBuild();
         foreach (var n in _musouLooks.Notes) { GD.Print(n); _notes.Add(n); }
         _musouLooks.Notes.Clear();
 
@@ -108,14 +111,47 @@ public partial class NetworkView
         {
             float metres = new Vector3(d.Position.X, d.Position.Y, d.Position.Z).DistanceTo(camera);
             bool gibbed = MusouGoreRegister(d, camera);   // M10: a gibbed body leaves no corpse
-            if (_musouCrowd!.CanFling(d, metres)) _musouCrowd.AddFlung(d);   // ragdoll item: a blast or barrage death near the camera is thrown and falls, gibbed or not (capped)
-            else if (!gibbed) _musouCrowd.AddBody(d);
+            if (MusouGoreRules.Thrown(d.Cause)) MusouThrow(d, metres);   // a blast or barrage death always leaves a body, thrown through the gore's burst: a ragdoll near, else a tumbling body
+            else if (!gibbed) _musouCrowd!.AddBody(d);
             var at = new Vector3(d.Position.X, d.Position.Y, d.Position.Z + 1.1f);
             if (GoreOff && at.DistanceTo(camera) <= MusouCrowd.NearMetres)   // the dark gore draws the death blood; the red glow only with --no-musou-gore
                 BloodSplashAt(_gameSpace!.Transform * at, -(_gameSpace.Transform.Basis * new Vector3(d.Push.X, d.Push.Y, d.Push.Z)), 0.0);
         }
         _musouDeaths.Clear();
         _musouCrowd!.Frame(shown, camera, delta);
+        _musouRagdolls?.Frame(delta, MusouCrowd.SinkSeconds, MusouCrowd.SinkDepth);
+    }
+
+    /// <summary>A blast death's body: a <see cref="MusouRagdolls"/> doll when there is one to use, else the crowd's tumbling body.</summary>
+    void MusouThrow(in MusouDeathShown d, float metres)
+    {
+        var push = MusouGoreRules.BlastThrow(d.Push, d.Id, d.Tick, d.Type);
+        var velocity = new Vector3(push.X, push.Y, push.Z);
+        if (metres <= MusouRagdolls.Metres && MusouRagdolls.Fits(d.Type) && _musouRagdolls is { } dolls && _musouLooks?.For(d.Type) is { } look && dolls.Throw(d, look, velocity)) return;
+        _musouCrowd!.AddFlung(d, velocity);
+    }
+
+    /// <summary>Makes the pool of ragdolls once the boy's look is built, one doll a frame. <c>--no-musou-ragdolls</c>: the tumbling bodies only.</summary>
+    void MusouRagdollsBuild()
+    {
+        if (_musouRagdolls is { } dolls) { dolls.BuildStep(); return; }
+        if (_musouRagdollsTried || CmdFlag("no-musou-ragdolls") || _musouLooks?.For(MusouEnemyType.Boy) is not { } boy) return;
+        _musouRagdollsTried = true;
+        if (OrkRagdollDefinition(boy.Assets) is not { } def || boy.Clips[MusouLooks.Run] is not { } clip) { GD.Print("musou: no ragdolls (no Ork ragdoll to be had); blast deaths tumble"); return; }
+        EnsureRagdollWorld();
+        _musouRagdolls = new MusouRagdolls(def, boy.Assets, clip);
+        _gameSpace!.AddChild(_musouRagdolls);
+        GD.Print($"musou: ragdoll pool of {MusouRagdolls.Dolls}: {def.Description}");
+    }
+
+    /// <summary>The first solid thing between two points in game space (<see cref="CrowdView.SolidBetween"/>).</summary>
+    float? MusouSolidBetween(Vector3 from, Vector3 to)
+    {
+        if (_client?.Collision is not { } world) return null;
+        var way = new System.Numerics.Vector3(to.X - from.X, to.Y - from.Y, to.Z - from.Z);
+        float length = way.Length();
+        if (length < 1e-4f) return null;
+        return world.Weapons.Raycast(new System.Numerics.Vector3(from.X, from.Y, from.Z), way / length, length) is { } hit ? hit.Distance : null;
     }
 
     /// <summary>The Chaos Marine's model: the default look of the first Chaos class, once the view has built it (the warm-up builds every class's default).</summary>
@@ -149,7 +185,7 @@ public partial class NetworkView
         double fps = sorted.Length / (sorted.Sum() / 1000.0);
         var c = _musouCrowd;
         GD.Print($"musou: t {_connectedFor:F0} s: {sorted.Length} frames, {fps:F1} fps, frame p50 {P(0.5):F1} ms p99 {P(0.99):F1} ms max {sorted[^1]:F1} ms; " +
-                 $"enemies known {known}, drawn {(c is null ? "-" : $"{c.ShownSkinned} skinned + {c.ShownVat} vat, {c.LeftOut} left out, {c.Bodies} bodies ({c.Flung} flung)")}; " +
+                 $"enemies known {known}, drawn {(c is null ? "-" : $"{c.ShownSkinned} skinned + {c.ShownVat} vat, {c.LeftOut} left out, {c.Bodies} bodies ({c.Flung} flung), {_musouRagdolls?.Active ?? 0} ragdolls ({_musouRagdolls?.Thrown ?? 0} thrown of {_musouRagdolls?.Built ?? 0} built, highest {_musouRagdolls?.Highest ?? 0f:F1} m)")}; " +
                  $"sections {_musouState.SectionsRead} ({_musouState.SectionsMalformed} malformed), events {_musouState.EventsPlayed} (+{_musouState.EventCopies} copies), " +
                  $"silent drops {_musouState.DroppedSilent}; {MusouPresentNote()}; director {(_musouState.Director is { } d ? $"wave {d.Wave}/{d.Waves} {d.Phase}" : "none")}");
         _musouFrames.Clear();
