@@ -9,7 +9,3 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
-
-- Musou Mode: the distant fires, flashes and explosions that burned around the edges of the battlefield are gone. The only blasts left are real ones, such as the artillery you call in with B. The muffled battle noise in the distance is still there.
-
-- Manufactorum: the lines in the floor no longer show through smoke, blast and blood clouds.
