@@ -1,0 +1,202 @@
+#!/usr/bin/env bash
+# smbots - add and remove headless sm-reimpl bots on a Linux dedicated server (run it as root, over SSH).
+#
+#   smbots add <marines> <chaos> [--classes tactical,assault,devastator,raptor,havoc] [--accuracy 0..1] [--range <m>]
+#                                [--server host:port] [--stagger <s>] [--force-count]
+#   smbots list                   running bots: id, side, class, uptime, RSS, CPU
+#   smbots remove <n|all> [--side marines|chaos]    stops the n newest bots (or all)
+#   smbots stop                   stops every bot this tool started
+#   smbots status                 the same as list, plus free memory and how many more bots fit
+#
+# Each bot is a transient systemd unit (smbot-<id>.service) running the exported headless client as the unprivileged user "smserver", niced
+# below the game server, so bots survive the SSH logout and a stop only touches the units this tool started (records in /opt/smbots/run).
+# The server needs --honor-side-requests to keep the sides as asked. Bots connect to 127.0.0.1:27015 by default.
+# Settings (environment): SMBOTS_HOME (/opt/smbots), SMBOTS_GAME_DIR (/srv/sm1), SMBOTS_USER (smserver), SMBOTS_MB_PER_BOT (300),
+# SMBOTS_KEEP_FREE_MB (1024), SMBOTS_NICE (10), SMBOTS_MEMORY_MAX (900M per bot), SMBOTS_SERVER_UNIT (smserver).
+set -u
+
+HOME_DIR=${SMBOTS_HOME:-/opt/smbots}
+GAME_DIR=${SMBOTS_GAME_DIR:-/srv/sm1}
+RUN_USER=${SMBOTS_USER:-smserver}
+MB_PER_BOT=${SMBOTS_MB_PER_BOT:-300}
+KEEP_FREE_MB=${SMBOTS_KEEP_FREE_MB:-1024}
+NICE=${SMBOTS_NICE:-10}
+MEM_MAX=${SMBOTS_MEMORY_MAX:-900M}
+SERVER_UNIT=${SMBOTS_SERVER_UNIT:-smserver}
+RUN_DIR=$HOME_DIR/run
+LOG_DIR=$HOME_DIR/log
+CLIENT=$HOME_DIR/current/sm-reimpl.x86_64
+MAX_PER_SIDE=8
+
+die() { echo "smbots: $*" >&2; exit 1; }
+usage() { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; }
+
+[ "$(id -u)" -eq 0 ] || die "run it as root (ssh root@host smbots ...)"
+command -v systemd-run >/dev/null 2>&1 || die "systemd-run not found: this tool needs systemd"
+mkdir -p "$RUN_DIR" "$LOG_DIR"
+id "$RUN_USER" >/dev/null 2>&1 || die "user '$RUN_USER' does not exist"
+chown "$RUN_USER":"$RUN_USER" "$LOG_DIR" 2>/dev/null || true
+
+avail_mb() { awk '/^MemAvailable:/ { printf "%d", $2 / 1024 }' /proc/meminfo; }
+fits() { local a; a=$(avail_mb); local n=$(( (a - KEEP_FREE_MB) / MB_PER_BOT )); [ "$n" -lt 0 ] && n=0; echo "$n"; }
+
+unit_of() { echo "smbot-$1.service"; }
+# Ids of the bots this tool started that still run (a record whose unit is gone is dropped).
+live_ids() {
+  local f id
+  for f in "$RUN_DIR"/*.rec; do
+    [ -e "$f" ] || continue
+    id=$(basename "$f" .rec)
+    if systemctl is-active --quiet "$(unit_of "$id")"; then echo "$id"; else rm -f "$f"; fi
+  done | sort -n
+}
+rec_field() { # id field -> value (records are "side class" lines)
+  local side class; read -r side class < "$RUN_DIR/$1.rec"
+  case "$2" in side) echo "$side" ;; class) echo "$class" ;; esac
+}
+next_id() {
+  ( flock 9; local n; n=$(cat "$RUN_DIR/.next" 2>/dev/null || echo 1); echo $((n + 1)) > "$RUN_DIR/.next"; echo "$n" ) 9> "$RUN_DIR/.lock"
+}
+
+fmt_dur() { local s=$1; printf '%dh%02dm%02ds' $((s / 3600)) $((s % 3600 / 60)) $((s % 60)); }
+
+cmd_list() {
+  local ids id pid up rss cpu tot=0 n=0
+  ids=$(live_ids)
+  printf '%-4s %-8s %-16s %-11s %8s %6s\n' ID SIDE CLASS UPTIME 'RSS(MB)' 'CPU%'
+  for id in $ids; do
+    pid=$(systemctl show -p MainPID --value "$(unit_of "$id")")
+    up=0; rss=0; cpu=0
+    if [ -n "$pid" ] && [ "$pid" != 0 ] && [ -d "/proc/$pid" ]; then
+      up=$(ps -o etimes= -p "$pid" | tr -d ' ')
+      rss=$(awk '/^VmRSS:/ { printf "%d", $2 / 1024 }' "/proc/$pid/status" 2>/dev/null)
+      cpu=$(ps -o pcpu= -p "$pid" | tr -d ' ')
+    fi
+    printf '%-4s %-8s %-16s %-11s %8s %6s\n' "$id" "$(rec_field "$id" side)" "$(rec_field "$id" class)" "$(fmt_dur "${up:-0}")" "${rss:-0}" "${cpu:-0}"
+    tot=$((tot + ${rss:-0})); n=$((n + 1))
+  done
+  echo "$n bot(s) running, ${tot} MB RSS in total. Free memory: $(avail_mb) MB available; room for $(fits) more."
+}
+
+cmd_remove() {
+  local count=${1:-} side="" ids id n=0
+  [ -n "$count" ] || die "remove <n|all> [--side marines|chaos]"
+  shift
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --side) side=${2:-}; shift 2 ;;
+      *) die "unknown argument '$1'" ;;
+    esac
+  done
+  case "$side" in ""|marines|chaos) ;; *) die "--side takes marines or chaos" ;; esac
+  case "$count" in all) count=9999 ;; *[!0-9]*|"") die "remove takes a number or 'all'" ;; esac
+  # newest first
+  for id in $(live_ids | sort -rn); do
+    [ "$n" -ge "$count" ] && break
+    [ -n "$side" ] && [ "$(rec_field "$id" side)" != "$side" ] && continue
+    systemctl stop "$(unit_of "$id")" 2>/dev/null
+    rm -f "$RUN_DIR/$id.rec"
+    n=$((n + 1))
+  done
+  echo "stopped $n bot(s); $(live_ids | wc -l) still running."
+}
+
+# Class names per role, as bots.cmd resolves them.
+class_for() { # role side -> class name
+  case "$1:$2" in
+    tactical:marines) echo tactical ;;       tactical:chaos) echo "chaos tactical" ;;
+    assault:marines|raptor:marines) echo assault ;;  assault:chaos|raptor:chaos) echo raptor ;;
+    devastator:marines|havoc:marines|heavy:marines) echo devastator ;;  devastator:chaos|havoc:chaos|heavy:chaos) echo havoc ;;
+    *) return 1 ;;
+  esac
+}
+
+cmd_add() {
+  local marines=${1:-} chaos=${2:-} classes="tactical,assault,devastator" accuracy="" range="" server="127.0.0.1:27015" stagger=2 force=0
+  [ $# -ge 2 ] || die "add <marines> <chaos> [--classes ...] [--accuracy x] [--range m]"
+  shift 2
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --classes) classes=${2:-}; shift 2 ;;
+      --accuracy) accuracy=${2:-}; shift 2 ;;
+      --range) range=${2:-}; shift 2 ;;
+      --server) server=${2:-}; shift 2 ;;
+      --stagger) stagger=${2:-}; shift 2 ;;
+      --force-count) force=1; shift ;;
+      *) die "unknown argument '$1'" ;;
+    esac
+  done
+  case "$marines$chaos" in *[!0-9]*|"") die "<marines> and <chaos> are numbers" ;; esac
+  [ $((marines + chaos)) -gt 0 ] || die "nothing to start: give a number of marines and/or chaos bots"
+  [ "$marines" -le "$MAX_PER_SIDE" ] && [ "$chaos" -le "$MAX_PER_SIDE" ] || die "at most $MAX_PER_SIDE bots per side (the server's limit)"
+  if [ -n "$accuracy" ]; then awk -v a="$accuracy" 'BEGIN { exit !(a ~ /^[0-9]*\.?[0-9]+$/ && a >= 0 && a <= 1) }' || die "--accuracy takes 0 to 1"; fi
+  if [ -n "$range" ]; then awk -v a="$range" 'BEGIN { exit !(a ~ /^[0-9]*\.?[0-9]+$/ && a > 0) }' || die "--range takes metres, above 0"; fi
+  case "$stagger" in ""|*[!0-9.]*) die "--stagger takes seconds" ;; esac
+  [ -x "$CLIENT" ] || die "the bot client is not installed ($CLIENT). Install the bots package: setup-smserver.sh <server pkg> --bots <bots pkg>"
+  [ -d "$GAME_DIR/data" ] || die "no game install at $GAME_DIR (set SMBOTS_GAME_DIR)"
+  systemctl is-active --quiet "$SERVER_UNIT" || die "the game server unit '$SERVER_UNIT' is not running (systemctl start $SERVER_UNIT)"
+  if ! systemctl cat "$SERVER_UNIT" 2>/dev/null | grep -q -- '--honor-side-requests'; then
+    echo "smbots: WARNING: $SERVER_UNIT does not run with --honor-side-requests; its balance may move bots to the other side." >&2
+  fi
+  local roles=() r; IFS=',' read -r -a roles <<< "$classes"
+  [ "${#roles[@]}" -gt 0 ] || die "--classes is empty"
+  for r in "${roles[@]}"; do class_for "$r" marines >/dev/null || die "unknown class '$r' (tactical, assault, devastator, raptor, havoc)"; done
+
+  # Memory guard: about MB_PER_BOT per bot, and KEEP_FREE_MB stays free for the server and the system.
+  local want=$((marines + chaos)) room; room=$(fits)
+  if [ "$want" -gt "$room" ] && [ "$force" -eq 0 ]; then
+    die "refusing to start $want bot(s): $(avail_mb) MB available, ${KEEP_FREE_MB} MB must stay free and a bot needs about ${MB_PER_BOT} MB, so $room more fit. Remove bots first (smbots remove <n>), or pick a smaller number."
+  fi
+
+  # Plan: interleave the sides; a role per bot from the --classes rotation.
+  local sides=() k
+  local m=0 c=0
+  while [ $m -lt "$marines" ] || [ $c -lt "$chaos" ]; do
+    [ $m -lt "$marines" ] && { sides+=(marines); m=$((m + 1)); }
+    [ $c -lt "$chaos" ] && { sides+=(chaos); c=$((c + 1)); }
+  done
+  local i=0 started=0 side role cls id unit extra
+  local rot_m=0 rot_c=0
+  for side in "${sides[@]}"; do
+    # re-check right before each start: earlier bots grow while they load
+    if [ "$force" -eq 0 ] && [ "$(fits)" -lt 1 ]; then
+      echo "smbots: stopping after $started bot(s): memory is down to $(avail_mb) MB available (${KEEP_FREE_MB} MB must stay free)." >&2
+      break
+    fi
+    if [ "$side" = marines ]; then role=${roles[$((rot_m % ${#roles[@]}))]}; rot_m=$((rot_m + 1)); else role=${roles[$((rot_c % ${#roles[@]}))]}; rot_c=$((rot_c + 1)); fi
+    cls=$(class_for "$role" "$side")
+    id=$(next_id); unit=$(unit_of "$id")
+    extra=()
+    [ -n "$accuracy" ] && extra+=(--bot-accuracy "$accuracy")
+    [ -n "$range" ] && extra+=(--bot-range "$range")
+    : > "$LOG_DIR/bot-$id.log"; chown "$RUN_USER":"$RUN_USER" "$LOG_DIR/bot-$id.log"
+    if systemd-run --quiet --unit="smbot-$id" --collect --uid="$RUN_USER" --nice="$NICE" \
+         -p CPUWeight=20 -p MemoryMax="$MEM_MAX" -p ProtectSystem=strict -p "ReadWritePaths=$HOME_DIR" -p PrivateTmp=yes -p NoNewPrivileges=yes \
+         -p "StandardOutput=append:$LOG_DIR/bot-$id.log" -p "StandardError=append:$LOG_DIR/bot-$id.log" \
+         -p "WorkingDirectory=$HOME_DIR/current" \
+         -E "HOME=$HOME_DIR/home" -E "SM_GAME_DIR=$GAME_DIR" -E "SM_DATA_DIR=$HOME_DIR/data" \
+         "$CLIENT" --headless -- --connect "$server" --bot --no-sound --no-hud --class "$cls" --side "$side" --game-dir "$GAME_DIR" "${extra[@]}"; then
+      echo "$side $(echo "$cls" | tr ' ' '_')" > "$RUN_DIR/$id.rec"
+      echo "started bot $id ($unit): $side, class '$cls'"
+      started=$((started + 1))
+    else
+      echo "smbots: could not start bot $id" >&2
+    fi
+    i=$((i + 1))
+    if [ "$i" -lt "${#sides[@]}" ]; then sleep "$stagger"; fi
+  done
+  echo "$started bot(s) started; logs in $LOG_DIR/bot-<id>.log. 'smbots list' shows them, 'smbots stop' stops them."
+  # old logs of bots that are gone
+  find "$LOG_DIR" -name 'bot-*.log' -mtime +2 -delete 2>/dev/null || true
+}
+
+mkdir -p "$HOME_DIR/home" "$HOME_DIR/data" 2>/dev/null && chown "$RUN_USER":"$RUN_USER" "$HOME_DIR/home" "$HOME_DIR/data" 2>/dev/null
+case "${1:-}" in
+  add) shift; cmd_add "$@" ;;
+  list|ls) cmd_list ;;
+  status) cmd_list ;;
+  remove|rm) shift; cmd_remove "$@" ;;
+  stop) cmd_remove all ;;
+  -h|--help|help|"") usage ;;
+  *) usage >&2; die "unknown command '$1'" ;;
+esac

@@ -102,7 +102,7 @@ public sealed class PackageScanner
     }
 
     /// <summary>Extensionless file names the binary packages may hold (the Linux server executable and its helper, licences).</summary>
-    public static readonly string[] AllowedBareNames = ["LICENSE", "SmServer", "createdump", "COPYRIGHT"];
+    public static readonly string[] AllowedBareNames = ["LICENSE", "SmServer", "createdump", "COPYRIGHT", "smbots"];
 
 
     static readonly Regex UserPath = new(@"[A-Za-z]:[\\/]+Users[\\/]+(?<name>[^\\/\s""'<>|*?:\x00-\x1f]{1,64})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -126,7 +126,7 @@ public sealed class PackageScanner
     };
 
     // .zip: its compressed bytes are not text (its entries are scanned one by one, ScanNestedZip).
-    static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase) { ".dll", ".exe", ".so", ".dylib", ".pdb", ".a", ".o", ".pck", ".node", ".zip" };
+    static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase) { ".dll", ".exe", ".x86_64", ".so", ".dylib", ".pdb", ".a", ".o", ".pck", ".node", ".zip" };
 
     readonly Dictionary<long, List<string>> _forbiddenBySize = new();
     readonly Dictionary<string, string> _forbiddenHashes = new();
@@ -310,7 +310,7 @@ public sealed class PackageScanner
         foreach (var (magicName, magic) in Magics)
             if (headLength >= magic.Length && head.AsSpan(0, magic.Length).SequenceEqual(magic)) Add("game-format-magic", magicName);
 
-        if (ext == ".exe" || godotPack) CheckGodotPack(file, ext, length, open, Add);
+        if (ext == ".exe" || ext == ".x86_64" || godotPack) CheckGodotPack(file, ext, length, open, Add);
 
         string? archive = null;
         foreach (var (archiveName, magic) in ArchiveMagics)
@@ -484,9 +484,9 @@ public sealed class PackageScanner
 
     void CheckGodotPack(string fileName, string ext, long length, Func<Stream> open, Action<string, string> add)
     {
-        bool isClientExe = fileName.Equals("sm-reimpl.exe", StringComparison.OrdinalIgnoreCase);
+        bool isClientExe = fileName.Equals("sm-reimpl.exe", StringComparison.OrdinalIgnoreCase) || fileName.Equals("sm-reimpl.x86_64", StringComparison.OrdinalIgnoreCase);   // the Linux headless-bot export (-LinuxBots) is the client too
         bool standalone = ext == ".pck";
-        if (!isClientExe && !standalone && ext != ".exe") return;
+        if (!isClientExe && !standalone && ext != ".exe" && ext != ".x86_64") return;
         if (length > int.MaxValue - 64) { add("pack-unverifiable", "the file is too large to verify"); return; }
         var data = new byte[length];
         using (var s = open()) s.ReadExactly(data);
