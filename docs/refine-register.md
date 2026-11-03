@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2164 spec table rows: **1553 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 466 rows of the changes document.
+Scanned 2167 spec table rows: **1556 tagged**, 441 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 467 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,14 +52,14 @@ Scanned 2164 spec table rows: **1553 tagged**, 441 not tagged (read from data wi
 | Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
 | Core simulation (provisional values) | 265 | 249 | 213 | 34 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 113 | 106 | 61 | 15 | 0 |
-| **All areas** | **1553** | 1325 | 1215 | 461 | 38 |
+| Ork faction | 116 | 109 | 61 | 18 | 0 |
+| **All areas** | **1556** | 1328 | 1215 | 464 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 736 |
+| kind: ours | 739 |
 | confidence: low | 570 |
 | confidence: medium | 517 |
 | kind: interpretation | 336 |
@@ -68,7 +68,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: provisional | 99 |
 | kind: estimate | 78 |
 | kind: user's knowledge | 51 |
-| notes: estimate | 45 |
+| notes: estimate | 48 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
 | notes: provisional | 31 |
@@ -2528,6 +2528,14 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-D296D7A8` | Musou: shot Orks flinch | an Ork struck by a shot (markers 1 and 2) plays the stagger clip from its start for **0.4** s and rocks back up to **0.22** m, a new shot restarting it after **0.2** s; drawn only, the simulation's Ork does not stop; not the Warboss (s, m) | kind: ours; notes: estimate | owner 2026-11-02 | Musou: shot Orks flinch: compare with SM1 by watching the reaction and timing it frame by frame. Ours: an Ork struck by a shot (markers 1 and 2) plays the stagger clip from… | ☐ |
 | `R-4B609BC0` | Musou: Orks shout more | grunts every **1.2 to 2.5** s (was 2.5 to 5), barks every **2 to 5** s (was 6 to 14), a hit's grunt every **0.4** s (was 1), at most **22** voices and **12** speech lines (were 14 and 6) (s, voices) | kind: ours; notes: estimate | owner 2026-11-02 | Musou: Orks shout more: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: grunts every 1.2 to 2.5 s (was 2.5 to 5), barks every 2 to 5 s (was 6… | ☐ |
 
+*Spec section: Musou Mode: twice the Orks again (musou/double-orks, 2026-11-03; no protocol change, `MusouSim.Version` 7)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-CC5F4216` | Musou: the pool | **1024** enemy slots (was 512); the wire takes ids up to it; **40** kept free for the bosses (slots) | kind: ours; notes: estimate | owner 2026-11-03 | Musou: the pool: compare with SM1 by feel or video. Ours: 1024 enemy slots (was 512); the wire takes ids up to it; 40 kept free… | ☐ |
+| `R-B3D8C329` | Musou: the battle's Orks | garrison **48** a point (was 24), crowd **200** (was 100) filling one every **8** ticks (about 3.75 a second, a crowd in 53 s; was 2 a second, 50 s), alive cap **600** solo plus **320** a further human, at most **840** (was 300, 160, 420), the trickle's total… (Orks) | kind: ours; notes: estimate | owner 2026-11-03 "double" | Musou: the battle's Orks: compare with SM1 by feel or video. Ours: garrison 48 a point (was 24), crowd 200 (was 100) filling one every 8… | ☐ |
+| `R-AAB0F0D5` | Musou: drawn | the nearest **900** Orks drawn (was 480), at most **500** of a look by the vertex-animation tier (was 200), 40 skinned as before (Orks) | kind: ours; notes: estimate | owner 2026-11-03 | Musou: drawn: compare with SM1 by feel or video. Ours: the nearest 900 Orks drawn (was 480), at most 500 of a look by the… | ☐ |
+
 ## Part C: Deliberate changes (keep or revert after playtest)
 
 Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our choices where the original is unknown, and what is not reproduced yet. Nothing is classified here; every row is listed. The prompt says what to ask after the playtest.
@@ -3139,6 +3147,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-86FC1C90` | Random Musou swings, thinner Musou clouds (2026-11-02) | No Musou Mode in the original | Ours (added content): each light attack in Musou Mode is a random swing of the weapon's chain, never the same twice running, and Musou's gore clouds are about a fifth more see-through (0.58 against 0.72) | Classic PvP keeps its chain order and clouds. Same spec section. | Random Musou swings, thinner Musou clouds (2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-792CF21A` | Hammer ignores the pound's delay (2026-11-02; protocol 55) | The data's `smash_available_delay` 2 s under Air-Cooled Thrusters applies to every melee weapon | Deliberate, in classic PvP too (the owner): the thunder hammer and daemon maul never wait for it; a sword with the perk still does | Spec "Musou Mode batch of 2026-11-02 and the hammer's pound". | Hammer ignores the pound's delay (2026-11-02; protocol 55): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2663D884` | Musou batch (2026-11-02) | No Musou Mode in the original | Ours (added content): 5 % heal on a melee hit, twice the Orks, crowds that always swarm, elite squads, a Warboss of scale 3, bass-less power weapon hits, solid backdrop and no Ork damage at the Firing Range, flinches, more shouting | Musou Mode only. Same spec section. | Musou batch (2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-E2D75C92` | Musou: twice the Orks again (2026-11-03) | No Musou Mode in the original | Ours (added content): a pool of 1024 and about 900 Orks alive in the Manufactorum battle for one player | Musou Mode only. Spec "Musou Mode: twice the Orks again". | Musou: twice the Orks again (2026-11-03): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-4E94CBCD` | The Firing Range (Musou Mode, 2026-11-02) | Ours (added content): a flat walled 100 m square generated in the war's world, reached by a wall button in the Stormbird's troop bay, with 200 Orks kept alive and the orbital strike working; the way back is a pad at the range. A test ground, not a mission: no score, no objectives | Owner's words "reimplement the 'firing range' map that was the first blank map concept 100m x 100m ... a test range for the artillery strike and other new features" | Musou Mode only; `TfwMap.Version` 6 and `MusouSim` box widened, so old and new builds do not connect. Spec row: The Firing Range. | The Firing Range (Musou Mode, 2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-351CC1A4` | Melee cancels of hops and charges, the jump pack from a fall or a charge (feel/melee-cancels; protocol 54) | A melee press in a hop was ignored until the dash attack's window, in a bull rush until its clip's melee branch; Space held while falling waited for the landing; Space did not end a held charge | Assault / Raptor: melee ends a hop or a charge at once and swings; Tactical classes: melee ends a charge; the next swing waits for the cancelled clip's end; Assault / Raptor: Space held in the air or during a charge lifts the pack (a tap is the hop). Roll, Devastator / Havoc, Ork Boy, the collision stop unchanged.… | Owner's words, 2026-11-02: "you should be able to end assault marine/raptor charges and hops with a melee attack. but implement the same strict cooldown based on the intended timing of the end of the animation." Builds with protocol 53 do not connect. Spec rows: Melee cancels of hops and charges. | Melee cancels of hops and charges, the jump pack from a…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
