@@ -62,7 +62,7 @@ public static class TfwBattleRules
     public const int ReleasesPerTick = 6;
 
     // The trickle (owner, 2026-11-01: "re add in the trickling enemies resulting in roughly 2x the current ork enemy count on the map"; every value ours, spec "the trickle"): beside the pools and swarms, each source that sends
-    // also lets one unleashed Ork walk to the players every TrickleSeconds, up to as many trickled Orks alive as the crowds' cap (so about twice the Orks on the map), and never past TrickleTotalMax in all (the pool has 512 slots).
+    // also lets one unleashed Ork walk to the players every TrickleSeconds, up to as many trickled Orks alive as the crowds' cap (so about twice the Orks on the map), and never past TrickleTotalMax in all (the pool has 1024 slots).
     /// <summary>Seconds between two trickled Orks from one sending source (ours; three held points send two a second together).</summary>
     public const float TrickleSeconds = 1.5f;
     /// <summary>Most Orks alive (garrisons not counted) while a trickled one is added: the pool's 1024 slots less the garrisons (144), those dying and a margin; so the trickle adds 200 to the crowds' 600 for one human (the pool's reserve ends it).</summary>
@@ -709,7 +709,7 @@ public sealed class TfwBattle
             if (AddToCrowd(k)) { _released++; counted++; }
         }
         StepTrickle();
-        for (int k = 0; k < TfwBattleRules.ReleasesPerTick && _summons > 0 && Counted() - _trickled.Count < cap; k++)
+        for (int k = 0; k < TfwBattleRules.ReleasesPerTick && _summons > 0 && Counted() - _trickled.Count < cap && _enemies.Alive < MusouSim.Capacity - TfwBattleRules.PoolReserve; k++)
         {
             _summons--;
             var at = SourceSpot(_summons % _layout.Sources.Length);
