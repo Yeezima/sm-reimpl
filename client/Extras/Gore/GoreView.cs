@@ -128,6 +128,13 @@ void fragment() {
     int _groundVersion = -1;
     double _groundAt = double.NegativeInfinity;
 
+    /// <summary>
+    /// fix/gore-under-smoke (the owner, 2026-11-03: "smoke and explosion effects should draw before blood and gore"; ours): the ground's pools, stains and slashes come
+    /// before every effect (priority 0, the impact glow -1) and after the map's cut-outs (<see cref="RenderQuality.CutOutPriority"/>), so a cloud in the air covers them.
+    /// They kept their order among themselves (pools, stains, slashes); the airborne ink and mist stay at 0 and sort by distance with the clouds.
+    /// </summary>
+    const int GroundPriority = -10;
+
     static ShaderMaterial AtlasMaterial(string render, bool billboard, Texture2D atlas, float cols, bool ink, int priority)
     {
         string code = AtlasShader.Replace("//RENDER", render).Replace("//BILLBOARD", billboard ? BillboardCode : "").Replace("//BUMP", billboard ? BumpCode : "").Replace("//CLOUDBUMP", "");
@@ -146,9 +153,9 @@ void fragment() {
         var noise = GoreTextures.Ground();
         var inkQuad = new QuadMesh { Size = Vector2.One, Material = AtlasMaterial("", true, ink, 4f, true, 0) };
         var mistQuad = new QuadMesh { Size = Vector2.One, Material = AtlasMaterial("", true, cloud, 2f, false, 0) };
-        var stainQuad = new QuadMesh { Size = Vector2.One, Material = AtlasMaterial("", false, ink, 4f, true, 2) };
-        var slashQuad = new QuadMesh { Size = Vector2.One, Material = AtlasMaterial("", false, ink, 4f, true, 3) };
-        var poolMaterial = new ShaderMaterial { Shader = new Shader { Code = PoolShader }, RenderPriority = 1 };
+        var stainQuad = new QuadMesh { Size = Vector2.One, Material = AtlasMaterial("", false, ink, 4f, true, GroundPriority + 1) };
+        var slashQuad = new QuadMesh { Size = Vector2.One, Material = AtlasMaterial("", false, ink, 4f, true, GroundPriority + 2) };
+        var poolMaterial = new ShaderMaterial { Shader = new Shader { Code = PoolShader }, RenderPriority = GroundPriority };
         poolMaterial.SetShaderParameter("noise", noise);
         var poolQuad = new QuadMesh { Size = Vector2.One, Material = poolMaterial };
 
