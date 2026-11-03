@@ -327,6 +327,23 @@ public class ReactionTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void A_reload_runs_on_through_a_reaction_and_completes()
+    {
+        // sim/reload-keeps (protocol 56; the owner 2026-11-03): only a weapon switch takes a reload out of hand.
+        var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = Tactical }, Config) with { Clip = 1 };
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Reload), Config, out _);
+        float left = s.ReloadLeft;
+        Assert.True(left > 0f);
+        s = Reaction.Start(s, Config, Stun, ReactionDirection.Front, Vector2.UnitY);
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), Config, out _);
+        Assert.NotEqual(ReactionKind.None, s.Reaction);
+        Assert.InRange(s.ReloadLeft, 1e-6f, left - 1e-6f);
+        for (int k = 0; k < 300 && s.ReloadLeft > 0f; k++) s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), Config, out _);
+        Assert.Equal(0f, s.ReloadLeft);
+        Assert.True(s.Clip > 1);
+    }
+
+    [Fact]
     public void While_reacting_inputs_do_nothing_but_turn_and_held_buttons_stay_held_then_the_reaction_ends_on_time()
     {
         var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = Tactical }, Config);

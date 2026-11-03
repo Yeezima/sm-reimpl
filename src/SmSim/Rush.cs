@@ -133,7 +133,7 @@ public sealed record RushSpec(string Ability, RushMove Rush, RushMove Collision,
 /// <para>
 /// Start (protocol 39): a <see cref="InputButtons.MeleeHeavy"/> press edge with W held (the stick's forward part at least
 /// <see cref="RushSpec.MinForwardStick"/>; standing, walking, running or sprinting alike, aim mode and the trigger too), on the ground, with no melee attack, evade, jump-pack phase (take-off, flight, dive, landing, recovery), throw or reaction under
-/// way and the spacing over. The press then is the charge, not a heavy strike. It cancels a reload,
+/// way and the spacing over. The press then is the charge, not a heavy strike. It keeps a reload running (sim/reload-keeps, protocol 56) and cancels
 /// a charge of the weapon and a pending charged shot, and aim mode. The body faces the view's heading at the press turned by the stick's sideways
 /// part (<see cref="StartYaw"/>: A or D with W, up to <see cref="RushSpec.SideSteer"/>) and keeps it; a locked charge starts along the view and
 /// steers to its target. The dash attack's lunge goes the stick's way of eight (<see cref="DashYaw"/>).

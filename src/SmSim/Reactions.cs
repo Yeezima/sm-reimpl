@@ -265,7 +265,7 @@ public static class Reaction
 
     /// <summary>
     /// <paramref name="s"/> put into a reaction (the caller checked <see cref="CanReact"/>): whatever it was doing stops (a melee
-    /// attack and its buffered press, a reload, a charge and a pending charged shot, a throw — before its release nothing is spent
+    /// attack and its buffered press, a charge and a pending charged shot (a reload runs on: sim/reload-keeps, protocol 56), a throw — before its release nothing is spent
     /// —, an evade (its spacing lock stays), a jump-pack take-off or landing (the power spent stays spent), aim mode); its
     /// horizontal velocity stops. The clip is <paramref name="direction"/>'s; the knockback goes along <paramref name="push"/>
     /// (horizontal part; a yaw byte) for the entry's Backward metres (1/16 m steps, at most <see cref="MaxPushDistance"/>) over its
