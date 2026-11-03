@@ -172,7 +172,7 @@ public partial class NetworkView
     {
         var args = OS.GetCmdlineUserArgs();
         int at = Array.IndexOf(args, "--" + name);
-        return at >= 0 && at + 1 < args.Length && int.TryParse(args[at + 1], out int v) ? Math.Clamp(v, 0, 400) : null;
+        return at >= 0 && at + 1 < args.Length && int.TryParse(args[at + 1], out int v) ? Math.Clamp(v, 0, 1000) : null;
     }
 
     void MusouLog(double delta, int known)

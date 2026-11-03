@@ -149,7 +149,7 @@ public class MusouSwitchTests
         int spawned = 0;
         while (sim.Spawn(MusouEnemyType.Gretchin, Vector3.Zero, 0f, 30f) != 0) spawned++;
         Assert.Equal(MusouSim.Capacity, sim.Count);
-        Assert.Equal(MusouSim.Capacity - 4 + 1, spawned);   // slots 5..512, then id 1 again last
+        Assert.Equal(MusouSim.Capacity - 4 + 1, spawned);   // slots 5 to the capacity, then id 1 again last
         Assert.True(sim.TryGet(a, out var reused));
         Assert.Equal(MusouEnemyType.Gretchin, reused.Type);
         sim.Clear();

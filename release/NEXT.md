@@ -11,3 +11,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 -->
 
 - Musou Mode: blood on the ground no longer shows on top of smoke and explosions in the air above it.
+- Musou Mode: twice as many Orks again in the Manufactorum battle, close to 900 at once.
