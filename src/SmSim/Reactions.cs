@@ -289,7 +289,7 @@ public static class Reaction
             Reaction = entry.Kind, ReactionDirection = direction, ReactionTicks = 0,
             PushYaw = distance > 0 ? pushYaw : 0, PushDistance = distance, PushTicks = ticks,
             MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeHeavy = false, MeleeQueuedHeavy = false, MeleeDirection = EvadeDirection.Forward,
-            ReloadLeft = 0f, Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Throwing = false, ThrowTime = 0f,
+            Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Throwing = false, ThrowTime = 0f,   // sim/reload-keeps: a reload runs on through the reaction
             EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLanded = false, JumpDashDirection = keepJump ? s.JumpDashDirection : EvadeDirection.Forward, Aiming = false, Rush = RushPhase.None, RushTicks = 0,
             Jump = keepJump ? s.Jump : JumpPhase.None, JumpTicks = keepJump ? s.JumpTicks : 0, JumpMark = keepJump ? s.JumpMark : 0,
             JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpSlash = false,

@@ -16,11 +16,12 @@ namespace SmClient;
 /// same tag fractions of the reload time).
 /// <list type="bullet">
 /// <item><b>Own player:</b> the simulation's reload timer (<see cref="PlayerState.ReloadLeft"/>) is the clock; a reload the simulation
-/// cancels (weapon switch, melee, throw, death, a reaction, the dive of a ground pound) ends it. Original clip, mask, timing: extracted.</item>
+/// cancels (weapon switch, death) ends it; one carried through a melee attack, throw, reaction, charge or pound (sim/reload-keeps, protocol 56) is hidden
+/// by their clips and shows again at its point. Original clip, mask, timing: extracted.</item>
 /// <item><b>Other players:</b> the snapshot does not carry ammunition or reload timers (protocol, spec "What other players see"). The client
 /// counts the shots it sees (<see cref="ShotView"/>, the same events the effects use) against the weapon's clip size; the shot that empties
-/// the clip starts a reload of the weapon's reload time (the simulation starts one on the next tick while the trigger is held). A switch, a
-/// reaction, a melee attack, a throw or death cancels it; completing it refills the count, and so does a gap since the weapon's last shot
+/// the clip starts a reload of the weapon's reload time (the simulation starts one on the next tick while the trigger is held). A switch or
+/// death cancels it (sim/reload-keeps: a reaction, a melee attack or a throw no longer does); completing it refills the count, and so does a gap since the weapon's last shot
 /// longer than its reload time + 1 s (a manual reload while idle); see <see cref="ReloadInference"/>. **Interpretation / inferred**: a reload started by hand (R) with rounds left, or after a cancelled one, is not seen.</item>
 /// <item>Weapons with no reload clip (heavy bolter, plasma gun, plasma cannon, melta) show none; neither does the plasma pistol (no reserve).</item>
 /// </list>

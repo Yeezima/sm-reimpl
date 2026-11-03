@@ -539,7 +539,6 @@ public static class Combat
         bool rollNoFire = roll && (evading || rollCut);
         bool fireHeldThroughSprint = (sprintNoFire || rollNoFire) && fireDown;
         if (sprintNoFire || rollNoFire) fireDown = firePress = chargeDown = chargePress = basicDown = basicPress = shotWanted = false;
-        bool cancelReload = false;
         bool startedNow = false;   // sim/combat-2 (item 39): an attack (from rest, or the next of a string) began in this very tick
         MeleeStep? motionStep = null;   // feel/melee-lock: the attack whose root motion and alignment this tick covers, over (motionFrom, motionTo]
         float motionFrom = 0f, motionTo = 0f;
@@ -593,7 +592,7 @@ public static class Combat
             used |= InputBuffer.Bit(heavy ? BufferedAction.MeleeHeavy : BufferedAction.Melee);
             steps = heavy ? heavySteps : lightSteps;
             step = musou && !heavy ? MeleeChain.MusouSwing(lightSteps, 0, input.Tick, s.PlayerId) : 1;
-            time = 0f; queued = false; queuedHeavy = false; cancelReload = true; startedNow = true;
+            time = 0f; queued = false; queuedHeavy = false; startedNow = true;
             if (steps[step - 1].HitTime <= 0f) { meleeHitStep = step; hitHeavy = heavy; }
         }
         if (startedNow && !musou) meleeLock = MathF.Max(MathF.Max(0f, steps[step - 1].ComboOpen), cancelLock);   // the lock runs from the attack's start (this very tick) to its combo window, a cancel's to its clip's end
@@ -611,7 +610,9 @@ public static class Combat
 
         var slot = s.Slot;
         int clip = s.Clip, reserve = s.Reserve, otherClip = s.OtherClip, otherReserve = s.OtherReserve, thirdClip = s.ThirdClip, thirdReserve = s.ThirdReserve;
-        float reloadLeft = cancelReload ? 0f : s.ReloadLeft;
+        // sim/reload-keeps (protocol 56; the owner 2026-11-03: "reloads should not be cancelled by anything other than switching weapons"): no melee attack, throw,
+        // ground pound, reaction or charge ends the reload in hand; it runs on through them (below). A switch stores it with its weapon (sim/combat-pass, item 10).
+        float reloadLeft = s.ReloadLeft;
         float otherReloadLeft = s.OtherReloadLeft, thirdReloadLeft = s.ThirdReloadLeft;   // sim/combat-pass: reloads of the holstered weapons
         bool charging = s.Charging && charge is not null;
         float chargeTime = charging ? s.ChargeTime : 0f;
@@ -619,7 +620,7 @@ public static class Combat
         float pendingLeft = pending > 0 ? s.PendingLeft : 0f;
         int projectilesOut = s.ProjectilesOut;
         if (step > 0 || evade.Started || noFire || sprintNoFire || rollNoFire) { charging = false; chargeTime = 0f; pending = 0; pendingLeft = 0f; }   // a melee attack, an evade or a sprint cancels them (and a raise: below)
-        if (jump.PoundStart) { charging = false; chargeTime = 0f; pending = 0; pendingLeft = 0f; reloadLeft = 0f; }   // and so does a ground pound (and a reload)
+        if (jump.PoundStart) { charging = false; chargeTime = 0f; pending = 0; pendingLeft = 0f; }   // and so does a ground pound (not a reload: sim/reload-keeps)
         // Venting (Vent; fidelity gap 7): on Reload or by itself while overheated, while the player stands or walks and does nothing else (owner's
         // recollection: everything but walking stops it); it adds to the in-hand weapon's cooling and takes the weapon (no shot, charge or reload).
         bool switching = switchPress && step == 0 && !s.Throwing && !jumpBusy && weapon is not null && holstered is not null;
@@ -693,8 +694,7 @@ public static class Combat
         {
             throwing = true; throwTime = 0f;
             used |= InputBuffer.Bit(BufferedAction.Grenade);
-            reloadLeft = 0f;                          // the reload in progress is lost
-            charging = false; chargeTime = 0f;        // and so is a charge
+            charging = false; chargeTime = 0f;        // a charge is lost (a reload runs on: sim/reload-keeps)
             shotWanted = false;
             if (releaseAt <= TimeEpsilon) Release();
             if (useEnd <= TimeEpsilon) { throwing = false; throwTime = 0f; }
@@ -790,7 +790,8 @@ public static class Combat
 
         if (step > 0 || throwing || threw || jumpBusy || noFire)
         {
-            // Attacking or throwing: the weapon waits (fire before RangedAt and reload input are ignored).
+            // Attacking or throwing: the weapon waits (fire before RangedAt and reload input are ignored); a reload in progress carries on (sim/reload-keeps).
+            if (weapon is not null && switchLeft <= 0f && reloadLeft > 0f) ProgressReload(weapon);
         }
         else if (evading)
         {

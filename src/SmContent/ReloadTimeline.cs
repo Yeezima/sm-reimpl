@@ -120,7 +120,7 @@ public sealed class ReloadTimeline
 /// a player seen late can get a phantom reload at the very end of its reserve.</item>
 /// <item>A weapon's count goes back to empty when its last shot is older than its reload time + <see cref="IdleGraceSeconds"/> (the player probably reloaded by hand), and
 /// every count when the player dies. A completed reload also refills.</item>
-/// <item>A switch of weapon, a reaction, a melee attack, a throw or death cancels the reload (the clip stays empty).</item>
+/// <item>A switch of weapon or death cancels the reload (the clip stays empty); a reaction, a melee attack or a throw does not, though none starts one (sim/reload-keeps).</item>
 /// </list>
 /// </summary>
 public sealed class ReloadInference
@@ -147,7 +147,7 @@ public sealed class ReloadInference
 
     /// <summary>
     /// One frame. <paramref name="weapons"/>: the configuration's weapons; <paramref name="reloads"/>: whether a weapon index has a reload to show;
-    /// <paramref name="busy"/>: the player is in a reaction, melee attack or throw; <paramref name="alive"/>; <paramref name="slot"/>: its weapon slot (a change cancels);
+    /// <paramref name="busy"/>: the player is in a reaction, melee attack or throw (no reload starts); <paramref name="alive"/>; <paramref name="slot"/>: its weapon slot (a change cancels);
     /// <paramref name="now"/> and <paramref name="delta"/>: seconds. Returns the reload that should be shown now (weapon, total, elapsed ≥ 0), or null.
     /// </summary>
     public (int Weapon, float Total, float Elapsed)? Update(IReadOnlyList<WeaponSpec> weapons, Func<int, bool> reloads, IEnumerable<Shot> shots, bool alive, bool busy, int slot, double now, float delta, float tick)
@@ -156,7 +156,7 @@ public sealed class ReloadInference
         if (Inferring)
         {
             _elapsed += delta;
-            if (busy || slot != _slot) { Inferring = false; return null; }   // cancelled: the clip stays empty
+            if (slot != _slot) { Inferring = false; return null; }   // cancelled by a switch (sim/reload-keeps: nothing else): the clip stays empty
             if (_elapsed >= _total) { Inferring = false; _inClip[_weapon] = 0; return null; }
             return _elapsed >= 0f ? (_weapon, _total, _elapsed) : null;
         }

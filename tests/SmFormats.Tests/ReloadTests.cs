@@ -424,7 +424,7 @@ public class ReloadTests
     }
 
     [Fact]
-    public void A_switch_a_reaction_or_death_cancels_and_the_clip_stays_empty()
+    public void A_switch_or_death_cancels_and_the_clip_stays_empty_and_a_reaction_or_melee_does_not()
     {
         var weapons = new[] { Gun(2, 8, reload: 1f), Gun(10, 10) };
         var r = new ReloadInference();
@@ -439,8 +439,8 @@ public class ReloadTests
         double t2 = 0;
         Frame(b, weapons, Shots(0, 2), ref t2);
         for (int i = 0; i < 5; i++) Frame(b, weapons, NoShots, ref t2);
-        Assert.Null(Frame(b, weapons, NoShots, ref t2, busy: true));       // hit or meleeing
-        Assert.False(b.Inferring);
+        Assert.NotNull(Frame(b, weapons, NoShots, ref t2, busy: true));    // hit or meleeing: the reload runs on (sim/reload-keeps, protocol 56)
+        Assert.True(b.Inferring);
         // No reload is started from an emptying shot while busy, nor for a weapon that has none.
         var c = new ReloadInference();
         double t3 = 0;

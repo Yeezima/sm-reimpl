@@ -453,7 +453,9 @@ public static partial class Protocol
     // 55 (musou/batch-2026-11-02; the owner 2026-11-02): no wire change. A hammer or maul in hand does not wait for the pound's smash_available_delay (Loadouts.WieldsHammer), so client and server must agree.
     // 54 (feel/melee-cancels; the owner 2026-11-02): no wire change. A melee press ends the pack classes' hop and the pack and Tactical classes' bull rush and swings at once, the next swing waiting
     //     (PlayerState.MeleeLock, now also in Musou Mode) for the cancelled clip's end; a pack class's Space press in the air while falling starts the take-off (the lift-off launches in the air).
-    public const ushort Version = 55;
+    // 56 (sim/reload-keeps; the owner 2026-11-03: "reloads should not be cancelled by anything other than switching weapons"): no wire change. A melee attack, a throw,
+    //     a ground pound, a reaction or a charge no longer ends the reload in hand; it runs on through them. A switch still stores it with its weapon.
+    public const ushort Version = 56;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>

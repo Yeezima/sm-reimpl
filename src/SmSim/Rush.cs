@@ -315,7 +315,7 @@ public static class Rush
             {
                 Rush = RushPhase.DashAttack, RushTicks = 1, RushLock = spacing, Yaw = DashYaw(input),   // feel/charge-directions: the stick's way of eight
                 EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLanded = false,   // the dash ends (its spacing lock stays)
-                ReloadLeft = 0f, Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Aiming = false,
+                Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Aiming = false,   // sim/reload-keeps: not the reload
             });
         }
         var spec = Loadouts.Rush(c, s);
@@ -325,7 +325,7 @@ public static class Rush
         return new(true, true, false, s with
         {
             Rush = RushPhase.Rush, RushTicks = 1, RushLock = interval, Yaw = yaw,
-            ReloadLeft = 0f, Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Aiming = false,
+            Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Aiming = false,   // sim/reload-keeps: not the reload
         });
     }
 
