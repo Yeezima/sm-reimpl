@@ -15,7 +15,7 @@ public static class PackageScanCommand
     /// <summary>Extensions the binary packages (client, servers) may contain; anything else is an unexpected type (--profile binary).</summary>
     public static readonly string[] BinaryProfileExtensions =
     [
-        ".exe", ".dll", ".so", ".json", ".cmd", ".ps1", ".sh", ".txt", ".md",
+        ".exe", ".x86_64", ".dll", ".so", ".json", ".cmd", ".ps1", ".sh", ".txt", ".md",
         ".jpg",   // the owner's menu background and hub planet, copied beside the exe by release.ps1
     ];
 
