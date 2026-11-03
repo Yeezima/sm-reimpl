@@ -143,12 +143,16 @@ public class MeleeTests(ITestOutputHelper output)
         Assert.Equal(Config.ClipSize - 1, r.States[16].Clip);
         Assert.Equal(1, r.HitSteps.Count(h => h > 0));   // the hit before the cancel still landed
 
-        // Reload input is ignored during an attack, and a melee press cancels a reload in progress.
+        // Reload input is ignored during an attack; a reload in progress runs on through a melee attack (sim/reload-keeps, protocol 56) and completes in it.
         var reload = new Run(Fresh() with { Clip = 5 }).Press().Ticks(5, InputButtons.Reload);
         Assert.All(reload.States, s => Assert.Equal(0f, s.ReloadLeft));
-        var cancel = new Run(Fresh() with { Clip = 5 }).Tick(InputButtons.Reload).Ticks(3).Press();
-        Assert.True(cancel.States[3].ReloadLeft > 0f);
-        Assert.Equal((0f, 1, 5), (cancel.State.ReloadLeft, cancel.State.MeleeStep, cancel.State.Clip));
+        var keep = new Run(Fresh() with { Clip = 5 }).Tick(InputButtons.Reload).Ticks(3).Press();
+        Assert.True(keep.States[3].ReloadLeft > 0f);
+        Assert.Equal((1, 5), (keep.State.MeleeStep, keep.State.Clip));
+        Assert.InRange(keep.State.ReloadLeft, 1e-6f, keep.States[3].ReloadLeft - 1e-6f);
+        for (int k = 0; k < 300 && keep.State.ReloadLeft > 0f; k++) keep.Press();
+        Assert.Equal(0f, keep.State.ReloadLeft);
+        Assert.True(keep.State.Clip > 5);
     }
 
     [Fact]
@@ -399,7 +403,7 @@ public class MeleeTests(ITestOutputHelper output)
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(5, 4, 1, [p, q], Self: 3))));
         Assert.Equal(new[] { p, Protocol.Slim(q) }, back.Players);
         Assert.Equal((2, 0.3f), (back.Players[0].MeleeStep, back.Players[0].MeleeTime));
-        Assert.Equal(55, Protocol.Version);
+        Assert.Equal(56, Protocol.Version);
         var bytes = Protocol.Write(new Snapshot(5, 4, 1, [p], Self: 3));
         // The own record's melee flag byte (4 reaction bytes follow since protocol 17, then the match block, kill count, point
         // count, hit block and shot count): a heavy buffered press (128) without a buffered press (1) is refused (64 is the heavy held flag).

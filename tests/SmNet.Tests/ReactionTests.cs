@@ -309,7 +309,7 @@ public class ReactionTests(ITestOutputHelper output)
     // ---------------------------------------------------------------- interrupts, blocking, ending
 
     [Fact]
-    public void A_reaction_interrupts_a_reload_a_charge_a_throw_an_attack_and_an_evade_and_stops_the_body()
+    public void A_reaction_interrupts_a_charge_a_throw_an_attack_and_an_evade_keeps_a_reload_and_stops_the_body()
     {
         var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = Tactical }, Config) with
         {
@@ -319,11 +319,28 @@ public class ReactionTests(ITestOutputHelper output)
         };
         var r = Reaction.Start(s, Config, Stagger, ReactionDirection.Back, -Vector2.UnitX);
         Assert.Equal((ReactionKind.Stagger, ReactionDirection.Back, 0), (r.Reaction, r.ReactionDirection, r.ReactionTicks));
-        Assert.Equal((0f, false, 0f, 0, 0f, false, 0f), (r.ReloadLeft, r.Charging, r.ChargeTime, r.PendingShot, r.PendingLeft, r.Throwing, r.ThrowTime));
+        Assert.Equal((0.5f, false, 0f, 0, 0f, false, 0f), (r.ReloadLeft, r.Charging, r.ChargeTime, r.PendingShot, r.PendingLeft, r.Throwing, r.ThrowTime));   // sim/reload-keeps (protocol 56): the reload runs on
         Assert.Equal((0, 0f, false, false, false), (r.MeleeStep, r.MeleeTime, r.MeleeQueued, r.MeleeQueuedHeavy, r.MeleeHeavy));
         Assert.Equal((0, 4, false, 1), (r.EvadeTicks, r.EvadeLock, r.Aiming, r.Grenades));   // the throw had not released: nothing spent
         Assert.Equal(new Vector3(0, 0, -1), r.Velocity);
         Assert.Equal((48, 9, 64), (r.PushDistance, r.PushTicks, r.PushYaw));                 // 3 m, 0.3 s; −X is yaw π/2
+    }
+
+    [Fact]
+    public void A_reload_runs_on_through_a_reaction_and_completes()
+    {
+        // sim/reload-keeps (protocol 56; the owner 2026-11-03): only a weapon switch takes a reload out of hand.
+        var s = Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = Tactical }, Config) with { Clip = 1 };
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.Reload), Config, out _);
+        float left = s.ReloadLeft;
+        Assert.True(left > 0f);
+        s = Reaction.Start(s, Config, Stun, ReactionDirection.Front, Vector2.UnitY);
+        s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), Config, out _);
+        Assert.NotEqual(ReactionKind.None, s.Reaction);
+        Assert.InRange(s.ReloadLeft, 1e-6f, left - 1e-6f);
+        for (int k = 0; k < 300 && s.ReloadLeft > 0f; k++) s = Combat.StepPlayer(s, new PlayerInput(0, 0f, 0f, 0f, InputButtons.None), Config, out _);
+        Assert.Equal(0f, s.ReloadLeft);
+        Assert.True(s.Clip > 1);
     }
 
     [Fact]
@@ -538,7 +555,7 @@ public class ReactionTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_17_carries_reactions_and_heavy_strikes_in_every_record_and_the_knockback_and_blindness_in_the_own()
     {
-        Assert.Equal(55, Protocol.Version);
+        Assert.Equal(56, Protocol.Version);
         var me = new PlayerState(3, Vector3.One, Vector3.Zero, 0f, true)
         {
             Alive = true, Reaction = ReactionKind.Stagger, ReactionDirection = ReactionDirection.Left, ReactionTicks = 7,

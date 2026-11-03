@@ -265,7 +265,7 @@ public static class Reaction
 
     /// <summary>
     /// <paramref name="s"/> put into a reaction (the caller checked <see cref="CanReact"/>): whatever it was doing stops (a melee
-    /// attack and its buffered press, a reload, a charge and a pending charged shot, a throw — before its release nothing is spent
+    /// attack and its buffered press, a charge and a pending charged shot (a reload runs on: sim/reload-keeps, protocol 56), a throw — before its release nothing is spent
     /// —, an evade (its spacing lock stays), a jump-pack take-off or landing (the power spent stays spent), aim mode); its
     /// horizontal velocity stops. The clip is <paramref name="direction"/>'s; the knockback goes along <paramref name="push"/>
     /// (horizontal part; a yaw byte) for the entry's Backward metres (1/16 m steps, at most <see cref="MaxPushDistance"/>) over its
@@ -289,7 +289,7 @@ public static class Reaction
             Reaction = entry.Kind, ReactionDirection = direction, ReactionTicks = 0,
             PushYaw = distance > 0 ? pushYaw : 0, PushDistance = distance, PushTicks = ticks,
             MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeHeavy = false, MeleeQueuedHeavy = false, MeleeDirection = EvadeDirection.Forward,
-            ReloadLeft = 0f, Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Throwing = false, ThrowTime = 0f,
+            Charging = false, ChargeTime = 0f, PendingShot = 0, PendingLeft = 0f, Throwing = false, ThrowTime = 0f,   // sim/reload-keeps: a reload runs on through the reaction
             EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLanded = false, JumpDashDirection = keepJump ? s.JumpDashDirection : EvadeDirection.Forward, Aiming = false, Rush = RushPhase.None, RushTicks = 0,
             Jump = keepJump ? s.Jump : JumpPhase.None, JumpTicks = keepJump ? s.JumpTicks : 0, JumpMark = keepJump ? s.JumpMark : 0,
             JumpHolding = false, JumpLandMoving = false, JumpCut = false, JumpSmall = false, JumpSlash = false,

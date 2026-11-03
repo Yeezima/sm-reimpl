@@ -103,26 +103,29 @@ public class GrenadeTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void A_throw_cancels_a_reload_and_a_charge_and_blocks_the_weapon_melee_and_switch()
+    public void A_throw_keeps_a_reload_cancels_a_charge_and_blocks_the_weapon_melee_and_switch()
     {
         var s = Fresh();
         for (int k = 0; k < 5; k++) Step(ref s, InputButtons.Fire);
         Step(ref s, InputButtons.Reload);
-        Assert.True(s.ReloadLeft > 0f);
+        float left = s.ReloadLeft;
+        Assert.True(left > 0f);
+        int clip = s.Clip;
         Step(ref s, InputButtons.Grenade);
         Assert.True(s.Throwing);
-        Assert.Equal(0f, s.ReloadLeft);   // the reload is lost
-        int clip = s.Clip;
+        Assert.InRange(s.ReloadLeft, 1e-6f, left - 1e-6f);   // sim/reload-keeps (protocol 56): the reload runs on through the throw
         var slot = s.Slot;
         for (int k = 0; k < 10; k++)
         {
             var buttons = k % 2 == 0 ? InputButtons.Fire | InputButtons.Melee | InputButtons.Switch | InputButtons.Reload : InputButtons.Fire;
             Assert.False(Step(ref s, buttons).Fired);
         }
-        Assert.Equal((clip, slot, 0, 0f), (s.Clip, s.Slot, s.MeleeStep, s.ReloadLeft));
-        // Control: after the throw the weapon fires again.
+        Assert.Equal((slot, 0), (s.Slot, s.MeleeStep));
         for (int k = 0; k < 15; k++) Step(ref s, InputButtons.None);
         Assert.False(s.Throwing);
+        for (int k = 0; k < 120 && s.ReloadLeft > 0f; k++) Step(ref s, InputButtons.None);
+        Assert.True(s.Clip > clip);   // the reload begun before the throw completed
+        // Control: after the throw the weapon fires again.
         Assert.True(Step(ref s, InputButtons.Fire).Fired);
 
         // A charge is cancelled.
@@ -518,7 +521,7 @@ public class GrenadeTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_8_carries_the_throw_state_within_1200_bytes_and_refuses_unknown_flags()
     {
-        Assert.Equal(55, Protocol.Version);
+        Assert.Equal(56, Protocol.Version);
         var players = Enumerable.Range(1, Protocol.MaxPlayers).Select(Loaded).ToArray();
         var projectiles = Enumerable.Range(0, Protocol.MaxSnapshotProjectiles)
             .Select(k => new ProjectileView(60000 + k, 254, k % 2 == 0 ? 0 : 255, new Vector3(k, -k, 3), k % 2 == 0 ? ProjectileFlags.Thrown | ProjectileFlags.Stuck : ProjectileFlags.Detonated)).ToArray();

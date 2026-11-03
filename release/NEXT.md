@@ -9,3 +9,6 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+
+- Reloads are no longer cancelled by a melee attack, a grenade throw, a ground pound, being staggered or stunned, or a charge: the reload keeps going and finishes on time. Only switching weapons takes it out of your hands (that weapon keeps reloading while holstered, as before), and dying clears it.
+- New network version: this build does not play with earlier ones, so everyone must update.
