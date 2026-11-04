@@ -70,6 +70,9 @@ public partial class MapmakerPlugin : EditorPlugin
     {
         MapHost.RootChanged -= OnRootChanged;
         try { GetUndoRedo().VersionChanged -= OnUndoVersionChanged; GetUndoRedo().HistoryChanged -= OnUndoVersionChanged; } catch (Exception) { }
+        if (_hooked is not null && GodotObject.IsInstanceValid(_hooked)) _hooked.VersionChanged -= OnUndoVersionChanged;
+        _hooked = null;
+        FreeDetachedNodes(); _nodes.Clear();
         if (_dock is not null) { RemoveControlFromDocks(_dock); _dock.QueueFree(); _dock = null; }
         if (_gizmo is not null) { RemoveNode3DGizmoPlugin(_gizmo); _gizmo = null; }
         Thumbs?.QueueFree(); Thumbs = null;
@@ -114,8 +117,16 @@ public partial class MapmakerPlugin : EditorPlugin
     void OnRootChanged()
     {
         HookHistory();
+        FreeDetachedNodes();
         _nodes.Clear(); _contentKeys.Clear();
         if (MapHost.Root is not null && Session is not null) SyncView(true);
+    }
+
+    /// <summary>Nodes of deleted objects are kept detached so undo can reattach them; free them when the map they belong to goes away.</summary>
+    void FreeDetachedNodes()
+    {
+        foreach (var n in _nodes.Values)
+            if (GodotObject.IsInstanceValid(n) && n.GetParent() is null) n.QueueFree();
     }
 
     public void NotifyDoc() => DocChanged?.Invoke();

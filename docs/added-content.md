@@ -120,6 +120,11 @@ The client-to-server direction has one message of its own, kind 17 (`ExtrasComma
   that repository is used as an overlay on the faithful tree (or through a future `SmExtrasDir` property).
 - **A faithful match on an extended build:** `smserver --content faithful` and `client.cmd --connect ... --content faithful`.
 
+## 5b. The Mapmaker
+The Mapmaker (`docs/mapmaker.md`) is added content: its core `src/SmMapmaker` compiles only from `Extras/`, `smtool map` sits behind `SM_EXTRAS`, and the
+Godot plugin is its own project (`mapmaker/`) that no game build references. A faithful build carries none of it; no runtime flag is needed
+because nothing in a match uses it yet (custom maps in a match will take a flag when they arrive).
+
 ## 6. State (E1) and what is left
 
 Done in E1: the flags and profiles, the config-hash block, the Ork runtime gate, `--content` on the server and the networked client, the Host
