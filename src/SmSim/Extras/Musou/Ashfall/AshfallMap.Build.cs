@@ -157,33 +157,6 @@ public static partial class AshfallMap
         b.Box(Cover, -180f, 127.5f, BlockTop, -172f, 128.5f, BlockTop + 1.2f);
     }
 
-    // ---------------------------------------------------------------- N centre: the stronghold
-
-    static void StrongholdLayout(AshfallBuilder b)
-    {
-        // Two L walls, 4 m thick, 12 m tall, walkable tops; the gate between them is open (24 m).
-        b.Box(Wall, -72f, 112f, 0f, -12f, 116f, 12f);
-        b.Box(Wall, -72f, 116f, 0f, -68f, 196f, 12f);
-        b.Box(Wall, 12f, 112f, 0f, 72f, 116f, 12f);
-        b.Box(Wall, 68f, 116f, 0f, 72f, 196f, 12f);
-        // One ramp of box steps up the inner face of each L wall to its top (6 m wide, 48 steps).
-        b.Stair(-65.25f, 116f, 0, 1, 6.5f, 0f, 12f);   // x -68.25..-62.25: into the wall on one side, between grid lines on the other
-        b.Stair(65.25f, 116f, 0, 1, 6.5f, 0f, 12f);
-        // The keep, 64 x 48 m, 18 m tall, a 12 x 10 m entrance (8 m deep) in its south face; solid inside.
-        // Pass 2b: the roof (a Floor slab 0.5 m thick on top, 18 m) is reachable on foot by a stair up the keep's east face: three flights of 6 m (4 m wide, 0.25 m risers, 0.5 m treads), landings at 6 and 12 m, a 4 m deck at 18 m.
-        b.Box(Stronghold, -32f, 164f, 0f, -6f, 212f, 17.5f);
-        b.Box(Stronghold, 6f, 164f, 0f, 32f, 212f, 17.5f);
-        b.Box(Stronghold, -6f, 172f, 0f, 6f, 212f, 17.5f);
-        b.Box(Stronghold, -6f, 164f, 10f, 6f, 172f, 17.5f);
-        b.Box(Floor, -32f, 164f, 17.5f, 32f, 212f, 18f);
-        b.Stair(34f, 164f, 0, 1, 4f, 0f, 6f);
-        b.Box(AshfallKind.Stair, 32f, 176f, 0f, 36f, 180f, 6f);
-        b.Stair(34f, 180f, 0, 1, 4f, 0f, 6f, skip: 24);
-        b.Box(AshfallKind.Stair, 32f, 192f, 0f, 36f, 196f, 12f);
-        b.Stair(34f, 196f, 0, 1, 4f, 0f, 6f, skip: 48);
-        b.Box(AshfallKind.Stair, 32f, 208f, 0f, 36f, 212f, 18f);
-    }
-
     // ---------------------------------------------------------------- NE: objective C, the chapel ruin
 
     static void NorthEast(AshfallBuilder b)

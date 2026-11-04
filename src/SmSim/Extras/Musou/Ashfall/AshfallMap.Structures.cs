@@ -59,6 +59,7 @@ public static partial class AshfallMap
         }
         b.Footprints.Add(new Vector4(-6f, -160f, 6f, 60f));
 
+        StrongholdTowers(p);
         Towers(p);
         Platforms(p);
         Ruins(p);
@@ -75,7 +76,7 @@ public static partial class AshfallMap
     /// A wall run along u (<paramref name="alongU"/>) or v from <paramref name="lo"/> to <paramref name="hi"/>, <paramref name="t0"/>..<paramref name="t1"/> thick: 4 m columns, each with its own broken top
     /// (a storey count and a top height in 0.5 m steps, 1.5..6 m, never in the 0.4..0.9 m band), windows (sill 1 m, opening to 4.5 m) or a doorway (4 m wide, 4.5 m tall).
     /// </summary>
-    static void WallRun(AshfallFrame f, bool alongU, float lo, float hi, float t0, float t1, int storeys, uint seed, int doorCol, int fullCol, bool tower, bool low, bool collapseLo, bool collapseHi, int gateCol = -1, int gateStorey = -1)
+    static void WallRun(AshfallFrame f, bool alongU, float lo, float hi, float t0, float t1, int storeys, uint seed, int doorCol, int fullCol, bool tower, bool low, bool collapseLo, bool collapseHi, int gateCol = -1, int gateStorey = -1, bool noGround = false)
     {
         var edges = new List<float> { lo };
         for (float e = (MathF.Floor(lo / 4f) + 1f) * 4f; e < hi - 0.01f; e += 4f) edges.Add(e);
@@ -114,6 +115,7 @@ public static partial class AshfallMap
             {
                 float zs = Storey * s, ze = MathF.Min(zs + Storey, top);
                 if (ze - zs < 0.5f) continue;
+                if (noGround && s == 0) { Add(zs, ze); continue; }   // a sealed ground storey (pass 3: the twin tower east): no door, no window
                 int r = (int)((h >> (8 + s * 3)) & 7);
                 bool door = (s == 0 && full4 && (c == doorCol || (!tower && !low && r == 3))) || (c == gateCol && s == gateStorey && full4);
                 bool window = !door && !low && (tower ? ((c + s) % 2 == 0 || r < 3) : r < 3 || (r == 3 && s > 0));
@@ -225,7 +227,7 @@ public static partial class AshfallMap
     // ---------------------------------------------------------------- tall buildings
 
     /// <summary>A hand-listed tall building: footprint corner, local size, quarter turns, storeys, stair core; the doorways and gates (column, storey) of its walls, a jump-only roof slab, the distance kept from the claims (8 m, or less to butt a wall).</summary>
-    sealed record TowerDef(string Name, float X, float Y, int W, int D, int Rot, int N, bool Core, int FrontDoor = -1, int LeftDoor = 1, int FrontGateCol = -1, int FrontGateStorey = -1, int RightGateCol = -1, int RightGateStorey = -1, bool Roof = false, float Gap = 8f);
+    sealed record TowerDef(string Name, float X, float Y, int W, int D, int Rot, int N, bool Core, int FrontDoor = -1, int LeftDoor = 1, int FrontGateCol = -1, int FrontGateStorey = -1, int RightGateCol = -1, int RightGateStorey = -1, bool Roof = false, float Gap = 8f, bool Sealed = false, int BackGateCol = -1, int BackGateStorey = -1);
 
     static void Towers(AshfallPlacer p)
     {
@@ -246,7 +248,7 @@ public static partial class AshfallMap
             new("South loop east tower", 132f, -128f, 16, 16, 2, 4, true),
             // Twin towers either side of the west avenue (pass 2b), joined by a bridge at 12 m through a gateway in each facing wall (column 2 = the 4 m at local u 8..12; the east one butts the stronghold's west L wall).
             new("Twin tower west", -124f, 140f, 16, 16, 1, 4, true, FrontGateCol: 2, FrontGateStorey: 2, Roof: true),
-            new("Twin tower east", -84f, 144f, 16, 12, 3, 4, true, FrontGateCol: 2, FrontGateStorey: 2, Roof: true, Gap: 0f),
+            new("Twin tower east", -84f, 144f, 16, 12, 3, 4, true, FrontGateCol: 2, FrontGateStorey: 2, Roof: true, Gap: 0f, Sealed: true, BackGateCol: 1, BackGateStorey: 2),
         ];
         uint seed = 5000;
         foreach (var t in list)
@@ -322,10 +324,10 @@ public static partial class AshfallMap
         int W = t.W, D = t.D, n = t.N;
         bool core = t.Core;
         // Walls: a doorway in the front wall and one in the left, windows on every storey, broken tops on the last; the front wall's first and the back wall's last column reach the full height.
-        WallRun(f, true, 0f, W, 0f, 1f, n, seed + 1, t.FrontDoor >= 0 ? t.FrontDoor : (int)((seed >> 3) % (uint)(W / 4)), 0, true, false, false, false, t.FrontGateCol, t.FrontGateStorey);
-        WallRun(f, false, 1f, D - 1f, W - 1f, W, n, seed + 2, -1, -1, true, false, false, false, t.RightGateCol, t.RightGateStorey);
-        WallRun(f, true, 0f, W, D - 1f, D, n, seed + 3, -1, W / 4 - 1, true, false, false, false);
-        WallRun(f, false, 1f, D - 1f, 0f, 1f, n, seed + 4, t.LeftDoor, -1, true, false, false, false);
+        WallRun(f, true, 0f, W, 0f, 1f, n, seed + 1, t.FrontDoor >= 0 ? t.FrontDoor : (int)((seed >> 3) % (uint)(W / 4)), 0, true, false, false, false, t.FrontGateCol, t.FrontGateStorey, t.Sealed);
+        WallRun(f, false, 1f, D - 1f, W - 1f, W, n, seed + 2, -1, -1, true, false, false, false, t.RightGateCol, t.RightGateStorey, t.Sealed);
+        WallRun(f, true, 0f, W, D - 1f, D, n, seed + 3, -1, W / 4 - 1, true, false, false, false, t.BackGateCol, t.BackGateStorey, t.Sealed);
+        WallRun(f, false, 1f, D - 1f, 0f, 1f, n, seed + 4, t.LeftDoor, -1, true, false, false, false, -1, -1, t.Sealed);
         var floors = new List<Vector3>();
         if (core)
         {
