@@ -14,7 +14,6 @@ public enum ImpactTreatmentMode { Bolters, Ballistic, Off }
 /// </summary>
 public enum HitConfirmMode { Soft, Data, Off }
 
-
 /// <summary>
 /// The owner's request of 2026-10-29 (a deliberate change from SM1: docs/changes-from-original.md): "projectile hit sounds ... very high pitched and jarring, for bolter
 /// weapons at least": impacts at the destination play deeper and muddier, and the shooter hears a fainter, muddier, deeper hit confirm (inspired by Call of Duty: World
@@ -24,6 +23,18 @@ public static class ImpactSounds
 {
     /// <summary>The shooter's hit confirm by default: the data's event (sound/original-hits, owner 2026-11-04); <c>--hit-confirm soft</c> restores the former default.</summary>
     public const HitConfirmMode DefaultHitConfirm = HitConfirmMode.Data;
+
+    /// <summary>The value of a mode flag (<c>--hit-confirm soft</c>) among <paramref name="args"/>, or <paramref name="fallback"/> when the flag is absent or its value is not a name (the error goes to <paramref name="warn"/>); the client's flags read through this.</summary>
+    public static T ModeFromArgs<T>(string[] args, string flag, T fallback, Action<string>? warn = null) where T : struct, Enum
+    {
+        for (int i = 0; i < args.Length; i++)
+            if (args[i] == flag)
+            {
+                if (TryParse<T>(i + 1 < args.Length ? args[i + 1] : null, out var value, out string? error)) return value;
+                warn?.Invoke($"{flag}: {error}; using {fallback.ToString().ToLowerInvariant()}");
+            }
+        return fallback;
+    }
 
     /// <summary>The bolter family's hit events (the data: every bolter, bolt pistol, storm bolter and heavy bolter names <c>play_bolter_hits</c>; the stalker <c>play_stalker_hits</c>).</summary>
     public static readonly IReadOnlySet<string> BolterHitEvents = new HashSet<string>(["play_bolter_hits", "play_stalker_hits"], StringComparer.OrdinalIgnoreCase);

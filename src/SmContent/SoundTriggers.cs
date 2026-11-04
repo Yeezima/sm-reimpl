@@ -209,7 +209,7 @@ public sealed partial class SoundTriggers
     /// in file order. Every melee ability is in it (the combat knife's <c>ability_melee_ck*</c> included), not only the light <c>ability_melee_x*</c>.
     /// </summary>
     public IReadOnlyDictionary<(string Wargear, string Ability, bool Secondary), IReadOnlyList<string>> MeleeAbilityContainers { get; init; } =
-        new Dictionary<(string, string, bool), IReadOnlyList<string>>();
+        new Dictionary<(string, string, bool), IReadOnlyList<string>>(AbilityKeyComparer.Instance);
     /// <summary>Every sound event of each container base name over all its files (the archive keeps base names; a Space Marine, a Chaos and an Ork file can share one), in archive order.</summary>
     public IReadOnlyDictionary<string, IReadOnlyList<string>> ContainerEventChoices { get; init; } = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
 
@@ -256,14 +256,48 @@ public sealed partial class SoundTriggers
 
     static Dictionary<(string, string, bool), IReadOnlyList<string>> AbilityHitTable(IEnumerable<KeyValuePair<string, BafDocument>> docs)
     {
-        var table = new Dictionary<(string, string, bool), List<string>>();
+        var table = new Dictionary<(string, string, bool), List<string>>(AbilityKeyComparer.Instance);
         foreach (var (name, doc) in docs)
             foreach (var (ability, secondary, container) in MeleeAbilityHits(FxBinding.Collect(doc.Root)))
             {
                 if (!table.TryGetValue((name, ability, secondary), out var list)) table[(name, ability, secondary)] = list = [];
                 list.Add(container);
             }
-        return table.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<string>)kv.Value);
+        return table.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<string>)kv.Value, AbilityKeyComparer.Instance);
+    }
+
+    /// <summary>Wargear and ability names compare without case, as the file names do everywhere else here.</summary>
+    public sealed class AbilityKeyComparer : IEqualityComparer<(string, string, bool)>
+    {
+        public static readonly AbilityKeyComparer Instance = new();
+        public bool Equals((string, string, bool) a, (string, string, bool) b) =>
+            a.Item3 == b.Item3 && string.Equals(a.Item1, b.Item1, StringComparison.OrdinalIgnoreCase) && string.Equals(a.Item2, b.Item2, StringComparison.OrdinalIgnoreCase);
+        public int GetHashCode((string, string, bool) k) =>
+            HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(k.Item1), StringComparer.OrdinalIgnoreCase.GetHashCode(k.Item2), k.Item3);
+    }
+
+    /// <summary>
+    /// sound/original-hits: the data ability of a melee strike of <paramref name="wargear"/> (<paramref name="step"/> is 1-based as <c>PlayerState.MeleeStep</c>; 0: unknown, the first light attack's).
+    /// The simulated weapons map by their combo lists (<see cref="MeleeTuning.WeaponMap.AbilityOf"/>; the Ork Boy's choppa too: <c>ability_melee_light</c> / <c>ability_melee_heavy</c>). A heavy strike the
+    /// map gives no ability (a blast strike) takes <c>ability_melee_y</c> / <c>y2</c>.. when the wargear holds that ability with a hit container (interpretation: the combat knife's Y4, which the data
+    /// defines as <c>ability_melee_y4</c>; the chainsword has none and its Y4 and the sword's and axe's Y,Y finishers stay without a hit sound: their sounds are the wargear's <c>displace_*</c> triggered actions).
+    /// A wargear with no map takes <c>ability_melee_heavy</c> / <c>ability_melee_light</c> when it has it, else its first <c>ability_melee*</c> ability. Empty when nothing fits.
+    /// </summary>
+    public string MeleeHitAbility(string? wargear, bool heavy, int step)
+    {
+        if (wargear is null) return "";
+        var map = MpClasses.MeleeMapFor(wargear) ?? (string.Equals(wargear, MeleeTuning.OrkChoppa.Wargear, StringComparison.OrdinalIgnoreCase) ? MeleeTuning.OrkChoppa : null);
+        bool Has(string ability) => MeleeAbilityContainers.ContainsKey((wargear, ability, false));
+        if (map is not null)
+        {
+            string ability = step <= 0 ? map.AbilityOf(false, 1) : map.AbilityOf(heavy, step);
+            if (ability.Length == 0 && heavy && step > 0 && $"ability_melee_y{(step == 1 ? "" : step.ToString(System.Globalization.CultureInfo.InvariantCulture))}" is var y && Has(y)) return y;
+            return ability;
+        }
+        string preferred = heavy ? "ability_melee_heavy" : "ability_melee_light";
+        if (Has(preferred)) return preferred;
+        return MeleeAbilityContainers.Keys.Where(k => k.Wargear.Equals(wargear, StringComparison.OrdinalIgnoreCase) && !k.Secondary && k.Ability.StartsWith("ability_melee", StringComparison.OrdinalIgnoreCase))
+            .Select(k => k.Ability).Order(StringComparer.Ordinal).FirstOrDefault() ?? "";
     }
 
     /// <summary>Behaviour Action tags per clip name (case-insensitive): tag name and start as a fraction of the clip.</summary>

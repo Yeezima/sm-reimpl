@@ -127,6 +127,7 @@ public partial class NetworkView
 
         // Events: the score always; the hit marker, the effects and the telegraphs once the HUD is there.
         var events = _musouState.NewEvents;
+        for (int k = 0; k < shown.Count; k++) _musouTypeOf[shown[k].Id] = shown[k].Type;   // the type of an enemy the blow that killed it can still name
         for (int i = 0; i < events.Count; i++)
         {
             var e = events[i];
@@ -230,7 +231,15 @@ public partial class NetworkView
         // A hit reported at the feet (the enemy's place) is raised to the chest; a real hit point higher up stays.
         if (i >= 0 && at.Z < shown[i].Position.Z + 0.5f) at = new Num.Vector3(at.X, at.Y, shown[i].Position.Z + 1.1f);
         else if (i < 0 && own) at = new Num.Vector3(at.X, at.Y, at.Z + 1.1f);
-        if (e.Value == 3) { MusouPowerFlash(e, at, camera, me); MusouMeleeHitSound(e, at, camera, me); }   // fx/power-flash: a power weapon's cleave (the swing's budget caps the bursts)
+        bool? material = _musouTypeOf.TryGetValue(e.Enemy, out var hitType) && MusouFleshRule.AlwaysFlesh(hitType) ? false : null;   // owner 2026-11-04: an unarmoured Ork's hit is always the flesh case
+        if (e.Value == 3) { MusouPowerFlash(e, at, camera, me); MusouMeleeHitSound(e, at, camera, me, material); }   // fx/power-flash: a power weapon's cleave (the swing's budget caps the bursts)
+        // The own weapon's hit sound on the enemy (hit-scan weapons; the killing blow included): the flesh case for an unarmoured Ork, the usual armour rule otherwise (owner 2026-11-04).
+        if (own && e.Value is 1 or 2 && !NoSound && Loadouts.InHand(_config!, me) is { Delivery: DeliveryKind.Raycast } gun && _soundTriggers?.HitSound(gun.Name) is { } gunHit)
+        {
+            var emitter = new SoundEmitter { Position = ToGodot(at), Label = "musou enemy hit", OneShot = true };
+            PostPlayerHitSound(gunHit, emitter, ImpactSounds.ImpactOffset(ImpactTreatmentArg, gunHit, hitScan: true), material);
+            CountSound("body hit");
+        }
         if (_musouFxTokens < 1f || Num.Vector3.DistanceSquared(at, camera) > FxRange * FxRange) return;
         _musouFxTokens -= 1f;
         _musouHitFx++;
@@ -262,7 +271,7 @@ public partial class NetworkView
     /// With <c>--generated-melee-hit-sound</c> the generated sound instead (fx/melee-hit-sound).
     /// </summary>
     readonly SmClient.ImpactRules.PowerFlashRules.Budget _musouHitSoundSwing = new();
-    void MusouMeleeHitSound(in MusouEvent e, Num.Vector3 at, Num.Vector3 camera, PlayerState me)
+    void MusouMeleeHitSound(in MusouEvent e, Num.Vector3 at, Num.Vector3 camera, PlayerState me, bool? material)
     {
         if (e.Player == 0 || _client is null || Num.Vector3.DistanceSquared(at, camera) > FxRange * FxRange) return;
         bool own = e.Player == _client.PlayerId;
@@ -282,12 +291,14 @@ public partial class NetworkView
             CountSound("melee hit");
             if (LogSound("melee")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} P{e.Player} musou hit event {played}");
         }
-        else PostDataMeleeHit(who, who.MeleeHeavy, who.MeleeStep, secondary, "a Musou enemy", ToGodot(at), "musou hit");
+        else PostDataMeleeHit(who, who.MeleeHeavy, who.MeleeStep, secondary, "a Musou enemy", ToGodot(at), "musou hit", material);
     }
     int _musouHitSoundsThisSwing;
+    /// <summary>The type of each enemy last shown by id (ids are reused within the pool's capacity).</summary>
+    readonly Dictionary<ushort, MusouEnemyType> _musouTypeOf = new();
 
     /// <summary>The nearest shown enemy the own strike should reach (game space, its chest): the cleave's rule (<see cref="MusouCombatRules"/>), for the hit sound at the strike.</summary>
-    void MusouMeleeTarget(PlayerState me, MeleeStep step, ref Num.Vector3? at)
+    void MusouMeleeTarget(PlayerState me, MeleeStep step, ref Num.Vector3? at, ref bool? armoured)
     {
         if (!MusouActive || _config is null) return;
         var rules = MusouCombatRules.Default;
@@ -311,6 +322,7 @@ public partial class NetworkView
             }
             best = distance;
             at = chest;
+            armoured = MusouFleshRule.AlwaysFlesh(e.Type) ? false : null;
         }
     }
 

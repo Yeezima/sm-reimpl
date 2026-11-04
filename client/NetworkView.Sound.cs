@@ -779,17 +779,17 @@ public partial class NetworkView
                     if (LogSound("melee") || LogSound("tag")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} {MeleeWargear(me)} on P{hits.LastVictim} (own hit report) event {played}");
                 }
             }
-            else if (!NoMeleeSounds && !(OwnStrikeSounded && _config.Extras.HasFlag(SmSim.ContentExtras.Musou)))   // Musou: the swing's cleave sounds come from its own events (MusouMeleeHitSound), the report adds nothing
+            else if (!NoMeleeSounds)
             {
-                // sound/original-hits: the data's event for the swing's ability. A victim the swing has sounded for (at the strike) stays silent; the swing's first report with nobody sounded is the primary
-                // target, a further victim a secondary one (a round trip late: ours).
-                if (_connectedFor - _ownSwingAt > SwingMemory) NoteOwnSwing(me);
-                if (_ownSwingVictims.Add(hits.LastVictim))
+                // sound/original-hits: the data's event for the swing's ability. The ledger matches the report to its swing: a victim the swing sounded for at the strike stays silent, the swing's
+                // first other victim is its primary target, a further one a secondary target (a round trip late: ours). The report names only the last victim of the tick (HitReport.LastVictim);
+                // further victims of one report are not recoverable from the wire. Player melee on Musou enemies produces no hit report (the Musou hit event has shooter 0 and CountHits skips it).
+                var v = _ownSwings.Report(_connectedFor, hits.LastVictim, me.MeleeHeavy, me.MeleeStep);
+                if (v.Sound)
                 {
-                    bool secondary = _ownSwingVictims.Count > 1;
                     var struck = _lastOthers.FirstOrDefault(o => o.PlayerId == hits.LastVictim);
                     var spot = (struck.PlayerId == hits.LastVictim && hits.LastVictim > 0 ? struck.Position : me.Position) + new System.Numerics.Vector3(0f, 0f, 1.2f);
-                    PostDataMeleeHit(me, _ownSwingHeavy, _ownSwingStep, secondary, $"P{hits.LastVictim}", ToGodot(spot), "own hit report");
+                    PostDataMeleeHit(me, v.Heavy, v.Step, v.Secondary, $"P{hits.LastVictim}", ToGodot(spot), "own hit report");
                 }
                 else if (LogSound("melee")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} P{me.PlayerId} report on P{hits.LastVictim}: already sounded at the strike");
             }

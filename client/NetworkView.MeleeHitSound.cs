@@ -39,20 +39,8 @@ public partial class NetworkView
 
     // ---- the data's hit sound of a swing ----
 
-    /// <summary>Seconds after the own swing's hit time during which a hit report still belongs to that swing (ours; a report arrives a round trip after the blow, the next swing's hit is later).</summary>
-    const double SwingMemory = 0.6;
-    double _ownSwingAt = double.NegativeInfinity;
-    bool _ownSwingHeavy;
-    int _ownSwingStep;
-    /// <summary>The victims the own swing has sounded for (at the strike or by a report); the first is the primary target, any later one a secondary target.</summary>
-    readonly HashSet<int> _ownSwingVictims = new();
-
-    /// <summary>Remembers the own swing whose hit time has just passed: its strike (light or heavy, step) and a clean victim list.</summary>
-    void NoteOwnSwing(PlayerState me)
-    {
-        _ownSwingAt = _connectedFor; _ownSwingHeavy = me.MeleeHeavy; _ownSwingStep = me.MeleeStep;
-        _ownSwingVictims.Clear();
-    }
+    /// <summary>The own swings and the victims each has sounded for: which server hit reports are already sounded at the strike (<see cref="OwnSwingLedger"/>, matched by swing, not by clock).</summary>
+    readonly OwnSwingLedger _ownSwings = new();
 
     /// <summary>
     /// The data's hit events of a strike: the attacker's wargear, the ability its strike maps to (<see cref="MeleeTuning.WeaponMap.AbilityOf"/>) and that ability's primary or secondary
@@ -62,8 +50,7 @@ public partial class NetworkView
     {
         string? wargear = MeleeWargear(attacker);
         if (wargear is null || _soundTriggers is null) return (wargear, "", []);
-        var map = MpClasses.MeleeMapFor(wargear);
-        string ability = map is null ? "" : step <= 0 ? map.AbilityOf(false, 1) : map.AbilityOf(heavy, step);
+        string ability = _soundTriggers.MeleeHitAbility(wargear, heavy, step);
         return (wargear, ability, _soundTriggers.MeleeHitEvents(wargear, ability, secondary));
     }
 
@@ -71,7 +58,7 @@ public partial class NetworkView
     /// Posts a swing's data hit events at <paramref name="at"/> (Godot space; the armour and flesh layers together, <see cref="PostPlayerHitSound"/>). Returns the events joined, or null when the data
     /// has none for the strike. The log line says the ability, the strike and the rank.
     /// </summary>
-    string? PostDataMeleeHit(PlayerState attacker, bool heavy, int step, bool secondary, string target, Vector3 at, string source)
+    string? PostDataMeleeHit(PlayerState attacker, bool heavy, int step, bool secondary, string target, Vector3 at, string source, bool? armoured = null)
     {
         if (_sound is null) return null;
         var (wargear, ability, events) = MeleeHitData(attacker, heavy, step, secondary);
@@ -81,7 +68,7 @@ public partial class NetworkView
             if (LogSound("melee")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} P{attacker.PlayerId} melee on {target} ({source}) wargear {wargear ?? "-"} strike {strike} ability {(ability.Length > 0 ? ability : "-")} rank {rank}: no hit sound in the data");
             return null;
         }
-        foreach (var evt in events) PostPlayerHitSound(evt, new SoundEmitter { Position = at, Label = $"melee hit on {target}", OneShot = true });
+        foreach (var evt in events) PostPlayerHitSound(evt, new SoundEmitter { Position = at, Label = $"melee hit on {target}", OneShot = true }, default, armoured);
         CountSound(secondary ? "melee hit secondary" : "melee hit");
         _meleeHitPosts++;
         string joined = string.Join("+", events);
@@ -105,7 +92,7 @@ public partial class NetworkView
     bool OwnStrikeSounded => _connectedFor - _ownStrikeSoundAt <= OwnStrikeWindow;
 
     /// <summary>An added mode's own melee targets (Musou's enemies): the nearest one this strike should reach, at its chest (game space).</summary>
-    partial void ExtrasMeleeTarget(PlayerState me, MeleeStep step, ref System.Numerics.Vector3? at);
+    partial void ExtrasMeleeTarget(PlayerState me, MeleeStep step, ref System.Numerics.Vector3? at, ref bool? armoured);
 
     /// <summary>
     /// The owner, 2026-11-02: the sound was late. A server's hit report comes a round trip after the blow, so the own swing's hit sound plays on the frame its hit time passes (the moment the
@@ -115,18 +102,18 @@ public partial class NetworkView
     /// </summary>
     void OwnStrikeHitSound(PlayerState me, MeleeStep step, List<PlayerState> all)
     {
-        NoteOwnSwing(me);
-        if (NoMeleeSounds || NoSound || Lean || _sound is null || _client is null || _config is null) return;
+        if (NoMeleeSounds || NoSound || Lean || _sound is null || _client is null || _config is null) { _ownSwings.Strike(_connectedFor, me.MeleeHeavy, me.MeleeStep, sounded: false, 0); return; }
         var synth = ProceduralHitSound(me, charge: false, dash: false);
-        if (synth is null && _soundTriggers is null) return;
+        if (synth is null && _soundTriggers is null) { _ownSwings.Strike(_connectedFor, me.MeleeHeavy, me.MeleeStep, sounded: false, 0); return; }
         System.Numerics.Vector3? at = null;
         int victim = SmNet.MeleePresentation.Victim(me, all, _config, _client.MeleeLockTarget);
         if (victim > 0) foreach (var p in all) if (p.PlayerId == victim) { at = p.Position + new System.Numerics.Vector3(0f, 0f, 1.2f); break; }
-        ExtrasMeleeTarget(me, step, ref at);   // EXTRAS-HOOK
+        bool? armoured = null;
+        ExtrasMeleeTarget(me, step, ref at, ref armoured);   // EXTRAS-HOOK: an added mode names the material of its own target (Musou Mode: flesh for an unarmoured Ork)
+        _ownSwings.Strike(_connectedFor, me.MeleeHeavy, me.MeleeStep, sounded: at is not null, victim);
         if (at is not { } spot) return;
         _ownStrikeSoundAt = _connectedFor;
-        _ownSwingVictims.Add(victim);
-        string? played = synth is { } s ? PlayProceduralHit(s, ToGodot(spot), "own strike") : PostDataMeleeHit(me, me.MeleeHeavy, me.MeleeStep, secondary: false, victim > 0 ? $"P{victim}" : "an enemy", ToGodot(spot), "at the strike");
+        string? played = synth is { } s ? PlayProceduralHit(s, ToGodot(spot), "own strike") : PostDataMeleeHit(me, me.MeleeHeavy, me.MeleeStep, secondary: false, victim > 0 ? $"P{victim}" : "an enemy", ToGodot(spot), "at the strike", armoured);
         if (synth is not null) { CountSound("melee hit"); if (LogSound("melee") || LogSound("tag")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} {MeleeWargear(me)} at the strike, event {played}"); }
     }
 

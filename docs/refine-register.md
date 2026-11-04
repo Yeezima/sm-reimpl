@@ -28,13 +28,13 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2174 spec table rows: **1560 tagged**, 444 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 470 rows of the changes document.
+Scanned 2177 spec table rows: **1563 tagged**, 444 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 471 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 352 | 297 | 303 | 100 | 12 |
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
-| Weapons (critical) | 118 | 70 | 103 | 53 | 3 |
+| Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
 | Melee (critical) | 100 | 87 | 77 | 32 | 5 |
 | Jump pack (critical) | 73 | 65 | 57 | 18 | 0 |
 | Charge (critical) | 44 | 35 | 37 | 20 | 0 |
@@ -52,18 +52,18 @@ Scanned 2174 spec table rows: **1560 tagged**, 444 not tagged (read from data wi
 | Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
 | Core simulation (provisional values) | 267 | 251 | 213 | 35 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 116 | 109 | 61 | 18 | 0 |
-| **All areas** | **1560** | 1331 | 1217 | 466 | 38 |
+| Ork faction | 117 | 110 | 62 | 18 | 0 |
+| **All areas** | **1563** | 1334 | 1220 | 467 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 741 |
-| confidence: low | 571 |
-| confidence: medium | 518 |
-| kind: interpretation | 336 |
-| notes: ours | 311 |
+| confidence: low | 572 |
+| confidence: medium | 520 |
+| kind: interpretation | 339 |
+| notes: ours | 312 |
 | confidence: none (low) | 128 |
 | kind: provisional | 99 |
 | kind: estimate | 79 |
@@ -668,7 +668,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-62C36356` | War Guardsman health | 85, the install's `ig_coop_guardsman` value, in place of the design's 40: with 40 the 6 squads lost to 60 Boyz in the box (all 60 men dead by 45 s, 39 Boyz left), with 85 they win in 34.4 s losing 20 (hit points) | kind: ours | the install's data; the choice is TF3's measure | War Guardsman health: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 85, the install's ig_coop_guardsman value, in place of the design's… | ☐ |
 
-### Weapons (gameplay-critical) (118)
+### Weapons (gameplay-critical) (120)
 
 *Spec section: Classes and default loadouts (M10, used by the simulation)*
 
@@ -780,6 +780,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-67181DEE` | Generated melee hit sounds (`--generated-melee-hit-sound`, off by default since sound/original-hits) | sound A (power axe, power sword), 0.5 s: sine falling from 150 to 62 Hz in about 30 ms, decay 0.15 s, second harmonic at 0.35, rumble low-passed at 420 Hz, decay 0.12 s; sound B (thunder hammer, daemon maul), 0.8 s: 120 to 46 Hz, decay 0.26 s, rumble at 300… (s, dB, Hz) | kind: estimate; confidence: none (low); notes: ours | ours (owner 2026-11-02: bassier, not late, slightly quieter) | Generated melee hit sounds (--generated-melee-hit-sound…: compare with SM1 by listening A/B at the same distance and state. Ours: sound A (power axe, power sword), 0.5 s: sine falling from 150 to 62… | ☐ |
 | `R-CDB1395C` | Melee hit sound selection | the sound event(s) of a melee hit are the ones the swing's ability names: per wargear file and ability, the `sfx/start_event_name` of each default `trigger_material_effect` container and the default `post_sound_event` (delay 0) under `primary_target_actions`… | confidence: medium | `wargear.oppc`, `material_effect_container.oppc` (`smtool melee-hit-sounds` on branch sound/original-melee-hits) | Melee hit sound selection: compare with SM1 by listening A/B at the same distance and state. Ours: the sound event(s) of a melee hit are the ones the swing's ability… | ☐ |
 | `R-7621EB92` | Melee hit sound timing | the container's `time_delay` is 0 and its trigger point `hitpoint`: the sound posts at the moment the hit resolves, which is the attack's `ACTN_Hit_Targets_Multiplayer` tag (`MeleeStep.HitTime`); the own player's posts on the frame the prediction's strike… (s) | kind: estimate; kind: inferred; confidence: low; notes: ours | data (delay 0); the rest ours | Melee hit sound timing: compare with SM1 by listening A/B at the same distance and state. Ours: the container's time_delay is 0 and its trigger point hitpoint: the… | ☐ |
+| `R-B906D7A0` | Melee hit sound matching (own reports) | the own swing sounds at the strike for the victim it picked; the server's report (it names only the last victim of the tick: `HitReport.LastVictim`) is matched to its swing, not to a clock (`OwnSwingLedger`): a victim a swing sounded and no report has… (s) | kind: interpretation; confidence: low; notes: ours | ours (the wire carries no swing id) | Melee hit sound matching (own reports): compare with SM1 by listening A/B at the same distance and state. Ours: the own swing sounds at the strike for the victim it picked; the… | ☐ |
+| `R-ABFC6CBF` | Melee strikes without an ability | the ability of a strike comes from the combo lists (`MeleeTuning.WeaponMap.AbilityOf`; the Ork Boy's choppa: `ability_melee_light` / `ability_melee_heavy`); a heavy strike the list gives none (a blast strike) takes `ability_melee_y`/`y2`.. when the wargear… | kind: interpretation; confidence: medium | `wargear.oppc` | Melee strikes without an ability: compare with SM1 by feel or video. Ours: the ability of a strike comes from the combo lists… | ☐ |
 | `R-E50A169E` | Stow handle fallback | the thunder hammer and power mace name `rig_prop_rhand` as stow handle, which their object trees lack (their handle is `RIG_Prop_M_Chest`); the model root is used | kind: interpretation; confidence: low; notes: ours | ours | Stow handle fallback: compare with SM1 by feel or video. Ours: the thunder hammer and power mace name rig_prop_rhand as stow handle… | ☐ |
 | `R-5842BB7D` | Muzzle | node `fx_Muzzle` of the weapon's object tree (the marker the wargear's fire and hit effects name); storm bolters also `fx_Muzzle01`; the locator's +Y axis is the barrel direction (all 23 gun models) (m, unit vector in the weapon root's space) | kind: inferred | weapon `.O3d`; wargear `play_fx/marker` | Muzzle: compare with SM1 by feel or video. Ours: node fx_Muzzle of the weapon's object tree (the marker the wargear's… | ☐ |
 | `R-79154EE7` | Default look | drawn: visuals with `LODLevel` bit 0 (or −1); hidden: `_LODL` twins (16) and upgrade geometry (nodes a perk upgrade shows, e.g. `GEO_upg_barrel`, gathered over every wargear drawing the same model: the Devastator bolt pistol lists no upgrades but hides the… | kind: inferred; confidence: medium | weapon `.O3d`, `upgrades/upgrades` | Default look: compare with SM1 by feel or video. Ours: drawn: visuals with LODLevel bit 0 (or −1); hidden: _LODL twins (16)… | ☐ |
@@ -2350,6 +2352,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 |---|---|---|---|---|---|---|
 | `R-46B69A3F` | Ork parity | the Ork shoota's parity reference is the owner-balanced Tactical bolter (`OwnerBalance` runs in `MpClasses.Load` before `WithOrk`): shoota 25.4 per hit (was 22), section "The Ork Boy in the simulation (Ork O4)" | kind: ours | maintainer, 2026-10-28 | Ork parity: compare with SM1 by feel or video. Ours: the Ork shoota's parity reference is the owner-balanced Tactical… | ☐ |
 
+*Spec section: Weapon models on the character (M24; client visuals, not simulated)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-9F38C73D` | Musou: unarmoured Orks sound as flesh | in Musou Mode a hit (melee, hit-scan ranged, the killing blow included) on a Boy, Shoota Boy or Gretchin always plays the flesh case of the hit sound (`material_type flesh`, the broken-armour state); the 'Ard Boy, Nob, Warboss and the Chaos Marine follow the… | kind: interpretation; confidence: medium | owner's decision 2026-11-04 | Musou: unarmoured Orks sound as flesh: compare with SM1 by listening A/B at the same distance and state. Ours: in Musou Mode a hit (melee, hit-scan ranged, the killing blow… | ☐ |
+
 *Spec section: The customizer's preview pose and the Ork Boy in the menus (ui/customizer-ork; client and profile only, no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -3150,6 +3158,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-CC9ECC86` | Power weapons flash on a hit (fx/power-flash, owner 2026-11-01) | Ours (provisional approximation, to refine against the trailer): a melee hit with the thunder hammer, power sword, power axe or daemon maul plays the hammer's own `thunderhammer_dmg_body` and `_secondary` effects (original data) plus a layered soft cloud of the package's own sprites, bigger than a body; blue, the… | scale 0.6 to 1, tint (0.8, 0.1, 1.0), cap 1 + 5 per 0.6 s, close camera x0.22 inside 1.2 m | "Power weapon hit flash" | Power weapons flash on a hit (fx/power-flash, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-9A181A60` | Generated on-hit sounds for melee weapons (fx/melee-hit-sound, owner 2026-11-01 and 2026-11-02; test switch `--generated-melee-hit-sound` since sound/original-hits, 2026-11-04) | Not the default any more: the owner replaced them with the original's sounds (next row). With `--generated-melee-hit-sound` (ours, provisional) the original on-hit sounds of the power axe and power sword (sound A, 0.5 s) and of the thunder hammer and daemon maul (sound B, 0.8 s) are replaced by deep impacts generated… | A: 62 Hz note, 0.5 s; B: 46 Hz note, 0.8 s; volume x0.5 | "Generated melee hit sounds" | Generated on-hit sounds for melee weapons…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-B3C401DB` | Melee hit sounds are the original's (sound/original-hits, owner 2026-11-04) | A melee hit plays the data's own event for the swing's ability: the `sfx` event of the container (and the `post_sound_event`, e.g. the combat knife's `play_sm_fist_hit`) its `primary_target_actions` (first target) or `secondary_target_actions` (further targets of the same swing) name, at the moment the hit resolves; a… | the original posts the hit event at the hit, per target | "Melee hit sound selection and timing (sound/original-hits)" | Melee hit sounds are the original's (sound/original-hits…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-6BFE4F87` | Musou: unarmoured Orks always sound as flesh (sound/original-hits, owner 2026-11-04) | In Musou Mode a hit on a Boy, Shoota Boy or Gretchin plays the flesh case of the hit sound whatever the armour rule says (melee and hit-scan ranged, the killing blow included); the 'Ard Boy, Nob, Warboss and Chaos Marine follow the usual rule. Added content (Extras/Musou); no change to classic PvP. Which types are… | the original has no Musou Mode | "Musou: unarmoured Orks sound as flesh" | Musou: unarmoured Orks always sound as flesh…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-74F3FFE3` | Damage flash restarts (fix/spawn-room-light, 2026-11-01) | Ours: a hit while a damage flash still runs lifts it back to the plateau after the peak (envelope 0.45) and never re-peaks it; a hit with no flash running peaks as before. `--old-damage-flash` restores restarting at the peak on every hit. The Musou vista's far explosions (`oob_explosions_artillery_less`, the flak)… | The original's rule for hits during a flash is not known; a crowd strobed the screen | Musou Mode crowds; flash feel in classic play | Damage flash restarts (fix/spawn-room-light, 2026-11-01): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-80EA67D1` | Musou boss, trickle and cards (hotfix/boss-trickle, owner 2026-11-01) | Ours (added content, Musou Mode only): the final Warboss starts in the courtyard outside the HQ room and is a 1.6 times Nob body always; an unleashed Ork trickles from each sending source every 1.5 s up to the crowds' cap again; the reward cards after a won map are off (`TfwRewardRules.Enabled`). | The original has no Musou Mode; the owner's words of 2026-11-01. | Musou Mode only; classic PvP is untouched. Spec rows: Final boss courtyard, Warboss size, The trickle, Reward cards off. | Musou boss, trickle and cards (hotfix/boss-trickle, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-A8CF39A2` | Pad strike, menu A and ADS sensitivity (owner 2026-11-02) | Ours (the strike is added content, Musou Mode only): left on the D-pad calls the orbital strike; a menu opened with the pad focuses its first control so A presses like a left click; a separate gamepad aim sensitivity (default 1.00x) in Options. | The owner's words of 2026-11-02. | Classic PvP keeps R3 as the zoom cycle. Spec rows: Musou orbital strike on the pad, Pad aim sensitivity. | Pad strike, menu A and ADS sensitivity (owner 2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |

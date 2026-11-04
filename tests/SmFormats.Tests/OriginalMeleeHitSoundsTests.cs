@@ -26,7 +26,7 @@ public class OriginalMeleeHitSoundsTests
         {
             Files = new Dictionary<string, SoundFile>(), ContainerSounds = new Dictionary<string, string>(sounds, StringComparer.OrdinalIgnoreCase),
             ClipTags = new Dictionary<string, IReadOnlyList<(string Tag, float At)>>(), Notes = [],
-            MeleeAbilityContainers = table.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<string>)kv.Value),
+            MeleeAbilityContainers = table.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<string>)kv.Value, SoundTriggers.AbilityKeyComparer.Instance),
             ContainerEventChoices = new Dictionary<string, IReadOnlyList<string>>(choices ?? [], StringComparer.OrdinalIgnoreCase),
         };
     }
@@ -154,10 +154,54 @@ public class OriginalMeleeHitSoundsTests
     }
 
     [Fact]
-    public void The_shooters_hit_confirm_defaults_to_the_data_event()
+    public void The_shooters_hit_confirm_defaults_to_the_data_event_and_the_flag_overrides_it()
     {
         Assert.Equal(HitConfirmMode.Data, ImpactSounds.DefaultHitConfirm);
-        Assert.NotEqual(HitConfirmMode.Soft, ImpactSounds.DefaultHitConfirm);
+        // The client reads --hit-confirm through ModeFromArgs with the default as the fallback.
+        Assert.Equal(HitConfirmMode.Data, ImpactSounds.ModeFromArgs([], "--hit-confirm", ImpactSounds.DefaultHitConfirm));
+        Assert.Equal(HitConfirmMode.Data, ImpactSounds.ModeFromArgs(["--connect", "x"], "--hit-confirm", ImpactSounds.DefaultHitConfirm));
+        Assert.Equal(HitConfirmMode.Soft, ImpactSounds.ModeFromArgs(["--hit-confirm", "soft"], "--hit-confirm", ImpactSounds.DefaultHitConfirm));
+        Assert.Equal(HitConfirmMode.Off, ImpactSounds.ModeFromArgs(["--bot", "--hit-confirm", "OFF"], "--hit-confirm", ImpactSounds.DefaultHitConfirm));
+        var warnings = new List<string>();
+        Assert.Equal(HitConfirmMode.Data, ImpactSounds.ModeFromArgs(["--hit-confirm"], "--hit-confirm", ImpactSounds.DefaultHitConfirm, warnings.Add));
+        Assert.Equal(HitConfirmMode.Data, ImpactSounds.ModeFromArgs(["--hit-confirm", "loud"], "--hit-confirm", ImpactSounds.DefaultHitConfirm, warnings.Add));
+        Assert.Equal(2, warnings.Count);
+    }
+
+    [Fact]
+    public void A_wargear_without_a_combo_map_takes_its_light_or_heavy_ability_and_a_blast_strike_its_y_ability_when_the_data_has_one()
+    {
+        var fx = new[]
+        {
+            Hit("ability_melee_light", "primary_target_actions", "chainsword"), Hit("ability_melee_heavy", "primary_target_actions", "kick"),
+            Hit("ability_melee_sprint", "primary_target_actions", "kick"),
+        };
+        var ork = Triggers(fx, "ork_coop_boy_choppa", Sounds);   // the Ork Boy's choppa has a map of its own (OrkChoppa): light and heavy by the list
+        Assert.Equal("ability_melee_light", ork.MeleeHitAbility("ork_coop_boy_choppa", heavy: false, 1));
+        Assert.Equal("ability_melee_light", ork.MeleeHitAbility("ork_coop_boy_choppa", false, 2));
+        Assert.Equal("ability_melee_heavy", ork.MeleeHitAbility("ork_coop_boy_choppa", true, 1));
+        Assert.Equal(["play_t_chain_hit"], ork.MeleeHitEvents("ork_coop_boy_choppa", ork.MeleeHitAbility("ork_coop_boy_choppa", false, 1), false));
+        // A wargear with no map at all
+        var other = Triggers(fx, "some_other_melee", Sounds);
+        Assert.Equal("ability_melee_light", other.MeleeHitAbility("some_other_melee", false, 1));
+        Assert.Equal("ability_melee_heavy", other.MeleeHitAbility("some_other_melee", true, 3));
+        Assert.Equal("", other.MeleeHitAbility("missing", false, 1));
+        Assert.Equal("", other.MeleeHitAbility(null, false, 1));
+        // The knife's Y4 has no ability in the combo list; the wargear defines ability_melee_y4 (a kick) and it is taken. The chainsword's has none: silent.
+        var knife = Triggers([Hit("ability_melee_y4", "primary_target_actions", "kick"), Hit("ability_melee_ck1", "primary_target_actions", "fist")], "sm_mp_melee_combat_knife", Sounds);
+        Assert.Equal("ability_melee_y4", knife.MeleeHitAbility("sm_mp_melee_combat_knife", true, 4));
+        Assert.Equal("ability_melee_ck2", knife.MeleeHitAbility("sm_mp_melee_combat_knife", false, 2));
+        var chain = Triggers([Hit("ability_melee_x1", "primary_target_actions", "chainsword")], "sm_mp_melee_chainsword", Sounds);
+        Assert.Equal("", chain.MeleeHitAbility("sm_mp_melee_chainsword", true, 4));
+        Assert.Equal("ability_melee_x1", chain.MeleeHitAbility("sm_mp_melee_chainsword", false, 0));   // an unknown strike: the first light attack
+    }
+
+    [Fact]
+    public void Wargear_and_ability_names_compare_without_case()
+    {
+        var t = Triggers([Hit("ability_melee_x1", "primary_target_actions", "chainsword")], "sm_mp_melee_chainsword", Sounds);
+        Assert.Equal(["play_t_chain_hit"], t.MeleeHitEvents("SM_MP_MELEE_CHAINSWORD", "ABILITY_MELEE_X1", false));
+        Assert.Equal("ability_melee_x1", t.MeleeHitAbility("Sm_Mp_Melee_Chainsword", false, 0));
     }
 
     /// <summary>The data these rules rest on, read from the install (skipped without one): the real wargear files' hit events per ability; no original bytes are kept.</summary>
@@ -165,7 +209,7 @@ public class OriginalMeleeHitSoundsTests
     public void The_installs_wargear_gives_the_hit_events_described()
     {
         string game = GameInstall.TryLocate()!.Dir;
-        string[] wargear = ["sm_mp_melee_combat_knife", "sm_mp_melee_chainsword", "sm_mp_melee_powersword", "sm_mp_melee_power_axe", "csm_mp_melee_chain_axe", "sm_mp_melee_2hand_thunder_hammer", "csm_mp_melee_2hand_power_mace"];
+        string[] wargear = ["ork_coop_boy_choppa", "sm_mp_melee_combat_knife", "sm_mp_melee_chainsword", "sm_mp_melee_powersword", "sm_mp_melee_power_axe", "csm_mp_melee_chain_axe", "sm_mp_melee_2hand_thunder_hammer", "csm_mp_melee_2hand_power_mace"];
         var t = SoundTriggers.Load(game, wargear, [], (IReadOnlyList<SmFormats.Havok.BehaviorGraph>?)null);
         Assert.Contains("play_sm_fist_hit", t.MeleeHitEvents("sm_mp_melee_combat_knife", "ability_melee_ck1", false));   // its hit_audio command
         Assert.Contains("play_sm_fist_hit", t.MeleeHitEvents("sm_mp_melee_combat_knife", "ability_melee_ck1", true));    // the further targets
@@ -173,6 +217,12 @@ public class OriginalMeleeHitSoundsTests
         Assert.Contains("play_sm_kick_hit", t.MeleeHitEvents("sm_mp_melee_chainsword", "ability_melee_y", false));
         Assert.Contains("play_sm_power_sword_hit", t.MeleeHitEvents("sm_mp_melee_powersword", "ability_melee_x1", false));
         Assert.Contains("play_sm_thunder_hammer_hit", t.MeleeHitEvents("sm_mp_melee_2hand_thunder_hammer", "ability_melee_x1", false));
-        Assert.All(wargear, w => Assert.DoesNotContain(t.MeleeAbilityContainers.Keys.Where(k => k.Wargear == w).SelectMany(k => t.MeleeHitEvents(w, k.Ability, k.Secondary)), e => e.StartsWith("play_or_")));
+        // The Ork Boy's choppa: its map gives ability_melee_light / heavy and the data holds their hit events (the Orks' own files).
+        Assert.Equal(["play_or_choppa_hit"], t.MeleeHitEvents("ork_coop_boy_choppa", t.MeleeHitAbility("ork_coop_boy_choppa", false, 1), false));
+        Assert.NotEmpty(t.MeleeHitEvents("ork_coop_boy_choppa", t.MeleeHitAbility("ork_coop_boy_choppa", true, 1), false));
+        // The knife's Y4 (no ability in the combo list) takes the wargear's ability_melee_y4; the chainsword has none.
+        Assert.Contains("play_sm_kick_hit", t.MeleeHitEvents("sm_mp_melee_combat_knife", t.MeleeHitAbility("sm_mp_melee_combat_knife", true, 4), false));
+        Assert.Empty(t.MeleeHitEvents("sm_mp_melee_chainsword", t.MeleeHitAbility("sm_mp_melee_chainsword", true, 4), false));
+        Assert.All(wargear.Skip(1), w => Assert.DoesNotContain(t.MeleeAbilityContainers.Keys.Where(k => k.Wargear == w).SelectMany(k => t.MeleeHitEvents(w, k.Ability, k.Secondary)), e => e.StartsWith("play_or_")));
     }
 }
