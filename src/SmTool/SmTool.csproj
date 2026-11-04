@@ -5,6 +5,11 @@
     <ProjectReference Include="..\SmContent\SmContent.csproj" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(SmExtras)' == 'true'">
+    <!-- Added content: the Mapmaker core (docs/mapmaker.md), behind `smtool map`. -->
+    <ProjectReference Include="..\SmMapmaker\SmMapmaker.csproj" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="NVorbis" Version="0.10.5" />
   </ItemGroup>
