@@ -79,7 +79,7 @@ either 0 or at least 1.2 m.
 - Lighting and sky: the client's provisional look (warm sun, ash-grey fog); no map effects or ambient sound on the generated level.
 
 ## Results (generator, server, content, tool and tests)
-Generator `AshfallMap.Build` (version 1; `AshfallMap.Build.cs` holds the layout, `AshfallBuilder.cs` the primitives), all ours:
+Generator `AshfallMap.Build` (version 1 here; see Pass 2 below for version 2; `AshfallMap.Build.cs` holds the layout, `AshfallBuilder.cs` the primitives), all ours:
 - **Triangles** (collision, character mesh = weapon mesh): total 16,940 of the 200,000 budget, in 569 parts. Per kind: Ground 10,208 (5 parts: four slabs and the crater heightfield, 2 m cells over the west-middle block, with skirts), Road 36, Paving 12,
   Curb 96, Wall 684, Cover 192, Rubble 2,556 (213 pieces), Floor 108, Stair 2,700 (225 box steps), Perch 60, Stronghold 48, Boundary 48, Backdrop 192; the three objective discs (not solid) add 72.
   `smtool ashfall-plan` prints the same table.
@@ -120,3 +120,47 @@ Unfinished or open: the first cold start of a server builds the graph for about 
 - Open: Ashfall and Manufactorum runs may share best-score records (`TfwMapScore` carries no map id; unverified); the cold graph build on a new
   server copy (about 10 to 60 s by machine) delays the war's start once; both war maps share the graph cache's base name; the faithful build's
   `smtool` help lists `ashfall-plan` though the command exists only with added content.
+
+## Pass 2 (owner's playtest notes, 2026-11-05)
+The owner's notes (verbatim): "currently there are not enough ruined structures around. simulate them with grey box. add more low walls around the 'roads' of the map. remove the box from the B center point. add more buildings that are many stories high",
+"more random shooting platforms that are just small plateus with slopes that are less than 1 storey high", "add stairs all around the A point box" and "add more cover and structures in particular in the areas marked in red".
+`AshfallMap.Version` is now **2** (level hash `0x875D9199C67B1894`, pinned in the tests; version 1 was `0x4D0658D87AF67B7B`). All of it is ours (placeholder demonstration); the client is unchanged (it draws the existing kinds).
+New code: `AshfallMap.Structures.cs` (the layouts), `AshfallPlacer.cs` (claims, banned places, checks), `AshfallFeatures.cs` (`AshfallMap.BuildWithFeatures()` returns the level and what pass 2 placed, for the checks; `Build()` is unchanged).
+
+What changed:
+- **B**: the fallen statue is gone; B's centre and its whole zone are clear (the rubble piles 32-48 m out stay).
+- **A's plinth** has a box-step stair (8 m wide, 0.25 m risers, 0.5 m treads, 3 m) on all four sides (north, west and east added to the south one); the obelisk stays as the jump-only perch. A's zone holds no new cover; A's nearby rubble and low walls needed no move (the stairs are claims, so the rubble keeps 1.2 m from them).
+- **Ruins** (grey-box shells): 152 placed by rule across the nine blocks (the stronghold block excepted): 1-storey shells (8-16 x 8-12 m), 2-storey shells (12-24 x 12-16 m; those 20 m or longer have a straight 4 m stair to a partial first floor, the others a jump-only partial floor), facade fragments with buttresses,
+  freestanding broken walls and L corners. Walls are 1 m thick in 4 m columns with broken tops (0.5 m steps, 1.5-6 m per storey, never in the 0.4-0.9 m band), windows (1 m sill, 3.5 m opening) and doorways 4 m wide x 4.5 m tall; one corner of some shells has collapsed.
+- **Tall buildings** (3-5 storeys, 18-30 m): 12, footprints 12 x 12 to 16 x 24 m: NW, NE and SW corner towers (5 storeys), one by A (4), one by C (3), an east tower (4), two on the south loop (3 and 4), a plaza-west tower (3), an east flank shell (3), the shell south-east of the compound (3) and the SE corner shell (4).
+  8 have a walkable stair core (a dogleg of 4 m wide flights of 3 m with a 2 m pad, per storey; the floor plates have a staggered 4 x 4 hole and are open over the core) reaching every floor at 6 m steps; the other 4 are shells whose floors (kind Perch) are jump-only. Every storey has outward windows and the ground floor two doorways.
+  The highest walkable floor is 24 m (the 5-storey towers; their walls reach 30 m), at least 24 m from the boundary, so a full jump from it peaks near 41.5 m under the boundary's 48 m.
+- **Shooting platforms**: 26 plateaus 6-12 m square with tops at 1.5-5.5 m (0.5 m steps, always under one storey), each with one or two box-step ramps (4 m wide, 26.6 deg, solid down to the ground), a Wall-kind body under a Floor-kind top and a 1 m Cover parapet along part of the edge on about half.
+  Chosen in hash order from the 4 m grid, red zones first, at least 36 m apart, with the same exclusions as the ruins.
+- **Low walls along the roads**: 310 curb segments (3,616 m in all; 8-16 m long, 0.5 or 1.0 m thick, 1.0 or 1.2 m tall, kind Cover) along every block edge and the boundary wall's foot, with openings of 4-8 m between (at least one every 24 m), and 72 staggered cover walls (5.5 m, across half an avenue beside the 8 m lane, alternating sides)
+  every 24 m along both avenues in each direction (every 12 m inside the red zones). A segment that would touch anything or stand on a slope is left out, which only widens an opening.
+- **Rubble**: the clusters on the avenues moved to the avenues' edges (the lane stays free) and 29 more clusters went into the red zones.
+
+Placement rules (`AshfallPlacer`): candidates on the 4 m grid in a fixed hash order (`AshfallBuilder.Mix`, no `System.Random`); a candidate is accepted when its footprint stays at least 8 m from every claim (everything hand-built and everything placed before), outside the banned places and on level ground (a road or a block's top, never a crater or a rim).
+Banned: the 8 m lane (plus 1.2 m) of every avenue and perimeter centreline, the paved road and the plaza's axes, the stronghold gate's approach, both start areas, the stronghold block's interior, each capture zone plus 6 m, the plaza's open centre (B's zone plus 6 m), the spawn markers plus 6 m.
+Ruins stay 4 m inside their block; platforms stay inside +-222 m. The tall buildings are hand-listed (a wrong entry fails the build with the reason). Kit rules hold: structures on the 4 m grid, tops on 0.5 m levels, gaps 0 or at least 1.2 m (curb walls and rubble keep 1.2 m from everything).
+
+Red zones (`AshfallMap.PriorityZones`, the lead's reading of the owner's marked screenshot): ruins get a second pass of their own inside each, platforms are chosen there first, the avenue cover is twice as dense and rubble clusters were added. Per zone:
+1. South loop (y -120..-60, the whole width): a second ruin pass on the south blocks' north edge and the middle row's south edge, two tall buildings (a 3-storey shell at (-148, -128), a 4-storey tower with a core at (132, -128)), staggered cover every 12 m along the south avenue, platforms first, rubble clusters on both edges.
+2. Crater field south-west (x -220..-160, y -90..0): ruins, platforms and rubble on the flat ground between the craters (no building stands on a crater or rim: a wall on a slope would hang).
+3. West avenue by the plaza's south-west corner (x -100..-60, y -70..-30): staggered cover every 12 m, ruins in the plaza block's south-west quarter, rubble, a platform first.
+4. East avenue south of the arch (x 80..130, y -70..-20): the same.
+5. East side of the E block (x 190..236, y -70..0): ruins, platforms, rubble; the east tower (y 48..72) and the SE corner shell frame it.
+6. North avenue south of A's block and east of the stronghold (y 80..104): staggered cover every 12 m, small ruins along the edges, rubble; the gate approach x -12..12 stays banned.
+
+Checks added (all automated): the new hash; no solid in any capture cylinder (A: only its plinth, four stairs and obelisk); ruins and tall buildings out of the zones' 6 m ring, the start areas, the plaza's open centre and the perimeter road, with 8 m between any two; each avenue's and the perimeter's 8 m corridor free of solids
+(exceptions: version 1's monument and arch); no wall or cover top in the 0.4-0.9 m band; platform heights; tall buildings 3-5 storeys, footprints 12 x 12 to 24 x 16, 6 m x storeys high, 10 m clear of the boundary; A's four stairs. The slow graph test walks to every platform top (26), every ruin floor with a stair (5), every floor of the 8 cored buildings (25) and from each of A's four stair feet to the plinth top,
+and confirms with the downward-ray control that the shell towers' floors are solid tops the graph does not reach on foot.
+
+Results: 60,848 collision triangles of the 200,000 budget in 4,228 parts (was 16,940 in 569). Per kind: Ground 10,208, Road 36, Paving 12, Curb 96, Wall 20,772, Cover 4,896, Rubble 2,904, Floor 1,572, Stair 19,632, Perch 432, Stronghold 48, Boundary 48, Backdrop 192.
+Enemies' graph: 902,105 nodes (was 800,782); cold build 92 to 138 s on the development machine (the longer figure with the other tests running), about 107 MiB retained, cache file about 76 MiB, loaded from the cache in 0.4 s. The wire box is 696 x 651 x 57 m: a worst position error of about 0.5 cm, unchanged.
+Per-block share of the ground covered by ruin and tower footprints: 10 to 15 % in the eight built blocks (walls are thin, so a block reads denser than the share), 2 % in the crater field.
+
+Deviations: the tall buildings' stair core is 8 m long (flight, 2 m pad, flight returning in the other lane): a first version with a landing at the far end could not be walked, as its second flight began on the wall-side edge that the graph's grid cannot step onto. The SW corner tower stands at y -176..-160, not in the corner,
+because the block-centre spawn marker (-196, -196) keeps 10 m clear. Platforms are accepted wherever the rules pass (blocks, avenue edges, junction quarters), not on a fixed list. Few ruins have a walkable floor (5), as only shells 20 m or longer have the room for the stair; the rest keep jump-only partial floors.
+Unfinished: the plan SVG was not looked at by a person; the red zones follow the lead's reading of the marked screenshot; no live check (the lead runs it).

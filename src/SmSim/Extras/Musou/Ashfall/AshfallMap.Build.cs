@@ -14,7 +14,10 @@ public static partial class AshfallMap
     /// <summary>
     /// The level (deterministic): docs/musou-ashfall-graybox.md in code, every place and size ours (placeholder demonstration). The same parts, in the same order, with the same bits, on every machine.
     /// </summary>
-    public static AshfallLevel Build()
+    public static AshfallLevel Build() => BuildWithFeatures().Level;
+
+    /// <summary>The level together with what pass 2 placed (platforms, tall buildings, ruins, walls), for the checks.</summary>
+    public static AshfallBuild BuildWithFeatures()
     {
         var b = new AshfallBuilder();
         GroundLayout(b);
@@ -47,13 +50,14 @@ public static partial class AshfallMap
 
         foreach (var s in spawns) b.Reserved.Add(new Vector3(s.X, s.Y, 4f));
         foreach (var p in points) b.Reserved.Add(new Vector3(p.Center.X, p.Center.Y, 4f));
+        var features = Structures(b, points);
         RubbleLayout(b);
         foreach (var p in points) b.Disc(p.Center.X, p.Center.Y, BlockTop + 0.05f + (p.Name == "B" ? Overlay : 0f), p.Radius);
 
         // The perimeter road's corners (added after the rubble, so they do not move it): the enemies' graph and the war's bounds are the seeds' box plus 30 m,
         // and without these the east and north strips (x > 210, y > 194) had no nodes and an order there was clamped (review of 2026-11-04).
         Vector3[] corners = [P(-232f, -232f), P(232f, -232f), P(-232f, 232f), P(232f, 232f)];
-        return new AshfallLevel(b.Parts, points, areas, [.. spawns, .. corners], HashOf(b.Parts));
+        return new AshfallBuild(new AshfallLevel(b.Parts, points, areas, [.. spawns, .. corners], HashOf(b.Parts)), features);
     }
 
     /// <summary>The level's hash: FNV-1a over the solid parts' corner bits in order, salted with <see cref="Version"/>.</summary>
@@ -140,7 +144,10 @@ public static partial class AshfallMap
     {
         // Plinth 16 x 16 x 3 m centred on A, a box-step stair 8 m wide up its south face, a broken obelisk (jump-only perch) to 15 m.
         b.Box(Floor, -172f, 156f, 0f, -156f, 172f, 3f);
-        b.Stair(-164f, 150f, 0, 1, 8f, 0f, 3f);
+        b.Stair(-164f, 150f, 0, 1, 8f, 0f, 3f);    // south
+        b.Stair(-164f, 178f, 0, -1, 8f, 0f, 3f);   // north (pass 2: stairs on all four sides, owner's note)
+        b.Stair(-178f, 164f, 1, 0, 8f, 0f, 3f);    // west
+        b.Stair(-150f, 164f, -1, 0, 8f, 0f, 3f);   // east
         b.Box(Perch, -166f, 166f, 3f, -162f, 170f, 15f);
         // Two low walls (1.2 m) at 28..40 m from A, cover outside the zone.
         b.Box(Cover, -136f, 175.5f, BlockTop, -128f, 176.5f, BlockTop + 1.2f);
@@ -229,8 +236,7 @@ public static partial class AshfallMap
 
     static void Centre(AshfallBuilder b)
     {
-        // The fallen statue: an oriented box 24 x 6 x 4 m turned 30 degrees (low cover inside the zone); centred (12, 8), not the sketch's (6, 4), which would cover B's centre.
-        b.Oriented(Cover, 12f, 8f, BlockTop, BlockTop + 4f, 24f, 6f, 2);
+        // Pass 2: the fallen statue at B is removed (owner's note); B's plaza stays.
         // The small monument on the west avenue: plinth 10 x 10 x 2 m, steps on its east side, an obelisk 3 x 3 m to 12 m (jump-only perch).
         b.Box(Floor, -97f, -5f, 0f, -87f, 5f, 2f);
         b.Stair(-83f, 0f, -1, 0, 6f, 0f, 2f);
@@ -320,9 +326,14 @@ public static partial class AshfallMap
         C(-190f, -140f, 8, 6f, 2); C(-140f, -200f, 8, 6f, 2); C(-210f, -190f, 6, 5f, 2);
         C(-60f, -130f, 6, 6f, 2); C(60f, -130f, 6, 6f, 2); C(-60f, -195f, 6, 5f, 2); C(60f, -195f, 6, 5f, 2);
         C(130f, -190f, 7, 6f, 2); C(200f, -130f, 7, 6f, 2); C(190f, -190f, 6, 5f, 2);
-        C(-92f, -40f, 6, 5f, 2); C(92f, 40f, 6, 5f, 2); C(92f, -40f, 5, 5f, 2); C(-92f, 40f, 5, 5f, 2);
+        C(-100f, -40f, 6, 5f, 2); C(100f, 40f, 6, 5f, 2); C(100f, -40f, 5, 5f, 2); C(-100f, 40f, 5, 5f, 2);
         C(-100f, 190f, 6, 6f, 2); C(100f, 190f, 6, 6f, 2); C(-92f, 130f, 5, 5f, 2); C(92f, 130f, 5, 5f, 2);
         C(200f, 40f, 7, 6f, 2); C(130f, 40f, 6, 6f, 2); C(200f, -60f, 6, 6f, 2); C(130f, -10f, 5, 5f, 2);
         C(-50f, 60f, 5, 5f, 2); C(50f, -60f, 5, 5f, 2);
+        // Pass 2: more rubble in the owner's red-marked zones (south loop, crater field south-west, the avenues' stretches, the east side, the north avenue).
+        foreach (var (x, y) in new[] { (-200f, -110f), (-150f, -112f), (-60f, -112f), (60f, -112f), (150f, -112f), (205f, -112f), (-200f, -70f), (-150f, -72f), (-70f, -70f), (70f, -70f), (150f, -70f), (210f, -72f),
+            (-210f, -60f), (-180f, -30f), (-190f, -75f), (-70f, -50f), (-80f, -35f), (110f, -50f), (120f, -30f), (110f, -65f), (205f, -45f), (215f, -20f), (200f, -5f),
+            (-170f, 95f), (-130f, 95f), (-110f, 110f), (80f, 95f), (110f, 108f), (140f, 95f) })
+            C(x, y, 5, 5f, 2);
     }
 }

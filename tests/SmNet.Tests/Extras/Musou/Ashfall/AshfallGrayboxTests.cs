@@ -15,7 +15,9 @@ namespace SmNet.Tests.Extras.Musou.Ashfall;
 /// </summary>
 public class AshfallGrayboxTests(ITestOutputHelper output)
 {
-    static readonly AshfallLevel Level = AshfallMap.Build();
+    static readonly AshfallBuild Gen = AshfallMap.BuildWithFeatures();
+    static readonly AshfallLevel Level = Gen.Level;
+    static readonly AshfallFeatures Features = Gen.Features;
     static readonly StaticMesh Mesh = new(Level.SolidCorners(), Enumerable.Range(0, Level.SolidCorners().Length).ToArray());
 
     // ---------------------------------------------------------------- determinism
@@ -34,15 +36,16 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
         }
         Assert.Equal(a.Points, b.Points);
         Assert.Equal(a.Spawns, b.Spawns);
+        Assert.Equal(2u, AshfallMap.Version);
         Assert.Equal(Hash(a, AshfallMap.Version), a.Hash);
         Assert.NotEqual(Hash(a, AshfallMap.Version + 1), a.Hash);   // a new generator version moves the hash
         Assert.Equal(AshfallContent.ToMapContent(a).Hash, a.Hash);
-        // Pinned (version 1): a layout change without a new AshfallMap.Version fails here, not at a client's handshake.
+        // Pinned (version 2): a layout change without a new AshfallMap.Version fails here, not at a client's handshake.
         Assert.Equal(PinnedLevelHash, a.Hash);
     }
 
-    /// <summary>Ashfall Citadel version 1's level hash (the client's log printed it on a live connect, 2026-11-04).</summary>
-    const ulong PinnedLevelHash = 0x4D0658D87AF67B7BUL;
+    /// <summary>Ashfall Citadel version 2's level hash (pass 2, the owner's playtest notes of 2026-11-05; version 1 was 0x4D0658D87AF67B7B).</summary>
+    const ulong PinnedLevelHash = 0x875d9199c67b1894UL;
 
     /// <summary>The hash's rule, written out independently of the generator: FNV-1a 64 over the version, then every solid corner's float bits.</summary>
     static ulong Hash(AshfallLevel level, uint version)
@@ -86,10 +89,18 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
         foreach (var (kind, n) in perKind) output.WriteLine($"{kind,-10} {n,7} triangles");
         int total = Level.SolidCorners().Length / 3;
         output.WriteLine($"total {total} collision triangles; {Level.Parts.Count} parts");
+        foreach (var (lo, hi) in new[] { (-224f, -104f), (-80f, 80f), (104f, 224f) })
+            foreach (var (lo2, hi2) in new[] { (-224f, -104f), (-80f, 80f), (104f, 224f) })
+            {
+                var inBlock = Features.Ruins.Select(r => r.Footprint).Concat(Features.Towers.Select(t => t.Footprint)).Where(r => r.X >= lo && r.Z <= hi && r.Y >= lo2 && r.W <= hi2).ToList();
+                output.WriteLine($"block x[{lo},{hi}] y[{lo2},{hi2}]: {inBlock.Count} buildings, {inBlock.Sum(r => (r.Z - r.X) * (r.W - r.Y)) / ((hi - lo) * (hi2 - lo2)) * 100f:0.0} % of the block covered");
+            }
         Assert.True(total < 200_000, $"{total} triangles");
         Assert.True(perKind[AshfallKind.Ground] < 20_000);
-        Assert.True(perKind[AshfallKind.Rubble] < 10_000);
-        Assert.True(perKind[AshfallKind.Stair] < 10_000);
+        Assert.True(perKind[AshfallKind.Rubble] < 20_000);
+        Assert.True(perKind[AshfallKind.Stair] < 40_000);
+        Assert.True(perKind[AshfallKind.Wall] < 100_000);
+        output.WriteLine($"pass 2: {Features.Ruins.Count} ruins, {Features.Towers.Count} tall buildings ({Features.Towers.Count(t => t.Core)} with a stair core), {Features.Platforms.Count} platforms, {Features.WallSegments} curb wall segments ({Features.WallLength:0} m), {Features.StaggerWalls} staggered avenue walls");
         Assert.Equal(total, Mesh.TriangleCount);   // no degenerate triangle
     }
 
@@ -140,6 +151,120 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
             for (float x = a.Center.X - a.Size.X / 2 + 2; x < a.Center.X + a.Size.X / 2; x += 4)
                 for (float y = a.Center.Y - a.Size.Y / 2 + 2; y < a.Center.Y + a.Size.Y / 2; y += 4)
                     Assert.False(Inside(new Vector3(x, y, a.Center.Z + 1f)), $"{a.Side} area blocked at {x}, {y}");
+    }
+
+
+    // ---------------------------------------------------------------- pass 2: zones, lanes, rules
+
+    static bool StructuralKind(AshfallKind k) => k is AshfallKind.Wall or AshfallKind.Cover or AshfallKind.Rubble or AshfallKind.Floor or AshfallKind.Stair or AshfallKind.Perch or AshfallKind.Stronghold;
+
+    static (float X0, float Y0, float X1, float Y1, float Z0, float Z1) Box2(AshfallPart p) =>
+        (p.Corners.Min(c => c.X), p.Corners.Min(c => c.Y), p.Corners.Max(c => c.X), p.Corners.Max(c => c.Y), p.Corners.Min(c => c.Z), p.Corners.Max(c => c.Z));
+
+    [Fact]
+    public void No_solid_stands_inside_a_capture_zone_cylinder_but_As_plinth_with_its_four_stairs()
+    {
+        foreach (var point in Level.Points)
+            foreach (var part in Level.Parts.Where(p => StructuralKind(p.Kind)))
+            {
+                var (x0, y0, x1, y1, _, z1) = Box2(part);
+                float dx = MathF.Max(MathF.Max(x0 - point.Center.X, point.Center.X - x1), 0f), dy = MathF.Max(MathF.Max(y0 - point.Center.Y, point.Center.Y - y1), 0f);
+                if (dx * dx + dy * dy >= point.Radius * point.Radius || z1 <= 0.9f) continue;   // outside the cylinder, or low enough to walk over (rubble 0.35 m on the 0.25 m block)
+                bool plinth = point.Name == "A" && x0 >= -179.01f && x1 <= -148.99f && y0 >= 148.99f && y1 <= 179.01f;
+                Assert.True(plinth, $"{part.Kind} at ({x0:0.0}, {y0:0.0})..({x1:0.0}, {y1:0.0}) stands in capture zone {point.Name}");
+            }
+        // B is clear at its centre.
+        Assert.False(Inside(Level.Points[1].Center + new Vector3(0f, 0f, 1f)));
+    }
+
+    [Fact]
+    public void Ruins_towers_and_platforms_keep_out_of_the_zones_ring_the_start_areas_and_each_other()
+    {
+        var shapes = new List<(string Name, Vector4 R)>();
+        shapes.AddRange(Features.Towers.Select(t => (t.Name, t.Footprint)));
+        shapes.AddRange(Features.Ruins.Select(r => (r.Kind, r.Footprint)));
+        foreach (var (name, r) in shapes)
+        {
+            foreach (var pt in Level.Points)
+            {
+                float dx = MathF.Max(MathF.Max(r.X - pt.Center.X, pt.Center.X - r.Z), 0f), dy = MathF.Max(MathF.Max(r.Y - pt.Center.Y, pt.Center.Y - r.W), 0f);
+                Assert.True(MathF.Sqrt(dx * dx + dy * dy) >= pt.Radius + 6f - 1e-3f, $"{name} {r} is within 6 m of zone {pt.Name}");
+            }
+            foreach (var a in Level.Areas)
+            {
+                float hx = a.Size.X / 2f, hy = a.Size.Y / 2f;
+                Assert.False(r.X < a.Center.X + hx && r.Z > a.Center.X - hx && r.Y < a.Center.Y + hy && r.W > a.Center.Y - hy, $"{name} {r} is in the {a.Side} start area");
+            }
+            Assert.True(MathF.Sqrt(MathF.Pow(MathF.Max(MathF.Max(r.X, -r.Z), 0f), 2) + MathF.Pow(MathF.Max(MathF.Max(r.Y, -r.W), 0f), 2)) >= 22f - 1e-3f, $"{name} {r} is on the plaza's open centre");
+            Assert.True(MathF.Max(MathF.Max(-r.X, -r.Y), MathF.Max(r.Z, r.W)) <= 224f, $"{name} {r} is on the perimeter road");
+        }
+        for (int i = 0; i < shapes.Count; i++)
+            for (int j = i + 1; j < shapes.Count; j++)
+            {
+                var a = shapes[i].R; var b = shapes[j].R;
+                float dx = MathF.Max(MathF.Max(a.X - b.Z, b.X - a.Z), 0f), dy = MathF.Max(MathF.Max(a.Y - b.W, b.Y - a.W), 0f);
+                Assert.True(MathF.Sqrt(dx * dx + dy * dy) >= 8f - 1e-3f, $"lane under 8 m between {shapes[i].Name} {a} and {shapes[j].Name} {b}");
+            }
+    }
+
+    [Fact]
+    public void Each_avenues_and_the_perimeter_roads_8_m_corridor_stays_free_of_solids()
+    {
+        foreach (var part in Level.Parts.Where(p => StructuralKind(p.Kind)))
+        {
+            var (x0, y0, x1, y1, _, _) = Box2(part);
+            foreach (float c in new[] { -92f, 92f, -232f, 232f })
+            {
+                // Corridor along y (x within 4 m of c) and along x (y within 4 m of c); the monument and the arch (|y| < 6 on the x = +-92 avenues) are the two hand-built exceptions of version 1.
+                bool alongY = x0 < c + 4f - 1e-3f && x1 > c - 4f + 1e-3f && !(MathF.Abs(c) == 92f && y0 > -6f && y1 < 6f);
+                bool alongX = y0 < c + 4f - 1e-3f && y1 > c - 4f + 1e-3f;
+                Assert.False(alongY, $"{part.Kind} ({x0:0.0}, {y0:0.0})..({x1:0.0}, {y1:0.0}) closes the 8 m lane along x = {c}");
+                Assert.False(alongX, $"{part.Kind} ({x0:0.0}, {y0:0.0})..({x1:0.0}, {y1:0.0}) closes the 8 m lane along y = {c}");
+            }
+        }
+    }
+
+    [Fact]
+    public void Walls_and_platforms_follow_the_kit_rules_and_the_features_match_the_brief()
+    {
+        // No wall or cover top in the 0.4..0.9 m band above the ground.
+        foreach (var p in Level.Parts.Where(p => p.Kind is AshfallKind.Wall or AshfallKind.Cover && p.Corners.Length == 36))
+        {
+            var (_, _, _, _, z0, z1) = Box2(p);
+            if (z0 <= 0.001f) Assert.False(z1 > 0.4f + 1e-3f && z1 < 0.9f - 1e-3f, $"{p.Kind} top {z1}");
+        }
+        Assert.True(Features.Platforms.Count is >= 15 and <= 26, $"{Features.Platforms.Count} platforms");
+        Assert.All(Features.Platforms, pl => Assert.True(pl.Height is >= 1.5f and <= 5.5f && pl.Height * 2f == MathF.Round(pl.Height * 2f), $"platform height {pl.Height}"));
+        Assert.True(Features.Towers.Count is >= 6 and <= 12);
+        Assert.All(Features.Towers, t => Assert.InRange(t.Storeys, 3, 5));
+        Assert.True(Features.Towers.Count(t => t.Core) * 2 >= Features.Towers.Count);
+        Assert.True(Features.Ruins.Count >= 80, $"{Features.Ruins.Count} ruins");
+        // A tall building's footprint is 12 x 12 .. 16 x 24 and stands 10 m clear of the boundary (a jump from a 30 m top peaks 17.5 m higher; the boundary is 48 m).
+        Assert.All(Features.Towers, t =>
+        {
+            var w = t.Footprint.Z - t.Footprint.X; var d = t.Footprint.W - t.Footprint.Y;
+            Assert.True(Math.Min(w, d) >= 12f && Math.Max(w, d) <= 24f);
+            Assert.True(t.Footprint.Z <= 230f && t.Footprint.X >= -230f && t.Footprint.W <= 230f && t.Footprint.Y >= -230f);
+        });
+        // The tall buildings really are tall: the highest wall of each reaches 6 m x its storeys.
+        foreach (var t in Features.Towers)
+        {
+            float top = Level.Parts.Where(p => p.Kind == AshfallKind.Wall).Select(Box2)
+                .Where(b => b.X0 >= t.Footprint.X - 0.01f && b.X1 <= t.Footprint.Z + 0.01f && b.Y0 >= t.Footprint.Y - 0.01f && b.Y1 <= t.Footprint.W + 0.01f).Max(b => b.Z1);
+            Assert.Equal(6f * t.Storeys, top);
+        }
+    }
+
+    [Fact]
+    public void As_plinth_has_a_stair_on_each_of_its_four_sides_and_the_obelisk_stays()
+    {
+        var stairs = Level.Parts.Where(p => p.Kind == AshfallKind.Stair).Select(Box2).Where(b => b.X0 > -180f && b.X1 < -148f && b.Y0 > 148f && b.Y1 < 180f).ToList();
+        Assert.Contains(stairs, b => b.Y1 <= 156.01f && b.Y0 < 150f && b.X0 < -167f && b.X1 > -161f);   // south
+        Assert.Contains(stairs, b => b.Y0 >= 171.99f && b.Y1 > 177f);                                     // north
+        Assert.Contains(stairs, b => b.X1 <= -171.99f && b.X0 < -177f);                                   // west
+        Assert.Contains(stairs, b => b.X0 >= -156.01f && b.X1 > -151f);                                   // east
+        Assert.All(stairs, b => Assert.True(b.Z1 <= 3.001f));
+        Assert.Contains(Level.Parts, p => p.Kind == AshfallKind.Perch && Box2(p) is var b && b.Z1 == 15f && b.X0 > -170f && b.X1 < -160f);   // the obelisk, jump-only
     }
 
     // ---------------------------------------------------------------- rubble and cover rules
@@ -277,6 +402,24 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
         ];
         var missing = reachable.Where(r => !Walks(graph, start, r.At)).Select(r => r.Name).ToList();
         Assert.True(missing.Count == 0, "not reached on foot: " + string.Join(", ", missing));
+        // Pass 2: A's plinth top is reached on foot from the foot of each of its four stairs (to the top's edge beside that stair).
+        (string Name, Vector3 Foot, Vector3 Top)[] aSides =
+        [
+            ("south", V(-164f, 148f, AshfallMap.BlockTop), V(-164f, 157f, 3f)), ("north", V(-164f, 180f, AshfallMap.BlockTop), V(-164f, 171f, 3f)),
+            ("west", V(-180f, 164f, AshfallMap.BlockTop), V(-171f, 164f, 3f)), ("east", V(-148f, 164f, AshfallMap.BlockTop), V(-157f, 164f, 3f)),
+        ];
+        var aMissing = aSides.Where(r => !Walks(graph, r.Foot, r.Top)).Select(r => r.Name).ToList();
+        Assert.True(aMissing.Count == 0, "A's plinth top not reached from the stair foot on the side: " + string.Join(", ", aMissing));
+        // Pass 2: every platform top, every ruin floor with a stair and every floor of a tall building with a stair core is walked to.
+        var platformsMissing = Features.Platforms.Where(pl => !Walks(graph, start, pl.Top)).Select(pl => pl.Top.ToString()).ToList();
+        Assert.True(platformsMissing.Count == 0, $"platform tops not reached on foot ({platformsMissing.Count} of {Features.Platforms.Count}): " + string.Join(", ", platformsMissing));
+        var ruinFloors = Features.Ruins.Where(r => r.FloorPoint is not null).ToList();
+        var ruinsMissing = ruinFloors.Where(r => !Walks(graph, start, r.FloorPoint!.Value)).Select(r => r.FloorPoint.ToString()).ToList();
+        Assert.True(ruinsMissing.Count == 0, $"ruin floors not reached on foot ({ruinsMissing.Count} of {ruinFloors.Count}): " + string.Join(", ", ruinsMissing));
+        var cored = Features.Towers.Where(t => t.Core).ToList();
+        var towerMissing = cored.SelectMany(t => t.Floors.Select(f => (t.Name, f))).Where(x => !Walks(graph, start, x.f)).Select(x => $"{x.Name} {x.f}").ToList();
+        Assert.True(towerMissing.Count == 0, "tall-building floors not reached on foot: " + string.Join(", ", towerMissing));
+        output.WriteLine($"walked to {Features.Platforms.Count} platform tops, {ruinFloors.Count} ruin floors, {cored.Sum(t => t.Floors.Count)} tall-building floors in {cored.Count} buildings, 4 stair feet of A");
         (string Name, Vector3 At)[] perches =
         [
             ("A obelisk", V(-164f, 168f, 15f)), ("small obelisk", V(-92f, 0f, 12f)), ("arch top", V(92f, 0f, 14f)), ("keep top", V(0f, 190f, 18f)),
@@ -289,7 +432,14 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
         Assert.True(floating.Count == 0, "perch point not on a solid top (wrong place or height, so its check proves nothing): " + string.Join(", ", floating));
         var reached = perches.Where(r => Walks(graph, start, r.At)).Select(r => r.Name).ToList();
         Assert.True(reached.Count == 0, "reached on foot (should be jump-only): " + string.Join(", ", reached));
+        // Pass 2: the tall shells without a core (their floors are plates only a jump reaches) and the ruins' jump-only floors, with the same downward-ray positive control.
+        var shellFloors = Features.Towers.Where(t => !t.Core).SelectMany(t => t.Floors.Select(f => (Name: $"{t.Name} {f}", At: f))).ToList();
+        var shellFloating = shellFloors.Where(r => level.Raycast(r.At + new Vector3(0f, 0f, 2f), -Vector3.UnitZ, 2.1f) is null).Select(r => r.Name).ToList();
+        Assert.True(shellFloating.Count == 0, "jump-only floor point not on a solid top: " + string.Join(", ", shellFloating));
+        var shellReached = shellFloors.Where(r => Walks(graph, start, r.At)).Select(r => r.Name).ToList();
+        Assert.True(shellReached.Count == 0, "tall shell floors reached on foot (should be jump-only): " + string.Join(", ", shellReached));
     }
+
 
     // ---------------------------------------------------------------- the war's composition
 
