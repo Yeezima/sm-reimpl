@@ -1,6 +1,6 @@
 # Ashfall Citadel graybox (Musou Mode's battlefield, G1)
 
-Status: in progress on branch `musou/ashfall-graybox`. Owner's start: 2026-11-04 (agent-coordination `decisions/2026-11-04-ashfall-graybox-start.md`).
+Status: generator, server, content, tool and tests done (see Results); the client work is separate. On branch `musou/ashfall-graybox`. Owner's start: 2026-11-04 (agent-coordination `decisions/2026-11-04-ashfall-graybox-start.md`).
 Merge gate: the owner playtests a branch build. Everything here is **ours** (placeholder demonstration) unless it says otherwise; every number is an estimate
 for the owner's playtest and goes to the refine register.
 
@@ -77,3 +77,35 @@ either 0 or at least 1.2 m.
 - The Musou wire box (positions quantised within a box) grows with the map: check its precision.
 - Square box steps and box rubble give a rough sense of the final ruins only.
 - Lighting and sky: the client's provisional look (warm sun, ash-grey fog); no map effects or ambient sound on the generated level.
+
+## Results (generator, server, content, tool and tests)
+Generator `AshfallMap.Build` (version 1; `AshfallMap.Build.cs` holds the layout, `AshfallBuilder.cs` the primitives), all ours:
+- **Triangles** (collision, character mesh = weapon mesh): total 16,940 of the 200,000 budget, in 569 parts. Per kind: Ground 10,208 (5 parts: four slabs and the crater heightfield, 2 m cells over the west-middle block, with skirts), Road 36, Paving 12,
+  Curb 96, Wall 684, Cover 192, Rubble 2,556 (213 pieces), Floor 108, Stair 2,700 (225 box steps), Perch 60, Stronghold 48, Boundary 48, Backdrop 192; the three objective discs (not solid) add 72.
+  `smtool ashfall-plan` prints the same table.
+- **Enemies' graph** (`NavGraph.Build` as the server builds it, `NavSettings.From` of a normal `SimConfig`, the war's walking area: the level's markers and the Firing Range's seed): 800,782 nodes; **cold build about 56 s** on the
+  development machine (Manufactorum's much smaller graph takes seconds), about 67 MiB retained, **cache file about 68 MiB**, loaded from the cache in 0.3 s. So a server or a client test aid builds it once per machine and cache folder; the
+  first start of a new server copy (a fresh VM) waits about a minute. The test is marked `[Trait("Speed", "Slow")]` and takes about a minute.
+- **Wire box** (`TfwUseWireBox`; 16 bits an axis over the graph's box widened by the Stormbird and the range): span about 660 x 583 x 57 m, so a step of 1.01 / 0.89 / 0.09 cm and a worst position error of about 0.5 cm. Well under 5 cm: no change needed.
+- **Checks, all automated** (tests/SmNet.Tests/Extras/Musou/Ashfall): two builds bit-equal and the hash follows the version; every box winds outward; spawns, start areas and capture centres stand on walkable ground outside every solid; budgets;
+  rubble 0.35 m or 0.9..2.5 m high with gaps 0 or at least 1.2 m (separated pairs measured on the footprints); the graph connects Marine start, A, B, C, the courtyard, the plaza corners, A's plinth, the C, E-ruin, small-ruin and bunker floors,
+  the artillery platform and barrel top, both L walls' tops (ramps) and the small monument's plinth on foot, and reaches none of the six jump-only perches (A and small obelisks, arch top, keep top, C and E roofs); the classic config
+  hashes are pinned; `TfwMap.WithHub(level, manufactorum: true)` keeps the old pinned hash and `tfw_war_m09` composes as version 7 did.
+
+Deviations from the design, with reasons:
+- **Statue** centred (12, 8), not (6, 4): at (6, 4) with a 30 degree turn the box covers B's centre.
+- **A's centre is at z = 3** (the plinth top; its zone, half height 8, still covers the ground); the A disc is drawn on the ground, under the plinth. The other points and the start areas stand at the block surface (0.25 m; the plaza 0.27 m).
+- **Obelisk** at the plinth's north-west part, not its middle, so A's centre is open ground.
+- **Road and paving** are 2 cm overlays (kind Road, Paving) above the surface, not flush, so they never share a plane with the ground (no z-fighting; a 2 cm lip is walked over).
+- **Stairs inset**: a stair's boxes stop 0.25 m inside its nominal width and its treads start 0.25 m early (the last step still meets the platform). The graph samples a 0.5 m grid, and where a box edge lies exactly on a grid line it found the
+  ground under the edge instead of the step, cutting stairs off from the ground beside them (found by the graph check; the L-wall ramps and two others were unreachable). Edges between grid lines walk. The graph builder itself is unchanged.
+- **Small ruin and bunker stairs**: the small ruin's stair runs outside along its south wall to a doorway whose sill is at 6 m (24 steps do not fit in 10 m inside); the bunker's runs inside its open west half to the roof.
+- **C ruin**: two straight flights and a landing, then a connector slab to the north half's floor; the flights end where the floor begins (a thin slab over the climb would block it).
+- **Walls and pieces on the grid**: ruins' breaches are made from box pieces (`HoleWall`), so a breach's sill is solid.
+- **Rubble** is placed by a fixed integer hash on the 0.5 m grid with yaw in 15 degree steps, keeping 1.2 m from every other piece, structure and marker; a cluster may place fewer pieces than its count. Hand-placed low walls and collapsed pieces between the
+  craters are kept only on flat ground: in version 1 two of the eleven (the low wall at (-110, 40) and the collapsed piece at (-176, 5)) fall on a rim or a slope and are dropped, so the crater field has five low walls and four collapsed pieces.
+- **Hash** is FNV over the solid corners' bits salted with `AshfallMap.Version` (as designed); the map hash the handshake compares (`TfwMap.Version` 8) is the composed world's.
+- **Restore switch**: `TfwMap.ManufactorumName` (`tfw_war_m09`, `--map tfw_war_m09`); `TfwMap.WithHub(level, manufactorum)` has no one-argument form any more (callers state which battlefield); `TfwMap.Compose` takes `manufactorum` as a last optional argument (default true, the old behaviour).
+- `smtool ashfall-plan` draws every solid by kind (shade: higher is darker; F/P labels with the top height on upper floors and perches), the grid, objectives with radii, both start areas, the Stormbird and the range, a scale bar and a north arrow. Not yet looked at by a person.
+
+Unfinished or open: the first cold start of a server builds the graph for about a minute (a shipped or pre-built cache is a later decision); the plan SVG and the whole layout await the owner's eyes; no nav jump links (`.navjump`) were measured.

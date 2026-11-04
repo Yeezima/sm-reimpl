@@ -15,7 +15,7 @@ public class TfwWorldContentTests
         string dir = SeizeGroundContentTests.Install(TfwMap.Battlefield, Script(), ("d_mission_objects", SeizeGroundContentTests.Layer(SeizeGroundContentTests.Markers)));
         try
         {
-            var data = Assert.IsType<TfwMapData>(TfwWorld.Load(dir, out string? problem));
+            var data = Assert.IsType<TfwMapData>(TfwWorld.Load(dir, out string? problem, TfwMap.ManufactorumName));
             Assert.Null(problem);
             Assert.Equal(new System.Numerics.Vector3(110f, -785f, 4f), data.Field.Points[0].Centre);
             Assert.Equal(13.5f, data.Field.Points[1].Radius);
@@ -23,7 +23,7 @@ public class TfwWorldContentTests
             Assert.Equal(new System.Numerics.Vector3(245f, -937.38f, 5.5f), data.Field.MarineStart);
             Assert.All(data.Spawns, s => Assert.True(data.Field.Hub.Contains(s.Position)));
             Assert.Contains(data.StartAreas, a => a.Side == Team.SpaceMarines && a.Center == data.Field.Hub.Centre);
-            Assert.Equal(TfwMap.WithHub(SmContent.MapContent.Load(dir, TfwMap.Battlefield).ToCollisionWorld()).Hash, data.Hash);
+            Assert.Equal(TfwMap.WithHub(SmContent.MapContent.Load(dir, TfwMap.Battlefield).ToCollisionWorld(), manufactorum: true).Hash, data.Hash);
         }
         finally { Directory.Delete(dir, recursive: true); }
     }
@@ -35,10 +35,10 @@ public class TfwWorldContentTests
         string bare = SeizeGroundContentTests.Install(TfwMap.Battlefield, null);
         try
         {
-            Assert.Null(TfwWorld.Load(other, out string? missing));
+            Assert.Null(TfwWorld.Load(other, out string? missing, TfwMap.ManufactorumName));
             Assert.Contains("Manufactorum", missing);
             Assert.Contains("not in this install", missing);
-            Assert.Null(TfwWorld.Load(bare, out string? unusable));
+            Assert.Null(TfwWorld.Load(bare, out string? unusable, TfwMap.ManufactorumName));
             Assert.Contains("capture points", unusable);
         }
         finally { Directory.Delete(other, recursive: true); Directory.Delete(bare, recursive: true); }

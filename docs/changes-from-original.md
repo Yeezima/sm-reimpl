@@ -76,6 +76,7 @@ and gore are listed in their own design documents for now (the rest of section 0
 | Musou Mode: three big frags | the owner's item 21 (2026-11-01) | one grenade throws three frags 24 degrees apart, each with twice the data's blast radius and sparing the thrower; every human life carries grenades | Melee and firepower |
 | Musou Mode: a cleave of 20 | the owner's item 22 (2026-11-01) | a swing strikes up to 20 enemies | Melee and firepower |
 | Musou Mode: shots pierce | the owner's item 24 (2026-11-01); SM1's shots stop on the first body | every ranged weapon goes through 1 to 8 enemies by weight | Melee and firepower |
+| Musou Mode's battlefield is Ashfall Citadel, a generated graybox (G1, 2026-11-04) | the owner's start of 2026-11-04 (agent-coordination decision); every place and size ours (placeholder demonstration) | `tfw_war` is a 480 x 480 m city of primitive blocks built in code (docs/musou-ashfall-graybox.md: three capture points, a start area for each side, ruins, a crater field, a stronghold; nothing read from the install); the old war on Manufactorum stays as `tfw_war_m09` (`--map tfw_war_m09`), and classic PvP is untouched | War map |
 
 ## 1. Deliberate changes (owner's decisions)
 

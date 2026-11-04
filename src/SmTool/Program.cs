@@ -28,6 +28,7 @@ return args switch
     ["listen-page", .. var rest] => SmTool.ListenPageCommand.Run(rest),
 #if SM_EXTRAS
     ["musou-sounds", var musouDir, .. var musouRest] => SmTool.MusouSoundCommands.Run(musouDir, musouRest),
+    ["ashfall-plan", .. var planRest] => SmTool.AshfallPlanCommand.Run(planRest),
 #endif
     ["weapon-dps", var gameDir, .. var rest] => SmTool.DpsCommands.Run(gameDir, rest),
     ["melee-steps", var gameDir, .. var rest] => SmTool.MeleeStepsCommand.Run(gameDir, rest),
@@ -56,6 +57,7 @@ static int Usage()
                                                     run the M1 acceptance checks and write a Markdown summary
           smtool nav-stats <game-dir|auto> [--map mp_tdm_09] [--class assault,raptor] [--cache <dir>]
                                                     build or read the test bots' navigation graphs per side (and jump links); sizes and timings
+          smtool ashfall-plan [--out plan.svg]      Musou Mode's generated battlefield (Ashfall Citadel) as a top-down SVG plan (default: the private cache's previews folder)
           smtool perks <game-dir|auto>              the perks: upgrade strings, classes, simulation status, perk variants (M43)
           smtool armour-audit <game-dir|auto> [--all] [--packages]
                                                     every class's default look, every armour set worn whole and every offered piece of both races,

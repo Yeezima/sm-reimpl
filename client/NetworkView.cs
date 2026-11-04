@@ -2087,7 +2087,9 @@ public partial class NetworkView : Node3D
         var watch = System.Diagnostics.Stopwatch.StartNew();
         string file = MapFileOf(name);
         Ph("map load: collision and content");
-        MemStep("before map"); var map = MapContent.Load(_gameDir, file); MemStep("map content");
+        MemStep("before map"); MapContent? generated = null;
+        ExtrasMapContent(name, ref generated);   // EXTRAS-HOOK: a map added content generates in code (Musou Mode's Ashfall Citadel): no install file is read
+        var map = generated ?? MapContent.Load(_gameDir, file); MemStep("map content");
         var world = map.ToCollisionWorld(); MemStep("collision world");
         ulong hash = map.Hash;
         ExtrasMapCollision(name, ref world, ref hash);   // EXTRAS-HOOK: added content's solids beside the level, and the hash of the whole (Musou Mode's Stormbird)
@@ -2102,9 +2104,11 @@ public partial class NetworkView : Node3D
         // The map's look: original meshes and diffuse textures (MapView). Failure falls back to the grey collision.
         string? visualsError = null;
         MapView? view = null;
+        bool extrasDrawn = false;
+        if (generated is not null) ExtrasMapVisuals(name, generated, ref extrasDrawn);   // EXTRAS-HOOK: draws the generated map (and its look) instead of MapScene.Load
         string lightingNote = "lighting: provisional approximation (warm sun, fog, SSAO)";
         var visualNotes = new List<string>();
-        try
+        if (!extrasDrawn) try
         {
             Ph("map load: visuals");
             var scene = MapScene.Load(_gameDir, file);
@@ -2140,7 +2144,7 @@ public partial class NetworkView : Node3D
         }
         foreach (var note in visualNotes) GD.Print("  map note: " + note);
 
-        if ((view is null || _showCollision) && map.Layer(MapContent.CharacterLayer) is { } layer && _gameSpace is not null)
+        if (((view is null && !extrasDrawn) || _showCollision) && map.Layer(MapContent.CharacterLayer) is { } layer && _gameSpace is not null)
         {
             var vertices = new Vector3[layer.Indices.Length];
             var normals = new Vector3[layer.Indices.Length];
@@ -2166,7 +2170,8 @@ public partial class NetworkView : Node3D
         if (GetNodeOrNull<Node3D>("Ground") is { } ground) ground.Visible = false;
         DrawBlockers(world);
         DrawProps(world);
-        _mapNote = view is not null
+        _mapNote = extrasDrawn ? $"map {name}: generated in code, drawn by added content (placeholder demonstration)"
+            : view is not null
             ? $"map {name}: original meshes and textures from the install ({view.Objects:N0} objects, {view.Meshes} meshes, {view.TexturedSurfaces}/{view.Surfaces} surfaces textured, {view.Materials.NormalMapped} with normal maps, {view.Materials.Specular} with specular maps, {view.Materials.Emissive} emissive, {view.Materials.Layered} two-layer, {view.Materials.CutOut} cut-out, {view.Materials.Tinted} vertex-tinted); {lightingNote}, shaders: placeholder"
               + (_showCollision ? "; collision shown in grey" : "")
             : $"map {name}: collision geometry only, placeholder grey (visuals failed: {visualsError})";
@@ -2192,6 +2197,12 @@ public partial class NetworkView : Node3D
 
     /// <summary>Hook for added content: replaces <paramref name="file"/> with the install's map behind a map it composes. Implemented in an <c>Extras/</c> folder.</summary>
     partial void ExtrasMapFile(ref string file);
+
+    /// <summary>Hook for added content, in <see cref="LoadMap"/> before any map file is read: sets <paramref name="map"/> for a map it generates in code. Implemented in an <c>Extras/</c> folder.</summary>
+    partial void ExtrasMapContent(string name, ref MapContent? map);
+
+    /// <summary>Hook for added content, in <see cref="LoadMap"/> for a generated map: draws it (and sets its sun and fog) and sets <paramref name="drawn"/>. Implemented in an <c>Extras/</c> folder.</summary>
+    partial void ExtrasMapVisuals(string name, MapContent map, ref bool drawn);
 
     /// <summary>Hook for added content, in <see cref="LoadMap"/> after the level's collision: replaces <paramref name="world"/> and <paramref name="hash"/> for a map it composes. Implemented in an <c>Extras/</c> folder.</summary>
     partial void ExtrasMapCollision(string name, ref SmSim.CollisionWorld world, ref ulong hash);

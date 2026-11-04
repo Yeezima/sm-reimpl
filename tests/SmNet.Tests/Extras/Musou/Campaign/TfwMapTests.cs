@@ -39,7 +39,7 @@ public class TfwMapTests
     public void The_server_and_the_client_hash_the_same_map_and_a_change_moves_the_pin()
     {
         ServerMap(out ulong server);   // what GameServer.GeneratedMap offers
-        ulong client = TfwMap.WithHub(TfwTestArena.Level()).Hash;   // what NetworkView.TfwMapCollision answers with, from the level alone
+        ulong client = TfwMap.WithHub(TfwTestArena.Level(), manufactorum: true).Hash;   // what NetworkView.TfwMapCollision answers with, from the level alone
         Assert.Equal(server, client);
         Assert.Equal(PinnedHash, client);   // a geometry change: raise TfwMap.Version and take the new value
         Assert.Equal(World.Character.ContentHash, World.Weapons.ContentHash);   // shots meet what walkers meet

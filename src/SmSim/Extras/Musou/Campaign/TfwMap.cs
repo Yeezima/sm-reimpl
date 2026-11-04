@@ -204,12 +204,18 @@ public sealed record TfwBattlefield(TfwHub Hub, IReadOnlyList<TfwPoint> Points, 
 /// </summary>
 public static class TfwMap
 {
-    /// <summary>The map's name (it travels in the Challenge).</summary>
+    /// <summary>The map's name (it travels in the Challenge): Ashfall Citadel (G1, docs/musou-ashfall-graybox.md), generated in code.</summary>
     public const string Name = "tfw_war";
+    /// <summary>The restore switch: the old war map, Manufactorum from the install with the Stormbird and the range (<see cref="ManufactorumVersion"/>'s composition).</summary>
+    public const string ManufactorumName = "tfw_war_m09";
+    /// <summary>Whether <paramref name="name"/> is one of the war's maps (<see cref="Name"/> or <see cref="ManufactorumName"/>).</summary>
+    public static bool IsWarMap(string? name) => name is Name or ManufactorumName;
     /// <summary>The install's map every battle is fought on.</summary>
-    public const string Battlefield = "mp_tdm_09";
-    /// <summary>Raised with any change of how the world is composed (hashed into <see cref="TfwMapData.Hash"/>; 2: TF1's arena and Stormbird replace TF0's flat slab; 3: Manufactorum replaces the empty arena; 4: the Thunderhawk's interior replaces the Stormbird's box).</summary>
-    public const uint Version = 7;
+    public const string Battlefield = "mp_tdm_09";   // Manufactorum: the 5-wave test aid's map and the battlefield of ManufactorumName
+    /// <summary>Raised with any change of how the world is composed (hashed into <see cref="TfwMapData.Hash"/>; 2: TF1's arena and Stormbird replace TF0's flat slab; 3: Manufactorum replaces the empty arena; 4: the Thunderhawk's interior replaces the Stormbird's box; 8: Ashfall Citadel replaces Manufactorum under <see cref="Name"/>; the Manufactorum composition keeps <see cref="ManufactorumVersion"/>).</summary>
+    public const uint Version = 8;
+    /// <summary>The version term of the Manufactorum composition's hash (<see cref="ManufactorumName"/>): it stays what it was, so that composition's hash is unchanged.</summary>
+    public const uint ManufactorumVersion = 7;
     /// <summary>"tfw_war_", the hash's salt.</summary>
     const ulong HashSalt = 0x7466775F7761725FUL;
 
@@ -248,25 +254,28 @@ public static class TfwMap
 
     /// <summary>
     /// <paramref name="level"/> with the Stormbird beside it and, for the handshake, the hash of the whole (<c>collision ^ salt ^ version</c>). The kill volumes and props stay. The
-    /// spawn-room blockers go: the commander stands in the Chaos room and the war's Marines must reach him.
+    /// spawn-room blockers go: the commander stands in the Chaos room and the war's Marines must reach him. <paramref name="manufactorum"/>: the level is Manufactorum, whose backdrop
+    /// (tanks and slopes) stands in the Firing Range's place and gets collision there (<see cref="TfwRange.Collision"/>, hash term <see cref="ManufactorumVersion"/>, as before); false (Ashfall
+    /// Citadel): the range has its own floor and walls only (hash term <see cref="Version"/>).
     /// </summary>
-    public static (CollisionWorld World, TfwHub Hub, ulong Hash) WithHub(CollisionWorld level)
+    public static (CollisionWorld World, TfwHub Hub, ulong Hash) WithHub(CollisionWorld level, bool manufactorum)
     {
         var hub = TfwHub.Beyond(level);
-        var world = level.WithSolids([.. hub.Corners(), .. TfwRange.For(level).Collision()]);   // the Firing Range stands beside the level
-        return (world, hub, world.ContentHash ^ HashSalt ^ Version);
+        var range = TfwRange.For(level);
+        var world = level.WithSolids([.. hub.Corners(), .. (manufactorum ? range.Collision() : range.Corners())]);   // the Firing Range stands beside the level
+        return (world, hub, world.ContentHash ^ HashSalt ^ (manufactorum ? ManufactorumVersion : Version));
     }
 
     /// <summary>
     /// The war's world on <paramref name="level"/>; the same on every machine (no random numbers). <paramref name="points"/>: the map's Seize Ground points, in the map's order;
-    /// <paramref name="areas"/>: its start areas; <paramref name="spawns"/>: its own spawn markers. An <see cref="InvalidDataException"/> for a map without three points or a start area for each side.
+    /// <paramref name="areas"/>: its start areas; <paramref name="spawns"/>: its own spawn markers; <paramref name="manufactorum"/>: see <see cref="WithHub"/>. An <see cref="InvalidDataException"/> for a map without three points or a start area for each side.
     /// </summary>
-    public static TfwMapData Compose(CollisionWorld level, IReadOnlyList<ControlPoint> points, IReadOnlyList<StartArea> areas, IReadOnlyList<Vector3> spawns)
+    public static TfwMapData Compose(CollisionWorld level, IReadOnlyList<ControlPoint> points, IReadOnlyList<StartArea> areas, IReadOnlyList<Vector3> spawns, bool manufactorum = true)
     {
         if (points.Count < PointsNeeded) throw new InvalidDataException($"the map has {points.Count} capture points; Musou Mode needs {PointsNeeded}");
         if (areas.FirstOrDefault(a => a.Side == Team.SpaceMarines) is not { } marines || areas.FirstOrDefault(a => a.Side == Team.Chaos) is not { } chaos)
             throw new InvalidDataException("the map has no start area for each side; Musou Mode needs them");
-        var (world, hub, hash) = WithHub(level);
+        var (world, hub, hash) = WithHub(level, manufactorum);
         var seeds = spawns.Concat(points.Select(p => p.Center)).Concat(areas.Select(a => a.Center)).ToArray();
         var margin = new Vector3(WalkMargin, WalkMargin, 0f);
         var low = seeds.Aggregate(seeds[0], Vector3.Min) - margin;
