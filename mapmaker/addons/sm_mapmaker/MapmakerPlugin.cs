@@ -421,6 +421,7 @@ public partial class MapmakerPlugin : EditorPlugin
             else if (over && key.Keycode == Key.D && key.CtrlPressed && SelectedIds().Any()) { DuplicateSelected(); GetViewport().SetInputAsHandled(); }
             return;
         }
+        if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left } lmb && MapHost.Tool == Tool.Select) SelectClick(lmb);
         if (@event is not InputEventMouseButton { Pressed: true } button) return;
         if (!TryRay(button.Position, out var o, out var d)) return;
         if (button.ButtonIndex == MouseButton.Right && MapHost.Tool == Tool.Place) { SetTool(Tool.Select); GetViewport().SetInputAsHandled(); return; }
@@ -432,6 +433,7 @@ public partial class MapmakerPlugin : EditorPlugin
             if (hit < 0) { if (!additive) MapHost.PickedSm1.Clear(); }
             else if (additive && MapHost.PickedSm1.Remove(hit)) { }
             else { if (!additive) MapHost.PickedSm1.Clear(); MapHost.PickedSm1.Add(hit); }
+            if (MapHost.Root is { } r) EditorInterface.Singleton.GetSelection().RemoveNode(r); // the root's yellow box hid what was picked
             RefreshPicked();
             GetViewport().SetInputAsHandled();
         }
@@ -440,6 +442,33 @@ public partial class MapmakerPlugin : EditorPlugin
             PlaceAt(item, GamePointOnRay(o, d));
             GetViewport().SetInputAsHandled();
         }
+    }
+
+    Vector2? _selectPress;
+
+    /// <summary>
+    /// Select tool, a plain click (owner's report 2026-11-05: "i can't select anything"). SM1 pieces are view nodes outside the scene, so Godot's own
+    /// click cannot select them (it selects nothing, or keeps the scene root "Map", drawn as a yellow box). After Godot has handled the click: when it
+    /// chose a map object, keep that; otherwise the click picks the SM1 piece under the mouse (Shift/Ctrl adds or removes) and the root is deselected.
+    /// </summary>
+    async void SelectClick(InputEventMouseButton button)
+    {
+        if (button.Pressed) { _selectPress = TryRay(button.Position, out _, out _) ? button.Position : null; return; }
+        if (_selectPress is not { } from || from.DistanceTo(button.Position) > 6f) { _selectPress = null; return; } // a drag: gizmo or box select
+        _selectPress = null;
+        if (!TryRay(button.Position, out var o, out var d) || MapHost.Sm1 is not { } src || MapHost.Root is not { } root || !root.BackdropVisible) return;
+        bool additive = button.ShiftPressed || button.CtrlPressed;
+        for (int i = 0; i < 2; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        var sel = EditorInterface.Singleton.GetSelection();
+        var nodes = sel.GetSelectedNodes();
+        if (nodes.Any(n => n is MapmakerObject)) return;
+        int hit = src.RayPick(ToNum(Frame.ToGame(o)), ToNum(Frame.ToGame(d)), out _);
+        if (hit < 0 && additive) return;
+        if (nodes.Contains(root)) sel.RemoveNode(root);
+        if (hit < 0) MapHost.PickedSm1.Clear();
+        else if (additive && MapHost.PickedSm1.Remove(hit)) { }
+        else { if (!additive) MapHost.PickedSm1.Clear(); MapHost.PickedSm1.Add(hit); }
+        RefreshPicked();
     }
 
     public void SetTool(Tool tool)

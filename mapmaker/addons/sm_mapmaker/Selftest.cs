@@ -102,6 +102,27 @@ public sealed class Selftest(MapmakerPlugin plugin)
         Check(moved > 20f, $"mouse wheel zooms the 3D view in steps that suit the map (six steps moved the camera {moved:0.0} m)");
     }
 
+    /// <summary>Owner's report (2026-11-05): clicks selected nothing. A real click (press and release through the window) with the Select tool on the
+    /// middle of the view must pick the SM1 piece there and leave the scene root unselected.</summary>
+    async Task SelectClickCheck()
+    {
+        var vp = plugin.Viewport3D;
+        if (vp?.GetParent() is not Control container) { Check(false, "select click: no editor viewport"); return; }
+        plugin.SetTool(Tool.Select);
+        MapHost.PickedSm1.Clear();
+        var at = container.GetGlobalRect().GetCenter();
+        foreach (bool pressed in new[] { true, false })
+        {
+            Tree.Root.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = at, GlobalPosition = at });
+            await Frames(2);
+        }
+        await Frames(6);
+        var nodes = EditorInterface.Singleton.GetSelection().GetSelectedNodes();
+        string name = MapHost.PickedSm1.Count == 1 ? MapHost.Sm1!.Scene.Objects[MapHost.PickedSm1.First()].Name : "-";
+        Check(MapHost.PickedSm1.Count == 1 && !nodes.Contains(MapHost.Root), $"a click with the Select tool picks the SM1 piece under the mouse ({name}; root selected: {nodes.Contains(MapHost.Root)})");
+        MapHost.PickedSm1.Clear(); plugin.RefreshPicked();
+    }
+
     static void Check(bool ok, string what) { GD.Print($"SELFTEST {(ok ? "ok  " : "FAIL")} {what}"); if (!ok) Failed = true; }
     static bool Failed;
 
@@ -132,6 +153,7 @@ public sealed class Selftest(MapmakerPlugin plugin)
             await Frames(240);
             Shot("manufactorum-in-editor");
             await WheelZoomCheck();
+            await SelectClickCheck();
 
             // 2. Pick by ray (the viewport click path), then extract.
             var centre = source.BoundsAll()!.Value;
