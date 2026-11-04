@@ -203,6 +203,103 @@ public sealed partial class SoundTriggers
     public static string? ChargeHitContainer(IEnumerable<FxBinding> fx) =>
         fx.FirstOrDefault(b => b.IsDefault && b.Material is { Container.Length: > 0 } && b.Path.Contains("/primary_target_actions/", StringComparison.Ordinal)
             && (b.Ability.Equals("ability_bullrush_01", StringComparison.OrdinalIgnoreCase) || b.Ability.Equals("ability_dash_attack", StringComparison.OrdinalIgnoreCase)))?.Material!.Container;
+    /// <summary>
+    /// sound/original-hits: every melee ability's hit effect containers by (wargear file, ability, rank): the default (no upgrade) <c>trigger_material_effect</c> commands under the ability's
+    /// <c>primary_target_actions</c> (the first target; rank false) or <c>secondary_target_actions</c> (further targets of the same swing; rank true), whether under <c>hit_fx</c> or <c>hit_sim</c>,
+    /// in file order. Every melee ability is in it (the combat knife's <c>ability_melee_ck*</c> included), not only the light <c>ability_melee_x*</c>.
+    /// </summary>
+    public IReadOnlyDictionary<(string Wargear, string Ability, bool Secondary), IReadOnlyList<string>> MeleeAbilityContainers { get; init; } =
+        new Dictionary<(string, string, bool), IReadOnlyList<string>>(AbilityKeyComparer.Instance);
+    /// <summary>Every sound event of each container base name over all its files (the archive keeps base names; a Space Marine, a Chaos and an Ork file can share one), in archive order.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> ContainerEventChoices { get; init; } = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The Orks' events begin with this; their container files carry the Marines' base names.</summary>
+    public const string OrkEventPrefix = "play_or_";
+
+    /// <summary>
+    /// sound/original-hits: the sound events a melee ability posts when it hits (the data's own choice): per container (in order) its sfx event, without duplicates. The material never picks
+    /// the event (one event per container; the Wwise switch inside it picks the variant). A Space Marine or Chaos wargear never takes the Orks' same-named file's event
+    /// (<see cref="OrkEventPrefix"/>); an Ork wargear (file name starting "ork") takes the first event of a container. Empty when the ability has none.
+    /// </summary>
+    public IReadOnlyList<string> MeleeHitEvents(string? wargear, string? ability, bool secondary)
+    {
+        if (wargear is null || ability is null) return [];
+        bool ork = wargear.StartsWith("ork", StringComparison.OrdinalIgnoreCase);
+        var events = new List<string>();
+        foreach (var c in MeleeAbilityContainers.TryGetValue((wargear, ability, secondary), out var found) ? found : [])
+        {
+            string? e = ContainerEventChoices.TryGetValue(Leaf(c), out var choices)
+                ? choices.FirstOrDefault(x => ork || !x.StartsWith(OrkEventPrefix, StringComparison.OrdinalIgnoreCase))
+                : ContainerSound(c) is { } one && (ork || !one.StartsWith(OrkEventPrefix, StringComparison.OrdinalIgnoreCase)) ? one : null;
+            if (!string.IsNullOrEmpty(e) && !events.Contains(e, StringComparer.OrdinalIgnoreCase)) events.Add(e);
+        }
+        // The ability's own sound commands in the same target actions (the combat knife's hit_audio: play_sm_fist_hit), after the containers'.
+        string slot = secondary ? "/secondary_target_actions/" : "/primary_target_actions/";
+        foreach (var b in File(wargear)?.Bindings ?? [])
+            if (b.IsDefault && string.Equals(b.Ability, ability, StringComparison.OrdinalIgnoreCase) && b.StartEvent.Length > 0 && b.DelayMilliseconds <= 0f
+                && b.Path.Contains(slot, StringComparison.Ordinal) && (ork || !b.StartEvent.StartsWith(OrkEventPrefix, StringComparison.OrdinalIgnoreCase))
+                && !events.Contains(b.StartEvent, StringComparer.OrdinalIgnoreCase))
+                events.Add(b.StartEvent);
+        return events;
+    }
+
+    /// <summary>The (ability, rank, container) of every default hit effect container under a melee ability's target actions (see <see cref="MeleeAbilityContainers"/>), in file order.</summary>
+    public static IEnumerable<(string Ability, bool Secondary, string Container)> MeleeAbilityHits(IEnumerable<FxBinding> fx)
+    {
+        foreach (var b in fx)
+        {
+            if (!b.IsDefault || b.Material is not { Container.Length: > 0 } m || b.Ability.Length == 0) continue;
+            if (b.Path.Contains("/primary_target_actions/", StringComparison.Ordinal)) yield return (b.Ability, false, m.Container);
+            else if (b.Path.Contains("/secondary_target_actions/", StringComparison.Ordinal)) yield return (b.Ability, true, m.Container);
+        }
+    }
+
+    static Dictionary<(string, string, bool), IReadOnlyList<string>> AbilityHitTable(IEnumerable<KeyValuePair<string, BafDocument>> docs)
+    {
+        var table = new Dictionary<(string, string, bool), List<string>>(AbilityKeyComparer.Instance);
+        foreach (var (name, doc) in docs)
+            foreach (var (ability, secondary, container) in MeleeAbilityHits(FxBinding.Collect(doc.Root)))
+            {
+                if (!table.TryGetValue((name, ability, secondary), out var list)) table[(name, ability, secondary)] = list = [];
+                list.Add(container);
+            }
+        return table.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<string>)kv.Value, AbilityKeyComparer.Instance);
+    }
+
+    /// <summary>Wargear and ability names compare without case, as the file names do everywhere else here.</summary>
+    public sealed class AbilityKeyComparer : IEqualityComparer<(string, string, bool)>
+    {
+        public static readonly AbilityKeyComparer Instance = new();
+        public bool Equals((string, string, bool) a, (string, string, bool) b) =>
+            a.Item3 == b.Item3 && string.Equals(a.Item1, b.Item1, StringComparison.OrdinalIgnoreCase) && string.Equals(a.Item2, b.Item2, StringComparison.OrdinalIgnoreCase);
+        public int GetHashCode((string, string, bool) k) =>
+            HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(k.Item1), StringComparer.OrdinalIgnoreCase.GetHashCode(k.Item2), k.Item3);
+    }
+
+    /// <summary>
+    /// sound/original-hits: the data ability of a melee strike of <paramref name="wargear"/> (<paramref name="step"/> is 1-based as <c>PlayerState.MeleeStep</c>; 0: unknown, the first light attack's).
+    /// The simulated weapons map by their combo lists (<see cref="MeleeTuning.WeaponMap.AbilityOf"/>; the Ork Boy's choppa too: <c>ability_melee_light</c> / <c>ability_melee_heavy</c>). A heavy strike the
+    /// map gives no ability (a blast strike) takes <c>ability_melee_y</c> / <c>y2</c>.. when the wargear holds that ability with a hit container (interpretation: the combat knife's Y4, which the data
+    /// defines as <c>ability_melee_y4</c>; the chainsword has none and its Y4 and the sword's and axe's Y,Y finishers stay without a hit sound: their sounds are the wargear's <c>displace_*</c> triggered actions).
+    /// A wargear with no map takes <c>ability_melee_heavy</c> / <c>ability_melee_light</c> when it has it, else its first <c>ability_melee*</c> ability. Empty when nothing fits.
+    /// </summary>
+    public string MeleeHitAbility(string? wargear, bool heavy, int step)
+    {
+        if (wargear is null) return "";
+        var map = MpClasses.MeleeMapFor(wargear) ?? (string.Equals(wargear, MeleeTuning.OrkChoppa.Wargear, StringComparison.OrdinalIgnoreCase) ? MeleeTuning.OrkChoppa : null);
+        bool Has(string ability) => MeleeAbilityContainers.ContainsKey((wargear, ability, false));
+        if (map is not null)
+        {
+            string ability = step <= 0 ? map.AbilityOf(false, 1) : map.AbilityOf(heavy, step);
+            if (ability.Length == 0 && heavy && step > 0 && $"ability_melee_y{(step == 1 ? "" : step.ToString(System.Globalization.CultureInfo.InvariantCulture))}" is var y && Has(y)) return y;
+            return ability;
+        }
+        string preferred = heavy ? "ability_melee_heavy" : "ability_melee_light";
+        if (Has(preferred)) return preferred;
+        return MeleeAbilityContainers.Keys.Where(k => k.Wargear.Equals(wargear, StringComparison.OrdinalIgnoreCase) && !k.Secondary && k.Ability.StartsWith("ability_melee", StringComparison.OrdinalIgnoreCase))
+            .Select(k => k.Ability).Order(StringComparer.Ordinal).FirstOrDefault() ?? "";
+    }
+
     /// <summary>Behaviour Action tags per clip name (case-insensitive): tag name and start as a fraction of the clip.</summary>
     public required IReadOnlyDictionary<string, IReadOnlyList<(string Tag, float At)>> ClipTags { get; init; }
     public required IReadOnlyList<string> Notes { get; init; }
@@ -333,11 +430,17 @@ public sealed partial class SoundTriggers
             archive.ReadEntries(e => archive.GroupName(e) == "attr_pc" && ebps.Contains(e.FileName), (e, d) => docs.TryAdd(e.FileName, BafDocument.Read(d)));
         var containers = docs.Values.SelectMany(d => EffectCatalogue.Strings(d.Root, "effect_container")).Select(Leaf).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var sounds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var allEvents = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         using (var archive = ObpkArchive.Open(Path.Combine(gameDir, EffectCatalogue.MaterialEffectPackage)))
             archive.ReadEntries(e => archive.GroupName(e) == "attr_pc" && containers.Contains(e.FileName), (e, d) =>
             {
                 // Base names repeat (a Space Marine and a Chaos variant); the first keeps the name (interpretation, as EffectCatalogue).
-                if (BafDocument.Read(d).Root.Table("sfx")?.String("start_event_name") is { Length: > 0 } s) sounds.TryAdd(e.FileName, s);
+                if (BafDocument.Read(d).Root.Table("sfx")?.String("start_event_name") is { Length: > 0 } s)
+                {
+                    sounds.TryAdd(e.FileName, s);
+                    if (!allEvents.TryGetValue(e.FileName, out var list)) allEvents[e.FileName] = list = [];
+                    list.Add(s);   // sound/original-hits: every file's event, so a melee hit can skip the Orks' same-named file
+                }
             });
         foreach (var path in docs.Values.SelectMany(d => EffectCatalogue.Strings(d.Root, "effect_container")).Distinct(StringComparer.OrdinalIgnoreCase))
             if (sounds.TryGetValue(Leaf(path), out var s)) sounds.TryAdd(path, s);
@@ -365,6 +468,8 @@ public sealed partial class SoundTriggers
         return new SoundTriggers
         {
             Files = built.Files, ContainerSounds = built.ContainerSounds, ClipTags = built.ClipTags, Notes = built.Notes, HitContainers = hits, MeleeHitContainers = meleeHits, ChargeHitContainers = chargeHits,
+            MeleeAbilityContainers = AbilityHitTable(docs),
+            ContainerEventChoices = allEvents.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<string>)kv.Value, StringComparer.OrdinalIgnoreCase),
             SpeechCharacters = speechCharacters, OrkOnlyClips = built.OrkOnlyClips, ShotHitContainers = shotHits,
             BlueprintCharacters = docs.Where(kv => ebps.Contains(kv.Key) && OrkSounds.SpeechCharacter(kv.Value) is not null).ToDictionary(kv => kv.Key, kv => OrkSounds.SpeechCharacter(kv.Value)!, StringComparer.OrdinalIgnoreCase),
         };
@@ -399,6 +504,7 @@ public sealed partial class SoundTriggers
         var orkOnly = new HashSet<string>(tags.Keys.Where(k => !marineClips.Contains(k)), StringComparer.OrdinalIgnoreCase);
         return new SoundTriggers
         {
+            MeleeAbilityContainers = AbilityHitTable(docs),
             OrkOnlyClips = orkOnly,
             Files = files, ContainerSounds = new Dictionary<string, string>(containerSounds, StringComparer.OrdinalIgnoreCase),
             ClipTags = tags.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<(string, float)>)kv.Value.OrderBy(x => x.Item2).ToList(), StringComparer.OrdinalIgnoreCase),

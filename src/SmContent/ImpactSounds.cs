@@ -8,7 +8,7 @@ namespace SmContent;
 public enum ImpactTreatmentMode { Bolters, Ballistic, Off }
 
 /// <summary>
-/// The shooter's hit confirmation (sound/impacts; <c>--hit-confirm</c>): <see cref="Soft"/> (default, the owner's change) the weapon's own confirm event with only its
+/// The shooter's hit confirmation (sound/impacts; <c>--hit-confirm</c>): <see cref="Soft"/> (the default until sound/original-hits, the owner's change of 2026-10-29; now `--hit-confirm soft`) the weapon's own confirm event with only its
 /// non-positioned smack layer, pitched down, low-passed and quieter, once per hit report with a cooldown, heavier on a kill; <see cref="Data"/> the data's event as it is
 /// (with the victim's armour or flesh as the material, the faithful reading); <see cref="Off"/> nothing.
 /// </summary>
@@ -21,6 +21,21 @@ public enum HitConfirmMode { Soft, Data, Off }
 /// </summary>
 public static class ImpactSounds
 {
+    /// <summary>The shooter's hit confirm by default: the data's event (sound/original-hits, owner 2026-11-04); <c>--hit-confirm soft</c> restores the former default.</summary>
+    public const HitConfirmMode DefaultHitConfirm = HitConfirmMode.Data;
+
+    /// <summary>The value of a mode flag (<c>--hit-confirm soft</c>) among <paramref name="args"/>, or <paramref name="fallback"/> when the flag is absent or its value is not a name (the error goes to <paramref name="warn"/>); the client's flags read through this.</summary>
+    public static T ModeFromArgs<T>(string[] args, string flag, T fallback, Action<string>? warn = null) where T : struct, Enum
+    {
+        for (int i = 0; i < args.Length; i++)
+            if (args[i] == flag)
+            {
+                if (TryParse<T>(i + 1 < args.Length ? args[i + 1] : null, out var value, out string? error)) return value;
+                warn?.Invoke($"{flag}: {error}; using {fallback.ToString().ToLowerInvariant()}");
+            }
+        return fallback;
+    }
+
     /// <summary>The bolter family's hit events (the data: every bolter, bolt pistol, storm bolter and heavy bolter names <c>play_bolter_hits</c>; the stalker <c>play_stalker_hits</c>).</summary>
     public static readonly IReadOnlySet<string> BolterHitEvents = new HashSet<string>(["play_bolter_hits", "play_stalker_hits"], StringComparer.OrdinalIgnoreCase);
 

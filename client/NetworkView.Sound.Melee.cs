@@ -75,11 +75,14 @@ public partial class NetworkView
     /// <summary>
     /// Posts a melee or charge hit sound at a victim (the armour and flesh layers together, as for a bullet: <see cref="PostPlayerHitSound"/>). Returns the event posted or null.
     /// </summary>
-    string? PostMeleeHit(PlayerState attacker, int victimId, System.Numerics.Vector3 victimPosition, bool charge, bool dash, string source)
+    string? PostMeleeHit(PlayerState attacker, int victimId, System.Numerics.Vector3 victimPosition, bool charge, bool dash, string source, bool heavy = false, int step = 0, bool secondary = false)
     {
         if (_soundTriggers is null || _sound is null || _config is null || NoMeleeSounds) return null;
         var where = victimPosition + new System.Numerics.Vector3(0f, 0f, 1.2f);
-        // fx/melee-hit-sound: the generated sound replaces the original of its weapons and of the Tactical's and Assault's charge (none of the layers below then).
+        // sound/original-hits: a swing's hit is the data's event for its ability and rank (no synth, no layer).
+        if (!charge && ProceduralHitSound(attacker, charge, dash) is null)
+            return PostDataMeleeHit(attacker, heavy, step, secondary, $"P{victimId}", ToGodot(where), source);
+        // fx/melee-hit-sound (--generated-melee-hit-sound): the generated sound replaces the original of its weapons (none of the layers below then).
         if (ProceduralHitSound(attacker, charge, dash) is { } synth)
         {
             string played = PlayProceduralHit(synth, ToGodot(where), $"{(charge ? "charge" : "melee")} hit on P{victimId}");
@@ -91,8 +94,8 @@ public partial class NetworkView
         string? evt = charge ? ChargeHitEvent(attacker, dash) : MeleeWargear(attacker) is { } m ? _soundTriggers.MeleeHitSound(m) : null;
         if (evt is null) return null;
         PostPlayerHitSound(evt, new SoundEmitter { Position = ToGodot(where), Label = $"{(charge ? "charge" : "melee")} hit on P{victimId}", OneShot = true });
-        // anim/melee-interaction (ours): a charge hit layers the charging weapon's own hit sound under the body smash (the data's two impacts together: crunchier).
-        if (charge && !dash && !NoChargeImpact && MeleeWargear(attacker) is { } layer && _soundTriggers.MeleeHitSound(layer) is { } weaponHit && weaponHit != evt)
+        // anim/melee-interaction (ours; --charge-hit-layer): a charge hit layers the charging weapon's own hit sound under the body smash (the data's two impacts together: crunchier). Off by default since sound/original-hits.
+        if (charge && !dash && ChargeHitLayer && !NoChargeImpact && MeleeWargear(attacker) is { } layer && _soundTriggers.MeleeHitSound(layer) is { } weaponHit && weaponHit != evt)
         {
             PostPlayerHitSound(weaponHit, new SoundEmitter { Position = ToGodot(where), Label = $"charge hit layer on P{victimId}", OneShot = true });
             CountSound("charge hit layer");
@@ -109,6 +112,8 @@ public partial class NetworkView
     readonly MeleeHitGate _meleeSoundGate = new();
     readonly MeleeHitConfirm _meleeConfirm = new();
     readonly List<MeleeHitConfirm.Hit> _meleeConfirmed = new();
+    /// <summary>sound/original-hits: the strike (heavy, step) of each pending inferred hit by (attacker, victim), noted when the hit time passed: the attacker may be in another strike when the victim's reaction confirms it.</summary>
+    readonly Dictionary<(int Attacker, int Victim), (bool Heavy, int Step)> _meleeHitStrikes = new();
     readonly List<PlayerState> _meleeSoundAll = new(), _meleeSoundPool = new();
     readonly HashSet<int> _meleeSoundPresent = new();
     readonly Dictionary<int, RushPhase> _meleeRushPrev = new();
@@ -156,7 +161,11 @@ public partial class NetworkView
                 long start = MeleeHitGate.StartTick(_client.LatestSnapshotTick, p.MeleeTime, _config.TickSeconds);
                 if (_meleeSoundGate.Passed(p.PlayerId, p.MeleeStep, p.MeleeHeavy, GateTime(p, step), FxTime(step), start)
                     && MeleePresentation.Victim(p, pool, _config) is var victim && victim > 0)
+                {
                     _meleeConfirm.Add(p.PlayerId, victim, charge: false, dash: false, now);
+                    if (_meleeHitStrikes.Count > 64) _meleeHitStrikes.Clear();
+                    _meleeHitStrikes[(p.PlayerId, victim)] = (p.MeleeHeavy, p.MeleeStep);   // the strike it was, for the ability when the victim's reaction confirms it
+                }
             }
             else _meleeSoundGate.Idle(p.PlayerId);
             _meleeRushPrev.TryGetValue(p.PlayerId, out var before);
@@ -170,7 +179,10 @@ public partial class NetworkView
         {
             int a = all.FindIndex(x => x.PlayerId == hit.Attacker);
             int v = pool.FindIndex(x => x.PlayerId == hit.Victim);
-            if (a >= 0 && v >= 0) PostMeleeHit(all[a], hit.Victim, pool[v].Position, hit.Charge, hit.Dash, "inferred from the snapshots");
+            if (a < 0 || v < 0) continue;
+            var strike = _meleeHitStrikes.GetValueOrDefault((hit.Attacker, hit.Victim), (Heavy: all[a].MeleeHeavy, Step: all[a].MeleeStep));
+            _meleeHitStrikes.Remove((hit.Attacker, hit.Victim));
+            PostMeleeHit(all[a], hit.Victim, pool[v].Position, hit.Charge, hit.Dash, "inferred from the snapshots", strike.Heavy, strike.Step);
         }
         _meleeSoundGate.Prune(_meleeSoundPresent.Contains);
         _meleeConfirm.Prune(_meleeSoundPresent.Contains);
@@ -203,7 +215,7 @@ public partial class NetworkView
         {
             _meleeTableLogged = true;
             foreach (var f in _soundTriggers.Files.Keys.Where(k => k.Contains("melee", StringComparison.OrdinalIgnoreCase)).OrderBy(k => k, StringComparer.Ordinal))
-                GD.Print($"MELEE TABLE {f}: hit '{_soundTriggers.MeleeHitSound(f) ?? "-"}', hum '{HumOf(f)?.Start ?? "-"}'");
+                GD.Print($"MELEE TABLE {f}: hit '{_soundTriggers.MeleeHitSound(f) ?? "-"}', hum '{HumOf(f)?.Start ?? "-"}', hit_audio bindings {_soundTriggers.File(f)?.Of("hit_audio").Count() ?? 0}, ability hit events {string.Join(" ", _soundTriggers.MeleeAbilityContainers.Keys.Where(k => string.Equals(k.Wargear, f, StringComparison.OrdinalIgnoreCase)).OrderBy(k => k.Ability, StringComparer.Ordinal).ThenBy(k => k.Secondary).Select(k => $"{k.Ability}{(k.Secondary ? "(2nd)" : "")}={string.Join("+", _soundTriggers.MeleeHitEvents(f, k.Ability, k.Secondary))}"))}");
         }
         string? wargear = WeaponHums && MeleeIdleGuard.Allows(IsOrkVoice(s)) && s.Alive && !NoMeleeSounds && character.Weapons?.MeleeMeshInHand is not null ? MeleeWargear(s) : null;
         var want = HumOf(wargear);

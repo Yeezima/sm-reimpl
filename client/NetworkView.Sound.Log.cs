@@ -56,19 +56,12 @@ public partial class NetworkView
     /// <summary><c>--impact-treatment bolters|ballistic|off</c> (sound/impacts; default bolters): see <see cref="ImpactTreatmentMode"/>.</summary>
     static readonly ImpactTreatmentMode ImpactTreatmentArg = ParseMode("--impact-treatment", ImpactTreatmentMode.Bolters);
 
-    /// <summary><c>--hit-confirm soft|data|off</c> (sound/impacts; default soft): see <see cref="HitConfirmMode"/>.</summary>
-    static readonly HitConfirmMode HitConfirmArg = ParseMode("--hit-confirm", HitConfirmMode.Soft);
+    /// <summary><c>--hit-confirm soft|data|off</c> (sound/impacts; default data since sound/original-hits, 2026-11-04; soft was the default before): see <see cref="HitConfirmMode"/>.</summary>
+    static readonly HitConfirmMode HitConfirmArg = ParseMode("--hit-confirm", ImpactSounds.DefaultHitConfirm);
 
     static T ParseMode<T>(string flag, T fallback) where T : struct, Enum
     {
-        var args = OS.GetCmdlineUserArgs();
-        for (int i = 0; i < args.Length; i++)
-            if (args[i] == flag)
-            {
-                if (ImpactSounds.TryParse<T>(i + 1 < args.Length ? args[i + 1] : null, out var value, out string? error)) return value;
-                GD.PrintErr($"{flag}: {error}; using {fallback.ToString().ToLowerInvariant()}");
-            }
-        return fallback;
+        return ImpactSounds.ModeFromArgs(OS.GetCmdlineUserArgs(), flag, fallback, s => GD.PrintErr(s));
     }
 
     /// <summary>A post's voices with their mix at the listener (distance from the camera, as the voices start; the offset included), for the logs.</summary>

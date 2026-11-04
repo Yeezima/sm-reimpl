@@ -37,6 +37,19 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         /// its graph state has no light transition out (<see cref="MeleeStep.StringEnd"/>).
         /// </summary>
         public bool LoopLights { get; init; } = true;
+        /// <summary>
+        /// sound/original-hits: the data ability of a strike, from the same lists <see cref="MeleeTuning.From"/> builds the sim's strikes from (<paramref name="step"/> is 1-based, as
+        /// <c>PlayerState.MeleeStep</c>; the heavy list is the heavy strikes, then the finishers). Empty for a strike without an ability (a blast-only finisher) or out of range.
+        /// </summary>
+        public string AbilityOf(bool heavy, int step)
+        {
+            int i = step - 1;
+            if (i < 0) return "";
+            if (!heavy) return i < Abilities.Length ? Abilities[i] : "";
+            if (i < HeavySequencers.Length) return i < HeavyAbilities.Length ? HeavyAbilities[i] : "";
+            int f = i - HeavySequencers.Length;
+            return f < FinisherSequencers.Length && f < FinisherAbilities.Length ? FinisherAbilities[f] : "";
+        }
         /// <summary>sim/stomp-in-place: the blast strikes of this map (the heavy classes' stomp) keep the body in place (<see cref="MeleeStep.InPlace"/>; no root-motion lunge).</summary>
         public bool InPlaceStomp { get; init; }
         /// <summary>
