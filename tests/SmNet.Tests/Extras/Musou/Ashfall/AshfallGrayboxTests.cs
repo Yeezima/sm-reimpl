@@ -224,7 +224,7 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
         foreach (var part in Level.Parts.Where(p => StructuralKind(p.Kind)))
         {
             var (x0, y0, x1, y1, z0, _) = Box2(part);
-            if (z0 >= 6f) continue;   // pass 2b: the twin towers' bridge (deck and parapets from 11.5 m) spans the west avenue's lane overhead; the lane below stays open
+            if (z0 >= 11.5f - 1e-3f && x0 >= -109f - 1e-3f && x1 <= -83f + 1e-3f && y0 >= 147f - 1e-3f && y1 <= 153f + 1e-3f) continue;   // pass 2b: only the twin towers' bridge (deck and parapets from 11.5 m) spans the west avenue's lane overhead
             foreach (float c in new[] { -92f, 92f, -232f, 232f })
             {
                 // Corridor along y (x within 4 m of c) and along x (y within 4 m of c); the monument and the arch (|y| < 6 on the x = +-92 avenues) are the two hand-built exceptions of version 1.
@@ -441,6 +441,14 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
         finally { Directory.Delete(dir, recursive: true); }
     });
 
+    /// <summary>A walk from <paramref name="from"/> to <paramref name="to"/> whose every waypoint stays at or above <paramref name="minZ"/>: proves the way is the one meant (the bridge, a gateway), not a detour by the ground.</summary>
+    static bool WalksAbove(NavGraph graph, Vector3 from, Vector3 to, float minZ)
+    {
+        if (graph.Nearest(to, 1.5f, 1.0f) < 0) return false;
+        var path = graph.FindPath(from, to, goalSnap: 1.5f, maxExpanded: 8_000_000);
+        return path is { Partial: false } p && p.Waypoints.All(w => w.Kind is NavLinkKind.Walk or NavLinkKind.Drop && w.Position.Z >= minZ);
+    }
+
     static bool Walks(NavGraph graph, Vector3 from, Vector3 to)
     {
         if (graph.Nearest(to, 1.5f, 1.0f) < 0) return false;
@@ -499,9 +507,9 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
         Assert.True(twoBMissing.Count == 0, "pass 2b places not reached on foot: " + string.Join(", ", twoBMissing));
         // The outside stair is a way up of its own: its foot walks to its top landing, and the first floor is reached from the landing.
         Assert.True(Walks(graph, pts["east stair foot"], pts["east stair top"]), "the outside stair's foot does not walk to its top landing");
-        Assert.True(Walks(graph, pts["east stair top"], pts["east first floor"]), "the outside stair's top landing does not walk into the first floor");
+        Assert.True(WalksAbove(graph, pts["east stair top"], pts["east first floor"], 5.5f), "the outside stair's top landing does not walk into the first floor through its gateway (review of pass 2b: a detour by the ground would hide a blocked gateway)");
         // The bridge joins the towers on foot: from the west tower's bridge end across to the east tower's plate, and the keep roof from the stair's foot.
-        Assert.True(Walks(graph, pts["bridge west end"], pts["twin east plate"]), "the bridge does not join the twin towers");
+        Assert.True(WalksAbove(graph, pts["bridge west end"], pts["twin east plate"], 11.5f), "the bridge does not join the twin towers at its own level (review of pass 2b: a detour down one core and up the other would hide a blocked gateway)");
         Assert.True(Walks(graph, V(34f, 162f, AshfallMap.BlockTop), V(0f, 190f, 18f)), "the keep roof is not reached from the stair's foot");
         // The pointed roofs cannot be stood on (no walk to a point on a slope), and the bare strips of the east tower's roof slab are solid tops a jump reaches.
         var levelMesh = AshfallContent.ToMapContent(Level).ToCollisionWorld().Character;
