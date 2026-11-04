@@ -56,7 +56,10 @@ public abstract partial class TfwPagePanel : Control
 
     protected static string Number(long v) => v.ToString("N0", CultureInfo.InvariantCulture);
 
-    protected static string MapName(in TfwMapScore m) => $"MANUFACTORUM, FRONT {m.Lane}, NODE {m.Node}";
+    /// <summary>The battlefield's name on the score pages (set when the war's map loads: Ashfall Citadel, or Manufactorum on the restore map).</summary>
+    internal static string Battlefield = "ASHFALL CITADEL";
+
+    protected static string MapName(in TfwMapScore m) => $"{Battlefield}, FRONT {m.Lane}, NODE {m.Node}";
 }
 
 /// <summary>

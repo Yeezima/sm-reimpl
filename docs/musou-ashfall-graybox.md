@@ -1,6 +1,6 @@
 # Ashfall Citadel graybox (Musou Mode's battlefield, G1)
 
-Status: generator, server, content, tool and tests done (see Results); the client work is separate. On branch `musou/ashfall-graybox`. Owner's start: 2026-11-04 (agent-coordination `decisions/2026-11-04-ashfall-graybox-start.md`).
+Status: done on the branch (generator, server, content, client view, tool, tests; see Results), awaiting the owner's playtest. On branch `musou/ashfall-graybox`. Owner's start: 2026-11-04 (agent-coordination `decisions/2026-11-04-ashfall-graybox-start.md`).
 Merge gate: the owner playtests a branch build. Everything here is **ours** (placeholder demonstration) unless it says otherwise; every number is an estimate
 for the owner's playtest and goes to the refine register.
 
@@ -109,3 +109,14 @@ Deviations from the design, with reasons:
 - `smtool ashfall-plan` draws every solid by kind (shade: higher is darker; F/P labels with the top height on upper floors and perches), the grid, objectives with radii, both start areas, the Stormbird and the range, a scale bar and a north arrow. Not yet looked at by a person.
 
 Unfinished or open: the first cold start of a server builds the graph for about a minute (a shipped or pre-built cache is a later decision); the plan SVG and the whole layout await the owner's eyes; no nav jump links (`.navjump`) were measured.
+
+## Integration and review (lead, 2026-11-04)
+- Live load check (server `--bind 127.0.0.1 --content musou`, one headless client, no bots, no input): the client generated the level in 32 ms and
+  drew 569 parts / 17,012 triangles in 14 ms; map load 581 ms; client and server map hash equal (DDC3549A201A03D6); the war started on Ashfall
+  (enemies' graph built in 9.7 s on the server: 800,782 cells, 21 seeds). Level hash v1 4D0658D87AF67B7B (pinned in the tests).
+- Independent review: no must-fix. Applied: perch test has a positive control (each perch point stands on a solid top); Ashfall's level hash is
+  pinned; the perimeter road's four corners seed the enemies' graph and the war's bounds (before, x > 210 and y > 194 had no nodes and orders
+  there were clamped); the score pages name the battlefield (ASHFALL CITADEL, or MANUFACTORUM on `tfw_war_m09`).
+- Open: Ashfall and Manufactorum runs may share best-score records (`TfwMapScore` carries no map id; unverified); the cold graph build on a new
+  server copy (about 10 to 60 s by machine) delays the war's start once; both war maps share the graph cache's base name; the faithful build's
+  `smtool` help lists `ashfall-plan` though the command exists only with added content.

@@ -37,7 +37,12 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
         Assert.Equal(Hash(a, AshfallMap.Version), a.Hash);
         Assert.NotEqual(Hash(a, AshfallMap.Version + 1), a.Hash);   // a new generator version moves the hash
         Assert.Equal(AshfallContent.ToMapContent(a).Hash, a.Hash);
+        // Pinned (version 1): a layout change without a new AshfallMap.Version fails here, not at a client's handshake.
+        Assert.Equal(PinnedLevelHash, a.Hash);
     }
+
+    /// <summary>Ashfall Citadel version 1's level hash (the client's log printed it on a live connect, 2026-11-04).</summary>
+    const ulong PinnedLevelHash = 0x4D0658D87AF67B7BUL;
 
     /// <summary>The hash's rule, written out independently of the generator: FNV-1a 64 over the version, then every solid corner's float bits.</summary>
     static ulong Hash(AshfallLevel level, uint version)
@@ -277,6 +282,11 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
             ("A obelisk", V(-164f, 168f, 15f)), ("small obelisk", V(-92f, 0f, 12f)), ("arch top", V(92f, 0f, 14f)), ("keep top", V(0f, 190f, 18f)),
             ("C roof", V(157f, 180f, 12f)), ("E ruin roof", V(170f, 16f, 12f)),
         ];
+        // Positive control: each perch point stands on a solid top at its height (a ray down from 2 m above meets it within 2.1 m), so "not reached" is a real finding.
+        // The graph keeps only floors reached from its seeds, so it cannot serve as the control itself.
+        var level = AshfallContent.ToMapContent(Level).ToCollisionWorld().Character;
+        var floating = perches.Where(r => level.Raycast(r.At + new Vector3(0f, 0f, 2f), -Vector3.UnitZ, 2.1f) is null).Select(r => r.Name).ToList();
+        Assert.True(floating.Count == 0, "perch point not on a solid top (wrong place or height, so its check proves nothing): " + string.Join(", ", floating));
         var reached = perches.Where(r => Walks(graph, start, r.At)).Select(r => r.Name).ToList();
         Assert.True(reached.Count == 0, "reached on foot (should be jump-only): " + string.Join(", ", reached));
     }

@@ -771,7 +771,7 @@ public partial class NetworkView
         if (_client is null || _fx is null || _client.MapName.Length == 0 || _gameSpace is null) return;
         if (_fxMapLoad is null && _fxMapSpawned != _client.MapName)
         {
-            if (MapFileOf(_client.MapName) == "none") { _fxMapSpawned = _client.MapName; _fxMapNote = "map effects: none (the map is generated in code)"; return; }   // EXTRAS: a generated map has no install file
+            if (MapFileOf(_client.MapName) == "none") { _fxMapSpawned = _client.MapName; _fxMapNote = "map effects: none (the map is generated in code)"; return; }   // a map without an install file (a generated one) has no map effects
             string dir = _gameDir, map = _client.MapName;
             var library = _fx.Library;
             _fxMapLoad = Task.Run(() =>

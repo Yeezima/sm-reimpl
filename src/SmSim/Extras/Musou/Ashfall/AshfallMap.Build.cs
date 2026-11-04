@@ -50,7 +50,10 @@ public static partial class AshfallMap
         RubbleLayout(b);
         foreach (var p in points) b.Disc(p.Center.X, p.Center.Y, BlockTop + 0.05f + (p.Name == "B" ? Overlay : 0f), p.Radius);
 
-        return new AshfallLevel(b.Parts, points, areas, spawns, HashOf(b.Parts));
+        // The perimeter road's corners (added after the rubble, so they do not move it): the enemies' graph and the war's bounds are the seeds' box plus 30 m,
+        // and without these the east and north strips (x > 210, y > 194) had no nodes and an order there was clamped (review of 2026-11-04).
+        Vector3[] corners = [P(-232f, -232f), P(232f, -232f), P(-232f, 232f), P(232f, 232f)];
+        return new AshfallLevel(b.Parts, points, areas, [.. spawns, .. corners], HashOf(b.Parts));
     }
 
     /// <summary>The level's hash: FNV-1a over the solid parts' corner bits in order, salted with <see cref="Version"/>.</summary>

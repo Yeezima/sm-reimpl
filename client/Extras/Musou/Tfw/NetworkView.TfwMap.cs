@@ -39,6 +39,7 @@ public partial class NetworkView
         world = composed;
         hash = composedHash;
         TfwHub = hub;
+        TfwPagePanel.Battlefield = name == TfwMap.ManufactorumName ? "MANUFACTORUM" : "ASHFALL CITADEL";
         _tfwAboard = false;   // a new map (a new camera) gets the hub sky again
         GD.Print($"map {name}: {(manufactorum ? TfwMap.Battlefield + " from the install" : "Ashfall Citadel generated in code")} and the Stormbird at {hub.Centre}; map hash {hash:X16}");
         if (Lean) return;
