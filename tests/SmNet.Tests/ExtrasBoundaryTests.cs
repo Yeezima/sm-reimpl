@@ -42,6 +42,7 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.cs", "ExtrasMapFile"),                // NetworkView.ExtrasMapFile(ref string), the install's map behind a map name (tfw_war: Manufactorum), in LoadMap and for the map's effects and sounds
         ("src/SmServer/GameServer.Appearance.cs", "ExtrasPuppetAppearance"),   // GameServer.ExtrasPuppetAppearance(int, ref (ushort, Race, AppearanceCode)?), in PeerlessLook (scoreboard version, appearance query): Musou Mode's retainers wear their owner's look
         ("client/NetworkView.MeleeHitSound.cs", "ExtrasMeleeTarget"),   // NetworkView.ExtrasMeleeTarget(PlayerState, MeleeStep, ref Vector3?), the own strike's hit sound: Musou's enemies in reach
+        ("client/NetworkView.Sound.cs", "ExtrasShotMaterial"),     // NetworkView.ExtrasShotMaterial(ShotView, int, ref bool?), in SoundShot: the material of another player's ranged hit (Musou: armoured Orks armour and flesh)
         ("client/NetworkView.cs", "ExtrasMapCollision"),           // NetworkView.ExtrasMapCollision(string, ref CollisionWorld, ref ulong), in LoadMap after the level's collision (tfw_war: the Stormbird and the composed hash)
     ];
 

@@ -17,6 +17,17 @@ public class MusouFleshRuleTests
     public void Only_the_unarmoured_ork_types_always_sound_as_flesh(MusouEnemyType type, bool flesh) =>
         Assert.Equal(flesh, MusouFleshRule.AlwaysFlesh(type));
 
+    [Theory]
+    [InlineData(MusouEnemyType.Boy, false)]
+    [InlineData(MusouEnemyType.ShootaBoy, false)]
+    [InlineData(MusouEnemyType.Gretchin, false)]
+    [InlineData(MusouEnemyType.ArdBoy, null)]
+    [InlineData(MusouEnemyType.Nob, null)]
+    [InlineData(MusouEnemyType.Warboss, null)]
+    [InlineData(MusouEnemyType.ChaosMarine, null)]
+    public void Material_is_flesh_for_unarmoured_and_both_layers_for_armoured(MusouEnemyType type, bool? material) =>
+        Assert.Equal(material, MusouFleshRule.Material(type));
+
     [Fact]
     public void Every_enemy_type_is_decided_so_a_new_type_is_a_conscious_choice()
     {
