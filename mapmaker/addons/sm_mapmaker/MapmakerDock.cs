@@ -149,7 +149,7 @@ public partial class MapmakerDock : VBoxContainer
         _grid.ValueChanged += x => MapHost.GridStep = (float)x; _angle.ValueChanged += x => MapHost.AngleStep = (float)x;
         v.AddChild(Row(gridOn, _grid)); v.AddChild(Row(angOn, _angle));
         v.AddChild(new Label { Text = "Snap applies to placement and to gizmo moves on release; typed values are never snapped.", AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(280, 0) });
-        v.AddChild(Row(Btn("Undo", () => EditorInterface.Singleton.GetEditorUndoRedo()?.Call("undo"), "Editor undo (Ctrl+Z)"), Btn("Frame SM1 map", () => { if (MapHost.Sm1 is { } s && s.BoundsAll() is { } b) _plugin.Frame3D(b.Min, b.Max); })));
+        v.AddChild(Row(Btn("Undo", () => EditorInterface.Singleton.GetEditorUndoRedo()?.Call("undo"), "Editor undo (Ctrl+Z)"), Btn("Frame SM1 map", () => { if (MapHost.Sm1 is { } s && s.BoundsCore() is { } b) _ = _plugin.Frame3D(b.Min, b.Max); })));
         return v;
     }
 
@@ -192,7 +192,7 @@ public partial class MapmakerDock : VBoxContainer
             var notes = new List<string>();
             MapHost.Root!.ShowBackdrop(source, notes);
             MapHost.Register(source);
-            if (source.BoundsAll() is { } b) _plugin.Frame3D(b.Min, b.Max);
+            if (source.BoundsCore() is { } b) _ = _plugin.Frame3D(b.Min, b.Max);
             _plugin.SetTool(Tool.PickSm1);
             _status.Text = $"{map}: {source.Scene.Objects.Count} placements, {source.Scene.Definitions.Count} definitions. {notes.Count} view notes.";
         }

@@ -203,6 +203,27 @@ public sealed class Sm1Source
         return r;
     }
 
+    /// <summary>
+    /// Box of the playable core (game frame) for framing the camera: the 10th to 90th percentile of drawn placement centres on each axis, padded.
+    /// BoundsAll is km-wide on Manufactorum (far scenery about 2 km out), which put the camera beyond the editor's zoom range.
+    /// </summary>
+    public (Num.Vector3 Min, Num.Vector3 Max)? BoundsCore()
+    {
+        var xs = new List<float>(); var ys = new List<float>(); var zs = new List<float>();
+        for (int i = 0; i < Scene.Objects.Count; i++)
+            if (!Hidden.Contains(i) && WorldBounds(i) is { } b) { var c = (b.Min + b.Max) / 2; xs.Add(c.X); ys.Add(c.Y); zs.Add(c.Z); }
+        if (xs.Count == 0) return null;
+        static (float Lo, float Hi) Range(List<float> v)
+        {
+            v.Sort();
+            float lo = v[(int)(0.10f * (v.Count - 1))], hi = v[(int)(0.90f * (v.Count - 1))];
+            float pad = (hi - lo) * 0.15f + 5f;
+            return (lo - pad, hi + pad);
+        }
+        var (x0, x1) = Range(xs); var (y0, y1) = Range(ys); var (z0, z1) = Range(zs);
+        return (new Num.Vector3(x0, y0, z0), new Num.Vector3(x1, y1, z1));
+    }
+
     /// <summary>World box of a placement (game frame), or null when none of its parts is drawn.</summary>
     public (Num.Vector3 Min, Num.Vector3 Max)? WorldBounds(int obj)
     {

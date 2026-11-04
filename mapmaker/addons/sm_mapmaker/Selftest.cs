@@ -83,6 +83,25 @@ public sealed class Selftest(MapmakerPlugin plugin)
         }
     }
 
+    /// <summary>Owner's report (2026-11-05): the mouse wheel did not zoom the 3D view. Sends wheel events through the window like a real mouse.</summary>
+    async Task WheelZoomCheck()
+    {
+        var vp = plugin.Viewport3D;
+        if (vp?.GetParent() is not Control container || vp.GetCamera3D() is not { } cam) { Check(false, "wheel zoom: no editor viewport"); return; }
+        var at = container.GetGlobalRect().GetCenter();
+        Godot.Vector3 before = cam.GlobalPosition;
+        for (int i = 0; i < 6; i++)
+        {
+            foreach (bool pressed in new[] { true, false })
+                Tree.Root.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.WheelUp, Pressed = pressed, Factor = 1f, Position = at, GlobalPosition = at });
+            await Frames(2);
+        }
+        await Frames(30);
+        float moved = cam.GlobalPosition.DistanceTo(before);
+        // Framed at a few hundred metres, six wheel steps must cover a good share of that, not the fraction of a metre the owner saw.
+        Check(moved > 20f, $"mouse wheel zooms the 3D view in steps that suit the map (six steps moved the camera {moved:0.0} m)");
+    }
+
     static void Check(bool ok, string what) { GD.Print($"SELFTEST {(ok ? "ok  " : "FAIL")} {what}"); if (!ok) Failed = true; }
     static bool Failed;
 
@@ -92,7 +111,7 @@ public sealed class Selftest(MapmakerPlugin plugin)
         {
             await Frames(30);
             while (MapHost.Root is null) { plugin.EnsureSceneRoot(); await Frames(20); }
-            string mapsDir = Arg("--mm-lib", System.IO.Path.Combine(System.IO.Path.GetTempPath(), "mm-selftest-" + System.Environment.ProcessId));
+            string mapsDir = Arg("--mm-lib", System.IO.Path.Combine(System.IO.Path.GetTempPath(), "mm-selftest-" + System.Environment.ProcessId + "-" + DateTime.UtcNow.Ticks));
             MapHost.Library = new MapLibrary(mapsDir);
             GD.Print($"SELFTEST library {mapsDir}");
             { var dk = plugin.Dock!; GD.Print($"SELFTEST dock parent={dk.GetParent()?.Name}/{dk.GetParent()?.GetParent()?.Name} visible={dk.IsVisibleInTree()} size={dk.Size}"); }
@@ -108,10 +127,11 @@ public sealed class Selftest(MapmakerPlugin plugin)
             MapHost.Register(source);
             GD.Print($"SELFTEST loaded {map}: {source.Scene.Objects.Count} placements, {source.Scene.Definitions.Count} definitions, {watch.ElapsedMilliseconds} ms, {notes.Count} notes");
             Check(MapHost.Root.Backdrop is { Instances: > 0 }, $"backdrop drawn ({MapHost.Root.Backdrop?.Instances} instances)");
-            if (source.BoundsAll() is { } all) plugin.Frame3D(all.Min, all.Max);
+            if (source.BoundsCore() is { } all) await plugin.Frame3D(all.Min, all.Max);
             plugin.Dock!.ShowTab(1);
             await Frames(240);
             Shot("manufactorum-in-editor");
+            await WheelZoomCheck();
 
             // 2. Pick by ray (the viewport click path), then extract.
             var centre = source.BoundsAll()!.Value;
@@ -158,7 +178,7 @@ public sealed class Selftest(MapmakerPlugin plugin)
             plugin.Reconcile();
             var moved = plugin.Session!.Document.Get(idB).Transform.Position;
             Check(Math.Abs(moved.X - (6.3f + 1.0f)) < 0.3f, $"gizmo move reconciled to the document (x = {moved.X}; grid snap on)");
-            plugin.Frame3D(new Num.Vector3(-8, -8, 0), new Num.Vector3(12, 8, 6));
+            await plugin.Frame3D(new Num.Vector3(-8, -8, 0), new Num.Vector3(12, 8, 6));
             plugin.Dock!.ShowTab(2);
             await Frames(90);
             Shot("new-map-with-prefab-instances");

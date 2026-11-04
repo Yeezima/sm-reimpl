@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
+using System.Threading.Tasks;
 using Godot;
 using SmMapmaker;
 using Num = System.Numerics;
@@ -490,15 +491,65 @@ public partial class MapmakerPlugin : EditorPlugin
 
     // ---- camera -----------------------------------------------------------------------------------------------------------------------------------------
 
-    /// <summary>Points the editor camera at a box given in the document frame (the editor re-reads its own orbit on the next navigation).</summary>
-    public void Frame3D(Num.Vector3 min, Num.Vector3 max)
+    int _frameRequest;
+
+    /// <summary>
+    /// Points the editor camera at a box given in the document frame. The editor orbits a pivot a set distance in front of its camera and scales that
+    /// distance on each wheel step; moving the camera alone left the distance at a few metres, so the wheel barely moved on a map hundreds of metres
+    /// wide (owner's report 2026-11-05). So the camera is put at the box centre and then zoomed out through the editor's own wheel input until it
+    /// stands at the framing distance: the pivot ends at the centre and the wheel scales with the map.
+    /// </summary>
+    public async Task Frame3D(Num.Vector3 min, Num.Vector3 max)
     {
-        var cam = Viewport3D?.GetCamera3D();
-        if (cam is null) return;
+        int request = ++_frameRequest;
+        var vp = Viewport3D;
+        if (vp?.GetParent() is not Control container || vp.GetCamera3D() is not { } cam) return;
         var centre = Frame.ToGodot(new Vector3((min.X + max.X) / 2, (min.Y + max.Y) / 2, (min.Z + max.Z) / 2));
         float radius = Mathf.Max(new Vector3(max.X - min.X, max.Y - min.Y, max.Z - min.Z).Length() * 0.5f, 1f);
+        float target = Mathf.Clamp(radius * 2.2f, 3f, 600f); // the editor clamps its zoom distance to far/4 (1 km by default)
         var dir = new Vector3(0.6f, 0.75f, 0.9f).Normalized();
-        cam.GlobalPosition = centre + dir * radius * 2.2f;
-        cam.LookAt(centre, Vector3.Up);
+        var tree = (SceneTree)Engine.GetMainLoop();
+        async Task Settle()
+        {
+            // The editor applies wheel input a frame or more later and then eases the camera, so wait for several still frames in a row.
+            var last = cam.GlobalPosition;
+            int still = 0;
+            for (int i = 0; i < 180 && still < 6; i++)
+            {
+                await ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+                still = cam.GlobalPosition.DistanceTo(last) < 1e-3f * Mathf.Max(1f, target) ? still + 1 : 0;
+                last = cam.GlobalPosition;
+            }
+        }
+        void Wheel(float factor)
+        {
+            var at = container.GetGlobalRect().GetCenter();
+            foreach (bool pressed in new[] { true, false })
+                GetTree().Root.PushInput(new InputEventMouseButton
+                { ButtonIndex = factor > 0 ? MouseButton.WheelDown : MouseButton.WheelUp, Pressed = pressed, Factor = Mathf.Abs(factor), Position = at, GlobalPosition = at });
+        }
+        // 1. Collapse the editor's orbit distance to its minimum, so the pivot sits on the camera.
+        Wheel(-1000f); await Settle();
+        if (request != _frameRequest) return;
+        // 2. Eye at the centre, looking along -dir: the pivot is (nearly) the centre, and zooming out walks the eye back along +dir.
+        cam.GlobalPosition = centre;
+        cam.LookAt(centre - dir, Vector3.Up);
+        await Settle();
+        // 3. Zoom out through the editor until the eye stands at the framing distance. The editor's step size per wheel factor is measured as it goes
+        //    (distance scales by about 1 + k * factor per event; k is re-estimated from each step).
+        float k = 0.08f;
+        float d = Mathf.Max(cam.GlobalPosition.DistanceTo(centre), 0.05f);
+        for (int i = 0; i < 10 && Mathf.Abs(d / target - 1f) > 0.04f && request == _frameRequest; i++)
+        {
+            bool outward = d < target;
+            float wanted = outward ? target / d : d / target;
+            float factor = Mathf.Clamp((wanted - 1f) / k, 0.05f, 5000f);
+            Wheel(outward ? factor : -factor); await Settle();
+            float now = Mathf.Max(cam.GlobalPosition.DistanceTo(centre), 0.05f);
+            float got = outward ? now / d : d / now;
+            if (got > 1.0001f) k = (got - 1f) / factor;
+            d = now;
+        }
+        if (OS.IsStdOutVerbose() || Selftest.Wanted) GD.Print($"Mapmaker frame: target {target:0.0} m, camera {d:0.0} m from the centre");
     }
 }
