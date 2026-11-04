@@ -123,6 +123,36 @@ public class OfflineMixerTests
     }
 
     [Fact]
+    public void Cutoff_follows_the_clients_mapping()
+    {
+        Assert.Equal(20000f, OfflineMixer.CutoffHz(0f), 1);
+        Assert.Equal(150f, OfflineMixer.CutoffHz(100f), 1);
+        Assert.Equal(MathF.Sqrt(20000f * 150f), OfflineMixer.CutoffHz(50f), 0);
+    }
+
+    [Fact]
+    public void Low_pass_keeps_low_tones_and_cuts_high_ones()
+    {
+        int rate = 48000, n = 4800;
+        float[] Sine(double hz) => Enumerable.Range(0, n).Select(i => (float)Math.Sin(2 * Math.PI * hz * i / rate)).ToArray();
+        float Rms(float[] x) => MathF.Sqrt(x.Skip(n / 2).Sum(v => v * v) / (n / 2));
+        float low = Rms(OfflineMixer.LowPass(Sine(100), 1, rate, 2000f)), high = Rms(OfflineMixer.LowPass(Sine(10000), 1, rate, 2000f));
+        Assert.InRange(low, 0.69f, 0.72f);      // sine RMS 0.707, passed
+        Assert.True(high < 0.05f, $"10 kHz through a 2 kHz two-pole filter should be down more than 20 dB, rms {high}");
+        var same = Sine(100);
+        Assert.Same(same, OfflineMixer.LowPass(same, 1, rate, 30000f));   // a cutoff above the band leaves it alone
+    }
+
+    [Fact]
+    public void A_track_with_a_low_pass_value_is_filtered_in_the_mix()
+    {
+        int rate = 48000;
+        var tone = Enumerable.Range(0, 4800).Select(i => (float)Math.Sin(2 * Math.PI * 10000 * i / rate)).ToArray();
+        float Peak(float lpf) => OfflineMixer.Peak(OfflineMixer.Mix([new MixTrack(tone, 1, rate, 0f, 0f, 0f, lpf)], rate, 1));
+        Assert.True(Peak(50f) < 0.2f * Peak(0f));   // value 50 = about 1.7 kHz
+    }
+
+    [Fact]
     public void Wav_bytes_have_a_canonical_header()
     {
         var wav = OfflineMixer.WavBytes([1, -2, 3, -4], 2, 48000);

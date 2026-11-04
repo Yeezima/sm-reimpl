@@ -30,32 +30,55 @@ static class AudioRender
     public sealed record Result(bool Found, int Voices, int Wems, int Missing, float[] Mix, int Rate, int Channels, float PeakDb, IReadOnlyList<string> VoiceLines);
 
     /// <summary>Resolves one post of <paramref name="eventName"/> for the material and renders it.</summary>
-    public static Result Render(AudioCatalog catalog, string eventName, string material, bool local, int channels, RtpcVolumeCap cap = RtpcVolumeCaps.Default, bool mixDown = true)
+    public static Result Render(AudioCatalog catalog, string eventName, string material, bool local, int channels, RtpcVolumeCap cap = RtpcVolumeCaps.Default)
     {
         if (!TryMaterial(material, out string materialType, out string state)) throw new ArgumentException($"material '{material}' is not armour or flesh");
-        var before = catalog.State(ImpactStateGroup);
-        catalog.Post(state, new SoundSwitches());
-        var sw = new SoundSwitches().Set("material_type", materialType);
-        if (local) sw.Set(AudioCatalog.PlayerGroup, AudioCatalog.LocalPlayerValue);
-        SoundPlay play;
-        try { play = catalog.Post(eventName, sw, 1); }
-        finally { catalog.SetState(ImpactStateGroup, before ?? AudioCatalog.NoneState); }
-        if (!play.Found) return new Result(false, 0, 0, 0, [], OfflineMixer.DefaultRate, channels, float.NegativeInfinity, []);
+        return Render(catalog, [new PostSpec(eventName, materialType, state, null, local)], channels, cap);
+    }
+
+    /// <summary>
+    /// One post to render: the event, the material switch (null: none set), an impact-state event to post first (the client's body-hit pair), a death state (group
+    /// <see cref="ImpactSounds.DeathStateGroup"/>; null: none/cleared), the local-player switch, and the offset the client adds (<see cref="VoiceOffset"/>).
+    /// </summary>
+    public sealed record PostSpec(string Event, string? MaterialType = null, string? ImpactState = null, uint? DeathState = null, bool Local = false, VoiceOffset Offset = default);
+
+    /// <summary>Resolves each post (in order, so random containers keep drawing) and mixes all their voices (and the extra tracks) into one buffer.</summary>
+    public static Result Render(AudioCatalog catalog, IReadOnlyList<PostSpec> specs, int channels, RtpcVolumeCap cap = RtpcVolumeCaps.Default, IReadOnlyList<MixTrack>? extra = null)
+    {
         var parameters = new Dictionary<uint, float> { [VoiceMixer.Speed] = 0f };
-        var tracks = new List<MixTrack>();
+        var tracks = new List<MixTrack>(extra ?? []);
         var lines = new List<string>();
-        int missing = 0;
-        foreach (var v in play.Voices)
+        int missing = 0, voices = 0;
+        foreach (var spec in specs)
         {
-            var mix = VoiceMixer.Evaluate(v, null, 1, 0, null, parameters, cap);
-            var pcm = Decode(catalog, v.WemId, out int ch, out int rate);
-            if (pcm is null) { missing++; lines.Add($"wem {v.WemId}: no media / decode failed"); continue; }
-            tracks.Add(new MixTrack(pcm, ch, rate, v.Delay, mix.VolumeDb, mix.PitchCents));
-            lines.Add(string.Create(CultureInfo.InvariantCulture, $"wem {v.WemId} {ch} ch {rate} Hz {pcm.Length / ch / (double)rate:0.000} s, delay {v.Delay:0.###} s, volume {mix.VolumeDb:0.0} dB, pitch {mix.PitchCents:0} c, {(v.Is3D ? "3D (attenuation not applied)" : "2D")}{(v.LoopCount != 1 ? $", loop {v.LoopCount} (played once)" : "")}"));
+            var beforeImpact = catalog.State(ImpactStateGroup);
+            var beforeDeath = catalog.State(ImpactSounds.DeathStateGroup);
+            if (spec.ImpactState is not null) catalog.Post(spec.ImpactState, new SoundSwitches());
+            catalog.SetState(ImpactSounds.DeathStateGroup, spec.DeathState ?? AudioCatalog.NoneState);
+            var sw = new SoundSwitches();
+            if (spec.MaterialType is not null) sw.Set("material_type", spec.MaterialType);
+            if (spec.Local) sw.Set(AudioCatalog.PlayerGroup, AudioCatalog.LocalPlayerValue);
+            SoundPlay play;
+            try { play = catalog.Post(spec.Event, sw, 1); }
+            finally
+            {
+                catalog.SetState(ImpactStateGroup, beforeImpact ?? AudioCatalog.NoneState);
+                catalog.SetState(ImpactSounds.DeathStateGroup, beforeDeath ?? AudioCatalog.NoneState);
+            }
+            if (!play.Found) return new Result(false, 0, 0, 0, [], OfflineMixer.DefaultRate, channels, float.NegativeInfinity, []);
+            voices += play.Voices.Count;
+            foreach (var v in play.Voices)
+            {
+                var mix = VoiceMixer.Evaluate(v, null, 1, 0, null, parameters, cap).With(spec.Offset);
+                var pcm = Decode(catalog, v.WemId, out int ch, out int rate);
+                if (pcm is null) { missing++; lines.Add($"wem {v.WemId}: no media / decode failed"); continue; }
+                tracks.Add(new MixTrack(pcm, ch, rate, v.Delay, mix.VolumeDb, mix.PitchCents, mix.Lpf));
+                lines.Add(string.Create(CultureInfo.InvariantCulture, $"{spec.Event}: wem {v.WemId} {ch} ch {rate} Hz {pcm.Length / ch / (double)rate:0.000} s, delay {v.Delay:0.###} s, volume {mix.VolumeDb:0.0} dB, pitch {mix.PitchCents:0} c, lpf {mix.Lpf:0.#}, {(v.Is3D ? "3D (attenuation not applied)" : "2D")}{(v.LoopCount != 1 ? $", loop {v.LoopCount} (played once)" : "")}"));
+            }
         }
         var mixed = OfflineMixer.Mix(tracks, OfflineMixer.DefaultRate, channels, 0.05f);
         float peak = OfflineMixer.Peak(mixed);
-        return new Result(true, play.Voices.Count, tracks.Count, missing, mixed, OfflineMixer.DefaultRate, channels, peak > 0 ? 20f * MathF.Log10(peak) : float.NegativeInfinity, lines);
+        return new Result(true, voices, tracks.Count, missing, mixed, OfflineMixer.DefaultRate, channels, peak > 0 ? 20f * MathF.Log10(peak) : float.NegativeInfinity, lines);
     }
 
     /// <summary>The wem decoded to interleaved float PCM through the catalogue's Ogg conversion (cached), or null.</summary>
@@ -93,7 +116,7 @@ static class AudioRender
           The post is resolved as the client does for a body hit: switch material_type = ceramite_armour (armour, the default) or flesh, with the matching impact state
           (set_state_impact_armor / set_state_impact_broken_armor); random and sequence containers pick by --seed (the k variants are k successive posts of one seeded catalogue, so a same-seed run repeats exactly); --local sets the local-player case.
           Each voice is mixed at its resolved volume (node chain + bus chain to the master, RTPC speed 0), pitch (cents, as a resample) and delay.
-          Limits: NO 3D attenuation or positioning, no low-pass, no bus effects (reverb, ducking), no loops or repeats, no later Set/Reset property actions; the
+          Limits: NO 3D attenuation or positioning, low-pass values applied only by an offline two-pole approximation of the client filters (not exact), no bus effects (reverb, ducking), no loops or repeats, no later Set/Reset property actions; the
           sum is not normalised and hard-clipped. Default folder: %LOCALAPPDATA%\sm-reimpl\cache\previews\render (never inside the install or the repository).
         """;
 

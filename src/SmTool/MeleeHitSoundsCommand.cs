@@ -219,6 +219,41 @@ static class MeleeHitSoundsCommand
         return 0;
     }
 
+    // ------------------------------------------------------------------ hit references (for the listening page)
+
+    /// <summary>One default (no upgrade), non-Ork, playable hit sound of a wargear ability: slot is "primary" (first target) or "secondary" (further targets).</summary>
+    internal sealed record HitRef(string Weapon, string Ability, string Slot, string Event);
+
+    internal static List<HitRef> HitRefs(string gameDir, AudioCatalog catalog)
+    {
+        var wargear = new SortedDictionary<string, BafDocument>(StringComparer.OrdinalIgnoreCase);
+        using (var archive = ObpkArchive.Open(Path.Combine(gameDir, GameplayTuning.WargearPackage)))
+            archive.ReadEntries(e => archive.GroupName(e) == "attr_pc" && WargearName.IsMatch(e.FileName), (e, d) => wargear.TryAdd(e.FileName, BafDocument.Read(d)));
+        var perFile = wargear.ToDictionary(kv => kv.Key, kv => Commands(kv.Value.Root), StringComparer.OrdinalIgnoreCase);
+        var wanted = perFile.Values.SelectMany(l => l).Where(x => x.Kind == "trigger_material_effect").Select(x => Leaf(x.Table.String("effect_container") ?? "")).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var containers = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        using (var archive = ObpkArchive.Open(Path.Combine(gameDir, EffectCatalogue.MaterialEffectPackage)))
+            archive.ReadEntries(e => archive.GroupName(e) == "attr_pc" && wanted.Contains(e.FileName), (e, d) =>
+            {
+                if (!containers.TryGetValue(e.FileName, out var list)) containers[e.FileName] = list = [];
+                list.Add(BafDocument.Read(d).Root.Table("sfx")?.String("start_event_name") ?? "");
+            });
+        bool Playable(string ev) => ev.Length > 0 && !IsOrkEvent(ev) && catalog.HasEvent(ev) && catalog.WemsOf(ev).Any(catalog.HasMedia);
+        var found = new List<HitRef>();
+        foreach (var (name, cmds) in perFile)
+            foreach (var cmd in cmds.Where(x => x.Upgrades.Count == 0 && IsHit(x.Slot)))
+            {
+                var events = cmd.Kind == "trigger_material_effect" ? containers.GetValueOrDefault(Leaf(cmd.Table.String("effect_container") ?? "")) ?? []
+                    : cmd.Kind == "post_sound_event" ? [cmd.Table.String("start_event_name") ?? ""] : [];
+                foreach (var ev in events.Where(Playable))
+                {
+                    var r = new HitRef(name, cmd.Ability, ShortSlot(cmd.Slot), ev);
+                    found.Add(r);   // kept with multiplicity: two commands posting one event play it twice
+                }
+            }
+        return found;
+    }
+
     // ------------------------------------------------------------------ rendering
 
     static int RenderAll(string gameDir, string? repoRoot, string outDir, List<RenderItem> items, int count)
@@ -228,7 +263,7 @@ static class MeleeHitSoundsCommand
         index.AppendLine("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>Melee hit sounds: original events, offline preview</title>");
         index.AppendLine("<style>body{font:14px/1.4 system-ui,sans-serif;margin:16px auto;max-width:1100px;padding:0 16px;color:#222;background:#fafafa}h2{margin-top:32px;border-bottom:1px solid #ccc}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:4px 8px;vertical-align:top;text-align:left}code{background:#eee;padding:0 3px}audio{width:210px;height:30px}.m{color:#555;font-size:12px}</style></head><body>");
         index.AppendLine("<h1>Melee hit sounds: the original events, offline preview</h1>");
-        index.AppendLine("<p>Each row is one distinct hit event of a weapon's data (default entries, no upgrade). One post of the event is rendered per variant, with the volume, pitch and delay the data resolves; no 3D attenuation, no low-pass, no bus effects (so the real game sounds a little different). Armour = <code>material_type ceramite_armour</code> with the armour impact state, flesh = <code>flesh</code> with the broken-armour state. Variants are successive random draws.</p>");
+        index.AppendLine("<p>Each row is one distinct hit event of a weapon's data (default entries, no upgrade). One post of the event is rendered per variant, with the volume, pitch and delay the data resolves; no 3D attenuation, no bus effects, the low-pass only approximated (so the real game sounds a little different). Armour = <code>material_type ceramite_armour</code> with the armour impact state, flesh = <code>flesh</code> with the broken-armour state. Variants are successive random draws.</p>");
         int wavs = 0, failures = 0;
         foreach (var g in items.GroupBy(i => i.Weapon).OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
         {
@@ -253,6 +288,25 @@ static class MeleeHitSoundsCommand
                 }
             }
             index.AppendLine("</table>");
+            // "Now": the generated sound the build plays instead of the data's for this weapon (client/ImpactRules/MeleeHitSynth.cs, rendered at the client's -6 dB hit scale, no speed/level variation).
+            if (PreviewKit.SynthOf(g.Key) is { } synth)
+            {
+                index.AppendLine($"<p><b>Now (our build plays this instead of the data's hit):</b> procedural sound {(synth == SmClient.ImpactRules.HitSound.Sizzle ? "A" : "B")}</p><table><tr><th>version</th><th>variants</th></tr>");
+                foreach (bool noBass in new[] { false, true })
+                {
+                    var cells = new StringBuilder();
+                    for (int n = 1; n <= count; n++)
+                    {
+                        var r = PreviewKit.RenderSynth(synth, noBass, n, 2);
+                        string rel = $"{AudioRender.SafeName(g.Key)}/{AudioRender.SafeName(g.Key)}__now_synth_{(synth == SmClient.ImpactRules.HitSound.Sizzle ? "A" : "B")}_{(noBass ? "nobass" : "bass")}__v{n}.wav";
+                        AudioRender.WriteWav(Path.Combine(outDir, rel), r);
+                        wavs++;
+                        cells.Append($"<audio controls preload=\"none\" src=\"{WebUtility.HtmlEncode(rel)}\"></audio> ");
+                    }
+                    index.AppendLine($"<tr><td>{(noBass ? "Musou Mode (bass cut at 350 Hz)" : "classic PvP (with bass)")}</td><td>{cells}</td></tr>");
+                }
+                index.AppendLine("</table>");
+            }
         }
         index.AppendLine("</body></html>");
         File.WriteAllText(Path.Combine(outDir, "index.html"), index.ToString(), new UTF8Encoding(false));

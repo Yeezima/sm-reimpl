@@ -4,17 +4,42 @@ namespace SmContent;
 /// One decoded sound placed in an offline mix (<see cref="OfflineMixer"/>): interleaved float PCM at <see cref="SampleRate"/>, the delay after the post
 /// (seconds), the gain (dB) and the pitch (cents) the resolved voice carries.
 /// </summary>
-public sealed record MixTrack(float[] Pcm, int Channels, int SampleRate, float DelaySeconds, float GainDb, float PitchCents);
+public sealed record MixTrack(float[] Pcm, int Channels, int SampleRate, float DelaySeconds, float GainDb, float PitchCents, float Lpf = 0f);
 
 /// <summary>
 /// Offline mixer for preview renders (<c>smtool audio-render</c>): sums tracks into one interleaved float buffer at a fixed output rate. Per track:
 /// gain 10^(dB/20); pitch as a playback-rate change (rate x 2^(cents/1200), linear interpolation, so the sound gets shorter and higher when pitched up, as a
 /// Wwise voice pitch does); delay as a start offset; a mono source is copied to both channels of a stereo mix, a stereo source is averaged into a mono mix.
-/// Limits: no 3D attenuation, no low-pass, no bus effects, no looping; the sum is not normalised, <see cref="ToPcm16"/> clips.
+/// A voice's low-pass value (Wwise 0..100) is applied as a two-pole Butterworth at <see cref="CutoffHz"/>: an APPROXIMATION of the client's Godot bus filters (steps, 12 dB/oct, resonance 0.5).
+/// Limits: no 3D attenuation, no bus effects (reverb), no looping; the sum is not normalised, <see cref="ToPcm16"/> clips.
 /// </summary>
 public static class OfflineMixer
 {
     public const int DefaultRate = 48000;
+
+    /// <summary>The cutoff (Hz) a Wwise LPF value stands for: the client's mapping (SoundSystem.CutoffHz, provisional): exponential from 20 kHz at 0 to 150 Hz at 100.</summary>
+    public static float CutoffHz(float lpf) => 20000f * MathF.Pow(150f / 20000f, Math.Clamp(lpf, 0f, 100f) / 100f);
+
+    /// <summary>A two-pole Butterworth low-pass (RBJ biquad, Q = 1/sqrt 2) over one channel of interleaved samples; a cutoff at or above 0.49 of the rate leaves it unchanged.</summary>
+    public static float[] LowPass(float[] pcm, int channels, int rate, float cutoffHz)
+    {
+        if (cutoffHz >= 0.49f * rate || cutoffHz <= 0f) return pcm;
+        double w = 2.0 * Math.PI * cutoffHz / rate, cos = Math.Cos(w), alpha = Math.Sin(w) / (2.0 * 0.70710678);
+        double b0 = (1 - cos) / 2, b1 = 1 - cos, b2 = b0, a0 = 1 + alpha, a1 = -2 * cos, a2 = 1 - alpha;
+        b0 /= a0; b1 /= a0; b2 /= a0; a1 /= a0; a2 /= a0;
+        var o = new float[pcm.Length];
+        for (int c = 0; c < channels; c++)
+        {
+            double x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+            for (int i = c; i < pcm.Length; i += channels)
+            {
+                double x = pcm[i], y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+                x2 = x1; x1 = x; y2 = y1; y1 = y;
+                o[i] = (float)y;
+            }
+        }
+        return o;
+    }
 
     /// <summary>Linear gain of <paramref name="db"/> decibels.</summary>
     public static float Gain(float db) => MathF.Pow(10f, db / 20f);
@@ -53,6 +78,9 @@ public static class OfflineMixer
         int srcFrames = t.Pcm.Length / t.Channels;
         double step = (double)t.SampleRate / outRate * PitchRatio(t.PitchCents);
         float gain = Gain(t.GainDb);
+        // The client filters after the pitch change: the cutoff in source Hz is the output cutoff over the pitch ratio.
+        var src = t.Lpf > 0f ? LowPass(t.Pcm, t.Channels, t.SampleRate, CutoffHz(t.Lpf) / PitchRatio(t.PitchCents)) : t.Pcm;
+        t = t with { Pcm = src };
         int start = (int)Math.Round(Math.Max(0, t.DelaySeconds) * outRate);
         int n = (int)Math.Ceiling(srcFrames / step);
         for (int i = 0; i < n; i++)
