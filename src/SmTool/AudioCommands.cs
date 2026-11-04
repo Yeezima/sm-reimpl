@@ -44,6 +44,8 @@ static class AudioCommands
                 "audio-coverage" => Coverage(rest),
                 "audio-node" when rest.Length >= 1 => Node(rest[0], rest[1..]),
                 "audio-mix" when rest.Length >= 1 => Mix(rest[0], rest[1..]),
+                "audio-render" when rest.Length >= 1 && !rest[0].StartsWith("--") => SmTool.AudioRender.Command(rest[0], rest[1..], RepoRoot()),
+                "audio-render" => SmTool.AudioRender.Command("", rest, RepoRoot()),
                 "audio-surfaces" => SurfaceReport(rest),
                 "audio-rtpcs" => RtpcReport(rest),
                 "audio-tags" => TagReport(rest),

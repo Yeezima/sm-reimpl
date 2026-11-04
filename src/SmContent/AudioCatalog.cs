@@ -217,7 +217,7 @@ public sealed class AudioCatalog : IDisposable
     /// first use; see <see cref="AudioCache"/>). <paramref name="diskCache"/>: where decoded Ogg files are kept (default
     /// <c>%LOCALAPPDATA%\sm-reimpl\cache\audio\ogg</c>; refused inside the install or <paramref name="repoRoot"/>).
     /// </summary>
-    public static AudioCatalog Open(string gameDir, string? map, string? diskCache = null, string? repoRoot = null, TextWriter? log = null)
+    public static AudioCatalog Open(string gameDir, string? map, string? diskCache = null, string? repoRoot = null, TextWriter? log = null, int? seed = null)
     {
         var sw = Stopwatch.StartNew();
         string dir = Path.Combine(gameDir, "streamingaudio");
@@ -226,7 +226,7 @@ public sealed class AudioCatalog : IDisposable
         var codebooks = AudioCache.EnsureCodebooks(log: log);
         var names = PackagesFor(dir, map);
         var lib = WwiseLibrary.Open(dir, names, out var missing);
-        return new AudioCatalog(lib, codebooks, diskCache, loaded: names.Except(missing).ToList(), missing: missing) { LoadMilliseconds = sw.Elapsed.TotalMilliseconds };
+        return new AudioCatalog(lib, codebooks, diskCache, seed, loaded: names.Except(missing).ToList(), missing: missing) { LoadMilliseconds = sw.Elapsed.TotalMilliseconds };
     }
 
     /// <summary>The packages the menus' sounds need (fidelity gap 9): the global banks and the one holding <c>Play_Menu_Move</c> / <c>_Select</c> / <c>_Back</c> (embedded media).</summary>
