@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2168 spec table rows: **1556 tagged**, 442 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 468 rows of the changes document.
+Scanned 2170 spec table rows: **1558 tagged**, 442 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 469 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,16 +50,16 @@ Scanned 2168 spec table rows: **1556 tagged**, 442 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
-| Core simulation (provisional values) | 265 | 249 | 213 | 34 | 1 |
+| Core simulation (provisional values) | 267 | 251 | 213 | 35 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 116 | 109 | 61 | 18 | 0 |
-| **All areas** | **1556** | 1328 | 1215 | 464 | 38 |
+| **All areas** | **1558** | 1330 | 1215 | 465 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 739 |
+| kind: ours | 741 |
 | confidence: low | 570 |
 | confidence: medium | 517 |
 | kind: interpretation | 336 |
@@ -68,7 +68,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: provisional | 99 |
 | kind: estimate | 78 |
 | kind: user's knowledge | 51 |
-| notes: estimate | 48 |
+| notes: estimate | 49 |
 | section: provisional | 38 |
 | section: placeholder | 35 |
 | notes: provisional | 31 |
@@ -1900,7 +1900,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-EB03504B` | Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks (s) | kind: ours; notes: estimate | owner 2026-11-02 | Shot lag allowance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each shot is also tried on the enemy's places over the last 0.2 s… | ☐ |
 
-### Core simulation (provisional values) (265)
+### Core simulation (provisional values) (267)
 
 *Spec section: Provisional values in use*
 
@@ -2316,6 +2316,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-11930E47` | Musou: no bass on power weapons | the generated hit sounds (power axe, sword, knife; chainsword, hammer, maul, charge) lose everything under **350** Hz, four poles, at the same level, in Musou Mode only; classic PvP keeps the bass, a question for the owner (Hz) | kind: ours; notes: estimate | owner 2026-11-02 | Musou: no bass on power weapons: compare with SM1 by feel or video. Ours: the generated hit sounds (power axe, sword, knife; chainsword… | ☐ |
 | `R-A614CF22` | Firing Range: solid backdrop | Manufactorum's `factory_tanks_lodh` and `factory_geo_lodh` stand inside the range without collision. Now solid, from the centre: two tanks radius **10.7**, top **14.2**, at (-38.1, 25.1) and (-38.1, 0.07); slopes along +X: the wide one (x 41.8 to 50, y -50 to… (m) | kind: ours; confidence: medium | owner 2026-11-02; measured | Firing Range: solid backdrop: compare with SM1 by measuring on a flat spot of the same map. Ours: Manufactorum's factory_tanks_lodh and factory_geo_lodh stand inside… | ☐ |
 | `R-8DC4AC8D` | Hammer: no pound delay (classic PvP and Musou) | a player with the thunder hammer or daemon maul in hand does not wait for `smash_available_delay` (**2** s under Air-Cooled Thrusters): the jump's press is the slash below 8 m at once, the pound from 8 m up at once, as a power sword without that perk. Nothing… (s) | kind: ours; notes: interpretation | owner 2026-11-02 | Hammer: no pound delay (classic PvP and Musou): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a player with the thunder hammer or daemon maul in hand does not wait… | ☐ |
+
+*Spec section: Manufactorum wall stations not drawn (fix/manufactorum-fluorescent; client drawing only, no simulation, protocol or config-hash change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-18029A2F` | Objects not drawn on `mp_tdm_09` | definitions `backpanel_a/b/c`, `tech_panel_a/b/c`, `tech_panel_pipe_a/b/c`, `handle_bar_a`, `accessories_doorbutton` everywhere (82 placements: 37 + 17 + 20 + 4 + 4); `acc_seal_01/02/03`, `acc_scroll_01/02`, `tech_panel_pipe_g`, `tech_panel_tank_a` only… (placements, m) | kind: ours; notes: estimate | owner 2026-11-04 (flat olive `backPanel` boards with salmon `tech_stations` and green keypad emissive surfaces, "jarring" against the dark map) | Objects not drawn on mp_tdm_09: compare with SM1 by feel or video. Ours: definitions backpanel_a/b/c, tech_panel_a/b/c, tech_panel_pipe_a/b/c… | ☐ |
+| `R-AD0893C1` | Switch | `--old-armoury-racks` draws them again | kind: ours | test aid | Switch: compare with SM1 by feel or video. Ours: --old-armoury-racks draws them again. | ☐ |
 
 ### General game design (7)
 
@@ -3151,6 +3158,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-E2D75C92` | Musou: twice the Orks again (2026-11-03) | No Musou Mode in the original | Ours (added content): a pool of 1024 and about 900 Orks alive in the Manufactorum battle for one player | Musou Mode only. Spec "Musou Mode: twice the Orks again". | Musou: twice the Orks again (2026-11-03): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-4E94CBCD` | The Firing Range (Musou Mode, 2026-11-02) | Ours (added content): a flat walled 100 m square generated in the war's world, reached by a wall button in the Stormbird's troop bay, with 200 Orks kept alive and the orbital strike working; the way back is a pad at the range. A test ground, not a mission: no score, no objectives | Owner's words "reimplement the 'firing range' map that was the first blank map concept 100m x 100m ... a test range for the artillery strike and other new features" | Musou Mode only; `TfwMap.Version` 6 and `MusouSim` box widened, so old and new builds do not connect. Spec row: The Firing Range. | The Firing Range (Musou Mode, 2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-351CC1A4` | Melee cancels of hops and charges, the jump pack from a fall or a charge (feel/melee-cancels; protocol 54) | A melee press in a hop was ignored until the dash attack's window, in a bull rush until its clip's melee branch; Space held while falling waited for the landing; Space did not end a held charge | Assault / Raptor: melee ends a hop or a charge at once and swings; Tactical classes: melee ends a charge; the next swing waits for the cancelled clip's end; Assault / Raptor: Space held in the air or during a charge lifts the pack (a tap is the hop). Roll, Devastator / Havoc, Ork Boy, the collision stop unchanged.… | Owner's words, 2026-11-02: "you should be able to end assault marine/raptor charges and hops with a melee attack. but implement the same strict cooldown based on the intended timing of the end of the animation." Builds with protocol 53 do not connect. Spec rows: Melee cancels of hops and charges. | Melee cancels of hops and charges, the jump pack from a…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-1620EEEE` | Manufactorum's wall stations: no olive boards, no salmon fittings (fix/manufactorum-fluorescent, 2026-11-04; client drawing only) | The two bases' wall stations (six: a row of flat wall boards with a helmet, tools, weapon silhouettes and a banner pinned on, a pair of tall keypads, and two small door-side stations) are placed and drawn | Not drawn: every placement of `backpanel_a/b/c`, `tech_panel_a/b/c`, `tech_panel_pipe_a/b/c`, `handle_bar_a` and `accessories_doorbutton`, the seals, scrolls, `tech_panel_pipe_g` and `tech_panel_tank_a` within 6 m of a board or cabinet, and the two olive `backPanel` plates of the `tech_interface_b` cabinets (their… | Owner's words, 2026-11-04: "remove all instances on the classic pvp manufactorum map of these 'fluorescent', opaque objects" (flat olive boards with salmon glowing shapes, "jarring" against the dark metal); our emissive-map approximation draws them bright and flat, and whether the original did is not known, so they… | Manufactorum's wall stations: no olive boards, no salmon…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

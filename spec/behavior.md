@@ -3946,3 +3946,10 @@ Source: the owner, 2026-11-03: "double the amount of orks on the map in the muso
 | Musou: the pool | **1024** enemy slots (was 512); the wire takes ids up to it; **40** kept free for the bosses | slots | - | `MusouSim.Capacity`, `TfwBattleRules.PoolReserve` | owner 2026-11-03 | ours | estimate |
 | Musou: the battle's Orks | garrison **48** a point (was 24), crowd **200** (was 100) filling one every **8** ticks (about 3.75 a second, a crowd in 53 s; was 2 a second, 50 s), alive cap **600** solo plus **320** a further human, at most **840** (was 300, 160, 420), the trickle's total **800** (was 400): about 900 alive for one human against about 450 | Orks | at once | `TfwBattleRules` | owner 2026-11-03 "double" | ours | estimate |
 | Musou: drawn | the nearest **900** Orks drawn (was 480), at most **500** of a look by the vertex-animation tier (was 200), 40 skinned as before | Orks | per frame | `MusouCrowd` | owner 2026-11-03 | ours | estimate |
+
+### Manufactorum wall stations not drawn (fix/manufactorum-fluorescent; client drawing only, no simulation, protocol or config-hash change)
+
+| Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Objects not drawn on `mp_tdm_09` | definitions `backpanel_a/b/c`, `tech_panel_a/b/c`, `tech_panel_pipe_a/b/c`, `handle_bar_a`, `accessories_doorbutton` everywhere (82 placements: 37 + 17 + 20 + 4 + 4); `acc_seal_01/02/03`, `acc_scroll_01/02`, `tech_panel_pipe_g`, `tech_panel_tank_a` only within **6** m (horizontal) of a `backpanel_*` placement or a `tech_interface_b` cabinet; the `backPanel` material range of mesh `tech_interface_b` (146 placements hidden in all, 64 of them by the 6 m rule) | placements, m | at map load | `MapDecor`, `MapView.Populate` | owner 2026-11-04 (flat olive `backPanel` boards with salmon `tech_stations` and green keypad emissive surfaces, "jarring" against the dark map) | ours | decided (the list), estimate (the 6 m reach, chosen from captures) |
+| Switch | `--old-armoury-racks` draws them again | — | — | `MapDecor.Old` | test aid | ours | decided |

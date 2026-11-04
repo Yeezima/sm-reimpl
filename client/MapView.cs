@@ -48,8 +48,11 @@ public partial class MapView : Node3D
     {
         // Group world transforms by (mesh, block, mirrored, casts shadows), remembering which placements each group draws.
         var groups = new Dictionary<(string Mesh, int Block, bool Mirrored, bool Shadows), List<(Transform3D Transform, int Object)>>();
+        var decorHidden = MapDecor.Hidden(scene);   // fix/manufactorum-fluorescent: the olive boards and salmon fittings are not drawn
+        if (decorHidden.Count > 0) notes.Add($"{decorHidden.Count} placements of the armoury wall stations are not drawn (owner's request 2026-11-04; --old-armoury-racks draws them)");
         for (int o = 0; o < scene.Objects.Count; o++)
         {
+            if (decorHidden.Contains(o)) continue;
             var placed = scene.Objects[o];
             if (!scene.Definitions.TryGetValue(placed.Definition, out var definition)) continue;
             foreach (var part in definition.NearestLod())
@@ -111,6 +114,7 @@ public partial class MapView : Node3D
         int vertexCount = block.Positions.Length;
         foreach (var range in block.Materials)
         {
+            if (MapDecor.HidesSurface(scene.Map, meshName, range.Name)) continue;
             int count = range.IndexCount - range.IndexCount % 3;
             if (count < 3 || range.StartIndex < 0 || range.StartIndex + count > block.Indices.Length) continue;
             // Vertex window of this range; fall back to the whole block if an index falls outside the declared window.
