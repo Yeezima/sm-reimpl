@@ -85,6 +85,45 @@ internal sealed class AshfallBuilder
         Add(kind, corners, Structural(kind), new Vector4(minX, minY, maxX, maxY));
     }
 
+    /// <summary>
+    /// A convex solid from its vertices and faces (each face a cycle of vertex indices around a planar polygon): fan-triangulated, every triangle wound away from the solid's centre
+    /// (deterministic, no trigonometry). Used by the pointed roofs of pass 2b.
+    /// </summary>
+    public void Convex(AshfallKind kind, Vector3[] v, int[][] faces)
+    {
+        var centre = Vector3.Zero;
+        foreach (var p in v) centre += p;
+        centre /= v.Length;
+        var t = new List<Vector3>();
+        foreach (var f in faces)
+        {
+            var fc = Vector3.Zero;
+            foreach (int i in f) fc += v[i];
+            fc /= f.Length;
+            for (int k = 1; k + 1 < f.Length; k++) Wind(v[f[0]], v[f[k]], v[f[k + 1]], fc - centre, t);
+        }
+        float minX = v.Min(p => p.X), minY = v.Min(p => p.Y), maxX = v.Max(p => p.X), maxY = v.Max(p => p.Y);
+        Add(kind, t.ToArray(), Structural(kind), new Vector4(minX, minY, maxX, maxY));
+    }
+
+    /// <summary>A gable roof: a triangular prism on the rectangle (x0, y0)..(x1, y1) at <paramref name="z"/>, its ridge <paramref name="height"/> above, running along x (<paramref name="alongX"/>) or y.</summary>
+    public void Gable(AshfallKind kind, float x0, float y0, float x1, float y1, float z, float height, bool alongX)
+    {
+        Vector3 a = new(x0, y0, z), b = new(x1, y0, z), c = new(x1, y1, z), d = new(x0, y1, z);
+        Vector3 r1, r2;
+        if (alongX) { float ym = (y0 + y1) / 2f; r1 = new(x0, ym, z + height); r2 = new(x1, ym, z + height); }
+        else { float xm = (x0 + x1) / 2f; r1 = new(xm, y0, z + height); r2 = new(xm, y1, z + height); }
+        // vertices: 0 a, 1 b, 2 c, 3 d, 4 r1, 5 r2
+        Convex(kind, [a, b, c, d, r1, r2], alongX
+            ? [[3, 2, 1, 0], [0, 1, 5, 4], [2, 3, 4, 5], [0, 4, 3], [1, 2, 5]]
+            : [[3, 2, 1, 0], [0, 3, 5, 4], [1, 2, 5, 4], [0, 1, 4], [3, 2, 5]]);
+    }
+
+    /// <summary>A square (or rectangular) pyramid: base (x0, y0)..(x1, y1) at <paramref name="z"/>, the apex <paramref name="height"/> above its middle.</summary>
+    public void Pyramid(AshfallKind kind, float x0, float y0, float x1, float y1, float z, float height) =>
+        Convex(kind, [new(x0, y0, z), new(x1, y0, z), new(x1, y1, z), new(x0, y1, z), new((x0 + x1) / 2f, (y0 + y1) / 2f, z + height)],
+            [[3, 2, 1, 0], [0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]]);
+
     /// <summary>The 36 corners of a box on right-handed axes (<paramref name="ax"/> x <paramref name="ay"/> = <paramref name="az"/>), outward winding as <see cref="TfwMap.Triangles"/>.</summary>
     static Vector3[] Frame(Vector3 c, Vector3 ax, Vector3 ay, Vector3 az, float hx, float hy, float hz)
     {

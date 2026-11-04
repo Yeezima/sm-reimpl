@@ -6,13 +6,13 @@ namespace SmSim.Extras.Musou.Ashfall;
 public sealed record AshfallPlatform(Vector3 Top, float Height, int Ramps, bool Parapet);
 
 /// <summary>A tall building of pass 2: footprint (min x, min y, max x, max y), storeys, whether a stair core reaches every floor, and a point on each upper floor (6 m steps, bottom first).</summary>
-public sealed record AshfallTower(string Name, Vector4 Footprint, int Storeys, bool Core, IReadOnlyList<Vector3> Floors);
+public sealed record AshfallTower(string Name, Vector4 Footprint, int Storeys, bool Core, IReadOnlyList<Vector3> Floors, float RoofTop = 0f);
 
 /// <summary>A ruin of pass 2: its template, footprint, storeys, and a point on its walkable first floor (null when the floor is jump-only or absent).</summary>
 public sealed record AshfallRuin(string Kind, Vector4 Footprint, int Storeys, Vector3? FloorPoint);
 
 /// <summary>What pass 2 placed, for the checks (never part of the wire contract).</summary>
-public sealed record AshfallFeatures(IReadOnlyList<AshfallPlatform> Platforms, IReadOnlyList<AshfallTower> Towers, IReadOnlyList<AshfallRuin> Ruins, int WallSegments, float WallLength, int StaggerWalls);
+public sealed record AshfallFeatures(IReadOnlyList<AshfallPlatform> Platforms, IReadOnlyList<AshfallTower> Towers, IReadOnlyList<AshfallRuin> Ruins, int WallSegments, float WallLength, int StaggerWalls, IReadOnlyDictionary<string, Vector3>? Points = null);
 
 /// <summary>The level together with its features.</summary>
 public sealed record AshfallBuild(AshfallLevel Level, AshfallFeatures Features);

@@ -15,6 +15,7 @@ internal sealed class AshfallPlacer
     public readonly List<AshfallPlatform> Platforms = [];
     public readonly List<AshfallTower> Towers = [];
     public readonly List<AshfallRuin> Ruins = [];
+    public readonly Dictionary<string, Vector3> Points = [];
     public int WallSegments, StaggerWalls;
     public float WallLength;
 
