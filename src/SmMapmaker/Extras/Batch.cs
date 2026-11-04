@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json.Nodes;
 
 namespace SmMapmaker;
@@ -358,7 +359,7 @@ internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1
                 Warnings.Add($"Dropped the override of removed part '{dropped.Part}' on '{inst.Id}'.");
             Replace(inst with { Overrides = keep });
         }
-        if (removed.Count == 0 && Prefabs[id] == prefab) Warnings.Add($"prefab-edit changed nothing in '{id}'.");
+        if (removed.Count == 0 && Prefabs[id].ToJson() == prefab.ToJson()) Warnings.Add($"prefab-edit changed nothing in '{id}'.");
     }
 
     void InstanceOverride(JsonObject op)
@@ -399,16 +400,30 @@ internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1
         var id = Json.Str(op["id"], "id", "bad-op", nullable: true) ?? Json.Slug(stem);
         if (id.Length == 0) id = "asset";
         if (!Json.IsSlug(id)) throw new MapException("bad-id", $"'{id}' is not a valid asset id (lowercase letters, digits, '-' and '_').");
-        var sha = Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(path)));
+        var sha = ContentHash(path, info);
         if (GetAsset(id) is { } existing)
         {
             if (existing.Sha256 == sha) { Warnings.Add($"Asset '{id}' is already in the library with the same content."); return; }
             throw new MapException("duplicate-id", $"Asset '{id}' already exists with different content.");
         }
-        var asset = new AssetInfo(id, Json.Str(op["name"], "name", "bad-op", nullable: true) ?? stem, info.FileName, info.Bounds, sha, Path.GetFullPath(path));
+        var asset = new AssetInfo(id, Json.Str(op["name"], "name", "bad-op", nullable: true) ?? stem, info.FileName, info.Bounds, sha, Path.GetFileName(path));
         Assets[id] = new StagedAsset(asset, Path.GetDirectoryName(Path.GetFullPath(path))!, info.FileName, info.Companions);
         CreatedAssets.Add(id);
         if (info.Bounds is null) Warnings.Add($"Asset '{id}': no POSITION min/max in the glTF, so its bounds are unknown.");
+    }
+
+    /// <summary>SHA-256 of the main file followed by each companion (name and bytes, sorted), so a changed buffer or image is different content.</summary>
+    static string ContentHash(string path, GltfInfo info)
+    {
+        using var h = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        h.AppendData(File.ReadAllBytes(path));
+        string dir = Path.GetDirectoryName(Path.GetFullPath(path))!;
+        foreach (var rel in info.Companions.Order(StringComparer.Ordinal))
+        {
+            h.AppendData(Encoding.UTF8.GetBytes("\n" + rel + "\n"));
+            h.AppendData(File.ReadAllBytes(Path.Combine(dir, rel)));
+        }
+        return Convert.ToHexStringLower(h.GetHashAndReset());
     }
 
     void ImportPrefab(JsonObject op)

@@ -101,7 +101,7 @@ public sealed class MapSession
         var prefabChanges = new List<(string, string?, string?)>();
         foreach (var (id, p) in batch.Prefabs)
         {
-            string? was = Library.GetPrefab(id)?.ToJson(), now = p.ToJson();
+            string? was = Library.ReadPrefabText(id), now = p.ToJson();
             if (was != now) prefabChanges.Add((id, was, now));
         }
         if (before == after && prefabChanges.Count == 0 && batch.Assets.Count == 0) return;

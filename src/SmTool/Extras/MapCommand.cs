@@ -19,6 +19,8 @@ public static class MapCommand
         }
         catch (ArgException e) { stdout.Write(Fail("bad-args", e.Message).ToJson()); return 2; }
         catch (MapException e) { stdout.Write(Fail(e.Code, e.Message).ToJson()); return 1; }
+        catch (System.Text.Json.JsonException e) { stdout.Write(Fail("bad-file", e.Message).ToJson()); return 1; }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { stdout.Write(Fail("io-error", e.Message).ToJson()); return 1; }
     }
 
     sealed class ArgException(string message) : Exception(message);

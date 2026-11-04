@@ -18,6 +18,15 @@ public static class GltfReader
 
     public static GltfInfo Inspect(string path)
     {
+        try { return InspectCore(path); }
+        catch (Exception e) when (e is InvalidOperationException or FormatException or InvalidCastException or ArgumentException or OverflowException or IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            throw new MapException("bad-file", $"Could not read '{Path.GetFileName(path)}': {e.Message}");
+        }
+    }
+
+    static GltfInfo InspectCore(string path)
+    {
         if (!File.Exists(path)) throw new MapException("bad-file", $"No file '{path}'.");
         var ext = Path.GetExtension(path).ToLowerInvariant();
         if (ext is not (".glb" or ".gltf")) throw new MapException("bad-file", $"'{Path.GetFileName(path)}' is not a .glb or .gltf file.");
@@ -36,13 +45,21 @@ public static class GltfReader
             foreach (var key in new[] { "buffers", "images" })
                 if (root[key] is JsonArray list)
                     foreach (var item in list)
-                        if (item?["uri"]?.GetValue<string>() is { } uri && !uri.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
-                        {
-                            string rel = Uri.UnescapeDataString(uri).Replace('\\', '/');
-                            if (Path.IsPathRooted(rel) || rel.Split('/').Contains("..")) throw new MapException("bad-file", $"The glTF refers to '{uri}' outside its folder.");
-                            if (!File.Exists(Path.Combine(dir, rel))) throw new MapException("bad-file", $"The glTF refers to missing file '{rel}'.");
-                            if (!companions.Contains(rel)) companions.Add(rel);
-                        }
+                    {
+                        if (item is not JsonObject entry) throw new MapException("bad-file", $"The glTF {key} entry is not an object.");
+                        if (entry["uri"] is null) continue;
+                        if (entry["uri"] is not JsonValue uv || !uv.TryGetValue<string>(out var uri)) throw new MapException("bad-file", $"The glTF {key} uri is not a string.");
+                        if (uri.StartsWith("data:", StringComparison.OrdinalIgnoreCase)) continue;
+                        string rel = Uri.UnescapeDataString(uri).Replace('\\', '/');
+                        if (rel.Length == 0 || rel.Contains(':') || rel.Contains('\0') || rel.StartsWith('/') || rel.Split('/').Any(seg => seg is "" or "." or ".."))
+                            throw new MapException("bad-file", $"The glTF refers to '{uri}', which is not a plain relative file under its folder.");
+                        string full = Path.GetFullPath(Path.Combine(dir, rel));
+                        if (!full.StartsWith(Path.GetFullPath(dir).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                            throw new MapException("bad-file", $"The glTF refers to '{uri}' outside its folder.");
+                        if (!File.Exists(full)) throw new MapException("bad-file", $"The glTF refers to missing file '{rel}'.");
+                        if ((File.GetAttributes(full) & FileAttributes.ReparsePoint) != 0) throw new MapException("bad-file", $"'{rel}' is a link, not a plain file.");
+                        if (!companions.Contains(rel)) companions.Add(rel);
+                    }
         }
         return new GltfInfo(Path.GetFileName(path), SceneBounds(root), companions);
     }
@@ -73,8 +90,10 @@ public static class GltfReader
         }
         Bounds? result = null;
         bool unknown = false;
+        int visits = 0;
         void Walk(int index, Matrix4x4 parent, int depth)
         {
+            if (++visits > 100_000) throw new MapException("bad-file", "The glTF node tree is too large or cyclic.");
             if (nodes is null || index < 0 || index >= nodes.Count || nodes[index] is not JsonObject node || depth > 64) return;
             var world = Local(node) * parent;
             if (Index(node["mesh"]) is var mi and >= 0 && root["meshes"] is JsonArray meshes && mi < meshes.Count && meshes[mi]?["primitives"] is JsonArray prims)

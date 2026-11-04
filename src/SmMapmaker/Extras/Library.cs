@@ -50,21 +50,36 @@ public sealed class MapLibrary
         return a;
     }
 
-    public IReadOnlyList<PrefabSummary> ListPrefabs()
+    /// <summary>The raw text of a prefab file, or null when there is none (no parsing, so a corrupt file can still be snapshotted for undo).</summary>
+    public string? ReadPrefabText(string id)
+    {
+        var path = PrefabPath(id);
+        return File.Exists(path) ? File.ReadAllText(path) : null;
+    }
+
+    /// <summary>The prefabs in the library. A corrupt or mismatched file is skipped and named in <paramref name="skipped"/>.</summary>
+    public IReadOnlyList<PrefabSummary> ListPrefabs(List<string>? skipped = null)
     {
         if (!Directory.Exists(PrefabsDir)) return [];
         var list = new List<PrefabSummary>();
         foreach (var f in Directory.EnumerateFiles(PrefabsDir, "*.smprefab").Order(StringComparer.Ordinal))
-            if (GetPrefab(Path.GetFileNameWithoutExtension(f)) is { } p) list.Add(new PrefabSummary(p.Id, p.Name, p.Tags, p.Parts.Count, p.Bounds));
+        {
+            try { if (GetPrefab(Path.GetFileNameWithoutExtension(f)) is { } p) list.Add(new PrefabSummary(p.Id, p.Name, p.Tags, p.Parts.Count, p.Bounds)); }
+            catch (Exception e) when (e is MapException or IOException or UnauthorizedAccessException) { skipped?.Add($"{Path.GetFileName(f)}: {e.Message}"); }
+        }
         return list;
     }
 
-    public IReadOnlyList<AssetInfo> ListAssets()
+    /// <summary>The assets in the library; an unreadable asset.json is skipped and named in <paramref name="skipped"/>.</summary>
+    public IReadOnlyList<AssetInfo> ListAssets(List<string>? skipped = null)
     {
         if (!Directory.Exists(AssetsDir)) return [];
         var list = new List<AssetInfo>();
         foreach (var d in Directory.EnumerateDirectories(AssetsDir).Select(Path.GetFileName).OfType<string>().Order(StringComparer.Ordinal))
-            if (GetAsset(d) is { } a) list.Add(a);
+        {
+            try { if (GetAsset(d) is { } a) list.Add(a); }
+            catch (Exception e) when (e is MapException or IOException or UnauthorizedAccessException) { skipped?.Add($"{d}: {e.Message}"); }
+        }
         return list;
     }
 
@@ -82,7 +97,7 @@ public sealed class MapLibrary
         RebuildIndex();
     }
 
-    /// <summary>Rewrites <c>library/index.json</c> from the folders (sorted by id).</summary>
+    /// <summary>Rewrites <c>library/index.json</c> from the folders (sorted by id); corrupt entries are left out, never fatal.</summary>
     public void RebuildIndex()
     {
         var index = new JsonObject

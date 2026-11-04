@@ -129,9 +129,15 @@ public sealed record AssetInfo(string Id, string Name, string File, Bounds? Boun
         var o = Json.Obj(Json.ParseText(json, "asset.json"), "asset.json");
         var id = Json.ReqStr(o, "id", "asset");
         if (!Json.IsSlug(id)) throw new MapException("bad-file", $"'{id}' is not an asset id.");
-        return new AssetInfo(id, Json.Str(o["name"], "name", nullable: true) ?? id, Json.ReqStr(o, "file", "asset"),
+        var file = Json.ReqStr(o, "file", "asset");
+        if (!IsPlainFileName(file)) throw new MapException("bad-file", $"asset.json: '{file}' is not a plain file name.");
+        return new AssetInfo(id, Json.Str(o["name"], "name", nullable: true) ?? id, file,
             o["bounds"] is { } bn ? SmMapmaker.Bounds.FromNode(bn, "bounds") : null, Json.Str(o["sha256"], "sha256", nullable: true) ?? "", Json.Str(o["importedFrom"], "importedFrom", nullable: true) ?? "");
     }
+
+    /// <summary>A name with no folder, no "..", no drive or stream colon.</summary>
+    public static bool IsPlainFileName(string f) =>
+        f.Length > 0 && f != "." && f != ".." && f.IndexOfAny(['/', '\\', ':', '\0']) < 0 && !f.Contains("..");
 
     /// <summary>The bounds as the document frame sees them: glTF (x, y, z) becomes (x, -z, y), the usual Y-up to Z-up turn.</summary>
     public Bounds? BoundsInDocumentFrame => Bounds is { } b ? GltfToDocument(b) : null;
