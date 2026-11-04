@@ -732,6 +732,9 @@ public partial class NetworkView
         PostAll(bindings, e, own, own ? "fire own" : "fire other");
     }
 
+    /// <summary>An added mode's own target material for another player's shot (Musou Mode: armoured Orks null = armour and flesh, the others flesh); unchanged when no added content answers.</summary>
+    partial void ExtrasShotMaterial(ShotView shot, int victim, ref bool? armoured);
+
     /// <summary>Another player's ray or cone shot (snapshot shot record): fire at the shooter, impact at the end point.</summary>
     void SoundShot(ShotView shot)
     {
@@ -747,7 +750,12 @@ public partial class NetworkView
         var offset = ImpactSounds.ImpactOffset(ImpactTreatmentArg, hitSound, hitScan: _config.Weapons[shot.Weapon].Delivery == DeliveryKind.Raycast);
         // A world hit by its surface; a player hit plays the armour impact and the flesh layer together (M38, owner's direction: PostPlayerHitSound).
         if (shot.Hit == ShotHit.World) { at.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32(Surfaces.NameOf(shot.Surface))); PostLevelImpact(hitSound, at, offset); }
-        else PostPlayerHitSound(hitSound, at, offset, ArmourUpForHit(shot.Hit, shotVictim, own: false, shot.Armoured));   // the victim's armour bit: the shooter's view and the victim's alike
+        else
+        {
+            var armourUp = ArmourUpForHit(shot.Hit, shotVictim, own: false, shot.Armoured);   // the victim's armour bit: the shooter's view and the victim's alike
+            ExtrasShotMaterial(shot, shotVictim, ref armourUp);   // EXTRAS-HOOK: an added mode names the material of its own target (Musou Mode: armoured Orks play armour and flesh, the others flesh)
+            PostPlayerHitSound(hitSound, at, offset, armourUp);
+        }
         CountSound(shot.Hit == ShotHit.World ? "impact" : "body hit");
     }
 

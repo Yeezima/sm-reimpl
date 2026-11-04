@@ -231,7 +231,7 @@ public partial class NetworkView
         // A hit reported at the feet (the enemy's place) is raised to the chest; a real hit point higher up stays.
         if (i >= 0 && at.Z < shown[i].Position.Z + 0.5f) at = new Num.Vector3(at.X, at.Y, shown[i].Position.Z + 1.1f);
         else if (i < 0 && own) at = new Num.Vector3(at.X, at.Y, at.Z + 1.1f);
-        bool? material = _musouTypeOf.TryGetValue(e.Enemy, out var hitType) && MusouFleshRule.AlwaysFlesh(hitType) ? false : null;   // owner 2026-11-04: an unarmoured Ork's hit is always the flesh case
+        bool? material = _musouTypeOf.TryGetValue(e.Enemy, out var hitType) ? MusouFleshRule.Material(hitType) : null;   // owner 2026-11-04: an unarmoured Ork's hit is always the flesh case
         if (e.Value == 3) { MusouPowerFlash(e, at, camera, me); MusouMeleeHitSound(e, at, camera, me, material); }   // fx/power-flash: a power weapon's cleave (the swing's budget caps the bursts)
         // The own weapon's hit sound on the enemy (hit-scan weapons; the killing blow included): the flesh case for an unarmoured Ork, the usual armour rule otherwise (owner 2026-11-04).
         if (own && e.Value is 1 or 2 && !NoSound && Loadouts.InHand(_config!, me) is { Delivery: DeliveryKind.Raycast } gun && _soundTriggers?.HitSound(gun.Name) is { } gunHit)
@@ -297,6 +297,25 @@ public partial class NetworkView
     /// <summary>The type of each enemy last shown by id (ids are reused within the pool's capacity).</summary>
     readonly Dictionary<ushort, MusouEnemyType> _musouTypeOf = new();
 
+    /// <summary>
+    /// Another player's ranged hit on a Musou enemy (the core <c>SoundShot</c> path; the server's shot record says unarmoured for every enemy): the shown enemy the hit's end lies in (the core's
+    /// <c>VictimAt</c> reach) names the material by <see cref="MusouFleshRule"/>, so an observer hears what the shooter does. A player victim keeps the core's answer.
+    /// </summary>
+    void MusouShotMaterial(ShotView shot, int victim, ref bool? armoured)
+    {
+        if (!MusouActive || victim >= 0 || shot.Hit is not (ShotHit.Body or ShotHit.Head)) return;
+        float best = 1f; MusouEnemyType? type = null;
+        for (int i = 0; i < _tfwShown.Count; i++)
+        {
+            var e = _tfwShown[i];
+            float dz = shot.End.Z - e.Position.Z, dx = shot.End.X - e.Position.X, dy = shot.End.Y - e.Position.Y;
+            if (dz < -0.3f || dz > 2.4f) continue;
+            float score = MathF.Sqrt(dx * dx + dy * dy) / 1.3f;
+            if (score < best) { best = score; type = e.Type; }
+        }
+        if (type is { } t) armoured = MusouFleshRule.Material(t);
+    }
+
     /// <summary>The nearest shown enemy the own strike should reach (game space, its chest): the cleave's rule (<see cref="MusouCombatRules"/>), for the hit sound at the strike.</summary>
     void MusouMeleeTarget(PlayerState me, MeleeStep step, ref Num.Vector3? at, ref bool? armoured)
     {
@@ -322,7 +341,7 @@ public partial class NetworkView
             }
             best = distance;
             at = chest;
-            armoured = MusouFleshRule.AlwaysFlesh(e.Type) ? false : null;
+            armoured = MusouFleshRule.Material(e.Type);
         }
     }
 
