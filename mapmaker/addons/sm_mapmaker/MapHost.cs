@@ -54,6 +54,15 @@ public static class MapHost
     public static void AttachRoot(MapmakerRoot root) { Root = root; RootChanged?.Invoke(); }
     public static void DetachRoot(MapmakerRoot root) { if (Root == root) { Root = null; RootChanged?.Invoke(); } }
 
+    /// <summary>Drops every held resource (maps, templates, glTF copies) so nothing outlives the editor session.</summary>
+    public static void Shutdown()
+    {
+        foreach (var s in Loaded.Values) s.Release();
+        Loaded.Clear(); Sm1 = null; PickedSm1.Clear(); Armed = null;
+        ContentFactory.ForgetAssets();
+        RootChanged = null; Sm1Changed = null; PickedChanged = null; LibraryChanged = null;
+    }
+
     public static Sm1Source? Sm1For(string map) => Loaded.GetValueOrDefault(map);
     public static IEnumerable<string> LoadedMaps => Loaded.Keys;
 

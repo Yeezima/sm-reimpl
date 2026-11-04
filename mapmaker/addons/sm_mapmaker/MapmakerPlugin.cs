@@ -37,8 +37,12 @@ public partial class MapmakerPlugin : EditorPlugin
     EditorSm1Source? _sm1Adapter;
 
     public MapmakerDock? Dock => _dock;
+    public EditorUndoRedoManager History => GetUndoRedo();
     public static Thumbnails? Thumbs { get; private set; }
     public MapSession? Session { get; private set; }
+
+    /// <summary>Test aid: makes a session of this document text (no history).</summary>
+    public void OpenMapFromJson(string json) => Adopt(new MapSession(MapDocument.Parse(json), MapHost.Library, _sm1Adapter));
     public bool Dirty { get; private set; }
     public string Status { get; private set; } = "";
 
@@ -56,6 +60,7 @@ public partial class MapmakerPlugin : EditorPlugin
         _dock = new MapmakerDock(this) { Name = "Mapmaker" };
         AddControlToDock(DockSlot.RightUl, _dock);
         GetUndoRedo().VersionChanged += OnUndoVersionChanged;
+        GetUndoRedo().HistoryChanged += OnUndoVersionChanged;
         EditorInterface.Singleton.GetSelection().SelectionChanged += () => DocChanged?.Invoke();
         MapHost.RootChanged += OnRootChanged;
         CallDeferred(MethodName.Startup);
@@ -64,10 +69,11 @@ public partial class MapmakerPlugin : EditorPlugin
     public override void _ExitTree()
     {
         MapHost.RootChanged -= OnRootChanged;
-        try { GetUndoRedo().VersionChanged -= OnUndoVersionChanged; } catch (Exception) { }
+        try { GetUndoRedo().VersionChanged -= OnUndoVersionChanged; GetUndoRedo().HistoryChanged -= OnUndoVersionChanged; } catch (Exception) { }
         if (_dock is not null) { RemoveControlFromDocks(_dock); _dock.QueueFree(); _dock = null; }
         if (_gizmo is not null) { RemoveNode3DGizmoPlugin(_gizmo); _gizmo = null; }
-        Thumbs?.QueueFree();
+        Thumbs?.QueueFree(); Thumbs = null;
+        MapHost.Shutdown();
         if (MapHost.Plugin == this) MapHost.Plugin = null;
     }
 
@@ -92,8 +98,22 @@ public partial class MapmakerPlugin : EditorPlugin
         return false;
     }
 
+    UndoRedo? _hooked;
+
+    /// <summary>The scene's own history signals every commit, undo and redo, including ones made through the history object directly.</summary>
+    void HookHistory()
+    {
+        if (MapHost.Root is not { } root) return;
+        var h = GetUndoRedo().GetHistoryUndoRedo(GetUndoRedo().GetObjectHistoryId(root));
+        if (h == _hooked) return;
+        if (_hooked is not null && GodotObject.IsInstanceValid(_hooked)) _hooked.VersionChanged -= OnUndoVersionChanged;
+        _hooked = h;
+        h.VersionChanged += OnUndoVersionChanged;
+    }
+
     void OnRootChanged()
     {
+        HookHistory();
         _nodes.Clear(); _contentKeys.Clear();
         if (MapHost.Root is not null && Session is not null) SyncView(true);
     }
@@ -125,7 +145,10 @@ public partial class MapmakerPlugin : EditorPlugin
 
     void Adopt(MapSession s)
     {
-        Session = s; Dirty = false; _steps.Clear(); _nodes.Clear(); _contentKeys.Clear();
+        HookHistory();
+        Session = s; Dirty = false; _steps.Clear();
+        foreach (var n in _nodes.Values) if (GodotObject.IsInstanceValid(n)) { n.GetParent()?.RemoveChild(n); n.QueueFree(); }
+        _nodes.Clear(); _contentKeys.Clear();
         if (MapHost.Root is { } root)
         {
             foreach (var c in root.GetChildren().OfType<MapmakerObject>()) { root.RemoveChild(c); c.QueueFree(); }
@@ -151,21 +174,28 @@ public partial class MapmakerPlugin : EditorPlugin
     public OpResult Do(string label, params JsonObject[] ops)
     {
         if (Session is null) return OpResult.Fail("no-document", "No map is open: use New or Open first.");
-        var dry = Session.Apply(ops.Select(o => (JsonObject)o.DeepClone()), true);
-        if (!dry.Ok)
-        {
-            SetStatus($"{label}: {string.Join("; ", dry.Errors.Select(e => $"{e.Code}: {e.Message}"))}");
-            return dry;
-        }
         var step = new Step { Ops = ops.Select(o => (JsonObject)o.DeepClone()).ToArray() };
+        step.BeforeDoc = Session.Document.ToJson();
+        step.BeforePrefabs = PrefabSnapshot(PrefabIds(step.Ops));
+        var applied = Session.Apply(step.Ops);   // a batch is one transaction: on failure nothing changed, and no history entry is made
+        if (!applied.Ok)
+        {
+            SetStatus($"{label}: {string.Join("; ", applied.Errors.Select(e => $"{e.Code}: {e.Message}"))}");
+            return applied;
+        }
+        step.Result = applied;
+        step.AfterDoc = Session.Document.ToJson();
+        step.AfterPrefabs = PrefabSnapshot(PrefabIds(step.Ops).Concat(applied.CreatedPrefabs));
+        foreach (var created in applied.CreatedPrefabs) step.BeforePrefabs.TryAdd(created, null);
         int id = ++_stepId;
         _steps[id] = step;
+        AfterChange(prefabsChanged: StepTouchesLibrary(step));
         var ur = GetUndoRedo();
         ur.CreateAction(label, UndoRedo.MergeMode.Disable, MapHost.Root);
-        ur.AddDoMethod(this, MethodName.StepDo, id);
+        ur.AddDoMethod(this, MethodName.StepDo, id);      // runs on redo only: the batch is already applied
         ur.AddUndoMethod(this, MethodName.StepUndo, id);
-        ur.CommitAction();
-        var result = step.Result ?? dry;
+        ur.CommitAction(false);
+        var result = applied;
         if (result.Warnings.Count > 0) SetStatus($"{label}: " + string.Join("; ", result.Warnings));
         else SetStatus(label);
         return result;
@@ -181,28 +211,22 @@ public partial class MapmakerPlugin : EditorPlugin
         return d;
     }
 
+    static bool StepTouchesLibrary(Step step) =>
+        step.Result is { CreatedPrefabs.Count: > 0 } || step.BeforePrefabs.Count > 0 || step.Ops.Any(o => o["op"]?.ToString() is "import-asset" or "import-prefab");
+
+    /// <summary>Redo: the editor re-runs the step, which restores the document as it was after the batch.</summary>
     public void StepDo(int id)
     {
         var step = _steps[id];
-        if (!step.Executed)
-        {
-            step.BeforeDoc = Session!.Document.ToJson();
-            step.BeforePrefabs = PrefabSnapshot(PrefabIds(step.Ops));
-            step.Result = Session.Apply(step.Ops);
-            step.Executed = true;
-            step.AfterDoc = Session.Document.ToJson();
-            step.AfterPrefabs = PrefabSnapshot(PrefabIds(step.Ops).Concat(step.Result.CreatedPrefabs));
-            foreach (var created in step.Result.CreatedPrefabs) step.BeforePrefabs.TryAdd(created, null);
-        }
-        else Restore(step.AfterDoc, step.AfterPrefabs);
-        AfterChange(prefabsChanged: step.Result is { CreatedPrefabs.Count: > 0 } || step.BeforePrefabs.Count > 0 || step.Ops.Any(o => o["op"]?.ToString() is "import-asset" or "import-prefab"));
+        Restore(step.AfterDoc, step.AfterPrefabs);
+        AfterChange(prefabsChanged: StepTouchesLibrary(step));
     }
 
     public void StepUndo(int id)
     {
         var step = _steps[id];
         Restore(step.BeforeDoc, step.BeforePrefabs);
-        AfterChange(prefabsChanged: step.BeforePrefabs.Count > 0);
+        AfterChange(prefabsChanged: StepTouchesLibrary(step));
     }
 
     void Restore(string docJson, Dictionary<string, string?> prefabs)
@@ -230,7 +254,7 @@ public partial class MapmakerPlugin : EditorPlugin
 
     // ---- the view ---------------------------------------------------------------------------------------------------------------------------------------
 
-    Transform3D ExpectedTransform(MapObject o) => Frame.NodeTransform(ToGd(o.Transform.Position), ToGd(o.Transform.Rotation), ToGd(o.Transform.Scale));
+    public Transform3D ExpectedTransform(MapObject o) => Frame.NodeTransform(ToGd(o.Transform.Position), ToGd(o.Transform.Rotation), ToGd(o.Transform.Scale));
     static Vector3 ToGd(Num.Vector3 v) => new(v.X, v.Y, v.Z);
     static Num.Vector3 ToNum(Vector3 v) => new(v.X, v.Y, v.Z);
 
@@ -251,12 +275,10 @@ public partial class MapmakerPlugin : EditorPlugin
             var doc = Session.Document;
             var parts = Session.Resolve().GroupBy(p => p.ObjectId).ToDictionary(g => g.Key, g => g.ToList());
             var ids = doc.Objects.Select(o => o.Id).ToHashSet();
+            // A node is kept for its id for good (detached while the object is gone): editor history entries made by the gizmo refer to the node, so
+            // undoing a delete must hand back the same instance.
             foreach (var gone in _nodes.Keys.Where(k => !ids.Contains(k)).ToList())
-            {
-                var n = _nodes[gone];
-                if (GodotObject.IsInstanceValid(n)) { n.GetParent()?.RemoveChild(n); n.QueueFree(); }
-                _nodes.Remove(gone); _contentKeys.Remove(gone);
-            }
+                if (GodotObject.IsInstanceValid(_nodes[gone]) && _nodes[gone].GetParent() is { } held) held.RemoveChild(_nodes[gone]);
             // Strangers (nodes the editor added: a pasted or duplicated node) are not in the document; the document wins.
             foreach (var stray in root.GetChildren().OfType<MapmakerObject>().Where(n => !_nodes.ContainsValue(n)).ToList()) { root.RemoveChild(stray); stray.QueueFree(); }
             foreach (var o in doc.Objects) Ensure(o, doc, root, parts, force, new HashSet<string>());
@@ -314,11 +336,15 @@ public partial class MapmakerPlugin : EditorPlugin
 
     void OnUndoVersionChanged()
     {
-        if (_busy || Session is null || MapHost.Root is null) return;
-        CallDeferred(MethodName.Reconcile);
+        if (_busy || _reconcilePending || Session is null || MapHost.Root is null) return;
+        _reconcilePending = true;
+        CallDeferred(MethodName.ReconcileDeferred);
     }
 
     /// <summary>Node transforms that no longer match the document (the move/rotate/scale gizmo, or the editor undoing it) become core transform operations.</summary>
+    public void ReconcileDeferred() { _reconcilePending = false; Reconcile(); }
+    bool _reconcilePending;
+
     public void Reconcile()
     {
         if (_busy || Session is null) return;

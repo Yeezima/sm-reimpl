@@ -247,10 +247,22 @@ public partial class MapmakerDock : VBoxContainer
                         _items.Add(new LibraryItem(LibraryKind.Sm1, name, name, src.Map));
                 break;
             case 1:
-                try { foreach (var a in MapHost.Library.ListAssets().Where(a => Match(a.Name) || Match(a.Id))) _items.Add(new LibraryItem(LibraryKind.Asset, a.Id, a.Name)); } catch (MapException) { }
+                try
+                {
+                    var skipped = new List<string>();
+                    foreach (var a in MapHost.Library.ListAssets(skipped).Where(a => Match(a.Name) || Match(a.Id))) _items.Add(new LibraryItem(LibraryKind.Asset, a.Id, a.Name));
+                    if (skipped.Count > 0) _status.Text = $"{skipped.Count} asset(s) skipped: {string.Join("; ", skipped.Take(2))}";
+                }
+                catch (MapException) { }
                 break;
             default:
-                try { foreach (var p in MapHost.Library.ListPrefabs().Where(p => Match(p.Name) || Match(p.Id))) _items.Add(new LibraryItem(LibraryKind.Prefab, p.Id, p.Name)); } catch (MapException) { }
+                try
+                {
+                    var skipped = new List<string>();
+                    foreach (var p in MapHost.Library.ListPrefabs(skipped).Where(p => Match(p.Name) || Match(p.Id))) _items.Add(new LibraryItem(LibraryKind.Prefab, p.Id, p.Name));
+                    if (skipped.Count > 0) _status.Text = $"{skipped.Count} prefab file(s) skipped: {string.Join("; ", skipped.Take(2))}";
+                }
+                catch (MapException) { }
                 break;
         }
         for (int i = 0; i < _items.Count; i++)
@@ -427,7 +439,7 @@ public partial class MapmakerDock : VBoxContainer
         _prefab.Clear();
         try
         {
-            foreach (var p in MapHost.Library.ListPrefabs()) { _prefab.AddItem($"{p.Name} ({p.Id})"); _prefab.SetItemMetadata(_prefab.ItemCount - 1, p.Id); }
+            foreach (var p in MapHost.Library.ListPrefabs(new List<string>())) { _prefab.AddItem($"{p.Name} ({p.Id})"); _prefab.SetItemMetadata(_prefab.ItemCount - 1, p.Id); }
         }
         catch (MapException) { }
         for (int i = 0; i < _prefab.ItemCount; i++) if (_prefab.GetItemMetadata(i).AsString() == keep) _prefab.Select(i);

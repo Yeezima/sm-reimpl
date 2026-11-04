@@ -32,6 +32,57 @@ public sealed class Selftest(MapmakerPlugin plugin)
         GD.Print($"SELFTEST shot {path}");
     }
 
+    async Task UndoRedoRound(LibraryItem item)
+    {
+        plugin.NewMap("undo-redo");
+        var root = MapHost.Root!;
+        var ur = plugin.History;
+        var history = ur.GetHistoryUndoRedo(ur.GetObjectHistoryId(root));
+        string Doc() => plugin.Session!.Document.ToJson();
+        void NodesMatch(string when)
+        {
+            bool all = true;
+            foreach (var o in plugin.Session!.Document.Objects)
+            {
+                var n = plugin.NodeOf(o.Id);
+                if (n is null || !n.IsInsideTree() || !n.Transform.IsEqualApprox(plugin.ExpectedTransform(o))) all = false;
+            }
+            int live = root.GetChildren().OfType<MapmakerObject>().Count();
+            Check(all && live == plugin.Session.Document.Objects.Count, $"{when}: every node matches the document ({live} nodes, {plugin.Session.Document.Objects.Count} objects)");
+        }
+        string s0 = Doc();
+        var placed = plugin.PlaceAt(item, new Godot.Vector3(2, 2, 0));
+        string id = placed.Created[0];
+        string s1 = Doc();
+        var node = plugin.NodeOf(id)!;
+        var from = node.Position;
+        ur.CreateAction("Gizmo move", UndoRedo.MergeMode.Disable, root);
+        ur.AddDoProperty(node, Node3D.PropertyName.Position, from + new Godot.Vector3(3, 0, 0));
+        ur.AddUndoProperty(node, Node3D.PropertyName.Position, from);
+        ur.CommitAction();
+        await Frames(6);
+        string s2 = Doc();
+        Check(s2 != s1, "gizmo move reached the document");
+        plugin.Select([id]);
+        plugin.DeleteSelected();
+        string s3 = Doc();
+        Check(s3 != s2 && plugin.Session!.Document.Objects.Count == 0, "delete");
+        NodesMatch("after delete");
+        var expectUndo = new[] { s2, s1, s0 }; var expectRedo = new[] { s1, s2, s3 };
+        for (int i = 0; i < 3; i++)
+        {
+            history.Undo(); await Frames(6);
+            Check(Doc() == expectUndo[i], $"undo {i + 1}: document bytes equal the snapshot");
+            NodesMatch($"undo {i + 1}");
+        }
+        for (int i = 0; i < 3; i++)
+        {
+            history.Redo(); await Frames(6);
+            Check(Doc() == expectRedo[i], $"redo {i + 1}: document bytes equal the snapshot");
+            NodesMatch($"redo {i + 1}");
+        }
+    }
+
     static void Check(bool ok, string what) { GD.Print($"SELFTEST {(ok ? "ok  " : "FAIL")} {what}"); if (!ok) Failed = true; }
     static bool Failed;
 
@@ -112,10 +163,10 @@ public sealed class Selftest(MapmakerPlugin plugin)
             await Frames(90);
             Shot("new-map-with-prefab-instances");
 
-            // 4. Undo and redo through the editor's history, then save.
-            int before = plugin.Session.Document.Objects.Count;
-            EditorInterface.Singleton.GetEditorUndoRedo();
+            // 4. Editor history: place, gizmo-style move, delete; undo x3, redo x3 through EditorUndoRedoManager's history.
             string json = plugin.Session.Document.ToJson();
+            await UndoRedoRound(item);
+            plugin.OpenMapFromJson(json);
             string savePath = System.IO.Path.Combine(MapHost.Library.MapsDir, "selftest.smmap");
             Check(plugin.SaveMap(savePath), "save .smmap");
             string file = System.IO.File.ReadAllText(savePath);

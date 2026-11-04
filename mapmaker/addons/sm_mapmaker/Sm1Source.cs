@@ -37,6 +37,13 @@ public sealed class Sm1Source
             }
     }
 
+    /// <summary>Frees the cached view templates.</summary>
+    public void Release()
+    {
+        foreach (var t in _templates.Values) if (t is not null && GodotObject.IsInstanceValid(t)) t.Free();
+        _templates.Clear();
+    }
+
     /// <summary>The install folder (explicit setting, SM_DATA_DIR, saved settings, Steam, the git-ignored config/local.json read by GameInstall), or null.</summary>
     public static string? GameDir()
     {
