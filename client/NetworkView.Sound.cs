@@ -732,9 +732,10 @@ public partial class NetworkView
         PostAll(bindings, e, own, own ? "fire own" : "fire other");
     }
 
-    /// <summary>Another player's ray or cone shot (snapshot shot record): fire at the shooter, impact at the end point.</summary>
+    /// <summary>An added mode's own target material for another player's shot (Musou Mode: armoured Orks null = armour and flesh, the others flesh); unchanged when no added content answers.</summary>
     partial void ExtrasShotMaterial(ShotView shot, int victim, ref bool? armoured);
 
+    /// <summary>Another player's ray or cone shot (snapshot shot record): fire at the shooter, impact at the end point.</summary>
     void SoundShot(ShotView shot)
     {
         if (_config is null || _soundTriggers is null || _client is null || shot.Shooter == _client.PlayerId) return;
