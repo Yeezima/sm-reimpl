@@ -21,7 +21,7 @@ namespace SmClient;
 /// <para>
 /// The list is by object definition name. <see cref="Always"/> names definitions used only by these stations (or, backpanel_c, as the
 /// same boards elsewhere). <see cref="Near"/> names definitions that also dress other things (the console stations' cabling and
-/// domes): they are removed only where they sit within <see cref="NearRadius"/> metres (horizontally) of a board, so the monitor
+/// domes): they are removed only where they sit within <see cref="NearRadius"/> metres (horizontally) of a board or a <c>tech_interface_b</c> cabinet, so the monitor
 /// consoles keep their cabling. The console stations themselves (<c>tech_interface_*</c>, <c>tech_panel_pipe_e</c>) stay. <c>--old-armoury-racks</c>
 /// draws everything as before.
 /// </para>
@@ -67,9 +67,10 @@ public static class MapDecor
         for (int i = 0; i < scene.Objects.Count; i++)
         {
             var o = scene.Objects[i];
-            if (!always.Contains(o.Definition)) continue;
-            hidden.Add(i);
-            if (o.Definition.StartsWith("backpanel", StringComparison.OrdinalIgnoreCase)) boards.Add(o.Transform.Translation);
+            // The boards' places (backpanel_*, and the cabinets whose plates are not drawn) anchor the Near rule.
+            if (o.Definition.StartsWith("backpanel", StringComparison.OrdinalIgnoreCase) || o.Definition.Equals("tech_interface_b", StringComparison.OrdinalIgnoreCase))
+                boards.Add(o.Transform.Translation);
+            if (always.Contains(o.Definition)) hidden.Add(i);
         }
         for (int i = 0; i < scene.Objects.Count; i++)
         {
