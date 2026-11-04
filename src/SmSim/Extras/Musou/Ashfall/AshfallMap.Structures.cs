@@ -177,7 +177,7 @@ public static partial class AshfallMap
         uint i = 0;
         for (float x = MathF.Ceiling(x0 / 4f) * 4f; x <= x1; x += 4f)
             for (float y = MathF.Ceiling(y0 / 4f) * 4f; y <= y1; y += 4f) cands.Add((H(seed, i++), x, y));
-        cands.Sort((a, b) => a.Key.CompareTo(b.Key));
+        cands.Sort((a, b) => a.Key != b.Key ? a.Key.CompareTo(b.Key) : a.X != b.X ? a.X.CompareTo(b.X) : a.Y.CompareTo(b.Y));   // total order: List.Sort is unstable
         int placed = 0;
         foreach (var (key, cx, cy) in cands)
         {
@@ -310,7 +310,7 @@ public static partial class AshfallMap
                 uint key = H(9000, i++);
                 cands.Add(((InZone(x, y) ? 0u : 0x80000000u) | (key >> 1), x, y));
             }
-        cands.Sort((a, b) => a.Key.CompareTo(b.Key));
+        cands.Sort((a, b) => a.Key != b.Key ? a.Key.CompareTo(b.Key) : a.X != b.X ? a.X.CompareTo(b.X) : a.Y.CompareTo(b.Y));   // total order: List.Sort is unstable
         var centres = new List<Vector2>();
         foreach (var (key, cx, cy) in cands)
         {
@@ -371,10 +371,11 @@ public static partial class AshfallMap
                     }
                 }
         // Along the boundary wall's foot (the perimeter road's outer side).
-        Runs(p, true, -239f, 1f, -216f, 216f, 0f, 40001);
-        Runs(p, true, 238f, 1f, -216f, 216f, 0f, 40002);
-        Runs(p, false, -239f, 1f, -216f, 216f, 0f, 40003);
-        Runs(p, false, 238f, 1f, -216f, 216f, 0f, 40004);
+        // Butted against the boundary (gap 0): a 1 m slot behind them would trap the 0.9 m capsule (review of 2026-11-05).
+        Runs(p, true, -240f, 1f, -216f, 216f, 0f, 40001);
+        Runs(p, true, 239f, 1f, -216f, 216f, 0f, 40002);
+        Runs(p, false, -240f, 1f, -216f, 216f, 0f, 40003);
+        Runs(p, false, 239f, 1f, -216f, 216f, 0f, 40004);
     }
 
     /// <summary>A run of low walls (1.0 or 1.2 m tall, <paramref name="t"/> thick) of 8..16 m with openings of 4..8 m between (so one at least every 24 m); a segment that would touch anything or stand on a slope is left out (a wider opening).</summary>

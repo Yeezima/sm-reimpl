@@ -5,6 +5,9 @@ namespace SmSim.Extras.Musou.Ashfall;
 
 public static partial class AshfallMap
 {
+    /// <summary>The boundary wall's height (ours): above the highest standable top (a 5-storey tower's 30 m wall columns) plus a full jump's 17.5 m and a margin.</summary>
+    public const float BoundaryHeight = 64f;
+
     /// <summary>The blocks' raised height above the roads (ours; a kerb under the 0.4 m step).</summary>
     public const float BlockTop = 0.25f;
 
@@ -120,8 +123,8 @@ public static partial class AshfallMap
 
     static void BoundaryLayout(AshfallBuilder b)
     {
-        // A ruined skyline wall, 4 m thick, 48 m tall, outside the square.
-        const float O = Half + 4f, T = 48f;
+        // A ruined skyline wall, 4 m thick, BoundaryHeight (64 m) tall, outside the square.
+        const float O = Half + 4f, T = BoundaryHeight;
         b.Box(Boundary, -O, -O, -2f, O, -Half, T);
         b.Box(Boundary, -O, Half, -2f, O, O, T);
         b.Box(Boundary, -O, -Half, -2f, -Half, Half, T);

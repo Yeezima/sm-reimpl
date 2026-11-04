@@ -164,3 +164,12 @@ Per-block share of the ground covered by ruin and tower footprints: 10 to 15 % i
 Deviations: the tall buildings' stair core is 8 m long (flight, 2 m pad, flight returning in the other lane): a first version with a landing at the far end could not be walked, as its second flight began on the wall-side edge that the graph's grid cannot step onto. The SW corner tower stands at y -176..-160, not in the corner,
 because the block-centre spawn marker (-196, -196) keeps 10 m clear. Platforms are accepted wherever the rules pass (blocks, avenue edges, junction quarters), not on a fixed list. Few ruins have a walkable floor (5), as only shells 20 m or longer have the room for the stair; the rest keep jump-only partial floors.
 Unfinished: the plan SVG was not looked at by a person; the red zones follow the lead's reading of the marked screenshot; no live check (the lead runs it).
+
+### Pass 2: integration and review (lead, 2026-11-05)
+- Live load check (server `--bind 127.0.0.1 --content musou`, one headless client, no bots): 4,228 parts, 60,920 triangles drawn; map load 1.2 s;
+  client and server hash equal; the war started. The enemies' graph built in **18.5 s** on the server (902,105 cells, 25 seeds); the 92-138 s in the
+  pass-2 notes above were measured inside the parallel test run.
+- Independent review: no must-fix. Applied (version 3, level hash 0xBB4D50AF4614FD39): the boundary-foot walls butt against the boundary (they left a
+  1 m slot that trapped the capsule); the boundary is 64 m (`AshfallMap.BoundaryHeight`; the 5-storey towers' 30 m wall columns plus a full jump left
+  0.5 m under 48 m), with a test that the highest top plus a full jump and 4 m stays below it; the placers' sorts have a total order (Key, X, Y).
+- Open: the cold graph build on a new server copy after each layout change (about 20 s here); ruins' jump-only floors have no reachability check of their own.

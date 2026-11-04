@@ -36,7 +36,7 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
         }
         Assert.Equal(a.Points, b.Points);
         Assert.Equal(a.Spawns, b.Spawns);
-        Assert.Equal(2u, AshfallMap.Version);
+        Assert.Equal(3u, AshfallMap.Version);
         Assert.Equal(Hash(a, AshfallMap.Version), a.Hash);
         Assert.NotEqual(Hash(a, AshfallMap.Version + 1), a.Hash);   // a new generator version moves the hash
         Assert.Equal(AshfallContent.ToMapContent(a).Hash, a.Hash);
@@ -44,8 +44,8 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
         Assert.Equal(PinnedLevelHash, a.Hash);
     }
 
-    /// <summary>Ashfall Citadel version 2's level hash (pass 2, the owner's playtest notes of 2026-11-05; version 1 was 0x4D0658D87AF67B7B).</summary>
-    const ulong PinnedLevelHash = 0x875d9199c67b1894UL;
+    /// <summary>Ashfall Citadel version 3's level hash (pass 2 with the review's fixes, 2026-11-05; version 2 was 0x875D9199C67B1894, version 1 0x4D0658D87AF67B7B).</summary>
+    const ulong PinnedLevelHash = 0xbb4d50af4614fd39UL;
 
     /// <summary>The hash's rule, written out independently of the generator: FNV-1a 64 over the version, then every solid corner's float bits.</summary>
     static ulong Hash(AshfallLevel level, uint version)
@@ -58,6 +58,17 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
     }
 
     // ---------------------------------------------------------------- shape
+
+    [Fact]
+    public void Nobody_jumps_over_the_boundary_from_the_highest_top_inside_it()
+    {
+        // The highest solid top inside the playable square (anything a jump pack can land on) plus a full jump's apex (17.54 m, spec) and a 4 m margin
+        // stays below the boundary wall (review of 2026-11-05: the 5-storey towers' 30 m wall columns against the old 48 m wall left 0.5 m).
+        var level = AshfallMap.Build();
+        float top = level.Parts.Where(p => p.Solid && p.Kind is not (AshfallKind.Boundary or AshfallKind.Backdrop))
+            .SelectMany(p => p.Corners).Where(c => MathF.Abs(c.X) < AshfallMap.Half && MathF.Abs(c.Y) < AshfallMap.Half).Max(c => c.Z);
+        Assert.True(top + 17.54f + 4f <= AshfallMap.BoundaryHeight, $"highest top {top} m + a full jump reaches the {AshfallMap.BoundaryHeight} m boundary");
+    }
 
     [Fact]
     public void Every_box_winds_outward_and_every_triangle_is_finite_and_in_the_world()
