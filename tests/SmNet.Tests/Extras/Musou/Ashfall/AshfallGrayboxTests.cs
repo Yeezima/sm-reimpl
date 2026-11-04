@@ -330,7 +330,7 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
         // The east tower's gallery is at least 2.5 m deep, with parapets 1.0..1.2 m.
         var gallery = Level.Parts.Where(p => p.Kind == AshfallKind.Floor).Select(Box2).Single(b => b.Z1 == 18f && b.Y0 >= 70.9f && b.Y1 > 74.9f && b.Y1 <= 75.01f && b.X0 > 205f && b.X1 < 215f);
         Assert.True(gallery.Y1 - 72f >= 2.5f);
-        var galleryRails = Level.Parts.Where(p => p.Kind == AshfallKind.Cover).Select(Box2).Where(b => b.Z0 == 18f).ToList();
+        var galleryRails = Level.Parts.Where(p => p.Kind == AshfallKind.Cover).Select(Box2).Where(b => b.Z0 == 18f && b.X0 >= 200f && b.X1 <= 220f && b.Y0 >= 68f && b.Y1 <= 78f).ToList(); // the gallery's footprint only (pass 3's 18 m rampart parapets are also Cover at 18 m)
         Assert.True(galleryRails.Count >= 3 && galleryRails.All(r => r.Z1 - r.Z0 is >= 1.0f and <= 1.2f + 1e-3f));
     }
 
