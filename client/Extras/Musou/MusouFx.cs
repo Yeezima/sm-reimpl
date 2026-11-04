@@ -256,21 +256,33 @@ public partial class NetworkView
         PowerHit(e.Player, wargear, contact, (toward.LengthSquared() > 1e-6f ? toward.Normalized() : Vector3.Up) + Vector3.Up * 0.3f, "musou hit");
     }
 
-    /// <summary>fx/melee-hit-sound: the generated hit sound of a melee hit (marker 3) on a Musou enemy at <paramref name="at"/> (game space); one swing sounds at most three times (ours).</summary>
+    /// <summary>
+    /// sound/original-hits: the hit sound of a melee hit (marker 3) on a Musou enemy at <paramref name="at"/> (game space): the data's event for the attacker's strike, the first hit of a swing as the
+    /// primary target and the further ones as secondary targets; one swing sounds at most three times (ours). The own player's primary hit was sounded at the strike (OwnStrikeHitSound).
+    /// With <c>--generated-melee-hit-sound</c> the generated sound instead (fx/melee-hit-sound).
+    /// </summary>
     readonly SmClient.ImpactRules.PowerFlashRules.Budget _musouHitSoundSwing = new();
     void MusouMeleeHitSound(in MusouEvent e, Num.Vector3 at, Num.Vector3 camera, PlayerState me)
     {
         if (e.Player == 0 || _client is null || Num.Vector3.DistanceSquared(at, camera) > FxRange * FxRange) return;
-        if (e.Player == _client.PlayerId && OwnStrikeSounded) return;   // already played at the strike (OwnStrikeHitSound)
-        PlayerState? attacker = e.Player == _client.PlayerId ? me : null;
+        bool own = e.Player == _client.PlayerId;
+        PlayerState? attacker = own ? me : null;
         if (attacker is null) for (int k = 0; k < _lastOthers.Count; k++) if (_lastOthers[k].PlayerId == e.Player) { attacker = _lastOthers[k]; break; }
-        if (attacker is not { } who || ProceduralHitSound(who, charge: false, dash: false) is not { } synth) return;
+        if (attacker is not { } who) return;
+        var synth = ProceduralHitSound(who, charge: false, dash: false);
+        if (synth is not null && own && OwnStrikeSounded) return;   // already played at the strike (OwnStrikeHitSound)
+        if (synth is null && NoMeleeSounds) return;
         var burst = _musouHitSoundSwing.Take(e.Player, _connectedFor);
-        if (burst == SmClient.ImpactRules.PowerBurst.Lead) _musouHitSoundsThisSwing = 0;
+        bool secondary = burst != SmClient.ImpactRules.PowerBurst.Lead;
+        if (!secondary) { _musouHitSoundsThisSwing = 0; if (synth is null && own && OwnStrikeSounded) return; }
         else if (burst != SmClient.ImpactRules.PowerBurst.Small || ++_musouHitSoundsThisSwing > 2) return;
-        string played = PlayProceduralHit(synth, ToGodot(at), $"musou melee hit by P{e.Player}");
-        CountSound("melee hit");
-        if (LogSound("melee")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} P{e.Player} musou hit event {played}");
+        if (synth is { } s)
+        {
+            string played = PlayProceduralHit(s, ToGodot(at), $"musou melee hit by P{e.Player}");
+            CountSound("melee hit");
+            if (LogSound("melee")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} P{e.Player} musou hit event {played}");
+        }
+        else PostDataMeleeHit(who, who.MeleeHeavy, who.MeleeStep, secondary, "a Musou enemy", ToGodot(at), "musou hit");
     }
     int _musouHitSoundsThisSwing;
 

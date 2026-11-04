@@ -8,11 +8,12 @@ namespace SmContent;
 public enum ImpactTreatmentMode { Bolters, Ballistic, Off }
 
 /// <summary>
-/// The shooter's hit confirmation (sound/impacts; <c>--hit-confirm</c>): <see cref="Soft"/> (default, the owner's change) the weapon's own confirm event with only its
+/// The shooter's hit confirmation (sound/impacts; <c>--hit-confirm</c>): <see cref="Soft"/> (the default until sound/original-hits, the owner's change of 2026-10-29; now `--hit-confirm soft`) the weapon's own confirm event with only its
 /// non-positioned smack layer, pitched down, low-passed and quieter, once per hit report with a cooldown, heavier on a kill; <see cref="Data"/> the data's event as it is
 /// (with the victim's armour or flesh as the material, the faithful reading); <see cref="Off"/> nothing.
 /// </summary>
 public enum HitConfirmMode { Soft, Data, Off }
+
 
 /// <summary>
 /// The owner's request of 2026-10-29 (a deliberate change from SM1: docs/changes-from-original.md): "projectile hit sounds ... very high pitched and jarring, for bolter
@@ -21,6 +22,9 @@ public enum HitConfirmMode { Soft, Data, Off }
 /// </summary>
 public static class ImpactSounds
 {
+    /// <summary>The shooter's hit confirm by default: the data's event (sound/original-hits, owner 2026-11-04); <c>--hit-confirm soft</c> restores the former default.</summary>
+    public const HitConfirmMode DefaultHitConfirm = HitConfirmMode.Data;
+
     /// <summary>The bolter family's hit events (the data: every bolter, bolt pistol, storm bolter and heavy bolter names <c>play_bolter_hits</c>; the stalker <c>play_stalker_hits</c>).</summary>
     public static readonly IReadOnlySet<string> BolterHitEvents = new HashSet<string>(["play_bolter_hits", "play_stalker_hits"], StringComparer.OrdinalIgnoreCase);
 

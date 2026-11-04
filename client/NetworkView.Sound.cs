@@ -766,30 +766,32 @@ public partial class NetworkView
         }
         else if (hits.LastMelee)
         {
-            if (OwnStrikeSounded && ProceduralHitSound(me, charge: false, dash: false) is not null) { }   // already played at the strike (OwnStrikeHitSound)
-            else if (ProceduralHitSound(me, charge: false, dash: false) is { } synth)
+            if (ProceduralHitSound(me, charge: false, dash: false) is { } synth)
             {
-                // fx/melee-hit-sound: the generated sound, at the victim's chest (or at the own marine when the victim is not known), instead of the weapon's own.
-                var struck = _lastOthers.FirstOrDefault(o => o.PlayerId == hits.LastVictim);
-                var spot = (struck.PlayerId == hits.LastVictim && hits.LastVictim > 0 ? struck.Position : me.Position) + new System.Numerics.Vector3(0f, 0f, 1.2f);
-                string played = PlayProceduralHit(synth, ToGodot(spot), $"own melee hit on P{hits.LastVictim}");
-                CountSound("melee hit");
-                if (LogSound("melee") || LogSound("tag")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} {MeleeWargear(me)} on P{hits.LastVictim} (own hit report) event {played}");
-            }
-            else if (MeleeWargear(me) is { } m && _soundTriggers.File(m) is { } mf)
-            {
-                var audio = mf.Of("hit_audio").Take(1).ToList();
-                PostAll(audio, t.Emitter, true, "melee hit");
-                // feel/melee-charge-2 (the owner: the power sword's own sounds): the weapon's hit effect container's sound at the victim (the power sword's
-                // play_sm_power_sword_hit, the chainsword's play_sm_chain_sword_hit; armour and flesh layers as for a bullet), when the file binds no hit_audio.
-                if (audio.Count == 0 && _soundTriggers.MeleeHitSound(m) is { } meleeHit)
+                // fx/melee-hit-sound (--generated-melee-hit-sound): the generated sound, at the victim's chest (or at the own marine when the victim is not known), instead of the weapon's own.
+                if (OwnStrikeSounded) { }   // already played at the strike (OwnStrikeHitSound)
+                else
                 {
-                    var victim = _lastOthers.FirstOrDefault(o => o.PlayerId == hits.LastVictim);
-                    var where = victim.PlayerId == hits.LastVictim && hits.LastVictim > 0 ? victim.Position + new System.Numerics.Vector3(0f, 0f, 1.2f) : me.Position + new System.Numerics.Vector3(0f, 0f, 1.2f);
-                    PostPlayerHitSound(meleeHit, new SoundEmitter { Position = ToGodot(where), Label = $"melee hit on P{hits.LastVictim}", OneShot = true });
+                    var struck = _lastOthers.FirstOrDefault(o => o.PlayerId == hits.LastVictim);
+                    var spot = (struck.PlayerId == hits.LastVictim && hits.LastVictim > 0 ? struck.Position : me.Position) + new System.Numerics.Vector3(0f, 0f, 1.2f);
+                    string played = PlayProceduralHit(synth, ToGodot(spot), $"own melee hit on P{hits.LastVictim}");
                     CountSound("melee hit");
-                    if (LogSound("tag")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} {m} on P{hits.LastVictim} event {meleeHit}");
+                    if (LogSound("melee") || LogSound("tag")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} {MeleeWargear(me)} on P{hits.LastVictim} (own hit report) event {played}");
                 }
+            }
+            else if (!NoMeleeSounds && !(OwnStrikeSounded && _config.Extras.HasFlag(SmSim.ContentExtras.Musou)))   // Musou: the swing's cleave sounds come from its own events (MusouMeleeHitSound), the report adds nothing
+            {
+                // sound/original-hits: the data's event for the swing's ability. A victim the swing has sounded for (at the strike) stays silent; the swing's first report with nobody sounded is the primary
+                // target, a further victim a secondary one (a round trip late: ours).
+                if (_connectedFor - _ownSwingAt > SwingMemory) NoteOwnSwing(me);
+                if (_ownSwingVictims.Add(hits.LastVictim))
+                {
+                    bool secondary = _ownSwingVictims.Count > 1;
+                    var struck = _lastOthers.FirstOrDefault(o => o.PlayerId == hits.LastVictim);
+                    var spot = (struck.PlayerId == hits.LastVictim && hits.LastVictim > 0 ? struck.Position : me.Position) + new System.Numerics.Vector3(0f, 0f, 1.2f);
+                    PostDataMeleeHit(me, _ownSwingHeavy, _ownSwingStep, secondary, $"P{hits.LastVictim}", ToGodot(spot), "own hit report");
+                }
+                else if (LogSound("melee")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} P{me.PlayerId} report on P{hits.LastVictim}: already sounded at the strike");
             }
         }
         else if (!hits.LastSplash && Loadouts.InHand(_config, me) is { } w && _soundTriggers.File(w.Name) is { } wf && wf.Of("player_hit_something_action").FirstOrDefault() is { } confirm)
@@ -803,7 +805,7 @@ public partial class NetworkView
     /// <c>play_bolter_smack</c>, trigger point self): a non-positioned smack layer, a layer switched on <c>material_type</c> (the victim's: ceramite_armour or flesh; before this
     /// branch the shooter's own emitter gave it the floor under the shooter's feet, so a hit while standing on metal played a metal ricochet at +250 cents "on top of" the
     /// shooter) and a kill layer on the death state. <see cref="HitConfirmMode.Data"/> plays that with the victim's material; <see cref="HitConfirmMode.Soft"/> (the owner's
-    /// change, default) plays only the smack layer (no material) pitched down, low-passed and 10 dB quieter, once per <see cref="ImpactSounds.HitConfirmCooldown"/>, and on a
+    /// change; the default until sound/original-hits, now `--hit-confirm soft`) plays only the smack layer (no material) pitched down, low-passed and 10 dB quieter, once per <see cref="ImpactSounds.HitConfirmCooldown"/>, and on a
     /// kill the data's kill layer as well (the death state set as the data's own <c>play_set_state_death_*</c> events do).
     /// </summary>
     void HitConfirmSound(SoundBinding confirm, HitReport hits)
