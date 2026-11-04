@@ -23,6 +23,9 @@ return args switch
     ["ork-balance", var gameDir, .. var rest] => SmTool.OrkCommands.Balance(gameDir, rest),
     ["ork-actions", var gameDir] => SmTool.OrkCommands.Actions(gameDir),
     ["ork-sounds", var gameDir, .. var rest] => SmTool.OrkSoundCommands.Run(gameDir, rest),
+    ["melee-hit-sounds", .. var rest] => SmTool.MeleeHitSoundsCommand.Run(rest),
+    ["ranged-hit-confirms", .. var rest] => SmTool.RangedConfirmsCommand.Run(rest),
+    ["listen-page", .. var rest] => SmTool.ListenPageCommand.Run(rest),
 #if SM_EXTRAS
     ["musou-sounds", var musouDir, .. var musouRest] => SmTool.MusouSoundCommands.Run(musouDir, musouRest),
 #endif
@@ -105,6 +108,10 @@ static int Usage()
                                                     decode to .ogg (+ .wav) in %LOCALAPPDATA%\sm-reimpl\cache\audio\
                                                     (first use downloads ww2ogg's codebook library, hash-checked)
           smtool audio-verify <streamingaudio-dir>  parse every package and bank, report HIRC decoding coverage
+          smtool melee-hit-sounds [--game <dir>] [--out <dir>] [--render] [--count k]   what the data plays on every melee hit (table.txt; --render: WAV previews + index.html in the private cache)
+          smtool ranged-hit-confirms [--game <dir>] [--out <dir>] [--count k]   the shooter hit-confirm event of every MP gun, now (soft) and planned (data) as WAV previews
+          smtool listen-page [--game <dir>] [--out <dir>] [--count k]   curated listen.html: per weapon, NOW and PLANNED players
+          smtool audio-render <event> [--out <dir>] [--seed n] [--count k] [--material armour|flesh] [--local] [--mono]   offline WAV preview of one post (no 3D attenuation, no bus effects)
           smtool audio-coverage [--map <name>]       M26b: sound triggers of the MP files and the map, resolved against the banks
         """);
     return 2;

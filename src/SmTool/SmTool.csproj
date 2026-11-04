@@ -9,6 +9,11 @@
     <PackageReference Include="NVorbis" Version="0.10.5" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The client's procedural melee hit sounds (pure C#, no Godot): rendered as the "now" previews; the client is not changed. -->
+    <Compile Include="..\..\client\ImpactRules\MeleeHitSynth.cs" Link="ClientImpactRules\MeleeHitSynth.cs" />
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
