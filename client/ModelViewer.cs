@@ -156,6 +156,9 @@ public partial class ModelViewer : Node3D
                 BeginLocate(args, repoRoot);
                 return;
             }
+            bool testAidHandled = false;
+            ExtrasTestAid(args, ref testAidHandled);   // EXTRAS-HOOK added content's own test views (Ashfall kit gallery): they need no game install
+            if (testAidHandled) return;
             var found = GameInstall.TryLocate(args.GetValueOrDefault("game-dir"), repoRoot) ?? throw new System.IO.DirectoryNotFoundException(GameInstall.NotFoundMessage);
             string gameDir = found.Dir;
             _foundNote = FoundNote(found);
@@ -256,6 +259,9 @@ public partial class ModelViewer : Node3D
         Finish(status, notes);
     }
 
+    /// <summary>Added content's test views that start without the game install (implemented under Extras/, absent from a faithful build).</summary>
+    partial void ExtrasTestAid(Dictionary<string, string?> args, ref bool handled);
+
     string? _foundNote;
     System.Threading.Tasks.Task<GameLocation?>? _locating;
     CanvasLayer? _lookingLayer;
@@ -263,7 +269,7 @@ public partial class ModelViewer : Node3D
     string _lookRepoRoot = "";
 
     /// <summary>Test views that need the install before they start (they keep the synchronous lookup).</summary>
-    static readonly string[] FrontEndExcluded = ["fx", "pound-test", "stomp-test", "reload-test", "switch-test", "appearance-test", "guard-test"];
+    static readonly string[] FrontEndExcluded = ["fx", "pound-test", "stomp-test", "reload-test", "switch-test", "appearance-test", "guard-test", "ashfall-kit-gallery"];
 
     void BeginLocate(Dictionary<string, string?> args, string repoRoot)
     {

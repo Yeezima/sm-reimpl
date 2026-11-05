@@ -28,14 +28,43 @@ public partial class NetworkView
         if (name != TfwMap.Name || _ashfallLevel is null || _gameSpace is null) return;
         try
         {
-            var view = AshfallView.Build(_ashfallLevel);
+            var (level, dressing) = AshfallMap.BuildWithDressing();   // the dressing pass's level: its parts index the HiddenParts and the Skin items
+            var view = AshfallView.Build(level);
             _gameSpace.AddChild(view);
             if (_sun is not null && _environment is not null) AshfallView.ApplyLook(_sun, _environment);
             drawn = true;
+            TfwAshfallKit(level, dressing, view);
         }
         catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException))
         {
             GD.Print($"ashfall: the graybox view failed ({e.GetType().Name}: {e.Message}); the grey collision is drawn instead");
+        }
+    }
+
+    /// <summary>
+    /// The kit look beside the graybox (docs/musou-ashfall-graybox.md "Kit look (client)"): <c>--ashfall-look kit|graybox</c> (default kit when the private kit folder exists, else graybox); F8 toggles.
+    /// Any failure leaves the graybox as drawn.
+    /// </summary>
+    void TfwAshfallKit(AshfallLevel level, AshfallDressing dressing, AshfallView graybox)
+    {
+        try
+        {
+            var args = OS.GetCmdlineUserArgs();
+            int i = System.Array.IndexOf(args, "--ashfall-look");
+            string? asked = i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+            if (asked is not (null or "kit" or "graybox")) { GD.Print($"ashfall: --ashfall-look '{asked}' is not kit or graybox; the default is used"); asked = null; }
+            if (!AshfallKitLibrary.Available)
+            {
+                GD.Print($"ashfall kit: the folder {AshfallKitLibrary.Root} does not exist; the graybox look is drawn (F8 has nothing to switch to)");
+                return;
+            }
+            var kit = new AshfallKitView(level, dressing, graybox);
+            _gameSpace!.AddChild(kit);
+            kit.SetKit(asked != "graybox");
+        }
+        catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException or System.OutOfMemoryException))
+        {
+            GD.Print($"ashfall kit: the kit look failed ({e.GetType().Name}: {e.Message}); the graybox look stays");
         }
     }
 }
