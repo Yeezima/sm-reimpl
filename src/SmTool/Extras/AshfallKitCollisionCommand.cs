@@ -6,34 +6,35 @@ using SmSim.Extras.Musou.Ashfall;
 namespace SmTool;
 
 /// <summary>
-/// <c>smtool ashfall-kit-collision [--source dir] [--res 16] [--max-boxes 32] [--out file] [--report file] [--obj-dir dir]</c>: reads each kit model's GLB from the owner's private library (read only),
-/// fits collision boxes (<see cref="AshfallKitFit"/>) and writes the numbers as <c>AshfallKitCollision.g.cs</c> (committed), a Markdown report and one OBJ of boxes per model (private cache).
+/// <c>smtool ashfall-kit-collision [--source dir] [--out file] [--report file] [--obj-dir dir] [--views id,id|all]</c>: reads each kit model's GLB from the owner's private library (read only),
+/// fits collision boxes through the quality gate (<see cref="AshfallKitFit.FitGated"/>: per model the fewest boxes among the gate's settings that pass) and writes the numbers as <c>AshfallKitCollision.g.cs</c>
+/// (committed, with each model's gate measure), a Markdown report and one OBJ of boxes per model (private cache). <c>--views</c> also writes a PNG per model (front and side: the model, the boxes, the air in the boxes).
+/// Exit code 3 when a used model (every model but <see cref="AshfallKitFit.Gate.ReportOnlyIds"/>) fails the gate; the files are still written so the report can be read.
 /// </summary>
 static class AshfallKitCollisionCommand
 {
     static readonly IReadOnlyList<string> Walkable = AshfallKitFit.WalkableIds;
-    const int WalkableResolution = AshfallKitFit.WalkableResolution, WalkableMaxBoxes = AshfallKitFit.WalkableMaxBoxes;
 
     public static int Run(string[] rest)
     {
         string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         string? source = null, outPath = null, reportPath = null, objDir = null;
-        int res = AshfallKitFit.DefaultResolution, maxBoxes = AshfallKitFit.DefaultMaxBoxes;
-        float fill = AshfallKitFit.DefaultFillTolerance;
+        var views = new HashSet<string>(StringComparer.Ordinal);
+        bool allViews = false;
+        string[]? only = null;
         for (int i = 0; i < rest.Length; i++)
         {
             string a = rest[i];
             bool hasVal = i + 1 < rest.Length;
             if (a == "--source" && hasVal) source = rest[++i];
-            else if (a == "--res" && hasVal && int.TryParse(rest[i + 1], out res)) i++;
-            else if (a == "--max-boxes" && hasVal && int.TryParse(rest[i + 1], out maxBoxes)) i++;
-            else if (a == "--fill" && hasVal && float.TryParse(rest[i + 1], NumberStyles.Float, CultureInfo.InvariantCulture, out fill)) i++;
             else if (a == "--out" && hasVal) outPath = rest[++i];
             else if (a == "--report" && hasVal) reportPath = rest[++i];
             else if (a == "--obj-dir" && hasVal) objDir = rest[++i];
-            else { Console.Error.WriteLine($"ashfall-kit-collision: bad argument \"{a}\" (usage: ashfall-kit-collision [--source <dir>] [--res 16] [--max-boxes 32] [--fill 0.15] [--out <file>] [--report <file>] [--obj-dir <dir>])"); return 2; }
+            else if (a == "--only" && hasVal) only = [.. rest[++i].Split(',', StringSplitOptions.RemoveEmptyEntries)];
+            else if (a == "--views" && hasVal) { string v = rest[++i]; if (v == "all") allViews = true; else views.UnionWith(v.Split(',', StringSplitOptions.RemoveEmptyEntries)); }
+            else { Console.Error.WriteLine($"ashfall-kit-collision: bad argument \"{a}\" (usage: ashfall-kit-collision [--source <dir>] [--out <file>] [--report <file>] [--obj-dir <dir>] [--views <id,id|all>] [--only <id,id> --out <file>])"); return 2; }
         }
-        if (res < 4 || maxBoxes < 1) { Console.Error.WriteLine("ashfall-kit-collision: --res must be >= 4 and --max-boxes >= 1"); return 2; }
+        if (only != null && outPath == null) { Console.Error.WriteLine("ashfall-kit-collision: --only needs --out (it would write a partial AshfallKitCollision.g.cs)"); return 2; }
         source ??= Path.Combine(local, "sm-reimpl", AshfallKit.PrivateFolder, "source");
         outPath ??= Path.Combine(FindRepoRoot(), "src", "SmSim", "Extras", "Musou", "Ashfall", "AshfallKitCollision.g.cs");
         string previews = Path.Combine(local, "sm-reimpl", "cache", "previews", "ashfall-kit");
@@ -43,9 +44,10 @@ static class AshfallKitCollisionCommand
         Directory.CreateDirectory(objDir);
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(reportPath))!);
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
+        var committed = new HashSet<string>(AshfallKitCollision.Ids, StringComparer.Ordinal);
 
         var rows = new List<Row>();
-        foreach (var model in AshfallKit.Models.OrderBy(m => m.Id, StringComparer.Ordinal))
+        foreach (var model in AshfallKit.Models.Where(m => only == null || only.Contains(m.Id)).OrderBy(m => m.Id, StringComparer.Ordinal))
         {
             string file = Path.Combine(source, model.File.Replace('/', Path.DirectorySeparatorChar));
             if (!File.Exists(file)) { Console.Error.WriteLine($"ashfall-kit-collision: missing {model.Id}: {file}"); return 1; }
@@ -61,36 +63,52 @@ static class AshfallKitCollisionCommand
                 Console.Error.WriteLine($"warning: {model.Id}: {warn}");
             }
             bool walk = Walkable.Contains(model.Id);
-            var fit = walk
-                ? AshfallKitFit.Fit(mesh.Positions, mesh.Indices, model.RawMin, model.RawMax, WalkableResolution, WalkableMaxBoxes, fill, WalkableResolution, ramps: true)
-                : AshfallKitFit.Fit(mesh.Positions, mesh.Indices, model.RawMin, model.RawMax, res, maxBoxes, fill);
-            var reasons = Cleanup(model, fit.Metrics);
-            rows.Add(new Row(model, fit, reasons, warn));
-            File.WriteAllText(Path.Combine(objDir, model.Id + "-boxes.obj"), Obj(model.Id, fit.Boxes), new UTF8Encoding(false));
-            Console.WriteLine($"{model.Id}: {fit.Boxes.Count,2} boxes  IoU {fit.Metrics.Iou:F3}  dropped {fit.Metrics.DroppedPercent:F2} %{(reasons.Count > 0 ? "  CLEANUP: " + string.Join("; ", reasons) : "")}");
+            var gated = AshfallKitFit.FitGated(mesh.Positions, mesh.Indices, model.RawMin, model.RawMax, walk);
+            // The fit committed before this run, measured the same way (for the report's before/after).
+            AshfallKitFitQuality? before = committed.Contains(model.Id)
+                ? AshfallKitFit.Measure(mesh.Positions, mesh.Indices, model.RawMin, model.RawMax, AshfallKitCollision.Boxes(model.Id), AshfallKitCollision.Metrics(model.Id).CellSize) : null;
+            int beforeBoxes = committed.Contains(model.Id) ? AshfallKitCollision.Boxes(model.Id).Count : 0;
+            var reasons = Cleanup(model, gated);
+            bool reportOnly = AshfallKitFit.Gate.ReportOnlyIds.Contains(model.Id);
+            rows.Add(new Row(model, gated, reasons, warn, before, beforeBoxes, reportOnly));
+            File.WriteAllText(Path.Combine(objDir, model.Id + "-boxes.obj"), Obj(model.Id, gated.Fit.Boxes), new UTF8Encoding(false));
+            if (allViews || views.Contains(model.Id))
+                File.WriteAllBytes(Path.Combine(objDir, model.Id + "-views.png"), AshfallKitFit.ViewsPng(mesh.Positions, mesh.Indices, model.RawMin, model.RawMax, gated.Fit.Boxes, 3));
+            var q = gated.Quality; var st = gated.Settings;
+            string verdict = q.Passes ? "PASS" : reportOnly ? "fails (report only: never used)" : "FAIL";
+            Console.WriteLine(Inv($"{model.Id}: {gated.Fit.Boxes.Count,3} boxes (res {st.Resolution}, fill {st.FillTolerance * 100:F0} %, cap {st.MaxBoxes}, seal {st.Seal})  {Measures(q)}  {verdict}{(q.Passes ? "" : ": " + string.Join("; ", q.Failures()))}"));
+            if (before != null) Console.WriteLine(Inv($"         before: {beforeBoxes,3} boxes  {Measures(before)}  {(before.Passes ? "PASS" : "FAIL: " + string.Join("; ", before.Failures()))}"));
         }
-        File.WriteAllText(outPath, Generated(rows, res, maxBoxes, fill), new UTF8Encoding(false));
-        File.WriteAllText(reportPath, Report(rows, res, maxBoxes, fill), new UTF8Encoding(false));
-        Console.WriteLine($"ashfall-kit-collision: {rows.Count} models, {rows.Sum(r => r.Fit.Boxes.Count)} boxes -> {outPath}");
+        File.WriteAllText(outPath, Generated(rows), new UTF8Encoding(false));
+        File.WriteAllText(reportPath, Report(rows), new UTF8Encoding(false));
+        var failed = rows.Where(r => !r.ReportOnly && !r.Gated.Quality.Passes).Select(r => r.Model.Id).ToList();
+        Console.WriteLine($"ashfall-kit-collision: {rows.Count} models, {rows.Sum(r => r.Gated.Fit.Boxes.Count)} boxes -> {outPath}");
         Console.WriteLine($"  report {reportPath}\n  obj    {objDir}");
+        if (failed.Count > 0)
+        {
+            Console.Error.WriteLine($"ashfall-kit-collision: FAIL: {failed.Count} used model(s) fail the collision quality gate: {string.Join(", ", failed)} (see the report; the tests fail too)");
+            return 3;
+        }
+        Console.WriteLine("ashfall-kit-collision: every used model passes the collision quality gate");
         return 0;
     }
 
-    sealed record Row(AshfallKitModel Model, AshfallKitFitResult Fit, List<string> Reasons, string Warn);
+    sealed record Row(AshfallKitModel Model, AshfallKitGatedFit Gated, List<string> Reasons, string Warn, AshfallKitFitQuality? Before, int BeforeBoxes, bool ReportOnly);
 
     static string Inv(FormattableString f) => f.ToString(CultureInfo.InvariantCulture);
 
-    static List<string> Cleanup(AshfallKitModel m, AshfallKitFitMetrics f)
+    static string Measures(AshfallKitFitQuality q) => Inv($"far air {q.FarAirPercent:F1} %, overhang {q.OverhangAirPercent:F1} %, worst box {q.WorstBoxAirPercent:F1} %, pocket {q.LargestPocketPercent:F1} %, deep air view {q.DeepAirViewPercent:F1} %, phantom view {q.PhantomSilhouettePercent:F1} %, holes {q.HoleSilhouettePercent:F1} %, missed {q.MissedPercent:F1} %, fine IoU {q.FineIou:F2}");
+
+    /// <summary>Why a model's collision wants a manual look: the gate's failures, the manifest's review flag, a walkable model with no top to stand on.</summary>
+    static List<string> Cleanup(AshfallKitModel m, AshfallKitGatedFit g)
     {
         var r = new List<string>();
-        if (f.Iou < 0.80) r.Add(Inv($"IoU {f.Iou:F2} below 0.80"));
-        if (f.CapReached && f.Iou < 0.90) r.Add(Inv($"cap reached with IoU {f.Iou:F2} below 0.90"));
-        if (f.OverCap) r.Add(Inv($"{f.BoxCount} boxes, over the cap (fill tolerance or an opening kept them apart)"));
+        foreach (var f in g.Quality.Failures()) r.Add("gate: " + f);
         if (m.Review) r.Add("manifest flags the geometry for review");
         if (Walkable.Contains(m.Id))
         {
             float h = m.RawMax.Y - m.RawMin.Y;
-            if (!f.WalkableTops.Any(t => (t - m.RawMin.Y) / h > 0.30f)) r.Add("no walkable top above 30 % of its height");
+            if (!g.Fit.Metrics.WalkableTops.Any(t => (t - m.RawMin.Y) / h > 0.30f)) r.Add("no walkable top above 30 % of its height");
         }
         return r;
     }
@@ -98,31 +116,34 @@ static class AshfallKitCollisionCommand
     static string F(float v) { v = MathF.Round(v, 4); if (v == 0f) v = 0f; return v.ToString("0.0000", CultureInfo.InvariantCulture) + "f"; }
     static string D(double v) => v.ToString("0.0000", CultureInfo.InvariantCulture);
 
-    static string Generated(List<Row> rows, int res, int maxBoxes, float fill)
+    static string Generated(List<Row> rows)
     {
         var sb = new StringBuilder();
         sb.Append("// <auto-generated>\n");
         sb.Append("// Generated by `smtool ashfall-kit-collision` from the owner's Ashfall kit library (numbers only, no asset bytes). Do not edit by hand.\n");
-        sb.Append(Inv($"// Parameters: resolution {res} cells on the longest axis, at most {maxBoxes} boxes, fill tolerance {fill * 100:F0} %; walkable top search at {AshfallKitFit.DefaultTopResolution} cells for the others, walkable models ({string.Join(", ", Walkable)}): resolution {WalkableResolution}, at most {WalkableMaxBoxes} boxes, top search at {WalkableResolution} cells, ramps detected.\n"));
+        sb.Append(Inv($"// Draft 6: each model is fitted with every setting of AshfallKitFit.GateLadder and keeps the passing fit with the fewest boxes (resolution, fill tolerance, cap and seal per model in Settings); walkable models ({string.Join(", ", Walkable)}) stay at resolution {AshfallKitFit.WalkableResolution} with ramps detected.\n"));
+        sb.Append(Inv($"// Quality: the gate's measure against a {AshfallKitFit.MeasureResolution}-cell voxelisation (AshfallKitFit.Measure); thresholds in AshfallKitFit.Gate; AshfallKitCollisionGateTests fails when a used model does not pass.\n"));
         sb.Append("// Boxes are axis-aligned in each model's raw glTF frame (Y up), min/max in metres; see AshfallKitFit for how they are made.\n");
         sb.Append("// </auto-generated>\n");
         sb.Append("using System.Numerics;\n\nnamespace SmSim.Extras.Musou.Ashfall;\n\n");
         sb.Append("/// <summary>Per-model collision boxes of the Ashfall kit (generated; see the header).</summary>\npublic static partial class AshfallKitCollision\n{\n");
-        sb.Append("    sealed record Entry((Vector3 Min, Vector3 Max)[] Boxes, AshfallKitFitMetrics Metrics, bool NeedsCleanup, string Reason, AshfallRamp[]? Ramps = null);\n\n");
+        sb.Append("    sealed record Entry((Vector3 Min, Vector3 Max)[] Boxes, AshfallKitFitMetrics Metrics, bool NeedsCleanup, string Reason, AshfallKitFitQuality Quality, AshfallKitFitSettings Settings, AshfallRamp[]? Ramps = null);\n\n");
         sb.Append("    static readonly Dictionary<string, Entry> Data = new()\n    {\n");
         foreach (var r in rows)
         {
-            var m = r.Fit.Metrics;
+            var m = r.Gated.Fit.Metrics; var q = r.Gated.Quality; var st = r.Gated.Settings;
             sb.Append($"        [\"{r.Model.Id}\"] = new(\n            [\n");
-            foreach (var (mn, mx) in r.Fit.Boxes) sb.Append($"                (new({F(mn.X)}, {F(mn.Y)}, {F(mn.Z)}), new({F(mx.X)}, {F(mx.Y)}, {F(mx.Z)})),\n");
+            foreach (var (mn, mx) in r.Gated.Fit.Boxes) sb.Append($"                (new({F(mn.X)}, {F(mn.Y)}, {F(mn.Z)}), new({F(mx.X)}, {F(mx.Y)}, {F(mx.Z)})),\n");
             sb.Append("            ],\n");
             sb.Append($"            new({m.SolidCells}, {m.CoveredCells}, {D(m.Iou)}, {D(m.DroppedPercent)}, {m.DroppedBoxes}, {m.BoxCount}, {(m.CapReached ? "true" : "false")}, {(m.OverCap ? "true" : "false")}, [{string.Join(", ", m.WalkableTops.Select(F))}], {m.Nx}, {m.Ny}, {m.Nz}, {F(m.CellSize)}),\n");
-            sb.Append($"            {(r.Reasons.Count > 0 ? "true" : "false")}, \"{string.Join("; ", r.Reasons)}\"");
-            if (r.Fit.Ramps.Count == 0) sb.Append("),\n");
+            sb.Append($"            {(r.Reasons.Count > 0 ? "true" : "false")}, \"{string.Join("; ", r.Reasons)}\",\n");
+            sb.Append($"            new({q.FineResolution}, {q.BandCells}, {q.FineSolidCells}, {D(q.FineIou)}, {D(q.FarAirPercent)}, {D(q.OverhangAirPercent)}, {D(q.WorstBoxAirPercent)}, {D(q.MissedPercent)}, {q.CoveredCells}) {{ PhantomSilhouettePercent = {D(q.PhantomSilhouettePercent)}, HoleSilhouettePercent = {D(q.HoleSilhouettePercent)}, LargestPocketPercent = {D(q.LargestPocketPercent)}, DeepAirViewPercent = {D(q.DeepAirViewPercent)} }},\n");
+            sb.Append($"            new({st.Resolution}, {st.MaxBoxes}, {F(st.FillTolerance)}, {st.Seal})");
+            if (r.Gated.Fit.Ramps.Count == 0) sb.Append("),\n");
             else
             {
                 sb.Append(",\n            [\n");
-                foreach (var rp in r.Fit.Ramps) sb.Append($"                new(new({F(rp.Min.X)}, {F(rp.Min.Y)}, {F(rp.Min.Z)}), new({F(rp.Max.X)}, {F(rp.Max.Y)}, {F(rp.Max.Z)}), {rp.Dir}, {F(rp.YLow)}, {F(rp.YHigh)}),\n");
+                foreach (var rp in r.Gated.Fit.Ramps) sb.Append($"                new(new({F(rp.Min.X)}, {F(rp.Min.Y)}, {F(rp.Min.Z)}), new({F(rp.Max.X)}, {F(rp.Max.Y)}, {F(rp.Max.Z)}), {rp.Dir}, {F(rp.YLow)}, {F(rp.YHigh)}),\n");
                 sb.Append("            ]),\n");
             }
         }
@@ -132,23 +153,31 @@ static class AshfallKitCollisionCommand
         sb.Append("    /// <summary>What the fit measured (cells, IoU, dropped dust, walkable tops).</summary>\n    public static AshfallKitFitMetrics Metrics(string id) => Data[id].Metrics;\n\n");
         sb.Append("    /// <summary>The boxes are doubtful and want a manual look (see <see cref=\"CleanupReason\"/>).</summary>\n    public static bool NeedsCleanup(string id) => Data[id].NeedsCleanup;\n\n");
         sb.Append("    public static string CleanupReason(string id) => Data[id].Reason;\n\n");
+        sb.Append("    /// <summary>The collision quality gate's measure of the model's boxes (draft 6; <see cref=\"AshfallKitFitQuality.Passes\"/>).</summary>\n    public static AshfallKitFitQuality Quality(string id) => Data[id].Quality;\n\n");
+        sb.Append("    /// <summary>The settings the model's boxes were fitted with (chosen by the gate).</summary>\n    public static AshfallKitFitSettings Settings(string id) => Data[id].Settings;\n\n");
         sb.Append("    /// <summary>The model's stair and ramp runs found in its top heightfield (raw frame; walkable models only).</summary>\n    public static IReadOnlyList<AshfallRamp> Ramps(string id) => Data[id].Ramps ?? [];\n}\n");
         return sb.ToString();
     }
 
-    static string Report(List<Row> rows, int res, int maxBoxes, float fill)
+    static string Report(List<Row> rows)
     {
         var sb = new StringBuilder();
-        sb.Append($"# Ashfall kit collision report\n\nResolution {res}, at most {maxBoxes} boxes, fill tolerance {fill * 100:F0} %.\n\n");
-        sb.Append("| id | name | boxes | IoU | dropped % | cap reached | walkable tops (fraction of height) | flags |\n|---|---|---|---|---|---|---|---|\n");
+        sb.Append("# Ashfall kit collision report\n\n");
+        sb.Append(Inv($"Draft 6 collision quality gate: measured against a {AshfallKitFit.MeasureResolution}-cell voxelisation (cracks up to {2 * AshfallKitFit.SealCells} cells sealed), air within {AshfallKitFit.BandCells} cells of the model not counted. "));
+        sb.Append(Inv($"Thresholds: far air <= {AshfallKitFit.Gate.MaxFarAirPercent} %, overhang air <= {AshfallKitFit.Gate.MaxOverhangAirPercent} %, worst box <= {AshfallKitFit.Gate.MaxWorstBoxAirPercent} %, air pocket <= {AshfallKitFit.Gate.MaxPocketPercent} % of the longest side, deep air view <= {AshfallKitFit.Gate.MaxDeepAirViewPercent} %, "));
+        sb.Append(Inv($"phantom view <= {AshfallKitFit.Gate.MaxPhantomSilhouettePercent} %, holes <= {AshfallKitFit.Gate.MaxHoleSilhouettePercent} %, missed surface <= {AshfallKitFit.Gate.MaxMissedPercent} %. Report only (never used): {string.Join(", ", AshfallKitFit.Gate.ReportOnlyIds)}.\n\n"));
+        sb.Append("| id | name | gate | boxes (before) | settings | far air % | overhang % | worst box % | pocket % | deep air view % | phantom % | holes % | missed % | fine IoU | before: far air / pocket / deep air view / holes / missed | walkable tops | flags |\n");
+        sb.Append("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n");
         foreach (var r in rows)
         {
-            var m = r.Fit.Metrics; float h = r.Model.RawMax.Y - r.Model.RawMin.Y;
+            var m = r.Gated.Fit.Metrics; var q = r.Gated.Quality; var st = r.Gated.Settings; float h = r.Model.RawMax.Y - r.Model.RawMin.Y;
             string tops = m.WalkableTops.Length == 0 ? "none" : string.Join(", ", m.WalkableTops.Select(t => ((t - r.Model.RawMin.Y) / h).ToString("0.00", CultureInfo.InvariantCulture)));
             string flags = string.Join("; ", r.Reasons.Concat(r.Warn.Length > 0 ? [r.Warn] : []));
-            sb.Append($"| {r.Model.Id} | {r.Model.Name} | {m.BoxCount} | {m.Iou:F3} | {m.DroppedPercent:F2} | {(m.CapReached ? (m.OverCap ? "yes, over" : "yes") : "no")} | {tops} | {flags} |\n");
+            string gate = q.Passes ? "pass" : r.ReportOnly ? "fail (report only)" : "**FAIL**";
+            string before = r.Before is { } b ? Inv($"{b.FarAirPercent:F1} / {b.LargestPocketPercent:F1} / {b.DeepAirViewPercent:F1} / {b.HoleSilhouettePercent:F1} / {b.MissedPercent:F1}{(b.Passes ? " (pass)" : " (fail)")}") : "new";
+            sb.Append(Inv($"| {r.Model.Id} | {r.Model.Name} | {gate} | {m.BoxCount} ({r.BeforeBoxes}) | res {st.Resolution}, fill {st.FillTolerance * 100:F0} %, cap {st.MaxBoxes}, seal {st.Seal} | {q.FarAirPercent:F1} | {q.OverhangAirPercent:F1} | {q.WorstBoxAirPercent:F1} | {q.LargestPocketPercent:F1} | {q.DeepAirViewPercent:F1} | {q.PhantomSilhouettePercent:F1} | {q.HoleSilhouettePercent:F1} | {q.MissedPercent:F1} | {q.FineIou:F2} | {before} | {tops} | {flags} |\n"));
         }
-        sb.Append($"\nNeeds cleanup: {rows.Count(r => r.Reasons.Count > 0)} of {rows.Count}.\n");
+        sb.Append(Inv($"\nPass: {rows.Count(r => r.Gated.Quality.Passes)} of {rows.Count}; used models failing: {rows.Count(r => !r.ReportOnly && !r.Gated.Quality.Passes)}. Boxes {rows.Sum(r => r.Gated.Fit.Boxes.Count)} (before {rows.Sum(r => r.BeforeBoxes)}).\n"));
         return sb.ToString();
     }
 
