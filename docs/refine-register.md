@@ -32,7 +32,7 @@ Scanned 2177 spec table rows: **1563 tagged**, 444 not tagged (read from data wi
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 352 | 297 | 303 | 100 | 12 |
+| Movement (critical) | 352 | 297 | 303 | 99 | 12 |
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
 | Melee (critical) | 100 | 87 | 77 | 32 | 5 |
@@ -53,15 +53,15 @@ Scanned 2177 spec table rows: **1563 tagged**, 444 not tagged (read from data wi
 | Core simulation (provisional values) | 267 | 251 | 213 | 35 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 117 | 110 | 62 | 18 | 0 |
-| **All areas** | **1563** | 1334 | 1220 | 467 | 38 |
+| **All areas** | **1563** | 1334 | 1220 | 466 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 741 |
-| confidence: low | 572 |
-| confidence: medium | 520 |
+| kind: ours | 740 |
+| confidence: low | 571 |
+| confidence: medium | 521 |
 | kind: interpretation | 339 |
 | notes: ours | 312 |
 | confidence: none (low) | 128 |
@@ -73,7 +73,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | section: placeholder | 35 |
 | notes: provisional | 31 |
 | kind: choice | 29 |
-| notes: user's knowledge | 26 |
+| notes: user's knowledge | 25 |
 | kind: approximation | 22 |
 | kind: placeholder | 22 |
 | notes: placeholder | 19 |
@@ -115,8 +115,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-2D7CEC29` | Vent and cooling | a vent tick adds to the passive cooling (owner: "venting cooled the gun on top of normal cooling"); the cooling keeps its own delay since the last heat gain | kind: estimate; confidence: medium | owner 2026-10-28 | Vent and cooling: compare with SM1 by feel or video. Ours: a vent tick adds to the passive cooling (owner: "venting cooled the… | ☐ |
 | `R-99C06BDF` | Vent duration | the owner remembers about 6 s to cool a full gun while venting; the data's 45 heat/s gives about 2.1 s (plasma gun: 45/s plus 4/s after 1 s; pistol about 2.1 s, 1.4 s with Plasma Heat Sink; cannon about 3.4 s: 27/s vented while overheated plus 3/s). The owner… (s) | kind: estimate; confidence: low | wargear (owner's decision: the data's rate); owner 2026-10-28 recollection (6 s) | Vent duration: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner remembers about 6 s to cool a full gun while venting; the… | ☐ |
 | `R-8AA716DE` | Vent while overheated | starts by itself (the graph's `if BOOL_Wargear_Overheated` to Vent); rate × `overheat_heat_venting_multiplier` (1; plasma cannon 0.6); the overheat ends at the recovery amount; Fire is ignored meanwhile (the weapon cannot fire) (heat/s) | confidence: medium | `SM_Base_MP`, wargear | Vent while overheated: compare with SM1 by feel or video. Ours: starts by itself (the graph's if BOOL_Wargear_Overheated to Vent)… | ☐ |
-| `R-B038F0F9` | Vent goes on only while standing or walking | everything else stops it: Sprint, Fire (when not overheated; the shot leaves the same tick), aim mode, an evade, melee, a throw or Grenade press, a weapon switch, a jump-pack jump or dive, a reaction, the charge, death; and heat 0 ends it… | kind: ours; kind: estimate; confidence: medium | owner 2026-10-28 ("everything but walking at normal walk speed stopped venting"); `SM_Base_MP`, `MP_SM_PlasmaPistol` (`EVT_Plasma_Pistol_Fire`)… | Vent goes on only while standing or walking: compare with SM1 by feel or video. Ours: everything else stops it: Sprint, Fire (when not overheated; the shot… | ☐ |
-| `R-014BB5A2` | Overheated while aiming or sprinting | a consequence of the owner's rule (everything but walking stops venting): an overheated plasma player who holds Aim, or keeps sprinting, does not vent and waits for the passive cooling (about 26 s for a full overheat; the cannon 33 s); the vent starts by… (s) | kind: estimate; confidence: low; notes: user's knowledge | follows the owner's recollection (2026-10-28) | Overheated while aiming or sprinting: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a consequence of the owner's rule (everything but walking stops… | ☐ |
+| `R-B97D37F4` | Vent goes on unless something else is done | Sprint and aim mode do **not** stop it (owner's playtest 2026-11-06: "Plasma gun cannot vent heat ... while aiming down sight. You should be able to perform this action by holding r while sprinting and while aiming down sights"; sim/vent-aim-sprint; the… | kind: estimate; confidence: medium | owner 2026-11-06 (playtest); owner 2026-10-28; `SM_Base_MP` (contradicted for Sprint) | Vent goes on unless something else is done: compare with SM1 by feel or video. Ours: Sprint and aim mode do not stop it (owner's playtest 2026-11-06:… | ☐ |
+| `R-014BB5A2` | Overheated while aiming or sprinting | an overheated plasma player who holds Aim or sprints vents by himself like one standing still (owner 2026-11-06; replaces the earlier consequence that he waited for the passive cooling) (s) | kind: estimate; confidence: medium | owner 2026-11-06 | Overheated while aiming or sprinting: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: an overheated plasma player who holds Aim or sprints vents by himself… | ☐ |
 | `R-4B3D1BC0` | Plasma cannon overheat slow | the carrier's `speed_maximum` × 0.5 for 1.5 s from the overheat (the only MP weapon whose overheat applies modifiers); counted from the overheating heat gain (nothing adds heat while overheated) (multiplier, s) | kind: interpretation; confidence: medium | wargear `heat_info/actions/overheat` `apply_modifiers` | Plasma cannon overheat slow: compare with SM1 by feel or video. Ours: the carrier's speed_maximum × 0.5 for 1.5 s from the overheat (the… | ☐ |
 | `R-311D1ED9` | Client: brace poses | entry clip at the speed that brings its branch to the simulation's time; braced idle `SM_RNG_TB_BraceIdle_aimUp` / `BraceIdle` / `_aimDown` by pitch (±80°) with the additive `SM_RNG_TB_Brace_Fire` after each shot; exit clip over the locomotion with the… | kind: interpretation; confidence: medium | `MP_SM_HB_Brace`, `SM_Base_MP` (horizontal aim blends and turn clips not used) | Client: brace poses: compare with SM1 by feel or video. Ours: entry clip at the speed that brings its branch to the simulation's… | ☐ |
 | `R-BDAEAC29` | Client: vent poses | low and high heat: the looping `SM_RNG_Idle_Vent_Heat_Low` / `_High` over the upper body (the exit's leg mask); overheat: the additive `SM_RNG_OverHeat_Vent_02` once; others' heat is not on the wire, so they show the low-heat stage | kind: interpretation; confidence: low | `SM_Plasma_Vent` | Client: vent poses: compare with SM1 by feel or video. Ours: low and high heat: the looping SM_RNG_Idle_Vent_Heat_Low / _High over… | ☐ |

@@ -64,14 +64,11 @@ public static class Vent
     }
 
     /// <summary>
-    /// Whether the player only stands or walks this tick (owner's recollection: everything but walking stops the vent; standing still counts: ours):
-    /// <paramref name="busy"/> is false (no reaction or charge, melee, throw or Grenade press, evade, weapon switch under way or asked, jump-pack jump, dive or
-    /// recovery, pending charged shot, aim mode), and no sprint: the Sprint bit applied
-    /// (<see cref="Combat.SprintApplies"/>) with the stick forward on the ground (the graph's vent state leaves on
-    /// Sprint and the sprint state does not vent: an overheated player who keeps sprinting only cools passively).
+    /// Whether the vent may run this tick: <paramref name="busy"/> is false (no reaction or charge, melee, throw or Grenade press, evade, weapon switch under way or asked,
+    /// jump-pack jump, dive or recovery, pending charged shot). Aim mode and a sprint do not stop it (owner's playtest 2026-11-06: "You should be able to perform this
+    /// action by holding r while sprinting and while aiming down sights"; sim/vent-aim-sprint; an earlier reading of "everything but walking stops venting" had them stop it).
     /// </summary>
-    public static bool Free(bool busy, PlayerInput input, PlayerState s, SimConfig c) =>
-        !busy && !(Combat.SprintApplies(s, input, c) && input.Sanitized().MoveY > 0f && s.Grounded);
+    public static bool Free(bool busy) => !busy;
 
     /// <summary>
     /// Whether the in-hand weapon vents this tick: it has a vent and heat; the player is <paramref name="free"/>; a vent was running,

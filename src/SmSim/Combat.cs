@@ -621,12 +621,11 @@ public static class Combat
         int projectilesOut = s.ProjectilesOut;
         if (step > 0 || evade.Started || noFire || sprintNoFire || rollNoFire) { charging = false; chargeTime = 0f; pending = 0; pendingLeft = 0f; }   // a melee attack, an evade or a sprint cancels them (and a raise: below)
         if (jump.PoundStart) { charging = false; chargeTime = 0f; pending = 0; pendingLeft = 0f; }   // and so does a ground pound (not a reload: sim/reload-keeps)
-        // Venting (Vent; fidelity gap 7): on Reload or by itself while overheated, while the player stands or walks and does nothing else (owner's
-        // recollection: everything but walking stops it); it adds to the in-hand weapon's cooling and takes the weapon (no shot, charge or reload).
+        // Venting (Vent; fidelity gap 7): on Reload or by itself while overheated, while the player does nothing else but may aim and sprint (owner 2026-11-06); it adds to the in-hand weapon's cooling and takes the weapon (no shot, charge or reload).
         bool switching = switchPress && step == 0 && !s.Throwing && !jumpBusy && weapon is not null && holstered is not null;
         bool ventFree = Vent.Free(reacting || rushing || step > 0 || s.Throwing || grenadePress || evading || switching || switchLeft > 0f || jumpBusy || pending > 0
-            || (aimDown && weapon is not null) || jump.Started || jump.Phase != JumpPhase.None
-            || (charging && !(reloadPress && !reloadBlocked && charge!.ReloadCancels)), input, s, c);
+            || jump.Started || jump.Phase != JumpPhase.None
+            || (charging && !(reloadPress && !reloadBlocked && charge!.ReloadCancels)));
         bool venting = Vent.Runs(weapon, s, ventFree, reloadPress && !reloadBlocked, fireDown);
         if (venting && !s.Venting && reloadPress) used |= InputBuffer.Bit(BufferedAction.Reload);
         if (venting) { charging = false; chargeTime = 0f; }
