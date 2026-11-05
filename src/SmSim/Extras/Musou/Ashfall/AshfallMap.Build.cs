@@ -17,10 +17,15 @@ public static partial class AshfallMap
     /// <summary>
     /// The level (deterministic): docs/musou-ashfall-graybox.md in code, every place and size ours (placeholder demonstration). The same parts, in the same order, with the same bits, on every machine.
     /// </summary>
-    public static AshfallLevel Build() => BuildWithFeatures().Level;
+    public static AshfallLevel Build() => BuildCore(false).Build.Level;
 
-    /// <summary>The level together with what pass 2 placed (platforms, tall buildings, ruins, walls), for the checks.</summary>
-    public static AshfallBuild BuildWithFeatures()
+    /// <summary>The level together with what pass 2 placed (platforms, tall buildings, ruins, walls), for the checks. Includes the kit dressing's prop proxies (version 6).</summary>
+    public static AshfallBuild BuildWithFeatures() => BuildCore(false).Build;
+
+    /// <summary>The level, what pass 2 placed and (when <paramref name="items"/>) the kit dressing's items.</summary>
+    internal sealed record AshfallBuilt(AshfallBuild Build, AshfallDressing Dressing);
+
+    internal static AshfallBuilt BuildCore(bool items)
     {
         var b = new AshfallBuilder();
         GroundLayout(b);
@@ -60,7 +65,9 @@ public static partial class AshfallMap
         // The perimeter road's corners (added after the rubble, so they do not move it): the enemies' graph and the war's bounds are the seeds' box plus 30 m,
         // and without these the east and north strips (x > 210, y > 194) had no nodes and an order there was clamped (review of 2026-11-04).
         Vector3[] corners = [P(-232f, -232f), P(232f, -232f), P(-232f, 232f), P(232f, 232f)];
-        return new AshfallBuild(new AshfallLevel(b.Parts, points, areas, [.. spawns, .. corners], HashOf(b.Parts)), features);
+        // Version 6: the kit dressing adds the props' collision proxies to the parts (appended after every version 5 part, so their indices are unchanged), then the level is hashed.
+        var dressing = AshfallDressPass.Run(b, points, areas, items);
+        return new AshfallBuilt(new AshfallBuild(new AshfallLevel(b.Parts, points, areas, [.. spawns, .. corners], HashOf(b.Parts)), features), dressing);
     }
 
     /// <summary>The level's hash: FNV-1a over the solid parts' corner bits in order, salted with <see cref="Version"/>.</summary>

@@ -21,7 +21,7 @@ public static partial class AshfallMap
         new(60f, 80f, 150f, 104f),       // 6b the north avenue between the stronghold and C's block
     ];
 
-    static bool InZone(float x, float y)
+    internal static bool InZone(float x, float y)
     {
         foreach (var z in PriorityZones) if (x >= z.X && x <= z.Z && y >= z.Y && y <= z.W) return true;
         return false;
@@ -37,20 +37,7 @@ public static partial class AshfallMap
     static AshfallFeatures Structures(AshfallBuilder b, ControlPoint[] points)
     {
         var p = new AshfallPlacer(b);
-        // Banned places: the roads' 8 m lanes (centrelines, the paved road and the plaza's axes, the stronghold's gate approach), both start areas, the capture zones and a 6 m ring, the spawn markers.
-        const float lane = 5.2f;
-        foreach (float c in new[] { -92f, 92f, -232f, 232f })
-        {
-            p.Ban(c - lane, -240f, c + lane, 240f);
-            p.Ban(-240f, c - lane, 240f, c + lane);
-        }
-        p.Ban(-8f, -160f, 8f, 80f);
-        p.Ban(-80f, -8f, 80f, 8f);
-        p.Ban(-12f, 104f, 12f, 164f);
-        p.Ban(-42f, -222f, 42f, -154f);
-        p.Ban(-72f, 108f, 72f, 220f);
-        foreach (var pt in points) p.BanDisc(pt.Center.X, pt.Center.Y, pt.Radius + 6f);
-        foreach (var r in b.Reserved) p.BanDisc(r.X, r.Y, r.Z + 6f);
+        Bans(p, b, points);
         // The lanes also keep the rubble out.
         foreach (float c in new[] { -92f, 92f })
         {
@@ -66,6 +53,25 @@ public static partial class AshfallMap
         Curbs(p);
         Stagger(p);
         return new AshfallFeatures(p.Platforms, p.Towers, p.Ruins, p.WallSegments, p.WallLength, p.StaggerWalls, p.Points);
+    }
+
+    /// <summary>Banned places: the roads' 8 m lanes (centrelines, the paved road and the plaza's axes, the stronghold's gate approach), both start areas, the capture zones and a 6 m ring, the spawn markers (<c>b.Reserved</c>). Shared by pass 2 and the kit dressing.</summary>
+    internal static void Bans(AshfallPlacer p, AshfallBuilder b, ControlPoint[] points)
+    {
+        // Banned places: the roads' 8 m lanes (centrelines, the paved road and the plaza's axes, the stronghold's gate approach), both start areas, the capture zones and a 6 m ring, the spawn markers.
+        const float lane = 5.2f;
+        foreach (float c in new[] { -92f, 92f, -232f, 232f })
+        {
+            p.Ban(c - lane, -240f, c + lane, 240f);
+            p.Ban(-240f, c - lane, 240f, c + lane);
+        }
+        p.Ban(-8f, -160f, 8f, 80f);
+        p.Ban(-80f, -8f, 80f, 8f);
+        p.Ban(-12f, 104f, 12f, 164f);
+        p.Ban(-42f, -222f, 42f, -154f);
+        p.Ban(-72f, 108f, 72f, 220f);
+        foreach (var pt in points) p.BanDisc(pt.Center.X, pt.Center.Y, pt.Radius + 6f);
+        foreach (var r in b.Reserved) p.BanDisc(r.X, r.Y, r.Z + 6f);
     }
 
     static Vector4 Rect(float cx, float cy, float w, float d) => new(cx, cy, cx + w, cy + d);

@@ -28,28 +28,46 @@ static class AshfallPlanCommand
 
     public static int Run(string[] rest)
     {
-        string? outPath = null;
+        string? outPath = null, jsonPath = null, glbPath = null;
         for (int i = 0; i < rest.Length; i++)
         {
             if (rest[i] == "--out" && i + 1 < rest.Length) outPath = rest[++i];
-            else { Console.Error.WriteLine($"ashfall-plan: unknown argument \"{rest[i]}\" (usage: ashfall-plan [--out plan.svg])"); return 2; }
+            else if (rest[i] == "--dressing-json" && i + 1 < rest.Length) jsonPath = Path.GetFullPath(rest[++i]);
+            else if (rest[i] == "--graybox-glb" && i + 1 < rest.Length) glbPath = Path.GetFullPath(rest[++i]);
+            else { Console.Error.WriteLine($"ashfall-plan: unknown argument \"{rest[i]}\" (usage: ashfall-plan [--out plan.svg] [--dressing-json file.json] [--graybox-glb file.glb])"); return 2; }
         }
         outPath ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "sm-reimpl", "cache", "previews", "ashfall-plan.svg");
         outPath = Path.GetFullPath(outPath);
-        var level = AshfallMap.Build();
+        var (level, dressing) = AshfallMap.BuildWithDressing();
         var (_, hub, _) = TfwMap.WithHub(AshfallContent.ToMapContent(level).ToCollisionWorld(), manufactorum: false);
         var range = TfwRange.For(AshfallContent.ToMapContent(level).ToCollisionWorld());
         Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);
-        File.WriteAllText(outPath, Render(level, hub, range), new UTF8Encoding(false));
+        File.WriteAllText(outPath, Render(level, dressing, hub, range), new UTF8Encoding(false));
         Console.WriteLine($"ashfall-plan: {level.Parts.Count} parts, {level.SolidCorners().Length / 3} collision triangles, hash {level.Hash:X16} -> {outPath}");
         foreach (var g in level.Parts.Where(p => p.Solid).GroupBy(p => p.Kind).OrderBy(g => g.Key))
             Console.WriteLine($"  {g.Key,-10} {g.Count(),5} parts {g.Sum(p => p.Corners.Length / 3),7} triangles");
+        Console.WriteLine($"dressing version {dressing.Version}: {dressing.Items.Count} items, {dressing.HiddenParts.Count} hidden parts");
+        foreach (var g in dressing.Items.GroupBy(i => i.Role).OrderBy(g => g.Key))
+            Console.WriteLine($"  {g.Key,-10} {g.Count(),5} items {g.Sum(i => AshfallKit.Get(i.Asset).Triangles),10} model triangles");
+        Console.WriteLine("  per asset: " + string.Join(", ", dressing.Items.GroupBy(i => i.Asset).OrderBy(g => g.Key, StringComparer.Ordinal).Select(g => $"{g.Key} x{g.Count()}")));
+        if (jsonPath != null)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(jsonPath)!);
+            File.WriteAllText(jsonPath, AshfallExport.DressingJson(level, dressing), new UTF8Encoding(false));
+            Console.WriteLine($"ashfall-plan: dressing JSON -> {jsonPath}");
+        }
+        if (glbPath != null)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(glbPath)!);
+            File.WriteAllBytes(glbPath, AshfallExport.GrayboxGlb(level));
+            Console.WriteLine($"ashfall-plan: graybox GLB -> {glbPath}");
+        }
         return 0;
     }
 
     static string F(float v) => v.ToString("0.##", CultureInfo.InvariantCulture);
 
-    static string Render(AshfallLevel level, TfwHub hub, TfwRange range)
+    static string Render(AshfallLevel level, AshfallDressing dressing, TfwHub hub, TfwRange range)
     {
         // Canvas: the playable square, its backdrop, the Stormbird to the south and the range to the east.
         float x0 = -290f, x1 = range.Box.Max.X + 20f, y1 = 290f, y0 = hub.Box.Min.Y - 20f;
@@ -83,6 +101,21 @@ static class AshfallPlanCommand
             if (hull.Count < 3) continue;
             string opacity = part.Kind is AshfallKind.Road or AshfallKind.Paving ? "0.85" : "1";
             sb.AppendLine($"<polygon points=\"{string.Join(' ', hull.Select(p => $"{F(X(p.X))},{F(Y(p.Y))}"))}\" fill=\"{Fill(shade)}\" fill-opacity=\"{opacity}\" stroke=\"#222\" stroke-opacity=\"0.35\" stroke-width=\"0.3\"/>");
+        }
+
+        // Dressing items: an outline per item, coloured by role (Skin blue, Surface grey-green, Decoration orange); props are filled.
+        foreach (var it in dressing.Items.OrderBy(i => i.Role == AshfallDressRole.Prop ? 1 : 0))
+        {
+            float sn = MathF.Sin(it.Yaw), cs = MathF.Cos(it.Yaw), hx = it.Size.X / 2f, hy = it.Size.Y / 2f;
+            string pts = string.Join(' ', new[] { (-hx, -hy), (hx, -hy), (hx, hy), (-hx, hy) }.Select(c => $"{F(X(it.Position.X + c.Item1 * cs - c.Item2 * sn))},{F(Y(it.Position.Y + c.Item1 * sn + c.Item2 * cs))}"));
+            (string stroke, string fill) = it.Role switch
+            {
+                AshfallDressRole.Skin => ("#1f5fbf", "none"),
+                AshfallDressRole.Surface => ("#4c8a6a", "none"),
+                AshfallDressRole.Decoration => ("#e07a10", "none"),
+                _ => ("#c0189c", "#c0189c"),
+            };
+            sb.AppendLine($"<polygon points=\"{pts}\" fill=\"{fill}\" fill-opacity=\"0.45\" stroke=\"{stroke}\" stroke-width=\"{(it.Role == AshfallDressRole.Prop ? "1" : "0.5")}\" stroke-opacity=\"0.8\"/>");
         }
 
         // Grid: 4 m faint, 40 m stronger, over the playable square.
@@ -140,7 +173,8 @@ static class AshfallPlanCommand
             sb.AppendLine($"<rect x=\"{F(X(range.Box.Min.X))}\" y=\"{F(ly)}\" width=\"10\" height=\"10\" fill=\"#{r:x2}{g:x2}{b:x2}\" stroke=\"#222\" stroke-width=\"0.4\"/><text x=\"{F(X(range.Box.Min.X) + 14)}\" y=\"{F(ly + 9)}\" font-size=\"10\">{kind}</text>");
         }
         sb.AppendLine($"<text x=\"{F(X(range.Box.Min.X))}\" y=\"{F(Y(y1 - 20) + 8 + row * 14 + 14)}\" font-size=\"9\" fill=\"#444\">F6 / P15: floor or perch, top height m. Shade: higher is darker.</text>");
-        sb.AppendLine($"<text x=\"10\" y=\"16\" font-size=\"13\" font-weight=\"bold\">Ashfall Citadel graybox, version {AshfallMap.Version}, hash {level.Hash:X16} (ours: placeholder demonstration)</text>");
+        sb.AppendLine($"<text x=\"10\" y=\"16\" font-size=\"13\" font-weight=\"bold\">Ashfall Citadel graybox, version {AshfallMap.Version}, hash {level.Hash:X16}, kit dressing {dressing.Version}: {dressing.Items.Count} items (ours: placeholder demonstration)</text>");
+        sb.AppendLine($"<text x=\"10\" y=\"30\" font-size=\"11\"><tspan fill=\"#1f5fbf\">Skin {dressing.Items.Count(i => i.Role == AshfallDressRole.Skin)}</tspan>  <tspan fill=\"#4c8a6a\">Surface {dressing.Items.Count(i => i.Role == AshfallDressRole.Surface)}</tspan>  <tspan fill=\"#e07a10\">Decoration {dressing.Items.Count(i => i.Role == AshfallDressRole.Decoration)}</tspan>  <tspan fill=\"#c0189c\">Prop (filled) {dressing.Items.Count(i => i.Role == AshfallDressRole.Prop)}</tspan></text>");
         sb.AppendLine("</svg>");
         return sb.ToString();
     }

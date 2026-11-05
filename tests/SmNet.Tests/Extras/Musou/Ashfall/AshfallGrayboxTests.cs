@@ -36,16 +36,16 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
         }
         Assert.Equal(a.Points, b.Points);
         Assert.Equal(a.Spawns, b.Spawns);
-        Assert.Equal(5u, AshfallMap.Version);
+        Assert.Equal(6u, AshfallMap.Version);
         Assert.Equal(Hash(a, AshfallMap.Version), a.Hash);
         Assert.NotEqual(Hash(a, AshfallMap.Version + 1), a.Hash);   // a new generator version moves the hash
         Assert.Equal(AshfallContent.ToMapContent(a).Hash, a.Hash);
-        // Pinned (version 5): a layout change without a new AshfallMap.Version fails here, not at a client's handshake.
+        // Pinned (version 6): a layout change without a new AshfallMap.Version fails here, not at a client's handshake.
         Assert.Equal(PinnedLevelHash, a.Hash);
     }
 
-    /// <summary>Ashfall Citadel version 5 level hash (pass 3, 2026-11-05: the stronghold rework of sketch 6; version 4 was 0xA07D05D38EB46CF2, version 3 was 0xBB4D50AF4614FD39, version 2 0x875D9199C67B1894, version 1 0x4D0658D87AF67B7B).</summary>
-    const ulong PinnedLevelHash = 0xae096e323bb5a4d3UL;
+    /// <summary>Ashfall Citadel version 6 level hash (kit dressing draft 1, 2026-11-05: the props' collision proxies; version 5 was 0xAE096E323BB5A4D3, the stronghold rework of sketch 6; version 4 was 0xA07D05D38EB46CF2, version 3 was 0xBB4D50AF4614FD39, version 2 0x875D9199C67B1894, version 1 0x4D0658D87AF67B7B).</summary>
+    const ulong PinnedLevelHash = 0xc677506646e31589UL;
 
     /// <summary>The hash's rule, written out independently of the generator: FNV-1a 64 over the version, then every solid corner's float bits.</summary>
     static ulong Hash(AshfallLevel level, uint version)
