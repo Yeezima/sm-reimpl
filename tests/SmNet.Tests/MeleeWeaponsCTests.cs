@@ -309,7 +309,7 @@ public class MeleeWeaponsCTests(ITestOutputHelper output)
             RunSpeed = 6.5f, StrafeSpeed = 6f, BackSpeed = 4.5f, SprintSpeed = 10f, GroundTimeToMaxSpeed = 0.2f, MaxAcceleration = 100f,
         };
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
-        var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5) });
+        var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), BodyGuard = false });
         int[] classes = [Devastator, Finisher, Axe, Hammer];
         for (int i = 0; i < classes.Length; i++) h.AddClient(nonce: (uint)(300 + i), options: new ClientOptions { RequestedClass = (byte)classes[i] });
         int n = h.Clients.Count;

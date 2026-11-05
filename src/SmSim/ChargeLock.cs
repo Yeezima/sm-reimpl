@@ -49,17 +49,23 @@ public static class ChargeLock
     /// <paramref name="bodies"/> (the picture the move collided with); the earlier of the two counts. Visible as before: a clear line from the eye to the chest of the point met
     /// through weapon collision. Ties go to the lower id. <paramref name="aliveNow"/>: the server's check that the player is still alive now (null: not checked).
     /// </summary>
+    /// <param name="now">fix/charge-player-collision (the server only, with <see cref="SimConfig.SolidBodies"/>): every living player's move this tick as it really happened (after
+    /// the world's guard), the charger's own included: a body the charge runs into as the players really stand is met too (the relative sweep, its first touch), whatever the
+    /// charger's client saw. Null: not tested (the client's prediction, tests).</param>
+    /// <param name="side">The charger's side: fix/charge-player-collision's swept contact applies to its opponents (<see cref="World.Hostile"/>); allies keep the protocol 56 contact
+    /// (so the co-op of the added content, where every player is an ally, is unchanged).</param>
     public static ChargeContact? Find(int attacker, Vector3 from, Vector3 to, float yaw, RushSpec spec, SimConfig c, IReadOnlyDictionary<int, PlayerState> seen,
-        BodyView? bodies, CollisionWorld? world, Func<int, bool>? aliveNow = null)
+        BodyView? bodies, CollisionWorld? world, Func<int, bool>? aliveNow = null, IReadOnlyDictionary<int, (Vector3 From, Vector3 To, int Class, Team Team)>? now = null, Team side = Team.None)
     {
         var eye = to + new Vector3(0, 0, c.EyeHeight);
         int target = -1; float first = float.MaxValue; var reference = Vector3.Zero;
         foreach (var (id, then) in seen)
         {
             if (id == attacker || !then.Alive || (aliveNow is not null && !aliveNow(id))) continue;
-            float? t = Rush.Contact(from, to, yaw, then.Position, spec, c);
+            bool swept = c.SolidBodies && World.Hostile(side, then.Team);
+            float? t = Rush.Contact(from, to, yaw, then.Position, spec, c, swept);
             var at = then.Position;
-            if (c.ChargeLock && BodyOf(bodies, id) is { } body && Rush.Contact(from, to, yaw, body.Feet, spec, c) is float tb && (t is not float ts || tb < ts)) { t = tb; at = body.Feet; }
+            if (c.ChargeLock && BodyOf(bodies, id) is { } body && Rush.Contact(from, to, yaw, body.Feet, spec, c, swept) is float tb && (t is not float ts || tb < ts)) { t = tb; at = body.Feet; }
             if (t is not float tt || tt > first || (tt == first && id > target)) continue;
             if (world is not null)
             {
@@ -68,6 +74,27 @@ public static class ChargeLock
                 if (length > 1e-4f && world.Weapons.Raycast(eye, toChest / length, length) is { } wall && wall.Distance < length) continue;   // behind a wall
             }
             first = tt; target = id; reference = at;
+        }
+        if (now is not null && c.SolidBodies && now.TryGetValue(attacker, out var self))
+        {
+            // The relative sweep: the charger's move less the other's (both as the world moved them), against where the other began the tick.
+            var mine = to - from;
+            foreach (var id in now.Keys.Order())
+            {
+                if (id == attacker || (aliveNow is not null && !aliveNow(id))) continue;
+                var (b0, b1, cls, team) = now[id];
+                if (!World.Hostile(side, team)) continue;   // allies: the protocol 56 contact only
+                var theirs = b1 - b0;
+                if (Rush.Contact(from, from + mine - theirs, yaw, b0, spec, c, swept: true) is not float tt || tt > first || (tt == first && id > target)) continue;
+                var at = b0 + theirs * tt;   // where it stood when the charge met it (the lock line runs from the charger's point of the move toward it)
+                if (world is not null)
+                {
+                    var toChest = at + new Vector3(0, 0, HitVolumes.CentreHeight(c.For(cls))) - eye;
+                    float length = toChest.Length();
+                    if (length > 1e-4f && world.Weapons.Raycast(eye, toChest / length, length) is { } wall && wall.Distance < length) continue;   // behind a wall
+                }
+                first = tt; target = id; reference = at;
+            }
         }
         return target < 0 ? null : new ChargeContact(target, reference, first);
     }
@@ -183,8 +210,10 @@ public static class ChargeLock
     {
         contact = null;
         if (!c.ChargeLock || view is null || Charging(before, next, c) is not { Rush: RushPhase.Rush } charging || Rush.SpecOf(c, charging) is not { } spec) return next;
-        if (Find(self, before.Position, charging.Position, charging.Yaw, spec, c, view, bodies, world) is not { } found) return next;
+        if (Find(self, before.Position, charging.Position, charging.Yaw, spec, c, view, bodies, world, side: before.Team) is not { } found) return next;
         contact = found;
-        return Stopped(charging, Direction(before.Position, charging.Position, charging.Yaw, found, spec), c);
+        // fix/charge-player-collision: stopped at the point of the move where it met an opponent (as the server: World.ResolveRush).
+        var at = view.TryGetValue(found.Target, out var met) && World.Hostile(before.Team, met.Team) ? SolidBodies.AtContact(before, charging, found.T, c, world) : charging;
+        return Stopped(at, Direction(before.Position, charging.Position, charging.Yaw, found, spec), c);
     }
 }

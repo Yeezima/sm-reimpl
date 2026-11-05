@@ -329,7 +329,7 @@ public class ChargeTests(ITestOutputHelper output)
             RunSpeed = 6.5f, StrafeSpeed = 6f, BackSpeed = 4.5f, SprintSpeed = 10f, GroundTimeToMaxSpeed = 0.2f, MaxAcceleration = 100f,
         };
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
-        var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5) });
+        var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), BodyGuard = false });
         h.AddClient(nonce: 100, options: new ClientOptions { RequestedClass = Tactical, RequestedPrimary = PlasmaChoice });
         h.AddClient(nonce: 101, options: new ClientOptions { RequestedClass = Tactical, RequestedPrimary = LasChoice });
         h.AddClient(nonce: 102, options: new ClientOptions { RequestedClass = PistolOnly });

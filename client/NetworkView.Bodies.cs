@@ -25,7 +25,9 @@ public partial class NetworkView
     int _correctionsLogged;
 
     /// <summary>The config as the server's: player collision off with <c>--no-player-collision</c> (the config hashes then agree).</summary>
-    static SimConfig WithPlayerCollisionArg(SimConfig c) => (NoPlayerCollision ? c with { PlayerBodies = false } : c) is var b && NoChargeLockArg ? b with { ChargeLock = false } : b;
+    static SimConfig WithPlayerCollisionArg(SimConfig c) => ((NoPlayerCollision ? c with { PlayerBodies = false } : c) is var b && NoChargeLockArg ? b with { ChargeLock = false } : b) is var d && OldBodyContactArg ? d with { SolidBodies = false } : d;
+    /// <summary>fix/charge-player-collision test aid <c>--old-body-contact</c> (the server needs it too: config hash): the protocol 56 body and charge contact rules.</summary>
+    static readonly bool OldBodyContactArg = OS.GetCmdlineUserArgs().Contains("--old-body-contact");
     /// <summary>anim/melee-interaction test aid <c>--no-charge-lock</c> (the server needs it too: config hash): the M29 charge contact and stop.</summary>
     static readonly bool NoChargeLockArg = OS.GetCmdlineUserArgs().Contains("--no-charge-lock");
 

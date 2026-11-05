@@ -58,7 +58,8 @@ public class MusouIsolationTests(ITestOutputHelper output)
     // sim/light-melee-flinch (protocol 52): the classic baseline changed (the script's 49 light melee hits now flinch instead of interrupting), so both goldens moved together
     // (05F93BCF… before); faithful and extended still replay to the same hash. feel/melee-cooldown and feel/charge-no-cancel (protocol 53, 2026-11-02): the melee lock and the stick no longer ending a charge moved both again.
     // sim/reload-keeps (protocol 56, 2026-11-03) leaves both as they were: the script never reloads into a throw, a melee attack or a charge.
-    const string FaithfulReplay = "0B11EC110AD62700E689E1945CF81B1DECA645C46C2A533DD7AD967788AA5044", ExtendedReplay = "0B11EC110AD62700E689E1945CF81B1DECA645C46C2A533DD7AD967788AA5044";
+    // fix/charge-player-collision (protocol 57, 2026-11-06): the charge's swept contact and its stop at the contact point moved both together (0B11EC11… before; the script's 15 charges).
+    const string FaithfulReplay = "B63061B6A6B6CAD75B4C2CAF66CC03E04C5B582ACD120E2A0B74D8D6A52DFFB2", ExtendedReplay = "B63061B6A6B6CAD75B4C2CAF66CC03E04C5B582ACD120E2A0B74D8D6A52DFFB2";
 
     [Fact]
     public void The_faithful_and_extended_config_hashes_are_unchanged()
@@ -93,7 +94,7 @@ public class MusouIsolationTests(ITestOutputHelper output)
     [Fact]
     public void Musou_changes_neither_the_protocol_version_nor_the_extended_profile()
     {
-        Assert.Equal(56u, (uint)Protocol.Version);   // 56: sim/reload-keeps; 55: the hammer needs no pound delay; 54: feel/melee-cancels; 53: feel/melee-cooldown (the melee lock); 52: sim/light-melee-flinch (the flinch byte); 51: sim/no-fire-while-sprinting and sim/movement-fixes (50: the scoreboard's ping), not Musou
+        Assert.Equal(57u, (uint)Protocol.Version);   // 57: fix/charge-player-collision; 56: sim/reload-keeps; 55: the hammer needs no pound delay; 54: feel/melee-cancels; 53: feel/melee-cooldown (the melee lock); 52: sim/light-melee-flinch (the flinch byte); 51: sim/no-fire-while-sprinting and sim/movement-fixes (50: the scoreboard's ping), not Musou
         Assert.Equal(2u, ContentExtras.WireVersion);
         Assert.False(ContentExtras.All.HasFlag(ContentExtras.Musou));
         Assert.Equal(ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks, ContentExtras.All);

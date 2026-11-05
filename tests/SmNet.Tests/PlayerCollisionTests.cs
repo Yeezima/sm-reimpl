@@ -544,7 +544,7 @@ public class PlayerCollisionTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_43_carries_the_body_tick_as_a_lag_byte_and_drops_it_out_of_range()
     {
-        Assert.Equal(56, Protocol.Version);
+        Assert.Equal(57, Protocol.Version);
         Assert.Equal(40, Protocol.InputBytes);
         var inputs = new[]
         {
@@ -587,12 +587,12 @@ public class PlayerCollisionTests(ITestOutputHelper output)
     [InlineData(44)]
     public void Prediction_matches_the_server_in_a_crowd_at_150ms_rtt_and_5pct_loss(int seed)
     {
-        var results = new Dictionary<bool, (int Compared, int Mismatches, double P99, float Max, float Worst, int Contacts, double MeanOverlap, float Final)>();
-        foreach (bool on in new[] { false, true })
+        var results = new Dictionary<(bool, bool), (int Compared, int Mismatches, double P99, float Max, float Worst, int Contacts, double MeanOverlap, float Final)>();
+        foreach (var (on, guard) in new[] { (false, true), (true, true), (true, false) })
         {
             var c = Config with { PlayerBodies = on };
             var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
-            var h = new Harness(link, seed, 8, c, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5) });
+            var h = new Harness(link, seed, 8, c, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), BodyGuard = guard });
             var truth = new Dictionary<uint, Dictionary<int, PlayerState>>();
             var predicted = Enumerable.Range(0, 8).Select(_ => new Dictionary<uint, PlayerState>()).ToArray();
             var probe = new OverlapProbe();
@@ -640,18 +640,27 @@ public class PlayerCollisionTests(ITestOutputHelper output)
             }
             double p99 = Harness.Percentile(errors, 0.99);
             float final = PlayerCollision.Clearance(h.Server.World.Players.Values, c);
-            results[on] = (compared, mismatches, p99, errors.Count == 0 ? 0f : errors.Max(), probe.Closest, contacts, overlapSum / Math.Max(1, overlapSamples), final);
-            output.WriteLine($"collision {(on ? "on " : "off")}: {compared} ticks compared, {mismatches} position mismatches; corrections {errors.Count}, " +
-                             $"{errors.Count(e => e > 0.001f)} above 1 mm, p99 {p99:F4} m, max {results[on].Max:F4} m; server {probe.Summary()}; " +
-                             $"mean closest-pair overlap while pushing {results[on].MeanOverlap:F3} m; after 3 s standing still {final:F3} m");
+            results[(on, guard)] = (compared, mismatches, p99, errors.Count == 0 ? 0f : errors.Max(), probe.Closest, contacts, overlapSum / Math.Max(1, overlapSamples), final);
+            output.WriteLine($"collision {(on ? "on " : "off")}{(on && !guard ? " (no guard)" : "")}: {compared} ticks compared, {mismatches} position mismatches; corrections {errors.Count}, " +
+                             $"{errors.Count(e => e > 0.001f)} above 1 mm, p99 {p99:F4} m, max {results[(on, guard)].Max:F4} m; server {probe.Summary()}; " +
+                             $"mean closest-pair overlap while pushing {results[(on, guard)].MeanOverlap:F3} m; after 3 s standing still {final:F3} m");
         }
-        var with = results[true];
+        var with = results[(true, true)];
+        var off = results[(false, true)];
+        var exact = results[(true, false)];
+        var c0 = Config;
         Assert.True(with.Compared > 2000, $"only {with.Compared} ticks compared");
         Assert.True(with.Contacts > 100, $"the crowd should be in contact often ({with.Contacts} ticks)");
-        Assert.True(with.Mismatches <= results[false].Mismatches, $"collision added mispredictions: {with.Mismatches} against {results[false].Mismatches} without");
-        Assert.True(with.P99 < 0.01, $"p99 correction {with.P99:F4} m");
-        Assert.True(results[false].Worst < -0.5f, "without collision the crowd overlaps deeply (control)");
-        Assert.True(with.MeanOverlap < 0.5 * results[false].MeanOverlap, $"mean overlap {with.MeanOverlap:F3} m with collision against {results[false].MeanOverlap:F3} m without");
+        // fix/charge-player-collision (protocol 57): the server's guard stops opponents passing more than halfway into each other as they really stand, which a client whose picture of
+        // the others is a round trip old cannot predict: in this scrum of eight it corrects about 5 % of ticks by a few centimetres (measured: 219 and 226 of 4080, p99 3.5 and 8.9 cm).
+        // Without the guard (BodyGuard off) the prediction is exact as before; with it the bodies never come closer than the guard's 0.45 m (before: -0.85, all but through).
+        Assert.True(exact.Mismatches <= off.Mismatches, $"without the guard, collision added mispredictions: {exact.Mismatches} against {off.Mismatches} without");
+        Assert.True(exact.P99 < 0.01, $"without the guard, p99 correction {exact.P99:F4} m");
+        Assert.True(with.Mismatches <= off.Mismatches + with.Compared / 12, $"collision added mispredictions: {with.Mismatches} against {off.Mismatches} without");
+        Assert.True(with.P99 < 0.12, $"p99 correction {with.P99:F4} m");
+        Assert.True(with.Worst >= -2f * c0.CapsuleRadius + SolidBodies.GuardDistance(c0, charging: false) - 0.02f, $"the closest pair overlapped {-with.Worst:F3} m");
+        Assert.True(off.Worst < -0.5f, "without collision the crowd overlaps deeply (control)");
+        Assert.True(with.MeanOverlap < 0.5 * off.MeanOverlap, $"mean overlap {with.MeanOverlap:F3} m with collision against {off.MeanOverlap:F3} m without");
         Assert.True(with.Final > -0.01f, $"still {-with.Final:F3} m inside each other after standing still for 3 s");
     }
 
