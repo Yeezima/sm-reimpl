@@ -85,7 +85,9 @@ public sealed class AshfallKitLibrary
             {
                 while (queue.TryDequeue(out var id))
                 {
-                    var asset = LoadOne(id);
+                    Asset asset;
+                    try { asset = LoadOne(id); }
+                    catch (Exception e) { asset = new Asset { Id = id, Error = e.GetType().Name }; }   // LoadOne lets OutOfMemory through: still count the asset as done, so Pending reaches 0
                     _done[id] = asset;
                     _ready.Enqueue(id);
                     if (Interlocked.Decrement(ref _pending) == 0) Interlocked.Exchange(ref _endTicks, System.Diagnostics.Stopwatch.GetTimestamp());
@@ -93,6 +95,7 @@ public sealed class AshfallKitLibrary
             });
     }
 
+    /// <summary>Ids asked for so far; <see cref="Request"/> is called from the main thread only.</summary>
     readonly HashSet<string> _requested = [];
 
     /// <summary>Loads one model on the calling thread (what the workers run); never throws.</summary>

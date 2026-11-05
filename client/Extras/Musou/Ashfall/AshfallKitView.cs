@@ -145,7 +145,8 @@ public partial class AshfallKitView : Node3D
     void BuildRemainder(AshfallLevel level)
     {
         var hidden = _dressing.HiddenParts.ToHashSet();
-        var skinned = _dressing.Items.Where(i => i.Role == AshfallDressRole.Skin && i.Part >= 0).Select(i => i.Part).ToHashSet();
+        // Parts drawn as an inset core under their model: skinned walls and every prop's collision proxy (a full-size box would cover the model's relief).
+        var skinned = _dressing.Items.Where(i => i.Role is AshfallDressRole.Skin or AshfallDressRole.Prop && i.Part >= 0).Select(i => i.Part).ToHashSet();
         foreach (var group in level.Parts.Select((p, i) => (Part: p, Index: i)).Where(x => x.Part.Kind != AshfallKind.Objective).GroupBy(x => x.Part.Kind))
         {
             var material = new StandardMaterial3D
@@ -211,6 +212,12 @@ public partial class AshfallKitView : Node3D
             foreach (var child in _graybox.GetChildren().OfType<Node3D>())
                 child.Visible = !kit || child.Name.ToString().StartsWith("Objective", StringComparison.Ordinal) || child.Name.ToString().StartsWith("Letter", StringComparison.Ordinal);
         GD.Print($"ashfall: look {(kit ? "kit" : "graybox")}");
+    }
+
+    /// <summary>The viewport is shared with every later map (classic PvP too): leave it with the threshold it had before the kit look changed it.</summary>
+    public override void _ExitTree()
+    {
+        if (_lodKept && IsInsideTree()) GetViewport().MeshLodThreshold = _baseLod;
     }
 
     public override void _UnhandledInput(InputEvent e)

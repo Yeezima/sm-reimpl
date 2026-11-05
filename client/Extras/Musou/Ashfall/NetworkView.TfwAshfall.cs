@@ -13,22 +13,23 @@ namespace SmClient;
 public partial class NetworkView
 {
     AshfallLevel? _ashfallLevel;
+    AshfallDressing? _ashfallDressing;
 
     void TfwAshfallContent(string name, ref MapContent? map)
     {
         if (name != TfwMap.Name) return;
         var watch = System.Diagnostics.Stopwatch.StartNew();
-        _ashfallLevel = AshfallMap.Build();
+        (_ashfallLevel, _ashfallDressing) = AshfallMap.BuildWithDressing();   // one build: the collision and the drawing share the level (Build() is BuildWithDressing().Level)
         map = AshfallContent.ToMapContent(_ashfallLevel);
         GD.Print($"ashfall: level generated in {watch.ElapsedMilliseconds} ms, hash {_ashfallLevel.Hash:X16}; nothing read from the install");
     }
 
     void TfwAshfallVisuals(string name, ref bool drawn)
     {
-        if (name != TfwMap.Name || _ashfallLevel is null || _gameSpace is null) return;
+        if (name != TfwMap.Name || _ashfallLevel is null || _ashfallDressing is null || _gameSpace is null) return;
         try
         {
-            var (level, dressing) = AshfallMap.BuildWithDressing();   // the dressing pass's level: its parts index the HiddenParts and the Skin items
+            var (level, dressing) = (_ashfallLevel, _ashfallDressing);   // the level the collision came from: its parts index the HiddenParts and the Skin items
             var view = AshfallView.Build(level);
             _gameSpace.AddChild(view);
             if (_sun is not null && _environment is not null) AshfallView.ApplyLook(_sun, _environment);
