@@ -1,0 +1,365 @@
+using System.Diagnostics;
+using System.Numerics;
+using System.Text;
+using SmContent.Extras.Musou;
+using SmSim;
+using SmSim.Extras.Musou;
+using SmSim.Extras.Musou.Ashfall;
+using Xunit.Abstractions;
+
+namespace SmNet.Tests.Extras.Musou.Ashfall;
+
+/// <summary>
+/// Ashfall draft 5 (docs/musou-ashfall-graybox.md "Draft 5"): one asset per graybox structure, the level's collision from the assets. Checks the pinned hashes, the tagging of the v5 generator, the collision transform (the item contract),
+/// the places that stay clear, the stronghold's breaches, the walkable risers and (slow) the enemies' graph with the report of every v5 walkable place as kept, changed or lost. From the generator alone: no asset bytes, no install.
+/// </summary>
+public class AshfallDraft5Tests(ITestOutputHelper output)
+{
+    static readonly AshfallDraft5 D = AshfallMap.BuildDraft5();
+    static AshfallLevel Level => D.Level;
+    static AshfallDressing Dressing => D.Dressing;
+
+    /// <summary>Draft 5's level hash (version 9). A change of the pass, the pools, the fitted boxes or the generator without a new version fails here, not at a client's handshake.</summary>
+    public const ulong PinnedLevelHash = 0x3B642D1753AE180CUL;
+
+    /// <summary>The v5 graybox's hash (pinned since pass 3, and again by the draft 3 and 5 work).</summary>
+    const ulong PinnedGrayboxHash = 0xAE096E323BB5A4D3UL;
+
+    static bool IsGround(AshfallKind k) => k is AshfallKind.Ground or AshfallKind.Road or AshfallKind.Paving or AshfallKind.Curb or AshfallKind.Boundary or AshfallKind.Objective;
+
+    static (Vector3 Min, Vector3 Max) Bounds(AshfallPart p) => (p.Corners.Aggregate(Vector3.Min), p.Corners.Aggregate(Vector3.Max));
+
+    // ---------------------------------------------------------------- pins
+
+    [Fact]
+    public void The_graybox_is_v5_exactly_and_the_draft_5_level_has_its_own_pinned_hash()
+    {
+        var gb = AshfallMap.BuildGraybox();
+        Assert.Equal(PinnedGrayboxHash, gb.Hash);
+        Assert.Equal(5u, AshfallMap.GrayboxVersion);
+        Assert.Equal(9u, AshfallMap.Version);
+        Assert.NotEqual(gb.Hash, Level.Hash);
+        Assert.Equal(PinnedLevelHash, Level.Hash);
+        Assert.Equal(AshfallContent.ToMapContent(Level).Hash, Level.Hash);
+        // The ground kinds and the boundary are v5's, bit for bit and in order.
+        var ground = gb.Parts.Where(p => IsGround(p.Kind)).ToList();
+        for (int i = 0; i < ground.Count; i++) { Assert.Equal(ground[i].Kind, Level.Parts[i].Kind); Assert.Equal(ground[i].Corners, Level.Parts[i].Corners); }
+        Assert.All(Level.Parts.Skip(ground.Count), p => Assert.False(IsGround(p.Kind)));
+        Assert.Equal(1u, AshfallMap.VariationSeed);
+    }
+
+    [Fact]
+    public void Every_non_ground_graybox_part_is_tagged_and_every_tagged_structure_has_one_item_or_a_logged_reason()
+    {
+        var gb = D.Graybox;
+        var parts = gb.Level.Parts;
+        for (int i = 0; i < parts.Count; i++)
+            if (!IsGround(parts[i].Kind)) Assert.True(gb.PartGroup![i] >= 0, $"part {i} ({parts[i].Kind}) has no structure group");
+        var tagged = gb.PartGroup!.Where(g => g >= 0).Distinct().Select(g => gb.Groups![g]).ToList();
+        var logged = D.Placements.ToList();
+        int stronghold = 0;
+        foreach (var g in tagged)
+        {
+            var mine = logged.Where(l => l.Group == g.Name || l.Group.StartsWith(g.Name + " ")).ToList();
+            Assert.True(mine.Count > 0, $"structure '{g.Name}' ({g.Family}) was neither placed nor dropped with a reason");
+            if (g.Family.StartsWith("stronghold-leg")) { stronghold++; Assert.True(mine.Count(l => l.Item >= 0) >= 2, g.Name + " is not a line of items"); }
+            else Assert.All(mine, l => Assert.True(l.Item >= 0 || l.Outcome.StartsWith("dropped"), l.Group + ": " + l.Outcome));
+        }
+        Assert.Equal(5, stronghold);   // the five ring legs
+        output.WriteLine($"{tagged.Count} tagged structures, {logged.Count(l => l.Item >= 0)} items placed, {logged.Count(l => l.Item < 0)} dropped");
+        // Tags are not part of the graybox's hash: a second build of the graybox gives the same hash and groups.
+        Assert.Equal(PinnedGrayboxHash, AshfallMap.BuildGrayboxWithFeatures().Level.Hash);
+    }
+
+    // ---------------------------------------------------------------- the item contract and the collision transform
+
+    [Fact]
+    public void The_item_transform_maps_a_known_raw_box_the_way_the_client_draws_it()
+    {
+        // AC-001 raw bounds (-1, -0.4396, -0.2479)..(1, 0.4396, 0.2479); placed at (10, 20) on z 1, size 8 x 2 x 4, turned 90 degrees.
+        var m = AshfallKit.Get("AC-001");
+        var it = new AshfallDressItem("AC-001", new Vector3(10f, 20f, 1f), MathF.PI / 2f, new Vector3(8f, 2f, 4f), false, AshfallDressRole.Prop, -1);
+        // raw min: local x -4, local y = (0.5 - 0) * 2 = +1 (glTF -Z is local Y), up 0 -> turned: (10 - 1, 20 - 4)
+        var lo = it.ToWorld(m.RawMin);
+        Assert.Equal(9f, lo.X, 1e-4f); Assert.Equal(16f, lo.Y, 1e-4f); Assert.Equal(1f, lo.Z, 1e-4f);
+        var hi = it.ToWorld(m.RawMax);
+        Assert.Equal(11f, hi.X, 1e-4f); Assert.Equal(24f, hi.Y, 1e-4f); Assert.Equal(5f, hi.Z, 1e-4f);
+        // the model's front (glTF +Z) faces local -Y: at yaw 0 the raw +Z face lies on the south side
+        var flat = it with { Yaw = 0f };
+        Assert.True(flat.ToWorld(new Vector3(0f, 0f, m.RawMax.Z)).Y < flat.ToWorld(new Vector3(0f, 0f, m.RawMin.Z)).Y);
+        // swapped: glTF Z is local X and glTF X is local Y
+        var sw = flat with { SwapXZ = true };
+        Assert.Equal(10f - 4f, sw.ToWorld(new Vector3(0f, 0f, m.RawMin.Z)).X, 1e-4f);
+        Assert.Equal(20f - 1f, sw.ToWorld(new Vector3(m.RawMin.X, 0f, 0f)).Y, 1e-4f);
+    }
+
+    [Fact]
+    public void An_items_collision_boxes_are_the_models_fitted_boxes_moved_by_that_transform()
+    {
+        // A tower is not coarsened (only covers and rubble are): every fitted box of the model, minus dust under 0.15 m, is a part whose centre is the transformed raw box centre.
+        int checkedItems = 0;
+        for (int i = 0; i < Dressing.Items.Count; i++)
+        {
+            var it = Dressing.Items[i];
+            if (it.Role != AshfallDressRole.Prop || it.Asset != "AC-010") continue;
+            var (first, count) = Dressing.ItemParts[i];
+            var expected = new List<Vector3>();
+            foreach (var (mn, mx) in AshfallKitCollision.Boxes(it.Asset))
+            {
+                var a = it.ToWorld(mn); var b = it.ToWorld(mx);
+                float dx = (mx.X - mn.X) / AshfallKit.Get(it.Asset).RawSize.X * it.Size.X, dy = (mx.Z - mn.Z) / AshfallKit.Get(it.Asset).RawSize.Z * it.Size.Y, dz = (mx.Y - mn.Y) / AshfallKit.Get(it.Asset).RawSize.Y * it.Size.Z;
+                if (dx < 0.15f && dy < 0.15f && dz < 0.15f) continue;
+                expected.Add((a + b) / 2f);
+            }
+            var actual = Enumerable.Range(first, count).Select(p => { var (mn, mx) = Bounds(Level.Parts[p]); return (mn + mx) / 2f; }).ToList();
+            Assert.Equal(expected.Count, actual.Count);
+            foreach (var c in expected) Assert.Contains(actual, a => Vector3.Distance(a, c) < 0.02f);
+            checkedItems++;
+        }
+        Assert.True(checkedItems > 0);
+    }
+
+    [Fact]
+    public void Each_items_collision_lies_inside_its_transformed_model_box()
+    {
+        const float eps = 0.02f;
+        for (int i = 0; i < Dressing.Items.Count; i++)
+        {
+            var it = Dressing.Items[i];
+            if (it.Role != AshfallDressRole.Prop) continue;
+            var (first, count) = Dressing.ItemParts[i];
+            float s = MathF.Sin(it.Yaw), c = MathF.Cos(it.Yaw);
+            for (int p = first; p < first + count; p++)
+                foreach (var v in Level.Parts[p].Corners)
+                {
+                    float dx = v.X - it.Position.X, dy = v.Y - it.Position.Y;
+                    float lx = c * dx + s * dy, ly = -s * dx + c * dy;   // into the item's local frame
+                    Assert.True(MathF.Abs(lx) <= it.Size.X / 2f + eps && MathF.Abs(ly) <= it.Size.Y / 2f + eps && v.Z >= it.Position.Z - eps && v.Z <= it.Position.Z + it.Size.Z + eps,
+                        $"item {i} ({it.Asset}) part {p} corner {v} is outside the item's box");
+                }
+        }
+    }
+
+    [Fact]
+    public void Items_stay_within_their_structures_bounds_grown_by_a_metre_and_walkable_models_keep_risers_under_the_step()
+    {
+        var props = Dressing.Items.Select((it, i) => (it, i)).Where(x => x.it.Role == AshfallDressRole.Prop).ToList();
+        Assert.Equal(Dressing.Structures!.Count, props.Count);
+        for (int k = 0; k < props.Count; k++)
+        {
+            var it = props[k].it; var st = Dressing.Structures[k];
+            float s = MathF.Sin(it.Yaw), c = MathF.Cos(it.Yaw);
+            float ex = MathF.Abs(c) * it.Size.X / 2f + MathF.Abs(s) * it.Size.Y / 2f, ey = MathF.Abs(s) * it.Size.X / 2f + MathF.Abs(c) * it.Size.Y / 2f;
+            Assert.True(it.Position.X - ex >= st.Min.X - 1.01f && it.Position.X + ex <= st.Max.X + 1.01f && it.Position.Y - ey >= st.Min.Y - 1.01f && it.Position.Y + ey <= st.Max.Y + 1.01f
+                && it.Position.Z >= st.Min.Z - 0.01f && it.Position.Z + it.Size.Z <= st.Max.Z + 0.01f, $"{it.Asset} item {props[k].i} leaves its structure's bounds");
+        }
+        // The walkable models' cell, scaled up, is at most the 0.4 m step: no riser is thicker than a cell.
+        string[] walkable = ["AC-003", "AC-005", "AC-006", "AC-007", "AC-008", "AC-009", "AC-010", "AC-037"];
+        foreach (var it in Dressing.Items.Where(i => i.Role == AshfallDressRole.Prop && walkable.Contains(i.Asset)))
+        {
+            float scaleY = it.Size.Z / AshfallKit.Get(it.Asset).RawSize.Y;
+            Assert.True(AshfallKitCollision.Metrics(it.Asset).CellSize * scaleY <= 0.4f + 1e-3f, $"{it.Asset} at {it.Position}: cell {AshfallKitCollision.Metrics(it.Asset).CellSize * scaleY:0.00} m after scaling");
+        }
+    }
+
+    // ---------------------------------------------------------------- places that stay clear
+
+    [Fact]
+    public void Start_areas_spawns_lanes_capture_zones_and_the_boundarys_edge_stay_clear_of_collision()
+    {
+        var solids = Level.Parts.Where(p => p.Solid && !IsGround(p.Kind)).Select(Bounds).Where(b => b.Min.Z < 8f).ToList();
+        void NoneIn(string what, Func<(Vector3 Min, Vector3 Max), bool> hit)
+        {
+            var bad = solids.Where(hit).ToList();
+            Assert.True(bad.Count == 0, $"{what}: {bad.Count} collision boxes, first {(bad.Count > 0 ? bad[0].Min + " .. " + bad[0].Max : "")}");
+        }
+        foreach (var a in Level.Areas)
+        {
+            var lo = new Vector2(a.Center.X - a.Size.X / 2f, a.Center.Y - a.Size.Y / 2f); var hi = new Vector2(a.Center.X + a.Size.X / 2f, a.Center.Y + a.Size.Y / 2f);
+            NoneIn("start area " + a.Side, b => b.Min.X < hi.X && b.Max.X > lo.X && b.Min.Y < hi.Y && b.Max.Y > lo.Y);
+        }
+        foreach (var p in Level.Points)
+            NoneIn("capture zone " + p.Name + " plus 6 m", b => DiscHits(b, p.Center.X, p.Center.Y, p.Radius + 6f));
+        foreach (var s in Level.Spawns)
+            NoneIn("spawn " + s, b => DiscHits(b, s.X, s.Y, 4f));
+        foreach (float v in new[] { -92f, 92f, -232f, 232f })
+        {
+            // (the small monument stands on the west avenue's centre, y -5..5, as in v5: the corridor check of v5 skips |y| < 16 there too)
+            NoneIn("north-south lane " + v, b => b.Min.X < v + 4f && b.Max.X > v - 4f && !(MathF.Abs(v) == 92f && b.Min.Y > -16f && b.Max.Y < 16f));
+            NoneIn("east-west lane " + v, b => b.Min.Y < v + 4f && b.Max.Y > v - 4f);
+        }
+        NoneIn("the paved road", b => b.Min.X < 6f && b.Max.X > -6f && b.Min.Y < 60f && b.Max.Y > -160f);
+        NoneIn("the plaza's axes", b => (b.Min.Y < 4f && b.Max.Y > -4f && b.Min.X < 60f && b.Max.X > -60f) || (b.Min.X < 4f && b.Max.X > -4f && b.Min.Y < 60f && b.Max.Y > -60f));
+        NoneIn("B's centre", b => DiscHits(b, 0f, 0f, 16f));
+        NoneIn("the boundary's inner 2 m", b => b.Min.X < -238f || b.Min.Y < -238f || b.Max.X > 238f || b.Max.Y > 238f);
+        // High places (a bridge over an avenue) may cross a lane: nothing else does, and the bridge's piers are not in it.
+        Assert.All(Level.Parts.Where(p => p.Solid && !IsGround(p.Kind)).Select(Bounds).Where(b => b.Min.Z >= 8f), b => Assert.True(b.Min.Z >= 8f));
+    }
+
+    static bool DiscHits((Vector3 Min, Vector3 Max) b, float cx, float cy, float r)
+    {
+        float dx = MathF.Max(MathF.Max(b.Min.X - cx, cx - b.Max.X), 0f), dy = MathF.Max(MathF.Max(b.Min.Y - cy, cy - b.Max.Y), 0f);
+        return dx * dx + dy * dy < r * r;
+    }
+
+    [Fact]
+    public void Objective_A_stands_on_the_ground_and_its_plinth_is_gone()
+    {
+        var a = Level.Points[0];
+        Assert.Equal(AshfallMap.BlockTop, a.Center.Z);
+        Assert.Contains(a.Center, Level.Spawns);
+        Assert.DoesNotContain(Level.Spawns, s => s.Z == 3f);
+        Assert.Equal(3f, D.Graybox.Level.Points[0].Center.Z);   // v5 had it on the plinth
+        Assert.DoesNotContain(Dressing.Flags, f => f.Contains("A obelisk") && f.Contains("dropped"));
+        Assert.Contains(Dressing.Flags, f => f.StartsWith("A: the plinth"));
+    }
+
+    // ---------------------------------------------------------------- the stronghold
+
+    [Fact]
+    public void The_stronghold_is_a_breached_enclosure_with_an_8_m_breach_on_every_leg_and_one_asset_for_each_piece()
+    {
+        // The five legs: along-axis, the band across, the span (between the corner pieces), as generated.
+        (string Name, bool AlongX, float T0, float T1, float Lo, float Hi)[] legs =
+        [
+            ("ring south leg west", true, 112f, 116f, -66f, -12f), ("ring south leg east", true, 112f, 116f, 12f, 66f), ("ring west leg", false, -72f, -68f, 118f, 214f),
+            ("ring north leg", true, 216f, 220f, -66f, 66f), ("ring east leg", false, 68f, 72f, 118f, 214f),
+        ];
+        var solids = Level.Parts.Where(p => p.Solid && !IsGround(p.Kind)).Select(Bounds).Where(b => b.Min.Z < 2.5f).ToList();
+        foreach (var (name, alongX, t0, t1, lo, hi) in legs)
+        {
+            var spans = solids.Where(b => alongX ? (b.Min.Y < t1 && b.Max.Y > t0) : (b.Min.X < t1 && b.Max.X > t0))
+                .Select(b => alongX ? (A: b.Min.X, B: b.Max.X) : (A: b.Min.Y, B: b.Max.Y)).Where(s => s.B > lo && s.A < hi).OrderBy(s => s.A).ToList();
+            float widest = 0f, at = lo;
+            foreach (var (a, b) in spans) { widest = MathF.Max(widest, a - at); at = MathF.Max(at, b); }
+            widest = MathF.Max(widest, hi - at);
+            output.WriteLine($"{name}: widest opening {widest:0.0} m");
+            Assert.True(widest >= 8f - 1e-3f, $"{name}: widest opening {widest:0.0} m");
+            Assert.Equal(1, Dressing.Flags.Count(f => f.StartsWith(name + " breach 0:")));
+        }
+        // One asset each: gate, four corners, keep, keep tower, two stair towers, three terraces, two east outer walls.
+        var log = D.Placements;
+        Assert.Single(log, l => l.Group == "ring gate" && l.Item >= 0 && l.Asset == "AC-006");
+        Assert.Equal(4, log.Count(l => l.Group.StartsWith("ring corner") && l.Item >= 0 && l.Asset == "AC-003"));
+        Assert.Single(log, l => l.Group == "keep" && l.Item >= 0);
+        Assert.Single(log, l => l.Group == "Keep tower" && l.Item >= 0);
+        Assert.Equal(2, log.Count(l => l.Group.StartsWith("Stair tower") && l.Item >= 0 && l.Asset is "AC-007" or "AC-010"));
+        Assert.Equal(3, log.Count(l => l.Group.StartsWith("terrace") && l.Item >= 0 && l.Asset == "AC-008"));
+        Assert.Equal(2, log.Count(l => l.Group.StartsWith("east outer wall") && l.Item >= 0 && l.Asset == "AC-001"));
+        Assert.Contains(Dressing.Flags, f => f.StartsWith("the keep: no keep asset"));
+        // Each leg's walls are 14..28 m of standalone ruins (the last may be longer).
+        foreach (var l in log.Where(l => l.Family == "stronghold-wall")) Assert.True(l.Item >= 0);
+        // The gate segment: the free width through it is reported (the fit decides).
+        var gate = solids.Where(b => b.Min.Y < 116f && b.Max.Y > 112f && b.Min.X < 12f && b.Max.X > -12f).OrderBy(b => b.Min.X).ToList();
+        float free = 0f, edge = -12f;
+        foreach (var b in gate) { free = MathF.Max(free, b.Min.X - edge); edge = MathF.Max(edge, b.Max.X); }
+        free = MathF.Max(free, 12f - edge);
+        output.WriteLine($"gate segment: widest opening through x -12..12 is {free:0.0} m");
+    }
+
+    // ---------------------------------------------------------------- flags and the review list
+
+    [Fact]
+    public void The_flags_list_the_review_items()
+    {
+        foreach (var f in Dressing.Flags) output.WriteLine(f);
+        Assert.Contains(Dressing.Flags, f => f.Contains("manual clean-up"));
+        Assert.DoesNotContain(Dressing.Flags, f => f.StartsWith("untagged"));
+        // Every model used whose collision needs a clean-up is named.
+        foreach (var id in Dressing.Items.Where(i => i.Role == AshfallDressRole.Prop).Select(i => i.Asset).Distinct().Where(AshfallKitCollision.NeedsCleanup))
+            Assert.Contains(Dressing.Flags, f => f.StartsWith(id + " used"));
+    }
+
+    // ---------------------------------------------------------------- the report and the enemies' graph (slow)
+
+    sealed record V5Place(string Name, Vector3 At);
+
+    static List<V5Place> V5Places()
+    {
+        var f = D.Graybox.Features;
+        var list = new List<V5Place>();
+        foreach (var (k, v) in f.Points!.OrderBy(k => k.Key, StringComparer.Ordinal)) list.Add(new("point: " + k, v));
+        foreach (var t in f.Towers) for (int i = 0; i < t.Floors.Count; i++) list.Add(new($"tower floor: {t.Name} {i + 1}", t.Floors[i]));
+        foreach (var r in f.Ruins.Where(r => r.FloorPoint != null)) list.Add(new($"ruin floor: {r.Kind} at {(r.Footprint.X + r.Footprint.Z) / 2f:0},{(r.Footprint.Y + r.Footprint.W) / 2f:0}", r.FloorPoint!.Value));
+        foreach (var p in f.Platforms) list.Add(new($"platform deck at {p.Top.X:0},{p.Top.Y:0}", p.Top));
+        list.AddRange([
+            new("A plinth top", new(-170f, 160f, 3f)), new("small monument plinth", new(-92f, 3f, 2f)), new("C first floor", new(160f, 184f, 6f)), new("E ruin first floor", new(170f, 10f, 6f)),
+            new("small ruin floor", new(136f, -48f, 6f)), new("bunker roof", new(170f, -164f, 6f)), new("artillery platform", new(-164f, -164f, 3f)),
+            new("keep roof", new(0f, 190f, 18f)), new("keep stair deck", new(34f, 210f, 18f)), new("west L wall top (ramparts)", new(-70f, 150f, 12f)), new("east L wall top (ramparts, 18 m)", new(70f, 150f, 18f)),
+        ]);
+        return list;
+    }
+
+    [Fact]
+    [Trait("Speed", "Slow")]   // builds the war's whole walking graph on the draft-5 level (about a minute or two)
+    public void The_enemies_graph_reaches_the_places_and_reports_every_v5_walkable_place_as_kept_changed_or_lost()
+    {
+        var sw = Stopwatch.StartNew();
+        var data = TfwWorld.Load("unused", out _)!;
+        string dir = Path.Combine(Path.GetTempPath(), "ashfall-d5-nav-" + Guid.NewGuid().ToString("N"));
+        NavGraph graph;
+        try { graph = TfwWorld.Nav(data.Collision, data.Field, new SimConfig(), out _, dir); }
+        finally { if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true); }
+        output.WriteLine($"nav build {sw.Elapsed.TotalSeconds:0.0} s, {graph.NodeCount} nodes");
+
+        var start = Level.Areas[0].Center;
+        int s0 = graph.Nearest(start, 2f, 1.5f);
+        Assert.True(s0 >= 0, "no node at the Space Marines' start");
+        // Everything walked to from the start (walk and drop links, no jump packs).
+        var seen = new bool[graph.NodeCount];
+        var queue = new Queue<int>(); queue.Enqueue(s0); seen[s0] = true;
+        while (queue.Count > 0)
+        {
+            int n = queue.Dequeue();
+            foreach (var (to, _, kind) in graph.Links(n))
+                if (kind is NavLinkKind.Walk or NavLinkKind.Drop && !seen[to]) { seen[to] = true; queue.Enqueue(to); }
+        }
+        var reach = Enumerable.Range(0, graph.NodeCount).Where(n => seen[n]).Select(graph.Position).ToList();
+        var grid = new Dictionary<(int, int), List<Vector3>>();
+        foreach (var p in reach) { var key = ((int)MathF.Floor(p.X / 4f), (int)MathF.Floor(p.Y / 4f)); if (!grid.TryGetValue(key, out var l)) grid[key] = l = []; l.Add(p); }
+        List<Vector3> Near(Vector3 at, float r)
+        {
+            var res = new List<Vector3>();
+            for (int gx = (int)MathF.Floor((at.X - r) / 4f); gx <= (int)MathF.Floor((at.X + r) / 4f); gx++)
+                for (int gy = (int)MathF.Floor((at.Y - r) / 4f); gy <= (int)MathF.Floor((at.Y + r) / 4f); gy++)
+                    if (grid.TryGetValue((gx, gy), out var l)) res.AddRange(l.Where(p => Vector2.Distance(new Vector2(p.X, p.Y), new Vector2(at.X, at.Y)) <= r));
+            return res;
+        }
+        bool Reaches(Vector3 p, float r = 2f) => Near(p, r).Any(q => MathF.Abs(q.Z - p.Z) <= 1f);
+
+        // The places the game needs: the capture points, the other side's start, the spawn markers.
+        Assert.True(Reaches(Level.Points[0].Center), "A is not reached on foot");
+        Assert.True(Reaches(Level.Points[1].Center), "B is not reached on foot");
+        Assert.True(Reaches(Level.Points[2].Center), "C is not reached on foot");
+        Assert.True(Reaches(Level.Areas[1].Center), "the Chaos start (the stronghold's courtyard) is not reached on foot");
+        var unreached = Level.Spawns.Where(s => !Reaches(s, 3f)).ToList();
+        output.WriteLine($"spawn markers not reached on foot: {unreached.Count} of {Level.Spawns.Count}{(unreached.Count > 0 ? ": " + string.Join(" ", unreached) : "")}");
+
+        // Reachable tops: clusters of reached nodes above 2 m, by 4 m cell.
+        var tops = reach.Where(p => p.Z >= 2f).GroupBy(p => ((int)MathF.Floor(p.X / 12f), (int)MathF.Floor(p.Y / 12f))).Select(g => (g.Key, N: g.Count(), Min: g.Min(p => p.Z), Max: g.Max(p => p.Z), C: new Vector2(g.Average(p => p.X), g.Average(p => p.Y)))).OrderBy(t => t.Key).ToList();
+        var report = new StringBuilder();
+        report.AppendLine($"Reachable tops on foot from the Space Marines' start: {reach.Count(p => p.Z >= 2f)} nodes at 2 m or higher in {tops.Count} 12 m cells; highest {(reach.Count == 0 ? 0f : reach.Max(p => p.Z)):0.0} m");
+        foreach (var t in tops) report.AppendLine($"  top near ({t.C.X:0}, {t.C.Y:0}): {t.N} nodes, z {t.Min:0.0}..{t.Max:0.0}");
+
+        var places = V5Places();
+        int kept = 0, changed = 0, lost = 0;
+        report.AppendLine("v5 walkable places:");
+        foreach (var pl in places)
+        {
+            string what;
+            if (Reaches(pl.At)) { kept++; what = "kept"; }
+            else
+            {
+                var heights = Near(pl.At, 2f).Select(q => q.Z).Distinct().OrderBy(z => z).Take(4).ToList();
+                if (heights.Count > 0) { changed++; what = "changed (ground at " + string.Join(", ", heights.Select(z => z.ToString("0.0"))) + " m instead)"; }
+                else { lost++; what = "lost"; }
+            }
+            report.AppendLine($"  {pl.Name} ({pl.At.X:0}, {pl.At.Y:0}, {pl.At.Z:0.0}): {what}");
+        }
+        report.AppendLine($"v5 walkable places: {places.Count}, kept {kept}, changed {changed}, lost {lost}");
+        output.WriteLine(report.ToString());
+        try { File.WriteAllText(Path.Combine(Path.GetTempPath(), "ashfall-draft5-walkable-report.txt"), report.ToString()); } catch (IOException) { }
+        Assert.True(kept + changed + lost == places.Count);
+        Assert.True(reach.Count > graph.NodeCount / 2, "less than half of the graph is walked from the start");
+    }
+}

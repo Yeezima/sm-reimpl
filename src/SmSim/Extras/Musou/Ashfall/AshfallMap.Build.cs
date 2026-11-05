@@ -17,10 +17,10 @@ public static partial class AshfallMap
     /// <summary>
     /// The level (deterministic): docs/musou-ashfall-graybox.md in code, every place and size ours (placeholder demonstration). The same parts, in the same order, with the same bits, on every machine.
     /// </summary>
-    public static AshfallLevel Build() => BuildWithFeatures().Level;
+    public static AshfallLevel BuildGraybox() => BuildGrayboxWithFeatures().Level;
 
-    /// <summary>The level together with what pass 2 placed (platforms, tall buildings, ruins, walls), for the checks.</summary>
-    public static AshfallBuild BuildWithFeatures()
+    /// <summary>The Ashfall v5 graybox with what pass 2 placed (platforms, tall buildings, ruins, walls), for the checks, plus the structure group of every part (draft 5).</summary>
+    public static AshfallBuild BuildGrayboxWithFeatures()
     {
         var b = new AshfallBuilder();
         GroundLayout(b);
@@ -60,13 +60,13 @@ public static partial class AshfallMap
         // The perimeter road's corners (added after the rubble, so they do not move it): the enemies' graph and the war's bounds are the seeds' box plus 30 m,
         // and without these the east and north strips (x > 210, y > 194) had no nodes and an order there was clamped (review of 2026-11-04).
         Vector3[] corners = [P(-232f, -232f), P(232f, -232f), P(-232f, 232f), P(232f, 232f)];
-        return new AshfallBuild(new AshfallLevel(b.Parts, points, areas, [.. spawns, .. corners], HashOf(b.Parts)), features);
+        return new AshfallBuild(new AshfallLevel(b.Parts, points, areas, [.. spawns, .. corners], HashOf(b.Parts, GrayboxVersion)), features, b.PartGroups(), b.Groups);
     }
 
-    /// <summary>The level's hash: FNV-1a over the solid parts' corner bits in order, salted with <see cref="Version"/>.</summary>
-    static ulong HashOf(IReadOnlyList<AshfallPart> parts)
+    /// <summary>The level's hash: FNV-1a over the solid parts' corner bits in order, salted with the level's version (<see cref="GrayboxVersion"/> or <see cref="Version"/>).</summary>
+    internal static ulong HashOf(IReadOnlyList<AshfallPart> parts, uint version)
     {
-        ulong h = Geometry.Fnv(Geometry.FnvOffset, Version);
+        ulong h = Geometry.Fnv(Geometry.FnvOffset, version);
         foreach (var part in parts)
         {
             if (!part.Solid) continue;
@@ -134,11 +134,11 @@ public static partial class AshfallMap
         for (int i = 0; i < 6; i++)
         {
             float y = -200f + 80f * i, h = heights[i];
-            b.Box(Backdrop, -270f, y - 10f, -2f, -250f, y + 10f, h);
-            b.Box(Backdrop, 250f, y - 10f, -2f, 270f, y + 10f, heights[5 - i]);
+            using (b.Group("backdrop west " + i, "backdrop")) b.Box(Backdrop, -270f, y - 10f, -2f, -250f, y + 10f, h);
+            using (b.Group("backdrop east " + i, "backdrop")) b.Box(Backdrop, 250f, y - 10f, -2f, 270f, y + 10f, heights[5 - i]);
         }
         foreach (float x in new[] { -200f, -160f, 160f, 200f })
-            b.Box(Backdrop, x - 10f, 250f, -2f, x + 10f, 270f, x is -160f or 200f ? 62f : 48f);
+            using (b.Group("backdrop north " + x, "backdrop")) b.Box(Backdrop, x - 10f, 250f, -2f, x + 10f, 270f, x is -160f or 200f ? 62f : 48f);
     }
 
     // ---------------------------------------------------------------- NW: objective A
@@ -146,15 +146,18 @@ public static partial class AshfallMap
     static void NorthWest(AshfallBuilder b)
     {
         // Plinth 16 x 16 x 3 m centred on A, a box-step stair 8 m wide up its south face, a broken obelisk (jump-only perch) to 15 m.
-        b.Box(Floor, -172f, 156f, 0f, -156f, 172f, 3f);
-        b.Stair(-164f, 150f, 0, 1, 8f, 0f, 3f);    // south
-        b.Stair(-164f, 178f, 0, -1, 8f, 0f, 3f);   // north (pass 2: stairs on all four sides, owner's note)
-        b.Stair(-178f, 164f, 1, 0, 8f, 0f, 3f);    // west
-        b.Stair(-150f, 164f, -1, 0, 8f, 0f, 3f);   // east
-        b.Box(Perch, -166f, 166f, 3f, -162f, 170f, 15f);
+        using (b.Group("A plinth", "plinth"))
+        {
+            b.Box(Floor, -172f, 156f, 0f, -156f, 172f, 3f);
+            b.Stair(-164f, 150f, 0, 1, 8f, 0f, 3f);    // south
+            b.Stair(-164f, 178f, 0, -1, 8f, 0f, 3f);   // north (pass 2: stairs on all four sides, owner's note)
+            b.Stair(-178f, 164f, 1, 0, 8f, 0f, 3f);    // west
+            b.Stair(-150f, 164f, -1, 0, 8f, 0f, 3f);   // east
+        }
+        using (b.Group("A obelisk", "obelisk")) b.Box(Perch, -166f, 166f, 3f, -162f, 170f, 15f);
         // Two low walls (1.2 m) at 28..40 m from A, cover outside the zone.
-        b.Box(Cover, -136f, 175.5f, BlockTop, -128f, 176.5f, BlockTop + 1.2f);
-        b.Box(Cover, -180f, 127.5f, BlockTop, -172f, 128.5f, BlockTop + 1.2f);
+        using (b.Group("A cover 1", "cover")) b.Box(Cover, -136f, 175.5f, BlockTop, -128f, 176.5f, BlockTop + 1.2f);
+        using (b.Group("A cover 2", "cover")) b.Box(Cover, -180f, 127.5f, BlockTop, -172f, 128.5f, BlockTop + 1.2f);
     }
 
     // ---------------------------------------------------------------- NE: objective C, the chapel ruin
@@ -162,6 +165,8 @@ public static partial class AshfallMap
     static void NorthEast(AshfallBuilder b)
     {
         // North facade 24 m wide and 18 m tall with two breaches 4 x 6 m at 6 m; east and west walls 12 m tall with ground breaches 4 x 4.5 m.
+        using (b.Group("C chapel", "shell2"))
+        {
         b.HoleWall(Wall, true, 152f, 176f, 187f, 188f, 0f, 18f, (155f, 159f, 6f, 12f), (169f, 173f, 6f, 12f));
         b.HoleWall(Wall, false, 172f, 188f, 152f, 153f, 0f, 12f, (178f, 182f, 0f, 4.5f));
         b.HoleWall(Wall, false, 172f, 188f, 175f, 176f, 0f, 12f, (178f, 182f, 0f, 4.5f));
@@ -173,9 +178,10 @@ public static partial class AshfallMap
         b.Box(Floor, 170f, 172f, 5.5f, 175f, 180f, 6f);
         // Roof slab at 12 m over the west third (jump-only).
         b.Box(Perch, 153f, 172f, 11.5f, 161f, 187f, 12f);
+        }
         // Low walls at 28..40 m from C.
-        b.Box(Cover, 160f, 117.5f, BlockTop, 168f, 118.5f, BlockTop + 1.2f);
-        b.Box(Cover, 199.5f, 146f, BlockTop, 200.5f, 154f, BlockTop + 1.2f);
+        using (b.Group("C cover 1", "cover")) b.Box(Cover, 160f, 117.5f, BlockTop, 168f, 118.5f, BlockTop + 1.2f);
+        using (b.Group("C cover 2", "cover")) b.Box(Cover, 199.5f, 146f, BlockTop, 200.5f, 154f, BlockTop + 1.2f);
     }
 
     // ---------------------------------------------------------------- W middle: the crater field
@@ -210,10 +216,10 @@ public static partial class AshfallMap
         // Low walls (1.2 m) and collapsed-wall pieces (2.5 m) between the craters, on flat ground only.
         (float X, float Y, int Yaw)[] low = [(-176f, 40f, 0), (-140f, 0f, 6), (-112f, -32f, 0), (-212f, -34f, 6), (-140f, -72f, 0), (-110f, 40f, 6)];
         foreach (var (x, y, yaw) in low)
-            if (Flat(x, y, 5f)) b.Oriented(Cover, x, y, BlockTop, BlockTop + 1.2f, 8f, 1f, yaw);
+            if (Flat(x, y, 5f)) { using (b.Group("crater cover " + x + "," + y, "cover")) b.Oriented(Cover, x, y, BlockTop, BlockTop + 1.2f, 8f, 1f, yaw); }
         (float X, float Y, int Yaw)[] collapsed = [(-176f, 5f, 3), (-145f, -35f, 9), (-186f, 40f, 3), (-115f, 18f, 0), (-115f, -70f, 15)];
         foreach (var (x, y, yaw) in collapsed)
-            if (Flat(x, y, 3f)) b.Oriented(Rubble, x, y, BlockTop, BlockTop + 2.5f, 4f, 1f, yaw);
+            if (Flat(x, y, 3f)) { using (b.Group("collapsed wall " + x + "," + y, "wallpiece")) b.Oriented(Rubble, x, y, BlockTop, BlockTop + 2.5f, 4f, 1f, yaw); }
     }
 
     // ---------------------------------------------------------------- centre: plaza, small monument, arch
@@ -222,13 +228,19 @@ public static partial class AshfallMap
     {
         // Pass 2: the fallen statue at B is removed (owner's note); B's plaza stays.
         // The small monument on the west avenue: plinth 10 x 10 x 2 m, steps on its east side, an obelisk 3 x 3 m to 12 m (jump-only perch).
-        b.Box(Floor, -97f, -5f, 0f, -87f, 5f, 2f);
-        b.Stair(-83f, 0f, -1, 0, 6f, 0f, 2f);
-        b.Box(Perch, -93.5f, -1.5f, 2f, -90.5f, 1.5f, 12f);
+        using (b.Group("west monument", "monument"))
+        {
+            b.Box(Floor, -97f, -5f, 0f, -87f, 5f, 2f);
+            b.Stair(-83f, 0f, -1, 0, 6f, 0f, 2f);
+            b.Box(Perch, -93.5f, -1.5f, 2f, -90.5f, 1.5f, 12f);
+        }
         // The triumphal arch on the east avenue: piers to 10 m, a lintel 10..14 m with a walkable top (jump-only perch), a passage 16 m wide.
-        b.Box(Wall, 80f, -3f, 0f, 84f, 3f, 10f);
-        b.Box(Wall, 100f, -3f, 0f, 104f, 3f, 10f);
-        b.Box(Perch, 80f, -3f, 10f, 104f, 3f, 14f);
+        using (b.Group("east arch", "arch"))
+        {
+            b.Box(Wall, 80f, -3f, 0f, 84f, 3f, 10f);
+            b.Box(Wall, 100f, -3f, 0f, 104f, 3f, 10f);
+            b.Box(Perch, 80f, -3f, 10f, 104f, 3f, 14f);
+        }
     }
 
     // ---------------------------------------------------------------- E middle: ruin cluster
@@ -236,6 +248,8 @@ public static partial class AshfallMap
     static void EastRuins(AshfallBuilder b)
     {
         // Large two-storey ruin 24 x 24 m at (164, 10): walls 1 m thick, 12 m, breaches on three sides (ground 4 x 4.5, upper 2 x 2.5 at a 7 m sill).
+        using (b.Group("east large ruin", "shell2"))
+        {
         b.HoleWall(Wall, false, -2f, 22f, 152f, 153f, 0f, 12f, (8f, 12f, 0f, 4.5f), (16f, 18f, 7f, 9.5f));
         b.HoleWall(Wall, false, -2f, 22f, 175f, 176f, 0f, 12f, (8f, 12f, 0f, 4.5f), (4f, 6f, 7f, 9.5f));
         b.HoleWall(Wall, true, 152f, 176f, 21f, 22f, 0f, 12f, (160f, 164f, 0f, 4.5f), (168f, 170f, 7f, 9.5f));
@@ -244,13 +258,17 @@ public static partial class AshfallMap
         b.Box(Floor, 166f, -1f, 5.5f, 175f, 21f, 6f);
         b.Stair(154f, 1f, 1, 0, 4f, 0f, 6f);
         b.Box(Perch, 164f, 10f, 11.5f, 175f, 21f, 12f);
+        }
         // Small ruin 12 x 12 x 12 m at (136, -48): one stair, outside along the south wall, to a floor at 6 m through a doorway whose sill is that high.
+        using (b.Group("east small ruin", "shell2"))
+        {
         b.HoleWall(Wall, true, 130f, 142f, -54f, -53f, 0f, 12f, (137f, 141f, 6f, 9.5f), (132f, 136f, 0f, 4.5f));
         b.HoleWall(Wall, true, 130f, 142f, -43f, -42f, 0f, 12f);
         b.HoleWall(Wall, false, -53f, -43f, 130f, 131f, 0f, 12f, (-50f, -46f, 0f, 4.5f));
         b.HoleWall(Wall, false, -53f, -43f, 141f, 142f, 0f, 12f);
         b.Box(Floor, 131f, -53f, 5.5f, 141f, -43f, 6f);
         b.Stair(129f, -56f, 1, 0, 4f, 0f, 6f);
+        }
     }
 
     // ---------------------------------------------------------------- SW: the artillery wreck
@@ -258,12 +276,15 @@ public static partial class AshfallMap
     static void SouthWest(AshfallBuilder b)
     {
         // Gun platform 12 x 12 x 3 m, box steps on its north side, a barrel 4 x 22 x 3 m pitched 20 degrees up to the north-east (a walkable ramp to a perch at about 10 m).
-        b.Box(Floor, -170f, -170f, 0f, -158f, -158f, 3f);
-        b.Stair(-164f, -152f, 0, -1, 6f, 0f, 3f);
-        b.Pitched(Floor, new Vector3(-162f, -162f, 3f), 3, 0.3420201433256687f, 0.9396926207859084f, 22f, 4f, 3f);
+        using (b.Group("gun platform", "wreck"))
+        {
+            b.Box(Floor, -170f, -170f, 0f, -158f, -158f, 3f);
+            b.Stair(-164f, -152f, 0, -1, 6f, 0f, 3f);
+            b.Pitched(Floor, new Vector3(-162f, -162f, 3f), 3, 0.3420201433256687f, 0.9396926207859084f, 22f, 4f, 3f);
+        }
         // Wall fragments.
-        b.Box(Cover, -196f, -150f, BlockTop, -188f, -149f, BlockTop + 1.2f);
-        b.Box(Cover, -150f, -196f, BlockTop, -149f, -188f, BlockTop + 1.2f);
+        using (b.Group("SW cover 1", "cover")) b.Box(Cover, -196f, -150f, BlockTop, -188f, -149f, BlockTop + 1.2f);
+        using (b.Group("SW cover 2", "cover")) b.Box(Cover, -150f, -196f, BlockTop, -149f, -188f, BlockTop + 1.2f);
     }
 
     // ---------------------------------------------------------------- S centre: the spawn compound
@@ -271,16 +292,16 @@ public static partial class AshfallMap
     static void SpawnCompound(AshfallBuilder b)
     {
         // Low ruined walls 2.5 m tall, 1 m thick, a 16 m gate in the north wall; the Space Marine start area stands inside.
-        b.Box(Wall, -36f, -216f, 0f, 36f, -215f, 2.5f);
-        b.Box(Wall, -36f, -215f, 0f, -35f, -161f, 2.5f);
-        b.Box(Wall, 35f, -215f, 0f, 36f, -161f, 2.5f);
-        b.Box(Wall, -36f, -161f, 0f, -8f, -160f, 2.5f);
-        b.Box(Wall, 8f, -161f, 0f, 36f, -160f, 2.5f);
+        using (b.Group("compound south wall", "wallrun")) b.Box(Wall, -36f, -216f, 0f, 36f, -215f, 2.5f);
+        using (b.Group("compound west wall", "wallrun")) b.Box(Wall, -36f, -215f, 0f, -35f, -161f, 2.5f);
+        using (b.Group("compound east wall", "wallrun")) b.Box(Wall, 35f, -215f, 0f, 36f, -161f, 2.5f);
+        using (b.Group("compound north wall west", "wallrun")) b.Box(Wall, -36f, -161f, 0f, -8f, -160f, 2.5f);
+        using (b.Group("compound north wall east", "wallrun")) b.Box(Wall, 8f, -161f, 0f, 36f, -160f, 2.5f);
         // Short wall fragments (1.2 m) flanking the road north.
         foreach (float x in new[] { -10f, 9f })
         {
-            b.Box(Cover, x, -130f, BlockTop, x + 1f, -122f, BlockTop + 1.2f);
-            b.Box(Cover, x, -116f, BlockTop, x + 1f, -108f, BlockTop + 1.2f);
+            using (b.Group("road cover " + x + ",-130", "cover")) b.Box(Cover, x, -130f, BlockTop, x + 1f, -122f, BlockTop + 1.2f);
+            using (b.Group("road cover " + x + ",-116", "cover")) b.Box(Cover, x, -116f, BlockTop, x + 1f, -108f, BlockTop + 1.2f);
         }
     }
 
@@ -289,11 +310,14 @@ public static partial class AshfallMap
     static void Bunker(AshfallBuilder b)
     {
         // Bunker 24 x 20 m: walls 3 m tall on three sides, a roofed part 12 x 20 m (roof at 6 m, walkable) reached by box steps on its west side.
-        b.Box(Wall, 152f, -174f, 0f, 176f, -173f, 3f);
-        b.Box(Wall, 152f, -155f, 0f, 176f, -154f, 3f);
-        b.Box(Wall, 175f, -173f, 0f, 176f, -155f, 3f);
-        b.Box(Floor, 164f, -174f, 5.5f, 176f, -154f, 6f);
-        b.Stair(152f, -164f, 1, 0, 6f, 0f, 6f);
+        using (b.Group("bunker", "bunker"))
+        {
+            b.Box(Wall, 152f, -174f, 0f, 176f, -173f, 3f);
+            b.Box(Wall, 152f, -155f, 0f, 176f, -154f, 3f);
+            b.Box(Wall, 175f, -173f, 0f, 176f, -155f, 3f);
+            b.Box(Floor, 164f, -174f, 5.5f, 176f, -154f, 6f);
+            b.Stair(152f, -164f, 1, 0, 6f, 0f, 6f);
+        }
     }
 
     // ---------------------------------------------------------------- rubble

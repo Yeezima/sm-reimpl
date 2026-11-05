@@ -7,9 +7,8 @@ using Xunit.Abstractions;
 namespace SmNet.Tests.Extras.Musou.Ashfall;
 
 /// <summary>
-/// The kit dressing of Ashfall Citadel (draft 3, docs/musou-ashfall-graybox.md "Draft 3 (scaled replacements)"): the level is v5 untouched, every visible graybox structure is covered by Skin items
-/// (scaled replacements) and listed as hidden, items stay inside their structure's bounds grown by 0.5 m, no model is stretched absurdly, plus the road and plaza surfaces and the two exports for the Mapmaker.
-/// From the generator alone: no asset bytes, no install, no servers.
+/// The kit dressing of Ashfall Citadel (draft 5, docs/musou-ashfall-graybox.md "Draft 5"): the level is the draft-5 level (version 9), every item is a catalogue model, the hidden parts are exactly the non-ground parts,
+/// each item owns a range of collision parts, plus the road and plaza surfaces (turns by the variation seed only) and the two exports for the Mapmaker. From the generator alone: no asset bytes, no install, no servers.
 /// </summary>
 public class AshfallKitDressingTests(ITestOutputHelper output)
 {
@@ -33,43 +32,31 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
         return MathF.Sqrt(dx * dx + dy * dy);
     }
 
-    static (Vector3 Min, Vector3 Max) Aabb(AshfallDressItem it)
-    {
-        var f = Footprint(it);
-        return (new Vector3(f.X, f.Y, it.Position.Z), new Vector3(f.Z, f.W, it.Position.Z + it.Size.Z));
-    }
-
-    static (Vector3 Min, Vector3 Max) PartBounds(int part)
-    {
-        var c = Level.Parts[part].Corners;
-        return (c.Aggregate(Vector3.Min), c.Aggregate(Vector3.Max));
-    }
-
-    static bool Meets((Vector3 Min, Vector3 Max) a, (Vector3 Min, Vector3 Max) b) =>
-        a.Min.X <= b.Max.X && a.Max.X >= b.Min.X && a.Min.Y <= b.Max.Y && a.Max.Y >= b.Min.Y && a.Min.Z <= b.Max.Z && a.Max.Z >= b.Min.Z;
-
     static bool IsGroundKind(AshfallKind k) => k is AshfallKind.Ground or AshfallKind.Road or AshfallKind.Paving or AshfallKind.Curb or AshfallKind.Boundary or AshfallKind.Objective;
 
     // ---------------------------------------------------------------- the level and determinism
 
     [Fact]
-    public void The_level_is_ashfall_v5_exactly_and_the_dressing_is_deterministic()
+    public void The_level_is_the_draft_5_level_and_the_dressing_is_deterministic()
     {
-        Assert.Equal(5u, AshfallMap.Version);
-        Assert.Equal(0xAE096E323BB5A4D3UL, Level.Hash);
+        Assert.Equal(9u, AshfallMap.Version);
+        Assert.Equal(5u, AshfallMap.GrayboxVersion);
+        Assert.Equal(AshfallDraft5Tests.PinnedLevelHash, Level.Hash);
         Assert.Equal(AshfallMap.Build().Hash, Level.Hash);
         Assert.Equal(AshfallMap.BuildWithFeatures().Level.Hash, Level.Hash);
-        var (levelB, dressingB) = AshfallMap.BuildWithDressing();
-        Assert.Equal(Level.Hash, levelB.Hash);
-        Assert.Equal(Dressing.Items.Count, dressingB.Items.Count);
-        for (int i = 0; i < Dressing.Items.Count; i++) Assert.Equal(Dressing.Items[i], dressingB.Items[i]);
-        Assert.Equal(Dressing.HiddenParts, dressingB.HiddenParts);
+        var fresh = AshfallMap.RebuildDraft5();   // not the cached one: a second full run
+        Assert.Equal(Level.Hash, fresh.Level.Hash);
+        Assert.Equal(Dressing.Items.Count, fresh.Dressing.Items.Count);
+        for (int i = 0; i < Dressing.Items.Count; i++) Assert.Equal(Dressing.Items[i], fresh.Dressing.Items[i]);
+        Assert.Equal(Dressing.HiddenParts, fresh.Dressing.HiddenParts);
+        Assert.Equal(Dressing.ItemParts, fresh.Dressing.ItemParts);
+        Assert.Equal(Dressing.Flags, fresh.Dressing.Flags);
         Assert.Equal(AshfallMap.DressVersion, Dressing.Version);
-        Assert.Equal(5u, AshfallMap.DressVersion);
+        Assert.Equal(7u, AshfallMap.DressVersion);
         long tris = Dressing.Items.Sum(i => (long)AshfallKit.Get(i.Asset).Triangles);
         output.WriteLine($"{Dressing.Items.Count} items, {tris:N0} model triangles at full detail, {Dressing.HiddenParts.Count} hidden parts, {Dressing.Structures!.Count} structures, {Level.Parts.Count} parts, hash {Level.Hash:X16}");
         foreach (var g in Dressing.Items.GroupBy(i => i.Role).OrderBy(g => g.Key)) output.WriteLine($"{g.Key,-10} {g.Count(),5} items, {g.Sum(i => (long)AshfallKit.Get(i.Asset).Triangles),12:N0} model triangles");
-        Assert.InRange(Dressing.Items.Count, 2000, 5200);   // a few thousand at most
+        Assert.InRange(Dressing.Items.Count, 600, 1600);
     }
 
     [Fact]
@@ -79,99 +66,31 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
         Assert.All(Dressing.Items, i => Assert.Contains(i.Asset, ids));
         Assert.All(Dressing.Items, i => Assert.True(float.IsFinite(i.Yaw) && i.Size.X > 0f && i.Size.Y > 0f && i.Size.Z > 0f && float.IsFinite(i.Position.X + i.Position.Y + i.Position.Z)));
         Assert.DoesNotContain(Dressing.Items, i => AshfallKit.Get(i.Asset).Review);
-        Assert.All(Dressing.Items, i => Assert.True(i.Role is AshfallDressRole.Skin or AshfallDressRole.Surface));
-        Assert.All(Of(AshfallDressRole.Skin), i => Assert.InRange(i.Part, 0, Level.Parts.Count - 1));
+        Assert.All(Dressing.Items, i => Assert.True(i.Role is AshfallDressRole.Prop or AshfallDressRole.Surface));
+        Assert.All(Dressing.Items, i => Assert.False(i.SwapXZ));
         Assert.All(Of(AshfallDressRole.Surface), i => Assert.Equal(-1, i.Part));
+        Assert.DoesNotContain(Dressing.Items, i => i.Asset == "AC-040");   // its 1.2 m crater would float over the flat collision of a walked road
     }
 
-    // ---------------------------------------------------------------- draft 3: replacements
-
     [Fact]
-    public void Every_solid_part_except_the_ground_kinds_and_the_boundary_is_hidden_and_covered_by_a_skin_item()
+    public void Hidden_parts_are_exactly_the_non_ground_parts_and_every_item_owns_a_range_of_them()
     {
         var hidden = Dressing.HiddenParts.ToHashSet();
         Assert.Equal(Dressing.HiddenParts.Count, hidden.Count);
         for (int p = 0; p < Level.Parts.Count; p++)
+            Assert.True(!IsGroundKind(Level.Parts[p].Kind) == hidden.Contains(p), $"part {p} ({Level.Parts[p].Kind}) hidden={hidden.Contains(p)}");
+        Assert.Equal(Dressing.Items.Count, Dressing.ItemParts.Count);
+        var owned = new HashSet<int>();
+        for (int i = 0; i < Dressing.Items.Count; i++)
         {
-            var part = Level.Parts[p];
-            bool expected = part.Solid && !IsGroundKind(part.Kind);
-            Assert.True(expected == hidden.Contains(p), $"part {p} ({part.Kind}) hidden={hidden.Contains(p)}, expected {expected}");
+            var (first, count) = Dressing.ItemParts[i];
+            if (Dressing.Items[i].Role == AshfallDressRole.Surface) { Assert.Equal((0, 0), (first, count)); continue; }
+            for (int p = first; p < first + count; p++) { Assert.True(hidden.Contains(p), $"item {i} owns part {p}, which is not hidden"); Assert.True(owned.Add(p), $"part {p} owned twice"); }
         }
-        var skins = Of(AshfallDressRole.Skin).Select(Aabb).ToList();
-        int uncovered = 0;
-        foreach (int p in hidden)
-        {
-            var b = PartBounds(p);
-            if (!skins.Any(s => Meets(s, b))) { uncovered++; if (uncovered < 5) output.WriteLine($"uncovered part {p} {Level.Parts[p].Kind} {b.Min} {b.Max}"); }
-        }
-        Assert.Equal(0, uncovered);
-        // Stronger: a hidden part must be named by a Skin item or have its centre inside a Skin item's box (grown 0.5 m), so a neighbour's box only touching it is not enough.
-        var named = Of(AshfallDressRole.Skin).Select(i => i.Part).ToHashSet();
-        int holes = 0;
-        foreach (int p in hidden)
-        {
-            if (named.Contains(p)) continue;
-            var b = PartBounds(p);
-            var c = (b.Min + b.Max) / 2f;
-            if (skins.Any(s => c.X >= s.Min.X - 0.5f && c.X <= s.Max.X + 0.5f && c.Y >= s.Min.Y - 0.5f && c.Y <= s.Max.Y + 0.5f && c.Z >= s.Min.Z - 0.5f && c.Z <= s.Max.Z + 0.5f)) continue;
-            holes++;
-            if (holes <= 10) output.WriteLine($"hole: part {p} {Level.Parts[p].Kind} {b.Min} {b.Max}");
-        }
-        output.WriteLine($"holes: {holes}");
-        Assert.Equal(0, holes);
-    }
-
-    [Fact]
-    public void A_skin_items_box_stays_within_its_structures_bounds_grown_by_half_a_metre()
-    {
-        var structureOf = new Dictionary<int, int>();
-        for (int s = 0; s < Dressing.Structures!.Count; s++) foreach (int p in Dressing.Structures[s].Parts) structureOf[p] = s;
-        Assert.Equal(Dressing.HiddenParts.Count, structureOf.Count);
-        const float grow = 0.5f + 1e-3f;
-        foreach (var it in Of(AshfallDressRole.Skin))
-        {
-            var st = Dressing.Structures[structureOf[it.Part]];
-            var (mn, mx) = Aabb(it);
-            Assert.True(mn.X >= st.Min.X - grow && mn.Y >= st.Min.Y - grow && mn.Z >= st.Min.Z - grow && mx.X <= st.Max.X + grow && mx.Y <= st.Max.Y + grow && mx.Z <= st.Max.Z + grow,
-                $"{it.Asset} over part {it.Part}: {mn}..{mx} outside {st.Min}..{st.Max} + 0.5");
-        }
-        // Each structure's bounds are the bounds of its parts' corners.
-        foreach (var st in Dressing.Structures)
-        {
-            var corners = st.Parts.SelectMany(p => Level.Parts[p].Corners).ToList();
-            Assert.Equal(corners.Aggregate(Vector3.Min), st.Min);
-            Assert.Equal(corners.Aggregate(Vector3.Max), st.Max);
-        }
-    }
-
-    [Fact]
-    public void No_facade_model_is_stretched_past_about_one_to_three_point_seven_along_its_length_and_height()
-    {
-        foreach (var it in Of(AshfallDressRole.Skin).Where(i => !i.SwapXZ && i.Asset is "AC-001" or "AC-002" or "AC-004" or "AC-005" or "AC-006" or "AC-011" or "AC-014" or "AC-017"))
-        {
-            var raw = AshfallKit.Get(it.Asset).RawSize;
-            float stretch = (it.Size.X / raw.X) / (it.Size.Z / raw.Y);   // 1 = the model's own proportions
-            Assert.True(stretch is >= 1f / 3.7f and <= 3.7f, $"{it.Asset} {it.Size} stretch {stretch:0.00}");
-        }
-    }
-
-    [Fact]
-    public void The_mix_uses_many_models_and_the_boundary_and_ground_are_left_to_the_client()
-    {
-        var used = Of(AshfallDressRole.Skin).Select(i => i.Asset).Distinct().ToList();
-        Assert.True(used.Count >= 15, string.Join(",", used));
-        foreach (string id in new[] { "AC-001", "AC-004", "AC-005", "AC-006", "AC-007", "AC-010", "AC-011", "AC-022" }) Assert.Contains(id, used);
-        Assert.DoesNotContain(Dressing.HiddenParts, p => Level.Parts[p].Kind is AshfallKind.Boundary or AshfallKind.Ground or AshfallKind.Road or AshfallKind.Paving);
-        // No object stands on the boundary: nothing beyond the backdrop blocks (270 m).
-        Assert.DoesNotContain(Of(AshfallDressRole.Skin), i => MathF.Abs(i.Position.X) > 272f || MathF.Abs(i.Position.Y) > 272f);
-    }
-
-    [Fact]
-    public void Stair_flights_are_covered_by_the_stair_model_turned_on_its_side()
-    {
-        var flights = Of(AshfallDressRole.Skin).Where(i => i.Asset == "AC-007").ToList();
-        Assert.InRange(flights.Count, 100, 400);
-        Assert.All(flights, f => Assert.True(f.SwapXZ));
+        Assert.Equal(hidden.Count, owned.Count);   // every collision part belongs to exactly one item
+        Assert.Contains(Dressing.Items.Select((it, i) => (it, i)), x => x.it.Role == AshfallDressRole.Prop && Dressing.ItemParts[x.i].Count == 0);   // the backdrop blocks have no collision
+        Assert.All(Dressing.Structures!, st => Assert.All(st.Parts, p => Assert.True(hidden.Contains(p))));
+        Assert.NotEmpty(Dressing.Flags);
     }
 
     // ---------------------------------------------------------------- surfaces
@@ -179,14 +98,15 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
     [Fact]
     public void Surfaces_lie_on_the_road_cells_or_on_a_road_or_paving_top_and_never_over_a_block()
     {
-        var surfaces = Of(AshfallDressRole.Surface).ToList();
+        var all = Of(AshfallDressRole.Surface).ToList();
+        var surfaces = all.Where(i => i.Asset != "AC-037").ToList();
         Assert.InRange(surfaces.Count, 150, 400);   // the ground tiles are draw-call heavy: a few hundred at most
         var tops = Level.Parts.Where(p => p.Kind is AshfallKind.Road or AshfallKind.Paving).Select(p => (Box: AshfallBox.Of(p)!.Value, p)).ToList();
         Assert.Equal(4, tops.Count);
         foreach (var it in surfaces)
         {
             float top = it.Position.Z + it.Size.Z - 0.03f;   // the surface it lies on: the tile is lifted 3 cm above it (AshfallDress.Surfaces Lift)
-            Assert.True(it.Asset is "AC-033" or "AC-034" or "AC-035" or "AC-036" or "AC-038" or "AC-040", it.Asset);
+            Assert.True(it.Asset is "AC-033" or "AC-034" or "AC-035" or "AC-036" or "AC-038", it.Asset);
             Assert.Equal(AshfallKit.Get(it.Asset).RawSize.Y, it.Size.Z, 1e-4f);
             var r = Footprint(it);
             if (MathF.Abs(top) < 1e-4f)
@@ -201,7 +121,29 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
                 Assert.True(tops.Any(t => MathF.Abs(t.Box.Z1 - top) < 1e-3f && Gap(r, Bounds(t.Box)) < 1e-3f && Within(r, Bounds(t.Box))), $"{it.Asset} at top {top} is on no road or paving top");
             }
         }
-        Assert.DoesNotContain(surfaces, i => i.Asset == "AC-037");   // the raised centre tile would sink B's walkers
+        // The objective plaza centre tile is used once, under A, squashed so its raised dais stays under the step height; B's centre stays flat.
+        var dais = Assert.Single(all, i => i.Asset == "AC-037");
+        Assert.Equal(Level.Points[0].Center.X, dais.Position.X);
+        Assert.Equal(Level.Points[0].Center.Y, dais.Position.Y);
+        Assert.InRange(dais.Position.Z + dais.Size.Z - AshfallMap.BlockTop, 0f, 0.4f);
+    }
+
+    [Fact]
+    public void Surfaces_turn_only_by_their_allowed_steps_with_the_variation_seed()
+    {
+        Assert.Equal(1u, AshfallMap.VariationSeed);
+        int Step(AshfallDressItem it) => (int)MathF.Round(it.Yaw / (MathF.PI / 12f)) % 24;
+        var surfaces = Of(AshfallDressRole.Surface).Where(i => i.Asset != "AC-037").ToList();
+        Assert.All(surfaces, i => Assert.Equal(0, ((Step(i) % 6) + 6) % 6));   // quarter turns only, never a 15 degree turn
+        // Straight tiles: half turns only (the seams stay valid), and the seed does vary them.
+        var straight = surfaces.Where(i => i.Asset == "AC-033").ToList();
+        Assert.Equal([0, 6, 12, 18], straight.Select(Step).Distinct().Order().ToArray());
+        foreach (var grp in straight.GroupBy(i => Step(i) % 12 == 0)) Assert.True(grp.Count() > 10);
+        // Edge and corner tiles never get a free turn: the plaza rim tiles face outward, so only inside cells (neither on the rim) vary.
+        var edges = surfaces.Where(i => i.Asset == "AC-038").Select(Step).OrderBy(x => x).ToArray();
+        Assert.Equal([0, 6, 12, 18], edges);   // the four corners, each a different fixed turn
+        // T-junctions are never turned by the seed: eight of them, each pointing its stem away from the perimeter (four per axis, two turns each).
+        Assert.Equal(8, surfaces.Count(i => i.Asset == "AC-034"));
     }
 
     static Vector4 Bounds(AshfallBox b)
@@ -239,6 +181,11 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
             Assert.Equal(new Vector3(size[0].GetSingle(), size[1].GetSingle(), size[2].GetSingle()), it.Size);
         }
         Assert.Equal(Dressing.HiddenParts.Count, root.GetProperty("hiddenParts").GetArrayLength());
+        var parts = root.GetProperty("itemParts");
+        Assert.Equal(Dressing.ItemParts.Count, parts.GetArrayLength());
+        for (int i = 0; i < Dressing.ItemParts.Count; i += 11) { Assert.Equal(Dressing.ItemParts[i].First, parts[i][0].GetInt32()); Assert.Equal(Dressing.ItemParts[i].Count, parts[i][1].GetInt32()); }
+        Assert.Equal(Dressing.Flags.Count, root.GetProperty("flags").GetArrayLength());
+        Assert.Equal(Dressing.Flags[0], root.GetProperty("flags")[0].GetString());
     }
 
     [Fact]

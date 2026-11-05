@@ -30,7 +30,9 @@ public static class AshfallExport
             sb.Append(i + 1 < dressing.Items.Count ? ",\n" : "\n");
         }
         sb.Append("  ],\n");
-        sb.Append($"  \"hiddenParts\": [{string.Join(", ", dressing.HiddenParts.Select(p => p.ToString(CultureInfo.InvariantCulture)))}]\n");
+        sb.Append($"  \"hiddenParts\": [{string.Join(", ", dressing.HiddenParts.Select(p => p.ToString(CultureInfo.InvariantCulture)))}],\n");
+        sb.Append($"  \"itemParts\": [{string.Join(", ", dressing.ItemParts.Select(r => $"[{r.First.ToString(CultureInfo.InvariantCulture)}, {r.Count.ToString(CultureInfo.InvariantCulture)}]"))}],\n");
+        sb.Append($"  \"flags\": [{string.Join(", ", dressing.Flags.Select(f => System.Text.Json.JsonSerializer.Serialize(f)))}]\n");
         sb.Append("}\n");
         return sb.ToString();
     }

@@ -20,11 +20,19 @@ internal static partial class AshfallDressPass
         return new AshfallDressItem(id, new Vector3(cx, cy, surface - h + Lift), Yaw(yawStep), new Vector3(lx, ly, h), false, AshfallDressRole.Surface, -1);
     }
 
-    static string Straight(uint seed, int i) => AshfallBuilder.Mix(seed, (uint)i) % 8 == 0 ? "AC-040" : "AC-033";
+    /// <summary>Draft 5: the straight road tile is always AC-033 (AC-040's 1.2 m crater would float over the flat collision of a walked road); the variation is the half turn.</summary>
+    static string Straight(uint seed, int i) => "AC-033";
+
+    /// <summary>The half turn (0 or 12 steps) of a straight tile, from the variation seed (a straight segment keeps its seams at 0 and 180 degrees).</summary>
+    static int HalfTurn(uint seed, int i) => AshfallBuilder.Mix(seed, (uint)i + 4001u) % 2u == 0u ? 0 : 12;
+
+    /// <summary>The road and plaza tiles (visual only). Their turns come from <see cref="AshfallMap.VariationSeed"/>: straight tiles 0/180, the crossroads and the plaza's inside tiles 0/90/180/270 (the crossroads only when square),
+    /// T-junctions, edge and corner tiles never.</summary>
+    public static void SurfaceItems(IReadOnlyList<AshfallPart> parts, List<AshfallDressItem> items) => Surfaces(parts, parts.Count, items);
 
     static void Surfaces(IReadOnlyList<AshfallPart> parts, int count, List<AshfallDressItem> items)
     {
-        uint seed = 777;
+        uint seed = AshfallBuilder.Mix(AshfallMap.VariationSeed, 777u);
         int n = 0;
         // The avenues and the perimeter road: straight tiles (16 x 8 raw) in one row of about 24 m tiles (three times wider on an avenue, twice on the perimeter: a few hundred tiles in all, the client counts draw calls) between the junctions, one tile
         // fitted to each junction square. Junction squares: crossroads at the avenues' crossings, a T where an avenue meets the perimeter; the four corners stay bare (no L tile in the kit).
@@ -41,7 +49,8 @@ internal static partial class AshfallDressPass
                         for (int t = 0; t < tiles; t++)
                         {
                             float along = lo + (t + 0.5f) * lp, across = c - w / 2f + (r + 0.5f) * rowW;
-                            items.Add(Tile(Straight(seed, n++), northSouth ? across : along, northSouth ? along : across, 0f, northSouth ? 6 : 0, lp, rowW));
+                            items.Add(Tile(Straight(seed, n), northSouth ? across : along, northSouth ? along : across, 0f, (northSouth ? 6 : 0) + HalfTurn(seed, n), lp, rowW));
+                            n++;
                         }
                 }
             }
@@ -51,7 +60,7 @@ internal static partial class AshfallDressPass
             {
                 bool perimX = MathF.Abs(cx) == 232f, perimY = MathF.Abs(cy) == 232f;
                 if (perimX && perimY) continue;   // a corner: bare
-                if (!perimX && !perimY) { items.Add(Tile("AC-035", cx, cy, 0f, 0, wx, wy)); continue; }
+                if (!perimX && !perimY) { items.Add(Tile("AC-035", cx, cy, 0f, wx == wy ? 6 * (int)(AshfallBuilder.Mix(seed, 9001u + (uint)(n++)) % 4u) : HalfTurn(seed, n++), wx, wy)); continue; }
                 // A T: the through road is the perimeter road, the stem is the avenue and points away from the perimeter (towards the map's middle).
                 // Assumption (to check in the client): the T tile's stem points along its local +Y at yaw 0.
                 if (perimX) { int step = cx > 0f ? 6 : 18; items.Add(Tile("AC-034", cx, cy, 0f, step, wy, wx)); }
@@ -70,14 +79,15 @@ internal static partial class AshfallDressPass
                 for (int t = 0; t < tiles; t++)
                 {
                     var p = new Vector2(box.Cx, box.Cy) + ax * (-box.Length / 2f + (t + 0.5f) * lp);
-                    items.Add(Tile(Straight(seed + 1, n++), p.X, p.Y, box.Z1, box.YawStep, lp, box.Depth));
+                    items.Add(Tile(Straight(seed + 1, n), p.X, p.Y, box.Z1, box.YawStep + HalfTurn(seed + 1, n), lp, box.Depth));
+                    n++;
                 }
             }
             else Plaza(items, box);
         }
     }
 
-    /// <summary>The plaza: 15 m cells (the 8 m tiles scaled 1.9 times, uniform). Corner tiles in the four corners, edge tiles on the rim turned outward, the same edge tile turned by a hash over the inside (the kit has no plain plaza tile; AC-037, the raised centre tile, is not used: B's centre stays flat and walkable).</summary>
+    /// <summary>The plaza: 15 m cells (the 8 m tiles scaled 1.9 times, uniform). Corner tiles in the four corners, edge tiles on the rim turned outward, the same edge tile turned by a hash over the inside (the kit has no plain plaza tile; AC-037, the raised centre tile, is used only under objective A: B's centre stays flat and walkable).</summary>
     static void Plaza(List<AshfallDressItem> items, AshfallBox box)
     {
         int nx = (int)MathF.Round(box.Length / 15f), ny = (int)MathF.Round(box.Depth / 15f);
@@ -94,7 +104,7 @@ internal static partial class AshfallDressPass
                 else if (east) { id = "AC-036"; step = 6; }
                 else if (north) { id = "AC-036"; step = 12; }
                 else if (west) { id = "AC-036"; step = 18; }
-                else { id = "AC-036"; step = 6 * (int)(AshfallBuilder.Mix(31u, (uint)(i * 64 + j)) % 4); }
+                else { id = "AC-036"; step = 6 * (int)(AshfallBuilder.Mix(AshfallBuilder.Mix(AshfallMap.VariationSeed, 31u), (uint)(i * 64 + j)) % 4); }
                 items.Add(Tile(id, x, y, box.Z1, step, cw, cd));
             }
     }

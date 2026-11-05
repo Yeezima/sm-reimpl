@@ -77,16 +77,16 @@ public static class AshfallKit
 /// <summary>What a dressing item is to the game.</summary>
 public enum AshfallDressRole : byte
 {
-    /// <summary>
-    /// Draft 3: a scaled replacement. The item draws over a whole graybox structure (<see cref="AshfallDressItem.Part"/> is one representative part of it, or -1); every solid part of the structure except the
-    /// ground kinds (Ground, Road, Paving, Curb) and the boundary is listed in <see cref="AshfallDressing.HiddenParts"/> and the kit look draws none of them. The item's box stays within its structure's bounds grown by 0.5 m.
-    /// </summary>
+    /// <summary>Draft 3's scaled replacement of a graybox structure. Unused since draft 5 (kept so older readers still compile).</summary>
     Skin,
     /// <summary>Walk-over decoration: no collision, never above 0.35 m where it stands in a walked place (unused since draft 3).</summary>
     Decoration,
-    /// <summary>An added model with its own collision proxy (draft 2 only; the level of draft 3 has none).</summary>
+    /// <summary>
+    /// Draft 5: a placed asset, the one model that stands for a whole graybox structure. Its collision is the box parts listed in <see cref="AshfallDressing.ItemParts"/> for this item
+    /// (fitted boxes of the model, transformed with the item); the client draws the model and never the collision. A backdrop block (outside the boundary) has no parts.
+    /// </summary>
     Prop,
-    /// <summary>A ground, road or plaza tile laid over walkable ground (visual only; the ground part under it is the collision).</summary>
+    /// <summary>A ground, road or plaza tile laid over walkable ground (visual only; the ground part under it is the collision; no entry in <see cref="AshfallDressing.ItemParts"/>).</summary>
     Surface,
 }
 
@@ -98,10 +98,40 @@ public enum AshfallDressRole : byte
 /// Scale per axis = Size / (raw size on the mapped axis), so the drawn model fills the box exactly (non-uniform: draft 3 scales the models up to the graybox structures).
 /// The fit is a rotation, not a mirror: with <see cref="SwapXZ"/> false the model's front (glTF +Z) faces local -Y (south at yaw 0). The dressing turns wall fronts outward.
 /// </summary>
-public sealed record AshfallDressItem(string Asset, Vector3 Position, float Yaw, Vector3 Size, bool SwapXZ, AshfallDressRole Role, int Part);
+public sealed record AshfallDressItem(string Asset, Vector3 Position, float Yaw, Vector3 Size, bool SwapXZ, AshfallDressRole Role, int Part)
+{
+    /// <summary>
+    /// A point of the model's file (raw glTF frame, Y up) in the simulation frame: the same mapping the client draws with and the collision of the item was transformed with. The raw bounds fill the item's box
+    /// (<see cref="Size"/> over the raw size on the mapped axis); glTF X is local X and glTF -Z is local Y (glTF Z is local X and glTF X is local Y when <see cref="SwapXZ"/>); glTF Y is up from <see cref="Position"/>.Z; the local frame is turned by <see cref="Yaw"/> about the box's centre.
+    /// </summary>
+    public Vector3 ToWorld(Vector3 raw)
+    {
+        var m = AshfallKit.Get(Asset);
+        var u = (raw - m.RawMin) / m.RawSize;
+        float lx = SwapXZ ? (u.Z - 0.5f) * Size.X : (u.X - 0.5f) * Size.X;
+        float ly = SwapXZ ? (u.X - 0.5f) * Size.Y : (0.5f - u.Z) * Size.Y;
+        float s = MathF.Sin(Yaw), c = MathF.Cos(Yaw);
+        return new Vector3(Position.X + c * lx - s * ly, Position.Y + s * lx + c * ly, Position.Z + u.Y * Size.Z);
+    }
+}
 
 /// <summary>One structure of the dressing (draft 3): a group of touching hidden graybox parts (a building, a tower with its stair, a wall run, a rampart...), its parts and the bounds of their corners. A Skin item's box stays within these bounds grown by 0.5 m.</summary>
 public sealed record AshfallStructure(IReadOnlyList<int> Parts, Vector3 Min, Vector3 Max);
 
-/// <summary>The dressing of a level: its items in a fixed order, the graybox part indices the kit look hides (draft 3: every solid part except Ground, Road, Paving, Curb and Boundary) and the structures.</summary>
-public sealed record AshfallDressing(IReadOnlyList<AshfallDressItem> Items, IReadOnlyList<int> HiddenParts, uint Version, IReadOnlyList<AshfallStructure>? Structures = null);
+/// <summary>
+/// The dressing of a level. Draft 5: <see cref="Items"/> in a fixed order (the surface tiles first, then one Prop per placed asset); <see cref="HiddenParts"/> every non-ground part of the level (the collision of the assets: the client never draws it);
+/// <see cref="ItemParts"/> the range of level parts each item owns (parallel to the items; (0, 0) for a Surface); <see cref="Flags"/> the review list (gaps, mass mismatches, dropped pieces, models whose collision needs a manual clean-up);
+/// <see cref="Structures"/> one entry per placed structure (the item's parts and the bounds of the v5 structure it replaced).
+/// </summary>
+public sealed record AshfallDressing(IReadOnlyList<AshfallDressItem> Items, IReadOnlyList<int> HiddenParts, uint Version, IReadOnlyList<AshfallStructure>? Structures = null)
+{
+    public IReadOnlyList<(int First, int Count)> ItemParts { get; init; } = [];
+
+    public IReadOnlyList<string> Flags { get; init; } = [];
+}
+
+/// <summary>One line of the draft-5 placement log: the v5 structure group, its family, the asset (or "" when none), the item index (-1 when none) and the outcome ("placed", "dropped: ...").</summary>
+public sealed record AshfallPlacement(string Group, string Family, string Asset, int Item, string Outcome);
+
+/// <summary>The draft-5 result: the level, its dressing, the v5 graybox it started from, and what happened to every structure.</summary>
+public sealed record AshfallDraft5(AshfallLevel Level, AshfallDressing Dressing, AshfallBuild Graybox, IReadOnlyList<AshfallPlacement> Placements);

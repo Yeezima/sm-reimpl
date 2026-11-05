@@ -29,8 +29,14 @@ public sealed record AshfallLevel(IReadOnlyList<AshfallPart> Parts, IReadOnlyLis
 /// <summary>The generator's entry points. Contract shared by the simulation, content, server and client work of G1; <see cref="Build"/> is deterministic.</summary>
 public static partial class AshfallMap
 {
-    /// <summary>Raised with any change of the generated geometry, points, areas or spawns.</summary>
-    public const uint Version = 5;
+    /// <summary>Raised with any change of the generated geometry, points, areas or spawns. 9: draft 5 (one asset per structure, collision from the assets); <see cref="GrayboxVersion"/> is the v5 graybox it starts from.</summary>
+    public const uint Version = 9;
+
+    /// <summary>The graybox generator's version (<see cref="BuildGraybox"/>, hash <c>0xAE096E323BB5A4D3</c>, pinned).</summary>
+    public const uint GrayboxVersion = 5;
+
+    /// <summary>The seed of the repeated surfaces' variation (road and plaza tiles here; the client's ground and boundary textures use it too). Fixed and configurable by editing this constant (ours).</summary>
+    public const uint VariationSeed = 1;
 
     /// <summary>The playable square's half side (metres): x and y in [-<see cref="Half"/>, <see cref="Half"/>].</summary>
     public const float Half = 240f;

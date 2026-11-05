@@ -11,6 +11,39 @@ internal sealed class AshfallBuilder
 {
     public readonly List<AshfallPart> Parts = [];
 
+    /// <summary>The structure groups (draft 5): tags only, never part of any hash. See <see cref="Group"/>.</summary>
+    public readonly List<AshfallGroup> Groups = [];
+
+    readonly List<(int First, int End, int Group)> _ranges = [];
+
+    /// <summary>
+    /// Opens a structure group: every part added until the scope is disposed belongs to the group <paramref name="name"/> of the <paramref name="family"/> (the draft-5 pass replaces each group by one asset).
+    /// Scopes nest; a part belongs to the innermost one. Tags change no geometry and no hash.
+    /// </summary>
+    public GroupScope Group(string name, string family)
+    {
+        int id = Groups.FindIndex(g => g.Name == name);   // reopening a name adds to the same group (its parts need not be contiguous)
+        if (id < 0) { Groups.Add(new AshfallGroup(name, family)); id = Groups.Count - 1; }
+        return new GroupScope(this, id, Parts.Count);
+    }
+
+    internal void Close(int group, int first) => _ranges.Add((first, Parts.Count, group));
+
+    /// <summary>The group of every part (-1: none), parallel to <see cref="Parts"/>.</summary>
+    public int[] PartGroups()
+    {
+        var g = new int[Parts.Count];
+        Array.Fill(g, -1);
+        foreach (var (first, end, group) in _ranges)   // inner scopes close first and keep their parts
+            for (int i = first; i < end; i++) if (g[i] < 0) g[i] = group;
+        return g;
+    }
+
+    public readonly struct GroupScope(AshfallBuilder b, int group, int first) : IDisposable
+    {
+        public void Dispose() => b.Close(group, first);
+    }
+
     /// <summary>The 2D footprints (min x, min y, max x, max y) of the structures rubble keeps 1.2 m away from.</summary>
     public readonly List<Vector4> Footprints = [];
 
@@ -125,7 +158,7 @@ internal sealed class AshfallBuilder
             [[3, 2, 1, 0], [0, 1, 4], [1, 2, 4], [2, 3, 4], [3, 0, 4]]);
 
     /// <summary>The 36 corners of a box on right-handed axes (<paramref name="ax"/> x <paramref name="ay"/> = <paramref name="az"/>), outward winding as <see cref="TfwMap.Triangles"/>.</summary>
-    static Vector3[] Frame(Vector3 c, Vector3 ax, Vector3 ay, Vector3 az, float hx, float hy, float hz)
+    internal static Vector3[] Frame(Vector3 c, Vector3 ax, Vector3 ay, Vector3 az, float hx, float hy, float hz)
     {
         Vector3 P(float x, float y, float z) => c + ax * (x * hx) + ay * (y * hy) + az * (z * hz);
         Vector3[] p = [P(-1, -1, -1), P(1, -1, -1), P(1, 1, -1), P(-1, 1, -1), P(-1, -1, 1), P(1, -1, 1), P(1, 1, 1), P(-1, 1, 1)];
@@ -269,7 +302,7 @@ internal sealed class AshfallBuilder
             if (!Clear(x, y, r)) continue;
             float z = surface(x, y);
             if (surface(x - r, y - r) != z || surface(x + r, y + r) != z || surface(x - r, y + r) != z || surface(x + r, y - r) != z) continue;   // flat ground only
-            Oriented(AshfallKind.Rubble, x, y, z, z + height, sx, sy, yaw);
+            using (Group("rubble " + Parts.Count, "rubble")) Oriented(AshfallKind.Rubble, x, y, z, z + height, sx, sy, yaw);
             _rubble.Add(new Vector3(x, y, r));
             placed++;
         }

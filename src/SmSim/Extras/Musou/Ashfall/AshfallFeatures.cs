@@ -14,8 +14,11 @@ public sealed record AshfallRuin(string Kind, Vector4 Footprint, int Storeys, Ve
 /// <summary>What pass 2 placed, for the checks (never part of the wire contract).</summary>
 public sealed record AshfallFeatures(IReadOnlyList<AshfallPlatform> Platforms, IReadOnlyList<AshfallTower> Towers, IReadOnlyList<AshfallRuin> Ruins, int WallSegments, float WallLength, int StaggerWalls, IReadOnlyDictionary<string, Vector3>? Points = null);
 
-/// <summary>The level together with its features.</summary>
-public sealed record AshfallBuild(AshfallLevel Level, AshfallFeatures Features);
+/// <summary>A structure group of the v5 generator (draft 5): a name and a family ("shell", "tower", "cover", "rubble", "landmark", "stronghold-leg"...). Tags only.</summary>
+public sealed record AshfallGroup(string Name, string Family);
+
+/// <summary>The level together with its features and, for the graybox, the structure group of every part (-1: none) and the groups.</summary>
+public sealed record AshfallBuild(AshfallLevel Level, AshfallFeatures Features, IReadOnlyList<int>? PartGroup = null, IReadOnlyList<AshfallGroup>? Groups = null);
 
 /// <summary>A structure's local frame: (u, v) on the 4 m grid turned by <c>rot</c> quarter turns about the origin (ox, oy) (exact in floats, so every machine builds the same bits).</summary>
 internal readonly struct AshfallFrame

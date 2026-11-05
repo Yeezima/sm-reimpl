@@ -199,6 +199,7 @@ public static partial class AshfallMap
             if (rect.Z > x1 || rect.W > y1) continue;
             if (!p.Clear(rect, 8f) || !AshfallPlacer.Flat(rect)) continue;
             var f = AshfallFrame.At(p.B, rot, 0f, 0f, W, D, cx, cy, out var world);
+            using var scope = p.B.Group(kind + " " + cx + "," + cy, kind);
             Vector3? floor = null;
             switch (kind)
             {
@@ -253,6 +254,7 @@ public static partial class AshfallMap
         uint seed = 5000;
         foreach (var t in list)
         {
+            using var scope = p.B.Group(t.Name, "tower");
             var f = AshfallFrame.At(p.B, t.Rot, 0f, 0f, t.W, t.D, t.X, t.Y, out var world);
             if (!p.Clear(world, t.Gap) || !AshfallPlacer.Flat(world)) throw new InvalidOperationException($"Ashfall tower '{t.Name}' does not fit at {world}: {p.Why(world, t.Gap)}");
             seed += 101;
@@ -272,6 +274,7 @@ public static partial class AshfallMap
     /// <summary>The bridge between the twin towers: a 6 m wide deck at 12 m across the west avenue (the lane below stays open), parapets 1.2 m, through the gateways of both facing walls.</summary>
     static void Bridge(AshfallPlacer p)
     {
+        using var scope = p.B.Group("twin bridge", "bridge");
         p.B.Box(AshfallKind.Floor, -109f, 147f, 11.5f, -83f, 153f, 12f);
         p.B.Box(AshfallKind.Cover, -108f, 147f, 12f, -84f, 147.5f, 13.2f);
         p.B.Box(AshfallKind.Cover, -108f, 152.5f, 12f, -84f, 153f, 13.2f);
@@ -405,6 +408,7 @@ public static partial class AshfallMap
             if (centres.Any(c => Vector2.Distance(c, centre) < 36f)) continue;
             if (!wr.All(r => p.Clear(r, 8f) && AshfallPlacer.Flat(r))) continue;
             var f = probe;
+            using var scope = p.B.Group("platform " + p.Platforms.Count, "platform");
             f.Box(AshfallKind.Wall, 0f, 0f, 0f, P, Q, top - 0.5f);
             f.Box(AshfallKind.Floor, 0f, 0f, top - 0.5f, P, Q, top);
             f.Stair(P / 2f, -run, 0, 1, 4f, 0f, top);
@@ -460,7 +464,7 @@ public static partial class AshfallMap
             var r = alongX ? new Vector4(a, line, b, line + t) : new Vector4(line, a, line + t, b);
             if (p.Clear(r, 1.2f) && AshfallPlacer.Flat(r))
             {
-                p.B.Box(AshfallKind.Cover, r.X, r.Y, z0, r.Z, r.W, z0 + h);
+                using (p.B.Group("low wall " + r.X + "," + r.Y, "cover")) p.B.Box(AshfallKind.Cover, r.X, r.Y, z0, r.Z, r.W, z0 + h);
                 p.Claims.Add(r);
                 p.WallSegments++;
                 p.WallLength += b - a;
@@ -487,7 +491,7 @@ public static partial class AshfallMap
                     float d0 = c + side * 5.5f, d1 = c + side * 11f, h = H(seed, 1) % 2 == 0 ? 1f : 1.2f;
                     var r = northSouth ? new Vector4(MathF.Min(d0, d1), a, MathF.Max(d0, d1), a + 0.5f) : new Vector4(a, MathF.Min(d0, d1), a + 0.5f, MathF.Max(d0, d1));
                     if (!p.Clear(r, 1.2f)) continue;
-                    p.B.Box(AshfallKind.Cover, r.X, r.Y, 0f, r.Z, r.W, h);
+                    using (p.B.Group("stagger wall " + r.X + "," + r.Y, "cover")) p.B.Box(AshfallKind.Cover, r.X, r.Y, 0f, r.Z, r.W, h);
                     p.Claims.Add(r);
                     p.StaggerWalls++;
                 }

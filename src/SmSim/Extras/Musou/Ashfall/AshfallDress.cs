@@ -1,32 +1,37 @@
 using System.Numerics;
-using SmSim.Extras.Musou.Campaign;
 
 namespace SmSim.Extras.Musou.Ashfall;
 
 public static partial class AshfallMap
 {
-    /// <summary>The dressing pass's version (raised with any change of the items). 5: draft 3, scaled replacements of every visible graybox structure (docs/musou-ashfall-graybox.md "Draft 3"); 1..4 were drafts 1 and 2.</summary>
-    public const uint DressVersion = 5;
+    /// <summary>The dressing pass's version (raised with any change of the items). 7: draft 5, one asset per graybox structure with collision from the assets (docs/musou-ashfall-graybox.md "Draft 5"); 5 was draft 3's scaled replacements, 1..4 drafts 1 and 2.</summary>
+    public const uint DressVersion = 7;
+
+    static readonly Lazy<AshfallDraft5> Draft5Cache = new(AshfallDraft5Pass.Run, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    /// <summary>The draft-5 result in full: level, dressing, the v5 graybox it started from and the placement log (built once, shared; treat as read-only).</summary>
+    public static AshfallDraft5 BuildDraft5() => Draft5Cache.Value;
+
+    /// <summary>A second, uncached run of the pass (for the determinism checks).</summary>
+    public static AshfallDraft5 RebuildDraft5() => AshfallDraft5Pass.Run();
 
     /// <summary>
-    /// The level with its kit dressing (deterministic; the same items in the same order on every machine). The level is exactly <see cref="Build"/> (version 5): the dressing is a pure function of its parts and draws over them.
+    /// The level (deterministic): Ashfall draft 5, <see cref="Version"/> 9 (docs/musou-ashfall-graybox.md "Draft 5"). The v5 graybox's ground kinds and boundary plus the collision boxes of the one asset that replaces each graybox structure,
+    /// transformed with the placement. Every place and size is ours (placeholder demonstration). The same parts, in the same order, with the same bits, on every machine.
     /// </summary>
-    public static (AshfallLevel Level, AshfallDressing Dressing) BuildWithDressing()
-    {
-        var level = Build();
-        return (level, AshfallDressPass.Run(level));
-    }
+    public static AshfallLevel Build() => BuildDraft5().Level;
+
+    /// <summary>The draft-5 level together with the features of the v5 graybox it started from (the places v5 had, for the reports; draft 5 keeps only what its assets allow).</summary>
+    public static AshfallBuild BuildWithFeatures() => new(BuildDraft5().Level, BuildDraft5().Graybox.Features);
+
+    /// <summary>The draft-5 level with its dressing: one <see cref="AshfallDressRole.Prop"/> per placed asset (its collision parts in <see cref="AshfallDressing.ItemParts"/>) and the <see cref="AshfallDressRole.Surface"/> tiles.</summary>
+    public static (AshfallLevel Level, AshfallDressing Dressing) BuildWithDressing() => (BuildDraft5().Level, BuildDraft5().Dressing);
 }
 
-/// <summary>
-/// The kit dressing pass (draft 3, ours, placeholder demonstration; docs/musou-ashfall-graybox.md "Draft 3 (scaled replacements)"): every visible graybox structure is replaced by kit models scaled up to its size.
-/// Deterministic: integer hashes (<see cref="AshfallBuilder.Mix"/>), total-order sorts, no random numbers. Files: this one (entry and the box reader), <c>AshfallDress.Compose.cs</c> (grouping, composing and the fallback pass),
-/// <c>AshfallDress.Compose.cs</c> (the compositions), <c>AshfallDress.Surfaces.cs</c> (road and plaza tiles).
-/// </summary>
+/// <summary>Namespace holder of the surface tiles pass (see <c>AshfallDress.Surfaces.cs</c>); the structures are placed by <c>AshfallDraft5Pass</c>.</summary>
 internal static partial class AshfallDressPass
 {
     static float Yaw(int step) => (((step % 24) + 24) % 24) * (MathF.PI / 12f);
-
 }
 
 /// <summary>A graybox part read as a box on the ground plane: centre, bottom and top, <see cref="Length"/> along the local X (the longer horizontal side) and <see cref="Depth"/> along the local Y, turned by <see cref="YawStep"/> x 15 degrees.</summary>

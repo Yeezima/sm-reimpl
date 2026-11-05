@@ -11,7 +11,12 @@ namespace SmTool;
 /// </summary>
 static class AshfallKitCollisionCommand
 {
-    static readonly string[] Walkable = ["AC-005", "AC-007", "AC-008", "AC-009"];
+    /// <summary>
+    /// Models whose tops or stairs are meant to be walked on (draft 5): one global rule, a finer fit (a 0.4 m step after scaling needs thin risers, which resolution 16 cannot give):
+    /// <see cref="WalkableResolution"/> cells on the longest axis, at most <see cref="WalkableMaxBoxes"/> boxes, the same fill tolerance.
+    /// </summary>
+    static readonly string[] Walkable = ["AC-003", "AC-005", "AC-006", "AC-007", "AC-008", "AC-009", "AC-010", "AC-037"];
+    const int WalkableResolution = 48, WalkableMaxBoxes = 64;
 
     public static int Run(string[] rest)
     {
@@ -59,7 +64,10 @@ static class AshfallKitCollisionCommand
                 warn = $"bounds differ from the catalogue by {diff * 1000f:F1} mm";
                 Console.Error.WriteLine($"warning: {model.Id}: {warn}");
             }
-            var fit = AshfallKitFit.Fit(mesh.Positions, mesh.Indices, model.RawMin, model.RawMax, res, maxBoxes, fill);
+            bool walk = Walkable.Contains(model.Id);
+            var fit = walk
+                ? AshfallKitFit.Fit(mesh.Positions, mesh.Indices, model.RawMin, model.RawMax, WalkableResolution, WalkableMaxBoxes, fill, WalkableResolution)
+                : AshfallKitFit.Fit(mesh.Positions, mesh.Indices, model.RawMin, model.RawMax, res, maxBoxes, fill);
             var reasons = Cleanup(model, fit.Metrics);
             rows.Add(new Row(model, fit, reasons, warn));
             File.WriteAllText(Path.Combine(objDir, model.Id + "-boxes.obj"), Obj(model.Id, fit.Boxes), new UTF8Encoding(false));

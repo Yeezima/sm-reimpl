@@ -10,12 +10,12 @@ using Xunit.Abstractions;
 namespace SmNet.Tests.Extras.Musou.Ashfall;
 
 /// <summary>
-/// Ashfall Citadel's graybox (G1, docs/musou-ashfall-graybox.md), checked from the generator alone: determinism, places on walkable ground outside the solids, triangle budgets, the rubble rules, the
+/// Ashfall Citadel's v5 graybox (G1, docs/musou-ashfall-graybox.md; since draft 5 <see cref="AshfallMap.BuildGraybox"/>, the reference the draft-5 level starts from), checked from the generator alone: determinism, places on walkable ground outside the solids, triangle budgets, the rubble rules, the
 /// enemies' graph (what is walked and what only a jump reaches) and the isolation of the classic modes. No original bytes, no install, no bots.
 /// </summary>
 public class AshfallGrayboxTests(ITestOutputHelper output)
 {
-    static readonly AshfallBuild Gen = AshfallMap.BuildWithFeatures();
+    static readonly AshfallBuild Gen = AshfallMap.BuildGrayboxWithFeatures();
     static readonly AshfallLevel Level = Gen.Level;
     static readonly AshfallFeatures Features = Gen.Features;
     static readonly StaticMesh Mesh = new(Level.SolidCorners(), Enumerable.Range(0, Level.SolidCorners().Length).ToArray());
@@ -25,8 +25,8 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
     [Fact]
     public void Two_builds_are_bit_for_bit_equal_and_the_hash_follows_the_version()
     {
-        var a = AshfallMap.Build();
-        var b = AshfallMap.Build();
+        var a = AshfallMap.BuildGraybox();
+        var b = AshfallMap.BuildGraybox();
         Assert.Equal(a.Hash, b.Hash);
         Assert.Equal(a.Parts.Count, b.Parts.Count);
         for (int i = 0; i < a.Parts.Count; i++)
@@ -36,11 +36,11 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
         }
         Assert.Equal(a.Points, b.Points);
         Assert.Equal(a.Spawns, b.Spawns);
-        Assert.Equal(5u, AshfallMap.Version);
-        Assert.Equal(Hash(a, AshfallMap.Version), a.Hash);
-        Assert.NotEqual(Hash(a, AshfallMap.Version + 1), a.Hash);   // a new generator version moves the hash
+        Assert.Equal(5u, AshfallMap.GrayboxVersion);
+        Assert.Equal(Hash(a, AshfallMap.GrayboxVersion), a.Hash);
+        Assert.NotEqual(Hash(a, AshfallMap.GrayboxVersion + 1), a.Hash);   // a new generator version moves the hash
         Assert.Equal(AshfallContent.ToMapContent(a).Hash, a.Hash);
-        // Pinned (version 5): a layout change without a new AshfallMap.Version fails here, not at a client's handshake.
+        // Pinned (version 5): a layout change without a new AshfallMap.GrayboxVersion fails here, not at a client's handshake.
         Assert.Equal(PinnedLevelHash, a.Hash);
     }
 
@@ -64,7 +64,7 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
     {
         // The highest solid top inside the playable square (anything a jump pack can land on) plus a full jump's apex (17.54 m, spec) and a 4 m margin
         // stays below the boundary wall (review of 2026-11-05: the 5-storey towers' 30 m wall columns against the old 48 m wall left 0.5 m).
-        var level = AshfallMap.Build();
+        var level = AshfallMap.BuildGraybox();
         float top = level.Parts.Where(p => p.Solid && p.Kind is not (AshfallKind.Boundary or AshfallKind.Backdrop))
             .SelectMany(p => p.Corners).Where(c => MathF.Abs(c.X) < AshfallMap.Half && MathF.Abs(c.Y) < AshfallMap.Half).Max(c => c.Z);
         Assert.True(top + 17.54f + 4f <= AshfallMap.BoundaryHeight, $"highest top {top} m + a full jump reaches the {AshfallMap.BoundaryHeight} m boundary");
@@ -543,7 +543,7 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
     /// <summary>The graph as the server builds it: the war's world on Ashfall, its walking area (the level's markers and the range), through the cache into a folder of its own.</summary>
     static readonly Lazy<Built> Nav = new(() =>
     {
-        var data = TfwWorld.Load("unused", out _)!;
+        var data = TfwMap.Compose(AshfallContent.ToMapContent(Level).ToCollisionWorld(), Level.Points, Level.Areas, Level.Spawns, manufactorum: false);
         string dir = Path.Combine(Path.GetTempPath(), "ashfall-nav-" + Guid.NewGuid().ToString("N"));
         try
         {

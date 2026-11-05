@@ -20,32 +20,38 @@ public static partial class AshfallMap
     static void StrongholdLayout(AshfallBuilder b)
     {
         // West half 12 m, east half 18 m. The north wall runs between the legs at 12 m.
-        b.Box(Wall, -72f, 112f, 0f, -12f, 116f, 12f);
-        b.Box(Wall, -72f, 116f, 0f, -68f, 220f, 12f);
-        b.Box(Wall, -68f, 216f, 0f, 68f, 220f, 12f);
-        b.Box(Wall, 12f, 112f, 0f, 72f, 116f, 18f);
-        b.Box(Wall, 68f, 116f, 0f, 72f, 220f, 18f);
+        // Draft 5 tags: each of the five ring legs is a structure group (its walls and parapets; the order of the parts is unchanged).
+        using (b.Group("ring south leg west", "stronghold-leg")) b.Box(Wall, -72f, 112f, 0f, -12f, 116f, 12f);
+        using (b.Group("ring west leg", "stronghold-leg")) b.Box(Wall, -72f, 116f, 0f, -68f, 220f, 12f);
+        using (b.Group("ring north leg", "stronghold-leg")) b.Box(Wall, -68f, 216f, 0f, 68f, 220f, 12f);
+        using (b.Group("ring south leg east", "stronghold-leg")) b.Box(Wall, 12f, 112f, 0f, 72f, 116f, 18f);
+        using (b.Group("ring east leg", "stronghold-leg")) b.Box(Wall, 68f, 116f, 0f, 72f, 220f, 18f);
         // Parapets (Cover, 0.5 x 1.2 m) on both sides of every wall top. They touch edge to edge (gap 0) and stop where a tower stands against the wall (its own wall is the barrier),
         // where the twin tower's gateway opens onto the west rampart (y 144..160) and at the keep bridge's mouth (y 199..205).
         // West rampart, 12 m.
-        Parapet(b, -72f, 112f, -71.5f, 144f, 12f); Parapet(b, -72f, 160f, -71.5f, 220f, 12f);
-        Parapet(b, -71.5f, 112f, -12f, 112.5f, 12f);
-        Parapet(b, -52f, 115.5f, -12f, 116f, 12f);
-        Parapet(b, -68.5f, 132f, -68f, 199f, 12f); Parapet(b, -68.5f, 205f, -68f, 216f, 12f);
-        Parapet(b, -71.5f, 219.5f, 68f, 220f, 12f);
-        Parapet(b, -68f, 216f, 68f, 216.5f, 12f);
+        using (b.Group("ring west leg", "stronghold-leg")) Parapet(b, -72f, 112f, -71.5f, 144f, 12f); using (b.Group("ring west leg", "stronghold-leg")) Parapet(b, -72f, 160f, -71.5f, 220f, 12f);
+        using (b.Group("ring south leg west", "stronghold-leg")) Parapet(b, -71.5f, 112f, -12f, 112.5f, 12f);
+        using (b.Group("ring south leg west", "stronghold-leg")) Parapet(b, -52f, 115.5f, -12f, 116f, 12f);
+        using (b.Group("ring west leg", "stronghold-leg")) Parapet(b, -68.5f, 132f, -68f, 199f, 12f); using (b.Group("ring west leg", "stronghold-leg")) Parapet(b, -68.5f, 205f, -68f, 216f, 12f);
+        using (b.Group("ring north leg", "stronghold-leg")) Parapet(b, -71.5f, 219.5f, 68f, 220f, 12f);
+        using (b.Group("ring north leg", "stronghold-leg")) Parapet(b, -68f, 216f, 68f, 216.5f, 12f);
         // East rampart, 18 m.
-        Parapet(b, 71.5f, 112f, 72f, 220f, 18f);
-        Parapet(b, 12f, 112f, 71.5f, 112.5f, 18f);
-        Parapet(b, 12f, 115.5f, 52f, 116f, 18f);
-        Parapet(b, 68f, 132f, 68.5f, 219.5f, 18f);
-        Parapet(b, 68f, 219.5f, 71.5f, 220f, 18f);
+        using (b.Group("ring east leg", "stronghold-leg")) Parapet(b, 71.5f, 112f, 72f, 220f, 18f);
+        using (b.Group("ring south leg east", "stronghold-leg")) Parapet(b, 12f, 112f, 71.5f, 112.5f, 18f);
+        using (b.Group("ring south leg east", "stronghold-leg")) Parapet(b, 12f, 115.5f, 52f, 116f, 18f);
+        using (b.Group("ring east leg", "stronghold-leg")) Parapet(b, 68f, 132f, 68.5f, 219.5f, 18f);
+        using (b.Group("ring east leg", "stronghold-leg")) Parapet(b, 68f, 219.5f, 71.5f, 220f, 18f);
         // The bridge from the west rampart to the keep tower: a deck 6 m wide at 12 m (x -68..-48, y 199..205) with parapets, through the tower's gateway (y 200..204).
-        b.Box(Floor, -68f, 199f, 11.5f, -48f, 205f, 12f);
-        Parapet(b, -68f, 199f, -48f, 199.5f, 12f);
-        Parapet(b, -68f, 204.5f, -48f, 205f, 12f);
+        using (b.Group("keep bridge", "bridge"))
+        {
+            b.Box(Floor, -68f, 199f, 11.5f, -48f, 205f, 12f);
+            Parapet(b, -68f, 199f, -48f, 199.5f, 12f);
+            Parapet(b, -68f, 204.5f, -48f, 205f, 12f);
+        }
         // The keep, 64 x 48 m, 18 m tall, a 12 x 10 m entrance (8 m deep) in its south face; solid inside.
         // Pass 2b: the roof (a Floor slab 0.5 m thick on top, 18 m) is reachable on foot by a stair up the keep's east face: three flights of 6 m (4 m wide, 0.25 m risers, 0.5 m treads), landings at 6 and 12 m, a 4 m deck at 18 m.
+        using (b.Group("keep", "stronghold-keep"))
+        {
         b.Box(Stronghold, -32f, 164f, 0f, -6f, 212f, 17.5f);
         b.Box(Stronghold, 6f, 164f, 0f, 32f, 212f, 17.5f);
         b.Box(Stronghold, -6f, 172f, 0f, 6f, 212f, 17.5f);
@@ -57,6 +63,7 @@ public static partial class AshfallMap
         b.Box(AshfallKind.Stair, 32f, 192f, 0f, 36f, 196f, 12f);
         b.Stair(34f, 196f, 0, 1, 4f, 0f, 6f, skip: 48);
         b.Box(AshfallKind.Stair, 32f, 208f, 0f, 36f, 212f, 18f);
+        }
         Outerworks(b);
     }
 
@@ -71,17 +78,20 @@ public static partial class AshfallMap
         for (int i = 0; i < 3; i++)
         {
             float x0 = -68f + 16f * i, x1 = x0 + 16f, top = tops[i];
-            b.Box(Wall, x0, 102f, 0f, x1, 108f, top - 0.5f);
-            b.Box(Floor, x0, 102f, top - 0.5f, x1, 108f, top);
-            Parapet(b, x0, 102f, x1, 102.5f, top, 1f);
-            Parapet(b, x0, 107.5f, x1, 108f, top, 1f);
+            using (b.Group("terrace " + (i + 1), "terrace"))
+            {
+                b.Box(Wall, x0, 102f, 0f, x1, 108f, top - 0.5f);
+                b.Box(Floor, x0, 102f, top - 0.5f, x1, 108f, top);
+                Parapet(b, x0, 102f, x1, 102.5f, top, 1f);
+                Parapet(b, x0, 107.5f, x1, 108f, top, 1f);
+            }
         }
-        Parapet(b, -20.5f, 102.5f, -20f, 107.5f, 6f, 1f);
-        b.Stair(-72f, 105f, 1, 0, 4f, 0f, 2f);
-        b.Stair(-56f, 105f, 1, 0, 4f, 2f, 2f);
-        b.Stair(-40f, 105f, 1, 0, 4f, 4f, 2f);
-        b.Box(Wall, 20f, 104f, 0f, 36f, 108f, 6f);
-        b.Box(Wall, 36f, 100f, 0f, 56f, 104f, 6f);
+        using (b.Group("terrace 3", "terrace")) Parapet(b, -20.5f, 102.5f, -20f, 107.5f, 6f, 1f);
+        using (b.Group("terrace 1", "terrace")) b.Stair(-72f, 105f, 1, 0, 4f, 0f, 2f);
+        using (b.Group("terrace 2", "terrace")) b.Stair(-56f, 105f, 1, 0, 4f, 2f, 2f);
+        using (b.Group("terrace 3", "terrace")) b.Stair(-40f, 105f, 1, 0, 4f, 4f, 2f);
+        using (b.Group("east outer wall 1", "outerwall")) b.Box(Wall, 20f, 104f, 0f, 36f, 108f, 6f);
+        using (b.Group("east outer wall 2", "outerwall")) b.Box(Wall, 36f, 100f, 0f, 56f, 104f, 6f);
     }
 
     /// <summary>
@@ -102,6 +112,7 @@ public static partial class AshfallMap
         uint seed = 8000;
         foreach (var t in list)
         {
+            using var scope = p.B.Group(t.Name, t.Name == "Keep tower" ? "stronghold-keeptower" : "stronghold-stairtower");
             var f = AshfallFrame.At(p.B, t.Rot, 0f, 0f, t.W, t.D, t.X, t.Y, out var world);
             seed += 101;
             var floors = Tower(f, t, seed);
