@@ -87,7 +87,16 @@ public static class AshfallKitFit
     public const int DefaultMaxBoxes = 32;
 
     /// <summary>Models whose tops or stairs are meant to be walked on (draft 5): fitted finer (<see cref="WalkableResolution"/> cells, at most <see cref="WalkableMaxBoxes"/> boxes, top search at the same resolution) with ramp detection. One list for the generator command and the level pass.</summary>
-    public static readonly IReadOnlyList<string> WalkableIds = ["AC-003", "AC-005", "AC-006", "AC-007", "AC-008", "AC-009", "AC-010", "AC-037"];
+    /// <remarks>Draft 6 adds the Meshy expansion's traversal pieces (walls with tops, gatehouse, keep, bridge, stair, ramp, the low and medium platforms, the two-storey ruin, the tower, the mound, the dais);
+    /// its quarantined models (<see cref="AshfallKitFlags.TraversalQuarantined"/>: AC-043, AC-048) are fitted as solids, not walkable.</remarks>
+    public static readonly IReadOnlyList<string> WalkableIds = ["AC-003", "AC-005", "AC-006", "AC-007", "AC-008", "AC-009", "AC-010", "AC-037",
+        "AC-041", "AC-042", "AC-044", "AC-045", "AC-046", "AC-047", "AC-049", "AC-050", "AC-051", "AC-052", "AC-053", "AC-076"];
+
+    /// <summary>The step a walker climbs (metres; the level pass's rule, <c>AshfallDraft5.StepHeight</c>).</summary>
+    public const float StepHeight = 0.4f;
+
+    /// <summary>The largest uniform scale (metres per raw unit) at which a fit's cell, the height quantum of its boxes, stays within <see cref="StepHeight"/>.</summary>
+    public static float MaxWalkScale(float cellSize) => cellSize <= 0f ? float.PositiveInfinity : StepHeight / cellSize;
     public const int WalkableResolution = 48, WalkableMaxBoxes = 64;
     public const float DefaultFillTolerance = 0.15f;
 

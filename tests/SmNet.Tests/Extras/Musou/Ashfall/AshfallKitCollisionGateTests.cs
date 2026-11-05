@@ -45,6 +45,35 @@ public class AshfallKitCollisionGateTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Every_Meshy_expansion_model_has_a_committed_fit_that_passes_the_gate()
+    {
+        // Draft 6, the 36 models of 2026-11-05 (AC-041..076): none is report-only, so each must be fitted, measured and pass; the traversal pieces at the walkable 48 cells.
+        var expansion = AshfallKit.Models.Where(m => m.File.StartsWith(AshfallKit.ExpansionFolder + "/", StringComparison.Ordinal)).ToList();
+        Assert.Equal(36, expansion.Count);
+        var ids = AshfallKitCollision.Ids.ToHashSet();
+        foreach (var m in expansion)
+        {
+            Assert.Contains(m.Id, ids);
+            Assert.DoesNotContain(m.Id, AshfallKitFit.Gate.ReportOnlyIds);
+            var q = AshfallKitCollision.Quality(m.Id);
+            Assert.True(q.FineSolidCells > 0, $"{m.Id}: not measured");
+            Assert.True(q.Passes, $"{m.Id}: {string.Join("; ", q.Failures())}");
+            if (AshfallKitFit.WalkableIds.Contains(m.Id)) Assert.Equal(AshfallKitFit.WalkableResolution, AshfallKitCollision.Settings(m.Id).Resolution);
+        }
+    }
+
+    [Fact]
+    public void At_their_design_scale_the_walkable_expansion_models_keep_the_step_but_the_medium_platform()
+    {
+        // The fit's cell is the height quantum of its boxes: scaled by the design scale it must stay within the 0.4 m step. AC-050 (08M, 0.25 m risers give 10.6 m/unit) is over
+        // (0.42 m): the placement draws it at most at AshfallKitFit.MaxWalkScale (about 10.1 m/unit) or relies on its ramp wedge.
+        var over = AshfallKit.Models.Where(m => m.DesignScale > 0f && AshfallKitFit.WalkableIds.Contains(m.Id))
+            .Where(m => AshfallKitCollision.Metrics(m.Id).CellSize * m.DesignScale > AshfallKitFit.StepHeight + 1e-3f).Select(m => m.Id);
+        Assert.Equal(["AC-050"], over);
+        Assert.True(AshfallKitFit.MaxWalkScale(AshfallKitCollision.Metrics("AC-050").CellSize) > 10f);
+    }
+
+    [Fact]
     public void The_level_s_collision_stays_within_its_triangle_budget()
     {
         // Draft 5 had 181,772 collision triangles (v5: 69,202); the gated refit may cost some, not a blow-up. Ours: 220 k.

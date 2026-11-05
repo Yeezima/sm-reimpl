@@ -52,6 +52,9 @@ static class AshfallKitCollisionCommand
             string file = Path.Combine(source, model.File.Replace('/', Path.DirectorySeparatorChar));
             if (!File.Exists(file)) { Console.Error.WriteLine($"ashfall-kit-collision: missing {model.Id}: {file}"); return 1; }
             var mesh = GlbReader.Read(file);
+            // The model's axis correction (AC-071 lies flat): bounds, fit and measure all work in the corrected frame.
+            if (model.ImportFix != AshfallKitImportFix.None)
+                for (int i = 0; i < mesh.Positions.Count; i++) mesh.Positions[i] = model.FileToModel(mesh.Positions[i]);
             var min = new Vector3(float.MaxValue); var max = new Vector3(float.MinValue);
             foreach (var p in mesh.Positions) { min = Vector3.Min(min, p); max = Vector3.Max(max, p); }
             float diff = Math.Max(Vector3.Abs(min - model.RawMin).Length(), Vector3.Abs(max - model.RawMax).Length());
@@ -78,6 +81,7 @@ static class AshfallKitCollisionCommand
             string verdict = q.Passes ? "PASS" : reportOnly ? "fails (report only: never used)" : "FAIL";
             Console.WriteLine(Inv($"{model.Id}: {gated.Fit.Boxes.Count,3} boxes (res {st.Resolution}, fill {st.FillTolerance * 100:F0} %, cap {st.MaxBoxes}, seal {st.Seal})  {Measures(q)}  {verdict}{(q.Passes ? "" : ": " + string.Join("; ", q.Failures()))}"));
             if (before != null) Console.WriteLine(Inv($"         before: {beforeBoxes,3} boxes  {Measures(before)}  {(before.Passes ? "PASS" : "FAIL: " + string.Join("; ", before.Failures()))}"));
+            if (model.DesignScale > 0f) Console.WriteLine("         " + DesignLine(model, gated));
         }
         File.WriteAllText(outPath, Generated(rows), new UTF8Encoding(false));
         File.WriteAllText(reportPath, Report(rows), new UTF8Encoding(false));
@@ -96,6 +100,24 @@ static class AshfallKitCollisionCommand
     sealed record Row(AshfallKitModel Model, AshfallKitGatedFit Gated, List<string> Reasons, string Warn, AshfallKitFitQuality? Before, int BeforeBoxes, bool ReportOnly);
 
     static string Inv(FormattableString f) => f.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// A model with a design scale: its size at that scale and, for a walkable model, the fit's cell after scaling against the 0.4 m step (the largest scale that keeps it), the measured riser after scaling,
+    /// the stair and ramp runs found and the walkable tops in metres above the foot.
+    /// </summary>
+    static string DesignLine(AshfallKitModel m, AshfallKitGatedFit g)
+    {
+        float s = m.DesignScale; var size = m.DesignSize;
+        var sb = new StringBuilder(Inv($"design scale {s:F2} m/unit: {size.X:F1} x {size.Z:F1} m, {size.Y:F1} m high"));
+        if (m.RawRiser > 0f) sb.Append(Inv($"; riser {m.RawRiser * s:F2} m{(m.RawRiser * s > AshfallKitFit.StepHeight ? " OVER the step" : "")}"));
+        if (Walkable.Contains(m.Id))
+        {
+            float cell = g.Fit.Metrics.CellSize;
+            sb.Append(Inv($"; walkable: cell {cell * s:F2} m {(cell * s <= AshfallKitFit.StepHeight + 1e-4f ? "within" : "OVER")} the {AshfallKitFit.StepHeight} m step (max walk scale {AshfallKitFit.MaxWalkScale(cell):F2}), {g.Fit.Ramps.Count} ramp(s)"));
+            sb.Append("; tops at " + (g.Fit.Metrics.WalkableTops.Length == 0 ? "none" : string.Join(", ", g.Fit.Metrics.WalkableTops.Select(t => ((t - m.RawMin.Y) * s).ToString("0.0", CultureInfo.InvariantCulture)))) + " m");        }
+        if (m.Flags != AshfallKitFlags.None) sb.Append($"; flags {m.Flags}");
+        return sb.ToString();
+    }
 
     static string Measures(AshfallKitFitQuality q) => Inv($"far air {q.FarAirPercent:F1} %, overhang {q.OverhangAirPercent:F1} %, worst box {q.WorstBoxAirPercent:F1} %, pocket {q.LargestPocketPercent:F1} %, deep air view {q.DeepAirViewPercent:F1} %, phantom view {q.PhantomSilhouettePercent:F1} %, holes {q.HoleSilhouettePercent:F1} %, missed {q.MissedPercent:F1} %, fine IoU {q.FineIou:F2}");
 
@@ -178,6 +200,12 @@ static class AshfallKitCollisionCommand
             sb.Append(Inv($"| {r.Model.Id} | {r.Model.Name} | {gate} | {m.BoxCount} ({r.BeforeBoxes}) | res {st.Resolution}, fill {st.FillTolerance * 100:F0} %, cap {st.MaxBoxes}, seal {st.Seal} | {q.FarAirPercent:F1} | {q.OverhangAirPercent:F1} | {q.WorstBoxAirPercent:F1} | {q.LargestPocketPercent:F1} | {q.DeepAirViewPercent:F1} | {q.PhantomSilhouettePercent:F1} | {q.HoleSilhouettePercent:F1} | {q.MissedPercent:F1} | {q.FineIou:F2} | {before} | {tops} | {flags} |\n"));
         }
         sb.Append(Inv($"\nPass: {rows.Count(r => r.Gated.Quality.Passes)} of {rows.Count}; used models failing: {rows.Count(r => !r.ReportOnly && !r.Gated.Quality.Passes)}. Boxes {rows.Sum(r => r.Gated.Fit.Boxes.Count)} (before {rows.Sum(r => r.BeforeBoxes)}).\n"));
+        var design = rows.Where(r => r.Model.DesignScale > 0f).ToList();
+        if (design.Count > 0)
+        {
+            sb.Append("\n## Design scales (models with a recorded scale)\n\n");
+            foreach (var r in design) sb.Append($"- {r.Model.Id} ({r.Model.SourceId}, {r.Model.Family}): {DesignLine(r.Model, r.Gated)}\n");
+        }
         return sb.ToString();
     }
 
