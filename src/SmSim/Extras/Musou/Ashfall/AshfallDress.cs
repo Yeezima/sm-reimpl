@@ -5,61 +5,28 @@ namespace SmSim.Extras.Musou.Ashfall;
 
 public static partial class AshfallMap
 {
-    /// <summary>The dressing pass's version (raised with any change of the items). 2: no AC-031 as a skin, small walls bare, tiered boundary, only Cover and Rubble skins hide their box; 1: the first draft (docs/musou-ashfall-graybox.md, "Kit dressing (draft 1)").</summary>
-    public const uint DressVersion = 4;
+    /// <summary>The dressing pass's version (raised with any change of the items). 5: draft 3, scaled replacements of every visible graybox structure (docs/musou-ashfall-graybox.md "Draft 3"); 1..4 were drafts 1 and 2.</summary>
+    public const uint DressVersion = 5;
 
     /// <summary>
-    /// The level with its kit dressing (deterministic; the same items in the same order on every machine). Server and client both call it, so the Prop items'
-    /// collision proxies are part of the level and its hash (<see cref="Build"/> returns the same level).
+    /// The level with its kit dressing (deterministic; the same items in the same order on every machine). The level is exactly <see cref="Build"/> (version 5): the dressing is a pure function of its parts and draws over them.
     /// </summary>
     public static (AshfallLevel Level, AshfallDressing Dressing) BuildWithDressing()
     {
-        var built = BuildCore(true);
-        return (built.Build.Level, built.Dressing);
+        var level = Build();
+        return (level, AshfallDressPass.Run(level));
     }
 }
 
 /// <summary>
-/// The kit dressing pass (ours, placeholder demonstration; docs/musou-ashfall-graybox.md "Kit dressing (draft 1)"): skins over the graybox's boxes, road and plaza tiles, walk-over scatter and
-/// props with their own collision proxies. Deterministic: integer hashes (<see cref="AshfallBuilder.Mix"/>), total-order sorts, no random numbers. Files: this one (entry and the box reader),
-/// <c>AshfallDress.Skins.cs</c>, <c>AshfallDress.Surfaces.cs</c>, <c>AshfallDress.Props.cs</c>.
+/// The kit dressing pass (draft 3, ours, placeholder demonstration; docs/musou-ashfall-graybox.md "Draft 3 (scaled replacements)"): every visible graybox structure is replaced by kit models scaled up to its size.
+/// Deterministic: integer hashes (<see cref="AshfallBuilder.Mix"/>), total-order sorts, no random numbers. Files: this one (entry and the box reader), <c>AshfallDress.Structures.cs</c> (grouping),
+/// <c>AshfallDress.Compose.cs</c> (the compositions), <c>AshfallDress.Surfaces.cs</c> (road and plaza tiles).
 /// </summary>
 internal static partial class AshfallDressPass
 {
-    /// <summary>The farthest a Skin item may stick out of its part's box (metres); draft 2 has no Skin items.</summary>
-    public const float SkinGrow = 0.15f;
-
-    /// <summary>The tallest a walk-over Decoration item may be after fitting (metres).</summary>
-    public const float DecorationMaxHeight = 0.35f;
-
     static float Yaw(int step) => (((step % 24) + 24) % 24) * (MathF.PI / 12f);
 
-    /// <summary>
-    /// Runs the pass: removes the v5 families the kit replaces from <paramref name="b"/>, rebuilds them as freestanding kit structures with their own collision proxies (always) and builds the items
-    /// (only when <paramref name="withItems"/>). Returns the dressing and the features with the kit's perches and the ruins that stayed graybox.
-    /// </summary>
-    public static (AshfallDressing Dressing, AshfallFeatures Features) Run(AshfallBuilder b, ControlPoint[] points, StartArea[] areas, AshfallFeatures features, bool withItems)
-    {
-        var removed = b.Compact();
-        var placer = new AshfallPlacer(b);
-        AshfallMap.Bans(placer, b, points);
-        // The stronghold block (ring, keep, towers, outerworks) is no place for kit structures: nothing may become a foothold on the ring or narrow the gate approach.
-        placer.Ban(-84f, 96f, 84f, 224f);
-        var kit = new Kit(b, placer);
-        var perches = Perches(kit, removed, features);
-        Ruins(kit, removed, features);
-        Covers(kit, removed);
-        RubblePiles(kit, removed);
-        Landmarks(kit);
-        Scatter(kit, areas);
-        var kept = features.Ruins.Where(r => r.FloorPoint is not null).ToList();
-        var kitFeatures = features with { Platforms = perches, Ruins = kept };
-        if (!withItems) return (new AshfallDressing([], [], AshfallMap.DressVersion), kitFeatures);
-        var items = new List<AshfallDressItem>();
-        Surfaces(b.Parts, b.Parts.Count, items);
-        items.AddRange(kit.Items);
-        return (new AshfallDressing(items, [], AshfallMap.DressVersion), kitFeatures);
-    }
 }
 
 /// <summary>A graybox part read as a box on the ground plane: centre, bottom and top, <see cref="Length"/> along the local X (the longer horizontal side) and <see cref="Depth"/> along the local Y, turned by <see cref="YawStep"/> x 15 degrees.</summary>
@@ -122,10 +89,4 @@ public readonly record struct AshfallBox(float Cx, float Cy, float Z0, float Z1,
             }
         return true;
     }
-}
-
-public static partial class AshfallMap
-{
-    /// <summary>The model's uniform scale at the manifest's proposed size (the smaller of proposed height / raw height and proposed length / raw length); a placed piece is this times 0.85..1.15.</summary>
-    public static float ManifestScale(AshfallKitModel model) => AshfallDressPass.BaseScale(model);
 }

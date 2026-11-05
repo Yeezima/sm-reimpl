@@ -10,7 +10,7 @@ public static partial class AshfallMap
     static uint H(uint seed, uint i) => AshfallBuilder.Mix(seed, i);
 
     /// <summary>The owner's red-marked zones (2026-11-05; min x, min y, max x, max y): extra ruins, walls, platforms and rubble go here first.</summary>
-    public static readonly Vector4[] PriorityZones =
+    internal static readonly Vector4[] PriorityZones =
     [
         new(-236f, -120f, 236f, -60f),   // 1 the south loop (north edge of the south blocks, the south avenue, south edge of the middle row)
         new(-220f, -90f, -160f, 0f),     // 2 the crater field's south-west
@@ -21,7 +21,7 @@ public static partial class AshfallMap
         new(60f, 80f, 150f, 104f),       // 6b the north avenue between the stronghold and C's block
     ];
 
-    internal static bool InZone(float x, float y)
+    static bool InZone(float x, float y)
     {
         foreach (var z in PriorityZones) if (x >= z.X && x <= z.Z && y >= z.Y && y <= z.W) return true;
         return false;
@@ -37,7 +37,20 @@ public static partial class AshfallMap
     static AshfallFeatures Structures(AshfallBuilder b, ControlPoint[] points)
     {
         var p = new AshfallPlacer(b);
-        Bans(p, b, points);
+        // Banned places: the roads' 8 m lanes (centrelines, the paved road and the plaza's axes, the stronghold's gate approach), both start areas, the capture zones and a 6 m ring, the spawn markers.
+        const float lane = 5.2f;
+        foreach (float c in new[] { -92f, 92f, -232f, 232f })
+        {
+            p.Ban(c - lane, -240f, c + lane, 240f);
+            p.Ban(-240f, c - lane, 240f, c + lane);
+        }
+        p.Ban(-8f, -160f, 8f, 80f);
+        p.Ban(-80f, -8f, 80f, 8f);
+        p.Ban(-12f, 104f, 12f, 164f);
+        p.Ban(-42f, -222f, 42f, -154f);
+        p.Ban(-72f, 108f, 72f, 220f);
+        foreach (var pt in points) p.BanDisc(pt.Center.X, pt.Center.Y, pt.Radius + 6f);
+        foreach (var r in b.Reserved) p.BanDisc(r.X, r.Y, r.Z + 6f);
         // The lanes also keep the rubble out.
         foreach (float c in new[] { -92f, 92f })
         {
@@ -53,25 +66,6 @@ public static partial class AshfallMap
         Curbs(p);
         Stagger(p);
         return new AshfallFeatures(p.Platforms, p.Towers, p.Ruins, p.WallSegments, p.WallLength, p.StaggerWalls, p.Points);
-    }
-
-    /// <summary>Banned places: the roads' 8 m lanes (centrelines, the paved road and the plaza's axes, the stronghold's gate approach), both start areas, the capture zones and a 6 m ring, the spawn markers (<c>b.Reserved</c>). Shared by pass 2 and the kit dressing.</summary>
-    internal static void Bans(AshfallPlacer p, AshfallBuilder b, ControlPoint[] points)
-    {
-        // Banned places: the roads' 8 m lanes (centrelines, the paved road and the plaza's axes, the stronghold's gate approach), both start areas, the capture zones and a 6 m ring, the spawn markers.
-        const float lane = 5.2f;
-        foreach (float c in new[] { -92f, 92f, -232f, 232f })
-        {
-            p.Ban(c - lane, -240f, c + lane, 240f);
-            p.Ban(-240f, c - lane, 240f, c + lane);
-        }
-        p.Ban(-8f, -160f, 8f, 80f);
-        p.Ban(-80f, -8f, 80f, 8f);
-        p.Ban(-12f, 104f, 12f, 164f);
-        p.Ban(-42f, -222f, 42f, -154f);
-        p.Ban(-72f, 108f, 72f, 220f);
-        foreach (var pt in points) p.BanDisc(pt.Center.X, pt.Center.Y, pt.Radius + 6f);
-        foreach (var r in b.Reserved) p.BanDisc(r.X, r.Y, r.Z + 6f);
     }
 
     static Vector4 Rect(float cx, float cy, float w, float d) => new(cx, cy, cx + w, cy + d);
@@ -206,8 +200,6 @@ public static partial class AshfallMap
             if (!p.Clear(rect, 8f) || !AshfallPlacer.Flat(rect)) continue;
             var f = AshfallFrame.At(p.B, rot, 0f, 0f, W, D, cx, cy, out var world);
             Vector3? floor = null;
-            int firstPart = p.B.Parts.Count;
-            p.B.Tag = "ruin:" + p.Ruins.Count;   // kit dressing draft 2: a ruin without a walkable floor is replaced by a kit composition at its footprint
             switch (kind)
             {
                 case "shell" or "shell2":
@@ -226,8 +218,6 @@ public static partial class AshfallMap
                     WallRun(f, false, 1f, W, 0f, 1f, storeys, h + 2, -1, -1, false, false, true, false);
                     break;
             }
-            p.B.Tag = null;
-            if (floor != null) for (int k = firstPart; k < p.B.Tags.Count; k++) p.B.Tags[k] = null;   // the ruins with a walkable floor and stair stay graybox
             p.Claims.Add(world);
             p.Ruins.Add(new AshfallRuin(kind, world, storeys, floor));
             placed++;
@@ -415,7 +405,6 @@ public static partial class AshfallMap
             if (centres.Any(c => Vector2.Distance(c, centre) < 36f)) continue;
             if (!wr.All(r => p.Clear(r, 8f) && AshfallPlacer.Flat(r))) continue;
             var f = probe;
-            p.B.Tag = "plat:" + p.Platforms.Count;   // replaced by a kit firing perch
             f.Box(AshfallKind.Wall, 0f, 0f, 0f, P, Q, top - 0.5f);
             f.Box(AshfallKind.Floor, 0f, 0f, top - 0.5f, P, Q, top);
             f.Stair(P / 2f, -run, 0, 1, 4f, 0f, top);
@@ -426,7 +415,6 @@ public static partial class AshfallMap
                 case 3: f.Stair(P / 2f, Q + run, 0, -1, 4f, 0f, top); break;
             }
             if (parapet) f.Box(AshfallKind.Cover, 0f, Q - 0.5f, top, P / 2f + 2f, Q, top + 1f);
-            p.B.Tag = null;
             foreach (var r in wr) p.Claims.Add(r);
             centres.Add(centre);
             p.Platforms.Add(new AshfallPlatform(new Vector3(centre.X, centre.Y, top), top, side2 == 0 ? 1 : 2, parapet));
@@ -472,9 +460,7 @@ public static partial class AshfallMap
             var r = alongX ? new Vector4(a, line, b, line + t) : new Vector4(line, a, line + t, b);
             if (p.Clear(r, 1.2f) && AshfallPlacer.Flat(r))
             {
-                p.B.Tag = "curb";
                 p.B.Box(AshfallKind.Cover, r.X, r.Y, z0, r.Z, r.W, z0 + h);
-                p.B.Tag = null;
                 p.Claims.Add(r);
                 p.WallSegments++;
                 p.WallLength += b - a;
@@ -501,9 +487,7 @@ public static partial class AshfallMap
                     float d0 = c + side * 5.5f, d1 = c + side * 11f, h = H(seed, 1) % 2 == 0 ? 1f : 1.2f;
                     var r = northSouth ? new Vector4(MathF.Min(d0, d1), a, MathF.Max(d0, d1), a + 0.5f) : new Vector4(a, MathF.Min(d0, d1), a + 0.5f, MathF.Max(d0, d1));
                     if (!p.Clear(r, 1.2f)) continue;
-                    p.B.Tag = "stagger";
                     p.B.Box(AshfallKind.Cover, r.X, r.Y, 0f, r.Z, r.W, h);
-                    p.B.Tag = null;
                     p.Claims.Add(r);
                     p.StaggerWalls++;
                 }

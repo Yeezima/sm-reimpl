@@ -77,11 +77,14 @@ public static class AshfallKit
 /// <summary>What a dressing item is to the game.</summary>
 public enum AshfallDressRole : byte
 {
-    /// <summary>Draws over graybox part <see cref="AshfallDressItem.Part"/> (that part is the collision). Only Cover and Rubble parts with Skin items are in <see cref="AshfallDressing.HiddenParts"/>; the client draws every other skinned part (Wall, Stronghold, Boundary, plinths, obelisks) as a stone backing inset by 0.15 m, so a window or arch opening in the model shows stone, not a see-through hole over solid collision.</summary>
+    /// <summary>
+    /// Draft 3: a scaled replacement. The item draws over a whole graybox structure (<see cref="AshfallDressItem.Part"/> is one representative part of it, or -1); every solid part of the structure except the
+    /// ground kinds (Ground, Road, Paving, Curb) and the boundary is listed in <see cref="AshfallDressing.HiddenParts"/> and the kit look draws none of them. The item's box stays within its structure's bounds grown by 0.5 m.
+    /// </summary>
     Skin,
-    /// <summary>Walk-over decoration: no collision, never above 0.35 m where it stands in a walked place.</summary>
+    /// <summary>Walk-over decoration: no collision, never above 0.35 m where it stands in a walked place (unused since draft 3).</summary>
     Decoration,
-    /// <summary>An added model with its own collision proxy: graybox part <see cref="AshfallDressItem.Part"/> (added by the dressing pass, part of the level and its hash).</summary>
+    /// <summary>An added model with its own collision proxy (draft 2 only; the level of draft 3 has none).</summary>
     Prop,
     /// <summary>A ground, road or plaza tile laid over walkable ground (visual only; the ground part under it is the collision).</summary>
     Surface,
@@ -92,11 +95,13 @@ public enum AshfallDressRole : byte
 /// the box is centred on <see cref="Position"/> in X/Y with its bottom at <see cref="Position"/>.Z, <see cref="Size"/>.X along the item's local X (length),
 /// <see cref="Size"/>.Y along local Y (depth), <see cref="Size"/>.Z up; <see cref="Yaw"/> turns local X toward +Y (radians, counter-clockwise seen from above).
 /// Model axes: glTF +Y is up; when <see cref="SwapXZ"/> is false glTF X is local X and glTF -Z is local Y, when true glTF Z is local X and glTF X is local Y.
-/// Scale per axis = Size / (raw size on the mapped axis), so the drawn model fills the box exactly.
-/// The fit is a rotation, not a mirror: with <see cref="SwapXZ"/> false glTF X is local X and glTF -Z is local Y, so the model's front (glTF +Z) faces local -Y (south at yaw 0);
-/// with SwapXZ true glTF Z is local X and glTF X is local Y. The dressing turns wall fronts towards the nearest street, the boundary's towards the play area, the keep's outward.
+/// Scale per axis = Size / (raw size on the mapped axis), so the drawn model fills the box exactly (non-uniform: draft 3 scales the models up to the graybox structures).
+/// The fit is a rotation, not a mirror: with <see cref="SwapXZ"/> false the model's front (glTF +Z) faces local -Y (south at yaw 0). The dressing turns wall fronts outward.
 /// </summary>
 public sealed record AshfallDressItem(string Asset, Vector3 Position, float Yaw, Vector3 Size, bool SwapXZ, AshfallDressRole Role, int Part);
 
-/// <summary>The dressing of a level: its items in a fixed order, and the graybox part indices the kit look hides (draft 2: only Cover and Rubble parts, each fully covered by Skin items; skinned Wall, Stronghold and Boundary parts are NOT hidden).</summary>
-public sealed record AshfallDressing(IReadOnlyList<AshfallDressItem> Items, IReadOnlyList<int> HiddenParts, uint Version);
+/// <summary>One structure of the dressing (draft 3): a group of touching hidden graybox parts (a building, a tower with its stair, a wall run, a rampart...), its parts and the bounds of their corners. A Skin item's box stays within these bounds grown by 0.5 m.</summary>
+public sealed record AshfallStructure(IReadOnlyList<int> Parts, Vector3 Min, Vector3 Max);
+
+/// <summary>The dressing of a level: its items in a fixed order, the graybox part indices the kit look hides (draft 3: every solid part except Ground, Road, Paving, Curb and Boundary) and the structures.</summary>
+public sealed record AshfallDressing(IReadOnlyList<AshfallDressItem> Items, IReadOnlyList<int> HiddenParts, uint Version, IReadOnlyList<AshfallStructure>? Structures = null);

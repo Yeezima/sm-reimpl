@@ -78,6 +78,69 @@ public partial class AshfallKitView : Node3D
         return _stone = ImageTexture.CreateFromImage(img);
     }
 
+    static ImageTexture? _terrain, _masonry;
+
+    /// <summary>
+    /// A seamless 256 px ash and stone texture (ours): big soft patches of dark ash and pale dust, fine grit and scattered pale stone flecks; triplanar, one tile every 8 m. Not flat, not a checker.
+    /// </summary>
+    static ImageTexture Terrain()
+    {
+        if (_terrain is not null) return _terrain;
+        var big = new FastNoiseLite { Frequency = 0.012f, FractalOctaves = 4, Seed = 11 }.GetSeamlessImage(256, 256);
+        var mid = new FastNoiseLite { Frequency = 0.05f, FractalOctaves = 3, Seed = 23 }.GetSeamlessImage(256, 256);
+        var grit = new FastNoiseLite { Frequency = 0.35f, FractalOctaves = 2, Seed = 5 }.GetSeamlessImage(256, 256);
+        var img = Image.CreateEmpty(256, 256, false, Image.Format.Rgb8);
+        for (int y = 0; y < 256; y++)
+            for (int x = 0; x < 256; x++)
+            {
+                float b = big.GetPixel(x, y).R, m = mid.GetPixel(x, y).R, g = grit.GetPixel(x, y).R;
+                float v = 0.58f + 0.34f * (b - 0.5f) + 0.24f * (m - 0.5f) + 0.20f * (g - 0.5f);
+                uint h = (uint)(x * 73856093) ^ (uint)(y * 19349663);
+                h ^= h >> 13; h *= 0x5bd1e995u; h ^= h >> 15;
+                if (h % 97 == 0) v += 0.18f;      // a pale stone fleck
+                else if (h % 61 == 0) v -= 0.14f; // a dark pit
+                v = Math.Clamp(v, 0.18f, 1f);
+                img.SetPixel(x, y, new Color(v * 1.01f, v, v * 0.97f));   // a hint warm: ash, not blue-grey
+            }
+        img.GenerateMipmaps();
+        return _terrain = ImageTexture.CreateFromImage(img);
+    }
+
+    /// <summary>
+    /// A seamless 256 px ashlar masonry (ours): courses 1 m high and blocks 4 m long over a 4 m x 4 m tile (triplanar, one tile every 4 m), joints stepped half a block on every other course, each course its own tone and grit, mortar lines dark.
+    /// </summary>
+    static ImageTexture Masonry()
+    {
+        if (_masonry is not null) return _masonry;
+        var grit = new FastNoiseLite { Frequency = 0.12f, FractalOctaves = 3, Seed = 31 }.GetSeamlessImage(256, 256);
+        var img = Image.CreateEmpty(256, 256, false, Image.Format.Rgb8);
+        for (int y = 0; y < 256; y++)
+        {
+            int course = y / 64, row = y % 64;
+            for (int x = 0; x < 256; x++)
+            {
+                int xx = (x + (course % 2) * 128) % 256;   // the joint sits at 0 on even courses, at half a block on odd ones
+                uint bh = (uint)(course * 40503 + 12345) * 2654435761u; bh ^= bh >> 15;
+                float tone = 0.50f + 0.14f * ((bh % 100) / 100f - 0.5f) * 2f + (course % 2 == 0 ? 0.02f : -0.02f);
+                float g = grit.GetPixel(x, y).R;
+                float v = tone + 0.20f * (g - 0.5f);
+                if (xx < 2 || row < 2) v *= 0.45f;   // the mortar line
+                else if (xx < 4 || xx > 252 || row < 4 || row > 61) v *= 0.8f;   // a soft bevel
+                img.SetPixel(x, y, new Color(v * 1.02f, v, v * 0.95f));
+            }
+        }
+        img.GenerateMipmaps();
+        return _masonry = ImageTexture.CreateFromImage(img);
+    }
+
+    static StandardMaterial3D Triplanar(Texture2D texture, Color tint, float perMetre) => new()
+    {
+        AlbedoColor = tint, AlbedoTexture = texture,
+        TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,
+        Uv1Triplanar = true, Uv1WorldTriplanar = true, Uv1Scale = new Vector3(perMetre, perMetre, perMetre),
+        CullMode = BaseMaterial3D.CullModeEnum.Disabled, Roughness = 1f,
+    };
+
     /// <summary>What the last build and load measured (see the log line).</summary>
     public static string Report { get; private set; } = "";
 
@@ -109,6 +172,7 @@ public partial class AshfallKitView : Node3D
         _graybox = graybox;
         AddChild(_remainder);
         AddChild(_items);
+        foreach (var part in dressing.HiddenParts) _hiddenAll.Add(part);
         _covers = CoveredParts(level, dressing);
         BuildRemainder(level);
         ApplyArguments();
@@ -118,7 +182,7 @@ public partial class AshfallKitView : Node3D
             if (!_itemsByAsset.TryGetValue(id, out var list)) _itemsByAsset[id] = list = [];
             list.Add(i);
         }
-        foreach (var part in HiddenOrProxy()) _partWaiting[part] = 0;
+        foreach (var part in _hiddenAll) _partWaiting[part] = 0;
         for (int i = 0; i < dressing.Items.Count; i++)
             foreach (var part in _covers[i])
                 if (_partWaiting.ContainsKey(part)) _partWaiting[part]++;
@@ -146,19 +210,20 @@ public partial class AshfallKitView : Node3D
 
     void BuildRemainder(AshfallLevel level)
     {
-        var hidden = HiddenOrProxy();
-        // Skinned parts that stay drawn get an inset core under their model; a freestanding prop's collision proxy is hidden once its model shows (it only stands in for the model).
-        var skinned = _dressing.Items.Where(i => i.Role == AshfallDressRole.Skin && i.Part >= 0).Select(i => i.Part).ToHashSet();
+        var hidden = _hiddenAll;
+        // Draft 3: the ground kinds (Ground, Road, Paving, Curb) are drawn as ash and stone terrain, the boundary as a flat masonry wall, and every part of the dressing's hidden list only until its models show.
         foreach (var group in level.Parts.Select((p, i) => (Part: p, Index: i)).Where(x => x.Part.Kind != AshfallKind.Objective).GroupBy(x => x.Part.Kind))
         {
-            var material = new StandardMaterial3D
+            StandardMaterial3D material = group.Key switch
             {
-                AlbedoColor = StoneOf(group.Key), AlbedoTexture = Stone(),
-                TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,
-                Uv1Triplanar = true, Uv1WorldTriplanar = true, Uv1Scale = new Vector3(0.25f, 0.25f, 0.25f),
-                CullMode = BaseMaterial3D.CullModeEnum.Disabled, Roughness = 1f,
+                AshfallKind.Ground => Triplanar(Terrain(), new Color(0.62f, 0.59f, 0.56f), 0.125f),
+                AshfallKind.Curb => Triplanar(Terrain(), new Color(0.70f, 0.67f, 0.63f), 0.125f),
+                AshfallKind.Road => Triplanar(Terrain(), new Color(0.52f, 0.50f, 0.48f), 0.125f),
+                AshfallKind.Paving => Triplanar(Terrain(), new Color(0.95f, 0.92f, 0.86f), 0.125f),
+                AshfallKind.Boundary => Triplanar(Masonry(), new Color(0.62f, 0.58f, 0.55f), 0.25f),
+                _ => Triplanar(Stone(), StoneOf(group.Key), 0.25f),
             };
-            var always = group.Where(x => !hidden.Contains(x.Index)).SelectMany(x => skinned.Contains(x.Index) ? Inset(x.Part.Corners) : x.Part.Corners).ToArray();
+            var always = group.Where(x => !hidden.Contains(x.Index)).SelectMany(x => x.Part.Corners).ToArray();
             if (always.Length > 0)
                 _remainder.AddChild(new MeshInstance3D { Name = group.Key.ToString(), Mesh = AshfallView.MeshOf(always), MaterialOverride = material });
             foreach (var x in group.Where(x => hidden.Contains(x.Index)))
@@ -170,54 +235,50 @@ public partial class AshfallKitView : Node3D
         }
     }
 
-    /// <summary>A skinned part that stays drawn (walls, stronghold, boundary: the models' window and arch openings must show stone, not a see-through hole over solid
-    /// collision) is drawn as its box pulled in to a core: <see cref="CoreInset"/> of its thickness on each side of the thin axis, <see cref="BackingInset"/> on the long one, so the fitted model's relief stays in front.
-    /// Top and bottom are kept (walkable tops stay where the collision is).</summary>
-    const float BackingInset = 0.15f;
-    /// <summary>Share of the thickness the backing gives up on each side of a skinned wall's thin axis (ours): 0.4 leaves the middle fifth as a stone core.</summary>
-    const float CoreInset = 0.4f;
-
-    static System.Numerics.Vector3[] Inset(System.Numerics.Vector3[] corners)
-    {
-        var min = new System.Numerics.Vector3(float.MaxValue); var max = new System.Numerics.Vector3(float.MinValue);
-        foreach (var v in corners) { min = System.Numerics.Vector3.Min(min, v); max = System.Numerics.Vector3.Max(max, v); }
-        var c = (min + max) / 2f;
-        float sx = max.X - min.X, sy = max.Y - min.Y;
-        // The thin axis is pulled in to its core (the fitted model's relief spans the whole thickness), the long axis only by BackingInset.
-        float ix = sx <= sy ? CoreInset * sx : MathF.Min(BackingInset, sx / 4f), iy = sy < sx ? CoreInset * sy : MathF.Min(BackingInset, sy / 4f);
-        var result = new System.Numerics.Vector3[corners.Length];
-        for (int i = 0; i < corners.Length; i++)
-        {
-            var v = corners[i];
-            result[i] = new(v.X < c.X ? v.X + ix : v.X > c.X ? v.X - ix : v.X, v.Y < c.Y ? v.Y + iy : v.Y > c.Y ? v.Y - iy : v.Y, v.Z);
-        }
-        return result;
-    }
-
-    /// <summary>Per item, the graybox parts its model stands for: a Skin item its part (hidden only when listed in HiddenParts); a Prop item its collision
-    /// proxy parts, which the props pass appends together from <see cref="AshfallDressItem.Part"/> up to the next prop's first part (walkable Floor and Stair
-    /// parts stay drawn: a perch's deck and steps are what the player walks on).</summary>
+    /// <summary>Per item, the hidden graybox parts it covers (its box meets the part's bounds): a part hides once every item over it is shown. A hidden part no item meets hides once all items are placed.</summary>
     readonly int[][] _covers;
+
+    /// <summary>Every part of the dressing's hidden list.</summary>
+    readonly HashSet<int> _hiddenAll = [];
 
     static int[][] CoveredParts(AshfallLevel level, AshfallDressing dressing)
     {
-        var firsts = dressing.Items.Where(i => i.Role == AshfallDressRole.Prop && i.Part >= 0).Select(i => i.Part).Distinct().OrderBy(x => x).ToArray();
+        var hidden = dressing.HiddenParts.Distinct().OrderBy(x => x).ToArray();
+        var min = new Vector3[hidden.Length]; var max = new Vector3[hidden.Length];
+        const float cell = 32f;
+        var grid = new Dictionary<(int, int), List<int>>();
+        for (int k = 0; k < hidden.Length; k++)
+        {
+            var lo = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue); var hi = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+            foreach (var v in level.Parts[hidden[k]].Corners) { lo = new(Math.Min(lo.X, v.X), Math.Min(lo.Y, v.Y), Math.Min(lo.Z, v.Z)); hi = new(Math.Max(hi.X, v.X), Math.Max(hi.Y, v.Y), Math.Max(hi.Z, v.Z)); }
+            min[k] = lo; max[k] = hi;
+            for (int gx = (int)Math.Floor(lo.X / cell); gx <= (int)Math.Floor(hi.X / cell); gx++)
+                for (int gy = (int)Math.Floor(lo.Y / cell); gy <= (int)Math.Floor(hi.Y / cell); gy++)
+                {
+                    if (!grid.TryGetValue((gx, gy), out var l)) grid[(gx, gy)] = l = [];
+                    l.Add(k);
+                }
+        }
         var result = new int[dressing.Items.Count][];
+        var seen = new HashSet<int>();
         for (int i = 0; i < dressing.Items.Count; i++)
         {
             var item = dressing.Items[i];
-            if (item.Role == AshfallDressRole.Skin && item.Part >= 0) { result[i] = dressing.HiddenParts.Contains(item.Part) ? [item.Part] : []; continue; }
-            if (item.Role != AshfallDressRole.Prop || item.Part < 0) { result[i] = []; continue; }
-            int k = Array.BinarySearch(firsts, item.Part);
-            int end = k + 1 < firsts.Length ? firsts[k + 1] : level.Parts.Count;
-            result[i] = Enumerable.Range(item.Part, end - item.Part)
-                .Where(p => level.Parts[p].Kind is not (AshfallKind.Floor or AshfallKind.Stair or AshfallKind.Objective)).ToArray();
+            if (item.Role != AshfallDressRole.Skin) { result[i] = []; continue; }
+            float s = MathF.Sin(item.Yaw), c = MathF.Cos(item.Yaw);
+            float ex = MathF.Abs(c) * item.Size.X / 2f + MathF.Abs(s) * item.Size.Y / 2f, ey = MathF.Abs(s) * item.Size.X / 2f + MathF.Abs(c) * item.Size.Y / 2f;
+            float x0 = item.Position.X - ex, x1 = item.Position.X + ex, y0 = item.Position.Y - ey, y1 = item.Position.Y + ey, z0 = item.Position.Z, z1 = item.Position.Z + item.Size.Z;
+            seen.Clear();
+            var list = new List<int>();
+            for (int gx = (int)Math.Floor(x0 / cell); gx <= (int)Math.Floor(x1 / cell); gx++)
+                for (int gy = (int)Math.Floor(y0 / cell); gy <= (int)Math.Floor(y1 / cell); gy++)
+                    if (grid.TryGetValue((gx, gy), out var l))
+                        foreach (int k in l)
+                            if (seen.Add(k) && min[k].X <= x1 && max[k].X >= x0 && min[k].Y <= y1 && max[k].Y >= y0 && min[k].Z <= z1 && max[k].Z >= z0) list.Add(hidden[k]);
+            result[i] = [.. list];
         }
         return result;
     }
-
-    /// <summary>The parts the kit look hides once their models show.</summary>
-    HashSet<int> HiddenOrProxy() => _covers.SelectMany(c => c).ToHashSet();
 
     void HidePart(int part)
     {
