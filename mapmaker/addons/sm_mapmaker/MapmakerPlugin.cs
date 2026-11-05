@@ -185,7 +185,7 @@ public partial class MapmakerPlugin : EditorPlugin
     /// <summary>Validates with a dry run, then applies the batch as one editor undo step. Errors are reported and nothing changes.</summary>
     public OpResult Do(string label, params JsonObject[] ops)
     {
-        if (Session is null) return OpResult.Fail("no-document", "No map is open: use New or Open first.");
+        if (Session is null) { SetStatus("No map is open: use New or Open first."); return OpResult.Fail("no-document", "No map is open: use New or Open first."); }
         var step = new Step { Ops = ops.Select(o => (JsonObject)o.DeepClone()).ToArray() };
         step.BeforeDoc = Session.Document.ToJson();
         step.BeforePrefabs = PrefabSnapshot(PrefabIds(step.Ops));
@@ -410,8 +410,30 @@ public partial class MapmakerPlugin : EditorPlugin
         return true;
     }
 
+    /// <summary>The mouse is over the 3D editor view (window coordinates), whatever scene is open.</summary>
+    public bool OverViewport(Vector2 window) => Viewport3D?.GetParent() is Control c && c.IsVisibleInTree() && c.GetGlobalRect().HasPoint(window);
+
+    /// <summary>
+    /// Before a placement: the open scene tab must be the Mapmaker scene, and a map must be open. Owner's report (2026-11-05): placing on a new
+    /// Godot scene tab, or before pressing New, did nothing and said nothing. Switches to the Mapmaker scene (and asks for the click again), and
+    /// starts an untitled map when none is open.
+    /// </summary>
+    public bool ReadyToPlace()
+    {
+        if (EditorInterface.Singleton.GetEditedSceneRoot() is not MapmakerRoot || MapHost.Root is null)
+        {
+            EnsureSceneRoot();
+            SetStatus("That scene tab is not a Mapmaker map. Switched to the Mapmaker scene: click (or drop) again to place.");
+            return false;
+        }
+        if (Session is null) { NewMap("Untitled"); SetStatus("No map was open, so a new untitled map was started (Save As to keep it)."); }
+        return true;
+    }
+
     public override void _Input(InputEvent @event)
     {
+        if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } place && MapHost.Tool == Tool.Place && MapHost.Armed is not null
+            && OverViewport(place.Position) && !ReadyToPlace()) { GetViewport().SetInputAsHandled(); return; }
         if (MapHost.Root is null) return;
         if (@event is InputEventKey { Pressed: true } key)
         {

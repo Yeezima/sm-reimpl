@@ -209,7 +209,7 @@ public partial class MapmakerDock : VBoxContainer
         _search.TextChanged += _ => RebuildLibrary(); _search.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         v.AddChild(Row(_source, _search));
         _list.ItemAt = i => i >= 0 && i < _items.Count ? _items[i] : null;
-        _list.DroppedOutside = (item, pos) => { if (_plugin.TryRay(pos, out var o, out var d)) _plugin.PlaceAt(item, _plugin.GamePointOnRay(o, d)); };
+        _list.DroppedOutside = (item, pos) => { if (_plugin.OverViewport(pos) && _plugin.ReadyToPlace() && _plugin.TryRay(pos, out var o, out var d)) _plugin.PlaceAt(item, _plugin.GamePointOnRay(o, d)); };
         _list.ItemSelected += i => Arm(_items[(int)i]);
         _list.ItemActivated += i => Arm(_items[(int)i]);
         v.AddChild(_list);

@@ -197,12 +197,31 @@ public sealed class Selftest(MapmakerPlugin plugin)
             var a = plugin.PlaceAt(item, new Godot.Vector3(0, 0, 0));
             var b = plugin.PlaceAt(item, new Godot.Vector3(6.3f, 2.1f, 0));
             Check(a.Ok && b.Ok, "place two linked instances");
+            // A real click with the Place tool (the owner's path), not a direct call.
+            {
+                await plugin.Frame3D(new Num.Vector3(-8, -8, 0), new Num.Vector3(12, 8, 6));
+                int count = plugin.Session!.Document.Objects.Count;
+                MapHost.Armed = item; plugin.SetTool(Tool.Place); MapHost.Armed = item;
+                if (plugin.Viewport3D?.GetParent() is Control vc)
+                {
+                    var at = vc.GetGlobalRect().GetCenter();
+                    foreach (bool pressed in new[] { true, false })
+                    {
+                        Tree.Root.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = at, GlobalPosition = at });
+                        await Frames(2);
+                    }
+                }
+                Check(plugin.Session.Document.Objects.Count == count + 1, $"a click with the Place tool places the armed prefab ({plugin.Session.Document.Objects.Count - count} placed; status: {plugin.Status})");
+                plugin.SetTool(Tool.Select);
+                var extra = plugin.Session.Document.Objects.Select(o => o.Id).Where(i => i != a.Created[0] && i != b.Created[0]).ToArray();
+                if (extra.Length > 0) plugin.Do("Delete", MapmakerPlugin.Op("delete", ("ids", MapmakerPlugin.Strs(extra))));
+            }
             var idB = b.Created[0];
             plugin.Select([idB]);
             await Frames(5);
             // The numeric panel path: rotate and scale the second instance.
             var t = plugin.Do("Set transform", MapmakerPlugin.Op("transform", ("id", idB), ("rotation", MapmakerPlugin.Vec(new Num.Vector3(0, 0, 45))), ("scale", MapmakerPlugin.Vec(new Num.Vector3(1.5f, 1.5f, 1.5f)))));
-            Check(t.Ok, "numeric transform");
+            Check(t.Ok, $"numeric transform {string.Join("; ", t.Errors.Select(e => e.Message))}");
             var d = plugin.DuplicateSelected();
             Check(d.Ok && d.Created.Count == 1, "duplicate");
             // The gizmo path: move the node itself, let the editor's version signal reconcile it.
