@@ -168,16 +168,20 @@ public partial class AshfallKitView : Node3D
     }
 
     /// <summary>A skinned part that stays drawn (walls, stronghold, boundary: the models' window and arch openings must show stone, not a see-through hole over solid
-    /// collision) is drawn as its box pulled in by <see cref="BackingInset"/> on X and Y (never more than a quarter of its width), so the fitted model's faces stay in front.
+    /// collision) is drawn as its box pulled in to a core: <see cref="CoreInset"/> of its thickness on each side of the thin axis, <see cref="BackingInset"/> on the long one, so the fitted model's relief stays in front.
     /// Top and bottom are kept (walkable tops stay where the collision is).</summary>
     const float BackingInset = 0.15f;
+    /// <summary>Share of the thickness the backing gives up on each side of a skinned wall's thin axis (ours): 0.4 leaves the middle fifth as a stone core.</summary>
+    const float CoreInset = 0.4f;
 
     static System.Numerics.Vector3[] Inset(System.Numerics.Vector3[] corners)
     {
         var min = new System.Numerics.Vector3(float.MaxValue); var max = new System.Numerics.Vector3(float.MinValue);
         foreach (var v in corners) { min = System.Numerics.Vector3.Min(min, v); max = System.Numerics.Vector3.Max(max, v); }
         var c = (min + max) / 2f;
-        float ix = MathF.Min(BackingInset, (max.X - min.X) / 4f), iy = MathF.Min(BackingInset, (max.Y - min.Y) / 4f);
+        float sx = max.X - min.X, sy = max.Y - min.Y;
+        // The thin axis is pulled in to its core (the fitted model's relief spans the whole thickness), the long axis only by BackingInset.
+        float ix = sx <= sy ? CoreInset * sx : MathF.Min(BackingInset, sx / 4f), iy = sy < sx ? CoreInset * sy : MathF.Min(BackingInset, sy / 4f);
         var result = new System.Numerics.Vector3[corners.Length];
         for (int i = 0; i < corners.Length; i++)
         {
