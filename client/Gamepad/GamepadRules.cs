@@ -51,6 +51,19 @@ public static class GamepadRules
         new("Scoreboard (held)", PadControl.Back, PadSource.OwnerRecollection, "owner 2026-10-30"),
     };
 
+    /// <summary>
+    /// The aerial tackle on the pad (owner's playtest 2026-11-06: it was on X, it belongs on Y, the charge button). The simulation starts the dash attack on a melee press in the dash's
+    /// window (<c>Rush.CanDashAttack</c>), the keyboard's Melee (right click). While that window is open the pad's stun/charge button (Y) is sent as that melee press and X's own press is
+    /// dropped (the window is short and low, so X's strike would only start the tackle by accident); outside the window both buttons are untouched. Input only: the simulation and protocol stay.
+    /// </summary>
+    public static InputButtons AerialTackleOnY(InputButtons buttons, bool dashWindow)
+    {
+        if (!dashWindow) return buttons;
+        bool y = (buttons & InputButtons.MeleeHeavy) != 0;
+        buttons &= ~(InputButtons.Melee | InputButtons.MeleeHeavy);
+        return y ? buttons | InputButtons.Melee : buttons;
+    }
+
     // ---- sticks ----
 
     /// <summary>The movement stick's inner and outer zones (ours; the simulation's own dead zone is 0.1) and the look stick's dead zone (the data: the mapping is 0 up to 0.2).</summary>
