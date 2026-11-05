@@ -157,7 +157,7 @@ public partial class ModelViewer : Node3D
                 return;
             }
             bool testAidHandled = false;
-            ExtrasTestAid(args, ref testAidHandled);   // added content's own test views (Ashfall kit gallery): they need no game install
+            ExtrasTestAid(args, ref testAidHandled);   // EXTRAS-HOOK added content's own test views (Ashfall kit gallery): they need no game install
             if (testAidHandled) return;
             var found = GameInstall.TryLocate(args.GetValueOrDefault("game-dir"), repoRoot) ?? throw new System.IO.DirectoryNotFoundException(GameInstall.NotFoundMessage);
             string gameDir = found.Dir;
