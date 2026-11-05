@@ -4,8 +4,14 @@ namespace SmSim.Extras.Musou.Ashfall;
 
 public static partial class AshfallMap
 {
-    /// <summary>The dressing pass's version (raised with any change of the items). 7: draft 5, one asset per graybox structure with collision from the assets (docs/musou-ashfall-graybox.md "Draft 5"); 5 was draft 3's scaled replacements, 1..4 drafts 1 and 2.</summary>
-    public const uint DressVersion = 7;
+    /// <summary>The dressing pass's version (raised with any change of the items). 8: draft 6 (every placed object 1.5x its draft-5 size, more AC-008 platforms, bridges only on supports; docs/musou-ashfall-graybox.md "Draft 6"); 7: draft 5, one asset per graybox structure with collision from the assets (docs/musou-ashfall-graybox.md "Draft 5"); 5 was draft 3's scaled replacements, 1..4 drafts 1 and 2.</summary>
+    public const uint DressVersion = 8;
+
+    /// <summary>Draft 6: every placed object's size against its draft-5 size, all three axes (owner, 2026-11-06: "scale to 1.5x the current size"; ours: placeholder demonstration).</summary>
+    public const float Draft6Scale = 1.5f;
+
+    /// <summary>Draft 6: the total of AC-008 shooting platforms the pass places (owner: "more of the shooting platform objects"; the lead's target at least 45; draft 5 had 29).</summary>
+    public const int Draft6PlatformTarget = 48;
 
     static readonly Lazy<AshfallDraft5> Draft5Cache = new(AshfallDraft5Pass.Run, LazyThreadSafetyMode.ExecutionAndPublication);
 
@@ -16,7 +22,7 @@ public static partial class AshfallMap
     public static AshfallDraft5 RebuildDraft5() => AshfallDraft5Pass.Run();
 
     /// <summary>
-    /// The level (deterministic): Ashfall draft 5, <see cref="Version"/> 9 (docs/musou-ashfall-graybox.md "Draft 5"). The v5 graybox's ground kinds and boundary plus the collision boxes of the one asset that replaces each graybox structure,
+    /// The level (deterministic): Ashfall draft 6, <see cref="Version"/> 10 (docs/musou-ashfall-graybox.md "Draft 5" and "Draft 6"; the pass keeps its draft-5 names). The v5 graybox's ground kinds and boundary plus the collision boxes of the one asset that replaces each graybox structure,
     /// transformed with the placement. Every place and size is ours (placeholder demonstration). The same parts, in the same order, with the same bits, on every machine.
     /// </summary>
     public static AshfallLevel Build() => BuildDraft5().Level;

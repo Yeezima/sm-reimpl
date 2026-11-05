@@ -427,3 +427,71 @@ The ring top, the bridges, the keep roof and every raised floor are lost for wal
 ### Draft 5: riser-aware ramps (addendum, 2026-11-06)
 The fit now finds stair and rubble-ramp runs in the top heightfield of each walkable model (`AshfallKitFit.FindRamps`: columns whose tops do not fall along one horizontal axis, at least 3 columns and 2 rises, overall slope at most 50 degrees in the raw frame, equal runs on at least 3 neighbouring lines merged) and emits each as a wedge (flat bottom, a top plane through the middle of the steps, so a riser pokes at most half its height above it) in `AshfallKitCollision.Ramps(id)`; the stepped boxes stay as the body. Found: AC-003 x3, AC-006 x2, AC-007 x3, AC-010 x1, AC-037 x4; none in AC-005, AC-008, AC-009 (their decks are flat). In the level a ramp is kept as a `Stair` part when its scaled top slope is 55 degrees or less (216 kept, 10 dropped); platforms now take AC-008 only. Level hash `0x6A803A7703280536`. Slow graph test (2 m 4 s, 856,134 nodes): **124 v5 walkable places: 18 kept, 58 changed, 48 lost** (was 4 / 54 / 66). Kept: both stair-tower feet, terrace 1 and foot, and 14 of 26 platform decks (1.5 to 3.0 m); tops reached on foot reach 2.6 m. Still lost: tower and ruin floors, the ramparts and keep roof, the bridges (AC-009 has no ramp and its deck stands at 12 m), the east tower. Band check adapted (`Narrow_gaps_between_cover_and_rubble_items_are_reported_and_few`): of 36,875 cover/rubble part pairs of different items within 8 m, 497 are narrower than 1.2 m (items grow up to 1 m past their structures); the test allows under 5 %.
 Review follow-up (2026-11-06): the narrow-gap check now includes Wall and Floor parts that touch the ground zone: of 70,680 part pairs of different items within 8 m, 1,284 (1.8 %) are narrower than 1.2 m. Route clearance on the walk graph (free width across the shortest routes from the Space Marines' start, sampled every 2 m): to A narrowest 7.1 m (207 samples), to B 17.8 m (94), to C 3.2 m (200), to the Chaos courtyard 4.0 m (163); none under 2.4 m, so no tight passage (0.8 to 1.2 m) lies on the main routes. Walkable ids and the fit parameters live in `AshfallKitFit.WalkableIds`.
+
+## Draft 6 (owner's draft-5 playtest notes) — design
+The owner's notes on draft 5 (2026-11-06), verbatim: (1) "the bridge should never be floating or not have support under it or directly connected to either narrow end." (his screenshot: an AC-009 span hanging about 12 m up
+with nothing under it); (2) "i want more of the shooting platform objects to be used."; (3) "scale up all objects to be 2x their current size", then, in his answer to the lead: "use the first option (grow, keep lanes) but
+scale to 1.5x the current size not 2x." Everything here is ours (placeholder demonstration). Code: `AshfallDraft6.cs` beside the draft-5 pass (same class, same entry points `AshfallMap.Build()` / `BuildDraft5()`).
+
+1. **Growth (1.5x).** Every placed object (Prop item: ruins, walls, towers, platforms, covers, rubble, landmarks, stronghold pieces, backdrop blocks) is `AshfallMap.Draft6Scale` = 1.5 times its draft-5 size in
+   all three axes, about its centre, its foot kept on the ground; its collision boxes and ramps are the model's, transformed with the new placement (as in draft 5). The draft-5 limit "inside the structure's bounds grown by 1 m"
+   is replaced for this growth. The surface tiles (ground, roads, plaza) and the map's size do not change. **Protected places** (the lanes +-4.2 m, the paved road, the plaza's axes, the start areas, the capture zones plus 6 m,
+   the spawn markers, the boundary's inner 2 m, and new in draft 6 the stronghold's breaches): an item whose grown collision would stand in one it did not already touch at its draft-5 size is moved back along the
+   shortest way out (repeated, at most the growth plus 1.5 m); when that does not clear it, it is left out (logged "dropped: grown 1.5x ...", named in the growth flag). The stronghold's leg walls and the gate keep their
+   length along the leg (they grow in height and depth only), so no breach closes; the breach rubble piles grow and stay against a wall end. Backdrop blocks grow away from the boundary (their inner face stays).
+2. **More shooting platforms.** After the growth, AC-008 platforms are added until the level has `AshfallMap.Draft6PlatformTarget` = 48: candidates on a 4 m grid in a seeded order, those 10..40 m outside a
+   capture zone's radius first (firing positions on the objectives), then those 8..30 m from an avenue's or the paved road's centre line (along the routes), then the rest; each on a block (level ground, the roads stay
+   open), outside every protected place and breach, 3 m clear of every other collision box below 8 m (no route closes), 24 m from every other platform; the next one goes to the map's 160 m block (3 x 3) that has the
+   fewest platforms so far (spread). Sizes: one of the grown draft-5 platforms' sizes (seeded pick), lowered uniformly where the model's scaled cell would exceed the 0.4 m step, so the added decks stay walkable where the
+   model allows.
+3. **Bridges** are placed last, against what stands at their ends. An AC-009 spans the v5 bridge end to end (draft 5 drew an 11 m model centred in a 26 m span: the floating piece of the screenshot), its cross-section
+   1.5x draft 5's. It is kept when (a) both narrow ends rest on a placed structure whose collision top (with 1.8 m of headroom) lies within the 0.4 m step of its deck, or (b) it stands on its own legs: the model drawn
+   from the ground with its deck at the v5 height (12 m), its legs at both ends on the ground, outside every protected place and meeting no structure between its end thirds. Else (c) it is lowered to the highest
+   height of 2 m or more both ends reach (and clear of the protected places below 8 m), else dropped and flagged with the heights its ends reach.
+4. **Narrow gaps** (the lead's route rule: no passage under 2.4 m; grown objects must not wall off routes): after the protected places, an item whose boxes in the walking band (bottom under 2.5 m, top over 0.4 m)
+   leave a gap between nothing and 2.4 m to a box of an item placed before it is moved to open that gap to 2.4 m; when that does not settle within its reach (the growth or 2.4 m, plus 1.5 m), it tries again from
+   its first clear place opening wide gaps and closing gaps under 1.2 m (moving until the boxes touch: no slot left), and a small piece (cover, rubble, a wall piece) a third time closing every narrow gap; when
+   nothing settles, it keeps, of the places it visited that are clear of the protected ones, the one with the fewest narrow gaps (counted in the growth flag). The ring's pieces and breach rubble are exempt.
+5. `AshfallMap.Version` 10, `DressVersion` 8, a new pinned level hash; `BuildGraybox()` is v5 unchanged (pinned `0xAE096E323BB5A4D3`).
+
+## Draft 6: results
+Built and tested 2026-11-06 (sim developer; the checks below are my own, not independent QA). Everything here is ours (placeholder demonstration). `AshfallMap.Version` **10**, level hash **`0xC1D1D8A1118A55AF`** (with draft 5's fitted
+boxes; the collision refit of branch `musou/ashfall-d6-fit` will move it: re-pin `AshfallDraft5Tests.PinnedLevelHash`), `DressVersion` **8**; `BuildGraybox()` v5 unchanged (`0xAE096E323BB5A4D3`).
+
+### Numbers
+- 1,030 items: 810 Prop, 220 Surface (model triangles at full detail 21.3 M and 1.1 M). Per model: AC-001 x54, 002 x37, 003 x71, 004 x8, 005 x2, 006 x2, **008 x48** (draft 5: 29 platforms and terraces), 009 x1,
+  010 x9, 011 x202, 017 x101, 018 x11, 019 x6, 020 x16, 021 x128, 023 x1, 024 x20, 025 x61, 027 x1, 028 x2, 030 x29; tiles AC-033 x143, 034 x8, 035 x4, 036 x60, 037 x1, 038 x4.
+- 17,435 parts, 17,411 hidden: **219,404 collision triangles** (draft 5: 181,772): Wall 11,525 parts / 138,300 triangles, Cover 3,046 / 36,552, Rubble 1,440 / 17,280, Floor 1,184 / 14,208, Stair (ramp wedges) 216 / 2,592,
+  the ground kinds and the boundary 10,472. The growth itself adds no parts (each item keeps its boxes); the 19 added platforms do (86 boxes each).
+- 57 flags. Growth: 404 items moved (257 of them by the narrow-gap rule), 136 kept a narrow gap they could not open, **1 left out: Twin tower east** (between the west avenue's lane and the stronghold's west leg there is no
+  room for it at 1.5x). 91 structures dropped in all: the 89 boundary-foot walls of draft 5, Twin tower east and the twin bridge.
+- **Bridges**: the keep bridge stands on its own legs (AC-009 drawn from the ground, 20 x 4.0 x 16.3 m, deck at 12 m; its ends reach no 12 m top). The **twin bridge is dropped** (flagged): its ends reach 3.3 / 6.6 m
+  (Twin tower west's AC-030) and nothing (Twin tower east left out); lowered under 8 m it would stand in the west avenue's lane, and on its own legs a low box stands in the lane. No AC-009 floats (test).
+- **Platforms**: 48 AC-008 (29 from draft 5, grown; 19 added), in all nine 160 m blocks of the map. Added at (-120, -24), (-16, 64), (-36, -216), (32, -216), (152, -204), (208, -168), (-208, 12), (60, 204) beside
+  routes; (-180, 140), (208, 136) near objectives A and C; (-168, 28), (-184, -188), (-200, -32), (-52, -156), (-44, 160), (140, -160), (180, -8), (32, 156), (8, 160) on open ground (with (60, 204), four stand inside the stronghold's
+  ring, outside the Chaos start area). Sizes 12.5 x 4.3 x 2.3 m to 21.0 x 7.2 x 6.0 m (the grown draft-5 sizes); every added one keeps the 0.4 m cell rule. Decks reached on foot (slow graph test): 31 of the 48 platforms, 17 of the 19 added (at 2.2 to 2.6 m; the 6.0 m one at (-184, -188) and the 5.3 m one at (-208, 12) are not).
+- **Walkable cell rule after the growth**: of 133 walkable-model items, 44 have a scaled cell over the 0.4 m step (the AC-003 ruin shells at 0.58 m, the four ring corners, the gate, the keep tower and stair towers, two
+  AC-010 towers, the bridge, one terrace at 0.42 m).
+- **Stronghold**: widest opening per leg on the collision: south west 10 m, south east 13, west 11.1, north 8, east 8 (all 8 m or more); the gate's opening 4 m. Leg walls keep their length along the leg.
+- **Narrow gaps** (`Narrow_gaps_between_cover_and_rubble_items_are_reported_and_few`): of 84,602 low part pairs of different items within 8 m, 1,596 (1.9 %) are narrower than 1.2 m (draft 5: 1.8 %).
+- **Route clearance** (slow graph test, free width across the shortest routes from the Space Marines' start, 2 m samples): to A narrowest 3.8 m (205 samples), B 15.1 m (94), C 3.4 m (204), the Chaos courtyard
+  4.0 m (163); **none under 2.4 m** (asserted now; draft 5 asserted 0.8 m).
+- **Walkable places** (slow graph test, about 760,000 nodes, about 5 min): the start reaches A, B, C, the Chaos courtyard and all 19 spawns. **Of the 124 v5 walkable places: 17 kept, 46 changed, 61 lost** (draft 5:
+  18 / 58 / 48). Kept: both stair-tower feet, terrace 1 and its foot, 13 platform decks (1.5 to 3.0 m). Changed to lost since draft 5: mostly ruin and tower floors whose ground is now inside a grown shell; platform decks
+  of 3.5 m and more are changed (their risers grew over the step). Tops reached on foot: 1,124 nodes at 2 m or more in 52 12 m cells, highest 2.8 m. Report: `%TEMP%\ashfall-draft6-walkable-report.txt`.
+- **Collision against the drawn model** (the lead's check of the owner's Shift+F8 screenshot, new test): for every Prop outside the merged families (252 items, AC-010 among them) the level's collision parts are exactly
+  the model's fitted boxes under the item's draw transform (`AshfallDressItem.ToWorld`, the same mapping as the client's `AshfallKitView.Fit`), one part per box except dust; no other scale, no union. The air in the
+  AC-010 overlay is therefore in the draft-5 fit data itself (AC-010: IoU 0.75, 108 boxes, the 15 % fill tolerance bridges openings), which the refit replaces. The merged families (cover, rubble, collapsed wall pieces;
+  six slabs along the run, draft 5's triangle budget) are the exception: their slabs hold 2.09x the volume of their fitted boxes (22,060 m3 against 10,569 m3).
+
+### Tests changed (deliberately)
+- `AshfallDraft5Tests`: `PinnedLevelHash` (the one level pin), `Version` 10; `Items_stay_within_their_structures_bounds_grown_1_5x_and_the_walkable_cell_rule_is_reported` replaces "within the bounds grown by 1 m" (now
+  the bounds scaled 1.5x about their centre plus 1.5 m plus the logged move; bridges and backdrops follow their own rules), and the walkable cell rule is reported for grown items, asserted for added platforms; the slow
+  test asserts route clearance of 2.4 m (was 0.8 m), lists every sample under 2.4 m and reports the platform decks reached; its report file is `ashfall-draft6-walkable-report.txt`.
+- `AshfallKitDressingTests`: `Version` 10, `DressVersion` 8 (test renamed to draft 6).
+- `AshfallDraft6Tests` new: every AC-009 rests on a structure at its deck at both narrow ends or stands on its own legs; 45 or more platforms in 8 or more of the nine blocks, added ones on blocks and 24 m apart;
+  the growth flag names what was left out, the surface tiles unchanged (220), leg walls and gate never longer than their segment; every item's collision equals its fitted boxes under the draw transform (merged families measured).
+
+### Open
+Twin tower east is left out and the twin bridge dropped (the owner may prefer a smaller tower there, or the bridge gone); 136 items keep a narrow gap they could not open (none on the measured routes); the walkable
+losses grew (61 of 124); the merged families' slabs add air (2.09x); the `docs/changes-from-original.md` row still says draft 5 / version 9 (editing it needs `smtool refine-register`).

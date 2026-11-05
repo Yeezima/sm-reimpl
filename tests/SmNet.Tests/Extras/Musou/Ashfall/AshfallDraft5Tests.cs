@@ -19,8 +19,11 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
     static AshfallLevel Level => D.Level;
     static AshfallDressing Dressing => D.Dressing;
 
-    /// <summary>Draft 5's level hash (version 9). A change of the pass, the pools, the fitted boxes or the generator without a new version fails here, not at a client's handshake.</summary>
-    public const ulong PinnedLevelHash = 0x6A803A7703280536UL;
+    /// <summary>
+    /// The level's hash (version 10, draft 6; draft 5's version 9 was 0x6A803A7703280536). A change of the pass, the pools, the fitted boxes or the generator without a new version fails here, not at a client's handshake.
+    /// The one level pin: after a refit of the collision (<c>AshfallKitCollision.g.cs</c>) take the new value from this test's failure.
+    /// </summary>
+    public const ulong PinnedLevelHash = 0xC1D1D8A1118A55AFUL;
 
     /// <summary>The v5 graybox's hash (pinned since pass 3, and again by the draft 3 and 5 work).</summary>
     const ulong PinnedGrayboxHash = 0xAE096E323BB5A4D3UL;
@@ -32,12 +35,12 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
     // ---------------------------------------------------------------- pins
 
     [Fact]
-    public void The_graybox_is_v5_exactly_and_the_draft_5_level_has_its_own_pinned_hash()
+    public void The_graybox_is_v5_exactly_and_the_draft_6_level_has_its_own_pinned_hash()
     {
         var gb = AshfallMap.BuildGraybox();
         Assert.Equal(PinnedGrayboxHash, gb.Hash);
         Assert.Equal(5u, AshfallMap.GrayboxVersion);
-        Assert.Equal(9u, AshfallMap.Version);
+        Assert.Equal(10u, AshfallMap.Version);
         Assert.NotEqual(gb.Hash, Level.Hash);
         Assert.Equal(PinnedLevelHash, Level.Hash);
         Assert.Equal(AshfallContent.ToMapContent(Level).Hash, Level.Hash);
@@ -140,26 +143,47 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
         }
     }
 
+    /// <summary>
+    /// Draft 6 (deliberate change of draft 5's "within the structure's bounds grown by 1 m"): every item grew 1.5x about its centre with its foot kept, so it stays within its structure's bounds scaled 1.5x about their
+    /// centre and grown by 1.5 m (draft 5's 1 m, grown), plus the distance it was moved back from a protected place (logged). Bridges follow their ends and backdrop blocks grow away from the boundary: not checked here.
+    /// The walkable models' cell rule (a scaled cell at most the 0.4 m step) no longer holds for every item after the growth: it is reported, and it holds for every platform draft 6 adds.
+    /// </summary>
     [Fact]
-    public void Items_stay_within_their_structures_bounds_grown_by_a_metre_and_walkable_models_keep_risers_under_the_step()
+    public void Items_stay_within_their_structures_bounds_grown_1_5x_and_the_walkable_cell_rule_is_reported()
     {
         var props = Dressing.Items.Select((it, i) => (it, i)).Where(x => x.it.Role == AshfallDressRole.Prop).ToList();
         Assert.Equal(Dressing.Structures!.Count, props.Count);
+        int checkedItems = 0;
         for (int k = 0; k < props.Count; k++)
         {
             var it = props[k].it; var st = Dressing.Structures[k];
+            var log = D.Placements.First(l => l.Item == props[k].i && l.Asset == it.Asset);   // (the plinth's line names the A dais' item)
+            if (log.Family is "bridge" or "backdrop") continue;
+            float moved = 0f;
+            int at = log.Outcome.IndexOf("moved ", StringComparison.Ordinal);
+            if (at >= 0) moved = float.Parse(log.Outcome[(at + 6)..].Split(' ')[0], System.Globalization.CultureInfo.InvariantCulture);
+            float tol = 1.5f + moved + 0.02f;
+            var mid = (st.Min + st.Max) / 2f; var half = (st.Max - st.Min) / 2f * 1.5f;
             float s = MathF.Sin(it.Yaw), c = MathF.Cos(it.Yaw);
             float ex = MathF.Abs(c) * it.Size.X / 2f + MathF.Abs(s) * it.Size.Y / 2f, ey = MathF.Abs(s) * it.Size.X / 2f + MathF.Abs(c) * it.Size.Y / 2f;
-            Assert.True(it.Position.X - ex >= st.Min.X - 1.01f && it.Position.X + ex <= st.Max.X + 1.01f && it.Position.Y - ey >= st.Min.Y - 1.01f && it.Position.Y + ey <= st.Max.Y + 1.01f
-                && it.Position.Z >= st.Min.Z - 0.01f && it.Position.Z + it.Size.Z <= st.Max.Z + 0.01f, $"{it.Asset} item {props[k].i} leaves its structure's bounds");
+            Assert.True(it.Position.X - ex >= mid.X - half.X - tol && it.Position.X + ex <= mid.X + half.X + tol && it.Position.Y - ey >= mid.Y - half.Y - tol && it.Position.Y + ey <= mid.Y + half.Y + tol,
+                $"{it.Asset} item {props[k].i} ({log.Group}) leaves its structure's bounds grown 1.5x");
+            Assert.True(it.Position.Z >= st.Min.Z - 0.01f && it.Position.Z + it.Size.Z <= st.Min.Z + 1.5f * (st.Max.Z - st.Min.Z) + 0.01f, $"{it.Asset} item {props[k].i} ({log.Group}): foot or height off");
+            checkedItems++;
         }
-        // The walkable models' cell, scaled up, is at most the 0.4 m step: no riser is thicker than a cell.
+        Assert.True(checkedItems > 700);
+        // The walkable models' cell, scaled up, against the 0.4 m step (a riser no thicker than a cell): reported for the grown items, held by the added platforms.
         var walkable = AshfallKitFit.WalkableIds;
-        foreach (var it in Dressing.Items.Where(i => i.Role == AshfallDressRole.Prop && walkable.Contains(i.Asset)))
+        int over = 0, total = 0;
+        foreach (var (it, i) in props.Where(x => walkable.Contains(x.it.Asset)))
         {
-            float scaleY = it.Size.Z / AshfallKit.Get(it.Asset).RawSize.Y;
-            Assert.True(AshfallKitCollision.Metrics(it.Asset).CellSize * scaleY <= 0.4f + 1e-3f, $"{it.Asset} at {it.Position}: cell {AshfallKitCollision.Metrics(it.Asset).CellSize * scaleY:0.00} m after scaling");
+            float cell = AshfallKitCollision.Metrics(it.Asset).CellSize * it.Size.Z / AshfallKit.Get(it.Asset).RawSize.Y;
+            total++;
+            bool added = D.Placements.First(l => l.Item == i && l.Asset == it.Asset).Group.StartsWith("extra platform");
+            if (added) Assert.True(cell <= 0.4f + 1e-3f, $"added platform {i}: cell {cell:0.00} m after scaling");
+            if (cell > 0.4f + 1e-3f) { over++; output.WriteLine($"over the step: {it.Asset} item {i} at ({it.Position.X:0}, {it.Position.Y:0}): cell {cell:0.00} m"); }
         }
+        output.WriteLine($"walkable-model items: {total}, scaled cell over the 0.4 m step: {over}");
     }
 
     // ---------------------------------------------------------------- places that stay clear
@@ -365,7 +389,7 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
     }
 
     [Fact]
-    [Trait("Speed", "Slow")]   // builds the war's whole walking graph on the draft-5 level (about a minute or two)
+    [Trait("Speed", "Slow")]   // builds the war's whole walking graph on the draft-6 level (about a minute or two)
     public void The_enemies_graph_reaches_the_places_and_reports_every_v5_walkable_place_as_kept_changed_or_lost()
     {
         var sw = Stopwatch.StartNew();
@@ -431,6 +455,19 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
             report.AppendLine($"  {pl.Name} ({pl.At.X:0}, {pl.At.Y:0}, {pl.At.Z:0.0}): {what}");
         }
         report.AppendLine($"v5 walkable places: {places.Count}, kept {kept}, changed {changed}, lost {lost}");
+        // Draft 6: the decks of the AC-008 platforms (the added ones listed): a reached node over the item's footprint at 1 m or more above its foot.
+        int decks = 0, deckTotal = 0, addedDecks = 0, addedTotal = 0;
+        for (int i = 0; i < Dressing.Items.Count; i++)
+        {
+            var it = Dressing.Items[i];
+            if (it.Role != AshfallDressRole.Prop || it.Asset != "AC-008") continue;
+            bool added = D.Placements.First(l => l.Item == i && l.Asset == it.Asset).Group.StartsWith("extra platform");
+            float r = MathF.Min(it.Size.X, it.Size.Y) / 2f;
+            var on = Near(it.Position, r).Where(q => q.Z >= it.Position.Z + 1f).ToList();
+            deckTotal++; if (on.Count > 0) decks++;
+            if (added) { addedTotal++; if (on.Count > 0) addedDecks++; report.AppendLine($"  added platform at ({it.Position.X:0}, {it.Position.Y:0}), {it.Size.Z:0.0} m tall: deck {(on.Count > 0 ? $"reached at {on.Max(q => q.Z):0.0} m" : "not reached")}"); }
+        }
+        report.AppendLine($"AC-008 platforms with a deck reached on foot: {decks} of {deckTotal} (added in draft 6: {addedDecks} of {addedTotal})");
         // Route clearance: the free width across the walk graph's routes from the Space Marines' start to A, B, C and the Chaos courtyard.
         var obstacles = Level.Parts.Where(p => p.Solid && !IsGround(p.Kind)).Select(Bounds).ToList();
         float Free(Vector3 at, Vector2 dir)
@@ -476,11 +513,11 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
             int under24 = widths.Count(x => x.W < 2.4f), under12 = widths.Count(x => x.W < 1.2f), under08 = widths.Count(x => x.W < 0.8f);
             worst = MathF.Min(worst, widths.Min(x => x.W));
             report.AppendLine($"  {name}: {widths.Count} samples, narrowest {widths.Min(x => x.W):0.0} m, under 2.4 m {under24} ({100f * under24 / widths.Count:0.0} %), under 1.2 m {under12} ({100f * under12 / widths.Count:0.0} %), under 0.8 m {under08}");
-            foreach (var x in widths.Where(x => x.W < 1.2f).Take(6)) report.AppendLine($"    tight {x.W:0.0} m at ({x.At.X:0}, {x.At.Y:0}, {x.At.Z:0.0})");
+            foreach (var x in widths.Where(x => x.W < 2.4f).Take(12)) report.AppendLine($"    tight {x.W:0.0} m at ({x.At.X:0}, {x.At.Y:0}, {x.At.Z:0.0})");
         }
         output.WriteLine(report.ToString());
-        try { File.WriteAllText(Path.Combine(Path.GetTempPath(), "ashfall-draft5-walkable-report.txt"), report.ToString()); } catch (IOException) { }
-        Assert.True(worst >= 0.8f, $"a route squeezes through {worst:0.0} m");
+        try { File.WriteAllText(Path.Combine(Path.GetTempPath(), "ashfall-draft6-walkable-report.txt"), report.ToString()); } catch (IOException) { }
+        Assert.True(worst >= 2.4f, $"a route squeezes through {worst:0.0} m");   // draft 6 (the lead's brief): no passage under 2.4 m on the main routes (draft 5 asserted 0.8 m and measured 3.2 m)
         Assert.True(kept + changed + lost == places.Count);
         Assert.True(reach.Count > graph.NodeCount / 2, "less than half of the graph is walked from the start");
     }
