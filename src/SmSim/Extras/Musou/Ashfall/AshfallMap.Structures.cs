@@ -10,7 +10,7 @@ public static partial class AshfallMap
     static uint H(uint seed, uint i) => AshfallBuilder.Mix(seed, i);
 
     /// <summary>The owner's red-marked zones (2026-11-05; min x, min y, max x, max y): extra ruins, walls, platforms and rubble go here first.</summary>
-    internal static readonly Vector4[] PriorityZones =
+    public static readonly Vector4[] PriorityZones =
     [
         new(-236f, -120f, 236f, -60f),   // 1 the south loop (north edge of the south blocks, the south avenue, south edge of the middle row)
         new(-220f, -90f, -160f, 0f),     // 2 the crater field's south-west
