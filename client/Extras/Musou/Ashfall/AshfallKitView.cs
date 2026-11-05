@@ -142,7 +142,7 @@ public partial class AshfallKitView : Node3D
     };
 
     // ---- Draft 5: seeded surface variation (ours; subtle, flat, no geometry added) ------------------------------------------------------------------------------
-    // Ground kinds: per 8 m world cell a hash of (cell, seed) picks a quarter turn of the texture and one of four tone/grit variants of the same texture.
+    // Ground kinds: a hash of (8 m cell, seed) gives a tone and a grit value per cell, blended smoothly between cell centres (value noise, tone +-4 %); no per-cell turn, no visible cell edge.
     // Boundary: per 4 m x 1 m block (the masonry's own courses and joints) a hash picks one of three block faces (plain, darker and grittier, lighter with a small chip at the edge); joints stay.
     // Plain spatial shaders (integer hash, textureGrad, no Forward+ feature), so the Compatibility renderer runs them too. `--ashfall-variation off` draws the draft-3 materials instead.
     const string GroundShader = """
@@ -159,12 +159,7 @@ uint cellhash(int a, int b, int s) {
 	h ^= h >> 13u; h *= 1540483477u; h ^= h >> 15u; h *= 2654435761u; h ^= h >> 13u;
 	return h;
 }
-vec2 quarter(vec2 v, int k) {
-	if (k == 1) return vec2(-v.y, v.x);
-	if (k == 2) return -v;
-	if (k == 3) return vec2(v.y, -v.x);
-	return v;
-}
+float cellval(int a, int b, int s) { return float(cellhash(a, b, s) & 1023u) / 1023.0; }
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wnor = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
@@ -175,15 +170,19 @@ void fragment() {
 	if (an.y >= an.x && an.y >= an.z) p = wpos.xz;
 	else if (an.x >= an.z) p = wpos.zy;
 	else p = wpos.xy;
-	ivec2 cell = ivec2(floor(wpos.xz / tile));
-	uint h = cellhash(cell.x, cell.y, seed);
-	int k = int(h & 3u);
-	int v = int((h >> 2u) & 3u);
-	vec2 q = p / tile;
-	vec3 c = textureGrad(tex, quarter(q, k), quarter(dFdx(q), k), quarter(dFdy(q), k)).rgb;
-	float tones[4] = float[4](1.0, 0.91, 1.07, 0.97);
-	float grits[4] = float[4](1.0, 1.30, 0.80, 1.15);
-	c = ((c - 0.58) * grits[v] + 0.58) * tones[v];
+	// Smooth value noise over the 8 m cells (bilinear between the cell values, smoothstep-eased): no cell edge shows. Tone about +-4 %, grit contrast about +-12 %.
+	vec2 g = wpos.xz / tile - 0.5;
+	ivec2 i0 = ivec2(floor(g));
+	vec2 f = g - vec2(i0);
+	f = f * f * (3.0 - 2.0 * f);
+	float t0 = mix(cellval(i0.x, i0.y, seed), cellval(i0.x + 1, i0.y, seed), f.x);
+	float t1 = mix(cellval(i0.x, i0.y + 1, seed), cellval(i0.x + 1, i0.y + 1, seed), f.x);
+	float tn = mix(t0, t1, f.y);
+	float r0 = mix(cellval(i0.x, i0.y, seed + 7919), cellval(i0.x + 1, i0.y, seed + 7919), f.x);
+	float r1 = mix(cellval(i0.x, i0.y + 1, seed + 7919), cellval(i0.x + 1, i0.y + 1, seed + 7919), f.x);
+	float gn = mix(r0, r1, f.y);
+	vec3 c = texture(tex, p / tile).rgb;
+	c = ((c - 0.58) * (1.0 + 0.24 * (gn - 0.5)) + 0.58) * (1.0 + 0.08 * (tn - 0.5));
 	ALBEDO = c * tint.rgb;
 	ROUGHNESS = 1.0;
 }
@@ -284,7 +283,7 @@ void fragment() {
     readonly HashSet<int> _drawnItems = [];
     int _shown, _shownInstances, _failedItems;
     long _startMs;
-    bool _reported;
+    bool _reported, _harmonised;
     bool _kit = true;
 
     /// <summary>True while the kit look is the one drawn.</summary>
@@ -489,6 +488,7 @@ void fragment() {
         foreach (var id in _library.TakeReady()) _toPlace.Enqueue(id);
         // Models that arrived but did not fit this frame's budget wait for the next frame (TakeReady drains the library's queue).
         while (_toPlace.Count > 0 && (long)Time.GetTicksUsec() <= budgetEnd) Instantiate(_toPlace.Dequeue());
+        if (!_harmonised && libraryDone && _library.Loaded > 0) { _harmonised = true; Harmonise(); }
         if (!_reported && libraryDone && _toPlace.Count == 0 && _library.Loaded + _library.Failed > 0)
         {
             _reported = true;
@@ -497,6 +497,31 @@ void fragment() {
                      $"{assets.Sum(a => a.Triangles):N0} triangles at full detail, textures ~{assets.Sum(a => a.TextureBytes) / 1048576.0:F0} MiB, items shown {_shown} ({_shownInstances} mesh instances), items without a model {_failedItems}";
             GD.Print("ashfall kit: " + Report);
         }
+    }
+
+    /// <summary>
+    /// Material harmonisation (ours): the generated models differ in how pale their base colour is (manifest: AC-009, AC-012, AC-022 and above all AC-028 "brighter than neighbouring assets"). Once every model is
+    /// loaded, each model's measured base-colour luminance is scaled toward the median of the loaded set (factor clamped to 0.6..1.1, multiplied into its materials' albedo colour). The factors are logged once.
+    /// </summary>
+    void Harmonise()
+    {
+        var ok = _library.All.Where(a => a.Ok && a.Luma > 0.01f).ToList();
+        if (ok.Count < 3) return;
+        var sorted = ok.Select(a => a.Luma).OrderBy(x => x).ToArray();
+        float median = sorted[sorted.Length / 2];
+        var done = new HashSet<BaseMaterial3D>();
+        var log = new List<string>();
+        foreach (var a in ok.OrderBy(a => a.Id))
+        {
+            float f = Math.Clamp(median / a.Luma, 0.6f, 1.1f);
+            if (MathF.Abs(f - 1f) < 0.02f) continue;
+            foreach (var piece in a.Pieces)
+                for (int s = 0; s < piece.Mesh.GetSurfaceCount(); s++)
+                    if (piece.Mesh.SurfaceGetMaterial(s) is BaseMaterial3D m && done.Add(m))
+                        m.AlbedoColor = new Color(m.AlbedoColor.R * f, m.AlbedoColor.G * f, m.AlbedoColor.B * f, m.AlbedoColor.A);
+            log.Add($"{a.Id} {a.Luma:F2}x{f:F2}");
+        }
+        GD.Print($"ashfall kit: albedo harmonised toward median luminance {median:F2}: {(log.Count == 0 ? "no change" : string.Join(", ", log))}");
     }
 
     // Mesh instances of one asset are created once its model arrives; the pieces share the cached meshes.

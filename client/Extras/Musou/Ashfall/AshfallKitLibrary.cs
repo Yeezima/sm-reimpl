@@ -32,6 +32,8 @@ public sealed class AshfallKitLibrary
         public int LodSurfaces { get; init; }
         public long TextureBytes { get; init; }
         public string TextureNote { get; init; } = "";
+        /// <summary>Mean luminance of the model's base colour (texture mean times colour factor, per surface, averaged); 0 when unmeasured.</summary>
+        public float Luma { get; init; }
     }
 
     /// <summary>The extracted library's root (<c>source\</c>); the folder may not exist.</summary>
@@ -134,8 +136,9 @@ public sealed class AshfallKitLibrary
                 pieces.Add(new Piece(mesh, WorldOf(nodes, index), lods));
             }
             if (pieces.Count == 0) return Fail(id, "no mesh in the file", watch);
+            float luma = MeasureLuma(pieces);
             var (bytes, note) = ShrinkTextures(pieces);
-            return new Asset { Id = id, Pieces = [.. pieces], Ms = watch.Elapsed.TotalMilliseconds, Triangles = triangles, LodSurfaces = lodSurfaces, TextureBytes = bytes, TextureNote = note };
+            return new Asset { Id = id, Pieces = [.. pieces], Ms = watch.Elapsed.TotalMilliseconds, Triangles = triangles, LodSurfaces = lodSurfaces, TextureBytes = bytes, TextureNote = note, Luma = luma };
         }
         catch (Exception e) when (e is not (StackOverflowException or AccessViolationException or OutOfMemoryException))
         {
@@ -161,6 +164,45 @@ public sealed class AshfallKitLibrary
         BaseMaterial3D.TextureParam.Albedo, BaseMaterial3D.TextureParam.Normal, BaseMaterial3D.TextureParam.Metallic, BaseMaterial3D.TextureParam.Roughness,
         BaseMaterial3D.TextureParam.AmbientOcclusion, BaseMaterial3D.TextureParam.Emission,
     ];
+
+    /// <summary>Mean base-colour luminance (0..1, linear-ish sRGB values) over the model's surfaces: a 16 x 16 downsample of each albedo texture times the material's colour.</summary>
+    static float MeasureLuma(List<Piece> pieces)
+    {
+        double sum = 0; int n = 0;
+        var cache = new Dictionary<Texture2D, float>();
+        foreach (var piece in pieces)
+            for (int s = 0; s < piece.Mesh.GetSurfaceCount(); s++)
+            {
+                if (piece.Mesh.SurfaceGetMaterial(s) is not BaseMaterial3D m) continue;
+                var c = m.AlbedoColor;
+                float colour = 0.299f * c.R + 0.587f * c.G + 0.114f * c.B;
+                float tex = 1f;
+                if (m.GetTexture(BaseMaterial3D.TextureParam.Albedo) is { } t)
+                {
+                    if (!cache.TryGetValue(t, out tex))
+                    {
+                        tex = 0.5f;
+                        try
+                        {
+                            var img = t.GetImage();
+                            if (img is not null)
+                            {
+                                if (img.IsCompressed()) img.Decompress();
+                                img.Resize(16, 16, Image.Interpolation.Bilinear);
+                                double a = 0;
+                                for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) { var p = img.GetPixel(x, y); a += 0.299 * p.R + 0.587 * p.G + 0.114 * p.B; }
+                                tex = (float)(a / 256);
+                            }
+                        }
+                        catch (Exception) { }
+                        cache[t] = tex;
+                    }
+                }
+                else colour *= 0.49f / 1f;   // the no-albedo stone tint below
+                sum += tex * colour; n++;
+            }
+        return n == 0 ? 0f : (float)(sum / n);
+    }
 
     /// <summary>Resizes each material's textures to <see cref="TextureMax"/> and block-compresses them; returns the VRAM estimate and a note.</summary>
     (long Bytes, string Note) ShrinkTextures(List<Piece> pieces)
