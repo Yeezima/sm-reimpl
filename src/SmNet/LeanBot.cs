@@ -41,7 +41,7 @@ public static class LeanBot
         "frame-profile", "frame-stats", "look-churn", "look-log", "look-closeup", "picker-demo", "picker-on-death", "picker-deploy", "bot-change-loadout",
         "bot-gait", "gait-sweep", "action-sweep", "bot-turn-sweep", "turn-sweep-fire", "latency-probe", "bullet-probe", "show-shot-rays", "camera-hide-log",
         "slash-trace", "run-start-log", "log-sound", "log-footsteps", "reload-capture", "reload-probe", "ork-capture", "screenshot", "screenshot-every",
-        "record-demo", "spectate", "ragdoll-debug", "damage-demo", "aim-test", "hud-demo", "hud-rewards-demo", "hud-score-demo", "hud-vitals-demo", "hud-switch-demo", "hud-launcher-demo", "scope-spread-demo", "pound-marker-demo",
+        "record-demo", "spectate", "ragdoll-debug", "damage-demo", "aim-test", "hud-demo", "hud-rewards-demo", "hud-score-demo", "hud-vitals-demo", "hud-plasma-demo", "hud-switch-demo", "hud-launcher-demo", "scope-spread-demo", "pound-marker-demo",
         "power-flash-demo", "log-power-flash", "power-flash-at",   // fx/power-flash: the hit flash demo and its log
         "musou-hud-demo",   // added content Musou (MU3): the Musou HUD and telegraphs with made-up values
         "musou-gore-demo",   // added content Musou (pass 2 M10): the scripted feed of the gore
@@ -50,7 +50,7 @@ public static class LeanBot
         "pose-pop-probe", "turn-probe", "turn-probe-events", "turn-probe-trace", "transition-probe-csv", "transition-probe-trace", "anim-probe-csv", "motion-probe-worst",
         "gait-sweep-fire", "ui-sound-probe", "log-fall", "log-falls", "log-upper", "log-sprint-edges", "log-death-fx", "bot-ledge", "ledge-charge",
         "ragdoll", "ragdoll-rest", "ragdoll-delay", "screenshot-at", "screenshot-on-effect", "demo-look", "demo-profile", "demo-no-quit", "play-demo",
-        "jump-test", "slash-test", "dash-wall-test", "pound-test", "stomp-test", "stomp-move-test", "swing-test", "swing-trace", "log-lunge", "carry-test", "camera-test", "log-melee-fx", "laser-test", "shot-test", "barrel-test", "barrel-probe", "old-barrel", "reload-test", "ork-test", "guard-test", "emblem-test", "appearance-test", "ui-selftest", "lock-demo",
+        "jump-test", "slash-test", "dash-wall-test", "pound-test", "stomp-test", "stomp-move-test", "swing-test", "swing-trace", "log-lunge", "carry-test", "camera-test", "log-melee-fx", "log-plasma-fx", "laser-test", "shot-test", "barrel-test", "barrel-probe", "old-barrel", "reload-test", "ork-test", "guard-test", "emblem-test", "appearance-test", "ui-selftest", "lock-demo",
         // the screenshot waits
         "wait-players", "wait-melee", "wait-blast", "wait-jump", "wait-match-end", "wait-death", "wait-fall", "wait-fall-land", "wait-flinch", "wait-frames", "wait-switch",
         // gamepad: the synthetic controller script (a human client; a bot takes no pad)
