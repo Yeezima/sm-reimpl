@@ -145,6 +145,7 @@ public partial class AshfallKitView : Node3D
     void BuildRemainder(AshfallLevel level)
     {
         var hidden = _dressing.HiddenParts.ToHashSet();
+        var skinned = _dressing.Items.Where(i => i.Role == AshfallDressRole.Skin && i.Part >= 0).Select(i => i.Part).ToHashSet();
         foreach (var group in level.Parts.Select((p, i) => (Part: p, Index: i)).Where(x => x.Part.Kind != AshfallKind.Objective).GroupBy(x => x.Part.Kind))
         {
             var material = new StandardMaterial3D
@@ -154,7 +155,7 @@ public partial class AshfallKitView : Node3D
                 Uv1Triplanar = true, Uv1WorldTriplanar = true, Uv1Scale = new Vector3(0.25f, 0.25f, 0.25f),
                 CullMode = BaseMaterial3D.CullModeEnum.Disabled, Roughness = 1f,
             };
-            var always = group.Where(x => !hidden.Contains(x.Index)).SelectMany(x => x.Part.Corners).ToArray();
+            var always = group.Where(x => !hidden.Contains(x.Index)).SelectMany(x => skinned.Contains(x.Index) ? Inset(x.Part.Corners) : x.Part.Corners).ToArray();
             if (always.Length > 0)
                 _remainder.AddChild(new MeshInstance3D { Name = group.Key.ToString(), Mesh = AshfallView.MeshOf(always), MaterialOverride = material });
             foreach (var x in group.Where(x => hidden.Contains(x.Index)))
@@ -164,6 +165,26 @@ public partial class AshfallKitView : Node3D
                 _remainder.AddChild(node);
             }
         }
+    }
+
+    /// <summary>A skinned part that stays drawn (walls, stronghold, boundary: the models' window and arch openings must show stone, not a see-through hole over solid
+    /// collision) is drawn as its box pulled in by <see cref="BackingInset"/> on X and Y (never more than a quarter of its width), so the fitted model's faces stay in front.
+    /// Top and bottom are kept (walkable tops stay where the collision is).</summary>
+    const float BackingInset = 0.15f;
+
+    static System.Numerics.Vector3[] Inset(System.Numerics.Vector3[] corners)
+    {
+        var min = new System.Numerics.Vector3(float.MaxValue); var max = new System.Numerics.Vector3(float.MinValue);
+        foreach (var v in corners) { min = System.Numerics.Vector3.Min(min, v); max = System.Numerics.Vector3.Max(max, v); }
+        var c = (min + max) / 2f;
+        float ix = MathF.Min(BackingInset, (max.X - min.X) / 4f), iy = MathF.Min(BackingInset, (max.Y - min.Y) / 4f);
+        var result = new System.Numerics.Vector3[corners.Length];
+        for (int i = 0; i < corners.Length; i++)
+        {
+            var v = corners[i];
+            result[i] = new(v.X < c.X ? v.X + ix : v.X > c.X ? v.X - ix : v.X, v.Y < c.Y ? v.Y + iy : v.Y > c.Y ? v.Y - iy : v.Y, v.Z);
+        }
+        return result;
     }
 
     void HidePart(int part)
