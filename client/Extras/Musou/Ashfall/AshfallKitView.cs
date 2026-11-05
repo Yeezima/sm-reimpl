@@ -9,14 +9,14 @@ namespace SmClient;
 /// <summary>
 /// The kit look of Ashfall Citadel (docs/musou-ashfall-graybox.md "Kit look (client)"): the dressing's items drawn with the owner's generated models
 /// (<see cref="AshfallKitLibrary"/>), the graybox parts the dressing hides left out, and the rest of the graybox in a stone and ash material (no checker).
-/// Lives in game space (X east, Y north, Z up; the parent converts). The graybox view stays as the other look: <see cref="SetKit"/> / F8 toggle between them
-/// (both are built once; the toggle only changes visibility). Models arrive in the background; an item shows when its model is loaded, and a part the
-/// dressing hides stays drawn until every Skin item over it is shown (so a missing model leaves the graybox part for that spot). **Placeholder demonstration.**
+/// Draft 5: the collision parts (the dressing's hidden list) are never drawn in the kit look; the ground kinds and the boundary keep seeded-variation textures. Lives in game space (X east, Y north, Z up; the parent converts).
+/// Keys: F8 toggles kit look / graybox (collision as plain stone, models hidden); Shift+F8 toggles a translucent collision overlay over the kit look. **Placeholder demonstration.**
 /// </summary>
 public partial class AshfallKitView : Node3D
 {
     /// <summary>The toggle key (F8: F1 overlay, F9 fire test, F10 observer and F11 are taken; F8 was free).</summary>
     public const Key ToggleKey = Key.F8;
+    // Shift+F8 (F8 with Shift is bound nowhere else in client/): the kit look with the collision drawn over it.
 
     /// <summary>
     /// The transform that fits a model into an item's box by the contract (<see cref="AshfallDressItem"/>): the raw bounds on the mapped axes fill <see cref="AshfallDressItem.Size"/>, the
@@ -141,6 +141,140 @@ public partial class AshfallKitView : Node3D
         CullMode = BaseMaterial3D.CullModeEnum.Disabled, Roughness = 1f,
     };
 
+    // ---- Draft 5: seeded surface variation (ours; subtle, flat, no geometry added) ------------------------------------------------------------------------------
+    // Ground kinds: per 8 m world cell a hash of (cell, seed) picks a quarter turn of the texture and one of four tone/grit variants of the same texture.
+    // Boundary: per 4 m x 1 m block (the masonry's own courses and joints) a hash picks one of three block faces (plain, darker and grittier, lighter with a small chip at the edge); joints stay.
+    // Plain spatial shaders (integer hash, textureGrad, no Forward+ feature), so the Compatibility renderer runs them too. `--ashfall-variation off` draws the draft-3 materials instead.
+    const string GroundShader = """
+shader_type spatial;
+render_mode cull_disabled;
+uniform sampler2D tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform vec4 tint : source_color = vec4(1.0);
+uniform int seed = 1;
+uniform float tile = 8.0;
+varying vec3 wpos;
+varying vec3 wnor;
+uint cellhash(int a, int b, int s) {
+	uint h = uint(a) * 73856093u ^ uint(b) * 19349663u ^ uint(s) * 83492791u;
+	h ^= h >> 13; h *= 1540483477u; h ^= h >> 15; h *= 2654435761u; h ^= h >> 13;
+	return h;
+}
+vec2 quarter(vec2 v, int k) {
+	if (k == 1) return vec2(-v.y, v.x);
+	if (k == 2) return -v;
+	if (k == 3) return vec2(v.y, -v.x);
+	return v;
+}
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	wnor = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+}
+void fragment() {
+	vec3 an = abs(wnor);
+	vec2 p;
+	if (an.y >= an.x && an.y >= an.z) p = wpos.xz;
+	else if (an.x >= an.z) p = wpos.zy;
+	else p = wpos.xy;
+	ivec2 cell = ivec2(floor(wpos.xz / tile));
+	uint h = cellhash(cell.x, cell.y, seed);
+	int k = int(h & 3u);
+	int v = int((h >> 2) & 3u);
+	vec2 q = p / tile;
+	vec3 c = textureGrad(tex, quarter(q, k), quarter(dFdx(q), k), quarter(dFdy(q), k)).rgb;
+	float tones[4] = float[4](1.0, 0.91, 1.07, 0.97);
+	float grits[4] = float[4](1.0, 1.30, 0.80, 1.15);
+	c = ((c - 0.58) * grits[v] + 0.58) * tones[v];
+	ALBEDO = c * tint.rgb;
+	ROUGHNESS = 1.0;
+}
+""";
+
+    const string MasonryShader = """
+shader_type spatial;
+render_mode cull_disabled;
+uniform sampler2D tex : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
+uniform vec4 tint : source_color = vec4(1.0);
+uniform int seed = 1;
+uniform float tile = 4.0;
+varying vec3 wpos;
+varying vec3 wnor;
+uint blockhash(int a, int b, int c, int s) {
+	uint h = uint(a) * 73856093u ^ uint(b) * 19349663u ^ uint(c) * 83492791u ^ uint(s) * 2654435761u;
+	h ^= h >> 13; h *= 1540483477u; h ^= h >> 15; h *= 2654435761u; h ^= h >> 13;
+	return h;
+}
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	wnor = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+}
+void fragment() {
+	vec3 an = abs(wnor);
+	vec3 c;
+	if (an.y > an.x && an.y > an.z) {
+		c = texture(tex, wpos.xz * 0.25).rgb;
+	} else {
+		bool xface = an.x > an.z;
+		float u = xface ? wpos.z : wpos.x;
+		float plane = xface ? wpos.x : wpos.z;
+		c = texture(tex, vec2(u * 0.25, -wpos.y * 0.25)).rgb;
+		int course = int(floor(-wpos.y));
+		float odd = float(course & 1);
+		float s = u + 2.0 * odd;
+		float bidx = floor(s / 4.0);
+		float bu = s - bidx * 4.0;
+		float bv = fract(-wpos.y);
+		uint h = blockhash(int(bidx), course, int(floor(plane)) * 2 + (xface ? 1 : 0), seed);
+		int variant = int(h % 3u);
+		float edge = min(min(bu, 4.0 - bu), min(bv, 1.0 - bv));
+		float inner = smoothstep(0.06, 0.12, edge);
+		float tone = 1.0;
+		float grit = 1.0;
+		if (variant == 1) { tone = 0.90; grit = 1.25; }
+		else if (variant == 2) { tone = 1.07; grit = 0.85; }
+		vec3 d = ((c - 0.5) * grit + 0.5) * tone;
+		if (variant == 2) {
+			vec2 centre = vec2(((h >> 4) & 1u) == 0u ? 0.35 : 3.65, ((h >> 5) & 1u) == 0u ? 0.82 : 0.18);
+			vec2 r = (vec2(bu, bv) - centre) / vec2(0.40, 0.20);
+			float ragged = 1.0 + 0.35 * (c.r - 0.5);
+			if (dot(r, r) < ragged * ragged) d *= 0.80;
+		}
+		c = mix(c, d, inner);
+	}
+	ALBEDO = c * tint.rgb;
+	ROUGHNESS = 1.0;
+}
+""";
+
+    static Shader? _groundShader, _masonryShader;
+    static bool _variationOn = true;
+
+    static ShaderMaterial Variant(string code, ref Shader? cache, Texture2D texture, Color tint, int seed, float tile)
+    {
+        cache ??= new Shader { Code = code };
+        var m = new ShaderMaterial { Shader = cache };
+        m.SetShaderParameter("tex", texture);
+        m.SetShaderParameter("tint", tint);
+        m.SetShaderParameter("seed", seed);
+        m.SetShaderParameter("tile", tile);
+        return m;
+    }
+
+    /// <summary>The level's variation seed (<c>AshfallMap.VariationSeed</c> when the simulation has it, else 1); <c>--ashfall-seed N</c> overrides (test aid).</summary>
+    public static int VariationSeed()
+    {
+        var args = OS.GetCmdlineUserArgs();
+        int i = Array.IndexOf(args, "--ashfall-seed");
+        if (i >= 0 && i + 1 < args.Length && int.TryParse(args[i + 1], out var asked)) return asked;
+        try
+        {
+            var t = typeof(AshfallMap);
+            object? v = t.GetProperty("VariationSeed")?.GetValue(null) ?? t.GetField("VariationSeed")?.GetValue(null);
+            if (v is int n) return n;
+        }
+        catch (Exception) { }
+        return 1;
+    }
+
     /// <summary>What the last build and load measured (see the log line).</summary>
     public static string Report { get; private set; } = "";
 
@@ -148,8 +282,10 @@ public partial class AshfallKitView : Node3D
     readonly AshfallDressing _dressing;
     readonly Node3D? _graybox;
     readonly Dictionary<string, List<int>> _itemsByAsset = new();
-    readonly Dictionary<int, MeshInstance3D> _hiddenPartNodes = new();
-    readonly Dictionary<int, int> _partWaiting = new();
+    readonly AshfallLevel _level;
+    readonly HashSet<string> _failedLogged = [];
+    Node3D? _overlay;
+    bool _overlayOn;
     readonly Node3D _items = new() { Name = "Items" };
     readonly Node3D _remainder = new() { Name = "Remainder" };
     readonly HashSet<int> _drawnItems = [];
@@ -168,12 +304,12 @@ public partial class AshfallKitView : Node3D
     public AshfallKitView(AshfallLevel level, AshfallDressing dressing, Node3D? graybox)
     {
         Name = "KitLook";
+        _level = level;
         _dressing = dressing;
         _graybox = graybox;
         AddChild(_remainder);
         AddChild(_items);
         foreach (var part in dressing.HiddenParts) _hiddenAll.Add(part);
-        _covers = CoveredParts(level, dressing);
         BuildRemainder(level);
         ApplyArguments();
         for (int i = 0; i < dressing.Items.Count; i++)
@@ -182,12 +318,6 @@ public partial class AshfallKitView : Node3D
             if (!_itemsByAsset.TryGetValue(id, out var list)) _itemsByAsset[id] = list = [];
             list.Add(i);
         }
-        foreach (var part in _hiddenAll) _partWaiting[part] = 0;
-        for (int i = 0; i < dressing.Items.Count; i++)
-            foreach (var part in _covers[i])
-                if (_partWaiting.ContainsKey(part)) _partWaiting[part]++;
-        foreach (var (part, waiting) in _partWaiting.ToArray())
-            if (waiting == 0) HidePart(part);
         _startMs = (long)Time.GetTicksMsec();
         _library.Request(_itemsByAsset.Keys);
     }
@@ -211,78 +341,120 @@ public partial class AshfallKitView : Node3D
     void BuildRemainder(AshfallLevel level)
     {
         var hidden = _hiddenAll;
-        // Draft 3: the ground kinds (Ground, Road, Paving, Curb) are drawn as ash and stone terrain, the boundary as a flat masonry wall, and every part of the dressing's hidden list only until its models show.
-        foreach (var group in level.Parts.Select((p, i) => (Part: p, Index: i)).Where(x => x.Part.Kind != AshfallKind.Objective).GroupBy(x => x.Part.Kind))
+        // Draft 5: the collision parts (the dressing's hidden list) are never drawn in the kit look. The ground kinds (Ground, Road, Paving, Curb) are drawn as ash and stone terrain and the boundary as a flat
+        // masonry wall, both with the seeded variation; any other part the dressing does not hide keeps the stone material.
+        int seed = VariationSeed();
+        var args = OS.GetCmdlineUserArgs();
+        int vi = Array.IndexOf(args, "--ashfall-variation");
+        if (vi >= 0 && vi + 1 < args.Length && args[vi + 1] == "off") _variationOn = false;
+        GD.Print($"ashfall kit: surface variation {(_variationOn ? "on" : "off")}, seed {seed}");
+        foreach (var group in level.Parts.Select((p, i) => (Part: p, Index: i)).Where(x => x.Part.Kind != AshfallKind.Objective && !hidden.Contains(x.Index)).GroupBy(x => x.Part.Kind))
         {
-            StandardMaterial3D material = group.Key switch
+            Material material;
+            try
             {
-                AshfallKind.Ground => Triplanar(Terrain(), new Color(0.62f, 0.59f, 0.56f), 0.125f),
-                AshfallKind.Curb => Triplanar(Terrain(), new Color(0.70f, 0.67f, 0.63f), 0.125f),
-                AshfallKind.Road => Triplanar(Terrain(), new Color(0.52f, 0.50f, 0.48f), 0.125f),
-                AshfallKind.Paving => Triplanar(Terrain(), new Color(0.95f, 0.92f, 0.86f), 0.125f),
-                AshfallKind.Boundary => Triplanar(Masonry(), new Color(0.62f, 0.58f, 0.55f), 0.25f),
-                _ => Triplanar(Stone(), StoneOf(group.Key), 0.25f),
-            };
-            var always = group.Where(x => !hidden.Contains(x.Index)).SelectMany(x => x.Part.Corners).ToArray();
-            if (always.Length > 0)
-                _remainder.AddChild(new MeshInstance3D { Name = group.Key.ToString(), Mesh = AshfallView.MeshOf(always), MaterialOverride = material });
-            foreach (var x in group.Where(x => hidden.Contains(x.Index)))
-            {
-                var node = new MeshInstance3D { Name = $"Part{x.Index}", Mesh = AshfallView.MeshOf(x.Part.Corners), MaterialOverride = material };
-                _hiddenPartNodes[x.Index] = node;
-                _remainder.AddChild(node);
+                material = group.Key switch
+                {
+                    AshfallKind.Ground => Ground(new Color(0.62f, 0.59f, 0.56f), seed),
+                    AshfallKind.Curb => Ground(new Color(0.70f, 0.67f, 0.63f), seed),
+                    AshfallKind.Road => Ground(new Color(0.52f, 0.50f, 0.48f), seed),
+                    AshfallKind.Paving => Ground(new Color(0.95f, 0.92f, 0.86f), seed),
+                    AshfallKind.Boundary => _variationOn ? Variant(MasonryShader, ref _masonryShader, Masonry(), new Color(0.62f, 0.58f, 0.55f), seed, 4f) : Triplanar(Masonry(), new Color(0.62f, 0.58f, 0.55f), 0.25f),
+                    _ => Triplanar(Stone(), StoneOf(group.Key), 0.25f),
+                };
             }
+            catch (Exception e) when (e is not (StackOverflowException or AccessViolationException or OutOfMemoryException))
+            {
+                GD.Print($"ashfall kit: the variation material failed ({e.GetType().Name}: {e.Message}); the plain triplanar material is used");
+                material = Triplanar(Terrain(), new Color(0.6f, 0.58f, 0.55f), 0.125f);
+            }
+            var corners = group.SelectMany(x => x.Part.Corners).ToArray();
+            if (corners.Length > 0)
+                _remainder.AddChild(new MeshInstance3D { Name = group.Key.ToString(), Mesh = AshfallView.MeshOf(corners), MaterialOverride = material });
         }
     }
 
-    /// <summary>Per item, the hidden graybox parts it covers (its box meets the part's bounds): a part hides once every item over it is shown. A hidden part no item meets hides once all items are placed.</summary>
-    readonly int[][] _covers;
+    static Material Ground(Color tint, int seed) => _variationOn
+        ? Variant(GroundShader, ref _groundShader, Terrain(), tint, seed, 8f)
+        : Triplanar(Terrain(), tint, 0.125f);
 
-    /// <summary>Every part of the dressing's hidden list.</summary>
+    /// <summary>Every part of the dressing's hidden list (all collision that is not ground: never drawn in the kit look).</summary>
     readonly HashSet<int> _hiddenAll = [];
 
-    static int[][] CoveredParts(AshfallLevel level, AshfallDressing dressing)
+    // ---- the collision overlay (Shift+F8) ----------------------------------------------------------------------------------------------------------------
+
+    /// <summary>Builds the overlay once: the hidden parts as one unshaded translucent mesh (about 25 % alpha) and their outlines (coplanar triangle seams left out).</summary>
+    void BuildOverlay()
     {
-        var hidden = dressing.HiddenParts.Distinct().OrderBy(x => x).ToArray();
-        var min = new Vector3[hidden.Length]; var max = new Vector3[hidden.Length];
-        const float cell = 32f;
-        var grid = new Dictionary<(int, int), List<int>>();
-        for (int k = 0; k < hidden.Length; k++)
+        _overlay = new Node3D { Name = "CollisionOverlay", Visible = false };
+        var parts = _hiddenAll.OrderBy(x => x).Where(i => i >= 0 && i < _level.Parts.Count).Select(i => _level.Parts[i].Corners).ToArray();
+        var corners = parts.SelectMany(c => c).ToArray();
+        if (corners.Length > 0)
         {
-            var lo = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue); var hi = new Vector3(float.MinValue, float.MinValue, float.MinValue);
-            foreach (var v in level.Parts[hidden[k]].Corners) { lo = new(Math.Min(lo.X, v.X), Math.Min(lo.Y, v.Y), Math.Min(lo.Z, v.Z)); hi = new(Math.Max(hi.X, v.X), Math.Max(hi.Y, v.Y), Math.Max(hi.Z, v.Z)); }
-            min[k] = lo; max[k] = hi;
-            for (int gx = (int)Math.Floor(lo.X / cell); gx <= (int)Math.Floor(hi.X / cell); gx++)
-                for (int gy = (int)Math.Floor(lo.Y / cell); gy <= (int)Math.Floor(hi.Y / cell); gy++)
+            _overlay.AddChild(new MeshInstance3D
+            {
+                Name = "Fill", Mesh = AshfallView.MeshOf(corners), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                MaterialOverride = new StandardMaterial3D
                 {
-                    if (!grid.TryGetValue((gx, gy), out var l)) grid[(gx, gy)] = l = [];
-                    l.Add(k);
-                }
+                    ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, AlbedoColor = new Color(0.25f, 0.75f, 1f, 0.25f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                    CullMode = BaseMaterial3D.CullModeEnum.Disabled, DepthDrawMode = BaseMaterial3D.DepthDrawModeEnum.Disabled,
+                },
+            });
+            var edges = OutlineOf(parts);
+            if (edges is not null)
+                _overlay.AddChild(new MeshInstance3D
+                {
+                    Name = "Edges", Mesh = edges, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                    MaterialOverride = new StandardMaterial3D { ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, AlbedoColor = new Color(0.55f, 0.9f, 1f, 0.8f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha },
+                });
         }
-        var result = new int[dressing.Items.Count][];
-        var seen = new HashSet<int>();
-        for (int i = 0; i < dressing.Items.Count; i++)
-        {
-            var item = dressing.Items[i];
-            if (item.Role != AshfallDressRole.Skin) { result[i] = []; continue; }
-            float s = MathF.Sin(item.Yaw), c = MathF.Cos(item.Yaw);
-            float ex = MathF.Abs(c) * item.Size.X / 2f + MathF.Abs(s) * item.Size.Y / 2f, ey = MathF.Abs(s) * item.Size.X / 2f + MathF.Abs(c) * item.Size.Y / 2f;
-            float x0 = item.Position.X - ex, x1 = item.Position.X + ex, y0 = item.Position.Y - ey, y1 = item.Position.Y + ey, z0 = item.Position.Z, z1 = item.Position.Z + item.Size.Z;
-            seen.Clear();
-            var list = new List<int>();
-            for (int gx = (int)Math.Floor(x0 / cell); gx <= (int)Math.Floor(x1 / cell); gx++)
-                for (int gy = (int)Math.Floor(y0 / cell); gy <= (int)Math.Floor(y1 / cell); gy++)
-                    if (grid.TryGetValue((gx, gy), out var l))
-                        foreach (int k in l)
-                            if (seen.Add(k) && min[k].X <= x1 && max[k].X >= x0 && min[k].Y <= y1 && max[k].Y >= y0 && min[k].Z <= z1 && max[k].Z >= z0) list.Add(hidden[k]);
-            result[i] = [.. list];
-        }
-        return result;
+        AddChild(_overlay);
     }
 
-    void HidePart(int part)
+    /// <summary>Line mesh of the triangle edges of each part, dropping an edge shared by two coplanar triangles of the same part (the diagonal of a quad).</summary>
+    static ArrayMesh? OutlineOf(IEnumerable<System.Numerics.Vector3[]> parts)
     {
-        if (_hiddenPartNodes.TryGetValue(part, out var node)) node.Visible = false;
+        var lines = new List<Vector3>();
+        static (long, long, long) Q(System.Numerics.Vector3 v) => ((long)MathF.Round(v.X * 100f), (long)MathF.Round(v.Y * 100f), (long)MathF.Round(v.Z * 100f));
+        foreach (var tris in parts)
+        {
+            var seen = new Dictionary<((long, long, long), (long, long, long)), (System.Numerics.Vector3 N, int Count, System.Numerics.Vector3 A, System.Numerics.Vector3 B, bool Coplanar)>();
+            for (int t = 0; t + 2 < tris.Length; t += 3)
+            {
+                var n = System.Numerics.Vector3.Normalize(System.Numerics.Vector3.Cross(tris[t + 1] - tris[t], tris[t + 2] - tris[t]));
+                if (!float.IsFinite(n.X)) continue;
+                for (int e = 0; e < 3; e++)
+                {
+                    var a = tris[t + e]; var b = tris[t + (e + 1) % 3];
+                    var qa = Q(a); var qb = Q(b);
+                    var key = qa.CompareTo(qb) <= 0 ? (qa, qb) : (qb, qa);
+                    if (seen.TryGetValue(key, out var old)) seen[key] = (old.N, old.Count + 1, old.A, old.B, old.Coplanar || MathF.Abs(System.Numerics.Vector3.Dot(old.N, n)) > 0.9999f);
+                    else seen[key] = (n, 1, a, b, false);
+                }
+            }
+            foreach (var v in seen.Values)
+                if (!(v.Count == 2 && v.Coplanar)) { lines.Add(new(v.A.X, v.A.Y, v.A.Z)); lines.Add(new(v.B.X, v.B.Y, v.B.Z)); }
+        }
+        if (lines.Count == 0) return null;
+        var arrays = new Godot.Collections.Array();
+        arrays.Resize((int)Mesh.ArrayType.Max);
+        arrays[(int)Mesh.ArrayType.Vertex] = lines.ToArray();
+        var mesh = new ArrayMesh();
+        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Lines, arrays);
+        return mesh;
+    }
+
+    /// <summary>True while the translucent collision overlay is drawn over the kit look.</summary>
+    public bool Overlay => _overlayOn && _kit;
+
+    /// <summary>Shows or hides the collision overlay over the kit look (turning it on from the graybox look switches to the kit look first). Logged.</summary>
+    public void SetOverlay(bool on)
+    {
+        if (on && !_kit) SetKit(true);
+        _overlayOn = on;
+        if (on && _overlay is null) BuildOverlay();
+        if (_overlay is not null) _overlay.Visible = on;
+        GD.Print($"ashfall: collision overlay {(on ? "on" : "off")} ({_hiddenAll.Count} parts)");
     }
 
     /// <summary>Switches the look: the kit (this node, the graybox view's objective markers only) or the graybox (the whole graybox view). Logged.</summary>
@@ -310,7 +482,11 @@ public partial class AshfallKitView : Node3D
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (e is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: ToggleKey }) SetKit(!_kit);
+        if (e is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: ToggleKey } k)
+        {
+            if (k.ShiftPressed) SetOverlay(!(_kit && _overlayOn));   // Shift+F8: the kit look with the collision drawn over it
+            else SetKit(!_kit);                                       // F8: kit look <-> graybox (the collision drawn as plain stone, models hidden)
+        }
     }
 
     public override void _Process(double delta)
@@ -325,7 +501,7 @@ public partial class AshfallKitView : Node3D
             _reported = true;
             var assets = _library.All.Where(a => a.Ok).ToList();
             Report = $"{_library.Loaded} models loaded, {_library.Failed} failed, wall {_library.WallMs:F0} ms (sum of per-model {_library.All.Sum(a => a.Ms):F0} ms), " +
-                     $"{assets.Sum(a => a.Triangles):N0} triangles at full detail, textures ~{assets.Sum(a => a.TextureBytes) / 1048576.0:F0} MiB, items shown {_shown} ({_shownInstances} mesh instances), items left graybox {_failedItems}";
+                     $"{assets.Sum(a => a.Triangles):N0} triangles at full detail, textures ~{assets.Sum(a => a.TextureBytes) / 1048576.0:F0} MiB, items shown {_shown} ({_shownInstances} mesh instances), items without a model {_failedItems}";
             GD.Print("ashfall kit: " + Report);
         }
     }
@@ -338,6 +514,8 @@ public partial class AshfallKitView : Node3D
         var asset = _library.Get(id);
         var model = AshfallKit.Models.FirstOrDefault(m => m.Id == id);
         if (!_itemsByAsset.TryGetValue(id, out var indexes)) return;
+        if ((asset is not { Ok: true } || model is null) && _failedLogged.Add(id))
+            GD.Print($"ashfall kit: model {id} did not load ({asset?.Error ?? (model is null ? "not in the manifest" : "no result")}); nothing is shown for it in the kit look");
         foreach (int i in indexes)
         {
             var item = _dressing.Items[i];
@@ -353,12 +531,6 @@ public partial class AshfallKitView : Node3D
                 _shownInstances++;
             }
             _shown++;
-            foreach (var part in _covers[i])
-                if (_partWaiting.TryGetValue(part, out var waiting))
-                {
-                    _partWaiting[part] = --waiting;
-                    if (waiting <= 0) HidePart(part);
-                }
         }
     }
 }

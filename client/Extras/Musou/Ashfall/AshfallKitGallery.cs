@@ -32,6 +32,8 @@ public partial class AshfallKitGallery : Node3D
     AshfallView? _gray;
     AshfallLevel? _level;
     readonly List<(string Name, Vector3 At, Vector3 Look)> _shots = [];
+    /// <summary>Shots drawn with the translucent collision overlay on (Shift+F8 in the map); the camera of each repeats an existing shot.</summary>
+    readonly HashSet<string> _overlayShots = [];
     readonly List<(AshfallDressItem Item, AshfallKitModel Model, Vector3 Size)> _boxes = [];
     string _outDir = "";
     int _step, _wait, _sample;
@@ -184,6 +186,13 @@ public partial class AshfallKitGallery : Node3D
         _shots.Add(("street_gate", new Vector3(0, 70, 2.5f), new Vector3(0, 140, 10)));
         _shots.Add(("street_eastruins", new Vector3(120, -20, 2.8f), new Vector3(170, 20, 6)));
         _shots.Add(("street_craters", new Vector3(-110, -30, 2.8f), new Vector3(-180, 30, 2)));
+        // Draft 5: the same views as pointA, street_gate and street_eastruins with the collision overlay over the models.
+        foreach (var (name, from) in new[] { ("collision_pointA", "pointA"), ("collision_gate", "street_gate"), ("collision_eastruins", "street_eastruins") })
+        {
+            var src = _shots.First(x => x.Name == from);
+            _shots.Add((name, src.At, src.Look));
+            _overlayShots.Add(name);
+        }
     }
 
     /// <summary>A Skin item over every Wall, Cover and Rubble part (its box = the part's bounds, a model of a fitting category), for the measurement only.</summary>
@@ -238,7 +247,7 @@ public partial class AshfallKitGallery : Node3D
                 Done(0); return;
             }
             var s = list[_step];
-            if (!_aimed) { Aim(s.At, s.Look); _aimed = true; _wait = 3; return; }   // let the frames with the new camera render
+            if (!_aimed) { Aim(s.At, s.Look); if (_kit is not null) _kit.SetOverlay(_overlayShots.Contains(s.Name)); _aimed = true; _wait = 3; return; }   // let the frames with the new camera render
             _aimed = false;
             System.IO.Directory.CreateDirectory(_outDir);
             string path = System.IO.Path.Combine(_outDir, (_map ? "map_" : "") + s.Name + ".png");
@@ -259,7 +268,7 @@ public partial class AshfallKitGallery : Node3D
     // Perf: for each viewpoint and each look, 25 frames to settle, then 90 sampled frames: mean frame time, draw calls, primitives, objects.
     void Perf(double delta)
     {
-        var views = _shots.ToList();
+        var views = _shots.Where(x => !_overlayShots.Contains(x.Name)).ToList();
         int total = views.Count * 2;
         if (_step >= total)
         {
