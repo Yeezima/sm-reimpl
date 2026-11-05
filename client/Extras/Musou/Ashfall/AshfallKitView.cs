@@ -209,13 +209,19 @@ void vertex() {
 void fragment() {
 	vec3 an = abs(wnor);
 	vec3 c;
+	// derivatives taken outside the branch (they are undefined inside a divergent one): textureGrad then keeps the mip chain smooth across the top/side change
+	bool xface = an.x > an.z;
+	float u = xface ? wpos.z : wpos.x;
+	vec2 uvTop = wpos.xz * 0.25;
+	vec2 uvSide = vec2(u * 0.25, -wpos.y * 0.25);
+	vec2 dTopX = dFdx(uvTop); vec2 dTopY = dFdy(uvTop);
+	vec2 dSideX = dFdx(uvSide); vec2 dSideY = dFdy(uvSide);
+	float far = 1.0 - smoothstep(50.0, 140.0, length(VERTEX));   // the block variants and chips fade out with distance (no moire from the 1 m courses)
 	if (an.y > an.x && an.y > an.z) {
-		c = texture(tex, wpos.xz * 0.25).rgb;
+		c = textureGrad(tex, uvTop, dTopX, dTopY).rgb;
 	} else {
-		bool xface = an.x > an.z;
-		float u = xface ? wpos.z : wpos.x;
 		float plane = xface ? wpos.x : wpos.z;
-		c = texture(tex, vec2(u * 0.25, -wpos.y * 0.25)).rgb;
+		c = textureGrad(tex, uvSide, dSideX, dSideY).rgb;
 		int course = int(floor(-wpos.y));
 		float odd = float(course & 1);
 		float s = u + 2.0 * odd;
@@ -225,7 +231,7 @@ void fragment() {
 		uint h = blockhash(int(bidx), course, int(floor(plane)) * 2 + (xface ? 1 : 0), seed);
 		int variant = int(h % 3u);
 		float edge = min(min(bu, 4.0 - bu), min(bv, 1.0 - bv));
-		float inner = smoothstep(0.06, 0.12, edge);
+		float inner = smoothstep(0.06, 0.12, edge) * far;
 		float tone = 1.0;
 		float grit = 1.0;
 		if (variant == 1) { tone = 0.90; grit = 1.25; }
@@ -467,6 +473,14 @@ void fragment() {
     }
 
     /// <summary>The viewport is shared with every later map (classic PvP too): leave it with the threshold it had before the kit look changed it.</summary>
+    public override void _EnterTree()
+    {
+        // capture the viewport's own threshold as soon as the view is in the tree, so _ExitTree always restores it
+        var viewport = GetViewport();
+        if (!_lodKept) { _baseLod = viewport.MeshLodThreshold; _lodKept = true; }
+        viewport.MeshLodThreshold = _kit ? LodThreshold : _baseLod;
+    }
+
     public override void _ExitTree()
     {
         if (_lodKept && IsInsideTree()) GetViewport().MeshLodThreshold = _baseLod;

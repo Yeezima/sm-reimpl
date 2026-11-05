@@ -232,6 +232,7 @@ public sealed class AshfallKitLibrary
                             string before = $"{img.GetWidth()}x{img.GetHeight()}";
                             bool normal = slot == BaseMaterial3D.TextureParam.Normal;
                             int max = Math.Max(img.GetWidth(), img.GetHeight());
+                            if (img.IsCompressed()) img.Decompress();   // Resize fails on a compressed image
                             if (max > TextureMax) { float k = (float)TextureMax / max; img.Resize(Math.Max(1, (int)(img.GetWidth() * k)), Math.Max(1, (int)(img.GetHeight() * k)), Image.Interpolation.Lanczos); }
                             if (img.IsCompressed()) img.Decompress();
                             img.GenerateMipmaps(normal);
