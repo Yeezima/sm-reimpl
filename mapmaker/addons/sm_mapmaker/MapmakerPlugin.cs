@@ -472,6 +472,7 @@ public partial class MapmakerPlugin : EditorPlugin
     /// </summary>
     public bool ReadyToPlace()
     {
+        if (MapHost.StartingEmptyMap) return false;
         if (EditorInterface.Singleton.GetEditedSceneRoot() is not MapmakerRoot || MapHost.Root is null)
         {
             // Owner's report (2026-11-05): a silent jump to the Mapmaker scene, with the SM1 backdrop in view, looked like the piece had turned into

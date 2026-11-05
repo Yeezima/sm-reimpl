@@ -307,6 +307,7 @@ public sealed class Selftest(MapmakerPlugin plugin)
                 string plainPath = "res://Maps/_selftest_plain.tscn";
                 var plain = new PackedScene(); var plainRoot = new Node3D { Name = "Plain" }; plain.Pack(plainRoot); plainRoot.Free();
                 ResourceSaver.Save(plain, plainPath);
+                plain.Dispose();   // a managed PackedScene left to the shutdown tracker crashed Godot on exit (0xC0000005 in refcounted_disposed)
                 EditorInterface.Singleton.OpenSceneFromPath(plainPath);
                 await Frames(10);
                 bool onPlain = EditorInterface.Singleton.GetEditedSceneRoot() is not MapmakerRoot;

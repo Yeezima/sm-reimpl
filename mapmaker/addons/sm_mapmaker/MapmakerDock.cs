@@ -225,7 +225,7 @@ public partial class MapmakerDock : VBoxContainer
         _search.TextChanged += _ => RebuildLibrary(); _search.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         v.AddChild(Row(_source, _search));
         _list.ItemAt = i => i >= 0 && i < _items.Count ? _items[i] : null;
-        _list.DroppedOutside = (item, pos) => { if (_plugin.OverViewport(pos) && _plugin.ReadyToPlace() && _plugin.TryRay(pos, out var o, out var d)) _plugin.PlaceAt(item, _plugin.GamePointOnRay(o, d)); };
+        _list.DroppedOutside = (item, pos) => { if (_plugin.OverViewport(pos)) MapHost.Armed = item; if (_plugin.OverViewport(pos) && _plugin.ReadyToPlace() && _plugin.TryRay(pos, out var o, out var d)) _plugin.PlaceAt(item, _plugin.GamePointOnRay(o, d)); };
         _list.ItemSelected += i => { _lastRow = _items[(int)i]; Arm(_items[(int)i]); };
         _list.ItemActivated += i => Arm(_items[(int)i]);
         v.AddChild(_list);
@@ -356,7 +356,7 @@ public partial class MapmakerDock : VBoxContainer
         }
         _wrongTabItem = item;
         var s = _plugin.Session;
-        string open = s is null ? "" : $"\n\nThe open map is \"{s.Name}\"{(_plugin.Dirty ? " (unsaved changes)" : "")}.";
+        string open = s is null ? "" : $"\n\nThe open map is \"{s.Name}\"{(_plugin.Dirty ? (s.Path is null ? " (unsaved changes, no file yet: Save As first)" : " (unsaved changes: New empty map saves them to its file first)") : "")}.";
         _wrongTab.DialogText = "This scene tab is a plain Godot scene, not a Mapmaker map (Godot's + tab makes an ordinary scene). " +
             "Mapmaker maps are edited in the Mapmaker scene tab." + open +
             (item is null ? "" : $"\n\nNew empty map: starts a map with the SM1 backdrop hidden and places {item.Label} at its centre.");
@@ -365,17 +365,23 @@ public partial class MapmakerDock : VBoxContainer
 
     public async Task StartEmptyMap(LibraryItem? item)
     {
+        if (MapHost.StartingEmptyMap) return;   // no second new map while the first waits for the scene switch
+        MapHost.StartingEmptyMap = true;
+        try { await StartEmptyMapCore(item); }
+        finally { MapHost.StartingEmptyMap = false; }
+    }
+
+    async Task StartEmptyMapCore(LibraryItem? item)
+    {
         var s = _plugin.Session;
         if (s is not null && _plugin.Dirty)
         {
             if (s.Path is null) { _plugin.EnsureSceneRoot(); _status.Text = $"The open map \"{s.Name}\" has unsaved changes and no file yet: Save As first, then press New."; return; }
             if (!_plugin.SaveMap()) return;
         }
+        _plugin.EnsureSceneRoot();
         for (int i = 0; i < 60 && !(EditorInterface.Singleton.GetEditedSceneRoot() is MapmakerRoot && MapHost.Root is not null); i++)
-        {
-            _plugin.EnsureSceneRoot();
             await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-        }
         if (MapHost.Root is null) { _status.Text = "Could not open the Mapmaker scene."; return; }
         _plugin.NewMap("Untitled");
         MapHost.Root.BackdropVisible = false;

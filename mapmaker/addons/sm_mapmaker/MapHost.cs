@@ -29,6 +29,8 @@ public static class MapHost
     public static readonly List<PickRef> PickedSm1 = new();
     /// <summary>The library item armed for placement: an asset or a prefab.</summary>
     public static LibraryItem? Armed { get; set; }
+    /// <summary>True while the dock starts a new empty map after the "Not a Mapmaker map" dialog; placement clicks are ignored meanwhile.</summary>
+    public static bool StartingEmptyMap { get; set; }
 
     public static bool SnapGrid { get; set; } = true;
     public static float GridStep { get; set; } = 0.25f;
