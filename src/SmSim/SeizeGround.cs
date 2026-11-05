@@ -216,6 +216,9 @@ public sealed partial class World
             int i = (cursor + k) % spots.Count;
             if (!Occupied(spots[i], playerId)) { chosen = i; break; }
         }
+        // fix/pvp-deploy-spawn: none 2 m clear: the first spot no capsule overlaps (never inside another player while one exists), then the least crowded.
+        for (int k = 0; chosen < 0 && k < spots.Count; k++)
+            if (!Crowded(spots[(cursor + k) % spots.Count], playerId)) chosen = (cursor + k) % spots.Count;
         if (chosen < 0) chosen = LeastCrowded(spots, cursor, playerId);   // sim/player-collision: every spot taken: the least crowded (was the cursor's)
         _areaCursor[(int)team] = (chosen + 1) % spots.Count;
         position = spots[chosen];

@@ -337,7 +337,9 @@ public partial class NetworkView
     {
         var services = _pickerServices;
         if (services is null) return;
-        if (SendLoadout(services, selection, save: true, out string message)) { _pickerDeployed = true; ClosePicker(); }
+        // fix/pvp-deploy-spawn (protocol 58): in classic PvP a living player's DEPLOY dies and respawns at once with the loadout (the server decides; Musou Mode ignores it).
+        bool now = _client is not null && UiAlive(_client.Predicted) && _config is not null && !_config.Extras.HasFlag(ContentExtras.Musou);
+        if (SendLoadout(services, selection, save: true, out string message, deploy: now)) { _pickerDeployed = true; ClosePicker(); }
         else { _pickerCreator?.Say(message, 8.0); GD.Print("loadout picker: " + message); }
     }
 
@@ -390,7 +392,7 @@ public partial class NetworkView
     /// <c>Setup</c> a Join's Hello would carry. The own model changes at the respawn (<see cref="OwnLooks"/>); the new look is built meanwhile (<see cref="PrebuildLooks"/>).
     /// <paramref name="from"/>: the profile to build from (default the session's working copy; the saved one when the menu closes).
     /// </summary>
-    bool SendLoadout(CustomizerServices services, SmContent.Customization.Selection selection, bool save, out string message, CustomizationProfile? from = null)
+    bool SendLoadout(CustomizerServices services, SmContent.Customization.Selection selection, bool save, out string message, CustomizationProfile? from = null, bool deploy = false)
     {
         message = "";
         if (_client is null || _client.Status != ClientStatus.Connected) { message = "Not connected to the server."; return false; }
@@ -399,7 +401,7 @@ public partial class NetworkView
         if (!LoadoutEdits.IsValid(profile, selection)) { message = selection.Kind == SmContent.Customization.SelectionKind.Custom ? $"Slot {selection.Slot} is empty. Fill it first." : "That loadout is not available."; return false; }
         var team = _client.Predicted.Team;
         var plan = JoinPlan.Build(profile, selection, _config, catalog, team == Team.Chaos ? SideChoice.Chaos : SideChoice.SpaceMarines);
-        _lastSetupSequence = _client.ChangeSetup(plan.Choice, plan.SpaceMarineLook, plan.ChaosLook, plan.OrkLook);   // ui/customizer-ork: the profile's Ork look rides along
+        _lastSetupSequence = _client.ChangeSetup(plan.Choice, plan.SpaceMarineLook, plan.ChaosLook, plan.OrkLook, deploy);   // ui/customizer-ork: the profile's Ork look rides along; protocol 58: DEPLOY now
         _ownOrkLook = plan.OrkLook;
         _setupSent = true; _setupSentAt = _connectedFor; _ackShownUntil = double.MaxValue;
         _sentClass = plan.Choice.Class; _ackLogged = 0;
@@ -416,7 +418,7 @@ public partial class NetworkView
         // A failed save leaves the old active loadout in the saved profile: that counts as in effect, so closing the menu does not send it back (fix/set-active-save-failure).
         _pickerInEffect = PickerRules.InEffectAfterSend(new LoadoutKey(plan.Choice, plan.SpaceMarineLook, plan.ChaosLook, plan.OrkLook), saveError is null ? null : ActiveKey(services), saveError);
         message = plan.Summary;
-        GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} sends a loadout change (setup {_lastSetupSequence}): {plan.Summary}");
+        GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} sends a loadout change (setup {_lastSetupSequence}{(deploy ? ", deploy now" : "")}): {plan.Summary}");
         return true;
     }
 
@@ -427,6 +429,7 @@ public partial class NetworkView
         if (_client is null) return;
         EnsureLoadoutHint();
         RunLoadoutAids(me, delta);
+        SpawnChoiceFrame(me);   // fix/pvp-deploy-spawn (NetworkView.SpawnChoice.cs)
         bool ended = _client.Match.State == MatchState.Ended;
         // A C pressed while the customizer was still loading must not open the picker later, after the respawn.
         if (_pickerWanted && _pickerLayer is null && !_pickerForced && !PickerRules.CanOpen(_client.Status == ClientStatus.Connected, UiAlive(me), Spectate is not null, ended)) FailOpen();
@@ -447,7 +450,7 @@ public partial class NetworkView
         _hintLayer = new CanvasLayer { Name = "LoadoutHint", Layer = 3 };
         _loadoutHint = new Label { Name = "Hint", HorizontalAlignment = HorizontalAlignment.Center, MouseFilter = Control.MouseFilterEnum.Ignore, Visible = false };
         _loadoutHint.SetAnchorsPreset(Control.LayoutPreset.TopWide);
-        _loadoutHint.OffsetTop = 428; _loadoutHint.OffsetBottom = 520;
+        _loadoutHint.OffsetTop = 428; _loadoutHint.OffsetBottom = 560;   // fix/pvp-deploy-spawn: room for the respawn choice line
         _loadoutHint.AddThemeFontSizeOverride("font_size", 24);
         _loadoutHint.AddThemeColorOverride("font_color", new Color(1f, 0.8f, 0f));
         _loadoutHint.AddThemeColorOverride("font_outline_color", Colors.Black);
@@ -490,6 +493,7 @@ public partial class NetworkView
         if (text.Length > 0 && (down || _connectedFor < _ackShownUntil && _connectedFor - _setupSentAt < 8.0)) second = text;
         else if (problem && text.Length > 0 && _connectedFor - _setupSentAt < 8.0) second = text;   // a refused or remapped change is said even after the respawn
         if (_connectedFor < _respawnLineUntil) second = _respawnLine;
+        if (SpawnChoiceLine(me) is { Length: > 0 } spawnLine) first = first.Length > 0 ? first + "\n" + spawnLine : spawnLine;   // fix/pvp-deploy-spawn
         if (first != _hintFirst || second != _hintSecond)
         {
             _hintFirst = first; _hintSecond = second;

@@ -9,6 +9,8 @@ namespace SmSim;
 /// several carriers: the one nearest to where the respawning player died; the place: the first free spot of a ring around the carrier, starting behind it and
 /// moving outward (1.5 m, 2.0 m, 2.5 m, 3.0 m; 12 directions), which must hold a capsule, be on the carrier's floor and in its sight; none free: the normal spawn.
 /// Only death respawns use it (a join and a round start use the side's spawn as ever).
+/// fix/pvp-deploy-spawn (the owner, 2026-11-06): this automatic rule now runs in Musou Mode only; in classic PvP the carrier is a respawn the player chooses
+/// (<see cref="SpawnChoiceKind.Homer"/>, SpawnChoice.cs), placed by the same <see cref="HomerSpotNear"/>.
 /// </summary>
 public sealed partial class World
 {

@@ -48,8 +48,8 @@ public class ScoreboardPingTests(ITestOutputHelper output)
     [Fact]
     public void The_ping_round_trips_in_the_scoreboard_row_and_the_reader_refuses_values_above_999()
     {
-        Assert.Equal(57, Protocol.Version);
-        Assert.Equal(16, Protocol.ScoreRowBytes);
+        Assert.Equal(58, Protocol.Version);
+        Assert.Equal(17, Protocol.ScoreRowBytes);   // protocol 58: + the row flags
         var board = new Scoreboard(9, true, 41, 600f, false,
         [
             new ScoreEntry(1, Team.SpaceMarines, 0, 1, 2, 3, 0, "Brother Aurex", 42),
@@ -67,9 +67,9 @@ public class ScoreboardPingTests(ITestOutputHelper output)
         var odd = Assert.IsType<Scoreboard>(Protocol.Read(Protocol.Write(board with { Players = [new ScoreEntry(1, Team.Chaos, 1, 0, 0, PingMs: 4000), new ScoreEntry(2, Team.Chaos, 1, 0, 0, PingMs: -7)] })));
         Assert.Equal([999, -1], odd.Players.Select(p => p.PingMs));
 
-        // The ping is the u16 just before the name's length byte; 1000..65534 there is refused, 65535 reads as not known.
+        // The ping is the u16 just before the row flags (protocol 58) and the name's length byte; 1000..65534 there is refused, 65535 reads as not known.
         var one = Protocol.Write(board with { Players = [new ScoreEntry(1, Team.Chaos, 1, 0, 0, 0, -1, "Skarne", 77)] });
-        int pingAt = one.Length - "Skarne".Length - 1 - 2;
+        int pingAt = one.Length - "Skarne".Length - 1 - 1 - 2;
         Assert.Equal(77, one[pingAt] | one[pingAt + 1] << 8);
         foreach (int bad in new[] { 1000, 30000, 65534 })
         {
@@ -89,7 +89,7 @@ public class ScoreboardPingTests(ITestOutputHelper output)
             [.. Enumerable.Range(100, Protocol.MaxSpectators).Select(i => new SpectatorEntry(i, ("Spec" + i).PadRight(PlayerNames.MaxLength, 'y')))]);
         int size = Protocol.Write(full).Length;
         output.WriteLine($"fullest scoreboard (16 rows with pings and 24-character names, {World.MaxControlPoints} points, {Protocol.MaxSpectators} spectators): {size} bytes (budget {Protocol.SnapshotBudget})");
-        Assert.Equal(1145, size);
+        Assert.Equal(1161, size);   // protocol 58: + a flags byte per row
         Assert.True(size <= Protocol.SnapshotBudget, $"{size} bytes");
         var back = Assert.IsType<Scoreboard>(Protocol.Read(Protocol.Write(full)));
         Assert.Equal(full.Players, back.Players);

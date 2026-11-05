@@ -34,6 +34,11 @@ Scanned 2183 spec table rows: **1568 tagged**, 444 not tagged (read from data wi
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 352 | 297 | 303 | 99 | 12 |
+Scanned 2192 spec table rows: **1572 tagged**, 449 not tagged (read from data with high confidence), 171 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 475 rows of the changes document.
+
+| Area | Tagged rows | by kind | by confidence | by notes | by section text |
+|---|---:|---:|---:|---:|---:|
+| Movement (critical) | 361 | 305 | 312 | 102 | 12 |
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
 | Melee (critical) | 100 | 87 | 77 | 32 | 5 |
@@ -57,6 +62,7 @@ Scanned 2183 spec table rows: **1568 tagged**, 444 not tagged (read from data wi
 | **All areas** | **1563** | 1334 | 1220 | 466 | 38 |
 | **All areas** | **1564** | 1334 | 1221 | 468 | 38 |
 | **All areas** | **1568** | 1339 | 1225 | 467 | 38 |
+| **All areas** | **1572** | 1342 | 1229 | 469 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -68,12 +74,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: low | 572 |
 | kind: ours | 746 |
 | confidence: low | 576 |
+| kind: ours | 747 |
+| confidence: low | 580 |
 | confidence: medium | 521 |
 | kind: interpretation | 339 |
-| notes: ours | 312 |
+| notes: ours | 314 |
 | confidence: none (low) | 128 |
 | kind: provisional | 99 |
-| kind: estimate | 79 |
+| kind: estimate | 81 |
 | kind: user's knowledge | 51 |
 | notes: estimate | 49 |
 | section: provisional | 38 |
@@ -86,7 +94,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: placeholder | 19 |
 | notes: interpretation | 18 |
 | kind: gap (not reproduced) | 17 |
-| notes: open question | 16 |
+| notes: open question | 17 |
 | notes: not reproduced (gap) | 13 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
@@ -98,7 +106,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (352)
+### Movement (gameplay-critical) (361)
 
 *Spec section: Extracted parameters*
 
@@ -387,6 +395,20 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-A6E891D6` | Own shot picture | the own tracer, impact and decal are turned by the predicted scatter through the server's maths, so they land where the server's shot lands | kind: provisional; confidence: medium; notes: ours | ours | Own shot picture: compare with SM1 by feel or video. Ours: the own tracer, impact and decal are turned by the predicted scatter… | ☐ |
 | `R-C280A2D1` | Crosshair | the four ticks move out by the next shot's horizontal half-width projected at the camera's field of view (1080-high HUD units, at most 120). Evidence that the original reticule changed size: `Hud.gfx` carries the names `min_aim` / `max_aim` next to its… (HUD units) | kind: interpretation; confidence: low; notes: ours | names from `Hud.gfx`; drawing ours | Crosshair: compare with SM1 by feel or video. Ours: the four ticks move out by the next shot's horizontal half-width… | ☐ |
 | `R-F05E2B5F` | Handling (climb, sway) | client only, on the own camera (the view is the aim): each own shot raises a temporary climb target by the set's per-shot climb (at most its max), the view follows it at `climb_rate` °/s and the target recovers at `climb_recovery_rate` °/s; the permanent… (degrees, °/s) | kind: interpretation; confidence: low; notes: ours | data values; how they move the view: ours | Handling (climb, sway): compare with SM1 with an overlaid screenshot taken from the same position. Ours: client only, on the own camera (the view is the aim): each own shot… | ☐ |
+
+*Spec section: Classic PvP: Deploy, respawn choice, heavy bolter count (fix/pvp-deploy-spawn; protocol 57)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-E121A8AE` | Deploy: the death on the scoreboard | a suicide like a fall out of the level: one death for the player, a kill-feed line with no killer (cause World), no kill for anyone; in Annihilation the other side scores one, as for any death | kind: ours; confidence: low | ours (the owner said "suicide"; not in SM1) | Deploy: the death on the scoreboard: compare with SM1 by feel or video. Ours: a suicide like a fall out of the level: one death for the player, a… | ☐ |
+| `R-8D37872E` | Deploy: no perk blast, no drop | a Deploy's death sets off no Final Vengeance blast and drops no ammo or grenade box | kind: ours; confidence: low | ours (a loadout change is not a death in a fight) | Deploy: no perk blast, no drop: compare with SM1 by measuring on a flat spot of the same map. Ours: a Deploy's death sets off no Final Vengeance blast and drops no ammo… | ☐ |
+| `R-93EAC0D3` | The spot at a carrier | as Teleport Homer's (section "Perks without data": the ring 1.5 to 3 m behind the carrier first, on its floor, in its sight, clear of every living player); facing as the carrier (m) | kind: estimate; confidence: low; notes: ours | ours | The spot at a carrier: compare with SM1 by measuring on a flat spot of the same map. Ours: as Teleport Homer's (section "Perks without data": the ring 1.5 to 3… | ☐ |
+| `R-7D63B46A` | The spot at a control point | the point's centre, then rings of 1.5, 3 and 4.5 m (12 directions; only inside the point's radius less a capsule radius), dropped onto the floor within the point's height, the capsule fitting, outside kill volumes, clear of every living player; facing the… (m) | kind: estimate; confidence: low; notes: ours; notes: open question | ours (SM1 had no spawn at a point; how it would place one is unknown) | The spot at a control point: compare with SM1 by measuring on a flat spot of the same map. Ours: the point's centre, then rings of 1.5, 3 and 4.5 m (12 directions… | ☐ |
+| `R-4484EE0D` | Clear of every player | a chosen spot is never within two capsule radii plus 0.1 m (1.0 m) of a living player in plan (within a capsule's height); the spawn room takes the first spot 2 m clear, else the first spot 1.0 m clear (new), else the least crowded (m) | kind: ours; confidence: low | ours | Clear of every player: compare with SM1 by measuring on a flat spot of the same map. Ours: a chosen spot is never within two capsule radii plus 0.1 m (1.0 m) of… | ☐ |
+| `R-F1209AB7` | Choosing on the death screen | while dead, a line under the loadout hint says "SPAWN AT: SPAWN ROOM / POINT B / NAME (TELEPORT HOMER)"; Next weapon (X, the wheel; the wheel down goes back) or the controller's D-pad right / left cycles the choices the client knows (the scoreboard's carrier… (s) | kind: ours; confidence: low | ours (SM1 had no such choice; keys and look ours) | Choosing on the death screen: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: while dead, a line under the loadout hint says "SPAWN AT: SPAWN ROOM… | ☐ |
+| `R-361A02E1` | Carrier flag on the scoreboard | each scoreboard row says whether the player is alive and carries Teleport Homer (sent every second to everyone, enemies too) | kind: ours; confidence: low | ours | Carrier flag on the scoreboard: compare with SM1 by feel or video. Ours: each scoreboard row says whether the player is alive and carries… | ☐ |
+| `R-03B89F9B` | Respawn choice rate | the server takes at most 8 choices a second from a peer (a token bucket); others are dropped (1/s) | kind: ours; confidence: low | ours | Respawn choice rate: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the server takes at most 8 choices a second from a peer (a token… | ☐ |
+| `R-7FAEA922` | Heavy bolter count in the HUD | the weapon box shows the rounds left in the bolter's count field (`ammo_mc/ammo_txt`, red at 0) over the heat bar, not the movie's endless sign (`infinity_mc`, which the movie places in the box and which may be what SM1 showed) | confidence: medium | **owner's decision** (2026-11-06: the 400 cap must be visible) | Heavy bolter count in the HUD: compare with SM1 by feel or video. Ours: the weapon box shows the rounds left in the bolter's count field… | ☐ |
 
 *Spec section: Sprint, backpedal and facing poses; hidden zone indicators (M36; client only, not simulated)*
 
@@ -1729,7 +1751,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-881208E3` | Weapon Versatility: validation | the server keeps the request only for a Tactical holding the perk (either perk slot) and a weapon of the class's primary list; else none (`Loadouts.SecondIndex`, `Loadouts.Resolve`); a dead perk after a class change drops it at the next respawn | kind: ours | ours (rule of the owner's decision) | Weapon Versatility: validation: compare with SM1 by feel or video. Ours: the server keeps the request only for a Tactical holding the perk… | ☐ |
 | `R-8DEE4872` | Weapon switching with three weapons | keys 1, 2, 3 name their slot; the Switch toggle and the mouse wheel go to the next weapon in the order pistol, primary, second primary (two weapons: the other one, as before); the switch costs the same time and has the same rules as before | kind: estimate; confidence: low; notes: ours | the order is **ours** (the owner named only the keys) | Weapon switching with three weapons: compare with SM1 by feel or video. Ours: keys 1, 2, 3 name their slot; the Switch toggle and the mouse wheel… | ☐ |
 | `R-A760454E` | Weapon switch buffered with three weapons | a Switch press blocked by an action is replayed as the toggle (key 3 is kept while it is still held); a key 1 or 2 let go before the replay may go to the next weapon of the cycle instead | kind: estimate; confidence: low; notes: ours | ours | Weapon switch buffered with three weapons: compare with SM1 by feel or video. Ours: a Switch press blocked by an action is replayed as the toggle (key 3… | ☐ |
-| `R-AFD589AF` | Teleport Homer: rule | while a carrier is alive, a player of its side who respawns after dying appears next to it instead of at the side's start area or a map spawn; joins and round starts use the side's spawn as ever | kind: user's knowledge; confidence: medium | **owner's decision** (2026-10-30) | Teleport Homer: rule: compare with SM1 by feel or video. Ours: while a carrier is alive, a player of its side who respawns after… | ☐ |
+| `R-AFD589AF` | Teleport Homer: rule | **Musou Mode only since fix/pvp-deploy-spawn (protocol 57; classic PvP: a chosen spawn, section "Classic PvP: Deploy, respawn choice, heavy bolter count" below)**: while a carrier is alive, a player of its side who respawns after dying appears next to it… | kind: user's knowledge; confidence: medium | **owner's decision** (2026-10-30) | Teleport Homer: rule: compare with SM1 by feel or video. Ours: Musou Mode only since fix/pvp-deploy-spawn (protocol 57; classic PvP:… | ☐ |
 | `R-771E3061` | Teleport Homer: several carriers | the one nearest to where the respawning player died (ties: the lowest id) | kind: estimate; confidence: low; notes: ours | ours | Teleport Homer: several carriers: compare with SM1 by feel or video. Ours: the one nearest to where the respawning player died (ties: the lowest… | ☐ |
 | `R-A6003C94` | Teleport Homer: the place | the first free spot of a ring around the carrier: radii 1.5, 2, 2.5, 3 m; 12 directions each, starting behind the carrier and alternating sides; free = on the carrier's floor (a standable surface within 0.6 m of its feet), in its sight (nothing on the… (m) | kind: estimate; confidence: low; notes: ours | ours | Teleport Homer: the place: compare with SM1 by measuring on a flat spot of the same map. Ours: the first free spot of a ring around the carrier: radii 1.5, 2, 2.5… | ☐ |
 | `R-8DEF59B7` | Tactical Readout: what shows | the health and armour of the living **enemies** (allies are not sent) as a thin two-lane bar at the enemy under the crosshair (the existing aimed-enemy display), fractions of the enemy's class body; **no name**; sent by the server ten times a second only to a… | kind: user's knowledge; confidence: medium; notes: ours | **owner's decision** (2026-10-30); the place (at the crosshair, not over every enemy in sight) and the rates are ours | Tactical Readout: what shows: compare with SM1 by feel or video. Ours: the health and armour of the living enemies (allies are not sent) as… | ☐ |
@@ -3118,6 +3140,15 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-01B0AD06` | Stronger recoil and flinch clips | The data's additive clips laid at up to 1.5 (recoil) and 1.6 (melee flinch) | How the original weighted them | same | Stronger recoil and flinch clips: compare with SM1 by watching the reaction and timing it frame by frame. Ours: The data's additive clips laid at up to 1.5 (recoil) and 1.6 (melee… | ☐ |
 | `C-20E6583A` | Strike and reaction entries | Fade floor 0.125 s instead of 0.1875 s, nearer the graphs' blends | The original's blending curve | same | Strike and reaction entries: compare with SM1 by watching the reaction and timing it frame by frame. Ours: Fade floor 0.125 s instead of 0.1875 s, nearer the graphs' blends. | ☐ |
 
+#### Classic PvP: Deploy, respawn choice, heavy bolter count (fix/pvp-deploy-spawn; protocol 57)
+
+| ID | Area | What we do | What is unknown | Spec | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-D3BB958D` | Deploy in the match | The owner's decision (2026-11-06): DEPLOY in the in-match customizer kills a living classic PvP player (a suicide: a death, no killer, the other side's Annihilation point) and respawns it the next tick with the new loadout; no death blast, no drop. SM1 applied a change at the next respawn | How the owner wants the death counted (ours: a suicide like a fall) | Classic PvP: Deploy, respawn choice, heavy bolter count | Deploy in the match: compare with SM1 by feel or video. Ours: The owner's decision (2026-11-06): DEPLOY in the in-match customizer… | ☐ |
+| `C-CDBC423D` | Respawn choice | The owner's decision (2026-11-06): the spawn room, a control point the side holds (Seize Ground) or a living ally carrying Teleport Homer, chosen on the death screen (Next weapon / D-pad); never next to an ally otherwise. SM1 had no such choice | The spot and facing at a point and the death-screen keys and line are ours | same | Respawn choice: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The owner's decision (2026-11-06): the spawn room, a control point… | ☐ |
+| `C-F53AA7C4` | Teleport Homer in classic PvP | A spawn the player chooses, no longer automatic (the automatic rule stays in Musou Mode) | What SM1's perk really did (no data consumer) | same; Perks without data | Teleport Homer in classic PvP: compare with SM1 by feel or video. Ours: A spawn the player chooses, no longer automatic (the automatic rule… | ☐ |
+| `C-6AEA967C` | Heavy bolter count | The weapon box shows the rounds left (400 a life, the data's clip) instead of the movie's endless sign | Whether SM1 showed the endless sign over a 400-round clip | same | Heavy bolter count: compare with SM1 by feel or video. Ours: The weapon box shows the rounds left (400 a life, the data's clip)… | ☐ |
+
 ### Not yet reproduced
 
 | ID | Missing | Note | Compare in a playtest | Result |
@@ -3251,6 +3282,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-DE2A0D0F` | Test aids (client only) | Custom classes, end to end (customizer T9; summary) and in the match (T7) |
 | `R-D680D0E8` | Wire | Weapon spread (weapons/spread; the owner's decision 2026-10-28; used by the simulation; no protocol change) |
 | `R-6A78E096` | Protocol 44 | Perks without data (protocol 44; owner's decisions of 2026-10-30) |
+| `R-3E878036` | Protocol 57 | Classic PvP: Deploy, respawn choice, heavy bolter count (fix/pvp-deploy-spawn; protocol 57) |
 | `R-587283EB` | **Demo file** (`--record-demo <file>`) | Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated) |
 | `R-DD23A31C` | **Replay** (`--play-demo <file>`, no server) | Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated) |
 | `R-06DC5D5F` | Replay fidelity | Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated) |

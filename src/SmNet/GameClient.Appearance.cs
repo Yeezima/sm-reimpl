@@ -56,11 +56,13 @@ public sealed partial class GameClient
     /// </summary>
     /// <param name="orkLook">Protocol 28: the look worn while playing the Ork Boy (0..4, <see cref="Races.OrkLooks"/>), or
     /// <see cref="Races.OrkLookAutomatic"/> (by player id).</param>
-    public ushort ChangeSetup(LoadoutChoice loadout, AppearanceCode spaceMarine, AppearanceCode chaos, byte orkLook = Races.OrkLookAutomatic)
+    /// <param name="deploy">Protocol 58 (fix/pvp-deploy-spawn): the in-match customizer's DEPLOY; in classic PvP a living player dies at once and respawns with
+    /// this loadout (the server ignores it elsewhere, and for a dead player the change waits for the respawn as ever).</param>
+    public ushort ChangeSetup(LoadoutChoice loadout, AppearanceCode spaceMarine, AppearanceCode chaos, byte orkLook = Races.OrkLookAutomatic, bool deploy = false)
     {
         _setupSequence++;
         RememberOwnEmblems(spaceMarine, chaos, replace: false);   // the old ones stay served until the server acknowledges
-        _setupPending = new Setup(_session, _setupSequence, Protocol.Quantize(loadout), spaceMarine, chaos, orkLook);
+        _setupPending = new Setup(_session, _setupSequence, Protocol.Quantize(loadout), spaceMarine, chaos, orkLook, deploy ? Setup.DeployNow : (byte)0);
         _setupSentAt = TimeSpan.MinValue;
         return _setupSequence;
     }

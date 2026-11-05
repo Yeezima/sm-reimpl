@@ -154,6 +154,8 @@ public sealed partial class GameServer
         public RttEstimator Rtt { get; } = new();
         /// <summary>Added content's commands (message kind 17): this peer's rate, made at its first command.</summary>
         public TokenBucket? Commands;
+        /// <summary>Protocol 58: the rate of respawn choices taken from this peer (<see cref="OnSpawnRequest"/>).</summary>
+        public TokenBucket? SpawnRequests;
     }
 
     /// <summary>Ticks of snapshot send times kept per peer for the ping (protocol 50): 64 ticks, 2.1 s at 30 Hz; an acknowledgement of an older snapshot gives no sample.</summary>
@@ -281,6 +283,7 @@ public sealed partial class GameServer
             case BlobRequest r when _peers.TryGetValue(connection, out var pulling) && r.Session == pulling.Session: OnBlobRequest(connection, pulling, r); break;
             case BlobChunk c when _peers.ContainsKey(connection): OnBlobChunk(connection, c); NoteActivity(connection); break;
             case ExtrasCommandMessage x when _peers.TryGetValue(connection, out var commanding) && x.Session == commanding.Session: OnExtrasCommand(commanding, x); break;
+            case SpawnRequest sr when _peers.TryGetValue(connection, out var spawning) && sr.Session == spawning.Session: OnSpawnRequest(spawning, sr); break;   // protocol 58
             case null: RefuseOldHello(connection, packet); break;
         }
     }
@@ -745,7 +748,8 @@ public sealed partial class GameServer
             return new ScoreEntry(p.PlayerId, p.Team, p.Class, s.Kills, s.Deaths, peer is not null ? peer.Appearance.Version : PeerlessLook(p.PlayerId)?.Version ?? 0,
                 Loadouts.EquipmentIndex(World.Config, p),   // protocol 40 (perks/inert-2)
                 name,                                      // protocol 41 (names/bot-lore)
-                peer?.Rtt.Ms ?? -1);                       // protocol 50 (net/scoreboard-ping): -1 not measured yet
+                peer?.Rtt.Ms ?? -1,                        // protocol 50 (net/scoreboard-ping): -1 not measured yet
+                World.ClassicPvp && World.CarriesHomer(p.PlayerId));   // protocol 58 (fix/pvp-deploy-spawn): a classic PvP spawn choice for its allies
         }).ToArray(), SeizeOf(World),
         Spectators: _peers.Values.Where(p => p.Spectator).OrderBy(p => p.PlayerId).Take(Protocol.MaxSpectators).Select(p => new SpectatorEntry(p.PlayerId, p.Name)).ToArray() is { Length: > 0 } listed ? listed : null);   // protocol 46
 

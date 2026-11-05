@@ -230,9 +230,12 @@ public sealed partial class GameServer
         a.LastAck = new SetupAck(s.Sequence, resolved, flags, a.PendingVersion);
         a.PendingSetup = s.Sequence;
         _transport.Send(connection, Protocol.Write(a.LastAck));
+        // Protocol 58 (fix/pvp-deploy-spawn): DEPLOY in the match's customizer kills a living classic PvP player now; the respawn the next tick takes the loadout.
+        bool deployed = s.Deploy && World.RequestDeploy(peer.PlayerId);
         Log?.Invoke($"player {peer.PlayerId} setup {s.Sequence}: next life {ClassName(resolved.Class)} (now {ClassName(player.Class)}, {player.Team})"
             + (requested.Class >= 0 && requested.Class < World.Config.Classes.Count && requested.Class != resolved.Class ? $"; asked for {ClassName(requested.Class)}, a class of the other side: the {player.Team} class of the same role instead" : "")
-            + (defaulted ? "; some choices defaulted" : ""));
+            + (defaulted ? "; some choices defaulted" : "")
+            + (deployed ? "; deployed now (dies and respawns at once)" : ""));
 
         static bool Differs(int requested, int resolved) => requested >= 0 && requested != resolved;
     }

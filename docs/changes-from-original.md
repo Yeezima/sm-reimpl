@@ -571,6 +571,15 @@ the hit is engine code, so these rules are ours (spec "Melee interaction pass").
 | Stronger recoil and flinch clips | The data's additive clips laid at up to 1.5 (recoil) and 1.6 (melee flinch) | How the original weighted them | same |
 | Strike and reaction entries | Fade floor 0.125 s instead of 0.1875 s, nearer the graphs' blends | The original's blending curve | same |
 
+### Classic PvP: Deploy, respawn choice, heavy bolter count (fix/pvp-deploy-spawn; protocol 58)
+
+| Area | What we do | What is unknown | Spec |
+|---|---|---|---|
+| Deploy in the match | The owner's decision (2026-11-06): DEPLOY in the in-match customizer kills a living classic PvP player (a suicide: a death, no killer, the other side's Annihilation point) and respawns it the next tick with the new loadout; no death blast, no drop. SM1 applied a change at the next respawn | How the owner wants the death counted (ours: a suicide like a fall) | Classic PvP: Deploy, respawn choice, heavy bolter count |
+| Respawn choice | The owner's decision (2026-11-06): the spawn room, a control point the side holds (Seize Ground) or a living ally carrying Teleport Homer, chosen on the death screen (Next weapon / D-pad); never next to an ally otherwise. SM1 had no such choice | The spot and facing at a point and the death-screen keys and line are ours | same |
+| Teleport Homer in classic PvP | A spawn the player chooses, no longer automatic (the automatic rule stays in Musou Mode) | What SM1's perk really did (no data consumer) | same; Perks without data |
+| Heavy bolter count | The weapon box shows the rounds left (400 a life, the data's clip) instead of the movie's endless sign | Whether SM1 showed the endless sign over a 400-round clip | same |
+
 ## 3. Not yet reproduced
 
 Known original features missing from the alpha (alpha scope: Annihilation and Seize Ground on Manufactorum only).

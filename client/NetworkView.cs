@@ -383,6 +383,7 @@ public partial class NetworkView : Node3D
         if (_bot) return;
         PickupKey(e);   // fidelity gap 1: latch an E tap between input samples
         if (LoadoutInput(e)) return;   // customizer T7: C on the death screen; while the picker is open nothing else sees the mouse and keys
+        if (SpawnChoiceInput(e)) return;   // fix/pvp-deploy-spawn: the death screen's respawn choice (NetworkView.SpawnChoice.cs)
         LatencyProbeEvent(e);   // feel/controls test aid (--latency-probe): the delivery frame
         ControlEvent(e);   // feel/controls: presses and releases for the tap latch and the early tick (NetworkView.Controls.cs)
         if (e is InputEventMouseMotion motion && MouseCaptured && !OwnDead)
