@@ -86,20 +86,21 @@ public class TfwWorldTests
     public void The_hash_is_the_rule_and_both_ends_compute_it_from_the_level()
     {
         var data = Compose();
-        var (world, hub, hash) = TfwMap.WithHub(Level());
+        var (world, hub, hash) = TfwMap.WithHub(Level(), manufactorum: true);
         Assert.Equal(data.Hash, hash);
         Assert.Equal(data.Field.Hub, hub);
         Assert.Equal(data.Collision.ContentHash, world.ContentHash);
         Assert.Equal(world.ContentHash ^ 0x7466775F7761725FUL ^ 7UL, hash);
-        Assert.Equal(7u, TfwMap.Version);
-        Assert.NotEqual(hash, TfwMap.WithHub(Level(blockers: false)).Hash ^ 1UL);
+        Assert.Equal(7u, TfwMap.ManufactorumVersion);
+        Assert.Equal(8u, TfwMap.Version);
+        Assert.NotEqual(hash, TfwMap.WithHub(Level(blockers: false), manufactorum: true).Hash ^ 1UL);
     }
 
     [Fact]
     public void The_kill_volumes_stay_the_blockers_go_and_the_hub_comes_to_both_meshes()
     {
         var level = Level();
-        var (world, hub, _) = TfwMap.WithHub(level);
+        var (world, hub, _) = TfwMap.WithHub(level, manufactorum: true);
         int hubTriangles = hub.Corners().Length / 3 + TfwRange.For(level).Collision().Length / 3;   // the ship and the Firing Range
         Assert.Single(world.KillVolumes);
         Assert.Empty(world.Blockers);   // the commander stands in the Chaos room: Marines must reach him
@@ -115,9 +116,9 @@ public class TfwWorldTests
     }
 
     [Fact]
-    public void Without_manufactorum_the_server_says_so_and_starts_nothing()
+    public void Without_manufactorum_the_restore_map_says_so_and_starts_nothing()
     {
-        string? name = null;
+        string? name = TfwMap.ManufactorumName;   // Ashfall Citadel needs nothing from the install; the restore switch does
         string dir = Path.Combine(Path.GetTempPath(), "sm-no-game-" + Guid.NewGuid().ToString("N"));
         Assert.Null(GameServer.GeneratedMap(ContentExtras.Musou, dir, ref name, out string? error));
         Assert.Contains("Manufactorum", error);

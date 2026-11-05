@@ -3,6 +3,7 @@ using SmNet;
 using SmNet.Extras.LoyalistBarks;
 using SmNet.Extras.Musou;
 using SmNet.Extras.Musou.Campaign;
+using SmContent;
 using SmSim;
 
 namespace SmClient;
@@ -42,6 +43,10 @@ public partial class NetworkView
     partial void ExtrasMeleeTarget(PlayerState me, MeleeStep step, ref System.Numerics.Vector3? at, ref bool? armoured) => MusouMeleeTarget(me, step, ref at, ref armoured);
 
     partial void ExtrasShotMaterial(ShotView shot, int victim, ref bool? armoured) => MusouShotMaterial(shot, victim, ref armoured);
+
+    partial void ExtrasMapContent(string name, ref MapContent? map) => TfwAshfallContent(name, ref map);
+
+    partial void ExtrasMapVisuals(string name, MapContent map, ref bool drawn) => TfwAshfallVisuals(name, ref drawn);
 
     partial void ExtrasMapFile(ref string file) => TfwMapFile(ref file);
 

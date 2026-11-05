@@ -209,7 +209,7 @@ static string Describe(ProjectileSpec p, float blindView = 180f)
         $"{p.MaxBounces} bounces{(p.MaxActive > 0 ? $", max {p.MaxActive} active" : "")}; {blast}{direct}";
 }
 var available = MapContent.Available(install);
-// Added content may compose its map (docs/added-content.md section 8: Musou's tfw_war, also its default map: Manufactorum from the install and a generated room).
+// Added content may compose its map (docs/added-content.md section 8: Musou's tfw_war, also its default map: Ashfall Citadel, generated in code; tfw_war_m09: Manufactorum from the install, the restore switch).
 var generatedMap = GameServer.GeneratedMap(contentExtras, install, ref mapName, out string? mapError);
 if (mapError is not null)
 {

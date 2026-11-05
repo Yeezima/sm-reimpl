@@ -24,21 +24,24 @@ public partial class NetworkView
 
     void TfwMapFile(ref string file)
     {
-        if (file != TfwMap.Name) return;
+        if (file == TfwMap.Name) { file = "none"; return; }   // Ashfall Citadel is generated in code: no install file (NetworkView.TfwAshfall.cs); "none" makes the readers of map files skip
+        if (file != TfwMap.ManufactorumName) return;
         if (!MapContent.Available(_gameDir).Contains(TfwMap.Battlefield)) throw new System.IO.FileNotFoundException(TfwWorld.Missing("the map is not in this install"));
         file = TfwMap.Battlefield;
     }
 
     void TfwMapCollision(string name, ref CollisionWorld world, ref ulong hash)
     {
-        if (name != TfwMap.Name) return;
+        if (!TfwMap.IsWarMap(name)) return;
+        bool manufactorum = name == TfwMap.ManufactorumName;
         TfwRangeArea = TfwRange.For(world);
-        var (composed, hub, composedHash) = TfwMap.WithHub(world);
+        var (composed, hub, composedHash) = TfwMap.WithHub(world, manufactorum);
         world = composed;
         hash = composedHash;
         TfwHub = hub;
+        TfwPagePanel.Battlefield = name == TfwMap.ManufactorumName ? "MANUFACTORUM" : "ASHFALL CITADEL";
         _tfwAboard = false;   // a new map (a new camera) gets the hub sky again
-        GD.Print($"map {name}: {TfwMap.Battlefield} from the install and the Stormbird at {hub.Centre}; map hash {hash:X16}");
+        GD.Print($"map {name}: {(manufactorum ? TfwMap.Battlefield + " from the install" : "Ashfall Citadel generated in code")} and the Stormbird at {hub.Centre}; map hash {hash:X16}");
         if (Lean) return;
         _gameSpace?.GetNodeOrNull("TfwHub")?.QueueFree();
         if (_gameSpace is null || _groundMaterial is null) return;
