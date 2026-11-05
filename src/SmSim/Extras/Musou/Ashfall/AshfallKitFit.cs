@@ -38,6 +38,10 @@ public static class AshfallKitFit
     /// <summary>Cells on the longest axis for the walkable-top search (a stand-on surface needs 4 x 4 cells, which a coarse box grid cannot show).</summary>
     public const int DefaultTopResolution = 40;
     public const int DefaultMaxBoxes = 32;
+
+    /// <summary>Models whose tops or stairs are meant to be walked on (draft 5): fitted finer (<see cref="WalkableResolution"/> cells, at most <see cref="WalkableMaxBoxes"/> boxes, top search at the same resolution) with ramp detection. One list for the generator command and the level pass.</summary>
+    public static readonly IReadOnlyList<string> WalkableIds = ["AC-003", "AC-005", "AC-006", "AC-007", "AC-008", "AC-009", "AC-010", "AC-037"];
+    public const int WalkableResolution = 48, WalkableMaxBoxes = 64;
     public const float DefaultFillTolerance = 0.15f;
 
     sealed class Grid

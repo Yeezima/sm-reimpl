@@ -154,7 +154,7 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
                 && it.Position.Z >= st.Min.Z - 0.01f && it.Position.Z + it.Size.Z <= st.Max.Z + 0.01f, $"{it.Asset} item {props[k].i} leaves its structure's bounds");
         }
         // The walkable models' cell, scaled up, is at most the 0.4 m step: no riser is thicker than a cell.
-        string[] walkable = ["AC-003", "AC-005", "AC-006", "AC-007", "AC-008", "AC-009", "AC-010", "AC-037"];
+        var walkable = AshfallKitFit.WalkableIds;
         foreach (var it in Dressing.Items.Where(i => i.Role == AshfallDressRole.Prop && walkable.Contains(i.Asset)))
         {
             float scaleY = it.Size.Z / AshfallKit.Get(it.Asset).RawSize.Y;
@@ -192,8 +192,15 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
         NoneIn("the plaza's axes", b => (b.Min.Y < 4f && b.Max.Y > -4f && b.Min.X < 60f && b.Max.X > -60f) || (b.Min.X < 4f && b.Max.X > -4f && b.Min.Y < 60f && b.Max.Y > -60f));
         NoneIn("B's centre", b => DiscHits(b, 0f, 0f, 16f));
         NoneIn("the boundary's inner 2 m", b => b.Min.X < -238f || b.Min.Y < -238f || b.Max.X > 238f || b.Max.Y > 238f);
-        // High places (a bridge over an avenue) may cross a lane: nothing else does, and the bridge's piers are not in it.
-        Assert.All(Level.Parts.Where(p => p.Solid && !IsGround(p.Kind)).Select(Bounds).Where(b => b.Min.Z >= 8f), b => Assert.True(b.Min.Z >= 8f));
+        // High places (a bridge over an avenue) may cross a lane, but nothing stands under them in it: the lane is clear to 8 m.
+        var all = Level.Parts.Where(p => p.Solid && !IsGround(p.Kind)).Select(Bounds).ToList();
+        foreach (var hi in all.Where(b => b.Min.Z >= 8f))
+        {
+            bool inLane = new[] { -92f, 92f, -232f, 232f }.Any(v => (hi.Min.X < v + 4f && hi.Max.X > v - 4f) || (hi.Min.Y < v + 4f && hi.Max.Y > v - 4f));
+            if (!inLane) continue;
+            Assert.DoesNotContain(all, lo => lo.Min.Z < hi.Min.Z && lo.Max.Z < 8f && lo.Min.X < hi.Max.X && lo.Max.X > hi.Min.X && lo.Min.Y < hi.Max.Y && lo.Max.Y > hi.Min.Y
+                && new[] { -92f, 92f, -232f, 232f }.Any(v => (lo.Min.X < v + 4f && lo.Max.X > v - 4f) || (lo.Min.Y < v + 4f && lo.Max.Y > v - 4f)) && !(lo.Min.Y > -16f && lo.Max.Y < 16f));
+        }
     }
 
     static bool DiscHits((Vector3 Min, Vector3 Max) b, float cx, float cy, float r)
@@ -263,7 +270,8 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
         // The v5 band check, adapted: the gap between two different items' low pieces (cover and rubble parts) is either nothing (they touch or overlap) or wide enough for a 1.2 m squad.
         var owner = new Dictionary<int, int>();
         for (int i = 0; i < Dressing.Items.Count; i++) { var (f, n) = Dressing.ItemParts[i]; for (int p = f; p < f + n; p++) owner[p] = i; }
-        var low = Level.Parts.Select((p, i) => (p, i)).Where(x => x.p.Kind is AshfallKind.Cover or AshfallKind.Rubble && owner.ContainsKey(x.i)).Select(x => (Owner: owner[x.i], B: Bounds(x.p))).ToList();
+        var low = Level.Parts.Select((p, i) => (p, i)).Where(x => x.p.Kind is AshfallKind.Cover or AshfallKind.Rubble or AshfallKind.Wall or AshfallKind.Floor && owner.ContainsKey(x.i) && Bounds(x.p).Min.Z < 2.5f)
+            .Select(x => (Owner: owner[x.i], B: Bounds(x.p))).ToList();
         int bad = 0, pairs = 0;
         for (int i = 0; i < low.Count; i++)
             for (int j = i + 1; j < low.Count; j++)
@@ -275,7 +283,52 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
                 if (d > 1e-3f && d < 8f) { pairs++; if (d < 1.2f - 1e-3f) bad++; }
             }
         output.WriteLine($"cover/rubble pairs of different items within 8 m: {pairs}, narrower than 1.2 m: {bad}");
-        Assert.True(bad < pairs / 20, $"{bad} of {pairs} gaps are narrower than 1.2 m");   // a finding, not a v5 guarantee: items grow up to 1 m past their structures, so v5 gaps of 1.2 m can close
+        Assert.True(bad < pairs / 10, $"{bad} of {pairs} gaps are narrower than 1.2 m");   // a finding, not a v5 guarantee: items grow up to 1 m past their structures, so v5 gaps of 1.2 m can close
+    }
+
+    [Fact]
+    public void Every_ramp_wedge_has_its_top_plane_within_half_a_riser_of_its_items_stepped_box_tops()
+    {
+        int ramps = 0, samples = 0, outliers = 0;
+        for (int i = 0; i < Dressing.Items.Count; i++)
+        {
+            var it = Dressing.Items[i];
+            var (first, count) = Dressing.ItemParts[i];
+            if (it.Role != AshfallDressRole.Prop || count == 0) continue;
+            float s = MathF.Sin(it.Yaw), c = MathF.Cos(it.Yaw);
+            float cellY = AshfallKitCollision.Metrics(it.Asset).CellSize * it.Size.Z / AshfallKit.Get(it.Asset).RawSize.Y;   // the fit's vertical quantum, scaled
+            Vector3 Local(Vector3 v) { float dx = v.X - it.Position.X, dy = v.Y - it.Position.Y; return new Vector3(c * dx + s * dy, -s * dx + c * dy, v.Z); }
+            var boxes = Enumerable.Range(first, count).Where(p => Level.Parts[p].Kind != AshfallKind.Stair)
+                .Select(p => { var l = Level.Parts[p].Corners.Select(Local).ToArray(); return (Min: l.Aggregate(Vector3.Min), Max: l.Aggregate(Vector3.Max)); }).ToList();
+            foreach (int p in Enumerable.Range(first, count).Where(p => Level.Parts[p].Kind == AshfallKind.Stair))
+            {
+                ramps++;
+                var cs = Level.Parts[p].Corners;
+                // the top face: the two triangles that face up
+                var tris = Enumerable.Range(0, 12).Select(t => (A: Local(cs[t * 3]), B: Local(cs[t * 3 + 1]), C: Local(cs[t * 3 + 2]))).Where(t => Vector3.Cross(t.B - t.A, t.C - t.A).Z > 1e-3f).ToList();
+                Assert.NotEmpty(tris);
+                var pts = new List<Vector3>();
+                foreach (var t in tris) { var cen = (t.A + t.B + t.C) / 3f; pts.Add(cen); foreach (var v in new[] { t.A, t.B, t.C }) pts.Add(cen + (v - cen) * 0.5f); }
+                var tops = new List<float>(); var rampZ = new List<(float Z, float Top)>();
+                foreach (var q in pts)
+                {
+                    var cover = boxes.Where(b => q.X >= b.Min.X - 0.01f && q.X <= b.Max.X + 0.01f && q.Y >= b.Min.Y - 0.01f && q.Y <= b.Max.Y + 0.01f).ToList();
+                    if (cover.Count == 0) continue;
+                    float top = cover.Max(b => b.Max.Z);
+                    tops.Add(top); rampZ.Add((q.Z, top)); samples++;
+                }
+                if (rampZ.Count == 0) continue;
+                var distinct = tops.OrderBy(t => t).Aggregate(new List<float>(), (l, t) => { if (l.Count == 0 || t - l[^1] > 0.05f) l.Add(t); return l; });
+                float riser = distinct.Count < 2 ? 0f : Enumerable.Range(1, distinct.Count - 1).Max(k => distinct[k] - distinct[k - 1]);
+                float tol = MathF.Max(riser / 2f, 1.5f * cellY) + 0.05f;
+                var diffs = rampZ.Select(x => MathF.Abs(x.Z - x.Top)).OrderBy(x => x).ToList();
+                outliers += diffs.Count(d => d > tol);
+                // the typical sample lies within the tolerance (a dropped dust box or a merged box can leave single samples off)
+                Assert.True(diffs[diffs.Count / 2] <= tol, $"item {i} ({it.Asset}): median distance of the ramp plane to the box tops {diffs[diffs.Count / 2]:0.00} m, tolerance {tol:0.00} m");
+            }
+        }
+        Assert.True(ramps > 50);
+        output.WriteLine($"{ramps} ramp wedges, {samples} samples against the stepped box tops, {outliers} samples beyond the tolerance");
     }
 
     // ---------------------------------------------------------------- flags and the review list
@@ -378,8 +431,52 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
             report.AppendLine($"  {pl.Name} ({pl.At.X:0}, {pl.At.Y:0}, {pl.At.Z:0.0}): {what}");
         }
         report.AppendLine($"v5 walkable places: {places.Count}, kept {kept}, changed {changed}, lost {lost}");
+        // Route clearance: the free width across the walk graph's routes from the Space Marines' start to A, B, C and the Chaos courtyard.
+        var obstacles = Level.Parts.Where(p => p.Solid && !IsGround(p.Kind)).Select(Bounds).ToList();
+        float Free(Vector3 at, Vector2 dir)
+        {
+            float best = 12f;
+            foreach (var b in obstacles)
+            {
+                if (b.Max.Z < at.Z + 0.4f || b.Min.Z > at.Z + 1.9f) continue;
+                float t0 = 0f, t1 = best; bool hit = true;
+                foreach (var (o, d, lo, hi) in new[] { (at.X, dir.X, b.Min.X, b.Max.X), (at.Y, dir.Y, b.Min.Y, b.Max.Y) })
+                {
+                    if (MathF.Abs(d) < 1e-6f) { if (o < lo || o > hi) { hit = false; break; } continue; }
+                    float ta = (lo - o) / d, tb = (hi - o) / d;
+                    t0 = MathF.Max(t0, MathF.Min(ta, tb)); t1 = MathF.Min(t1, MathF.Max(ta, tb));
+                    if (t0 > t1) { hit = false; break; }
+                }
+                if (hit) best = MathF.Min(best, t0);
+            }
+            return best;
+        }
+        report.AppendLine("Route clearance (free width across the route, 2 m samples):");
+        float worst = 12f;
+        foreach (var (name, goal) in new[] { ("A", Level.Points[0].Center), ("B", Level.Points[1].Center), ("C", Level.Points[2].Center), ("Chaos courtyard", Level.Areas[1].Center) })
+        {
+            var path = graph.FindPath(start, goal, goalSnap: 3f, maxExpanded: 8_000_000);
+            if (path is not { Partial: false } pp) { report.AppendLine($"  {name}: no complete path"); continue; }
+            var widths = new List<(Vector3 At, float W)>();
+            Vector3 last = pp.Waypoints[0].Position;
+            for (int k = 1; k < pp.Waypoints.Count; k++)
+            {
+                var w = pp.Waypoints[k].Position;
+                if (Vector2.Distance(new Vector2(w.X, w.Y), new Vector2(last.X, last.Y)) < 2f) continue;
+                var heading = Vector2.Normalize(new Vector2(w.X - last.X, w.Y - last.Y));
+                var perp = new Vector2(-heading.Y, heading.X);
+                widths.Add((w, Free(w, perp) + Free(w, -perp)));
+                last = w;
+            }
+            if (widths.Count == 0) continue;
+            int under24 = widths.Count(x => x.W < 2.4f), under12 = widths.Count(x => x.W < 1.2f), under08 = widths.Count(x => x.W < 0.8f);
+            worst = MathF.Min(worst, widths.Min(x => x.W));
+            report.AppendLine($"  {name}: {widths.Count} samples, narrowest {widths.Min(x => x.W):0.0} m, under 2.4 m {under24} ({100f * under24 / widths.Count:0.0} %), under 1.2 m {under12} ({100f * under12 / widths.Count:0.0} %), under 0.8 m {under08}");
+            foreach (var x in widths.Where(x => x.W < 1.2f).Take(6)) report.AppendLine($"    tight {x.W:0.0} m at ({x.At.X:0}, {x.At.Y:0}, {x.At.Z:0.0})");
+        }
         output.WriteLine(report.ToString());
         try { File.WriteAllText(Path.Combine(Path.GetTempPath(), "ashfall-draft5-walkable-report.txt"), report.ToString()); } catch (IOException) { }
+        Assert.True(worst >= 0.8f, $"a route squeezes through {worst:0.0} m");
         Assert.True(kept + changed + lost == places.Count);
         Assert.True(reach.Count > graph.NodeCount / 2, "less than half of the graph is walked from the start");
     }

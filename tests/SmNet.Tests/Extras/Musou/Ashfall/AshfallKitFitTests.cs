@@ -32,6 +32,30 @@ public class AshfallKitFitTests
     static bool Covered(AshfallKitFitResult r, Vector3 p) => r.Boxes.Any(b => p.X >= b.Min.X && p.X <= b.Max.X && p.Y >= b.Min.Y && p.Y <= b.Max.Y && p.Z >= b.Min.Z && p.Z <= b.Max.Z);
 
     [Fact]
+    public void A_staircase_is_found_as_one_ramp_rising_along_its_axis()
+    {
+        // Eight steps along +X, each 1 wide and 0.5 higher than the one before, 4 deep: tops rise 0.5 .. 4 over 8 m (about 27 degrees).
+        var solids = Enumerable.Range(0, 8).Select(i => (new Vector3(i, 0, 0), new Vector3(i + 1, 0.5f * (i + 1), 4))).ToList();
+        var pos = new List<Vector3>(); var idx = new List<int>();
+        foreach (var (mn, mx) in solids) AddBox(pos, idx, mn, mx);
+        var r = AshfallKitFit.Fit(pos, idx, Vector3.Zero, new Vector3(8, 4, 4), 16, 32, 0.15f, 16, ramps: true);
+        var ramp = Assert.Single(r.Ramps);
+        Assert.Equal(0, ramp.Dir);   // rises toward +X
+        Assert.True(ramp.YLow < ramp.YHigh);
+        Assert.InRange(ramp.Min.X, 0f, 1f); Assert.InRange(ramp.Max.X, 6f, 8f);
+        Assert.Equal(0f, ramp.Min.Z, 1e-4f); Assert.Equal(4f, ramp.Max.Z, 1e-4f);
+        Assert.InRange(ramp.YHigh - ramp.YLow, 3f, 4f);
+        // A flat slab and a single tall step are not ramps; without the switch none is looked for.
+        Assert.Empty(FitBoxes([(Vector3.Zero, new Vector3(8, 1, 4))], 16).Ramps);
+        Assert.Empty(AshfallKitFit.Fit(pos, idx, Vector3.Zero, new Vector3(8, 4, 4), 16, 32, 0.15f, 16).Ramps);
+        // Steeper than 50 degrees is a wall, not a ramp: 8 steps of 2 high over 1 m each.
+        var steep = Enumerable.Range(0, 8).Select(i => (new Vector3(i, 0, 0), new Vector3(i + 1, 2f * (i + 1), 4))).ToList();
+        var p2 = new List<Vector3>(); var i2 = new List<int>();
+        foreach (var (mn, mx) in steep) AddBox(p2, i2, mn, mx);
+        Assert.Empty(AshfallKitFit.Fit(p2, i2, Vector3.Zero, new Vector3(8, 16, 4), 16, 32, 0.15f, 16, ramps: true).Ramps);
+    }
+
+    [Fact]
     public void A_cube_is_one_box_with_full_overlap()
     {
         var r = FitBoxes([(Vector3.Zero, new Vector3(4, 4, 4))], 8);

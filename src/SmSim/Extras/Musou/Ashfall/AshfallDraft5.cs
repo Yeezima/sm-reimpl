@@ -21,7 +21,7 @@ internal static class AshfallDraft5Pass
     }
 
     /// <summary>Models with walkable tops or stairs (the finer fit of the collision command): their cell, scaled, must stay under the step height.</summary>
-    static readonly HashSet<string> Walkable = ["AC-003", "AC-005", "AC-006", "AC-007", "AC-008", "AC-009", "AC-010", "AC-037"];
+    static readonly HashSet<string> Walkable = [.. AshfallKitFit.WalkableIds];
 
     const float StepHeight = 0.4f, Grow = 1f, MinBox = 0.15f;
 
@@ -569,7 +569,8 @@ internal static class AshfallDraft5Pass
         for (float cut = 0f; cut <= 2f; cut += 1f)
         {
             var s = new Spec(name, "bridge", mn + new Vector3(cut, 0f, 0f), mx - new Vector3(cut, 0f, 0f), null, ["AC-009"]) { Yaws = [0], GrowAlong = 0f, UseNet = false };
-            int before = c.Items.Count, partsBefore = c.Parts.Count;
+            int before = c.Items.Count, partsBefore = c.Parts.Count, flagsBefore = c.Flags.Count, keptBefore = c.RampsKept, rampsDroppedBefore = c.RampsDropped, droppedBefore = c.Dropped.Count;
+            var usesBefore = new Dictionary<string, int>(c.Uses); var dustBefore = new Dictionary<string, int>(c.DroppedBoxes);
             int idx = Place(c, s);
             if (idx < 0) return;
             bool hit = false;
@@ -587,6 +588,11 @@ internal static class AshfallDraft5Pass
             c.AllBoxes.RemoveAll(x => x.Item == idx);
             c.Placed.RemoveAt(c.Placed.Count - 1);
             c.Log.RemoveAt(c.Log.Count - 1);
+            c.Flags.RemoveRange(flagsBefore, c.Flags.Count - flagsBefore);
+            c.Dropped.RemoveRange(droppedBefore, c.Dropped.Count - droppedBefore);
+            c.RampsKept = keptBefore; c.RampsDropped = rampsDroppedBefore;
+            c.Uses.Clear(); foreach (var (k, v) in usesBefore) c.Uses[k] = v;
+            c.DroppedBoxes.Clear(); foreach (var (k, v) in dustBefore) c.DroppedBoxes[k] = v;
         }
         c.Log.Add(new(name, "bridge", "", -1, "dropped: AC-009 does not fit between what stands at its ends"));
         c.Flags.Add($"{name}: dropped, AC-009 does not fit between what stands at its ends");
