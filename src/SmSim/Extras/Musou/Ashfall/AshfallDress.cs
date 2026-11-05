@@ -20,7 +20,7 @@ public static partial class AshfallMap
 
 /// <summary>
 /// The kit dressing pass (draft 3, ours, placeholder demonstration; docs/musou-ashfall-graybox.md "Draft 3 (scaled replacements)"): every visible graybox structure is replaced by kit models scaled up to its size.
-/// Deterministic: integer hashes (<see cref="AshfallBuilder.Mix"/>), total-order sorts, no random numbers. Files: this one (entry and the box reader), <c>AshfallDress.Structures.cs</c> (grouping),
+/// Deterministic: integer hashes (<see cref="AshfallBuilder.Mix"/>), total-order sorts, no random numbers. Files: this one (entry and the box reader), <c>AshfallDress.Compose.cs</c> (grouping, composing and the fallback pass),
 /// <c>AshfallDress.Compose.cs</c> (the compositions), <c>AshfallDress.Surfaces.cs</c> (road and plaza tiles).
 /// </summary>
 internal static partial class AshfallDressPass

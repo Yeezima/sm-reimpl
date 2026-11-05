@@ -38,6 +38,33 @@ internal static partial class AshfallDressPass
         public int Seed;
     }
 
+    /// <summary>Last pass: a hidden part that no item names and whose centre lies in no item's box (grown 0.5 m) would show as a hole once hidden (found: the
+    /// triumphal arch's lintel). It gets one fortified segment (AC-006) fitted to its own box, or to its bounds when it is not a box.</summary>
+    static void Fallback(Ctx c)
+    {
+        var named = c.Items.Select(i => i.Part).ToHashSet();
+        var boxes = c.Items.Select(ItemBounds).ToList();
+        foreach (var pt in c.Pts)
+        {
+            if (named.Contains(pt.Index)) continue;
+            var centre = (pt.Min + pt.Max) / 2f;
+            if (boxes.Any(b => centre.X >= b.Min.X - 0.5f && centre.X <= b.Max.X + 0.5f && centre.Y >= b.Min.Y - 0.5f && centre.Y <= b.Max.Y + 0.5f
+                && centre.Z >= b.Min.Z - 0.5f && centre.Z <= b.Max.Z + 0.5f)) continue;
+            if (pt.Box is { } b0)
+                Emit(c, "AC-006", new Vector2(b0.Cx, b0.Cy), b0.Z0, b0.YawStep, b0.Length, b0.Depth, b0.Height, false, pt.Index);
+            else
+                Emit(c, "AC-006", new Vector2(centre.X, centre.Y), pt.Min.Z, 0, pt.Max.X - pt.Min.X, pt.Max.Y - pt.Min.Y, pt.Max.Z - pt.Min.Z, false, pt.Index);
+        }
+    }
+
+    /// <summary>An item's axis-aligned bounds (its turned footprint's corners, bottom to top).</summary>
+    static (Vector3 Min, Vector3 Max) ItemBounds(AshfallDressItem it)
+    {
+        float cs = MathF.Abs(MathF.Cos(it.Yaw)), sn = MathF.Abs(MathF.Sin(it.Yaw));
+        float hx = (it.Size.X * cs + it.Size.Y * sn) / 2f, hy = (it.Size.X * sn + it.Size.Y * cs) / 2f;
+        return (new Vector3(it.Position.X - hx, it.Position.Y - hy, it.Position.Z), new Vector3(it.Position.X + hx, it.Position.Y + hy, it.Position.Z + it.Size.Z));
+    }
+
     public static AshfallDressing Run(AshfallLevel level)
     {
         var c = new Ctx();
@@ -57,6 +84,7 @@ internal static partial class AshfallDressPass
         Flats(c);
         Rubbles(c);
         NonBoxes(c);
+        Fallback(c);
         var items = new List<AshfallDressItem>();
         Surfaces(parts, parts.Count, items);
         items.AddRange(c.Items);

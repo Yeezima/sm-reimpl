@@ -105,6 +105,20 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
             if (!skins.Any(s => Meets(s, b))) { uncovered++; if (uncovered < 5) output.WriteLine($"uncovered part {p} {Level.Parts[p].Kind} {b.Min} {b.Max}"); }
         }
         Assert.Equal(0, uncovered);
+        // Stronger: a hidden part must be named by a Skin item or have its centre inside a Skin item's box (grown 0.5 m), so a neighbour's box only touching it is not enough.
+        var named = Of(AshfallDressRole.Skin).Select(i => i.Part).ToHashSet();
+        int holes = 0;
+        foreach (int p in hidden)
+        {
+            if (named.Contains(p)) continue;
+            var b = PartBounds(p);
+            var c = (b.Min + b.Max) / 2f;
+            if (skins.Any(s => c.X >= s.Min.X - 0.5f && c.X <= s.Max.X + 0.5f && c.Y >= s.Min.Y - 0.5f && c.Y <= s.Max.Y + 0.5f && c.Z >= s.Min.Z - 0.5f && c.Z <= s.Max.Z + 0.5f)) continue;
+            holes++;
+            if (holes <= 10) output.WriteLine($"hole: part {p} {Level.Parts[p].Kind} {b.Min} {b.Max}");
+        }
+        output.WriteLine($"holes: {holes}");
+        Assert.Equal(0, holes);
     }
 
     [Fact]
