@@ -9,21 +9,21 @@ namespace SmMapmakerEditor;
 [Tool, GlobalClass]
 public partial class MapmakerObject : Node3D
 {
-	[Export] public string ObjectId { get; set; } = "";
+    [Export] public string ObjectId { get; set; } = "";
 
-	/// <summary>Box of the drawn content in this node's local (Godot, Y up) frame; used by the gizmo for the outline and for click picking.</summary>
-	public Aabb LocalBounds { get; set; } = new(new Vector3(-0.25f, 0f, -0.25f), new Vector3(0.5f, 0.5f, 0.5f));
+    /// <summary>Box of the drawn content in this node's local (Godot, Y up) frame; used by the gizmo for the outline and for click picking.</summary>
+    public Aabb LocalBounds { get; set; } = new(new Vector3(-0.25f, 0f, -0.25f), new Vector3(0.5f, 0.5f, 0.5f));
 
-	Node3D? _content;
+    Node3D? _content;
 
-	public void SetContent(Node3D? content, Aabb bounds)
-	{
-		if (_content is not null) { RemoveChild(_content); _content.QueueFree(); }
-		_content = content;
-		if (content is not null) { content.Name = "Content"; AddChild(content); }   // no owner: never serialised
-		LocalBounds = bounds.Size.LengthSquared() < 1e-6f ? new Aabb(new Vector3(-0.25f, 0f, -0.25f), new Vector3(0.5f, 0.5f, 0.5f)) : bounds;
-		UpdateGizmos();
-	}
+    public void SetContent(Node3D? content, Aabb bounds)
+    {
+        if (_content is not null) { RemoveChild(_content); _content.QueueFree(); }
+        _content = content;
+        if (content is not null) { content.Name = "Content"; AddChild(content); }   // no owner: never serialised
+        LocalBounds = bounds.Size.LengthSquared() < 1e-6f ? new Aabb(new Vector3(-0.25f, 0f, -0.25f), new Vector3(0.5f, 0.5f, 0.5f)) : bounds;
+        UpdateGizmos();
+    }
 
-	public void SetShown(bool visible) => Visible = visible;
+    public void SetShown(bool visible) => Visible = visible;
 }

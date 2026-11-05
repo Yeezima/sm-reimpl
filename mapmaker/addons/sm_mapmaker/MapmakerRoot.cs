@@ -14,21 +14,21 @@ namespace SmMapmakerEditor;
 [Tool, GlobalClass]
 public partial class MapmakerRoot : Node3D
 {
-	MapView? _backdrop;
-	Node3D? _highlights;
+    MapView? _backdrop;
+    Node3D? _highlights;
 
-	public MapView? Backdrop => _backdrop;
+    public MapView? Backdrop => _backdrop;
 
-	public override void _EnterTree()
-	{
-		// A saved scene may carry owned object nodes from an earlier session; the document is the truth, so they are rebuilt from it.
-		foreach (var child in GetChildren().OfType<MapmakerObject>()) { RemoveChild(child); child.QueueFree(); }
-		MapHost.AttachRoot(this);
-	}
+    public override void _EnterTree()
+    {
+        // A saved scene may carry owned object nodes from an earlier session; the document is the truth, so they are rebuilt from it.
+        foreach (var child in GetChildren().OfType<MapmakerObject>()) { RemoveChild(child); child.QueueFree(); }
+        MapHost.AttachRoot(this);
+    }
 
-	public override void _ExitTree() => MapHost.DetachRoot(this);
+    public override void _ExitTree() => MapHost.DetachRoot(this);
 
-	/// <summary>Shows (or hides) the SM1 map's meshes as a reference; replaces an earlier backdrop.</summary>
+    /// <summary>Shows (or hides) the SM1 map's meshes as a reference; replaces an earlier backdrop.</summary>
     public void ShowBackdrop(Sm1Source? source, List<string> notes)
     {
         if (_backdropSpace is not null) { RemoveChild(_backdropSpace); _backdropSpace.QueueFree(); _backdropSpace = null; _backdrop = null; }
