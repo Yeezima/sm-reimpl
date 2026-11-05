@@ -15,7 +15,12 @@ public class MapContext(MapLibrary library, ISm1Source? sm1)
     public Bounds? AssetBounds(AssetRef asset)
     {
         if (!asset.IsSm1) return GetAsset(asset.Id!)?.BoundsInDocumentFrame;
-        try { return Sm1?.LoadMap(asset.Map!).Definitions.GetValueOrDefault(asset.Definition!)?.Bounds; }
+        try
+        {
+            var def = Sm1?.LoadMap(asset.Map!).Definitions.GetValueOrDefault(asset.Definition!);
+            if (asset.Part is not { } part) return def?.Bounds;
+            return def?.Parts is { } parts && part < parts.Count ? parts[part] : null;
+        }
         catch (MapException) { return null; }
     }
 

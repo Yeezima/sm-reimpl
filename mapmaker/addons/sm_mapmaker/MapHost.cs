@@ -25,8 +25,8 @@ public static class MapHost
     public static Sm1Source? Sm1 { get; set; }
 
     public static Tool Tool { get; set; } = Tool.Select;
-    /// <summary>Picked SM1 placements (indices into the map's object list) waiting for "Extract to prefab".</summary>
-    public static readonly List<int> PickedSm1 = new();
+    /// <summary>Picked SM1 placements (index into the map's object list; one part of a composite placement, or -1 = whole) waiting for "Extract to prefab".</summary>
+    public static readonly List<PickRef> PickedSm1 = new();
     /// <summary>The library item armed for placement: an asset or a prefab.</summary>
     public static LibraryItem? Armed { get; set; }
 
@@ -81,3 +81,6 @@ public sealed record LibraryItem(LibraryKind Kind, string Id, string Label, stri
 }
 
 public enum LibraryKind { Sm1, Asset, Prefab }
+
+/// <summary>A picked SM1 placement: <paramref name="Object"/> indexes the map's objects; <paramref name="Part"/> is one of its nearest-LOD parts, or -1 for the whole.</summary>
+public readonly record struct PickRef(int Object, int Part = -1);

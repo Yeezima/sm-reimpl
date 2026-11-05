@@ -19,10 +19,11 @@ public sealed class Sm1Source
     /// <summary>Placements the client does not draw either (armoury wall stations on Manufactorum).</summary>
     public HashSet<int> Hidden { get; }
     readonly Dictionary<string, MapView?> _templates = new(StringComparer.OrdinalIgnoreCase);
+    readonly Dictionary<int, bool> _composite = new();
     readonly Dictionary<(string, int), (Num.Vector3 Min, Num.Vector3 Max)?> _blockBounds = new();
     readonly Dictionary<string, (Num.Vector3 Min, Num.Vector3 Max)?> _definitionBounds = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, List<int>> _byName = new(StringComparer.OrdinalIgnoreCase);
-    Sm1Pick[]? _picks;
+    PartBox[]? _picks;
 
     Sm1Source(string map, MapScene scene)
     {
@@ -75,13 +76,17 @@ public sealed class Sm1Source
     /// A fresh node with the definition's parts in the game frame (an object's own frame, the pivot being the definition's origin). Meshes and
     /// materials are shared between all instances of the definition. Null when no part can be drawn.
     /// </summary>
-    public Node3D? Instantiate(string definition)
+    public Node3D? Instantiate(string definition, int? part = null)
     {
-        if (!_templates.TryGetValue(definition, out var template))
+        string key = part is { } pk ? $"{definition}#{pk}" : definition;
+        if (!_templates.TryGetValue(key, out var template))
         {
             template = null;
-            if (Scene.Definitions.TryGetValue(definition, out var def) && def.NearestLod().Any())
+            if (Scene.Definitions.TryGetValue(definition, out var whole) && whole.NearestLod().Any()
+                && (part is not { } pi || pi < whole.NearestLod().Count()))
             {
+                // One part: a definition holding only that visual (NearestLod of a single visual is itself).
+                var def = part is { } p ? whole with { Visuals = [whole.NearestLod().ElementAt(p)] } : whole;
                 var one = new MapScene
                 {
                     Map = Scene.Map,
@@ -93,10 +98,10 @@ public sealed class Sm1Source
                 catch (Exception) { template = null; }
                 if (template is { Instances: 0 }) { template.Free(); template = null; }
             }
-            _templates[definition] = template;
+            _templates[key] = template;
         }
         if (template is null) return null;
-        var root = new Node3D { Name = definition };
+        var root = new Node3D { Name = key.Replace('#', '_') };
         foreach (var child in template.GetChildren().OfType<MultiMeshInstance3D>())
             root.AddChild(new MultiMeshInstance3D { Name = child.Name, Multimesh = child.Multimesh, CastShadow = child.CastShadow });
         return root;
@@ -145,20 +150,70 @@ public sealed class Sm1Source
 
     // ---- picking ---------------------------------------------------------------------------------------------------------------------------------------
 
-    sealed record Sm1Pick(int Object, Num.Matrix4x4 Inverse, Num.Vector3 Min, Num.Vector3 Max, string Mesh, int Block);
+    sealed record PartBox(int Object, int Part, Num.Matrix4x4 Inverse, Num.Vector3 Min, Num.Vector3 Max, string Mesh, int Block);
 
-    Sm1Pick[] Picks()
+    /// <summary>
+    /// A placement picked part by part rather than whole: SM1 bakes much of a map into a few placements (Manufactorum's tarmacgroundplane holds
+    /// the floor, buildings, gates and cargo cages in about 48 parts), so picking it whole made every click on those structures pick "the floor"
+    /// (owner's report 2026-11-05). Rule (ours): 8 or more drawn parts, or wider than 40 m.
+    /// </summary>
+    public bool IsComposite(int obj)
+    {
+        if (_composite.TryGetValue(obj, out bool c)) return c;
+        int parts = Scene.Definitions.TryGetValue(Scene.Objects[obj].Definition, out var def) ? def.NearestLod().Count() : 0;
+        c = parts >= 8 || (WorldBounds(obj) is { } b && MathF.Max(b.Max.X - b.Min.X, b.Max.Y - b.Min.Y) > 40f);
+        return _composite[obj] = c;
+    }
+
+    /// <summary>What a click picks at this ray: the part for a composite placement, else the whole placement; null when nothing is hit.</summary>
+    public PickRef? ClickPick(Num.Vector3 origin, Num.Vector3 direction)
+    {
+        var hit = RayPickPart(origin, direction, out _);
+        if (hit is not { } h) return null;
+        return IsComposite(h.Object) ? h : new PickRef(h.Object);
+    }
+
+    /// <summary>The placement's name, or for a part its SM1 node name with the placement after it ("CFactory_Gate (in tarmacgroundplane)").</summary>
+    public string Label(PickRef p)
+    {
+        string name = Scene.Objects[p.Object].Name is { Length: > 0 } n ? n : Scene.Objects[p.Object].Definition;
+        if (p.Part < 0) return name;
+        string? node = Scene.Definitions.TryGetValue(Scene.Objects[p.Object].Definition, out var def) ? def.NearestLod().ElementAtOrDefault(p.Part)?.RefNode : null;
+        return node is { Length: > 0 } ? $"{node} (in {name})" : $"{name} part {p.Part}";
+    }
+
+    /// <summary>A short name for a pick: the part's node name, else the placement's name.</summary>
+    public string ShortName(PickRef p)
+    {
+        string label = Label(p);
+        int cut = label.IndexOf(" (in ", StringComparison.Ordinal);
+        return cut > 0 ? label[..cut] : label;
+    }
+
+    /// <summary>World box of a pick: the whole placement, or one part.</summary>
+    public (Num.Vector3 Min, Num.Vector3 Max)? WorldBounds(PickRef p)
+    {
+        if (p.Part < 0) return WorldBounds(p.Object);
+        var placed = Scene.Objects[p.Object];
+        if (!Scene.Definitions.TryGetValue(placed.Definition, out var def)) return null;
+        var part = def.NearestLod().ElementAtOrDefault(p.Part);
+        return part is not null && BlockBounds(part.MeshName, part.MeshId) is { } b ? Transformed(b, part.NodeTransform * placed.Transform) : null;
+    }
+
+    PartBox[] Picks()
     {
         if (_picks is not null) return _picks;
-        var list = new List<Sm1Pick>();
+        var list = new List<PartBox>();
         for (int o = 0; o < Scene.Objects.Count; o++)
         {
             if (Hidden.Contains(o) || !Scene.Definitions.TryGetValue(Scene.Objects[o].Definition, out var def)) continue;
+            int index = -1;
             foreach (var part in def.NearestLod())
             {
+                index++; // counts every part, so it matches the core's Sm1Definition.Parts order
                 if (BlockBounds(part.MeshName, part.MeshId) is not { } b) continue;
                 var world = part.NodeTransform * Scene.Objects[o].Transform;
-                if (Num.Matrix4x4.Invert(world, out var inverse)) list.Add(new Sm1Pick(o, inverse, b.Min, b.Max, part.MeshName, part.MeshId));
+                if (Num.Matrix4x4.Invert(world, out var inverse)) list.Add(new PartBox(o, index, inverse, b.Min, b.Max, part.MeshName, part.MeshId));
             }
         }
         return _picks = list.ToArray();
@@ -169,10 +224,13 @@ public sealed class Sm1Source
     /// The placement whose drawn triangles the ray meets first, or -1. Boxes only shortlist: picking by box alone made every click inside
     /// Manufactorum hit the floor piece, whose box encloses the camera (owner's report 2026-11-05). Triangles are tested from both sides.
     /// </summary>
-    public int RayPick(Num.Vector3 origin, Num.Vector3 direction, out float distance)
+    public int RayPick(Num.Vector3 origin, Num.Vector3 direction, out float distance) => RayPickPart(origin, direction, out distance)?.Object ?? -1;
+
+    /// <summary>The placement and part whose drawn triangles the ray meets first, or null.</summary>
+    public PickRef? RayPickPart(Num.Vector3 origin, Num.Vector3 direction, out float distance)
     {
-        int best = -1; distance = float.MaxValue;
-        var shortlist = new List<(float T, Sm1Pick Pick, Num.Vector3 O, Num.Vector3 D)>();
+        PickRef? best = null; distance = float.MaxValue;
+        var shortlist = new List<(float T, PartBox Pick, Num.Vector3 O, Num.Vector3 D)>();
         foreach (var p in Picks())
         {
             var o = Num.Vector3.Transform(origin, p.Inverse);
@@ -182,7 +240,7 @@ public sealed class Sm1Source
         foreach (var (boxT, p, o, d) in shortlist.OrderBy(x => x.T))
         {
             if (boxT >= distance) break;
-            if (RayTriangles(p.Mesh, p.Block, o, d, out float t) && t < distance) { distance = t; best = p.Object; }
+            if (RayTriangles(p.Mesh, p.Block, o, d, out float t) && t < distance) { distance = t; best = new PickRef(p.Object, p.Part); }
         }
         return best;
     }

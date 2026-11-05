@@ -456,16 +456,24 @@ internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1
         var source = Sm1 ?? throw new MapException("missing-install", "The Space Marine install was not found, so SM1 objects cannot be read. Set SM_GAME_DIR or pass --game-dir.");
         var scene = source.LoadMap(map);
         var items = new List<Item>();
-        var picked = new List<int>();
-        void Take(int index)
+        var picked = new List<(int Index, int Part)>();
+        void Take(int index, int part)
         {
-            if (picked.Contains(index)) return;
+            if (picked.Contains((index, part)) || (part >= 0 && picked.Contains((index, -1)))) return;
             var m = scene.Objects[index];
+            var sdef = scene.Definitions.GetValueOrDefault(m.Definition);
+            if (part >= 0)
+            {
+                int count = sdef?.Parts?.Count ?? 0;
+                if (part >= count) throw new MapException("unknown-sm1-object", $"Placed object '{m.Name}' (index {index}) has no part {part} ({count} parts).");
+            }
             MapTransform comp;
             try { comp = TransformMath.Decompose(m.Transform); }
             catch (MapException e) { throw new MapException(e.Code, $"Placed object '{m.Name}' (index {index}): {e.Message}"); }
-            picked.Add(index);
-            items.Add(new Item(m.Name.Length > 0 ? m.Name : m.Definition, AssetRef.Sm1(map, m.Definition), null, m.Transform, comp));
+            picked.Add((index, part));
+            string name = m.Name.Length > 0 ? m.Name : m.Definition;
+            string? partName = part >= 0 && sdef?.PartNames is { } pn && part < pn.Count && pn[part].Length > 0 ? pn[part] : null;
+            items.Add(new Item(part >= 0 ? partName ?? $"{name} part {part}" : name, AssetRef.Sm1(map, m.Definition, part >= 0 ? part : null), null, m.Transform, comp));
         }
         foreach (var pick in picks)
         {
@@ -473,17 +481,20 @@ internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1
             {
                 int index = exact["index"] is { } inode ? Json.Int(inode, "objects[].index", "bad-op") : throw new MapException("bad-op", "An objects entry must be a name or { \"index\": N }.");
                 if (index < 0 || index >= scene.Objects.Count) throw new MapException("unknown-sm1-object", $"Map '{map}' has no placed object with index {index} (0..{scene.Objects.Count - 1}).");
-                Take(index);
+                int part = exact["part"] is { } pnode ? Json.Int(pnode, "objects[].part", "bad-op") : -1;
+                if (exact["part"] is not null && part < 0) throw new MapException("bad-op", "objects[].part must be 0 or more.");
+                Take(index, part);
                 continue;
             }
             var name = Json.Str(pick, "objects[]", "bad-op")!;
             var matches = Enumerable.Range(0, scene.Objects.Count).Where(i => string.Equals(scene.Objects[i].Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
             if (matches.Count == 0) throw new MapException("unknown-sm1-object", $"Map '{map}' has no placed object named '{name}'.");
             if (matches.Count > 1) Warnings.Add($"Name '{name}' matches {matches.Count} placed objects; all were taken (use {{ \"index\": N }} to pick one).");
-            foreach (var i in matches) Take(i);
+            foreach (var i in matches) Take(i, -1);
         }
         var prefab = BuildPrefab(prefabId, Json.Str(op["name"], "name", "bad-op", nullable: true), op["tags"], Json.Str(op["collision"], "collision", "bad-op", nullable: true),
-            op["origin"], items, new PrefabProvenance("sm1", map, picked.Select(i => scene.Objects[i].Name).ToList()) { Indices = picked });
+            op["origin"], items, new PrefabProvenance("sm1", map, picked.Select(p => scene.Objects[p.Index].Name).ToList())
+            { Indices = picked.Select(p => p.Index).ToList(), Parts = picked.Select(p => p.Part).ToList() });
         Prefabs[prefab.Id] = prefab;
         CreatedPrefabs.Add(prefab.Id);
     }

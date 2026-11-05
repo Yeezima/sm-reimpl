@@ -74,19 +74,27 @@ public readonly record struct Bounds(Vector3 Min, Vector3 Max)
     }
 }
 
-/// <summary>What an object or prefab part draws: an SM1 object definition (by map and name; streamed from the install) or a custom library asset.</summary>
-public sealed record AssetRef(string Source, string? Map, string? Definition, string? Id)
+/// <summary>
+/// What an object or prefab part draws: an SM1 object definition (by map and name; streamed from the install) or a custom library asset.
+/// <paramref name="Part"/>: one part of an SM1 definition (index into its nearest-LOD parts), for composite placements such as Manufactorum's
+/// tarmacgroundplane, which holds the floor and many buildings and gates (owner's report 2026-11-05); null draws the whole definition.
+/// </summary>
+public sealed record AssetRef(string Source, string? Map, string? Definition, string? Id, int? Part = null)
 {
     public const string Sm1Source = "sm1", CustomSource = "custom";
-    public static AssetRef Sm1(string map, string definition) => new(Sm1Source, map, definition, null);
+    public static AssetRef Sm1(string map, string definition, int? part = null) => new(Sm1Source, map, definition, null, part);
     public static AssetRef Custom(string id) => new(CustomSource, null, null, id);
     public bool IsSm1 => Source == Sm1Source;
 
-    public string Label => IsSm1 ? Definition ?? "" : Id ?? "";
+    public string Label => IsSm1 ? (Definition ?? "") + (Part is { } p ? $" part {p}" : "") : Id ?? "";
 
-    public JsonObject ToNode() => IsSm1
-        ? new JsonObject { ["source"] = Source, ["map"] = Map, ["definition"] = Definition }
-        : new JsonObject { ["source"] = Source, ["id"] = Id };
+    public JsonObject ToNode()
+    {
+        if (!IsSm1) return new JsonObject { ["source"] = Source, ["id"] = Id };
+        var o = new JsonObject { ["source"] = Source, ["map"] = Map, ["definition"] = Definition };
+        if (Part is { } p) o["part"] = p;
+        return o;
+    }
 
     public static AssetRef FromNode(JsonNode? n, string what, string code)
     {
@@ -97,7 +105,9 @@ public sealed record AssetRef(string Source, string? Map, string? Definition, st
                 var map = Json.ReqStr(o, "map", what, code);
                 var def = Json.ReqStr(o, "definition", what, code);
                 if (map.Length == 0 || def.Length == 0) throw new MapException(code, $"{what}: map and definition must not be empty.");
-                return Sm1(map, def);
+                int? part = o["part"] is { } pn ? Json.Int(pn, what + ".part", code) : null;
+                if (part < 0) throw new MapException(code, $"{what}.part must be 0 or more.");
+                return Sm1(map, def, part);
             case CustomSource:
                 var id = Json.ReqStr(o, "id", what, code);
                 if (!Json.IsSlug(id)) throw new MapException(code, $"{what}: '{id}' is not an asset id.");

@@ -36,6 +36,9 @@ The game client (`client/`) is not changed. The plugin may compile client view s
                { "id": "o3", "name": "statue", "asset": { "source": "custom", "id": "my-statue" }, "transform": {...} } ] }
 ```
 An object has exactly one of `asset` or `prefab` (or neither: an empty group). `parent` nests objects; transforms are local to the parent.
+An SM1 `asset` may add `"part": N` (index into the definition's nearest-LOD parts) to draw one part only. SM1 bakes much of a map into a few
+composite placements (Manufactorum's `tarmacgroundplane` holds the floor, factories, gates and generator buildings in 48 parts), so the editor
+picks such placements part by part (ours: 8 or more parts, or wider than 40 m) and names a part by its SM1 node (e.g. `CFactory_Gate`).
 
 ## Prefab (`.smprefab`, formatVersion 1)
 `{ format, formatVersion, id, name, tags[], origin:[x,y,z], collision: "mesh"|"original-cut", parts:[{ id:"p1", name, asset, transform }],
@@ -55,7 +58,7 @@ a `.smprefab` into the library after validation (unknown asset ids are errors).
 `rename {id, name}` · `set-parent {id, parent}` (keeps world position) · `set-visible {id, visible}` ·
 `group-to-prefab {ids, prefab, name, origin: "bounds-bottom-center"|"first"|[x,y,z], collision?, replace?}` (replace: swaps the selection for one
 linked instance at the same place) · `prefab-edit {prefab, origin?, addParts?, removeParts?, setPart?}` · `instance-override {id, part, visible?, transform?}` ·
-`import-asset {path, id?, name?}` · `import-prefab {path}` · `extract-sm1 {map, objects:[names], prefab, name, origin?, collision?}`.
+`import-asset {path, id?, name?}` · `import-prefab {path}` · `extract-sm1 {map, objects:[names | {index, part?}], prefab, name, origin?, collision?}` (provenance keeps `indices`, and `parts` when a part was taken).
 Snapping is applied by the caller (`Snap.Grid`, `Snap.Angle` helpers in the core) so a typed value is never re-snapped.
 Results: `{ ok, created:[ids], warnings:[...], errors:[{ code, message, op, id? }] }`. Error codes are stable strings (`unknown-id`,
 `unknown-asset`, `unknown-prefab`, `prefab-cycle`, `bad-transform`, `missing-install`, `bad-file`, ...).

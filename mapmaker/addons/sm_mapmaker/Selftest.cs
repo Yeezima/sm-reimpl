@@ -115,6 +115,7 @@ public sealed class Selftest(MapmakerPlugin plugin)
         var rect = container.GetGlobalRect();
         var picked = new System.Collections.Generic.HashSet<string>();
         bool rootSelected = false;
+        int wholeComposite = 0;
         for (int gx = 1; gx <= 5; gx++)
             for (int gy = 1; gy <= 5; gy++)
             {
@@ -126,10 +127,11 @@ public sealed class Selftest(MapmakerPlugin plugin)
                     await Frames(2);
                 }
                 await Frames(3);
-                foreach (int i in MapHost.PickedSm1) picked.Add(src.Scene.Objects[i].Name);
+                foreach (var p in MapHost.PickedSm1) { picked.Add(src.Label(p)); if (p.Part < 0 && src.IsComposite(p.Object)) wholeComposite++; }
                 rootSelected |= EditorInterface.Singleton.GetSelection().GetSelectedNodes().Contains(MapHost.Root);
             }
         Check(picked.Count >= 4 && !rootSelected, $"clicks across the view with the Select tool pick the pieces under the mouse ({picked.Count} different: {string.Join(", ", picked.Take(8))})");
+        Check(wholeComposite == 0, $"a click never picks a composite placement (tarmacgroundplane) whole ({wholeComposite} did)");
         Shot("click-picking");
         MapHost.PickedSm1.Clear(); plugin.RefreshPicked();
     }
@@ -178,7 +180,7 @@ public sealed class Selftest(MapmakerPlugin plugin)
             MapHost.PickedSm1.Clear();
             var near = Enumerable.Range(0, source.Scene.Objects.Count).Where(i => !source.Hidden.Contains(i) && source.Scene.Objects[i].Name.Length > 0 && source.WorldBounds(i) is not null)
                 .OrderBy(i => (source.Scene.Objects[i].Transform.Translation - source.Scene.Objects[first].Transform.Translation).Length()).Take(4).ToList();
-            MapHost.PickedSm1.AddRange(near);
+            MapHost.PickedSm1.AddRange(near.Select(i => new PickRef(i)));
             plugin.RefreshPicked();
             await Frames(10);
             Shot("manufactorum-picked");
@@ -188,6 +190,25 @@ public sealed class Selftest(MapmakerPlugin plugin)
             var made = MapHost.Library.GetPrefab("selftest-piece");
             Check(made?.Parts.Count == near.Count, $"prefab has {near.Count} parts (got {made?.Parts.Count})");
             Check(made is not null && made.Provenance.Indices.OrderBy(x => x).SequenceEqual(near.OrderBy(x => x)), "provenance.indices equals the picked placement indices");
+
+            // 2b. One part of a composite placement (owner's report 2026-11-05: the gate he clicked is part of tarmacgroundplane).
+            {
+                int tarmac = source.IndexOf("tarmacgroundplane");
+                Check(tarmac >= 0 && source.IsComposite(tarmac), "tarmacgroundplane is picked part by part");
+                int parts = tarmac >= 0 && source.Scene.Definitions.TryGetValue(source.Scene.Objects[tarmac].Definition, out var tdef) ? tdef.NearestLod().Count() : 0;
+                int tall = Enumerable.Range(0, parts).FirstOrDefault(k => source.WorldBounds(new PickRef(tarmac, k)) is { } pb && pb.Max.Z - pb.Min.Z > 8f, -1);
+                MapHost.PickedSm1.Clear(); MapHost.PickedSm1.Add(new PickRef(tarmac, tall));
+                var gr = dock.Extract("Selftest gate", "selftest-gate", "bounds-bottom-center", "mesh");
+                var gate = MapHost.Library.GetPrefab("selftest-gate");
+                Check(gr.Ok && tall >= 0 && gate?.Parts.Count == 1 && gate.Parts[0].Asset?.Part == tall && !gate.Parts[0].Name.Contains("tarmac", StringComparison.OrdinalIgnoreCase),
+                    $"extract one part of tarmacgroundplane (part {tall}, named {gate?.Parts[0].Name}): {string.Join("; ", gr.Errors.Select(e => e.Message))}");
+                var one = gate?.Parts[0].Asset is { } ga ? ContentFactory.BuildAsset(ga) : null;
+                var whole = ContentFactory.BuildAsset(SmMapmaker.AssetRef.Sm1(source.Map, source.Scene.Objects[tarmac].Definition));
+                int Count(Node? n) => n is null ? 0 : n.GetChildren().OfType<MultiMeshInstance3D>().Sum(m => m.Multimesh?.InstanceCount ?? 0) + n.GetChildren().Sum(c => c is MultiMeshInstance3D ? 0 : Count(c));
+                Check(one is not null && Count(one) > 0 && Count(one) < Count(whole), $"the part prefab draws only that part ({Count(one)} of {Count(whole)} instances)");
+                one?.Free(); whole?.Free();
+                MapHost.PickedSm1.Clear(); plugin.RefreshPicked();
+            }
 
             // 3. A new map with prefab instances, no SM1 backdrop.
             plugin.NewMap("selftest instances");

@@ -463,11 +463,7 @@ public partial class MapmakerPlugin : EditorPlugin
         if (button.ButtonIndex != MouseButton.Left) return;
         if (MapHost.Tool == Tool.PickSm1 && MapHost.Sm1 is { } src)
         {
-            int hit = src.RayPick(ToNum(Frame.ToGame(o)), ToNum(Frame.ToGame(d)), out _);
-            bool additive = button.ShiftPressed || button.CtrlPressed;
-            if (hit < 0) { if (!additive) MapHost.PickedSm1.Clear(); }
-            else if (additive && MapHost.PickedSm1.Remove(hit)) { }
-            else { if (!additive) MapHost.PickedSm1.Clear(); MapHost.PickedSm1.Add(hit); }
+            ApplyPick(src.ClickPick(ToNum(Frame.ToGame(o)), ToNum(Frame.ToGame(d))), button.ShiftPressed || button.CtrlPressed);
             if (MapHost.Root is { } r) EditorInterface.Singleton.GetSelection().RemoveNode(r); // the root's yellow box hid what was picked
             RefreshPicked();
             GetViewport().SetInputAsHandled();
@@ -497,13 +493,20 @@ public partial class MapmakerPlugin : EditorPlugin
         var sel = EditorInterface.Singleton.GetSelection();
         var nodes = sel.GetSelectedNodes();
         if (nodes.Any(n => n is MapmakerObject)) return;
-        int hit = src.RayPick(ToNum(Frame.ToGame(o)), ToNum(Frame.ToGame(d)), out _);
-        if (hit < 0 && additive) return;
+        var hit = src.ClickPick(ToNum(Frame.ToGame(o)), ToNum(Frame.ToGame(d)));
+        if (hit is null && additive) return;
         if (nodes.Contains(root)) sel.RemoveNode(root);
-        if (hit < 0) MapHost.PickedSm1.Clear();
-        else if (additive && MapHost.PickedSm1.Remove(hit)) { }
-        else { if (!additive) MapHost.PickedSm1.Clear(); MapHost.PickedSm1.Add(hit); }
+        ApplyPick(hit, additive);
         RefreshPicked();
+    }
+
+    /// <summary>A click's pick: replaces the picks, or with Shift/Ctrl adds it (or removes it when already picked); nothing hit clears unless additive.</summary>
+    static void ApplyPick(PickRef? hit, bool additive)
+    {
+        if (hit is not { } h) { if (!additive) MapHost.PickedSm1.Clear(); return; }
+        if (additive && MapHost.PickedSm1.Remove(h)) return;
+        if (!additive) MapHost.PickedSm1.Clear();
+        MapHost.PickedSm1.Add(h);
     }
 
     public void SetTool(Tool tool)
@@ -516,7 +519,7 @@ public partial class MapmakerPlugin : EditorPlugin
     public void RefreshPicked()
     {
         if (MapHost.Sm1 is { } src && MapHost.Root is { } root)
-            root.ShowHighlights(MapHost.PickedSm1.Select(i => src.WorldBounds(i)).OfType<(Num.Vector3 Min, Num.Vector3 Max)>().Select(b => (new Vector3(b.Min.X, b.Min.Y, b.Min.Z), new Vector3(b.Max.X, b.Max.Y, b.Max.Z))));
+            root.ShowHighlights(MapHost.PickedSm1.Select(p => src.WorldBounds(p)).OfType<(Num.Vector3 Min, Num.Vector3 Max)>().Select(b => (new Vector3(b.Min.X, b.Min.Y, b.Min.Z), new Vector3(b.Max.X, b.Max.Y, b.Max.Z))));
         MapHost.NotifyPickedChanged();
     }
 

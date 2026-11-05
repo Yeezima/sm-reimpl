@@ -81,11 +81,15 @@ sealed class FakeSm1 : ISm1Source
             new("twin", "def_wall", "l_main", MapScene.Transform(new Vector3(50, 0, 0), Vector3.Zero, Vector3.One), 0),
             new("twin", "def_wall", "l_main", MapScene.Transform(new Vector3(60, 0, 0), Vector3.Zero, Vector3.One), 0),
             new("shear", "def_pipe", "l_main", new Matrix4x4(1, 0, 0, 0, 0.5f, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1), 0),
+            new("composite", "def_composite", "l_main", MapScene.Transform(new Vector3(100, 0, 0), Vector3.Zero, Vector3.One), 0),
         ];
         var defs = new Dictionary<string, Sm1Definition>(StringComparer.OrdinalIgnoreCase)
         {
             ["def_wall"] = new("def_wall", 1, new Bounds(new Vector3(-2, -0.5f, 0), new Vector3(2, 0.5f, 3))),
             ["def_pipe"] = new("def_pipe", 1, null),
+            // A composite placement (like Manufactorum's tarmacgroundplane): a floor part and a gate part.
+            ["def_composite"] = new("def_composite", 2, new Bounds(new Vector3(-50, -50, 0), new Vector3(50, 50, 8)),
+                [new Bounds(new Vector3(-50, -50, 0), new Vector3(50, 50, 0.1f)), new Bounds(new Vector3(10, -2, 0), new Vector3(14, 2, 8))], ["Floor", "Gate_a"]),
         };
         return new Sm1Map(map, objects, defs, []);
     }
@@ -519,6 +523,44 @@ public class MapmakerTests
         Assert.Equal("unknown-sm1-object", s.Apply(Lab.Op("""{"op":"extract-sm1","map":"mp_fake","objects":[{"index":99}],"prefab":"x"}""")).Errors[0].Code);
         Assert.Equal("unknown-sm1-object", s.Apply(Lab.Op("""{"op":"extract-sm1","map":"mp_fake","objects":[{"index":-1}],"prefab":"x"}""")).Errors[0].Code);
         Assert.Equal("bad-op", s.Apply(Lab.Op("""{"op":"extract-sm1","map":"mp_fake","objects":[{"name":"twin"}],"prefab":"x"}""")).Errors[0].Code);
+    }
+
+    [Fact]
+    public void ExtractSm1ByPartTakesOnePartOfACompositePlacement()
+    {
+        using var lab = new Lab();
+        var s = lab.Session();
+        var r = s.Apply(Lab.Op("""{"op":"extract-sm1","map":"mp_fake","objects":[{"index":6,"part":1}],"prefab":"gate","origin":"bounds-bottom-center"}"""));
+        Assert.True(r.Ok, r.ToJson());
+        var p = lab.Library.GetPrefab("gate")!;
+        var part = Assert.Single(p.Parts);
+        Assert.Equal(AssetRef.Sm1("mp_fake", "def_composite", 1), part.Asset);
+        Assert.Equal("Gate_a", part.Name);
+        Assert.Equal([6], p.Provenance.Indices);
+        Assert.Equal([1], p.Provenance.Parts);
+        // The pivot comes from the gate part's box, not the whole composite: centre x = 100 + 12, bottom z = 0.
+        Assert.Equal(new Vector3(112, 0, 0), p.Origin);
+        // Round trip through the file keeps the part.
+        string text = lab.Library.ReadPrefabText("gate")!;
+        Assert.Contains("\"part\": 1", text);
+        Assert.Contains("\"parts\"", text);
+        Assert.Equal("unknown-sm1-object", s.Apply(Lab.Op("""{"op":"extract-sm1","map":"mp_fake","objects":[{"index":6,"part":2}],"prefab":"x"}""")).Errors[0].Code);
+        Assert.Equal("bad-op", s.Apply(Lab.Op("""{"op":"extract-sm1","map":"mp_fake","objects":[{"index":6,"part":-1}],"prefab":"y"}""")).Errors[0].Code);
+        // A whole-placement extract writes no parts list (files from before stay byte-identical).
+        Assert.True(s.Apply(Lab.Op("""{"op":"extract-sm1","map":"mp_fake","objects":[{"index":0}],"prefab":"whole"}""")).Ok);
+        var whole = JsonNode.Parse(lab.Library.ReadPrefabText("whole")!)!;
+        Assert.Null(whole["provenance"]!["parts"]);
+        Assert.Null(whole["parts"]![0]!["asset"]!["part"]);
+    }
+
+    [Fact]
+    public void Sm1AssetPartRoundTripsAndRejectsNegatives()
+    {
+        var a = AssetRef.Sm1("mp_fake", "def_composite", 3);
+        Assert.Equal(a, AssetRef.FromNode(a.ToNode(), "asset", "bad-op"));
+        Assert.Equal("def_composite part 3", a.Label);
+        Assert.Null(AssetRef.FromNode(AssetRef.Sm1("m", "d").ToNode(), "asset", "bad-op").Part);
+        Assert.Throws<MapException>(() => AssetRef.FromNode(JsonNode.Parse("""{"source":"sm1","map":"m","definition":"d","part":-2}"""), "asset", "bad-op"));
     }
 
     [Fact]

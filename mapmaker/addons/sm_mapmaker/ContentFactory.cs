@@ -52,8 +52,8 @@ public static class ContentFactory
         {
             var source = MapHost.Sm1For(asset.Map!);
             if (source is null) { notes?.Add($"SM1 map '{asset.Map}' is not loaded; '{asset.Definition}' is not drawn"); return null; }
-            var node = source.Instantiate(asset.Definition!);
-            if (node is null) notes?.Add($"SM1 definition '{asset.Definition}' has nothing to draw");
+            var node = source.Instantiate(asset.Definition!, asset.Part);
+            if (node is null) notes?.Add($"SM1 definition '{asset.Label}' has nothing to draw");
             return node;
         }
         return BuildCustom(asset.Id!, notes);

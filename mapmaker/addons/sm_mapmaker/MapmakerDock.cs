@@ -326,7 +326,7 @@ public partial class MapmakerDock : VBoxContainer
             _extract.Confirmed += DoExtract;
             AddChild(_extract);
         }
-        _exName.Text = MapHost.Sm1.Scene.Objects[MapHost.PickedSm1[0]].Definition; _exId.Text = Slug(_exName.Text);
+        _exName.Text = MapHost.Sm1.ShortName(MapHost.PickedSm1[0]); _exId.Text = Slug(_exName.Text);
         _extract.PopupCentered(new Vector2I(380, 220));
     }
 
@@ -343,7 +343,7 @@ public partial class MapmakerDock : VBoxContainer
     {
         var src = MapHost.Sm1!;
         // Exact picks: the placement's index in the map's object list (names are not unique).
-        var picks = new JsonArray(MapHost.PickedSm1.Distinct().Select(i => (JsonNode)new JsonObject { ["index"] = i }).ToArray());
+        var picks = new JsonArray(MapHost.PickedSm1.Distinct().Select(p => (JsonNode)(p.Part >= 0 ? new JsonObject { ["index"] = p.Object, ["part"] = p.Part } : new JsonObject { ["index"] = p.Object })).ToArray());
         var r = _plugin.Do($"Extract {id}", MapmakerPlugin.Op("extract-sm1", ("map", src.Map), ("objects", picks), ("prefab", id), ("name", name), ("origin", origin), ("collision", collision)));
         if (r.Ok) { MapHost.PickedSm1.Clear(); _plugin.RefreshPicked(); MapHost.NotifyLibraryChanged(); _source.Select(2); RebuildLibrary(); }
         return r;
@@ -530,7 +530,7 @@ public partial class MapmakerDock : VBoxContainer
         _title.Text = s is null ? "No map open (New or Open)" : $"{s.Name}{(_plugin.Dirty ? " *" : "")}  -  {(s.Path ?? "unsaved")}";
         _toolSelect.SetPressedNoSignal(MapHost.Tool == Tool.Select); _toolPick.SetPressedNoSignal(MapHost.Tool == Tool.PickSm1); _toolPlace.SetPressedNoSignal(MapHost.Tool == Tool.Place);
         _armed.Text = MapHost.Armed is { } a ? $"Placing: {a.Label}" : "";
-        _sm1Info.Text = MapHost.Sm1 is { } src ? $"{src.Map} loaded. Picked: {MapHost.PickedSm1.Count} ({string.Join(", ", MapHost.PickedSm1.Take(4).Select(i => src.Scene.Objects[i].Name))}{(MapHost.PickedSm1.Count > 4 ? ", ..." : "")})" : "No SM1 map loaded.";
+        _sm1Info.Text = MapHost.Sm1 is { } src ? $"{src.Map} loaded. Picked: {MapHost.PickedSm1.Count} ({string.Join(", ", MapHost.PickedSm1.Take(4).Select(src.Label))}{(MapHost.PickedSm1.Count > 4 ? ", ..." : "")})" : "No SM1 map loaded.";
         _recent.Clear();
         _recent.AddItem("Recent maps..."); _recent.SetItemMetadata(0, "");
         try

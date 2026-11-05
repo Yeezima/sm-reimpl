@@ -29,7 +29,7 @@ public sealed class EditorSm1Source : ISm1Source
         foreach (var d in src.Scene.Definitions.Values.OrderBy(d => d.Name, StringComparer.Ordinal))
         {
             Bounds? b = src.BoundsOf(d.Name) is { } x ? new Bounds(x.Min, x.Max) : null;
-            definitions[d.Name] = new Sm1Definition(d.Name, d.Visuals.Count, b);
+            definitions[d.Name] = new Sm1Definition(d.Name, d.Visuals.Count, b, InstalledSm1Source.PartBounds(src.Scene, d), d.NearestLod().Select(v => v.RefNode).ToList());
         }
         var objects = src.Scene.Objects.Select(o => new Sm1Object(o.Name, o.Definition, o.Layer, o.Transform, o.Depth)).ToList();
         return _cache[map] = new Sm1Map(map, objects, definitions, src.Scene.Notes);

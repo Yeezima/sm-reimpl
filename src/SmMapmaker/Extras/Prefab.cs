@@ -31,6 +31,8 @@ public sealed record PrefabProvenance(string Source, string? Map, IReadOnlyList<
 {
     /// <summary>For extract-sm1: each extracted placement's index in <c>Sm1Map.Objects</c>, parallel to <see cref="Objects"/> (empty otherwise).</summary>
     public IReadOnlyList<int> Indices { get; init; } = [];
+    /// <summary>For extract-sm1 by part: the part of each entry (-1 = the whole placement), parallel to <see cref="Indices"/>; empty when no part was picked.</summary>
+    public IReadOnlyList<int> Parts { get; init; } = [];
 
     public JsonObject ToNode()
     {
@@ -38,6 +40,7 @@ public sealed record PrefabProvenance(string Source, string? Map, IReadOnlyList<
         if (Map is not null) o["map"] = Map;
         o["objects"] = new JsonArray(Objects.Select(x => (JsonNode)JsonValue.Create(x)!).ToArray());
         if (Indices.Count > 0) o["indices"] = new JsonArray(Indices.Select(x => (JsonNode)JsonValue.Create(x)!).ToArray());
+        if (Parts.Any(p => p >= 0)) o["parts"] = new JsonArray(Parts.Select(x => (JsonNode)JsonValue.Create(x)!).ToArray());
         return o;
     }
 
@@ -49,7 +52,8 @@ public sealed record PrefabProvenance(string Source, string? Map, IReadOnlyList<
         if (source is not ("sm1" or "custom" or "mixed")) throw new MapException("bad-file", "provenance.source must be sm1, custom or mixed.");
         var objs = o["objects"] is { } on ? Json.Arr(on, "provenance.objects").Select(x => Json.Str(x, "provenance.objects[]")!).ToList() : [];
         var idx = o["indices"] is { } xn ? Json.Arr(xn, "provenance.indices").Select(x => Json.Int(x, "provenance.indices[]", "bad-file")).ToList() : [];
-        return new PrefabProvenance(source, Json.Str(o["map"], "provenance.map", nullable: true), objs) { Indices = idx };
+        var parts = o["parts"] is { } pn ? Json.Arr(pn, "provenance.parts").Select(x => Json.Int(x, "provenance.parts[]", "bad-file")).ToList() : [];
+        return new PrefabProvenance(source, Json.Str(o["map"], "provenance.map", nullable: true), objs) { Indices = idx, Parts = parts };
     }
 }
 

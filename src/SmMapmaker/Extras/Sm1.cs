@@ -7,7 +7,10 @@ namespace SmMapmaker;
 public sealed record Sm1Object(string Name, string Definition, string Layer, Matrix4x4 Transform, int Depth);
 
 /// <param name="Bounds">The nearest-LOD meshes' box in the definition's own frame, or null when it cannot be derived.</param>
-public sealed record Sm1Definition(string Name, int Visuals, Bounds? Bounds);
+/// <param name="Parts">Each nearest-LOD part's box in the definition's frame (null entries when unknown), in <c>ObjectDefinition.NearestLod()</c> order;
+/// an <see cref="AssetRef.Part"/> indexes this list.</param>
+/// <param name="PartNames">Each nearest-LOD part's node name in the same order (e.g. "CFactory_Gate"), or null.</param>
+public sealed record Sm1Definition(string Name, int Visuals, Bounds? Bounds, IReadOnlyList<Bounds?>? Parts = null, IReadOnlyList<string>? PartNames = null);
 
 /// <summary>What the Mapmaker needs of one SM1 map: its placed objects and definitions. No mesh, texture or material data.</summary>
 public sealed class Sm1Map(string map, IReadOnlyList<Sm1Object> objects, IReadOnlyDictionary<string, Sm1Definition> definitions, IReadOnlyList<string> notes)
@@ -52,10 +55,15 @@ public sealed class InstalledSm1Source(string gameDir) : ISm1Source
 
         var definitions = new Dictionary<string, Sm1Definition>(StringComparer.OrdinalIgnoreCase);
         foreach (var d in scene.Definitions.Values.OrderBy(d => d.Name, StringComparer.Ordinal))
-            definitions[d.Name] = new Sm1Definition(d.Name, d.Visuals.Count, BoundsOf(scene, d));
+            definitions[d.Name] = new Sm1Definition(d.Name, d.Visuals.Count, BoundsOf(scene, d), PartBounds(scene, d), d.NearestLod().Select(v => v.RefNode).ToList());
         var objects = scene.Objects.Select(o => new Sm1Object(o.Name, o.Definition, o.Layer, o.Transform, o.Depth)).ToList();
         return _cache[map] = new Sm1Map(map, objects, definitions, scene.Notes);
     }
+
+    /// <summary>Each nearest-LOD part's box in the definition's frame (null when its mesh block is missing).</summary>
+    public static IReadOnlyList<Bounds?> PartBounds(MapScene scene, ObjectDefinition d) =>
+        d.NearestLod().Select(part => scene.Meshes.TryGetValue(part.MeshName, out var mesh) && part.MeshId >= 0 && part.MeshId < mesh.Blocks.Count
+            ? (Bounds?)new Bounds(mesh.Blocks[part.MeshId].BoundsMin, mesh.Blocks[part.MeshId].BoundsMax).Transformed(part.NodeTransform) : null).ToList();
 
     static Bounds? BoundsOf(MapScene scene, ObjectDefinition d)
     {
