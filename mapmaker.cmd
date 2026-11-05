@@ -7,5 +7,10 @@ if not exist "%GODOT%" (
   echo Godot 4.7.2 was not found. Run client.cmd once; it downloads it.
   exit /b 1
 )
+if /i "%~1"=="--restart" (
+  rem After a fix: build, then restart the open editor (it saves and reopens the map), or start one. tools\mapmaker-restart.ps1
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%tools\mapmaker-restart.ps1" %2 %3
+  exit /b %ERRORLEVEL%
+)
 dotnet build "%ROOT%mapmaker\Mapmaker.csproj" -nologo -v quiet || exit /b 1
 start "" "%GODOT%" --editor --path "%ROOT%mapmaker"

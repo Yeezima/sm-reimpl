@@ -56,6 +56,8 @@ public partial class MapmakerPlugin : EditorPlugin
         _sm1Adapter = new EditorSm1Source(MapHost.Sm1For, SafeInstalled());
         Thumbs = new Thumbnails { Name = "MapmakerThumbs" };
         AddChild(Thumbs);
+        _control = new EditorControl(this);
+        AddChild(_control);
         _gizmo = new ObjectGizmoPlugin();
         AddNode3DGizmoPlugin(_gizmo);
         _dock = new MapmakerDock(this) { Name = "Mapmaker" };
@@ -88,10 +90,21 @@ public partial class MapmakerPlugin : EditorPlugin
 
     public override bool _Handles(GodotObject @object) => @object is MapmakerRoot or MapmakerObject;
 
+    EditorControl? _control;
+    int _resumeTries;
+
     void Startup()
     {
         EnsureSceneRoot();
         if (Selftest.Wanted) _ = new Selftest(this).Run();
+        else GetTree().CreateTimer(1.0).Timeout += ResumeWhenReady;
+    }
+
+    /// <summary>After a restart on request (EditorControl): reopens what was open, once the Mapmaker scene is the edited one.</summary>
+    void ResumeWhenReady()
+    {
+        if (EditorInterface.Singleton.GetEditedSceneRoot() is not MapmakerRoot && ++_resumeTries < 20) { EnsureSceneRoot(); GetTree().CreateTimer(0.5).Timeout += ResumeWhenReady; return; }
+        _control?.Resume();
     }
 
     /// <summary>Makes the edited scene a Mapmaker scene (opens the empty one when something else, or nothing, is open).</summary>

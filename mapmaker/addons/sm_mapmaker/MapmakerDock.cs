@@ -181,7 +181,17 @@ public partial class MapmakerDock : VBoxContainer
         _files.Popup();
     }
 
-    public async void OpenSm1()
+    /// <summary>Opens an SM1 map by name (EditorControl's resume after a restart).</summary>
+    public void OpenSm1(string map, bool shown)
+    {
+        _sm1Map.Text = map;
+        _backdrop.SetPressedNoSignal(shown);
+        OpenSm1(shown);
+    }
+
+    public void OpenSm1() => OpenSm1(true);
+
+    async void OpenSm1(bool shown)
     {
         string map = _sm1Map.Text.Trim();
         if (!_plugin.EnsureSceneRoot()) { _status.Text = "Opening the Mapmaker scene; press Open SM1 map again."; return; }
@@ -191,6 +201,7 @@ public partial class MapmakerDock : VBoxContainer
             var source = await Task.Run(() => Sm1Source.Load(map));
             var notes = new List<string>();
             MapHost.Root!.ShowBackdrop(source, notes);
+            MapHost.Root.BackdropVisible = shown;
             MapHost.Register(source);
             if (source.BoundsCore() is { } b) _ = _plugin.Frame3D(b.Min, b.Max);
             _plugin.SetTool(Tool.PickSm1);
