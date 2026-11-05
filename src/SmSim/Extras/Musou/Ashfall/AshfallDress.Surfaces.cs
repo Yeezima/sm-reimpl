@@ -23,16 +23,16 @@ internal static partial class AshfallDressPass
     {
         uint seed = 777;
         int n = 0;
-        // The avenues and the perimeter road: straight tiles (16 x 8 raw, laid 1.5 times wider in two rows on an avenue, twice wider in one row on the perimeter) between the junctions, one tile
+        // The avenues and the perimeter road: straight tiles (16 x 8 raw) in one row of about 24 m tiles (three times wider on an avenue, twice on the perimeter: a few hundred tiles in all, the client counts draw calls) between the junctions, one tile
         // fitted to each junction square. Junction squares: crossroads at the avenues' crossings, a T where an avenue meets the perimeter; the four corners stay bare (no L tile in the kit).
         foreach (var (c, w) in RoadLines)
             foreach (bool northSouth in new[] { true, false })
             {
-                int rows = w > 20f ? 2 : 1;
+                const int rows = 1;
                 foreach (var (lo, hi) in BlockSpans)
                 {
                     float len = hi - lo;
-                    int tiles = (int)MathF.Round(len / 16f);
+                    int tiles = (int)MathF.Round(len / 24f);
                     float lp = len / tiles, rowW = w / rows;
                     for (int r = 0; r < rows; r++)
                         for (int t = 0; t < tiles; t++)
@@ -74,10 +74,10 @@ internal static partial class AshfallDressPass
         }
     }
 
-    /// <summary>The plaza: 8 m cells. Corner tiles in the four corners, edge tiles on the rim turned outward, the same edge tile turned by a hash over the inside (the kit has no plain plaza tile; AC-037, the raised centre tile, is not used: B's centre stays flat and walkable).</summary>
+    /// <summary>The plaza: 15 m cells (the 8 m tiles scaled 1.9 times, uniform). Corner tiles in the four corners, edge tiles on the rim turned outward, the same edge tile turned by a hash over the inside (the kit has no plain plaza tile; AC-037, the raised centre tile, is not used: B's centre stays flat and walkable).</summary>
     static void Plaza(List<AshfallDressItem> items, AshfallBox box)
     {
-        int nx = (int)MathF.Round(box.Length / 8f), ny = (int)MathF.Round(box.Depth / 8f);
+        int nx = (int)MathF.Round(box.Length / 15f), ny = (int)MathF.Round(box.Depth / 15f);
         float cw = box.Length / nx, cd = box.Depth / ny;
         // Assumptions (to check in the client): the edge tile's rim is on its local -Y side and the corner tile's corner at local (-X, -Y) at yaw 0.
         for (int i = 0; i < nx; i++)

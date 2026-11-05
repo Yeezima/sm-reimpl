@@ -91,8 +91,10 @@ public enum AshfallDressRole : byte
 /// One placed kit model, in the simulation frame (X east, Y north, Z up, metres). The client fits the model's raw bounds into the item's box:
 /// the box is centred on <see cref="Position"/> in X/Y with its bottom at <see cref="Position"/>.Z, <see cref="Size"/>.X along the item's local X (length),
 /// <see cref="Size"/>.Y along local Y (depth), <see cref="Size"/>.Z up; <see cref="Yaw"/> turns local X toward +Y (radians, counter-clockwise seen from above).
-/// Model axes: glTF +Y is up; when <see cref="SwapXZ"/> is false glTF X is local X and glTF Z is local Y, when true glTF Z is local X and glTF X is local Y.
+/// Model axes: glTF +Y is up; when <see cref="SwapXZ"/> is false glTF X is local X and glTF -Z is local Y, when true glTF Z is local X and glTF X is local Y.
 /// Scale per axis = Size / (raw size on the mapped axis), so the drawn model fills the box exactly.
+/// The fit is a rotation, not a mirror: with <see cref="SwapXZ"/> false glTF X is local X and glTF -Z is local Y, so the model's front (glTF +Z) faces local -Y (south at yaw 0);
+/// with SwapXZ true glTF Z is local X and glTF X is local Y. The dressing turns wall fronts towards the nearest street, the boundary's towards the play area, the keep's outward.
 /// </summary>
 public sealed record AshfallDressItem(string Asset, Vector3 Position, float Yaw, Vector3 Size, bool SwapXZ, AshfallDressRole Role, int Part);
 

@@ -40,7 +40,7 @@ internal static partial class AshfallDressPass
     /// Tiles one wall-like box (centre, yaw step, length x depth x height from <paramref name="z0"/>) with a candidate model that fits at no more than twice the lowest triangle cost (items x the model's triangles; the hash picks among those);
     /// nothing is added when none fits.
     /// </summary>
-    static bool TryWall(List<AshfallDressItem> into, string[] candidates, uint hash, Vector2 centre, int yawStep, float L, float D, float z0, float H, int part)
+    static bool TryWall(List<AshfallDressItem> into, string[] candidates, uint hash, Vector2 centre, int yawStep, float L, float D, float z0, float H, int part, Vector2? front = null)
     {
         if (L < 0.4f || D < 0.2f || H < 0.3f) return false;
         var fits = new List<(AshfallKitModel M, TileFit Fit, long Cost)>();
@@ -55,22 +55,36 @@ internal static partial class AshfallDressPass
         var (best, bestFit, _) = near[(int)(hash % (uint)near.Count)];
         var (s, co) = AshfallBuilder.Trig(yawStep);
         var ax = new Vector2(co, s);
+        // The model's front (glTF +Z) faces local -Y at yaw 0 (the fit is a rotation, not a mirror): turn the items half a turn when the wanted front direction lies on the local +Y side.
+        int itemYaw = front is { } f && Vector2.Dot(new Vector2(-s, co), f) > 0f ? yawStep + 12 : yawStep;
         float lp = L / bestFit.N, rh = H / bestFit.Rows;
         for (int row = 0; row < bestFit.Rows; row++)
             for (int i = 0; i < bestFit.N; i++)
             {
                 var p = centre + ax * (-L / 2f + (i + 0.5f) * lp);
-                into.Add(new AshfallDressItem(best.Id, new Vector3(p.X, p.Y, z0 + row * rh), Yaw(yawStep), new Vector3(lp, D, rh), Swap(best), AshfallDressRole.Skin, part));
+                into.Add(new AshfallDressItem(best.Id, new Vector3(p.X, p.Y, z0 + row * rh), Yaw(itemYaw), new Vector3(lp, D, rh), Swap(best), AshfallDressRole.Skin, part));
             }
         return true;
     }
 
-    static bool TryBox(List<AshfallDressItem> into, string[] candidates, uint hash, AshfallBox box, int part) =>
-        TryWall(into, candidates, hash, new Vector2(box.Cx, box.Cy), box.YawStep, box.Length, box.Depth, box.Z0, box.Height, part);
+    static bool TryBox(List<AshfallDressItem> into, string[] candidates, uint hash, AshfallBox box, int part, Vector2? front = null) =>
+        TryWall(into, candidates, hash, new Vector2(box.Cx, box.Cy), box.YawStep, box.Length, box.Depth, box.Z0, box.Height, part, front ?? StreetSide(box.Cx, box.Cy));
+
+    /// <summary>The direction from (x, y) to the nearest road centre line (the avenues at +-92 and the perimeter at +-232, both ways): wall fronts face the street (ours).</summary>
+    static Vector2 StreetSide(float x, float y)
+    {
+        float bx = 1e9f, by = 1e9f;
+        foreach (float c in new[] { -232f, -92f, 92f, 232f })
+        {
+            if (MathF.Abs(c - x) < MathF.Abs(bx)) bx = c - x;
+            if (MathF.Abs(c - y) < MathF.Abs(by)) by = c - y;
+        }
+        return MathF.Abs(bx) <= MathF.Abs(by) ? new Vector2(bx >= 0f ? 1f : -1f, 0f) : new Vector2(0f, by >= 0f ? 1f : -1f);
+    }
 
     static readonly string[] WallTall = ["AC-005", "AC-004", "AC-006", "AC-002", "AC-001"], WallMid = ["AC-004", "AC-006", "AC-001", "AC-005", "AC-002"],
         WallLow = ["AC-001", "AC-006", "AC-004", "AC-003"], WallSill = ["AC-001", "AC-017", "AC-014", "AC-011"], WallThick = ["AC-003", "AC-001", "AC-006"],
-        CoverThin = ["AC-031", "AC-011", "AC-014", "AC-017"], CoverThick = ["AC-018", "AC-012", "AC-017"], CoverCrater = ["AC-012", "AC-011", "AC-014"],
+        CoverThin = ["AC-031", "AC-011", "AC-014", "AC-017"], CoverThick = ["AC-018", "AC-017"], CoverCrater = ["AC-011", "AC-014", "AC-031"],
         RubbleLow = ["AC-020", "AC-024", "AC-025"], RubbleTall = ["AC-019", "AC-021", "AC-023"], Obelisk = ["AC-010", "AC-030"], Plinth = ["AC-028"],
         WallCheap = ["AC-031", "AC-014", "AC-023"], Keep = ["AC-006", "AC-004", "AC-001"], BoundaryTiles = ["AC-031"];
 
@@ -102,7 +116,7 @@ internal static partial class AshfallDressPass
                     done = TryBox(items, Plinth, h, box, i);    // A's plinth, the small monument's plinth, the gun platform
                     break;
                 case Boundary:
-                    done = TryBox(items, BoundaryTiles, h, box, i);
+                    done = TryBox(items, BoundaryTiles, h, box, i, -Vector2.Normalize(new Vector2(box.Cx, box.Cy)));   // the inner face towards the play area
                     break;
                 case Stronghold:
                     done = Ring(items, Keep, h, box, i);
@@ -119,12 +133,12 @@ internal static partial class AshfallDressPass
         var c = new Vector2(box.Cx, box.Cy);
         var ax = box.AxisX; var ay = box.AxisY;
         var added = new List<AshfallDressItem>();
-        bool ok = TryWall(added, candidates, hash, c + ay * (box.Depth / 2f - d / 2f), box.YawStep, box.Length, d, box.Z0, box.Height, part)
-            && TryWall(added, candidates, hash, c - ay * (box.Depth / 2f - d / 2f), box.YawStep, box.Length, d, box.Z0, box.Height, part);
+        bool ok = TryWall(added, candidates, hash, c + ay * (box.Depth / 2f - d / 2f), box.YawStep, box.Length, d, box.Z0, box.Height, part, ay)
+            && TryWall(added, candidates, hash, c - ay * (box.Depth / 2f - d / 2f), box.YawStep, box.Length, d, box.Z0, box.Height, part, -ay);
         float inner = box.Depth - 2f * d;
         if (ok && inner > 0.4f)
-            ok = TryWall(added, candidates, hash, c + ax * (box.Length / 2f - d / 2f), (box.YawStep + 6) % 24, inner, d, box.Z0, box.Height, part)
-                && TryWall(added, candidates, hash, c - ax * (box.Length / 2f - d / 2f), (box.YawStep + 6) % 24, inner, d, box.Z0, box.Height, part);
+            ok = TryWall(added, candidates, hash, c + ax * (box.Length / 2f - d / 2f), (box.YawStep + 6) % 24, inner, d, box.Z0, box.Height, part, ax)
+                && TryWall(added, candidates, hash, c - ax * (box.Length / 2f - d / 2f), (box.YawStep + 6) % 24, inner, d, box.Z0, box.Height, part, -ax);
         if (ok) into.AddRange(added);
         return ok;
     }

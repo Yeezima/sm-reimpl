@@ -24,7 +24,7 @@ internal static partial class AshfallDressPass
         new("AC-008", AshfallKind.Perch, 6f, 3f, 4.5f, 6),                 // elevated firing perch: a block with a standable top, reached by a jump only
         new("AC-007", AshfallKind.Wall, 6f, 4f, 6f, 3),                    // exterior stair access ruin: a non-walkable backdrop piece (no stair of its own)
         new("AC-018", AshfallKind.Rubble, 3.2f, 2.4f, 1.8f, 10),           // chokepoint debris barrier
-        new("AC-012", AshfallKind.Cover, 5f, 2.4f, 1.4f, 6),               // crater edge cover segment
+        new("AC-012", AshfallKind.Cover, 5f, 2.4f, 1.4f, 3),               // crater edge cover segment (sparingly: the model has no clear flat footprint)
     ];
 
     static List<AshfallDressItem> Props(AshfallBuilder b, AshfallPlacer p)

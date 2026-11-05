@@ -112,7 +112,7 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
     public void Surfaces_lie_on_the_road_cells_or_on_a_road_or_paving_top_and_never_over_a_block()
     {
         var surfaces = Of(AshfallDressRole.Surface).ToList();
-        Assert.True(surfaces.Count > 300);
+        Assert.InRange(surfaces.Count, 150, 400);   // the ground tiles are draw-call heavy: a few hundred at most
         var tops = Level.Parts.Where(p => p.Kind is AshfallKind.Road or AshfallKind.Paving).Select(p => (Box: AshfallBox.Of(p)!.Value, p)).ToList();
         Assert.Equal(4, tops.Count);
         foreach (var it in surfaces)
