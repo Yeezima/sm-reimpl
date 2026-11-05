@@ -14,7 +14,16 @@ namespace SmSim.Extras.Musou.Ashfall;
 public sealed record AshfallKitFitMetrics(int SolidCells, int CoveredCells, double Iou, double DroppedPercent, int DroppedBoxes, int BoxCount, bool CapReached, bool OverCap,
     float[] WalkableTops, int Nx, int Ny, int Nz, float CellSize);
 
-public sealed record AshfallKitFitResult(IReadOnlyList<(Vector3 Min, Vector3 Max)> Boxes, AshfallKitFitMetrics Metrics);
+/// <summary>
+/// A walkable ramp found in a model's top heightfield (raw glTF frame, Y up): a run of columns whose tops rise along <see cref="Dir"/> (0 +X, 1 -X, 2 +Z, 3 -Z). <see cref="Min"/>/<see cref="Max"/> bound the footprint;
+/// Min.Y is the wedge's bottom, <see cref="YLow"/> and <see cref="YHigh"/> the top plane's heights at the low and the high edge (the plane runs through the middle of the steps, so a riser pokes at most half its height above it).
+/// </summary>
+public sealed record AshfallRamp(Vector3 Min, Vector3 Max, int Dir, float YLow, float YHigh);
+
+public sealed record AshfallKitFitResult(IReadOnlyList<(Vector3 Min, Vector3 Max)> Boxes, AshfallKitFitMetrics Metrics)
+{
+    public IReadOnlyList<AshfallRamp> Ramps { get; init; } = [];
+}
 
 /// <summary>
 /// Offline collision fit (Ashfall kit, draft 4): a model's triangles become a short list of axis-aligned boxes that approximate its solid form. Pure and deterministic: voxelise on a grid anchored
@@ -48,7 +57,7 @@ public static class AshfallKitFit
 
     /// <summary>Fits boxes to a triangle soup. <paramref name="positions"/>/<paramref name="indices"/> are in the raw glTF frame (Y up).</summary>
     public static AshfallKitFitResult Fit(IReadOnlyList<Vector3> positions, IReadOnlyList<int> indices, Vector3 rawMin, Vector3 rawMax,
-        int resolution = DefaultResolution, int maxBoxes = DefaultMaxBoxes, float fillTolerance = DefaultFillTolerance, int topResolution = DefaultTopResolution)
+        int resolution = DefaultResolution, int maxBoxes = DefaultMaxBoxes, float fillTolerance = DefaultFillTolerance, int topResolution = DefaultTopResolution, bool ramps = false)
     {
         var size = rawMax - rawMin;
         float longest = Math.Max(size.X, Math.Max(size.Y, size.Z));
@@ -93,7 +102,85 @@ public static class AshfallKitFit
             new Vector3(rawMin.X + b.X0 * cell, rawMin.Y + b.Y0 * cell, rawMin.Z + b.Z0 * cell),
             Vector3.Min(rawMax, new Vector3(rawMin.X + (b.X1 + 1) * cell, rawMin.Y + (b.Y1 + 1) * cell, rawMin.Z + (b.Z1 + 1) * cell)))).ToList();
         var m = new AshfallKitFitMetrics(solidCells, coveredCells, iou, solidCells == 0 ? 0 : 100.0 * droppedVol / solidCells, dropped, kept.Count, capReached, overCap, tops, g.Nx, g.Ny, g.Nz, cell);
-        return new(outBoxes, m);
+        return new(outBoxes, m) { Ramps = ramps ? FindRamps(tg, rawMin, topCell) : [] };
+    }
+
+    /// <summary>
+    /// Stair and rubble-ramp runs of the top heightfield: along each row and column, a maximal stretch of columns whose tops do not fall, trimmed to its first and last change, at least 3 columns long with at least 2 rises,
+    /// whose overall slope is at most 50 degrees. Equal runs on neighbouring lines are merged into one footprint (at least 3 cells wide). The top plane runs through the middle of the steps.
+    /// </summary>
+    static List<AshfallRamp> FindRamps(Grid g, Vector3 rawMin, float cell)
+    {
+        var top = new float[g.Nx * g.Nz];   // height of the highest solid cell's top, NaN where empty
+        for (int z = 0; z < g.Nz; z++)
+            for (int x = 0; x < g.Nx; x++)
+            {
+                int y = g.Ny - 1;
+                while (y >= 0 && !g.IsSolid(x, y, z)) y--;
+                top[x + g.Nx * z] = y < 0 ? float.NaN : (y + 1) * cell;
+            }
+        var found = new SortedDictionary<(int Dir, int I0, int I1, int H0, int H1), List<int>>();
+        for (int dir = 0; dir < 4; dir++)
+        {
+            bool alongX = dir < 2, forward = dir % 2 == 0;
+            int lines = alongX ? g.Nz : g.Nx, len = alongX ? g.Nx : g.Nz;
+            for (int line = 0; line < lines; line++)
+            {
+                float H(int i) { int k = forward ? i : len - 1 - i; return alongX ? top[k + g.Nx * line] : top[line + g.Nx * k]; }
+                int start = 0;
+                while (start < len)
+                {
+                    if (float.IsNaN(H(start))) { start++; continue; }
+                    int end = start;
+                    while (end + 1 < len && !float.IsNaN(H(end + 1)) && H(end + 1) >= H(end) - 1e-4f) end++;
+                    int a = start, b = end;
+                    while (a < b && H(a + 1) - H(a) < 1e-4f) a++;
+                    while (b > a && H(b) - H(b - 1) < 1e-4f) b--;
+                    int rises = 0;
+                    for (int i = a; i < b; i++) if (H(i + 1) - H(i) > 1e-4f) rises++;
+                    float rise = H(b) - H(a), runLen = (b - a) * cell;
+                    if (b - a >= 2 && rises >= 2 && runLen > 0f && MathF.Atan(rise / runLen) <= 50f * MathF.PI / 180f)
+                    {
+                        var key = (dir, a, b, (int)MathF.Round(H(a) / cell), (int)MathF.Round(H(b) / cell));
+                        if (!found.TryGetValue(key, out var l)) found[key] = l = [];
+                        l.Add(line);
+                    }
+                    start = end + 1;
+                }
+            }
+        }
+        var result = new List<(int Area, AshfallRamp Ramp)>();
+        foreach (var (key, lines) in found)
+        {
+            lines.Sort();
+            int s0 = 0;
+            for (int k = 1; k <= lines.Count; k++)
+            {
+                if (k < lines.Count && lines[k] == lines[k - 1] + 1) continue;
+                int l0 = lines[s0], l1 = lines[k - 1];
+                s0 = k;
+                if (l1 - l0 + 1 < 3) continue;
+                var (dir, i0, i1, _, _) = key;
+                bool alongX = dir < 2, forward = dir % 2 == 0;
+                int len = alongX ? g.Nx : g.Nz;
+                int c0 = forward ? i0 : len - 1 - i1, c1 = forward ? i1 : len - 1 - i0;
+                float H(int i, int line) { int kk = forward ? i : len - 1 - i; return alongX ? top[kk + g.Nx * line] : top[line + g.Nx * kk]; }
+                float h0 = float.MaxValue, h1 = float.MinValue, dMax = float.MinValue, dMin = float.MaxValue;
+                for (int line = l0; line <= l1; line++) { h0 = MathF.Min(h0, H(i0, line)); h1 = MathF.Max(h1, H(i1, line)); }
+                for (int line = l0; line <= l1; line++)
+                    for (int i = i0; i <= i1; i++)
+                    {
+                        float d = H(i, line) - (h0 + (h1 - h0) * (i - i0) / (i1 - i0));
+                        dMax = MathF.Max(dMax, d); dMin = MathF.Min(dMin, d);
+                    }
+                float off = (dMax + dMin) / 2f;
+                float yLow = h0 + off + rawMin.Y, yHigh = h1 + off + rawMin.Y, bottom = MathF.Min(h0 + rawMin.Y, yLow);
+                float xa = alongX ? rawMin.X + c0 * cell : rawMin.X + l0 * cell, xb = alongX ? rawMin.X + (c1 + 1) * cell : rawMin.X + (l1 + 1) * cell;
+                float za = alongX ? rawMin.Z + l0 * cell : rawMin.Z + c0 * cell, zb = alongX ? rawMin.Z + (l1 + 1) * cell : rawMin.Z + (c1 + 1) * cell;
+                result.Add(((l1 - l0 + 1) * (i1 - i0), new AshfallRamp(new Vector3(xa, bottom, za), new Vector3(xb, MathF.Max(yHigh, yLow), zb), dir, yLow, yHigh)));
+            }
+        }
+        return result.OrderByDescending(r => r.Area).ThenBy(r => r.Ramp.Dir).ThenBy(r => r.Ramp.Min.X).ThenBy(r => r.Ramp.Min.Z).Take(12).Select(r => r.Ramp).ToList();
     }
 
     static Grid SolidGrid(IReadOnlyList<Vector3> positions, IReadOnlyList<int> indices, Vector3 rawMin, Vector3 size, float cell)

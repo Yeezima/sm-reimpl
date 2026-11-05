@@ -38,6 +38,7 @@ internal static class AshfallDraft5Pass
         public readonly Dictionary<string, int> Uses = [];
         public readonly Dictionary<string, int> DroppedBoxes = [];
         public readonly List<string> Dropped = [];
+        public int RampsKept, RampsDropped;
         public uint Seed;
         public uint Counter;
         public List<Vector4> BannedRects = [];
@@ -109,6 +110,7 @@ internal static class AshfallDraft5Pass
 
         if (c.Dropped.Count > 0)
             c.Flags.Add($"{c.Dropped.Count} structures dropped: they stood in a lane, a start area, a capture zone's 6 m ring, on a spawn marker or within 2 m of the boundary (the boundary-foot walls all); first: {string.Join(", ", c.Dropped.Take(6))}");
+        c.Flags.Add($"walkable ramps (stairs and rubble runs found in the top heightfields of the walkable models): {c.RampsKept} kept as sloped wedges, {c.RampsDropped} dropped (scaled slope over {MaxRampDegrees:0} degrees)");
         // Review flags for models whose collision wants a manual clean-up.
         foreach (var (id, n) in c.Uses.OrderBy(k => k.Key, StringComparer.Ordinal))
             if (AshfallKitCollision.NeedsCleanup(id)) c.Flags.Add($"{id} used {n}x: collision needs manual clean-up ({AshfallKitCollision.CleanupReason(id)})");
@@ -172,7 +174,7 @@ internal static class AshfallDraft5Pass
         "shell" or "shell2" or "corner" => Shell,
         "facade" or "wall" => Facade,
         "tower" => Tower,
-        "platform" => ["AC-008", "AC-013", "AC-028"],
+        "platform" => ["AC-008"],
         "cover" => Cover,
         "wallrun" => ["AC-001", "AC-017", "AC-014"],
         "wallpiece" => RubbleTall,
@@ -309,6 +311,12 @@ internal static class AshfallDraft5Pass
             c.AllBoxes.Add((index, b));
         }
         if (dust > 0) c.DroppedBoxes[id] = c.DroppedBoxes.GetValueOrDefault(id) + dust;
+        if (!s.NoCollision)
+            foreach (var rp in AshfallKitCollision.Ramps(id))
+            {
+                var corners = RampCorners(item, cand.Yaw, rp, out bool ok);
+                if (ok) { c.Parts.Add(new AshfallPart(AshfallKind.Stair, corners)); c.RampsKept++; } else c.RampsDropped++;
+            }
         c.ItemParts.Add((first, c.Parts.Count - first));
         var parts = Enumerable.Range(first, c.Parts.Count - first).ToList();
         c.Structures.Add(new AshfallStructure(parts, s.Min, s.Max));
@@ -381,6 +389,53 @@ internal static class AshfallDraft5Pass
         var (s, co) = AshfallBuilder.Trig(yawStep);
         float wx = itemPos.X + co * cx - s * cy, wy = itemPos.Y + s * cx + co * cy;
         return new WBox(new Vector3(wx, wy, (z0 + z1) / 2f), new Vector3(hx, hy, (z1 - z0) / 2f), yawStep);
+    }
+
+    /// <summary>Largest slope a placed ramp may keep after the scale (the sim walks 60 degrees; ours, a margin).</summary>
+    const float MaxRampDegrees = 55f;
+
+    /// <summary>
+    /// A model's ramp (a wedge: flat bottom, a plane for a top, raw frame) moved by the item's transform. <paramref name="ok"/> is false when the scaled slope of its top is over <see cref="MaxRampDegrees"/>
+    /// (non-uniform scale changes slopes) or the top does not rise.
+    /// </summary>
+    static Vector3[] RampCorners(AshfallDressItem item, int yawStep, AshfallRamp r, out bool ok)
+    {
+        var m = AshfallKit.Get(item.Asset);
+        var (sn, co) = AshfallBuilder.Trig(yawStep);
+        Vector3 W(float x, float y, float z)
+        {
+            var u = (new Vector3(x, y, z) - m.RawMin) / m.RawSize;
+            float lx = (u.X - 0.5f) * item.Size.X, ly = (0.5f - u.Z) * item.Size.Y;
+            return new Vector3(item.Position.X + co * lx - sn * ly, item.Position.Y + sn * lx + co * ly, item.Position.Z + u.Y * item.Size.Z);
+        }
+        float TopAt(float x, float z)
+        {
+            float t = r.Dir switch { 0 => (x - r.Min.X) / (r.Max.X - r.Min.X), 1 => 1f - (x - r.Min.X) / (r.Max.X - r.Min.X), 2 => (z - r.Min.Z) / (r.Max.Z - r.Min.Z), _ => 1f - (z - r.Min.Z) / (r.Max.Z - r.Min.Z) };
+            return r.YLow + t * (r.YHigh - r.YLow);
+        }
+        float mx = (r.Min.X + r.Max.X) / 2f, mz = (r.Min.Z + r.Max.Z) / 2f;
+        var lowMid = r.Dir switch { 0 => W(r.Min.X, r.YLow, mz), 1 => W(r.Max.X, r.YLow, mz), 2 => W(mx, r.YLow, r.Min.Z), _ => W(mx, r.YLow, r.Max.Z) };
+        var highMid = r.Dir switch { 0 => W(r.Max.X, r.YHigh, mz), 1 => W(r.Min.X, r.YHigh, mz), 2 => W(mx, r.YHigh, r.Max.Z), _ => W(mx, r.YHigh, r.Min.Z) };
+        float run = MathF.Sqrt((highMid.X - lowMid.X) * (highMid.X - lowMid.X) + (highMid.Y - lowMid.Y) * (highMid.Y - lowMid.Y)), rise = highMid.Z - lowMid.Z;
+        ok = rise > 1e-3f && run > 1e-3f && rise <= run * 1.4281480f;   // tan 55 degrees
+        if (!ok) return [];
+        // raw vertices in the order Frame uses (x, y up, z right-handed): bottom (-,-,-) (+,-,-) (+,+,-) (-,+,-)... with y the "up" axis
+        float[] xs = [r.Min.X, r.Max.X], zs = [r.Min.Z, r.Max.Z];
+        Vector3 V(int sx, int sy, int sz)
+        {
+            float x = xs[sx], z = zs[sz];
+            return W(x, sy == 0 ? r.Min.Y : TopAt(x, z), z);
+        }
+        Vector3[] p = [V(0, 0, 0), V(1, 0, 0), V(1, 1, 0), V(0, 1, 0), V(0, 0, 1), V(1, 0, 1), V(1, 1, 1), V(0, 1, 1)];
+        int[][] faces = [[3, 2, 1, 0], [4, 5, 6, 7], [0, 1, 5, 4], [2, 3, 7, 6], [3, 0, 4, 7], [1, 2, 6, 5]];
+        var corners = new Vector3[36];
+        for (int f = 0; f < 6; f++)
+        {
+            int[] q = faces[f];
+            ReadOnlySpan<int> order = [q[0], q[1], q[2], q[0], q[2], q[3]];
+            for (int k = 0; k < 6; k++) corners[f * 6 + k] = p[order[k]];
+        }
+        return corners;
     }
 
     static void AddPart(Ctx c, WBox b, float itemBottom, AshfallKind? forced)

@@ -10,7 +10,7 @@ namespace SmSim.Extras.Musou.Ashfall;
 /// <summary>Per-model collision boxes of the Ashfall kit (generated; see the header).</summary>
 public static partial class AshfallKitCollision
 {
-    sealed record Entry((Vector3 Min, Vector3 Max)[] Boxes, AshfallKitFitMetrics Metrics, bool NeedsCleanup, string Reason);
+    sealed record Entry((Vector3 Min, Vector3 Max)[] Boxes, AshfallKitFitMetrics Metrics, bool NeedsCleanup, string Reason, AshfallRamp[]? Ramps = null);
 
     static readonly Dictionary<string, Entry> Data = new()
     {
@@ -155,7 +155,12 @@ public static partial class AshfallKitCollision
                 (new(-0.5833f, 0.5245f, -0.6187f), new(-0.4583f, 0.6078f, -0.4103f)),
             ],
             new(12261, 10793, 0.8739, 15.2435, 232, 83, true, true, [0.3161f, 0.3578f, 0.4411f, 0.4828f], 48, 31, 46, 0.0417f),
-            true, "cap reached with IoU 0.87 below 0.90; 83 boxes, over the cap (fill tolerance or an opening kept them apart)"),
+            true, "cap reached with IoU 0.87 below 0.90; 83 boxes, over the cap (fill tolerance or an opening kept them apart)",
+            [
+                new(new(0.3750f, 0.3161f, -0.6603f), new(0.5417f, 0.4620f, -0.5353f), 0, 0.3370f, 0.4620f),
+                new(new(-0.1250f, 0.3995f, -0.7020f), new(0.0000f, 0.4828f, -0.5770f), 0, 0.3995f, 0.4828f),
+                new(new(0.5417f, 0.3578f, -0.4937f), new(0.6667f, 0.4411f, -0.3687f), 3, 0.3578f, 0.4411f),
+            ]),
         ["AC-004"] = new(
             [
                 (new(-1.0000f, -0.5313f, -0.3180f), new(1.0000f, -0.4063f, 0.1820f)),
@@ -354,7 +359,11 @@ public static partial class AshfallKitCollision
                 (new(-0.3333f, 0.3610f, -0.0257f), new(-0.2083f, 0.4027f, 0.2243f)),
             ],
             new(7678, 6900, 0.8910, 12.6335, 158, 81, true, true, [0.5277f], 48, 25, 18, 0.0417f),
-            true, "cap reached with IoU 0.89 below 0.90; 81 boxes, over the cap (fill tolerance or an opening kept them apart)"),
+            true, "cap reached with IoU 0.89 below 0.90; 81 boxes, over the cap (fill tolerance or an opening kept them apart)",
+            [
+                new(new(-0.2083f, 0.3193f, -0.0673f), new(-0.0417f, 0.4443f, 0.0993f), 1, 0.3193f, 0.4443f),
+                new(new(-0.0833f, 0.2360f, 0.0993f), new(0.0417f, 0.3193f, 0.2243f), 3, 0.2360f, 0.3193f),
+            ]),
         ["AC-007"] = new(
             [
                 (new(-0.3776f, -0.5506f, -1.0000f), new(-0.2109f, -0.5089f, 0.9583f)),
@@ -438,7 +447,12 @@ public static partial class AshfallKitCollision
                 (new(-0.3359f, 0.3244f, -0.2917f), new(-0.2109f, 0.4077f, -0.1667f)),
             ],
             new(8396, 7809, 0.8826, 12.6846, 177, 79, true, true, [-0.5089f, -0.4256f, 0.1577f, 0.3661f], 23, 27, 48, 0.0417f),
-            true, "cap reached with IoU 0.88 below 0.90; 79 boxes, over the cap (fill tolerance or an opening kept them apart)"),
+            true, "cap reached with IoU 0.88 below 0.90; 79 boxes, over the cap (fill tolerance or an opening kept them apart)",
+            [
+                new(new(0.2474f, -0.5714f, -0.1250f), new(0.3724f, 0.3452f, 0.8333f), 3, -0.5714f, 0.3452f),
+                new(new(-0.3776f, -0.1548f, 0.0833f), new(-0.2526f, 0.3036f, 0.5417f), 3, -0.1548f, 0.3036f),
+                new(new(-0.3776f, -0.5251f, 0.5833f), new(-0.2526f, -0.1085f, 1.0000f), 3, -0.5251f, -0.1085f),
+            ]),
         ["AC-008"] = new(
             [
                 (new(-0.9583f, -0.5160f, -0.3436f), new(-0.7917f, -0.4327f, -0.1353f)),
@@ -713,7 +727,10 @@ public static partial class AshfallKitCollision
                 (new(-0.0004f, 0.6667f, -0.0276f), new(0.1246f, 0.7500f, 0.0557f)),
             ],
             new(8583, 6759, 0.7458, 27.7991, 355, 108, true, true, [-0.9583f, -0.3750f, 0.0000f, 0.2500f], 39, 48, 28, 0.0417f),
-            true, "IoU 0.75 below 0.80; cap reached with IoU 0.75 below 0.90; 108 boxes, over the cap (fill tolerance or an opening kept them apart)"),
+            true, "IoU 0.75 below 0.80; cap reached with IoU 0.75 below 0.90; 108 boxes, over the cap (fill tolerance or an opening kept them apart)",
+            [
+                new(new(-0.0421f, 0.9167f, -0.1526f), new(0.0829f, 1.0000f, -0.0276f), 0, 0.9167f, 1.0000f),
+            ]),
         ["AC-011"] = new(
             [
                 (new(-1.0000f, -0.2651f, -0.2585f), new(-0.3750f, -0.1401f, 0.2415f)),
@@ -1546,7 +1563,13 @@ public static partial class AshfallKitCollision
                 (new(2.0000f, 1.0333f, -1.3333f), new(2.3333f, 1.2000f, 1.3333f)),
             ],
             new(3768, 3760, 0.9979, 0.2123, 2, 43, false, false, [0.0333f, 1.3667f], 48, 5, 48, 0.3333f),
-            false, ""),
+            false, "",
+            [
+                new(new(-5.0000f, 0.0333f, -0.6667f), new(-2.0000f, 1.3667f, 0.6667f), 0, 0.0333f, 1.3667f),
+                new(new(2.0000f, 0.0333f, -0.6667f), new(5.0000f, 1.3667f, 0.6667f), 1, 0.0333f, 1.3667f),
+                new(new(-0.6667f, 0.0333f, -5.0000f), new(0.6667f, 1.3667f, -2.0000f), 2, 0.0333f, 1.3667f),
+                new(new(-0.6667f, 0.0333f, 2.0000f), new(0.6667f, 1.3667f, 5.0000f), 3, 0.0333f, 1.3667f),
+            ]),
         ["AC-038"] = new(
             [
                 (new(-4.0000f, -0.3000f, -4.0000f), new(4.0000f, 0.0000f, 4.0000f)),
@@ -1584,4 +1607,7 @@ public static partial class AshfallKitCollision
     public static bool NeedsCleanup(string id) => Data[id].NeedsCleanup;
 
     public static string CleanupReason(string id) => Data[id].Reason;
+
+    /// <summary>The model's stair and ramp runs found in its top heightfield (raw frame; walkable models only).</summary>
+    public static IReadOnlyList<AshfallRamp> Ramps(string id) => Data[id].Ramps ?? [];
 }

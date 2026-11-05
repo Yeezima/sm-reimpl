@@ -20,7 +20,7 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
     static AshfallDressing Dressing => D.Dressing;
 
     /// <summary>Draft 5's level hash (version 9). A change of the pass, the pools, the fitted boxes or the generator without a new version fails here, not at a client's handshake.</summary>
-    public const ulong PinnedLevelHash = 0x3B642D1753AE180CUL;
+    public const ulong PinnedLevelHash = 0x6A803A7703280536UL;
 
     /// <summary>The v5 graybox's hash (pinned since pass 3, and again by the draft 3 and 5 work).</summary>
     const ulong PinnedGrayboxHash = 0xAE096E323BB5A4D3UL;
@@ -255,6 +255,27 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
         foreach (var b in gate) { free = MathF.Max(free, b.Min.X - edge); edge = MathF.Max(edge, b.Max.X); }
         free = MathF.Max(free, 12f - edge);
         output.WriteLine($"gate segment: widest opening through x -12..12 is {free:0.0} m");
+    }
+
+    [Fact]
+    public void Narrow_gaps_between_cover_and_rubble_items_are_reported_and_few()
+    {
+        // The v5 band check, adapted: the gap between two different items' low pieces (cover and rubble parts) is either nothing (they touch or overlap) or wide enough for a 1.2 m squad.
+        var owner = new Dictionary<int, int>();
+        for (int i = 0; i < Dressing.Items.Count; i++) { var (f, n) = Dressing.ItemParts[i]; for (int p = f; p < f + n; p++) owner[p] = i; }
+        var low = Level.Parts.Select((p, i) => (p, i)).Where(x => x.p.Kind is AshfallKind.Cover or AshfallKind.Rubble && owner.ContainsKey(x.i)).Select(x => (Owner: owner[x.i], B: Bounds(x.p))).ToList();
+        int bad = 0, pairs = 0;
+        for (int i = 0; i < low.Count; i++)
+            for (int j = i + 1; j < low.Count; j++)
+            {
+                if (low[i].Owner == low[j].Owner) continue;
+                var a = low[i].B; var b = low[j].B;
+                float dx = MathF.Max(MathF.Max(a.Min.X - b.Max.X, b.Min.X - a.Max.X), 0f), dy = MathF.Max(MathF.Max(a.Min.Y - b.Max.Y, b.Min.Y - a.Max.Y), 0f);
+                float d = MathF.Sqrt(dx * dx + dy * dy);
+                if (d > 1e-3f && d < 8f) { pairs++; if (d < 1.2f - 1e-3f) bad++; }
+            }
+        output.WriteLine($"cover/rubble pairs of different items within 8 m: {pairs}, narrower than 1.2 m: {bad}");
+        Assert.True(bad < pairs / 20, $"{bad} of {pairs} gaps are narrower than 1.2 m");   // a finding, not a v5 guarantee: items grow up to 1 m past their structures, so v5 gaps of 1.2 m can close
     }
 
     // ---------------------------------------------------------------- flags and the review list

@@ -66,7 +66,7 @@ static class AshfallKitCollisionCommand
             }
             bool walk = Walkable.Contains(model.Id);
             var fit = walk
-                ? AshfallKitFit.Fit(mesh.Positions, mesh.Indices, model.RawMin, model.RawMax, WalkableResolution, WalkableMaxBoxes, fill, WalkableResolution)
+                ? AshfallKitFit.Fit(mesh.Positions, mesh.Indices, model.RawMin, model.RawMax, WalkableResolution, WalkableMaxBoxes, fill, WalkableResolution, ramps: true)
                 : AshfallKitFit.Fit(mesh.Positions, mesh.Indices, model.RawMin, model.RawMax, res, maxBoxes, fill);
             var reasons = Cleanup(model, fit.Metrics);
             rows.Add(new Row(model, fit, reasons, warn));
@@ -110,7 +110,7 @@ static class AshfallKitCollisionCommand
         sb.Append("// </auto-generated>\n");
         sb.Append("using System.Numerics;\n\nnamespace SmSim.Extras.Musou.Ashfall;\n\n");
         sb.Append("/// <summary>Per-model collision boxes of the Ashfall kit (generated; see the header).</summary>\npublic static partial class AshfallKitCollision\n{\n");
-        sb.Append("    sealed record Entry((Vector3 Min, Vector3 Max)[] Boxes, AshfallKitFitMetrics Metrics, bool NeedsCleanup, string Reason);\n\n");
+        sb.Append("    sealed record Entry((Vector3 Min, Vector3 Max)[] Boxes, AshfallKitFitMetrics Metrics, bool NeedsCleanup, string Reason, AshfallRamp[]? Ramps = null);\n\n");
         sb.Append("    static readonly Dictionary<string, Entry> Data = new()\n    {\n");
         foreach (var r in rows)
         {
@@ -119,14 +119,22 @@ static class AshfallKitCollisionCommand
             foreach (var (mn, mx) in r.Fit.Boxes) sb.Append($"                (new({F(mn.X)}, {F(mn.Y)}, {F(mn.Z)}), new({F(mx.X)}, {F(mx.Y)}, {F(mx.Z)})),\n");
             sb.Append("            ],\n");
             sb.Append($"            new({m.SolidCells}, {m.CoveredCells}, {D(m.Iou)}, {D(m.DroppedPercent)}, {m.DroppedBoxes}, {m.BoxCount}, {(m.CapReached ? "true" : "false")}, {(m.OverCap ? "true" : "false")}, [{string.Join(", ", m.WalkableTops.Select(F))}], {m.Nx}, {m.Ny}, {m.Nz}, {F(m.CellSize)}),\n");
-            sb.Append($"            {(r.Reasons.Count > 0 ? "true" : "false")}, \"{string.Join("; ", r.Reasons)}\"),\n");
+            sb.Append($"            {(r.Reasons.Count > 0 ? "true" : "false")}, \"{string.Join("; ", r.Reasons)}\"");
+            if (r.Fit.Ramps.Count == 0) sb.Append("),\n");
+            else
+            {
+                sb.Append(",\n            [\n");
+                foreach (var rp in r.Fit.Ramps) sb.Append($"                new(new({F(rp.Min.X)}, {F(rp.Min.Y)}, {F(rp.Min.Z)}), new({F(rp.Max.X)}, {F(rp.Max.Y)}, {F(rp.Max.Z)}), {rp.Dir}, {F(rp.YLow)}, {F(rp.YHigh)}),\n");
+                sb.Append("            ]),\n");
+            }
         }
         sb.Append("    };\n\n");
         sb.Append("    /// <summary>Every model id that has a box set.</summary>\n    public static IEnumerable<string> Ids => Data.Keys;\n\n");
         sb.Append("    /// <summary>The model's boxes in its raw glTF frame (min, max).</summary>\n    public static IReadOnlyList<(Vector3 Min, Vector3 Max)> Boxes(string id) => Data[id].Boxes;\n\n");
         sb.Append("    /// <summary>What the fit measured (cells, IoU, dropped dust, walkable tops).</summary>\n    public static AshfallKitFitMetrics Metrics(string id) => Data[id].Metrics;\n\n");
         sb.Append("    /// <summary>The boxes are doubtful and want a manual look (see <see cref=\"CleanupReason\"/>).</summary>\n    public static bool NeedsCleanup(string id) => Data[id].NeedsCleanup;\n\n");
-        sb.Append("    public static string CleanupReason(string id) => Data[id].Reason;\n}\n");
+        sb.Append("    public static string CleanupReason(string id) => Data[id].Reason;\n\n");
+        sb.Append("    /// <summary>The model's stair and ramp runs found in its top heightfield (raw frame; walkable models only).</summary>\n    public static IReadOnlyList<AshfallRamp> Ramps(string id) => Data[id].Ramps ?? [];\n}\n");
         return sb.ToString();
     }
 
