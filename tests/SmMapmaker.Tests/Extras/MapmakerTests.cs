@@ -426,6 +426,52 @@ public class MapmakerTests
     }
 
     [Fact]
+    public void DeletePrefabRemovesTheFileRefusesWhileUsedAndUndoes()
+    {
+        using var lab = new Lab();
+        var s = PairScene(lab);
+        s.Apply(Lab.Op("""{"op":"group-to-prefab","ids":["o1"],"prefab":"a","origin":"first"}"""));
+        s.Apply(Lab.Op("""{"op":"group-to-prefab","ids":["o2"],"prefab":"b","origin":"first"}"""));
+        var placed = s.Apply(Lab.Op("""{"op":"place","prefab":"a"}""")).Created[0];
+        Assert.True(s.Apply(Lab.Op("""{"op":"prefab-edit","prefab":"a","addParts":[{"prefab":"b"}]}""")).Ok);
+        // placed in the map: refused, nothing changes
+        var r = s.Apply(Lab.Op("""{"op":"delete-prefab","prefab":"a"}"""));
+        Assert.Equal("prefab-in-use", r.Errors[0].Code);
+        Assert.NotNull(lab.Library.GetPrefab("a"));
+        // part of another prefab: refused
+        Assert.Equal("prefab-in-use", s.Apply(Lab.Op("""{"op":"delete-prefab","prefab":"b"}""")).Errors[0].Code);
+        Assert.Equal("unknown-prefab", s.Apply(Lab.Op("""{"op":"delete-prefab","prefab":"nope"}""")).Errors[0].Code);
+        // the placed copy and the prefab in one batch
+        r = s.Apply([Lab.Op($$"""{"op":"delete","ids":["{{placed}}"]}"""), Lab.Op("""{"op":"delete-prefab","prefab":"a"}""")]);
+        Assert.True(r.Ok, r.ToJson());
+        Assert.Null(lab.Library.GetPrefab("a"));
+        Assert.False(File.Exists(lab.Library.PrefabPath("a")));
+        Assert.DoesNotContain(lab.Library.ListPrefabs(), p => p.Id == "a");
+        Assert.DoesNotContain("\"a\"", File.ReadAllText(lab.Library.IndexPath));
+        // now b is unused
+        Assert.True(s.Apply(Lab.Op("""{"op":"delete-prefab","prefab":"b"}""")).Ok);
+        Assert.Empty(lab.Library.ListPrefabs());
+        // undo brings back b, then a and its placement
+        Assert.True(s.Undo().Ok);
+        Assert.NotNull(lab.Library.GetPrefab("b"));
+        Assert.True(s.Undo().Ok);
+        Assert.NotNull(lab.Library.GetPrefab("a"));
+        Assert.Equal("a", s.Document.Get(placed).Prefab);
+        Assert.True(s.Redo().Ok);
+        Assert.Null(lab.Library.GetPrefab("a"));
+    }
+
+    [Fact]
+    public void DeletePrefabCreatedInTheSameBatchLeavesNoFile()
+    {
+        using var lab = new Lab();
+        var s = PairScene(lab);
+        var r = s.Apply([Lab.Op("""{"op":"group-to-prefab","ids":["o1"],"prefab":"tmp","origin":"first"}"""), Lab.Op("""{"op":"delete-prefab","prefab":"tmp"}""")]);
+        Assert.True(r.Ok, r.ToJson());
+        Assert.False(File.Exists(lab.Library.PrefabPath("tmp")));
+    }
+
+    [Fact]
     public void PrefabCycleIsRejected()
     {
         using var lab = new Lab();

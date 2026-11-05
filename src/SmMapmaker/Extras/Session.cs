@@ -104,10 +104,16 @@ public sealed class MapSession
             string? was = Library.ReadPrefabText(id), now = p.ToJson();
             if (was != now) prefabChanges.Add((id, was, now));
         }
+        foreach (var id in batch.DeletedPrefabs.Where(d => !batch.Prefabs.ContainsKey(d)))
+            if (Library.ReadPrefabText(id) is { } was) prefabChanges.Add((id, was, null));
         if (before == after && prefabChanges.Count == 0 && batch.Assets.Count == 0) return;
 
         foreach (var staged in batch.Assets.Values) WriteAsset(staged);
-        foreach (var (id, _, now) in prefabChanges) MapLibrary.WriteAtomic(Library.PrefabPath(id), Encoding.UTF8.GetBytes(now!));
+        foreach (var (id, _, now) in prefabChanges)
+        {
+            if (now is null) File.Delete(Library.PrefabPath(id));
+            else MapLibrary.WriteAtomic(Library.PrefabPath(id), Encoding.UTF8.GetBytes(now));
+        }
         if (prefabChanges.Count > 0 || batch.Assets.Count > 0) Library.RebuildIndex();
 
         CopyDocument(batch.Doc);

@@ -282,6 +282,24 @@ public sealed class Selftest(MapmakerPlugin plugin)
             var reopened = MapSession.Load(savePath, MapHost.Library);
             Check(reopened.Document.ToJson() == json, "reload round trip is byte identical");
 
+            // 4b. Owner's question (2026-11-05): deleting a prefab made by mistake. Its placed copies go with it; editor undo brings both back.
+            {
+                var placedPrefab = plugin.Session.Document.Objects.FirstOrDefault(o => o.Prefab is not null)?.Prefab;
+                if (placedPrefab is null) Check(false, "delete prefab: no placed prefab in the self-test map");
+                else
+                {
+                    int copies = plugin.PrefabUsers(placedPrefab).Count, objects = plugin.Session.Document.Objects.Count;
+                    var del = plugin.DeletePrefab(placedPrefab);
+                    bool gone = del.Ok && MapHost.Library.GetPrefab(placedPrefab) is null && plugin.PrefabUsers(placedPrefab).Count == 0;
+                    int nodesAfter = MapHost.Root!.GetChildren().OfType<MapmakerObject>().Count();
+                    plugin.History.GetHistoryUndoRedo(plugin.History.GetObjectHistoryId(MapHost.Root!)).Undo();
+                    await Frames(6);
+                    bool back = MapHost.Library.GetPrefab(placedPrefab) is not null && plugin.Session.Document.Objects.Count == objects;
+                    int nodesBack = MapHost.Root!.GetChildren().OfType<MapmakerObject>().Count();
+                    Check(copies > 0 && gone && back && nodesAfter == objects - copies && nodesBack == objects, $"delete prefab with its {copies} placed copies, and undo brings both back (nodes {objects} -> {nodesAfter} -> {nodesBack}; {string.Join("; ", del.Errors.Select(e => e.Message))})");
+                }
+            }
+
             // 5. The hard rule: save the Godot scene and look for mesh data.
             var sceneRoot = EditorInterface.Singleton.GetEditedSceneRoot();
             string scenePath = "res://Maps/_selftest_saved.tscn";

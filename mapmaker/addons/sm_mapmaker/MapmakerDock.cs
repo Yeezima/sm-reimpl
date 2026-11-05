@@ -81,6 +81,9 @@ public partial class MapmakerDock : VBoxContainer
     List<PrefabPart> _partList = new();
 
     ConfirmationDialog? _extract;
+    ConfirmationDialog? _deletePrefab;
+    string? _deletePrefabId;
+    LibraryItem? _lastRow;
     LineEdit _exName = new(), _exId = new();
     OptionButton _exOrigin = new(), _exCollision = new();
     FileDialog? _files;
@@ -221,13 +224,18 @@ public partial class MapmakerDock : VBoxContainer
         v.AddChild(Row(_source, _search));
         _list.ItemAt = i => i >= 0 && i < _items.Count ? _items[i] : null;
         _list.DroppedOutside = (item, pos) => { if (_plugin.OverViewport(pos) && _plugin.ReadyToPlace() && _plugin.TryRay(pos, out var o, out var d)) _plugin.PlaceAt(item, _plugin.GamePointOnRay(o, d)); };
-        _list.ItemSelected += i => Arm(_items[(int)i]);
+        _list.ItemSelected += i => { _lastRow = _items[(int)i]; Arm(_items[(int)i]); };
         _list.ItemActivated += i => Arm(_items[(int)i]);
         v.AddChild(_list);
         v.AddChild(_armed);
         v.AddChild(Row(Btn("Import asset (.glb/.gltf)...", () => Pick("Import glTF", FileDialog.FileModeEnum.OpenFile, "", ["*.glb,*.gltf ; glTF 2.0"], p => ImportOp("import-asset", p))),
                        Btn("Import prefab...", () => Pick("Import .smprefab", FileDialog.FileModeEnum.OpenFile, "", ["*.smprefab ; Mapmaker prefab"], p => ImportOp("import-prefab", p)))));
         v.AddChild(Row(Btn("Extract picked SM1 objects to prefab...", ShowExtract)));
+        v.AddChild(Row(Btn("Delete selected prefab...", () =>
+        {
+            if (_source.Selected != 2 || _lastRow is not { Kind: LibraryKind.Prefab } row || !_items.Contains(row)) { _status.Text = "Choose Prefabs in the list above, click the prefab to delete, then press Delete selected prefab."; return; }
+            AskDeletePrefab(row.Id);
+        })));
         v.AddChild(new Label { Text = "Click a row, then click in the 3D view to place it (Esc or right click to stop). Rows can also be dragged into the view.", AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(280, 0) });
         return v;
     }
@@ -328,6 +336,25 @@ public partial class MapmakerDock : VBoxContainer
         }
         _exName.Text = MapHost.Sm1.ShortName(MapHost.PickedSm1[0]); _exId.Text = Slug(_exName.Text);
         _extract.PopupCentered(new Vector2I(380, 220));
+    }
+
+    /// <summary>Asks before deleting a prefab from the library; its placed copies in the open map go with it, and Ctrl+Z undoes both.</summary>
+    void AskDeletePrefab(string id)
+    {
+        if (_plugin.Session is null) { _status.Text = "Open or create a map first."; return; }
+        if (_deletePrefab is null)
+        {
+            _deletePrefab = new ConfirmationDialog { Title = "Delete prefab", Exclusive = true, OkButtonText = "Delete" };
+            _deletePrefab.Confirmed += () => { if (_deletePrefabId is { } d) { if (_plugin.DeletePrefab(d).Ok) _lastRow = null; } };
+            AddChild(_deletePrefab);
+        }
+        _deletePrefabId = id;
+        int n = _plugin.PrefabUsers(id).Count;
+        string name = MapHost.Library.ListPrefabs().FirstOrDefault(p => p.Id == id)?.Name ?? id;
+        _deletePrefab.DialogText = $"Delete the prefab \"{name}\" ({id}) from the library?" +
+            (n > 0 ? $"\n\nIt is placed {n} time(s) in this map; those copies are deleted too." : "") +
+            "\n\nEdit > Undo (Ctrl+Z) brings it back.";
+        _deletePrefab.PopupCentered(new Vector2I(420, 160));
     }
 
     static string Slug(string s)
@@ -437,6 +464,7 @@ public partial class MapmakerDock : VBoxContainer
         v.AddChild(Head("Pivot / origin (point in prefab coordinates that becomes the new origin)"));
         v.AddChild(VecRow("Shift", _porg));
         v.AddChild(Row(Btn("Apply pivot", () => EditPrefab(("origin", MapmakerPlugin.Vec(V(_porg))))), Btn("Bottom centre", () => EditPrefab(("origin", "bounds-bottom-center"))), Btn("First part", () => EditPrefab(("origin", "first")))));
+        v.AddChild(Row(Btn("Delete this prefab...", () => { if (CurrentPrefabId is { } id) AskDeletePrefab(id); else _status.Text = "No prefab chosen."; })));
         v.AddChild(_prefabInfo);
         RefreshPrefabs();
         return v;

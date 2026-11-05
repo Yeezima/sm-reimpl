@@ -229,7 +229,7 @@ public partial class MapmakerPlugin : EditorPlugin
     }
 
     static IEnumerable<string> PrefabIds(JsonObject[] ops) =>
-        ops.Where(o => o["op"]?.ToString() is "prefab-edit").Select(o => o["prefab"]?.ToString()).OfType<string>();
+        ops.Where(o => o["op"]?.ToString() is "prefab-edit" or "delete-prefab").Select(o => o["prefab"]?.ToString()).OfType<string>();
 
     Dictionary<string, string?> PrefabSnapshot(IEnumerable<string> ids)
     {
@@ -577,6 +577,21 @@ public partial class MapmakerPlugin : EditorPlugin
         }
         var r = Do($"Place {item.Label}", placed);
         if (r.Ok && r.Created.Count > 0) Select(r.Created);
+        return r;
+    }
+
+    /// <summary>The objects of the open map that are placed copies of <paramref name="prefabId"/>.</summary>
+    public List<string> PrefabUsers(string prefabId) => Session?.Document.Objects.Where(o => o.Prefab == prefabId).Select(o => o.Id).ToList() ?? new List<string>();
+
+    /// <summary>Deletes a prefab from the library together with its placed copies in the open map, as one undo step (Ctrl+Z brings both back).</summary>
+    public OpResult DeletePrefab(string prefabId)
+    {
+        var users = PrefabUsers(prefabId);
+        var ops = new List<JsonObject>();
+        if (users.Count > 0) ops.Add(Op("delete", ("ids", Strs(users))));
+        ops.Add(Op("delete-prefab", ("prefab", prefabId)));
+        var r = Do($"Delete prefab {prefabId}", ops.ToArray());
+        if (r.Ok && MapHost.Armed is { Kind: LibraryKind.Prefab } armed && armed.Id == prefabId) MapHost.Armed = null;
         return r;
     }
 

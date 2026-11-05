@@ -59,7 +59,7 @@ a `.smprefab` into the library after validation (unknown asset ids are errors).
 `{id, move?, rotate?, scaleBy?}` (delta) · `duplicate {ids, offset?}` -> new ids · `delete {ids}` (children too) ·
 `rename {id, name}` · `set-parent {id, parent}` (keeps world position) · `set-visible {id, visible}` ·
 `group-to-prefab {ids, prefab, name, origin: "bounds-bottom-center"|"first"|[x,y,z], collision?, replace?}` (replace: swaps the selection for one
-linked instance at the same place) · `prefab-edit {prefab, origin?, addParts?, removeParts?, setPart?}` · `instance-override {id, part, visible?, transform?}` ·
+linked instance at the same place) · `prefab-edit {prefab, origin?, addParts?, removeParts?, setPart?}` · `delete-prefab {prefab}` (refused with `prefab-in-use` while this map or another prefab uses it; undo restores the file) · `instance-override {id, part, visible?, transform?}` ·
 `import-asset {path, id?, name?}` · `import-prefab {path}` · `extract-sm1 {map, objects:[names | {index, part?}], prefab, name, origin?, collision?}` (provenance keeps `indices`, and `parts` when a part was taken).
 Snapping is applied by the caller (`Snap.Grid`, `Snap.Angle` helpers in the core) so a typed value is never re-snapped.
 Results: `{ ok, created:[ids], warnings:[...], errors:[{ code, message, op, id? }] }`. Error codes are stable strings (`unknown-id`,

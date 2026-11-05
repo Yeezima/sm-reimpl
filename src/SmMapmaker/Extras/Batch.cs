@@ -19,11 +19,12 @@ internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1
     public SortedDictionary<string, StagedAsset> Assets { get; } = new(StringComparer.Ordinal);
     public List<string> Created { get; } = [];
     public List<string> CreatedPrefabs { get; } = [];
+    public SortedSet<string> DeletedPrefabs { get; } = new(StringComparer.Ordinal);
     public List<string> CreatedAssets { get; } = [];
     public List<string> Warnings { get; } = [];
     public List<KeyValuePair<string, string>> Mapping { get; } = [];
 
-    public override Prefab? GetPrefab(string id) => Prefabs.TryGetValue(id, out var p) ? p : base.GetPrefab(id);
+    public override Prefab? GetPrefab(string id) => Prefabs.TryGetValue(id, out var p) ? p : DeletedPrefabs.Contains(id) ? null : base.GetPrefab(id);
     public override AssetInfo? GetAsset(string id) => Assets.TryGetValue(id, out var a) ? a.Info : base.GetAsset(id);
 
     record Item(string Name, AssetRef? Asset, string? Prefab, Matrix4x4 World, MapTransform Comp);
@@ -42,6 +43,7 @@ internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1
             case "set-visible": SetVisible(op); break;
             case "group-to-prefab": GroupToPrefab(op); break;
             case "prefab-edit": PrefabEdit(op); break;
+            case "delete-prefab": DeletePrefab(op); break;
             case "instance-override": InstanceOverride(op); break;
             case "import-asset": ImportAsset(op); break;
             case "import-prefab": ImportPrefab(op); break;
@@ -272,6 +274,24 @@ internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1
         }
         else throw new MapException("bad-origin", "origin must be \"bounds-bottom-center\", \"first\" or [x, y, z].");
         return TransformMath.Round(result);
+    }
+
+    /// <summary>Removes a prefab from the library. Refused while an object of this map or another prefab still uses it (delete those first, in the
+    /// same batch if wanted); maps that are not open are not checked and show the placement as an unknown prefab.</summary>
+    void DeletePrefab(JsonObject op)
+    {
+        var id = Json.ReqStr(op, "prefab", "delete-prefab", "bad-op");
+        RequirePrefab(id);
+        var users = Doc.Objects.Where(o => o.Prefab == id).Select(o => o.Id).ToList();
+        if (users.Count > 0)
+            throw new MapException("prefab-in-use", $"Prefab '{id}' is placed {users.Count} time(s) in this map ({string.Join(", ", users.Take(5))}{(users.Count > 5 ? ", ..." : "")}); delete those first.", users[0]);
+        var all = Library.ListPrefabs().Select(p => p.Id).Concat(Prefabs.Keys).Distinct().Where(x => x != id);
+        foreach (var other in all)
+            if (GetPrefab(other) is { } p && p.Parts.Any(part => part.Prefab == id))
+                throw new MapException("prefab-in-use", $"Prefab '{id}' is a part of prefab '{other}'; remove it there first.");
+        Prefabs.Remove(id);
+        CreatedPrefabs.Remove(id);
+        DeletedPrefabs.Add(id);
     }
 
     void PrefabEdit(JsonObject op)
