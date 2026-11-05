@@ -117,7 +117,7 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
         Assert.Equal(4, tops.Count);
         foreach (var it in surfaces)
         {
-            float top = it.Position.Z + it.Size.Z;   // the tile's surface (raw Y = 0) is its box's top
+            float top = it.Position.Z + it.Size.Z - 0.03f;   // the surface it lies on: the tile is lifted 3 cm above it (AshfallDress.Surfaces Lift)
             Assert.True(it.Asset is "AC-033" or "AC-034" or "AC-035" or "AC-036" or "AC-038" or "AC-040", it.Asset);
             Assert.Equal(AshfallKit.Get(it.Asset).RawSize.Y, it.Size.Z, 1e-4f);
             var r = Footprint(it);

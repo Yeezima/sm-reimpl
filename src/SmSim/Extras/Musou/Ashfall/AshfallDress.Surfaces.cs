@@ -11,10 +11,13 @@ internal static partial class AshfallDressPass
     static readonly (float Lo, float Hi)[] BlockSpans = [(-224f, -104f), (-80f, 80f), (104f, 224f)];
 
     /// <summary>A ground tile: footprint centre, surface height it lies on, yaw step, size along the tile's local X and Y (its raw height is kept).</summary>
+    /// <summary>Tiles sit this far above the surface they lie on (ours; the ground under them is drawn too, so a shared plane would flicker). Walk-over: under the 0.4 m step.</summary>
+    const float Lift = 0.03f;
+
     static AshfallDressItem Tile(string id, float cx, float cy, float surface, int yawStep, float lx, float ly)
     {
         float h = AshfallKit.Get(id).RawSize.Y;
-        return new AshfallDressItem(id, new Vector3(cx, cy, surface - h), Yaw(yawStep), new Vector3(lx, ly, h), false, AshfallDressRole.Surface, -1);
+        return new AshfallDressItem(id, new Vector3(cx, cy, surface - h + Lift), Yaw(yawStep), new Vector3(lx, ly, h), false, AshfallDressRole.Surface, -1);
     }
 
     static string Straight(uint seed, int i) => AshfallBuilder.Mix(seed, (uint)i) % 8 == 0 ? "AC-040" : "AC-033";
