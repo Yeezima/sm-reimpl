@@ -318,11 +318,11 @@ public class BraceVentTests(ITestOutputHelper output)
         Step(ref s, InputButtons.None);
         Assert.True(Step(ref s, InputButtons.Fire));
         Assert.False(s.Venting);
-        // Sprint ends it too (a vent never starts while sprinting forward).
+        // Sprint does not end it (owner 2026-11-06).
         s = Fresh(Tactical) with { Heat = 60f, SinceHeat = 0f };
         Step(ref s, InputButtons.Reload);
         Step(ref s, InputButtons.Sprint, moveY: 1f);
-        Assert.False(s.Venting);
+        Assert.True(s.Venting);
         // Nothing to vent: no vent.
         s = Fresh(Tactical);
         Step(ref s, InputButtons.Reload);
@@ -336,7 +336,7 @@ public class BraceVentTests(ITestOutputHelper output)
     [Fact]
     public void Venting_goes_on_only_while_standing_or_walking()
     {
-        // Owner's recollection: everything but walking at normal walk speed stopped venting; standing still counts (ours).
+        // Owner's recollection: other actions stopped venting; standing still counts (ours). Aim and sprint do not (owner 2026-11-06).
         PlayerState Venting()
         {
             var v = Fresh(Tactical) with { Heat = 90f, SinceHeat = 0f };
@@ -353,7 +353,7 @@ public class BraceVentTests(ITestOutputHelper output)
         Assert.True(new Vector2(s.Velocity.X, s.Velocity.Y).Length() > 1f);
         foreach (var (what, buttons, moveY) in new (string, InputButtons, float)[]
         {
-            ("sprint", InputButtons.Sprint, 1f), ("fire", InputButtons.Fire, 0f), ("aim", InputButtons.Aim, 0f), ("melee", InputButtons.Melee, 0f),
+            ("fire", InputButtons.Fire, 0f), ("melee", InputButtons.Melee, 0f),
             ("switch", InputButtons.Switch, 0f), ("grenade", InputButtons.Grenade, 0f),
         })
         {
@@ -488,19 +488,35 @@ public class BraceVentTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Aim_and_sprint_hold_off_the_overheated_auto_vent()
+    public void Venting_works_while_aiming_while_sprinting_and_both_at_the_vent_rate()
     {
-        // Follows the owner's rule (everything but walking stops venting): an overheated player who holds Aim or sprints does not vent and only cools
-        // passively (about 26 s for a full overheat); spec "Brace and vent", to check in a playtest.
+        // Owner's playtest 2026-11-06: hold R while sprinting and while aiming down sights; the rate is unchanged (45 heat/s on top of the cooling).
+        foreach (var (what, held, moveY) in new (string, InputButtons, float)[]
+        {
+            ("aim", InputButtons.Aim, 0f), ("sprint", InputButtons.Sprint, 1f), ("both", InputButtons.Aim | InputButtons.Sprint, 1f),
+        })
+        {
+            var s = Fresh(Tactical) with { Heat = 90f, SinceHeat = 0f };
+            Step(ref s, InputButtons.Reload | held, moveY: moveY);
+            Assert.True(s.Venting, what + " (press)");
+            Assert.Equal(90f - 45f * Dt, s.Heat, 3);
+            float before = s.Heat;
+            Step(ref s, InputButtons.Reload | held, moveY: moveY);   // R held on
+            Assert.True(s.Venting, what + " (held)");
+            Assert.Equal(before - 45f * Dt, s.Heat, 3);
+            int ticks = 2;
+            while (s.Venting && ticks < 200) { Step(ref s, InputButtons.Reload | held, moveY: moveY); ticks++; }
+            Assert.Equal(0f, s.Heat);
+            Assert.True(ticks < 60, what);
+            if ((held & InputButtons.Aim) != 0) Assert.True(s.Aiming, what);
+        }
+        // An overheated player who aims or sprints vents by himself (the old rule made him wait for the passive cooling).
         var hot = Fresh(Tactical) with { Heat = 100f, Overheated = true, SinceHeat = 0f };
-        var s = hot;
-        for (int i = 0; i < 30; i++) { Step(ref s, InputButtons.Aim); Assert.False(s.Venting, "aim"); }
-        Assert.True(s.Overheated);
-        s = hot;
-        for (int i = 0; i < 30; i++) { Step(ref s, InputButtons.Sprint, moveY: 1f); Assert.False(s.Venting, "sprint"); }
-        s = hot;
-        Step(ref s, InputButtons.None);
-        Assert.True(s.Venting);   // let go: it vents by itself
+        var h = hot;
+        Step(ref h, InputButtons.Aim | InputButtons.Sprint, moveY: 1f);
+        Assert.True(h.Venting);
+        for (int i = 0; i < 80 && h.Overheated; i++) Step(ref h, InputButtons.Aim | InputButtons.Sprint, moveY: 1f);
+        Assert.False(h.Overheated);
     }
 
     static readonly DamageSpec Hurt = new(25f, 0f, 1f, 1f, 1f, 1f, false);
