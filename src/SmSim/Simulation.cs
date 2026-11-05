@@ -1025,6 +1025,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
     {
         _players.Remove(playerId);   // a re-spawned id is counted afresh for sides
         _nextLoadouts.Remove(playerId);
+        ForgetSpawnChoice(playerId);   // fix/pvp-deploy-spawn: a new join starts in the spawn room
         _damageScale.Remove(playerId);   // test aid (--bot-damage-scale): a new join of the id starts unscaled
         ForgetFlightView(playerId);
         var classSide = playerClass >= 0 && playerClass < Config.Classes.Count ? Config.Classes[playerClass].Side : Team.None;
@@ -1091,6 +1092,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         _jumpApex.Remove(playerId);
         _scores.Remove(playerId);
         _nextLoadouts.Remove(playerId);
+        ForgetSpawnChoice(playerId);
         _damageScale.Remove(playerId);
         ForgetFlightView(playerId);
         RemoveProjectilesOf(playerId);
@@ -1157,6 +1159,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         _flinches.Clear();
         _rushes.Clear();
         _respawns.Clear();
+        _deployDeaths.Clear();
         _pickupSpawns.Clear(); _pickupEvents.Clear();   // fidelity gap 1 (Pickups.cs)
         BeginProjectileTick();
         var aliveBefore = BeginMatchTick();
@@ -1179,6 +1182,14 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             NoteInteract(id, input);   // fidelity gap 1: pickups (Pickups.cs)
             PlayerState next;
             SelfEvents events;
+            bool deployed = TakeDeploy(id);   // fix/pvp-deploy-spawn: the in-match Deploy's suicide (classic PvP; SpawnChoice.cs)
+            if (deployed)
+            {
+                next = Combat.Killed(_players[id], Config) with { RespawnLeft = 0f };   // no respawn delay: back the next tick with the waiting loadout
+                events = default;
+                _deployDeaths.Add(id);
+            }
+            else
             using (PlayerCollision.Use(BodiesFor(id, input)))   // sim/player-collision: the others' capsules as this player's client knew them (WorldBodies.cs)
                 next = Combat.StepPlayer(_players[id], input, Config, out events, Collision, SeenBy(input));   // feel/melee-lock: the lock in the attacker's view
             bool fired = events.Fired;
@@ -1187,11 +1198,13 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             if (Collision is not null && next.Alive && (next.Position.Z < Collision.Character.Min.Z - Config.KillDepth
                     || (before.Alive && Collision.KillsPlayer(before.Position, next.Position, Config.CapsuleHeight))))
                 next = Combat.Killed(next, Config);   // fell out of the level, or into one of its kill volumes (M18)
-            if (!next.Alive && next.RespawnLeft <= 0f)
+            if (!next.Alive && next.RespawnLeft <= 0f && !deployed)   // a Deploy's death shows for one tick (the kill feed, the scoreboard) before the respawn
             {
                 next = WithNextLoadout(next);   // a loadout change waiting for this respawn
                 _respawns.Add(id);
-                if (TryHomerSpawn(next, out var homerAt, out var homerYaw))   // Teleport Homer: next to a living carrier on the side
+                // fix/pvp-deploy-spawn: classic PvP spawns where the player chose (a held point, a living Teleport Homer carrier; else the spawn room); Musou Mode keeps
+                // the automatic Teleport Homer spawn next to the nearest living carrier.
+                if (ClassicPvp ? TryChosenSpawn(next, out var homerAt, out var homerYaw) : TryHomerSpawn(next, out homerAt, out homerYaw))
                     next = Combat.Respawned(next with { Position = homerAt, Yaw = homerYaw }, Config);
                 else if (TryStartAreaSpawn(id, next.Team, out var areaAt, out var areaYaw))
                     next = Combat.Respawned(next with { Position = areaAt, Yaw = areaYaw }, Config);

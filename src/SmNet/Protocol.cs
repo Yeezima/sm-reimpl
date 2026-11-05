@@ -65,8 +65,14 @@ public sealed record Hello(ushort ProtocolVersion, ulong ContentFingerprint, ulo
 /// <paramref name="OrkLook"/> (protocol 28): as in the Hello. A class change to or from the Ork Boy changes the race at the next respawn.
 /// </summary>
 public sealed record Setup(uint Session, ushort Sequence, LoadoutChoice Loadout, AppearanceCode SpaceMarineAppearance, AppearanceCode ChaosAppearance,
-    byte OrkLook = Races.OrkLookAutomatic) : Message
+    byte OrkLook = Races.OrkLookAutomatic, byte Flags = 0) : Message
 {
+    /// <summary>Protocol 57 (fix/pvp-deploy-spawn): the in-match customizer's DEPLOY: in classic PvP a living player dies at once and respawns with this loadout.</summary>
+    public const byte DeployNow = 1;
+    /// <summary>The flags this protocol knows.</summary>
+    public const byte KnownFlags = DeployNow;
+    public bool Deploy => (Flags & DeployNow) != 0;
+
     public AppearanceCode AppearanceFor(Team side) => side == Team.Chaos ? ChaosAppearance : SpaceMarineAppearance;
     /// <summary>The appearance for a race (protocol 28; as <see cref="Hello.AppearanceFor(Race)"/>).</summary>
     public AppearanceCode AppearanceFor(Race race) => Protocol.CodeFor(race, SpaceMarineAppearance, ChaosAppearance, OrkLook);
@@ -253,7 +259,7 @@ public readonly record struct KillView(int Sequence, int Killer, int Victim, Kil
 /// 0..<see cref="RttEstimator.MaxMs"/>, or -1 when not known yet (<see cref="Protocol.UnknownPing"/> on the wire).
 /// </summary>
 public readonly record struct ScoreEntry(int PlayerId, Team Team, int Class, int Kills, int Deaths, ushort AppearanceVersion = 0, int Equipment = -1, string Name = "",
-    int PingMs = -1);
+    int PingMs = -1, bool Homer = false);   // protocol 57: Homer, alive and carrying Teleport Homer (a classic PvP spawn choice for its allies)
 
 /// <summary>A spectator listed in the scoreboard (protocol 46): its id and display name ("" none: shown as "Spectator &lt;id&gt;"); spectators have no team, class or score.</summary>
 public readonly record struct SpectatorEntry(int PlayerId, string Name = "");
@@ -455,13 +461,17 @@ public static partial class Protocol
     //     (PlayerState.MeleeLock, now also in Musou Mode) for the cancelled clip's end; a pack class's Space press in the air while falling starts the take-off (the lift-off launches in the air).
     // 56 (sim/reload-keeps; the owner 2026-11-03: "reloads should not be cancelled by anything other than switching weapons"): no wire change. A melee attack, a throw,
     //     a ground pound, a reaction or a charge no longer ends the reload in hand; it runs on through them. A switch still stores it with its weapon.
-    public const ushort Version = 56;
+    // 57 (fix/pvp-deploy-spawn; the owner 2026-11-06, classic PvP): a Setup ends with a flags byte (bit 0: DEPLOY now: the living player dies and respawns at once with the
+    //     loadout); a new client message SpawnRequest (19: session, kind, target u16) sets the respawn choice (spawn room, a held control point, a living Teleport Homer
+    //     carrier); each scoreboard row carries a flags byte before its name (bit 0: alive and carrying Teleport Homer). The automatic spawn next to a carrier is Musou only.
+    //     Fullest scoreboard 1161 bytes (16 rows + 16); snapshots unchanged (worst case 1199)
+    public const ushort Version = 57;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>
     public const int HelloBytes = 54 + 2 * AppearanceCode.Size;
     /// <summary>Bytes of a Setup message (protocol 28: + the Ork look).</summary>
-    public const int SetupBytes = 1 + 4 + 2 + ChoiceBytes + 2 * AppearanceCode.Size + 1;
+    public const int SetupBytes = 1 + 4 + 2 + ChoiceBytes + 2 * AppearanceCode.Size + 1 + 1;   // protocol 57: + the flags
     /// <summary>Bytes of a SetupAck message.</summary>
     public const int SetupAckBytes = 1 + 2 + ChoiceBytes + 1 + 2;
     /// <summary>Bytes of an Appearance message.</summary>
@@ -475,8 +485,8 @@ public static partial class Protocol
     /// <summary>Most player ids in one <see cref="AppearanceQuery"/>.</summary>
     public const int MaxAppearanceQuery = 16;
     /// <summary>Bytes of a Scoreboard row without its name (protocol 22: 10 + the appearance version; protocol 40: + the equipment item; protocol 41: + the
-    /// name's length byte; protocol 50: + the u16 ping). The name's bytes follow (at most <see cref="PlayerNames.MaxLength"/>).</summary>
-    public const int ScoreRowBytes = 16;
+    /// name's length byte; protocol 50: + the u16 ping; protocol 57: + the flags byte). The name's bytes follow (at most <see cref="PlayerNames.MaxLength"/>).</summary>
+    public const int ScoreRowBytes = 17;
     /// <summary>A scoreboard row's ping on the wire when the server has no measurement yet (protocol 50).</summary>
     public const ushort UnknownPing = ushort.MaxValue;
     /// <summary>Shot offsets travel as signed 16-bit integers in 1/10000 rad (±3.2767 rad).</summary>
@@ -566,6 +576,8 @@ public static partial class Protocol
         Extras = 16,
         /// <summary>Client to server, added content's commands (Protocol.Envelope.cs): sent only by a client whose match runs added content that reads them (ContentExtras.CommandUsers).</summary>
         ExtrasCommand = 17,
+        /// <summary>Protocol 57: client to server, the classic PvP respawn choice (Protocol.Spawn.cs).</summary>
+        SpawnRequest = 19,
     }
 
     /// <summary>
@@ -622,7 +634,7 @@ public static partial class Protocol
                 w.U8(h.RequestedPrimary); w.U8(h.RequestedPistol); w.U8(h.RequestedMelee); w.U8(h.RequestedEquipment); w.U8(h.RequestedSide);
                 w.U8(h.RequestedPerk1); w.U8(h.RequestedPerk2); WriteCode(w, h.SpaceMarineAppearance); WriteCode(w, h.ChaosAppearance); w.U8(h.OrkLook); w.U8(h.Flags); w.U8(h.RequestedSecond); break;
             case Setup x: w.U8((byte)Kind.Setup); w.U32(x.Session); w.U16(x.Sequence); WriteChoice(w, x.Loadout); WriteCode(w, x.SpaceMarineAppearance); WriteCode(w, x.ChaosAppearance);
-                w.U8(x.OrkLook); break;
+                w.U8(x.OrkLook); w.U8((byte)(x.Flags & Setup.KnownFlags)); break;
             case SetupAck a: w.U8((byte)Kind.SetupAck); w.U16(a.Sequence); WriteChoice(w, a.Loadout); w.U8((byte)(a.Flags & SetupFlags.All)); w.U16(a.AppearanceVersion); break;
             case AppearanceQuery q:
                 if (q.PlayerIds.Length > MaxAppearanceQuery) throw new ArgumentException($"At most {MaxAppearanceQuery} ids in an appearance query.");
@@ -787,7 +799,7 @@ public static partial class Protocol
             {
                 // Scoreboard (protocol 10): tick, flags (1 teams, 2 friendly fire, 4 Seize Ground: protocol 11), score limit,
                 // time limit, [Seize Ground block], rows of 12 bytes (protocol 22: + the appearance version; protocol 40: 13, + the equipment item;
-                // protocol 41: + the display name, a length byte and 0..24 Latin-1 bytes; protocol 50: the u16 ping before the name).
+                // protocol 41: + the display name, a length byte and 0..24 Latin-1 bytes; protocol 50: the u16 ping before the name; protocol 57: a flags byte after the ping).
                 w.U8((byte)Kind.Scoreboard); w.U32(b.ServerTick); w.U8((byte)((b.Teams ? 1 : 0) | (b.FriendlyFire ? 2 : 0) | (b.Seize is null ? 0 : 4) | (b.Spectators is { Length: > 0 } ? 8 : 0)));
                 w.U16(Count(b.ScoreLimit)); w.F32(float.IsFinite(b.TimeLimit) ? Math.Max(0f, b.TimeLimit) : 0f);
                 if (b.Seize is { } seize)
@@ -816,6 +828,7 @@ public static partial class Protocol
                     w.U16(Count(e.Kills)); w.U16(Count(e.Deaths)); w.U16(e.AppearanceVersion);
                     w.U8(e.Equipment is >= 0 and < 255 ? (byte)e.Equipment : (byte)255);   // protocol 40: the equipment item (255: none)
                     w.U16(e.PingMs < 0 ? UnknownPing : (ushort)Math.Min(e.PingMs, RttEstimator.MaxMs));   // protocol 50: the ping (ms; 65535 not known)
+                    w.U8((byte)(e.Homer ? 1 : 0));   // protocol 57: the row's flags (bit 0: a living Teleport Homer carrier)
                     var name = Encoding.Latin1.GetBytes(PlayerNames.Sanitise(e.Name));   // protocol 41: the display name (0..24 Latin-1 bytes)
                     w.U8((byte)name.Length); w.Bytes(name);
                 }
@@ -834,6 +847,7 @@ public static partial class Protocol
                 break;
             }
             case EnemyBars eb: WriteBars(w, eb); break;   // protocol 44 (Protocol.Bars.cs)
+            case SpawnRequest sr: WriteSpawnRequest(w, sr); break;   // protocol 57 (Protocol.Spawn.cs)
             case PickupUpdate p: WritePickups(w, p); break;   // protocol 26 (Protocol.Pickups.cs)
             case ExtrasUpdate x: WriteExtras(w, x); break;   // added content's envelope (Protocol.Envelope.cs; extras wire 2)
             case ExtrasCommandMessage c: WriteExtrasCommand(w, c); break;   // added content's commands, client to server (Protocol.Envelope.cs)
@@ -855,7 +869,8 @@ public static partial class Protocol
             {
                 Kind.Hello => new Hello(r.U16(), r.U64(), r.U64(), r.U32(), r.U32(), r.U64(), r.U64(), r.U8(), r.U8(), r.U8(), r.U8(), r.U8(), r.U8(),
                     r.U8(), r.U8(), ReadCode(ref r), ReadCode(ref r), r.U8(), r.U8(), r.U8()),
-                Kind.Setup => new Setup(r.U32(), r.U16(), ReadChoice(ref r), ReadCode(ref r), ReadCode(ref r), r.U8()),
+                Kind.Setup => new Setup(r.U32(), r.U16(), ReadChoice(ref r), ReadCode(ref r), ReadCode(ref r), r.U8(), r.U8()) is { } setup && (setup.Flags & ~Setup.KnownFlags) == 0 ? setup : null,
+                Kind.SpawnRequest => ReadSpawnRequest(ref r),   // protocol 57 (Protocol.Spawn.cs)
                 Kind.SetupAck => ReadSetupAck(ref r),
                 Kind.AppearanceQuery => ReadAppearanceQuery(ref r),
                 Kind.Appearance => ReadAppearance(ref r),
@@ -1292,12 +1307,14 @@ public static partial class Protocol
             int equipment = r.U8();   // protocol 40
             int ping = r.U16();   // protocol 50: ms, or UnknownPing
             if (ping > RttEstimator.MaxMs && ping != UnknownPing) return null;
+            int rowFlags = r.U8();   // protocol 57
+            if (rowFlags > 1) return null;
             int nameLength = r.U8();   // protocol 41: the display name
             if (nameLength > PlayerNames.MaxLength) return null;
             string name = PlayerNames.Sanitise(Encoding.Latin1.GetString(r.Bytes(nameLength)));
             if (team > (int)Team.Chaos || playerClass >= MaxClasses) return null;
             for (int j = 0; j < k; j++) if (rows[j].PlayerId == id) return null;   // one row per player
-            rows[k] = new ScoreEntry(id, (Team)team, playerClass, kills, deaths, appearance, equipment == 255 ? -1 : equipment, name, ping == UnknownPing ? -1 : ping);
+            rows[k] = new ScoreEntry(id, (Team)team, playerClass, kills, deaths, appearance, equipment == 255 ? -1 : equipment, name, ping == UnknownPing ? -1 : ping, (rowFlags & 1) != 0);
         }
         SpectatorEntry[]? spectators = null;
         if ((flags & 8) != 0)

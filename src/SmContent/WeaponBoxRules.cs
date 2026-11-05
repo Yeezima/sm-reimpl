@@ -36,7 +36,9 @@ public static class WeaponBoxRules
             "bolter" => new("bolter", ["ammo_mc", "ammo_mc/ammo_count_mc", "ammo_mc/ammo_txt"], "ammo_mc/ammo_count_mc", WeaponBoxBar.Spent, "ammo_mc/ammo_txt"),
             "bolt_pistol" => new("bolt_pistol", ["ammo_mc", "ammo_mc/ammo_count_bolt_pistol_mc", "ammo_mc/ammo_txt"], "ammo_mc/ammo_count_bolt_pistol_mc", WeaponBoxBar.Spent, "ammo_mc/ammo_txt"),
             "storm_bolter" => new("storm_bolter", ["ammo_stormbolter_mc", "ammo_mc", "ammo_mc/ammo_txt"], "ammo_stormbolter_mc/ammo_bar", WeaponBoxBar.Spent, "ammo_mc/ammo_txt"),
-            "heavy_bolter" => new("heavy_bolter", ["ammo_autocannon_mc", "infinity_mc"], "ammo_autocannon_mc/ammo_bar", WeaponBoxBar.Heat, null),
+            // fix/pvp-deploy-spawn (the owner, 2026-11-06: "heavy bolter currently has infinite ammo. It should cap at 400"): the rounds left in the bolter's count field instead of the
+            // movie's endless sign (infinity_mc), which read as unlimited ammunition; the simulation always spent the data's 400 a life (no reserve).
+            "heavy_bolter" => new("heavy_bolter", ["ammo_autocannon_mc", "ammo_mc", "ammo_mc/ammo_txt"], "ammo_autocannon_mc/ammo_bar", WeaponBoxBar.Heat, "ammo_mc/ammo_txt"),
             "plasma_gun" or "plasma_cannon" => new(type, chaos ? ["ammo_plasmagun_mc", "ammo_plasmagun_mc/ammo_plasmagun_chaos_mc"] : ["ammo_plasmagun_mc", "ammo_plasmagun_mc/ammo_plasmagun_mc"],
                 chaos ? "ammo_plasmagun_mc/ammo_plasmagun_chaos_mc" : "ammo_plasmagun_mc/ammo_plasmagun_mc", WeaponBoxBar.Heat, "ammo_plasmagun_mc/ammo_count"),
             "plasma_pistol" => new("plasma_pistol", chaos ? ["ammo_plasmapistol_mc", "ammo_plasmapistol_mc/ammo_plasmagun_chaos_mc"] : ["ammo_plasmapistol_mc"],
