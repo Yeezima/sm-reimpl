@@ -219,7 +219,6 @@ public sealed class Sm1Source
         return _picks = list.ToArray();
     }
 
-    /// <summary>The nearest placement under a ray given in the game frame (oriented boxes of each drawn part), or -1.</summary>
     /// <summary>
     /// The placement whose drawn triangles the ray meets first, or -1. Boxes only shortlist: picking by box alone made every click inside
     /// Manufactorum hit the floor piece, whose box encloses the camera (owner's report 2026-11-05). Triangles are tested from both sides.

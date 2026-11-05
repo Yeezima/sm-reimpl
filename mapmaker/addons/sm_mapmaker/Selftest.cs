@@ -218,6 +218,20 @@ public sealed class Selftest(MapmakerPlugin plugin)
             var a = plugin.PlaceAt(item, new Godot.Vector3(0, 0, 0));
             var b = plugin.PlaceAt(item, new Godot.Vector3(6.3f, 2.1f, 0));
             Check(a.Ok && b.Ok, "place two linked instances");
+            // Owner's report (2026-11-05): prefabs showed only outline boxes when the map was open before its SM1 map was loaded.
+            {
+                static int Drawn(Node? n) => n is null ? 0 : n.GetChildren().Sum(c => (c is MultiMeshInstance3D m ? m.Multimesh?.InstanceCount ?? 0 : 0) + Drawn(c));
+                int before = Drawn(plugin.NodeOf(a.Created[0]));
+                MapHost.Forget(source.Map);
+                plugin.SyncView(true);
+                int gone = Drawn(plugin.NodeOf(a.Created[0]));
+                for (int i = 0; i < 600 && MapHost.Sm1For(source.Map) is null; i++) await Frames(1);
+                await Frames(5);
+                int back = Drawn(plugin.NodeOf(a.Created[0]));
+                Check(before > 0 && gone == 0 && back == before && MapHost.Sm1For(source.Map) is not null,
+                    $"pieces of an SM1 map that is not loaded: it loads by itself and they are drawn ({before} -> {gone} -> {back})");
+                source = MapHost.Sm1For(source.Map)!;
+            }
             // A real click with the Place tool (the owner's path), not a direct call.
             {
                 await plugin.Frame3D(new Num.Vector3(-8, -8, 0), new Num.Vector3(12, 8, 6));

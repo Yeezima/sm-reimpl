@@ -460,12 +460,17 @@ internal sealed class Batch(MapDocument doc, MapLibrary library, ISm1Source? sm1
         void Take(int index, int part)
         {
             if (picked.Contains((index, part)) || (part >= 0 && picked.Contains((index, -1)))) return;
+            if (part < 0)
+                // The whole placement replaces parts of it taken earlier (review 2026-11-05: they would be drawn twice).
+                for (int k = picked.Count - 1; k >= 0; k--)
+                    if (picked[k].Index == index) { picked.RemoveAt(k); items.RemoveAt(k); }
             var m = scene.Objects[index];
             var sdef = scene.Definitions.GetValueOrDefault(m.Definition);
             if (part >= 0)
             {
                 int count = sdef?.Parts?.Count ?? 0;
                 if (part >= count) throw new MapException("unknown-sm1-object", $"Placed object '{m.Name}' (index {index}) has no part {part} ({count} parts).");
+                if (sdef!.Parts![part] is null) throw new MapException("unknown-sm1-object", $"Part {part} of placed object '{m.Name}' (index {index}) has no mesh data to draw.");
             }
             MapTransform comp;
             try { comp = TransformMath.Decompose(m.Transform); }

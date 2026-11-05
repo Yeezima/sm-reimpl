@@ -66,12 +66,14 @@ public partial class MapmakerPlugin : EditorPlugin
         GetUndoRedo().HistoryChanged += OnUndoVersionChanged;
         EditorInterface.Singleton.GetSelection().SelectionChanged += () => DocChanged?.Invoke();
         MapHost.RootChanged += OnRootChanged;
+        MapHost.Sm1Changed += OnSm1Changed;
         CallDeferred(MethodName.Startup);
     }
 
     public override void _ExitTree()
     {
         MapHost.RootChanged -= OnRootChanged;
+        MapHost.Sm1Changed -= OnSm1Changed;
         try { GetUndoRedo().VersionChanged -= OnUndoVersionChanged; GetUndoRedo().HistoryChanged -= OnUndoVersionChanged; } catch (Exception) { }
         if (_hooked is not null && GodotObject.IsInstanceValid(_hooked)) _hooked.VersionChanged -= OnUndoVersionChanged;
         _hooked = null;
@@ -309,6 +311,7 @@ public partial class MapmakerPlugin : EditorPlugin
             foreach (var o in doc.Objects) Ensure(o, doc, root, parts, force, new HashSet<string>());
         }
         finally { _busy = false; }
+        LoadMissingSm1();
     }
 
     MapmakerObject Ensure(MapObject o, MapDocument doc, MapmakerRoot root, Dictionary<string, List<ResolvedPart>> parts, bool force, HashSet<string> guard)
@@ -343,6 +346,36 @@ public partial class MapmakerPlugin : EditorPlugin
             foreach (var n in notes.Distinct().Take(3)) GD.PushWarning("Mapmaker: " + n);
         }
         return node;
+    }
+
+    /// <summary>
+    /// An SM1 map finished loading: redraw every piece. Owner's report (2026-11-05): placed prefabs showed only their outline boxes, because a map
+    /// opened before its SM1 map was loaded (after a restart, or with no SM1 map opened) kept pieces that were built with nothing to draw.
+    /// </summary>
+    void OnSm1Changed()
+    {
+        if (Session is not null && MapHost.Root is not null) SyncView(true);
+    }
+
+    readonly HashSet<string> _loadingSm1 = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Loads, from the install, SM1 maps that placed pieces need (in the background, without showing them as the backdrop), then redraws.</summary>
+    async void LoadMissingSm1()
+    {
+        foreach (var map in ContentFactory.MissingMaps.ToList())
+        {
+            ContentFactory.MissingMaps.Remove(map);
+            if (MapHost.Sm1For(map) is not null || !_loadingSm1.Add(map)) continue;
+            SetStatus($"Loading {map} from the install to draw its pieces...");
+            try
+            {
+                var source = await System.Threading.Tasks.Task.Run(() => Sm1Source.Load(map));
+                if (MapHost.Sm1For(map) is null) MapHost.Register(source);
+                SetStatus($"Loaded {map} from the install; its pieces are drawn.");
+            }
+            catch (Exception e) when (e is not (OutOfMemoryException or StackOverflowException)) { SetStatus($"Could not load {map} to draw its pieces: {e.Message}"); }
+            finally { _loadingSm1.Remove(map); }
+        }
     }
 
     public MapmakerObject? NodeOf(string id) => _nodes.GetValueOrDefault(id);

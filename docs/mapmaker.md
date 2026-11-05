@@ -39,6 +39,8 @@ An object has exactly one of `asset` or `prefab` (or neither: an empty group). `
 An SM1 `asset` may add `"part": N` (index into the definition's nearest-LOD parts) to draw one part only. SM1 bakes much of a map into a few
 composite placements (Manufactorum's `tarmacgroundplane` holds the floor, factories, gates and generator buildings in 48 parts), so the editor
 picks such placements part by part (ours: 8 or more parts, or wider than 40 m) and names a part by its SM1 node (e.g. `CFactory_Gate`).
+The part index follows `ObjectDefinition.NearestLod()`, itself a provisional rule: if that rule changes, saved part indices may point at other parts
+(the prefab part's name keeps the node name, so a mismatch can be spotted).
 
 ## Prefab (`.smprefab`, formatVersion 1)
 `{ format, formatVersion, id, name, tags[], origin:[x,y,z], collision: "mesh"|"original-cut", parts:[{ id:"p1", name, asset, transform }],

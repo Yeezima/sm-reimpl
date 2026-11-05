@@ -546,6 +546,14 @@ public class MapmakerTests
         Assert.Contains("\"parts\"", text);
         Assert.Equal("unknown-sm1-object", s.Apply(Lab.Op("""{"op":"extract-sm1","map":"mp_fake","objects":[{"index":6,"part":2}],"prefab":"x"}""")).Errors[0].Code);
         Assert.Equal("bad-op", s.Apply(Lab.Op("""{"op":"extract-sm1","map":"mp_fake","objects":[{"index":6,"part":-1}],"prefab":"y"}""")).Errors[0].Code);
+        // Whole and part of the same placement: the whole wins, whatever the order (no part drawn twice).
+        foreach (var mix in new[] { """[{"index":6,"part":1},{"index":6}]""", """[{"index":6},{"index":6,"part":1}]""" })
+        {
+            var id = "mix" + mix.Length + (mix.StartsWith("""[{"index":6,"part""") ? "a" : "b");
+            Assert.True(s.Apply(Lab.Op($$"""{"op":"extract-sm1","map":"mp_fake","objects":{{mix}},"prefab":"{{id}}"}""")).Ok);
+            var only = Assert.Single(lab.Library.GetPrefab(id)!.Parts);
+            Assert.Null(only.Asset!.Part);
+        }
         // A whole-placement extract writes no parts list (files from before stay byte-identical).
         Assert.True(s.Apply(Lab.Op("""{"op":"extract-sm1","map":"mp_fake","objects":[{"index":0}],"prefab":"whole"}""")).Ok);
         var whole = JsonNode.Parse(lab.Library.ReadPrefabText("whole")!)!;

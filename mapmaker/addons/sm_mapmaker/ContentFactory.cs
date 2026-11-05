@@ -45,13 +45,21 @@ public static class ContentFactory
         return content;
     }
 
+    /// <summary>SM1 maps that pieces needed but that were not loaded (the plugin loads them and redraws).</summary>
+    public static readonly HashSet<string> MissingMaps = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>One asset in its own frame, already expressed in the game frame (glTF assets are turned from Y up). Null when it cannot be drawn.</summary>
     public static Node3D? BuildAsset(AssetRef asset, List<string>? notes = null)
     {
         if (asset.IsSm1)
         {
             var source = MapHost.Sm1For(asset.Map!);
-            if (source is null) { notes?.Add($"SM1 map '{asset.Map}' is not loaded; '{asset.Definition}' is not drawn"); return null; }
+            if (source is null)
+            {
+                MissingMaps.Add(asset.Map!);
+                notes?.Add($"SM1 map '{asset.Map}' is not loaded yet; '{asset.Definition}' is drawn once it is");
+                return null;
+            }
             var node = source.Instantiate(asset.Definition!, asset.Part);
             if (node is null) notes?.Add($"SM1 definition '{asset.Label}' has nothing to draw");
             return node;

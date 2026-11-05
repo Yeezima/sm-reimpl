@@ -66,6 +66,12 @@ public static class MapHost
     public static Sm1Source? Sm1For(string map) => Loaded.GetValueOrDefault(map);
     public static IEnumerable<string> LoadedMaps => Loaded.Keys;
 
+    /// <summary>Test aid: forgets a loaded SM1 map (the self test checks that placed pieces come back when it is loaded again).</summary>
+    public static void Forget(string map)
+    {
+        if (Loaded.Remove(map, out var s)) { if (Sm1 == s) Sm1 = null; s.Release(); }
+    }
+
     public static void Register(Sm1Source source)
     {
         Loaded[source.Map] = source;
