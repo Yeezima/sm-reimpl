@@ -259,20 +259,13 @@ void fragment() {
         return m;
     }
 
-    /// <summary>The level's variation seed (<c>AshfallMap.VariationSeed</c> when the simulation has it, else 1); <c>--ashfall-seed N</c> overrides (test aid).</summary>
+    /// <summary>The level's variation seed (<c>AshfallMap.VariationSeed</c>); <c>--ashfall-seed N</c> overrides (test aid).</summary>
     public static int VariationSeed()
     {
         var args = OS.GetCmdlineUserArgs();
         int i = Array.IndexOf(args, "--ashfall-seed");
         if (i >= 0 && i + 1 < args.Length && int.TryParse(args[i + 1], out var asked)) return asked;
-        try
-        {
-            var t = typeof(AshfallMap);
-            object? v = t.GetProperty("VariationSeed")?.GetValue(null) ?? t.GetField("VariationSeed")?.GetValue(null);
-            if (v is int n) return n;
-        }
-        catch (Exception) { }
-        return 1;
+        return (int)AshfallMap.VariationSeed;
     }
 
     /// <summary>What the last build and load measured (see the log line).</summary>
