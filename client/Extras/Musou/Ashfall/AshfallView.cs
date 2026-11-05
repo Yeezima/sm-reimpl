@@ -124,7 +124,7 @@ public partial class AshfallView : Node3D
     }
 
     /// <summary>Flat-shaded mesh of triangles (three corners each) in game space. Both sides are drawn (cull off), so the winding does not matter; the second and third corner are swapped as the core's collision fallback does.</summary>
-    static ArrayMesh MeshOf(System.Numerics.Vector3[] corners)
+    internal static ArrayMesh MeshOf(System.Numerics.Vector3[] corners)
     {
         var vertices = new Vector3[corners.Length];
         var normals = new Vector3[corners.Length];
