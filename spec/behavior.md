@@ -1977,6 +1977,22 @@ the fades, `--look-set key=value,...` overrides any constant below by its key (l
 | Look SSR by preset (fx/impact-pass review) | a look's `ssr.on` (the remaster's) turns screen-space reflections on at medium and high only; low and off never run SSR (older hardware is the next priority); high has SSR anyway. Off = the M40-T7 renderer features alone (no shadows, SSAO, SSIL, volumetric smog or SSR) with the look's constants (sun, tone mapping, grade, sky, materials) applied; `--lighting off --look current` is the M40-T7 look itself | — | at map load | `MapLightingView.SsrOn` | ours | ours | high |
 | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical frames main vs branch) | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat rings exempt from the soft fade); bolter wall impacts (stone, metal, sand) as on main; own muzzle flash with the camera 1.15 m behind: core as on main, glow very slightly smaller | — | — | private cache `m42-lightingixcheck` | measured | extracted | medium |
 
+### Visual overhaul proposal (proposal/visual-overhaul; client only, not simulated; pending the owner's approval)
+
+The owner's request (2026-11-06): "Initiate a game wide visual overhaul pass ... Propose changes and give me previews for approval". A
+**deliberate change beyond the original renderer**, off by default until approved: `--visual-overhaul on|off` (default off). Proposal, previews
+and costs: `docs/visual-overhaul-proposal.md`. Code: `client/VisualOverhaul.cs` (hooks in `MapLightingView`, `ModelViewer`, `NetworkView`,
+`OptionsHost`). Every value is **ours** (tuned by eye on the matched preview views); `--look-set key=value` overrides each by its key.
+
+| Parameter (visual overhaul) | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| V1 eye adaptation | auto exposure on the camera (Forward+ only): target mean luminance `ae.scale` 0.11 (the yard views' measured mean: the yards keep the chosen exposure), at most x1.5 brighter (`ae.boost`) and x1.25 darker (`ae.cut` 0.8); speed `ae.speed` 1.2 | luminance, factor | per frame | `VisualOverhaul.EyeAdaptation` | ours | choice | provisional |
+| V2 large-scale contact shading | SSAO radius 2.4 m (M42 1.4), power 1.8 (1.6), detail 0.8 (0.6), on direct light 0.3 (0.15), AO channel 0.5 (0.3); SSIL radius 9 m (6), intensity 2.6 (2) | m, factor | per frame | look constants `ssao.*`, `ssil.*` | ours | choice | provisional |
+| V3 sun shadow cascades | splits 3 / 10 / 35 % of the data's 400 m `FarSunDistance` (M42 5 / 15 / 40 %), blur 0.8 (1.2) | fraction, factor | at map load | look constants `sh.s1..s3`, `sh.blur` | ours | choice | provisional |
+| V4 to V6, V8 renderer settings | 16x anisotropic filtering (Godot default 4x), debanding on, screen-space roughness limiter amount 0.4 and limit 0.28 (M40-T7 0.25 / 0.18; `srl.amount`, `srl.limit`), bicubic glow upscale | factor | at start | `VisualOverhaul.ApplyViewport` | ours | choice | provisional |
+| V7 smog sky | value-noise smoke banks over the sky background only (not the ambient cubemap), densest just above the horizon, coloured from the haze (x0.62/0.55/0.5), lit toward the sun; strength `sky.smog` 1 (0 = off); the depth fog and the volumetric smog cover less of the sky background so the banks read (`fog.sky` 0.15, M42 0.35; `vf.sky` 0.04, M42 0.1) | factor | static | `VisualOverhaul.SmogSkyCode` | ours (the original's sky texture is not decoded) | choice | provisional |
+| V9 volumetric smog grid | 128 x 80 froxels at the medium preset (M42 96 x 64; high keeps 160 x 96); `vf.grid`, `vf.depth` | cells | at map load | `VisualOverhaul.ApplyWorld` | ours | choice | provisional |
+
 ### Clip entry cross-fade (M40-T3; client only, not simulated)
 
 From the M40 audit (defect D5): when a clip took over from another clip or from the stance blends (reaction, charge, melee step, jump, roll,

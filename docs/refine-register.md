@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2177 spec table rows: **1563 tagged**, 444 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 471 rows of the changes document.
+Scanned 2183 spec table rows: **1569 tagged**, 444 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 472 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 352 | 297 | 303 | 100 | 12 |
+| Movement (critical) | 358 | 303 | 303 | 106 | 12 |
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
 | Melee (critical) | 100 | 87 | 77 | 32 | 5 |
@@ -53,7 +53,7 @@ Scanned 2177 spec table rows: **1563 tagged**, 444 not tagged (read from data wi
 | Core simulation (provisional values) | 267 | 251 | 213 | 35 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 117 | 110 | 62 | 18 | 0 |
-| **All areas** | **1563** | 1334 | 1220 | 467 | 38 |
+| **All areas** | **1569** | 1340 | 1220 | 473 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -63,16 +63,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: low | 572 |
 | confidence: medium | 520 |
 | kind: interpretation | 339 |
-| notes: ours | 312 |
+| notes: ours | 318 |
 | confidence: none (low) | 128 |
 | kind: provisional | 99 |
 | kind: estimate | 79 |
 | kind: user's knowledge | 51 |
 | notes: estimate | 49 |
 | section: provisional | 38 |
+| notes: provisional | 37 |
+| kind: choice | 35 |
 | section: placeholder | 35 |
-| notes: provisional | 31 |
-| kind: choice | 29 |
 | notes: user's knowledge | 26 |
 | kind: approximation | 22 |
 | kind: placeholder | 22 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (352)
+### Movement (gameplay-critical) (358)
 
 *Spec section: Extracted parameters*
 
@@ -391,6 +391,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C41AA2DC` | Client: playback rate | the clip's planted-foot speed matched to the movement speed: sprint 7.8 m/s (`--clip-stats`: forward 7.8, strafes 6.8-8.0), run F 6.3, FR 6.0, R 5.55, BR 4.6, B 4.5, BL 4.5, L 5.65, FL 6.25, walk 1.75; clamped 0.7 to 1.4 (walk 0.6 to 1.5). The graphs bind the… (m/s) | kind: interpretation; confidence: low; notes: ours | measured from the clips; use ours | Client: playback rate: compare with SM1 by timing a run over a known distance. Ours: the clip's planted-foot speed matched to the movement speed: sprint… | ☐ |
 | `R-7044EF3D` | **Client: own model's facing, position and pitch** | the 30 Hz predicted state steps, the camera and the view turn every frame, so the own model (and the camera placed from it) moved and turned in steps. Now: yaw and pitch are drawn at the view's (`_yaw`, `_pitch`: what the next tick takes) while the state's… (degrees, m) | kind: interpretation; confidence: medium; notes: ours | ours | Client: own model's facing, position and pitch: compare with SM1 with an overlaid screenshot taken from the same position. Ours: the 30 Hz predicted state steps, the camera and the view turn every… | ☐ |
 | `R-867FE50C` | **Client: zone indicators hidden** | the Seize Ground point columns, discs, edge rings and letters in the world, the ground-pound and landing rings of the jump pack, and the translucent spawn-room shield planes are not drawn unless `--show-markers` (test aid; `--no-markers` still hides… | notes: user's knowledge | owner's playtest (user's knowledge) | Client: zone indicators hidden: compare with SM1 by feel or video. Ours: the Seize Ground point columns, discs, edge rings and letters in the… | ☐ |
+
+*Spec section: Visual overhaul proposal (proposal/visual-overhaul; client only, not simulated; pending the owner's approval)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-CF2F083E` | V1 eye adaptation | auto exposure on the camera (Forward+ only): target mean luminance `ae.scale` 0.11 (the yard views' measured mean: the yards keep the chosen exposure), at most x1.5 brighter (`ae.boost`) and x1.25 darker (`ae.cut` 0.8); speed `ae.speed` 1.2 (luminance, factor) | kind: choice; notes: ours; notes: provisional | ours | V1 eye adaptation: compare with SM1 by shooting at the edges of the head and body and noting where shots register. Ours: auto exposure on the camera (Forward+ only): target mean luminance… | ☐ |
+| `R-C8A8B111` | V2 large-scale contact shading | SSAO radius 2.4 m (M42 1.4), power 1.8 (1.6), detail 0.8 (0.6), on direct light 0.3 (0.15), AO channel 0.5 (0.3); SSIL radius 9 m (6), intensity 2.6 (2) (m, factor) | kind: choice; notes: ours; notes: provisional | ours | V2 large-scale contact shading: compare with SM1 by feel or video. Ours: SSAO radius 2.4 m (M42 1.4), power 1.8 (1.6), detail 0.8 (0.6), on… | ☐ |
+| `R-F9ECFC77` | V3 sun shadow cascades | splits 3 / 10 / 35 % of the data's 400 m `FarSunDistance` (M42 5 / 15 / 40 %), blur 0.8 (1.2) (fraction, factor) | kind: choice; notes: ours; notes: provisional | ours | V3 sun shadow cascades: compare with SM1 by feel or video. Ours: splits 3 / 10 / 35 % of the data's 400 m FarSunDistance (M42 5 / 15 /… | ☐ |
+| `R-155C9337` | V4 to V6, V8 renderer settings | 16x anisotropic filtering (Godot default 4x), debanding on, screen-space roughness limiter amount 0.4 and limit 0.28 (M40-T7 0.25 / 0.18; `srl.amount`, `srl.limit`), bicubic glow upscale (factor) | kind: choice; notes: ours; notes: provisional | ours | V4 to V6, V8 renderer settings: compare with SM1 by feel or video. Ours: 16x anisotropic filtering (Godot default 4x), debanding on… | ☐ |
+| `R-887F9C72` | V7 smog sky | value-noise smoke banks over the sky background only (not the ambient cubemap), densest just above the horizon, coloured from the haze (x0.62/0.55/0.5), lit toward the sun; strength `sky.smog` 1 (0 = off); the depth fog and the volumetric smog cover less of… (factor) | kind: choice; notes: ours; notes: provisional | ours (the original's sky texture is not decoded) | V7 smog sky: compare with SM1 by feel or video. Ours: value-noise smoke banks over the sky background only (not the ambient… | ☐ |
+| `R-912AC34E` | V9 volumetric smog grid | 128 x 80 froxels at the medium preset (M42 96 x 64; high keeps 160 x 96); `vf.grid`, `vf.depth` (cells) | kind: choice; notes: ours; notes: provisional | ours | V9 volumetric smog grid: compare with SM1 by feel or video. Ours: 128 x 80 froxels at the medium preset (M42 96 x 64; high keeps 160 x… | ☐ |
 
 *Spec section: Ammunition and grenade drops (fidelity gap 1, used by the simulation; protocol 26)*
 
@@ -2638,6 +2649,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-B3B0DAD3` | The map makes no sound | The map plays its own sounds: 48 positioned emitters (fans, power lines, machines, gas pipes, the spawn-room shield hum), the ambience bed `play_MP_TDM_09_ambs` and region events that muffle the bed | Silent by default (M38): only players make sound; the map's reverb regions still shape the players' sounds; `--map-sounds` plays the original map sounds again (test aid). The owner heard a constant ringing; the spawn-room shield hum `play_weirdboy_shield_loop_mp` (a near-pure 449 Hz tone, six emitters) is the likely… | Owner's decision 2026-10-28 (playtest); spec "Hit feedback, per-weapon decals and the silent map (M38)" | The map makes no sound: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-5AD498BF` | Armour and flesh sounds on a player hit | The impact sound of a hit switches on the local player's armour state: the flesh-penetrating layer only plays while armour is broken (`set_state_impact_broken_armor`) | Every bullet impact on a player plays the armour impact (`ceramite_armour`) and the flesh layer together, once, whatever the shield (M38); the impact effects use the victim's armour state only where the client really knows it (own player; later the protocol 22 bit), else the armour variant | Owner's direction 2026-10-28 (combine both, no guessing); spec "Hit feedback, per-weapon decals and the silent map (M38)" | Armour and flesh sounds on a player hit: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-7CD90567` | Lighting overhaul and god-ray blending | The original renderer's lighting (shaders not decoded); effect cards drawn as defined | A modern lighting pass on the original assets and data (M42): soft god rays and steam (depth, camera and edge fades), soft sun shadows, contact shading, volumetric smog with light shafts, a sun halo and a colour grade; `--lighting off\|low\|medium\|high` (default medium) | Owner's request 2026-10-28; spec "Lighting overhaul and god-ray blending (M42)" | Lighting overhaul and god-ray blending: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-0F63C83F` | Visual overhaul (proposal, pending the owner's approval) | The original renderer's lighting (shaders not decoded) | Off by default; `--visual-overhaul on` adds a narrow eye adaptation, wider contact shading and bounce light, sharper near sun shadows, 16x anisotropic filtering, debanding, stronger specular anti-aliasing, smoke banks in the sky background, smoother bloom and a finer volumetric smog grid, on top of the M42 look; the… | Owner's request 2026-11-06 (previews for approval); docs/visual-overhaul-proposal.md; spec "Visual overhaul proposal" | Visual overhaul (proposal, pending the owner's approval): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-3D924AF1` | Spawn facing | Not read; the start markers' own rotations are 0 and 180 degrees | Players face out of the room toward its exit (computed once per start area from the room's blockers) | User's decision (M22); spec "Spawn facing (M22)" | Spawn facing: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-25DAE862` | Bots' names (names/bot-lore, protocol 41) | Each player showed as their own account name; multiplayer had no bots | Test bots take a name from a per-race pool when they join ("Brother Aurex", "Skarne the Unbroken", an Ork name for the Ork Boy; original names, none a canon character), unique while connected; humans still show as P<id> (no name source yet) | Owner's request 2026-10-29 ("give the bots lore accurate names"); the pools and rules are ours; spec "Display names: the bots' names" | Bots' names (names/bot-lore, protocol 41): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-8EAF5000` | Ping on the scoreboard (net/scoreboard-ping, protocol 50) | The scoreboard's columns (`SummaryScreen.gfx` `player_header_mc`: LEVEL, PLAYER, XP, KILLS, DEATHS, RATIO, ASSISTS; Seize Ground SEIZED, DEFENDED) have no ping; whether the original showed a connection indicator anywhere else is unknown | A PING column at the right end of the Tab and end-of-match scoreboard: the server's smoothed round trip per player in ms (from snapshot acknowledgements, a 1/8 moving average, 0..999; "—" not measured yet), green below 80 ms, yellow below 150, red from 150. PING includes up to one client input interval (the wait for… | Owner's request 2026-10-31 ("add ping (ms) value in the scoreboard for each player"); the method and the colour bands are ours; spec "Scoreboard ping: measurement", "smoothing", "wire and display" | Ping on the scoreboard (net/scoreboard-ping, protocol 50): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |

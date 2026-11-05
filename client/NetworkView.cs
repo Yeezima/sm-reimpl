@@ -2171,6 +2171,7 @@ public partial class NetworkView : Node3D
               + (_showCollision ? "; collision shown in grey" : "")
             : $"map {name}: collision geometry only, placeholder grey (visuals failed: {visualsError})";
         GD.Print($"{_mapNote}; collision {collisionMs} ms, total {watch.ElapsedMilliseconds} ms");
+        if (VisualOverhaul.ApplyWorld(_camera, _environment) is { } overhaulNote) GD.Print(overhaulNote);   // visual-overhaul proposal (--visual-overhaul on; default off)
         // The default look of every class and the own look, built now so no player's first look stalls a frame (customizer T7).
         Ph("map load: looks");
         _warmClock = System.Diagnostics.Stopwatch.StartNew();   // Ork O7a: one deadline for the marines' and the Ork's warm-up

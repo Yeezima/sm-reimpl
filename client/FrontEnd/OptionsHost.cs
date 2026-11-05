@@ -55,7 +55,7 @@ public sealed partial class OptionsHost : CanvasLayer
         if (root is null) return;
         if (options.FpsCap != before.FpsCap) Engine.MaxFps = options.FpsCap;
         if (options.RenderScale != before.RenderScale) root.Scaling3DScale = options.RenderScale;
-        if (options.Aa != before.Aa && RenderQuality.Choose(options.Aa)) GD.Print(RenderQuality.Apply(root));
+        if (options.Aa != before.Aa && RenderQuality.Choose(options.Aa)) { GD.Print(RenderQuality.Apply(root)); VisualOverhaul.ApplyViewport(root); }
         if (options.Shadows != before.Shadows) MapLightingView.ApplyShadowChoice(options.Shadows);
         if (options.MasterVolume != before.MasterVolume) AudioServer.SetBusVolumeDb(0, GameOptions.VolumeDb(options.MasterVolume));
         if (options.Brightness != 1f && _current is null) Ensure(root);
