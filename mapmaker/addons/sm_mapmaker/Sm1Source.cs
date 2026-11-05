@@ -145,7 +145,7 @@ public sealed class Sm1Source
 
     // ---- picking ---------------------------------------------------------------------------------------------------------------------------------------
 
-    sealed record Sm1Pick(int Object, Num.Matrix4x4 Inverse, Num.Vector3 Min, Num.Vector3 Max);
+    sealed record Sm1Pick(int Object, Num.Matrix4x4 Inverse, Num.Vector3 Min, Num.Vector3 Max, string Mesh, int Block);
 
     Sm1Pick[] Picks()
     {
@@ -158,23 +158,73 @@ public sealed class Sm1Source
             {
                 if (BlockBounds(part.MeshName, part.MeshId) is not { } b) continue;
                 var world = part.NodeTransform * Scene.Objects[o].Transform;
-                if (Num.Matrix4x4.Invert(world, out var inverse)) list.Add(new Sm1Pick(o, inverse, b.Min, b.Max));
+                if (Num.Matrix4x4.Invert(world, out var inverse)) list.Add(new Sm1Pick(o, inverse, b.Min, b.Max, part.MeshName, part.MeshId));
             }
         }
         return _picks = list.ToArray();
     }
 
     /// <summary>The nearest placement under a ray given in the game frame (oriented boxes of each drawn part), or -1.</summary>
+    /// <summary>
+    /// The placement whose drawn triangles the ray meets first, or -1. Boxes only shortlist: picking by box alone made every click inside
+    /// Manufactorum hit the floor piece, whose box encloses the camera (owner's report 2026-11-05). Triangles are tested from both sides.
+    /// </summary>
     public int RayPick(Num.Vector3 origin, Num.Vector3 direction, out float distance)
     {
         int best = -1; distance = float.MaxValue;
+        var shortlist = new List<(float T, Sm1Pick Pick, Num.Vector3 O, Num.Vector3 D)>();
         foreach (var p in Picks())
         {
             var o = Num.Vector3.Transform(origin, p.Inverse);
             var d = Num.Vector3.TransformNormal(direction, p.Inverse);
-            if (RayBox(o, d, p.Min, p.Max, out float t) && t < distance) { distance = t; best = p.Object; }
+            if (RayBox(o, d, p.Min, p.Max, out float t)) shortlist.Add((t, p, o, d));
+        }
+        foreach (var (boxT, p, o, d) in shortlist.OrderBy(x => x.T))
+        {
+            if (boxT >= distance) break;
+            if (RayTriangles(p.Mesh, p.Block, o, d, out float t) && t < distance) { distance = t; best = p.Object; }
         }
         return best;
+    }
+
+    bool RayTriangles(string mesh, int block, Num.Vector3 o, Num.Vector3 d, out float best)
+    {
+        best = float.MaxValue;
+        if (!Scene.Meshes.TryGetValue(mesh, out var dcm) || block < 0 || block >= dcm.Blocks.Count) return false;
+        var b = dcm.Blocks[block];
+        var pos = b.Positions; var idx = b.Indices;
+        foreach (var range in b.Materials)
+        {
+            if (MapDecor.HidesSurface(Scene.Map, mesh, range.Name)) continue;
+            int count = range.IndexCount - range.IndexCount % 3;
+            if (count < 3 || range.StartIndex < 0 || range.StartIndex + count > idx.Length) continue;
+            for (int i = range.StartIndex; i < range.StartIndex + count; i += 3)
+            {
+                int ia = idx[i], ib = idx[i + 1], ic = idx[i + 2];
+                if (ia >= pos.Length || ib >= pos.Length || ic >= pos.Length) continue;
+                if (RayTriangle(o, d, pos[ia], pos[ib], pos[ic], out float t) && t < best) best = t;
+            }
+        }
+        return best < float.MaxValue;
+    }
+
+    /// <summary>Möller-Trumbore, both faces; t in units of <paramref name="d"/>.</summary>
+    static bool RayTriangle(Num.Vector3 o, Num.Vector3 d, Num.Vector3 a, Num.Vector3 b, Num.Vector3 c, out float t)
+    {
+        t = 0f;
+        var e1 = b - a; var e2 = c - a;
+        var p = Num.Vector3.Cross(d, e2);
+        float det = Num.Vector3.Dot(e1, p);
+        if (MathF.Abs(det) < 1e-12f) return false;
+        float inv = 1f / det;
+        var s = o - a;
+        float u = Num.Vector3.Dot(s, p) * inv;
+        if (u < 0f || u > 1f) return false;
+        var q = Num.Vector3.Cross(s, e1);
+        float v = Num.Vector3.Dot(d, q) * inv;
+        if (v < 0f || u + v > 1f) return false;
+        t = Num.Vector3.Dot(e2, q) * inv;
+        return t > 1e-4f;
     }
 
     static bool RayBox(Num.Vector3 o, Num.Vector3 d, Num.Vector3 min, Num.Vector3 max, out float t)

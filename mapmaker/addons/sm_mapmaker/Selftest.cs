@@ -107,19 +107,30 @@ public sealed class Selftest(MapmakerPlugin plugin)
     async Task SelectClickCheck()
     {
         var vp = plugin.Viewport3D;
-        if (vp?.GetParent() is not Control container) { Check(false, "select click: no editor viewport"); return; }
+        if (vp?.GetParent() is not Control container || MapHost.Sm1 is not { } src || src.BoundsCore() is not { } core) { Check(false, "select click: no editor viewport or map"); return; }
         plugin.SetTool(Tool.Select);
-        MapHost.PickedSm1.Clear();
-        var at = container.GetGlobalRect().GetCenter();
-        foreach (bool pressed in new[] { true, false })
-        {
-            Tree.Root.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = at, GlobalPosition = at });
-            await Frames(2);
-        }
-        await Frames(6);
-        var nodes = EditorInterface.Singleton.GetSelection().GetSelectedNodes();
-        string name = MapHost.PickedSm1.Count == 1 ? MapHost.Sm1!.Scene.Objects[MapHost.PickedSm1.First()].Name : "-";
-        Check(MapHost.PickedSm1.Count == 1 && !nodes.Contains(MapHost.Root), $"a click with the Select tool picks the SM1 piece under the mouse ({name}; root selected: {nodes.Contains(MapHost.Root)})");
+        // Down among the props, as the owner was: 20 m box at the arena centre, a few metres above the floor.
+        var c = (core.Min + core.Max) / 2;
+        await plugin.Frame3D(new Num.Vector3(c.X - 10, c.Y - 10, core.Min.Z), new Num.Vector3(c.X + 10, c.Y + 10, core.Min.Z + 6));
+        var rect = container.GetGlobalRect();
+        var picked = new System.Collections.Generic.HashSet<string>();
+        bool rootSelected = false;
+        for (int gx = 1; gx <= 5; gx++)
+            for (int gy = 1; gy <= 5; gy++)
+            {
+                var at = rect.Position + rect.Size * new Godot.Vector2(gx / 6f, gy / 6f);
+                MapHost.PickedSm1.Clear();
+                foreach (bool pressed in new[] { true, false })
+                {
+                    Tree.Root.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = pressed, Position = at, GlobalPosition = at });
+                    await Frames(2);
+                }
+                await Frames(3);
+                foreach (int i in MapHost.PickedSm1) picked.Add(src.Scene.Objects[i].Name);
+                rootSelected |= EditorInterface.Singleton.GetSelection().GetSelectedNodes().Contains(MapHost.Root);
+            }
+        Check(picked.Count >= 4 && !rootSelected, $"clicks across the view with the Select tool pick the pieces under the mouse ({picked.Count} different: {string.Join(", ", picked.Take(8))})");
+        Shot("click-picking");
         MapHost.PickedSm1.Clear(); plugin.RefreshPicked();
     }
 
