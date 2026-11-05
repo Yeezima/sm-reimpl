@@ -81,6 +81,8 @@ public partial class MapmakerDock : VBoxContainer
     List<PrefabPart> _partList = new();
 
     ConfirmationDialog? _extract;
+    ConfirmationDialog? _wrongTab;
+    LibraryItem? _wrongTabItem;
     ConfirmationDialog? _deletePrefab;
     string? _deletePrefabId;
     LibraryItem? _lastRow;
@@ -336,6 +338,54 @@ public partial class MapmakerDock : VBoxContainer
         }
         _exName.Text = MapHost.Sm1.ShortName(MapHost.PickedSm1[0]); _exId.Text = Slug(_exName.Text);
         _extract.PopupCentered(new Vector2I(380, 220));
+    }
+
+    /// <summary>
+    /// A placement click on a plain Godot scene tab (Godot's "+" makes an ordinary scene; Mapmaker maps are edited in the Mapmaker scene).
+    /// OK: a new empty map (SM1 backdrop hidden) with the piece placed at the centre. Cancel: switch to the open map; nothing is placed.
+    /// </summary>
+    public void AskWrongTab(LibraryItem? item)
+    {
+        if (_wrongTab is { Visible: true }) return;
+        if (_wrongTab is null)
+        {
+            _wrongTab = new ConfirmationDialog { Title = "Not a Mapmaker map", Exclusive = true, OkButtonText = "New empty map", CancelButtonText = "Go to the open map" };
+            _wrongTab.Confirmed += () => _ = StartEmptyMap(_wrongTabItem);
+            _wrongTab.Canceled += () => { _plugin.EnsureSceneRoot(); _status.Text = "Switched to the Mapmaker scene with the open map; click (or drop) to place."; };
+            AddChild(_wrongTab);
+        }
+        _wrongTabItem = item;
+        var s = _plugin.Session;
+        string open = s is null ? "" : $"\n\nThe open map is \"{s.Name}\"{(_plugin.Dirty ? " (unsaved changes)" : "")}.";
+        _wrongTab.DialogText = "This scene tab is a plain Godot scene, not a Mapmaker map (Godot's + tab makes an ordinary scene). " +
+            "Mapmaker maps are edited in the Mapmaker scene tab." + open +
+            (item is null ? "" : $"\n\nNew empty map: starts a map with the SM1 backdrop hidden and places {item.Label} at its centre.");
+        _wrongTab.PopupCentered(new Vector2I(460, 200));
+    }
+
+    public async Task StartEmptyMap(LibraryItem? item)
+    {
+        var s = _plugin.Session;
+        if (s is not null && _plugin.Dirty)
+        {
+            if (s.Path is null) { _plugin.EnsureSceneRoot(); _status.Text = $"The open map \"{s.Name}\" has unsaved changes and no file yet: Save As first, then press New."; return; }
+            if (!_plugin.SaveMap()) return;
+        }
+        for (int i = 0; i < 60 && !(EditorInterface.Singleton.GetEditedSceneRoot() is MapmakerRoot && MapHost.Root is not null); i++)
+        {
+            _plugin.EnsureSceneRoot();
+            await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        }
+        if (MapHost.Root is null) { _status.Text = "Could not open the Mapmaker scene."; return; }
+        _plugin.NewMap("Untitled");
+        MapHost.Root.BackdropVisible = false;
+        _backdrop.SetPressedNoSignal(false);
+        if (item is null) { _status.Text = "New empty map (SM1 backdrop hidden; tick Show SM1 map to see it)."; return; }
+        var r = _plugin.PlaceAt(item, Vector3.Zero);
+        if (!r.Ok) return;
+        Bounds? b = item.Kind == LibraryKind.Prefab ? MapHost.Library.ListPrefabs().FirstOrDefault(p => p.Id == item.Id)?.Bounds : null;
+        await _plugin.Frame3D(b?.Min ?? new Num.Vector3(-10, -10, 0), b?.Max ?? new Num.Vector3(10, 10, 4));
+        _status.Text = $"New empty map with {item.Label} at the centre (SM1 backdrop hidden; tick Show SM1 map to see it). Save As to keep it.";
     }
 
     /// <summary>Asks before deleting a prefab from the library; its placed copies in the open map go with it, and Ctrl+Z undoes both.</summary>

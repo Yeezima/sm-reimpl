@@ -300,6 +300,32 @@ public sealed class Selftest(MapmakerPlugin plugin)
                 }
             }
 
+            // 4c. Owner's report (2026-11-05): placing on a plain Godot scene tab jumped to the Mapmaker scene with the SM1 backdrop in view and placed
+            // nothing. Now a dialog asks; "New empty map" starts a map with the backdrop hidden and the piece at the centre.
+            {
+                var armedPrefab = MapHost.Library.ListPrefabs().FirstOrDefault();
+                string plainPath = "res://Maps/_selftest_plain.tscn";
+                var plain = new PackedScene(); var plainRoot = new Node3D { Name = "Plain" }; plain.Pack(plainRoot); plainRoot.Free();
+                ResourceSaver.Save(plain, plainPath);
+                EditorInterface.Singleton.OpenSceneFromPath(plainPath);
+                await Frames(10);
+                bool onPlain = EditorInterface.Singleton.GetEditedSceneRoot() is not MapmakerRoot;
+                var plainItem = armedPrefab is null ? null : new LibraryItem(LibraryKind.Prefab, armedPrefab.Id, armedPrefab.Name);
+                MapHost.Armed = plainItem;
+                bool refused = !plugin.ReadyToPlace();
+                bool asked = plugin.Dock!.FindChildren("*", "ConfirmationDialog", true, false).OfType<ConfirmationDialog>().Any(dlg => dlg.Visible && dlg.Title == "Not a Mapmaker map");
+                foreach (var dlg in plugin.Dock.FindChildren("*", "ConfirmationDialog", true, false).OfType<ConfirmationDialog>()) dlg.Hide();
+                await plugin.Dock.StartEmptyMap(plainItem);
+                await Frames(10);
+                bool inMap = EditorInterface.Singleton.GetEditedSceneRoot() is MapmakerRoot;
+                int objs = plugin.Session?.Document.Objects.Count ?? -1;
+                bool hidden = MapHost.Root is { } rr && !rr.BackdropVisible;
+                Check(onPlain && refused && asked && inMap && objs == 1 && hidden,
+                    $"a placement click on a plain scene tab asks, and New empty map places the piece in a new map with the SM1 backdrop hidden (plain {onPlain}, asked {asked}, map tab {inMap}, objects {objs}, backdrop hidden {hidden})");
+                try { System.IO.File.Delete(ProjectSettings.GlobalizePath(plainPath)); } catch (Exception) { }
+                MapHost.Armed = null;
+            }
+
             // 5. The hard rule: save the Godot scene and look for mesh data.
             var sceneRoot = EditorInterface.Singleton.GetEditedSceneRoot();
             string scenePath = "res://Maps/_selftest_saved.tscn";

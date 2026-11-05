@@ -474,8 +474,10 @@ public partial class MapmakerPlugin : EditorPlugin
     {
         if (EditorInterface.Singleton.GetEditedSceneRoot() is not MapmakerRoot || MapHost.Root is null)
         {
-            EnsureSceneRoot();
-            SetStatus("That scene tab is not a Mapmaker map. Switched to the Mapmaker scene: click (or drop) again to place.");
+            // Owner's report (2026-11-05): a silent jump to the Mapmaker scene, with the SM1 backdrop in view, looked like the piece had turned into
+            // the whole map. Ask instead: a new empty map with the piece at the centre, or the open map.
+            if (Dock is { } dock) dock.AskWrongTab(MapHost.Armed);
+            else { EnsureSceneRoot(); SetStatus("That scene tab is not a Mapmaker map. Switched to the Mapmaker scene: click (or drop) again to place."); }
             return false;
         }
         if (Session is null) { NewMap("Untitled"); SetStatus("No map was open, so a new untitled map was started (Save As to keep it)."); }
