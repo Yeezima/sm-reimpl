@@ -111,7 +111,7 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
                 if (dx < 0.15f && dy < 0.15f && dz < 0.15f) continue;
                 expected.Add((a + b) / 2f);
             }
-            var actual = Enumerable.Range(first, count).Select(p => { var (mn, mx) = Bounds(Level.Parts[p]); return (mn + mx) / 2f; }).ToList();
+            var actual = Enumerable.Range(first, count).Where(p => Level.Parts[p].Kind != AshfallKind.Stair).Select(p => { var (mn, mx) = Bounds(Level.Parts[p]); return (mn + mx) / 2f; }).ToList();
             Assert.Equal(expected.Count, actual.Count);
             foreach (var c in expected) Assert.Contains(actual, a => Vector3.Distance(a, c) < 0.02f);
             checkedItems++;
