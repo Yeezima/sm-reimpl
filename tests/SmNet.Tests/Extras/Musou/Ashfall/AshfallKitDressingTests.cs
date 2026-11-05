@@ -45,7 +45,7 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
         for (int i = 0; i < Dressing.Items.Count; i++) Assert.Equal(Dressing.Items[i], dressingB.Items[i]);
         Assert.Equal(Dressing.HiddenParts, dressingB.HiddenParts);
         Assert.Equal(AshfallMap.DressVersion, Dressing.Version);
-        Assert.Equal(2u, AshfallMap.DressVersion);
+        Assert.Equal(3u, AshfallMap.DressVersion);
         output.WriteLine($"{Dressing.Items.Count} items, {Dressing.HiddenParts.Count} hidden parts, {Level.Parts.Count} parts, {Level.SolidCorners().Length / 3} collision triangles, hash {Level.Hash:X16}");
         foreach (var g in Dressing.Items.GroupBy(i => i.Role).OrderBy(g => g.Key)) output.WriteLine($"{g.Key,-10} {g.Count(),5} items, {g.Sum(i => AshfallKit.Get(i.Asset).Triangles),10} model triangles");
     }
@@ -59,80 +59,6 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
         Assert.DoesNotContain(Dressing.Items, i => AshfallKit.Get(i.Asset).Review && i.Role != AshfallDressRole.Decoration);
         // Parts: Skin and Prop items name a part, Surface and Decoration none.
         Assert.All(Dressing.Items, i => Assert.True(i.Role is AshfallDressRole.Skin or AshfallDressRole.Prop ? i.Part >= 0 && i.Part < Level.Parts.Count : i.Part == -1));
-    }
-
-    // ---------------------------------------------------------------- skins
-
-    [Fact]
-    public void Skin_boxes_stay_inside_their_parts_box_and_per_axis_scales_stay_within_about_one_to_three()
-    {
-        var skins = Of(AshfallDressRole.Skin).ToList();
-        Assert.True(skins.Count > 500, $"{skins.Count} skins");
-        foreach (var it in skins)
-        {
-            var part = Level.Parts[it.Part];
-            Assert.True(part.Solid);
-            var box = AshfallBox.Of(part);
-            Assert.True(box is { }, $"skin {it.Asset} over {part.Kind} part {it.Part}, which is no box");
-            Assert.True(box!.Value.Holds(it, AshfallDressPassGrow), $"skin {it.Asset} sticks out of {part.Kind} part {it.Part}");
-            var raw = AshfallKit.Get(it.Asset).RawSize;
-            bool swap = it.SwapXZ;
-            float sx = it.Size.X / (swap ? raw.Z : raw.X), sy = it.Size.Y / (swap ? raw.X : raw.Z), sz = it.Size.Z / raw.Y;
-            float ratio = MathF.Max(sx, MathF.Max(sy, sz)) / MathF.Min(sx, MathF.Min(sy, sz));
-            Assert.True(ratio <= 3.0001f, $"skin {it.Asset} over part {it.Part} is stretched {ratio:0.00}:1");
-        }
-    }
-
-    const float AshfallDressPassGrow = 0.15f;
-
-    [Fact]
-    public void Hidden_parts_are_sorted_distinct_and_each_has_skins_that_cover_it()
-    {
-        var hidden = Dressing.HiddenParts;
-        Assert.True(hidden.Count > 100);   // draft 2: Cover and Rubble skins only
-        Assert.Equal(hidden.OrderBy(h => h).Distinct().ToList(), hidden.ToList());
-        var skinned = Of(AshfallDressRole.Skin).GroupBy(i => i.Part).ToDictionary(g => g.Key, g => g.ToList());
-        Assert.All(hidden, h => Assert.True(skinned.ContainsKey(h), $"hidden part {h} has no skin"));
-        // Draft 2: only Cover and Rubble skins hide their box; skinned Wall, Stronghold, Boundary, Floor and Perch parts stay drawn (the client backs them with stone, inset 0.15 m).
-        Assert.All(hidden, h => Assert.True(Level.Parts[h].Kind is AshfallKind.Cover or AshfallKind.Rubble, $"{Level.Parts[h].Kind} part {h} is hidden"));
-        Assert.All(skinned.Keys.Where(k => Level.Parts[k].Kind is AshfallKind.Cover or AshfallKind.Rubble), k => Assert.Contains(k, hidden));
-        Assert.DoesNotContain(skinned.Keys, k => Level.Parts[k].Kind is AshfallKind.Wall or AshfallKind.Stronghold or AshfallKind.Boundary && hidden.Contains(k));
-        // Volume of the items over a part equals the part's box for the plain (non-ring) kinds: the tiles cover it exactly.
-        foreach (var (part, list) in skinned.Where(kv => Level.Parts[kv.Key].Kind != AshfallKind.Stronghold).Take(400))
-        {
-            var box = AshfallBox.Of(Level.Parts[part])!.Value;
-            float volume = list.Sum(i => i.Size.X * i.Size.Y * i.Size.Z);
-            Assert.Equal(box.Length * box.Depth * box.Height, volume, 0.01f * box.Length * box.Depth * box.Height + 1e-3f);
-        }
-        Assert.Contains(skinned.Keys, k => Level.Parts[k].Kind == AshfallKind.Wall);
-    }
-
-    [Fact]
-    public void Draft_2_rules_no_relief_slab_skins_bare_small_walls_and_a_tiered_boundary()
-    {
-        // AC-031 only as a prop (and decoration): never a skin, at most about 10 on the map.
-        Assert.DoesNotContain(Of(AshfallDressRole.Skin), i => i.Asset == "AC-031");
-        Assert.InRange(Dressing.Items.Count(i => i.Asset == "AC-031"), 1, 10);
-        Assert.All(Of(AshfallDressRole.Prop).Where(i => i.Asset == "AC-031"), i => Assert.Equal(AshfallDressRole.Prop, i.Role));
-        // Small (face under 40 m2) or narrow (under 2 m along the face) Wall parts have no skin.
-        var skinnedParts = Of(AshfallDressRole.Skin).Select(i => i.Part).ToHashSet();
-        for (int p = 0; p < Level.Parts.Count; p++)
-        {
-            if (Level.Parts[p].Kind != AshfallKind.Wall || AshfallBox.Of(Level.Parts[p]) is not { } b || !skinnedParts.Contains(p)) continue;
-            Assert.True(b.Length >= 2f && b.Length * b.Height >= 40f, $"wall part {p} {b.Length:0.0} x {b.Height:0.0} m is skinned");
-        }
-        Assert.True(Enumerable.Range(0, Level.Parts.Count).Count(p => Level.Parts[p].Kind == AshfallKind.Wall && !skinnedParts.Contains(p)) > 500);   // most small columns stay stone
-        // Boundary: AC-001, AC-004, AC-005 in pieces of about 12 m, tiers up to the wall's top, more than one model.
-        var bnd = Of(AshfallDressRole.Skin).Where(i => Level.Parts[i.Part].Kind == AshfallKind.Boundary).ToList();
-        Assert.True(bnd.Count > 100);
-        Assert.All(bnd, i => Assert.Contains(i.Asset, new[] { "AC-001", "AC-004", "AC-005" }));
-        Assert.All(bnd, i => Assert.InRange(i.Size.X, 10.9f, 12.1f));
-        Assert.True(bnd.Select(i => i.Asset).Distinct().Count() == 3);
-        Assert.Equal(AshfallMap.BoundaryHeight, bnd.Max(i => i.Position.Z + i.Size.Z), 0.01f);
-        // Cover skins come from AC-011, AC-014, AC-017 (AC-018 sparingly).
-        var cover = Of(AshfallDressRole.Skin).Where(i => Level.Parts[i.Part].Kind == AshfallKind.Cover).ToList();
-        Assert.All(cover, i => Assert.Contains(i.Asset, new[] { "AC-011", "AC-014", "AC-017", "AC-018" }));
-        Assert.True(cover.Count(i => i.Asset == "AC-018") * 10 <= cover.Count);
     }
 
     // ---------------------------------------------------------------- surfaces
@@ -200,35 +126,90 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
         }
     }
 
-    // ---------------------------------------------------------------- props
+    // ---------------------------------------------------------------- draft 2: the freestanding kit
+
+    static readonly string[] Architecture = ["AC-001", "AC-002", "AC-003", "AC-004", "AC-005", "AC-006", "AC-010"];
 
     [Fact]
-    public void Props_add_proxies_after_every_version_5_part_and_obey_the_placers_rules()
+    public void Nothing_is_attached_to_a_wall_no_skin_no_hidden_part_and_nothing_near_the_boundary()
+    {
+        Assert.DoesNotContain(Dressing.Items, i => i.Role == AshfallDressRole.Skin);
+        Assert.Empty(Dressing.HiddenParts);
+        // No item within 2 m of the boundary's inner face (the ground tiles of the perimeter road reach the face: they are the floor).
+        foreach (var it in Dressing.Items.Where(i => i.Role != AshfallDressRole.Surface))
+        {
+            var r = Footprint(it);
+            Assert.True(r.X >= -238f && r.Y >= -238f && r.Z <= 238f && r.W <= 238f, $"{it.Asset} at {it.Position} is within 2 m of the boundary");
+        }
+        // The boundary, the keep, the towers, the plinths and the obelisks stay bare: no Prop or Decoration footprint overlaps a Boundary or Stronghold box.
+        var bnd = Level.Parts.Where(p => p.Kind is AshfallKind.Boundary or AshfallKind.Stronghold).Select(p => Bounds(AshfallBox.Of(p)!.Value)).ToList();
+        foreach (var it in Dressing.Items.Where(i => i.Role is AshfallDressRole.Prop or AshfallDressRole.Decoration))
+        {
+            var r = Footprint(it);
+            foreach (var b in bnd) Assert.False(r.X < b.Z && r.Z > b.X && r.Y < b.W && r.W > b.Y, $"{it.Asset} at {it.Position} overlaps a boundary or stronghold box");
+        }
+    }
+
+    [Fact]
+    public void Every_kit_piece_is_scaled_uniformly_near_its_manifest_size_and_has_its_proxy_part()
     {
         var props = Of(AshfallDressRole.Prop).ToList();
-        Assert.InRange(props.Count, 40, 120);
-        output.WriteLine("props: " + string.Join(", ", props.GroupBy(p => p.Asset).OrderBy(g => g.Key, StringComparer.Ordinal).Select(g => $"{g.Key} x{g.Count()}")));
-        // The proxies are the last parts, in the items' order (the arch has three parts, the others one).
-        int firstProxy = props.Min(p => p.Part);
-        Assert.Equal(props.Select(p => p.Part).OrderBy(x => x).ToList(), props.Select(p => p.Part).ToList());
-        Assert.All(Level.Parts.Skip(firstProxy), p => Assert.True((p.Kind is AshfallKind.Wall or AshfallKind.Rubble or AshfallKind.Cover or AshfallKind.Perch) && p.Corners.Length == 36));
-        Assert.Equal(props.Sum(p => p.Asset == "AC-002" ? 3 : 1), Level.Parts.Count - firstProxy);
+        Assert.InRange(props.Count, 250, 900);
+        foreach (var it in Dressing.Items.Where(i => i.Role is AshfallDressRole.Prop or AshfallDressRole.Decoration))
+        {
+            var raw = AshfallKit.Get(it.Asset).RawSize;
+            float sx = it.Size.X / (it.SwapXZ ? raw.Z : raw.X), sy = it.Size.Y / (it.SwapXZ ? raw.X : raw.Z), sz = it.Size.Z / raw.Y;
+            float ratio = MathF.Max(sx, MathF.Max(sy, sz)) / MathF.Min(sx, MathF.Min(sy, sz));
+            Assert.True(ratio <= 1.001f, $"{it.Asset} is stretched {ratio:0.000}:1");   // uniform (the rule allows +-10 %)
+        }
         foreach (var it in props)
         {
+            Assert.InRange(it.Part, 0, Level.Parts.Count - 1);
             var part = Level.Parts[it.Part];
-            Assert.True(part.Kind is AshfallKind.Wall or AshfallKind.Rubble or AshfallKind.Cover or AshfallKind.Perch);
-            Assert.Equal(AshfallMap.SurfaceAt(it.Position.X, it.Position.Y), it.Position.Z);
+            Assert.True(part.Solid && part.Kind is AshfallKind.Wall or AshfallKind.Rubble or AshfallKind.Cover);
+            if (it.Asset != "AC-008") Assert.Equal(AshfallMap.SurfaceAt(it.Position.X, it.Position.Y), it.Position.Z);
+        }
+        // The proxies are the newest parts: every prop's first part is in the last stretch of the level.
+        Assert.True(props.Min(p => p.Part) >= Level.Parts.Count - props.Count * 40);
+        // Scale near the manifest's (the base scale, 0.85..1.15) for architecture, landmarks, the perch and the rubble piles; the cover is 1.0..1.2 m tall.
+        foreach (var it in props.Where(p => Architecture.Contains(p.Asset) || p.Asset is "AC-027" or "AC-028" or "AC-029" or "AC-030" or "AC-031" or "AC-032" or "AC-007" or "AC-013" or "AC-019" or "AC-021" or "AC-023" or "AC-008"))
+        {
+            var m = AshfallKit.Get(it.Asset);
+            float ratio = it.Size.Z / m.RawSize.Y / AshfallMap.ManifestScale(m);
+            Assert.InRange(ratio, 0.85f - 1e-3f, 1.15f + 1e-3f);
+        }
+        var cover = props.Where(p => p.Asset is "AC-011" or "AC-014" or "AC-017" or "AC-018" or "AC-012").ToList();
+        Assert.True(cover.Count > 100);
+        Assert.All(cover, p => Assert.InRange(p.Size.Z, 1.0f - 1e-3f, 1.2f + 1e-3f));
+        Assert.True(cover.Count(p => p.Asset == "AC-018") * 8 <= cover.Count);   // AC-018 rarely
+        Assert.All(cover.Where(p => p.Asset == "AC-012"), p => Assert.True(p.Position.X < -104f && MathF.Abs(p.Position.Y) < 80f));   // AC-012 only by the craters
+    }
+
+    [Fact]
+    public void The_same_model_never_stands_on_two_neighbouring_pieces()
+    {
+        var props = Of(AshfallDressRole.Prop).Select(p => (p.Asset, Rect: Footprint(p))).ToList();
+        for (int i = 0; i < props.Count; i++)
+            for (int j = i + 1; j < props.Count; j++)
+                if (props[i].Asset == props[j].Asset)
+                    Assert.True(Gap(props[i].Rect, props[j].Rect) >= 4f - 1e-3f, $"two {props[i].Asset} pieces {Gap(props[i].Rect, props[j].Rect):0.0} m apart");
+        output.WriteLine("props per model: " + string.Join(", ", Of(AshfallDressRole.Prop).GroupBy(p => p.Asset).OrderBy(g => g.Key, StringComparer.Ordinal).Select(g => $"{g.Key} x{g.Count()}")));
+        Assert.True(props.Select(p => p.Asset).Distinct().Count() >= 18);   // mixed: many models
+        Assert.True(AshfallKit.Models.Where(m => m.Review).All(m => Dressing.Items.All(i => i.Asset != m.Id || i.Role == AshfallDressRole.Decoration)));
+        Assert.InRange(Dressing.Items.Count(i => i.Asset == "AC-031"), 1, 10);
+    }
+
+    [Fact]
+    public void Kit_pieces_obey_the_placers_rules_and_the_arches_keep_their_opening()
+    {
+        var props = Of(AshfallDressRole.Prop).Where(p => p.Asset != "AC-008").ToList();
+        foreach (var it in props)
+        {
             var r = Footprint(it);
-            // Capture cylinders plus 6 m, the lanes of the roads, the start areas, the stronghold block, the spawn markers plus 6 m.
             foreach (var pt in Level.Points)
             {
                 float dx = MathF.Max(MathF.Max(r.X - pt.Center.X, pt.Center.X - r.Z), 0f), dy = MathF.Max(MathF.Max(r.Y - pt.Center.Y, pt.Center.Y - r.W), 0f);
                 Assert.True(MathF.Sqrt(dx * dx + dy * dy) >= pt.Radius + 6f - 1e-3f, $"{it.Asset} at {it.Position} is within 6 m of zone {pt.Name}");
-            }
-            foreach (var s in Level.Spawns.Take(Level.Spawns.Count - 4))
-            {
-                float dx = MathF.Max(MathF.Max(r.X - s.X, s.X - r.Z), 0f), dy = MathF.Max(MathF.Max(r.Y - s.Y, s.Y - r.W), 0f);
-                Assert.True(MathF.Sqrt(dx * dx + dy * dy) >= 10f - 1e-3f, $"{it.Asset} at {it.Position} is on a spawn marker");
             }
             foreach (var a in Level.Areas)
             {
@@ -243,35 +224,35 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
             Assert.False(r.X < 84f && r.Z > -84f && r.Y < 224f && r.W > 96f, $"{it.Asset} at {it.Position} is in the stronghold block");
             Assert.False(r.X < 8f && r.Z > -8f && r.Y < 80f && r.W > -160f, $"{it.Asset} at {it.Position} is on the paved road or the gate approach");
             Assert.False(r.X < 80f && r.Z > -80f && r.Y < 8f && r.W > -8f, $"{it.Asset} at {it.Position} is on the plaza's axis");
-            Assert.True(r.X >= -222f && r.Y >= -222f && r.Z <= 222f && r.W <= 222f);
         }
-        // Tops: never in the 0.4..0.9 m band above the ground; rubble 0.9..2.5 m; props apart (10 m) from each other.
-        foreach (var it in props)
+        foreach (var arch in props.Where(p => p.Asset is "AC-002" or "AC-006"))
         {
-            bool low = it.Asset is "AC-032" or "AC-018";
-            if (low) Assert.InRange(it.Size.Z, 0.9f, 2.5f);
-            Assert.False(it.Size.Z > 0.4f && it.Size.Z < 0.9f);
+            // Two piers and a lintel (three parts); the lintel starts at 72 % of the height and the opening between the piers is free.
+            var parts = Level.Parts.Skip(arch.Part).Take(3).Select(p => AshfallBox.Of(p)!.Value).ToList();
+            Assert.Equal(1, parts.Count(b => b.Z0 > arch.Position.Z + 0.5f * arch.Size.Z));
+            Assert.Equal(2, parts.Count(b => b.Z0 <= arch.Position.Z + 0.01f));
         }
-        for (int i = 0; i < props.Count; i++)
-            for (int j = i + 1; j < props.Count; j++)
-                Assert.True(Vector2.Distance(new Vector2(props[i].Position.X, props[i].Position.Y), new Vector2(props[j].Position.X, props[j].Position.Y)) >= 10f - 1e-3f);
-        // Concentrated in the owner's red zones.
-        int inZone = props.Count(p => AshfallMap.PriorityZones.Any(z => p.Position.X >= z.X && p.Position.X <= z.Z && p.Position.Y >= z.Y && p.Position.Y <= z.W));
-        output.WriteLine($"{inZone} of {props.Count} props stand in the red zones");
-        Assert.True(inZone * 2 >= props.Count, $"{inZone} of {props.Count} props in the red zones");
     }
 
     [Fact]
-    public void The_arch_remnants_keep_their_opening_free()
+    public void Perches_have_a_walkable_deck_and_a_stair_and_no_graybox_rubble_stays()
     {
-        foreach (var arch in Of(AshfallDressRole.Prop).Where(p => p.Asset == "AC-002"))
+        var perches = Of(AshfallDressRole.Prop).Where(p => p.Asset == "AC-008").ToList();
+        output.WriteLine($"{perches.Count} perches");
+        Assert.InRange(perches.Count, 15, 26);
+        // Each perch: a Floor deck top 1.5..5.5 m (0.5 m levels) on a Wall body, with box steps of the Stair kind rising to it.
+        foreach (var it in perches)
         {
-            // Three parts: two piers and a lintel; the opening (4 m wide, 5.5 m tall) between the piers is open on the item's centre line.
-            var parts = Level.Parts.Skip(arch.Part).Take(3).Select(p => AshfallBox.Of(p)!.Value).ToList();
-            Assert.Equal(3, parts.Count);
-            Assert.Equal(1, parts.Count(b => b.Z0 > arch.Position.Z + 5f));
-            Assert.Equal(2, parts.Count(b => b.Z0 <= arch.Position.Z + 0.01f));
+            Assert.Equal(AshfallKind.Wall, Level.Parts[it.Part].Kind);
+            Assert.Equal(AshfallKind.Floor, Level.Parts[it.Part + 1].Kind);
+            float top = Level.Parts[it.Part + 1].Corners.Max(c => c.Z);
+            Assert.True(top is >= 1.5f and <= 5.5f && top * 2f == MathF.Round(top * 2f), $"perch deck at {top}");
+            Assert.Equal(AshfallKind.Stair, Level.Parts[it.Part + 2].Kind);
         }
+        // The replaced families are gone from the graybox: every Rubble part is a kit proxy (the version 5 clusters and version 1's pieces were removed).
+        var kitParts = new HashSet<int>(Of(AshfallDressRole.Prop).SelectMany(p => new[] { p.Part, p.Part + 1, p.Part + 2 }));
+        int graybox = Enumerable.Range(0, Level.Parts.Count).Count(i => Level.Parts[i].Kind == AshfallKind.Rubble && !kitParts.Contains(i));
+        Assert.Equal(0, graybox);
     }
 
     // ---------------------------------------------------------------- exports

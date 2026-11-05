@@ -206,6 +206,8 @@ public static partial class AshfallMap
             if (!p.Clear(rect, 8f) || !AshfallPlacer.Flat(rect)) continue;
             var f = AshfallFrame.At(p.B, rot, 0f, 0f, W, D, cx, cy, out var world);
             Vector3? floor = null;
+            int firstPart = p.B.Parts.Count;
+            p.B.Tag = "ruin:" + p.Ruins.Count;   // kit dressing draft 2: a ruin without a walkable floor is replaced by a kit composition at its footprint
             switch (kind)
             {
                 case "shell" or "shell2":
@@ -224,6 +226,8 @@ public static partial class AshfallMap
                     WallRun(f, false, 1f, W, 0f, 1f, storeys, h + 2, -1, -1, false, false, true, false);
                     break;
             }
+            p.B.Tag = null;
+            if (floor != null) for (int k = firstPart; k < p.B.Tags.Count; k++) p.B.Tags[k] = null;   // the ruins with a walkable floor and stair stay graybox
             p.Claims.Add(world);
             p.Ruins.Add(new AshfallRuin(kind, world, storeys, floor));
             placed++;
@@ -411,6 +415,7 @@ public static partial class AshfallMap
             if (centres.Any(c => Vector2.Distance(c, centre) < 36f)) continue;
             if (!wr.All(r => p.Clear(r, 8f) && AshfallPlacer.Flat(r))) continue;
             var f = probe;
+            p.B.Tag = "plat:" + p.Platforms.Count;   // replaced by a kit firing perch
             f.Box(AshfallKind.Wall, 0f, 0f, 0f, P, Q, top - 0.5f);
             f.Box(AshfallKind.Floor, 0f, 0f, top - 0.5f, P, Q, top);
             f.Stair(P / 2f, -run, 0, 1, 4f, 0f, top);
@@ -421,6 +426,7 @@ public static partial class AshfallMap
                 case 3: f.Stair(P / 2f, Q + run, 0, -1, 4f, 0f, top); break;
             }
             if (parapet) f.Box(AshfallKind.Cover, 0f, Q - 0.5f, top, P / 2f + 2f, Q, top + 1f);
+            p.B.Tag = null;
             foreach (var r in wr) p.Claims.Add(r);
             centres.Add(centre);
             p.Platforms.Add(new AshfallPlatform(new Vector3(centre.X, centre.Y, top), top, side2 == 0 ? 1 : 2, parapet));
@@ -466,7 +472,9 @@ public static partial class AshfallMap
             var r = alongX ? new Vector4(a, line, b, line + t) : new Vector4(line, a, line + t, b);
             if (p.Clear(r, 1.2f) && AshfallPlacer.Flat(r))
             {
+                p.B.Tag = "curb";
                 p.B.Box(AshfallKind.Cover, r.X, r.Y, z0, r.Z, r.W, z0 + h);
+                p.B.Tag = null;
                 p.Claims.Add(r);
                 p.WallSegments++;
                 p.WallLength += b - a;
@@ -493,7 +501,9 @@ public static partial class AshfallMap
                     float d0 = c + side * 5.5f, d1 = c + side * 11f, h = H(seed, 1) % 2 == 0 ? 1f : 1.2f;
                     var r = northSouth ? new Vector4(MathF.Min(d0, d1), a, MathF.Max(d0, d1), a + 0.5f) : new Vector4(a, MathF.Min(d0, d1), a + 0.5f, MathF.Max(d0, d1));
                     if (!p.Clear(r, 1.2f)) continue;
+                    p.B.Tag = "stagger";
                     p.B.Box(AshfallKind.Cover, r.X, r.Y, 0f, r.Z, r.W, h);
+                    p.B.Tag = null;
                     p.Claims.Add(r);
                     p.StaggerWalls++;
                 }

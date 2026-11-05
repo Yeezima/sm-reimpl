@@ -36,16 +36,16 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
         }
         Assert.Equal(a.Points, b.Points);
         Assert.Equal(a.Spawns, b.Spawns);
-        Assert.Equal(6u, AshfallMap.Version);
+        Assert.Equal(7u, AshfallMap.Version);
         Assert.Equal(Hash(a, AshfallMap.Version), a.Hash);
         Assert.NotEqual(Hash(a, AshfallMap.Version + 1), a.Hash);   // a new generator version moves the hash
         Assert.Equal(AshfallContent.ToMapContent(a).Hash, a.Hash);
-        // Pinned (version 6): a layout change without a new AshfallMap.Version fails here, not at a client's handshake.
+        // Pinned (version 7): a layout change without a new AshfallMap.Version fails here, not at a client's handshake.
         Assert.Equal(PinnedLevelHash, a.Hash);
     }
 
-    /// <summary>Ashfall Citadel version 6 level hash (kit dressing draft 1, 2026-11-05: the props' collision proxies; version 5 was 0xAE096E323BB5A4D3, the stronghold rework of sketch 6; version 4 was 0xA07D05D38EB46CF2, version 3 was 0xBB4D50AF4614FD39, version 2 0x875D9199C67B1894, version 1 0x4D0658D87AF67B7B).</summary>
-    const ulong PinnedLevelHash = 0x6e3c634b27d892b7UL;
+    /// <summary>Ashfall Citadel version 7 level hash (kit dressing draft 2: freestanding kit structures; version 6 was 0x6E3C634B27D892B7, version 5 was 0xAE096E323BB5A4D3, the stronghold rework of sketch 6; version 4 was 0xA07D05D38EB46CF2, version 3 was 0xBB4D50AF4614FD39, version 2 0x875D9199C67B1894, version 1 0x4D0658D87AF67B7B).</summary>
+    const ulong PinnedLevelHash = 0xc2819e6ef8bd5559UL;
 
     /// <summary>The hash's rule, written out independently of the generator: FNV-1a 64 over the version, then every solid corner's float bits.</summary>
     static ulong Hash(AshfallLevel level, uint version)
@@ -250,7 +250,7 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
         Assert.True(Features.Towers.Count is >= 6 and <= 20);   // pass 3 added the two stair towers and the keep tower (17 in all)
         Assert.All(Features.Towers, t => Assert.InRange(t.Storeys, 3, 5));
         Assert.True(Features.Towers.Count(t => t.Core) * 2 >= Features.Towers.Count);
-        Assert.True(Features.Ruins.Count >= 80, $"{Features.Ruins.Count} ruins");
+        Assert.True(Features.Ruins.Count >= 5, $"{Features.Ruins.Count} ruins");   // draft 2: only the ruins with a walkable floor and stair stay graybox; the rest are kit compositions (Features.Ruins lists the ones that stayed)
         // A tall building's footprint is 12 x 12 .. 16 x 24 and stands 10 m clear of the boundary (a jump from a 30 m top peaks 17.5 m higher; the boundary is 48 m).
         Assert.All(Features.Towers, t =>
         {

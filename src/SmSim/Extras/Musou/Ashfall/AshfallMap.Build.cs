@@ -19,7 +19,7 @@ public static partial class AshfallMap
     /// </summary>
     public static AshfallLevel Build() => BuildCore(false).Build.Level;
 
-    /// <summary>The level together with what pass 2 placed (platforms, tall buildings, ruins, walls), for the checks. Includes the kit dressing's prop proxies (version 6).</summary>
+    /// <summary>The level together with what pass 2 placed (platforms, tall buildings, ruins, walls), for the checks. Platforms and ruins are the kit's (version 7: the kit perches and the ruins that stayed graybox).</summary>
     public static AshfallBuild BuildWithFeatures() => BuildCore(false).Build;
 
     /// <summary>The level, what pass 2 placed and (when <paramref name="items"/>) the kit dressing's items.</summary>
@@ -65,9 +65,10 @@ public static partial class AshfallMap
         // The perimeter road's corners (added after the rubble, so they do not move it): the enemies' graph and the war's bounds are the seeds' box plus 30 m,
         // and without these the east and north strips (x > 210, y > 194) had no nodes and an order there was clamped (review of 2026-11-04).
         Vector3[] corners = [P(-232f, -232f), P(232f, -232f), P(-232f, 232f), P(232f, 232f)];
-        // Version 6: the kit dressing adds the props' collision proxies to the parts (appended after every version 5 part, so their indices are unchanged), then the level is hashed.
-        var dressing = AshfallDressPass.Run(b, points, areas, items);
-        return new AshfallBuilt(new AshfallBuild(new AshfallLevel(b.Parts, points, areas, [.. spawns, .. corners], HashOf(b.Parts)), features), dressing);
+        // Version 7 (kit dressing draft 2): the v5 families the kit replaces (ruins without a walkable floor, platforms, curb and staggered cover, rubble, version 1's low walls) are removed from the parts
+        // and rebuilt as freestanding kit structures with their own collision proxies (appended at the end), then the level is hashed.
+        var (dressing, kitFeatures) = AshfallDressPass.Run(b, points, areas, features, items);
+        return new AshfallBuilt(new AshfallBuild(new AshfallLevel(b.Parts, points, areas, [.. spawns, .. corners], HashOf(b.Parts)), kitFeatures), dressing);
     }
 
     /// <summary>The level's hash: FNV-1a over the solid parts' corner bits in order, salted with <see cref="Version"/>.</summary>
@@ -160,8 +161,10 @@ public static partial class AshfallMap
         b.Stair(-150f, 164f, -1, 0, 8f, 0f, 3f);   // east
         b.Box(Perch, -166f, 166f, 3f, -162f, 170f, 15f);
         // Two low walls (1.2 m) at 28..40 m from A, cover outside the zone.
+        b.Tag = "v1cover";   // version 1's low walls and rubble are replaced by kit cover and piles (draft 2)
         b.Box(Cover, -136f, 175.5f, BlockTop, -128f, 176.5f, BlockTop + 1.2f);
         b.Box(Cover, -180f, 127.5f, BlockTop, -172f, 128.5f, BlockTop + 1.2f);
+        b.Tag = null;
     }
 
     // ---------------------------------------------------------------- NE: objective C, the chapel ruin
@@ -181,8 +184,10 @@ public static partial class AshfallMap
         // Roof slab at 12 m over the west third (jump-only).
         b.Box(Perch, 153f, 172f, 11.5f, 161f, 187f, 12f);
         // Low walls at 28..40 m from C.
+        b.Tag = "v1cover";
         b.Box(Cover, 160f, 117.5f, BlockTop, 168f, 118.5f, BlockTop + 1.2f);
         b.Box(Cover, 199.5f, 146f, BlockTop, 200.5f, 154f, BlockTop + 1.2f);
+        b.Tag = null;
     }
 
     // ---------------------------------------------------------------- W middle: the crater field
@@ -216,11 +221,14 @@ public static partial class AshfallMap
     {
         // Low walls (1.2 m) and collapsed-wall pieces (2.5 m) between the craters, on flat ground only.
         (float X, float Y, int Yaw)[] low = [(-176f, 40f, 0), (-140f, 0f, 6), (-112f, -32f, 0), (-212f, -34f, 6), (-140f, -72f, 0), (-110f, 40f, 6)];
+        b.Tag = "v1cover";
         foreach (var (x, y, yaw) in low)
             if (Flat(x, y, 5f)) b.Oriented(Cover, x, y, BlockTop, BlockTop + 1.2f, 8f, 1f, yaw);
+        b.Tag = "v1rubble";
         (float X, float Y, int Yaw)[] collapsed = [(-176f, 5f, 3), (-145f, -35f, 9), (-186f, 40f, 3), (-115f, 18f, 0), (-115f, -70f, 15)];
         foreach (var (x, y, yaw) in collapsed)
             if (Flat(x, y, 3f)) b.Oriented(Rubble, x, y, BlockTop, BlockTop + 2.5f, 4f, 1f, yaw);
+        b.Tag = null;
     }
 
     // ---------------------------------------------------------------- centre: plaza, small monument, arch
@@ -269,8 +277,10 @@ public static partial class AshfallMap
         b.Stair(-164f, -152f, 0, -1, 6f, 0f, 3f);
         b.Pitched(Floor, new Vector3(-162f, -162f, 3f), 3, 0.3420201433256687f, 0.9396926207859084f, 22f, 4f, 3f);
         // Wall fragments.
+        b.Tag = "v1cover";
         b.Box(Cover, -196f, -150f, BlockTop, -188f, -149f, BlockTop + 1.2f);
         b.Box(Cover, -150f, -196f, BlockTop, -149f, -188f, BlockTop + 1.2f);
+        b.Tag = null;
     }
 
     // ---------------------------------------------------------------- S centre: the spawn compound
@@ -284,11 +294,13 @@ public static partial class AshfallMap
         b.Box(Wall, -36f, -161f, 0f, -8f, -160f, 2.5f);
         b.Box(Wall, 8f, -161f, 0f, 36f, -160f, 2.5f);
         // Short wall fragments (1.2 m) flanking the road north.
+        b.Tag = "v1cover";
         foreach (float x in new[] { -10f, 9f })
         {
             b.Box(Cover, x, -130f, BlockTop, x + 1f, -122f, BlockTop + 1.2f);
             b.Box(Cover, x, -116f, BlockTop, x + 1f, -108f, BlockTop + 1.2f);
         }
+        b.Tag = null;
     }
 
     // ---------------------------------------------------------------- SE: the bunker ruin
@@ -309,7 +321,8 @@ public static partial class AshfallMap
     {
         float Surf(float x, float y) => SurfaceAt(x, y);
         uint seed = 1;
-        void C(float x, float y, int n, float spread, int tall) => b.Cluster(seed++, x, y, n, spread, tall, Surf);
+        int cluster = 0;
+        void C(float x, float y, int n, float spread, int tall) { b.Tag = "rubble:" + cluster++; b.Cluster(seed++, x, y, n, spread, tall, Surf); b.Tag = null; }   // replaced by kit rubble piles
         // Around A and C (28..40 m out), B's six piles (2.5 m tall), then cover through the rest of the city.
         C(-134f, 140f, 8, 6f, 2); C(-190f, 190f, 8, 6f, 2);
         C(132f, 150f, 8, 6f, 2); C(190f, 124f, 8, 6f, 2); C(196f, 170f, 8, 6f, 2);

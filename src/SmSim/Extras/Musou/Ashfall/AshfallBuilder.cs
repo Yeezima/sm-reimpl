@@ -11,6 +11,12 @@ internal sealed class AshfallBuilder
 {
     public readonly List<AshfallPart> Parts = [];
 
+    /// <summary>The family tag every part gets while <see cref="Tag"/> is set (parallel to <see cref="Parts"/>): the v5 families the kit dressing replaces (docs/musou-ashfall-graybox.md "Draft 2 (freestanding kit)") are tagged and removed after the layout is built.</summary>
+    public readonly List<string?> Tags = [];
+
+    /// <summary>The tag given to the parts added from now on (null: part of the graybox that stays).</summary>
+    public string? Tag;
+
     /// <summary>The 2D footprints (min x, min y, max x, max y) of the structures rubble keeps 1.2 m away from.</summary>
     public readonly List<Vector4> Footprints = [];
 
@@ -46,6 +52,7 @@ internal sealed class AshfallBuilder
     void Add(AshfallKind kind, Vector3[] corners, bool footprint, Vector4 area)
     {
         Parts.Add(new AshfallPart(kind, corners));
+        Tags.Add(Tag);
         if (footprint) Footprints.Add(area);
     }
 
@@ -195,6 +202,7 @@ internal sealed class AshfallBuilder
             corners[k * 3 + 2] = new Vector3(cx + c1 * radius, cy + s1 * radius, z);
         }
         Parts.Add(new AshfallPart(AshfallKind.Objective, corners));
+        Tags.Add(null);
     }
 
     /// <summary>
@@ -225,6 +233,7 @@ internal sealed class AshfallBuilder
         for (int i = 0; i < nx; i++) { Skirt(V(i, 0), V(i + 1, 0), -Vector3.UnitY); Skirt(V(i, ny), V(i + 1, ny), Vector3.UnitY); }
         for (int j = 0; j < ny; j++) { Skirt(V(0, j), V(0, j + 1), -Vector3.UnitX); Skirt(V(nx, j), V(nx, j + 1), Vector3.UnitX); }
         Parts.Add(new AshfallPart(kind, t.ToArray()));
+        Tags.Add(Tag);
     }
 
     /// <summary>One triangle wound so that its normal points to <paramref name="outward"/>'s side.</summary>
@@ -232,6 +241,32 @@ internal sealed class AshfallBuilder
     {
         if (Vector3.Dot(Vector3.Cross(b - a, c - a), outward) < 0f) (b, c) = (c, b);
         into.AddRange([a, b, c]);
+    }
+
+    /// <summary>
+    /// Removes every tagged part (the families the kit replaces) and returns them grouped by tag (<c>family</c> or <c>family:id</c>), in first-appearance order. The remaining parts keep their order.
+    /// </summary>
+    public List<AshfallRemoved> Compact()
+    {
+        var groups = new List<AshfallRemoved>();
+        var lists = new Dictionary<string, List<AshfallPart>>();
+        var keep = new List<AshfallPart>();
+        for (int i = 0; i < Parts.Count; i++)
+        {
+            string? tag = Tags[i];
+            if (tag == null) { keep.Add(Parts[i]); continue; }
+            if (!tag.Contains(':')) { groups.Add(new AshfallRemoved(tag, -1, [Parts[i]])); continue; }   // a tag without an id: every part is its own group (low walls)
+            if (!lists.TryGetValue(tag, out var list))
+            {
+                lists[tag] = list = [];
+                int colon = tag.IndexOf(':');
+                groups.Add(new AshfallRemoved(colon < 0 ? tag : tag[..colon], colon < 0 ? -1 : int.Parse(tag[(colon + 1)..]), list));
+            }
+            list.Add(Parts[i]);
+        }
+        Parts.Clear(); Parts.AddRange(keep);
+        Tags.Clear(); Tags.AddRange(keep.Select(_ => (string?)null));
+        return groups;
     }
 
     // ---------------------------------------------------------------- rubble
@@ -288,3 +323,6 @@ internal sealed class AshfallBuilder
         return true;
     }
 }
+
+/// <summary>A group of removed graybox parts (one <c>family:id</c> tag, or one part of an id-less tag): the family, the id and the parts.</summary>
+internal sealed record AshfallRemoved(string Family, int Id, IReadOnlyList<AshfallPart> Parts);

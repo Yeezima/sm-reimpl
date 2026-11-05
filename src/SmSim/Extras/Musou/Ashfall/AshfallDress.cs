@@ -6,7 +6,7 @@ namespace SmSim.Extras.Musou.Ashfall;
 public static partial class AshfallMap
 {
     /// <summary>The dressing pass's version (raised with any change of the items). 2: no AC-031 as a skin, small walls bare, tiered boundary, only Cover and Rubble skins hide their box; 1: the first draft (docs/musou-ashfall-graybox.md, "Kit dressing (draft 1)").</summary>
-    public const uint DressVersion = 2;
+    public const uint DressVersion = 3;
 
     /// <summary>
     /// The level with its kit dressing (deterministic; the same items in the same order on every machine). Server and client both call it, so the Prop items'
@@ -26,7 +26,7 @@ public static partial class AshfallMap
 /// </summary>
 internal static partial class AshfallDressPass
 {
-    /// <summary>How far an item may stick out of its part's box (metres): what you see is what you hit.</summary>
+    /// <summary>The farthest a Skin item may stick out of its part's box (metres); draft 2 has no Skin items.</summary>
     public const float SkinGrow = 0.15f;
 
     /// <summary>The tallest a walk-over Decoration item may be after fitting (metres).</summary>
@@ -34,24 +34,31 @@ internal static partial class AshfallDressPass
 
     static float Yaw(int step) => (((step % 24) + 24) % 24) * (MathF.PI / 12f);
 
-    /// <summary>Runs the pass: adds the props' proxies to <paramref name="b"/> (always) and builds the items (only when <paramref name="withItems"/>).</summary>
-    public static AshfallDressing Run(AshfallBuilder b, ControlPoint[] points, StartArea[] areas, bool withItems)
+    /// <summary>
+    /// Runs the pass: removes the v5 families the kit replaces from <paramref name="b"/>, rebuilds them as freestanding kit structures with their own collision proxies (always) and builds the items
+    /// (only when <paramref name="withItems"/>). Returns the dressing and the features with the kit's perches and the ruins that stayed graybox.
+    /// </summary>
+    public static (AshfallDressing Dressing, AshfallFeatures Features) Run(AshfallBuilder b, ControlPoint[] points, StartArea[] areas, AshfallFeatures features, bool withItems)
     {
-        int grayCount = b.Parts.Count;
+        var removed = b.Compact();
         var placer = new AshfallPlacer(b);
         AshfallMap.Bans(placer, b, points);
-        // The stronghold block (ring, keep, towers, outerworks) is no place for props: nothing may become a foothold on the ring or narrow the gate approach.
+        // The stronghold block (ring, keep, towers, outerworks) is no place for kit structures: nothing may become a foothold on the ring or narrow the gate approach.
         placer.Ban(-84f, 96f, 84f, 224f);
-        var props = Props(b, placer);
-        if (!withItems) return new AshfallDressing([], [], AshfallMap.DressVersion);
+        var kit = new Kit(b, placer);
+        var perches = Perches(kit, removed, features);
+        Ruins(kit, removed, features);
+        Covers(kit, removed);
+        RubblePiles(kit, removed);
+        Landmarks(kit);
+        Scatter(kit, areas);
+        var kept = features.Ruins.Where(r => r.FloorPoint is not null).ToList();
+        var kitFeatures = features with { Platforms = perches, Ruins = kept };
+        if (!withItems) return (new AshfallDressing([], [], AshfallMap.DressVersion), kitFeatures);
         var items = new List<AshfallDressItem>();
-        var hidden = new List<int>();
-        Skins(b.Parts, grayCount, items, hidden);
-        Surfaces(b.Parts, grayCount, items);
-        Decoration(placer, areas, items);
-        items.AddRange(props);
-        hidden.Sort();
-        return new AshfallDressing(items, hidden, AshfallMap.DressVersion);
+        Surfaces(b.Parts, b.Parts.Count, items);
+        items.AddRange(kit.Items);
+        return (new AshfallDressing(items, [], AshfallMap.DressVersion), kitFeatures);
     }
 }
 
@@ -115,4 +122,10 @@ public readonly record struct AshfallBox(float Cx, float Cy, float Z0, float Z1,
             }
         return true;
     }
+}
+
+public static partial class AshfallMap
+{
+    /// <summary>The model's uniform scale at the manifest's proposed size (the smaller of proposed height / raw height and proposed length / raw length); a placed piece is this times 0.85..1.15.</summary>
+    public static float ManifestScale(AshfallKitModel model) => AshfallDressPass.BaseScale(model);
 }
