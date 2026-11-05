@@ -176,6 +176,13 @@ public partial class AshfallKitGallery : Node3D
         _shots.Add(("pointB", B + new Vector3(-40, -40, 14), B));
         _shots.Add(("pointC", C + new Vector3(0, -50, 16), C));
         _shots.Add(("overview", B + new Vector3(0, -230, 150), B));
+        // Ground level (eye about 2.5 m above the surface): what a player sees.
+        _shots.Add(("street_spawn", new Vector3(0, -150, 2.8f), new Vector3(0, -40, 4)));
+        _shots.Add(("street_westavenue", new Vector3(-92, -120, 2.5f), new Vector3(-92, 40, 6)));
+        _shots.Add(("street_plaza", new Vector3(-40, -40, 2.8f), new Vector3(20, 20, 3)));
+        _shots.Add(("street_gate", new Vector3(0, 70, 2.5f), new Vector3(0, 140, 10)));
+        _shots.Add(("street_eastruins", new Vector3(120, -20, 2.8f), new Vector3(170, 20, 6)));
+        _shots.Add(("street_craters", new Vector3(-110, -30, 2.8f), new Vector3(-180, 30, 2)));
     }
 
     /// <summary>A Skin item over every Wall, Cover and Rubble part (its box = the part's bounds, a model of a fitting category), for the measurement only.</summary>
