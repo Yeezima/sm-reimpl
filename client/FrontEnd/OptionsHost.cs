@@ -53,6 +53,7 @@ public sealed partial class OptionsHost : CanvasLayer
         _applied = options;
         var root = Tree?.Root;
         if (root is null) return;
+        SmClient.Customizer.FocusGlow.Ensure(root);   // ui/focus-glow: the focused control's soft white glow, every menu
         if (options.FpsCap != before.FpsCap) Engine.MaxFps = options.FpsCap;
         if (options.RenderScale != before.RenderScale) root.Scaling3DScale = options.RenderScale;
         if (options.Aa != before.Aa && RenderQuality.Choose(options.Aa)) GD.Print(RenderQuality.Apply(root));

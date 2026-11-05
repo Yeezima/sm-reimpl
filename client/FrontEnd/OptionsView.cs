@@ -116,6 +116,9 @@ public sealed partial class OptionsView : UiKit.MenuPage
         Add(aaRow);
         Add(UiKit.FovRow(_services.Settings.FovDegrees, f => _services.UpdateSettings(x => x with { FovDegrees = f })));   // ui/fov-slider (ours)
         Add(new UiKit.MenuSlider("Brightness", GameOptions.MinBrightness, GameOptions.MaxBrightness, GameOptions.BrightnessStep, O.Brightness, Percent, v => Set(x => x with { Brightness = (float)v }), "BrightnessSlider", "A gamma curve over the whole picture. 100% leaves it untouched."));
+        // ui/lighting-presets (the owner's request of 2026-11-06; ours, cosmetic): ten looks over the map's lighting, applied live (LightingGradeView); Faithful Remaster is today's look.
+        Choice("Lighting preset", LightingPresets.Labels.Select(l => l.ToUpperInvariant()).ToArray(), (int)O.Lighting, i => Set(x => x with { Lighting = (LightingPresetChoice)i }),
+            "The look of the light, haze and colour on every map. FAITHFUL REMASTER is the game's own look; the others only change the mood, never what you can see.");
         Choice("Reduce motion", OffOn, _services.Settings.ReduceMotion ? 1 : 0, i => _services.UpdateSettings(x => x with { ReduceMotion = i == 1 }), "No camera moves, turntable or fades in the customizer; no artillery shake in Musou Mode.");
         Choice("Show others' emblems", OffOn, _services.Settings.ShowOthersEmblems ? 1 : 0, i => _services.UpdateSettings(x => x with { ShowOthersEmblems = i == 1 }));
         var renderer = new Control { Name = "RendererRow", MouseFilter = MouseFilterEnum.Ignore };
