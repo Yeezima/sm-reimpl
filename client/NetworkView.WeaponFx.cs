@@ -11,7 +11,8 @@ namespace SmClient;
 /// Melta: the data's <c>meltagun_cylinder_blast_1..4</c> (and the Chaos twins) are a stack of additive <c>rocket_fire</c> rings and beams that read as a purple-blue haze. Owner: "a distinct circular
 /// cone, much less purple/blue fog". The blast is a hollow cone drawn from the muzzle along the shot's path (a rim that is brighter than the middle, hot white-orange near the barrel, orange
 /// farther out, flickering along its length), growing by the cone's own half angle (5 degrees, the data's <c>angle</c> halved, <see cref="MeltaGrowth"/> per metre) from <see cref="MeltaMuzzleRadius"/>, for
-/// <see cref="MeltaSeconds"/>. The muzzle vents, the light and the impacts stay the data's. <c>--old-melta-fx</c> restores the data's blast.
+/// <see cref="MeltaSeconds"/>. The muzzle vents, the light and the impacts stay the data's. Since fx/melta-original (2026-11-05, the owner: "match the original game") the cone
+/// is drawn only with <c>--melta-cone</c>; by default the data's blast plays (<see cref="MeltaConeFx"/>).
 /// </para>
 /// <para>
 /// Plasma gun and plasma cannon shots: the data's ball is additive soft sprites (<c>add_volume_soft_cool</c>) around a point of light, translucent all through. Owner: "a solid-ish, opaque-ish
@@ -33,8 +34,14 @@ public partial class NetworkView
     /// <summary>The plasma ball's opacity (ours: "opaque-ish"), also at its edge.</summary>
     const float PlasmaBallAlpha = 0.94f;
 
-    bool? _oldMeltaFx, _oldPlasmaBall;
-    bool OldMeltaFx => _oldMeltaFx ??= CmdFlag("old-melta-fx");
+    bool? _meltaConeFx, _oldPlasmaBall;
+    /// <summary>
+    /// fx/melta-original (the owner's playtest of 2026-11-05: "change the visual effects of the melta shots to match the original game"): the data's blast
+    /// (<c>meltagun_cylinder_blast_*</c>, played as its tracer like every other weapon's) is the default again; <c>--melta-cone</c> brings back the drawn cone
+    /// of fx/melta-fuzzy (ours). <c>--old-melta-fx</c> is still accepted and means the data's blast (the default now).
+    /// </summary>
+    int _meltaDataBlasts;   // fx/melta-original: the data's blasts played (debug text, test aids)
+    bool MeltaConeFx =>_meltaConeFx ??= CmdFlag("melta-cone") && !CmdFlag("old-melta-fx");
     bool OldPlasmaBall => _oldPlasmaBall ??= CmdFlag("old-plasma-ball");
 
     /// <summary>Whether an effect is the melta's blast cone (the Space Marine's and the Chaos twins, one of four by shot).</summary>

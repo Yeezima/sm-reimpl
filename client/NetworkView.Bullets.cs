@@ -148,8 +148,18 @@ public partial class NetworkView
         float speed = 0f;
         if (headSpeed > 1f) speed = BulletSpeedOverride > 0f ? BulletSpeedOverride : MathF.Max(headSpeed, total / MaxTracerFlight);
         float travel = speed > 0f ? total / speed : 0f;
-        // wfx (owner's item 25): the melta's blast is a distinct cone, not the data's haze of rings (NetworkView.WeaponFx.cs).
-        if (IsMeltaBlast(p.Name) && !OldMeltaFx) { MeltaConeAdd(from, end); BulletDebugAdd(own, rayOrigin, end, from, null); return 0f; }
+        // wfx (owner's item 25): the drawn cone instead of the data's rings, only with --melta-cone since fx/melta-original (NetworkView.WeaponFx.cs).
+        if (IsMeltaBlast(p.Name) && MeltaConeFx) { MeltaConeAdd(from, end); BulletDebugAdd(own, rayOrigin, end, from, null); return 0f; }
+        // fx/melta-original: the data's blast is one effect at the muzzle aimed at the hit point (its wargear entry: attached at fx_muzzle, target "hitpoint"), never
+        // split at the join point like a headless beam (that played its rings, flash and light twice).
+        if (IsMeltaBlast(p.Name))
+        {
+            var blast = fx.Play(p.Name, from, AxesFromY((end - from).Normalized()), scale, target: end, lifetime: p.Lifetime, priority: 1, tint: tint, smokeRein: SmokeRein);
+            if (blast is not null) _fxTracers++;
+            _meltaDataBlasts++;
+            BulletDebugAdd(own, rayOrigin, end, from, null);
+            return 0f;
+        }
         // The lascannon's beam: the owner's hard red beam instead of the data's soft stack of beams, in world space where it was fired (NetworkView.Laser.cs).
         if (IsLaserTracer(p.Name) && !OldLaser)
         {
