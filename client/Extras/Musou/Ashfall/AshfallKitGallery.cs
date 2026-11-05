@@ -28,6 +28,7 @@ public partial class AshfallKitGallery : Node3D
     DirectionalLight3D _sun = null!;
     Godot.Environment _env = null!;
     AshfallKitView? _kit;
+    int _kitItemCount;
     AshfallView? _gray;
     AshfallLevel? _level;
     readonly List<(string Name, Vector3 At, Vector3 Look)> _shots = [];
@@ -167,7 +168,7 @@ public partial class AshfallKitGallery : Node3D
         _gray = AshfallView.Build(level);
         _game.AddChild(_gray);
         AshfallView.ApplyLook(_sun, _env);
-        _kit = new AshfallKitView(level, dressing, _gray);
+        _kit = new AshfallKitView(level, dressing, _gray); _kitItemCount = dressing.Items.Count;
         _game.AddChild(_kit);
         _kit.SetKit(true);
         var c = level.Points.Select(p => p.Center).ToList();
@@ -214,7 +215,7 @@ public partial class AshfallKitGallery : Node3D
     {
         if (_phase == 0)
         {
-            if (_map) { if (_kit!.Library.Pending > 0 || _kit.Library.Loaded + _kit.Library.Failed == 0) return; }
+            if (_map) { if (_kit!.Library.Pending > 0 || _kit.Library.Loaded + _kit.Library.Failed == 0 || _kit.ItemsShown + _kit.ItemsFailed < _kitItemCount) return; }
             else if (_library.Pending > 0) return;
             var lib = _map ? _kit!.Library : _library;
             var assets = lib.All.OrderBy(a => a.Id).ToList();

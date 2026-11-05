@@ -109,6 +109,7 @@ public partial class AshfallKitView : Node3D
         _graybox = graybox;
         AddChild(_remainder);
         AddChild(_items);
+        _covers = CoveredParts(level, dressing);
         BuildRemainder(level);
         ApplyArguments();
         for (int i = 0; i < dressing.Items.Count; i++)
@@ -117,9 +118,10 @@ public partial class AshfallKitView : Node3D
             if (!_itemsByAsset.TryGetValue(id, out var list)) _itemsByAsset[id] = list = [];
             list.Add(i);
         }
-        foreach (var part in dressing.HiddenParts) _partWaiting[part] = 0;
-        foreach (var item in dressing.Items)
-            if (item.Role == AshfallDressRole.Skin && _partWaiting.ContainsKey(item.Part)) _partWaiting[item.Part]++;
+        foreach (var part in HiddenOrProxy()) _partWaiting[part] = 0;
+        for (int i = 0; i < dressing.Items.Count; i++)
+            foreach (var part in _covers[i])
+                if (_partWaiting.ContainsKey(part)) _partWaiting[part]++;
         foreach (var (part, waiting) in _partWaiting.ToArray())
             if (waiting == 0) HidePart(part);
         _startMs = (long)Time.GetTicksMsec();
@@ -144,9 +146,9 @@ public partial class AshfallKitView : Node3D
 
     void BuildRemainder(AshfallLevel level)
     {
-        var hidden = _dressing.HiddenParts.ToHashSet();
-        // Parts drawn as an inset core under their model: skinned walls and every prop's collision proxy (a full-size box would cover the model's relief).
-        var skinned = _dressing.Items.Where(i => i.Role is AshfallDressRole.Skin or AshfallDressRole.Prop && i.Part >= 0).Select(i => i.Part).ToHashSet();
+        var hidden = HiddenOrProxy();
+        // Skinned parts that stay drawn get an inset core under their model; a freestanding prop's collision proxy is hidden once its model shows (it only stands in for the model).
+        var skinned = _dressing.Items.Where(i => i.Role == AshfallDressRole.Skin && i.Part >= 0).Select(i => i.Part).ToHashSet();
         foreach (var group in level.Parts.Select((p, i) => (Part: p, Index: i)).Where(x => x.Part.Kind != AshfallKind.Objective).GroupBy(x => x.Part.Kind))
         {
             var material = new StandardMaterial3D
@@ -192,6 +194,31 @@ public partial class AshfallKitView : Node3D
         return result;
     }
 
+    /// <summary>Per item, the graybox parts its model stands for: a Skin item its part (hidden only when listed in HiddenParts); a Prop item its collision
+    /// proxy parts, which the props pass appends together from <see cref="AshfallDressItem.Part"/> up to the next prop's first part (walkable Floor and Stair
+    /// parts stay drawn: a perch's deck and steps are what the player walks on).</summary>
+    readonly int[][] _covers;
+
+    static int[][] CoveredParts(AshfallLevel level, AshfallDressing dressing)
+    {
+        var firsts = dressing.Items.Where(i => i.Role == AshfallDressRole.Prop && i.Part >= 0).Select(i => i.Part).Distinct().OrderBy(x => x).ToArray();
+        var result = new int[dressing.Items.Count][];
+        for (int i = 0; i < dressing.Items.Count; i++)
+        {
+            var item = dressing.Items[i];
+            if (item.Role == AshfallDressRole.Skin && item.Part >= 0) { result[i] = dressing.HiddenParts.Contains(item.Part) ? [item.Part] : []; continue; }
+            if (item.Role != AshfallDressRole.Prop || item.Part < 0) { result[i] = []; continue; }
+            int k = Array.BinarySearch(firsts, item.Part);
+            int end = k + 1 < firsts.Length ? firsts[k + 1] : level.Parts.Count;
+            result[i] = Enumerable.Range(item.Part, end - item.Part)
+                .Where(p => level.Parts[p].Kind is not (AshfallKind.Floor or AshfallKind.Stair or AshfallKind.Objective)).ToArray();
+        }
+        return result;
+    }
+
+    /// <summary>The parts the kit look hides once their models show.</summary>
+    HashSet<int> HiddenOrProxy() => _covers.SelectMany(c => c).ToHashSet();
+
     void HidePart(int part)
     {
         if (_hiddenPartNodes.TryGetValue(part, out var node)) node.Visible = false;
@@ -228,12 +255,10 @@ public partial class AshfallKitView : Node3D
     public override void _Process(double delta)
     {
         long budgetEnd = (long)Time.GetTicksUsec() + 4000;
-        foreach (var id in _library.TakeReady())
-        {
-            Instantiate(id);
-            if ((long)Time.GetTicksUsec() > budgetEnd) break;
-        }
-        if (!_reported && _library.Pending == 0 && _library.Loaded + _library.Failed > 0)
+        foreach (var id in _library.TakeReady()) _toPlace.Enqueue(id);
+        // Models that arrived but did not fit this frame's budget wait for the next frame (TakeReady drains the library's queue).
+        while (_toPlace.Count > 0 && (long)Time.GetTicksUsec() <= budgetEnd) Instantiate(_toPlace.Dequeue());
+        if (!_reported && _library.Pending == 0 && _toPlace.Count == 0 && _library.Loaded + _library.Failed > 0)
         {
             _reported = true;
             var assets = _library.All.Where(a => a.Ok).ToList();
@@ -244,6 +269,8 @@ public partial class AshfallKitView : Node3D
     }
 
     // Mesh instances of one asset are created once its model arrives; the pieces share the cached meshes.
+    readonly Queue<string> _toPlace = new();
+
     void Instantiate(string id)
     {
         var asset = _library.Get(id);
@@ -264,11 +291,12 @@ public partial class AshfallKitView : Node3D
                 _shownInstances++;
             }
             _shown++;
-            if (item.Role == AshfallDressRole.Skin && _partWaiting.TryGetValue(item.Part, out var waiting))
-            {
-                _partWaiting[item.Part] = --waiting;
-                if (waiting <= 0) HidePart(item.Part);
-            }
+            foreach (var part in _covers[i])
+                if (_partWaiting.TryGetValue(part, out var waiting))
+                {
+                    _partWaiting[part] = --waiting;
+                    if (waiting <= 0) HidePart(part);
+                }
         }
     }
 }
