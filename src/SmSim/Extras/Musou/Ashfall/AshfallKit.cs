@@ -74,6 +74,15 @@ public sealed record AshfallKitModel(string Id, string Name, AshfallKitCategory 
     /// <summary>The axis correction applied to the file's positions (<see cref="RawMin"/>, <see cref="RawMax"/> and the collision are in the corrected frame).</summary>
     public AshfallKitImportFix ImportFix { get; init; }
 
+    /// <summary>
+    /// The walk level of a ground, road or plaza slab in the raw frame (Y): the median height of its up-facing surface, area weighted (measured 2026-11-06 from the files; null when not measured).
+    /// The slabs are drawn with this level on the ground they lie on (their body sinks below it), so a raised border or relief stands proud and the walked surface is the ground. <see cref="WalkY"/> falls back to the top.
+    /// </summary>
+    public float? RawWalkY { get; init; }
+
+    /// <summary>The raw height the dressing lays on the walked surface: <see cref="RawWalkY"/>, else the model's top (the procedural ground tiles have their paved surface at their top, Y = 0).</summary>
+    public float WalkY => RawWalkY ?? RawMax.Y;
+
     /// <summary>Size in metres at <see cref="DesignScale"/> (X, Y up, Z; zero when no scale is recorded).</summary>
     public Vector3 DesignSize => RawSize * DesignScale;
 
@@ -177,27 +186,27 @@ public static class AshfallKit
         X("AC-061", "13B", "high cover wall", AshfallKitCategory.Cover, "13B-high-cover-wall.glb", new(-0.9520f, -0.4149f, -0.0727f), new(0.9490f, 0.4139f, 0.0716f), 22888, "high cover", "high cover, broken wall", 2.655f,
             "ours, estimate: standing Marine cover 2.2 m high (over the 1.6 m eye; the catalogue names no size)"),
         X("AC-062", "14A", "ash fine", AshfallKitCategory.Ground, "14A-ash-fine.glb", new(-0.9520f, -0.1143f, -0.9524f), new(0.9512f, 0.1124f, 0.9510f), 30302, "ground tile", "ash ground slab, fine", 4.203f,
-            "catalogue's 8 m tile side") with { Flags = AshfallKitFlags.SeamsUnverified },
+            "catalogue's 8 m tile side") with { RawWalkY = 0.0841f, Flags = AshfallKitFlags.SeamsUnverified },
         X("AC-063", "14B", "ash compacted", AshfallKitCategory.Ground, "14B-ash-compacted.glb", new(-0.9521f, -0.1260f, -0.9522f), new(0.9515f, 0.1239f, 0.9511f), 30368, "ground tile", "ash ground slab, compacted", 4.203f,
-            "catalogue's 8 m tile side") with { Flags = AshfallKitFlags.SeamsUnverified },
+            "catalogue's 8 m tile side") with { RawWalkY = 0.0894f, Flags = AshfallKitFlags.SeamsUnverified },
         X("AC-064", "14C", "ash small stone", AshfallKitCategory.Ground, "14C-ash-small-stone.glb", new(-0.9520f, -0.1166f, -0.9520f), new(0.9510f, 0.1231f, 0.9510f), 29301, "ground tile", "ash ground slab, small stones", 4.204f,
-            "catalogue's 8 m tile side") with { Flags = AshfallKitFlags.SeamsUnverified },
+            "catalogue's 8 m tile side") with { RawWalkY = 0.0838f, Flags = AshfallKitFlags.SeamsUnverified },
         X("AC-065", "14D", "ash soot patches", AshfallKitCategory.Ground, "14D-ash-soot-patches.glb", new(-0.9515f, -0.1211f, -0.9516f), new(0.9506f, 0.1270f, 0.9507f), 28502, "ground tile", "ash ground slab, soot patches", 4.205f,
-            "catalogue's 8 m tile side") with { Flags = AshfallKitFlags.SeamsUnverified },
+            "catalogue's 8 m tile side") with { RawWalkY = 0.1188f, Flags = AshfallKitFlags.SeamsUnverified },
         X("AC-066", "14E", "ash fractured crust", AshfallKitCategory.Ground, "14E-ash-fractured-crust.glb", new(-0.9519f, -0.1154f, -0.9520f), new(0.9510f, 0.1188f, 0.9519f), 29254, "ground tile", "ash ground slab, fractured crust", 4.202f,
-            "catalogue's 8 m tile side") with { Flags = AshfallKitFlags.SeamsUnverified },
+            "catalogue's 8 m tile side") with { RawWalkY = 0.0938f, Flags = AshfallKitFlags.SeamsUnverified },
         X("AC-067", "14F", "ash windblown", AshfallKitCategory.Ground, "14F-ash-windblown.glb", new(-0.9520f, -0.1522f, -0.9520f), new(0.9510f, 0.1502f, 0.9510f), 30338, "ground tile", "ash ground slab, windblown", 4.204f,
-            "catalogue's 8 m tile side") with { Flags = AshfallKitFlags.SeamsUnverified },
+            "catalogue's 8 m tile side") with { RawWalkY = 0.0766f, Flags = AshfallKitFlags.SeamsUnverified },
         X("AC-068", "15A", "avenue paving", AshfallKitCategory.Ground, "15A-avenue-paving.glb", new(-0.9522f, -0.0311f, -0.4626f), new(0.9512f, 0.0344f, 0.4618f), 23997, "road tile", "avenue road slab", 8.406f,
-            "ours, estimate: 16 m long like the avenue segment AC-033 (16 x 8 m; the catalogue names no size)") with { Flags = AshfallKitFlags.SeamsUnverified },
+            "ours, estimate: 16 m long like the avenue segment AC-033 (16 x 8 m; the catalogue names no size)") with { RawWalkY = 0.0307f, Flags = AshfallKitFlags.SeamsUnverified },
         X("AC-069", "15B", "avenue shell damaged", AshfallKitCategory.Ground, "15B-avenue-shell-damaged.glb", new(-0.9520f, -0.0539f, -0.5464f), new(0.9510f, 0.0567f, 0.5456f), 24083, "road tile", "avenue road slab, shell-damaged (lifted slabs)", 8.408f,
-            "ours, estimate: 16 m long like the avenue segment AC-033 (16 x 8 m; the catalogue names no size)") with { Flags = AshfallKitFlags.SeamsUnverified },
+            "ours, estimate: 16 m long like the avenue segment AC-033 (16 x 8 m; the catalogue names no size)") with { RawWalkY = 0.0203f, Flags = AshfallKitFlags.SeamsUnverified },
         X("AC-070", "16C", "plaza corner", AshfallKitCategory.Ground, "16C-plaza-corner.glb", new(-0.9518f, -0.0815f, -0.9518f), new(0.9509f, 0.0815f, 0.9509f), 23597, "plaza tile", "plaza corner tile, border on two sides", 4.204f,
-            "ours, estimate: the brief's 8 m plaza tiles (the catalogue names no size)") with { Flags = AshfallKitFlags.SeamsUnverified },
+            "ours, estimate: the brief's 8 m plaza tiles (the catalogue names no size)") with { RawWalkY = 0.0806f, Flags = AshfallKitFlags.SeamsUnverified },
         X("AC-071", "16E", "plaza edge", AshfallKitCategory.Ground, "16E-plaza-edge.glb", new(-0.9519f, -0.1623f, -0.9506f), new(0.9510f, 0.1614f, 0.9519f), 25597, "plaza tile", "plaza edge tile, border on one side", 4.204f,
-            "ours, estimate: the brief's 8 m plaza tiles (the catalogue names no size)") with { Flags = AshfallKitFlags.SeamsUnverified | AshfallKitFlags.OrientationCorrected, ImportFix = AshfallKitImportFix.LayFlat },
+            "ours, estimate: the brief's 8 m plaza tiles (the catalogue names no size)") with { RawWalkY = 0.1446f, Flags = AshfallKitFlags.SeamsUnverified | AshfallKitFlags.OrientationCorrected, ImportFix = AshfallKitImportFix.LayFlat },
         X("AC-072", "16I", "plaza inner", AshfallKitCategory.Ground, "16I-plaza-inner.glb", new(-0.9450f, -0.0970f, -0.9517f), new(0.9439f, 0.0965f, 0.9510f), 27826, "plaza tile", "plaza inner tile", 4.205f,
-            "ours, estimate: the brief's 8 m plaza tiles (the catalogue names no size)") with { Flags = AshfallKitFlags.SeamsUnverified },
+            "ours, estimate: the brief's 8 m plaza tiles (the catalogue names no size)") with { RawWalkY = 0.0933f, Flags = AshfallKitFlags.SeamsUnverified },
         X("AC-073", "18A", "boundary flat", AshfallKitCategory.Boundary, "18A-boundary-flat.glb", new(-0.9521f, -0.8324f, -0.1714f), new(0.9510f, 0.8276f, 0.1704f), 23653, "boundary panel", "flat boundary panel, shallow gothic relief", 4.204f,
             "ours, estimate: 8 m panel width on the 8 m grid (the catalogue names no size)") with { Flags = AshfallKitFlags.SeamsUnverified },
         X("AC-074", "18B", "boundary corner", AshfallKitCategory.Boundary, "18B-boundary-corner.glb", new(-0.8291f, -0.9518f, -0.8198f), new(0.8347f, 0.9510f, 0.8312f), 24502, "boundary panel", "boundary corner panel (L)", 4.204f,

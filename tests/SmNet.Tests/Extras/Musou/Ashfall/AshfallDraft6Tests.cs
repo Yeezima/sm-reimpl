@@ -16,6 +16,8 @@ public class AshfallDraft6Tests(ITestOutputHelper output)
 
     static (Vector3 Min, Vector3 Max) Bounds(AshfallPart p) => (p.Corners.Aggregate(Vector3.Min), p.Corners.Aggregate(Vector3.Max));
 
+    static readonly string[] BridgeIds = ["AC-045", "AC-009"], PlatformIds = ["AC-008", "AC-049", "AC-050"];
+
     static bool IsGround(AshfallKind k) => k is AshfallKind.Ground or AshfallKind.Road or AshfallKind.Paving or AshfallKind.Curb or AshfallKind.Boundary or AshfallKind.Objective;
 
     // ---------------------------------------------------------------- bridges (owner: "never floating or not have support under it or directly connected to either narrow end")
@@ -25,16 +27,16 @@ public class AshfallDraft6Tests(ITestOutputHelper output)
     {
         var owner = new Dictionary<int, int>();
         for (int i = 0; i < Dressing.Items.Count; i++) { var (f, n) = Dressing.ItemParts[i]; for (int p = f; p < f + n; p++) owner[p] = i; }
-        var others = Level.Parts.Select((p, k) => (p, k)).Where(x => x.p.Solid && !IsGround(x.p.Kind) && owner.TryGetValue(x.k, out int o) && Dressing.Items[o].Asset != "AC-009").Select(x => Bounds(x.p)).ToList();
+        var others = Level.Parts.Select((p, k) => (p, k)).Where(x => x.p.Solid && !IsGround(x.p.Kind) && owner.TryGetValue(x.k, out int o) && !BridgeIds.Contains(Dressing.Items[o].Asset)).Select(x => Bounds(x.p)).ToList();
         static bool Holds((Vector3 Min, Vector3 Max) b, Vector2 q) => q.X >= b.Min.X - 0.01f && q.X <= b.Max.X + 0.01f && q.Y >= b.Min.Y - 0.01f && q.Y <= b.Max.Y + 0.01f;
         int bridges = 0;
         for (int i = 0; i < Dressing.Items.Count; i++)
         {
             var it = Dressing.Items[i];
-            if (it.Role != AshfallDressRole.Prop || it.Asset != "AC-009") continue;
+            if (it.Role != AshfallDressRole.Prop || !BridgeIds.Contains(it.Asset)) continue;
             bridges++;
             var (first, count) = Dressing.ItemParts[i];
-            var mine = Enumerable.Range(first, count).Select(p => Bounds(Level.Parts[p])).ToList();
+            var mine = Enumerable.Range(first, count).Where(p => Level.Parts[p].Kind != AshfallKind.Stair).Select(p => Bounds(Level.Parts[p])).ToList();
             Assert.NotEmpty(mine);
             var dir = new Vector2(MathF.Cos(it.Yaw), MathF.Sin(it.Yaw));   // the item's local X: its length; the narrow ends at +-Size.X / 2
             var across = new Vector2(-dir.Y, dir.X);
@@ -61,7 +63,8 @@ public class AshfallDraft6Tests(ITestOutputHelper output)
             if (log.Item < 0) Assert.Contains(Dressing.Flags, f => f.StartsWith(name + ": dropped"));
             output.WriteLine($"{name}: {log.Outcome}");
         }
-        output.WriteLine($"{bridges} AC-009 items");
+        output.WriteLine($"{bridges} bridge items ({string.Join(", ", Dressing.Items.Where(i => BridgeIds.Contains(i.Asset)).Select(i => i.Asset))})");
+        Assert.Single(Dressing.Items, i => i.Asset == "AC-045");   // draft 6, phase 2: the keep bridge is the expansion's stone bridge
     }
 
     // ---------------------------------------------------------------- shooting platforms (owner: "more of the shooting platform objects")
@@ -69,11 +72,12 @@ public class AshfallDraft6Tests(ITestOutputHelper output)
     [Fact]
     public void There_are_at_least_45_shooting_platforms_spread_over_the_map_on_free_level_ground()
     {
-        var platforms = Dressing.Items.Select((it, i) => (it, i)).Where(x => x.it.Role == AshfallDressRole.Prop && x.it.Asset == "AC-008").ToList();
-        output.WriteLine($"{platforms.Count} AC-008 items (draft 5: 29)");
+        var platforms = Dressing.Items.Select((it, i) => (it, i)).Where(x => x.it.Role == AshfallDressRole.Prop && PlatformIds.Contains(x.it.Asset)).ToList();
+        output.WriteLine($"{platforms.Count} shooting platforms (draft 5: 29): {string.Join(", ", platforms.GroupBy(x => x.it.Asset).OrderBy(g => g.Key).Select(g => $"{g.Key} x{g.Count()}"))}");
+        Assert.True(platforms.Count(x => x.it.Asset is "AC-049" or "AC-050") > platforms.Count / 2, "the expansion's firing platforms are most of them");
         Assert.True(platforms.Count >= 45, $"{platforms.Count} shooting platforms");
         Assert.True(platforms.Count <= AshfallMap.Draft6PlatformTarget);
-        var added = platforms.Where(x => D.Placements.First(l => l.Item == x.i && l.Asset == "AC-008").Group.StartsWith("extra platform")).ToList();
+        var added = platforms.Where(x => D.Placements.First(l => l.Item == x.i && l.Asset == x.it.Asset).Group.StartsWith("extra platform")).ToList();
         Assert.True(added.Count >= 16, $"{added.Count} platforms added");
         int regions = platforms.Select(x => ((int)MathF.Floor((x.it.Position.X + 240f) / 160f), (int)MathF.Floor((x.it.Position.Y + 240f) / 160f))).Distinct().Count();
         output.WriteLine($"{added.Count} added; the platforms stand in {regions} of the map's nine 160 m blocks");
@@ -84,9 +88,9 @@ public class AshfallDraft6Tests(ITestOutputHelper output)
             Assert.Equal(AshfallMap.BlockTop, it.Position.Z);
             foreach (var (o, j) in platforms.Where(o => o.i != i))
                 Assert.True(Vector2.Distance(new(o.Position.X, o.Position.Y), new(it.Position.X, it.Position.Y)) >= 24f - 1e-3f, $"platform {i} stands within 24 m of platform {j}");
-            output.WriteLine($"  added at ({it.Position.X:0}, {it.Position.Y:0}): {it.Size.X:0.0} x {it.Size.Y:0.0} x {it.Size.Z:0.0} m, {D.Placements.First(l => l.Item == i && l.Asset == "AC-008").Outcome}");
+            output.WriteLine($"  {it.Asset} added at ({it.Position.X:0}, {it.Position.Y:0}): {it.Size.X:0.0} x {it.Size.Y:0.0} x {it.Size.Z:0.0} m, {D.Placements.First(l => l.Item == i && l.Asset == it.Asset).Outcome}");
         }
-        Assert.Contains(Dressing.Flags, f => f.StartsWith("draft 6: ") && f.Contains("AC-008 shooting platforms added"));
+        Assert.Contains(Dressing.Flags, f => f.StartsWith("draft 6: ") && f.Contains("shooting platforms added"));
     }
 
     // ---------------------------------------------------------------- collision = the drawn model's fitted boxes (the lead's check of the owner's Shift+F8 screenshot)
@@ -145,8 +149,8 @@ public class AshfallDraft6Tests(ITestOutputHelper output)
         output.WriteLine(growth);
         foreach (var l in D.Placements.Where(l => l.Outcome.StartsWith("dropped: grown"))) Assert.Contains(l.Group, growth);
         foreach (var l in D.Placements.Where(l => l.Outcome.Contains("moved"))) output.WriteLine($"{l.Group} ({l.Family}): {l.Asset} {l.Outcome}");
-        // The surface tiles are draft 5's (the ground, roads and plaza do not grow): the same 220 tiles, first in the item list.
-        Assert.Equal(220, Dressing.Items.Count(i => i.Role == AshfallDressRole.Surface));
+        // The surface tiles do not grow (the ground, roads and plaza keep their size): draft 5's 220 tiles plus, since phase 2, 16 ash slabs on the perimeter road's four bare corners; first in the item list.
+        Assert.Equal(236, Dressing.Items.Count(i => i.Role == AshfallDressRole.Surface));
         // The stronghold's leg walls and gate keep their length along the leg (a breach never closes): never longer than their v5 segment.
         var structureOf = new Dictionary<int, AshfallStructure>();
         int k = 0;
@@ -158,6 +162,44 @@ public class AshfallDraft6Tests(ITestOutputHelper output)
             var st = structureOf[l.Item]; var w = Dressing.Items[l.Item];
             float along = MathF.Max(st.Max.X - st.Min.X, st.Max.Y - st.Min.Y);
             Assert.True(w.Size.X <= along + 0.01f, $"{l.Group}: {w.Size.X:0.0} m along a {along:0.0} m segment");
+        }
+    }
+
+    // ---------------------------------------------------------------- the Meshy expansion placed (phase 2; owner: "Ensure that the new ashfall models are utilized in the next draft")
+
+    [Fact]
+    public void The_Meshy_expansion_models_are_placed_and_their_QA_flags_hold()
+    {
+        var expansion = AshfallKit.Models.Where(m => m.SourceId.Length > 0).ToList();
+        var uses = Dressing.Items.GroupBy(i => i.Asset).ToDictionary(g => g.Key, g => g.Count());
+        foreach (var m in expansion) output.WriteLine($"{m.Id} ({m.SourceId}, {m.Family}): {uses.GetValueOrDefault(m.Id)}");
+        int used = expansion.Count(m => uses.ContainsKey(m.Id));
+        output.WriteLine($"{used} of {expansion.Count} expansion models placed; {Dressing.Items.Count(i => AshfallKit.Get(i.Asset).SourceId.Length > 0)} of {Dressing.Items.Count} items");
+        Assert.True(used >= 28, $"only {used} expansion models are placed");
+        // The purpose-made pieces the owner named all stand in the level.
+        foreach (var id in new[] { "AC-041", "AC-042", "AC-044", "AC-045", "AC-046", "AC-049", "AC-050", "AC-051", "AC-052", "AC-053", "AC-076" }) Assert.True(uses.ContainsKey(id), id + " is not placed");
+        // TraversalQuarantined (08H, 03): only as backdrop blocks outside the boundary, no collision.
+        var owner = new Dictionary<int, int>();
+        for (int i = 0; i < Dressing.Items.Count; i++)
+        {
+            var it = Dressing.Items[i];
+            var m = AshfallKit.Get(it.Asset);
+            if (!m.Flags.HasFlag(AshfallKitFlags.TraversalQuarantined)) continue;
+            Assert.Equal(0, Dressing.ItemParts[i].Count);
+            Assert.Equal("backdrop", D.Placements.First(l => l.Item == i && l.Asset == it.Asset).Family);
+        }
+        // The boundary stays the client's flat wall: no boundary panel is placed (TerminationOnly 18C included).
+        Assert.DoesNotContain(Dressing.Items, i => AshfallKit.Get(i.Asset).Category == AshfallKitCategory.Boundary);
+        // The ground slabs are surfaces (no collision); AC-071 is one, drawn with its lay-flat import fix by the client.
+        Assert.All(Dressing.Items.Where(i => AshfallKit.Get(i.Asset).Category == AshfallKitCategory.Ground), i => Assert.Equal(AshfallDressRole.Surface, i.Role));
+        Assert.Equal(AshfallKitImportFix.LayFlat, AshfallKit.Get("AC-071").ImportFix);
+        // RoofAccessUnverified (02, 10): no spawn or capture point stands up on one of them.
+        foreach (var it in Dressing.Items.Where(i => AshfallKit.Get(i.Asset).Flags.HasFlag(AshfallKitFlags.RoofAccessUnverified)))
+        {
+            float s = MathF.Sin(it.Yaw), c = MathF.Cos(it.Yaw);
+            bool Over(Vector3 q) { float dx = q.X - it.Position.X, dy = q.Y - it.Position.Y; return MathF.Abs(c * dx + s * dy) <= it.Size.X / 2f && MathF.Abs(-s * dx + c * dy) <= it.Size.Y / 2f && q.Z > it.Position.Z + 1f; }
+            Assert.DoesNotContain(Level.Spawns, Over);
+            Assert.DoesNotContain(Level.Points, p => Over(p.Center));
         }
     }
 }

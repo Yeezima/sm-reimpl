@@ -39,7 +39,7 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
     [Fact]
     public void The_level_is_the_draft_6_level_and_the_dressing_is_deterministic()
     {
-        Assert.Equal(10u, AshfallMap.Version);
+        Assert.Equal(11u, AshfallMap.Version);
         Assert.Equal(5u, AshfallMap.GrayboxVersion);
         Assert.Equal(AshfallDraft5Tests.PinnedLevelHash, Level.Hash);
         Assert.Equal(AshfallMap.Build().Hash, Level.Hash);
@@ -52,7 +52,7 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
         Assert.Equal(Dressing.ItemParts, fresh.Dressing.ItemParts);
         Assert.Equal(Dressing.Flags, fresh.Dressing.Flags);
         Assert.Equal(AshfallMap.DressVersion, Dressing.Version);
-        Assert.Equal(8u, AshfallMap.DressVersion);
+        Assert.Equal(9u, AshfallMap.DressVersion);
         long tris = Dressing.Items.Sum(i => (long)AshfallKit.Get(i.Asset).Triangles);
         output.WriteLine($"{Dressing.Items.Count} items, {tris:N0} model triangles at full detail, {Dressing.HiddenParts.Count} hidden parts, {Dressing.Structures!.Count} structures, {Level.Parts.Count} parts, hash {Level.Hash:X16}");
         foreach (var g in Dressing.Items.GroupBy(i => i.Role).OrderBy(g => g.Key)) output.WriteLine($"{g.Key,-10} {g.Count(),5} items, {g.Sum(i => (long)AshfallKit.Get(i.Asset).Triangles),12:N0} model triangles");
@@ -99,15 +99,18 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
     public void Surfaces_lie_on_the_road_cells_or_on_a_road_or_paving_top_and_never_over_a_block()
     {
         var all = Of(AshfallDressRole.Surface).ToList();
-        var surfaces = all.Where(i => i.Asset != "AC-037").ToList();
+        var surfaces = all.Where(i => i.Asset != "AC-076").ToList();
         Assert.InRange(surfaces.Count, 150, 400);   // the ground tiles are draw-call heavy: a few hundred at most
         var tops = Level.Parts.Where(p => p.Kind is AshfallKind.Road or AshfallKind.Paving).Select(p => (Box: AshfallBox.Of(p)!.Value, p)).ToList();
         Assert.Equal(4, tops.Count);
         foreach (var it in surfaces)
         {
-            float top = it.Position.Z + it.Size.Z - 0.03f;   // the surface it lies on: the tile is lifted 3 cm above it (AshfallDress.Surfaces Lift)
-            Assert.True(it.Asset is "AC-033" or "AC-034" or "AC-035" or "AC-036" or "AC-038", it.Asset);
-            Assert.Equal(AshfallKit.Get(it.Asset).RawSize.Y, it.Size.Z, 1e-4f);
+            // The surface it lies on: the tile's walk level (the first library's tiles: their top; the expansion's slabs: the median of their up-facing surface) is lifted 3 cm above it (AshfallDress.Surfaces Lift).
+            var m = AshfallKit.Get(it.Asset);
+            float top = it.Position.Z + (m.WalkY - m.RawMin.Y) / m.RawSize.Y * it.Size.Z - 0.03f;
+            Assert.True(it.Asset is "AC-033" or "AC-034" or "AC-035" or "AC-062" or "AC-063" or "AC-064" or "AC-065" or "AC-066" or "AC-067" or "AC-068" or "AC-069" or "AC-070" or "AC-071" or "AC-072", it.Asset);
+            // the first library's tiles keep their raw height in metres; the expansion's slabs their design thickness (the relief at its real height)
+            Assert.Equal(m.SourceId.Length == 0 ? m.RawSize.Y : m.RawSize.Y * m.DesignScale, it.Size.Z, 1e-4f);
             var r = Footprint(it);
             if (MathF.Abs(top) < 1e-4f)
             {
@@ -121,8 +124,9 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
                 Assert.True(tops.Any(t => MathF.Abs(t.Box.Z1 - top) < 1e-3f && Gap(r, Bounds(t.Box)) < 1e-3f && Within(r, Bounds(t.Box))), $"{it.Asset} at top {top} is on no road or paving top");
             }
         }
-        // The objective plaza centre tile is used once, under A, squashed so its raised dais stays under the step height; B's centre stays flat.
-        var dais = Assert.Single(all, i => i.Asset == "AC-037");
+        // Draft 6, phase 2: the expansion's round objective dais is used once, under A, squashed so it stays under the step height; B's centre stays flat. AC-037 is no longer used.
+        Assert.DoesNotContain(all, i => i.Asset == "AC-037");
+        var dais = Assert.Single(all, i => i.Asset == "AC-076");
         Assert.Equal(Level.Points[0].Center.X, dais.Position.X);
         Assert.Equal(Level.Points[0].Center.Y, dais.Position.Y);
         Assert.InRange(dais.Position.Z + dais.Size.Z - AshfallMap.BlockTop, 0f, 0.4f);
@@ -133,14 +137,14 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
     {
         Assert.Equal(1u, AshfallMap.VariationSeed);
         int Step(AshfallDressItem it) => (int)MathF.Round(it.Yaw / (MathF.PI / 12f)) % 24;
-        var surfaces = Of(AshfallDressRole.Surface).Where(i => i.Asset != "AC-037").ToList();
+        var surfaces = Of(AshfallDressRole.Surface).Where(i => i.Asset != "AC-076").ToList();
         Assert.All(surfaces, i => Assert.Equal(0, ((Step(i) % 6) + 6) % 6));   // quarter turns only, never a 15 degree turn
         // Straight tiles: half turns only (the seams stay valid), and the seed does vary them.
-        var straight = surfaces.Where(i => i.Asset == "AC-033").ToList();
+        var straight = surfaces.Where(i => i.Asset is "AC-033" or "AC-068" or "AC-069").ToList();
         Assert.Equal([0, 6, 12, 18], straight.Select(Step).Distinct().Order().ToArray());
         foreach (var grp in straight.GroupBy(i => Step(i) % 12 == 0)) Assert.True(grp.Count() > 10);
         // Edge and corner tiles never get a free turn: the plaza rim tiles face outward, so only inside cells (neither on the rim) vary.
-        var edges = surfaces.Where(i => i.Asset == "AC-038").Select(Step).OrderBy(x => x).ToArray();
+        var edges = surfaces.Where(i => i.Asset == "AC-070").Select(Step).OrderBy(x => x).ToArray();
         Assert.Equal([0, 6, 12, 18], edges);   // the four corners, each a different fixed turn
         // T-junctions are never turned by the seed: eight of them, each pointing its stem away from the perimeter (four per axis, two turns each).
         Assert.Equal(8, surfaces.Count(i => i.Asset == "AC-034"));

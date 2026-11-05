@@ -20,10 +20,10 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
     static AshfallDressing Dressing => D.Dressing;
 
     /// <summary>
-    /// The level's hash (version 10, draft 6; draft 5's version 9 was 0x6A803A7703280536). A change of the pass, the pools, the fitted boxes or the generator without a new version fails here, not at a client's handshake.
+    /// The level's hash (version 11, draft 6 with the Meshy expansion placed; version 10, draft 6 before it, was 0xC1D1D8A1118A55AF; draft 5's version 9 was 0x6A803A7703280536). A change of the pass, the pools, the fitted boxes or the generator without a new version fails here, not at a client's handshake.
     /// The one level pin: after a refit of the collision (<c>AshfallKitCollision.g.cs</c>) take the new value from this test's failure.
     /// </summary>
-    public const ulong PinnedLevelHash = 0xC1D1D8A1118A55AFUL;
+    public const ulong PinnedLevelHash = 0xE72074A49D4449D9UL;
 
     /// <summary>The v5 graybox's hash (pinned since pass 3, and again by the draft 3 and 5 work).</summary>
     const ulong PinnedGrayboxHash = 0xAE096E323BB5A4D3UL;
@@ -40,7 +40,7 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
         var gb = AshfallMap.BuildGraybox();
         Assert.Equal(PinnedGrayboxHash, gb.Hash);
         Assert.Equal(5u, AshfallMap.GrayboxVersion);
-        Assert.Equal(10u, AshfallMap.Version);
+        Assert.Equal(11u, AshfallMap.Version);
         Assert.NotEqual(gb.Hash, Level.Hash);
         Assert.Equal(PinnedLevelHash, Level.Hash);
         Assert.Equal(AshfallContent.ToMapContent(Level).Hash, Level.Hash);
@@ -162,9 +162,10 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
             float moved = 0f;
             int at = log.Outcome.IndexOf("moved ", StringComparison.Ordinal);
             if (at >= 0) moved = float.Parse(log.Outcome[(at + 6)..].Split(' ')[0], System.Globalization.CultureInfo.InvariantCulture);
-            float tol = 1.5f + moved + 0.02f;
-            var mid = (st.Min + st.Max) / 2f; var half = (st.Max - st.Min) / 2f * 1.5f;
             float s = MathF.Sin(it.Yaw), c = MathF.Cos(it.Yaw);
+            // the placer's 1 m margin is along the item's own axes (grown 1.5x): turned by the yaw it reaches |cos| + |sin| times as far along the world axes (phase 2: a square model on a small turned pile showed it)
+            float tol = 1.5f * (MathF.Abs(c) + MathF.Abs(s)) + moved + 0.02f;
+            var mid = (st.Min + st.Max) / 2f; var half = (st.Max - st.Min) / 2f * 1.5f;
             float ex = MathF.Abs(c) * it.Size.X / 2f + MathF.Abs(s) * it.Size.Y / 2f, ey = MathF.Abs(s) * it.Size.X / 2f + MathF.Abs(c) * it.Size.Y / 2f;
             Assert.True(it.Position.X - ex >= mid.X - half.X - tol && it.Position.X + ex <= mid.X + half.X + tol && it.Position.Y - ey >= mid.Y - half.Y - tol && it.Position.Y + ey <= mid.Y + half.Y + tol,
                 $"{it.Asset} item {props[k].i} ({log.Group}) leaves its structure's bounds grown 1.5x");
@@ -270,18 +271,22 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
         }
         // One asset each: gate, four corners, keep, keep tower, two stair towers, three terraces, two east outer walls.
         var log = D.Placements;
-        Assert.Single(log, l => l.Group == "ring gate" && l.Item >= 0 && l.Asset == "AC-006");
+        Assert.Single(log, l => l.Group == "ring gate" && l.Item >= 0 && l.Asset == "AC-042");   // draft 6, phase 2: the expansion's gatehouse
         Assert.Equal(4, log.Count(l => l.Group.StartsWith("ring corner") && l.Item >= 0 && l.Asset == "AC-003"));
         Assert.Single(log, l => l.Group == "keep" && l.Item >= 0);
         Assert.Single(log, l => l.Group == "Keep tower" && l.Item >= 0);
-        Assert.Equal(2, log.Count(l => l.Group.StartsWith("Stair tower") && l.Item >= 0 && l.Asset is "AC-007" or "AC-010"));
-        Assert.Equal(3, log.Count(l => l.Group.StartsWith("terrace") && l.Item >= 0 && l.Asset == "AC-008"));
-        Assert.Equal(2, log.Count(l => l.Group.StartsWith("east outer wall") && l.Item >= 0 && l.Asset == "AC-001"));
-        Assert.Contains(Dressing.Flags, f => f.StartsWith("the keep: no keep asset"));
+        Assert.Equal(2, log.Count(l => l.Group.StartsWith("Stair tower") && l.Item >= 0 && l.Asset == "AC-046"));   // the expansion's freestanding stair
+        Assert.Equal(3, log.Count(l => l.Group.StartsWith("terrace") && l.Item >= 0 && l.Asset is "AC-008" or "AC-049" or "AC-050"));
+        Assert.Equal(2, log.Count(l => l.Group.StartsWith("east outer wall") && l.Item >= 0 && l.Asset is "AC-041" or "AC-001"));
+        Assert.Single(log, l => l.Group == "keep" && l.Asset == "AC-044");   // the expansion's gothic hall keep: the library's first keep asset
+        Assert.Contains(Dressing.Flags, f => f.StartsWith("the keep: the expansion's gothic hall keep"));
+        // The curtain wall (AC-041, intact ends) is never a breach end: on a leg it is only ever a wall's middle, between broken pieces where the wall meets a breach.
+        foreach (var l in log.Where(l => l.Family == "stronghold-wall" && l.Asset == "AC-041")) Assert.EndsWith(" curtain", l.Group);
+        foreach (var l in log.Where(l => l.Family == "stronghold-wall" && (l.Group.EndsWith(" end") || l.Group.EndsWith(" end 2")))) Assert.NotEqual("AC-041", l.Asset);
         // Each leg's walls are 14..28 m of standalone ruins (the last may be longer).
         foreach (var l in log.Where(l => l.Family == "stronghold-wall")) Assert.True(l.Item >= 0);
         // The gate segment: the free width through it is reported (the fit decides).
-        var gate = solids.Where(b => b.Min.Y < 116f && b.Max.Y > 112f && b.Min.X < 12f && b.Max.X > -12f).OrderBy(b => b.Min.X).ToList();
+        var gate = solids.Where(b => b.Min.Y < 116f && b.Max.Y > 112f && b.Min.X < 12f && b.Max.X > -12f && b.Max.Z > 0.4f + 1e-3f).OrderBy(b => b.Min.X).ToList();   // a floor or sill under the 0.4 m step is walked over
         float free = 0f, edge = -12f;
         foreach (var b in gate) { free = MathF.Max(free, b.Min.X - edge); edge = MathF.Max(edge, b.Max.X); }
         free = MathF.Max(free, 12f - edge);
@@ -457,19 +462,20 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
             report.AppendLine($"  {pl.Name} ({pl.At.X:0}, {pl.At.Y:0}, {pl.At.Z:0.0}): {what}");
         }
         report.AppendLine($"v5 walkable places: {places.Count}, kept {kept}, changed {changed}, lost {lost}");
-        // Draft 6: the decks of the AC-008 platforms (the added ones listed): a reached node over the item's footprint at 1 m or more above its foot.
+        // Draft 6: the decks of the shooting platforms (AC-008, and since phase 2 the expansion's AC-049 and AC-050; the added ones listed): a reached node over the item's footprint at 1 m or more above its foot.
         int decks = 0, deckTotal = 0, addedDecks = 0, addedTotal = 0;
         for (int i = 0; i < Dressing.Items.Count; i++)
         {
             var it = Dressing.Items[i];
-            if (it.Role != AshfallDressRole.Prop || it.Asset != "AC-008") continue;
+            if (it.Role != AshfallDressRole.Prop || it.Asset is not ("AC-008" or "AC-049" or "AC-050")) continue;
             bool added = D.Placements.First(l => l.Item == i && l.Asset == it.Asset).Group.StartsWith("extra platform");
             float r = MathF.Min(it.Size.X, it.Size.Y) / 2f;
             var on = Near(it.Position, r).Where(q => q.Z >= it.Position.Z + 1f).ToList();
             deckTotal++; if (on.Count > 0) decks++;
-            if (added) { addedTotal++; if (on.Count > 0) addedDecks++; report.AppendLine($"  added platform at ({it.Position.X:0}, {it.Position.Y:0}), {it.Size.Z:0.0} m tall: deck {(on.Count > 0 ? $"reached at {on.Max(q => q.Z):0.0} m" : "not reached")}"); }
+            if (added) { addedTotal++; if (on.Count > 0) addedDecks++; }
+            { report.AppendLine($"  {(added ? "added" : "grown")} {it.Asset} at ({it.Position.X:0}, {it.Position.Y:0}), {it.Size.Z:0.0} m tall: deck {(on.Count > 0 ? $"reached at {on.Max(q => q.Z):0.0} m" : "not reached")}"); }
         }
-        report.AppendLine($"AC-008 platforms with a deck reached on foot: {decks} of {deckTotal} (added in draft 6: {addedDecks} of {addedTotal})");
+        report.AppendLine($"shooting platforms with a deck reached on foot: {decks} of {deckTotal} (added in draft 6: {addedDecks} of {addedTotal})");
         // Route clearance: the free width across the walk graph's routes from the Space Marines' start to A, B, C and the Chaos courtyard.
         var obstacles = Level.Parts.Where(p => p.Solid && !IsGround(p.Kind)).Select(Bounds).ToList();
         float Free(Vector3 at, Vector2 dir)

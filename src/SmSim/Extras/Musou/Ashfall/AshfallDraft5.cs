@@ -38,7 +38,7 @@ internal static partial class AshfallDraft5Pass
         public readonly Dictionary<string, int> Uses = [];
         public readonly Dictionary<string, int> DroppedBoxes = [];
         public readonly List<string> Dropped = [];
-        public int RampsKept, RampsDropped;
+        public int RampsKept, RampsDropped, RampsMisfit;
         public uint Seed;
         public uint Counter;
         public List<Vector4> BannedRects = [];
@@ -47,7 +47,9 @@ internal static partial class AshfallDraft5Pass
         /// <summary>Draft 6: the bridges, placed last against what stands at their ends (name, v5 bounds, v5 deck top).</summary>
         public readonly List<(string Name, Vector3 Min, Vector3 Max, float Deck)> Bridges = [];
         /// <summary>Draft 6: items moved back from a protected place after the growth, and items left out because they could not fit.</summary>
-        public int Moved, LeftOut, NarrowKept, Spread;
+        public int Moved, LeftOut, NarrowKept, Spread, NarrowDropped;
+        /// <summary>Phase 2: the last growth failed because a small piece could not settle its narrow gaps (left out, not a protected place).</summary>
+        public bool NarrowDrop;
         /// <summary>Draft 6: the footprints of the placed boxes in the walking band (bottom under 2.5 m, top over 0.4 m: what the route check counts as in the way) by 8 m cell, for the narrow-gap rule.</summary>
         public readonly Dictionary<(int, int), List<(int Item, Vector4 Rect)>> Low = [];
         public readonly List<string> LeftOutNames = [];
@@ -64,6 +66,8 @@ internal static partial class AshfallDraft5Pass
         public bool Required;
         /// <summary>Draft 6: the length along the item's local X keeps its draft-5 value when the item grows (the stronghold's leg walls and gate: a breach never closes).</summary>
         public bool KeepLength;
+        /// <summary>Draft 6, phase 2: a walkable model on a required route (the gatehouse's passage) grows no taller than its walk cell allows, so its floor's quantised sill stays under the 0.4 m step.</summary>
+        public bool KeepWalkCell;
     }
 
     // ---------------------------------------------------------------- entry
@@ -83,13 +87,13 @@ internal static partial class AshfallDraft5Pass
         AshfallDressPass.SurfaceItems(g5.Parts, items);
         foreach (var it in items) { c.Items.Add(it); c.ItemParts.Add((0, 0)); }
 
-        // Objective A: capture point on the ground, the objective plaza centre tile as a walk-over dais (visual).
+        // Objective A: capture point on the ground; draft 6: the expansion's round objective dais (AC-076, made for it) as a walk-over dais (visual), in place of draft 5's squashed plaza centre tile (AC-037).
         var a = g5.Points[0];
         var points = g5.Points.ToList();
         points[0] = a with { Center = new Vector3(a.Center.X, a.Center.Y, AshfallMap.BlockTop) };
-        c.Items.Add(new AshfallDressItem("AC-037", new Vector3(a.Center.X, a.Center.Y, AshfallMap.BlockTop - 0.3f * 0.25f + 0.03f), 0f, new Vector3(16f, 16f, 1.5f * 0.25f), false, AshfallDressRole.Surface, -1));
+        c.Items.Add(new AshfallDressItem("AC-076", new Vector3(a.Center.X, a.Center.Y, AshfallMap.BlockTop + 0.02f), 0f, new Vector3(DaisSize, DaisSize, DaisHeight), false, AshfallDressRole.Surface, -1));
         c.ItemParts.Add((0, 0));
-        c.Flags.Add("A: the plinth with its four stairs is gone; the control point stands on the ground (z 0.25) on AC-037 squashed to a 0.3 m walk-over dais (visual only)");
+        c.Flags.Add($"A: the plinth with its four stairs is gone; the control point stands on the ground (z 0.25) on AC-076, the round objective dais, {DaisSize:0} m across squashed to a {DaisHeight:0.0#} m walk-over dais (visual only; its 1 m of steps would put collision in the capture zone)");
 
         // The tagged groups, in creation order.
         var partGroup = gb.PartGroup!;
@@ -120,10 +124,10 @@ internal static partial class AshfallDraft5Pass
         ExtraPlatforms(c);
         foreach (var (name, mn, mx, deck) in c.Bridges) Bridge6(c, name, mn, mx, deck);
 
-        c.Flags.Add($"draft 6 growth (every placed object 1.5x its draft-5 size): {c.Moved} items moved ({c.Spread} of them to open a gap under {MinGap} m to a neighbour), {c.NarrowKept} kept a narrow gap they could not open, {c.LeftOut} left out{(c.LeftOut > 0 ? ": " + string.Join(", ", c.LeftOutNames.Take(12)) : "")}");
+        c.Flags.Add($"draft 6 growth (every placed object 1.5x its draft-5 size): {c.Moved} items moved ({c.Spread} of them to open a gap under {MinGap} m to a neighbour), {c.NarrowKept} kept a narrow gap they could not open, {c.NarrowDropped} small pieces (cover, rubble) left out rather than leave a gap under {MinGap} m, {c.LeftOut} left out{(c.LeftOut > 0 ? ": " + string.Join(", ", c.LeftOutNames.Take(12)) : "")}");
         if (c.Dropped.Count > 0)
             c.Flags.Add($"{c.Dropped.Count} structures dropped: they stood in a lane, a start area, a capture zone's 6 m ring, on a spawn marker or within 2 m of the boundary (the boundary-foot walls all); first: {string.Join(", ", c.Dropped.Take(6))}");
-        c.Flags.Add($"walkable ramps (stairs and rubble runs found in the top heightfields of the walkable models): {c.RampsKept} kept as sloped wedges, {c.RampsDropped} dropped (scaled slope over {MaxRampDegrees:0} degrees)");
+        c.Flags.Add($"walkable ramps (stairs and rubble runs found in the top heightfields of the walkable models): {c.RampsKept} kept as sloped wedges, {c.RampsDropped} dropped (scaled slope over {MaxRampDegrees:0} degrees, or since draft 6 phase 2 off the item's stepped tops or outside its box: {c.RampsMisfit})");
         // Review flags for models whose collision wants a manual clean-up.
         foreach (var (id, n) in c.Uses.OrderBy(k => k.Key, StringComparer.Ordinal))
             if (AshfallKitCollision.NeedsCleanup(id)) c.Flags.Add($"{id} used {n}x: collision needs manual clean-up ({AshfallKitCollision.CleanupReason(id)})");
@@ -183,29 +187,62 @@ internal static partial class AshfallDraft5Pass
 
     // ---------------------------------------------------------------- pools
 
-    static readonly string[] Shell = ["AC-005", "AC-003", "AC-004", "AC-030"], Facade = ["AC-004", "AC-001", "AC-006", "AC-002"], Tower = ["AC-010", "AC-005", "AC-030"],
-        Cover = ["AC-011", "AC-017", "AC-014", "AC-018", "AC-012"], Landmark = ["AC-027", "AC-028", "AC-029", "AC-031", "AC-032", "AC-013"],
-        RubbleLow = ["AC-020", "AC-024", "AC-025"], RubbleMid = ["AC-019", "AC-021", "AC-018"], RubbleTall = ["AC-023", "AC-021", "AC-019"];
+    // Draft 6 (the Meshy expansion, phase 2): the purpose-made models join the pools and are preferred where they fit (<see cref="Preferred"/>). AC-043 and AC-048 (traversal quarantined) stand only in the
+    // backdrop pool (no collision); AC-041 (intact ends) is never a breach end; the boundary panels and the ground slabs are not Props (the slabs are surfaces, the boundary stays the client's flat wall).
+    static readonly string[] Shell = ["AC-051", "AC-005", "AC-003", "AC-004", "AC-030"], Facade = ["AC-041", "AC-004", "AC-001", "AC-006", "AC-002"], Tower = ["AC-052", "AC-044", "AC-010", "AC-005", "AC-030"],
+        Cover = ["AC-054", "AC-055", "AC-056", "AC-057", "AC-058", "AC-059", "AC-011", "AC-017", "AC-014", "AC-018", "AC-012"], HighCover = ["AC-060", "AC-061", "AC-018", "AC-014"],
+        Landmark = ["AC-027", "AC-028", "AC-029", "AC-031", "AC-032", "AC-013"],
+        RubbleLow = ["AC-020", "AC-024", "AC-025"], RubbleMid = ["AC-053", "AC-019", "AC-021", "AC-018"], RubbleTall = ["AC-053", "AC-023", "AC-021", "AC-019"],
+        Platform = ["AC-049", "AC-050", "AC-008"];
+
+    /// <summary>The shooting platforms: the first library's AC-008 and the expansion's low and medium firing platforms (bare edges: nothing is added to them).</summary>
+    internal static readonly string[] PlatformIds = ["AC-008", "AC-049", "AC-050"];
+
+    /// <summary>The bridges, in the order a span tries them: the expansion's stone bridge on arches (AC-045), then the first library's walkway span (AC-009).</summary>
+    internal static readonly string[] BridgeIds = ["AC-045", "AC-009"];
+
+    /// <summary>A v5 wall this low is a cover wall: the expansion's high cover (AC-061 broken wall, AC-060 buttress, 2.2 m at design) joins its pool (ours).</summary>
+    const float LowWallHeight = 2.5f;
+
+    static readonly string[] LowWall = ["AC-061", "AC-060", "AC-041", "AC-004", "AC-001", "AC-006", "AC-002"];
+
+    /// <summary>The cover height over which a v5 cover is high cover (the expansion's 2.2 m pieces; ours: over the 1.6 m eye).</summary>
+    const float HighCoverHeight = 1.6f;
+
+    /// <summary>Objective A's dais (AC-076, visual only): its diameter and its squashed height (ours; draft 5's AC-037 dais was 16 m and 0.3 m).</summary>
+    internal const float DaisSize = 16f, DaisHeight = 0.3f;
 
     static string[] PoolOf(string family, string name, float height) => family switch
     {
         "shell" or "shell2" or "corner" => Shell,
-        "facade" or "wall" => Facade,
+        "facade" => Facade,
+        "wall" => height <= LowWallHeight ? LowWall : Facade,
         "tower" => Tower,
-        "platform" => ["AC-008"],
-        "cover" => Cover,
-        "wallrun" => ["AC-001", "AC-017", "AC-014"],
-        "wallpiece" => RubbleTall,
+        "platform" => Platform,
+        "cover" => height > HighCoverHeight ? HighCover : Cover,
+        "wallrun" => ["AC-041", "AC-001", "AC-017", "AC-014"],
+        "wallpiece" => ["AC-047", .. RubbleTall],   // a collapsed wall: the expansion's rubble ramp (AC-047, a walkable slope to a 3 m landing) where it fits
         "rubble" => height <= 0.4f ? RubbleLow : height <= 1.6f ? RubbleMid : RubbleTall,
         "monument" => ["AC-027", "AC-029", "AC-028"],
         "arch" => ["AC-002"],
         "obelisk" => ["AC-029", "AC-010"],
         "wreck" => ["AC-030", "AC-028", "AC-027"],
         "bunker" => ["AC-005", "AC-030", "AC-028"],
-        "bridge" => ["AC-009"],
-        "backdrop" => ["AC-010", "AC-005", "AC-030"],
+        "bridge" => BridgeIds,
+        "backdrop" => ["AC-052", "AC-044", "AC-048", "AC-043", "AC-010", "AC-005", "AC-030"],
         _ => Landmark,
     };
+
+    /// <summary>
+    /// Draft 6, phase 2: a model of the Meshy expansion (purpose-made for these families) is preferred where it fits. When the best expansion model's score is within <see cref="PreferSlack"/> times the best
+    /// score plus <see cref="PreferMargin"/>, only expansion models are considered (ours: the owner's "ensure that the new ashfall models are utilized").
+    /// </summary>
+    static bool Preferred(string id) => AshfallKit.Get(id).SourceId.Length > 0;
+
+    const float PreferSlack = 2f, PreferMargin = 0.6f;
+
+    /// <summary>A preferred model must also fill the structure's bounds sensibly: its drawn volume between these shares of the bounds' volume (ours; the mismatch flag is outside 0.35..3).</summary>
+    static readonly (float Min, float Max) PreferMass = (0.4f, 2.5f);
 
     // ---------------------------------------------------------------- generic structures
 
@@ -222,6 +259,7 @@ internal static partial class AshfallDraft5Pass
         }
         var spec = new Spec(g.Name, g.Family, min, max, box, PoolOf(g.Family, g.Name, max.Z - min.Z))
         {
+            KeepWalkCell = g.Family == "platform",   // phase 2: a shooting platform's stair stays climbable (its riser cell under the step) after the growth
             NoCollision = g.Family == "backdrop",
             UseNet = g.Family is not ("wallrun" or "monument" or "arch"),   // the compound's walls, the monument and the arch were hand-placed on the avenues and around the start area
             Kind = g.Family is "rubble" or "wallpiece" ? AshfallKind.Rubble : null,
@@ -270,28 +308,49 @@ internal static partial class AshfallDraft5Pass
         }
         // Best model first; models within 15 % of the best form the pool the hash picks from; a model already placed within 12 m is avoided.
         var perModel = cands.GroupBy(k => k.Id).Select(grp => grp.OrderBy(k => k.Score).ThenBy(k => k.Yaw).First()).OrderBy(k => k.Score).ThenBy(k => k.Id, StringComparer.Ordinal).ToList();
+        // Draft 6: the expansion's models first where they fit (the rest stay as the fallback below).
+        var preferred = perModel.Where(k => Preferred(k.Id) && k.Mass >= PreferMass.Min && k.Mass <= PreferMass.Max).ToList();
+        if (preferred.Count > 0 && preferred.Count < perModel.Count && preferred[0].Score <= perModel[0].Score * PreferSlack + PreferMargin)
+            perModel = [.. preferred, .. perModel.Where(k => !preferred.Contains(k))];
         float best = perModel[0].Score;
-        var band = perModel.Where(k => k.Score <= best * 1.15f + 0.03f).ToList();
+        bool preferring = preferred.Count > 0 && perModel[0] == preferred[0];
+        var band = perModel.Where(k => k.Score <= best * 1.15f + 0.03f && (!preferring || preferred.Contains(k))).ToList();
         var fresh = band.Where(k => !c.Placed.Any(p => p.Id == k.Id && Vector2.Distance(p.At, centre) < 12f)).ToList();
         if (fresh.Count > 0) band = fresh;
         uint pick = AshfallBuilder.Mix(c.Seed, c.Counter++);
         var chosen = band[(int)(pick % (uint)band.Count)];
         // Among the model's turns the score decides; ties go to the front facing away from the map's middle.
-        var turns = cands.Where(k => k.Id == chosen.Id).OrderBy(k => k.Score).ThenBy(k => k.Yaw).ToList();
         var outDir = s.Out ?? (centre.LengthSquared() > 1f ? Vector2.Normalize(centre) : Vector2.UnitY);
-        var pickTurn = turns[0];
-        foreach (var t in turns.Skip(1))
+        Cand TurnOf(string id)
         {
-            if (t.Score > turns[0].Score + 0.02f) break;
-            var (sn, cs) = AshfallBuilder.Trig(t.Yaw);
-            var (sn0, cs0) = AshfallBuilder.Trig(pickTurn.Yaw);
-            // the front faces local -Y turned by the yaw: (sin, -cos)
-            if (Vector2.Dot(new Vector2(sn, -cs), outDir) > Vector2.Dot(new Vector2(sn0, -cs0), outDir) + 1e-4f) pickTurn = t;
+            var turns = cands.Where(k => k.Id == id).OrderBy(k => k.Score).ThenBy(k => k.Yaw).ToList();
+            var pickTurn = turns[0];
+            foreach (var t in turns.Skip(1))
+            {
+                if (t.Score > turns[0].Score + 0.02f) break;
+                var (sn, cs) = AshfallBuilder.Trig(t.Yaw);
+                var (sn0, cs0) = AshfallBuilder.Trig(pickTurn.Yaw);
+                // the front faces local -Y turned by the yaw: (sin, -cos)
+                if (Vector2.Dot(new Vector2(sn, -cs), outDir) > Vector2.Dot(new Vector2(sn0, -cs0), outDir) + 1e-4f) pickTurn = t;
+            }
+            return pickTurn;
         }
-        return Commit(c, s, centre, pickTurn, chosen.Id, h);
+        // Draft 6: when the chosen model cannot grow 1.5x where it stands, the pool's other models are tried in their score order (the new models gave "Twin tower east" a second chance); the last one decides.
+        var order = new List<string> { chosen.Id };
+        order.AddRange(perModel.Select(k => k.Id).Where(id => id != chosen.Id));
+        for (int k = 0; k < order.Count; k++)
+        {
+            // a new model that cannot open every narrow gap gives way to the next model; a first-library model keeps its fewest-gaps place as in draft 6
+            int r = Commit(c, s, centre, TurnOf(order[k]), order[k], h, final: k == order.Count - 1, keepNarrow: k == order.Count - 1 || !Preferred(order[k]));
+            if (r != Retry) return r;
+        }
+        return -1;
     }
 
-    static int Commit(Ctx c, Spec s, Vector2 centre, Cand cand, string id, float h)
+    /// <summary><see cref="Commit"/>'s answer when the model could not grow 1.5x where it stands and another model of the pool may still fit.</summary>
+    const int Retry = -2;
+
+    static int Commit(Ctx c, Spec s, Vector2 centre, Cand cand, string id, float h, bool final = true, bool keepNarrow = true)
     {
         var size = cand.Size;
         float bottom = s.Min.Z;
@@ -299,6 +358,7 @@ internal static partial class AshfallDraft5Pass
         var item = Item(size);
         var boxes = s.NoCollision ? [] : Coarse(s, Boxes(item, cand.Yaw, id));
         string outcome = "placed";
+        string? shrunk = null;
         if (s.UseNet && !s.NoCollision)
         {
             foreach (float f in new[] { 1f, 0.85f, 0.7f })
@@ -306,18 +366,26 @@ internal static partial class AshfallDraft5Pass
                 size = new Vector3(cand.Size.X * f, cand.Size.Y * f, cand.Size.Z);
                 item = Item(size);
                 boxes = Coarse(s, Boxes(item, cand.Yaw, id));
-                if (!boxes.Any(b => Banned(c, b))) { if (f < 1f) { outcome = "placed, shrunk " + f; c.Flags.Add($"{s.Group}: {id} shrunk to {f:0.##} of its size to stay out of a banned place"); } break; }
+                if (!boxes.Any(b => Banned(c, b))) { if (f < 1f) { outcome = "placed, shrunk " + f; shrunk = $"{s.Group}: {id} shrunk to {f:0.##} of its size to stay out of a banned place"; } break; }
                 if (f == 0.7f) { c.Log.Add(new(s.Group, s.Family, "", -1, "dropped: inside a banned place (lane, start area, capture zone ring, spawn or the boundary's 2 m)")); c.Dropped.Add(s.Group); return -1; }
             }
         }
         // Draft 6: every placed object 1.5x its draft-5 size, moved back from a protected place or left out.
         float d5Height = size.Z;
-        if (!Grow6(c, s, id, cand.Yaw, bottom, boxes, ref centre, ref size, out float moved))
+        if (!Grow6(c, s, id, cand.Yaw, bottom, boxes, ref centre, ref size, out float moved, keepNarrow))
         {
+            if (!final) return Retry;
+            if (c.NarrowDrop)
+            {
+                c.Log.Add(new(s.Group, s.Family, "", -1, "dropped: narrow gap, grown 1.5x this small piece leaves a gap under 2.4 m to a neighbour that no move within its reach opens or closes"));
+                c.NarrowDropped++;
+                return -1;
+            }
             c.Log.Add(new(s.Group, s.Family, "", -1, "dropped: grown 1.5x it stands in a protected place (lane, start area, capture zone ring, spawn, the boundary's 2 m or a breach) and moving it back did not clear it"));
             c.LeftOut++; c.LeftOutNames.Add(s.Group);
             return -1;
         }
+        if (shrunk is not null) c.Flags.Add(shrunk);
         item = Item(size);
         boxes = s.NoCollision ? [] : Coarse(s, Boxes(item, cand.Yaw, id));
         if (moved > 0.01f) { outcome += $", moved {moved:0.00} m"; c.Moved++; }
@@ -351,6 +419,7 @@ internal static partial class AshfallDraft5Pass
             foreach (var rp in AshfallKitCollision.Ramps(id))
             {
                 var corners = RampCorners(item, yaw, rp, out bool ok);
+                if (ok && !RampMeetsItsTops(item, boxes, corners)) { ok = false; c.RampsMisfit++; }
                 if (ok) { c.Parts.Add(new AshfallPart(AshfallKind.Stair, corners)); c.RampsKept++; } else c.RampsDropped++;
             }
         c.ItemParts.Add((first, c.Parts.Count - first));
@@ -368,6 +437,7 @@ internal static partial class AshfallDraft5Pass
     static List<WBox> Coarse(Spec s, List<WBox> boxes)
     {
         if (s.Family is not ("rubble" or "wallpiece" or "cover") || boxes.Count <= Slabs) return boxes;
+        // Draft 6, phase 2: a walkable rubble model (AC-053) is merged too (the triangle budget); its ramp wedges are kept only where they still meet the slabs' tops (RampMeetsItsTops).
         var (sn, co) = AshfallBuilder.Trig(boxes[0].YawStep);
         bool alongX = true;
         float lo = float.MaxValue, hi = float.MinValue, lo2 = float.MaxValue, hi2 = float.MinValue;
@@ -474,6 +544,48 @@ internal static partial class AshfallDraft5Pass
         return corners;
     }
 
+    /// <summary>
+    /// Draft 6, phase 2: a ramp wedge is kept only when it lies inside its item's box and its top plane follows the item's stepped box tops: the median distance of samples of its top face to the highest box top
+    /// under them within half the largest riser there or 1.5 scaled cells (the check of <c>AshfallDraft5Tests</c>). A heavily stretched walkable model (the keep, AC-044) can leave a detected ramp off its steps.
+    /// </summary>
+    static bool RampMeetsItsTops(AshfallDressItem item, List<WBox> boxes, Vector3[] corners)
+    {
+        float s = MathF.Sin(item.Yaw), co = MathF.Cos(item.Yaw);
+        Vector3 Local(Vector3 v) { float dx = v.X - item.Position.X, dy = v.Y - item.Position.Y; return new Vector3(co * dx + s * dy, -s * dx + co * dy, v.Z); }
+        const float eps = 0.02f;
+        foreach (var v in corners)
+        {
+            var l = Local(v);
+            if (MathF.Abs(l.X) > item.Size.X / 2f + eps || MathF.Abs(l.Y) > item.Size.Y / 2f + eps || l.Z < item.Position.Z - eps || l.Z > item.Position.Z + item.Size.Z + eps) return false;
+        }
+        var local = boxes.Select(b => { var cl = Local(b.Centre); return (Min: cl - b.Half, Max: cl + b.Half); }).ToList();
+        float cellY = AshfallKitCollision.Metrics(item.Asset).CellSize * item.Size.Z / AshfallKit.Get(item.Asset).RawSize.Y;
+        var pts = new List<Vector3>();
+        for (int t = 0; t < 12; t++)
+        {
+            Vector3 a = Local(corners[t * 3]), b = Local(corners[t * 3 + 1]), cc = Local(corners[t * 3 + 2]);
+            if (Vector3.Cross(b - a, cc - a).Z <= 1e-3f) continue;
+            var cen = (a + b + cc) / 3f; pts.Add(cen);
+            foreach (var v in new[] { a, b, cc }) pts.Add(cen + (v - cen) * 0.5f);
+        }
+        var tops = new List<float>(); var diffs = new List<float>();
+        foreach (var q in pts)
+        {
+            float top = float.MinValue;
+            foreach (var bx in local) if (q.X >= bx.Min.X - 0.01f && q.X <= bx.Max.X + 0.01f && q.Y >= bx.Min.Y - 0.01f && q.Y <= bx.Max.Y + 0.01f) top = MathF.Max(top, bx.Max.Z);
+            if (top == float.MinValue) continue;
+            tops.Add(top); diffs.Add(MathF.Abs(q.Z - top));
+        }
+        if (diffs.Count == 0) return true;
+        var distinct = new List<float>();
+        foreach (float t in tops.OrderBy(t => t)) if (distinct.Count == 0 || t - distinct[^1] > 0.05f) distinct.Add(t);
+        float riser = 0f;
+        for (int k = 1; k < distinct.Count; k++) riser = MathF.Max(riser, distinct[k] - distinct[k - 1]);
+        float tol = MathF.Max(riser / 2f, 1.5f * cellY) + 0.05f;
+        diffs.Sort();
+        return diffs[diffs.Count / 2] <= tol - 0.01f;
+    }
+
     static void AddPart(Ctx c, WBox b, float itemBottom, AshfallKind? forced)
     {
         var (s, co) = AshfallBuilder.Trig(b.YawStep);
@@ -494,11 +606,11 @@ internal static partial class AshfallDraft5Pass
             return Bounds(g5.Parts, byGroup[gi]);
         }
 
-        // The gate: x -12..12 in the south leg, one fortified gate segment.
+        // The gate: x -12..12 in the south leg; draft 6: the expansion's gatehouse (AC-042: two broken towers, a wide open passage, a stair to a mid deck; its tower roofs are never critical).
         {
-            var s = new Spec("ring gate", "stronghold-gate", new(-12f, 112f, 0f), new(12f, 116f, 12f), null, ["AC-006"]) { Yaws = [0], GrowAlong = 0f, UseNet = false, KeepLength = true };
+            var s = new Spec("ring gate", "stronghold-gate", new(-12f, 112f, 0f), new(12f, 116f, 12f), null, ["AC-042"]) { Yaws = [0], GrowAlong = 0f, UseNet = false, KeepLength = true, KeepWalkCell = true };
             Place(c, s);
-            c.Flags.Add("the gate segment (AC-006) is drawn over the gate; its collision is whatever the fit left open (see the gate width in the report)");
+            c.Flags.Add("the gatehouse (AC-042) is drawn over the gate; its collision is the fitted passage (see the gate width in the report); its tower roofs are not proven reachable (02: roof access unverified) and nothing depends on them");
         }
         // The four corners: AC-003, the L's mass turned toward the ring's outer corner.
         foreach (var (name, x, y, h) in new[] { ("ring corner south-west", -72f, 112f, 12f), ("ring corner south-east", 66f, 112f, 18f), ("ring corner north-west", -72f, 214f, 12f), ("ring corner north-east", 66f, 214f, 18f) })
@@ -525,25 +637,28 @@ internal static partial class AshfallDraft5Pass
         // The keep, its tower, the stair towers, the bridge, the terraces and the outer walls: one asset each.
         {
             var (mn, mx) = B("keep");
-            var s = new Spec("keep", "stronghold-keep", mn, mx, null, ["AC-030", "AC-005"]) { Yaws = [0], UseNet = false };
-            Place(c, s);
-            c.Flags.Add("the keep: no keep asset in the library; the closest mass is used (a 64 x 48 x 18 m graybox keep against a 24 x 12 x 16 m buttress)");
+            var s = new Spec("keep", "stronghold-keep", mn, mx, null, ["AC-044", "AC-030", "AC-005"]) { Yaws = [0], UseNet = false };
+            int k = Place(c, s);
+            c.Flags.Add(k >= 0 && c.Items[k].Asset == "AC-044"
+                ? "the keep: the expansion's gothic hall keep (AC-044), the library's first keep asset, stretched over the 64 x 48 x 18 m graybox keep (its design size is 17 x 15 x 13 m)"
+                : "the keep: the gothic hall keep (AC-044) did not fit; the closest mass is used");
         }
         foreach (var name in new[] { "Keep tower", "Stair tower SW", "Stair tower SE" })
         {
             var (mn, mx) = B(name);
-            var pool = name == "Keep tower" ? new[] { "AC-010" } : new[] { "AC-007", "AC-010" };
+            // Draft 6: the stair towers are the expansion's freestanding stair (AC-046, the owner's list: "AC-046 stair towers"; its landing is drawn at about 2/3 of the tower: the walk cell keeps it under the step).
+            var pool = name == "Keep tower" ? new[] { "AC-052", "AC-010" } : new[] { "AC-046" };
             Place(c, new Spec(name, name == "Keep tower" ? "stronghold-keeptower" : "stronghold-stairtower", mn, mx, null, pool) { UseNet = false });
         }
         foreach (var name in new[] { "terrace 1", "terrace 2", "terrace 3" })
         {
             var (mn, mx) = B(name);
-            Place(c, new Spec(name, "terrace", mn, mx, null, ["AC-008"]) { Yaws = [0, 12], UseNet = false });
+            Place(c, new Spec(name, "terrace", mn, mx, null, Platform) { Yaws = [0, 12], UseNet = false, KeepWalkCell = true });
         }
         foreach (var name in new[] { "east outer wall 1", "east outer wall 2" })
         {
             var (mn, mx) = B(name);
-            Place(c, new Spec(name, "outerwall", mn, mx, null, ["AC-001"]) { Yaws = [0, 12], UseNet = false });
+            Place(c, new Spec(name, "outerwall", mn, mx, null, ["AC-041", "AC-001"]) { Yaws = [0, 12], UseNet = false });
         }
         {
             int gi = ids.First(i => groups[i].Name == "keep bridge");
@@ -561,6 +676,9 @@ internal static partial class AshfallDraft5Pass
         ("ring north leg", true, 216f, 220f, -66f, 66f, 12f, 12),
         ("ring east leg", false, 68f, 72f, 118f, 214f, 18f, 6),
     ];
+
+    /// <summary>Draft 6: the broken piece kept at a leg wall's breach end, and the shortest curtain (AC-041) between the ends (ours).</summary>
+    const float LegEnd = 6f, LegCurtainMin = 8f;
 
     /// <summary>A leg's walls and breaches along it (seeded): walls 14..28 m, breaches 6..14 m, the first breach 8..14 m.</summary>
     static (List<(float A, float B)> Segs, List<(float A, float B)> Breaches) LegLayout(float lo, float hi, uint seed)
@@ -587,11 +705,24 @@ internal static partial class AshfallDraft5Pass
     {
         var (segs, breaches) = LegLayout(lo, hi, seed);
         int n = 0;
-        foreach (var (a, b) in segs)
+        string[] broken = ["AC-004", "AC-001", "AC-006", "AC-005", "AC-030"];
+        void Piece(string group, float a, float b, string[] pool)
         {
             var mn = alongX ? new Vector3(a, t0, 0f) : new Vector3(t0, a, 0f);
             var mx = alongX ? new Vector3(b, t1, height) : new Vector3(t1, b, height);
-            Place(c, new Spec($"{name} wall {n++}", "stronghold-wall", mn, mx, null, ["AC-004", "AC-001", "AC-006", "AC-005", "AC-030"]) { Yaws = [yaw], GrowAlong = 0f, UseNet = false, KeepLength = true });
+            Place(c, new Spec(group, "stronghold-wall", mn, mx, null, pool) { Yaws = [yaw], GrowAlong = 0f, UseNet = false, KeepLength = true });
+        }
+        foreach (var (a, b) in segs)
+        {
+            // Draft 6: the expansion's curtain wall (AC-041) runs between broken pieces. Its ends are squared and intact, so it is never a breach end: a wall that meets a breach keeps a broken piece of
+            // LegEnd m at that end; a wall too short for both is one broken piece, as in draft 5.
+            bool before = a > lo + 1e-3f, after = b < hi - 1e-3f;
+            float ea = before ? LegEnd : 0f, eb = after ? LegEnd : 0f;
+            string group = $"{name} wall {n++}";
+            if (b - a - ea - eb < LegCurtainMin) { Piece(group, a, b, broken); continue; }
+            if (before) Piece(group + " end", a, a + ea, broken);
+            Piece(group + " curtain", a + ea, b - eb, ["AC-041"]);
+            if (after) Piece(group + " end 2", b - eb, b, broken);
         }
         n = 0;
         foreach (var (a, b) in breaches)
@@ -603,7 +734,7 @@ internal static partial class AshfallDraft5Pass
                 float tm = (t0 + t1) / 2f;
                 var mn = alongX ? new Vector3(mid - 1.8f, tm - 1.5f, 0f) : new Vector3(tm - 1.5f, mid - 1.8f, 0f);
                 var mx = alongX ? new Vector3(mid + 1.8f, tm + 1.5f, 1.8f) : new Vector3(tm + 1.5f, mid + 1.8f, 1.8f);
-                Place(c, new Spec($"{name} breach {n} rubble", "rubble", mn, mx, null, ["AC-019", "AC-023"]) { Yaws = [yaw], UseNet = false, Kind = AshfallKind.Rubble, GrowAlong = 0.2f, GrowAcross = 0.2f });
+                Place(c, new Spec($"{name} breach {n} rubble", "rubble", mn, mx, null, ["AC-053"]) { Yaws = [yaw], UseNet = false, Kind = AshfallKind.Rubble, GrowAlong = 0.2f, GrowAcross = 0.2f });
             }
             c.Flags.Add($"{name} breach {n}: {b - a:0.#} m wide{(rubble ? ", rubble pile" : "")}");
             n++;

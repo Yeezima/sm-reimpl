@@ -145,8 +145,7 @@ public partial class AshfallKitGallery : Node3D
         {
             var asset = _library.Get(m.Id);
             if (asset is not { Ok: true }) continue;
-            var fit = AshfallKitView.Fit(item, m);
-            foreach (var piece in asset.Pieces) _game.AddChild(new MeshInstance3D { Name = m.Id, Mesh = piece.Mesh, Transform = fit * piece.Local });
+            foreach (var piece in asset.Pieces) _game.AddChild(new MeshInstance3D { Name = m.Id, Mesh = piece.Mesh, Transform = AshfallKitView.DrawOf(item, m, piece.Local) });
         }
     }
 
@@ -192,6 +191,54 @@ public partial class AshfallKitGallery : Node3D
             var src = _shots.First(x => x.Name == from);
             _shots.Add((name, src.At, src.Look));
             _overlayShots.Add(name);
+        }
+        if (!_args.ContainsKey("ashfall-dense")) AddDraft6Shots(dressing, A, B, C);
+        // --ashfall-cam "name:x,y,z,tx,ty,tz;..." adds views (game frame, metres); a name starting with "collision" is drawn with the overlay.
+        if (_args.GetValueOrDefault("ashfall-cam") is { } cams)
+            foreach (var spec in cams.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var parts = spec.Split(':');
+                var v = parts.Length == 2 ? parts[1].Split(',').Select(x => Number(x, float.NaN)).ToArray() : [];
+                if (v.Length != 6 || v.Any(float.IsNaN)) { GD.PrintErr($"ashfall gallery: bad --ashfall-cam \"{spec}\" (name:x,y,z,tx,ty,tz)"); continue; }
+                _shots.Add((parts[0], new Vector3(v[0], v[1], v[2]), new Vector3(v[3], v[4], v[5])));
+                if (parts[0].StartsWith("collision", StringComparison.Ordinal)) _overlayShots.Add(parts[0]);
+            }
+    }
+
+    /// <summary>
+    /// Draft 6 views for the owner (the Meshy expansion placed; shot names start with <c>d6_</c>, <c>--shots d6</c> takes them all): an overview from a high spot, each objective, the gatehouse and a breach, the keep bridge,
+    /// two of the new firing platforms, a street with the new cover, the boundary wall at a grazing angle (the shimmer check), the plaza's new slabs and one collision-overlay view of a tower. The cameras are placed from the
+    /// dressing's items, so they follow the placement.
+    /// </summary>
+    void AddDraft6Shots(AshfallDressing dressing, Vector3 A, Vector3 B, Vector3 C)
+    {
+        Vector3 P(AshfallDressItem it, float up = 0f) => new(it.Position.X, it.Position.Y, it.Position.Z + up);
+        AshfallDressItem? First(Func<AshfallDressItem, bool> f) => dressing.Items.FirstOrDefault(f);
+        _shots.Add(("d6_overview", new Vector3(-60, -250, 140), new Vector3(0, 40, 0)));
+        _shots.Add(("d6_pointA", A + new Vector3(-30, -34, 12), A));
+        _shots.Add(("d6_pointB", B + new Vector3(-36, -36, 12), B));
+        _shots.Add(("d6_pointC", C + new Vector3(10, -48, 14), C));
+        if (First(i => i.Asset == "AC-042") is { } gate) _shots.Add(("d6_gate", P(gate) + new Vector3(-14, -42, 6), P(gate, 5)));
+        // a breach of the ring (its AC-053 mound), from outside the ring
+        if (First(i => i.Asset == "AC-053" && MathF.Abs(i.Position.X) > 60f) is { } mound)
+        {
+            float side = MathF.Sign(mound.Position.X);
+            _shots.Add(("d6_breach", P(mound) + new Vector3(-side * 22, -22, 16), P(mound, 2)));   // from inside the ring, above
+        }
+        if (First(i => i.Asset == "AC-045") is { } bridge) _shots.Add(("d6_keepbridge", P(bridge) + new Vector3(-8, -46, 30), P(bridge, 8)));
+        var added = dressing.Items.Where(i => i.Asset is "AC-049" or "AC-050" && i.Role == AshfallDressRole.Prop).ToList();
+        if (added.FirstOrDefault(i => i.Asset == "AC-049") is { } low) _shots.Add(("d6_platform_low", P(low) + new Vector3(-22, -26, 10), P(low, 2)));
+        if (added.FirstOrDefault(i => i.Asset == "AC-050") is { } mid) _shots.Add(("d6_platform_mid", P(mid) + new Vector3(24, -24, 12), P(mid, 3)));
+        // a street with the new low cover: the first AC-054..056 beside the east avenue (x 92), seen along the avenue at eye height
+        if (First(i => i.Asset is "AC-054" or "AC-055" or "AC-056" && MathF.Abs(i.Position.X - 92f) < 22f && MathF.Abs(i.Position.Y) < 180f) is { } cover)
+            _shots.Add(("d6_street_cover", new Vector3(92, cover.Position.Y - 34, 2.4f), new Vector3(cover.Position.X, cover.Position.Y + 10, 1f)));
+        _shots.Add(("d6_plaza", B + new Vector3(-18, -36, 7), B));
+        _shots.Add(("d6_boundary_grazing", new Vector3(-215, -226, 2.6f), new Vector3(120, -240, 9)));
+        int ti = Enumerable.Range(0, dressing.Items.Count).FirstOrDefault(i => dressing.Items[i].Asset == "AC-052" && i < dressing.ItemParts.Count && dressing.ItemParts[i].Count > 0, -1);
+        if (ti >= 0 && dressing.Items[ti] is var tower)
+        {
+            _shots.Add(("d6_collision_tower", P(tower) + new Vector3(-36, -38, 22), P(tower, 10)));
+            _overlayShots.Add("d6_collision_tower");
         }
     }
 
@@ -240,7 +287,7 @@ public partial class AshfallKitGallery : Node3D
         {
             if (_wait > 0) { _wait--; return; }
             var wanted = (_args.GetValueOrDefault("shots") ?? "all").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            var list = _shots.Where(s => wanted.Contains("all") || wanted.Contains(s.Name) || (wanted.Contains("overview") && s.Name.StartsWith("overview", StringComparison.Ordinal))).ToList();
+            var list = _shots.Where(s => wanted.Contains("all") || wanted.Contains(s.Name) || (wanted.Contains("overview") && s.Name.StartsWith("overview", StringComparison.Ordinal)) || (wanted.Contains("d6") && s.Name.StartsWith("d6_", StringComparison.Ordinal))).ToList();
             if (_step >= list.Count)
             {
                 if (_map && _args.ContainsKey("ashfall-dense")) { _phase = 2; _step = 0; _wait = 0; _sample = 0; return; }

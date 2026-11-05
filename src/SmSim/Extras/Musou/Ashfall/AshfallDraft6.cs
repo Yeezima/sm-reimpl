@@ -38,11 +38,16 @@ internal static partial class AshfallDraft5Pass
     /// Grows a draft-5 item 1.5x about its centre (its foot stays). When a collision box would stand in a protected place the item did not already touch at its draft-5 size, it is moved back along the shortest way out
     /// (at most the growth plus 1.5 m); false when that does not clear it (the item is left out).
     /// </summary>
-    static bool Grow6(Ctx c, Spec s, string id, int yaw, float bottom, List<WBox> d5Boxes, ref Vector2 centre, ref Vector3 size, out float moved)
+    static bool Grow6(Ctx c, Spec s, string id, int yaw, float bottom, List<WBox> d5Boxes, ref Vector2 centre, ref Vector3 size, out float moved, bool final = true)
     {
         moved = 0f;
         var size6 = size * Scale6;
         if (s.KeepLength) size6.X = size.X;
+        if (s.KeepWalkCell && Walkable.Contains(id))
+        {
+            float limit = StepHeight / AshfallKitCollision.Metrics(id).CellSize * AshfallKit.Get(id).RawSize.Y * 0.98f;   // a hair under the step
+            if (size6.Z > limit) size6.Z = MathF.Max(limit, size.Z);
+        }
         if (s.NoCollision)
         {
             if (s.Family == "backdrop")
@@ -55,7 +60,7 @@ internal static partial class AshfallDraft5Pass
             return true;
         }
         var allowed = new HashSet<int>();
-        foreach (var b in d5Boxes) foreach (int z in Zones(c, b)) allowed.Add(z);
+        foreach (var b in d5Boxes) foreach (int z in Zones(c, b)) if (z < 3000) allowed.Add(z);   // a breach is never allowed to a piece outside the ring, even one that touched it at its draft-5 size (phase 2: the new Twin tower east did)
         if (s.Family.StartsWith("stronghold") || s.Group.Contains(" breach ")) for (int i = 0; i < c.BreachRects.Count; i++) allowed.Add(3000 + i);   // the ring's own pieces and its breach rubble
         float cap = MathF.Max((Scale6 - 1f) / 2f * MathF.Max(size.X, size.Y), MinGap) + 1.5f;   // the growth, or room to open a gap, plus 1.5 m
         bool spread = !(s.Family.StartsWith("stronghold") || s.Group.Contains(" breach "));   // the ring's pieces and breach rubble keep their places along the leg
@@ -91,6 +96,10 @@ internal static partial class AshfallDraft5Pass
         }
         if (firstClear is not { } first) return false;
         var done = settled ? off : bestClear ?? first;
+        c.NarrowDrop = false;
+        if (!settled && !final) return false;   // phase 2: another model of the pool may open every gap (the caller tries it; the last one keeps its fewest-gaps place)
+        // Phase 2: a small piece (cover, rubble, a collapsed wall piece; not the breach rubble) that cannot open or close every narrow gap is left out: it never leaves a slot under 2.4 m (the route rule).
+        if (!settled && modes == 3 && spread) { c.NarrowDrop = true; return false; }
         if (!settled) c.NarrowKept++;   // no place within reach clears every gap: of the places clear of the protected ones it visited, the one with the fewest narrow gaps is kept (counted in the growth flag)
         else if (gapPushed) c.Spread++;
         centre += done; size = size6; moved = done.Length();
@@ -226,14 +235,21 @@ internal static partial class AshfallDraft5Pass
     /// </summary>
     static void ExtraPlatforms(Ctx c)
     {
-        int have = c.Uses.GetValueOrDefault("AC-008");
+        int have = PlatformIds.Sum(id => c.Uses.GetValueOrDefault(id));
         if (have >= PlatformTarget) return;
-        var m = AshfallKit.Get("AC-008");
-        float cell = AshfallKitCollision.Metrics("AC-008").CellSize;
-        float limit = StepHeight / cell * m.RawSize.Y;   // tallest AC-008 may be drawn under the step
-        var sizes = c.Items.Where(i => i.Role == AshfallDressRole.Prop && i.Asset == "AC-008").Select(i => i.Size).Distinct()
-            .Select(sz => sz.Z > limit ? sz * (limit / sz.Z) : sz).OrderBy(sz => sz.X).ThenBy(sz => sz.Y).ThenBy(sz => sz.Z).ToList();
-        if (sizes.Count == 0) sizes.Add(new Vector3(8f, 4f, MathF.Min(limit, 4.1f)));
+        // Draft 6, phase 2: the added platforms are the expansion's low and medium firing platforms (AC-049, AC-050) at their design size (smaller, their stairs are too narrow to walk: the graph test reached none of the 3/4 and 3/5 sizes), and AC-008 at the sizes draft 6 added it with
+        // (12.5 x 4.3 x 2.3 m to 21.0 x 7.2 x 6.0 m); the two new models first (the seeded one, then the other), AC-008 (larger size first) only where neither fits. Every size is lowered uniformly where the model's
+        // scaled cell would exceed the step (AC-050 at its design scale: 0.42 m, so it is drawn at about 10.1 m/unit).
+        var sizesOf = new Dictionary<string, List<Vector3>>();
+        foreach (var pid in PlatformIds)
+        {
+            var pm = AshfallKit.Get(pid);
+            float limit = StepHeight / AshfallKitCollision.Metrics(pid).CellSize * pm.RawSize.Y;   // tallest the model may be drawn under the step
+            var design = new Vector3(pm.RawSize.X, pm.RawSize.Z, pm.RawSize.Y) * pm.DesignScale;
+            List<Vector3> raw = pid == "AC-008" ? [new(21.0f, 7.2f, 6.0f), new(16.5f, 5.7f, 3.5f), new(12.5f, 4.3f, 2.3f)] : [design];
+            sizesOf[pid] = [.. raw.Select(sz => sz.Z > limit ? sz * (limit / sz.Z) : sz)];
+        }
+        string[] pickOrder = ["AC-049", "AC-050", "AC-008"];
         var points = c.BannedDiscs.Take(3).ToList();   // the capture zones' rings come first in BuildBanned (centre, radius + 6)
         float[] lanes = [-92f, 92f, -232f, 232f];
         var cands = new List<(uint Key, float X, float Y)>();
@@ -250,33 +266,46 @@ internal static partial class AshfallDraft5Pass
             }
         cands.Sort((a, b) => a.Key != b.Key ? a.Key.CompareTo(b.Key) : a.X != b.X ? a.X.CompareTo(b.X) : a.Y.CompareTo(b.Y));
         var low = c.AllBoxes.Where(x => x.Box.Centre.Z - x.Box.Half.Z < 8f).Select(x => x.Box.Rect).ToList();
-        var platforms = c.Items.Where(i => i.Role == AshfallDressRole.Prop && i.Asset == "AC-008").Select(i => new Vector2(i.Position.X, i.Position.Y)).ToList();
+        var platforms = c.Items.Where(i => i.Role == AshfallDressRole.Prop && PlatformIds.Contains(i.Asset)).Select(i => new Vector2(i.Position.X, i.Position.Y)).ToList();
         static int Region(Vector2 p) => Math.Clamp((int)((p.X + 240f) / 160f), 0, 2) * 3 + Math.Clamp((int)((p.Y + 240f) / 160f), 0, 2);   // the map's 3 x 3 blocks of 160 m
         var perRegion = new int[9];
         foreach (var p in platforms) perRegion[Region(p)]++;
         // Every candidate that fits on its own (ground, protected places, the breaches, the clearance to what stands), in the seeded order.
-        var valid = new List<(uint Key, Vector2 At, Vector3 Size, int Yaw, float Ground, Vector4 Rect)>();
+        var valid = new List<(uint Key, Vector2 At, string Id, Vector3 Size, int Yaw, float Ground, Vector4 Rect)>();
         foreach (var (key, x, y) in cands)
         {
             var at = new Vector2(x, y);
             if (platforms.Any(p => Vector2.Distance(p, at) < PlatformSpacing)) continue;
             uint h = AshfallBuilder.Mix(key, 0x51A7u);
-            var size = sizes[(int)(h % (uint)sizes.Count)];
-            int yaw = 6 * (int)((h >> 8) % 4u);
             float ground = AshfallMap.SurfaceAt(x, y);
-            var rect = new WBox(new Vector3(x, y, ground + size.Z / 2f), size / 2f, yaw).Rect;
-            if (rect.X < -222f || rect.Y < -222f || rect.Z > 222f || rect.W > 222f) continue;
-            if (ground != AshfallMap.BlockTop || !Level(rect, ground)) continue;   // on a block: the roads stay open
-            var grown = new Vector4(rect.X - PlatformClear, rect.Y - PlatformClear, rect.Z + PlatformClear, rect.W + PlatformClear);
-            if (c.BreachRects.Any(r => r.X < grown.Z && r.Z > grown.X && r.Y < grown.W && r.W > grown.Y)) continue;
-            if (low.Any(r => r.X < grown.Z && r.Z > grown.X && r.Y < grown.W && r.W > grown.Y)) continue;
-            var item = new AshfallDressItem("AC-008", new Vector3(x, y, ground), yaw * (MathF.PI / 12f), size, false, AshfallDressRole.Prop, -1);
-            if (Boxes(item, yaw, "AC-008").Any(b => Banned(c, b))) continue;
-            valid.Add((key, at, size, yaw, ground, rect));
+            if (ground != AshfallMap.BlockTop) continue;   // on a block: the roads stay open
+            // The new models first (seeded order), AC-008 last; each model's larger size first (a smaller platform where a larger one does not fit).
+            if (Fit() is { } v) valid.Add(v);
+
+            (uint, Vector2, string, Vector3, int, float, Vector4)? Fit()
+            {
+                int yaw = 6 * (int)((h >> 8) % 4u);
+                for (int t = 0; t < pickOrder.Length; t++)
+                {
+                    string pid = t == 2 ? pickOrder[2] : pickOrder[(int)(((h >> 16) + (uint)t) % 2u)];
+                    foreach (var size in sizesOf[pid])
+                    {
+                        var rect = new WBox(new Vector3(x, y, ground + size.Z / 2f), size / 2f, yaw).Rect;
+                        if (rect.X < -222f || rect.Y < -222f || rect.Z > 222f || rect.W > 222f || !Level(rect, ground)) continue;
+                        var grown = new Vector4(rect.X - PlatformClear, rect.Y - PlatformClear, rect.Z + PlatformClear, rect.W + PlatformClear);
+                        if (c.BreachRects.Any(r => r.X < grown.Z && r.Z > grown.X && r.Y < grown.W && r.W > grown.Y)) continue;
+                        if (low.Any(r => r.X < grown.Z && r.Z > grown.X && r.Y < grown.W && r.W > grown.Y)) continue;
+                        var item = new AshfallDressItem(pid, new Vector3(x, y, ground), yaw * (MathF.PI / 12f), size, false, AshfallDressRole.Prop, -1);
+                        if (Boxes(item, yaw, pid).Any(b => Banned(c, b))) continue;
+                        return (key, at, pid, size, yaw, ground, rect);
+                    }
+                }
+                return null;
+            }
         }
         // Spread: each new platform goes to the 160 m block that has the fewest so far (ties: the seeded order), keeping the spacing and the clearance to the platforms added before it.
         int added = 0;
-        var spec = new Spec("extra platform", "platform", Vector3.Zero, Vector3.Zero, null, ["AC-008"]);
+        var spec = new Spec("extra platform", "platform", Vector3.Zero, Vector3.Zero, null, PlatformIds);
         var mine = new List<Vector4>();
         while (have + added < PlatformTarget)
         {
@@ -288,17 +317,17 @@ internal static partial class AshfallDraft5Pass
                 if (pick >= 0) break;
             }
             if (pick < 0) break;
-            var (key, at, size, yaw, ground, rect) = valid[pick];
+            var (key, at, pid, size, yaw, ground, rect) = valid[pick];
             valid.RemoveAt(pick);
-            var item = new AshfallDressItem("AC-008", new Vector3(at.X, at.Y, ground), yaw * (MathF.PI / 12f), size, false, AshfallDressRole.Prop, -1);
+            var item = new AshfallDressItem(pid, new Vector3(at.X, at.Y, ground), yaw * (MathF.PI / 12f), size, false, AshfallDressRole.Prop, -1);
             var s = spec with { Group = $"extra platform {added}", Min = new Vector3(rect.X, rect.Y, ground), Max = new Vector3(rect.Z, rect.W, ground + size.Z) };
-            Emit(c, s, item, yaw, "AC-008", Boxes(item, yaw, "AC-008"), $"placed, added in draft 6 ({(key >> 30 == 0 ? "near an objective" : key >> 30 == 1 ? "beside a route" : "open ground")})", at);
+            Emit(c, s, item, yaw, pid, Boxes(item, yaw, pid), $"placed, added in draft 6 ({(key >> 30 == 0 ? "near an objective" : key >> 30 == 1 ? "beside a route" : "open ground")})", at);
             mine.Add(rect);
             platforms.Add(at);
             perRegion[Region(at)]++;
             added++;
         }
-        c.Flags.Add($"draft 6: {added} AC-008 shooting platforms added on free ground ({have} from draft 5 after the growth, {have + added} in total; target {PlatformTarget})");
+        c.Flags.Add($"draft 6: {added} shooting platforms added on free ground (AC-049 x{c.Items.Skip(c.Items.Count - added).Count(i => i.Asset == "AC-049")}, AC-050 x{c.Items.Skip(c.Items.Count - added).Count(i => i.Asset == "AC-050")}, AC-008 x{c.Items.Skip(c.Items.Count - added).Count(i => i.Asset == "AC-008")}; {have} from draft 5 after the growth, {have + added} in total; target {PlatformTarget}; bare edges, nothing added to them)");
     }
 
     /// <summary>Whether the ground under a footprint (and 1 m around) is one level <paramref name="ground"/>: no kerb, crater or rim under a platform.</summary>
@@ -319,7 +348,21 @@ internal static partial class AshfallDraft5Pass
     /// </summary>
     static void Bridge6(Ctx c, string name, Vector3 mn, Vector3 mx, float deck)
     {
-        const string id = "AC-009";
+        // Draft 6, phase 2: the expansion's stone bridge (AC-045, on arches, open ends) first, then AC-009; the first that rests or stands is kept.
+        var why = new List<string>();
+        foreach (var id in BridgeIds)
+        {
+            string? fail = Bridge6(c, name, mn, mx, deck, id);
+            if (fail is null) return;
+            why.Add($"{id}: {fail}");
+        }
+        c.Log.Add(new(name, "bridge", "", -1, "dropped: neither end rests on a structure at its deck, its legs do not stand clear, and the ends reach no common height"));
+        c.Flags.Add($"{name}: dropped, its narrow ends do not both rest on a structure at its {deck:0.0} m deck ({string.Join("; ", why)})");
+    }
+
+    /// <summary>One bridge model over the span; null when it was placed, else why not.</summary>
+    static string? Bridge6(Ctx c, string name, Vector3 mn, Vector3 mx, float deck, string id)
+    {
         var m = AshfallKit.Get(id);
         var r = m.RawSize;
         float span = mx.X - mn.X, width = mx.Y - mn.Y, h = mx.Z - mn.Z, yc = (mn.Y + mx.Y) / 2f, xc = (mn.X + mx.X) / 2f;
@@ -345,7 +388,7 @@ internal static partial class AshfallDraft5Pass
             Emit(c, spec, item, 0, id, boxes, why, new Vector2(xc, yc));
             return true;
         }
-        if (TryRest(deck, $"placed, both ends rest on structures at its deck {deck:0.0} m")) return;
+        if (TryRest(deck, $"placed, both ends rest on structures at its deck {deck:0.0} m")) return null;
 
         // (b) on its own legs, the deck at the v5 height.
         float ground = MathF.Max(AshfallMap.SurfaceAt(mn.X, yc), AshfallMap.SurfaceAt(mx.X, yc));
@@ -363,8 +406,8 @@ internal static partial class AshfallDraft5Pass
                 if (legs && !banned && !meets)
                 {
                     Emit(c, spec, item, 0, id, boxes, $"placed, stands on its own legs, deck {deck:0.0} m", new Vector2(xc, yc));
-                    c.Flags.Add($"{name}: AC-009 stands on its own legs (its ends do not reach the {deck:0.0} m deck)");
-                    return;
+                    c.Flags.Add($"{name}: {id} stands on its own legs (its ends do not reach the {deck:0.0} m deck)");
+                    return null;
                 }
             }
         }
@@ -376,11 +419,10 @@ internal static partial class AshfallDraft5Pass
         foreach (float level in common.Distinct().OrderByDescending(v => v))
             if (level < deck - StepHeight && TryRest(level, $"placed, lowered from {deck:0.0} m to {level:0.0} m where both ends rest"))
             {
-                c.Flags.Add($"{name}: AC-009 lowered from {deck:0.0} m to {level:0.0} m, the height both its ends reach");
-                return;
+                c.Flags.Add($"{name}: {id} lowered from {deck:0.0} m to {level:0.0} m, the height both its ends reach");
+                return null;
             }
-        c.Log.Add(new(name, "bridge", "", -1, "dropped: neither end rests on a structure at its deck, its legs do not stand clear, and the ends reach no common height"));
-        c.Flags.Add($"{name}: dropped, its narrow ends do not both rest on a structure at its {deck:0.0} m deck (the ends reach {Describe(ea)} and {Describe(eb)}, no common height of 2 m or more that stays clear), and on its own legs {legsWhy}");
+        return $"the ends reach {Describe(ea)} and {Describe(eb)}, no common height of 2 m or more that stays clear, and on its own legs {legsWhy}";
     }
 
     static string Describe(List<float> tops) => tops.Count == 0 ? "nothing" : string.Join("/", tops.OrderBy(t => t).Select(t => t.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture))) + " m";
@@ -401,7 +443,7 @@ internal static partial class AshfallDraft5Pass
         foreach (float sx in new[] { x - 1f, x, x + 1f })
             foreach (float sy in new[] { y - width / 3f, y, y + width / 3f })
             {
-                var col = c.AllBoxes.Where(q => c.Items[q.Item].Asset != "AC-009").Select(q => q.Box).Where(b => { var r = b.Rect; return sx >= r.X && sx <= r.Z && sy >= r.Y && sy <= r.W; }).ToList();
+                var col = c.AllBoxes.Where(q => !BridgeIds.Contains(c.Items[q.Item].Asset)).Select(q => q.Box).Where(b => { var r = b.Rect; return sx >= r.X && sx <= r.Z && sy >= r.Y && sy <= r.W; }).ToList();
                 foreach (var b in col)
                 {
                     float t = b.Centre.Z + b.Half.Z;

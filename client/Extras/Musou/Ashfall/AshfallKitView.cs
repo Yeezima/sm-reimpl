@@ -40,6 +40,19 @@ public partial class AshfallKitView : Node3D
         return new Transform3D(basis, origin);
     }
 
+    /// <summary>
+    /// The model's import fix (<see cref="AshfallKitModel.ImportFix"/>, draft 6) as a transform of the file's frame: <see cref="AshfallKitImportFix.LayFlat"/> (16E, AC-071) turns the file a quarter about X,
+    /// file (x, y, z) to model (x, z, -y), the same mapping as <see cref="AshfallKitModel.FileToModel"/>, which the collision and the raw bounds were measured with. Identity for every other model.
+    /// </summary>
+    public static Transform3D ImportFixOf(AshfallKitModel model) => model.ImportFix switch
+    {
+        AshfallKitImportFix.LayFlat => new Transform3D(new Basis(new Vector3(1, 0, 0), new Vector3(0, 0, -1), new Vector3(0, 1, 0)), Vector3.Zero),   // columns: where file X, Y, Z go
+        _ => Transform3D.Identity,
+    };
+
+    /// <summary>A mesh piece of a model drawn for an item: the item's fit, the model's import fix, the piece's node transform in the file (the draw transform of the collision-equals-draw contract).</summary>
+    public static Transform3D DrawOf(AshfallDressItem item, AshfallKitModel model, Transform3D pieceLocal) => Fit(item, model) * ImportFixOf(model) * pieceLocal;
+
     // ours: the stone and ash colours of the remaining graybox parts (kind by kind)
     static Color StoneOf(AshfallKind k) => k switch
     {
@@ -559,12 +572,11 @@ void fragment() {
         {
             var item = _dressing.Items[i];
             if (asset is not { Ok: true } || model is null) { _failedItems++; continue; }
-            var fit = Fit(item, model);
             foreach (var piece in asset.Pieces)
             {
                 _items.AddChild(new MeshInstance3D
                 {
-                    Mesh = piece.Mesh, Transform = fit * piece.Local,
+                    Mesh = piece.Mesh, Transform = DrawOf(item, model, piece.Local),
                     CastShadow = _shadows ? GeometryInstance3D.ShadowCastingSetting.On : GeometryInstance3D.ShadowCastingSetting.Off,
                 });
                 _shownInstances++;

@@ -4,13 +4,13 @@ namespace SmSim.Extras.Musou.Ashfall;
 
 public static partial class AshfallMap
 {
-    /// <summary>The dressing pass's version (raised with any change of the items). 8: draft 6 (every placed object 1.5x its draft-5 size, more AC-008 platforms, bridges only on supports; docs/musou-ashfall-graybox.md "Draft 6"); 7: draft 5, one asset per graybox structure with collision from the assets (docs/musou-ashfall-graybox.md "Draft 5"); 5 was draft 3's scaled replacements, 1..4 drafts 1 and 2.</summary>
-    public const uint DressVersion = 8;
+    /// <summary>The dressing pass's version (raised with any change of the items). 9: draft 6 with the Meshy expansion placed (AC-041..076 in the pools, the new road and plaza slabs, objective A on AC-076); 8: draft 6 (every placed object 1.5x its draft-5 size, more AC-008 platforms, bridges only on supports; docs/musou-ashfall-graybox.md "Draft 6"); 7: draft 5, one asset per graybox structure with collision from the assets (docs/musou-ashfall-graybox.md "Draft 5"); 5 was draft 3's scaled replacements, 1..4 drafts 1 and 2.</summary>
+    public const uint DressVersion = 9;
 
     /// <summary>Draft 6: every placed object's size against its draft-5 size, all three axes (owner, 2026-11-06: "scale to 1.5x the current size"; ours: placeholder demonstration).</summary>
     public const float Draft6Scale = 1.5f;
 
-    /// <summary>Draft 6: the total of AC-008 shooting platforms the pass places (owner: "more of the shooting platform objects"; the lead's target at least 45; draft 5 had 29).</summary>
+    /// <summary>Draft 6: the total of shooting platforms (AC-008, and since phase 2 the expansion's AC-049 and AC-050) the pass places (owner: "more of the shooting platform objects"; the lead's target at least 45; draft 5 had 29).</summary>
     public const int Draft6PlatformTarget = 48;
 
     static readonly Lazy<AshfallDraft5> Draft5Cache = new(AshfallDraft5Pass.Run, LazyThreadSafetyMode.ExecutionAndPublication);
