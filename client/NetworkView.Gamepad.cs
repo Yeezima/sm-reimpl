@@ -138,6 +138,8 @@ public partial class NetworkView
         if (interact) _padInteractSamples++;
         if (interact && !NoPickups) buttons |= InputButtons.Interact;
         buttons = LatchButtons(buttons);
+        // The aerial tackle is on Y, the charge button (owner 2026-11-06), not X: in the jump-pack dash's window Y is sent as the melee press the simulation starts it on.
+        if (_client is { } c && _config is not null) buttons = GamepadRules.AerialTackleOnY(buttons, Rush.CanDashAttack(c.Predicted, _config, c.Collision));
         return Converged(new PlayerInput(tick, x, y, _yaw, buttons, _pitch));
     }
 
