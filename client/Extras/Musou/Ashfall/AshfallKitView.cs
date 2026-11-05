@@ -128,6 +128,10 @@ public partial class AshfallKitView : Node3D
 
     /// <summary>The camera-facing options: <c>--ashfall-tex N</c>, <c>--ashfall-lods off</c> and <c>--ashfall-shadows off</c> (measurement aids).</summary>
     bool _shadows = true;
+    /// <summary>Mesh LOD threshold (pixels of error) while the kit look is drawn; the engine default is 1. Measured: 1 costs about 20 ms of GPU time on the dense map, 4 about 3 to 5 ms (ours; <c>--ashfall-lod-threshold</c>).</summary>
+    public float LodThreshold { get; set; } = 4f;
+    float _baseLod = 1f;
+    bool _lodKept;
     void ApplyArguments()
     {
         var args = OS.GetCmdlineUserArgs();
@@ -135,6 +139,7 @@ public partial class AshfallKitView : Node3D
         if (Value("ashfall-tex") is { } t && int.TryParse(t, out var tex)) _library.TextureMax = tex;
         if (Value("ashfall-lods") == "off") _library.GenerateLods = false;
         if (Value("ashfall-shadows") == "off") _shadows = false;
+        if (Value("ashfall-lod-threshold") is { } lt && float.TryParse(lt, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var th) && th >= 0.1f) LodThreshold = th;
     }
 
     void BuildRemainder(AshfallLevel level)
@@ -171,6 +176,12 @@ public partial class AshfallKitView : Node3D
     {
         _kit = kit;
         Visible = kit;
+        if (IsInsideTree())
+        {
+            var viewport = GetViewport();
+            if (!_lodKept) { _baseLod = viewport.MeshLodThreshold; _lodKept = true; }
+            viewport.MeshLodThreshold = kit ? LodThreshold : _baseLod;
+        }
         if (_graybox is not null)
             foreach (var child in _graybox.GetChildren().OfType<Node3D>())
                 child.Visible = !kit || child.Name.ToString().StartsWith("Objective", StringComparison.Ordinal) || child.Name.ToString().StartsWith("Letter", StringComparison.Ordinal);

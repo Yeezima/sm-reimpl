@@ -265,7 +265,6 @@ public partial class AshfallKitGallery : Node3D
         {
             _kit!.SetKit(kit);
             Aim(s.At, s.Look);
-            GetViewport().MeshLodThreshold = float.TryParse(_args.GetValueOrDefault("ashfall-lod-threshold"), NumberStyles.Float, CultureInfo.InvariantCulture, out var th) ? th : 1f;
             RenderingServer.ViewportSetMeasureRenderTime(GetViewport().GetViewportRid(), true);
             _sumDelta = 0;
         }
