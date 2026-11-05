@@ -15,6 +15,46 @@ public sealed record AshfallKitFitMetrics(int SolidCells, int CoveredCells, doub
     float[] WalkableTops, int Nx, int Ny, int Nz, float CellSize);
 
 /// <summary>
+/// How well a model's boxes match its mesh, measured on a finer grid than the fit's (draft 6's collision quality gate, <see cref="AshfallKitFit.Measure"/>; thresholds in <see cref="AshfallKitFit.Gate"/>).
+/// "Far air": cells a box covers that are empty and farther than one fit cell (<see cref="BandCells"/> fine cells) from the mesh's solid, i.e. air a player would bump into.
+/// </summary>
+/// <param name="FineResolution">Cells on the longest axis of the measuring grid.</param>
+/// <param name="BandCells">Fine cells of air next to the solid that are not counted (one fit cell: a box on the fit's grid cannot do better).</param>
+/// <param name="FineSolidCells">Solid fine cells (surface plus enclosed interior).</param>
+/// <param name="FineIou">Intersection over union of the boxes' fine cells and the fine solid (no band).</param>
+/// <param name="FarAirPercent">Far air in per cent of the boxes' union.</param>
+/// <param name="OverhangAirPercent">Far air with solid above it in its column (under a balcony, a lintel, a deck), in per cent of the boxes' union.</param>
+/// <param name="WorstBoxAirPercent">The largest share of far air in any one box, in per cent.</param>
+/// <param name="MissedPercent">Surface cells of the fine solid farther than the band from every box (collision missing where the model is), in per cent of the surface cells (a hollow fit of a solid model misses nothing a player can reach).</param>
+/// <param name="CoveredCells">Fine cells covered by the boxes' union.</param>
+public sealed record AshfallKitFitQuality(int FineResolution, int BandCells, int FineSolidCells, double FineIou, double FarAirPercent, double OverhangAirPercent, double WorstBoxAirPercent,
+    double MissedPercent, int CoveredCells)
+{
+    /// <summary>Box silhouette where the model is see-through (more than the band away from the model's silhouette), along the worst of the three axes, in per cent of the model's silhouette.</summary>
+    public double PhantomSilhouettePercent { get; init; }
+
+    /// <summary>
+    /// The largest connected pocket of deep air inside the boxes (more than twice the band from the model: a chunk of air, not a skin along a surface), as the edge of a cube of the same volume
+    /// in per cent of the model's longest side (a 20 m tower: 1 % is 0.2 m).
+    /// </summary>
+    public double LargestPocketPercent { get; init; }
+
+    /// <summary>
+    /// Share of the model's silhouette, along the worst of the three axes, behind which a box holds deep air (more than twice the band from the model): how much of the model, seen from a side, has
+    /// collision in empty space somewhere along the line of sight (a filled room, frame or the space under a balcony), in per cent.
+    /// </summary>
+    public double DeepAirViewPercent { get; init; }
+
+    /// <summary>Model silhouette where the boxes are see-through (a hole through the collision), along the worst of the three axes, in per cent of the model's silhouette.</summary>
+    public double HoleSilhouettePercent { get; init; }
+
+    /// <summary>Why the fit fails the gate (empty when it passes).</summary>
+    public IReadOnlyList<string> Failures() => AshfallKitFit.Gate.Failures(this);
+
+    public bool Passes => Failures().Count == 0;
+}
+
+/// <summary>
 /// A walkable ramp found in a model's top heightfield (raw glTF frame, Y up): a run of columns whose tops rise along <see cref="Dir"/> (0 +X, 1 -X, 2 +Z, 3 -Z). <see cref="Min"/>/<see cref="Max"/> bound the footprint;
 /// Min.Y is the wedge's bottom, <see cref="YLow"/> and <see cref="YHigh"/> the top plane's heights at the low and the high edge (the plane runs through the middle of the steps, so a riser pokes at most half its height above it).
 /// </summary>
@@ -25,11 +65,18 @@ public sealed record AshfallKitFitResult(IReadOnlyList<(Vector3 Min, Vector3 Max
     public IReadOnlyList<AshfallRamp> Ramps { get; init; } = [];
 }
 
+/// <summary>The settings one fit ran with (draft 6: chosen per model by <see cref="AshfallKitFit.FitGated"/>).</summary>
+public sealed record AshfallKitFitSettings(int Resolution, int MaxBoxes, float FillTolerance, int Seal);
+
+/// <summary>A model's gated fit: the fewest boxes among the settings tried that pass the gate (or, when none does, the closest), with its measure.</summary>
+public sealed record AshfallKitGatedFit(AshfallKitFitResult Fit, AshfallKitFitQuality Quality, AshfallKitFitSettings Settings, int Tried);
+
 /// <summary>
 /// Offline collision fit (Ashfall kit, draft 4): a model's triangles become a short list of axis-aligned boxes that approximate its solid form. Pure and deterministic: voxelise on a grid anchored
 /// to the raw bounds (exact triangle/cell overlap), fill the solid (everything the exterior cannot reach, so doorways, windows and gaps under spans stay open), merge greedily into boxes, then
 /// reduce to a cap by the cheapest merges, never past a fill tolerance and never over a vertical opening (2 cells wide, 3 tall, open to the grid's outside).
-/// Numbers only: the output is committed as <c>AshfallKitCollision.g.cs</c> by <c>smtool ashfall-kit-collision</c>.
+/// Numbers only: the output is committed as <c>AshfallKitCollision.g.cs</c> by <c>smtool ashfall-kit-collision</c>. Draft 6 adds the collision quality gate (<see cref="Measure"/>, <see cref="Gate"/>, <see cref="FitGated"/>):
+/// dust is a loose piece of solid, an opening blocks a merge only beyond the surface's own cell, and an optional seal closes cracks before the fill.
 /// </summary>
 public static class AshfallKitFit
 {
@@ -40,7 +87,16 @@ public static class AshfallKitFit
     public const int DefaultMaxBoxes = 32;
 
     /// <summary>Models whose tops or stairs are meant to be walked on (draft 5): fitted finer (<see cref="WalkableResolution"/> cells, at most <see cref="WalkableMaxBoxes"/> boxes, top search at the same resolution) with ramp detection. One list for the generator command and the level pass.</summary>
-    public static readonly IReadOnlyList<string> WalkableIds = ["AC-003", "AC-005", "AC-006", "AC-007", "AC-008", "AC-009", "AC-010", "AC-037"];
+    /// <remarks>Draft 6 adds the Meshy expansion's traversal pieces (walls with tops, gatehouse, keep, bridge, stair, ramp, the low and medium platforms, the two-storey ruin, the tower, the mound, the dais);
+    /// its quarantined models (<see cref="AshfallKitFlags.TraversalQuarantined"/>: AC-043, AC-048) are fitted as solids, not walkable.</remarks>
+    public static readonly IReadOnlyList<string> WalkableIds = ["AC-003", "AC-005", "AC-006", "AC-007", "AC-008", "AC-009", "AC-010", "AC-037",
+        "AC-041", "AC-042", "AC-044", "AC-045", "AC-046", "AC-047", "AC-049", "AC-050", "AC-051", "AC-052", "AC-053", "AC-076"];
+
+    /// <summary>The step a walker climbs (metres; the level pass's rule, <c>AshfallDraft5.StepHeight</c>).</summary>
+    public const float StepHeight = 0.4f;
+
+    /// <summary>The largest uniform scale (metres per raw unit) at which a fit's cell, the height quantum of its boxes, stays within <see cref="StepHeight"/>.</summary>
+    public static float MaxWalkScale(float cellSize) => cellSize <= 0f ? float.PositiveInfinity : StepHeight / cellSize;
     public const int WalkableResolution = 48, WalkableMaxBoxes = 64;
     public const float DefaultFillTolerance = 0.15f;
 
@@ -61,27 +117,25 @@ public static class AshfallKitFit
 
     /// <summary>Fits boxes to a triangle soup. <paramref name="positions"/>/<paramref name="indices"/> are in the raw glTF frame (Y up).</summary>
     public static AshfallKitFitResult Fit(IReadOnlyList<Vector3> positions, IReadOnlyList<int> indices, Vector3 rawMin, Vector3 rawMax,
-        int resolution = DefaultResolution, int maxBoxes = DefaultMaxBoxes, float fillTolerance = DefaultFillTolerance, int topResolution = DefaultTopResolution, bool ramps = false)
+        int resolution = DefaultResolution, int maxBoxes = DefaultMaxBoxes, float fillTolerance = DefaultFillTolerance, int topResolution = DefaultTopResolution, bool ramps = false, int seal = 0)
     {
         var size = rawMax - rawMin;
         float longest = Math.Max(size.X, Math.Max(size.Y, size.Z));
         if (longest <= 0f) return new(Array.Empty<(Vector3, Vector3)>(), new(0, 0, 0, 0, 0, 0, false, false, [], 0, 0, 0, 0f));
         float cell = longest / resolution;
-        var g = SolidGrid(positions, indices, rawMin, size, cell);
+        var g = seal > 0 ? SealedSolidGrid(positions, indices, rawMin, size, cell, seal) : SolidGrid(positions, indices, rawMin, size, cell);
         int solidCells = g.Solid.Count(b => b);
 
-        var boxes = GreedyMerge(g);
-        // Dust: single-cell-thick flecks below 0.2 % of the solid volume.
-        int dropped = 0; long droppedVol = 0;
-        double dustLimit = solidCells * 0.002;
-        var kept = new List<Box>();
-        foreach (var b in boxes)
+        // Dust (draft 6): loose flecks, i.e. connected pieces of solid (26-connected) smaller than 0.2 % of the solid volume, are removed before merging. Draft 5 dropped every
+        // one-cell-thick merged box under that size, which at the walkable models' 48 cells cut thin walls into strips and dropped them (AC-010 lost 28 % of its solid: holes through its walls).
+        var (dropped, droppedVol) = RemoveDust(g, solidCells * 0.002);
+        var kept = GreedyMerge(g);
+        if (kept.Count == 0 && solidCells > 0)
         {
-            int minDim = Math.Min(b.X1 - b.X0, Math.Min(b.Y1 - b.Y0, b.Z1 - b.Z0)) + 1;
-            if (minDim <= 1 && b.Volume < dustLimit && boxes.Count > 1) { dropped++; droppedVol += b.Volume; }
-            else kept.Add(b);
+            // everything was dust: keep the solid as it was
+            g = seal > 0 ? SealedSolidGrid(positions, indices, rawMin, size, cell, seal) : SolidGrid(positions, indices, rawMin, size, cell);
+            kept = GreedyMerge(g); dropped = 0; droppedVol = 0;
         }
-        if (kept.Count == 0 && boxes.Count > 0) kept.Add(boxes.OrderByDescending(b => b.Volume).First());
 
         bool capReached = false;
         if (kept.Count > maxBoxes) { capReached = true; kept = Reduce(g, kept, maxBoxes, fillTolerance); }
@@ -187,6 +241,44 @@ public static class AshfallKitFit
         return result.OrderByDescending(r => r.Area).ThenBy(r => r.Ramp.Dir).ThenBy(r => r.Ramp.Min.X).ThenBy(r => r.Ramp.Min.Z).Take(12).Select(r => r.Ramp).ToList();
     }
 
+    /// <summary>
+    /// <see cref="SolidGrid"/> for a grid whose cell is finer than the mesh's cracks: the surface is grown by <paramref name="seal"/> cells, the exterior flooded around that, then grown back
+    /// <paramref name="seal"/> steps (26-connected) through cells that are not surface. Gaps up to about 2 x <paramref name="seal"/> cells stay closed; real openings (a doorway, an open frame) stay open.
+    /// The grid is padded by <paramref name="seal"/> + 1 cells while this runs so that nothing near the bounds is sealed against the grid's edge.
+    /// </summary>
+    static Grid SealedSolidGrid(IReadOnlyList<Vector3> positions, IReadOnlyList<int> indices, Vector3 rawMin, Vector3 size, float cell, int seal)
+    {
+        int pad = seal + 1;
+        var g = new Grid { Nx = Cells(size.X, cell), Ny = Cells(size.Y, cell), Nz = Cells(size.Z, cell) };
+        var p = new Grid { Nx = g.Nx + 2 * pad, Ny = g.Ny + 2 * pad, Nz = g.Nz + 2 * pad };
+        p.Solid = new bool[p.Nx * p.Ny * p.Nz];
+        var surface = Voxelise(p, positions, indices, rawMin - new Vector3(pad * cell), cell);
+        var ext = FloodExterior(p, Dilate(p, surface, seal));
+        var frontier = new List<int>();
+        for (int i = 0; i < ext.Length; i++) if (ext[i]) frontier.Add(i);
+        for (int step = 0; step < seal; step++)
+        {
+            var next = new List<int>();
+            foreach (int i in frontier)
+            {
+                int x = i % p.Nx, z = i / p.Nx % p.Nz, y = i / (p.Nx * p.Nz);
+                for (int dy = -1; dy <= 1; dy++) for (int dz = -1; dz <= 1; dz++) for (int dx = -1; dx <= 1; dx++)
+                {
+                    int nx = x + dx, ny = y + dy, nz = z + dz;
+                    if (nx < 0 || ny < 0 || nz < 0 || nx >= p.Nx || ny >= p.Ny || nz >= p.Nz) continue;
+                    int j = p.Index(nx, ny, nz);
+                    if (ext[j] || surface[j]) continue;
+                    ext[j] = true; next.Add(j);
+                }
+            }
+            frontier = next;
+        }
+        g.Solid = new bool[g.Nx * g.Ny * g.Nz];
+        for (int y = 0; y < g.Ny; y++) for (int z = 0; z < g.Nz; z++) for (int x = 0; x < g.Nx; x++)
+            g.Solid[g.Index(x, y, z)] = !ext[p.Index(x + pad, y + pad, z + pad)];
+        return g;
+    }
+
     static Grid SolidGrid(IReadOnlyList<Vector3> positions, IReadOnlyList<int> indices, Vector3 rawMin, Vector3 size, float cell)
     {
         var g = new Grid { Nx = Cells(size.X, cell), Ny = Cells(size.Y, cell), Nz = Cells(size.Z, cell) };
@@ -272,6 +364,35 @@ public static class AshfallKitFit
 
     // ---------------------------------------------------------------- boxes
 
+    /// <summary>Clears every 26-connected piece of solid smaller than <paramref name="limit"/> cells; returns how many pieces and cells went.</summary>
+    static (int Pieces, long Cells) RemoveDust(Grid g, double limit)
+    {
+        var seen = new bool[g.Solid.Length];
+        int pieces = 0; long cells = 0;
+        var stack = new Stack<int>();
+        var comp = new List<int>();
+        for (int s = 0; s < g.Solid.Length; s++)
+        {
+            if (!g.Solid[s] || seen[s]) continue;
+            comp.Clear(); stack.Push(s); seen[s] = true;
+            while (stack.Count > 0)
+            {
+                int i = stack.Pop(); comp.Add(i);
+                int x = i % g.Nx, z = i / g.Nx % g.Nz, y = i / (g.Nx * g.Nz);
+                for (int dy = -1; dy <= 1; dy++) for (int dz = -1; dz <= 1; dz++) for (int dx = -1; dx <= 1; dx++)
+                {
+                    int nx = x + dx, ny = y + dy, nz = z + dz;
+                    if (!g.IsSolid(nx, ny, nz)) continue;
+                    int j = g.Index(nx, ny, nz);
+                    if (seen[j]) continue;
+                    seen[j] = true; stack.Push(j);
+                }
+            }
+            if (comp.Count < limit) { pieces++; cells += comp.Count; foreach (int i in comp) g.Solid[i] = false; }
+        }
+        return (pieces, cells);
+    }
+
     static List<Box> GreedyMerge(Grid g)
     {
         var claimed = new bool[g.Solid.Length];
@@ -354,9 +475,12 @@ public static class AshfallKitFit
 
     static List<Box> Reduce(Grid g, List<Box> start, int maxBoxes, float tolerance)
     {
+        // Draft 6: a merge pays only for empty cells more than one cell from the solid (air next to the surface is the fit's own quantisation; the gate does not count it either),
+        // and an opening is kept only where it is more than one cell from the solid.
+        var near = Dilate(g, g.Solid, 1);
         var solid = new Prefix(g, i => g.Solid[i]);
         var prot = ProtectedOpenings(g);
-        var protectedCount = new Prefix(g, i => prot[i]);
+        var protectedCount = new Prefix(g, i => prot[i] && !near[i]);
         var boxes = new List<Box>(start);
         var alive = new List<bool>();
         foreach (var _ in start) alive.Add(true);
@@ -395,6 +519,298 @@ public static class AshfallKitFit
             return p.X1.CompareTo(q.X1);
         });
         return result;
+    }
+
+    // ---------------------------------------------------------------- quality gate (draft 6)
+
+    /// <summary>
+    /// The settings <see cref="FitGated"/> tries, cheapest first. Walkable models keep <see cref="WalkableResolution"/> (the placement's step rule reads their cell size); the others go from 24 to 48 cells.
+    /// Fill tolerances 15, 10 and 5 %, caps of 32 and 64 boxes (64 and 128 for the walkable ones), and the solid either as voxelised or with one-cell cracks sealed.
+    /// </summary>
+    public static IEnumerable<AshfallKitFitSettings> GateLadder(bool walkable)
+    {
+        int[] resolutions = walkable ? [WalkableResolution] : [24, 32, 48];
+        int[] caps = walkable ? [WalkableMaxBoxes, 2 * WalkableMaxBoxes] : [DefaultMaxBoxes, 2 * DefaultMaxBoxes];
+        foreach (int res in resolutions)
+            foreach (float fill in new[] { 0.15f, 0.10f, 0.05f })
+                foreach (int cap in caps)
+                    foreach (int seal in new[] { 0, 1 })
+                        yield return new(res, cap, fill, seal);
+    }
+
+    /// <summary>
+    /// Fits a model with every setting of <see cref="GateLadder"/> and keeps the passing fit with the fewest boxes (ties: the earlier setting). When no setting passes, the one with the fewest gate failures,
+    /// then the fewest boxes, is returned and its <see cref="AshfallKitGatedFit.Quality"/> says why it fails. Deterministic.
+    /// </summary>
+    public static AshfallKitGatedFit FitGated(IReadOnlyList<Vector3> positions, IReadOnlyList<int> indices, Vector3 rawMin, Vector3 rawMax, bool walkable)
+    {
+        AshfallKitGatedFit? best = null;
+        int bestFailures = int.MaxValue, tried = 0;
+        foreach (var st in GateLadder(walkable))
+        {
+            tried++;
+            var fit = Fit(positions, indices, rawMin, rawMax, st.Resolution, st.MaxBoxes, st.FillTolerance, walkable ? st.Resolution : DefaultTopResolution, ramps: walkable, seal: st.Seal);
+            var q = Measure(positions, indices, rawMin, rawMax, fit.Boxes, fit.Metrics.CellSize);
+            int failures = q.Failures().Count;
+            if (best == null || failures < bestFailures || (failures == bestFailures && fit.Boxes.Count < best.Fit.Boxes.Count))
+            {
+                best = new(fit, q, st, 0); bestFailures = failures;
+            }
+        }
+        return best! with { Tried = tried };
+    }
+
+    /// <summary>
+    /// The collision quality gate's thresholds (draft 6; ours, an estimate set on the kit of 2026-11-05: 28 of the 40 draft-5 fits fail it, the 16-cell fits for the air they fill and AC-003, AC-005 and AC-010
+    /// for holes through their walls, while every gated refit passes). One place for the tool and the tests; see <see cref="AshfallKitFitQuality"/> for what each measure is.
+    /// </summary>
+    public static class Gate
+    {
+        public const double MaxFarAirPercent = 8.0;
+        public const double MaxOverhangAirPercent = 3.0;
+        public const double MaxWorstBoxAirPercent = 35.0;
+        public const double MaxMissedPercent = 5.0;
+        public const double MaxPhantomSilhouettePercent = 2.0;
+        public const double MaxHoleSilhouettePercent = 2.0;
+        public const double MaxPocketPercent = 4.0;
+        public const double MaxDeepAirViewPercent = 10.0;
+
+        /// <summary>Models the gate only reports: the manifest flags them never-used (AC-015, AC-016, AC-026).</summary>
+        public static readonly IReadOnlyList<string> ReportOnlyIds = ["AC-015", "AC-016", "AC-026"];
+
+        public static IReadOnlyList<string> Failures(AshfallKitFitQuality q)
+        {
+            var r = new List<string>();
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            if (q.FarAirPercent > MaxFarAirPercent) r.Add(string.Format(inv, "far air {0:F1} % over {1:F1} %", q.FarAirPercent, MaxFarAirPercent));
+            if (q.OverhangAirPercent > MaxOverhangAirPercent) r.Add(string.Format(inv, "overhang air {0:F1} % over {1:F1} %", q.OverhangAirPercent, MaxOverhangAirPercent));
+            if (q.WorstBoxAirPercent > MaxWorstBoxAirPercent) r.Add(string.Format(inv, "a box {0:F1} % far air, over {1:F1} %", q.WorstBoxAirPercent, MaxWorstBoxAirPercent));
+            if (q.MissedPercent > MaxMissedPercent) r.Add(string.Format(inv, "missed solid {0:F1} % over {1:F1} %", q.MissedPercent, MaxMissedPercent));
+            if (q.PhantomSilhouettePercent > MaxPhantomSilhouettePercent) r.Add(string.Format(inv, "boxes fill {0:F1} % of a see-through view, over {1:F1} %", q.PhantomSilhouettePercent, MaxPhantomSilhouettePercent));
+            if (q.HoleSilhouettePercent > MaxHoleSilhouettePercent) r.Add(string.Format(inv, "holes through the boxes {0:F1} % of a view, over {1:F1} %", q.HoleSilhouettePercent, MaxHoleSilhouettePercent));
+            if (q.DeepAirViewPercent > MaxDeepAirViewPercent) r.Add(string.Format(inv, "deep air behind {0:F1} % of a view, over {1:F1} %", q.DeepAirViewPercent, MaxDeepAirViewPercent));
+            if (q.LargestPocketPercent > MaxPocketPercent) r.Add(string.Format(inv, "an air pocket {0:F1} % of the longest side, over {1:F1} %", q.LargestPocketPercent, MaxPocketPercent));
+            return r;
+        }
+    }
+
+    /// <summary>Cells on the longest axis of the fine grid the gate measures a fit against (a fixed fine cell: 144 is 3 x the walkable fit's 48 and 9 x the default 16).</summary>
+    public const int MeasureResolution = 144;
+
+    /// <summary>Fine cells of air next to the solid that the gate does not count (3 of 144: one cell of the walkable fit (48), the finest grid the fit uses; about 2 % of the model's longest side).</summary>
+    public const int BandCells = 3;
+
+    /// <summary>Cracks in the mesh up to about twice this many fine cells wide are sealed before the interior is filled (the generated models are not watertight at the fine cell).</summary>
+    public const int SealCells = 2;
+
+    /// <summary>
+    /// Measures a fit against a finer voxelisation of the same mesh (<see cref="MeasureResolution"/> cells on the longest axis; solid = surface plus what the exterior cannot reach).
+    /// Cracks up to 2 x <see cref="SealCells"/> cells are sealed first. Air within <see cref="BandCells"/> fine cells of the solid (one cell of the 48-cell fit, the finest the fit uses) is not counted as air; everything else a box covers and the mesh does not is far air.
+    /// <paramref name="fitCell"/> (the fit's cell) is not used by the measure; it stays so callers record which fit was measured.
+    /// </summary>
+    public static AshfallKitFitQuality Measure(IReadOnlyList<Vector3> positions, IReadOnlyList<int> indices, Vector3 rawMin, Vector3 rawMax, IReadOnlyList<(Vector3 Min, Vector3 Max)> boxes, float fitCell)
+    {
+        var size = rawMax - rawMin;
+        float longest = Math.Max(size.X, Math.Max(size.Y, size.Z));
+        if (longest <= 0f || boxes.Count == 0) return new(MeasureResolution, 0, 0, 1.0, 0, 0, 0, 0, 0);
+        float cell = longest / MeasureResolution;
+        var g = SealedSolidGrid(positions, indices, rawMin, size, cell, SealCells);
+        int band = BandCells;
+        var near = Dilate(g, g.Solid, band);
+
+        var covered = new bool[g.Solid.Length];
+        var farAir = new bool[g.Solid.Length];
+        for (int i = 0; i < g.Solid.Length; i++) farAir[i] = !near[i];
+        var farPrefix = new Prefix(g, i => farAir[i]);
+        double worstBox = 0;
+        foreach (var (mn, mx) in boxes)
+        {
+            var b = CellBox(g, mn - rawMin, mx - rawMin, cell);
+            if (b is not { } bb) continue;
+            for (int y = bb.Y0; y <= bb.Y1; y++) for (int z = bb.Z0; z <= bb.Z1; z++) for (int x = bb.X0; x <= bb.X1; x++) covered[g.Index(x, y, z)] = true;
+            // A box thinner than the band is all band: its air cannot be told from quantisation.
+            worstBox = Math.Max(worstBox, (double)farPrefix.Count(bb) / bb.Volume);
+        }
+        // Solid somewhere above a cell in its column: the cell is under an overhang (a balcony, a lintel, a deck).
+        var solidAbove = new bool[g.Solid.Length];
+        for (int z = 0; z < g.Nz; z++) for (int x = 0; x < g.Nx; x++)
+        {
+            bool any = false;
+            for (int y = g.Ny - 1; y >= 0; y--) { int i = g.Index(x, y, z); solidAbove[i] = any; any |= g.Solid[i]; }
+        }
+        // Solid the boxes miss by more than the band (collision that is not there).
+        var nearBox = Dilate(g, covered, band);
+        long inter = 0, uni = 0, cov = 0, far = 0, over = 0, solid = 0, missed = 0, surface = 0;
+        for (int i = 0; i < covered.Length; i++)
+        {
+            bool c = covered[i], s = g.Solid[i];
+            if (s) { solid++; if (OnSurface(g, i)) { surface++; if (!nearBox[i]) missed++; } }
+            if (c) cov++;
+            if (c && s) inter++;
+            if (c || s) uni++;
+            if (c && farAir[i]) { far++; if (solidAbove[i]) over++; }
+        }
+        // The largest connected pocket of deep air inside the boxes (6-connected), as the edge of a cube of the same volume in per cent of the model's longest side.
+        long largest = 0;
+        var deepNear = Dilate(g, g.Solid, 2 * band);
+        {
+            var seen = new bool[covered.Length];
+            var stack = new Stack<int>();
+            for (int s0 = 0; s0 < covered.Length; s0++)
+            {
+                if (!covered[s0] || deepNear[s0] || seen[s0]) continue;
+                long n = 0; stack.Push(s0); seen[s0] = true;
+                while (stack.Count > 0)
+                {
+                    int i = stack.Pop(); n++;
+                    int x = i % g.Nx, z = i / g.Nx % g.Nz, y = i / (g.Nx * g.Nz);
+                    void Try(int xx, int yy, int zz)
+                    {
+                        if (xx < 0 || yy < 0 || zz < 0 || xx >= g.Nx || yy >= g.Ny || zz >= g.Nz) return;
+                        int j = g.Index(xx, yy, zz);
+                        if (seen[j] || !covered[j] || deepNear[j]) return;
+                        seen[j] = true; stack.Push(j);
+                    }
+                    Try(x - 1, y, z); Try(x + 1, y, z); Try(x, y - 1, z); Try(x, y + 1, z); Try(x, y, z - 1); Try(x, y, z + 1);
+                }
+                largest = Math.Max(largest, n);
+            }
+        }
+        double pocket = 100.0 * Math.Cbrt(largest) / MeasureResolution;
+        // Silhouettes along each axis: box where the model is see-through (a filled doorway, frame or the air under a balcony seen from the side), and model where the boxes are see-through (a hole through the collision).
+        double phantom = 0, holes = 0, airView = 0;
+        for (int axis = 0; axis < 3; axis++)
+        {
+            var p = new Grid { Nx = axis == 0 ? 1 : g.Nx, Ny = axis == 1 ? 1 : g.Ny, Nz = axis == 2 ? 1 : g.Nz };
+            var meshSil = new bool[p.Nx * p.Ny * p.Nz]; var boxSil = new bool[meshSil.Length]; var airSil = new bool[meshSil.Length];
+            for (int y = 0; y < g.Ny; y++) for (int z = 0; z < g.Nz; z++) for (int x = 0; x < g.Nx; x++)
+            {
+                int i = g.Index(x, y, z), j = p.Index(axis == 0 ? 0 : x, axis == 1 ? 0 : y, axis == 2 ? 0 : z);
+                meshSil[j] |= g.Solid[i]; boxSil[j] |= covered[i]; airSil[j] |= covered[i] && !deepNear[i];
+            }
+            var meshNear = Dilate(p, meshSil, band); var boxNear = Dilate(p, boxSil, band);
+            int silCount = 0, ph = 0, ho = 0, av = 0;
+            for (int j = 0; j < meshSil.Length; j++)
+            {
+                if (meshSil[j]) { silCount++; if (!boxNear[j]) ho++; }
+                if (boxSil[j] && !meshNear[j]) ph++;
+                if (airSil[j]) av++;
+            }
+            if (silCount > 0) { phantom = Math.Max(phantom, 100.0 * ph / silCount); holes = Math.Max(holes, 100.0 * ho / silCount); airView = Math.Max(airView, 100.0 * av / silCount); }
+        }
+        return new(MeasureResolution, band, (int)solid, uni == 0 ? 1.0 : (double)inter / uni,
+            cov == 0 ? 0 : 100.0 * far / cov, cov == 0 ? 0 : 100.0 * over / cov, 100.0 * worstBox, surface == 0 ? 0 : 100.0 * missed / surface, (int)cov)
+        { PhantomSilhouettePercent = phantom, HoleSilhouettePercent = holes, LargestPocketPercent = pocket, DeepAirViewPercent = airView };
+    }
+
+    /// <summary>
+    /// A PNG for checking a fit by eye (smtool ashfall-kit-collision --views): top row the front (looking along -Z), bottom row the side (along +X), each at <see cref="MeasureResolution"/> cells;
+    /// left the model's solid (grey, darker is nearer), middle the boxes (blue), right the far air inside the boxes (red, darker is more air along the view).
+    /// </summary>
+    public static byte[] ViewsPng(IReadOnlyList<Vector3> positions, IReadOnlyList<int> indices, Vector3 rawMin, Vector3 rawMax, IReadOnlyList<(Vector3 Min, Vector3 Max)> boxes, int scale)
+    {
+        int res = MeasureResolution;
+        var size = rawMax - rawMin;
+        float longest = Math.Max(size.X, Math.Max(size.Y, size.Z));
+        float cell = longest / res;
+        var g = SealedSolidGrid(positions, indices, rawMin, size, cell, SealCells);
+        var near = Dilate(g, g.Solid, BandCells);
+        var cov = new bool[g.Solid.Length];
+        foreach (var (mn, mx) in boxes) { var b = CellBox(g, mn - rawMin, mx - rawMin, cell); if (b is { } bb) for (int y = bb.Y0; y <= bb.Y1; y++) for (int z = bb.Z0; z <= bb.Z1; z++) for (int x = bb.X0; x <= bb.X1; x++) cov[g.Index(x, y, z)] = true; }
+        int pw = g.Nx + g.Nz + 3, W = pw * 3 * scale, H = (g.Ny + 2) * 2 * scale;
+        var img = new byte[W * H * 3];
+        void Px(int px, int py, byte r, byte gg, byte b) { for (int sy = 0; sy < scale; sy++) for (int sx = 0; sx < scale; sx++) { int o = ((py * scale + sy) * W + px * scale + sx) * 3; img[o] = r; img[o + 1] = gg; img[o + 2] = b; } }
+        for (int i = 0; i < img.Length; i++) img[i] = 255;
+        // row 0: front view (x across, y up, first hit along +z); row 1: side view (z across, y up, first hit along +x)
+        for (int view = 0; view < 2; view++)
+        {
+            int nu = view == 0 ? g.Nx : g.Nz, nd = view == 0 ? g.Nz : g.Nx;
+            for (int y = 0; y < g.Ny; y++) for (int u = 0; u < nu; u++)
+            {
+                int solidD = -1, boxD = -1, air = 0;
+                for (int d = 0; d < nd; d++)
+                {
+                    int i = view == 0 ? g.Index(u, y, d) : g.Index(d, y, u);
+                    if (solidD < 0 && g.Solid[i]) solidD = d;
+                    if (boxD < 0 && cov[i]) boxD = d;
+                    if (cov[i] && !near[i]) air++;
+                }
+                int py = view * (g.Ny + 2) + (g.Ny - 1 - y);
+                byte Sh(int d) => (byte)(60 + 160 * d / Math.Max(1, nd));
+                if (solidD >= 0) Px(u, py, Sh(solidD), Sh(solidD), Sh(solidD));
+                if (boxD >= 0) Px(pw + u, py, Sh(boxD), Sh(boxD), (byte)255);
+                if (air > 0) { byte a = (byte)Math.Min(255, 80 + air * 12); Px(2 * pw + u, py, 255, (byte)(255 - a), (byte)(255 - a)); }
+                else if (solidD >= 0) Px(2 * pw + u, py, 220, 220, 220);
+            }
+        }
+        // PNG
+        using var ms = new MemoryStream();
+        void Chunk(string type, byte[] data)
+        {
+            var len = BitConverter.GetBytes(data.Length); Array.Reverse(len); ms.Write(len);
+            var t = System.Text.Encoding.ASCII.GetBytes(type); ms.Write(t); ms.Write(data);
+            uint crc = 0xFFFFFFFF;
+            foreach (var bt in t.Concat(data)) { crc ^= bt; for (int k = 0; k < 8; k++) crc = (crc & 1) != 0 ? 0xEDB88320 ^ (crc >> 1) : crc >> 1; }
+            var c = BitConverter.GetBytes(~crc); Array.Reverse(c); ms.Write(c);
+        }
+        ms.Write(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 });
+        var ihdr = new byte[13]; var w = BitConverter.GetBytes(W); Array.Reverse(w); var h = BitConverter.GetBytes(H); Array.Reverse(h);
+        w.CopyTo(ihdr, 0); h.CopyTo(ihdr, 4); ihdr[8] = 8; ihdr[9] = 2;
+        Chunk("IHDR", ihdr);
+        var raw = new byte[(W * 3 + 1) * H];
+        for (int y = 0; y < H; y++) { raw[y * (W * 3 + 1)] = 0; Array.Copy(img, y * W * 3, raw, y * (W * 3 + 1) + 1, W * 3); }
+        using (var zs = new MemoryStream()) { using (var z = new System.IO.Compression.ZLibStream(zs, System.IO.Compression.CompressionLevel.Fastest, true)) z.Write(raw); Chunk("IDAT", zs.ToArray()); }
+        Chunk("IEND", []);
+        return ms.ToArray();
+    }
+
+    /// <summary>A solid cell with an empty 6-neighbour or on the grid's edge.</summary>
+    static bool OnSurface(Grid g, int i)
+    {
+        int x = i % g.Nx, z = i / g.Nx % g.Nz, y = i / (g.Nx * g.Nz);
+        return !g.IsSolid(x - 1, y, z) || !g.IsSolid(x + 1, y, z) || !g.IsSolid(x, y - 1, z) || !g.IsSolid(x, y + 1, z) || !g.IsSolid(x, y, z - 1) || !g.IsSolid(x, y, z + 1);
+    }
+
+    /// <summary>The fine cells whose centres lie inside a box given in metres from the grid's origin (null when none do).</summary>
+    static Box? CellBox(Grid g, Vector3 mn, Vector3 mx, float cell)
+    {
+        int Lo(float v) => (int)MathF.Ceiling(v / cell - 0.5f - 1e-4f);
+        int Hi(float v) => (int)MathF.Floor(v / cell - 0.5f + 1e-4f);
+        int x0 = Math.Max(0, Lo(mn.X)), y0 = Math.Max(0, Lo(mn.Y)), z0 = Math.Max(0, Lo(mn.Z));
+        int x1 = Math.Min(g.Nx - 1, Hi(mx.X)), y1 = Math.Min(g.Ny - 1, Hi(mx.Y)), z1 = Math.Min(g.Nz - 1, Hi(mx.Z));
+        if (x1 < x0 || y1 < y0 || z1 < z0) return null;
+        return new Box(x0, y0, z0, x1, y1, z1);
+    }
+
+    /// <summary>Chebyshev dilation of a cell set by <paramref name="r"/> cells (three separable passes).</summary>
+    static bool[] Dilate(Grid g, bool[] src, int r)
+    {
+        var a = (bool[])src.Clone();
+        var b = new bool[a.Length];
+        void Pass(int axis)
+        {
+            int n = axis == 0 ? g.Nx : axis == 1 ? g.Ny : g.Nz;
+            int stride = axis == 0 ? 1 : axis == 1 ? g.Nx * g.Nz : g.Nx;
+            for (int i = 0; i < a.Length; i++)
+            {
+                int x = i % g.Nx, z = i / g.Nx % g.Nz, y = i / (g.Nx * g.Nz);
+                int k = axis == 0 ? x : axis == 1 ? y : z;
+                if (k != 0) continue;
+                // sliding window count along the line
+                int count = 0;
+                for (int j = 0; j < Math.Min(n, r + 1); j++) if (a[i + j * stride]) count++;
+                for (int j = 0; j < n; j++)
+                {
+                    b[i + j * stride] = count > 0;
+                    int add = j + r + 1, rem = j - r;
+                    if (add < n && a[i + add * stride]) count++;
+                    if (rem >= 0 && a[i + rem * stride]) count--;
+                }
+            }
+            (a, b) = (b, a);
+        }
+        Pass(0); Pass(1); Pass(2);
+        return a;
     }
 
     // ---------------------------------------------------------------- walkable tops

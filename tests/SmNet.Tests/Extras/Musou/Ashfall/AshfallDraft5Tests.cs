@@ -361,7 +361,9 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
     public void The_flags_list_the_review_items()
     {
         foreach (var f in Dressing.Flags) output.WriteLine(f);
-        Assert.Contains(Dressing.Flags, f => f.Contains("manual clean-up"));
+        // Draft 6: every used model passes the collision quality gate, so a clean-up flag appears only when a used model still needs one (a walkable model without a top, say).
+        bool anyCleanup = Dressing.Items.Where(i => i.Role == AshfallDressRole.Prop).Select(i => i.Asset).Distinct().Any(AshfallKitCollision.NeedsCleanup);
+        Assert.Equal(anyCleanup, Dressing.Flags.Any(f => f.Contains("manual clean-up")));
         Assert.DoesNotContain(Dressing.Flags, f => f.StartsWith("untagged"));
         // Every model used whose collision needs a clean-up is named.
         foreach (var id in Dressing.Items.Where(i => i.Role == AshfallDressRole.Prop).Select(i => i.Asset).Distinct().Where(AshfallKitCollision.NeedsCleanup))
