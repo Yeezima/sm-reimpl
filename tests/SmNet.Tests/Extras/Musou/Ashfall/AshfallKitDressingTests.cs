@@ -34,6 +34,23 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
 
     // ---------------------------------------------------------------- determinism and catalogue
 
+    /// <summary>The client hides a prop's collision proxy from its item's first part up to the next prop's first part (AshfallKitView.CoveredParts): every such
+    /// range must hold only proxy kinds (Wall, Cover, Rubble, Perch, and a perch's Floor deck and Stair); the last range runs to the level's end, so no other part may follow the last prop.</summary>
+    [Fact]
+    public void Each_props_part_range_holds_only_its_own_proxy_parts()
+    {
+        var firsts = Of(AshfallDressRole.Prop).Select(p => p.Part).Distinct().OrderBy(x => x).ToArray();
+        Assert.NotEmpty(firsts);
+        for (int k = 0; k < firsts.Length; k++)
+        {
+            int end = k + 1 < firsts.Length ? firsts[k + 1] : Level.Parts.Count;
+            Assert.True(end - firsts[k] is >= 1 and <= 60, $"prop range {firsts[k]}..{end} has {end - firsts[k]} parts");
+            for (int p = firsts[k]; p < end; p++)
+                Assert.True(Level.Parts[p].Kind is AshfallKind.Wall or AshfallKind.Cover or AshfallKind.Rubble or AshfallKind.Perch or AshfallKind.Floor or AshfallKind.Stair,
+                    $"part {p} of the prop range from {firsts[k]} is {Level.Parts[p].Kind}");
+        }
+    }
+
     [Fact]
     public void Two_builds_give_the_same_level_and_the_same_items_in_the_same_order()
     {
@@ -45,7 +62,7 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
         for (int i = 0; i < Dressing.Items.Count; i++) Assert.Equal(Dressing.Items[i], dressingB.Items[i]);
         Assert.Equal(Dressing.HiddenParts, dressingB.HiddenParts);
         Assert.Equal(AshfallMap.DressVersion, Dressing.Version);
-        Assert.Equal(3u, AshfallMap.DressVersion);
+        Assert.Equal(4u, AshfallMap.DressVersion);
         output.WriteLine($"{Dressing.Items.Count} items, {Dressing.HiddenParts.Count} hidden parts, {Level.Parts.Count} parts, {Level.SolidCorners().Length / 3} collision triangles, hash {Level.Hash:X16}");
         foreach (var g in Dressing.Items.GroupBy(i => i.Role).OrderBy(g => g.Key)) output.WriteLine($"{g.Key,-10} {g.Count(),5} items, {g.Sum(i => AshfallKit.Get(i.Asset).Triangles),10} model triangles");
     }

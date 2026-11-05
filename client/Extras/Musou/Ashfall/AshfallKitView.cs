@@ -255,10 +255,11 @@ public partial class AshfallKitView : Node3D
     public override void _Process(double delta)
     {
         long budgetEnd = (long)Time.GetTicksUsec() + 4000;
+        bool libraryDone = _library.Pending == 0;   // read before draining: a model finishing in between is then still placed before the report
         foreach (var id in _library.TakeReady()) _toPlace.Enqueue(id);
         // Models that arrived but did not fit this frame's budget wait for the next frame (TakeReady drains the library's queue).
         while (_toPlace.Count > 0 && (long)Time.GetTicksUsec() <= budgetEnd) Instantiate(_toPlace.Dequeue());
-        if (!_reported && _library.Pending == 0 && _toPlace.Count == 0 && _library.Loaded + _library.Failed > 0)
+        if (!_reported && libraryDone && _toPlace.Count == 0 && _library.Loaded + _library.Failed > 0)
         {
             _reported = true;
             var assets = _library.All.Where(a => a.Ok).ToList();

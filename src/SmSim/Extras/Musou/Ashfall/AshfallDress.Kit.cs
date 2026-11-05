@@ -242,7 +242,7 @@ internal static partial class AshfallDressPass
                     {
                         float s = BaseScale(m) * v;
                         var (l, dd, _) = Dims(m, s);
-                        if (l > room || dd > crossLen * 0.55f) continue;
+                        if (l > room || dd > MathF.Max(crossLen * 0.55f, 2.5f)) continue;   // a 1 m "wall" footprint still takes a piece up to 2.5 m deep (the placer keeps it clear of everything)
                         float slack = room - l;
                         float along = lo + l / 2f + slack * (((ha >> 9) & 7) / 7f);   // shifted along the edge by the hash
                         float across = dd / 2f;

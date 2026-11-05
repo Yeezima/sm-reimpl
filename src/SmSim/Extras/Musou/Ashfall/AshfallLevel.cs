@@ -30,7 +30,7 @@ public sealed record AshfallLevel(IReadOnlyList<AshfallPart> Parts, IReadOnlyLis
 public static partial class AshfallMap
 {
     /// <summary>Raised with any change of the generated geometry, points, areas or spawns.</summary>
-    public const uint Version = 7;
+    public const uint Version = 8;
 
     /// <summary>The playable square's half side (metres): x and y in [-<see cref="Half"/>, <see cref="Half"/>].</summary>
     public const float Half = 240f;
