@@ -112,7 +112,8 @@ public class ChargeLockTests(ITestOutputHelper output)
         PlayerInput Runner(int tick, int id) => new(0, 0f, 1f, MathF.PI, InputButtons.None);
         var w = Arena(Config, (Marine, Vector3.Zero), (Chaos, new Vector3(0f, 9f, 0f)));
         var on = Run(w, 40, 6, lag: 10, other: Runner);
-        var o = Arena(Config with { ChargeLock = false }, (Marine, Vector3.Zero), (Chaos, new Vector3(0f, 9f, 0f)));
+        // The control is the M29 contact (fix/charge-player-collision's swept contact off too: its reach meets the seen picture as early as the lock's body).
+        var o = Arena(Config with { ChargeLock = false, SolidBodies = false }, (Marine, Vector3.Zero), (Chaos, new Vector3(0f, 9f, 0f)));
         var off = Run(o, 40, 6, lag: 10, other: Runner);
         output.WriteLine($"with the lock: contact at tick {on?.Tick.ToString() ?? "none"} apart {(on is { } a ? Flat(a.Charger.Position, a.Victim.Position) : 0f):F2} m; without: {off?.Tick.ToString() ?? "none"} apart {(off is { } b ? Flat(b.Charger.Position, b.Victim.Position) : 0f):F2} m");
         Assert.NotNull(on);

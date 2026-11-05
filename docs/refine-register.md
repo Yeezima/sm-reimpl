@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2177 spec table rows: **1563 tagged**, 444 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 471 rows of the changes document.
+Scanned 2183 spec table rows: **1568 tagged**, 444 not tagged (read from data with high confidence), 171 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 472 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -37,7 +37,7 @@ Scanned 2177 spec table rows: **1563 tagged**, 444 not tagged (read from data wi
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
 | Melee (critical) | 100 | 87 | 77 | 32 | 5 |
 | Jump pack (critical) | 73 | 65 | 57 | 18 | 0 |
-| Charge (critical) | 44 | 35 | 37 | 20 | 0 |
+| Charge (critical) | 49 | 40 | 42 | 20 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 52 | 50 | 41 | 19 | 0 |
 | HUD and hit feedback (critical) | 66 | 61 | 49 | 10 | 0 |
@@ -53,15 +53,15 @@ Scanned 2177 spec table rows: **1563 tagged**, 444 not tagged (read from data wi
 | Core simulation (provisional values) | 267 | 251 | 213 | 35 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 117 | 110 | 62 | 18 | 0 |
-| **All areas** | **1563** | 1334 | 1220 | 467 | 38 |
+| **All areas** | **1568** | 1339 | 1225 | 467 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 741 |
-| confidence: low | 572 |
-| confidence: medium | 520 |
+| kind: ours | 746 |
+| confidence: low | 576 |
+| confidence: medium | 521 |
 | kind: interpretation | 339 |
 | notes: ours | 312 |
 | confidence: none (low) | 128 |
@@ -1102,7 +1102,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-3024F53E` | Jump press ends a bull rush | Assault / Raptor: a Space press in the bull rush (rush phase, ground or held in the air) ends it at once and the pack takes the press as on any tick: a tap is the hop, a hold the jump; Tactical classes unchanged | kind: ours; notes: estimate | owner 2026-11-02 | Jump press ends a bull rush: compare with SM1 by feel or video. Ours: Assault / Raptor: a Space press in the bull rush (rush phase, ground… | ☐ |
 | `R-311459CF` | Jump pack from a fall | Assault / Raptor: Space held past the hop's decision tick (the long press, `BufferedAction.JumpLong`) while falling (no phase, or the jump's hang or fall) lifts the pack at once in the air, committed to the small jump and growing while held; a tap is still… | kind: ours; notes: estimate | owner 2026-11-02 | Jump pack from a fall: compare with SM1 by timing a run over a known distance. Ours: Assault / Raptor: Space held past the hop's decision tick (the long… | ☐ |
 
-### Charge (gameplay-critical) (44)
+### Charge (gameplay-critical) (49)
 
 *Spec section: The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21)*
 
@@ -1172,6 +1172,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-29F2972E` | Bolt streak softness (fx/bolt-tracer-impact; owner 2026-10-31) | the pooled bolt streaks (muzzle leg, fallback bullet) are a soft glow ribbon (clear at both edges) with a thin hot core instead of one flat hard-edged ribbon: glow 0.16 m, core 0.022 m wide; the data's textured tracer beam is unchanged (soft texture already) (m) | kind: provisional; confidence: low; notes: ours | ours (reference r6: thin bright line in a soft glow) | Bolt streak softness (fx/bolt-tracer-impact; owner…: compare with SM1 by measuring on a flat spot of the same map. Ours: the pooled bolt streaks (muzzle leg, fallback bullet) are a soft glow… | ☐ |
 | `R-6B15307F` | Armour-hit sparks (fx/bolt-tracer-impact) | a bullet on raised armour also plays the data's `hit_ranged_armour_generic` (warm flash, fan of `metal_sparks_beam_tp_01` streaks, coarse spark spray, light) at x0.8, plus a copy turned a quarter about the axis at x0.64 (its fan is a flat card); the weapon's… (scale) | kind: provisional; confidence: low; notes: ours | effect data; choice of effect and scales ours | Armour-hit sparks (fx/bolt-tracer-impact): compare with SM1 by counting hits to kill and by video of the health bar. Ours: a bullet on raised armour also plays the data's… | ☐ |
 | `R-C17F6A44` | Bolt tracers thinner again (fx/bolt-tracer-impact) | the data beam's width scale 0.28 (was 0.42), trail 0.22 (was 0.3); `--old-bolt-fx` restores the earlier values (factor) | kind: ours; confidence: low | owner (2026-10-31: still wrong) | Bolt tracers thinner again (fx/bolt-tracer-impact): compare with SM1 by feel or video. Ours: the data beam's width scale 0.28 (was 0.42), trail 0.22 (was 0.3)… | ☐ |
+
+*Spec section: Solid bodies: no passing through, the charge meets what it runs into (fix/charge-player-collision; protocol 57, no wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-91709838` | Charge contact: the sweep | an opponent already within reach (2 × 0.45 + 0.3 m) when the tick's move starts is met at once when within 45 degrees of the heading from there (as before); any other is met at the **first touch** of the swept reach along the move, when it lies anywhere **in… (m, degrees) | kind: ours; confidence: low | ours (the original's contact is engine code; the owner's "outer hitbox") | Charge contact: the sweep: compare with SM1 with an overlaid screenshot taken from the same position. Ours: an opponent already within reach (2 × 0.45 + 0.3 m) when the tick's… | ☐ |
+| `R-B9954141` | Charge stop at the contact | a charger that meets an opponent stops at the point of its tick's move where it met it, swept through the level from where it began the tick (not a tick's move beyond, up to 1.17 m at the bull rush's burst); the lock then pulls the stunned victim to 0.9 m in… (m) | kind: ours; confidence: low | ours | Charge stop at the contact: compare with SM1 by measuring on a flat spot of the same map. Ours: a charger that meets an opponent stops at the point of its tick's… | ☐ |
+| `R-9FBF6E81` | The guard (server) | after every player moved, each pair of living opponents is swept against the other as they really moved this tick: a relative path that would bring the axes closer than **0.45 m** (one capsule radius: never more than half into the other, never through), or… (m) | kind: ours; confidence: low | ours | The guard (server): compare with SM1 by measuring on a flat spot of the same map. Ours: after every player moved, each pair of living opponents is swept… | ☐ |
+| `R-A764ABD3` | The charge meets the bodies as they are (server) | a charge also tests every opponent's move this tick as it really happened (after the guard): the relative sweep, its first touch, the same reach, front half and line of sight; the earliest of this, the charger's rewound picture and its blocking body is met.… (m) | kind: ours; confidence: low | ours | The charge meets the bodies as they are (server): compare with SM1 by measuring on a flat spot of the same map. Ours: a charge also tests every opponent's move this tick as it really… | ☐ |
+| `R-AA1EB851` | Clash, stun and recoil states | every harmful connect on a victim that may react ends its tick with the charger in the collision stop (its first tick) and the victim in the stun; the snapshots carry both (state-driven clips); checked for every connect seen by the charger's own client, the… | kind: ours; confidence: medium | ours (test) | Clash, stun and recoil states: compare with SM1 by watching the reaction and timing it frame by frame. Ours: every harmful connect on a victim that may react ends its tick with… | ☐ |
 
 ### Reactions (gameplay-critical) (15)
 
@@ -3171,6 +3181,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-4E94CBCD` | The Firing Range (Musou Mode, 2026-11-02) | Ours (added content): a flat walled 100 m square generated in the war's world, reached by a wall button in the Stormbird's troop bay, with 200 Orks kept alive and the orbital strike working; the way back is a pad at the range. A test ground, not a mission: no score, no objectives | Owner's words "reimplement the 'firing range' map that was the first blank map concept 100m x 100m ... a test range for the artillery strike and other new features" | Musou Mode only; `TfwMap.Version` 6 and `MusouSim` box widened, so old and new builds do not connect. Spec row: The Firing Range. | The Firing Range (Musou Mode, 2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-351CC1A4` | Melee cancels of hops and charges, the jump pack from a fall or a charge (feel/melee-cancels; protocol 54) | A melee press in a hop was ignored until the dash attack's window, in a bull rush until its clip's melee branch; Space held while falling waited for the landing; Space did not end a held charge | Assault / Raptor: melee ends a hop or a charge at once and swings; Tactical classes: melee ends a charge; the next swing waits for the cancelled clip's end; Assault / Raptor: Space held in the air or during a charge lifts the pack (a tap is the hop). Roll, Devastator / Havoc, Ork Boy, the collision stop unchanged.… | Owner's words, 2026-11-02: "you should be able to end assault marine/raptor charges and hops with a melee attack. but implement the same strict cooldown based on the intended timing of the end of the animation." Builds with protocol 53 do not connect. Spec rows: Melee cancels of hops and charges. | Melee cancels of hops and charges, the jump pack from a…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1620EEEE` | Manufactorum's wall stations: no olive boards, no salmon fittings (fix/manufactorum-fluorescent, 2026-11-04; client drawing only) | The two bases' wall stations (six: a row of flat wall boards with a helmet, tools, weapon silhouettes and a banner pinned on, a pair of tall keypads, and two small door-side stations) are placed and drawn | Not drawn: every placement of `backpanel_a/b/c`, `tech_panel_a/b/c`, `tech_panel_pipe_a/b/c`, `handle_bar_a` and `accessories_doorbutton`, the seals, scrolls, `tech_panel_pipe_g` and `tech_panel_tank_a` within 6 m of a board or cabinet, and the two olive `backPanel` plates of the `tech_interface_b` cabinets (their… | Owner's words, 2026-11-04: "remove all instances on the classic pvp manufactorum map of these 'fluorescent', opaque objects" (flat olive boards with salmon glowing shapes, "jarring" against the dark metal); our emissive-map approximation draws them bright and flat, and whether the original did is not known, so they… | Manufactorum's wall stations: no olive boards, no salmon…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-AD717A23` | Solid bodies: no passing through, the charge meets what it runs into (fix/charge-player-collision, 2026-11-06; protocol 57) | Ours (the original's character collision and charge contact are engine code; the owner's playtest: "players never pass directly through other players", "an outer hitbox") | The server stops opponents' moves that would bring their axes within 0.45 m (0.75 m with a charger) as they really stand (a correction when a client's picture was wrong); the charge is met at the first touch of its swept reach anywhere in front and stops at that point; a charge also meets the bodies as they really… | spec "Solid bodies: no passing through, the charge meets what it runs into" | Solid bodies: no passing through, the charge meets what it…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
@@ -3348,4 +3359,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-48FF3A72` | Extra slots on the wire | Added content: Musou Mode: rewards, extra slots and the score (pass 2 M6, M6b; `TfwRules.Version` 12; no protocol change) |
 | `R-F987BDB3` | Stall keep-alive: scope | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
 | `R-E085B984` | Test aids | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
+| `R-2F7F28A2` | Switch | Solid bodies: no passing through, the charge meets what it runs into (fix/charge-player-collision; protocol 57, no wire change) |
 

@@ -493,7 +493,7 @@ public class EvadeTests(ITestOutputHelper output)
         var map = new GameMap("hop_test", level, [new SpawnPoint(new Vector3(0, 0, 1), 0f), new SpawnPoint(new Vector3(2, 1, 1), 1f), new SpawnPoint(new Vector3(12, 0, 0.3f), 2f)], 79);
         var config = Harmless(HopConfig);
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
-        var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5) }, map: map);
+        var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), BodyGuard = false }, map: map);
         int[] classes = [Heavy, Heavy, Tactical];
         for (int i = 0; i < classes.Length; i++)
             h.AddClient(nonce: (uint)(100 + i), options: new ClientOptions { RequestedClass = (byte)classes[i], LoadMap = _ => new LoadedMap(level, 79) });
@@ -588,7 +588,7 @@ public class EvadeTests(ITestOutputHelper output)
     {
         var config = Harmless(Config);
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
-        var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5) });
+        var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), BodyGuard = false });
         int[] classes = [Tactical, Tactical, Tactical, Assault];
         for (int i = 0; i < classes.Length; i++) h.AddClient(nonce: (uint)(100 + i), options: new ClientOptions { RequestedClass = (byte)classes[i] });
         PredictionMatches(h, classes, EvadeInput, 15);
@@ -606,7 +606,7 @@ public class EvadeTests(ITestOutputHelper output)
         var map = new GameMap("evade_test", level, [new SpawnPoint(new Vector3(0, 0, 1), 0f), new SpawnPoint(new Vector3(2, 1, 1), 1f), new SpawnPoint(new Vector3(-2, -1, 1), 2f)], 78);
         var config = Harmless(Config);
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
-        var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5) }, map: map);
+        var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), BodyGuard = false }, map: map);
         int[] classes = [Tactical, Tactical, Tactical];
         for (int i = 0; i < classes.Length; i++)
             h.AddClient(nonce: (uint)(100 + i), options: new ClientOptions { RequestedClass = (byte)classes[i], LoadMap = _ => new LoadedMap(level, 78) });
@@ -628,7 +628,7 @@ public class EvadeTests(ITestOutputHelper output)
             RunSpeed = 6.5f, StrafeSpeed = 6f, BackSpeed = 4.5f, SprintSpeed = 10f, GroundTimeToMaxSpeed = 0.2f, MaxAcceleration = 100f,
         };
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
-        var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5) });
+        var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), BodyGuard = false });
         var roller = h.AddClient(nonce: 100, options: new ClientOptions { RequestedClass = Tactical });
         var shooter = h.AddClient(nonce: 101, options: new ClientOptions { RequestedClass = Plain });
         PlayerInput Input(int i, uint t)
@@ -696,7 +696,7 @@ public class EvadeTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_13_carries_the_exact_evade_in_the_own_record_and_direction_and_ticks_in_slim_records_within_1200_bytes()
     {
-        Assert.Equal(56, Protocol.Version);
+        Assert.Equal(57, Protocol.Version);
         PlayerState Loaded(int id) => new(id, new Vector3(1e4f), new Vector3(100f), 3f, false)
         {
             Alive = true, Health = 1e3f, Shield = 1e3f, Class = Protocol.MaxClasses - 1, Slot = WeaponSlot.Pistol, Clip = 65535, Reserve = 65535, OtherClip = 65535, OtherReserve = 65535,

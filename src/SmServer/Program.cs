@@ -91,6 +91,9 @@ var config = tuning.Config;
 if (cli.NoPlayerCollision) config = config with { PlayerBodies = false };
 // anim/melee-interaction: --no-charge-lock (test aid) restores the M29 charge contact and stop (config hash).
 if (cli.NoChargeLock) config = config with { ChargeLock = false };
+// fix/charge-player-collision: --old-body-contact (test aid) restores the protocol 56 body and charge contact rules (config hash).
+if (cli.OldBodyContact) config = config with { SolidBodies = false };
+Console.WriteLine(config.SolidBodies ? $"solid bodies: on (no move closer than {SolidBodies.GuardDistance(config, false):0.##} m between bodies as they stand, {SolidBodies.GuardDistance(config, true):0.##} m with a charger; the charge's contact swept, stopped where it meets; ours)" : "solid bodies: OFF (--old-body-contact, test aid; clients need --old-body-contact too)");
 Console.WriteLine(config.ChargeLock ? "charge lock: on (contact with the blocking body too; charger turned to the victim, victim at 0.9 m; ours)" : "charge lock: OFF (--no-charge-lock, test aid; clients need --no-charge-lock too)");
 Console.WriteLine(config.PlayerBodies
     ? $"player collision: on (capsules r {config.CapsuleRadius} m, h {config.CapsuleHeight} m block each other; push apart {PlayerCollision.SeparationSpeed} m/s, slide off a head {PlayerCollision.SlideOffSpeed} m/s; ours)"

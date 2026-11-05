@@ -455,7 +455,10 @@ public static partial class Protocol
     //     (PlayerState.MeleeLock, now also in Musou Mode) for the cancelled clip's end; a pack class's Space press in the air while falling starts the take-off (the lift-off launches in the air).
     // 56 (sim/reload-keeps; the owner 2026-11-03: "reloads should not be cancelled by anything other than switching weapons"): no wire change. A melee attack, a throw,
     //     a ground pound, a reaction or a charge no longer ends the reload in hand; it runs on through them. A switch still stores it with its weapon.
-    public const ushort Version = 56;
+    // 57 (fix/charge-player-collision; the owner's playtest of 2026-11-06: "players never pass directly through other players"): no wire change. The charge's contact is a sweep met
+    //     at the first touch of its reach anywhere in front, and the charger stops at that point of its move (both predicted); the server stops bodies passing through each other as
+    //     they really stand and lets a charge meet a body it really runs into (not predicted: a client whose picture was wrong is corrected).
+    public const ushort Version = 57;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>

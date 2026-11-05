@@ -33,9 +33,17 @@ public sealed partial class World
         var seen = SeenBy(input);
         // anim/melee-interaction (ChargeLock.cs): the seen picture or the body that blocked the move, whichever the move reaches first; the lock line for the stop.
         if (ChargeLock.Find(attacker, before.Position, state.Position, state.Yaw, spec, Config, seen, Config.ChargeLock ? BodiesFor(attacker, input) : null, Collision,
-                id => _players.TryGetValue(id, out var current) && current.Alive) is not { } contact) return false;
+                id => _players.TryGetValue(id, out var current) && current.Alive, SolidGuard ? _moves : null, state.Team) is not { } contact) return false;
         int target = contact.Target;
         var lockLine = ChargeLock.Direction(before.Position, state.Position, state.Yaw, contact, spec);
+        // fix/charge-player-collision: the charger stops at the point of its move where it met an opponent (as the own client predicts it), not a tick's move beyond.
+        if (Config.SolidBodies && contact.T < 1f && _players.TryGetValue(attacker, out var mover) && mover.Alive && _players.TryGetValue(target, out var met) && Hostile(state.Team, met.Team))
+        {
+            var at = SolidBodies.AtContact(before, state, contact.T, Config, Collision);
+            state = state with { Position = at.Position, Grounded = at.Grounded };
+            _players[attacker] = mover with { Position = at.Position, Grounded = at.Grounded };
+            if (_moves.TryGetValue(attacker, out var m)) _moves[attacker] = (m.From, at.Position, m.Class, m.Team);
+        }
         _chargeLines[attacker] = lockLine;
         bool harmed = Harms(attacker, target);
         _rushes.Add(new RushEvent(Tick, attacker, target, harmed));

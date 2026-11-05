@@ -341,7 +341,7 @@ public class MeleeCharge2Tests(ITestOutputHelper output)
             WeaponSwitchTime = 0.48f, InputBufferWindow = 0.3f,
         };
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
-        var h = new Harness(link, seed, 2, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5) });
+        var h = new Harness(link, seed, 2, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), BodyGuard = false });
         var truth = new SortedDictionary<uint, Dictionary<int, PlayerState>>();
         var predicted = new[] { new Dictionary<uint, PlayerState>(), new Dictionary<uint, PlayerState>() };
         PlayerInput Input(int i, uint t)

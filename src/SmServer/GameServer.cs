@@ -199,7 +199,7 @@ public sealed partial class GameServer
             throw new ArgumentException("Seize Ground needs a map with control points.");
         foreach (var p in map?.ControlPoints ?? [])
             if (!Protocol.IsMapName(p.Name)) throw new ArgumentException($"Control point name '{p.Name}' cannot travel (letters, digits, '_'; at most {Protocol.MaxMapName}).");
-        World = new World(config, map?.Collision, map?.Spawns) { BoundBodies = true, Rules = _options.Match, ControlPoints = map?.ControlPoints ?? [], StartAreas = map?.StartAreas ?? [], SpawnBlockers = map?.Blockers ?? map?.Collision?.Blockers ?? [] };
+        World = new World(config, map?.Collision, map?.Spawns) { BoundBodies = true, SolidGuard = _options.BodyGuard, Rules = _options.Match, ControlPoints = map?.ControlPoints ?? [], StartAreas = map?.StartAreas ?? [], SpawnBlockers = map?.Blockers ?? map?.Collision?.Blockers ?? [] };
         _emblems = new EmblemCache(Math.Max(1, _options.MaxCachedEmblems));
         _contentFingerprint = contentFingerprint; _transport = Counted(transport); _clock = clock;
         if (config.Extras != ContentExtras.None) ExtrasCreated();   // EXTRAS-HOOK: added content's set-up of this server's match (Musou: the nav graph, the mode)

@@ -584,7 +584,7 @@ public class MeleeLockTests(ITestOutputHelper output)
             RunSpeed = 6.5f, StrafeSpeed = 6f, BackSpeed = 4.5f, SprintSpeed = 10f, GroundTimeToMaxSpeed = 0.2f, MaxAcceleration = 100f,
         };
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
-        var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5) }, map: map);
+        var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), BodyGuard = false }, map: map);
         for (int i = 0; i < 2; i++) h.AddClient(nonce: (uint)(500 + i), options: new ClientOptions { LoadMap = _ => new LoadedMap(level, 91) });
         var (truth, predicted, locks) = RunMelee(h, 25);
         for (int i = 0; i < 2; i++)
@@ -660,7 +660,7 @@ public class MeleeLockTests(ITestOutputHelper output)
             RunSpeed = 6.5f, StrafeSpeed = 6f, BackSpeed = 4.5f, SprintSpeed = 10f, GroundTimeToMaxSpeed = 0.2f, MaxAcceleration = 100f,
         };
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
-        var h = new Harness(link, seed, 2, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5) });
+        var h = new Harness(link, seed, 2, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), BodyGuard = false });
         var truth = new SortedDictionary<uint, Dictionary<int, PlayerState>>();
         var predicted = new[] { new Dictionary<uint, PlayerState>(), new Dictionary<uint, PlayerState>() };
         var locks = new int[2];

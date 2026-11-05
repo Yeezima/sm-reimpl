@@ -801,6 +801,7 @@ public sealed partial record SimConfig
             w.Write("blind-view"); w.Write(BlindViewHalfAngle);   // owner's decision 2026-10-28: the blind grenade by facing
             if (!PlayerBodies) w.Write("no-player-bodies");   // sim/player-collision: only when off (older hashes unchanged)
             if (!ChargeLock) w.Write("no-charge-lock");   // anim/melee-interaction: only when off (older hashes unchanged)
+            if (!SolidBodies) w.Write("no-solid-bodies");   // fix/charge-player-collision: only when off (older hashes unchanged)
             if (StraightDropAbove != 1f) { w.Write("straight-drop"); w.Write(StraightDropAbove); }   // protocol 30: only when not the default (older hashes unchanged)
             if (MeleeLock != MeleeLockSpec.Default) { w.Write("melee-lock"); MeleeLock.Write(w); }   // feel/melee-lock: only when not the default (older hashes unchanged)
             if (FlightHitVolumes is { } flight) { w.Write("flight-volumes"); flight.Write(w); }   // fix/hitboxes (protocol 37): only when set (older hashes unchanged)
@@ -1227,6 +1228,11 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             else if (Rush.LandedFrom(before, next) is { } landed && Rush.Connecting(landed, Config)) { rushes.Add((id, input, before, landed)); (landedCharges ??= new())[id] = landed.Rush; }
             TrackJump(id, next, events.Jump, jumps);
         }
+        // fix/charge-player-collision: no body moves through another as they really stand (SolidBodies.cs); the charges test the moves it leaves.
+        GuardBodies(_history[Tick - 1]);
+        for (int k = 0; k < rushes.Count; k++)
+            if (_players.TryGetValue(rushes[k].Player, out var guarded) && guarded.Position != rushes[k].State.Position)
+                rushes[k] = rushes[k] with { State = rushes[k].State with { Position = guarded.Position, Velocity = guarded.Velocity } };
         StepFlightViews();   // fix/hitboxes: the jump poses viewers see now that everyone moved (RewindFraction.cs)
         // Projectiles: remote detonations asked this tick, then launches (in player order), then every projectile moves.
         foreach (int id in detonations) DetonateRemotely(id);

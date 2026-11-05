@@ -224,7 +224,7 @@ public class EvadeDiagonalTests(ITestOutputHelper output)
         var level = Mesh(Floor(0f), Wall(new(-40, 14), new(40, 14)), Wall(new(-14, -40), new(-14, 40)));   // walls to roll into
         var link = new LinkConditions(TimeSpan.FromMilliseconds(75), TimeSpan.FromMilliseconds(10), 0.05);
         var map = new GameMap("diag", level, [new SpawnPoint(Vector3.Zero, 0f), new SpawnPoint(new Vector3(4, 0, 0), 0f), new SpawnPoint(new Vector3(-4, 0, 0), 0f)], 77);
-        var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5) }, map: map);
+        var h = new Harness(link, seed, 0, config, new ServerOptions { PeerTimeout = TimeSpan.FromMinutes(5), BodyGuard = false }, map: map);
         int[] classes = [Tactical, Tactical, Heavy];
         for (int i = 0; i < classes.Length; i++) h.AddClient(nonce: (uint)(100 + i), options: new ClientOptions { RequestedClass = (byte)classes[i], LoadMap = _ => new LoadedMap(level, 77) });
         var seenRemotely = new HashSet<EvadeDirection>();
@@ -270,7 +270,7 @@ public class EvadeDiagonalTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_14_carries_all_eight_directions_in_slim_and_own_records_and_refuses_malformed_ones()
     {
-        Assert.Equal(56, Protocol.Version);
+        Assert.Equal(57, Protocol.Version);
         var players = Enumerable.Range(1, 16).Select(id => new PlayerState(id, new Vector3(id), Vector3.Zero, 0.5f, true)
         {
             Alive = true, Slot = id % 3 == 0 ? WeaponSlot.Pistol : WeaponSlot.Ranged, EvadeTicks = id * 4, EvadeDirection = (EvadeDirection)(id % 8), EvadeLock = 3,
