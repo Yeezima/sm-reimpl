@@ -349,10 +349,10 @@ public partial class MapmakerDock : VBoxContainer
             AddChild(_deletePrefab);
         }
         _deletePrefabId = id;
-        int n = _plugin.PrefabUsers(id).Count;
+        int n = _plugin.PrefabUsers(id).Count, all = _plugin.PrefabUsersWithChildren(id);
         string name = MapHost.Library.ListPrefabs().FirstOrDefault(p => p.Id == id)?.Name ?? id;
         _deletePrefab.DialogText = $"Delete the prefab \"{name}\" ({id}) from the library?" +
-            (n > 0 ? $"\n\nIt is placed {n} time(s) in this map; those copies are deleted too." : "") +
+            (n > 0 ? $"\n\nIt is placed {n} time(s) in this map; those copies are deleted too{(all > n ? $", with {all - n} object(s) parented under them" : "")}." : "") +
             "\n\nEdit > Undo (Ctrl+Z) brings it back.";
         _deletePrefab.PopupCentered(new Vector2I(420, 160));
     }

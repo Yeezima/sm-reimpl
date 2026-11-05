@@ -274,7 +274,13 @@ public partial class MapmakerPlugin : EditorPlugin
     void AfterChange(bool prefabsChanged)
     {
         Dirty = true;
-        if (prefabsChanged) { _lastPrefabStamp++; MapHost.NotifyLibraryChanged(); }
+        if (prefabsChanged)
+        {
+            _lastPrefabStamp++;
+            // an armed prefab that is gone (deleted, or a redo of its delete) would only fail at the next click
+            if (MapHost.Armed is { Kind: LibraryKind.Prefab } armed && MapHost.Library.GetPrefab(armed.Id) is null) MapHost.Armed = null;
+            MapHost.NotifyLibraryChanged();
+        }
         SyncView(false);
         DocChanged?.Invoke();
     }
@@ -583,6 +589,10 @@ public partial class MapmakerPlugin : EditorPlugin
     /// <summary>The objects of the open map that are placed copies of <paramref name="prefabId"/>.</summary>
     public List<string> PrefabUsers(string prefabId) => Session?.Document.Objects.Where(o => o.Prefab == prefabId).Select(o => o.Id).ToList() ?? new List<string>();
 
+    /// <summary>How many objects deleting the placed copies of <paramref name="prefabId"/> removes (the copies and anything parented under them).</summary>
+    public int PrefabUsersWithChildren(string prefabId) =>
+        Session is null ? 0 : PrefabUsers(prefabId).SelectMany(id => Session.Document.Subtree(id)).Select(o => o.Id).Distinct().Count();
+
     /// <summary>Deletes a prefab from the library together with its placed copies in the open map, as one undo step (Ctrl+Z brings both back).</summary>
     public OpResult DeletePrefab(string prefabId)
     {
@@ -590,9 +600,7 @@ public partial class MapmakerPlugin : EditorPlugin
         var ops = new List<JsonObject>();
         if (users.Count > 0) ops.Add(Op("delete", ("ids", Strs(users))));
         ops.Add(Op("delete-prefab", ("prefab", prefabId)));
-        var r = Do($"Delete prefab {prefabId}", ops.ToArray());
-        if (r.Ok && MapHost.Armed is { Kind: LibraryKind.Prefab } armed && armed.Id == prefabId) MapHost.Armed = null;
-        return r;
+        return Do($"Delete prefab {prefabId}", ops.ToArray());
     }
 
     public OpResult DeleteSelected() => Do("Delete", Op("delete", ("ids", Strs(SelectedIds()))));

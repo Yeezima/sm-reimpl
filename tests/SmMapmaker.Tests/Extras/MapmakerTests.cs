@@ -472,6 +472,21 @@ public class MapmakerTests
     }
 
     [Fact]
+    public void EditThenDeleteInOneBatchUndoesToTheOriginalFile()
+    {
+        using var lab = new Lab();
+        var s = PairScene(lab);
+        s.Apply(Lab.Op("""{"op":"group-to-prefab","ids":["o1"],"prefab":"a","origin":"first"}"""));
+        var original = lab.Library.ReadPrefabText("a");
+        var r = s.Apply([Lab.Op("""{"op":"prefab-edit","prefab":"a","name":"renamed"}"""), Lab.Op("""{"op":"delete-prefab","prefab":"a"}""")]);
+        Assert.True(r.Ok, r.ToJson());
+        Assert.Null(lab.Library.ReadPrefabText("a"));
+        Assert.True(s.Undo().Ok);
+        Assert.Equal(original, lab.Library.ReadPrefabText("a"));
+        Assert.Contains("\"a\"", File.ReadAllText(lab.Library.IndexPath));
+    }
+
+    [Fact]
     public void PrefabCycleIsRejected()
     {
         using var lab = new Lab();
