@@ -447,7 +447,7 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
                     t0 = MathF.Max(t0, MathF.Min(ta, tb)); t1 = MathF.Min(t1, MathF.Max(ta, tb));
                     if (t0 > t1) { hit = false; break; }
                 }
-                if (hit) best = MathF.Min(best, t0);
+                if (hit && t0 > 0.01f) best = MathF.Min(best, t0);   // a box whose bounds already hold the sample is a turned or sloped part's hull: the route runs beside it, not through it
             }
             return best;
         }
@@ -458,15 +458,19 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
             var path = graph.FindPath(start, goal, goalSnap: 3f, maxExpanded: 8_000_000);
             if (path is not { Partial: false } pp) { report.AppendLine($"  {name}: no complete path"); continue; }
             var widths = new List<(Vector3 At, float W)>();
-            Vector3 last = pp.Waypoints[0].Position;
             for (int k = 1; k < pp.Waypoints.Count; k++)
             {
-                var w = pp.Waypoints[k].Position;
-                if (Vector2.Distance(new Vector2(w.X, w.Y), new Vector2(last.X, last.Y)) < 2f) continue;
-                var heading = Vector2.Normalize(new Vector2(w.X - last.X, w.Y - last.Y));
+                var a = pp.Waypoints[k - 1].Position; var b = pp.Waypoints[k].Position;
+                var flat = new Vector2(b.X - a.X, b.Y - a.Y);
+                float len = flat.Length();
+                if (len < 0.5f) continue;
+                var heading = flat / len;
                 var perp = new Vector2(-heading.Y, heading.X);
-                widths.Add((w, Free(w, perp) + Free(w, -perp)));
-                last = w;
+                for (float t = 0f; t < len; t += 2f)
+                {
+                    var w = Vector3.Lerp(a, b, t / len);
+                    widths.Add((w, Free(w, perp) + Free(w, -perp)));
+                }
             }
             if (widths.Count == 0) continue;
             int under24 = widths.Count(x => x.W < 2.4f), under12 = widths.Count(x => x.W < 1.2f), under08 = widths.Count(x => x.W < 0.8f);
