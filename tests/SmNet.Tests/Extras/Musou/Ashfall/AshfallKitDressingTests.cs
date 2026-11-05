@@ -45,7 +45,7 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
         for (int i = 0; i < Dressing.Items.Count; i++) Assert.Equal(Dressing.Items[i], dressingB.Items[i]);
         Assert.Equal(Dressing.HiddenParts, dressingB.HiddenParts);
         Assert.Equal(AshfallMap.DressVersion, Dressing.Version);
-        Assert.Equal(1u, AshfallMap.DressVersion);
+        Assert.Equal(2u, AshfallMap.DressVersion);
         output.WriteLine($"{Dressing.Items.Count} items, {Dressing.HiddenParts.Count} hidden parts, {Level.Parts.Count} parts, {Level.SolidCorners().Length / 3} collision triangles, hash {Level.Hash:X16}");
         foreach (var g in Dressing.Items.GroupBy(i => i.Role).OrderBy(g => g.Key)) output.WriteLine($"{g.Key,-10} {g.Count(),5} items, {g.Sum(i => AshfallKit.Get(i.Asset).Triangles),10} model triangles");
     }
@@ -89,11 +89,14 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
     public void Hidden_parts_are_sorted_distinct_and_each_has_skins_that_cover_it()
     {
         var hidden = Dressing.HiddenParts;
-        Assert.True(hidden.Count > 100);
+        Assert.True(hidden.Count > 100);   // draft 2: Cover and Rubble skins only
         Assert.Equal(hidden.OrderBy(h => h).Distinct().ToList(), hidden.ToList());
         var skinned = Of(AshfallDressRole.Skin).GroupBy(i => i.Part).ToDictionary(g => g.Key, g => g.ToList());
         Assert.All(hidden, h => Assert.True(skinned.ContainsKey(h), $"hidden part {h} has no skin"));
-        Assert.All(skinned.Keys, k => Assert.Contains(k, hidden));   // every skinned part is covered all round by its tiles
+        // Draft 2: only Cover and Rubble skins hide their box; skinned Wall, Stronghold, Boundary, Floor and Perch parts stay drawn (the client backs them with stone, inset 0.15 m).
+        Assert.All(hidden, h => Assert.True(Level.Parts[h].Kind is AshfallKind.Cover or AshfallKind.Rubble, $"{Level.Parts[h].Kind} part {h} is hidden"));
+        Assert.All(skinned.Keys.Where(k => Level.Parts[k].Kind is AshfallKind.Cover or AshfallKind.Rubble), k => Assert.Contains(k, hidden));
+        Assert.DoesNotContain(skinned.Keys, k => Level.Parts[k].Kind is AshfallKind.Wall or AshfallKind.Stronghold or AshfallKind.Boundary && hidden.Contains(k));
         // Volume of the items over a part equals the part's box for the plain (non-ring) kinds: the tiles cover it exactly.
         foreach (var (part, list) in skinned.Where(kv => Level.Parts[kv.Key].Kind != AshfallKind.Stronghold).Take(400))
         {
@@ -101,9 +104,35 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
             float volume = list.Sum(i => i.Size.X * i.Size.Y * i.Size.Z);
             Assert.Equal(box.Length * box.Depth * box.Height, volume, 0.01f * box.Length * box.Depth * box.Height + 1e-3f);
         }
-        // Floors, stairs, ground, roads and paving stay graybox.
-        Assert.All(hidden, h => Assert.True(Level.Parts[h].Kind is AshfallKind.Wall or AshfallKind.Cover or AshfallKind.Rubble or AshfallKind.Perch or AshfallKind.Floor or AshfallKind.Boundary or AshfallKind.Stronghold));
-        Assert.All(hidden.Where(h => Level.Parts[h].Kind == AshfallKind.Floor), h => Assert.True(AshfallBox.Of(Level.Parts[h])!.Value.Height <= 3.01f));   // only the three plinths
+        Assert.Contains(skinned.Keys, k => Level.Parts[k].Kind == AshfallKind.Wall);
+    }
+
+    [Fact]
+    public void Draft_2_rules_no_relief_slab_skins_bare_small_walls_and_a_tiered_boundary()
+    {
+        // AC-031 only as a prop (and decoration): never a skin, at most about 10 on the map.
+        Assert.DoesNotContain(Of(AshfallDressRole.Skin), i => i.Asset == "AC-031");
+        Assert.InRange(Dressing.Items.Count(i => i.Asset == "AC-031"), 1, 10);
+        Assert.All(Of(AshfallDressRole.Prop).Where(i => i.Asset == "AC-031"), i => Assert.Equal(AshfallDressRole.Prop, i.Role));
+        // Small (face under 40 m2) or narrow (under 2 m along the face) Wall parts have no skin.
+        var skinnedParts = Of(AshfallDressRole.Skin).Select(i => i.Part).ToHashSet();
+        for (int p = 0; p < Level.Parts.Count; p++)
+        {
+            if (Level.Parts[p].Kind != AshfallKind.Wall || AshfallBox.Of(Level.Parts[p]) is not { } b || !skinnedParts.Contains(p)) continue;
+            Assert.True(b.Length >= 2f && b.Length * b.Height >= 40f, $"wall part {p} {b.Length:0.0} x {b.Height:0.0} m is skinned");
+        }
+        Assert.True(Enumerable.Range(0, Level.Parts.Count).Count(p => Level.Parts[p].Kind == AshfallKind.Wall && !skinnedParts.Contains(p)) > 500);   // most small columns stay stone
+        // Boundary: AC-001, AC-004, AC-005 in pieces of about 12 m, tiers up to the wall's top, more than one model.
+        var bnd = Of(AshfallDressRole.Skin).Where(i => Level.Parts[i.Part].Kind == AshfallKind.Boundary).ToList();
+        Assert.True(bnd.Count > 100);
+        Assert.All(bnd, i => Assert.Contains(i.Asset, new[] { "AC-001", "AC-004", "AC-005" }));
+        Assert.All(bnd, i => Assert.InRange(i.Size.X, 10.9f, 12.1f));
+        Assert.True(bnd.Select(i => i.Asset).Distinct().Count() == 3);
+        Assert.Equal(AshfallMap.BoundaryHeight, bnd.Max(i => i.Position.Z + i.Size.Z), 0.01f);
+        // Cover skins come from AC-011, AC-014, AC-017 (AC-018 sparingly).
+        var cover = Of(AshfallDressRole.Skin).Where(i => Level.Parts[i.Part].Kind == AshfallKind.Cover).ToList();
+        Assert.All(cover, i => Assert.Contains(i.Asset, new[] { "AC-011", "AC-014", "AC-017", "AC-018" }));
+        Assert.True(cover.Count(i => i.Asset == "AC-018") * 10 <= cover.Count);
     }
 
     // ---------------------------------------------------------------- surfaces

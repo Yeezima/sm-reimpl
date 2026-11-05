@@ -45,7 +45,7 @@ public class AshfallGrayboxTests(ITestOutputHelper output)
     }
 
     /// <summary>Ashfall Citadel version 6 level hash (kit dressing draft 1, 2026-11-05: the props' collision proxies; version 5 was 0xAE096E323BB5A4D3, the stronghold rework of sketch 6; version 4 was 0xA07D05D38EB46CF2, version 3 was 0xBB4D50AF4614FD39, version 2 0x875D9199C67B1894, version 1 0x4D0658D87AF67B7B).</summary>
-    const ulong PinnedLevelHash = 0x5457b5ec250adcefUL;
+    const ulong PinnedLevelHash = 0x6e3c634b27d892b7UL;
 
     /// <summary>The hash's rule, written out independently of the generator: FNV-1a 64 over the version, then every solid corner's float bits.</summary>
     static ulong Hash(AshfallLevel level, uint version)

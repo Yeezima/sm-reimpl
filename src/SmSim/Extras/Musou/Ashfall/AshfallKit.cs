@@ -77,7 +77,7 @@ public static class AshfallKit
 /// <summary>What a dressing item is to the game.</summary>
 public enum AshfallDressRole : byte
 {
-    /// <summary>Draws over graybox part <see cref="AshfallDressItem.Part"/> (that part is the collision; the client hides it in the kit look).</summary>
+    /// <summary>Draws over graybox part <see cref="AshfallDressItem.Part"/> (that part is the collision). Only Cover and Rubble parts with Skin items are in <see cref="AshfallDressing.HiddenParts"/>; the client draws every other skinned part (Wall, Stronghold, Boundary, plinths, obelisks) as a stone backing inset by 0.15 m, so a window or arch opening in the model shows stone, not a see-through hole over solid collision.</summary>
     Skin,
     /// <summary>Walk-over decoration: no collision, never above 0.35 m where it stands in a walked place.</summary>
     Decoration,
@@ -98,5 +98,5 @@ public enum AshfallDressRole : byte
 /// </summary>
 public sealed record AshfallDressItem(string Asset, Vector3 Position, float Yaw, Vector3 Size, bool SwapXZ, AshfallDressRole Role, int Part);
 
-/// <summary>The dressing of a level: its items in a fixed order, and the graybox part indices the kit look hides (each fully covered by Skin items).</summary>
+/// <summary>The dressing of a level: its items in a fixed order, and the graybox part indices the kit look hides (draft 2: only Cover and Rubble parts, each fully covered by Skin items; skinned Wall, Stronghold and Boundary parts are NOT hidden).</summary>
 public sealed record AshfallDressing(IReadOnlyList<AshfallDressItem> Items, IReadOnlyList<int> HiddenParts, uint Version);

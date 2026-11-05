@@ -5,8 +5,8 @@ namespace SmSim.Extras.Musou.Ashfall;
 
 public static partial class AshfallMap
 {
-    /// <summary>The dressing pass's version (raised with any change of the items). 1: the first draft (docs/musou-ashfall-graybox.md, "Kit dressing (draft 1)").</summary>
-    public const uint DressVersion = 1;
+    /// <summary>The dressing pass's version (raised with any change of the items). 2: no AC-031 as a skin, small walls bare, tiered boundary, only Cover and Rubble skins hide their box; 1: the first draft (docs/musou-ashfall-graybox.md, "Kit dressing (draft 1)").</summary>
+    public const uint DressVersion = 2;
 
     /// <summary>
     /// The level with its kit dressing (deterministic; the same items in the same order on every machine). Server and client both call it, so the Prop items'

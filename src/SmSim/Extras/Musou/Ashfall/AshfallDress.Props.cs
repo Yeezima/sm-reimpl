@@ -15,7 +15,7 @@ internal static partial class AshfallDressPass
     [
         new("AC-027", AshfallKind.Wall, 6f, 5f, 7f, 4),                    // shattered saint monument: a solid mass
         new("AC-032", AshfallKind.Rubble, 4f, 3f, 2.2f, 8),                // statue fragment cluster
-        new("AC-031", AshfallKind.Cover, 3.6f, 0.8f, 1.8f, 12),            // broken relief slab, standing
+        new("AC-031", AshfallKind.Cover, 3.6f, 0.8f, 1.8f, 8),             // broken relief slab, standing (props only: as a wall skin it read as rows of totems)
         new("AC-029", AshfallKind.Wall, 5f, 3.5f, 6f, 5),                  // ruined civic shrine fragment
         new("AC-030", AshfallKind.Wall, 12f, 5f, 6f, 4),                   // collapsed buttress mass
         new("AC-002", AshfallKind.Wall, 8f, 2f, 7f, 5,                     // Gothic arch remnant: two piers and a lintel, the opening between them stays walkable (4 m wide, 5.5 m tall)

@@ -84,9 +84,9 @@ internal static partial class AshfallDressPass
 
     static readonly string[] WallTall = ["AC-005", "AC-004", "AC-006", "AC-002", "AC-001"], WallMid = ["AC-004", "AC-006", "AC-001", "AC-005", "AC-002"],
         WallLow = ["AC-001", "AC-006", "AC-004", "AC-003"], WallSill = ["AC-001", "AC-017", "AC-014", "AC-011"], WallThick = ["AC-003", "AC-001", "AC-006"],
-        CoverThin = ["AC-031", "AC-011", "AC-014", "AC-017"], CoverThick = ["AC-018", "AC-017"], CoverCrater = ["AC-011", "AC-014", "AC-031"],
+        CoverThin = ["AC-011", "AC-014", "AC-017"], CoverThick = ["AC-017", "AC-014", "AC-018"], CoverCrater = ["AC-011", "AC-014", "AC-017"],
         RubbleLow = ["AC-020", "AC-024", "AC-025"], RubbleTall = ["AC-019", "AC-021", "AC-023"], Obelisk = ["AC-010", "AC-030"], Plinth = ["AC-028"],
-        WallCheap = ["AC-031", "AC-014", "AC-023"], Keep = ["AC-006", "AC-004", "AC-001"], BoundaryTiles = ["AC-031"];
+        Keep = ["AC-006", "AC-004", "AC-001"];
 
     static void Skins(IReadOnlyList<AshfallPart> parts, int count, List<AshfallDressItem> items, List<int> hidden)
     {
@@ -98,10 +98,9 @@ internal static partial class AshfallDressPass
             bool done = false;
             switch (part.Kind)
             {
-                case Wall when box.Depth <= 4.1f && box.Height >= 0.45f:
-                    // Small pieces (face under 40 square metres) take the cheap models (about 8-11k triangles) first: 30k-triangle models on every 4 m column would put over a hundred million triangles on screen.
-                    done = box.Length * box.Height < 40f && TryBox(items, WallCheap, h, box, i);
-                    done = done || TryBox(items, box.Height >= 10f ? WallTall : box.Height >= 5f ? WallMid : box.Height >= 2.2f ? (box.Depth >= 2f && box.Length <= 6f ? WallThick : WallLow) : WallSill, h, box, i);
+                case Wall when box.Depth <= 4.1f && box.Length >= 2f && box.Length * box.Height >= 40f:
+                    // Small or narrow pieces (face under 40 square metres, or under 2 m along the face) get no skin and stay graybox, drawn by the client as stone.
+                    done = TryBox(items, box.Height >= 10f ? WallTall : box.Height >= 5f ? WallMid : box.Height >= 2.2f ? (box.Depth >= 2f && box.Length <= 6f ? WallThick : WallLow) : WallSill, h, box, i);
                     break;
                 case Cover when box.Depth <= 3f && box.Height >= 0.45f:
                     done = TryBox(items, box.Cx < -104f && MathF.Abs(box.Cy) < 80f ? CoverCrater : box.Depth >= 1.8f ? CoverThick : CoverThin, h, box, i);
@@ -116,14 +115,56 @@ internal static partial class AshfallDressPass
                     done = TryBox(items, Plinth, h, box, i);    // A's plinth, the small monument's plinth, the gun platform
                     break;
                 case Boundary:
-                    done = TryBox(items, BoundaryTiles, h, box, i, -Vector2.Normalize(new Vector2(box.Cx, box.Cy)));   // the inner face towards the play area
+                    done = BoundaryTiers(items, h, box, i);
                     break;
                 case Stronghold:
                     done = Ring(items, Keep, h, box, i);
                     break;
             }
-            if (done) hidden.Add(i);
+            if (done && part.Kind is Cover or Rubble) hidden.Add(i);   // only Cover and Rubble skins hide their box; the client draws the others' boxes as a stone backing (draft 2)
         }
+    }
+
+    static readonly (string Id, float Tier)[] BoundaryModels = [("AC-001", 10f), ("AC-004", 12f), ("AC-005", 14f)];
+
+    /// <summary>
+    /// The boundary wall tiled along its length in pieces of about 12 m (inner face towards the play area), each piece stacked in tiers up to the wall's top, the model of every tier picked by the hash
+    /// (AC-001 10 m, AC-004 12 m and AC-005 14 m tiers; a last tier shorter than 4 m is shared with the one below). Every tier keeps its scales within 1:3.
+    /// </summary>
+    static bool BoundaryTiers(List<AshfallDressItem> into, uint hash, AshfallBox box, int part)
+    {
+        int n = Math.Max(1, (int)MathF.Round(box.Length / 12f));
+        float lp = box.Length / n;
+        var toward = -Vector2.Normalize(new Vector2(box.Cx, box.Cy));
+        var (s, co) = AshfallBuilder.Trig(box.YawStep);
+        var ax = new Vector2(co, s);
+        int step = Vector2.Dot(new Vector2(-s, co), toward) > 0f ? (box.YawStep + 12) % 24 : box.YawStep;   // the front (glTF +Z) faces local -Y
+        var added = new List<AshfallDressItem>();
+        for (int i = 0; i < n; i++)
+        {
+            var centre = new Vector2(box.Cx, box.Cy) + ax * (-box.Length / 2f + (i + 0.5f) * lp);
+            uint h = AshfallBuilder.Mix(hash, (uint)i);
+            float z = box.Z0, left = box.Height;
+            for (uint t = 0; left > 0.01f; t++)
+            {
+                uint ht = AshfallBuilder.Mix(h, t + 1u);
+                bool placed = false;
+                for (int c = 0; c < BoundaryModels.Length && !placed; c++)
+                {
+                    var (id, tier) = BoundaryModels[(int)((ht + (uint)c) % (uint)BoundaryModels.Length)];
+                    float th = left <= tier ? left : left - tier < 4f ? left / 2f : tier;
+                    var m = AshfallKit.Get(id);
+                    var r = m.RawSize;
+                    float sx = lp / r.X, sy = box.Depth / r.Z, sz = th / r.Y;
+                    if (MathF.Max(sx, MathF.Max(sy, sz)) / MathF.Min(sx, MathF.Min(sy, sz)) > 3f) continue;
+                    added.Add(new AshfallDressItem(id, new Vector3(centre.X, centre.Y, z), Yaw(step), new Vector3(lp, box.Depth, th), false, AshfallDressRole.Skin, part));
+                    z += th; left -= th; placed = true;
+                }
+                if (!placed) return false;
+            }
+        }
+        into.AddRange(added);
+        return true;
     }
 
     /// <summary>A thick box tiled along its four vertical faces (a shell 3 m deep; the top is covered by another part or out of sight): all four or none.</summary>
