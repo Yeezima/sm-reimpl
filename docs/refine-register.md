@@ -28,24 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2178 spec table rows: **1564 tagged**, 444 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 471 rows of the changes document.
-Scanned 2183 spec table rows: **1568 tagged**, 444 not tagged (read from data with high confidence), 171 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 472 rows of the changes document.
-Scanned 2177 spec table rows: **1563 tagged**, 444 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 472 rows of the changes document.
-Scanned 2177 spec table rows: **1563 tagged**, 444 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 473 rows of the changes document.
+Scanned 2205 spec table rows: **1584 tagged**, 449 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 480 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 352 | 297 | 303 | 99 | 12 |
-Scanned 2192 spec table rows: **1572 tagged**, 449 not tagged (read from data with high confidence), 171 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 475 rows of the changes document.
-
-| Area | Tagged rows | by kind | by confidence | by notes | by section text |
-|---|---:|---:|---:|---:|---:|
-| Movement (critical) | 361 | 305 | 312 | 102 | 12 |
-Scanned 2183 spec table rows: **1569 tagged**, 444 not tagged (read from data with high confidence), 170 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 472 rows of the changes document.
-
-| Area | Tagged rows | by kind | by confidence | by notes | by section text |
-|---|---:|---:|---:|---:|---:|
-| Movement (critical) | 358 | 303 | 303 | 106 | 12 |
+| Movement (critical) | 367 | 311 | 312 | 107 | 12 |
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
 | Melee (critical) | 100 | 87 | 77 | 32 | 5 |
@@ -66,41 +53,27 @@ Scanned 2183 spec table rows: **1569 tagged**, 444 not tagged (read from data wi
 | Core simulation (provisional values) | 267 | 251 | 213 | 35 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 117 | 110 | 62 | 18 | 0 |
-| **All areas** | **1563** | 1334 | 1220 | 466 | 38 |
-| **All areas** | **1564** | 1334 | 1221 | 468 | 38 |
-| **All areas** | **1568** | 1339 | 1225 | 467 | 38 |
-| **All areas** | **1572** | 1342 | 1229 | 469 | 38 |
-| **All areas** | **1569** | 1340 | 1220 | 473 | 38 |
+| **All areas** | **1584** | 1353 | 1235 | 475 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 740 |
-| confidence: low | 571 |
-| kind: ours | 741 |
-| confidence: low | 572 |
-| kind: ours | 746 |
-| confidence: low | 576 |
-| kind: ours | 747 |
-| confidence: low | 580 |
-| confidence: medium | 521 |
+| kind: ours | 751 |
+| confidence: low | 583 |
+| confidence: medium | 524 |
 | kind: interpretation | 339 |
-| notes: ours | 314 |
-| notes: ours | 318 |
+| notes: ours | 320 |
 | confidence: none (low) | 128 |
 | kind: provisional | 99 |
 | kind: estimate | 81 |
 | kind: user's knowledge | 51 |
 | notes: estimate | 49 |
+| notes: provisional | 38 |
 | section: provisional | 38 |
-| notes: provisional | 37 |
 | kind: choice | 35 |
 | section: placeholder | 35 |
-| notes: provisional | 32 |
-| kind: choice | 29 |
 | notes: user's knowledge | 25 |
-| notes: user's knowledge | 26 |
 | kind: approximation | 22 |
 | kind: placeholder | 22 |
 | notes: placeholder | 19 |
@@ -118,8 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (361)
-### Movement (gameplay-critical) (358)
+### Movement (gameplay-critical) (367)
 
 *Spec section: Extracted parameters*
 
@@ -409,7 +381,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C280A2D1` | Crosshair | the four ticks move out by the next shot's horizontal half-width projected at the camera's field of view (1080-high HUD units, at most 120). Evidence that the original reticule changed size: `Hud.gfx` carries the names `min_aim` / `max_aim` next to its… (HUD units) | kind: interpretation; confidence: low; notes: ours | names from `Hud.gfx`; drawing ours | Crosshair: compare with SM1 by feel or video. Ours: the four ticks move out by the next shot's horizontal half-width… | ☐ |
 | `R-F05E2B5F` | Handling (climb, sway) | client only, on the own camera (the view is the aim): each own shot raises a temporary climb target by the set's per-shot climb (at most its max), the view follows it at `climb_rate` °/s and the target recovers at `climb_recovery_rate` °/s; the permanent… (degrees, °/s) | kind: interpretation; confidence: low; notes: ours | data values; how they move the view: ours | Handling (climb, sway): compare with SM1 with an overlaid screenshot taken from the same position. Ours: client only, on the own camera (the view is the aim): each own shot… | ☐ |
 
-*Spec section: Classic PvP: Deploy, respawn choice, heavy bolter count (fix/pvp-deploy-spawn; protocol 57)*
+*Spec section: Classic PvP: Deploy, respawn choice, heavy bolter count (fix/pvp-deploy-spawn; protocol 58)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -1775,7 +1747,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-881208E3` | Weapon Versatility: validation | the server keeps the request only for a Tactical holding the perk (either perk slot) and a weapon of the class's primary list; else none (`Loadouts.SecondIndex`, `Loadouts.Resolve`); a dead perk after a class change drops it at the next respawn | kind: ours | ours (rule of the owner's decision) | Weapon Versatility: validation: compare with SM1 by feel or video. Ours: the server keeps the request only for a Tactical holding the perk… | ☐ |
 | `R-8DEE4872` | Weapon switching with three weapons | keys 1, 2, 3 name their slot; the Switch toggle and the mouse wheel go to the next weapon in the order pistol, primary, second primary (two weapons: the other one, as before); the switch costs the same time and has the same rules as before | kind: estimate; confidence: low; notes: ours | the order is **ours** (the owner named only the keys) | Weapon switching with three weapons: compare with SM1 by feel or video. Ours: keys 1, 2, 3 name their slot; the Switch toggle and the mouse wheel… | ☐ |
 | `R-A760454E` | Weapon switch buffered with three weapons | a Switch press blocked by an action is replayed as the toggle (key 3 is kept while it is still held); a key 1 or 2 let go before the replay may go to the next weapon of the cycle instead | kind: estimate; confidence: low; notes: ours | ours | Weapon switch buffered with three weapons: compare with SM1 by feel or video. Ours: a Switch press blocked by an action is replayed as the toggle (key 3… | ☐ |
-| `R-AFD589AF` | Teleport Homer: rule | **Musou Mode only since fix/pvp-deploy-spawn (protocol 57; classic PvP: a chosen spawn, section "Classic PvP: Deploy, respawn choice, heavy bolter count" below)**: while a carrier is alive, a player of its side who respawns after dying appears next to it… | kind: user's knowledge; confidence: medium | **owner's decision** (2026-10-30) | Teleport Homer: rule: compare with SM1 by feel or video. Ours: Musou Mode only since fix/pvp-deploy-spawn (protocol 57; classic PvP:… | ☐ |
+| `R-AFD589AF` | Teleport Homer: rule | **Musou Mode only since fix/pvp-deploy-spawn (protocol 58; classic PvP: a chosen spawn, section "Classic PvP: Deploy, respawn choice, heavy bolter count" below)**: while a carrier is alive, a player of its side who respawns after dying appears next to it… | kind: user's knowledge; confidence: medium | **owner's decision** (2026-10-30) | Teleport Homer: rule: compare with SM1 by feel or video. Ours: Musou Mode only since fix/pvp-deploy-spawn (protocol 58; classic PvP:… | ☐ |
 | `R-771E3061` | Teleport Homer: several carriers | the one nearest to where the respawning player died (ties: the lowest id) | kind: estimate; confidence: low; notes: ours | ours | Teleport Homer: several carriers: compare with SM1 by feel or video. Ours: the one nearest to where the respawning player died (ties: the lowest… | ☐ |
 | `R-A6003C94` | Teleport Homer: the place | the first free spot of a ring around the carrier: radii 1.5, 2, 2.5, 3 m; 12 directions each, starting behind the carrier and alternating sides; free = on the carrier's floor (a standable surface within 0.6 m of its feet), in its sight (nothing on the… (m) | kind: estimate; confidence: low; notes: ours | ours | Teleport Homer: the place: compare with SM1 by measuring on a flat spot of the same map. Ours: the first free spot of a ring around the carrier: radii 1.5, 2, 2.5… | ☐ |
 | `R-8DEF59B7` | Tactical Readout: what shows | the health and armour of the living **enemies** (allies are not sent) as a thin two-lane bar at the enemy under the crosshair (the existing aimed-enemy display), fractions of the enemy's class body; **no name**; sent by the server ten times a second only to a… | kind: user's knowledge; confidence: medium; notes: ours | **owner's decision** (2026-10-30); the place (at the crosshair, not over every enemy in sight) and the rates are ours | Tactical Readout: what shows: compare with SM1 by feel or video. Ours: the health and armour of the living enemies (allies are not sent) as… | ☐ |
@@ -3168,7 +3140,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-01B0AD06` | Stronger recoil and flinch clips | The data's additive clips laid at up to 1.5 (recoil) and 1.6 (melee flinch) | How the original weighted them | same | Stronger recoil and flinch clips: compare with SM1 by watching the reaction and timing it frame by frame. Ours: The data's additive clips laid at up to 1.5 (recoil) and 1.6 (melee… | ☐ |
 | `C-20E6583A` | Strike and reaction entries | Fade floor 0.125 s instead of 0.1875 s, nearer the graphs' blends | The original's blending curve | same | Strike and reaction entries: compare with SM1 by watching the reaction and timing it frame by frame. Ours: Fade floor 0.125 s instead of 0.1875 s, nearer the graphs' blends. | ☐ |
 
-#### Classic PvP: Deploy, respawn choice, heavy bolter count (fix/pvp-deploy-spawn; protocol 57)
+#### Classic PvP: Deploy, respawn choice, heavy bolter count (fix/pvp-deploy-spawn; protocol 58)
 
 | ID | Area | What we do | What is unknown | Spec | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
@@ -3310,7 +3282,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-DE2A0D0F` | Test aids (client only) | Custom classes, end to end (customizer T9; summary) and in the match (T7) |
 | `R-D680D0E8` | Wire | Weapon spread (weapons/spread; the owner's decision 2026-10-28; used by the simulation; no protocol change) |
 | `R-6A78E096` | Protocol 44 | Perks without data (protocol 44; owner's decisions of 2026-10-30) |
-| `R-3E878036` | Protocol 57 | Classic PvP: Deploy, respawn choice, heavy bolter count (fix/pvp-deploy-spawn; protocol 57) |
+| `R-06411108` | Protocol 58 | Classic PvP: Deploy, respawn choice, heavy bolter count (fix/pvp-deploy-spawn; protocol 58) |
 | `R-587283EB` | **Demo file** (`--record-demo <file>`) | Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated) |
 | `R-DD23A31C` | **Replay** (`--play-demo <file>`, no server) | Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated) |
 | `R-06DC5D5F` | Replay fidelity | Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated) |
