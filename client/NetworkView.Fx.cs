@@ -242,6 +242,7 @@ public partial class NetworkView
             FxMapEffects();
             FxEyeGlow();   // M40-T13 (NetworkView.EyeGlow.cs)
             FxMelee(me);   // fx/impact-pass: stomps, slams and the power sword (NetworkView.MeleeFx.cs)
+            FxPlasma(me);   // fix/plasma-visuals: the plasma weapons' charge, idle and heat effects (NetworkView.PlasmaFx.cs)
             FxJumpPacks(me);   // M44 (NetworkView.JumpFx.cs)
             FxDeaths();   // F-D1: the death effects that are due (NetworkView.DeathFx.cs)
             _fx!.Update(delta / Math.Max(1f, FxSlow), _camera);
@@ -818,7 +819,7 @@ public partial class NetworkView
         _fxLogAt = _connectedFor;
         GD.Print($"t {_connectedFor:F0} s: effects: update avg {_fx.CostSum / _fx.CostFrames:F2} ms, max {_fx.CostMax:F2} ms over {_fx.CostFrames} frames; live {_fx.Live}, quads {_fx.LastQuads} ({_fx.AdditiveQuads} additive, {_fx.AlphaQuads} alpha, dropped {_fx.DroppedTotal}), lights {_fx.LastLights}, decals {_fx.LiveDecals}; " +
                  $"quads a frame avg {(double)_fx.QuadSum / _fx.CostFrames:F0} ({(double)_fx.AlphaQuadSum / _fx.CostFrames:F0} alpha), max {_fx.QuadMax}, smoke {(FxPlayer.ShowSmoke ? "on" : "off")}; " +
-                 $"own shots {_fxOwnShots}, remote shots {_fxRemoteShots}, tracers {_fxTracers} ({BulletStats()}; {BarrelStats()}), impacts {_fxImpacts} (on players {_fxBodyImpacts}), detonations {_fxDetonations}, trails {_fxTrails}; {JumpFxLog()}; {MeleeFxLog()}; spawned {_fx.Spawned}, culled {_fx.Culled}; " +
+                 $"own shots {_fxOwnShots}, remote shots {_fxRemoteShots}, tracers {_fxTracers} ({BulletStats()}; {BarrelStats()}), impacts {_fxImpacts} (on players {_fxBodyImpacts}), detonations {_fxDetonations}, trails {_fxTrails}; {JumpFxLog()}; {MeleeFxLog()}; {PlasmaFxLog()}; spawned {_fx.Spawned}, culled {_fx.Culled}; " +
                  (_fx.Missing.Count > 0 ? $"missing: {string.Join(", ", _fx.Missing.Take(6))}" : "nothing missing"));
         _fx.CostSum = 0; _fx.CostMax = 0; _fx.CostFrames = 0; _fx.QuadSum = 0; _fx.AlphaQuadSum = 0; _fx.QuadMax = 0;
     }

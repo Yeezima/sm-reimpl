@@ -234,7 +234,9 @@ public sealed partial class Hud
         }
         int topFrame = top;
         var pic = _movieArt.Get(key, (m, s) => m.Hud?.RenderAt(path, ReticleRules.Container, s, topFrame, nested));
+        DrawPlasmaHeat(hud, spec, c);   // fix/plasma-visuals: the heat arc under the reticle (Hud.Plasma.cs)
         if (pic is not null) DrawReticlePic(pic, c);
+        DrawPlasmaCharge(hud, spec, c);   // and the charge arc over it
         return true;
     }
 

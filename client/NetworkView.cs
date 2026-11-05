@@ -1436,7 +1436,7 @@ public partial class NetworkView : Node3D
         float yaw = BodyYawFor(character, state, own, aimYaw, throwTime);   // M40-T5 (NetworkView.TurnInPlace.cs): the body is planted while the aim moves; else the aim's yaw
         if (TurnProbe.Enabled) character.SetMeta("aim_yaw", aimYaw);   // the probe compares the chest with the aim
         character.Transform = new Transform3D(new Basis(new Vector3(0, 0, 1), yaw), new Vector3(state.Position.X, state.Position.Y, state.Position.Z - hop));
-        if (character.GetNodeOrNull<Node3D>("ChargeGlow") is { } glow) glow.Visible = state.Alive && state.Charging && !NoMarkers;
+        if (character.GetNodeOrNull<Node3D>("ChargeGlow") is { } glow) glow.Visible = state.Alive && state.Charging && !NoMarkers && !HasDataChargeFx(state);   // fix/plasma-visuals: the plasma weapons play their own charge build
         // Reacting (M28): the reaction clip at the reaction's time; a reaction ends any attack, throw, evade or jump on the ground.
         character.ClipFootLock = false;   // anim/melee-flow: only the strikes and the charge below hold their put-down feet (CharacterViewer.ClipFootLock.cs)
         character.ClipStrideScale = 1f;   // anim/hammer-swing: only a hammer strike below stretches the clip's stride (NetworkView.HammerSwing.cs)
@@ -1900,6 +1900,7 @@ public partial class NetworkView : Node3D
             f.Venting = me.Venting;
             if (f.WeaponState.Length == 0) f.WeaponState = braceState ?? braceHint ?? "";
             (f.Charge, f.ChargeText, f.ChargeReady) = ChargeMeter(me, inHand);
+            f.ChargeToFull = PlasmaChargeToFull(me, inHand);   // fix/plasma-visuals (NetworkView.PlasmaFx.cs)
             if (Shots.RemoteDetonated(inHand) && inHand.Projectile is { } projectile)
                 f.GrenadesOutText = $"Grenades out {me.ProjectilesOut} / {projectile.MaxActive}{(me.ProjectilesOut > 0 ? " (R detonates)" : "")}";
         }

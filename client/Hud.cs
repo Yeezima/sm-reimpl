@@ -72,6 +72,8 @@ public sealed partial class Hud : Control
         public int ThirdClip, ThirdClipMax, ThirdReserve;
         /// <summary>Charge fill 0..1 or negative when not charging, and whether a release fires the charged shot (the bar overlay and charge mark turn gold). <see cref="ChargeText"/> is not drawn since M44 (changes-from-original §3).</summary>
         public float Charge = -1f;
+        /// <summary>fix/plasma-visuals: the charge toward the last stage with a shot, 0..1 (negative when not charging); drives the plasma charge arc at the crosshair.</summary>
+        public float ChargeToFull = -1f;
         public string ChargeText = "";
         public bool ChargeReady;
         // Equipment (thrown item).
@@ -253,6 +255,7 @@ public sealed partial class Hud : Control
         TrackRewards();
         RunRewardsDemo();
         RunVitalsDemo();   // ui/armour-bar-fix (Hud/Hud.Vitals.cs)
+        RunPlasmaDemo();   // fix/plasma-visuals (Hud/Hud.Plasma.cs)
         RunScoreDemo();   // ui/score-box-center (Hud/Hud.ScoreBox.cs)
         if (SwitchCardsDemo && Data.InGame) _popupAt = _time - 1.0;   // --hud-switch-demo (test aid): the switch cards stay open for screenshots
         TrackPoints();
