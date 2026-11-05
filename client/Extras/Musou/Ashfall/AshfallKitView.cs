@@ -121,11 +121,11 @@ public partial class AshfallKitView : Node3D
             {
                 int xx = (x + (course % 2) * 128) % 256;   // the joint sits at 0 on even courses, at half a block on odd ones
                 uint bh = (uint)(course * 40503 + 12345) * 2654435761u; bh ^= bh >> 15;
-                float tone = 0.50f + 0.14f * ((bh % 100) / 100f - 0.5f) * 2f + (course % 2 == 0 ? 0.02f : -0.02f);
+                float tone = 0.50f + 0.11f * ((bh % 100) / 100f - 0.5f) * 2f + (course % 2 == 0 ? 0.02f : -0.02f);
                 float g = grit.GetPixel(x, y).R;
-                float v = tone + 0.20f * (g - 0.5f);
-                if (xx < 2 || row < 2) v *= 0.45f;   // the mortar line
-                else if (xx < 4 || xx > 252 || row < 4 || row > 61) v *= 0.8f;   // a soft bevel
+                float v = tone + 0.16f * (g - 0.5f);
+                if (xx < 3 || row < 3) v *= 0.58f;   // the mortar line (draft 6: wider and lighter, less aliasing contrast)
+                else if (xx < 6 || xx > 250 || row < 6 || row > 59) v *= 0.88f;   // a soft bevel
                 img.SetPixel(x, y, new Color(v * 1.02f, v, v * 0.95f));
             }
         }
@@ -216,12 +216,19 @@ void fragment() {
 	vec2 uvSide = vec2(u * 0.25, -wpos.y * 0.25);
 	vec2 dTopX = dFdx(uvTop); vec2 dTopY = dFdy(uvTop);
 	vec2 dSideX = dFdx(uvSide); vec2 dSideY = dFdy(uvSide);
-	float far = 1.0 - smoothstep(50.0, 140.0, length(VERTEX));   // the block variants and chips fade out with distance (no moire from the 1 m courses)
+	// Draft 6 (boundary shimmer): everything fades by the screen-space footprint of a pixel in metres (distance AND grazing angle), not by distance alone.
+	float fwSide = 4.0 * max(length(dSideX), length(dSideY));
+	float fwTop = 4.0 * max(length(dTopX), length(dTopY));
+	vec3 avgSide = textureLod(tex, uvSide, 5.0).rgb;   // an 8 x 8 mip: course tones kept, mortar lines and grit gone
+	vec3 avgTop = textureLod(tex, uvTop, 5.0).rgb;
 	if (an.y > an.x && an.y > an.z) {
 		c = textureGrad(tex, uvTop, dTopX, dTopY).rgb;
+		c = mix(c, avgTop, smoothstep(0.04, 0.18, fwTop));
 	} else {
 		float plane = xface ? wpos.x : wpos.z;
 		c = textureGrad(tex, uvSide, dSideX, dSideY).rgb;
+		c = mix(c, avgSide, smoothstep(0.04, 0.18, fwSide));   // joints and grit dissolve into an even tone before a pixel spans them
+		float far = 1.0 - smoothstep(0.25, 0.9, fwSide);       // block variants and chips: low frequency, they last longer
 		int course = int(floor(-wpos.y));
 		float odd = float(course & 1);
 		float s = u + 2.0 * odd;
@@ -231,17 +238,17 @@ void fragment() {
 		uint h = blockhash(int(bidx), course, int(floor(plane)) * 2 + (xface ? 1 : 0), seed);
 		int variant = int(h % 3u);
 		float edge = min(min(bu, 4.0 - bu), min(bv, 1.0 - bv));
-		float inner = smoothstep(0.06, 0.12, edge) * far;
+		float inner = smoothstep(0.06, 0.16 + 1.5 * fwSide, edge) * far;   // antialiased: the edge ramp is never narrower than a pixel
 		float tone = 1.0;
 		float grit = 1.0;
-		if (variant == 1) { tone = 0.90; grit = 1.25; }
-		else if (variant == 2) { tone = 1.07; grit = 0.85; }
+		if (variant == 1) { tone = 0.93; grit = 1.15; }
+		else if (variant == 2) { tone = 1.05; grit = 0.90; }
 		vec3 d = ((c - 0.5) * grit + 0.5) * tone;
 		if (variant == 2) {
 			vec2 centre = vec2(((h >> 4u) & 1u) == 0u ? 0.35 : 3.65, ((h >> 5u) & 1u) == 0u ? 0.82 : 0.18);
 			vec2 r = (vec2(bu, bv) - centre) / vec2(0.40, 0.20);
 			float ragged = 1.0 + 0.35 * (c.r - 0.5);
-			if (dot(r, r) < ragged * ragged) d *= 0.80;
+			d *= mix(1.0, 0.88, 1.0 - smoothstep(ragged - 0.15 - 2.0 * fwSide, ragged, sqrt(dot(r, r))));
 		}
 		c = mix(c, d, inner);
 	}
