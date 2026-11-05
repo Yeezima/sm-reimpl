@@ -495,3 +495,9 @@ boxes; the collision refit of branch `musou/ashfall-d6-fit` will move it: re-pin
 ### Open
 Twin tower east is left out and the twin bridge dropped (the owner may prefer a smaller tower there, or the bridge gone); 136 items keep a narrow gap they could not open (none on the measured routes); the walkable
 losses grew (61 of 124); the merged families' slabs add air (2.09x); the `docs/changes-from-original.md` row still says draft 5 / version 9 (editing it needs `smtool refine-register`).
+## Draft 6: boundary shimmer
+
+Owner report: the boundary wall shimmers when looked at. The masonry texture already had mipmaps and `filter_linear_mipmap_anisotropic` with repeat; the cause was the fine, high-contrast detail (3 cm mortar lines, per-block variants with 0.06 m edge ramps, chips) that faded only by distance (50 to 140 m), so grazing angles and mid distances aliased.
+- `MasonryShader` now fades by the pixel's footprint in metres (`dFdx`/`dFdy` of the UV, taken outside the branches): mortar lines and grit blend into an 8 x 8 mip (`textureLod` 5, course tones kept) between 4 and 18 cm per pixel; block variants and chips fade between 25 and 90 cm per pixel. Variant edge ramps and chip rims are antialiased (ramp never narrower than a pixel).
+- Softer look: mortar 3 px wide at 0.58 (was 2 px at 0.45), wider bevel, course tone spread 0.11 (was 0.14), grit 0.16 (was 0.20), variant tones 0.93 / 1.05 (were 0.90 / 1.07), chip 0.88 (was 0.80). Palette and tint unchanged.
+- Ground shader checked and left alone: smooth value noise plus a mipmapped noise texture, no thin high-contrast lines. `--ashfall-seed`, F8 and Shift+F8 untouched. Not checked in the renderer (no screenshots by request).
