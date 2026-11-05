@@ -156,7 +156,7 @@ varying vec3 wpos;
 varying vec3 wnor;
 uint cellhash(int a, int b, int s) {
 	uint h = uint(a) * 73856093u ^ uint(b) * 19349663u ^ uint(s) * 83492791u;
-	h ^= h >> 13; h *= 1540483477u; h ^= h >> 15; h *= 2654435761u; h ^= h >> 13;
+	h ^= h >> 13u; h *= 1540483477u; h ^= h >> 15u; h *= 2654435761u; h ^= h >> 13u;
 	return h;
 }
 vec2 quarter(vec2 v, int k) {
@@ -178,7 +178,7 @@ void fragment() {
 	ivec2 cell = ivec2(floor(wpos.xz / tile));
 	uint h = cellhash(cell.x, cell.y, seed);
 	int k = int(h & 3u);
-	int v = int((h >> 2) & 3u);
+	int v = int((h >> 2u) & 3u);
 	vec2 q = p / tile;
 	vec3 c = textureGrad(tex, quarter(q, k), quarter(dFdx(q), k), quarter(dFdy(q), k)).rgb;
 	float tones[4] = float[4](1.0, 0.91, 1.07, 0.97);
@@ -200,7 +200,7 @@ varying vec3 wpos;
 varying vec3 wnor;
 uint blockhash(int a, int b, int c, int s) {
 	uint h = uint(a) * 73856093u ^ uint(b) * 19349663u ^ uint(c) * 83492791u ^ uint(s) * 2654435761u;
-	h ^= h >> 13; h *= 1540483477u; h ^= h >> 15; h *= 2654435761u; h ^= h >> 13;
+	h ^= h >> 13u; h *= 1540483477u; h ^= h >> 15u; h *= 2654435761u; h ^= h >> 13u;
 	return h;
 }
 void vertex() {
@@ -233,7 +233,7 @@ void fragment() {
 		else if (variant == 2) { tone = 1.07; grit = 0.85; }
 		vec3 d = ((c - 0.5) * grit + 0.5) * tone;
 		if (variant == 2) {
-			vec2 centre = vec2(((h >> 4) & 1u) == 0u ? 0.35 : 3.65, ((h >> 5) & 1u) == 0u ? 0.82 : 0.18);
+			vec2 centre = vec2(((h >> 4u) & 1u) == 0u ? 0.35 : 3.65, ((h >> 5u) & 1u) == 0u ? 0.82 : 0.18);
 			vec2 r = (vec2(bu, bv) - centre) / vec2(0.40, 0.20);
 			float ragged = 1.0 + 0.35 * (c.r - 0.5);
 			if (dot(r, r) < ragged * ragged) d *= 0.80;
