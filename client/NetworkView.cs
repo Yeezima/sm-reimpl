@@ -120,6 +120,7 @@ public partial class NetworkView : Node3D
     MapLightingView.FrameStats? _frameStats;
     PerfProbe? _perfProbe;
     MapLightingView.EnvironmentBlender? _blender;
+    readonly LightingGradeView _lightingGrade = new();
     string? _mapNote;
     readonly bool _showCollision;
     readonly bool _waitMelee;
@@ -431,6 +432,7 @@ public partial class NetworkView : Node3D
         if (FrameStatsLog) (_frameStats ??= new MapLightingView.FrameStats(GetViewport())).Add(delta);
         if (PerfProbe.On) (_perfProbe ??= new PerfProbe(GetViewport())).Frame(delta, GetTree().Root);   // perf/pass-1 test aid (--perf-probe)
         if (_blender is not null && _camera is not null) { var cp = _camera.GlobalPosition; _blender.Update(new System.Numerics.Vector3(cp.X, -cp.Z, cp.Y)); }   // Godot to game space
+        _lightingGrade.Frame(_camera?.Environment ?? _environment, _sun);   // ui/lighting-presets: OPTIONS, GRAPHICS, LIGHTING PRESET on top of the map's look (LightingGradeView)
         if (_client is null || _config is null || _assets is null) { UpdateOverlay(); return; }
 
         if (!_bot && !OwnDead && !PickerBusy && _demoPlayback is null)   // dead: the view is frozen (M23); a replayed demo has the recorded view

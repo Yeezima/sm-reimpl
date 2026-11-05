@@ -175,6 +175,7 @@ public static partial class UiKit
 
         public override void _Ready()
         {
+            FocusGlow.Ensure(this);   // ui/focus-glow: the one glow for every menu
             Place();
             var viewport = GetViewport();
             viewport.SizeChanged += OnWindowChanged;

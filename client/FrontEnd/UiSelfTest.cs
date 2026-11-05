@@ -298,6 +298,7 @@ public sealed partial class UiSelfTest : Node
         await PadBackChecks();   // ui/pad-b-back: B on the controller backs out of menus (UiSelfTest.PadBack.cs)
         await MenuChecks();   // ui/menu-rebuild: the tree, JOIN SERVER, the bot buttons (UiSelfTest.Menus.cs)
         await OptionsChecks();   // ui/menu-rebuild: the options' rows, effects and persistence
+        await PresetsGlowChecks();   // ui/lighting-presets, ui/focus-glow (UiSelfTest.PresetsGlow.cs)
         await FitChecks();
         await ArmourBarChecks();   // ui/armour-bar-fix: one armour bar layer (UiSelfTest.ArmourBar.cs)
         await ScoreBoxChecks();   // ui/score-box-center: the HUD score box holds its block (UiSelfTest.ScoreBox.cs)
