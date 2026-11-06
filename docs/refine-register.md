@@ -32,10 +32,11 @@ Scanned 2286 spec table rows: **1657 tagged**, 453 not tagged (read from data wi
 Scanned 2285 spec table rows: **1656 tagged**, 453 not tagged (read from data with high confidence), 176 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 499 rows of the changes document.
 Scanned 2291 spec table rows: **1661 tagged**, 454 not tagged (read from data with high confidence), 176 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 500 rows of the changes document.
 Scanned 2285 spec table rows: **1656 tagged**, 453 not tagged (read from data with high confidence), 176 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 499 rows of the changes document.
+Scanned 2285 spec table rows: **1656 tagged**, 453 not tagged (read from data with high confidence), 176 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 500 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 377 | 321 | 320 | 111 | 12 |
+| Movement (critical) | 378 | 322 | 321 | 112 | 12 |
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
 | Melee (critical) | 102 | 89 | 79 | 32 | 5 |
@@ -79,6 +80,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: ours | 812 |
 | confidence: low | 604 |
 | kind: ours | 811 |
+| kind: ours | 810 |
 | confidence: low | 603 |
 | confidence: medium | 545 |
 | kind: ours | 814 |
@@ -90,6 +92,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: provisional | 99 |
 | kind: estimate | 93 |
 | notes: estimate | 68 |
+| notes: ours | 326 |
+| confidence: none (low) | 128 |
+| kind: provisional | 99 |
 | kind: estimate | 94 |
 | notes: estimate | 67 |
 | kind: user's knowledge | 51 |
@@ -115,7 +120,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (377)
+### Movement (gameplay-critical) (378)
 
 *Spec section: Extracted parameters*
 
@@ -500,6 +505,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EA1028FB` | Ready run | the same blend over the ready posture's directions and walk / run bands (`HipFireAnimations`); each (direction, band) is a down / level / up triple weighted by the aim pitch as before (M27); the standing aim triple (`SM_NAV_IdleLFocus_S_Aim*`, the pistol and… | kind: ours; confidence: medium | as above | Ready run: compare with SM1 by timing a run over a known distance. Ours: the same blend over the ready posture's directions and walk / run… | ☐ |
 | `R-83DB197A` | Idle share | the moving clips' weight rises linearly from 0 at standstill to 1 at 1.0 m/s, the idle pose takes the rest, so a reversal through zero speed passes through the idle pose instead of flipping from one direction's clip to the other's (the original's… (m/s) | kind: interpretation; confidence: low; notes: ours | choice: ours | Idle share: compare with SM1 by timing a run over a known distance. Ours: the moving clips' weight rises linearly from 0 at standstill to 1 at… | ☐ |
 | `R-9A88C2F4` | Damping | the ground velocity the weights follow is the simulation's, low-pass filtered with an exponential time constant of 0.06 s (about two ticks; the simulation reaches full speed in 0.125 s), rotated into the body's current facing; it snaps after a gap of more… (s) | kind: interpretation; confidence: low; notes: ours | choice: ours | Damping: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the ground velocity the weights follow is the simulation's, low-pass… | ☐ |
+| `R-46E727BC` | Weight smoothing (anim/strafe-blend, the owner 2026-11-06: "when changing strafe or run direction… | the solved direction x band weights and the idle share each follow their target as a critically damped spring of time constant **0.05 s** (half way in about 0.08 s, 95 % in about 0.24 s; no overshoot, no kink), kept non-negative and renormalised; the aim… (s) | kind: estimate; confidence: low; notes: ours | ours | Weight smoothing (anim/strafe-blend, the owner 2026-11-06:…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the solved direction x band weights and the idle share each follow… | ☐ |
 | `R-3EE34AC2` | Dominant clip | a blend layer reports its largest-weight clip (clips with a gait win ties) as the clip `ClipTime` / `Playing` give (the sound tags, the probes), held until another leads by 0.2 of the total weight (about the old 8 degree direction hold) | kind: interpretation; confidence: low; notes: ours | choice: ours | Dominant clip: compare with SM1 by feel or video. Ours: a blend layer reports its largest-weight clip (clips with a gait win… | ☐ |
 | `R-B1E4D87D` | Leg correction | blended local rotations bend the legs to a pose neither clip has (measured: the blended toe sank up to 8 cm below the ground on the back diagonals and the planted foot drifted). Positions blend linearly, so after the pose is built each leg is solved by… (m) | kind: interpretation; confidence: medium; notes: ours | choice: ours | Leg correction: compare with SM1 by measuring on a flat spot of the same map. Ours: blended local rotations bend the legs to a pose neither clip has… | ☐ |
 | `R-2A21D9CD` | Rotation sign reference | every clip's rotation is flipped to the hemisphere of the pose shown last, not of whichever clip is added first (`q` and `-q` are one rotation), so a blend cannot jump when its first clip drops out | kind: interpretation; notes: ours | choice: ours | Rotation sign reference: compare with SM1 by turning the view at full speed with the same input settings and timing a half turn. Ours: every clip's rotation is flipped to the hemisphere of the pose shown… | ☐ |
@@ -3136,6 +3142,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-2CEAA985` | Air slash landing (anim/melee-flow) | A slash that landed before its wind-up's end catches up with the strike over 0.1 s on the smooth curve (the graph's 'Blend Slo-mo' is 1/30 s) | How the original blends the slash's flight into its impact | same | Air slash landing (anim/melee-flow): compare with SM1 by feel or video. Ours: A slash that landed before its wind-up's end catches up with the… | ☐ |
 | `C-102AB223` | Sprint and backpedal poses | The original sprint and backward run / walk clips chosen by the movement direction, the speed band (walk below 3.25 m/s) and a sprint threshold of 7.375 m/s (run + 0.25 x (sprint - run)), discrete nearest direction, playback rate from measured foot speeds; the sprint shows only while grounded and not rolling… | The graphs' continuous blends, their speed variables and the engine's turn smoothing | Sprint, backpedal and facing poses (M36) | Sprint and backpedal poses: compare with SM1 by timing a run over a known distance. Ours: The original sprint and backward run / walk clips chosen by the… | ☐ |
 | `C-1D3CDA2D` | Locomotion blend space | The relaxed run and the ready run (the sprint only with `--gait-sprint`: it slid more) blend the two neighbouring directions and speed bands of the original's clips by the damped ground velocity (weights from the clips' measured planted-foot strides, so the feet do not slide: planted-foot speed median < 0.3 m/s and… | The graphs' own blend (`FLT_Nav_Motion_Angle_DAMPED`, `FLT_Input_Nav_Speed_DAMPED`) and its sync (`SYNC_L1`, `SYNC_R1` are declared in the graphs, carried by no sequencer and no clip annotation), the speed-0 walk-on-the-spot end of the blend (the idle pose here), whatever the engine does to the legs (foot IK is unused… | Locomotion blend space (M40-T4) | Locomotion blend space: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The relaxed run and the ready run (the sprint only with… | ☐ |
+| `C-A3EE79E2` | Blend weights smoothed over time (anim/strafe-blend) | The locomotion blend space's direction and speed weights follow the velocity through a 0.05 s critically damped spring, so a strafe, forward / back or diagonal reversal no longer flips the pose to the opposite clips in one frame (reversal pose jerk median 115 to 225 -> 5 to 6 cm/f^2 relaxed, 42 to 47 -> 10 to 15… | The graphs damp their blend parameters (`FLT_Nav_Motion_Angle_DAMPED`) with times not read; the spring and its time are ours | Weight smoothing (anim/strafe-blend) | Blend weights smoothed over time (anim/strafe-blend): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The locomotion blend space's direction and speed weights follow the… | ☐ |
 | `C-1CAC35C7` | Action clips over a moving marine | From a melee step's `MoveAt` (the data's movement-lock end) and during a grenade throw, while the body moves, the legs follow the locomotion blend (0.1 s cross-fade) and the action clip stays on the upper body (the reload's bone mask), fading out over its last 0.15 s; before, the whole-body clip kept the feet planted… | The graphs blend the run into the attack tail themselves (`BRANCH_Melee_Run`); the mask, the fades and the throw rule are ours | Action clips hand the legs to the locomotion (M40-T4 follow-up) | Action clips over a moving marine: compare with SM1 by feel or video. Ours: From a melee step's MoveAt (the data's movement-lock end) and during… | ☐ |
 | `C-68F227C4` | Ground pound impact | The wargear's own `jumppack_land_heavy` (crater and crack decals, flash, dust, debris, shockwave sprites) played by running the effect's collision descriptions on the probed ground; **added, ours** (owner's request): a thin dark ring at the pound's blast radius (10 s), the light landing's dust at 1.6 x, 6 to 12… | Whether the original showed a ring or chunks (none in the data); how its dropper particle lands | Ground pound impact and landing effects (M41) | Ground pound impact: compare with SM1 by feel or video. Ours: The wargear's own jumppack_land_heavy (crater and crack decals… | ☐ |
 | `C-56D30FB0` | Jump-pack flight effects (M44) | The data's effects at the data's markers on the worn pack: thrust (`action_ascending`) while rising, the apex effect, the fall's `action_descending_regular`, the dive's thrust, the idle glow by power (`action_idle_by_power`; others shown at full power, their power is not on the wire), the dash's `fx_jump_evade` burst… | How the original's action system starts and stops them; where the dropper particles really land | Jump pack follow-ups (M44) | Jump-pack flight effects: compare with SM1 by feel or video. Ours: The data's effects at the data's markers on the worn pack: thrust… | ☐ |

@@ -1437,7 +1437,11 @@ public partial class NetworkView : Node3D
         // qc/reference-pass: the transition probe measures the melee prop bones (RIG_Prop_M_*) only where a mesh can hang on them: a marine with a two-handed melee weapon, and every
         // Ork (the boy's shoota rides RIG_Prop_M_Chest); on other marines they carry nothing.
         LungeLogSample(state);   // anim/hammer-swing test aid (NetworkView.LungeLog.cs)
-        if (TransitionProbe.Enabled) character.SetMeta(TransitionProbe.TwoHandedMeta, IsOrkCharacter(character) || MeleeWargear(state)?.Contains("_2hand_", StringComparison.OrdinalIgnoreCase) == true);
+        if (TransitionProbe.Enabled)
+        {
+            character.SetMeta(TransitionProbe.TwoHandedMeta, IsOrkCharacter(character) || MeleeWargear(state)?.Contains("_2hand_", StringComparison.OrdinalIgnoreCase) == true);
+            character.SetMeta(TransitionProbe.OwnMeta, own);   // anim/strafe-blend: the direction events say own / remote
+        }
         if (IsOrkCharacter(character)) { PlaceOrk(character, state, throwTime, own, smooth); return; }   // Ork O7a (NetworkView.Ork.cs): the boy's rig has its own clips
         character.ClearPoseLayers();  // M27: the recoil layer is laid again by PlaceLocomotion when it applies (animation pass 1: every layer slot, CharacterViewer.Layers.cs; the fall slots by FallLayers)
         character.ClearTurnPose();    // M40-T5: so are the turn layer and the spine twist
