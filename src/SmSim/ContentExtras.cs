@@ -196,4 +196,21 @@ public sealed partial record SimConfig
 
     /// <summary>Hook for added content (docs/added-content.md): sets <paramref name="allowed"/> when an extra lets the jump-pack classes jump again in the air (<see cref="JumpPackAirJumps"/>).</summary>
     partial void ExtrasAirJumps(ref bool allowed);
+
+    /// <summary>
+    /// musou/no-spread (owner, 2026-11-06: "in musou mode only completely remove bullet spread"): every shot goes exactly along its aim (no scatter, no bloom, no melee flinch scatter) and the
+    /// reticle stays closed. False in Classic PvP (and every non-Musou match). Set by added content through <see cref="ExtrasNoBulletSpread"/>; not hashed itself (Musou's block covers it).
+    /// </summary>
+    public bool NoBulletSpread
+    {
+        get
+        {
+            bool off = false;
+            ExtrasNoBulletSpread(ref off);   // EXTRAS-HOOK
+            return off;
+        }
+    }
+
+    /// <summary>Hook for added content (docs/added-content.md): sets <paramref name="off"/> when an extra removes the bullet spread (<see cref="NoBulletSpread"/>).</summary>
+    partial void ExtrasNoBulletSpread(ref bool off);
 }

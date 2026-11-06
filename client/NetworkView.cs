@@ -1978,7 +1978,7 @@ public partial class NetworkView : Node3D
             FillDecorators(f, me, centre.Hit);   // ui/hud-3: the name over the aimed player only (NetworkView.Match.cs)
             f.SpreadRadius = SpreadPixels(me, c);   // weapons/spread: the crosshair ticks open with the scatter (NetworkView.Spread.cs)
             // ui/hud-fidelity: the original reticle's spread frame, aim mode and the brace (Hud.Movie.cs).
-            f.SpreadFraction = ReticleRules.SpreadFraction(inHand, me, c.MoveSpeedScale);
+            f.SpreadFraction = ReticleRules.SpreadFraction(inHand, me, c.MoveSpeedScale, noSpread: c.NoBulletSpread);
             f.Aiming = me.Aiming; f.Braced = me.Brace is BracePhase.Entering or BracePhase.Braced;
         }
         f.Prompt = me.Alive ? _hudPrompt : "";   // ui/hud-fidelity (NetworkView.Pickups.cs)

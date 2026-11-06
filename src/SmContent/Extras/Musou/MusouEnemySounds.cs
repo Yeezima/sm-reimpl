@@ -19,16 +19,23 @@ public readonly record struct MusouSoundLimit(float Range, float PerSecond, floa
 public static class MusouSoundRules
 {
     /// <summary>Emitters bound to the nearest enemies (the Warboss always has one), and how many of the nearest step aloud (Nobs and the Warboss always do).</summary>
-    public const int Slots = 16, Stepping = 6;
+    public const int Slots = 24, Stepping = 6;   // the owner, 2026-11-06: "constant grunting, shouting, yelling" near, muffled further away (16 and 30 m before)
     /// <summary>The farthest enemy that gets an emitter (m).</summary>
-    public const float SlotRange = 30f;
+    public const float SlotRange = 45f;
+    /// <summary>
+    /// The event whose distance curves (dry volume and low-pass) the Orks' voices take instead of their own (the owner, 2026-11-06: further away "muffled, similar to weapons fire sound effects in
+    /// classic pvp mode"): the bolter's, which every gun of the multiplayer banks shares (-6 dB at 10 m, -13 at 20, -25 at 40 with low-pass 17; the voices' own: -21, -49, -81). Ours.
+    /// </summary>
+    public const string VoiceCurveEvent = "play_sm_bolter_fire";
+    /// <summary>Of a running bark, the shares that are a roar and a taunt (celebration line) instead of the bark cue (ours: Exterminatus-like "scream, yell, and taunt often").</summary>
+    public const float BarkRoarShare = 0.25f, BarkTauntShare = 0.2f;
     /// <summary>
     /// The crowd's voices above which nothing new posts (of <c>SoundSystem.Max3D</c>, 48; a soft cap, one post can hold up to 11 voices, so the live count goes a little over), and likewise its character
     /// lines (design section D's 6). Measured under 300 enemies: docs/discovery.md, "Musou enemy sounds".
     /// </summary>
-    public const int MaxVoices = 22, MaxSpeech = 12;   // the owner, 2026-11-02: "make the orks yell and shout more" (14 and 6)
+    public const int MaxVoices = 30, MaxSpeech = 18;   // the owner, 2026-11-02: "make the orks yell and shout more" (14 and 6); 2026-11-06 louder still (22 and 12)
     /// <summary>Seconds between one enemy's running grunts (the data's clips carry one about every 1.2 s; thinned for a crowd) and between its barks (no such tag in the data's timing: a clip's).</summary>
-    public const float GruntEveryMin = 1.2f, GruntEveryMax = 2.5f, BarkEveryMin = 2f, BarkEveryMax = 5f;
+    public const float GruntEveryMin = 0.8f, GruntEveryMax = 2f, BarkEveryMin = 1.5f, BarkEveryMax = 4f;   // 2026-11-06 (1.2-2.5 and 2-5 s before)
     /// <summary>Seconds between one enemy's grunts for being hit.</summary>
     public const double HurtSpacing = 0.4;
     /// <summary>Seconds an emitter stays with an enemy that left the nearest ones, so a line is not cut.</summary>
@@ -39,19 +46,19 @@ public static class MusouSoundRules
     static readonly MusouSoundLimit[] Limits =
     [
         new(14f, 14f, 6f),                // Footstep
-        new(12f, 2.5f, 3f, Speech: true), // Grunt
-        new(14f, 0.8f, 2f, Speech: true), // Bark
-        new(12f, 3f, 3f, Speech: true),   // Effort
+        new(35f, 6f, 6f, Speech: true),   // Grunt (2026-11-06; 12 m, 2.5/s, 3 before: the voices now carry on the weapon curve)
+        new(45f, 3f, 4f, Speech: true),   // Bark (14 m, 0.8/s, 2)
+        new(30f, 4f, 4f, Speech: true),   // Effort (12 m, 3/s, 3)
         new(18f, 5f, 3f),                 // Swing
         new(20f, 6f, 4f),                 // MeleeHit
         new(50f, 6f, 4f),                 // Gun
         new(15f, 6f, 3f),                 // GunImpact
-        new(12f, 4f, 3f, Speech: true),   // Hurt
-        new(12f, 1f, 1f, Speech: true),   // Stun
-        new(20f, 4f, 3f, Speech: true),   // Death
+        new(30f, 4f, 3f, Speech: true),   // Hurt (12 m)
+        new(30f, 1.5f, 2f, Speech: true), // Stun (12 m, 1/s, 1)
+        new(40f, 4f, 3f, Speech: true),   // Death (20 m)
         new(20f, 5f, 3f),                 // Bodyfall
         new(80f, 20f, 8f),                // Boss: never held by the caps
-        new(25f, 0.5f, 1f, Speech: true), // Celebrate
+        new(45f, 1f, 2f, Speech: true),   // Celebrate (25 m, 0.5/s, 1): also the running taunts
     ];
 
     public static MusouSoundLimit LimitOf(MusouSoundGroup g) => Limits[(int)g];
