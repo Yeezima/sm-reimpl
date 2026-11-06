@@ -105,7 +105,7 @@ public partial class NetworkView
         if (show.Step != s.MeleeStep || show.Heavy != s.MeleeHeavy || s.MeleeTime + 1e-4f < show.Time)
         {
             show.Step = s.MeleeStep; show.Heavy = s.MeleeHeavy;
-            show.StartDistance = MeleePresentation.StartDistance(reach, step.Duration, MeleeLock.MotionTime(step, s.MeleeTime, _config), TargetDistance(s, own));
+            show.StartDistance = MeleePresentation.StartDistance(step, s.MeleeTime, TargetDistance(s, own), _config);
             if (own && _bot && _client is not null) { if (_client.MeleeLockTarget > 0) _meleeLockSwings++; }
         }
         show.Time = s.MeleeTime;
@@ -144,7 +144,7 @@ public partial class NetworkView
         // The blend shown (AttackVariants' start distance for this attack), else the start blend.
         float blend = _meleeShows.TryGetValue(s.PlayerId, out var show) && show.Step == s.MeleeStep && show.Heavy == s.MeleeHeavy
             ? show.StartDistance : Math.Clamp(reach.DefaultDistance, reach.Range.Min, reach.Range.Max);
-        return MeleePresentation.RootDriven(step, time, new V2(s.Velocity.X, s.Velocity.Y), s.Yaw, _config.TickSeconds, blend, _config.LungeScale * step.LungeFactorApplied);
+        return MeleePresentation.RootDriven(step, time, new V2(s.Velocity.X, s.Velocity.Y), s.Yaw, _config.TickSeconds, blend, _config.LungeScale * step.LungeFactorApplied, t => MeleeLock.MotionAt(step, t, blend, _config));
     }
 
     void MeleeLockForget(int id) { _meleeShows.Remove(id); _hitStops.Remove(id); }

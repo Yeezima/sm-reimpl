@@ -20,12 +20,17 @@ namespace SmClient;
 /// </summary>
 public partial class NetworkView
 {
-    /// <summary>The stride factor of a hammer (thunder hammer, daemon maul) light strike shown now: how many times the clip's root motion the body travels; 1 for anything else.</summary>
+    /// <summary><c>--old-strike-legs</c> (test aid, sim/instant-step): the stride scale for the hammer's light strikes only, as before.</summary>
+    static readonly bool OldStrikeLegs = Godot.OS.GetCmdlineUserArgs().Contains("--old-strike-legs");
+    /// <summary>The stride factor of the strike shown now (sim/instant-step: any weapon's, light or heavy, but the in-place stomp; anim/hammer-swing: the hammer's light strikes): how many times the clip's root motion the body travels; 1 for anything else.</summary>
     float HammerStrideScale(PlayerState s)
     {
-        if (CharacterViewer.OldHammerLegs || NoMeleeFlow || _config is null || s.MeleeHeavy || s.MeleeStep <= 0 || MeleeWargear(s) is not { } wargear) return 1f;
-        if (!wargear.Contains("thunder_hammer", StringComparison.OrdinalIgnoreCase) && !wargear.Contains("power_mace", StringComparison.OrdinalIgnoreCase)) return 1f;
-        if (Combat.MeleeStepOf(_config, s) is not { Reach.Variants.Count: > 0 } step) return 1f;
+        if (CharacterViewer.OldHammerLegs || NoMeleeFlow || _config is null || s.MeleeStep <= 0 || MeleeWargear(s) is not { } wargear) return 1f;
+        // sim/instant-step (owner, 2026-11-06): every weapon's strikes, light and heavy, step further and sooner than their clips: their legs travel the body's lunge too (not the in-place stomp).
+        // --old-strike-legs (test aid): only the hammer's light strikes, as anim/hammer-swing did.
+        bool hammer = wargear.Contains("thunder_hammer", StringComparison.OrdinalIgnoreCase) || wargear.Contains("power_mace", StringComparison.OrdinalIgnoreCase);
+        if (OldStrikeLegs && (!hammer || s.MeleeHeavy)) return 1f;
+        if (Combat.MeleeStepOf(_config, s) is not { Reach.Variants.Count: > 0, InPlace: false } step) return 1f;
         float k = _config.LungeScale * step.LungeFactorApplied;
         return float.IsFinite(k) && k > 1f ? k : 1f;
     }

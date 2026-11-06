@@ -47,12 +47,15 @@ public sealed record MeleeReach(float AlignFrom, float AlignTo, float DistanceFr
     /// The blended forward root motion at <paramref name="time"/> for the blend parameter <paramref name="distance"/>: linear between the two
     /// variants around it (Havok's blender between child weights), clamped to the outer ones.
     /// </summary>
-    public float ForwardAt(float time, float duration, float distance)
+    public float ForwardAt(float time, float duration, float distance) => ForwardAt(v => v.At(time, duration), distance);
+
+    /// <summary>sim/instant-step: <see cref="ForwardAt(float, float, float)"/> with each variant's motion given by <paramref name="at"/> (the strike's profile, <see cref="MeleeLock.Profile"/>).</summary>
+    public float ForwardAt(Func<MeleeVariant, float> at, float distance)
     {
         var (low, high, w) = Blend(distance);
         if (low is null) return 0f;
-        float a = low.At(time, duration);
-        return high is null ? a : a + (high.At(time, duration) - a) * w;
+        float a = at(low);
+        return high is null ? a : a + (at(high) - a) * w;
     }
 
     /// <summary>
@@ -80,7 +83,10 @@ public sealed record MeleeReach(float AlignFrom, float AlignTo, float DistanceFr
     /// is linear in D0 there) while that is well-conditioned, else by fixed-point steps from below; clamped to the variants (a target beyond the farthest one
     /// gets the farthest clip). Used by the lunge and by the client's pose.
     /// </summary>
-    public float StartDistance(float time, float duration, float distanceNow)
+    public float StartDistance(float time, float duration, float distanceNow) => StartDistance(v => v.At(time, duration), distanceNow);
+
+    /// <summary>sim/instant-step: <see cref="StartDistance(float, float, float)"/> with each variant's motion given by <paramref name="at"/> (<see cref="MeleeLock.Profile"/>).</summary>
+    public float StartDistance(Func<MeleeVariant, float> at, float distanceNow)
     {
         var (low, high) = Range;
         if (!float.IsFinite(distanceNow)) return Math.Clamp(DefaultDistance, low, high);
@@ -89,7 +95,7 @@ public sealed record MeleeReach(float AlignFrom, float AlignTo, float DistanceFr
         {
             float di = Variants[i].Distance, dj = Variants[i + 1].Distance;
             if (!(dj > di)) continue;
-            float fi = Variants[i].At(time, duration), fj = Variants[i + 1].At(time, duration);
+            float fi = at(Variants[i]), fj = at(Variants[i + 1]);
             float b = (fj - fi) / (dj - di), a = fi - b * di;
             // Near the hit the clips converge on one strike distance (b → 1) and D0 is ill-conditioned: solved only while 1 − b ≥ 0.05 (there a wrong D0
             // changes this tick's step by little: the variants' steps differ by (b(to) − b(from)) per metre).
@@ -100,7 +106,7 @@ public sealed record MeleeReach(float AlignFrom, float AlignTo, float DistanceFr
         // Ill-conditioned (or no segment holds the solution): the fixed-point steps from the distance now, which rise monotonically toward D0 and never
         // pass it (the lunge then errs short, never long).
         float x = Math.Clamp(distanceNow, low, high);
-        for (int n = 0; n < 16; n++) x = Math.Clamp(distanceNow + ForwardAt(time, duration, x), low, high);
+        for (int n = 0; n < 16; n++) x = Math.Clamp(distanceNow + ForwardAt(at, x), low, high);
         return x;
     }
 
@@ -187,6 +193,16 @@ public sealed record MeleeLockSpec
     /// <summary><see cref="LungeReach"/> as applied (not finite or not in (0, 1]: 1).</summary>
     public float LungeReachApplied => float.IsFinite(LungeReach) && LungeReach > 0f && LungeReach < 1f ? LungeReach : 1f;
 
+    /// <summary>
+    /// sim/instant-step (owner, 2026-11-06: "step forward when swinging a melee weapon should always begin the instant you start the swing"): how far (0..1) the strike's forward
+    /// motion up to its move-on time is re-shaped to start on the first tick and slow down toward that time (<see cref="MeleeLock.Profile"/>: an ease-out with the clip's own
+    /// total up to the move-on time, so the distance and the hit time are unchanged). 0 (the default, synthetic configs): the clip's own profile. The content loader sets
+    /// <c>GameplayTuning.OwnerInstantStep</c>, an **estimate (owner's request)**. Hashed only when not 0.
+    /// </summary>
+    public float StepFront { get; init; }
+    /// <summary><see cref="StepFront"/> as applied (not finite or not above 0: 0; at most 1).</summary>
+    public float StepFrontApplied => float.IsFinite(StepFront) && StepFront > 0f ? MathF.Min(StepFront, 1f) : 0f;
+
     internal void Write(BinaryWriter w)
     {
         foreach (float f in new[] { HalfAngle, Range, Vertical, DistanceBand, AngleBand, FanSetBack, FanStart, RushHalfAngle, RushRange, Leash, MaxAlignRate, RushSteerRate, Separation })
@@ -197,6 +213,7 @@ public sealed record MeleeLockSpec
         if (StepEarly != 1f) { w.Write((byte)0xE4); w.Write(StepEarly); }
         w.Write((byte)0xE5); w.Write(TrackReach); w.Write(TrackCone);
         if (LungeReachApplied != 1f) { w.Write((byte)0xE6); w.Write(LungeReachApplied); }   // sim/lock-reach: only when not 1
+        if (StepFrontApplied != 0f) { w.Write((byte)0xE7); w.Write(StepFrontApplied); }   // sim/instant-step: only when not 0
     }
 }
 
@@ -525,6 +542,31 @@ public static class MeleeLock
     }
 
     /// <summary>
+    /// sim/instant-step: one variant's forward motion <paramref name="time"/> seconds into step <paramref name="m"/>. The clip's profile (<see cref="MotionTime"/>), but with
+    /// <see cref="MeleeLockSpec.StepFront"/> the motion up to the move-on time (<see cref="MeleeStep.MoveAt"/> x the lock scale) is re-shaped to an ease-out 1 - (1 - u)^2 of the
+    /// same total: it starts at full speed on the first tick (the clips' own motion builds up over the first tenths of a second and mostly lands after the hit) and settles toward
+    /// the move-on time. Equal to the clip's value at and after that time, so the total distance, the hit time and the tail are unchanged. Not for an in-place strike.
+    /// </summary>
+    public static float Profile(MeleeStep m, MeleeVariant v, float time, SimConfig c)
+    {
+        float clip = v.At(MotionTime(m, time, c), m.Duration);
+        float front = c.MeleeLock.StepFrontApplied, end = c.LockTime(m.MoveAt);
+        if (front <= 0f || m.InPlace || !float.IsFinite(end) || !(end > 1e-3f) || time >= end) return clip;
+        float total = v.At(MotionTime(m, end, c), m.Duration);
+        if (!(total > 0f)) return clip;
+        float u = MathF.Max(0f, time) / end;
+        return clip + (total * (1f - (1f - u) * (1f - u)) - clip) * front;
+    }
+
+    /// <summary>sim/instant-step: the blended forward motion (<see cref="Profile"/>) at blend <paramref name="blend"/>, <paramref name="time"/> seconds into <paramref name="m"/>.</summary>
+    public static float MotionAt(MeleeStep m, float time, float blend, SimConfig c) =>
+        m.Reach is { } r ? r.ForwardAt(v => Profile(m, v, time, c), blend) : 0f;
+
+    /// <summary>sim/instant-step: <see cref="MeleeReach.StartDistance(Func{MeleeVariant, float}, float)"/> over the strike's profile, <paramref name="time"/> seconds into <paramref name="m"/>.</summary>
+    public static float StartBlend(MeleeStep m, float time, float distanceNow, SimConfig c) =>
+        m.Reach is { } r ? r.StartDistance(v => Profile(m, v, time, c), distanceNow) : 0f;
+
+    /// <summary>
     /// The lunge: metres the attack moves the body along <paramref name="heading"/> over the tick (<paramref name="from"/>, <paramref name="to"/>]
     /// of step <paramref name="m"/> (negative: back), see the class summary. <paramref name="toTarget"/>: the flat offset to the locked target, or null.
     /// feel/melee-charge-2: forward motion × <see cref="SimConfig.MeleeLungeScale"/> (backward motion as the clip), still never nearer the target than the separation.
@@ -534,19 +576,18 @@ public static class MeleeLock
         if (m.Reach is not { } reach || reach.Variants.Count == 0 || !(to > from)) return 0f;
         float duration = m.Duration;
         var (low, high) = reach.Range;
-        float clipFrom = MotionTime(m, from, c), clipTo = MotionTime(m, to, c);
         float k = c.LungeScale * m.LungeFactorApplied;   // feel/melee-charge-2: forward motion × the lunge scale (an estimate, owner's request); anim/hammer-swing: × the strike's own factor (the hammer's light strikes)
         if (toTarget is not { } offset)
         {
             float d0 = Math.Clamp(reach.DefaultDistance, low, high);
-            float free = reach.ForwardAt(clipTo, duration, d0) - reach.ForwardAt(clipFrom, duration, d0);
+            float free = MotionAt(m, to, d0, c) - MotionAt(m, from, d0, c);
             return free > 0f ? free * k : free;
         }
         // The blend this attack has followed: the target's distance when it began, solved from its distance now and the clip's motion so far (a moving
         // target re-solves it every tick, so the lunge chases or eases). The clips at that blend end where they were made to strike from.
         // feel/melee-charge-2: solved unscaled (self-correcting: a scaled approach that is ahead picks a nearer blend), the step then × the lunge scale.
-        float start = reach.StartDistance(clipFrom, duration, offset.Length());
-        float step = reach.ForwardAt(clipTo, duration, start) - reach.ForwardAt(clipFrom, duration, start);
+        float start = StartBlend(m, from, offset.Length(), c);
+        float step = MotionAt(m, to, start, c) - MotionAt(m, from, start, c);
         if (step > 0f) step *= k;
         // sim/melee-lunge (owner 2026-10-31: a locked step covers the gap quicker and more forcefully; the further the target, the bigger and faster; ours): a front-loaded
         // burst closes the remaining gap to the separation by BurstFraction of the way to the hit, the remaining gap falling quadratically (fast, then settling), at most
