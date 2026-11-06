@@ -9,7 +9,7 @@ using SmSim;
 namespace SmClient;
 
 /// <summary>
-/// M23: the death screen. While the own player is dead it has no control (no input is sampled or sent, the mouse look is frozen),
+/// M23: the death screen. While the own player is dead it has no control (no input is sampled or sent, the view is frozen; since late-g the mouse and the right stick orbit the death camera),
 /// the camera watches the own ragdoll and a strong vignette darkens the screen; every player who dies, own or remote, turns into a
 /// physics ragdoll (<see cref="Ragdoll"/>) that starts from the last animated pose and the body's velocity, pushed away from the
 /// killer, and lies on the map's collision until the player respawns. The death screen's look (loss of control, ragdoll, vignette,
@@ -60,6 +60,25 @@ public partial class NetworkView
     float _deathFov, _deathAz, _deathRadius, _deathEl;
     Vector3 _deathFocus;
     readonly SmNet.CameraBoom _deathFraction = new();       // M40-T6: the death camera's place along the cast from the focus (NetworkView.Spectate.cs)
+    readonly SmNet.DeathOrbit _deathOrbit = new();          // late-g: the mouse and right stick orbit the death camera round the body (SmNet.DeathOrbit)
+    float _deathBaseEl;                                     // the death camera's own elevation this frame (before the orbit), for the orbit's limits
+    double _deathOrbitLogAt;
+
+    /// <summary><c>--no-death-orbit</c>: the death camera ignores the mouse and the right stick, as before late-g (the fixed, slowly rising view).</summary>
+    public bool NoDeathOrbit { get; init; }
+    /// <summary><c>--death-orbit-test &lt;deg/s&gt;</c> (test aid, bots too): while dead the orbit turns by that rate as if the view turned right, with a slow pitch sweep; DEATHORBIT log lines.</summary>
+    public float? DeathOrbitTest { get; init; }
+
+    /// <summary>
+    /// late-g: a look delta while dead (from the mouse or the right stick, in the alive view's terms: positive yaw turns left, positive pitch looks up)
+    /// orbits the death camera instead of turning the frozen view. False when the orbit is not active (alive, a spectator, the picker open, switched off).
+    /// </summary>
+    bool DeathOrbitLook(float viewYaw, float viewPitch)
+    {
+        if (NoDeathOrbit || !OwnDead || PickerBusy || !_deathCameraOn) return false;
+        _deathOrbit.Look(viewYaw, viewPitch, _deathBaseEl);
+        return true;
+    }
 
     /// <summary>The own player is dead (connected, no control until the respawn).</summary>
     bool OwnDead => _client is { Status: ClientStatus.Connected } c && !c.Predicted.Alive && Spectate is null;
@@ -431,6 +450,8 @@ public partial class NetworkView
             _deathRadius = Math.Clamp(length, 2.5f, 5f);
             _deathFocus = focus;
             _deathFraction.Reset();
+            _deathOrbit.Reset();   // late-g: each death starts from the last camera
+            _deathBaseEl = _deathEl;
             _aimBlend = 0f; _evadeBlend = 0f;
         }
         _deathAge += delta;
@@ -440,6 +461,12 @@ public partial class NetworkView
         blend = blend * blend * (3f - 2f * blend);
         float az = _deathAz + 0.04f * Math.Min(t, 4f);   // almost still: the starting side is known to be clear of walls, a wider swing met props that have no collision shape in the install's data (the M39 crates and buttons do)
         float el = Mathf.Lerp(_deathEl, Math.Max(_deathEl, 0.4f), Math.Clamp(t / 1.5f, 0f, 1f));
+        _deathBaseEl = el;
+        if (DeathOrbitTest is { } rate && !NoDeathOrbit)   // test aid: a steady right turn and a slow pitch sweep (0.25 rad either way over 8 s)
+            _deathOrbit.Look(-Mathf.DegToRad(rate) * delta, 0.25f * MathF.Tau / 8f * MathF.Cos(t * MathF.Tau / 8f) * delta, el);
+        // late-g (the owner, 2026-11-06): the player's orbit on top (the mouse and the right stick, DeathOrbitLook); the casts below keep it out of walls.
+        az = _deathOrbit.Azimuth(az);
+        el = _deathOrbit.Elevation(el);
         float radius = Mathf.Lerp(_deathRadius, _deathRadius + 1.2f, Math.Clamp(t / 3f, 0f, 1f));
         var wanted = _deathFocus + new Vector3(MathF.Cos(el) * MathF.Cos(az), MathF.Sin(el), MathF.Cos(el) * MathF.Sin(az)) * radius;
         // M40-T6: the blend from the last camera to the orbit is smoothed (a smoothstep over DeathBlendSeconds), the sphere cast from
@@ -454,8 +481,29 @@ public partial class NetworkView
         _camera.GlobalTransform = new Transform3D(_deathStart.Basis.Orthonormalized().Slerp(look, blend), position);
         _camera.Fov = Mathf.Lerp(_deathFov, 60f, blend);
         _cameraOffset = position - feet;
-        _cameraInfo = $"death camera (after the user's description): orbit {az:F2} rad, elevation {el:F2}, {radius:F1} m, blend {blend:F2}, ragdoll {(rd is null ? "none" : rd.Simulating ? "simulating" : "lying")}";
+        _cameraInfo = $"death camera (after the user's description): orbit {az:F2} rad, elevation {el:F2}, {radius:F1} m, blend {blend:F2}, player orbit {(NoDeathOrbit ? "off" : $"{_deathOrbit.Yaw:F2} / {_deathOrbit.Pitch:F2} rad")}, ragdoll {(rd is null ? "none" : rd.Simulating ? "simulating" : "lying")}";
+        if (DeathOrbitTest is not null && _connectedFor - _deathOrbitLogAt >= 0.5)
+        {
+            _deathOrbitLogAt = _connectedFor;
+            GD.Print($"DEATHORBIT t {_deathAge:F2} s: orbit yaw {_deathOrbit.Yaw:F2} pitch {_deathOrbit.Pitch:F2} rad; azimuth {az:F2}, elevation {el:F2} rad; wanted {radius:F2} m, camera {(position - _deathFocus).Length():F2} m from the body; " +
+                     $"clearance {CameraClearance(position):F2} m, body {(CastClear(position, _deathFocus, 0.02f) >= position.DistanceTo(_deathFocus) - 0.05f ? "in sight" : "hidden")}");
+        }
         return true;
+    }
+
+    /// <summary>For the DEATHORBIT line: the distance (m, capped at 1) from <paramref name="p"/> (Godot space) to the nearest level surface along 26 rays.</summary>
+    float CameraClearance(Vector3 p)
+    {
+        if (_client?.Collision is not { } world || _gameSpace is null) return 1f;
+        var g = _gameSpace.Transform.AffineInverse() * p;
+        var origin = new System.Numerics.Vector3(g.X, g.Y, g.Z);
+        float best = 1f;
+        foreach (var dir in FanDirs)
+        {
+            if (world.Weapons.Raycast(origin, dir, 1f) is { } a) best = MathF.Min(best, a.Distance);
+            if (world.Character.Raycast(origin, dir, 1f) is { } b) best = MathF.Min(best, b.Distance);
+        }
+        return best;
     }
 
     /// <summary>For --screenshot-on-effect: a ragdoll that died in the last 3 s is in the camera's view.</summary>
