@@ -32,6 +32,7 @@ Scanned 2211 spec table rows: **1589 tagged**, 449 not tagged (read from data wi
 Scanned 2209 spec table rows: **1587 tagged**, 450 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
 Scanned 2212 spec table rows: **1590 tagged**, 449 not tagged (read from data with high confidence), 173 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
 Scanned 2214 spec table rows: **1592 tagged**, 449 not tagged (read from data with high confidence), 173 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
+Scanned 2215 spec table rows: **1594 tagged**, 449 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -72,6 +73,8 @@ Scanned 2213 spec table rows: **1592 tagged**, 449 not tagged (read from data wi
 | **All areas** | **1590** | 1359 | 1241 | 476 | 38 |
 | Ork faction | 125 | 118 | 62 | 25 | 0 |
 | **All areas** | **1592** | 1361 | 1235 | 482 | 38 |
+| Ork faction | 127 | 120 | 72 | 18 | 0 |
+| **All areas** | **1594** | 1363 | 1245 | 475 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -103,6 +106,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: estimate | 51 |
 | kind: estimate | 81 |
 | notes: estimate | 56 |
+| kind: ours | 757 |
+| confidence: low | 584 |
+| confidence: medium | 533 |
+| kind: interpretation | 342 |
+| notes: ours | 320 |
+| confidence: none (low) | 128 |
+| kind: provisional | 99 |
+| kind: estimate | 82 |
 | kind: user's knowledge | 51 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
@@ -2649,6 +2660,21 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-6FC2CF1A` | Hurt grunt spacing of one enemy | 1 (s) | kind: ours; confidence: medium | ours | Hurt grunt spacing of one enemy: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 1. | ☐ |
 | `R-86B9A918` | Impact surfaces | a gun's or blow's hit on a Marine plays on `armour`, a miss on `stone`, whatever is really there | kind: ours; confidence: low | ours | Impact surfaces: compare with SM1 by feel or video. Ours: a gun's or blow's hit on a Marine plays on armour, a miss on stone… | ☐ |
 
+*Spec section: Added content: Musou Ork guns (musou/ork-weapon-fx; client only, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-93C9A9FE` | Which Orks carry a gun | Shoota Boy: `ork_coop_boy_2hand_shoota_rapid` (model `shoota`, the playable Ork's); no other Musou Ork fires | kind: ours; confidence: medium | wargear names read from the install; the pairing with Musou's type is ours | Which Orks carry a gun: compare with SM1 by feel or video. Ours: Shoota Boy: ork_coop_boy_2hand_shoota_rapid (model shoota, the… | ☐ |
+| `R-3ED9FDD2` | Gun mount | the wargear's wield entry on the boy rig's `RIG_Prop_M_Chest` (`OrkWeaponMounts.Shoota`), joined to the look as one rigid piece, so the skinned and the vertex-animation tiers both draw it | kind: interpretation; confidence: medium | wargear + rig (supported by evidence) | Gun mount: compare with SM1 by feel or video. Ours: the wargear's wield entry on the boy rig's RIG_Prop_M_Chest… | ☐ |
+| `R-AA01B545` | Muzzle flash | `fire_fx` of `ability_ranged_primary`: `shoota_muzzle` at `fx_muzzle`, along the shot | kind: interpretation; confidence: medium | data | Muzzle flash: compare with SM1 by feel or video. Ours: fire_fx of ability_ranged_primary: shoota_muzzle at fx_muzzle, along… | ☐ |
+| `R-E1697736` | Tracer effect | `hit_fx`: `shoota_tracer` from the muzzle to the end point; head at the effect's own speed, crossing in at most 0.1 s (`MaxTracerFlight`, as the marines') | kind: interpretation; confidence: medium | data; the speed rule is the M31 one | Tracer effect: compare with SM1 by feel or video. Ours: hit_fx: shoota_tracer from the muzzle to the end point; head at the… | ☐ |
+| `R-D522A02F` | Tracer cadence | every 3rd round of each Ork (the data draws one on every round), from a start of his own (rounds) | kind: estimate; confidence: low | owner: "occasional tracer" | Tracer cadence: compare with SM1 by feel or video. Ours: every 3rd round of each Ork (the data draws one on every round), from… | ☐ |
+| `R-3554A581` | Impact | `hit_fx`'s container `shoota_coop` by surface; on a hit the player's surface (armour up); on a miss the round flies 30 m on past the simulation's end to the first wall or floor, none in the open | kind: ours; confidence: medium | data for the container; the miss's flight ours | Impact: compare with SM1 by feel or video. Ours: hit_fx's container shoota_coop by surface; on a hit the player's… | ☐ |
+| `R-B4A8CBDB` | Distance culls | flash within 45 m, tracer within 70 m, impact within 35 m of the camera (m) | kind: ours; confidence: medium | ours | Distance culls: compare with SM1 by measuring on a flat spot of the same map. Ours: flash within 45 m, tracer within 70 m, impact within 35 m of the… | ☐ |
+| `R-A29A5A88` | Effect rates over the crowd | flashes 40/s (burst 8), tracers 16/s (burst 4), impacts 14/s (burst 4); nearest rounds first (effects/s) | kind: ours; confidence: medium | ours: bounded cost for hundreds of Orks (the effect player keeps 160) | Effect rates over the crowd: compare with SM1 by feel or video. Ours: flashes 40/s (burst 8), tracers 16/s (burst 4), impacts 14/s (burst… | ☐ |
+| `R-3D5A3179` | Aiming stance while firing | for 0.6 s after a round a Shoota Boy in "seek" plays his look's idle (`BOY_2HR_NAV_Idle_S_01`, the two-handed aim) instead of running on the spot (s) | kind: ours; confidence: medium | ours: the simulation's shooter stands still through a burst | Aiming stance while firing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: for 0.6 s after a round a Shoota Boy in "seek" plays his look's idle… | ☐ |
+| `R-9C863FA4` | Fire sound | `play_or_shoota_fire` (the wargear's `fire_audio`), under the crowd's Gun budget (50 m, 6/s, burst 4) and the data's instance limits | kind: ours; confidence: medium | data; the budget ours (row "Musou sounds") | Fire sound: compare with SM1 by listening A/B at the same distance and state. Ours: play_or_shoota_fire (the wargear's fire_audio), under the crowd's Gun… | ☐ |
+
 *Spec section: Musou Mode: no Gretchin, flashes behind walls (fix/orks-and-spawn-lights; client and simulation, Musou Mode only)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -2758,6 +2784,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-079F9B9C` | Musou Mode: shots pierce | the owner's item 24 (2026-11-01); SM1's shots stop on the first body | every ranged weapon goes through 1 to 8 enemies by weight | Melee and firepower | Musou Mode: shots pierce: compare with SM1 by shooting through a crate or a line of players and counting who is hit. Ours: the owner's item 24 (2026-11-01); SM1's shots stop on the first body. | ☐ |
 | `C-FC406EF5` | Musou Mode's battlefield is Ashfall Citadel, a generated graybox (G1, 2026-11-04) | the owner's start of 2026-11-04 (agent-coordination decision); every place and size ours (placeholder demonstration) | `tfw_war` is a 480 x 480 m city of primitive blocks built in code (docs/musou-ashfall-graybox.md: three capture points, a start area for each side, ruins, a crater field, a stronghold; nothing read from the install); the old war on Manufactorum stays as `tfw_war_m09` (`--map tfw_war_m09`), and classic PvP is untouched | War map | Musou Mode's battlefield is Ashfall Citadel, a generated…: compare with SM1 by feel or video. Ours: the owner's start of 2026-11-04 (agent-coordination decision); every… | ☐ |
 | `C-8004B302` | Ashfall Citadel is dressed with the owner's generated kit (draft 6, 2026-11-06: one asset per structure, collision from the assets, placed 1.5x, the new Meshy models preferred where they fit) | the owner's rules of 2026-11-06 (one standalone asset per graybox structure, collision = boxes fitted to each asset, the stronghold a breached ruin enclosure, the assets decide what is walkable, repeated surfaces varied by a fixed seed); every placement, size and model choice ours (placeholder demonstration) | `AshfallMap.Build()` is the draft-6 level (version 11, `DressVersion` 9, level hash `0xE72074A49D4449D9`; docs/musou-ashfall-graybox.md "Draft 6"): the v5 ground kinds and boundary plus the fitted collision boxes of the placed assets (walkable models also get sloped ramp wedges found in their top heightfields)… | the owner's eye on the look and on what is walkable (most raised floors are not); boundary-foot walls dropped; 182 k collision triangles; the keep has no matching asset | Ashfall Citadel is dressed with the owner's generated kit…: compare with SM1 by feel or video. Ours: the owner's rules of 2026-11-06 (one standalone asset per graybox… | ☐ |
+| `C-A2C9C51B` | Musou Mode: the ranged Orks hold their guns and their rounds show (musou/ork-weapon-fx, 2026-11-06) | the owner (2026-11-06): "the ranged attack orks don't have weapon models in their hand, and their shots are invisible ... flesh that out. musou mode only."; the effects are the shoota wargear's own; the data shows the tracer on every round | the Shoota Boy holds `ork_coop_boy_2hand_shoota_rapid` on his prop bone; each round plays `shoota_muzzle`, `shoota_coop`'s impact, the tracer `shoota_tracer` on every 3rd round only (ours: "occasional"), within distance culls and crowd-wide rate caps; a firing Shoota Boy aims instead of running on the spot… | Musou Ork guns | Musou Mode: the ranged Orks hold their guns and their…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner (2026-11-06): "the ranged attack orks don't have weapon… | ☐ |
 
 ### Deliberate changes (owner's decisions)
 

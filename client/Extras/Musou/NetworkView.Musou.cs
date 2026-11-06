@@ -95,7 +95,7 @@ public partial class NetworkView
         if (_musouLooks is null)
         {
             if (Orks() is not { } orks) return;
-            _musouLooks = new MusouLooks(_gameDir, orks, MusouChaosLook);
+            _musouLooks = new MusouLooks(_gameDir, orks, MusouChaosLook, guns: MusouGunsOn);
             _musouCrowd = new MusouCrowd(_musouLooks) { Visible = MusouArg("musou-visible") ?? MusouCrowd.DefaultVisible, NoVat = CmdFlag("musou-no-vat"), SolidBetween = MusouSolidBetween };
             _gameSpace!.AddChild(_musouCrowd);
         }
@@ -119,6 +119,7 @@ public partial class NetworkView
         }
         _musouDeaths.Clear();
         foreach (var e in _musouState.NewEvents) if (e.Kind == MusouEventKind.Hit && e.Value is 1 or 2) _musouCrowd!.Flinch(e.Enemy);   // markers 1 and 2: a shot's hit
+        MusouGunsFrame(shown, camera, delta);   // the ranged Orks' shots: flash, tracer, impact (NetworkView.MusouGuns.cs)
         _musouCrowd!.Frame(shown, camera, delta);
         _musouRagdolls?.Frame(delta, MusouCrowd.SinkSeconds, MusouCrowd.SinkDepth);
     }
