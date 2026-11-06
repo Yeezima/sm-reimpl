@@ -2,6 +2,7 @@
 rem sm-reimpl: host a match on this PC with the bundled dedicated server (server\SmServer.exe; UDP port 27015; Annihilation on Manufactorum).
 rem Only this PC can join (no firewall prompt). "@HOSTLAN@" starts the same server for other PCs too.
 rem Options pass through to the server, for example:  --mode seize     --port 27016
+rem Musou Mode co-op (up to 4 players against the Orks): "@MUSOU@" and "@MUSOULAN@" set SM_HOST_MUSOU=1 and call this file.
 setlocal enabledelayedexpansion
 set "HERE=%~dp0"
 title sm-reimpl server
@@ -13,6 +14,9 @@ if not exist "%HERE%server\SmServer.exe" (
 if not defined SM_GAME_DIR for /f "usebackq delims=" %%G in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%HERE%game\Launcher.ps1" -FindGame`) do set "SM_GAME_DIR=%%G"
 if not defined SM_GAME_DIR echo Space Marine ^(Steam app 55150^) was not found here; the server will look once more. If it fails, set SM_GAME_DIR to the game folder ^(the one holding "data"^).
 set "BIND=--bind 127.0.0.1"
+rem Classic PvP plays Manufactorum; Musou Mode (SM_HOST_MUSOU=1) its own map, chosen by the server.
+set "MATCH=--map mp_tdm_09"
+if "%SM_HOST_MUSOU%"=="1" set "MATCH=--content musou"
 rem Only SM_HOST_LAN=1 (set by the LAN script) listens on every interface.
 if "%SM_HOST_LAN%"=="1" set "BIND="
 echo.
@@ -24,8 +28,14 @@ if "%SM_HOST_LAN%"=="1" (
 ) else (
   echo Only this PC can join this server.
 )
-echo To play on it yourself: run @JOIN@ and press Enter ^(127.0.0.1:27015^),
-echo or start @PLAY@ and join 127.0.0.1:27015.
+if "%SM_HOST_MUSOU%"=="1" (
+  echo MUSOU MODE: up to 4 players fight together as Space Marines against the Orks.
+  echo To play on it yourself: start @PLAY@, choose MUSOU MODE, then JOIN LOCAL LOBBY and connect to 127.0.0.1:27015.
+  echo Friends do the same in their @PLAY@ with this PC's address.
+) else (
+  echo To play on it yourself: run @JOIN@ and press Enter ^(127.0.0.1:27015^),
+  echo or start @PLAY@ and join 127.0.0.1:27015.
+)
 echo Leave this window open while you play; close it to stop the server.
 rem fix/hosting-bots-logs (the owner's decision): this launcher starts no bots. For bots, use @PLAY@: choose BOTS (No bots by default), then HOST A MATCH.
 rem The UDP port in use (27015 unless --port is given), for the port message.
@@ -35,10 +45,10 @@ for %%A in (%*) do (
   if /i "!PREV!"=="--port" set "PORT=%%~A"
   set "PREV=%%~A"
 )
-echo No bots join this server. To play against bots, close this window, start @PLAY@, pick a number at BOTS and press HOST A MATCH.
+if not "%SM_HOST_MUSOU%"=="1" echo No bots join this server. To play against bots, close this window, start @PLAY@, pick a number at BOTS and press HOST A MATCH.
 echo.
 cd /d "%HERE%server"
-"%HERE%server\SmServer.exe" --map mp_tdm_09 %BIND% %*
+"%HERE%server\SmServer.exe" %MATCH% %BIND% %*
 set "CODE=!ERRORLEVEL!"
 echo.
 if "!CODE!"=="3" (

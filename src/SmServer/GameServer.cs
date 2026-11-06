@@ -318,7 +318,7 @@ public sealed partial class GameServer
         {
             if (Math.Min(_options.MaxSpectators, Protocol.MaxSpectators) <= _peers.Values.Count(p => p.Spectator)) { Refuse(connection, RejectReason.ServerFull, h.Nonce); return; }
         }
-        else if (_peers.Values.Count(p => !p.Spectator) >= _options.MaxPlayers) { Refuse(connection, RejectReason.ServerFull, h.Nonce); return; }
+        else if (_peers.Values.Count(p => !p.Spectator) >= PlayerCap) { Refuse(connection, RejectReason.ServerFull, h.Nonce); return; }
 
         var peer = new Peer(NextPlayerId(), h.Nonce, BinaryPrimitives.ReadUInt32LittleEndian(RandomNumberGenerator.GetBytes(4)) | 1)
         {
@@ -476,7 +476,7 @@ public sealed partial class GameServer
             RejectReason.ContentMismatch => ContentMismatchDetail(),
             RejectReason.ConfigMismatch => ConfigMismatchDetail(World.Config.Extras),
             RejectReason.MapMismatch => $"map '{Map?.Name}' could not be loaded or differs from the server's",
-            _ => "server is full",
+            _ => PlayerCap < _options.MaxPlayers ? $"server is full (this match takes {PlayerCap} players)" : "server is full",
         };
         _transport.Send(connection, Protocol.Write(new Reject(reason, detail, nonce)));
     }
@@ -752,6 +752,23 @@ public sealed partial class GameServer
                 World.ClassicPvp && World.CarriesHomer(p.PlayerId));   // protocol 58 (fix/pvp-deploy-spawn): a classic PvP spawn choice for its allies
         }).ToArray(), SeizeOf(World),
         Spectators: _peers.Values.Where(p => p.Spectator).OrderBy(p => p.PlayerId).Take(Protocol.MaxSpectators).Select(p => new SpectatorEntry(p.PlayerId, p.Name)).ToArray() is { Length: > 0 } listed ? listed : null);   // protocol 46
+
+    /// <summary>
+    /// The most players (spectators aside) this match admits: <see cref="ServerOptions.MaxPlayers"/>, which added content may lower (<see cref="ExtrasPlayerCap"/>; Musou Mode: 4, the owner's
+    /// co-op of 2026-11-06). A faithful or Extended match keeps <see cref="ServerOptions.MaxPlayers"/>.
+    /// </summary>
+    public int PlayerCap
+    {
+        get
+        {
+            int cap = _options.MaxPlayers;
+            if (World.Config.Extras != ContentExtras.None) ExtrasPlayerCap(ref cap);   // EXTRAS-HOOK: added content's player cap (Musou Mode: 4)
+            return cap;
+        }
+    }
+
+    /// <summary>Hook for added content: may lower <paramref name="cap"/>, the players a match admits. Implemented in an <c>Extras/</c> folder; returns at once unless its feature runs.</summary>
+    partial void ExtrasPlayerCap(ref int cap);
 
     /// <summary>Hook for added content: the scoreboard name of player <paramref name="id"/> ("" reads as P&lt;id&gt;). Implemented in an <c>Extras/</c> folder; returns at once unless its feature runs.</summary>
     partial void ExtrasPlayerName(int id, ref string name);

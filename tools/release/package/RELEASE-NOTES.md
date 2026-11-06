@@ -31,6 +31,8 @@ The folder holds these files, in the order you use them:
 | `@HOST@` | Starts a server only this PC can join (no bots) |
 | `@JOIN@` | Asks for a server address and joins it directly (just Enter = this PC) |
 | `@HOSTLAN@` | Starts a server other PCs can join (your network, or the internet) |
+| `@MUSOU@` | Starts a Musou Mode server only this PC can join (co-op, up to 4 players) |
+| `@MUSOULAN@` | Starts a Musou Mode server other PCs can join (up to 4 players together) |
 
 The folders `game`, `server`, `source` and `notes` hold the program, the bundled server, the source code and the notes. You never need to open them.
 
@@ -40,6 +42,8 @@ The folders `game`, `server`, `source` and `notes` hold the program, the bundled
 - **Play on your own:** in `@PLAY@` choose **This PC only** and press **HOST A MATCH** (it starts the server and joins it). Hosting starts no bots; to play against bots, set **BOTS** with **-** / **+** (1 to 15; Easy or Normal) before you press **HOST A MATCH**. Each bot uses about 0.27 GB of memory, so on a PC with 8 GB keep to about 4; to change the number, stop the server and host again. Or run `@HOST@` (no bots), then `@JOIN@` and press Enter.
 - **Stop a server:** **STOP SERVER** in the HOST panel stops the server you hosted (and its bots), or one started by `@HOST@`. If the port is taken by another program, the menu says so and does not join.
 - **Host for friends:** run `@HOSTLAN@`, or in `@PLAY@` choose **LAN / Internet** and press **HOST A MATCH**. Windows Firewall asks once: allow it. Friends on your network join your PC's address with port 27015 (the `@HOSTLAN@` window lists this PC's addresses). Over the internet, forward UDP port 27015 on your router to your PC; that does not work behind carrier-grade NAT (CGNAT), where a VPN such as Tailscale or ZeroTier does.
+
+- **Musou Mode together (up to 4 players):** in `@PLAY@` choose **MUSOU MODE**. **PLAY ON THIS PC** starts a Musou server for you alone; **HOST LOCAL LOBBY** works as for a match (**This PC only** or **LAN / Internet**, then **HOST MUSOU**), and friends choose **MUSOU MODE**, **JOIN LOCAL LOBBY** and type your address (port 27015). Or run `@MUSOULAN@` (`@MUSOU@` for this PC only). Everyone is a Space Marine on one side; a Deploy takes the whole team, and a friend who joins during a battle lands at the landing zone.
 
 Everyone in a match must use this same build: different versions refuse each other on purpose.
 

@@ -68,14 +68,13 @@ public class TfwHudTests
         Assert.False(w.TfwOwn(TfwRig.Human).Deployed);                       // the hub
         TfwRig.Deploy(w);
         Assert.True(w.TfwOwn(TfwRig.Human).Deployed);
-        w.Spawn(2, w.AssignClass(0));                                        // joins mid-battle
+        w.Spawn(2, w.AssignClass(0));                                        // joins mid-battle: co-op (2026-11-06) flies it in (TfwCoopTests)
         TfwRig.Steps(w, 2);
-        Assert.False(w.TfwOwn(2).Deployed);
+        Assert.True(w.TfwOwn(2).Deployed);
         Assert.True(w.TfwKillForTests(2));
         TfwRig.Steps(w, 2);
         var joiner = w.Tfw!.War.View() with { Own = w.TfwOwn(2) };
-        Assert.False(TfwHudModel.RunHoldsRespawn(joiner));
-        Assert.True(w.Players[2].RespawnLeft > TfwBattleRules.RespawnHold);  // not held: the core's timer runs
+        Assert.True(TfwHudModel.RunHoldsRespawn(joiner));                   // one of the team now: the run holds its respawn
         Assert.True(w.TfwKillForTests(TfwRig.Human));
         TfwRig.Steps(w, 2);
         Assert.True(TfwHudModel.RunHoldsRespawn(w.Tfw.War.View() with { Own = w.TfwOwn(TfwRig.Human) }));

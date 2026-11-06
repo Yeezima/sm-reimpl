@@ -680,6 +680,12 @@ public partial class NetworkView : Node3D
     /// </summary>
     partial void ExtrasInput(ref PlayerInput input);
 
+    /// <summary>
+    /// Hook for added content: the test bot's input when added content gives it something else to do than the players' fight (Musou Mode: the Orks). Left null, the bot plays as ever.
+    /// Implemented in an <c>Extras/</c> folder; returns at once unless its feature runs.
+    /// </summary>
+    partial void ExtrasBotInput(PlayerState me, uint tick, ref PlayerInput? input);
+
     /// <summary>Hook for added content: once a frame after the sound (<see cref="UpdateSound"/>), with the own and the other players' shown states.</summary>
     partial void ExtrasFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta);
 
@@ -775,6 +781,9 @@ public partial class NetworkView : Node3D
         if (_client.Match.Effective() == MatchState.Countdown) { _botNote = "countdown: holding"; _navAgent?.Reset(); return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch); }
         // Seize Ground (M16): go to a point not held, fight on the way and hold it (NetworkView.Seize.cs).
         _botNote = "";
+        PlayerInput? extrasBot = null;
+        ExtrasBotInput(me, tick, ref extrasBot);   // EXTRAS-HOOK: added content's own bot (Musou Mode co-op: deploy with the team, fight the Orks)
+        if (extrasBot is { } extrasInput) return extrasInput;
         if (BotSeizeInput(me, tick, phase) is { } seizeInput) { _botNote = _botSeizeNote; return seizeInput; }
         // M19: on a map it fights only an enemy it sees within BotFightRange; otherwise it chases (NetworkView.Bot.cs).
         if (me.Alive && BotFightTarget(me, out _) is { } target)

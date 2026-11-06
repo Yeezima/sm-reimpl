@@ -67,6 +67,7 @@ public partial class NetworkView
             TfwMeleeCount(shown);   // Tfw/NetworkView.TfwMelee.cs: the test aid's counts, nothing without it
             MusouGoreFrame(me, shown, (float)delta);   // M10: gibs, sprays, pools and the cleave slashes (Gore/NetworkView.MusouGore.cs)
         }
+        TfwCoopBotDeaths();   // Tfw/NetworkView.TfwCoopBot.cs: co-op's --bot counts its kills
         MusouDeathsSeen += _musouState.NewDeaths.Count;   // the Firing Range script counts the strike's kills
         _musouState.TakeNew();
         MusouDropsFrame(me, (float)delta);   // MU-D: the own weapon drops (MusouDrops.cs)

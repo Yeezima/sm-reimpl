@@ -311,6 +311,7 @@ var server = new GameServer(config, fingerprint, transport, clock, new ServerOpt
     MaxSpectators = cli.MaxSpectators,     // protocol 46 (observer tooling)
 }, map: map);
 server.Log += line => Console.WriteLine("note: " + line);
+if (contentExtras.HasFlag(ContentExtras.Musou)) Console.WriteLine($"musou: co-op, at most {server.PlayerCap} players on one side against the Orks");   // the owner, 2026-11-06
 Console.WriteLine($"names: test bots are named from per-race pools (ours), seed {server.NameSeed}{(cli.NameSeed is null ? " (random; --name-seed fixes it)" : " (--name-seed)")}; other players show as P<id>");
 if (cli.BotDamageScale != 1f) Console.WriteLine($"--bot-damage-scale {cli.BotDamageScale:0.###}: every hit a test bot (client --bot) deals is scaled by it (test aid, not the original)");
 // Joins and leaves with addresses, refusals, bans, idle kicks, caught faults, skipped ticks (UTC time for the operator).
