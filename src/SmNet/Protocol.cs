@@ -470,7 +470,9 @@ public static partial class Protocol
     //     Fullest scoreboard 1161 bytes (16 rows + 16); snapshots unchanged (worst case 1199)
     // 59 (sim/swing-step, sim/lock-reach, sim/air-jumps; the owner 2026-11-06): no wire change. Every melee weapon's swings step forward × 1.5 (the thunder hammer's and the daemon maul's
     //     × 0.7), a locked attack's lunge closes 70 % of the gap to the separation, and in Classic PvP a jump-pack class in the air only hops (the full air jump is Musou Mode's alone).
-    public const ushort Version = 59;
+    // 60 (feel/charge-clash; the owner's recording of the original, 2026-11-06): no layout change. A bull rush that stuns locks charger and victim through the collision stop's forward
+    //     shove (the data's 1.83 m in 0.2 s): the charger's step ignores the victim's body (predicted), the world carries the victim with it; a charger meets any body at the capsules' edge.
+    public const ushort Version = 60;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>

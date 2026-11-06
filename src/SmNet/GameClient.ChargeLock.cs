@@ -14,10 +14,23 @@ public sealed partial class GameClient
     /// in front of the stopped charger). Presentation reads it (hit-stop, impact effects, drawing the victim at the lock spot until the snapshots show it there).
     /// </summary>
     public (uint Tick, int Target, System.Numerics.Vector3 Spot) LastChargeContact { get; private set; }
+    /// <summary>
+    /// feel/charge-clash: whether the last predicted contact opens a clash (the victim, as the contact's view shows it, an opponent the bull rush's stun can take: <see cref="ChargeClash.Predicts"/>;
+    /// the server decides with the victim as it is, so a victim whose immunity changed within a round trip is corrected).
+    /// </summary>
+    public bool LastChargeClash { get; private set; }
     /// <summary>Diagnostics (bot log, tests): rush ticks checked for a contact, those without a view, contacts found (replays included).</summary>
     public int ChargeContactChecks { get; private set; }
     public int ChargeContactNoView { get; private set; }
     public int ChargeContactsPredicted { get; private set; }
+
+    /// <summary>
+    /// feel/charge-clash: the bodies an own step collides with, less the own charge's victim while the collision stop shoves it (<see cref="ChargeClash.Carrying"/>; the server's world
+    /// leaves it out of the charger's bodies alike and carries it). The victim is the last predicted contact before this input.
+    /// </summary>
+    BodyView? ClashBodies(PlayerState before, PlayerInput input, BodyView? bodies) =>
+        bodies is not null && LastChargeClash && LastChargeContact.Target > 0 && LastChargeContact.Tick < input.Tick && ChargeClash.Carrying(before, _config)
+            ? ChargeClash.Without(bodies, LastChargeContact.Target) : bodies;
 
     PlayerState PredictChargeContact(PlayerState before, PlayerState next, PlayerInput input, IReadOnlyDictionary<int, PlayerState>? view, BodyView? bodies)
     {
@@ -31,7 +44,11 @@ public sealed partial class GameClient
         {
             ChargeContactsPredicted++;
             var forward = new System.Numerics.Vector3(-MathF.Sin(after.Yaw), MathF.Cos(after.Yaw), 0f);
-            if (input.Tick > LastChargeContact.Tick) LastChargeContact = (input.Tick, c.Target, after.Position + forward * ChargeLock.LockDistance(_config));
+            if (input.Tick > LastChargeContact.Tick)
+            {
+                LastChargeContact = (input.Tick, c.Target, after.Position + forward * ChargeLock.LockDistance(_config));
+                LastChargeClash = view is not null && view.TryGetValue(c.Target, out var victim) && ChargeClash.Predicts(before.Team, victim, next, _config);
+            }
         }
         return after;
     }

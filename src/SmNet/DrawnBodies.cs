@@ -18,8 +18,11 @@ public sealed class DrawnBodies
 {
     /// <summary>Passes over the pairs (ours).</summary>
     public const int Passes = 3;
-    /// <summary>Most a drawn body is moved from its interpolated place (metres; ours: a capsule radius).</summary>
-    public const float MaxShift = 0.45f;
+    /// <summary>
+    /// Most a drawn body is moved from its interpolated place (metres; ours). feel/charge-clash (the owner, 2026-11-06: "the player should never, ever phase through another player model"):
+    /// a capsule's diameter (0.9 m), enough to take any overlap with the own body all the way out (before: a radius, 0.45 m, so a remote more than half inside stayed partly inside).
+    /// </summary>
+    public const float MaxShift = 0.9f;
 
     int[] _order = new int[16];
     Vector2[] _origin = new Vector2[16], _at = new Vector2[16];

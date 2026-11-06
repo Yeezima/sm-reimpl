@@ -68,6 +68,8 @@ public partial class NetworkView
             ChargeShotsBegin();
             if (me.Alive && StateOfPlayer(target, me) is { } victim)
             {
+                // feel/charge-clash: a frame that lands in the shove has the spot ahead of where the own body is now (the contact tick's spot is behind it).
+                if (ChargeClash.Carried(me, _config)) spot = MeleeInteraction.CarriedSpot(me.Position, me.Yaw, ChargeLock.LockDistance(_config));
                 if (!NoLockDraw) _lockDraw = (target, spot, now, -1.0);
                 ChargeImpact(me, victim with { Position = NoLockDraw ? victim.Position : new Num.Vector3(spot.X, spot.Y, victim.Position.Z) }, me, ownId);
             }
@@ -192,7 +194,12 @@ public partial class NetworkView
     /// snapshots still have it a round trip behind; once the drawn victim shows its reaction (the snapshots reached the contact) the override fades over
     /// <see cref="MeleeInteraction.LockDrawFade"/> (the server's position is the spot by then), or after <see cref="MeleeInteraction.LockDrawMax"/> (no stun: hyper armour).
     /// </summary>
-    IReadOnlyList<PlayerState> LockDrawn(IReadOnlyList<PlayerState> drawn)
+    /// <remarks>
+    /// feel/charge-clash: while the own collision stop shoves (<see cref="ChargeClash.Carried"/>) the spot rides with the own drawn body (the lock distance in front of it along the predicted
+    /// heading, as the server carries the victim), and the override lets go only once the drawn victim both shows its reaction and has reached the spot
+    /// (<see cref="MeleeInteraction.LockSpotReached"/>: the snapshots caught up with the shove), so the interpolated victim, a round trip behind, is never drawn inside the own body.
+    /// </remarks>
+    IReadOnlyList<PlayerState> LockDrawn(IReadOnlyList<PlayerState> drawn, PlayerState me, PlayerState shown)
     {
         if (_lockDraw.Victim <= 0) return drawn;
         double now = _connectedFor;
@@ -200,10 +207,13 @@ public partial class NetworkView
         for (int i = 0; i < drawn.Count; i++) if (drawn[i].PlayerId == _lockDraw.Victim) { index = i; break; }
         if (index < 0 || !drawn[index].Alive) { _lockDraw.Victim = 0; return drawn; }
         var v = drawn[index];
-        if (_lockDraw.ReactedAt < 0 && v.Reaction != ReactionKind.None) _lockDraw.ReactedAt = now;
+        if (_config is { } cfg && me.Alive && ChargeClash.Carried(me, cfg))
+            _lockDraw.Spot = MeleeInteraction.CarriedSpot(shown.Position, me.Yaw, ChargeLock.LockDistance(cfg));
+        bool clash = _config is { ChargeClash: true };
+        if (_lockDraw.ReactedAt < 0 && v.Reaction != ReactionKind.None && (!clash || MeleeInteraction.LockSpotReached(v.Position, _lockDraw.Spot))) _lockDraw.ReactedAt = now;
         float w = MeleeInteraction.LockDrawWeight((float)(now - _lockDraw.At), _lockDraw.ReactedAt < 0 ? -1f : (float)(now - _lockDraw.ReactedAt));
         if (w <= 0f) { _lockDraw.Victim = 0; return drawn; }
-        var list = drawn as List<PlayerState> ?? drawn.ToList();
+        var list = drawn.ToList();   // feel/charge-clash: a copy (it now runs on the interpolated list itself, before the separation)
         var at = new Num.Vector3(_lockDraw.Spot.X, _lockDraw.Spot.Y, v.Position.Z);
         list[index] = v with { Position = Num.Vector3.Lerp(v.Position, at, w) };
         return list;

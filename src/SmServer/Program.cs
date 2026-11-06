@@ -93,7 +93,10 @@ if (cli.NoPlayerCollision) config = config with { PlayerBodies = false };
 if (cli.NoChargeLock) config = config with { ChargeLock = false };
 // fix/charge-player-collision: --old-body-contact (test aid) restores the protocol 56 body and charge contact rules (config hash).
 if (cli.OldBodyContact) config = config with { SolidBodies = false };
+// feel/charge-clash: --no-charge-clash (test aid) restores the protocol 58 stop (config hash).
+if (cli.NoChargeClash) config = config with { ChargeClash = false };
 Console.WriteLine(config.SolidBodies ? $"solid bodies: on (no move closer than {SolidBodies.GuardDistance(config, false):0.##} m between bodies as they stand, {SolidBodies.GuardDistance(config, true):0.##} m with a charger; the charge's contact swept, stopped where it meets; ours)" : "solid bodies: OFF (--old-body-contact, test aid; clients need --old-body-contact too)");
+Console.WriteLine(config.ChargeClash && config.ChargeLock ? "charge clash: on (a stunned victim is carried by the charger's collision-stop shove, the pair locked at the capsules' touch; ours, the shove from the data)" : "charge clash: OFF (--no-charge-clash, test aid; clients need --no-charge-clash too)");
 Console.WriteLine(config.ChargeLock ? "charge lock: on (contact with the blocking body too; charger turned to the victim, victim at 0.9 m; ours)" : "charge lock: OFF (--no-charge-lock, test aid; clients need --no-charge-lock too)");
 Console.WriteLine(config.PlayerBodies
     ? $"player collision: on (capsules r {config.CapsuleRadius} m, h {config.CapsuleHeight} m block each other; push apart {PlayerCollision.SeparationSpeed} m/s, slide off a head {PlayerCollision.SlideOffSpeed} m/s; ours)"
@@ -361,13 +364,31 @@ var blockerNames = mapBlockers.Select(b => (Name: b.Name, Box: b.ToSim())).ToArr
 var pressing = new HashSet<(int Player, int Blocker)>();
 var insideBox = new HashSet<(int Player, int Blocker)>();
 var overlaps = cli.LogOverlaps ? new OverlapProbe() : null;
+// feel/charge-clash: the same probe on the pairs of opponents where either is in a charge phase (the rush, its stop, the dash attack), and on the clash pairs.
+var chargeOverlaps = cli.LogOverlaps ? new OverlapProbe() : null;
+var clashOverlaps = cli.LogOverlaps ? new OverlapProbe() : null;
+var pairFeet = new System.Numerics.Vector3[2];
 server.Stepped += world =>
 {
     // --log-overlaps (sim/player-collision test aid): the closest the living players' capsules came, every 10 s.
     if (overlaps is not null)
     {
         overlaps.Add(world.Players.Values, world.Config);
-        if (world.Tick % (uint)(10 * world.Config.TickRate) == 0) Console.WriteLine($"tick {world.Tick}: overlaps: {overlaps.Summary()}");
+        var living = world.Players.Values.Where(p => p.Alive).OrderBy(p => p.PlayerId).ToList();
+        for (int i = 0; i < living.Count; i++)
+            for (int j = i + 1; j < living.Count; j++)
+            {
+                var a = living[i]; var b = living[j];
+                if (!World.Hostile(a.Team, b.Team) || (a.Rush == RushPhase.None && b.Rush == RushPhase.None)) continue;
+                pairFeet[0] = a.Position; pairFeet[1] = b.Position;
+                chargeOverlaps!.Add(pairFeet, world.Config);
+                if (world.ClashVictim(a.PlayerId) == b.PlayerId || world.ClashVictim(b.PlayerId) == a.PlayerId) clashOverlaps!.Add(pairFeet, world.Config);
+            }
+        if (world.Tick % (uint)(10 * world.Config.TickRate) == 0)
+        {
+            Console.WriteLine($"tick {world.Tick}: overlaps: {overlaps.Summary()}");
+            Console.WriteLine($"tick {world.Tick}: charge overlaps (opponents, either charging or in a charge's stop): {chargeOverlaps!.Summary()}; clash pairs: {clashOverlaps!.Summary()}; clashes opened {world.ClashesOpened}");
+        }
     }
     // --pickup-test: test drops in front of every living player (the server's own SpawnPickup; the ground under the point as for a death).
     if (pickupTest > 0f && world.Config.Pickups is { } drops && world.Tick % (uint)Math.Max(1, MathF.Round(pickupTest * world.Config.TickRate)) == 0)

@@ -346,7 +346,7 @@ public sealed partial class GameClient
         // The raw input is stored and sent (the server drops the attack buttons of a countdown tick itself); only the prediction drops them, by tick (protocol 25).
         SelfEvents events;
         LastBodies = BodiesFor(input);
-        using (PlayerCollision.Use(LastBodies))
+        using (PlayerCollision.Use(ClashBodies(Predicted, input, LastBodies)))   // feel/charge-clash: the shove ignores its victim, as on the server
             Predicted = Combat.StepPlayer(Predicted, Match.Predicted(_latestSnapshotTick, input), _config, out events, Collision, view);
         // anim/melee-interaction: the charge's contact, stop and turn, as the server resolves them with the same view and bodies (ChargeLock.Predict).
         Predicted = PredictChargeContact(PreviousPredicted, Predicted, input, view, LastBodies);
@@ -526,7 +526,7 @@ public sealed partial class GameClient
             twoBefore = beforeLast;
             beforeLast = state;
             var replayBodies = BodiesFor(input);
-            using (PlayerCollision.Use(replayBodies))   // sim/player-collision: the same bodies as when it was first predicted
+            using (PlayerCollision.Use(ClashBodies(state, input, replayBodies)))   // sim/player-collision: the same bodies as when it was first predicted; feel/charge-clash: less the victim
                 state = Combat.StepSelf(state, Match.Predicted(s.ServerTick, input), _config, out _, out _, Collision,
                     input.MeleeTarget > 0 ? ViewAt(input.ViewTick) : null);   // the stored input is raw: the lock follows the newest snapshot (protocol 25); feel/melee-lock: the view at its view tick, only with a lock
             state = PredictChargeContact(beforeLast, state, input, null, replayBodies);   // anim/melee-interaction

@@ -36,6 +36,7 @@ Scanned 2215 spec table rows: **1594 tagged**, 449 not tagged (read from data wi
 Scanned 2219 spec table rows: **1598 tagged**, 449 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
 Scanned 2214 spec table rows: **1592 tagged**, 450 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
 Scanned 2207 spec table rows: **1586 tagged**, 449 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
+Scanned 2215 spec table rows: **1591 tagged**, 451 not tagged (read from data with high confidence), 173 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,6 +53,7 @@ Scanned 2213 spec table rows: **1592 tagged**, 449 not tagged (read from data wi
 | Melee (critical) | 100 | 87 | 77 | 32 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 49 | 40 | 42 | 20 | 0 |
+| Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 52 | 50 | 41 | 19 | 0 |
 | HUD and hit feedback (critical) | 66 | 61 | 49 | 10 | 0 |
@@ -88,6 +90,7 @@ Scanned 2213 spec table rows: **1592 tagged**, 449 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 117 | 110 | 62 | 18 | 0 |
 | **All areas** | **1586** | 1355 | 1237 | 477 | 38 |
+| **All areas** | **1591** | 1360 | 1240 | 477 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -134,6 +137,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: estimate | 82 |
 | kind: estimate | 81 |
 | notes: estimate | 56 |
+| kind: ours | 755 |
+| confidence: low | 584 |
+| confidence: medium | 528 |
+| kind: interpretation | 340 |
+| notes: ours | 322 |
+| confidence: none (low) | 128 |
+| kind: provisional | 99 |
+| kind: estimate | 83 |
 | kind: user's knowledge | 51 |
 | notes: estimate | 51 |
 | notes: provisional | 38 |
@@ -1234,6 +1245,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-E62741A8` | Legs in an air strike | a melee strike more than 0.1 s in the air has no clip foot lock: the legs are the attack clip's (the lock held each foot the clip put down at a world point and the leg IK stretched it back there as the body flew on) (s) | kind: ours; confidence: medium | cause measured; the grace ours | Legs in an air strike: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a melee strike more than 0.1 s in the air has no clip foot lock: the… | ☐ |
 
 ### Charge (gameplay-critical) (49)
+### Charge (gameplay-critical) (56)
 
 *Spec section: The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21)*
 
@@ -1313,6 +1325,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-9FBF6E81` | The guard (server) | after every player moved, each pair of living opponents is swept against the other as they really moved this tick: a relative path that would bring the axes closer than **0.45 m** (one capsule radius: never more than half into the other, never through), or… (m) | kind: ours; confidence: low | ours | The guard (server): compare with SM1 by measuring on a flat spot of the same map. Ours: after every player moved, each pair of living opponents is swept… | ☐ |
 | `R-A764ABD3` | The charge meets the bodies as they are (server) | a charge also tests every opponent's move this tick as it really happened (after the guard): the relative sweep, its first touch, the same reach, front half and line of sight; the earliest of this, the charger's rewound picture and its blocking body is met.… (m) | kind: ours; confidence: low | ours | The charge meets the bodies as they are (server): compare with SM1 by measuring on a flat spot of the same map. Ours: a charge also tests every opponent's move this tick as it really… | ☐ |
 | `R-AA1EB851` | Clash, stun and recoil states | every harmful connect on a victim that may react ends its tick with the charger in the collision stop (its first tick) and the victim in the stun; the snapshots carry both (state-driven clips); checked for every connect seen by the charger's own client, the… | kind: ours; confidence: medium | ours (test) | Clash, stun and recoil states: compare with SM1 by watching the reaction and timing it frame by frame. Ours: every harmful connect on a victim that may react ends its tick with… | ☐ |
+
+*Spec section: The charge clash: charger and victim locked through the shove (feel/charge-clash; protocol 59, no wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-0C977175` | Clash opens | a bull rush whose hit puts its victim in a reaction (the stun; the Assault's stagger) locks the two (not an ally, not a victim in hyper armour or flight) | kind: interpretation; confidence: medium; notes: ours | owner's reference video; pairing ours | Clash opens: compare with SM1 by feel or video. Ours: a bull rush whose hit puts its victim in a reaction (the stun; the… | ☐ |
+| `R-C8BA5538` | The lock | through the shove the charger's step ignores the victim's body (its own client predicts this: 120 of 120 clash ticks exact at 150 ms, 5 % loss) and the world carries the victim by the charger's move, swept through the level (a kill volume stops it); a victim… | kind: ours; confidence: medium | owner's reference video ("sticking together like a lock on") | The lock: compare with SM1 by feel or video. Ours: through the shove the charger's step ignores the victim's body (its… | ☐ |
+| `R-098943FD` | Lock distance | **0.9 m** feet to feet (two capsule radii: the capsules touching, the charger's shoulder at the victim's chest), held on every tick of the shove (m) | kind: estimate; confidence: medium; notes: ours | video (shoulder to chest); value ours | Lock distance: compare with SM1 by measuring on a flat spot of the same map. Ours: 0.9 m feet to feet (two capsule radii: the capsules touching, the… | ☐ |
+| `R-29921EBA` | Charger meets any body at its edge | the server's guard with a charger, or with a player in a charge's stop (collision stop, dash hit, dash wall stop), is **0.85 m**: the touch (0.9 m) less a **5 cm** slack (`SolidBodies.ClashDepth`; was 0.15 m, 0.75 m) that bodies pressing on each other through… (m) | kind: ours | owner ("never, ever phase") | Charger meets any body at its edge: compare with SM1 by measuring on a flat spot of the same map. Ours: the server's guard with a charger, or with a player in a charge's… | ☐ |
+| `R-956FF538` | Homing | unchanged: the locked charge steers to its target at **180 degrees a second** inside the charge's cone; the video's last 0.3 s turns about 30 to 40 degrees (the camera's view: 100 to 130 a second), within the rate (°/s) | kind: estimate; confidence: low | video, estimate | Homing: compare with SM1 with an overlaid screenshot taken from the same position. Ours: unchanged: the locked charge steers to its target at 180 degrees a… | ☐ |
+| `R-A7CF46EC` | Client: the own charge's victim | drawn at the lock spot, which rides with the own drawn body through the shove (0.9 m ahead along the predicted heading); the override lets go once the interpolated victim shows its reaction **and** has reached the spot (within **0.15 m**), at most **1.2 s**… (m, s) | kind: ours; confidence: medium | ours | Client: the own charge's victim: compare with SM1 by feel or video. Ours: drawn at the lock spot, which rides with the own drawn body through… | ☐ |
+| `R-C1117654` | Client: drawn bodies | a remote drawn inside the own body or another remote is moved out by up to **0.9 m** (was 0.45 m: a remote more than half inside stayed partly inside) (m) | kind: ours | owner ("never, ever phase") | Client: drawn bodies: compare with SM1 by measuring on a flat spot of the same map. Ours: a remote drawn inside the own body or another remote is moved out by… | ☐ |
 
 ### Reactions (gameplay-critical) (15)
 
@@ -3417,6 +3441,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-34A4D101` | No full air jump in Classic PvP (sim/air-jumps, protocol 59; supersedes the air start of feel/melee-cancels outside Musou) | Not established from the original; since protocol 54 a Space hold in the air lifted the pack again (the owner's earlier request) | Classic PvP (Annihilation, Seize Ground; faithful and extended profiles): an Assault / Raptor in the air only hops (Space tap + WASD, the air dash); Musou Mode keeps the air jump | Owner's request 2026-11-06; covering ledge falls too is ours; same spec section | No full air jump in Classic PvP (sim/air-jumps, protocol…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1125D5C3` | Musou: melee heal per enemy (2026-11-06; `MusouSim.Version` 8) | No Musou Mode in the original | Ours (added content): the 5 % melee heal is given for every enemy a swing, stomp or cleave strikes (an enemy in both once), still capped at full health; before, once a swing | Owner's request 2026-11-06; Musou Mode only, Classic PvP unchanged; spec "Musou: melee heal" | Musou: melee heal per enemy (2026-11-06; MusouSim.Version 8): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-61747757` | Musou Boss Orks and the Warboss model (musou/boss-orks, 2026-11-06) | No Musou Mode in the original | Ours (added content, the owner's request and answers): roaming Boss Orks of any Ork kind at 3x size, 10x health (at least 3000), 2x damage, never staggered, each with 20 elites, in battles only, 1 to 2 min after the landing and then every 1.5 to 3 min, at most 2 alive; the Warboss at 15000 health and 1.5x damage, the… | Musou Mode only. Spec "Musou Mode: Boss Orks and the Warboss model". | Musou Boss Orks and the Warboss model (musou/boss-orks…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-B8027519` | The charge clash: charger and victim locked through the shove (feel/charge-clash, 2026-11-06; protocol 59) | Ours in its mechanics (the original's pairing is engine code); its length and motion are the data's collision stop (1.83 m forward in 0.2 s, then 1.11 m back) and match the owner's recording | A stunned or staggered victim is carried with the charger through the stop's forward shove at 0.9 m (capsules touching), the charger's step ignores the victim's body, a victim the level stops holds the charger back; any charger meets a body at its edge (guard 0.85 m: the touch less a 5 cm slack, was 0.75 m); remotes… | spec "The charge clash: charger and victim locked through the shove" | The charge clash: charger and victim locked through the…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
@@ -3599,4 +3624,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-FF7A7041` | Switches | Swing step, the lock-on's lunge and the air jump by mode (sim/swing-step, sim/lock-reach, sim/air-jumps; protocol 59, no wire change) |
 | `R-36C8F88E` | Switches | Jump pack: the launch flash, the ready jets and the legs in an air strike (fx/jumppack-jets; client only, no simulation, wire or protocol change) |
 | `R-189595E5` | Musou: the blob | Musou Mode: packs and twice the Orks again (musou/ork-swarm-2x, 2026-11-06; `TfwRules.Version` 25, `MusouSim.Version` 8; Musou Mode only) |
+| `R-AFD6145F` | Switch | The charge clash: charger and victim locked through the shove (feel/charge-clash; protocol 59, no wire change) |
 
