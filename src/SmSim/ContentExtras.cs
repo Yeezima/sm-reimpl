@@ -231,4 +231,13 @@ public sealed partial record SimConfig
 
     /// <summary>Hook for added content (docs/added-content.md): sets <paramref name="owner"/> when an extra keeps the owner's jump-pack capacity (<see cref="JumpPackOwnerCapacity"/>).</summary>
     partial void ExtrasJumpPackOwnerCapacity(ref bool owner);
+
+    /// <summary>
+    /// sim/descent-recharge (protocol 62; the owner 2026-11-06: "ensure that a assault marine/raptor in classic pvp can jump twice before regenerating fuel. he should be able to jump a 3rd
+    /// time shortly after ... make it match the game data of the original game"): the jump pack also recharges in a jump's hang and fall (after the apex, the pack no longer lifting), at the
+    /// data's <c>recharge_rate</c>. With the data's <c>max_power</c> 100 and costs (35 a short jump, 55 a full one) two full jumps fit back to back and a third short one follows about 1.8 s
+    /// after the second landing. When the original recharges is not in the data (an interpretation; spec "Fuel: recharge in the descent"). Classic PvP only: true wherever the pack holds
+    /// the data's capacity (<see cref="JumpPackOwnerCapacity"/> false); Musou Mode keeps its ground-only recharge. Not hashed itself (follows the hashed content flags).
+    /// </summary>
+    public bool JumpPackDescentRecharge => !JumpPackOwnerCapacity;
 }

@@ -25,11 +25,13 @@ public static class JetReadiness
     /// <summary>The own player's readiness from its predicted record.</summary>
     public static bool Own(PlayerState s, JumpPackSpec pack, SimConfig c, bool hasDash)
     {
-        if (!Common(s)) return false;
+        if (!Common(s, hasDash)) return false;
         float dt = c.TickSeconds;
         if (s.Grounded)
         {
-            bool phaseOk = s.Jump == JumpPhase.None || (s.Jump == JumpPhase.Landed && (s.JumpTicks + 1) * dt + 1e-5f >= JumpPack.JumpLock(pack, s.JumpLandMoving, c));
+            // sim/jump-escape (protocol 62): with the dash (Assault, Raptor) a press cuts the landing locks and the recovery, and ends a reaction or a charge.
+            bool phaseOk = s.Jump == JumpPhase.None || (hasDash && s.Jump is JumpPhase.Landed or JumpPhase.Recover)
+                || (s.Jump == JumpPhase.Landed && (s.JumpTicks + 1) * dt + 1e-5f >= JumpPack.JumpLock(pack, s.JumpLandMoving, c));
             return phaseOk && s.JumpPower + 1e-5f >= pack.CostAt(0f);
         }
         return hasDash && s.Jump is JumpPhase.None or JumpPhase.Hang or JumpPhase.Fall && Evade.CanDashInAir(s, c);
@@ -41,15 +43,15 @@ public static class JetReadiness
     /// </summary>
     public static bool Other(PlayerState s, JumpPackSpec pack, SimConfig c, bool hasDash, double sinceLanded, double sinceDash, bool rising, float dashSpacing)
     {
-        if (!Common(s)) return false;
-        if (JumpPack.Pounding(s.Jump) || rising) return false;
-        if (s.Grounded) return !JumpPack.Jumping(s.Jump) && sinceLanded + 1e-6 >= JumpPack.JumpLock(pack, MovingOnGround(s), c);
+        if (!Common(s, hasDash)) return false;
+        if ((JumpPack.Pounding(s.Jump) && !(hasDash && s.Grounded)) || rising) return false;
+        if (s.Grounded) return !JumpPack.Jumping(s.Jump) && (hasDash || sinceLanded + 1e-6 >= JumpPack.JumpLock(pack, MovingOnGround(s), c));
         return hasDash && sinceDash + 1e-6 >= dashSpacing;
     }
 
-    static bool Common(PlayerState s) =>
-        s.Alive && s.Reaction == ReactionKind.None && s.Rush == RushPhase.None && !Evade.Evading(s)
-        && s.Jump is not (JumpPhase.TakeOff or JumpPhase.Ascent or JumpPhase.Dive or JumpPhase.Recover);
+    static bool Common(PlayerState s, bool hasDash) =>
+        s.Alive && (hasDash || (s.Reaction == ReactionKind.None && s.Rush == RushPhase.None)) && !Evade.Evading(s)
+        && s.Jump is not (JumpPhase.TakeOff or JumpPhase.Ascent or JumpPhase.Dive) && (hasDash || s.Jump != JumpPhase.Recover);
 
     /// <summary>Whether a body on the ground moves (the landing lock's moving variant): horizontal speed above 0.5 m/s (ours).</summary>
     public static bool MovingOnGround(PlayerState s) => s.Velocity.X * s.Velocity.X + s.Velocity.Y * s.Velocity.Y > 0.25f;

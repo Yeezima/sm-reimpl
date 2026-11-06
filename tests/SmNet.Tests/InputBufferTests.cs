@@ -67,6 +67,19 @@ public class InputBufferTests(ITestOutputHelper output)
     public void Space_held_through_the_air_slash_landing_jumps_on_the_first_tick_the_recovery_allows(bool dash)
     {
         var c = dash ? DashConfig : PackConfig;
+        if (dash)
+        {
+            // sim/jump-escape (protocol 62): the Assault / Raptor's press cuts the recovery: the take-off starts on the press tick, buffer or not, and a hold is a jump.
+            foreach (var cfg in new[] { c, On(c) })
+            {
+                var esc = SlashLanding(cfg, k => k >= 1);
+                Assert.Equal(JumpPhase.Recover, esc[0].Jump);
+                Assert.Equal(JumpPhase.TakeOff, esc[1].Jump);
+                int up = First(esc, p => p.Jump == JumpPhase.Ascent);
+                Assert.Equal(0, esc[up].EvadeTicks);
+            }
+            return;
+        }
         // The tick the recovery ends: without the buffer the player is free (phase None) there and holding Space does nothing.
         var before = SlashLanding(c, k => k >= 1);
         int free = First(before, p => p.Jump == JumpPhase.None);
@@ -538,7 +551,7 @@ public class InputBufferTests(ITestOutputHelper output)
     [Fact]
     public void The_own_record_carries_the_buffer_and_a_full_snapshot_stays_at_1200_bytes()
     {
-        Assert.Equal(61, Protocol.Version);
+        Assert.Equal(62, Protocol.Version);
         foreach (var action in Enum.GetValues<BufferedAction>())
             foreach (int ticks in action == BufferedAction.None ? new[] { 0 } : new[] { 0, 1, 4, 9, 15 })
             {
@@ -644,7 +657,8 @@ public class InputBufferTests(ITestOutputHelper output)
             output.WriteLine($"client {i}: compared {compared}, {mismatches.Count} mismatches; {buffered} ticks with a buffered press, {fired} buffered actions started");
             foreach (var m in mismatches.Take(3)) output.WriteLine("  " + m);
             Assert.True(compared > 300);
-            Assert.True(buffered >= 40 && fired >= 8, $"client {i}: {buffered} buffered ticks, {fired} started");
+            // Protocol 62 (sim/jump-escape): the Assault's Jump presses in a landing or an attack no longer wait in the buffer, so fewer presses are buffered.
+            Assert.True(buffered >= 10 && fired >= 5, $"client {i}: {buffered} buffered ticks, {fired} started");
             Assert.Empty(mismatches);
         }
     }

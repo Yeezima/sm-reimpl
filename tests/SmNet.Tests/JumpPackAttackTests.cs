@@ -746,7 +746,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
         while (jump.Rush == RushPhase.DashHit && jt < 40) { Step(ref jump, Config, (jt % 2 == 0) ? InputButtons.Jump : InputButtons.None); jt++; }
         Assert.Equal(RushPhase.None, jump.Rush);
         Assert.Equal(JumpPhase.TakeOff, jump.Jump);   // the press that ends it starts the pack's take-off (a tap: a dash)
-        Assert.True(jt >= 20, $"ended after {jt} ticks");   // not before BRANCH_Evade 0.667 s
+        Assert.Equal(1, jt);   // sim/jump-escape (protocol 62; the owner 2026-11-06): the first press ends it (was: not before BRANCH_Evade 0.667 s)
         // Without input it runs to its end (0.7 s).
         var idle = hit;
         int it = 0;
@@ -786,7 +786,7 @@ public class JumpPackAttackTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_30_carries_the_dash_attacks_phases_and_the_slash_and_a_full_snapshot_stays_within_1200_bytes()
     {
-        Assert.Equal(61, Protocol.Version);
+        Assert.Equal(62, Protocol.Version);
         Assert.Equal(1199, Protocol.MaxSnapshotBytes);
         foreach (var phase in new[] { RushPhase.DashAttack, RushPhase.DashHit, RushPhase.DashStop, RushPhase.DashCollision })
         {

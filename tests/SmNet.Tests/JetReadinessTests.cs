@@ -62,8 +62,9 @@ public class JetReadinessTests(ITestOutputHelper output)
         output.WriteLine($"jets cut on tick {cutAt}, back in the air (the hop) on tick {airBack} ({states[Math.Max(0, airBack)].Jump}), landed on tick {landedAt} (cut again), back on the ground on tick {groundBack} ({(groundBack - landedAt) * C.TickSeconds:F2} s after the landing; lock {JumpPack.JumpLock(Pack, false, C):F2} s)");
         Assert.True(cutAt is > 0 and < 3, $"cut on tick {cutAt}");
         Assert.True(airBack < 0 || states[airBack].Jump is JumpPhase.Hang or JumpPhase.Fall, "in the air only once the hop is allowed (after the apex)");
-        Assert.False(JetReadiness.Own(states[landedAt], Pack, C, hasDash: true), "cut on the landing");
-        Assert.True(groundBack > landedAt, "back on the ground once the landing's lock has run");
+        // sim/jump-escape (protocol 62): the Assault's press cuts the landing's lock, so with the power for a jump (the descent recharged it) the jets are back on the landing tick.
+        Assert.True(JetReadiness.Own(states[landedAt], Pack, C, hasDash: true), "ready on the landing");
+        Assert.Equal(landedAt, groundBack);
     }
 
     [Fact]
@@ -82,7 +83,9 @@ public class JetReadinessTests(ITestOutputHelper output)
     {
         var standing = Fresh();
         float lockS = JumpPack.JumpLock(Pack, false, C);
-        Assert.False(JetReadiness.Other(standing, Pack, C, true, sinceLanded: lockS * 0.5, sinceDash: double.PositiveInfinity, rising: false, dashSpacing: 0.8f));
+        // sim/jump-escape (protocol 62): a dash class's press cuts the landing lock, so it is ready at once; a pack without the dash still waits for the lock.
+        Assert.True(JetReadiness.Other(standing, Pack, C, true, sinceLanded: lockS * 0.5, sinceDash: double.PositiveInfinity, rising: false, dashSpacing: 0.8f));
+        Assert.False(JetReadiness.Other(standing, Pack, C, false, sinceLanded: lockS * 0.5, sinceDash: double.PositiveInfinity, rising: false, dashSpacing: 0.8f));
         Assert.True(JetReadiness.Other(standing, Pack, C, true, sinceLanded: lockS + 0.01, sinceDash: double.PositiveInfinity, rising: false, dashSpacing: 0.8f));
         var air = standing with { Grounded = false, Jump = JumpPhase.Fall };
         Assert.False(JetReadiness.Other(air, Pack, C, true, double.PositiveInfinity, sinceDash: 0.3, rising: false, dashSpacing: 0.8f));
