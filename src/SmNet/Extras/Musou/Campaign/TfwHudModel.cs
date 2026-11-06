@@ -221,6 +221,28 @@ public static class TfwHudModel
         _ => "BOSS ORK",
     };
 
+    /// <summary>
+    /// The fallen player's line under the prompt (late batch 2026-11-06, the owner: "choosing deploy after dying respawns the player at the original start spawn and costs 1 supply"): the key
+    /// (Enter, or A on the pad) and the price while the run holds this player's respawn; what is missing when the supplies are short; empty alive or outside the battle.
+    /// </summary>
+    public static string RedeployText(in TfwWarView war, bool alive, bool pad = false)
+    {
+        if (alive || !RunHoldsRespawn(war)) return "";
+        int cost = TfwBattleRules.RedeployCost;
+        return war.Supplies >= cost
+            ? $"{(pad ? "A" : "ENTER")}: DEPLOY AT THE LANDING ZONE ({cost} {(cost == 1 ? "SUPPLY" : "SUPPLIES")})"
+            : "NO SUPPLIES TO DEPLOY AGAIN";
+    }
+
+    /// <summary>Whether a redeploy can be asked for now (the server decides all the same).</summary>
+    public static bool CanRedeploy(in TfwWarView war, bool alive) => !alive && RunHoldsRespawn(war) && war.Supplies >= TfwBattleRules.RedeployCost;
+
+    /// <summary>Whether <paramref name="self"/> is the match's host (<see cref="TfwRun.HostOf"/> over the scoreboard's ids), who may call the Stormbird back from a battle.</summary>
+    public static bool IsHost(int self, IEnumerable<int> players) => self >= 0 && TfwRun.HostOf(players) == self;
+
+    /// <summary>The Esc menu's row for the host's recall, shown while a battle is under way.</summary>
+    public const string ReturnToShipText = "Back to Stormbird";
+
     /// <summary>What an extraction takes now: its price, or after a won battle what is left of it.</summary>
     public static int ExtractionCost(in TfwWarView war) => Math.Min((int)war.Supplies, TfwBattleRules.ExtractionSupplies);
 

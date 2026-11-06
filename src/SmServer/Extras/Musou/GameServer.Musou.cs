@@ -76,10 +76,12 @@ public sealed partial class GameServer
     }
 
     readonly Dictionary<int, MusouInterest> _musouInterest = new();
-    readonly MusouEventWindow _musouEvents = new();
+    readonly MusouEventWindow _musouEvents = new() { OldOrder = MusouOldNearSend };
     readonly MusouEnemy[] _musouEnemies = new MusouEnemy[MusouSim.Capacity];
     /// <summary>Test aid: <c>SM_MUSOU_OLD_FAR_SEND=1</c> sends the crowd in the order before 2026-11-06 (no <see cref="MusouSendRules.MaxWaitTicks"/>).</summary>
     static readonly bool MusouOldFarSend = Environment.GetEnvironmentVariable("SM_MUSOU_OLD_FAR_SEND") == "1";
+    /// <summary>Test aid: <c>SM_MUSOU_OLD_NEAR_SEND=1</c> sends without the night batch's near-first order (<see cref="MusouSendRules.NearChangeFirst"/>, <see cref="MusouSendRules.TelegraphFirst"/>).</summary>
+    static readonly bool MusouOldNearSend = Environment.GetEnvironmentVariable("SM_MUSOU_OLD_NEAR_SEND") == "1";
     readonly List<int> _musouGone = new();
     MusouBox? _musouNavBox;
     bool _musouNavBoxRead;
@@ -115,7 +117,7 @@ public sealed partial class GameServer
         foreach (var p in World.Players.Values) if (p.Alive) { anyone = p.Position; break; }
         foreach (var peer in _peers.Values)
         {
-            if (!_musouInterest.TryGetValue(peer.PlayerId, out var interest)) _musouInterest[peer.PlayerId] = interest = new MusouInterest { OldFarSend = MusouOldFarSend };
+            if (!_musouInterest.TryGetValue(peer.PlayerId, out var interest)) _musouInterest[peer.PlayerId] = interest = new MusouInterest { OldFarSend = MusouOldFarSend, OldNearSend = MusouOldNearSend };
             // The client's player, else (a spectator) the first living player: the crowd near the action stays fresh.
             Vector3? viewer = World.Players.TryGetValue(peer.PlayerId, out var me) ? me.Position : anyone;
             var planned = interest.Plan(tick, World.Config.TickRate, enemies, viewer, box, director, events);

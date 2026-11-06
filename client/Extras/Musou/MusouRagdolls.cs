@@ -47,6 +47,8 @@ public sealed partial class MusouRagdolls : Node3D
     public float Highest { get; private set; }
     public int Built => _dolls.Count;
     public int Active { get { int n = 0; foreach (var d in _dolls) if (d.InUse) n++; return n; } }
+    /// <summary>Dolls <see cref="Throw"/> could take now: free, or lying still (the one lying longest makes way).</summary>
+    public int Available { get { int n = 0; foreach (var d in _dolls) if (!d.InUse || d.Frozen) n++; return n; } }
 
     public MusouRagdolls(RagdollDef def, MarineAssets rig, HavokBoundAnimation startClip)
     {
@@ -204,20 +206,39 @@ public sealed partial class MusouRagdolls : Node3D
 
     static float Signed(ushort id, uint tick) => GoreRules.Roll(id, tick) * 2f - 1f;
 
+    static Node3D Dress(Doll doll, MusouLooks.Look look)
+    {
+        var meshes = new Node3D { Name = look.Name };
+        foreach (var piece in look.Assets.Pieces)
+        {
+            var mesh = new MeshInstance3D { Name = piece.Name, Mesh = piece.Mesh, Skin = piece.Skin, Skeleton = new NodePath("../.."), ExtraCullMargin = 2f };
+            for (int i = 0; i < piece.Overrides.Count; i++) if (piece.Overrides[i] is { } m) mesh.SetSurfaceOverrideMaterial(i, m);
+            meshes.AddChild(mesh);
+        }
+        doll.Skeleton.AddChild(meshes);
+        doll.Worn[look] = meshes;
+        return meshes;
+    }
+
+    /// <summary>
+    /// Night batch 2026-11-06: once the pool is made, one doll a frame gets <paramref name="look"/>'s meshes ahead of need (hidden), so a blast's first throws build no nodes
+    /// (they did: the first burst of a match cost about twice a later one). False when every doll wears it already.
+    /// </summary>
+    public bool Prewarm(MusouLooks.Look look)
+    {
+        if (_dolls.Count < Dolls || look.Assets.Model.Rig.Skeleton.BoneNames.Count != _startBone.Length) return false;
+        foreach (var doll in _dolls)
+        {
+            if (doll.InUse || doll.Worn.ContainsKey(look)) continue;
+            Dress(doll, look).Visible = false;
+            return true;
+        }
+        return false;
+    }
+
     static void Wear(Doll doll, MusouLooks.Look look)
     {
-        if (!doll.Worn.TryGetValue(look, out var meshes))
-        {
-            meshes = new Node3D { Name = look.Name };
-            foreach (var piece in look.Assets.Pieces)
-            {
-                var mesh = new MeshInstance3D { Name = piece.Name, Mesh = piece.Mesh, Skin = piece.Skin, Skeleton = new NodePath("../.."), ExtraCullMargin = 2f };
-                for (int i = 0; i < piece.Overrides.Count; i++) if (piece.Overrides[i] is { } m) mesh.SetSurfaceOverrideMaterial(i, m);
-                meshes.AddChild(mesh);
-            }
-            doll.Skeleton.AddChild(meshes);
-            doll.Worn[look] = meshes;
-        }
+        if (!doll.Worn.TryGetValue(look, out var meshes)) meshes = Dress(doll, look);
         if (doll.Showing is not null) doll.Showing.Visible = false;
         meshes.Visible = true;
         doll.Showing = meshes;

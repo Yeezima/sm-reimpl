@@ -44,7 +44,7 @@ public sealed partial class TfwHud : Control
     ulong _fedFrame;
     TfwWarView? _textFor;
     bool _aliveFor;
-    string _prompt = "", _pickupText = "";
+    string _prompt = "", _pickupText = "", _redeployText = "";
 
     /// <summary>The big line now (the tests read it).</summary>
     public string Prompt => _prompt;
@@ -82,6 +82,7 @@ public sealed partial class TfwHud : Control
         _aliveFor = Data.Alive;
         _prompt = TfwHudModel.Prompt(war, Data.Alive);
         _pickupText = TfwHudModel.PickupKeyText(war);
+        _redeployText = TfwHudModel.RedeployText(war, Data.Alive, PadHost.Active);
     }
 
     public override void _Process(double delta)
@@ -118,6 +119,7 @@ public sealed partial class TfwHud : Control
         if (!Data.Alive && Data.War is { } war && TfwHudModel.RunHoldsRespawn(war)) Txt("KILLED", cx, 330f, 52, RedText, 0, 6, true);
         if (Data.Station.Length > 0) Txt(Data.Station, cx, 640f, 30, Gold, 0, 4, true);
         else Txt(_prompt, cx, 640f, 34, _prompt.StartsWith("THE WAR IS LOST", StringComparison.Ordinal) ? RedText : Gold, 0, 5, true);
+        Txt(_redeployText, cx, 690f, 26, White, 0, 4, true);   // a fallen player's deploy for a supply (late batch 2026-11-06)
         if (Data.PickupHold <= 0f) return;
         const float w = 260f, y = 672f;
         Txt(_pickupText, cx, y - 6f, 18, White, 0, 3, true);

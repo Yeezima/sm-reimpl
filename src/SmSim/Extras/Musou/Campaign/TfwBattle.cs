@@ -103,6 +103,9 @@ public static class TfwBattleRules
     public const int DeployCost = 1, PickupCost = 1, ExtractionSupplies = 2;
     public const int DepotTransport = 2, DepotSupplies = 1;
     public const float TravelSeconds = 5f, PickupSeconds = 20f, ExtractionPromptSeconds = 3f, ReviveWindowSeconds = 25f;
+    /// <summary>The owner, 2026-11-06 (stream D): a fallen human's deploy back at the landing zone costs this many supplies; the host's recall comes after this many seconds ("players must survive 20 s").</summary>
+    public const int RedeployCost = 1;
+    public const float RecallSeconds = 20f;
     /// <summary>War seconds between two transports from the HQ (10 war-minutes).</summary>
     public const double HqTransportSeconds = 600.0;
 
@@ -494,13 +497,14 @@ public sealed partial class TfwBattle
         TidyCrowds();
         TidyMusters();
         _enemies.KeepOut.Clear();
-        if (Won) return change;
+        if (Won) { StepVictoryWave(players); return change; }   // TfwBattle.Victory.cs: the wave from every side
         if (BossId != 0)
         {
             if (!_enemies.TryGet(BossId, out var boss) || !boss.Alive)
             {
                 Won = true;
                 BossId = 0;
+                BeginVictoryWave();
                 _objectives[CommanderObjective] = _objectives[CommanderObjective] with { State = TfwPositionState.Secured, Progress = 1f };
                 return change | TfwBattleChange.Won;
             }

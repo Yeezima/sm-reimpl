@@ -24,10 +24,13 @@ namespace SmSim
         readonly Dictionary<int, int> _tfwGrenadeTicks = new();
         readonly List<int> _tfwSupplyIds = new();
 
-        /// <summary>The AI Marines (the war's puppets: retainers and lords) take <see cref="TfwSupplyRules.BotDamageTaken"/> of every hit; humans and everything else are unchanged.</summary>
+        /// <summary>
+        /// The AI Marines (the war's puppets: retainers and lords) and the bot clients (a client started with <c>--bot</c>, <see cref="IsBotClient"/>; the owner, 2026-11-06: "--bot clients should get the 90%
+        /// damage cut in musou") take <see cref="TfwSupplyRules.BotDamageTaken"/> of every hit; humans and everything else are unchanged.
+        /// </summary>
         void TfwDamageTaken(int target, ref float scale)
         {
-            if (TfwContracts.IsPuppet(target)) scale *= TfwSupplyRules.BotDamageTaken;
+            if (TfwContracts.IsPuppet(target) || IsBotClient(target)) scale *= TfwSupplyRules.BotDamageTaken;
         }
 
         /// <summary>

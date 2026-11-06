@@ -72,6 +72,10 @@ public abstract partial class CrowdView : Node3D
     public int LeftOut { get; private set; }
     public int Bodies => _bodies.Count;
 
+    /// <summary>Test aid (<c>--musou-death-spike-test</c>): the worst ms since the last <see cref="Timing"/> of the bodies' step, the drawing, and skinned members built.</summary>
+    double _stepWorst, _drawWorst; int _builtSince;
+    public string Timing() { var s = $"bodies {_stepWorst:F1}, draw {_drawWorst:F1}, built {_builtSince}"; _stepWorst = _drawWorst = 0; _builtSince = 0; return s; }
+
     protected CrowdView(CrowdLimits limits, int visible) { Limits = limits; Visible = visible; }
 
     /// <summary>The types this crowd has (<see cref="Item.Type"/>).</summary>
@@ -87,18 +91,29 @@ public abstract partial class CrowdView : Node3D
         if (s.Look.Clips[it.Clip] is { } clip) Pose(s, clip, ClipTime(clip, it.Clip, it.Time));
     }
 
-    /// <summary>A body plays <paramref name="clip"/> where the member was last seen, then sinks.</summary>
-    protected void AddBody(Vector3 position, float yaw, int type, int clip)
+    /// <summary>
+    /// A body plays <paramref name="clip"/> where the member was last seen, then sinks. <paramref name="from"/> (a member's key, or 0): the skinned skeleton drawing that key passes
+    /// to the body (night batch 2026-11-06: a death that waited was drawn dying under the member's own key; its body keeps that skeleton instead of taking, or building, another).
+    /// </summary>
+    protected void AddBody(Vector3 position, float yaw, int type, int clip, float age = 0f, int from = 0)
     {
         if (_bodies.Count >= Limits.MaxBodies) _bodies.RemoveAt(0);
-        _bodies.Add(new Body { Position = position, Yaw = yaw, Type = type, Clip = clip, Serial = ++_bodySerial });
+        _bodies.Add(new Body { Position = position, Yaw = yaw, Type = type, Clip = clip, Serial = ++_bodySerial, Age = age });
+        KeepSkinned(from);
     }
 
     /// <summary>A body thrown by a blast: it leaves with <paramref name="velocity"/> (m/s, game space) turning at <paramref name="spin"/> (rad/s, game space), plays its clip in the air, falls under gravity, stops at the walls (<see cref="SolidBetween"/>), bounces once, rolls out of its tumble and slides to rest. It starts to sink only once it rests.</summary>
-    protected void AddFlungBody(Vector3 position, float yaw, int type, int clip, Vector3 velocity, Vector3 spin)
+    protected void AddFlungBody(Vector3 position, float yaw, int type, int clip, Vector3 velocity, Vector3 spin, int from = 0)
     {
         if (_bodies.Count >= Limits.MaxBodies) _bodies.RemoveAt(0);
         _bodies.Add(new Body { Position = position, Yaw = yaw, Type = type, Clip = clip, Serial = ++_bodySerial, Flung = true, Velocity = velocity, Spin = spin, Ground = position.Z });
+        KeepSkinned(from);
+    }
+
+    /// <summary>The skeleton drawing <paramref name="from"/> (0: none) passes to the body just added.</summary>
+    void KeepSkinned(int from)
+    {
+        if (from != 0 && !_skinnedByKey.ContainsKey(-_bodySerial) && _skinnedByKey.Remove(from, out var s)) { s.Key = -_bodySerial; _skinnedByKey[-_bodySerial] = s; }
     }
 
     /// <summary>The distance to the first solid thing on the way from one point to another (null: clear, or no collision to ask). Set by the view.</summary>
@@ -162,6 +177,7 @@ public abstract partial class CrowdView : Node3D
     /// <summary>Ages the bodies and adds those left to <see cref="Items"/>.</summary>
     protected void AddBodyItems(Vector3 camera, float delta)
     {
+        ulong started = ThreadClock.Mark();
         for (int i = _bodies.Count - 1; i >= 0; i--)
         {
             var b = _bodies[i];
@@ -177,11 +193,13 @@ public abstract partial class CrowdView : Node3D
             if (b.Flung) at += new Vector3(0f, 0f, FlungPivot) - b.Turn * new Vector3(0f, 0f, FlungPivot);   // tumbling about the chest, not the feet
             Items.Add(new Item { Key = -b.Serial, Type = b.Type, Position = at, Yaw = b.Yaw, Time = b.Age + b.Flight, Sink = sink, Clip = b.Clip, Distance = b.Position.DistanceTo(camera), Turn = b.Flung ? b.Turn : default });
         }
+        _stepWorst = Math.Max(_stepWorst, ThreadClock.Ms(started));
     }
 
     /// <summary>Draws <see cref="Items"/>.</summary>
     protected void Draw(float delta)
     {
+        ulong started = ThreadClock.Mark();
         _odd = !_odd;
         Items.Sort(static (a, b) => a.Distance.CompareTo(b.Distance));
 
@@ -214,6 +232,7 @@ public abstract partial class CrowdView : Node3D
             if (f.Count > 0) RenderingServer.MultimeshSetBuffer(f.Node.Multimesh.GetRid(), f.Buffer);
         }
         ShownSkinned = skinned; ShownVat = vat; LeftOut = left;
+        _drawWorst = Math.Max(_drawWorst, ThreadClock.Ms(started));
     }
 
     /// <summary>The skinned member drawing a key this frame, if any.</summary>
@@ -243,6 +262,7 @@ public abstract partial class CrowdView : Node3D
                 }
                 s = Build(look);
                 _skinned.Add(s);
+                _builtSince++;
             }
             s.Key = it.Key; s.Clip = -1;
             _skinnedByKey[it.Key] = s;

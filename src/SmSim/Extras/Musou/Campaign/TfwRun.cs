@@ -59,6 +59,8 @@ public sealed partial class TfwRun
     public bool Guardsmen { get; set; } = TfwBattleRules.GuardsmenEnabled;
     /// <summary>Whether a battle sends patrol and hunter columns (<see cref="TfwBattle.Patrols"/>; false only in tests that count the crowds alone, and the server's <c>SM_TFW_NO_PATROLS</c>).</summary>
     public bool Patrols { get; set; } = true;
+    /// <summary>Whether a won battle sends the wave from every side (<see cref="TfwBattle.VictoryWave"/>; false only in tests of what a won battle does without it).</summary>
+    public bool VictoryWave { get; set; } = true;
 
     /// <summary>The wins a run needs on <paramref name="lane"/> from its start.</summary>
     public static int WinsNeeded(TfwLane lane) => WarRules.FrontStronghold - (lane switch { TfwLane.A => WarRules.StartFrontA, TfwLane.B => WarRules.StartFrontB, _ => WarRules.StartFrontC });
@@ -93,6 +95,9 @@ public sealed partial class TfwRun
         Transport = TfwBattleRules.StartTransport;
         Supplies = TfwBattleRules.StartSupplies;
         TravelTicks = PickupTicks = ExtractionTicks = 0;
+        _recall = false;
+        _landingSlots.Clear();
+        Redeploys = 0;
         Deployed = false;
         Wins = 0;
         ActivePosition = null;
@@ -134,7 +139,9 @@ public sealed partial class TfwRun
             {
                 case TfwCommand.Deploy: Deploy(w, player, c.Argument, rate); break;
                 case TfwCommand.RequestPickup: RequestPickup(w, player, rate); break;
-                case TfwCommand.CancelPickup: CancelPickup(player); break;
+                case TfwCommand.CancelPickup: CancelPickup(w, player); break;
+                case TfwCommand.Redeploy: Redeploy(w, player); break;            // TfwRun.Flow.cs (late batch 2026-11-06)
+                case TfwCommand.ReturnToShip: ReturnToShip(w, player, rate); break;
                 case TfwCommand.ChangeClass: ChangeClass(w, player); break;   // TfwRun.Class.cs (M7)
                 case TfwCommand.ChooseReward: w.TfwChooseReward(player, c); break;
                 case TfwCommand.SelectSlot: w.TfwSelectSlot(player, c.Argument); break;
@@ -176,14 +183,15 @@ public sealed partial class TfwRun
         War.Enter(TfwRunPhase.Pickup, War.BattleLane);
     }
 
-    void CancelPickup(int player)
+    void CancelPickup(World w, int player)
     {
-        if (Phase == TfwRunPhase.Pickup && _deployed.Contains(player)) EndPickup();
+        if (Phase == TfwRunPhase.Pickup && _deployed.Contains(player) && (!_recall || player == HostOf(w.Players.Keys))) EndPickup();   // the host's recall is the host's to call off
     }
 
     void EndPickup()
     {
         PickupTicks = 0;
+        _recall = false;
         War.Enter(_fighting, War.BattleLane);
     }
 
@@ -202,7 +210,7 @@ public sealed partial class TfwRun
         _deployed.Clear();
         foreach (int id in w.Players.Keys) if (!TfwContracts.IsPuppet(id)) _deployed.Add(id);
         _deployed.Sort();
-        Battle = new TfwBattle(w.Musou!, w.TfwGuards!, layout, state.Imperial, _deployed.Count, final, bonus, TfwBattleRules.EliteShare(TfwBattleRules.RunProgress(Wins, WinsNeeded(lane), final)), Guardsmen) { Patrols = Patrols };
+        Battle = new TfwBattle(w.Musou!, w.TfwGuards!, layout, state.Imperial, _deployed.Count, final, bonus, TfwBattleRules.EliteShare(TfwBattleRules.RunProgress(Wins, WinsNeeded(lane), final)), Guardsmen) { Patrols = Patrols, VictoryWave = VictoryWave };
         Battle.Start();
         Score.BeginMap(lane, (byte)node, _deployed);
         _fighting = final ? TfwRunPhase.FinalAssault : TfwRunPhase.Battle;
@@ -213,6 +221,7 @@ public sealed partial class TfwRun
         {
             int id = _deployed[k];
             var at = Ashore(w, layout, TfwCoop.LandingOffset(k));
+            _landingSlots[id] = k;   // TfwRun.Flow.cs: a redeploy comes back here
             w.TfwRespawnAt(id, at, yaw);
             w.TfwSpawnRetainer(id, Ashore(w, layout, at - layout.LandingZone + new Vector3(0f, -2f, 0f)), yaw);
         }
@@ -261,7 +270,7 @@ public sealed partial class TfwRun
         }
         Downed(w, rate);
         if (Ended || Battle is null || Phase != TfwRunPhase.Pickup || --PickupTicks > 0) return;
-        if (!battle.Won) Transport -= TfwBattleRules.PickupCost;
+        if (!battle.Won && !_recall) Transport -= TfwBattleRules.PickupCost;   // the host's recall is free (TfwRun.Flow.cs)
         Leave(w, !battle.Won, battle.Won ? TfwMapResult.Won : TfwMapResult.Left);
     }
 
@@ -277,7 +286,7 @@ public sealed partial class TfwRun
             var p = w.Players[id];
             if (p.Alive) { fighting = true; _reviveTicks.Remove(id); continue; }
             // A death cancels a pickup: the death itself (its first tick down), not every tick after it, so the living of a team can call one while a fallen one waits (co-op, 2026-11-06).
-            if (Phase == TfwRunPhase.Pickup && !_reviveTicks.ContainsKey(id)) EndPickup();
+            if (Phase == TfwRunPhase.Pickup && !_recall && !_reviveTicks.ContainsKey(id)) EndPickup();   // the host's recall goes on: the fallen fly out with the team
             bool up = RetainerUp?.Invoke(id) ?? w.TfwRetainerUp(id);
             if (!_reviveTicks.TryGetValue(id, out int left)) left = up ? Math.Max(1, (int)MathF.Round(TfwBattleRules.ReviveWindowSeconds * rate)) : 0;
             left = up ? Math.Max(0, left - 1) : 0;
@@ -316,6 +325,8 @@ public sealed partial class TfwRun
         Battle = null;
         ActivePosition = null;
         PickupTicks = ExtractionTicks = 0;
+        _recall = false;
+        _landingSlots.Clear();
         _deployed.Clear();
         _reviveTicks.Clear();
         War.Enter(TfwRunPhase.Hub, War.BattleLane);

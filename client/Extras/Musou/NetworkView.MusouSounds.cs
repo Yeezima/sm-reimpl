@@ -130,8 +130,9 @@ public partial class NetworkView
 
         var events = _musouState.NewEvents;
         for (int i = 0; i < events.Count; i++) MusouSoundEvent(events[i], shown, camera, now);
-        var deaths = _musouState.NewDeaths;
+        IReadOnlyList<MusouDeathShown> deaths = _musouOldDeaths ? _musouState.NewDeaths : _musouDeathsHanded;   // night batch 2026-11-06: a death's sound with its body (NetworkView.MusouDeathSpread.cs)
         for (int i = 0; i < deaths.Count; i++) MusouSoundDeath(deaths[i], camera);
+        _musouDeathsHanded.Clear();
         // A Marine down: the nearest Ork with something to say about it.
         if (_musouOwnAlive && !me.Alive && _musouNear.Count > 0 && shown.Count > _musouNear[0].Index && MusouSetOf(shown[_musouNear[0].Index].Type) is { } nearest
             && MusouSlotOf(shown[_musouNear[0].Index].Id) is { } speaker) MusouCue(nearest.Celebrate, nearest, speaker.Emitter, MusouSoundGroup.Celebrate, MathF.Sqrt(_musouNear[0].Distance), "celebrate");
