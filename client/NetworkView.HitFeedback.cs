@@ -169,6 +169,29 @@ public partial class NetworkView
     /// What the victim shows for a hit on raised armour (<c>armourshield_hit</c>: <c>sm_armor_dmg</c> at the hit, the shoulder pads and body glows) or on broken armour
     /// (<c>armourshield_inactive_hit</c>: the red variants), from the player blueprint (<see cref="CharacterSurface"/>). Effects on markers of the own body are not drawn (the camera is inside it).
     /// </summary>
+    bool? _oldHitStick;
+    /// <summary><c>--old-hit-stick</c>: player-hit effects stay where they were played (world space).</summary>
+    bool OldHitStick => _oldHitStick ??= CmdFlag("old-hit-stick");
+
+    /// <summary>
+    /// night/weapon-fx (owner, 2026-11-06: the on-hit effects of ranged weapons "stick to a player if the shot successfully strikes a player"): a follower that keeps an effect
+    /// played at world <paramref name="point"/> with <paramref name="axes"/> at the same place on <paramref name="victim"/>'s model (its local offset when the effect starts), for the effect's
+    /// whole life. Null (the effect stays in the world) for no victim, <c>--old-hit-stick</c> or a model not drawn.
+    /// </summary>
+    Func<(Vector3 Position, Basis Axes)?>? StickToPlayer(int victim, Vector3 point, Basis axes)
+    {
+        if (victim <= 0 || OldHitStick || _client is null) return null;
+        CharacterViewer? model = victim == _client.PlayerId ? _local : _remotes.GetValueOrDefault(victim);
+        if (model is null || !GodotObject.IsInstanceValid(model) || !model.IsInsideTree()) return null;
+        var local = model.GlobalTransform.AffineInverse() * new Transform3D(axes, point);
+        return () =>
+        {
+            if (!GodotObject.IsInstanceValid(model) || !model.IsInsideTree()) return null;
+            var t = model.GlobalTransform * local;
+            return (t.Origin, t.Basis);
+        };
+    }
+
     void FxArmourHit(bool up, Vector3 end, Vector3 dir, int victim, double delay)
     {
         if (_catalogue is null || _fx is null || _client is null) return;
@@ -186,7 +209,8 @@ public partial class NetworkView
             if (p.TriggerPoint == "hitpoint")
             {
                 if (own) continue;
-                if (_fx.Play(p.Name, end, AxesFromY(-dir), scale, null, null, p.Lifetime, delay, false, 0) is not null) _fxArmourFx++;
+                var hitAxes = AxesFromY(-dir);
+                if (_fx.Play(p.Name, end, hitAxes, scale, null, StickToPlayer(victim, end, hitAxes), p.Lifetime, delay, false, 0) is not null) _fxArmourFx++;
             }
             else if (glows && p.Marker.Length > 0 && BodyMarker(victim, p.Marker) is { } follow && follow() is { } place)
             {

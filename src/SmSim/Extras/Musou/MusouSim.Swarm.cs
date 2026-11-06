@@ -106,10 +106,21 @@ public sealed partial class MusouSim
     float Bearing(int i, MusouSwarmRules swarm) => _bearing[i] * swarm.BearingDegrees;
 
     /// <summary>Whether the walk from enemy <paramref name="i"/> to its target is about the straight line (no wall between; off the field: yes).</summary>
-    bool WayIsStraight(int i, float distance, MusouSwarmRules swarm)
+    /// <summary>How long (s) a Boss Ork that found a wall in its straight line keeps to the flow field (ours; about 6 m at its pace, past the corner).</summary>
+    public const float BossNotStraightSeconds = 1.5f;
+
+    bool WayIsStraight(int i, float distance, MusouSwarmRules swarm, Vector3 targetAt)
     {
         if (Flow is not { Ready: true } || _node[i] < 0) return true;
-        return Flow.Distance(_node[i]) <= distance * swarm.StraightRatio + swarm.StraightSlack;
+        if (!(Flow.Distance(_node[i]) <= distance * swarm.StraightRatio + swarm.StraightSlack)) return false;
+        // A Boss Ork (a handful at most) also walks the line on the graph: by the lengths alone the way read "straight" on one node at a wall's corner and "round" on the next, and it stepped to and fro there for good,
+        // facing one way and the other, and past the corner it headed for the target through the wall (night/ork-movement, 2026-11-06). The crowd keeps the lengths alone.
+        if (MusouBossOrks.Is(_type[i]) && Walk is { } walk && walk.Nearest(targetAt, 2f, 2.5f) is var goal and >= 0 && !walk.Graph.StraightWalk(_node[i], goal))
+        {
+            _flowTicks[i] = Math.Max(_flowTicks[i], Ticks(BossNotStraightSeconds));   // and it keeps to the flow for a spell, so the verdict does not flip back at the next cell
+            return false;
+        }
+        return true;
     }
 
     /// <summary>
@@ -122,7 +133,7 @@ public sealed partial class MusouSim
         var flat = new Vector2(d.X, d.Y);
         float distance = flat.Length();
         bool free = _flowTicks[i] == 0;
-        if (slot && free && distance > 1e-4f && distance <= swarm.SlotWithin + target.Radius && MathF.Abs(d.Z) < 1.5f && WayIsStraight(i, distance, swarm))
+        if (slot && free && distance > 1e-4f && distance <= swarm.SlotWithin + target.Radius && MathF.Abs(d.Z) < 1.5f && WayIsStraight(i, distance, swarm, target.Position))
         {
             float ring = target.Radius + swarm.SlotMin + (swarm.SlotMax - swarm.SlotMin) * Unit(Mix((uint)i * 0x85EBCA6Bu, 0x51u));
             var way = SurroundWay(i, target, flat, distance, ring, speed, swarm, out bool settled);   // MusouSim.Pack.cs: its own place round the target, walking round to it

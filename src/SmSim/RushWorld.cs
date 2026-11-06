@@ -114,7 +114,7 @@ public sealed partial class World
         bool armoured = victim.Shield > 0f;   // before this hit (hit feedback, protocol 22)
         // M43: the target's received-damage perks (the charge is melee unless its file says otherwise).
         var type = damage.Type == DamageType.Unknown ? DamageType.Melee : damage.Type;
-        float received = Loadouts.Body(Config, victim).Received(type) * DamageScaleOf(attacker)   // test aid: --bot-damage-scale
+        float received = Loadouts.Body(Config, victim).Received(type) * DamageScaleOf(attacker) * DamageTakenScale(target)   // test aid: --bot-damage-scale; added content's taken scale (1 in Classic PvP)
             * Stims.MeleeDealt(Config, state);   // perks/inert-2: the charger's combat stims
         float shieldOnly = MathF.Min(victim.Shield, MathF.Max(0f, damage.ShieldDamage * received));
         if (shieldOnly > 0f) victim = victim with { Shield = victim.Shield - shieldOnly, SinceDamage = 0f };

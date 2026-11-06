@@ -2,13 +2,19 @@ namespace SmSim.Extras.Musou.Campaign;
 
 /// <summary>
 /// The Guardsmen's numbers (Musou Mode, design section E; spec "Musou Mode: Guardsmen"). The design's slice values (ours), but for the health: its 40 lost the 6 squads
-/// against 60 Boyz (TF3's measure), so the health is the install's. <c>ig_coop_guardsman</c>'s others (run 6.25 m/s, walk 3.6 m/s; lasgun damage 1, clip 40, range 75) are in the spec
+/// against 60 Boyz (TF3's measure), so the health is the install's; since the night batch of 2026-11-06 the health and the shot's damage are <see cref="Strength"/> times. <c>ig_coop_guardsman</c>'s others (run 6.25 m/s, walk 3.6 m/s; lasgun damage 1, clip 40, range 75) are in the spec
 /// for the owner to choose from. A change here raises <see cref="TfwRules.Version"/>. Distances in metres, times in seconds, speeds in metres a second.
 /// </summary>
 public sealed record GuardRules
 {
-    /// <summary>A Guardsman's hit points (the install's <c>ig_coop_guardsman</c>; the design's 40 failed its own target).</summary>
-    public float Health { get; init; } = 85f;
+    /// <summary>
+    /// The owner's scale (night batch 2026-11-06: "scale up the guardsmen to what you believe will half the time win, half the time lose against ork counterattacks") over the install's
+    /// <c>ig_coop_guardsman</c> 85 hit points (the design's 40 failed its own target) and the design's 5 a shot: the field's six squads hold a point against one full crowd about half the
+    /// time (<c>GuardHoldTrialTests</c>: 11 of 20 seeds; 4x held none, 4.25x 7). An estimate (ours, the owner's request).
+    /// </summary>
+    public const float Strength = 4.5f;
+    /// <summary>A Guardsman's hit points: the install's 85 x <see cref="Strength"/>.</summary>
+    public float Health { get; init; } = 85f * Strength;
     /// <summary>A Guardsman's speed; the squad's place in the world moves at <see cref="SquadSpeedScale"/> of it, so the men keep up.</summary>
     public float Speed { get; init; } = 4.5f;
     public float SquadSpeedScale { get; init; } = 0.9f;
@@ -42,8 +48,8 @@ public sealed record GuardRules
     public float EyeHeight { get; init; } = 1.5f;
     public float ChestHeight { get; init; } = 1.2f;
     public int SightTries { get; init; } = 3;
-    /// <summary>A shot's damage.</summary>
-    public float Damage { get; init; } = 5f;
+    /// <summary>A shot's damage: the design's 5 x <see cref="Strength"/>.</summary>
+    public float Damage { get; init; } = 5f * Strength;
     /// <summary>Seconds a dead man's slot is kept for the client's death.</summary>
     public float DyingSeconds { get; init; } = 2f;
 

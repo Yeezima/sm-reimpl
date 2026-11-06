@@ -11,7 +11,7 @@ public class BotFireDisciplineTests
         var d = new BotFireDiscipline(1);
         var held = Enumerable.Range(0, 300).Select(_ => d.Step(Dt, 5)).ToList();   // 10 s on one target
         int first = held.IndexOf(true);
-        Assert.InRange(first * Dt, BotFireDiscipline.ReactionTime * (1 - BotFireDiscipline.Jitter) - Dt, BotFireDiscipline.ReactionTime * (1 + BotFireDiscipline.Jitter) + Dt);
+        Assert.InRange(first * Dt, BotFireDiscipline.ReactionMin - Dt, BotFireDiscipline.ReactionMax + Dt);
         float duty = held.Skip(first).Count(h => h) / (float)(held.Count - first);
         float expected = BotFireDiscipline.BurstTime / (BotFireDiscipline.BurstTime + BotFireDiscipline.PauseTime);
         Assert.InRange(duty, expected - 0.12f, expected + 0.12f);
@@ -28,6 +28,21 @@ public class BotFireDisciplineTests
         for (int i = 0; i < 60; i++) d.Step(Dt, 6);
         for (int i = 0; i < 40; i++) Assert.False(d.Step(Dt, null));   // nothing aimed at: never fire
         Assert.False(d.Step(Dt, 6));                                   // more than ForgetTime later: the same target counts as new
+    }
+
+    [Fact]
+    public void The_first_shot_is_never_instant_for_any_seed_and_every_new_acquisition_waits()
+    {
+        for (int seed = 0; seed < 200; seed++)
+        {
+            var d = new BotFireDiscipline(seed);
+            int ticks = 0;
+            while (!d.Step(Dt, 4)) ticks++;
+            Assert.InRange(ticks * Dt, BotFireDiscipline.ReactionMin - Dt, BotFireDiscipline.ReactionMax + Dt);
+            Assert.True(ticks >= 7);                                    // never the same tick (250 ms = 7.5 ticks)
+            for (int i = 0; i < 20; i++) d.Step(Dt, null);             // out of view for 0.67 s (more than ForgetTime)
+            Assert.False(d.Step(Dt, 4));                                // re-entering view: waits again
+        }
     }
 
     [Fact]
