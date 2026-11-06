@@ -374,7 +374,7 @@ internal static partial class AshfallDraft5Pass
         float bottom = s.Min.Z;
         AshfallDressItem Item(Vector3 sz) => new(id, new Vector3(centre.X, centre.Y, bottom), cand.Yaw * (MathF.PI / 12f), sz, false, AshfallDressRole.Prop, -1);
         var item = Item(size);
-        var boxes = s.NoCollision ? [] : Coarse(s, Boxes(item, cand.Yaw, id));
+        var boxes = s.NoCollision ? [] : CoarseBoxes(s, item, cand.Yaw, id);
         string outcome = "placed";
         string? shrunk = null;
         if (s.UseNet && !s.NoCollision)
@@ -383,7 +383,7 @@ internal static partial class AshfallDraft5Pass
             {
                 size = new Vector3(cand.Size.X * f, cand.Size.Y * f, cand.Size.Z);
                 item = Item(size);
-                boxes = Coarse(s, Boxes(item, cand.Yaw, id));
+                boxes = CoarseBoxes(s, item, cand.Yaw, id);
                 if (!boxes.Any(b => Banned(c, b))) { if (f < 1f) { outcome = "placed, shrunk " + f; shrunk = $"{s.Group}: {id} shrunk to {f:0.##} of its size to stay out of a banned place"; } break; }
                 if (f == 0.7f) { c.Log.Add(new(s.Group, s.Family, "", -1, "dropped: inside a banned place (lane, start area, capture zone ring, spawn or the boundary's 2 m)")); c.Dropped.Add(s.Group); return -1; }
             }
@@ -425,7 +425,7 @@ internal static partial class AshfallDraft5Pass
         if (roadNote.Contains("(roadway)")) c.RoadSettled++;   // counted once the item is kept (a retry with the next model is not)
         if (shrunk is not null) c.Flags.Add(shrunk);
         item = Item(size);
-        boxes = s.NoCollision ? [] : Coarse(s, Boxes(item, cand.Yaw, id));
+        boxes = s.NoCollision ? [] : CoarseBoxes(s, item, cand.Yaw, id);
         if (moved > 0.01f) { outcome += $", moved {moved:0.00} m"; c.Moved++; }
         if (Walkable.Contains(id) && cand.Risers) c.Flags.Add($"{s.Group}: {id} drawn lower than the structure ({d5Height:0.#} m of {h:0.#} m) to keep risers under the step height (draft 5; draft 6 grows it to {size.Z:0.#} m)");
         if (cand.Mass < 0.35f || cand.Mass > 3f) c.Flags.Add($"{s.Group} ({s.Family}): {id} mass {cand.Mass:0.##} of the structure's bounds (mismatch)");
@@ -470,6 +470,16 @@ internal static partial class AshfallDraft5Pass
 
     // ---------------------------------------------------------------- collision transform
 
+    /// <summary>
+    /// The item's collision boxes as the level pass keeps them: rubble, cover and collapsed-wall models with through-openings get the opening-aware merge (<see cref="AshfallOpeningMerge"/>, the openings pass of 2026-11-06),
+    /// the other models of those families the six slabs, everything else its fitted boxes.
+    /// </summary>
+    static List<WBox> CoarseBoxes(Spec s, AshfallDressItem item, int yawStep, string id)
+    {
+        if (s.Family is ("rubble" or "wallpiece" or "cover") && AshfallKitCollision.Openings(id).Count > 0) return Boxes(item, yawStep, id, AshfallOpeningMerge.Reduced(id));
+        return Coarse(s, Boxes(item, yawStep, id));
+    }
+
     /// <summary>Rubble piles and covers: the fitted boxes are merged into at most <see cref="Slabs"/> boxes (the union of the boxes whose centres fall in the same slab along the item's long axis), which keeps the silhouette along the run and stays near the 69 k triangles of v5.</summary>
     const int Slabs = 6;
 
@@ -512,12 +522,14 @@ internal static partial class AshfallDraft5Pass
     /// The item's collision boxes in the simulation frame. The mapping is the item contract (<see cref="AshfallDressItem"/>) with SwapXZ false: the model's raw bounds are fitted into the item's box, glTF X is local X, glTF -Z is local Y,
     /// glTF Y is up; the local frame is turned by the yaw about the box's centre.
     /// </summary>
-    static List<WBox> Boxes(AshfallDressItem item, int yawStep, string id)
+    static List<WBox> Boxes(AshfallDressItem item, int yawStep, string id) => Boxes(item, yawStep, id, AshfallKitCollision.Boxes(id));
+
+    static List<WBox> Boxes(AshfallDressItem item, int yawStep, string id, IReadOnlyList<(Vector3 Min, Vector3 Max)> source)
     {
         var m = AshfallKit.Get(id);
         var r = m.RawSize;
         var list = new List<WBox>();
-        foreach (var (mn, mx) in AshfallKitCollision.Boxes(id))
+        foreach (var (mn, mx) in source)
         {
             var u0 = (mn - m.RawMin) / r; var u1 = (mx - m.RawMin) / r;
             float lx0 = (u0.X - 0.5f) * item.Size.X, lx1 = (u1.X - 0.5f) * item.Size.X;
