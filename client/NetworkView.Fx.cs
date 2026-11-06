@@ -486,15 +486,21 @@ public partial class NetworkView
         played.Clear();
         float travel = 0f;
         bool tracered = false;
+        // fx/tracers-impact: a shot that launches a projectile (a charged plasma shot, the plasma cannon, the launcher) draws its fire effects only; the projectile is its body and its
+        // detonation, when it gets there, its impact and decal (TracerRules.DrawnAtFire). --old-charged-impact: traced and impacted at once, as before.
+        bool projectileShot = !TracerRules.DrawnAtFire(spec, stage), atFire = OldChargedImpact || !projectileShot;
+        if (projectileShot) { if (!atFire) _projectileShotsHeld++; TracerProbeProjectileShot(shooter, spec, stage); }
         var plays = se.Fire.AsEnumerable();
-        if (se.Tracer is { } tracer && !se.Fire.Contains(tracer)) plays = plays.Append(tracer);
+        // fx/tracers-impact: the plasma gun's and pistol's uncharged shot is a blue bolt, the weapon's data tracer (PlasmaBolt.Tracer: a basic shot naming none falls back to the wargear's first delivery tracer).
+        var tracerPlay = se.Tracer ?? (!projectileShot && PlasmaBoltOn && PlasmaBolt.IsBoltWeapon(w.Wargear) ? PlasmaBolt.Tracer(w) : null);
+        if (tracerPlay is { } tracer && !se.Fire.Contains(tracer)) plays = plays.Append(tracer);
         foreach (var p in plays)
         {
             if (!played.Add(p)) continue;
             var place = FxPlace(shooter, p.Marker) ?? fallback;
             if (p.HasTarget)
             {
-                if (ForceStreaks || place.Position.DistanceTo(end) < 0.4f) continue;
+                if (ForceStreaks || place.Position.DistanceTo(end) < 0.4f || !atFire) continue;
                 // A tracer is fixed in the world once fired. A bullet's has a bright head that crosses in at most MaxTracerFlight and the impact comes
                 // with it; a beam without a head (the lascannon's laser) is drawn along the whole shot from its first frame and its impact is at once.
                 // feel/bullets (NetworkView.Bullets.cs): with the shot's true ray the bullet leaves the muzzle, joins the ray and flies along it to the end.
@@ -519,7 +525,9 @@ public partial class NetworkView
         // feel/bullets: a hit-scan weapon whose effects name no tracer still sends a visible bullet along the damaging path (a pooled bright streak).
         if (!tracered && BulletsOn && stage == 0 && spec.Delivery == DeliveryKind.Raycast && rayOrigin is not null && (FxPlace(shooter, w.MuzzleMarker) ?? fallback) is var from && from.Position.DistanceTo(end) >= 0.4f)
             travel = PlayFallbackBullet(from.Position, end, rayOrigin, rayDir);
+        if (!atFire) { TracerProbeShot(shooter, spec, end, normal, travel, tracered, projectileShot, ShotHit.None); return; }
         FxImpact(w, se, hit, surface, end, normal, dir, travel, victim, armourUp);
+        TracerProbeShot(shooter, spec, end, normal, travel, tracered, projectileShot, hit);
     }
 
     readonly HashSet<FxPlay> _fxPlayedScratch = new((IEqualityComparer<FxPlay>)ReferenceEqualityComparer.Instance);
@@ -537,6 +545,7 @@ public partial class NetworkView
             _fx.Play(StalkerCrater.Effect(_catalogue.SurfaceName(surface)), end + normal * 0.02f, AxesFromY(normal), StalkerCrater.Scale, null, null, 0f, delay, false, 0);
             plays = [];
         }
+        if (hit != ShotHit.World || plays.Count > 0) _probeImpactAny = true;   // fx/tracers-impact: --tracer-probe (armour glows, sparks, flashes and the hit container all count)
         if (hit != ShotHit.World) FxArmourHit(up, end, dir, victim, delay);
         if (hit != ShotHit.World && up) ArmourSparks(end, dir, delay, victim);   // fx/bolt-tracer-impact
         if (hit != ShotHit.World && armourUp == false) BloodSplashAt(end, dir, delay, victim);   // fx/red-glow-blood: no armour left, a red splash
@@ -557,6 +566,7 @@ public partial class NetworkView
                 _ => normal,
             };
             var axes = AxesFromY(axis);
+            if (p.TriggerPoint != "exit_wound") TracerProbeImpact(pos);   // fx/tracers-impact: --tracer-probe (the exit wound sits 0.35 m past the hit on purpose)
             _fx.Play(p.Name, pos, axes, p.Scale <= 0f ? 1f : p.Scale, null, hit == ShotHit.World ? null : StickToPlayer(victim, pos, axes), p.Lifetime, delay, false, 0, tint: RaceTint(w.Wargear, p.Name));   // night/weapon-fx: a player hit rides with the player
         }
     }
@@ -613,6 +623,7 @@ public partial class NetworkView
     bool FxProjectile(ProjectileView q, Vector3 position)
     {
         if (!FxActive) return false;
+        TracerProbeBall(q, position);   // fx/tracers-impact: --tracer-probe
         if (_fxProjectilePos.TryGetValue(q.Id, out var last) && last.DistanceSquaredTo(position) > 1e-6f)
             _fxProjectileDir[q.Id] = (position - last).Normalized();
         _fxProjectilePos[q.Id] = position;
@@ -651,6 +662,7 @@ public partial class NetworkView
         var fx = FxProjectileOf(d);
         if (fx is null) return false;
         var pos = ToGodot(d.Position);
+        TracerProbeDetonation(d, pos);   // fx/tracers-impact: --tracer-probe
         // M38: the surface the blast went off on (the snapshot does not say): the nearest level triangle within a metre, so that the material container picks its entry for it and its decals
         // (craters, char, glow) lie on that surface, a wall's included, instead of always on the ground.
         var (surfacePoint, surfaceNormal, surface) = DetonationSurface(d.Position);
@@ -660,6 +672,7 @@ public partial class NetworkView
         _fxLastShotAt = _connectedFor; _fxLastEnd = pos; _fxLastFrom = pos;   // for --screenshot-on-effect
         string shooterWargear = ProjectileWargear(d);
         foreach (var p in plays) _fx!.Play(p.Name, pos + Vector3.Up * 0.05f, Basis.Identity, p.Scale <= 0f ? 1f : p.Scale, null, null, p.Lifetime, 0.0, false, 2, tint: RaceTint(shooterWargear, p.Name));
+        if (!d.Thrown && !OldChargedImpact) DetonationBodyHit(d);   // fx/tracers-impact: a projectile that struck a player shows the body hit (armour glow, flash) when it arrives
         foreach (var p in byMaterial)
             _fx!.Play(p.Name, surfaceNormal is { } n ? surfacePoint + n * 0.02f : pos + Vector3.Up * 0.05f, surfaceNormal is { } sn ? AxesFromY(sn) : Basis.Identity, p.Scale <= 0f ? 1f : p.Scale, null, null, p.Lifetime, 0.0, false, 2, tint: RaceTint(shooterWargear, p.Name));
         // Shake the camera by the distance, flash for a krak close by.

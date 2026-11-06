@@ -68,16 +68,32 @@ public partial class NetworkView
     void BoltFxDemo(System.Collections.Generic.IReadOnlyList<PlayerState> others)
     {
         if (!BoltFxDemoOn || _camera is null || _config is null || _client is null) return;
-        if (CmdFloat("time-scale") is var ts && float.IsFinite(ts) && ts > 0f && Engine.TimeScale != ts) Engine.TimeScale = ts;   // slow motion for the tracer capture (the head crosses a shot in 0.1 s)
+        if (CmdFloat("time-scale") is var ts && float.IsFinite(ts) && ts > 0f)
+        {
+            // slow motion for the tracer capture (the head crosses a shot in 0.1 s); fx/tracers-impact: --bolt-fx-slow-shot slows only the 0.25 s after each demo shot
+            double want = !CmdFlag("bolt-fx-slow-shot") || (_boltFxDemoShots > 0 && _connectedFor - _boltFxDemoAt < 0.25) ? ts : 1.0;
+            if (Engine.TimeScale != want) Engine.TimeScale = want;
+        }
         PlayerState? victim = null;
         foreach (var o in others) if (o.Alive) { victim = o; break; }
         if (victim is not { } v) return;
         var chest = ToGodot(v.Position + new System.Numerics.Vector3(0f, 0f, 1.45f));
         // The camera: 5 m away, 28 degrees off the line to the shooter's side, a little above the chest, looking at it.
-        var toShooter = new Vector3(MathF.Sin(0.6f), 0f, -MathF.Cos(0.6f));
+        float turn = CmdFloat("bolt-fx-angle") is var deg && float.IsFinite(deg) ? 0.6f + deg * MathF.PI / 180f : 0.6f;   // fx/tracers-impact: --bolt-fx-angle <deg> turns the shooter about the victim (a clear line in the capture)
+        var toShooter = new Vector3(MathF.Sin(turn), 0f, -MathF.Cos(turn));
         var eye = chest + toShooter * 5.2f + new Vector3(0f, 0.25f, 0f) + new Vector3(-toShooter.Z, 0f, toShooter.X) * 1.6f;
         _camera.GlobalTransform = new Transform3D(Basis.LookingAt((chest - eye).Normalized(), Vector3.Up), eye);
         _camera.Fov = 38f;
+        if (CmdFlag("bolt-fx-side"))
+        {
+            // fx/tracers-impact (capture aid): the camera square to the shot's line, 6 m off its middle, so the whole bolt from the muzzle to the impact is in view.
+            var shooterAt = chest + toShooter * 7.5f + new Vector3(0f, -0.15f, 0f);
+            var middle = (shooterAt + chest) * 0.5f;
+            var side = new Vector3(-toShooter.Z, 0f, toShooter.X).Normalized();
+            var sideEye = middle + side * 6f + new Vector3(0f, 0.4f, 0f);
+            _camera.GlobalTransform = new Transform3D(Basis.LookingAt((middle - sideEye).Normalized(), Vector3.Up), sideEye);
+            _camera.Fov = 70f;
+        }
         if (_connectedFor - _boltFxDemoAt < 2.4) return;
         _boltFxDemoAt = _connectedFor;
         string name = CmdArg("bolt-fx-demo") is { Length: > 0 } a ? a : "sm_mp_ranged_bolter";

@@ -53,6 +53,7 @@ public partial class NetworkView
             var from = FxPlace(d.Shooter, d.Play.Marker)?.Position ?? d.From;
             if (from.DistanceTo(d.End) < 0.4f) continue;
             PlayTracer(d.Play, d.Effects, from, d.End, d.RayOrigin, d.RayDir, d.Own, d.Shooter);
+            TracerProbeDeferred(d.Shooter, d.Effects.Wargear, d.End);   // fx/tracers-impact: --tracer-probe
             if (_bot) GD.Print($"t {_connectedFor:F2} s: pistol tracer of P{d.Shooter} drawn from the raised muzzle");
         }
     }

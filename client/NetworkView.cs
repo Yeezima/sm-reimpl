@@ -918,7 +918,7 @@ public partial class NetworkView : Node3D
                 return buttons | InputButtons.Fire;
             }
             if (me.FireHeld || me.Overheated) return buttons;   // release first: a charge starts on a press edge
-            bool chargeNow = (tick * (double)c.TickSeconds + Math.Max(_client?.PlayerId ?? 0, 0) * 1.3) % BotChargeCycle >= BotChargeCycle - BotChargeWindow;
+            bool chargeNow = BotChargeAll || (tick * (double)c.TickSeconds + Math.Max(_client?.PlayerId ?? 0, 0) * 1.3) % BotChargeCycle >= BotChargeCycle - BotChargeWindow;
             // Too little in the clip to start a charge (the lascannon needs 2) but some in reserve: reload first.
             if (chargeNow && me.Clip > 0 && me.Clip < Math.Max(1, charge.AmmoToStart) && me.Reserve > 0 && me.ReloadLeft <= 0f)
                 return buttons | (me.ReloadHeld ? InputButtons.None : InputButtons.Reload);
@@ -1074,7 +1074,7 @@ public partial class NetworkView : Node3D
 
         // Blasts: each detonation once, when the interpolated view reaches it; one sphere per damaging blast
         // (ProjectileSpec.AllSplashes), and a disc for the lifetime of a lingering one (the melta bomb's; not offered).
-        foreach (var d in _client.TakeDetonations())
+        foreach (var d in _client.TakeDetonations(OldChargedImpact ? null : DrawnAhead))   // fx/tracers-impact: an own ball drawn from the newest snapshot blasts when it is gone
         {
             _detonationsSeen++;
             if (d.Stage > 0) _chargedDetonationsSeen++;

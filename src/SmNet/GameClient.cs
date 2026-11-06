@@ -832,12 +832,19 @@ public sealed partial class GameClient
     /// lasts its Lifetime). A detonation in snapshots that were all lost is not seen.
 
     /// </summary>
-    public IReadOnlyList<ProjectileView> TakeDetonations()
+    public IReadOnlyList<ProjectileView> TakeDetonations() => TakeDetonations(null);
+
+    /// <summary>
+    /// fx/tracers-impact: as <see cref="TakeDetonations()"/>, but a detonation of a projectile <paramref name="drawnAhead"/> names (the client draws the own charged
+    /// plasma ball from the newest snapshot, not the interpolated view) is due as soon as it arrives, so that its blast shows the frame its ball is gone, not 100 ms later.
+    /// </summary>
+    public IReadOnlyList<ProjectileView> TakeDetonations(Func<int, bool>? drawnAhead)
     {
         if (_pendingDetonations.Count == 0) return [];
         double renderTick = RenderTick();
-        var due = _pendingDetonations.Where(d => d.Tick <= renderTick).Select(d => d.Blast).ToList();
-        _pendingDetonations.RemoveAll(d => d.Tick <= renderTick);
+        bool Due((uint Tick, ProjectileView Blast) d) => d.Tick <= renderTick || drawnAhead?.Invoke(d.Blast.Id) == true;
+        var due = _pendingDetonations.Where(Due).Select(d => d.Blast).ToList();
+        _pendingDetonations.RemoveAll(Due);
         return due;
     }
 
