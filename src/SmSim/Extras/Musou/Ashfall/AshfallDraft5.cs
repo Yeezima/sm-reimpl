@@ -63,6 +63,16 @@ internal static partial class AshfallDraft5Pass
         public bool RoadwayRule = true;
         public int RoadSettled, RoadDropped, RoadPlatformsSkipped;
         public readonly List<string> RoadDroppedNames = [];
+        /// <summary>Draft 9 (late batch F): whether its rules run (stairs from the meshes, stair zones, drawn boxes), the placed drawn boxes and stair zones by 16 m cell, and the stair counts and notes.</summary>
+        public bool Draft9 = true;
+        public readonly Dictionary<(int, int), List<(int Item, WBox Box, bool Ring)>> DrawnBoxes = [];
+        public readonly Dictionary<(int, int), List<(int Item, WBox Box)>> Zones = [];
+        public int StairsKept, StairsDropped, Draft9Settled, Draft9Dropped;
+        public readonly List<string> StairNotes = [];
+        public readonly List<string> Draft9DroppedNames = [];
+        /// <summary>Draft 9's urban rules: the buildings' graybox footprints, the debris left out away from them, the pieces turned onto the street grid.</summary>
+        public readonly List<Vector4> Buildings = [];
+        public int DebrisAlone, Snapped;
     }
 
     sealed record Spec(string Group, string Family, Vector3 Min, Vector3 Max, AshfallBox? Box, string[] Pool)
@@ -85,11 +95,11 @@ internal static partial class AshfallDraft5Pass
     public static AshfallDraft5 Run() => Run(overlapRule: true);
 
     /// <summary>The pass; <paramref name="overlapRule"/> false skips draft 7's overlap rule, <paramref name="roadwayRule"/> false draft 8's roadway rule (report aids: the placement without the rule, under the same version).</summary>
-    public static AshfallDraft5 Run(bool overlapRule, bool roadwayRule = true)
+    public static AshfallDraft5 Run(bool overlapRule, bool roadwayRule = true, bool draft9 = true)
     {
         var gb = AshfallMap.BuildGrayboxWithFeatures();
         var g5 = gb.Level;
-        var c = new Ctx { Seed = AshfallBuilder.Mix(AshfallMap.VariationSeed, 0xA5F411u), OverlapRule = overlapRule, RoadwayRule = roadwayRule };
+        var c = new Ctx { Seed = AshfallBuilder.Mix(AshfallMap.VariationSeed, 0xA5F411u), OverlapRule = overlapRule, RoadwayRule = roadwayRule, Draft9 = draft9 };
         c.Roads = AshfallRoadway.Strips(g5);
         foreach (var p in g5.Parts)
             if (p.Kind is AshfallKind.Ground or AshfallKind.Road or AshfallKind.Paving or AshfallKind.Curb or AshfallKind.Boundary or AshfallKind.Objective) c.Parts.Add(p);
@@ -125,6 +135,7 @@ internal static partial class AshfallDraft5Pass
             c.Flags.Add($"untagged graybox part {i} ({g5.Parts[i].Kind}) has no structure group and is dropped");
 
         var stronghold = new List<int>();
+        var debris = new List<int>();   // draft 9: loose debris is placed after the buildings, against the ones that stand
         for (int gi = 0; gi < groups.Count; gi++)
         {
             var g = groups[gi];
@@ -132,20 +143,46 @@ internal static partial class AshfallDraft5Pass
             if (g.Family.StartsWith("stronghold") || g.Family is "terrace" or "outerwall" || g.Name == "keep bridge") { stronghold.Add(gi); continue; }
             var (min, max) = Bounds(g5.Parts, byGroup[gi]);
             AshfallBox? box = byGroup[gi].Count == 1 ? AshfallBox.Of(g5.Parts[byGroup[gi][0]]) : null;
+            if (draft9 && g.Family is "rubble" or "wallpiece") { debris.Add(gi); continue; }
             if (g.Family == "bridge") c.Bridges.Add((g.Name, min, max, DeckTop(g5.Parts, byGroup[gi]))); else Generic(c, g, min, max, box, g5);
+        }
+        if (draft9)
+        {
+            // Draft 9's urban rules: the buildings that stand (their drawn boxes), then the debris at their feet.
+            foreach (var l in c.Log)
+                if (l.Item >= 0 && IsBuildingFamily(l.Family, c.Items[l.Item].Size.Z))
+                {
+                    var it = c.Items[l.Item];
+                    int ys = ((int)MathF.Round(it.Yaw / (MathF.PI / 12f)) % 24 + 24) % 24;
+                    c.Buildings.Add(Drawn(it, ys).Rect);
+                }
+            foreach (int gi in debris)
+            {
+                var (min, max) = Bounds(g5.Parts, byGroup[gi]);
+                AshfallBox? box = byGroup[gi].Count == 1 ? AshfallBox.Of(g5.Parts[byGroup[gi][0]]) : null;
+                Generic(c, groups[gi], min, max, box, g5);
+            }
         }
         Stronghold(c, groups, byGroup, g5, stronghold);
         ExtraPlatforms(c);
+        RubbleProps(c);
         foreach (var (name, mn, mx, deck) in c.Bridges) Bridge6(c, name, mn, mx, deck);
 
-        c.Flags.Add($"draft 6 growth (every placed object 1.5x its draft-5 size): {c.Moved} items moved ({c.Spread} of them to open a gap under {MinGap} m to a neighbour), {c.NarrowKept} kept a narrow gap they could not open, {c.NarrowDropped} small pieces (cover, rubble) left out rather than leave a gap under {MinGap} m, {c.LeftOut} left out{(c.LeftOut > 0 ? ": " + string.Join(", ", c.LeftOutNames.Take(12)) : "")}");
+        c.Flags.Add($"draft 6 growth (every placed object 1.5x its draft-5 size): {c.Moved} items moved ({c.Spread} of them to open a gap under {MinGap} m to a neighbour), {c.NarrowKept} kept a narrow gap they could not open, {c.NarrowDropped} {(c.Draft9 ? "pieces" : "small pieces (cover, rubble)")} left out rather than leave a gap under {MinGap} m, {c.LeftOut} left out{(c.LeftOut > 0 ? ": " + string.Join(", ", c.LeftOutNames.Take(12)) : "")}");
         c.Flags.Add($"draft 7 overlap rule (no two items meet deeper than {AshfallOverlap.Tolerance} m): {c.OverlapSettled} items moved or shrunk to clear an overlap, {c.OverlapDropped} left out{(c.OverlapDropped > 0 ? ": " + string.Join(", ", c.OverlapDroppedNames.Take(12)) : "")}");
         c.Flags.Add(roadwayRule
             ? $"draft 8 roadway rule (no item's collision within {AshfallRoadway.Margin} m of a roadway; bridges clear by {AshfallRoadway.Headroom} m): {c.RoadSettled} items moved or shrunk off a roadway, {c.RoadDropped} left out{(c.RoadDropped > 0 ? ": " + string.Join(", ", c.RoadDroppedNames.Take(12)) : "")}; {c.RoadPlatformsSkipped} added-platform candidates skipped"
             : "draft 8 roadway rule OFF (report aid)");
         if (c.Dropped.Count > 0)
             c.Flags.Add($"{c.Dropped.Count} structures dropped: they stood in a lane, a start area, a capture zone's 6 m ring, on a spawn marker or within 2 m of the boundary (the boundary-foot walls all); first: {string.Join(", ", c.Dropped.Take(6))}");
-        c.Flags.Add($"walkable ramps (stairs and rubble runs found in the top heightfields of the walkable models): {c.RampsKept} kept as sloped wedges, {c.RampsDropped} dropped (scaled slope over {MaxRampDegrees:0} degrees, or since draft 6 phase 2 off the item's stepped tops or outside its box: {c.RampsMisfit})");
+        if (draft9)
+        {
+            c.Flags.Add($"draft 9 stairs (found in the walkable models' meshes, a ramp over the nosings, the model's boxes cut under it, walked up and down on the item alone): {c.StairsKept} kept, {c.StairsDropped} dropped" + (c.StairNotes.Count > 0 ? ": " + string.Join("; ", c.StairNotes.GroupBy(n => n).OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.Ordinal).Take(16).Select(g => $"{g.Key} x{g.Count()}")) : ""));
+            c.Flags.Add($"draft 9 urban rules: {c.Buildings.Count} buildings face their nearest street; {c.Snapped} built pieces (cover, walls, facades) turned onto the street grid; {c.DebrisAlone} loose debris pieces left out (more than {DebrisReach:0} m from any building)");
+            c.Flags.Add($"draft 9 placement (no drawn models meet deeper than {AshfallOverlap.Tolerance} m, nothing in a stair's foot or landing): {c.Draft9Settled} items moved or shrunk for it, {c.Draft9Dropped} left out{(c.Draft9Dropped > 0 ? ": " + string.Join(", ", c.Draft9DroppedNames.Take(12)) : "")}");
+        }
+        else
+            c.Flags.Add($"walkable ramps (stairs and rubble runs found in the top heightfields of the walkable models): {c.RampsKept} kept as sloped wedges, {c.RampsDropped} dropped (scaled slope over {MaxRampDegrees:0} degrees, or since draft 6 phase 2 off the item's stepped tops or outside its box: {c.RampsMisfit})");
         // Review flags for models whose collision wants a manual clean-up.
         foreach (var (id, n) in c.Uses.OrderBy(k => k.Key, StringComparer.Ordinal))
             if (AshfallKitCollision.NeedsCleanup(id)) c.Flags.Add($"{id} used {n}x: collision needs manual clean-up ({AshfallKitCollision.CleanupReason(id)})");
@@ -211,7 +248,7 @@ internal static partial class AshfallDraft5Pass
         Cover = ["AC-054", "AC-055", "AC-056", "AC-057", "AC-058", "AC-059", "AC-011", "AC-017", "AC-014", "AC-018", "AC-012"], HighCover = ["AC-060", "AC-061", "AC-018", "AC-014"],
         Landmark = ["AC-027", "AC-028", "AC-029", "AC-031", "AC-032", "AC-013"],
         RubbleLow = ["AC-020", "AC-024", "AC-025"], RubbleMid = ["AC-053", "AC-019", "AC-021", "AC-018"], RubbleTall = ["AC-053", "AC-023", "AC-021", "AC-019"],
-        Platform = ["AC-049", "AC-050", "AC-008"];
+        Platform = ["AC-050", "AC-008"];   // draft 9: AC-049 left out (its stair stops about 1.8 m under its deck: a stair that ends in its own wall)
 
     /// <summary>The shooting platforms: the first library's AC-008 and the expansion's low and medium firing platforms (bare edges: nothing is added to them).</summary>
     internal static readonly string[] PlatformIds = ["AC-008", "AC-049", "AC-050"];
@@ -275,12 +312,26 @@ internal static partial class AshfallDraft5Pass
             min = new Vector3(min.X - 30f, min.Y - 6f, AshfallMap.BlockTop); max = new Vector3(max.X - 30f, max.Y - 6f, AshfallMap.BlockTop + tall);
             c.Flags.Add("A's obelisk moved 30 m west and 6 m south (it stood inside the capture zone's ring)");
         }
+        if (c.Draft9 && g.Family is "rubble" or "wallpiece" && !NearBuilding(c, min, max))
+        {
+            c.Log.Add(new(g.Name, g.Family, "", -1, $"dropped: urban, loose debris more than {DebrisReach:0} m from any building (draft 9: debris lies at the foot of the ruins it fell from)"));
+            c.DebrisAlone++;
+            return;
+        }
+        if (c.Draft9 && box is { } sb && g.Family is "cover" or "wall" or "wallrun" or "facade" && sb.YawStep % 6 != 0)
+        {
+            // draft 9: built pieces follow the street grid (quarter turns); the long side keeps its length
+            int snapped = (int)(MathF.Round(sb.YawStep / 6f) * 6f) % 24;
+            box = sb with { YawStep = snapped };
+            c.Snapped++;
+        }
         var spec = new Spec(g.Name, g.Family, min, max, box, PoolOf(g.Family, g.Name, max.Z - min.Z))
         {
             KeepWalkCell = g.Family == "platform",   // phase 2: a shooting platform's stair stays climbable (its riser cell under the step) after the growth
             NoCollision = g.Family == "backdrop",
             UseNet = g.Family is not ("wallrun" or "monument" or "arch"),   // the compound's walls, the monument and the arch were hand-placed on the avenues and around the start area
             Kind = g.Family is "rubble" or "wallpiece" ? AshfallKind.Rubble : null,
+            Out = c.Draft9 && IsBuildingFamily(g.Family, max.Z - min.Z) ? StreetSide(new Vector2((min.X + max.X) / 2f, (min.Y + max.Y) / 2f)) : null,
         };
         if (g.Family == "backdrop") spec.GrowAlong = spec.GrowAcross = 0f;
         Place(c, spec);
@@ -359,7 +410,8 @@ internal static partial class AshfallDraft5Pass
         for (int k = 0; k < order.Count; k++)
         {
             // a new model that cannot open every narrow gap gives way to the next model; a first-library model keeps its fewest-gaps place as in draft 6
-            int r = Commit(c, s, centre, TurnOf(order[k]), order[k], h, final: k == order.Count - 1, keepNarrow: k == order.Count - 1 || !Preferred(order[k]));
+            // draft 9: no piece keeps a gap under 2.4 m to a neighbour (draft 6 let the last model or a first-library one keep its fewest-gaps place; a route then squeezed past a moved platform)
+            int r = Commit(c, s, centre, TurnOf(order[k]), order[k], h, final: k == order.Count - 1, keepNarrow: !c.Draft9 && (k == order.Count - 1 || !Preferred(order[k])));
             if (r != Retry) return r;
         }
         return -1;
@@ -395,7 +447,7 @@ internal static partial class AshfallDraft5Pass
             if (!final) return Retry;
             if (c.NarrowDrop)
             {
-                c.Log.Add(new(s.Group, s.Family, "", -1, "dropped: narrow gap, grown 1.5x this small piece leaves a gap under 2.4 m to a neighbour that no move within its reach opens or closes"));
+                c.Log.Add(new(s.Group, s.Family, "", -1, $"dropped: narrow gap, grown 1.5x this {(c.Draft9 ? "piece (draft 9: no piece keeps one)" : "small piece")} leaves a gap under 2.4 m to a neighbour that no move within its reach opens or closes"));
                 c.NarrowDropped++;
                 return -1;
             }
@@ -418,10 +470,11 @@ internal static partial class AshfallDraft5Pass
         {
             if (!final) return Retry;
             c.Log.Add(new(s.Group, s.Family, "", -1, "dropped: overlap, grown 1.5x it meets a placed item deeper than " + AshfallOverlap.Tolerance + " m and no move or smaller footprint within reach clears it (" + overlapNote + ")"));
-            c.OverlapDropped++; c.OverlapDroppedNames.Add(s.Group);
+            if (overlapNote.Contains("(draft 9:") || overlapNote.Contains("drawn models") || overlapNote.Contains("foot or landing")) { c.Draft9Dropped++; c.Draft9DroppedNames.Add(s.Group); }
+            else { c.OverlapDropped++; c.OverlapDroppedNames.Add(s.Group); }
             return -1;
         }
-        if (overlapNote.Length > 0) { outcome += ", " + overlapNote.Trim(); c.OverlapSettled++; }
+        if (overlapNote.Length > 0) { outcome += ", " + overlapNote.Trim(); if (overlapNote.Contains("(draft 9)")) c.Draft9Settled++; else c.OverlapSettled++; }
         if (roadNote.Contains("(roadway)")) c.RoadSettled++;   // counted once the item is kept (a retry with the next model is not)
         if (shrunk is not null) c.Flags.Add(shrunk);
         item = Item(size);
@@ -444,6 +497,15 @@ internal static partial class AshfallDraft5Pass
         c.Placed.Add((id, centre));
         int dust = 0;
         var ids = new List<int>();
+        StairPlan? stairs = null;
+        if (c.Draft9 && !s.NoCollision && AshfallKitCollision.Stairs(id).Count > 0)
+        {
+            stairs = Stairs(item, yaw, id, boxes);
+            boxes = stairs.Boxes;
+            c.StairsKept += stairs.Kept; c.StairsDropped += stairs.Dropped;
+            foreach (var n in stairs.Notes) c.StairNotes.Add($"{id} {n}");
+            if (stairs.Kept + stairs.Notes.Count > 0) outcome += $", stairs: {stairs.Kept} kept" + (stairs.Notes.Count > 0 ? $", {string.Join("; ", stairs.Notes)}" : "");
+        }
         foreach (var b in boxes)
         {
             var e = b.Half * 2f;
@@ -454,7 +516,18 @@ internal static partial class AshfallDraft5Pass
             if (!BridgeIds.Contains(id)) AddSolid(c, index, b);
         }
         if (dust > 0) c.DroppedBoxes[id] = c.DroppedBoxes.GetValueOrDefault(id) + dust;
-        if (!s.NoCollision)
+        if (stairs is not null)
+            foreach (var rc in stairs.Ramps)
+            {
+                c.Parts.Add(new AshfallPart(AshfallKind.Stair, rc));
+                // draft 9: the ramp's box (it may reach past the model where its foot is carried to the floor) counts for the narrow-gap and overlap rules of the items after it
+                var rb = RampBox(item, yaw, rc);
+                c.AllBoxes.Add((index, rb));
+                AddLow(c, index, rb);
+                AddSolid(c, index, rb);
+            }
+        if (c.Draft9) AddDraft9(c, s, index, item, yaw, id, stairs?.Zones ?? []);
+        if (!s.NoCollision && !c.Draft9)
             foreach (var rp in AshfallKitCollision.Ramps(id))
             {
                 var corners = RampCorners(item, yaw, rp, out bool ok);
@@ -485,7 +558,8 @@ internal static partial class AshfallDraft5Pass
 
     static List<WBox> Coarse(Spec s, List<WBox> boxes)
     {
-        if (s.Family is not ("rubble" or "wallpiece" or "cover") || boxes.Count <= Slabs) return boxes;
+        int slabs = s.Family == "rubble prop" ? 3 : Slabs;   // draft 9's rubble props: three slabs a pile (the triangle budget)
+        if (s.Family is not ("rubble" or "wallpiece" or "cover" or "rubble prop") || boxes.Count <= slabs) return boxes;
         // Draft 6, phase 2: a walkable rubble model (AC-053) is merged too (the triangle budget); its ramp wedges are kept only where they still meet the slabs' tops (RampMeetsItsTops).
         var (sn, co) = AshfallBuilder.Trig(boxes[0].YawStep);
         bool alongX = true;
@@ -497,19 +571,19 @@ internal static partial class AshfallDraft5Pass
         }
         alongX = hi - lo >= hi2 - lo2;
         if (!alongX) { lo = lo2; hi = hi2; }
-        var mn = new Vector3[Slabs]; var mx = new Vector3[Slabs]; var used = new bool[Slabs];
-        for (int i = 0; i < Slabs; i++) { mn[i] = new Vector3(float.MaxValue); mx[i] = new Vector3(float.MinValue); }
+        var mn = new Vector3[slabs]; var mx = new Vector3[slabs]; var used = new bool[slabs];
+        for (int i = 0; i < slabs; i++) { mn[i] = new Vector3(float.MaxValue); mx[i] = new Vector3(float.MinValue); }
         foreach (var b in boxes)
         {
             float u = b.Centre.X * co + b.Centre.Y * sn, v = -b.Centre.X * sn + b.Centre.Y * co, a = alongX ? u : v;
-            int k = Math.Clamp((int)((a - lo) / MathF.Max(hi - lo, 1e-3f) * Slabs), 0, Slabs - 1);
+            int k = Math.Clamp((int)((a - lo) / MathF.Max(hi - lo, 1e-3f) * slabs), 0, slabs - 1);
             used[k] = true;
             // corners in the turned frame (u, v, z)
             mn[k] = Vector3.Min(mn[k], new Vector3(u - b.Half.X, v - b.Half.Y, b.Centre.Z - b.Half.Z));
             mx[k] = Vector3.Max(mx[k], new Vector3(u + b.Half.X, v + b.Half.Y, b.Centre.Z + b.Half.Z));
         }
         var list = new List<WBox>();
-        for (int k = 0; k < Slabs; k++)
+        for (int k = 0; k < slabs; k++)
         {
             if (!used[k]) continue;
             var c3 = (mn[k] + mx[k]) / 2f; var h3 = (mx[k] - mn[k]) / 2f;

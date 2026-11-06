@@ -176,6 +176,8 @@ public class AshfallWindowTests(ITestOutputHelper output)
             if (it.Role != AshfallDressRole.Prop || d.Dressing.ItemParts[i].Count == 0) continue;
             var openings = AshfallKitCollision.Openings(it.Asset);
             if (openings.Count == 0) continue;
+            // draft 9's rubble props (AR-001..003): small heaps merged into three slabs (the triangle budget); the chinks between their stones are not windows
+            if (family.GetValueOrDefault(i) == "rubble prop") continue;
             if (family.GetValueOrDefault(i) is "rubble" or "wallpiece" or "cover") debrisPlaced += openings.Count;
         // Rubble, cover and collapsed wall pieces with openings keep opening-aware boxes (AshfallOpeningMerge): their gaps are traced too.
             bool debris = family.GetValueOrDefault(i) is "rubble" or "wallpiece" or "cover";
@@ -209,10 +211,11 @@ public class AshfallWindowTests(ITestOutputHelper output)
         foreach (var s in through.Take(20)) output.WriteLine("through: " + s);
         Assert.True(windows > 0);
         Assert.True(walls * 10 >= windows * 9, $"only {walls} of {windows} windows have a wall point");
+        // Draft 9 left out the loose debris away from the buildings (318 traced before, about 170 since).
         // Openings pass: the debris families keep their fitted boxes when the model has openings (AshfallDraft5.Coarse). What still stops: the 0.07 m gaps at the foot of the flat AC-025 rubble layer, where a neighbouring wall, cover or the ground lies in the gap.
         var stillBlocked = blocked.Where(b => !b.StartsWith("AC-025 ")).ToList();
         Assert.True(stillBlocked.Count == 0, $"{stillBlocked.Count} of {windows} window shots stop:\n" + string.Join("\n", stillBlocked.Take(40)));
-        Assert.True(debrisTraced >= 300 && blocked.Count <= debrisTraced / 8, $"{blocked.Count} of {debrisTraced} debris openings stop");
+        Assert.True(debrisTraced >= 150 && blocked.Count <= debrisTraced / 8, $"{blocked.Count} of {debrisTraced} debris openings stop");
         Assert.True(through.Count == 0, $"{through.Count} of {walls} wall shots pass:\n" + string.Join("\n", through.Take(20)));
     }
 }

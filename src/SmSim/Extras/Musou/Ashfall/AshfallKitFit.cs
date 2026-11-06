@@ -600,7 +600,7 @@ public static partial class AshfallKitFit
         public const double MinOpeningClearPercent = 90.0;
 
         /// <summary>Models the gate only reports: the manifest flags them never-used (AC-015, AC-016, AC-026).</summary>
-        public static readonly IReadOnlyList<string> ReportOnlyIds = ["AC-015", "AC-016", "AC-026"];
+        public static readonly IReadOnlyList<string> ReportOnlyIds = ["AC-015", "AC-016", "AC-026", "AR-004"];   // AR-004 (late batch F): a gap in the heap read as a window, 88 % clear at best; not placed until its fit passes
 
         public static IReadOnlyList<string> Failures(AshfallKitFitQuality q)
         {

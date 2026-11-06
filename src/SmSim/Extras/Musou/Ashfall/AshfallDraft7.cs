@@ -54,7 +54,9 @@ internal static partial class AshfallDraft5Pass
     }
 
     /// <summary>The move that takes box <paramref name="a"/> out of <paramref name="o"/> along their shallowest horizontal separating axis, to within half the tolerance (they still touch: no slot opens).</summary>
-    static Vector2 Separate(WBox a, WBox o)
+    static Vector2 Separate(WBox a, WBox o) => Separate(a, o, AshfallOverlap.Tolerance);
+
+    static Vector2 Separate(WBox a, WBox o, float tol)
     {
         var aa = AsBox(a); var ob = AsBox(o);
         var delta = new Vector2(aa.Cx - ob.Cx, aa.Cy - ob.Cy);
@@ -66,7 +68,7 @@ internal static partial class AshfallDraft5Pass
             float over = ra + rb - MathF.Abs(Vector2.Dot(delta, ax));
             if (over < bestOver) { bestOver = over; bestAxis = Vector2.Dot(delta, ax) >= 0f ? ax : -ax; }
         }
-        return bestAxis * (bestOver - AshfallOverlap.Tolerance / 2f);
+        return bestAxis * (bestOver - tol / 2f);
     }
 
     /// <summary>
@@ -79,9 +81,10 @@ internal static partial class AshfallDraft5Pass
         if (s.NoCollision) return true;
         AshfallDressItem Item(Vector2 at, Vector3 sz) => new(id, new Vector3(at.X, at.Y, bottom), yaw * (MathF.PI / 12f), sz, false, AshfallDressRole.Prop, -1);
         var start = CoarseBoxes(s, Item(centre, size), yaw, id);
-        var first = Deepest(c, start);
-        if (first.Depth <= 0f) return true;
-        note = first.Item >= 0 && first.Item < c.Items.Count ? $"{c.Items[first.Item].Asset} item {first.Item}, {first.Depth:0.0} m deep" : "";
+        var first = Conflict(c, s, id, Item(centre, size), yaw, start);
+        if (first.Excess <= 0f) return true;
+        bool draft9 = first.What != "boxes";
+        note = first.Item >= 0 && first.Item < c.Items.Count ? $"{c.Items[first.Item].Asset} item {first.Item}, {first.Excess + first.Tol:0.0} m deep" + (draft9 ? $" (draft 9: {first.What})" : "") : "";
         var allowed = new HashSet<int>();
         foreach (var b in start) foreach (int z in Zones(c, b)) allowed.Add(z);
         int narrow0 = CountNarrow(c, start);
@@ -97,16 +100,17 @@ internal static partial class AshfallDraft5Pass
             for (int k = 0; k < 6; k++)
             {
                 var boxes = CoarseBoxes(s, Item(at, sz), yaw, id);
-                var (depth, _, other, _) = Deepest(c, boxes);
-                if (depth <= 0f && OffRoad(c, boxes))
+                var k2 = Conflict(c, s, id, Item(at, sz), yaw, boxes);
+                var other = k2.Other;
+                if (k2.Excess <= 0f && OffRoad(c, boxes))
                 {
-                    note = $"trimmed {size.X - sz.X:0.00} m at its end (overlap)";
+                    note = $"trimmed {size.X - sz.X:0.00} m at its end ({(draft9 ? "draft 9" : "overlap")})";
                     centre = at; size = sz;
                     return true;
                 }
                 float side = MathF.Sign(Vector2.Dot(new Vector2(other.Centre.X, other.Centre.Y) - at, axis));
                 if (side == 0f) side = 1f;
-                float trim = depth - AshfallOverlap.Tolerance / 2f;
+                float trim = k2.Excess + k2.Tol / 2f;
                 if (size.X - sz.X + trim > size.X / 3f) break;
                 sz.X -= trim; at -= axis * (side * trim / 2f);
             }
@@ -119,19 +123,19 @@ internal static partial class AshfallDraft5Pass
             for (int k = 0; k < 24; k++)
             {
                 var boxes = CoarseBoxes(s, Item(centre + off, sz), yaw, id);
-                var (depth, mine, other, _) = Deepest(c, boxes);
+                var k2 = Conflict(c, s, id, Item(centre + off, sz), yaw, boxes);
                 bool zonesOk = boxes.All(b => Zones(c, b).All(allowed.Contains));
-                if (depth <= 0f)
+                if (k2.Excess <= 0f)
                 {
                     if (zonesOk && (ring || CountNarrow(c, boxes) <= narrow0) && OffRoad(c, boxes))   // draft 8: never back onto a roadway
                     {
-                        note = (f < 1f ? $"shrunk to {f:0.##} of its footprint" : "") + (off.Length() > 0.01f ? (f < 1f ? ", " : "") + $"moved {off.Length():0.00} m" : "") + " (overlap)";
+                        note = (f < 1f ? $"shrunk to {f:0.##} of its footprint" : "") + (off.Length() > 0.01f ? (f < 1f ? ", " : "") + $"moved {off.Length():0.00} m" : "") + (draft9 ? " (draft 9)" : " (overlap)");
                         centre += off; size = sz;
                         return true;
                     }
                     break;
                 }
-                off += Separate(mine, other);
+                off += Separate(k2.Mine, k2.Other, k2.Tol);
                 if (off.Length() > reach) break;
             }
         }

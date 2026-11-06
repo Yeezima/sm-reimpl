@@ -50,6 +50,9 @@ static class AshfallKitCollisionCommand
         foreach (var model in AshfallKit.Models.Where(m => only == null || only.Contains(m.Id)).OrderBy(m => m.Id, StringComparer.Ordinal))
         {
             string file = Path.Combine(source, model.File.Replace('/', Path.DirectorySeparatorChar));
+            // a model made for the project lives only under processed\ (the rubble props): the library root's processed folder beside source
+            string processed = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(source))!, "processed", model.File.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(file) && File.Exists(processed)) file = processed;
             if (!File.Exists(file)) { Console.Error.WriteLine($"ashfall-kit-collision: missing {model.Id}: {file}"); return 1; }
             var mesh = GlbReader.Read(file);
             // The model's axis correction (AC-071 lies flat): bounds, fit and measure all work in the corrected frame.
@@ -241,7 +244,7 @@ static class AshfallKitCollisionCommand
     }
 
     /// <summary>The repository root by walking up from the current folder to SmReimpl.slnx (falls back to the current folder).</summary>
-    static string FindRepoRoot()
+    internal static string FindRepoRoot()
     {
         for (var d = new DirectoryInfo(Directory.GetCurrentDirectory()); d != null; d = d.Parent)
             if (File.Exists(Path.Combine(d.FullName, "SmReimpl.slnx"))) return d.FullName;

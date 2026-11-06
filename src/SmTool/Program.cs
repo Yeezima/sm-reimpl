@@ -31,6 +31,7 @@ return args switch
     ["ashfall-plan", .. var planRest] => SmTool.AshfallPlanCommand.Run(planRest),
     ["ashfall-kit-collision", .. var kitRest] => SmTool.AshfallKitCollisionCommand.Run(kitRest),
     ["ashfall-kit-files"] => SmTool.AshfallKitFilesCommand.Run(),
+    ["ashfall-kit-stairs", .. var stairRest] => SmTool.AshfallKitStairsCommand.Run(stairRest),
 #endif
     ["weapon-dps", var gameDir, .. var rest] => SmTool.DpsCommands.Run(gameDir, rest),
     ["melee-steps", var gameDir, .. var rest] => SmTool.MeleeStepsCommand.Run(gameDir, rest),
@@ -61,6 +62,7 @@ static int Usage()
                                                     build or read the test bots' navigation graphs per side (and jump links); sizes and timings
           smtool ashfall-plan [--out plan.svg]      Musou Mode's generated battlefield (Ashfall Citadel) as a top-down SVG plan (default: the private cache's previews folder)
           smtool ashfall-kit-collision [--source <dir>] [--res 40] [--max-boxes 32] [--out <file>] [--report <file>] [--obj-dir <dir>]
+          smtool ashfall-kit-stairs [--source <dir>] [--out <file>]   the walkable kit models' stairs found in their meshes -> AshfallKitStairs.g.cs (late batch F)
                                                     fits collision boxes to each Ashfall kit model (owner's library, read only); writes AshfallKitCollision.g.cs, a report and OBJs
           smtool perks <game-dir|auto>              the perks: upgrade strings, classes, simulation status, perk variants (M43)
           smtool armour-audit <game-dir|auto> [--all] [--packages]

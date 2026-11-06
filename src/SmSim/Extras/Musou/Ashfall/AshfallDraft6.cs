@@ -97,7 +97,7 @@ internal static partial class AshfallDraft5Pass
         if (firstClear is not { } first) return false;
         var done = settled ? off : bestClear ?? first;
         c.NarrowDrop = false;
-        if (!settled && !final) return false;   // phase 2: another model of the pool may open every gap (the caller tries it; the last one keeps its fewest-gaps place)
+        if (!settled && !final) { c.NarrowDrop = c.Draft9; return false; }   // draft 9: on the pool's last model this is a narrow-gap drop; phase 2: another model of the pool may open every gap (the caller tries it; the last one keeps its fewest-gaps place)
         // Phase 2: a small piece (cover, rubble, a collapsed wall piece; not the breach rubble) that cannot open or close every narrow gap is left out: it never leaves a slot under 2.4 m (the route rule).
         if (!settled && modes == 3 && spread) { c.NarrowDrop = true; return false; }
         if (!settled) c.NarrowKept++;   // no place within reach clears every gap: of the places clear of the protected ones it visited, the one with the fewest narrow gaps is kept (counted in the growth flag)
@@ -233,6 +233,8 @@ internal static partial class AshfallDraft5Pass
     /// then those beside a route (8..30 m from an avenue's or the paved road's centre line); each on level ground, outside every protected place, <see cref="PlatformClear"/> m from every other collision box below 8 m,
     /// <see cref="PlatformSpacing"/> m from every other platform. The size is one of the draft-6 platforms' sizes (seeded pick), lowered uniformly where its scaled cell would exceed the 0.4 m step (the deck stays reachable where the model allows).
     /// </summary>
+    static readonly Spec PlatformSpec = new("extra platform", "platform", Vector3.Zero, Vector3.Zero, null, PlatformIds);
+
     static void ExtraPlatforms(Ctx c)
     {
         int have = PlatformIds.Sum(id => c.Uses.GetValueOrDefault(id));
@@ -249,7 +251,7 @@ internal static partial class AshfallDraft5Pass
             List<Vector3> raw = pid == "AC-008" ? [new(21.0f, 7.2f, 6.0f), new(16.5f, 5.7f, 3.5f), new(12.5f, 4.3f, 2.3f)] : [design];
             sizesOf[pid] = [.. raw.Select(sz => sz.Z > limit ? sz * (limit / sz.Z) : sz)];
         }
-        string[] pickOrder = ["AC-049", "AC-050", "AC-008"];
+        string[] pickOrder = c.Draft9 ? ["AC-050", "AC-050", "AC-008"] : ["AC-049", "AC-050", "AC-008"];   // draft 9: AC-049's stair ends in its own wall (its deck stands about 1.8 m over the last tread)
         var points = c.BannedDiscs.Take(3).ToList();   // the capture zones' rings come first in BuildBanned (centre, radius + 6)
         float[] lanes = [-92f, 92f, -232f, 232f];
         var cands = new List<(uint Key, float X, float Y)>();
@@ -299,6 +301,7 @@ internal static partial class AshfallDraft5Pass
                         var pboxes = Boxes(item, yaw, pid);
                         if (pboxes.Any(b => Banned(c, b))) continue;
                         if (!OffRoad(c, pboxes)) { c.RoadPlatformsSkipped++; continue; }   // draft 8: the roads stay open
+                        if (c.Draft9 && Conflict(c, PlatformSpec, pid, item, yaw, pboxes).Excess > 0f) continue;   // draft 9: no drawn model meets it, its stair's foot and landing stay clear
                         return (key, at, pid, size, yaw, ground, rect);
                     }
                 }

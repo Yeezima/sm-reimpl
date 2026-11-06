@@ -86,7 +86,7 @@ public class AshfallKitCollisionGateTests(ITestOutputHelper output)
     [Fact]
     public void The_gate_names_the_report_only_models_and_its_thresholds_are_sane()
     {
-        Assert.Equal(["AC-015", "AC-016", "AC-026"], AshfallKitFit.Gate.ReportOnlyIds);
+        Assert.Equal(["AC-015", "AC-016", "AC-026", "AR-004"], AshfallKitFit.Gate.ReportOnlyIds);   // AR-004 (late batch F): a chink in the heap read as a window, 88 % clear
         Assert.All(AshfallKitFit.Gate.ReportOnlyIds, id => Assert.True(AshfallKit.Get(id).Review));
         Assert.InRange(AshfallKitFit.Gate.MaxFarAirPercent, 0.1, 10);
         Assert.InRange(AshfallKitFit.Gate.MaxPhantomSilhouettePercent, 0.1, 5);
