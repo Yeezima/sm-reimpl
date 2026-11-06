@@ -46,6 +46,58 @@ public sealed class AshfallKitLibrary
     /// <summary>The library's root: the bundled folder when the build carries one, else the private folder; the folder may not exist.</summary>
     public static string Root => System.IO.Directory.Exists(BundledRoot) ? BundledRoot : PrivateRoot;
 
+    /// <summary>The weathered copies of the kit (<c>%LOCALAPPDATA%\sm-reimplshfall-kit\processed\</c>, baked by tools/blender/ashfall_bake.py; same relative paths as the source). A bundled folder
+    /// (<see cref="BundledRoot"/>) is used as-is: whatever the release copied there is what loads.</summary>
+    public static string ProcessedRoot => System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData), "sm-reimpl", AshfallKit.PrivateFolder, "processed");
+
+    /// <summary>Whether processed copies are preferred: <c>--ashfall-kit-files processed|source</c> (default processed; owner's decision 2026-11-06).</summary>
+    public static bool UseProcessed
+    {
+        get
+        {
+            if (_useProcessed is { } v) return v;
+            var args = OS.GetCmdlineUserArgs();
+            int i = Array.IndexOf(args, "--ashfall-kit-files");
+            _useProcessed = !(i >= 0 && i + 1 < args.Length && args[i + 1] == "source");
+            return _useProcessed.Value;
+        }
+    }
+    static bool? _useProcessed;
+    static int _processedFound;
+    static int _sourceUsed;
+    static bool _rootLogged;
+
+    /// <summary>The file to read for a catalogue path: the processed copy when enabled and present, else the source file (or the bundled one).</summary>
+    static string ResolvePath(string file)
+    {
+        string rel = file.Replace('/', System.IO.Path.DirectorySeparatorChar);
+        string path = System.IO.Path.Combine(Root, rel);
+        if (UseProcessed && !System.IO.Directory.Exists(BundledRoot))
+        {
+            string processed = System.IO.Path.Combine(ProcessedRoot, rel);
+            if (System.IO.File.Exists(processed)) { Interlocked.Increment(ref _processedFound); LogRootOnce(); return processed; }
+        }
+        Interlocked.Increment(ref _sourceUsed);
+        LogRootOnce();
+        return path;
+    }
+
+    static int CountProcessed()
+    {
+        try { return System.IO.Directory.Exists(ProcessedRoot) ? System.IO.Directory.EnumerateFiles(ProcessedRoot, "*.glb", System.IO.SearchOption.AllDirectories).Count() : 0; }
+        catch (Exception) { return 0; }
+    }
+
+    static void LogRootOnce()
+    {
+        if (_rootLogged) return;
+        _rootLogged = true;
+        GD.Print($"ashfall kit: files from {(UseProcessed && !System.IO.Directory.Exists(BundledRoot) ? ProcessedRoot + " (processed copies, falling back to " + Root + ")" : Root)}; switch --ashfall-kit-files processed|source; processed copies on disk: {CountProcessed()}");
+    }
+
+    /// <summary>How many models were read from processed copies and from the source folder so far (for the load summary).</summary>
+    public static (int Processed, int Source) FileCounts => (Volatile.Read(ref _processedFound), Volatile.Read(ref _sourceUsed));
+
     /// <summary>Whether the private folder exists at all (the look defaults to the graybox when it does not).</summary>
     public static bool Available => System.IO.Directory.Exists(Root);
 
@@ -115,7 +167,7 @@ public sealed class AshfallKitLibrary
         {
             var model = AshfallKit.Models.FirstOrDefault(m => m.Id == id);
             if (model is null) return Fail(id, "not in the catalogue", watch);
-            string path = System.IO.Path.Combine(Root, model.File.Replace('/', System.IO.Path.DirectorySeparatorChar));
+            string path = ResolvePath(model.File);
             if (!System.IO.File.Exists(path)) return Fail(id, "file missing: " + model.File, watch);
             var doc = new GltfDocument();
             var state = new GltfState();

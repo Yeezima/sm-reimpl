@@ -76,3 +76,7 @@ CLAUDE.local.md
 # Godot writes a .uid next to every C# script it imports (only ModelViewer.cs.uid is tracked)
 client/**/*.cs.uid
 client/SmClient.sln
+
+# Python bytecode (tools/blender scripts)
+__pycache__/
+*.pyc
