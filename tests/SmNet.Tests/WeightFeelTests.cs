@@ -102,3 +102,15 @@ public class WeightFeelTests
         Assert.Equal(0f, i.Step(0.016f));
     }
 }
+
+/// <summary>night/weapon-fx: the plasma gun's arms do not recoil.</summary>
+public class NightWeaponFxTests
+{
+    [Theory]
+    [InlineData("sm_mp_ranged_plasma_gun", true)]
+    [InlineData("csm_mp_ranged_plasma_gun", true)]
+    [InlineData("sm_mp_ranged_plasma_pistol", false)]
+    [InlineData("sm_mp_ranged_plasma_cannon", false)]
+    [InlineData("sm_mp_ranged_bolter", false)]
+    public void Only_the_plasma_gun_has_no_body_recoil(string weapon, bool none) => Assert.Equal(none, WeightFeel.NoBodyRecoil(weapon));
+}

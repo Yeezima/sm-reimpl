@@ -26,6 +26,8 @@ public partial class NetworkView
     bool OldHitGlowFlag => _oldHitGlow ??= CmdFlag("old-hit-glow");
     bool? _oldHitGlow;
     /// <summary><c>--old-break-ring</c>: the armour's break flash in the recharge glow's red ring (2026-11-02), not the engulfing red glow, and without the data's break effect.</summary>
+    bool? _oldRegenGlow;
+    bool OldRegenGlowFlag => _oldRegenGlow ??= CmdFlag("old-regen-glow");
     bool OldBreakRingFlag => _oldBreakRing ??= CmdFlag("old-break-ring");
     bool? _oldBreakRing;
     /// <summary><c>--old-health-hit</c>: a hit with no armour re-flashes the red body glow and sprays the red streaks (fx/red-glow-blood), no burst.</summary>
@@ -55,7 +57,7 @@ public partial class NetworkView
     }
 
     /// <summary>A hit on a body with no armour: one of the burst's variants at the hit point, its axis back toward the shooter, turned at random about it, its size varied a little.</summary>
-    void HealthBurstAt(Vector3 end, Vector3 dir, double delay)
+    void HealthBurstAt(Vector3 end, Vector3 dir, double delay, int victim = -1)
     {
         if (_fx is null || !HealthBurstReady()) return;
         if (_connectedFor - _bloodAt < 0.04) return;   // rapid fire: at most one burst per 40 ms
@@ -64,7 +66,7 @@ public partial class NetworkView
         var axes = AxesFromY(back).Rotated(back, (float)(_burstRandom.NextDouble() * Math.Tau));
         float scale = HealthHitBurst.Size * (0.85f + (float)_burstRandom.NextDouble() * 0.35f);
         int variant = _burstRandom.Next(HealthHitBurst.Variants);
-        if (_fx.Play(HealthHitBurst.Name(variant), end + back * 0.05f, axes, scale, null, null, 0f, delay, false, 1) is not null)
+        if (_fx.Play(HealthHitBurst.Name(variant), end + back * 0.05f, axes, scale, null, StickToPlayer(victim, end + back * 0.05f, axes), 0f, delay, false, 1) is not null)
         {
             _bursts++;
             if (LogHitFx) GD.Print($"HITFX burst {HealthHitBurst.Name(variant)} at {end.X:F1},{end.Y:F1},{end.Z:F1} scale {scale:F2} (total {_bursts})");
