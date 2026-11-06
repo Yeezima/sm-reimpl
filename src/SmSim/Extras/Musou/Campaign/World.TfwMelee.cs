@@ -124,6 +124,7 @@ public sealed partial class World
     {
         var musou = _musou!;
         Span<ushort> passed = stackalloc ushort[TfwCombatRules.MostPierced];
+        Span<float> at = stackalloc float[TfwCombatRules.MostPierced];
         int most = Math.Min(1 + TfwCombatRules.Pierced(weapon), passed.Length), struck = 0;
         float keep = 1f, last = 0f;
         bool firstHead = false;
@@ -135,13 +136,37 @@ public sealed partial class World
             float damage = spec.Damage * (head ? spec.HeadMultiplier : spec.BodyMultiplier) * keep;
             musou.Damage(enemy, shot.Shooter, damage, direction, out _, marker: head ? (byte)2 : (byte)1, cause: MusouDeathKind.Shot);
             if (struck == 0) firstHead = head;
+            at[struck] = distance;
             passed[struck++] = enemy;
             last = distance;
             keep *= war.PierceKeep;
         }
         if (struck == 0) return;
+        if (war.BoltBlasts && TfwCombatRules.IsBolt(weapon)) TfwBoltBlasts(shot.Shooter, shot.Origin, direction, at[..struck], war);
         TfwBestPierce = Math.Max(TfwBestPierce, struck);
         _shots[k] = shot with { End = shot.Origin + direction * last, Hit = firstHead ? ShotHit.Head : ShotHit.Body, Surface = -1, Target = 0, Armoured = false };
+    }
+
+    /// <summary>For the tests and the fight's report: the bolt blasts set off this war.</summary>
+    public int TfwBoltBlastsOut { get; private set; }
+
+    /// <summary>
+    /// A bolt weapon's blasts (the owner, 2026-11-07): one at every enemy the shot struck, at the point it struck him (<paramref name="distances"/> along the ray), each on the enemies around it
+    /// (<see cref="MusouBlast"/>: enemies only, so no player, Guardsman or AI Marine is hurt), and a record on tag 11 (<see cref="TfwFireKind.BoltBlast"/>) for the clients' effect and sound.
+    /// After the pierce has dealt its hits, so a blast does not change which enemies the shot went through.
+    /// </summary>
+    void TfwBoltBlasts(int shooter, Vector3 origin, Vector3 direction, ReadOnlySpan<float> distances, TfwCombatRules war)
+    {
+        var splash = war.BoltBlast();
+        int frag = -1;
+        for (int i = 0; i < Config.Thrown.Count && frag < 0; i++) if (TfwCombatRules.IsFrag(Config.Thrown[i])) frag = i;
+        foreach (float distance in distances)
+        {
+            var point = origin + direction * distance;
+            MusouBlast(shooter, point, splash, melee: false);
+            TfwBoltBlastsOut++;
+            _tfw?.Fire.BoltBlast(Tick, point, frag, splash.Radius);
+        }
     }
 
     /// <summary>

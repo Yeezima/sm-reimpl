@@ -93,6 +93,32 @@ public class PvpCombatIsolationTests(ITestOutputHelper output)
         foreach (int id in ahead.Skip(1)) Assert.Equal(full, Left(id));
     }
 
+    /// <summary>Musou Mode's bolt blasts (the owner, 2026-11-07) never go off in Annihilation or Seize Ground: a bolter shot at an enemy with two more close behind him (inside the blast's 2.5 m) hurts the first alone, and no blast, record or count comes of it.</summary>
+    [Theory]
+    [MemberData(nameof(Profiles))]
+    public void A_bolter_shot_sets_off_no_blast(bool extended)
+    {
+        var w = Line(extended, 8f, 9.5f, 11f);
+        var me = w.Players[1].Position;
+        float Left(int id) => w.Players[id].Health + w.Players[id].Shield;
+        var behind = w.Players.Values.Where(p => p.PlayerId != 1 && p.Position.Y > me.Y).ToArray();
+        var before = w.Players.Values.Where(p => p.PlayerId != 1 && p.Position.Y < me.Y).ToArray();
+        float yaw = behind.Length >= before.Length ? 0f : MathF.PI;
+        var ahead = (behind.Length >= before.Length ? behind : before).OrderBy(p => MathF.Abs(p.Position.Y - me.Y)).Select(p => p.PlayerId).ToArray();
+        Assert.True(ahead.Length >= 2);
+        float full = Left(ahead[0]);
+        int detonations = 0;
+        for (int k = 0; k < 90 && Left(ahead[0]) == full; k++)
+        {
+            uint view = Math.Max(1u, w.Tick), body = w.Tick > 1 ? w.Tick - 1 : 0;
+            w.Step(id => new PlayerInput(w.Tick, 0f, 0f, id == 1 ? yaw : w.Players[id].Yaw, id == 1 ? InputButtons.Fire : InputButtons.None, ViewTick: view, BodyTick: body));
+            detonations += w.LastDetonations.Count;
+        }
+        Assert.True(Left(ahead[0]) < full);
+        foreach (int id in ahead.Skip(1)) Assert.Equal(full, Left(id));
+        Assert.Equal(0, detonations);
+    }
+
     [Theory]
     [MemberData(nameof(Profiles))]
     public void A_melee_step_strikes_as_it_always_did(bool extended)

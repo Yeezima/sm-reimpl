@@ -85,7 +85,7 @@ public sealed class TfwFire
     readonly Dictionary<int, uint> _orbitalReady = new();   // per player: the first tick of the next battle strike (absent: ready)
     object? _battle;
     uint _nextRun;
-    ushort _runs, _rounds;
+    ushort _runs, _rounds, _boltBlasts;
 
     /// <summary>The seed mixed into every roll (the balance harness; 0 otherwise).</summary>
     public ulong Salt { get; set; }
@@ -223,6 +223,9 @@ public sealed class TfwFire
         if (hit) RoundsHit++;
         Add(new TfwFireEvent(TfwFireKind.Round, tick, ++_rounds, muzzle, impact));
     }
+
+    /// <summary>A bolt weapon's blast at <paramref name="at"/> (the owner, 2026-11-07): the effect of thrown item <paramref name="item"/> (a frag; -1: none found), reaching <paramref name="radius"/> m.</summary>
+    internal void BoltBlast(uint tick, Vector3 at, int item, float radius) => Add(new TfwFireEvent(TfwFireKind.BoltBlast, tick, ++_boltBlasts, at, new Vector3(item, radius, 0f)));
 
     void Add(in TfwFireEvent e)
     {

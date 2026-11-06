@@ -102,10 +102,11 @@ public partial class NetworkView
             foreach (var key in new System.Collections.Generic.List<(uint, ushort)>(_tfwSmokePlayed.Keys)) if (_connectedFor - _tfwSmokePlayed[key] > 10.0) _tfwSmokePlayed.Remove(key);
     }
 
-    /// <summary>The smoke and the frags of the war's frame.</summary>
+    /// <summary>The smoke, the frags and the bolt blasts of the war's frame.</summary>
     void TfwCloudsFrame()
     {
         TfwSmokeFrame();
         TfwFragFrame();   // NetworkView.TfwMelee.cs
+        TfwBoltBlastFrame();   // NetworkView.TfwBoltBlast.cs
     }
 }
