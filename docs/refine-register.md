@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2314 spec table rows: **1683 tagged**, 454 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 508 rows of the changes document.
+Scanned 2319 spec table rows: **1686 tagged**, 456 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 509 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -42,7 +42,7 @@ Scanned 2314 spec table rows: **1683 tagged**, 454 not tagged (read from data wi
 | Camera (critical) | 52 | 50 | 41 | 19 | 0 |
 | HUD and hit feedback (critical) | 66 | 61 | 49 | 10 | 0 |
 | Sound mix (critical) | 56 | 50 | 48 | 10 | 0 |
-| Effects (critical) | 73 | 63 | 63 | 39 | 0 |
+| Effects (critical) | 76 | 66 | 66 | 40 | 0 |
 | Game modes | 41 | 38 | 38 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
@@ -53,20 +53,20 @@ Scanned 2314 spec table rows: **1683 tagged**, 454 not tagged (read from data wi
 | Core simulation (provisional values) | 288 | 272 | 228 | 40 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 168 | 159 | 80 | 45 | 0 |
-| **All areas** | **1683** | 1450 | 1291 | 515 | 38 |
+| **All areas** | **1686** | 1453 | 1294 | 516 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 832 |
-| confidence: low | 613 |
-| confidence: medium | 550 |
+| kind: ours | 834 |
+| confidence: low | 614 |
+| confidence: medium | 552 |
 | kind: interpretation | 343 |
-| notes: ours | 329 |
+| notes: ours | 330 |
 | confidence: none (low) | 128 |
+| kind: estimate | 99 |
 | kind: provisional | 99 |
-| kind: estimate | 98 |
 | notes: estimate | 78 |
 | kind: user's knowledge | 51 |
 | notes: provisional | 38 |
@@ -1577,7 +1577,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5FBBC333` | Menu sound cost | its own catalogue of two packages (`init`, `in_game_default`) opens in the background in 65 to 130 ms when the first root is attached (not before a button exists) and is disposed when a match starts, one still loading too (the match's sound system plays the… (ms) | kind: ours; confidence: medium | measured | Menu sound cost: compare with SM1 by listening A/B at the same distance and state. Ours: its own catalogue of two packages (init, in_game_default) opens in… | ☐ |
 | `R-30F789A0` | Not played | `Play_Menu_Expand_Main` (the menu opening), `Play_Multiplayer_Select`, `Play_Cooperative_Select`, `Play_Network_Select`, `Play_Campaign_Select` (screens we do not have in that form), `play_mp_point_captured` and `play_mp_bonus` (exist; no trigger found)… | kind: gap (not reproduced); confidence: none (low) | gap | Not played: compare with SM1 by listening A/B at the same distance and state. Ours: Play_Menu_Expand_Main (the menu opening), Play_Multiplayer_Select… | ☐ |
 
-### Effects (gameplay-critical) (73)
+### Effects (gameplay-critical) (76)
 
 *Spec section: Jump-pack feel: fuel, air control, the air slash and impact effects (feel/jump-pack; protocol 31, used by the simulation)*
 
@@ -1676,6 +1676,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-568D7C33` | Sounds | the data's death sounds are posted at the corpse's pelvis (the impact's at the ground point): `play_jump_pack_explode_sm` / `_ch`, `play_jump_pack_deathfall_impact`, `play_final_vengeance_timer`, `play_final_vengeance` (all exist in `In_Game_Default`); a… | confidence: medium | wargear, ebps | Sounds: compare with SM1 with side-by-side video of the same action. Ours: the data's death sounds are posted at the corpse's pelvis (the… | ☐ |
 | `R-14AADBDD` | Not drawn | the plasma death's `remove_wargear` (the corpse's ranged weapon gone 1.2 s after death: `WeaponRig` has no hide); any limb or body removal (no geometry); the original's death clips before the ragdoll (`SM_REC_MP_*Death*`, `Powered Ragdoll Controls Modifier`… | notes: not reproduced (gap); kind: gap (not reproduced); confidence: none (low) | graph `SM_Base_MP` | Not drawn: compare with SM1 with side-by-side video of the same action. Ours: the plasma death's remove_wargear (the corpse's ranged weapon gone… | ☐ |
 | `R-029F8653` | Cost | choosing and queueing 0.3 to 0.5 ms in the death frame, of which 0.3 ms is the first death's JIT (the marker-to-bone lookup is cached: 0.02 ms a call, the effect starts 0.01 ms each); the due steps of one death 0.3 to 6 ms in their frame, no JIT and no GC in… (ms) | confidence: low | measured (bots, headless) | Cost: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: choosing and queueing 0.3 to 0.5 ms in the death frame, of which 0.3… | ☐ |
+
+*Spec section: Plasma release, plasma gun arms, stuck hit effects, hit-confirm distance, regen glow (night/weapon-fx, 2026-11-06; client and content only, not simulated, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-9CE93E3C` | Hit effects stick to a struck player | The impact effects of a player hit (the weapon's hit container, armour sparks, armour-hit glow at the hit point, the health burst) follow the victim's model: the local offset and axes at the hit point in the model's frame, kept for the effect's life. World… (m) | kind: ours; confidence: medium | owner request | Hit effects stick to a struck player: compare with SM1 by measuring on a flat spot of the same map. Ours: The impact effects of a player hit (the weapon's hit container… | ☐ |
+| `R-42D2C1F2` | Shooter's hit confirmation by distance | Extra gain on the confirm (`player_hit_something_action`) by the distance shooter to victim: 0 dB up to **2 m**, then -18 dB x ln(d/2) / ln(20) (logarithmic), **-18 dB (0.126 linear)** from **40 m** on, never silent. `ImpactSounds.HitConfirmDistanceDb`. Hits… (dB, m) | kind: estimate; confidence: low; notes: ours | owner request gave the shape; all three numbers are ours | Shooter's hit confirmation by distance: compare with SM1 by measuring on a flat spot of the same map. Ours: Extra gain on the confirm (player_hit_something_action) by the… | ☐ |
+| `R-2ABD07BE` | Armour-regenerating glow | The recharge glow on the model is the break glow's shader path (soft engulfing halo, size 2.1, strength 2.6, hot core, body rim 0.1) in yellow (1.0, 0.78, 0.1) instead of red; its rise and fall timing (1.1 s) is unchanged. `--old-regen-glow` (colour) | kind: ours; confidence: medium | owner request | Armour-regenerating glow: compare with SM1 by counting hits to kill and by video of the health bar. Ours: The recharge glow on the model is the break glow's shader path (soft… | ☐ |
 
 ### Game modes (41)
 
@@ -3423,6 +3431,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-B8027519` | The charge clash: charger and victim locked through the shove (feel/charge-clash, 2026-11-06; protocol 59) | Ours in its mechanics (the original's pairing is engine code); its length and motion are the data's collision stop (1.83 m forward in 0.2 s, then 1.11 m back) and match the owner's recording | A stunned or staggered victim is carried with the charger through the stop's forward shove at 0.9 m (capsules touching), the charger's step ignores the victim's body, a victim the level stops holds the charger back; any charger meets a body at its edge (guard 0.85 m: the touch less a 5 cm slack, was 0.75 m); remotes… | spec "The charge clash: charger and victim locked through the shove" | The charge clash: charger and victim locked through the…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-FAB1E86D` | Musou: Guardsmen as defenders, capture under fire, Boss Ork cleave (musou/guard-formations, 2026-11-06; `TfwRules.Version` 28) | No Musou Mode in the original | Ours (added content, the owner's requests): the Guardsmen squads are back in every battle; they hold the landing zone, then share the secured positions out by the Orks near each, and never capture; only players, lords and retainers take a point, at the full rate, and Orks on the point no longer stop the progress (only… | Musou Mode only. Spec "Musou Mode: Guardsmen as defenders, the capture under fire, the Boss Ork cleave". | Musou: Guardsmen as defenders, capture under fire, Boss Ork…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-8A28955D` | Instant step and 20 % longer steps (sim/instant-step, 2026-11-06) | A strike's forward root motion follows the clip's timing (slow start, most of it after the hit) and, since feel/melee-charge-2 and sim/swing-step, is scaled | The step of every light and heavy melee strike (not the in-place stomp, not the heavy classes' kick) starts at full speed on the first tick and settles toward the move-on time (same total, same hit time, same recovery), and is 1.2 x longer for every melee weapon (the hammer and maul too): chainsword lights 5.36 / 3.88… | Owner's request 2026-11-06, an **estimate** (the 1.2 and "instant" are the owner's, the ease-out shape is ours); spec "Instant step and 20 % longer steps"; test aids `SM_OLD_INSTANT_STEP=1`, `SM_OLD_STEP_BOOST=1`, `--old-strike-legs` | Instant step and 20 % longer steps (sim/instant-step…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-AB5C38E6` | Plasma release, plasma gun arms, stuck hit effects, hit-confirm distance, regen glow (night/weapon-fx, 2026-11-06) | Own charged plasma ball drawn without the 100 ms interpolation delay; no body recoil clip for the plasma gun; player-hit effects ride on the struck model; the shooter's hit confirmation falls from 0 dB at 2 m to -18 dB at 40 m and beyond; the armour-regeneration glow is the break glow in yellow | Original behaviour of these five is unknown (owner's requests); the 2 m / 40 m / -18 dB numbers, the yellow, and the model-root frame of stuck effects are ours | Spec "Plasma release, plasma gun arms, stuck hit effects, hit-confirm distance, regen glow (night/weapon-fx ...)" | Plasma release, plasma gun arms, stuck hit effects…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

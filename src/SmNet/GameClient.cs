@@ -795,6 +795,13 @@ public sealed partial class GameClient
     }
 
     /// <summary>
+    /// The newest snapshot's projectiles in flight, not interpolated (night/weapon-fx: the own plasma shots are shown from here, so a released charge is
+    /// not drawn <see cref="ClientOptions.InterpolationDelay"/> late). Empty before the first snapshot.
+    /// </summary>
+    public IEnumerable<ProjectileView> NewestProjectiles() =>
+        _snapshots.Count == 0 ? [] : _snapshots[^1].Projectiles.Values.Where(q => (q.Flags & ProjectileFlags.Detonated) == 0);
+
+    /// <summary>
     /// Projectiles in flight or at rest, interpolated like remote players (<see cref="ClientOptions.InterpolationDelay"/>
     /// behind the newest server time; clients do not predict projectiles). Detonated ones are left out (see
     /// <see cref="TakeDetonations"/>). Positions are quantized to 1/64 m by the protocol.

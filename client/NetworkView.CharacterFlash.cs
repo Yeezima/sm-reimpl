@@ -36,9 +36,9 @@ public partial class NetworkView
     /// fx/red-glow-blood: the red splash of a hit on a body whose armour is gone, at the hit point, sprayed back toward the shooter. pvp-hit-fx (owner, 2026-11-06): replaced by the randomized
     /// red-orange burst with dark smoke (<see cref="HealthHitBurst"/>); <c>--old-health-hit</c> keeps the splash (and the body re-flash).
     /// </summary>
-    void BloodSplashAt(Vector3 end, Vector3 dir, double delay)
+    void BloodSplashAt(Vector3 end, Vector3 dir, double delay, int victim = -1)
     {
-        if (!OldHealthHitFlag) { HealthBurstAt(end, dir, delay); return; }
+        if (!OldHealthHitFlag) { HealthBurstAt(end, dir, delay, victim); return; }
         if (OldBreakGlowFlag) return;
         if (_connectedFor - _bloodAt < 0.05) return;   // rapid fire does not stack streaks on streaks
         _bloodAt = _connectedFor;
@@ -76,6 +76,7 @@ public partial class NetworkView
         int own = _client.PlayerId;
         var me = _client.Predicted;
         CharacterViewer.OldHitGlow = OldHitGlowFlag;
+        CharacterViewer.OldRegenGlow = OldRegenGlowFlag;
         CharacterViewer.SoftBreak = !OldBreakRingFlag && !OldHealthHitFlag;
         ArmourFlashTracker.Ring = OldBreakRingFlag;
         ArmourFlashTracker.Reflash = OldHealthHitFlag;

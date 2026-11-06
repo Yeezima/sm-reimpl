@@ -807,6 +807,8 @@ public partial class NetworkView
     }
 
     readonly HitConfirmGate _hitConfirmGate = new();
+    /// <summary><c>--old-hit-confirm-distance</c>: the hit confirmation plays at the same volume at any distance.</summary>
+    static readonly bool OldHitConfirmDistance = OS.GetCmdlineUserArgs().Contains("--old-hit-confirm-distance");
 
     /// <summary>
     /// The shooter's hit confirmation for a ranged hit on a player (sound/impacts). The data binds the weapon's <c>player_hit_something_action</c> (bolters:
@@ -824,6 +826,10 @@ public partial class NetworkView
         var at = new SoundEmitter { Own = true, Follow = () => PlayerSoundPoint(ownId), Label = "hit confirm", OneShot = true };
         at.Switches.Set(AudioCatalog.PlayerGroup, AudioCatalog.LocalPlayerValue);
         var offset = VoiceOffset.None;
+        // night/weapon-fx: the further the victim, the quieter the confirmation (never silent; full only point-blank).
+        float distanceDb = 0f;
+        if (!OldHitConfirmDistance && hits.LastVictim > 0 && _lastOthers.FirstOrDefault(o => o.PlayerId == hits.LastVictim) is { } far && far.PlayerId == hits.LastVictim)
+            distanceDb = ImpactSounds.HitConfirmDistanceDb(System.Numerics.Vector3.Distance(_client.Predicted.Position, far.Position));
         // Data mode: the data's event as it is (no cooldown; the kill layer plays only when the data itself set a death state, i.e. the Ork Boy's death_action).
         if (HitConfirmArg == HitConfirmMode.Data) at.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32(ImpactSounds.ConfirmMaterial(armoured)));
         else
@@ -831,6 +837,7 @@ public partial class NetworkView
             if (!_hitConfirmGate.Admit(_connectedFor, kill)) { if (LogSound("hitconfirm")) GD.Print($"HIT CONFIRM t {_connectedFor:F3} held back (cooldown {ImpactSounds.HitConfirmCooldown:F2} s)"); return; }
             offset = ImpactSounds.HitConfirmOffset(armoured, kill);
         }
+        if (distanceDb < 0f) offset = offset.Plus(new VoiceOffset(distanceDb));
         // The death state (group 0x47e2171c) is global: set for this post only and put back after it (review fix), so no smack event without the reset and no Ork death leaves a death_* state behind.
         uint? stateBefore = _audio.State(ImpactSounds.DeathStateGroup);
         _audio.SetState(ImpactSounds.DeathStateGroup, ImpactSounds.StateBeforeConfirm(HitConfirmArg, stateBefore, kill, armoured));

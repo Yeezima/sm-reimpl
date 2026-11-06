@@ -36,6 +36,15 @@ public partial class CharacterViewer
     public const float RedHotSoftStrength = 0.05f;
     /// <summary>pvp-hit-fx: the break glow's colour, a deep red with a touch of orange as in the second reference (the round-3 red-magenta is <see cref="RedGlowColour"/>; ours).</summary>
     public static readonly Color RedBreakColour = new(1f, 0.07f, 0.05f);
+    /// <summary>
+    /// night/weapon-fx (owner, 2026-11-06: the regenerating armour's effect should match "the style and shape and opacity of the armor break effect ... change the armor break effect from red to yellow"):
+    /// the recharge glow is the break glow's shader path (the same soft engulfing glow, size, strength and body rim) in this yellow instead of the red. Ours (estimate, refine register);
+    /// the timing (the glow's rise and fall) is unchanged. <c>--old-regen-glow</c>: the yellow ring of before.
+    /// </summary>
+    public static readonly Color YellowRegenColour = new(1f, 0.78f, 0.1f);
+    /// <summary><c>--old-regen-glow</c> (before / after aid): the recharge glow is the round-2 yellow ring.</summary>
+    public static bool OldRegenGlow { get; set; }
+    static bool RegenAsBreak => !OldRegenGlow && !OldFlashOutline && !OldBreakGlow;
     static Color RedNow => SoftBreak ? RedBreakColour : RedGlowColour;
     public static bool SoftBreak { get; set; } = true;
     /// <summary><c>--old-break-glow</c> (before / after aid): the subtle round-2 red halo, no re-flash, no blood.</summary>
@@ -83,6 +92,7 @@ void fragment() {
     // pvp-hit-fx: a soft yellow-white spot round the hit point, not weighted by the rim (the reference is brightest where the bullet struck, facing the camera too)
     vec3 spot = mix(vec3({{F(HitColour.R)}}, {{F(HitColour.G)}}, {{F(HitColour.B)}}), vec3(1.0, 0.97, 0.85), near_hit * near_hit) * flash_hit * near_hit * (0.75 + 0.25 * rim) * {{F(old || OldHitGlow ? 0f : HitSpotStrength)}};
     ALBEDO = spot + energy * (0.06 + 1.0 * rim) + flash_break * (rim * 0.8 + 0.02) * vec3({{F(RedNow.R)}}, {{F(RedNow.G)}}, {{F(RedNow.B)}}) * {{F(old || OldBreakGlow ? 0f : RedBodyStrength)}}
+                + flash_glow * (rim * 0.8 + 0.02) * vec3({{F(YellowRegenColour.R)}}, {{F(YellowRegenColour.G)}}, {{F(YellowRegenColour.B)}}) * {{F(!old && RegenAsBreak ? RedBodyStrength : 0f)}}
                 + pow(flash_break, 8.0) * vec3(1.0, 0.45, 0.55) * {{F(old || OldBreakGlow ? 0f : (SoftBreak ? RedHotSoftStrength : RedHotStrength))}};
 }
 """;
@@ -126,8 +136,11 @@ void fragment() {
     float edge = {{F(SoftBreak ? 1f : 0f)}} * (1.0 - smoothstep(0.35, 1.0, r)) + {{F(SoftBreak ? 0f : 1f)}} * (1.0 - smoothstep(0.55, 0.98, r));
     float ra = (core * 0.9 + spill) * (0.7 + 0.3 * vnoise(vec2(ang * 3.0 - TIME * 2.0, TIME * 4.0))) * edge * smoothstep(-0.97, -0.5, p.y);
     vec3 red = vec3({{F(RedNow.R)}}, {{F(RedNow.G)}}, {{F(RedNow.B)}}) * ra * {{F(RedGlowStrength)}} + vec3(0.9, 0.25, 0.35) * core * ra * pow(halo_mix.x, 3.0) * {{F(RedGlowStrength)}};
+    // night/weapon-fx: the recharge glow is a yellow copy of the break glow (same shape, strength and hot core), through the same path
+    vec3 yellow = vec3({{F(YellowRegenColour.R)}}, {{F(YellowRegenColour.G)}}, {{F(YellowRegenColour.B)}}) * ra * {{F(RedGlowStrength)}} + vec3(0.95, 0.85, 0.4) * core * ra * pow(halo_mix.y, 3.0) * {{F(RedGlowStrength)}};
+    vec3 ring_glow = vec3({{F(GlowColour.R)}}, {{F(GlowColour.G)}}, {{F(GlowColour.B)}}) * a * {{F(HaloGlowStrength)}};
     vec3 energy = mix(vec3({{F(BreakColour.R)}}, {{F(BreakColour.G)}}, {{F(BreakColour.B)}}) * a * {{F(HaloBreakStrength)}}, red, halo_mix.z) * halo_mix.x
-                + vec3({{F(GlowColour.R)}}, {{F(GlowColour.G)}}, {{F(GlowColour.B)}}) * a * halo_mix.y * {{F(HaloGlowStrength)}};
+                + mix(ring_glow, yellow, halo_mix.z * {{F(RegenAsBreak ? 1f : 0f)}}) * halo_mix.y;
     ALBEDO = energy;
 }
 """;
@@ -230,7 +243,7 @@ void fragment() {
     {
         if (_skeleton is null) return;
         bool old = OldFlashOutline;
-        float amount = Math.Max(Math.Max(hit * HitStrength, broke * (old ? BreakStrength : (OldBreakGlow ? HaloBreakStrength : RedGlowStrength))), glow * (old ? GlowStrength : HaloGlowStrength));
+        float amount = Math.Max(Math.Max(hit * HitStrength, broke * (old ? BreakStrength : (OldBreakGlow ? HaloBreakStrength : RedGlowStrength))), glow * (old ? GlowStrength : RegenAsBreak ? RedGlowStrength : HaloGlowStrength));
         if (amount <= 0.001f)
         {
             if (!_flashActive) return;
@@ -242,7 +255,7 @@ void fragment() {
             return;
         }
         _flashActive = true;
-        if (old || hit > 0.001f || (broke > 0.001f && !OldBreakGlow))
+        if (old || hit > 0.001f || ((broke > 0.001f || (glow > 0.001f && RegenAsBreak)) && !OldBreakGlow))
         {
             var material = FlashMaterial();
             material.SetShaderParameter("flash_mix", new Vector4(hit, broke, glow, 1f));
@@ -262,7 +275,7 @@ void fragment() {
             if (show)
             {
                 _haloMaterial!.SetShaderParameter("halo_mix", new Vector4(broke, glow, OldBreakGlow || ring ? 0f : 1f, 1f));
-                halo.Scale = broke > 0.001f && !OldBreakGlow && !ring ? new Vector3(RedGlowScale * 0.9f, RedGlowScale, 1f) : Vector3.One;
+                halo.Scale = (broke > 0.001f || (glow > 0.001f && RegenAsBreak)) && !OldBreakGlow && !ring ? new Vector3(RedGlowScale * 0.9f, RedGlowScale, 1f) : Vector3.One;
                 // The model's body is not at the viewer's origin (the rig's root is offset): centre the halo on the lower spine, where the body is.
                 if (_haloBone == -2) _haloBone = _skeleton.FindBone("RIG_SpineA");
                 if (_haloBone >= 0) halo.GlobalPosition = _skeleton.ToGlobal(_skeleton.GetBoneGlobalPose(_haloBone).Origin) + Vector3.Up * 0.12f;

@@ -538,8 +538,8 @@ public partial class NetworkView
             plays = [];
         }
         if (hit != ShotHit.World) FxArmourHit(up, end, dir, victim, delay);
-        if (hit != ShotHit.World && up) ArmourSparks(end, dir, delay);   // fx/bolt-tracer-impact
-        if (hit != ShotHit.World && armourUp == false) BloodSplashAt(end, dir, delay);   // fx/red-glow-blood: no armour left, a red splash
+        if (hit != ShotHit.World && up) ArmourSparks(end, dir, delay, victim);   // fx/bolt-tracer-impact
+        if (hit != ShotHit.World && armourUp == false) BloodSplashAt(end, dir, delay, victim);   // fx/red-glow-blood: no armour left, a red splash
         if (hit != ShotHit.World) CharacterFlashHit(victim, armourUp, end);   // fx/character-visuals (pvp-hit-fx: at the hit point): the victim's model flashes (NetworkView.CharacterFlash.cs)
         if (plays.Count == 0) return;
         _fxImpacts++;
@@ -556,7 +556,8 @@ public partial class NetworkView
                 "hitpoint_normal" => hit == ShotHit.World ? normal : -dir,
                 _ => normal,
             };
-            _fx.Play(p.Name, pos, AxesFromY(axis), p.Scale <= 0f ? 1f : p.Scale, null, null, p.Lifetime, delay, false, 0, tint: RaceTint(w.Wargear, p.Name));
+            var axes = AxesFromY(axis);
+            _fx.Play(p.Name, pos, axes, p.Scale <= 0f ? 1f : p.Scale, null, hit == ShotHit.World ? null : StickToPlayer(victim, pos, axes), p.Lifetime, delay, false, 0, tint: RaceTint(w.Wargear, p.Name));   // night/weapon-fx: a player hit rides with the player
         }
     }
 

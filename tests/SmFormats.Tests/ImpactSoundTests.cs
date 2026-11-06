@@ -145,4 +145,21 @@ public class ImpactSoundTests
         Assert.Equal(ok, error is null);
         Assert.True(ImpactSounds.TryParse<ImpactTreatmentMode>("ballistic", out var t, out _) && t == ImpactTreatmentMode.Ballistic);
     }
+
+    [Fact]
+    public void Hit_confirm_is_full_point_blank_and_falls_to_a_floor_that_is_not_silent()
+    {
+        Assert.Equal(0f, ImpactSounds.HitConfirmDistanceDb(0f));
+        Assert.Equal(0f, ImpactSounds.HitConfirmDistanceDb(2f));
+        Assert.Equal(-18f, ImpactSounds.HitConfirmDistanceDb(40f), 3);
+        Assert.Equal(-18f, ImpactSounds.HitConfirmDistanceDb(400f));
+        float last = 0f;
+        for (float d = 2.5f; d < 40f; d += 0.5f)
+        {
+            float db = ImpactSounds.HitConfirmDistanceDb(d);
+            Assert.True(db < last && db > -18f, $"{d} m: {db}");
+            last = db;
+        }
+        Assert.InRange(MathF.Pow(10f, ImpactSounds.HitConfirmFloorDb / 20f), 0.12f, 0.13f);
+    }
 }
