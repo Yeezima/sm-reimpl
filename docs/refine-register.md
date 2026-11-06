@@ -28,41 +28,20 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2340 spec table rows: **1698 tagged**, 463 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
-Scanned 2340 spec table rows: **1702 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 517 rows of the changes document.
-Scanned 2342 spec table rows: **1702 tagged**, 459 not tagged (read from data with high confidence), 181 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
-Scanned 2344 spec table rows: **1704 tagged**, 461 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 520 rows of the changes document.
-Scanned 2339 spec table rows: **1700 tagged**, 459 not tagged (read from data with high confidence), 180 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
-Scanned 2335 spec table rows: **1697 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 515 rows of the changes document.
-Scanned 2337 spec table rows: **1699 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 513 rows of the changes document.
-Scanned 2336 spec table rows: **1698 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
-Scanned 2340 spec table rows: **1702 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 517 rows of the changes document.
-Scanned 2335 spec table rows: **1697 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
-Scanned 2333 spec table rows: **1695 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
-Scanned 2337 spec table rows: **1698 tagged**, 460 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 516 rows of the changes document.
-Scanned 2337 spec table rows: **1699 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
+Scanned 2402 spec table rows: **1753 tagged**, 467 not tagged (read from data with high confidence), 182 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 541 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 380 | 323 | 322 | 113 | 12 |
+| Movement (critical) | 382 | 324 | 324 | 114 | 12 |
 | Combat core (critical) | 11 | 2 | 11 | 9 | 9 |
-Scanned 2317 spec table rows: **1685 tagged**, 455 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 509 rows of the changes document.
-
-| Area | Tagged rows | by kind | by confidence | by notes | by section text |
-|---|---:|---:|---:|---:|---:|
-| Movement (critical) | 380 | 323 | 323 | 113 | 12 |
-| Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
-| Melee (critical) | 104 | 91 | 81 | 33 | 5 |
-| Melee (critical) | 107 | 94 | 84 | 34 | 5 |
+| Melee (critical) | 108 | 95 | 85 | 35 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 66 | 61 | 49 | 10 | 0 |
 | Sound mix (critical) | 63 | 57 | 55 | 10 | 0 |
-| Effects (critical) | 76 | 66 | 66 | 40 | 0 |
-| Sound mix (critical) | 56 | 50 | 48 | 10 | 0 |
 | Effects (critical) | 79 | 69 | 67 | 40 | 0 |
 | Game modes | 41 | 38 | 38 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
@@ -70,108 +49,25 @@ Scanned 2317 spec table rows: **1685 tagged**, 455 not tagged (read from data wi
 | Customizer and paint | 48 | 45 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
-| Networking and render smoothing | 12 | 3 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 294 | 276 | 232 | 45 | 1 |
+| Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
+| Core simulation (provisional values) | 321 | 302 | 255 | 53 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 172 | 163 | 80 | 49 | 0 |
-| **All areas** | **1698** | 1463 | 1301 | 527 | 38 |
-| Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
-| Core simulation (provisional values) | 300 | 282 | 238 | 47 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 172 | 163 | 80 | 49 | 0 |
-| **All areas** | **1702** | 1467 | 1305 | 527 | 38 |
-| Networking and render smoothing | 18 | 9 | 9 | 9 | 7 |
-| Core simulation (provisional values) | 293 | 275 | 231 | 45 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 172 | 163 | 80 | 49 | 0 |
-| **All areas** | **1702** | 1467 | 1298 | 525 | 38 |
-| Core simulation (provisional values) | 302 | 283 | 240 | 46 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 172 | 163 | 80 | 49 | 0 |
-| **All areas** | **1704** | 1468 | 1307 | 526 | 38 |
-| Core simulation (provisional values) | 298 | 280 | 232 | 48 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 172 | 163 | 80 | 49 | 0 |
-| **All areas** | **1700** | 1465 | 1299 | 528 | 38 |
-| Core simulation (provisional values) | 295 | 277 | 233 | 46 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 172 | 163 | 80 | 49 | 0 |
-| **All areas** | **1697** | 1462 | 1300 | 526 | 38 |
-| Core simulation (provisional values) | 297 | 279 | 235 | 46 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 172 | 163 | 80 | 49 | 0 |
-| **All areas** | **1699** | 1464 | 1302 | 526 | 38 |
-| **All areas** | **1698** | 1463 | 1301 | 528 | 38 |
-| **All areas** | **1702** | 1467 | 1305 | 525 | 38 |
-| **All areas** | **1697** | 1461 | 1299 | 526 | 38 |
-| **All areas** | **1698** | 1463 | 1299 | 525 | 38 |
-| **All areas** | **1699** | 1464 | 1302 | 527 | 38 |
-| Ork faction | 168 | 159 | 80 | 45 | 0 |
-| **All areas** | **1685** | 1451 | 1293 | 516 | 38 |
+| **All areas** | **1753** | 1515 | 1342 | 542 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 838 |
-| confidence: low | 621 |
-| kind: ours | 845 |
-| confidence: low | 618 |
-| kind: ours | 840 |
-| confidence: low | 620 |
-| kind: ours | 842 |
-| confidence: low | 622 |
-| kind: ours | 841 |
-| confidence: low | 619 |
-| confidence: medium | 552 |
-| kind: interpretation | 345 |
-| notes: ours | 336 |
-| kind: ours | 843 |
-| confidence: low | 618 |
-| kind: ours | 839 |
-| confidence: low | 618 |
-| confidence: medium | 553 |
-| kind: ours | 842 |
-| confidence: low | 620 |
-| confidence: medium | 554 |
-| kind: interpretation | 343 |
-| notes: ours | 337 |
-| kind: ours | 844 |
-| confidence: low | 622 |
-| confidence: medium | 555 |
-| kind: interpretation | 344 |
-| notes: ours | 334 |
+| kind: ours | 879 |
+| confidence: low | 645 |
+| confidence: medium | 569 |
+| kind: interpretation | 348 |
+| notes: ours | 343 |
 | confidence: none (low) | 128 |
-| kind: estimate | 103 |
-| kind: ours | 840 |
-| confidence: low | 621 |
-| confidence: medium | 556 |
-| kind: interpretation | 345 |
-| notes: ours | 336 |
-| confidence: none (low) | 128 |
-| kind: estimate | 104 |
-| kind: estimate | 109 |
-| kind: ours | 845 |
-| confidence: low | 623 |
-| confidence: medium | 556 |
-| kind: interpretation | 343 |
-| notes: ours | 335 |
-| confidence: none (low) | 128 |
-| kind: estimate | 103 |
-| kind: estimate | 105 |
+| kind: estimate | 117 |
 | kind: provisional | 99 |
-| notes: estimate | 86 |
-| notes: estimate | 84 |
-| notes: estimate | 85 |
-| kind: ours | 832 |
-| confidence: low | 613 |
-| confidence: medium | 552 |
-| kind: interpretation | 343 |
-| notes: ours | 330 |
-| confidence: none (low) | 128 |
-| kind: estimate | 99 |
-| kind: provisional | 99 |
-| notes: estimate | 78 |
+| notes: estimate | 90 |
 | kind: user's knowledge | 51 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
@@ -183,9 +79,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: interpretation | 20 |
 | notes: placeholder | 19 |
 | kind: gap (not reproduced) | 18 |
-| notes: open question | 17 |
 | notes: open question | 18 |
-| kind: gap (not reproduced) | 17 |
 | notes: not reproduced (gap) | 13 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
@@ -197,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (380)
+### Movement (gameplay-critical) (382)
 
 *Spec section: Extracted parameters*
 
@@ -991,8 +885,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (104)
-### Melee (gameplay-critical) (107)
+### Melee (gameplay-critical) (108)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -2126,8 +2019,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC513790` | Look SSR by preset (fx/impact-pass review) | a look's `ssr.on` (the remaster's) turns screen-space reflections on at medium and high only; low and off never run SSR (older hardware is the next priority); high has SSR anyway. Off = the M40-T7 renderer features alone (no shadows, SSAO, SSIL, volumetric… | kind: ours | ours | Look SSR by preset (fx/impact-pass review): compare with SM1 with side-by-side screenshots in the same spot. Ours: a look's ssr.on (the remaster's) turns screen-space reflections on at… | ☐ |
 | `R-6E7116B1` | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical… | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat… | confidence: medium | measured | Effect checks after the review fixes (demo replays on Godot…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: own bolter tracer and the enemy's shots from the follow camera, own… | ☐ |
 
-### Networking and render smoothing (12)
-### Networking and render smoothing (18)
+### Networking and render smoothing (19)
 
 *Spec section: Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated)*
 
@@ -2173,12 +2065,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (294)
-### Core simulation (provisional values) (300)
-### Core simulation (provisional values) (302)
-### Core simulation (provisional values) (298)
-### Core simulation (provisional values) (295)
-### Core simulation (provisional values) (297)
+### Core simulation (provisional values) (321)
 
 *Spec section: Provisional values in use*
 
@@ -2664,22 +2551,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-A33A9397` | Instant step: the swing's forward motion profile | The step of every light and heavy strike (not the in-place stomp) up to its move-on time (`MoveAt` x the lock scale) is an ease-out 1-(1-u)^2 of the clip's own motion up to that time: full speed on the first tick (was 0 to 0.1 m in tick 1: the clips'… (share (1 = wholly)) | kind: ours; kind: estimate; confidence: low | owner 2026-11-06; the ease-out shape and "up to the move-on time" are ours | Instant step: the swing's forward motion profile: compare with SM1 by feel or video. Ours: The step of every light and heavy strike (not the in-place stomp) up… | ☐ |
 | `R-DA956AB3` | Legs for the new step | Every weapon's strikes, light and heavy (not the in-place stomp), stretch the clip's stride by the body's travel over the clip's root motion (`ClipStrideScale` = lunge scale x `LungeFactor`), as the hammer's lights did (factor) | kind: ours; confidence: medium | ours | Legs for the new step: compare with SM1 by feel or video. Ours: Every weapon's strikes, light and heavy (not the in-place stomp)… | ☐ |
 
-*Spec section: Jump escape, hop-cancel momentum and descent recharge (protocol 62; sim/jump-escape, sim/hop-cancel-momentum, sim/descent-recharge, 2026-11-06)*
-
-| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
-|---|---|---|---|---|---|---|
-| `R-8FE4B958` | Fuel: recharge in the descent, Classic PvP | the pack also recharges at `recharge_rate` in a jump's hang and fall (after the apex: the pack no longer lifts), besides on the ground; Musou Mode keeps the ground-only recharge. From full with the data's values (flat ground, `JumpEscapeTests`): full jump 1… (power/s) | kind: interpretation; confidence: low | owner 2026-11-06 (two jumps, a third shortly after); when the original recharges is not in the data | Fuel: recharge in the descent, Classic PvP: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the pack also recharges at recharge_rate in a jump's hang and fall… | ☐ |
-*Spec section: Stream B timing fixes: holstered cooldowns, toss follow-through, predicted own plasma ball, the hammer's string reset (protocol 62, 2026-11-06)*
-
-| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
-|---|---|---|---|---|---|---|
-| `R-FF00B134` | Shot cooldown per weapon | Each weapon keeps its own shot cooldown: on a switch the one in hand goes into the holster with it and the one taken brings its own; holstered cooldowns run down as in hand. Cause of (1): the player had one cooldown, so the lascannon's 1.0 s (`shot_cooldown`)… (s) | kind: interpretation; confidence: medium; notes: ours | the original's cooldown is the weapon's ability's (`shot_cooldown` per wargear); that it runs on while holstered is ours | Shot cooldown per weapon: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Each weapon keeps its own shot cooldown: on a switch the one in hand… | ☐ |
-| `R-F7A8C74F` | Toss follow-through (client) | After the simulation's throw ends (at the 0.1 s release) the toss clip plays on at its own speed to the toss graph's `BRANCH_UseEquipment_End` (0.667 s of the clip: 0.467 s more), own and others', both sides; it gives way at once to a shot, a charge, a raise… (s) | kind: estimate; confidence: medium; notes: ours | the length is the data's throw end; "a little longer" read as playing the clip out; the cut rules ours | Toss follow-through (client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: After the simulation's throw ends (at the 0.1 s release) the toss… | ☐ |
-| `R-CE1DCB12` | Predicted own plasma ball (client) | The own shot of a plasma weapon whose stage launches a projectile (the gun's and pistol's charged shot, the cannon's basic and charged; both sides) launches a client ball on the frame the prediction fires (the release tick), from the shot's origin along its… (s) | kind: ours; confidence: medium | the flight is the server's (`World.Fly`); prediction, matching and the 0.75 s ours | Predicted own plasma ball (client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The own shot of a plasma weapon whose stage launches a projectile… | ☐ |
-| `R-786AC78F` | Hammer and maul: a new string after the light combo | After the light combo's last swing X3 (`SM_MEL_TH_HeavyATK02`, 2.333 s) a light or heavy press (nothing queued) ends it and starts attack 1 or heavy strike 1 in the same tick from **1.333 s**, 1 s before the clip's end (before: 2.333 s). The data's… (s) | kind: estimate; confidence: low | the owner's request ("1 second"); the data's tag for comparison | Hammer and maul: a new string after the light combo: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: After the light combo's last swing X3 (SM_MEL_TH_HeavyATK02, 2.333 s)… | ☐ |
-| `R-A70E6CE5` | Hammer and maul: X1 and X2 string reset | A press after X1's or X2's combo window (no chain) starts a new string from the sequencer's `BRANCH_Melee_String_Reset`: X1 at 0.72 of 2.667 s = 1.92 s, X2 at 0.8548 of 2.333 s = 1.995 s (before: their clip's end, 2.667 / 2.333 s); each at or after its combo… (s) | kind: interpretation; confidence: medium | graph `MP_SM_MEL_ThunderHammer` (the maul shares the map); that the tag frees a new string is an interpretation | Hammer and maul: X1 and X2 string reset: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A press after X1's or X2's combo window (no chain) starts a new… | ☐ |
-| `R-DA2A5484` | Other weapons' string ends | Not changed: the power sword's and power / chain axe's last light swings (and the heavy classes' kick) still end at their clip's end; whether their `BRANCH_Melee_String_Reset` should free a new string too is the owner's call (s) | kind: ours; confidence: low | ours (scope of the owner's request) | Other weapons' string ends: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Not changed: the power sword's and power / chain axe's last light… | ☐ |
-| `R-56110630` | Charged release delay: what is left | The press starts the charge and the release fires (the M31 rule, unchanged); from the release the own shot's flash, sound and ball all start on the release tick's frame. The detonation of the own ball still plays when the interpolated view reaches the… | kind: gap (not reproduced); confidence: low | — | Charged release delay: what is left: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The press starts the charge and the release fires (the M31 rule… | ☐ |
 *Spec section: Musou Mode: a burst of deaths spread over frames, near wind-ups first (night batch 2026-11-06, `night/death-spike`; client drawing and the server's send order, Musou Mode only, no protocol, wire or config-hash change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -2698,6 +2569,24 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B4194374` | Victory wave (Musou) | when a battle's Warboss falls (not the final assault's), **500** unleashed Orks come in, **12** a tick (about 1.4 s), on a ring **45** m round the living players' centre (retainers counted), each at the next golden-angle bearing (every side evenly at any… (Orks, m) | kind: estimate; confidence: low; notes: ours | the owner, 2026-11-06 ("giant wave from all angles"); every number ours | Victory wave (Musou): compare with SM1 by feel or video. Ours: when a battle's Warboss falls (not the final assault's), 500… | ☐ |
 | `R-C669757F` | Overdue deaths a frame (Musou) | a death that has waited its 0.1 s comes out whatever the soft counts, but at most **48** a frame, of them at most **8** ragdolls (the rest wait a frame more, drawn dying in place); before stream D every overdue death came out in that frame (deaths) | kind: ours; confidence: low | ours (stream D: "a grenade that kills many Orks still hitches") | Overdue deaths a frame (Musou): compare with SM1 by feel or video. Ours: a death that has waited its 0.1 s comes out whatever the soft counts… | ☐ |
 | `R-D64B71DC` | Grenade mass kill, measured (Musou) | server, synthetic arena, three big frags into a packed crowd of live Orks (`TfwGrenadeBurstTests`): 150 Orks, 130 killed, quiet tick median 0.45 ms, the blast ticks 0.6 to 1.3 ms warm; 400 Orks, 279 killed, quiet 0.8 ms, blasts 1.1 to 1.2 ms (one 34 to 73 ms… (ms) | confidence: low | measured | Grenade mass kill, measured (Musou): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: server, synthetic arena, three big frags into a packed crowd of live… | ☐ |
+
+*Spec section: Jump escape, hop-cancel momentum and descent recharge (protocol 62; sim/jump-escape, sim/hop-cancel-momentum, sim/descent-recharge, 2026-11-06)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-8FE4B958` | Fuel: recharge in the descent, Classic PvP | the pack also recharges at `recharge_rate` in a jump's hang and fall (after the apex: the pack no longer lifts), besides on the ground; Musou Mode keeps the ground-only recharge. From full with the data's values (flat ground, `JumpEscapeTests`): full jump 1… (power/s) | kind: interpretation; confidence: low | owner 2026-11-06 (two jumps, a third shortly after); when the original recharges is not in the data | Fuel: recharge in the descent, Classic PvP: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the pack also recharges at recharge_rate in a jump's hang and fall… | ☐ |
+
+*Spec section: Stream B timing fixes: holstered cooldowns, toss follow-through, predicted own plasma ball, the hammer's string reset (protocol 62, 2026-11-06)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-FF00B134` | Shot cooldown per weapon | Each weapon keeps its own shot cooldown: on a switch the one in hand goes into the holster with it and the one taken brings its own; holstered cooldowns run down as in hand. Cause of (1): the player had one cooldown, so the lascannon's 1.0 s (`shot_cooldown`)… (s) | kind: interpretation; confidence: medium; notes: ours | the original's cooldown is the weapon's ability's (`shot_cooldown` per wargear); that it runs on while holstered is ours | Shot cooldown per weapon: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Each weapon keeps its own shot cooldown: on a switch the one in hand… | ☐ |
+| `R-F7A8C74F` | Toss follow-through (client) | After the simulation's throw ends (at the 0.1 s release) the toss clip plays on at its own speed to the toss graph's `BRANCH_UseEquipment_End` (0.667 s of the clip: 0.467 s more), own and others', both sides; it gives way at once to a shot, a charge, a raise… (s) | kind: estimate; confidence: medium; notes: ours | the length is the data's throw end; "a little longer" read as playing the clip out; the cut rules ours | Toss follow-through (client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: After the simulation's throw ends (at the 0.1 s release) the toss… | ☐ |
+| `R-CE1DCB12` | Predicted own plasma ball (client) | The own shot of a plasma weapon whose stage launches a projectile (the gun's and pistol's charged shot, the cannon's basic and charged; both sides) launches a client ball on the frame the prediction fires (the release tick), from the shot's origin along its… (s) | kind: ours; confidence: medium | the flight is the server's (`World.Fly`); prediction, matching and the 0.75 s ours | Predicted own plasma ball (client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The own shot of a plasma weapon whose stage launches a projectile… | ☐ |
+| `R-786AC78F` | Hammer and maul: a new string after the light combo | After the light combo's last swing X3 (`SM_MEL_TH_HeavyATK02`, 2.333 s) a light or heavy press (nothing queued) ends it and starts attack 1 or heavy strike 1 in the same tick from **1.333 s**, 1 s before the clip's end (before: 2.333 s). The data's… (s) | kind: estimate; confidence: low | the owner's request ("1 second"); the data's tag for comparison | Hammer and maul: a new string after the light combo: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: After the light combo's last swing X3 (SM_MEL_TH_HeavyATK02, 2.333 s)… | ☐ |
+| `R-A70E6CE5` | Hammer and maul: X1 and X2 string reset | A press after X1's or X2's combo window (no chain) starts a new string from the sequencer's `BRANCH_Melee_String_Reset`: X1 at 0.72 of 2.667 s = 1.92 s, X2 at 0.8548 of 2.333 s = 1.995 s (before: their clip's end, 2.667 / 2.333 s); each at or after its combo… (s) | kind: interpretation; confidence: medium | graph `MP_SM_MEL_ThunderHammer` (the maul shares the map); that the tag frees a new string is an interpretation | Hammer and maul: X1 and X2 string reset: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A press after X1's or X2's combo window (no chain) starts a new… | ☐ |
+| `R-DA2A5484` | Other weapons' string ends | Not changed: the power sword's and power / chain axe's last light swings (and the heavy classes' kick) still end at their clip's end; whether their `BRANCH_Melee_String_Reset` should free a new string too is the owner's call (s) | kind: ours; confidence: low | ours (scope of the owner's request) | Other weapons' string ends: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Not changed: the power sword's and power / chain axe's last light… | ☐ |
+| `R-56110630` | Charged release delay: what is left | The press starts the charge and the release fires (the M31 rule, unchanged); from the release the own shot's flash, sound and ball all start on the release tick's frame. The detonation of the own ball still plays when the interpolated view reaches the… | kind: gap (not reproduced); confidence: low | — | Charged release delay: what is left: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The press starts the charge and the release fires (the M31 rule… | ☐ |
 
 ### General game design (7)
 

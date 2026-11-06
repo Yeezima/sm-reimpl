@@ -274,7 +274,7 @@ public class SolidBodiesTests(ITestOutputHelper output)
         Assert.True(new SimConfig().SolidBodies);
         Assert.Equal(new SimConfig().Hash(), (new SimConfig() with { SolidBodies = true }).Hash());
         Assert.NotEqual(new SimConfig().Hash(), (new SimConfig() with { SolidBodies = false }).Hash());
-        Assert.Equal(62, Protocol.Version);
+        Assert.Equal(63, Protocol.Version);
     }
 
     // ---------------------------------------------------------------- clash, stun and recoil states
