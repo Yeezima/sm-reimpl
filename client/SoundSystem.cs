@@ -108,6 +108,27 @@ public partial class SoundSystem : Node
     public static string LpfBusName(int level) => LpfNames[Math.Clamp(level, 0, LpfBuses)];
 
     /// <summary>
+    /// sound/mix-and-reloads: the on-hit buses (<see cref="VoiceOffset.HighPass"/>): a high-pass at <see cref="SoundMixPass.HitHighPassHz"/> (24 dB per octave) into <see cref="BusName"/>;
+    /// level k of them also holds the low-pass of <see cref="LpfBusName"/>(k).
+    /// </summary>
+    public const string HitBusName = "SmHit";
+    static readonly string[] HitNames = Enumerable.Range(0, LpfBuses + 1).Select(i => i == 0 ? HitBusName : $"SmHitLpf{i}").ToArray();
+    public static string HitBusOf(int level) => HitNames[Math.Clamp(level, 0, LpfBuses)];
+
+    /// <summary><c>--sound-mix-classic</c> (test aid): the mix before sound/mix-and-reloads (no fire and hit gains, no hit high-pass, master as set, no jump pack tail fade).</summary>
+    public static readonly bool MixClassic = OS.GetCmdlineUserArgs().Contains("--sound-mix-classic");
+
+    /// <summary>The master bus at the options' master level with the pass's 10 % boost (<see cref="SoundMixPass.MasterBusDb"/>), and a limiter on it so the boost does not clip.</summary>
+    public static void ApplyMasterVolume(float linear)
+    {
+        AudioServer.SetBusVolumeDb(0, SoundMixPass.MasterBusDb(linear, MixClassic));
+        if (MixClassic) return;
+        for (int i = 0; i < AudioServer.GetBusEffectCount(0); i++)
+            if (AudioServer.GetBusEffect(0, i) is AudioEffectHardLimiter) return;
+        AudioServer.AddBusEffect(0, new AudioEffectHardLimiter { CeilingDb = SoundMixPass.MasterCeilingDb, PreGainDb = 0f });
+    }
+
+    /// <summary>
     /// The cutoff (Hz) a Wwise LPF value stands for: exponential from 20 kHz at 0 to 150 Hz at 100. **Provisional approximation**
     /// (ours): the engine's mapping is not in the data.
     /// </summary>
@@ -229,6 +250,19 @@ public partial class SoundSystem : Node
             AudioServer.SetBusSend(index, BusName);
             AudioServer.AddBusEffect(index, new AudioEffectLowPassFilter { CutoffHz = CutoffHz(level * LpfStep), Resonance = 0.5f, Db = AudioEffectFilter.FilterDB.Filter12Db });
         }
+        // sound/mix-and-reloads: the on-hit buses, the high-pass (and at level k the same low-pass), into the reverb/limiter bus.
+        for (int level = 0; level <= LpfBuses; level++)
+        {
+            string name = HitBusOf(level);
+            if (AudioServer.GetBusIndex(name) >= 0) continue;
+            AudioServer.AddBus();
+            int index = AudioServer.BusCount - 1;
+            AudioServer.SetBusName(index, name);
+            AudioServer.SetBusSend(index, BusName);
+            if (level > 0) AudioServer.AddBusEffect(index, new AudioEffectLowPassFilter { CutoffHz = CutoffHz(level * LpfStep), Resonance = 0.5f, Db = AudioEffectFilter.FilterDB.Filter12Db });
+            AudioServer.AddBusEffect(index, new AudioEffectHighPassFilter { CutoffHz = SoundMixPass.HitHighPassHz, Resonance = 0.5f, Db = AudioEffectFilter.FilterDB.Filter24Db });
+        }
+        ApplyMasterVolume(SmClient.Customizer.Model.LiveOptions.Current.MasterVolume);
     }
 
     /// <summary>The reverb send for the listener's environment region (0 none; the map's amount, e.g. 0.3), eased over ~0.5 s.</summary>
@@ -662,6 +696,7 @@ public partial class SoundSystem : Node
         var mix = MixOf(a).With(a.Offset);
         // ui/menu-rebuild: the Options menu's music, effects and voice volumes (0 dB at the default).
         float db = mix.VolumeDb + GlobalGainDb + (a.Footstep ? FootstepGainDb : 0f) + SmClient.Customizer.Model.LiveOptions.GainDb(SmClient.Customizer.Model.GameOptions.CategoryOf(a.Event));
+        db += SoundMixPass.TailGainDb(a.Offset.TailDb, _now - a.Started);   // sound/mix-and-reloads: the jump pack launch's tail
         if (a.FadeUntil > 0) db += 20f * MathF.Log10(Math.Max(0.001f, (float)Math.Clamp((a.FadeUntil - _now) / KillFade, 0.0, 1.0)));   // killed by an instance limit: linear fade out
         if (a.Player is AudioStreamPlayer3D p3 && Distance(a.Emitter) is var (pos, _)) p3.GlobalPosition = pos;
         a.Effective = db;
@@ -676,7 +711,7 @@ public partial class SoundSystem : Node
             else FilterChanges++;
             a.LpfLevel = level;
         }
-        StringName? bus = busChanged ? new StringName(level == 0 ? BusName : LpfBusName(level)) : null;
+        StringName? bus = busChanged ? new StringName(a.Offset.HighPass ? HitBusOf(level) : level == 0 ? BusName : LpfBusName(level)) : null;
         if (a.Player is AudioStreamPlayer3D q)
         {
             q.VolumeDb = clamped;
