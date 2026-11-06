@@ -184,14 +184,14 @@ vec3 grimed(vec3 c, vec2 p, float k) {
 	float n3 = gfbm(p * 2.3 + 5.0);
 	float soot = smoothstep(0.42, 0.72, n1) * 0.7 + smoothstep(0.5, 0.8, n2) * 0.5;
 	float ash = smoothstep(0.66, 0.92, 1.0 - n1) * 0.30;
-	c = mix(c, vec3(0.07, 0.068, 0.064) * (0.8 + 0.4 * n3), clamp(soot, 0.0, 0.8) * k);
+	c = mix(c, vec3(0.17, 0.172, 0.18) * (0.8 + 0.4 * n3), clamp(soot, 0.0, 0.8) * k);
 	c = mix(c, vec3(0.40, 0.395, 0.385), ash * k);
 	// scorch marks: large dark radial patches on a jittered 20 m grid
 	vec2 sc = p / 20.0; vec2 si = floor(sc); vec2 sf = fract(sc);
 	vec2 cen = vec2(0.25 + 0.5 * gh21(si + 3.0), 0.25 + 0.5 * gh21(si + 9.0));
 	float on = step(0.45, gh21(si + 17.0));
 	float sr = length(sf - cen) * (0.8 + 0.4 * n2);
-	c = mix(c, vec3(0.04, 0.038, 0.036), (1.0 - smoothstep(0.08, 0.26, sr)) * on * 0.8 * k);
+	c = mix(c, vec3(0.11, 0.11, 0.12), (1.0 - smoothstep(0.08, 0.26, sr)) * on * 0.8 * k);
 	return c * (1.0 - 0.3 * k * (n3 - 0.5)) * (1.0 - 0.18 * k);   // grit, and the whole ground a little dimmer: the pale paving no longer glares
 }
 uint cellhash(int a, int b, int s) {
