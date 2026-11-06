@@ -33,6 +33,7 @@ Scanned 2340 spec table rows: **1702 tagged**, 459 not tagged (read from data wi
 Scanned 2342 spec table rows: **1702 tagged**, 459 not tagged (read from data with high confidence), 181 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
 Scanned 2344 spec table rows: **1704 tagged**, 461 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 520 rows of the changes document.
 Scanned 2339 spec table rows: **1700 tagged**, 459 not tagged (read from data with high confidence), 180 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
+Scanned 2335 spec table rows: **1697 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 515 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -76,6 +77,10 @@ Scanned 2339 spec table rows: **1700 tagged**, 459 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 172 | 163 | 80 | 49 | 0 |
 | **All areas** | **1700** | 1465 | 1299 | 528 | 38 |
+| Core simulation (provisional values) | 295 | 277 | 233 | 46 | 1 |
+| General game design | 7 | 7 | 6 | 0 | 0 |
+| Ork faction | 172 | 163 | 80 | 49 | 0 |
+| **All areas** | **1697** | 1462 | 1300 | 526 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -85,6 +90,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: low | 621 |
 | kind: ours | 845 |
 | confidence: low | 618 |
+| kind: ours | 840 |
+| confidence: low | 620 |
 | confidence: medium | 552 |
 | kind: interpretation | 345 |
 | notes: ours | 336 |
@@ -112,6 +119,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: estimate | 103 |
 | kind: provisional | 99 |
 | notes: estimate | 86 |
+| notes: estimate | 84 |
 | kind: user's knowledge | 51 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
@@ -2078,6 +2086,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 ### Core simulation (provisional values) (300)
 ### Core simulation (provisional values) (302)
 ### Core simulation (provisional values) (298)
+### Core simulation (provisional values) (295)
 
 *Spec section: Provisional values in use*
 
@@ -2187,6 +2196,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-2C4B8D7D` | Ashfall openings pass (debris collision) | rubble, cover and collapsed-wall models with through-openings (gaps in a debris pile, a window in a wall piece) are not merged into six slabs along their run (`AshfallDraft5.Coarse`, which filled every gap) but by an opening-aware merge in the model's raw… (boxes, share of opening size) | kind: ours; confidence: low; notes: estimate | owner 2026-11-06 (the window pass left 368 debris openings closed; the batch brief); 6 boxes and the 30 % core ours, an estimate | Ashfall openings pass (debris collision): compare with SM1 by feel or video. Ours: rubble, cover and collapsed-wall models with through-openings (gaps… | ☐ |
 | `R-CB5ABCA2` | Ashfall storm look (draft 7, client) | Musou Mode's Ashfall only: a storm sky shader (dark cloud deck, a warm band at the horizon under it, the sun breaking through with rays); the sun 17 degrees high at azimuth -22 degrees (just west of north: the attackers look into it), colour (1.0, 0.70… | kind: ours; confidence: low; notes: estimate | owner 2026-11-06 ("fires around the map, ashes flying around the sky, dark clouds in the skybox, light poking through. this is musou mode only.") and his… | Ashfall storm look (draft 7, client): compare with SM1 by feel or video. Ours: Musou Mode's Ashfall only: a storm sky shader (dark cloud deck, a… | ☐ |
 | `R-B125E932` | Ashfall concept pass (client) | Musou Mode's Ashfall only, on the draft-7 storm look (the owner's concept art and his shadow report, 2026-11-06): sun 32 degrees high (was 26: shorter shadows), energy 1.15, shadow blur 2.0, volumetric energy 0.55 (was 1.1); ambient (0.49, 0.50, 0.52) x 0.95… | kind: ours; confidence: low; notes: estimate | owner 2026-11-06 (concept art; "roughly double the amount and visual presence of airborne dirt and dust", "something is wrong with the shadows"); every value… | Ashfall concept pass (client): compare with SM1 by feel or video. Ours: Musou Mode's Ashfall only, on the draft-7 storm look (the owner's… | ☐ |
+| `R-70C7C784` | Ashfall concept light pass (client) | Musou Mode's Ashfall only, on the concept pass (the owner, 2026-11-06: "Musou currently feels too dark"; his concept art as the target): a break sky (charcoal clouds (0.030, 0.032, 0.036) to grey (0.115, 0.118, 0.126), cover 0.44, heavy overhead, a grey haze… | kind: ours; confidence: low; notes: estimate | owner 2026-11-06 (concept art; "too dark", "brighten the playable battlefield", "don't solve the palette by permanently recoloring the original 3D assets")… | Ashfall concept light pass (client): compare with SM1 by feel or video. Ours: Musou Mode's Ashfall only, on the concept pass (the owner… | ☐ |
+| `R-A59E81C5` | Ashfall concept look, fable passes (client) | Musou Mode's Ashfall only, on the concept light pass (the owner's concept art, 2026-11-06, and his round-2 notes: sky "pale and blown out", floor "cream and too bright", no golden shafts, "almost none" fires, ash and sparks, "the 3d asset buildings are too… | kind: ours; confidence: low | owner 2026-11-06 (concept art; round-2 notes; skybox via OpenArt; Blender bake approved); every value ours, tuned by eye and by measured luminance against the… | Ashfall concept look, fable passes (client): compare with SM1 by feel or video. Ours: Musou Mode's Ashfall only, on the concept light pass (the owner's… | ☐ |
 | `R-CAAE90AA` | Battle markers and capture tracker (concept pass, client) | each position's ring a black decal 0.22 m wide at its radius, projected 5 m down and 2 m up (players, Orks and pickups skip it: render layer 2), a flat black band on Compatibility; the letter 24 m over its point (was 9), shown while the view's heading is… (m, degrees, px) | kind: ours; confidence: low | owner 2026-11-06 ("thin, opaque black ground rings", letters "much higher", "only when the player is looking toward its point", a capture-progress indicator)… | Battle markers and capture tracker (concept pass, client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each position's ring a black decal 0.22 m wide at its radius… | ☐ |
 | `R-20236BCE` | War walking graph | the battlefield alone, 0.5 m cells, seeded from the map's own spawn markers, points and start areas with the bots' 30 m margin, so no node in the Stormbird and the spawn rooms open; cached as `tfw_war-musou-<key>.nav`; one node in four checked for 4 m of room… (m) | kind: ours | ours | War walking graph: compare with SM1 by measuring on a flat spot of the same map. Ours: the battlefield alone, 0.5 m cells, seeded from the map's own spawn… | ☐ |
 | `R-D0FB7BED` | War map look | the battlefield: the map's own meshes, lighting, effects and sounds (original asset loaded). The Stormbird: the original `thunderhawk_interior` from the singleplayer chunk `part_01__s_002_r001_new_greybox_1` (original asset loaded: 15 blocks, 28 surfaces with… | kind: ours; confidence: low | the look ours, checked in windowed captures against the owner's two references | War map look: compare with SM1 by feel or video. Ours: the battlefield: the map's own meshes, lighting, effects and sounds… | ☐ |
@@ -2990,6 +3001,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-C907BC90` | Ashfall debris collision keeps its gaps (openings pass, 2026-11-06, Musou Mode / Ashfall only) | Ashfall's rubble, cover and collapsed-wall pieces with through-openings are fitted by an opening-aware merge instead of six slabs, so a shot passes through a visible gap in a debris pile and a player walks through a gap wide enough; the original's collision is not known | Musou added content (Ashfall is our own map); the owner's window request extended to debris | ours | Ashfall debris collision keeps its gaps (openings pass…: compare with SM1 by feel or video. Ours: Ashfall's rubble, cover and collapsed-wall pieces with… | ☐ |
 | `C-DFC081B4` | Ashfall's storm look (draft 7, client, Musou Mode only) | the owner's request of 2026-11-06 ("fires around the map, ashes flying around the sky, dark clouds in the skybox, light poking through. this is musou mode only.") and his reference image; every value ours | on `tfw_war` only: a storm sky shader, a low warm sun, ACES grade, fog and volumetric light shafts, soft light-shaft beams, 9 smoke plumes and 34 fires at deterministic spots, ash, rock flakes and embers around the camera (`AshfallStorm`, `AshfallAtmosphere`); scaled by the lighting preset, thinner on the… | Ashfall storm look (draft 7, client) | Ashfall's storm look (draft 7, client, Musou Mode only): compare with SM1 by feel or video. Ours: the owner's request of 2026-11-06 ("fires around the map, ashes… | ☐ |
 | `C-B58DB761` | Ashfall concept pass (client, Musou Mode only) | the owner's concept art and his notes of 2026-11-06 (doubled airborne dirt, grime, black capture rings, raised letters shown when looked toward, a capture tracker; "something is wrong with the shadows"); every value ours | a higher sun and lifted grey shade, layered height haze, twice the ash and flakes with far debris and dust banks that never come near the camera, runtime grime on the ground, boundary and kit models, thin black ground rings, letters 24 m up shown only toward the view, a capture tracker on the HUD; `--ashfall-concept`… | Ashfall concept pass (client); Battle markers and capture tracker (concept pass, client) | Ashfall concept pass (client, Musou Mode only): compare with SM1 by feel or video. Ours: the owner's concept art and his notes of 2026-11-06 (doubled airborne… | ☐ |
+| `C-0FECB0BB` | Ashfall concept light pass (client, Musou Mode only) | the owner's concept art and his note of 2026-11-06 ("Musou currently feels too dark"); every value ours | a brighter, cooler grade with a fill light for what the sun leaves in shade, a storm sky with a warm break low behind the keep and far ruins in the haze, the boundary drawn to a ruined top (collision unchanged), cool grey ground tints and a floor wash; `--ashfall-concept v1`, `--ashfall-concept off`; never on Classic… | Ashfall concept light pass (client) | Ashfall concept light pass (client, Musou Mode only): compare with SM1 by feel or video. Ours: the owner's concept art and his note of 2026-11-06 ("Musou currently… | ☐ |
+| `C-C1F8181D` | Ashfall concept look, fable passes (client, Musou Mode only) | the owner's concept art and round-2 notes (2026-11-06); every value ours | our generated storm panorama sky with the warm break behind the keep; the kit drawn from Blender-baked, grimier, darker, matte copies of the owner's models (originals untouched, `--ashfall-kit-files source` draws them) plus a runtime multiply grime on every renderer; a cooler grade with lifted shade; camera-facing… | Ashfall concept look, fable passes (client) | Ashfall concept look, fable passes (client, Musou Mode only): compare with SM1 by feel or video. Ours: the owner's concept art and round-2 notes (2026-11-06); every value… | ☐ |
 
 ### Deliberate changes (owner's decisions)
 

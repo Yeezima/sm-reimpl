@@ -100,6 +100,9 @@ public static class AshfallKit
     /// <summary>Folder under <c>%LOCALAPPDATA%\sm-reimpl\</c> that holds the extracted library (<c>source\</c>).</summary>
     public const string PrivateFolder = "ashfall-kit";
 
+    /// <summary>The storm sky panorama, relative to the library's source root (our own generated image; shipped like the kit models, never committed).</summary>
+    public const string SkyFile = "sky/ashfall_storm_sky.jpg";
+
     public static readonly IReadOnlyList<AshfallKitModel> Models =
     [
         new("AC-033", "fractured avenue segment", AshfallKitCategory.Ground, "ashfall-ground/models/AC-033_fractured_avenue_segment.glb", new(-8.0000f, -0.3000f, -4.0000f), new(8.0000f, 0.0000f, 4.0000f), 6444, "measured", "measured", Review: false),

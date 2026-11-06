@@ -168,6 +168,8 @@ uniform float tile = 8.0;
 varying vec3 wpos;
 varying vec3 wnor;
 uniform float grime = 0.0;
+uniform float dark = 1.0;   // ashfall darkening (AshfallGrime): the whole surface times this
+uniform vec3 dark_tint = vec3(1.0);
 float gh21(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float gvn(vec2 p) {
 	vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -180,10 +182,16 @@ vec3 grimed(vec3 c, vec2 p, float k) {
 	float n1 = gfbm(p * 0.16 + 4.7);
 	float n2 = gfbm(p * 0.6 + 17.0);
 	float n3 = gfbm(p * 2.3 + 5.0);
-	float soot = smoothstep(0.42, 0.72, n1) * 0.6 + smoothstep(0.5, 0.8, n2) * 0.45;
+	float soot = smoothstep(0.42, 0.72, n1) * 0.7 + smoothstep(0.5, 0.8, n2) * 0.5;
 	float ash = smoothstep(0.66, 0.92, 1.0 - n1) * 0.30;
-	c = mix(c, vec3(0.10, 0.095, 0.088) * (0.8 + 0.4 * n3), clamp(soot, 0.0, 0.7) * k);
-	c = mix(c, vec3(0.50, 0.49, 0.47), ash * k);
+	c = mix(c, vec3(0.17, 0.172, 0.18) * (0.8 + 0.4 * n3), clamp(soot, 0.0, 0.8) * k);
+	c = mix(c, vec3(0.40, 0.395, 0.385), ash * k);
+	// scorch marks: large dark radial patches on a jittered 20 m grid
+	vec2 sc = p / 20.0; vec2 si = floor(sc); vec2 sf = fract(sc);
+	vec2 cen = vec2(0.25 + 0.5 * gh21(si + 3.0), 0.25 + 0.5 * gh21(si + 9.0));
+	float on = step(0.45, gh21(si + 17.0));
+	float sr = length(sf - cen) * (0.8 + 0.4 * n2);
+	c = mix(c, vec3(0.11, 0.11, 0.12), (1.0 - smoothstep(0.08, 0.26, sr)) * on * 0.8 * k);
 	return c * (1.0 - 0.3 * k * (n3 - 0.5)) * (1.0 - 0.18 * k);   // grit, and the whole ground a little dimmer: the pale paving no longer glares
 }
 uint cellhash(int a, int b, int s) {
@@ -216,7 +224,7 @@ void fragment() {
 	vec3 c = texture(tex, p / tile).rgb;
 	c = ((c - 0.58) * (1.0 + 0.24 * (gn - 0.5)) + 0.58) * (1.0 + 0.08 * (tn - 0.5));
 	c = grimed(c, wpos.xz, grime);
-	ALBEDO = c * tint.rgb;
+	ALBEDO = c * tint.rgb * dark * dark_tint;
 	ROUGHNESS = 1.0;
 }
 """;
@@ -231,6 +239,12 @@ uniform float tile = 4.0;
 varying vec3 wpos;
 varying vec3 wnor;
 uniform float grime = 0.0;
+uniform float dark = 1.0;   // ashfall darkening (AshfallGrime): the whole surface times this
+uniform vec3 dark_tint = vec3(1.0);
+// Concept light pass (2026-11-06; ours): the drawn wall ends in a ruined top this high (metres; 0 = the full wall). Drawing only: the collision keeps its full height.
+uniform float top_cut = 0.0;
+uniform float desat = 0.0;   // and its stone this much nearer a neutral grey (0: the texture's own hue)
+uniform vec3 bounce = vec3(0.0);   // and the open sky's light on its faces in shade (times the albedo; 0: none)
 float gh21(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float gvn(vec2 p) {
 	vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -260,6 +274,14 @@ void vertex() {
 }
 void fragment() {
 	vec3 an = abs(wnor);
+	if (top_cut > 0.0) {
+		float run = an.x > an.z ? wpos.z : wpos.x;   // along the wall
+		float cell = floor(run / 9.0);
+		float top = top_cut * (0.75 + 0.45 * gh21(vec2(cell, 3.0)));                 // ruined spans of uneven height
+		top += step(0.55, fract(run / 2.4)) * 1.4 * step(0.35, gh21(vec2(cell, 7.0)));   // battlements on some spans
+		top -= top_cut * 0.45 * smoothstep(0.62, 0.9, gvn(vec2(run * 0.045, 1.0)));     // broken bites
+		if (wpos.y > top) discard;
+	}
 	vec3 c;
 	// derivatives taken outside the branch (they are undefined inside a divergent one): textureGrad then keeps the mip chain smooth across the top/side change
 	bool xface = an.x > an.z;
@@ -306,7 +328,8 @@ void fragment() {
 	}
 	vec2 face = an.y > an.x && an.y > an.z ? wpos.xz : vec2(xface ? wpos.z : wpos.x, wpos.y);
 	c = grimed(c, face, grime * (0.6 + 0.6 * (1.0 - smoothstep(0.0, 5.0, wpos.y))));
-	ALBEDO = c * tint.rgb;
+	ALBEDO = mix(c, vec3(dot(c, vec3(0.3, 0.59, 0.11))), desat) * tint.rgb * dark * dark_tint;
+	EMISSION = ALBEDO * bounce;
 	ROUGHNESS = 1.0;
 }
 """;
@@ -569,7 +592,7 @@ void fragment() {
         foreach (var id in _library.TakeReady()) _toPlace.Enqueue(id);
         // Models that arrived but did not fit this frame's budget wait for the next frame (TakeReady drains the library's queue).
         while (_toPlace.Count > 0 && (long)Time.GetTicksUsec() <= budgetEnd) Instantiate(_toPlace.Dequeue());
-        if (!_harmonised && libraryDone && _library.Loaded > 0) { _harmonised = true; Harmonise(); }
+        if (!_harmonised && libraryDone) { _harmonised = true; if (_library.Loaded > 0) Harmonise(); }
         if (!_reported && libraryDone && _toPlace.Count == 0 && _library.Loaded + _library.Failed > 0)
         {
             _reported = true;
@@ -582,7 +605,7 @@ void fragment() {
 
     /// <summary>
     /// Material harmonisation (ours): the generated models differ in how pale their base colour is (manifest: AC-009, AC-012, AC-022 and above all AC-028 "brighter than neighbouring assets"). Once every model is
-    /// loaded, each model's measured base-colour luminance is scaled toward the median of the loaded set (factor clamped to 0.6..1.1, multiplied into its materials' albedo colour). The factors are logged once.
+    /// loaded, each model's measured base-colour luminance is scaled toward the median of the loaded set (factor clamped to 0.6..1.0 since the baked copies: never brightened; multiplied into its materials' albedo colour and into the stored original of the light pass's matte guard). The factors are logged once.
     /// </summary>
     void Harmonise()
     {
@@ -594,12 +617,18 @@ void fragment() {
         var log = new List<string>();
         foreach (var a in ok.OrderBy(a => a.Id))
         {
-            float f = Math.Clamp(median / a.Luma, 0.6f, 1.1f);
+            float f = Math.Clamp(median / a.Luma, 0.6f, 1.0f);   // never brightened (the baked copies are already the dark grey)
+            // rubble heaps (the cream boulder heap of the NE corner, 2026-11-07): a step darker than the walls, so they read as the same soot-grey stone
+            if (AshfallKit.Models.FirstOrDefault(m => m.Id == a.Id) is { Category: AshfallKitCategory.Debris } && a.Id != "AC-020") f *= 0.6f;
             if (MathF.Abs(f - 1f) < 0.02f) continue;
             foreach (var piece in a.Pieces)
                 for (int s = 0; s < piece.Mesh.GetSurfaceCount(); s++)
                     if (piece.Mesh.SurfaceGetMaterial(s) is BaseMaterial3D m && done.Add(m))
+                    {
                         m.AlbedoColor = new Color(m.AlbedoColor.R * f, m.AlbedoColor.G * f, m.AlbedoColor.B * f, m.AlbedoColor.A);
+                        // AshfallStorm.DimKit keeps a material's colour in this metadata and recomputes from it: keep the factor there too (review)
+                        if (m.HasMeta("ashfall_albedo")) { var c = m.GetMeta("ashfall_albedo").AsColor(); m.SetMeta("ashfall_albedo", new Color(c.R * f, c.G * f, c.B * f, c.A)); }
+                    }
             log.Add($"{a.Id} {a.Luma:F2}x{f:F2}");
         }
         GD.Print($"ashfall kit: albedo harmonised toward median luminance {median:F2}: {(log.Count == 0 ? "no change" : string.Join(", ", log))}");

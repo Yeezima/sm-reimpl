@@ -24,7 +24,7 @@ public static class AshfallAtmosphere
     static readonly HashSet<string> PlumeRuins = ["AC-003", "AC-005", "AC-030", "AC-044", "AC-051", "AC-052"];
 
     /// <summary>The fire spots of a level and its dressing: plumes first, then the small fires; the same list on every machine (integer hashes, total-order sorts).</summary>
-    public static IReadOnlyList<AshfallFireSpot> FireSpots(AshfallLevel level, AshfallDressing dressing)
+    public static IReadOnlyList<AshfallFireSpot> FireSpots(AshfallLevel level, AshfallDressing dressing, int smallFires = SmallFires)
     {
         var boxes = AshfallOverlap.Boxes(level, dressing);
         var byItem = boxes.GroupBy(b => b.Item).ToDictionary(g => g.Key, g => g.Select(x => x.Box).ToList());
@@ -64,7 +64,7 @@ public static class AshfallAtmosphere
         int fires = 0;
         foreach (var (_, at, size, o) in fireCands.OrderBy(x => x.Key).ThenBy(x => x.At.X).ThenBy(x => x.At.Y))
         {
-            if (fires >= SmallFires) break;
+            if (fires >= smallFires) break;
             if (!Clear(level, at) || boxes.Any(b => Inside(b.Box, new(at.X, at.Y), 0.3f) && b.Box.Z0 < at.Z + 1.5f && b.Box.Z1 > at.Z + 0.1f)) continue;
             if (spots.Any(q => Vector2.Distance(new(q.Position.X, q.Position.Y), new(at.X, at.Y)) < FireSpacing)) continue;
             spots.Add(new AshfallFireSpot(at, size, false, o));
