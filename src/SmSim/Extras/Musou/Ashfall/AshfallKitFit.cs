@@ -48,6 +48,18 @@ public sealed record AshfallKitFitQuality(int FineResolution, int BandCells, int
     /// <summary>Model silhouette where the boxes are see-through (a hole through the collision), along the worst of the three axes, in per cent of the model's silhouette.</summary>
     public double HoleSilhouettePercent { get; init; }
 
+    /// <summary>Through-openings found in the model's walls (windows, arches, door-sized holes; the window pass, <see cref="AshfallKitFit.FindOpenings"/>).</summary>
+    public int OpeningCount { get; init; }
+
+    /// <summary>Openings whose core the boxes block (less than <see cref="AshfallKitFit.Gate.MinOpeningClearPercent"/> % clear): a shot through that window would stop.</summary>
+    public int BlockedOpenings { get; init; }
+
+    /// <summary>The least clear opening's core share, in per cent (100 without openings).</summary>
+    public double WorstOpeningClearPercent { get; init; } = 100;
+
+    /// <summary>Each opening as measured (not stored in the generated file; <see cref="AshfallKitCollision.Openings"/> holds the committed ones).</summary>
+    public IReadOnlyList<AshfallKitOpening> Openings { get; init; } = [];
+
     /// <summary>Why the fit fails the gate (empty when it passes).</summary>
     public IReadOnlyList<string> Failures() => AshfallKitFit.Gate.Failures(this);
 
@@ -69,7 +81,11 @@ public sealed record AshfallKitFitResult(IReadOnlyList<(Vector3 Min, Vector3 Max
 public sealed record AshfallKitFitSettings(int Resolution, int MaxBoxes, float FillTolerance, int Seal);
 
 /// <summary>A model's gated fit: the fewest boxes among the settings tried that pass the gate (or, when none does, the closest), with its measure.</summary>
-public sealed record AshfallKitGatedFit(AshfallKitFitResult Fit, AshfallKitFitQuality Quality, AshfallKitFitSettings Settings, int Tried);
+public sealed record AshfallKitGatedFit(AshfallKitFitResult Fit, AshfallKitFitQuality Quality, AshfallKitFitSettings Settings, int Tried)
+{
+    /// <summary>The model's through-openings the fit carved and the gate checked (window pass).</summary>
+    public AshfallKitOpeningMap? Openings { get; init; }
+}
 
 /// <summary>
 /// Offline collision fit (Ashfall kit, draft 4): a model's triangles become a short list of axis-aligned boxes that approximate its solid form. Pure and deterministic: voxelise on a grid anchored
@@ -78,7 +94,7 @@ public sealed record AshfallKitGatedFit(AshfallKitFitResult Fit, AshfallKitFitQu
 /// Numbers only: the output is committed as <c>AshfallKitCollision.g.cs</c> by <c>smtool ashfall-kit-collision</c>. Draft 6 adds the collision quality gate (<see cref="Measure"/>, <see cref="Gate"/>, <see cref="FitGated"/>):
 /// dust is a loose piece of solid, an opening blocks a merge only beyond the surface's own cell, and an optional seal closes cracks before the fill.
 /// </summary>
-public static class AshfallKitFit
+public static partial class AshfallKitFit
 {
     /// <summary>Cells on the longest axis for the boxes. Finer grids (the first try used 40) trace every chip of the Meshy surfaces and leave 50 to 130 boxes that no tolerance merges; 16 keeps the fit smooth.</summary>
     public const int DefaultResolution = 16;
@@ -117,7 +133,8 @@ public static class AshfallKitFit
 
     /// <summary>Fits boxes to a triangle soup. <paramref name="positions"/>/<paramref name="indices"/> are in the raw glTF frame (Y up).</summary>
     public static AshfallKitFitResult Fit(IReadOnlyList<Vector3> positions, IReadOnlyList<int> indices, Vector3 rawMin, Vector3 rawMax,
-        int resolution = DefaultResolution, int maxBoxes = DefaultMaxBoxes, float fillTolerance = DefaultFillTolerance, int topResolution = DefaultTopResolution, bool ramps = false, int seal = 0)
+        int resolution = DefaultResolution, int maxBoxes = DefaultMaxBoxes, float fillTolerance = DefaultFillTolerance, int topResolution = DefaultTopResolution, bool ramps = false, int seal = 0,
+        AshfallKitOpeningMap? openings = null)
     {
         var size = rawMax - rawMin;
         float longest = Math.Max(size.X, Math.Max(size.Y, size.Z));
@@ -125,6 +142,8 @@ public static class AshfallKitFit
         float cell = longest / resolution;
         var g = seal > 0 ? SealedSolidGrid(positions, indices, rawMin, size, cell, seal) : SolidGrid(positions, indices, rawMin, size, cell);
         int solidCells = g.Solid.Count(b => b);
+        // Window pass (2026-11-06): the cells in a through-opening are cleared before anything merges, and no merge may cover them again.
+        var carved = openings != null ? CarveOpenings(g, cell, openings) : new bool[g.Solid.Length];
 
         // Dust (draft 6): loose flecks, i.e. connected pieces of solid (26-connected) smaller than 0.2 % of the solid volume, are removed before merging. Draft 5 dropped every
         // one-cell-thick merged box under that size, which at the walkable models' 48 cells cut thin walls into strips and dropped them (AC-010 lost 28 % of its solid: holes through its walls).
@@ -134,11 +153,12 @@ public static class AshfallKitFit
         {
             // everything was dust: keep the solid as it was
             g = seal > 0 ? SealedSolidGrid(positions, indices, rawMin, size, cell, seal) : SolidGrid(positions, indices, rawMin, size, cell);
+            carved = openings != null ? CarveOpenings(g, cell, openings) : new bool[g.Solid.Length];
             kept = GreedyMerge(g); dropped = 0; droppedVol = 0;
         }
 
         bool capReached = false;
-        if (kept.Count > maxBoxes) { capReached = true; kept = Reduce(g, kept, maxBoxes, fillTolerance); }
+        if (kept.Count > maxBoxes) { capReached = true; kept = Reduce(g, kept, maxBoxes, fillTolerance, carved); }
         bool overCap = kept.Count > maxBoxes;
 
         var covered = new bool[g.Solid.Length];
@@ -473,14 +493,14 @@ public static class AshfallKitFit
         return prot;
     }
 
-    static List<Box> Reduce(Grid g, List<Box> start, int maxBoxes, float tolerance)
+    static List<Box> Reduce(Grid g, List<Box> start, int maxBoxes, float tolerance, bool[] carved)
     {
         // Draft 6: a merge pays only for empty cells more than one cell from the solid (air next to the surface is the fit's own quantisation; the gate does not count it either),
         // and an opening is kept only where it is more than one cell from the solid.
         var near = Dilate(g, g.Solid, 1);
         var solid = new Prefix(g, i => g.Solid[i]);
         var prot = ProtectedOpenings(g);
-        var protectedCount = new Prefix(g, i => prot[i] && !near[i]);
+        var protectedCount = new Prefix(g, i => (prot[i] && !near[i]) || carved[i]);
         var boxes = new List<Box>(start);
         var alive = new List<bool>();
         foreach (var _ in start) alive.Add(true);
@@ -545,19 +565,20 @@ public static class AshfallKitFit
     public static AshfallKitGatedFit FitGated(IReadOnlyList<Vector3> positions, IReadOnlyList<int> indices, Vector3 rawMin, Vector3 rawMax, bool walkable)
     {
         AshfallKitGatedFit? best = null;
+        var openings = FindOpenings(positions, indices, rawMin, rawMax);
         int bestFailures = int.MaxValue, tried = 0;
         foreach (var st in GateLadder(walkable))
         {
             tried++;
-            var fit = Fit(positions, indices, rawMin, rawMax, st.Resolution, st.MaxBoxes, st.FillTolerance, walkable ? st.Resolution : DefaultTopResolution, ramps: walkable, seal: st.Seal);
-            var q = Measure(positions, indices, rawMin, rawMax, fit.Boxes, fit.Metrics.CellSize);
+            var fit = Fit(positions, indices, rawMin, rawMax, st.Resolution, st.MaxBoxes, st.FillTolerance, walkable ? st.Resolution : DefaultTopResolution, ramps: walkable, seal: st.Seal, openings: openings);
+            var q = Measure(positions, indices, rawMin, rawMax, fit.Boxes, fit.Metrics.CellSize, openings);
             int failures = q.Failures().Count;
             if (best == null || failures < bestFailures || (failures == bestFailures && fit.Boxes.Count < best.Fit.Boxes.Count))
             {
                 best = new(fit, q, st, 0); bestFailures = failures;
             }
         }
-        return best! with { Tried = tried };
+        return best! with { Tried = tried, Openings = openings };
     }
 
     /// <summary>
@@ -575,6 +596,9 @@ public static class AshfallKitFit
         public const double MaxPocketPercent = 4.0;
         public const double MaxDeepAirViewPercent = 10.0;
 
+        /// <summary>Window pass (2026-11-06; ours, an estimate): every through-opening's core must be at least this clear of boxes (frames and mullions may stay solid; the core is the opening less one band at its edge).</summary>
+        public const double MinOpeningClearPercent = 90.0;
+
         /// <summary>Models the gate only reports: the manifest flags them never-used (AC-015, AC-016, AC-026).</summary>
         public static readonly IReadOnlyList<string> ReportOnlyIds = ["AC-015", "AC-016", "AC-026"];
 
@@ -589,6 +613,7 @@ public static class AshfallKitFit
             if (q.PhantomSilhouettePercent > MaxPhantomSilhouettePercent) r.Add(string.Format(inv, "boxes fill {0:F1} % of a see-through view, over {1:F1} %", q.PhantomSilhouettePercent, MaxPhantomSilhouettePercent));
             if (q.HoleSilhouettePercent > MaxHoleSilhouettePercent) r.Add(string.Format(inv, "holes through the boxes {0:F1} % of a view, over {1:F1} %", q.HoleSilhouettePercent, MaxHoleSilhouettePercent));
             if (q.DeepAirViewPercent > MaxDeepAirViewPercent) r.Add(string.Format(inv, "deep air behind {0:F1} % of a view, over {1:F1} %", q.DeepAirViewPercent, MaxDeepAirViewPercent));
+            if (q.BlockedOpenings > 0) r.Add(string.Format(inv, "{0} of {1} window opening(s) blocked (least clear {2:F0} %, under {3:F0} %)", q.BlockedOpenings, q.OpeningCount, q.WorstOpeningClearPercent, MinOpeningClearPercent));
             if (q.LargestPocketPercent > MaxPocketPercent) r.Add(string.Format(inv, "an air pocket {0:F1} % of the longest side, over {1:F1} %", q.LargestPocketPercent, MaxPocketPercent));
             return r;
         }
@@ -608,7 +633,8 @@ public static class AshfallKitFit
     /// Cracks up to 2 x <see cref="SealCells"/> cells are sealed first. Air within <see cref="BandCells"/> fine cells of the solid (one cell of the 48-cell fit, the finest the fit uses) is not counted as air; everything else a box covers and the mesh does not is far air.
     /// <paramref name="fitCell"/> (the fit's cell) is not used by the measure; it stays so callers record which fit was measured.
     /// </summary>
-    public static AshfallKitFitQuality Measure(IReadOnlyList<Vector3> positions, IReadOnlyList<int> indices, Vector3 rawMin, Vector3 rawMax, IReadOnlyList<(Vector3 Min, Vector3 Max)> boxes, float fitCell)
+    public static AshfallKitFitQuality Measure(IReadOnlyList<Vector3> positions, IReadOnlyList<int> indices, Vector3 rawMin, Vector3 rawMax, IReadOnlyList<(Vector3 Min, Vector3 Max)> boxes, float fitCell,
+        AshfallKitOpeningMap? openings = null)
     {
         var size = rawMax - rawMin;
         float longest = Math.Max(size.X, Math.Max(size.Y, size.Z));
@@ -698,16 +724,24 @@ public static class AshfallKitFit
             }
             if (silCount > 0) { phantom = Math.Max(phantom, 100.0 * ph / silCount); holes = Math.Max(holes, 100.0 * ho / silCount); airView = Math.Max(airView, 100.0 * av / silCount); }
         }
+        // Window pass: every through-opening's core must stay clear of the boxes.
+        openings ??= FindOpenings(positions, indices, rawMin, rawMax);
+        var measured = openings.Nx == g.Nx && openings.Ny == g.Ny && openings.Nz == g.Nz ? MeasureOpenings(openings, covered) : [];
         return new(MeasureResolution, band, (int)solid, uni == 0 ? 1.0 : (double)inter / uni,
             cov == 0 ? 0 : 100.0 * far / cov, cov == 0 ? 0 : 100.0 * over / cov, 100.0 * worstBox, surface == 0 ? 0 : 100.0 * missed / surface, (int)cov)
-        { PhantomSilhouettePercent = phantom, HoleSilhouettePercent = holes, LargestPocketPercent = pocket, DeepAirViewPercent = airView };
+        {
+            PhantomSilhouettePercent = phantom, HoleSilhouettePercent = holes, LargestPocketPercent = pocket, DeepAirViewPercent = airView,
+            OpeningCount = measured.Count, BlockedOpenings = measured.Count(o => !o.Open), WorstOpeningClearPercent = measured.Count == 0 ? 100 : measured.Min(o => o.ClearPercent), Openings = measured,
+        };
     }
 
     /// <summary>
     /// A PNG for checking a fit by eye (smtool ashfall-kit-collision --views): top row the front (looking along -Z), bottom row the side (along +X), each at <see cref="MeasureResolution"/> cells;
     /// left the model's solid (grey, darker is nearer), middle the boxes (blue), right the far air inside the boxes (red, darker is more air along the view).
+    /// With <paramref name="openings"/> (window pass) each through-opening seen along the view is drawn on the model (left) and the boxes (middle): green where no box blocks its ray through the wall, magenta where one does.
     /// </summary>
-    public static byte[] ViewsPng(IReadOnlyList<Vector3> positions, IReadOnlyList<int> indices, Vector3 rawMin, Vector3 rawMax, IReadOnlyList<(Vector3 Min, Vector3 Max)> boxes, int scale)
+    public static byte[] ViewsPng(IReadOnlyList<Vector3> positions, IReadOnlyList<int> indices, Vector3 rawMin, Vector3 rawMax, IReadOnlyList<(Vector3 Min, Vector3 Max)> boxes, int scale,
+        AshfallKitOpeningMap? openings = null)
     {
         int res = MeasureResolution;
         var size = rawMax - rawMin;
@@ -743,6 +777,19 @@ public static class AshfallKitFit
                 else if (solidD >= 0) Px(2 * pw + u, py, 220, 220, 220);
             }
         }
+        if (openings != null && openings.Nx == g.Nx && openings.Ny == g.Ny && openings.Nz == g.Nz)
+            foreach (var o in openings.Found)
+            {
+                int view = o.Axis == 2 ? 0 : 1;
+                foreach (var (u, y, d0, d1) in o.Runs)
+                {
+                    bool blocked = false;
+                    for (int d = d0; d <= d1 && !blocked; d++) blocked = cov[o.Axis == 2 ? g.Index(u, y, d) : g.Index(d, y, u)];
+                    int py = view * (g.Ny + 2) + (g.Ny - 1 - y);
+                    var (r, gg, b) = blocked ? ((byte)230, (byte)0, (byte)200) : ((byte)0, (byte)190, (byte)60);
+                    Px(u, py, r, gg, b); Px(pw + u, py, r, gg, b);
+                }
+            }
         // PNG
         using var ms = new MemoryStream();
         void Chunk(string type, byte[] data)

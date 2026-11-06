@@ -39,7 +39,7 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
     [Fact]
     public void The_level_is_the_draft_6_level_and_the_dressing_is_deterministic()
     {
-        Assert.Equal(12u, AshfallMap.Version);
+        Assert.Equal(13u, AshfallMap.Version);
         Assert.Equal(5u, AshfallMap.GrayboxVersion);
         Assert.Equal(AshfallDraft5Tests.PinnedLevelHash, Level.Hash);
         Assert.Equal(AshfallMap.Build().Hash, Level.Hash);
