@@ -6,7 +6,7 @@ namespace SmSim.Extras.Musou.Ashfall;
 internal static partial class AshfallDressPass
 {
     /// <summary>The roads' lines: centre, width. Avenues are 24 m, the perimeter road 16 m.</summary>
-    static readonly (float C, float W)[] RoadLines = [(-232f, 16f), (-92f, 24f), (92f, 24f), (232f, 16f)];
+    internal static readonly (float C, float W)[] RoadLines = [(-232f, 16f), (-92f, 24f), (92f, 24f), (232f, 16f)];
 
     static readonly (float Lo, float Hi)[] BlockSpans = [(-224f, -104f), (-80f, 80f), (104f, 224f)];
 

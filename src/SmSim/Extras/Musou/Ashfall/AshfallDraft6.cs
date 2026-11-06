@@ -296,7 +296,9 @@ internal static partial class AshfallDraft5Pass
                         if (c.BreachRects.Any(r => r.X < grown.Z && r.Z > grown.X && r.Y < grown.W && r.W > grown.Y)) continue;
                         if (low.Any(r => r.X < grown.Z && r.Z > grown.X && r.Y < grown.W && r.W > grown.Y)) continue;
                         var item = new AshfallDressItem(pid, new Vector3(x, y, ground), yaw * (MathF.PI / 12f), size, false, AshfallDressRole.Prop, -1);
-                        if (Boxes(item, yaw, pid).Any(b => Banned(c, b))) continue;
+                        var pboxes = Boxes(item, yaw, pid);
+                        if (pboxes.Any(b => Banned(c, b))) continue;
+                        if (!OffRoad(c, pboxes)) { c.RoadPlatformsSkipped++; continue; }   // draft 8: the roads stay open
                         return (key, at, pid, size, yaw, ground, rect);
                     }
                 }
@@ -384,7 +386,7 @@ internal static partial class AshfallDraft5Pass
             var item = At(level - relA, sizeA);
             var boxes = Boxes(item, 0, id);
             if (!Supported(c, mn.X, level, yc, width) || !Supported(c, mx.X, level, yc, width)) return false;
-            if (boxes.Any(b => Banned(c, b)) || ThroughMidSpan(c, boxes, mn.X + 2f, mx.X - 2f, level)) return false;
+            if (boxes.Any(b => Banned(c, b)) || ThroughMidSpan(c, boxes, mn.X + 2f, mx.X - 2f, level) || !OffRoad(c, boxes, bridge: true)) return false;
             Emit(c, spec, item, 0, id, boxes, why, new Vector2(xc, yc));
             return true;
         }
@@ -401,7 +403,7 @@ internal static partial class AshfallDraft5Pass
                 var item = At(ground, new Vector3(span, depth, (deck - ground) / rel));
                 var boxes = Boxes(item, 0, id);
                 bool legs = boxes.Count(b => b.Centre.Z - b.Half.Z <= ground + 0.05f) >= 2 && LegsAtBothEnds(boxes, ground, xc);
-                bool banned = boxes.Any(b => Banned(c, b)), meets = Overlaps(c, boxes, mn.X + 0.3f * span, mx.X - 0.3f * span);
+                bool banned = boxes.Any(b => Banned(c, b)) || !OffRoad(c, boxes, bridge: true), meets = Overlaps(c, boxes, mn.X + 0.3f * span, mx.X - 0.3f * span);
                 legsWhy = !legs ? "no legs at both ends" : banned ? "a leg or a low box stands in a protected place" : meets ? "it meets a structure between its end thirds" : "";
                 if (legs && !banned && !meets)
                 {

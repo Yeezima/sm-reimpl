@@ -29,16 +29,19 @@ static class AshfallPlanCommand
     public static int Run(string[] rest)
     {
         string? outPath = null, jsonPath = null, glbPath = null;
+        bool noRoadway = false;
         for (int i = 0; i < rest.Length; i++)
         {
             if (rest[i] == "--out" && i + 1 < rest.Length) outPath = rest[++i];
             else if (rest[i] == "--dressing-json" && i + 1 < rest.Length) jsonPath = Path.GetFullPath(rest[++i]);
             else if (rest[i] == "--graybox-glb" && i + 1 < rest.Length) glbPath = Path.GetFullPath(rest[++i]);
-            else { Console.Error.WriteLine($"ashfall-plan: unknown argument \"{rest[i]}\" (usage: ashfall-plan [--out plan.svg] [--dressing-json file.json] [--graybox-glb file.glb])"); return 2; }
+            else if (rest[i] == "--no-roadway-rule") noRoadway = true;   // report aid: the placement without draft 8's roadway rule (before/after plans)
+            else { Console.Error.WriteLine($"ashfall-plan: unknown argument \"{rest[i]}\" (usage: ashfall-plan [--out plan.svg] [--dressing-json file.json] [--graybox-glb file.glb] [--no-roadway-rule])"); return 2; }
         }
         outPath ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "sm-reimpl", "cache", "previews", "ashfall-plan.svg");
         outPath = Path.GetFullPath(outPath);
         var (level, dressing) = AshfallMap.BuildWithDressing();
+        if (noRoadway) { var before = AshfallMap.RebuildWithoutRoadwayRule(); (level, dressing) = (before.Level, before.Dressing); Console.WriteLine("ashfall-plan: WITHOUT the draft-8 roadway rule (report aid)"); }
         var (_, hub, _) = TfwMap.WithHub(AshfallContent.ToMapContent(level).ToCollisionWorld(), manufactorum: false);
         var range = TfwRange.For(AshfallContent.ToMapContent(level).ToCollisionWorld());
         Directory.CreateDirectory(Path.GetDirectoryName(outPath)!);

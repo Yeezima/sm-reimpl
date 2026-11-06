@@ -39,7 +39,7 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
     [Fact]
     public void The_level_is_the_draft_6_level_and_the_dressing_is_deterministic()
     {
-        Assert.Equal(12u, AshfallMap.Version);
+        Assert.Equal(13u, AshfallMap.Version);
         Assert.Equal(5u, AshfallMap.GrayboxVersion);
         Assert.Equal(AshfallDraft5Tests.PinnedLevelHash, Level.Hash);
         Assert.Equal(AshfallMap.Build().Hash, Level.Hash);
@@ -52,7 +52,7 @@ public class AshfallKitDressingTests(ITestOutputHelper output)
         Assert.Equal(Dressing.ItemParts, fresh.Dressing.ItemParts);
         Assert.Equal(Dressing.Flags, fresh.Dressing.Flags);
         Assert.Equal(AshfallMap.DressVersion, Dressing.Version);
-        Assert.Equal(10u, AshfallMap.DressVersion);
+        Assert.Equal(11u, AshfallMap.DressVersion);
         long tris = Dressing.Items.Sum(i => (long)AshfallKit.Get(i.Asset).Triangles);
         output.WriteLine($"{Dressing.Items.Count} items, {tris:N0} model triangles at full detail, {Dressing.HiddenParts.Count} hidden parts, {Dressing.Structures!.Count} structures, {Level.Parts.Count} parts, hash {Level.Hash:X16}");
         foreach (var g in Dressing.Items.GroupBy(i => i.Role).OrderBy(g => g.Key)) output.WriteLine($"{g.Key,-10} {g.Count(),5} items, {g.Sum(i => (long)AshfallKit.Get(i.Asset).Triangles),12:N0} model triangles");
