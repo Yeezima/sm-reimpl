@@ -54,6 +54,8 @@ public sealed class FxEffect
     public bool GroundOnly;
     /// <summary>fx/jump-flash (the owner, 2026-11-02): draw only the jump pack thrust's <c>quick flash</c>, no flame or trail.</summary>
     public bool FlashOnly;
+    /// <summary>fx/jumppack-jets (ours): 0..1, scales every sprite, beam, streamer and light colour of the effect (a smooth fade in or out while it keeps playing); 1: the data's.</summary>
+    public float Opacity = 1f;
     /// <summary>fx/air-slash-landing: the effect's decals (crater, cracks) are not placed (the air slash's flash is the pound's burst without its ground marks).</summary>
     public bool NoDecals;
     /// <summary>feel/muzzle-smoke (owner's change of 2026-10-29, ours): 1 plays the data's look; below 1 a weapon's smoke elements (smoke trail beams and streamers, smoke puffs, sprays that emit them) keep this fraction of their width, radius and sideways speed. Set by the networked view for weapon fire, tracer and stop-fire effects only.</summary>
@@ -409,6 +411,14 @@ public sealed partial class FxPlayer : Node3D
     /// <summary>M40-T13: <paramref name="tint"/>'s hue at the colour's brightest channel (alpha kept); the colour itself without a tint.</summary>
     static Color Recolour(Color c, Color? tint) => tint is { } t ? new Color(t.R * Math.Max(c.R, Math.Max(c.G, c.B)), t.G * Math.Max(c.R, Math.Max(c.G, c.B)), t.B * Math.Max(c.R, Math.Max(c.G, c.B)), c.A) : c;
 
+    /// <summary>fx/jumppack-jets: <see cref="Recolour"/> then the effect's <see cref="FxEffect.Opacity"/> on every channel (additive and blended sprites both fade).</summary>
+    static Color Shade(Color c, FxEffect e)
+    {
+        var r = Recolour(c, e.Tint);
+        float o = Math.Clamp(e.Opacity, 0f, 1f);
+        return o >= 1f ? r : new Color(r.R * o, r.G * o, r.B * o, r.A * o);
+    }
+
     static Color Tint(FxColourCurve c, float t, float alphaScale = 1f)
     {
         var v = c.Evaluate(t);
@@ -432,7 +442,7 @@ public sealed partial class FxPlayer : Node3D
 
     void DrawEffect(FxEffect e)
     {
-        if (e.Hidden) return;
+        if (e.Hidden || e.Opacity <= 0.002f) return;
         float dist = _camPos.DistanceTo(e.Origin);
         // Distance culling (map ambience much farther than a hit spark).
         if (dist > (e.Ambient ? 100f : 220f)) return;
@@ -593,7 +603,7 @@ public sealed partial class FxPlayer : Node3D
         float radius = At(n.Radius, t, 0.1f) * c.S * Jitter(n.EpsRadius, seed, 8);
         if (e.SmokeRein < 1f && IsSmoke(n)) radius *= e.SmokeRein;   // feel/muzzle-smoke
         if (radius <= 0.0005f) return;
-        var colour = Recolour(Final(n, t, seed), e.Tint);
+        var colour = Shade(Final(n, t, seed), e);
         if (!_batch.Sprite(n.Material, CellFor(n, t, seed), out var rect)) { if (!n.Material.IsEmpty) _missing.Add("sprite:" + n.Material.Name); return; }
         var centre = c.Pos + c.B * (new Vector3(At(n.OffX, t, 0f), At(n.OffY, t, 0f), At(n.OffZ, t, 0f)) * c.S);
         float D = MathF.PI / 180f;
@@ -649,7 +659,7 @@ public sealed partial class FxPlayer : Node3D
             float angle = MathF.Acos(Math.Clamp(cosA, 0f, 1f)) * 180f / MathF.PI;
             alphaScale = Math.Clamp(angle / MathF.Max(1f, n.FadeAngle), 0f, 1f);
         }
-        var colour = Recolour(Final(n, t, seed, alphaScale), e.Tint);
+        var colour = Shade(Final(n, t, seed, alphaScale), e);
         // U range: the texture's metres per U, its scroll and offset.
         float u0, u1; int mode;
         bool clamp = n.Material.UAddressMode == 1;
@@ -748,7 +758,7 @@ public sealed partial class FxPlayer : Node3D
             side = side.LengthSquared() < 1e-8f ? _camBasis.X : side.Normalized();
             float f = (j + 0.5f) / N;
             float width = width0 * (1f - 0.7f * f);
-            var col = Recolour(n.Colour.IsEmpty ? Colors.White : Tint(n.Colour, f, master), e.Tint);
+            var col = Shade(n.Colour.IsEmpty ? Colors.White : Tint(n.Colour, f, master), e);
             float u0 = u, u1 = n.MeterPerU > 0.001f ? u + len / n.MeterPerU : (j + 1f) / N;
             if (n.MeterPerU <= 0.001f) u0 = (float)j / N;
             u = u1;
@@ -778,7 +788,7 @@ public sealed partial class FxPlayer : Node3D
         // A looping light (the map's lamps) stays on at its first key; the flash fades out.
         float t = n.Looping ? 0f : (float)(age / show);
         float intensity = At(n.Intensity, t, 1f) * At(n.Power, t, 1f);
-        var col = Recolour(n.Colour.IsEmpty ? Colors.White : Tint(n.Colour, t), e.Tint);   // the Chaos plasma's lights are purple too
+        var col = Shade(n.Colour.IsEmpty ? Colors.White : Tint(n.Colour, t), e);   // the Chaos plasma's lights are purple too
         float range = At(n.AttenEnd, t, 4f) * c.S;
         if (range < 0.3f || intensity <= 0f) return;
         var pos = c.Pos + c.B * (new Vector3(At(n.OffX, t, 0f), At(n.OffY, t, 0f), At(n.OffZ, t, 0f)) * c.S);
