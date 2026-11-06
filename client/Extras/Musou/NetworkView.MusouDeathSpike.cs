@@ -59,6 +59,8 @@ public partial class NetworkView
 {
     static readonly bool MusouDeathSpikeTest = ThreadClock.Enabled = CmdFlag("musou-death-spike-test");
     static readonly bool MusouDeathSpikeAb = CmdFlag("musou-death-spike-ab");
+    /// <summary>With <c>--musou-death-spike-ab</c>: the bursts take turns between the night batch's deadline (every overdue death at once, "old") and stream D's cap on the overdue ("new"), instead of the old hand-out.</summary>
+    static readonly bool MusouDeathSpikeDeadlineAb = CmdFlag("musou-death-spike-deadline-ab");
     /// <summary>Bursts measured before the client quits (the first is the cold one: pools and looks not yet used).</summary>
     const int Bursts = 15;
     const double WindowSeconds = 1.0, QuietAfter = 1.5;
@@ -110,7 +112,7 @@ public partial class NetworkView
         double parts = _spikeDeathsMs + _spikeCrowdMs + _spikeDollsMs + _spikeGoreMs + _spikeSoundsMs;
         if (arrived >= 10 && _spikeFrame < 0)
         {
-            _spikeFrame = 0; _spikeBurstWall = wall; _spikeDeaths = arrived; _spikeSpread = 0; _spikeOld = _musouOldDeaths;
+            _spikeFrame = 0; _spikeBurstWall = wall; _spikeDeaths = arrived; _spikeSpread = 0; _spikeOld = MusouDeathSpikeDeadlineAb ? _musouDeathDeadlineAll : _musouOldDeaths;
             (_spikeGc0, _spikeGc1, _spikeGc2, _spikeAlloc) = (GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2), GC.GetAllocatedBytesForCurrentThread());
             _spikeWorst = _spikeInside = _spikeOutside = _spikeWallWorst = _spikeParts = _spikeDeathsWorst = _spikeCrowdWorst = _spikeDollsWorst = _spikeGoreWorst = _spikeSoundsWorst = 0;
             _musouCrowd?.Timing();
@@ -140,14 +142,15 @@ public partial class NetworkView
         var quiet = _spikeQuiet.OrderBy(f => f).ToArray();
         _spikeQuiet.Clear();
         double p50 = quiet.Length == 0 ? double.NaN : quiet[quiet.Length / 2];
-        string line = $"MUSOUSPIKE burst {_spikeBurst} ({(_spikeOld ? "old" : "new")}): {_spikeDeaths} deaths in one frame{(_spikeOld ? ", all handed out at once" : $", handed out over {_spikeSpread + 1} frames")}; main-thread CPU: " +
+        string line = $"MUSOUSPIKE burst {_spikeBurst} ({(_spikeOld ? "old" : "new")}): {_spikeDeaths} deaths in one frame{(_spikeOld && !MusouDeathSpikeDeadlineAb ? ", all handed out at once" : $", handed out over {_spikeSpread + 1} frames")}; main-thread CPU: " +
                       $"worst frame {_spikeWorst:F1} ms (frame +{_spikeWorstAt}), the quiet frames before it p50 {p50:F1} ms; the Musou frame worst {_spikeInside:F1} ms, the rest of a frame worst {_spikeOutside:F1} ms; wall worst {_spikeWallWorst:F1} ms; " +
                       $"Musou parts worst {_spikeParts:F1} ms (deaths {_spikeDeathsWorst:F1}, crowd {_spikeCrowdWorst:F1} [{_musouCrowd?.Timing() ?? "-"}], ragdolls {_spikeDollsWorst:F1}, gore {_spikeGoreWorst:F1}, HUD and sounds {_spikeSoundsWorst:F1}); " +
                       $"bodies {_musouCrowd?.Bodies ?? 0}, ragdolls {_musouRagdolls?.Active ?? 0} of {_musouRagdolls?.Built ?? 0}; in the second: GCs {GC.CollectionCount(0) - _spikeGc0}/{GC.CollectionCount(1) - _spikeGc1}/{GC.CollectionCount(2) - _spikeGc2}, main thread allocated {(GC.GetAllocatedBytesForCurrentThread() - _spikeAlloc) / 1024} KB";
         GD.Print(line);
         if (_spikeBurst == 1) _spikeCold = $"{_spikeWorst:F1} ms ({(_spikeOld ? "old" : "new")})";
         else if (!double.IsNaN(p50)) _spikeResults.Add((_spikeOld, _spikeWorst, _spikeWorst - p50, _spikeInside, _spikeOutside));
-        if (MusouDeathSpikeAb) _musouOldDeaths = _spikeBurst % 2 == 1;   // bursts 2, 4, ... old; 3, 5, ... new
+        if (MusouDeathSpikeAb && MusouDeathSpikeDeadlineAb) _musouDeathDeadlineAll = _spikeBurst % 2 == 1;   // stream D: the deadline's two rules take turns
+        else if (MusouDeathSpikeAb) _musouOldDeaths = _spikeBurst % 2 == 1;   // bursts 2, 4, ... old; 3, 5, ... new
         if (_spikeBurst < Bursts) return;
         static double Median(IEnumerable<double> v) { var a = v.OrderBy(x => x).ToArray(); return a.Length == 0 ? double.NaN : a[a.Length / 2]; }
         foreach (bool old in new[] { true, false })

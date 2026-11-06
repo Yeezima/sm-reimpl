@@ -36,6 +36,15 @@ public sealed partial class MatchMenu : UiKit.MenuPage
         Rows.AddChild(_banner);
     }
 
+    /// <summary>A further row above LEAVE MATCH (an added content's own action, through the view's <c>ExtrasMatchMenu</c> hook; none in a faithful build).</summary>
+    public Button AddRow(string text, Action pressed)
+    {
+        var row = UiKit.MenuButton(text, () => pressed());
+        Rows.AddChild(row);
+        Rows.MoveChild(row, _leaveButton.GetIndex());
+        return row;
+    }
+
     /// <summary>The respawn line (the picker's banner) under the rows.</summary>
     public string Banner { set => _banner.Text = value.Replace("\n", "   ").ToUpperInvariant(); }
 

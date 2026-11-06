@@ -25,6 +25,7 @@ public partial class NetworkView
         if (_tfwState.War is not { } war) return;
         TfwOrderKeysFree();
         TfwOrdersFrame(war, me, (float)delta);
+        TfwRedeployFrame(war, me);   // NetworkView.TfwFlow.cs: a fallen player's deploy for a supply
         TfwStationsFrame(war, me);
         TfwHudFrame(war, me);
         TfwBossOrksFrame(war);   // the roaming Boss Orks' bars and call-outs (NetworkView.TfwBossOrks.cs)

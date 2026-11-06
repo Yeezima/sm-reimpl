@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2316 spec table rows: **1685 tagged**, 454 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 510 rows of the changes document.
+Scanned 2323 spec table rows: **1692 tagged**, 454 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,23 +50,23 @@ Scanned 2316 spec table rows: **1685 tagged**, 454 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
-| Core simulation (provisional values) | 290 | 274 | 230 | 40 | 1 |
+| Core simulation (provisional values) | 297 | 280 | 237 | 41 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 168 | 159 | 80 | 45 | 0 |
-| **All areas** | **1685** | 1452 | 1293 | 515 | 38 |
+| **All areas** | **1692** | 1458 | 1300 | 516 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 834 |
-| confidence: low | 614 |
-| confidence: medium | 551 |
+| kind: ours | 839 |
+| confidence: low | 618 |
+| confidence: medium | 554 |
 | kind: interpretation | 343 |
-| notes: ours | 329 |
+| notes: ours | 330 |
 | confidence: none (low) | 128 |
+| kind: estimate | 99 |
 | kind: provisional | 99 |
-| kind: estimate | 98 |
 | notes: estimate | 78 |
 | kind: user's knowledge | 51 |
 | notes: provisional | 38 |
@@ -1997,7 +1997,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-EB03504B` | Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks (s) | kind: ours; notes: estimate | owner 2026-11-02 | Shot lag allowance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each shot is also tried on the enemy's places over the last 0.2 s… | ☐ |
 
-### Core simulation (provisional values) (290)
+### Core simulation (provisional values) (297)
 
 *Spec section: Provisional values in use*
 
@@ -2463,6 +2463,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-3DC7F834` | Deaths handed out a frame (Musou) | the deaths the client is told of wait in a queue and are handed out (body, ragdoll, gore, death yell and fall) the nearest to the camera first, at most **24** a frame, of them at most **5** thrown as ragdolls (only as many as the pool of 20 can take count as… (deaths, s) | kind: ours; confidence: low | owner 2026-11-06 ("deaths may start up to about 100 ms staggered" is the brief's bound); values ours | Deaths handed out a frame (Musou): compare with SM1 by feel or video. Ours: the deaths the client is told of wait in a queue and are handed out… | ☐ |
 | `R-CAF64BE3` | Ragdoll pool dressed ahead (Musou) | once the 20 dolls are made, one doll a frame is given the meshes of one thrown look (Boy, Shoota Boy, 'Ard Boy, Gretchin, Nob), hidden, until every doll has every look, so the first blast of a match builds no nodes (dolls) | kind: ours; confidence: medium | ours | Ragdoll pool dressed ahead (Musou): compare with SM1 by feel or video. Ours: once the 20 dolls are made, one doll a frame is given the meshes of… | ☐ |
+
+*Spec section: Musou Mode: the late batch's run flow (stream D, 2026-11-06, branch `claude/late-d-musou-flow-662256`; Musou Mode only, TfwRules.Version 31, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-F610B7CE` | Redeploy cost (Musou) | a fallen human of the battle under way (Battle, Final Assault or Pickup; revive window open or not, extraction prompt running or not) sends `Redeploy` (Enter, A on the pad): it comes back at once at its own landing place (`TfwCoop.LandingOffset` by its index… (supplies) | kind: ours; confidence: medium | the owner, 2026-11-06 (cost and place); the key, the phases allowed and keeping the 3 s extraction prompt: ours | Redeploy cost (Musou): compare with SM1 by feel or video. Ours: a fallen human of the battle under way (Battle, Final Assault or… | ☐ |
+| `R-53E7644B` | Redeploy prompt (Musou) | under the prompt while dead in the battle: "ENTER: DEPLOY AT THE LANDING ZONE (1 SUPPLY)" ("A: ..." on the pad); "NO SUPPLIES TO DEPLOY AGAIN" when short | kind: ours; confidence: medium | ours | Redeploy prompt (Musou): compare with SM1 by feel or video. Ours: under the prompt while dead in the battle: "ENTER: DEPLOY AT THE… | ☐ |
+| `R-96C95B6A` | Host (Musou) | the human with the lowest player id in the match (the first to join; a local host's own client connects first); the server decides by it, the client shows the button by the same rule over the scoreboard | kind: ours; confidence: low | ours (the original has no host recall) | Host (Musou): compare with SM1 by feel or video. Ours: the human with the lowest player id in the match (the first to join… | ☐ |
+| `R-059303CA` | Host's recall (Musou) | the host's Esc menu has BACK TO STORMBIRD during a battle (`ReturnToShip`): the run enters Pickup for **20** s, then returns to the Stormbird with every human of the field (the fallen too), each with a fresh life; free (no transport, even from a battle not… (s) | kind: ours; confidence: medium | the owner, 2026-11-06 (20 s, host only); free, not cancelled by deaths, left when not won: ours | Host's recall (Musou): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the host's Esc menu has BACK TO STORMBIRD during a battle… | ☐ |
+| `R-B4194374` | Victory wave (Musou) | when a battle's Warboss falls (not the final assault's), **500** unleashed Orks come in, **12** a tick (about 1.4 s), on a ring **45** m round the living players' centre (retainers counted), each at the next golden-angle bearing (every side evenly at any… (Orks, m) | kind: estimate; confidence: low; notes: ours | the owner, 2026-11-06 ("giant wave from all angles"); every number ours | Victory wave (Musou): compare with SM1 by feel or video. Ours: when a battle's Warboss falls (not the final assault's), 500… | ☐ |
+| `R-C669757F` | Overdue deaths a frame (Musou) | a death that has waited its 0.1 s comes out whatever the soft counts, but at most **48** a frame, of them at most **8** ragdolls (the rest wait a frame more, drawn dying in place); before stream D every overdue death came out in that frame (deaths) | kind: ours; confidence: low | ours (stream D: "a grenade that kills many Orks still hitches") | Overdue deaths a frame (Musou): compare with SM1 by feel or video. Ours: a death that has waited its 0.1 s comes out whatever the soft counts… | ☐ |
+| `R-D64B71DC` | Grenade mass kill, measured (Musou) | server, synthetic arena, three big frags into a packed crowd of live Orks (`TfwGrenadeBurstTests`): 150 Orks, 130 killed, quiet tick median 0.45 ms, the blast ticks 0.6 to 1.3 ms warm; 400 Orks, 279 killed, quiet 0.8 ms, blasts 1.1 to 1.2 ms (one 34 to 73 ms… (ms) | confidence: low | measured | Grenade mass kill, measured (Musou): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: server, synthetic arena, three big frags into a packed crowd of live… | ☐ |
 
 ### General game design (7)
 
@@ -3432,6 +3444,10 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-8A28955D` | Instant step and 20 % longer steps (sim/instant-step, 2026-11-06) | A strike's forward root motion follows the clip's timing (slow start, most of it after the hit) and, since feel/melee-charge-2 and sim/swing-step, is scaled | The step of every light and heavy melee strike (not the in-place stomp, not the heavy classes' kick) starts at full speed on the first tick and settles toward the move-on time (same total, same hit time, same recovery), and is 1.2 x longer for every melee weapon (the hammer and maul too): chainsword lights 5.36 / 3.88… | Owner's request 2026-11-06, an **estimate** (the 1.2 and "instant" are the owner's, the ease-out shape is ours); spec "Instant step and 20 % longer steps"; test aids `SM_OLD_INSTANT_STEP=1`, `SM_OLD_STEP_BOOST=1`, `--old-strike-legs` | Instant step and 20 % longer steps (sim/instant-step…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-46D713B9` | Musou: a burst of deaths spread over frames (night batch 2026-11-06, `night/death-spike`) | No Musou Mode in the original | Ours (added content; the owner: remove the moment of extreme frame time when many Orks die at once): the client hands a burst's deaths out over a few frames, the nearest first, at most 24 a frame and 5 ragdolls, none later than 0.1 s, each drawn dying in place meanwhile; the death yells and falls go with the body; the… | Musou Mode only, client drawing. Spec "Musou Mode: a burst of deaths spread over frames, near wind-ups first". | Musou: a burst of deaths spread over frames (night batch…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-F505AB42` | Musou: near wind-ups sent first (night batch 2026-11-06, `night/death-spike`) | No Musou Mode in the original | Ours (added content): an enemy within 15 m whose state changed since this client's last record of him goes right after the leaders, before far Orks overdue for 15 ticks; a telegraph's first copy goes before every other event copy. Under a full budget a near wind-up came up to 2 ticks late (telegraphs up to 4 behind a… | Musou Mode only; Classic PvP networking untouched; no wire change. Spec rows "Musou enemy interest", "Musou send budget". | Musou: near wind-ups sent first (night batch 2026-11-06…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-AD4E3877` | Musou: deploy after death for a supply (late batch 2026-11-06, stream D; `TfwRules.Version` 31) | No Musou Mode in the original | Ours in its details (added content; the owner: "choosing deploy after dying respawns the player at the original start spawn and costs 1 supply"): a fallen human of the battle presses Enter (A on the pad) and comes back at once at its own landing place for 1 supply, its revive window and the extraction prompt cleared… | Musou Mode only. Spec "Musou Mode: the late batch's run flow". | Musou: deploy after death for a supply (late batch…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-ECEB1CF4` | Musou: the host's BACK TO STORMBIRD (late batch 2026-11-06, stream D) | No Musou Mode in the original | Ours (added content; the owner: the host presses it, players survive 20 s, then the run returns to the Stormbird): an Esc-menu row for the host (the lowest human id) during a battle; the run enters Pickup for 20 s, free, not called off by a death, only by the host; a battle not won counts as left. | Musou Mode only; the Esc menu gets the row through the `ExtrasMatchMenu` hook (nothing in a faithful build). | Musou: the host's BACK TO STORMBIRD (late batch 2026-11-06…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-C9DDDF91` | Musou: a giant Ork wave after the Warboss (late batch 2026-11-06, stream D) | No Musou Mode in the original | Ours (added content; the owner: "a giant Ork wave attacks from all angles" after the Warboss dies): 500 Orks, 12 a tick, on a ring 45 m round the living players at golden-angle bearings (every side), every 8th an 'Ard Boy; not after the final assault. Every number an estimate. | Musou Mode only. Spec "Musou Mode: the late batch's run flow". | Musou: a giant Ork wave after the Warboss (late batch…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-CBBAC49F` | Musou: overdue deaths capped per frame (late batch 2026-11-06, stream D) | No Musou Mode in the original | Ours (added content; "a grenade that kills many Orks still hitches"): deaths that have waited their 0.1 s come out at most 48 a frame, 8 of them ragdolls, instead of all at once, so a big burst at a slow frame rate no longer lands in one frame. Client `--musou-death-deadline-all` restores the night batch's rule. | Musou Mode only, client drawing. | Musou: overdue deaths capped per frame (late batch…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

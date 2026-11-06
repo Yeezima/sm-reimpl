@@ -16,12 +16,21 @@ public static class MusouDeathRules
     /// </summary>
     public const int PerFrame = 24, DollsPerFrame = 5;
     public const float MaxWaitSeconds = 0.1f;
+    /// <summary>
+    /// The most a frame hands out even of deaths that have waited their most, and of them thrown as ragdolls (late batch 2026-11-06, stream D: "a grenade that kills many Orks still hitches").
+    /// Without it a burst bigger than <see cref="MaxWaitSeconds"/> of <see cref="PerFrame"/> (three big frags in a crowd of 400 kill about 280, measured on the server) came out in one frame once
+    /// due, and at a slow frame rate the whole burst did (200 deaths over 2 frames at about 10 fps); now 280 deaths take at least 6 frames. <c>--musou-death-deadline-all</c> restores the old rule.
+    /// </summary>
+    public const int DuePerFrame = 48, DueDollsPerFrame = 8;
 }
 
 public partial class NetworkView
 {
     /// <summary>Test aid: <c>--musou-old-deaths</c> hands every death out in the frame it arrives, as before the night batch of 2026-11-06 (the death-spike test's A/B run switches it per burst).</summary>
     static readonly bool MusouOldDeathsFlag = CmdFlag("musou-old-deaths");
+    /// <summary>Test aid: <c>--musou-death-deadline-all</c> hands out every death that has waited its most in that frame, whatever the count (the night batch's rule, before stream D's <see cref="MusouDeathRules.DuePerFrame"/>).</summary>
+    static readonly bool MusouDeathDeadlineAllFlag = CmdFlag("musou-death-deadline-all");
+    bool _musouDeathDeadlineAll = MusouDeathDeadlineAllFlag;
     bool _musouOldDeaths = MusouOldDeathsFlag;
 
     readonly record struct WaitingDeath(MusouDeathShown Death, double Arrived);
@@ -63,7 +72,10 @@ public partial class NetworkView
             // Only as many as the pool can take become dolls (the nearest); the rest tumble as crowd bodies, which cost little and go out at once.
             bool doll = MusouDeathIsDoll(w.Death, metres) && ++candidates <= available;
             bool due = _musouDeathNow - w.Arrived >= MusouDeathRules.MaxWaitSeconds;
-            if (due || (given < MusouDeathRules.PerFrame && (!doll || dolls < MusouDeathRules.DollsPerFrame)))
+            bool room = due
+                ? _musouDeathDeadlineAll || (given < MusouDeathRules.DuePerFrame && (!doll || dolls < MusouDeathRules.DueDollsPerFrame))   // stream D: even the overdue come a frame's worth at a time
+                : given < MusouDeathRules.PerFrame && (!doll || dolls < MusouDeathRules.DollsPerFrame);
+            if (room)
             {
                 _musouDeaths.Add(w.Death);
                 _musouDeathAge[w.Death.Id] = (float)(_musouDeathNow - w.Arrived);
