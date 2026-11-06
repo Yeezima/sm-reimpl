@@ -31,11 +31,12 @@ Rows read from the install with high confidence and no such wording are not tagg
 Scanned 2319 spec table rows: **1686 tagged**, 456 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 509 rows of the changes document.
 Scanned 2318 spec table rows: **1683 tagged**, 456 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 509 rows of the changes document.
 Scanned 2318 spec table rows: **1687 tagged**, 454 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 509 rows of the changes document.
+Scanned 2319 spec table rows: **1687 tagged**, 455 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 509 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 378 | 322 | 321 | 112 | 12 |
-| Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
+| Combat core (critical) | 11 | 2 | 11 | 9 | 9 |
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
 | Melee (critical) | 103 | 90 | 80 | 32 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
@@ -52,12 +53,13 @@ Scanned 2318 spec table rows: **1687 tagged**, 454 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
-| Core simulation (provisional values) | 288 | 272 | 228 | 40 | 1 |
+| Core simulation (provisional values) | 292 | 274 | 230 | 44 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 168 | 159 | 80 | 45 | 0 |
 | **All areas** | **1686** | 1453 | 1294 | 516 | 38 |
 | Ork faction | 172 | 163 | 80 | 49 | 0 |
 | **All areas** | **1687** | 1454 | 1291 | 519 | 38 |
+| **All areas** | **1687** | 1452 | 1294 | 519 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -73,6 +75,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: ours | 330 |
 | confidence: none (low) | 128 |
 | kind: estimate | 99 |
+| kind: ours | 831 |
+| confidence: low | 616 |
+| confidence: medium | 550 |
+| kind: interpretation | 343 |
+| notes: ours | 333 |
+| confidence: none (low) | 128 |
+| kind: estimate | 101 |
 | kind: provisional | 99 |
 | notes: estimate | 78 |
 | kind: estimate | 98 |
@@ -721,7 +730,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-62C36356` | War Guardsman health | 85, the install's `ig_coop_guardsman` value, in place of the design's 40: with 40 the 6 squads lost to 60 Boyz in the box (all 60 men dead by 45 s, 39 Boyz left), with 85 they win in 34.4 s losing 20 (hit points) | kind: ours | the install's data; the choice is TF3's measure | War Guardsman health: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 85, the install's ig_coop_guardsman value, in place of the design's… | ☐ |
+| `R-62C36356` | War Guardsman health | **382.5** since the night batch of 2026-11-06 (the install's `ig_coop_guardsman` 85 x `GuardRules.Strength` 4.5; section "Musou Mode: the Guardsmen's strength, endless ammunition, the grenade refill, the AI Marines' damage"); before: 85 in place of the… (hit points) | kind: estimate; confidence: low | the install's data x the owner's 50 % hold (estimate) | War Guardsman health: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 382.5 since the night batch of 2026-11-06 (the install's… | ☐ |
 
 ### Weapons (gameplay-critical) (120)
 
@@ -2014,7 +2023,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-EB03504B` | Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks (s) | kind: ours; notes: estimate | owner 2026-11-02 | Shot lag allowance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each shot is also tried on the enemy's places over the last 0.2 s… | ☐ |
 
-### Core simulation (provisional values) (288)
+### Core simulation (provisional values) (292)
 
 *Spec section: Provisional values in use*
 
@@ -2133,7 +2142,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-4BAB49F5` | War Guard squads | squads of 10 in two rows of five, 1.5 m apart; at most 24 squads (240 men; the design's pool of 256 is not needed, a squad owns 10 fixed slots); a squad walks to its order and fires while walking (on the walking graph by its way, next row; straight only… (m, men) | kind: ours; confidence: low | the architect's proposal (0.9, firing on the move: ours) | War Guard squads: compare with SM1 by feel or video. Ours: squads of 10 in two rows of five, 1.5 m apart; at most 24 squads (240… | ☐ |
 | `R-CC78F895` | War allies' ways (M2) | Guardsmen and AI Marines go by flow fields over the walking graph, one per goal node, 8 kept (the least recently asked goes), one worked on at a time at 20,000 nodes a tick; squads bound for one point share its field and split for their spots 4 m out; a man… (fields, nodes, m) | kind: ours; confidence: low | the design's section I; the numbers ours | War allies' ways: compare with SM1 by feel or video. Ours: Guardsmen and AI Marines go by flow fields over the walking graph… | ☐ |
 | `R-F6A6D138` | War squad halt (M2) | a squad on the graph stops walking while its nearest enemy is within 8 m of its centre and walks on when none is, so a front forms (m) | kind: ours; confidence: low | ours: the squads walked on through the Orks | War squad halt: compare with SM1 by measuring on a flat spot of the same map. Ours: a squad on the graph stops walking while its nearest enemy is within… | ☐ |
-| `R-3C70D877` | War Guardsman shot | one shot every 1.0 ± 0.2 s; hit chance 0.65 up to 10 m, falling linearly to 0.2 at 40 m; damage 5; range 40 from the man; since M2 a shot needs a line of sight from 1.5 m over his feet to 1.2 m over the enemy's on the weapons mesh, a man trying at most 3… (s, m, hit points) | kind: ours; confidence: low | the architect's proposal; data values as read from the install | War Guardsman shot: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one shot every 1.0 ± 0.2 s; hit chance 0.65 up to 10 m, falling… | ☐ |
+| `R-3C70D877` | War Guardsman shot | one shot every 1.0 ± 0.2 s; hit chance 0.65 up to 10 m, falling linearly to 0.2 at 40 m; damage **22.5** (the design's 5 x `GuardRules.Strength` 4.5, night batch 2026-11-06; was 5); range 40 from the man; since M2 a shot needs a line of sight from 1.5 m over… (s, m, hit points) | kind: ours; confidence: low | the architect's proposal; data values as read from the install | War Guardsman shot: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: one shot every 1.0 ± 0.2 s; hit chance 0.65 up to 10 m, falling… | ☐ |
 | `R-8AD4EB19` | War Guard sight | a squad looks 40 m from its men's centre every 10 ticks and keeps the 16 nearest enemies; each man starts from his own place in that list, so fire spreads (m, ticks) | kind: ours; confidence: low | the architect's proposal (16 and the spread: ours) | War Guard sight: compare with SM1 by feel or video. Ours: a squad looks 40 m from its men's centre every 10 ticks and keeps the… | ☐ |
 | `R-12410870` | War Guard separation | men 0.4 m in radius push apart at 6 m/s per metre of overlap, at most 8 neighbours, 2 m hash cells; a dead man's slot is kept 2 s (m, m/s, s) | kind: ours; confidence: low | ours | War Guard separation: compare with SM1 by timing a run over a known distance. Ours: men 0.4 m in radius push apart at 6 m/s per metre of overlap, at most… | ☐ |
 | `R-58D0D30F` | Leashed defenders | stand at home until a living target (a player or a Guard squad) is within 30 m of the home, flat, and walk back when none is; hurting any member frees its whole group for good; a plain spawn has no leash (m) | kind: ours | the architect's proposal (measuring from home, Guards waking them, the walk back: ours) | Leashed defenders: compare with SM1 by measuring on a flat spot of the same map. Ours: stand at home until a living target (a player or a Guard squad) is… | ☐ |
@@ -2453,6 +2462,15 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-0019EB8C` | Swing step-forward: thunder hammer and daemon maul | the light strikes × **0.7** on top of the 2026-11-01 trim 0.82 (0.574 × the lunge scale, 0.933 × the clip's): free swing 8.05 / 7.65 / 6.02 -> **5.63 / 5.35 / 4.19 m**. The maul taking it: our assumption (m) | kind: ours; kind: estimate; confidence: low | owner 2026-11-06 | Swing step-forward: thunder hammer and daemon maul: compare with SM1 by measuring on a flat spot of the same map. Ours: the light strikes × 0.7 on top of the 2026-11-01 trim 0.82 (0.574 ×… | ☐ |
+
+*Spec section: Musou Mode: the Guardsmen's strength, endless ammunition, the grenade refill, the AI Marines' damage (night/musou-rules, 2026-11-06; `TfwRules.Version` 30, no protocol or wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-36FE4046` | Guardsmen's strength | health and shot damage **4.5x** (85 to 382.5 hit points, 5 to 22.5 a shot); fire rate, hit chance, range, speed and the squads unchanged (factor) | kind: estimate; confidence: low; notes: ours | the owner's request; the factor ours, from the trial below | Guardsmen's strength: compare with SM1 by feel or video. Ours: health and shot damage 4.5x (85 to 382.5 hit points, 5 to 22.5 a… | ☐ |
+| `R-20C50C83` | The counterattack trial | headless, no player, deterministic: the field's 6 squads (60 men) stand on a secured point (12 m); one spawn point's full crowd (400 Orks, the run's middle elite share 35 %: 140 elites in runs of 20, 75 % 'Ard Boyz and 25 % Nobs, the rest 70 % Boyz and 30 %… (seeds) | kind: estimate; confidence: low; notes: ours | ours: one crowd is the counterattack the battle sends at a point (`TfwBattleRules.CrowdSize`); no player, lord, retainer, Boss Ork, trickle or reserve squad… | The counterattack trial: compare with SM1 by feel or video. Ours: headless, no player, deterministic: the field's 6 squads (60 men)… | ☐ |
+| `R-8CA34C62` | Endless ammunition | every living player's weapons (humans and AI Marines, every slot) keep a full reserve (the perks' size; more from a box is kept), so a reload always fills the clip; a weapon that cannot reload (a brace weapon, or one with no reserve) gets a full clip back… (rounds) | notes: ours | the owner's request; keeping the reload ours (the reserve is what runs out in the original) | Endless ammunition: compare with SM1 by feel or video. Ours: every living player's weapons (humans and AI Marines, every slot)… | ☐ |
+| `R-E9033C4C` | Grenade refill | each living player (humans and AI Marines) with fewer grenades than its item's most (`capacity_clip`) gets one back every **30 s**; the time counts only while it is short and starts again at a full count or a new life; a stim is no grenade (s) | notes: ours | the owner's request; "one at a time, timer only while short" ours | Grenade refill: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each living player (humans and AI Marines) with fewer grenades than… | ☐ |
 
 *Spec section: Added content: Musou Mode co-op for up to 4 players (2026-11-06; server, front end and release files; no protocol or wire change)*
 
@@ -3450,6 +3468,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-79E049F1` | Musou: Boss Ork facing and wall room, bounded column waits (night/ork-movement, 2026-11-06) | No Musou Mode in the original | Ours (added content, the owner's request): a running Boss Ork faces the way it actually moves (turn rate 4 rad/s) instead of the way it is steered, and leans off walls nearer than its body radius; a patrol column's head never stops more than 2.5 s for its ranks (laggards over 9 m behind are let go, the head creeps on) | Musou Mode only; classic PvP unchanged. Spec "Musou Mode: Boss Ork facing and wall room, patrol waits bounded". | Musou: Boss Ork facing and wall room, bounded column waits…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-B8027519` | The charge clash: charger and victim locked through the shove (feel/charge-clash, 2026-11-06; protocol 59) | Ours in its mechanics (the original's pairing is engine code); its length and motion are the data's collision stop (1.83 m forward in 0.2 s, then 1.11 m back) and match the owner's recording | A stunned or staggered victim is carried with the charger through the stop's forward shove at 0.9 m (capsules touching), the charger's step ignores the victim's body, a victim the level stops holds the charger back; any charger meets a body at its edge (guard 0.85 m: the touch less a 5 cm slack, was 0.75 m); remotes… | spec "The charge clash: charger and victim locked through the shove" | The charge clash: charger and victim locked through the…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-FAB1E86D` | Musou: Guardsmen as defenders, capture under fire, Boss Ork cleave (musou/guard-formations, 2026-11-06; `TfwRules.Version` 28) | No Musou Mode in the original | Ours (added content, the owner's requests): the Guardsmen squads are back in every battle; they hold the landing zone, then share the secured positions out by the Orks near each, and never capture; only players, lords and retainers take a point, at the full rate, and Orks on the point no longer stop the progress (only… | Musou Mode only. Spec "Musou Mode: Guardsmen as defenders, the capture under fire, the Boss Ork cleave". | Musou: Guardsmen as defenders, capture under fire, Boss Ork…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-2D3F51F7` | Musou: Guardsmen 4.5x, endless ammunition, grenade refill, AI Marines take a tenth (night/musou-rules, 2026-11-06; `TfwRules.Version` 30) | No Musou Mode in the original; in the original's matches reserves run out, grenades come back only with a new life or a pickup, and there are no AI Marines | Ours (added content, the owner's requests): Guardsmen 4.5x health and shot damage (a headless trial holds 11 of 20 counterattacks of one full crowd); every player's weapons keep a full reserve (the reload and the heat stay); one grenade back every 30 s while short of the most; AI Marines take 0.10 of every hit… | Musou Mode only. Spec "Musou Mode: the Guardsmen's strength, endless ammunition, the grenade refill, the AI Marines' damage". | Musou: Guardsmen 4.5x, endless ammunition, grenade refill…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-8A28955D` | Instant step and 20 % longer steps (sim/instant-step, 2026-11-06) | A strike's forward root motion follows the clip's timing (slow start, most of it after the hit) and, since feel/melee-charge-2 and sim/swing-step, is scaled | The step of every light and heavy melee strike (not the in-place stomp, not the heavy classes' kick) starts at full speed on the first tick and settles toward the move-on time (same total, same hit time, same recovery), and is 1.2 x longer for every melee weapon (the hammer and maul too): chainsword lights 5.36 / 3.88… | Owner's request 2026-11-06, an **estimate** (the 1.2 and "instant" are the owner's, the ease-out shape is ours); spec "Instant step and 20 % longer steps"; test aids `SM_OLD_INSTANT_STEP=1`, `SM_OLD_STEP_BOOST=1`, `--old-strike-legs` | Instant step and 20 % longer steps (sim/instant-step…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-AB5C38E6` | Plasma release, plasma gun arms, stuck hit effects, hit-confirm distance, regen glow (night/weapon-fx, 2026-11-06) | Own charged plasma ball drawn without the 100 ms interpolation delay; no body recoil clip for the plasma gun; player-hit effects ride on the struck model; the shooter's hit confirmation falls from 0 dB at 2 m to -18 dB at 40 m and beyond; the armour-regeneration glow is the break glow in yellow | Original behaviour of these five is unknown (owner's requests); the 2 m / 40 m / -18 dB numbers, the yellow, and the model-root frame of stuck effects are ours | Spec "Plasma release, plasma gun arms, stuck hit effects, hit-confirm distance, regen glow (night/weapon-fx ...)" | Plasma release, plasma gun arms, stuck hit effects…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 

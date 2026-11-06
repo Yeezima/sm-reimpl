@@ -131,7 +131,7 @@ public sealed partial class World
         if (!_players.TryGetValue(attack.Player, out var before) || !before.Alive) return;
         if (_tfw is { } run && run.InRange.Contains(attack.Player)) return;   // the owner, 2026-11-02: at the Firing Range the Orks deal no damage
         var type = attack.Melee ? DamageType.Melee : DamageType.Ranged;
-        float damage = attack.Damage * _musou!.Rules.PlayerDamageScale * Loadouts.Body(Config, before).Received(type);
+        float damage = attack.Damage * _musou!.Rules.PlayerDamageScale * Loadouts.Body(Config, before).Received(type) * DamageTakenScale(attack.Player);   // Musou Mode: an AI Marine takes a tenth
         if (!(damage > 0f)) return;
         var push = before.Position - attack.From;
         var direction = new Vector3(push.X, push.Y, 0f);
@@ -252,6 +252,12 @@ public sealed partial class World
     {
         if (_musou is null) return;
         MusouBlast(owner, point, splash, melee);   // World.MusouCombat.cs
+    }
+
+    partial void ExtrasDamageTaken(int target, ref float scale)
+    {
+        if (_tfw is null) return;
+        TfwDamageTaken(target, ref scale);   // Campaign/World.TfwSupply.cs: the AI Marines take a tenth
     }
 
     partial void ExtrasJoinSide(ref Team want, ref bool forced)

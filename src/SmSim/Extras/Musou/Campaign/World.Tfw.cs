@@ -62,6 +62,8 @@ public sealed partial class World
         TfwBossStep();
         TfwFireStep();   // World.TfwFire.cs: the barrages and the Thunderhawk (their KOs are credited next tick)
         TfwPuppetsStep();
+        TfwEndlessAmmo();   // World.TfwSupply.cs: the owner's endless ammunition (2026-11-06)
+        TfwGrenadeRefill();   // and a grenade back every 30 s
         MusouDropsStep();   // World.MusouDrops.cs: pickups (E), expiry
         TfwSlotsStep();   // World.TfwArsenal.cs: a key pressed during a strike waits for its end
         run.HoldRespawns(this);
