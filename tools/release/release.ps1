@@ -1084,7 +1084,11 @@ if (-not $SkipBuild) {
         if (-not $NoAshfallKit) {
             $kitSrc = Join-Path $dataRoot 'ashfall-kit\source'
             if (-not (Test-Path -LiteralPath $kitSrc)) { Fail "The Ashfall kit library ($kitSrc) is missing; the release carries its models (-NoAshfallKit builds without them)." }
-            $kitFiles = @(& dotnet run --project (Join-Path $RepoRoot 'src\SmTool\SmTool.csproj') -c Release -nologo -v quiet -- ashfall-kit-files)
+            $smtoolProj = Join-Path $RepoRoot 'src\SmTool\SmTool.csproj'
+            Run-Native 'dotnet build smtool' { dotnet build $smtoolProj -c Release -nologo -v quiet | Out-Null }
+            # The arguments as an array (as Invoke-Scan passes them): Windows PowerShell drops an inline `--` before a native command's arguments.
+            $kitArgs = @('run', '--project', $smtoolProj, '-c', 'Release', '--no-build', '--', 'ashfall-kit-files')
+            $kitFiles = @(& dotnet @kitArgs | Where-Object { $_ -match '\.glb$' })
             if ($LASTEXITCODE -ne 0 -or $kitFiles.Count -eq 0) { Fail 'smtool ashfall-kit-files listed no files.' }
             foreach ($rel in $kitFiles) {
                 $from = Join-Path $kitSrc ($rel -replace '/', '\')
