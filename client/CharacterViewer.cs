@@ -159,6 +159,7 @@ public partial class CharacterViewer : Node3D
         Live.Add(this);
         PosePopProbe.EnsureStarted(this);   // --pose-pop-probe (M40-T3)
         AnimProbe.EnsureStarted(this);      // --anim-probe (M40-T1)
+        LegProbe.EnsureStarted(this);       // --leg-probe (night batch 2026-11-06 anim/sword-legs)
         TurnProbe.EnsureStarted(this);      // --anim-probe too (M40-T5)
         PoseHashProbe.EnsureStarted(this);  // --pose-hash <file> (animation pass 1)
         TransitionProbe.EnsureStarted(this); // --transition-probe (animation pass 3)

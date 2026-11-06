@@ -22,6 +22,10 @@ public partial class NetworkView
 {
     /// <summary><c>--old-strike-legs</c> (test aid, sim/instant-step): the stride scale for the hammer's light strikes only, as before.</summary>
     static readonly bool OldStrikeLegs = Godot.OS.GetCmdlineUserArgs().Contains("--old-strike-legs");
+    /// <summary><c>--old-sword-legs</c> (test aid, night batch 2026-11-06): the stride factor of every strike uncapped, as before.</summary>
+    static readonly bool OldSwordLegs = Godot.OS.GetCmdlineUserArgs().Contains("--old-sword-legs");
+    /// <summary>The most a strike's stride factor exceeds 1 (ours; <c>--stride-cap f</c> for sweeps). Default: the hammer's own excess rounded up (its factor is 1.12), so the hammer is unchanged.</summary>
+    static readonly float StrideExcessCap = CmdFloat("--stride-cap", ClipFootLockRules.LightStrideExcessCap);
     /// <summary>The stride factor of the strike shown now (sim/instant-step: any weapon's, light or heavy, but the in-place stomp; anim/hammer-swing: the hammer's light strikes): how many times the clip's root motion the body travels; 1 for anything else.</summary>
     float HammerStrideScale(PlayerState s)
     {
@@ -32,7 +36,21 @@ public partial class NetworkView
         if (OldStrikeLegs && (!hammer || s.MeleeHeavy)) return 1f;
         if (Combat.MeleeStepOf(_config, s) is not { Reach.Variants.Count: > 0, InPlace: false } step) return 1f;
         float k = _config.LungeScale * step.LungeFactorApplied;
-        return float.IsFinite(k) && k > 1f ? k : 1f;
+        if (!float.IsFinite(k) || k <= 1f) return 1f;
+        // night batch 2026-11-06 (anim/sword-legs): the sword combos' lunge is 2.9 times their clips' root motion (the hammer's 1.12); the clip's feet stretched that far fling the swing leg 1.1 m off the body
+        // on the edge of its reach (the second swing's trailing foot hung 60 cm up and snapped 1.5 m in five frames). The stretch stays within what the hammer's gait uses.
+        // Light strikes only (the combos; the heavy and stun strikes keep their stretch).
+        return OldSwordLegs ? k : ClipFootLockRules.StrideFactor(k, s.MeleeHeavy, StrideExcessCap);
+    }
+
+    /// <summary><c>--leg-probe</c> (test aid): the strike shown now, for <c>LegProbe</c> (step 0: none; the hand-over flag is last frame's).</summary>
+    void LegProbeMeta(CharacterViewer character, PlayerState s)
+    {
+        character.SetMeta("leg_step", s.Alive && s.Grounded ? s.MeleeStep : 0);
+        character.SetMeta("leg_heavy", s.MeleeHeavy);
+        character.SetMeta("leg_time", s.MeleeTime);
+        character.SetMeta("leg_weapon", MeleeWargear(s) ?? "");
+        character.SetMeta("leg_hand", LocoOf(s.PlayerId).AttackHand);
     }
 
     /// <summary>The hammer's own air slash clip when the rig has and decodes it (<see cref="HammerSlashPose.Clip"/>; from <see cref="SetUpDashAttack"/>).</summary>
