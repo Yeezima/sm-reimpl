@@ -129,6 +129,9 @@ def main():
     if '--wall' in sys.argv:
         wall_rel = sys.argv[sys.argv.index('--wall') + 1]
     src = os.path.abspath(a['src']); out = os.path.abspath(a['out'])
+    # the owner's originals are read only: refuse an output folder that is the source or inside it (review)
+    if os.path.commonpath([os.path.normcase(src), os.path.normcase(out)]) == os.path.normcase(src):
+        sys.exit('--out must not be the source folder or inside it: ' + out)
     log = lambda s: print('[rubble] ' + s, flush=True)
     for name, radius, hmax, count, seed in PILES:
         ab.reset_scene()

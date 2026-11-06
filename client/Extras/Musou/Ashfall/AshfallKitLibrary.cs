@@ -46,7 +46,7 @@ public sealed class AshfallKitLibrary
     /// <summary>The library's root: the bundled folder when the build carries one, else the private folder; the folder may not exist.</summary>
     public static string Root => System.IO.Directory.Exists(BundledRoot) ? BundledRoot : PrivateRoot;
 
-    /// <summary>The weathered copies of the kit (<c>%LOCALAPPDATA%\sm-reimplshfall-kit\processed\</c>, baked by tools/blender/ashfall_bake.py; same relative paths as the source). A bundled folder
+    /// <summary>The weathered copies of the kit (<c>%LOCALAPPDATA%\sm-reimpl\ashfall-kit\processed\</c>, baked by tools/blender/ashfall_bake.py; same relative paths as the source). A bundled folder
     /// (<see cref="BundledRoot"/>) is used as-is: whatever the release copied there is what loads.</summary>
     public static string ProcessedRoot => System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData), "sm-reimpl", AshfallKit.PrivateFolder, "processed");
 
@@ -108,6 +108,7 @@ public sealed class AshfallKitLibrary
 
     readonly ConcurrentDictionary<string, Asset> _done = new();
     readonly ConcurrentQueue<string> _ready = new();
+    static readonly List<string> NoneReady = [];
     int _pending;
     long _startTicks;
     long _endTicks;
@@ -125,6 +126,7 @@ public sealed class AshfallKitLibrary
     /// <summary>Ids that finished since the last call (loaded or failed), oldest first.</summary>
     public List<string> TakeReady()
     {
+        if (_ready.IsEmpty) return NoneReady;   // no allocation on the frames with nothing new (review)
         var list = new List<string>();
         while (_ready.TryDequeue(out var id)) list.Add(id);
         return list;

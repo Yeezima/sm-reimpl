@@ -549,8 +549,10 @@ public sealed class PackageScanner
             binary = true;   // the loop below skips the e-mail rule (and the /home/ path rule, also prone to random bytes; the C:\Users rule still runs)
         }
         // A JPEG (the owner's Ashfall storm sky, in the ashfall-kit folder): metadata (EXIF, comment) sits in the first segments, before the entropy-coded scan data,
-        // in which random bytes read as an address; the e-mail rule looks at the first 64 KB only. Every other rule scans the whole file.
-        if ((ext.Equals(".jpg", StringComparison.OrdinalIgnoreCase) || ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase)) && !licenceText)
+        // in which random bytes read as an address; the e-mail and /home/ path rules look at the first 64 KB only. Only for a JPEG in ashfall-kit\ (review: every other JPEG
+        // keeps the full scan). Every other rule scans the whole file.
+        if ((ext.Equals(".jpg", StringComparison.OrdinalIgnoreCase) || ext.Equals(".jpeg", StringComparison.OrdinalIgnoreCase)) && !licenceText
+            && name.Replace('\\', '/').Contains("ashfall-kit/", StringComparison.OrdinalIgnoreCase))
         {
             using var head = open();
             var hb = new byte[64 * 1024];
@@ -559,6 +561,7 @@ public sealed class PackageScanner
             var ht = System.Text.Encoding.Latin1.GetString(hb, 0, hg);
             foreach (Match m in Email.Matches(ht))
                 if (!IsPublicEmailDomain(m.Groups["domain"].Value)) { email = true; break; }
+            if (HomePath.IsMatch(ht)) homePath = true;
             binary = true;
         }
         var buffer = new byte[ReadBufferBytes];

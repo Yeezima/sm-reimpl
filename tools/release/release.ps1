@@ -1095,7 +1095,8 @@ if (-not $SkipBuild) {
             $processedCount = 0
             foreach ($rel in $kitFiles) {
                 $from = Join-Path $kitProcessed ($rel -replace '/', '\')
-                if (Test-Path -LiteralPath $from) { $processedCount++ } else { $from = Join-Path $kitSrc ($rel -replace '/', '\') }
+                # an empty or truncated baked copy (a failed bake) never ships in place of the original (review)
+                if ((Test-Path -LiteralPath $from) -and (Get-Item -LiteralPath $from).Length -gt 1024) { $processedCount++ } else { $from = Join-Path $kitSrc ($rel -replace '/', '\') }
                 if (-not (Test-Path -LiteralPath $from)) { Fail "Ashfall kit file missing: $from" }
                 $to = Join-Path $exportDir ('ashfall-kit\' + ($rel -replace '/', '\'))
                 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $to) | Out-Null

@@ -90,6 +90,7 @@ public static class AshfallGrime
         {
             ShaderMaterial top = overlay ? OverlayMaterial() : DarkenMaterial();
             if (overlay && darken) top.NextPass = DarkenMaterial();
+            DarkenMaterial().SetShaderParameter("cheap", !overlay);   // Low and Compatibility: the blotches, streaks and soot band only (review: scale with graphics settings)
             void Give(Node n) { if (n is MeshInstance3D mi) mi.MaterialOverlay = top; foreach (var c in n.GetChildren()) Give(c); }
             foreach (var child in items.GetChildren()) Give(child);
             items.ChildEnteredTree += Give;
@@ -152,6 +153,7 @@ shader_type spatial;
 render_mode unshaded, blend_mul, depth_draw_never, depth_test_default, cull_back, fog_disabled, shadows_disabled;
 uniform vec3 base = vec3(0.90, 0.92, 0.97);   // the baked kit is already dark and grimy: the runtime multiply keeps its variation, little of its darkening
 uniform float fog_density = 0.0036;
+uniform bool cheap = false;   // fewer noise lookups (Low, Compatibility)
 varying vec3 wpos;
 varying vec3 wnor;
 float h21(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -170,12 +172,11 @@ void fragment() {
 	vec2 along = abs(up) > 0.7 ? wpos.xz : (abs(wnor.x) > abs(wnor.z) ? wpos.zy : wpos.xy);
 	float blot = fbm(along * 0.14 + 1.3);
 	float m = mix(0.78, 1.05, smoothstep(0.25, 0.75, blot));
-	float stain = fbm(along * 0.6 + 8.0);
-	m *= 1.0 - 0.3 * smoothstep(0.58, 0.8, stain);
+	if (!cheap) { float stain = fbm(along * 0.6 + 8.0); m *= 1.0 - 0.3 * smoothstep(0.58, 0.8, stain); }
 	float streak = smoothstep(0.55, 0.92, vn(vec2(dot(wpos.xz, vec2(1.7, 1.3)) * 2.2, wpos.y * 0.12)));
 	m *= 1.0 - 0.22 * streak * side;
 	m *= 1.0 - 0.25 * (1.0 - smoothstep(0.0, 2.5, wpos.y)) * side;
-	m *= 1.0 + 0.12 * (vn(along * 3.3 + 11.0) - 0.5);
+	if (!cheap) m *= 1.0 + 0.12 * (vn(along * 3.3 + 11.0) - 0.5);
 	vec3 col = base * m;
 	float dist = length(VERTEX);
 	col = mix(col, vec3(1.0), 1.0 - exp(-fog_density * dist * 1.2));

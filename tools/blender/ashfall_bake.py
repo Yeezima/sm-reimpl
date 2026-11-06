@@ -449,6 +449,9 @@ def main():
     if not a['src'] or not a['out']:
         print('usage: --src <dir> --out <dir> [--only A,B] [--size N] [--samples N] [--preview dir]'); return
     src_root = os.path.abspath(a['src']); out_root = os.path.abspath(a['out'])
+    # the owner's originals are read only: refuse an output folder that is the source or inside it (review)
+    if os.path.commonpath([os.path.normcase(src_root), os.path.normcase(out_root)]) == os.path.normcase(src_root):
+        sys.exit('--out must not be the source folder or inside it: ' + out_root)
     only = [s.strip().lower() for s in a['only'].split(',')] if a['only'] else None
     files = []
     for root, _, names in os.walk(src_root):

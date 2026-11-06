@@ -592,7 +592,7 @@ void fragment() {
         foreach (var id in _library.TakeReady()) _toPlace.Enqueue(id);
         // Models that arrived but did not fit this frame's budget wait for the next frame (TakeReady drains the library's queue).
         while (_toPlace.Count > 0 && (long)Time.GetTicksUsec() <= budgetEnd) Instantiate(_toPlace.Dequeue());
-        if (!_harmonised && libraryDone && _library.Loaded > 0) { _harmonised = true; Harmonise(); }
+        if (!_harmonised && libraryDone) { _harmonised = true; if (_library.Loaded > 0) Harmonise(); }
         if (!_reported && libraryDone && _toPlace.Count == 0 && _library.Loaded + _library.Failed > 0)
         {
             _reported = true;
@@ -605,7 +605,7 @@ void fragment() {
 
     /// <summary>
     /// Material harmonisation (ours): the generated models differ in how pale their base colour is (manifest: AC-009, AC-012, AC-022 and above all AC-028 "brighter than neighbouring assets"). Once every model is
-    /// loaded, each model's measured base-colour luminance is scaled toward the median of the loaded set (factor clamped to 0.6..1.1, multiplied into its materials' albedo colour). The factors are logged once.
+    /// loaded, each model's measured base-colour luminance is scaled toward the median of the loaded set (factor clamped to 0.6..1.0 since the baked copies: never brightened; multiplied into its materials' albedo colour and into the stored original of the light pass's matte guard). The factors are logged once.
     /// </summary>
     void Harmonise()
     {
@@ -624,7 +624,11 @@ void fragment() {
             foreach (var piece in a.Pieces)
                 for (int s = 0; s < piece.Mesh.GetSurfaceCount(); s++)
                     if (piece.Mesh.SurfaceGetMaterial(s) is BaseMaterial3D m && done.Add(m))
+                    {
                         m.AlbedoColor = new Color(m.AlbedoColor.R * f, m.AlbedoColor.G * f, m.AlbedoColor.B * f, m.AlbedoColor.A);
+                        // AshfallStorm.DimKit keeps a material's colour in this metadata and recomputes from it: keep the factor there too (review)
+                        if (m.HasMeta("ashfall_albedo")) { var c = m.GetMeta("ashfall_albedo").AsColor(); m.SetMeta("ashfall_albedo", new Color(c.R * f, c.G * f, c.B * f, c.A)); }
+                    }
             log.Add($"{a.Id} {a.Luma:F2}x{f:F2}");
         }
         GD.Print($"ashfall kit: albedo harmonised toward median luminance {median:F2}: {(log.Count == 0 ? "no change" : string.Join(", ", log))}");

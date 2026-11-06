@@ -232,7 +232,7 @@ public partial class AshfallStorm : Node3D
         }
 
         // ---- fires, embers and smoke at the level's spots.
-        var spots = AshfallAtmosphere.FireSpots(level, dressing, light ? (int)(LightPass.SmallFires * Math.Min(1f, _quality + 0.2f)) : AshfallAtmosphere.SmallFires);
+        var spots = AshfallAtmosphere.FireSpots(level, dressing, light ? (int)(LightPass.SmallFires * Math.Clamp(_quality, 0.35f, 1f)) : AshfallAtmosphere.SmallFires);
         foreach (var s in spots) AddFire(s, compat);
 
         // ---- light shafts out of the cloud gaps (soft beams, every renderer).
@@ -322,8 +322,8 @@ public partial class AshfallStorm : Node3D
         float k = s.Size;
         // Flames
         node.AddChild(Emitter("Flames", Math.Max(8, (int)(26 * k * Math.Min(1f, _quality + 0.3f))), 0.9f, FlameProcess(k), FlameMaterial(), new QuadMesh { Size = LightPassOn ? new Vector2(1.4f, 2.5f) : new Vector2(1.1f, 2.0f) }, s.Plume ? 400f : 200f, new Aabb(new Vector3(-3, -1, -3) * k, new Vector3(6, 7, 6) * k)));
-        // Embers rising from it
-        node.AddChild(Emitter("Embers", Math.Max(6, (int)(18 * k * _quality)), 2.6f, EmberProcess(k), EmberMaterial(3f), new QuadMesh { Size = new Vector2(0.07f, 0.07f) }, 120f, new Aabb(new Vector3(-6, -1, -6) * k, new Vector3(12, 14, 12) * k)));
+        // Embers rising from it (a small fire's only from the Medium preset up: review, scale with graphics settings)
+        if (s.Plume || _quality >= 0.9f) node.AddChild(Emitter("Embers", Math.Max(6, (int)(18 * k * _quality)), 2.6f, EmberProcess(k), EmberMaterial(3f), new QuadMesh { Size = new Vector2(0.07f, 0.07f) }, 120f, new Aabb(new Vector3(-6, -1, -6) * k, new Vector3(12, 14, 12) * k)));
         // Smoke: a short dark column, or a tall plume seen across the map
         if (s.Plume)
             node.AddChild(Emitter("Smoke", Math.Max(16, (int)(44 * _quality)), 16f, SmokeProcess(k, 4.2f, 2.2f, 16f), SmokeMaterial(0.07f, compat), new QuadMesh { Size = new Vector2(1f, 1f) }, 900f, new Aabb(new Vector3(-60, -2, -60), new Vector3(120, 110, 120))));
@@ -521,7 +521,7 @@ public partial class AshfallStorm : Node3D
             var ground = G(new Vector3(x, y, 0f));
             var mid = ground - dir * (len / 2f);
             var mesh = new CylinderMesh { TopRadius = r * 1.35f, BottomRadius = r, Height = len, RadialSegments = 16, Rings = 1, CapTop = false, CapBottom = false };
-            var mat = new ShaderMaterial { Shader = shader };
+            var mat = new ShaderMaterial { Shader = shader }; mat.SetShaderParameter("gl_depth", SafeMode.Compatibility);
             mat.SetShaderParameter("strength", (Concept ? 0.045f : 0.03f) * (0.8f + 0.4f * ((n * 7 % 5) / 4f)));
             mat.SetShaderParameter("seed", n * 3.7f);
             mesh.Material = mat;
@@ -548,6 +548,7 @@ public partial class AshfallStorm : Node3D
         uniform vec2 near_range = vec2(6.0, 40.0);
         uniform vec3 cap = vec3(100.0);               // the most one beam adds per pixel
         uniform sampler2D depth_tex : hint_depth_texture, filter_linear;
+        uniform bool gl_depth = false;
         varying float along;
         varying vec3 wpos;
         void vertex() {
@@ -567,7 +568,7 @@ public partial class AshfallStorm : Node3D
             vec3 vdir = normalize(wpos - CAMERA_POSITION_WORLD);
             float gate = mix(1.0, smoothstep(0.2, 0.7, dot(vdir, normalize(toward))), view_gate);
             float scene = texture(depth_tex, SCREEN_UV).r;
-            vec4 ndc = vec4(SCREEN_UV * 2.0 - 1.0, scene, 1.0);
+            vec4 ndc = vec4(SCREEN_UV * 2.0 - 1.0, gl_depth ? scene * 2.0 - 1.0 : scene, 1.0);   // the Compatibility renderer's depth is -1..1 in NDC
             vec4 view = INV_PROJECTION_MATRIX * ndc; view.xyz /= view.w;
             float soft = clamp((VERTEX.z - view.z) / 6.0, 0.0, 1.0);   // fades where the beam meets the ground or a wall
             ALBEDO = vec3(1.0, 0.78, 0.52);
@@ -726,7 +727,7 @@ public partial class AshfallStorm : Node3D
         {
             var ground = G(new Vector3(x, y, 0f));
             var mid = ground - travel * (len / 2f);
-            var mat = new ShaderMaterial { Shader = shader };
+            var mat = new ShaderMaterial { Shader = shader }; mat.SetShaderParameter("gl_depth", SafeMode.Compatibility);
             bool hero = n is 1 or 2 or 3 or 4;   // the beams nearest the keep: clearly golden from the plaza and the street
             mat.SetShaderParameter("strength", LightPass.BeamStrength * (hero ? 3.2f : 1f) * (0.75f + 0.5f * ((n * 7 % 5) / 4f)));
             if (hero) mat.SetShaderParameter("cap", new Vector3(0.42f, 0.32f, 0.2f));
@@ -757,6 +758,7 @@ public partial class AshfallStorm : Node3D
         uniform float beam_width = 9.0;
         uniform vec3 cap = vec3(0.13, 0.10, 0.065);
         uniform sampler2D depth_tex : hint_depth_texture, filter_linear;
+        uniform bool gl_depth = false;
         varying vec3 wpos;
         varying float vz;
         float n1(float x) { return fract(sin(x * 12.9898) * 43758.5453); }
@@ -787,7 +789,7 @@ public partial class AshfallStorm : Node3D
             float near_fade = smoothstep(35.0, 80.0, d);
             float gate = smoothstep(0.45, 0.85, dot(normalize(wpos - cam), toward));
             float scene = texture(depth_tex, SCREEN_UV).r;
-            vec4 ndc = vec4(SCREEN_UV * 2.0 - 1.0, scene, 1.0);
+            vec4 ndc = vec4(SCREEN_UV * 2.0 - 1.0, gl_depth ? scene * 2.0 - 1.0 : scene, 1.0);   // the Compatibility renderer's depth is -1..1 in NDC
             vec4 view = INV_PROJECTION_MATRIX * ndc; view.xyz /= view.w;
             float soft = clamp((vz - view.z) / 6.0, 0.0, 1.0);
             vec3 c = vec3(1.0, 0.78, 0.5) * strength * core * ends * streak * drift * near_fade * gate * soft;
