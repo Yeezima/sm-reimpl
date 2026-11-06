@@ -135,7 +135,7 @@ public partial class NetworkView
         if ((_bot || _showInfo) && _connectedFor - _wLogAt >= 10.0 && _wFrames > 60)
         {
             _wLogAt = _connectedFor;
-            GD.Print($"t {_connectedFor:F0} s: frame time avg {_wFrameSum / _wFrames * 1000:F1} ms, max {_wFrameMax * 1000:F1} ms over {_wFrames} frames; {WeaponStats()}; {MuzzleLog()}; {ReloadStats()}; {StimStats()}; {FallStats()}; {UpperStats()}; {SprintEdgeStats()}");
+            GD.Print($"t {_connectedFor:F0} s: frame time avg {_wFrameSum / _wFrames * 1000:F1} ms, max {_wFrameMax * 1000:F1} ms over {_wFrames} frames; {WeaponStats()}; {MuzzleLog()}; {ReloadStats()}; {ThrowFollowStats()}; {OwnBallStats()}; {StimStats()}; {FallStats()}; {UpperStats()}; {SprintEdgeStats()}");
             _wFrameSum = 0; _wFrameMax = 0; _wFrames = 0;
         }
     }

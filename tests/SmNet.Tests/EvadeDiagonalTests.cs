@@ -300,6 +300,6 @@ public class EvadeDiagonalTests(ITestOutputHelper output)
         var orphanLanding = (byte[])idleBytes.Clone(); orphanLanding[^31] |= 8;   // no evade, but the landing bit
         Assert.Null(Protocol.Read(orphanLanding));
         // The worst case is unchanged (the bit uses a spare one).
-        Assert.Equal(1199, Protocol.MaxSnapshotBytes);   // protocol 23: + the perk word (21, 22: 1198; 20: 1197; 17-19: 1195; 16: 1199; 15: 1195)
+        Assert.Equal(1193, Protocol.MaxSnapshotBytes);   // protocol 23: + the perk word (21, 22: 1198; 20: 1197; 17-19: 1195; 16: 1199; 15: 1195)
     }
 }

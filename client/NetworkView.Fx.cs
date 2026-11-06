@@ -351,6 +351,7 @@ public partial class NetworkView
             BulletProbeShot("own", _client.PlayerId, weapon.Name, start, dir, end, ToGame(muzzle.Position), RemoteShotOrigin(me), Combat.EyePosition(me, _config!), $"; camera drawn {V(ToGame(_camera!.GlobalPosition))} rebuilt {V(_rebuiltCamera)}, aim blend {_aimBlend:F2}, pitch {me.Pitch:F3} view {_pitch:F3}");
         if (BarrelProbe && BarrelCanLaunch(weapon)) GD.Print($"barrel-probe: own shot of {weapon.Name} ({weapon.Delivery}), muzzle {(FxPlace(_client!.PlayerId, w.MuzzleMarker) is null ? "none" : "found")} marker '{w.MuzzleMarker}'");
         if (BarrelCanLaunch(weapon) && FxPlace(_client!.PlayerId, w.MuzzleMarker) is { } ownMuzzle) BarrelNoteShot(_client.PlayerId, index, start, ownMuzzle.Position);   // fx/barrel-origin
+        OwnBallLaunch(index, stage, start, dir, end, victim >= 0);   // stream B (only a shot whose stage launches a plasma projectile): the own plasma ball leaves on the release frame (NetworkView.OwnBall.cs)
         FxShot(_client!.PlayerId, weapon, w, index, stage, endG, hit, surface, normalG, dirG, Combat.EyePosition(me, _config!), own: true, victim, ArmourUpForHit(hit, victim, own: true, OwnHitArmoured(victim)),   // protocol 22: the last hit report on this victim
                hitScan ? ToGodot(start) : null, hitScan ? dirG : null);
     }

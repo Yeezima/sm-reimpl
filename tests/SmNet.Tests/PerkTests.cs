@@ -424,7 +424,7 @@ public class PerkTests(ITestOutputHelper output)
         Assert.Equal((-1, -1, 0), (back.Players[1].Perk1, back.Players[1].Perk2, back.Players[1].BurstLeft));   // slim: none
         var none = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(1, 1, 1, [me with { Perk1 = -1, Perk2 = 200, BurstLeft = 9 }], Self: 3)))).Players[0];
         Assert.Equal((-1, -1, Protocol.MaxBurstLeft), (none.Perk1, none.Perk2, none.BurstLeft));   // out of the field's range: none; the burst clamped
-        Assert.Equal(1199, Protocol.MaxSnapshotBytes);
+        Assert.Equal(1193, Protocol.MaxSnapshotBytes);
     }
 
     // ---------------------------------------------------------------- prediction

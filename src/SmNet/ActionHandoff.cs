@@ -45,6 +45,14 @@ public static class ActionHandoff
         return simTime < simRelease ? simTime / simRelease * clipRelease : clipRelease + (simTime - simRelease);
     }
 
+    /// <summary>
+    /// Stream B (the owner, 2026-11-06 late: "let the grenade throw animation play out a little longer for both sides"): whether the toss clip's follow-through after the simulation's
+    /// throw has ended goes on at clip time <paramref name="clipTime"/>: until the clip's end (<paramref name="clipEnd"/>, the toss graph's <c>BRANCH_UseEquipment_End</c>) unless
+    /// another action shows (<paramref name="busy"/>).
+    /// </summary>
+    public static bool ThrowFollowContinues(float clipTime, float clipEnd, bool busy) =>
+        !busy && float.IsFinite(clipTime) && float.IsFinite(clipEnd) && clipTime < clipEnd;
+
     /// <summary>Whether a throw at <paramref name="time"/> is a new throw (its time ran backward since the last frame).</summary>
     public static bool ThrowRestarted(float lastTime, float time) => time < lastTime;
 }

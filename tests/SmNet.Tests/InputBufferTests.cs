@@ -572,7 +572,7 @@ public class InputBufferTests(ITestOutputHelper output)
             Kills: [.. Enumerable.Range(0, Protocol.MaxSnapshotKills).Select(k => new KillView(65535 - k, 65535, 1, KillCause.Thrown, 254))],
             Points: [.. Enumerable.Repeat(new ControlPointView(Team.Chaos, Team.Chaos, 1f, true), Protocol.MaxSnapshotPoints)], Shots: ShotTests.ManyShots(players, Protocol.MaxSnapshotShots)));
         output.WriteLine($"16 players, the own record's buffer set: {bytes.Length} bytes (protocol {Protocol.Version})");
-        Assert.Equal(1199, Protocol.MaxSnapshotBytes);
+        Assert.Equal(1193, Protocol.MaxSnapshotBytes);
         Assert.Equal(Protocol.MaxSnapshotBytes, bytes.Length);
         var read = Assert.IsType<Snapshot>(Protocol.Read(bytes));
         Assert.Equal((BufferedAction.Reload, InputBuffer.MaxTicks, Combat.MaxRaiseTicks), (read.Players[6].Buffered, read.Players[6].BufferTicks, read.Players[6].RaiseTicks));

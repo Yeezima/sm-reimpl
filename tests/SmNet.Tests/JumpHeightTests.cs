@@ -292,7 +292,7 @@ public class JumpHeightTests(ITestOutputHelper output)
         Assert.NotEqual(Off.Hash(), On.Hash());
         Assert.NotEqual(On.Hash(), (On with { JumpPacks = [Cut with { ReleaseCutDelay = 0.15f }] }).Hash());
         Assert.NotEqual(On.Hash(), (On with { JumpPacks = [Cut with { ReleaseCutDecay = 0.1f }] }).Hash());
-        Assert.Equal(1199, Protocol.MaxSnapshotBytes);
+        Assert.Equal(1193, Protocol.MaxSnapshotBytes);
     }
 
     [Theory]

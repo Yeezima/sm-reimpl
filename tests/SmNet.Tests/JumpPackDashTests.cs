@@ -375,7 +375,7 @@ public class JumpPackDashTests(ITestOutputHelper output)
         Assert.True(Protocol.Slim(p).EvadeLanded);
         Assert.False(Protocol.Slim(p with { EvadeTicks = 0 }).EvadeLanded);
         Assert.Equal(62, Protocol.Version);
-        Assert.Equal(1199, Protocol.MaxSnapshotBytes);   // the bit uses a spare one of the slot byte
+        Assert.Equal(1193, Protocol.MaxSnapshotBytes);   // the bit uses a spare one of the slot byte
         // The dash's data are in the config hash.
         Assert.NotEqual(Config.Hash(), (Config with { Evades = [Dash with { ToJumpAt = 0.2f }] }).Hash());
         Assert.NotEqual(Config.Hash(), (Config with { Evades = [Dash with { Forward = Dash.Forward with { Landing = Dash.Forward.Landing! with { MoveAt = 0.3f } } }] }).Hash());

@@ -710,14 +710,14 @@ public class EvadeTests(ITestOutputHelper output)
             Kills: [.. Enumerable.Range(0, Protocol.MaxSnapshotKills).Select(k => new KillView(65535 - k, 65535, 1, KillCause.Thrown, 254))],
             Points: [.. Enumerable.Repeat(new ControlPointView(Team.Chaos, Team.Chaos, 1f, true), Protocol.MaxSnapshotPoints)], Hits: new HitView(1, 2, 3, 4, 5, HitFlags.All, 1f, 1f), Shots: ShotTests.ManyShots(players, Protocol.MaxSnapshotShots)));
         output.WriteLine($"16 players and {Protocol.MaxSnapshotProjectiles} projectiles (protocol {Protocol.Version}): {bytes.Length} bytes");
-        Assert.Equal((1199, Protocol.MaxSnapshotBytes, 14), (bytes.Length, bytes.Length, Protocol.MaxSnapshotProjectiles));   // protocol 45 (own record + 8, 14 projectile records); protocol 44 (own record + 14, 15 projectile records); protocol 23 (21, 22: 1198; 20: 1197; 17-19: 1195; 16: 1199; 15: 1195 with 19 projectiles)
+        Assert.Equal((1193, Protocol.MaxSnapshotBytes, 13), (bytes.Length, bytes.Length, Protocol.MaxSnapshotProjectiles));   // protocol 62 (own record + 8, 13 projectile records); protocol 45 (own record + 8, 14 projectile records); protocol 44 (own record + 14, 15 projectile records); protocol 23 (21, 22: 1198; 20: 1197; 17-19: 1195; 16: 1199; 15: 1195 with 19 projectiles)
         Assert.True(bytes.Length <= 1200 && bytes.Length <= UdpServerTransport.MaxPacket);
         var back = Assert.IsType<Snapshot>(Protocol.Read(bytes));
         Assert.Equal(players.Select(p => p.PlayerId == 7 ? p : Protocol.Slim(p)), back.Players);
         Assert.Equal((112, EvadeDirection.Right, 255), (back.Players[6].EvadeTicks, back.Players[6].EvadeDirection, back.Players[6].EvadeLock));   // own: exact
         Assert.Equal((48, EvadeDirection.Right, 0), (back.Players[2].EvadeTicks, back.Players[2].EvadeDirection, back.Players[2].EvadeLock));      // slim: no lock
         Assert.Equal((63, EvadeDirection.Forward), (back.Players[7].EvadeTicks, back.Players[7].EvadeDirection));                                 // slim: ticks capped at 63
-        Assert.Equal(14, back.Projectiles!.Length);
+        Assert.Equal(13, back.Projectiles!.Length);   // protocol 62
         for (int k = 0; k < bytes.Length; k++) Assert.Null(Protocol.Read(bytes.AsSpan(0, k)));
         // Not evading: the direction is canonical (Forward) in slim records.
         Assert.Equal(EvadeDirection.Forward, Protocol.Slim(players[0] with { EvadeTicks = 0, EvadeDirection = EvadeDirection.Left }).EvadeDirection);

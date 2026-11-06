@@ -429,7 +429,7 @@ public class RushTests(ITestOutputHelper output)
         var half = (byte[])slim.Clone(); BitConverter.GetBytes(2.5f).CopyTo(half, half.Length - 29);
         Assert.Null(Protocol.Read(half));              // ticks not whole
         Assert.Equal(31, Protocol.MaxMeleeStep);
-        Assert.Equal(1199, Protocol.MaxSnapshotBytes);
+        Assert.Equal(1193, Protocol.MaxSnapshotBytes);
     }
 
     [Theory]

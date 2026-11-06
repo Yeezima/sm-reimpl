@@ -117,7 +117,7 @@ public class ExtrasEnvelopeTests(ITestOutputHelper output)
         Assert.True(Protocol.IsKnownKind(19));   // protocol 58: SpawnRequest
         Assert.False(Protocol.IsKnownKind(20));
         Assert.False(Protocol.IsKnownKind(200));
-        Assert.Equal(1199, Protocol.MaxSnapshotBytes);   // the envelope adds nothing to snapshots
+        Assert.Equal(1193, Protocol.MaxSnapshotBytes);   // the envelope adds nothing to snapshots
         Assert.Equal(Protocol.SnapshotBudget, Protocol.MaxExtrasMessageBytes);
     }
 

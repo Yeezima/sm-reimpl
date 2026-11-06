@@ -508,7 +508,7 @@ public partial class NetworkView : Node3D
         TrackEvade(me, own: true, (float)delta);
         // Dead (M23): the character is not placed or animated any more; its ragdoll (NetworkView.Death.cs) took over.
         if (TrackDeath(_client.PlayerId, _local, me, own: true, (float)delta))
-            Place(_local, shown, OwnThrowTime(me), own: true, smooth: SmoothOwnClip(me));   // feel/controls: own clips at the frame rate
+            Place(_local, shown, ThrowShown(_local, me, OwnThrowTime(me)), own: true, smooth: SmoothOwnClip(me));   // stream B: the toss plays out after the release (NetworkView.ThrowFollow.cs)   // feel/controls: own clips at the frame rate
         ApplyTeamLook(_local, _client.PlayerId, me.Team);
         Ph("own model: weapons");
         SyncWeapons(_local, me, (float)delta);   // M24
@@ -551,7 +551,7 @@ public partial class NetworkView : Node3D
             Ph("remote players: death tracking");
             bool placed = TrackDeath(state.PlayerId, character, state, own: false, (float)delta);
             Ph("remote players: place");
-            if (placed) Place(character, state, remoteThrow, smooth: state.Alive ? SmoothRemoteClip(state, (float)delta) : null);
+            if (placed) Place(character, state, ThrowShown(character, state, remoteThrow), smooth: state.Alive ? SmoothRemoteClip(state, (float)delta) : null);
             Ph("remote players: team look");
             ApplyTeamLook(character, state.PlayerId, state.Team);
             Ph("remote players: weapons");

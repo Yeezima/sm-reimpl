@@ -82,6 +82,7 @@ public partial class NetworkView
             if (i >= 0) merged[i] = q; else merged.Add(q);
         }
         if (_ownPlasmaDecided.Count > 2048) { _ownPlasmaDecided.IntersectWith(ids); _ownPlasmaIds.IntersectWith(ids); }
+        OwnBallsMerge(merged, _ownPlasmaIds, ids);   // stream B: the predicted own ball stands for the server's (NetworkView.OwnBall.cs)
         return merged;
     }
 

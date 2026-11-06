@@ -630,7 +630,7 @@ public class ReactionTests(ITestOutputHelper output)
         var back = Assert.IsType<Snapshot>(Protocol.Read(bytes));
         output.WriteLine($"protocol {Protocol.Version}: {bytes.Length} bytes with {back.Shots!.Length} shot records (budget {Protocol.SnapshotBudget})");
         // Protocol 17: the own record's 4 reaction bytes cost the fifth guaranteed shot record of protocol 16 (1199 bytes).
-        Assert.Equal((1199, Protocol.MaxSnapshotBytes, 4, Protocol.MinSnapshotShots), (bytes.Length, bytes.Length, back.Shots.Length, back.Shots.Length));
+        Assert.Equal((1193, Protocol.MaxSnapshotBytes, 4, Protocol.MinSnapshotShots), (bytes.Length, bytes.Length, back.Shots.Length, back.Shots.Length));
         Assert.True(bytes.Length <= Protocol.SnapshotBudget && bytes.Length + Protocol.ShotBytes > Protocol.SnapshotBudget);
         Assert.Equal(players.Select(p => p.PlayerId == 7 ? p : Protocol.Slim(p)), back.Players);
     }
