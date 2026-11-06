@@ -19,7 +19,7 @@ namespace SmClient.Customizer;
 /// </summary>
 public sealed partial class AppearanceView : Control
 {
-    enum Section { Chapter, Armour, Colours, Badges, Eyes }
+    enum Section { Slots, Chapter, Armour, Colours, Badges, Eyes }
 
     readonly CustomizerServices _services;
     readonly ProfileSession _session;
@@ -33,6 +33,7 @@ public sealed partial class AppearanceView : Control
     string? _part;                       // COLOURS: the part edited (null: all parts)
     PaintChannel _channel = PaintChannel.Primary;
     string _pad = "leftshoulder";
+    int _slotPage;                       // MY APPEARANCES: the slot whose page is open (0: the list of ten)
     readonly Stack<CustomizationProfile> _undo = new();
 
     readonly Label _title, _status, _unsaved, _classLabel, _colourName;
@@ -137,7 +138,7 @@ public sealed partial class AppearanceView : Control
     public void Open(int slot, string race, string? section = null)
     {
         _slot = slot; _race = race;
-        _armourSlot = null; _part = null; _channel = PaintChannel.Primary;
+        _armourSlot = null; _part = null; _channel = PaintChannel.Primary; _slotPage = 0;
         _undo.Clear();
         if (section is not null && Enum.TryParse<Section>(section, true, out var s)) _section = s;
         BuildSideToggle();
@@ -147,6 +148,7 @@ public sealed partial class AppearanceView : Control
     public void OpenSection(string section, string? part = null)
     {
         if (Enum.TryParse<Section>(section, true, out var s)) _section = s;
+        _slotPage = 0;
         if (part is not null) { _armourSlot = part; _part = part; }
         Rebuild(true);
     }
@@ -180,7 +182,7 @@ public sealed partial class AppearanceView : Control
         if (!ReferenceEquals(before, _session.Working))
         {
             _undo.Push(before);
-            while (_undo.Count > 60) { var keep = _undo.ToArray().Take(50).Reverse().ToArray(); _undo.Clear(); foreach (var k in keep) _undo.Push(k); }
+            TrimUndo();
         }
         if (message is not null) Say(message);
     }
@@ -204,7 +206,7 @@ public sealed partial class AppearanceView : Control
             string r = race;
             _sideToggle.AddChild(UiKit.Toggle(text, _race == race, on =>
             {
-                if (on && _race != r) { _race = r; _armourSlot = null; _part = null; BuildSideToggle(); Rebuild(false); }
+                if (on && _race != r) { _race = r; _armourSlot = null; _part = null; _slotPage = 0; BuildSideToggle(); Rebuild(false); }
                 else if (!on) BuildSideToggle();
             }, 180));
         }
@@ -214,13 +216,13 @@ public sealed partial class AppearanceView : Control
     {
         foreach (var c in _sections.GetChildren()) { _sections.RemoveChild(c); c.QueueFree(); }
         _sectionButtons.Clear();
-        var names = new List<(Section, string)> { (Section.Chapter, "CHAPTER"), (Section.Armour, "ARMOUR"), (Section.Colours, "COLOURS"), (Section.Badges, "BADGES") };
+        var names = new List<(Section, string)> { (Section.Slots, "MY APPEARANCES"), (Section.Chapter, "CHAPTER"), (Section.Armour, "ARMOUR"), (Section.Colours, "COLOURS"), (Section.Badges, "BADGES") };
         names.Add((Section.Eyes, "EYES (lens)"));
         foreach (var (section, text) in names)
         {
             var s = section;
             var b = new Button { Text = text, Alignment = HorizontalAlignment.Left, ToggleMode = true, FocusMode = FocusModeEnum.All, CustomMinimumSize = new Vector2(0, 56) };
-            b.Pressed += () => { _section = s; _armourSlot = null; Rebuild(true); };
+            b.Pressed += () => { _section = s; _armourSlot = null; _slotPage = 0; Rebuild(true); };
             _sections.AddChild(b);
             _sectionButtons.Add(b);
         }
@@ -235,7 +237,7 @@ public sealed partial class AppearanceView : Control
         var own = Class?.Appearance.For(_race);
         _lookPicker = new OptionButton { CustomMinimumSize = new Vector2(250, UiKit.MinHit), FocusMode = FocusModeEnum.All, Disabled = Class is null };
         _lookPicker.AddItem("Default look", 0);
-        for (int i = 0; i < looks.Count; i++) _lookPicker.AddItem(looks[i].Name, i + 1);
+        for (int i = 0; i < looks.Count; i++) _lookPicker.AddItem($"{AppearanceSlots.SlotOf(profile, _race, looks[i].Id)}: {looks[i].Name}", i + 1);
         _lookPicker.AddItem(looks.Count < CustomizationProfile.MaxAppearancesPerRace ? "New look..." : "(library full)", looks.Count + 1);
         int selected = own is null ? 0 : looks.FindIndex(l => l.Id == own) + 1;
         _lookPicker.Select(Math.Max(selected, 0));
@@ -275,11 +277,12 @@ public sealed partial class AppearanceView : Control
         var focusedBefore = GetViewport()?.GuiGetFocusOwner();
         int keep = focusedBefore is Button fb ? _panel.GetChildren().OfType<Control>().SelectMany(Flatten).OfType<Button>().ToList().IndexOf(fb) : -1;
         var profile = _session.Working;
-        _classLabel.Text = Class is null ? "" : $"Loadout {_slot} \"{Class.Name}\": {LoadoutRows.ClassName(_catalog, Role, _race)}";
-        _classLabel.TooltipText = _classLabel.Text;
+        var shared = SharedNote();
+        _classLabel.Text = Class is null ? "" : $"Loadout {_slot} \"{Class.Name}\": {LoadoutRows.ClassName(_catalog, Role, _race)}{shared.Short}";
+        _classLabel.TooltipText = Class is null ? "" : $"Loadout {_slot} \"{Class.Name}\": {LoadoutRows.ClassName(_catalog, Role, _race)}{shared.Long}";
         for (int i = 0; i < _sectionButtons.Count; i++)
         {
-            var expected = new[] { Section.Chapter, Section.Armour, Section.Colours, Section.Badges, Section.Eyes }[i];
+            var expected = new[] { Section.Slots, Section.Chapter, Section.Armour, Section.Colours, Section.Badges, Section.Eyes }[i];
             _sectionButtons[i].SetPressedNoSignal(_section == expected);
         }
         RebuildLookRow();
@@ -290,6 +293,7 @@ public sealed partial class AppearanceView : Control
         if (Class is null) _panel.AddChild(Note("Open a custom loadout in the creator first; a look belongs to a loadout."));
         else switch (_section)
         {
+            case Section.Slots: BuildSlots(look, focusables); break;
             case Section.Chapter: BuildChapter(look, resolved, focusables); break;
             case Section.Armour: BuildArmour(look, resolved, focusables); break;
             case Section.Colours: BuildColours(look, resolved, focusables); break;
@@ -299,11 +303,12 @@ public sealed partial class AppearanceView : Control
         _unsaved.Text = _session.Dirty ? "* UNSAVED" : "";
         _saveButton!.Disabled = !_session.Dirty || _session.ReadOnly;
         _undoButton!.Disabled = _undo.Count == 0;
-        _resetButton!.Disabled = Class is null;
-        UpdatePreview(look);
+        _resetButton!.Disabled = Class is null || _section == Section.Slots;
+        UpdatePreview(_section == Section.Slots && SlotLook(_slotPage) is { } shown ? shown : look);
         if (focusFirst)
         {
-            (focusables.FirstOrDefault(f => f is Button b && b.ButtonPressed) ?? focusables.FirstOrDefault())?.FocusLater();
+            // MY APPEARANCES starts on the slot this loadout wears (the pad's place in the list).
+            ((_section == Section.Slots && _slotPage == 0 ? focusables.FirstOrDefault(f => f is UiKit.Row { IsSelected: true }) : null) ?? focusables.FirstOrDefault(f => f is Button b && b.ButtonPressed) ?? focusables.FirstOrDefault())?.FocusLater();
             Callable.From(() => _scroll.ScrollVertical = 0).CallDeferred();
         }
         else if (keep >= 0 && keep < focusables.Count) focusables[keep].FocusLater();
@@ -845,7 +850,7 @@ public sealed partial class AppearanceView : Control
 
     void ResetSection()
     {
-        if (Class is null) return;
+        if (Class is null || _section == Section.Slots) return;
         string what = _section switch { Section.Armour => "the armour parts", Section.Colours => "the colours", Section.Badges => "the badges", Section.Eyes => "the eyes", _ => "the whole look" };
         UiKit.Dialog.Open(this, Host, "Reset this section?", $"Back to the {(_race == CustomizationCatalog.Chaos ? "warband" : "chapter")}'s default for {what}.", ["Reset", "Cancel"], i =>
         {
@@ -889,6 +894,7 @@ public sealed partial class AppearanceView : Control
         {
             GetViewport().SetInputAsHandled();
             if (_section == Section.Armour && _armourSlot is not null) { _armourSlot = null; Rebuild(true); }
+            else if (_section == Section.Slots && _slotPage > 0) CloseSlotPage();
             else Done();
             return;
         }
@@ -910,7 +916,7 @@ public sealed partial class AppearanceView : Control
     {
         int count = _sectionButtons.Count;
         _section = (Section)(((int)_section + delta + count) % count);
-        _armourSlot = null;
+        _armourSlot = null; _slotPage = 0;
         Rebuild(true);
     }
 

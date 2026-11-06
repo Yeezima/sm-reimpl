@@ -286,6 +286,7 @@ public sealed partial class UiSelfTest : Node
         Check("both pads show the newest emblem and the plan carries it", withEmblem is { UsesEmblem: true } && withEmblem.SpaceMarineLook.Emblem == emblem && withEmblem.SpaceMarineLook.LeftDecal == withEmblem.SpaceMarineLook.RightDecal);
         Check("the profile saves with the look and the emblem", session.Save() is null);
 
+        await AppearanceSlotChecks();   // ui/appearance-slots: MY APPEARANCES, ten saved looks per side (UiSelfTest.AppearanceSlots.cs)
         await LoadoutChecks();
         await MouseChecks();
         await DefaultsChecks();
