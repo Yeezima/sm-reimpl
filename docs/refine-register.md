@@ -35,6 +35,7 @@ Scanned 2344 spec table rows: **1704 tagged**, 461 not tagged (read from data wi
 Scanned 2339 spec table rows: **1700 tagged**, 459 not tagged (read from data with high confidence), 180 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
 Scanned 2335 spec table rows: **1697 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 515 rows of the changes document.
 Scanned 2337 spec table rows: **1699 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 513 rows of the changes document.
+Scanned 2336 spec table rows: **1698 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -45,7 +46,7 @@ Scanned 2337 spec table rows: **1699 tagged**, 459 not tagged (read from data wi
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
-| Camera (critical) | 52 | 50 | 41 | 19 | 0 |
+| Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 66 | 61 | 49 | 10 | 0 |
 | Sound mix (critical) | 56 | 50 | 48 | 10 | 0 |
 | Effects (critical) | 76 | 66 | 66 | 40 | 0 |
@@ -86,6 +87,7 @@ Scanned 2337 spec table rows: **1699 tagged**, 459 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 172 | 163 | 80 | 49 | 0 |
 | **All areas** | **1699** | 1464 | 1302 | 526 | 38 |
+| **All areas** | **1698** | 1463 | 1301 | 528 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -106,7 +108,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: low | 618 |
 | confidence: medium | 553 |
 | kind: interpretation | 343 |
-| notes: ours | 334 |
+| notes: ours | 337 |
 | confidence: none (low) | 128 |
 | kind: estimate | 103 |
 | kind: ours | 840 |
@@ -124,6 +126,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: ours | 335 |
 | confidence: none (low) | 128 |
 | kind: estimate | 103 |
+| kind: estimate | 105 |
 | kind: provisional | 99 |
 | notes: estimate | 86 |
 | notes: estimate | 84 |
@@ -1352,7 +1355,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C1D7E018` | Not simulated | `min_hit_reaction_time` 1 (read as the flinches' spacing), flinches, the displace kick and slam (`ability_displace_kick`: stagger 5 m over 0.3 s, in the heavy evade and knife files; how a player triggers it is not in the data read), the bull rush… | notes: not reproduced (gap) | — | Not simulated: compare with SM1 by feel or video. Ours: min_hit_reaction_time 1 (read as the flinches' spacing), flinches… | ☐ |
 | `R-8B2013F2` | Client | poses the reaction clip at the reaction's time (remote players at the snapshot's value), the heavy strikes' clips like light attacks; the own view shook 0.35 s on a reaction start (0.012 / 0.03 / 0.022 rad for interrupt / stun / stagger; **off by default… (s, rad) | kind: placeholder; confidence: none (low); notes: ours | ours | Client: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: poses the reaction clip at the reaction's time (remote players at the… | ☐ |
 
-### Camera (gameplay-critical) (52)
+### Camera (gameplay-critical) (55)
 
 *Spec section: Camera, aim mode, shot convergence and hit confirmation (M20; protocol 12)*
 
@@ -1394,6 +1397,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-968781F1` | Spectator collision | the eye is pushed out of every living player's capsule padded by 0.35 m (the own one too), cast from the look target against the level (damped as above, pull-in cap 30 m/s, lookahead 0.2 s, 0.5 s and 1 s along the springs' velocities), pushed out of bodies… (m) | kind: provisional; notes: ours | ours | Spectator collision: compare with SM1 by measuring on a flat spot of the same map. Ours: the eye is pushed out of every living player's capsule padded by 0.35… | ☐ |
 | `R-7BEADECC` | Depenetration | the last step of every camera: 26 rays of the hard radius (0.13 m) around the camera; a hit moves it along the surface normal by what is missing (two passes, at most 0.13 m): small, so no jump (m) | kind: provisional; kind: approximation; notes: ours | ours | Depenetration: compare with SM1 by shooting through a crate or a line of players and counting who is hit. Ours: the last step of every camera: 26 rays of the hard radius (0.13 m)… | ☐ |
 | `R-2FFF8AF7` | Death camera | the 0.3 s smoothstep blend from the last camera to the orbit stays; the orbit position is now cast from the focus (damped, hard clamp), pushed out of living players (the killer) and depenetrated instead of an instant pull-in (s, m) | kind: placeholder; notes: ours | ours | Death camera: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the 0.3 s smoothstep blend from the last camera to the orbit stays… | ☐ |
+| `R-8DA108B4` | Death camera orbit (late-g/death-orbit-cam; all modes) | the owner's request (2026-11-06): while the own player is dead (and not in the loadout picker) the mouse and the right stick orbit the death camera round the own body: the same look deltas as alive (the mouse's 0.0035 rad per pixel x the look sensitivity and… (rad) | kind: estimate; confidence: low; notes: ours | owner's request; values ours | Death camera orbit (late-g/death-orbit-cam; all modes): compare with SM1 with an overlaid screenshot taken from the same position. Ours: the owner's request (2026-11-06): while the own player is dead (and… | ☐ |
+| `R-284D14E4` | Death camera orbit: elevation limits | 0.05 rad (about 3 degrees above the body: lower drives the camera into the floor the corpse lies on) to 1.3 rad (about 74 degrees: short of straight down); applied only once the player moves the orbit (the death camera's own start below 0.05 rad is kept until… (rad) | kind: estimate; confidence: low; notes: ours | ours | Death camera orbit: elevation limits: compare with SM1 with an overlaid screenshot taken from the same position. Ours: 0.05 rad (about 3 degrees above the body: lower drives the camera… | ☐ |
+| `R-231BB64F` | Death camera orbit: distance and collision | unchanged: the death camera's 2.5 to 5 m (from the last camera's distance) growing 1.2 m over 3 s; the orbit position goes through the death camera's sphere cast from the body (damped pull-in, hard clamp), the push out of living players and the depenetration… (m) | kind: estimate; confidence: low; notes: ours | ours | Death camera orbit: distance and collision: compare with SM1 by measuring on a flat spot of the same map. Ours: unchanged: the death camera's 2.5 to 5 m (from the last camera's… | ☐ |
 | `R-7C0A3F2A` | Body push (spectator, death, rig cameras) | every living player's capsule padded by 0.35 m (radius 0.8 m); each body's push on the camera is a horizontal vector that follows what the body now needs by an exponential rate 12 /s, at most 15 m/s, and decays the same way when out of reach (review fix: the… (m, m/s) | kind: provisional; notes: ours | ours | Body push (spectator, death, rig cameras): compare with SM1 by timing a run over a known distance. Ours: every living player's capsule padded by 0.35 m (radius 0.8 m); each… | ☐ |
 | `R-EE0A6B04` | Fixed and exempt views | `--spectate cam:x,y,z,tx,ty,tz` is placed exactly (no springs, cast, push-out or depenetration: measured matched views for lighting comparisons and recorded footage); `inspect` keeps no distance from bodies; `overview` is not cast | notes: ours | ours | Fixed and exempt views: compare with SM1 with side-by-side screenshots in the same spot. Ours: --spectate cam:x,y,z,tx,ty,tz is placed exactly (no springs, cast… | ☐ |
 | `R-90EA2E09` | Cast start | the spectator and death casts start from the look target moved off any surface within 0.33 m (3 passes of the depenetration rays): a target between two players fighting beside a railing, or inside a wall between them, otherwise starts in collision and the… (m) | kind: provisional; notes: ours | ours | Cast start: compare with SM1 by measuring on a flat spot of the same map. Ours: the spectator and death casts start from the look target moved off… | ☐ |
@@ -3124,6 +3130,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-73CEF8B5` | Jump pack flame trail removed | the owner's request (2026-11-02) | one quick flash at the start of a jump, hop, dive, dash or air charge, no flame or trail | Jump pack | Jump pack flame trail removed: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-CD5C01F2` | Zoom while flying with the jump pack | the owner's request (2026-11-02) | aim mode holds in the jump pack's phases, except the ground pound | Jump pack | Zoom while flying with the jump pack: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-69AD73F9` | Jump pack ready jets by jump availability | The pack's idle effects by power (`action_idle_by_power`: full from 55, low from 40, none below) | the owner's request (2026-11-06): the full-power jets while a jump can start, faded out (0.2 s) while one cannot, back in 0.25 s (ours); with the 300-power pack the power rule never changed the look (fx/jumppack-jets, client only) | Jump pack: the launch flash, the ready jets and the legs in an air strike | Jump pack ready jets by jump availability: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-9FBF6788` | Death camera orbits with the mouse and right stick (late-g/death-orbit-cam; all modes) | The owner's description of the original (M23): no control while dead, a slow third-person view of the body; whether the original lets the player turn it is not known from the data (the death camera is not decoded) | the owner's request (2026-11-06): while dead the mouse and the right stick orbit the death camera round the own body with the player's sensitivity, invert and pad curves (turning right swings the camera round the body, looking up lowers it); elevation 0.05 to 1.3 rad, the distance and the 0.3 s blend unchanged, kept… | Owner 2026-11-06 (late batch, stream G); spec "Death camera orbit" | Death camera orbits with the mouse and right stick…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 
 ### Our choices where the original is unknown
 

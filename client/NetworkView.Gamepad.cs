@@ -96,8 +96,11 @@ public partial class NetworkView
     static bool IsMenuPress(InputEvent e) =>
         e is InputEventKey { Pressed: true, Echo: false, PhysicalKeycode: Key.Escape } || e is InputEventJoypadButton { Pressed: true, ButtonIndex: JoyButton.Start };
 
-    /// <summary>Right stick turning for this frame (from <c>ProcessFrame</c>): the data's rates in degrees per second, like the mouse changes the view.</summary>
-    void PadLook(double delta)
+    /// <summary>
+    /// Right stick turning for this frame (from <c>ProcessFrame</c>): the data's rates in degrees per second, like the mouse changes the view.
+    /// With <paramref name="deathOrbit"/> (late-g: dead) the same turn orbits the death camera instead (<see cref="DeathOrbitLook"/>).
+    /// </summary>
+    void PadLook(double delta, bool deathOrbit = false)
     {
         if (_client is not null && !_client.Predicted.Aiming) _padZoom = 0;
         if (_pad is null || !PadHost.Active || _client is null) { _padHeldX = _padHeldY = 0f; return; }
@@ -115,6 +118,7 @@ public partial class NetworkView
         float yawRate = GamepadRules.LookRate(rx, _padHeldX, speedH, t?.StickMapping, t?.StickDamping) * lookFactor;
         float pitchRate = GamepadRules.LookRate(ry, _padHeldY, speedV, t?.StickMapping, t?.StickDamping) * lookFactor * SmClient.Customizer.Model.LiveOptions.PadVertical;
         // Right is a turn to the right (yaw decreases); the stick's Y is down positive, like the mouse's: down lowers the pitch.
+        if (deathOrbit) { DeathOrbitLook(-Mathf.DegToRad(yawRate) * dt, -Mathf.DegToRad(pitchRate) * dt); return; }
         _yaw -= Mathf.DegToRad(yawRate) * dt;
         _pitch = Math.Clamp(_pitch - Mathf.DegToRad(pitchRate) * dt, _pitchMin, _pitchMax);
     }

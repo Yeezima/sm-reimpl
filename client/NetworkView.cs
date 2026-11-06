@@ -388,7 +388,9 @@ public partial class NetworkView : Node3D
         if (SpawnChoiceInput(e)) return;   // fix/pvp-deploy-spawn: the death screen's respawn choice (NetworkView.SpawnChoice.cs)
         LatencyProbeEvent(e);   // feel/controls test aid (--latency-probe): the delivery frame
         ControlEvent(e);   // feel/controls: presses and releases for the tap latch and the early tick (NetworkView.Controls.cs)
-        if (e is InputEventMouseMotion motion && MouseCaptured && !OwnDead)
+        if (e is InputEventMouseMotion deadMotion && MouseCaptured && OwnDead)
+            DeathOrbitLook(-deadMotion.Relative.X * MouseYawPerPixel * MouseLook, -deadMotion.Relative.Y * SmClient.Customizer.Model.LiveOptions.MouseVertical * MouseYawPerPixel * MouseLook);   // late-g: dead, the mouse orbits the death camera (NetworkView.Death.cs); the view itself stays frozen (M23)
+        else if (e is InputEventMouseMotion motion && MouseCaptured && !OwnDead)
         {
             _yaw -= motion.Relative.X * MouseYawPerPixel * MouseLook;   // mouse right turns right (clockwise seen from above)
             _pitch = Math.Clamp(_pitch - motion.Relative.Y * SmClient.Customizer.Model.LiveOptions.MouseVertical * MouseYawPerPixel * MouseLook, _pitchMin, _pitchMax);   // mouse up aims up
@@ -445,6 +447,7 @@ public partial class NetworkView : Node3D
             PanView(delta);   // M36 test aid (--pan-rate)
             PadLook(delta);   // controller: the right stick turns the view (NetworkView.Gamepad.cs)
         }
+        else if (!_bot && OwnDead && !PickerBusy && _demoPlayback is null) PadLook(delta, deathOrbit: true);   // late-g: dead, the right stick orbits the death camera
 
         Ph("client update (input, network)");
         DemoBeforeUpdate(delta);   // M40 T0: a replayed demo advances its clock by this frame and sets the recorded view
