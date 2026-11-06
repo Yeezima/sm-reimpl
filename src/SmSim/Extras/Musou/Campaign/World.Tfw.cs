@@ -175,7 +175,11 @@ public sealed partial class World
         var near = new ushort[MusouSim.Capacity];
         int n = enemies.Query(at, radius, near), fell = 0;
         for (int k = 0; k < n; k++)
-            if (enemies.TryGet(near[k], out var e) && e.Alive && enemies.Damage(near[k], by, e.Health, Vector3.Zero, out bool killed, marker: 0) && killed) fell++;
+        {
+            if (!enemies.TryGet(near[k], out var e) || !e.Alive) continue;
+            if (enemies.ShieldOf(near[k]) > 0f) enemies.Damage(near[k], by, enemies.ShieldOf(near[k]), Vector3.Zero, out _, marker: 0, cause: MusouDeathKind.Blast);   // a Weirdboy's shield first (shots cannot touch it)
+            if (enemies.TryGet(near[k], out e) && e.Alive && enemies.Damage(near[k], by, e.Health, Vector3.Zero, out bool killed, marker: 0) && killed) fell++;
+        }
         return fell;
     }
 

@@ -148,6 +148,8 @@ public sealed class MusouSoundSet
         new(MusouEnemyType.BossShootaBoy, "ork_coop_boy_2hand_shoota", "ork_coop_boy_choppa", Gun: "ork_coop_boy_2hand_shoota_rapid"),
         new(MusouEnemyType.BossArdBoy, "ork_coop_boy_pro", "ork_coop_boy_choppa_pro"),
         new(MusouEnemyType.BossNob, "ork_coop_nob", "ork_coop_nob_uge_axe", Charge: "ork_coop_nob_bullrush"),
+        // The Weirdboy (Musou Mode only): his own blueprint and staff (its swing, and its fire for the bolt).
+        new(MusouEnemyType.Weirdboy, "ork_coop_weirdboy", "ork_coop_weirdboy_staff", Gun: "ork_coop_weirdboy_staff"),
     ];
 
     /// <summary>Every file <see cref="Files"/> names, for <see cref="SoundTriggers.Load(string, IEnumerable{string}, IEnumerable{string}, IReadOnlyList{SmFormats.Havok.BehaviorGraph}?, IReadOnlyList{SmFormats.Havok.BehaviorGraph}?)"/>.</summary>

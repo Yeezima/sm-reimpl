@@ -17,7 +17,7 @@ namespace SmClient;
 /// collisions, the dark ring at <c>--pound-radius</c> metres (default 7, the simulation's pound radius) and the physics chunks on a floor; <c>--fx-pos</c> sets the point, default 0,0,3 on the floor);
 /// <c>--stomp-test</c> (fx/impact-pass) plays a stomp's impact as the networked client does (<see cref="StompFx"/>, the first effect named, default <c>interrupt_stomp_dmg</c>, at <c>--pound-radius</c>; <c>--stomp-ring</c> picks the shockwave's sprite);
 /// <c>--fx-shots t1,t2,...</c> with <c>--fx-shot-base file.png</c> (M41) saves the view at those seconds after the first effect starts (<c>file_001.png</c>, ...) and then quits;
-/// <c>--fx-wargear csm_mp_ranged_plasma_gun</c> plays the effects as that weapon does (a Chaos plasma weapon recolours the loyalist-named plasma effects purple, <see cref="PlasmaColour"/>);
+/// <c>--fx-tint r,g,b</c> recolours every effect as <see cref="FxEffect.Tint"/> does; <c>--fx-wargear csm_mp_ranged_plasma_gun</c> plays the effects as that weapon does (a Chaos plasma weapon recolours the loyalist-named plasma effects purple, <see cref="PlasmaColour"/>);
 /// <c>--fx-rein f</c> (feel/muzzle-smoke) plays the effects with their smoke elements reined in to that fraction (1: the data's look), <c>--fx-decals</c> (M38) draws only the effects' decals, <c>--fx-head m/s</c> sets a tracer's bright-head speed (what the networked client does for long shots), <c>--fx-sprite name</c> shows one atlas sprite as a big quad (to see how it is stored).
 /// </summary>
 public partial class FxTestView : Node3D
@@ -181,6 +181,7 @@ public partial class FxTestView : Node3D
             var place = origin + new Vector3(spacing * (i - (_names.Length - 1) / 2f), 0, 0);
             // --fx-wargear <file> plays the effects as that weapon would (the Chaos plasma recolouring, SmContent.PlasmaColour).
             var tint = PlasmaColour.TintFor(_args.GetValueOrDefault("fx-wargear") ?? "", name) is { } rgb ? new Color(rgb.R, rgb.G, rgb.B) : (Color?)null;
+            if (_args.GetValueOrDefault("fx-tint") is { } tintArg) { var c = V3(tintArg, Vector3.One); tint = new Color(c.X, c.Y, c.Z); }   // --fx-tint r,g,b: any recolouring (the Musou Weirdboy's green burst: 0.35,1,0.3)
             var e = _player.Play(name, place, basis, scale, target is { } tg ? tg + (place - origin) : null, null, 0f, 0.0, repeat: false, tint: tint, smokeRein: F(_args.GetValueOrDefault("fx-rein"), 1f));
             if (e is null) { GD.PrintErr($"fx: '{name}' not found"); continue; }
             if (_args.TryGetValue("fx-head", out var head)) e.HeadSpeed = F(head, 0f);

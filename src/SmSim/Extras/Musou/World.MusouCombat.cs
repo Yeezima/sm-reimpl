@@ -214,7 +214,7 @@ public sealed partial class World
             var forward = line.LengthSquared() > 1e-8f ? Vector2.Normalize(line) : new Vector2(-MathF.Sin(p.Yaw), MathF.Cos(p.Yaw));
             for (int k = 0; k < n && hit.Count < rules.ChargeTargets; k++)
             {
-                if (hit.Contains(_musouNear[k]) || !musou.TryGet(_musouNear[k], out var e)) continue;
+                if (hit.Contains(_musouNear[k]) || !musou.TryGet(_musouNear[k], out var e) || !e.Alive) continue;   // !Alive: one a Weirdboy's burst killed earlier in this loop
                 var (radius, _) = musou.Body(e.Type);
                 if (MusouSim.FlatDistanceToSegment(e.Position, from, p.Position) > radius + Config.CapsuleRadius + spec.ContactMargin) continue;
                 hit.Add(e.Id);
@@ -254,7 +254,7 @@ public sealed partial class World
         int most = musou.War?.CleaveTargets ?? rules.CleaveTargets;
         for (int k = 0; k < n && struck < most; k++)
         {
-            if (!musou.TryGet(_musouNear[k], out var e)) continue;
+            if (!musou.TryGet(_musouNear[k], out var e) || !e.Alive) continue;   // !Alive: one a Weirdboy's burst killed earlier in this loop
             var flat = new Vector2(e.Position.X - state.Position.X, e.Position.Y - state.Position.Y);
             float distance = flat.Length();
             if (distance > 1e-4f && Vector2.Dot(flat / distance, forward) < minCos) continue;   // overlapping counts as in front, as the core's
@@ -301,7 +301,7 @@ public sealed partial class World
         int n = musou.Query(point, splash.Radius, _musouNear, verticalReach: splash.Radius + 3f);
         for (int k = 0; k < n; k++)
         {
-            if (!musou.TryGet(_musouNear[k], out var e)) continue;
+            if (!musou.TryGet(_musouNear[k], out var e) || !e.Alive) continue;   // !Alive: one a Weirdboy's burst killed earlier in this loop
             var chest = MusouSim.Chest(e.Position, musou.Body(e.Type).Height);
             float distance = Vector3.Distance(chest, point);
             if (distance > splash.Radius) continue;

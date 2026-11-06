@@ -523,6 +523,7 @@ public sealed partial class TfwBattle
         StepColumns(players);   // TfwBattle.Patrols.cs: before the arrivals, so the crowds see the cap the columns take
         StepArrivals();
         StepBossOrks(players);   // the roaming Boss Orks (owner, 2026-11-06; TfwBattle.BossOrks.cs)
+        StepWeirdboyz(players);   // the Weirdboyz (TfwBattle.Weirdboyz.cs)
         return change;
     }
 

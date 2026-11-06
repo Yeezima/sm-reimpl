@@ -17,7 +17,7 @@ namespace SmClient;
 /// same archive, read on a worker); the Chaos Marine is the PvP Chaos model the networked view has already built. Read from the player's install at run time only.
 /// <para>
 /// Which mesh and clip each kind uses, and the scales, are **ours** (interpretation: the install has no Musou): Boy boy_melee, Shoota Boy boy_ranged, 'Ard Boy
-/// boy_ardboy, Gretchin boy_melee at 0.7 (no Gretchin mesh verified), Nob nob_melee (else boy_melee_pro at 1.2), Warboss nob_melee at the sim's BossScale, 4.5 since the late batch of 2026-11-06 (else boy_melee_pro, else the Boy, at the same; the owner, 2026-11-01: "always a large orc, never small", and 2026-11-02: 3x).
+/// boy_ardboy, Weirdboy his own elite_boy_weirdboy and staff on their rig (WeirdboyLooks; else the Boy's look), Gretchin boy_melee at 0.7 (no Gretchin mesh verified), Nob nob_melee (else boy_melee_pro at 1.2), Warboss nob_melee at the sim's BossScale, 4.5 since the late batch of 2026-11-06 (else boy_melee_pro, else the Boy, at the same; the owner, 2026-11-01: "always a large orc, never small", and 2026-11-02: 3x).
 /// </para>
 /// </summary>
 public sealed class MusouLooks
@@ -74,6 +74,7 @@ public sealed class MusouLooks
     /// <summary>The ranged Orks' guns (null: <c>--no-musou-guns</c>, unarmed as before).</summary>
     public MusouGunModels? Guns { get; }
     readonly WarbossLooks? _warboss;
+    readonly WeirdboyLooks? _weirdboy;
     int _next;
     bool _chaosTried;
 
@@ -88,6 +89,8 @@ public sealed class MusouLooks
         if (guns) Guns = new MusouGunModels(gameDir, orks.Rig.Rig.Skeleton.BoneNames);   // the guns in the ranged Orks' hands (MusouGunModels.cs)
         try { _warboss = new WarbossLooks(gameDir); }
         catch (Exception ex) when (ex is not OutOfMemoryException) { Notes.Add($"musou: the Warboss model was not started: {ex.Message}"); }
+        try { _weirdboy = new WeirdboyLooks(gameDir); }   // Musou Mode's Weirdboy: his own body, staff and rig (WeirdboyLooks.cs)
+        catch (Exception ex) when (ex is not OutOfMemoryException) { Notes.Add($"musou: the Weirdboy model was not started: {ex.Message}"); }
         foreach (var w in Plan) { Start(w.Mesh); if (w.Fallback is not null) Start(w.Fallback); }
     }
 
@@ -130,6 +133,13 @@ public sealed class MusouLooks
             Guns?.Arm(look, w.Type, _orks.Pieces, Notes);
             return _looks[(int)w.Type] = look;
         }
+        if (_weirdboy is { Done: false } weird)   // the Weirdboy's own look, once its files are read (a Boy stands in until then, and for good if it cannot be had)
+        {
+            var mine = weird.Step();
+            if (mine is null && !weird.Done) return null;
+            Notes.AddRange(weird.Notes); weird.Notes.Clear();
+            if (mine is not null) return _looks[(int)MusouEnemyType.Weirdboy] = mine;
+        }
         if (_looks[(int)MusouEnemyType.Warboss] is null && _looks[(int)MusouEnemyType.Boy] is { } boy)   // no Nob and no pro mesh to be had: the Boy's body, big
             _looks[(int)MusouEnemyType.Warboss] = new Look { Name = "Warboss:boy_melee", Assets = boy.Assets, Scale = BossScale, Clips = boy.Clips };
         if (_looks[(int)MusouEnemyType.Nob] is null && _looks[(int)MusouEnemyType.Boy] is { } boyNob)   // the same for the Nob: never left invisible
@@ -144,7 +154,7 @@ public sealed class MusouLooks
     }
 
     /// <summary>Gives up waiting for the Chaos model (the view has none): the Chaos Marine is drawn as a Boy.</summary>
-    public void StopWaiting() { if (_next >= Plan.Length && !_chaosTried) { _chaosTried = true; Done = true; Notes.Add("musou: no Chaos model built; Chaos Marines drawn as Boyz"); } }
+    public void StopWaiting() { if (_next >= Plan.Length && !_chaosTried && _weirdboy is not { Done: false }) { _chaosTried = true; Done = true; Notes.Add("musou: no Chaos model built; Chaos Marines drawn as Boyz"); } }
 
     void Start(string mesh)
     {
