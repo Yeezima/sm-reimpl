@@ -64,6 +64,11 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         /// synthetic maps and the heavy classes' kick): none. Every melee weapon map: <see cref="OwnerSwingStep"/>; the thunder hammer's and the daemon maul's: <see cref="OwnerHammerSwingStep"/>.
         /// </summary>
         public float SwingStepFactor { get; init; } = 1f;
+        /// <summary>
+        /// sim/instant-step (owner, 2026-11-06: "the step forward distance on all melee weapons should be boosted by 20%"): a further factor on the forward lunge of every strike of this
+        /// weapon, light and heavy, multiplied into <see cref="MeleeStep.LungeFactor"/>. 1 (the default, synthetic maps and the heavy classes' kick): none. Every melee weapon map: <see cref="OwnerStepBoost"/>.
+        /// </summary>
+        public float StepBoost { get; init; } = 1f;
         /// <summary>feel/melee-reliability: every strike of this weapon is a <see cref="MeleeStep.TrackToHit"/> one.</summary>
         public bool TrackToHit { get; init; }
         /// <summary>
@@ -119,6 +124,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         ["CK 1 Sequence", "CK 2 Sequence", "CK 3 Sequence"], ["ability_melee_ck1", "ability_melee_ck2", "ability_melee_ck3"])
     {
         SwingStepFactor = OwnerSwingStep,   // sim/swing-step (owner, 2026-11-06)
+        StepBoost = OwnerStepBoost,   // sim/instant-step (owner, 2026-11-06)
         HeavySequencers = ["CK Y1 Sequence", "CK Y2 Sequence", "CK Y3 Sequence", "CK Y4 Sequence"],
         HeavyAbilities = ["ability_melee_y", "ability_melee_y2", "ability_melee_y3", ""],
         // feel/melee-charge-2 (protocol 42; the owner: "normal combo is backhand > stomp"): the graph's "CK Default Combo End 1 ( Y ) Backhand", "End 2 ( X , Y ) Kick"
@@ -138,6 +144,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         ["Combo Start Sequencer", "Combo 2 Sequencer"], ["ability_melee_light", "ability_melee_light"])
     {
         SwingStepFactor = OwnerSwingStep,   // sim/swing-step (owner, 2026-11-06)
+        StepBoost = OwnerStepBoost,   // sim/instant-step (owner, 2026-11-06)
         HeavySequencers = ["Combo Heavy Attack Sequencer"],
         HeavyAbilities = ["ability_melee_heavy"],
         MoveBranches = ["BRANCH_Run"], DefaultTargetDistance = 1f,
@@ -148,6 +155,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         ["Combo Set 2 Start Sequencer", "Combo Set 2 Follow Sequencer"], ["ability_melee_light", "ability_melee_light"])
     {
         SwingStepFactor = OwnerSwingStep,   // sim/swing-step (owner, 2026-11-06)
+        StepBoost = OwnerStepBoost,   // sim/instant-step (owner, 2026-11-06)
         HeavySequencers = ["Combo Heavy Attack 2 Sequencer"],
         HeavyAbilities = ["ability_melee_heavy"],
         MoveBranches = ["BRANCH_Run"], DefaultTargetDistance = 1f,
@@ -166,6 +174,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         ["Sequencer_X1", "Sequencer_X2", "Sequencer_X3", "Sequencer_X4"], ["ability_melee_x1", "ability_melee_x2", "ability_melee_x3", "ability_melee_x4"])
     {
         SwingStepFactor = OwnerSwingStep,   // sim/swing-step (owner, 2026-11-06)
+        StepBoost = OwnerStepBoost,   // sim/instant-step (owner, 2026-11-06)
         HeavySequencers = ["CS Y Atk Sequencer00", "Sequencer27", "Sequencer28", "Sequencer31"],
         HeavyAbilities = ["ability_melee_y", "ability_melee_y2", "ability_melee_y3", "ability_melee_y4"],
         LoopLights = false, LightHeavyNext = [0, 0, 0, -1],
@@ -186,6 +195,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         ["ability_melee_x1", "ability_melee_x2", "ability_melee_x3", "ability_melee_x4"])
     {
         SwingStepFactor = OwnerSwingStep,   // sim/swing-step (owner, 2026-11-06)
+        StepBoost = OwnerStepBoost,   // sim/instant-step (owner, 2026-11-06)
         HeavySequencers = ["Sequencer19", "Sequencer22", "Sequencer23", "Sequencer31"],
         HeavyAbilities = ["ability_melee_y", "ability_melee_y2", "ability_melee_y3", "ability_melee_y4"],
         ComboBranches = ["BRANCH_Melee_Combo", "BRANCH_Melee_Combo_MISS"],
@@ -208,6 +218,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         ["SequencerGenerator_TH_1", "SequencerGenerator05", "SequencerGenerator15"], ["ability_melee_x1", "ability_melee_x2", "ability_melee_x3"])
     {
         SwingStepFactor = OwnerHammerSwingStep,   // sim/swing-step (owner, 2026-11-06)
+        StepBoost = OwnerStepBoost,   // sim/instant-step (owner, 2026-11-06)
         HeavySequencers = ["Sequencer16", "SequencerGenerator18", "SequencerGenerator23"],
         HeavyAbilities = ["ability_melee_y", "ability_melee_y2", "ability_melee_y3"],
         LoopLights = false, LightHeavyNext = [0, 0, -1],
@@ -232,6 +243,12 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     /// An **estimate (owner's request)**, to review in a playtest.
     /// </summary>
     public const float OwnerSwingStep = 1.5f;
+    /// <summary>
+    /// sim/instant-step (owner, 2026-11-06): every melee weapon's strikes (light and heavy, the hammer and the maul too) step forward 20 % further than before. An **estimate
+    /// (owner's request)**, to review in a playtest. Test aid: <c>SM_OLD_STEP_BOOST=1</c> (server and client alike) restores the distance.
+    /// </summary>
+    public const float OwnerStepBoost = 1.2f;
+    static readonly bool OldStepBoost = Environment.GetEnvironmentVariable("SM_OLD_STEP_BOOST") == "1";
     /// <summary>
     /// sim/swing-step (owner, 2026-11-06: "for the thunder hammer reduce that step-forward during the swing by 30%"): the hammer's swings × 0.7 on top of
     /// <see cref="HammerLightLungeFactor"/> (0.82 × 0.7 = 0.574 of the lunge every melee weapon has). The daemon maul (the Chaos hammer, one map) takes it too: **our
@@ -303,7 +320,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             var (step, animation) = Step(weapon.Sequencers[i], weapon.Abilities[i]);
             // Weapons C: where the graph leaves this attack for a heavy strike, and whether a light press goes on from it.
             int heavyNext = i < weapon.LightHeavyNext.Length ? weapon.LightHeavyNext[i] : 0;
-            step = step with { HeavyNext = Math.Max(-1, heavyNext), StringEnd = !weapon.LoopLights && i == weapon.Sequencers.Length - 1, LungeFactor = (OldHammerLunge ? 1f : weapon.LightLungeFactor) * (OldSwingStep ? 1f : weapon.SwingStepFactor), TrackToHit = weapon.TrackToHit };
+            step = step with { HeavyNext = Math.Max(-1, heavyNext), StringEnd = !weapon.LoopLights && i == weapon.Sequencers.Length - 1, LungeFactor = (OldHammerLunge ? 1f : weapon.LightLungeFactor) * (OldSwingStep ? 1f : weapon.SwingStepFactor) * (OldStepBoost ? 1f : weapon.StepBoost), TrackToHit = weapon.TrackToHit };
             steps.Add(step);
             animations.Add(animation);
         }
@@ -317,6 +334,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             try
             {
                 var (step, animation) = Step(heavySequencers[i], heavyAbilities[i]);
+                if (!OldStepBoost && weapon.StepBoost != 1f) step = step with { LungeFactor = step.LungeFactor * weapon.StepBoost };   // sim/instant-step: the heavy strikes step 20 % further too
                 int yNext = i < weapon.YNext.Length ? weapon.YNext[i] : 0;
                 if (yNext > 0)
                 {

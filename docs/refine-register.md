@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2284 spec table rows: **1655 tagged**, 453 not tagged (read from data with high confidence), 176 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 499 rows of the changes document.
+Scanned 2287 spec table rows: **1658 tagged**, 453 not tagged (read from data with high confidence), 176 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 500 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 377 | 321 | 320 | 111 | 12 |
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
-| Melee (critical) | 102 | 89 | 79 | 32 | 5 |
+| Melee (critical) | 103 | 90 | 80 | 32 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -50,23 +50,23 @@ Scanned 2284 spec table rows: **1655 tagged**, 453 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
-| Core simulation (provisional values) | 281 | 265 | 221 | 37 | 1 |
+| Core simulation (provisional values) | 283 | 267 | 223 | 37 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 149 | 142 | 73 | 34 | 0 |
-| **All areas** | **1655** | 1424 | 1275 | 500 | 38 |
+| **All areas** | **1658** | 1427 | 1278 | 500 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 810 |
-| confidence: low | 602 |
-| confidence: medium | 545 |
+| kind: ours | 812 |
+| confidence: low | 604 |
+| confidence: medium | 546 |
 | kind: interpretation | 343 |
 | notes: ours | 325 |
 | confidence: none (low) | 128 |
 | kind: provisional | 99 |
-| kind: estimate | 93 |
+| kind: estimate | 95 |
 | notes: estimate | 67 |
 | kind: user's knowledge | 51 |
 | notes: provisional | 38 |
@@ -870,7 +870,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (102)
+### Melee (gameplay-critical) (103)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1048,6 +1048,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-04289953` | Swing step-forward: every melee weapon but the hammer and the maul | the light strikes' forward root motion × **1.5** on top of the lunge scale 1.625 (2.4375 × the clip's): combat knife, chainsword (and gold), power sword, power axe / chain axe, the Ork choppa; free swing over the whole clip, chainsword 3.58 / 2.56 / 3.46 /… (m) | kind: ours; kind: estimate; confidence: low | owner 2026-11-06 | Swing step-forward: every melee weapon but the hammer and…: compare with SM1 by measuring on a flat spot of the same map. Ours: the light strikes' forward root motion × 1.5 on top of the lunge… | ☐ |
 | `R-0CFB178C` | Lock-on lunge reach | a locked attack's forward motion (the burst and the distance-blended clip together) closes **0.7** of the gap to the 1 m separation (before: all of it), along the burst's profile (1 - ((f - t)/f)^2, f = 0.6 of the hit time), then holds that distance for the… (share of the gap) | kind: ours; kind: estimate; confidence: low | owner 2026-11-06 | Lock-on lunge reach: compare with SM1 by measuring on a flat spot of the same map. Ours: a locked attack's forward motion (the burst and the distance-blended… | ☐ |
+
+*Spec section: Instant step and 20 % longer steps (sim/instant-step, 2026-11-06)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-F74BE2D1` | Step-forward distance of all melee strikes | x **1.2** on the lunge factor of every strike (light and heavy) of the knife, chainsword (and gold), power sword, power / chain axe, thunder hammer and daemon maul, the Ork choppas, on top of the lunge scale 1.625 and the swing-step factors. Free steps:… (m) | kind: estimate; confidence: low | owner 2026-11-06 | Step-forward distance of all melee strikes: compare with SM1 by measuring on a flat spot of the same map. Ours: x 1.2 on the lunge factor of every strike (light and heavy) of the… | ☐ |
 
 ### Jump pack (gameplay-critical) (79)
 
@@ -1990,7 +1996,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-EB03504B` | Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks (s) | kind: ours; notes: estimate | owner 2026-11-02 | Shot lag allowance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each shot is also tried on the enemy's places over the last 0.2 s… | ☐ |
 
-### Core simulation (provisional values) (281)
+### Core simulation (provisional values) (283)
 
 *Spec section: Provisional values in use*
 
@@ -2437,6 +2443,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0D45CB82` | Hosting Musou | MUSOU MODE on the main menu opens its page: PLAY ON THIS PC (the one-press start of 2026-11-01: 127.0.0.1 only, joined by itself), HOST LOCAL LOBBY (the Host panel on the Musou profile: THIS PC ONLY or LAN / INTERNET and the port as for a match… | kind: ours | the owner's request (as classic PvP's local hosting); the layout ours | Hosting Musou: compare with SM1 by feel or video. Ours: MUSOU MODE on the main menu opens its page: PLAY ON THIS PC (the… | ☐ |
 | `R-E0F7D140` | Release files | "6 - Host Musou Mode on this PC.cmd" and "7 - Host Musou Mode for friends (LAN).cmd" run the bundled server with `--content musou` (no `--map`: Musou's own), this PC only or every interface, as files 3 and 5 do for a match | kind: ours | the owner's request | Release files: compare with SM1 by feel or video. Ours: "6 - Host Musou Mode on this PC.cmd" and "7 - Host Musou Mode for… | ☐ |
 | `R-A88A2513` | Co-op test bot | `--bot` on a Musou Mode server (not `--tfw-bot`, `--tfw-test`, `--coop-bot-off`): deploys to front B (`--coop-lane`) 20 s (`--coop-deploy-after`) after it joined, fights the nearest Ork shown within 150 m (melee within 2.6 m, fire within 35 m every other tick… (m, s) | kind: ours; confidence: low | ours (test script, not an AI of the original) | Co-op test bot: compare with SM1 by feel or video. Ours: --bot on a Musou Mode server (not --tfw-bot, --tfw-test… | ☐ |
+
+*Spec section: Instant step and 20 % longer steps (sim/instant-step, 2026-11-06)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-A33A9397` | Instant step: the swing's forward motion profile | The step of every light and heavy strike (not the in-place stomp) up to its move-on time (`MoveAt` x the lock scale) is an ease-out 1-(1-u)^2 of the clip's own motion up to that time: full speed on the first tick (was 0 to 0.1 m in tick 1: the clips'… (share (1 = wholly)) | kind: ours; kind: estimate; confidence: low | owner 2026-11-06; the ease-out shape and "up to the move-on time" are ours | Instant step: the swing's forward motion profile: compare with SM1 by feel or video. Ours: The step of every light and heavy strike (not the in-place stomp) up… | ☐ |
+| `R-DA956AB3` | Legs for the new step | Every weapon's strikes, light and heavy (not the in-place stomp), stretch the clip's stride by the body's travel over the clip's root motion (`ClipStrideScale` = lunge scale x `LungeFactor`), as the hammer's lights did (factor) | kind: ours; confidence: medium | ours | Legs for the new step: compare with SM1 by feel or video. Ours: Every weapon's strikes, light and heavy (not the in-place stomp)… | ☐ |
 
 ### General game design (7)
 
@@ -3361,6 +3374,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-1125D5C3` | Musou: melee heal per enemy (2026-11-06; `MusouSim.Version` 8) | No Musou Mode in the original | Ours (added content): the 5 % melee heal is given for every enemy a swing, stomp or cleave strikes (an enemy in both once), still capped at full health; before, once a swing | Owner's request 2026-11-06; Musou Mode only, Classic PvP unchanged; spec "Musou: melee heal" | Musou: melee heal per enemy (2026-11-06; MusouSim.Version 8): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-61747757` | Musou Boss Orks and the Warboss model (musou/boss-orks, 2026-11-06) | No Musou Mode in the original | Ours (added content, the owner's request and answers): roaming Boss Orks of any Ork kind at 3x size, 10x health (at least 3000), 2x damage, never staggered, each with 20 elites, in battles only, 1 to 2 min after the landing and then every 1.5 to 3 min, at most 2 alive; the Warboss at 15000 health and 1.5x damage, the… | Musou Mode only. Spec "Musou Mode: Boss Orks and the Warboss model". | Musou Boss Orks and the Warboss model (musou/boss-orks…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-B8027519` | The charge clash: charger and victim locked through the shove (feel/charge-clash, 2026-11-06; protocol 59) | Ours in its mechanics (the original's pairing is engine code); its length and motion are the data's collision stop (1.83 m forward in 0.2 s, then 1.11 m back) and match the owner's recording | A stunned or staggered victim is carried with the charger through the stop's forward shove at 0.9 m (capsules touching), the charger's step ignores the victim's body, a victim the level stops holds the charger back; any charger meets a body at its edge (guard 0.85 m: the touch less a 5 cm slack, was 0.75 m); remotes… | spec "The charge clash: charger and victim locked through the shove" | The charge clash: charger and victim locked through the…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-8A28955D` | Instant step and 20 % longer steps (sim/instant-step, 2026-11-06) | A strike's forward root motion follows the clip's timing (slow start, most of it after the hit) and, since feel/melee-charge-2 and sim/swing-step, is scaled | The step of every light and heavy melee strike (not the in-place stomp, not the heavy classes' kick) starts at full speed on the first tick and settles toward the move-on time (same total, same hit time, same recovery), and is 1.2 x longer for every melee weapon (the hammer and maul too): chainsword lights 5.36 / 3.88… | Owner's request 2026-11-06, an **estimate** (the 1.2 and "instant" are the owner's, the ease-out shape is ours); spec "Instant step and 20 % longer steps"; test aids `SM_OLD_INSTANT_STEP=1`, `SM_OLD_STEP_BOOST=1`, `--old-strike-legs` | Instant step and 20 % longer steps (sim/instant-step…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

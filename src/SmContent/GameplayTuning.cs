@@ -66,7 +66,7 @@ public sealed partial record GameplayTuning(SimConfig Config, string Source, IRe
         if (ownerFeel)   // feel/melee-charge-2: longer melee lunges and a faster weapon switch (both estimates, owner's requests)
             config = config with { MeleeLungeScale = OwnerLungeScale, WeaponSwitchTime = config.WeaponSwitchTime * OwnerSwitchScale };
         if (ownerFeel)   // sim/lock-reach (owner, 2026-11-06): the lock-on's lunge 30 % shorter (an estimate, owner's request)
-            config = config with { MeleeLock = config.MeleeLock with { LungeReach = OwnerLockLungeReach } };
+            config = config with { MeleeLock = config.MeleeLock with { LungeReach = OwnerLockLungeReach, StepFront = OldInstantStep ? 0f : OwnerInstantStep } };
         if (ownerFeel)   // feel/grenades-quickdraw (the owner, 2026-11-06): the quickdraw switch and the quicker throw that frees the player at the release (estimates)
             config = config with
             {
@@ -130,6 +130,14 @@ public sealed partial record GameplayTuning(SimConfig Config, string Source, IRe
     /// of the gap to the separation a locked attack's lunge closes (1 before: the whole gap). An **estimate (owner's request)**, to review in a playtest; every melee weapon, every mode.
     /// </summary>
     public const float OwnerLockLungeReach = 0.7f;
+
+    /// <summary>
+    /// sim/instant-step (the owner's request of 2026-11-06: "step forward when swinging a melee weapon should always begin the instant you start the swing"):
+    /// <see cref="MeleeLockSpec.StepFront"/>, how far each strike's forward motion is re-shaped to start on the first tick (1: wholly). An **estimate (owner's request)**, to review in a
+    /// playtest; every melee weapon, every mode. Test aid: <c>SM_OLD_INSTANT_STEP=1</c> (server and client alike) restores the clips' own profile.
+    /// </summary>
+    public const float OwnerInstantStep = 1f;
+    static readonly bool OldInstantStep = Environment.GetEnvironmentVariable("SM_OLD_INSTANT_STEP") == "1";
 
     /// <summary>
     /// feel/melee-charge-2 (the owner's request of 2026-10-29: "weapon switching is slightly faster ... make a note that this is an estimation and needs to be

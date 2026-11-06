@@ -132,6 +132,7 @@ public sealed record MpClasses(IReadOnlyList<MpClass> Classes, IReadOnlyList<Wea
         ["Sequencer_X1", "Sequencer_X2", "Sequencer_X3", "Sequencer_X4"], ["ability_melee_x1", "ability_melee_x2", "ability_melee_x3", "ability_melee_x4"])
     {
         SwingStepFactor = MeleeTuning.OwnerSwingStep,   // sim/swing-step (owner, 2026-11-06)
+        StepBoost = MeleeTuning.OwnerStepBoost,   // sim/instant-step (owner, 2026-11-06)
         HeavySequencers = ["CS Y Atk Sequencer", "Sequencer22", "Sequencer21", "Sequencer20"],
         HeavyAbilities = ["ability_melee_y", "ability_melee_y2", "ability_melee_y3", ""],
         // feel/melee-charge-2 (protocol 42; the owner: "normal combo is backhand > stomp"): the graph's Backhand (Y), Kick (X, Y) and Shoulder (X, X, Y) go on

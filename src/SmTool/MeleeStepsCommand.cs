@@ -40,9 +40,27 @@ static class MeleeStepsCommand
                 Console.WriteLine($"    variant {v.Distance,5:0.##} m {v.Clip,-40} forward at moveAt {v.At(m.MoveAt, m.Duration),6:0.00}, at hit {v.At(m.HitTime, m.Duration),6:0.00}, at end {v.At(m.Duration, m.Duration),6:0.00}, min {v.Forward.Min():0.00}, max {v.Forward.Max():0.00}");
             // The step with no target, summed the way the simulation does it (30 Hz ticks over the whole strike), and with a target at each variant's distance.
             Console.WriteLine($"    simulated total, no target: {Sum(m, null, config):0.00} m (the clip's motion x{config.LungeScale * m.LungeFactorApplied:0.###})");
+            Console.WriteLine($"    free step timeline: {Timeline(m, config)}");
             foreach (float d in new[] { 2f, 4f, 7f })
                 Console.WriteLine($"    simulated total, target {d:0.#} m ahead: {Sum(m, d, config):0.00} m (the target is {Math.Max(0f, d - Sum(m, d, config)):0.00} m away at the end)");
         }
+    }
+
+    /// <summary>sim/instant-step: the no-target step's first tick, distance at the hit, peak speed and the time it passes half of its total.</summary>
+    static string Timeline(MeleeStep m, SimConfig config)
+    {
+        float dt = config.TickSeconds, pos = 0f, first = 0f, atHit = 0f, peak = 0f, half = -1f;
+        var steps = new List<(float T, float Step)>();
+        for (float t = 0f; t < m.Duration; t += dt) { float step = MeleeLock.LungeStep(m, t, MathF.Min(t + dt, m.Duration), 0f, null, config); steps.Add((t, step)); }
+        float total = steps.Sum(x => x.Step);
+        foreach (var (t, step) in steps)
+        {
+            if (t == 0f) first = step;
+            pos += step; peak = MathF.Max(peak, step / dt);
+            if (t + dt <= m.HitTime + 1e-4f) atHit = pos;
+            if (half < 0f && pos >= total / 2f) half = t + dt;
+        }
+        return $"first tick {first:0.00} m ({first / dt:0.0} m/s), by the hit {atHit:0.00} m, half of {total:0.00} m at {half:0.00} s, peak {peak:0.0} m/s";
     }
 
     static float Sum(MeleeStep m, float? targetDistance, SimConfig config)
