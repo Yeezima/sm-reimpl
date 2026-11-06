@@ -23,7 +23,7 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
     /// The level's hash (version 11, draft 6 with the Meshy expansion placed; version 10, draft 6 before it, was 0xC1D1D8A1118A55AF; draft 5's version 9 was 0x6A803A7703280536). A change of the pass, the pools, the fitted boxes or the generator without a new version fails here, not at a client's handshake.
     /// The one level pin: after a refit of the collision (<c>AshfallKitCollision.g.cs</c>) take the new value from this test's failure.
     /// </summary>
-    public const ulong PinnedLevelHash = 0xE72074A49D4449D9UL;
+    public const ulong PinnedLevelHash = 0x29D435A1D94CD3CFUL;   // draft 7 (version 12: the overlap rule)
 
     /// <summary>The v5 graybox's hash (pinned since pass 3, and again by the draft 3 and 5 work).</summary>
     const ulong PinnedGrayboxHash = 0xAE096E323BB5A4D3UL;
@@ -40,7 +40,7 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
         var gb = AshfallMap.BuildGraybox();
         Assert.Equal(PinnedGrayboxHash, gb.Hash);
         Assert.Equal(5u, AshfallMap.GrayboxVersion);
-        Assert.Equal(11u, AshfallMap.Version);
+        Assert.Equal(12u, AshfallMap.Version);
         Assert.NotEqual(gb.Hash, Level.Hash);
         Assert.Equal(PinnedLevelHash, Level.Hash);
         Assert.Equal(AshfallContent.ToMapContent(Level).Hash, Level.Hash);
@@ -159,9 +159,9 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
             var it = props[k].it; var st = Dressing.Structures[k];
             var log = D.Placements.First(l => l.Item == props[k].i && l.Asset == it.Asset);   // (the plinth's line names the A dais' item)
             if (log.Family is "bridge" or "backdrop") continue;
-            float moved = 0f;
-            int at = log.Outcome.IndexOf("moved ", StringComparison.Ordinal);
-            if (at >= 0) moved = float.Parse(log.Outcome[(at + 6)..].Split(' ')[0], System.Globalization.CultureInfo.InvariantCulture);
+            float moved = 0f;   // every logged move adds up (draft 7: the overlap rule's move is logged beside the growth's)
+            for (int at = log.Outcome.IndexOf("moved ", StringComparison.Ordinal); at >= 0; at = log.Outcome.IndexOf("moved ", at + 6, StringComparison.Ordinal))
+                moved += float.Parse(log.Outcome[(at + 6)..].Split(' ')[0], System.Globalization.CultureInfo.InvariantCulture);
             float s = MathF.Sin(it.Yaw), c = MathF.Cos(it.Yaw);
             // the placer's 1 m margin is along the item's own axes (grown 1.5x): turned by the yaw it reaches |cos| + |sin| times as far along the world axes (phase 2: a square model on a small turned pile showed it)
             float tol = 1.5f * (MathF.Abs(c) + MathF.Abs(s)) + moved + 0.02f;
@@ -172,7 +172,7 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
             Assert.True(it.Position.Z >= st.Min.Z - 0.01f && it.Position.Z + it.Size.Z <= st.Min.Z + 1.5f * (st.Max.Z - st.Min.Z) + 0.01f, $"{it.Asset} item {props[k].i} ({log.Group}): foot or height off");
             checkedItems++;
         }
-        Assert.True(checkedItems > 700);
+        Assert.True(checkedItems > 600);   // draft 7: 677 Props (the overlap rule left 37 out)
         // The walkable models' cell, scaled up, against the 0.4 m step (a riser no thicker than a cell): reported for the grown items, held by the added platforms.
         var walkable = AshfallKitFit.WalkableIds;
         int over = 0, total = 0;
@@ -269,14 +269,14 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
             Assert.True(widest >= 8f - 1e-3f, $"{name}: widest opening {widest:0.0} m");
             Assert.Equal(1, Dressing.Flags.Count(f => f.StartsWith(name + " breach 0:")));
         }
-        // One asset each: gate, four corners, keep, keep tower, two stair towers, three terraces, two east outer walls.
+        // One asset each: gate, four corners, keep, keep tower, two stair towers, two terraces (draft 7: the third ran into the second and is left out by the overlap rule), two east outer walls.
         var log = D.Placements;
         Assert.Single(log, l => l.Group == "ring gate" && l.Item >= 0 && l.Asset == "AC-042");   // draft 6, phase 2: the expansion's gatehouse
         Assert.Equal(4, log.Count(l => l.Group.StartsWith("ring corner") && l.Item >= 0 && l.Asset == "AC-003"));
         Assert.Single(log, l => l.Group == "keep" && l.Item >= 0);
         Assert.Single(log, l => l.Group == "Keep tower" && l.Item >= 0);
         Assert.Equal(2, log.Count(l => l.Group.StartsWith("Stair tower") && l.Item >= 0 && l.Asset == "AC-046"));   // the expansion's freestanding stair
-        Assert.Equal(3, log.Count(l => l.Group.StartsWith("terrace") && l.Item >= 0 && l.Asset is "AC-008" or "AC-049" or "AC-050"));
+        Assert.Equal(2, log.Count(l => l.Group.StartsWith("terrace") && l.Item >= 0 && l.Asset is "AC-008" or "AC-049" or "AC-050"));
         Assert.Equal(2, log.Count(l => l.Group.StartsWith("east outer wall") && l.Item >= 0 && l.Asset is "AC-041" or "AC-001"));
         Assert.Single(log, l => l.Group == "keep" && l.Asset == "AC-044");   // the expansion's gothic hall keep: the library's first keep asset
         Assert.Contains(Dressing.Flags, f => f.StartsWith("the keep: the expansion's gothic hall keep"));

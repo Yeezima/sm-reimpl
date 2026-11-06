@@ -53,6 +53,11 @@ internal static partial class AshfallDraft5Pass
         /// <summary>Draft 6: the footprints of the placed boxes in the walking band (bottom under 2.5 m, top over 0.4 m: what the route check counts as in the way) by 8 m cell, for the narrow-gap rule.</summary>
         public readonly Dictionary<(int, int), List<(int Item, Vector4 Rect)>> Low = [];
         public readonly List<string> LeftOutNames = [];
+        /// <summary>Draft 7: every placed box but the bridges', by 16 m cell, for the overlap rule; the items it moved or shrank, and those it left out.</summary>
+        public readonly Dictionary<(int, int), List<(int Item, WBox Box)>> Solid = [];
+        public bool OverlapRule = true;
+        public int OverlapSettled, OverlapDropped;
+        public readonly List<string> OverlapDroppedNames = [];
     }
 
     sealed record Spec(string Group, string Family, Vector3 Min, Vector3 Max, AshfallBox? Box, string[] Pool)
@@ -72,11 +77,14 @@ internal static partial class AshfallDraft5Pass
 
     // ---------------------------------------------------------------- entry
 
-    public static AshfallDraft5 Run()
+    public static AshfallDraft5 Run() => Run(overlapRule: true);
+
+    /// <summary>The pass; <paramref name="overlapRule"/> false skips draft 7's overlap rule (a report aid: the draft-6 placement with its overlaps, under the same version).</summary>
+    public static AshfallDraft5 Run(bool overlapRule)
     {
         var gb = AshfallMap.BuildGrayboxWithFeatures();
         var g5 = gb.Level;
-        var c = new Ctx { Seed = AshfallBuilder.Mix(AshfallMap.VariationSeed, 0xA5F411u) };
+        var c = new Ctx { Seed = AshfallBuilder.Mix(AshfallMap.VariationSeed, 0xA5F411u), OverlapRule = overlapRule };
         foreach (var p in g5.Parts)
             if (p.Kind is AshfallKind.Ground or AshfallKind.Road or AshfallKind.Paving or AshfallKind.Curb or AshfallKind.Boundary or AshfallKind.Objective) c.Parts.Add(p);
         int groundCount = c.Parts.Count;
@@ -125,6 +133,7 @@ internal static partial class AshfallDraft5Pass
         foreach (var (name, mn, mx, deck) in c.Bridges) Bridge6(c, name, mn, mx, deck);
 
         c.Flags.Add($"draft 6 growth (every placed object 1.5x its draft-5 size): {c.Moved} items moved ({c.Spread} of them to open a gap under {MinGap} m to a neighbour), {c.NarrowKept} kept a narrow gap they could not open, {c.NarrowDropped} small pieces (cover, rubble) left out rather than leave a gap under {MinGap} m, {c.LeftOut} left out{(c.LeftOut > 0 ? ": " + string.Join(", ", c.LeftOutNames.Take(12)) : "")}");
+        c.Flags.Add($"draft 7 overlap rule (no two items meet deeper than {AshfallOverlap.Tolerance} m): {c.OverlapSettled} items moved or shrunk to clear an overlap, {c.OverlapDropped} left out{(c.OverlapDropped > 0 ? ": " + string.Join(", ", c.OverlapDroppedNames.Take(12)) : "")}");
         if (c.Dropped.Count > 0)
             c.Flags.Add($"{c.Dropped.Count} structures dropped: they stood in a lane, a start area, a capture zone's 6 m ring, on a spawn marker or within 2 m of the boundary (the boundary-foot walls all); first: {string.Join(", ", c.Dropped.Take(6))}");
         c.Flags.Add($"walkable ramps (stairs and rubble runs found in the top heightfields of the walkable models): {c.RampsKept} kept as sloped wedges, {c.RampsDropped} dropped (scaled slope over {MaxRampDegrees:0} degrees, or since draft 6 phase 2 off the item's stepped tops or outside its box: {c.RampsMisfit})");
@@ -385,6 +394,16 @@ internal static partial class AshfallDraft5Pass
             c.LeftOut++; c.LeftOutNames.Add(s.Group);
             return -1;
         }
+        // Draft 7: the grown item meets no placed item deeper than the overlap tolerance (moved, shrunk, the pool's next model, else left out).
+        string overlapNote = "";
+        if (c.OverlapRule && !Unoverlap(c, s, id, cand.Yaw, bottom, ref centre, ref size, out overlapNote))
+        {
+            if (!final) return Retry;
+            c.Log.Add(new(s.Group, s.Family, "", -1, "dropped: overlap, grown 1.5x it meets a placed item deeper than " + AshfallOverlap.Tolerance + " m and no move or smaller footprint within reach clears it (" + overlapNote + ")"));
+            c.OverlapDropped++; c.OverlapDroppedNames.Add(s.Group);
+            return -1;
+        }
+        if (overlapNote.Length > 0) { outcome += ", " + overlapNote.Trim(); c.OverlapSettled++; }
         if (shrunk is not null) c.Flags.Add(shrunk);
         item = Item(size);
         boxes = s.NoCollision ? [] : Coarse(s, Boxes(item, cand.Yaw, id));
@@ -413,6 +432,7 @@ internal static partial class AshfallDraft5Pass
             AddPart(c, b, item.Position.Z, s.Kind);
             c.AllBoxes.Add((index, b));
             AddLow(c, index, b);
+            if (!BridgeIds.Contains(id)) AddSolid(c, index, b);
         }
         if (dust > 0) c.DroppedBoxes[id] = c.DroppedBoxes.GetValueOrDefault(id) + dust;
         if (!s.NoCollision)

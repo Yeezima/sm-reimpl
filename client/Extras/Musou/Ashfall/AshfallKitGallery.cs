@@ -160,6 +160,12 @@ public partial class AshfallKitGallery : Node3D
             dressing = SyntheticDressing(level);
             GD.Print($"ashfall gallery: synthetic dressing {dressing.Items.Count} items over {dressing.HiddenParts.Count} parts (test aid only)");
         }
+        else if (_args.ContainsKey("ashfall-no-overlap-rule"))
+        {
+            var before = AshfallMap.RebuildWithoutOverlapRule();   // draft 7 report aid: the placement without the overlap rule (before/after views)
+            (level, dressing) = (before.Level, before.Dressing);
+            GD.Print($"ashfall gallery: WITHOUT the draft-7 overlap rule (report aid): {dressing.Items.Count} items");
+        }
         else
         {
             (level, dressing) = AshfallMap.BuildWithDressing();
@@ -172,6 +178,7 @@ public partial class AshfallKitGallery : Node3D
         _kit = new AshfallKitView(level, dressing, _gray); _kitItemCount = dressing.Items.Count;
         _game.AddChild(_kit);
         _kit.SetKit(true);
+        if (!AshfallStorm.Off) AshfallStorm.Attach(_gray, level, dressing, _sun, _env);   // draft 7's storm look, as in the map
         var c = level.Points.Select(p => p.Center).ToList();
         var A = new Vector3(c[0].X, c[0].Y, c[0].Z); var B = new Vector3(c[1].X, c[1].Y, c[1].Z); var C = new Vector3(c[2].X, c[2].Y, c[2].Z);
         _shots.Add(("pointA", A + new Vector3(-40, -40, 14), A));
@@ -192,7 +199,7 @@ public partial class AshfallKitGallery : Node3D
             _shots.Add((name, src.At, src.Look));
             _overlayShots.Add(name);
         }
-        if (!_args.ContainsKey("ashfall-dense")) AddDraft6Shots(dressing, A, B, C);
+        if (!_args.ContainsKey("ashfall-dense")) { AddDraft6Shots(dressing, A, B, C); AddDraft7Shots(level, dressing, B); }
         // --ashfall-cam "name:x,y,z,tx,ty,tz;..." adds views (game frame, metres); a name starting with "collision" is drawn with the overlay.
         if (_args.GetValueOrDefault("ashfall-cam") is { } cams)
             foreach (var spec in cams.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
@@ -242,6 +249,58 @@ public partial class AshfallKitGallery : Node3D
         }
     }
 
+    /// <summary>
+    /// Draft 7 views (<c>--shots d7</c>): the storm look from above and at ground level facing the low sun, a fire spot, a smoke plume, and the place of the deepest overlap the draft-7 rule removed (a platform run into a ruin
+    /// in the placement without the rule; with <c>--ashfall-no-overlap-rule</c> the same camera shows it before). Cameras follow the level.
+    /// </summary>
+    void AddDraft7Shots(AshfallLevel level, AshfallDressing dressing, Vector3 B)
+    {
+        float az = Mathf.DegToRad(AshfallStorm.SunAzimuth);
+        var sunward = new Vector3(MathF.Sin(az), MathF.Cos(az), 0f);
+        var boxes = AshfallOverlap.Boxes(level, dressing);
+        _shots.Add(("d7_overview", new Vector3(-20, -232, 95), new Vector3(0, 60, 0)));
+        Add7("d7_plaza_sun", B + new Vector3(0, 0, 1f), -sunward, 30f, 2.6f, boxes, sunward * 120f + new Vector3(0, 0, 14f));
+        _shots.Add(("d7_street_sun", new Vector3(0, -120, 2.6f), new Vector3(-30, 60, 14f)));
+        var spots = AshfallAtmosphere.FireSpots(level, dressing);
+        // the fire nearest the map's middle, from 10 m out of its ruin at eye height; the southernmost plume from 60 m inside the map
+        if (spots.Where(s => !s.Plume).OrderBy(s => s.Position.X * s.Position.X + s.Position.Y * s.Position.Y).FirstOrDefault() is { Size: > 0 } fire)
+            Add7("d7_fire", new Vector3(fire.Position.X, fire.Position.Y, fire.Position.Z + 1.2f), new Vector3(fire.Out.X, fire.Out.Y, 0f), 10f, 2.4f, boxes);
+        if (spots.Where(s => s.Plume).OrderBy(s => s.Position.Y).FirstOrDefault() is { Size: > 0 } plume)
+            _shots.Add(("d7_plume", new Vector3(plume.Position.X, plume.Position.Y, 0f) + new Vector3(plume.Out.X, plume.Out.Y, 0f) * 150f + new Vector3(0, 0, 12f), new Vector3(plume.Position.X, plume.Position.Y, plume.Position.Z + 30f)));
+        // the deepest overlap of the placement without the rule that involves a platform (the owner's screenshot: the stronghold's terraces, an AC-008 slab run into a ruin), from above and behind like his view
+        var before = AshfallMap.RebuildWithoutOverlapRule();
+        var pairs = AshfallOverlap.Find(AshfallOverlap.Boxes(before.Level, before.Dressing), AshfallOverlap.Tolerance, AshfallMap.OverlapExempt(before.Dressing));
+        if (pairs.Where(q => before.Dressing.Items[q.A].Asset is "AC-049" or "AC-050" or "AC-008" || before.Dressing.Items[q.B].Asset is "AC-049" or "AC-050" or "AC-008").OrderByDescending(q => q.Depth).FirstOrDefault() is { Depth: > 0 } worst)
+        {
+            var at = new Vector3(worst.At.X, worst.At.Y, 1.5f);
+            _shots.Add(("d7_overlap_spot", at + new Vector3(-6, -22, 12f), at));
+            GD.Print($"ashfall gallery: d7_overlap_spot at ({worst.At.X:0}, {worst.At.Y:0}): {before.Dressing.Items[worst.A].Asset} x {before.Dressing.Items[worst.B].Asset}, {worst.Depth:0.00} m deep without the rule");
+        }
+    }
+
+    /// <summary>
+    /// A view of <paramref name="look"/> from <paramref name="dist"/> m along <paramref name="dir"/> at <paramref name="height"/> m: the first of the directions turned 0, +-30, +-60 ... degrees and the distances 1, 0.7, 0.5 that
+    /// stands in free air inside the boundary with nothing between it and the target (the boxes of the level's items).
+    /// </summary>
+    void Add7(string name, Vector3 look, Vector3 dir, float dist, float height, List<(int Item, AshfallBox Box)> boxes, Vector3? lookOffset = null)
+    {
+        bool Solid(Vector3 p) => MathF.Abs(p.X) > 234f || MathF.Abs(p.Y) > 234f || boxes.Any(b => p.Z > b.Box.Z0 - 0.5f && p.Z < b.Box.Z1 + 0.5f && AshfallAtmosphere.Inside(b.Box, new Num.Vector2(p.X, p.Y), 0.6f));
+        bool Clear(Vector3 a, Vector3 b) { for (int i = 1; i < 24; i++) if (Solid(a.Lerp(b, i / 24f))) return false; return true; }
+        var target = look + (lookOffset ?? Vector3.Zero);
+        foreach (float f in new[] { 1f, 0.7f, 0.5f })
+            for (int k = 0; k < 12; k++)
+            {
+                float turn = (k % 2 == 0 ? 1 : -1) * ((k + 1) / 2) * MathF.PI / 6f;
+                var d = new Vector3(dir.X * MathF.Cos(turn) - dir.Y * MathF.Sin(turn), dir.X * MathF.Sin(turn) + dir.Y * MathF.Cos(turn), 0f).Normalized();
+                var at = new Vector3(look.X, look.Y, 0f) + d * dist * f + new Vector3(0, 0, AshfallMap.SurfaceAt(look.X + d.X * dist * f, look.Y + d.Y * dist * f) + height);
+                if (Solid(at) || !Clear(at, look)) continue;
+                _shots.Add((name, at, target));
+                return;
+            }
+        _shots.Add((name, look + dir * dist + new Vector3(0, 0, height + 10f), target));
+        GD.Print($"ashfall gallery: no clear view for {name}; taken from above");
+    }
+
     /// <summary>A Skin item over every Wall, Cover and Rubble part (its box = the part's bounds, a model of a fitting category), for the measurement only.</summary>
     static AshfallDressing SyntheticDressing(AshfallLevel level)
     {
@@ -287,10 +346,10 @@ public partial class AshfallKitGallery : Node3D
         {
             if (_wait > 0) { _wait--; return; }
             var wanted = (_args.GetValueOrDefault("shots") ?? "all").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            var list = _shots.Where(s => wanted.Contains("all") || wanted.Contains(s.Name) || (wanted.Contains("overview") && s.Name.StartsWith("overview", StringComparison.Ordinal)) || (wanted.Contains("d6") && s.Name.StartsWith("d6_", StringComparison.Ordinal))).ToList();
+            var list = _shots.Where(s => wanted.Contains("all") || wanted.Contains(s.Name) || (wanted.Contains("overview") && s.Name.StartsWith("overview", StringComparison.Ordinal)) || (wanted.Contains("d6") && s.Name.StartsWith("d6_", StringComparison.Ordinal)) || (wanted.Contains("d7") && s.Name.StartsWith("d7_", StringComparison.Ordinal))).ToList();
             if (_step >= list.Count)
             {
-                if (_map && _args.ContainsKey("ashfall-dense")) { _phase = 2; _step = 0; _wait = 0; _sample = 0; return; }
+                if (_map && (_args.ContainsKey("ashfall-dense") || _args.ContainsKey("ashfall-perf"))) { _phase = 2; _step = 0; _wait = 0; _sample = 0; return; }
                 Done(0); return;
             }
             var s = list[_step];
@@ -315,7 +374,8 @@ public partial class AshfallKitGallery : Node3D
     // Perf: for each viewpoint and each look, 25 frames to settle, then 90 sampled frames: mean frame time, draw calls, primitives, objects.
     void Perf(double delta)
     {
-        var views = _shots.Where(x => !_overlayShots.Contains(x.Name)).ToList();
+        var wantedPerf = (_args.GetValueOrDefault("ashfall-perf") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var views = _shots.Where(x => !_overlayShots.Contains(x.Name) && (wantedPerf.Length == 0 || wantedPerf.Contains(x.Name))).ToList();
         int total = views.Count * 2;
         if (_step >= total)
         {

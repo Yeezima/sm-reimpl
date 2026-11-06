@@ -1,0 +1,504 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Godot;
+using SmSim.Extras.Musou.Ashfall;
+
+namespace SmClient;
+
+/// <summary>
+/// Ashfall draft 7's map-wide look (Musou Mode only, the map tfw_war; owner, 2026-11-06: "fires around the map, ashes flying around the sky, dark clouds in the skybox, light poking through", "significant visual overhaul
+/// using mapwide visual effects"; docs/musou-ashfall-graybox.md "Draft 7"). Everything is Godot's own features and procedural textures; every value is **ours** (placeholder demonstration, refine register):
+/// a storm sky shader (dark clouds, a warm sunset band, the sun breaking through gaps with rays), a low warm sun with long shadows and a cool dim ambient so stone reads grey, ACES tone mapping with a
+/// desaturated, contrasty grade, depth fog scattering the sun, volumetric fog for light shafts (Forward+ at medium lighting and up), soft light-shaft beams (every renderer), fires with embers and smoke at the
+/// level's fire spots (<see cref="AshfallAtmosphere.FireSpots"/>), tall smoke plumes from the bigger ruins, and ash, rock flakes and embers drifting around the camera. Counts scale with the lighting preset;
+/// the Compatibility renderer gets the sky, grade, fires and a thinner ash field (no volumetric fog, no glow). <c>--ashfall-weather plain</c> leaves it out. Every environment and sun value it writes is put
+/// back when the node leaves the tree, unless something else has written it since (the next map's lighting).
+/// </summary>
+public partial class AshfallStorm : Node3D
+{
+    /// <summary>The sun: elevation above the horizon and azimuth (degrees from game north toward east; the stronghold lies north, so the attackers look into the low sun). Ours.</summary>
+    public const float SunElevation = 26f, SunAzimuth = -22f;
+
+    /// <summary>Wind (game frame, metres per second): ash and smoke drift toward the east-north-east. Ours.</summary>
+    static readonly Vector3 WindGame = new(2.4f, 0.9f, 0f);
+
+    static readonly Basis GameToGodot = new(new Vector3(1, 0, 0), new Vector3(0, 0, -1), new Vector3(0, 1, 0));
+    static Vector3 G(Vector3 game) => GameToGodot * game;
+    static Vector3 G(System.Numerics.Vector3 game) => G(new Vector3(game.X, game.Y, game.Z));
+
+    readonly List<(GodotObject Obj, StringName Prop, Variant Base, Variant Written)> _writes = [];
+    readonly List<(OmniLight3D Light, float Energy, float Phase)> _lights = [];
+    Node3D _world = null!;
+    Node3D? _follow;
+    float _quality;
+    double _time;
+
+    /// <summary>One line for the log: what was built.</summary>
+    public string Report { get; private set; } = "";
+
+    /// <summary>Whether the command line leaves the storm look out (<c>--ashfall-weather plain</c>).</summary>
+    public static bool Off
+    {
+        get
+        {
+            var args = OS.GetCmdlineUserArgs();
+            int i = Array.IndexOf(args, "--ashfall-weather");
+            string? v = i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+            if (v is not (null or "storm" or "plain")) GD.Print($"ashfall: --ashfall-weather '{v}' is not storm or plain; storm is used");
+            return v == "plain";
+        }
+    }
+
+    /// <summary>Builds the look under <paramref name="parent"/> (a node in game space, freed with the map) and grades <paramref name="sun"/> and <paramref name="env"/>.</summary>
+    public static AshfallStorm Attach(Node3D parent, AshfallLevel level, AshfallDressing dressing, DirectionalLight3D sun, Godot.Environment env)
+    {
+        var storm = new AshfallStorm { Name = "AshfallStorm" };
+        parent.AddChild(storm);
+        storm.Build(level, dressing, sun, env);
+        GD.Print("ashfall storm: " + storm.Report);
+        return storm;
+    }
+
+    static float QualityScale()
+    {
+        if (SafeMode.Compatibility) return 0.35f;
+        return MapLightingView.Preset switch
+        {
+            MapLightingView.LightingPreset.Off => 0.35f,
+            MapLightingView.LightingPreset.Low => 0.55f,
+            MapLightingView.LightingPreset.High => 1.2f,
+            _ => 1f,
+        };
+    }
+
+    void Write(GodotObject obj, StringName prop, Variant value)
+    {
+        var b = obj.Get(prop);
+        obj.Set(prop, value);
+        _writes.Add((obj, prop, b, obj.Get(prop)));
+    }
+
+    public override void _ExitTree()
+    {
+        // Put back what this look wrote, unless someone else wrote it since (the next map's lighting, applied before this node is freed).
+        for (int i = _writes.Count - 1; i >= 0; i--)
+        {
+            var (obj, prop, b, written) = _writes[i];
+            if (!IsInstanceValid(obj)) continue;
+            if (Same(obj.Get(prop), written)) obj.Set(prop, b);
+        }
+        _writes.Clear();
+    }
+
+    static bool Same(Variant a, Variant b)
+    {
+        if (a.VariantType != b.VariantType) return false;
+        return a.VariantType switch
+        {
+            Variant.Type.Nil => true,
+            Variant.Type.Object => a.AsGodotObject() == b.AsGodotObject(),
+            _ => Equals(a.Obj, b.Obj),
+        };
+    }
+
+    void Build(AshfallLevel level, AshfallDressing dressing, DirectionalLight3D sun, Godot.Environment env)
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        _quality = QualityScale();
+        bool compat = SafeMode.Compatibility;
+        bool volumetric = !compat && MapLightingView.Preset >= MapLightingView.LightingPreset.Medium;
+        // Children in Godot's own frame (Y up): the parent is game space (Z up).
+        _world = new Node3D { Name = "World", Basis = GameToGodot.Inverse() };
+        AddChild(_world);
+
+        // ---- the sun: low, warm, long shadows; the light shafts in the volumetric fog come from it.
+        float el = Mathf.DegToRad(SunElevation), az = Mathf.DegToRad(SunAzimuth);
+        var toSunGame = new Vector3(MathF.Sin(az) * MathF.Cos(el), MathF.Cos(az) * MathF.Cos(el), MathF.Sin(el));
+        var toSun = G(toSunGame).Normalized();
+        Write(sun, Node3D.PropertyName.Basis, (sun.GetParentNode3D()?.GlobalBasis.Inverse() ?? Basis.Identity) * Basis.LookingAt(-toSun, Vector3.Up));
+        Write(sun, Light3D.PropertyName.LightColor, new Color(1.0f, 0.84f, 0.68f));
+        Write(sun, Light3D.PropertyName.LightEnergy, 1.4f);
+        Write(sun, Light3D.PropertyName.ShadowEnabled, true);
+        Write(sun, DirectionalLight3D.PropertyName.DirectionalShadowMaxDistance, 220f);
+        Write(sun, Light3D.PropertyName.ShadowBlur, 1.4f);
+        Write(sun, Light3D.PropertyName.LightVolumetricFogEnergy, volumetric ? 1.1f : 0f);
+        Write(sun, DirectionalLight3D.PropertyName.SkyMode, (int)DirectionalLight3D.SkyModeEnum.LightAndSky);
+
+        // ---- the sky: the storm shader (in every renderer).
+        var sky = new Sky
+        {
+            SkyMaterial = new ShaderMaterial { Shader = new Shader { Code = SkyShader } },
+            RadianceSize = Sky.RadianceSizeEnum.Size64,
+            ProcessMode = Sky.ProcessModeEnum.Incremental,
+        };
+        Write(env, Godot.Environment.PropertyName.BackgroundMode, (int)Godot.Environment.BGMode.Sky);
+        Write(env, Godot.Environment.PropertyName.Sky, sky);
+        Write(env, Godot.Environment.PropertyName.AmbientLightSource, (int)Godot.Environment.AmbientSource.Color);
+        Write(env, Godot.Environment.PropertyName.AmbientLightColor, new Color(0.42f, 0.44f, 0.50f));   // cool, dim: the stone takes its grey from the textures, the warmth from the sun
+        Write(env, Godot.Environment.PropertyName.AmbientLightEnergy, 0.6f);
+        Write(env, Godot.Environment.PropertyName.ReflectedLightSource, (int)Godot.Environment.ReflectionSource.Sky);
+        // ---- grade: ACES, a touch under-exposed, contrast up, colour down (warm light, cold shade).
+        Write(env, Godot.Environment.PropertyName.TonemapMode, (int)Godot.Environment.ToneMapper.Aces);
+        Write(env, Godot.Environment.PropertyName.TonemapExposure, 0.8f);
+        Write(env, Godot.Environment.PropertyName.TonemapWhite, 6f);
+        Write(env, Godot.Environment.PropertyName.AdjustmentEnabled, true);
+        Write(env, Godot.Environment.PropertyName.AdjustmentBrightness, 0.92f);
+        Write(env, Godot.Environment.PropertyName.AdjustmentContrast, 1.2f);
+        Write(env, Godot.Environment.PropertyName.AdjustmentSaturation, 0.7f);
+        // ---- depth fog: dark smoke-grey, scattering the sun, thinning into the sky.
+        Write(env, Godot.Environment.PropertyName.FogEnabled, true);
+        Write(env, Godot.Environment.PropertyName.FogMode, (int)Godot.Environment.FogModeEnum.Exponential);
+        Write(env, Godot.Environment.PropertyName.FogLightColor, new Color(0.13f, 0.13f, 0.14f));
+        Write(env, Godot.Environment.PropertyName.FogLightEnergy, 1f);
+        Write(env, Godot.Environment.PropertyName.FogSunScatter, 0.12f);
+        Write(env, Godot.Environment.PropertyName.FogDensity, 0.0032f);
+        Write(env, Godot.Environment.PropertyName.FogAerialPerspective, 0.15f);
+        Write(env, Godot.Environment.PropertyName.FogSkyAffect, 0.1f);
+        if (volumetric)
+        {
+            // Light poking through: shafts where the ruins and the tower cut the low sun.
+            Write(env, Godot.Environment.PropertyName.VolumetricFogEnabled, true);
+            Write(env, Godot.Environment.PropertyName.VolumetricFogDensity, 0.0035f);
+            Write(env, Godot.Environment.PropertyName.VolumetricFogAlbedo, new Color(0.36f, 0.36f, 0.37f));
+            Write(env, Godot.Environment.PropertyName.VolumetricFogEmission, new Color(0f, 0f, 0f));
+            Write(env, Godot.Environment.PropertyName.VolumetricFogAnisotropy, 0.6f);
+            Write(env, Godot.Environment.PropertyName.VolumetricFogLength, 120f);
+            Write(env, Godot.Environment.PropertyName.VolumetricFogDetailSpread, 2f);
+            Write(env, Godot.Environment.PropertyName.VolumetricFogAmbientInject, 0.1f);
+            Write(env, Godot.Environment.PropertyName.VolumetricFogSkyAffect, 0f);
+            Write(env, Godot.Environment.PropertyName.VolumetricFogTemporalReprojectionEnabled, true);
+        }
+        if (!compat)
+        {
+            // Fires and embers bloom.
+            Write(env, Godot.Environment.PropertyName.GlowEnabled, true);
+            Write(env, Godot.Environment.PropertyName.GlowIntensity, 0.7f);
+            Write(env, Godot.Environment.PropertyName.GlowBloom, 0.03f);
+            Write(env, Godot.Environment.PropertyName.GlowHdrThreshold, 1.0f);
+            Write(env, Godot.Environment.PropertyName.GlowBlendMode, (int)Godot.Environment.GlowBlendModeEnum.Softlight);
+        }
+
+        // ---- fires, embers and smoke at the level's spots.
+        var spots = AshfallAtmosphere.FireSpots(level, dressing);
+        foreach (var s in spots) AddFire(s, compat);
+
+        // ---- light shafts out of the cloud gaps (soft beams, every renderer).
+        int shafts = AddShafts(toSun);
+
+        // ---- ash, rock flakes and embers around the camera.
+        _follow = new Node3D { Name = "AroundCamera" };
+        _world.AddChild(_follow);
+        int ash = (int)(2200 * _quality), rocks = (int)(140 * _quality), sparks = (int)(180 * _quality);
+        _follow.AddChild(AshField("Ash", ash, new Vector3(45, 22, 45), AshMaterial(), new QuadMesh { Size = new Vector2(0.10f, 0.07f) }, 0.6f, 1.6f, 10f));
+        _follow.AddChild(AshField("Flakes", rocks, new Vector3(55, 28, 55), RockMaterial(), new QuadMesh { Size = new Vector2(0.28f, 0.2f) }, 0.5f, 1.4f, 9f));
+        _follow.AddChild(AshField("Embers", sparks, new Vector3(40, 16, 40), EmberMaterial(1.5f), new QuadMesh { Size = new Vector2(0.06f, 0.06f) }, 0.4f, 1.1f, 7f, rise: 0.7f));
+
+        Report = $"{spots.Count(s => s.Plume)} smoke plumes, {spots.Count(s => !s.Plume)} fires ({_lights.Count} fire lights), {shafts} light shafts, ash {ash} + flakes {rocks} + embers {sparks} around the camera; "
+               + $"quality x{_quality:0.##} ({(compat ? "Compatibility renderer: no volumetric fog, no glow" : $"lighting {MapLightingView.Preset}, volumetric shafts {(volumetric ? "on" : "off")}")}); built in {watch.ElapsedMilliseconds} ms";
+    }
+
+    public override void _Process(double delta)
+    {
+        _time += delta;
+        var cam = GetViewport()?.GetCamera3D();
+        if (_follow is not null && cam is not null)
+        {
+            _follow.GlobalPosition = cam.GlobalPosition;
+            _follow.Visible = cam.Environment is null;   // aboard the Stormbird (its own environment) no ash falls
+        }
+        foreach (var (light, energy, phase) in _lights)
+        {
+            float t = (float)_time + phase;
+            float f = 0.78f + 0.12f * MathF.Sin(t * 9.1f) + 0.07f * MathF.Sin(t * 23.3f + 1.3f) + 0.05f * MathF.Sin(t * 4.2f + 2.1f);
+            light.LightEnergy = energy * f;
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------------- fires
+
+    void AddFire(AshfallFireSpot s, bool compat)
+    {
+        var at = G(s.Position);
+        var node = new Node3D { Name = s.Plume ? "Plume" : "Fire", Position = at };
+        _world.AddChild(node);
+        float k = s.Size;
+        // Flames
+        node.AddChild(Emitter("Flames", Math.Max(8, (int)(26 * k * Math.Min(1f, _quality + 0.3f))), 0.9f, FlameProcess(k), FlameMaterial(), new QuadMesh { Size = new Vector2(1.1f, 2.0f) }, s.Plume ? 400f : 160f, new Aabb(new Vector3(-3, -1, -3) * k, new Vector3(6, 7, 6) * k)));
+        // Embers rising from it
+        node.AddChild(Emitter("Embers", Math.Max(6, (int)(18 * k * _quality)), 2.6f, EmberProcess(k), EmberMaterial(3f), new QuadMesh { Size = new Vector2(0.07f, 0.07f) }, 120f, new Aabb(new Vector3(-6, -1, -6) * k, new Vector3(12, 14, 12) * k)));
+        // Smoke: a short dark column, or a tall plume seen across the map
+        if (s.Plume)
+            node.AddChild(Emitter("Smoke", Math.Max(16, (int)(44 * _quality)), 16f, SmokeProcess(k, 4.2f, 2.2f, 16f), SmokeMaterial(0.07f, compat), new QuadMesh { Size = new Vector2(1f, 1f) }, 900f, new Aabb(new Vector3(-60, -2, -60), new Vector3(120, 110, 120))));
+        else
+            node.AddChild(Emitter("Smoke", Math.Max(6, (int)(12 * _quality)), 6f, SmokeProcess(k, 2.0f, 0.7f, 5f), SmokeMaterial(0.10f, compat), new QuadMesh { Size = new Vector2(1f, 1f) }, 260f, new Aabb(new Vector3(-20, -1, -20), new Vector3(40, 30, 40))));
+        // Light (no shadows; fades with distance)
+        var light = new OmniLight3D
+        {
+            Name = "Light", Position = new Vector3(0, 1.1f * k, 0), LightColor = new Color(1f, 0.52f, 0.2f), LightEnergy = 2.2f * k, OmniRange = 9f * k, ShadowEnabled = false,
+            DistanceFadeEnabled = true, DistanceFadeBegin = 70f, DistanceFadeLength = 30f, LightVolumetricFogEnergy = 0f,
+        };
+        if (!compat || _lights.Count < 12) { node.AddChild(light); _lights.Add((light, light.LightEnergy, s.Position.X * 0.37f + s.Position.Y * 0.11f)); }
+        else light.Free();
+    }
+
+    static GpuParticles3D Emitter(string name, int amount, float lifetime, ParticleProcessMaterial process, Material material, Mesh mesh, float range, Aabb aabb)
+    {
+        if (mesh is PrimitiveMesh pm) pm.Material = material;
+        return new GpuParticles3D
+        {
+            Name = name, Amount = amount, Lifetime = lifetime, Preprocess = lifetime, Randomness = 0.4f, LocalCoords = false, ProcessMaterial = process, DrawPass1 = mesh,
+            VisibilityAabb = aabb, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, VisibilityRangeEnd = range, VisibilityRangeEndMargin = range * 0.1f,
+            VisibilityRangeFadeMode = GeometryInstance3D.VisibilityRangeFadeModeEnum.Self, FixedFps = 30, Interpolate = true,
+        };
+    }
+
+    static CurveTexture Curve(params (float X, float Y)[] points)
+    {
+        var c = new Curve { MinValue = 0f, MaxValue = Math.Max(1f, points.Max(p => p.Y)) };
+        foreach (var (x, y) in points) c.AddPoint(new Vector2(x, y));
+        return new CurveTexture { Curve = c };
+    }
+
+    static GradientTexture1D Ramp(params (float At, Color Colour)[] stops)
+    {
+        var g = new Gradient();
+        g.Offsets = stops.Select(s => s.At).ToArray();
+        g.Colors = stops.Select(s => s.Colour).ToArray();
+        return new GradientTexture1D { Gradient = g };
+    }
+
+    static ParticleProcessMaterial FlameProcess(float k) => new()
+    {
+        EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Sphere, EmissionSphereRadius = 0.55f * k,
+        Direction = Vector3.Up, Spread = 12f, InitialVelocityMin = 0.8f * k, InitialVelocityMax = 1.8f * k, Gravity = new Vector3(0, 1.4f, 0),
+        ScaleMin = 0.7f * k, ScaleMax = 1.3f * k, ScaleCurve = Curve((0f, 0.5f), (0.2f, 1f), (1f, 0.2f)),
+        AngleMin = -20f, AngleMax = 20f,
+        ColorRamp = Ramp((0f, new Color(1.9f, 1.05f, 0.35f, 0.55f)), (0.3f, new Color(1.7f, 0.6f, 0.12f, 0.5f)), (0.7f, new Color(0.7f, 0.15f, 0.03f, 0.3f)), (1f, new Color(0.15f, 0.03f, 0.01f, 0f))),
+    };
+
+    static ParticleProcessMaterial EmberProcess(float k) => new()
+    {
+        EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Sphere, EmissionSphereRadius = 0.8f * k,
+        Direction = Vector3.Up, Spread = 30f, InitialVelocityMin = 1.5f, InitialVelocityMax = 3.6f, Gravity = new Vector3(WindGame.X * 0.3f, 0.6f, -WindGame.Y * 0.3f),
+        TurbulenceEnabled = true, TurbulenceNoiseStrength = 2.2f, TurbulenceNoiseScale = 3f, TurbulenceInfluenceMin = 0.05f, TurbulenceInfluenceMax = 0.15f,
+        ScaleMin = 0.6f, ScaleMax = 1.4f, ScaleCurve = Curve((0f, 1f), (1f, 0.2f)),
+        ColorRamp = Ramp((0f, new Color(4f, 1.8f, 0.5f, 1f)), (0.6f, new Color(2.4f, 0.7f, 0.15f, 1f)), (1f, new Color(0.6f, 0.1f, 0.02f, 0f))),
+    };
+
+    static ParticleProcessMaterial SmokeProcess(float k, float rise, float startScale, float endScale) => new()
+    {
+        EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Sphere, EmissionSphereRadius = 0.8f * k,
+        Direction = (Vector3.Up * rise + G(WindGame) * 0.25f).Normalized(), Spread = 6f, InitialVelocityMin = rise * 0.8f, InitialVelocityMax = rise * 1.2f, Gravity = G(WindGame) * 0.04f + new Vector3(0, 0.1f, 0),
+        DampingMin = 0.05f, DampingMax = 0.15f,
+        ScaleMin = startScale * k, ScaleMax = startScale * 1.4f * k, ScaleCurve = Curve((0f, 0.25f), (1f, endScale / startScale * 0.5f)),
+        AngleMin = 0f, AngleMax = 360f, AngularVelocityMin = -8f, AngularVelocityMax = 8f,
+        ColorRamp = Ramp((0f, new Color(1f, 1f, 1f, 0f)), (0.06f, new Color(1f, 1f, 1f, 0.95f)), (0.5f, new Color(1.3f, 1.3f, 1.3f, 0.7f)), (1f, new Color(1.8f, 1.8f, 1.8f, 0f))),
+    };
+
+    static Texture2D? _soft, _flake;
+
+    /// <summary>A soft round blob (procedural).</summary>
+    static Texture2D Soft()
+    {
+        if (_soft is not null) return _soft;
+        var g = new Gradient();
+        g.Offsets = [0f, 0.45f, 1f];
+        g.Colors = [new Color(1, 1, 1, 1), new Color(1, 1, 1, 0.45f), new Color(1, 1, 1, 0)];
+        return _soft = new GradientTexture2D { Gradient = g, Fill = GradientTexture2D.FillEnum.Radial, FillFrom = new Vector2(0.5f, 0.5f), FillTo = new Vector2(1f, 0.5f), Width = 64, Height = 64 };
+    }
+
+    /// <summary>A jagged flake (procedural): an irregular polygon with a soft rim.</summary>
+    static Texture2D Flake()
+    {
+        if (_flake is not null) return _flake;
+        const int N = 32;
+        var img = Image.CreateEmpty(N, N, true, Image.Format.Rgba8);
+        Span<float> r = stackalloc float[7];
+        for (int i = 0; i < r.Length; i++) r[i] = 0.55f + 0.4f * ((i * 37 % 11) / 10f);
+        for (int y = 0; y < N; y++)
+            for (int x = 0; x < N; x++)
+            {
+                float dx = (x + 0.5f) / N * 2f - 1f, dy = (y + 0.5f) / N * 2f - 1f;
+                float ang = (MathF.Atan2(dy, dx) / MathF.Tau + 1f) % 1f * r.Length;
+                int a = (int)ang % r.Length; float t = ang - MathF.Floor(ang);
+                float edge = r[a] * (1 - t) + r[(a + 1) % r.Length] * t;
+                float d = MathF.Sqrt(dx * dx + dy * dy);
+                float alpha = Math.Clamp((edge - d) * 8f, 0f, 1f);
+                img.SetPixel(x, y, new Color(1, 1, 1, alpha));
+            }
+        img.GenerateMipmaps();
+        return _flake = ImageTexture.CreateFromImage(img);
+    }
+
+    static StandardMaterial3D Particle(Texture2D tex, Color colour, bool additive, bool shaded = false) => new()
+    {
+        ShadingMode = shaded ? BaseMaterial3D.ShadingModeEnum.PerVertex : BaseMaterial3D.ShadingModeEnum.Unshaded,
+        BillboardMode = BaseMaterial3D.BillboardModeEnum.Particles, BillboardKeepScale = true,
+        VertexColorUseAsAlbedo = true, AlbedoTexture = tex, AlbedoColor = colour,
+        Transparency = BaseMaterial3D.TransparencyEnum.Alpha, BlendMode = additive ? BaseMaterial3D.BlendModeEnum.Add : BaseMaterial3D.BlendModeEnum.Mix,
+        DepthDrawMode = BaseMaterial3D.DepthDrawModeEnum.Disabled, DisableReceiveShadows = true, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+        DisableFog = additive,
+    };
+
+    static StandardMaterial3D FlameMaterial() => Particle(Soft(), new Color(1, 1, 1, 1), additive: true);
+
+    static StandardMaterial3D EmberMaterial(float glow) => Particle(Soft(), new Color(glow, glow, glow, 1), additive: true);
+
+    static StandardMaterial3D SmokeMaterial(float grey, bool compat)
+    {
+        // unshaded: a dark smoke-grey that reads against the sky and the stone alike
+        return Particle(Soft(), new Color(grey, grey * 0.96f, grey * 0.92f, 0.85f), additive: false);
+    }
+
+    static StandardMaterial3D AshMaterial() => Particle(Flake(), new Color(0.30f, 0.29f, 0.28f, 0.9f), additive: false);
+
+    static StandardMaterial3D RockMaterial() => Particle(Flake(), new Color(0.07f, 0.065f, 0.06f, 1f), additive: false);
+
+    /// <summary>A field of drifting particles around the camera (world coordinates; the emitter follows the camera, the flakes stay where they are).</summary>
+    static GpuParticles3D AshField(string name, int amount, Vector3 extents, Material material, QuadMesh mesh, float scaleMin, float scaleMax, float lifetime, float rise = -0.4f)
+    {
+        var wind = G(WindGame);
+        var process = new ParticleProcessMaterial
+        {
+            EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Box, EmissionBoxExtents = extents,
+            Direction = wind.Normalized(), Spread = 25f, InitialVelocityMin = wind.Length() * 0.6f, InitialVelocityMax = wind.Length() * 1.4f,
+            Gravity = new Vector3(0, rise, 0),
+            TurbulenceEnabled = true, TurbulenceNoiseStrength = 1.6f, TurbulenceNoiseScale = 6f, TurbulenceInfluenceMin = 0.04f, TurbulenceInfluenceMax = 0.12f,
+            ScaleMin = scaleMin, ScaleMax = scaleMax, AngleMin = 0f, AngleMax = 360f, AngularVelocityMin = -160f, AngularVelocityMax = 160f,
+            ColorRamp = Ramp((0f, new Color(1, 1, 1, 0)), (0.1f, new Color(1, 1, 1, 1)), (0.85f, new Color(1, 1, 1, 1)), (1f, new Color(1, 1, 1, 0))),
+        };
+        mesh.Material = material;
+        return new GpuParticles3D
+        {
+            Name = name, Amount = Math.Max(1, amount), Lifetime = lifetime, Preprocess = lifetime, Randomness = 0.3f, LocalCoords = false, ProcessMaterial = process, DrawPass1 = mesh,
+            VisibilityAabb = new Aabb(-extents - new Vector3(30, 20, 30), (extents + new Vector3(30, 20, 30)) * 2f), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            FixedFps = 30, Interpolate = true,
+        };
+    }
+
+    // ---------------------------------------------------------------------------------------------------- light shafts
+
+    /// <summary>
+    /// Soft beams out of the clouds toward the ground, along the light from the sun's side of the sky, over the far half of the map (deterministic). Additive, depth-faded, fading toward the ends and as the camera nears one.
+    /// </summary>
+    int AddShafts(Vector3 toSun)
+    {
+        var shader = new Shader { Code = ShaftShader };
+        // the beams fall along the light, a little steeper than the sun (they come out of gaps in a cloud deck at about 160 m)
+        var dir = (-toSun + new Vector3(0, -0.55f, 0)).Normalized();
+        var spots = new (float X, float Y, float R)[] { (-40, 150, 9), (30, 175, 12), (90, 120, 8), (-120, 110, 10), (150, 190, 11), (-10, 60, 7), (-180, 180, 9) };
+        int n = 0;
+        foreach (var (x, y, r) in spots)
+        {
+            float len = 210f;
+            var ground = G(new Vector3(x, y, 0f));
+            var mid = ground - dir * (len / 2f);
+            var mesh = new CylinderMesh { TopRadius = r * 1.35f, BottomRadius = r, Height = len, RadialSegments = 16, Rings = 1, CapTop = false, CapBottom = false };
+            var mat = new ShaderMaterial { Shader = shader };
+            mat.SetShaderParameter("strength", 0.03f * (0.8f + 0.4f * ((n * 7 % 5) / 4f)));
+            mat.SetShaderParameter("seed", n * 3.7f);
+            mesh.Material = mat;
+            var inst = new MeshInstance3D { Name = "Shaft" + n, Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+            // the cylinder's axis (Y) along the beam
+            var up = -dir;
+            var side = up.Cross(Vector3.Forward).LengthSquared() > 1e-4f ? up.Cross(Vector3.Forward).Normalized() : Vector3.Right;
+            var fwd = side.Cross(up).Normalized();
+            inst.Transform = new Transform3D(new Basis(side, up, fwd), mid);
+            _world.AddChild(inst);
+            n++;
+        }
+        return n;
+    }
+
+    const string ShaftShader = """
+        shader_type spatial;
+        render_mode unshaded, blend_add, depth_draw_never, cull_back, shadows_disabled, fog_disabled;
+        uniform float strength = 0.08;
+        uniform float seed = 0.0;
+        uniform sampler2D depth_tex : hint_depth_texture, filter_linear;
+        varying float along;
+        varying vec3 wpos;
+        void vertex() {
+            along = UV.y;   // 0 at the top (the clouds), 1 at the ground
+            wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+        }
+        float n1(float x) { return fract(sin(x * 12.9898) * 43758.5453); }
+        float vnoise(float x) { float i = floor(x); float f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(n1(i), n1(i + 1.0), f); }
+        void fragment() {
+            float facing = abs(dot(normalize(NORMAL), normalize(VIEW)));
+            float edge = pow(facing, 2.5);                          // soft sides
+            float ends = smoothstep(0.0, 0.35, along) * smoothstep(1.0, 0.75, along);
+            float streak = 0.55 + 0.45 * vnoise(UV.x * 18.0 + seed + TIME * 0.05);
+            float drift = 0.75 + 0.25 * sin(TIME * 0.21 + seed);
+            float d = distance(CAMERA_POSITION_WORLD, wpos);
+            float near_fade = smoothstep(6.0, 40.0, d);
+            float scene = texture(depth_tex, SCREEN_UV).r;
+            vec4 ndc = vec4(SCREEN_UV * 2.0 - 1.0, scene, 1.0);
+            vec4 view = INV_PROJECTION_MATRIX * ndc; view.xyz /= view.w;
+            float soft = clamp((VERTEX.z - view.z) / 6.0, 0.0, 1.0);   // fades where the beam meets the ground or a wall
+            ALBEDO = vec3(1.0, 0.78, 0.52);
+            ALPHA = 1.0;
+            ALBEDO *= strength * edge * ends * streak * drift * near_fade * soft;
+        }
+        """;
+
+    // ---------------------------------------------------------------------------------------------------- the sky
+
+    const string SkyShader = """
+        shader_type sky;
+        uniform vec3 zenith = vec3(0.022, 0.024, 0.03);
+        uniform vec3 cloud_dark = vec3(0.035, 0.036, 0.042);
+        uniform vec3 cloud_lit = vec3(0.30, 0.22, 0.16);
+        uniform vec3 horizon = vec3(0.24, 0.17, 0.12);
+        uniform vec3 glow = vec3(0.95, 0.48, 0.20);
+        uniform float cover = 0.56;
+        uniform float speed = 0.006;
+
+        float h21(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+        float vn(vec2 p) {
+            vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+            return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y);
+        }
+        float fbm(vec2 p) {
+            float v = 0.0; float a = 0.5;
+            for (int i = 0; i < 6; i++) { v += a * vn(p); p = p * 2.03 + vec2(1.7, 9.2); a *= 0.5; }
+            return v;
+        }
+        void sky() {
+            vec3 d = normalize(EYEDIR);
+            vec3 s = normalize(LIGHT0_DIRECTION);
+            float h = d.y;
+            float sd = max(dot(d, s), 0.0);
+            vec2 dh = normalize(d.xz + vec2(1e-5)); vec2 sh = normalize(s.xz + vec2(1e-5));
+            float az = max(dot(dh, sh), 0.0);   // facing the sun's side of the horizon
+            // behind the clouds: a dark zenith, a warm band at the horizon, brightest under the sun
+            float band = exp(-max(h - 0.1, 0.0) * 5.0) * (0.2 + 0.8 * pow(az, 3.0));
+            vec3 col = mix(horizon * 0.55, zenith, smoothstep(0.0, 0.45, h));
+            col += glow * band * 0.4;
+            col += glow * pow(sd, 16.0) * 0.7 + vec3(1.4, 1.05, 0.75) * pow(sd, 1200.0) * 3.0;
+            // the cloud deck: projected on a plane, drifting; thinner just above the horizon so the band shows under it
+            float t = TIME * speed;
+            vec2 uv = d.xz / (max(h, 0.0) + 0.18) * 0.9;
+            float n = fbm(uv * 1.3 + vec2(t, t * 0.4));
+            float m = fbm(uv * 3.1 - vec2(t * 1.7, 0.0));
+            float dens = smoothstep(cover - 0.18, cover + 0.22, n * 0.75 + m * 0.35);
+            dens *= mix(0.35, 1.0, smoothstep(0.08, 0.3, h));   // thinner low down, where the warm band shows under the deck
+            dens = max(dens, smoothstep(0.35, 0.9, h) * 0.85);   // heavy overhead
+            // cloud colour: dark bellies, edges and thin parts lit warm toward the sun
+            float thin = 1.0 - smoothstep(0.35, 0.95, dens);
+            vec3 ccol = mix(cloud_dark, cloud_lit, clamp(pow(sd, 6.0) * 1.3 * thin + band * 0.25 * pow(az, 2.0), 0.0, 1.0));
+            ccol += glow * pow(sd, 10.0) * thin * 0.6;
+            col = mix(col, ccol, dens);
+            // rays through the gaps around the sun
+            vec3 a1 = normalize(cross(s, vec3(0.0, 1.0, 0.0)));
+            vec3 a2 = cross(a1, s);
+            float ang = atan(dot(d, a2), dot(d, a1));
+            float rays = vn(vec2(ang * 9.0, 0.0)) * vn(vec2(ang * 23.0 + 3.0, 1.0));
+            col += glow * rays * pow(sd, 6.0) * (1.0 - dens * 0.6) * 0.35 * step(-0.02, h);
+            // below the horizon: smoke haze
+            col = mix(col, horizon * 0.35, smoothstep(0.0, -0.08, h));
+            COLOR = col;
+        }
+        """;
+}
