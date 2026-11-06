@@ -29,6 +29,11 @@ public partial class NetworkView
     /// spread and the target's movement come on top, so this input is higher than the 49 % hit rate it is calibrated to give in a bot-vs-bot run (spec "Test bots", measured there).
     /// </summary>
     public const float DefaultBotAccuracy = 0.97f;
+    /// <summary>
+    /// Stream C (owner: "when jumping in the air they ALWAYS hit bolt pistol headshots. make them miss the same % of the time as they do when shooting on the ground"):
+    /// the factor on the aim error of a shot from the air (ours, an estimate from measured runs: at the default accuracy the aim's own chance of landing goes from 97 to about 58 %).
+    /// </summary>
+    public const float BotAirAimScale = 2f;
     /// <summary>Metres beyond which a firing bot also advances toward its target (ours; the bot strafes closer than this).</summary>
     public const float BotAdvanceBeyond = 40f;
 
@@ -108,6 +113,7 @@ public partial class NetworkView
     {
         ReadBotAimFlags();
         BotTrace(input);
+        BotNoteMove(input);   // stream C measurements (NetworkView.BotTactics.cs)
         bool aimed = _botAimNow;
         int? aimTarget = _botAimTarget;
         _botAimNow = false; _botAimTarget = null;
@@ -126,6 +132,8 @@ public partial class NetworkView
         var (dy, dp, sy, sp) = _botAim.StepParts(_config.TickSeconds, firing);
         // Night batch 2026-11-06: the error angle scales with the range so the accuracy holds at every distance (BotAimModel.DistanceScale).
         float scale = BotAimModel.DistanceScale(_botAimDistance);
+        // Stream C: in the air the error is doubled (BotAirAimScale): with the same error a shot from a jump, mostly close and down onto a ground target, landed about 1.5 to 2.3 times as often as one on the ground.
+        if (!BotOldTactics && (_client.Predicted.Jump != JumpPhase.None || !_client.Predicted.Grounded)) scale *= BotAirAimScale;
         (dy, dp, sy, sp) = (dy * scale, dp * scale, sy * scale, sp * scale);
         if (dy == 0f && dp == 0f && sy == 0f && sp == 0f) return input;
         // Turning the view by dy turns the move vector with it; rotate the stick the other way to keep the body's direction.
@@ -190,6 +198,7 @@ public partial class NetworkView
     /// <summary>A hit report of this bot's own shots: ranged hits (not melee or blast) count toward the distance band of the target it was aiming at.</summary>
     void BotNoteHits(HitReport hits)
     {
+        if (_bot) BotNoteTacticsHits(hits);   // stream C measurements
         if (!_bot || hits.LastMelee || hits.LastSplash || hits.Hits <= 0) return;
         _botBandHits[Band(_botAimDistance)] += hits.Hits;
         _botRangedDamage += hits.ShieldDamage + hits.HealthDamage;
@@ -203,7 +212,7 @@ public partial class NetworkView
     {
         if (!_bot) return;
         int fired = _hipOwnShots;
-        for (int shots = fired - _botHipShotsSeen; shots > 0; shots--) _botBandShots[Band(_botAimDistance)]++;
+        for (int shots = fired - _botHipShotsSeen; shots > 0; shots--) { _botBandShots[Band(_botAimDistance)]++; BotNoteShot(_client!.Predicted); }
         if (fired > _botHipShotsSeen) _botMaxShotDistance = MathF.Max(_botMaxShotDistance, _botAimDistance);
         _botHipShotsSeen = fired;
         if (_connectedFor - _botAimLogAt < 10.0) return;
@@ -214,5 +223,6 @@ public partial class NetworkView
         float engaged = _botBandTicks.Sum() * (_config?.TickSeconds ?? 1f / 30f);
         GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} aim: shots {totalShots}, hits {totalHits} ({(totalShots > 0 ? 100f * totalHits / totalShots : 0f):F1}%), " +
                  $"ranged damage {_botRangedDamage:F0} over {engaged:F0} s aimed at enemies ({(engaged > 0f ? _botRangedDamage / engaged : 0f):F1} per s), trigger held back {_botDisciplineHeld} ticks, farthest shot {_botMaxShotDistance:F0} m; {bands}");
+        LogBotTactics();
     }
 }
