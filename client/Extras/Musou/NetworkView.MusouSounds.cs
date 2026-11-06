@@ -202,7 +202,7 @@ public partial class NetworkView
         if (stepped > 3f) stepped = 0f;   // a jump in the records is not a walk
         slot.Last = e.Position;
         emitter.Position = slot.Mouth.Position = ToGodot(e.Position) + Vector3.Up * 1.2f;
-        emitter.Parameters[VoiceMixer.Speed] = (_config?.MusouRules ?? MusouRules.Default).Types[(int)e.Type].Speed;
+        emitter.Parameters[VoiceMixer.Speed] = slot.Mouth.Parameters[VoiceMixer.Speed] = (_config?.MusouRules ?? MusouRules.Default).Types[(int)e.Type].Speed;   // the voice reads it as the body did
         float distance = Num.Vector3.Distance(e.Position, camera);
 
         if (e.State != slot.State)
