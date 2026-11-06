@@ -18,6 +18,28 @@ public sealed class ArmourFlashTracker
     public const float ReflashSeconds = 0.2f, OldBreakSeconds = 0.4f;
     /// <summary><c>--old-break-glow</c> (before / after aid): the break flash lasts <see cref="OldBreakSeconds"/> and nothing re-flashes.</summary>
     public static bool Old { get; set; }
+    /// <summary>
+    /// pvp-hit-fx (owner, 2026-11-06): a hit on a body whose armour is already gone no longer re-flashes the whole-body red glow; it shows the randomized red-orange burst with smoke at the hit
+    /// point instead (<c>HealthHitBurst</c>). True (<c>--old-health-hit</c>) keeps the 0.2 s re-flash of fx/red-glow-blood.
+    /// </summary>
+    public static bool Reflash { get; set; }
+    /// <summary>pvp-hit-fx (owner, 2026-11-06: the large soft red glow when the armour breaks): the break shows the engulfing red glow, not the red ring of 2026-11-02. True (<c>--old-break-ring</c>) keeps the ring.</summary>
+    public static bool Ring { get; set; }
+
+    readonly Queue<int> _breaks = new();
+
+    /// <summary>The next player whose armour broke since the last call (for the data's break effect, <c>sm_armor_break_shoulders</c>); false when none is waiting.</summary>
+    public bool TryTakeBreak(out int id)
+    {
+        if (_breaks.Count > 0) { id = _breaks.Dequeue(); return true; }
+        id = 0; return false;
+    }
+
+    void BrokeNow(Entry e, int id, double now)
+    {
+        e.BreakAt = now;
+        if (_breaks.Count < 32) _breaks.Enqueue(id);
+    }
 
     sealed class Entry
     {
@@ -39,7 +61,7 @@ public sealed class ArmourFlashTracker
     {
         var e = Of(id);
         if (armourUp) e.HitAt = now;
-        else if (e.Armour == 1) e.BreakAt = now;   // up before, down now: it broke in between (the flash comes with the first hit that finds it down)
+        else if (e.Armour == 1) BrokeNow(e, id, now);   // up before, down now: it broke in between (the flash comes with the first hit that finds it down)
         else e.ReflashAt = now;                    // fx/red-glow-blood: a further hit on a body whose armour is already gone
         e.Armour = armourUp ? 1 : 2;
         e.RegenAt = now + Math.Max(0f, regenDelay);
@@ -49,13 +71,13 @@ public sealed class ArmourFlashTracker
     public void Broke(int id, double now, float regenDelay)
     {
         var e = Of(id);
-        if (e.Armour != 2) e.BreakAt = now;
+        if (e.Armour != 2) BrokeNow(e, id, now);
         e.Armour = 2;
         e.RegenAt = now + Math.Max(0f, regenDelay);
     }
 
     /// <summary>Whether the armour's break flash runs now: red in the recharge glow's ring (owner, 2026-11-02), rather than the engulfing glow of later hits on bare armour.</summary>
-    public bool BreakRing(int id, double now) => _byId.TryGetValue(id, out var e) && now - e.BreakAt >= 0.0 && now - e.BreakAt < BreakSeconds;
+    public bool BreakRing(int id, double now) => Ring && _byId.TryGetValue(id, out var e) && now - e.BreakAt >= 0.0 && now - e.BreakAt < BreakSeconds;
 
     /// <summary>The player died or respawned: no flash, no pending glow.</summary>
     public void Reset(int id) => _byId.Remove(id);
@@ -86,7 +108,7 @@ public sealed class ArmourFlashTracker
         }
         if (shield < e.Shield - Eps)
         {
-            if (shield <= 0f) e.BreakAt = now; else e.HitAt = now;
+            if (shield <= 0f) BrokeNow(e, id, now); else e.HitAt = now;
             e.Regenerating = false;
         }
         else if (shield > e.Shield + Eps)
@@ -104,7 +126,7 @@ public sealed class ArmourFlashTracker
     {
         if (!_byId.TryGetValue(id, out var e)) return (0f, 0f, 0f);
         if (now >= e.RegenAt) { e.GlowAt = e.RegenAt; e.RegenAt = double.PositiveInfinity; e.Armour = 1; }
-        float red = Old ? Fade(now - e.BreakAt, OldBreakSeconds) : Math.Max(Fade(now - e.BreakAt, BreakSeconds), Fade(now - e.ReflashAt, ReflashSeconds));
+        float red = Old ? Fade(now - e.BreakAt, OldBreakSeconds) : Math.Max(Fade(now - e.BreakAt, BreakSeconds), Reflash ? Fade(now - e.ReflashAt, ReflashSeconds) : 0f);
         return (Fade(now - e.HitAt, HitSeconds), red, Glow(now - e.GlowAt));
     }
 

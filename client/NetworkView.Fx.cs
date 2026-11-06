@@ -121,7 +121,7 @@ public partial class NetworkView
             foreach (var table in catalogue.Containers.Values)
                 foreach (var surface in table.Effects.Values) foreach (var plays in surface.Values) foreach (var p in plays) names.Add(p.Name);
             // M38: the effects on a player hit on raised / broken armour (health_ext armourshield_hit / armourshield_inactive_hit).
-            foreach (var p in catalogue.Player.ArmourHit.Concat(catalogue.Player.ArmourInactiveHit)) names.Add(p.Name);
+            foreach (var p in catalogue.Player.ArmourHit.Concat(catalogue.Player.ArmourInactiveHit).Concat(catalogue.Player.ArmourBroken)) names.Add(p.Name);   // pvp-hit-fx: and the break (armourshield_broken)
             // M41: the jump packs' ground effects (the pound's impact and the landings; their decals are read in the same pass).
             foreach (var pack in catalogue.JumpPacks.Values) foreach (var n in pack.Names) names.Add(n);
             // M44: the flight's effects (thrust, apex, fall, dive, idle glow, the pound's target marker) and the dash's burst.
@@ -540,7 +540,7 @@ public partial class NetworkView
         if (hit != ShotHit.World) FxArmourHit(up, end, dir, victim, delay);
         if (hit != ShotHit.World && up) ArmourSparks(end, dir, delay);   // fx/bolt-tracer-impact
         if (hit != ShotHit.World && armourUp == false) BloodSplashAt(end, dir, delay);   // fx/red-glow-blood: no armour left, a red splash
-        if (hit != ShotHit.World) CharacterFlashHit(victim, armourUp);   // fx/character-visuals: the victim's model flashes (NetworkView.CharacterFlash.cs)
+        if (hit != ShotHit.World) CharacterFlashHit(victim, armourUp, end);   // fx/character-visuals (pvp-hit-fx: at the hit point): the victim's model flashes (NetworkView.CharacterFlash.cs)
         if (plays.Count == 0) return;
         _fxImpacts++;
         if (hit != ShotHit.World) { _fxBodyImpacts++; if (up) _fxArmourImpacts++; else _fxFleshImpacts++; }
