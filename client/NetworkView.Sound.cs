@@ -230,7 +230,7 @@ public partial class NetworkView
     void CountSound(string kind) => _soundKinds[kind] = _soundKinds.GetValueOrDefault(kind) + 1;
 
     /// <summary>Posts a binding's start event (unless it is for the local player only and this is not it) after its delay.</summary>
-    SoundPlay? PostBinding(SoundBinding b, SoundEmitter e, bool own, string kind, float extraDelay = 0f)
+    SoundPlay? PostBinding(SoundBinding b, SoundEmitter e, bool own, string kind, float extraDelay = 0f, VoiceOffset extra = default)
     {
         if (_sound is null || b.StartEvent.Length == 0 || (b.OnlyIfOnPlayer && !own)) return null;
         float gain = FootstepLevel.GainDb(b);
@@ -239,7 +239,7 @@ public partial class NetworkView
             var camera = GetViewport()?.GetCamera3D();
             gain += RegenSoundLevel.GainDb(own, camera is null ? 0f : camera.GlobalPosition.DistanceTo(e.Current));
         }
-        var play = _sound.Post(b.StartEvent, e, extraDelay + b.DelaySeconds, footstep: b.IsFootstep, offset: new VoiceOffset(gain));
+        var play = _sound.Post(b.StartEvent, e, extraDelay + b.DelaySeconds, footstep: b.IsFootstep, offset: new VoiceOffset(gain).Plus(extra));
         CountSound(kind);
         if (LogSoundKinds.Count > 0) LogBindingPost(b, e, kind, play);
         if (kind.StartsWith("armour", StringComparison.Ordinal) && LogSound("armour"))
@@ -247,9 +247,9 @@ public partial class NetworkView
         return play;
     }
 
-    void PostAll(IEnumerable<SoundBinding> bindings, SoundEmitter e, bool own, string kind, float extraDelay = 0f)
+    void PostAll(IEnumerable<SoundBinding> bindings, SoundEmitter e, bool own, string kind, float extraDelay = 0f, VoiceOffset extra = default)
     {
-        foreach (var b in bindings) PostBinding(b, e, own, kind, extraDelay);
+        foreach (var b in bindings) PostBinding(b, e, own, kind, extraDelay, extra);
     }
 
     // ------------------------------------------------------------------ per frame
@@ -394,7 +394,7 @@ public partial class NetworkView
         if (t.Clip is null) { t.Clip = ct.Clip; t.Fraction = f; return; }
         bool same = string.Equals(ct.Clip, t.Clip, StringComparison.OrdinalIgnoreCase);
         if (!same || (f < t.Fraction && !ct.Looping)) EndTagSounds(t);   // the action ended or restarted (before this frame's tags start the next)
-        if (_soundTriggers.ClipTags.TryGetValue(ct.Clip, out var tags))
+        if (_soundTriggers.ClipTags.TryGetValue(ct.Clip, out var tags) && SoundTriggers.ClipTagsPostSounds(ct.Clip))   // sound/mix-and-reloads: a reload's sounds come from its schedule only
         {
             foreach (var (tag, at) in tags)
             {
@@ -460,7 +460,7 @@ public partial class NetworkView
         float f = Math.Clamp(layer.Time / layer.Duration, 0f, 1f);
         if (t.Clip is null) { t.Clip = layer.Clip; t.Fraction = f; return; }
         if (!string.Equals(layer.Clip, t.Clip, StringComparison.OrdinalIgnoreCase) || f < t.Fraction) EndTagSounds(t);
-        if (string.Equals(layer.Clip, t.Clip, StringComparison.OrdinalIgnoreCase) && _soundTriggers!.ClipTags.TryGetValue(layer.Clip, out var tags))
+        if (string.Equals(layer.Clip, t.Clip, StringComparison.OrdinalIgnoreCase) && SoundTriggers.ClipTagsPostSounds(layer.Clip) && _soundTriggers!.ClipTags.TryGetValue(layer.Clip, out var tags))   // sound/mix-and-reloads: the reload layer posts nothing (its schedule does)
             foreach (var (tag, at) in tags)
                 if (f >= t.Fraction ? at > t.Fraction && at <= f : at <= f) TagSound(tag, t, s, own);
         t.Clip = layer.Clip;
@@ -567,10 +567,10 @@ public partial class NetworkView
         var pack = Loadouts.JumpPack(_config!, s) is { } j ? _soundTriggers!.File(j.Name) : null;
         if (pack is not null)
         {
-            if (JumpPack.Jumping(s.Jump) && !wasUp) { t.TopZ = s.Position.Z; PostAll(pack.Of("action_ascending"), t.Emitter, own, "jump launch"); }
+            if (JumpPack.Jumping(s.Jump) && !wasUp) { t.TopZ = s.Position.Z; PostAll(pack.Of("action_ascending"), t.Emitter, own, "jump launch", extra: SoundMixPass.JumpTail(SoundSystem.MixClassic)); }   // sound/mix-and-reloads: the first burst stays, the tail fades
             // M45: the own player's thrust ends at the release that cuts the rise (SmContent.ThrustEndRules), as its effect does; others' at the apex.
             if (SmContent.ThrustEndRules.EndsNow(JumpPack.Jumping(s.Jump), p.Velocity.Z, s.Velocity.Z, own && p.JumpCut, own && s.JumpCut))
-                PostAll(pack.Of("action_apex"), t.Emitter, own, s.JumpCut ? "jump thrust cut" : "jump apex");
+                PostAll(pack.Of("action_apex"), t.Emitter, own, s.JumpCut ? "jump thrust cut" : "jump apex", extra: SoundMixPass.JumpTail(SoundSystem.MixClassic));
             if (JumpPack.Pounding(s.Jump) && !JumpPack.Pounding(p.Jump)) PostAll(pack.Of("action_descending_smash"), t.Emitter, own, "jump dive");
             // M41: the impact sound plays once per pound, when it reaches the ground (own: the dive turns into the recovery; others: the pound flag with the player on the ground), not at
             // the end of the recovery 0.36 s later; the end of the pound plays it only when the impact was never seen (a snapshot gap). The rule is SmContent.PoundSoundRules (tested).
@@ -650,10 +650,11 @@ public partial class NetworkView
             int slotKey = (int)s.Slot;
             // ui/hud-camera-2 (owner, 2026-10-30): one reload, one set of sounds. A start seen again before the sounds' time is over (a press during the reload, a prediction
             // corrected by a snapshot that replays the press) schedules nothing.
-            foreach (var (tag, at) in ReloadTagsOnce(wf, IsOrkVoice(s)))
+            // sound/mix-and-reloads: from where the reload is (a reload picked up again after a correction plays only what is left, once).
+            foreach (var (tag, delay) in ReloadSoundGuard.Remaining(ReloadTagsOnce(wf, IsOrkVoice(s)), length, length - s.ReloadLeft, c.TickSeconds * 1.5))
             {
                 var file = wf;
-                _soundSchedule.Add((_connectedFor + at * length, () =>
+                _soundSchedule.Add((_connectedFor + delay, () =>
                 {
                     if (_client is not { } cl || !cl.Predicted.Alive || cl.Predicted.ReloadLeft <= 0f || !_ownReloadSounds.Current(slotKey, instance)) return;   // cancelled by a switch or death, or replaced
                     PostAll(file.Tag(tag), t.Emitter, true, "reload");
@@ -729,7 +730,7 @@ public partial class NetworkView
         string? stageName = stage > 0 && spec.Charge is { } ch && stage - 1 < ch.Stages.Count ? ch.Stages[stage - 1].Name : null;
         // Fidelity gap 7: a braced shot posts the braced ability's fire sound (NetworkView.Brace.cs).
         var bindings = braced && stage == 0 && BracedFireSounds(spec.Name) is { } braceFire ? braceFire : file.Fire(stageName);
-        PostAll(bindings, e, own, own ? "fire own" : "fire other");
+        PostAll(bindings, e, own, own ? "fire own" : "fire other", extra: SoundMixPass.Fire(SoundSystem.MixClassic));   // sound/mix-and-reloads: shots louder
     }
 
     /// <summary>An added mode's own target material for another player's shot (Musou Mode: armoured Orks null = armour and flesh, the others flesh); unchanged when no added content answers.</summary>
@@ -838,6 +839,7 @@ public partial class NetworkView
             offset = ImpactSounds.HitConfirmOffset(armoured, kill);
         }
         if (distanceDb < 0f) offset = offset.Plus(new VoiceOffset(distanceDb));
+        offset = offset.Plus(SoundMixPass.Hit(SoundSystem.MixClassic));   // sound/mix-and-reloads: on-hit sounds louder, no bass
         // The death state (group 0x47e2171c) is global: set for this post only and put back after it (review fix), so no smack event without the reset and no Ork death leaves a death_* state behind.
         uint? stateBefore = _audio.State(ImpactSounds.DeathStateGroup);
         _audio.SetState(ImpactSounds.DeathStateGroup, ImpactSounds.StateBeforeConfirm(HitConfirmArg, stateBefore, kill, armoured));

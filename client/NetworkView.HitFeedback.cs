@@ -114,6 +114,7 @@ public partial class NetworkView
         var layers = HitSoundRules.Of(armoured, CombinedHitSounds);
         at.Switches.Set(AudioCatalog.MaterialType, Fnv.Hash32(layers == HitLayers.Flesh ? "flesh" : "ceramite_armour"));
         var before = BeginImpactState(flesh: layers != HitLayers.Armour);
+        offset = offset.Plus(SoundMixPass.Hit(SoundSystem.MixClassic));   // sound/mix-and-reloads: on-hit sounds louder, no bass
         var play = _sound.Post(hitSound, at, offset: offset);
         EndImpactState(before);
         LogImpact($"body hit ({layers.ToString().ToLowerInvariant()})", hitSound, at, offset, play);
@@ -130,6 +131,7 @@ public partial class NetworkView
     {
         if (_sound is null) return;
         var before = BeginImpactState(flesh: false);
+        offset = offset.Plus(SoundMixPass.Hit(SoundSystem.MixClassic));   // sound/mix-and-reloads: on-hit sounds louder, no bass
         var play = _sound.Post(hitSound, at, offset: offset);
         EndImpactState(before);
         LogImpact("impact", hitSound, at, offset, play);

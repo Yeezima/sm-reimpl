@@ -118,12 +118,14 @@ public readonly record struct VoiceMix(float VolumeDb, float PitchCents, float L
 /// What a post adds to every voice it starts, on top of the data's mix (ours: the owner's footstep level, the deeper impacts and the soft hit confirm of
 /// sound/impacts): volume (dB), pitch (cents) and low-pass (Wwise's 0..100 units, added like a node's LPF).
 /// </summary>
-public readonly record struct VoiceOffset(float GainDb = 0f, float PitchCents = 0f, float Lpf = 0f)
+/// <remarks>sound/mix-and-reloads (<see cref="SoundMixPass"/>): <see cref="HighPass"/> routes the voice through the on-hit high-pass bus; <see cref="TailDb"/> (0 = none, negative)
+/// fades the voice down to that level after the jump pack's hold (<see cref="SoundMixPass.TailGainDb"/>).</remarks>
+public readonly record struct VoiceOffset(float GainDb = 0f, float PitchCents = 0f, float Lpf = 0f, bool HighPass = false, float TailDb = 0f)
 {
     public static VoiceOffset None => default;
-    public bool IsNone => GainDb == 0f && PitchCents == 0f && Lpf == 0f;
-    public VoiceOffset Plus(VoiceOffset o) => new(GainDb + o.GainDb, PitchCents + o.PitchCents, Lpf + o.Lpf);
-    public override string ToString() => IsNone ? "none" : $"{GainDb:+0.#;-0.#;0} dB {PitchCents:+0;-0;0} c lpf {Lpf:+0;-0;0}";
+    public bool IsNone => GainDb == 0f && PitchCents == 0f && Lpf == 0f && !HighPass && TailDb == 0f;
+    public VoiceOffset Plus(VoiceOffset o) => new(GainDb + o.GainDb, PitchCents + o.PitchCents, Lpf + o.Lpf, HighPass || o.HighPass, Math.Min(TailDb, o.TailDb));
+    public override string ToString() => IsNone ? "none" : $"{GainDb:+0.#;-0.#;0} dB {PitchCents:+0;-0;0} c lpf {Lpf:+0;-0;0}{(HighPass ? " hp" : "")}{(TailDb < 0f ? $" tail {TailDb:0.#} dB" : "")}";
 }
 
 /// <summary>

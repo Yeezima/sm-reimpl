@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2333 spec table rows: **1695 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 513 rows of the changes document.
+Scanned 2340 spec table rows: **1702 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 517 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -41,7 +41,7 @@ Scanned 2333 spec table rows: **1695 tagged**, 459 not tagged (read from data wi
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 52 | 50 | 41 | 19 | 0 |
 | HUD and hit feedback (critical) | 66 | 61 | 49 | 10 | 0 |
-| Sound mix (critical) | 56 | 50 | 48 | 10 | 0 |
+| Sound mix (critical) | 63 | 57 | 55 | 10 | 0 |
 | Effects (critical) | 76 | 66 | 66 | 40 | 0 |
 | Game modes | 41 | 38 | 38 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
@@ -53,16 +53,16 @@ Scanned 2333 spec table rows: **1695 tagged**, 459 not tagged (read from data wi
 | Core simulation (provisional values) | 293 | 275 | 231 | 45 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 172 | 163 | 80 | 49 | 0 |
-| **All areas** | **1695** | 1460 | 1298 | 525 | 38 |
+| **All areas** | **1702** | 1467 | 1305 | 525 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 838 |
-| confidence: low | 618 |
-| confidence: medium | 552 |
-| kind: interpretation | 343 |
+| kind: ours | 844 |
+| confidence: low | 622 |
+| confidence: medium | 555 |
+| kind: interpretation | 344 |
 | notes: ours | 334 |
 | confidence: none (low) | 128 |
 | kind: estimate | 102 |
@@ -1474,7 +1474,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-FED76589` | Scoreboard | Back (held) (button) | confidence: medium; notes: user's knowledge | owner's recollection | Scoreboard: compare with SM1 with side-by-side screenshots in the same spot. Ours: Back (held). | ☐ |
 
-### Sound mix (gameplay-critical) (56)
+### Sound mix (gameplay-critical) (63)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -1565,6 +1565,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-F93ADD65` | Hit sound with armour down | material `flesh` and the broken-armour state: the flesh layers only | confidence: medium | same | Hit sound with armour down: compare with SM1 by listening A/B at the same distance and state. Ours: material flesh and the broken-armour state: the flesh layers only. | ☐ |
 | `R-ADC1491F` | Armour not known | both together, as before (owner's 2026-10-28 "combine both"); the bit is `ShotView.Armoured` (others' shots), the own shield before the hit (the own victim), the last hit report's shield (own shots); `--combined-hit-sounds` restores both for every hit | kind: ours; confidence: medium | ours (no guessing) | Armour not known: compare with SM1 by listening A/B at the same distance and state. Ours: both together, as before (owner's 2026-10-28 "combine both"); the bit… | ☐ |
 | `R-00C1F6BB` | Melee and charge hits | unchanged: both layers (the hit report's armour bit is not wired to these sounds) | kind: ours; confidence: low | ours | Melee and charge hits: compare with SM1 by listening A/B at the same distance and state. Ours: unchanged: both layers (the hit report's armour bit is not wired to… | ☐ |
+
+*Spec section: Sound mix pass and reload sounds (sound/mix-and-reloads; owner's playtest notes 2026-11-06; client and content only, not simulated)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-2BEC9588` | Fire sound gain | +4 on every gun's fire post (own and others', braced and charged shots included); not the Musou Orks' guns (dB) | kind: ours; confidence: low | owner's request 2026-11-06; the amount ours | Fire sound gain: compare with SM1 by listening A/B at the same distance and state. Ours: +4 on every gun's fire post (own and others', braced and charged… | ☐ |
+| `R-A08F0BB3` | On-hit sound gain | +4 on shot impacts (level and players), melee hits (data and procedural) and the shooter's hit confirm; detonations unchanged (dB) | kind: ours; confidence: low | owner's request; the amount ours | On-hit sound gain: compare with SM1 by listening A/B at the same distance and state. Ours: +4 on shot impacts (level and players), melee hits (data and… | ☐ |
+| `R-054F5D2A` | On-hit high-pass | 250 Hz, 24 dB per octave, resonance 0.5 (Godot `AudioEffectHighPassFilter`), on the same sounds: the `SmHit` bus (and `SmHitLpf1..20` with the voice's low-pass too) into `SmSfx` (Hz) | kind: ours; confidence: low | owner's request ("zero bass"); the cutoff ours | On-hit high-pass: compare with SM1 by listening A/B at the same distance and state. Ours: 250 Hz, 24 dB per octave, resonance 0.5 (Godot… | ☐ |
+| `R-4667BE9D` | Master volume | the master bus at the options' level ×1.1 (+0.83 dB; muted stays muted) and a hard limiter on it, ceiling -0.3 dB (factor, dB) | kind: ours; confidence: medium | owner's request (10 %); the limiter ours | Master volume: compare with SM1 by listening A/B at the same distance and state. Ours: the master bus at the options' level ×1.1 (+0.83 dB; muted stays… | ☐ |
+| `R-EC8B74D8` | Jump pack tail | every voice of the launch (`action_ascending`: `play_sm_jump_pack_launch`: a 1.1 s burst, full for about 0.6 s, and two thrust layers of 1.7 and 2.0 s, the second pitched -300 cents) and the apex/thrust cut (`action_apex`) posts: full for 0.5 s, then a fade… (s, dB) | kind: ours; confidence: low | owner's request; samples measured with `smtool audio-decode` (RMS per 50 ms); times and depth ours | Jump pack tail: compare with SM1 by listening A/B at the same distance and state. Ours: every voice of the launch (action_ascending:… | ☐ |
+| `R-43C4D8D6` | Reload sounds: one source | a reload's tag sounds come only from the reload's schedule (the reload clip's tags over the simulation's reload time, once per reload). The reload clip laid over the upper body (M35) no longer posts its tags as an animation: it posted them a second time at… | kind: interpretation; confidence: medium | found by reading the code (not reproduced by listening); interpretation | Reload sounds: one source: compare with SM1 by listening A/B at the same distance and state. Ours: a reload's tag sounds come only from the reload's schedule (the… | ☐ |
+| `R-7F314C38` | Reload sounds after a correction | a reload seen again (a prediction correction cancelled and restarted it) schedules only the tags still ahead of where the reload is (the simulation's reload time minus its time left; tags passed by more than 1.5 ticks are dropped), so nothing restarts on top… (s) | kind: ours; confidence: medium | ours | Reload sounds after a correction: compare with SM1 by listening A/B at the same distance and state. Ours: a reload seen again (a prediction correction cancelled and restarted… | ☐ |
 
 *Spec section: Match sounds and menu sounds (fidelity gap 9; client only, not simulated, no protocol change)*
 
@@ -2978,6 +2990,10 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-73CEF8B5` | Jump pack flame trail removed | the owner's request (2026-11-02) | one quick flash at the start of a jump, hop, dive, dash or air charge, no flame or trail | Jump pack | Jump pack flame trail removed: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-CD5C01F2` | Zoom while flying with the jump pack | the owner's request (2026-11-02) | aim mode holds in the jump pack's phases, except the ground pound | Jump pack | Zoom while flying with the jump pack: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-69AD73F9` | Jump pack ready jets by jump availability | The pack's idle effects by power (`action_idle_by_power`: full from 55, low from 40, none below) | the owner's request (2026-11-06): the full-power jets while a jump can start, faded out (0.2 s) while one cannot, back in 0.25 s (ours); with the 300-power pack the power rule never changed the look (fx/jumppack-jets, client only) | Jump pack: the launch flash, the ready jets and the legs in an air strike | Jump pack ready jets by jump availability: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-54DE1B7B` | Sound mix pass: louder shots | The data's fire sound levels | every gun's fire sound +4 dB (own and others'); `--sound-mix-classic` restores the old mix | the owner's playtest note (2026-11-06): "gun shoot sounds should be louder"; the amount ours; spec "Sound mix pass and reload sounds" | Sound mix pass: louder shots: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-5B66CCFA` | Sound mix pass: on-hit sounds louder, no bass | The data's impact and hit sounds as mixed (plus the earlier deeper bolter impacts and soft confirm) | shot impacts on the level and on players, melee hits and the shooter's hit confirm +4 dB and through a 250 Hz high-pass (24 dB per octave); explosions unchanged | the owner (2026-11-06): "weapon on hit effects all need to be louder, and have the bass removed. all on hit sound effects should have zero bass"; values ours; same spec section | Sound mix pass: on-hit sounds louder, no bass: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-9079D22D` | Sound mix pass: master volume +10 % | The master bus at the options' level | the master bus ×1.1 (+0.83 dB) at every option level, with a limiter (ceiling -0.3 dB) on it | the owner (2026-11-06): "increase the global master volume by 10%"; the limiter ours; same spec section | Sound mix pass: master volume +10 %: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-412DE228` | Sound mix pass: jump pack tail faded | `play_sm_jump_pack_launch` plays a burst and two thrust layers for 1.7 to 2.4 s | each voice of the launch and apex posts holds full level for 0.5 s, then fades over 0.3 s to -15 dB | the owner (2026-11-06): "the intial sound is fine, but any echoes/reverb or extra something after that should be deeply diminished"; times and depth ours; same spec section | Sound mix pass: jump pack tail faded: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 
 ### Our choices where the original is unknown
 

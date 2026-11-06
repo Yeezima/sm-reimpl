@@ -322,6 +322,16 @@ public sealed partial class SoundTriggers
         c.Weapons.Select(w => w.Name).Concat(c.Thrown.Select(t => t.Name)).Concat(c.JumpPacks.Select(j => j.Name)).Concat(c.Evades.Select(e => e.Name))
             .Concat(c.Classes.SelectMany(k => k.MeleeChoices.Select(m => m.Wargear))).Where(n => !string.IsNullOrEmpty(n)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
+    /// <summary>A reload clip (its name holds <c>reload</c>): the clips <see cref="ReloadTags"/> picks from.</summary>
+    public static bool IsReloadClip(string clip) => clip.Contains("reload", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Whether a clip's behaviour tags post their sounds as the animation crosses them (sound/mix-and-reloads): every clip but a reload clip. A reload's sounds come from the
+    /// reload's own schedule only (<see cref="ReloadTags"/> over the simulation's reload time, once per reload: <see cref="ReloadSoundGuard"/>); the reload clip laid over the
+    /// upper body posted them a second time, at the clip's own timing, and the stop events those posts owed cut the reload's sounds when the layer ended or its time jumped back.
+    /// </summary>
+    public static bool ClipTagsPostSounds(string clip) => !IsReloadClip(clip);
+
     /// <summary>
     /// A weapon's reload sounds in time (M26b): the clip named <c>*reload*</c> whose action tags match the most of the file's
     /// <c>triggered_actions</c> (e.g. the bolter's <c>SM_RNG_Bolter_Reload_UB_S_01</c>: remove clip, load clip, pull and release the
@@ -334,7 +344,7 @@ public sealed partial class SoundTriggers
         int bestScore = 0;
         foreach (var (clip, tags) in ClipTags.OrderBy(kv => kv.Key, StringComparer.Ordinal))
         {
-            if (!clip.Contains("reload", StringComparison.OrdinalIgnoreCase) || OrkOnlyClips.Contains(clip) != orkRig) continue;
+            if (!IsReloadClip(clip) || OrkOnlyClips.Contains(clip) != orkRig) continue;
             var matching = tags.Where(t => weapon.Tag(t.Tag).Count > 0).ToList();
             if (matching.Count > bestScore) { best = matching; bestScore = matching.Count; }
         }

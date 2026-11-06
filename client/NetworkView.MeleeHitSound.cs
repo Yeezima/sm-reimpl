@@ -173,7 +173,7 @@ public partial class NetworkView
         _hitSoundCount++; _proceduralHits++;
         var player = new AudioStreamPlayer3D
         {
-            Stream = stream, Bus = SoundSystem.BusName, PitchScale = pitch, VolumeDb = db + SoundGainDb + HitVolumeScaleDb, GlobalPosition = at,
+            Stream = stream, Bus = SoundSystem.MixClassic ? SoundSystem.BusName : SoundSystem.HitBusName, PitchScale = pitch, VolumeDb = db + SoundGainDb + HitVolumeScaleDb + SoundMixPass.Hit(SoundSystem.MixClassic).GainDb, GlobalPosition = at,
             AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.InverseDistance, UnitSize = 8f, MaxDistance = 90f,
         };
         player.Finished += player.QueueFree;
