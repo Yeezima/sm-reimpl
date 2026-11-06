@@ -30,8 +30,18 @@ public sealed class MusouClientState
     public const uint NewEnemyGapTicks = 30;
     /// <summary>A section this many ticks older than the newest seen means the server restarted its clock (ours: 10 s; no datagram is that late).</summary>
     public const uint RestartTicks = 300;
-    /// <summary>Most ticks an enemy that runs is carried on past its newest record (ours: a far enemy's 5-tick gap plus one).</summary>
-    public const int ExtrapolateTicks = 6;
+    /// <summary>
+    /// Least ticks an enemy that runs is carried on past its newest record (ours: a far enemy's 5-tick gap plus one); beyond it, its last step's span plus
+    /// <see cref="ExtrapolateMarginTicks"/>, at most <see cref="MaxExtrapolateTicks"/> (2026-11-06: a crowd that fills the budget sends a far Ork every 13 ticks
+    /// at 1800 Orks, and he stood still between). <see cref="OldFarMotion"/>: 6 ticks, and only after a step of at most 6.
+    /// </summary>
+    public const int ExtrapolateTicks = 6, ExtrapolateMarginTicks = 3, MaxExtrapolateTicks = (int)NewEnemyGapTicks;
+    /// <summary>
+    /// The drawn place of a running enemy moves on at the sampled speed and closes on the sampled place with this time constant (ticks; ours: 0.2 s), so a new
+    /// record that corrects a carried-on runner is a quick glide, not a jump; further off than <see cref="SnapMetres"/>, after a gap of more than
+    /// <see cref="SmoothMaxStepTicks"/> between two samples, or in any other state it is the sampled place (ours).
+    /// </summary>
+    public const float SmoothTicks = 6f, SnapMetres = 4f, SmoothMaxStepTicks = 2f;
 
     sealed class Track
     {
@@ -45,6 +55,9 @@ public sealed class MusouClientState
         public double Heard;
         public MusouEnemyState ShownState;
         public double StateSince;
+        public bool HasDrawn;      // the place drawn last sample (the smoothing's), at that render tick
+        public Vector3 Drawn;
+        public double DrawnTick;
     }
 
     readonly Dictionary<ushort, Track> _tracks = new();
@@ -59,6 +72,9 @@ public sealed class MusouClientState
     readonly List<(MusouEventKind, uint, ushort, ushort)> _scratchKeys = new();
     double _now;
 
+    /// <summary>Test aid (client <c>--musou-old-far-motion</c>): the far crowd's motion before 2026-11-06.</summary>
+    public bool OldFarMotion { get; set; }
+
     public MusouDirectorView? Director { get; private set; }
     /// <summary>Directors ignored as older than the one shown (late or reordered datagrams).</summary>
     public int StaleDirectors { get; private set; }
@@ -67,6 +83,8 @@ public sealed class MusouClientState
     public int Count => _tracks.Count;
     /// <summary>The kind of enemy <paramref name="id"/> as its newest record has it; null when the client holds no track of it (the Boss Orks' HUD, 2026-11-06).</summary>
     public MusouEnemyType? TypeOf(ushort id) => _tracks.TryGetValue(id, out var t) ? t.Type : null;
+    /// <summary>The server tick of enemy <paramref name="id"/>'s newest record (null: no track; the motion log's test aid).</summary>
+    public uint? NewestRecordTick(ushort id) => _tracks.TryGetValue(id, out var t) && t.Count > 0 ? t.Ticks[t.Count - 1] : null;
     public int SectionsRead { get; private set; }
     public int SectionsMalformed { get; private set; }
     /// <summary>Ids dropped for silence (no death seen), and records ignored as older than a death.</summary>
@@ -211,14 +229,14 @@ public sealed class MusouClientState
         if (!_tracks.TryGetValue(e.Id, out var t))
         {
             t = _spare.Count > 0 ? _spare.Pop() : new Track();
-            t.Id = e.Id; t.Count = 0; t.ShownState = e.State; t.StateSince = _now;
+            t.Id = e.Id; t.Count = 0; t.ShownState = e.State; t.StateSince = _now; t.HasDrawn = false;
             _tracks[e.Id] = t;
         }
         else if (t.Type != e.Type || t.Count > 0 && (tick > t.Ticks[t.Count - 1] + NewEnemyGapTicks
                                                      || e.State == MusouEnemyState.Spawning && t.States[t.Count - 1] != MusouEnemyState.Spawning && tick > t.Ticks[t.Count - 1]))
         {
             // Another kind on the same id, a long gap or a fresh spawn (the pool was cleared without deaths and the id reused): a new enemy, not a streak across the map.
-            t.Count = 0; t.ShownState = e.State; t.StateSince = _now;
+            t.Count = 0; t.ShownState = e.State; t.StateSince = _now; t.HasDrawn = false;
             NewOnSameId++;
         }
         t.Type = e.Type;
@@ -285,7 +303,8 @@ public sealed class MusouClientState
         foreach (var t in _tracks.Values)
         {
             if (t.Count == 0) continue;
-            Vector3 p; float yaw; MusouEnemyState state;
+            Vector3 p, velocity = Vector3.Zero;   // velocity: the sampled place's, per tick
+            float yaw; MusouEnemyState state;
             int after = 0;
             while (after < t.Count && t.Ticks[after] < renderTick) after++;
             if (after == 0) { p = t.Positions[0]; yaw = t.Yaws[0]; state = t.States[0]; }
@@ -293,23 +312,32 @@ public sealed class MusouClientState
             {
                 int last = t.Count - 1;
                 p = t.Positions[last]; yaw = t.Yaws[last]; state = t.States[last];
-                // Past the newest record (a far enemy is sent every 5th tick, the view runs 3 behind): carry on along the last step for a few ticks, not a stop-and-go.
-                if (last >= 1 && t.Ticks[last] - t.Ticks[last - 1] <= ExtrapolateTicks && state == t.States[last - 1] && state is MusouEnemyState.Seek)
+                // Past the newest record (a far enemy is sent every 5th tick, or rarer when the crowd fills the budget; the view runs 3 behind): carry on along
+                // the last step for about one more such gap, not a stop-and-go.
+                uint step = last >= 1 ? t.Ticks[last] - t.Ticks[last - 1] : 0;
+                if (last >= 1 && state == t.States[last - 1] && state is MusouEnemyState.Seek
+                    && (OldFarMotion ? step <= ExtrapolateTicks : step <= MaxExtrapolateTicks))
                 {
-                    float span = t.Ticks[last] - t.Ticks[last - 1];
-                    float ahead = (float)Math.Min(renderTick - t.Ticks[last], ExtrapolateTicks);
-                    p += (t.Positions[last] - t.Positions[last - 1]) / span * ahead;
+                    float span = step;
+                    int most = OldFarMotion ? ExtrapolateTicks : Math.Clamp((int)step + ExtrapolateMarginTicks, ExtrapolateTicks, MaxExtrapolateTicks);
+                    float ahead = (float)Math.Min(renderTick - t.Ticks[last], most);
+                    var perTick = (t.Positions[last] - t.Positions[last - 1]) / span;
+                    p += perTick * ahead;
+                    if (ahead < most) velocity = perTick;
                 }
             }
             else
             {
                 int before = after - 1;
-                float alpha = (float)((renderTick - t.Ticks[before]) / Math.Max(1.0, t.Ticks[after] - t.Ticks[before]));
+                float span = Math.Max(1f, t.Ticks[after] - t.Ticks[before]);
+                float alpha = (float)((renderTick - t.Ticks[before]) / span);
                 alpha = Math.Clamp(alpha, 0f, 1f);
                 p = Vector3.Lerp(t.Positions[before], t.Positions[after], alpha);
                 yaw = LerpAngle(t.Yaws[before], t.Yaws[after], alpha);
                 state = alpha < 1f ? t.States[before] : t.States[after];
+                velocity = (t.Positions[after] - t.Positions[before]) / span;
             }
+            p = Smooth(t, p, velocity, state, renderTick);
             if (state != t.ShownState) { t.ShownState = state; t.StateSince = _now; }
             _shown.Add(new MusouShown(t.Id, p, yaw, t.Type, state, (float)(_now - t.StateSince)));
         }
@@ -334,6 +362,30 @@ public sealed class MusouClientState
         foreach (var t in _tracks.Values) _spare.Push(t);
         _tracks.Clear(); _played.Clear(); _dead.Clear(); _pending.Clear(); _newEvents.Clear(); _newDeaths.Clear();
         Director = null;
+    }
+
+    /// <summary>
+    /// The place to draw a track at <paramref name="renderTick"/>, given the sampled place <paramref name="sampled"/> moving at <paramref name="velocity"/> (per tick):
+    /// for a runner seen last sample too, the last drawn place moved on at that speed and pulled toward the sampled one (<see cref="SmoothTicks"/>); else the
+    /// sampled place (<see cref="SnapMetres"/>, <see cref="SmoothMaxStepTicks"/>, any state but running, a render clock gone back, <see cref="OldFarMotion"/>).
+    /// </summary>
+    Vector3 Smooth(Track t, Vector3 sampled, Vector3 velocity, MusouEnemyState state, double renderTick)
+    {
+        bool running = state is MusouEnemyState.Seek && t.ShownState is MusouEnemyState.Seek;
+        double step = renderTick - t.DrawnTick;
+        var drawn = sampled;
+        if (!OldFarMotion && running && t.HasDrawn)
+        {
+            if (step == 0) return t.Drawn;   // a second sample at the same render tick draws the same place
+            if (step > 0 && step <= SmoothMaxStepTicks)
+            {
+                var guess = t.Drawn + velocity * (float)step;
+                var off = sampled - guess;
+                if (off.LengthSquared() <= SnapMetres * SnapMetres) drawn = guess + off * (float)(1.0 - Math.Exp(-step / SmoothTicks));
+            }
+        }
+        t.Drawn = drawn; t.DrawnTick = renderTick; t.HasDrawn = true;
+        return drawn;
     }
 
     static float LerpAngle(float a, float b, float t)

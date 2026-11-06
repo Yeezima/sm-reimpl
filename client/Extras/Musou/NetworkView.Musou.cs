@@ -45,11 +45,13 @@ public partial class NetworkView
     {
         if (!MusouActive || _client is not { } client) { if (_musouHud is not null) _musouHud.Visible = false; return; }
         double now = Time.GetTicksUsec() / 1e6;
+        MusouMotionSections(sections);   // NetworkView.MusouMotion.cs: --musou-old-far-motion, and the measure's bytes
         foreach (var section in MusouGoreFeed(me, sections, delta)) if (!MusouDropSection(section)) _musouState.Apply(section, now);   // MU-D: tag 6 to the drops (MusouDrops.cs); M10: --musou-gore-demo replaces the server's sections
         var (renderTick, _) = client.RemotePlayers();
         renderTick = MusouGoreRenderTick(renderTick);
         var shown = _musouState.Sample(renderTick > 0 ? renderTick : _musouState.NewestTick, now);
         _tfwShown = shown;   // the scripted class test finds the elites here (Tfw/NetworkView.TfwClassTest.cs)
+        MusouMotionFrame(me, shown, delta);   // --musou-motion-log: the shown crowd's motion by distance
 
         if (!_musouDrawChecked)
         {

@@ -80,6 +80,12 @@ public static class MusouSendRules
     public const float StateChangeBoost = 1f;
     /// <summary>The boss's and the Nobs' least gain a tick, whatever the distance (ours: about 15 Hz far away), and they go first (design).</summary>
     public const float LeaderMinRate = 0.5f;
+    /// <summary>
+    /// An enemy known to the client and not sent for this many ticks goes before every other due enemy but the leaders (ours, 2026-11-06): a crowd that fills the
+    /// budget (1800 Orks, most within 40 m) otherwise left a far Ork 30 ticks and more without a record, and the client held him still between (the owner: "the orks
+    /// movement at distance looks so choppy"). The server's <c>SM_MUSOU_OLD_FAR_SEND=1</c> restores the old order (<see cref="MusouInterest.OldFarSend"/>).
+    /// </summary>
+    public const uint MaxWaitTicks = 15;
     /// <summary>Most envelope messages to one client in one tick (design).</summary>
     public const int MaxMessagesPerTick = 4;
     /// <summary>Each event is sent in this many messages (design).</summary>
@@ -125,6 +131,13 @@ public sealed class MusouInterest
     readonly float[] _priority = new float[MusouSim.Capacity];
     readonly byte[] _sentState = new byte[MusouSim.Capacity];
     readonly bool[] _known = new bool[MusouSim.Capacity];
+    readonly uint[] _sentTick = new uint[MusouSim.Capacity];
+    uint _tick;
+
+    /// <summary>Test aid (server env <c>SM_MUSOU_OLD_FAR_SEND=1</c>): the send order before 2026-11-06, without <see cref="MusouSendRules.MaxWaitTicks"/>.</summary>
+    public bool OldFarSend { get; init; }
+
+    bool Starving(int i) => !OldFarSend && _known[i] && _tick - _sentTick[i] >= MusouSendRules.MaxWaitTicks && _tick >= _sentTick[i];
     readonly List<int> _due = new();
     readonly List<MusouEntity> _entities = new();
     readonly List<MusouEnemy> _byIndex = new();
@@ -171,11 +184,16 @@ public sealed class MusouInterest
         }
         var byIndex = _byIndex;
         var priority = _priority;
+        _tick = tick;
         _due.Sort((a, b) =>
         {
             var (ea, eb) = (byIndex[a], byIndex[b]);
             int c = MusouSendRules.Rank(eb.Type).CompareTo(MusouSendRules.Rank(ea.Type));
             if (c != 0) return c;
+            bool sa = Starving(ea.Id - 1), sb = Starving(eb.Id - 1);   // the overdue first, the longest unsent of them first: no far Ork waits much past MaxWaitTicks while the budget allows
+            c = sb.CompareTo(sa);
+            if (c != 0) return c;
+            if (sa) { c = _sentTick[ea.Id - 1].CompareTo(_sentTick[eb.Id - 1]); if (c != 0) return c; }
             c = priority[eb.Id - 1].CompareTo(priority[ea.Id - 1]);
             return c != 0 ? c : ea.Id.CompareTo(eb.Id);
         });
@@ -229,7 +247,7 @@ public sealed class MusouInterest
                 var e = byIndex[_due[next + k]];
                 _entities.Add(new MusouEntity(e.Id, e.Position, e.Yaw, e.Type, e.State));
                 int i = e.Id - 1;
-                _priority[i] = 0f; _sentState[i] = (byte)e.State; _known[i] = true;
+                _priority[i] = 0f; _sentState[i] = (byte)e.State; _known[i] = true; _sentTick[i] = tick;
             }
             var payload = MusouWire.WriteEntities(_entities, box);
             messages[^1].Add((MusouWire.EntitiesTag, payload));
@@ -247,7 +265,7 @@ public sealed class MusouInterest
     /// <summary>Forgets every enemy (a new round, a cleared pool): each is sent again as new.</summary>
     public void Reset()
     {
-        Array.Clear(_priority); Array.Clear(_known); Array.Clear(_sentState);
+        Array.Clear(_priority); Array.Clear(_known); Array.Clear(_sentState); Array.Clear(_sentTick);
         _lastDirector = null;
     }
 }
