@@ -15,7 +15,7 @@ public static class AshfallContent
     public const string MapName = "ashfall_citadel";
 
     /// <summary>
-    /// The level as map content: the solid triangles as both the character layer and the weapon layer (unwelded: three corners a triangle), the capture points as
+    /// The level as map content: the solid triangles as the character layer and, without the kit's ramp wedges (movement only, the window pass), as the weapon layer (unwelded: three corners a triangle), the capture points as
     /// cylinder markers (scale: diameter, diameter, full height), the start areas as box markers, the spawns facing north. <see cref="MapContent.Hash"/> is the level's hash.
     /// </summary>
     public static MapContent ToMapContent(AshfallLevel level)
@@ -24,7 +24,8 @@ public static class AshfallContent
         var indices = new int[corners.Length];
         for (int i = 0; i < indices.Length; i++) indices[i] = i;
         var character = new HavokCollisionLayer(MapContent.CharacterLayer, corners, indices);
-        var weapons = new HavokCollisionLayer(MapContent.WeaponLayer, corners, indices);
+        var shot = level.WeaponCorners();
+        var weapons = new HavokCollisionLayer(MapContent.WeaponLayer, shot, Enumerable.Range(0, shot.Length).ToArray());
         return new MapContent(MapName, MapName, [character, weapons], level.Spawns.Select((s, i) => new MapSpawn($"ashfall_spawn_{i}", s, 0f)).ToArray(), level.Hash)
         {
             ControlPoints = level.Points.Select(p => new MapControlPoint(p.Name, p.Center, 0f, new Vector3(p.Radius * 2f, p.Radius * 2f, p.HalfHeight * 2f), 3)).ToArray(),
