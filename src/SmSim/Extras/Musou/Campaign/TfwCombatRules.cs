@@ -50,6 +50,15 @@ public sealed record TfwCombatRules
     /// <summary>Most bodies one Marine tests a tick (design: 16).</summary>
     public int ShoveTests { get; init; } = 16;
 
+    // ---- the enemies on the players (the owner, 2026-11-06)
+
+    /// <summary>
+    /// Whether an enemy's attack may put a player in a reaction (stagger, knockback). The owner, 2026-11-06: "remove all stun effects by orks in musou mode. they should never impede player movement or
+    /// action": false, so an Ork's melee strike (a Nob, a Boss Ork, the Warboss), the Warboss's ground slam and his charge's knockback deal their damage and nothing else (<see cref="World"/>'s
+    /// <c>MusouHit</c>). The barrage the players call (no enemy's) keeps its stagger. True restores the old staggers. The 5-wave test aid never reads it (it has no <see cref="MusouSim.War"/>).
+    /// </summary>
+    public bool EnemiesImpede { get; init; }
+
     // ---- the frag (item 21)
 
     /// <summary>Frags per throw: the player's one and this many less one beside it; each is one fan <see cref="FragSpreadDegrees"/> from the next.</summary>

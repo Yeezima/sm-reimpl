@@ -128,10 +128,7 @@ public sealed partial class World
         foreach (var strike in _musouBossStrikes)
         {
             if (TfwContracts.IsGuardTarget(strike.Player)) { MusouHit(new MusouAttack(_musouBoss.Id, strike.Player, strike.Damage, true, false, strike.From)); continue; }
-            if (!_players.TryGetValue(strike.Player, out var before) || !before.Alive) continue;
-            MusouHit(new MusouAttack(_musouBoss.Id, strike.Player, strike.Damage, Melee: true, Staggers: strike.Knockback <= 0f, strike.From));
-            if (strike.Knockback > 0f && _players[strike.Player] is { Alive: true } after && (after.Health < before.Health || after.Shield < before.Shield))
-                TryReact(0, strike.Player, new ReactionEntry(0f, ReactionKind.Stagger, Backward: strike.Knockback, Duration: _musou!.Rules.Boss.ChargeKnockbackSeconds), strike.From, strike.Push);
+            MusouBossHit(_musouBoss.Id, strike);   // World.Musou.cs: the owner, 2026-11-06, no stagger or knockback in Musou Mode (TfwCombatRules.EnemiesImpede)
         }
         battle.NoteWaaaghs(_musouBoss.Waaaghs);
     }

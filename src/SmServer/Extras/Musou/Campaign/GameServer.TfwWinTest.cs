@@ -17,7 +17,7 @@ namespace SmServer;
 /// <para>
 /// <c>SM_TFW_FIGHT_LOG=&lt;s&gt;</c>: every that many seconds of a battle one <c>TFWFIGHT</c> line: the Orks alive and their attack tokens, how many strike, Guardsmen, losses and shots, the points, and how the crowd lies (a heading
 /// spread and the 3 m cells it covers); with it also a <c>TFWSWARM</c> line when a spawn point's crowd is let loose, a <c>TFWARRIVE</c> line when the first of that swarm is within 25 m of a human (with the time since the
-/// last swarm's arrival) and a <c>TFWQUIET</c> line for each stretch of 2 s or more with no awake Ork within 25 m of any human. <c>SM_TFW_KEEP_HUMAN=1</c>: a human in the field who falls stands up where it fell (a scripted player stays in the fight while it is filmed). Neither touches an enemy. <c>SM_TFW_GUARDSMEN=1</c>: battles land Guardsmen, whatever <see cref="TfwBattleRules.GuardsmenEnabled"/> says.
+/// last swarm's arrival) and a <c>TFWQUIET</c> line for each stretch of 2 s or more with no awake Ork within 25 m of any human. <c>SM_TFW_KEEP_HUMAN=1</c>: a human in the field who falls stands up where it fell (a scripted player stays in the fight while it is filmed). Neither touches an enemy. <c>SM_TFW_GUARDSMEN=1</c>: battles land Guardsmen, whatever <see cref="TfwBattleRules.GuardsmenEnabled"/> says. <c>SM_TFW_NO_PATROLS=1</c>: battles send no patrol or hunter column.
 /// </para>
 /// </summary>
 public sealed partial class GameServer
@@ -27,6 +27,7 @@ public sealed partial class GameServer
     static readonly double TfwFightSeconds = double.TryParse(Environment.GetEnvironmentVariable("SM_TFW_FIGHT_LOG"), CultureInfo.InvariantCulture, out double f) ? f : 0.0;
     static readonly bool TfwKeepHuman = Environment.GetEnvironmentVariable("SM_TFW_KEEP_HUMAN") == "1";
     static readonly bool TfwGuardsmenOn = Environment.GetEnvironmentVariable("SM_TFW_GUARDSMEN") == "1";
+    static readonly bool TfwNoPatrols = Environment.GetEnvironmentVariable("SM_TFW_NO_PATROLS") == "1";   // battles send no patrol or hunter column (TfwBattle.Patrols; the before of a measurement)
     MusouEnemy[]? _tfwFightEnemies;
     double _tfwLandSeen;
     TfwBattle? _tfwHooked;
@@ -42,8 +43,9 @@ public sealed partial class GameServer
 
     void TfwTestAids()
     {
-        if ((TfwWinRadius < 0f && TfwStress is null && TfwFightSeconds <= 0.0 && !TfwKeepHuman && !TfwGuardsmenOn) || World.Tfw is not { } run) return;
+        if ((TfwWinRadius < 0f && TfwStress is null && TfwFightSeconds <= 0.0 && !TfwKeepHuman && !TfwGuardsmenOn && !TfwNoPatrols) || World.Tfw is not { } run) return;
         if (TfwGuardsmenOn) run.Guardsmen = true;
+        if (TfwNoPatrols) run.Patrols = false;
         int rate = Math.Max(1, World.Config.TickRate);
         if (TickStatsSeconds > 0.0 && World.Tick % Math.Max(1u, (uint)(rate * TickStatsSeconds)) == 0)
             Console.WriteLine($"TFWSTATS tick {World.Tick}: {run.Phase}, enemies {World.Musou?.Alive}, guards {World.TfwGuards?.Alive} (squads {World.TfwGuards?.SquadsAlive}, lost {World.TfwGuards?.Lost}, best boss cleave {World.TfwBestGuardCleave}, step {World.TfwGuards?.LastStepMilliseconds:F2} ms), secured {run.Battle?.Secured}, marines {run.Marines.Count}, players {World.Players.Count}");
@@ -143,6 +145,6 @@ public sealed partial class GameServer
         var marines = string.Join(" ", run.Marines.Select(m => World.Players.TryGetValue(m.Id, out var p) ? $"{m.Role}:{(p.Alive ? "up" : "down")}@{p.Position.X:F0},{p.Position.Y:F0}" : "gone"));
         var squads = string.Join(" ", Enumerable.Range(0, GuardSim.MaxSquads).Where(s => guards.AliveIn(s) > 0).Select(s => $"{guards.AliveIn(s)}@{guards.Centre(s).X:F0},{guards.Centre(s).Y:F0}{(guards.Arrived(s) ? "" : ">")}"));
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
-            $"TFWFIGHT tick {World.Tick}: orks {orks.Alive}, melee tokens {melee}, shooter tokens {shooters}, striking {striking}, moving {moving}, heading {heading:F2}, cells {cells.Count}; guards {guards.Alive}, lost {guards.Lost}, shots {guards.Shots}, hit {guards.ShotsHit}; killed {battle.OrksKilled}, sent {battle.Arrivals}, crowds {string.Join("/", Enumerable.Range(0, 4).Select(battle.Pooled))}, swarms {battle.Swarms}, orks on points {string.Join("/", Enumerable.Range(0, 3).Select(battle.OrksOn))}{string.Concat(Enumerable.Range(0, 3).Where(k => battle.Objectives[k].State == TfwPositionState.Clearing).Select(k => $" [clearing {(char)('A' + k)}: {battle.OrksOnReport(k)}]"))}; points {points}; squads {squads}; marines {marines}; step {orks.LastStepMilliseconds:F2} ms; down {orks.KnockedDown}, down dead {orks.KnockKills}, best cleave {World.TfwBestCleave}, best pierce {World.TfwBestPierce}, frags out {World.TfwFragsOut}"));
+            $"TFWFIGHT tick {World.Tick}: orks {orks.Alive}, melee tokens {melee}, shooter tokens {shooters}, striking {striking}, moving {moving}, heading {heading:F2}, cells {cells.Count}; guards {guards.Alive}, lost {guards.Lost}, shots {guards.Shots}, hit {guards.ShotsHit}; killed {battle.OrksKilled}, sent {battle.Arrivals}, crowds {string.Join("/", Enumerable.Range(0, 4).Select(battle.Pooled))}, swarms {battle.Swarms}, columns {battle.Columns().Count(c => c.Formed)}/{battle.Columns().Count} with {battle.Columns().Sum(c => c.Ids.Length)} orks, holding {battle.Columns().Count(c => c.Holding)}, route searches {battle.RouteSearches} longest {battle.LongestRouteMilliseconds:F0} ms, orks on points {string.Join("/", Enumerable.Range(0, 3).Select(battle.OrksOn))}{string.Concat(Enumerable.Range(0, 3).Where(k => battle.Objectives[k].State == TfwPositionState.Clearing).Select(k => $" [clearing {(char)('A' + k)}: {battle.OrksOnReport(k)}]"))}; points {points}; squads {squads}; marines {marines}; step {orks.LastStepMilliseconds:F2} ms; down {orks.KnockedDown}, down dead {orks.KnockKills}, best cleave {World.TfwBestCleave}, best pierce {World.TfwBestPierce}, frags out {World.TfwFragsOut}"));
     }
 }

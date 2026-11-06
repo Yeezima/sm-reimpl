@@ -16,7 +16,7 @@ public class TfwBossOrkTests
     {
         var sim = new MusouSim(null) { Frozen = true };
         var layout = TfwTestArena.Layout();
-        var battle = new TfwBattle(sim, new GuardSim(sim), layout, 100.0, 1, final, default, TfwBattleRules.EliteBase, guardsmen: false) { Trickle = false };
+        var battle = new TfwBattle(sim, new GuardSim(sim), layout, 100.0, 1, final, default, TfwBattleRules.EliteBase, guardsmen: false) { Trickle = false, Patrols = false };
         if (arrivals is not null) battle.OnBossOrk = arrivals.Add;
         battle.OnSwarm = s => { foreach (ushort id in s.Ids) sim.Remove(id); };   // keep the field small: every swarm goes at once (a frozen pool never frees its dying, so they are removed)
         battle.Start();
@@ -185,7 +185,7 @@ public class TfwBossOrkTests
     {
         var sim = new MusouSim(null) { Frozen = true };
         var layout = TfwTestArena.Layout();
-        var battle = new TfwBattle(sim, new GuardSim(sim), layout, 100.0, 1, guardsmen: false) { Trickle = false, BossOrksOn = false };
+        var battle = new TfwBattle(sim, new GuardSim(sim), layout, 100.0, 1, guardsmen: false) { Trickle = false, Patrols = false, BossOrksOn = false };
         battle.Start();
         for (int k = 0; k < 3; k++)
         {

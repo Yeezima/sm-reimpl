@@ -141,9 +141,34 @@ public sealed partial class World
         _hits.Add(new HitEvent(Tick, 0, attack.Player, HitZone.Body, Vector3.Distance(before.Position, attack.From), shieldDamage, healthDamage, Killed: false,
             Melee: attack.Melee, Direction: direction, Armoured: before.Shield > 0f));
         ShieldBroke(attack.Player, before, after, shieldDamage);
-        if (after.Alive && attack.Staggers)
+        if (after.Alive && attack.Staggers && (attack.Enemy == 0 || EnemiesImpede))   // an enemy's (Enemy above 0) only when the war's rule allows it; the barrage (0) keeps its stagger
             TryReact(0, attack.Player, new ReactionEntry(0f, ReactionKind.Stagger), attack.From, new Vector2(direction.X, direction.Y));
     }
+
+    /// <summary>
+    /// Whether an enemy's attack may put a player in a reaction: always in the 5-wave run (as before); in Musou Mode only by <see cref="Extras.Musou.Campaign.TfwCombatRules.EnemiesImpede"/>
+    /// (the owner, 2026-11-06: no Ork ever stuns, staggers or knocks a player back; their damage stays).
+    /// </summary>
+    bool EnemiesImpede => _musou?.War is not { } war || war.EnemiesImpede;
+
+    /// <summary>
+    /// A boss's strike (the Warboss's slam or charge) on a living player: its damage, the slam's stagger (a strike without a knockback) and the charge's knockback (the core's stagger with a push, when the hit
+    /// landed: an enemy's damage scale of 0 hurts nobody and throws nobody); both only while <see cref="EnemiesImpede"/>.
+    /// </summary>
+    void MusouBossHit(ushort boss, MusouBossStrike strike)
+    {
+        if (!_players.TryGetValue(strike.Player, out var before) || !before.Alive) return;
+        MusouHit(new MusouAttack(boss, strike.Player, strike.Damage, Melee: true, Staggers: strike.Knockback <= 0f, strike.From));
+        if (!EnemiesImpede || strike.Knockback <= 0f) return;
+        if (_players[strike.Player] is { Alive: true } after && (after.Health < before.Health || after.Shield < before.Shield))
+            TryReact(0, strike.Player, new ReactionEntry(0f, ReactionKind.Stagger, Backward: strike.Knockback, Duration: _musou!.Rules.Boss.ChargeKnockbackSeconds), strike.From, strike.Push);
+    }
+
+    /// <summary>Test aid: <paramref name="attack"/> lands as an enemy's landed attack does (<see cref="MusouSim.Step"/>'s list); nothing without Musou.</summary>
+    public void MusouLandAttack(MusouAttack attack) { if (_musou is not null) MusouHit(attack); }
+
+    /// <summary>Test aid: boss <paramref name="boss"/>'s <paramref name="strike"/> lands as one of its abilities' does; nothing without Musou.</summary>
+    public void MusouLandBossStrike(ushort boss, MusouBossStrike strike) { if (_musou is not null) MusouBossHit(boss, strike); }
 
     /// <summary>
     /// The shared lives pool: each respawn this tick takes a life (the core places it, in the Space Marines' spawn room); while the pool cannot cover every

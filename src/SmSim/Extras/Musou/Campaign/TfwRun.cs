@@ -57,6 +57,8 @@ public sealed partial class TfwRun
     public int Wins { get; private set; }
     /// <summary>Whether a battle lands Guardsmen (<see cref="TfwBattleRules.GuardsmenEnabled"/>; tests and a test aid set it).</summary>
     public bool Guardsmen { get; set; } = TfwBattleRules.GuardsmenEnabled;
+    /// <summary>Whether a battle sends patrol and hunter columns (<see cref="TfwBattle.Patrols"/>; false only in tests that count the crowds alone, and the server's <c>SM_TFW_NO_PATROLS</c>).</summary>
+    public bool Patrols { get; set; } = true;
 
     /// <summary>The wins a run needs on <paramref name="lane"/> from its start.</summary>
     public static int WinsNeeded(TfwLane lane) => WarRules.FrontStronghold - (lane switch { TfwLane.A => WarRules.StartFrontA, TfwLane.B => WarRules.StartFrontB, _ => WarRules.StartFrontC });
@@ -200,7 +202,7 @@ public sealed partial class TfwRun
         _deployed.Clear();
         foreach (int id in w.Players.Keys) if (!TfwContracts.IsPuppet(id)) _deployed.Add(id);
         _deployed.Sort();
-        Battle = new TfwBattle(w.Musou!, w.TfwGuards!, layout, state.Imperial, _deployed.Count, final, bonus, TfwBattleRules.EliteShare(TfwBattleRules.RunProgress(Wins, WinsNeeded(lane), final)), Guardsmen);
+        Battle = new TfwBattle(w.Musou!, w.TfwGuards!, layout, state.Imperial, _deployed.Count, final, bonus, TfwBattleRules.EliteShare(TfwBattleRules.RunProgress(Wins, WinsNeeded(lane), final)), Guardsmen) { Patrols = Patrols };
         Battle.Start();
         Score.BeginMap(lane, (byte)node, _deployed);
         _fighting = final ? TfwRunPhase.FinalAssault : TfwRunPhase.Battle;
