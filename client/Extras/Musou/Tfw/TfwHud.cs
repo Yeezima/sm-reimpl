@@ -31,6 +31,8 @@ public sealed partial class TfwHud : Control
         /// <summary>The map's points and the run's total (tag 12), and the line of keys 3 to 5.</summary>
         public uint MapPoints, RunTotal;
         public string Slots = "";
+        /// <summary>The position the own player stands on (its radius, <see cref="TfwHudModel.ClearingReach"/> up and down), or -1 (the capture tracker's wide bar).</summary>
+        public int OnPosition = -1;
     }
 
     public Frame Data = new();
@@ -107,6 +109,7 @@ public sealed partial class TfwHud : Control
         if (scale <= 0f) return;
         DrawSetTransformMatrix(new Transform2D(0f, new Vector2(scale, scale), 0f, Vector2.Zero));
         DrawPrompts(Size / scale);
+        DrawCapture(Size / scale);   // TfwHud.Capture.cs
     }
 
     void DrawPrompts(Vector2 vs)

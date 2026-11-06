@@ -14,11 +14,27 @@ namespace SmClient;
 /// level's fire spots (<see cref="AshfallAtmosphere.FireSpots"/>), tall smoke plumes from the bigger ruins, and ash, rock flakes and embers drifting around the camera. Counts scale with the lighting preset;
 /// the Compatibility renderer gets the sky, grade, fires and a thinner ash field (no volumetric fog, no glow). <c>--ashfall-weather plain</c> leaves it out. Every environment and sun value it writes is put
 /// back when the node leaves the tree, unless something else has written it since (the next map's lighting).
+/// Concept pass (the owner's concept art, 2026-11-06; docs/musou-ashfall-graybox.md "Concept pass"): the shade lifted to a grey stone (the owner: "something is wrong with the shadows": near-black shade under a 26 degree
+/// sun), the sun higher (shorter shadows), layered grey haze (height fog), twice the airborne ash and flakes plus far debris chunks and dust banks, nothing large near the camera (every airborne layer fades out close to
+/// it), a stronger warm break and shafts behind the keep, and grime on every surface (<see cref="AshfallGrime"/>). <c>--ashfall-concept off</c> (test aid): draft 7's values.
 /// </summary>
 public partial class AshfallStorm : Node3D
 {
     /// <summary>The sun: elevation above the horizon and azimuth (degrees from game north toward east; the stronghold lies north, so the attackers look into the low sun). Ours.</summary>
-    public const float SunElevation = 26f, SunAzimuth = -22f;
+    public const float SunElevation = 32f, SunAzimuth = -22f;
+    /// <summary>Draft 7's sun elevation (<c>--ashfall-concept off</c>).</summary>
+    public const float OldSunElevation = 26f;
+
+    /// <summary>Whether the concept pass's values apply (default); <c>--ashfall-concept off</c> keeps draft 7's.</summary>
+    public static bool Concept
+    {
+        get
+        {
+            var args = OS.GetCmdlineUserArgs();
+            int i = Array.IndexOf(args, "--ashfall-concept");
+            return !(i >= 0 && i + 1 < args.Length && args[i + 1] == "off");
+        }
+    }
 
     /// <summary>Wind (game frame, metres per second): ash and smoke drift toward the east-north-east. Ours.</summary>
     static readonly Vector3 WindGame = new(2.4f, 0.9f, 0f);
@@ -113,46 +129,54 @@ public partial class AshfallStorm : Node3D
         AddChild(_world);
 
         // ---- the sun: low, warm, long shadows; the light shafts in the volumetric fog come from it.
-        float el = Mathf.DegToRad(SunElevation), az = Mathf.DegToRad(SunAzimuth);
+        bool concept = Concept;
+        float el = Mathf.DegToRad(concept ? SunElevation : OldSunElevation), az = Mathf.DegToRad(SunAzimuth);
         var toSunGame = new Vector3(MathF.Sin(az) * MathF.Cos(el), MathF.Cos(az) * MathF.Cos(el), MathF.Sin(el));
         var toSun = G(toSunGame).Normalized();
         Write(sun, Node3D.PropertyName.Basis, (sun.GetParentNode3D()?.GlobalBasis.Inverse() ?? Basis.Identity) * Basis.LookingAt(-toSun, Vector3.Up));
         Write(sun, Light3D.PropertyName.LightColor, new Color(1.0f, 0.84f, 0.68f));
-        Write(sun, Light3D.PropertyName.LightEnergy, 1.4f);
+        Write(sun, Light3D.PropertyName.LightEnergy, concept ? 1.15f : 1.4f);
         Write(sun, Light3D.PropertyName.ShadowEnabled, true);
         Write(sun, DirectionalLight3D.PropertyName.DirectionalShadowMaxDistance, 220f);
-        Write(sun, Light3D.PropertyName.ShadowBlur, 1.4f);
-        Write(sun, Light3D.PropertyName.LightVolumetricFogEnergy, volumetric ? 1.1f : 0f);
+        Write(sun, Light3D.PropertyName.ShadowBlur, concept ? 2.0f : 1.4f);
+        Write(sun, Light3D.PropertyName.LightVolumetricFogEnergy, volumetric ? (concept ? 0.55f : 1.1f) : 0f);
         Write(sun, DirectionalLight3D.PropertyName.SkyMode, (int)DirectionalLight3D.SkyModeEnum.LightAndSky);
 
         // ---- the sky: the storm shader (in every renderer).
         var sky = new Sky
         {
-            SkyMaterial = new ShaderMaterial { Shader = new Shader { Code = SkyShader } },
+            SkyMaterial = SkyMaterialFor(concept),
             RadianceSize = Sky.RadianceSizeEnum.Size64,
             ProcessMode = Sky.ProcessModeEnum.Incremental,
         };
         Write(env, Godot.Environment.PropertyName.BackgroundMode, (int)Godot.Environment.BGMode.Sky);
         Write(env, Godot.Environment.PropertyName.Sky, sky);
         Write(env, Godot.Environment.PropertyName.AmbientLightSource, (int)Godot.Environment.AmbientSource.Color);
-        Write(env, Godot.Environment.PropertyName.AmbientLightColor, new Color(0.42f, 0.44f, 0.50f));   // cool, dim: the stone takes its grey from the textures, the warmth from the sun
-        Write(env, Godot.Environment.PropertyName.AmbientLightEnergy, 0.6f);
+        // cool grey: the stone takes its grey from the textures, the warmth from the sun. Concept pass: the shade a readable grey (was 0.42/0.44/0.50 at 0.6: near black under the grade).
+        Write(env, Godot.Environment.PropertyName.AmbientLightColor, concept ? new Color(0.49f, 0.50f, 0.52f) : new Color(0.42f, 0.44f, 0.50f));
+        Write(env, Godot.Environment.PropertyName.AmbientLightEnergy, concept ? 0.95f : 0.6f);
         Write(env, Godot.Environment.PropertyName.ReflectedLightSource, (int)Godot.Environment.ReflectionSource.Sky);
         // ---- grade: ACES, a touch under-exposed, contrast up, colour down (warm light, cold shade).
         Write(env, Godot.Environment.PropertyName.TonemapMode, (int)Godot.Environment.ToneMapper.Aces);
-        Write(env, Godot.Environment.PropertyName.TonemapExposure, 0.8f);
+        Write(env, Godot.Environment.PropertyName.TonemapExposure, concept ? 0.78f : 0.8f);
         Write(env, Godot.Environment.PropertyName.TonemapWhite, 6f);
         Write(env, Godot.Environment.PropertyName.AdjustmentEnabled, true);
-        Write(env, Godot.Environment.PropertyName.AdjustmentBrightness, 0.92f);
-        Write(env, Godot.Environment.PropertyName.AdjustmentContrast, 1.2f);
-        Write(env, Godot.Environment.PropertyName.AdjustmentSaturation, 0.7f);
+        Write(env, Godot.Environment.PropertyName.AdjustmentBrightness, concept ? 0.97f : 0.92f);
+        Write(env, Godot.Environment.PropertyName.AdjustmentContrast, concept ? 1.08f : 1.2f);
+        Write(env, Godot.Environment.PropertyName.AdjustmentSaturation, concept ? 0.55f : 0.7f);
         // ---- depth fog: dark smoke-grey, scattering the sun, thinning into the sky.
         Write(env, Godot.Environment.PropertyName.FogEnabled, true);
         Write(env, Godot.Environment.PropertyName.FogMode, (int)Godot.Environment.FogModeEnum.Exponential);
-        Write(env, Godot.Environment.PropertyName.FogLightColor, new Color(0.13f, 0.13f, 0.14f));
+        Write(env, Godot.Environment.PropertyName.FogLightColor, concept ? new Color(0.21f, 0.21f, 0.22f) : new Color(0.13f, 0.13f, 0.14f));
         Write(env, Godot.Environment.PropertyName.FogLightEnergy, 1f);
-        Write(env, Godot.Environment.PropertyName.FogSunScatter, 0.12f);
-        Write(env, Godot.Environment.PropertyName.FogDensity, 0.0032f);
+        Write(env, Godot.Environment.PropertyName.FogSunScatter, concept ? 0.05f : 0.12f);   // concept pass: the haze toward the sun warm grey, not mustard
+        Write(env, Godot.Environment.PropertyName.FogDensity, concept ? 0.0036f : 0.0032f);
+        if (concept)
+        {
+            // layered grey haze: thicker low down, between the ruins (Godot's height fog; ours)
+            Write(env, Godot.Environment.PropertyName.FogHeight, 7f);
+            Write(env, Godot.Environment.PropertyName.FogHeightDensity, 0.035f);
+        }
         Write(env, Godot.Environment.PropertyName.FogAerialPerspective, 0.15f);
         Write(env, Godot.Environment.PropertyName.FogSkyAffect, 0.1f);
         if (volumetric)
@@ -189,12 +213,19 @@ public partial class AshfallStorm : Node3D
         // ---- ash, rock flakes and embers around the camera.
         _follow = new Node3D { Name = "AroundCamera" };
         _world.AddChild(_follow);
-        int ash = (int)(2200 * _quality), rocks = (int)(140 * _quality), sparks = (int)(180 * _quality);
-        _follow.AddChild(AshField("Ash", ash, new Vector3(45, 22, 45), AshMaterial(), new QuadMesh { Size = new Vector2(0.10f, 0.07f) }, 0.6f, 1.6f, 10f));
-        _follow.AddChild(AshField("Flakes", rocks, new Vector3(55, 28, 55), RockMaterial(), new QuadMesh { Size = new Vector2(0.28f, 0.2f) }, 0.5f, 1.4f, 9f));
+        float airborne = concept ? AirborneScale : 1f;
+        int ash = (int)(2200 * _quality * airborne), rocks = (int)(140 * _quality * airborne), sparks = (int)(180 * _quality);
+        int debris = concept ? (int)(160 * _quality) : 0, dust = concept ? (int)(70 * _quality) : 0;
+        _follow.AddChild(AshField("Ash", ash, new Vector3(45, 22, 45), AshMaterial(concept ? NearFadeSmall : 0f), new QuadMesh { Size = new Vector2(0.10f, 0.07f) }, 0.6f, 1.6f, 10f));
+        _follow.AddChild(AshField("Flakes", rocks, new Vector3(55, 28, 55), RockMaterial(concept ? NearFadeFlakes : 0f), new QuadMesh { Size = new Vector2(0.28f, 0.2f) }, 0.5f, 1.4f, 9f));
         _follow.AddChild(AshField("Embers", sparks, new Vector3(40, 16, 40), EmberMaterial(1.5f), new QuadMesh { Size = new Vector2(0.06f, 0.06f) }, 0.4f, 1.1f, 7f, rise: 0.7f));
+        if (debris > 0)   // tumbling dark chunks seen at a distance (the concept's), never near the camera
+            _follow.AddChild(AshField("Debris", debris, new Vector3(80, 34, 80), RockMaterial(NearFadeDebris, 0.09f), new QuadMesh { Size = new Vector2(0.9f, 0.7f) }, 0.5f, 1.3f, 12f, rise: -0.25f));
+        if (dust > 0)     // soft banks of blown dust between the ruins, far only (overdraw: few, large, faint)
+            _follow.AddChild(AshField("Dust", dust, new Vector3(95, 6, 95), DustMaterial(), new QuadMesh { Size = new Vector2(14f, 7f) }, 0.7f, 1.5f, 18f, rise: 0.05f, spin: 12f));
 
-        Report = $"{spots.Count(s => s.Plume)} smoke plumes, {spots.Count(s => !s.Plume)} fires ({_lights.Count} fire lights), {shafts} light shafts, ash {ash} + flakes {rocks} + embers {sparks} around the camera; "
+        int grimed = concept ? AshfallGrime.Apply(GetParent()?.GetParent(), _quality, compat) : 0;
+        Report = $"{spots.Count(s => s.Plume)} smoke plumes, {spots.Count(s => !s.Plume)} fires ({_lights.Count} fire lights), {shafts} light shafts, ash {ash} + flakes {rocks} + embers {sparks} + debris {debris} + dust banks {dust} around the camera; grime on {grimed} ground materials{(AshfallGrime.Overlay(_quality, compat) ? " and every kit model (overlay)" : "")}; concept pass {(concept ? "on" : "off")}; "
                + $"quality x{_quality:0.##} ({(compat ? "Compatibility renderer: no volumetric fog, no glow" : $"lighting {MapLightingView.Preset}, volumetric shafts {(volumetric ? "on" : "off")}")}); built in {watch.ElapsedMilliseconds} ms";
     }
 
@@ -351,12 +382,28 @@ public partial class AshfallStorm : Node3D
         return Particle(Soft(), new Color(grey, grey * 0.96f, grey * 0.92f, 0.85f), additive: false);
     }
 
-    static StandardMaterial3D AshMaterial() => Particle(Flake(), new Color(0.30f, 0.29f, 0.28f, 0.9f), additive: false);
+    /// <summary>Twice draft 7's ash and flakes (the owner: "roughly double the amount and visual presence of airborne dirt and dust"; ours).</summary>
+    public const float AirborneScale = 2f;
+    /// <summary>Metres from the camera inside which each airborne layer is invisible (it fades in over the next as many again; ours): nothing large drifts across the aim.</summary>
+    public const float NearFadeSmall = 1.2f, NearFadeFlakes = 3f, NearFadeDebris = 14f, NearFadeDust = 22f;
 
-    static StandardMaterial3D RockMaterial() => Particle(Flake(), new Color(0.07f, 0.065f, 0.06f, 1f), additive: false);
+    static StandardMaterial3D NearFaded(StandardMaterial3D m, float near)
+    {
+        if (near <= 0f) return m;
+        m.DistanceFadeMode = BaseMaterial3D.DistanceFadeModeEnum.PixelAlpha;
+        m.DistanceFadeMinDistance = near;
+        m.DistanceFadeMaxDistance = near * 2f;
+        return m;
+    }
+
+    static StandardMaterial3D AshMaterial(float near = 0f) => NearFaded(Particle(Flake(), new Color(0.30f, 0.29f, 0.28f, 0.9f), additive: false), near);
+
+    static StandardMaterial3D RockMaterial(float near = 0f, float grey = 0.07f) => NearFaded(Particle(Flake(), new Color(grey, grey * 0.93f, grey * 0.86f, 1f), additive: false), near);
+
+    static StandardMaterial3D DustMaterial() => NearFaded(Particle(Soft(), new Color(0.34f, 0.31f, 0.28f, 0.10f), additive: false), NearFadeDust);
 
     /// <summary>A field of drifting particles around the camera (world coordinates; the emitter follows the camera, the flakes stay where they are).</summary>
-    static GpuParticles3D AshField(string name, int amount, Vector3 extents, Material material, QuadMesh mesh, float scaleMin, float scaleMax, float lifetime, float rise = -0.4f)
+    static GpuParticles3D AshField(string name, int amount, Vector3 extents, Material material, QuadMesh mesh, float scaleMin, float scaleMax, float lifetime, float rise = -0.4f, float spin = 160f)
     {
         var wind = G(WindGame);
         var process = new ParticleProcessMaterial
@@ -365,7 +412,7 @@ public partial class AshfallStorm : Node3D
             Direction = wind.Normalized(), Spread = 25f, InitialVelocityMin = wind.Length() * 0.6f, InitialVelocityMax = wind.Length() * 1.4f,
             Gravity = new Vector3(0, rise, 0),
             TurbulenceEnabled = true, TurbulenceNoiseStrength = 1.6f, TurbulenceNoiseScale = 6f, TurbulenceInfluenceMin = 0.04f, TurbulenceInfluenceMax = 0.12f,
-            ScaleMin = scaleMin, ScaleMax = scaleMax, AngleMin = 0f, AngleMax = 360f, AngularVelocityMin = -160f, AngularVelocityMax = 160f,
+            ScaleMin = scaleMin, ScaleMax = scaleMax, AngleMin = 0f, AngleMax = 360f, AngularVelocityMin = -spin, AngularVelocityMax = spin,
             ColorRamp = Ramp((0f, new Color(1, 1, 1, 0)), (0.1f, new Color(1, 1, 1, 1)), (0.85f, new Color(1, 1, 1, 1)), (1f, new Color(1, 1, 1, 0))),
         };
         mesh.Material = material;
@@ -396,7 +443,7 @@ public partial class AshfallStorm : Node3D
             var mid = ground - dir * (len / 2f);
             var mesh = new CylinderMesh { TopRadius = r * 1.35f, BottomRadius = r, Height = len, RadialSegments = 16, Rings = 1, CapTop = false, CapBottom = false };
             var mat = new ShaderMaterial { Shader = shader };
-            mat.SetShaderParameter("strength", 0.03f * (0.8f + 0.4f * ((n * 7 % 5) / 4f)));
+            mat.SetShaderParameter("strength", (Concept ? 0.045f : 0.03f) * (0.8f + 0.4f * ((n * 7 % 5) / 4f)));
             mat.SetShaderParameter("seed", n * 3.7f);
             mesh.Material = mat;
             var inst = new MeshInstance3D { Name = "Shaft" + n, Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
@@ -444,6 +491,20 @@ public partial class AshfallStorm : Node3D
         """;
 
     // ---------------------------------------------------------------------------------------------------- the sky
+
+    /// <summary>The storm sky; the concept pass makes the clouds charcoal (their lit edges and the horizon band less brown, ours).</summary>
+    static ShaderMaterial SkyMaterialFor(bool concept)
+    {
+        var m = new ShaderMaterial { Shader = new Shader { Code = SkyShader } };
+        if (concept)
+        {
+            m.SetShaderParameter("cloud_dark", new Vector3(0.028f, 0.029f, 0.032f));
+            m.SetShaderParameter("cloud_lit", new Vector3(0.17f, 0.155f, 0.145f));
+            m.SetShaderParameter("horizon", new Vector3(0.20f, 0.16f, 0.12f));
+            m.SetShaderParameter("cover", 0.6f);
+        }
+        return m;
+    }
 
     const string SkyShader = """
         shader_type sky;

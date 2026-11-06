@@ -167,6 +167,25 @@ uniform int seed = 1;
 uniform float tile = 8.0;
 varying vec3 wpos;
 varying vec3 wnor;
+uniform float grime = 0.0;
+float gh21(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+float gvn(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(gh21(i), gh21(i + vec2(1, 0)), f.x), mix(gh21(i + vec2(0, 1)), gh21(i + vec2(1, 1)), f.x), f.y);
+}
+float gfbm(vec2 p) { float v = 0.0; float a = 0.5; for (int i = 0; i < 4; i++) { v += a * gvn(p); p = p * 2.07 + vec2(3.1, 7.7); a *= 0.5; } return v; }
+// Concept pass (2026-11-06; ours): soot blotches at about 9 m and 2 m, pale ash drifts, fine grit; grime 0 leaves the surface as it was.
+vec3 grimed(vec3 c, vec2 p, float k) {
+	if (k <= 0.0) return c;
+	float n1 = gfbm(p * 0.16 + 4.7);
+	float n2 = gfbm(p * 0.6 + 17.0);
+	float n3 = gfbm(p * 2.3 + 5.0);
+	float soot = smoothstep(0.42, 0.72, n1) * 0.6 + smoothstep(0.5, 0.8, n2) * 0.45;
+	float ash = smoothstep(0.66, 0.92, 1.0 - n1) * 0.30;
+	c = mix(c, vec3(0.10, 0.095, 0.088) * (0.8 + 0.4 * n3), clamp(soot, 0.0, 0.7) * k);
+	c = mix(c, vec3(0.50, 0.49, 0.47), ash * k);
+	return c * (1.0 - 0.3 * k * (n3 - 0.5)) * (1.0 - 0.18 * k);   // grit, and the whole ground a little dimmer: the pale paving no longer glares
+}
 uint cellhash(int a, int b, int s) {
 	uint h = uint(a) * 73856093u ^ uint(b) * 19349663u ^ uint(s) * 83492791u;
 	h ^= h >> 13u; h *= 1540483477u; h ^= h >> 15u; h *= 2654435761u; h ^= h >> 13u;
@@ -196,6 +215,7 @@ void fragment() {
 	float gn = mix(r0, r1, f.y);
 	vec3 c = texture(tex, p / tile).rgb;
 	c = ((c - 0.58) * (1.0 + 0.24 * (gn - 0.5)) + 0.58) * (1.0 + 0.08 * (tn - 0.5));
+	c = grimed(c, wpos.xz, grime);
 	ALBEDO = c * tint.rgb;
 	ROUGHNESS = 1.0;
 }
@@ -210,6 +230,25 @@ uniform int seed = 1;
 uniform float tile = 4.0;
 varying vec3 wpos;
 varying vec3 wnor;
+uniform float grime = 0.0;
+float gh21(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+float gvn(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(gh21(i), gh21(i + vec2(1, 0)), f.x), mix(gh21(i + vec2(0, 1)), gh21(i + vec2(1, 1)), f.x), f.y);
+}
+float gfbm(vec2 p) { float v = 0.0; float a = 0.5; for (int i = 0; i < 4; i++) { v += a * gvn(p); p = p * 2.07 + vec2(3.1, 7.7); a *= 0.5; } return v; }
+// Concept pass (2026-11-06; ours): soot blotches at about 9 m and 2 m, pale ash drifts, fine grit; grime 0 leaves the surface as it was.
+vec3 grimed(vec3 c, vec2 p, float k) {
+	if (k <= 0.0) return c;
+	float n1 = gfbm(p * 0.11 + 4.7);
+	float n2 = gfbm(p * 0.45 + 17.0);
+	float n3 = gfbm(p * 2.3 + 5.0);
+	float soot = smoothstep(0.50, 0.78, n1) * 0.55 + smoothstep(0.58, 0.85, n2) * 0.35;
+	float ash = smoothstep(0.66, 0.92, 1.0 - n1) * 0.30;
+	c = mix(c, vec3(0.10, 0.095, 0.088) * (0.8 + 0.4 * n3), clamp(soot, 0.0, 0.7) * k);
+	c = mix(c, vec3(0.50, 0.49, 0.47), ash * k);
+	return c * (1.0 - 0.16 * k * (n3 - 0.5));
+}
 uint blockhash(int a, int b, int c, int s) {
 	uint h = uint(a) * 73856093u ^ uint(b) * 19349663u ^ uint(c) * 83492791u ^ uint(s) * 2654435761u;
 	h ^= h >> 13u; h *= 1540483477u; h ^= h >> 15u; h *= 2654435761u; h ^= h >> 13u;
@@ -265,6 +304,8 @@ void fragment() {
 		}
 		c = mix(c, d, inner);
 	}
+	vec2 face = an.y > an.x && an.y > an.z ? wpos.xz : vec2(xface ? wpos.z : wpos.x, wpos.y);
+	c = grimed(c, face, grime * (0.6 + 0.6 * (1.0 - smoothstep(0.0, 5.0, wpos.y))));
 	ALBEDO = c * tint.rgb;
 	ROUGHNESS = 1.0;
 }
@@ -488,9 +529,15 @@ void fragment() {
         }
         if (_graybox is not null)
             foreach (var child in _graybox.GetChildren().OfType<Node3D>())
-                child.Visible = !kit || child.Name.ToString().StartsWith("Objective", StringComparison.Ordinal) || child.Name.ToString().StartsWith("Letter", StringComparison.Ordinal);
+                child.Visible = !kit || (OldObjectiveMarkers && (child.Name.ToString().StartsWith("Objective", StringComparison.Ordinal) || child.Name.ToString().StartsWith("Letter", StringComparison.Ordinal)));
         GD.Print($"ashfall: look {(kit ? "kit" : "graybox")}");
     }
+
+    /// <summary>
+    /// The graybox's coloured objective discs and big letters over the kit look (the look before the concept pass, 2026-11-06). Off by default: in a battle <see cref="TfwMarkers"/> draws the thin black
+    /// ground rings and the raised letters instead. <c>--ashfall-old-markers</c> (test aid) keeps the old discs and letters.
+    /// </summary>
+    public static bool OldObjectiveMarkers => Array.IndexOf(OS.GetCmdlineUserArgs(), "--ashfall-old-markers") >= 0;
 
     /// <summary>The viewport is shared with every later map (classic PvP too): leave it with the threshold it had before the kit look changed it.</summary>
     public override void _EnterTree()

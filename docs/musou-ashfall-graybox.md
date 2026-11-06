@@ -641,3 +641,15 @@ Godot features and procedural textures only (no asset or original bytes). On `tf
 
 ### Open
 The look is an estimate by eye against one reference picture: the 64 m boundary wall hides the horizon band from the ground, the pale stone textures stay bright where the sun hits them, the fires are small from far; the left-out rubble thins cover; not seen on the Compatibility renderer or in a real match; the slow walkable graph test was not re-read for draft 7 beyond the full suite; refine register rows "Ashfall overlap rule (draft 7)" and "Ashfall storm look (draft 7, client)".
+
+## Concept pass (look, markers, capture tracker; client only)
+
+The owner's concept art of 2026-11-06 (charcoal storm clouds, a warm break with light shafts behind the central tower, layered grey haze, rough grey stone, local fires and smoke, windblown ash and debris at several depths) and his notes: twice the airborne dirt and dust, grime on every surface by reversible means, thin opaque black capture rings, letters much higher and shown only toward the view, a capture-progress indicator; and his shadow report (near-black shade, very long shadows). Branch `musou/ashfall-concept-look`. No change to the layout, collision, navigation or the simulation.
+
+- Light: sun 32 degrees (was 26), the shade lifted to a grey (ambient (0.49, 0.50, 0.52) x 0.95, was x 0.6), a softer, less sepia grade (saturation 0.55), charcoal clouds, less sun in the haze (it went mustard toward the sun); height fog under 7 m for layered haze; stronger shafts.
+- Compared from the draft-7 plaza view (`--shots d7`, `map_d7_plaza_sun`) and in a real fight (`--tfw-test-fight`, 300 Orks): the shade reads grey, the paving gritty, the walls sooted; previews in the private cache only.
+- Air: ash and rock flakes doubled, far debris chunks and dust banks added; every layer fades out near the camera (1.2 / 3 / 14 / 22 m), so nothing large crosses the aim. Counts follow the lighting preset as before.
+- Grime (`AshfallGrime`): soot, ash and grit in the ground and boundary shaders (every renderer); an overlay pass on the kit models from Medium lighting up (not on Compatibility). Runtime only: `--ashfall-grime off`.
+- Markers (`TfwMarkers`, `TfwMarkerRules`): black ground-ring decals 0.22 m wide (a flat band on Compatibility); letters 24 m up, shown within 25 degrees of the view's heading, hidden on and near the point; the graybox's coloured discs and letters are no longer drawn over the kit look (`--ashfall-old-markers`, `--tfw-old-markers`).
+- HUD (`TfwHud.Capture.cs`): a tracker top left (A, B, C, HQ: the state's colour and a progress bar) and, on a position, a wide bar with its state and percent.
+- Test aids: `--ashfall-concept off` (draft 7's look values).

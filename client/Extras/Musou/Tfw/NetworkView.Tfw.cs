@@ -63,6 +63,7 @@ public partial class NetworkView
         f.MapPoints = _tfwState.ScoreOwn?.MapPoints ?? 0;   // tag 12: the server's, never the client's tracker
         f.RunTotal = _tfwState.ScoreOwn?.RunTotal ?? 0;
         f.Slots = TfwSlotsLine(me);
+        f.OnPosition = me.Alive ? TfwMarkerRules.OnPosition(_tfwState.Objectives, me.Position) : -1;   // the capture tracker's wide bar (TfwHud.Capture.cs)
         _tfwHud.Fed();
         if (_tfwMapHeld) _tfwPeek?.Battle?.Feed(f);
         _tfwHud.Visible = _endPhase == MatchEndPhase.Splash && !_tfwMapHeld;
