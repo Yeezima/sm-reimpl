@@ -46,11 +46,11 @@ public static class AshfallGrime
     }
 
     /// <summary>The ground and boundary shaders' <c>dark</c> multiplier and cool tint (ours; refine register).</summary>
-    public const float GroundDark = 0.62f;
+    public const float GroundDark = 0.8f;
 
     /// <summary>The plaza paving's (pale cream texture, in full sun): darker still, to a mid-dark flagstone grey.</summary>
-    public const float PavingDark = 0.40f;
-    public static readonly Color GroundDarkTint = new(0.95f, 0.97f, 1.0f);
+    public const float PavingDark = 0.50f;
+    public static readonly Color GroundDarkTint = new(0.92f, 0.97f, 1.04f);
 
     static ShaderMaterial? _overlay;
     static ShaderMaterial? _darken;
@@ -150,7 +150,7 @@ void fragment() {
     public const string DarkenShader = """
 shader_type spatial;
 render_mode unshaded, blend_mul, depth_draw_never, depth_test_default, cull_back, fog_disabled, shadows_disabled;
-uniform vec3 base = vec3(0.58, 0.60, 0.67);
+uniform vec3 base = vec3(0.90, 0.92, 0.97);   // the baked kit is already dark and grimy: the runtime multiply keeps its variation, little of its darkening
 uniform float fog_density = 0.0036;
 varying vec3 wpos;
 varying vec3 wnor;

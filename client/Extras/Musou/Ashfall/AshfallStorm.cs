@@ -53,15 +53,15 @@ public partial class AshfallStorm : Node3D
     /// </summary>
     public static class LightPass
     {
-        public const float BreakElevation = 7f, FillElevation = 40f, FillAzimuthFromSun = 205f, FillEnergy = 0.42f, SunEnergy = 1.35f, Exposure = 0.9f, Saturation = 0.58f, Contrast = 1.16f;
-        public const float AmbientEnergy = 1.05f, BoundaryTop = 13f;
+        public const float BreakElevation = 7f, FillElevation = 40f, FillAzimuthFromSun = 205f, FillEnergy = 0.85f, SunEnergy = 1.0f, Exposure = 0.95f, Saturation = 0.58f, Contrast = 1.16f;
+        public const float AmbientEnergy = 1.8f, BoundaryTop = 13f;
         /// <summary>Round 2 (owner, 2026-11-06: "the 3d asset buildings are too light colored ... slightly brighter [than the floor], but not by much. still overall dark"): the kit models' base colour at runtime (their files untouched), more fires, flakes, sparks and dust low over the ground.</summary>
-        public const float KitAlbedo = 0.7f, KitFloorAlbedo = 0.5f, FlakeScale = 3f, SparkScale = 2.5f;
+        public const float KitAlbedo = 1f, KitFloorAlbedo = 1f, FlakeScale = 3f, SparkScale = 2.5f;
         public const int SmallFires = 90, FloorDust = 60;
         public const float ShaftStrength = 2.5f, KitRoughness = 0.95f, KitSpecular = 0.2f;
         /// <summary>The Compatibility renderer (no grime overlay on the models, its sky drawn darker): exposure and sun a step lower, the sky lifted.</summary>
-        public const float CompatExposure = 0.8f, CompatSunEnergy = 0.85f, CompatAmbientEnergy = 0.75f, CompatSkyGain = 0.95f;
-        public static readonly Color Sun = new(1.0f, 0.85f, 0.68f), Fill = new(0.64f, 0.74f, 0.90f), Ambient = new(0.45f, 0.50f, 0.58f), Fog = new(0.22f, 0.225f, 0.235f), VolumetricAlbedo = new(0.42f, 0.42f, 0.43f);
+        public const float CompatExposure = 0.95f, CompatSunEnergy = 0.8f, CompatAmbientEnergy = 1.7f, CompatSkyGain = 0.95f;
+        public static readonly Color Sun = new(1.0f, 0.90f, 0.80f), Fill = new(0.66f, 0.74f, 0.88f), Ambient = new(0.55f, 0.59f, 0.65f), Fog = new(0.22f, 0.23f, 0.25f), VolumetricAlbedo = new(0.42f, 0.43f, 0.47f);
     }
 
     /// <summary>Wind (game frame, metres per second): ash and smoke drift toward the east-north-east. Ours.</summary>
@@ -167,7 +167,7 @@ public partial class AshfallStorm : Node3D
         Write(sun, Light3D.PropertyName.ShadowEnabled, true);
         Write(sun, DirectionalLight3D.PropertyName.DirectionalShadowMaxDistance, 220f);
         Write(sun, Light3D.PropertyName.ShadowBlur, concept ? 2.0f : 1.4f);
-        Write(sun, Light3D.PropertyName.LightVolumetricFogEnergy, volumetric ? (light ? 0.6f : concept ? 0.55f : 1.1f) : 0f);
+        Write(sun, Light3D.PropertyName.LightVolumetricFogEnergy, volumetric ? (light ? 0.9f : concept ? 0.55f : 1.1f) : 0f);
         Write(sun, DirectionalLight3D.PropertyName.SkyMode, (int)DirectionalLight3D.SkyModeEnum.LightAndSky);
 
         // ---- the sky: the storm shader (in every renderer).
@@ -214,7 +214,7 @@ public partial class AshfallStorm : Node3D
             Write(env, Godot.Environment.PropertyName.VolumetricFogDensity, 0.0035f);
             Write(env, Godot.Environment.PropertyName.VolumetricFogAlbedo, light ? LightPass.VolumetricAlbedo : new Color(0.36f, 0.36f, 0.37f));
             Write(env, Godot.Environment.PropertyName.VolumetricFogEmission, new Color(0f, 0f, 0f));
-            Write(env, Godot.Environment.PropertyName.VolumetricFogAnisotropy, light ? 0.45f : 0.6f);   // light pass: less of a warm veil toward the high sun
+            Write(env, Godot.Environment.PropertyName.VolumetricFogAnisotropy, light ? 0.6f : 0.6f);   // light pass: more toward the sun so the beams show round the keep; less of a warm veil toward the high sun
             Write(env, Godot.Environment.PropertyName.VolumetricFogLength, 120f);
             Write(env, Godot.Environment.PropertyName.VolumetricFogDetailSpread, 2f);
             Write(env, Godot.Environment.PropertyName.VolumetricFogAmbientInject, light ? 0.35f : 0.1f);   // light pass: the fog in the shade a grey, not a dark veil
@@ -528,6 +528,11 @@ public partial class AshfallStorm : Node3D
         render_mode unshaded, blend_add, depth_draw_never, cull_back, shadows_disabled, fog_disabled;
         uniform float strength = 0.08;
         uniform float seed = 0.0;
+        uniform vec3 toward = vec3(0.0, 0.0, -1.0);   // from the camera toward the break
+        uniform float edge_pow = 2.5;
+        uniform float view_gate = 0.0;                // 1: strong only when looking toward the break (the break shafts)
+        uniform vec2 near_range = vec2(6.0, 40.0);
+        uniform vec3 cap = vec3(100.0);               // the most one beam adds per pixel
         uniform sampler2D depth_tex : hint_depth_texture, filter_linear;
         varying float along;
         varying vec3 wpos;
@@ -539,19 +544,22 @@ public partial class AshfallStorm : Node3D
         float vnoise(float x) { float i = floor(x); float f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(n1(i), n1(i + 1.0), f); }
         void fragment() {
             float facing = abs(dot(normalize(NORMAL), normalize(VIEW)));
-            float edge = pow(facing, 2.5);                          // soft sides
+            float edge = pow(facing, edge_pow);                          // soft sides
             float ends = smoothstep(0.0, 0.35, along) * smoothstep(1.0, 0.75, along);
             float streak = 0.55 + 0.45 * vnoise(UV.x * 18.0 + seed + TIME * 0.05);
             float drift = 0.75 + 0.25 * sin(TIME * 0.21 + seed);
             float d = distance(CAMERA_POSITION_WORLD, wpos);
-            float near_fade = smoothstep(6.0, 40.0, d);
+            float near_fade = smoothstep(near_range.x, near_range.y, d);
+            vec3 vdir = normalize(wpos - CAMERA_POSITION_WORLD);
+            float gate = mix(1.0, smoothstep(0.2, 0.7, dot(vdir, normalize(toward))), view_gate);
             float scene = texture(depth_tex, SCREEN_UV).r;
             vec4 ndc = vec4(SCREEN_UV * 2.0 - 1.0, scene, 1.0);
             vec4 view = INV_PROJECTION_MATRIX * ndc; view.xyz /= view.w;
             float soft = clamp((VERTEX.z - view.z) / 6.0, 0.0, 1.0);   // fades where the beam meets the ground or a wall
             ALBEDO = vec3(1.0, 0.78, 0.52);
             ALPHA = 1.0;
-            ALBEDO *= strength * edge * ends * streak * drift * near_fade * soft;
+            ALBEDO *= strength * edge * ends * streak * drift * near_fade * soft * gate;
+            ALBEDO = min(ALBEDO, cap);
         }
         """;
 
@@ -642,7 +650,7 @@ public partial class AshfallStorm : Node3D
     }
 
     /// <summary>The ground kinds' and the boundary's tints under the light pass (ours): a cool mid grey stone like the concept's flagstones, not draft 7's cream and brown (a shader uniform of our own terrain material; nothing on disk changes).</summary>
-    static readonly (string Kind, Color Tint)[] GroundTints = [("Paving", new Color(0.30f, 0.305f, 0.32f)), ("Curb", new Color(0.30f, 0.305f, 0.32f)), ("Ground", new Color(0.30f, 0.297f, 0.295f)), ("Road", new Color(0.27f, 0.27f, 0.28f)), ("Boundary", new Color(0.50f, 0.505f, 0.52f))];
+    static readonly (string Kind, Color Tint)[] GroundTints = [("Paving", new Color(0.27f, 0.28f, 0.30f)), ("Curb", new Color(0.27f, 0.28f, 0.30f)), ("Ground", new Color(0.46f, 0.465f, 0.50f)), ("Road", new Color(0.40f, 0.41f, 0.44f)), ("Boundary", new Color(0.50f, 0.51f, 0.55f))];
 
     /// <summary>
     /// Dims every kit model's base colour to <paramref name="k"/> of its own (runtime only: the loaded copy's material; the model files are never written), models loading later as they arrive. Each material keeps its
@@ -691,6 +699,11 @@ public partial class AshfallStorm : Node3D
             var mesh = new CylinderMesh { TopRadius = r * 2.2f, BottomRadius = r, Height = len, RadialSegments = 16, Rings = 1, CapTop = false, CapBottom = false };
             var mat = new ShaderMaterial { Shader = shader };
             mat.SetShaderParameter("strength", LightPass.ShaftStrength * (0.7f + 0.6f * ((n * 7 % 5) / 4f)));
+            mat.SetShaderParameter("toward", -fromBreak);
+            mat.SetShaderParameter("view_gate", 1f);
+            mat.SetShaderParameter("edge_pow", 0.6f);   // looking toward the break is looking along the beams: they must not fade edge-on
+            mat.SetShaderParameter("near_range", new Vector2(25f, 70f));
+            mat.SetShaderParameter("cap", new Vector3(0.10f, 0.078f, 0.05f));
             mat.SetShaderParameter("seed", n * 3.7f);
             mesh.Material = mat;
             var inst = new MeshInstance3D { Name = "BreakShaft" + n, Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
@@ -866,7 +879,7 @@ public partial class AshfallStorm : Node3D
         uniform float yaw = 0.0;
         uniform float gain = 1.0;   // the Compatibility renderer draws the sky darker: it is lifted (gain and a gamma curve)
         uniform float lift = 1.0;
-        uniform float hdr_boost = 2.2;
+        uniform float hdr_boost = 1.3;
         uniform vec3 haze = vec3(0.30, 0.30, 0.31);
         uniform float break_strength = 1.0;
 
@@ -893,8 +906,13 @@ public partial class AshfallStorm : Node3D
             vec2 gu = vec2(dFdx(u), dFdy(u)); vec2 gu2 = vec2(dFdx(u2), dFdy(u2));
             vec2 du = dot(gu, gu) < dot(gu2, gu2) ? gu : gu2;
             vec3 col = textureGrad(pano, vec2(u, v), du, vec2(dFdx(v), dFdy(v))).rgb;
+            // the break's mask: wide in azimuth, low in elevation. Away from it the sky goes cool charcoal; the image's gold stays inside.
+            float dphi = abs(mod(phi - yaw + PI, 2.0 * PI) - PI);
+            float mask = (1.0 - smoothstep(0.5, 1.0, dphi)) * smoothstep(-0.12, 0.04, el) * (1.0 - smoothstep(0.22, 0.55, el));
             float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
-            col *= 1.0 + hdr_boost * break_strength * smoothstep(0.45, 0.95, lum);
+            vec3 cool = vec3(lum) * vec3(0.90, 0.99, 1.12) * 0.72;
+            col = mix(mix(col, cool, 0.85), mix(col, vec3(lum), 0.25), mask);
+            col *= 1.0 + hdr_boost * break_strength * mask * smoothstep(0.45, 0.95, lum);
             // far ruins on the horizon, two layers fading into the haze
             float farA = skyline(phi, 70.0, 0.012, 0.05, 3.0);
             float farB = skyline(phi + 0.37, 38.0, 0.006, 0.035, 11.0);
