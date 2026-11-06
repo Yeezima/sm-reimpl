@@ -61,7 +61,7 @@ public class TfwMarkerRulesTests
         Assert.Equal(1f, TfwMarkerRules.BarFill(securing with { State = TfwPositionState.Secured }));
         Assert.Equal(1f, TfwMarkerRules.BarFill(securing with { State = TfwPositionState.Held }));
         Assert.Equal(0f, TfwMarkerRules.BarFill(securing with { State = TfwPositionState.Locked }));
-        Assert.Equal("CLEARING A  12 ORKS LEFT", TfwMarkerRules.OnPointLine(securing with { State = TfwPositionState.Clearing }, 0, 12));
+        Assert.Equal("CLEARING A  45%  ·  12 ORKS", TfwMarkerRules.OnPointLine(securing with { State = TfwPositionState.Clearing }, 0, 12));
         Assert.Equal("HQ", TfwMarkerRules.TileName(WarRules.Positions));
     }
 }

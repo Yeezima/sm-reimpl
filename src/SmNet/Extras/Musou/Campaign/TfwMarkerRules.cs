@@ -68,7 +68,10 @@ public static class TfwMarkerRules
     {
         TfwPositionState.Securing => string.Create(CultureInfo.InvariantCulture, $"SECURING {TileName(k)}  {MathF.Floor(Math.Clamp(o.Progress, 0f, 1f) * 100f):0}%"),
         TfwPositionState.Secured => $"{TileName(k)} SECURED",
-        TfwPositionState.Clearing => orks > 0 ? string.Create(CultureInfo.InvariantCulture, $"CLEARING {TileName(k)}  {orks} ORKS LEFT") : $"CLEARING {TileName(k)}",
+        // musou/guard-formations: clearing (capturers and Orks on the point) also advances the capture
+        TfwPositionState.Clearing => orks > 0
+            ? string.Create(CultureInfo.InvariantCulture, $"CLEARING {TileName(k)}  {MathF.Floor(Math.Clamp(o.Progress, 0f, 1f) * 100f):0}%  ·  {orks} ORKS")
+            : string.Create(CultureInfo.InvariantCulture, $"CLEARING {TileName(k)}  {MathF.Floor(Math.Clamp(o.Progress, 0f, 1f) * 100f):0}%"),
         TfwPositionState.Held => $"{TileName(k)} HELD BY THE ORKS",
         _ => $"{TileName(k)} LOCKED",
     };
