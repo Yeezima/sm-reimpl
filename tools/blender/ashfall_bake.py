@@ -13,20 +13,20 @@ import numpy as np
 
 # ---- recipe constants (tuned by looking at previews; see tools/blender/README.md) ----
 DESATURATE = 0.35                    # saturation is multiplied by (1 - this)
-COOL_GREY = (0.46, 0.48, 0.52)       # multiplies the colour: darker and cooler (less cream)
+COOL_GREY = (0.58, 0.59, 0.61)  # multiplies the colour: darker and cooler (less cream)
 SOOT_COLOR = (0.05, 0.048, 0.045)
-WORN_COLOR = (0.45, 0.45, 0.46)
-SOOT_CAVITY = 0.8 # soot mix weights
+WORN_COLOR = (0.56, 0.56, 0.57)
+SOOT_CAVITY = 1.1 # soot mix weights
 SOOT_BASE = 0.65
-SOOT_STREAK = 0.6
-SOOT_BLOTCH = 0.55
-SOOT_MAX = 0.85
-WORN_EDGE = 0.3 
+SOOT_STREAK = 1.2  
+SOOT_BLOTCH = 0.45 
+SOOT_MAX = 0.88 
+WORN_EDGE = 0.7  
 TONE_SHIFT = 0.06                    # per-asset +-6 % brightness
 AO_DISTANCE_PER_SIZE = 0.03          # AO distance = this * the model's largest side, but at least 0.5 m
 AO_DISTANCE_MIN = 0.5
-AO_CLEAR = 0.85                      # AO value above which there is no cavity
-AO_FULL = 0.35                       # AO value at which the cavity is full
+AO_CLEAR = 0.92                      # AO value above which there is no cavity
+AO_FULL = 0.5                        # AO value at which the cavity is full
 BASE_BAND_FRACTION = 0.20            # soot band at the foot: this fraction of the height ...
 BASE_BAND_MAX = 2.5                  # ... but at most this many metres
 STREAK_SCALE = (2.5, 2.5, 0.35)      # noise frequency per metre along x, y, z (low z = long vertical streaks)
@@ -34,6 +34,21 @@ BLOTCH_SCALES = (0.4, 1.5)           # noise frequency per metre
 GRIT_SCALE = 14.0
 GRIT_AMOUNT = 0.35                   # +- brightness of the grit
 BAKE_MARGIN = 8
+# ---- v2 additions: contrast of the weathering (owner: concept walls show clear streaks, stains, crisp worn edges) ----
+AO_UP_DISTANCE = 2.0                 # AO looking straight up: dark under ledges and sills; streaks start there and run down
+STREAK_BASE = 0.5                    # share of the streaks that exist everywhere (the rest needs a ledge above)
+STREAK_RANGE = (0.43, 0.53)          # noise ramp of the streaks (narrower = crisper)
+STREAK_THIN = 5.0                    # streak frequency per metre across, x and y (thin streaks)
+BLOCK_SCALE = 0.9                    # per-block tone cells per metre (voronoi)
+BLOCK_TONE = 0.08                    # +-8 % per block
+PATCH_SCALE = 0.12                   # large stain patches per metre
+PATCH_RANGE = (0.50, 0.62)
+SOOT_PATCH = 0.7  
+EDGE_RANGE = (0.535, 0.60)           # pointiness ramp of the worn edges (narrow = crisp)
+TARGET_LUMA = 0.28                   # per-model correction: mean luminance of a copy is pulled into [LUMA_LOW, LUMA_HIGH] x this
+LUMA_LOW, LUMA_HIGH = 0.85, 1.08
+TARGET_R_OVER_B = 0.95  # mean red / blue of the median model; copies warmer than MAX_R_OVER_B are cooled to it
+MAX_R_OVER_B = 1.0  
 MATTE_ROUGHNESS = 1.0                # glTF roughness factor of the processed copies; metallic 0, no specular sheen
 
 
@@ -195,22 +210,39 @@ def build_recipe(rig, base_color, min_z, max_z, size, seed_w, tone, ao_scale_siz
     ao = rig.nodes.new('ShaderNodeAmbientOcclusion'); ao.only_local = True; ao.samples = 16
     ao.inputs['Distance'].default_value = max(AO_DISTANCE_MIN, AO_DISTANCE_PER_SIZE * (ao_scale_size or size))
     cavity = rig.maprange(ao.outputs['AO'], AO_CLEAR, AO_FULL)
-    convex = rig.maprange(geo.outputs['Pointiness'], 0.52, 0.66)
-    concave = rig.maprange(geo.outputs['Pointiness'], 0.48, 0.34)
-    cavity = rig.math('MAXIMUM', cavity, rig.math('MULTIPLY', concave, 0.8))
+    aou = rig.nodes.new('ShaderNodeAmbientOcclusion'); aou.only_local = False; aou.samples = 16
+    aou.inputs['Distance'].default_value = AO_UP_DISTANCE
+    aou.inputs['Normal'].default_value = (0.0, 0.0, 1.0)                  # occlusion looking straight up
+    under = rig.maprange(aou.outputs['AO'], 0.99, 0.7)                    # 1 under a ledge or sill, within AO_UP_DISTANCE
+    convex = rig.maprange(geo.outputs['Pointiness'], EDGE_RANGE[0], EDGE_RANGE[1])
+    concave = rig.maprange(geo.outputs['Pointiness'], 0.47, 0.33)
+    cavity = rig.math('MAXIMUM', cavity, rig.math('MULTIPLY', concave, 0.9))
     base_mask = rig.maprange(sep.outputs['Z'], min_z + band, min_z)
     wall = rig.maprange(rig.math('ABSOLUTE', nsep.outputs['Z']), 0.5, 0.2)          # 1 on vertical faces
     high = rig.maprange(sep.outputs['Z'], max_z, min_z, 0.5, 1.0)                    # streaks stronger low down
-    streak_n = rig.noise(geo.outputs['Position'], STREAK_SCALE, seed_w, detail=3.0)
-    streak = rig.math('MULTIPLY', rig.math('MULTIPLY', rig.maprange(streak_n, 0.42, 0.62), wall), high)
+    streak_n = rig.noise(geo.outputs['Position'], (STREAK_THIN, STREAK_THIN, STREAK_SCALE[2]), seed_w, detail=3.0)
+    gate = rig.math('ADD', STREAK_BASE, rig.math('MULTIPLY', under, 1.0 - STREAK_BASE))
+    streak = rig.math('MULTIPLY', rig.math('MULTIPLY', rig.maprange(streak_n, STREAK_RANGE[0], STREAK_RANGE[1]), wall), rig.math('MULTIPLY', high, gate))
     b1 = rig.noise(geo.outputs['Position'], (BLOTCH_SCALES[0],) * 3, seed_w + 7.0, detail=3.0)
     b2 = rig.noise(geo.outputs['Position'], (BLOTCH_SCALES[1],) * 3, seed_w + 13.0, detail=5.0)
     blotch = rig.maprange(rig.math('ADD', rig.math('MULTIPLY', b1, 0.6), rig.math('MULTIPLY', b2, 0.4)), 0.38, 0.6)
+    patch_n = rig.noise(geo.outputs['Position'], (PATCH_SCALE,) * 3, seed_w + 41.0, detail=2.0)
+    patch = rig.maprange(patch_n, PATCH_RANGE[0], PATCH_RANGE[1])
     grit_n = rig.noise(geo.outputs['Position'], (GRIT_SCALE,) * 3, seed_w + 29.0, detail=8.0, rough=0.7)
+    # per-block tone: a random value per voronoi cell
+    mp = rig.nodes.new('ShaderNodeMapping'); mp.vector_type = 'POINT'
+    rig.links.new(geo.outputs['Position'], mp.inputs['Vector']); mp.inputs['Scale'].default_value = (BLOCK_SCALE,) * 3
+    mp.inputs['Location'].default_value = (seed_w, seed_w * 0.37, 0.0)
+    vor = rig.nodes.new('ShaderNodeTexVoronoi'); vor.feature = 'F1'; vor.voronoi_dimensions = '3D'
+    rig.links.new(mp.outputs[0], vor.inputs['Vector'])
+    bw = rig.nodes.new('ShaderNodeRGBToBW'); rig.links.new(vor.outputs['Color'], bw.inputs[0])
+    block = rig.math('ADD', 1.0, rig.math('MULTIPLY', rig.math('SUBTRACT', bw.outputs[0], 0.5), 2.0 * BLOCK_TONE))
+    edge_break = rig.maprange(rig.noise(geo.outputs['Position'], (3.0,) * 3, seed_w + 53.0, detail=4.0), 0.35, 0.6)
 
     soot = rig.math('ADD', rig.math('MULTIPLY', cavity, SOOT_CAVITY), rig.math('MULTIPLY', base_mask, SOOT_BASE))
     soot = rig.math('ADD', soot, rig.math('MULTIPLY', streak, SOOT_STREAK))
     soot = rig.math('ADD', soot, rig.math('MULTIPLY', blotch, SOOT_BLOTCH))
+    soot = rig.math('ADD', soot, rig.math('MULTIPLY', patch, SOOT_PATCH))
     soot = rig.math('MINIMUM', soot, SOOT_MAX)
 
     # colour
@@ -219,10 +251,11 @@ def build_recipe(rig, base_color, min_z, max_z, size, seed_w, tone, ao_scale_siz
     t = 1.0 + TONE_SHIFT * tone
     tint = (COOL_GREY[0] * t, COOL_GREY[1] * t, COOL_GREY[2] * t)
     col = rig.mix('MULTIPLY', 1.0, hs.outputs['Color'], tint)
+    col = rig.mix('MULTIPLY', 1.0, col, block)
     grit = rig.math('ADD', 1.0, rig.math('MULTIPLY', rig.math('SUBTRACT', grit_n, 0.5), 2.0 * GRIT_AMOUNT))
     col = rig.mix('MULTIPLY', 1.0, col, grit)
     col = rig.mix('MIX', soot, col, SOOT_COLOR)
-    col = rig.mix('MIX', rig.math('MULTIPLY', convex, WORN_EDGE), col, WORN_COLOR)
+    col = rig.mix('MIX', rig.math('MULTIPLY', rig.math('MULTIPLY', convex, edge_break), WORN_EDGE), col, WORN_COLOR)
     return col
 
 
@@ -308,7 +341,7 @@ def process_one(src, dst, size, samples, log):
         s.material = bake_mat
     bpy.ops.object.select_all(action='DESELECT'); ob.select_set(True); bpy.context.view_layer.objects.active = ob
     bpy.ops.object.bake(type='EMIT', margin=BAKE_MARGIN, use_clear=True)
-    luma_after = mean_luma(baked)
+    luma_after = correct_tone(baked)
 
     # back to the original materials, base colour now the baked image
     for s, m in zip(ob.material_slots, mats):
@@ -345,6 +378,32 @@ def process_one(src, dst, size, samples, log):
     dt = time.time() - t0
     log(f'{stem}: {dt:.1f}s luma {luma_before:.3f} -> {luma_after:.3f} ({luma_after / max(luma_before, 1e-6) * 100:.0f}%) size {sizes[0]:.1f}x{sizes[1]:.1f}x{sizes[2]:.1f}')
     return luma_before, luma_after
+
+
+def correct_tone(img):
+    """Pulls a copy that came out paler, darker or warmer than the median model back toward the median grey; returns the mean luminance."""
+    n = img.size[0] * img.size[1]
+    arr = np.empty(n * 4, dtype=np.float32); img.pixels.foreach_get(arr); px = arr.reshape(-1, 4)
+    changed = False
+    ro_b = float(px[:, 0].mean() / max(px[:, 2].mean(), 1e-6))
+    if ro_b > MAX_R_OVER_B:                       # warm: cool it (red down, green half way)
+        k = TARGET_R_OVER_B / ro_b
+        px[:, 0] *= k; px[:, 1] *= 0.5 + 0.5 * k
+        changed = True
+    luma = float((0.2126 * px[:, 0] + 0.7152 * px[:, 1] + 0.0722 * px[:, 2]).mean())
+    gain = 1.0
+    if luma > TARGET_LUMA * LUMA_HIGH:
+        gain = TARGET_LUMA * LUMA_HIGH / luma
+    elif luma < TARGET_LUMA * LUMA_LOW:
+        gain = TARGET_LUMA * LUMA_LOW / luma
+    if abs(gain - 1.0) > 1e-3:
+        px[:, :3] *= gain
+        changed = True
+    if changed:
+        np.clip(px, 0.0, 1.0, out=px)
+        img.pixels.foreach_set(px.ravel()); img.update()
+        luma = float((0.2126 * px[:, 0] + 0.7152 * px[:, 1] + 0.0722 * px[:, 2]).mean())
+    return luma
 
 
 def render_glb(path, png, res=512):
