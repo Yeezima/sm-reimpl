@@ -57,11 +57,11 @@ public class MeleeInstallPinTests
             foreach (var wargear in pins.Keys.Append("ork_coop_boy_choppa"))
                 Assert.All(combos[wargear].Steps.Concat(combos[wargear].Heavy), s => Assert.True(s.Reach is { Variants.Count: > 0 } r && r.Variants.Any(v => v.Forward.Count > 0), $"{wargear}: an attack without reach"));
             Assert.Equal(("choppa", mode, choppa), ("choppa", mode, H(combos["ork_coop_boy_choppa"])));
-            // sim/swing-step (owner 2026-11-06): the light strikes step 1.5 times as far, the heavy ones as before.
+            // sim/swing-step (owner 2026-11-06): the light strikes step 1.5 times as far; sim/instant-step: every strike 1.2 times as far.
             foreach (var wargear in pins.Keys.Append("ork_coop_boy_choppa"))
             {
-                Assert.All(combos[wargear].Steps, x => Assert.Equal(MeleeTuning.OwnerSwingStep, x.LungeFactor));
-                Assert.All(combos[wargear].Heavy, x => Assert.Equal(1f, x.LungeFactor));
+                Assert.All(combos[wargear].Steps, x => Assert.Equal(MeleeTuning.OwnerSwingStep * MeleeTuning.OwnerStepBoost, x.LungeFactor, 4));
+                Assert.All(combos[wargear].Heavy, x => Assert.Equal(MeleeTuning.OwnerStepBoost, x.LungeFactor, 4));
             }
             // feel/locks-sprint-stop: every attack of the marines' knives and chainswords has its BRANCH_Evade, after its hit and inside the attack.
             foreach (var wargear in pins.Keys)
