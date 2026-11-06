@@ -68,6 +68,11 @@ public partial class AshfallKitGallery : Node3D
             AmbientLightSource = Godot.Environment.AmbientSource.Color, AmbientLightColor = new Color(0.6f, 0.6f, 0.62f), AmbientLightEnergy = 0.9f,
         };
         AddChild(new WorldEnvironment { Environment = _env });
+        if (_args.ContainsKey("ashfall-game-view"))   // look-pass aid: the game camera's field of view and the game environment's SSAO (NetworkView), so views compare with a match
+        {
+            _camera.Fov = 65f;
+            _env.SsaoEnabled = true;
+        }
         if (!_headless) DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled);
         _loadStart = (long)Time.GetTicksMsec();
         _map = _args.ContainsKey("ashfall-dense") || _args.ContainsKey("ashfall-dress");

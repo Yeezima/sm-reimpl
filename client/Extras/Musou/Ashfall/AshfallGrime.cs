@@ -34,6 +34,9 @@ public static class AshfallGrime
 
     static ShaderMaterial? _overlay;
 
+    /// <summary>The floor wash of the concept light pass (0 to 1; ours): set on the shared overlay by <see cref="AshfallStorm"/>.</summary>
+    public const float LightPassWash = 1f;
+
     /// <summary>The models' overlay material (one, shared).</summary>
     public static ShaderMaterial OverlayMaterial() => _overlay ??= new ShaderMaterial { Shader = new Shader { Code = OverlayShader } };
 
@@ -67,6 +70,7 @@ public static class AshfallGrime
 shader_type spatial;
 render_mode blend_mix, depth_draw_never, cull_back, specular_disabled;
 uniform float amount = 1.0;
+uniform float wash = 0.0;   // the concept light pass: a cool ash-grey wash on floors and tops (0: the first concept pass)
 varying vec3 wpos;
 varying vec3 wnor;
 float h21(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
@@ -94,8 +98,12 @@ void fragment() {
 	float ash = smoothstep(0.6, 0.95, up) * smoothstep(0.62, 0.85, fbm(wpos.xz * 0.5 + 9.0)) * 0.35;   // pale drifts in patches only
 	float far = 1.0 - 0.4 * smoothstep(60.0, 180.0, length(VERTEX));
 	vec3 dirt = mix(vec3(0.045, 0.042, 0.038), vec3(0.11, 0.10, 0.09), film / max(s, 1e-3));
-	ALBEDO = mix(dirt, vec3(0.34, 0.33, 0.32), clamp(ash / max(ash + s, 1e-3), 0.0, 1.0));
-	ALPHA = clamp(max(s, ash), 0.0, 0.7) * amount * far;
+	vec3 col = mix(dirt, vec3(0.34, 0.33, 0.32), clamp(ash / max(ash + s, 1e-3), 0.0, 1.0));
+	float a = clamp(max(s, ash), 0.0, 0.7) * amount * far;
+	float w = wash * smoothstep(0.5, 0.95, up) * (0.42 + 0.2 * fbm(along * 0.6 + 2.0)) * amount;
+	float total = a + w * (1.0 - a);
+	ALBEDO = (col * a + vec3(0.21, 0.215, 0.225) * w * (1.0 - a)) / max(total, 1e-3);
+	ALPHA = total;
 	ROUGHNESS = 1.0;
 }
 """;

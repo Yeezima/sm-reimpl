@@ -231,6 +231,10 @@ uniform float tile = 4.0;
 varying vec3 wpos;
 varying vec3 wnor;
 uniform float grime = 0.0;
+// Concept light pass (2026-11-06; ours): the drawn wall ends in a ruined top this high (metres; 0 = the full wall). Drawing only: the collision keeps its full height.
+uniform float top_cut = 0.0;
+uniform float desat = 0.0;   // and its stone this much nearer a neutral grey (0: the texture's own hue)
+uniform vec3 bounce = vec3(0.0);   // and the open sky's light on its faces in shade (times the albedo; 0: none)
 float gh21(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float gvn(vec2 p) {
 	vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -260,6 +264,14 @@ void vertex() {
 }
 void fragment() {
 	vec3 an = abs(wnor);
+	if (top_cut > 0.0) {
+		float run = an.x > an.z ? wpos.z : wpos.x;   // along the wall
+		float cell = floor(run / 9.0);
+		float top = top_cut * (0.75 + 0.45 * gh21(vec2(cell, 3.0)));                 // ruined spans of uneven height
+		top += step(0.55, fract(run / 2.4)) * 1.4 * step(0.35, gh21(vec2(cell, 7.0)));   // battlements on some spans
+		top -= top_cut * 0.45 * smoothstep(0.62, 0.9, gvn(vec2(run * 0.045, 1.0)));     // broken bites
+		if (wpos.y > top) discard;
+	}
 	vec3 c;
 	// derivatives taken outside the branch (they are undefined inside a divergent one): textureGrad then keeps the mip chain smooth across the top/side change
 	bool xface = an.x > an.z;
@@ -306,7 +318,8 @@ void fragment() {
 	}
 	vec2 face = an.y > an.x && an.y > an.z ? wpos.xz : vec2(xface ? wpos.z : wpos.x, wpos.y);
 	c = grimed(c, face, grime * (0.6 + 0.6 * (1.0 - smoothstep(0.0, 5.0, wpos.y))));
-	ALBEDO = c * tint.rgb;
+	ALBEDO = mix(c, vec3(dot(c, vec3(0.3, 0.59, 0.11))), desat) * tint.rgb;
+	EMISSION = ALBEDO * bounce;
 	ROUGHNESS = 1.0;
 }
 """;
