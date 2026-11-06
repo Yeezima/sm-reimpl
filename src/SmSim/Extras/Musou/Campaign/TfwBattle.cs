@@ -29,12 +29,12 @@ public static class TfwBattleRules
     public const float DefenderAggro = 30f;
 
     // The garrison of one position (owner, 2026-11-01: "there is always a consistent ork garrison waiting on each point that never respawns. they defend each point"): it stands leashed on the point from the landing and is never rebuilt.
-    public const int Garrison = 48;   // the owner, 2026-11-02 and 2026-11-03: double the Orks of the battle, twice (12, then 24)
+    public const int Garrison = 96;   // the owner, 2026-11-02, 2026-11-03 and 2026-11-06: double the Orks of the battle, three times (12, 24, then 48)
 
     // The crowds (owner, 2026-11-01): "the orks should pool up at their spawn point until they reach a crowd of 50 orks, then swarm at the player. there should be 3 major spawn points across the map doing this";
     // "pools replace the tide"; "50 per point, 150 total. Each point swarms on its own."
     /// <summary>The crowd of one spawn point: it stands there leashed, one more every <see cref="CrowdFillSeconds"/>, and at this many all of it swarms at once. The owner's number.</summary>
-    public const int CrowdSize = 200;   // the owner, 2026-11-02 and 2026-11-03: double, twice (50, then 100; the fill keeps a crowd at 50 s)
+    public const int CrowdSize = 400;   // the owner, 2026-11-02, 2026-11-03 and 2026-11-06: double, three times (50, 100, then 200; the fill keeps a crowd at about 53 s)
     /// <summary>A crowd's Orks notice a target this near their own places (a crowd wakes as one when any of it does, or is hurt). Ours: a player at the ring (13.5 to 15 m out) wakes a fresh small crowd on the far side of the disc (about 30 m).</summary>
     public const float CrowdAggro = 30f;
 
@@ -42,7 +42,7 @@ public static class TfwBattleRules
     /// A held point adds one Ork to its crowd every this many seconds (the owner's tide of 1 s, now the crowd's fill: 50 s for a crowd). The owner, 2026-11-01: "you have to fully capture a point to disable the spawning
     /// from that point. But it's temporarily paused while the point is being actively captured"; "Orks should begin spawning again immediately".
     /// </summary>
-    public const float CrowdFillSeconds = 8f / 30f;   // 8 ticks: about 3.75 a second, a crowd of 200 in 53 s
+    public const float CrowdFillSeconds = 4f / 30f;   // 4 ticks: 7.5 a second, a crowd of 400 in 53 s (2026-11-06; was 8 ticks for 200)
     /// <summary>
     /// The owner, 2026-11-02: "the reinforcements that spawn at all points pool and then swarm the player even if far away". The alive cap counts the swarms still fighting, so a far crowd could stall under
     /// <see cref="CrowdSize"/> and stand for good: a crowd goes with what it has this long after the point's last swarm (ours; a crowd under no cap fills in 50 s).
@@ -50,25 +50,30 @@ public static class TfwBattleRules
     public const float CrowdWaitSeconds = 60f;
     /// <summary>The owner, 2026-11-02: "elite ork enemies should spawn in packs or squads of at least 20": a crowd's elites come as runs of this many, the same share of the head count.</summary>
     public const int EliteSquad = 20;
-    /// <summary>Slots of the pool's 1024 no crowd or trickle may take: the commander, his escorts and the Warboss spawn only if the pool has room, and a battle cannot end without its boss.</summary>
-    public const int PoolReserve = 40;
+    /// <summary>Slots of the pool's 2048 no crowd or trickle may take: the commander, his escorts and the Warboss spawn only if the pool has room, and a battle cannot end without its boss.</summary>
+    public const int PoolReserve = 80;   // 40 in a pool of 1024; doubled with the pool (2026-11-06)
     /// <summary>A crowd and a garrison stand on a disc this wide round their point.</summary>
-    public const float SpawnDisc = 8f;
+    public const float SpawnDisc = 11f;   // 8 m for crowds of 200; 11 m holds 400 at about the same room an Ork (2026-11-06)
     /// <summary>
     /// The owner, 2026-11-01: "50 per point, 150 total": the Orks of the crowds and the swarms alive at once, a garrison not counted (it never respawns, 12 a point); 80 more a further human; never over
-    /// <see cref="AliveCapMost"/>, which leaves the pool's 1024 slots room for the garrisons and those dying.
+    /// <see cref="AliveCapMost"/>, which leaves the pool's 2048 slots room for the garrisons and those dying.
     /// </summary>
-    public const int AliveCapSolo = 600, AliveCapPerExtraHuman = 320, AliveCapMost = 840;   // the owner, 2026-11-02 and 2026-11-03: double, twice (150 and 80, then 300 and 160); the most leaves the pool's 1024 room for the 144 of the garrisons and those dying
+    public const int AliveCapSolo = 1200, AliveCapPerExtraHuman = 640, AliveCapMost = 1680;   // the owner, 2026-11-02, 2026-11-03 and 2026-11-06: double, three times (150 and 80, 300 and 160, then 600 and 320); the most leaves the pool's 2048 room for the 288 of the garrisons and the reserve
     public const int ReleasesPerTick = 6;
 
     // The trickle (owner, 2026-11-01: "re add in the trickling enemies resulting in roughly 2x the current ork enemy count on the map"; every value ours, spec "the trickle"): beside the pools and swarms, each source that sends
-    // also lets one unleashed Ork walk to the players every TrickleSeconds, up to as many trickled Orks alive as the crowds' cap (so about twice the Orks on the map), and never past TrickleTotalMax in all (the pool has 1024 slots).
+    // also lets one unleashed Ork walk to the players every TrickleSeconds, up to as many trickled Orks alive as the crowds' cap (so about twice the Orks on the map), and never past TrickleTotalMax in all (the pool has 2048 slots).
     /// <summary>Seconds between two trickled Orks from one sending source (ours; three held points send two a second together).</summary>
-    public const float TrickleSeconds = 1.5f;
-    /// <summary>Most Orks alive (garrisons not counted) while a trickled one is added: the pool's 1024 slots less the garrisons (144), those dying and a margin; so the trickle adds 200 to the crowds' 600 for one human (the pool's reserve ends it).</summary>
-    public const int TrickleTotalMax = 800;
+    public const float TrickleSeconds = 0.75f;   // 1.5 s before the owner's third doubling (2026-11-06)
+    /// <summary>Most Orks alive (garrisons not counted) while a trickled one is added: the pool's 2048 slots less the garrisons (288), those dying and a margin; so the trickle adds 400 to the crowds' 1200 for one human (the pool's reserve ends it).</summary>
+    public const int TrickleTotalMax = 1600;   // 800 in a pool of 1024 (2026-11-06)
     /// <summary>Most trickled Orks alive at once with <paramref name="humans"/> humans: the crowds' cap again, so the map holds about twice <see cref="AliveCap"/>.</summary>
     public static int TrickleCap(int humans) => AliveCap(humans);
+
+    // The muster (the owner, 2026-11-06: "they should pool up at their spawn point before fanning out"; every value ours, an estimate): a source's trickled Orks stand leashed where they came until this many have
+    // gathered, or the first has waited this long, or one of them is woken or hurt; then they go as one pack (MusouSim.Pack.cs).
+    public const int MusterSize = 10;      // a source sending every 0.75 s fills it in about 7 s
+    public const float MusterSeconds = 10f;   // the wait only ends a muster whose source stopped sending (a capture, the cap)
 
     // What the Orks are made of (the design's section B; the owner's item 6). Of every 100 fodder and of every 100 elites:
     public const float EliteBase = 0.10f, EliteSlope = 0.50f;
@@ -175,8 +180,11 @@ public sealed class TfwBattle
     readonly int[] _lastTide = new int[Positions + 1];    // the battle's tick of its last
     readonly int[] _trickleTicks = new int[Positions + 1];   // ticks to the source's next trickled Ork
     readonly List<ushort> _trickled = new();                 // the trickled Orks standing (pruned each tick)
+    readonly List<ushort>[] _musters = [new(), new(), new(), new()];   // each source's trickled Orks still mustering at it
+    readonly int[] _musterWait = new int[Positions + 1];     // ticks its first has waited
     int _now, _humansNow, _swarms;
     const int CrowdGroupFirst = Positions + 2;   // after the garrisons' (1 to 3) and the commander's (4): the positions' crowds, then the HQ source's
+    const int MusterGroupFirst = CrowdGroupFirst + Positions + 1;   // then each source's muster (9 to 12)
     readonly int[] _holder = [-1, -1, -1];                  // the squad holding a secured position
     readonly int[] _squadGoal = new int[GuardSim.MaxSquads];   // the objective a squad was sent to (-1: none)
     int _reserves, _released, _picked, _spots, _reserveTicks, _squadTicks, _summons, _waaaghs, _taken;
@@ -472,6 +480,7 @@ public sealed class TfwBattle
         if (humans > 0) _humansNow = humans;
         Unstrand();
         TidyCrowds();
+        TidyMusters();
         _enemies.KeepOut.Clear();
         if (Won) return change;
         if (BossId != 0)
@@ -736,10 +745,44 @@ public sealed class TfwBattle
             if (_trickled.Count >= cap || Counted() >= TfwBattleRules.TrickleTotalMax || _enemies.Alive >= MusouSim.Capacity - TfwBattleRules.PoolReserve) continue;
             var type = Fodder(_picked++);
             var at = SourceSpot(k);
-            ushort id = _enemies.Spawn(type, at, YawTo(at, _layout.LandingZone), Health(type));
-            if (id != 0) _trickled.Add(id);
+            ushort id = _enemies.SpawnLeashed(type, at, YawTo(at, _layout.LandingZone), Health(type), MusterGroupFirst + k, TfwBattleRules.CrowdAggro);
+            if (id == 0) continue;
+            _trickled.Add(id);
+            _musters[k].Add(id);
+            if (_musters[k].Count >= TfwBattleRules.MusterSize) Muster(k);
         }
     }
+
+    /// <summary>Lets source <paramref name="k"/>'s muster go as one pack (<see cref="MusouSim.ReleaseGroup"/>).</summary>
+    void Muster(int k)
+    {
+        _enemies.ReleaseGroup(MusterGroupFirst + k);
+        _musters[k].Clear();
+        _musterWait[k] = 0;
+    }
+
+    /// <summary>Each tick: a muster's dead and woken are forgotten (one woken, or hurt, lets the rest go with it), and one whose first has waited <see cref="TfwBattleRules.MusterSeconds"/> goes.</summary>
+    void TidyMusters()
+    {
+        for (int k = 0; k <= Positions; k++)
+        {
+            var muster = _musters[k];
+            if (muster.Count == 0) { _musterWait[k] = 0; continue; }
+            bool woken = false;
+            for (int n = muster.Count - 1; n >= 0; n--)
+            {
+                ushort id = muster[n];
+                bool alive = _enemies.TryGet(id, out var e) && e.Alive;
+                if (alive && _enemies.Leashed(id)) continue;
+                woken |= alive;
+                muster.RemoveAt(n);
+            }
+            if (woken || ++_musterWait[k] >= Ticks(TfwBattleRules.MusterSeconds)) Muster(k);
+        }
+    }
+
+    /// <summary>Test aid: the trickled Orks mustering at source <paramref name="k"/> now.</summary>
+    public ushort[] MusterIds(int k) => _musters[k].ToArray();
 
     /// <summary>Whether the trickle runs (ours; false only in tests that count the crowds alone).</summary>
     public bool Trickle { get; set; } = true;

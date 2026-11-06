@@ -140,6 +140,7 @@ public sealed partial class MusouSim
             if (_token[i] == MeleeToken) _meleeHeld[t]++; else _shotHeld[t]++;
         }
         _grid.Build(_gridPos, _gridSlot, gn);
+        TallyPacks();   // MusouSim.Pack.cs (a war's alone)
 
         _dead.Clear();
         Span<int> near = stackalloc int[64];
@@ -162,7 +163,7 @@ public sealed partial class MusouSim
             if (_cooldown[i] > 0) _cooldown[i]--;
             var spec = Rules.Of(_type[i]);
             bool leashed = !float.IsPositiveInfinity(_aggro[i]) && !_scripted[i], woken = leashed && Woken(i, targets);
-            if (woken && Swarm is not null) { _aggro[i] = float.PositiveInfinity; _group[i] = 0; }   // once woken it never walks home: no yo-yo
+            if (woken && Swarm is not null) { _pack[i] = PackFor(_group[i]); _aggro[i] = float.PositiveInfinity; _group[i] = 0; }   // once woken it never walks home: no yo-yo
             if (leashed && !woken)
             {
                 // A leashed defender (SpawnLeashed) with nobody near its home: no target, no token, back to its place; the failsafe leaves it alone.
@@ -284,6 +285,7 @@ public sealed partial class MusouSim
         if (i < 0 || i >= Capacity || !_used[i] || _state[i] == MusouEnemyState.Dying || !float.IsFinite(position.X) || !float.IsFinite(position.Y) || !float.IsFinite(position.Z)) return false;
         _position[i] = position; _node[i] = node; _velocity[i] = Vector2.Zero;
         _token[i] = 0; _burst[i] = 0; _transit[i] = -1; _aim[i] = -1; _blocked[i] = 0; _flowTicks[i] = 0;
+        _pack[i] = 0; _slotFor[i] = 0;   // moved away from its pack: it goes alone
         SpawnedCombat(i);   // MU3: no script, no drive (a Warboss moved mid-ability starts afresh; MusouBoss sees the relocation)
         if (Walk is not null && _node[i] < 0) _node[i] = Walk.Nearest(position);
         if (Walk is not null && _node[i] >= 0) _position[i] = position with { Z = Walk.Z(_node[i]) };
@@ -300,6 +302,9 @@ public sealed partial class MusouSim
         _lastNode.Clear();
         _stranded.Clear();
         _losCursor = 0;
+        _openPack.Clear();
+        Array.Clear(_packMembers);
+        _lastPack = 0;
     }
 
     void Grow(int n)

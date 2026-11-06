@@ -494,7 +494,8 @@ public partial class NetworkView
             var look = _musouState.MiddleNear(me, 45f) ?? point;   // towards the crowd
             _yaw = MathF.Atan2(-(look.X - me.X), look.Y - me.Y);
             await TfwWait(6.0);
-            await TfwShot($"fight-{shot++:00}");
+            await TfwShot($"fight-{shot:00}");
+            await TfwSwarmShots(shot++);   // --tfw-swarm-shots: overhead views too (NetworkView.TfwSwarmCam.cs)
         }
         TfwCheck("the fight was filmed", shot > 1, TfwNow.Phase.ToString());
     }

@@ -189,6 +189,7 @@ public partial class NetworkView
             shown = _musouDemoShown;
         }
 
+        _musouTelegraphs.Wedges = _tfwState.War is null;   // the owner, 2026-11-06: no melee wedges under the Orks in Musou Mode (the 5-wave run keeps them; the boss's rings and lanes stay)
         _musouTelegraphs.Frame(shown, camera, rules, delta);
     }
 
@@ -479,6 +480,9 @@ void fragment() {
     /// <summary>Marks drawn in the last frame (rings, lanes and wedges).</summary>
     public int Shown { get; private set; }
 
+    /// <summary>Whether the melee wind-ups' wedges show (false in Musou Mode: the owner, 2026-11-06, "remove the small red attack incoming indicators that appear under them when they are melee attacking").</summary>
+    public bool Wedges { get; set; } = true;
+
     Mark NewMark(float shape, Color tint)
     {
         _shader ??= new Shader { Code = ShaderCode };
@@ -558,7 +562,7 @@ void fragment() {
             count++;
         }
         int w = 0;
-        for (int i = 0; i < shown.Count && w < MaxWedges; i++)
+        for (int i = 0; i < shown.Count && w < MaxWedges && Wedges; i++)
         {
             var e = shown[i];
             if (e.State != MusouEnemyState.WindUp || (int)e.Type >= rules.Types.Count || e.Type == MusouEnemyType.Warboss && count > 0) continue;

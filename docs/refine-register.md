@@ -31,6 +31,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 Scanned 2211 spec table rows: **1589 tagged**, 449 not tagged (read from data with high confidence), 173 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 487 rows of the changes document.
 Scanned 2209 spec table rows: **1587 tagged**, 450 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
 Scanned 2212 spec table rows: **1590 tagged**, 449 not tagged (read from data with high confidence), 173 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
+Scanned 2214 spec table rows: **1592 tagged**, 449 not tagged (read from data with high confidence), 173 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -69,6 +70,8 @@ Scanned 2213 spec table rows: **1592 tagged**, 449 not tagged (read from data wi
 | Ork faction | 117 | 110 | 62 | 18 | 0 |
 | **All areas** | **1587** | 1356 | 1238 | 475 | 38 |
 | **All areas** | **1590** | 1359 | 1241 | 476 | 38 |
+| Ork faction | 125 | 118 | 62 | 25 | 0 |
+| **All areas** | **1592** | 1361 | 1235 | 482 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -77,6 +80,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: ours | 756 |
 | kind: ours | 754 |
 | confidence: low | 586 |
+| kind: ours | 759 |
+| confidence: low | 583 |
 | confidence: medium | 524 |
 | confidence: low | 587 |
 | confidence: medium | 528 |
@@ -96,6 +101,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: estimate | 83 |
 | kind: user's knowledge | 51 |
 | notes: estimate | 51 |
+| kind: estimate | 81 |
+| notes: estimate | 56 |
+| kind: user's knowledge | 51 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
 | kind: choice | 35 |
@@ -2665,6 +2673,19 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-B3D8C329` | Musou: the battle's Orks | garrison **48** a point (was 24), crowd **200** (was 100) filling one every **8** ticks (about 3.75 a second, a crowd in 53 s; was 2 a second, 50 s), alive cap **600** solo plus **320** a further human, at most **840** (was 300, 160, 420), the trickle's total… (Orks) | kind: ours; notes: estimate | owner 2026-11-03 "double" | Musou: the battle's Orks: compare with SM1 by feel or video. Ours: garrison 48 a point (was 24), crowd 200 (was 100) filling one every 8… | ☐ |
 | `R-AAB0F0D5` | Musou: drawn | the nearest **900** Orks drawn (was 480), at most **500** of a look by the vertex-animation tier (was 200), 40 skinned as before (Orks) | kind: ours; notes: estimate | owner 2026-11-03 | Musou: drawn: compare with SM1 by feel or video. Ours: the nearest 900 Orks drawn (was 480), at most 500 of a look by the… | ☐ |
 
+*Spec section: Musou Mode: packs and twice the Orks again (musou/ork-swarm-2x, 2026-11-06; `TfwRules.Version` 25, `MusouSim.Version` 8; Musou Mode only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-68DED6BE` | Musou: packs | the Orks a leash group lets go together (a crowd that swarms, a garrison, a muster; one of them woken first joins the same pack) move as one pack: each tick its centre is the mean of its members in play | kind: ours; notes: estimate | owner 2026-11-06 | Musou: packs: compare with SM1 by feel or video. Ours: the Orks a leash group lets go together (a crowd that swarms, a… | ☐ |
+| `R-4C70F89F` | Musou: wander | a far Ork's heading wanders up to **25** degrees each way, a sine of its own period of **3** to **7** s (its phase and period hashed from its slot); an Ork in no pack (a Waaagh!'s Boyz, one moved by the failsafe) keeps its old bearing (up to 35 degrees) plus… (degrees, s) | kind: ours; notes: estimate | owner 2026-11-06 | Musou: wander: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a far Ork's heading wanders up to 25 degrees each way, a sine of its… | ☐ |
+| `R-A44793FE` | Musou: the surround | within 25 m of its target with the way about straight (as before) an Ork takes its own place round the target, chosen the first time it comes near that target: its bearing's share of up to **160** degrees each way from the side it came from; while the place… (degrees) | kind: ours; notes: estimate | owner 2026-11-06 | Musou: the surround: compare with SM1 with an overlaid screenshot taken from the same position. Ours: within 25 m of its target with the way about straight (as before) an… | ☐ |
+| `R-4880ED49` | Musou: the muster | a source's trickled Orks no longer walk off one by one: each stands leashed where it came (woken by a target within 30 m, as a crowd) until **10** have gathered (about 7 s at one every 0.75 s), or the first has waited **10** s, or one of them is woken or… (Orks, s, m) | kind: ours; notes: estimate | owner 2026-11-06 | Musou: the muster: compare with SM1 by feel or video. Ours: a source's trickled Orks no longer walk off one by one: each stands… | ☐ |
+| `R-6FFC5DC8` | Musou: the pool (third doubling) | **2048** enemy slots (was 1024; the wire's ids are 16-bit and its check reads the pool); **80** kept free for the bosses (was 40) (slots) | kind: ours; notes: estimate | owner 2026-11-06 "double the amount of orks on the map again" | Musou: the pool (third doubling): compare with SM1 by feel or video. Ours: 2048 enemy slots (was 1024; the wire's ids are 16-bit and its check… | ☐ |
+| `R-9B2D4853` | Musou: the battle's Orks (third doubling) | garrison **96** a point (was 48), crowd **400** (was 200) filling one every **4** ticks (7.5 a second, a crowd in 53 s as before), alive cap **1200** solo plus **640** a further human, at most **1680** (was 600, 320, 840), the trickle one every **0.75** s a… (Orks) | kind: ours; notes: estimate | owner 2026-11-06 | Musou: the battle's Orks (third doubling): compare with SM1 by feel or video. Ours: garrison 96 a point (was 48), crowd 400 (was 200) filling one every 4… | ☐ |
+| `R-CA9D8E36` | Musou: drawn (third doubling) | the nearest **1800** Orks drawn (was 900), at most **1000** of a look by the vertex-animation tier (was 500), 40 skinned as before; `--musou-visible` takes up to 2000. The Guardsmen's crowd keeps its 500 (Orks) | kind: ours; notes: estimate | owner 2026-11-06 | Musou: drawn (third doubling): compare with SM1 by feel or video. Ours: the nearest 1800 Orks drawn (was 900), at most 1000 of a look by the… | ☐ |
+| `R-0499BF55` | Musou Mode: no melee wedges | the faint red wedge under an Ork winding up a melee blow is not drawn in Musou Mode (a war); the 5-wave run keeps it; the Warboss's ring and lane stay | kind: ours | owner 2026-11-06 | Musou Mode: no melee wedges: compare with SM1 by feel or video. Ours: the faint red wedge under an Ork winding up a melee blow is not drawn… | ☐ |
+
 ## Part C: Deliberate changes (keep or revert after playtest)
 
 Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our choices where the original is unknown, and what is not reproduced yet. Nothing is classified here; every row is listed. The prompt says what to ask after the playtest.
@@ -3299,6 +3320,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-792CF21A` | Hammer ignores the pound's delay (2026-11-02; protocol 55) | The data's `smash_available_delay` 2 s under Air-Cooled Thrusters applies to every melee weapon | Deliberate, in classic PvP too (the owner): the thunder hammer and daemon maul never wait for it; a sword with the perk still does | Spec "Musou Mode batch of 2026-11-02 and the hammer's pound". | Hammer ignores the pound's delay (2026-11-02; protocol 55): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2663D884` | Musou batch (2026-11-02) | No Musou Mode in the original | Ours (added content): 5 % heal on a melee hit, twice the Orks, crowds that always swarm, elite squads, a Warboss of scale 3, bass-less power weapon hits, solid backdrop and no Ork damage at the Firing Range, flinches, more shouting | Musou Mode only. Same spec section. | Musou batch (2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-E2D75C92` | Musou: twice the Orks again (2026-11-03) | No Musou Mode in the original | Ours (added content): a pool of 1024 and about 900 Orks alive in the Manufactorum battle for one player | Musou Mode only. Spec "Musou Mode: twice the Orks again". | Musou: twice the Orks again (2026-11-03): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-E3DAF7EE` | Musou: packs, twice the Orks again, no melee wedges (2026-11-06) | No Musou Mode in the original | Ours (added content): Orks muster at their spawn point and go as loose packs that keep a blob shape down the flow field and spread round their target; a pool of 2048 and about 1800 Orks alive for one player; no red melee wind-up wedges under the Orks in Musou Mode | Musou Mode only (the 5-wave run keeps its steering and wedges). Spec "Musou Mode: packs and twice the Orks again". | Musou: packs, twice the Orks again, no melee wedges…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-4E94CBCD` | The Firing Range (Musou Mode, 2026-11-02) | Ours (added content): a flat walled 100 m square generated in the war's world, reached by a wall button in the Stormbird's troop bay, with 200 Orks kept alive and the orbital strike working; the way back is a pad at the range. A test ground, not a mission: no score, no objectives | Owner's words "reimplement the 'firing range' map that was the first blank map concept 100m x 100m ... a test range for the artillery strike and other new features" | Musou Mode only; `TfwMap.Version` 6 and `MusouSim` box widened, so old and new builds do not connect. Spec row: The Firing Range. | The Firing Range (Musou Mode, 2026-11-02): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-351CC1A4` | Melee cancels of hops and charges, the jump pack from a fall or a charge (feel/melee-cancels; protocol 54) | A melee press in a hop was ignored until the dash attack's window, in a bull rush until its clip's melee branch; Space held while falling waited for the landing; Space did not end a held charge | Assault / Raptor: melee ends a hop or a charge at once and swings; Tactical classes: melee ends a charge; the next swing waits for the cancelled clip's end; Assault / Raptor: Space held in the air or during a charge lifts the pack (a tap is the hop). Roll, Devastator / Havoc, Ork Boy, the collision stop unchanged.… | Owner's words, 2026-11-02: "you should be able to end assault marine/raptor charges and hops with a melee attack. but implement the same strict cooldown based on the intended timing of the end of the animation." Builds with protocol 53 do not connect. Spec rows: Melee cancels of hops and charges. | Melee cancels of hops and charges, the jump pack from a…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1620EEEE` | Manufactorum's wall stations: no olive boards, no salmon fittings (fix/manufactorum-fluorescent, 2026-11-04; client drawing only) | The two bases' wall stations (six: a row of flat wall boards with a helmet, tools, weapon silhouettes and a banner pinned on, a pair of tall keypads, and two small door-side stations) are placed and drawn | Not drawn: every placement of `backpanel_a/b/c`, `tech_panel_a/b/c`, `tech_panel_pipe_a/b/c`, `handle_bar_a` and `accessories_doorbutton`, the seals, scrolls, `tech_panel_pipe_g` and `tech_panel_tank_a` within 6 m of a board or cabinet, and the two olive `backPanel` plates of the `tech_interface_b` cabinets (their… | Owner's words, 2026-11-04: "remove all instances on the classic pvp manufactorum map of these 'fluorescent', opaque objects" (flat olive boards with salmon glowing shapes, "jarring" against the dark metal); our emissive-map approximation draws them bright and flat, and whether the original did is not known, so they… | Manufactorum's wall stations: no olive boards, no salmon…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
@@ -3489,4 +3511,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-2F7F28A2` | Switch | Solid bodies: no passing through, the charge meets what it runs into (fix/charge-player-collision; protocol 57, no wire change) |
 | `R-FF7A7041` | Switches | Swing step, the lock-on's lunge and the air jump by mode (sim/swing-step, sim/lock-reach, sim/air-jumps; protocol 59, no wire change) |
 | `R-36C8F88E` | Switches | Jump pack: the launch flash, the ready jets and the legs in an air strike (fx/jumppack-jets; client only, no simulation, wire or protocol change) |
+| `R-189595E5` | Musou: the blob | Musou Mode: packs and twice the Orks again (musou/ork-swarm-2x, 2026-11-06; `TfwRules.Version` 25, `MusouSim.Version` 8; Musou Mode only) |
 

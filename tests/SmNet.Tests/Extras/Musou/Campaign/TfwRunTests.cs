@@ -445,19 +445,20 @@ public class TfwRunTests
         Assert.Equal(0, new World(TfwRig.Config).TfwSmiteForTests(Human, Vector3.Zero, 500f));
         var battle = TfwRig.Deploy(w);
         int before = w.Musou!.Alive;
-        Assert.Equal(TfwBattleRules.Garrison, w.TfwSmiteForTests(Human, battle.Layout.Positions[0], 15f));
-        Assert.Equal(before - TfwBattleRules.Garrison, w.Musou.Alive);
+        int near = TfwBattleRules.Garrison + battle.Pooled(0);   // the garrison and the crowd's first, all on the point's disc
+        Assert.Equal(near, w.TfwSmiteForTests(Human, battle.Layout.Positions[0], 15f));
+        Assert.Equal(before - near, w.Musou.Alive);
     }
 
     [Fact]
     public void The_stress_aid_tops_up_only_in_a_battle()
     {
         var w = TfwRig.War();
-        w.TfwFillForTests(180, 20);
+        w.TfwFillForTests(400, 20);
         Assert.Equal(0, w.Musou!.Alive);
         TfwRig.Deploy(w);
-        w.TfwFillForTests(180, 20);
-        Assert.Equal(180, w.Musou.Alive);
+        w.TfwFillForTests(400, 20);   // over the garrisons' 288
+        Assert.Equal(400, w.Musou.Alive);
         Assert.Equal(20, w.TfwGuards!.SquadsAlive);
     }
 
@@ -671,7 +672,7 @@ public class TfwRunTests
         var nav = Assert.IsType<NavGraph>(h.Server.World.Musou!.Nav);
         var w = TfwRig.War(nav);
         var battle = TfwRig.Deploy(w);
-        Assert.Equal(TfwTestArena.StartAlive, w.Musou!.Alive);
+        Assert.Equal(TfwTestArena.StartAlive + battle.Pooled(0) + battle.Pooled(1) + battle.Pooled(2), w.Musou!.Alive);
         TfwRig.Secure(w, battle, 0);
         TfwRig.Secure(w, battle, 1);
         Assert.Equal((6, 5), (w.Tfw!.Transport, w.Tfw.Supplies));

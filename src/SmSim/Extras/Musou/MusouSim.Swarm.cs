@@ -34,6 +34,27 @@ public sealed record MusouSwarmRules
     /// <summary>An enemy stops this far short of a place it goes to (<see cref="MusouTarget.Goal"/>).</summary>
     public float GoalStand { get; init; } = 3f;
 
+    // Packs (MusouSim.Pack.cs; the owner, 2026-11-06: "pool up at their spawn point before fanning out, swarming their target in a rough blobby formation"; every value ours, an estimate).
+    /// <summary>A far enemy's heading wanders up to this much each way off the flow, over its own period of <see cref="WanderPeriodMin"/> to <see cref="WanderPeriodMax"/> seconds.</summary>
+    public float WanderDegrees { get; init; } = 25f;
+    public float WanderPeriodMin { get; init; } = 3f;
+    public float WanderPeriodMax { get; init; } = 7f;
+    /// <summary>A pack's disc holds this much ground an Ork (m²): 16 Orks 2.3 m round, 200 about 11 m, 400 about 16 m.</summary>
+    public float PackAreaPerOrk { get; init; } = 2f;
+    /// <summary>
+    /// A member heads for its spot in the disc round a point this far beyond the disc's edge down the flow from the pack's centre (0: no pack steering, each Ork down the field on its own), at its speed times its
+    /// distance to that spot over the lead, between <see cref="PackLeastSpeed"/> and <see cref="PackMostSpeed"/> (the front waits, the back catches up).
+    /// </summary>
+    public float PackLead { get; init; } = 6f;
+    public float PackLeastSpeed { get; init; } = 0.6f;
+    public float PackMostSpeed { get; init; } = 1.3f;
+    /// <summary>No pull for a member more than this beyond the disc's edge (a straggler), or more than <see cref="PackLevel"/> above or below its centre.</summary>
+    public float PackLooseBeyond { get; init; } = 12f;
+    public float PackLevel { get; init; } = 2f;
+    /// <summary>Near its target an enemy takes a place up to this far round each way from the side it came from (its bearing's share), walking round at most <see cref="OrbitStepDegrees"/> ahead at a time.</summary>
+    public float SurroundDegrees { get; init; } = 160f;
+    public float OrbitStepDegrees { get; init; } = 50f;
+
     public static MusouSwarmRules Default { get; } = new();
 }
 
@@ -73,6 +94,7 @@ public sealed partial class MusouSim
         _bearing[i] = (2f * Unit(Mix((uint)i * 0x9E3779B1u + 11u, Tick)) - 1f) * MathF.PI / 180f;   // scaled by the rule when used
         _flank[i] = Unit(Mix((uint)i * 0xC2B2AE35u + 7u, Tick)) < (Swarm?.FlankShare ?? 0f);
         _spread[i] = false;
+        SpawnedPack(i);
     }
 
     static Vector2 Turned(Vector2 v, float radians)
@@ -91,7 +113,8 @@ public sealed partial class MusouSim
     }
 
     /// <summary>
-    /// The way of an enemy with no token: near and with a straight way, to its own slot round the target (it waits there with <paramref name="hold"/>), else down the flow, turned by its bearing while far. A blocked
+    /// The way of an enemy with no token: near and with a straight way, to its own place round the target (it waits there with <paramref name="hold"/>), else down the flow: a pack's member with its wander and its
+    /// pull to its spot in the pack (<see cref="PackWay"/>), one in no pack turned by its bearing and its wander, while far. A blocked
     /// enemy follows the plain flow for a while (<see cref="Move"/>), so a turn into a wall never holds it there.
     /// </summary>
     Vector2 SwarmWay(int i, int t, in MusouTarget target, Vector3 d, float speed, bool slot, bool hold, MusouSwarmRules swarm)
@@ -102,14 +125,13 @@ public sealed partial class MusouSim
         if (slot && free && distance > 1e-4f && distance <= swarm.SlotWithin + target.Radius && MathF.Abs(d.Z) < 1.5f && WayIsStraight(i, distance, swarm))
         {
             float ring = target.Radius + swarm.SlotMin + (swarm.SlotMax - swarm.SlotMin) * Unit(Mix((uint)i * 0x85EBCA6Bu, 0x51u));
-            var toward = flat / distance;
-            if (hold && distance <= ring + 0.5f) { Face(i, toward); return Vector2.Zero; }
-            var way = flat + Turned(-toward, Bearing(i, swarm)) * ring;   // from here to the slot, on its own side of the target
-            float length = way.Length();
-            return length > 1e-4f ? way / length * speed : Vector2.Zero;
+            var way = SurroundWay(i, target, flat, distance, ring, speed, swarm, out bool settled);   // MusouSim.Pack.cs: its own place round the target, walking round to it
+            if (hold && settled) { Face(i, flat / distance); return Vector2.Zero; }
+            return way;
         }
         var flow = Approach(i, t, d, speed);
-        return free && distance > swarm.FanOutBeyond ? Turned(flow, Bearing(i, swarm)) : flow;
+        if (!free || distance <= swarm.FanOutBeyond || flow == Vector2.Zero) return flow;
+        return _pack[i] != 0 ? PackWay(i, flow, speed, swarm) : Turned(flow, Bearing(i, swarm) + Wander(i, swarm));
     }
 
     /// <summary>The target an enemy that flanks takes at a look: the second-nearest that is no mere place, within reach; -1: none.</summary>
