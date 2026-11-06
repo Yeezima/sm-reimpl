@@ -22,6 +22,15 @@ static class AshfallKitStairsCommand
             if (a == "--source" && hasVal) source = rest[++i];
             else if (a == "--out" && hasVal) outPath = rest[++i];
             else if (a == "--dump" && hasVal) dump = rest[++i];
+            else if (a == "--bounds" && hasVal)
+            {
+                // report aid: a GLB's bounds and triangle count (for a new catalogue entry)
+                var mesh = GlbReader.Read(rest[++i]);
+                var mn = new Vector3(float.MaxValue); var mx = new Vector3(float.MinValue);
+                foreach (var p in mesh.Positions) { mn = Vector3.Min(mn, p); mx = Vector3.Max(mx, p); }
+                Console.WriteLine(Inv($"{rest[i]}: min ({mn.X:0.0000}, {mn.Y:0.0000}, {mn.Z:0.0000}) max ({mx.X:0.0000}, {mx.Y:0.0000}, {mx.Z:0.0000}) triangles {mesh.Indices.Count / 3}"));
+                return 0;
+            }
             else { Console.Error.WriteLine($"ashfall-kit-stairs: bad argument \"{a}\" (usage: ashfall-kit-stairs [--source <dir>] [--out <file>])"); return 2; }
         }
         source ??= Path.Combine(local, "sm-reimpl", AshfallKit.PrivateFolder, "source");

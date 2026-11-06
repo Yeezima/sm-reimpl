@@ -215,7 +215,26 @@ public static class AshfallKit
             "ours, estimate: 8 m panel width on the 8 m grid (the catalogue names no size)") with { Flags = AshfallKitFlags.SeamsUnverified | AshfallKitFlags.TerminationOnly },
         X("AC-076", "20", "round objective dais", AshfallKitCategory.Landmark, "20-round-objective-dais.glb", new(-0.9514f, -0.0809f, -0.9519f), new(0.9507f, 0.0795f, 0.9509f), 26838, "objective dais", "round raised objective dais, concentric steps on all sides", 6.250f,
             "catalogue's 0.25 m riser: 4 rises over 0.160 raw (mean 0.040 raw; the tallest 0.057 raw, 0.36 m)") with { RawRiser = 0.0574f },
+        // Late batch F (2026-11-06): the look lead's separate rubble props (owner: "rubble as separate small props, not fused into buildings"), made in Blender for the project, metre scale, origin at the base centre;
+        // they exist only under processed/rubble (never in the repository). Placed by draft 9's rubble scatter only (AshfallDraft9.RubbleProps), never in a structure's pool.
+        R("AR-001", "small rubble pile", new(-1.1533f, 0f, -0.8372f), new(1.1533f, 0.5646f, 0.8372f), 1000),
+        R("AR-002", "medium rubble pile", new(-1.5565f, 0f, -1.2334f), new(1.5565f, 0.9102f, 1.2334f), 1424),
+        R("AR-003", "large rubble pile with a stray block", new(-1.8591f, 0f, -1.4824f), new(1.8591f, 1.2222f, 1.4824f), 1732),
+        R("AR-004", "low rubble heap", new(-0.8023f, 0f, -0.8425f), new(0.8023f, 0.6508f, 0.8425f), 810) with { Review = true },   // fails the collision gate: report only, not placed
     ];
+
+    /// <summary>The rubble props' folder (relative to the library root; the files are in <c>processed/rubble</c> only).</summary>
+    public const string RubbleFolder = "rubble";
+
+    static AshfallKitModel R(string id, string name, Vector3 rawMin, Vector3 rawMax, int triangles)
+    {
+        var s = rawMax - rawMin;
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        return new(id, name, AshfallKitCategory.Debris, RubbleFolder + "/" + id + ".glb", rawMin, rawMax, triangles, string.Format(inv, "{0:0.0} x {1:0.0}", s.X, s.Z), string.Format(inv, "{0:0.0}", s.Y), Review: false)
+        {
+            Family = "rubble prop", Purpose = "separate small rubble pile: low cover and dressing at wall bases, breaches and street edges", DesignScale = 1f, ScaleSource = "the file's own metres (made for the project)",
+        };
+    }
 
     /// <summary>The Meshy expansion's folder under <c>source\</c> (36 models, 2026-11-05; its catalogue <c>asset-catalog.json</c> and QA beside the models, read only).</summary>
     public const string ExpansionFolder = "meshy-expansion-2026-11-05";

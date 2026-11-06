@@ -248,6 +248,85 @@ internal static partial class AshfallDraft5Pass
         return new WBox(new Vector3(item.Position.X + co * cx - s * cy, item.Position.Y + s * cx + co * cy, (z0 + z1) / 2f), new Vector3((x1 - x0) / 2f, (y1 - y0) / 2f, (z1 - z0) / 2f), yaw);
     }
 
+    // ---------------------------------------------------------------- the rubble props
+
+    /// <summary>The look lead's separate rubble props (AR-001..004; owner: "rubble as separate small props, not fused into buildings").</summary>
+    internal static readonly string[] RubblePropIds = ["AR-001", "AR-002", "AR-003"];   // AR-004 is catalogued but fails the collision gate (report only)
+
+    /// <summary>Fewest metres between two rubble props, and the most placed (ours: a pile every few houses, not a carpet).</summary>
+    const float RubbleSpacing = 10f;
+    const int RubbleTarget = 60;   // the level's 220 k collision-triangle budget: three slabs a pile
+
+    /// <summary>
+    /// Draft 9 (late batch F): scatters the rubble props as low cover and dressing at the feet of the standing walls and buildings (the stronghold's legs included, so beside its breaches) and along the
+    /// plaza's edge and the avenues' kerbs. Each candidate (seeded order) stands on the ground, outside every protected place (lanes, the paved road, the plaza's axes, start areas, capture zones plus 6 m, spawns,
+    /// the boundary's 2 m, the breaches), off every roadway, meets no placed box, drawn model or stair zone beyond the rules' tolerances, and leaves no gap under 2.4 m (it touches the wall it leans on or stands clear),
+    /// at least <see cref="RubbleSpacing"/> m from another rubble prop.
+    /// </summary>
+    static void RubbleProps(Ctx c)
+    {
+        if (!c.Draft9) return;
+        var cands = new List<(uint Key, Vector2 At, Vector2 Out, int Yaw)>();
+        uint n = 0;
+        void Add(Vector2 at, Vector2 outward) => cands.Add((AshfallBuilder.Mix(c.Seed ^ 0xA2B1u, n++), at, outward, MathF.Abs(outward.X) > 0.5f ? 6 : 0));
+        // wall and building feet: along each standing piece's drawn box, every 6 m, on its four sides
+        foreach (var l in c.Log.ToList())
+        {
+            if (l.Item < 0 || !(IsBuildingFamily(l.Family, c.Items[l.Item].Size.Z) || l.Family is "wall" or "wallrun" or "stronghold-wall" or "stronghold-corner")) continue;
+            var it = c.Items[l.Item];
+            int ys = ((int)MathF.Round(it.Yaw / (MathF.PI / 12f)) % 24 + 24) % 24;
+            if (ys % 6 != 0) continue;
+            var (sn, cs) = AshfallBuilder.Trig(ys);
+            var ax = new Vector2(cs, sn); var ay = new Vector2(-sn, cs);
+            var p = new Vector2(it.Position.X, it.Position.Y);
+            foreach (var (normal, along, half, len) in new[] { (ay, ax, it.Size.Y / 2f, it.Size.X), (-ay, ax, it.Size.Y / 2f, it.Size.X), (ax, ay, it.Size.X / 2f, it.Size.Y), (-ax, ay, it.Size.X / 2f, it.Size.Y) })
+                for (float t = -len / 2f + 3f; t <= len / 2f - 3f; t += 6f) Add(p + normal * half + along * t, normal);
+        }
+        // the plaza's edge (on the block side of it) and the avenues' kerbs (on the blocks)
+        for (float t = -56f; t <= 56f; t += 8f)
+            foreach (var (pt, o) in new[] { (new Vector2(t, 60f), Vector2.UnitY), (new Vector2(t, -60f), -Vector2.UnitY), (new Vector2(60f, t), Vector2.UnitX), (new Vector2(-60f, t), -Vector2.UnitX) }) Add(pt, o);
+        foreach (float v in new[] { -92f, 92f })
+            for (float t = -220f; t <= 220f; t += 8f)
+                foreach (float side in new[] { -1f, 1f })
+                {
+                    float kerb = v + side * (12f + AshfallRoadway.Margin);
+                    Add(new Vector2(kerb, t), new Vector2(side, 0f));
+                    Add(new Vector2(t, kerb), new Vector2(0f, side));
+                }
+        cands.Sort((a, b) => a.Key != b.Key ? a.Key.CompareTo(b.Key) : a.At.X != b.At.X ? a.At.X.CompareTo(b.At.X) : a.At.Y.CompareTo(b.At.Y));
+        var placed = new List<Vector2>();
+        int tried = 0;
+        foreach (var (key, at0, outward, yaw) in cands)
+        {
+            if (placed.Count >= RubbleTarget) break;
+            if (placed.Any(q => Vector2.DistanceSquared(q, at0) < RubbleSpacing * RubbleSpacing)) continue;
+            tried++;
+            string id = RubblePropIds[(int)(key >> 7) % RubblePropIds.Length];
+            var m = AshfallKit.Get(id);
+            var size = new Vector3(m.RawSize.X, m.RawSize.Z, m.RawSize.Y);
+            float halfOut = size.Y / 2f;   // the pile lies with its long side along the edge, its depth across it
+            foreach (float push in new[] { -0.25f, 0f, 0.3f, 1.2f, 2.6f })
+            {
+                var at = at0 + outward * (halfOut + push);
+                float ground = AshfallMap.SurfaceAt(at.X, at.Y);
+                var item = new AshfallDressItem(id, new Vector3(at.X, at.Y, ground), yaw * (MathF.PI / 12f), size, false, AshfallDressRole.Prop, -1);
+                var spec = RubbleSpec with { Group = $"rubble prop {placed.Count}", Min = new Vector3(at.X - size.X / 2f, at.Y - size.Y / 2f, ground), Max = new Vector3(at.X + size.X / 2f, at.Y + size.Y / 2f, ground + size.Z) };
+                var boxes = CoarseBoxes(spec, item, yaw, id);
+                if (boxes.Count == 0 || !Level(Drawn(item, yaw).Rect, ground)) continue;
+                if (boxes.Any(b => Banned(c, b)) || !OffRoad(c, boxes)) continue;
+                var r = Drawn(item, yaw).Rect;
+                if (c.BreachRects.Any(z => r.X < z.Z && r.Z > z.X && r.Y < z.W && r.W > z.Y)) continue;
+                if (Conflict(c, spec, id, item, yaw, boxes).Excess > 0f || CountNarrow(c, boxes) > 0) continue;
+                Emit(c, spec, item, yaw, id, boxes, "placed, draft 9 rubble prop (" + (push < 0.5f ? "at a wall's foot or an edge" : "beside an edge") + ")", at);
+                placed.Add(at0);
+                break;
+            }
+        }
+        c.Flags.Add($"draft 9 rubble props (AR-001..003, separate small piles; AR-004 fails the collision gate): {placed.Count} placed at wall feet, the plaza's edge and the avenues' kerbs ({tried} candidates tried; target {RubbleTarget}, {RubbleSpacing:0} m apart)");
+    }
+
+    static readonly Spec RubbleSpec = new("rubble prop", "rubble prop", Vector3.Zero, Vector3.Zero, null, RubblePropIds) { Kind = AshfallKind.Rubble, UseNet = false };
+
     // ---------------------------------------------------------------- the urban rules
 
     /// <summary>How far loose debris (rubble, collapsed wall pieces) may lie from a standing building's drawn box (its graybox structure's bounds to the building's) (ours: a storey and a half; debris falls at the foot of what it fell from).</summary>

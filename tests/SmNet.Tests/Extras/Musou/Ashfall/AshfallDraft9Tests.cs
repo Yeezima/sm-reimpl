@@ -252,6 +252,25 @@ public class AshfallDraft9Tests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Rubble_props_lie_at_wall_feet_and_street_edges_off_the_routes_and_objective_rings()
+    {
+        var props = D.Placements.Where(p => p.Item >= 0 && p.Family == "rubble prop").ToList();
+        output.WriteLine($"{props.Count} rubble props: " + string.Join(", ", props.GroupBy(p => p.Asset).OrderBy(g => g.Key).Select(g => $"{g.Key} x{g.Count()}")));
+        Assert.InRange(props.Count, 40, 60);
+        Assert.All(props, p => Assert.Contains(p.Asset, new[] { "AR-001", "AR-002", "AR-003" }));   // AR-004 fails the collision gate
+        foreach (var p in props)
+        {
+            var it = D.Dressing.Items[p.Item];
+            var at = new Vector2(it.Position.X, it.Position.Y);
+            foreach (var cp in D.Level.Points) Assert.True(Vector2.Distance(at, new Vector2(cp.Center.X, cp.Center.Y)) > cp.Radius + 6f, $"{p.Group} in an objective's ring");
+            foreach (var a in D.Level.Areas) Assert.False(MathF.Abs(at.X - a.Center.X) < a.Size.X / 2f && MathF.Abs(at.Y - a.Center.Y) < a.Size.Y / 2f, $"{p.Group} in a start area");
+            Assert.True(MathF.Abs(it.Position.Z - AshfallMap.SurfaceAt(at.X, at.Y)) < 0.01f, $"{p.Group} off the ground");
+            Assert.True(D.Dressing.ItemParts[p.Item].Count is > 0 and <= 3, $"{p.Group}: {D.Dressing.ItemParts[p.Item].Count} collision parts");
+        }
+        // the roadway, overlap, drawn-box, stair-zone and narrow-gap rules hold for them with every other item (the tests above and No_placed_item_stands_in_a_roadway)
+    }
+
+    [Fact]
     public void Without_draft9_models_stack_and_stairs_break()
     {
         var before = AshfallMap.RebuildWithoutDraft9();

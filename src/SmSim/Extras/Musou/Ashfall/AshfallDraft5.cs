@@ -165,6 +165,7 @@ internal static partial class AshfallDraft5Pass
         }
         Stronghold(c, groups, byGroup, g5, stronghold);
         ExtraPlatforms(c);
+        RubbleProps(c);
         foreach (var (name, mn, mx, deck) in c.Bridges) Bridge6(c, name, mn, mx, deck);
 
         c.Flags.Add($"draft 6 growth (every placed object 1.5x its draft-5 size): {c.Moved} items moved ({c.Spread} of them to open a gap under {MinGap} m to a neighbour), {c.NarrowKept} kept a narrow gap they could not open, {c.NarrowDropped} {(c.Draft9 ? "pieces" : "small pieces (cover, rubble)")} left out rather than leave a gap under {MinGap} m, {c.LeftOut} left out{(c.LeftOut > 0 ? ": " + string.Join(", ", c.LeftOutNames.Take(12)) : "")}");
@@ -557,7 +558,8 @@ internal static partial class AshfallDraft5Pass
 
     static List<WBox> Coarse(Spec s, List<WBox> boxes)
     {
-        if (s.Family is not ("rubble" or "wallpiece" or "cover") || boxes.Count <= Slabs) return boxes;
+        int slabs = s.Family == "rubble prop" ? 3 : Slabs;   // draft 9's rubble props: three slabs a pile (the triangle budget)
+        if (s.Family is not ("rubble" or "wallpiece" or "cover" or "rubble prop") || boxes.Count <= slabs) return boxes;
         // Draft 6, phase 2: a walkable rubble model (AC-053) is merged too (the triangle budget); its ramp wedges are kept only where they still meet the slabs' tops (RampMeetsItsTops).
         var (sn, co) = AshfallBuilder.Trig(boxes[0].YawStep);
         bool alongX = true;
@@ -569,19 +571,19 @@ internal static partial class AshfallDraft5Pass
         }
         alongX = hi - lo >= hi2 - lo2;
         if (!alongX) { lo = lo2; hi = hi2; }
-        var mn = new Vector3[Slabs]; var mx = new Vector3[Slabs]; var used = new bool[Slabs];
-        for (int i = 0; i < Slabs; i++) { mn[i] = new Vector3(float.MaxValue); mx[i] = new Vector3(float.MinValue); }
+        var mn = new Vector3[slabs]; var mx = new Vector3[slabs]; var used = new bool[slabs];
+        for (int i = 0; i < slabs; i++) { mn[i] = new Vector3(float.MaxValue); mx[i] = new Vector3(float.MinValue); }
         foreach (var b in boxes)
         {
             float u = b.Centre.X * co + b.Centre.Y * sn, v = -b.Centre.X * sn + b.Centre.Y * co, a = alongX ? u : v;
-            int k = Math.Clamp((int)((a - lo) / MathF.Max(hi - lo, 1e-3f) * Slabs), 0, Slabs - 1);
+            int k = Math.Clamp((int)((a - lo) / MathF.Max(hi - lo, 1e-3f) * slabs), 0, slabs - 1);
             used[k] = true;
             // corners in the turned frame (u, v, z)
             mn[k] = Vector3.Min(mn[k], new Vector3(u - b.Half.X, v - b.Half.Y, b.Centre.Z - b.Half.Z));
             mx[k] = Vector3.Max(mx[k], new Vector3(u + b.Half.X, v + b.Half.Y, b.Centre.Z + b.Half.Z));
         }
         var list = new List<WBox>();
-        for (int k = 0; k < Slabs; k++)
+        for (int k = 0; k < slabs; k++)
         {
             if (!used[k]) continue;
             var c3 = (mn[k] + mx[k]) / 2f; var h3 = (mx[k] - mn[k]) / 2f;

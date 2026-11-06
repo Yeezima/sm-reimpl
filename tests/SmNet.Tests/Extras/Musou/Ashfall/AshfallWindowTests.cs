@@ -176,6 +176,8 @@ public class AshfallWindowTests(ITestOutputHelper output)
             if (it.Role != AshfallDressRole.Prop || d.Dressing.ItemParts[i].Count == 0) continue;
             var openings = AshfallKitCollision.Openings(it.Asset);
             if (openings.Count == 0) continue;
+            // draft 9's rubble props (AR-001..003): small heaps merged into three slabs (the triangle budget); the chinks between their stones are not windows
+            if (family.GetValueOrDefault(i) == "rubble prop") continue;
             if (family.GetValueOrDefault(i) is "rubble" or "wallpiece" or "cover") debrisPlaced += openings.Count;
         // Rubble, cover and collapsed wall pieces with openings keep opening-aware boxes (AshfallOpeningMerge): their gaps are traced too.
             bool debris = family.GetValueOrDefault(i) is "rubble" or "wallpiece" or "cover";

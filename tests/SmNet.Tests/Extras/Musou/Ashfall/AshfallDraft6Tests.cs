@@ -105,7 +105,7 @@ public class AshfallDraft6Tests(ITestOutputHelper output)
     {
         int exact = 0;
         double mergedParts = 0, mergedFitted = 0;
-        var merged = new HashSet<string> { "cover", "rubble", "wallpiece" };
+        var merged = new HashSet<string> { "cover", "rubble", "wallpiece", "rubble prop" };   // draft 9: the rubble props merge into three slabs
         for (int i = 0; i < Dressing.Items.Count; i++)
         {
             var it = Dressing.Items[i];
