@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2305 spec table rows: **1675 tagged**, 454 not tagged (read from data with high confidence), 176 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 504 rows of the changes document.
-Scanned 2293 spec table rows: **1663 tagged**, 453 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 503 rows of the changes document.
+Scanned 2314 spec table rows: **1683 tagged**, 454 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 508 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,37 +50,24 @@ Scanned 2293 spec table rows: **1663 tagged**, 453 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
-| Core simulation (provisional values) | 286 | 270 | 226 | 40 | 1 |
+| Core simulation (provisional values) | 288 | 272 | 228 | 40 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 163 | 155 | 78 | 43 | 0 |
-| **All areas** | **1675** | 1443 | 1286 | 513 | 38 |
-| Core simulation (provisional values) | 283 | 267 | 223 | 37 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 154 | 146 | 75 | 36 | 0 |
-| **All areas** | **1663** | 1431 | 1280 | 502 | 38 |
+| Ork faction | 168 | 159 | 80 | 45 | 0 |
+| **All areas** | **1683** | 1450 | 1291 | 515 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 827 |
-| confidence: low | 610 |
-| confidence: medium | 548 |
+| kind: ours | 832 |
+| confidence: low | 613 |
+| confidence: medium | 550 |
 | kind: interpretation | 343 |
-| notes: ours | 328 |
+| notes: ours | 329 |
 | confidence: none (low) | 128 |
 | kind: provisional | 99 |
-| kind: estimate | 95 |
-| notes: estimate | 77 |
-| kind: ours | 815 |
-| confidence: low | 605 |
-| confidence: medium | 547 |
-| kind: interpretation | 343 |
-| notes: ours | 326 |
-| confidence: none (low) | 128 |
-| kind: provisional | 99 |
-| kind: estimate | 96 |
-| notes: estimate | 68 |
+| kind: estimate | 98 |
+| notes: estimate | 78 |
 | kind: user's knowledge | 51 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
@@ -2011,8 +1997,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-EB03504B` | Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks (s) | kind: ours; notes: estimate | owner 2026-11-02 | Shot lag allowance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each shot is also tried on the enemy's places over the last 0.2 s… | ☐ |
 
-### Core simulation (provisional values) (286)
-### Core simulation (provisional values) (283)
+### Core simulation (provisional values) (288)
 
 *Spec section: Provisional values in use*
 
