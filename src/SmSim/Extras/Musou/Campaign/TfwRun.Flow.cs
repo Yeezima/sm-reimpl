@@ -9,6 +9,7 @@ namespace SmSim.Extras.Musou.Campaign;
 public sealed partial class TfwRun
 {
     bool _recall;
+    readonly Dictionary<int, int> _landingSlots = new();   // each human's place of the landing zone (TfwCoop.LandingOffset), kept through others leaving
 
     /// <summary>Whether the pickup under way is the host's recall (free, and no death or other player calls it off).</summary>
     public bool Recalling => _recall && Phase == TfwRunPhase.Pickup;
@@ -41,7 +42,7 @@ public sealed partial class TfwRun
         Supplies -= TfwBattleRules.RedeployCost;
         var layout = battle.Layout;
         var way = new Vector2(layout.Hq.X - layout.LandingZone.X, layout.Hq.Y - layout.LandingZone.Y);
-        w.TfwRespawnAt(player, Ashore(w, layout, TfwCoop.LandingOffset(k)), MathF.Atan2(-way.X, way.Y));
+        w.TfwRespawnAt(player, Ashore(w, layout, TfwCoop.LandingOffset(_landingSlots.GetValueOrDefault(player, k))), MathF.Atan2(-way.X, way.Y));
         _reviveTicks.Remove(player);
         ExtractionTicks = 0;
         Redeploys++;
@@ -55,6 +56,7 @@ public sealed partial class TfwRun
     void ReturnToShip(World w, int player, int rate)
     {
         if (Phase is not (TfwRunPhase.Battle or TfwRunPhase.FinalAssault or TfwRunPhase.Pickup) || Battle is null || !_deployed.Contains(player) || player != HostOf(w.Players.Keys)) return;
+        if (Recalling) return;   // already on its way: a second press does not restart the 20 s
         if (Phase != TfwRunPhase.Pickup) _fighting = Phase;
         _recall = true;
         PickupTicks = Math.Max(1, (int)MathF.Round(TfwBattleRules.RecallSeconds * rate));

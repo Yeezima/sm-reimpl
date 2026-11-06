@@ -29,6 +29,7 @@ public sealed partial class TfwRun
         foreach (int id in _late)
         {
             var at = Ashore(w, layout, TfwCoop.LandingOffset(_deployed.Count));
+            _landingSlots[id] = _deployed.Count;   // TfwRun.Flow.cs: a redeploy comes back here
             _deployed.Add(id);
             w.TfwRespawnAt(id, at, yaw);
             w.TfwSpawnRetainer(id, Ashore(w, layout, at - layout.LandingZone + new Vector3(0f, -2f, 0f)), yaw);

@@ -218,7 +218,7 @@ public partial class NetworkView
         {
             // The Esc menu over the running match: the loadout screens wait behind it, options and keybinds stand on the same dim.
             _pickerMenu = new MatchMenu(() => ClosePicker(), ShowPickerLoadout, ShowPickerOptions, LeaveToMenu is null ? null : () => _pickerCreator?.ConfirmLeave(_pickerMenu)) { Visible = false };
-            ExtrasMatchMenu(_pickerMenu);   // an added content's own rows (Musou Mode: the host's BACK TO STORMBIRD)
+            ExtrasMatchMenu(_pickerMenu);   // EXTRAS-HOOK: an added content's own rows (Musou Mode: the host's BACK TO STORMBIRD)
             _pickerOptions = new OptionsView(services, ShowPickerMenu, ShowPickerControls);
             _pickerOptions.AddChild(MatchDim());
             _pickerOptions.MoveChild(_pickerOptions.GetChild(_pickerOptions.GetChildCount() - 1), 0);

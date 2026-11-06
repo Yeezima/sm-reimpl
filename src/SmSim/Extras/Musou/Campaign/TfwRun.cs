@@ -96,6 +96,7 @@ public sealed partial class TfwRun
         Supplies = TfwBattleRules.StartSupplies;
         TravelTicks = PickupTicks = ExtractionTicks = 0;
         _recall = false;
+        _landingSlots.Clear();
         Redeploys = 0;
         Deployed = false;
         Wins = 0;
@@ -220,6 +221,7 @@ public sealed partial class TfwRun
         {
             int id = _deployed[k];
             var at = Ashore(w, layout, TfwCoop.LandingOffset(k));
+            _landingSlots[id] = k;   // TfwRun.Flow.cs: a redeploy comes back here
             w.TfwRespawnAt(id, at, yaw);
             w.TfwSpawnRetainer(id, Ashore(w, layout, at - layout.LandingZone + new Vector3(0f, -2f, 0f)), yaw);
         }
@@ -324,6 +326,7 @@ public sealed partial class TfwRun
         ActivePosition = null;
         PickupTicks = ExtractionTicks = 0;
         _recall = false;
+        _landingSlots.Clear();
         _deployed.Clear();
         _reviveTicks.Clear();
         War.Enter(TfwRunPhase.Hub, War.BattleLane);
