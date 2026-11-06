@@ -114,6 +114,19 @@ public partial class NetworkView
         TfwCheck("a crowd is near", TfwFaceCrowd(30f));
         await TfwShot("melee-00-crowd");
 
+        // The bolt blasts (the owner, 2026-11-07): fire into the crowd from outside it and film the blasts.
+        int boltBefore = _tfwBoltBlastsShown;
+        TfwAction(GameAction.Fire, true);
+        for (int k = 0; k < 6; k++)
+        {
+            TfwFaceCrowd(30f);
+            await TfwWait(0.25);
+            await TfwShot($"melee-05-bolt-{k}");
+        }
+        TfwAction(GameAction.Fire, false);
+        GD.Print($"TFWMELEE bolt blasts seen while firing: {_tfwBoltBlastsShown - boltBefore}, drawn this run {_tfwBoltBlastsDrawn}");
+        TfwCheck("bolt blasts came back", _tfwBoltBlastsShown > boltBefore, (_tfwBoltBlastsShown - boltBefore).ToString());
+
         // Item 21: one throw, three frags, from outside the crowd.
         TfwFaceCrowd(30f);
         int carried = client.Predicted.Grenades;
