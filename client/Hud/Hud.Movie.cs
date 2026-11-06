@@ -226,7 +226,8 @@ public sealed partial class Hud
             int count = hud.FrameCount(ch);
             top = spec.Family switch
             {
-                "plasma_gun" or "plasma_pistol" or "plasma_cannon" => ChargeFrame(labels, count),
+                // Owner, 2026-11-06: the plasma reticle stays still (its first frame) while charging; only the charge and heat arcs move. --old-plasma-spin plays the clip's charge frames (the rotation).
+                "plasma_gun" or "plasma_pistol" or "plasma_cannon" => OldPlasmaSpin ? ChargeFrame(labels, count) : 0,
                 "heavy_bolter" => BraceFrame(labels, count),
                 _ => 0,
             };

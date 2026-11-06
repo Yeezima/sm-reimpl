@@ -12,6 +12,8 @@ namespace SmClient;
 public sealed partial class Hud
 {
     static readonly bool OldPlasmaGauges = Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-plasma-gauges") >= 0;
+    /// <summary><c>--old-plasma-spin</c>: the plasma reticle plays its movie clip's charge frames (it turns while a charge builds), as before 2026-11-06; by default it stays on its first frame.</summary>
+    static readonly bool OldPlasmaSpin = Array.IndexOf(OS.GetCmdlineUserArgs(), "--old-plasma-spin") >= 0;
 
     /// <summary>The last piece drawn per gauge (heat, overheat, charge): drawn again while the next frame's piece renders.</summary>
     readonly Dictionary<string, HudMovieArt.Pic> _plasmaLast = new();
@@ -92,14 +94,14 @@ public sealed partial class Hud
     // ---------------------------------------------------------------- --hud-plasma-demo <prefix>
 
     /// <summary>
-    /// <c>--hud-plasma-demo &lt;prefix&gt;</c> (screenshot aid, fix/plasma-visuals): with a plasma weapon in hand, steps the HUD through cold, half heat, high heat, overheated, half charge and full
-    /// charge (the values are shown, not simulated), saving the window as <c>&lt;prefix&gt;_&lt;state&gt;.png</c> for each, then quits.
+    /// <c>--hud-plasma-demo &lt;prefix&gt;</c> (screenshot aid, fix/plasma-visuals): with a plasma weapon in hand, steps the HUD through cold, half heat, high heat, overheated, a quarter, half, three quarters
+    /// and full charge (the values are shown, not simulated), saving the window as <c>&lt;prefix&gt;_&lt;state&gt;.png</c> for each, then quits.
     /// </summary>
     static readonly string? PlasmaDemo = ReadPlasmaDemo();
     double _plasmaDemoAt;
     int _plasmaDemoStep;
     static readonly (string Name, float Heat, bool Overheated, float Charge)[] PlasmaDemoStates =
-        [("cold", 0f, false, -1f), ("mid", 0.5f, false, -1f), ("hot", 0.85f, false, -1f), ("overheated", 1f, true, -1f), ("charge_half", 0.2f, false, 0.5f), ("charge_full", 0.2f, false, 1f)];
+        [("cold", 0f, false, -1f), ("mid", 0.5f, false, -1f), ("hot", 0.85f, false, -1f), ("overheated", 1f, true, -1f), ("charge_quarter", 0.2f, false, 0.25f), ("charge_half", 0.2f, false, 0.5f), ("charge_3q", 0.2f, false, 0.75f), ("charge_full", 0.2f, false, 1f)];
 
     static string? ReadPlasmaDemo()
     {
