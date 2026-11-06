@@ -28,11 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2319 spec table rows: **1686 tagged**, 456 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 509 rows of the changes document.
-Scanned 2318 spec table rows: **1683 tagged**, 456 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 509 rows of the changes document.
-Scanned 2318 spec table rows: **1687 tagged**, 454 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 509 rows of the changes document.
-Scanned 2319 spec table rows: **1687 tagged**, 455 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 509 rows of the changes document.
-Scanned 2315 spec table rows: **1684 tagged**, 454 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 509 rows of the changes document.
+Scanned 2333 spec table rows: **1695 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 513 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,47 +50,24 @@ Scanned 2315 spec table rows: **1684 tagged**, 454 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
-| Core simulation (provisional values) | 292 | 274 | 230 | 44 | 1 |
+| Core simulation (provisional values) | 293 | 275 | 231 | 45 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 168 | 159 | 80 | 45 | 0 |
-| **All areas** | **1686** | 1453 | 1294 | 516 | 38 |
 | Ork faction | 172 | 163 | 80 | 49 | 0 |
-| **All areas** | **1687** | 1454 | 1291 | 519 | 38 |
-| **All areas** | **1687** | 1452 | 1294 | 519 | 38 |
-| Core simulation (provisional values) | 289 | 273 | 229 | 41 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 168 | 159 | 80 | 45 | 0 |
-| **All areas** | **1684** | 1451 | 1292 | 516 | 38 |
+| **All areas** | **1695** | 1460 | 1298 | 525 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 834 |
-| confidence: low | 614 |
+| kind: ours | 838 |
+| confidence: low | 618 |
 | confidence: medium | 552 |
-| kind: ours | 836 |
-| confidence: low | 613 |
-| kind: ours | 833 |
-| confidence: low | 614 |
-| confidence: medium | 550 |
 | kind: interpretation | 343 |
-| notes: ours | 330 |
+| notes: ours | 334 |
 | confidence: none (low) | 128 |
-| kind: estimate | 99 |
-| kind: ours | 831 |
-| confidence: low | 616 |
-| confidence: medium | 550 |
-| kind: interpretation | 343 |
-| notes: ours | 333 |
-| confidence: none (low) | 128 |
-| kind: estimate | 101 |
+| kind: estimate | 102 |
 | kind: provisional | 99 |
-| notes: estimate | 78 |
-| kind: estimate | 98 |
-| notes: estimate | 82 |
-| kind: estimate | 98 |
-| notes: estimate | 79 |
+| notes: estimate | 83 |
 | kind: user's knowledge | 51 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
@@ -2032,8 +2005,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-EB03504B` | Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks (s) | kind: ours; notes: estimate | owner 2026-11-02 | Shot lag allowance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each shot is also tried on the enemy's places over the last 0.2 s… | ☐ |
 
-### Core simulation (provisional values) (292)
-### Core simulation (provisional values) (289)
+### Core simulation (provisional values) (293)
 
 *Spec section: Provisional values in use*
 
