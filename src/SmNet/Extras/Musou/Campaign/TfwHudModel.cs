@@ -130,7 +130,8 @@ public static class TfwHudModel
     public static string ObjectiveLabel(in TfwObjective o, bool final, int orksOn = 0) => $"{ObjectiveName(o.Index, final)}  {ObjectiveState(o)}{ClearingNote(o, orksOn)}";
 
     /// <summary>
-    /// What stops a capture, said where the player looks: a position being cleared shows how many Orks the client knows standing in it (" - 7 ORKS"); a point is taken with none alive inside its volume, whatever they are doing.
+    /// Who contests a capture, said where the player looks: a position being cleared shows how many Orks the client knows standing in it (" - 7 ORKS"); since 2026-11-06 (owner) they no longer stop it, the progress
+    /// grows while a player, lord or retainer stands on the point.
     /// The count is the client's own (the enemies it was sent, inside the radius and <see cref="ClearingReach"/> up and down), a hint and not the server's count.
     /// </summary>
     public static string ClearingNote(in TfwObjective o, int orksOn) => o.State == TfwPositionState.Clearing && orksOn > 0 ? $" - {orksOn} ORK{(orksOn == 1 ? "" : "S")}" : "";
@@ -143,7 +144,7 @@ public static class TfwHudModel
     {
         TfwPositionState.Locked => "LOCKED",
         TfwPositionState.Held => "HELD",
-        TfwPositionState.Clearing => "CLEARING",
+        TfwPositionState.Clearing => string.Create(CultureInfo.InvariantCulture, $"CLEARING {MathF.Floor(o.Progress * 100f):0}%"),   // since 2026-11-06 the capture goes on with Orks on it
         TfwPositionState.Securing => string.Create(CultureInfo.InvariantCulture, $"SECURING {MathF.Floor(o.Progress * 100f):0}%"),
         _ => "SECURED",
     };

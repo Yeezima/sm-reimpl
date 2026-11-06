@@ -196,7 +196,7 @@ public class TfwOrkTests
     }
 
     [Fact]
-    public void An_imperial_fighting_on_the_point_pauses_it_too()
+    public void A_player_fighting_on_the_point_pauses_its_spawning_and_still_captures_it()
     {
         var (sim, battle, layout) = Frozen();
         Vector3[] at = [layout.Positions[0]];
@@ -204,7 +204,7 @@ public class TfwOrkTests
         for (int t = 0; t < 5 * 30; t++) battle.Step(at);
         Assert.Equal(TfwPositionState.Clearing, battle.Objectives[0].State);  // its crowd still stands there
         Assert.Equal(before, OnPoint(sim, layout, 0));
-        Assert.Equal(0f, battle.Objectives[0].Progress);
+        Assert.InRange(battle.Objectives[0].Progress, 0.19f, 0.21f);   // 5 s of 25: Orks on it no longer stop it (owner, 2026-11-06)
     }
 
     [Fact]
@@ -404,11 +404,11 @@ public class TfwOrkTests
     // ---------------------------------------------------------------- without Guardsmen
 
     [Fact]
-    public void The_guardsmen_switch_is_off_and_a_run_takes_it()
+    public void The_guardsmen_switch_is_on_and_a_run_without_it_lands_none()
     {
-        Assert.False(TfwBattleRules.GuardsmenEnabled);
+        Assert.True(TfwBattleRules.GuardsmenEnabled);   // the owner, 2026-11-06: back as defenders
         var w = TfwRig.War();
-        w.Tfw!.Guardsmen = TfwBattleRules.GuardsmenEnabled;
+        w.Tfw!.Guardsmen = false;
         var battle = TfwRig.Deploy(w);
         Assert.Equal(0, battle.Squads);
         Assert.Equal(0, battle.Reserves);
@@ -438,18 +438,15 @@ public class TfwOrkTests
     }
 
     [Fact]
-    public void An_ai_marine_alone_takes_a_point_at_the_full_rate_without_guardsmen_and_at_half_with_them()
+    public void An_ai_marine_alone_takes_a_point_at_the_full_rate_with_or_without_guardsmen()
     {
-        var (sim, without, layout) = Frozen(guardsmen: false);
-        ClearPoint(sim, layout, 0);
-        Vector3[] marine = [layout.Positions[0]];
-        for (int t = 0; t < 26 * 30; t++) { ClearPoint(sim, layout, 0); without.Step(marine); }
-        Assert.Equal(TfwPositionState.Secured, without.Objectives[0].State);
-
-        var (other, with, place) = Frozen(guardsmen: true);
-        for (int t = 0; t < 26 * 30; t++) { ClearPoint(other, place, 0); with.Step(marine); }
-        Assert.Equal(TfwPositionState.Securing, with.Objectives[0].State);    // never stuck at rate 0
-        Assert.InRange(with.Objectives[0].Progress, 0.5f, 0.55f);
+        Vector3[] marine = [TfwTestArena.Layout().Positions[0]];
+        foreach (bool guardsmen in new[] { false, true })
+        {
+            var (sim, battle, layout) = Frozen(guardsmen);
+            for (int t = 0; t < 26 * 30; t++) { ClearPoint(sim, layout, 0); battle.Step(marine); }
+            Assert.Equal(TfwPositionState.Secured, battle.Objectives[0].State);   // since 2026-11-06 the Guardsmen take no share of a capture
+        }
     }
 
     [Fact]

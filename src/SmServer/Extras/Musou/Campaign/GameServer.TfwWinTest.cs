@@ -46,7 +46,7 @@ public sealed partial class GameServer
         if (TfwGuardsmenOn) run.Guardsmen = true;
         int rate = Math.Max(1, World.Config.TickRate);
         if (TickStatsSeconds > 0.0 && World.Tick % Math.Max(1u, (uint)(rate * TickStatsSeconds)) == 0)
-            Console.WriteLine($"TFWSTATS tick {World.Tick}: {run.Phase}, enemies {World.Musou?.Alive}, guards {World.TfwGuards?.Alive}, marines {run.Marines.Count}, players {World.Players.Count}");
+            Console.WriteLine($"TFWSTATS tick {World.Tick}: {run.Phase}, enemies {World.Musou?.Alive}, guards {World.TfwGuards?.Alive} (squads {World.TfwGuards?.SquadsAlive}, lost {World.TfwGuards?.Lost}, best boss cleave {World.TfwBestGuardCleave}, step {World.TfwGuards?.LastStepMilliseconds:F2} ms), secured {run.Battle?.Secured}, marines {run.Marines.Count}, players {World.Players.Count}");
         if (run.Battle is null) return;
         TfwFightLog(run, rate);
         if (TfwStress is not null || TfwKeepHuman)

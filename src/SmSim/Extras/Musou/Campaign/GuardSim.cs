@@ -264,14 +264,57 @@ public sealed class GuardSim
             if (heading != Vector2.Zero && Vector2.Dot(away, heading) < 0f) continue;
             shoved++;
             if (MusouSim.Unit(MusouSim.Mix(Tick, (uint)i * 0xC2B2AE35u + 0x165667B1u)) < deathChance) { Fall(i); continue; }
-            var push = heading + away;
-            float length = push.Length();
-            _throw[i] = length > 1e-4f ? push / length * (distance / (ticks * Dt)) : Vector2.Zero;
-            _throwTicks[i] = ticks;
-            _downTicks[i] = Ticks(rules.KnockedSeconds);
-            _state[i] = GuardState.Knocked; _stateTicks[i] = 0;
+            Knock(i, heading + away, distance, ticks, rules);
         }
         return shoved;
+    }
+
+    /// <summary>Man <paramref name="i"/> is thrown <paramref name="distance"/> along <paramref name="push"/> over <paramref name="ticks"/> and lies down (<see cref="GuardState.Knocked"/>).</summary>
+    void Knock(int i, Vector2 push, float distance, ushort ticks, TfwCombatRules rules)
+    {
+        float length = push.Length();
+        _throw[i] = length > 1e-4f ? push / length * (distance / (ticks * Dt)) : Vector2.Zero;
+        _throwTicks[i] = ticks;
+        _downTicks[i] = Ticks(rules.KnockedSeconds);
+        _state[i] = GuardState.Knocked; _stateTicks[i] = 0;
+    }
+
+    /// <summary>
+    /// A Boss Ork's cleave (owner, 2026-11-06: "the boss orks should be able to cleave guardsmen the way that players cleave orks"; the players' cleave's rules, <c>World.MusouCleave</c>): every living man
+    /// within <paramref name="reach"/> of <paramref name="at"/> (flat, 1.5 m up or down), in front of <paramref name="forward"/> by at least <paramref name="minCos"/> (one overlapping counts as in front),
+    /// at most <paramref name="most"/> nearest first, takes <paramref name="damage"/>; one who lives is thrown <see cref="TfwCombatRules.MeleePush"/> and falls, or with <see cref="TfwCombatRules.MeleeDeath"/>
+    /// dies at once (as a fodder Ork the players' melee hits). Men killed count in <see cref="Lost"/>, credited to nobody. How many were struck.
+    /// </summary>
+    public int Cleave(Vector3 at, Vector2 forward, float reach, float minCos, int most, float damage, TfwCombatRules rules)
+    {
+        if (!(damage > 0f) || most <= 0 || !Finite(at)) return 0;
+        Span<int> slots = stackalloc int[Capacity];
+        Span<float> distances = stackalloc float[Capacity];
+        int n = 0;
+        float r2 = reach * reach;
+        for (int i = 0; i < Capacity; i++)
+        {
+            if (!Living(i) || MathF.Abs(_position[i].Z - at.Z) > 1.5f) continue;
+            var flat = new Vector2(_position[i].X - at.X, _position[i].Y - at.Y);
+            float d2 = flat.LengthSquared();
+            if (d2 > r2) continue;
+            if (d2 > 1e-8f && Vector2.Dot(flat / MathF.Sqrt(d2), forward) < minCos) continue;
+            int k = n++;
+            while (k > 0 && distances[k - 1] > d2) { slots[k] = slots[k - 1]; distances[k] = distances[k - 1]; k--; }   // nearest first (ties: the lower slot)
+            slots[k] = i; distances[k] = d2;
+        }
+        n = Math.Min(n, most);
+        ushort ticks = Ticks(_enemies.Rules.Combat.KnockbackSeconds);
+        for (int k = 0; k < n; k++)
+        {
+            int i = slots[k];
+            _health[i] = MathF.Max(0f, _health[i] - damage);
+            if (_health[i] <= 0f || MusouSim.Unit(MusouSim.Mix(Tick, (uint)i * 0x27D4EB2Fu + 0x61C88647u)) < rules.MeleeDeath) { Fall(i); continue; }
+            AddEvent(new GuardEvent(GuardEventKind.Hurt, Tick, (ushort)(i + 1), 0, _position[i]));
+            var away = new Vector2(_position[i].X - at.X, _position[i].Y - at.Y);
+            Knock(i, away.LengthSquared() > 1e-8f ? Vector2.Normalize(away) : forward, rules.MeleePush, ticks, rules);
+        }
+        return n;
     }
 
     /// <summary>One tick on the ground: the throw under way, then he stands. He neither walks nor fires.</summary>

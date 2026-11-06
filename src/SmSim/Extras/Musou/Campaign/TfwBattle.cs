@@ -12,18 +12,28 @@ public static class TfwBattleRules
     public const float SecureSeconds = 25f;
     /// <summary>The share of a position's progress lost a second with no Imperial on it.</summary>
     public const float SecureDecayPerSecond = 0.02f;
-    /// <summary>The Guardsmen of a battle: the owner, 2026-11-01, "Temporarily remove all guardsmen allies". False: no squad lands and players and AI Marines take the points at the full rate. True brings them back, nothing else to change.</summary>
-    public const bool GuardsmenEnabled = false;
+    /// <summary>
+    /// The Guardsmen of a battle: off on 2026-11-01 ("Temporarily remove all guardsmen allies"), back on 2026-11-06 ("re add the imperial guardsmen infantry formations to the game. they move and act on their own to
+    /// defend existing points. only allied space marine lords and players and retainers go capture new territory"). They never capture: they hold the landing zone and the secured positions.
+    /// </summary>
+    public const bool GuardsmenEnabled = true;
     /// <summary>What a secured position takes to fall: this long with Orks alone on it (a retake, and the way back up the same).</summary>
     public const float RetakeSeconds = 20f;
     /// <summary>A field short of squads gets the next reserve after this long.</summary>
     public const float ReserveSeconds = 15f;
-    /// <summary>A human or an AI Marine on a position with no Guardsman there secures it at this share of the rate (ours: a position never dead-ends).</summary>
-    public const float HumanSecureRate = 0.5f;
     /// <summary>The squads' orders are looked at every this many seconds.</summary>
     public const float SquadOrderSeconds = 1f;
-    /// <summary>A squad stands on a point at most this share of the point's radius from its centre (the squads must stand inside to take it).</summary>
+    /// <summary>A squad stands on a point at most this share of the point's radius from its centre.</summary>
     public const float SquadOnPoint = 0.7f;
+    /// <summary>
+    /// The defence (owner, 2026-11-06; every value ours, an estimate): the squads share the secured positions out by the Orks within <see cref="ThreatRadius"/> of each (counted up to
+    /// <see cref="ThreatMost"/>, in steps of <see cref="ThreatStep"/> so a squad does not walk off for one Ork), each counting <see cref="ThreatFloor"/> more, so with no threat they spread evenly.
+    /// With no position secured they hold the landing zone, within <see cref="LandingHoldRadius"/>.
+    /// </summary>
+    public const float ThreatRadius = 40f;
+    public const int ThreatMost = 64, ThreatStep = 8;
+    public const float ThreatFloor = 8f;
+    public const float LandingHoldRadius = 10f;
 
     /// <summary>A leashed Ork wakes when a target comes this near its home (<see cref="MusouSim.SpawnLeashed"/>), and is free for good: a garrison and the commander's group.</summary>
     public const float DefenderAggro = 30f;
@@ -147,10 +157,11 @@ public enum TfwBattleChange : byte
 }
 
 /// <summary>
-/// One battle (design sections D and I), or the final assault: the three positions, the crowd each spawn point pools and then swarms with (owner, 2026-11-01), the Guard squads, each going for the nearest position not secured, the commander
+/// One battle (design sections D and I), or the final assault: the three positions, the crowd each spawn point pools and then swarms with (owner, 2026-11-01), the Guard squads, which hold the landing zone and defend the secured positions and never take one (owner, 2026-11-06), the commander
 /// (he comes once each point has fallen, whatever has been retaken since, so a battle cannot hang on holding all three at once), and the failsafe for enemies nobody can reach. Works on the enemies' pool and the Guardsmen alone, deterministically; the run (<see cref="TfwRun"/>) owns everything around it. A
-/// position is Held with no Imperial on it, Clearing with Imperials and Orks on it, Securing with Imperials alone, Secured when that has run its time; only Held sends Orks (a capture pauses it, a full one stops it, and the
-/// tick a capture ends or a retake is done it sends again). A secured position with Orks alone on it falls back to Held in <see cref="TfwBattleRules.RetakeSeconds"/>. A secured position keeps one squad as long as two are free.
+/// position is Held with no capturer (player, lord, retainer) on it, Clearing with capturers and Orks on it, Securing with capturers alone (both grow its progress at the full rate, owner 2026-11-06), Secured when that has run
+/// its time; only Held sends Orks (a capture pauses it, a full one stops it, and the tick a capture ends or a retake is done it sends again). A secured position with Orks alone on it (no capturer, no Guardsman) falls
+/// back to Held in <see cref="TfwBattleRules.RetakeSeconds"/>. The squads share the secured positions out by threat.
 /// </summary>
 public sealed partial class TfwBattle
 {
@@ -186,7 +197,6 @@ public sealed partial class TfwBattle
     int _now, _humansNow, _swarms;
     const int CrowdGroupFirst = Positions + 2;   // after the garrisons' (1 to 3) and the commander's (4): the positions' crowds, then the HQ source's
     const int MusterGroupFirst = CrowdGroupFirst + Positions + 1;   // then each source's muster (9 to 12)
-    readonly int[] _holder = [-1, -1, -1];                  // the squad holding a secured position
     readonly int[] _squadGoal = new int[GuardSim.MaxSquads];   // the objective a squad was sent to (-1: none)
     int _reserves, _released, _picked, _spots, _reserveTicks, _squadTicks, _summons, _waaaghs, _taken;
     bool _commander, _depotPaid;
@@ -510,13 +520,19 @@ public sealed partial class TfwBattle
         return change;
     }
 
-    /// <summary>One tick of a position: who stands on it says what it does (the type's summary).</summary>
+    /// <summary>
+    /// One tick of a position: who stands on it says what it does (the type's summary). Only a capturer takes ground: a player, a lord or a retainer (<paramref name="players"/>, the living players
+    /// and AI Marines); a Guardsman never does (owner, 2026-11-06). The owner, 2026-11-06: "players should be able to make progress capturing a point even if orks are still defending it. only stop capturing
+    /// if no player remains on the point": with a capturer on it the progress grows at the full rate whatever Orks stand there (Clearing with Orks on it, Securing without); with none it is Held and
+    /// decays. A secured position is kept by any Imperial on it, Guardsmen included (they defend it), and falls with Orks alone on it.
+    /// </summary>
     TfwBattleChange StepPosition(int k, ReadOnlySpan<Vector3> players)
     {
         var o = _objectives[k];
-        bool guards = _guards.CountInside(o.Position, _layout.Radius(k)) > 0, imperial = guards || AnyInside(k, players), orks = OrksInside(k);
+        bool capturers = AnyInside(k, players), orks = OrksInside(k);
         if (o.State == TfwPositionState.Secured)
         {
+            bool imperial = capturers || _guards.CountInside(o.Position, _layout.Radius(k)) > 0;
             float change = Dt / TfwBattleRules.RetakeSeconds;
             float held = orks && !imperial ? o.Progress - change : MathF.Min(1f, o.Progress + change);
             if (held > 0f) { _objectives[k] = o with { Progress = held }; return TfwBattleChange.None; }
@@ -525,16 +541,15 @@ public sealed partial class TfwBattle
             SendAgain(k);
             return TfwBattleChange.None;
         }
-        if (!imperial)
+        if (!capturers)
         {
             if (o.State != TfwPositionState.Held) SendAgain(k);
             o = o with { State = TfwPositionState.Held, Progress = MathF.Max(0f, o.Progress - TfwBattleRules.SecureDecayPerSecond * Dt) };
         }
-        else if (orks) { o = o with { State = TfwPositionState.Clearing }; RemoveStuck(k); }
         else
         {
-            float rate = guards || !_guardsmen ? 1f : TfwBattleRules.HumanSecureRate;
-            o = o with { State = TfwPositionState.Securing, Progress = o.Progress + rate * Dt / TfwBattleRules.SecureSeconds };
+            if (orks) RemoveStuck(k);
+            o = o with { State = orks ? TfwPositionState.Clearing : TfwPositionState.Securing, Progress = o.Progress + Dt / TfwBattleRules.SecureSeconds };
         }
         if (o.Progress < 1f) { _objectives[k] = o; return TfwBattleChange.None; }
         _objectives[k] = o with { State = TfwPositionState.Secured, Progress = 1f };
@@ -620,62 +635,89 @@ public sealed partial class TfwBattle
         return change | TfwBattleChange.CommanderCame;
     }
 
+    /// <summary>Where a squad holds with no position secured: the landing zone (a goal past the HQ's).</summary>
+    public const int LandingGoal = CommanderObjective + 1;
+    readonly int[] _want = new int[Positions], _have = new int[Positions];
+
     /// <summary>
-    /// The squads' orders, once a second: a secured position without a squad keeps the nearest one while two or more are free (it cannot be left empty for nothing); every other squad goes for the
-    /// nearest position not secured, then the HQ. A squad is sent again when its goal changed, or when it stopped outside it.
+    /// The squads' orders, once a second (owner, 2026-11-06: "they move and act on their own to defend existing points"): they never go for a position not secured. With none secured every squad holds the
+    /// landing zone; otherwise the squads are shared out over the secured positions by threat (<see cref="TfwBattleRules.ThreatRadius"/>): each squad goes, one at a time, where (threat + floor) / (squads + 1)
+    /// is highest. A squad keeps its post while its post still wants it, the others go to the nearest post short of squads. A squad is sent again when its goal changed, or when it stopped outside it.
     /// </summary>
     void StepSquads()
     {
         if (--_squadTicks > 0) return;
         _squadTicks = Ticks(TfwBattleRules.SquadOrderSeconds);
-        int free = 0;
-        for (int s = 0; s < GuardSim.MaxSquads; s++) if (_guards.AliveIn(s) > 0) free++;
+        int alive = 0, owned = 0;
+        for (int s = 0; s < GuardSim.MaxSquads; s++)
+            if (_guards.AliveIn(s) > 0) alive++;
+            else _squadGoal[s] = -1;
+        if (alive == 0) return;
+        Span<float> threat = stackalloc float[Positions];
+        Span<ushort> near = stackalloc ushort[TfwBattleRules.ThreatMost];
         for (int k = 0; k < Positions; k++)
         {
-            if (_holder[k] >= 0 && (_guards.AliveIn(_holder[k]) == 0 || _objectives[k].State != TfwPositionState.Secured)) _holder[k] = -1;
-            if (_holder[k] >= 0) free--;
+            _want[k] = _have[k] = 0;
+            if (_objectives[k].State != TfwPositionState.Secured) { threat[k] = -1f; continue; }
+            owned++;
+            int n = _enemies.Query(_layout.Positions[k], TfwBattleRules.ThreatRadius, near, TfwBattleRules.ThreatRadius);
+            threat[k] = n / TfwBattleRules.ThreatStep * TfwBattleRules.ThreatStep + TfwBattleRules.ThreatFloor;
         }
-        for (int k = 0; k < Positions && !_final; k++)
+        if (owned == 0)
         {
-            if (_objectives[k].State != TfwPositionState.Secured || _holder[k] >= 0 || free < 2) continue;
-            int squad = NearestFree(_layout.Positions[k]);
-            if (squad < 0) break;
-            _holder[k] = squad;
-            free--;
-            Send(squad, k);
+            for (int s = 0; s < GuardSim.MaxSquads; s++) if (_guards.AliveIn(s) > 0) Keep(s, LandingGoal);
+            return;
+        }
+        for (int n = 0; n < alive; n++)
+        {
+            int best = -1;
+            float bestScore = float.NegativeInfinity;
+            for (int k = 0; k < Positions; k++)
+            {
+                if (threat[k] < 0f) continue;
+                float score = threat[k] / (_want[k] + 1);
+                if (score > bestScore) { bestScore = score; best = k; }
+            }
+            _want[best]++;
+        }
+        Span<bool> placed = stackalloc bool[GuardSim.MaxSquads];
+        for (int s = 0; s < GuardSim.MaxSquads; s++)
+        {
+            int g = _squadGoal[s];
+            if (_guards.AliveIn(s) == 0 || g is < 0 or >= Positions || _have[g] >= _want[g]) continue;
+            _have[g]++;
+            placed[s] = true;
+            Keep(s, g);
         }
         for (int s = 0; s < GuardSim.MaxSquads; s++)
         {
-            if (_guards.AliveIn(s) == 0) { _squadGoal[s] = -1; continue; }
-            if (Holds(s)) continue;
-            int goal = Nearest(_guards.Centre(s));
-            if (goal < 0) { if (!_commander) continue; goal = CommanderObjective; }
-            if (goal != _squadGoal[s] || (_guards.Arrived(s) && !OnGoal(s, goal))) Send(s, goal);
+            if (_guards.AliveIn(s) == 0 || placed[s]) continue;
+            int best = -1;
+            float bestD = float.PositiveInfinity;
+            for (int k = 0; k < Positions; k++)
+            {
+                if (_have[k] >= _want[k]) continue;
+                float d = Vector3.DistanceSquared(_guards.Centre(s), _layout.Positions[k]);
+                if (d < bestD) { bestD = d; best = k; }
+            }
+            if (best < 0) continue;
+            _have[best]++;
+            Keep(s, best);
         }
     }
 
-    bool Holds(int squad)
+    /// <summary>Squad <paramref name="s"/>'s post is <paramref name="goal"/>: sent there when it was posted elsewhere, or stopped outside it.</summary>
+    void Keep(int s, int goal)
     {
-        foreach (int s in _holder) if (s == squad) return true;
-        return false;
+        if (goal != _squadGoal[s] || (_guards.Arrived(s) && !OnGoal(s, goal))) Send(s, goal);
     }
 
-    int NearestFree(Vector3 at)
-    {
-        int best = -1;
-        float bestD = float.PositiveInfinity;
-        for (int s = 0; s < GuardSim.MaxSquads; s++)
-        {
-            if (_guards.AliveIn(s) == 0 || Holds(s)) continue;
-            float d = Vector3.DistanceSquared(_guards.Centre(s), at);
-            if (d < bestD) { bestD = d; best = s; }
-        }
-        return best;
-    }
+    /// <summary>The post of squad <paramref name="squad"/> (a position, <see cref="LandingGoal"/>, or -1: none yet) (tests).</summary>
+    public int SquadPost(int squad) => squad is >= 0 and < GuardSim.MaxSquads ? _squadGoal[squad] : -1;
 
-    Vector3 PlaceOf(int goal) => goal == CommanderObjective ? _layout.Hq : _layout.Positions[goal];
+    Vector3 PlaceOf(int goal) => goal == LandingGoal ? _layout.LandingZone : goal == CommanderObjective ? _layout.Hq : _layout.Positions[goal];
 
-    float RadiusOf(int goal) => goal == CommanderObjective ? TfwMap.HqRadius : _layout.Radius(goal);
+    float RadiusOf(int goal) => goal == LandingGoal ? TfwBattleRules.LandingHoldRadius : goal == CommanderObjective ? TfwMap.HqRadius : _layout.Radius(goal);
 
     bool OnGoal(int squad, int goal) => new Vector2(_guards.Centre(squad).X - PlaceOf(goal).X, _guards.Centre(squad).Y - PlaceOf(goal).Y).Length() <= RadiusOf(goal);
 

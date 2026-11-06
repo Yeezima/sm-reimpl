@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2284 spec table rows: **1655 tagged**, 453 not tagged (read from data with high confidence), 176 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 499 rows of the changes document.
+Scanned 2291 spec table rows: **1661 tagged**, 454 not tagged (read from data with high confidence), 176 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 500 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,21 +52,21 @@ Scanned 2284 spec table rows: **1655 tagged**, 453 not tagged (read from data wi
 | Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
 | Core simulation (provisional values) | 281 | 265 | 221 | 37 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 149 | 142 | 73 | 34 | 0 |
-| **All areas** | **1655** | 1424 | 1275 | 500 | 38 |
+| Ork faction | 155 | 147 | 78 | 36 | 0 |
+| **All areas** | **1661** | 1429 | 1280 | 502 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 810 |
-| confidence: low | 602 |
-| confidence: medium | 545 |
+| kind: ours | 814 |
+| confidence: low | 604 |
+| confidence: medium | 548 |
 | kind: interpretation | 343 |
-| notes: ours | 325 |
+| notes: ours | 327 |
 | confidence: none (low) | 128 |
 | kind: provisional | 99 |
-| kind: estimate | 93 |
+| kind: estimate | 94 |
 | notes: estimate | 67 |
 | kind: user's knowledge | 51 |
 | notes: provisional | 38 |
@@ -2189,8 +2189,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-190BE12D` | War place snap | every spot round a site (squads, defenders, spawn grid, players, retainer, lords) goes to the graph's node within 1.5 m and 2.5 m of height, else to the site itself, so nobody spawns in a wall on the real map (m) | kind: ours | ours | War place snap: compare with SM1 by measuring on a flat spot of the same map. Ours: every spot round a site (squads, defenders, spawn grid, players… | ☐ |
 | `R-04786E51` | War point reach | an Ork holds a position within its radius (flat) and within its half height of the centre, never less than 2.5 m (m) | kind: ours | the map's marker height; 2.5 m: Musou's query default | War point reach: compare with SM1 by measuring on a flat spot of the same map. Ours: an Ork holds a position within its radius (flat) and within its half… | ☐ |
 | `R-DF1F8A22` | Hub clearance | the Stormbird's cockpit end stands 110 m south of the level's southern bound (mesh and kill volumes): the graph's 30 m margin and 80 m more; x the middle of the bounds, both in whole metres; on Manufactorum at (246, -1263, 0) (m) | kind: ours; confidence: low | the architect's proposal | Hub clearance: compare with SM1 by measuring on a flat spot of the same map. Ours: the Stormbird's cockpit end stands 110 m south of the level's… | ☐ |
-| `R-F828164C` | Positions | all three live from the landing (no chain since M2). Held with no Imperial on it, Clearing with Imperials and Orks on it, Securing with Imperials alone, Secured after 25 s; on a point means inside its radius and height, for a Guardsman flat. A Guardsman there… (m, s) | kind: ours; confidence: low | the design's section I; the human's and the Marine's rates ours | Positions: compare with SM1 by feel or video. Ours: all three live from the landing (no chain since M2). Held with no… | ☐ |
-| `R-F69472F0` | Squad orders | once a second: a secured position without a squad keeps the nearest one while two or more are free, every other squad goes for the nearest position not secured, then the HQ; each stands at its own spot within 0.7 of the point's radius (s, share) | kind: ours; confidence: low | the design's section I; the holding squad and the spots ours | Squad orders: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: once a second: a secured position without a squad keeps the nearest… | ☐ |
+| `R-F828164C` | Positions | all three live from the landing (no chain since M2). Held with no capturer on it, Clearing with capturers and Orks on it, Securing with capturers alone, Secured after 25 s at the full rate (since 2026-11-06: capturers are humans and AI Marines, lords and… (m, s) | kind: ours; confidence: low | the design's section I; the human's and the Marine's rates ours | Positions: compare with SM1 by feel or video. Ours: all three live from the landing (no chain since M2). Held with no… | ☐ |
+| `R-F69472F0` | Squad orders | superseded on 2026-11-06 by "Defence posts" (section "Guardsmen as defenders"); before: a secured position kept the nearest squad while two were free, every other squad went for the nearest position not secured, then the HQ; each stands at its own spot within… (s, share) | kind: ours; confidence: low | the design's section I; the spots ours | Squad orders: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: superseded on 2026-11-06 by "Defence posts" (section "Guardsmen as… | ☐ |
 | `R-393DBF18` | Battle Guardsmen | clamp(round(I / 15), 4, 12) squads, at most 6 in the field, 12 in the final with the final bonus's squads; the rest in reserve, refilled to 6 at each secured position (squads) | kind: ours; confidence: low | the architect's proposal; the refill and the moving up ours | Battle Guardsmen: compare with SM1 by feel or video. Ours: clamp(round(I / 15), 4, 12) squads, at most 6 in the field, 12 in the… | ☐ |
 | `R-1DB5922A` | Battle commander | once each point has fallen: a Nob at the HQ, 1500 x player scale health, a Nob and five 'Ard Boyz, all leashed at 30 m; the boss bar shows him; his death wins; he has the Warboss's abilities too, his three Waaagh!s bring 20 Boyz each (hit points) | kind: ours; confidence: low | the architect's proposal; the leash and the abilities ours, to check in a playtest | Battle commander: compare with SM1 by feel or video. Ours: once each point has fallen: a Nob at the HQ, 1500 x player scale… | ☐ |
 | `R-9080B4FB` | Boss against squads | the commander and the Warboss count squads as targets; a slam or charge on a squad lands on one man | kind: ours; confidence: low | ours | Boss against squads: compare with SM1 by feel or video. Ours: the commander and the Warboss count squads as targets; a slam or… | ☐ |
@@ -2709,6 +2709,17 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-05E986E7` | Musou: the Warboss's strength | **15000** hit points at one player (was 4000), times the scale (and the final bonus); swing **60** (was 40), slam **60** (was 40), charge **75** (was 50) (hit points, damage) | kind: ours | owner 2026-11-06 ("even more health", "noticeably stronger"; 15000 and 1.5x chosen by him) | Musou: the Warboss's strength: compare with SM1 by feel or video. Ours: 15000 hit points at one player (was 4000), times the scale (and the… | ☐ |
 | `R-0CD5CCDB` | Musou: the commander is the Warboss | the battle's boss at the HQ after A, B and C have fallen is the Warboss (his kind, look, abilities and the health above), leashed at the HQ with his escort of 1 Nob and 5 'Ard Boyz as the commander was; the boss bar and the HQ's label say WARBOSS | kind: ours; notes: interpretation | owner 2026-11-06 "replace him with the warboss" (the same health as the final one is ours, the literal reading) | Musou: the commander is the Warboss: compare with SM1 by feel or video. Ours: the battle's boss at the HQ after A, B and C have fallen is the… | ☐ |
 | `R-FE483109` | Musou: the Warboss model | the campaign's `warboss_regular` body and `warboss_head_regular` head on `havok_warboss_regular__hkxx` (`data/chunks/ebp_sets__sequence2_core_units.oppc`), drawn as tall as the Nob body was at `BossScale` 3 (scaled by the meshes' heights); clips: run… (scale) | kind: ours; notes: interpretation | owner 2026-11-06 (the model, "as tall as today"); the clips ours | Musou: the Warboss model: compare with SM1 by feel or video. Ours: the campaign's warboss_regular body and warboss_head_regular head on… | ☐ |
+
+*Spec section: Musou Mode: Guardsmen as defenders, the capture under fire, the Boss Ork cleave (musou/guard-formations, 2026-11-06; `TfwRules.Version` 28, no protocol or wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-C0176701` | Capture under fire | with a capturer on it a point's progress grows at the full rate (25 s to secure) whatever Orks stand on it: Clearing (capturers and Orks) and Securing (capturers alone) both grow it; Held (no capturer) holds none and the progress falls **2 %** a second, as… (s) | notes: ours | the owner (2026-11-06); the decay unchanged (ours) | Capture under fire: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: with a capturer on it a point's progress grows at the full rate (25 s… | ☐ |
+| `R-FD686DFF` | Keeping a secured point | any Imperial on it keeps it, a Guardsman included (he defends it); Orks alone on it take it back in 20 s, as before (s) | kind: ours; confidence: medium | ours: "defend existing points" | Keeping a secured point: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: any Imperial on it keeps it, a Guardsman included (he defends it)… | ☐ |
+| `R-BF891DD9` | HUD: clearing | "CLEARING n%" (was "CLEARING", the progress now grows), then " - n ORKS" as before | kind: ours; confidence: medium | ours | HUD: clearing: compare with SM1 by feel or video. Ours: "CLEARING n%" (was "CLEARING", the progress now grows), then " - n… | ☐ |
+| `R-D354B4B9` | Defence posts | once a second the squads are posted: with no point secured all hold the landing zone (within **10** m); otherwise each squad in turn goes to the secured point with the highest (threat + **8**) / (squads posted + 1), threat the Orks within **40** m of it (up… (m, enemies) | kind: estimate; confidence: low; notes: ours | the owner: "they move and act on their own to defend existing points"; every number ours, an estimate to check in a playtest | Defence posts: compare with SM1 by feel or video. Ours: once a second the squads are posted: with no point secured all hold… | ☐ |
+| `R-64573A3D` | Squads | as before: clamp(round(I / 15), 4, 12), at most 6 in the field, refilled from the landing zone every 15 s and at each secured point; 10 men in two rows of five (squads) | kind: ours; confidence: low | as before | Squads: compare with SM1 by feel or video. Ours: as before: clamp(round(I / 15), 4, 12), at most 6 in the field… | ☐ |
+| `R-AE9D13A5` | Boss Ork cleave on Guardsmen | a Boss Ork's melee blow on a squad strikes every living Guardsman, of any squad, within its melee reach + its body radius + 0.4 m (a Guardsman) + 0.5 m (the players' cleave's extra) of its feet, 1.5 m up or down, in the front half (the core's 60 degrees x… (m, men) | kind: ours; confidence: medium | the owner (2026-11-06): "the way that players cleave orks": the players' cleave and fall rules (`MusouCombatRules`, `TfwCombatRules`) reused; the reach's body… | Boss Ork cleave on Guardsmen: compare with SM1 by feel or video. Ours: a Boss Ork's melee blow on a squad strikes every living Guardsman, of… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 
@@ -3361,6 +3372,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-1125D5C3` | Musou: melee heal per enemy (2026-11-06; `MusouSim.Version` 8) | No Musou Mode in the original | Ours (added content): the 5 % melee heal is given for every enemy a swing, stomp or cleave strikes (an enemy in both once), still capped at full health; before, once a swing | Owner's request 2026-11-06; Musou Mode only, Classic PvP unchanged; spec "Musou: melee heal" | Musou: melee heal per enemy (2026-11-06; MusouSim.Version 8): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-61747757` | Musou Boss Orks and the Warboss model (musou/boss-orks, 2026-11-06) | No Musou Mode in the original | Ours (added content, the owner's request and answers): roaming Boss Orks of any Ork kind at 3x size, 10x health (at least 3000), 2x damage, never staggered, each with 20 elites, in battles only, 1 to 2 min after the landing and then every 1.5 to 3 min, at most 2 alive; the Warboss at 15000 health and 1.5x damage, the… | Musou Mode only. Spec "Musou Mode: Boss Orks and the Warboss model". | Musou Boss Orks and the Warboss model (musou/boss-orks…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-B8027519` | The charge clash: charger and victim locked through the shove (feel/charge-clash, 2026-11-06; protocol 59) | Ours in its mechanics (the original's pairing is engine code); its length and motion are the data's collision stop (1.83 m forward in 0.2 s, then 1.11 m back) and match the owner's recording | A stunned or staggered victim is carried with the charger through the stop's forward shove at 0.9 m (capsules touching), the charger's step ignores the victim's body, a victim the level stops holds the charger back; any charger meets a body at its edge (guard 0.85 m: the touch less a 5 cm slack, was 0.75 m); remotes… | spec "The charge clash: charger and victim locked through the shove" | The charge clash: charger and victim locked through the…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-FAB1E86D` | Musou: Guardsmen as defenders, capture under fire, Boss Ork cleave (musou/guard-formations, 2026-11-06; `TfwRules.Version` 28) | No Musou Mode in the original | Ours (added content, the owner's requests): the Guardsmen squads are back in every battle; they hold the landing zone, then share the secured positions out by the Orks near each, and never capture; only players, lords and retainers take a point, at the full rate, and Orks on the point no longer stop the progress (only… | Musou Mode only. Spec "Musou Mode: Guardsmen as defenders, the capture under fire, the Boss Ork cleave". | Musou: Guardsmen as defenders, capture under fire, Boss Ork…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

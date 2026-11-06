@@ -173,8 +173,9 @@ public class TfwBossOrkTests
     {
         var arrivals = new List<TfwBossOrkArrival>();
         var (_, battle, layout) = Battle(arrivals: arrivals);
-        // A player on each sending point: none is 40 m clear of everyone.
-        Vector3[] everywhere = [layout.Positions[0], layout.Positions[1], layout.Positions[2]];
+        // A player beside each sending point, outside its radius (on it he would take it, Orks or not, since 2026-11-06): none is 40 m clear of everyone.
+        var beside = new Vector3(TfwTestArena.CaptureRadius + 4f, 0f, 0f);
+        Vector3[] everywhere = [layout.Positions[0] + beside, layout.Positions[1] + beside, layout.Positions[2] + beside];
         for (int t = 0; t < Ticks(130f); t++) battle.Step(everywhere);
         Assert.Empty(arrivals);
     }

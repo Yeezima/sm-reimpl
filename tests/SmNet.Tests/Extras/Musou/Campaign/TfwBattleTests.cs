@@ -115,34 +115,29 @@ public class TfwBattleTests
     }
 
     [Fact]
-    public void A_position_waits_for_a_player_its_defenders_and_a_guardsman()
+    public void A_position_is_taken_by_a_player_under_fire_and_never_by_the_guardsmen()
     {
         var w = TfwRig.War();
         var battle = TfwRig.Deploy(w);
         TfwRig.Seconds(w, 1f);
         Assert.Equal(TfwPositionState.Held, battle.Objectives[0].State);   // nobody near
         TfwRig.Teleport(w, battle.Layout.Positions[0]);
-        TfwRig.Steps(w, 2);
+        w.Musou!.Frozen = true;                                            // the garrison stands on it
+        TfwRig.Seconds(w, 2f);
         Assert.Equal(TfwPositionState.Clearing, battle.Objectives[0].State);
+        Assert.True(battle.Objectives[0].Progress > 0f);                   // the owner, 2026-11-06: progress with Orks still on it
+        w.Musou.Frozen = false;
         TfwRig.KillAll(w);
         TfwRig.Steps(w, 3);
         Assert.Equal(TfwPositionState.Securing, battle.Objectives[0].State);
-        TfwRig.Teleport(w, battle.Layout.LandingZone);                     // the Guardsmen's to take
-        int ticks = 0;
-        for (; ticks < 240 * 30 && w.TfwGuards!.CountInside(battle.Layout.Positions[0], TfwTestArena.CaptureRadius) == 0; ticks++) { TfwRig.KillAll(w); w.Step(_ => default); }
-        for (int t = 0; t < 5; t++) { TfwRig.KillAll(w); w.Step(_ => default); }
-        Assert.True(battle.Objectives[0].Progress > 0f);
-        Assert.True(w.TfwGuards!.CountInside(battle.Layout.Positions[0], TfwTestArena.CaptureRadius) > 0);
-        var ork = w.Musou!.Spawn(MusouEnemyType.Boy, battle.Layout.Positions[0], 0f, 1e6f);   // all the squads may be here: it must outlive their fire
-        w.Musou.Frozen = true;
-        TfwRig.Steps(w, 2);
-        float paused = battle.Objectives[0].Progress;
-        TfwRig.Steps(w, 30);
-        Assert.Equal(paused, battle.Objectives[0].Progress);               // an Ork inside pauses it
-        w.Musou.Frozen = false;
-        w.Musou.Damage(ork, 0, 1e7f, Vector3.Zero, out _);                 // a Guardsman's KO names no player
+        float made = battle.Objectives[0].Progress;
+        TfwRig.Teleport(w, battle.Layout.LandingZone);
+        var guards = w.TfwGuards!;
+        Assert.True(guards.SpawnSquad(battle.Layout.Positions[0]) >= 0);   // a squad put on it by hand (their posts would never send one)
         for (int t = 0; t < 30; t++) { TfwRig.KillAll(w); w.Step(_ => default); }
-        Assert.True(battle.Objectives[0].Progress > paused);
+        Assert.True(guards.CountInside(battle.Layout.Positions[0], TfwTestArena.CaptureRadius) > 0);
+        Assert.Equal(TfwPositionState.Held, battle.Objectives[0].State);   // Guardsmen never capture
+        Assert.True(battle.Objectives[0].Progress < made);
     }
 
     [Fact]
@@ -169,7 +164,7 @@ public class TfwBattleTests
     }
 
     [Fact]
-    public void With_no_guardsman_on_it_a_player_or_marine_secures_at_half_rate()
+    public void With_no_guardsman_on_it_a_player_or_marine_secures_at_the_full_rate_with_an_ork_on_it_too()
     {
         var sim = new MusouSim(null);
         var guards = new GuardSim(sim);
@@ -189,11 +184,11 @@ public class TfwBattleTests
         Assert.Equal(0f, battle.Objectives[0].Progress);
         ushort ork = sim.Spawn(MusouEnemyType.Boy, layout.Positions[0], 0f, 85f);
         for (int k = 0; k < 30; k++) battle.Step(at);
-        Assert.Equal(0f, battle.Objectives[0].Progress);                     // an Ork pauses it
+        Assert.InRange(battle.Objectives[0].Progress, 1f / 25f - 0.001f, 1f / 25f + 0.001f);   // an Ork no longer pauses it (owner, 2026-11-06)
         sim.Damage(ork, 1, 1e6f, Vector3.Zero, out _);
-        for (int k = 0; k < 25 * 30; k++) { ClearAll(sim); battle.Step(at); }
-        Assert.InRange(battle.Objectives[0].Progress, 0.499f, 0.501f);       // half the rate
-        for (int k = 0; k < 25 * 30 + 2; k++) { ClearAll(sim); battle.Step(at); }
+        for (int k = 0; k < 11 * 30; k++) { ClearAll(sim); battle.Step(at); }
+        Assert.InRange(battle.Objectives[0].Progress, 0.479f, 0.481f);       // the full rate (no half rate since 2026-11-06)
+        for (int k = 0; k < 13 * 30 + 2; k++) { ClearAll(sim); battle.Step(at); }
         Assert.Equal(TfwPositionState.Secured, battle.Objectives[0].State);
     }
 
