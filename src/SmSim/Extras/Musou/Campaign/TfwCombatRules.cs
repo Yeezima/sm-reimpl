@@ -91,6 +91,28 @@ public sealed record TfwCombatRules
         return weapon.Slot == WeaponSlot.Pistol ? 1 : 2;
     }
 
+    // ---- the bolt blasts (the owner, 2026-11-07: "make all bolter weapons cause an explosion to trigger on every enemy the projectile passes through. the explosion is a small-medium explosion.")
+
+    /// <summary>Whether a bolt weapon's shot sets off a blast at every enemy it strikes (false: the pierce of item 24 alone).</summary>
+    public bool BoltBlasts { get; init; } = true;
+    /// <summary>The blast's reach in metres ("small-medium": ours, an estimate; the data's frag reaches 10 m, the Musou Mode frag 20 m).</summary>
+    public float BoltBlastRadius { get; init; } = 2.5f;
+    /// <summary>The blast's damage at its centre (ours, an estimate: about a third of a Boy's 85, a bolter round is 22).</summary>
+    public float BoltBlastDamage { get; init; } = 30f;
+    /// <summary>The blast's fall-off (distance in metres, share of <see cref="BoltBlastDamage"/>; linear between, nothing past the last): full to 1 m, 30 % at the edge (ours).</summary>
+    public IReadOnlyList<DistancePoint> BoltBlastFallOff { get; init; } = [new(1f, 1f), new(2.5f, 0.3f)];
+
+    /// <summary>
+    /// Whether <paramref name="weapon"/> is a bolt weapon: every multiplayer bolter, bolt pistol, storm bolter, heavy bolter and stalker bolter of either side (the names hold <c>bolt</c>, the stalker
+    /// bolter's is <c>sniper_rifle</c>), gold variants and the perk's pistol bolter included.
+    /// </summary>
+    public static bool IsBolt(WeaponSpec weapon) =>
+        weapon.Name.Contains("bolt", StringComparison.OrdinalIgnoreCase) || weapon.Name.Contains("sniper_rifle", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The blast as a splash for the enemies' blast (<c>World.MusouBlast</c>: enemies only, in sight of its centre).</summary>
+    public SplashSpec BoltBlast() => new(BoltBlastRadius, new DamageSpec(BoltBlastDamage, 0f, 1f, 1f, 1f, 1f, false) { Type = DamageType.Explosive },
+        BoltBlastFallOff, LineOfSight: true, IgnoreSelf: true, TargetFilter: "target_enemy");
+
     /// <summary>Whether a thrown item is a frag (a blind grenade, a melta bomb or stims are not).</summary>
     public static bool IsFrag(ThrownSpec item) => item.Stim is null && !item.IsBlindGrenade && item.Name.Contains("frag", StringComparison.OrdinalIgnoreCase);
 

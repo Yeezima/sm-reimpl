@@ -334,6 +334,7 @@ public class TfwMeleeTests
     {
         var w = War();
         w.Musou!.Frozen = true;
+        w.Musou.War = w.Musou.War! with { BoltBlasts = false };   // the pierce alone (the bolt blasts: below)
         var me = w.Players[Human].Position;
         var line = Enumerable.Range(0, 5).Select(k => Boy(w, me + new Vector3(0f, 6f + k * 2f, 0f))).ToArray();
         Tick(w, buttons: InputButtons.Fire);
@@ -361,5 +362,99 @@ public class TfwMeleeTests
         }
         Assert.NotNull(burst);
         Assert.InRange(burst!.Value.Position.Y - me.Y, 10f, 12f);   // the third of the line, past the launcher's two
+    }
+
+    // ---- the bolt blasts (the owner, 2026-11-07)
+
+    [Theory]
+    [InlineData("sm_mp_ranged_bolter", true)]
+    [InlineData("csm_mp_ranged_bolter", true)]
+    [InlineData("sm_mp_pistol_bolt_pistol", true)]
+    [InlineData("csm_mp_pistol_bolt_pistol", true)]
+    [InlineData("sm_mp_pistol_bolter", true)]
+    [InlineData("sm_mp_pistol_bolter_gold", true)]
+    [InlineData("sm_mp_ranged_storm_bolter", true)]
+    [InlineData("sm_mp_exotic_heavy_bolter", true)]
+    [InlineData("sm_mp_ranged_sniper_rifle", true)]
+    [InlineData("sm_mp_ranged_plasma_gun", false)]
+    [InlineData("sm_mp_ranged_melta", false)]
+    [InlineData("sm_mp_exotic_las_cannon", false)]
+    [InlineData("sm_mp_pistol_plasma_pistol", false)]
+    public void The_bolt_weapons_are_every_bolter_and_the_stalker(string name, bool bolt) =>
+        Assert.Equal(bolt, TfwCombatRules.IsBolt(Rifle with { Name = name }));
+
+    static float HealthOf(World w, ushort id) => w.Musou!.TryGet(id, out var e) ? e.Health : 0f;
+
+    /// <summary>Fires the rifle until a shot goes out.</summary>
+    static void Shoot(World w)
+    {
+        Tick(w, buttons: InputButtons.Fire);
+        for (int k = 0; k < 10 && w.LastShots.Count == 0; k++) Tick(w, buttons: InputButtons.Fire);
+        Assert.NotEmpty(w.LastShots);
+    }
+
+    [Fact]
+    public void A_bolter_shot_blows_up_at_every_enemy_it_goes_through_and_tells_the_clients()
+    {
+        var w = War();
+        w.Musou!.Frozen = true;
+        var me = w.Players[Human].Position;
+        float mine = w.Players[Human].Health + w.Players[Human].Shield;
+        var line = Enumerable.Range(0, 3).Select(k => Boy(w, me + new Vector3(0f, 6f + k * 4f, 0f))).ToArray();
+        // Beside each one struck, inside the blast's reach; and one well outside every blast.
+        var beside = line.Select(id => { w.Musou.TryGet(id, out var e); return Boy(w, e.Position + new Vector3(1.6f, 0f, 0f)); }).ToArray();
+        ushort away = Boy(w, me + new Vector3(6f, 10f, 0f));
+        Shoot(w);
+        var war = w.Musou.War!;
+        Assert.Equal(3, w.TfwBoltBlastsOut);   // the bolter goes through 2 and stops on the third: a blast at each
+        var records = w.Tfw!.Fire.Events.Where(f => f.Kind == TfwFireKind.BoltBlast).ToArray();
+        Assert.Equal(3, records.Length);
+        Assert.Equal(3, records.Select(f => f.Subject).Distinct().Count());
+        for (int k = 0; k < 3; k++)
+        {
+            Assert.True(MathF.Abs(records[k].At.Y - me.Y - (6f + k * 4f)) < 1f, $"blast {k} at {records[k].At}");
+            Assert.Equal(war.BoltBlastRadius, records[k].To.Y);
+            Assert.Equal(0f, records[k].To.X);   // the frag's effect: thrown item 0
+            Assert.InRange(1000f - HealthOf(w, beside[k]), war.BoltBlastDamage * 0.3f, war.BoltBlastDamage);   // a blast only: the shot's ray passes 1.6 m away
+        }
+        Assert.Equal(1000f, HealthOf(w, away));
+        Assert.Equal(mine, w.Players[Human].Health + w.Players[Human].Shield);   // the blasts hurt enemies only
+    }
+
+    [Fact]
+    public void A_shot_of_a_weapon_that_is_no_bolter_sets_off_no_blast()
+    {
+        var map = TfwTestArena.Build();
+        var config = Config() with { Weapons = [Rifle with { Name = "sm_mp_ranged_plasma_gun" }, Launcher] };
+        var w = new World(config, map.Collision, map.Spawns) { Rules = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2 } };
+        Assert.True(w.StartTfw(null, TfwTestArena.Field));
+        w.Tfw!.Idle = true;
+        w.Spawn(Human, 0);
+        for (int k = 0; k < 60 && w.State != MatchState.Playing; k++) Tick(w);
+        w.TfwRespawnAt(Human, At, 0f);
+        Tick(w);
+        w.Musou!.Frozen = true;
+        var me = w.Players[Human].Position;
+        var line = Enumerable.Range(0, 3).Select(k => Boy(w, me + new Vector3(0f, 6f + k * 4f, 0f))).ToArray();
+        ushort beside = Boy(w, me + new Vector3(1.6f, 6f, 0f));
+        Shoot(w);
+        Assert.Equal(3, line.Count(id => HealthOf(w, id) < 1000f));   // it still goes through
+        Assert.Equal(0, w.TfwBoltBlastsOut);
+        Assert.DoesNotContain(w.Tfw.Fire.Events, f => f.Kind == TfwFireKind.BoltBlast);
+        Assert.Equal(1000f, HealthOf(w, beside));
+    }
+
+    [Fact]
+    public void The_switch_turns_the_bolt_blasts_off()
+    {
+        var w = War();
+        w.Musou!.Frozen = true;
+        w.Musou.War = w.Musou.War! with { BoltBlasts = false };
+        var me = w.Players[Human].Position;
+        Boy(w, me + new Vector3(0f, 6f, 0f));
+        ushort beside = Boy(w, me + new Vector3(1.6f, 6f, 0f));
+        Shoot(w);
+        Assert.Equal(0, w.TfwBoltBlastsOut);
+        Assert.Equal(1000f, HealthOf(w, beside));
     }
 }

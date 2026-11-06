@@ -40,6 +40,7 @@ Scanned 2340 spec table rows: **1702 tagged**, 459 not tagged (read from data wi
 Scanned 2335 spec table rows: **1697 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
 Scanned 2333 spec table rows: **1695 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
 Scanned 2337 spec table rows: **1698 tagged**, 460 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 516 rows of the changes document.
+Scanned 2337 spec table rows: **1699 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -47,6 +48,7 @@ Scanned 2337 spec table rows: **1698 tagged**, 460 not tagged (read from data wi
 | Combat core (critical) | 11 | 2 | 11 | 9 | 9 |
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
 | Melee (critical) | 104 | 91 | 81 | 33 | 5 |
+| Melee (critical) | 107 | 94 | 84 | 34 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -97,6 +99,7 @@ Scanned 2337 spec table rows: **1698 tagged**, 460 not tagged (read from data wi
 | **All areas** | **1702** | 1467 | 1305 | 525 | 38 |
 | **All areas** | **1697** | 1461 | 1299 | 526 | 38 |
 | **All areas** | **1698** | 1463 | 1299 | 525 | 38 |
+| **All areas** | **1699** | 1464 | 1302 | 527 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -120,6 +123,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: ours | 839 |
 | confidence: low | 618 |
 | confidence: medium | 553 |
+| kind: ours | 842 |
+| confidence: low | 620 |
+| confidence: medium | 554 |
 | kind: interpretation | 343 |
 | notes: ours | 337 |
 | kind: ours | 844 |
@@ -148,6 +154,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: provisional | 99 |
 | notes: estimate | 86 |
 | notes: estimate | 84 |
+| notes: estimate | 85 |
 | kind: user's knowledge | 51 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
@@ -961,6 +968,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
 ### Melee (gameplay-critical) (104)
+### Melee (gameplay-critical) (107)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1066,6 +1074,10 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-46610662` | Grenades in the war | a human life carries its item's full count (the strip to the starting weapons would take them; the frag's data carries 2) | kind: ours; confidence: medium | needed by item 21 | Grenades in the war: compare with SM1 by feel or video. Ours: a human life carries its item's full count (the strip to the starting… | ☐ |
 | `R-E75D89A0` | Piercing | enemies a shot goes through before the one that stops it: lascannon 8, heavy bolter and plasma cannon 5, stalker bolter 4, storm bolter and melta 3, other ranged 2, pistols 1; each next enemy takes 0.85 of the last's damage (hit-scan); a projectile deals its… (enemies) | kind: ours; confidence: low | owner item 24 | Piercing: compare with SM1 by feel or video. Ours: enemies a shot goes through before the one that stops it: lascannon… | ☐ |
 | `R-311A51BE` | Cones | at most 40 enemies a cone shot (the 5-wave aid's 24) (enemies) | kind: ours; confidence: low | owner item 24 | Cones: compare with SM1 by feel or video. Ours: at most 40 enemies a cone shot (the 5-wave aid's 24). | ☐ |
+| `R-A27EF439` | Bolt blasts: which weapons | every bolt weapon: the bolter, bolt pistol, storm bolter, heavy bolter and stalker bolter of both sides, the gold variants and the perk's pistol bolter (a wargear name holding `bolt`, or `sniper_rifle` for the stalker); the plasma, melta, lascannon and every… | kind: ours; confidence: medium | owner 2026-11-07 | Bolt blasts: which weapons: compare with SM1 by feel or video. Ours: every bolt weapon: the bolter, bolt pistol, storm bolter, heavy… | ☐ |
+| `R-60830AA7` | Bolt blasts: where | one blast at every enemy the shot strikes (each one it goes through and the one that stops it), at the point the ray struck him; after the pierce has dealt its hits; a tag 11 record each (kind `BoltBlast` 6: the point, the frag's thrown item, the radius; sent… | kind: ours; confidence: medium | owner 2026-11-07 | Bolt blasts: where: compare with SM1 by feel or video. Ours: one blast at every enemy the shot strikes (each one it goes through… | ☐ |
+| `R-531C3227` | Bolt blasts: reach and damage | 2.5 m reach ("small-medium": an estimate; the data's frag 10 m); 30 damage at the centre (an estimate: about a third of a Boy's 85, a bolter round 22), full to 1 m, linear to 30 % at 2.5 m, nothing past; enemies only (no player, Guardsman or AI Marine is… (m, damage) | kind: ours; confidence: low; notes: estimate | ours (estimate) | Bolt blasts: reach and damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 2.5 m reach ("small-medium": an estimate; the data's frag 10 m); 30… | ☐ |
+| `R-1F0BC7BD` | Bolt blasts: the look | the original frag grenade's detonation effect and sound (thrown item the record names; no new asset) once a blast, at its point; the client thins a crowd's: none within 1 m of one drawn in the last 0.12 s, at most 6 effects and 2 sounds a frame, a quarter of… (m, s) | kind: ours; confidence: low; notes: estimate | ours (estimate) | Bolt blasts: the look: compare with SM1 by feel or video. Ours: the original frag grenade's detonation effect and sound (thrown item… | ☐ |
 
 *Spec section: Player collision (sim/player-collision; protocol 43, used by the simulation)*
 
@@ -3053,6 +3065,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-9E329822` | Musou Mode: three big frags | the owner's item 21 (2026-11-01) | one grenade throws three frags 24 degrees apart, each with twice the data's blast radius and sparing the thrower; every human life carries grenades | Melee and firepower | Musou Mode: three big frags: compare with SM1 by feel or video. Ours: the owner's item 21 (2026-11-01). | ☐ |
 | `C-E41F34C3` | Musou Mode: a cleave of 20 | the owner's item 22 (2026-11-01) | a swing strikes up to 20 enemies | Melee and firepower | Musou Mode: a cleave of 20: compare with SM1 by feel or video. Ours: the owner's item 22 (2026-11-01). | ☐ |
 | `C-079F9B9C` | Musou Mode: shots pierce | the owner's item 24 (2026-11-01); SM1's shots stop on the first body | every ranged weapon goes through 1 to 8 enemies by weight | Melee and firepower | Musou Mode: shots pierce: compare with SM1 by shooting through a crate or a line of players and counting who is hit. Ours: the owner's item 24 (2026-11-01); SM1's shots stop on the first body. | ☐ |
+| `C-2280E2B9` | Musou Mode: bolt weapons blow up at every enemy struck | the owner (2026-11-07): "make all bolter weapons cause an explosion to trigger on every enemy the projectile passes through. the explosion is a small-medium explosion."; SM1's bolts do not explode | every bolter, bolt pistol, storm, heavy and stalker bolter shot sets off a 2.5 m, 30-damage blast (enemies only) with the original frag's effect and sound at each enemy it goes through; the reach and damage are estimates | Melee and firepower | Musou Mode: bolt weapons blow up at every enemy struck: compare with SM1 by feel or video. Ours: the owner (2026-11-07): "make all bolter weapons cause an explosion… | ☐ |
 | `C-FC406EF5` | Musou Mode's battlefield is Ashfall Citadel, a generated graybox (G1, 2026-11-04) | the owner's start of 2026-11-04 (agent-coordination decision); every place and size ours (placeholder demonstration) | `tfw_war` is a 480 x 480 m city of primitive blocks built in code (docs/musou-ashfall-graybox.md: three capture points, a start area for each side, ruins, a crater field, a stronghold; nothing read from the install); the old war on Manufactorum stays as `tfw_war_m09` (`--map tfw_war_m09`), and classic PvP is untouched | War map | Musou Mode's battlefield is Ashfall Citadel, a generated…: compare with SM1 by feel or video. Ours: the owner's start of 2026-11-04 (agent-coordination decision); every… | ☐ |
 | `C-8004B302` | Ashfall Citadel is dressed with the owner's generated kit (draft 6, 2026-11-06: one asset per structure, collision from the assets, placed 1.5x, the new Meshy models preferred where they fit) | the owner's rules of 2026-11-06 (one standalone asset per graybox structure, collision = boxes fitted to each asset, the stronghold a breached ruin enclosure, the assets decide what is walkable, repeated surfaces varied by a fixed seed); every placement, size and model choice ours (placeholder demonstration) | `AshfallMap.Build()` is the draft-6 level (version 11, `DressVersion` 9, level hash `0xE72074A49D4449D9`; docs/musou-ashfall-graybox.md "Draft 6"): the v5 ground kinds and boundary plus the fitted collision boxes of the placed assets (walkable models' stairs get one ramp each, their boxes cut under it)… | the owner's eye on the look and on what is walkable (most raised floors are not); boundary-foot walls dropped; 182 k collision triangles; the keep has no matching asset | Ashfall Citadel is dressed with the owner's generated kit…: compare with SM1 by feel or video. Ours: the owner's rules of 2026-11-06 (one standalone asset per graybox… | ☐ |
 | `C-A2C9C51B` | Musou Mode: the ranged Orks hold their guns and their rounds show (musou/ork-weapon-fx, 2026-11-06) | the owner (2026-11-06): "the ranged attack orks don't have weapon models in their hand, and their shots are invisible ... flesh that out. musou mode only."; the effects are the shoota wargear's own; the data shows the tracer on every round | the Shoota Boy holds `ork_coop_boy_2hand_shoota_rapid` on his prop bone; each round plays `shoota_muzzle`, `shoota_coop`'s impact, the tracer `shoota_tracer` on every 3rd round only (ours: "occasional"), within distance culls and crowd-wide rate caps; a firing Shoota Boy aims instead of running on the spot… | Musou Ork guns | Musou Mode: the ranged Orks hold their guns and their…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the owner (2026-11-06): "the ranged attack orks don't have weapon… | ☐ |
