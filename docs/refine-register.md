@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 2286 spec table rows: **1657 tagged**, 453 not tagged (read from data with high confidence), 176 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 500 rows of the changes document.
+Scanned 2285 spec table rows: **1656 tagged**, 453 not tagged (read from data with high confidence), 176 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 499 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,6 +55,10 @@ Scanned 2286 spec table rows: **1657 tagged**, 453 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 149 | 142 | 73 | 34 | 0 |
 | **All areas** | **1657** | 1426 | 1277 | 501 | 38 |
+| Core simulation (provisional values) | 282 | 266 | 222 | 37 | 1 |
+| General game design | 7 | 7 | 6 | 0 | 0 |
+| Ork faction | 149 | 142 | 73 | 34 | 0 |
+| **All areas** | **1656** | 1425 | 1276 | 500 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -61,6 +66,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 812 |
 | confidence: low | 604 |
+| kind: ours | 811 |
+| confidence: low | 603 |
 | confidence: medium | 545 |
 | kind: interpretation | 343 |
 | notes: ours | 325 |
@@ -1991,6 +1998,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EB03504B` | Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks (s) | kind: ours; notes: estimate | owner 2026-11-02 | Shot lag allowance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each shot is also tried on the enemy's places over the last 0.2 s… | ☐ |
 
 ### Core simulation (provisional values) (283)
+### Core simulation (provisional values) (282)
 
 *Spec section: Provisional values in use*
 
@@ -2071,8 +2079,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-92A4F1ED` | Musou flow | warm-up until a Space Marine is in, then the usual countdown and play with no score or time limit (score limit int.MaxValue/2, shown clamped to 65535); every player gone sends it back to warm-up and clears the enemies | kind: ours; confidence: low | ours (MU0; MU1 adds the waves and the end) | Musou flow: compare with SM1 by feel or video. Ours: warm-up until a Space Marine is in, then the usual countdown and play… | ☐ |
 | `R-43CEFC27` | Musou sides | every player joins the Space Marines, whatever side is asked; no balance or per-side limit | kind: ours; confidence: medium | the lead's default, 2026-10-31 (the owner may allow Chaos) | Musou sides: compare with SM1 by feel or video. Ours: every player joins the Space Marines, whatever side is asked; no… | ☐ |
 | `R-DA4A124C` | Musou Mode and reach | Annihilation only (any other `--mode` exits 2); the front end hosts it on this PC only (127.0.0.1) without bots | kind: ours; confidence: medium | the owner ("runs locally"); the rest ours | Musou Mode and reach: compare with SM1 by measuring on a flat spot of the same map. Ours: Annihilation only (any other --mode exits 2); the front end hosts it… | ☐ |
-| `R-BF97BDCB` | Musou enemy interest | per client and enemy, a priority gains 1.0 a tick within 15 m, 0.5 at 15–40 m, 0.2 beyond (and 1.0 on a state change); sent at 1.0 and reset; the Warboss and Nobs first and never under 0.5 a tick; at most 4 messages a tick (ticks) | kind: ours; confidence: low | the lead's design (MU2) | Musou enemy interest: compare with SM1 by feel or video. Ours: per client and enemy, a priority gains 1.0 a tick within 15 m, 0.5 at… | ☐ |
-| `R-049FE802` | Musou client tracks | 4 records per enemy interpolated at the render clock; a Seek enemy carries on along its last step up to 6 ticks; an id is dropped after its death or 2 s of silence; a new track on Spawning or a gap over 30 ticks; a section 300 ticks older than the newest is a… (ticks) | kind: ours; confidence: low | ours (MU2) | Musou client tracks: compare with SM1 by feel or video. Ours: 4 records per enemy interpolated at the render clock; a Seek enemy… | ☐ |
+| `R-BF97BDCB` | Musou enemy interest | per client and enemy, a priority gains 1.0 a tick within 15 m, 0.5 at 15–40 m, 0.2 beyond (and 1.0 on a state change); sent at 1.0 and reset; the Warboss and Nobs first and never under 0.5 a tick; then (2026-11-06) every enemy unsent for **15 ticks** or more… (ticks) | kind: ours; confidence: low | the lead's design (MU2) | Musou enemy interest: compare with SM1 by feel or video. Ours: per client and enemy, a priority gains 1.0 a tick within 15 m, 0.5 at… | ☐ |
+| `R-049FE802` | Musou client tracks | 4 records per enemy interpolated at the render clock; a Seek enemy carries on along its last step (of at most 30 ticks) for that step plus 3 ticks, at least 6, at most 30 (2026-11-06; before: up to 6 ticks, only after a step of at most 6, which held a… (ticks) | kind: ours; confidence: low | ours (MU2) | Musou client tracks: compare with SM1 by feel or video. Ours: 4 records per enemy interpolated at the render clock; a Seek enemy… | ☐ |
+| `R-A00EB375` | Musou far-crowd smoothing | a running (Seek) enemy is drawn from his last drawn place moved on at the sampled speed and pulled toward the sampled place with a time constant of **6 ticks** (0.2 s); drawn at the sampled place when more than **4 m** off, after more than **2 ticks** between… (ticks, m) | kind: ours; confidence: low | ours (2026-11-06, the owner: "the orks movement at distance looks so choppy") | Musou far-crowd smoothing: compare with SM1 by feel or video. Ours: a running (Seek) enemy is drawn from his last drawn place moved on at… | ☐ |
 | `R-8EBEBCEA` | Musou crowd drawing | the nearest 150 drawn (`--musou-visible`), up to 40 skinned within 25 m (posed every 2nd frame beyond 12 m), the rest vertex-animation textures baked at 15 fps (at most 4,096 rows a look, else skinned; skinned-only fallback cap 80); bodies sink 1.2 m over 1.5… | kind: ours; confidence: low | ours (MU2) | Musou crowd drawing: compare with SM1 by feel or video. Ours: the nearest 150 drawn (--musou-visible), up to 40 skinned within 25 m… | ☐ |
 | `R-7B2725E5` | Musou looks | Boy `boy_melee`, Shoota Boy `boy_ranged`, 'Ard Boy `boy_ardboy`, Nob `nob_melee`, Warboss `nob_melee` × 1.25, Gretchin `boy_melee` × 0.7 (no Gretchin model verified), Chaos Marine the PvP default Chaos look (far tier tinted by its primary colour) | kind: ours; confidence: low | models from the install; the choices ours | Musou looks: compare with SM1 by feel or video. Ours: Boy boy_melee, Shoota Boy boy_ranged, 'Ard Boy boy_ardboy, Nob… | ☐ |
 | `R-45CAAC91` | Musou enemy types | Boy 85 hp (data), 5.2 m/s, melee 8 per 1.4 s reach 1.6 m, 10 points; Shoota Boy 85 hp (data), 4.8 m/s, holds 12–20 m, 3 × 3 dmg every 1.6 s, hit 0.45 near → 0.25 far; 'Ard Boy 170 hp, 4.4 m/s, melee 10 per 1.5 s, 20 points; Gretchin 30 hp, 6.2 m/s, melee 4… (hp, m/s, s) | kind: ours; confidence: low | the Boy's health from the data; the rest the lead's design and MU1 (2026-10-31) | Musou enemy types: compare with SM1 by timing a run over a known distance. Ours: Boy 85 hp (data), 5.2 m/s, melee 8 per 1.4 s reach 1.6 m, 10 points… | ☐ |

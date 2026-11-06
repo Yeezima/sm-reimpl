@@ -44,7 +44,35 @@ public class MusouClientTests
         Assert.Equal(0f, s.Sample(5, 0.1)[0].Position.X, 0.01f);
         Assert.Equal(3.5f, s.Sample(12.5, 0.1)[0].Position.X, 0.01f);
         Assert.Equal(8.5f, s.Sample(17.5, 0.1)[0].Position.X, 0.01f);
-        Assert.Equal(10f + 3f / 5f * MusouClientState.ExtrapolateTicks, s.Sample(30, 0.1)[0].Position.X, 0.01f);   // a runner carries on along its last step, at most 6 ticks
+        Assert.Equal(10f + 3f / 5f * (5 + MusouClientState.ExtrapolateMarginTicks), s.Sample(30, 0.1)[0].Position.X, 0.01f);   // a runner carries on along its last step, at most that step plus 3 ticks
+        var old = new MusouClientState { OldFarMotion = true };
+        old.Apply(DirectorSection(1), 0.0);
+        old.Apply(Entities(10, At(1, 0f)), 0.0);
+        old.Apply(Entities(15, At(1, 7f)), 0.0);
+        old.Apply(Entities(20, At(1, 10f)), 0.0);
+        Assert.Equal(10f + 3f / 5f * MusouClientState.ExtrapolateTicks, old.Sample(30, 0.1)[0].Position.X, 0.01f);   // the old motion: at most 6 ticks
+    }
+
+    [Fact]
+    public void A_far_runner_sent_every_13th_tick_is_carried_on_and_glides_onto_each_new_record()
+    {
+        var s = new MusouClientState();
+        s.Apply(DirectorSection(1), 0.0);
+        s.Apply(Entities(10, At(1, 0f)), 0.0);
+        s.Apply(Entities(23, At(1, 13f)), 0.0);   // 1 m a tick
+        Assert.Equal(13f + 13f, s.Sample(36, 0.1)[0].Position.X, 0.01f);   // carried on for the whole gap (the old motion held him at 13 m)
+        Assert.Equal(13f + 16f, s.Sample(50, 0.2)[0].Position.X, 0.01f);   // at most the step plus 3 ticks
+        // A new record that turns him back a little: the drawn place glides onto it at his speed, no jump.
+        s.Apply(Entities(36, At(1, 25f)), 0.3);
+        float x = s.Sample(36, 0.3)[0].Position.X;
+        Assert.Equal(25f, x, 0.01f);   // a gap of 14 ticks since the last sample: drawn at once
+        float last = x;
+        for (double tick = 36.5; tick <= 38; tick += 0.5)
+        {
+            float now = s.Sample(tick, 0.3)[0].Position.X;
+            Assert.InRange(now - last, 0.1f, 1.0f);   // moving on each frame, never a step longer than his run
+            last = now;
+        }
     }
 
     [Fact]
