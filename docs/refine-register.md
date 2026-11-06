@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2333 spec table rows: **1695 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 513 rows of the changes document.
+Scanned 2335 spec table rows: **1697 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 378 | 322 | 321 | 112 | 12 |
+| Movement (critical) | 380 | 323 | 322 | 113 | 12 |
 | Combat core (critical) | 11 | 2 | 11 | 9 | 9 |
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
 | Melee (critical) | 103 | 90 | 80 | 32 | 5 |
@@ -53,15 +53,15 @@ Scanned 2333 spec table rows: **1695 tagged**, 459 not tagged (read from data wi
 | Core simulation (provisional values) | 293 | 275 | 231 | 45 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 172 | 163 | 80 | 49 | 0 |
-| **All areas** | **1695** | 1460 | 1298 | 525 | 38 |
+| **All areas** | **1697** | 1461 | 1299 | 526 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 838 |
+| kind: ours | 839 |
 | confidence: low | 618 |
-| confidence: medium | 552 |
+| confidence: medium | 553 |
 | kind: interpretation | 343 |
 | notes: ours | 334 |
 | confidence: none (low) | 128 |
@@ -78,8 +78,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: placeholder | 22 |
 | notes: interpretation | 20 |
 | notes: placeholder | 19 |
+| notes: open question | 18 |
 | kind: gap (not reproduced) | 17 |
-| notes: open question | 17 |
 | notes: not reproduced (gap) | 13 |
 | notes: gap (not reproduced) | 10 |
 | kind: public (unverified) | 9 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (378)
+### Movement (gameplay-critical) (380)
 
 *Spec section: Extracted parameters*
 
@@ -364,6 +364,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-129C9AB6` | Shots straight up | a shot goes along the view (or the crosshair's camera ray) at any pitch up to 90°: tested at 89°, 89.9° and 90° in hip fire and aim mode (within 0.01°); a projectile's `extra_aim_angle` lift never takes it past straight up (over the head) (degrees) | kind: ours; confidence: medium | the owner's rule; the cap at π/2 ours | Shots straight up: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a shot goes along the view (or the crosshair's camera ray) at any… | ☐ |
 | `R-A5D866D1` | Upper-body aim pose | not changed: the aim poses still blend their down / level / up clips over ±70° (hip fire and aim mode), the braced heavy bolter over ±80°, the Ork's over its clips' range; above that the pose stays at its highest while the shot follows the camera (degrees) | kind: ours; confidence: low | clip data; keeping the clamp ours | Upper-body aim pose: compare with SM1 with an overlaid screenshot taken from the same position. Ours: not changed: the aim poses still blend their down / level / up clips… | ☐ |
 | `R-6B3D5A9C` | Bots and spectators | bots aim up to 89.9° (`MaxPitchUp`) and down to −1.4 rad; the follow spectator softens the followed player's pitch (× 0.6, ±1.4 rad) and the free observer camera stays at ±1.55 rad (88.8°): both unchanged (rad) | kind: ours; confidence: low | ours | Bots and spectators: compare with SM1 by feel or video. Ours: bots aim up to 89.9° (MaxPitchUp) and down to −1.4 rad; the follow… | ☐ |
+
+*Spec section: Appearance slots (ui/appearance-slots; client and profile only, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-A52B1ECC` | Appearance slots per side | 10 per side (Space Marines and Chaos each), the profile's appearance library (`CustomizationProfile.MaxAppearancesPerRace`); a look's slot is its id's number (`sm-3` / `csm-3` is slot 3), a look with another id takes the first free slot in file order.… (slots) | notes: open question | the owner's request (10); the data's "Appearance %1NUM%" text (numbered appearances, count unknown) | Appearance slots per side: compare with SM1 by feel or video. Ours: 10 per side (Space Marines and Chaos each), the profile's appearance… | ☐ |
+| `R-5CFFCC26` | A loadout wears a slot | by reference: every loadout that wears a slot shows an edit made to it (the editor's header names the slot and the other loadouts that wear it); saving a look into a slot copies it (pieces, colours, badges, set, lens), and saving over a filled slot keeps the… | kind: ours; confidence: medium | ours (how the original shared a saved appearance is not in the data) | A loadout wears a slot: compare with SM1 by feel or video. Ours: by reference: every loadout that wears a slot shows an edit made to… | ☐ |
 
 *Spec section: Weapon spread (weapons/spread; the owner's decision 2026-10-28; used by the simulation; no protocol change)*
 
@@ -3165,6 +3172,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-C71F4F7C` | Loadout picker in the match (T7) | C on the death screen opens the class creator (and the appearance editor) over the match; the change applies at the next respawn, the death screen shows the server's answer. The key, the death-screen entry and the apply-at-respawn rule are our design (owner question 10, our default) | Whether the original let you change a custom class between lives and with which key | Custom classes, end to end (T9) and in the match (T7) | Loadout picker in the match: compare with SM1 by feel or video. Ours: C on the death screen opens the class creator (and the appearance… | ☐ |
 | `C-8363500E` | Esc menu in the match (M44, the owner's request) | Esc in a match, alive or dead, opens the customizer (class creator and appearance editor) over the match with the mouse free; the match goes on, the own input is neutral, changes apply at the next respawn; Esc again or RESUME closes it; LEAVE MATCH (confirmed) returns to the front end. The front end's Esc-back keeps… | Whether the original has any in-match loadout menu while alive (as far as we know it does not: loadouts change between lives; the "Call of Duty style" behaviour is the owner's request) | Esc menu in the match (M44) | Esc menu in the match: compare with SM1 by feel or video. Ours: Esc in a match, alive or dead, opens the customizer (class creator… | ☐ |
 | `C-B13A1A99` | DEFAULTS are copied on the first pick (fix/customizer-weapons-perks) | The creator's DEFAULTS loadouts are the data's classes and cannot be changed; choosing a weapon or perk on one makes an editable copy in the first empty custom slot (active when the defaults were), saved only with SAVE. Perk rows say "PARTLY ACTIVE" / "NOT ACTIVE YET" from the simulation's own status (the creator used… | Whether the original let a default class be edited (as far as we know its default classes are fixed and a custom class is the way to change them); the copy-on-pick convenience is ours (the owner could not pick the Power Sword or a perk on the DEFAULTS the creator opens with) | Custom classes, "The creator's lists and the DEFAULTS copy" | DEFAULTS are copied on the first pick…: compare with SM1 by feel or video. Ours: The creator's DEFAULTS loadouts are the data's classes and cannot be… | ☐ |
+| `C-13BACB0D` | Appearance slots (ui/appearance-slots) | **The owner's request of 2026-11-06:** ten saved appearances per side, apart from the loadouts: MY APPEARANCES (the appearance editor's first section) saves a loadout's look into a slot and puts a slot on any loadout, on all of them, or takes it off. Ours: a loadout wears a slot by reference (an edit shows on every… | How many appearances the original saved (the data has "Appearance %1NUM%") and whether a loadout took a copy or a link | Appearance slots | Appearance slots (ui/appearance-slots): compare with SM1 by feel or video. Ours: The owner's request of 2026-11-06: ten saved appearances per side… | ☐ |
 | `C-ACF88497` | The customizer's preview pose and turning (ui/customizer-ork) | **The owner's requests of 2026-10-29:** every class stands in the bolt pistol's relaxed idle (`SM_NAV_IdleL_CS_01`) in the creator, the appearance editor and the in-match picker, with its pistol in the hand and the primary stowed; the figure never turns by itself (the 18 degrees a second turntable is gone; drag, Left… | How the original's armoury posed and turned the marine | The customizer's preview pose and the Ork Boy in the menus | The customizer's preview pose and turning…: compare with SM1 by feel or video. Ours: The owner's requests of 2026-10-29: every class stands in the bolt… | ☐ |
 | `C-C850CE1A` | The Ork Boy in the menus (ui/customizer-ork; added content) | In Extended the creator's faction row adds Orks and a fourth class tab "Ork Boy" (fixed shoota, slugga, choppa, stikkbombs; the Tactical's perks), the Join screen an Ork Boy DEFAULTS chip; his LOOK step (automatic or one of five boy models, one choice for the profile; titles ours) replaces the armour and colour… | SM1 had no Orks in multiplayer (section 0: added content) | The customizer's preview pose and the Ork Boy in the menus | The Ork Boy in the menus (ui/customizer-ork; added content): compare with SM1 by feel or video. Ours: In Extended the creator's faction row adds Orks and a fourth class… | ☐ |
 | `C-B60F3BD5` | SET ACTIVE in the match (fix/class-change-in-match) | In the match menu SET ACTIVE sends the loadout for the next respawn (as DEPLOY, the menu stays open); closing the menu sends a saved active loadout that changed; the menu, the ack line and the respawn name the class played, and a role's other-side name (Havoc for a Space Marine) is said to play as the side's class of… | How the original's in-match class select confirmed a choice (we know only that it applied at the next spawn) | Custom classes, "SET ACTIVE in the match" | SET ACTIVE in the match (fix/class-change-in-match): compare with SM1 by feel or video. Ours: In the match menu SET ACTIVE sends the loadout for the next respawn… | ☐ |

@@ -1581,6 +1581,20 @@ content, offered only in Extended). Code: `client/Customizer/PreviewStage.cs`, `
 | Ork look | one choice for the profile (`orkLook` in `customization.json`, optional; absent = automatic): Automatic, Shoota Boy, Choppa Boy, Shoota Boy kitted out, Choppa Boy kitted out, 'Ard Boy (`boy_ranged`, `boy_melee`, `boy_ranged_pro`, `boy_melee_pro`, `boy_ardboy`; titles ours). The Ork's LOOK step (fifth step of the creator; the appearance buttons open it) replaces the armour and colour editors, which the Ork does not have. A Join and an in-match Deploy send it as the Hello's / Setup's Ork look byte; Faithful sends automatic. The preview shows the focused look, and look 0 for automatic (the match picks by player number) | look index | per Join / Setup | `CustomizationProfile.OrkLook`, `JoinPlan.OrkLook`, `FrontEndLaunch.Apply`, `NetworkView.SendLoadout` | design section 7 ("orkLook in the profile") | ours | provisional |
 | Ork preview | the boy's own model on his own rig (`OrkAssets`, read on first use; the look's files on a worker) in his own idle (`RigClipTable.OrkBoy.PreviewIdleCandidates`), shoota in hand, slugga and choppa stowed (`OrkWeaponMounts`), no eye glow, no paint | — | per preview | `PreviewAssets.TryBuildOrk` / `OrkWeapons`, `PreviewStage.CreateOrk` | Ork O3 / O6 assets | ours | provisional |
 
+### Appearance slots (ui/appearance-slots; client and profile only, no protocol change)
+
+The owner's request of 2026-11-06: "Ability to create appearance - separate from loadouts. Otherwise if you want the same appearance for all your loadouts you have to remake the
+appearance 9 more times. you should be able to make an appearance, save it in one of 10 slots, then apply that appearance to any loadout." The appearance editor's first section,
+MY APPEARANCES, shows the side's ten slots; Enter on an empty slot saves the open loadout's look there (the loadout then wears it), Enter on a filled one opens its page: wear it on this
+loadout, save this loadout's look over it (asks first), apply to all loadouts, put it on or take it off each loadout, rename, delete. The data has the text "Appearance %1NUM%" (111828),
+so the original had numbered saved appearances; how many and how a loadout took one is not in the data. Code: `client/Customizer/Model/AppearanceSlots.cs`,
+`client/Customizer/AppearanceView.Slots.cs`; checks: `--ui-selftest` (`UiSelfTest.AppearanceSlots.cs`), `CustomizerModelTests` (the slot tests).
+
+| Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Appearance slots per side | 10 per side (Space Marines and Chaos each), the profile's appearance library (`CustomizationProfile.MaxAppearancesPerRace`); a look's slot is its id's number (`sm-3` / `csm-3` is slot 3), a look with another id takes the first free slot in file order. Profiles saved before keep every loadout's look: each was already in the library, so nothing in the file changes | slots | per profile | `AppearanceSlots.Layout` | the owner's request (10); the data's "Appearance %1NUM%" text (numbered appearances, count unknown) | owner's decision | high |
+| A loadout wears a slot | by reference: every loadout that wears a slot shows an edit made to it (the editor's header names the slot and the other loadouts that wear it); saving a look into a slot copies it (pieces, colours, badges, set, lens), and saving over a filled slot keeps the slot's name; deleting a slot puts its loadouts back to the side's default look; "Apply to all loadouts" sets one side only | — | per edit | `AppearanceSlots.SaveInto` / `ApplyToAll` / `SetWorn` | ours (how the original shared a saved appearance is not in the data) | ours | medium |
+
 ### Weapon spread (weapons/spread; the owner's decision 2026-10-28; used by the simulation; no protocol change)
 
 The owner (2026-10-28): "Add the game data's weapon spread, so Bolter Targeter, Improved Twin-Link, Burst Fire and Lascannon Stabilizers can

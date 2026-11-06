@@ -219,7 +219,9 @@ public static class AppearanceEdits
     public static (CustomizationProfile Profile, string? Id) AddAppearance(CustomizationProfile profile, string race)
     {
         if (profile.AppearancesFor(race).Count() >= CustomizationProfile.MaxAppearancesPerRace) return (profile, null);
-        string id = profile.NewAppearanceId(race);
+        // The first free slot's id (ui/appearance-slots), so a new look never moves a look with a hand-edited id to another slot.
+        int free = Array.IndexOf(AppearanceSlots.Layout(profile, race), null) + 1;
+        string id = free > 0 && profile.Appearance(AppearanceSlots.Prefix(race) + free) is null ? AppearanceSlots.Prefix(race) + free : profile.NewAppearanceId(race);
         int n = 1;
         while (profile.AppearancesFor(race).Any(a => a.Name.Equals($"Appearance {n}", StringComparison.OrdinalIgnoreCase))) n++;   // never two looks of one name
         var look = AppearanceProfile.Empty(id, race, $"Appearance {n}");
