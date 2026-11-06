@@ -415,7 +415,7 @@ public class MeleeCharge2Tests(ITestOutputHelper output)
         var c = tuning.Config;
         var data = GameplayTuning.Load(Game.Value!, ownerFeel: false).Config;
         Assert.Equal((GameplayTuning.OwnerLungeScale, 1f), (c.MeleeLungeScale, data.MeleeLungeScale));
-        Assert.Equal(0.6f * GameplayTuning.OwnerSwitchScale, c.WeaponSwitchTime, 4);
+        Assert.Equal(GameplayTuning.OwnerQuickdrawTime, c.WeaponSwitchTime, 4);   // feel/grenades-quickdraw (2026-11-06) replaced 0.6 × OwnerSwitchScale
         Assert.Equal(0.6f, data.WeaponSwitchTime, 4);
         Assert.True(c.MeleeLock.AlignEase && c.MeleeLock.Hysteresis == 15f);
         output.WriteLine($"weapon switch {data.WeaponSwitchTime:0.000} s → {c.WeaponSwitchTime:0.000} s ({MathF.Ceiling(data.WeaponSwitchTime * 30f - 1e-3f)} → {MathF.Ceiling(c.WeaponSwitchTime * 30f - 1e-3f)} ticks)");

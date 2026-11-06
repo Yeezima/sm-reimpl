@@ -549,6 +549,14 @@ public sealed partial record SimConfig
     /// <summary>Seconds to switch between primary and pistol (placeholder; the original value is not decoded).</summary>
     public float WeaponSwitchTime { get; init; } = 0.6f;
     /// <summary>
+    /// feel/grenades-quickdraw (the owner's request of 2026-11-06: "make the player point his gun at the crosshair faster (bring it up faster), so shooting any weapon after
+    /// swapping feels more responsive. it should be near instant, like a quickdraw"; a **deliberate change from the original**, an **estimate (owner's request)**): the weapon a
+    /// switch takes in hand comes up during the switch, so it is up (<see cref="PlayerState.ReadyTicks"/>) on the tick the switch ends and the first shot needs no raise
+    /// (<see cref="WeaponSpec.RaiseDelay"/>). False (the default, synthetic configs): the M31/M32 rule, the first shot after a switch waits for the raise. The content loader sets it
+    /// with <see cref="WeaponSwitchTime"/> = 0.1 s (<c>GameplayTuning.OwnerQuickdrawTime</c>). Hashed when true.
+    /// </summary>
+    public bool QuickdrawSwitch { get; init; }
+    /// <summary>
     /// Seconds the weapon stays up after a shot, a charge or aim mode before it is lowered again (M31; <see cref="PlayerState.ReadyTicks"/>).
     /// M32: 10 s, the **owner's rough estimate, unverified (to check in the original)**: "the gun stays up after a shot for approximately
     /// 10 seconds" (2026-10-28; M31 used 1.0 s, ours). The original sets its <c>BOOL_IsReady</c> in code, not in the data read
@@ -809,6 +817,7 @@ public sealed partial record SimConfig
             if (InputBufferTicks > 0) { w.Write("input-buffer"); w.Write(InputBufferWindow); }   // feel/buffer-speed: only when on
             if (ActionLockScale != 1f) { w.Write("lock-scale"); w.Write(ActionLockScale); }   // feel/locks-sprint-stop: only when not the default (older hashes unchanged)
             if (SprintStopTime > 0f) { w.Write("sprint-stop"); w.Write(SprintStopTime); }   // feel/locks-sprint-stop: only when on
+            if (QuickdrawSwitch) w.Write("quickdraw-switch");   // feel/grenades-quickdraw: only when on (older hashes unchanged)
             if (MeleeLungeScale != 1f) { w.Write("lunge-scale"); w.Write(MeleeLungeScale); }   // feel/melee-charge-2: only when not the default (older hashes unchanged)
             if (MeleeFlinchDegrees != 6f || MeleeFlinchSeconds != 0.5f) { w.Write("melee-flinch"); w.Write(MeleeFlinchDegrees); w.Write(MeleeFlinchSeconds); }   // sim/light-melee-flinch: only when not the default
             // Added content (ContentExtras.cs): only when any is on, so a faithful config hashes byte for byte as before the switch.

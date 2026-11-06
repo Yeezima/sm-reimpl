@@ -55,7 +55,8 @@ public partial class NetworkView
         bool enabled = TfwHudModel.InBattle(war.Phase) && me.Alive && !PickerBusy;
         bool orbital = Input.IsPhysicalKeyPressed(Key.B) || (_pad is not null && PadHost.Active && _pad.Button(JoyButton.DpadLeft));
         bool atRange = war.Phase == TfwRunPhase.Hub && me.Alive && !PickerBusy && TfwRangeArea is { } rangeArea && rangeArea.Contains(new System.Numerics.Vector3(me.Position.X, me.Position.Y, me.Position.Z));   // the Firing Range tests the strike
-        if (orbital && !_tfwOrbitalKey && (enabled || atRange)) { var target = TfwCrosshairPoint(me); _tfwState.Commands.Issue(TfwCommand.Orbital, 0, target); _tfwOrbitalCalled = _connectedFor; TfwDesignatorBeam(me, target); }   // the server decides
+        bool cooling = !atRange && war.Own.OrbitalSeconds > 0;   // contracts 25: one battle strike a minute (the HUD counts it down); the server decides all the same
+        if (orbital && !_tfwOrbitalKey && (enabled || atRange) && !cooling) { var target = TfwCrosshairPoint(me); _tfwState.Commands.Issue(TfwCommand.Orbital, 0, target); _tfwOrbitalCalled = _connectedFor; TfwDesignatorBeam(me, target); }   // the server decides
         _tfwOrbitalKey = orbital;
         var press = _tfwKeys.Update(Input.IsPhysicalKeyPressed(Key.Z), Input.IsPhysicalKeyPressed(Key.X), Input.IsPhysicalKeyPressed(Key.V), Input.IsPhysicalKeyPressed(Key.P), delta, enabled);
         if (press == TfwOrderPress.None) return;

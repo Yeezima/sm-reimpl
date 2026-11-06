@@ -104,7 +104,8 @@ public sealed partial class TfwBattlePanel : Control
         Txt(_kosText, rx, y + RowH, 16, Gold, 1);
         Txt(_pointsText, lx, y + 2 * RowH, 16, Gold);
         Txt(data.Slots, lx, y + 3 * RowH, 14, White);
-        Txt(TfwHudModel.OrbitalTextFor(PadHost.Active), lx, y + 4 * RowH, 16, Gold);
+        int orbitalWait = data.War is { } shownWar ? shownWar.Own.OrbitalSeconds : 0;   // contracts 25: the strike's cooldown (the owner, 2026-11-06)
+        Txt(TfwHudModel.OrbitalTextFor(PadHost.Active, orbitalWait), lx, y + 4 * RowH, 16, orbitalWait > 0 ? Grey : Gold);
         Txt("Z FOLLOW   X HOLD   V ATTACK   HOLD P PICKUP", lx, y + 122f, 14, Grey);
     }
 }

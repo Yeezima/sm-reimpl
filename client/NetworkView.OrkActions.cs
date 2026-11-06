@@ -200,7 +200,7 @@ public partial class NetworkView
         if (!t.ThrowHand && HandoffMoving(s)) t.ThrowHand = true;
         if (!t.ThrowHand) return false;
         OrkLocomotionHandedOver(character, s, plan, own);
-        character.SetPoseLayer(clip, clipTime, ActionHandoff.ThrowWeight(_config!.ThrowDuration, throwTime), additive: false, mask);
+        character.SetPoseLayer(clip, clipTime, ActionHandoff.ThrowWeight(MathF.Max(_config!.ThrowDuration, actions.Throw?.EndAt ?? 0f), MathF.Max(throwTime, clipTime)), additive: false, mask);   // feel/grenades-quickdraw: a throw that ends at its release keeps its weight
         _orkHandoffs++;
         return true;
     }

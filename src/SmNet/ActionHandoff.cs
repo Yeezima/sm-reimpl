@@ -33,6 +33,18 @@ public static class ActionHandoff
     /// <summary>The weight of a toss at <paramref name="time"/>: the tail of <see cref="TailWeight"/>, rising over its first <see cref="HeadSeconds"/>.</summary>
     public static float ThrowWeight(float duration, float time) => MathF.Min(TailWeight(duration, time), time < HeadSeconds ? Math.Max(0f, time) / HeadSeconds : 1f);
 
+    /// <summary>
+    /// feel/grenades-quickdraw (the owner, 2026-11-06): the toss clip's time for a throw <paramref name="simTime"/> seconds in, when the simulation releases at <paramref name="simRelease"/> and
+    /// the clip at <paramref name="clipRelease"/> (the toss graph's <c>Ability_Ranged_Fire</c>): the wind-up is played faster so the hand opens on the release tick; after it the clip runs at its own
+    /// speed. Equal releases (or none): the throw's own time.
+    /// </summary>
+    public static float TossClipTime(float simTime, float simRelease, float clipRelease)
+    {
+        if (!float.IsFinite(simTime) || simTime < 0f) simTime = 0f;
+        if (!(simRelease > 1e-4f) || !float.IsFinite(clipRelease) || clipRelease <= 0f || MathF.Abs(simRelease - clipRelease) < 1e-5f) return simTime;
+        return simTime < simRelease ? simTime / simRelease * clipRelease : clipRelease + (simTime - simRelease);
+    }
+
     /// <summary>Whether a throw at <paramref name="time"/> is a new throw (its time ran backward since the last frame).</summary>
     public static bool ThrowRestarted(float lastTime, float time) => time < lastTime;
 }

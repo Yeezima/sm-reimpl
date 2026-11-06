@@ -514,13 +514,13 @@ public partial class NetworkView
                 centre /= Math.Max(1, _tfwOrbitalSeen.Count);
                 float off = new Num.Vector2(centre.X - _tfwOrbitalChosen.X, centre.Y - _tfwOrbitalChosen.Y).Length();
                 TfwOrbitalCheck($"the barrage's centre ({centre.X:F1}, {centre.Y:F1}) is {off:F1} m from the crosshair's point", off < 2f * TfwFireRules.Scatter);
-                TfwOrbitalCheck($"no cooldown: {war.Own.OrbitalSeconds} s, {TfwHudModel.OrbitalText}", war.Own.OrbitalSeconds == 0);
+                TfwOrbitalCheck($"cooldown after the strike: {war.Own.OrbitalSeconds} s, {TfwHudModel.OrbitalTextFor(false, war.Own.OrbitalSeconds)}", war.Own.OrbitalSeconds is > 40 and <= 60);
                 _tfwOrbitalSeen.Clear();
                 _tfwState.Commands.Issue(TfwCommand.Orbital, 0, _tfwOrbitalChosen);
                 _tfwOrbitalStage = 3; _tfwOrbitalAt = _connectedFor + 3.0;
                 break;
             case 3:
-                TfwOrbitalCheck("the server took a second call at once", _tfwOrbitalSeen.Count > 0);
+                TfwOrbitalCheck("the server refused a second call within the cooldown (contracts 25)", _tfwOrbitalSeen.Count == 0);
                 GD.Print($"TFWTEST orbital done: {_tfwOrbitalFailed} failed; posted: {string.Join(", ", _tfwFirePosted.Select(kv => $"{kv.Key} {kv.Value}"))}");
                 GetTree().Quit(_tfwOrbitalFailed == 0 ? 0 : 1);
                 _tfwOrbitalStage = 4;

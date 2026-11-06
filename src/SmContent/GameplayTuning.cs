@@ -67,6 +67,12 @@ public sealed partial record GameplayTuning(SimConfig Config, string Source, IRe
             config = config with { MeleeLungeScale = OwnerLungeScale, WeaponSwitchTime = config.WeaponSwitchTime * OwnerSwitchScale };
         if (ownerFeel)   // sim/lock-reach (owner, 2026-11-06): the lock-on's lunge 30 % shorter (an estimate, owner's request)
             config = config with { MeleeLock = config.MeleeLock with { LungeReach = OwnerLockLungeReach } };
+        if (ownerFeel)   // feel/grenades-quickdraw (the owner, 2026-11-06): the quickdraw switch and the quicker throw that frees the player at the release (estimates)
+            config = config with
+            {
+                WeaponSwitchTime = OwnerQuickdrawTime, QuickdrawSwitch = true,
+                ThrowRelease = config.ThrowRelease * OwnerThrowReleaseScale, ThrowDuration = config.ThrowRelease * OwnerThrowReleaseScale,
+            };
         return new GameplayTuning(config, $"{BlueprintPackage}: {MarineBlueprint}", placeholders, notes) { Melee = melee, Classes = classes };
     }
 
@@ -128,9 +134,26 @@ public sealed partial record GameplayTuning(SimConfig Config, string Source, IRe
     /// <summary>
     /// feel/melee-charge-2 (the owner's request of 2026-10-29: "weapon switching is slightly faster ... make a note that this is an estimation and needs to be
     /// measured against the original"): the factor on <see cref="SimConfig.WeaponSwitchTime"/> (the 0.6 s placeholder × 0.8 = 0.48 s). An **estimate (owner's
-    /// request)**, to measure against the original; the raise after a switch is unchanged.
+    /// request)**, to measure against the original; the raise after a switch is unchanged. Superseded with the owner's feel by <see cref="OwnerQuickdrawTime"/> (2026-11-06); kept for
+    /// the record and the comparison aids.
     /// </summary>
     public const float OwnerSwitchScale = 0.8f;
+
+    /// <summary>
+    /// feel/grenades-quickdraw (the owner's request of 2026-11-06: "there is currently a slight delay when switching weapons and firing the next one ... it should be near instant,
+    /// like a quickdraw"): <see cref="SimConfig.WeaponSwitchTime"/> with the owner's feel, seconds from the switch press to the first shot of the new weapon (3 ticks at 30 Hz), and
+    /// <see cref="SimConfig.QuickdrawSwitch"/> on (no raise after it). Replaces 0.48 s (<see cref="OwnerSwitchScale"/>) plus the rifle's 0.2 s raise (0.68 s in all). An **estimate
+    /// (owner's request)**, to review in a playtest.
+    /// </summary>
+    public const float OwnerQuickdrawTime = 0.1f;
+
+    /// <summary>
+    /// feel/grenades-quickdraw (the owner's request of 2026-11-06: "make them more responsive to throw (less delay between pressing the keybind and the grenade releasing), and you're
+    /// free to act immediately and start a new action once the grenade leaves the hand"): the factor on the toss graph's release time (<see cref="SimConfig.ThrowRelease"/>, 0.2 s on the
+    /// install → 0.1 s), and the throw ends at the release (<see cref="SimConfig.ThrowDuration"/> = the release; the graph's 0.667 s end no longer locks). An **estimate (owner's
+    /// request)**, to review in a playtest.
+    /// </summary>
+    public const float OwnerThrowReleaseScale = 0.5f;
 
     /// <summary>The melee weapon read by <see cref="MeleeTuning"/> (combat knife), or null when it could not be read.</summary>
     public MeleeTuning? Melee { get; init; }
