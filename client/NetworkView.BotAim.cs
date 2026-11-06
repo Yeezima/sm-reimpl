@@ -34,6 +34,22 @@ public partial class NetworkView
     /// the factor on the aim error of a shot from the air (ours, an estimate from measured runs: at the default accuracy the aim's own chance of landing goes from 97 to about 58 %).
     /// </summary>
     public const float BotAirAimScale = 2f;
+    /// <summary>
+    /// The shot offsets (yaw, pitch; radians) that take back <see cref="BotTactics.HeavyScatterCancel"/> of the scatter the simulation will give this tick's shot, for a
+    /// heavy-role bot (Devastator, Havoc) firing its primary weapon in Classic PvP. The scatter is deterministic (<see cref="Spread.Draw"/> of the player id and
+    /// the input's tick, scaled by the half-widths of the set in use), so the bot predicts it as the client's own prediction does; the bloom and stance used here are
+    /// this tick's before the step, so the take-back is close but not exact. No weapon, server or protocol change: the bot aims the other way, through the
+    /// protocol's shot offsets. Zero for every other bot, with <c>--bot-old-tactics</c> and with a perfect aim.
+    /// </summary>
+    (float Yaw, float Pitch) BotHeavySpreadCancel(PlayerInput input)
+    {
+        if (BotOldTactics || _config is null || _client is null || _botAim is not { IsPerfect: false }) return (0f, 0f);
+        var me = _client.Predicted;
+        if (Loadouts.ClassOf(_config, me.Class) is not { Role: "heavy" } || Loadouts.InHand(_config, me) is not { Slot: not WeaponSlot.Pistol } weapon) return (0f, 0f);
+        var (h, v) = Spread.HalfWidths(weapon, me, 0, _config.MoveSpeedScale, _config);
+        return BotTactics.ScatterTakeBack(Spread.Draw(me.PlayerId, input.Tick), h, v, BotTactics.HeavyScatterCancel);
+    }
+
     /// <summary>Metres beyond which a firing bot also advances toward its target (ours; the bot strafes closer than this).</summary>
     public const float BotAdvanceBeyond = 40f;
 
@@ -135,6 +151,8 @@ public partial class NetworkView
         // Stream C: in the air the error is doubled (BotAirAimScale): with the same error a shot from a jump, mostly close and down onto a ground target, landed about 1.5 to 2.3 times as often as one on the ground.
         if (!BotOldTactics && (_client.Predicted.Jump != JumpPhase.None || !_client.Predicted.Grounded)) scale *= BotAirAimScale;
         (dy, dp, sy, sp) = (dy * scale, dp * scale, sy * scale, sp * scale);
+        // Stream C (owner's choice 2026-11-07: "Tighten for bots"): a heavy-role bot's primary weapon has part of its scatter taken back (BotHeavySpreadCancel, BotTactics.HeavyScatterCancel).
+        if (firing) { var (cy, cp) = BotHeavySpreadCancel(input); sy += cy; sp += cp; }
         if (dy == 0f && dp == 0f && sy == 0f && sp == 0f) return input;
         // Turning the view by dy turns the move vector with it; rotate the stick the other way to keep the body's direction.
         float c = MathF.Cos(dy), s = MathF.Sin(dy);

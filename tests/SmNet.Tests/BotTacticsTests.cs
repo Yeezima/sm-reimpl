@@ -1,4 +1,5 @@
 using System.Numerics;
+using SmSim;
 
 namespace SmNet.Tests;
 
@@ -100,5 +101,25 @@ public class BotTacticsTests
         var close = BotTactics.FlankPoint(enemy, new Vector2(-3, -2), ally);
         Assert.True(close.X < 0);
         Assert.True(close.Length() < BotTactics.FlankRadius);
+    }
+
+    [Fact]
+    public void The_heavy_scatter_take_back_aims_against_the_simulations_turn()
+    {
+        foreach (var (yaw, pitch) in new[] { (0f, 0f), (1.3f, 0.1f), (-2.4f, -0.2f) })
+        {
+            for (uint tick = 1; tick < 200; tick += 7)
+            {
+                var draw = Spread.Draw(5, tick);
+                var aim = Combat.AimDirection(yaw, pitch);
+                float h = 2f * MathF.PI / 180f, v = 1.5f * MathF.PI / 180f;
+                var plain = Spread.Turn(aim, draw.X * h, draw.Y * v);
+                var (dy, dp) = BotTactics.ScatterTakeBack(draw, 2f, 1.5f, 1f);
+                var taken = Spread.Turn(Combat.AimDirection(yaw + dy, pitch + dp), draw.X * h, draw.Y * v);
+                float before = MathF.Acos(Math.Clamp(Vector3.Dot(plain, aim), -1f, 1f)), after = MathF.Acos(Math.Clamp(Vector3.Dot(taken, aim), -1f, 1f));
+                Assert.True(after <= before * 0.1f + 1e-4f, $"yaw {yaw} tick {tick}: {before} -> {after} rad");
+            }
+        }
+        Assert.Equal((0f, 0f), BotTactics.ScatterTakeBack(new Vector2(0.5f, -0.3f), 2f, 2f, 0f));
     }
 }

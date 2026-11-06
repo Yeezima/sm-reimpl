@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2341 spec table rows: **1701 tagged**, 459 not tagged (read from data with high confidence), 181 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
+Scanned 2342 spec table rows: **1702 tagged**, 459 not tagged (read from data with high confidence), 181 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -49,23 +49,23 @@ Scanned 2341 spec table rows: **1701 tagged**, 459 not tagged (read from data wi
 | Customizer and paint | 48 | 45 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
-| Networking and render smoothing | 17 | 8 | 9 | 9 | 7 |
+| Networking and render smoothing | 18 | 9 | 9 | 9 | 7 |
 | Core simulation (provisional values) | 293 | 275 | 231 | 45 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 172 | 163 | 80 | 49 | 0 |
-| **All areas** | **1701** | 1466 | 1298 | 525 | 38 |
+| **All areas** | **1702** | 1467 | 1298 | 525 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 844 |
+| kind: ours | 845 |
 | confidence: low | 618 |
 | confidence: medium | 552 |
 | kind: interpretation | 343 |
 | notes: ours | 334 |
 | confidence: none (low) | 128 |
-| kind: estimate | 108 |
+| kind: estimate | 109 |
 | kind: provisional | 99 |
 | notes: estimate | 83 |
 | kind: user's knowledge | 51 |
@@ -1977,7 +1977,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC513790` | Look SSR by preset (fx/impact-pass review) | a look's `ssr.on` (the remaster's) turns screen-space reflections on at medium and high only; low and off never run SSR (older hardware is the next priority); high has SSR anyway. Off = the M40-T7 renderer features alone (no shadows, SSAO, SSIL, volumetric… | kind: ours | ours | Look SSR by preset (fx/impact-pass review): compare with SM1 with side-by-side screenshots in the same spot. Ours: a look's ssr.on (the remaster's) turns screen-space reflections on at… | ☐ |
 | `R-6E7116B1` | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical… | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat… | confidence: medium | measured | Effect checks after the review fixes (demo replays on Godot…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: own bolter tracer and the enemy's shots from the follow camera, own… | ☐ |
 
-### Networking and render smoothing (17)
+### Networking and render smoothing (18)
 
 *Spec section: Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated)*
 
@@ -2009,6 +2009,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-FB826BA2` | Bot aim mode (stream C) | a bot fights a ranged gunfight on the ground with a **primary** weapon at **10 m** or more holding aim mode (the Aim button: the data's aiming spread sets, e.g. heavy bolter 1.25 against 1.9 degrees, bolter 0.075 against 0.25; aiming speeds), not while… (m) | kind: ours; kind: estimate | owner's 49 % request; the choice ours | Bot aim mode (stream C): compare with SM1 by measuring on a flat spot of the same map. Ours: a bot fights a ranged gunfight on the ground with a primary weapon at… | ☐ |
 | `R-261BAA24` | Bot weave (stream C) | a bot closing on an enemy more than **9 m** away (the charge's reach) never runs a straight line at it: the advance while firing beyond 40 m and the melta's close-in run turn **40 degrees** to alternating sides in legs of **0.8 to 1.5 s**, where the turned… (m, degrees, s) | kind: ours; kind: estimate | owner 2026-11-06 late; the numbers ours | Bot weave (stream C): compare with SM1 with an overlaid screenshot taken from the same position. Ours: a bot closing on an enemy more than 9 m away (the charge's reach)… | ☐ |
 | `R-F39784AA` | Bot flanking (stream C) | an ally engages an enemy when it is within **40 m** of it and faces it within **25 degrees**; a bot fighting that enemy then strafes around it away from the ally until it is **70 degrees** around (then strafes left and right again), and a bot that cannot see… (m, degrees) | kind: ours; kind: estimate | owner 2026-11-06 late; the numbers ours | Bot flanking (stream C): compare with SM1 with an overlaid screenshot taken from the same position. Ours: an ally engages an enemy when it is within 40 m of it and faces it… | ☐ |
+| `R-BB28D290` | Bot heavy-weapon spread (stream C, the owner's choice 2026-11-07: "Tighten for bots") | a heavy-role bot (Devastator, Havoc) firing its primary weapon in Classic PvP aims against **35 %** of the scatter the simulation will give the shot: the scatter is deterministic (`Spread.Draw` of the player id and the input's tick, scaled by the half-widths… (share) | kind: ours; kind: estimate | owner 2026-11-07; 0.35 ours | Bot heavy-weapon spread (stream C, the owner's choice…: compare with SM1 by feel or video. Ours: a heavy-role bot (Devastator, Havoc) firing its primary weapon in… | ☐ |
 
 *Spec section: Musou Mode: the enemies' bodies for shots (used by the simulation, Musou Mode only)*
 

@@ -38,6 +38,23 @@ public sealed class BotTactics
     /// <summary>Metres from the enemy a not-yet-visible bot heads for when it flanks (ours; never farther than it already is).</summary>
     public const float FlankRadius = 15f;
 
+    /// <summary>
+    /// The owner's choice of 2026-11-07 ("Tighten for bots"): the share of a heavy-role bot's own weapon scatter it aims against (ours, an estimate; spec
+    /// "Bot heavy-weapon spread").
+    /// </summary>
+    public const float HeavyScatterCancel = 0.35f;
+
+    /// <summary>
+    /// The shot offsets (yaw, pitch; radians) that take back <paramref name="share"/> of a scatter turn drawn at <paramref name="draw"/> (a point in the unit disc,
+    /// <c>SmSim.Spread.Draw</c>) in half-widths of <paramref name="horizontalDegrees"/> and <paramref name="verticalDegrees"/>. <c>Spread.Turn</c> turns a shot
+    /// "across" to its right (a smaller yaw) and "up" (a larger pitch), so the offsets point the other way.
+    /// </summary>
+    public static (float Yaw, float Pitch) ScatterTakeBack(Vector2 draw, float horizontalDegrees, float verticalDegrees, float share)
+    {
+        float across = draw.X * horizontalDegrees * MathF.PI / 180f, up = draw.Y * verticalDegrees * MathF.PI / 180f;
+        return (share * across, -share * up);
+    }
+
     readonly Random _random;
     double _strafeUntil = double.NegativeInfinity, _weaveUntil = double.NegativeInfinity;
     int _strafeSide, _weaveSide;
