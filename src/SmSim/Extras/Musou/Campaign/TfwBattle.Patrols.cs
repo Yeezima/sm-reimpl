@@ -24,6 +24,8 @@ public static class TfwPatrolRules
     public const float ReformSeconds = 30f;
     /// <summary>The column's head waits while its Orks are this far behind their places on average; one this far behind is let go alone (it hunts on its own).</summary>
     public const float WaitBehind = 4f, StragglerBehind = 20f;
+    /// <summary>The longest a head waits without a break (s): then the ones more than <see cref="LateBehind"/> m behind are let go alone and the head marches on at <see cref="CreepFraction"/> of its pace, so no column stalls for good (ours).</summary>
+    public const float MaxWaitSeconds = 2.5f, LateBehind = 9f, CreepFraction = 0.6f;
     /// <summary>A route patrol's first place on its loop is at least this far from the landing zone (the Stormbird lands among no column).</summary>
     public const float FromLanding = 45f;
     /// <summary>Nodes one route search may expand. The searches run off the tick from the battle's start; their ways are taken this long after it (the route patrols form then; the hunters at once).</summary>
@@ -99,6 +101,8 @@ public sealed partial class TfwBattle
         public bool Formed, EverFormed;
         public int ReformTicks;
         public bool Holding;
+        public int HeldTicks;
+        public bool Creeping;
     }
 
     const int PatrolGroupFirst = MusterGroupFirst + Positions + 1;   // after the musters' (9 to 12): 13 on
@@ -112,6 +116,8 @@ public sealed partial class TfwBattle
     /// <summary>Route searches done so far and the longest one's wall-clock milliseconds (the cost report and the tests).</summary>
     public int RouteSearches { get; private set; }
     public double LongestRouteMilliseconds { get; private set; }
+    /// <summary>Test aid: stragglers let go alone so far.</summary>
+    public int StragglersReleased { get; private set; }
 
     /// <summary>Test aid: the columns as they are now: index, hunter, formed, Orks, the head's place, and whether the head is waiting for its ranks.</summary>
     public IReadOnlyList<(int Index, bool Hunter, bool Formed, ushort[] Ids, Vector3 Head, bool Holding)> Columns()
@@ -326,13 +332,33 @@ public sealed partial class TfwBattle
             ushort id = c.Members[m];
             if (!_enemies.TryGet(id, out var e) || _enemies.HomeOf(id) is not { } home) continue;
             float d = Vector2.Distance(Flat(e.Position), Flat(home));
-            if (d > TfwPatrolRules.StragglerBehind && e.State != MusouEnemyState.Spawning) { _enemies.Unleash(id); c.Members.RemoveAt(m); continue; }
+            if (d > TfwPatrolRules.StragglerBehind && e.State != MusouEnemyState.Spawning) { _enemies.Unleash(id); StragglersReleased++; c.Members.RemoveAt(m); continue; }
             _behind.Add(d);
         }
         if (c.Members.Count == 0) { TidyColumn(c); return; }
         _behind.Sort();
         c.Holding = _behind.Count > 0 && _behind[_behind.Count / 2] > TfwPatrolRules.WaitBehind;   // the middle Ork, so one caught on a corner does not stop the column
         float speed = c.Hunter ? TfwPatrolRules.HunterSpeed : TfwPatrolRules.PatrolSpeed;
+        bool creep = false;
+        if (!c.Holding) { c.HeldTicks = 0; c.Creeping = false; }
+        else
+        {
+            c.HeldTicks++;
+            if (!c.Creeping && c.HeldTicks > Ticks(TfwPatrolRules.MaxWaitSeconds))
+            {
+                // Waited long enough: the far laggards go on alone, and the head creeps on until the ranks are up, so the rest catch up while it walks.
+                c.Creeping = true;
+                for (int m = c.Members.Count - 1; m >= 0; m--)
+                {
+                    ushort id = c.Members[m];
+                    if (_enemies.TryGet(id, out var e) && _enemies.HomeOf(id) is { } home && Vector2.Distance(Flat(e.Position), Flat(home)) > TfwPatrolRules.LateBehind && e.State != MusouEnemyState.Spawning)
+                    { _enemies.Unleash(id); StragglersReleased++; c.Members.RemoveAt(m); }
+                }
+                if (c.Members.Count == 0) { TidyColumn(c); return; }
+            }
+            if (c.Creeping) { c.Holding = false; creep = true; }
+        }
+        if (creep) speed *= TfwPatrolRules.CreepFraction;
         if (!c.Holding)
         {
             float step = speed * Dt;

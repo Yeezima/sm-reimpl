@@ -30,6 +30,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 Scanned 2319 spec table rows: **1686 tagged**, 456 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 509 rows of the changes document.
 Scanned 2318 spec table rows: **1683 tagged**, 456 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 509 rows of the changes document.
+Scanned 2318 spec table rows: **1687 tagged**, 454 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 509 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -55,6 +56,8 @@ Scanned 2318 spec table rows: **1683 tagged**, 456 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 168 | 159 | 80 | 45 | 0 |
 | **All areas** | **1686** | 1453 | 1294 | 516 | 38 |
+| Ork faction | 172 | 163 | 80 | 49 | 0 |
+| **All areas** | **1687** | 1454 | 1291 | 519 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -63,12 +66,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: ours | 834 |
 | confidence: low | 614 |
 | confidence: medium | 552 |
+| kind: ours | 836 |
+| confidence: low | 613 |
+| confidence: medium | 550 |
 | kind: interpretation | 343 |
 | notes: ours | 330 |
 | confidence: none (low) | 128 |
 | kind: estimate | 99 |
 | kind: provisional | 99 |
 | notes: estimate | 78 |
+| kind: estimate | 98 |
+| notes: estimate | 82 |
 | kind: user's knowledge | 51 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
@@ -2742,6 +2750,15 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-71316551` | Musou: a column forms again | **30** s after it woke or was wiped out, at its source (a route patrol at its loop's start, a hunter at the source), only while that source sends (a position Held, the HQ from the commander on; all four in the final assault) and the cap has room (s) | kind: ours; notes: estimate | ours | Musou: a column forms again: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 30 s after it woke or was wiped out, at its source (a route patrol at… | ☐ |
 | `R-C09ADA6F` | Musou Mode: no Ork stuns | no enemy's attack puts a player in a reaction: the melee strikes that staggered (the Nob, every Boss Ork, the Warboss's swing), the Warboss's ground slam (stagger) and his charge's knockback (**3** m stagger) deal their damage and nothing else; the other… | kind: ours | owner 2026-11-06 "remove all stun effects by orks in musou mode" | Musou Mode: no Ork stuns: compare with SM1 by watching the reaction and timing it frame by frame. Ours: no enemy's attack puts a player in a reaction: the melee strikes that… | ☐ |
 
+*Spec section: Musou Mode: Boss Ork facing and wall room, patrol waits bounded (night/ork-movement, 2026-11-06; `TfwRules.Version` and `MusouSim.Version` unchanged, no protocol or wire change; Musou Mode only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-ABDE6C38` | Musou: Boss Ork facing while it runs | a Boss Ork in the Seek state faces its smoothed actual velocity (**0.1** of each tick's velocity blended in, about 0.3 s), turning at most **6** rad/s; slower than **0.8** m/s (pressed on a wall, shuffling, stopped) it keeps its facing; every other enemy… (rad/s, m/s) | kind: ours; notes: estimate | owner request 2026-11-06; the rates ours | Musou: Boss Ork facing while it runs: compare with SM1 by timing a run over a known distance. Ours: a Boss Ork in the Seek state faces its smoothed actual velocity (0.1… | ☐ |
+| `R-67508332` | Musou: Boss Ork wall room | a Boss Ork leans away from any wall nearer than its radius minus the graph's 0.4 m margin (Nob 1.4 m, Boy 0.8 m), by up to **0.9** of its speed at the wall itself, along the gradient of the distance to the nearest closed cell (`MusouNav.EdgeDistance`… (m, share of speed) | kind: ours; notes: estimate | ours | Musou: Boss Ork wall room: compare with SM1 by feel or video. Ours: a Boss Ork leans away from any wall nearer than its radius minus the… | ☐ |
+| `R-D32D2E49` | Musou: Boss Ork straight-line check | a Boss Ork near its target (within the slot distance) only closes in on its slot round the target when the straight line to it is walkable on the graph (`NavGraph.StraightWalk`); when a wall is in the line it keeps to the flow field for **1.5** s (about 6 m… (s) | kind: ours; notes: estimate | ours | Musou: Boss Ork straight-line check: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a Boss Ork near its target (within the slot distance) only closes in… | ☐ |
+| `R-9B761BF5` | Musou: a column's wait is bounded | the head waits (stops) while its middle Ork is **4** m behind, at most **2.5** s at a time; then Orks more than **9** m behind their places are let go alone and the head creeps on at **0.6** of its pace until the ranks are up (**4** m), then walks at full pace (s, m, share) | kind: ours; notes: estimate | ours | Musou: a column's wait is bounded: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the head waits (stops) while its middle Ork is 4 m behind, at most… | ☐ |
+
 *Spec section: Musou Mode: Boss Orks and the Warboss model (musou/boss-orks, 2026-11-06; `MusouSim.Version` 8, `TfwRules.Version` 25, no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -3430,6 +3447,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-1125D5C3` | Musou: melee heal per enemy (2026-11-06; `MusouSim.Version` 8) | No Musou Mode in the original | Ours (added content): the 5 % melee heal is given for every enemy a swing, stomp or cleave strikes (an enemy in both once), still capped at full health; before, once a swing | Owner's request 2026-11-06; Musou Mode only, Classic PvP unchanged; spec "Musou: melee heal" | Musou: melee heal per enemy (2026-11-06; MusouSim.Version 8): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-61747757` | Musou Boss Orks and the Warboss model (musou/boss-orks, 2026-11-06) | No Musou Mode in the original | Ours (added content, the owner's request and answers): roaming Boss Orks of any Ork kind at 3x size, 10x health (at least 3000), 2x damage, never staggered, each with 20 elites, in battles only, 1 to 2 min after the landing and then every 1.5 to 3 min, at most 2 alive; the Warboss at 15000 health and 1.5x damage, the… | Musou Mode only. Spec "Musou Mode: Boss Orks and the Warboss model". | Musou Boss Orks and the Warboss model (musou/boss-orks…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-3DA6A24D` | Musou: patrols, hunter columns and no Ork stuns (musou/ork-patrols-nostun, 2026-11-06; `TfwRules.Version` 28) | No Musou Mode in the original | Ours (added content, the owner's requests): 4 columns of 40 Orks walk loops between a battle's places on the walking graph and 2 columns of 40 walk down the flow field to the nearest player wherever he is, 4 abreast; a player within 25 m of a column's ranks wakes all of it; they come out of the crowds' existing cap… | Musou Mode only; classic PvP and the 5-wave test aid unchanged. `TfwCombatRules.EnemiesImpede` true restores the staggers; `SM_TFW_NO_PATROLS=1` (server) the battle without columns. Spec "Musou Mode: patrols, hunters and no Ork stuns". | Musou: patrols, hunter columns and no Ork stuns…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-79E049F1` | Musou: Boss Ork facing and wall room, bounded column waits (night/ork-movement, 2026-11-06) | No Musou Mode in the original | Ours (added content, the owner's request): a running Boss Ork faces the way it actually moves (turn rate 4 rad/s) instead of the way it is steered, and leans off walls nearer than its body radius; a patrol column's head never stops more than 2.5 s for its ranks (laggards over 9 m behind are let go, the head creeps on) | Musou Mode only; classic PvP unchanged. Spec "Musou Mode: Boss Ork facing and wall room, patrol waits bounded". | Musou: Boss Ork facing and wall room, bounded column waits…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-B8027519` | The charge clash: charger and victim locked through the shove (feel/charge-clash, 2026-11-06; protocol 59) | Ours in its mechanics (the original's pairing is engine code); its length and motion are the data's collision stop (1.83 m forward in 0.2 s, then 1.11 m back) and match the owner's recording | A stunned or staggered victim is carried with the charger through the stop's forward shove at 0.9 m (capsules touching), the charger's step ignores the victim's body, a victim the level stops holds the charger back; any charger meets a body at its edge (guard 0.85 m: the touch less a 5 cm slack, was 0.75 m); remotes… | spec "The charge clash: charger and victim locked through the shove" | The charge clash: charger and victim locked through the…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-FAB1E86D` | Musou: Guardsmen as defenders, capture under fire, Boss Ork cleave (musou/guard-formations, 2026-11-06; `TfwRules.Version` 28) | No Musou Mode in the original | Ours (added content, the owner's requests): the Guardsmen squads are back in every battle; they hold the landing zone, then share the secured positions out by the Orks near each, and never capture; only players, lords and retainers take a point, at the full rate, and Orks on the point no longer stop the progress (only… | Musou Mode only. Spec "Musou Mode: Guardsmen as defenders, the capture under fire, the Boss Ork cleave". | Musou: Guardsmen as defenders, capture under fire, Boss Ork…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-8A28955D` | Instant step and 20 % longer steps (sim/instant-step, 2026-11-06) | A strike's forward root motion follows the clip's timing (slow start, most of it after the hit) and, since feel/melee-charge-2 and sim/swing-step, is scaled | The step of every light and heavy melee strike (not the in-place stomp, not the heavy classes' kick) starts at full speed on the first tick and settles toward the move-on time (same total, same hit time, same recovery), and is 1.2 x longer for every melee weapon (the hammer and maul too): chainsword lights 5.36 / 3.88… | Owner's request 2026-11-06, an **estimate** (the 1.2 and "instant" are the owner's, the ease-out shape is ours); spec "Instant step and 20 % longer steps"; test aids `SM_OLD_INSTANT_STEP=1`, `SM_OLD_STEP_BOOST=1`, `--old-strike-legs` | Instant step and 20 % longer steps (sim/instant-step…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |

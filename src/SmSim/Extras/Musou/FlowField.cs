@@ -137,6 +137,68 @@ public sealed class MusouNav
         return best;
     }
 
+    float[]? _edge;   // per node: metres to the nearest cell lacking a walkable neighbour (the graph's own wall margin is not counted)
+
+    static readonly (int Dx, int Dy)[] Ring = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)];
+
+    bool Open(int node, int k)
+    {
+        int cx = _col[node] % Width + Ring[k].Dx, cy = _col[node] / Width + Ring[k].Dy;
+        if (cx < 0 || cy < 0 || cx >= Width || cy >= Depth) return false;
+        for (int l = _fwdStart[node]; l < _fwdStart[node + 1]; l++)
+            if (_col[_fwdTo[l]] == cx + cy * Width) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// How far a node is from the nearest wall or ledge, in metres (0 for a node with a closed cell beside it; the walking graph already keeps a normal body's radius off every wall). Computed once, lazily: a multi-source
+    /// breadth-first spread over the walk links. Used by the Boss Orks, whose bodies are 3x wide (ours).
+    /// </summary>
+    public float EdgeDistance(int node)
+    {
+        if (_edge is null)
+        {
+            int n = NodeCount;
+            var d = new float[n];
+            var queue = new Queue<int>();
+            for (int i = 0; i < n; i++)
+            {
+                d[i] = float.PositiveInfinity;
+                for (int k = 0; k < 8; k++) if (!Open(i, k)) { d[i] = 0f; queue.Enqueue(i); break; }
+            }
+            while (queue.Count > 0)
+            {
+                int i = queue.Dequeue();
+                for (int l = _fwdStart[i]; l < _fwdStart[i + 1]; l++)
+                {
+                    int t = _fwdTo[l];
+                    if (!Adjacent(i, t)) continue;
+                    float c = d[i] + _cell * (_col[t] % Width != _col[i] % Width && _col[t] / Width != _col[i] / Width ? 1.4142f : 1f);
+                    if (c < d[t]) { d[t] = c; queue.Enqueue(t); }
+                }
+            }
+            _edge = d;
+        }
+        return (uint)node < (uint)_edge.Length ? _edge[node] : float.PositiveInfinity;
+    }
+
+    /// <summary>The direction of increasing <see cref="EdgeDistance"/> at a node (away from the nearest wall; flat, unit, or zero where the distance is flat).</summary>
+    public Vector2 EdgeGradient(int node)
+    {
+        float here = EdgeDistance(node);
+        var g = Vector2.Zero;
+        for (int l = _fwdStart[node]; l < _fwdStart[node + 1]; l++)
+        {
+            int t = _fwdTo[l];
+            if (!Adjacent(node, t)) continue;
+            float dt = _edge![t];
+            if (float.IsInfinity(dt) || float.IsInfinity(here)) continue;
+            g += new Vector2(_x[t] - _x[node], _y[t] - _y[node]) * (dt - here);
+        }
+        float len = g.Length();
+        return len > 1e-4f ? g / len : Vector2.Zero;
+    }
+
     /// <summary>The node under or nearest <paramref name="p"/> (the graph's own search: its cell first, then rings out to <paramref name="radius"/>).</summary>
     public int Nearest(Vector3 p, float radius = 2f, float maxDz = 2.5f)
     {
