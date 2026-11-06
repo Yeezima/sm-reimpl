@@ -5,7 +5,8 @@ using SmSim.Extras.Musou.Campaign;
 namespace SmNet.Extras.Musou.Campaign;
 
 /// <summary>One elite as the bars' plan sees it: its id, where it stands and its health as 1 to 255 of its full health (<see cref="TfwBars.Quantise"/>).</summary>
-public readonly record struct TfwElite(ushort Id, Vector3 Position, byte Health);
+/// <param name="Pinned">Always among the bars sent, whatever the distance (a Boss Ork, 2026-11-06: its HUD bar reads it).</param>
+public readonly record struct TfwElite(ushort Id, Vector3 Position, byte Health, bool Pinned = false);
 
 /// <summary>
 /// The elites' health bars (Musou Mode pass 2, item 14; design section H; tag 13): which enemies have one, how a health becomes a byte, and which bars one client is sent. Engine-free and deterministic.
@@ -30,7 +31,7 @@ public static class TfwBars
     public static int PeriodTicks(int tickRate) => Math.Max(1, tickRate / PerSecond);
 
     /// <summary>The kinds that wear a bar: the 'Ard Boy and the Nob (the commander is a Nob), and the Warboss, who also has the boss bar (design section H).</summary>
-    public static bool IsElite(MusouEnemyType type) => type is MusouEnemyType.ArdBoy or MusouEnemyType.Nob or MusouEnemyType.Warboss;
+    public static bool IsElite(MusouEnemyType type) => type is MusouEnemyType.ArdBoy or MusouEnemyType.Nob or MusouEnemyType.Warboss || MusouBossOrks.Is(type);
 
     /// <summary>Health as 1 to 255 of the full health (rounded up, so a living elite never shows empty). Zero for a dead one or a full health that is not above 0.</summary>
     public static byte Quantise(float health, float max)
@@ -55,7 +56,7 @@ public static class TfwBars
         scratch.Clear();
         for (int i = 0; i < elites.Count; i++)
         {
-            float d = viewer is { } v ? Vector2.DistanceSquared(new Vector2(elites[i].Position.X, elites[i].Position.Y), new Vector2(v.X, v.Y)) : 0f;
+            float d = elites[i].Pinned ? -1f : viewer is { } v ? Vector2.DistanceSquared(new Vector2(elites[i].Position.X, elites[i].Position.Y), new Vector2(v.X, v.Y)) : 0f;   // a pinned one first
             scratch.Add((d, i));
         }
         scratch.Sort(static (a, b) => { int c = a.Distance.CompareTo(b.Distance); return c != 0 ? c : a.Index.CompareTo(b.Index); });

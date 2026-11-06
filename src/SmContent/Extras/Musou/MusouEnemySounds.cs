@@ -59,11 +59,11 @@ public static class MusouSoundRules
     /// <summary>Metres between two footfalls (ours: a run of about 2.5 steps a second at the type's speed; the crowd's clips are not read for this).</summary>
     public static float StepMetres(MusouEnemyType t) => t switch
     {
-        MusouEnemyType.Gretchin => 1.4f, MusouEnemyType.Nob => 2.4f, MusouEnemyType.ChaosMarine => 2.2f, MusouEnemyType.Warboss => 3f, _ => 2f,
+        MusouEnemyType.Gretchin => 1.4f, MusouEnemyType.Nob => 2.4f, MusouEnemyType.ChaosMarine => 2.2f, MusouEnemyType.Warboss => 3f, _ when MusouBossOrks.Is(t) => 3f, _ => 2f,
     };
 
     /// <summary>Whether a type always steps aloud with an emitter, however many are nearer.</summary>
-    public static bool HeavyStep(MusouEnemyType t) => t is MusouEnemyType.Nob or MusouEnemyType.Warboss;
+    public static bool HeavyStep(MusouEnemyType t) => t is MusouEnemyType.Nob or MusouEnemyType.Warboss || MusouBossOrks.Is(t);
 }
 
 /// <summary>The crowd's budget: <see cref="Refill"/> each frame, <see cref="Take"/> for each sound. Counts what it passed and held, by group.</summary>
@@ -136,6 +136,11 @@ public sealed class MusouSoundSet
         new(MusouEnemyType.Nob, "ork_coop_nob", "ork_coop_nob_uge_axe", Charge: "ork_coop_nob_bullrush"),
         new(MusouEnemyType.ChaosMarine, GameplayTuning.ChaosBlueprint, "chaos_coop_chainaxe", Gun: "chaos_coop_bolter", VoiceClass: "csm - tactical"),
         new(MusouEnemyType.Warboss, "ork_coop_warboss", "ork_coop_warboss_power_klaw", Charge: "ork_coop_warboss_bullrush", VoiceBlueprint: "ork_coop_nob_pro"),
+        // The Boss Orks (2026-11-06): their base kind's files (the data has no giant Orks).
+        new(MusouEnemyType.BossBoy, OrkSounds.Blueprint, "ork_coop_boy_choppa"),
+        new(MusouEnemyType.BossShootaBoy, "ork_coop_boy_2hand_shoota", "ork_coop_boy_choppa", Gun: "ork_coop_boy_2hand_shoota_rapid"),
+        new(MusouEnemyType.BossArdBoy, "ork_coop_boy_pro", "ork_coop_boy_choppa_pro"),
+        new(MusouEnemyType.BossNob, "ork_coop_nob", "ork_coop_nob_uge_axe", Charge: "ork_coop_nob_bullrush"),
     ];
 
     /// <summary>Every file <see cref="Files"/> names, for <see cref="SoundTriggers.Load(string, IEnumerable{string}, IEnumerable{string}, IReadOnlyList{SmFormats.Havok.BehaviorGraph}?, IReadOnlyList{SmFormats.Havok.BehaviorGraph}?)"/>.</summary>

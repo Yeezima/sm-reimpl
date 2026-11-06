@@ -43,6 +43,8 @@ public sealed partial class MusouHud : Control
         public float NextRunIn = -1f;
         /// <summary>The boss bar's name (the war's commander; the Warboss otherwise).</summary>
         public string BossName = "ORK WARBOSS";
+        /// <summary>The roaming Boss Orks' bars (2026-11-06; MusouHud.BossOrks.cs), under the boss bar.</summary>
+        public readonly List<SmNet.Extras.Musou.Campaign.TfwBossOrkBar> BossOrks = new();
     }
 
     public Frame Data = new();
@@ -190,6 +192,7 @@ public sealed partial class MusouHud : Control
         if (Data.Director is not { } d) return;
         if (d.Phase != MusouPhase.Campaign) DrawRunPanel(d);
         DrawBossBar(vs, d);
+        DrawBossOrkBars(vs, d);   // MusouHud.BossOrks.cs
         if (d.Phase is not (MusouPhase.Won or MusouPhase.Lost)) DrawChain(vs);
         DrawBreak(vs, d);
         DrawCallOuts(vs);

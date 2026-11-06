@@ -74,7 +74,8 @@ public static class TfwBattleRules
     public const float EliteBase = 0.10f, EliteSlope = 0.50f;
     public const float FodderBoyz = 0.70f, FodderShootas = 0.30f, EliteArds = 0.75f;   // the owner, 2026-11-02: no Gretchin; their 0.15 went to the Boyz, the head count is unchanged
 
-    // The commander.
+    // The commander. The owner, 2026-11-06: "replace him with the warboss": the battle's boss at the HQ is the Warboss (MusouEnemyType.Warboss, its model, size, abilities and
+    // MusouRules.BossHealth), still leashed at the HQ with his escort; CommanderHealth is what he had as a Nob (kept for the record, no longer used).
     public const float CommanderHealth = 1500f;
     public const int CommanderNobs = 1, CommanderArds = 5;
 
@@ -146,7 +147,7 @@ public enum TfwBattleChange : byte
 /// position is Held with no Imperial on it, Clearing with Imperials and Orks on it, Securing with Imperials alone, Secured when that has run its time; only Held sends Orks (a capture pauses it, a full one stops it, and the
 /// tick a capture ends or a retake is done it sends again). A secured position with Orks alone on it falls back to Held in <see cref="TfwBattleRules.RetakeSeconds"/>. A secured position keeps one squad as long as two are free.
 /// </summary>
-public sealed class TfwBattle
+public sealed partial class TfwBattle
 {
     /// <summary>The fourth entry of <see cref="Objectives"/>: the commander, or the Warboss, at the HQ.</summary>
     public const int CommanderObjective = 3;
@@ -429,7 +430,7 @@ public sealed class TfwBattle
 
     void SpawnBoss(MusouEnemyType type, float health, bool leashed)
     {
-        var hq = type == MusouEnemyType.Warboss ? _layout.BossSpot : _layout.Hq;   // the final boss stands in the courtyard outside the HQ's room (owner, 2026-11-01); the commander keeps the HQ
+        var hq = !leashed ? _layout.BossSpot : _layout.Hq;   // the final boss stands in the courtyard outside the HQ's room (owner, 2026-11-01); the commander (a Warboss since 2026-11-06) keeps the HQ
         float yaw = YawTo(hq, _layout.LandingZone);
         BossId = leashed ? _enemies.SpawnLeashed(type, hq, yaw, health, CommanderGroup, TfwBattleRules.DefenderAggro) : _enemies.Spawn(type, hq, yaw, health);
         BossMaxHealth = health;
@@ -438,7 +439,7 @@ public sealed class TfwBattle
 
     void SpawnCommander()
     {
-        SpawnBoss(MusouEnemyType.Nob, TfwBattleRules.CommanderHealth * _scale, leashed: true);
+        SpawnBoss(MusouEnemyType.Warboss, _enemies.Rules.BossHealth * _scale, leashed: true);   // the owner, 2026-11-06: "replace him with the warboss" (was a Nob of CommanderHealth)
         int escorts = TfwBattleRules.CommanderNobs + TfwBattleRules.CommanderArds;
         for (int k = 0; k < escorts; k++)
         {
@@ -496,6 +497,7 @@ public sealed class TfwBattle
         StepSquads();
         StepReserves();
         StepArrivals();
+        StepBossOrks(players);   // the roaming Boss Orks (owner, 2026-11-06; TfwBattle.BossOrks.cs)
         return change;
     }
 
@@ -579,7 +581,7 @@ public sealed class TfwBattle
         for (int i = 0; i < n; i++)
         {
             ushort id = ids[i];
-            if (id == BossId || _enemies.Leashed(id) || !_enemies.TryGet(id, out var e) || !e.Alive) continue;
+            if (id == BossId || _enemies.Leashed(id) || !_enemies.TryGet(id, out var e) || !e.Alive || MusouBossOrks.Is(e.Type)) continue;   // a Boss Ork is never removed (2026-11-06)
             if (e.State is not (MusouEnemyState.Seek or MusouEnemyState.Spawning)) { _idleInside.Remove(id); continue; }
             if (!_idleInside.TryGetValue(id, out var seen) || Vector3.DistanceSquared(seen.Anchor, e.Position) > StuckRadius * StuckRadius)
             { _idleInside[id] = (e.Position, _clearTick); continue; }
@@ -761,7 +763,7 @@ public sealed class TfwBattle
         foreach (ushort id in _stranded)
         {
             if (!_enemies.TryGet(id, out var e) || !e.Alive) continue;
-            if (id == BossId || _enemies.Relocations(id) < _enemies.Rules.StrandedRelocations)
+            if (id == BossId || MusouBossOrks.Is(e.Type) || _enemies.Relocations(id) < _enemies.Rules.StrandedRelocations)   // a boss, and a Boss Ork, is only ever moved
             {
                 int source = _layout.Sources.Length - 1;
                 for (int s = 0; s < _layout.Sources.Length && s <= Positions; s++) if (SourceActive(s)) { source = s; break; }

@@ -12,7 +12,7 @@ public sealed record MusouBossRules
     /// (design: 10 s, counted from the telegraph; ours), the reach a player must be within to start it (ours) and the recovery after it lands (ours).</summary>
     public float SlamWindUp { get; init; } = 0.8f;
     public float SlamRadius { get; init; } = 6f;
-    public float SlamDamage { get; init; } = 40f;
+    public float SlamDamage { get; init; } = 60f;   // the owner, 2026-11-06: the Warboss 1.5x (was 40)
     public float SlamCooldown { get; init; } = 10f;
     public float SlamTrigger { get; init; } = 4f;
     public float SlamRecover { get; init; } = 0.6f;
@@ -23,7 +23,7 @@ public sealed record MusouBossRules
     public float ChargeLength { get; init; } = 15f;
     public float ChargeSpeed { get; init; } = 12f;
     public float ChargeWidth { get; init; } = 1.5f;
-    public float ChargeDamage { get; init; } = 50f;
+    public float ChargeDamage { get; init; } = 75f;   // the owner, 2026-11-06: the Warboss 1.5x (was 50)
     public float ChargeKnockback { get; init; } = 3f;
     public float ChargeKnockbackSeconds { get; init; } = 0.4f;
     public float ChargeCooldown { get; init; } = 12f;

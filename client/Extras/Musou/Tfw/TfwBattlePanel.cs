@@ -19,6 +19,7 @@ public sealed partial class TfwBattlePanel : Control
         Green = new(0.35f, 0.85f, 0.4f), FrameGold = new(0.74f, 0.64f, 0.32f, 0.95f), PanelFill = new(0.02f, 0.02f, 0.025f, 0.84f);
 
     readonly Vector2[] _panel = new Vector2[6], _closed = new Vector2[7];
+    static readonly string[] BossOrkLines = ["BOSS ORK ALIVE", "2 BOSS ORKS ALIVE", "3 BOSS ORKS ALIVE"];
     readonly string[] _objectiveNames = new string[4], _objectiveStates = new string[4];
     FontVariation? _font, _fontBold;
     TfwHud.Frame? _data;
@@ -100,6 +101,7 @@ public sealed partial class TfwBattlePanel : Control
         }
         y += 6f;
         Txt(_guards, lx, y, 16, White);
+        if (data.BossOrks > 0) Txt(BossOrkLines[Math.Min(data.BossOrks, BossOrkLines.Length) - 1], rx, y, 16, new Color(1f, 0.45f, 0.05f), 1, true);   // the roaming Boss Orks (2026-11-06)
         Txt(_retainer, lx, y + RowH, 16, White);
         Txt(_kosText, rx, y + RowH, 16, Gold, 1);
         Txt(_pointsText, lx, y + 2 * RowH, 16, Gold);
