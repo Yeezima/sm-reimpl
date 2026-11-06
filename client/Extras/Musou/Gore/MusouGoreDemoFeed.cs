@@ -55,7 +55,7 @@ public sealed class MusouGoreDemoFeed
     public double RenderTick => _tick - 3.0;
     public Vector3 Centre => _centre;
 
-    /// <summary>One case alone, every window (8 s, or <c>--musou-gore-window s</c>) (<c>--musou-gore-case sweep|shot|lascannon|frag|barrage|churn</c>; a comma list takes them in turn), for stills; null: the whole 36 s cycle.</summary>
+    /// <summary>One case alone, every window (8 s, or <c>--musou-gore-window s</c>) (<c>--musou-gore-case melee|sweep|shot|shotkill|headkill|shothits|lascannon|frag|barrage|churn</c>; a comma list takes them in turn), for stills; null: the whole 36 s cycle.</summary>
     readonly string? _case;
     readonly float _window;
 
@@ -147,6 +147,9 @@ public sealed class MusouGoreDemoFeed
             switch (list[n % list.Length])
             {
                 case "melee": if (Once(k, 0.4f, 80 + n)) MeleeKill(t); break;
+                case "shotkill": if (Once(k, 0.4f, 100 + n)) ShotKill(t, false); break;   // gore-original: one shot kill on the front Ork
+                case "headkill": if (Once(k, 0.4f, 120 + n)) ShotKill(t, true); break;
+                case "shothits": if (k is >= 0.4f and < 1.6f && _tick % 6 == 0) ShotHits(t); break;   // shot hits on the front Ork, no kill
                 case "sweep": if (k is >= 0.4f and < 0.7f && _tick % 4 == 0) Sweep(t); break;
                 case "shot": if (k is >= 0.4f and < 1.2f && _tick % 4 == 0) Shoot(t); break;
                 case "lascannon": if (Once(k, 0.4f, 20 + n)) Lascannon(t); break;
@@ -230,6 +233,31 @@ public sealed class MusouGoreDemoFeed
         var at = Where(i, t);
         Hit(i, t, 3);
         Kill(i, t, MusouDeathKind.Melee, Killer, Away(at + new Vector3(0f, -1.8f, 0f), at));
+    }
+
+    /// <summary>gore-original: the front Ork (nearest the camera's side) the stills look at.</summary>
+    int Front()
+    {
+        int i = -1;
+        for (int k = 0; k < _orks.Length; k++) if (_orks[k].Alive && (i < 0 || _orks[k].Home.Y < _orks[i].Home.Y)) i = k;
+        return i;
+    }
+
+    /// <summary>gore-original: one shot (a head shot with <paramref name="head"/>) and a Shot death on the front Ork, the shooter 8 m in front of it.</summary>
+    void ShotKill(float t, bool head)
+    {
+        int i = Front();
+        if (i < 0) return;
+        var at = Where(i, t);
+        Hit(i, t, (byte)(head ? 2 : 1));
+        Kill(i, t, MusouDeathKind.Shot, Killer, Away(at + new Vector3(0f, -8f, 0f), at));
+    }
+
+    /// <summary>gore-original: a shot's hit on the front Ork, no death (the hit's own blood).</summary>
+    void ShotHits(float t)
+    {
+        int i = Front();
+        if (i >= 0) Hit(i, t, 1);
     }
 
     void Shoot(float t)

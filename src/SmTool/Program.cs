@@ -28,6 +28,7 @@ return args switch
     ["listen-page", .. var rest] => SmTool.ListenPageCommand.Run(rest),
 #if SM_EXTRAS
     ["musou-sounds", var musouDir, .. var musouRest] => SmTool.MusouSoundCommands.Run(musouDir, musouRest),
+    ["ork-blood", var bloodDir] => SmTool.OrkBloodCommand.Run(bloodDir),
     ["ashfall-plan", .. var planRest] => SmTool.AshfallPlanCommand.Run(planRest),
     ["ashfall-kit-collision", .. var kitRest] => SmTool.AshfallKitCollisionCommand.Run(kitRest),
     ["ashfall-kit-files"] => SmTool.AshfallKitFilesCommand.Run(),
@@ -76,6 +77,7 @@ static int Usage()
           smtool ork-balance <game-dir|auto> [--mode parity|data|both]
                                                     the Ork Boy's balance (Ork O4): data, Tactical reference, rule, factor and result per stat,
                                                     the sustained-damage checks, hit-volume areas and the config hashes with and without the Ork
+          smtool ork-blood <game-dir|auto>          Musou Mode's original blood: the Ork's dismemberment table, the points' effects, each MP weapon's dismemberment types
           smtool ork-actions <game-dir|auto>        the Ork's action clips and timings (Ork O7b / O7c): reactions, reload, recoil, toss release, death clips, choppa, charge, hop
           smtool ork-sounds <game-dir|auto> [--clips] [--all-tags]
                                                     the Ork Boy's sounds and barks (Ork O8): each sound and speech command of the boy's blueprint and
