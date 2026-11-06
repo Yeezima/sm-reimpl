@@ -45,6 +45,16 @@ public sealed record MusouTypeSpec(MusouEnemyType Type, float Health, float Spee
     public bool Hybrid => Melee && Ranged;
     /// <summary>A hybrid goes for melee within this distance of its target.</summary>
     public float HybridMeleeDistance { get; init; } = 6f;
+
+    /// <summary>
+    /// Above 0: each round is a bolt, not a rolled hit. It is aimed at the target's feet as it stands when fired, flies there at <see cref="RangedBoltSpeed"/> and bursts with this radius, hurting every
+    /// target in it (so a player who moves on dodges it). The Weirdboy's frazzle.
+    /// </summary>
+    public float RangedBlastRadius { get; init; }
+    /// <summary>A bolt's speed (metres a second).</summary>
+    public float RangedBoltSpeed { get; init; } = 40f;
+    /// <summary>Above 0: an energy shield of this many points that bullets cannot get through (melee and blasts wear it down; <see cref="MusouWeirdboy"/>).</summary>
+    public float ShieldMax { get; init; }
 }
 
 /// <summary>
@@ -172,6 +182,15 @@ public sealed record MusouRules
         MusouBossOrks.From(MusouEnemyType.BossShootaBoy, Base(MusouEnemyType.ShootaBoy)),
         MusouBossOrks.From(MusouEnemyType.BossArdBoy, Base(MusouEnemyType.ArdBoy)),
         MusouBossOrks.From(MusouEnemyType.BossNob, Base(MusouEnemyType.Nob)),
+        // The Weirdboy (Musou Mode only; MusouWeirdboy, spec "Musou Mode: the Weirdboy"). From ork_coop_weirdboy: health 50, run 6, the staff's swing 20 within 5 m, the frazzle's burst
+        // r 3, 40 m/s, 70 explosive (x0.5 on heavy armour: 35), its ideal band 20 to 50 m. Ours: the shield's 300 (the data's 1500 against co-op shield damage the Musou hits do not carry),
+        // a bolt every 2.5 s, the points, the body (radius 0.5, height 2.3: the model's bounds are 2.46 m in its bind pose, client log 2026-11-07).
+        new(MusouEnemyType.Weirdboy, 50f, 6f, 0.5f, 2.3f, 300)
+        {
+            MeleeDamage = 20f, MeleePeriod = 1.6f, MeleeRange = 1.8f, HybridMeleeDistance = 5f,
+            RangedDamage = 35f, RangedRounds = 1, RangedPeriod = 2.5f, RangedMin = 20f, RangedMax = 50f, RangedBlastRadius = 3f, RangedBoltSpeed = 40f,
+            ShieldMax = 300f,
+        },
     ];
 
 

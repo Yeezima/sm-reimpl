@@ -296,6 +296,17 @@ public partial class NetworkView
                 var cue = e.Value switch { (byte)MusouBossAbility.GroundSlam => set.SlamHit, (byte)MusouBossAbility.Charge => set.ChargeHit, _ => set.MeleeHit };
                 MusouCueAt(cue, set, e.Vector, e.Value != 0 ? MusouSoundGroup.Boss : MusouSoundGroup.MeleeHit, Num.Vector3.Distance(e.Vector, camera), "strike", "armour");
                 break;
+            case MusouEventKind.Hit when e.Value == MusouWeirdboy.ShieldMarker:   // the Weirdboy's shield took it: no pain
+                break;
+            case MusouEventKind.Telegraph when e.Value == MusouWeirdboy.BoltCue:   // his bolt: the staff's fire
+                if (MusouSlotOf(enemy.Id) is { } caster) MusouCue(set.Fire, set, caster.Emitter, MusouSoundGroup.Gun, distance, "fire");
+                else MusouCueAt(set.Fire, set, enemy.Position, MusouSoundGroup.Gun, distance, "fire");
+                break;
+            case MusouEventKind.Telegraph when e.Value == MusouWeirdboy.ShieldBreakCue:   // his shield breaks: the stun
+                if (MusouSlotOf(enemy.Id) is { } stunned) MusouCue(set.Stun, set, stunned.Emitter, MusouSoundGroup.Hurt, distance, "stun");
+                break;
+            case MusouEventKind.Telegraph when e.Value >= MusouWeirdboy.BoltCue:   // his other cues are effects only
+                break;
             case MusouEventKind.Hit:
                 if (MusouSlotOf(enemy.Id) is not { } hurt || now - hurt.LastHurt < MusouSoundRules.HurtSpacing) break;
                 hurt.LastHurt = now;

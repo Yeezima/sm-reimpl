@@ -14,13 +14,19 @@ namespace SmClient;
 /// <c>--warboss-test</c> with <c>--clip run|idle|attack|stagger|death</c> (default idle), <c>--time &lt;s&gt;</c> (hold the clip there), <c>--scale &lt;f&gt;</c> (default 1, the model's own size),
 /// <c>--shots 0,180</c> (turntable angles, 0 = front) saved to <c>--out</c> (default <c>%LOCALAPPDATA%\sm-reimpl\cache\previews\warboss-model</c>; never inside the repository or the install)
 /// as <c>&lt;--name&gt;_&lt;angle&gt;.png</c>, then quit (a capture needs <c>godot.cmd --windowed</c>). Prints the look's notes (pieces, blocks drawn and hidden, bones its rig lacks).
+/// <c>--model weirdboy</c> shows Musou Mode's Weirdboy instead (<see cref="WeirdboyLooks"/>: Exterminatus's <c>elite_boy_weirdboy</c> and <c>weirdboy_staff</c> on <c>havok_elite_boy__hkxx</c>;
+/// screenshots then default to <c>...\previews\weirdboy-model</c>).
 /// **Placeholder demonstration** around original assets read at run time.
 /// </summary>
 public partial class WarbossTestView : Node3D
 {
     readonly string _gameDir;
     readonly Dictionary<string, string?> _args;
-    WarbossLooks? _looks;
+    Func<MusouLooks.Look?>? _step;
+    Func<bool> _done = () => false;
+    Func<float> _height = () => 0f;
+    List<string> _notes = new();
+    bool _weirdboy;
     Node3D? _turntable;
     float[] _shots = [];
     int _nextShot, _waitFrames = -1;
@@ -32,9 +38,11 @@ public partial class WarbossTestView : Node3D
     public override void _Ready()
     {
         if (_gameDir.Length == 0) { GD.PrintErr("warboss test: no game folder"); GetTree().Quit(1); return; }
-        _name = _args.GetValueOrDefault("name") ?? "warboss";
-        if (_name.Length == 0 || _name.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0 || _name.Contains("..", StringComparison.Ordinal)) _name = "warboss";
-        _outDir = _args.GetValueOrDefault("out") ?? System.IO.Path.Combine(GameInstall.DataRoot, "cache", "previews", "warboss-model");
+        _weirdboy = string.Equals(_args.GetValueOrDefault("model"), "weirdboy", StringComparison.OrdinalIgnoreCase);
+        string kind = _weirdboy ? "weirdboy" : "warboss";
+        _name = _args.GetValueOrDefault("name") ?? kind;
+        if (_name.Length == 0 || _name.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0 || _name.Contains("..", StringComparison.Ordinal)) _name = kind;
+        _outDir = _args.GetValueOrDefault("out") ?? System.IO.Path.Combine(GameInstall.DataRoot, "cache", "previews", kind + "-model");
         foreach (var x in (_args.GetValueOrDefault("shots") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             if (float.TryParse(x, NumberStyles.Float, CultureInfo.InvariantCulture, out var v)) _shots = [.. _shots, v];
         var repoRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), ".."));
@@ -45,18 +53,27 @@ public partial class WarbossTestView : Node3D
             { GD.PrintErr($"warboss test: {_outDir} is inside the repository or the game folder; screenshots refused"); _shots = []; }
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or System.IO.PathTooLongException) { GD.PrintErr($"warboss test: bad --out: {ex.Message}"); _shots = []; }
-        _looks = new WarbossLooks(_gameDir);
+        if (_weirdboy)
+        {
+            var w = new WeirdboyLooks(_gameDir);
+            _step = w.Step; _done = () => w.Done; _height = () => w.Height; _notes = w.Notes;
+        }
+        else
+        {
+            var w = new WarbossLooks(_gameDir);
+            _step = w.Step; _done = () => w.Done; _height = () => w.Height; _notes = w.Notes;
+        }
     }
 
     public override void _Process(double delta)
     {
-        if (_looks is null) return;
+        if (_step is null) return;
         if (_turntable is null)
         {
-            var look = _looks.Step();
-            if (!_looks.Done) return;
-            foreach (var n in _looks.Notes.Distinct()) GD.Print("  note: " + n);
-            if (look is null) { GD.PrintErr("warboss test: the Warboss model could not be built"); GetTree().Quit(1); return; }
+            var look = _step();
+            if (!_done()) return;
+            foreach (var n in _notes.Distinct()) GD.Print("  note: " + n);
+            if (look is null) { GD.PrintErr($"warboss test: the {(_weirdboy ? "Weirdboy" : "Warboss")} model could not be built"); GetTree().Quit(1); return; }
             Build(look);
             return;
         }
@@ -88,9 +105,9 @@ public partial class WarbossTestView : Node3D
             if (_args.ContainsKey("time")) viewer.Pose(clipName, float.TryParse(_args["time"], NumberStyles.Float, CultureInfo.InvariantCulture, out var t) ? t : 0f, 0f);
             else viewer.Play(clipName, 0f);
         }
-        float height = MathF.Max(1f, _looks!.Height * scale);
+        float height = MathF.Max(1f, _height() * scale);
         GD.Print($"warboss test: {look.Name}, {look.Assets.Pieces.Count} pieces ({string.Join(", ", look.Assets.Pieces.Select(p => p.Name))}), " +
-                 $"{look.Assets.TexturedSurfaces}/{look.Assets.Surfaces} surfaces with original diffuse; model height {_looks.Height:0.00} m x{scale:0.##}; clip {clipName ?? "none"}");
+                 $"{look.Assets.TexturedSurfaces}/{look.Assets.Surfaces} surfaces with original diffuse; model height {_height():0.00} m x{scale:0.##}; clip {clipName ?? "none"}");
         AddStage(height);
         _waitFrames = 12;
         if (_shots.Length > 0) _turntable.RotationDegrees = new Vector3(0, _shots[0], 0);

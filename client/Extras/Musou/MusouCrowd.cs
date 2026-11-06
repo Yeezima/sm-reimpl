@@ -102,8 +102,8 @@ public partial class MusouCrowd : CrowdView
     static int ClipOf(MusouEnemyState state) => state switch
     {
         MusouEnemyState.Seek => MusouLooks.Run,
-        MusouEnemyState.WindUp or MusouEnemyState.Strike or MusouEnemyState.Recover => MusouLooks.Attack,
-        MusouEnemyState.Stagger => MusouLooks.Stagger,
+        MusouEnemyState.WindUp or MusouEnemyState.Strike or MusouEnemyState.Recover or MusouEnemyState.Casting => MusouLooks.Attack,   // Casting: the Weirdboy's summons
+        MusouEnemyState.Stagger or MusouEnemyState.Stunned => MusouLooks.Stagger,   // Stunned: the Weirdboy's broken shield
         MusouEnemyState.Dying or MusouEnemyState.Knocked => MusouLooks.Death,
         _ => MusouLooks.Idle,
     };

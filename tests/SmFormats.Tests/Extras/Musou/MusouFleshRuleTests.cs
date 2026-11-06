@@ -29,6 +29,7 @@ public class MusouFleshRuleTests
     [InlineData(MusouEnemyType.BossShootaBoy, false)]
     [InlineData(MusouEnemyType.BossArdBoy, null)]
     [InlineData(MusouEnemyType.BossNob, null)]
+    [InlineData(MusouEnemyType.Weirdboy, false)]
     public void Material_is_flesh_for_unarmoured_and_both_layers_for_armoured(MusouEnemyType type, bool? material) =>
         Assert.Equal(material, MusouFleshRule.Material(type));
 
@@ -36,7 +37,7 @@ public class MusouFleshRuleTests
     public void Every_enemy_type_is_decided_so_a_new_type_is_a_conscious_choice()
     {
         var decided = new HashSet<MusouEnemyType>([MusouEnemyType.Boy, MusouEnemyType.ShootaBoy, MusouEnemyType.Gretchin, MusouEnemyType.ArdBoy, MusouEnemyType.Nob, MusouEnemyType.Warboss, MusouEnemyType.ChaosMarine,
-            MusouEnemyType.BossBoy, MusouEnemyType.BossShootaBoy, MusouEnemyType.BossArdBoy, MusouEnemyType.BossNob]);   // the Boss Orks sound as their base (2026-11-06)
+            MusouEnemyType.BossBoy, MusouEnemyType.BossShootaBoy, MusouEnemyType.BossArdBoy, MusouEnemyType.BossNob, MusouEnemyType.Weirdboy]);   // the Boss Orks sound as their base (2026-11-06)
         Assert.All(Enum.GetValues<MusouEnemyType>(), t => Assert.Contains(t, decided));
     }
 }

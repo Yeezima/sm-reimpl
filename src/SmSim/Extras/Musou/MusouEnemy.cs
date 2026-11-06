@@ -27,6 +27,9 @@ public enum MusouEnemyType : byte
     BossShootaBoy = 8,
     BossArdBoy = 9,
     BossNob = 10,
+    /// <summary>The Weirdboy (Exterminatus's <c>ork_coop_weirdboy</c>; Musou Mode only, <see cref="MusouWeirdboy"/>): a frail psyker behind an energy shield that bullets cannot pierce,
+    /// who throws bursting bolts from range, teleports away from anyone who closes in and calls Boyz.</summary>
+    Weirdboy = 11,
 }
 
 /// <summary>The state machine of one enemy (design section B; 4 bits on the wire).</summary>
@@ -41,6 +44,12 @@ public enum MusouEnemyState : byte
     Dying = 6,
     /// <summary>Thrown down by a Marine's shove (Musou pass 2; M0 is the contract alone, nothing enters it yet). The 4 bits on the wire hold 16 states.</summary>
     Knocked = 7,
+    /// <summary>The Weirdboy's shield broke: he stands stunned, unshielded (<see cref="MusouWeirdboy"/>).</summary>
+    Stunned = 8,
+    /// <summary>The Weirdboy calls Boyz: he stands casting until they come.</summary>
+    Casting = 9,
+    /// <summary>The Weirdboy teleports away: he stands fading, then appears elsewhere (in <see cref="Spawning"/>).</summary>
+    Vanishing = 10,
 }
 
 /// <summary>

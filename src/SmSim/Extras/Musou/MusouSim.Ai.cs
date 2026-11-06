@@ -99,6 +99,7 @@ public sealed partial class MusouSim
         _aggro[i] = float.PositiveInfinity; _group[i] = 0; _homeVelocity[i] = Vector2.Zero;
         SpawnedCombat(i);   // MU3 (MusouCombat.cs): no script, no drive
         SpawnedSwarm(i);
+        SpawnedWeirdboy(i);   // MusouSim.Weirdboy.cs: the shield, the cooldowns
         _relocations[i] = 0;
         _ring[i] = Rules.CircleMin + (Rules.CircleMax - Rules.CircleMin) * Unit(Mix((uint)i * 2654435761u, 0x9E3779B9u));
         if (Walk is not null && _node[i] < 0) _node[i] = Walk.Nearest(_position[i]);
@@ -114,6 +115,7 @@ public sealed partial class MusouSim
     public void Step(ReadOnlySpan<MusouTarget> targets, CollisionWorld? collision, bool fight, List<MusouAttack> attacks)
     {
         for (int i = 0; i < Capacity; i++) if (_used[i]) _trail[i * TrailLength + (int)(Tick % TrailLength)] = _position[i];
+        if (_bolts.Count > 0) LandBolts(targets, fight, attacks);   // the Weirdboy's bolts (MusouSim.Weirdboy.cs)
         if (Frozen) { LastLosChecks = 0; return; }
         int nt = targets.Length;
         if (_targetNode.Length < nt) Grow(nt);
@@ -160,6 +162,7 @@ public sealed partial class MusouSim
                 continue;
             }
             if (state == MusouEnemyState.Knocked) { StepKnocked(i, targets, near); continue; }   // Campaign/MusouSim.Knock.cs: only a war's fodder falls
+            if (_type[i] == MusouEnemyType.Weirdboy && StepWeirdboy(i, targets, near, fight)) { if (_cooldown[i] > 0) _cooldown[i]--; continue; }   // his stun, cast and fade (MusouSim.Weirdboy.cs)
             if (_cooldown[i] > 0) _cooldown[i]--;
             var spec = Rules.Of(_type[i]);
             bool leashed = !float.IsPositiveInfinity(_aggro[i]) && !_scripted[i], woken = leashed && Woken(i, targets);
@@ -288,6 +291,7 @@ public sealed partial class MusouSim
         _token[i] = 0; _burst[i] = 0; _transit[i] = -1; _aim[i] = -1; _blocked[i] = 0; _flowTicks[i] = 0;
         _pack[i] = 0; _slotFor[i] = 0;   // moved away from its pack: it goes alone
         SpawnedCombat(i);   // MU3: no script, no drive (a Warboss moved mid-ability starts afresh; MusouBoss sees the relocation)
+        if (_state[i] == MusouEnemyState.Stunned) _shield[i] = MathF.Min(Rules.Of(_type[i]).ShieldMax, MusouWeirdboy.ShieldRestore);   // a Weirdboy moved mid-stun: his stun ends here, so his shield comes back
         if (Walk is not null && _node[i] < 0) _node[i] = Walk.Nearest(position);
         if (Walk is not null && _node[i] >= 0) _position[i] = position with { Z = Walk.Z(_node[i]) };
         SetState(i, MusouEnemyState.Seek);
@@ -303,6 +307,7 @@ public sealed partial class MusouSim
         _lastNode.Clear();
         _stranded.Clear();
         _losCursor = 0;
+        _bolts.Clear();   // the Weirdboy's bolts in flight
         _openPack.Clear();
         Array.Clear(_packMembers);
         _lastPack = 0;
@@ -418,6 +423,7 @@ public sealed partial class MusouSim
             if (swarm is null || distance <= swarm.GoalStand) return Vector2.Zero;
             return SwarmWay(i, t, target, d, spec.Speed, slot: false, hold: false, swarm);
         }
+        if (_type[i] == MusouEnemyType.Weirdboy && fight && WeirdboyActs(i, target, distance, toward)) return Vector2.Zero;   // a teleport or a summons (MusouSim.Weirdboy.cs)
         bool melee = spec.Melee && (!spec.Hybrid || distance <= spec.HybridMeleeDistance);
         bool ranged = spec.Ranged && !melee;
         if ((_token[i] == ShooterToken && !ranged) || (_token[i] == MeleeToken && !melee)) { _token[i] = 0; _burst[i] = 0; }
@@ -483,6 +489,7 @@ public sealed partial class MusouSim
     /// <summary>One round of a burst: the hit roll by distance (a hash of the tick and the enemy), the tracer, and the damage on a hit.</summary>
     void Fire(int i, MusouTarget target, float distance, MusouTypeSpec spec, List<MusouAttack> attacks, bool fight)
     {
+        if (spec.RangedBlastRadius > 0f) { ThrowBolt(i, target, spec, fight); return; }   // a bolt that bursts where it was aimed (MusouSim.Weirdboy.cs)
         float span = MathF.Max(1e-3f, spec.RangedMax - spec.RangedMin);
         float chance = spec.RangedHitNear + (spec.RangedHitFar - spec.RangedHitNear) * Math.Clamp((distance - spec.RangedMin) / span, 0f, 1f);
         uint roll = Mix(Tick, (uint)i * 0x85EBCA6Bu + _burst[i]);

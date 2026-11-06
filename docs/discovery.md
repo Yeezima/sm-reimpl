@@ -2338,3 +2338,27 @@ reference pose, and `RIG_headX` at `RIG_Head`'s position (0.229, 3.229 m; a diff
 `RIG_Head` with that bone's reference inverse bind, and the head sits in the armour's frame as modelled. The body's model is 5.92 m tall at scale 1 (the banner pole included). Both are a
 **singleplayer dependency** of Musou Mode (added content), read at run time; nothing extracted enters the repository. Test aid `--warboss-test` (docs/commands.md).
 
+
+## Exterminatus Ork roster and the Weirdboy (Musou Mode, 2026-11-07)
+
+**Which Ork enemies the install has** (searched with `smtool list` over every archive in `data/chunks` and `data/packages/ebps.oppc`): the co-op blueprints `ork_coop_boy`, `_boy_pro`,
+`_boy_2hand_shoota` (`_grenade`, `_pro`: the latter carries `ork_coop_boy_rokkit_launcha` on `boy_ranged_pro`), `_boy_ardboy_shield` (`boy_ardboy` + `ardboyshield_01`), `_nob`, `_nob_pro`
+(`ork_coop_nob_uge_axe`), `_nob_bigshoota` (`nob_ranged`), `_nob_bigshoota_pro` (`ork_coop_nob_rokkit_auto_combi_reference`), `_gretchin` and `_gretchin_explode` (`grot_suicide_explode`, on
+`gretchin_melee` and `havok_gretchin_coop`), `_squig_bomb` (`squig_bomb`, `havok_squig`), `_killa_kan` (`killa_kan_body`/`_claw`/`_shoota`, `havok_killa_kan` in `ebp_sets__mp_coop_set_waterworks`),
+`_weirdboy` and `_warboss`. The meshes `boy_pro_rocketlauncher`, `gretchin_melee`, `squig_bomb`, `nob_ranged(_pro)` and the rigs `havok_gretchin_coop`, `havok_squig__hkxx` sit in
+`ebp_sets__mp_coop_set`. Campaign only: the Stormboy (`boy_stormboy`, `havok_stormboy`, `ebp_sets__s002-001`). `havok_minelayer_coop` is a dropship (fly-in, fly-out, hover clips).
+
+**The Weirdboy.** `ork_coop_weirdboy` names the visual `elite_boy_weirdboy` and the animation package `havok_elite_boy`; the mesh, the staff `weirdboy_staff` and the rig `havok_elite_boy__hkxx`
+(51 bones, 46 clips) are together in `data/chunks/cp_maps__cp_arena_habs_b.oppc` (an Exterminatus map) and `ebp_sets__mp_coop_set_grid_test` (also in the campaign's `s011-001`, `s013-001`,
+`seq08_core_units`). Seen drawn in `--warboss-test --model weirdboy`: the body's three blocks (`GEO_Weirdboy_Body`, `_Acc`, `_Cloth`) and the staff's one, all four surfaces with their diffuse
+maps, the staff in his right hand (one rigid block placed by the tree), 2.46 m tall in the bind pose. The staff's wargear has no handle or body node and an empty bone match list.
+Clips: `EB_WIB_NAV_Run/Walk_F/B/L/R_01`, `WIB_1HM_ACT_idle_01`, `WIB_1HM_ACT_Telaport_In_01`/`_Out_01` (sic), `WIB_1HM_ACT_Summon_orks_start/loop/release_01`, `WIB_WIB_MEL_Cast_Magic_01`,
+`EB_TBR_MEL_ATK_HVY_0m/3m/7m_01`, `EB_WIB_1HM_REC_Flinch*`, `EB_WIB_REC_Hvy_*`/`Lt_*`, `EB_WIB_REC_Stun_Enter/Loop/Exit`, `EB_WIB_Death_Teleport`, `EB_SYN_Weirdboy_3`.
+His blueprint: `health_max` 50, `run_speed` 6, `stun_threshold` 1000 and `stun_default_length` 8; `armourshield_max` 1500 with no regeneration; `armourshield_broken` (and `_by_breaker`)
+applies 1001 stun damage, plays `weirdboy_shield_break` and after a `delayed_action` of 8 s heals the shield by 75; the `shield` action plays `weirdboy_shield` and multiplies
+`received_ranged_damage` by 0; `shield_actions` strong (from 1), medium (0.66), weak (0.33) play `weirdboy_shield_strong/_medium/_weak`; `teleport_in`/`_out`, `summon` (`weirdboy_summon_staff`,
+`evt_summonbegin`), `action_weirdboy_suicide`; AI `combat_preference` ranged, `sight_radius` 80. His staff (`ork_coop_weirdboy_staff`): a melee swing of 20 that stuns (`reaction_mp_stun`),
+`damage_armourshield` 10, AI range 0 to 5; the ranged ability fires the projectile `weirdboy_frazzle_coop` (0.35 s between shots, a 40-round clip, AI range 10 to 75, ideal 20 to 50, muzzle
+`weirdboy_staff_muzzle`, fire sound `play_sm_bolter_fire`). The frazzle: speed 40, lifetime 5, raycast collision, detonates on collision; an area of 3 m: 70 explosive (light armour x0.75,
+heavy x0.5), `damage_armourshield` 0, trail `weirdboy_staff_trail`, hits `material_effect_container\weapon_hits\orks\ranged_weapons\weirdboy_staff`. Not in the data: when he teleports
+and where to, what and how many he summons, how often the AI fires. What Musou Mode makes of it: spec "Musou Mode: the Weirdboy".

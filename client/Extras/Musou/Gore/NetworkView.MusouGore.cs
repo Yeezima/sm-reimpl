@@ -152,7 +152,7 @@ public partial class NetworkView
         for (int i = 0; i < events.Count; i++)
         {
             var e = events[i];
-            if (e.Kind != MusouEventKind.Hit) continue;
+            if (e.Kind != MusouEventKind.Hit || e.Value == MusouWeirdboy.ShieldMarker) continue;   // a hit the Weirdboy's shield took draws no blood
             // Who makes gore: the player's, a retainer's or a Marine's attack (player above 0), and fire support, which counts as the player's (player 0, marker 0: the orbital
             // strike and the Thunderhawk's rounds; a failsafe removal is the same pair but dies of cause World in the same batch).
             bool fire = e.Player == 0 && e.Value == 0;
