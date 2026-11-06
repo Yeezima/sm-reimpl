@@ -234,7 +234,7 @@ public class MusouWeirdboyTests
     }
 
     [Fact]
-    public void His_death_bursts_killing_every_Ork_within_20_metres_but_the_Warboss_credited_to_his_killer()
+    public void His_death_bursts_killing_every_Ork_within_20_metres_but_the_Warboss_and_Boss_Orks_credited_to_his_killer()
     {
         var f = new Fight(new Vector3(0f, 30f, 0f));
         ushort boy = f.Sim.Spawn(MusouEnemyType.Boy, new Vector3(5f, 0f, 0f), 0f, 85f);
@@ -248,11 +248,11 @@ public class MusouWeirdboyTests
         Assert.True(f.Sim.Damage(f.Id, 7, 50f, Vector3.Zero, out bool killed, cause: MusouDeathKind.Shot));
         Assert.True(killed);
         bool Alive(ushort id) => f.Sim.TryGet(id, out var e) && e.Alive;
-        Assert.False(Alive(boy)); Assert.False(Alive(nob)); Assert.False(Alive(other));   // the other Weirdboy's shield does not stop it
+        Assert.False(Alive(boy)); Assert.True(Alive(nob)); Assert.False(Alive(other));   // a Boss Ork is spared (the owner, 2026-11-07)   // the other Weirdboy's shield does not stop it
         Assert.True(Alive(far)); Assert.True(Alive(warboss)); Assert.True(Alive(chaos));
         var kills = new List<MusouKill>();
         f.Sim.TakeKills(kills);
-        Assert.Equal(4, kills.Count);
+        Assert.Equal(3, kills.Count);
         Assert.All(kills, k => Assert.Equal(7, k.Player));
         Assert.All(kills.Where(k => k.Enemy != f.Id), k => Assert.Equal(MusouDeathKind.Blast, k.Cause));
         Assert.Equal(2, f.Sim.Events.Count(e => e.Kind == MusouEventKind.Telegraph && e.Value == MusouWeirdboy.BurstCue));   // he and the other one
