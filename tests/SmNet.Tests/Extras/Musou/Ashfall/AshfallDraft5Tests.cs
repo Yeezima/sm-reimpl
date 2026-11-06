@@ -23,7 +23,7 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
     /// The level's hash (version 11, draft 6 with the Meshy expansion placed; version 10, draft 6 before it, was 0xC1D1D8A1118A55AF; draft 5's version 9 was 0x6A803A7703280536). A change of the pass, the pools, the fitted boxes or the generator without a new version fails here, not at a client's handshake.
     /// The one level pin: after a refit of the collision (<c>AshfallKitCollision.g.cs</c>) take the new value from this test's failure.
     /// </summary>
-    public const ulong PinnedLevelHash = 0x058B350D285DE351UL;   // version 15: the openings pass (opening-aware merge for debris with openings, 0x2BB88406D096C7EF before); version 14: draft 8 (roadways, 0xB2335BB6CF43E872 alone) with the window pass (0x2D90FDEF0587A5AA alone); draft 7 was 0x29D435A1D94CD3CF
+    public const ulong PinnedLevelHash = 0x509596A788E9B67FUL;   // version 16: draft 9, late batch F (stairs from the meshes, clear stair feet and landings, no stacked models, the urban rules; 0x058B350D285DE351 before); version 15: the openings pass (opening-aware merge for debris with openings, 0x2BB88406D096C7EF before); version 14: draft 8 (roadways, 0xB2335BB6CF43E872 alone) with the window pass (0x2D90FDEF0587A5AA alone); draft 7 was 0x29D435A1D94CD3CF
 
     /// <summary>The v5 graybox's hash (pinned since pass 3, and again by the draft 3 and 5 work).</summary>
     const ulong PinnedGrayboxHash = 0xAE096E323BB5A4D3UL;
@@ -40,7 +40,7 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
         var gb = AshfallMap.BuildGraybox();
         Assert.Equal(PinnedGrayboxHash, gb.Hash);
         Assert.Equal(5u, AshfallMap.GrayboxVersion);
-        Assert.Equal(15u, AshfallMap.Version);
+        Assert.Equal(16u, AshfallMap.Version);
         Assert.NotEqual(gb.Hash, Level.Hash);
         Assert.Equal(PinnedLevelHash, Level.Hash);
         Assert.Equal(AshfallContent.ToMapContent(Level).Hash, Level.Hash);
@@ -319,6 +319,9 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
     [Fact]
     public void Every_ramp_wedge_has_its_top_plane_within_half_a_riser_of_its_items_stepped_box_tops()
     {
+        // Draft 9 replaced these wedges (stairs found in the meshes, the boxes cut under them: AshfallDraft9Tests); the draft-5 wedges are checked on the pass without draft 9's rules.
+        var d8 = AshfallMap.RebuildWithoutDraft9();
+        var Level = d8.Level; var Dressing = d8.Dressing;
         int ramps = 0, samples = 0, outliers = 0;
         for (int i = 0; i < Dressing.Items.Count; i++)
         {
@@ -513,7 +516,20 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
                 doors.Add((c.Aggregate(Vector3.Min), c.Aggregate(Vector3.Max), $"{it.Asset} item {i}"));
             }
         }
-        string? Door(Vector3 q) => doors.Where(d => q.X >= d.Min.X && q.X <= d.Max.X && q.Y >= d.Min.Y && q.Y <= d.Max.Y && q.Z + 1f >= d.Min.Z && q.Z + 1f <= d.Max.Z).Select(d => d.What).FirstOrDefault();
+        string? Door0(Vector3 q) => doors.Where(d => q.X >= d.Min.X && q.X <= d.Max.X && q.Y >= d.Min.Y && q.Y <= d.Max.Y && q.Z + 1f >= d.Min.Z && q.Z + 1f <= d.Max.Z).Select(d => d.What).FirstOrDefault();
+        // Draft 9: a stair (a placed model's ramp, 1 m wide or more) is a passage of its own width by design: a sample on one, or on its foot or landing, is reported, not asserted against the 2.4 m rule.
+        var stairs = AshfallStairs.All(Level, AshfallMap.BuildDraft5().Dressing);
+        string? Door(Vector3 q)
+        {
+            if (Door0(q) is { } d) return d;
+            var p = new Vector2(q.X, q.Y);
+            foreach (var r in stairs)
+            {
+                float along = Vector2.Dot(p - r.Low, r.Dir), across = MathF.Abs(Vector2.Dot(p - (r.Low + r.High) / 2f, r.Across));
+                if (along >= -AshfallStairs.Approach - 0.5f && along <= r.Run + AshfallStairs.Approach + 0.5f && across <= r.Width / 2f + 1f) return $"a stair of {(r.Item >= 0 ? AshfallMap.BuildDraft5().Dressing.Items[r.Item].Asset : "?")}";
+            }
+            return null;
+        }
         float worst = 12f;
         foreach (var (name, goal) in new[] { ("A", Level.Points[0].Center), ("B", Level.Points[1].Center), ("C", Level.Points[2].Center), ("Chaos courtyard", Level.Areas[1].Center) })
         {
@@ -539,7 +555,7 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
             var between = widths.Where(x => x.W >= 2.4f || Door(x.At) == null).ToList();
             if (between.Count > 0) worst = MathF.Min(worst, between.Min(x => x.W));
             report.AppendLine($"  {name}: {widths.Count} samples, narrowest {widths.Min(x => x.W):0.0} m, under 2.4 m {under24} ({100f * under24 / widths.Count:0.0} %), under 1.2 m {under12} ({100f * under12 / widths.Count:0.0} %), under 0.8 m {under08}");
-            foreach (var x in widths.Where(x => x.W < 2.4f).Take(12)) report.AppendLine($"    tight {x.W:0.0} m at ({x.At.X:0}, {x.At.Y:0}, {x.At.Z:0.0}){(Door(x.At) is { } dw ? $" (a doorway of {dw}: not asserted)" : "")}");
+            foreach (var x in widths.Where(x => x.W < 2.4f).Take(12)) report.AppendLine($"    tight {x.W:0.0} m at ({x.At.X:0}, {x.At.Y:0}, {x.At.Z:0.0}){(Door(x.At) is { } dw ? $" ({(dw.StartsWith("a stair") ? dw : "a doorway of " + dw)}: not asserted)" : "")}");
         }
         output.WriteLine(report.ToString());
         try { File.WriteAllText(Path.Combine(Path.GetTempPath(), "ashfall-draft6-walkable-report.txt"), report.ToString()); } catch (IOException) { }

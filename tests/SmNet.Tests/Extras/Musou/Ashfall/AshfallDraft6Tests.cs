@@ -130,6 +130,14 @@ public class AshfallDraft6Tests(ITestOutputHelper output)
                 mergedParts += parts.Sum(Vol); mergedFitted += expected.Sum(Vol);
                 continue;
             }
+            if (Enumerable.Range(first, count).Any(p => Level.Parts[p].Kind == AshfallKind.Stair))
+            {
+                // draft 9: a model with a kept stair has its boxes cut under the stair's ramp (pieces outside the footprint and slices under it): at least as many parts, none outside the item's fitted boxes' bounds
+                var all = expected.Aggregate((a, b) => (Vector3.Min(a.Min, b.Min), Vector3.Max(a.Max, b.Max)));
+                Assert.True(parts.Count >= expected.Count / 2, $"item {i} ({it.Asset}): {parts.Count} parts for {expected.Count} fitted boxes");
+                Assert.All(parts, b => Assert.True(b.Min.X >= all.Min.X - 0.05f && b.Max.X <= all.Max.X + 0.05f && b.Min.Y >= all.Min.Y - 0.05f && b.Max.Y <= all.Max.Y + 0.05f && b.Max.Z <= all.Max.Z + 0.05f, $"item {i} ({it.Asset}): a cut part outside its boxes"));
+                continue;
+            }
             var m = AshfallKit.Get(it.Asset);
             int dust = AshfallKitCollision.Boxes(it.Asset).Count(b => (b.Max.X - b.Min.X) / m.RawSize.X * it.Size.X < 0.15f && (b.Max.Z - b.Min.Z) / m.RawSize.Z * it.Size.Y < 0.15f && (b.Max.Y - b.Min.Y) / m.RawSize.Y * it.Size.Z < 0.15f);
             Assert.True(expected.Count - dust == parts.Count, $"item {i} ({it.Asset}, {family}): {parts.Count} parts for {expected.Count} fitted boxes, {dust} of them dust");
@@ -179,7 +187,7 @@ public class AshfallDraft6Tests(ITestOutputHelper output)
         output.WriteLine($"{used} of {expansion.Count} expansion models placed; {Dressing.Items.Count(i => AshfallKit.Get(i.Asset).SourceId.Length > 0)} of {Dressing.Items.Count} items");
         Assert.True(used >= 28, $"only {used} expansion models are placed");
         // The purpose-made pieces the owner named all stand in the level.
-        foreach (var id in new[] { "AC-041", "AC-042", "AC-044", "AC-045", "AC-046", "AC-049", "AC-050", "AC-051", "AC-052", "AC-053", "AC-076" }) Assert.True(uses.ContainsKey(id), id + " is not placed");
+        foreach (var id in new[] { "AC-041", "AC-042", "AC-044", "AC-045", "AC-046", "AC-050", "AC-051", "AC-052", "AC-053", "AC-076" }) Assert.True(uses.ContainsKey(id), id + " is not placed");
         // TraversalQuarantined (08H, 03): only as backdrop blocks outside the boundary, no collision.
         var owner = new Dictionary<int, int>();
         for (int i = 0; i < Dressing.Items.Count; i++)

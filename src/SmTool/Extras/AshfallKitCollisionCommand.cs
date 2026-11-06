@@ -241,7 +241,7 @@ static class AshfallKitCollisionCommand
     }
 
     /// <summary>The repository root by walking up from the current folder to SmReimpl.slnx (falls back to the current folder).</summary>
-    static string FindRepoRoot()
+    internal static string FindRepoRoot()
     {
         for (var d = new DirectoryInfo(Directory.GetCurrentDirectory()); d != null; d = d.Parent)
             if (File.Exists(Path.Combine(d.FullName, "SmReimpl.slnx"))) return d.FullName;

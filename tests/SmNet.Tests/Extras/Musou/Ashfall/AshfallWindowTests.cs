@@ -209,10 +209,11 @@ public class AshfallWindowTests(ITestOutputHelper output)
         foreach (var s in through.Take(20)) output.WriteLine("through: " + s);
         Assert.True(windows > 0);
         Assert.True(walls * 10 >= windows * 9, $"only {walls} of {windows} windows have a wall point");
+        // Draft 9 left out the loose debris away from the buildings (318 traced before, about 170 since).
         // Openings pass: the debris families keep their fitted boxes when the model has openings (AshfallDraft5.Coarse). What still stops: the 0.07 m gaps at the foot of the flat AC-025 rubble layer, where a neighbouring wall, cover or the ground lies in the gap.
         var stillBlocked = blocked.Where(b => !b.StartsWith("AC-025 ")).ToList();
         Assert.True(stillBlocked.Count == 0, $"{stillBlocked.Count} of {windows} window shots stop:\n" + string.Join("\n", stillBlocked.Take(40)));
-        Assert.True(debrisTraced >= 300 && blocked.Count <= debrisTraced / 8, $"{blocked.Count} of {debrisTraced} debris openings stop");
+        Assert.True(debrisTraced >= 150 && blocked.Count <= debrisTraced / 8, $"{blocked.Count} of {debrisTraced} debris openings stop");
         Assert.True(through.Count == 0, $"{through.Count} of {walls} wall shots pass:\n" + string.Join("\n", through.Take(20)));
     }
 }
