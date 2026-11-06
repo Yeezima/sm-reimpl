@@ -33,7 +33,7 @@ public static class MusouSoundRules
     /// The crowd's voices above which nothing new posts (of <c>SoundSystem.Max3D</c>, 48; a soft cap, one post can hold up to 11 voices, so the live count goes a little over), and likewise its character
     /// lines (design section D's 6). Measured under 300 enemies: docs/discovery.md, "Musou enemy sounds".
     /// </summary>
-    public const int MaxVoices = 30, MaxSpeech = 18;   // the owner, 2026-11-02: "make the orks yell and shout more" (14 and 6); 2026-11-06 louder still (22 and 12)
+    public const int MaxVoices = 23, MaxSpeech = 18;   // the owner, 2026-11-02: "make the orks yell and shout more" (14 and 6); 2026-11-06 more lines (22 and 12; the voices stay under half the pool of 48)
     /// <summary>Seconds between one enemy's running grunts (the data's clips carry one about every 1.2 s; thinned for a crowd) and between its barks (no such tag in the data's timing: a clip's).</summary>
     public const float GruntEveryMin = 0.8f, GruntEveryMax = 2f, BarkEveryMin = 1.5f, BarkEveryMax = 4f;   // 2026-11-06 (1.2-2.5 and 2-5 s before)
     /// <summary>Seconds between one enemy's grunts for being hit.</summary>
