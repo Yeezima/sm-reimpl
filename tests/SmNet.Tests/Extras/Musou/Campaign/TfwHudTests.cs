@@ -217,11 +217,11 @@ public class TfwHudTests
         Assert.Equal(["A", "B  DEPOT", "C", "COMMANDER"], Enumerable.Range(0, 4).Select(i => TfwHudModel.ObjectiveName(i, false)));
         Assert.Equal("WARBOSS", TfwHudModel.ObjectiveName(3, true));
         Assert.Equal("A  HELD", TfwHudModel.ObjectiveLabel(O(0, TfwPositionState.Held), false));
-        Assert.Equal("B  DEPOT  CLEARING", TfwHudModel.ObjectiveLabel(O(1, TfwPositionState.Clearing), false));
+        Assert.Equal("B  DEPOT  CLEARING 0%", TfwHudModel.ObjectiveLabel(O(1, TfwPositionState.Clearing), false));
         Assert.Equal("C  SECURING 42%", TfwHudModel.ObjectiveLabel(O(2, TfwPositionState.Securing, 0.42f), false));
         Assert.Equal("A  SECURED", TfwHudModel.ObjectiveLabel(O(0, TfwPositionState.Secured, 1f), false));
-        Assert.Equal("A  CLEARING - 7 ORKS", TfwHudModel.ObjectiveLabel(O(0, TfwPositionState.Clearing), false, 7));
-        Assert.Equal("A  CLEARING - 1 ORK", TfwHudModel.ObjectiveLabel(O(0, TfwPositionState.Clearing), false, 1));
+        Assert.Equal("A  CLEARING 0% - 7 ORKS", TfwHudModel.ObjectiveLabel(O(0, TfwPositionState.Clearing), false, 7));
+        Assert.Equal("A  CLEARING 0% - 1 ORK", TfwHudModel.ObjectiveLabel(O(0, TfwPositionState.Clearing), false, 1));
         Assert.Equal("A  HELD", TfwHudModel.ObjectiveLabel(O(0, TfwPositionState.Held), false, 7));   // only a position being cleared says it
     }
 
