@@ -340,6 +340,7 @@ public sealed partial class GameServer
         var spawned = World.Spawn(peer.PlayerId, playerClass, Choice(h.RequestedPrimary), Choice(h.RequestedPistol), Choice(h.RequestedMelee),
             Choice(h.RequestedEquipment), Choice(h.RequestedPerk1), Choice(h.RequestedPerk2), team: team, secondChoice: Choice(h.RequestedSecond));
         NotePistolDefault(peer.PlayerId, playerClass, Choice(h.RequestedPistol), spawned.Pistol);
+        World.SetBotClient(peer.PlayerId, h.Bot);   // information for added content (Musou Mode: a bot client takes a tenth of every hit)
         if (h.Bot && _options.BotDamageScale != 1f)   // test aid (--bot-damage-scale)
         {
             World.SetDamageScale(peer.PlayerId, _options.BotDamageScale);

@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2323 spec table rows: **1692 tagged**, 454 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
-Scanned 2333 spec table rows: **1695 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 513 rows of the changes document.
+Scanned 2344 spec table rows: **1704 tagged**, 461 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 520 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -51,35 +50,22 @@ Scanned 2333 spec table rows: **1695 tagged**, 459 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
-| Core simulation (provisional values) | 297 | 280 | 237 | 41 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 168 | 159 | 80 | 45 | 0 |
-| **All areas** | **1692** | 1458 | 1300 | 516 | 38 |
-| Core simulation (provisional values) | 293 | 275 | 231 | 45 | 1 |
+| Core simulation (provisional values) | 302 | 283 | 240 | 46 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 172 | 163 | 80 | 49 | 0 |
-| **All areas** | **1695** | 1460 | 1298 | 525 | 38 |
+| **All areas** | **1704** | 1468 | 1307 | 526 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 839 |
-| confidence: low | 618 |
-| confidence: medium | 554 |
+| kind: ours | 845 |
+| confidence: low | 623 |
+| confidence: medium | 556 |
 | kind: interpretation | 343 |
-| notes: ours | 330 |
+| notes: ours | 335 |
 | confidence: none (low) | 128 |
-| kind: estimate | 99 |
-| kind: provisional | 99 |
-| notes: estimate | 78 |
-| kind: ours | 838 |
-| confidence: low | 618 |
-| confidence: medium | 552 |
-| kind: interpretation | 343 |
-| notes: ours | 334 |
-| confidence: none (low) | 128 |
-| kind: estimate | 102 |
+| kind: estimate | 103 |
 | kind: provisional | 99 |
 | notes: estimate | 83 |
 | kind: user's knowledge | 51 |
@@ -2019,8 +2005,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-EB03504B` | Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks (s) | kind: ours; notes: estimate | owner 2026-11-02 | Shot lag allowance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each shot is also tried on the enemy's places over the last 0.2 s… | ☐ |
 
-### Core simulation (provisional values) (297)
-### Core simulation (provisional values) (293)
+### Core simulation (provisional values) (302)
 
 *Spec section: Provisional values in use*
 
@@ -3487,6 +3472,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-B8027519` | The charge clash: charger and victim locked through the shove (feel/charge-clash, 2026-11-06; protocol 59) | Ours in its mechanics (the original's pairing is engine code); its length and motion are the data's collision stop (1.83 m forward in 0.2 s, then 1.11 m back) and match the owner's recording | A stunned or staggered victim is carried with the charger through the stop's forward shove at 0.9 m (capsules touching), the charger's step ignores the victim's body, a victim the level stops holds the charger back; any charger meets a body at its edge (guard 0.85 m: the touch less a 5 cm slack, was 0.75 m); remotes… | spec "The charge clash: charger and victim locked through the shove" | The charge clash: charger and victim locked through the…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-FAB1E86D` | Musou: Guardsmen as defenders, capture under fire, Boss Ork cleave (musou/guard-formations, 2026-11-06; `TfwRules.Version` 28) | No Musou Mode in the original | Ours (added content, the owner's requests): the Guardsmen squads are back in every battle; they hold the landing zone, then share the secured positions out by the Orks near each, and never capture; only players, lords and retainers take a point, at the full rate, and Orks on the point no longer stop the progress (only… | Musou Mode only. Spec "Musou Mode: Guardsmen as defenders, the capture under fire, the Boss Ork cleave". | Musou: Guardsmen as defenders, capture under fire, Boss Ork…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2D3F51F7` | Musou: Guardsmen 4.5x, endless ammunition, grenade refill, AI Marines take a tenth (night/musou-rules, 2026-11-06; `TfwRules.Version` 30) | No Musou Mode in the original; in the original's matches reserves run out, grenades come back only with a new life or a pickup, and there are no AI Marines | Ours (added content, the owner's requests): Guardsmen 4.5x health and shot damage (a headless trial holds 11 of 20 counterattacks of one full crowd); every player's weapons keep a full reserve (the reload and the heat stay); one grenade back every 30 s while short of the most; AI Marines take 0.10 of every hit… | Musou Mode only. Spec "Musou Mode: the Guardsmen's strength, endless ammunition, the grenade refill, the AI Marines' damage". | Musou: Guardsmen 4.5x, endless ammunition, grenade refill…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-48363E01` | Musou: bot clients take a tenth too (late batch 2026-11-06, stream D) | No Musou Mode in the original | Ours (added content; the owner: "--bot clients should get the 90% damage cut in musou"): a client started with `--bot` (its Hello's bot flag) takes 0.10 of every hit in Musou Mode, as the AI Marines; the grenade refill stays Musou only (the owner confirmed). | Musou Mode only; Classic PvP never reads the flag (pinned by `TfwSupplyTests`). The flag itself is core information (`World.SetBotClient`), set by the server on join. | Musou: bot clients take a tenth too (late batch 2026-11-06…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-8A28955D` | Instant step and 20 % longer steps (sim/instant-step, 2026-11-06) | A strike's forward root motion follows the clip's timing (slow start, most of it after the hit) and, since feel/melee-charge-2 and sim/swing-step, is scaled | The step of every light and heavy melee strike (not the in-place stomp, not the heavy classes' kick) starts at full speed on the first tick and settles toward the move-on time (same total, same hit time, same recovery), and is 1.2 x longer for every melee weapon (the hammer and maul too): chainsword lights 5.36 / 3.88… | Owner's request 2026-11-06, an **estimate** (the 1.2 and "instant" are the owner's, the ease-out shape is ours); spec "Instant step and 20 % longer steps"; test aids `SM_OLD_INSTANT_STEP=1`, `SM_OLD_STEP_BOOST=1`, `--old-strike-legs` | Instant step and 20 % longer steps (sim/instant-step…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-46D713B9` | Musou: a burst of deaths spread over frames (night batch 2026-11-06, `night/death-spike`) | No Musou Mode in the original | Ours (added content; the owner: remove the moment of extreme frame time when many Orks die at once): the client hands a burst's deaths out over a few frames, the nearest first, at most 24 a frame and 5 ragdolls, none later than 0.1 s, each drawn dying in place meanwhile; the death yells and falls go with the body; the… | Musou Mode only, client drawing. Spec "Musou Mode: a burst of deaths spread over frames, near wind-ups first". | Musou: a burst of deaths spread over frames (night batch…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-F505AB42` | Musou: near wind-ups sent first (night batch 2026-11-06, `night/death-spike`) | No Musou Mode in the original | Ours (added content): an enemy within 15 m whose state changed since this client's last record of him goes right after the leaders, before far Orks overdue for 15 ticks; a telegraph's first copy goes before every other event copy. Under a full budget a near wind-up came up to 2 ticks late (telegraphs up to 4 behind a… | Musou Mode only; Classic PvP networking untouched; no wire change. Spec rows "Musou enemy interest", "Musou send budget". | Musou: near wind-ups sent first (night batch 2026-11-06…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |

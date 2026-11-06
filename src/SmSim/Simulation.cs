@@ -1038,6 +1038,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         _nextLoadouts.Remove(playerId);
         ForgetSpawnChoice(playerId);   // fix/pvp-deploy-spawn: a new join starts in the spawn room
         _damageScale.Remove(playerId);   // test aid (--bot-damage-scale): a new join of the id starts unscaled
+        _botClients.Remove(playerId);    // and is no bot until the server says so
         ForgetFlightView(playerId);
         var classSide = playerClass >= 0 && playerClass < Config.Classes.Count ? Config.Classes[playerClass].Side : Team.None;
         var side = Rules is not null && classSide == Team.None && team is Team.SpaceMarines or Team.Chaos ? team.Value : TeamFor(playerClass);
@@ -1105,6 +1106,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         _nextLoadouts.Remove(playerId);
         ForgetSpawnChoice(playerId);
         _damageScale.Remove(playerId);
+        _botClients.Remove(playerId);
         ForgetFlightView(playerId);
         RemoveProjectilesOf(playerId);
         _perkBlasts.RemoveAll(b => b.Owner == playerId);

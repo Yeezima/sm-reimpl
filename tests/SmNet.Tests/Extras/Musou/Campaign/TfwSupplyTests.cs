@@ -162,4 +162,36 @@ public class TfwSupplyTests
         Assert.All(retainer, d => Assert.Equal(human[0] * TfwSupplyRules.BotDamageTaken, d, 3));
         Assert.All(human, d => Assert.Equal(human[0], d, 3));
     }
+
+    [Fact]
+    public void A_bot_client_takes_a_tenth_in_musou_and_all_of_it_in_classic_pvp()
+    {
+        var w = TfwRig.War(config: Musou);
+        w.SetBotClient(Human, true);
+        Assert.Equal(TfwSupplyRules.BotDamageTaken, w.DamageTakenScale(Human));
+        w.SetBotClient(Human, false);
+        Assert.Equal(1f, w.DamageTakenScale(Human));
+        w.SetBotClient(Human, true);
+        w.Remove(Human);
+        w.Spawn(Human, w.AssignClass(0));
+        Assert.Equal(1f, w.DamageTakenScale(Human));                        // a new join of the id is no bot until the server says so
+
+        var classic = ClassicMatch();
+        classic.SetBotClient(1, true);
+        Assert.True(classic.IsBotClient(1));
+        Assert.Equal(1f, classic.DamageTakenScale(1));                      // Classic PvP: unchanged
+    }
+
+    [Fact]
+    public void Classic_pvp_never_gives_a_grenade_back_short_or_empty()
+    {
+        var w = ClassicMatch();
+        SetPlayer(w, 1, w.Players[1] with { Grenades = 0 });
+        int carried = w.Players[2].Grenades;
+        Assert.True(carried > 0);
+        SetPlayer(w, 2, w.Players[2] with { Grenades = carried - 1 });
+        TfwRig.Seconds(w, 3 * TfwSupplyRules.GrenadeRefillSeconds + 1f);
+        Assert.Equal((0, carried - 1), (w.Players[1].Grenades, w.Players[2].Grenades));
+        Assert.Equal((0, 0), (w.TfwGrenadeWait(1), w.TfwGrenadeWait(2)));     // no refill counts at all
+    }
 }
