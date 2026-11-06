@@ -53,14 +53,14 @@ public partial class AshfallStorm : Node3D
     /// </summary>
     public static class LightPass
     {
-        public const float BreakElevation = 7f, FillElevation = 40f, FillAzimuthFromSun = 205f, FillEnergy = 0.85f, SunEnergy = 1.0f, Exposure = 0.95f, Saturation = 0.58f, Contrast = 1.16f;
-        public const float AmbientEnergy = 1.8f, BoundaryTop = 13f;
+        public const float BreakElevation = 7f, FillElevation = 40f, FillAzimuthFromSun = 205f, FillEnergy = 1.1f, SunEnergy = 0.85f, Exposure = 1.0f, Saturation = 0.58f, Contrast = 1.0f;
+        public const float AmbientEnergy = 2.6f, BoundaryTop = 13f;
         /// <summary>Round 2 (owner, 2026-11-06: "the 3d asset buildings are too light colored ... slightly brighter [than the floor], but not by much. still overall dark"): the kit models' base colour at runtime (their files untouched), more fires, flakes, sparks and dust low over the ground.</summary>
-        public const float KitAlbedo = 1f, KitFloorAlbedo = 1f, FlakeScale = 3f, SparkScale = 2.5f;
-        public const int SmallFires = 90, FloorDust = 60;
-        public const float ShaftStrength = 2.5f, KitRoughness = 0.95f, KitSpecular = 0.2f;
+        public const float KitAlbedo = 1f, KitFloorAlbedo = 0.3f, FlakeScale = 6f, SparkScale = 4f;
+        public const int SmallFires = 90, FloorDust = 150;
+        public const float CompatKitFloorAlbedo = 0.7f, BeamStrength = 0.11f, ShaftStrength = 2.5f, KitRoughness = 0.95f, KitSpecular = 0.2f;
         /// <summary>The Compatibility renderer (no grime overlay on the models, its sky drawn darker): exposure and sun a step lower, the sky lifted.</summary>
-        public const float CompatExposure = 0.95f, CompatSunEnergy = 0.8f, CompatAmbientEnergy = 1.7f, CompatSkyGain = 0.95f;
+        public const float CompatExposure = 0.95f, CompatSunEnergy = 0.8f, CompatAmbientEnergy = 2.3f, CompatSkyGain = 0.95f;
         public static readonly Color Sun = new(1.0f, 0.90f, 0.80f), Fill = new(0.66f, 0.74f, 0.88f), Ambient = new(0.55f, 0.59f, 0.65f), Fog = new(0.22f, 0.23f, 0.25f), VolumetricAlbedo = new(0.42f, 0.43f, 0.47f);
     }
 
@@ -263,13 +263,13 @@ public partial class AshfallStorm : Node3D
         float airborne = concept ? AirborneScale : 1f;
         int ash = (int)(2200 * _quality * airborne), rocks = (int)(140 * _quality * airborne * (light ? LightPass.FlakeScale : 1f)), sparks = (int)(180 * _quality * (light ? LightPass.SparkScale : 1f));
         int floorDust = light ? (int)(LightPass.FloorDust * _quality) : 0;
-        int debris = concept ? (int)(160 * _quality) : 0, dust = concept ? (int)(70 * _quality) : 0;
+        int debris = concept ? (int)((light ? 260 : 160) * _quality) : 0, dust = concept ? (int)(70 * _quality) : 0;
         _follow.AddChild(AshField("Ash", ash, new Vector3(45, 22, 45), AshMaterial(concept ? NearFadeSmall : 0f), new QuadMesh { Size = new Vector2(0.10f, 0.07f) }, 0.6f, 1.6f, 10f));
-        _follow.AddChild(AshField("Flakes", rocks, new Vector3(55, 28, 55), RockMaterial(concept ? NearFadeFlakes : 0f), new QuadMesh { Size = light ? new Vector2(0.36f, 0.26f) : new Vector2(0.28f, 0.2f) }, 0.5f, 1.4f, 9f));
-        _follow.AddChild(AshField("Embers", sparks, new Vector3(40, 16, 40), EmberMaterial(light ? 1.1f : 1.5f), new QuadMesh { Size = light ? new Vector2(0.09f, 0.09f) : new Vector2(0.06f, 0.06f) }, 0.4f, 1.1f, 7f, rise: 0.7f));
+        _follow.AddChild(AshField("Flakes", rocks, new Vector3(55, 28, 55), RockMaterial(concept ? NearFadeFlakes : 0f), new QuadMesh { Size = light ? new Vector2(0.5f, 0.36f) : new Vector2(0.28f, 0.2f) }, 0.5f, light ? 1.8f : 1.4f, 9f));
+        _follow.AddChild(AshField("Embers", sparks, new Vector3(40, 16, 40), EmberMaterial(light ? 1.8f : 1.5f), new QuadMesh { Size = light ? new Vector2(0.12f, 0.12f) : new Vector2(0.06f, 0.06f) }, 0.4f, 1.1f, 7f, rise: 0.7f));
         if (floorDust > 0)   // light pass: dust blown low over the ground around the player (faint, never within 5 m of the camera)
         {
-            var low = AshField("FloorDust", floorDust, new Vector3(36, 0.9f, 36), NearFaded(Particle(Soft(), new Color(0.30f, 0.30f, 0.31f, 0.16f), additive: false), 5f), new QuadMesh { Size = new Vector2(7f, 2.4f) }, 0.6f, 1.4f, 10f, rise: 0.02f, spin: 10f);
+            var low = AshField("FloorDust", floorDust, new Vector3(52, 1.2f, 52), NearFaded(Particle(Soft(), new Color(0.30f, 0.31f, 0.33f, 0.26f), additive: false), 5f), new QuadMesh { Size = new Vector2(7f, 2.4f) }, 0.6f, 1.4f, 10f, rise: 0.02f, spin: 10f);
             low.Position = new Vector3(0, -2.2f, 0);
             _follow.AddChild(low);
         }
@@ -320,14 +320,27 @@ public partial class AshfallStorm : Node3D
         _world.AddChild(node);
         float k = s.Size;
         // Flames
-        node.AddChild(Emitter("Flames", Math.Max(8, (int)(26 * k * Math.Min(1f, _quality + 0.3f))), 0.9f, FlameProcess(k), FlameMaterial(), new QuadMesh { Size = new Vector2(1.1f, 2.0f) }, s.Plume ? 400f : 160f, new Aabb(new Vector3(-3, -1, -3) * k, new Vector3(6, 7, 6) * k)));
+        node.AddChild(Emitter("Flames", Math.Max(8, (int)(26 * k * Math.Min(1f, _quality + 0.3f))), 0.9f, FlameProcess(k), FlameMaterial(), new QuadMesh { Size = LightPassOn ? new Vector2(1.4f, 2.5f) : new Vector2(1.1f, 2.0f) }, s.Plume ? 400f : 200f, new Aabb(new Vector3(-3, -1, -3) * k, new Vector3(6, 7, 6) * k)));
         // Embers rising from it
         node.AddChild(Emitter("Embers", Math.Max(6, (int)(18 * k * _quality)), 2.6f, EmberProcess(k), EmberMaterial(3f), new QuadMesh { Size = new Vector2(0.07f, 0.07f) }, 120f, new Aabb(new Vector3(-6, -1, -6) * k, new Vector3(12, 14, 12) * k)));
         // Smoke: a short dark column, or a tall plume seen across the map
         if (s.Plume)
             node.AddChild(Emitter("Smoke", Math.Max(16, (int)(44 * _quality)), 16f, SmokeProcess(k, 4.2f, 2.2f, 16f), SmokeMaterial(0.07f, compat), new QuadMesh { Size = new Vector2(1f, 1f) }, 900f, new Aabb(new Vector3(-60, -2, -60), new Vector3(120, 110, 120))));
         else
-            node.AddChild(Emitter("Smoke", Math.Max(6, (int)(12 * _quality)), 6f, SmokeProcess(k, 2.0f, 0.7f, 5f), SmokeMaterial(0.10f, compat), new QuadMesh { Size = new Vector2(1f, 1f) }, 260f, new Aabb(new Vector3(-20, -1, -20), new Vector3(40, 30, 40))));
+            node.AddChild(Emitter("Smoke", Math.Max(6, (int)(12 * _quality)), 6f, SmokeProcess(k, 2.0f, 0.7f, 5f), SmokeMaterial(LightPassOn ? 0.15f : 0.10f, compat), new QuadMesh { Size = new Vector2(1f, 1f) }, 260f, new Aabb(new Vector3(-20, -1, -20), new Vector3(40, 30, 40))));
+        if (LightPassOn)   // a soft orange glow round the flames, so a fire reads at mid distance
+        {
+            var glowMat = new StandardMaterial3D
+            {
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled, AlbedoTexture = Soft(), AlbedoColor = new Color(1f, 0.42f, 0.14f, 0.55f),
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha, BlendMode = BaseMaterial3D.BlendModeEnum.Add, DepthDrawMode = BaseMaterial3D.DepthDrawModeEnum.Disabled, CullMode = BaseMaterial3D.CullModeEnum.Disabled, DisableFog = true,
+            };
+            node.AddChild(new MeshInstance3D
+            {
+                Name = "Glow", Mesh = new QuadMesh { Size = new Vector2(5f, 5f) * k, Material = glowMat }, Position = new Vector3(0, 1.3f * k, 0), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                VisibilityRangeEnd = 220f, VisibilityRangeEndMargin = 20f, VisibilityRangeFadeMode = GeometryInstance3D.VisibilityRangeFadeModeEnum.Self,
+            });
+        }
         // Light (no shadows; fades with distance)
         var light = new OmniLight3D
         {
@@ -450,7 +463,7 @@ public partial class AshfallStorm : Node3D
     /// <summary>Twice draft 7's ash and flakes (the owner: "roughly double the amount and visual presence of airborne dirt and dust"; ours).</summary>
     public const float AirborneScale = 2f;
     /// <summary>Metres from the camera inside which each airborne layer is invisible (it fades in over the next as many again; ours): nothing large drifts across the aim.</summary>
-    public const float NearFadeSmall = 1.2f, NearFadeFlakes = 3f, NearFadeDebris = 14f, NearFadeDust = 22f;
+    public const float NearFadeSmall = 1.2f, NearFadeFlakes = 4f, NearFadeDebris = 14f, NearFadeDust = 22f;
 
     static StandardMaterial3D NearFaded(StandardMaterial3D m, float near)
     {
@@ -650,7 +663,7 @@ public partial class AshfallStorm : Node3D
     }
 
     /// <summary>The ground kinds' and the boundary's tints under the light pass (ours): a cool mid grey stone like the concept's flagstones, not draft 7's cream and brown (a shader uniform of our own terrain material; nothing on disk changes).</summary>
-    static readonly (string Kind, Color Tint)[] GroundTints = [("Paving", new Color(0.27f, 0.28f, 0.30f)), ("Curb", new Color(0.27f, 0.28f, 0.30f)), ("Ground", new Color(0.46f, 0.465f, 0.50f)), ("Road", new Color(0.40f, 0.41f, 0.44f)), ("Boundary", new Color(0.50f, 0.51f, 0.55f))];
+    static readonly (string Kind, Color Tint)[] GroundTints = [("Paving", new Color(0.075f, 0.08f, 0.09f)), ("Curb", new Color(0.075f, 0.08f, 0.09f)), ("Ground", new Color(0.55f, 0.555f, 0.60f)), ("Road", new Color(0.40f, 0.41f, 0.44f)), ("Boundary", new Color(0.50f, 0.51f, 0.55f))];
 
     /// <summary>
     /// Dims every kit model's base colour to <paramref name="k"/> of its own (runtime only: the loaded copy's material; the model files are never written), models loading later as they arrive. Each material keeps its
@@ -665,7 +678,7 @@ public partial class AshfallStorm : Node3D
             if (node is not MeshInstance3D { Mesh: { } mesh }) return;
             var box = mesh.GetAabb();
             bool floor = box.Size.Y < 0.15f * MathF.Max(box.Size.X, box.Size.Z);   // a flat model (paving, road tiles, slabs): the floor's darker base colour
-            float f = floor ? LightPass.KitFloorAlbedo : k;
+            float f = floor ? (SafeMode.Compatibility ? LightPass.CompatKitFloorAlbedo : LightPass.KitFloorAlbedo) : k;
             for (int s = 0; s < mesh.GetSurfaceCount(); s++)
                 if (mesh.SurfaceGetMaterial(s) is BaseMaterial3D m)
                 {
@@ -683,39 +696,102 @@ public partial class AshfallStorm : Node3D
         return n;
     }
 
-    /// <summary>Broad golden beams out of the break behind the keep, falling into the field in front of the stronghold (ours): seen from the field looking north they fan out from behind the keep.</summary>
+    /// <summary>Test aid <c>--ashfall-shafts off</c>: no break shafts.</summary>
+    public static bool ShaftsOff
+    {
+        get
+        {
+            var args = OS.GetCmdlineUserArgs();
+            int i = Array.IndexOf(args, "--ashfall-shafts");
+            return i >= 0 && i + 1 < args.Length && args[i + 1] == "off";
+        }
+    }
+
+    /// <summary>
+    /// Broad golden beams out of the break behind the keep, falling into the field in front of the stronghold (ours). Each is a long quad that turns about its own axis to face the camera (a beam never shows its edge,
+    /// so seen side-on it does not stack into a wall), soft across its width and at its ends, gated to the view toward the break and faded out near the camera.
+    /// </summary>
     int AddBreakShafts(float sunAzimuth)
     {
-        var shader = new Shader { Code = ShaftShader };
-        float bel = Mathf.DegToRad(LightPass.BreakElevation + 10f);   // a little steeper than the break, so they reach the ground inside the map
-        var fromBreak = -G(new Vector3(MathF.Sin(sunAzimuth) * MathF.Cos(bel), MathF.Cos(sunAzimuth) * MathF.Cos(bel), MathF.Sin(bel))).Normalized();
-        var spots = new (float X, float Y, float R)[] { (-60, 70, 9), (-30, 85, 12), (0, 65, 10), (-45, 45, 7), (25, 80, 11), (-85, 60, 8), (-15, 40, 8), (45, 60, 9), (-110, 80, 7), (70, 90, 8) };
+        if (ShaftsOff) return 0;
+        var shader = new Shader { Code = BeamShader };
+        float e = Mathf.DegToRad(BeamSlopeDegrees);
+        // the travel direction: away from the break, steeply down (game frame, then Godot's)
+        var travel = G(new Vector3(-MathF.Sin(sunAzimuth) * MathF.Cos(e), -MathF.Cos(sunAzimuth) * MathF.Cos(e), -MathF.Sin(e))).Normalized();
+        var spots = new (float X, float Y, float W)[] { (-95, 70, 9), (-65, 55, 13), (-35, 80, 8), (-5, 60, 12), (25, 85, 7), (50, 55, 11), (80, 75, 9) };
+        const float len = 150f;
         int n = 0;
-        foreach (var (x, y, r) in spots)
+        foreach (var (x, y, w) in spots)
         {
-            float len = 200f;
             var ground = G(new Vector3(x, y, 0f));
-            var mid = ground - fromBreak * (len / 2f);
-            var mesh = new CylinderMesh { TopRadius = r * 2.2f, BottomRadius = r, Height = len, RadialSegments = 16, Rings = 1, CapTop = false, CapBottom = false };
+            var mid = ground - travel * (len / 2f);
             var mat = new ShaderMaterial { Shader = shader };
-            mat.SetShaderParameter("strength", LightPass.ShaftStrength * (0.7f + 0.6f * ((n * 7 % 5) / 4f)));
-            mat.SetShaderParameter("toward", -fromBreak);
-            mat.SetShaderParameter("view_gate", 1f);
-            mat.SetShaderParameter("edge_pow", 0.6f);   // looking toward the break is looking along the beams: they must not fade edge-on
-            mat.SetShaderParameter("near_range", new Vector2(25f, 70f));
-            mat.SetShaderParameter("cap", new Vector3(0.10f, 0.078f, 0.05f));
+            mat.SetShaderParameter("strength", LightPass.BeamStrength * (0.75f + 0.5f * ((n * 7 % 5) / 4f)));
+            mat.SetShaderParameter("beam_len", len);
+            mat.SetShaderParameter("beam_width", w);
             mat.SetShaderParameter("seed", n * 3.7f);
-            mesh.Material = mat;
-            var inst = new MeshInstance3D { Name = "BreakShaft" + n, Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
-            var up = -fromBreak;
+            var mesh = new QuadMesh { Size = Vector2.One, Material = mat, CustomAabb = new Aabb(new Vector3(-400, -400, -400), new Vector3(800, 800, 800)) };
+            var up = travel;   // the node's Y axis is the beam's axis (the shader reads it from the model matrix)
             var side = up.Cross(Vector3.Forward).LengthSquared() > 1e-4f ? up.Cross(Vector3.Forward).Normalized() : Vector3.Right;
             var fwd = side.Cross(up).Normalized();
+            var inst = new MeshInstance3D { Name = "BreakShaft" + n, Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, ExtraCullMargin = 400f };
             inst.Transform = new Transform3D(new Basis(side, up, fwd), mid);
             _world.AddChild(inst);
             n++;
         }
         return n;
     }
+
+    /// <summary>The break shafts' slope below the horizontal (degrees) and strength per beam (linear add at its core; where beams overlap the sum stays a soft glow). Ours.</summary>
+    public const float BeamSlopeDegrees = 32f;
+
+    const string BeamShader = """
+        shader_type spatial;
+        render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled, fog_disabled;
+        uniform float strength = 0.1;
+        uniform float seed = 0.0;
+        uniform float beam_len = 150.0;
+        uniform float beam_width = 9.0;
+        uniform vec3 cap = vec3(0.13, 0.10, 0.065);
+        uniform sampler2D depth_tex : hint_depth_texture, filter_linear;
+        varying vec3 wpos;
+        varying float vz;
+        float n1(float x) { return fract(sin(x * 12.9898) * 43758.5453); }
+        float vnoise(float x) { float i = floor(x); float f = fract(x); f = f * f * (3.0 - 2.0 * f); return mix(n1(i), n1(i + 1.0), f); }
+        void vertex() {
+            vec3 axis = normalize(MODEL_MATRIX[1].xyz);
+            vec3 centre = MODEL_MATRIX[3].xyz;
+            vec3 cam = INV_VIEW_MATRIX[3].xyz;
+            vec3 p0 = centre + axis * (VERTEX.y * beam_len);
+            vec3 side = cross(axis, p0 - cam);
+            side = length(side) > 1e-4 ? normalize(side) : vec3(1.0, 0.0, 0.0);
+            wpos = p0 + side * (VERTEX.x * beam_width);
+            vec4 vp = VIEW_MATRIX * vec4(wpos, 1.0);
+            vz = vp.z;
+            POSITION = PROJECTION_MATRIX * vp;
+        }
+        void fragment() {
+            vec3 axis = normalize(MODEL_MATRIX[1].xyz);
+            vec3 toward = -normalize(vec3(axis.x, 0.0, axis.z) + vec3(1e-5));   // the axis runs away from the break: the break lies the other way
+            vec3 cam = INV_VIEW_MATRIX[3].xyz;
+            float across = abs(UV.x * 2.0 - 1.0);
+            float core = exp(-across * across * 5.0);
+            float along = 1.0 - UV.y;   // 0 at the top (the clouds), 1 at the ground
+            float ends = smoothstep(0.0, 0.3, along) * smoothstep(1.0, 0.8, along);
+            float streak = 0.7 + 0.3 * vnoise(UV.x * 9.0 + seed);
+            float drift = 0.85 + 0.15 * sin(TIME * 0.21 + seed);
+            float d = distance(cam, wpos);
+            float near_fade = smoothstep(35.0, 80.0, d);
+            float gate = smoothstep(0.2, 0.7, dot(normalize(wpos - cam), toward));
+            float scene = texture(depth_tex, SCREEN_UV).r;
+            vec4 ndc = vec4(SCREEN_UV * 2.0 - 1.0, scene, 1.0);
+            vec4 view = INV_PROJECTION_MATRIX * ndc; view.xyz /= view.w;
+            float soft = clamp((vz - view.z) / 6.0, 0.0, 1.0);
+            vec3 c = vec3(1.0, 0.78, 0.5) * strength * core * ends * streak * drift * near_fade * gate * soft;
+            ALBEDO = min(c, cap);
+            ALPHA = 1.0;
+        }
+        """;
 
     static void TintGround(Node? root)
     {
@@ -910,7 +986,7 @@ public partial class AshfallStorm : Node3D
             float dphi = abs(mod(phi - yaw + PI, 2.0 * PI) - PI);
             float mask = (1.0 - smoothstep(0.5, 1.0, dphi)) * smoothstep(-0.12, 0.04, el) * (1.0 - smoothstep(0.22, 0.55, el));
             float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
-            vec3 cool = vec3(lum) * vec3(0.90, 0.99, 1.12) * 0.72;
+            vec3 cool = vec3(lum) * vec3(0.82, 0.98, 1.2) * 0.72;
             col = mix(mix(col, cool, 0.85), mix(col, vec3(lum), 0.25), mask);
             col *= 1.0 + hdr_boost * break_strength * mask * smoothstep(0.45, 0.95, lum);
             // far ruins on the horizon, two layers fading into the haze

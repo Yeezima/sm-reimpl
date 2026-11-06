@@ -617,7 +617,9 @@ void fragment() {
         var log = new List<string>();
         foreach (var a in ok.OrderBy(a => a.Id))
         {
-            float f = Math.Clamp(median / a.Luma, 0.6f, 1.1f);
+            float f = Math.Clamp(median / a.Luma, 0.6f, 1.0f);   // never brightened (the baked copies are already the dark grey)
+            // rubble heaps (the cream boulder heap of the NE corner, 2026-11-07): a step darker than the walls, so they read as the same soot-grey stone
+            if (AshfallKit.Models.FirstOrDefault(m => m.Id == a.Id) is { Category: AshfallKitCategory.Debris } && a.Id != "AC-020") f *= 0.6f;
             if (MathF.Abs(f - 1f) < 0.02f) continue;
             foreach (var piece in a.Pieces)
                 for (int s = 0; s < piece.Mesh.GetSurfaceCount(); s++)

@@ -46,7 +46,7 @@ public static class AshfallGrime
     }
 
     /// <summary>The ground and boundary shaders' <c>dark</c> multiplier and cool tint (ours; refine register).</summary>
-    public const float GroundDark = 0.8f;
+    public const float GroundDark = 1.0f;
 
     /// <summary>The plaza paving's (pale cream texture, in full sun): darker still, to a mid-dark flagstone grey.</summary>
     public const float PavingDark = 0.50f;
