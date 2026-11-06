@@ -338,14 +338,6 @@ public sealed partial class World
             _musouBoss = new MusouBoss(_musou!, director, director.BossId, director.BossMaxHealth, Config.CapsuleRadius);
         _musouBossStrikes.Clear();
         _musouBoss.Step(targets, fight, _musouBossStrikes);
-        foreach (var strike in _musouBossStrikes)
-        {
-            if (!_players.TryGetValue(strike.Player, out var before) || !before.Alive) continue;
-            MusouHit(new MusouAttack(_musouBoss.Id, strike.Player, strike.Damage, Melee: true, Staggers: strike.Knockback <= 0f, strike.From));
-            // The charge: the core's stagger with a knockback, when the hit landed (an enemy's damage scale of 0 hurts nobody and throws nobody).
-            if (strike.Knockback > 0f && _players[strike.Player] is { Alive: true } after && (after.Health < before.Health || after.Shield < before.Shield))
-                TryReact(0, strike.Player, new ReactionEntry(0f, ReactionKind.Stagger, Backward: strike.Knockback, Duration: _musou!.Rules.Boss.ChargeKnockbackSeconds),
-                    strike.From, strike.Push);
-        }
+        foreach (var strike in _musouBossStrikes) MusouBossHit(_musouBoss.Id, strike);   // World.Musou.cs: the damage, the slam's stagger and the charge's knockback
     }
 }

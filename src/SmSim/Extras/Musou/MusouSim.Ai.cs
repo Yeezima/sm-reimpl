@@ -96,7 +96,7 @@ public sealed partial class MusouSim
     {
         _cooldown[i] = 0; _burst[i] = 0; _roundTicks[i] = 0; _losTick[i] = 0; _los[i] = false;
         _blocked[i] = 0; _flowTicks[i] = 0; _transit[i] = -1; _aim[i] = -1;
-        _aggro[i] = float.PositiveInfinity; _group[i] = 0;
+        _aggro[i] = float.PositiveInfinity; _group[i] = 0; _homeVelocity[i] = Vector2.Zero;
         SpawnedCombat(i);   // MU3 (MusouCombat.cs): no script, no drive
         SpawnedSwarm(i);
         _relocations[i] = 0;
@@ -220,6 +220,7 @@ public sealed partial class MusouSim
     /// <summary>The way back to a leashed enemy's home at its speed (none within half a metre, so a packed group does not shuffle).</summary>
     Vector2 HomeWay(int i, MusouTypeSpec spec)
     {
+        if (_homeVelocity[i] != Vector2.Zero) return MarchWay(i, spec);   // a patrol's moving home (MusouSim.Patrol.cs)
         var way = new Vector2(_home[i].X - _position[i].X, _home[i].Y - _position[i].Y);
         float distance = way.Length();
         return distance > 0.5f ? way / distance * spec.Speed : Vector2.Zero;

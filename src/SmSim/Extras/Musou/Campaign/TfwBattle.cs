@@ -290,6 +290,7 @@ public sealed partial class TfwBattle
         _objectives[CommanderObjective] = new TfwObjective(CommanderObjective, TfwPositionState.Locked, 0f, _layout.Hq, TfwMap.HqRadius);
         int field = Math.Min(Squads, _final ? TfwBattleRules.FinalFieldSquads : TfwBattleRules.FieldSquads);
         _reserves = Squads - field;
+        PlanColumns();   // TfwBattle.Patrols.cs: the patrols and hunter columns (their routes are searched off the tick, taken 3 s after the start)
         for (int s = 0; s < field; s++) _guards.SpawnSquad(Ground(_layout.LandingZone + SquadOffset(s), _layout.LandingZone), YawTo(_layout.LandingZone, _layout.Hq));
         if (_final)
         {
@@ -505,6 +506,7 @@ public sealed partial class TfwBattle
         }
         StepSquads();
         StepReserves();
+        StepColumns(players);   // TfwBattle.Patrols.cs: before the arrivals, so the crowds see the cap the columns take
         StepArrivals();
         StepBossOrks(players);   // the roaming Boss Orks (owner, 2026-11-06; TfwBattle.BossOrks.cs)
         return change;

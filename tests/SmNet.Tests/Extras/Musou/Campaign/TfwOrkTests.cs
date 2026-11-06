@@ -12,7 +12,7 @@ public class TfwOrkTests
     {
         var sim = new MusouSim(null) { Frozen = true };
         var layout = TfwTestArena.Layout();
-        var battle = new TfwBattle(sim, new GuardSim(sim), layout, 100.0, 1, final, default, elite, guardsmen) { Trickle = false };
+        var battle = new TfwBattle(sim, new GuardSim(sim), layout, 100.0, 1, final, default, elite, guardsmen) { Trickle = false, Patrols = false };
         battle.Start();
         return (sim, battle, layout);
     }
@@ -129,7 +129,7 @@ public class TfwOrkTests
     {
         var sim = new MusouSim(null) { Swarm = MusouSwarmRules.Default };
         var layout = TfwTestArena.Layout();
-        var battle = new TfwBattle(sim, new GuardSim(sim), layout, 100.0, 1, false, default, TfwBattleRules.EliteBase, false) { Trickle = false };
+        var battle = new TfwBattle(sim, new GuardSim(sim), layout, 100.0, 1, false, default, TfwBattleRules.EliteBase, false) { Trickle = false, Patrols = false };
         battle.Start();
         var attacks = new List<MusouAttack>();
         var swarms = new List<TfwSwarm>();
@@ -601,7 +601,7 @@ public class TfwOrkTests
     {
         var sim = new MusouSim(null) { Frozen = true };
         var layout = TfwTestArena.Layout();
-        var battle = new TfwBattle(sim, new GuardSim(sim), layout, 100.0, 1, false, default, TfwBattleRules.EliteBase, false) { Trickle = false };
+        var battle = new TfwBattle(sim, new GuardSim(sim), layout, 100.0, 1, false, default, TfwBattleRules.EliteBase, false) { Trickle = false, Patrols = false };
         battle.Start();
         battle.Step([]);
         Assert.Empty(sim.KeepOut);                                            // Held: nobody on it
