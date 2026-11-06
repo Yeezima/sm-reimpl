@@ -108,10 +108,10 @@ public static class MusouSendRules
     public static float Rate(float distance) => distance <= NearMetres ? NearRate : distance <= MidMetres ? MidRate : FarRate;
 
     /// <summary>The boss and the Nobs go first and never fall below <see cref="LeaderMinRate"/>.</summary>
-    public static bool IsLeader(MusouEnemyType type) => type is MusouEnemyType.Warboss or MusouEnemyType.Nob;
+    public static bool IsLeader(MusouEnemyType type) => type is MusouEnemyType.Warboss or MusouEnemyType.Nob || MusouBossOrks.Is(type);   // a Boss Ork too (2026-11-06): every client sees it from afar
 
     /// <summary>The send order's first key: the boss, then the Nobs, then the rest.</summary>
-    public static int Rank(MusouEnemyType type) => type switch { MusouEnemyType.Warboss => 2, MusouEnemyType.Nob => 1, _ => 0 };
+    public static int Rank(MusouEnemyType type) => type switch { MusouEnemyType.Warboss => 2, MusouEnemyType.Nob => 1, _ when MusouBossOrks.Is(type) => 2, _ => 0 };
 }
 
 /// <summary>

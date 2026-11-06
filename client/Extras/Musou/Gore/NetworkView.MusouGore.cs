@@ -119,7 +119,7 @@ public partial class NetworkView
         return false;
     }
 
-    static float GoreChestHeight(MusouEnemyType type) => type switch
+    static float GoreChestHeight(MusouEnemyType type) => MusouBossOrks.Is(type) ? GoreChestHeight(MusouBossOrks.BaseOf(type)) * MusouBossOrks.BodyScale : type switch   // a Boss Ork: its base's, 3x
     {
         MusouEnemyType.Gretchin => 0.7f,
         MusouEnemyType.Nob => 1.4f,

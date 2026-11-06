@@ -22,6 +22,11 @@ public enum MusouEnemyType : byte
     ChaosMarine = 5,
     /// <summary>The final boss: a scaled Nob (nob_melee_pro) with abilities of its own.</summary>
     Warboss = 6,
+    /// <summary>The roaming Boss Orks (owner, 2026-11-06; <see cref="MusouBossOrks"/>): a Boy, Shoota Boy, 'Ard Boy or Nob at 3x its size, 10x its health (at least 3000) and 2x its damage.</summary>
+    BossBoy = 7,
+    BossShootaBoy = 8,
+    BossArdBoy = 9,
+    BossNob = 10,
 }
 
 /// <summary>The state machine of one enemy (design section B; 4 bits on the wire).</summary>

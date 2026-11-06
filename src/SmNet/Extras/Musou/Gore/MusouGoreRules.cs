@@ -27,7 +27,7 @@ public static class MusouGoreRules
         var (side, up) = kind < 0.3f ? (1.5f + 2.5f * a, 11f + 4f * b) : kind < 0.6f ? (11f + 5f * a, 1.5f + 2f * b) : (8f + 4f * a, 8f + 4f * b);
         var flat = new Vector2(push.X, push.Y);
         float angle = flat.LengthSquared() > 0.0025f ? MathF.Atan2(flat.Y, flat.X) + turn : id * 2.399963f;
-        float weight = type switch
+        float weight = MusouBossOrks.Is(type) ? 0.4f : type switch   // a Boss Ork as the Warboss
         {
             MusouEnemyType.Gretchin => 1.3f,
             MusouEnemyType.ArdBoy => 0.9f,
@@ -52,7 +52,7 @@ public static class MusouGoreRules
     };
 
     /// <summary>How big an enemy is for gore: a Gretchin half a Boy, the Warboss four.</summary>
-    public static float Weight(MusouEnemyType type) => type switch
+    public static float Weight(MusouEnemyType type) => MusouBossOrks.Is(type) ? 4f : type switch   // a Boss Ork as the Warboss (3x the body)
     {
         MusouEnemyType.Gretchin => 0.5f,
         MusouEnemyType.Boy or MusouEnemyType.ShootaBoy => 1f,

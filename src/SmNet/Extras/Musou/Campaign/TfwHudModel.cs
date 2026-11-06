@@ -1,3 +1,4 @@
+using SmSim.Extras.Musou;
 using System.Globalization;
 using System.Numerics;
 using SmSim;
@@ -206,8 +207,18 @@ public static class TfwHudModel
         _ => "",
     };
 
-    /// <summary>The boss bar's name: the battle's commander, or the Warboss in the final assault.</summary>
-    public static string BossName(in TfwWarView war, IReadOnlyList<TfwObjective> objectives) => war.Phase == TfwRunPhase.FinalAssault || objectives.Count == 0 ? "ORK WARBOSS" : "ORK COMMANDER";
+    /// <summary>The boss bar's name: the Warboss, in a battle (the commander is the Warboss since the owner's "replace him with the warboss", 2026-11-06) and in the final assault alike.</summary>
+    public static string BossName(in TfwWarView war, IReadOnlyList<TfwObjective> objectives) => "ORK WARBOSS";
+
+    /// <summary>A Boss Ork's bar name (2026-11-06): BOSS and its base kind.</summary>
+    public static string BossOrkName(MusouEnemyType type) => MusouBossOrks.BaseOf(type) switch
+    {
+        MusouEnemyType.Boy => "BOSS BOY",
+        MusouEnemyType.ShootaBoy => "BOSS SHOOTA BOY",
+        MusouEnemyType.ArdBoy => "BOSS 'ARD BOY",
+        MusouEnemyType.Nob => "BOSS NOB",
+        _ => "BOSS ORK",
+    };
 
     /// <summary>What an extraction takes now: its price, or after a won battle what is left of it.</summary>
     public static int ExtractionCost(in TfwWarView war) => Math.Min((int)war.Supplies, TfwBattleRules.ExtractionSupplies);

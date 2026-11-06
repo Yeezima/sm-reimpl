@@ -65,6 +65,8 @@ public sealed class MusouClientState
     uint? _directorTick;
     /// <summary>Enemies known now.</summary>
     public int Count => _tracks.Count;
+    /// <summary>The kind of enemy <paramref name="id"/> as its newest record has it; null when the client holds no track of it (the Boss Orks' HUD, 2026-11-06).</summary>
+    public MusouEnemyType? TypeOf(ushort id) => _tracks.TryGetValue(id, out var t) ? t.Type : null;
     public int SectionsRead { get; private set; }
     public int SectionsMalformed { get; private set; }
     /// <summary>Ids dropped for silence (no death seen), and records ignored as older than a death.</summary>

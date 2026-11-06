@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Godot;
 using SmContent;
+using SmContent.Extras.Musou;
 using SmFormats.Havok;
 using SmSim.Extras.Musou;
 
@@ -51,8 +52,18 @@ public sealed class MusouLooks
         new(MusouEnemyType.ArdBoy, "boy_ardboy", 1f, "boy_melee_pro", 1f, false),
         new(MusouEnemyType.Gretchin, "boy_melee", 0.7f, null, 0.7f, false),
         new(MusouEnemyType.Nob, "nob_melee", 1f, "boy_melee_pro", 1.2f, false),
+        // The Boss Orks (owner, 2026-11-06): the base kind's body at 3x (MusouBossOrks.BodyScale), as the sim's body is.
+        new(MusouEnemyType.BossBoy, "boy_melee", BossOrkScale, null, BossOrkScale, false),
+        new(MusouEnemyType.BossShootaBoy, "boy_ranged", BossOrkScale, "boy_melee", BossOrkScale, true),
+        new(MusouEnemyType.BossArdBoy, "boy_ardboy", BossOrkScale, "boy_melee_pro", BossOrkScale, false),
+        new(MusouEnemyType.BossNob, "nob_melee", BossOrkScale, "boy_melee_pro", 1.2f * BossOrkScale, false),
+        // Last, so nothing waits on the Warboss model's read: the Warboss model first (WarbossLooks); this is its fallback.
         new(MusouEnemyType.Warboss, "nob_melee", BossScale, "boy_melee_pro", BossScale, false),
     ];
+
+    const float BossOrkScale = MusouBossOrks.BodyScale;
+    /// <summary>The Nob model's height (Boy 2.15 m, Nob 3.0 m, docs/discovery.md) when its own mesh cannot be measured: the Warboss model is sized to it times <see cref="BossScale"/>.</summary>
+    const float NobDrawnHeight = 3f;
 
     readonly string _gameDir;
     readonly OrkAssets _orks;
@@ -62,6 +73,7 @@ public sealed class MusouLooks
     readonly Func<MarineAssets?> _chaos;
     /// <summary>The ranged Orks' guns (null: <c>--no-musou-guns</c>, unarmed as before).</summary>
     public MusouGunModels? Guns { get; }
+    readonly WarbossLooks? _warboss;
     int _next;
     bool _chaosTried;
 
@@ -74,11 +86,13 @@ public sealed class MusouLooks
     {
         _gameDir = gameDir; _orks = orks; _chaos = chaos;
         if (guns) Guns = new MusouGunModels(gameDir, orks.Rig.Rig.Skeleton.BoneNames);   // the guns in the ranged Orks' hands (MusouGunModels.cs)
+        try { _warboss = new WarbossLooks(gameDir); }
+        catch (Exception ex) when (ex is not OutOfMemoryException) { Notes.Add($"musou: the Warboss model was not started: {ex.Message}"); }
         foreach (var w in Plan) { Start(w.Mesh); if (w.Fallback is not null) Start(w.Fallback); }
     }
 
     /// <summary>The look of a kind (null: not built yet; the crowd then draws the Boy's, or nothing).</summary>
-    public Look? For(MusouEnemyType type) => _looks[(int)type] ?? (type is MusouEnemyType.ChaosMarine or MusouEnemyType.Warboss or MusouEnemyType.Nob ? null : _looks[(int)MusouEnemyType.Boy]);   // the big ones wait for their own body: never a small Boy standing in (owner, 2026-11-01)
+    public Look? For(MusouEnemyType type) => _looks[(int)type] ?? (type is MusouEnemyType.ChaosMarine or MusouEnemyType.Warboss or MusouEnemyType.Nob || MusouBossOrks.Is(type) ? null : _looks[(int)MusouEnemyType.Boy]);   // the big ones wait for their own body: never a small Boy standing in (owner, 2026-11-01)
 
     /// <summary>Builds at most one look a call (main thread) once its files are read; returns the one built, or null.</summary>
     public Look? Step()
@@ -87,6 +101,19 @@ public sealed class MusouLooks
         if (_next < Plan.Length)
         {
             var w = Plan[_next];
+            if (w.Type == MusouEnemyType.Warboss && _warboss is { } wb)   // the owner, 2026-11-06: the Warboss model, as tall as the old 3x Nob body; the Nob body only when it cannot be had
+            {
+                if (!wb.Done && wb.Step() is null && !wb.Done) return null;
+                Notes.AddRange(wb.Notes); wb.Notes.Clear();
+                if (wb.Look is { } own)
+                {
+                    float nob = Height(_looks[(int)MusouEnemyType.Nob]) is > 0.5f and var h ? h / (_looks[(int)MusouEnemyType.Nob]!.Scale) : NobDrawnHeight;
+                    own.Scale = wb.Height > 0.5f ? BossScale * nob / wb.Height : BossScale;
+                    Notes.Add($"musou: Warboss drawn as {WarbossRig.BodyVisual} x{own.Scale:0.##} (model {wb.Height:0.##} m, the Nob's {nob:0.##} m x{BossScale:0.##})");
+                    _next++;
+                    return _looks[(int)MusouEnemyType.Warboss] = own;
+                }
+            }
             var mesh = Mesh(w.Mesh, out bool ready);
             if (!ready || Guns?.IsReady(w.Type) == false) return null;
             float scale = w.Scale;
@@ -183,6 +210,15 @@ public sealed class MusouLooks
         if (asset is null) return null;
         return new MarineAssets(rig, [new AssetPiece(piece.Name, asset.Mesh, asset.Skin, new Material?[asset.Surfaces.Count])],
             asset.Surfaces.Count(s => s.HasDiffuse), asset.Surfaces.Count, _orks.Pieces.Notes);
+    }
+
+    /// <summary>A look's model height at its scale (metres, game axes: the pieces' bounds in Z); 0 for none.</summary>
+    static float Height(Look? look)
+    {
+        if (look is null) return 0f;
+        float top = float.NegativeInfinity, bottom = float.PositiveInfinity;
+        foreach (var piece in look.Assets.Pieces) { var box = piece.Mesh.GetAabb(); top = MathF.Max(top, box.End.Z); bottom = MathF.Min(bottom, box.Position.Z); }
+        return top > bottom ? (top - bottom) * look.Scale : 0f;
     }
 
     // ---------------------------------------------------------------- clips (ours: the nearest original clips to what a crowd member does)

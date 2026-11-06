@@ -27,6 +27,7 @@ public partial class NetworkView
         TfwOrdersFrame(war, me, (float)delta);
         TfwStationsFrame(war, me);
         TfwHudFrame(war, me);
+        TfwBossOrksFrame(war);   // the roaming Boss Orks' bars and call-outs (NetworkView.TfwBossOrks.cs)
         TfwMarkersFrame(war);
         TfwFireFrame(war, delta);
         TfwFireCamFrame();

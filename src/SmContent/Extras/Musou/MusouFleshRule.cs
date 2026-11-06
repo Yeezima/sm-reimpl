@@ -10,7 +10,7 @@ namespace SmContent;
 /// </summary>
 public static class MusouFleshRule
 {
-    public static bool AlwaysFlesh(MusouEnemyType type) => type is MusouEnemyType.Boy or MusouEnemyType.ShootaBoy or MusouEnemyType.Gretchin;
+    public static bool AlwaysFlesh(MusouEnemyType type) => MusouBossOrks.BaseOf(type) is MusouEnemyType.Boy or MusouEnemyType.ShootaBoy or MusouEnemyType.Gretchin;   // a Boss Ork as its base
 
     /// <summary>
     /// The hit sound's armour value for a hit on this type, one rule for every view (own strike, cleave, own and others' shots; owner 2026-11-04, "Armour and flesh"): <c>false</c> (flesh only) for an

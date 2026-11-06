@@ -14,11 +14,12 @@ public static class TfwRewardRules
     public const int BoxDropperBase = 0x10000;
 
     /// <summary>Whether a KO of <paramref name="type"/> counts as an elite for the boxes.</summary>
-    public static bool Elite(MusouEnemyType type) => type is MusouEnemyType.ArdBoy or MusouEnemyType.Nob or MusouEnemyType.ChaosMarine or MusouEnemyType.Warboss;
+    public static bool Elite(MusouEnemyType type) => type is MusouEnemyType.ArdBoy or MusouEnemyType.Nob or MusouEnemyType.ChaosMarine or MusouEnemyType.Warboss || MusouBossOrks.Is(type);
 
     /// <summary>Whether this KO leaves a box: a roll of its own (a hash of the tick and the enemy, not the core draw's seed), deterministic.</summary>
     public static bool Boxes(MusouEnemyType type, uint tick, ushort enemy)
     {
+        if (MusouBossOrks.Is(type)) return true;   // a Boss Ork always leaves one (ours, 2026-11-06: the weapon drops are off in Musou Mode, so the box is its sure drop)
         float roll = (Pickups.Seed(tick, ~(int)enemy) >> 40) / (float)(1UL << 24);
         return roll < (Elite(type) ? EliteBoxChance : FodderBoxChance);
     }

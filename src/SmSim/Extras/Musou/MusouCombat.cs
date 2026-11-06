@@ -80,12 +80,12 @@ public sealed partial class MusouSim
     /// <summary>
     /// Staggers an enemy alive (a spawning one too, which ends its stand): <see cref="MusouEnemyState.Stagger"/> for <see cref="MusouCombatRules.StaggerSeconds"/> (a wind-up
     /// or burst is lost, so is its attack token) and a knockback of <paramref name="distance"/> along <paramref name="push"/> (a Nob a share of it). False for
-    /// the Warboss (stagger-immune) and anything dying or unknown.
+    /// the Warboss and the Boss Orks (stagger-immune) and anything dying or unknown.
     /// </summary>
     public bool Stagger(ushort id, Vector2 push, float distance)
     {
         int i = id - 1;
-        if (i < 0 || i >= Capacity || !_used[i] || _state[i] == MusouEnemyState.Dying || _type[i] == MusouEnemyType.Warboss) return false;
+        if (i < 0 || i >= Capacity || !_used[i] || _state[i] == MusouEnemyState.Dying || _type[i] == MusouEnemyType.Warboss || MusouBossOrks.Is(_type[i])) return false;   // a Boss Ork too (owner, 2026-11-06: hyper armour)
         if (_state[i] != MusouEnemyState.Knocked) SetState(i, MusouEnemyState.Stagger);   // one on the ground stays down: a war's fodder (MusouSim.Knock.cs)
         _token[i] = 0; _burst[i] = 0;
         if (_type[i] == MusouEnemyType.Nob) distance *= Rules.Combat.NobKnockbackScale;
@@ -148,6 +148,7 @@ public sealed partial class MusouSim
     public (float Radius, float Height) ShotBody(MusouEnemyType type)
     {
         var (radius, height) = Body(type);
+        if (MusouBossOrks.Is(type)) return (radius * ShotRadiusScale, ShotBody(MusouBossOrks.BaseOf(type)).Height * MusouBossOrks.BodyScale);   // its base's drawn height, 3x
         height = type switch
         {
             MusouEnemyType.Boy or MusouEnemyType.ShootaBoy or MusouEnemyType.ArdBoy => 2.15f,

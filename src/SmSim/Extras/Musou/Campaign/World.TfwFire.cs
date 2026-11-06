@@ -137,7 +137,7 @@ public sealed partial class World
             var away = new Vector2(e.Position.X - at.X, e.Position.Y - at.Y);
             float distance = away.Length();
             var push = distance > 1e-3f ? away / distance : new Vector2(-MathF.Sin(e.Yaw), MathF.Cos(e.Yaw));
-            float damage = e.Id == _tfw.Battle?.BossId ? TfwFireRules.BossDamage : MathF.Max(e.Health, 1f);
+            float damage = e.Id == _tfw.Battle?.BossId || MusouBossOrks.Is(e.Type) ? TfwFireRules.BossDamage : MathF.Max(e.Health, 1f);   // a Boss Ork is only scratched too (owner, 2026-11-06)
             musou.Damage(e.Id, 0, damage, new Vector3(push, 0.8f), out bool killed, marker: 0, cause: MusouDeathKind.Barrage);
             if (killed) fire.ShellKills++;
         }

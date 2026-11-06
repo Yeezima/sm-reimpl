@@ -2314,3 +2314,17 @@ Why the Orks seemed silent: only the death yell and a taunt were posted, and the
 `SoundTriggers.HitSound` takes a file's first `hit_fx`, which on the Ork guns is the gun butt's: `play_sm_fist_hit`. `ShotHitSound` reads the one under the ranged `delivery` (`play_bullet_hits_small`, silent on the `default` surface). The Ork class's guns in classic modes still use the first: a known wrong impact, a separate fix.
 
 **Measured under load** (a real server, `SM_TFW_STRESS=300,0`, about 300 enemies, a scripted player in the crowd, `--audio-driver Dummy`): crowd voices peak 21 (soft cap 14), lines 7 (soft cap 6), no voice late, the code's cost 0.06 to 0.36 ms a frame (spikes 1 to 9 ms). The whole pool does reach its ceiling of 64 with thousands of steals, but from the three AI Marines' bolters and their impacts (6 and 4 voices a shot), with or without the Orks: a run with `--no-musou-ork-sounds` steals too, and what differs between runs is how much they fire. A crowd voice takes a player only from its own crowd, so the Orks cannot cut a player's sounds.
+
+## Warboss model (Musou Mode dependency, 2026-11-06)
+
+The owner asked for the final boss to "use a warboss model". The install's only Warboss character is the campaign's, a **singleplayer dependency**: `warboss_regular` (`.O3d`, `.dcm`,
+`_dif/_nrm/_spc/_lp` textures, `WarBoss_regular__d.ppk`), the head `warboss_head_regular`, and its own rig `havok_warboss_regular__hkxx` (766 512 bytes) in
+`data/chunks/ebp_sets__sequence2_core_units.oppc` (the same entries in `ebp_sets__s008-001`, `s018-001`, `s022-002`). `cinematic_warboss` is the cutscene variant (not used). The co-op
+blueprint `ork_coop_warboss` (with `_power_klaw`, `_bullrush`, `_ranged_abilities`) is in `data/packages/ebps.oppc`; Musou's Warboss sounds already read it. The rig has 48 clips
+(`smtool graph-dump --animations --archive data/chunks/ebp_sets__sequence2_core_units.oppc --entry havok_warboss_regular__hkxx`): walks (`WB_Nav_Walk_F/B/L/R` and stationary), turns,
+the attacks `WB_Att_Charge_Enter/Loop/Hit/Exit/wall_hit_exit`, `WB_Att_Ground_Pound`, `WB_Att_Shove`, `WB_Att_Grenade_Toss`, `WB_Att_Rocket_Shot`, `WB_Att_Sweep_Fire`,
+`WB_Att_Squig_Summon`, the reactions `WB_REC_Explode`, `WB_REC_Flinch_*` (additive), `WB_REC_Ledge_Fall_Down`, `WB_Get_Up`, aims `WB_Range_Aim_*` (additive), and scripted pieces
+(`WB_Misc_*`, `WB_jumps_*_SQ18`, `WB_Nav_Death_Dead/Idle`, `WB_Nav_Floor_Idle`). No run, no standing idle and no death of the usual names: his campaign fight is scripted. Read by
+`client/Extras/Musou/WarbossLooks.cs` (`SmContent.Extras.Musou.WarbossRig`); the clip picks are in the spec. Not yet seen drawn: whether the body binds only its own rig's bones, the clips'
+look and the model's height were not checked in a running client (the owner playtests).
+

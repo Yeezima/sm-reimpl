@@ -98,7 +98,7 @@ public partial class TfwMarkers : Node3D
             if (k >= _labels.Length)   // the commander's position: its ring, and a small status while aimed at
             {
                 _commander.Position = new Vector3(o.Position.X, o.Position.Y, o.Position.Z + LabelHeight);
-                _commander.Text = "COMMANDER " + TfwHudModel.ObjectiveState(o);
+                _commander.Text = "WARBOSS " + TfwHudModel.ObjectiveState(o);   // the commander is the Warboss (owner, 2026-11-06)
                 _commander.Modulate = paint;
                 _commander.Visible = Aimed(_commander.Position);
                 continue;

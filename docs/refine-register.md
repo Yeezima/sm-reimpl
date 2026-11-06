@@ -33,6 +33,7 @@ Scanned 2209 spec table rows: **1587 tagged**, 450 not tagged (read from data wi
 Scanned 2212 spec table rows: **1590 tagged**, 449 not tagged (read from data with high confidence), 173 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
 Scanned 2214 spec table rows: **1592 tagged**, 449 not tagged (read from data with high confidence), 173 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
 Scanned 2215 spec table rows: **1594 tagged**, 449 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
+Scanned 2219 spec table rows: **1598 tagged**, 449 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -75,6 +76,8 @@ Scanned 2213 spec table rows: **1592 tagged**, 449 not tagged (read from data wi
 | **All areas** | **1592** | 1361 | 1235 | 482 | 38 |
 | Ork faction | 127 | 120 | 72 | 18 | 0 |
 | **All areas** | **1594** | 1363 | 1245 | 475 | 38 |
+| Ork faction | 131 | 124 | 63 | 27 | 0 |
+| **All areas** | **1598** | 1367 | 1236 | 484 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -85,6 +88,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: low | 586 |
 | kind: ours | 759 |
 | confidence: low | 583 |
+| kind: ours | 765 |
+| confidence: low | 584 |
 | confidence: medium | 524 |
 | confidence: low | 587 |
 | confidence: medium | 528 |
@@ -114,6 +119,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: none (low) | 128 |
 | kind: provisional | 99 |
 | kind: estimate | 82 |
+| kind: estimate | 81 |
+| notes: estimate | 56 |
 | kind: user's knowledge | 51 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
@@ -122,8 +129,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: user's knowledge | 25 |
 | kind: approximation | 22 |
 | kind: placeholder | 22 |
+| notes: interpretation | 20 |
 | notes: placeholder | 19 |
-| notes: interpretation | 18 |
 | kind: gap (not reproduced) | 17 |
 | notes: open question | 17 |
 | notes: not reproduced (gap) | 13 |
@@ -2711,6 +2718,24 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-9B2D4853` | Musou: the battle's Orks (third doubling) | garrison **96** a point (was 48), crowd **400** (was 200) filling one every **4** ticks (7.5 a second, a crowd in 53 s as before), alive cap **1200** solo plus **640** a further human, at most **1680** (was 600, 320, 840), the trickle one every **0.75** s a… (Orks) | kind: ours; notes: estimate | owner 2026-11-06 | Musou: the battle's Orks (third doubling): compare with SM1 by feel or video. Ours: garrison 96 a point (was 48), crowd 400 (was 200) filling one every 4… | ☐ |
 | `R-CA9D8E36` | Musou: drawn (third doubling) | the nearest **1800** Orks drawn (was 900), at most **1000** of a look by the vertex-animation tier (was 500), 40 skinned as before; `--musou-visible` takes up to 2000. The Guardsmen's crowd keeps its 500 (Orks) | kind: ours; notes: estimate | owner 2026-11-06 | Musou: drawn (third doubling): compare with SM1 by feel or video. Ours: the nearest 1800 Orks drawn (was 900), at most 1000 of a look by the… | ☐ |
 | `R-0499BF55` | Musou Mode: no melee wedges | the faint red wedge under an Ork winding up a melee blow is not drawn in Musou Mode (a war); the 5-wave run keeps it; the Warboss's ring and lane stay | kind: ours | owner 2026-11-06 | Musou Mode: no melee wedges: compare with SM1 by feel or video. Ours: the faint red wedge under an Ork winding up a melee blow is not drawn… | ☐ |
+*Spec section: Musou Mode: Boss Orks and the Warboss model (musou/boss-orks, 2026-11-06; `MusouSim.Version` 8, `TfwRules.Version` 25, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-72109049` | Musou: Boss Ork kinds | four kinds of their own (wire types 7 to 10): a Boy, Shoota Boy, 'Ard Boy or Nob, picked at random with even odds | kind: ours | owner 2026-11-06 "any Ork type" | Musou: Boss Ork kinds: compare with SM1 by feel or video. Ours: four kinds of their own (wire types 7 to 10): a Boy, Shoota Boy, 'Ard… | ☐ |
+| `R-A705BC83` | Musou: Boss Ork size | body and model **3** times the base kind's (radius and height; a Boss Nob 1.8 m radius, 6.9 m walking height); shots see the base's drawn height times 3 (scale) | kind: ours | owner 2026-11-06 "scaled up 3x" | Musou: Boss Ork size: compare with SM1 by measuring on a flat spot of the same map. Ours: body and model 3 times the base kind's (radius and height; a Boss Nob… | ☐ |
+| `R-FD38016F` | Musou: Boss Ork health | **10** times the base kind's, at least **3000** (Boy, Shoota Boy, 'Ard Boy 3000; Nob 6000), times the battle's player scale (hit points) | kind: ours | owner 2026-11-06 (10x, "floor of 3000 hp") | Musou: Boss Ork health: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 10 times the base kind's, at least 3000 (Boy, Shoota Boy, 'Ard Boy… | ☐ |
+| `R-CD751093` | Musou: Boss Ork damage and reach | melee strike and ranged round **2** times the base's (Boss Nob 50, Boss Boy 16, Boss 'Ard Boy 20, Boss Shoota 6 a round); every melee strike staggers; melee reach **1.5** times the base's; its own attack only (no slam or charge) (damage, m) | kind: ours; notes: estimate | owner 2026-11-06 (2x, own attack only); the reach ours | Musou: Boss Ork damage and reach: compare with SM1 by counting hits to kill and by video of the health bar. Ours: melee strike and ranged round 2 times the base's (Boss Nob 50, Boss… | ☐ |
+| `R-DFC66136` | Musou: Boss Ork speed | the base's run speed, at most **4.4** m/s (the 'Ard Boyz' and Nobs' pace, so the retinue keeps up) (m/s) | kind: ours; notes: estimate | ours | Musou: Boss Ork speed: compare with SM1 by timing a run over a known distance. Ours: the base's run speed, at most 4.4 m/s (the 'Ard Boyz' and Nobs' pace… | ☐ |
+| `R-072E2CBB` | Musou: Boss Ork hyper armour | never staggered, knocked back or thrown down by a player; an artillery shell deals it **30** like a boss | kind: ours; notes: estimate | ours (the design, approved 2026-11-06) | Musou: Boss Ork hyper armour: compare with SM1 by counting hits to kill and by video of the health bar. Ours: never staggered, knocked back or thrown down by a player; an… | ☐ |
+| `R-C79ACBFC` | Musou: Boss Ork timing | in a battle only (not the hub, the range or the final assault), while someone is in the field: the first **60** to **120** s after the landing, the next **90** to **180** s after the last came, by rolls of the battle's places (the same battle, the same… (s) | kind: ours; notes: estimate | owner 2026-11-06 "more often, up to 2" | Musou: Boss Ork timing: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: in a battle only (not the hub, the range or the final assault), while… | ☐ |
+| `R-28243452` | Musou: Boss Ork place | a sending spawn point (a held position, or the HQ's source once it sends) at least **40** m from every player in the field, one by a roll; none that far: tried again **1** s later (m, s) | kind: ours; notes: estimate | ours | Musou: Boss Ork place: compare with SM1 by feel or video. Ours: a sending spawn point (a held position, or the HQ's source once it… | ☐ |
+| `R-46416985` | Musou: Boss Ork retinue | **20** elites with each, 'Ard Boyz and Nobs in the crowds' mix (75 % / 25 %), on a ring **3** to **6** m round it, free from the start (they walk to the players with it at its pace); they fight on after it dies (Orks, m) | kind: ours; notes: estimate | owner 2026-11-06 ("20, fight on"); the ring ours | Musou: Boss Ork retinue: compare with SM1 by feel or video. Ours: 20 elites with each, 'Ard Boyz and Nobs in the crowds' mix (75 % / 25… | ☐ |
+| `R-898E626C` | Musou: Boss Ork rewards | **1000** points a KO (before the chain); always an ammunition or equipment box (the weapon drops are off in Musou Mode) (points) | kind: ours; notes: estimate | ours (the design: 1000 and a drop) | Musou: Boss Ork rewards: compare with SM1 by feel or video. Ours: 1000 points a KO (before the chain); always an ammunition or… | ☐ |
+| `R-6C62CBD7` | Musou: Boss Ork on the HUD | "BOSS ORK INCOMING" (2.6 s, orange flash) and "BOSS ORK SLAIN" (2.2 s); a bar each under the boss bar (in its place without one), named BOSS BOY, BOSS SHOOTA BOY, BOSS 'ARD BOY or BOSS NOB; the M panel says "BOSS ORK ALIVE" or "2 BOSS ORKS ALIVE"; every… (s) | kind: ours; confidence: low | ours | Musou: Boss Ork on the HUD: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: "BOSS ORK INCOMING" (2.6 s, orange flash) and "BOSS ORK SLAIN" (2.2… | ☐ |
+| `R-05E986E7` | Musou: the Warboss's strength | **15000** hit points at one player (was 4000), times the scale (and the final bonus); swing **60** (was 40), slam **60** (was 40), charge **75** (was 50) (hit points, damage) | kind: ours | owner 2026-11-06 ("even more health", "noticeably stronger"; 15000 and 1.5x chosen by him) | Musou: the Warboss's strength: compare with SM1 by feel or video. Ours: 15000 hit points at one player (was 4000), times the scale (and the… | ☐ |
+| `R-0CD5CCDB` | Musou: the commander is the Warboss | the battle's boss at the HQ after A, B and C have fallen is the Warboss (his kind, look, abilities and the health above), leashed at the HQ with his escort of 1 Nob and 5 'Ard Boyz as the commander was; the boss bar and the HQ's label say WARBOSS | kind: ours; notes: interpretation | owner 2026-11-06 "replace him with the warboss" (the same health as the final one is ours, the literal reading) | Musou: the commander is the Warboss: compare with SM1 by feel or video. Ours: the battle's boss at the HQ after A, B and C have fallen is the… | ☐ |
+| `R-FE483109` | Musou: the Warboss model | the campaign's `warboss_regular` body and `warboss_head_regular` head on `havok_warboss_regular__hkxx` (`data/chunks/ebp_sets__sequence2_core_units.oppc`), drawn as tall as the Nob body was at `BossScale` 3 (scaled by the meshes' heights); clips: run… (scale) | kind: ours; notes: interpretation | owner 2026-11-06 (the model, "as tall as today"); the clips ours | Musou: the Warboss model: compare with SM1 by feel or video. Ours: the campaign's warboss_regular body and warboss_head_regular head on… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 
@@ -3357,6 +3382,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-41174AA2` | Lock-on lunge 30 % shorter (sim/lock-reach, protocol 59) | A locked attack closes the gap to its target (to 1 m) by the hit (feel/melee-lock, sim/melee-lunge) | A locked attack closes 70 % of the gap to 1 m (target 4 m away: 2.1 m of lunge, was 3.0; 7 m away: 3.8 to 4.2 m, was 6.0), then holds; the lock's acquisition range is unchanged, so a far lock may now stop short of a hit | Owner's request 2026-11-06, an **estimate**; reading "lunge" as the locked approach is ours; same spec section | Lock-on lunge 30 % shorter (sim/lock-reach, protocol 59): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-34A4D101` | No full air jump in Classic PvP (sim/air-jumps, protocol 59; supersedes the air start of feel/melee-cancels outside Musou) | Not established from the original; since protocol 54 a Space hold in the air lifted the pack again (the owner's earlier request) | Classic PvP (Annihilation, Seize Ground; faithful and extended profiles): an Assault / Raptor in the air only hops (Space tap + WASD, the air dash); Musou Mode keeps the air jump | Owner's request 2026-11-06; covering ledge falls too is ours; same spec section | No full air jump in Classic PvP (sim/air-jumps, protocol…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1125D5C3` | Musou: melee heal per enemy (2026-11-06; `MusouSim.Version` 8) | No Musou Mode in the original | Ours (added content): the 5 % melee heal is given for every enemy a swing, stomp or cleave strikes (an enemy in both once), still capped at full health; before, once a swing | Owner's request 2026-11-06; Musou Mode only, Classic PvP unchanged; spec "Musou: melee heal" | Musou: melee heal per enemy (2026-11-06; MusouSim.Version 8): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-61747757` | Musou Boss Orks and the Warboss model (musou/boss-orks, 2026-11-06) | No Musou Mode in the original | Ours (added content, the owner's request and answers): roaming Boss Orks of any Ork kind at 3x size, 10x health (at least 3000), 2x damage, never staggered, each with 20 elites, in battles only, 1 to 2 min after the landing and then every 1.5 to 3 min, at most 2 alive; the Warboss at 15000 health and 1.5x damage, the… | Musou Mode only. Spec "Musou Mode: Boss Orks and the Warboss model". | Musou Boss Orks and the Warboss model (musou/boss-orks…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

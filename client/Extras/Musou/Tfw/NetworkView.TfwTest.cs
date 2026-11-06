@@ -252,7 +252,7 @@ public partial class NetworkView
         }
         if (!await TfwUntil($"battle {number}: the commander stands at the HQ", () => _tfwState.Objectives[TfwBattle.CommanderObjective].State >= TfwPositionState.Held, 5.0)) return false;
         await TfwFrames(3);
-        TfwCheck($"battle {number}: the boss bar names the commander", TfwHudModel.BossName(TfwNow, _tfwState.Objectives) == "ORK COMMANDER");
+        TfwCheck($"battle {number}: the boss bar names the commander, the Warboss", TfwHudModel.BossName(TfwNow, _tfwState.Objectives) == "ORK WARBOSS");   // the commander is the Warboss (owner, 2026-11-06)
         await TfwShot($"commander-{number}");
         if (!await TfwPathTo(_tfwState.Objectives[TfwBattle.CommanderObjective].Position, $"battle {number}: walked to the HQ", 90.0)) return false;
         if (!await TfwUntil($"battle {number}: the commander falls and the battle is won", () => TfwNow.Own.BattleWon, 15.0)) return false;

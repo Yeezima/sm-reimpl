@@ -46,8 +46,8 @@ public sealed partial class GameServer
         {
             ref readonly var e = ref _tfwBarPool[i];
             if (!e.Alive || !TfwBars.IsElite(e.Type)) continue;
-            float max = e.Id == boss && bossMax > 0f ? bossMax : sim.Rules.Of(e.Type).Health;
-            _tfwElites.Add(new TfwElite(e.Id, e.Position, TfwBars.Quantise(e.Health, max)));
+            float max = e.Id == boss && bossMax > 0f ? bossMax : run.Battle?.BossOrkMaxHealth(e.Id) ?? sim.Rules.Of(e.Type).Health;
+            _tfwElites.Add(new TfwElite(e.Id, e.Position, TfwBars.Quantise(e.Health, max), Pinned: e.Id == boss || MusouBossOrks.Is(e.Type)));   // the bosses' bars always go (the HUD's boss bars)
         }
 
         Vector3? anyone = null;

@@ -211,13 +211,13 @@ public class TfwBattleTests
         var battle = TfwRig.Deploy(w);
         for (int k = 0; k < 3; k++) TfwRig.Secure(w, battle, k);
         Assert.NotEqual((ushort)0, battle.BossId);
-        Assert.Equal(TfwBattleRules.CommanderHealth, battle.BossMaxHealth);
+        Assert.Equal(w.Musou!.Rules.BossHealth, battle.BossMaxHealth);   // the commander is the Warboss (owner, 2026-11-06)
         Assert.True(w.Musou!.TryGet(battle.BossId, out var boss));
-        Assert.Equal(MusouEnemyType.Nob, boss.Type);
+        Assert.Equal(MusouEnemyType.Warboss, boss.Type);
         TfwRig.Steps(w, 1);
         Assert.Equal(MusouPhase.Campaign, w.Musou.Director.Phase);
         Assert.Equal(battle.BossId, w.Musou.Director.BossId);
-        Assert.Equal(TfwBattleRules.CommanderHealth, w.Musou.Director.BossMaxHealth);
+        Assert.Equal(w.Musou.Rules.BossHealth, w.Musou.Director.BossMaxHealth);
         Assert.Equal(7, w.Musou.Alive);                                    // him, a Nob and five 'Ard Boyz
     }
 

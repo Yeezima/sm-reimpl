@@ -21,6 +21,8 @@ public sealed partial class TfwHud : Control
         public IReadOnlyList<TfwObjective> Objectives = Array.Empty<TfwObjective>();
         /// <summary>The Orks the client knows standing in each position now (only a position being cleared is counted).</summary>
         public readonly int[] OrksOn = new int[WarRules.Positions + 1];
+        /// <summary>The roaming Boss Orks alive now (2026-11-06; the M panel's line).</summary>
+        public int BossOrks;
         public bool Alive = true;
         /// <summary>The station's prompt ("" away from one).</summary>
         public string Station = "";

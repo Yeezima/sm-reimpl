@@ -72,7 +72,7 @@ public class MusouBossTests
         f.Step();
         Assert.Equal(t0 + 24, f.Tick);
         var strike = Assert.Single(f.Strikes);   // the player at 6.5 m is spared
-        Assert.Equal((1, 40f, MusouBossAbility.GroundSlam, 0f), (strike.Player, strike.Damage, strike.Ability, strike.Knockback));
+        Assert.Equal((1, MusouBossRules.Default.SlamDamage, MusouBossAbility.GroundSlam, 0f), (strike.Player, strike.Damage, strike.Ability, strike.Knockback));
         Assert.Equal(MusouEnemyState.Recover, f.Me.State);
         for (int k = 0; k < 18; k++) f.Step();
         Assert.Equal((MusouBossAction.None, MusouEnemyState.Seek), (f.Boss.Action, f.Me.State));
@@ -107,7 +107,7 @@ public class MusouBossTests
             strikes.AddRange(f.Strikes.Select(s => (f.Tick, s)));
         }
         var hit = Assert.Single(strikes).Strike;
-        Assert.Equal((1, 50f, 3f, MusouBossAbility.Charge), (hit.Player, hit.Damage, hit.Knockback, hit.Ability));
+        Assert.Equal((1, MusouBossRules.Default.ChargeDamage, 3f, MusouBossAbility.Charge), (hit.Player, hit.Damage, hit.Knockback, hit.Ability));
         Assert.True(hit.Push.Y > 0.8f);   // thrown along the charge
         Assert.Equal(MusouBossAction.Recover, f.Boss.Action);
         Assert.InRange(f.Boss.ChargeTravelled, 14f, 15.5f);
@@ -175,7 +175,7 @@ public class MusouBossTests
 
         Step(2);
         Assert.Equal(0, Waaaghs());
-        sim.Damage(director.BossId, 1, 4000f * 0.26f, Vector3.UnitY, out _);   // 74 %
+        sim.Damage(director.BossId, 1, MusouRules.Default.BossHealth * 0.26f, Vector3.UnitY, out _);   // 74 %
         Step(1);
         Assert.Equal(1, Waaaghs());
         Assert.Equal((240, 1.3f), (sim.FrenzyTicks, sim.FrenzyScale));
@@ -185,14 +185,14 @@ public class MusouBossTests
         Step(10);
         Assert.Equal(1, Waaaghs());   // once each
         // Past 50 and 25 % in one blow: both fire (and the enrage).
-        sim.Damage(director.BossId, 1, 4000f * 0.5f, Vector3.UnitY, out _);   // 24 %
+        sim.Damage(director.BossId, 1, MusouRules.Default.BossHealth * 0.5f, Vector3.UnitY, out _);   // 24 %
         Step(1);
         Assert.Equal(3, Waaaghs());
         Assert.True(boss.Enraged);
         Assert.Single(events, e => e.Event.Kind == MusouEventKind.Telegraph && e.Event.Value == (byte)MusouBossAbility.Enrage);
         Step(12);
         Assert.Equal(60, Boyz());
-        sim.Damage(director.BossId, 1, 4000f * 0.2f, Vector3.UnitY, out _);   // 4 %
+        sim.Damage(director.BossId, 1, MusouRules.Default.BossHealth * 0.2f, Vector3.UnitY, out _);   // 4 %
         Step(5);
         Assert.Equal(3, Waaaghs());
         Assert.Single(events, e => e.Event.Kind == MusouEventKind.Telegraph && e.Event.Value == (byte)MusouBossAbility.Enrage);

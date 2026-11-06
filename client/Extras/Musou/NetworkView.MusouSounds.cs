@@ -78,7 +78,7 @@ public partial class NetworkView
         }
         var triggers = _musouSoundLoad.Result;
         foreach (var n in triggers.Notes) GD.Print("musou sounds: note: " + n);
-        var sets = new MusouSoundSet?[(int)MusouEnemyType.Warboss + 1];
+        var sets = new MusouSoundSet?[Enum.GetValues<MusouEnemyType>().Max(t => (int)t) + 1];   // the Boss Orks' kinds too (2026-11-06)
         var events = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var files in MusouSoundSet.Files)
         {
@@ -148,7 +148,7 @@ public partial class NetworkView
             var e = shown[i];
             if (e.State == MusouEnemyState.Dying) continue;
             float d = Num.Vector3.DistanceSquared(e.Position, camera);
-            if (e.Type == MusouEnemyType.Warboss) d = 0f;
+            if (e.Type == MusouEnemyType.Warboss || MusouBossOrks.Is(e.Type)) d = 0f;   // the bosses always have an emitter
             else if (d > range) continue;
             _musouNear.Add((d, i));
         }
