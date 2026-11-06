@@ -415,6 +415,10 @@ public static class Combat
         // sim/evade-cooldowns: a Jump press the evade's cooldown refuses ends nothing and starts nothing (it only waits in the input buffer): not a reaction or a
         // charge at their Jump branches, not a take-off that a tap would leave with no dash.
         bool jumpPressed = jumpDown && !s.JumpHeld && !Evade.RefusesJump(s, Loadouts.JumpPack(c, s), longJump);
+        // sim/jump-escape (protocol 62; the owner 2026-11-06): the Assault / Raptor's fresh Jump press ends any reaction and any throw at once (JumpEscape), even one the evade's
+        // cooldown refuses (the press then waits in the input buffer as before); the melee attack and the charge follow below.
+        bool jumpEscape = jumpDown && !s.JumpHeld && JumpEscape.Eligible(c, s);
+        s = JumpEscape.Apply(s, c, jumpEscape);
         var (reacting, reacted) = Reaction.Begin(s, c, jumpPressed, meleePress || heavyPress, sanitized.MoveX != 0f || sanitized.MoveY != 0f,
             anyInput: sanitized.MoveX != 0f || sanitized.MoveY != 0f || input.Buttons != InputButtons.None);
         s = reacted with { RushLock = Math.Max(0, reacted.RushLock - 1) };   // the charge's spacing counts down every living tick, as the evade's
@@ -433,7 +437,7 @@ public static class Combat
             // melee or the clip's end do. They are ignored while it plays: no shot, no aim state (the camera stays), nothing buffered.
             bool other = stickEnds || grenadePress;
             // feel/melee-cancels (protocol 54): a melee press ends the hop or the bull rush and swings at once; the swing after it waits for the cancelled clip's end (MeleeCancel).
-            if (MeleeCancel.Apply(s, c, meleePress, jumpPressed, world) is { } cancel) { s = cancel.State; cancelLock = cancel.Lock; cancelStart = meleePress; }
+            if (MeleeCancel.Apply(s, c, meleePress, jumpPressed || jumpEscape, world) is { } cancel) { s = cancel.State; cancelLock = cancel.Lock; cancelStart = meleePress; }
             var rushBefore = s;
             var rush = Rush.Begin(s, input, c, heavyPress, jumpPressed, meleePress, other, world);
             (rushing, rushHeld, s) = (rush.Active, rush.Held, rush.State);
@@ -465,7 +469,9 @@ public static class Combat
         // feel/locks-sprint-stop: a Jump press from an attack's (scaled) BRANCH_Evade ends the attack, so the evade or the jump-pack take-off below starts in
         // this tick (MeleeEvadeOpen); the attack is kept when neither starts.
         var beforeJumpBranch = s;
-        bool meleeJumpBranch = jumpDown && !s.JumpHeld && s.MeleeStep > 0 && MeleeStepOf(c, s) is { } branchStep && MeleeEvadeOpen(branchStep, s.MeleeTime, c);
+        // sim/jump-escape (protocol 62): the Assault / Raptor's Jump press ends any attack at any time of its clip, and the attack is not given back when nothing takes the press.
+        bool escapeMelee = jumpEscape && s.MeleeStep > 0;
+        bool meleeJumpBranch = escapeMelee || (jumpDown && !s.JumpHeld && s.MeleeStep > 0 && MeleeStepOf(c, s) is { } branchStep && MeleeEvadeOpen(branchStep, s.MeleeTime, c));
         if (meleeJumpBranch) s = s with { MeleeStep = 0, MeleeTime = 0f, MeleeQueued = false, MeleeHeavy = false, MeleeQueuedHeavy = false };
 
         // Jump pack (JumpPack): timers, power, take-off, lift-off and pound start; in a jump melee presses start no attack.
@@ -477,7 +483,7 @@ public static class Combat
         // feel/jump-pack: a slash press buffered in the take-off also probes (JumpPack.Begin; it fires on the tick after the lift-off).
         bool heldOver = s.JumpSlash && pack?.Slash is { Snappy: true } && s.Jump == JumpPhase.Ascent;
         float aboveGround = (meleePress || heldOver) && pack?.Slash is not null && JumpPack.InFlight(s.Jump) ? JumpPack.AboveGround(s, world) : float.PositiveInfinity;
-        var jump = JumpPack.Begin(s, pack, jumpDown, jumpPressed && Evade.JumpAllowed(s, evadeSpec, c), meleePress, s.MeleeStep > 0, c, dashAt, aboveGround, longJump);
+        var jump = JumpPack.Begin(s, pack, jumpDown, jumpPressed && Evade.JumpAllowed(s, evadeSpec, c), meleePress, s.MeleeStep > 0, c, dashAt, aboveGround, longJump, escape: jumpEscape);
         if (jump.Started) used |= InputBuffer.Bit(BufferedAction.Jump);
         if (meleePress && (jump.PoundStart || (jump.Buffered && !(s.JumpSlash && s.Jump == JumpPhase.TakeOff)))) used |= InputBuffer.Bit(BufferedAction.Melee);   // the pound, the slash or its take-off buffer
         if (jump.BlocksMelee) { meleePress = false; heavyPress = false; }
@@ -491,7 +497,7 @@ public static class Combat
         bool roll = IsRoll(evadeSpec);
         var evade = Evade.Begin(s, evadeSpec, input.Sanitized(), jumpDown && !s.JumpHeld, meleePress || heavyPress, switchPress, (fireDown && !roll) || aimDown || grenadePress, c,
             jump.DashStart, jump.Started, dashDirection, world);
-        if (meleeJumpBranch && !jump.Started && !evade.Started) s = beforeJumpBranch;   // nothing took the press: the attack goes on
+        if (meleeJumpBranch && !escapeMelee && !jump.Started && !evade.Started) s = beforeJumpBranch;   // nothing took the press: the attack goes on (not for the jump escape)
         bool evading = evade.Active;
         if (evade.Started) used |= InputBuffer.Bit(BufferedAction.Jump);
         if (evading) { meleePress = false; heavyPress = false; switchPress = false; grenadePress = false; }
@@ -943,6 +949,27 @@ public static class Combat
             float lunge = MeleeLock.LungeStep(attack, motionFrom, motionTo, heading, toTarget, c);
             meleeGlide = (heading, MeleeLock.Forward(heading) * (lunge / dt));
         }
+        // sim/hop-cancel-momentum (protocol 62; the owner 2026-11-06): an Assault / Raptor swing in the air outside a jump (after a hop cancelled by melee, MeleeCancel.HopCarry) moves
+        // horizontally: the carried speed in the state's velocity rides on until the ground, plus the swing's own step or lock-on lunge (as on the ground, while its motion runs);
+        // gravity brings the body down from where it was (the cancel kept no upward speed).
+        Vector2? airCarry = null;
+        if (meleeGlide is null && step > 0 && !s.Grounded && pack is not null && evadeSpec is { Dash: true } && !reacting && !rushing && !evading
+            && jump.Phase == JumpPhase.None && !jump.Started && !steps[step - 1].InPlace)
+        {
+            var carry = new Vector2(s.Velocity.X, s.Velocity.Y);
+            if (!float.IsFinite(carry.X) || !float.IsFinite(carry.Y)) carry = Vector2.Zero;
+            float heading = startedNow ? sanitized.Yaw + meleeTurn : s.Yaw;
+            var lungeVelocity = Vector2.Zero;
+            if (motionStep is { } airAttack && motionTo > motionFrom
+                && (motionFrom - (startedNow ? 0f : dt) + TimeEpsilon < MoveAtOf(airAttack, c) || (sanitized.MoveX == 0f && sanitized.MoveY == 0f)))
+            {
+                Vector2? toTarget = MeleeLock.Target(s, sanitized, sanitized.MeleeTarget, others, c, world, s.MeleeStep == 0 ? MeleeLock.Phase.MeleeStart : MeleeLock.Phase.Melee) is { } target ? MeleeLock.Offset(s, target) : null;
+                heading = MeleeLock.Align(heading, sanitized.Yaw + meleeTurn, airAttack, motionFrom, motionTo, toTarget, c);
+                lungeVelocity = MeleeLock.Forward(heading) * (MeleeLock.LungeStep(airAttack, motionFrom, motionTo, heading, toTarget, c) / dt);
+            }
+            meleeGlide = (heading, carry + lungeVelocity);
+            airCarry = carry;
+        }
         var beforeMove = s;
         s = (reacting || rushing ? (reacting ? Reaction.Move(s, input.Sanitized().Yaw, c, world) : Rush.Move(s, c, world, rushHeld)) with
             {
@@ -965,7 +992,7 @@ public static class Combat
             // The attack's motion replaces the walk (the jump pack's bookkeeping of the walk tick stays).
             var glided = Movement.Glide(beforeMove, glide.Yaw, glide.Velocity, c, world);
             // The clip's speed is not momentum: a lunge that left the ground drops from there (the walk-off rule) instead of flying on at the lunge's speed.
-            var velocity = glided.Grounded ? glided.Velocity : new Vector3(0f, 0f, glided.Velocity.Z);
+            var velocity = glided.Grounded ? glided.Velocity : airCarry is { } kept ? new Vector3(kept.X, kept.Y, glided.Velocity.Z) : new Vector3(0f, 0f, glided.Velocity.Z);
             s = s with { Position = glided.Position, Velocity = velocity, Yaw = glided.Yaw, Grounded = glided.Grounded };
         }
         // sim/stomp-in-place (protocol 49; owner, 2026-10-31): the heavy classes' stomp keeps the body exactly where it stands until the strike lets movement return

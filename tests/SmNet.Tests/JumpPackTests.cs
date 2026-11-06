@@ -65,6 +65,9 @@ public class JumpPackTests(ITestOutputHelper output)
         Assert.Equal(JumpPhase.None, s.Jump);
     }
 
+    /// <summary>The power on the last tick of the latest <see cref="Apex"/> run's take-off or rise (protocol 62: Classic PvP recharges from the apex on, so a jump's cost is read here).</summary>
+    [ThreadStatic] static float risePower;
+
     static float Apex(PlayerState s, Func<int, InputButtons> buttons, out PlayerState after, out int ticks)
     {
         float apex = 0f;
@@ -72,6 +75,7 @@ public class JumpPackTests(ITestOutputHelper output)
         for (int k = 0; k < 400; k++)
         {
             Step(ref s, buttons(k));
+            if (s.Jump is JumpPhase.TakeOff or JumpPhase.Ascent) risePower = s.JumpPower;
             apex = MathF.Max(apex, s.Position.Z);
             ticks++;
             if (s.Jump == JumpPhase.Landed) break;
@@ -93,7 +97,8 @@ public class JumpPackTests(ITestOutputHelper output)
         output.WriteLine($"held {heldTicks} ticks: apex {apex:F2} m (model {height}), power {after.JumpPower:F2}");
         // Discrete integration loses about half a tick of rise speed: within 0.6 m of the model height.
         Assert.InRange(apex, height - 0.6f, height + 0.05f);
-        Assert.Equal(100f - cost, after.JumpPower, 3);
+        Assert.Equal(100f - cost, risePower, 3);
+        Assert.True(after.JumpPower > risePower, "protocol 62: the hang and the fall recharge (Classic PvP)");
     }
 
     [Fact]
@@ -112,7 +117,7 @@ public class JumpPackTests(ITestOutputHelper output)
         // stops at 7 ticks (0.2333 s: 12 m) and nothing more is spent.
         float apex = Apex(s, _ => InputButtons.Jump, out var after, out _);
         Assert.InRange(apex, 11.4f, 12.05f);
-        Assert.Equal(0.6f, after.JumpPower, 3);
+        Assert.Equal(0.6f, risePower, 3);   // protocol 62: nothing more spent up to the apex; the descent then recharges (Classic PvP)
         // On the ground it recharges at 10 per second up to the maximum.
         var g = Fresh() with { JumpPower = 90f };
         for (int k = 0; k < 60; k++) Step(ref g, InputButtons.None);
@@ -528,7 +533,7 @@ public class JumpPackTests(ITestOutputHelper output)
         Assert.True(top <= 5.001f, $"rose to {top}");
         Assert.Equal(JumpPhase.Landed, s.Jump);
         Assert.Equal(0f, s.Position.Z, 3);
-        Assert.Equal(65f, s.JumpPower, 3);
+        Assert.True(s.JumpPower > 65f && s.JumpPower < 100f, $"power {s.JumpPower}");   // 35 spent at the press; protocol 62: the fall recharges (Classic PvP)
         // Control: far from the edge it lifts off.
         var g = Fresh(at: new Vector3(0, -10f, 5f));
         for (int k = 0; k < 7; k++) Step(ref g, k == 0 ? InputButtons.Jump : InputButtons.None, world: level);
@@ -697,7 +702,7 @@ public class JumpPackTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_9_carries_the_jump_state_in_full_and_flags_in_slim_records_within_1200_bytes()
     {
-        Assert.Equal(61, Protocol.Version);
+        Assert.Equal(62, Protocol.Version);
         PlayerState Loaded(int id) => new(id, new Vector3(1e4f), new Vector3(100f), 3f, false)
         {
             Alive = true, Health = 1e3f, Shield = 1e3f, Class = Protocol.MaxClasses - 1, Slot = WeaponSlot.Pistol, Clip = 65535, Reserve = 65535, OtherClip = 65535, OtherReserve = 65535,

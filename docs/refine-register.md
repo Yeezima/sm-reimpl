@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2333 spec table rows: **1695 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 513 rows of the changes document.
+Scanned 2340 spec table rows: **1698 tagged**, 463 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 378 | 322 | 321 | 112 | 12 |
 | Combat core (critical) | 11 | 2 | 11 | 9 | 9 |
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
-| Melee (critical) | 103 | 90 | 80 | 32 | 5 |
+| Melee (critical) | 104 | 91 | 81 | 33 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -49,23 +49,23 @@ Scanned 2333 spec table rows: **1695 tagged**, 459 not tagged (read from data wi
 | Customizer and paint | 48 | 45 | 26 | 15 | 0 |
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
-| Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
-| Core simulation (provisional values) | 293 | 275 | 231 | 45 | 1 |
+| Networking and render smoothing | 12 | 3 | 10 | 10 | 7 |
+| Core simulation (provisional values) | 294 | 276 | 232 | 45 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 172 | 163 | 80 | 49 | 0 |
-| **All areas** | **1695** | 1460 | 1298 | 525 | 38 |
+| **All areas** | **1698** | 1463 | 1301 | 527 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 838 |
-| confidence: low | 618 |
+| confidence: low | 621 |
 | confidence: medium | 552 |
-| kind: interpretation | 343 |
-| notes: ours | 334 |
+| kind: interpretation | 345 |
+| notes: ours | 336 |
 | confidence: none (low) | 128 |
-| kind: estimate | 102 |
+| kind: estimate | 103 |
 | kind: provisional | 99 |
 | notes: estimate | 83 |
 | kind: user's knowledge | 51 |
@@ -871,7 +871,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (103)
+### Melee (gameplay-critical) (104)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1055,6 +1055,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-F74BE2D1` | Step-forward distance of all melee strikes | x **1.2** on the lunge factor of every strike (light and heavy) of the knife, chainsword (and gold), power sword, power / chain axe, thunder hammer and daemon maul, the Ork choppas, on top of the lunge scale 1.625 and the swing-step factors. Free steps:… (m) | kind: estimate; confidence: low | owner 2026-11-06 | Step-forward distance of all melee strikes: compare with SM1 by measuring on a flat spot of the same map. Ours: x 1.2 on the lunge factor of every strike (light and heavy) of the… | ☐ |
+
+*Spec section: Jump escape, hop-cancel momentum and descent recharge (protocol 62; sim/jump-escape, sim/hop-cancel-momentum, sim/descent-recharge, 2026-11-06)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-0F3BD14D` | Hop cancelled by melee: carried momentum | **0.4** of the hop's horizontal speed (about 6.5 m/s of the dash's 16.4) rides on, constant, while the swing is in the air; the swing's own step or lock-on lunge (as on the ground, while its motion runs) is added; on landing the ground rules take over (the… (fraction) | kind: estimate; confidence: low; notes: ours | ours, estimate for the owner's "some momentum" | Hop cancelled by melee: carried momentum: compare with SM1 by feel or video. Ours: 0.4 of the hop's horizontal speed (about 6.5 m/s of the dash's 16.4)… | ☐ |
 
 ### Jump pack (gameplay-critical) (79)
 
@@ -1977,7 +1983,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC513790` | Look SSR by preset (fx/impact-pass review) | a look's `ssr.on` (the remaster's) turns screen-space reflections on at medium and high only; low and off never run SSR (older hardware is the next priority); high has SSR anyway. Off = the M40-T7 renderer features alone (no shadows, SSAO, SSIL, volumetric… | kind: ours | ours | Look SSR by preset (fx/impact-pass review): compare with SM1 with side-by-side screenshots in the same spot. Ours: a look's ssr.on (the remaster's) turns screen-space reflections on at… | ☐ |
 | `R-6E7116B1` | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical… | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat… | confidence: medium | measured | Effect checks after the review fixes (demo replays on Godot…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: own bolter tracer and the enemy's shots from the follow camera, own… | ☐ |
 
-### Networking and render smoothing (11)
+### Networking and render smoothing (12)
 
 *Spec section: Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated)*
 
@@ -2005,7 +2011,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-EB03504B` | Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks (s) | kind: ours; notes: estimate | owner 2026-11-02 | Shot lag allowance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each shot is also tried on the enemy's places over the last 0.2 s… | ☐ |
 
-### Core simulation (provisional values) (293)
+*Spec section: Jump escape, hop-cancel momentum and descent recharge (protocol 62; sim/jump-escape, sim/hop-cancel-momentum, sim/descent-recharge, 2026-11-06)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
+
+### Core simulation (provisional values) (294)
 
 *Spec section: Provisional values in use*
 
@@ -2474,6 +2486,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-A33A9397` | Instant step: the swing's forward motion profile | The step of every light and heavy strike (not the in-place stomp) up to its move-on time (`MoveAt` x the lock scale) is an ease-out 1-(1-u)^2 of the clip's own motion up to that time: full speed on the first tick (was 0 to 0.1 m in tick 1: the clips'… (share (1 = wholly)) | kind: ours; kind: estimate; confidence: low | owner 2026-11-06; the ease-out shape and "up to the move-on time" are ours | Instant step: the swing's forward motion profile: compare with SM1 by feel or video. Ours: The step of every light and heavy strike (not the in-place stomp) up… | ☐ |
 | `R-DA956AB3` | Legs for the new step | Every weapon's strikes, light and heavy (not the in-place stomp), stretch the clip's stride by the body's travel over the clip's root motion (`ClipStrideScale` = lunge scale x `LungeFactor`), as the hammer's lights did (factor) | kind: ours; confidence: medium | ours | Legs for the new step: compare with SM1 by feel or video. Ours: Every weapon's strikes, light and heavy (not the in-place stomp)… | ☐ |
+
+*Spec section: Jump escape, hop-cancel momentum and descent recharge (protocol 62; sim/jump-escape, sim/hop-cancel-momentum, sim/descent-recharge, 2026-11-06)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-8FE4B958` | Fuel: recharge in the descent, Classic PvP | the pack also recharges at `recharge_rate` in a jump's hang and fall (after the apex: the pack no longer lifts), besides on the ground; Musou Mode keeps the ground-only recharge. From full with the data's values (flat ground, `JumpEscapeTests`): full jump 1… (power/s) | kind: interpretation; confidence: low | owner 2026-11-06 (two jumps, a third shortly after); when the original recharges is not in the data | Fuel: recharge in the descent, Classic PvP: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the pack also recharges at recharge_rate in a jump's hang and fall… | ☐ |
 
 ### General game design (7)
 
@@ -3455,6 +3473,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-2D3F51F7` | Musou: Guardsmen 4.5x, endless ammunition, grenade refill, AI Marines take a tenth (night/musou-rules, 2026-11-06; `TfwRules.Version` 30) | No Musou Mode in the original; in the original's matches reserves run out, grenades come back only with a new life or a pickup, and there are no AI Marines | Ours (added content, the owner's requests): Guardsmen 4.5x health and shot damage (a headless trial holds 11 of 20 counterattacks of one full crowd); every player's weapons keep a full reserve (the reload and the heat stay); one grenade back every 30 s while short of the most; AI Marines take 0.10 of every hit… | Musou Mode only. Spec "Musou Mode: the Guardsmen's strength, endless ammunition, the grenade refill, the AI Marines' damage". | Musou: Guardsmen 4.5x, endless ammunition, grenade refill…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-8A28955D` | Instant step and 20 % longer steps (sim/instant-step, 2026-11-06) | A strike's forward root motion follows the clip's timing (slow start, most of it after the hit) and, since feel/melee-charge-2 and sim/swing-step, is scaled | The step of every light and heavy melee strike (not the in-place stomp, not the heavy classes' kick) starts at full speed on the first tick and settles toward the move-on time (same total, same hit time, same recovery), and is 1.2 x longer for every melee weapon (the hammer and maul too): chainsword lights 5.36 / 3.88… | Owner's request 2026-11-06, an **estimate** (the 1.2 and "instant" are the owner's, the ease-out shape is ours); spec "Instant step and 20 % longer steps"; test aids `SM_OLD_INSTANT_STEP=1`, `SM_OLD_STEP_BOOST=1`, `--old-strike-legs` | Instant step and 20 % longer steps (sim/instant-step…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-AB5C38E6` | Plasma release, plasma gun arms, stuck hit effects, hit-confirm distance, regen glow (night/weapon-fx, 2026-11-06) | Own charged plasma ball drawn without the 100 ms interpolation delay; no body recoil clip for the plasma gun; player-hit effects ride on the struck model; the shooter's hit confirmation falls from 0 dB at 2 m to -18 dB at 40 m and beyond; the armour-regeneration glow is the break glow in yellow | Original behaviour of these five is unknown (owner's requests); the 2 m / 40 m / -18 dB numbers, the yellow, and the model-root frame of stuck effects are ours | Spec "Plasma release, plasma gun arms, stuck hit effects, hit-confirm distance, regen glow (night/weapon-fx ...)" | Plasma release, plasma gun arms, stuck hit effects…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-C4387F6C` | Jump escape, hop-cancel momentum, descent recharge (sim/jump-escape, sim/hop-cancel-momentum, sim/descent-recharge; protocol 62; owner 2026-11-06) | The Assault Marine / Raptor's Jump press ends any hit reaction (stun, stagger, interrupt), any melee attack, a throw, any phase of the charge, the landing's locks and the pound or slash recovery at once, in every mode (the data's own Jump branches open later or never; the owner's request); a hop cancelled by melee… | Which states the original lets the pack classes jump out of (the owner's word is "any animation"; ours: the list in spec); the carried fraction 0.4 is an estimate; when the original recharges (the data has only the rate; the descent is our reading of the owner's "two jumps, a third shortly after") | Spec "Jump escape, hop-cancel momentum and descent recharge (protocol 62)" | Jump escape, hop-cancel momentum, descent recharge…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

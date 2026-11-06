@@ -210,10 +210,11 @@ public class JumpHeightTests(ITestOutputHelper output)
     {
         var s = Jump(On, held);
         Assert.Equal(JumpPhase.Landed, s[^1].Jump);
-        int landed = s.Count - 1;
-        // No recharge in the air; the landing tick recharges nothing either (phase Landed starts in Move).
-        Assert.Equal(110f - cost, s[landed].JumpPower, 2);
-        Assert.Equal(Cut.MaxPower - Cut.CostAt(MathF.Min((held - 1) * Dt, Cut.MaxHold)), s[landed].JumpPower, 2);
+        int landed = s.Count - 1, rise = s.FindLastIndex(p => p.Jump == JumpPhase.Ascent);
+        // No recharge up to the apex (protocol 62: Classic PvP recharges in the hang and the fall, so the cost is read at the rise's last tick).
+        Assert.Equal(110f - cost, s[rise].JumpPower, 2);
+        Assert.Equal(Cut.MaxPower - Cut.CostAt(MathF.Min((held - 1) * Dt, Cut.MaxHold)), s[rise].JumpPower, 2);
+        Assert.Equal(MathF.Min(110f, 110f - cost + Cut.RechargeRate * Dt * (landed - rise - 1)), s[landed].JumpPower, 2);
     }
 
     [Fact]
@@ -274,7 +275,7 @@ public class JumpHeightTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_27_carries_the_cut_in_the_own_record_and_refuses_it_elsewhere_and_the_config_hash_covers_it()
     {
-        Assert.Equal(61, Protocol.Version);
+        Assert.Equal(62, Protocol.Version);
         var s = Jump(On, 15);
         var p = s.First(x => x.JumpCut) with { PlayerId = 7 };
         var bytes = Protocol.Write(new Snapshot(1, 1, 1, [p], Self: 7));

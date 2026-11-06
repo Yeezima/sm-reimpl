@@ -147,12 +147,13 @@ public class DashAttackWallTests(ITestOutputHelper output)
         Assert.Equal(RushPhase.DashCollision, s.Rush);
         while (!s.Grounded) Step(InputButtons.None);
         // Jump on every other tick (fresh presses) until the stop lets it go.
-        int ticks = 0;
-        for (int k = 0; k < 60 && s.Rush == RushPhase.DashCollision; k++) { int before = s.RushTicks; Step(k % 2 == 0 ? InputButtons.Jump : InputButtons.None); ticks = before; }
+        int ticks = 0, presses = 0;
+        for (int k = 0; k < 60 && s.Rush == RushPhase.DashCollision; k++) { int before = s.RushTicks; if (k % 2 == 0) presses++; Step(k % 2 == 0 ? InputButtons.Jump : InputButtons.None); ticks = before; }
         Assert.NotEqual(RushPhase.DashCollision, s.Rush);
         float evadeAt = Rush.MoveOf(Config, s with { Rush = RushPhase.DashCollision })!.EvadeAt;
         output.WriteLine($"scale {scale}: Jump left the wall stop with {ticks} ticks played ({ticks / 30f:F3} s; the branch {evadeAt:F3} s x {scale} = {evadeAt * scale:F3} s)");
-        Assert.InRange(ticks / 30f, evadeAt * scale - 1e-4f, evadeAt * scale + 2f / 30f);
+        // sim/jump-escape (protocol 62; the owner 2026-11-06): the Assault's first Jump press ends the stop at once, whatever the branch and the scale.
+        Assert.Equal(1, presses);
     }
 
     // ---------------------------------------------------------------- the review: an enemy just in front of the wall

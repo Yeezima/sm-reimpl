@@ -473,7 +473,10 @@ public static partial class Protocol
     // 60 (feel/charge-clash; the owner's recording of the original, 2026-11-06): no layout change. A bull rush that stuns locks charger and victim through the collision stop's forward
     //     shove (the data's 1.83 m in 0.2 s): the charger's step ignores the victim's body (predicted), the world carries the victim with it; a charger meets any body at the capsules' edge.
     // 61 (night batch 2026-11-06, classic bots and jump pack; owner): no layout change. Classic PvP's jump pack holds the data's max_power (100) again instead of the owner's 300 (Musou Mode keeps 300).
-    public const ushort Version = 61;
+    // 62 (sim/jump-escape, sim/hop-cancel-momentum, sim/descent-recharge; the owner 2026-11-06): no layout change. The Assault / Raptor's Jump press ends any reaction, attack, throw, charge
+    //     phase, landing lock or pound recovery at once (every mode); a hop cancelled by melee keeps no upward speed and carries 0.4 of its horizontal speed under the air swing (every mode);
+    //     in Classic PvP the pack also recharges in a jump's hang and fall (two full jumps back to back from the data's 100).
+    public const ushort Version = 62;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>

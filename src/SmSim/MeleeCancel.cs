@@ -9,6 +9,12 @@ namespace SmSim;
 /// </summary>
 public static class MeleeCancel
 {
+    /// <summary>
+    /// sim/hop-cancel-momentum (ours, an estimate for the owner's "some momentum carried over"): the fraction of the hop's horizontal speed a melee cancel keeps while the swing is in the
+    /// air (about 6.5 m/s of the hop's 16.4). Spec "Hop cancelled by melee"; refine register.
+    /// </summary>
+    public const float HopCarry = 0.4f;
+
     /// <summary>Whether the class may cancel: a jump pack (Assault, Raptor), or a roll evade with a charge (the Tactical classes).</summary>
     public static bool Eligible(SimConfig c, PlayerState s) =>
         Races.Of(c, s.Class, s.Team) != Race.Orks && (Loadouts.JumpPack(c, s) is not null || (Loadouts.Rush(c, s) is not null && Combat.IsRoll(Loadouts.Evade(c, s))));
@@ -28,13 +34,22 @@ public static class MeleeCancel
             float remaining = meleePress ? MathF.Max(0f, move.End - Rush.Time(s, c)) : 0f;
             return (Rush.Cleared(s), remaining);
         }
+        // sim/jump-escape (protocol 62; the owner 2026-11-06): the pack classes' Jump ends every other phase of the charge too (its collision stop, the dash attack, its hit,
+        // wall stop and run-out), at once.
+        if (s.Rush != RushPhase.None && jumpPress && pack && JumpEscape.Eligible(c, s)) return (Rush.Cleared(s), 0f);
         if (s.Rush == RushPhase.None && meleePress && pack && Loadouts.Evade(c, s) is { Dash: true } evade && Evade.Evading(s) && !Rush.CanDashAttack(s, c, world))
         {
             var clip = evade.Move(s.EvadeDirection);
             float remaining = s.EvadeLanded && clip.Landing is { } landing
                 ? MathF.Max(0f, landing.Duration - Evade.Time(s, c))
                 : MathF.Max(0f, clip.Duration - Evade.Time(s, c)) + (clip.Landing?.Duration ?? 0f);
-            return (s with { EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLanded = false }, remaining);
+            // sim/hop-cancel-momentum (protocol 62; the owner 2026-11-06: "he should start moving horizontally only with some momentum carried over, combined with the step forward or lock
+            // on lunge of the melee attack"): the hop's rise stops at once (no upward speed is kept) and HopCarry of its horizontal speed rides on under the swing while the body is in the
+            // air (Combat: the air swing); the swing's own step or lunge adds to it.
+            var v = s.Velocity;
+            var carried = float.IsFinite(v.X) && float.IsFinite(v.Y) ? new System.Numerics.Vector3(v.X * HopCarry, v.Y * HopCarry, float.IsFinite(v.Z) ? MathF.Min(0f, v.Z) : 0f)
+                : System.Numerics.Vector3.Zero;
+            return (s with { EvadeTicks = 0, EvadeDirection = EvadeDirection.Forward, EvadeLanded = false, Velocity = carried }, remaining);
         }
         return null;
     }

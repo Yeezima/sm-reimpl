@@ -143,7 +143,8 @@ public class JumpTierTests(ITestOutputHelper output)
         var s = Jump(On, held, my: held <= 5 ? 1f : 0f);
         if (held <= 5) { Assert.Equal(Tiered.MaxPower, s.Min(p => p.JumpPower), 2); return; }
         Assert.Equal(JumpPhase.Landed, s[^1].Jump);
-        Assert.Equal(Tiered.MaxPower - cost, s[^1].JumpPower, 2);
+        // Protocol 62: Classic PvP recharges in the hang and the fall, so the cost is read on the rise's last tick.
+        Assert.Equal(Tiered.MaxPower - cost, s[s.FindLastIndex(p => p.Jump == JumpPhase.Ascent)].JumpPower, 2);
     }
 
     [Fact]
@@ -253,7 +254,7 @@ public class JumpTierTests(ITestOutputHelper output)
     [Fact]
     public void Protocol_38_carries_the_small_jump_s_cut_and_the_config_hash_covers_the_tiers()
     {
-        Assert.Equal(61, Protocol.Version);
+        Assert.Equal(62, Protocol.Version);
         var s = Jump(On, 10);
         var p = s.First(x => x.JumpCut) with { PlayerId = 7 };
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(1, 1, 1, [p], Self: 7)))).Players[0];
@@ -345,9 +346,8 @@ public class JumpTierTests(ITestOutputHelper output)
         }
         int data = FirstTakeOff(On), quick = FirstTakeOff(scaled);
         output.WriteLine($"idle landing: a press takes off {data} ticks after it at the data's lock ({JumpPack.JumpLock(Tiered, false):F3} s), {quick} at 0.7 ({JumpPack.JumpLock(Tiered, false, scaled):F3} s)");
-        Assert.Equal((int)MathF.Ceiling(JumpPack.JumpLock(Tiered, false) / Dt - 1e-3f), data);
-        Assert.Equal((int)MathF.Ceiling(JumpPack.JumpLock(Tiered, false, scaled) / Dt - 1e-3f), quick);
-        Assert.True(quick < data);
+        // sim/jump-escape (protocol 62): the Assault / Raptor's press cuts the landing's locks, so the first tick after the landing takes off whatever the scale.
+        Assert.Equal((1, 1), (data, quick));
     }
 
     /// <summary>
@@ -387,9 +387,11 @@ public class JumpTierTests(ITestOutputHelper output)
         int takeOff = states.FindIndex(p => p.Jump == JumpPhase.TakeOff);
         output.WriteLine($"Space down {pressAfter} ticks after the landing for {held} ticks: buffered {string.Join(", ", buffered)}; take-off {takeOff} ticks after the landing; {(dashed ? "dash" : $"apex {apex:F2} m")}");
         float small = Apex(Jump(On, 6)), full = Apex(Jump(On, 400));
-        if (held <= 5) { Assert.True(dashed); Assert.DoesNotContain(BufferedAction.JumpLong, buffered); return; }
+        // sim/jump-escape (protocol 62): the press cuts the landing lock, so it takes off in its own tick and is never buffered; the hold still picks the hop or the jump.
+        Assert.Equal(pressAfter, takeOff);
+        Assert.DoesNotContain(BufferedAction.JumpLong, buffered);
+        if (held <= 5) { Assert.True(dashed); return; }
         Assert.False(dashed);
-        Assert.Contains(BufferedAction.JumpLong, buffered);
         Assert.Equal(held >= 30 ? full : small, apex, 2);
     }
 
@@ -397,11 +399,12 @@ public class JumpTierTests(ITestOutputHelper output)
     public void The_long_press_rides_the_own_record()
     {
         var c = On with { InputBufferWindow = 0.3f };
-        var s = AfterALanding(c, 1, 7).First(p => p.Buffered == BufferedAction.JumpLong) with { PlayerId = 7 };
+        // sim/jump-escape (protocol 62): a press in a landing no longer waits in the buffer, so the states are made directly.
+        var s = AfterALanding(c, 1, 7)[0] with { PlayerId = 7, Buffered = BufferedAction.JumpLong, BufferTicks = 3 };
         var back = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(1, 1, 1, [s], Self: 7)))).Players[0];
         Assert.Equal((BufferedAction.JumpLong, s.BufferTicks), (back.Buffered, back.BufferTicks));
         // A pre-committed take-off (its mark ahead of its ticks) round-trips too.
-        var t = AfterALanding(c, 1, 7).First(p => p.Jump == JumpPhase.TakeOff) with { PlayerId = 7 };
+        var t = AfterALanding(c, 1, 7).First(p => p.Jump == JumpPhase.TakeOff) with { PlayerId = 7, JumpTicks = 1, JumpMark = 5, JumpHolding = true };
         Assert.True(t.JumpMark > t.JumpTicks);
         var tb = Assert.IsType<Snapshot>(Protocol.Read(Protocol.Write(new Snapshot(1, 1, 1, [t], Self: 7)))).Players[0];
         Assert.Equal((t.Jump, t.JumpTicks, t.JumpMark, t.JumpHolding), (tb.Jump, tb.JumpTicks, tb.JumpMark, tb.JumpHolding));
@@ -423,7 +426,7 @@ public class JumpTierTests(ITestOutputHelper output)
         var truth = new SortedDictionary<uint, Dictionary<int, PlayerState>>();
         var predicted = Enumerable.Range(0, 2).Select(_ => new Dictionary<uint, PlayerState>()).ToArray();
         // 150-tick cycles: a small jump (Space down 6 ticks), then Space down again for 3, 7 or 12 ticks from somewhere around its landing.
-        int[] secondAt = [56, 60, 62, 64, 66], secondFor = [3, 7, 12];   // the small jump lands about 61 ticks after its press
+        int[] secondAt = [50, 54, 56, 60, 66], secondFor = [3, 7, 12];   // protocol 62: presses in the landing take off at once; the long presses come from the air   // the small jump lands about 61 ticks after its press
         PlayerInput Input(int i, uint t)
         {
             uint cycle = (t + (uint)i * 31) / 150, phase = (t + (uint)i * 31) % 150;
@@ -453,7 +456,7 @@ public class JumpTierTests(ITestOutputHelper output)
             int committed = mine.Count(p => p.Jump == JumpPhase.TakeOff && p.JumpTicks == 0 && p.JumpMark > 0);
             output.WriteLine($"client {i}: compared {compared}, {mismatches.Count} mismatches; {longs} long presses, {committed} committed take-offs");            foreach (var m in mismatches.Take(3)) output.WriteLine("  " + m);
             Assert.True(compared > 300);
-            Assert.True(longs >= 2 && committed >= 2, $"client {i}: {longs} long presses, {committed} committed take-offs");
+            Assert.True(longs >= 1 && committed >= 1, $"client {i}: {longs} long presses, {committed} committed take-offs");
             Assert.Empty(mismatches);
         }
     }

@@ -276,7 +276,7 @@ public static partial class JumpPack
     /// jump while Jump stays down (<see cref="LongJump.Held"/>). With too little power for the small jump it starts as a normal press.
     /// </param>
     internal static Tick Begin(PlayerState s, JumpPackSpec? pack, bool jumpDown, bool jumpPress, bool meleePress, bool meleeBusy, SimConfig c, float? dashAt = null,
-        float aboveGround = float.PositiveInfinity, LongJump longJump = LongJump.None)
+        float aboveGround = float.PositiveInfinity, LongJump longJump = LongJump.None, bool escape = false)
     {
         if (pack is null) return default;
         float dt = c.TickSeconds;
@@ -289,7 +289,9 @@ public static partial class JumpPack
         if (phase == JumpPhase.Landed && T(ticks) + Eps >= MathF.Max(MoveLock(pack, landMoving, c), JumpLock(pack, landMoving, c)))
         { phase = JumpPhase.None; ticks = 0; landMoving = false; }
         else if (phase == JumpPhase.Recover && T(ticks) + Eps >= (s.JumpSlash && pack.Slash is { } recovering ? recovering.Recovery : pack.PoundRecovery)) { phase = JumpPhase.None; ticks = 0; }
-        if (phase is JumpPhase.None or JumpPhase.Landed or JumpPhase.Recover) power = MathF.Min(pack.MaxPower, power + pack.RechargeRate * dt);
+        // sim/descent-recharge (protocol 62; Classic PvP: SimConfig.JumpPackDescentRecharge): the pack also recharges after a jump's apex (the hang and the fall: the pack no longer lifts).
+        bool recharging = phase is JumpPhase.None or JumpPhase.Landed or JumpPhase.Recover || (c.JumpPackDescentRecharge && phase is JumpPhase.Hang or JumpPhase.Fall);
+        if (recharging) power = MathF.Min(pack.MaxPower, power + pack.RechargeRate * dt);
         // The hang covers the ticks after the apex tick: HangTime / dt of them (15 at 30 Hz) under HangGravity, then the fall.
         // sim/jump-hang: the small jump's hang is SmallHangTime longer (PlayerState.JumpSmall).
         if (phase == JumpPhase.Hang && T(ticks - mark - 1) + Eps >= pack.HangTime + (s.JumpSmall ? pack.SmallHangTime : 0f)) phase = JumpPhase.Fall;
@@ -304,7 +306,9 @@ public static partial class JumpPack
         // sim/air-jumps (owner, 2026-11-06): only Musou Mode keeps these air starts (SimConfig.JumpPackAirJumps); in Classic PvP a jump-pack class in the air gets the hop (the air dash, below) alone.
         bool airLong = dashAt is not null && !s.Grounded && longJump != LongJump.None && c.JumpPackAirJumps;   // a press held past the dash's decision, replayed from the buffer (BufferedAction.JumpLong)
         bool airFall = airLong && phase is JumpPhase.Hang or JumpPhase.Fall;
-        bool canStart = phase == JumpPhase.None || airFall || (phase == JumpPhase.Landed && T(ticks) + Eps >= JumpLock(pack, landMoving, c));
+        // sim/jump-escape (protocol 62): the Assault / Raptor's press (escape) cuts the landing's locks and the pound's or slash's recovery: the take-off starts at once.
+        bool canStart = phase == JumpPhase.None || airFall || (phase == JumpPhase.Landed && (escape || T(ticks) + Eps >= JumpLock(pack, landMoving, c)))
+            || (escape && phase == JumpPhase.Recover);
         if (canStart && jumpPress && (s.Grounded || airLong) && !meleeBusy && !meleePress && (dashAt is not null || power + Eps >= pack.CostAt(0f)))
         {
             phase = JumpPhase.TakeOff; ticks = 0; mark = 0; landMoving = false; started = true;
