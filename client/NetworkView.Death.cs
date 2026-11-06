@@ -65,9 +65,9 @@ public partial class NetworkView
     double _deathOrbitLogAt;
 
     /// <summary><c>--no-death-orbit</c>: the death camera ignores the mouse and the right stick, as before late-g (the fixed, slowly rising view).</summary>
-    public bool NoDeathOrbit { get; init; }
+    static readonly bool NoDeathOrbit = CmdFlag("no-death-orbit");
     /// <summary><c>--death-orbit-test &lt;deg/s&gt;</c> (test aid, bots too): while dead the orbit turns by that rate as if the view turned right, with a slow pitch sweep; DEATHORBIT log lines.</summary>
-    public float? DeathOrbitTest { get; init; }
+    static readonly float? DeathOrbitTest = CmdArg("death-orbit-test") is { } dot && float.TryParse(dot, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var rate) && float.IsFinite(rate) ? rate : null;   // read here, not in ModelViewer.cs (kept out of the shared file)
 
     /// <summary>
     /// late-g: a look delta while dead (from the mouse or the right stick, in the alive view's terms: positive yaw turns left, positive pitch looks up)
