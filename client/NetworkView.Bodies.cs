@@ -36,14 +36,17 @@ public partial class NetworkView
     /// <summary>The remote players where they are drawn this frame (moved apart unless <c>--no-body-separation</c>), and the bot's overlap sample.</summary>
     IReadOnlyList<PlayerState> DrawnRemotes(IReadOnlyList<PlayerState> others, PlayerState me, PlayerState shown)
     {
-        var drawn = NoBodySeparation ? others : _drawnBodies.Separate(others, me.Alive ? shown.Position : null, me.PlayerId, _config!);
-        drawn = LockDrawn(drawn, me, shown);   // anim/melee-interaction: the own charge's victim at the lock spot (NetworkView.MeleeInteraction.cs)
+        // anim/melee-interaction: the own charge's victim at the lock spot (NetworkView.MeleeInteraction.cs). feel/charge-clash: placed before the separation, so a spot the own
+        // body (or another player) has since walked into is moved out like any other overlap (a bot run found the held spot drawn up to 0.36 m inside the own body).
+        var locked = LockDrawn(others, me, shown);
+        var drawn = NoBodySeparation ? locked : _drawnBodies.Separate(locked, me.Alive ? shown.Position : null, me.PlayerId, _config!);
         if (_bot)
         {
             _drawnFeet.Clear();
             foreach (var p in drawn) if (p.Alive) _drawnFeet.Add(p.Position);
             if (me.Alive) _drawnFeet.Add(shown.Position);
             _drawnOverlaps.Add(_drawnFeet, _config!);
+            LogDrawnOverlaps(drawn, me, shown);
             if (_connectedFor - _bodiesLoggedAt >= 10.0)
             {
                 _bodiesLoggedAt = _connectedFor;
@@ -59,5 +62,33 @@ public partial class NetworkView
             }
         }
         return drawn;
+    }
+
+    double _drawnOverlapLoggedAt = double.NegativeInfinity;
+
+    /// <summary>
+    /// feel/charge-clash (a bot's diagnostics): once a second at most, a DRAWNOVERLAP line for the deepest pair of drawn bodies more than 5 cm inside each other: who (the own body
+    /// marked), sides, each one's charge phase, reaction and jump, and whether the own charge's victim is drawn at the lock spot, so an overlap can be told apart (allies, a charge, a jump).
+    /// </summary>
+    void LogDrawnOverlaps(IReadOnlyList<PlayerState> drawn, PlayerState me, PlayerState shown)
+    {
+        if (_connectedFor - _drawnOverlapLoggedAt < 1.0 || _config is null) return;
+        var all = new List<(PlayerState P, bool Own)>();
+        foreach (var p in drawn) if (p.Alive) all.Add((p, false));
+        if (me.Alive) all.Add((shown with { PlayerId = me.PlayerId, Team = me.Team, Rush = me.Rush, Reaction = me.Reaction, Jump = me.Jump }, true));
+        float reach = 2f * _config.CapsuleRadius, height = System.Math.Max(_config.CapsuleHeight, reach), deepest = 0.05f;
+        (PlayerState P, bool Own) x = default, y = default;
+        for (int i = 0; i < all.Count; i++)
+            for (int j = i + 1; j < all.Count; j++)
+            {
+                var a = all[i].P.Position; var b = all[j].P.Position;
+                if (PlayerCollision.Relate(a.Z, b.Z, height) != PlayerCollision.Relation.Side) continue;
+                float depth = reach - new System.Numerics.Vector2(a.X - b.X, a.Y - b.Y).Length();
+                if (depth > deepest) { deepest = depth; x = all[i]; y = all[j]; }
+            }
+        if (deepest <= 0.05f) return;
+        _drawnOverlapLoggedAt = _connectedFor;
+        string Who((PlayerState P, bool Own) w) => $"P{w.P.PlayerId}{(w.Own ? " (own)" : "")} {w.P.Team} rush {w.P.Rush}{w.P.RushTicks} reaction {w.P.Reaction} jump {w.P.Jump}";
+        GD.Print($"t {_connectedFor:F2} s: DRAWNOVERLAP {deepest:F3} m: {Who(x)} / {Who(y)}; {(World.Hostile(x.P.Team, y.P.Team) ? "opponents" : "allies")}; lock draw P{_lockDraw.Victim}");
     }
 }

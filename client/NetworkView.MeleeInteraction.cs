@@ -68,6 +68,8 @@ public partial class NetworkView
             ChargeShotsBegin();
             if (me.Alive && StateOfPlayer(target, me) is { } victim)
             {
+                // feel/charge-clash: a frame that lands in the shove has the spot ahead of where the own body is now (the contact tick's spot is behind it).
+                if (ChargeClash.Carried(me, _config)) spot = MeleeInteraction.CarriedSpot(me.Position, me.Yaw, ChargeLock.LockDistance(_config));
                 if (!NoLockDraw) _lockDraw = (target, spot, now, -1.0);
                 ChargeImpact(me, victim with { Position = NoLockDraw ? victim.Position : new Num.Vector3(spot.X, spot.Y, victim.Position.Z) }, me, ownId);
             }
@@ -211,7 +213,7 @@ public partial class NetworkView
         if (_lockDraw.ReactedAt < 0 && v.Reaction != ReactionKind.None && (!clash || MeleeInteraction.LockSpotReached(v.Position, _lockDraw.Spot))) _lockDraw.ReactedAt = now;
         float w = MeleeInteraction.LockDrawWeight((float)(now - _lockDraw.At), _lockDraw.ReactedAt < 0 ? -1f : (float)(now - _lockDraw.ReactedAt));
         if (w <= 0f) { _lockDraw.Victim = 0; return drawn; }
-        var list = drawn as List<PlayerState> ?? drawn.ToList();
+        var list = drawn.ToList();   // feel/charge-clash: a copy (it now runs on the interpolated list itself, before the separation)
         var at = new Num.Vector3(_lockDraw.Spot.X, _lockDraw.Spot.Y, v.Position.Z);
         list[index] = v with { Position = Num.Vector3.Lerp(v.Position, at, w) };
         return list;

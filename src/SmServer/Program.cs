@@ -363,13 +363,31 @@ var blockerNames = mapBlockers.Select(b => (Name: b.Name, Box: b.ToSim())).ToArr
 var pressing = new HashSet<(int Player, int Blocker)>();
 var insideBox = new HashSet<(int Player, int Blocker)>();
 var overlaps = cli.LogOverlaps ? new OverlapProbe() : null;
+// feel/charge-clash: the same probe on the pairs of opponents where either is in a charge phase (the rush, its stop, the dash attack), and on the clash pairs.
+var chargeOverlaps = cli.LogOverlaps ? new OverlapProbe() : null;
+var clashOverlaps = cli.LogOverlaps ? new OverlapProbe() : null;
+var pairFeet = new System.Numerics.Vector3[2];
 server.Stepped += world =>
 {
     // --log-overlaps (sim/player-collision test aid): the closest the living players' capsules came, every 10 s.
     if (overlaps is not null)
     {
         overlaps.Add(world.Players.Values, world.Config);
-        if (world.Tick % (uint)(10 * world.Config.TickRate) == 0) Console.WriteLine($"tick {world.Tick}: overlaps: {overlaps.Summary()}");
+        var living = world.Players.Values.Where(p => p.Alive).OrderBy(p => p.PlayerId).ToList();
+        for (int i = 0; i < living.Count; i++)
+            for (int j = i + 1; j < living.Count; j++)
+            {
+                var a = living[i]; var b = living[j];
+                if (!World.Hostile(a.Team, b.Team) || (a.Rush == RushPhase.None && b.Rush == RushPhase.None)) continue;
+                pairFeet[0] = a.Position; pairFeet[1] = b.Position;
+                chargeOverlaps!.Add(pairFeet, world.Config);
+                if (world.ClashVictim(a.PlayerId) == b.PlayerId || world.ClashVictim(b.PlayerId) == a.PlayerId) clashOverlaps!.Add(pairFeet, world.Config);
+            }
+        if (world.Tick % (uint)(10 * world.Config.TickRate) == 0)
+        {
+            Console.WriteLine($"tick {world.Tick}: overlaps: {overlaps.Summary()}");
+            Console.WriteLine($"tick {world.Tick}: charge overlaps (opponents, either charging or in a charge's stop): {chargeOverlaps!.Summary()}; clash pairs: {clashOverlaps!.Summary()}; clashes opened {world.ClashesOpened}");
+        }
     }
     // --pickup-test: test drops in front of every living player (the server's own SpawnPickup; the ground under the point as for a death).
     if (pickupTest > 0f && world.Config.Pickups is { } drops && world.Tick % (uint)Math.Max(1, MathF.Round(pickupTest * world.Config.TickRate)) == 0)
