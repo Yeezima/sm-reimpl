@@ -160,6 +160,12 @@ public partial class AshfallKitGallery : Node3D
             dressing = SyntheticDressing(level);
             GD.Print($"ashfall gallery: synthetic dressing {dressing.Items.Count} items over {dressing.HiddenParts.Count} parts (test aid only)");
         }
+        else if (_args.ContainsKey("ashfall-no-roadway-rule"))
+        {
+            var before = AshfallMap.RebuildWithoutRoadwayRule();   // draft 8 report aid: the placement without the roadway rule (before/after views)
+            (level, dressing) = (before.Level, before.Dressing);
+            GD.Print($"ashfall gallery: WITHOUT the draft-8 roadway rule (report aid): {dressing.Items.Count} items");
+        }
         else if (_args.ContainsKey("ashfall-no-overlap-rule"))
         {
             var before = AshfallMap.RebuildWithoutOverlapRule();   // draft 7 report aid: the placement without the overlap rule (before/after views)

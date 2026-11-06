@@ -4,8 +4,8 @@ namespace SmSim.Extras.Musou.Ashfall;
 
 public static partial class AshfallMap
 {
-    /// <summary>The dressing pass's version (raised with any change of the items). 10: draft 7 (no two items overlap; the storm look is the client's); 9: draft 6 with the Meshy expansion placed (AC-041..076 in the pools, the new road and plaza slabs, objective A on AC-076); 8: draft 6 (every placed object 1.5x its draft-5 size, more AC-008 platforms, bridges only on supports; docs/musou-ashfall-graybox.md "Draft 6"); 7: draft 5, one asset per graybox structure with collision from the assets (docs/musou-ashfall-graybox.md "Draft 5"); 5 was draft 3's scaled replacements, 1..4 drafts 1 and 2.</summary>
-    public const uint DressVersion = 10;
+    /// <summary>The dressing pass's version (raised with any change of the items). 11: draft 8 (no item in a roadway); 10: draft 7 (no two items overlap; the storm look is the client's); 9: draft 6 with the Meshy expansion placed (AC-041..076 in the pools, the new road and plaza slabs, objective A on AC-076); 8: draft 6 (every placed object 1.5x its draft-5 size, more AC-008 platforms, bridges only on supports; docs/musou-ashfall-graybox.md "Draft 6"); 7: draft 5, one asset per graybox structure with collision from the assets (docs/musou-ashfall-graybox.md "Draft 5"); 5 was draft 3's scaled replacements, 1..4 drafts 1 and 2.</summary>
+    public const uint DressVersion = 11;
 
     /// <summary>Draft 6: every placed object's size against its draft-5 size, all three axes (owner, 2026-11-06: "scale to 1.5x the current size"; ours: placeholder demonstration).</summary>
     public const float Draft6Scale = 1.5f;
@@ -23,6 +23,9 @@ public static partial class AshfallMap
 
     /// <summary>Report aid: the pass without draft 7's overlap rule (the draft-6 placement and its overlaps; uncached, not a level any game loads).</summary>
     public static AshfallDraft5 RebuildWithoutOverlapRule() => AshfallDraft5Pass.Run(overlapRule: false);
+
+    /// <summary>Report aid: the pass without draft 8's roadway rule (items may stand in the roads; uncached, not a level any game loads).</summary>
+    public static AshfallDraft5 RebuildWithoutRoadwayRule() => AshfallDraft5Pass.Run(overlapRule: true, roadwayRule: false);
 
     /// <summary>
     /// The level (deterministic): Ashfall draft 6, <see cref="Version"/> 10 (docs/musou-ashfall-graybox.md "Draft 5" and "Draft 6"; the pass keeps its draft-5 names). The v5 graybox's ground kinds and boundary plus the collision boxes of the one asset that replaces each graybox structure,

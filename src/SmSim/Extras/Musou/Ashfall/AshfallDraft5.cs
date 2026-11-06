@@ -58,6 +58,11 @@ internal static partial class AshfallDraft5Pass
         public bool OverlapRule = true;
         public int OverlapSettled, OverlapDropped;
         public readonly List<string> OverlapDroppedNames = [];
+        /// <summary>Draft 8: the roadway strips (grown by the margin), whether the rule runs, the items it moved or shrank, and those it left out.</summary>
+        public List<AshfallBox> Roads = [];
+        public bool RoadwayRule = true;
+        public int RoadSettled, RoadDropped, RoadPlatformsSkipped;
+        public readonly List<string> RoadDroppedNames = [];
     }
 
     sealed record Spec(string Group, string Family, Vector3 Min, Vector3 Max, AshfallBox? Box, string[] Pool)
@@ -79,12 +84,13 @@ internal static partial class AshfallDraft5Pass
 
     public static AshfallDraft5 Run() => Run(overlapRule: true);
 
-    /// <summary>The pass; <paramref name="overlapRule"/> false skips draft 7's overlap rule (a report aid: the draft-6 placement with its overlaps, under the same version).</summary>
-    public static AshfallDraft5 Run(bool overlapRule)
+    /// <summary>The pass; <paramref name="overlapRule"/> false skips draft 7's overlap rule, <paramref name="roadwayRule"/> false draft 8's roadway rule (report aids: the placement without the rule, under the same version).</summary>
+    public static AshfallDraft5 Run(bool overlapRule, bool roadwayRule = true)
     {
         var gb = AshfallMap.BuildGrayboxWithFeatures();
         var g5 = gb.Level;
-        var c = new Ctx { Seed = AshfallBuilder.Mix(AshfallMap.VariationSeed, 0xA5F411u), OverlapRule = overlapRule };
+        var c = new Ctx { Seed = AshfallBuilder.Mix(AshfallMap.VariationSeed, 0xA5F411u), OverlapRule = overlapRule, RoadwayRule = roadwayRule };
+        c.Roads = AshfallRoadway.Strips(g5);
         foreach (var p in g5.Parts)
             if (p.Kind is AshfallKind.Ground or AshfallKind.Road or AshfallKind.Paving or AshfallKind.Curb or AshfallKind.Boundary or AshfallKind.Objective) c.Parts.Add(p);
         int groundCount = c.Parts.Count;
@@ -134,6 +140,9 @@ internal static partial class AshfallDraft5Pass
 
         c.Flags.Add($"draft 6 growth (every placed object 1.5x its draft-5 size): {c.Moved} items moved ({c.Spread} of them to open a gap under {MinGap} m to a neighbour), {c.NarrowKept} kept a narrow gap they could not open, {c.NarrowDropped} small pieces (cover, rubble) left out rather than leave a gap under {MinGap} m, {c.LeftOut} left out{(c.LeftOut > 0 ? ": " + string.Join(", ", c.LeftOutNames.Take(12)) : "")}");
         c.Flags.Add($"draft 7 overlap rule (no two items meet deeper than {AshfallOverlap.Tolerance} m): {c.OverlapSettled} items moved or shrunk to clear an overlap, {c.OverlapDropped} left out{(c.OverlapDropped > 0 ? ": " + string.Join(", ", c.OverlapDroppedNames.Take(12)) : "")}");
+        c.Flags.Add(roadwayRule
+            ? $"draft 8 roadway rule (no item's collision within {AshfallRoadway.Margin} m of a roadway; bridges clear by {AshfallRoadway.Headroom} m): {c.RoadSettled} items moved or shrunk off a roadway, {c.RoadDropped} left out{(c.RoadDropped > 0 ? ": " + string.Join(", ", c.RoadDroppedNames.Take(12)) : "")}; {c.RoadPlatformsSkipped} added-platform candidates skipped"
+            : "draft 8 roadway rule OFF (report aid)");
         if (c.Dropped.Count > 0)
             c.Flags.Add($"{c.Dropped.Count} structures dropped: they stood in a lane, a start area, a capture zone's 6 m ring, on a spawn marker or within 2 m of the boundary (the boundary-foot walls all); first: {string.Join(", ", c.Dropped.Take(6))}");
         c.Flags.Add($"walkable ramps (stairs and rubble runs found in the top heightfields of the walkable models): {c.RampsKept} kept as sloped wedges, {c.RampsDropped} dropped (scaled slope over {MaxRampDegrees:0} degrees, or since draft 6 phase 2 off the item's stepped tops or outside its box: {c.RampsMisfit})");
@@ -394,6 +403,15 @@ internal static partial class AshfallDraft5Pass
             c.LeftOut++; c.LeftOutNames.Add(s.Group);
             return -1;
         }
+        // Draft 8: the grown item stands in no roadway (moved off it, shrunk, the pool's next model, else left out).
+        if (!Unroad(c, s, id, cand.Yaw, bottom, ref centre, ref size, out string roadNote))
+        {
+            if (!final) return Retry;
+            c.Log.Add(new(s.Group, s.Family, "", -1, "dropped: roadway, grown 1.5x it stands in a roadway and no move or smaller footprint within reach clears it (" + roadNote + ")"));
+            c.RoadDropped++; c.RoadDroppedNames.Add(s.Group);
+            return -1;
+        }
+        if (roadNote.Contains("(roadway)")) outcome += ", " + roadNote.Trim();
         // Draft 7: the grown item meets no placed item deeper than the overlap tolerance (moved, shrunk, the pool's next model, else left out).
         string overlapNote = "";
         if (c.OverlapRule && !Unoverlap(c, s, id, cand.Yaw, bottom, ref centre, ref size, out overlapNote))
@@ -404,6 +422,7 @@ internal static partial class AshfallDraft5Pass
             return -1;
         }
         if (overlapNote.Length > 0) { outcome += ", " + overlapNote.Trim(); c.OverlapSettled++; }
+        if (roadNote.Contains("(roadway)")) c.RoadSettled++;   // counted once the item is kept (a retry with the next model is not)
         if (shrunk is not null) c.Flags.Add(shrunk);
         item = Item(size);
         boxes = s.NoCollision ? [] : Coarse(s, Boxes(item, cand.Yaw, id));

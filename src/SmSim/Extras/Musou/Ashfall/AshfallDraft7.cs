@@ -98,7 +98,7 @@ internal static partial class AshfallDraft5Pass
             {
                 var boxes = Coarse(s, Boxes(Item(at, sz), yaw, id));
                 var (depth, _, other, _) = Deepest(c, boxes);
-                if (depth <= 0f)
+                if (depth <= 0f && OffRoad(c, boxes))
                 {
                     note = $"trimmed {size.X - sz.X:0.00} m at its end (overlap)";
                     centre = at; size = sz;
@@ -123,7 +123,7 @@ internal static partial class AshfallDraft5Pass
                 bool zonesOk = boxes.All(b => Zones(c, b).All(allowed.Contains));
                 if (depth <= 0f)
                 {
-                    if (zonesOk && (ring || CountNarrow(c, boxes) <= narrow0))
+                    if (zonesOk && (ring || CountNarrow(c, boxes) <= narrow0) && OffRoad(c, boxes))   // draft 8: never back onto a roadway
                     {
                         note = (f < 1f ? $"shrunk to {f:0.##} of its footprint" : "") + (off.Length() > 0.01f ? (f < 1f ? ", " : "") + $"moved {off.Length():0.00} m" : "") + " (overlap)";
                         centre += off; size = sz;
