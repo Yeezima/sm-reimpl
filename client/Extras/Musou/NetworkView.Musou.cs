@@ -44,6 +44,7 @@ public partial class NetworkView
     void MusouFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta, IReadOnlyList<ExtrasSection> sections)
     {
         if (!MusouActive || _client is not { } client) { if (_musouHud is not null) _musouHud.Visible = false; return; }
+        MusouDeathSpikeStart();   // --musou-death-spike-test (NetworkView.MusouDeathSpike.cs)
         double now = Time.GetTicksUsec() / 1e6;
         MusouMotionSections(sections);   // NetworkView.MusouMotion.cs: --musou-old-far-motion, and the measure's bytes
         foreach (var section in MusouGoreFeed(me, sections, delta)) if (!MusouDropSection(section)) _musouState.Apply(section, now);   // MU-D: tag 6 to the drops (MusouDrops.cs); M10: --musou-gore-demo replaces the server's sections
@@ -56,19 +57,23 @@ public partial class NetworkView
         if (!_musouDrawChecked)
         {
             _musouDrawChecked = true;
-            _musouNoDraw = Lean || DisplayServer.GetName() == "headless";
+            _musouNoDraw = (Lean || DisplayServer.GetName() == "headless") && !MusouDeathSpikeTest;   // the death-spike test draws headless (NetworkView.MusouDeathSpike.cs)
             GD.Print($"musou: crowd {(_musouNoDraw ? "not drawn (headless or lean)" : "drawn")}");
         }
         if (!_musouNoDraw)
         {
-            foreach (var d in _musouState.NewDeaths) _musouDeaths.Add(d);
-            if (_musouDeaths.Count > MusouCrowd.MaxBodies) _musouDeaths.RemoveRange(0, _musouDeaths.Count - MusouCrowd.MaxBodies);
+            MusouDeathsArrive(_musouState.NewDeaths, now);   // night batch 2026-11-06: a burst is handed out over a few frames (NetworkView.MusouDeathSpread.cs)
             if (_gameSpace is not null) MusouDraw(shown, (float)delta);
+            ulong t0 = SpikeMark();
             MusouPresent(me, shown, (float)delta);   // MU3: the HUD, hit feedback and telegraphs (MusouFx.cs)
             MusouSoundsFrame(me, shown, (float)delta);   // the enemies' original sounds (NetworkView.MusouSounds.cs)
+            _spikeSoundsMs += SpikeMs(t0);
             TfwMeleeCount(shown);   // Tfw/NetworkView.TfwMelee.cs: the test aid's counts, nothing without it
+            t0 = SpikeMark();
             MusouGoreFrame(me, shown, (float)delta);   // M10: gibs, sprays, pools and the cleave slashes (Gore/NetworkView.MusouGore.cs)
+            _spikeGoreMs += SpikeMs(t0);
         }
+        MusouDeathSpikeFrame(_musouState.NewDeaths.Count);   // --musou-death-spike-test (NetworkView.MusouDeathSpike.cs)
         TfwCoopBotDeaths();   // Tfw/NetworkView.TfwCoopBot.cs: co-op's --bot counts its kills
         MusouDeathsSeen += _musouState.NewDeaths.Count;   // the Firing Range script counts the strike's kills
         _musouState.TakeNew();
@@ -110,22 +115,33 @@ public partial class NetworkView
         _musouLooks.Notes.Clear();
 
         var camera = _camera is null ? Vector3.Zero : new Vector3(_camera.GlobalPosition.X, -_camera.GlobalPosition.Z, _camera.GlobalPosition.Y);   // Godot to game space
+        ulong t0 = SpikeMark();
+        MusouDeathsTake(camera);   // this frame's share of the deaths waiting (NetworkView.MusouDeathSpread.cs)
+        _musouDeathsHanded.Clear();
+        _musouDeathsHanded.AddRange(_musouDeaths);   // their yells and falls (NetworkView.MusouSounds.cs)
         foreach (var d in _musouDeaths)
         {
             float metres = new Vector3(d.Position.X, d.Position.Y, d.Position.Z).DistanceTo(camera);
             bool gibbed = MusouGoreRegister(d, camera);   // M10: a gibbed body leaves no corpse
             if (MusouGoreRules.Thrown(d.Cause)) MusouThrow(d, metres);   // a blast or barrage death always leaves a body, thrown through the gore's burst: a ragdoll near, else a tumbling body
-            else if (!gibbed) _musouCrowd!.AddBody(d);
+            else if (!gibbed) _musouCrowd!.AddBody(d, MusouDeathWaited(d.Id), keepSkeleton: !_musouOldDeaths);
             var at = new Vector3(d.Position.X, d.Position.Y, d.Position.Z + 1.1f);
             if (GoreOff && at.DistanceTo(camera) <= MusouCrowd.NearMetres)   // the dark gore draws the death blood; the red glow only with --no-musou-gore
                 BloodSplashAt(_gameSpace!.Transform * at, -(_gameSpace.Transform.Basis * new Vector3(d.Push.X, d.Push.Y, d.Push.Z)), 0.0);
         }
         _musouDeaths.Clear();
+        _musouDeathAge.Clear();
+        _spikeDeathsMs += SpikeMs(t0);
         // The shot Orks' flinch is off (the owner, 2026-11-06: it read as a 180-degree turn; "for now, simply remove those hit reactions completely"); --musou-ork-flinch brings it back.
         if (MusouOrkFlinch) foreach (var e in _musouState.NewEvents) if (e.Kind == MusouEventKind.Hit && e.Value is 1 or 2) _musouCrowd!.Flinch(e.Enemy);   // markers 1 and 2: a shot's hit
         MusouGunsFrame(shown, camera, delta);   // the ranged Orks' shots: flash, tracer, impact (NetworkView.MusouGuns.cs)
+        t0 = SpikeMark();
+        MusouDeathsWaitingItems();   // the deaths not yet handed out keep their place in the crowd, already dying
         _musouCrowd!.Frame(shown, camera, delta);
+        _spikeCrowdMs += SpikeMs(t0);
+        t0 = SpikeMark();
         _musouRagdolls?.Frame(delta, MusouCrowd.SinkSeconds, MusouCrowd.SinkDepth);
+        _spikeDollsMs += SpikeMs(t0);
     }
 
     /// <summary>A blast death's body: a <see cref="MusouRagdolls"/> doll when there is one to use, else the crowd's tumbling body.</summary>
@@ -134,13 +150,13 @@ public partial class NetworkView
         var push = MusouGoreRules.BlastThrow(d.Push, d.Id, d.Tick, d.Type);
         var velocity = new Vector3(push.X, push.Y, push.Z);
         if (metres <= MusouRagdolls.Metres && MusouRagdolls.Fits(d.Type) && _musouRagdolls is { } dolls && _musouLooks?.For(d.Type) is { } look && dolls.Throw(d, look, velocity)) return;
-        _musouCrowd!.AddFlung(d, velocity);
+        _musouCrowd!.AddFlung(d, velocity, keepSkeleton: !_musouOldDeaths);   // night batch 2026-11-06: the body keeps the skeleton that drew the Ork
     }
 
     /// <summary>Makes the pool of ragdolls once the boy's look is built, one doll a frame. <c>--no-musou-ragdolls</c>: the tumbling bodies only.</summary>
     void MusouRagdollsBuild()
     {
-        if (_musouRagdolls is { } dolls) { dolls.BuildStep(); return; }
+        if (_musouRagdolls is { } dolls) { dolls.BuildStep(); MusouRagdollsPrewarm(dolls); return; }
         if (_musouRagdollsTried || CmdFlag("no-musou-ragdolls") || _musouLooks?.For(MusouEnemyType.Boy) is not { } boy) return;
         _musouRagdollsTried = true;
         if (OrkRagdollDefinition(boy.Assets) is not { } def || boy.Clips[MusouLooks.Run] is not { } clip) { GD.Print("musou: no ragdolls (no Ork ragdoll to be had); blast deaths tumble"); return; }

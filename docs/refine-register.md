@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2314 spec table rows: **1683 tagged**, 454 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 508 rows of the changes document.
+Scanned 2316 spec table rows: **1685 tagged**, 454 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 510 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 2314 spec table rows: **1683 tagged**, 454 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
-| Core simulation (provisional values) | 288 | 272 | 228 | 40 | 1 |
+| Core simulation (provisional values) | 290 | 274 | 230 | 40 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 168 | 159 | 80 | 45 | 0 |
-| **All areas** | **1683** | 1450 | 1291 | 515 | 38 |
+| **All areas** | **1685** | 1452 | 1293 | 515 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 832 |
-| confidence: low | 613 |
-| confidence: medium | 550 |
+| kind: ours | 834 |
+| confidence: low | 614 |
+| confidence: medium | 551 |
 | kind: interpretation | 343 |
 | notes: ours | 329 |
 | confidence: none (low) | 128 |
@@ -1997,7 +1997,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-EB03504B` | Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks (s) | kind: ours; notes: estimate | owner 2026-11-02 | Shot lag allowance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each shot is also tried on the enemy's places over the last 0.2 s… | ☐ |
 
-### Core simulation (provisional values) (288)
+### Core simulation (provisional values) (290)
 
 *Spec section: Provisional values in use*
 
@@ -2456,6 +2456,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-A33A9397` | Instant step: the swing's forward motion profile | The step of every light and heavy strike (not the in-place stomp) up to its move-on time (`MoveAt` x the lock scale) is an ease-out 1-(1-u)^2 of the clip's own motion up to that time: full speed on the first tick (was 0 to 0.1 m in tick 1: the clips'… (share (1 = wholly)) | kind: ours; kind: estimate; confidence: low | owner 2026-11-06; the ease-out shape and "up to the move-on time" are ours | Instant step: the swing's forward motion profile: compare with SM1 by feel or video. Ours: The step of every light and heavy strike (not the in-place stomp) up… | ☐ |
 | `R-DA956AB3` | Legs for the new step | Every weapon's strikes, light and heavy (not the in-place stomp), stretch the clip's stride by the body's travel over the clip's root motion (`ClipStrideScale` = lunge scale x `LungeFactor`), as the hammer's lights did (factor) | kind: ours; confidence: medium | ours | Legs for the new step: compare with SM1 by feel or video. Ours: Every weapon's strikes, light and heavy (not the in-place stomp)… | ☐ |
+
+*Spec section: Musou Mode: a burst of deaths spread over frames, near wind-ups first (night batch 2026-11-06, `night/death-spike`; client drawing and the server's send order, Musou Mode only, no protocol, wire or config-hash change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-3DC7F834` | Deaths handed out a frame (Musou) | the deaths the client is told of wait in a queue and are handed out (body, ragdoll, gore, death yell and fall) the nearest to the camera first, at most **24** a frame, of them at most **5** thrown as ragdolls (only as many as the pool of 20 can take count as… (deaths, s) | kind: ours; confidence: low | owner 2026-11-06 ("deaths may start up to about 100 ms staggered" is the brief's bound); values ours | Deaths handed out a frame (Musou): compare with SM1 by feel or video. Ours: the deaths the client is told of wait in a queue and are handed out… | ☐ |
+| `R-CAF64BE3` | Ragdoll pool dressed ahead (Musou) | once the 20 dolls are made, one doll a frame is given the meshes of one thrown look (Boy, Shoota Boy, 'Ard Boy, Gretchin, Nob), hidden, until every doll has every look, so the first blast of a match builds no nodes (dolls) | kind: ours; confidence: medium | ours | Ragdoll pool dressed ahead (Musou): compare with SM1 by feel or video. Ours: once the 20 dolls are made, one doll a frame is given the meshes of… | ☐ |
 
 ### General game design (7)
 
@@ -3423,6 +3430,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-B8027519` | The charge clash: charger and victim locked through the shove (feel/charge-clash, 2026-11-06; protocol 59) | Ours in its mechanics (the original's pairing is engine code); its length and motion are the data's collision stop (1.83 m forward in 0.2 s, then 1.11 m back) and match the owner's recording | A stunned or staggered victim is carried with the charger through the stop's forward shove at 0.9 m (capsules touching), the charger's step ignores the victim's body, a victim the level stops holds the charger back; any charger meets a body at its edge (guard 0.85 m: the touch less a 5 cm slack, was 0.75 m); remotes… | spec "The charge clash: charger and victim locked through the shove" | The charge clash: charger and victim locked through the…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-FAB1E86D` | Musou: Guardsmen as defenders, capture under fire, Boss Ork cleave (musou/guard-formations, 2026-11-06; `TfwRules.Version` 28) | No Musou Mode in the original | Ours (added content, the owner's requests): the Guardsmen squads are back in every battle; they hold the landing zone, then share the secured positions out by the Orks near each, and never capture; only players, lords and retainers take a point, at the full rate, and Orks on the point no longer stop the progress (only… | Musou Mode only. Spec "Musou Mode: Guardsmen as defenders, the capture under fire, the Boss Ork cleave". | Musou: Guardsmen as defenders, capture under fire, Boss Ork…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-8A28955D` | Instant step and 20 % longer steps (sim/instant-step, 2026-11-06) | A strike's forward root motion follows the clip's timing (slow start, most of it after the hit) and, since feel/melee-charge-2 and sim/swing-step, is scaled | The step of every light and heavy melee strike (not the in-place stomp, not the heavy classes' kick) starts at full speed on the first tick and settles toward the move-on time (same total, same hit time, same recovery), and is 1.2 x longer for every melee weapon (the hammer and maul too): chainsword lights 5.36 / 3.88… | Owner's request 2026-11-06, an **estimate** (the 1.2 and "instant" are the owner's, the ease-out shape is ours); spec "Instant step and 20 % longer steps"; test aids `SM_OLD_INSTANT_STEP=1`, `SM_OLD_STEP_BOOST=1`, `--old-strike-legs` | Instant step and 20 % longer steps (sim/instant-step…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-46D713B9` | Musou: a burst of deaths spread over frames (night batch 2026-11-06, `night/death-spike`) | No Musou Mode in the original | Ours (added content; the owner: remove the moment of extreme frame time when many Orks die at once): the client hands a burst's deaths out over a few frames, the nearest first, at most 24 a frame and 5 ragdolls, none later than 0.1 s, each drawn dying in place meanwhile; the death yells and falls go with the body; the… | Musou Mode only, client drawing. Spec "Musou Mode: a burst of deaths spread over frames, near wind-ups first". | Musou: a burst of deaths spread over frames (night batch…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-F505AB42` | Musou: near wind-ups sent first (night batch 2026-11-06, `night/death-spike`) | No Musou Mode in the original | Ours (added content): an enemy within 15 m whose state changed since this client's last record of him goes right after the leaders, before far Orks overdue for 15 ticks; a telegraph's first copy goes before every other event copy. Under a full budget a near wind-up came up to 2 ticks late (telegraphs up to 4 behind a… | Musou Mode only; Classic PvP networking untouched; no wire change. Spec rows "Musou enemy interest", "Musou send budget". | Musou: near wind-ups sent first (night batch 2026-11-06…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

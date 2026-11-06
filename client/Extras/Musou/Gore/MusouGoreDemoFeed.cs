@@ -55,7 +55,7 @@ public sealed class MusouGoreDemoFeed
     public double RenderTick => _tick - 3.0;
     public Vector3 Centre => _centre;
 
-    /// <summary>One case alone, every window (8 s, or <c>--musou-gore-window s</c>) (<c>--musou-gore-case sweep|shot|lascannon|frag|barrage|churn</c>; a comma list takes them in turn), for stills; null: the whole 36 s cycle.</summary>
+    /// <summary>One case alone, every window (8 s, or <c>--musou-gore-window s</c>) (<c>--musou-gore-case sweep|shot|lascannon|frag|barrage|churn|burst</c>; a comma list takes them in turn), for stills; null: the whole 36 s cycle.</summary>
     readonly string? _case;
     readonly float _window;
 
@@ -152,6 +152,7 @@ public sealed class MusouGoreDemoFeed
                 case "lascannon": if (Once(k, 0.4f, 20 + n)) Lascannon(t); break;
                 case "frag": if (Once(k, 0.4f, 40 + n)) Frag(t); break;
                 case "barrage": if (Once(k, 0.4f, 60 + n)) Barrage(t); break;
+                case "burst": if (Once(k, 0.4f, 100 + n)) Burst(t); break;
                 case "churn": if (k >= 0.4f && k < _window - 0.2f && _tick % 3 == 0) Churn(t); break;
             }
             return;
@@ -268,6 +269,13 @@ public sealed class MusouGoreDemoFeed
         var at = Where(i, t);
         for (int k = 0; k < _orks.Length; k++)
             if (_orks[k].Alive && Vector3.Distance(Where(k, t), at) <= 9f) Kill(k, t, MusouDeathKind.Barrage, 0, Away(at, Where(k, t)));
+    }
+
+    /// <summary>Night batch 2026-11-06 (<c>--musou-death-spike-test</c>): every Ork alive dies by a blast in this tick, thrown away from the centre (a grenade in a packed crowd).</summary>
+    void Burst(float t)
+    {
+        for (int k = 0; k < _orks.Length; k++)
+            if (_orks[k].Alive) Kill(k, t, MusouDeathKind.Blast, Killer, Away(_centre, Where(k, t)));
     }
 
     void Churn(float t)

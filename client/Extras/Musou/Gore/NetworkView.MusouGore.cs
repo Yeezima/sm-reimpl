@@ -43,12 +43,13 @@ public partial class NetworkView
     /// <summary>The sections the Musou frame applies: the server's, or with <c>--musou-gore-demo</c> only the scripted feed's (its ticks are its own).</summary>
     IEnumerable<ExtrasSection> MusouGoreFeed(PlayerState me, IReadOnlyList<ExtrasSection> real, double delta)
     {
+        if (MusouDeathSpikeTest && !_goreDemoChecked && (_camera is null || _connectedFor < 6.0)) return real;   // the death-spike test starts in front of the settled camera
         if (!_goreDemoChecked)
         {
             _goreDemoChecked = true;
-            if (CmdFlag("musou-gore-demo") && !GoreOff)
+            if ((CmdFlag("musou-gore-demo") || MusouDeathSpikeTest) && !GoreOff)
             {
-                var at = me.Position;
+                var at = MusouDeathSpikeTest ? MusouDeathSpikeCentre(me.Position) : me.Position;
                 var args = OS.GetCmdlineUserArgs();
                 int i = Array.IndexOf(args, "--musou-gore-at");
                 if (i >= 0 && i + 1 < args.Length)
@@ -57,7 +58,9 @@ public partial class NetworkView
                     var inv = System.Globalization.CultureInfo.InvariantCulture;
                     if (p.Length == 3 && float.TryParse(p[0], inv, out float x) && float.TryParse(p[1], inv, out float y) && float.TryParse(p[2], inv, out float z)) at = new Num.Vector3(x, y, z);
                 }
-                _goreDemo = new MusouGoreDemoFeed(MusouArg("musou-gore-demo") ?? 60, at, CmdArg("musou-gore-case"), MusouArg("musou-gore-window") ?? 8);
+                _goreDemo = MusouDeathSpikeTest   // night batch 2026-11-06: the whole crowd dies by a blast in one tick, every 4 s (NetworkView.MusouDeathSpike.cs)
+                    ? new MusouGoreDemoFeed(MusouArg("musou-death-spike-test") ?? 60, at, "burst", 4)
+                    : new MusouGoreDemoFeed(MusouArg("musou-gore-demo") ?? 60, at, CmdArg("musou-gore-case"), MusouArg("musou-gore-window") ?? 8);
                 GD.Print($"musou gore: scripted feed of {_goreDemo.Box.Max.X - _goreDemo.Box.Min.X:F0} m box at ({at.X:F1} {at.Y:F1} {at.Z:F1}) (--musou-gore-demo)");
             }
         }

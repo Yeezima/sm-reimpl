@@ -37,19 +37,22 @@ public partial class MusouCrowd : CrowdView
     protected override MusouLooks.Look? LookOf(int type) => _looks.For((MusouEnemyType)type);
     protected override bool Loops(int clip) => MusouLooks.Loops(clip);
 
-    /// <summary>A death to show: the body plays its death clip where the enemy was last seen.</summary>
-    public void AddBody(in MusouDeathShown death) =>
-        AddBody(new Vector3(death.Position.X, death.Position.Y, death.Position.Z), death.Yaw, (int)death.Type, MusouLooks.Death);
+    /// <summary>A death to show: the body plays its death clip where the enemy was last seen, <paramref name="age"/> s into it (the time it waited to be handed out).</summary>
+    public void AddBody(in MusouDeathShown death, float age = 0f, bool keepSkeleton = false) =>
+        AddBody(new Vector3(death.Position.X, death.Position.Y, death.Position.Z), death.Yaw, (int)death.Type, MusouLooks.Death, age, keepSkeleton ? death.Id : 0);
+
+    /// <summary>Deaths the view has not handed out yet (night batch 2026-11-06, <see cref="MusouDeathRules"/>) and the seconds since each arrived: drawn where they fell, playing their death clip.</summary>
+    public readonly List<(MusouDeathShown Death, float Age)> Dying = new();
 
     /// <summary>How fast a thrown body turns end over end at most (rad/s, ours).</summary>
     public const float FlungSpin = 9f;
 
     /// <summary>A blast death with no ragdoll to spare, or far off: the body tumbles along <paramref name="velocity"/> and falls where it lands (<see cref="MusouRagdolls"/> throws the near ones).</summary>
-    public void AddFlung(in MusouDeathShown d, Vector3 velocity)
+    public void AddFlung(in MusouDeathShown d, Vector3 velocity, bool keepSkeleton = false)
     {
         var (id, tick) = (d.Id, d.Tick);
         float Spin(uint k) => (SmNet.Extras.Gore.GoreRules.Roll(id, tick + k) * 2f - 1f) * FlungSpin;
-        AddFlungBody(new Vector3(d.Position.X, d.Position.Y, d.Position.Z), d.Yaw, (int)d.Type, MusouLooks.Death, velocity, new Vector3(Spin(11u), Spin(12u), Spin(13u)));
+        AddFlungBody(new Vector3(d.Position.X, d.Position.Y, d.Position.Z), d.Yaw, (int)d.Type, MusouLooks.Death, velocity, new Vector3(Spin(11u), Spin(12u), Spin(13u)), keepSkeleton ? d.Id : 0);
     }
 
     /// <summary>Seconds a shot Ork's flinch plays, how soon a new shot restarts it, and how far it rocks him back (m). The owner, 2026-11-02: "add hit reactions to the orks getting shot". Drawn only: the simulation's Ork does not stop. Ours.</summary>
@@ -88,6 +91,12 @@ public partial class MusouCrowd : CrowdView
         foreach (var (id, age) in _flinch) if (age + delta >= FlinchSeconds || !_seen.Contains(id)) _flinchOver.Add(id);
         foreach (var id in _flinchOver) _flinch.Remove(id);
         foreach (var id in new List<int>(_flinch.Keys)) _flinch[id] += delta;
+        foreach (var (d, age) in Dying)
+        {
+            if (_seen.Contains(d.Id)) continue;   // the id is in play again
+            var p = new Vector3(d.Position.X, d.Position.Y, d.Position.Z);
+            Items.Add(new Item { Key = d.Id, Type = (int)d.Type, Position = p, Yaw = d.Yaw, Time = age, Clip = MusouLooks.Death, Distance = p.DistanceTo(camera) });
+        }
         _gone.Clear();
         foreach (var id in _clocks.Keys) if (!_seen.Contains(id)) _gone.Add(id);
         foreach (var id in _gone) _clocks.Remove(id);
