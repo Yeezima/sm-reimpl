@@ -30,6 +30,7 @@ return args switch
     ["musou-sounds", var musouDir, .. var musouRest] => SmTool.MusouSoundCommands.Run(musouDir, musouRest),
     ["ashfall-plan", .. var planRest] => SmTool.AshfallPlanCommand.Run(planRest),
     ["ashfall-kit-collision", .. var kitRest] => SmTool.AshfallKitCollisionCommand.Run(kitRest),
+    ["ashfall-kit-files"] => SmTool.AshfallKitFilesCommand.Run(),
 #endif
     ["weapon-dps", var gameDir, .. var rest] => SmTool.DpsCommands.Run(gameDir, rest),
     ["melee-steps", var gameDir, .. var rest] => SmTool.MeleeStepsCommand.Run(gameDir, rest),
