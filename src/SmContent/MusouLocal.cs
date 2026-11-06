@@ -38,6 +38,14 @@ public static class MusouLocal
     /// <summary>What the player reads while it starts.</summary>
     public const string PreparingText = "Preparing the battlefield (the first run maps it, this can take a few minutes)...";
 
+    /// <summary>
+    /// Most players in one Musou match (co-op, the owner 2026-11-06; the server's cap is <c>TfwCoop.MaxHumans</c> in the added content, which a test holds equal to this). The front end's
+    /// texts use it; the server enforces it.
+    /// </summary>
+    public const int MaxPlayers = 4;
+    /// <summary>The note on MUSOU MODE's page and under the Host panel in Musou.</summary>
+    public const string CoopNote = "Up to 4 players fight together as Space Marines against the Orks. Host a local lobby (LAN / Internet) and your friends join it by address.";
+
     public const string StartingText = "The Musou server is starting (it reads the game files first, this can take a minute). You join when it is ready.";
     public const string StoppedText = "Musou server stopped.";
 }

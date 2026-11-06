@@ -210,7 +210,7 @@ public sealed partial class TfwRun
         for (int k = 0; k < _deployed.Count; k++)
         {
             int id = _deployed[k];
-            var at = Ashore(w, layout, new Vector3(k % 2 * 3f - 1.5f, k / 2 * -3f, 0f));
+            var at = Ashore(w, layout, TfwCoop.LandingOffset(k));
             w.TfwRespawnAt(id, at, yaw);
             w.TfwSpawnRetainer(id, Ashore(w, layout, at - layout.LandingZone + new Vector3(0f, -2f, 0f)), yaw);
         }
@@ -237,6 +237,7 @@ public sealed partial class TfwRun
     {
         var battle = Battle!;
         _deployed.RemoveAll(id => !w.Players.ContainsKey(id));
+        JoinLate(w);   // TfwRun.Coop.cs: a human who joined during the battle is flown in
         if (_deployed.Count == 0) { Leave(w, !battle.Won, battle.Won ? TfwMapResult.Won : TfwMapResult.Left); return; }
 
         if (_feet.Length < w.Players.Count * 2) _feet = new Vector3[w.Players.Count * 4];
@@ -273,7 +274,8 @@ public sealed partial class TfwRun
         {
             var p = w.Players[id];
             if (p.Alive) { fighting = true; _reviveTicks.Remove(id); continue; }
-            if (Phase == TfwRunPhase.Pickup) EndPickup();
+            // A death cancels a pickup: the death itself (its first tick down), not every tick after it, so the living of a team can call one while a fallen one waits (co-op, 2026-11-06).
+            if (Phase == TfwRunPhase.Pickup && !_reviveTicks.ContainsKey(id)) EndPickup();
             bool up = RetainerUp?.Invoke(id) ?? w.TfwRetainerUp(id);
             if (!_reviveTicks.TryGetValue(id, out int left)) left = up ? Math.Max(1, (int)MathF.Round(TfwBattleRules.ReviveWindowSeconds * rate)) : 0;
             left = up ? Math.Max(0, left - 1) : 0;

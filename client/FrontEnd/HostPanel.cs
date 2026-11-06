@@ -38,7 +38,7 @@ public sealed partial class HostPanel : UiKit.MenuColumn
     readonly Label _loyalistCount, _chaosCount;
     int _loyalists, _chaos;   // fix/hosting-bots-logs: never remembered; 0 = no bots
     bool? _musouShown;   // the Musou lock last applied to the rows (null: not yet)
-    (string Mode, bool LocalOnly)? _beforeMusou;   // the mode and reach chosen before the Musou lock, restored when it lifts
+    string? _modeBeforeMusou;   // the mode chosen before the Musou lock, restored when it lifts (the reach is the player's in Musou too: co-op, 2026-11-06)
     bool _pendingJoin;
     double _startedAt;
     bool _autoDone, _stopOtherDone;
@@ -134,8 +134,18 @@ public sealed partial class HostPanel : UiKit.MenuColumn
     public (int Loyalists, int Chaos) Bots => (_loyalists, _chaos);
     public bool HasBotButtons => _addLoyalist is not null && _addChaos is not null;
 
-    /// <summary>The lobby's profile is Musou (experimental added content): the hosted server is this PC only (127.0.0.1), Annihilation, without bots (the enemies are the server's own).</summary>
+    /// <summary>
+    /// The lobby's profile is Musou (added content): the hosted server is Annihilation's rules without bots (the enemies are the server's own); who can join is chosen as for a match
+    /// (co-op, the owner 2026-11-06: THIS PC ONLY, or LAN / INTERNET for up to <see cref="MusouLocal.MaxPlayers"/> players). MUSOU MODE's PLAY ON THIS PC hosts this PC only.
+    /// </summary>
     public bool Musou => _content().HasFlag(SmSim.ContentExtras.Musou);
+
+    /// <summary>The reach row (self-test): whether it can be changed, and whether it says THIS PC ONLY.</summary>
+    public (bool Choosable, bool LocalOnly) Reach => (!_reachRow.Disabled, _localOnly);
+    /// <summary>Self-test: the reach row as a click on it would set it.</summary>
+    public void ChooseReachForTest(bool localOnly) { _reachRow.SetIndex(localOnly ? 0 : 1); _localOnly = localOnly; RefreshNote(); }
+    /// <summary>The note under the rows (self-test).</summary>
+    public string NoteText => _note.Text;
 
     /// <summary>The host button's text (self-test).</summary>
     public string HostButtonText => _hostButton.Text;
@@ -146,12 +156,12 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         bool musou = Musou;
         if (_musouShown == musou) return;
         _musouShown = musou;
-        if (musou) { _beforeMusou ??= (_mode, _localOnly); _mode = ServerLaunch.ModeAnnihilation; _localOnly = true; }
-        else if (_beforeMusou is { } before) { (_mode, _localOnly) = before; _beforeMusou = null; }
+        if (musou) { _modeBeforeMusou ??= _mode; _mode = ServerLaunch.ModeAnnihilation; }
+        else if (_modeBeforeMusou is { } before) { _mode = before; _modeBeforeMusou = null; }
         _modeRow.SetDisabled(musou); _modeRow.SetIndex(_mode == ServerLaunch.ModeSeize ? 1 : 0);
-        _reachRow.SetDisabled(musou); _reachRow.SetIndex(_localOnly ? 0 : 1);
-        _hostButton.Text = musou ? "START MUSOU" : "HOST A MATCH";
-        _hostButton.TooltipText = musou ? "Start a Musou server on this PC only and join it" : "Start a server on this PC and join it";
+        _reachRow.SetIndex(_localOnly ? 0 : 1);
+        _hostButton.Text = musou ? "HOST MUSOU" : "HOST A MATCH";
+        _hostButton.TooltipText = musou ? $"Start a Musou server on this PC for up to {MusouLocal.MaxPlayers} players and join it" : "Start a server on this PC and join it";
         RefreshNote();
     }
 
@@ -167,7 +177,7 @@ public sealed partial class HostPanel : UiKit.MenuColumn
     void RefreshNote()
     {
         int port = ServerLaunch.ValidatePort(_port.Text, out int p) is null ? p : ServerLaunch.DefaultPort;
-        _note.Text = ServerLaunch.ReachNote(port, _localOnly);
+        _note.Text = ServerLaunch.ReachNote(port, _localOnly) + (Musou ? " " + MusouLocal.CoopNote : "");
         _note.TooltipText = _note.Text;
     }
 
@@ -225,7 +235,7 @@ public sealed partial class HostPanel : UiKit.MenuColumn
         {
             int count = HostedBots.Count, pending = HostedBots.Pending;
             string bots = count > 0 ? HostBots.CountText(count) + (pending > 0 ? $" ({pending} more joining)" : "") : pending > 0 ? $"{pending} bots joining" : "no bots";
-            string hosted = o.Content == SmSim.ContentProfiles.Musou ? "Musou" : o.Mode == ServerLaunch.ModeSeize ? "Seize Ground" : "Annihilation";
+            string hosted = o.Content == SmSim.ContentProfiles.Musou ? $"Musou (up to {MusouLocal.MaxPlayers} players)" : o.Mode == ServerLaunch.ModeSeize ? "Seize Ground" : "Annihilation";
             _runningText.Text = ($"Hosting {hosted} on port {o.Port}, {(o.LocalOnly ? "this PC only" : "all interfaces")}" + ", " + bots + (HostedServer.Ready ? "" : " (starting...)")).ToUpperInvariant();
         }
         _runningText.TooltipText = _runningText.Text;
@@ -261,14 +271,20 @@ public sealed partial class HostPanel : UiKit.MenuColumn
     /// <summary>Who holds a port, by its owning processes (this install's server or another program).</summary>
     PortHolder HolderOf(IReadOnlyList<int> owners) => InstallServers.HolderOf(owners, _exe);
 
-    /// <summary>Starts hosting with the rows' choices (HOST A MATCH; MUSOU MODE from the main menu); the started server is joined by itself.</summary>
-    public void StartHosting()
+    /// <summary>
+    /// Starts hosting with the rows' choices (HOST A MATCH, HOST MUSOU; MUSOU MODE's PLAY ON THIS PC passes <paramref name="thisPcOnly"/>, which sets the reach row to THIS PC ONLY first);
+    /// the started server is joined by itself.
+    /// </summary>
+    public void StartHosting() => StartHosting(thisPcOnly: false);
+
+    public void StartHosting(bool thisPcOnly)
     {
+        if (thisPcOnly && !_localOnly) { _localOnly = true; _reachRow.SetIndex(0); RefreshNote(); }
         if (ServerLaunch.ValidatePort(_port.Text, out int port) is { } portProblem) { Say(portProblem, true); if (IsVisibleInTree()) _port.GrabFocus(); return; }
         if (ServerLaunch.PortProblem(port, HolderOf) is { } taken) { Say(taken, true); if (IsVisibleInTree()) _port.GrabFocus(); CheckInstallServers(force: true); return; }
         string content = SmSim.ContentProfiles.Name(_content());   // added content E1/E2: the server gets the lobby's profile, so the client that joins it is not refused
         bool musou = Musou;
-        if (musou) { _mode = ServerLaunch.ModeAnnihilation; _localOnly = true; }   // Musou: this PC only, the mode from the profile, no bots
+        if (musou) _mode = ServerLaunch.ModeAnnihilation;   // Musou: the mode from the profile, no bots; the reach as chosen (co-op)
         var plan = musou ? new List<BotSlot>() : HostBots.PlanSides(_loyalists, _chaos, HumanChaos);
         BotLaunch? bots = null;
         if (plan.Count > 0 && HostBots.BotExecutable(OS.GetExecutablePath()) is { } botExe)

@@ -117,23 +117,22 @@ public class TfwRunTests
     }
 
     [Fact]
-    public void A_human_who_joins_mid_battle_waits_in_the_stormbird_and_blocks_no_extraction()
+    public void A_human_who_joins_mid_battle_is_flown_in_has_a_say_and_holds_off_the_extraction_while_it_fights()
     {
+        // Co-op (2026-11-06; TfwCoopTests): before, a late joiner waited in the Stormbird with no say until the next deploy.
         var w = TfwRig.War();
         var run = w.Tfw!;
-        var battle = TfwRig.Deploy(w);
+        TfwRig.Deploy(w);
         w.Spawn(2, w.AssignClass(0));
         TfwRig.Seconds(w, 1f);
-        Assert.Equal([Human], run.InField);
-        Assert.True(TfwRig.InStormbird(w.Players[2].Position), $"{w.Players[2].Position}");
-        Assert.True(run.Enqueue(2, new TfwCommandRecord(1, TfwCommand.RequestPickup, 0)));
-        TfwRig.Steps(w, 2);
-        Assert.Equal(TfwRunPhase.Battle, run.Phase);                         // not in the field: no say
+        Assert.Equal([Human, 2], run.InField);
+        Assert.False(TfwRig.InStormbird(w.Players[2].Position), $"{w.Players[2].Position}");
         Assert.True(w.TfwKillForTests(Human));
         TfwRig.Seconds(w, TfwBattleRules.ExtractionPromptSeconds + 0.3f);
-        Assert.Equal((TfwRunPhase.Hub, 2), (run.Phase, run.Supplies));
-        TfwRig.Deploy(w);
-        Assert.Equal([Human, 2], run.InField);                               // both go on the next deploy
+        Assert.Equal((TfwRunPhase.Battle, 0), (run.Phase, run.ExtractionTicks));   // the joiner still fights
+        Assert.True(run.Enqueue(2, new TfwCommandRecord(1, TfwCommand.RequestPickup, 0)));
+        TfwRig.Steps(w, 2);
+        Assert.Equal(TfwRunPhase.Pickup, run.Phase);                          // in the field: its call counts
     }
 
     [Fact]

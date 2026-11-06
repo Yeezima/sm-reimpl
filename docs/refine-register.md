@@ -34,6 +34,7 @@ Scanned 2212 spec table rows: **1590 tagged**, 449 not tagged (read from data wi
 Scanned 2214 spec table rows: **1592 tagged**, 449 not tagged (read from data with high confidence), 173 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
 Scanned 2215 spec table rows: **1594 tagged**, 449 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
 Scanned 2219 spec table rows: **1598 tagged**, 449 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
+Scanned 2214 spec table rows: **1592 tagged**, 450 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -78,6 +79,10 @@ Scanned 2213 spec table rows: **1592 tagged**, 449 not tagged (read from data wi
 | **All areas** | **1594** | 1363 | 1245 | 475 | 38 |
 | Ork faction | 131 | 124 | 63 | 27 | 0 |
 | **All areas** | **1598** | 1367 | 1236 | 484 | 38 |
+| Core simulation (provisional values) | 275 | 259 | 215 | 35 | 1 |
+| General game design | 7 | 7 | 6 | 0 | 0 |
+| Ork faction | 117 | 110 | 62 | 18 | 0 |
+| **All areas** | **1592** | 1361 | 1237 | 475 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -90,6 +95,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: low | 583 |
 | kind: ours | 765 |
 | confidence: low | 584 |
+| kind: ours | 759 |
+| confidence: low | 585 |
 | confidence: medium | 524 |
 | confidence: low | 587 |
 | confidence: medium | 528 |
@@ -2034,6 +2041,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ### Core simulation (provisional values) (268)
 ### Core simulation (provisional values) (270)
+### Core simulation (provisional values) (275)
 
 *Spec section: Provisional values in use*
 
@@ -2465,6 +2473,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-0019EB8C` | Swing step-forward: thunder hammer and daemon maul | the light strikes × **0.7** on top of the 2026-11-01 trim 0.82 (0.574 × the lunge scale, 0.933 × the clip's): free swing 8.05 / 7.65 / 6.02 -> **5.63 / 5.35 / 4.19 m**. The maul taking it: our assumption (m) | kind: ours; kind: estimate; confidence: low | owner 2026-11-06 | Swing step-forward: thunder hammer and daemon maul: compare with SM1 by measuring on a flat spot of the same map. Ours: the light strikes × 0.7 on top of the 2026-11-01 trim 0.82 (0.574 ×… | ☐ |
+*Spec section: Added content: Musou Mode co-op for up to 4 players (2026-11-06; server, front end and release files; no protocol or wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-8406560B` | One side | every human is a Space Marine (Musou's join side, unchanged); a Deploy by any human in the Stormbird takes the whole team, as since TF4 | kind: ours | ours (TF4), kept | One side: compare with SM1 by feel or video. Ours: every human is a Space Marine (Musou's join side, unchanged); a… | ☐ |
+| `R-72B1364F` | Landing places | the k-th human in id order lands at (k mod 2 x 3 - 1.5, -3 x floor(k/2)) m from the landing zone, on the walking graph, facing the HQ, its retainer 2 m behind it (m) | kind: ours | ours (TF4's layout, kept for 4) | Landing places: compare with SM1 by measuring on a flat spot of the same map. Ours: the k-th human in id order lands at (k mod 2 x 3 - 1.5, -3 x… | ☐ |
+| `R-D6D3662D` | Join during a battle | a living human not in the field while a battle or the final assault is under way (it joined after the landing and spawned in the Stormbird) is flown in at the next landing place with its own retainer on the next tick, and is one of the team from then on… (ticks) | kind: ours | ours (before: it waited in the Stormbird until the team came back) | Join during a battle: compare with SM1 by feel or video. Ours: a living human not in the field while a battle or the final assault… | ☐ |
+| `R-37591C53` | A death cancels a pickup | only the death itself (a human's first tick down) cancels a pickup under way; a teammate already down no longer cancels each tick, so the living can call one while a fallen one waits for its revive (ticks) | kind: ours | ours (TF4's "a death cancels a pickup", read for a team) | A death cancels a pickup: compare with SM1 by feel or video. Ours: only the death itself (a human's first tick down) cancels a pickup… | ☐ |
+| `R-418BE0AE` | AI Marines with 4 humans | 8 puppet ids: 4 retainers, then each lord needs 2 more, so with 4 humans at most 2 lords land on a final assault (3 with 2 humans or fewer) (ids) | kind: ours; confidence: low | ours (the TF0 contract's 8 ids, unchanged) | AI Marines with 4 humans: compare with SM1 by feel or video. Ours: 8 puppet ids: 4 retainers, then each lord needs 2 more, so with 4… | ☐ |
+| `R-0D45CB82` | Hosting Musou | MUSOU MODE on the main menu opens its page: PLAY ON THIS PC (the one-press start of 2026-11-01: 127.0.0.1 only, joined by itself), HOST LOCAL LOBBY (the Host panel on the Musou profile: THIS PC ONLY or LAN / INTERNET and the port as for a match… | kind: ours | the owner's request (as classic PvP's local hosting); the layout ours | Hosting Musou: compare with SM1 by feel or video. Ours: MUSOU MODE on the main menu opens its page: PLAY ON THIS PC (the… | ☐ |
+| `R-E0F7D140` | Release files | "6 - Host Musou Mode on this PC.cmd" and "7 - Host Musou Mode for friends (LAN).cmd" run the bundled server with `--content musou` (no `--map`: Musou's own), this PC only or every interface, as files 3 and 5 do for a match | kind: ours | the owner's request | Release files: compare with SM1 by feel or video. Ours: "6 - Host Musou Mode on this PC.cmd" and "7 - Host Musou Mode for… | ☐ |
+| `R-A88A2513` | Co-op test bot | `--bot` on a Musou Mode server (not `--tfw-bot`, `--tfw-test`, `--coop-bot-off`): deploys to front B (`--coop-lane`) 20 s (`--coop-deploy-after`) after it joined, fights the nearest Ork shown within 150 m (melee within 2.6 m, fire within 35 m every other tick… (m, s) | kind: ours; confidence: low | ours (test script, not an AI of the original) | Co-op test bot: compare with SM1 by feel or video. Ours: --bot on a Musou Mode server (not --tfw-bot, --tfw-test… | ☐ |
 
 ### General game design (7)
 
@@ -2788,6 +2808,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-D5938EAB` | Golden weapon drops from Nobs and Chaos Marines | the owner's requests (2026-10-31) | each Nob or Chaos Marine KO drops one weapon per player from their class's pool, E equips it, 60 s | Musou weapon drops | Golden weapon drops from Nobs and Chaos Marines: compare with SM1 by feel or video. Ours: the owner's requests (2026-10-31). | ☐ |
 | `C-6A2CB579` | Musou Mode: an extraction after a won battle never ends the run | the owner's decision (2026-11-01) | the supplies fall by up to 2, never below 0, and the run goes on; from a battle not won, under 2 supplies still loses the run | War downed | Musou Mode: an extraction after a won battle never ends the…: compare with SM1 by timing a run over a known distance. Ours: the owner's decision (2026-11-01). | ☐ |
 | `C-2E0C8FD7` | Musou Mode: orbital support and the far war | the owner's items 10 and 12 and his decision of 2026-11-01: artillery only when a player calls it with B on the crosshair's point, starting at once; Thunderhawk runs paused by him the same day; SM1 multiplayer has none of this | a walking barrage on the called point, a 60 s cooldown per player in a battle and none at the Firing Range (the owner, 2026-11-06; none anywhere from 2026-11-01), friend and foe hurt; a muffled war heard round the map (sound only; the far fires and flak were taken out, 2026-11-02); the optional local whistle… | Musou Mode: fire support | Musou Mode: orbital support and the far war: compare with SM1 by feel or video. Ours: the owner's items 10 and 12 and his decision of 2026-11-01: artillery… | ☐ |
+| `C-CEB3ECD5` | Musou Mode co-op: up to 4 players, hosted like a match | the owner's request (2026-11-06); the cap of 4 his, the rest ours | a Musou match admits 4 players on one side; MUSOU MODE's page hosts it this PC only or LAN / Internet and joins by address; a human who joins during a battle is flown in at the landing zone | Musou Mode co-op for up to 4 players | Musou Mode co-op: up to 4 players, hosted like a match: compare with SM1 by feel or video. Ours: the owner's request (2026-11-06); the cap of 4 his, the rest ours. | ☐ |
+| `C-2E0C8FD7` | Musou Mode: orbital support and the far war | the owner's items 10 and 12 and his decision of 2026-11-01: artillery only when a player calls it with B on the crosshair's point, starting at once; Thunderhawk runs paused by him the same day; SM1 multiplayer has none of this | a walking barrage on the called point, no cooldown (the owner, 2026-11-01), friend and foe hurt; a muffled war heard round the map (sound only; the far fires and flak were taken out, 2026-11-02); the optional local whistle `client/assets/musou/whistle.ogg` is never shipped | Musou Mode: fire support | Musou Mode: orbital support and the far war: compare with SM1 by feel or video. Ours: the owner's items 10 and 12 and his decision of 2026-11-01: artillery… | ☐ |
 | `C-8D1FAC43` | Musou enemy sounds: only the nearest enemies are heard | ours (a crowd of hundreds against the original's dozens): the events and mix are the data's, when they play and how many are ours | 16 emitters within 30 m, 6 stepping, at most about 14 voices and 6 lines, a crowd voice never cuts a player's; the Warboss speaks with the `ork_nob` lines; the crowd's clip tags are stood in for by state changes and ground covered | Musou enemy sounds | Musou enemy sounds: only the nearest enemies are heard: compare with SM1 by feel or video. Ours: ours (a crowd of hundreds against the original's dozens): the events… | ☐ |
 | `C-09C74C8A` | Musou Mode replaces the 5-wave run | the owner's decision (2026-11-01) | `--content musou` runs the war on `tfw_war`, Manufactorum from the install with a generated Stormbird beside it and no spawn-room blockers; the 5-wave run stays only as a test aid (`--map mp_tdm_09`) | War map | Musou Mode replaces the 5-wave run: compare with SM1 by timing a run over a known distance. Ours: the owner's decision (2026-11-01). | ☐ |
 | `C-38A58728` | AI Marines in the war | the owner's decisions (2026-11-01) and ours | server-side puppets: a retainer per player who follows orders and revives, three lords with retainers who act alone; ammunition without end, placeholder names | Retainer orders | AI Marines in the war: compare with SM1 by feel or video. Ours: the owner's decisions (2026-11-01) and ours. | ☐ |

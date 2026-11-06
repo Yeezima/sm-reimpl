@@ -9,6 +9,8 @@
         3 - Host a match on this PC.cmd             the bundled server, this PC only
         4 - Join a server by address.cmd            asks for host:port and joins
         5 - Host a match for friends (LAN).cmd      the bundled server on every interface
+        6 - Host Musou Mode on this PC.cmd          Musou Mode co-op (up to 4 players) on the bundled server, this PC only
+        7 - Host Musou Mode for friends (LAN).cmd   the same on every interface
         game\     the Godot Windows export (self-contained .NET) and Launcher.ps1
         server\   the win64 dedicated server (self-contained)
         source\   sm-reimpl-source-<ver>.zip (the GPL source offer)
@@ -200,6 +202,8 @@ $TopFiles = [ordered]@{
     HOST    = @{ Name = '3 - Host a match on this PC.cmd';         Template = 'Host.cmd' }
     JOIN    = @{ Name = '4 - Join a server by address.cmd';        Template = 'Join.cmd' }
     HOSTLAN = @{ Name = '5 - Host a match for friends (LAN).cmd';  Template = 'HostLan.cmd' }
+    MUSOU   = @{ Name = '6 - Host Musou Mode on this PC.cmd';      Template = 'HostMusou.cmd' }
+    MUSOULAN = @{ Name = '7 - Host Musou Mode for friends (LAN).cmd'; Template = 'HostMusouLan.cmd' }
 }
 # The launcher (src/SmLauncher, a self-contained single-file exe) sits above them, numbered 0 so it is the first thing a tester sees. It keeps the
 # tester's install up to date from the releases of $Repo (docs/releasing.md, "The launcher"). Token @LAUNCHER@ in the templates.

@@ -37,6 +37,7 @@ public partial class NetworkView
         TfwScoreFrame(war, me);   // NetworkView.TfwRewards.cs
         TfwRewardFrame(war, me);
         TfwBotFrame(war, me);
+        TfwCoopBotFrame(war, me);   // NetworkView.TfwCoopBot.cs: co-op's --bot (deploy, log)
         TfwTestFrame();
         TfwRangeTestFrame();   // the Firing Range script (NetworkView.TfwRangeTest.cs); off without --tfw-test-range
     }

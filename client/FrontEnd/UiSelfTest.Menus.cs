@@ -91,14 +91,40 @@ public sealed partial class UiSelfTest
             await SendKey(Key.Escape);
             Check("menu: Esc stays on the main menu", _front.ShowsMainMenu);
 
-            // Musou: a row of its own; the --musou gate is gone; the remembered profile is not touched.
+            // Musou: a row of its own; the --musou gate is gone; the remembered profile is not touched. Co-op (2026-11-06): its page has PvP's three ways in.
             if (ContentExtras.Compiled)
             {
                 string saved = FrontEndSettings.Load(_services.SettingsDirectory).Content;
                 await PressRow("MUSOU MODE", main);
-                Check("menu: MUSOU MODE plays --content musou on this PC", musouStarted && _services.Content == ContentExtras.Musou, _services.Content.ToString());
-                Check("menu: the Host panel's Musou path locks the reach and the bots", _front.JoinHostPanel is { Musou: true, BotCount: 0 });
+                var musouPage = _front.MusouPage!;
+                Check("menu: MUSOU MODE opens its page on the Musou profile", musouPage.Visible && !_front.ShowsMainMenu && _services.Content == ContentExtras.Musou, _services.Content.ToString());
+                var musouRows = RowTexts(musouPage);
+                Check("menu: the Musou page has the three ways in", musouRows.Take(3).SequenceEqual(["PLAY ON THIS PC", "HOST LOCAL LOBBY", "JOIN LOCAL LOBBY"]), string.Join(", ", musouRows));
+                await PressRow("PLAY ON THIS PC", musouPage);
+                Check("menu: PLAY ON THIS PC plays --content musou on this PC", musouStarted && _services.Content == ContentExtras.Musou, _services.Content.ToString());
+                Check("menu: the Host panel's Musou path has no bots", _front.JoinHostPanel is { Musou: true, BotCount: 0 });
                 Check("menu: MUSOU MODE does not change the remembered content", FrontEndSettings.Load(_services.SettingsDirectory).Content == saved);
+                if (_front.JoinHostPanel is { } musouHost)
+                {
+                    await PressRow("HOST LOCAL LOBBY", musouPage);
+                    Check("menu: the Musou page's HOST LOCAL LOBBY opens the Host panel in Musou", _front.HostPage!.Visible && musouHost.Musou && musouHost.HostButtonText == "HOST MUSOU", musouHost.HostButtonText);
+                    Check("menu: ... where who can join is the player's choice (co-op)", musouHost.Reach.Choosable, musouHost.Reach.ToString());
+                    musouHost.ChooseReachForTest(localOnly: false);
+                    Check("menu: ... and the note says up to 4 players", musouHost.NoteText.Contains(MusouLocal.CoopNote, StringComparison.Ordinal), musouHost.NoteText);
+                    musouHost.ChooseReachForTest(localOnly: true);   // tests host this PC only
+                    await SendKey(Key.Escape);
+                    Check("menu: Esc on the Musou Host panel goes back to the Musou page", musouPage.Visible && _services.Content == ContentExtras.Musou, _services.Content.ToString());
+                }
+                await PressRow("JOIN LOCAL LOBBY", musouPage);
+                Check("menu: the Musou page's JOIN LOCAL LOBBY opens the address page", _front.JoinLocalPage!.Visible);
+                joined = null;
+                if (FindEdit(_front.JoinLocalPage!) is { } musouAddress) { musouAddress.Text = "127.0.0.1:27199"; await PressRow("CONNECT", _front.JoinLocalPage!); }
+                Check("menu: ... and CONNECT joins that address on the Musou profile", joined is { Host: "127.0.0.1:27199", Content: var joinedContent } && joinedContent == ContentExtras.Musou, joined?.Host);
+                await SendKey(Key.Escape);
+                Check("menu: Esc there goes back to the Musou page", musouPage.Visible);
+                await SendKey(Key.Escape);
+                Check("menu: Esc on the Musou page goes to the main menu", _front.ShowsMainMenu);
+                joined = null;
                 _front.ShowMainMenu();
                 await Frames(3);
                 Check("menu: back on the main menu the lobby's profile is in use", !_services.Content.HasFlag(ContentExtras.Musou), _services.Content.ToString());
@@ -116,12 +142,16 @@ public sealed partial class UiSelfTest
                       && stopRow.GetParent() == musouRow.GetParent() && stopRow.GetIndex() == musouRow.GetIndex() + 1);
                 musouStarted = false; joined = null;
                 await PressRow("MUSOU MODE", main);
+                await PressRow("PLAY ON THIS PC", _front.MusouPage!);
                 Check("menu: a press while the server starts neither starts a second server nor joins", !musouStarted && joined is null);
                 Check("menu: ... and the player is told it is starting", AllLabels(_front).Any(l => l.Visible && l.Text == MusouLocal.StartingText));
                 _front.MusouStateForTest = (true, true, true);    // listening
                 await Frames(2);
                 await PressRow("MUSOU MODE", main);
+                await PressRow("PLAY ON THIS PC", _front.MusouPage!);
                 Check("menu: a press on a ready Musou server joins it on this PC, Musou", !musouStarted && joined is { Host: var h } && h.StartsWith("127.0.0.1", StringComparison.Ordinal) && _services.Content == ContentExtras.Musou, joined?.Host);
+                _front.ShowMainMenu();
+                await Frames(3);
                 await PressRow("STOP MUSOU SERVER", main);
                 Check("menu: STOP MUSOU SERVER puts the lobby's profile back", !_services.Content.HasFlag(ContentExtras.Musou), _services.Content.ToString());
                 _front.MusouStateForTest = (false, false, false); // the process ended
