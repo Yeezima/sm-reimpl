@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2205 spec table rows: **1584 tagged**, 449 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 482 rows of the changes document.
+Scanned 2207 spec table rows: **1586 tagged**, 449 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,17 +50,17 @@ Scanned 2205 spec table rows: **1584 tagged**, 449 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
-| Core simulation (provisional values) | 267 | 251 | 213 | 35 | 1 |
+| Core simulation (provisional values) | 269 | 253 | 215 | 37 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 117 | 110 | 62 | 18 | 0 |
-| **All areas** | **1584** | 1353 | 1235 | 475 | 38 |
+| **All areas** | **1586** | 1355 | 1237 | 477 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 751 |
-| confidence: low | 583 |
+| kind: ours | 753 |
+| confidence: low | 585 |
 | confidence: medium | 524 |
 | kind: interpretation | 339 |
 | notes: ours | 320 |
@@ -68,7 +68,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: provisional | 99 |
 | kind: estimate | 81 |
 | kind: user's knowledge | 51 |
-| notes: estimate | 49 |
+| notes: estimate | 51 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
 | kind: choice | 35 |
@@ -1940,7 +1940,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-EB03504B` | Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks (s) | kind: ours; notes: estimate | owner 2026-11-02 | Shot lag allowance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each shot is also tried on the enemy's places over the last 0.2 s… | ☐ |
 
-### Core simulation (provisional values) (267)
+### Core simulation (provisional values) (269)
 
 *Spec section: Provisional values in use*
 
@@ -2043,6 +2043,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-08BE3C26` | War map | since G1 (2026-11-04) `tfw_war` is Ashfall Citadel, generated in code (docs/musou-ashfall-graybox.md; ours) and this row's Manufactorum composition is `tfw_war_m09`; one world under one name: Manufactorum's collision, kill region and props and its visuals… (m) | kind: ours | owner's item 4 (2026-11-01) and item 29; the measures read from the model's blocks 3, 11, 7, 13, 6, 9 and 0 (docs/discovery.md "Musou Mode pass 2: the hub")… | War map: compare with SM1 by measuring on a flat spot of the same map. Ours: since G1 (2026-11-04) tfw_war is Ashfall Citadel, generated in code… | ☐ |
+| `R-134A3F19` | Ashfall overlap rule (draft 7) | two different placed items' collision boxes (fitted to their models, so they stand for the drawn meshes) meet by at most 0.3 m of penetration (the depth along the box pair's shallowest separating axis); a later item that meets an earlier one deeper is moved… (m) | kind: ours; confidence: low; notes: estimate | owner 2026-11-06 ("change the generation rules so this doesn't happen on the next musou map draft. there are overlapping objects here."); the tolerance… | Ashfall overlap rule (draft 7): compare with SM1 by measuring on a flat spot of the same map. Ours: two different placed items' collision boxes (fitted to their models… | ☐ |
+| `R-CB5ABCA2` | Ashfall storm look (draft 7, client) | Musou Mode's Ashfall only: a storm sky shader (dark cloud deck, a warm band at the horizon under it, the sun breaking through with rays); the sun 17 degrees high at azimuth -22 degrees (just west of north: the attackers look into it), colour (1.0, 0.70… | kind: ours; confidence: low; notes: estimate | owner 2026-11-06 ("fires around the map, ashes flying around the sky, dark clouds in the skybox, light poking through. this is musou mode only.") and his… | Ashfall storm look (draft 7, client): compare with SM1 by feel or video. Ours: Musou Mode's Ashfall only: a storm sky shader (dark cloud deck, a… | ☐ |
 | `R-20236BCE` | War walking graph | the battlefield alone, 0.5 m cells, seeded from the map's own spawn markers, points and start areas with the bots' 30 m margin, so no node in the Stormbird and the spawn rooms open; cached as `tfw_war-musou-<key>.nav`; one node in four checked for 4 m of room… (m) | kind: ours | ours | War walking graph: compare with SM1 by measuring on a flat spot of the same map. Ours: the battlefield alone, 0.5 m cells, seeded from the map's own spawn… | ☐ |
 | `R-D0FB7BED` | War map look | the battlefield: the map's own meshes, lighting, effects and sounds (original asset loaded). The Stormbird: the original `thunderhawk_interior` from the singleplayer chunk `part_01__s_002_r001_new_greybox_1` (original asset loaded: 15 blocks, 28 surfaces with… | kind: ours; confidence: low | the look ours, checked in windowed captures against the owner's two references | War map look: compare with SM1 by feel or video. Ours: the battlefield: the map's own meshes, lighting, effects and sounds… | ☐ |
 | `R-756A7A26` | War camera in the room | the follow camera in the 5 m room, `--camera-probe`, an Assault bot's `--jump-test` for 35 s: no frame with the near plane in collision, nearest surface 0.20 m, 5 of 4,820 frames flagged as a jump over 0.5 m at 60 fps (0.55 to 0.77 m, at most 0.33 m of it… (m) | kind: ours | measured | War camera in the room: compare with SM1 by measuring on a flat spot of the same map. Ours: the follow camera in the 5 m room, --camera-probe, an Assault bot's… | ☐ |
@@ -2660,7 +2662,8 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-E41F34C3` | Musou Mode: a cleave of 20 | the owner's item 22 (2026-11-01) | a swing strikes up to 20 enemies | Melee and firepower | Musou Mode: a cleave of 20: compare with SM1 by feel or video. Ours: the owner's item 22 (2026-11-01). | ☐ |
 | `C-079F9B9C` | Musou Mode: shots pierce | the owner's item 24 (2026-11-01); SM1's shots stop on the first body | every ranged weapon goes through 1 to 8 enemies by weight | Melee and firepower | Musou Mode: shots pierce: compare with SM1 by shooting through a crate or a line of players and counting who is hit. Ours: the owner's item 24 (2026-11-01); SM1's shots stop on the first body. | ☐ |
 | `C-FC406EF5` | Musou Mode's battlefield is Ashfall Citadel, a generated graybox (G1, 2026-11-04) | the owner's start of 2026-11-04 (agent-coordination decision); every place and size ours (placeholder demonstration) | `tfw_war` is a 480 x 480 m city of primitive blocks built in code (docs/musou-ashfall-graybox.md: three capture points, a start area for each side, ruins, a crater field, a stronghold; nothing read from the install); the old war on Manufactorum stays as `tfw_war_m09` (`--map tfw_war_m09`), and classic PvP is untouched | War map | Musou Mode's battlefield is Ashfall Citadel, a generated…: compare with SM1 by feel or video. Ours: the owner's start of 2026-11-04 (agent-coordination decision); every… | ☐ |
-| `C-8004B302` | Ashfall Citadel is dressed with the owner's generated kit (draft 6, 2026-11-06: one asset per structure, collision from the assets, placed 1.5x, the new Meshy models preferred where they fit) | the owner's rules of 2026-11-06 (one standalone asset per graybox structure, collision = boxes fitted to each asset, the stronghold a breached ruin enclosure, the assets decide what is walkable, repeated surfaces varied by a fixed seed); every placement, size and model choice ours (placeholder demonstration) | `AshfallMap.Build()` is the draft-6 level (version 11, `DressVersion` 9, level hash `0xE72074A49D4449D9`; docs/musou-ashfall-graybox.md "Draft 6"): the v5 ground kinds and boundary plus the fitted collision boxes of the placed assets (walkable models also get sloped ramp wedges found in their top heightfields)… | the owner's eye on the look and on what is walkable (most raised floors are not); boundary-foot walls dropped; 182 k collision triangles; the keep has no matching asset | Ashfall Citadel is dressed with the owner's generated kit…: compare with SM1 by feel or video. Ours: the owner's rules of 2026-11-06 (one standalone asset per graybox… | ☐ |
+| `C-045C5258` | Ashfall Citadel is dressed with the owner's generated kit (draft 7, 2026-11-06: one asset per structure, collision from the assets, placed 1.5x, the new Meshy models preferred where they fit, no two objects overlapping) | the owner's rules of 2026-11-06 (one standalone asset per graybox structure, collision = boxes fitted to each asset, the stronghold a breached ruin enclosure, the assets decide what is walkable, repeated surfaces varied by a fixed seed); every placement, size and model choice ours (placeholder demonstration) | `AshfallMap.Build()` is the draft-7 level (version 12, `DressVersion` 10, level hash `0x29D435A1D94CD3CF`; docs/musou-ashfall-graybox.md "Draft 6" and "Draft 7": two items' collision boxes meet by at most 0.3 m, later items move, shrink, trim or are left out): the v5 ground kinds and boundary plus the fitted collision… | the owner's eye on the look and on what is walkable (most raised floors are not); boundary-foot walls dropped; 182 k collision triangles; the keep has no matching asset | Ashfall Citadel is dressed with the owner's generated kit…: compare with SM1 by feel or video. Ours: the owner's rules of 2026-11-06 (one standalone asset per graybox… | ☐ |
+| `C-DFC081B4` | Ashfall's storm look (draft 7, client, Musou Mode only) | the owner's request of 2026-11-06 ("fires around the map, ashes flying around the sky, dark clouds in the skybox, light poking through. this is musou mode only.") and his reference image; every value ours | on `tfw_war` only: a storm sky shader, a low warm sun, ACES grade, fog and volumetric light shafts, soft light-shaft beams, 9 smoke plumes and 34 fires at deterministic spots, ash, rock flakes and embers around the camera (`AshfallStorm`, `AshfallAtmosphere`); scaled by the lighting preset, thinner on the… | Ashfall storm look (draft 7, client) | Ashfall's storm look (draft 7, client, Musou Mode only): compare with SM1 by feel or video. Ours: the owner's request of 2026-11-06 ("fires around the map, ashes… | ☐ |
 
 ### Deliberate changes (owner's decisions)
 

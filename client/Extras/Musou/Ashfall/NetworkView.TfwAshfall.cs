@@ -35,10 +35,22 @@ public partial class NetworkView
             if (_sun is not null && _environment is not null) AshfallView.ApplyLook(_sun, _environment);
             drawn = true;
             TfwAshfallKit(level, dressing, view);
+            TfwAshfallStorm(level, dressing, view);
         }
         catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException))
         {
             GD.Print($"ashfall: the graybox view failed ({e.GetType().Name}: {e.Message}); the grey collision is drawn instead");
+        }
+    }
+
+    /// <summary>Draft 7's map-wide storm look (<see cref="AshfallStorm"/>; <c>--ashfall-weather plain</c> leaves it out). Under the map's view, so it goes with the map; any failure leaves the map as drawn.</summary>
+    void TfwAshfallStorm(AshfallLevel level, AshfallDressing dressing, AshfallView view)
+    {
+        if (_sun is null || _environment is null || AshfallStorm.Off) return;
+        try { AshfallStorm.Attach(view, level, dressing, _sun, _environment); }
+        catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException or System.OutOfMemoryException))
+        {
+            GD.Print($"ashfall storm: the storm look failed ({e.GetType().Name}: {e.Message}); the plain look stays");
         }
     }
 
