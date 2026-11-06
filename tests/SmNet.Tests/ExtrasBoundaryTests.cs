@@ -22,7 +22,8 @@ public class ExtrasBoundaryTests
     static readonly HashSet<(string File, string Hook)> Hooks =
     [
         ("src/SmSim/ContentExtras.cs", "ExtrasHash"),              // SimConfig.ExtrasHash(BinaryWriter), called in SimConfig.Hash
-        ("src/SmSim/ContentExtras.cs", "ExtrasAirJumps"),          // SimConfig.ExtrasAirJumps(ref bool), read by SimConfig.JumpPackAirJumps (sim/air-jumps: Musou Mode keeps the jump-pack air jump)
+        ("src/SmSim/ContentExtras.cs", "ExtrasAirJumps"),
+        ("src/SmSim/ContentExtras.cs", "ExtrasNoBulletSpread"),    // SimConfig.ExtrasNoBulletSpread(ref bool), read by SimConfig.NoBulletSpread (musou/no-spread: Musou Mode's shots have no spread)          // SimConfig.ExtrasAirJumps(ref bool), read by SimConfig.JumpPackAirJumps (sim/air-jumps: Musou Mode keeps the jump-pack air jump)
         ("src/SmContent/GameplayTuning.cs", "ExtrasLoad"),         // GameplayTuning.ExtrasLoad(ref SimConfig, string, List<string>), called in LoadForMatch
         ("src/SmServer/GameServer.Envelope.cs", "ExtrasSend"),     // GameServer.ExtrasSend(), called once a tick after SendPickups (E3's envelope), only with added content
         ("client/NetworkView.cs", "ExtrasInput"),                  // NetworkView.ExtrasInput(ref PlayerInput), on every sampled live input (loyalist barks: the FOR THE EMPEROR key)

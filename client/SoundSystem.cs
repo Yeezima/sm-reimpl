@@ -33,6 +33,11 @@ public sealed class SoundEmitter
     /// distance and is read every frame.
     /// </summary>
     public Dictionary<uint, float> Parameters = new();
+    /// <summary>
+    /// Replaces the distance curves (dry volume and low-pass) of this emitter's positioned voices; null keeps each voice's own. Musou's Orks (2026-11-07, the owner: "muffled, similar to weapons
+    /// fire"): their voices take the weapon-fire curve (<see cref="SoundSystem.AttenuationOf"/>), so they carry and grow duller with distance instead of vanishing past 10 m.
+    /// </summary>
+    public SmFormats.Audio.WwiseAttenuation? AttenuationOverride;
 
     public Vector3 Current => Follow?.Invoke() ?? Position;
 }
@@ -308,6 +313,15 @@ public partial class SoundSystem : Node
         return SpeechResult.Started;
     }
 
+    /// <summary>The distance curves of an event's first positioned voice (null: no catalogue, no such event or no curve). Resolved through a post that plays nothing.</summary>
+    public SmFormats.Audio.WwiseAttenuation? AttenuationOf(string eventName)
+    {
+        if (_catalog is null || string.IsNullOrEmpty(eventName)) return null;
+        var play = _catalog.Post(eventName, new SoundSwitches());
+        foreach (var v in play.Voices) if (v.Is3D && v.Attenuation is not null) return v.Attenuation;
+        return null;
+    }
+
     static bool IsSpeech(string evt) => evt.StartsWith("speech/", StringComparison.Ordinal);
 
     /// <summary>The voices of an emitter group playing or about to (<see cref="SoundEmitter.Group"/>): all of them, and the character lines among them. Virtual voices do not count.</summary>
@@ -487,6 +501,7 @@ public partial class SoundSystem : Node
     void Start(Pending p, AudioStreamOggVorbis stream)
     {
         var v = p.Voice;
+        if (v.Is3D && v.Attenuation is not null && p.Emitter.AttenuationOverride is { } curve) v = v with { Attenuation = curve };
         if (v.LoopCount == 0)
         {
             stream = (AudioStreamOggVorbis)stream.Duplicate();   // the cached stream stays one-shot

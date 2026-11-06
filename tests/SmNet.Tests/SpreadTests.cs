@@ -27,7 +27,7 @@ public class SpreadTests
         new(name, WeaponSlot.Ranged, trigger, 20f, cooldown, 30, 270, 1.5f, 250f, 245f, 250f, 1f, 2.5f, 1f, 0.5f, 0.5f) { HitType = DamageType.Ranged };
 
     static readonly WeaponSpec BolterBase = Gun("bolter", TriggerKind.FullAuto, 0.155f) with { Spread = BolterSpread };
-    static readonly WeaponSpec Bolter = BolterBase with { Variants = [new([Targeter], BolterBase with { Spread = TargeterSpread })] };
+    internal static readonly WeaponSpec Bolter = BolterBase with { Variants = [new([Targeter], BolterBase with { Spread = TargeterSpread })] };
     static readonly WeaponSpec StalkerBase = Gun("stalker", TriggerKind.SemiAuto, 0.267f) with { Spread = Spec(Set("s", 0.4f, 0.85f, 2.15f, 3f, 0.15f), Set("sa", 0.225f, 0.7f, 1.8f, 3f, 0.15f)) };
     static readonly WeaponSpec Stalker = StalkerBase with
     {
@@ -35,7 +35,7 @@ public class SpreadTests
             Spread = Spec(Set("burst", 0.4f, 0.6f, 2.5f, 2.5f, 0.25f), Set("aim_burst", 0.225f, 0.35f, 2.25f, 3f, 0.25f)) })],
     };
 
-    static readonly SimConfig Config = new()
+    internal static readonly SimConfig Config = new()
     {
         Weapons = [Bolter, Stalker],
         Perks = [new PerkSpec("mp_perk_weap_bolter_accuracy", Targeter, PerkKind.Class, 1), new PerkSpec("mp_perk_weap_stalker_zoom_modes", Burst, PerkKind.Class, 1)],
@@ -47,7 +47,7 @@ public class SpreadTests
         HealthMax = 100f, ShieldMax = 0f, HealthRegenDelay = 1e6f, ShieldRegenDelay = 1e6f,
     };
 
-    static PlayerState Fresh(int primary = 0, int perk = -1) =>
+    internal static PlayerState Fresh(int primary = 0, int perk = -1) =>
         Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = 0, Primary = primary, Perk1 = perk, Perk2 = -1 }, Config);
 
     static PlayerInput Fire(uint tick, InputButtons extra = InputButtons.None, float yaw = 0f) => new(tick, 0f, 0f, yaw, InputButtons.Fire | extra);

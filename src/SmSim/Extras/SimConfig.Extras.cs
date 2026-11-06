@@ -22,4 +22,10 @@ public sealed partial record SimConfig
     {
         if (Extras.HasFlag(ContentExtras.Musou)) allowed = true;
     }
+
+    // musou/no-spread (owner, 2026-11-06): Musou Mode's shots have no spread at all.
+    partial void ExtrasNoBulletSpread(ref bool off)
+    {
+        if (Extras.HasFlag(ContentExtras.Musou)) off = true;
+    }
 }
