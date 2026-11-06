@@ -189,9 +189,13 @@ public class ArmourBreakRingTests
         t.Hit(2, 0.0, armourUp: true, regenDelay: 7f);
         t.Broke(2, 1.0, 7f);
         Assert.True(t.At(2, 1.0).Break > 0.9f);
-        Assert.True(t.BreakRing(2, 1.0));
+        Assert.False(t.BreakRing(2, 1.0));          // pvp-hit-fx: the engulfing glow by default
+        ArmourFlashTracker.Ring = true;              // --old-break-ring
+        try { Assert.True(t.BreakRing(2, 1.0)); } finally { ArmourFlashTracker.Ring = false; }
+        Assert.True(t.TryTakeBreak(out _));
         t.Broke(2, 2.5, 7f);                       // still down: no new break
         Assert.False(t.BreakRing(2, 2.5));
+        Assert.False(t.TryTakeBreak(out _));
     }
 }
 

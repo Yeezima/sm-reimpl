@@ -180,7 +180,8 @@ public static class Surfaces
 /// </para>
 /// </summary>
 public sealed record CharacterSurface(string Surface, string DamageClass, IReadOnlyDictionary<string, (string Surface, string DamageClass)> Zones,
-    string ArmourSurface = "ceramite_armour", IReadOnlyList<FxPlay>? ArmourHitEffects = null, IReadOnlyList<FxPlay>? ArmourInactiveHitEffects = null)
+    string ArmourSurface = "ceramite_armour", IReadOnlyList<FxPlay>? ArmourHitEffects = null, IReadOnlyList<FxPlay>? ArmourInactiveHitEffects = null,
+    IReadOnlyList<FxPlay>? ArmourBrokenEffects = null)
 {
     public static readonly CharacterSurface Unknown = new("broken_ceramite", "default_body", new Dictionary<string, (string, string)>());
 
@@ -188,6 +189,11 @@ public sealed record CharacterSurface(string Surface, string DamageClass, IReadO
     public IReadOnlyList<FxPlay> ArmourHit => ArmourHitEffects ?? [];
     /// <summary>Effects on the victim of a hit that struck broken armour (empty when the blueprint names none).</summary>
     public IReadOnlyList<FxPlay> ArmourInactiveHit => ArmourInactiveHitEffects ?? [];
+    /// <summary>
+    /// pvp-hit-fx: the effects the blueprint plays on the body when the armour breaks (<c>armourshield_broken</c>, default variant, not the local-player-only screen effects):
+    /// <c>sm_armor_break_shoulders</c> on <c>rig_spined</c> for the MP marines (empty when the blueprint names none).
+    /// </summary>
+    public IReadOnlyList<FxPlay> ArmourBroken => ArmourBrokenEffects ?? [];
 
     public static CharacterSurface? Read(BafDocument blueprint)
     {
@@ -199,7 +205,7 @@ public sealed record CharacterSurface(string Surface, string DamageClass, IReadO
                 zones.TryAdd(zone, (o.String("material_audio_visual") ?? surface, o.String("material_simulation") ?? cls));
         // health_ext/armourshield_info holds one entry (named armourshield_info again; the default variant is the first).
         string armour = "ceramite_armour";
-        IReadOnlyList<FxPlay> hit = [], inactive = [];
+        IReadOnlyList<FxPlay> hit = [], inactive = [], broken = [];
         if (blueprint.Root.Table("extensions/health_ext/armourshield_info") is { } info
             && info.Entries.FirstOrDefault(x => x.Type == BafType.Table) is { } first)
         {
@@ -207,8 +213,9 @@ public sealed record CharacterSurface(string Surface, string DamageClass, IReadO
             armour = entry.String("armourshield_material") is { Length: > 0 } m ? m : armour;
             hit = Plays(entry.Table("armourshield_hit"));
             inactive = Plays(entry.Table("armourshield_inactive_hit"));
+            broken = Plays(entry.Table("armourshield_broken")).Where(p => !p.OnlyIfOnPlayer).ToList();
         }
-        return new CharacterSurface(surface, cls, zones, armour, hit, inactive);
+        return new CharacterSurface(surface, cls, zones, armour, hit, inactive, broken);
 
         static IReadOnlyList<FxPlay> Plays(BafTable? t) => t is not { } table ? [] : FxBinding.Collect(table).Where(b => b.Play is not null && b.IsDefault).Select(b => b.Play!).ToList();
     }
