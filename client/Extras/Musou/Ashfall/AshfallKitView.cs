@@ -168,6 +168,8 @@ uniform float tile = 8.0;
 varying vec3 wpos;
 varying vec3 wnor;
 uniform float grime = 0.0;
+uniform float dark = 1.0;   // ashfall darkening (AshfallGrime): the whole surface times this
+uniform vec3 dark_tint = vec3(1.0);
 float gh21(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
 float gvn(vec2 p) {
 	vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -180,10 +182,16 @@ vec3 grimed(vec3 c, vec2 p, float k) {
 	float n1 = gfbm(p * 0.16 + 4.7);
 	float n2 = gfbm(p * 0.6 + 17.0);
 	float n3 = gfbm(p * 2.3 + 5.0);
-	float soot = smoothstep(0.42, 0.72, n1) * 0.6 + smoothstep(0.5, 0.8, n2) * 0.45;
+	float soot = smoothstep(0.42, 0.72, n1) * 0.7 + smoothstep(0.5, 0.8, n2) * 0.5;
 	float ash = smoothstep(0.66, 0.92, 1.0 - n1) * 0.30;
-	c = mix(c, vec3(0.10, 0.095, 0.088) * (0.8 + 0.4 * n3), clamp(soot, 0.0, 0.7) * k);
-	c = mix(c, vec3(0.50, 0.49, 0.47), ash * k);
+	c = mix(c, vec3(0.07, 0.068, 0.064) * (0.8 + 0.4 * n3), clamp(soot, 0.0, 0.8) * k);
+	c = mix(c, vec3(0.40, 0.395, 0.385), ash * k);
+	// scorch marks: large dark radial patches on a jittered 20 m grid
+	vec2 sc = p / 20.0; vec2 si = floor(sc); vec2 sf = fract(sc);
+	vec2 cen = vec2(0.25 + 0.5 * gh21(si + 3.0), 0.25 + 0.5 * gh21(si + 9.0));
+	float on = step(0.45, gh21(si + 17.0));
+	float sr = length(sf - cen) * (0.8 + 0.4 * n2);
+	c = mix(c, vec3(0.04, 0.038, 0.036), (1.0 - smoothstep(0.08, 0.26, sr)) * on * 0.8 * k);
 	return c * (1.0 - 0.3 * k * (n3 - 0.5)) * (1.0 - 0.18 * k);   // grit, and the whole ground a little dimmer: the pale paving no longer glares
 }
 uint cellhash(int a, int b, int s) {
@@ -216,7 +224,7 @@ void fragment() {
 	vec3 c = texture(tex, p / tile).rgb;
 	c = ((c - 0.58) * (1.0 + 0.24 * (gn - 0.5)) + 0.58) * (1.0 + 0.08 * (tn - 0.5));
 	c = grimed(c, wpos.xz, grime);
-	ALBEDO = c * tint.rgb;
+	ALBEDO = c * tint.rgb * dark * dark_tint;
 	ROUGHNESS = 1.0;
 }
 """;
@@ -231,6 +239,8 @@ uniform float tile = 4.0;
 varying vec3 wpos;
 varying vec3 wnor;
 uniform float grime = 0.0;
+uniform float dark = 1.0;   // ashfall darkening (AshfallGrime): the whole surface times this
+uniform vec3 dark_tint = vec3(1.0);
 // Concept light pass (2026-11-06; ours): the drawn wall ends in a ruined top this high (metres; 0 = the full wall). Drawing only: the collision keeps its full height.
 uniform float top_cut = 0.0;
 uniform float desat = 0.0;   // and its stone this much nearer a neutral grey (0: the texture's own hue)
@@ -318,7 +328,7 @@ void fragment() {
 	}
 	vec2 face = an.y > an.x && an.y > an.z ? wpos.xz : vec2(xface ? wpos.z : wpos.x, wpos.y);
 	c = grimed(c, face, grime * (0.6 + 0.6 * (1.0 - smoothstep(0.0, 5.0, wpos.y))));
-	ALBEDO = mix(c, vec3(dot(c, vec3(0.3, 0.59, 0.11))), desat) * tint.rgb;
+	ALBEDO = mix(c, vec3(dot(c, vec3(0.3, 0.59, 0.11))), desat) * tint.rgb * dark * dark_tint;
 	EMISSION = ALBEDO * bounce;
 	ROUGHNESS = 1.0;
 }

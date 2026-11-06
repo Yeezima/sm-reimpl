@@ -32,7 +32,31 @@ public static class AshfallGrime
     /// <summary>Whether the models get the overlay pass at this quality (the storm's scale: 1 at Medium) and renderer.</summary>
     public static bool Overlay(float quality, bool compat) => !compat && quality >= 0.9f && !Off;
 
+    /// <summary>Whether the darkening (the multiply pass on the models and the ground's dark uniforms) applies; <c>--ashfall-darken off</c> (test aid) leaves only that out. Every renderer and quality.</summary>
+    public static bool Darken => !Off && !DarkenOff;
+
+    static bool DarkenOff
+    {
+        get
+        {
+            var args = OS.GetCmdlineUserArgs();
+            int i = Array.IndexOf(args, "--ashfall-darken");
+            return i >= 0 && i + 1 < args.Length && args[i + 1] == "off";
+        }
+    }
+
+    /// <summary>The ground and boundary shaders' <c>dark</c> multiplier and cool tint (ours; refine register).</summary>
+    public const float GroundDark = 0.62f;
+
+    /// <summary>The plaza paving's (pale cream texture, in full sun): darker still, to a mid-dark flagstone grey.</summary>
+    public const float PavingDark = 0.40f;
+    public static readonly Color GroundDarkTint = new(0.95f, 0.97f, 1.0f);
+
     static ShaderMaterial? _overlay;
+    static ShaderMaterial? _darken;
+
+    /// <summary>The models' multiply material (one, shared).</summary>
+    public static ShaderMaterial DarkenMaterial() => _darken ??= new ShaderMaterial { Shader = new Shader { Code = DarkenShader } };
 
     /// <summary>The floor wash of the concept light pass (0 to 1; ours): set on the shared overlay by <see cref="AshfallStorm"/>.</summary>
     public const float LightPassWash = 1f;
@@ -45,19 +69,30 @@ public static class AshfallGrime
     {
         if (Off || root?.FindChild("KitLook", true, false) is not Node kit) return 0;
         int ground = 0;
+        bool darken = Darken;
         if (kit.GetNodeOrNull("Remainder") is { } remainder)
             foreach (var child in remainder.GetChildren())
-                if (child is MeshInstance3D { MaterialOverride: ShaderMaterial sm } && sm.Shader?.Code.Contains("uniform float grime") == true)
+                if (child is MeshInstance3D { MaterialOverride: ShaderMaterial sm } && sm.Shader is { } sh)
                 {
-                    sm.SetShaderParameter("grime", GroundAmount);
-                    ground++;
+                    if (sh.Code.Contains("uniform float grime"))
+                    {
+                        sm.SetShaderParameter("grime", GroundAmount);
+                        ground++;
+                    }
+                    if (darken && sh.Code.Contains("uniform float dark"))
+                    {
+                        sm.SetShaderParameter("dark", child.Name == "Paving" ? PavingDark : GroundDark);
+                        sm.SetShaderParameter("dark_tint", new Vector3(GroundDarkTint.R, GroundDarkTint.G, GroundDarkTint.B));
+                    }
                 }
-        if (Overlay(quality, compat) && kit.GetNodeOrNull("Items") is { } items)
+        bool overlay = Overlay(quality, compat);
+        if ((overlay || darken) && kit.GetNodeOrNull("Items") is { } items)
         {
-            var overlay = OverlayMaterial();
-            foreach (var child in items.GetChildren())
-                if (child is MeshInstance3D mi) mi.MaterialOverlay = overlay;
-            items.ChildEnteredTree += n => { if (n is MeshInstance3D mi) mi.MaterialOverlay = overlay; };
+            ShaderMaterial top = overlay ? OverlayMaterial() : DarkenMaterial();
+            if (overlay && darken) top.NextPass = DarkenMaterial();
+            void Give(Node n) { if (n is MeshInstance3D mi) mi.MaterialOverlay = top; foreach (var c in n.GetChildren()) Give(c); }
+            foreach (var child in items.GetChildren()) Give(child);
+            items.ChildEnteredTree += Give;
         }
         return ground;
     }
@@ -105,6 +140,46 @@ void fragment() {
 	ALBEDO = (col * a + vec3(0.21, 0.215, 0.225) * w * (1.0 - a)) / max(total, 1e-3);
 	ALPHA = total;
 	ROUGHNESS = 1.0;
+}
+""";
+
+    /// <summary>
+    /// The models' multiply pass (ours; the owner, 2026-11-06: darker, grittier, dirtier): an unshaded blend_mul overlay whose colour is a cool grey times world-space variation (blotches at about 7 m, stains at about 1.7 m,
+    /// streaks down walls, a soot band at the wall foot, fine grit), fading to 1 with distance as the fog thickens so far ruins keep their aerial perspective. Plain GLSL, runs on the Compatibility renderer too.
+    /// </summary>
+    public const string DarkenShader = """
+shader_type spatial;
+render_mode unshaded, blend_mul, depth_draw_never, depth_test_default, cull_back, fog_disabled, shadows_disabled;
+uniform vec3 base = vec3(0.58, 0.60, 0.67);
+uniform float fog_density = 0.0036;
+varying vec3 wpos;
+varying vec3 wnor;
+float h21(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+float vn(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(h21(i), h21(i + vec2(1, 0)), f.x), mix(h21(i + vec2(0, 1)), h21(i + vec2(1, 1)), f.x), f.y);
+}
+float fbm(vec2 p) { float v = 0.0; float a = 0.5; for (int i = 0; i < 3; i++) { v += a * vn(p); p = p * 2.07 + vec2(3.1, 7.7); a *= 0.5; } return v / 0.875; }
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	wnor = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+}
+void fragment() {
+	float up = wnor.y;
+	float side = 1.0 - abs(up);
+	vec2 along = abs(up) > 0.7 ? wpos.xz : (abs(wnor.x) > abs(wnor.z) ? wpos.zy : wpos.xy);
+	float blot = fbm(along * 0.14 + 1.3);
+	float m = mix(0.78, 1.05, smoothstep(0.25, 0.75, blot));
+	float stain = fbm(along * 0.6 + 8.0);
+	m *= 1.0 - 0.3 * smoothstep(0.58, 0.8, stain);
+	float streak = smoothstep(0.55, 0.92, vn(vec2(dot(wpos.xz, vec2(1.7, 1.3)) * 2.2, wpos.y * 0.12)));
+	m *= 1.0 - 0.22 * streak * side;
+	m *= 1.0 - 0.25 * (1.0 - smoothstep(0.0, 2.5, wpos.y)) * side;
+	m *= 1.0 + 0.12 * (vn(along * 3.3 + 11.0) - 0.5);
+	vec3 col = base * m;
+	float dist = length(VERTEX);
+	col = mix(col, vec3(1.0), 1.0 - exp(-fog_density * dist * 1.2));
+	ALBEDO = col;
 }
 """;
 }
