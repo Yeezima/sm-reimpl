@@ -1090,14 +1090,18 @@ if (-not $SkipBuild) {
             $kitArgs = @('run', '--project', $smtoolProj, '-c', 'Release', '--no-build', '--', 'ashfall-kit-files')
             $kitFiles = @(& dotnet @kitArgs | Where-Object { $_ -match '\.(glb|jpg)$' })
             if ($LASTEXITCODE -ne 0 -or $kitFiles.Count -eq 0) { Fail 'smtool ashfall-kit-files listed no files.' }
+            # The Blender-baked copies (tools/blender/ashfall_bake.py: ashfall-kit\processed\, same relative paths) ship in place of the originals when present (owner, 2026-11-06).
+            $kitProcessed = Join-Path $dataRoot 'ashfall-kit\processed'
+            $processedCount = 0
             foreach ($rel in $kitFiles) {
-                $from = Join-Path $kitSrc ($rel -replace '/', '\')
+                $from = Join-Path $kitProcessed ($rel -replace '/', '\')
+                if (Test-Path -LiteralPath $from) { $processedCount++ } else { $from = Join-Path $kitSrc ($rel -replace '/', '\') }
                 if (-not (Test-Path -LiteralPath $from)) { Fail "Ashfall kit file missing: $from" }
                 $to = Join-Path $exportDir ('ashfall-kit\' + ($rel -replace '/', '\'))
                 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $to) | Out-Null
                 Copy-Item -LiteralPath $from -Destination $to
             }
-            Write-Host "  Ashfall kit: $($kitFiles.Count) files bundled (models and the storm sky)"
+            Write-Host "  Ashfall kit: $($kitFiles.Count) files bundled (models and the storm sky; $processedCount baked copies)"
         }
 
         Time-Step 'zips'
