@@ -47,6 +47,11 @@ public sealed record FxBinding(string Path, string Event, string Ability, IReadO
 {
     public bool IsDefault => RequiredUpgrades.Count == 0;
     public bool InDelivery => Path.Contains("/delivery/", StringComparison.Ordinal);
+    /// <summary>
+    /// fx/plasma-blast: the command sits in an <c>area_of_effect</c>'s <c>hit_actions</c>, so it runs once per entity the blast reaches (at that entity), not at the blast point
+    /// (the charged plasma cannon's <c>hit_from_player_highlight</c>, the krak grenade's screen effects).
+    /// </summary>
+    public bool OnAreaTarget => Path.Contains("/area_of_effect/hit_actions/", StringComparison.Ordinal);
     /// <summary>The charge state the command sits in (the table under <c>charge_states</c>, e.g. "3.charge_medium"), empty outside one.</summary>
     public string ChargeStage
     {
@@ -231,7 +236,12 @@ public sealed record ProjectileEffects(string Blueprint, IReadOnlyList<FxBinding
     public IReadOnlyList<FxPlay> Trail => Bindings.Where(b => b.IsDefault && b.Event == "lifetime_action" && b.Play is not null).Select(b => b.Play!).ToList();
     public IReadOnlyList<FxPlay> Detonation => Bindings.Where(b => b.IsDefault && b.Event == "detonate_action" && b.Play is not null).Select(b => b.Play!).ToList();
     /// <summary>The detonation's material effect container (the grenade launcher's: explosion by the surface it lands on), or null.</summary>
-    public FxMaterialTrigger? DetonationMaterial => Bindings.FirstOrDefault(b => b.IsDefault && b.Event == "detonate_action" && b.Material is not null)?.Material;
+    /// <remarks>fx/plasma-blast: a container under the blast's <c>area_of_effect/hit_actions</c> (<see cref="FxBinding.OnAreaTarget"/>, per entity hit) is skipped: the charged plasma
+    /// cannon lists <c>hit_from_player_highlight</c> there before its own <c>plasma_cannon_charged_mp</c>, and that container has no entry for stone or metal, so the blast
+    /// drew the placeholder sphere instead of the original explosion.</remarks>
+    public FxMaterialTrigger? DetonationMaterial => Bindings.FirstOrDefault(b => b.IsDefault && b.Event == "detonate_action" && b.Material is not null && !b.OnAreaTarget)?.Material;
+    /// <summary>The choice before fx/plasma-blast: the first detonation container, a per-victim one included (client <c>--old-plasma-blast</c>).</summary>
+    public FxMaterialTrigger? DetonationMaterialOld => Bindings.FirstOrDefault(b => b.IsDefault && b.Event == "detonate_action" && b.Material is not null)?.Material;
 }
 
 /// <summary>
@@ -426,6 +436,26 @@ public sealed class EffectCatalogue
         var (name, cls) = hit == ShotHit.World ? (SurfaceName(surface), MaterialEffectTable.DefaultKey) : Player.For(hit == ShotHit.Head ? HitZone.Head : HitZone.Body, armourUp);
         return table.Resolve(name, cls);
     }
+
+    /// <summary>
+    /// The projectile effects of shot <paramref name="stage"/> of weapon <paramref name="wargear"/> (the projectile whose blueprint leaf matches the one the simulation launches,
+    /// <paramref name="blueprint"/>; the basic shot's when none matches), or null for an unknown weapon. The client's lookup (<c>NetworkView.FxProjectileOf</c>).
+    /// </summary>
+    public ProjectileEffects? ProjectileFor(string wargear, string? blueprint)
+    {
+        if (Weapon(wargear) is not { } w) return null;
+        if (blueprint is null) return w.Projectile;
+        string leaf = Leaf(blueprint);
+        return w.Projectiles.FirstOrDefault(p => Leaf(p.Blueprint).Equals(leaf, StringComparison.OrdinalIgnoreCase)) ?? w.Projectile;
+    }
+
+    /// <summary>
+    /// fx/plasma-blast: what a detonation of <paramref name="projectile"/> on level surface <paramref name="surface"/> plays: its own detonation effects (at the blast point) and the
+    /// explosion its material container picks for that surface (on the surface). Both empty: the client draws the placeholder blast sphere instead.
+    /// </summary>
+    /// <param name="oldRule">The choice before fx/plasma-blast (<see cref="ProjectileEffects.DetonationMaterialOld"/>; client <c>--old-plasma-blast</c>).</param>
+    public (IReadOnlyList<FxPlay> Plays, IReadOnlyList<FxPlay> ByMaterial) DetonationPlays(ProjectileEffects projectile, int surface, bool oldRule = false) =>
+        (projectile.Detonation, Resolve(oldRule ? projectile.DetonationMaterialOld : projectile.DetonationMaterial, ShotHit.World, surface));
 
     /// <summary>
     /// The catalogue for every wargear file the MP classes name (both sides), with the projectile blueprints, containers,

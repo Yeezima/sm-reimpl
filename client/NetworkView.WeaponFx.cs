@@ -43,6 +43,10 @@ public partial class NetworkView
     int _meltaDataBlasts;   // fx/melta-original: the data's blasts played (debug text, test aids)
     bool MeltaConeFx =>_meltaConeFx ??= CmdFlag("melta-cone") && !CmdFlag("old-melta-fx");
     bool OldPlasmaBall => _oldPlasmaBall ??= CmdFlag("old-plasma-ball");
+    bool? _oldPlasmaBlast;
+    /// <summary><c>--old-plasma-blast</c> (fx/plasma-blast before aid): a detonation's container is the first one listed, the per-victim area hit container included (the charged plasma
+    /// cannon then draws the placeholder blast sphere on stone and metal instead of its original explosion).</summary>
+    bool OldPlasmaBlast => _oldPlasmaBlast ??= CmdFlag("old-plasma-blast");
 
     /// <summary>Whether an effect is the melta's blast cone (the Space Marine's and the Chaos twins, one of four by shot).</summary>
     static bool IsMeltaBlast(string effect) => effect.Contains("meltagun_cylinder_blast", StringComparison.OrdinalIgnoreCase);

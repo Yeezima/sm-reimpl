@@ -246,6 +246,7 @@ public partial class NetworkView
             FxJumpPacks(me);   // M44 (NetworkView.JumpFx.cs)
             FxDeaths();   // F-D1: the death effects that are due (NetworkView.DeathFx.cs)
             _fx!.Update(delta / Math.Max(1f, FxSlow), _camera);
+            MeltaFollowFrame();   // fx/melta-attached: --log-melta-follow (after the update: the place the effect is drawn at this frame)
             UpdateDeferredTracers();   // fx/visuals-2 (NetworkView.PistolTracer.cs)
             UpdateSlashCones();   // fx/visuals-2 (NetworkView.SlashCone.cs)
             UpdateMeltaCones();   // wfx (NetworkView.WeaponFx.cs)
@@ -511,7 +512,8 @@ public partial class NetworkView
             {
                 Func<(Vector3 Position, Basis Axes)?>? follow = null;
                 if (p.Attached) { string marker = p.Marker; follow = () => FxPlace(shooter, marker); }
-                fx.Play(p.Name, place.Position, place.Axes, p.Scale <= 0f ? 1f : p.Scale, null, follow, p.Lifetime, 0.0, false, 1, tint: RaceTint(w.Wargear, p.Name), smokeRein: SmokeRein, followFor: AttachFollowSeconds);
+                var played1 = fx.Play(p.Name, place.Position, place.Axes, p.Scale <= 0f ? 1f : p.Scale, null, follow, p.Lifetime, 0.0, false, 1, tint: RaceTint(w.Wargear, p.Name), smokeRein: SmokeRein, followFor: ShotFollowSeconds(w.Wargear));
+                if (played1 is not null && p.Attached) MeltaFollowNote(played1, shooter, p.Marker, w.Wargear);   // fx/melta-attached: --log-melta-follow
             }
         }
         // feel/bullets: a hit-scan weapon whose effects name no tracer still sends a visible bullet along the damaging path (a pooled bright streak).
@@ -599,11 +601,8 @@ public partial class NetworkView
             string name = q.Weapon >= 0 && q.Weapon < _config.Thrown.Count ? _config.Thrown[q.Weapon].Name : "";
             return _catalogue.Thrown.GetValueOrDefault(name)?.Projectile;
         }
-        if (q.Weapon < 0 || q.Weapon >= _config.Weapons.Count || _catalogue.Weapon(_config.Weapons[q.Weapon].Name) is not { } w) return null;
-        string? blueprint = Shots.ProjectileOf(_config, q.Weapon, q.Stage, false)?.Blueprint;
-        if (blueprint is null) return w.Projectile;
-        string leaf = blueprint.Split('\\', '/')[^1];
-        return w.Projectiles.FirstOrDefault(p => p.Blueprint.Split('\\', '/')[^1].Equals(leaf, StringComparison.OrdinalIgnoreCase)) ?? w.Projectile;
+        if (q.Weapon < 0 || q.Weapon >= _config.Weapons.Count) return null;
+        return _catalogue.ProjectileFor(_config.Weapons[q.Weapon].Name, Shots.ProjectileOf(_config, q.Weapon, q.Stage, false)?.Blueprint);
     }
 
     /// <summary>
@@ -654,8 +653,7 @@ public partial class NetworkView
         // M38: the surface the blast went off on (the snapshot does not say): the nearest level triangle within a metre, so that the material container picks its entry for it and its decals
         // (craters, char, glow) lie on that surface, a wall's included, instead of always on the ground.
         var (surfacePoint, surfaceNormal, surface) = DetonationSurface(d.Position);
-        var plays = new List<FxPlay>(fx.Detonation);
-        var byMaterial = _catalogue!.Resolve(fx.DetonationMaterial, ShotHit.World, surface);
+        var (plays, byMaterial) = _catalogue!.DetonationPlays(fx, surface, OldPlasmaBlast);   // fx/plasma-blast: the per-victim area hit container is skipped (EffectCatalogue.DetonationMaterial)
         if (plays.Count == 0 && byMaterial.Count == 0) return false;
         _fxDetonations++;
         _fxLastShotAt = _connectedFor; _fxLastEnd = pos; _fxLastFrom = pos;   // for --screenshot-on-effect
