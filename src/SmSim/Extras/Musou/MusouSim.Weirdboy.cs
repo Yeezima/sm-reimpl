@@ -32,7 +32,7 @@ public static class MusouWeirdboy
     /// <summary>When his shield breaks, every Ork within this (flat; ours, the owner 2026-11-07: "ragdoll all orks within 20m") but the Warboss, the Boss Orks and other Weirdboyz is thrown down
     /// (<see cref="MusouEnemyState.Knocked"/>, the fall Musou Mode's shove uses) <see cref="BreakKnockback"/> away from him (ours: the charge's push).</summary>
     public const float BreakRadius = 20f, BreakKnockback = 4f;
-    /// <summary>When he dies he bursts: every Ork within this (flat; the owner 2026-11-07: "killing all orks around him ... within 20m") but the Warboss dies, credited to his killer, as a blast.</summary>
+    /// <summary>When he dies he bursts: every Ork within this (flat; the owner 2026-11-07: "killing all orks around him ... within 20m") but the Warboss and the Boss Orks ("Spare Boss Orks") dies, credited to his killer, as a blast.</summary>
     public const float BurstRadius = 20f;
     /// <summary>Both reach this far up and down (ours).</summary>
     public const float PsychicVerticalReach = 4f;
@@ -130,7 +130,7 @@ public sealed partial class MusouSim
         }
     }
 
-    /// <summary>His death's burst (from <see cref="Damage"/>): every Ork within <see cref="MusouWeirdboy.BurstRadius"/> but the Warboss dies as a blast, the KO <paramref name="attacker"/>'s (another
+    /// <summary>His death's burst (from <see cref="Damage"/>): every Ork within <see cref="MusouWeirdboy.BurstRadius"/> but the Warboss and the Boss Orks dies as a blast, the KO <paramref name="attacker"/>'s (another
     /// Weirdboy's shield does not stop it, so he bursts in turn).</summary>
     void PsychicBurst(int i, int attacker)
     {
@@ -140,7 +140,7 @@ public sealed partial class MusouSim
         for (int k = 0; k < n; k++)
         {
             int j = near[k] - 1;
-            if (j == i || !_used[j] || _state[j] == MusouEnemyState.Dying || !Ork(_type[j]) || _type[j] == MusouEnemyType.Warboss) continue;
+            if (j == i || !_used[j] || _state[j] == MusouEnemyState.Dying || !Ork(_type[j]) || _type[j] == MusouEnemyType.Warboss || MusouBossOrks.Is(_type[j])) continue;   // the owner, 2026-11-07: spare the Boss Orks
             var away = new Vector2(_position[j].X - _position[i].X, _position[j].Y - _position[i].Y);
             away = away.LengthSquared() > 1e-6f ? Vector2.Normalize(away) : Forward(_yaw[j]);
             _shield[j] = 0f;
