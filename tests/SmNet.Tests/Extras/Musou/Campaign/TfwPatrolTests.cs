@@ -9,7 +9,7 @@ namespace SmNet.Tests.Extras.Musou.Campaign;
 /// Musou Mode's patrols and hunter columns (the owner, 2026-11-06: "patrols that both patrol on set routes and also hunt down the players no matter where they are", from the existing Orks): the routes on the walking
 /// graph, the columns' ranks, the march round the loop, a woken column going as one pack, the re-forming at a source, a hunter finding a far player round a wall, the count never above the crowds' cap, determinism.
 /// </summary>
-public class TfwPatrolTests
+public class TfwPatrolTests(Xunit.Abstractions.ITestOutputHelper output)
 {
     // A 240 x 160 m floor with a wall across the middle (a 24 m gap at y 68 to 92), the battle's places on both sides.
     static readonly TfwLayout Places = new(
@@ -18,8 +18,8 @@ public class TfwPatrolTests
         new Vector3(110f, 140f, 0f),
         [new(66f, 36f, 0f), new(176f, 36f, 0f), new(184f, 124f, 0f), new(116f, 134f, 0f)]);
 
-    static MusouSim Field() =>
-        new(NavGraph.Build(new NavigationTests.Level().Floor(0f, 0f, 240f, 160f).Wall(120f, 0f, 120f, 68f).Wall(120f, 92f, 120f, 160f).Mesh(), null, NavSettings.From(new SimConfig())))
+    static MusouSim Field(float gap = 24f) =>
+        new(NavGraph.Build(new NavigationTests.Level().Floor(0f, 0f, 240f, 160f).Wall(120f, 0f, 120f, 80f - gap / 2f).Wall(120f, 80f + gap / 2f, 120f, 160f).Mesh(), null, NavSettings.From(new SimConfig())))
         { Swarm = MusouSwarmRules.Default };
 
     static TfwBattle Battle(MusouSim sim)
@@ -233,5 +233,61 @@ public class TfwPatrolTests
         TfwRig.Seconds(w, 10f);
         Assert.Contains(battle.Columns(), c => c.Formed && Vector3.Distance(c.Head, heads[c.Index]) > 10f);
         TfwRig.Secure(w, battle, 0);
+    }
+
+    /// <summary>Stall seconds of every route patrol and hunter (the ticks its head waited for its ranks) over <paramref name="seconds"/> s, no player near.</summary>
+    static (double[] Stall, int[] Formed) Stalls(int seconds, float gap = 24f)
+    {
+        var sim = Field(gap);
+        var battle = Battle(sim);
+        uint tick = 0;
+        int n = TfwPatrolRules.RoutePatrols + TfwPatrolRules.Hunters;
+        var stall = new int[n]; var formed = new int[n];
+        var away = new Vector3(230f, 155f, 0f);
+        for (int t = 0; t < seconds * 30; t++)
+        {
+            Run(sim, battle, 1, ref tick, away);
+            foreach (var c in battle.Columns()) { if (c.Formed) formed[c.Index]++; if (c.Formed && c.Holding) stall[c.Index]++; }
+        }
+        return (stall.Select(x => x / 30.0).ToArray(), formed);
+    }
+
+    [Fact]
+    public void A_column_waits_for_its_ranks_only_a_small_part_of_a_long_march()
+    {
+        foreach (float gap in new[] { 24f, 2.5f })
+        {
+            var (stall, formed) = Stalls(180, gap);
+            for (int k = 0; k < stall.Length; k++) output.WriteLine($"gap {gap}: column {k}: stalled {stall[k]:F1} s of {formed[k] / 30.0:F1} s formed");
+            for (int k = 0; k < stall.Length; k++) Assert.True(stall[k] <= formed[k] / 30.0 * 0.05 + 0.5, $"gap {gap}: column {k} stalled {stall[k]:F1} s of {formed[k] / 30.0:F1}");
+        }
+    }
+
+    /// <summary>The columns' stall seconds on the real walking graph (the test arena's), bounded: <paramref name="seconds"/> s from the landing.</summary>
+    static (double[] Stall, double[] Formed, int Released) MapStalls(int seconds)
+    {
+        var map = TfwTestArena.ServerMap();
+        var h = new Harness(LinkConditions.Perfect, 5, 0, TfwRig.Config, new SmServer.ServerOptions { Match = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2 } }, map: map);
+        var nav = Assert.IsType<NavGraph>(h.Server.World.Musou!.Nav);
+        var w = TfwRig.War(nav);
+        w.Tfw!.Patrols = true;
+        var battle = TfwRig.Deploy(w);
+        int n = TfwPatrolRules.RoutePatrols + TfwPatrolRules.Hunters;
+        var stall = new int[n]; var formed = new int[n];
+        for (int t = 0; t < seconds * 30; t++)
+        {
+            TfwRig.Steps(w, 1);
+            foreach (var c in battle.Columns()) { if (c.Formed) formed[c.Index]++; if (c.Formed && c.Holding) stall[c.Index]++; }
+        }
+        return (stall.Select(x => x / 30.0).ToArray(), formed.Select(x => x / 30.0).ToArray(), battle.StragglersReleased);
+    }
+
+    [Fact]
+    public void On_the_real_walking_graph_a_column_waits_for_its_ranks_only_a_small_part_of_the_march()
+    {
+        var (stall, formed, released) = MapStalls(180);
+        output.WriteLine($"released stragglers: {released}");
+        for (int k = 0; k < stall.Length; k++) output.WriteLine($"column {k}: stalled {stall[k]:F1} s of {formed[k]:F1} s formed");
+        for (int k = 0; k < stall.Length; k++) Assert.True(stall[k] <= formed[k] * 0.1 + 1.0, $"column {k} stalled {stall[k]:F1} s of {formed[k]:F1}");
     }
 }
