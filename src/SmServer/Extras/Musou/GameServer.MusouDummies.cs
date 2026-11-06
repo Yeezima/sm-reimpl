@@ -35,6 +35,7 @@ public sealed partial class GameServer
     readonly List<MusouDummy> _musouDummies = new();
     readonly Dictionary<ushort, MusouDummy> _musouDummyById = new();
     int? _musouDummyTarget;
+    List<float> _dummyPlayerYaws = new();
     uint _musouDummySeed = 0x9E3779B9u;
 
     /// <summary>Dummies wanted (the variable, read once; 0 without it), dummies spawned and dummies killed since the start (test aid).</summary>
@@ -49,6 +50,12 @@ public sealed partial class GameServer
 
     /// <summary>Test aid for tests: each tick the dummies also report this many hits and tracers (half each) through <see cref="MusouSim.AddEvent"/> (an event storm).</summary>
     public void SetMusouDummyEvents(int perTick) => _musouDummyEvents = Math.Clamp(perTick, 0, MusouSim.MaxEventsPerTick);
+
+    /// <summary>Test aid (late batch 2026-11-06, the Warboss model's capture): <c>SM_MUSOU_DUMMY_TYPE=&lt;type&gt;</c> (a <see cref="MusouEnemyType"/> name, e.g. Warboss) makes every dummy that type; unset or unknown: the usual mix.</summary>
+    public const string MusouDummyTypeVariable = "SM_MUSOU_DUMMY_TYPE";
+
+    static readonly MusouEnemyType? MusouDummyType =
+        Enum.TryParse<MusouEnemyType>(Environment.GetEnvironmentVariable(MusouDummyTypeVariable), ignoreCase: true, out var t) && Enum.IsDefined(t) ? t : null;
 
     static int ReadDummyTarget() =>
         int.TryParse(Environment.GetEnvironmentVariable(MusouDummiesVariable), out int n) ? Math.Clamp(n, 0, 400) : 0;
@@ -76,6 +83,7 @@ public sealed partial class GameServer
         }
         if (World.State != MatchState.Playing) return;
         var players = World.Players.Values.Where(p => p.Alive).Select(p => p.Position).ToList();
+        _dummyPlayerYaws = World.Players.Values.Where(p => p.Alive).Select(p => p.Yaw).ToList();
         if (players.Count == 0) return;
         float dt = World.Config.TickSeconds;
         var nav = sim.Nav;
@@ -118,6 +126,7 @@ public sealed partial class GameServer
         float roll = Unit(ref r);
         var type = roll < 0.6f ? MusouEnemyType.Boy : roll < 0.8f ? MusouEnemyType.ShootaBoy : roll < 0.88f ? MusouEnemyType.ArdBoy
                  : roll < 0.93f ? MusouEnemyType.Nob : MusouEnemyType.ChaosMarine;
+        if (MusouDummyType is { } only) type = only;   // SM_MUSOU_DUMMY_TYPE: every dummy of one type (a capture of that look)
         Vector3 at = default;
         int node = -1;
         for (int attempt = 0; attempt < 16; attempt++)
@@ -131,7 +140,7 @@ public sealed partial class GameServer
         var dummy = new MusouDummy
         {
             Id = id, Type = type, Position = at, Node = node, State = MusouEnemyState.Spawning,
-            Random = NextRandom(ref r) | 1u, RingAngle = Unit(ref r) * MathF.Tau, RingRadius = 2.5f + 3.5f * Unit(ref r),
+            Random = NextRandom(ref r) | 1u, RingAngle = Unit(ref r) * MathF.Tau, RingRadius = (type == MusouEnemyType.Warboss ? 12f : 2.5f) + 3.5f * Unit(ref r),   // the Warboss stands off so a capture shows all of him
         };
         dummy.DieAt = tick + (uint)((15f + 30f * Unit(ref r)) * World.Config.TickRate);
         _musouDummies.Add(dummy);
@@ -144,9 +153,14 @@ public sealed partial class GameServer
     {
         int rate = World.Config.TickRate;
         d.StateTicks++;
-        var nearest = players[0];
-        foreach (var p in players) if (Vector3.DistanceSquared(p, d.Position) < Vector3.DistanceSquared(nearest, d.Position)) nearest = p;
-        var goal = nearest + new Vector3(MathF.Cos(d.RingAngle), MathF.Sin(d.RingAngle), 0f) * d.RingRadius;
+        int nearestIndex = 0;
+        for (int k = 1; k < players.Count; k++) if (Vector3.DistanceSquared(players[k], d.Position) < Vector3.DistanceSquared(players[nearestIndex], d.Position)) nearestIndex = k;
+        var nearest = players[nearestIndex];
+        // SM_MUSOU_DUMMY_TYPE=Warboss (a capture): he stands in front of the player's view, where the follow camera sees all of him.
+        var around = MusouDummyType == MusouEnemyType.Warboss && nearestIndex < _dummyPlayerYaws.Count
+            ? new Vector3(-MathF.Sin(_dummyPlayerYaws[nearestIndex]), MathF.Cos(_dummyPlayerYaws[nearestIndex]), 0f)
+            : new Vector3(MathF.Cos(d.RingAngle), MathF.Sin(d.RingAngle), 0f);
+        var goal = nearest + around * d.RingRadius;
         var toPlayer = new Vector2(nearest.X - d.Position.X, nearest.Y - d.Position.Y);
         float toGoal = Vector2.Distance(new Vector2(goal.X, goal.Y), new Vector2(d.Position.X, d.Position.Y));
 

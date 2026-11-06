@@ -599,7 +599,7 @@ public sealed partial class MusouSim
         {
             if (!target.Alive || target.Goal || target.Radius > 0f || MathF.Abs(target.Position.Z - p.Z) > 1.5f) continue;
             var away = new Vector2(p.X - target.Position.X, p.Y - target.Position.Y);
-            float gap = Rules.PlayerRing + spec.Radius, dist = away.Length();
+            float gap = Rules.PlayerRing + Body(_type[i]).Radius, dist = away.Length();   // the Warboss's scaled body (late batch 2026-11-06); every other type's is its own radius
             if (dist >= gap) continue;
             var dir = dist > 1e-4f ? away / dist : Forward(i * 2.399963f);
             push += dir * (gap - dist) * Rules.SeparationStrength * 2f;

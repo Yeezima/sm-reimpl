@@ -270,7 +270,7 @@ public partial class ModelViewer : Node3D
     string _lookRepoRoot = "";
 
     /// <summary>Test views that need the install before they start (they keep the synchronous lookup).</summary>
-    static readonly string[] FrontEndExcluded = ["fx", "pound-test", "stomp-test", "reload-test", "switch-test", "appearance-test", "guard-test", "ashfall-kit-gallery"];
+    static readonly string[] FrontEndExcluded = ["fx", "pound-test", "stomp-test", "reload-test", "switch-test", "appearance-test", "guard-test", "ashfall-kit-gallery", "warboss-test"];
 
     void BeginLocate(Dictionary<string, string?> args, string repoRoot)
     {
