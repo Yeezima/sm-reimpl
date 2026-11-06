@@ -50,7 +50,7 @@ public partial class GuardCrowd : CrowdView
     static HavokTransform[] _sample = [], _reference = [];
 
     public GuardCrowd(GuardLooks looks, int visible = DefaultVisible)
-        : base(new CrowdLimits(SkinnedNear, MusouCrowd.MaxVat, MusouCrowd.FallbackSkinned / 2, NearDistance, HalfRateDistance, MusouCrowd.SinkAfter, MusouCrowd.SinkSeconds, MusouCrowd.SinkDepth, MaxBodyCount), visible)
+        : base(new CrowdLimits(SkinnedNear, 500, MusouCrowd.FallbackSkinned / 2, NearDistance, HalfRateDistance, MusouCrowd.SinkAfter, MusouCrowd.SinkSeconds, MusouCrowd.SinkDepth, MaxBodyCount), visible)
     {
         _looks = looks; Name = "GuardCrowd";
     }

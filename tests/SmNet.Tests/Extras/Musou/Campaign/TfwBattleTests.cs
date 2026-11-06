@@ -103,7 +103,7 @@ public class TfwBattleTests
     {
         var w = TfwRig.War();
         var battle = TfwRig.Deploy(w);
-        Assert.Equal(TfwTestArena.StartAlive, w.Musou!.Alive);
+        Assert.Equal(TfwTestArena.StartAlive + battle.Pooled(0) + battle.Pooled(1) + battle.Pooled(2), w.Musou!.Alive);   // the garrisons, and the first of each crowd (one every 4 ticks)
         var at = new MusouEnemy[MusouSim.Capacity];
         int n = w.Musou.CopyTo(at);
         Assert.All(at.Take(n), e => Assert.True(w.Musou.Leashed(e.Id)));
@@ -251,7 +251,7 @@ public class TfwBattleTests
         int before = sim.Alive;
         battle.NoteWaaaghs(1);
         for (int k = 0; k < 5; k++) battle.Step([]);
-        Assert.Equal(before + sim.Rules.Boss.WaaaghBoyz, sim.Alive);
+        Assert.Equal(before + sim.Rules.Boss.WaaaghBoyz + battle.Pooled(0) + battle.Pooled(1) + battle.Pooled(2), sim.Alive);   // and the crowds' first (one every 4 ticks)
     }
 
     [Fact]
