@@ -793,6 +793,7 @@ public partial class NetworkView : Node3D
             float dz = target.Position.Z + BotTargetHeight - (me.Position.Z + _config.EyeHeight);
             _yaw = MathF.Atan2(-dx, dy);   // direction (-sin yaw, cos yaw)
             _pitch = Math.Clamp(MathF.Atan2(dz, MathF.Sqrt(dx * dx + dy * dy)), -MaxPitchDown, MaxPitchUp);
+            _botTickEnemy = target;   // stream C: the strafing and straight-run measurements (NetworkView.BotTactics.cs)
             // Jump pack (assault classes): jump at targets 8-30 m away and pound from above (NetworkView.Jump.cs).
             if (BotDashAttackInput(me, target, tick) is { } dashInput) return dashInput;   // protocol 30 test aid --bot-dash-attack (NetworkView.DashAttack.cs)
             if (BotJumpInput(me, target, tick) is { } jumpInput) return jumpInput;
@@ -823,11 +824,13 @@ public partial class NetworkView : Node3D
                     || (me.MeleeStep == 2 && !me.MeleeHeavy && heavies >= 3)
                     || (me.MeleeStep == 1 && !me.MeleeHeavy && Loadouts.Melee(_config, me).Count == 1 && heavies >= 1)
                     || (me.MeleeHeavy && Combat.MeleeStepOf(_config, me) is { YNext: > 0 });
-                return new PlayerInput(tick, 0f, 0f, _yaw, press ? heavy ? InputButtons.MeleeHeavy : InputButtons.Melee : InputButtons.None, _pitch);
+                // Stream C: some swings are deliberately missed (the view turned off the target for that attack; NetworkView.BotTactics.cs).
+                return new PlayerInput(tick, 0f, 0f, BotSwingYaw(me, press, MathF.Sqrt(dx * dx + dy * dy)), press ? heavy ? InputButtons.MeleeHeavy : InputButtons.Melee : InputButtons.None, _pitch);
             }
             if (_botMelee) return new PlayerInput(tick, 0f, 1f, _yaw, dx * dx + dy * dy > 36f ? InputButtons.Sprint : InputButtons.None, _pitch);
             // Strafe only onto walkable ground (navigation graph, NetworkView.Nav.cs): the other side or none otherwise.
-            float strafe = BotWalkableStrafe(me, phase >= 8.0 ? 0f : id % 2 == 0 ? 1f : -1f);
+            // Stream C: left and right in legs, toward a flank while an ally engages the same enemy (NetworkView.BotTactics.cs); --bot-old-tactics: one side, standing 2 s of every 10.
+            float strafe = BotOldTactics ? BotWalkableStrafe(me, phase >= 8.0 ? 0f : id % 2 == 0 ? 1f : -1f) : BotStrafe(me, target);
             float horizontal = MathF.Sqrt(dx * dx + dy * dy);
             var grenade = BotThrow(me, horizontal);
             // Throwing (pressed now or under way until the release): aim at the ground BotThrowShort m short of the target,
@@ -836,10 +839,12 @@ public partial class NetworkView : Node3D
                 _pitch = Math.Clamp(MathF.Atan2(target.Position.Z - (me.Position.Z + _config.EyeHeight), MathF.Max(2f, horizontal - BotThrowShort)), -MaxPitchDown, MaxPitchUp);
             // The melta only reaches its cone length: beyond it, run at the target (no fire) instead of strafing.
             if (Loadouts.InHand(_config, me) is { Delivery: DeliveryKind.Cone, Cone: { } cone } && horizontal > cone.Length * 0.9f)
-                return new PlayerInput(tick, 0f, 1f, _yaw, grenade, _pitch);
+                return BotOldTactics ? new PlayerInput(tick, 0f, 1f, _yaw, grenade, _pitch) : BotMoveInput(tick, BotWeave(me, new Vector2(-MathF.Sin(_yaw), MathF.Cos(_yaw)), horizontal), grenade);   // stream C: weaving
             // A switch in the same tick would win and swallow the throw (and its 4 s spacing), so a throw drops the switch.
             var weaponButtons = BotWeaponButtons(me, tick, target);
             if (grenade != InputButtons.None) weaponButtons &= ~InputButtons.Switch;
+            // Stream C: a gunfight at range with a primary weapon is fought in aim mode, as a person does (the data's tighter aiming spread; aiming speeds), not while throwing.
+            if (grenade == InputButtons.None && !me.Throwing) weaponButtons |= BotAimButton(me, horizontal);
             // M44a: a ranged shot at an enemy gets the aim error (BotApplyAim); a throw keeps the exact aim.
             _botAimNow = grenade == InputButtons.None && !me.Throwing;
             _botAimTarget = target.PlayerId;   // the trigger discipline's reaction delay (NetworkView.BotAim.cs)
@@ -852,7 +857,7 @@ public partial class NetworkView : Node3D
                 // Not along a path that flies a jump link (the take-off needs the bot still); drops are fine (a spawn room's exit is one).
                 bool flies = _navAgent?.Path is { } adv && adv.Waypoints.Skip(Math.Max(_navAgent.Waypoint, 0)).Take(6).Any(w => w.Kind == NavLinkKind.Jump);
                 if (advance.LengthSquared() > 1e-6f && !flies)
-                    return BotMoveInput(tick, advance * speed, grenade | weaponButtons | _navJump);
+                    return BotMoveInput(tick, BotWeave(me, advance, horizontal) * speed, grenade | weaponButtons | _navJump);   // stream C: weaving, not a straight line
             }
             return new PlayerInput(tick, strafe, 0f, _yaw, grenade | weaponButtons, _pitch);
         }

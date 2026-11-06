@@ -552,20 +552,28 @@ public partial class NetworkView
         switch (me.Jump)
         {
             case JumpPhase.TakeOff:
+                _botPoundMiss = null;
                 return new PlayerInput(tick, 0f, 1f, _yaw, jump, _pitch);
             case JumpPhase.Ascent or JumpPhase.Hang or JumpPhase.Fall:
             {
                 float stick = horizontal > BotPoundDistance * 0.5f ? 1f : 0f;
                 if (pack.PoundEnabled && horizontal <= BotPoundDistance && above >= BotPoundMinHeight && !me.MeleeHeld)
                 {
-                    if (_bot) GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} bot presses pound {above:F1} m above P{target.PlayerId}, {horizontal:F1} m away horizontally");
-                    return new PlayerInput(tick, 0f, stick, _yaw, jump | InputButtons.Melee, _pitch);
+                    // Stream C: some pounds are deliberately aimed beside the target (NetworkView.BotTactics.cs).
+                    var (poundYaw, poundPitch) = BotPoundPress(me, target);
+                    if (_bot) GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} bot presses pound {above:F1} m above P{target.PlayerId}, {horizontal:F1} m away horizontally{(_botPoundMiss is null ? "" : " (a miss)")}");
+                    return new PlayerInput(tick, 0f, stick, poundYaw, jump | InputButtons.Melee, poundPitch);
                 }
                 var weapon = BotWeaponButtons(me, tick, target) & ~(InputButtons.Melee | InputButtons.Switch);
+                // Stream C (owner: "when jumping in the air they ALWAYS hit bolt pistol headshots"): shots in the air get the aim error, doubled in BotApplyAim (BotAirAimScale).
+                if (!BotOldTactics) { _botAimNow = true; _botAimTarget = target.PlayerId; BotNoteEngagement(horizontal); }
                 return new PlayerInput(tick, 0f, stick, _yaw, jump | weapon, _pitch);
             }
             case JumpPhase.Dive or JumpPhase.Recover:
-                return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch);
+            {
+                var (diveYaw, divePitch) = BotPoundAim();   // a missed pound keeps its aim through the dive
+                return new PlayerInput(tick, 0f, 0f, diveYaw, InputButtons.None, divePitch);
+            }
             case JumpPhase.None:
             {
                 if (!me.Grounded || me.JumpHeld || me.JumpPower + 1e-3f < pack.CostAt(0f)

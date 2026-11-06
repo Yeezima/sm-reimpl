@@ -30,6 +30,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 Scanned 2340 spec table rows: **1698 tagged**, 463 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
 Scanned 2340 spec table rows: **1702 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 517 rows of the changes document.
+Scanned 2342 spec table rows: **1702 tagged**, 459 not tagged (read from data with high confidence), 181 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 514 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -60,6 +61,11 @@ Scanned 2340 spec table rows: **1702 tagged**, 459 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 172 | 163 | 80 | 49 | 0 |
 | **All areas** | **1702** | 1467 | 1305 | 527 | 38 |
+| Networking and render smoothing | 18 | 9 | 9 | 9 | 7 |
+| Core simulation (provisional values) | 293 | 275 | 231 | 45 | 1 |
+| General game design | 7 | 7 | 6 | 0 | 0 |
+| Ork faction | 172 | 163 | 80 | 49 | 0 |
+| **All areas** | **1702** | 1467 | 1298 | 525 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -67,6 +73,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 838 |
 | confidence: low | 621 |
+| kind: ours | 845 |
+| confidence: low | 618 |
 | confidence: medium | 552 |
 | kind: interpretation | 345 |
 | notes: ours | 336 |
@@ -79,6 +87,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: ours | 336 |
 | confidence: none (low) | 128 |
 | kind: estimate | 104 |
+| kind: estimate | 109 |
 | kind: provisional | 99 |
 | notes: estimate | 83 |
 | kind: user's knowledge | 51 |
@@ -1997,6 +2006,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-6E7116B1` | Effect checks after the review fixes (demo replays on Godot time, `--fixed-fps 30`, identical… | own bolter tracer and the enemy's shots from the follow camera, own lascannon beam: as bright as on main (the beam is an axis billboard: no edge-on fade; its fade size is its width); `FxTest --pound-test` crater, shockwave rings and dust as on main (flat… | confidence: medium | measured | Effect checks after the review fixes (demo replays on Godot…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: own bolter tracer and the enemy's shots from the follow camera, own… | ☐ |
 
 ### Networking and render smoothing (12)
+### Networking and render smoothing (18)
 
 *Spec section: Time-faithful capture and the smoothed render clock (M40 T0, T2; client only, not simulated)*
 
@@ -2017,6 +2027,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-A425B09A` | Lag-compensation rewind cap | 15 (ticks (500 ms; covers about 250 ms RTT with the 100 ms…) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice; the server rewinds targets to the tick the shooter was viewing (protocol 37: the tick at or before the render tick and the fraction toward the… | Lag-compensation rewind cap: compare with SM1 by feel or video. Ours: 15. | ☐ |
 | `R-1C7F9828` | Lag-compensation trust | the view tick is honoured only back to the snapshot the client had acknowledged when the input arrived, minus the interpolation delay (`ServerOptions.MaxInterpolationDelay`, 100 ms) and 4 ticks (timing, plus inputs whose first copies were lost); view tick 0… (ticks) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice (standard practice); the original was peer-hosted | Lag-compensation trust: compare with SM1 by feel or video. Ours: the view tick is honoured only back to the snapshot the client had… | ☐ |
 | `R-AF5CA71E` | Simultaneous shots | all shots fired in a tick are resolved after everyone moves, so a shooter killed in the same tick still lands its shot (a trade) | confidence: none (low); notes: ours; section: placeholder; section: provisional | our choice | Simultaneous shots: compare with SM1 by feel or video. Ours: all shots fired in a tick are resolved after everyone moves, so a… | ☐ |
+
+*Spec section: Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-F831153D` | Bot melee misses (stream C, 2026-11-06 late) | **30 %** of a bot's melee attacks are deliberately missed: each press that starts a swing or a combo step draws a miss, and a missed swing's view is turned **80 degrees** to a random side (**105 degrees** when the enemy is within 1.8 m, where the lock takes… (fraction, degrees, m) | kind: ours; kind: estimate | owner 2026-11-06 late; 30 %, the turns and 6 m ours | Bot melee misses (stream C, 2026-11-06 late): compare with SM1 with an overlaid screenshot taken from the same position. Ours: 30 % of a bot's melee attacks are deliberately missed: each press… | ☐ |
+| `R-25F3C186` | Bot shots in the air (stream C) | a jump-pack bot's shots in the air get the aim error (wander, scatter, distance scale and trigger discipline), **doubled** (`BotAirAimScale` 2: at the default accuracy the aim's own chance of landing on the body goes from 97 to about 58 %), since with the… | kind: ours; kind: estimate | owner 2026-11-06 late | Bot shots in the air (stream C): compare with SM1 by feel or video. Ours: a jump-pack bot's shots in the air get the aim error (wander… | ☐ |
+| `R-8389442F` | Bot strafing (stream C) | in a gunfight a bot strafes left and right in legs of **0.7 to 2 s** (uniform, seeded), turning early when its side is not walkable for 1.5 m; it no longer stands 2 s of every 10 nor keeps one side for the whole fight (owner: "the bots should prefer to strafe… (s) | kind: ours; kind: estimate | owner 2026-11-06 late; leg lengths ours | Bot strafing (stream C): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: in a gunfight a bot strafes left and right in legs of 0.7 to 2 s… | ☐ |
+| `R-FB826BA2` | Bot aim mode (stream C) | a bot fights a ranged gunfight on the ground with a **primary** weapon at **10 m** or more holding aim mode (the Aim button: the data's aiming spread sets, e.g. heavy bolter 1.25 against 1.9 degrees, bolter 0.075 against 0.25; aiming speeds), not while… (m) | kind: ours; kind: estimate | owner's 49 % request; the choice ours | Bot aim mode (stream C): compare with SM1 by measuring on a flat spot of the same map. Ours: a bot fights a ranged gunfight on the ground with a primary weapon at… | ☐ |
+| `R-261BAA24` | Bot weave (stream C) | a bot closing on an enemy more than **9 m** away (the charge's reach) never runs a straight line at it: the advance while firing beyond 40 m and the melta's close-in run turn **40 degrees** to alternating sides in legs of **0.8 to 1.5 s**, where the turned… (m, degrees, s) | kind: ours; kind: estimate | owner 2026-11-06 late; the numbers ours | Bot weave (stream C): compare with SM1 with an overlaid screenshot taken from the same position. Ours: a bot closing on an enemy more than 9 m away (the charge's reach)… | ☐ |
+| `R-F39784AA` | Bot flanking (stream C) | an ally engages an enemy when it is within **40 m** of it and faces it within **25 degrees**; a bot fighting that enemy then strafes around it away from the ally until it is **70 degrees** around (then strafes left and right again), and a bot that cannot see… (m, degrees) | kind: ours; kind: estimate | owner 2026-11-06 late; the numbers ours | Bot flanking (stream C): compare with SM1 with an overlaid screenshot taken from the same position. Ours: an ally engages an enemy when it is within 40 m of it and faces it… | ☐ |
+| `R-BB28D290` | Bot heavy-weapon spread (stream C, the owner's choice 2026-11-07: "Tighten for bots") | a heavy-role bot (Devastator, Havoc) firing its primary weapon in Classic PvP aims against **35 %** of the scatter the simulation will give the shot: the scatter is deterministic (`Spread.Draw` of the player id and the input's tick, scaled by the half-widths… (share) | kind: ours; kind: estimate | owner 2026-11-07; 0.35 ours | Bot heavy-weapon spread (stream C, the owner's choice…: compare with SM1 by feel or video. Ours: a heavy-role bot (Devastator, Havoc) firing its primary weapon in… | ☐ |
 
 *Spec section: Musou Mode: the enemies' bodies for shots (used by the simulation, Musou Mode only)*
 
@@ -3244,6 +3266,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-26F70C68` | Charge cue | While charging, a pale overlay on the box's red bar and the charge mark turn gold once a release fires the charged shot | How the original shows the charge (no charging frame in the footage) | In-game HUD (M44) | Charge cue: compare with SM1 by feel or video. Ours: While charging, a pale overlay on the box's red bar and the charge… | ☐ |
 | `C-395CE39D` | Aimed enemy's name | In red above the crosshair with the last hit's health bar | The original shows names over the players in the world | In-game HUD (M44) | Aimed enemy's name: compare with SM1 by feel or video. Ours: In red above the crosshair with the last hit's health bar. | ☐ |
 | `C-FB7B99CF` | Test bots | `--bot` fights any enemy it sees up to its weapon's range (`--bot-range`; M19's 25 m is gone; line of sight is the limit) and walks toward it beyond 40 m, **aims with an error so that it misses most shots (default `--bot-accuracy 0.97` at every range since the night batch of 2026-11-06, the owner's "49 %" request… | Not applicable | Test bots (M44a); Seize Ground (M16); docs/roadmap.md "Test-bot navigation" | Test bots: compare with SM1 by feel or video. Ours: --bot fights any enemy it sees up to its weapon's range (--bot-range… | ☐ |
+| `C-08990F2F` | Test bots' tactics (stream C, owner's batch 2026-11-06 late) | Classic PvP bots deliberately miss 30 % of their melee attacks (swing turned 80 to 105 degrees off the target, a charge 60 degrees, a ground pound aimed 6 m beside), aim in the air with twice the ground's aim error (before: the exact aim), strafe left and right in 0.7 to 2 s legs, fight a ranged gunfight with a… | Not applicable (multiplayer had no bots) | Spec "Bot melee misses" to "Bot flanking" rows (Test bots table) | Test bots' tactics (stream C, owner's batch 2026-11-06 late): compare with SM1 by feel or video. Ours: Classic PvP bots deliberately miss 30 % of their melee attacks (swing… | ☐ |
 | `C-E56041B4` | Ork Boy looks (Ork O3) | The four boy meshes (`boy_ranged`, `boy_melee`, `boy_ranged_pro`, `boy_melee_pro`) and the armoured `boy_ardboy` are offered as looks; only the nearest detail level is drawn, no dismemberment stumps | The faction is an addition (docs/ork-faction-design.md); the install has these meshes but no Ork look choice | Spec "The Ork Boy model (Ork O3; client only, not simulated, no protocol change)" | Ork Boy looks (Ork O3): compare with SM1 by feel or video. Ours: The four boy meshes (boy_ranged, boy_melee, boy_ranged_pro… | ☐ |
 | `C-CEC9E01A` | Ork Boy rules where the data say nothing (Ork O4) | The slugga in the pistol slot, firing every `time_between_shots` (0.5 s); its clip of 5 (the bolt pistol's damage per clip) and reload 0.75 s; the choppa's sprint attack as the charge with a stand-in stop (still from its hit to `BRANCH_Run`); the side hop's side from the stick, else the body's sideways motion, else… | The faction is an addition (docs/ork-faction-design.md), so there is no original Ork player to compare | Spec "The Ork Boy in the simulation (Ork O4)" | Ork Boy rules where the data say nothing (Ork O4): compare with SM1 by feel or video. Ours: The slugga in the pistol slot, firing every time_between_shots (0.5… | ☐ |
 | `C-44C865BA` | Ork Boy on the wire (Ork O5, protocol 28) | A third race on the wire (`Race` 3, Orks) that follows the class, not the side; an Ork's appearance is one look byte (0..4 or automatic, by player id) in the Hello and the Setup, rebuilt by the server with no pieces, colours, decals, lens or emblem (so no emblem is ever pulled for an Ork); a class change to or from… | The faction is an addition (docs/ork-faction-design.md), so the original has no Ork player look or race to carry | Spec "The Ork Boy on the wire and in the server (Ork O5; protocol 28)" | Ork Boy on the wire (Ork O5, protocol 28): compare with SM1 by feel or video. Ours: A third race on the wire (Race 3, Orks) that follows the class, not… | ☐ |
@@ -3628,6 +3651,8 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-DB790507` | Bot accuracy 49 % (night batch 2026-11-06) | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
 | `R-5042F469` | Trigger discipline | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
 | `R-08C79EDB` | Melee reaction time (night batch 2026-11-06) | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
+| `R-75F40B1D` | `--bot-old-tactics` | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
+| `R-A5527B80` | Measured, stream C (bounded runs, server `--bind 127.0.0.1`, Manufactorum, Annihilation, 3 Marine + 3 Chaos bots:… | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
 | `R-6CD31534` | Bot damage against a standing marine (server simulation, flat ground, Tactical bolter, 120 s, unlimited reserve; ranged… | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
 | `R-BD443DD1` | Measured hit rate with spread (12 bots, 5 min, Manufactorum, weapons/spread) | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
 | `R-94CF2687` | Bot efficiency target | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |

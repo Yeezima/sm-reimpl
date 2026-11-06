@@ -129,10 +129,12 @@ public partial class NetworkView
         if (chased is null && BotHoldInput(me, tick) is { } holdInput) return holdInput;
         if ((chased ?? NearestLivingTarget(me)) is { } enemy)
         {
-            goal = BotPathGoal(enemy.Position);
+            // Stream C: with an ally already engaging it, come in from the side (a flank point; NetworkView.BotTactics.cs).
+            var flank = BotFlankGoal(me, enemy);
+            goal = flank ?? BotPathGoal(enemy.Position);
             distance = new Vector2(me.Position.X, me.Position.Y).DistanceTo(new Vector2(goal.X, goal.Y));
-            _botNote = $"chasing P{enemy.PlayerId} at {distance:F0} m{(distance <= BotFightRange ? " (not visible)" : "")}";
-            purpose = $"chase P{enemy.PlayerId}";
+            _botNote = $"chasing P{enemy.PlayerId} at {distance:F0} m{(distance <= BotFightRange ? " (not visible)" : "")}{(flank is null ? "" : " flank")}";
+            purpose = flank is null ? $"chase P{enemy.PlayerId}" : $"flank P{enemy.PlayerId}";
         }
         else if (_mapCentre is { } centre && new Vector2(me.Position.X, me.Position.Y).DistanceTo(centre) is var toCentre && toCentre > BotCentreArrived)
         {
