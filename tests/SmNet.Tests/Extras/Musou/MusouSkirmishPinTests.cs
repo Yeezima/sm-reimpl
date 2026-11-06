@@ -38,7 +38,8 @@ public class MusouSkirmishPinTests(ITestOutputHelper output)
 
     // ---------------------------------------------------------------- the golden (captured on main 2ed1501e, before TF0's hooks)
 
-    const string Golden = "1E66FBB5FDD2FE3E778E8447F8B1FCDAD3776F6551447559B896BE3F6A95B573";
+    // Recaptured 2026-11-06 for the owner's melee heal per enemy struck (MusouSim.Version 8; was 1E66FBB5...B573): with that one change reverted the old golden still matched.
+    const string Golden = "8112E635E39011CB92C4C08D85A6C586353A874B7BCE1A345D7A21C77BE4E569";
 
     [Fact]
     public void The_skirmish_replay_is_unchanged()

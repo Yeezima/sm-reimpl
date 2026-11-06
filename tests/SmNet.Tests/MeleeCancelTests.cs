@@ -15,7 +15,7 @@ public class MeleeCancelTests(ITestOutputHelper output)
     const InputButtons Charge = InputButtons.Sprint | InputButtons.MeleeHeavy;
 
     /// <summary>The Assault: the dash (hop) and the bull rush as well.</summary>
-    static readonly SimConfig Pack = JumpPackDashTests.Config with
+    internal static readonly SimConfig Pack = JumpPackDashTests.Config with
     {
         Classes = [JumpPackDashTests.Config.Classes[0] with { MeleeRush = RushTests.Spec }, JumpPackDashTests.Config.Classes[1]],
         JumpPacks = [JumpPackDashTests.Config.JumpPacks[0] with { HoldTiers = true }],   // the three jumps by the hold, and the input buffer (the install's)
@@ -30,9 +30,9 @@ public class MeleeCancelTests(ITestOutputHelper output)
         Classes = [RushTests.Config.Classes[0] with { Evade = 0 }, RushTests.Config.Classes[0] with { Evade = 1 }],
     };
 
-    static PlayerState Fresh(SimConfig c, int cls = 0) => Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = cls }, c);
+    internal static PlayerState Fresh(SimConfig c, int cls = 0) => Combat.Respawned(new PlayerState(1, Vector3.Zero, Vector3.Zero, 0f, true) { Class = cls }, c);
 
-    static PlayerState Step(PlayerState s, SimConfig c, InputButtons b, float my = 0f) =>
+    internal static PlayerState Step(PlayerState s, SimConfig c, InputButtons b, float my = 0f) =>
         Combat.StepPlayer(s, new PlayerInput(0, 0f, my, 0f, b), c, out _);
 
     static PlayerState Hopping(int ticks = 3)
@@ -44,7 +44,7 @@ public class MeleeCancelTests(ITestOutputHelper output)
         return s;
     }
 
-    static PlayerState Charging(SimConfig c, int cls, int ticks = 3)
+    internal static PlayerState Charging(SimConfig c, int cls, int ticks = 3)
     {
         var s = Step(Fresh(c, cls), c, Charge, my: 1f);
         Assert.Equal(RushPhase.Rush, s.Rush);
@@ -156,21 +156,71 @@ public class MeleeCancelTests(ITestOutputHelper output)
         Assert.NotEqual(1, h.MeleeStep);
     }
 
+    /// <summary>
+    /// sim/air-jumps (owner, 2026-11-06): in Classic PvP a Space hold while falling no longer lifts the pack in the air (feel/melee-cancels' air start is Musou Mode's alone,
+    /// MusouAirJumpTests); the tap in the air is still the hop (the air dash, sim/movement-fixes C).
+    /// </summary>
     [Fact]
-    public void Assault_holding_space_while_falling_starts_the_jump_pack()
+    public void Assault_holding_space_while_falling_in_classic_does_not_start_the_jump_pack()
     {
-        var s = Fresh(Pack) with { Position = new Vector3(0f, 0f, 10f), Grounded = false };
+        Assert.False(Pack.JumpPackAirJumps);
+        var phases = HoldWhileFalling(Pack, out float vz);
+        output.WriteLine(string.Join(" ", phases));
+        Assert.DoesNotContain(JumpPhase.Ascent, phases);
+        Assert.True(vz <= 0f, $"vz {vz}");
+    }
+
+    internal static List<JumpPhase> HoldWhileFalling(SimConfig c, out float launchVz)
+    {
+        var s = Fresh(c) with { Position = new Vector3(0f, 0f, 10f), Grounded = false };
         var phases = new List<JumpPhase>();
-        float launchVz = 0f;
+        launchVz = 0f;
         for (int k = 0; k < 14; k++)
         {
-            s = Step(s, Pack, InputButtons.Jump);
+            s = Step(s, c, InputButtons.Jump);
             phases.Add(s.Jump);
             if (s.Jump == JumpPhase.Ascent && launchVz == 0f) launchVz = s.Velocity.Z;
         }
+        if (launchVz == 0f) launchVz = s.Velocity.Z;
+        return phases;
+    }
+
+    /// <summary>sim/air-jumps: after a full jump's apex a Space hold does not jump again in Classic PvP, but a tap with a direction still hops (the air dash).</summary>
+    [Fact]
+    public void Assault_in_classic_gets_no_second_full_jump_after_the_apex_but_still_hops()
+    {
+        var (phases, hopped) = JumpThenAirPresses(Pack);
         output.WriteLine(string.Join(" ", phases));
-        Assert.Contains(JumpPhase.Ascent, phases);
-        Assert.True(launchVz > 3f, $"launch vz {launchVz}");
+        Assert.Equal(1, Launches(phases));       // the ground jump alone
+        Assert.True(hopped, "the tap with D in the air hops (the dash)");
+    }
+
+    internal static int Launches(List<JumpPhase> phases) => Enumerable.Range(1, phases.Count - 1).Count(i => phases[i] == JumpPhase.Ascent && phases[i - 1] != JumpPhase.Ascent);
+
+    /// <summary>A full jump (Space held), then in the fall a Space hold (a second full jump only where air jumps are allowed), then a D + Space tap (the hop).</summary>
+    internal static (List<JumpPhase> Phases, bool Hopped) JumpThenAirPresses(SimConfig c)
+    {
+        var s = Fresh(c);
+        var phases = new List<JumpPhase>();
+        void Run(int ticks, InputButtons b, float mx = 0f)
+        {
+            for (int k = 0; k < ticks; k++) { s = Combat.StepPlayer(s, new PlayerInput(0, mx, 0f, 0f, b), c, out _); phases.Add(s.Jump); }
+        }
+        Run(20, InputButtons.Jump);                                     // the full jump, held
+        int guard = 0;
+        Run(2, InputButtons.None);                                      // Space let go
+        while (s.Jump is not (JumpPhase.Hang or JumpPhase.Fall) && guard++ < 120) Run(1, InputButtons.None);
+        Assert.False(s.Grounded);
+        s = s with { Position = s.Position + new Vector3(0f, 0f, 20f) };   // high up, so the presses below all happen in the air
+        Run(14, InputButtons.Jump);                                     // a hold in the air
+        Run(2, InputButtons.None);
+        guard = 0;
+        while (s.Jump is not (JumpPhase.Hang or JumpPhase.Fall or JumpPhase.None) && guard++ < 200) Run(1, InputButtons.None);   // a tap in the ascent is not the hop
+        Run(4, InputButtons.None);
+        bool hopped = false;
+        Run(1, InputButtons.Jump, 1f);                                  // D + Space tap
+        for (int k = 0; k < 8 && !hopped; k++) { Run(1, InputButtons.None, 1f); hopped |= Evade.Evading(s); }
+        return (phases, hopped);
     }
 
     [Fact]
@@ -188,16 +238,22 @@ public class MeleeCancelTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Assault_holding_space_in_a_charge_held_in_the_air_ends_it_too()
+    public void Assault_holding_space_in_a_charge_held_in_the_air_ends_it_but_in_classic_starts_no_jump()
     {
-        var s = Charging(Pack, cls: 0) with { Position = new Vector3(0f, 0f, 8f), Grounded = false };
-        s = Step(s, Pack, InputButtons.None);
+        var phases = ChargeHeldInTheAir(Pack);
+        Assert.DoesNotContain(JumpPhase.Ascent, phases);   // sim/air-jumps: Classic PvP (Musou Mode: MusouAirJumpTests)
+    }
+
+    internal static List<JumpPhase> ChargeHeldInTheAir(SimConfig c)
+    {
+        var s = Charging(c, cls: 0) with { Position = new Vector3(0f, 0f, 8f), Grounded = false };
+        s = Step(s, c, InputButtons.None);
         Assert.Equal(RushPhase.Rush, s.Rush);   // held in the air: input alone does not end it
-        s = Step(s, Pack, InputButtons.Jump);
+        s = Step(s, c, InputButtons.Jump);
         Assert.Equal(RushPhase.None, s.Rush);
         var phases = new List<JumpPhase>();
-        for (int k = 0; k < 14; k++) { s = Step(s, Pack, InputButtons.Jump); phases.Add(s.Jump); }   // held: the jump, as while falling
-        Assert.Contains(JumpPhase.Ascent, phases);
+        for (int k = 0; k < 14; k++) { s = Step(s, c, InputButtons.Jump); phases.Add(s.Jump); }
+        return phases;
     }
 
     [Fact]

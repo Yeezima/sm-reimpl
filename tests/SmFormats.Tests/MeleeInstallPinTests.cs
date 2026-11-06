@@ -29,7 +29,7 @@ public class MeleeInstallPinTests
     /// feel/melee-charge-2: the knife's and chainsword's Y,Y chain (<see cref="MeleeStep.YNext"/> and its window) is stripped and checked apart.
     /// </summary>
     static string H(MeleeCombo m) => Convert.ToHexString(SHA256.HashData(Variants.Bytes(Strip(m))))[..16];
-    static MeleeStep Strip(MeleeStep s) => s with { Reach = null, EvadeAt = float.PositiveInfinity, YNext = 0, YComboOpen = 0f, YComboClose = 0f };
+    static MeleeStep Strip(MeleeStep s) => s with { Reach = null, EvadeAt = float.PositiveInfinity, YNext = 0, YComboOpen = 0f, YComboClose = 0f, LungeFactor = 1f };   // sim/swing-step: the swing factor checked apart
     static MeleeCombo Strip(MeleeCombo m) => m with
     {
         // feel/charge-directions (protocol 39): RushSpec.SideSteer took the old sprint margin's place in the bytes; the pins were taken with its 0.25 there.
@@ -57,6 +57,12 @@ public class MeleeInstallPinTests
             foreach (var wargear in pins.Keys.Append("ork_coop_boy_choppa"))
                 Assert.All(combos[wargear].Steps.Concat(combos[wargear].Heavy), s => Assert.True(s.Reach is { Variants.Count: > 0 } r && r.Variants.Any(v => v.Forward.Count > 0), $"{wargear}: an attack without reach"));
             Assert.Equal(("choppa", mode, choppa), ("choppa", mode, H(combos["ork_coop_boy_choppa"])));
+            // sim/swing-step (owner 2026-11-06): the light strikes step 1.5 times as far, the heavy ones as before.
+            foreach (var wargear in pins.Keys.Append("ork_coop_boy_choppa"))
+            {
+                Assert.All(combos[wargear].Steps, x => Assert.Equal(MeleeTuning.OwnerSwingStep, x.LungeFactor));
+                Assert.All(combos[wargear].Heavy, x => Assert.Equal(1f, x.LungeFactor));
+            }
             // feel/locks-sprint-stop: every attack of the marines' knives and chainswords has its BRANCH_Evade, after its hit and inside the attack.
             foreach (var wargear in pins.Keys)
                 Assert.All(combos[wargear].Steps.Concat(combos[wargear].Heavy), s => Assert.True(float.IsFinite(s.EvadeAt) && s.EvadeAt <= s.Duration, $"{wargear}: an attack without BRANCH_Evade"));

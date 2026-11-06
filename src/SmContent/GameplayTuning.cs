@@ -65,6 +65,8 @@ public sealed partial record GameplayTuning(SimConfig Config, string Source, IRe
             config = config with { ActionLockScale = OwnerLockScale, SprintStopTime = classes?.SprintStop?.FinishedAt ?? SprintStopTuning.FallbackTime };
         if (ownerFeel)   // feel/melee-charge-2: longer melee lunges and a faster weapon switch (both estimates, owner's requests)
             config = config with { MeleeLungeScale = OwnerLungeScale, WeaponSwitchTime = config.WeaponSwitchTime * OwnerSwitchScale };
+        if (ownerFeel)   // sim/lock-reach (owner, 2026-11-06): the lock-on's lunge 30 % shorter (an estimate, owner's request)
+            config = config with { MeleeLock = config.MeleeLock with { LungeReach = OwnerLockLungeReach } };
         return new GameplayTuning(config, $"{BlueprintPackage}: {MarineBlueprint}", placeholders, notes) { Melee = melee, Classes = classes };
     }
 
@@ -116,6 +118,12 @@ public sealed partial record GameplayTuning(SimConfig Config, string Source, IRe
     /// on every melee attack's forward root motion. 1.625 (1.3 from 2026-10-29, then +25% on 2026-10-31) is an **estimate (owner's request)**, ours, to review in a playtest; the charge and the dash attack keep theirs.
     /// </summary>
     public const float OwnerLungeScale = 1.625f;
+
+    /// <summary>
+    /// sim/lock-reach (the owner's request of 2026-11-06: "for all melee weapons reduce the lunge distance of the lock on by 30%"): <see cref="MeleeLockSpec.LungeReach"/>, the share
+    /// of the gap to the separation a locked attack's lunge closes (1 before: the whole gap). An **estimate (owner's request)**, to review in a playtest; every melee weapon, every mode.
+    /// </summary>
+    public const float OwnerLockLungeReach = 0.7f;
 
     /// <summary>
     /// feel/melee-charge-2 (the owner's request of 2026-10-29: "weapon switching is slightly faster ... make a note that this is an estimation and needs to be

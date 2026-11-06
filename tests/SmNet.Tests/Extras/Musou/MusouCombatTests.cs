@@ -203,21 +203,43 @@ public class MusouCombatTests
         players[1] = players[1] with { Health = health };
     }
 
+    /// <summary>The owner, 2026-11-06: "the heal effect should heal for every enemy you hit, not just one time for each landed melee swing" (was 5 % once a swing, 2026-11-02).</summary>
     [Fact]
-    public void A_melee_attack_that_strikes_anybody_gives_back_five_percent_of_the_health_once()
+    public void A_melee_attack_gives_back_five_percent_of_the_health_for_every_enemy_it_strikes()
     {
         var w = NewWorld();
         var body = Loadouts.Body(w.Config, w.Players[1]);
         SetHealth(w, body.HealthMax * 0.5f);
         var me = Me(w);
-        for (int k = 0; k < 4; k++) w.Musou!.Spawn(MusouEnemyType.Boy, me + new Vector3(k * 0.3f - 0.5f, 1.5f, 0f), 0f, 85f);
+        for (int k = 0; k < 3; k++) w.Musou!.Spawn(MusouEnemyType.Boy, me + new Vector3(k * 0.4f - 0.4f, 1.5f, 0f), 0f, 85f);
         Run(w, 20, InputButtons.Melee);
-        Assert.Equal(body.HealthMax * 0.55f, w.Players[1].Health, 2);
+        Assert.Equal(body.HealthMax * (0.5f + 3 * 0.05f), w.Players[1].Health, 2);   // three Orks struck: 3 x 5 %
 
         var alone = NewWorld();
         SetHealth(alone, 50f);
         Run(alone, 20, InputButtons.Melee);
         Assert.Equal(50f, alone.Players[1].Health);                      // a swing at nobody heals nothing
+
+        var nearlyFull = NewWorld();
+        var full = Loadouts.Body(nearlyFull.Config, nearlyFull.Players[1]).HealthMax;
+        SetHealth(nearlyFull, full * 0.95f);
+        for (int k = 0; k < 4; k++) nearlyFull.Musou!.Spawn(MusouEnemyType.Boy, Me(nearlyFull) + new Vector3(k * 0.3f - 0.5f, 1.5f, 0f), 0f, 85f);
+        Run(nearlyFull, 20, InputButtons.Melee);
+        Assert.Equal(full, nearlyFull.Players[1].Health, 2);             // never over the most
+    }
+
+    [Fact]
+    public void An_enemy_in_a_steps_stomp_and_cleave_heals_once()
+    {
+        var splash = new SplashSpec(3f, Plain with { Damage = 30f }, [new(0f, 1f), new(3f, 1f)], false, true, "target_all");
+        var w = NewWorld(config: Config(cls: c => c with { MeleeHeavy = [Heavy with { Stomp = splash }] }));
+        var body = Loadouts.Body(w.Config, w.Players[1]);
+        SetHealth(w, body.HealthMax * 0.5f);
+        var me = Me(w);
+        w.Musou!.Spawn(MusouEnemyType.Boy, me + new Vector3(0f, 1.5f, 0f), 0f, 85f);    // stomp and cleave
+        w.Musou!.Spawn(MusouEnemyType.Boy, me + new Vector3(0f, -1.5f, 0f), 0f, 85f);   // the stomp only
+        Run(w, 20, InputButtons.MeleeHeavy);
+        Assert.Equal(body.HealthMax * (0.5f + 2 * 0.05f), w.Players[1].Health, 2);   // two enemies: 2 x 5 %
     }
 
     [Fact]

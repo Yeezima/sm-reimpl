@@ -299,7 +299,8 @@ public static partial class JumpPack
         // feel/melee-cancels (protocol 54; the owner 2026-11-02: "jump with space bar hold when falling, or charging at any time no restrictions"): with a dash (the Assault and Raptor) a Space
         // press in the air while falling (no phase, or after a jump's apex: hang or fall) starts the take-off as on the ground, the tap still the dash and the hold the jump (the lift-off launches in the air);
         // the pack's power and the dash's spacing still apply.
-        bool airLong = dashAt is not null && !s.Grounded && longJump != LongJump.None;   // a press held past the dash's decision, replayed from the buffer (BufferedAction.JumpLong)
+        // sim/air-jumps (owner, 2026-11-06): only Musou Mode keeps these air starts (SimConfig.JumpPackAirJumps); in Classic PvP a jump-pack class in the air gets the hop (the air dash, below) alone.
+        bool airLong = dashAt is not null && !s.Grounded && longJump != LongJump.None && c.JumpPackAirJumps;   // a press held past the dash's decision, replayed from the buffer (BufferedAction.JumpLong)
         bool airFall = airLong && phase is JumpPhase.Hang or JumpPhase.Fall;
         bool canStart = phase == JumpPhase.None || airFall || (phase == JumpPhase.Landed && T(ticks) + Eps >= JumpLock(pack, landMoving, c));
         if (canStart && jumpPress && (s.Grounded || airLong) && !meleeBusy && !meleePress && (dashAt is not null || power + Eps >= pack.CostAt(0f)))

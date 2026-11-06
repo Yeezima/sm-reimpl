@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2205 spec table rows: **1584 tagged**, 449 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 482 rows of the changes document.
+Scanned 2211 spec table rows: **1589 tagged**, 449 not tagged (read from data with high confidence), 173 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 487 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 367 | 311 | 312 | 107 | 12 |
+| Movement (critical) | 369 | 313 | 312 | 109 | 12 |
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
-| Melee (critical) | 100 | 87 | 77 | 32 | 5 |
+| Melee (critical) | 102 | 89 | 79 | 32 | 5 |
 | Jump pack (critical) | 73 | 65 | 57 | 18 | 0 |
 | Charge (critical) | 49 | 40 | 42 | 20 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -50,25 +50,25 @@ Scanned 2205 spec table rows: **1584 tagged**, 449 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
-| Core simulation (provisional values) | 267 | 251 | 213 | 35 | 1 |
+| Core simulation (provisional values) | 268 | 252 | 214 | 35 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 117 | 110 | 62 | 18 | 0 |
-| **All areas** | **1584** | 1353 | 1235 | 475 | 38 |
+| **All areas** | **1589** | 1358 | 1238 | 477 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 751 |
-| confidence: low | 583 |
+| kind: ours | 756 |
+| confidence: low | 586 |
 | confidence: medium | 524 |
 | kind: interpretation | 339 |
 | notes: ours | 320 |
 | confidence: none (low) | 128 |
 | kind: provisional | 99 |
-| kind: estimate | 81 |
+| kind: estimate | 84 |
 | kind: user's knowledge | 51 |
-| notes: estimate | 49 |
+| notes: estimate | 51 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
 | kind: choice | 35 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (367)
+### Movement (gameplay-critical) (369)
 
 *Spec section: Extracted parameters*
 
@@ -665,6 +665,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C82D328F` | C: presentation | a dash started in the air ends the jump's view without a landing (no landing effect, ring or sound in mid-air); its flight, landing and sounds are the dash's own | kind: ours | ours | C: presentation: compare with SM1 by feel or video. Ours: a dash started in the air ends the jump's view without a landing (no… | ☐ |
 | `R-61FA96E8` | D: steering a charge off a ledge | a charge held in the air (the bull rush off a ledge, the dash attack's lunge held at its end; protocol 30's `Rush.Held`: the clip waits, the speed it left the ground with is kept) turns with the stick's sideways part: A left, D right, at most **60 degrees per… (deg/s) | kind: ours; kind: estimate; kind: user's knowledge; confidence: low | the owner's requests (user's knowledge); the rate ours | D: steering a charge off a ledge: compare with SM1 by feel or video. Ours: a charge held in the air (the bull rush off a ledge, the dash… | ☐ |
 
+*Spec section: Swing step, the lock-on's lunge and the air jump by mode (sim/swing-step, sim/lock-reach, sim/air-jumps; protocol 59, no wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-61D70BF7` | Air jump, Classic PvP | Assault / Raptor in the air (any airborne state): a Space hold no longer lifts the pack (the protocol 54 air start, feel/melee-cancels, is gone outside Musou Mode); a Space tap is still the hop (the air dash, sim/movement-fixes C) in the stick's direction (W… | kind: ours; notes: estimate | owner 2026-11-06 | Air jump, Classic PvP: compare with SM1 by feel or video. Ours: Assault / Raptor in the air (any airborne state): a Space hold no… | ☐ |
+| `R-0879224F` | Air jump, Musou Mode | unchanged: a Space hold in the air lifts the pack again (each jump still needs its fuel and the dash's spacing; "infinite" only as fuel allows) | kind: ours; notes: estimate | owner 2026-11-06 | Air jump, Musou Mode: compare with SM1 by feel or video. Ours: unchanged: a Space hold in the air lifts the pack again (each jump… | ☐ |
+
 ### Combat core (gameplay-critical) (11)
 
 *Spec section: Known behavior (public, unverified)*
@@ -850,7 +857,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (100)
+### Melee (gameplay-critical) (102)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1020,7 +1027,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-C2EF5679` | Musou: melee heal | a melee attack that strikes at least one enemy (its cleave or its stomp) gives back **5** % of the player's whole health, once a tick, never over the most; the armour shield is left alone (% of health) | kind: ours | owner 2026-11-02 | Musou: melee heal: compare with SM1 by feel or video. Ours: a melee attack that strikes at least one enemy (its cleave or its… | ☐ |
+| `R-C2EF5679` | Musou: melee heal | **5** % of the player's whole health for **every enemy** a melee attack strikes (its cleave or its stomp; an enemy in both counts once a tick), never over the most; the armour shield is left alone. Before 2026-11-06: 5 % once a tick however many it struck (% of health) | kind: ours | owner 2026-11-02 (the 5 %), 2026-11-06 ("heal for every enemy you hit, not just one time for each landed melee swing") | Musou: melee heal: compare with SM1 by feel or video. Ours: 5 % of the player's whole health for every enemy a melee attack… | ☐ |
+
+*Spec section: Swing step, the lock-on's lunge and the air jump by mode (sim/swing-step, sim/lock-reach, sim/air-jumps; protocol 59, no wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-04289953` | Swing step-forward: every melee weapon but the hammer and the maul | the light strikes' forward root motion × **1.5** on top of the lunge scale 1.625 (2.4375 × the clip's): combat knife, chainsword (and gold), power sword, power axe / chain axe, the Ork choppa; free swing over the whole clip, chainsword 3.58 / 2.56 / 3.46 /… (m) | kind: ours; kind: estimate; confidence: low | owner 2026-11-06 | Swing step-forward: every melee weapon but the hammer and…: compare with SM1 by measuring on a flat spot of the same map. Ours: the light strikes' forward root motion × 1.5 on top of the lunge… | ☐ |
+| `R-0CFB178C` | Lock-on lunge reach | a locked attack's forward motion (the burst and the distance-blended clip together) closes **0.7** of the gap to the 1 m separation (before: all of it), along the burst's profile (1 - ((f - t)/f)^2, f = 0.6 of the hit time), then holds that distance for the… (share of the gap) | kind: ours; kind: estimate; confidence: low | owner 2026-11-06 | Lock-on lunge reach: compare with SM1 by measuring on a flat spot of the same map. Ours: a locked attack's forward motion (the burst and the distance-blended… | ☐ |
 
 ### Jump pack (gameplay-critical) (73)
 
@@ -1940,7 +1954,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-EB03504B` | Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks (s) | kind: ours; notes: estimate | owner 2026-11-02 | Shot lag allowance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each shot is also tried on the enemy's places over the last 0.2 s… | ☐ |
 
-### Core simulation (provisional values) (267)
+### Core simulation (provisional values) (268)
 
 *Spec section: Provisional values in use*
 
@@ -2363,6 +2377,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-18029A2F` | Objects not drawn on `mp_tdm_09` | definitions `backpanel_a/b/c`, `tech_panel_a/b/c`, `tech_panel_pipe_a/b/c`, `handle_bar_a`, `accessories_doorbutton` everywhere (82 placements: 37 + 17 + 20 + 4 + 4); `acc_seal_01/02/03`, `acc_scroll_01/02`, `tech_panel_pipe_g`, `tech_panel_tank_a` only… (placements, m) | kind: ours; notes: estimate | owner 2026-11-04 (flat olive `backPanel` boards with salmon `tech_stations` and green keypad emissive surfaces, "jarring" against the dark map) | Objects not drawn on mp_tdm_09: compare with SM1 by feel or video. Ours: definitions backpanel_a/b/c, tech_panel_a/b/c, tech_panel_pipe_a/b/c… | ☐ |
 | `R-AD0893C1` | Switch | `--old-armoury-racks` draws them again | kind: ours | test aid | Switch: compare with SM1 by feel or video. Ours: --old-armoury-racks draws them again. | ☐ |
+
+*Spec section: Swing step, the lock-on's lunge and the air jump by mode (sim/swing-step, sim/lock-reach, sim/air-jumps; protocol 59, no wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-0019EB8C` | Swing step-forward: thunder hammer and daemon maul | the light strikes × **0.7** on top of the 2026-11-01 trim 0.82 (0.574 × the lunge scale, 0.933 × the clip's): free swing 8.05 / 7.65 / 6.02 -> **5.63 / 5.35 / 4.19 m**. The maul taking it: our assumption (m) | kind: ours; kind: estimate; confidence: low | owner 2026-11-06 | Swing step-forward: thunder hammer and daemon maul: compare with SM1 by measuring on a flat spot of the same map. Ours: the light strikes × 0.7 on top of the 2026-11-01 trim 0.82 (0.574 ×… | ☐ |
 
 ### General game design (7)
 
@@ -3223,6 +3243,11 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-351CC1A4` | Melee cancels of hops and charges, the jump pack from a fall or a charge (feel/melee-cancels; protocol 54) | A melee press in a hop was ignored until the dash attack's window, in a bull rush until its clip's melee branch; Space held while falling waited for the landing; Space did not end a held charge | Assault / Raptor: melee ends a hop or a charge at once and swings; Tactical classes: melee ends a charge; the next swing waits for the cancelled clip's end; Assault / Raptor: Space held in the air or during a charge lifts the pack (a tap is the hop). Roll, Devastator / Havoc, Ork Boy, the collision stop unchanged.… | Owner's words, 2026-11-02: "you should be able to end assault marine/raptor charges and hops with a melee attack. but implement the same strict cooldown based on the intended timing of the end of the animation." Builds with protocol 53 do not connect. Spec rows: Melee cancels of hops and charges. | Melee cancels of hops and charges, the jump pack from a…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1620EEEE` | Manufactorum's wall stations: no olive boards, no salmon fittings (fix/manufactorum-fluorescent, 2026-11-04; client drawing only) | The two bases' wall stations (six: a row of flat wall boards with a helmet, tools, weapon silhouettes and a banner pinned on, a pair of tall keypads, and two small door-side stations) are placed and drawn | Not drawn: every placement of `backpanel_a/b/c`, `tech_panel_a/b/c`, `tech_panel_pipe_a/b/c`, `handle_bar_a` and `accessories_doorbutton`, the seals, scrolls, `tech_panel_pipe_g` and `tech_panel_tank_a` within 6 m of a board or cabinet, and the two olive `backPanel` plates of the `tech_interface_b` cabinets (their… | Owner's words, 2026-11-04: "remove all instances on the classic pvp manufactorum map of these 'fluorescent', opaque objects" (flat olive boards with salmon glowing shapes, "jarring" against the dark metal); our emissive-map approximation draws them bright and flat, and whether the original did is not known, so they… | Manufactorum's wall stations: no olive boards, no salmon…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-AD717A23` | Solid bodies: no passing through, the charge meets what it runs into (fix/charge-player-collision, 2026-11-06; protocol 57) | Ours (the original's character collision and charge contact are engine code; the owner's playtest: "players never pass directly through other players", "an outer hitbox") | The server stops opponents' moves that would bring their axes within 0.45 m (0.75 m with a charger) as they really stand (a correction when a client's picture was wrong); the charge is met at the first touch of its swept reach anywhere in front and stops at that point; a charge also meets the bodies as they really… | spec "Solid bodies: no passing through, the charge meets what it runs into" | Solid bodies: no passing through, the charge meets what it…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-4CC73B37` | Swing step-forward × 1.5 (sim/swing-step, protocol 59) | Each light strike moves the body by its clips' root motion (× 1.625 since feel/melee-charge-2) | Every melee weapon's light strikes (knife, chainsword, power sword, power / chain axe, Ork choppa) × 1.5 more (2.4375 × the clip's): chainsword free swings 5.36 / 3.88 / 5.19 / 3.68 m (were 3.58 / 2.56 / 3.46 / 2.46). Heavy strikes, the heavy classes' kick, the charge and the dash attack unchanged | Owner's request 2026-11-06; the factor is the owner's, an **estimate**; "swing" = light strike is ours; spec "Swing step, the lock-on's lunge and the air jump by mode"; refine register | Swing step-forward × 1.5 (sim/swing-step, protocol 59): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-CE8558E0` | Hammer and maul swings step 30 % less (sim/swing-step, protocol 59) | As above (0.82 × 1.625 since anim/hammer-swing) | The thunder hammer's light strikes × 0.7 more (0.574 × 1.625): 5.63 / 5.35 / 4.19 m (were 8.05 / 7.65 / 6.02); the daemon maul the same (**our assumption**: the owner named the hammer) | Owner's request 2026-11-06, an **estimate**; same spec section | Hammer and maul swings step 30 % less (sim/swing-step…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-41174AA2` | Lock-on lunge 30 % shorter (sim/lock-reach, protocol 59) | A locked attack closes the gap to its target (to 1 m) by the hit (feel/melee-lock, sim/melee-lunge) | A locked attack closes 70 % of the gap to 1 m (target 4 m away: 2.1 m of lunge, was 3.0; 7 m away: 3.8 to 4.2 m, was 6.0), then holds; the lock's acquisition range is unchanged, so a far lock may now stop short of a hit | Owner's request 2026-11-06, an **estimate**; reading "lunge" as the locked approach is ours; same spec section | Lock-on lunge 30 % shorter (sim/lock-reach, protocol 59): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-34A4D101` | No full air jump in Classic PvP (sim/air-jumps, protocol 59; supersedes the air start of feel/melee-cancels outside Musou) | Not established from the original; since protocol 54 a Space hold in the air lifted the pack again (the owner's earlier request) | Classic PvP (Annihilation, Seize Ground; faithful and extended profiles): an Assault / Raptor in the air only hops (Space tap + WASD, the air dash); Musou Mode keeps the air jump | Owner's request 2026-11-06; covering ledge falls too is ours; same spec section | No full air jump in Classic PvP (sim/air-jumps, protocol…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-1125D5C3` | Musou: melee heal per enemy (2026-11-06; `MusouSim.Version` 8) | No Musou Mode in the original | Ours (added content): the 5 % melee heal is given for every enemy a swing, stomp or cleave strikes (an enemy in both once), still capped at full health; before, once a swing | Owner's request 2026-11-06; Musou Mode only, Classic PvP unchanged; spec "Musou: melee heal" | Musou: melee heal per enemy (2026-11-06; MusouSim.Version 8): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
@@ -3402,4 +3427,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-F987BDB3` | Stall keep-alive: scope | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
 | `R-E085B984` | Test aids | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
 | `R-2F7F28A2` | Switch | Solid bodies: no passing through, the charge meets what it runs into (fix/charge-player-collision; protocol 57, no wire change) |
+| `R-FF7A7041` | Switches | Swing step, the lock-on's lunge and the air jump by mode (sim/swing-step, sim/lock-reach, sim/air-jumps; protocol 59, no wire change) |
 

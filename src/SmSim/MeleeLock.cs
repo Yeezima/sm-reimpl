@@ -177,6 +177,15 @@ public sealed record MeleeLockSpec
     public float TrackReach { get; init; } = 1.5f;
     /// <summary>… and this many degrees either side of its facing.</summary>
     public float TrackCone { get; init; } = 90f;
+    /// <summary>
+    /// sim/lock-reach (owner, 2026-11-06: "for all melee weapons reduce the lunge distance of the lock on by 30%"): the share of the gap to <see cref="Separation"/> that a
+    /// locked attack's lunge (the burst and the target-blended clip together) closes, along the burst's own profile (<see cref="MeleeLock.LungeStep"/>); the body then holds
+    /// that distance for the rest of the attack. 1 (the default, synthetic configs): the whole gap, as before. The content loader sets 0.7 (<c>GameplayTuning.OwnerLockLungeReach</c>),
+    /// an **estimate (owner's request)**. Hashed only when not 1.
+    /// </summary>
+    public float LungeReach { get; init; } = 1f;
+    /// <summary><see cref="LungeReach"/> as applied (not finite or not in (0, 1]: 1).</summary>
+    public float LungeReachApplied => float.IsFinite(LungeReach) && LungeReach > 0f && LungeReach < 1f ? LungeReach : 1f;
 
     internal void Write(BinaryWriter w)
     {
@@ -187,6 +196,7 @@ public sealed record MeleeLockSpec
         if (AlignEase || Hysteresis != 0f) { w.Write((byte)0xE2); w.Write(AlignEase); w.Write(Hysteresis); w.Write(MinAlignSpan); }
         if (StepEarly != 1f) { w.Write((byte)0xE4); w.Write(StepEarly); }
         w.Write((byte)0xE5); w.Write(TrackReach); w.Write(TrackCone);
+        if (LungeReachApplied != 1f) { w.Write((byte)0xE6); w.Write(LungeReachApplied); }   // sim/lock-reach: only when not 1
     }
 }
 
@@ -548,6 +558,18 @@ public static class MeleeLock
             float share = to >= finish - Eps ? 1f : 1f - MathF.Pow((finish - to) / (finish - from), 2f);
             float burst = MathF.Min(remaining * share, c.MeleeLock.BurstSpeed * (to - from));
             step = MathF.Max(step, burst);
+        }
+        // sim/lock-reach (owner 2026-11-06: the lock-on's lunge 30 % shorter): the locked forward motion closes LungeReach of the gap the attack began with (to the separation),
+        // along the burst's profile p(t) = 1 - ((finish - t) / finish)^2 up to the burst's finish, nothing after it. Stateless: the gap it began with is solved from the gap now
+        // (g = sep + (g0 - sep)(1 - r p(t))), so a moving target re-solves it every tick as the blend does. r = 1 skips this (the burst then closes the whole gap, as before).
+        if (step > 0f && c.MeleeLock.LungeReachApplied is var r && r < 1f)
+        {
+            float finish = m.HitTime * c.MeleeLock.BurstFraction;
+            float P(float t) => finish > Eps && t < finish ? 1f - MathF.Pow((finish - MathF.Max(0f, t)) / finish, 2f) : 1f;
+            float pFrom = P(from), pTo = P(to);
+            float gap = MathF.Max(0f, offset.Length() - c.MeleeLock.Separation);
+            float allowed = gap * r * MathF.Max(0f, pTo - pFrom) / (1f - r * pFrom);
+            step = MathF.Min(step, allowed);
         }
         // Never nearer the target than the separation (only forward motion is held back).
         var spec = c.MeleeLock;
