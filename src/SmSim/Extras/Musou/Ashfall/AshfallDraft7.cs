@@ -78,7 +78,7 @@ internal static partial class AshfallDraft5Pass
         note = "";
         if (s.NoCollision) return true;
         AshfallDressItem Item(Vector2 at, Vector3 sz) => new(id, new Vector3(at.X, at.Y, bottom), yaw * (MathF.PI / 12f), sz, false, AshfallDressRole.Prop, -1);
-        var start = Coarse(s, Boxes(Item(centre, size), yaw, id));
+        var start = CoarseBoxes(s, Item(centre, size), yaw, id);
         var first = Deepest(c, start);
         if (first.Depth <= 0f) return true;
         note = first.Item >= 0 && first.Item < c.Items.Count ? $"{c.Items[first.Item].Asset} item {first.Item}, {first.Depth:0.0} m deep" : "";
@@ -96,7 +96,7 @@ internal static partial class AshfallDraft5Pass
             var at = centre; var sz = size;
             for (int k = 0; k < 6; k++)
             {
-                var boxes = Coarse(s, Boxes(Item(at, sz), yaw, id));
+                var boxes = CoarseBoxes(s, Item(at, sz), yaw, id);
                 var (depth, _, other, _) = Deepest(c, boxes);
                 if (depth <= 0f && OffRoad(c, boxes))
                 {
@@ -118,7 +118,7 @@ internal static partial class AshfallDraft5Pass
             var off = Vector2.Zero;
             for (int k = 0; k < 24; k++)
             {
-                var boxes = Coarse(s, Boxes(Item(centre + off, sz), yaw, id));
+                var boxes = CoarseBoxes(s, Item(centre + off, sz), yaw, id);
                 var (depth, mine, other, _) = Deepest(c, boxes);
                 bool zonesOk = boxes.All(b => Zones(c, b).All(allowed.Contains));
                 if (depth <= 0f)

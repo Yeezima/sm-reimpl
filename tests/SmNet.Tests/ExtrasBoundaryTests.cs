@@ -23,6 +23,7 @@ public class ExtrasBoundaryTests
     [
         ("src/SmSim/ContentExtras.cs", "ExtrasHash"),              // SimConfig.ExtrasHash(BinaryWriter), called in SimConfig.Hash
         ("src/SmSim/ContentExtras.cs", "ExtrasAirJumps"),
+        ("src/SmSim/ContentExtras.cs", "ExtrasJumpPackOwnerCapacity"),   // SimConfig.JumpPackOwnerCapacity: Musou keeps the 300 jump-pack capacity
         ("src/SmSim/ContentExtras.cs", "ExtrasNoBulletSpread"),    // SimConfig.ExtrasNoBulletSpread(ref bool), read by SimConfig.NoBulletSpread (musou/no-spread: Musou Mode's shots have no spread)          // SimConfig.ExtrasAirJumps(ref bool), read by SimConfig.JumpPackAirJumps (sim/air-jumps: Musou Mode keeps the jump-pack air jump)
         ("src/SmContent/GameplayTuning.cs", "ExtrasLoad"),         // GameplayTuning.ExtrasLoad(ref SimConfig, string, List<string>), called in LoadForMatch
         ("src/SmServer/GameServer.Envelope.cs", "ExtrasSend"),     // GameServer.ExtrasSend(), called once a tick after SendPickups (E3's envelope), only with added content
@@ -34,6 +35,7 @@ public class ExtrasBoundaryTests
         ("src/SmSim/Simulation.cs", "ExtrasStep"),                 // World.ExtrasStep(), once a tick after ApplyPerkBlasts, before CountProjectilesOut (Musou: the enemies)
         ("src/SmSim/Simulation.cs", "ExtrasMelee"),                // World.ExtrasMelee(int, PlayerState, MeleeStep), at the end of ResolveMelee (Musou: the cleave)
         ("src/SmSim/Projectiles.cs", "ExtrasBlast"),               // World.ExtrasBlast(int, Vector3, SplashSpec, bool), at the end of ApplyBlast (Musou: blasts on enemies)
+        ("src/SmSim/DamageScale.cs", "ExtrasDamageTaken"),         // World.ExtrasDamageTaken(int target, ref float scale), in DamageTakenScale at every player-damage site (Musou: AI Marines take a tenth)
         ("src/SmSim/Teams.cs", "ExtrasStepMatch"),                 // World.ExtrasStepMatch(ref bool handled), top of StepMatch; the core skips its flow when handled (Musou: one side)
         ("src/SmSim/Teams.cs", "ExtrasJoinSide"),                  // World.ExtrasJoinSide(ref Team, ref bool forced), in AssignClass / AssignSide (Musou: Space Marines only, no balance)
         ("src/SmServer/GameServer.cs", "ExtrasCreated"),           // GameServer.ExtrasCreated(), end of the constructor when Extras is not None (Musou: the nav graph, World.StartMusou)

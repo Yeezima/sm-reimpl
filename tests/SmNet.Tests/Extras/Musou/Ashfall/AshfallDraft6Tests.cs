@@ -124,7 +124,9 @@ public class AshfallDraft6Tests(ITestOutputHelper output)
             static double Vol((Vector3 Min, Vector3 Max) b) { var e = b.Max - b.Min; return (double)e.X * e.Y * e.Z; }
             if (merged.Contains(family))
             {
-                Assert.True(parts.Count <= 6, $"item {i} ({family}): {parts.Count} slabs");
+                // a model with through-openings is merged around them (AshfallOpeningMerge, the openings pass of 2026-11-06): it keeps more boxes where a merge would fill an opening
+                int cap = AshfallKitCollision.Openings(it.Asset).Count > 0 ? AshfallOpeningMerge.Reduced(it.Asset).Count : 6;
+                Assert.True(parts.Count <= cap, $"item {i} ({family}): {parts.Count} slabs");
                 mergedParts += parts.Sum(Vol); mergedFitted += expected.Sum(Vol);
                 continue;
             }

@@ -36,8 +36,15 @@ public sealed class AshfallKitLibrary
         public float Luma { get; init; }
     }
 
-    /// <summary>The extracted library's root (<c>source\</c>); the folder may not exist.</summary>
-    public static string Root => System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData), "sm-reimpl", AshfallKit.PrivateFolder, "source");
+    /// <summary>The kit folder a tester build carries next to its executable (<c>game\ashfall-kit\</c>, the owner's own generated models, bundled by
+    /// tools/release/release.ps1 since 2026-11-06 at the owner's request); it may not exist.</summary>
+    public static string BundledRoot => System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Godot.OS.GetExecutablePath()) ?? "", AshfallKit.PrivateFolder);
+
+    /// <summary>The private library's root (<c>%LOCALAPPDATA%\sm-reimpl\ashfall-kit\source\</c>).</summary>
+    public static string PrivateRoot => System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData), "sm-reimpl", AshfallKit.PrivateFolder, "source");
+
+    /// <summary>The library's root: the bundled folder when the build carries one, else the private folder; the folder may not exist.</summary>
+    public static string Root => System.IO.Directory.Exists(BundledRoot) ? BundledRoot : PrivateRoot;
 
     /// <summary>Whether the private folder exists at all (the look defaults to the graybox when it does not).</summary>
     public static bool Available => System.IO.Directory.Exists(Root);

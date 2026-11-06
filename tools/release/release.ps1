@@ -49,6 +49,7 @@
 .PARAMETER Linux         also build the linux-x64 server package (sm-reimpl-server-linux-x64-<ver>.tar.gz). Off by default: the playtest zip and its smoke
                          test need only the win64 server and the source zip, so a hotfix skips the Linux publish. -ServerAssets turns it on by itself.
 .PARAMETER SkipBuild     do not rebuild: re-scan and (with -Publish) publish the packages already in the output folder of this version
+.PARAMETER NoAshfallKit  build the playtest zip without the Ashfall kit models (game\ashfall-kit\, copied from the private library %LOCALAPPDATA%\sm-reimpl\ashfall-kit\source\); Musou then draws the graybox look
 .PARAMETER Smoke         after building: unpack the playtest zip and run it as a tester would, headless, on 127.0.0.1 only (ports 27141 to 27199):
                          "0 - SM Reimpl Launcher.exe --selftest" must check the unpacked build against its file list (no network, nothing written),
                          and its window must start (--offline --screenshot, drawn off-screen into the smoke folder),
@@ -101,7 +102,7 @@
 [CmdletBinding()]
 param(
     [string]$Commit,
-    [switch]$AllowDirty, [switch]$PrepareOnly, [switch]$SkipClient, [switch]$SkipServer, [switch]$SkipBuild, [switch]$Smoke,
+    [switch]$AllowDirty, [switch]$PrepareOnly, [switch]$SkipClient, [switch]$SkipServer, [switch]$SkipBuild, [switch]$Smoke, [switch]$NoAshfallKit,
     [string]$GameDir,
     [switch]$Publish, [switch]$ServerAssets, [switch]$NoDraft, [Alias('WhatIf')][switch]$DryRun,
     [switch]$Ship, [switch]$SkipTests, [switch]$Draft, [switch]$Supersede, [switch]$NotPrerelease, [switch]$NoPush, [switch]$AllowEmptyNotes, [switch]$Playtest, [switch]$ArchiveOnly, [switch]$KeepPrevious,
@@ -1075,6 +1076,28 @@ if (-not $SkipBuild) {
             if (-not (Test-Path -LiteralPath $imgSrc)) { Fail "Missing $img in the clean copy (it is committed)." }
             New-Item -ItemType Directory -Force -Path (Split-Path -Parent (Join-Path $exportDir $img)) | Out-Null
             Copy-Item -LiteralPath $imgSrc -Destination (Join-Path $exportDir $img)
+        }
+
+        # Musou's Ashfall Citadel kit look (owner, 2026-11-06: the release carries Ashfall the same as the local playtests): the owner's generated models,
+        # exactly the files the kit loads (smtool ashfall-kit-files), copied from his private library (read only) beside the exe as ashfall-kit\.
+        # A missing library or file fails the build: a tester build without them would fall back to the graybox look.
+        if (-not $NoAshfallKit) {
+            $kitSrc = Join-Path $dataRoot 'ashfall-kit\source'
+            if (-not (Test-Path -LiteralPath $kitSrc)) { Fail "The Ashfall kit library ($kitSrc) is missing; the release carries its models (-NoAshfallKit builds without them)." }
+            $smtoolProj = Join-Path $RepoRoot 'src\SmTool\SmTool.csproj'
+            Run-Native 'dotnet build smtool' { dotnet build $smtoolProj -c Release -nologo -v quiet | Out-Null }
+            # The arguments as an array (as Invoke-Scan passes them): Windows PowerShell drops an inline `--` before a native command's arguments.
+            $kitArgs = @('run', '--project', $smtoolProj, '-c', 'Release', '--no-build', '--', 'ashfall-kit-files')
+            $kitFiles = @(& dotnet @kitArgs | Where-Object { $_ -match '\.glb$' })
+            if ($LASTEXITCODE -ne 0 -or $kitFiles.Count -eq 0) { Fail 'smtool ashfall-kit-files listed no files.' }
+            foreach ($rel in $kitFiles) {
+                $from = Join-Path $kitSrc ($rel -replace '/', '\')
+                if (-not (Test-Path -LiteralPath $from)) { Fail "Ashfall kit model missing: $from" }
+                $to = Join-Path $exportDir ('ashfall-kit\' + ($rel -replace '/', '\'))
+                New-Item -ItemType Directory -Force -Path (Split-Path -Parent $to) | Out-Null
+                Copy-Item -LiteralPath $from -Destination $to
+            }
+            Write-Host "  Ashfall kit: $($kitFiles.Count) models bundled"
         }
 
         Time-Step 'zips'

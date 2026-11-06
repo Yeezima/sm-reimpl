@@ -1356,6 +1356,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
                 var meleeType = step.DamageType == DamageType.Unknown ? DamageType.Melee : step.DamageType;
                 float received = Loadouts.Body(Config, before).Received(meleeType)   // M43: Feel No Pain
                     * DamageScaleOf(attacker)   // test aid: --bot-damage-scale
+                    * DamageTakenScale(target)   // added content's (Musou: the AI Marines take a tenth); 1 in Classic PvP
                     * Stims.MeleeDealt(Config, state);   // perks/inert-2: the attacker's combat stims (the whole hit, its shield part too)
                 damage *= received;
                 // Weapons C: the armour-shield part first, off the shield only (as a blast's and the charge's), then the damage.
@@ -1494,7 +1495,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         // M43: the target's received-damage perks (Feel No Pain, Impenetrable) scale the whole hit, its shield part included
         // (interpretation). The type is the file's damagetype, else a blast's explosive, melee's melee, a shot's ranged.
         var type = spec.Type != DamageType.Unknown ? spec.Type : splash ? DamageType.Explosive : melee ? DamageType.Melee : DamageType.Ranged;
-        intensity *= Loadouts.Body(Config, victim).Received(type) * DamageScaleOf(shooter);   // test aid: --bot-damage-scale (1 unless set)
+        intensity *= Loadouts.Body(Config, victim).Received(type) * DamageScaleOf(shooter) * DamageTakenScale(target);   // test aid: --bot-damage-scale (1 unless set)
         float shieldOnly = MathF.Min(victim.Shield, MathF.Max(0f, spec.ShieldDamage * intensity));
         if (shieldOnly > 0f) victim = victim with { Shield = victim.Shield - shieldOnly, SinceDamage = 0f };
         bool head = zone == HitZone.Head;

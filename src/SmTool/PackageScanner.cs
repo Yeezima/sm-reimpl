@@ -509,11 +509,45 @@ public sealed class PackageScanner
                new[] { "LICENSE", "THIRD", "NOTICE", "COPYING" }.Any(p => file.StartsWith(p, StringComparison.OrdinalIgnoreCase));
     }
 
+    /// <summary>Whether a .glb's JSON chunk holds an e-mail address of a non-public domain; a file that is not a well-formed glTF binary is read whole as text.</summary>
+    internal static bool GlbJsonHasEmail(Func<Stream> open)
+    {
+        using var stream = open();
+        var header = new byte[20];
+        int got = 0;
+        while (got < header.Length) { int n = stream.Read(header, got, header.Length - got); if (n <= 0) break; got += n; }
+        byte[] json;
+        if (got == 20 && BitConverter.ToUInt32(header, 0) == 0x46546C67 && BitConverter.ToUInt32(header, 16) == 0x4E4F534A && BitConverter.ToUInt32(header, 12) is var length and <= 64u * 1024 * 1024)
+        {
+            json = new byte[length];
+            int read = 0;
+            while (read < json.Length) { int n = stream.Read(json, read, json.Length - read); if (n <= 0) break; read += n; }
+        }
+        else
+        {
+            using var all = new MemoryStream();
+            all.Write(header, 0, got);
+            stream.CopyTo(all);
+            json = all.ToArray();
+        }
+        string text = System.Text.Encoding.Latin1.GetString(json);
+        foreach (Match m in Email.Matches(text))
+            if (!IsPublicEmailDomain(m.Groups["domain"].Value)) return true;
+        return false;
+    }
+
     void ScanContent(string name, string ext, bool licenceText, Func<Stream> open, Action<string, string> add)
     {
         bool userPath = false, homePath = false, webhook = false, token = false, email = false;
         var secretHit = new HashSet<int>();
         bool binary = BinaryExtensions.Contains(ext);
+        // A glTF binary (.glb, the owner's Ashfall kit models): e-mail addresses are looked for in its JSON chunk only (where metadata lives); its binary
+        // chunk is compressed image and mesh data, in which random bytes read as "x@xH.Fp" (2026-11-06: 20 false findings). Every other rule scans the whole file.
+        if (ext.Equals(".glb", StringComparison.OrdinalIgnoreCase) && !licenceText)
+        {
+            email = GlbJsonHasEmail(open);
+            binary = true;   // the loop below skips the e-mail rule (and the /home/ path rule, also prone to random bytes; the C:\Users rule still runs)
+        }
         var buffer = new byte[ReadBufferBytes];
         var chars = new char[buffer.Length];
         using var stream = open();

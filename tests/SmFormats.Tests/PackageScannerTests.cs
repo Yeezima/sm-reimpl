@@ -162,6 +162,31 @@ public sealed class PackageScannerTests : IDisposable
         Assert.Empty(Scan(Zip(("AUTHORS.txt", Text("1234+Yeezima@users.noreply.github.com and noreply@anthropic.com and a@example.com")))));
     }
 
+    /// <summary>A synthetic glTF binary: the JSON chunk, then a binary chunk.</summary>
+    static byte[] Glb(string json, byte[] bin)
+    {
+        while (json.Length % 4 != 0) json += " ";
+        var j = Encoding.ASCII.GetBytes(json);
+        using var ms = new MemoryStream();
+        using var w = new BinaryWriter(ms);
+        w.Write(0x46546C67u); w.Write(2u); w.Write((uint)(12 + 8 + j.Length + 8 + bin.Length));
+        w.Write((uint)j.Length); w.Write(0x4E4F534Au); w.Write(j);
+        w.Write((uint)bin.Length); w.Write(0x004E4942u); w.Write(bin);
+        w.Flush();
+        return ms.ToArray();
+    }
+
+    [Fact]
+    public void A_glb_is_checked_for_email_in_its_json_chunk_only()
+    {
+        // Random image bytes that read as an address in the binary chunk (the Ashfall kit's 20 false findings, 2026-11-06) are not a finding...
+        var noisy = Glb("{\"asset\":{\"generator\":\"pygltflib@v1.16.5\",\"version\":\"2.0\"}}", Text(Fix("\u0001ab%AT%xH.Fp\u0002cd%AT%B.Nj")));
+        Assert.Empty(Scan(Zip(("game/ashfall-kit/m.glb", noisy))));
+        // ...an address in its metadata still is.
+        var tagged = Glb(Fix("{\"asset\":{\"generator\":\"jane.doe%AT%gmail.com\",\"version\":\"2.0\"}}"), [1, 2, 3, 4]);
+        Assert.Contains(Scan(Zip(("game/ashfall-kit/m.glb", tagged))), f => f.Rule == "personal-email");
+    }
+
     [Fact]
     public void ShortTestFixtureWebhooksAreNotFlagged()
     {

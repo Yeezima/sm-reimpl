@@ -111,12 +111,13 @@ public partial class NetworkView
     const string ArmourSparksEffect = "hit_ranged_armour_generic";
     const float ArmourSparksScale = 0.8f;
 
-    void ArmourSparks(Vector3 end, Vector3 dir, double delay)
+    void ArmourSparks(Vector3 end, Vector3 dir, double delay, int victim = -1)
     {
         if (OldBoltFx || _fx is null) return;
         var axes = AxesFromY(-dir);
-        _fx.Play(ArmourSparksEffect, end, axes, ArmourSparksScale, null, null, 0f, delay, false, 0);
+        _fx.Play(ArmourSparksEffect, end, axes, ArmourSparksScale, null, StickToPlayer(victim, end, axes), 0f, delay, false, 0);
         // Its spark fan is a flat card (not a billboard): a second copy turned a quarter about the axis, so that one of the two always faces the camera.
-        _fx.Play(ArmourSparksEffect, end, new Basis((-dir).Normalized(), Mathf.Pi / 2f) * axes, ArmourSparksScale * 0.8f, null, null, 0f, delay, false, 0);
+        var axes2 = new Basis((-dir).Normalized(), Mathf.Pi / 2f) * axes;
+        _fx.Play(ArmourSparksEffect, end, axes2, ArmourSparksScale * 0.8f, null, StickToPlayer(victim, end, axes2), 0f, delay, false, 0);
     }
 }

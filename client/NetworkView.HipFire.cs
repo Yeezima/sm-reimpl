@@ -198,7 +198,7 @@ public partial class NetworkView
     void HipFireOthers(PlayerState me, IReadOnlyList<PlayerState> others, bool snapshotSeen)
     {
         if (_client is null || _config is null) return;
-        _frameProjectiles = _client.Projectiles();   // once per frame; UpdateProjectiles reads it too
+        _frameProjectiles = WithOwnPlasmaAhead(_client.Projectiles());   // once per frame; UpdateProjectiles reads it too
         double now = _connectedFor;
         foreach (var o in others)
         {
@@ -385,6 +385,7 @@ public partial class NetworkView
     void HipRecoil(CharacterViewer character, PlayerState s, HipTrack t)
     {
         if (_hipAnims is null || !s.Alive || HipFamilyOf(s) is not { } family || HipRecoilOf(s, family) is not { } recoil) { character.ClearPoseLayer(); return; }
+        if (!OldRecoilWeight && _config is not null && Loadouts.InHand(_config, s) is { } held && WeightFeel.NoBodyRecoil(held.Name)) { character.ClearPoseLayer(); return; }   // night/weapon-fx: the plasma gun's arms do not recoil
         float age = (float)(_connectedFor - t.RecoilAt);
         if (age < 0f || age >= recoil.Length) { character.ClearPoseLayer(); return; }
         if (recoil.Additive) character.SetPoseLayer(recoil.Clip, age, RecoilWeight(s), additive: true);

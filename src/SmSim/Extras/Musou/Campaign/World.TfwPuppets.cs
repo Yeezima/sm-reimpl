@@ -129,7 +129,7 @@ public sealed partial class World
         return true;
     }
 
-    /// <summary>The puppets' tick, after the fight (<c>TfwGuardsStep</c>, in <see cref="TfwStep"/>): the orders that came in, the recoveries, each puppet's death, ammunition and revive.</summary>
+    /// <summary>The puppets' tick, after the fight (<c>TfwGuardsStep</c>, in <see cref="TfwStep"/>): the orders that came in, the recoveries, each puppet's death and revive (its ammunition: <see cref="TfwEndlessAmmo"/>, every player's since 2026-11-06).</summary>
     void TfwPuppetsStep()
     {
         var run = _tfw!;
@@ -146,7 +146,6 @@ public sealed partial class World
             if (m.Role == MarineRole.Retainer && !ownerHere) { TfwDismissMarine(m.Id); continue; }   // its player left
             if (!p.Alive) { TfwMarineDown(run, m, p); continue; }
             m.Down = false;
-            TfwMarineAmmunition(p);
             if (m.Role != MarineRole.Retainer || owner.Alive || !run.ReviveWanted(m.Owner)
                 || MarineBrain.Flat(_players[m.Id].Position, owner.Position) > MarineRules.ReviveRadius) { m.ReviveTicks = 0; continue; }
             if (++m.ReviveTicks < MarineRules.ReviveSeconds * Config.TickRate) continue;
@@ -188,13 +187,6 @@ public sealed partial class World
         _players[m.Id] = _players[m.Id] with { RespawnLeft = MarineRules.DeadHold };
     }
 
-    /// <summary>A puppet's ammunition does not run out (ours: it has no pickups to look for): an empty reserve fills, and a weapon that cannot reload (a brace weapon) its clip.</summary>
-    void TfwMarineAmmunition(in PlayerState p)
-    {
-        if (Loadouts.InHand(Config, p) is not { } weapon) return;
-        if (p.Reserve <= 0) _players[p.PlayerId] = p with { Reserve = weapon.ReserveSize };
-        if (p.Clip <= 0 && weapon.Brace is not null) _players[p.PlayerId] = _players[p.PlayerId] with { Clip = weapon.ClipSize };
-    }
 
     /// <summary>A puppet's input this tick (<see cref="TfwRun.PuppetBrain"/>): the order in force, the enemy it looks at every <see cref="MarineRules.RetargetTicks"/> ticks, then <see cref="MarineBrain"/>.</summary>
     PlayerInput TfwMarineInput(int id, PlayerState self)

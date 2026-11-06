@@ -28,4 +28,10 @@ public sealed partial record SimConfig
     {
         if (Extras.HasFlag(ContentExtras.Musou)) off = true;
     }
+
+    // night batch 2026-11-06 (owner): Musou Mode keeps the owner's jump-pack capacity (300); Classic PvP has the data's.
+    partial void ExtrasJumpPackOwnerCapacity(ref bool owner)
+    {
+        if (Extras.HasFlag(ContentExtras.Musou)) owner = true;
+    }
 }

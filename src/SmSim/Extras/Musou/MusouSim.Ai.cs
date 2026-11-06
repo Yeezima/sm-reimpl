@@ -608,7 +608,14 @@ public sealed partial class MusouSim
         float max = spec.Speed * 1.5f * SpeedScale(i), len = v.Length();
         if (len > max) v *= max / len;
         v += Driven(i);   // MU3: a knockback or the boss's charge, over the clamp
-        if (desired.LengthSquared() > 0.01f && _state[i] == MusouEnemyState.Seek) Face(i, Vector2.Normalize(desired));
+        bool boss = MusouBossOrks.Is(_type[i]);
+        if (boss && Walk is { } nav && _node[i] >= 0 && _state[i] == MusouEnemyState.Seek)
+        {
+            // A Boss Ork's body is 3x wide but the graph keeps only a normal Ork's margin off the walls: lean away from a wall nearer than its radius, so it does not grind along it (ours).
+            float room = nav.EdgeDistance(_node[i]), want = BossWallRoom(spec.Radius);
+            if (room < want) v += nav.EdgeGradient(_node[i]) * (want - room) / want * spec.Speed * BossWallPush;
+        }
+        if (!boss && desired.LengthSquared() > 0.01f && _state[i] == MusouEnemyState.Seek) Face(i, Vector2.Normalize(desired));
         if (v.LengthSquared() < 1e-6f) { _velocity[i] = Vector2.Zero; return; }
 
         var step = v * Dt;
@@ -645,6 +652,33 @@ public sealed partial class MusouSim
         if (_flowTicks[i] > 0) _flowTicks[i]--;
         _velocity[i] = new Vector2(moved.X - p.X, moved.Y - p.Y) / Dt;
         _position[i] = moved;
+        if (boss && _state[i] == MusouEnemyState.Seek) TurnToVelocity(i);
+    }
+
+    /// <summary>A Boss Ork's turn rate while it runs (rad/s, ours): about a third of a turn a second, so a 3x body swings round instead of snapping.</summary>
+    public const float BossTurnRate = 6f;
+    /// <summary>Slower than this (m/s) a running Boss Ork keeps its facing: pressed against a wall it does not turn to face the wall.</summary>
+    public const float BossFaceSpeed = 0.8f;
+    /// <summary>How hard a Boss Ork leans off a wall nearer than <see cref="BossWallRoom"/>: a share of its speed at the wall itself (ours).</summary>
+    public const float BossWallPush = 0.9f;
+    /// <summary>The room a body of <paramref name="radius"/> wants beside a wall beyond the graph's own margin (the graph keeps a 0.4 m body off walls).</summary>
+    public static float BossWallRoom(float radius) => MathF.Max(0f, radius - 0.4f);
+
+    /// <summary>The share of a tick's velocity taken into a Boss Ork's smoothed heading (about 0.3 s to settle): a body that shuffles to and fro keeps the way it is getting on, not the way of each step.</summary>
+    public const float BossHeadingBlend = 0.1f;
+    readonly Vector2[] _bossHeading = new Vector2[Capacity];
+
+    /// <summary>A running Boss Ork faces the way it is actually getting on (its smoothed velocity), turning at <see cref="BossTurnRate"/>; standing, sliding along a wall or shuffling it keeps its facing.</summary>
+    void TurnToVelocity(int i)
+    {
+        _bossHeading[i] += (_velocity[i] - _bossHeading[i]) * BossHeadingBlend;
+        var v = _bossHeading[i];
+        if (v.LengthSquared() < BossFaceSpeed * BossFaceSpeed) return;
+        float want = MathF.Atan2(-v.X, v.Y), diff = want - _yaw[i];
+        while (diff > MathF.PI) diff -= 2f * MathF.PI;
+        while (diff < -MathF.PI) diff += 2f * MathF.PI;
+        float max = BossTurnRate * Dt;
+        _yaw[i] += Math.Clamp(diff, -max, max);
     }
 
     void Face(int i, Vector2 direction)

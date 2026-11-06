@@ -803,15 +803,18 @@ public partial class NetworkView : Node3D
             if (StimOf(me) is not null && BotThrow(me, MathF.Sqrt(dx * dx + dy * dy)) is var stimPress and not InputButtons.None)
                 return new PlayerInput(tick, 0f, 1f, _yaw, stimPress, _pitch);
             // The charge (M29): sometimes, at 4-9 m, run at the target and press F once moving fast enough (NetworkView.Reactions.cs).
-            if (BotRushInput(me, tick, dx * dx + dy * dy) is { } rushInput) return rushInput;
             // Same floor only: a target more than BotMeleeHeight above or below is not in reach (QA 2026-10-28: bots swung at an
             // enemy 5 m below a ledge for 40 s).
             bool sameFloor = MathF.Abs(target.Position.Z - me.Position.Z) <= BotMeleeHeight;
+            // Night batch 2026-11-06: a reaction time before the first melee action or charge on an enemy in reach (NetworkView.BotAim.cs), also before answering its attack; an action under way goes on.
+            bool meleeActive = me.MeleeStep > 0 || me.MeleeHeld || me.MeleeHeavyHeld || me.MeleeQueued;
+            bool meleeReady = BotMeleeReady(target, sameFloor && dx * dx + dy * dy <= 81f, MathF.Sqrt(dx * dx + dy * dy));
+            if ((meleeReady || me.Rush != RushPhase.None || _botChargeRunSince >= 0) && BotRushInput(me, tick, dx * dx + dy * dy) is { } rushInput) return rushInput;
             if (hasMelee && sameFloor && dx * dx + dy * dy <= BotMeleeDistance * BotMeleeDistance)
             {
                 // Press on a released key unless a press is already buffered; the next tick releases it. During the second light
                 // attack the press is the heavy strike (M28: X X Y, the combo's third heavy strike), when the class has one.
-                bool press = !me.MeleeHeld && !me.MeleeHeavyHeld && !me.MeleeQueued;
+                bool press = !me.MeleeHeld && !me.MeleeHeavyHeld && !me.MeleeQueued && (meleeReady || meleeActive);
                 // Weapons C: a single-attack combo (the Devastator's kick) goes on to its heavy strike (the stomp), and a heavy strike with a
                 // Y,Y finisher chains into it.
                 int heavies = Loadouts.MeleeHeavy(_config, me).Count;
@@ -853,6 +856,8 @@ public partial class NetworkView : Node3D
             }
             return new PlayerInput(tick, strafe, 0f, _yaw, grenade | weaponButtons, _pitch);
         }
+        _botMeleeReaction?.Step(_config.TickSeconds, null);   // no target in sight: the melee reaction forgets it
+        _botTargetSwinging = false;
         // --bot-goal / --bot-route (test aid): walk the route instead of chasing (NetworkView.Nav.cs).
         if (BotRouteInput(me, tick) is { } routeInput) return routeInput;
         if (!(BotFireWalls && NearestLivingTarget(me) is null) && BotChaseInput(me, tick) is { } chaseInput) return chaseInput;   // --bot-fire-walls: stays in its room when alone

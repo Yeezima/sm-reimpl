@@ -52,8 +52,8 @@ public sealed record AshfallLevel(IReadOnlyList<AshfallPart> Parts, IReadOnlyLis
 /// <summary>The generator's entry points. Contract shared by the simulation, content, server and client work of G1; <see cref="Build"/> is deterministic.</summary>
 public static partial class AshfallMap
 {
-    /// <summary>Raised with any change of the generated geometry, points, areas or spawns. 14: draft 8 with the window pass (no objects in the roadways, collision boxes carved out of every window opening); 13: either alone; 12: draft 7 (no overlapping objects); 9: draft 5 (one asset per structure, collision from the assets); 10: draft 6 (every object 1.5x, more shooting platforms, bridges only on supports); 11: draft 6 with the Meshy expansion placed; <see cref="GrayboxVersion"/> is the v5 graybox it starts from.</summary>
-    public const uint Version = 14;
+    /// <summary>Raised with any change of the generated geometry, points, areas or spawns. 15: the openings pass (rubble, cover and wall pieces with through-openings keep their fitted boxes instead of six slabs); 14: draft 8 with the window pass (no objects in the roadways, collision boxes carved out of every window opening); 13: either alone; 12: draft 7 (no overlapping objects); 9: draft 5 (one asset per structure, collision from the assets); 10: draft 6 (every object 1.5x, more shooting platforms, bridges only on supports); 11: draft 6 with the Meshy expansion placed; <see cref="GrayboxVersion"/> is the v5 graybox it starts from.</summary>
+    public const uint Version = 15;
 
     /// <summary>The graybox generator's version (<see cref="BuildGraybox"/>, hash <c>0xAE096E323BB5A4D3</c>, pinned).</summary>
     public const uint GrayboxVersion = 5;

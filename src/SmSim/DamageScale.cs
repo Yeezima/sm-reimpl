@@ -18,4 +18,17 @@ public sealed partial class World
 
     /// <summary>The scale on the damage <paramref name="attacker"/> deals (<see cref="SetDamageScale"/>; 1 by default).</summary>
     public float DamageScaleOf(int attacker) => _damageScale.TryGetValue(attacker, out float s) ? s : 1f;
+
+    /// <summary>
+    /// The scale on every hit player <paramref name="target"/> takes (shots, projectiles, cones, blasts, melee, the charge, an enemy's attack; the health and the shield part alike): 1 unless added
+    /// content changes it (<see cref="ExtrasDamageTaken"/>; Musou Mode: its AI Marines take a tenth). Classic PvP never sets it.
+    /// </summary>
+    public float DamageTakenScale(int target)
+    {
+        float scale = 1f;
+        ExtrasDamageTaken(target, ref scale);   // EXTRAS-HOOK
+        return scale;
+    }
+
+    partial void ExtrasDamageTaken(int target, ref float scale);
 }
