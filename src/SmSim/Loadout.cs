@@ -1043,13 +1043,16 @@ public static class Loadouts
 
     /// <summary>The class's jump pack (<see cref="ClassLoadout.JumpPack"/> when in range of <see cref="SimConfig.JumpPacks"/>), or null.</summary>
     public static JumpPackSpec? JumpPack(SimConfig c, int playerClass) =>
-        ClassOf(c, playerClass) is { JumpPack: var i } && i >= 0 && i < c.JumpPacks.Count ? c.JumpPacks[i] : null;
+        ClassOf(c, playerClass) is { JumpPack: var i } && i >= 0 && i < c.JumpPacks.Count ? Capacity(c, c.JumpPacks[i]) : null;
+
+    /// <summary>Night batch 2026-11-06: Classic PvP's pack holds the data's <c>max_power</c> (100), Musou Mode the owner's 300 (<see cref="SimConfig.JumpPackOwnerCapacity"/>).</summary>
+    static JumpPackSpec Capacity(SimConfig c, JumpPackSpec p) => c.JumpPackOwnerCapacity || p.DataMaxPower <= 0f ? p : p with { MaxPower = p.DataMaxPower };
 
     /// <summary>The player's jump pack (its class's) as its perks change it (M43: <see cref="JumpPackSpec.With"/>), or null.</summary>
     public static JumpPackSpec? JumpPack(SimConfig c, PlayerState s)
     {
         if (JumpPack(c, s.Class) is not { } pack) return null;
-        var worn = pack.Variants.Count == 0 ? pack : pack.With(Upgrades(c, s));
+        var worn = pack.Variants.Count == 0 ? pack : Capacity(c, pack.With(Upgrades(c, s)));
         return worn.PoundDelay > 0f && WieldsHammer(c, s) ? worn with { PoundDelay = 0f } : worn;
     }
 

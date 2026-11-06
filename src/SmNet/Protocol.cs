@@ -472,7 +472,8 @@ public static partial class Protocol
     //     × 0.7), a locked attack's lunge closes 70 % of the gap to the separation, and in Classic PvP a jump-pack class in the air only hops (the full air jump is Musou Mode's alone).
     // 60 (feel/charge-clash; the owner's recording of the original, 2026-11-06): no layout change. A bull rush that stuns locks charger and victim through the collision stop's forward
     //     shove (the data's 1.83 m in 0.2 s): the charger's step ignores the victim's body (predicted), the world carries the victim with it; a charger meets any body at the capsules' edge.
-    public const ushort Version = 60;
+    // 61 (night batch 2026-11-06, classic bots and jump pack; owner): no layout change. Classic PvP's jump pack holds the data's max_power (100) again instead of the owner's 300 (Musou Mode keeps 300).
+    public const ushort Version = 61;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>
