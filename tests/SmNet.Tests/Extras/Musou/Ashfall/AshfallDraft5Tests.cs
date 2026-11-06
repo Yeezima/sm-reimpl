@@ -23,7 +23,7 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
     /// The level's hash (version 11, draft 6 with the Meshy expansion placed; version 10, draft 6 before it, was 0xC1D1D8A1118A55AF; draft 5's version 9 was 0x6A803A7703280536). A change of the pass, the pools, the fitted boxes or the generator without a new version fails here, not at a client's handshake.
     /// The one level pin: after a refit of the collision (<c>AshfallKitCollision.g.cs</c>) take the new value from this test's failure.
     /// </summary>
-    public const ulong PinnedLevelHash = 0x509596A788E9B67FUL;   // version 16: draft 9, late batch F (stairs from the meshes, clear stair feet and landings, no stacked models, the urban rules; 0x058B350D285DE351 before); version 15: the openings pass (opening-aware merge for debris with openings, 0x2BB88406D096C7EF before); version 14: draft 8 (roadways, 0xB2335BB6CF43E872 alone) with the window pass (0x2D90FDEF0587A5AA alone); draft 7 was 0x29D435A1D94CD3CF
+    public const ulong PinnedLevelHash = 0x104964F52B9F7FEFUL;   // version 16: draft 9, late batch F (stairs from the meshes, clear stair feet and landings, no stacked models, the urban rules; 0x058B350D285DE351 before); version 15: the openings pass (opening-aware merge for debris with openings, 0x2BB88406D096C7EF before); version 14: draft 8 (roadways, 0xB2335BB6CF43E872 alone) with the window pass (0x2D90FDEF0587A5AA alone); draft 7 was 0x29D435A1D94CD3CF
 
     /// <summary>The v5 graybox's hash (pinned since pass 3, and again by the draft 3 and 5 work).</summary>
     const ulong PinnedGrayboxHash = 0xAE096E323BB5A4D3UL;
@@ -172,7 +172,7 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
             Assert.True(it.Position.Z >= st.Min.Z - 0.01f && it.Position.Z + it.Size.Z <= st.Min.Z + 1.5f * (st.Max.Z - st.Min.Z) + 0.01f, $"{it.Asset} item {props[k].i} ({log.Group}): foot or height off");
             checkedItems++;
         }
-        Assert.True(checkedItems > 520, $"{checkedItems} items checked");   // draft 7: 677 Props (the overlap rule left 37 out); draft 8: the roadway rule leaves out what stood in the roads
+        Assert.True(checkedItems > 450, $"{checkedItems} items checked");   // draft 9: lone debris, stacked models and pieces that kept a narrow gap left out   // draft 7: 677 Props (the overlap rule left 37 out); draft 8: the roadway rule leaves out what stood in the roads
         // The walkable models' cell, scaled up, against the 0.4 m step (a riser no thicker than a cell): reported for the grown items, held by the added platforms.
         var walkable = AshfallKitFit.WalkableIds;
         int over = 0, total = 0;

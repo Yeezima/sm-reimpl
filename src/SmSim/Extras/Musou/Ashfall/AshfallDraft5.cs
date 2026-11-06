@@ -156,7 +156,7 @@ internal static partial class AshfallDraft5Pass
         ExtraPlatforms(c);
         foreach (var (name, mn, mx, deck) in c.Bridges) Bridge6(c, name, mn, mx, deck);
 
-        c.Flags.Add($"draft 6 growth (every placed object 1.5x its draft-5 size): {c.Moved} items moved ({c.Spread} of them to open a gap under {MinGap} m to a neighbour), {c.NarrowKept} kept a narrow gap they could not open, {c.NarrowDropped} small pieces (cover, rubble) left out rather than leave a gap under {MinGap} m, {c.LeftOut} left out{(c.LeftOut > 0 ? ": " + string.Join(", ", c.LeftOutNames.Take(12)) : "")}");
+        c.Flags.Add($"draft 6 growth (every placed object 1.5x its draft-5 size): {c.Moved} items moved ({c.Spread} of them to open a gap under {MinGap} m to a neighbour), {c.NarrowKept} kept a narrow gap they could not open, {c.NarrowDropped} {(c.Draft9 ? "pieces" : "small pieces (cover, rubble)")} left out rather than leave a gap under {MinGap} m, {c.LeftOut} left out{(c.LeftOut > 0 ? ": " + string.Join(", ", c.LeftOutNames.Take(12)) : "")}");
         c.Flags.Add($"draft 7 overlap rule (no two items meet deeper than {AshfallOverlap.Tolerance} m): {c.OverlapSettled} items moved or shrunk to clear an overlap, {c.OverlapDropped} left out{(c.OverlapDropped > 0 ? ": " + string.Join(", ", c.OverlapDroppedNames.Take(12)) : "")}");
         c.Flags.Add(roadwayRule
             ? $"draft 8 roadway rule (no item's collision within {AshfallRoadway.Margin} m of a roadway; bridges clear by {AshfallRoadway.Headroom} m): {c.RoadSettled} items moved or shrunk off a roadway, {c.RoadDropped} left out{(c.RoadDropped > 0 ? ": " + string.Join(", ", c.RoadDroppedNames.Take(12)) : "")}; {c.RoadPlatformsSkipped} added-platform candidates skipped"
@@ -398,7 +398,8 @@ internal static partial class AshfallDraft5Pass
         for (int k = 0; k < order.Count; k++)
         {
             // a new model that cannot open every narrow gap gives way to the next model; a first-library model keeps its fewest-gaps place as in draft 6
-            int r = Commit(c, s, centre, TurnOf(order[k]), order[k], h, final: k == order.Count - 1, keepNarrow: k == order.Count - 1 || !Preferred(order[k]));
+            // draft 9: no piece keeps a gap under 2.4 m to a neighbour (draft 6 let the last model or a first-library one keep its fewest-gaps place; a route then squeezed past a moved platform)
+            int r = Commit(c, s, centre, TurnOf(order[k]), order[k], h, final: k == order.Count - 1, keepNarrow: !c.Draft9 && (k == order.Count - 1 || !Preferred(order[k])));
             if (r != Retry) return r;
         }
         return -1;
@@ -434,7 +435,7 @@ internal static partial class AshfallDraft5Pass
             if (!final) return Retry;
             if (c.NarrowDrop)
             {
-                c.Log.Add(new(s.Group, s.Family, "", -1, "dropped: narrow gap, grown 1.5x this small piece leaves a gap under 2.4 m to a neighbour that no move within its reach opens or closes"));
+                c.Log.Add(new(s.Group, s.Family, "", -1, $"dropped: narrow gap, grown 1.5x this {(c.Draft9 ? "piece (draft 9: no piece keeps one)" : "small piece")} leaves a gap under 2.4 m to a neighbour that no move within its reach opens or closes"));
                 c.NarrowDropped++;
                 return -1;
             }
@@ -504,7 +505,15 @@ internal static partial class AshfallDraft5Pass
         }
         if (dust > 0) c.DroppedBoxes[id] = c.DroppedBoxes.GetValueOrDefault(id) + dust;
         if (stairs is not null)
-            foreach (var rc in stairs.Ramps) c.Parts.Add(new AshfallPart(AshfallKind.Stair, rc));
+            foreach (var rc in stairs.Ramps)
+            {
+                c.Parts.Add(new AshfallPart(AshfallKind.Stair, rc));
+                // draft 9: the ramp's box (it may reach past the model where its foot is carried to the floor) counts for the narrow-gap and overlap rules of the items after it
+                var rb = RampBox(item, yaw, rc);
+                c.AllBoxes.Add((index, rb));
+                AddLow(c, index, rb);
+                AddSolid(c, index, rb);
+            }
         if (c.Draft9) AddDraft9(c, s, index, item, yaw, id, stairs?.Zones ?? []);
         if (!s.NoCollision && !c.Draft9)
             foreach (var rp in AshfallKitCollision.Ramps(id))

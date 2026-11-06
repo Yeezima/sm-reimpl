@@ -32,29 +32,20 @@ internal static partial class AshfallDraft5Pass
     /// <summary>A placed stair, item-local before the translation: its ramp corners, the boxes after the cut, and its foot and landing zones (boxes in the item's yaw).</summary>
     sealed record StairPlan(List<Vector3[]> Ramps, List<WBox> Boxes, List<WBox> Zones, List<string> Notes, int Kept, int Dropped);
 
-    static readonly Dictionary<(string, int, Vector3, float, bool), StairPlan> PlanCache = [];
+    static readonly Dictionary<(AshfallDressItem, int, bool), StairPlan> PlanCache = [];
     static readonly Lock PlanLock = new();
 
-    /// <summary>The stairs of an item where it stands: <paramref name="boxes"/> are its collision boxes there (world).</summary>
+    /// <summary>
+    /// The stairs of an item where it stands: <paramref name="boxes"/> are its collision boxes there (world). Planned in place (never moved from another position: a translation would round differently),
+    /// cached by the exact placement, so every build gives the same bits whatever ran before it.
+    /// </summary>
     static StairPlan Stairs(AshfallDressItem item, int yaw, string id, List<WBox> boxes, bool walk = true)
     {
-        var key = (id, yaw, item.Size, item.Position.Z, walk);
-        StairPlan? local;
-        lock (PlanLock) PlanCache.TryGetValue(key, out local);
-        if (local is null)
-        {
-            var at0 = item with { Position = new Vector3(0f, 0f, item.Position.Z) };
-            var b0 = boxes.Select(b => b with { Centre = b.Centre - new Vector3(item.Position.X, item.Position.Y, 0f) }).ToList();
-            local = PlanStairs(at0, yaw, id, b0, walk);
-            lock (PlanLock) PlanCache[key] = local;
-        }
-        var d = new Vector3(item.Position.X, item.Position.Y, 0f);
-        return local with
-        {
-            Ramps = [.. local.Ramps.Select(r => r.Select(v => v + d).ToArray())],
-            Boxes = [.. local.Boxes.Select(b => b with { Centre = b.Centre + d })],
-            Zones = [.. local.Zones.Select(b => b with { Centre = b.Centre + d })],
-        };
+        var key = (item, yaw, walk);
+        lock (PlanLock) if (PlanCache.TryGetValue(key, out var hit)) return hit;
+        var plan = PlanStairs(item, yaw, id, boxes, walk);
+        lock (PlanLock) PlanCache[key] = plan;
+        return plan;
     }
 
     /// <summary>The stair zones of an item where it stands (for the placement rules before it is emitted).</summary>
@@ -240,6 +231,20 @@ internal static partial class AshfallDraft5Pass
 
     /// <summary>The walker of the stair check: the player's capsule, step and slope limit, run speed (<see cref="SimConfig"/> defaults).</summary>
     internal static readonly SimConfig WalkConfig = new();
+
+    /// <summary>A ramp's bounding box in its item's yaw (world).</summary>
+    static WBox RampBox(AshfallDressItem item, int yaw, Vector3[] corners)
+    {
+        float s = MathF.Sin(item.Yaw), co = MathF.Cos(item.Yaw);
+        float x0 = float.MaxValue, x1 = float.MinValue, y0 = float.MaxValue, y1 = float.MinValue, z0 = float.MaxValue, z1 = float.MinValue;
+        foreach (var v in corners)
+        {
+            float dx = v.X - item.Position.X, dy = v.Y - item.Position.Y, lx = co * dx + s * dy, ly = -s * dx + co * dy;
+            x0 = MathF.Min(x0, lx); x1 = MathF.Max(x1, lx); y0 = MathF.Min(y0, ly); y1 = MathF.Max(y1, ly); z0 = MathF.Min(z0, v.Z); z1 = MathF.Max(z1, v.Z);
+        }
+        float cx = (x0 + x1) / 2f, cy = (y0 + y1) / 2f;
+        return new WBox(new Vector3(item.Position.X + co * cx - s * cy, item.Position.Y + s * cx + co * cy, (z0 + z1) / 2f), new Vector3((x1 - x0) / 2f, (y1 - y0) / 2f, (z1 - z0) / 2f), yaw);
+    }
 
     // ---------------------------------------------------------------- the urban rules
 

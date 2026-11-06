@@ -97,7 +97,7 @@ internal static partial class AshfallDraft5Pass
         if (firstClear is not { } first) return false;
         var done = settled ? off : bestClear ?? first;
         c.NarrowDrop = false;
-        if (!settled && !final) return false;   // phase 2: another model of the pool may open every gap (the caller tries it; the last one keeps its fewest-gaps place)
+        if (!settled && !final) { c.NarrowDrop = c.Draft9; return false; }   // draft 9: on the pool's last model this is a narrow-gap drop; phase 2: another model of the pool may open every gap (the caller tries it; the last one keeps its fewest-gaps place)
         // Phase 2: a small piece (cover, rubble, a collapsed wall piece; not the breach rubble) that cannot open or close every narrow gap is left out: it never leaves a slot under 2.4 m (the route rule).
         if (!settled && modes == 3 && spread) { c.NarrowDrop = true; return false; }
         if (!settled) c.NarrowKept++;   // no place within reach clears every gap: of the places clear of the protected ones it visited, the one with the fewest narrow gaps is kept (counted in the growth flag)

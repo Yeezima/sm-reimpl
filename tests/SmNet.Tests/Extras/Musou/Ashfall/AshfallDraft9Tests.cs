@@ -236,6 +236,16 @@ public class AshfallDraft9Tests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void The_pass_gives_the_same_bits_whatever_ran_before_it()
+    {
+        // the stair planner caches by the exact placement; a run after another run (the report aid without draft 9 between) gives the pinned level
+        _ = AshfallMap.RebuildWithoutDraft9();
+        var again = AshfallMap.RebuildDraft5();
+        Assert.Equal(AshfallDraft5Tests.PinnedLevelHash, again.Level.Hash);
+        Assert.Equal(D.Level.Hash, again.Level.Hash);
+    }
+
+    [Fact]
     public void Without_draft9_models_stack_and_stairs_break()
     {
         var before = AshfallMap.RebuildWithoutDraft9();
