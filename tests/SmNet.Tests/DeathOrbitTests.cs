@@ -40,6 +40,18 @@ public class DeathOrbitTests
     }
 
     [Fact]
+    public void ALoweredCameraStaysDownWhileTheDeathCameraRises()
+    {
+        // Review fix: the death camera's own elevation rises to 0.4 rad over its first 1.5 s; a camera the player lowered to the floor limit must not ride up with it.
+        var orbit = new DeathOrbit();
+        orbit.Look(0f, 1f, 0.1f);
+        Assert.Equal(DeathOrbit.MinElevation, orbit.Elevation(0.1f), 5);
+        Assert.Equal(DeathOrbit.MinElevation, orbit.Elevation(0.4f), 5);
+        orbit.Look(0f, -0.1f, 0.4f);
+        Assert.Equal(DeathOrbit.MinElevation + 0.1f, orbit.Elevation(0.4f), 5);
+    }
+
+    [Fact]
     public void YawWrapsAndBadInputIsIgnored()
     {
         var orbit = new DeathOrbit();

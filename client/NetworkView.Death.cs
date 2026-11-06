@@ -481,11 +481,11 @@ public partial class NetworkView
         _camera.GlobalTransform = new Transform3D(_deathStart.Basis.Orthonormalized().Slerp(look, blend), position);
         _camera.Fov = Mathf.Lerp(_deathFov, 60f, blend);
         _cameraOffset = position - feet;
-        _cameraInfo = $"death camera (after the user's description): orbit {az:F2} rad, elevation {el:F2}, {radius:F1} m, blend {blend:F2}, player orbit {(NoDeathOrbit ? "off" : $"{_deathOrbit.Yaw:F2} / {_deathOrbit.Pitch:F2} rad")}, ragdoll {(rd is null ? "none" : rd.Simulating ? "simulating" : "lying")}";
+        _cameraInfo = $"death camera (after the user's description): orbit {az:F2} rad, elevation {el:F2}, {radius:F1} m, blend {blend:F2}, player orbit {(NoDeathOrbit ? "off" : $"yaw {_deathOrbit.Yaw:F2} rad, {(_deathOrbit.Moved ? $"elevation {_deathOrbit.Pitch:F2}" : "elevation untouched")}")}, ragdoll {(rd is null ? "none" : rd.Simulating ? "simulating" : "lying")}";
         if (DeathOrbitTest is not null && _connectedFor - _deathOrbitLogAt >= 0.5)
         {
             _deathOrbitLogAt = _connectedFor;
-            GD.Print($"DEATHORBIT t {_deathAge:F2} s: orbit yaw {_deathOrbit.Yaw:F2} pitch {_deathOrbit.Pitch:F2} rad; azimuth {az:F2}, elevation {el:F2} rad; wanted {radius:F2} m, camera {(position - _deathFocus).Length():F2} m from the body; " +
+            GD.Print($"DEATHORBIT t {_deathAge:F2} s: orbit yaw {_deathOrbit.Yaw:F2} rad, {(_deathOrbit.Moved ? $"elevation held {_deathOrbit.Pitch:F2}" : "elevation untouched")}; azimuth {az:F2}, elevation {el:F2} rad; wanted {radius:F2} m, camera {(position - _deathFocus).Length():F2} m from the body; " +
                      $"clearance {CameraClearance(position):F2} m, body {(CastClear(position, _deathFocus, 0.02f) >= position.DistanceTo(_deathFocus) - 0.05f ? "in sight" : "hidden")}");
         }
         return true;
