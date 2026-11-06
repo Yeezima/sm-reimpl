@@ -169,7 +169,7 @@ public partial class AshfallStorm : Node3D
         // ---- the sky: the storm shader (in every renderer).
         var sky = new Sky
         {
-            SkyMaterial = light ? BreakSkyMaterial(az, compat) : SkyMaterialFor(concept),
+            SkyMaterial = light ? (PanoSkyMaterial(az, compat) ?? BreakSkyMaterial(az, compat)) : SkyMaterialFor(concept),
             RadianceSize = Sky.RadianceSizeEnum.Size64,
             ProcessMode = Sky.ProcessModeEnum.Incremental,
         };
@@ -640,6 +640,55 @@ public partial class AshfallStorm : Node3D
                 sm.SetShaderParameter("tint", tint);
     }
 
+    /// <summary>Test aid <c>--ashfall-sky pano|procedural</c> (default pano): the generated panorama sky or the procedural break sky.</summary>
+    public static bool PanoSkyWanted
+    {
+        get
+        {
+            var args = OS.GetCmdlineUserArgs();
+            int i = Array.IndexOf(args, "--ashfall-sky");
+            return !(i >= 0 && i + 1 < args.Length && args[i + 1] == "procedural");
+        }
+    }
+
+    static ImageTexture? _panoTexture;
+    static bool _panoTried;
+
+    /// <summary>The generated storm sky panorama (ours, our own generated image; read only from the kit library), or null when off, missing or unreadable (the caller falls back to the procedural sky).</summary>
+    static ImageTexture? PanoTexture()
+    {
+        if (_panoTexture != null || _panoTried) return _panoTexture;
+        _panoTried = true;
+        string path = System.IO.Path.Combine(AshfallKitLibrary.Root, AshfallKit.SkyFile.Replace('/', System.IO.Path.DirectorySeparatorChar));
+        try
+        {
+            if (!System.IO.File.Exists(path)) { GD.Print($"ashfall storm: sky image not found ({AshfallKit.SkyFile}); using the procedural sky"); return null; }
+            var img = Image.LoadFromFile(path);
+            if (img == null || img.IsEmpty()) { GD.Print("ashfall storm: sky image failed to load; using the procedural sky"); return null; }
+            img.GenerateMipmaps();
+            _panoTexture = ImageTexture.CreateFromImage(img);
+        }
+        catch (Exception e) { GD.Print($"ashfall storm: sky image failed to load ({e.Message}); using the procedural sky"); }
+        return _panoTexture;
+    }
+
+    /// <summary>The panorama sky: the generated image with its warm break turned to the sun's azimuth, the far-ruin skyline drawn over the horizon. Null when the image is unavailable.</summary>
+    static ShaderMaterial? PanoSkyMaterial(float sunAzimuth, bool compat)
+    {
+        if (!PanoSkyWanted) return null;
+        var tex = PanoTexture();
+        if (tex == null) return null;
+        // The Compatibility renderer's sky pass crashes on screen-space derivatives (hidden-desktop OpenGL, 2026-11-06): there a plain texture() call is used (the mip seam is one pixel wide and the sky is lifted anyway).
+        string code = compat ? PanoSkyShader.Replace("textureGrad(pano, vec2(u, v), du, vec2(dFdx(v), dFdy(v)))", "texture(pano, vec2(u, v))").Replace("vec2 gu = vec2(dFdx(u), dFdy(u)); vec2 gu2 = vec2(dFdx(u2), dFdy(u2));", "vec2 gu = vec2(0.0); vec2 gu2 = vec2(0.0);") : PanoSkyShader;
+        var m = new ShaderMaterial { Shader = new Shader { Code = code } };
+        m.SetShaderParameter("pano", tex);
+        var dir = G(new Vector3(MathF.Sin(sunAzimuth), MathF.Cos(sunAzimuth), 0f));
+        m.SetShaderParameter("yaw", MathF.Atan2(dir.X, dir.Z));
+        // Compatibility: the image is already a lit photograph, so no gamma lift (the procedural sky's 1.8 washed it out) and a gentler break boost (no glow there).
+        if (compat) { m.SetShaderParameter("gain", 0.9f); m.SetShaderParameter("lift", 1.05f); m.SetShaderParameter("hdr_boost", 0.5f); }
+        return m;
+    }
+
     /// <summary>The light pass's sky: charcoal storm clouds over a grey haze, a warm break low on the sun's side (behind the keep) with lit cloud edges and rays, far ruins fading into the haze on the horizon.</summary>
     static ShaderMaterial BreakSkyMaterial(float sunAzimuth, bool compat)
     {
@@ -733,6 +782,56 @@ public partial class AshfallStorm : Node3D
             col = mix(col, colB, smoothstep(farB + 0.0015, farB - 0.0015, el));
             // below the horizon: the haze over far ground
             col = mix(col, haze * 0.6 + glow * wide * 0.12 * strength, smoothstep(0.0, -0.06, h));
+            COLOR = pow(max(col * gain, vec3(0.0)), vec3(1.0 / lift));
+        }
+        """;
+
+    /// <summary>The panorama sky (ours): the generated image (u = 360 degrees of azimuth, horizon at 90 percent of its height, zenith on top); the bright break is boosted over 1.0 to glow and bloom.</summary>
+    public const string PanoSkyShader = """
+        shader_type sky;
+        uniform sampler2D pano : source_color, filter_linear_mipmap, repeat_enable;
+        uniform float horizon_v = 0.90;
+        uniform float yaw = 0.0;
+        uniform float gain = 1.0;   // the Compatibility renderer draws the sky darker: it is lifted (gain and a gamma curve)
+        uniform float lift = 1.0;
+        uniform float hdr_boost = 2.2;
+        uniform vec3 haze = vec3(0.30, 0.30, 0.31);
+        uniform float break_strength = 1.0;
+
+        float h21(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+        // a skyline of ruins (elevation in radians) along the azimuth phi: blocks of uneven height, gaps, now and then a spire
+        float skyline(float phi, float cells, float base, float tall, float seed) {
+            float k = phi * cells;
+            float c = floor(k);
+            float on = step(0.28, h21(vec2(c, seed)));
+            float hgt = base + tall * h21(vec2(c, seed + 1.0)) * on;
+            float f = fract(k);
+            hgt += tall * 0.35 * step(0.5, fract(f * 4.0)) * on * step(0.5, h21(vec2(c, seed + 2.0)));   // battlements
+            hgt += tall * 0.9 * step(0.88, h21(vec2(c, seed + 3.0))) * step(abs(f - 0.5), 0.12);          // a spire
+            return hgt;
+        }
+        void sky() {
+            vec3 d = normalize(EYEDIR);
+            float phi = atan(d.x, d.z);
+            float u = fract(0.5 + (phi - yaw) / (2.0 * PI));
+            float el = asin(clamp(d.y, -1.0, 1.0));
+            float v = el >= 0.0 ? horizon_v * (1.0 - el / (PI / 2.0)) : horizon_v + 0.02;
+            // the atan wrap gives a one-pixel mip seam: derivatives from whichever of u and the half-turned u is continuous here
+            float u2 = fract(u + 0.5);
+            vec2 gu = vec2(dFdx(u), dFdy(u)); vec2 gu2 = vec2(dFdx(u2), dFdy(u2));
+            vec2 du = dot(gu, gu) < dot(gu2, gu2) ? gu : gu2;
+            vec3 col = textureGrad(pano, vec2(u, v), du, vec2(dFdx(v), dFdy(v))).rgb;
+            float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+            col *= 1.0 + hdr_boost * break_strength * smoothstep(0.45, 0.95, lum);
+            // far ruins on the horizon, two layers fading into the haze
+            float farA = skyline(phi, 70.0, 0.012, 0.05, 3.0);
+            float farB = skyline(phi + 0.37, 38.0, 0.006, 0.035, 11.0);
+            vec3 colA = mix(col * 0.8, haze * 0.7, 0.35);
+            vec3 colB = mix(col * 0.66, haze * 0.58, 0.35);
+            col = mix(col, colA, smoothstep(farA + 0.0015, farA - 0.0015, el));
+            col = mix(col, colB, smoothstep(farB + 0.0015, farB - 0.0015, el));
+            // below the horizon: the haze over far ground
+            col = mix(col, haze * 0.6, smoothstep(0.0, -0.06, d.y));
             COLOR = pow(max(col * gain, vec3(0.0)), vec3(1.0 / lift));
         }
         """;

@@ -1088,16 +1088,16 @@ if (-not $SkipBuild) {
             Run-Native 'dotnet build smtool' { dotnet build $smtoolProj -c Release -nologo -v quiet | Out-Null }
             # The arguments as an array (as Invoke-Scan passes them): Windows PowerShell drops an inline `--` before a native command's arguments.
             $kitArgs = @('run', '--project', $smtoolProj, '-c', 'Release', '--no-build', '--', 'ashfall-kit-files')
-            $kitFiles = @(& dotnet @kitArgs | Where-Object { $_ -match '\.glb$' })
+            $kitFiles = @(& dotnet @kitArgs | Where-Object { $_ -match '\.(glb|jpg)$' })
             if ($LASTEXITCODE -ne 0 -or $kitFiles.Count -eq 0) { Fail 'smtool ashfall-kit-files listed no files.' }
             foreach ($rel in $kitFiles) {
                 $from = Join-Path $kitSrc ($rel -replace '/', '\')
-                if (-not (Test-Path -LiteralPath $from)) { Fail "Ashfall kit model missing: $from" }
+                if (-not (Test-Path -LiteralPath $from)) { Fail "Ashfall kit file missing: $from" }
                 $to = Join-Path $exportDir ('ashfall-kit\' + ($rel -replace '/', '\'))
                 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $to) | Out-Null
                 Copy-Item -LiteralPath $from -Destination $to
             }
-            Write-Host "  Ashfall kit: $($kitFiles.Count) models bundled"
+            Write-Host "  Ashfall kit: $($kitFiles.Count) files bundled (models and the storm sky)"
         }
 
         Time-Step 'zips'
