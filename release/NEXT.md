@@ -10,6 +10,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Add your bullets in the same pull request as the change, when it merges.
 -->
 
+- Update with the launcher ("0 - SM Reimpl Launcher") before you play: Musou Mode now takes place in Ashfall Citadel, not Manufactorum. If you still see Manufactorum in Musou Mode, you are on an old build.
 - This build uses a new network version: everyone must update to play together.
 - Musou Mode: Ashfall now has its full detailed look in the tester build (walls, towers, bridges, platforms, paving and rubble), the same as in the developers' playtests, instead of the plain grey blocks. The download is about 400 MB larger because of it.
 - Musou Mode: the Imperial Guardsmen holding your points are much tougher, your reserve ammunition never runs out (you still reload and vent), a grenade comes back every 30 seconds, and the AI Space Marines fighting beside you take far less damage.
