@@ -28,31 +28,15 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2211 spec table rows: **1589 tagged**, 449 not tagged (read from data with high confidence), 173 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 487 rows of the changes document.
-Scanned 2209 spec table rows: **1587 tagged**, 450 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
-Scanned 2212 spec table rows: **1590 tagged**, 449 not tagged (read from data with high confidence), 173 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
-Scanned 2214 spec table rows: **1592 tagged**, 449 not tagged (read from data with high confidence), 173 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
-Scanned 2215 spec table rows: **1594 tagged**, 449 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
-Scanned 2219 spec table rows: **1598 tagged**, 449 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
-Scanned 2214 spec table rows: **1592 tagged**, 450 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
-Scanned 2207 spec table rows: **1586 tagged**, 449 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
-Scanned 2215 spec table rows: **1591 tagged**, 451 not tagged (read from data with high confidence), 173 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
+Scanned 2284 spec table rows: **1655 tagged**, 453 not tagged (read from data with high confidence), 176 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 499 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 369 | 313 | 312 | 109 | 12 |
-Scanned 2213 spec table rows: **1592 tagged**, 449 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 484 rows of the changes document.
-
-| Area | Tagged rows | by kind | by confidence | by notes | by section text |
-|---|---:|---:|---:|---:|---:|
-| Movement (critical) | 375 | 319 | 320 | 109 | 12 |
+| Movement (critical) | 377 | 321 | 320 | 111 | 12 |
 | Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
 | Melee (critical) | 102 | 89 | 79 | 32 | 5 |
-| Jump pack (critical) | 73 | 65 | 57 | 18 | 0 |
-| Melee (critical) | 100 | 87 | 77 | 32 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
-| Charge (critical) | 49 | 40 | 42 | 20 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 52 | 50 | 41 | 19 | 0 |
@@ -66,87 +50,25 @@ Scanned 2213 spec table rows: **1592 tagged**, 449 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
-| Core simulation (provisional values) | 268 | 252 | 214 | 35 | 1 |
+| Core simulation (provisional values) | 281 | 265 | 221 | 37 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 117 | 110 | 62 | 18 | 0 |
-| **All areas** | **1589** | 1358 | 1238 | 477 | 38 |
-| **All areas** | **1592** | 1361 | 1243 | 477 | 38 |
-| Core simulation (provisional values) | 270 | 254 | 216 | 35 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 117 | 110 | 62 | 18 | 0 |
-| **All areas** | **1587** | 1356 | 1238 | 475 | 38 |
-| **All areas** | **1590** | 1359 | 1241 | 476 | 38 |
-| Ork faction | 125 | 118 | 62 | 25 | 0 |
-| **All areas** | **1592** | 1361 | 1235 | 482 | 38 |
-| Ork faction | 127 | 120 | 72 | 18 | 0 |
-| **All areas** | **1594** | 1363 | 1245 | 475 | 38 |
-| Ork faction | 131 | 124 | 63 | 27 | 0 |
-| **All areas** | **1598** | 1367 | 1236 | 484 | 38 |
-| Core simulation (provisional values) | 275 | 259 | 215 | 35 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 117 | 110 | 62 | 18 | 0 |
-| **All areas** | **1592** | 1361 | 1237 | 475 | 38 |
-| Core simulation (provisional values) | 269 | 253 | 215 | 37 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 117 | 110 | 62 | 18 | 0 |
-| **All areas** | **1586** | 1355 | 1237 | 477 | 38 |
-| **All areas** | **1591** | 1360 | 1240 | 477 | 38 |
+| Ork faction | 149 | 142 | 73 | 34 | 0 |
+| **All areas** | **1655** | 1424 | 1275 | 500 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 756 |
-| kind: ours | 754 |
-| confidence: low | 586 |
-| kind: ours | 759 |
-| confidence: low | 583 |
-| kind: ours | 765 |
-| confidence: low | 584 |
-| kind: ours | 759 |
-| kind: ours | 753 |
-| confidence: low | 585 |
-| confidence: medium | 524 |
-| confidence: low | 587 |
-| confidence: medium | 528 |
-| kind: interpretation | 339 |
-| notes: ours | 322 |
+| kind: ours | 810 |
+| confidence: low | 602 |
+| confidence: medium | 545 |
+| kind: interpretation | 343 |
+| notes: ours | 325 |
 | confidence: none (low) | 128 |
 | kind: provisional | 99 |
-| kind: estimate | 84 |
-| kind: estimate | 85 |
-| kind: ours | 755 |
-| confidence: low | 585 |
-| confidence: medium | 528 |
-| kind: interpretation | 339 |
-| notes: ours | 321 |
-| confidence: none (low) | 128 |
-| kind: provisional | 99 |
-| kind: estimate | 83 |
+| kind: estimate | 93 |
+| notes: estimate | 67 |
 | kind: user's knowledge | 51 |
-| notes: estimate | 51 |
-| kind: estimate | 81 |
-| notes: estimate | 56 |
-| kind: ours | 757 |
-| confidence: low | 584 |
-| confidence: medium | 533 |
-| kind: interpretation | 342 |
-| notes: ours | 320 |
-| confidence: none (low) | 128 |
-| kind: provisional | 99 |
-| kind: estimate | 82 |
-| kind: estimate | 81 |
-| notes: estimate | 56 |
-| kind: ours | 755 |
-| confidence: low | 584 |
-| confidence: medium | 528 |
-| kind: interpretation | 340 |
-| notes: ours | 322 |
-| confidence: none (low) | 128 |
-| kind: provisional | 99 |
-| kind: estimate | 83 |
-| kind: user's knowledge | 51 |
-| notes: estimate | 51 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
 | kind: choice | 35 |
@@ -169,8 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (369)
-### Movement (gameplay-critical) (375)
+### Movement (gameplay-critical) (377)
 
 *Spec section: Extracted parameters*
 
@@ -1244,7 +1165,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0DB8F980` | Jets fade | out over 0.2 s, back over 0.25 s, linear (s) | kind: estimate; confidence: low; notes: ours | owner's "smoothly"; values ours | Jets fade: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: out over 0.2 s, back over 0.25 s, linear. | ☐ |
 | `R-E62741A8` | Legs in an air strike | a melee strike more than 0.1 s in the air has no clip foot lock: the legs are the attack clip's (the lock held each foot the clip put down at a world point and the leg IK stretched it back there as the body flew on) (s) | kind: ours; confidence: medium | cause measured; the grace ours | Legs in an air strike: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a melee strike more than 0.1 s in the air has no clip foot lock: the… | ☐ |
 
-### Charge (gameplay-critical) (49)
 ### Charge (gameplay-critical) (56)
 
 *Spec section: The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21)*
@@ -2070,10 +1990,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-EB03504B` | Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks (s) | kind: ours; notes: estimate | owner 2026-11-02 | Shot lag allowance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each shot is also tried on the enemy's places over the last 0.2 s… | ☐ |
 
-### Core simulation (provisional values) (268)
-### Core simulation (provisional values) (270)
-### Core simulation (provisional values) (275)
-### Core simulation (provisional values) (269)
+### Core simulation (provisional values) (281)
 
 *Spec section: Provisional values in use*
 
@@ -2507,6 +2424,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-0019EB8C` | Swing step-forward: thunder hammer and daemon maul | the light strikes × **0.7** on top of the 2026-11-01 trim 0.82 (0.574 × the lunge scale, 0.933 × the clip's): free swing 8.05 / 7.65 / 6.02 -> **5.63 / 5.35 / 4.19 m**. The maul taking it: our assumption (m) | kind: ours; kind: estimate; confidence: low | owner 2026-11-06 | Swing step-forward: thunder hammer and daemon maul: compare with SM1 by measuring on a flat spot of the same map. Ours: the light strikes × 0.7 on top of the 2026-11-01 trim 0.82 (0.574 ×… | ☐ |
+
 *Spec section: Added content: Musou Mode co-op for up to 4 players (2026-11-06; server, front end and release files; no protocol or wire change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -2772,6 +2690,7 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-9B2D4853` | Musou: the battle's Orks (third doubling) | garrison **96** a point (was 48), crowd **400** (was 200) filling one every **4** ticks (7.5 a second, a crowd in 53 s as before), alive cap **1200** solo plus **640** a further human, at most **1680** (was 600, 320, 840), the trickle one every **0.75** s a… (Orks) | kind: ours; notes: estimate | owner 2026-11-06 | Musou: the battle's Orks (third doubling): compare with SM1 by feel or video. Ours: garrison 96 a point (was 48), crowd 400 (was 200) filling one every 4… | ☐ |
 | `R-CA9D8E36` | Musou: drawn (third doubling) | the nearest **1800** Orks drawn (was 900), at most **1000** of a look by the vertex-animation tier (was 500), 40 skinned as before; `--musou-visible` takes up to 2000. The Guardsmen's crowd keeps its 500 (Orks) | kind: ours; notes: estimate | owner 2026-11-06 | Musou: drawn (third doubling): compare with SM1 by feel or video. Ours: the nearest 1800 Orks drawn (was 900), at most 1000 of a look by the… | ☐ |
 | `R-0499BF55` | Musou Mode: no melee wedges | the faint red wedge under an Ork winding up a melee blow is not drawn in Musou Mode (a war); the 5-wave run keeps it; the Warboss's ring and lane stay | kind: ours | owner 2026-11-06 | Musou Mode: no melee wedges: compare with SM1 by feel or video. Ours: the faint red wedge under an Ork winding up a melee blow is not drawn… | ☐ |
+
 *Spec section: Musou Mode: Boss Orks and the Warboss model (musou/boss-orks, 2026-11-06; `MusouSim.Version` 8, `TfwRules.Version` 25, no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -2841,9 +2760,9 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-0BAAC3C5` | Pistol-only start, Space Marine spawn room, Warboss in the Chaos room | the owner's request (2026-10-31) | every life starts with the class's bolt pistol only; everyone spawns in the Space Marine room | Musou spawns and loadout | Pistol-only start, Space Marine spawn room, Warboss in the…: compare with SM1 by feel or video. Ours: the owner's request (2026-10-31). | ☐ |
 | `C-D5938EAB` | Golden weapon drops from Nobs and Chaos Marines | the owner's requests (2026-10-31) | each Nob or Chaos Marine KO drops one weapon per player from their class's pool, E equips it, 60 s | Musou weapon drops | Golden weapon drops from Nobs and Chaos Marines: compare with SM1 by feel or video. Ours: the owner's requests (2026-10-31). | ☐ |
 | `C-6A2CB579` | Musou Mode: an extraction after a won battle never ends the run | the owner's decision (2026-11-01) | the supplies fall by up to 2, never below 0, and the run goes on; from a battle not won, under 2 supplies still loses the run | War downed | Musou Mode: an extraction after a won battle never ends the…: compare with SM1 by timing a run over a known distance. Ours: the owner's decision (2026-11-01). | ☐ |
-| `C-2E0C8FD7` | Musou Mode: orbital support and the far war | the owner's items 10 and 12 and his decision of 2026-11-01: artillery only when a player calls it with B on the crosshair's point, starting at once; Thunderhawk runs paused by him the same day; SM1 multiplayer has none of this | a walking barrage on the called point, a 60 s cooldown per player in a battle and none at the Firing Range (the owner, 2026-11-06; none anywhere from 2026-11-01), friend and foe hurt; a muffled war heard round the map (sound only; the far fires and flak were taken out, 2026-11-02); the optional local whistle… | Musou Mode: fire support | Musou Mode: orbital support and the far war: compare with SM1 by feel or video. Ours: the owner's items 10 and 12 and his decision of 2026-11-01: artillery… | ☐ |
+| `C-08618741` | Musou Mode: orbital support and the far war | the owner's items 10 and 12 and his decision of 2026-11-01: artillery only when a player calls it with B on the crosshair's point, starting at once; Thunderhawk runs paused by him the same day; SM1 multiplayer has none of this | a walking barrage on the called point, a 60 s cooldown per player in a battle and none at the Firing Range (the owner, 2026-11-06; none anywhere from 2026-11-01), friend and foe hurt; a muffled war heard round the map (sound only; the far fires and flak were taken out, 2026-11-02); the optional local whistle… | Musou Mode: fire support | Musou Mode: orbital support and the far war: compare with SM1 by feel or video. Ours: the owner's items 10 and 12 and his decision of 2026-11-01: artillery… | ☐ |
 | `C-CEB3ECD5` | Musou Mode co-op: up to 4 players, hosted like a match | the owner's request (2026-11-06); the cap of 4 his, the rest ours | a Musou match admits 4 players on one side; MUSOU MODE's page hosts it this PC only or LAN / Internet and joins by address; a human who joins during a battle is flown in at the landing zone | Musou Mode co-op for up to 4 players | Musou Mode co-op: up to 4 players, hosted like a match: compare with SM1 by feel or video. Ours: the owner's request (2026-11-06); the cap of 4 his, the rest ours. | ☐ |
-| `C-2E0C8FD7` | Musou Mode: orbital support and the far war | the owner's items 10 and 12 and his decision of 2026-11-01: artillery only when a player calls it with B on the crosshair's point, starting at once; Thunderhawk runs paused by him the same day; SM1 multiplayer has none of this | a walking barrage on the called point, no cooldown (the owner, 2026-11-01), friend and foe hurt; a muffled war heard round the map (sound only; the far fires and flak were taken out, 2026-11-02); the optional local whistle `client/assets/musou/whistle.ogg` is never shipped | Musou Mode: fire support | Musou Mode: orbital support and the far war: compare with SM1 by feel or video. Ours: the owner's items 10 and 12 and his decision of 2026-11-01: artillery… | ☐ |
+| `C-08618741-2` | Musou Mode: orbital support and the far war | the owner's items 10 and 12 and his decision of 2026-11-01: artillery only when a player calls it with B on the crosshair's point, starting at once; Thunderhawk runs paused by him the same day; SM1 multiplayer has none of this | a walking barrage on the called point, no cooldown (the owner, 2026-11-01), friend and foe hurt; a muffled war heard round the map (sound only; the far fires and flak were taken out, 2026-11-02); the optional local whistle `client/assets/musou/whistle.ogg` is never shipped | Musou Mode: fire support | Musou Mode: orbital support and the far war: compare with SM1 by feel or video. Ours: the owner's items 10 and 12 and his decision of 2026-11-01: artillery… | ☐ |
 | `C-8D1FAC43` | Musou enemy sounds: only the nearest enemies are heard | ours (a crowd of hundreds against the original's dozens): the events and mix are the data's, when they play and how many are ours | 16 emitters within 30 m, 6 stepping, at most about 14 voices and 6 lines, a crowd voice never cuts a player's; the Warboss speaks with the `ork_nob` lines; the crowd's clip tags are stood in for by state changes and ground covered | Musou enemy sounds | Musou enemy sounds: only the nearest enemies are heard: compare with SM1 by feel or video. Ours: ours (a crowd of hundreds against the original's dozens): the events… | ☐ |
 | `C-09C74C8A` | Musou Mode replaces the 5-wave run | the owner's decision (2026-11-01) | `--content musou` runs the war on `tfw_war`, Manufactorum from the install with a generated Stormbird beside it and no spawn-room blockers; the 5-wave run stays only as a test aid (`--map mp_tdm_09`) | War map | Musou Mode replaces the 5-wave run: compare with SM1 by timing a run over a known distance. Ours: the owner's decision (2026-11-01). | ☐ |
 | `C-38A58728` | AI Marines in the war | the owner's decisions (2026-11-01) and ours | server-side puppets: a retainer per player who follows orders and revives, three lords with retainers who act alone; ammunition without end, placeholder names | Retainer orders | AI Marines in the war: compare with SM1 by feel or video. Ours: the owner's decisions (2026-11-01) and ours. | ☐ |
