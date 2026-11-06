@@ -60,6 +60,8 @@ public sealed class MusouLooks
     readonly Dictionary<string, MarineAssets?> _meshes = new(StringComparer.OrdinalIgnoreCase);
     readonly Look?[] _looks = new Look?[16];
     readonly Func<MarineAssets?> _chaos;
+    /// <summary>The ranged Orks' guns (null: <c>--no-musou-guns</c>, unarmed as before).</summary>
+    public MusouGunModels? Guns { get; }
     int _next;
     bool _chaosTried;
 
@@ -68,9 +70,10 @@ public sealed class MusouLooks
     public bool Done { get; private set; }
 
     /// <param name="chaos">The Chaos Marine's model when the view has built it (null: not yet, or none).</param>
-    public MusouLooks(string gameDir, OrkAssets orks, Func<MarineAssets?> chaos)
+    public MusouLooks(string gameDir, OrkAssets orks, Func<MarineAssets?> chaos, bool guns = true)
     {
         _gameDir = gameDir; _orks = orks; _chaos = chaos;
+        if (guns) Guns = new MusouGunModels(gameDir, orks.Rig.Rig.Skeleton.BoneNames);   // the guns in the ranged Orks' hands (MusouGunModels.cs)
         foreach (var w in Plan) { Start(w.Mesh); if (w.Fallback is not null) Start(w.Fallback); }
     }
 
@@ -85,7 +88,7 @@ public sealed class MusouLooks
         {
             var w = Plan[_next];
             var mesh = Mesh(w.Mesh, out bool ready);
-            if (!ready) return null;
+            if (!ready || Guns?.IsReady(w.Type) == false) return null;
             float scale = w.Scale;
             if (mesh is null && w.Fallback is not null)
             {
@@ -97,6 +100,7 @@ public sealed class MusouLooks
             _next++;
             if (mesh is null) { Notes.Add($"musou: no look for {w.Type}"); return null; }
             var look = new Look { Name = $"{w.Type}:{(scale == w.Scale ? w.Mesh : w.Fallback)}", Assets = mesh, Scale = scale, Clips = OrkClips(mesh, w.Ranged) };
+            Guns?.Arm(look, w.Type, _orks.Pieces, Notes);
             return _looks[(int)w.Type] = look;
         }
         if (_looks[(int)MusouEnemyType.Warboss] is null && _looks[(int)MusouEnemyType.Boy] is { } boy)   // no Nob and no pro mesh to be had: the Boy's body, big

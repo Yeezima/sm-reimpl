@@ -72,7 +72,7 @@ public partial class MusouCrowd : CrowdView
         foreach (var e in shown)
         {
             var p = new Vector3(e.Position.X, e.Position.Y, e.Position.Z);
-            int clip = ClipOf(e.State);
+            int clip = GunClip(e, ClipOf(e.State));   // MusouCrowd.Guns.cs: a firing Shoota Boy aims
             _seen.Add(e.Id);
             float time;
             if (MusouLooks.Loops(clip)) { _clocks.TryGetValue(e.Id, out time); time += delta; _clocks[e.Id] = time; }

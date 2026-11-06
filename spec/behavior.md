@@ -3899,6 +3899,23 @@ Musou Mode's enemies sound with the original events through `SoundSystem`, so th
 | Impact surfaces | a gun's or blow's hit on a Marine plays on `armour`, a miss on `stone`, whatever is really there | - | per post | `NetworkView.MusouSounds.cs` | ours | ours | low |
 | Instance limits | every crowd post is `limited`: the banks' own per-node limits apply (Ork voices 1 per emitter, klaw 4 global, kill shot 6 global) | - | per voice | `SoundSystem.Post`, `PostSpeech` | read from the banks | read | high |
 | Gain | 0 dB; footsteps -3 dB as every character's (`FootstepLevel`). `--musou-ork-gain` is a listening aid, off by default | dB | per voice | `MusouOrkOffset` | the owner: the original sounds and mix | read | high |
+### Added content: Musou Ork guns (musou/ork-weapon-fx; client only, no protocol change)
+
+The owner (2026-11-06): "the ranged attack orks don't have weapon models in their hand, and their shots are invisible ... flesh that out. musou mode only." The Shoota Boy holds the Ork boy's shoota and every round the simulation reports (its `Tracer` event) plays the shoota wargear's own effects. The names are the data's, read from the install at run time (`smtool baf-dump data/packages/wargear.oppc --entry ork_coop_boy_2hand_shoota_rapid`); which rounds get which effect, and the culls, are ours. Code in `Extras` only, behind `MusouActive`; nothing reaches Annihilation or Seize Ground. `--no-musou-guns` restores the unarmed crowd with invisible shots.
+
+| Parameter (Musou Ork guns) | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Which Orks carry a gun | Shoota Boy: `ork_coop_boy_2hand_shoota_rapid` (model `shoota`, the playable Ork's); no other Musou Ork fires | - | per look | `MusouOrkGunRules.Guns` | wargear names read from the install; the pairing with Musou's type is ours | ours | medium |
+| Gun mount | the wargear's wield entry on the boy rig's `RIG_Prop_M_Chest` (`OrkWeaponMounts.Shoota`), joined to the look as one rigid piece, so the skinned and the vertex-animation tiers both draw it | - | per look | `MusouGunModels.Arm` | wargear + rig (supported by evidence) | interpretation | medium |
+| Muzzle flash | `fire_fx` of `ability_ranged_primary`: `shoota_muzzle` at `fx_muzzle`, along the shot | - | per round | `NetworkView.MusouGuns.cs` | data | interpretation | medium |
+| Tracer effect | `hit_fx`: `shoota_tracer` from the muzzle to the end point; head at the effect's own speed, crossing in at most 0.1 s (`MaxTracerFlight`, as the marines') | - | per tracer round | `NetworkView.MusouGuns.cs` | data; the speed rule is the M31 one | interpretation | medium |
+| Tracer cadence | every 3rd round of each Ork (the data draws one on every round), from a start of his own | rounds | per Ork's rounds | `MusouOrkGunRules.TracerEvery`, `TracerRound` | owner: "occasional tracer" | estimate | low: to see in a playtest |
+| Impact | `hit_fx`'s container `shoota_coop` by surface; on a hit the player's surface (armour up); on a miss the round flies 30 m on past the simulation's end to the first wall or floor, none in the open | - | per round, after the tracer's flight | `MusouOrkGunRules.MissReach`, `NetworkView.MusouGuns.cs` | data for the container; the miss's flight ours | ours | medium |
+| Distance culls | flash within 45 m, tracer within 70 m, impact within 35 m of the camera | m | per round | `MusouOrkGunRules.FlashMetres`, `TracerMetres`, `ImpactMetres` | ours | ours | medium |
+| Effect rates over the crowd | flashes 40/s (burst 8), tracers 16/s (burst 4), impacts 14/s (burst 4); nearest rounds first | effects/s | client frame | `MusouGunFxPlanner`, `MusouOrkGunRules.*PerSecond`, `*Burst` | ours: bounded cost for hundreds of Orks (the effect player keeps 160) | ours | medium |
+| Aiming stance while firing | for 0.6 s after a round a Shoota Boy in "seek" plays his look's idle (`BOY_2HR_NAV_Idle_S_01`, the two-handed aim) instead of running on the spot | s | client clock | `MusouOrkGunRules.AimHoldSeconds`, `MusouCrowd.Guns.cs` | ours: the simulation's shooter stands still through a burst | ours | medium |
+| Fire sound | `play_or_shoota_fire` (the wargear's `fire_audio`), under the crowd's Gun budget (50 m, 6/s, burst 4) and the data's instance limits | - | per round | `NetworkView.MusouSounds.cs` (unchanged) | data; the budget ours (row "Musou sounds") | ours | medium |
+
 ### Melee reliability, the sooner step and the stalker crater (feel/melee-reliability; used by the simulation, config hash, no wire change)
 
 | Parameter | Value | Units | Timing basis | Where | Source | Kind | Confidence |
