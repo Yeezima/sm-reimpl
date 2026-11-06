@@ -183,6 +183,7 @@ The original's behaviour is known (or believed known) and we chose to differ.
 | Stalker bolter wall crater | the owner's request (2026-11-02); the data leaves stone unmarked | the bolter's crater at 1.6 times its size | Melee reliability |
 | Jump pack flame trail removed | the owner's request (2026-11-02) | one quick flash at the start of a jump, hop, dive, dash or air charge, no flame or trail | Jump pack |
 | Zoom while flying with the jump pack | the owner's request (2026-11-02) | aim mode holds in the jump pack's phases, except the ground pound | Jump pack |
+| Jump pack ready jets by jump availability | The pack's idle effects by power (`action_idle_by_power`: full from 55, low from 40, none below) | the owner's request (2026-11-06): the full-power jets while a jump can start, faded out (0.2 s) while one cannot, back in 0.25 s (ours); with the 300-power pack the power rule never changed the look (fx/jumppack-jets, client only) | Jump pack: the launch flash, the ready jets and the legs in an air strike |
 
 ## 2. Our choices where the original is unknown
 

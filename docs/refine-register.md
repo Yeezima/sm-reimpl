@@ -30,6 +30,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 Scanned 2211 spec table rows: **1589 tagged**, 449 not tagged (read from data with high confidence), 173 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 487 rows of the changes document.
 Scanned 2209 spec table rows: **1587 tagged**, 450 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
+Scanned 2212 spec table rows: **1590 tagged**, 449 not tagged (read from data with high confidence), 173 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -43,6 +44,8 @@ Scanned 2213 spec table rows: **1592 tagged**, 449 not tagged (read from data wi
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
 | Melee (critical) | 102 | 89 | 79 | 32 | 5 |
 | Jump pack (critical) | 73 | 65 | 57 | 18 | 0 |
+| Melee (critical) | 100 | 87 | 77 | 32 | 5 |
+| Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 49 | 40 | 42 | 20 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 52 | 50 | 41 | 19 | 0 |
@@ -65,6 +68,7 @@ Scanned 2213 spec table rows: **1592 tagged**, 449 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 117 | 110 | 62 | 18 | 0 |
 | **All areas** | **1587** | 1356 | 1238 | 475 | 38 |
+| **All areas** | **1590** | 1359 | 1241 | 476 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -82,6 +86,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: provisional | 99 |
 | kind: estimate | 84 |
 | kind: estimate | 85 |
+| kind: ours | 755 |
+| confidence: low | 585 |
+| confidence: medium | 528 |
+| kind: interpretation | 339 |
+| notes: ours | 321 |
+| confidence: none (low) | 128 |
+| kind: provisional | 99 |
+| kind: estimate | 83 |
 | kind: user's knowledge | 51 |
 | notes: estimate | 51 |
 | notes: provisional | 38 |
@@ -1065,7 +1077,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-04289953` | Swing step-forward: every melee weapon but the hammer and the maul | the light strikes' forward root motion × **1.5** on top of the lunge scale 1.625 (2.4375 × the clip's): combat knife, chainsword (and gold), power sword, power axe / chain axe, the Ork choppa; free swing over the whole clip, chainsword 3.58 / 2.56 / 3.46 /… (m) | kind: ours; kind: estimate; confidence: low | owner 2026-11-06 | Swing step-forward: every melee weapon but the hammer and…: compare with SM1 by measuring on a flat spot of the same map. Ours: the light strikes' forward root motion × 1.5 on top of the lunge… | ☐ |
 | `R-0CFB178C` | Lock-on lunge reach | a locked attack's forward motion (the burst and the distance-blended clip together) closes **0.7** of the gap to the 1 m separation (before: all of it), along the burst's profile (1 - ((f - t)/f)^2, f = 0.6 of the hit time), then holds that distance for the… (share of the gap) | kind: ours; kind: estimate; confidence: low | owner 2026-11-06 | Lock-on lunge reach: compare with SM1 by measuring on a flat spot of the same map. Ours: a locked attack's forward motion (the burst and the distance-blended… | ☐ |
 
-### Jump pack (gameplay-critical) (73)
+### Jump pack (gameplay-critical) (79)
 
 *Spec section: Jump pack and ground pound (M14, used by the simulation)*
 
@@ -1169,6 +1181,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-308D6CF2` | Not cancelled | the Tactical roll (its data branches only, as before); the Devastator and Havoc hop and charge; the Ork Boy; the charge's collision stop (the recoil after a hit or wall keeps its data branches: a charge that has connected is no longer in its rush phase, so it… | kind: ours; notes: guess | owner 2026-11-02 + our reading of "connected" | Not cancelled: compare with SM1 by feel or video. Ours: the Tactical roll (its data branches only, as before); the Devastator… | ☐ |
 | `R-3024F53E` | Jump press ends a bull rush | Assault / Raptor: a Space press in the bull rush (rush phase, ground or held in the air) ends it at once and the pack takes the press as on any tick: a tap is the hop, a hold the jump; Tactical classes unchanged | kind: ours; notes: estimate | owner 2026-11-02 | Jump press ends a bull rush: compare with SM1 by feel or video. Ours: Assault / Raptor: a Space press in the bull rush (rush phase, ground… | ☐ |
 | `R-311459CF` | Jump pack from a fall | Assault / Raptor: Space held past the hop's decision tick (the long press, `BufferedAction.JumpLong`) while falling (no phase, or the jump's hang or fall) lifts the pack at once in the air, committed to the small jump and growing while held; a tap is still… | kind: ours; notes: estimate | owner 2026-11-02 | Jump pack from a fall: compare with SM1 by timing a run over a known distance. Ours: Assault / Raptor: Space held past the hop's decision tick (the long… | ☐ |
+
+*Spec section: Jump pack: the launch flash, the ready jets and the legs in an air strike (fx/jumppack-jets; client only, no simulation, wire or protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-3FF51F22` | Launch flash | the data's `quick flash` of `action_ascending`'s `jumppack_thrust` (Chaos `chaos_jumppack_thrust`) at the nozzles, 0.35 s (fx/jump-flash), at every jump start: take-off, air start, hop (the dash), dive, the charge in the air and now **on the ground** too (s) | kind: ours; confidence: medium | original asset loaded; when: owner | Launch flash: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the data's quick flash of action_ascending's jumppack_thrust (Chaos… | ☐ |
+| `R-991EEDD3` | Ready jets | the data's highest `action_idle_by_power` entry (`jumppack_innate_full_power_combo`; Chaos `chaos_jumppack_center_full_power`) loops on the pack while alive, its opacity 1 while a jump can start, 0 when not, on the ground and in the air; the lowest entry… | kind: ours; confidence: medium | effects: original asset loaded; rule: owner | Ready jets: compare with SM1 by feel or video. Ours: the data's highest action_idle_by_power entry… | ☐ |
+| `R-24AAE600` | A jump can start (own) | on the ground: no jump phase, or the landing's `JumpLock` run (counted as the simulation does: the tick about to be stepped), and power for the jump (`CostAt(0)`, else only the dash); in the air: no phase, the hang or the fall, and the dash's spacing… | kind: ours; confidence: medium | the simulation's rules | A jump can start (own): compare with SM1 by feel or video. Ours: on the ground: no jump phase, or the landing's JumpLock run (counted… | ☐ |
+| `R-62955C15` | A jump can start (others) | the same phases from their slim records; the landing lock and the dash spacing (`MinInterval`, 0.8 s) timed from when this client saw the landing or the dash; power taken as enough (not on the wire) (s) | kind: estimate; confidence: low | estimate | A jump can start (others): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the same phases from their slim records; the landing lock and the… | ☐ |
+| `R-0DB8F980` | Jets fade | out over 0.2 s, back over 0.25 s, linear (s) | kind: estimate; confidence: low; notes: ours | owner's "smoothly"; values ours | Jets fade: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: out over 0.2 s, back over 0.25 s, linear. | ☐ |
+| `R-E62741A8` | Legs in an air strike | a melee strike more than 0.1 s in the air has no clip foot lock: the legs are the attack clip's (the lock held each foot the clip put down at a world point and the leg IK stretched it back there as the body flew on) (s) | kind: ours; confidence: medium | cause measured; the grace ours | Legs in an air strike: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a melee strike more than 0.1 s in the air has no clip foot lock: the… | ☐ |
 
 ### Charge (gameplay-critical) (49)
 
@@ -2817,6 +2840,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-A30FD437` | Stalker bolter wall crater | the owner's request (2026-11-02); the data leaves stone unmarked | the bolter's crater at 1.6 times its size | Melee reliability | Stalker bolter wall crater: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-73CEF8B5` | Jump pack flame trail removed | the owner's request (2026-11-02) | one quick flash at the start of a jump, hop, dive, dash or air charge, no flame or trail | Jump pack | Jump pack flame trail removed: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-CD5C01F2` | Zoom while flying with the jump pack | the owner's request (2026-11-02) | aim mode holds in the jump pack's phases, except the ground pound | Jump pack | Zoom while flying with the jump pack: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-69AD73F9` | Jump pack ready jets by jump availability | The pack's idle effects by power (`action_idle_by_power`: full from 55, low from 40, none below) | the owner's request (2026-11-06): the full-power jets while a jump can start, faded out (0.2 s) while one cannot, back in 0.25 s (ours); with the 300-power pack the power rule never changed the look (fx/jumppack-jets, client only) | Jump pack: the launch flash, the ready jets and the legs in an air strike | Jump pack ready jets by jump availability: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 
 ### Our choices where the original is unknown
 
@@ -3464,4 +3488,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-E085B984` | Test aids | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
 | `R-2F7F28A2` | Switch | Solid bodies: no passing through, the charge meets what it runs into (fix/charge-player-collision; protocol 57, no wire change) |
 | `R-FF7A7041` | Switches | Swing step, the lock-on's lunge and the air jump by mode (sim/swing-step, sim/lock-reach, sim/air-jumps; protocol 59, no wire change) |
+| `R-36C8F88E` | Switches | Jump pack: the launch flash, the ready jets and the legs in an air strike (fx/jumppack-jets; client only, no simulation, wire or protocol change) |
 

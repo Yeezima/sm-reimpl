@@ -163,7 +163,23 @@ public partial class NetworkView
     void HandoffEnded(int id) { if (_flow.TryGetValue(id, out var t)) t.HandFrom = -1f; }
 
     /// <summary>Whether a strike's or a charge's clip holds its put-down feet (on the ground, alive, not the Ork's rig).</summary>
-    bool ClipFootLockFor(PlayerState s, bool melee) => !NoMeleeFlow && s.Alive && (s.Jump is JumpPhase.None or JumpPhase.Landed or JumpPhase.Recover) && (melee || s.Grounded);   // a strike holds its feet over a step or a curb too (the body may leave the ground for a tick)
+    /// <remarks>fx/jumppack-jets (<see cref="AirLegRules"/>): a strike in the air (past the curb-step grace) no longer holds feet in the world (the legs warped toward them); <c>--old-air-legs</c> = before.</remarks>
+    bool ClipFootLockFor(PlayerState s, bool melee)
+    {
+        if (s.Grounded) _groundSeenAt[s.PlayerId] = _connectedFor;
+        if (melee && !s.Grounded && s.Alive && s.MeleeStep != 0 && _client is not null && s.PlayerId == _client.PlayerId) FeelShotTrigger("air-melee");   // capture aid: the frames of an own strike in the air
+        if (NoMeleeFlow) return false;
+        if (OldAirLegs || !melee) return s.Alive && (s.Jump is JumpPhase.None or JumpPhase.Landed or JumpPhase.Recover) && (melee || s.Grounded);
+        double air = s.Grounded ? 0.0 : _connectedFor - _groundSeenAt.GetValueOrDefault(s.PlayerId, double.NegativeInfinity);
+        bool locks = AirLegRules.FootLock(s.Alive, s.Jump, s.Grounded, (float)Math.Min(air, 1e6));
+        if (!locks && s.Alive && !s.Grounded && AttackClip(s) is not null && _airStrikeLogged.Add((s.PlayerId, s.MeleeStep, s.MeleeHeavy)) && (_bot || LogAirLegs))
+            GD.Print($"t {_connectedFor:F2} s: P{s.PlayerId} air strike step {s.MeleeStep}{(s.MeleeHeavy ? " heavy" : "")}: legs follow the clip (no foot lock, {air:F2} s in the air)");
+        return locks;
+    }
+    readonly Dictionary<int, double> _groundSeenAt = new();
+    readonly HashSet<(int, int, bool)> _airStrikeLogged = new();
+    static readonly bool OldAirLegs = OS.GetCmdlineUserArgs().Contains("--old-air-legs");
+    static readonly bool LogAirLegs = OS.GetCmdlineUserArgs().Contains("--log-air-legs");   // a strike holds its feet over a step or a curb too (the body may leave the ground for a tick)
 
     /// <summary>
     /// The strike's extracted root speed forward (m/s per second of the clip <paramref name="clipLength"/> long, posed for <paramref name="time"/> s of the attack) at the blend the
