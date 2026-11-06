@@ -25,6 +25,7 @@ public class JumpPackCapacityModeTests
     [Fact]
     public void Musou_mode_keeps_the_owner_capacity()
     {
+        if (!ContentExtras.Compiled) return;   // a build without added content has no Musou Mode (faithful-build)
         Assert.True(Musou.JumpPackOwnerCapacity);
         Assert.Equal(300f, Loadouts.JumpPack(Musou, 0)!.MaxPower);
         var s = Combat.Respawned(new PlayerState(1, default, default, 0f, true) { Class = 0 }, Musou);
