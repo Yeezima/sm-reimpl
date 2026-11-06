@@ -24,11 +24,11 @@ namespace SmClient;
 public partial class NetworkView
 {
     /// <summary>
-    /// Fraction of shots meant to hit at medium range when <c>--bot-accuracy</c> is not given (ours: bots miss most shots, for footage; lowered
-    /// from 0.25 to 0.03 on the owner's request of 2026-10-28, "the bots ... still absolutely obliterate me", together with the trigger discipline
-    /// <see cref="BotFireDiscipline"/> and the data's weapon spread; the owner kept the result, about 7% hits and 72% less damage; spec "Test bots").
+    /// Fraction of shots meant to land on the target's body, at every range (<see cref="BotAimModel.DistanceScale"/>), when <c>--bot-accuracy</c> is not given. Night batch 2026-11-06,
+    /// the owner: "increase the bots ranged weapon accuracy to 49%" (first said 50%). Was 0.03 at 15 m with a fixed error angle (the owner's 2026-10-28 "about 7% hits"). The weapon's own
+    /// spread and the target's movement come on top, so this input is higher than the 49 % hit rate it is calibrated to give in a bot-vs-bot run (spec "Test bots", measured there).
     /// </summary>
-    public const float DefaultBotAccuracy = 0.03f;
+    public const float DefaultBotAccuracy = 0.97f;
     /// <summary>Metres beyond which a firing bot also advances toward its target (ours; the bot strafes closer than this).</summary>
     public const float BotAdvanceBeyond = 40f;
 
@@ -46,6 +46,24 @@ public partial class NetworkView
     /// <summary>The trigger discipline (reaction delay, bursts and pauses; <see cref="BotFireDiscipline"/>); off with a perfect aim or <c>--bot-no-discipline</c>.</summary>
     BotFireDiscipline? _botDiscipline;
     int _botDisciplineHeld;
+    /// <summary>The melee reaction time (night batch 2026-11-06; <see cref="BotMeleeReaction"/>); off with a perfect aim (the probe flags) or <c>--bot-no-discipline</c>.</summary>
+    BotMeleeReaction? _botMeleeReaction;
+    bool _botTargetSwinging;
+
+    /// <summary>
+    /// Whether the bot may start a melee action (or a charge) this tick: its reaction time to an enemy in reach has passed. <paramref name="inReach"/>: the target is in melee or charge reach;
+    /// otherwise the timer sees no enemy. Always true with a perfect aim or <c>--bot-no-discipline</c> (test aids that need the action at once).
+    /// </summary>
+    bool BotMeleeReady(PlayerState target, bool inReach, float horizontal)
+    {
+        ReadBotAimFlags();
+        if (BotAccuracy >= BotAimModel.Perfect || CmdFlag("bot-no-discipline")) return true;
+        _botMeleeReaction ??= new BotMeleeReaction(Math.Max(_client!.PlayerId, 0) * 15485863 + 11);
+        bool swinging = target.MeleeStep > 0;
+        bool began = swinging && !_botTargetSwinging && horizontal <= BotMeleeDistance + 1f;
+        _botTargetSwinging = swinging;
+        return _botMeleeReaction.Step(_config!.TickSeconds, inReach ? target.PlayerId : null, began);
+    }
 
     /// <summary>Flags of probes and test aids that measure or photograph shots and need them to land: with one of these present a bot's default accuracy is 1 (an explicit <c>--bot-accuracy</c> still wins).</summary>
     static readonly string[] ProbeFlags = ["aim-test", "bot-stand", "hip-probe", "reload-capture", "reload-test", "look-closeup", "look-churn", "look-log", "camera-probe", "camera-selftest",
@@ -106,6 +124,9 @@ public partial class NetworkView
         if (!aimed) { if (!_botAim.IsPerfect) _botAim.StepParts(_config.TickSeconds, false); return input; }
         bool firing = (input.Buttons & InputButtons.Fire) != 0;
         var (dy, dp, sy, sp) = _botAim.StepParts(_config.TickSeconds, firing);
+        // Night batch 2026-11-06: the error angle scales with the range so the accuracy holds at every distance (BotAimModel.DistanceScale).
+        float scale = BotAimModel.DistanceScale(_botAimDistance);
+        (dy, dp, sy, sp) = (dy * scale, dp * scale, sy * scale, sp * scale);
         if (dy == 0f && dp == 0f && sy == 0f && sp == 0f) return input;
         // Turning the view by dy turns the move vector with it; rotate the stick the other way to keep the body's direction.
         float c = MathF.Cos(dy), s = MathF.Sin(dy);

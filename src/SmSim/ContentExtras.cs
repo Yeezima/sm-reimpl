@@ -213,4 +213,22 @@ public sealed partial record SimConfig
 
     /// <summary>Hook for added content (docs/added-content.md): sets <paramref name="off"/> when an extra removes the bullet spread (<see cref="NoBulletSpread"/>).</summary>
     partial void ExtrasNoBulletSpread(ref bool off);
+
+    /// <summary>
+    /// night batch 2026-11-06 (owner: "in classic pvp mode return the maximum jump pack fuel capacity to exactly the same as the original game"): whether the jump pack
+    /// holds the owner's capacity (<c>JumpPackTuning.OwnerCapacity</c>, 300) instead of the data's <c>max_power</c> (100, <see cref="JumpPackSpec.DataMaxPower"/>). False in Classic PvP
+    /// (and every non-Musou match); set by added content through <see cref="ExtrasJumpPackOwnerCapacity"/> (Musou Mode: true, as before). Not hashed itself (Musou's block covers it).
+    /// </summary>
+    public bool JumpPackOwnerCapacity
+    {
+        get
+        {
+            bool owner = false;
+            ExtrasJumpPackOwnerCapacity(ref owner);   // EXTRAS-HOOK
+            return owner;
+        }
+    }
+
+    /// <summary>Hook for added content (docs/added-content.md): sets <paramref name="owner"/> when an extra keeps the owner's jump-pack capacity (<see cref="JumpPackOwnerCapacity"/>).</summary>
+    partial void ExtrasJumpPackOwnerCapacity(ref bool owner);
 }

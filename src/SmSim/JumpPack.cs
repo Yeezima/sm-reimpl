@@ -63,6 +63,8 @@ public sealed record JumpPackSpec(string Name, IReadOnlyList<DistancePoint> Heig
 {
     /// <summary><c>smash_can_be_used</c> and an <c>ability_groundpound</c>: a melee press in flight starts the ground pound.</summary>
     public bool PoundEnabled { get; init; }
+    /// <summary>The data's <c>max_power</c> for this entry (before the owner's capacity replaced <see cref="MaxPower"/>); 0: unknown. Classic PvP uses it (<c>Loadouts.JumpPack</c>).</summary>
+    public float DataMaxPower { get; init; }
     /// <summary><c>smash_available_delay</c>: seconds after the lift-off before a pound may start (interpretation of the reference point).</summary>
     public float PoundDelay { get; init; }
     /// <summary><c>smash_gravity</c>: the dive's gravity.</summary>

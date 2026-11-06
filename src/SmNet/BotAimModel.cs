@@ -63,6 +63,17 @@ public sealed class BotAimModel
         return 1f - MathF.Exp(-theta * theta / (2f * sigma * sigma));
     }
 
+    /// <summary>Closest distance (m) the range scaling uses, and the limits of the scale (night batch 2026-11-06).</summary>
+    public const float MinScaleDistance = 3f, MinScale = 0.1f, MaxScale = 4f;
+
+    /// <summary>
+    /// Night batch 2026-11-06 (owner: "increase the bots ranged weapon accuracy to 49%"): the factor applied to the error angles of a shot at <paramref name="distance"/> metres,
+    /// <see cref="ReferenceDistance"/> / distance (limited to <see cref="MinScale"/> to <see cref="MaxScale"/>). The angle that keeps a shot on a body of radius <see cref="BodyRadius"/>
+    /// shrinks with the distance, so with this scale the accuracy is the aim's chance of landing on the body at every range, not only at 15 m (before, a fixed angle made far
+    /// shots miss almost always: 13 to 29 % at 50 to 100 m against 44 to 56 % at 25 to 50 m at the same setting). The weapon's own spread and the target's movement still come on top.
+    /// </summary>
+    public static float DistanceScale(float distance) => Math.Clamp(ReferenceDistance / Math.Max(distance, MinScaleDistance), MinScale, MaxScale);
+
     float Gauss()
     {
         double u1 = 1.0 - _random.NextDouble(), u2 = _random.NextDouble();
