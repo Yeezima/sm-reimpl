@@ -1450,6 +1450,7 @@ public partial class NetworkView : Node3D
         // qc/reference-pass: the transition probe measures the melee prop bones (RIG_Prop_M_*) only where a mesh can hang on them: a marine with a two-handed melee weapon, and every
         // Ork (the boy's shoota rides RIG_Prop_M_Chest); on other marines they carry nothing.
         LungeLogSample(state);   // anim/hammer-swing test aid (NetworkView.LungeLog.cs)
+        if (LegProbe.Enabled) LegProbeMeta(character, state);   // --leg-probe (client/LegProbe.cs)
         if (TransitionProbe.Enabled)
         {
             character.SetMeta(TransitionProbe.TwoHandedMeta, IsOrkCharacter(character) || MeleeWargear(state)?.Contains("_2hand_", StringComparison.OrdinalIgnoreCase) == true);

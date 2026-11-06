@@ -80,4 +80,18 @@ public static class ClipFootLockRules
         dragged = !(hipToHeld <= max);
         return dragged ? (float.IsFinite(max) && max > 0f ? max : 0f) : hipToHeld;
     }
+
+    /// <summary>
+    /// Night batch 2026-11-06 (anim/sword-legs; ours): the most a light strike's stride factor (the body's travel over the clip's root motion) exceeds 1. The thunder hammer's is 1.12 and its legs
+    /// are stable; the sword combos' is 2.9, which flung the clip's swing leg 1.1 m off the body on the edge of its reach (the second swing's trailing foot hung 60 cm up, then snapped 1.5 m in five
+    /// frames). 0.2 leaves the hammer's factor untouched.
+    /// </summary>
+    public const float LightStrideExcessCap = 0.2f;
+
+    /// <summary>The stride factor a strike's legs use: <paramref name="factor"/> (the body's travel over the clip's root motion; 1 or less: none) with a light strike's excess over 1 capped at <paramref name="excessCap"/>; a heavy strike's is as it is.</summary>
+    public static float StrideFactor(float factor, bool heavy, float excessCap = LightStrideExcessCap)
+    {
+        if (!float.IsFinite(factor) || factor <= 1f) return 1f;
+        return heavy ? factor : 1f + MathF.Min(factor - 1f, MathF.Max(0f, excessCap));
+    }
 }

@@ -46,6 +46,12 @@ Scanned 2337 spec table rows: **1699 tagged**, 459 not tagged (read from data wi
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 380 | 323 | 322 | 113 | 12 |
 | Combat core (critical) | 11 | 2 | 11 | 9 | 9 |
+Scanned 2317 spec table rows: **1685 tagged**, 455 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 509 rows of the changes document.
+
+| Area | Tagged rows | by kind | by confidence | by notes | by section text |
+|---|---:|---:|---:|---:|---:|
+| Movement (critical) | 380 | 323 | 323 | 113 | 12 |
+| Combat core (critical) | 11 | 2 | 10 | 9 | 9 |
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
 | Melee (critical) | 104 | 91 | 81 | 33 | 5 |
 | Melee (critical) | 107 | 94 | 84 | 34 | 5 |
@@ -100,6 +106,8 @@ Scanned 2337 spec table rows: **1699 tagged**, 459 not tagged (read from data wi
 | **All areas** | **1697** | 1461 | 1299 | 526 | 38 |
 | **All areas** | **1698** | 1463 | 1299 | 525 | 38 |
 | **All areas** | **1699** | 1464 | 1302 | 527 | 38 |
+| Ork faction | 168 | 159 | 80 | 45 | 0 |
+| **All areas** | **1685** | 1451 | 1293 | 516 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -155,6 +163,15 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: estimate | 86 |
 | notes: estimate | 84 |
 | notes: estimate | 85 |
+| kind: ours | 832 |
+| confidence: low | 613 |
+| confidence: medium | 552 |
+| kind: interpretation | 343 |
+| notes: ours | 330 |
+| confidence: none (low) | 128 |
+| kind: estimate | 99 |
+| kind: provisional | 99 |
+| notes: estimate | 78 |
 | kind: user's knowledge | 51 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
@@ -654,6 +671,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-1C5A777D` | Hammer air slash: the clip | A marine holding the thunder hammer or the daemon maul shows `SM_MEL_TH_XATK_Combo3` (the hammer's second standard swing, 2.333 s) for the jump pack's air slash instead of the sword's `SM_MEL_CS_XATK_Hv1_LS_2_7m`: in the dive from 0.4333 s of the clip at… (s of clip) | confidence: medium | graph (data; the crops and speeds read off the dump by hand, the reader takes the sword's sequencers only) | Hammer air slash: the clip: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A marine holding the thunder hammer or the daemon maul shows… | ☐ |
 | `R-B78380EF` | Hammer air slash: blends | The dive and the landing take the jump pose entry blends and the get-up the follow-through hand-over of the sword's slash (anim/air-slash-character: the jump-pack graph's impact-to-run blend 'Fast Blend BranchIn' 0.167 s, over the upper body, the legs from… | confidence: medium | measured | Hammer air slash: blends: compare with SM1 by feel or video. Ours: The dive and the landing take the jump pose entry blends and the… | ☐ |
 | `R-98DA01C8` | Not done | The hammer's own dash attack clip (`SM_JMP_TH_DashAtk_F`, the graph's "ThunderHammer Jump Dash Attack") and ground-pound clips (`SM_JMP_TH_GP_*`) are not posed (the simulation's dash attack and pound read the sword's); the hammer's heavy strikes and slams… | kind: gap (not reproduced) | - | Not done: compare with SM1 by feel or video. Ours: The hammer's own dash attack clip (SM_JMP_TH_DashAtk_F, the graph's… | ☐ |
+
+*Spec section: Light-combo legs of the swords, axe and knife (night batch 2026-11-06, anim/sword-legs; client presentation)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-59ABDFB0` | Fix | A light strike's stride factor exceeds 1 by at most **0.2** (`ClipFootLockRules.LightStrideExcessCap`, `StrideFactor`; `--stride-cap f`). The hammer (1.12) is untouched by construction; heavy and stun strikes keep their stretch; `--old-sword-legs` = before.… (factor - 1) | kind: estimate; confidence: medium; notes: ours | ours | Fix: compare with SM1 by feel or video. Ours: A light strike's stride factor exceeds 1 by at most 0.2… | ☐ |
+| `R-56925AD1` | Result | `--leg-probe` (below), medians over 4 to 5 strikes per cell, before -> after: leg-bone turn per 1/60 s, strike by strike: power sword 36 / 45 / 56 -> 34 / 27 / 42 deg; chainsword 47 / 59 / 49 -> 35 / 38 / 34; power axe 50 / 65 / 63 -> 37 / 35 / 38; knife 53 /… (cm, deg) | confidence: medium | measured | Result: compare with SM1 by feel or video. Ours: --leg-probe (below), medians over 4 to 5 strikes per cell, before ->… | ☐ |
 
 *Spec section: Power sword, power axe, thunder hammer and the heavy classes' kick and stomp (Weapons C, used by the simulation)*
 
@@ -3118,6 +3142,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-1E760DF5` | Longer melee lunges (feel/melee-charge-2) | Each attack moves the body by its clips' root motion (feel/melee-lock), the blend at the target's distance ending at the clip's strike distance | Every melee attack's forward root motion × **1.3** (`SimConfig.MeleeLungeScale`); with a lock the approach still aims at the strike distance and the extra shows in the follow-through, never nearer than 1 m; backward motion, the charge, the dash attack, the slash and the pound unchanged | Owner's request 2026-10-29 ("make all melee step forwards step forward more"); 1.3 is an **estimate (owner's request)** to review; spec "Melee and charge, second pass" | Longer melee lunges (feel/melee-charge-2): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-F2A6F702` | Hammer standard swings step less (anim/hammer-swing) | The three light strikes' root motion is 6.04, 5.74 and 4.50 m (single clips); with the lunge scale 1.625 the body moved 7.9, 8.5 and 7.4 m in a chain | The thunder hammer's and the daemon maul's light strikes move 0.82 of that lunge (1.3325 x the clip): 6.5, 7.0 and 6.0 m, 1.3 to 1.6 m less (hit time 4.4 to 5.3 m); a locked target is still closed to 1 m by the hit | Owner's request 2026-11-01 ("reduced slightly, maybe by 1 to 2 meters. You can also judge it"); the factor is an **estimate (owner's knowledge of the size, our value)**; spec "The hammer's swings and air slash"; refine register | Hammer standard swings step less (anim/hammer-swing): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-E82413BE` | Hammer swings: stretched stride (anim/hammer-swing) | The clip's feet are authored for the clip's root motion | The hammer's light strikes' feet are stretched along the heading by the body's extra travel, a held foot out of reach is let go, and the leg is no longer dragged straight along the ground | The owner: "the legs are doing really crazy things ... the feet should step along with the lunge"; ours (client presentation) | Hammer swings: stretched stride (anim/hammer-swing): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-9D1DB485` | Light-combo legs of the swords, axe and knife (night batch 2026-11-06, anim/sword-legs) | The clip's feet are authored for the clip's root motion | The stride stretch of a light strike's legs (body travel over root motion, 2.9 for the sword combos) is capped to 1.2, as stable as the hammer's 1.12 (the swing leg no longer flung 1.1 m off the body); heavy strikes keep theirs | Owner's request 2026-11-06 (power sword and chainsword second swing); the cap is **ours**, an estimate; spec "Light-combo legs of the swords, axe and knife"; refine register | Light-combo legs of the swords, axe and knife (night batch…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-991EBBDF` | Hammer air slash plays the hammer's clip (anim/hammer-swing) | The graph's "Hammer Dash State" plays `SM_MEL_TH_XATK_Combo3` (flight at 0.2 speed, landing from 0.5667 s at 0.8) | We pose that clip for the hammer and the daemon maul (before: the sword's); damage, stagger, effects, sound and timing are the sword slash's | Owner's request 2026-11-01; data (graph); hit and release times: ours as before | Hammer air slash plays the hammer's clip (anim/hammer-swing): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-94C51A87` | Faster weapon switch (feel/melee-charge-2; superseded by the quickdraw below, 2026-11-06) | Not measured: our placeholder 0.6 s (the data's switch clips: rifle 0.467 s, pistol 0.667 s; the original's timer is in code) | 0.6 × **0.8 = 0.48 s** (15 ticks); the raise after a switch unchanged | Owner's request 2026-10-29 ("weapon switching is slightly faster ... make a note that this is an estimation and needs to be measured against the original"); an **estimate (owner's request)**, to measure against the original; spec "Melee and charge, second pass" | Faster weapon switch (feel/melee-charge-2; superseded by…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-73C08098` | Quickdraw switch (feel/grenades-quickdraw) | Not measured: our placeholder switch time 0.6 s (0.48 s with the owner's earlier × 0.8), then the first shot waits for the raise (the hip-fire graphs: rifle 0.2 s, pistol 0.167 s), as the owner confirmed for M32 | **0.1 s** (3 ticks) from the switch press to the new weapon's first shot, any weapon, no raise after the switch (the weapon comes up during it); the client enters the ready posture over 0.06 s after a switch | Owner's request 2026-11-06 ("make the player point his gun at the crosshair faster ... it should be near instant, like a quickdraw"); an **estimate (owner's request)**, to review in a playtest; spec "Quick throw and quickdraw switch" | Quickdraw switch (feel/grenades-quickdraw): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
