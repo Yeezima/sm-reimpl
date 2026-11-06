@@ -58,6 +58,8 @@ public static class LeanBot
         "pad-test",
         // anim/melee-flow: the probe's clip labels, the foot lock's trace, the stun-strike shake's log
         "transition-probe-clips", "clip-lock-trace", "log-stun-shake",
+        // anim/strafe-blend: the direction-change bot script and the probe's per-event lines
+        "direction-sweep", "transition-probe-directions",
         // fix/stow-right: the switch test view and its probe, the capture window, the bot that switches for the capture
         "switch-test", "switch-probe", "wait-switch-window", "bot-switch-every",
         // fx/character-visuals: the armour flash demo

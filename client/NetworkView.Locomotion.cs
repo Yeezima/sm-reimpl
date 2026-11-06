@@ -81,6 +81,7 @@ public partial class NetworkView
         public int DirFamily = -1, Dir;   // the direction last shown (hysteresis against flicker at the sector borders)
         public readonly VelocityDamper Damper = new();   // M40-T4: the ground velocity the blend space follows (NetworkView.GaitBlend.cs)
         public double GaitAt = double.NegativeInfinity;   // _connectedFor at the last blend update
+        public readonly Dictionary<string, GaitSmoothing> Smoothers = new();   // anim/strafe-blend: per blend space (its set's key), the smoothed weights (NetworkView.GaitBlend.cs)
         // The action-clip hand-off (NetworkView.Handoff.cs): the locomotion has the legs under the attack / the throw in progress.
         public bool AttackHand, HandHeavy, ThrowHand;
         /// <summary>fix/stim-knife-visuals: the strike's upper-body weight as last posed (1 whole; falls to 0 over the hand-over's exit): the melee weapon leaves the hand with it.</summary>
@@ -390,6 +391,7 @@ public partial class NetworkView
         if (TurnSweepOn) return BotTurnSweepInput(tick);   // M40-T5 (NetworkView.TurnSweep.cs)
         if (LedgeWalk) return BotLedgeInput(tick);         // animation pass 1 (NetworkView.Ledge.cs): walks off ledges
         if (TransitionSweep) return BotTransitionInput(tick);   // animation pass 3 (NetworkView.TransitionSweep.cs): state switches for the transition probe
+        if (DirectionSweepOn) return BotDirectionInput(tick);   // anim/strafe-blend (NetworkView.DirectionSweep.cs): direction changes for the transition probe
         if (GaitSweep) return BotSweepInput(tick);
         if (ActionSweep) return BotActionInput(tick);
         var me = _client!.Predicted;
