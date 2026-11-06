@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2402 spec table rows: **1753 tagged**, 467 not tagged (read from data with high confidence), 182 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 541 rows of the changes document.
+Scanned 2421 spec table rows: **1767 tagged**, 471 not tagged (read from data with high confidence), 183 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 544 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 382 | 324 | 324 | 114 | 12 |
 | Combat core (critical) | 11 | 2 | 11 | 9 | 9 |
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
-| Melee (critical) | 108 | 95 | 85 | 35 | 5 |
+| Melee (critical) | 109 | 95 | 86 | 35 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -50,20 +50,20 @@ Scanned 2402 spec table rows: **1753 tagged**, 467 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 321 | 302 | 255 | 53 | 1 |
+| Core simulation (provisional values) | 334 | 315 | 266 | 59 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 172 | 163 | 80 | 49 | 0 |
-| **All areas** | **1753** | 1515 | 1342 | 542 | 38 |
+| **All areas** | **1767** | 1528 | 1354 | 548 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 879 |
-| confidence: low | 645 |
-| confidence: medium | 569 |
-| kind: interpretation | 348 |
-| notes: ours | 343 |
+| kind: ours | 883 |
+| confidence: low | 648 |
+| confidence: medium | 578 |
+| kind: interpretation | 357 |
+| notes: ours | 349 |
 | confidence: none (low) | 128 |
 | kind: estimate | 117 |
 | kind: provisional | 99 |
@@ -885,7 +885,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (108)
+### Melee (gameplay-critical) (109)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -973,6 +973,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-60E21DD0` | Melee bark | an attack line, chance 0.15, at a melee attack's start (not the charge) (probability) | kind: ours; confidence: low | ours | Melee bark: compare with SM1 by listening A/B at the same distance and state. Ours: an attack line, chance 0.15, at a melee attack's start (not the… | ☐ |
+
+*Spec section: Added content: Musou Mode: the original blood (gore-original, 2026-11-07; client only, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-E84C7DC3` | Melee hits | none (the multiplayer melee wargear binds no hit material); the power flashes stay as they were (the owner: "leave the on-hit flashes as they are") | confidence: medium | the data | Melee hits: compare with SM1 by feel or video. Ours: none (the multiplayer melee wargear binds no hit material); the power… | ☐ |
 
 *Spec section: Added content: Musou Mode: melee and firepower (pass 2, M5, owner items 7, 21, 22, 24; `TfwRules.Version` 13, no protocol change)*
 
@@ -2065,7 +2071,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (321)
+### Core simulation (provisional values) (334)
 
 *Spec section: Provisional values in use*
 
@@ -2260,6 +2266,24 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-CE45AF98` | Cloud size | a hit's puff 2.2 to 3.2 m at birth scaled by kind (melee full, blast 1.3, fire 1.25, head 0.8, shot 0.65), swelling to about 1.5 times: a melee hit's cloud is at least a Marine across; a death's 2.6 to 3.8 m; an explosion makes 14 puffs of 4.5 to 8 m spread… (m) | kind: ours; confidence: medium | the owner's "much much bigger" | Cloud size: compare with SM1 by measuring on a flat spot of the same map. Ours: a hit's puff 2.2 to 3.2 m at birth scaled by kind (melee full, blast… | ☐ |
 | `R-D1A7697A` | Cloud life | a hit's 3 to 4.6 s, a death's 3.4 to 5 s, an explosion's 5 to 8.5 s: in over the first 5 %, dense while it hangs, then thinning smoothly to nothing; each puff its own proportions and lobes (a second cell sampled a quarter turn over the first) (s) | kind: ours; confidence: medium | the owner's reference ("hanging, thinning slowly") | Cloud life: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a hit's 3 to 4.6 s, a death's 3.4 to 5 s, an explosion's 5 to 8.5 s:… | ☐ |
 | `R-20C5A8B8` | Cost | the log line `musou gore:` / `gore:` every 10 s gives the frame cost; with 200 enemies and about 30 kills a second, every pool full, the gore's step and upload cost 1.6 ms a frame on average (3.9 ms worst) on the development PC (ms) | confidence: medium | measured (`--musou-gore-demo 200 --musou-gore-case churn`) | Cost: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the log line musou gore: / gore: every 10 s gives the frame cost… | ☐ |
+
+*Spec section: Added content: Musou Mode: the original blood (gore-original, 2026-11-07; client only, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-F59AA3E9` | The plasma gun's type | `plasma_light` (the plasma gun's shot names `dismemberment_type = ""`; the plasma pistol's names plasma_light) (type) | kind: interpretation; confidence: low | the data has none for it | The plasma gun's type: compare with SM1 by feel or video. Ours: plasma_light (the plasma gun's shot names dismemberment_type = ""… | ☐ |
+| `R-5D494DF2` | A kill's type | a shot: the killer's gun in hand (the lascannon read as before); a melee kill: the bull rush's type while charging, else the type of the strike's own ability (the weapon's combo list, step and heavy flag; none known: its first light strike); a blast (frag… | kind: interpretation; confidence: medium; notes: ours | ours | A kill's type: compare with SM1 by feel or video. Ours: a shot: the killer's gun in hand (the lascannon read as before); a… | ☐ |
+| `R-FE949407` | A kill's zone | a head shot (the killing hit's marker 2) the head; any other kill one of the body, the arms and the legs, evenly by a seeded roll (the server sends no body zone) | kind: interpretation; confidence: low; notes: ours | ours | A kill's zone: compare with SM1 by feel or video. Ours: a head shot (the killing hit's marker 2) the head; any other kill one… | ☐ |
+| `R-9AACD1D4` | A kill's point | the zone's point when a second seeded roll falls under the zone's chance, else none; a blast or artillery death the type's `nothing_left` | kind: interpretation; confidence: medium; notes: ours | ours (the table names both fields, not how the engine reads them) | A kill's point: compare with SM1 by feel or video. Ours: the zone's point when a second seeded roll falls under the zone's… | ☐ |
+| `R-36D3A815` | Who bleeds | every Musou Ork (Boy, Shoota, 'Ard Boy, Nob, Warboss and the Boss Orks; the co-op Boy's table for all; the Nob's and the 'Ard Boy's own tables not compared); the Musou Chaos Marine none (no table; the marine's death binds no blood) | kind: interpretation; confidence: medium; notes: ours | ours | Who bleeds: compare with SM1 by feel or video. Ours: every Musou Ork (Boy, Shoota, 'Ard Boy, Nob, Warboss and the Boss… | ☐ |
+| `R-757889D7` | No corpse | a whole-body point (`*_body`) leaves no corpse; a head or a side keeps the body whole (the original removes that limb: not done, the crowd's vertex-animated bodies have no stumps); blast and artillery bodies are still thrown (2026-11-02) | kind: ours; confidence: medium | ours | No corpse: compare with SM1 by feel or video. Ours: a whole-body point (*_body) leaves no corpse; a head or a side keeps… | ☐ |
+| `R-98A3AA34` | Marker places | by the marker's name from the chest (a Boy's; times the type's size): neck and head 0.5 m up, `fx_gore_l_side` / `_r_side` 0.35 m to that side, `rig_world` and the root 0.6 m down (the feet), hands and arms 0.45 m out, legs 0.55 m down; "up" effects along… (m) | kind: ours; confidence: low | ours (the crowd draws no bones) | Marker places: compare with SM1 by measuring on a flat spot of the same map. Ours: by the marker's name from the chest (a Boy's; times the type's size):… | ☐ |
+| `R-825474A5` | The floor decal | each effect with a decal dropper is played a second time on the floor under its marker (the M41 dropper rule), with the data's decal | kind: interpretation; confidence: medium; notes: ours | the install's decal; placing it on the floor is ours | The floor decal: compare with SM1 by feel or video. Ours: each effect with a decal dropper is played a second time on the floor… | ☐ |
+| `R-F6864549` | Length | the points' `length` (equal to their `scale`) is not applied: each effect plays its own duration (the clip's cloud lasts about 0.8 s; `body_dismemberment`'s mist 0.7 s) (s) | kind: interpretation; confidence: medium | the clip | Length: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the points' length (equal to their scale) is not applied: each effect… | ☐ |
+| `R-244E5A80` | The Musou factor | 1.5: every blood effect's size (scale) and the amount of every spray of alpha-blended sprites (its particles, splashes, droplets and the decal dropper: one copy always, a second by a seeded roll half the time); the additive flashes keep their count… (factor) | kind: ours | the owner's 1.5x | The Musou factor: compare with SM1 by feel or video. Ours: 1.5: every blood effect's size (scale) and the amount of every spray… | ☐ |
+| `R-F7B9BE47` | The blood mist | drawn although the no-smoke rule (fx/no-smoke) is on: the blood effects' smoke-classed sprites are the blood cloud | kind: ours | the owner's reference | The blood mist: compare with SM1 by feel or video. Ours: drawn although the no-smoke rule (fx/no-smoke) is on: the blood… | ☐ |
+| `R-E3FE318A` | The blood's colours | the data's colour keys are read as display (sRGB) values and turned linear before they tint the sprites (the effect batch is linear and unshaded, so the raw values showed lighter: the mist's (98, 21, 17) dark crimson as a salmon pink, against the clip's dark… | kind: interpretation; confidence: medium | the clip; the original's gamma-space blending (D3D9) | The blood's colours: compare with SM1 by feel or video. Ours: the data's colour keys are read as display (sRGB) values and turned… | ☐ |
+| `R-72EEB19E` | Shot hits | a shot's hit on an Ork (any shooter, not only the own player) plays the shooter's weapon's own impact for the Ork's surface: `flesh` with class `tough_head` for a head shot, else `tough_body` (the Ork blueprint's `entity_ext`), at the Musou factor; the Chaos… | kind: interpretation; confidence: medium; notes: ours | the effects and surface the data's; every shooter and the placement along the shot ours | Shot hits: compare with SM1 by feel or video. Ours: a shot's hit on an Ork (any shooter, not only the own player) plays… | ☐ |
 
 *Spec section: Added content: Musou Mode: the battle and the run (TF4; `TfwRules.Version` 5 since an extraction after a won battle)*
 
@@ -2973,7 +2997,10 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-DDCD7802` | Musou Mode: Orks pool into crowds of 50 at three spawn points; a garrison that never respawns | the owner's item 32 and his answers (2026-11-01); SM1's Exterminatus sends Orks in waves | each of the battle's three positions (and the HQ source after the commander comes) pools Orks standing still, one more a second, and lets the whole crowd go at 50, each point on its own; 150 alive at most; 12 garrison Orks a position that are never rebuilt; no lone tide | Crowd size | Musou Mode: Orks pool into crowds of 50 at three spawn…: compare with SM1 by feel or video. Ours: the owner's item 32 and his answers (2026-11-01); SM1's Exterminatus… | ☐ |
 | `C-79B0339B` | Musou Mode: no health bars over enemies | the owner's item 14 (2026-11-01) added them; the owner's request of 2026-11-02 removed them | no bar is drawn over any enemy; the battle's boss keeps its bar at the top of the screen; the server still sends tag 13 (a later cleanup) | Elite bars | Musou Mode: no health bars over enemies: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner's item 14 (2026-11-01) added them; the owner's request of… | ☐ |
 | `C-7B12D4F2` | Musou Mode: excessive gore and bloody explosions | the owner's items 8, 22 and 23 (2026-11-01); SM1's gore is a red splash and a ragdoll | gibs, sprays, spatter and pools from a player's, a retainer's or a Thunderhawk's kills, a bloody explosion for blast, frag, artillery and lascannon kills, a slash on each enemy a cleave hits; no blood on the screen; Musou Mode only | Who makes gore, Explosions, Burst size, Cleave slash | Musou Mode: excessive gore and bloody explosions: compare with SM1 by feel or video. Ours: the owner's items 8, 22 and 23 (2026-11-01); SM1's gore is a red… | ☐ |
-| `C-C7584B78` | The dark gore: dark blood clouds and ink on every damaging hit and death (Musou Mode only; removed from classic PvP by hotfix 2026-11-01) | the owner (2026-11-01); the game's own trailer is the reference; SM1's blood is a red glow and a ragdoll | dark oxblood ink splatter and big brown-red clouds, three times the amount, on every hit and death of an enemy (Musou Mode); classic PvP, Extended or Faithful, keeps the original blood and creates no gore view; `ContentExtras.Gore` is now unused by any code (kept so the config hash does not change); client only, no… | Added content: Gore: the dark blood | The dark gore: dark blood clouds and ink on every damaging…: compare with SM1 by feel or video. Ours: the owner (2026-11-01); the game's own trailer is the reference… | ☐ |
+| `C-C3448196` | The dark gore: dark blood clouds and ink on every damaging hit and death (Musou Mode only; removed from classic PvP by hotfix 2026-11-01; since gore-original, 2026-11-07, only with `--old-musou-gore`) | the owner (2026-11-01); the game's own trailer is the reference; SM1's blood is a red glow and a ragdoll | dark oxblood ink splatter and big brown-red clouds, three times the amount, on every hit and death of an enemy (Musou Mode); classic PvP, Extended or Faithful, keeps the original blood and creates no gore view; `ContentExtras.Gore` is now unused by any code (kept so the config hash does not change); client only, no… | Added content: Gore: the dark blood | The dark gore: dark blood clouds and ink on every damaging…: compare with SM1 by feel or video. Ours: the owner (2026-11-01); the game's own trailer is the reference… | ☐ |
+| `C-4E5D3CF7` | Musou Mode: the original blood, 1.5x (gore-original, 2026-11-07; replaces the dark gore by default) | the owner's ("make the gore and blood splatters and clouds look and behave just like this reference and the original game"; choice 1 "but since it is musou mode multiply the volume and magnitude of the blood effects by 1.5x") | a Musou kill plays the Ork blueprint's own dismemberment point for the killer's weapon and the zone (the data's effects and floor decals); a shot's hit the weapon's own flesh impact, for every shooter; every blood effect 1.5 times the size and 1.5 times the particles of its blood sprays; the blood mist drawn despite… | "Musou Mode: the original blood" | Musou Mode: the original blood, 1.5x (gore-original…: compare with SM1 by feel or video. Ours: the owner's ("make the gore and blood splatters and clouds look and… | ☐ |
+| `C-F525EC6C` | Musou Mode: how a kill picks its blood (gore-original) | ours (interpretation): the data has the table, not the engine's reading of it | the kill's zone a seeded body part (the head for a head shot), the zone's chance a seeded roll, `nothing_left` for blasts and artillery, the plasma gun as plasma_light, markers placed by name, effects at their own lengths, 8 kills a frame within 45 m | "Musou Mode: the original blood" | Musou Mode: how a kill picks its blood (gore-original): compare with SM1 by feel or video. Ours: ours (interpretation): the data has the table, not the engine's… | ☐ |
+| `C-3FF5DAAE` | Effect colours read raw in a linear pipeline (found by gore-original; not changed outside Musou's blood) | ours (the effect player since M25b): the data's colour keys tint the sprites as linear values, so every effect draws lighter than the original's gamma-space blending showed it (the blood mist's (98, 21, 17) as salmon pink) | Musou's blood reads them as display values (`FxEffect.GammaColours`); every other effect, classic PvP's included, unchanged until the owner decides | "Musou Mode: the original blood" | Effect colours read raw in a linear pipeline (found by…: compare with SM1 by feel or video. Ours: ours (the effect player since M25b): the data's colour keys tint the… | ☐ |
 | `C-7C39B7CA` | Musou Mode: Marines throw fodder down | the owner's item 7 (2026-11-01); SM1 has no crowd collision | a Marine moving, sprinting, charging or landing into a Boy, Shoota, Gretchin or Guardsman throws him down for 2.5 s, sometimes killing him; any melee hit does the same to fodder; elites stagger as before | Melee and firepower | Musou Mode: Marines throw fodder down: compare with SM1 by feel or video. Ours: the owner's item 7 (2026-11-01); SM1 has no crowd collision. | ☐ |
 | `C-9E329822` | Musou Mode: three big frags | the owner's item 21 (2026-11-01) | one grenade throws three frags 24 degrees apart, each with twice the data's blast radius and sparing the thrower; every human life carries grenades | Melee and firepower | Musou Mode: three big frags: compare with SM1 by feel or video. Ours: the owner's item 21 (2026-11-01). | ☐ |
 | `C-E41F34C3` | Musou Mode: a cleave of 20 | the owner's item 22 (2026-11-01) | a swing strikes up to 20 enemies | Melee and firepower | Musou Mode: a cleave of 20: compare with SM1 by feel or video. Ours: the owner's item 22 (2026-11-01). | ☐ |
@@ -3758,6 +3785,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-07694DAC` | Crowd budget | Added content: Musou Mode: the Guardsmen as drawn (TF7a; client only, no protocol change) |
 | `R-4624D11C` | Budgets | Added content: Musou Mode: gore (Musou pass 2 M10, owner items 8, 22 and 23; client only, no protocol change) |
 | `R-BBB6BCBC` | Pools (budgets) | Added content: Gore: the dark blood (second pass, 2026-11-01; client only, no protocol change; `ContentExtras.Gore` and Musou Mode) |
+| `R-D3F6B378` | Budget | Added content: Musou Mode: the original blood (gore-original, 2026-11-07; client only, no protocol change) |
 | `R-B57B28D0` | War test aids (TF9) | Added content: Musou Mode: the battle and the run (TF4; `TfwRules.Version` 5 since an extraction after a won battle) |
 | `R-B9129FD7` | Class change: the smoke on the wire | Added content: Musou Mode: retainer paint, the class change in the Stormbird and the elites' bars (pass 2, M7 and M11; no protocol change, `TfwRules.Version` 15) |
 | `R-E00CD2F7` | Elite bars: the wire | Added content: Musou Mode: retainer paint, the class change in the Stormbird and the elites' bars (pass 2, M7 and M11; no protocol change, `TfwRules.Version` 15) |

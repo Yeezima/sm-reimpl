@@ -248,6 +248,11 @@ public partial class NetworkView
         var from = _camera?.GlobalPosition ?? end + Vector3.Up;
         var dir = (end - from).Normalized();
         if (GoreOff) BloodSplashAt(end, dir, 0.0);   // the gore draws the blood (dark, from the same hit); the faithful red glow only when the gore is off
+        if (OrkBloodOn)   // gore-original: every shooter's hit plays its weapon's own impact for the Ork's flesh (NetworkView.OrkBlood.cs)
+        {
+            if (e.Value is 1 or 2 && e.Player != 0) OrkBloodHit(own ? me : MusouPlayerState(e.Player), e.Value == 2, _musouTypeOf.TryGetValue(e.Enemy, out var shotType) && shotType == MusouEnemyType.ChaosMarine, end, dir, at);
+            return;
+        }
         if (!own || e.Value == 3 || _fx is null || _catalogue is null || Loadouts.InHand(_config!, me) is not { } weapon) return;
         var plays = _catalogue.Impact(weapon.Name, e.Value == 2 ? ShotHit.Head : ShotHit.Body, 0, armourUp: false);
         for (int k = 0; k < plays.Count; k++)

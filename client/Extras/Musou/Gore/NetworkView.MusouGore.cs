@@ -88,7 +88,7 @@ public partial class NetworkView
 
     GoreView? GoreView()
     {
-        if (GoreOff || _gameSpace is null) return null;
+        if (GoreOff || OrkBloodOn || _gameSpace is null) return null;   // gore-original: the dark gore only with --old-musou-gore
         if (_gore is null)
         {
             _gore = new GoreView { CloudAlpha = MusouGoreRules.CloudAlpha };
@@ -106,6 +106,7 @@ public partial class NetworkView
     bool MusouGoreRegister(in MusouDeathShown d, Vector3 camera)
     {
         if (GoreOff || _gameSpace is null) return false;
+        if (OrkBloodOn) return OrkBloodDeath(d, camera);   // gore-original: the original's own Ork blood (NetworkView.OrkBlood.cs)
         bool lascannon = MusouKillerHasLascannon(d.Killer);
         float metres = Num.Vector3.Distance(d.Position, new Num.Vector3(camera.X, camera.Y, camera.Z));
         var plan = MusouGoreRules.Plan(d.Cause, d.Type, d.Killer, lascannon, metres, 1f, d.Id, d.Tick);
@@ -145,6 +146,7 @@ public partial class NetworkView
     /// <summary>This frame's gore (the client draws): the cleave slashes and shot sprays from the hit events, the queued bursts, the field's step. Before the crowd state's events are taken.</summary>
     void MusouGoreFrame(PlayerState me, IReadOnlyList<MusouShown> shown, float delta)
     {
+        if (OrkBloodOn) { OrkBloodData(); OrkBloodLog(); return; }   // gore-original: starts the data's load early; the blood plays from the deaths and hits
         if (GoreView() is not { } view) return;
         if (_goreDemo?.TakeReset() == true) { view.Field.Clear(); _goreQueue.Clear(); }
         var watch = System.Diagnostics.Stopwatch.StartNew();

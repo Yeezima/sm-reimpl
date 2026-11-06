@@ -74,6 +74,20 @@ public sealed class FxEffect
     public float TrailScale;
     /// <summary>fx/impact-pass (ours): scales the length of the effect's beams that have no target (a jump pack thrust's <c>rocket</c> flame); 1: the data's length.</summary>
     public float BeamScale = 1f;
+    /// <summary>
+    /// gore-original (Musou Mode, the owner's 1.5x; ours): above 1, every spray that throws alpha-blended sprites (the blood, not the additive flashes) draws this many copies of each
+    /// particle on average (<see cref="SmContent.FxAmount.Copies"/>: the whole part always, the rest by a seeded roll), each copy on its own seed. 1: the data's count (every
+    /// effect but Musou's blood).
+    /// </summary>
+    public float Amount = 1f;
+    /// <summary>gore-original (Musou Mode's blood mist): the effect's smoke-classed sprites are drawn even with the owner's no-smoke rule on (the blood cloud is no smoke).</summary>
+    public bool KeepSmoke;
+    /// <summary>
+    /// gore-original (Musou Mode's blood; ours): the data's colours are read as display (sRGB) values, as the original's gamma-space blending showed them, and turned linear
+    /// before they tint the sprite (the batch's pipeline is linear, so the raw values showed lighter: the blood mist's (98, 21, 17) as a salmon pink). False: the raw values
+    /// as before (every other effect, classic PvP's included).
+    /// </summary>
+    public bool GammaColours;
 }
 
 /// <summary>
@@ -415,6 +429,7 @@ public sealed partial class FxPlayer : Node3D
     static Color Shade(Color c, FxEffect e)
     {
         var r = Recolour(c, e.Tint);
+        if (e.GammaColours) r = new Color(r.SrgbToLinear().R, r.SrgbToLinear().G, r.SrgbToLinear().B, r.A);
         float o = Math.Clamp(e.Opacity, 0f, 1f);
         return o >= 1f ? r : new Color(r.R * o, r.G * o, r.B * o, r.A * o);
     }
@@ -474,6 +489,15 @@ public sealed partial class FxPlayer : Node3D
     }
 
     readonly Dictionary<CNode, bool> _holdsDropper = new();
+    readonly Dictionary<CNode, bool> _holdsAlpha = new();
+
+    /// <summary>gore-original: whether a node or one under it (collision content included) is an alpha-blended sprite (cached): a spray of blood, not of flashes.</summary>
+    bool HoldsAlpha(CNode n)
+    {
+        if (_holdsAlpha.TryGetValue(n, out bool known)) return known;
+        bool found = n is CSprite { Additive: false, Distortion: false } || n.Children.Any(HoldsAlpha) || n.OnCollision.Any(HoldsAlpha);
+        return _holdsAlpha[n] = found;
+    }
 
     /// <summary>Whether a node or one of its children (not its collision content) is a dropper spray (cached).</summary>
     bool HoldsDropper(CNode n)
@@ -489,7 +513,7 @@ public sealed partial class FxPlayer : Node3D
         if (n.Hide || depth > MaxDepth || age < 0.0) return;
         // fx/no-smoke: smoke, dust, mist and haze are not drawn (the owner's change). A smoke sprite is not drawn; its collision content (a dropper collider's decal or debris) is
         // played by DrawSpray's collision path, not from here, so its parents are skipped whole only when that content is smoke too (SmokeOnly).
-        if (!ShowSmoke && (n.SmokeOnly || n.Smoke)) return;
+        if (!ShowSmoke && !e.KeepSmoke && (n.SmokeOnly || n.Smoke)) return;
         if (DecalsOnly && n is not (CCombo or CSpray or CDecal)) return;   // test aid
         switch (n)
         {
@@ -539,12 +563,16 @@ public sealed partial class FxPlayer : Node3D
         }
         for (int cycle = cycleMin; cycle <= cycleMax; cycle++)
         {
+            // gore-original: Musou's blood draws more of each blood spray's particles (Amount; 1 everywhere else).
+            bool more = e.Amount > 1f && HoldsAlpha(n);
             for (int i = 0; i < n.Spawns.Length; i++)
+            for (int copy = 0, copies = more ? SmContent.FxAmount.Copies(e.Amount, R(Mix(seed, cycle * 97 + i), 77)) : 1; copy < copies; copy++)
             {
                 double spawn = cycle * (double)duration + n.Spawns[i];
                 float tau = (float)(age - spawn);
                 if (tau < 0f || tau > life) continue;
                 uint ps = Mix(Mix(seed, cycle * 97 + i), 31);
+                if (copy > 0) ps = Mix(ps, 1000 + copy);
                 float te = Math.Clamp(n.Spawns[i] / duration, 0f, 1f);
                 // Direction: uniform over the cone between the inner and the outer deviation about the local +Y axis.
                 float devMax = Math.Clamp(At(n.Deviation, te, 0f), 0f, MathF.PI), devMin = Math.Clamp(At(n.Inner, te, 0f), 0f, devMax);

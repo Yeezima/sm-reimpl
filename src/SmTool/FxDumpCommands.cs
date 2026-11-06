@@ -64,7 +64,7 @@ static class FxDumpCommands
         string head = $"{pad}{prefix}{e.Kind} '{e.Name}' dur {e.Duration:0.###}{(e.IsLooping ? " loop" : "")}{(e.Hide ? " HIDE" : "")}";
         string more = e switch
         {
-            FxRing r => $" mat {r.Material.Name} add {r.Material.AdditiveBlend} r {C(r.Radius)} bb {r.Billboard} off {C(r.OffsetY)}",
+            FxRing r => $" mat {r.Material.Name} add {r.Material.AdditiveBlend} r {C(r.Radius)} bb {r.Billboard} off {C(r.OffsetY)} colour {string.Join(" ", r.Colour.Keys.Select(k => $"{k.Time:0.##}:{k.Colour.R},{k.Colour.G},{k.Colour.B},{k.Colour.A}"))}",
             FxBeam b => $" mat {b.Material.Name} add {b.Material.AdditiveBlend} len {C(b.Length)} w {C(b.Width)} bb {b.Billboard} mpu {b.MeterPerU:0.###} uspd {b.USpeed:0.###} god {b.GodRayFade} colour {string.Join(" ", b.Colour.Keys.Select(k => $"{k.Time:0.##}:{k.Colour.R},{k.Colour.G},{k.Colour.B},{k.Colour.A}"))}",
             FxStreamer s => $" mat {s.Material.Name} add {s.Material.AdditiveBlend} len {C(s.Length)}{(s.LengthAsSeconds ? " s" : " m")} w {C(s.Width)}",
             FxSpray p => $" rate {C(p.Rate)} dev {C(p.Deviation)} spd {C(p.InitialSpeed)} pscale {C(p.ParticleScale)} vol {C(p.VolumeX)}/{C(p.VolumeY)}/{C(p.VolumeZ)} inherit {p.InheritVelocity:0.##} point {p.EmitFromPoint} dropper {p.IsDropper}",
