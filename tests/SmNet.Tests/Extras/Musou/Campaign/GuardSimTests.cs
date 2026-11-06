@@ -33,12 +33,12 @@ public class GuardSimTests(ITestOutputHelper output)
         return w;
     }
 
-    static List<ushort> Boyz(World w, int n, Vector3 at, int perRow = 10)
+    static List<ushort> Boyz(World w, int n, Vector3 at, int perRow = 10, float health = 85f)
     {
         var ids = new List<ushort>();
         for (int k = 0; k < n; k++)
         {
-            ushort id = w.Musou!.Spawn(MusouEnemyType.Boy, at + new Vector3((k % perRow) * 1.5f, (k / perRow) * 1.5f, 0f), MathF.PI, 85f);
+            ushort id = w.Musou!.Spawn(MusouEnemyType.Boy, at + new Vector3((k % perRow) * 1.5f, (k / perRow) * 1.5f, 0f), MathF.PI, health);
             Assert.NotEqual((ushort)0, id);
             ids.Add(id);
         }
@@ -52,7 +52,7 @@ public class GuardSimTests(ITestOutputHelper output)
         var w = Box();
         var guards = w.TfwGuards!;
         for (int s = 0; s < 6; s++) Assert.Equal(s, guards.SpawnSquad(new Vector3(-20f + s * 8f, -10f, 0f)));
-        Boyz(w, 60, new Vector3(-7f, 30f, 0f));
+        Boyz(w, 60, new Vector3(-7f, 30f, 0f), health: 85f * GuardRules.Strength);   // as tough as the Guardsmen's scale (night batch 2026-11-06), so TF3's fight still comes to blows
         int strikes = 0, tick = 0;
         for (; tick < 90 * 30 && w.Musou!.Alive > 0; tick++)
         {
@@ -82,7 +82,7 @@ public class GuardSimTests(ITestOutputHelper output)
         var w = Box();
         var guards = w.TfwGuards!;
         int squad = guards.SpawnSquad(new Vector3(10f, 10f, 0f));
-        var boy = Boyz(w, 1, new Vector3(10f, 13f, 0f))[0];
+        var boy = Boyz(w, 1, new Vector3(10f, 13f, 0f), health: 1e6f)[0];   // it lives to strike
         var before = new TfwGuard[GuardSim.Capacity];
         Assert.Equal(10, guards.CopyTo(before));
         bool struck = false;
@@ -208,15 +208,18 @@ public class GuardSimTests(ITestOutputHelper output)
         Assert.False(guards.Hit(s + 1, 5f, Vector3.Zero));
         Assert.False(guards.Hit(s, 0f, Vector3.Zero));
         var from = new Vector3(-20f, 0f, 0f);
-        for (int k = 0; k < 17; k++) Assert.True(guards.Hit(s, 5f, from));
-        Assert.Equal(9, guards.AliveIn(s));   // the 17th blow of 5 kills the nearest man of 85
+        int blows = (int)MathF.Ceiling(guards.Rules.Health / 5f);
+        for (int k = 0; k < blows - 1; k++) Assert.True(guards.Hit(s, 5f, from));
+        Assert.Equal(10, guards.AliveIn(s));
+        Assert.True(guards.Hit(s, 5f, from));
+        Assert.Equal(9, guards.AliveIn(s));   // the last blow of 5 kills the nearest man (85 x GuardRules.Strength)
         Assert.Equal(1, guards.Lost);
         var targets = new MusouTarget[GuardSim.MaxSquads];
         Assert.Equal(1, guards.AppendTargets(targets));
         Assert.Equal(TfwContracts.GuardTargetId(s), targets[0].Id);
-        for (int k = 0; k < 9; k++) Assert.True(guards.Hit(s, 85f, from));
+        for (int k = 0; k < 9; k++) Assert.True(guards.Hit(s, guards.Rules.Health, from));
         Assert.Equal(0, guards.AliveIn(s));
-        Assert.False(guards.Hit(s, 85f, from));
+        Assert.False(guards.Hit(s, guards.Rules.Health, from));
         Assert.Equal(0, guards.AppendTargets(targets));
         Assert.Equal(-1, guards.NearestSquad(from));
         for (uint k = 1; k <= 70; k++) { guards.BeginTick(k); guards.Step(true); }
