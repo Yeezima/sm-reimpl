@@ -17,7 +17,7 @@ namespace SmClient;
 /// same archive, read on a worker); the Chaos Marine is the PvP Chaos model the networked view has already built. Read from the player's install at run time only.
 /// <para>
 /// Which mesh and clip each kind uses, and the scales, are **ours** (interpretation: the install has no Musou): Boy boy_melee, Shoota Boy boy_ranged, 'Ard Boy
-/// boy_ardboy, Gretchin boy_melee at 0.7 (no Gretchin mesh verified), Nob nob_melee (else boy_melee_pro at 1.2), Warboss nob_melee at the sim's BossScale, 3 (else boy_melee_pro, else the Boy, at the same; the owner, 2026-11-01: "always a large orc, never small", and 2026-11-02: 3x).
+/// boy_ardboy, Gretchin boy_melee at 0.7 (no Gretchin mesh verified), Nob nob_melee (else boy_melee_pro at 1.2), Warboss nob_melee at the sim's BossScale, 4.5 since the late batch of 2026-11-06 (else boy_melee_pro, else the Boy, at the same; the owner, 2026-11-01: "always a large orc, never small", and 2026-11-02: 3x).
 /// </para>
 /// </summary>
 public sealed class MusouLooks

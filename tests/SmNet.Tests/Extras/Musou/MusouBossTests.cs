@@ -60,9 +60,10 @@ public class MusouBossTests
     }
 
     [Fact]
-    public void The_ground_slam_lands_after_its_telegraph_on_the_players_within_six_metres_with_its_cooldown()
+    public void The_ground_slam_lands_after_its_telegraph_on_the_players_within_its_radius_with_its_cooldown()
     {
-        var f = new Fight(Rules(0f, 1000f), new Vector3(0f, 3f, 0f), new Vector3(6.5f, 0f, 0f));
+        // Late batch 2026-11-06: the slam's reach grew with his body (radius 9 m); the spared player stands just past it.
+        var f = new Fight(Rules(0f, 1000f), new Vector3(0f, 3f, 0f), new Vector3(MusouBossRules.Default.SlamRadius + 0.5f, 0f, 0f));
         uint t0 = f.StepUntil(MusouBossAbility.GroundSlam);
         var telegraph = f.Events.Single(e => e.Event.Kind == MusouEventKind.Telegraph).Event;
         Assert.Equal((f.Boss.Id, (ushort)1, Vector3.Zero), (telegraph.Enemy, telegraph.Player, telegraph.Vector));
@@ -71,7 +72,7 @@ public class MusouBossTests
         for (int k = 1; k < 24; k++) { f.Step(); Assert.Empty(f.Strikes); Assert.Equal(MusouEnemyState.WindUp, f.Me.State); }
         f.Step();
         Assert.Equal(t0 + 24, f.Tick);
-        var strike = Assert.Single(f.Strikes);   // the player at 6.5 m is spared
+        var strike = Assert.Single(f.Strikes);   // the player past the slam's radius is spared
         Assert.Equal((1, MusouBossRules.Default.SlamDamage, MusouBossAbility.GroundSlam, 0f), (strike.Player, strike.Damage, strike.Ability, strike.Knockback));
         Assert.Equal(MusouEnemyState.Recover, f.Me.State);
         for (int k = 0; k < 18; k++) f.Step();
@@ -82,6 +83,27 @@ public class MusouBossTests
         Assert.Equal(f.Me.Position, Vector3.Zero);
         // Stagger-immune.
         Assert.False(f.Sim.Stagger(f.Boss.Id, Vector2.UnitY, 2f));
+    }
+
+    [Fact]
+    public void The_larger_warboss_walks_up_stays_off_a_standing_player_by_his_body_and_still_lands_his_swing()
+    {
+        // Late batch 2026-11-06: his body 1.5x (BossScale 4.5). The ring keeps him at 0.9 m + his drawn radius from a player; his swing (5.4 m) reaches past it.
+        var rules = MusouRules.Default with { Boss = MusouBossRules.Default with { SlamFirst = 1000f, ChargeFirst = 1000f } };
+        var f = new Fight(rules, new Vector3(0f, 20f, 0f));
+        float ring = rules.PlayerRing + f.Sim.Body(MusouEnemyType.Warboss).Radius;
+        Assert.Equal(0.75f * 4.5f, f.Sim.Body(MusouEnemyType.Warboss).Radius, 3);
+        MusouAttack? swing = null;
+        float closest = float.MaxValue;
+        for (int k = 0; k < 30 * 30 && swing is null; k++)
+        {
+            f.Step();
+            closest = MathF.Min(closest, Vector2.Distance(new Vector2(f.Me.Position.X, f.Me.Position.Y), new Vector2(0f, 20f)));
+            if (f.Attacks.FirstOrDefault(a => a.Enemy == f.Boss.Id && a.Melee) is { Damage: > 0f } hit) swing = hit;
+        }
+        Assert.True(swing is not null, $"no swing in 30 s (closest {closest:0.00} m, ring {ring:0.00} m)");
+        Assert.Equal(rules.Of(MusouEnemyType.Warboss).MeleeDamage, swing!.Value.Damage);
+        Assert.True(closest >= ring - 0.35f, $"he came to {closest:0.00} m, inside his body's ring of {ring:0.00} m");
     }
 
     [Fact]

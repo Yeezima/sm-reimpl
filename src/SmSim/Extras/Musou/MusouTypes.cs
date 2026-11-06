@@ -117,8 +117,8 @@ public sealed record MusouRules
 
     /// <summary>The Warboss's hit points at one player, times the wave scale (design: 4000) and its model scale (design: 1.25).</summary>
     public float BossHealth { get; init; } = 15000f;   // the owner, 2026-11-06: "the final boss should have even more health" than the Boss Orks (was 4000)
-    /// <summary>The Warboss's body and model scale: 1.6 (owner, 2026-11-01: "always a large orc, never small"; was 1.25; kind: ours). The client draws the largest Ork body at this scale.</summary>
-    public float BossScale { get; init; } = 3f;   // the owner, 2026-11-02: "3x larger in scale than original" (was 1.6)
+    /// <summary>The Warboss's body and model scale: 4.5 (owner, 2026-11-01: "always a large orc, never small", 1.6; 2026-11-02: 3; late batch 2026-11-06: 1.5x that; kind: ours). The client draws his model as tall as the Nob body at this scale.</summary>
+    public float BossScale { get; init; } = 4.5f;   // the owner, 2026-11-02: "3x larger in scale than original" (was 1.6); late batch 2026-11-06: the Warboss model 1.5x its size (3 to 4.5)
 
     /// <summary>The players' attacks on the enemies (MU3: the cleave, the staggers, the knockbacks; <see cref="MusouCombatRules"/>).</summary>
     public MusouCombatRules Combat { get; init; } = MusouCombatRules.Default;
@@ -164,7 +164,9 @@ public sealed record MusouRules
             RangedDamage = 5f, RangedRounds = 3, RangedPeriod = 1.8f, RangedMin = 8f, RangedMax = 25f, RangedHitNear = 0.4f, RangedHitFar = 0.2f,
         },
         // Warboss: a scaled Nob for now (MU3: the slam, the charge, the Waaagh!, the enrage); health from BossHealth. The owner, 2026-11-06: noticeably stronger than the Boss Orks, 1.5x damage (swing 40 to 60).
-        new(MusouEnemyType.Warboss, 15000f, 4.6f, 0.75f, 2.9f, 2000) { MeleeDamage = 60f, MeleePeriod = 2.2f, MeleeRange = 2.8f, MeleeStaggers = true },
+        // Late batch 2026-11-06 (his body 1.5x, BossScale 3 to 4.5): the players are now kept off his drawn body (the ring at his scaled radius, 3.4 m), so his swing reaches 1.15 m past that
+        // ring as before (2.8 m from a 1.65 m ring then; 5.4 m from 4.3 m now; ours, an estimate).
+        new(MusouEnemyType.Warboss, 15000f, 4.6f, 0.75f, 2.9f, 2000) { MeleeDamage = 60f, MeleePeriod = 2.2f, MeleeRange = 5.4f, MeleeStaggers = true },
         // The Boss Orks (owner, 2026-11-06): each from its base above (MusouBossOrks.From), in the enum's order.
         MusouBossOrks.From(MusouEnemyType.BossBoy, Base(MusouEnemyType.Boy)),
         MusouBossOrks.From(MusouEnemyType.BossShootaBoy, Base(MusouEnemyType.ShootaBoy)),

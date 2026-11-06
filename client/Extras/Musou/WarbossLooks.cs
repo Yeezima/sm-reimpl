@@ -10,9 +10,10 @@ using SmFormats.Havok;
 namespace SmClient;
 
 /// <summary>
-/// The Warboss's own look (owner, 2026-11-06: "the final boss should use a warboss model"): the original <c>warboss_regular</c> body and <c>warboss_head_regular</c> head on their own rig
-/// (<see cref="WarbossRig"/>), read on a worker like the Guardsman's (<see cref="GuardLooks"/>), built on the main thread by <see cref="Step"/>. Its scale is set by <see cref="MusouLooks"/> so
-/// he stands as tall as the old Nob body did at <c>MusouRules.BossScale</c> (the owner: "as tall as today"). When the install cannot give it, nothing is built and the Nob body stays.
+/// The Warboss's own look (owner, 2026-11-06: "the final boss should use a warboss model"; late batch: "body and head"): the original <c>warboss_regular</c> body and the
+/// <c>cinematic_warboss</c> head bound to the body's rig (<see cref="WarbossRig"/>), read on a worker like the Guardsman's (<see cref="GuardLooks"/>), built on the main thread by
+/// <see cref="Step"/>. Its scale is set by <see cref="MusouLooks"/> so he stands as tall as the Nob body would at <c>MusouRules.BossScale</c>. When the install cannot give it, nothing is
+/// built and the Nob body stays; a missing head leaves the body alone.
 /// Read from the player's install at run time only (*original asset loaded*).
 /// </summary>
 public sealed class WarbossLooks
@@ -39,9 +40,9 @@ public sealed class WarbossLooks
         var notes = new List<string>();
         var rig = RigAssets.Load(_gameDir, WarbossRig.Profile, notes);
         string archive = WarbossRig.Profile.ArchivePath(_gameDir);
-        var body = Piece(archive, WarbossRig.BodyVisual, rig, notes) ?? throw new System.IO.FileNotFoundException($"no '{WarbossRig.BodyVisual}' in {WarbossRig.Archive}");
+        var body = Piece(archive, WarbossRig.BodyVisual, rig, notes, bindHead: false) ?? throw new System.IO.FileNotFoundException($"no '{WarbossRig.BodyVisual}' in {WarbossRig.Archive}");
         CharacterPiece? head = null;
-        try { head = Piece(archive, WarbossRig.Head, rig, notes); }
+        try { head = Piece(archive, WarbossRig.Head, rig, notes, bindHead: true); }
         catch (Exception ex) when (ex is not OutOfMemoryException) { notes.Add($"warboss: head {WarbossRig.Head}: {ex.Message}"); }
         var names = new string?[MusouLooks.ClipCount];
         var clips = new HavokBoundAnimation?[MusouLooks.ClipCount];
@@ -63,10 +64,19 @@ public sealed class WarbossLooks
         return new Read(rig, body, head, clips, notes);
     }
 
-    /// <summary>A mesh's nearest level of detail, its rigid blocks under their tree bones (as the Guardsman's); null when the mesh binds no bone of this rig.</summary>
-    static CharacterPiece? Piece(string archive, string name, RigAssets rig, List<string> notes)
+    /// <summary>
+    /// A mesh's nearest level of detail, its rigid blocks under their tree bones (as the Guardsman's). With <paramref name="bindHead"/> its skin's face-rig bones are bound to the rig's
+    /// (<see cref="WarbossRig.BindHead"/>: the cutscene head on the gameplay rig).
+    /// </summary>
+    static CharacterPiece? Piece(string archive, string name, RigAssets rig, List<string> notes, bool bindHead)
     {
         var model = StaticModel.Load(archive, name, notes);
+        if (bindHead)
+        {
+            var skeleton = rig.Rig.Skeleton;
+            model = model with { Mesh = WarbossRig.BindHead(model.Mesh, skeleton.BoneNames, skeleton.ModelSpace(skeleton.ReferencePose), out int rebound) };
+            notes.Add($"warboss: head {name}: {rebound} face-rig binds moved to the rig's head, jaw, neck and chest");
+        }
         var tree = ObjectTree.Load(archive, name, notes) ?? throw new System.IO.FileNotFoundException($"no object tree '{name}.O3d'");
         var drawn = tree.Visuals.Where(v => v.Renderable && v.NearLevel && v.MeshId >= 0 && v.MeshId < model.Mesh.Blocks.Count
                                             && !v.RefNode.Contains("wounded", StringComparison.OrdinalIgnoreCase)).ToList();
@@ -75,7 +85,8 @@ public sealed class WarbossLooks
         foreach (var v in drawn.Where(v => model.Mesh.Blocks[v.MeshId].Skin is null))
             if (tree.UnderBone(v.RefNode, rig.BoneNames.Contains) is { } placed) rigid[v.MeshId] = new RigidBlock(placed.Bone, placed.Local);
         int foreign = model.Mesh.Blocks.SelectMany(b => b.Skin?.Bones ?? []).Count(b => !rig.BoneNames.Contains(b.Name));
-        if (foreign > 0) notes.Add($"warboss: {name} binds {foreign} bones its rig lacks");
+        if (foreign > 0) notes.Add($"warboss: {name} binds bones its rig lacks: {string.Join(", ", model.Mesh.Blocks.SelectMany(b => b.Skin?.Bones ?? []).Select(b => b.Name).Where(b => !rig.BoneNames.Contains(b)).Distinct())}");
+        notes.Add($"warboss: {name}: {model.Mesh.Blocks.Count} blocks, {model.Mesh.Blocks.Count - hidden.Count} drawn ({string.Join(", ", drawn.Select(v => v.RefNode))})");
         return new CharacterPiece("musou_" + name, model, null) { Rigid = rigid, Hidden = hidden };
     }
 

@@ -11,10 +11,10 @@ public sealed record MusouBossRules
     /// <summary>Ground slam: the telegraph (design: 0.8 s), the radius it lands in (design: 6 m), its damage (design: 40, and a stagger), its cooldown
     /// (design: 10 s, counted from the telegraph; ours), the reach a player must be within to start it (ours) and the recovery after it lands (ours).</summary>
     public float SlamWindUp { get; init; } = 0.8f;
-    public float SlamRadius { get; init; } = 6f;
+    public float SlamRadius { get; init; } = 9f;   // late batch 2026-11-06: his body 1.5x, the slam's reach with it (was 6; ours, an estimate)
     public float SlamDamage { get; init; } = 60f;   // the owner, 2026-11-06: the Warboss 1.5x (was 40)
     public float SlamCooldown { get; init; } = 10f;
-    public float SlamTrigger { get; init; } = 4f;
+    public float SlamTrigger { get; init; } = 6f;   // 1.5x with his body (was 4, inside the players' new ring of 4.3 m; ours)
     public float SlamRecover { get; init; } = 0.6f;
     /// <summary>Charge: the wind-up (design: 1 s), the length (design: 15 m) and speed (design: 12 m/s), the width of the path it hits (design: 1.5 m),
     /// its damage (design: 50) and knockback (ours: 3 m over 0.4 s, the core's stagger), its cooldown (design: 12 s, from the wind-up; ours), the nearest a
@@ -22,7 +22,7 @@ public sealed record MusouBossRules
     public float ChargeWindUp { get; init; } = 1f;
     public float ChargeLength { get; init; } = 15f;
     public float ChargeSpeed { get; init; } = 12f;
-    public float ChargeWidth { get; init; } = 1.5f;
+    public float ChargeWidth { get; init; } = 2.25f;   // 1.5x with his body (was 1.5; ours, an estimate)
     public float ChargeDamage { get; init; } = 75f;   // the owner, 2026-11-06: the Warboss 1.5x (was 50)
     public float ChargeKnockback { get; init; } = 3f;
     public float ChargeKnockbackSeconds { get; init; } = 0.4f;
@@ -33,7 +33,7 @@ public sealed record MusouBossRules
     public float SlamFirst { get; init; } = 2f;
     public float ChargeFirst { get; init; } = 3f;
     /// <summary>A player counts for the slam and the charge within this height of the boss (ours).</summary>
-    public float VerticalReach { get; init; } = 2f;
+    public float VerticalReach { get; init; } = 3f;   // 1.5x with his body (was 2; ours, an estimate)
     /// <summary>Waaagh!: at these shares of the boss's health, each once (design: 75, 50, 25 %), <see cref="WaaaghBoyz"/> Boyz come through the gates
     /// (design: 20; not scaled, ours) and every other enemy runs <see cref="WaaaghSpeed"/> times as fast (design: +30 %) for <see cref="WaaaghSeconds"/>
     /// (design: 8 s).</summary>

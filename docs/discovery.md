@@ -2328,3 +2328,13 @@ the attacks `WB_Att_Charge_Enter/Loop/Hit/Exit/wall_hit_exit`, `WB_Att_Ground_Po
 `client/Extras/Musou/WarbossLooks.cs` (`SmContent.Extras.Musou.WarbossRig`); the clip picks are in the spec. Not yet seen drawn: whether the body binds only its own rig's bones, the clips'
 look and the model's height were not checked in a running client (the owner playtests).
 
+**Head (late batch, 2026-11-06).** Seen in `--warboss-test` captures: the body `warboss_regular` is one skinned block (`GEO_WarBoss_Body`: the torso, arms and legs inside the armour) that binds
+only its own rig's bones; it has no head. The install has **no `warboss_head_regular` mesh**: only its textures (`warboss_head_regular_dif/_nrm/_spc/_lp`) and material (`WarBoss_Head_regular.bmat`)
+sit beside the body in the four campaign sets and in `data/packages/cinematic_warboss.oppc` (searched in every archive for the name). The only Warboss head mesh is the cutscene's
+`cinematic_warboss` (505 545 bytes, in the same sets and in `cinematic_warboss.oppc`; its own small rig `havok_cinematic_warboss__hkxx`, 13 520 bytes): two blocks, `GEO_WarBoss_Head_LODH`
+(the head) and `GEO_WarBoss_Gob_LODH`, skinned to a face rig of 41 bones the gameplay rig lacks (`RIG_NeckA`, `RIG_SpineD`, `RIG_headX`, `RIG_jawX`, `RIG_chin`, brows, eyelids, lips, cheeks,
+nostrils, ears, tongue, `RIG_l_bobble_*`). Its binds share the body's model space: `RIG_NeckA` and `RIG_SpineD` bind exactly where the gameplay rig's `RIG_Neck` and `RIG_Chest` stand in the
+reference pose, and `RIG_headX` at `RIG_Head`'s position (0.229, 3.229 m; a different orientation). So `WarbossRig.BindHead` binds each face bone to `RIG_Neck`, `RIG_Chest`, `RIG_Jaw` or
+`RIG_Head` with that bone's reference inverse bind, and the head sits in the armour's frame as modelled. The body's model is 5.92 m tall at scale 1 (the banner pole included). Both are a
+**singleplayer dependency** of Musou Mode (added content), read at run time; nothing extracted enters the repository. Test aid `--warboss-test` (docs/commands.md).
+
