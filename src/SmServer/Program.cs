@@ -93,7 +93,10 @@ if (cli.NoPlayerCollision) config = config with { PlayerBodies = false };
 if (cli.NoChargeLock) config = config with { ChargeLock = false };
 // fix/charge-player-collision: --old-body-contact (test aid) restores the protocol 56 body and charge contact rules (config hash).
 if (cli.OldBodyContact) config = config with { SolidBodies = false };
+// feel/charge-clash: --no-charge-clash (test aid) restores the protocol 58 stop (config hash).
+if (cli.NoChargeClash) config = config with { ChargeClash = false };
 Console.WriteLine(config.SolidBodies ? $"solid bodies: on (no move closer than {SolidBodies.GuardDistance(config, false):0.##} m between bodies as they stand, {SolidBodies.GuardDistance(config, true):0.##} m with a charger; the charge's contact swept, stopped where it meets; ours)" : "solid bodies: OFF (--old-body-contact, test aid; clients need --old-body-contact too)");
+Console.WriteLine(config.ChargeClash && config.ChargeLock ? "charge clash: on (a stunned victim is carried by the charger's collision-stop shove, the pair locked at the capsules' touch; ours, the shove from the data)" : "charge clash: OFF (--no-charge-clash, test aid; clients need --no-charge-clash too)");
 Console.WriteLine(config.ChargeLock ? "charge lock: on (contact with the blocking body too; charger turned to the victim, victim at 0.9 m; ours)" : "charge lock: OFF (--no-charge-lock, test aid; clients need --no-charge-lock too)");
 Console.WriteLine(config.PlayerBodies
     ? $"player collision: on (capsules r {config.CapsuleRadius} m, h {config.CapsuleHeight} m block each other; push apart {PlayerCollision.SeparationSpeed} m/s, slide off a head {PlayerCollision.SlideOffSpeed} m/s; ours)"

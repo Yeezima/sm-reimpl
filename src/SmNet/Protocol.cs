@@ -468,7 +468,9 @@ public static partial class Protocol
     //     loadout); a new client message SpawnRequest (19: session, kind, target u16) sets the respawn choice (spawn room, a held control point, a living Teleport Homer
     //     carrier); each scoreboard row carries a flags byte before its name (bit 0: alive and carrying Teleport Homer). The automatic spawn next to a carrier is Musou only.
     //     Fullest scoreboard 1161 bytes (16 rows + 16); snapshots unchanged (worst case 1199)
-    public const ushort Version = 58;
+    // 59 (feel/charge-clash; the owner's recording of the original, 2026-11-06): no layout change. A bull rush that stuns locks charger and victim through the collision stop's forward
+    //     shove (the data's 1.83 m in 0.2 s): the charger's step ignores the victim's body (predicted), the world carries the victim with it; a charger meets any body at the capsules' edge.
+    public const ushort Version = 59;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>

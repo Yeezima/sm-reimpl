@@ -53,6 +53,8 @@ public sealed partial class World
             _players[target] = ChargeLock.Pull(victim, state.Position, lockLine, Config, Collision,
                 _players.Where(kv => kv.Key != attacker && kv.Key != target && kv.Value.Alive).Select(kv => kv.Value.Position));   // review: not into a third player
         RushHit(attacker, target, state, spec.Primary, spec.PrimaryReaction);
+        // feel/charge-clash: a bull rush whose victim reacts locks the two through the collision stop's shove (opened after the stops: OpenClashes).
+        if (state.Rush == RushPhase.Rush && _players.TryGetValue(target, out var hit) && hit.Alive && hit.Reaction != ReactionKind.None) _clashContacts[attacker] = target;
         // Others in reach in front: the secondary hit.
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
         float minCos = MathF.Cos(Config.MeleeConeDegrees * MathF.PI / 180f);

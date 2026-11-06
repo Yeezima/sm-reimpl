@@ -801,6 +801,7 @@ public sealed partial record SimConfig
             w.Write("blind-view"); w.Write(BlindViewHalfAngle);   // owner's decision 2026-10-28: the blind grenade by facing
             if (!PlayerBodies) w.Write("no-player-bodies");   // sim/player-collision: only when off (older hashes unchanged)
             if (!ChargeLock) w.Write("no-charge-lock");   // anim/melee-interaction: only when off (older hashes unchanged)
+            if (!ChargeClash) w.Write("no-charge-clash");   // feel/charge-clash: only when off (older hashes unchanged)
             if (!SolidBodies) w.Write("no-solid-bodies");   // fix/charge-player-collision: only when off (older hashes unchanged)
             if (StraightDropAbove != 1f) { w.Write("straight-drop"); w.Write(StraightDropAbove); }   // protocol 30: only when not the default (older hashes unchanged)
             if (MeleeLock != MeleeLockSpec.Default) { w.Write("melee-lock"); MeleeLock.Write(w); }   // feel/melee-lock: only when not the default (older hashes unchanged)
@@ -1191,7 +1192,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
                 _deployDeaths.Add(id);
             }
             else
-            using (PlayerCollision.Use(BodiesFor(id, input)))   // sim/player-collision: the others' capsules as this player's client knew them (WorldBodies.cs)
+            using (PlayerCollision.Use(ClashBodies(id, BodiesFor(id, input))))   // feel/charge-clash: less its clash victim while it shoves; sim/player-collision: the others' capsules as this player's client knew them (WorldBodies.cs)
                 next = Combat.StepPlayer(_players[id], input, Config, out events, Collision, SeenBy(input));   // feel/melee-lock: the lock in the attacker's view
             bool fired = events.Fired;
             int meleeHitStep = events.MeleeHitStep;
@@ -1242,7 +1243,9 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             TrackJump(id, next, events.Jump, jumps);
         }
         // fix/charge-player-collision: no body moves through another as they really stand (SolidBodies.cs); the charges test the moves it leaves.
+        CarryClashes(_history[Tick - 1]);   // feel/charge-clash: each shove carries its victim (ChargeClash.cs)
         GuardBodies(_history[Tick - 1]);
+        HoldClashes(_history[Tick - 1]);   // feel/charge-clash: a pair the guard cut differently keeps the lock distance
         for (int k = 0; k < rushes.Count; k++)
             if (_players.TryGetValue(rushes[k].Player, out var guarded) && guarded.Position != rushes[k].State.Position)
                 rushes[k] = rushes[k] with { State = rushes[k].State with { Position = guarded.Position, Velocity = guarded.Velocity } };
@@ -1267,6 +1270,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         var connected = new List<int>();   // M29: charges, after melee; M32: their stops once all have resolved
         foreach (var (player, input, before, state) in rushes) if (ResolveRush(player, input, before, state)) connected.Add(player);
         StopRushes(connected, landedCharges);
+        OpenClashes();   // feel/charge-clash: the connects whose victim reacts lock the two through the shove
         foreach (var (player, kind, state, drop) in jumps) ResolveJump(player, kind, state, drop);
         ApplyPerkBlasts();   // M43: armour-break blasts of this tick and death blasts now due
         ExtrasStep();   // EXTRAS-HOOK: added content's own simulation after every player's attacks (Musou: its enemies)

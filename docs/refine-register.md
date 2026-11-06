@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2205 spec table rows: **1584 tagged**, 449 not tagged (read from data with high confidence), 172 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 482 rows of the changes document.
+Scanned 2215 spec table rows: **1591 tagged**, 451 not tagged (read from data with high confidence), 173 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 483 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -37,7 +37,7 @@ Scanned 2205 spec table rows: **1584 tagged**, 449 not tagged (read from data wi
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
 | Melee (critical) | 100 | 87 | 77 | 32 | 5 |
 | Jump pack (critical) | 73 | 65 | 57 | 18 | 0 |
-| Charge (critical) | 49 | 40 | 42 | 20 | 0 |
+| Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 52 | 50 | 41 | 19 | 0 |
 | HUD and hit feedback (critical) | 66 | 61 | 49 | 10 | 0 |
@@ -53,20 +53,20 @@ Scanned 2205 spec table rows: **1584 tagged**, 449 not tagged (read from data wi
 | Core simulation (provisional values) | 267 | 251 | 213 | 35 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 117 | 110 | 62 | 18 | 0 |
-| **All areas** | **1584** | 1353 | 1235 | 475 | 38 |
+| **All areas** | **1591** | 1360 | 1240 | 477 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 751 |
-| confidence: low | 583 |
-| confidence: medium | 524 |
-| kind: interpretation | 339 |
-| notes: ours | 320 |
+| kind: ours | 755 |
+| confidence: low | 584 |
+| confidence: medium | 528 |
+| kind: interpretation | 340 |
+| notes: ours | 322 |
 | confidence: none (low) | 128 |
 | kind: provisional | 99 |
-| kind: estimate | 81 |
+| kind: estimate | 83 |
 | kind: user's knowledge | 51 |
 | notes: estimate | 49 |
 | notes: provisional | 38 |
@@ -1127,7 +1127,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-3024F53E` | Jump press ends a bull rush | Assault / Raptor: a Space press in the bull rush (rush phase, ground or held in the air) ends it at once and the pack takes the press as on any tick: a tap is the hop, a hold the jump; Tactical classes unchanged | kind: ours; notes: estimate | owner 2026-11-02 | Jump press ends a bull rush: compare with SM1 by feel or video. Ours: Assault / Raptor: a Space press in the bull rush (rush phase, ground… | ☐ |
 | `R-311459CF` | Jump pack from a fall | Assault / Raptor: Space held past the hop's decision tick (the long press, `BufferedAction.JumpLong`) while falling (no phase, or the jump's hang or fall) lifts the pack at once in the air, committed to the small jump and growing while held; a tap is still… | kind: ours; notes: estimate | owner 2026-11-02 | Jump pack from a fall: compare with SM1 by timing a run over a known distance. Ours: Assault / Raptor: Space held past the hop's decision tick (the long… | ☐ |
 
-### Charge (gameplay-critical) (49)
+### Charge (gameplay-critical) (56)
 
 *Spec section: The charge: the bull rush (M29, used by the simulation; protocol 18; M31: the sprint rule, protocol 20, superseded in protocol 39; M32: the charger's hyper armour, protocol 21)*
 
@@ -1207,6 +1207,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-9FBF6E81` | The guard (server) | after every player moved, each pair of living opponents is swept against the other as they really moved this tick: a relative path that would bring the axes closer than **0.45 m** (one capsule radius: never more than half into the other, never through), or… (m) | kind: ours; confidence: low | ours | The guard (server): compare with SM1 by measuring on a flat spot of the same map. Ours: after every player moved, each pair of living opponents is swept… | ☐ |
 | `R-A764ABD3` | The charge meets the bodies as they are (server) | a charge also tests every opponent's move this tick as it really happened (after the guard): the relative sweep, its first touch, the same reach, front half and line of sight; the earliest of this, the charger's rewound picture and its blocking body is met.… (m) | kind: ours; confidence: low | ours | The charge meets the bodies as they are (server): compare with SM1 by measuring on a flat spot of the same map. Ours: a charge also tests every opponent's move this tick as it really… | ☐ |
 | `R-AA1EB851` | Clash, stun and recoil states | every harmful connect on a victim that may react ends its tick with the charger in the collision stop (its first tick) and the victim in the stun; the snapshots carry both (state-driven clips); checked for every connect seen by the charger's own client, the… | kind: ours; confidence: medium | ours (test) | Clash, stun and recoil states: compare with SM1 by watching the reaction and timing it frame by frame. Ours: every harmful connect on a victim that may react ends its tick with… | ☐ |
+
+*Spec section: The charge clash: charger and victim locked through the shove (feel/charge-clash; protocol 59, no wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-0C977175` | Clash opens | a bull rush whose hit puts its victim in a reaction (the stun; the Assault's stagger) locks the two (not an ally, not a victim in hyper armour or flight) | kind: interpretation; confidence: medium; notes: ours | owner's reference video; pairing ours | Clash opens: compare with SM1 by feel or video. Ours: a bull rush whose hit puts its victim in a reaction (the stun; the… | ☐ |
+| `R-C8BA5538` | The lock | through the shove the charger's step ignores the victim's body (its own client predicts this: 120 of 120 clash ticks exact at 150 ms, 5 % loss) and the world carries the victim by the charger's move, swept through the level (a kill volume stops it); a victim… | kind: ours; confidence: medium | owner's reference video ("sticking together like a lock on") | The lock: compare with SM1 by feel or video. Ours: through the shove the charger's step ignores the victim's body (its… | ☐ |
+| `R-098943FD` | Lock distance | **0.9 m** feet to feet (two capsule radii: the capsules touching, the charger's shoulder at the victim's chest), held on every tick of the shove (m) | kind: estimate; confidence: medium; notes: ours | video (shoulder to chest); value ours | Lock distance: compare with SM1 by measuring on a flat spot of the same map. Ours: 0.9 m feet to feet (two capsule radii: the capsules touching, the… | ☐ |
+| `R-29921EBA` | Charger meets any body at its edge | the server's guard with a charger, or with a player in a charge's stop (collision stop, dash hit, dash wall stop), is **0.85 m**: the touch (0.9 m) less a **5 cm** slack (`SolidBodies.ClashDepth`; was 0.15 m, 0.75 m) that bodies pressing on each other through… (m) | kind: ours | owner ("never, ever phase") | Charger meets any body at its edge: compare with SM1 by measuring on a flat spot of the same map. Ours: the server's guard with a charger, or with a player in a charge's… | ☐ |
+| `R-956FF538` | Homing | unchanged: the locked charge steers to its target at **180 degrees a second** inside the charge's cone; the video's last 0.3 s turns about 30 to 40 degrees (the camera's view: 100 to 130 a second), within the rate (°/s) | kind: estimate; confidence: low | video, estimate | Homing: compare with SM1 with an overlaid screenshot taken from the same position. Ours: unchanged: the locked charge steers to its target at 180 degrees a… | ☐ |
+| `R-A7CF46EC` | Client: the own charge's victim | drawn at the lock spot, which rides with the own drawn body through the shove (0.9 m ahead along the predicted heading); the override lets go once the interpolated victim shows its reaction **and** has reached the spot (within **0.15 m**), at most **1.2 s**… (m, s) | kind: ours; confidence: medium | ours | Client: the own charge's victim: compare with SM1 by feel or video. Ours: drawn at the lock spot, which rides with the own drawn body through… | ☐ |
+| `R-C1117654` | Client: drawn bodies | a remote drawn inside the own body or another remote is moved out by up to **0.9 m** (was 0.45 m: a remote more than half inside stayed partly inside) (m) | kind: ours | owner ("never, ever phase") | Client: drawn bodies: compare with SM1 by measuring on a flat spot of the same map. Ours: a remote drawn inside the own body or another remote is moved out by… | ☐ |
 
 ### Reactions (gameplay-critical) (15)
 
@@ -3223,6 +3235,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-351CC1A4` | Melee cancels of hops and charges, the jump pack from a fall or a charge (feel/melee-cancels; protocol 54) | A melee press in a hop was ignored until the dash attack's window, in a bull rush until its clip's melee branch; Space held while falling waited for the landing; Space did not end a held charge | Assault / Raptor: melee ends a hop or a charge at once and swings; Tactical classes: melee ends a charge; the next swing waits for the cancelled clip's end; Assault / Raptor: Space held in the air or during a charge lifts the pack (a tap is the hop). Roll, Devastator / Havoc, Ork Boy, the collision stop unchanged.… | Owner's words, 2026-11-02: "you should be able to end assault marine/raptor charges and hops with a melee attack. but implement the same strict cooldown based on the intended timing of the end of the animation." Builds with protocol 53 do not connect. Spec rows: Melee cancels of hops and charges. | Melee cancels of hops and charges, the jump pack from a…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1620EEEE` | Manufactorum's wall stations: no olive boards, no salmon fittings (fix/manufactorum-fluorescent, 2026-11-04; client drawing only) | The two bases' wall stations (six: a row of flat wall boards with a helmet, tools, weapon silhouettes and a banner pinned on, a pair of tall keypads, and two small door-side stations) are placed and drawn | Not drawn: every placement of `backpanel_a/b/c`, `tech_panel_a/b/c`, `tech_panel_pipe_a/b/c`, `handle_bar_a` and `accessories_doorbutton`, the seals, scrolls, `tech_panel_pipe_g` and `tech_panel_tank_a` within 6 m of a board or cabinet, and the two olive `backPanel` plates of the `tech_interface_b` cabinets (their… | Owner's words, 2026-11-04: "remove all instances on the classic pvp manufactorum map of these 'fluorescent', opaque objects" (flat olive boards with salmon glowing shapes, "jarring" against the dark metal); our emissive-map approximation draws them bright and flat, and whether the original did is not known, so they… | Manufactorum's wall stations: no olive boards, no salmon…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-AD717A23` | Solid bodies: no passing through, the charge meets what it runs into (fix/charge-player-collision, 2026-11-06; protocol 57) | Ours (the original's character collision and charge contact are engine code; the owner's playtest: "players never pass directly through other players", "an outer hitbox") | The server stops opponents' moves that would bring their axes within 0.45 m (0.75 m with a charger) as they really stand (a correction when a client's picture was wrong); the charge is met at the first touch of its swept reach anywhere in front and stops at that point; a charge also meets the bodies as they really… | spec "Solid bodies: no passing through, the charge meets what it runs into" | Solid bodies: no passing through, the charge meets what it…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-B8027519` | The charge clash: charger and victim locked through the shove (feel/charge-clash, 2026-11-06; protocol 59) | Ours in its mechanics (the original's pairing is engine code); its length and motion are the data's collision stop (1.83 m forward in 0.2 s, then 1.11 m back) and match the owner's recording | A stunned or staggered victim is carried with the charger through the stop's forward shove at 0.9 m (capsules touching), the charger's step ignores the victim's body, a victim the level stops holds the charger back; any charger meets a body at its edge (guard 0.85 m: the touch less a 5 cm slack, was 0.75 m); remotes… | spec "The charge clash: charger and victim locked through the shove" | The charge clash: charger and victim locked through the…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 
@@ -3402,4 +3415,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-F987BDB3` | Stall keep-alive: scope | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
 | `R-E085B984` | Test aids | Stall keep-alive and freeze diagnostics (fix/stall-keepalive; client and a log filter, no protocol change) |
 | `R-2F7F28A2` | Switch | Solid bodies: no passing through, the charge meets what it runs into (fix/charge-player-collision; protocol 57, no wire change) |
+| `R-AFD6145F` | Switch | The charge clash: charger and victim locked through the shove (feel/charge-clash; protocol 59, no wire change) |
 

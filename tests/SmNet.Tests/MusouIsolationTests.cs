@@ -59,7 +59,8 @@ public class MusouIsolationTests(ITestOutputHelper output)
     // (05F93BCF… before); faithful and extended still replay to the same hash. feel/melee-cooldown and feel/charge-no-cancel (protocol 53, 2026-11-02): the melee lock and the stick no longer ending a charge moved both again.
     // sim/reload-keeps (protocol 56, 2026-11-03) leaves both as they were: the script never reloads into a throw, a melee attack or a charge.
     // fix/charge-player-collision (protocol 57, 2026-11-06): the charge's swept contact and its stop at the contact point moved both together (0B11EC11… before; the script's 15 charges).
-    const string FaithfulReplay = "B63061B6A6B6CAD75B4C2CAF66CC03E04C5B582ACD120E2A0B74D8D6A52DFFB2", ExtendedReplay = "B63061B6A6B6CAD75B4C2CAF66CC03E04C5B582ACD120E2A0B74D8D6A52DFFB2";
+    // feel/charge-clash (protocol 59, 2026-11-06): the clash's shove carrying the stunned victim and the 0.9 m charge guard moved both together (B63061B6… before; 17 charges).
+    const string FaithfulReplay = "F6EC18134963FB3C019DCC1C57F4146D10132914A0572B59D05AB94BE0B1FF1C", ExtendedReplay = "F6EC18134963FB3C019DCC1C57F4146D10132914A0572B59D05AB94BE0B1FF1C";
 
     [Fact]
     public void The_faithful_and_extended_config_hashes_are_unchanged()
@@ -94,7 +95,7 @@ public class MusouIsolationTests(ITestOutputHelper output)
     [Fact]
     public void Musou_changes_neither_the_protocol_version_nor_the_extended_profile()
     {
-        Assert.Equal(58u, (uint)Protocol.Version);   // 58: fix/pvp-deploy-spawn (classic PvP only); 57: fix/charge-player-collision; 56: sim/reload-keeps; 55: the hammer needs no pound delay; 54: feel/melee-cancels; 53: feel/melee-cooldown (the melee lock); 52: sim/light-melee-flinch (the flinch byte); 51: sim/no-fire-while-sprinting and sim/movement-fixes (50: the scoreboard's ping), not Musou
+        Assert.Equal(59u, (uint)Protocol.Version);   // 59: feel/charge-clash (classic PvP charges); 58: fix/pvp-deploy-spawn (classic PvP only); 57: fix/charge-player-collision; 56: sim/reload-keeps; 55: the hammer needs no pound delay; 54: feel/melee-cancels; 53: feel/melee-cooldown (the melee lock); 52: sim/light-melee-flinch (the flinch byte); 51: sim/no-fire-while-sprinting and sim/movement-fixes (50: the scoreboard's ping), not Musou
         Assert.Equal(2u, ContentExtras.WireVersion);
         Assert.False(ContentExtras.All.HasFlag(ContentExtras.Musou));
         Assert.Equal(ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks, ContentExtras.All);

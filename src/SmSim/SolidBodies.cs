@@ -39,6 +39,11 @@ public static class SolidBodies
     /// meets the body at the capsules' edge, as the models' shoulders meet.
     /// </summary>
     public const float ChargeDepth = 0.15f;
+    /// <summary>
+    /// feel/charge-clash (ours): the depth with <see cref="SimConfig.ChargeClash"/> on: 5 cm, a slack the shared player collision does not reach (bodies pressing on each other through its lagged picture settle up to about 1.5 cm in,
+    /// so the guard does not nudge them by rounding and the prediction stays exact) and too small to see; deeper intrusions from a stale picture are cut.
+    /// </summary>
+    public const float ClashDepth = 0.05f;
     /// <summary>Ours: the guard's passes over the pairs per tick (a stop can bring a player back into a third one's way).</summary>
     public const int GuardPasses = 3;
 
@@ -50,7 +55,7 @@ public static class SolidBodies
     public static float GuardDistance(SimConfig c, bool charging)
     {
         float r = MathF.Max(c.CapsuleRadius, 0.05f);
-        return charging ? MathF.Max(2f * r - ChargeDepth, r) : r;
+        return charging ? MathF.Max(2f * r - (c.ChargeClash ? ClashDepth : ChargeDepth), r) : r;   // feel/charge-clash: a charger meets a body at its edge, never inside it
     }
 
     /// <summary>Whether two bodies' heights overlap side by side (neither on the other's head), as <see cref="PlayerCollision.Relate"/>'s Side.</summary>
@@ -184,5 +189,6 @@ public sealed partial class World
 
     /// <summary>Whether a player is charging (the bull rush or the dash attack's lunge) at the tick's start or after its move (a wall's stop this tick included).</summary>
     bool Charging(int id, IReadOnlyDictionary<int, PlayerState> start) =>
-        Rush.Charging(Rush.ChargingPhase(_players[id])) || (start.TryGetValue(id, out var then) && Rush.Charging(then.Rush));
+        Rush.Charging(Rush.ChargingPhase(_players[id])) || (start.TryGetValue(id, out var then) && Rush.Charging(then.Rush))
+        || (Config.ChargeClash && _players[id].Alive && _players[id].Rush is RushPhase.Collision or RushPhase.DashHit or RushPhase.DashCollision);   // feel/charge-clash: a charge's stop (its shove and recoil) too
 }

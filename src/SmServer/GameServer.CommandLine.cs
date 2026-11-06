@@ -49,6 +49,8 @@ public sealed record ServerArguments
     public bool NoChargeLock { get; init; }
     /// <summary>fix/charge-player-collision (test aid, before / after): the protocol 56 body and charge contact rules (<see cref="SimConfig.SolidBodies"/>; config hash: clients need it too).</summary>
     public bool OldBodyContact { get; init; }
+    /// <summary>feel/charge-clash (test aid, before / after): the protocol 58 stop, no clash (<see cref="SimConfig.ChargeClash"/>; config hash: clients need it too).</summary>
+    public bool NoChargeClash { get; init; }
     /// <summary>--log-overlaps (sim/player-collision test aid): every 10 s, how close the living players' capsules came and how often they overlapped.</summary>
     public bool LogOverlaps { get; init; }
     /// <summary>--max-spectators (protocol 46; ours, observer tooling): spectators admitted besides the players, 0 none (default <see cref="Protocol.MaxSpectators"/>).</summary>
@@ -122,6 +124,7 @@ public static class ServerCommandLine
                     "--no-player-collision" => a with { NoPlayerCollision = true },
                     "--no-charge-lock" => a with { NoChargeLock = true },
                     "--old-body-contact" => a with { OldBodyContact = true },
+                    "--no-charge-clash" => a with { NoChargeClash = true },
                     "--log-overlaps" => a with { LogOverlaps = true },
                     _ => a with { Help = true },
                 };

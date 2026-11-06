@@ -25,8 +25,10 @@ public partial class NetworkView
     int _correctionsLogged;
 
     /// <summary>The config as the server's: player collision off with <c>--no-player-collision</c> (the config hashes then agree).</summary>
-    static SimConfig WithPlayerCollisionArg(SimConfig c) => ((NoPlayerCollision ? c with { PlayerBodies = false } : c) is var b && NoChargeLockArg ? b with { ChargeLock = false } : b) is var d && OldBodyContactArg ? d with { SolidBodies = false } : d;
+    static SimConfig WithPlayerCollisionArg(SimConfig c) => (((NoPlayerCollision ? c with { PlayerBodies = false } : c) is var b && NoChargeLockArg ? b with { ChargeLock = false } : b) is var d && OldBodyContactArg ? d with { SolidBodies = false } : d) is var e && NoChargeClashArg ? e with { ChargeClash = false } : e;
     /// <summary>fix/charge-player-collision test aid <c>--old-body-contact</c> (the server needs it too: config hash): the protocol 56 body and charge contact rules.</summary>
+    /// <summary>feel/charge-clash test aid <c>--no-charge-clash</c> (the server needs it too: config hash): the protocol 58 stop, no clash.</summary>
+    static readonly bool NoChargeClashArg = OS.GetCmdlineUserArgs().Contains("--no-charge-clash");
     static readonly bool OldBodyContactArg = OS.GetCmdlineUserArgs().Contains("--old-body-contact");
     /// <summary>anim/melee-interaction test aid <c>--no-charge-lock</c> (the server needs it too: config hash): the M29 charge contact and stop.</summary>
     static readonly bool NoChargeLockArg = OS.GetCmdlineUserArgs().Contains("--no-charge-lock");
@@ -35,7 +37,7 @@ public partial class NetworkView
     IReadOnlyList<PlayerState> DrawnRemotes(IReadOnlyList<PlayerState> others, PlayerState me, PlayerState shown)
     {
         var drawn = NoBodySeparation ? others : _drawnBodies.Separate(others, me.Alive ? shown.Position : null, me.PlayerId, _config!);
-        drawn = LockDrawn(drawn);   // anim/melee-interaction: the own charge's victim at the lock spot (NetworkView.MeleeInteraction.cs)
+        drawn = LockDrawn(drawn, me, shown);   // anim/melee-interaction: the own charge's victim at the lock spot (NetworkView.MeleeInteraction.cs)
         if (_bot)
         {
             _drawnFeet.Clear();
