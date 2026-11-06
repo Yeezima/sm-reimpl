@@ -78,7 +78,7 @@ internal static partial class AshfallDraft5Pass
             {
                 var at = centre + off;
                 var item = new AshfallDressItem(id, new Vector3(at.X, at.Y, bottom), yaw * (MathF.PI / 12f), size6, false, AshfallDressRole.Prop, -1);
-                var boxes = Coarse(s, Boxes(item, yaw, id));
+                var boxes = CoarseBoxes(s, item, yaw, id);
                 var push = Push(c, boxes, allowed);
                 if (push is null)
                 {

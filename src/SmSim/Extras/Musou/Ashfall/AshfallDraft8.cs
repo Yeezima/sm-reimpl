@@ -75,7 +75,7 @@ internal static partial class AshfallDraft5Pass
         note = "";
         if (s.NoCollision || !c.RoadwayRule) return true;
         AshfallDressItem Item(Vector2 at, Vector3 sz) => new(id, new Vector3(at.X, at.Y, bottom), yaw * (MathF.PI / 12f), sz, false, AshfallDressRole.Prop, -1);
-        var start = Coarse(s, Boxes(Item(centre, size), yaw, id));
+        var start = CoarseBoxes(s, Item(centre, size), yaw, id);
         var first = RoadDeepest(c, start, false);
         if (first.Depth <= 0f) return true;
         note = $"{first.Depth:0.0} m into a roadway";
@@ -92,7 +92,7 @@ internal static partial class AshfallDraft5Pass
             var off = Vector2.Zero;
             for (int k = 0; k < 24; k++)
             {
-                var boxes = Coarse(s, Boxes(Item(centre + off, sz), yaw, id));
+                var boxes = CoarseBoxes(s, Item(centre + off, sz), yaw, id);
                 var (depth, mine, strip) = RoadDeepest(c, boxes, false);
                 if (depth <= 0f)
                 {
