@@ -40,7 +40,8 @@ public sealed partial class World
 
     /// <summary>
     /// A player's call for an orbital strike on <paramref name="point"/> (the command Orbital; the client only asks): refused, with nothing changed, unless a battle is on, the player is in it and alive,
-    /// and the point lies on the battlefield; no cooldown (the owner, 2026-11-01), and a barrage under way stops nothing. The walking barrage then starts at once, centred on the point, across the caller's view. Whether it was accepted.
+    /// and the point lies on the battlefield, and the player's cooldown is over (<see cref="TfwFireRules.OrbitalCooldownSeconds"/>, the owner 2026-11-06; it starts with each accepted battle strike);
+    /// at the Firing Range there is none (unlimited, as since 2026-11-01 everywhere). A barrage under way stops nothing. The walking barrage then starts at once, centred on the point, across the caller's view. Whether it was accepted.
     /// </summary>
     public bool TfwOrbital(int player, Vector3 point)
     {
@@ -48,12 +49,14 @@ public sealed partial class World
         bool atRange = run.Battle is null && run.RangeOn && run.Field.Range is not null && run.InRange.Contains(player);
         if (!atRange && (run.Battle is null || !run.InField.Contains(player))) return false;
         if (!_players.TryGetValue(player, out var p) || !p.Alive) return false;
+        if (!atRange && run.Fire.OrbitalTicksLeft(player, Tick) > 0) return false;   // the owner, 2026-11-06: one strike a minute in a battle
         var box = atRange ? run.Field.Range!.Box : run.Field.Bounds;
         if (!float.IsFinite(point.X + point.Y + point.Z) || point.X < box.Min.X || point.X > box.Max.X || point.Y < box.Min.Y || point.Y > box.Max.Y) return false;
         int rate = Math.Max(1, Config.TickRate);
         point = atRange ? Vector3.Clamp(point, box.Min, box.Max) : run.Field.Clamp(point);
         point.Z = TfwGroundBelow(point, point.Z);
         TfwBarrage(point, TfwFireTestHeading(player, point), rate);
+        if (!atRange) run.Fire.OrbitalCalled(player, Tick, rate);
         return true;
     }
 

@@ -148,11 +148,15 @@ public static class TfwHudModel
     };
 
     /// <summary>The Guardsmen's line.</summary>
-    /// <summary>The orbital strike's line: always ready, there is no cooldown.</summary>
+    /// <summary>The orbital strike's line when it is ready.</summary>
     public const string OrbitalText = "B ORBITAL STRIKE READY";
 
-    /// <summary>The same line with the controller's prompt (left on the D-pad) when the pad is the scheme.</summary>
-    public static string OrbitalTextFor(bool pad) => pad ? "D-PAD LEFT ORBITAL STRIKE READY" : OrbitalText;
+    /// <summary>
+    /// The same line with the controller's prompt (left on the D-pad) when the pad is the scheme; with <paramref name="cooldownSeconds"/> left (contracts 25, the owner 2026-11-06: 60 s
+    /// after a battle strike) the countdown instead of READY.
+    /// </summary>
+    public static string OrbitalTextFor(bool pad, int cooldownSeconds = 0) =>
+        (pad ? "D-PAD LEFT" : "B") + (cooldownSeconds > 0 ? $" ORBITAL STRIKE IN {cooldownSeconds} S" : " ORBITAL STRIKE READY");
 
     public static string GuardsText(in TfwOwnView own) => own.Guards == 0 && own.Squads == 0 && own.Reserves == 0 ? "" : $"GUARDS {own.Guards}, {own.Squads} SQUADS + {own.Reserves} IN RESERVE";
 

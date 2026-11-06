@@ -153,7 +153,7 @@ public class TfwFireTests
         var records = new List<TfwFireEvent>();
         fire.TakeEvents(records);
         Assert.Contains(records, r => r.Kind == TfwFireKind.Shell);
-        Assert.Equal(0, w.TfwOwn(Human).OrbitalSeconds);
+        Assert.Equal(60, w.TfwOwn(Human).OrbitalSeconds);   // contracts 25 (the owner, 2026-11-06): the cooldown starts with the strike
     }
 
     [Fact]
@@ -174,27 +174,71 @@ public class TfwFireTests
         Assert.False(dead.TfwOrbital(Human, Open));
     }
 
+    /// <summary>The owner, 2026-11-06: "add a cooldown of 1 minute to the artillery strike. in musou mode. except at the firing range" (contracts 25).</summary>
     [Fact]
-    public void Every_call_is_a_strike_even_with_a_barrage_under_way()
+    public void In_a_battle_a_strike_waits_60_s_after_the_last_and_the_hud_counts_it_down()
     {
         var w = Battle();
         var fire = w.Tfw!.Fire;
-        Assert.True(w.TfwOrbital(Human, Open));
-        int first = fire.Shells.Count;
-        Assert.True(w.TfwOrbital(Human, Open));
-        Assert.Equal(2, fire.Barrages);
-        Assert.True(fire.Shells.Count > first);
         Assert.Equal(0, w.TfwOwn(Human).OrbitalSeconds);
+        Assert.True(w.TfwOrbital(Human, Open));
+        Assert.False(w.TfwOrbital(Human, Open));   // at once: refused, nothing changed
+        Assert.Equal(1, fire.Barrages);
+        Assert.Equal(60, w.TfwOwn(Human).OrbitalSeconds);
+        int rate = w.Config.TickRate;
+        uint ready = w.Tick + (uint)(60 * rate);
+        TfwRig.Seconds(w, 30f);
+        Assert.InRange((int)w.TfwOwn(Human).OrbitalSeconds, 29, 31);
+        Assert.False(w.TfwOrbital(Human, Open));
+        // The rig's battle ends before a minute is up (no Orks left to fight), so the end of the cooldown is read from the fire's own clock.
+        Assert.Equal(1u, fire.OrbitalTicksLeft(Human, ready - 1));
+        Assert.Equal(0u, fire.OrbitalTicksLeft(Human, ready));
+        Assert.Equal(0u, fire.OrbitalTicksLeft(Human + 1, w.Tick));   // per player
+        var other = Battle();   // and a fresh caller is ready at once
+        Assert.True(other.TfwOrbital(Human, Open));
+        Assert.Equal(60, TfwFireRules.OrbitalCooldownSeconds);
+    }
+
+    /// <summary>Classic PvP has no artillery strike: a world without the war refuses the call and its HUD block carries no cooldown (Musou isolated from PvP).</summary>
+    [Fact]
+    public void Classic_pvp_has_no_strike_and_no_cooldown()
+    {
+        var map = TfwTestArena.Build();
+        var w = new World(TfwRig.Config, map.Collision, TfwTestArena.Spawns) { Rules = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2, RestartDelay = 2f } };
+        w.Spawn(Human, w.AssignClass(0));
+        TfwRig.Steps(w, 30);
+        Assert.Null(w.Tfw);
+        Assert.False(w.TfwOrbital(Human, Open));
+        Assert.Equal(default, w.TfwOwn(Human));
     }
 
     [Fact]
-    public void The_spare_byte_still_travels_in_the_own_block_and_the_hud_is_always_ready()
+    public void At_the_firing_range_every_call_is_a_strike_and_no_cooldown_starts()
+    {
+        var w = TfwRig.War();
+        TfwRig.Command(w, TfwCommand.RangeGo);
+        TfwRig.Seconds(w, 0.5f);
+        var range = Assert.IsType<TfwRange>(TfwTestArena.Field.Range);
+        Assert.Contains(Human, w.Tfw!.InRange);
+        var fire = w.Tfw.Fire;
+        var at = range.Centre;
+        for (int k = 0; k < 5; k++) Assert.True(w.TfwOrbital(Human, at), $"call {k}");
+        Assert.Equal(5, fire.Barrages);
+        Assert.Equal(0, w.TfwOwn(Human).OrbitalSeconds);
+        Assert.Equal(0u, fire.OrbitalTicksLeft(Human, w.Tick));
+    }
+
+    [Fact]
+    public void The_cooldown_byte_travels_in_the_own_block_and_the_hud_counts_it_down()
     {
         var war = new TfwWarView(TfwRunPhase.Battle, TfwLane.B, 1f, 1f, 1, 1, 0, default, default, default, new TfwOwnView(0, 0, 0, 0, 0, false, TfwRetainerState.None, default, 0, 0, 0, 0, 0, true, 37));
         Assert.Equal(37, TfwWire.ReadWar(TfwWire.WriteWar(war))!.Value.Own.OrbitalSeconds);
         Assert.Equal("B ORBITAL STRIKE READY", TfwHudModel.OrbitalText);
         Assert.Equal("D-PAD LEFT ORBITAL STRIKE READY", TfwHudModel.OrbitalTextFor(true));
         Assert.Equal(TfwHudModel.OrbitalText, TfwHudModel.OrbitalTextFor(false));
+        Assert.Equal(TfwHudModel.OrbitalText, TfwHudModel.OrbitalTextFor(false, 0));
+        Assert.Equal("B ORBITAL STRIKE IN 37 S", TfwHudModel.OrbitalTextFor(false, 37));   // contracts 25: the cooldown
+        Assert.Equal("D-PAD LEFT ORBITAL STRIKE IN 1 S", TfwHudModel.OrbitalTextFor(true, 1));
     }
 
     [Fact]

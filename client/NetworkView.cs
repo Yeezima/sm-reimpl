@@ -153,7 +153,7 @@ public partial class NetworkView : Node3D
     readonly HashSet<int> _liveProjectiles = new();   // M40-T9: reused every frame
     readonly List<int> _goneProjectiles = new();
     readonly Stack<MeshInstance3D> _projectilePool = new();
-    readonly Dictionary<string, (Mesh Mesh, Material Material)> _projectileLooks = new();
+    readonly Dictionary<string, (Mesh Mesh, Material? Material)> _projectileLooks = new();
     readonly List<(MeshInstance3D Node, StandardMaterial3D Material, double Age, float Radius, float Alpha)> _blasts = new();
     readonly Stack<(MeshInstance3D Node, StandardMaterial3D Material)> _blastPool = new();
     readonly HashSet<int> _projectileIdsSeen = new();
@@ -300,6 +300,7 @@ public partial class NetworkView : Node3D
             SetUpFx();   // M25b
             SetUpSound();     // M26b (loads in the background)
             SetUpPickups();   // fidelity gap 1: the drops' looks and prompts (loads in the background)
+            SetUpGrenadeModels();   // feel/grenades-quickdraw: the thrown items' original models (the blueprints read in the background)
             SetUpBraceVent();   // fidelity gap 7: the brace's and the vent's clips and texts (loads in the background)
             LoadCameraRig(); MemStep("weapons, fx, sound, pickups, brace, camera");
             if (_className is not null)
@@ -1036,6 +1037,7 @@ public partial class NetworkView : Node3D
             if (node.MaterialOverride != material) node.MaterialOverride = material;
             var drawn = BarrelDrawn(q);   // fx/barrel-origin: leaves the barrel, joins the server's path within 3 m (NetworkView.Barrel.cs)
             node.Position = new Vector3(drawn.X, drawn.Y, drawn.Z);
+            GrenadeTumble(node, q, material is null);   // feel/grenades-quickdraw: a grenade model rolls with its travel (NetworkView.Grenades.cs)
             // M25b: with the original trail drawing it, the placeholder ball stays only for grenades (their model is not drawn yet).
             Ph("projectiles: effects");
             bool trail = FxProjectile(q, ToGodot(drawn));
@@ -1049,6 +1051,7 @@ public partial class NetworkView : Node3D
         {
             var node = _projectileNodes[id];
             node.Visible = false;
+            GrenadeForget(id, node);
             FxProjectileGone(id);
             BarrelForget(id);
             _projectileNodes.Remove(id);
@@ -1198,17 +1201,18 @@ public partial class NetworkView : Node3D
     /// (<paramref name="thrown"/>: <paramref name="weaponIndex"/> indexes <see cref="SimConfig.Thrown"/>): a small sphere,
     /// dark green for the frag grenade, grey for the krak grenade, dark red for the melta bomb (placeholders).
     /// </summary>
-    (Mesh Mesh, Material Material) ProjectileLook(int weaponIndex, int stage, bool thrown = false)
+    (Mesh Mesh, Material? Material) ProjectileLook(int weaponIndex, int stage, bool thrown = false)
     {
         string key = $"{(thrown ? "t" : "")}{weaponIndex}:{stage}";
         if (_projectileLooks.TryGetValue(key, out var look)) return look;
+        if (thrown && GrenadeModel(weaponIndex) is { } model) return model;   // feel/grenades-quickdraw: the original model (NetworkView.Grenades.cs); cached there
         if (thrown)
         {
             string item = weaponIndex >= 0 && weaponIndex < _config!.Thrown.Count ? _config.Thrown[weaponIndex].Name.ToLowerInvariant() : "";
             var albedo = item.Contains("krak") ? new Color(0.45f, 0.46f, 0.48f) : item.Contains("melta") ? new Color(0.35f, 0.08f, 0.05f) : new Color(0.12f, 0.25f, 0.1f);
             look = (new SphereMesh { Radius = 0.15f, Height = 0.3f, RadialSegments = 12, Rings = 6 },
                     new StandardMaterial3D { AlbedoColor = albedo, Metallic = 0.3f, Roughness = 0.6f, EmissionEnabled = true, Emission = albedo, EmissionEnergyMultiplier = 0.4f });
-            _projectileLooks[key] = look;
+            if (GrenadeModelSettled(weaponIndex)) _projectileLooks[key] = look;   // feel/grenades-quickdraw: not while the original model may still come
             return look;
         }
         var weapon = weaponIndex >= 0 && weaponIndex < _config!.Weapons.Count ? _config.Weapons[weaponIndex] : null;
@@ -1484,7 +1488,7 @@ public partial class NetworkView : Node3D
         // sim/movement-fixes: a roll or hop falling off a drop shows the fall pose after FallRules.ChargeFallDelay in the air (NetworkView.Fall.cs).
         if (!(EvadeFallingInAir(state) && fallTrack.ChargeFall) && EvadePose(state) is { } roll && character.Pose(roll.Clip, roll.Time, ClipBlends.Evade)) return;
         // Throwing: the toss clip at the throw's time (the simulation ends the throw at ThrowDuration, before the clip's end).
-        if (throwTime is { } tt && _tossAnimation is not null && TossShown(state) && (HandoffThrow(character, state, own, _tossAnimation, tt) || character.Pose(_tossAnimation, tt, ClipBlends.Throw))) return;
+        if (throwTime is { } tt && _tossAnimation is not null && TossShown(state) && (HandoffThrow(character, state, own, _tossAnimation, tt) || character.Pose(_tossAnimation, TossClipTime(tt), ClipBlends.Throw))) return;   // feel/grenades-quickdraw: the wind-up fitted to the release
         // anim/feel-pass (NetworkView.Feel.cs): a slash whose marine moved on keeps its follow-through on the upper body over the strike's exit.
         if (SlashHandoff(character, state, own)) return;
         // ... the landing and the pound's get-up lose to it.
@@ -2187,6 +2191,7 @@ public partial class NetworkView : Node3D
         WarmLooks();
         WarmOrk();   // Ork O7a: an Ork player's own look and weapons (NetworkView.Ork.cs)
         PrewarmWeaponDefaults();   // M40-T9: the weapon models of every class's default loadout
+        PrewarmGrenades();   // feel/grenades-quickdraw: the grenade models, so the first throw does not stall a frame
         PrewarmPickups();   // perf/pass-1: the drops' models (the first drop cost a 100 ms frame); a lean bot returned above (LeanMapLoaded) and warms none
         PrewarmCollision(world);   // M40-T9: the crosshair's first ray
         _jumpGround = world;   // M45: the flight pose's height above the ground

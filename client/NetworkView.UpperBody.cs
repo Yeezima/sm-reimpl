@@ -469,7 +469,8 @@ public partial class NetworkView
         }
         if (throwTime is { } tt && _tossAnimation is not null && _config is not null && TossShown(s) && ActionMask() is { } mask)   // perks/inert-2: no toss for a stim or an unknown item
         {
-            if (character.SetPoseLayer(_tossAnimation, tt, ActionHandoff.ThrowWeight(_config.ThrowDuration, tt), additive: false, mask)) _jumpActionLayers++;
+            float clipTime = TossClipTime(tt);   // feel/grenades-quickdraw
+            if (character.SetPoseLayer(_tossAnimation, clipTime, ActionHandoff.ThrowWeight(TossClipEnd, clipTime), additive: false, mask)) _jumpActionLayers++;
         }
         else
         {

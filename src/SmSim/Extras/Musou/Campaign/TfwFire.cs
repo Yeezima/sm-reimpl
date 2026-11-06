@@ -57,6 +57,12 @@ public static class TfwFireRules
     /// <summary>Candidates a gun tries before it holds its fire this volley: each needs a clear line.</summary>
     public const int RoundTries = 5;
 
+    /// <summary>
+    /// Seconds after a player's orbital strike in a battle before that player may call the next (the owner, 2026-11-06: "add a cooldown of 1 minute to the artillery strike. in musou mode.
+    /// except at the firing range. it should still be infinite and spammable at the firing range"). A strike at the Firing Range neither waits for it nor starts it.
+    /// </summary>
+    public const float OrbitalCooldownSeconds = 60f;
+
     /// <summary>Records of tag 11 kept for a server that takes none (a test, a run with no client).</summary>
     public const int MaxEvents = 256;
 }
@@ -76,6 +82,7 @@ public sealed class TfwFire
 {
     readonly List<TfwShell> _shells = new();
     readonly List<TfwFireEvent> _events = new();
+    readonly Dictionary<int, uint> _orbitalReady = new();   // per player: the first tick of the next battle strike (absent: ready)
     object? _battle;
     uint _nextRun;
     ushort _runs, _rounds;
@@ -153,6 +160,12 @@ public sealed class TfwFire
     public float RunGap(uint tick) => MathF.Max(TfwFireRules.RunGapSeconds, TfwFireRules.RunGapSeconds + Roll(tick, 2) * TfwFireRules.RunGapSpread);
 
     internal void AddShell(in TfwShell shell) => _shells.Add(shell);
+
+    /// <summary>Ticks until <paramref name="player"/> may call a battle strike again on <paramref name="tick"/> (0: ready; <see cref="TfwFireRules.OrbitalCooldownSeconds"/>).</summary>
+    public uint OrbitalTicksLeft(int player, uint tick) => _orbitalReady.TryGetValue(player, out uint ready) && ready > tick ? ready - tick : 0u;
+
+    /// <summary>A battle strike by <paramref name="player"/> on <paramref name="tick"/>: the cooldown starts (a strike at the Firing Range does not call this).</summary>
+    internal void OrbitalCalled(int player, uint tick, int rate) => _orbitalReady[player] = tick + (uint)MathF.Ceiling(TfwFireRules.OrbitalCooldownSeconds * rate - 1e-3f);
 
     internal void Started(uint tick)
     {

@@ -71,6 +71,8 @@ public partial class NetworkView
         public int Shots;
         public bool Walk;                                  // hysteresis between the walk and run bands
         public int DirFamily = -1, Dir;                    // the direction last shown (hysteresis against flicker at the sector borders)
+        public double SwitchSeenAt = double.NegativeInfinity;   // feel/grenades-quickdraw: the last frame a switch was under way (NetworkView.Quickdraw.cs)
+        public WeaponSlot LastSlot;                        // the slot last seen (a switch shorter than a frame still counts)
     }
 
     /// <summary>One resolved moving ready stance: <see cref="CharacterViewer.Stance"/> arguments.</summary>
@@ -301,6 +303,7 @@ public partial class NetworkView
         // Also after a clip pose (jump, roll, melee, throw, reaction dropped the stances): the weapon is brought up again from that pose.
         bool entering = t.Kind != PoseKind.Hip || character.StanceKey is null;
         float fade = _fadeOverride > 0f ? _fadeOverride : entering && t.Kind != PoseKind.Aim ? set.RelaxedToReadyBlend ?? set.NavToFireBlend ?? CharacterViewer.StanceFadeSeconds : CharacterViewer.StanceFadeSeconds;
+        if (entering && _fadeOverride <= 0f && QuickdrawEntering(t)) fade = QuickdrawFadeSeconds;   // feel/grenades-quickdraw: the gun snaps up after a switch (NetworkView.Quickdraw.cs)
         float pitchDegrees = s.Pitch * 180f / MathF.PI;
         // M40-T4: a marine in the ready run's blend stays in it until its damped speed is below GaitLeaveSpeed (the blend carries the standing aim pose as a share),
         // so a reversal through zero speed does not swap the blend for the standing stance and back.

@@ -324,7 +324,8 @@ public static class Combat
     /// tap's basic shot when it ends). While a raise runs the weapon neither reloads nor fires otherwise and the Sprint bit is not applied.
     /// A shot, a charge, a raise or aim mode keep the weapon up for <see cref="SimConfig.ReadyHold"/>; an always-ready weapon is kept up every
     /// tick. Lowered at once (ready and raise cleared): a sprint (the Sprint bit applied with the stick forward on the ground), a weapon
-    /// switch, a melee attack, a throw, an evade, a jump-pack jump's start, a ground pound, a reaction and the charge (bull rush).
+    /// switch, a melee attack, a throw, an evade, a jump-pack jump's start, a ground pound, a reaction and the charge (bull rush). With <see cref="SimConfig.QuickdrawSwitch"/>
+    /// (feel/grenades-quickdraw, the owner's feel) a switch does not lower it: the weapon it takes is kept up through the switch, so the first shot after it needs no raise.
     /// </para>
     /// <para>
     /// Brace and vent (fidelity gap 7; <see cref="Brace"/>, <see cref="Vent"/>): with a brace weapon in hand (the heavy bolter) Reload changes
@@ -711,8 +712,9 @@ public static class Combat
         bool aiming = aimDown && weapon is not null && step == 0 && !throwing && !threw
             && !JumpPack.Pounding(jump.Phase) && !evading;   // the owner, 2026-11-02: zoom in the air as on the ground
         // Raising the weapon (M31; see the summary): what lowered it this tick, the raise under way, and whether it is up.
-        bool lowering = reacting || rushing || step > 0 || throwing || threw || evading || switched || jump.Started || jump.PoundStart || jumpBusy
+        bool lowerOther = reacting || rushing || step > 0 || throwing || threw || evading || jump.Started || jump.PoundStart || jumpBusy
             || sprintNoFire;   // sim/no-fire-while-sprinting: the sprint drops a raise and its waiting shot, and a burst's later rounds
+        bool lowering = lowerOther || switched;
         int raise = lowering || weapon is null ? 0 : s.RaiseTicks;
         bool raised = weapon is null || !weapon.WaitsToRaise || aiming || (!lowering && s.ReadyTicks > 0);
 
@@ -919,7 +921,10 @@ public static class Combat
         // A sprint lowers the weapon (M31): the Sprint bit applied with the stick forward, walking on the ground (no aim mode).
         bool sprinting = !reacting && !rushing && !evading && !aiming && jump.Phase == JumpPhase.None && s.Grounded
             && (moveInput.Buttons & InputButtons.Sprint) != 0 && moveInput.Sanitized().MoveY > 0f;
-        bool weaponUp = fired || charging || pending > 0 || raise > 0 || aiming || (weapon is { WaitsToRaise: false } && !lowering && !sprinting);
+        // feel/grenades-quickdraw (the owner, 2026-11-06: "near instant, like a quickdraw"): with SimConfig.QuickdrawSwitch the weapon a switch takes comes up during the
+        // switch, so it is up on the tick the switch ends (no raise before the first shot); anything else that lowers it still does.
+        bool quickdraw = c.QuickdrawSwitch && weapon is not null && (switched || switchLeft > 0f) && !lowerOther && !sprinting;
+        bool weaponUp = fired || charging || pending > 0 || raise > 0 || aiming || quickdraw || (weapon is { WaitsToRaise: false } && !lowering && !sprinting);
         int readyTicks = weapon is null ? 0 : weaponUp ? c.ReadyHoldTicks : lowering || sprinting ? 0 : Math.Max(0, s.ReadyTicks - 1);
         // Planting the feet (fidelity gap 7): the press tick of a brace stops the body at once (ours, after the owner: "could not walk"; the entry
         // clip has no root motion), so a sprint does not slide on through the entry.
