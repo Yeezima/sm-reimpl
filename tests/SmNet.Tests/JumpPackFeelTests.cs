@@ -477,8 +477,8 @@ public class JumpPackFeelTests(ITestOutputHelper output)
         Assert.True(seen.Add((plain with { JumpPacks = [JumpPackTests.Pack with { Slash = JumpPackAttackTests.Slash }] }).Hash()));
         Assert.True(seen.Add((plain with { JumpPacks = [JumpPackTests.Pack with { Slash = Snappy }] }).Hash()));
         Assert.True(seen.Add((plain with { JumpPacks = [JumpPackTests.Pack with { Slash = Snappy with { LungeSpeed = 5f } }] }).Hash()));
-        Assert.Equal(61, Protocol.Version);
-        Assert.Equal(1199, Protocol.MaxSnapshotBytes);
+        Assert.Equal(62, Protocol.Version);
+        Assert.Equal(1193, Protocol.MaxSnapshotBytes);
     }
 
     // ---------------------------------------------------------------- prediction

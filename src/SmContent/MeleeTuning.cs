@@ -72,6 +72,19 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         /// <summary>feel/melee-reliability: every strike of this weapon is a <see cref="MeleeStep.TrackToHit"/> one.</summary>
         public bool TrackToHit { get; init; }
         /// <summary>
+        /// sim/string-reset (stream B of the owner's batch of 2026-11-06 late: after the hammer's light combo "you should be able to start a new combo approximately 1 shot sooner"):
+        /// each light attack frees a new string from its sequencer's <c>BRANCH_Melee_String_Reset</c> on (<see cref="MeleeStep.StringResetAt"/>; the hammer's X1, X2 and X3 at
+        /// 0.72, 0.8548 and 0.6618 of the clip, each at or after its combo window's close) instead of its clip's end. False (the default): the clip's end, as before. Only the thunder hammer's map (the daemon maul shares it);
+        /// the other weapons' string ends are a question for the owner. <c>SM_OLD_STRING_RESET=1</c> (test aid) turns it off.
+        /// </summary>
+        public bool StringReset { get; init; }
+        /// <summary>
+        /// sim/string-reset, the owner's answer (2026-11-06: "hamer/maul combo 1 shot sooner means 1 second"): the string's last attack frees a new string this many seconds before
+        /// its clip's end (X3: 2.333 - 1 = 1.333 s) instead of at its <c>BRANCH_Melee_String_Reset</c> (1.544 s, 0.79 s sooner). 0 (the default): the data's tag. An **estimate (owner's
+        /// request)** to check in a playtest. Never before the hit.
+        /// </summary>
+        public float StringEndRecoveryCut { get; init; }
+        /// <summary>
         /// Weapons C: per light attack, the heavy strike (1-based) a heavy press in its combo window chains to; 0 (or missing): the old rule
         /// (strike n + 1 after attack n), -1: none (<see cref="MeleeStep.HeavyNext"/>; read off the graph's <c>BTN_Melee_Stun</c> transitions).
         /// </summary>
@@ -228,6 +241,8 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         ExtendedRules = true,
         LightLungeFactor = HammerLightLungeFactor,
         TrackToHit = true,
+        StringReset = true,   // sim/string-reset: each light swing's BRANCH_Melee_String_Reset (X1 1.92 s, X2 1.995 s) instead of its clip's end
+        StringEndRecoveryCut = OwnerHammerRecoveryCut,   // X3: 1 s before its end (1.333 s), the owner's "1 second" (the data's tag: 1.544 s)
     };
 
     /// <summary>
@@ -258,6 +273,12 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
 
     /// <summary>Test aid: the environment variable <c>SM_OLD_SWING_STEP=1</c> (server and client alike) restores the swings' step-forward before sim/swing-step (factor 1).</summary>
     static readonly bool OldSwingStep = Environment.GetEnvironmentVariable("SM_OLD_SWING_STEP") == "1";
+    /// <summary>The owner's "1 second" sooner after the hammer's and maul's light combo (2026-11-06; estimate to check in a playtest): <see cref="WeaponMap.StringEndRecoveryCut"/>.</summary>
+    public const float OwnerHammerRecoveryCut = 1f;
+    /// <summary><c>SM_OLD_STRING_RESET=1</c> (test aid): the hammer's string ends at its last clip's end again (before sim/string-reset).</summary>
+    static readonly bool OldStringReset = Environment.GetEnvironmentVariable("SM_OLD_STRING_RESET") == "1";
+    /// <summary>The branch from which the attack state takes a new string (sim/string-reset).</summary>
+    public const string StringResetBranch = "BRANCH_Melee_String_Reset";
 
     /// <summary>Test aid: the environment variable <c>SM_OLD_HAMMER_LUNGE=1</c> (set for the server and the client alike) restores the hammer's lunge before anim/hammer-swing (factor 1), for before / after runs on one build.</summary>
     static readonly bool OldHammerLunge = Environment.GetEnvironmentVariable("SM_OLD_HAMMER_LUNGE") == "1";
@@ -321,6 +342,15 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             // Weapons C: where the graph leaves this attack for a heavy strike, and whether a light press goes on from it.
             int heavyNext = i < weapon.LightHeavyNext.Length ? weapon.LightHeavyNext[i] : 0;
             step = step with { HeavyNext = Math.Max(-1, heavyNext), StringEnd = !weapon.LoopLights && i == weapon.Sequencers.Length - 1, LungeFactor = (OldHammerLunge ? 1f : weapon.LightLungeFactor) * (OldSwingStep ? 1f : weapon.SwingStepFactor) * (OldStepBoost ? 1f : weapon.StepBoost), TrackToHit = weapon.TrackToHit };
+            if (weapon.StringReset && !OldStringReset)
+            {
+                // sim/string-reset: the first BRANCH_Melee_String_Reset window's start; none (or not before the clip's end): the clip's end, as before.
+                var reset = seqOf(weapon.Sequencers[i]).Tags.Where(t => t.Kind == "Branch" && t.Name == StringResetBranch).OrderBy(t => t.Start).FirstOrDefault();
+                float at = reset is null ? float.NaN : reset.Start * step.Duration;
+                if (step.StringEnd && weapon.StringEndRecoveryCut > 0f) at = MathF.Max(step.HitTime, step.Duration - weapon.StringEndRecoveryCut);   // the owner's 1 s (estimate)
+                if (float.IsFinite(at) && at >= step.HitTime && at < step.Duration) step = step with { StringResetAt = at };
+                else notes.Add($"{weapon.Sequencers[i]}: no usable {StringResetBranch}; the string ends with the clip");
+            }
             steps.Add(step);
             animations.Add(animation);
         }

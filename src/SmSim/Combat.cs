@@ -45,7 +45,7 @@ public static class Combat
             Slot = slot, Clip = inHand?.ClipSize ?? 0, Reserve = inHand?.ReserveSize ?? 0,
             OtherClip = other?.ClipSize ?? 0, OtherReserve = other?.ReserveSize ?? 0, SwitchLeft = 0,
             ThirdClip = third?.ClipSize ?? 0, ThirdReserve = third?.ReserveSize ?? 0, ThirdHeat = 0, ThirdOverheated = false, ThirdSinceHeat = 0,
-            Cooldown = 0, ReloadLeft = 0, OtherReloadLeft = 0, ThirdReloadLeft = 0, SinceDamage = 0, RespawnLeft = 0, Velocity = Vector3.Zero, Grounded = true,
+            Cooldown = 0, OtherCooldown = 0, ThirdCooldown = 0, ReloadLeft = 0, OtherReloadLeft = 0, ThirdReloadLeft = 0, SinceDamage = 0, RespawnLeft = 0, Velocity = Vector3.Zero, Grounded = true,
             MeleeStep = 0, MeleeTime = 0, MeleeQueued = false, MeleeDirection = EvadeDirection.Forward, MeleeLock = 0f,
             Heat = 0, Overheated = false, SinceHeat = 0, OtherHeat = 0, OtherOverheated = false, OtherSinceHeat = 0,
             Charging = false, ChargeTime = 0, PendingShot = 0, PendingLeft = 0,
@@ -554,6 +554,14 @@ public static class Combat
             // other action should never interrupt a stomp animation"): the heavy classes' stomp (MeleeStep.InPlace) queues no next attack, so it always plays to its end;
             // only the hop (a Jump press from its BRANCH_Evade, above) ends it early. The presses are left unused (the input buffer's own rules decide a replay).
             if (m.InPlace) { meleePress = false; heavyPress = false; }
+            // sim/string-reset (protocol 62; the owner's batch of 2026-11-06 late): a light attack takes a new string from its BRANCH_Melee_String_Reset (MeleeStep.StringResetAt;
+            // the hammer's and the maul's X3 at 1.544 s of 2.333 s, X1 and X2 at their combo window's close): a light or heavy press from there that nothing queued ends it, and the
+            // press starts attack 1 or heavy strike 1 from rest below in this same tick (the melee lock, set at the attack's start up to its combo window, is over by then).
+            if (!heavy && !queued && (meleePress || heavyPress) && time + TimeEpsilon >= m.StringResetAt)
+            {
+                step = 0; time = 0f; queuedHeavy = false; steps = lightSteps; motionStep = null;
+                goto stringReset;
+            }
             // Buffering (M28 adds heavy presses): before the combo window closes a press is kept for the next attack; a heavy
             // press during a light attack replaces a buffered light one; heavy presses during a heavy strike do nothing, except in
             // its Y-chain window (Weapons C: the Y,Y finishers, MeleeStep.YNext). A light press after an attack that ends the string does nothing.
@@ -586,6 +594,7 @@ public static class Combat
             }
             else if (time >= m.Duration) { step = 0; time = 0f; queued = false; queuedHeavy = false; heavy = false; steps = lightSteps; }
         }
+        stringReset:
         // From rest a heavy press starts heavy strike 1 (it wins over a light press in the same tick), a light press attack 1.
         if (step == 0 && !s.Throwing && (meleeLock <= 0f || cancelStart) && ((heavyPress && heavySteps.Count > 0) || (meleePress && lightSteps.Count > 0)))
         {
@@ -615,6 +624,8 @@ public static class Combat
         // ground pound, reaction or charge ends the reload in hand; it runs on through them (below). A switch stores it with its weapon (sim/combat-pass, item 10).
         float reloadLeft = s.ReloadLeft;
         float otherReloadLeft = s.OtherReloadLeft, thirdReloadLeft = s.ThirdReloadLeft;   // sim/combat-pass: reloads of the holstered weapons
+        // sim/holstered-cooldown (protocol 62): each weapon's shot cooldown runs down in or out of hand and follows its weapon through a switch (below).
+        float cooldown = MathF.Max(0f, s.Cooldown - dt), otherCooldown = MathF.Max(0f, s.OtherCooldown - dt), thirdCooldown = MathF.Max(0f, s.ThirdCooldown - dt);
         bool charging = s.Charging && charge is not null;
         float chargeTime = charging ? s.ChargeTime : 0f;
         int pending = weapon is not null && Shots.ChargeShotOf(weapon, s.PendingShot) is not null ? s.PendingShot : 0;
@@ -646,13 +657,13 @@ public static class Combat
             slot = switchTo.Value;
             // sim/combat-pass (item 10, owner's recollection 2026-10-30): a reload in progress is not lost; the holstered weapon's runs on (below) and a weapon
             // taken back in hand has what is left of its own.
-            var stores = new (int Clip, int Reserve, float Heat, bool Overheated, float SinceHeat, float Reload)[3];
-            stores[(int)from] = (clip, reserve, heat, overheated, sinceHeat, reloadLeft);
-            stores[(int)Loadouts.Other(from)] = (otherClip, otherReserve, otherHeat, otherOverheated, otherSinceHeat, otherReloadLeft);
-            stores[(int)Loadouts.Third(from)] = (thirdClip, thirdReserve, thirdHeat, thirdOverheated, thirdSinceHeat, thirdReloadLeft);
-            (clip, reserve, heat, overheated, sinceHeat, reloadLeft) = stores[(int)slot];
-            (otherClip, otherReserve, otherHeat, otherOverheated, otherSinceHeat, otherReloadLeft) = stores[(int)Loadouts.Other(slot)];
-            (thirdClip, thirdReserve, thirdHeat, thirdOverheated, thirdSinceHeat, thirdReloadLeft) = stores[(int)Loadouts.Third(slot)];
+            var stores = new (int Clip, int Reserve, float Heat, bool Overheated, float SinceHeat, float Reload, float Cooldown)[3];
+            stores[(int)from] = (clip, reserve, heat, overheated, sinceHeat, reloadLeft, cooldown);
+            stores[(int)Loadouts.Other(from)] = (otherClip, otherReserve, otherHeat, otherOverheated, otherSinceHeat, otherReloadLeft, otherCooldown);
+            stores[(int)Loadouts.Third(from)] = (thirdClip, thirdReserve, thirdHeat, thirdOverheated, thirdSinceHeat, thirdReloadLeft, thirdCooldown);
+            (clip, reserve, heat, overheated, sinceHeat, reloadLeft, cooldown) = stores[(int)slot];   // sim/holstered-cooldown: the cooldown goes with its weapon
+            (otherClip, otherReserve, otherHeat, otherOverheated, otherSinceHeat, otherReloadLeft, otherCooldown) = stores[(int)Loadouts.Other(slot)];
+            (thirdClip, thirdReserve, thirdHeat, thirdOverheated, thirdSinceHeat, thirdReloadLeft, thirdCooldown) = stores[(int)Loadouts.Third(slot)];
             weapon = next;
             switchLeft = c.WeaponSwitchTime;
             if (switchLeft <= 1e-6f) switchLeft = 0f;
@@ -722,7 +733,6 @@ public static class Combat
         var body = Loadouts.Body(c, s);   // M43: the perks' regeneration and shield (Larraman's Blessing, Iron Halo, Artificer Armor)
         float shield = s.SinceDamage >= body.ShieldRegenDelay ? MathF.Min(body.ShieldMax, s.Shield + body.ShieldRegenRate * dt) : s.Shield;
         float health = s.SinceDamage >= body.HealthRegenDelay ? MathF.Min(body.HealthMax, s.Health + body.HealthRegenRate * dt) : s.Health;
-        float cooldown = MathF.Max(0f, s.Cooldown - dt);
         // A burst under way (M43, Burst Fire): lost with the weapon in hand changing or being lowered, or without a burst weapon.
         int burstLeft = weapon is { Bursts: true } && !lowering && !switched ? s.BurstLeft : 0;
 
@@ -991,7 +1001,7 @@ public static class Combat
         var result = s with
         {
             SinceDamage = since, Shield = shield, Health = health, Cooldown = cooldown,
-            ReloadLeft = reloadLeft, OtherReloadLeft = otherReloadLeft, ThirdReloadLeft = thirdReloadLeft, Clip = clip, Reserve = reserve,
+            ReloadLeft = reloadLeft, OtherReloadLeft = otherReloadLeft, ThirdReloadLeft = thirdReloadLeft, OtherCooldown = otherCooldown, ThirdCooldown = thirdCooldown, Clip = clip, Reserve = reserve,
             Slot = slot, OtherClip = otherClip, OtherReserve = otherReserve, SwitchLeft = switchLeft,
             ThirdClip = thirdClip, ThirdReserve = thirdReserve, ThirdHeat = thirdHeat, ThirdOverheated = thirdOverheated, ThirdSinceHeat = thirdSinceHeat,
             Heat = heat, Overheated = overheated, SinceHeat = sinceHeat, OtherHeat = otherHeat, OtherOverheated = otherOverheated, OtherSinceHeat = otherSinceHeat,

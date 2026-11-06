@@ -60,7 +60,8 @@ public class MusouIsolationTests(ITestOutputHelper output)
     // sim/reload-keeps (protocol 56, 2026-11-03) leaves both as they were: the script never reloads into a throw, a melee attack or a charge.
     // fix/charge-player-collision (protocol 57, 2026-11-06): the charge's swept contact and its stop at the contact point moved both together (0B11EC11… before; the script's 15 charges).
     // feel/charge-clash (protocol 59, 2026-11-06): the clash's shove carrying the stunned victim and the 0.9 m charge guard moved both together (B63061B6… before; 17 charges).
-    const string FaithfulReplay = "F6EC18134963FB3C019DCC1C57F4146D10132914A0572B59D05AB94BE0B1FF1C", ExtendedReplay = "F6EC18134963FB3C019DCC1C57F4146D10132914A0572B59D05AB94BE0B1FF1C";
+    // sim/holstered-cooldown and sim/string-reset (protocol 62, stream B, 2026-11-07): each weapon keeping its own shot cooldown (the replay's states carry the holstered ones) moved both together (F6EC1813… before).
+    const string FaithfulReplay = "7F4A657BB0DFE20DC03EDF108135579F2DB73A645CFBD74884E8E38EED35C15F", ExtendedReplay = "7F4A657BB0DFE20DC03EDF108135579F2DB73A645CFBD74884E8E38EED35C15F";
 
     [Fact]
     public void The_faithful_and_extended_config_hashes_are_unchanged()
@@ -95,7 +96,7 @@ public class MusouIsolationTests(ITestOutputHelper output)
     [Fact]
     public void Musou_changes_neither_the_protocol_version_nor_the_extended_profile()
     {
-        Assert.Equal(61u, (uint)Protocol.Version);   // 61: night batch classic jump-pack capacity (Classic only, Musou keeps 300); 60: feel/charge-clash (classic PvP charges); 59: sim/swing-step, sim/lock-reach (every mode) and sim/air-jumps (Classic loses the air jump, Musou keeps it); 58: fix/pvp-deploy-spawn (classic PvP only); 57: fix/charge-player-collision; 56: sim/reload-keeps; 55: the hammer needs no pound delay; 54: feel/melee-cancels; 53: feel/melee-cooldown (the melee lock); 52: sim/light-melee-flinch (the flinch byte); 51: sim/no-fire-while-sprinting and sim/movement-fixes (50: the scoreboard's ping), not Musou
+        Assert.Equal(62u, (uint)Protocol.Version);   // 62: stream B (holstered cooldowns, every mode; the hammer string reset); 61: night batch classic jump-pack capacity (Classic only, Musou keeps 300); 60: feel/charge-clash (classic PvP charges); 59: sim/swing-step, sim/lock-reach (every mode) and sim/air-jumps (Classic loses the air jump, Musou keeps it); 58: fix/pvp-deploy-spawn (classic PvP only); 57: fix/charge-player-collision; 56: sim/reload-keeps; 55: the hammer needs no pound delay; 54: feel/melee-cancels; 53: feel/melee-cooldown (the melee lock); 52: sim/light-melee-flinch (the flinch byte); 51: sim/no-fire-while-sprinting and sim/movement-fixes (50: the scoreboard's ping), not Musou
         Assert.Equal(2u, ContentExtras.WireVersion);
         Assert.False(ContentExtras.All.HasFlag(ContentExtras.Musou));
         Assert.Equal(ContentExtras.Orks | ContentExtras.Gore | ContentExtras.LoyalistBarks, ContentExtras.All);

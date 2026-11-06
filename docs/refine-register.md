@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2333 spec table rows: **1695 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 513 rows of the changes document.
+Scanned 2340 spec table rows: **1702 tagged**, 459 not tagged (read from data with high confidence), 179 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 517 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,22 +50,22 @@ Scanned 2333 spec table rows: **1695 tagged**, 459 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 11 | 2 | 9 | 9 | 7 |
-| Core simulation (provisional values) | 293 | 275 | 231 | 45 | 1 |
+| Core simulation (provisional values) | 300 | 282 | 238 | 47 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 172 | 163 | 80 | 49 | 0 |
-| **All areas** | **1695** | 1460 | 1298 | 525 | 38 |
+| **All areas** | **1702** | 1467 | 1305 | 527 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 838 |
-| confidence: low | 618 |
-| confidence: medium | 552 |
-| kind: interpretation | 343 |
-| notes: ours | 334 |
+| kind: ours | 840 |
+| confidence: low | 621 |
+| confidence: medium | 556 |
+| kind: interpretation | 345 |
+| notes: ours | 336 |
 | confidence: none (low) | 128 |
-| kind: estimate | 102 |
+| kind: estimate | 104 |
 | kind: provisional | 99 |
 | notes: estimate | 83 |
 | kind: user's knowledge | 51 |
@@ -78,7 +78,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: placeholder | 22 |
 | notes: interpretation | 20 |
 | notes: placeholder | 19 |
-| kind: gap (not reproduced) | 17 |
+| kind: gap (not reproduced) | 18 |
 | notes: open question | 17 |
 | notes: not reproduced (gap) | 13 |
 | notes: gap (not reproduced) | 10 |
@@ -2005,7 +2005,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-EB03504B` | Shot lag allowance | each shot is also tried on the enemy's places over the last **0.2** s, every 2 ticks (s) | kind: ours; notes: estimate | owner 2026-11-02 | Shot lag allowance: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each shot is also tried on the enemy's places over the last 0.2 s… | ☐ |
 
-### Core simulation (provisional values) (293)
+### Core simulation (provisional values) (300)
 
 *Spec section: Provisional values in use*
 
@@ -2475,6 +2475,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-A33A9397` | Instant step: the swing's forward motion profile | The step of every light and heavy strike (not the in-place stomp) up to its move-on time (`MoveAt` x the lock scale) is an ease-out 1-(1-u)^2 of the clip's own motion up to that time: full speed on the first tick (was 0 to 0.1 m in tick 1: the clips'… (share (1 = wholly)) | kind: ours; kind: estimate; confidence: low | owner 2026-11-06; the ease-out shape and "up to the move-on time" are ours | Instant step: the swing's forward motion profile: compare with SM1 by feel or video. Ours: The step of every light and heavy strike (not the in-place stomp) up… | ☐ |
 | `R-DA956AB3` | Legs for the new step | Every weapon's strikes, light and heavy (not the in-place stomp), stretch the clip's stride by the body's travel over the clip's root motion (`ClipStrideScale` = lunge scale x `LungeFactor`), as the hammer's lights did (factor) | kind: ours; confidence: medium | ours | Legs for the new step: compare with SM1 by feel or video. Ours: Every weapon's strikes, light and heavy (not the in-place stomp)… | ☐ |
 
+*Spec section: Stream B timing fixes: holstered cooldowns, toss follow-through, predicted own plasma ball, the hammer's string reset (protocol 62, 2026-11-06)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-FF00B134` | Shot cooldown per weapon | Each weapon keeps its own shot cooldown: on a switch the one in hand goes into the holster with it and the one taken brings its own; holstered cooldowns run down as in hand. Cause of (1): the player had one cooldown, so the lascannon's 1.0 s (`shot_cooldown`)… (s) | kind: interpretation; confidence: medium; notes: ours | the original's cooldown is the weapon's ability's (`shot_cooldown` per wargear); that it runs on while holstered is ours | Shot cooldown per weapon: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Each weapon keeps its own shot cooldown: on a switch the one in hand… | ☐ |
+| `R-F7A8C74F` | Toss follow-through (client) | After the simulation's throw ends (at the 0.1 s release) the toss clip plays on at its own speed to the toss graph's `BRANCH_UseEquipment_End` (0.667 s of the clip: 0.467 s more), own and others', both sides; it gives way at once to a shot, a charge, a raise… (s) | kind: estimate; confidence: medium; notes: ours | the length is the data's throw end; "a little longer" read as playing the clip out; the cut rules ours | Toss follow-through (client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: After the simulation's throw ends (at the 0.1 s release) the toss… | ☐ |
+| `R-CE1DCB12` | Predicted own plasma ball (client) | The own shot of a plasma weapon whose stage launches a projectile (the gun's and pistol's charged shot, the cannon's basic and charged; both sides) launches a client ball on the frame the prediction fires (the release tick), from the shot's origin along its… (s) | kind: ours; confidence: medium | the flight is the server's (`World.Fly`); prediction, matching and the 0.75 s ours | Predicted own plasma ball (client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The own shot of a plasma weapon whose stage launches a projectile… | ☐ |
+| `R-786AC78F` | Hammer and maul: a new string after the light combo | After the light combo's last swing X3 (`SM_MEL_TH_HeavyATK02`, 2.333 s) a light or heavy press (nothing queued) ends it and starts attack 1 or heavy strike 1 in the same tick from **1.333 s**, 1 s before the clip's end (before: 2.333 s). The data's… (s) | kind: estimate; confidence: low | the owner's request ("1 second"); the data's tag for comparison | Hammer and maul: a new string after the light combo: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: After the light combo's last swing X3 (SM_MEL_TH_HeavyATK02, 2.333 s)… | ☐ |
+| `R-A70E6CE5` | Hammer and maul: X1 and X2 string reset | A press after X1's or X2's combo window (no chain) starts a new string from the sequencer's `BRANCH_Melee_String_Reset`: X1 at 0.72 of 2.667 s = 1.92 s, X2 at 0.8548 of 2.333 s = 1.995 s (before: their clip's end, 2.667 / 2.333 s); each at or after its combo… (s) | kind: interpretation; confidence: medium | graph `MP_SM_MEL_ThunderHammer` (the maul shares the map); that the tag frees a new string is an interpretation | Hammer and maul: X1 and X2 string reset: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A press after X1's or X2's combo window (no chain) starts a new… | ☐ |
+| `R-DA2A5484` | Other weapons' string ends | Not changed: the power sword's and power / chain axe's last light swings (and the heavy classes' kick) still end at their clip's end; whether their `BRANCH_Melee_String_Reset` should free a new string too is the owner's call (s) | kind: ours; confidence: low | ours (scope of the owner's request) | Other weapons' string ends: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Not changed: the power sword's and power / chain axe's last light… | ☐ |
+| `R-56110630` | Charged release delay: what is left | The press starts the charge and the release fires (the M31 rule, unchanged); from the release the own shot's flash, sound and ball all start on the release tick's frame. The detonation of the own ball still plays when the interpolated view reaches the… | kind: gap (not reproduced); confidence: low | — | Charged release delay: what is left: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The press starts the charge and the release fires (the M31 rule… | ☐ |
+
 ### General game design (7)
 
 *Spec section: Known behavior (public, unverified)*
@@ -2919,6 +2931,10 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-94C51A87` | Faster weapon switch (feel/melee-charge-2; superseded by the quickdraw below, 2026-11-06) | Not measured: our placeholder 0.6 s (the data's switch clips: rifle 0.467 s, pistol 0.667 s; the original's timer is in code) | 0.6 × **0.8 = 0.48 s** (15 ticks); the raise after a switch unchanged | Owner's request 2026-10-29 ("weapon switching is slightly faster ... make a note that this is an estimation and needs to be measured against the original"); an **estimate (owner's request)**, to measure against the original; spec "Melee and charge, second pass" | Faster weapon switch (feel/melee-charge-2; superseded by…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-73C08098` | Quickdraw switch (feel/grenades-quickdraw) | Not measured: our placeholder switch time 0.6 s (0.48 s with the owner's earlier × 0.8), then the first shot waits for the raise (the hip-fire graphs: rifle 0.2 s, pistol 0.167 s), as the owner confirmed for M32 | **0.1 s** (3 ticks) from the switch press to the new weapon's first shot, any weapon, no raise after the switch (the weapon comes up during it); the client enters the ready posture over 0.06 s after a switch | Owner's request 2026-11-06 ("make the player point his gun at the crosshair faster ... it should be near instant, like a quickdraw"); an **estimate (owner's request)**, to review in a playtest; spec "Quick throw and quickdraw switch" | Quickdraw switch (feel/grenades-quickdraw): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-3B6F4B98` | Quick throw, free after the release (feel/grenades-quickdraw) | The toss graph `SM_Bolter_GrenadeToss`: the grenade leaves 0.2 s after the press (`Ability_Ranged_Fire`) and the weapon waits until 0.667 s (`BRANCH_UseEquipment_End`) | Release at **0.1 s** (half), and the throw ends there: fire, aim, switch, melee, evade and the next throw (after the item's 1 s cooldown) from the next tick; the toss clip's wind-up is played faster to match | Owner's request 2026-11-06 ("more responsive to throw ... free to act immediately and start a new action once the grenade leaves the hand"); "about half" ours; an **estimate (owner's request)**, to review in a playtest; spec "Quick throw and quickdraw switch" | Quick throw, free after the release…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-EBA69EB8` | Shot cooldown per weapon (stream B, protocol 62) | The original's cooldown is each weapon ability's `shot_cooldown`; whether it runs on in the holster is not known | Each weapon keeps its own cooldown through a switch and it runs down in the holster (before: one cooldown per player, so the lascannon's 1 s held the bolt pistol after the switch) | Owner's report 2026-11-06 (the pistol fired late after the lascannon); the holster rule ours (spec "Stream B timing fixes") | Shot cooldown per weapon (stream B, protocol 62): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-28C39E94` | Toss follow-through (stream B; client only) | The data's throw ran to 0.667 s (`BRANCH_UseEquipment_End`), the toss clip with it | Since the quick throw ends at 0.1 s, the toss clip plays on to 0.667 s of the clip as a presentation only, cut at once by any other action | Owner's request 2026-11-06 ("play out a little longer"); the cut rules ours (spec "Stream B timing fixes") | Toss follow-through (stream B; client only): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-8F7E5DFD` | Predicted own plasma ball (stream B; client only) | The original's client prediction of projectiles is not known | The own plasma ball is drawn from the release frame by a client prediction of the server's flight, standing in for the server's ball until that is gone | Owner's request 2026-11-06 ("fire out of the barrel instantly"); ours (spec "Stream B timing fixes") | Predicted own plasma ball (stream B; client only): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-17510220` | Hammer and maul: new string after the light combo (stream B) | Not measured in the original; the data's swings carry `BRANCH_Melee_String_Reset` (X3 at 1.544 s of 2.333 s) | After X3 a melee press starts a new string from 1.333 s, 1 s before its end (before: only at the end); X1 and X2 from their tags; only the hammer map, the sword's and axe's string ends unchanged | Owner's request 2026-11-06 ("1 second" sooner, an estimate; the data's tag would give 0.79 s); the tag's meaning an interpretation (spec "Stream B timing fixes") | Hammer and maul: new string after the light combo (stream B): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-88653021` | Dash attack ends on landing (feel/melee-charge-2) | As we read it (protocol 30): a dash attack's lunge that reaches its end in the air is held there until it lands, then plays its run-out (the "Dash to Idle" clip, `SM_NAV_Sprint_to_Idle_F`, 0.9 s) | The landing ends the dash attack on that tick: no run-out; the normal movement follows (speed kept up to sprint speed); the landing tick's contact still counts. A lunge begun in the air that lands before its end goes on as before | Owner's request 2026-10-29 for the ledge charge, applied to the dash attack alike at the lead's instruction ("the dash attack's equivalent must behave the same way"); spec "Melee and charge, second pass" | Dash attack ends on landing (feel/melee-charge-2): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-3C22065E` | The air slash (feel/jump-pack) | The slash used the pound's dive (50 m/s, 75 m/s²: 53 to 60 m/s into the ground, 3.8 to 7.7 m ahead whatever the aim), a dead stop, 0.638 s frozen (the clip's `BRANCH_Run`), the pound's smash sound; a press in the take-off and, with Air-Cooled Thrusters, in a jump's first 2 s was lost | Its own straight 40 m/s dive toward the point under the aim (at least 40 degrees down), a 6 m/s landing lunge for 0.2 s ("move forward a bit"), free 0.3 s after the landing (hit at the data's 0.133 s; damage and interrupt the data's), a melee press in the take-off is buffered to the tick after the lift-off, no pound… | Owner's requests 2026-10-29 ("feels terrible to use"; "move forward a bit, add a hit effect that shows roughly where the attack hitbox landed"); values ours; spec "Jump-pack feel" | The air slash (feel/jump-pack): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-83354B14` | Heavier pound impact, soft ground dust (feel/jump-pack) | The data's `jumppack_land_heavy` (M44 added dust, cracks, chunks, shake) | Dust 2.8 x / 1.8 x, 28 to 45 chunks, 0.09 rad shake; the ground effects' dust and smoke fade against the scene with no push (no hard lines where the ground, walls or bodies cut a card). Since fx/no-smoke the dust is not drawn (`--smoke on` shows it): the added landings now add their debris sprites only | Owner's request 2026-10-29 ("intensify the effect and make sure that textures aren't poking through the dust and smoke effects"); spec "Jump-pack feel" | Heavier pound impact, soft ground dust (feel/jump-pack): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |

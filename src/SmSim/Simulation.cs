@@ -205,6 +205,14 @@ public readonly record struct PlayerState(int PlayerId, Vector3 Position, Vector
     public EvadeDirection MeleeDirection { get; init; }
     /// <summary>Protocol 45: the same for the second holstered weapon (<see cref="ThirdClip"/> family).</summary>
     public float ThirdReloadLeft { get; init; }
+    /// <summary>
+    /// Protocol 62 (sim/holstered-cooldown; the owner 2026-11-06: the bolt pistol fired late after a switch from the lascannon): the first holstered weapon's own shot cooldown
+    /// (seconds). Each weapon keeps its cooldown when it is put away and it runs down there; the one taken in hand brings its own (<see cref="Cooldown"/>). Before, the one
+    /// <see cref="Cooldown"/> stayed with the player, so the lascannon's 1 s held the pistol after the switch.
+    /// </summary>
+    public float OtherCooldown { get; init; }
+    /// <summary>Protocol 62: the same for the second holstered weapon (<see cref="ThirdClip"/> family).</summary>
+    public float ThirdCooldown { get; init; }
     /// <summary>Seconds since this player last took damage (drives regeneration).</summary>
     public float SinceDamage { get; init; }
     /// <summary>Seconds until a dead player respawns.</summary>

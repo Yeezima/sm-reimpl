@@ -473,7 +473,11 @@ public static partial class Protocol
     // 60 (feel/charge-clash; the owner's recording of the original, 2026-11-06): no layout change. A bull rush that stuns locks charger and victim through the collision stop's forward
     //     shove (the data's 1.83 m in 0.2 s): the charger's step ignores the victim's body (predicted), the world carries the victim with it; a charger meets any body at the capsules' edge.
     // 61 (night batch 2026-11-06, classic bots and jump pack; owner): no layout change. Classic PvP's jump pack holds the data's max_power (100) again instead of the owner's 300 (Musou Mode keeps 300).
-    public const ushort Version = 61;
+    // 62 (sim/holstered-cooldown, stream B of the owner's batch of 2026-11-06 late: "there is a delay when you are able to shoot bolt pistol after swapping to bolt pistol from lascannon"):
+    //     each weapon keeps its own shot cooldown (PlayerState.OtherCooldown / ThirdCooldown: 8 more bytes in the own record, right after the melee lock; at most 13 projectile
+    //     records, worst case 1193); the hammer's and the maul's last light swing frees a new string at the data's BRANCH_Melee_String_Reset (MeleeStep.StringResetAt, config hash).
+    //     Other open branches may claim 62 too: the integrator renumbers.
+    public const ushort Version = 62;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>
@@ -520,7 +524,7 @@ public static partial class Protocol
     /// the recipient's full one of <see cref="FullRecordBytes"/>) a snapshot is at most
     /// 13 + 1 + 16 × 14 + 1 + 15 × 47 + 144 + 9 (match) + 1 + 4 × 9 (kill feed) + 1 + 8 × 2 (points) + 12 (hits) + 1 + 4 × 9 (shots) = <see cref="MaxSnapshotBytes"/> bytes (full record 138 in protocol 17, 139 in 18 and 19, 141 in 20, 142 in 21 and 22, 144 since protocol 23).
     /// </summary>
-    public const int MaxSnapshotProjectiles = 14;   // protocol 45: 14 (the holstered reloads' 8 bytes took one record's room)
+    public const int MaxSnapshotProjectiles = 13;   // protocol 45: 14 (the holstered reloads' 8 bytes took one record's room); protocol 62: 13 (the holstered cooldowns' 8 bytes)
     /// <summary>The packet size snapshots must not exceed (bytes, the UDP payload budget).</summary>
     public const int SnapshotBudget = 1200;
     /// <summary>Bytes of a shot record (protocol 16; <see cref="ShotView"/>).</summary>
@@ -543,15 +547,15 @@ public static partial class Protocol
     /// <summary>Bytes of a slim player record (protocol 13: 46 + the evade byte).</summary>
     public const int SlimRecordBytes = 47;
     /// <summary>Bytes of the recipient's full record (protocol 13: the slim part, 85 more, and 2 evade bytes; protocol 17: 4 reaction bytes; 18: the charge lock; 20: ready and raise ticks; 21: ready ticks in 2 bytes; 23: the perk word).</summary>
-    public const int FullRecordBytes = SlimRecordBytes + 97 + 14 + 8 + 1 + 4;   // protocol 44: + the third weapon's 14 bytes (and one projectile record fewer); protocol 52: + the flinch byte; protocol 53: + the melee lock
+    public const int FullRecordBytes = SlimRecordBytes + 97 + 14 + 8 + 1 + 4 + 8;   // protocol 44: + the third weapon's 14 bytes (and one projectile record fewer); protocol 52: + the flinch byte; protocol 53: + the melee lock; protocol 62: + the holstered cooldowns
     /// <summary>Most kill-feed entries in one snapshot (protocol 10; the server sends the newest).</summary>
     public const int MaxSnapshotKills = 4;
     /// <summary>
     /// The largest snapshot with every other block full: 1200 bytes (protocol 11: 1175; protocol 12: + the 12-byte hit block =
     /// 1187; protocol 13: + 16 evade bytes in the player records + 2 in the own record − one 14-byte projectile record = 1191;
     /// protocol 15: + 4 kill-feed direction bytes = 1195; protocol 16: − three projectile records (42) + the shot count and
-    /// five shot records (46) = 1199; protocol 17: + 4 reaction bytes in the own record − one guaranteed shot record (9) = 1194; protocol 18: + 1 charge-lock byte = 1195; protocol 20: + 2 raise bytes = 1197; protocol 21: ready ticks in 2 bytes = 1198; protocol 23: + the 2-byte perk word = 1200; protocol 44: + 14 bytes, - one projectile record = 1200; protocol 45: + 8 bytes, - one projectile record = 1194; protocol 52: + the flinch byte = 1195; protocol 53: + the melee lock's 4 bytes = 1199),
-    /// at most the 1200-byte <see cref="SnapshotBudget"/> (1 byte of headroom since protocol 53). A smaller snapshot
+    /// five shot records (46) = 1199; protocol 17: + 4 reaction bytes in the own record − one guaranteed shot record (9) = 1194; protocol 18: + 1 charge-lock byte = 1195; protocol 20: + 2 raise bytes = 1197; protocol 21: ready ticks in 2 bytes = 1198; protocol 23: + the 2-byte perk word = 1200; protocol 44: + 14 bytes, - one projectile record = 1200; protocol 45: + 8 bytes, - one projectile record = 1194; protocol 52: + the flinch byte = 1195; protocol 53: + the melee lock's 4 bytes = 1199; protocol 62: + 8 bytes, - one projectile record = 1193),
+    /// at most the 1200-byte <see cref="SnapshotBudget"/> (7 bytes of headroom since protocol 62). A smaller snapshot
     /// carries more shot records, up to <see cref="MaxSnapshotShots"/>, but never more than the budget.
     /// </summary>
     public const int MaxSnapshotBytes = 13 + 1 + MaxSnapshotProjectiles * 14 + 1 + (MaxPlayers - 1) * SlimRecordBytes + FullRecordBytes + 9 + 1 + MaxSnapshotKills * KillEntryBytes
@@ -723,6 +727,7 @@ public static partial class Protocol
                     w.F32(p.OtherReloadLeft); w.F32(p.ThirdReloadLeft);   // protocol 45: the holstered weapons' reloads (8 bytes)
                     w.U8((byte)Math.Clamp(p.FlinchTicks, 0, Spread.MaxFlinchTicks));   // protocol 52 (sim/light-melee-flinch): the flinch's ticks left; here so the tail keeps its offsets
                     w.F32(p.MeleeLock);   // protocol 53 (feel/melee-cooldown)
+                    w.F32(p.OtherCooldown); w.F32(p.ThirdCooldown);   // protocol 62 (sim/holstered-cooldown): the holstered weapons' shot cooldowns (8 bytes)
                     w.F32(p.Health); w.F32(p.Shield);
                     w.U16(Ammo(p.Clip)); w.U16(Ammo(p.Reserve)); w.U16(Ammo(p.OtherClip)); w.U16(Ammo(p.OtherReserve));
                     w.F32(p.Cooldown); w.F32(p.ReloadLeft); w.F32(p.SinceDamage); w.F32(p.RespawnLeft); w.F32(p.SwitchLeft);
@@ -1049,6 +1054,9 @@ public static partial class Protocol
                 float meleeLock = r.F32();   // protocol 53 (feel/melee-cooldown)
                 if (!(meleeLock >= 0f && meleeLock <= 10f)) return null;
                 p = p with { MeleeLock = meleeLock };
+                float otherCooldown = r.F32(), thirdCooldown = r.F32();   // protocol 62 (sim/holstered-cooldown)
+                if (!(otherCooldown >= 0f && otherCooldown < 1e3f) || !(thirdCooldown >= 0f && thirdCooldown < 1e3f)) return null;
+                p = p with { OtherCooldown = otherCooldown, ThirdCooldown = thirdCooldown };
                 p = p with
                 {
                     Health = r.F32(), Shield = r.F32(), Clip = r.U16(), Reserve = r.U16(), OtherClip = r.U16(), OtherReserve = r.U16(),

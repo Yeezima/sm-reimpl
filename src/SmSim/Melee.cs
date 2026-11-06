@@ -63,6 +63,12 @@ public readonly record struct MeleeStep(
     /// </summary>
     public bool StringEnd { get; init; }
     /// <summary>
+    /// sim/string-reset (protocol 62; the owner's batch of 2026-11-06 late, the thunder hammer's and daemon maul's combo): on a light attack, seconds from its start (the sequencer's
+    /// <c>BRANCH_Melee_String_Reset</c>) from which a melee press (light or heavy) that nothing queued ends it and starts a new string from rest in the same tick, instead of waiting
+    /// for <see cref="Duration"/> (a press in the combo window still chains as before). Infinity (the default): none. Hashed only when set.
+    /// </summary>
+    public float StringResetAt { get; init; } = float.PositiveInfinity;
+    /// <summary>
     /// Weapons C, light attacks: the heavy strike (1-based) a heavy press in the combo window chains to; 0 (the default): strike n + 1 after
     /// attack n when the weapon has it; -1: none (the hammer's X3, the sword's and axe's X4). The Devastator's kick chains to strike 1, the stomp.
     /// </summary>
@@ -137,6 +143,7 @@ public readonly record struct MeleeStep(
         if (TrackToHit) w.Write((byte)0xA4);
         if (LungeFactorApplied != 1f) { w.Write((byte)0xA3); w.Write(LungeFactorApplied); }   // anim/hammer-swing: only when not 1
         if (Kick) w.Write((byte)0xA4);   // sim/light-melee-flinch: only when set
+        if (float.IsFinite(StringResetAt)) { w.Write((byte)0xA6); w.Write(StringResetAt); }   // sim/string-reset: only when set
         // feel/locks-sprint-stop: only when read, so a step without it hashes as before.
         if (float.IsFinite(EvadeAt)) { w.Write((byte)0xE5); w.Write(EvadeAt); }
     }
