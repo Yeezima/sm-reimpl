@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2290 spec table rows: **1660 tagged**, 453 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 502 rows of the changes document.
-Scanned 2287 spec table rows: **1658 tagged**, 453 not tagged (read from data with high confidence), 176 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 500 rows of the changes document.
+Scanned 2293 spec table rows: **1663 tagged**, 453 not tagged (read from data with high confidence), 177 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 503 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -54,27 +53,21 @@ Scanned 2287 spec table rows: **1658 tagged**, 453 not tagged (read from data wi
 | Core simulation (provisional values) | 283 | 267 | 223 | 37 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 154 | 146 | 75 | 36 | 0 |
-| **All areas** | **1660** | 1428 | 1277 | 502 | 38 |
-| Ork faction | 149 | 142 | 73 | 34 | 0 |
-| **All areas** | **1658** | 1427 | 1278 | 500 | 38 |
+| **All areas** | **1663** | 1431 | 1280 | 502 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 813 |
-| confidence: low | 603 |
-| kind: ours | 812 |
-| confidence: low | 604 |
-| confidence: medium | 546 |
+| kind: ours | 815 |
+| confidence: low | 605 |
+| confidence: medium | 547 |
 | kind: interpretation | 343 |
 | notes: ours | 326 |
 | confidence: none (low) | 128 |
 | kind: provisional | 99 |
-| kind: estimate | 94 |
+| kind: estimate | 96 |
 | notes: estimate | 68 |
-| kind: estimate | 95 |
-| notes: estimate | 67 |
 | kind: user's knowledge | 51 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
