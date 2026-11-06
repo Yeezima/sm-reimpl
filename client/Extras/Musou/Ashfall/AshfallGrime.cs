@@ -100,9 +100,9 @@ void fragment() {
 	vec3 dirt = mix(vec3(0.045, 0.042, 0.038), vec3(0.11, 0.10, 0.09), film / max(s, 1e-3));
 	vec3 col = mix(dirt, vec3(0.34, 0.33, 0.32), clamp(ash / max(ash + s, 1e-3), 0.0, 1.0));
 	float a = clamp(max(s, ash), 0.0, 0.7) * amount * far;
-	float w = wash * smoothstep(0.5, 0.95, up) * (0.42 + 0.2 * fbm(along * 0.6 + 2.0)) * amount;
+	float w = wash * smoothstep(0.5, 0.95, up) * (0.25 + 0.3 * fbm(along * 0.6 + 2.0)) * amount;
 	float total = a + w * (1.0 - a);
-	ALBEDO = (col * a + vec3(0.21, 0.215, 0.225) * w * (1.0 - a)) / max(total, 1e-3);
+	ALBEDO = (col * a + vec3(0.10, 0.102, 0.11) * w * (1.0 - a)) / max(total, 1e-3);
 	ALPHA = total;
 	ROUGHNESS = 1.0;
 }
