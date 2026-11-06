@@ -134,15 +134,8 @@ internal static partial class AshfallDraft5Pass
         foreach (int i in untagged)
             c.Flags.Add($"untagged graybox part {i} ({g5.Parts[i].Kind}) has no structure group and is dropped");
 
-        // Draft 9's urban rules: the buildings' footprints (debris lies only at their feet).
-        if (draft9)
-            for (int gi = 0; gi < groups.Count; gi++)
-                if (byGroup[gi].Count > 0 && IsBuilding(groups[gi].Family, Bounds(g5.Parts, byGroup[gi])))
-                {
-                    var (bmn, bmx) = Bounds(g5.Parts, byGroup[gi]);
-                    c.Buildings.Add(new Vector4(bmn.X, bmn.Y, bmx.X, bmx.Y));
-                }
         var stronghold = new List<int>();
+        var debris = new List<int>();   // draft 9: loose debris is placed after the buildings, against the ones that stand
         for (int gi = 0; gi < groups.Count; gi++)
         {
             var g = groups[gi];
@@ -150,7 +143,25 @@ internal static partial class AshfallDraft5Pass
             if (g.Family.StartsWith("stronghold") || g.Family is "terrace" or "outerwall" || g.Name == "keep bridge") { stronghold.Add(gi); continue; }
             var (min, max) = Bounds(g5.Parts, byGroup[gi]);
             AshfallBox? box = byGroup[gi].Count == 1 ? AshfallBox.Of(g5.Parts[byGroup[gi][0]]) : null;
+            if (draft9 && g.Family is "rubble" or "wallpiece") { debris.Add(gi); continue; }
             if (g.Family == "bridge") c.Bridges.Add((g.Name, min, max, DeckTop(g5.Parts, byGroup[gi]))); else Generic(c, g, min, max, box, g5);
+        }
+        if (draft9)
+        {
+            // Draft 9's urban rules: the buildings that stand (their drawn boxes), then the debris at their feet.
+            foreach (var l in c.Log)
+                if (l.Item >= 0 && IsBuildingFamily(l.Family, c.Items[l.Item].Size.Z))
+                {
+                    var it = c.Items[l.Item];
+                    int ys = ((int)MathF.Round(it.Yaw / (MathF.PI / 12f)) % 24 + 24) % 24;
+                    c.Buildings.Add(Drawn(it, ys).Rect);
+                }
+            foreach (int gi in debris)
+            {
+                var (min, max) = Bounds(g5.Parts, byGroup[gi]);
+                AshfallBox? box = byGroup[gi].Count == 1 ? AshfallBox.Of(g5.Parts[byGroup[gi][0]]) : null;
+                Generic(c, groups[gi], min, max, box, g5);
+            }
         }
         Stronghold(c, groups, byGroup, g5, stronghold);
         ExtraPlatforms(c);
@@ -319,7 +330,7 @@ internal static partial class AshfallDraft5Pass
             NoCollision = g.Family == "backdrop",
             UseNet = g.Family is not ("wallrun" or "monument" or "arch"),   // the compound's walls, the monument and the arch were hand-placed on the avenues and around the start area
             Kind = g.Family is "rubble" or "wallpiece" ? AshfallKind.Rubble : null,
-            Out = c.Draft9 && IsBuilding(g.Family, (min, max)) ? StreetSide(new Vector2((min.X + max.X) / 2f, (min.Y + max.Y) / 2f)) : null,
+            Out = c.Draft9 && IsBuildingFamily(g.Family, max.Z - min.Z) ? StreetSide(new Vector2((min.X + max.X) / 2f, (min.Y + max.Y) / 2f)) : null,
         };
         if (g.Family == "backdrop") spec.GrowAlong = spec.GrowAcross = 0f;
         Place(c, spec);

@@ -42,6 +42,7 @@ internal static partial class AshfallDraft5Pass
     static StairPlan Stairs(AshfallDressItem item, int yaw, string id, List<WBox> boxes, bool walk = true)
     {
         var key = (item, yaw, walk);
+        if (!walk) return PlanStairs(item, yaw, id, boxes, walk);   // a candidate position while an item settles: geometry only, cheap, not kept
         lock (PlanLock) if (PlanCache.TryGetValue(key, out var hit)) return hit;
         var plan = PlanStairs(item, yaw, id, boxes, walk);
         lock (PlanLock) PlanCache[key] = plan;
@@ -60,8 +61,8 @@ internal static partial class AshfallDraft5Pass
         var zones = new List<WBox>();
         var cur = boxes;
         int kept = 0, dropped = 0;
-        var taken = new List<Vector4>();   // local footprints of kept stairs (a stair found twice keeps its widest copy)
-        float s = MathF.Sin(item.Yaw), co = MathF.Cos(item.Yaw);
+        var taken = new List<Vector4>();   // local footprints of kept stairs (a stair found twice keeps its first copy: the detector lists the widest first)
+        var (s, co) = AshfallBuilder.Trig(yaw);   // the exact turn table (the same bits on every machine)
         Vector3 Loc(Vector3 v) { float dx = v.X - item.Position.X, dy = v.Y - item.Position.Y; return new Vector3(co * dx + s * dy, -s * dx + co * dy, v.Z); }
         Vector3 Wor(Vector3 l) => new(item.Position.X + co * l.X - s * l.Y, item.Position.Y + s * l.X + co * l.Y, l.Z);
         var m = AshfallKit.Get(id);
@@ -144,7 +145,7 @@ internal static partial class AshfallDraft5Pass
     /// </summary>
     static List<WBox> Cut(List<WBox> boxes, AshfallDressItem item, int yaw, Vector4 fp, bool alongX, float a0, float a1, Func<float, float> planeAt)
     {
-        float s = MathF.Sin(item.Yaw), co = MathF.Cos(item.Yaw);
+        var (s, co) = AshfallBuilder.Trig(yaw);   // the exact turn table (the same bits on every machine)
         var res = new List<WBox>();
         float planeMax = MathF.Max(planeAt(a0), planeAt(a1));
         foreach (var b in boxes)
@@ -175,6 +176,7 @@ internal static partial class AshfallDraft5Pass
             {
                 float t0 = lo + (hi - lo) * k / n, t1 = lo + (hi - lo) * (k + 1) / n;
                 float top = MathF.Min(z1, MathF.Min(planeAt(t0), planeAt(t1)));
+                if (z0 >= top - 0.01f) top = z1;   // a box over this slice of the ramp (a beam, a deck): left whole, never deleted (the walk check decides)
                 if (alongX) Add(t0, t1, iy0, iy1, z0, top); else Add(ix0, ix1, t0, t1, z0, top);
             }
         }
@@ -235,7 +237,7 @@ internal static partial class AshfallDraft5Pass
     /// <summary>A ramp's bounding box in its item's yaw (world).</summary>
     static WBox RampBox(AshfallDressItem item, int yaw, Vector3[] corners)
     {
-        float s = MathF.Sin(item.Yaw), co = MathF.Cos(item.Yaw);
+        var (s, co) = AshfallBuilder.Trig(yaw);   // the exact turn table (the same bits on every machine)
         float x0 = float.MaxValue, x1 = float.MinValue, y0 = float.MaxValue, y1 = float.MinValue, z0 = float.MaxValue, z1 = float.MinValue;
         foreach (var v in corners)
         {
@@ -248,12 +250,12 @@ internal static partial class AshfallDraft5Pass
 
     // ---------------------------------------------------------------- the urban rules
 
-    /// <summary>How far loose debris (rubble, collapsed wall pieces) may lie from a building's footprint (ours: a storey and a half; debris falls at the foot of what it fell from).</summary>
+    /// <summary>How far loose debris (rubble, collapsed wall pieces) may lie from a standing building's drawn box (its graybox structure's bounds to the building's) (ours: a storey and a half; debris falls at the foot of what it fell from).</summary>
     const float DebrisReach = 8f;
 
     /// <summary>A building of the city: a ruin shell or corner, a facade, a tower, the bunker, a wall over cover height.</summary>
-    static bool IsBuilding(string family, (Vector3 Min, Vector3 Max) b) =>
-        family is "shell" or "shell2" or "corner" or "facade" or "tower" or "bunker" || (family == "wall" && b.Max.Z - b.Min.Z > LowWallHeight);
+    static bool IsBuildingFamily(string family, float height) =>
+        family is "shell" or "shell2" or "corner" or "facade" or "tower" or "bunker" || (family == "wall" && height > LowWallHeight);
 
     static bool NearBuilding(Ctx c, Vector3 min, Vector3 max)
     {
@@ -334,8 +336,18 @@ internal static partial class AshfallDraft5Pass
             if (Dust(b)) continue;
             foreach (var (oi, z) in Near(c.Zones, b.Rect)) Try(b, z, oi, zoneTol, "a stair's foot or landing");
         }
-        foreach (var z in StairZones(s, item, yaw, id, boxes))
-            foreach (var (oi, o) in Near(c.Solid, z.Rect)) Try(z, o, oi, zoneTol, "its stair's foot or landing");
+        if (!s.NoCollision && AshfallKitCollision.Stairs(id).Count > 0)
+        {
+            var plan = Stairs(item, yaw, id, boxes, walk: false);
+            foreach (var z in plan.Zones)
+                foreach (var (oi, o) in Near(c.Solid, z.Rect)) Try(z, o, oi, zoneTol, "its stair's foot or landing");
+            // a ramp carried down past its model must not run into what stands
+            foreach (var rc in plan.Ramps)
+            {
+                var rb = RampBox(item, yaw, rc);
+                foreach (var (oi, o) in Near(c.Solid, rb.Rect)) Try(rb, o, oi, AshfallOverlap.Tolerance, "its stair's ramp");
+            }
+        }
         if (DrawnRule(s, id))
         {
             var dr = Drawn(item, yaw);

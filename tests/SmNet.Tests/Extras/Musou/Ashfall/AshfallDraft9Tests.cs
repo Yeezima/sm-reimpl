@@ -201,14 +201,20 @@ public class AshfallDraft9Tests(ITestOutputHelper output)
         foreach (var f in D.Dressing.Flags.Where(f => f.StartsWith("draft 9"))) output.WriteLine(f);
         var place = D.Placements.Where(p => p.Item >= 0).GroupBy(p => p.Item).ToDictionary(g => g.Key, g => g.Last());
         // debris lies at the foot of a building: every placed rubble pile (not the ring's breach rubble) within reach of a building model
-        var buildings = place.Values.Where(p => p.Family is "shell" or "shell2" or "corner" or "facade" or "tower" or "bunker" || p.Family.StartsWith("stronghold")).Select(p => Drawn(D.Dressing.Items[p.Item])).ToList();
+        var buildings = place.Values.Where(p => p.Family is "shell" or "shell2" or "corner" or "facade" or "tower" or "bunker" or "wall").Select(p => Drawn(D.Dressing.Items[p.Item])).ToList();
         var lonely = new List<string>();
         foreach (var p in place.Values.Where(p => p.Family is "rubble" or "wallpiece" && !p.Group.Contains(" breach ")))
         {
             var it = D.Dressing.Items[p.Item];
             var me = new Vector2(it.Position.X, it.Position.Y);
-            float best = buildings.Min(b => MathF.Max(0f, Vector2.Distance(me, new Vector2(b.Cx, b.Cy)) - 0.5f * MathF.Sqrt(b.Length * b.Length + b.Depth * b.Depth)));
-            if (best > 8f + 1.5f * 12f) lonely.Add($"{p.Group} {best:0} m from any building");
+            // the distance from the pile's centre to the nearest building's drawn box (the rule measures graybox footprints, which the 1.5x growth and the moves shift by a few metres: 6 m of slack)
+            float best = buildings.Min(b =>
+            {
+                var d = me - new Vector2(b.Cx, b.Cy);
+                float u = MathF.Max(MathF.Abs(Vector2.Dot(d, b.AxisX)) - b.Length / 2f, 0f), v = MathF.Max(MathF.Abs(Vector2.Dot(d, b.AxisY)) - b.Depth / 2f, 0f);
+                return MathF.Sqrt(u * u + v * v);
+            });
+            if (best > 8f + 6f) lonely.Add($"{p.Group} {best:0} m from any building");
         }
         foreach (var l in lonely) output.WriteLine(l);
         Assert.Empty(lonely);

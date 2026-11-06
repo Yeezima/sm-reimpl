@@ -23,7 +23,7 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
     /// The level's hash (version 11, draft 6 with the Meshy expansion placed; version 10, draft 6 before it, was 0xC1D1D8A1118A55AF; draft 5's version 9 was 0x6A803A7703280536). A change of the pass, the pools, the fitted boxes or the generator without a new version fails here, not at a client's handshake.
     /// The one level pin: after a refit of the collision (<c>AshfallKitCollision.g.cs</c>) take the new value from this test's failure.
     /// </summary>
-    public const ulong PinnedLevelHash = 0x104964F52B9F7FEFUL;   // version 16: draft 9, late batch F (stairs from the meshes, clear stair feet and landings, no stacked models, the urban rules; 0x058B350D285DE351 before); version 15: the openings pass (opening-aware merge for debris with openings, 0x2BB88406D096C7EF before); version 14: draft 8 (roadways, 0xB2335BB6CF43E872 alone) with the window pass (0x2D90FDEF0587A5AA alone); draft 7 was 0x29D435A1D94CD3CF
+    public const ulong PinnedLevelHash = 0x15A346264F30FD49UL;   // version 16: draft 9, late batch F (stairs from the meshes, clear stair feet and landings, no stacked models, the urban rules; 0x058B350D285DE351 before); version 15: the openings pass (opening-aware merge for debris with openings, 0x2BB88406D096C7EF before); version 14: draft 8 (roadways, 0xB2335BB6CF43E872 alone) with the window pass (0x2D90FDEF0587A5AA alone); draft 7 was 0x29D435A1D94CD3CF
 
     /// <summary>The v5 graybox's hash (pinned since pass 3, and again by the draft 3 and 5 work).</summary>
     const ulong PinnedGrayboxHash = 0xAE096E323BB5A4D3UL;
@@ -517,8 +517,14 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
             }
         }
         string? Door0(Vector3 q) => doors.Where(d => q.X >= d.Min.X && q.X <= d.Max.X && q.Y >= d.Min.Y && q.Y <= d.Max.Y && q.Z + 1f >= d.Min.Z && q.Z + 1f <= d.Max.Z).Select(d => d.What).FirstOrDefault();
-        // Draft 9: a stair (a placed model's ramp, 1 m wide or more) is a passage of its own width by design: a sample on one, or on its foot or landing, is reported, not asserted against the 2.4 m rule.
+        // Draft 9: a stair (a placed model's ramp, 1 m wide or more) is a passage of its own width by design: a sample on its ramp, foot or landing (the stair's own width plus 0.5 m a side, along the stair and its approaches or inside its own model; the draft-9 zone rule keeps that clear) is reported, not asserted against the 2.4 m rule; a gap beside a stair is still asserted.
         var stairs = AshfallStairs.All(Level, AshfallMap.BuildDraft5().Dressing);
+        static bool InDrawn(AshfallDressItem it, Vector2 p)
+        {
+            var d = p - new Vector2(it.Position.X, it.Position.Y);
+            float s = MathF.Sin(it.Yaw), c = MathF.Cos(it.Yaw);
+            return MathF.Abs(c * d.X + s * d.Y) <= it.Size.X / 2f && MathF.Abs(-s * d.X + c * d.Y) <= it.Size.Y / 2f;
+        }
         string? Door(Vector3 q)
         {
             if (Door0(q) is { } d) return d;
@@ -526,7 +532,9 @@ public class AshfallDraft5Tests(ITestOutputHelper output)
             foreach (var r in stairs)
             {
                 float along = Vector2.Dot(p - r.Low, r.Dir), across = MathF.Abs(Vector2.Dot(p - (r.Low + r.High) / 2f, r.Across));
-                if (along >= -AshfallStairs.Approach - 0.5f && along <= r.Run + AshfallStairs.Approach + 0.5f && across <= r.Width / 2f + 1f) return $"a stair of {(r.Item >= 0 ? AshfallMap.BuildDraft5().Dressing.Items[r.Item].Asset : "?")}";
+                bool inLine = across <= r.Width / 2f + 0.5f;
+                bool inModel = r.Item >= 0 && InDrawn(AshfallMap.BuildDraft5().Dressing.Items[r.Item], p);   // between the model's own cheeks: not a gap between objects
+                if (inLine && ((along >= -AshfallStairs.Approach && along <= r.Run + AshfallStairs.Approach) || inModel)) return $"a stair of {(r.Item >= 0 ? AshfallMap.BuildDraft5().Dressing.Items[r.Item].Asset : "?")}";
             }
             return null;
         }
