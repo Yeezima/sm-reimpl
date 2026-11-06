@@ -57,6 +57,13 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         /// (<see cref="MeleeStep.LungeFactor"/>); 1: none. The thunder hammer's and the daemon maul's: <see cref="HammerLightLungeFactor"/>.
         /// </summary>
         public float LightLungeFactor { get; init; } = 1f;
+        /// <summary>
+        /// sim/swing-step (owner, 2026-11-06: "for all melee weapons except thunder hammer/daemon maul: increase the distance of the step-forward during a melee swing by 50%.
+        /// for the thunder hammer reduce that step-forward during the swing by 30%"): a further factor on the forward lunge of this weapon's light strikes (its swings; the
+        /// heavy list is the stun attacks and finishers, unchanged), multiplied into <see cref="MeleeStep.LungeFactor"/> with <see cref="LightLungeFactor"/>. 1 (the default,
+        /// synthetic maps and the heavy classes' kick): none. Every melee weapon map: <see cref="OwnerSwingStep"/>; the thunder hammer's and the daemon maul's: <see cref="OwnerHammerSwingStep"/>.
+        /// </summary>
+        public float SwingStepFactor { get; init; } = 1f;
         /// <summary>feel/melee-reliability: every strike of this weapon is a <see cref="MeleeStep.TrackToHit"/> one.</summary>
         public bool TrackToHit { get; init; }
         /// <summary>
@@ -111,6 +118,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     public static readonly WeaponMap CombatKnife = new("sm_mp_melee_combat_knife", "MP_SM_MEL_CombatKnife",
         ["CK 1 Sequence", "CK 2 Sequence", "CK 3 Sequence"], ["ability_melee_ck1", "ability_melee_ck2", "ability_melee_ck3"])
     {
+        SwingStepFactor = OwnerSwingStep,   // sim/swing-step (owner, 2026-11-06)
         HeavySequencers = ["CK Y1 Sequence", "CK Y2 Sequence", "CK Y3 Sequence", "CK Y4 Sequence"],
         HeavyAbilities = ["ability_melee_y", "ability_melee_y2", "ability_melee_y3", ""],
         // feel/melee-charge-2 (protocol 42; the owner: "normal combo is backhand > stomp"): the graph's "CK Default Combo End 1 ( Y ) Backhand", "End 2 ( X , Y ) Kick"
@@ -129,6 +137,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     public static readonly WeaponMap OrkChoppa = new("ork_coop_boy_choppa", "Base_MELEE_Coop",
         ["Combo Start Sequencer", "Combo 2 Sequencer"], ["ability_melee_light", "ability_melee_light"])
     {
+        SwingStepFactor = OwnerSwingStep,   // sim/swing-step (owner, 2026-11-06)
         HeavySequencers = ["Combo Heavy Attack Sequencer"],
         HeavyAbilities = ["ability_melee_heavy"],
         MoveBranches = ["BRANCH_Run"], DefaultTargetDistance = 1f,
@@ -138,6 +147,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     public static readonly WeaponMap OrkChoppaSet2 = new("ork_coop_boy_choppa", "Base_MELEE_Coop",
         ["Combo Set 2 Start Sequencer", "Combo Set 2 Follow Sequencer"], ["ability_melee_light", "ability_melee_light"])
     {
+        SwingStepFactor = OwnerSwingStep,   // sim/swing-step (owner, 2026-11-06)
         HeavySequencers = ["Combo Heavy Attack 2 Sequencer"],
         HeavyAbilities = ["ability_melee_heavy"],
         MoveBranches = ["BRANCH_Run"], DefaultTargetDistance = 1f,
@@ -155,6 +165,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     public static readonly WeaponMap PowerSword = new("sm_mp_melee_powersword", "MP_SM_MEL_PowerSword",
         ["Sequencer_X1", "Sequencer_X2", "Sequencer_X3", "Sequencer_X4"], ["ability_melee_x1", "ability_melee_x2", "ability_melee_x3", "ability_melee_x4"])
     {
+        SwingStepFactor = OwnerSwingStep,   // sim/swing-step (owner, 2026-11-06)
         HeavySequencers = ["CS Y Atk Sequencer00", "Sequencer27", "Sequencer28", "Sequencer31"],
         HeavyAbilities = ["ability_melee_y", "ability_melee_y2", "ability_melee_y3", "ability_melee_y4"],
         LoopLights = false, LightHeavyNext = [0, 0, 0, -1],
@@ -174,6 +185,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         ["SequencerGenerator_PA_Default_1", "SequencerGenerator_PA_Default_2B", "SequencerGenerator_PA_Default_3B", "PA Default 4 Sequence"],
         ["ability_melee_x1", "ability_melee_x2", "ability_melee_x3", "ability_melee_x4"])
     {
+        SwingStepFactor = OwnerSwingStep,   // sim/swing-step (owner, 2026-11-06)
         HeavySequencers = ["Sequencer19", "Sequencer22", "Sequencer23", "Sequencer31"],
         HeavyAbilities = ["ability_melee_y", "ability_melee_y2", "ability_melee_y3", "ability_melee_y4"],
         ComboBranches = ["BRANCH_Melee_Combo", "BRANCH_Melee_Combo_MISS"],
@@ -195,6 +207,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     public static readonly WeaponMap ThunderHammer = new("sm_mp_melee_2hand_thunder_hammer", "MP_SM_MEL_ThunderHammer",
         ["SequencerGenerator_TH_1", "SequencerGenerator05", "SequencerGenerator15"], ["ability_melee_x1", "ability_melee_x2", "ability_melee_x3"])
     {
+        SwingStepFactor = OwnerHammerSwingStep,   // sim/swing-step (owner, 2026-11-06)
         HeavySequencers = ["Sequencer16", "SequencerGenerator18", "SequencerGenerator23"],
         HeavyAbilities = ["ability_melee_y", "ability_melee_y2", "ability_melee_y3"],
         LoopLights = false, LightHeavyNext = [0, 0, -1],
@@ -213,6 +226,21 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
     /// (1.4, 1.5 and 1.3 m less; over a whole clip 1.8, 1.7 and 1.3 m less). An **estimate (owner's knowledge of the size, our value)**, to review in a playtest.
     /// </summary>
     public const float HammerLightLungeFactor = 0.82f;
+
+    /// <summary>
+    /// sim/swing-step (owner, 2026-11-06): the step-forward of every melee weapon's swings (light strikes) but the thunder hammer's and the daemon maul's, × 1.5 (+50 %).
+    /// An **estimate (owner's request)**, to review in a playtest.
+    /// </summary>
+    public const float OwnerSwingStep = 1.5f;
+    /// <summary>
+    /// sim/swing-step (owner, 2026-11-06: "for the thunder hammer reduce that step-forward during the swing by 30%"): the hammer's swings × 0.7 on top of
+    /// <see cref="HammerLightLungeFactor"/> (0.82 × 0.7 = 0.574 of the lunge every melee weapon has). The daemon maul (the Chaos hammer, one map) takes it too: **our
+    /// assumption** (the owner named only the hammer). An **estimate (owner's request)**, to review in a playtest.
+    /// </summary>
+    public const float OwnerHammerSwingStep = 0.7f;
+
+    /// <summary>Test aid: the environment variable <c>SM_OLD_SWING_STEP=1</c> (server and client alike) restores the swings' step-forward before sim/swing-step (factor 1).</summary>
+    static readonly bool OldSwingStep = Environment.GetEnvironmentVariable("SM_OLD_SWING_STEP") == "1";
 
     /// <summary>Test aid: the environment variable <c>SM_OLD_HAMMER_LUNGE=1</c> (set for the server and the client alike) restores the hammer's lunge before anim/hammer-swing (factor 1), for before / after runs on one build.</summary>
     static readonly bool OldHammerLunge = Environment.GetEnvironmentVariable("SM_OLD_HAMMER_LUNGE") == "1";
@@ -275,7 +303,7 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             var (step, animation) = Step(weapon.Sequencers[i], weapon.Abilities[i]);
             // Weapons C: where the graph leaves this attack for a heavy strike, and whether a light press goes on from it.
             int heavyNext = i < weapon.LightHeavyNext.Length ? weapon.LightHeavyNext[i] : 0;
-            step = step with { HeavyNext = Math.Max(-1, heavyNext), StringEnd = !weapon.LoopLights && i == weapon.Sequencers.Length - 1, LungeFactor = OldHammerLunge ? 1f : weapon.LightLungeFactor, TrackToHit = weapon.TrackToHit };
+            step = step with { HeavyNext = Math.Max(-1, heavyNext), StringEnd = !weapon.LoopLights && i == weapon.Sequencers.Length - 1, LungeFactor = (OldHammerLunge ? 1f : weapon.LightLungeFactor) * (OldSwingStep ? 1f : weapon.SwingStepFactor), TrackToHit = weapon.TrackToHit };
             steps.Add(step);
             animations.Add(animation);
         }

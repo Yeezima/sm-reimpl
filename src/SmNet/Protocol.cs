@@ -468,7 +468,9 @@ public static partial class Protocol
     //     loadout); a new client message SpawnRequest (19: session, kind, target u16) sets the respawn choice (spawn room, a held control point, a living Teleport Homer
     //     carrier); each scoreboard row carries a flags byte before its name (bit 0: alive and carrying Teleport Homer). The automatic spawn next to a carrier is Musou only.
     //     Fullest scoreboard 1161 bytes (16 rows + 16); snapshots unchanged (worst case 1199)
-    public const ushort Version = 58;
+    // 59 (sim/swing-step, sim/lock-reach, sim/air-jumps; the owner 2026-11-06): no wire change. Every melee weapon's swings step forward × 1.5 (the thunder hammer's and the daemon maul's
+    //     × 0.7), a locked attack's lunge closes 70 % of the gap to the separation, and in Classic PvP a jump-pack class in the air only hops (the full air jump is Musou Mode's alone).
+    public const ushort Version = 59;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>

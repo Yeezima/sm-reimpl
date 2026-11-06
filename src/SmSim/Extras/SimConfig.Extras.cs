@@ -16,4 +16,10 @@ public sealed partial record SimConfig
         // Musou Mode's war rules: their version sits in the same block.
         if (Extras.HasFlag(ContentExtras.Musou)) { w.Write("musou"); w.Write(MusouSim.Version); w.Write(SmSim.Extras.Musou.Campaign.TfwRules.Version); }
     }
+
+    // sim/air-jumps (owner, 2026-11-06): only Musou Mode keeps the jump-pack classes' full jumps in the air (feel/melee-cancels); Classic PvP gets the hop alone.
+    partial void ExtrasAirJumps(ref bool allowed)
+    {
+        if (Extras.HasFlag(ContentExtras.Musou)) allowed = true;
+    }
 }

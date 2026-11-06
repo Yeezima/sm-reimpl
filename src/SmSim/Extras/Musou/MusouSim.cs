@@ -15,7 +15,7 @@ public sealed partial class MusouSim
     /// The Musou version: its simulation rules and its wire sections (<c>MusouWire.Version</c> is this). Hashed into the config only under
     /// <see cref="ContentExtras.Musou"/> (<c>SimConfig.Extras.cs</c>); raise it for any Musou-only change (never <see cref="ContentExtras.WireVersion"/>).
     /// </summary>
-    public const uint Version = 7;   // 2: MU3's combat and the Warboss's abilities; 3: the Nobs' weapon drops (wire tag 6); 4: Chaos Marines drop too; 5: Musou Mode (TfwRules.Version in the same hash block, phase 6, command kind 17); 6: the crowd's rules, MusouSim.Swarm (a war's alone: the 5-wave run is unchanged); 7: a pool of 1024 (the wire takes ids up to it)
+    public const uint Version = 8;   // 8: the melee heal per enemy struck (owner 2026-11-06); 2: MU3's combat and the Warboss's abilities; 3: the Nobs' weapon drops (wire tag 6); 4: Chaos Marines drop too; 5: Musou Mode (TfwRules.Version in the same hash block, phase 6, command kind 17); 6: the crowd's rules, MusouSim.Swarm (a war's alone: the 5-wave run is unchanged); 7: a pool of 1024 (the wire takes ids up to it)
     /// <summary>The pool's slots (design: 512; 1024 since the owner's "double the amount of orks" of 2026-11-03, for Musou Mode's battle; the hard cap of enemies alive is lower).</summary>
     public const int Capacity = 1024;
     /// <summary>The most events one tick keeps (ours; more are dropped and counted in <see cref="EventsDropped"/>).</summary>

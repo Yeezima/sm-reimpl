@@ -176,4 +176,24 @@ public sealed partial record SimConfig
     /// <see cref="ContentExtras.WireVersion"/>; called only when <see cref="Extras"/> is not None. Implemented in an <c>Extras/</c> folder.
     /// </summary>
     partial void ExtrasHash(BinaryWriter w);
+
+    /// <summary>
+    /// sim/air-jumps (owner, 2026-11-06: "only in musou mode should the assault marine/raptor have extra/infinite jumps. in classic pvp mode the assault marine/raptor
+    /// class should not be able to jump full height during an existing jump. they should only be able to hop with space bar + WASD"): whether a jump-pack class with a dash
+    /// may start a full jump while airborne (a Space hold while falling, after a jump's apex, after an air hop or in a charge held in the air: feel/melee-cancels, protocol 54).
+    /// False in Classic PvP (and every non-Musou match): in the air only the hop (the dash, sim/movement-fixes C) starts. Set by added content through
+    /// <see cref="ExtrasAirJumps"/> (Musou Mode: true). Not hashed itself: Musou's own hash block covers it, and a Classic match never sets it.
+    /// </summary>
+    public bool JumpPackAirJumps
+    {
+        get
+        {
+            bool allowed = false;
+            ExtrasAirJumps(ref allowed);   // EXTRAS-HOOK
+            return allowed;
+        }
+    }
+
+    /// <summary>Hook for added content (docs/added-content.md): sets <paramref name="allowed"/> when an extra lets the jump-pack classes jump again in the air (<see cref="JumpPackAirJumps"/>).</summary>
+    partial void ExtrasAirJumps(ref bool allowed);
 }

@@ -260,6 +260,7 @@ public sealed partial class World
             if (distance > 1e-4f && Vector2.Dot(flat / distance, forward) < minCos) continue;   // overlapping counts as in front, as the core's
             if (Blocked(eye, MusouSim.Chest(e.Position, musou.Body(e.Type).Height))) continue;
             struck++;
+            MusouMeleeHeal(attacker, e.Id);   // the owner 2026-11-06: a heal for every enemy hit (one already healed for by this tick's stomp is not counted twice)
             var push = distance > 1e-4f ? flat / distance : forward;
             bool killed = false;
             // The lead's rule (MU3a review): an enemy inside the step's stomp and its cleave takes the larger of the two, not both.
@@ -270,24 +271,25 @@ public sealed partial class World
             else if (heavy) musou.Stagger(e.Id, push, rules.HeavyKnockback);
         }
         _musouStomped.Clear();
-        if (struck > 0) MusouMeleeHeal(attacker);
         if (musou.War is not null) TfwBestCleave = Math.Max(TfwBestCleave, struck);
     }
 
     /// <summary>
-    /// The owner, 2026-11-02: "regerate 5% of your health every time your melee attack hits at least 1 opponent": once a tick, however many it struck (a stomp and its cleave are one attack). Of the player's whole
-    /// health, never over it; the armour shield is left alone.
+    /// The owner, 2026-11-02: "regerate 5% of your health every time your melee attack hits at least 1 opponent"; 2026-11-06: "in musou mode the heal effect should heal for every enemy you hit,
+    /// not just one time for each landed melee swing": 5 % for each enemy <paramref name="enemy"/> the attack strikes, each enemy once a tick (a stomp and its cleave are one attack, so an enemy
+    /// in both heals once). Of the player's whole health, never over it; the armour shield is left alone.
     /// </summary>
-    void MusouMeleeHeal(int attacker)
+    void MusouMeleeHeal(int attacker, int enemy)
     {
-        if (_musouHealTick.TryGetValue(attacker, out uint last) && last == Tick) return;
         if (!_players.TryGetValue(attacker, out var p) || !p.Alive) return;
-        _musouHealTick[attacker] = Tick;
+        if (!_musouHealTick.TryGetValue(attacker, out uint last) || last != Tick) { _musouHealTick[attacker] = Tick; _musouHealed.RemoveWhere(h => h.Attacker == attacker); }
+        if (!_musouHealed.Add((attacker, enemy))) return;
         float most = Loadouts.Body(Config, p).HealthMax;
         _players[attacker] = p with { Health = MathF.Min(most, p.Health + most * MusouCombatRules.MeleeHealShare) };
     }
 
     readonly Dictionary<int, uint> _musouHealTick = new();
+    readonly HashSet<(int Attacker, int Enemy)> _musouHealed = new();
 
     /// <summary>A blast on the enemies (see the class summary).</summary>
     void MusouBlast(int owner, Vector3 point, SplashSpec splash, bool melee)
@@ -313,7 +315,7 @@ public sealed partial class World
             if (damage > 0f) musou.Damage(e.Id, owner, damage, new Vector3(push, 0.3f), out killed, cause: melee ? MusouDeathKind.Melee : MusouDeathKind.Blast);
             if (melee && damage > 0f)
             {
-                MusouMeleeHeal(owner);
+                MusouMeleeHeal(owner, e.Id);
                 // A stomp: the step's cleave follows at once (ResolveMelee) and gives each enemy only what it adds to this.
                 if (_musouStompTick != Tick || _musouStompBy != owner) { _musouStomped.Clear(); _musouStompTick = Tick; _musouStompBy = owner; }
                 _musouStomped[e.Id] = _musouStomped.GetValueOrDefault(e.Id) + damage;
