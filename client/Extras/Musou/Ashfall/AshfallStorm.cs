@@ -53,11 +53,15 @@ public partial class AshfallStorm : Node3D
     /// </summary>
     public static class LightPass
     {
-        public const float BreakElevation = 12f, FillElevation = 40f, FillAzimuthFromSun = 205f, FillEnergy = 0.42f, SunEnergy = 1.35f, Exposure = 0.9f, Saturation = 0.68f, Contrast = 1.16f;
+        public const float BreakElevation = 7f, FillElevation = 40f, FillAzimuthFromSun = 205f, FillEnergy = 0.42f, SunEnergy = 1.35f, Exposure = 0.9f, Saturation = 0.58f, Contrast = 1.16f;
         public const float AmbientEnergy = 1.05f, BoundaryTop = 13f;
+        /// <summary>Round 2 (owner, 2026-11-06: "the 3d asset buildings are too light colored ... slightly brighter [than the floor], but not by much. still overall dark"): the kit models' base colour at runtime (their files untouched), more fires, flakes, sparks and dust low over the ground.</summary>
+        public const float KitAlbedo = 0.7f, KitFloorAlbedo = 0.5f, FlakeScale = 3f, SparkScale = 2.5f;
+        public const int SmallFires = 90, FloorDust = 60;
+        public const float ShaftStrength = 2.5f, KitRoughness = 0.95f, KitSpecular = 0.2f;
         /// <summary>The Compatibility renderer (no grime overlay on the models, its sky drawn darker): exposure and sun a step lower, the sky lifted.</summary>
         public const float CompatExposure = 0.8f, CompatSunEnergy = 0.85f, CompatAmbientEnergy = 0.75f, CompatSkyGain = 0.95f;
-        public static readonly Color Sun = new(1.0f, 0.85f, 0.68f), Fill = new(0.70f, 0.76f, 0.86f), Ambient = new(0.50f, 0.52f, 0.56f), Fog = new(0.33f, 0.34f, 0.355f), VolumetricAlbedo = new(0.55f, 0.55f, 0.56f);
+        public static readonly Color Sun = new(1.0f, 0.85f, 0.68f), Fill = new(0.64f, 0.74f, 0.90f), Ambient = new(0.45f, 0.50f, 0.58f), Fog = new(0.22f, 0.225f, 0.235f), VolumetricAlbedo = new(0.42f, 0.42f, 0.43f);
     }
 
     /// <summary>Wind (game frame, metres per second): ash and smoke drift toward the east-north-east. Ours.</summary>
@@ -228,11 +232,11 @@ public partial class AshfallStorm : Node3D
         }
 
         // ---- fires, embers and smoke at the level's spots.
-        var spots = AshfallAtmosphere.FireSpots(level, dressing);
+        var spots = AshfallAtmosphere.FireSpots(level, dressing, light ? (int)(LightPass.SmallFires * Math.Min(1f, _quality + 0.2f)) : AshfallAtmosphere.SmallFires);
         foreach (var s in spots) AddFire(s, compat);
 
         // ---- light shafts out of the cloud gaps (soft beams, every renderer).
-        int shafts = AddShafts(toSun);
+        int shafts = light ? AddBreakShafts(az) : AddShafts(toSun);
 
         // ---- light pass: a cool fill from the attackers' side (no shadows, not in the sky) and the boundary's ruined top.
         string lightNote;
@@ -247,8 +251,9 @@ public partial class AshfallStorm : Node3D
             });
             int cut = CutBoundary(GetParent()?.GetParent(), LightPass.BoundaryTop);
             TintGround(GetParent()?.GetParent());
+            int dimmed = DimKit(GetParent()?.GetParent(), LightPass.KitAlbedo);
             AshfallGrime.OverlayMaterial().SetShaderParameter("wash", AshfallGrime.LightPassWash);
-            lightNote = $"light pass on (fill x{LightPass.FillEnergy:0.##}, break {LightPass.BreakElevation:0} deg, boundary drawn to ~{LightPass.BoundaryTop:0} m on {cut} material(s))";
+            lightNote = $"light pass on (fill x{LightPass.FillEnergy:0.##}, break {LightPass.BreakElevation:0} deg, boundary drawn to ~{LightPass.BoundaryTop:0} m on {cut} material(s), kit albedo x{LightPass.KitAlbedo:0.##} on {dimmed} materials so far)";
         }
         else lightNote = $"light pass off (--ashfall-concept {(concept ? "v1" : "off")})";
 
@@ -256,18 +261,25 @@ public partial class AshfallStorm : Node3D
         _follow = new Node3D { Name = "AroundCamera" };
         _world.AddChild(_follow);
         float airborne = concept ? AirborneScale : 1f;
-        int ash = (int)(2200 * _quality * airborne), rocks = (int)(140 * _quality * airborne), sparks = (int)(180 * _quality);
+        int ash = (int)(2200 * _quality * airborne), rocks = (int)(140 * _quality * airborne * (light ? LightPass.FlakeScale : 1f)), sparks = (int)(180 * _quality * (light ? LightPass.SparkScale : 1f));
+        int floorDust = light ? (int)(LightPass.FloorDust * _quality) : 0;
         int debris = concept ? (int)(160 * _quality) : 0, dust = concept ? (int)(70 * _quality) : 0;
         _follow.AddChild(AshField("Ash", ash, new Vector3(45, 22, 45), AshMaterial(concept ? NearFadeSmall : 0f), new QuadMesh { Size = new Vector2(0.10f, 0.07f) }, 0.6f, 1.6f, 10f));
-        _follow.AddChild(AshField("Flakes", rocks, new Vector3(55, 28, 55), RockMaterial(concept ? NearFadeFlakes : 0f), new QuadMesh { Size = new Vector2(0.28f, 0.2f) }, 0.5f, 1.4f, 9f));
-        _follow.AddChild(AshField("Embers", sparks, new Vector3(40, 16, 40), EmberMaterial(1.5f), new QuadMesh { Size = new Vector2(0.06f, 0.06f) }, 0.4f, 1.1f, 7f, rise: 0.7f));
+        _follow.AddChild(AshField("Flakes", rocks, new Vector3(55, 28, 55), RockMaterial(concept ? NearFadeFlakes : 0f), new QuadMesh { Size = light ? new Vector2(0.36f, 0.26f) : new Vector2(0.28f, 0.2f) }, 0.5f, 1.4f, 9f));
+        _follow.AddChild(AshField("Embers", sparks, new Vector3(40, 16, 40), EmberMaterial(light ? 1.1f : 1.5f), new QuadMesh { Size = light ? new Vector2(0.09f, 0.09f) : new Vector2(0.06f, 0.06f) }, 0.4f, 1.1f, 7f, rise: 0.7f));
+        if (floorDust > 0)   // light pass: dust blown low over the ground around the player (faint, never within 5 m of the camera)
+        {
+            var low = AshField("FloorDust", floorDust, new Vector3(36, 0.9f, 36), NearFaded(Particle(Soft(), new Color(0.30f, 0.30f, 0.31f, 0.16f), additive: false), 5f), new QuadMesh { Size = new Vector2(7f, 2.4f) }, 0.6f, 1.4f, 10f, rise: 0.02f, spin: 10f);
+            low.Position = new Vector3(0, -2.2f, 0);
+            _follow.AddChild(low);
+        }
         if (debris > 0)   // tumbling dark chunks seen at a distance (the concept's), never near the camera
             _follow.AddChild(AshField("Debris", debris, new Vector3(80, 34, 80), RockMaterial(NearFadeDebris, 0.09f), new QuadMesh { Size = new Vector2(0.9f, 0.7f) }, 0.5f, 1.3f, 12f, rise: -0.25f));
         if (dust > 0)     // soft banks of blown dust between the ruins, far only (overdraw: few, large, faint)
             _follow.AddChild(AshField("Dust", dust, new Vector3(95, 6, 95), DustMaterial(), new QuadMesh { Size = new Vector2(14f, 7f) }, 0.7f, 1.5f, 18f, rise: 0.05f, spin: 12f));
 
         int grimed = concept ? AshfallGrime.Apply(GetParent()?.GetParent(), _quality, compat) : 0;
-        Report = $"{spots.Count(s => s.Plume)} smoke plumes, {spots.Count(s => !s.Plume)} fires ({_lights.Count} fire lights), {shafts} light shafts, ash {ash} + flakes {rocks} + embers {sparks} + debris {debris} + dust banks {dust} around the camera; grime on {grimed} ground materials{(AshfallGrime.Overlay(_quality, compat) ? " and every kit model (overlay)" : "")}; concept pass {(concept ? "on" : "off")}, {lightNote}; "
+        Report = $"{spots.Count(s => s.Plume)} smoke plumes, {spots.Count(s => !s.Plume)} fires ({_lights.Count} fire lights), {shafts} light shafts, ash {ash} + flakes {rocks} + embers {sparks} + debris {debris} + dust banks {dust} + floor dust {floorDust} around the camera; grime on {grimed} ground materials{(AshfallGrime.Overlay(_quality, compat) ? " and every kit model (overlay)" : "")}; concept pass {(concept ? "on" : "off")}, {lightNote}; "
                + $"quality x{_quality:0.##} ({(compat ? "Compatibility renderer: no volumetric fog, no glow" : $"lighting {MapLightingView.Preset}, volumetric shafts {(volumetric ? "on" : "off")}")}); built in {watch.ElapsedMilliseconds} ms";
     }
 
@@ -358,7 +370,7 @@ public partial class AshfallStorm : Node3D
         Direction = Vector3.Up, Spread = 12f, InitialVelocityMin = 0.8f * k, InitialVelocityMax = 1.8f * k, Gravity = new Vector3(0, 1.4f, 0),
         ScaleMin = 0.7f * k, ScaleMax = 1.3f * k, ScaleCurve = Curve((0f, 0.5f), (0.2f, 1f), (1f, 0.2f)),
         AngleMin = -20f, AngleMax = 20f,
-        ColorRamp = Ramp((0f, new Color(1.9f, 1.05f, 0.35f, 0.55f)), (0.3f, new Color(1.7f, 0.6f, 0.12f, 0.5f)), (0.7f, new Color(0.7f, 0.15f, 0.03f, 0.3f)), (1f, new Color(0.15f, 0.03f, 0.01f, 0f))),
+        ColorRamp = Ramp((0f, new Color(1.7f, 0.75f, 0.2f, 0.55f)), (0.3f, new Color(1.5f, 0.45f, 0.08f, 0.5f)), (0.7f, new Color(0.7f, 0.15f, 0.03f, 0.3f)), (1f, new Color(0.15f, 0.03f, 0.01f, 0f))),
     };
 
     static ParticleProcessMaterial EmberProcess(float k) => new()
@@ -625,12 +637,72 @@ public partial class AshfallStorm : Node3D
             || sm.Shader?.Code.Contains("uniform float top_cut") != true) return 0;
         sm.SetShaderParameter("top_cut", top);
         sm.SetShaderParameter("desat", 0.7f);   // the concept's cool grey wall, not the masonry texture's brown (ours)
-        sm.SetShaderParameter("bounce", new Vector3(0.22f, 0.23f, 0.25f));   // a 64 m wall under open sky: its shaded faces a hazy grey, not near black (ours)
+        sm.SetShaderParameter("bounce", new Vector3(0.14f, 0.145f, 0.16f));   // a 64 m wall under open sky: its shaded faces a hazy grey, not near black (ours)
         return 1;
     }
 
     /// <summary>The ground kinds' and the boundary's tints under the light pass (ours): a cool mid grey stone like the concept's flagstones, not draft 7's cream and brown (a shader uniform of our own terrain material; nothing on disk changes).</summary>
-    static readonly (string Kind, Color Tint)[] GroundTints = [("Paving", new Color(0.66f, 0.665f, 0.68f)), ("Curb", new Color(0.58f, 0.585f, 0.60f)), ("Ground", new Color(0.52f, 0.515f, 0.51f)), ("Road", new Color(0.46f, 0.46f, 0.47f)), ("Boundary", new Color(0.66f, 0.665f, 0.68f))];
+    static readonly (string Kind, Color Tint)[] GroundTints = [("Paving", new Color(0.30f, 0.305f, 0.32f)), ("Curb", new Color(0.30f, 0.305f, 0.32f)), ("Ground", new Color(0.30f, 0.297f, 0.295f)), ("Road", new Color(0.27f, 0.27f, 0.28f)), ("Boundary", new Color(0.50f, 0.505f, 0.52f))];
+
+    /// <summary>
+    /// Dims every kit model's base colour to <paramref name="k"/> of its own (runtime only: the loaded copy's material; the model files are never written), models loading later as they arrive. Each material keeps its
+    /// own colour in its metadata, so a second call never compounds. Returns the materials dimmed now.
+    /// </summary>
+    static int DimKit(Node? root, float k)
+    {
+        if (root?.FindChild("KitLook", true, false) is not Node kit || kit.GetNodeOrNull("Items") is not Node items) return 0;
+        int n = 0;
+        void Dim(Node node)
+        {
+            if (node is not MeshInstance3D { Mesh: { } mesh }) return;
+            var box = mesh.GetAabb();
+            bool floor = box.Size.Y < 0.15f * MathF.Max(box.Size.X, box.Size.Z);   // a flat model (paving, road tiles, slabs): the floor's darker base colour
+            float f = floor ? LightPass.KitFloorAlbedo : k;
+            for (int s = 0; s < mesh.GetSurfaceCount(); s++)
+                if (mesh.SurfaceGetMaterial(s) is BaseMaterial3D m)
+                {
+                    if (!m.HasMeta("ashfall_albedo")) { m.SetMeta("ashfall_albedo", m.AlbedoColor); m.SetMeta("ashfall_rough", m.Roughness); m.SetMeta("ashfall_spec", m.MetallicSpecular); }
+                    var c = m.GetMeta("ashfall_albedo").AsColor();
+                    var dimmed = new Color(c.R * f, c.G * f, c.B * f, c.A);
+                    if (m.AlbedoColor != dimmed) { m.AlbedoColor = dimmed; n++; }
+                    // matte, rough stone (the concept's): the floors' grazing sheen toward the bright break was the brightest thing on screen
+                    m.Roughness = Math.Max(m.GetMeta("ashfall_rough").AsSingle(), LightPass.KitRoughness);
+                    m.MetallicSpecular = Math.Min(m.GetMeta("ashfall_spec").AsSingle(), LightPass.KitSpecular);
+                }
+        }
+        foreach (var child in items.GetChildren()) Dim(child);
+        items.ChildEnteredTree += Dim;
+        return n;
+    }
+
+    /// <summary>Broad golden beams out of the break behind the keep, falling into the field in front of the stronghold (ours): seen from the field looking north they fan out from behind the keep.</summary>
+    int AddBreakShafts(float sunAzimuth)
+    {
+        var shader = new Shader { Code = ShaftShader };
+        float bel = Mathf.DegToRad(LightPass.BreakElevation + 10f);   // a little steeper than the break, so they reach the ground inside the map
+        var fromBreak = -G(new Vector3(MathF.Sin(sunAzimuth) * MathF.Cos(bel), MathF.Cos(sunAzimuth) * MathF.Cos(bel), MathF.Sin(bel))).Normalized();
+        var spots = new (float X, float Y, float R)[] { (-60, 70, 9), (-30, 85, 12), (0, 65, 10), (-45, 45, 7), (25, 80, 11), (-85, 60, 8), (-15, 40, 8), (45, 60, 9), (-110, 80, 7), (70, 90, 8) };
+        int n = 0;
+        foreach (var (x, y, r) in spots)
+        {
+            float len = 200f;
+            var ground = G(new Vector3(x, y, 0f));
+            var mid = ground - fromBreak * (len / 2f);
+            var mesh = new CylinderMesh { TopRadius = r * 2.2f, BottomRadius = r, Height = len, RadialSegments = 16, Rings = 1, CapTop = false, CapBottom = false };
+            var mat = new ShaderMaterial { Shader = shader };
+            mat.SetShaderParameter("strength", LightPass.ShaftStrength * (0.7f + 0.6f * ((n * 7 % 5) / 4f)));
+            mat.SetShaderParameter("seed", n * 3.7f);
+            mesh.Material = mat;
+            var inst = new MeshInstance3D { Name = "BreakShaft" + n, Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+            var up = -fromBreak;
+            var side = up.Cross(Vector3.Forward).LengthSquared() > 1e-4f ? up.Cross(Vector3.Forward).Normalized() : Vector3.Right;
+            var fwd = side.Cross(up).Normalized();
+            inst.Transform = new Transform3D(new Basis(side, up, fwd), mid);
+            _world.AddChild(inst);
+            n++;
+        }
+        return n;
+    }
 
     static void TintGround(Node? root)
     {
@@ -653,14 +725,14 @@ public partial class AshfallStorm : Node3D
     /// <summary>The break sky (ours). Every value is a placeholder demonstration; the far ruins are a procedural skyline (no model), so they cost nothing in any renderer.</summary>
     public const string BreakSkyShader = """
         shader_type sky;
-        uniform vec3 zenith = vec3(0.026, 0.028, 0.032);
-        uniform vec3 cloud_dark = vec3(0.030, 0.032, 0.036);
-        uniform vec3 cloud_grey = vec3(0.115, 0.118, 0.126);
+        uniform vec3 zenith = vec3(0.018, 0.019, 0.022);
+        uniform vec3 cloud_dark = vec3(0.022, 0.023, 0.026);
+        uniform vec3 cloud_grey = vec3(0.080, 0.082, 0.088);
         uniform vec3 cloud_lit = vec3(1.2, 0.74, 0.36);
-        uniform vec3 haze = vec3(0.30, 0.30, 0.31);
+        uniform vec3 haze = vec3(0.19, 0.19, 0.20);
         uniform vec3 glow = vec3(1.0, 0.66, 0.32);
         uniform vec3 break_dir = vec3(0.0, 0.2, -1.0);
-        uniform float cover = 0.44;
+        uniform float cover = 0.40;
         uniform float speed = 0.004;
         uniform float strength = 1.0;
         uniform float gain = 1.0;   // the Compatibility renderer draws the sky darker: it is lifted (gain and a gamma curve)
@@ -695,12 +767,12 @@ public partial class AshfallStorm : Node3D
             float ha = acos(clamp(dot(dh, bh), -1.0, 1.0));   // across from the break (radians)
             float el = asin(clamp(h, -1.0, 1.0));
             float va = el - asin(clamp(b.y, -1.0, 1.0));       // above or below it
-            float wide = exp(-ha * ha / 0.2 - va * va / 0.04);
-            float open = exp(-ha * ha / 0.06 - va * va / 0.016);
-            float core = exp(-ha * ha / 0.008 - va * va / 0.0035);
+            float wide = exp(-ha * ha / 0.3 - va * va / 0.03);
+            float open = exp(-ha * ha / 0.12 - va * va / 0.006);
+            float core = exp(-ha * ha / 0.03 - va * va / 0.0016);
             // behind the clouds: grey haze at the horizon, a dark zenith, the warm break
             vec3 col = mix(haze, zenith, smoothstep(0.02, 0.5, h));
-            col += glow * (wide * 0.16 + open * 0.9 + core * 2.2) * strength;
+            col += glow * (wide * 0.10 + open * 0.75 + core * 1.5) * strength;
             col += glow * 0.14 * exp(-max(h, 0.0) * 10.0) * pow(max(dot(dh, bh), 0.0), 2.0) * strength;
             // the cloud deck: billowing (domain-warped), drifting, heavy overhead, open around the break
             float t = TIME * speed;
