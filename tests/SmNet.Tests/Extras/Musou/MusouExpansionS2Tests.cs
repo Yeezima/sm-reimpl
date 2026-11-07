@@ -428,7 +428,7 @@ public class MusouExpansionS2Tests
         var read = MusouWire.ReadEntities(MusouWire.WriteEntities(entities, Box), Box);
         Assert.NotNull(read);
         Assert.Equal(entities.Select(e => (e.Id, e.Type, e.State)), read.Select(e => (e.Id, e.Type, e.State)));
-        Assert.Equal(14u, MusouSim.Version);
+        Assert.True(MusouSim.Version >= 14u);   // S2 raised it; later stages raise it further
         Assert.Equal(63u, Protocol.Version);
     }
 
