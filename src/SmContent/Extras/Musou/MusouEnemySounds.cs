@@ -154,7 +154,7 @@ public sealed class MusouSoundSet
         new(MusouEnemyType.BombSquig, "ork_coop_gretchin", "ork_coop_grot_choppa"),
         new(MusouEnemyType.RokkitBoy, OrkSounds.Blueprint, "ork_coop_boy_choppa"),
         new(MusouEnemyType.Stormboy, OrkSounds.Blueprint, "ork_coop_boy_choppa"),
-        new(MusouEnemyType.BigShootaNob, "ork_coop_nob", "ork_coop_nob_uge_axe", Gun: "ork_coop_boy_2hand_shoota_rapid", Charge: "ork_coop_nob_bullrush"),
+        new(MusouEnemyType.BigShootaNob, "ork_coop_nob_bigshoota", "ork_coop_nob_uge_axe", Gun: "ork_coop_nob_big_shoota", Charge: "ork_coop_nob_bullrush"),   // expansion S3: his own blueprint and gun
         new(MusouEnemyType.ScrapMek, OrkSounds.Blueprint, "ork_coop_boy_choppa"),
     ];
 

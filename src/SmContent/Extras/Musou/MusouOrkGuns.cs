@@ -29,7 +29,20 @@ public static class MusouOrkGunRules
 {
     /// <summary>The ranged Orks and their guns (the Chaos Marine's bolter is not an Ork weapon: not drawn here).</summary>
     public static readonly IReadOnlyList<MusouGun> Guns = [new(MusouEnemyType.ShootaBoy, OrkWeaponMounts.Shoota),
-        new(MusouEnemyType.BigShootaNob, OrkWeaponMounts.Shoota)];   // expansion S3: PLACEHOLDER, the Big Shoota Nob fires with the Shoota's model and effects (his own big shoota wargear not yet read)
+        new(MusouEnemyType.BigShootaNob, BigShoota)];   // expansion S3: the co-op Big Shoota Nob's own gun (owner, 2026-11-08: the original's model and effects)
+
+    /// <summary>The co-op Big Shoota Nob's gun (*supported by evidence*: <c>ork_coop_nob_bigshoota</c>'s default wargear; its <c>fire_fx</c> <c>big_shoota_muzzle</c>, <c>hit_fx</c>
+    /// <c>big_shoota_tracer</c> and the container <c>big_shoota</c>, its sound <c>play_or_big_shoota_fire</c> and a jam, <c>actn_snd_wep_gun_jam</c>).</summary>
+    public const string BigShoota = "ork_coop_nob_big_shoota";
+
+    /// <summary>
+    /// The mounts Musou's guns are read with: the Ork boy's (<see cref="OrkWeaponMounts.Table"/>) plus the big shoota's, whose wield entries name no nodes either. **Ours**: two-handed on
+    /// <c>RIG_Prop_M_Chest</c>, as the shoota (the Nob is on the boy's rig). The Ork class's own table is not changed.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, RigWeaponMount> Mounts = new Dictionary<string, RigWeaponMount>(OrkWeaponMounts.Table, StringComparer.OrdinalIgnoreCase)
+    {
+        [BigShoota] = new("RIG_Prop_M_Chest", "RIG_Prop_M_Chest", null, TwoHanded: true),
+    };
 
     /// <summary>The gun a type carries, or null.</summary>
     public static string? WargearOf(MusouEnemyType type)

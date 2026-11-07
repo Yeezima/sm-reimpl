@@ -43,7 +43,11 @@ public sealed class MusouLooks
     /// <summary>The Warboss's model scale: the sim's body (<see cref="MusouRules.BossScale"/>), so what is drawn is what is shot.</summary>
     static readonly float BossScale = new MusouRules().BossScale;
 
-    sealed record Wanted(MusouEnemyType Type, string Mesh, float Scale, string? Fallback, float FallbackScale, bool Ranged);
+    sealed record Wanted(MusouEnemyType Type, string Mesh, float Scale, string? Fallback, float FallbackScale, bool Ranged)
+    {
+        /// <summary>The archive the mesh is read from (null: the Ork boy's); the mesh is still drawn on the Ork boy's rig.</summary>
+        public RigProfile? From { get; init; }
+    }
 
     static readonly Wanted[] Plan =
     [
@@ -59,6 +63,9 @@ public sealed class MusouLooks
         new(MusouEnemyType.BossNob, "nob_melee", BossOrkScale, "boy_melee_pro", 1.2f * BossOrkScale, false),
         // Expansion S3: the Big Shoota Nob, the co-op set's nob_ranged (the Nob's body when it cannot be had), with the Shoota Boy's clips and gun effects (MusouOrkGunRules).
         new(MusouEnemyType.BigShootaNob, "nob_ranged", 1f, "nob_melee", 1f, true),
+        // Expansion S3 (owner, 2026-11-08: "the stormboys body should go on the ordinary boy rig"): the campaign's boy_stormboy, read from its own archive, skinned to the Ork boy's rig so he runs,
+        // swings and dies with the Boy's clips; when it binds bones the boy's rig lacks, his own flight rig (StormboyLooks) stands in, else a Boy with a placeholder pack.
+        new(MusouEnemyType.Stormboy, "boy_stormboy", 1f, null, 1f, false) { From = StormboyRig.Profile },
         // Last, so nothing waits on the Warboss model's read: the Warboss model first (WarbossLooks); this is its fallback.
         new(MusouEnemyType.Warboss, "nob_melee", BossScale, "boy_melee_pro", BossScale, false),
     ];
@@ -79,7 +86,7 @@ public sealed class MusouLooks
     readonly WeirdboyLooks? _weirdboy;
     readonly StormboyLooks? _stormboy;
     /// <summary>Whether the Stormboy is drawn with his own campaign model (false: a Boy, with the placeholder jump pack the view adds).</summary>
-    public bool StormboyOwnLook => _stormboy?.Look is not null;
+    public bool StormboyOwnLook => _looks[(int)MusouEnemyType.Stormboy]?.Name.StartsWith("Stormboy:", StringComparison.Ordinal) == true;
     int _next;
     bool _chaosTried;
 
@@ -98,7 +105,7 @@ public sealed class MusouLooks
         catch (Exception ex) when (ex is not OutOfMemoryException) { Notes.Add($"musou: the Weirdboy model was not started: {ex.Message}"); }
         try { _stormboy = new StormboyLooks(gameDir); }   // expansion S3: the campaign's Stormboy, his own body and rig (StormboyLooks.cs)
         catch (Exception ex) when (ex is not OutOfMemoryException) { Notes.Add($"musou: the Stormboy model was not started: {ex.Message}"); }
-        foreach (var w in Plan) { Start(w.Mesh); if (w.Fallback is not null) Start(w.Fallback); }
+        foreach (var w in Plan) { Start(w.Mesh, w.From); if (w.Fallback is not null) Start(w.Fallback); }
     }
 
     /// <summary>The look of a kind (null: not built yet; the crowd then draws the Boy's, or nothing).</summary>
@@ -147,7 +154,7 @@ public sealed class MusouLooks
             Notes.AddRange(weird.Notes); weird.Notes.Clear();
             if (mine is not null) return _looks[(int)MusouEnemyType.Weirdboy] = mine;
         }
-        if (_stormboy is { Done: false } storm)   // the Stormboy's own look (a Boy with a placeholder pack stands in until then, and for good if it cannot be had)
+        if (_looks[(int)MusouEnemyType.Stormboy] is null && _stormboy is { Done: false } storm)   // the Stormboy's own flight rig, when his body would not go on the boy's rig (a Boy with a placeholder pack stands in until then, and for good if it cannot be had)
         {
             var mine = storm.Step();
             if (mine is null && !storm.Done) return null;
@@ -170,13 +177,13 @@ public sealed class MusouLooks
     }
 
     /// <summary>Gives up waiting for the Chaos model (the view has none): the Chaos Marine is drawn as a Boy.</summary>
-    public void StopWaiting() { if (_next >= Plan.Length && !_chaosTried && _weirdboy is not { Done: false } && _stormboy is not { Done: false }) { _chaosTried = true; Done = true; Notes.Add("musou: no Chaos model built; Chaos Marines drawn as Boyz"); } }
+    public void StopWaiting() { if (_next >= Plan.Length && !_chaosTried && _weirdboy is not { Done: false } && (_stormboy is not { Done: false } || _looks[(int)MusouEnemyType.Stormboy] is not null)) { _chaosTried = true; Done = true; Notes.Add("musou: no Chaos model built; Chaos Marines drawn as Boyz"); } }
 
-    void Start(string mesh)
+    void Start(string mesh, RigProfile? from = null)
     {
         if (OrkAssets.LookName(mesh) is not null) { _orks.Prefetch(mesh); return; }
         if (_reads.ContainsKey(mesh)) return;
-        string archive = RigProfiles.OrkBoy.ArchivePath(_gameDir);
+        string archive = (from ?? RigProfiles.OrkBoy).ArchivePath(_gameDir);
         _reads[mesh] = Task.Run(() =>
         {
             try

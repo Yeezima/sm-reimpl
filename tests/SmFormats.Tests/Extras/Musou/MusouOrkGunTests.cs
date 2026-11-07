@@ -15,10 +15,10 @@ public class MusouOrkGunTests
     // ---------------------------------------------------------------- rules
 
     [Fact]
-    public void Only_the_shoota_boy_and_the_big_shoota_nob_carry_a_gun_and_it_is_the_ork_class_shoota()
+    public void Only_the_shoota_boy_and_the_big_shoota_nob_carry_guns_the_shoota_and_his_own_big_shoota()
     {
         Assert.Equal(OrkWeaponMounts.Shoota, MusouOrkGunRules.WargearOf(MusouEnemyType.ShootaBoy));
-        Assert.Equal(OrkWeaponMounts.Shoota, MusouOrkGunRules.WargearOf(MusouEnemyType.BigShootaNob));   // expansion S3: a placeholder until his own big shoota is read
+        Assert.Equal("ork_coop_nob_big_shoota", MusouOrkGunRules.WargearOf(MusouEnemyType.BigShootaNob));   // expansion S3: the co-op Big Shoota Nob's own gun
         foreach (var t in Enum.GetValues<MusouEnemyType>().Where(t => t is not (MusouEnemyType.ShootaBoy or MusouEnemyType.BigShootaNob))) Assert.Null(MusouOrkGunRules.WargearOf(t));
     }
 
