@@ -628,6 +628,16 @@ public sealed partial class FrontEndView : Control
         SyncMusouRow();
     }
 
+    /// <summary>
+    /// STOP MUSOU SERVER's work without the menu (a join's silent retry, <c>ModelViewer</c>, 2026-11-07): stops the server this client started (<see cref="HostedServer.Stop"/>: only that
+    /// process, by its handle) and puts the lobby's remembered profile back, as <see cref="StopMusou"/> does. <paramref name="commandLineMusou"/>: <c>--content musou</c> keeps the profile.
+    /// </summary>
+    public static void StopOwnMusouServer(CustomizerServices services, bool commandLineMusou)
+    {
+        HostedServer.Stop();
+        if (!commandLineMusou) services.Content = services.Settings.ContentExtras;
+    }
+
     /// <summary>The row follows the server: it is shown while a Musou server of this client runs, wherever the player came from (a match, the Host panel) and when the server dies by itself.</summary>
     void SyncMusouRow()
     {

@@ -15,6 +15,9 @@ public partial class NetworkView
     /// <summary>The join failed or the server is gone (a load error, a rejection, no answer or a disconnect); <see cref="FailureText"/> says what.</summary>
     public bool ConnectionFailed => _error != "" || _client?.Status is ClientStatus.Rejected or ClientStatus.Disconnected or ClientStatus.NoAnswer;
 
+    /// <summary>Why the server refused the join (null: not refused).</summary>
+    public RejectReason? RejectedBecause => _client is { Status: ClientStatus.Rejected } c ? c.RejectedBecause : null;
+
     /// <summary>One line for the menu after a failed join; empty while all is well.</summary>
     public string FailureText => ConnectionFailed ? StatusLine().Text : "";
 }

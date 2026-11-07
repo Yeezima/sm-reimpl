@@ -736,7 +736,7 @@ public sealed partial class GameServer
     /// </summary>
     public static KillView[] KillsFor(World world, int acked) =>
         world.KillLog.Where(k => k.Sequence > acked).Take(Protocol.MaxSnapshotKills)
-            .Select(k => new KillView(k.Sequence & 0xFFFF, k.Killer, k.Victim, k.Cause, k.Index, k.Direction)).ToArray();
+            .Select(k => new KillView(k.Sequence & 0xFFFF, k.Killer, k.Victim, k.Cause, k.Index, k.Direction, k.Headshot)).ToArray();   // protocol 64: the headshot
 
     /// <summary>The scoreboard every client gets: the rules and each player's side, class, kills and deaths (by id), and its ping (protocol 50).</summary>
     public Scoreboard ScoreboardOf() => new(World.Tick, World.Rules is not null, World.Rules?.ScoreLimit ?? 0, World.Rules?.TimeLimit ?? 0f, World.Rules?.FriendlyFire ?? true,
@@ -750,7 +750,8 @@ public sealed partial class GameServer
                 Loadouts.EquipmentIndex(World.Config, p),   // protocol 40 (perks/inert-2)
                 name,                                      // protocol 41 (names/bot-lore)
                 peer?.Rtt.Ms ?? -1,                        // protocol 50 (net/scoreboard-ping): -1 not measured yet
-                World.ClassicPvp && World.CarriesHomer(p.PlayerId));   // protocol 58 (fix/pvp-deploy-spawn): a classic PvP spawn choice for its allies
+                World.ClassicPvp && World.CarriesHomer(p.PlayerId),   // protocol 58 (fix/pvp-deploy-spawn): a classic PvP spawn choice for its allies
+                s.Headshots, s.Assists);                   // protocol 64 (headshot medal, scoreboard)
         }).ToArray(), SeizeOf(World),
         Spectators: _peers.Values.Where(p => p.Spectator).OrderBy(p => p.PlayerId).Take(Protocol.MaxSpectators).Select(p => new SpectatorEntry(p.PlayerId, p.Name)).ToArray() is { Length: > 0 } listed ? listed : null);   // protocol 46
 

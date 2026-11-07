@@ -36,8 +36,7 @@ public partial class NetworkView
     /// <summary><c>--wait-match-end</c> (test aid): the screenshot waits until a match has ended (and the board is up).</summary>
     public bool WaitMatchEnd { get; init; }
 
-    PanelContainer? _scoreboardPanel;
-    RichTextLabel? _scoreboardText;
+    ScoreboardView? _boardView;   // the Tab scoreboard (NetworkView.Scoreboard.cs)
     MatchView _lastMatch;
     bool _matchSeen;
     double _matchSeenAt;
@@ -61,67 +60,11 @@ public partial class NetworkView
 
     static string SideName(Team t) => t switch { Team.SpaceMarines => "Space Marines", Team.Chaos => "Chaos", _ => "no side" };
 
-    /// <summary>
-    /// The Godot font for the scoreboard's columns (a system monospace font). <c>--scoreboard-font &lt;name&gt;</c> (test aid, net/scoreboard-ping) puts one
-    /// font first, e.g. "Courier New", to check the layout with a fallback font.
-    /// </summary>
-    static readonly SystemFont MonoFont = new()
-    {
-        FontNames = CmdArg("scoreboard-font") is { Length: > 0 } forced ? [forced, "Consolas", "Cascadia Mono", "Courier New", "monospace"] : ["Consolas", "Cascadia Mono", "Courier New", "monospace"],
-    };
-
-    /// <summary>The scoreboard's font size (px) when the row fits the window; smaller (down to <see cref="ScoreboardMinFontSize"/>) when it does not.</summary>
-    const int ScoreboardFontSize = 20, ScoreboardMinFontSize = 12;
-    /// <summary>
-    /// Characters in the widest scoreboard row (net/scoreboard-ping): the 4-character marker, the name column, CLASS (20), KILLS (7), DEATHS (8), Seize Ground's
-    /// SEIZED and DEFENDED (19; Annihilation's RATIO and ASSISTS take 17) and PING; plus 2 spare characters for a fallback glyph (the dash) of another width.
-    /// </summary>
-    const int ScoreboardRowChars = 4 + NameColumn + 20 + 7 + 8 + 19 + PingColumn + 2;
-    /// <summary>The scoreboard panel's left and right content margins (px) and the gap kept to each window edge.</summary>
-    const int ScoreboardMargins = 36, ScoreboardEdgeGap = 8;
-    float _scoreboardFitFor = -1f;
-
-    /// <summary>
-    /// Sizes the scoreboard panel from the font actually resolved (net/scoreboard-ping review): the widest row measured in that font's character width plus the
-    /// margins, so no row wraps whether Consolas, Cascadia Mono or Courier New is used; when that is wider than the window the font shrinks until it fits.
-    /// </summary>
-    void FitScoreboard()
-    {
-        if (_scoreboardPanel is null || _scoreboardText is null) return;
-        float window = GetViewport().GetVisibleRect().Size.X;
-        if (window == _scoreboardFitFor) return;
-        _scoreboardFitFor = window;
-        string row = new('M', ScoreboardRowChars);
-        int size = ScoreboardFontSize;
-        float Width(int s) => MonoFont.GetStringSize(row, HorizontalAlignment.Left, -1, s).X + ScoreboardMargins;
-        while (size > ScoreboardMinFontSize && Width(size) > window - 2 * ScoreboardEdgeGap) size--;
-        float width = MathF.Ceiling(Width(size));
-        _scoreboardText.AddThemeFontSizeOverride("normal_font_size", size);
-        _scoreboardPanel.OffsetLeft = -width / 2f; _scoreboardPanel.OffsetRight = width / 2f;
-        GD.Print($"scoreboard fit: window {window:0} px, font {size} px ({MonoFont.GetStringSize("M", HorizontalAlignment.Left, -1, size).X:0.##} px a character), panel {width:0} px for {ScoreboardRowChars} characters");
-    }
-
     void AddMatchUi(CanvasLayer layer)
     {
-        // Centre: the scoreboard.
-        _scoreboardPanel = new PanelContainer
-        {
-            AnchorLeft = 0.5f, AnchorRight = 0.5f, AnchorTop = 0.5f, AnchorBottom = 0.5f,
-            OffsetLeft = -560, OffsetRight = 560, OffsetTop = -40, OffsetBottom = 40,   // grows with the text; the width is set from the font by FitScoreboard (protocol 50: + the PING column)
-            GrowHorizontal = Control.GrowDirection.Both, GrowVertical = Control.GrowDirection.Both,
-            Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore,
-        };
-        _scoreboardPanel.AddThemeStyleboxOverride("panel", new StyleBoxFlat
-        {
-            BgColor = new Color(0.03f, 0.03f, 0.03f, 0.86f), BorderColor = new Color(1f, 0.8f, 0f, 0.9f),
-            BorderWidthLeft = 2, BorderWidthRight = 2, BorderWidthTop = 2, BorderWidthBottom = 2,
-            ContentMarginLeft = 18, ContentMarginRight = 18, ContentMarginTop = 12, ContentMarginBottom = 12,
-        });
-        _scoreboardText = new RichTextLabel { MouseFilter = Control.MouseFilterEnum.Ignore, BbcodeEnabled = true, FitContent = true, ScrollActive = false };
-        _scoreboardText.AddThemeFontOverride("normal_font", MonoFont);
-        _scoreboardText.AddThemeFontSizeOverride("normal_font_size", 20);
-        _scoreboardPanel.AddChild(_scoreboardText);
-        layer.AddChild(_scoreboardPanel);
+        // Centre: the scoreboard (the owner, 2026-11-07: the reference's layout in black and white; ScoreboardView).
+        _boardView = new ScoreboardView { Visible = false };
+        layer.AddChild(_boardView);
         AddMatchFlowUi(layer);   // match flow: the countdown, the splash and the next-map timer, above the HUD and the scoreboard
     }
 
@@ -238,7 +181,7 @@ public partial class NetworkView
         bool connected = _client.Status == ClientStatus.Connected;
         if (!connected)
         {
-            if (_scoreboardPanel is not null) _scoreboardPanel.Visible = false;
+            if (_boardView is not null) _boardView.Visible = false;
             _flowView?.SetFrame(MatchFlowFrame.None);   // fix/connect-timeout: no match-end UI before (or after) a connection
             return;
         }
@@ -255,13 +198,14 @@ public partial class NetworkView
             string text = KillText(k);
             NoteDeathCause(k);   // M23: the ragdoll's push
             OrkKillSound(k);     // Ork O8: an Ork standing still taunts after a kill (silly option)
+            HeadshotKillSound(k);   // protocol 64: a headshot kill's death scream (NetworkView.Headshot.cs)
             ExtrasKill(k);       // EXTRAS-HOOK: added content's kill reactions (loyalist barks: the killer's bark)
             _hudView?.AddKill(HudKill(k));
             _killsSeen++;
-            // A kill by the own player: a reward-style line (the hit marker comes from the hit reports, UpdateHits) (no experience points exist here).
+            // A kill by the own player: its reward lines (the hit marker comes from the hit reports, UpdateHits); protocol 64: the server says whether it was a headshot (the medal line).
             if (k.Killer == _client.PlayerId && k.Victim != k.Killer)
             {
-                _hudView?.AddEvent($"+ Kill {HudName(k.Victim)}");
+                _hudView?.AddOwnKill(HudName(k.Victim), k.Headshot);
             }
             if (_bot)
                 GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} kill feed #{k.Sequence}: {StripBbcode(text)} " +
@@ -272,10 +216,11 @@ public partial class NetworkView
         NoteCapturesForStats(match.State);
         UpdateMatchFlow(match);   // before the board: the splash, the count-up and the battle record hold the scoreboard back (MatchEndTimeline)
         bool board = ShowScoreboard || (match.State == MatchState.Ended && EndBoardUp) || (!_bot && ControlsInput.Held(GameAction.Scoreboard)) || PadScoreboardHeld;
-        if (_scoreboardPanel is not null && _scoreboardText is not null)
+        ObserveJoinIcons();   // every board: the icons as each player joined (NetworkView.Scoreboard.cs)
+        if (_boardView is not null)
         {
-            _scoreboardPanel.Visible = board;
-            if (board) { FitScoreboard(); _scoreboardText.Text = ScoreboardText(); }
+            _boardView.Visible = board;
+            _boardView.Frame = board ? BuildScoreboardFrame() : null;
         }
 
         if (_bot && (int)(_connectedFor / 5.0) != (int)((_connectedFor - GetProcessDeltaTime()) / 5.0))
@@ -414,73 +359,6 @@ public partial class NetworkView
             MatchState.Playing => (match.TicksLeft == uint.MaxValue ? $"{mode} — no time limit" : $"{mode}   {Clock(SecondsLeft(match))}") + "\n" + scores,
             _ => $"MATCH OVER — {(match.Winner == Team.None ? "draw" : SideName(match.Winner) + " win")}   next match in {Math.Ceiling(SecondsLeft(match)):F0} s\n" + scores,
         };
-    }
-
-    /// <summary>The scoreboard's name column (names/bot-lore: <see cref="PlayerNames.MaxLength"/>, " (you)" and a space: <see cref="PlayerNames.ScoreboardColumn"/>).</summary>
-    const int NameColumn = PlayerNames.ScoreboardColumn;
-
-    const string GoldTag = "[color=#ffcc00]", RedTag = "[color=#e01414]", GreyTag = "[color=#9a9a9a]", EndTag = "[/color]";
-
-    /// <summary>The PING column's width (net/scoreboard-ping, protocol 50): a space and up to four characters, right-aligned.</summary>
-    const int PingColumn = 6;
-
-    /// <summary>A row's PING cell, right-aligned: green below 80 ms, yellow below 150, red from 150 (ours; <see cref="RttEstimator.QualityOf"/>), "—" plain when not measured.</summary>
-    static string PingCell(int ms)
-    {
-        string text = RttEstimator.Display(ms).PadLeft(PingColumn);
-        string? colour = RttEstimator.QualityOf(ms) switch { PingQuality.Good => "#4cd964", PingQuality.Fair => "#ffd60a", PingQuality.Poor => "#ff453a", _ => null };
-        return colour is null ? text : $"[color={colour}]{text}{EndTag}";
-    }
-
-    /// <summary>
-    /// The scoreboard as BBCode (dark panel, gold header; own side gold, enemy red): per side (or one list without
-    /// teams), players by kills (then fewer deaths, then id).
-    /// </summary>
-    string ScoreboardText()
-    {
-        var board = _client?.Scoreboard;
-        var match = _client!.Match;
-        var sb = new StringBuilder();
-        if (board is null) return GoldTag + "SCOREBOARD" + EndTag + "\n\n(waiting for the server's scoreboard)";
-        string limits = $"score limit {board.ScoreLimit}   time limit {(board.TimeLimit > 0f ? Clock(board.TimeLimit) : "none")}   friendly fire {(board.FriendlyFire ? "on" : "off")}";
-        sb.AppendLine(GoldTag + (board.Seize is { } seize
-            ? $"SEIZE GROUND   {limits}{EndTag}\n{GreyTag}capture {seize.CaptureTime:0.#} s   neutralise {seize.NeutraliseTime:0.#} s   {seize.PointScore} per point every {seize.ScoreInterval:0.#} s\npoints: {PointsLogText()}{EndTag}"
-            : board.Teams ? $"ANNIHILATION   {limits}{EndTag}" : $"FREE-FOR-ALL{EndTag}"));
-        var sides = board.Teams ? new[] { Team.SpaceMarines, Team.Chaos } : new[] { Team.None };
-        var mine = _client.Predicted.Team;
-        foreach (var side in sides)
-        {
-            sb.AppendLine();
-            var rows = board.Players.Where(e => !board.Teams || e.Team == side)
-                .OrderByDescending(e => e.Kills).ThenBy(e => e.Deaths).ThenBy(e => e.PlayerId).ToList();
-            int score = side == Team.SpaceMarines ? match.MarineScore : side == Team.Chaos ? match.ChaosScore : 0;
-            string tag = !board.Teams || mine == Team.None ? GoldTag : side == mine ? GoldTag : RedTag;
-            sb.AppendLine(tag + (board.Teams ? $"{SideName(side).ToUpperInvariant()}   {score}{(match.State == MatchState.Ended && match.Winner == side ? "   WINNER" : "")}" : "PLAYERS") + EndTag);
-            // The original's columns (SummaryScreen.gfx player_header_mc: tdm LEVEL, PLAYER, XP, KILLS, DEATHS, RATIO, ASSISTS; domination ... SEIZED, DEFENDED),
-            // headed with the install's words; level, score, assists, captures and defends are not on the wire (a dash), the ratio is computed.
-            var t = _summaryText;
-            bool seizeMode = board.Seize is not null;
-            string Cell(string text, int width) => text.Length >= width ? text[..(width - 1)] + " " : text.PadLeft(width);
-            string extraHead = seizeMode ? Cell(t.Seized, 9) + Cell(t.Defended, 10) : Cell(t.Ratio, 8) + Cell(t.Assists, 9);
-            // net/scoreboard-ping (protocol 50; ours): a PING column at the right end, the server's smoothed round trip in ms ("—" not measured yet).
-            sb.AppendLine($"{GreyTag}    {PlayerNames.Cell(t.Player, NameColumn)}{"CLASS",-20}{Cell(t.Kills, 7)}{Cell(t.Deaths, 8)}{extraHead}{Cell("PING", PingColumn)}{EndTag}");
-            foreach (var e in rows)
-            {
-                bool me = e.PlayerId == _client.PlayerId;
-                string extra = seizeMode ? Cell("—", 9) + Cell("—", 10)
-                    : Cell(BattleRecord.Ratio(e.Kills, e.Deaths).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture), 8) + Cell("—", 9);
-                // names/bot-lore: a name of up to 24 characters, " (you)" and a space fit the name column (31; PlayerNameTests)
-                string line = $"{(me ? " >  " : "    ")}{Esc(PlayerNames.Cell(HudName(e.PlayerId) + (me ? " (you)" : ""), NameColumn))}{Esc(Trim(ClassLabel(e.Class), 19)),-20}{e.Kills,7}{e.Deaths,8}{extra}{PingCell(e.PingMs)}";
-                sb.AppendLine(me ? GoldTag + line + EndTag : line);
-            }
-            if (rows.Count == 0) sb.AppendLine("    (nobody)");
-        }
-        if (board.Spectators is { Length: > 0 } watching)
-            sb.AppendLine("\n" + GreyTag + "SPECTATORS: " + string.Join(", ", watching.Select(s => Esc(s.Name.Length > 0 ? s.Name : $"Spectator {s.PlayerId}"))) + EndTag);   // protocol 46
-        sb.Append(GreyTag + "\n(Tab: scoreboard; columns after the original's; level, score, assists, captures and defends are not tracked yet: a dash)" + EndTag);
-        return sb.ToString();
-
-        static string Trim(string s, int n) => s.Length <= n ? s : s[..(n - 1)] + "...";
     }
 
     /// <summary>

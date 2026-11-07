@@ -96,6 +96,7 @@ public partial class ModelViewer : Node3D
 
     FrontEndView? _frontEnd;
     bool _fromFrontEnd;          // the networked view was started by the front end's Join: a failed join can go back to it
+    bool _musouRetried;          // this join was already retried once after stopping the own Musou server (MusouJoinRetry)
     CanvasLayer? _backLayer;
     Label? _backHint;
     string _gameDir = "";
@@ -440,6 +441,36 @@ public partial class ModelViewer : Node3D
         AddChild(_backLayer);
     }
 
+    /// <summary>
+    /// The owner, 2026-11-07: a Classic PvP join refused with "Enable extended mode" while this client's own Musou server runs (the server kept the session on the Musou profile) stops that
+    /// server through the front end's stop path (<see cref="FrontEndView.StopOwnMusouServer"/>: the process this client started, by its handle; never one found by name) and joins the same
+    /// address again with the lobby's own profile, silently: the loading screen stays, no message. Once per join; a retry that fails shows its normal error. The rule: <see cref="SmNet.MusouJoinRetry"/>.
+    /// </summary>
+    bool TryMusouRetry()
+    {
+        if (!_fromFrontEnd || _network is not { ConnectionFailed: true } failed || FrontEndLaunch.Current is not { } request) return false;
+        var services = request.Services;
+        var joined = request.Content ?? services.Content;
+        bool commandLineMusou = _launchArgs.GetValueOrDefault("content") == SmSim.ContentProfiles.Musou;
+        var hosted = HostedServer.Options;
+        var decision = SmNet.MusouJoinRetry.Decide(failed.RejectedBecause, HostedServer.Running, hosted is { Content: SmSim.ContentProfiles.Musou },
+            joined.HasFlag(SmSim.ContentExtras.Musou), services.Settings.ContentExtras.HasFlag(SmSim.ContentExtras.Musou), commandLineMusou,
+            hosted is { } h && SmNet.MusouJoinRetry.IsHostedTarget(request.Host, h.Port), _musouRetried);
+        if (decision != SmNet.JoinRetryDecision.StopMusouAndRetry) return false;
+        int? pid = HostedServer.ProcessId;
+        FrontEndView.StopOwnMusouServer(services, commandLineMusou);
+        var plan = services.PlanFor() ?? request.Plan;
+        var retry = request with { Plan = plan, Content = services.Content };
+        GD.Print($"join: {request.Host} refused the Musou profile while this client's Musou server (pid {pid}) ran; stopped it (running now: {HostedServer.Running}) and joining again with {SmSim.ContentProfiles.Name(services.Content)}");
+        _network?.QueueFree();
+        _network = null;
+        _backLayer?.QueueFree();
+        _backLayer = null; _backHint = null;
+        OnJoin(retry);
+        _musouRetried = true;   // after OnJoin: a failure of this retry shows the normal error
+        return true;
+    }
+
     /// <summary>Esc while the join is going nowhere (still connecting, rejected, disconnected, load error): back to the front end with the reason on its Join screen.</summary>
     void BackToFrontEnd(string? reasonOverride = null)
     {
@@ -449,6 +480,7 @@ public partial class ModelViewer : Node3D
         _backLayer?.QueueFree();
         _backLayer = null; _backHint = null;
         _fromFrontEnd = false;
+        _musouRetried = false;   // the next join from the menu is a new one
         FrontEndLaunch.Current = null;
         Input.MouseMode = Input.MouseModeEnum.Visible;
         _frontEnd = new FrontEndView(() => MakeServices(_launchArgs, _gameDir), OnJoin, StartScreen.Join, _launchArgs, reason) { Name = "FrontEnd", GameFoundNote = _foundNote };
@@ -556,7 +588,9 @@ public partial class ModelViewer : Node3D
         PollLocate();
         if (_locating is not null) return;   // still looking for the game: nothing to show or capture yet
         // The networked view waits until it is connected and the players are in view.
-        if (_backHint is not null) _backHint.Visible = _network is { } hinted && (hinted.ConnectionFailed || hinted.StillConnecting);
+        // The loading screen (2026-11-07: black and LOADING alone) covers a join still connecting; the hint shows once the join failed (Esc works in both).
+        if (_backHint is not null) _backHint.Visible = _network is { } hinted && hinted.ConnectionFailed;
+        if (TryMusouRetry()) return;   // a Classic PvP join refused because of the own Musou server: stopped, joined again (no message)
         // --auto-back <seconds> (test aid): the Esc of a join that goes nowhere, pressed after that long.
         if (_fromFrontEnd && _launchArgs.GetValueOrDefault("auto-back") is { } autoBack && double.TryParse(autoBack, System.Globalization.CultureInfo.InvariantCulture, out var backAfter)
             && _network is { } stuck && (stuck.ConnectionFailed || stuck.StillConnecting) && _elapsed > backAfter) BackToFrontEnd();

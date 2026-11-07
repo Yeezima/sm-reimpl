@@ -242,8 +242,10 @@ public sealed record SeizeGroundInfo(float CaptureTime, float NeutraliseTime, in
 /// (<see cref="KillEvent.Direction"/>; unit, world space, zero: none), as yaw in 256 steps (the simulation's yaw: forward
 /// (−sin, cos)) and pitch in 15 steps either side of level (6°), carried in the cause byte's top 5 bits (0: no direction).
 /// Use <see cref="Protocol.Quantize(KillView)"/> to compare with a received entry.
+/// <paramref name="Headshot"/> (protocol 64, headshot medal): a weapon kill whose killing hit was on the head (<see cref="KillEvent.Headshot"/>); on the wire the cause code
+/// <see cref="Protocol.HeadshotCauseCode"/> (6) instead of <see cref="KillCause.Weapon"/> (1), so the entry keeps its 9 bytes. Only a weapon kill can carry it.
 /// </summary>
-public readonly record struct KillView(int Sequence, int Killer, int Victim, KillCause Cause, int Index, Vector3 Direction = default)
+public readonly record struct KillView(int Sequence, int Killer, int Victim, KillCause Cause, int Index, Vector3 Direction = default, bool Headshot = false)
 {
     public bool HasDirection => Direction != Vector3.Zero;
 }
@@ -258,8 +260,14 @@ public readonly record struct KillView(int Sequence, int Killer, int Victim, Kil
 /// Protocol 50 (net/scoreboard-ping; ours): the player's round-trip time as the server measures it (<see cref="RttEstimator"/>), whole milliseconds
 /// 0..<see cref="RttEstimator.MaxMs"/>, or -1 when not known yet (<see cref="Protocol.UnknownPing"/> on the wire).
 /// </summary>
+/// Protocol 64 (headshot medal, scoreboard): the player's headshot kills and assists this round (0..255 each, <see cref="PlayerScore"/>); the score follows from the counts
+/// (<see cref="Score"/>, <see cref="ScoreRules.Of"/>).
 public readonly record struct ScoreEntry(int PlayerId, Team Team, int Class, int Kills, int Deaths, ushort AppearanceVersion = 0, int Equipment = -1, string Name = "",
-    int PingMs = -1, bool Homer = false);   // protocol 58: Homer, alive and carrying Teleport Homer (a classic PvP spawn choice for its allies)
+    int PingMs = -1, bool Homer = false, int Headshots = 0, int Assists = 0)
+{
+    /// <summary>The player's score: <see cref="ScoreRules.Of"/> of the server's counts.</summary>
+    public int Score => ScoreRules.Of(Kills, Headshots);
+}   // protocol 58: Homer, alive and carrying Teleport Homer (a classic PvP spawn choice for its allies)
 
 /// <summary>A spectator listed in the scoreboard (protocol 46): its id and display name ("" none: shown as "Spectator &lt;id&gt;"); spectators have no team, class or score.</summary>
 public readonly record struct SpectatorEntry(int PlayerId, string Name = "");
@@ -480,7 +488,12 @@ public static partial class Protocol
     //     each weapon keeps its own shot cooldown (PlayerState.OtherCooldown / ThirdCooldown: 8 more bytes in the own record, right after the melee lock; at most 13 projectile
     //     records, worst case 1193); the hammer's and the maul's last light swing frees a new string at the data's BRANCH_Melee_String_Reset (MeleeStep.StringResetAt, config hash).
     //     Renumbered 62 -> 63 at integration (2026-11-07): stream A took 62.
-    public const ushort Version = 63;
+    // 64 (headshot medal and scoreboard; the owner 2026-11-07: "add a +50 points to score as well as a headshot medal icon"): a kill-feed entry's cause code 6 is a weapon
+    //     kill on the head (KillView.Headshot; the entry stays 9 bytes, snapshots unchanged); each scoreboard row carries the player's headshot kills and assists (u8 each, after
+    //     the flags byte; fullest scoreboard 1161 -> 1193 bytes). The score (50 a kill, 50 more a headshot: ScoreRules) follows from the counts.
+    public const ushort Version = 64;
+    /// <summary>The kill-feed cause code of a weapon kill on the head (protocol 64; <see cref="KillView.Headshot"/>).</summary>
+    public const int HeadshotCauseCode = 6;
     /// <summary>Most spectators a server admits and a Scoreboard lists (protocol 46), so the Scoreboard stays within one packet.</summary>
     public const int MaxSpectators = 4;
     /// <summary>Bytes of a Hello (protocol 22: 49 + 2 perk choices + 2 appearance codes; protocol 28: + the Ork look).</summary>
@@ -501,7 +514,7 @@ public static partial class Protocol
     public const int MaxAppearanceQuery = 16;
     /// <summary>Bytes of a Scoreboard row without its name (protocol 22: 10 + the appearance version; protocol 40: + the equipment item; protocol 41: + the
     /// name's length byte; protocol 50: + the u16 ping; protocol 58: + the flags byte). The name's bytes follow (at most <see cref="PlayerNames.MaxLength"/>).</summary>
-    public const int ScoreRowBytes = 17;
+    public const int ScoreRowBytes = 19;   // protocol 64: + headshots and assists
     /// <summary>A scoreboard row's ping on the wire when the server has no measurement yet (protocol 50).</summary>
     public const ushort UnknownPing = ushort.MaxValue;
     /// <summary>Shot offsets travel as signed 16-bit integers in 1/10000 rad (±3.2767 rad).</summary>
@@ -777,7 +790,7 @@ public static partial class Protocol
                 {
                     var e = kills[k];
                     var (yaw, pitch) = KillDirection(e.Direction);
-                    w.U16((ushort)e.Sequence); w.U16(Id16(e.Killer)); w.U16(Id16(e.Victim)); w.U8((byte)(((int)e.Cause & 7) | (pitch << 3))); w.U8(Index(e.Index)); w.U8(yaw);
+                    w.U16((ushort)e.Sequence); w.U16(Id16(e.Killer)); w.U16(Id16(e.Victim)); w.U8((byte)(KillCauseCode(e) | (pitch << 3))); w.U8(Index(e.Index)); w.U8(yaw);
                 }
                 // Control points (protocol 11; 2 bytes each): owner | side << 2 | contested << 4, progress in 1/255.
                 var points = s.Points ?? [];
@@ -845,6 +858,7 @@ public static partial class Protocol
                     w.U8(e.Equipment is >= 0 and < 255 ? (byte)e.Equipment : (byte)255);   // protocol 40: the equipment item (255: none)
                     w.U16(e.PingMs < 0 ? UnknownPing : (ushort)Math.Min(e.PingMs, RttEstimator.MaxMs));   // protocol 50: the ping (ms; 65535 not known)
                     w.U8((byte)(e.Homer ? 1 : 0));   // protocol 58: the row's flags (bit 0: a living Teleport Homer carrier)
+                    w.U8((byte)Math.Clamp(e.Headshots, 0, 255)); w.U8((byte)Math.Clamp(e.Assists, 0, 255));   // protocol 64: headshot kills and assists
                     var name = Encoding.Latin1.GetBytes(PlayerNames.Sanitise(e.Name));   // protocol 41: the display name (0..24 Latin-1 bytes)
                     w.U8((byte)name.Length); w.Bytes(name);
                 }
@@ -1130,10 +1144,12 @@ public static partial class Protocol
         {
             int sequence = r.U16(), killer = r.U16(), victim = r.U16(), causeByte = r.U8(), index = FromIndex(r.U8()), yaw = r.U8();
             int cause = causeByte & 7, pitch = causeByte >> 3;
+            bool headshot = cause == HeadshotCauseCode;   // protocol 64: a weapon kill on the head
+            if (headshot) cause = (int)KillCause.Weapon;
             if (cause > (int)KillCause.Perk) return null;   // protocol 23: perk kills (5)
             if (pitch == 0 && yaw != 0) return null;   // no direction travels as zeros
             for (int j = 0; j < k; j++) if (kills[j].Sequence == sequence) return null;   // one entry per death
-            kills[k] = new KillView(sequence, killer, victim, (KillCause)cause, index, KillDirection(yaw, pitch));
+            kills[k] = new KillView(sequence, killer, victim, (KillCause)cause, index, KillDirection(yaw, pitch), headshot);
         }
         int pointCount = r.U8();
         if (pointCount > MaxSnapshotPoints) return null;
@@ -1207,8 +1223,12 @@ public static partial class Protocol
     public static KillView Quantize(KillView k)
     {
         var (yaw, pitch) = KillDirection(k.Direction);
-        return new KillView(k.Sequence & 0xFFFF, Id16(k.Killer), Id16(k.Victim), (KillCause)((int)k.Cause & 7), FromIndex(Index(k.Index)), KillDirection(yaw, pitch));
+        var cause = (KillCause)((int)k.Cause & 7);
+        return new KillView(k.Sequence & 0xFFFF, Id16(k.Killer), Id16(k.Victim), cause, FromIndex(Index(k.Index)), KillDirection(yaw, pitch), k.Headshot && cause == KillCause.Weapon);
     }
+
+    /// <summary>A kill-feed entry's cause code (3 bits): the cause, or <see cref="HeadshotCauseCode"/> for a weapon kill on the head (protocol 64).</summary>
+    static int KillCauseCode(KillView k) => k.Headshot && k.Cause == KillCause.Weapon ? HeadshotCauseCode : (int)k.Cause & 7;
 
     /// <summary>
     /// A kill direction on the wire: yaw byte (2π/256 steps, the simulation's yaw = atan2(−x, y)) and a pitch code 1..31
@@ -1328,12 +1348,13 @@ public static partial class Protocol
             if (ping > RttEstimator.MaxMs && ping != UnknownPing) return null;
             int rowFlags = r.U8();   // protocol 58
             if (rowFlags > 1) return null;
+            int headshots = r.U8(), assists = r.U8();   // protocol 64
             int nameLength = r.U8();   // protocol 41: the display name
             if (nameLength > PlayerNames.MaxLength) return null;
             string name = PlayerNames.Sanitise(Encoding.Latin1.GetString(r.Bytes(nameLength)));
             if (team > (int)Team.Chaos || playerClass >= MaxClasses) return null;
             for (int j = 0; j < k; j++) if (rows[j].PlayerId == id) return null;   // one row per player
-            rows[k] = new ScoreEntry(id, (Team)team, playerClass, kills, deaths, appearance, equipment == 255 ? -1 : equipment, name, ping == UnknownPing ? -1 : ping, (rowFlags & 1) != 0);
+            rows[k] = new ScoreEntry(id, (Team)team, playerClass, kills, deaths, appearance, equipment == 255 ? -1 : equipment, name, ping == UnknownPing ? -1 : ping, (rowFlags & 1) != 0, headshots, assists);
         }
         SpectatorEntry[]? spectators = null;
         if ((flags & 8) != 0)

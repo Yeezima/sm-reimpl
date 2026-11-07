@@ -4525,3 +4525,49 @@ measured frame by frame. Code: `MeleeCancel`, `Rush.CanDashAttack`, `Combat.Step
 | Slam steering: hit and blast | The slam's hit (the melee cone, 60 degrees, and its stun) is resolved along the facing at the hit tick, the steered one; the `displace_hammerslam` blast stays centred on the attacker (radius 7, so the turn does not move it) | — | at the hit | `World.ResolveMelee` | code; synthetic test (target at 90 degrees hit only when steered to it) | measured | high |
 | Slam steering: own model | The own marine's body in a steered slam shows the simulation's heading (not the view's frame-rate yaw), so it never runs ahead of the 185-degree limit | — | per frame | client `NetworkView.DisplayYaw` | ours | ours | medium |
 | Protocol | No wire change: the yaw already travels in every input; the new step fields enter the config hash only when set (the hammer's and maul's maps), so mismatched builds are refused by the hash. `Protocol.Version` stays 63 | — | — | `MeleeStep.WriteExtras` | ours | ours | — |
+### Headshot medal, score and scream (protocol 64, 2026-11-07)
+
+Sources: the owner's requests of 2026-11-07 (verbatim): "No headshot scream audio. No headshot medal onscreen after the kill. in classic pvp when a player dies to a headshout there should be a
+sound file from the original game that plays. no headshot medal appears from the kill score announcement ui popup in the center top fo the screen. add a +50 points to score as well as a headshot
+medal icon and description from the original game." Data (Verified-local): global `extensions/multiplayer_settings/xp_settings_pvp/rewards/headshot` (`display_name` 105720 "Headshot",
+`display_description` 105721, `frame_name` `mp_bonus_headshot`, `reward_experience` 35, `display_type` calculated); `xp_settings_pvp/assists` (`damage_ratio` 0.25 / 0.5 / 0.75 with
+`experience_percentage` 25 / 50 / 75); the speech bank's dialogue event `speech_exertion` (character, `exertion_type` `death`). Code: `ScoreRules`, `World.ResolveDeaths` (`Teams.cs`),
+`KillEvent.Headshot`, `PlayerScore`, `Protocol` (`KillView.Headshot`, `ScoreEntry.Headshots` / `Assists`), client `NetworkView.Headshot.cs`, `Hud.AddOwnKill`, `Hud.Fidelity.cs`
+(`DrawMovieRewards`), `RewardTable.HeadshotKill`. Tests: `HeadshotScoreTests`, `HudRewardTests`.
+
+| Parameter (headshot medal) | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Headshot kill | the killing hit of an enemy (not a suicide or team kill) was on the head body (`HitZone.Head`) and came from a weapon's shot: not melee, a thrown item, a jump-pack landing, a perk's blast, a blast's splash or a flame cone | — | per death | `ScoreRules.IsHeadshotKill`, `World.ResolveDeaths` | the data's reward text ("Kill an opponent with a headshot"); which hits count: ours | interpretation | medium |
+| Headshot score | 50 more than the kill (the medal line +100) | points | per headshot kill | `ScoreRules.HeadshotScore` | the owner (2026-11-07); the data grants 35 | extracted (35), deliberate change (50) | high |
+| Player score | 50 per enemy killed + 50 per headshot kill; the server counts kills and headshots, every client applies the same rule | points | per round (reset with the scores) | `ScoreRules.Of`, `PlayerScore.Score`, `ScoreEntry.Score` | the kill line's 50 (reference footage, `RewardTable.Kill`); the sum: ours | ours | low |
+| Assists | an assist for each hostile player other than the killer who dealt at least 0.25 of the damage (armour and health) the victim took in the life that ended; counted, not scored | share | per death | `ScoreRules.AssistShare`, `World.CreditAssists` | `xp_settings_pvp/assists` (lowest `damage_ratio` 0.25); the ratio's base: ours | interpretation | low |
+| Headshot on the wire | a kill-feed entry's cause code 6 is a weapon kill on the head (the entry stays 9 bytes); each scoreboard row carries headshot kills and assists (u8 each, capped at 255) | — | per snapshot / scoreboard | `Protocol` | ours | ours | high |
+| Medal line | the killer's reward line for a headshot kill: icon frame `mp_bonus_headshot`, the name from locale 105720, +100, and the description (locale 105721) under it, centred, white, fading with the line; the older lines move down under it. The text comes only from the install's locale | — | per own headshot kill, 3.5 s | `Hud.AddOwnKill`, `Hud.DrawMovieRewards` | data (icon, name, description); the description's place: ours | ours | low |
+| Headshot scream | the victim class's `speech_exertion` line for `exertion_type` `death` (character from the class's `speech_arg_character`), positioned 1.6 m over where the victim stood, heard by everyone near (3D, the line's own attenuation) | — | per headshot kill in the feed | `NetworkView.HeadshotKillSound` | the lines are the install's; the MP data binds no command that plays them, so when they play is ours | ours | low |
+
+### Tab scoreboard (2026-11-07, client only)
+
+Sources: the owner (2026-11-07, verbatim): "the scoreboard needs to look like the reference image except using only black and white colors. make it so the player icon is just the icon they spawned in with
+when they first joined the lobby. it should update only if they leave and return and then use a new shoulder emblem icon before the next game starts. remove any unimportant text that isn't direct game
+statistics that a player would need or want to know. no extra text." The reference: a mobile shooter's end screen (layout only). Code: client `ScoreboardView`, `NetworkView.Scoreboard.cs`,
+`Extras/Musou/Tfw/NetworkView.TfwScoreboard.cs`, `SmContent.JoinIcons`. Tests: `JoinIconsTests`.
+
+| Parameter (Tab scoreboard) | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Layout | 1920 x 1080 stage scaled to the window: an opaque black band with each side's score (96 px) and VS (72 px) between, under it one column per side (the own side left; Space Marines for a spectator) with a header row and 64 px rows; black, white and greys only; Bahnschrift (the HUD's face) | px | per frame while held | `ScoreboardView` | the owner's reference; sizes ours | ours | low |
+| Columns | Classic PvP: KILLS, DEATHS, RATIO (one decimal), ASSISTS, SCORE, PING; Musou Mode: KILLS, DEATHS, SCORE (the run's points), PING; headers from the install's locale (106098, 106100, 106101, 106099, 106096), PING ours | — | per scoreboard | `NetworkView.BuildScoreboardFrame` | the owner's list; the words: locale | ours | medium |
+| Row order | score, then kills, fewer deaths, id | — | per frame | same | ours | ours | low |
+| Own row | white fill at 11 % and a 4 px white bar at the left; bold text | — | per frame | `ScoreboardView` | the owner ("subtle white accent", relayed brief) | ours | low |
+| Icons | the shoulder decal that is a custom emblem, else the left pad's badge, else the right's, of the look the player had when it first appeared on a scoreboard (the first look known after that); kept while it stays listed; forgotten when it leaves, so a return takes the look of then; drawn in grey (luminance) | — | per scoreboard | `JoinIcons`, `NetworkView.CurrentIcon` | the owner | ours | medium |
+
+### Loading screen (2026-11-07, client only)
+
+| Parameter (loading screen) | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Loading screen | black over everything with LOADING (white, Bahnschrift, 40 px at 1080) in the centre from the networked view's start until connected; an error hides it and shows the error; the join's "Esc: back to the menu" hint shows only after a failure (Esc works throughout) | px | per frame | `NetworkView.Loading.cs`, `ModelViewer` | the owner ("its just straight black and says LOADING in the center") | ours | high |
+
+### Musou rejoin (2026-11-07, client only)
+
+| Parameter (Musou rejoin) | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Musou rejoin | a join refused with ConfigMismatch while this client's hosted server runs Musou, the join offered Musou, the lobby's own profile is not Musou, no `--content musou`, and the address is not that server (127.0.0.1 / localhost / ::1 on its port): stop that server (`HostedServer.Stop`, the process this client started) and join the same address with the lobby's profile, once, silently; a failed retry shows its error | — | per join | `MusouJoinRetry`, `ModelViewer.TryMusouRetry` | the owner | ours | high |

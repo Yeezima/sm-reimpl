@@ -187,7 +187,7 @@ public partial class NetworkView : Node3D
     /// True once the view is worth capturing: connected, enough players visible, settled for a few seconds and, with
     /// <c>--wait-melee</c>, a melee attack shown past its hit time (or given up).
     /// </summary>
-    public bool ReadyForScreenshot =>
+    public bool ReadyForScreenshot => LoadingWorthCapturing ||   // --loading-shot (NetworkView.Loading.cs)
         (_client?.Status == ClientStatus.Connected && 1 + _remotes.Count >= _waitPlayers && _connectedFor >= Math.Max(4.0, _screenshotAt ?? 0.0)
          && (!_waitMelee || _attackSeen) && (!_waitBlast || BlastWorthCapturing) && (!_waitJump || JumpWorthCapturing) && (!WaitMatchEnd || MatchEndWorthCapturing) && FallWorthCapturing && UpperWorthCapturing) ||
         _client?.Status is ClientStatus.Rejected or ClientStatus.Disconnected or ClientStatus.NoAnswer || _error != "" || _elapsed > Math.Max(WaitMatchEnd ? 600.0 : 30.0, (_screenshotAt ?? 0.0) + 25.0);
@@ -243,6 +243,7 @@ public partial class NetworkView : Node3D
     public override void _Ready()
     {
         DemoReadArgs();   // M40 T0: the demo flags, read once
+        AddLoadingScreen();   // the owner, 2026-11-07: black with LOADING until connected (NetworkView.Loading.cs)
         StartJitPrewarm();   // M40-T9: compiles the client's methods in the background (NetworkView.Prewarm.cs)
         // Game space (Z up) to Godot (Y up): x → x, y → −z, z → y. Characters live inside it, so server states need no conversion.
         _gameSpace = new Node3D { Name = "GameSpace", Basis = new Basis(new Vector3(1, 0, 0), new Vector3(0, 0, -1), new Vector3(0, 1, 0)) };
@@ -432,6 +433,7 @@ public partial class NetworkView : Node3D
     void ProcessFrame(double delta)
     {
         _elapsed += delta;
+        UpdateLoadingScreen();   // NetworkView.Loading.cs
         HeavyReset();   // M40-T9: this frame's budget for first builds (characters, weapon rigs, corpses)
         if (FrameStatsLog) (_frameStats ??= new MapLightingView.FrameStats(GetViewport())).Add(delta);
         if (PerfProbe.On) (_perfProbe ??= new PerfProbe(GetViewport())).Frame(delta, GetTree().Root);   // perf/pass-1 test aid (--perf-probe)
