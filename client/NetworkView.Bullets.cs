@@ -206,6 +206,8 @@ public partial class NetworkView
         {
             _fxTracers++;
             if (speed > 0f) straight.HeadSpeed = speed;
+            // fx/plasma-tracers-safe-mode: in the Compatibility renderer the bolt is also drawn as a pooled streak (plain unshaded mesh, no sprite shader), the path the bolter's muzzle leg uses.
+            if (bolt && PlasmaBolt.UsesPooledStreak(SafeMode.Compatibility)) StreakAdd(from, end, end, speed > 0f ? speed : FallbackStreakSpeed, new Color(tint!.Value.R, tint.Value.G, tint.Value.B, 1f), bolt: true);
             ThinBoltTracer(straight, p.Name);
             if (bolt) { straight.TracerWidthScale = PlasmaBolt.WidthScale; straight.TracerTrailScale = PlasmaBolt.TrailScale; _plasmaBolts++; }
         }
@@ -237,7 +239,7 @@ public partial class NetworkView
 
     // ---- pooled streaks and debug rays: one immediate mesh, rebuilt each frame while something is on ----
 
-    struct Streak { public Vector3 From, Via, To; public float Speed; public double Start; public bool Live, Shown; public Color? Tint; }
+    struct Streak { public Vector3 From, Via, To; public float Speed; public double Start; public bool Live, Shown; public Color? Tint; public float Tail, Width; public bool Bolt; }
     struct DebugRay { public bool Own; public Vector3 Origin, End, Muzzle, Join; public bool HasOrigin, HasJoin; public double Start; public bool Live; }
     readonly Streak[] _streaks = new Streak[32];
     readonly DebugRay[] _debugRays = new DebugRay[24];
@@ -247,9 +249,9 @@ public partial class NetworkView
     ImmediateMesh? _bulletMesh;
     int _fallbackStreaks;
 
-    void StreakAdd(Vector3 from, Vector3 via, Vector3 to, float speed, Color? tint = null)
+    void StreakAdd(Vector3 from, Vector3 via, Vector3 to, float speed, Color? tint = null, bool bolt = false)
     {
-        _streaks[_streakNext] = new Streak { From = from, Via = via, To = to, Speed = speed, Start = _connectedFor, Live = true, Tint = tint };
+        _streaks[_streakNext] = new Streak { From = from, Via = via, To = to, Speed = speed, Start = _connectedFor, Live = true, Tint = tint, Tail = bolt ? PlasmaBolt.SafeTail : 2.5f, Width = bolt ? PlasmaBolt.SafeWidthScale : 1f, Bolt = bolt };
         _streakNext = (_streakNext + 1) % _streaks.Length;
         _fallbackStreaks++;
     }
@@ -294,12 +296,14 @@ public partial class NetworkView
             if (!s.Live) continue;
             float legA = s.From.DistanceTo(s.Via), legB = s.Via.DistanceTo(s.To);
             float head = s.Speed * (float)(_connectedFor - s.Start);
-            const float tail = 2.5f;
+            float tail = s.Tail > 0f ? s.Tail : 2.5f;
+            _streakWidth = s.Width > 0f ? s.Width : 1f;
             // Gone once its tail has left the path, but never before it has been drawn once (a leg crossed in a few milliseconds is shown whole in the first frame).
             // wfx (owner's item 27, ours): the muzzle leg stays in the world as a fading line for MuzzleLegGlowSeconds after the head has crossed it, so that the tracer is seen to start at the barrel
             // (before: the leg was crossed in a few milliseconds and the tracer effect, which starts at the join point 3 m out, looked as if it left the air in front of the gun).
             if (s.Shown && head - tail > legA + legB)
             {
+                if (s.Bolt) { s.Live = false; continue; }   // fx/plasma-tracers-safe-mode: the bolt leaves no glow behind
                 float since = (head - tail - legA - legB) / MathF.Max(1f, s.Speed);
                 float glow = OldMuzzleLeg ? 0f : 1f - since / MuzzleLegGlowSeconds;
                 if (glow <= 0f || _connectedFor - s.Start > 2.0) { s.Live = false; continue; }
@@ -327,6 +331,7 @@ public partial class NetworkView
             if (r.HasJoin) { Ribbon(camera, r.Muzzle, r.Join, 0.03f, orange, orange); Ribbon(camera, r.Join, r.End, 0.03f, orange, orange); }
             else Ribbon(camera, r.Muzzle, r.End, 0.03f, orange, orange);
         }
+        _streakWidth = 1f;
         if (_bulletSurfaceOpen) _bulletMesh.SurfaceEnd();   // an empty surface is an engine error (a frame where every live streak was skipped)
         _bulletSurfaceOpen = false;
     }

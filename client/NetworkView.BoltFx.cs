@@ -17,6 +17,9 @@ public partial class NetworkView
     /// <summary>Full widths in metres of a streak's soft glow and its hot core (ours).</summary>
     const float StreakGlowWidth = 0.16f, StreakCoreWidth = 0.022f;
 
+    /// <summary>The width share of the streak being drawn (the plasma bolt's pooled streak in safe mode is thinner).</summary>
+    float _streakWidth = 1f;
+
     /// <summary><c>--old-bolt-fx</c> (before / after aid): the hard flat streak ribbons and the armour hit as it was.</summary>
     bool OldBoltFx => _oldBoltFx ??= CmdFlag("old-bolt-fx");
     bool? _oldBoltFx;
@@ -39,12 +42,12 @@ public partial class NetworkView
         Color Clear(Color c) => new(c.R, c.G, c.B, 0f);
         Color Glow(Color c) => new(c.R, c.G, c.B, c.A * 0.55f);
         Color Hot(Color c) => new(c.R + (1f - c.R) * 0.6f, c.G + (1f - c.G) * 0.6f, c.B + (1f - c.B) * 0.6f, c.A);
-        var g = side * (StreakGlowWidth * 0.5f);
+        var g = side * (StreakGlowWidth * _streakWidth * 0.5f);
         V(a - g, Clear(tail)); V(a, Glow(tail)); V(b, Glow(head));
         V(a - g, Clear(tail)); V(b, Glow(head)); V(b - g, Clear(head));
         V(a, Glow(tail)); V(a + g, Clear(tail)); V(b + g, Clear(head));
         V(a, Glow(tail)); V(b + g, Clear(head)); V(b, Glow(head));
-        var c0 = side * (StreakCoreWidth * 0.5f);
+        var c0 = side * (StreakCoreWidth * _streakWidth * 0.5f);
         V(a - c0, Clear(Hot(tail))); V(a, Hot(tail)); V(b, Hot(head));
         V(a - c0, Clear(Hot(tail))); V(b, Hot(head)); V(b - c0, Clear(Hot(head)));
         V(a, Hot(tail)); V(a + c0, Clear(Hot(tail))); V(b + c0, Clear(Hot(head)));

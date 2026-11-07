@@ -78,6 +78,17 @@ public class TracerRulesTests
     }
 
     [Fact]
+    public void BothPlasmaBoltsGetThePooledStreakInSafeModeOnlyAndItMatchesTheBoltsSize()
+    {
+        foreach (var wargear in new[] { "sm_mp_ranged_plasma_gun", "sm_mp_pistol_plasma_pistol", "csm_mp_ranged_plasma_gun", "csm_mp_pistol_plasma_pistol" })
+            Assert.True(PlasmaBolt.IsBoltWeapon(wargear));
+        Assert.True(PlasmaBolt.UsesPooledStreak(true));
+        Assert.False(PlasmaBolt.UsesPooledStreak(false));
+        Assert.Equal(1.8f, PlasmaBolt.SafeTail, 3);
+        Assert.Equal(0.09f, PlasmaBolt.SafeWidthScale * 0.16f, 4);
+    }
+
+    [Fact]
     public void ThePlasmaBoltIsBlueForTheLoyalistsPurpleForChaosAndThinnerThanTheChargedBall()
     {
         var (r, g, b) = PlasmaBolt.Colour("sm_mp_ranged_plasma_gun");
