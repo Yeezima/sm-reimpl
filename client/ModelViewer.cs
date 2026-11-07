@@ -221,7 +221,7 @@ public partial class ModelViewer : Node3D
                     var all = given.Concat(worn).Where(n => n.Trim().Length > 0).Select(n => n.Trim());
                     var weaponAssets = WeaponAssets.Load(gameDir, character.Assets!, all, weaponNotes);
                     var rig = new WeaponRig(character.Skeleton!, weaponAssets);
-                    rig.Configure((0, 0, 0, "viewer", null), Given(0), Given(1), Given(2), worn, worn.Length > 0);
+                    rig.Configure((0, 0, 0, "viewer", null), Given(0), Given(1), Given(2), worn, worn.Length > 0, second: Given(3));   // --weapons primary,pistol,melee,second (the fourth: Weapon Versatility's second primary; with --hand melee the selected primary hangs on the left thigh)
                     string hand = args.GetValueOrDefault("hand") ?? "primary";
                     rig.Update(hand == "pistol" ? SmSim.WeaponSlot.Pistol : SmSim.WeaponSlot.Ranged, hand == "melee", true, 0f, 0.6f);
                     character.Weapons = rig;

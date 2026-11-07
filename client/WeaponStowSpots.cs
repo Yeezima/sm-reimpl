@@ -92,4 +92,15 @@ public static class WeaponStowSpots
         if (Old || attachment.Stow is not { Bone: not null } stow || !ByModel.TryGetValue(attachment.VisualName, out var spot)) return attachment.Stow;
         return stow with { BodyNode = spot.Label, Bone = spot.Bone, BodyLocal = spot.BodyLocal, ModelAxes = false };
     }
+
+    /// <summary>
+    /// fix/versatility-knife-stow (**ours**, spec "Weapon Versatility's primary on the thigh during melee"): where the selected primary hangs on the left thigh while a melee strike is shown.
+    /// The thigh bone's frame (<c>RIG_L_Thigh</c>, checked in the rest pose): X down the leg, Y forward, Z toward the marine's right (so -Z is the outside of his left leg). The handle is
+    /// 0.20 m down the thigh and 0.15 m out, the barrel (+Z of the handle node) down along the leg, the gun's top turned out.
+    /// </summary>
+    static readonly Spot Thigh = new("RIG_L_Thigh", new Num.Vector3(0.20f, 0.02f, -0.15f), new Num.Vector3(1f, 0f, 0f), new Num.Vector3(0f, 0f, -1f), "ours:left thigh, barrel down");
+
+    /// <summary>The stow mount for the thigh holster, from the attachment's data stow (its scale kept); null without a stow mount.</summary>
+    public static WeaponMount? ForThigh(WeaponAttachment attachment) =>
+        attachment.Stow is not { Bone: not null } stow ? null : stow with { BodyNode = Thigh.Label, Bone = Thigh.Bone, BodyLocal = Thigh.BodyLocal, ModelAxes = false };
 }

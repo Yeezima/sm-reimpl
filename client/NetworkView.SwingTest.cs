@@ -90,6 +90,7 @@ public partial class NetworkView
             _swingShotSet++; _swingCycleStart = double.NaN; _swingShotArmedAt = _swingLastStrike; return;
         }
         if (_swingShotLast > double.NegativeInfinity && since - _swingShotLast < SwingShotEvery - 1e-6) return;
+        foreach (var p in all) if (p.Alive) { GD.Print($"SWINGFRAME {(int)Math.Round(since * 1000)} ms: P{p.PlayerId} step {p.MeleeStep} heavy {p.MeleeHeavy} time {p.MeleeTime:F2}"); break; }   // which strike each frame shows (fix/versatility-knife-stow)
         _swingFrames.Add(((int)Math.Round(since * 1000), GetViewport().GetTexture().GetImage()));
         _swingShotLast = since;
     }

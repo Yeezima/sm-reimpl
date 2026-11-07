@@ -55,3 +55,22 @@ public static class BackWeapon
         return gun == WeaponSlot.Second ? HandRole.Second : HandRole.Primary;
     }
 }
+
+/// <summary>
+/// fix/versatility-knife-stow (owner, 2026-11-07: "with weapon versatility, the primary weapon should probably be holstered on top left of the left leg, pointing down, during all
+/// knife and stun strike animations instead of on the chest"). Engine-free so it is tested. No Space Marine weapon is flagged two-handed, so a melee strike left the selected primary
+/// "in hand" on the chest prop, which the strike's clip throws about (it flew through the air). **Ours**: a Tactical that carries Weapon Versatility holsters the selected primary
+/// on the left thigh for as long as a melee strike is shown; without the perk nothing changes.
+/// </summary>
+public static class MeleeHolster
+{
+    /// <summary>True when the item (a primary role) is the selected one and goes to the left thigh for the strike.</summary>
+    /// <param name="role">The item's role.</param>
+    /// <param name="shown">The ranged slot in hand (after the switch delay).</param>
+    /// <param name="hasSecond">The character carries Weapon Versatility's second primary.</param>
+    /// <param name="meleeOut">A melee strike is shown.</param>
+    /// <param name="away">Both guns are already away (between a switch's release and take, or a stim).</param>
+    public static bool OnThigh(HandRole role, WeaponSlot shown, bool hasSecond, bool meleeOut, bool away) =>
+        hasSecond && meleeOut && !away
+        && ((role == HandRole.Primary && shown == WeaponSlot.Ranged) || (role == HandRole.Second && shown == WeaponSlot.Second));
+}

@@ -104,8 +104,12 @@ public partial class NetworkView
         if (!rig.Faulted) ReloadSyncSafe(character, rig, state, ReferenceEquals(character, _local), delta);   // M35 (NetworkView.Reload.cs)
     }
 
-    /// <summary>fix/stim-knife-visuals (ours): below this upper-body weight a handed-over strike no longer shows its melee weapon in the hand.</summary>
-    const float MeleeVisibleWeight = 0.25f;
+    /// <summary>
+    /// fix/stim-knife-visuals (ours): below this upper-body weight a handed-over strike no longer shows its melee weapon in the hand. fix/versatility-knife-stow (owner, 2026-11-07: the knife
+    /// "points straight up in front of the chest" when a light combo ends): 0.25 let the knife ride the exit's blend to the rifle-posed arm for most of its 0.333 s; now it leaves the hand as
+    /// the exit starts (the knife is hidden when stowed, as the data's <c>hide_on_stow</c>).
+    /// </summary>
+    const float MeleeVisibleWeight = 0.85f;
     int _weaponFaults;
     readonly Dictionary<int, Color> _packLogged = new();   // per player: the pack colour last logged (--bot / --look-log)
 
