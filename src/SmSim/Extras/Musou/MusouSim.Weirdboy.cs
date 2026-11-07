@@ -118,7 +118,7 @@ public sealed partial class MusouSim
             int j = near[k] - 1;
             var type = _type[j];
             if (j == i || !Ork(type) || type is MusouEnemyType.Warboss or MusouEnemyType.Weirdboy || MusouBossOrks.Is(type)) continue;
-            if (_state[j] is MusouEnemyState.Knocked or MusouEnemyState.Spawning) continue;
+            if (_state[j] is MusouEnemyState.Knocked or MusouEnemyState.Spawning or MusouEnemyState.Airborne) continue;
             var away = new Vector2(_position[j].X - _position[i].X, _position[j].Y - _position[i].Y);
             away = away.LengthSquared() > 1e-6f ? Vector2.Normalize(away) : Forward(_yaw[j] + MathF.PI);
             if (War is null) { Stagger(near[k], away, MusouWeirdboy.BreakKnockback); continue; }

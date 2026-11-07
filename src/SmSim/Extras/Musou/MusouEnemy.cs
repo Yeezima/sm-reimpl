@@ -60,6 +60,11 @@ public enum MusouEnemyState : byte
     Casting = 9,
     /// <summary>The Weirdboy teleports away: he stands fading, then appears elsewhere (in <see cref="Spawning"/>).</summary>
     Vanishing = 10,
+    // 11 and 12 left free (expansion S2 and S4 may need states of their own).
+    /// <summary>Expansion S3: a Stormboy in a jump-pack hop (<see cref="MusouStormboy"/>): his position follows the arc (the z on the wire is the arc's), nothing he does until he lands.</summary>
+    Airborne = 13,
+    /// <summary>Expansion S3: the Big Shoota Nob's gun overheated or jammed after a burst (<see cref="MusouBigShoota"/>): venting steam, not firing.</summary>
+    Overheated = 14,
 }
 
 /// <summary>

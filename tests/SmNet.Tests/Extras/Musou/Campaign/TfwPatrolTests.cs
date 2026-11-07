@@ -130,23 +130,7 @@ public class TfwPatrolTests(Xunit.Abstractions.ITestOutputHelper output)
         Assert.True(Vector2.Distance(new(again.Head.X, again.Head.Y), new(source.X, source.Y)) < 25f, $"formed again {again.Head} far from its source {source}");
     }
 
-    [Fact]
-    public void A_hunter_column_finds_a_far_player_round_the_wall()
-    {
-        var sim = Field();
-        var battle = Battle(sim);
-        uint tick = 0;
-        var player = new Vector3(225f, 150f, 0f);   // beyond the wall from the hunters' sources (0 at x 66; 2 at x 184 is on the player's side)
-        Run(sim, battle, 30, ref tick, player);
-        var hunter = battle.Columns().First(c => c.Hunter && c.Ids.Length > 0 && sim.TryGet(c.Ids[0], out var e) && e.Position.X < 120f);
-        var woke = new List<int>();
-        battle.OnColumnWoke = (index, _, _) => woke.Add(index);
-        float start = Vector2.Distance(new(hunter.Head.X, hunter.Head.Y), new(player.X, player.Y));
-        int seconds = 0;
-        for (; seconds < 90 && !woke.Contains(hunter.Index); seconds++) Run(sim, battle, 30, ref tick, player);
-        Assert.True(woke.Contains(hunter.Index), $"the hunter column {hunter.Index} never reached the player ({start:F0} m away at the start)");
-        Assert.True(seconds * TfwPatrolRules.HunterSpeed > start - TfwPatrolRules.Aggro - 10f, "it went the long way round, as a walker must");
-    }
+    // Expansion S3 (2026-11-07): the hunter columns are gone (TfwPatrolRules.Hunters 0), replaced by the Stormboy squads; their hunt is tested in MusouExpansionS3Tests.
 
     [Fact]
     public void The_columns_come_out_of_the_crowds_cap_so_the_map_holds_no_more_orks()

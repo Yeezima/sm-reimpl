@@ -15,7 +15,7 @@ public sealed partial class MusouSim
     /// The Musou version: its simulation rules and its wire sections (<c>MusouWire.Version</c> is this). Hashed into the config only under
     /// <see cref="ContentExtras.Musou"/> (<c>SimConfig.Extras.cs</c>); raise it for any Musou-only change (never <see cref="ContentExtras.WireVersion"/>).
     /// </summary>
-    public const uint Version = 13;   // 13: expansion S1 (the entity record's type a full byte, 11 bytes; types 12 to 16 BombSquig to ScrapMek, not yet spawned; target preference by kind and the Ork blast in Tfw battles; MusouTargetRules); 12: the Weirdboy (type 11, the states Stunned, Casting and Vanishing; his shield, bolts, teleport and summons; MusouSim.Weirdboy.cs); 11: the Warboss 1.5x (BossScale 4.5), his reach, slam, charge path and the players' ring with him (late batch 2026-11-06); 8: the melee heal per enemy struck (owner 2026-11-06); 2: MU3's combat and the Warboss's abilities; 3: the Nobs' weapon drops (wire tag 6); 4: Chaos Marines drop too; 5: Musou Mode (TfwRules.Version in the same hash block, phase 6, command kind 17); 6: the crowd's rules, MusouSim.Swarm (a war's alone: the 5-wave run is unchanged); 7: a pool of 1024 (the wire takes ids up to it); 9: a pool of 2048 (the owner's third doubling, 2026-11-06); 10: the Boss Orks' four kinds (types 7 to 10 on the wire) and the Warboss's 15000 health and 1.5x damage (owner, 2026-11-06)
+    public const uint Version = 14;   // 14: expansion S3 (the states Airborne and Overheated; the Stormboy's hop, orders, landing shove and crash; the Big Shoota Nob's burst and overheat; MusouStormboy, MusouBigShoota); 13: expansion S1 (the entity record's type a full byte, 11 bytes; types 12 to 16 BombSquig to ScrapMek, not yet spawned; target preference by kind and the Ork blast in Tfw battles; MusouTargetRules); 12: the Weirdboy (type 11, the states Stunned, Casting and Vanishing; his shield, bolts, teleport and summons; MusouSim.Weirdboy.cs); 11: the Warboss 1.5x (BossScale 4.5), his reach, slam, charge path and the players' ring with him (late batch 2026-11-06); 8: the melee heal per enemy struck (owner 2026-11-06); 2: MU3's combat and the Warboss's abilities; 3: the Nobs' weapon drops (wire tag 6); 4: Chaos Marines drop too; 5: Musou Mode (TfwRules.Version in the same hash block, phase 6, command kind 17); 6: the crowd's rules, MusouSim.Swarm (a war's alone: the 5-wave run is unchanged); 7: a pool of 1024 (the wire takes ids up to it); 9: a pool of 2048 (the owner's third doubling, 2026-11-06); 10: the Boss Orks' four kinds (types 7 to 10 on the wire) and the Warboss's 15000 health and 1.5x damage (owner, 2026-11-06)
     /// <summary>The pool's slots (design: 512; 1024 since the owner's "double the amount of orks" of 2026-11-03, 2048 since his "double the amount of orks on the map again" of 2026-11-06, for Musou Mode's battle; the hard cap of enemies alive is lower).</summary>
     public const int Capacity = 2048;
     /// <summary>The most events one tick keeps (ours; more are dropped and counted in <see cref="EventsDropped"/>).</summary>
@@ -168,11 +168,13 @@ public sealed partial class MusouSim
         AddEvent(new MusouEvent(MusouEventKind.Hit, Tick, id, (ushort)Math.Clamp(attacker, 0, ushort.MaxValue), marker, _position[i]));
         if (_health[i] > 0f) return true;
         killed = true;
+        bool airborne = _state[i] == MusouEnemyState.Airborne;
         _state[i] = MusouEnemyState.Dying; _stateTicks[i] = 0; _velocity[i] = Vector2.Zero; _token[i] = 0;
         Alive--;
         _kills.Add(new MusouKill(id, _type[i], attacker, cause));
         float length = push.Length();
         AddEvent(new MusouEvent(MusouEventKind.Death, Tick, id, (ushort)Math.Clamp(attacker, 0, ushort.MaxValue), (byte)cause, length > 1f ? push / length : push));
+        if (airborne) BeginFall(i, attacker);   // shot down: he falls and crashes (MusouSim.Stormboy.cs)
         if (_type[i] == MusouEnemyType.Weirdboy && cause != MusouDeathKind.World) PsychicBurst(i, attacker);   // his death's burst (MusouSim.Weirdboy.cs); the failsafe's removal is silent
         return true;
     }
@@ -184,6 +186,7 @@ public sealed partial class MusouSim
         if (i < 0 || i >= Capacity || !_used[i]) return false;
         if (_state[i] != MusouEnemyState.Dying) Alive--;
         _used[i] = false;
+        _falling[i] = false;
         Count--;
         _free.Enqueue(i);
         return true;

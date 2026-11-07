@@ -28,7 +28,8 @@ public readonly record struct MusouGunShot(ushort Enemy, uint Tick, float Distan
 public static class MusouOrkGunRules
 {
     /// <summary>The ranged Orks and their guns (the Chaos Marine's bolter is not an Ork weapon: not drawn here).</summary>
-    public static readonly IReadOnlyList<MusouGun> Guns = [new(MusouEnemyType.ShootaBoy, OrkWeaponMounts.Shoota)];
+    public static readonly IReadOnlyList<MusouGun> Guns = [new(MusouEnemyType.ShootaBoy, OrkWeaponMounts.Shoota),
+        new(MusouEnemyType.BigShootaNob, OrkWeaponMounts.Shoota)];   // expansion S3: PLACEHOLDER, the Big Shoota Nob fires with the Shoota's model and effects (his own big shoota wargear not yet read)
 
     /// <summary>The gun a type carries, or null.</summary>
     public static string? WargearOf(MusouEnemyType type)

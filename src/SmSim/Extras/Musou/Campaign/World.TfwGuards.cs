@@ -39,6 +39,7 @@ public sealed partial class World
         _musouAttacks.Clear();
         musou.Step(_musouTargets.AsSpan(0, n), Collision, playing, _musouAttacks);
         foreach (var attack in _musouAttacks) MusouHit(attack);
+        MusouStormboyCrashes();   // World.MusouStormboy.cs: shot-down Stormboys that struck the ground (expansion S3)
         if (playing) TfwShoves();   // World.TfwMelee.cs
         guards.Step(playing);
         TfwCreditKills();

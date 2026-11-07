@@ -19,7 +19,8 @@ still exists but is no longer a required check (owner, 2026-11-07). Contract: `d
 - **In:** PvP (Annihilation, Seize Ground; Space Marines vs Chaos, up to 8v8) and Exterminatus (co-op waves, deferred), plus
   what they need: MP maps, classes, wargear, weapons, armour customization and paint, front-end flow. Added content as above.
 - **Out:** the singleplayer campaign. Touch singleplayer content only when multiplayer depends on it, and note the dependency
-  (Musou's Warboss uses campaign `warboss_regular` + `cinematic_warboss`; docs/discovery.md "Warboss model").
+  (Musou's Warboss uses campaign `warboss_regular` + `cinematic_warboss`; docs/discovery.md "Warboss model"; Musou's Stormboy
+  uses campaign `boy_stormboy` + `havok_stormboy` from `ebp_sets__s002-001`, docs/discovery.md "Exterminatus Ork roster").
 - Content map: PvP = `data/chunks/mp_*`, `ebp_sets__mp_versus_set`, `wargear__mp_sm`/`wargear__mp_csm`, `data/packages/*_mp_*`;
   Exterminatus = `cp_maps__*`/`cp_map_*`, `ebp_sets__mp_coop_*`; shared = `player_set`, packages `sm_*`/`csm_*`.
 - Current alpha: Classic PvP on Manufactorum (`mp_tdm_09`) and Musou Mode on Ashfall. No progression: everyone has all
