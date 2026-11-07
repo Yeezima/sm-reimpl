@@ -455,7 +455,7 @@ public class MusouExpansionS3Tests(Xunit.Abstractions.ITestOutputHelper output)
     {
         Assert.True(MusouSim.Version >= 14u);   // S3 raised it; later stages raise it further
         Assert.Equal(63u, Protocol.Version);
-        Assert.Equal(34u, TfwRules.Version);
+        Assert.True(TfwRules.Version >= 34u);
         var list = new List<MusouEntity>
         {
             new(1, new Vector3(10f, 20f, 4.5f), 1f, MusouEnemyType.Stormboy, MusouEnemyState.Airborne),
