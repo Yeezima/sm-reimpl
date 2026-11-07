@@ -118,6 +118,92 @@ whole map. Death → all his contraptions are destroyed.
   hysteresis (enter 90 m, leave 120 m) and a per-tick cap so no frame spawns or kills hundreds at once. Deaths queue
   for the client's death spread (no single-frame gore spike); authoritative damage is never dropped.
 
+## S6 design: the battle flow (2026-11-08)
+Everything below is Musou Mode only and **ours / estimate** unless the brief gives the number; values live in
+`TfwArmyRules`, `TfwClashRules`, `DefenderRules` (sim) and `WaaaghBarkRules` (client planner, engine-free in SmNet).
+What stays as it was: the crowds, the trickle, the musters, the patrols, the Stormboys (S3 orders kept), the Big
+Shoota squads, the Boss Orks, the Weirdboyz, the field squads (`StepSquads`), the artillery, the 5-wave run and the
+skirmish. The flow is **added** beside them and can be switched off per battle (`TfwBattle.Armies`, tests).
+
+**Armies (the far layer).** `TfwArmy` (new `TfwArmy.cs`) is one formation: side (Ork / Guard), order (Muster, March,
+Attack, Hold, Retreat, Rally), goal, a track (the walking graph's way, searched off the tick at the battle's start for
+every pair of the battle's places, taken at a fixed tick so a battle is deterministic), its place along it, a centre
+and facing, its **count** (aggregate part + real members), its start (losses are counted from it), elites, cohesion and
+its timers. Members are real units: Orks of `MusouSim` leashed under the army's own group and walked by a moving home
+(the patrols' `MoveHome`), Guard squads of `GuardSim` ordered to the army's goal. `TfwBattle.Armies.cs` steps them.
+- **Levels.** An army is *near* while any human (each co-op player, never an AI Marine) is within 90 m of its
+  footprint (centre distance less its footprint radius), *far* again past 120 m (hysteresis). Near: its aggregate part
+  becomes real units, slot by slot, at most `PromotePerTick` Orks and `PromoteSquadsPerTick` squads a tick over all
+  armies; far: its real members fold back in, at most `DemotePerTick` a tick. Count, elites, health share, goal and
+  timers belong to the army, so nothing is lost or gained across levels.
+- **No popping.** Slots are one shared layout (`TfwArmyLayout`, SmSim, used by the server and the client): rows of
+  `Width(count)` abreast behind the centre along the facing. The client draws an army's aggregate part as cheap crowd
+  impostors in exactly those slots (Orks through `MusouCrowd`'s vertex-animation tier, Guardsmen through `GuardCrowd`),
+  a promotion spawns the real unit in its slot (the impostor of that slot stops), a demotion removes it (its slot's
+  impostor appears). A dropping far count becomes bodies at the slots that went (rate-limited, the death spread's way).
+- **Pools.** The Ork pool grows 2048 → 2560; every existing spawner keeps its old limit (`TfwBattleRules.CrowdPool`
+  2048 less the reserve), so only armies use the new 512 slots, at most `NearOrksMost` 480 real army Orks. GuardSim
+  grows 24 → 40 squads (wire capacity 256 → 400); armies own at most 28 of them, the field squads keep theirs.
+- **Wire.** Tag 18 (`TfwWire.ArmiesTag`; 17 is left to S4's Meks), boxless like tag 11, 2 Hz and on change, every
+  army in one section: `[u8 n]` then 16-byte records `[u8 id][u8 side|order|leader][u16 count][u16 far][u16 elites]
+  [i16 x][i16 y][i16 z]` (decimetres) `[u8 yaw][u8 cohesion]`. 40 armies = 641 bytes, about 1.3 KB/s a client.
+  No core protocol bump; `TfwRules.Version` and `MusouSim.Version` rise.
+
+**Clash resolution (`TfwClash`, pure).** Lanchester square law with cohesion, stepped at 2 Hz between the aggregate
+parts of the armies that meet (at a point, or within `ClashRadius` of each other): each side's losses per step are the
+other side's `count × FirePerSecond × (CohesionFloor + (1 − CohesionFloor) × cohesion) × dt` with a seeded ±noise;
+cohesion falls by `LossShock × (losses / start)` and by `EdgeShock × max(0, enemy / self − 1) × dt`, and recovers
+slowly out of a clash; a side routs when cohesion reaches `RoutCohesion` or its losses reach `RoutLoss`. A side is
+symmetric (one Ork in the aggregate is worth one Guardsman, so 200 v 200 is even, the brief's sizes). Real units fight
+for real; the aggregate fire of one army only falls on the aggregate part of the other (no real unit dies to a number).
+Monte Carlo test (1,000 seeds, 200 v 200, 500 v 500, 1,000 v 1,000): win rate 45-55 %, the winner keeps ≥ 25 %,
+the loser routs before it is wiped out.
+
+**Waves.** A stronghold is an Ork-held position (Held) or the HQ's source. The next wave musters (an army in Muster,
+growing in the aggregate) at the Ork stronghold farthest from every human and departs at its peak: departures are
+`PeakMin`-`PeakMax` (180-300 s) apart, the first after a lull of `LullMin`-`LullMax` (90-150 s); between peaks the
+field is quiet for at least a lull. Size by seeded dice: 200 (70 %), 500 (25 %), 1,000-1,200 (5 %), plus the survivors
+who came home since (they join it). Elites by the run's elite share. On departure the destination is the
+Imperial-held position farthest from every human (random between the two farthest) and is **committed**: players moving
+never changes it; only its loss redirects it (then the nearest other Imperial position; none: the wave goes home). With
+no Imperial position the muster waits (re-checked every 5 s), so the opening is as before. No UI names the destination.
+The army fans out along its way (rows widen with its count). At the point it attacks: real members are let loose as
+one pack, the aggregate clashes with the garrison; the point's retake counts the aggregate Orks and Guardsmen exactly as
+real ones (`StepPosition`), so a point falls in the same 20 s either way.
+
+**Guardsmen.** Every 60 s a reinforcement leaves the base (the landing zone): `ReinforceMen` (60) plus the men who came
+home, split over the Imperial positions by need (200 less stationed and inbound), in whole squads. A garrison (Hold) is
+capped at 200 per position; an army arriving merges up to the cap and the rest goes on to the position most short, else
+home: moving, reinforcing or retreating armies may exceed the cap while they move. A destination lost in transit →
+another Imperial position (nearest), else the base. With no Imperial position nothing leaves (the field squads hold the
+landing zone as before).
+
+**Retreats and rallies.** Orks: losses ≥ 50 % of the army's start and no elite or boss within 100 m (its own elites
+count, real ones of any army nearby too): it routs home to the nearest Ork stronghold and its survivors join the next
+wave there. Killing its leaders therefore breaks a charge once the losses are met. Guardsmen: losses > 50 % of the
+army's start (a garrison's start is its highest count since it was last full, rallied or reinforced) or its position
+falls: home to the base, survivors join the next reinforcement. A human within 15 m of a retreating Guard army (its
+footprint) rallies it, at most once per army per 60 s; it turns back to its position if still Imperial or to a nearer
+Imperial position (else on home), its start resets to its count, and for 30 s it cannot retreat. A rallied army whose
+goal falls is redirected like any other. Loops are closed by the 60 s rally lock, the 30 s no-retreat window and the
+reset start (a new retreat needs half of what it has now to die).
+
+**Six AI Marines (`MarineRole.Defender`).** Puppet ids widen to 12 (`PuppetIdFirst` 65516; `PointTargetId` keeps its
+values). At the landing up to six Defenders come after the retainers and lords: `DefendersFor(lords) = min(6, 12 − 4
+humans' retainers − 2 × lords)`, so the World never passes 16 players (node battle: 6; final assault with three lords: 2).
+Each acts alone (no orders, no owner): it holds the Imperial position the Orks press hardest (an army attacking or
+marching on it first, then the Orks near it), else the landing zone; it never adds capture progress. Dead, it respawns
+at the landing zone 30 s later. The retainers are unchanged.
+
+**Waaagh! barks (client).** `WaaaghBarkPlanner` (SmNet, engine-free, tested): Ork armies in Attack shout in bursts,
+each army 4-8 s apart, nearest armies first, at most 3 Waaagh! voices at once, rotating over the Boy, 'Ard Boy and Nob
+roar and taunt lines so two bursts in a row never repeat a voice; posted through `MusouSoundBudget` (a new Waaagh
+group with a long range) at the army's front.
+
+**Profiling.** `ArmyProfileTests` (Slow trait, bounded, off unless `SM_ARMY_PROFILE=1`): a World with a human at a
+point, 200 v 200, 500 v 500 and 1,000 v 1,000 clashing there, 90 s each, server tick mean / p99 / max and the ticks of
+the promotion and of the mass deaths.
+
 ## Verification plan
 Unit/sim tests per stage (targeting, committed destination, blasts and the trap exception, Squig kick/fuse/chain,
 Stormboy crash vs landing, Mek limits and cleanup, Librarian stress ratios, garrison cap, retreat and rally loops,
