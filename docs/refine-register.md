@@ -32,6 +32,7 @@ Scanned 2436 spec table rows: **1778 tagged**, 473 not tagged (read from data wi
 Scanned 2448 spec table rows: **1788 tagged**, 475 not tagged (read from data with high confidence), 185 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 548 rows of the changes document.
 Scanned 2448 spec table rows: **1778 tagged**, 473 not tagged (read from data with high confidence), 197 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 546 rows of the changes document.
 Scanned 2450 spec table rows: **1789 tagged**, 474 not tagged (read from data with high confidence), 187 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 554 rows of the changes document.
+Scanned 2437 spec table rows: **1779 tagged**, 473 not tagged (read from data with high confidence), 185 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 546 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -39,6 +40,8 @@ Scanned 2450 spec table rows: **1789 tagged**, 474 not tagged (read from data wi
 | Combat core (critical) | 12 | 3 | 12 | 10 | 9 |
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
 | Melee (critical) | 111 | 96 | 88 | 36 | 5 |
+| Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
+| Melee (critical) | 109 | 95 | 86 | 35 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -61,6 +64,7 @@ Scanned 2450 spec table rows: **1789 tagged**, 474 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 173 | 164 | 80 | 50 | 0 |
 | **All areas** | **1789** | 1549 | 1366 | 560 | 38 |
+| **All areas** | **1779** | 1539 | 1357 | 558 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -78,6 +82,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: ours | 351 |
 | confidence: none (low) | 128 |
 | kind: estimate | 119 |
+| kind: ours | 894 |
+| confidence: low | 648 |
+| confidence: medium | 580 |
+| kind: interpretation | 357 |
+| notes: ours | 349 |
+| confidence: none (low) | 129 |
+| kind: estimate | 117 |
 | kind: provisional | 99 |
 | notes: estimate | 96 |
 | kind: user's knowledge | 55 |
@@ -746,7 +757,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-7E5B7D7F` | Musou: the Weirdboy's shield | **300** points; a shot or a strafe's round does nothing to it (a hit marker and the `weirdboy_shield_pulse`); melee, blasts and the barrage wear it down point for point; the hit that empties it breaks it and the rest of that hit is lost; health is open only… (points) | kind: ours; confidence: medium; notes: estimate | data: `armourshield_max` 1500, the `shield` action's `received_ranged_damage` x0; 300 ours (the data's 1500 is against co-op shield damage our Musou hits do… | Musou: the Weirdboy's shield: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 300 points; a shot or a strafe's round does nothing to it (a hit… | ☐ |
 
-### Weapons (gameplay-critical) (120)
+### Weapons (gameplay-critical) (121)
 
 *Spec section: Classes and default loadouts (M10, used by the simulation)*
 
@@ -854,6 +865,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-F49B5988` | Stow scale | chainswords 0.9, power axe and chain axe 0.85, power swords and combat knives 0.8, others 1; applied uniformly about the handle node (factor) | kind: interpretation; confidence: medium | `stow_info/scale` | Stow scale: compare with SM1 by feel or video. Ours: chainswords 0.9, power axe and chain axe 0.85, power swords and… | ☐ |
 | `R-F97C040A` | Stowed lascannon | both lascannon models (`lascannon_mp_basic`, `chaos_lascannon_mp`) are stowed upright behind the backpack instead of on `MKR_Stow_Bolter`: handle on `RIG_SpineD` at (0, −0.57, 0.15) (up, forward, left), barrel 20° from straight up toward the marine's right… (m, degrees) | kind: ours; confidence: none (low) | ours (tuned against screenshots) | Stowed lascannon: compare with SM1 with an overlaid screenshot taken from the same position. Ours: both lascannon models (lascannon_mp_basic, chaos_lascannon_mp) are… | ☐ |
+| `R-74661FE1` | Weapon Versatility's primary on the thigh during melee | while a melee strike is shown, a Tactical with Weapon Versatility holsters the selected primary (the slot in hand: the first or the second primary) on the outside of the left thigh, barrel down along the leg: handle on `RIG_L_Thigh` at (0.20 down the leg… (m, weight) | kind: ours; confidence: none (low) | ours (bone frame measured in the rest pose; the spot to be tuned against screenshots) | Weapon Versatility's primary on the thigh during melee: compare with SM1 by feel or video. Ours: while a melee strike is shown, a Tactical with Weapon Versatility… | ☐ |
 | `R-B1CEE447` | Power weapon hit flash | a hit with the thunder hammer, power sword, power axe or daemon maul plays the data's `thunderhammer_dmg_body` and `thunderhammer_dmg_body_secondary` at the contact point (x0.85) and our layered cloud (`power_flash_cloud`, x1.15, additive soft sprites, about… (scale, seconds) | kind: estimate; confidence: none (low); notes: ours | ours (sized by eye against the trailer; the effects are the hammer's own data) | Power weapon hit flash: compare with SM1 by feel or video. Ours: a hit with the thunder hammer, power sword, power axe or daemon maul… | ☐ |
 | `R-67181DEE` | Generated melee hit sounds (`--generated-melee-hit-sound`, off by default since sound/original-hits) | sound A (power axe, power sword), 0.5 s: sine falling from 150 to 62 Hz in about 30 ms, decay 0.15 s, second harmonic at 0.35, rumble low-passed at 420 Hz, decay 0.12 s; sound B (thunder hammer, daemon maul), 0.8 s: 120 to 46 Hz, decay 0.26 s, rumble at 300… (s, dB, Hz) | kind: estimate; confidence: none (low); notes: ours | ours (owner 2026-11-02: bassier, not late, slightly quieter) | Generated melee hit sounds (--generated-melee-hit-sound…: compare with SM1 by listening A/B at the same distance and state. Ours: sound A (power axe, power sword), 0.5 s: sine falling from 150 to 62… | ☐ |
 | `R-CDB1395C` | Melee hit sound selection | the sound event(s) of a melee hit are the ones the swing's ability names: per wargear file and ability, the `sfx/start_event_name` of each default `trigger_material_effect` container and the default `post_sound_event` (delay 0) under `primary_target_actions`… | confidence: medium | `wargear.oppc`, `material_effect_container.oppc` (`smtool melee-hit-sounds` on branch sound/original-melee-hits) | Melee hit sound selection: compare with SM1 by listening A/B at the same distance and state. Ours: the sound event(s) of a melee hit are the ones the swing's ability… | ☐ |
@@ -3688,6 +3700,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-A6BD3B61` | Devastator / Havoc stomp stays in place | the owner's decision (2026-10-31): no step forward, no lunge or burst, no coasting; fixes the slide from chaining the kick (click) and the stomp (F) | the body is held in place until the stomp's move-again branch; protocol 49 | "Stomp stays in place" | Devastator / Havoc stomp stays in place: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-5318F1D9` | Bolt tracer softness and armour-hit sparks (fx/bolt-tracer-impact, owner 2026-10-31) | Ours: the pooled bolt streaks are soft glow ribbons with a thin hot core (were flat hard ribbons); a hit on raised armour adds the data's `hit_ranged_armour_generic` sparks (two copies) on top of the weapon's own armour effect; client only, no protocol change; `--old-bolt-fx` restores both; `--old-bolt-tracer` still… | the owner's reference r6 shows thin streaks and a white-gold flash | the sizes and scales are estimates for a playtest | Bolt tracer softness and armour-hit sparks…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-4A7397B2` | Stowed lascannon hangs behind the backpack (visual/lascannon-stow, owner 2026-10-31) | Ours: the data's stow marker (lower back, barrel across to the right) lets the lascannon's 1.39 m barrel through the right forearm and leg, so the two lascannon models hang upright behind the Devastator's / Havoc's backpack on `RIG_SpineD`, the barrel 20 degrees from straight up toward the marine's right; the loyalist… | the data's `stow_info` marker for every weapon | "Stowed lascannon" | Stowed lascannon hangs behind the backpack…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-64125B52` | Weapon Versatility's primary hangs on the left thigh during melee; the knife leaves the hand as its exit starts (fix/versatility-knife-stow, owner 2026-11-07) | Ours: with the perk the selected primary hangs on the outside of the left thigh, barrel down, for the whole of a knife light combo or stun strike instead of riding the chest prop through the strike's clip (a spot fitted by eye on `RIG_L_Thigh`); the combat knife of a strike handed over to the legs is hidden once the… | the primary on the chest prop through the strike, the knife drawn to weight 0.25 | "Weapon Versatility's primary on the thigh during melee" | Weapon Versatility's primary hangs on the left thigh during…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-CC9ECC86` | Power weapons flash on a hit (fx/power-flash, owner 2026-11-01) | Ours (provisional approximation, to refine against the trailer): a melee hit with the thunder hammer, power sword, power axe or daemon maul plays the hammer's own `thunderhammer_dmg_body` and `_secondary` effects (original data) plus a layered soft cloud of the package's own sprites, bigger than a body; blue, the… | scale 0.6 to 1, tint (0.8, 0.1, 1.0), cap 1 + 5 per 0.6 s, close camera x0.22 inside 1.2 m | "Power weapon hit flash" | Power weapons flash on a hit (fx/power-flash, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-9A181A60` | Generated on-hit sounds for melee weapons (fx/melee-hit-sound, owner 2026-11-01 and 2026-11-02; test switch `--generated-melee-hit-sound` since sound/original-hits, 2026-11-04) | Not the default any more: the owner replaced them with the original's sounds (next row). With `--generated-melee-hit-sound` (ours, provisional) the original on-hit sounds of the power axe and power sword (sound A, 0.5 s) and of the thunder hammer and daemon maul (sound B, 0.8 s) are replaced by deep impacts generated… | A: 62 Hz note, 0.5 s; B: 46 Hz note, 0.8 s; volume x0.5 | "Generated melee hit sounds" | Generated on-hit sounds for melee weapons…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-B3C401DB` | Melee hit sounds are the original's (sound/original-hits, owner 2026-11-04) | A melee hit plays the data's own event for the swing's ability: the `sfx` event of the container (and the `post_sound_event`, e.g. the combat knife's `play_sm_fist_hit`) its `primary_target_actions` (first target) or `secondary_target_actions` (further targets of the same swing) name, at the moment the hit resolves; a… | the original posts the hit event at the hit, per target | "Melee hit sound selection and timing (sound/original-hits)" | Melee hit sounds are the original's (sound/original-hits…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
