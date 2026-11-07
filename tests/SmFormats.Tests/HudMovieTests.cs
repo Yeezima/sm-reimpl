@@ -269,6 +269,7 @@ public class HudMovieTests
         Assert.Equal(99, WeaponBoxRules.EmptyBarFrame(100));
         Assert.Equal(95, WeaponBoxRules.BarFrame(1f / 30f, 100));
         Assert.NotEqual(WeaponBoxRules.BarFrame(0f, 100), WeaponBoxRules.EmptyBarFrame(100));
+        Assert.True(WeaponBoxRules.UsesEmptyBarFrame("bolter")); Assert.False(WeaponBoxRules.UsesEmptyBarFrame("storm_bolter")); Assert.False(WeaponBoxRules.UsesEmptyBarFrame("melta"));
         // The stalker's ten rounds.
         Assert.True(WeaponBoxRules.RoundLoaded(4, 5, 10)); Assert.False(WeaponBoxRules.RoundLoaded(5, 5, 10));
         Assert.False(WeaponBoxRules.RoundLoaded(6, 6, 6) && false);

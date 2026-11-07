@@ -69,6 +69,10 @@ public static class WeaponBoxRules
     /// <summary>True when a clip display has no round loaded (a clip size known, none left).</summary>
     public static bool ClipEmpty(int clip, int clipMax) => clipMax > 0 && clip <= 0;
 
+    /// <summary>The clip strips whose last frame is checked in game as "every tick spent" (lead review, 2026-11-08: only the bolter strip was checked, which the bolter and the relic
+    /// bolter share; the storm bolter, bolt pistol, lascannon and melta strips keep <see cref="BarFrame"/> until their last frames are checked).</summary>
+    public static bool UsesEmptyBarFrame(string family) => family == "bolter";
+
     /// <summary>The grenade launcher display's round slots (<c>loadout_grenaderounddisplay_mc/round00</c> .. <c>round17</c>: the movie's eighteen, the launcher's clip 1 plus reserve 17).</summary>
     public const int LauncherSlots = 18;
 
