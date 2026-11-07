@@ -22,7 +22,7 @@ namespace SmClient;
 /// The list is by object definition name. <see cref="Always"/> names definitions used only by these stations (or, backpanel_c, as the
 /// same boards elsewhere). <see cref="Near"/> names definitions that also dress other things (the console stations' cabling and
 /// domes): they are removed only where they sit within <see cref="NearRadius"/> metres (horizontally) of a board or a <c>tech_interface_b</c> cabinet, so the monitor
-/// consoles keep their cabling. The console stations themselves (<c>tech_interface_*</c>, <c>tech_panel_pipe_e</c>) stay. <c>--old-armoury-racks</c>
+/// consoles keep their cabling. The console stations themselves (<c>tech_interface_*</c>, the monitors) stay; their <c>tech_panel_pipe_e</c> posts are removed (owner, 2026-11-07). <c>--old-armoury-racks</c>
 /// draws everything as before.
 /// </para>
 /// </summary>
@@ -36,6 +36,8 @@ public static class MapDecor
         "tech_panel_a", "tech_panel_b", "tech_panel_c",
         "tech_panel_pipe_a", "tech_panel_pipe_b", "tech_panel_pipe_c",
         "handle_bar_a", "accessories_doorbutton",
+        // owner 2026-11-07: the console stations' short posts (two glowing red-white dots, a red band, dash rows and thin cable lines), 49 placements, "e_adm_dressing".
+        "tech_panel_pipe_e",
     ];
     /// <summary>Object definitions removed only near a board (see the class remarks): the fittings' pipes and dome, and the seals and scrolls pinned on the boards.</summary>
     public static readonly string[] Near = ["tech_panel_pipe_g", "tech_panel_tank_a", "acc_seal_01", "acc_seal_02", "acc_seal_03", "acc_scroll_01", "acc_scroll_02"];
