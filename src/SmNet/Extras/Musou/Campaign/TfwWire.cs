@@ -47,6 +47,8 @@ public static class TfwWire
     public const byte WarTag = 7, ObjectivesTag = 8, GuardsTag = 9, GuardEventsTag = 10, FireTag = 11, ScoreTag = 12, BarsTag = 13, RewardTag = 14, ArsenalTag = 15;
     /// <summary>Tag 16, the Librarian's (<see cref="LibrarianWire"/>): stress, cooldowns, casts and lightning links.</summary>
     public const byte LibrarianTag = LibrarianWire.Tag;
+    /// <summary>Tag 18, the battle flow's armies (<see cref="TfwArmyWire"/>; expansion S6; 17 is left to S4).</summary>
+    public const byte ArmiesTag = TfwArmyWire.Tag;
     /// <summary>The tag of the war's commands in message kind 17 (another namespace than the envelope's: client to server).</summary>
     public const byte CommandTag = 7;
     /// <summary>Bytes of a command's payload, and of one with a place (at most <see cref="Protocol.MaxExtrasCommandPayload"/>).</summary>
@@ -71,7 +73,7 @@ public static class TfwWire
     /// <summary>Most Guard events in one section: (1191 - 1) / 15 = 79.</summary>
     public const int MaxGuardEvents = (Protocol.MaxExtrasPayloadBytes - 1) / GuardEventBytes;
     /// <summary>The highest Guardsman id (design section E's pool: ids are slot + 1).</summary>
-    public const int GuardCapacity = 256;
+    public const int GuardCapacity = 448;   // 256 until expansion S6 (GuardSim grew to 40 squads, 400 men; a whole number of 64-bit words for the reader)
 
     public const int FireBytes = 19, ScoreOwnBytes = 12, ScorePlayerBytes = 6, ScoreMapBytes = 11, BarBytes = 3, RewardCards = 3, RewardCardBytes = 3, RewardBytes = 2 + RewardCards * RewardCardBytes, ArsenalBytes = 8;
     /// <summary>Most fire records in one section: (1191 - 1) / 19 = 62.</summary>
@@ -83,7 +85,7 @@ public static class TfwWire
     const int ScoreHasOwn = 1, ScoreHasOthers = 2, ScoreHasHistory = 4;
 
     /// <summary>Whether an envelope tag is the war's (7 to 15).</summary>
-    public static bool Owns(byte tag) => tag is >= WarTag and <= LibrarianTag;
+    public static bool Owns(byte tag) => tag is >= WarTag and <= LibrarianTag or ArmiesTag;
 
     /// <summary>Whether sequence <paramref name="a"/> is after <paramref name="b"/>, across the 16-bit wrap.</summary>
     public static bool IsNewer(ushort a, ushort b) => (short)(a - b) > 0;
