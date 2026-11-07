@@ -53,7 +53,7 @@ public partial class NetworkView
             renderTick = demo.RenderTick;
         }
         var shown = _tfwState.Sample(renderTick, now);
-        if (!_musouNoDraw && _gameSpace is not null && (shown.Count > 0 || _guardLooks is not null))
+        if (!_musouNoDraw && _gameSpace is not null && (shown.Count > 0 || _guardLooks is not null || _tfwState.Armies.Count > 0))
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
             GuardsDraw(shown, (uint)renderTick, (float)delta);
@@ -131,7 +131,7 @@ public partial class NetworkView
         int played = 0;
         foreach (var e in _tfwState.NewEvents)
             if (e.Kind == TfwGuardEventKind.Shot) { if (played < GuardFxPerFrame && GuardShotFx(e, camera)) played++; }
-        _guardCrowd!.Frame(shown, tick, camera, delta);
+        _guardCrowd!.Frame(TfwArmyGuards(shown, camera, delta), tick, camera, delta);   // with the distant armies' impostors (NetworkView.TfwArmies.cs, expansion S6)
         GuardsLog();
     }
 

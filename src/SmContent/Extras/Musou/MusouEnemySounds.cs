@@ -3,7 +3,7 @@ using SmSim.Extras.Musou;
 namespace SmContent;
 
 /// <summary>The kinds of sound Musou's enemies make; each has a budget of its own (<see cref="MusouSoundRules"/>).</summary>
-public enum MusouSoundGroup : byte { Footstep, Grunt, Bark, Effort, Swing, MeleeHit, Gun, GunImpact, Hurt, Stun, Death, Bodyfall, Boss, Celebrate }
+public enum MusouSoundGroup : byte { Footstep, Grunt, Bark, Effort, Swing, MeleeHit, Gun, GunImpact, Hurt, Stun, Death, Bodyfall, Boss, Celebrate, Waaagh }
 
 /// <summary>Why a sound was or was not posted.</summary>
 public enum MusouSoundVerdict : byte { Post, TooFar, OverRate, VoiceCap, SpeechCap }
@@ -59,6 +59,7 @@ public static class MusouSoundRules
         new(20f, 5f, 3f),                 // Bodyfall
         new(80f, 20f, 8f),                // Boss: never held by the caps
         new(45f, 1f, 2f, Speech: true),   // Celebrate (25 m, 0.5/s, 1): also the running taunts
+        new(300f, 1.5f, 3f, Speech: true),  // Waaagh (expansion S6): a wave's war cry carries across the field; WaaaghBarkPlanner keeps it to 3 voices
     ];
 
     public static MusouSoundLimit LimitOf(MusouSoundGroup g) => Limits[(int)g];
@@ -76,7 +77,7 @@ public static class MusouSoundRules
 /// <summary>The crowd's budget: <see cref="Refill"/> each frame, <see cref="Take"/> for each sound. Counts what it passed and held, by group.</summary>
 public sealed class MusouSoundBudget
 {
-    const int Groups = (int)MusouSoundGroup.Celebrate + 1, Verdicts = (int)MusouSoundVerdict.SpeechCap + 1;
+    const int Groups = (int)MusouSoundGroup.Waaagh + 1, Verdicts = (int)MusouSoundVerdict.SpeechCap + 1;
     readonly float[] _tokens = new float[Groups];
     readonly long[,] _count = new long[Groups, Verdicts];
 
