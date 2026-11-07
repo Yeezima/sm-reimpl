@@ -69,7 +69,7 @@ public sealed class MusouLooks
     readonly OrkAssets _orks;
     readonly Dictionary<string, Task<(StaticModel? Model, ObjectTree? Tree, Exception? Failure)>> _reads = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, MarineAssets?> _meshes = new(StringComparer.OrdinalIgnoreCase);
-    readonly Look?[] _looks = new Look?[16];
+    readonly Look?[] _looks = new Look?[Enum.GetValues<MusouEnemyType>().Max(t => (int)t) + 1];
     readonly Func<MarineAssets?> _chaos;
     /// <summary>The ranged Orks' guns (null: <c>--no-musou-guns</c>, unarmed as before).</summary>
     public MusouGunModels? Guns { get; }

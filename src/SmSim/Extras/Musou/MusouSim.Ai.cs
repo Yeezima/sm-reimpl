@@ -100,6 +100,7 @@ public sealed partial class MusouSim
         SpawnedCombat(i);   // MU3 (MusouCombat.cs): no script, no drive
         SpawnedSwarm(i);
         SpawnedWeirdboy(i);   // MusouSim.Weirdboy.cs: the shield, the cooldowns
+        _prefer[i] = false;
         _relocations[i] = 0;
         _ring[i] = Rules.CircleMin + (Rules.CircleMax - Rules.CircleMin) * Unit(Mix((uint)i * 2654435761u, 0x9E3779B9u));
         if (Walk is not null && _node[i] < 0) _node[i] = Walk.Nearest(_position[i]);
@@ -339,11 +340,14 @@ public sealed partial class MusouSim
     /// an enemy no player can be walked to from has no target (it holds, and the failsafe moves it). Off the graph: the nearest straight (height x 3),
     /// switched to only when much nearer.
     /// </summary>
+    readonly bool[] _prefer = new bool[Capacity];   // its target is a kind preference other than the nearest: walked to directly within MusouTargetRules.PreferRange
+
     int Target(int i, ReadOnlySpan<MusouTarget> targets)
     {
         int current = IndexOf(targets, _target[i]);
         bool look = current < 0 || (_token[i] == 0 && (Tick + (uint)i) % 15u == 0u);
         if (!look) return current;
+        _prefer[i] = false;
         int best = -1, second = -1; float bestScore = float.MaxValue, secondScore = float.MaxValue, currentScore = float.MaxValue;
         for (int t = 0; t < targets.Length; t++)
         {
@@ -359,6 +363,13 @@ public sealed partial class MusouSim
             if (flank != current) { _token[i] = 0; _burst[i] = 0; _losTick[i] = 0; }
             _target[i] = TargetKey(targets[flank].Id);
             return flank;
+        }
+        if (War is not null && MusouTargetRules.Choose(_type[i], _position[i], targets, current) is var preferred and >= 0)   // expansion S1: Musou Mode's target preference by kind
+        {
+            if (preferred != current) { _token[i] = 0; _burst[i] = 0; _losTick[i] = 0; }
+            _prefer[i] = preferred != best;   // a choice other than the nearest is walked to directly (Approach); the nearest keeps the flow field
+            _target[i] = TargetKey(targets[preferred].Id);
+            return preferred;
         }
         if (Flow is { Ready: true } && _node[i] >= 0 && !(bestScore <= Rules.DirectSeekDistance * Rules.DirectSeekDistance))
         {
@@ -513,7 +524,7 @@ public sealed partial class MusouSim
     {
         var flat = new Vector2(d.X, d.Y);
         float distance = flat.Length();
-        bool direct = Walk is null || Flow is null || (_flowTicks[i] == 0 && distance <= Rules.DirectSeekDistance && MathF.Abs(d.Z) < 1.5f);
+        bool direct = Walk is null || Flow is null || (_flowTicks[i] == 0 && (distance <= Rules.DirectSeekDistance || (_prefer[i] && distance <= MusouTargetRules.PreferRange)) && MathF.Abs(d.Z) < 1.5f);
         if (!direct && _node[i] >= 0)
         {
             int next = Flow!.Next(_node[i]);

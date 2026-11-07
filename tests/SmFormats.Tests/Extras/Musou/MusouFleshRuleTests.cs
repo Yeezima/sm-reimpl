@@ -37,7 +37,8 @@ public class MusouFleshRuleTests
     public void Every_enemy_type_is_decided_so_a_new_type_is_a_conscious_choice()
     {
         var decided = new HashSet<MusouEnemyType>([MusouEnemyType.Boy, MusouEnemyType.ShootaBoy, MusouEnemyType.Gretchin, MusouEnemyType.ArdBoy, MusouEnemyType.Nob, MusouEnemyType.Warboss, MusouEnemyType.ChaosMarine,
-            MusouEnemyType.BossBoy, MusouEnemyType.BossShootaBoy, MusouEnemyType.BossArdBoy, MusouEnemyType.BossNob, MusouEnemyType.Weirdboy]);   // the Boss Orks sound as their base (2026-11-06)
+            MusouEnemyType.BossBoy, MusouEnemyType.BossShootaBoy, MusouEnemyType.BossArdBoy, MusouEnemyType.BossNob, MusouEnemyType.Weirdboy,
+            MusouEnemyType.BombSquig, MusouEnemyType.RokkitBoy, MusouEnemyType.Stormboy, MusouEnemyType.BigShootaNob, MusouEnemyType.ScrapMek]);   // the Boss Orks sound as their base (2026-11-06)
         Assert.All(Enum.GetValues<MusouEnemyType>(), t => Assert.Contains(t, decided));
     }
 }

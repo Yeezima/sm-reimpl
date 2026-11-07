@@ -10,7 +10,8 @@ namespace SmContent;
 /// </summary>
 public static class MusouFleshRule
 {
-    public static bool AlwaysFlesh(MusouEnemyType type) => MusouBossOrks.BaseOf(type) is MusouEnemyType.Boy or MusouEnemyType.ShootaBoy or MusouEnemyType.Gretchin or MusouEnemyType.Weirdboy;   // a Boss Ork as its base; the Weirdboy wears no armour (his energy shield stops the shots before any hit sound)
+    public static bool AlwaysFlesh(MusouEnemyType type) => MusouBossOrks.BaseOf(type) is MusouEnemyType.Boy or MusouEnemyType.ShootaBoy or MusouEnemyType.Gretchin or MusouEnemyType.Weirdboy
+        or MusouEnemyType.BombSquig or MusouEnemyType.RokkitBoy or MusouEnemyType.Stormboy or MusouEnemyType.ScrapMek;   // expansion S1 placeholders: unarmoured; the Big Shoota Nob is armoured as the Nob;   // a Boss Ork as its base; the Weirdboy wears no armour (his energy shield stops the shots before any hit sound)
 
     /// <summary>
     /// The hit sound's armour value for a hit on this type, one rule for every view (own strike, cleave, own and others' shots; owner 2026-11-04, "Armour and flesh"): <c>false</c> (flesh only) for an

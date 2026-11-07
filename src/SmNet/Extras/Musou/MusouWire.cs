@@ -15,8 +15,8 @@ public readonly record struct MusouDropRecord(ushort Id, Vector3 Position, ushor
 /// Added content "Musou" on the wire (design section C): three sections of the extras envelope (message kind 16), no protocol bump, sent only by a server whose
 /// match runs <see cref="ContentExtras.Musou"/> (whose config hashes differently from every other profile). Values are little-endian.
 /// <list type="bullet">
-/// <item>Tag 3, entities: <c>[u8 n]</c> then n records of 10 bytes <c>[u16 id][u16 x][u16 y][u16 z][u8 yaw][u8 type:4|state:4]</c> (type in the high
-/// nibble); x, y, z quantised to 0..65535 over the director's <see cref="MusouBox"/>, yaw to 256 steps of a turn; at most <see cref="MaxEntities"/>
+/// <item>Tag 3, entities: <c>[u8 n]</c> then n records of 11 bytes <c>[u16 id][u16 x][u16 y][u16 z][u8 yaw][u8 state][u8 type]</c> (the type a full byte since
+/// Musou version 13, the state's high nibble spare); x, y, z quantised to 0..65535 over the director's <see cref="MusouBox"/>, yaw to 256 steps of a turn; at most <see cref="MaxEntities"/>
 /// (one full payload).</item>
 /// <item>Tag 4, events: <c>[u8 n]</c> then n records of 16 bytes <c>[u8 kind][u32 tick][u16 enemy][u16 player][u8 value][3 x 16-bit vector]</c>; the vector
 /// is a direction (signed, 1/32767) for <see cref="MusouEventKind.Death"/>'s push and a position (quantised over the box, as the entities) for every other
@@ -36,12 +36,12 @@ public static class MusouWire
 
     /// <summary>The envelope tags (gore 1, loyalist barks 2).</summary>
     public const byte EntitiesTag = 3, EventsTag = 4, DirectorTag = 5, DropsTag = 6;
-    public const int EntityBytes = 10, EventBytes = 16, DirectorBytes = 44, DropBytes = 11;
+    public const int EntityBytes = 11, EventBytes = 16, DirectorBytes = 44, DropBytes = 11;
     /// <summary>The state byte's top bit in tag 6: a Musou Mode weapon crate (M6).</summary>
     const int DropCrateBit = 0x80;
     /// <summary>Most drops in one section: (1191 - 1) / 11 = 108.</summary>
     public const int MaxDrops = (Protocol.MaxExtrasPayloadBytes - 1) / DropBytes;
-    /// <summary>Most entities in one section: (1191 - 1) / 10 = 119 (one section alone in a full message).</summary>
+    /// <summary>Most entities in one section: (1191 - 1) / 11 = 108 (one section alone in a full message).</summary>
     public const int MaxEntities = (Protocol.MaxExtrasPayloadBytes - 1) / EntityBytes;
     /// <summary>Most events in one section: (1191 - 1) / 16 = 74.</summary>
     public const int MaxEvents = (Protocol.MaxExtrasPayloadBytes - 1) / EventBytes;
@@ -91,7 +91,7 @@ public static class MusouWire
 
     /// <summary>
     /// The entities payload of <paramref name="entities"/> (the first <see cref="MaxEntities"/>; split larger sets over several sections). Throws
-    /// ArgumentException for a type or state that does not fit 4 bits.
+    /// ArgumentException for a state that does not fit 4 bits (the type is a full byte).
     /// </summary>
     public static byte[] WriteEntities(IReadOnlyList<MusouEntity> entities, MusouBox box)
     {
@@ -101,12 +101,13 @@ public static class MusouWire
         for (int i = 0; i < n; i++)
         {
             var e = entities[i];
-            if ((byte)e.Type > 15 || (byte)e.State > 15) throw new ArgumentException($"Musou entity {e.Id}: type {e.Type} or state {e.State} does not fit 4 bits.");
+            if ((byte)e.State > 15) throw new ArgumentException($"Musou entity {e.Id}: state {e.State} does not fit 4 bits.");
             var s = bytes.AsSpan(1 + i * EntityBytes, EntityBytes);
             BinaryPrimitives.WriteUInt16LittleEndian(s, e.Id);
             WritePosition(s[2..], e.Position, box);
             s[8] = QuantiseYaw(e.Yaw);
-            s[9] = (byte)(((byte)e.Type << 4) | (byte)e.State);
+            s[9] = (byte)e.State;
+            s[10] = (byte)e.Type;
         }
         return bytes;
     }
@@ -124,8 +125,8 @@ public static class MusouWire
         {
             var s = payload.Slice(1 + i * EntityBytes, EntityBytes);
             ushort id = BinaryPrimitives.ReadUInt16LittleEndian(s);
-            var type = (MusouEnemyType)(s[9] >> 4);
-            var state = (MusouEnemyState)(s[9] & 0x0F);
+            var type = (MusouEnemyType)s[10];
+            var state = (MusouEnemyState)s[9];
             if (id == 0 || id > MusouSim.Capacity || !Enum.IsDefined(type) || !Enum.IsDefined(state)) return null;
             int bit = id - 1;
             if ((seen[bit >> 6] & (1UL << (bit & 63))) != 0) return null;
