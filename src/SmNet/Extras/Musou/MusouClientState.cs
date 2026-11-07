@@ -339,6 +339,7 @@ public sealed class MusouClientState
             }
             p = Smooth(t, p, velocity, state, renderTick);
             if (state != t.ShownState) { t.ShownState = state; t.StateSince = _now; }
+            if (t.Type == MusouEnemyType.BombSquig && state == MusouEnemyState.Spawning) p.Z += MusouSquigRules.FallHeightAt((float)(_now - t.StateSince));   // expansion S2: a dropped Squig is drawn falling
             _shown.Add(new MusouShown(t.Id, p, yaw, t.Type, state, (float)(_now - t.StateSince)));
         }
         _shown.Sort(static (a, b) => a.Id.CompareTo(b.Id));

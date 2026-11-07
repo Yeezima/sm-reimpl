@@ -15,10 +15,18 @@ public class MusouOrkGunTests
     // ---------------------------------------------------------------- rules
 
     [Fact]
-    public void Only_the_shoota_boy_carries_a_gun_and_it_is_the_ork_class_shoota()
+    public void Only_the_shoota_boy_and_the_rokkit_boy_carry_a_gun_and_the_shoota_is_the_ork_class_shoota()
     {
         Assert.Equal(OrkWeaponMounts.Shoota, MusouOrkGunRules.WargearOf(MusouEnemyType.ShootaBoy));
-        foreach (var t in Enum.GetValues<MusouEnemyType>().Where(t => t != MusouEnemyType.ShootaBoy)) Assert.Null(MusouOrkGunRules.WargearOf(t));
+        Assert.Equal("ork_coop_boy_rokkit_launcha", MusouOrkGunRules.WargearOf(MusouEnemyType.RokkitBoy));   // expansion S2
+        foreach (var t in Enum.GetValues<MusouEnemyType>().Where(t => t is not (MusouEnemyType.ShootaBoy or MusouEnemyType.RokkitBoy))) Assert.Null(MusouOrkGunRules.WargearOf(t));
+    }
+
+    [Fact]
+    public void The_rokkit_launcha_is_held_by_our_mount_as_the_shoota_is()
+    {
+        Assert.Equal(OrkWeaponMounts.Table[OrkWeaponMounts.Shoota].HandleNode, MusouOrkGunRules.OwnMounts[MusouOrkGunRules.RokkitLauncha]);
+        Assert.False(MusouOrkGunRules.OwnMounts.ContainsKey(OrkWeaponMounts.Shoota));   // the Shoota keeps the rig's own table
     }
 
     [Fact]

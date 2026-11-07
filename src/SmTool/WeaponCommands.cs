@@ -4,7 +4,7 @@ using SmContent;
 namespace SmTool;
 
 /// <summary>
-/// <c>smtool weapon-parts [filter] [--game &lt;dir&gt;] [--rig marine|ork] [--markers]</c>: prints the parts (object-tree node, mesh block, visibility, triangles, bounds in the
+/// <c>smtool weapon-parts [filter] [--game &lt;dir&gt;] [--rig marine|ork] [--markers] [--wargear]</c> (--wargear: the filter is one wargear file's exact name): prints the parts (object-tree node, mesh block, visibility, triangles, bounds in the
 /// weapon's root space) and the locators of every held multiplayer weapon model whose wargear name contains the filter (test aid for
 /// the reload magazines, M35). Read-only against the install.
 /// </summary>
@@ -67,7 +67,7 @@ static class WeaponCommands
         }
         int r = Array.IndexOf(args, "--rig");
         var rig = r >= 0 && r + 1 < args.Length ? RigProfiles.ByName(args[r + 1]) ?? throw new ArgumentException($"unknown rig '{args[r + 1]}' (marine, ork)") : RigProfiles.Marine;
-        var models = WeaponModels.Load(gameDir, rig, notes);
+        var models = WeaponModels.Load(gameDir, rig, notes, filter is not null && args.Contains("--wargear") ? [filter] : null);   // --wargear: that one file, even off the classes' lists (Musou's co-op wargear)
         if (args.Contains("--markers"))
         {
             foreach (var m in models.BodyMarkers.Values.OrderBy(m => m.Name, StringComparer.OrdinalIgnoreCase))

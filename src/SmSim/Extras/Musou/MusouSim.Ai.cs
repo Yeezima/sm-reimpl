@@ -100,6 +100,7 @@ public sealed partial class MusouSim
         SpawnedCombat(i);   // MU3 (MusouCombat.cs): no script, no drive
         SpawnedSwarm(i);
         SpawnedWeirdboy(i);   // MusouSim.Weirdboy.cs: the shield, the cooldowns
+        SpawnedSquig(i);   // MusouSim.Squig.cs: the fuse, the kick
         _prefer[i] = false;
         _relocations[i] = 0;
         _ring[i] = Rules.CircleMin + (Rules.CircleMax - Rules.CircleMin) * Unit(Mix((uint)i * 2654435761u, 0x9E3779B9u));
@@ -117,6 +118,7 @@ public sealed partial class MusouSim
     {
         for (int i = 0; i < Capacity; i++) if (_used[i]) _trail[i * TrailLength + (int)(Tick % TrailLength)] = _position[i];
         if (_bolts.Count > 0) LandBolts(targets, fight, attacks);   // the Weirdboy's bolts (MusouSim.Weirdboy.cs)
+        if (_rockets.Count > 0) StepRockets(targets, collision);   // the Rokkit Boyz' rockets (MusouSim.Rokkit.cs)
         if (Frozen) { LastLosChecks = 0; return; }
         int nt = targets.Length;
         if (_targetNode.Length < nt) Grow(nt);
@@ -157,6 +159,7 @@ public sealed partial class MusouSim
                 if (_stateTicks[i] >= Ticks(Rules.DyingSeconds)) _dead.Add(i);
                 continue;
             }
+            if (_type[i] == MusouEnemyType.BombSquig) { StepSquig(i, targets, near, fight); continue; }   // its fall, run, fuse and kick (MusouSim.Squig.cs)
             if (state == MusouEnemyState.Spawning)
             {
                 if (_stateTicks[i] >= Ticks(Rules.SpawnSeconds)) SetState(i, MusouEnemyState.Seek);
@@ -309,6 +312,7 @@ public sealed partial class MusouSim
         _stranded.Clear();
         _losCursor = 0;
         _bolts.Clear();   // the Weirdboy's bolts in flight
+        _rockets.Clear(); _rocketBlasts.Clear(); _detonations.Clear();   // expansion S2
         _openPack.Clear();
         Array.Clear(_packMembers);
         _lastPack = 0;
@@ -500,7 +504,8 @@ public sealed partial class MusouSim
     /// <summary>One round of a burst: the hit roll by distance (a hash of the tick and the enemy), the tracer, and the damage on a hit.</summary>
     void Fire(int i, MusouTarget target, float distance, MusouTypeSpec spec, List<MusouAttack> attacks, bool fight)
     {
-        if (spec.RangedBlastRadius > 0f) { ThrowBolt(i, target, spec, fight); return; }   // a bolt that bursts where it was aimed (MusouSim.Weirdboy.cs)
+        if (spec.RangedBlastRadius > 0f) { ThrowBolt(i, target, spec, fight); return; }
+        if (_type[i] == MusouEnemyType.RokkitBoy) { FireRocket(i, target, fight); return; }   // a real rocket (MusouSim.Rokkit.cs)   // a bolt that bursts where it was aimed (MusouSim.Weirdboy.cs)
         float span = MathF.Max(1e-3f, spec.RangedMax - spec.RangedMin);
         float chance = spec.RangedHitNear + (spec.RangedHitFar - spec.RangedHitNear) * Math.Clamp((distance - spec.RangedMin) / span, 0f, 1f);
         uint roll = Mix(Tick, (uint)i * 0x85EBCA6Bu + _burst[i]);

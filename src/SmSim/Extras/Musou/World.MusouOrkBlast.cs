@@ -43,6 +43,7 @@ public sealed partial class World
     {
         if (_musou is not { } musou || _state != MatchState.Playing || !(blast.Radius > 0f) || !(blast.Damage > 0f)) return default;
         MusouBeginTick();
+        int pending = musou.PendingDetonations;   // expansion S2: a Squig this blast kills queues its own burst (MusouSim.Squig.cs), counted with the ones queued below
         int players = 0, playerKills = 0, guardMen = 0, guardKills = 0, orks = 0, orkKills = 0;
         // Players (and AI Marines): a snapshot of the ids, since MusouHit writes the player table.
         _musouIds.Clear();
@@ -78,7 +79,8 @@ public sealed partial class World
             orks++;
             if (musou.Damage(e.Id, credit, amount, new Vector3(push, 0.3f), out bool killed, cause: MusouDeathKind.OrkBlast) && killed) orkKills++;
         }
-        int queued = musou.QueueSquigDetonations(point, blast.Radius, credit, _musouNear);
+        musou.QueueSquigDetonations(point, blast.Radius, credit, _musouNear);
+        int queued = musou.PendingDetonations - pending;
         return new OrkBlastResult(players, playerKills, guardMen, guardKills, orks, orkKills, queued);
     }
 }
