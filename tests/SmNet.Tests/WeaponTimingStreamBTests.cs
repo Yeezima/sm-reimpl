@@ -210,7 +210,8 @@ public class WeaponTimingStreamBTests(ITestOutputHelper output)
                     Assert.All(m.Steps.Take(2), x => Assert.True(x.StringResetAt + 1e-3f >= x.ComboClose));   // X1, X2: never inside a combo window (X3 chains nowhere)
                 }
                 else Assert.All(m.Steps, x => Assert.False(float.IsFinite(x.StringResetAt)));
-                Assert.All(m.Heavy, h => Assert.False(float.IsFinite(h.StringResetAt)));
+                // sim/slam-recovery (2026-11-07): the hammer's and maul's Y,Y finishers (after its three heavies) have one too (HammerHopSlamTests); no other heavy strike.
+                Assert.All(isHammer ? m.Heavy.Take(3) : m.Heavy, h => Assert.False(float.IsFinite(h.StringResetAt)));
             }
         Assert.True(hammer);
     }
