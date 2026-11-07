@@ -35,11 +35,24 @@ public sealed class MusouGunModels
             {
                 var notes = new List<string>();
                 var catalogue = WeaponModels.Load(gameDir, RigProfiles.OrkBoy, notes, [wargear], bones);
-                var attachment = catalogue.Held(wargear) ?? throw new System.IO.InvalidDataException($"{wargear}: no wield entry");
+                var attachment = catalogue.Held(wargear) ?? OwnMount(catalogue, wargear, bones, notes) ?? throw new System.IO.InvalidDataException($"{wargear}: no wield entry");
                 var mount = GuardLasgun.From(WeaponModel.Load(gameDir, attachment, notes), attachment.Wield!, notes);
                 return new Read(mount, new CharacterPiece("musou_gun_" + wargear, mount.Model.Model, null) { Rigid = mount.Rigid, Hidden = mount.Hidden }, notes);
             });
         }
+    }
+
+    /// <summary>
+    /// A gun the data gives no wield mount (<see cref="MusouOrkGunRules.OwnMounts"/>: the Rokkit Boy's launcha): its first attachment, held by our handle node on the rig bone of that name; null when
+    /// none is listed, the wargear has no attachment or the rig lacks the bone.
+    /// </summary>
+    static WeaponAttachment? OwnMount(WeaponModels catalogue, string wargear, IReadOnlyList<string> bones, List<string> notes)
+    {
+        if (!MusouOrkGunRules.OwnMounts.TryGetValue(wargear, out var node) || !catalogue.ByWargear.TryGetValue(wargear, out var list) || list.Count == 0) return null;
+        var bone = bones.FirstOrDefault(b => b.Equals(node, StringComparison.OrdinalIgnoreCase));
+        if (bone is null) { notes.Add($"{wargear}: our mount bone '{node}' is not in the rig"); return null; }
+        notes.Add($"{wargear}: no wield entry in the data; held by our mount, its {node} on the bone {bone} (as the Shoota)");
+        return list[0] with { Wield = new WeaponMount(node, node, bone, System.Numerics.Matrix4x4.Identity, 1f), Stow = null, IsWorn = false, TwoHanded = true };
     }
 
     /// <summary>Whether <paramref name="type"/>'s gun has been read (or it carries none, or the read failed): its look need not wait.</summary>

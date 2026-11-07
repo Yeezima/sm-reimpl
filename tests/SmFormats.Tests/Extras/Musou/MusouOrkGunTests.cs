@@ -23,6 +23,13 @@ public class MusouOrkGunTests
     }
 
     [Fact]
+    public void The_rokkit_launcha_is_held_by_our_mount_as_the_shoota_is()
+    {
+        Assert.Equal(OrkWeaponMounts.Table[OrkWeaponMounts.Shoota].HandleNode, MusouOrkGunRules.OwnMounts[MusouOrkGunRules.RokkitLauncha]);
+        Assert.False(MusouOrkGunRules.OwnMounts.ContainsKey(OrkWeaponMounts.Shoota));   // the Shoota keeps the rig's own table
+    }
+
+    [Fact]
     public void Each_ork_shows_one_tracer_in_every_tracer_every_rounds()
     {
         for (ushort id = 1; id < 200; id++)
