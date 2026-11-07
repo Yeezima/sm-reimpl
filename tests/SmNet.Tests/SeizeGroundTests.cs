@@ -459,7 +459,7 @@ public class SeizeGroundTests(ITestOutputHelper output)
         Assert.Equal(seize.Points, back.Seize.Points);
         Assert.Equal(board.Players, back.Players);
         int layout = 1 + 4 + 1 + 2 + 4 + 4 + 4 + 2 + 4 + 1;
-        Assert.Equal(layout + (1 + 15 + 20) + (1 + 9 + 20) + 1 + 17, bytes.Length);   // protocol 58: 17 (the flags byte); protocol 22: 12-byte rows; protocol 40: 13; protocol 41: 14 (an empty name); protocol 50: 16 (the ping)
+        Assert.Equal(layout + (1 + 15 + 20) + (1 + 9 + 20) + 1 + 19, bytes.Length);   // protocol 64: 19 (headshots, assists); protocol 58: 17 (the flags byte); protocol 22: 12-byte rows; protocol 40: 13; protocol 41: 14 (an empty name); protocol 50: 16 (the ping)
         Assert.Equal(GameMode.Annihilation, Assert.IsType<Scoreboard>(Protocol.Read(Protocol.Write(board with { Seize = null }))).Mode);
 
         Assert.Null(Protocol.Read(Patch(bytes, layout - 1, 9)));            // 9 points

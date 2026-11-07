@@ -514,7 +514,7 @@ public static partial class Protocol
     public const int MaxAppearanceQuery = 16;
     /// <summary>Bytes of a Scoreboard row without its name (protocol 22: 10 + the appearance version; protocol 40: + the equipment item; protocol 41: + the
     /// name's length byte; protocol 50: + the u16 ping; protocol 58: + the flags byte). The name's bytes follow (at most <see cref="PlayerNames.MaxLength"/>).</summary>
-    public const int ScoreRowBytes = 17;
+    public const int ScoreRowBytes = 19;   // protocol 64: + headshots and assists
     /// <summary>A scoreboard row's ping on the wire when the server has no measurement yet (protocol 50).</summary>
     public const ushort UnknownPing = ushort.MaxValue;
     /// <summary>Shot offsets travel as signed 16-bit integers in 1/10000 rad (±3.2767 rad).</summary>

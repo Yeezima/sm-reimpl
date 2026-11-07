@@ -615,7 +615,7 @@ public class TeamsTests(ITestOutputHelper output)
         var back = Assert.IsType<Scoreboard>(Protocol.Read(bytes));
         Assert.Equal((board.ServerTick, board.Teams, board.ScoreLimit, board.TimeLimit, board.FriendlyFire), (back.ServerTick, back.Teams, back.ScoreLimit, back.TimeLimit, back.FriendlyFire));
         Assert.Equal(board.Players, back.Players);
-        Assert.Equal(1 + 4 + 1 + 2 + 4 + 1 + 2 * 19, bytes.Length);   // protocol 64: 19 (headshots and assists); protocol 58: 17 (the flags byte); protocol 22: 12-byte rows (appearance version); protocol 40: 13 (equipment); protocol 41: 14 (an empty name); protocol 50: 16 (the ping)
+        Assert.Equal(1 + 4 + 1 + 2 + 4 + 1 + 2 * Protocol.ScoreRowBytes, bytes.Length);   // protocol 64: 19 (headshots and assists); protocol 58: 17 (the flags byte); protocol 22: 12-byte rows (appearance version); protocol 40: 13 (equipment); protocol 41: 14 (an empty name); protocol 50: 16 (the ping)
         Assert.Null(Protocol.Read(Patch(bytes, 5, 8)));                       // unknown flag
         Assert.Null(Protocol.Read(Patch(bytes, 5, 4)));                       // Seize Ground flag without its block
         Assert.Null(Protocol.Read(Patch(bytes, 13 + 4, 3)));                  // team 3
