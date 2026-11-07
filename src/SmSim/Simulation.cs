@@ -1200,6 +1200,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             ExtrasPlayerInput(id, ref extraInput, ref extraHandled);   // EXTRAS-HOOK: added content's players without a client (Musou Mode's AI Marines)
             var sampled = extraHandled ? extraInput : inputFor(id);
             var input = (State == MatchState.Countdown ? MatchFlow.Locked(sampled) : sampled).Sanitized() with { Tick = Tick };   // no attacks before the match begins (ours)
+            ExtrasSampled(id, input);   // EXTRAS-HOOK: added content reads the sanitized input (Musou: the Librarian's powers)
             NoteInteract(id, input);   // fidelity gap 1: pickups (Pickups.cs)
             PlayerState next;
             SelfEvents events;
@@ -1403,6 +1404,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
     /// <c>Extras/</c> folder; returns at once unless its feature runs.
     /// </summary>
     partial void ExtrasPlayerInput(int id, ref PlayerInput input, ref bool handled);
+    partial void ExtrasSampled(int id, in PlayerInput input);
 
     /// <summary>
     /// Hook for added content: at the end of <see cref="ResolveMelee"/> (after the players it hit and its stomp), with the attacker's state this tick

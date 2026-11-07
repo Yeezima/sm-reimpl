@@ -39,12 +39,14 @@ public readonly record struct TfwGuardEvent(TfwGuardEventKind Kind, uint Tick, u
 /// A client's commands are message kind 17 under <see cref="CommandTag"/>: <c>[u16 sequence][u8 command][u8 argument]</c>, and for an order with a place (<see cref="HasPoint"/>: Hold and
 /// Attack) then <c>[i16 x][i16 y][i16 z]</c> in decimetres (<see cref="PointStep"/>), for ChooseReward then <c>[u16 offer]</c> (M6: a delayed pick cannot land on a newer offer): the point of the client's crosshair, which the server cannot work out itself (it has no camera), in a form that
 /// needs no box (a client may order before its first director) and cannot carry a NaN or an infinity. Resent every 250 ms until tag 7 echoes the sequence (<see cref="TfwCommandSender"/>).
-/// A faithful or extended server never sends 7 to 15 and drops 17.
+/// A faithful or extended server never sends 7 to 16 and drops 17.
 /// </summary>
 public static class TfwWire
 {
     /// <summary>The envelope tags (gore 1, loyalist barks 2, Musou 3 to 6).</summary>
     public const byte WarTag = 7, ObjectivesTag = 8, GuardsTag = 9, GuardEventsTag = 10, FireTag = 11, ScoreTag = 12, BarsTag = 13, RewardTag = 14, ArsenalTag = 15;
+    /// <summary>Tag 16, the Librarian's (<see cref="LibrarianWire"/>): stress, cooldowns, casts and lightning links.</summary>
+    public const byte LibrarianTag = LibrarianWire.Tag;
     /// <summary>The tag of the war's commands in message kind 17 (another namespace than the envelope's: client to server).</summary>
     public const byte CommandTag = 7;
     /// <summary>Bytes of a command's payload, and of one with a place (at most <see cref="Protocol.MaxExtrasCommandPayload"/>).</summary>
@@ -81,7 +83,7 @@ public static class TfwWire
     const int ScoreHasOwn = 1, ScoreHasOthers = 2, ScoreHasHistory = 4;
 
     /// <summary>Whether an envelope tag is the war's (7 to 15).</summary>
-    public static bool Owns(byte tag) => tag is >= WarTag and <= ArsenalTag;
+    public static bool Owns(byte tag) => tag is >= WarTag and <= LibrarianTag;
 
     /// <summary>Whether sequence <paramref name="a"/> is after <paramref name="b"/>, across the 16-bit wrap.</summary>
     public static bool IsNewer(ushort a, ushort b) => (short)(a - b) > 0;
