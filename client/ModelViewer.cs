@@ -556,7 +556,8 @@ public partial class ModelViewer : Node3D
         PollLocate();
         if (_locating is not null) return;   // still looking for the game: nothing to show or capture yet
         // The networked view waits until it is connected and the players are in view.
-        if (_backHint is not null) _backHint.Visible = _network is { } hinted && (hinted.ConnectionFailed || hinted.StillConnecting);
+        // The loading screen (2026-11-07: black and LOADING alone) covers a join still connecting; the hint shows once the join failed (Esc works in both).
+        if (_backHint is not null) _backHint.Visible = _network is { } hinted && hinted.ConnectionFailed;
         // --auto-back <seconds> (test aid): the Esc of a join that goes nowhere, pressed after that long.
         if (_fromFrontEnd && _launchArgs.GetValueOrDefault("auto-back") is { } autoBack && double.TryParse(autoBack, System.Globalization.CultureInfo.InvariantCulture, out var backAfter)
             && _network is { } stuck && (stuck.ConnectionFailed || stuck.StillConnecting) && _elapsed > backAfter) BackToFrontEnd();
