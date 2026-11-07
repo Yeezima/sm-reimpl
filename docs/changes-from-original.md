@@ -631,6 +631,15 @@ the hit is engine code, so these rules are ours (spec "Melee interaction pass").
 | Medal description | The medal line shows the data's `display_description` (105721) under it; the HUD movie has no field for it | Whether SM1's in-match popup showed the description | same: "Medal line" |
 | Assists | Counted per player: a hostile player other than the killer who dealt at least 25 % of the damage the victim took in that life (the data's lowest `damage_ratio`) | The ratio's base (the victim's maximum or the damage taken) | same: "Assists" |
 
+### Tab scoreboard, loading screen, Musou rejoin (owner 2026-11-07; client only)
+
+| Area | What we do | What is unknown | Spec |
+|---|---|---|---|
+| Tab scoreboard | The owner's design: a reference layout in black and white only: the two sides' big scores with VS between them, a header row, one row per player (icon, name, KILLS, DEATHS, RATIO, ASSISTS, SCORE, PING); Musou Mode one column (KILLS, DEATHS, SCORE, PING); the own side on the left; the own row with a white accent; no mode, limit, class or spectator text | SM1's in-match scoreboard layout (`SummaryScreen.gfx` is the end screen) | Tab scoreboard: "Layout" |
+| Scoreboard icons | The shoulder emblem (or the left pad's badge) a player wore when it first appeared on the board, in grey; kept until it leaves; the Chaos default look has no pad decal, so its frame is empty | Whether SM1 showed a player icon there | same: "Icons" |
+| Loading screen | Black with LOADING in the centre while the view loads and connects (no address, no back hint); errors as before | SM1's loading screens (map art and tips) | Loading screen |
+| Silent Musou rejoin | A Classic PvP join refused for the Musou profile while this client's own Musou server runs stops that server and joins again with the lobby's profile, no message, once | — (ours: SM1 had no Musou Mode) | Musou rejoin |
+
 ## 3. Not yet reproduced
 
 Known original features missing from the alpha (alpha scope: Annihilation and Seize Ground on Manufactorum only).

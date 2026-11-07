@@ -4493,3 +4493,30 @@ medal icon and description from the original game." Data (Verified-local): globa
 | Headshot on the wire | a kill-feed entry's cause code 6 is a weapon kill on the head (the entry stays 9 bytes); each scoreboard row carries headshot kills and assists (u8 each, capped at 255) | — | per snapshot / scoreboard | `Protocol` | ours | ours | high |
 | Medal line | the killer's reward line for a headshot kill: icon frame `mp_bonus_headshot`, the name from locale 105720, +100, and the description (locale 105721) under it, centred, white, fading with the line; the older lines move down under it. The text comes only from the install's locale | — | per own headshot kill, 3.5 s | `Hud.AddOwnKill`, `Hud.DrawMovieRewards` | data (icon, name, description); the description's place: ours | ours | low |
 | Headshot scream | the victim class's `speech_exertion` line for `exertion_type` `death` (character from the class's `speech_arg_character`), positioned 1.6 m over where the victim stood, heard by everyone near (3D, the line's own attenuation) | — | per headshot kill in the feed | `NetworkView.HeadshotKillSound` | the lines are the install's; the MP data binds no command that plays them, so when they play is ours | ours | low |
+
+### Tab scoreboard (2026-11-07, client only)
+
+Sources: the owner (2026-11-07, verbatim): "the scoreboard needs to look like the reference image except using only black and white colors. make it so the player icon is just the icon they spawned in with
+when they first joined the lobby. it should update only if they leave and return and then use a new shoulder emblem icon before the next game starts. remove any unimportant text that isn't direct game
+statistics that a player would need or want to know. no extra text." The reference: a mobile shooter's end screen (layout only). Code: client `ScoreboardView`, `NetworkView.Scoreboard.cs`,
+`Extras/Musou/Tfw/NetworkView.TfwScoreboard.cs`, `SmContent.JoinIcons`. Tests: `JoinIconsTests`.
+
+| Parameter (Tab scoreboard) | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Layout | 1920 x 1080 stage scaled to the window: an opaque black band with each side's score (96 px) and VS (72 px) between, under it one column per side (the own side left; Space Marines for a spectator) with a header row and 64 px rows; black, white and greys only; Bahnschrift (the HUD's face) | px | per frame while held | `ScoreboardView` | the owner's reference; sizes ours | ours | low |
+| Columns | Classic PvP: KILLS, DEATHS, RATIO (one decimal), ASSISTS, SCORE, PING; Musou Mode: KILLS, DEATHS, SCORE (the run's points), PING; headers from the install's locale (106098, 106100, 106101, 106099, 106096), PING ours | — | per scoreboard | `NetworkView.BuildScoreboardFrame` | the owner's list; the words: locale | ours | medium |
+| Row order | score, then kills, fewer deaths, id | — | per frame | same | ours | ours | low |
+| Own row | white fill at 11 % and a 4 px white bar at the left; bold text | — | per frame | `ScoreboardView` | the owner ("subtle white accent", relayed brief) | ours | low |
+| Icons | the shoulder decal that is a custom emblem, else the left pad's badge, else the right's, of the look the player had when it first appeared on a scoreboard (the first look known after that); kept while it stays listed; forgotten when it leaves, so a return takes the look of then; drawn in grey (luminance) | — | per scoreboard | `JoinIcons`, `NetworkView.CurrentIcon` | the owner | ours | medium |
+
+### Loading screen (2026-11-07, client only)
+
+| Parameter (loading screen) | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Loading screen | black over everything with LOADING (white, Bahnschrift, 40 px at 1080) in the centre from the networked view's start until connected; an error hides it and shows the error; the join's "Esc: back to the menu" hint shows only after a failure (Esc works throughout) | px | per frame | `NetworkView.Loading.cs`, `ModelViewer` | the owner ("its just straight black and says LOADING in the center") | ours | high |
+
+### Musou rejoin (2026-11-07, client only)
+
+| Parameter (Musou rejoin) | Value | Units | Timing basis | Where | Source | Kind | Confidence |
+|---|---|---|---|---|---|---|---|
+| Musou rejoin | a join refused with ConfigMismatch while this client's hosted server runs Musou, the join offered Musou, the lobby's own profile is not Musou, no `--content musou`, and the address is not that server (127.0.0.1 / localhost / ::1 on its port): stop that server (`HostedServer.Stop`, the process this client started) and join the same address with the lobby's profile, once, silently; a failed retry shows its error | — | per join | `MusouJoinRetry`, `ModelViewer.TryMusouRetry` | the owner | ours | high |

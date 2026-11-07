@@ -236,6 +236,9 @@ public sealed class AppearanceAssets : IDisposable
         return null;
     }
 
+    /// <summary>A shoulder decal's picture for an icon (the Tab scoreboard, 2026-11-07): the same texture the pad wears (an emblem once its bytes are here, else its fallback badge), or null.</summary>
+    public Texture2D? DecalIcon(ResolvedDecal decal) => DecalTexture(decal, out _);
+
     /// <summary>The badge's DDS bytes: from the background read (waiting only if it is still running), else read now.</summary>
     byte[]? BadgeBytes(string key, PaintDecal badge)
     {

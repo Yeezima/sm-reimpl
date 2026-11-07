@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2443 spec table rows: **1783 tagged**, 474 not tagged (read from data with high confidence), 186 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 550 rows of the changes document.
+Scanned 2450 spec table rows: **1789 tagged**, 474 not tagged (read from data with high confidence), 187 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 554 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 2443 spec table rows: **1783 tagged**, 474 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 348 | 328 | 272 | 69 | 1 |
+| Core simulation (provisional values) | 354 | 334 | 277 | 69 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 173 | 164 | 80 | 50 | 0 |
-| **All areas** | **1783** | 1543 | 1361 | 560 | 38 |
+| **All areas** | **1789** | 1549 | 1366 | 560 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 896 |
-| confidence: low | 652 |
-| confidence: medium | 581 |
+| kind: ours | 902 |
+| confidence: low | 655 |
+| confidence: medium | 583 |
 | kind: interpretation | 359 |
 | notes: ours | 351 |
 | confidence: none (low) | 128 |
@@ -2077,7 +2077,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (348)
+### Core simulation (provisional values) (354)
 
 *Spec section: Provisional values in use*
 
@@ -2641,6 +2641,22 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C6CC4A04` | Assists | an assist for each hostile player other than the killer who dealt at least 0.25 of the damage (armour and health) the victim took in the life that ended; counted, not scored (share) | kind: interpretation; confidence: low; notes: ours | `xp_settings_pvp/assists` (lowest `damage_ratio` 0.25); the ratio's base: ours | Assists: compare with SM1 by feel or video. Ours: an assist for each hostile player other than the killer who dealt at… | ☐ |
 | `R-D5F19D93` | Medal line | the killer's reward line for a headshot kill: icon frame `mp_bonus_headshot`, the name from locale 105720, +100, and the description (locale 105721) under it, centred, white, fading with the line; the older lines move down under it. The text comes only from… | kind: ours; confidence: low | data (icon, name, description); the description's place: ours | Medal line: compare with SM1 by feel or video. Ours: the killer's reward line for a headshot kill: icon frame… | ☐ |
 | `R-BC48BAFC` | Headshot scream | the victim class's `speech_exertion` line for `exertion_type` `death` (character from the class's `speech_arg_character`), positioned 1.6 m over where the victim stood, heard by everyone near (3D, the line's own attenuation) | kind: ours; confidence: low | the lines are the install's; the MP data binds no command that plays them, so when they play is ours | Headshot scream: compare with SM1 by feel or video. Ours: the victim class's speech_exertion line for exertion_type death… | ☐ |
+
+*Spec section: Tab scoreboard (2026-11-07, client only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-EE111F97` | Layout | 1920 x 1080 stage scaled to the window: an opaque black band with each side's score (96 px) and VS (72 px) between, under it one column per side (the own side left; Space Marines for a spectator) with a header row and 64 px rows; black, white and greys only… (px) | kind: ours; confidence: low | the owner's reference; sizes ours | Layout: compare with SM1 by feel or video. Ours: 1920 x 1080 stage scaled to the window: an opaque black band with… | ☐ |
+| `R-5F4E1A44` | Columns | Classic PvP: KILLS, DEATHS, RATIO (one decimal), ASSISTS, SCORE, PING; Musou Mode: KILLS, DEATHS, SCORE (the run's points), PING; headers from the install's locale (106098, 106100, 106101, 106099, 106096), PING ours | kind: ours; confidence: medium | the owner's list; the words: locale | Columns: compare with SM1 by feel or video. Ours: Classic PvP: KILLS, DEATHS, RATIO (one decimal), ASSISTS, SCORE… | ☐ |
+| `R-10B39DE1` | Row order | score, then kills, fewer deaths, id | kind: ours; confidence: low | ours | Row order: compare with SM1 by feel or video. Ours: score, then kills, fewer deaths, id. | ☐ |
+| `R-72414BFD` | Own row | white fill at 11 % and a 4 px white bar at the left; bold text | kind: ours; confidence: low | the owner ("subtle white accent", relayed brief) | Own row: compare with SM1 by feel or video. Ours: white fill at 11 % and a 4 px white bar at the left; bold text. | ☐ |
+| `R-CCAF9F66` | Icons | the shoulder decal that is a custom emblem, else the left pad's badge, else the right's, of the look the player had when it first appeared on a scoreboard (the first look known after that); kept while it stays listed; forgotten when it leaves, so a return… | kind: ours; confidence: medium | the owner | Icons: compare with SM1 by feel or video. Ours: the shoulder decal that is a custom emblem, else the left pad's… | ☐ |
+
+*Spec section: Musou rejoin (2026-11-07, client only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-63BD761C` | Musou rejoin | a join refused with ConfigMismatch while this client's hosted server runs Musou, the join offered Musou, the lobby's own profile is not Musou, no `--content musou`, and the address is not that server (127.0.0.1 / localhost / ::1 on its port): stop that server… | kind: ours | the owner | Musou rejoin: compare with SM1 by feel or video. Ours: a join refused with ConfigMismatch while this client's hosted server… | ☐ |
 
 ### General game design (7)
 
@@ -3570,6 +3586,15 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-8B6D6FA2` | Medal description | The medal line shows the data's `display_description` (105721) under it; the HUD movie has no field for it | Whether SM1's in-match popup showed the description | same: "Medal line" | Medal description: compare with SM1 by feel or video. Ours: The medal line shows the data's display_description (105721) under… | ☐ |
 | `C-898025F4` | Assists | Counted per player: a hostile player other than the killer who dealt at least 25 % of the damage the victim took in that life (the data's lowest `damage_ratio`) | The ratio's base (the victim's maximum or the damage taken) | same: "Assists" | Assists: compare with SM1 by feel or video. Ours: Counted per player: a hostile player other than the killer who dealt… | ☐ |
 
+#### Tab scoreboard, loading screen, Musou rejoin (owner 2026-11-07; client only)
+
+| ID | Area | What we do | What is unknown | Spec | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-A889D6F0` | Tab scoreboard | The owner's design: a reference layout in black and white only: the two sides' big scores with VS between them, a header row, one row per player (icon, name, KILLS, DEATHS, RATIO, ASSISTS, SCORE, PING); Musou Mode one column (KILLS, DEATHS, SCORE, PING); the own side on the left; the own row with a white accent; no… | SM1's in-match scoreboard layout (`SummaryScreen.gfx` is the end screen) | Tab scoreboard: "Layout" | Tab scoreboard: compare with SM1 by feel or video. Ours: The owner's design: a reference layout in black and white only: the… | ☐ |
+| `C-53368837` | Scoreboard icons | The shoulder emblem (or the left pad's badge) a player wore when it first appeared on the board, in grey; kept until it leaves; the Chaos default look has no pad decal, so its frame is empty | Whether SM1 showed a player icon there | same: "Icons" | Scoreboard icons: compare with SM1 by feel or video. Ours: The shoulder emblem (or the left pad's badge) a player wore when it… | ☐ |
+| `C-25BE6DAA` | Loading screen | Black with LOADING in the centre while the view loads and connects (no address, no back hint); errors as before | SM1's loading screens (map art and tips) | Loading screen | Loading screen: compare with SM1 by feel or video. Ours: Black with LOADING in the centre while the view loads and connects… | ☐ |
+| `C-83E01E66` | Silent Musou rejoin | A Classic PvP join refused for the Musou profile while this client's own Musou server runs stops that server and joins again with the lobby's profile, no message, once | — (ours: SM1 had no Musou Mode) | Musou rejoin | Silent Musou rejoin: compare with SM1 by feel or video. Ours: A Classic PvP join refused for the Musou profile while this client's… | ☐ |
+
 ### Not yet reproduced
 
 | ID | Missing | Note | Compare in a playtest | Result |
@@ -3863,4 +3888,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-A5D771E7` | Test aid: `--warboss-test --model weirdboy` | Musou Mode: the Weirdboy (2026-11-07; `MusouSim.Version` 12, `TfwRules.Version` 31, no protocol or wire format change) |
 | `R-AFD6145F` | Switch | The charge clash: charger and victim locked through the shove (feel/charge-clash; protocol 59, no wire change) |
 | `R-04107A30` | Headshot on the wire | Headshot medal, score and scream (protocol 64, 2026-11-07) |
+| `R-4B7E3D1D` | Loading screen | Loading screen (2026-11-07, client only) |
 
