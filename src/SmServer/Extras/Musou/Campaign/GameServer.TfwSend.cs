@@ -31,7 +31,8 @@ public sealed partial class GameServer
     /// </summary>
     void SendTfw()
     {
-        if (World.Tfw is null || World.Musou is not { } sim) return;
+        if (World.Musou is not { } sim) return;
+        if (World.Tfw is null) { SendTfwLibrarian(World.Tick, World.Config.TickRate); return; }   // the 5-wave run: only the Librarian's tag 16 (his class is offered there too)
         TfwDownTest();   // GameServer.TfwDownTest.cs: a test aid, off without its variable
         TfwTestAids();   // GameServer.TfwWinTest.cs: the same
         FeedTfw();   // GameServer.TfwFeedRun.cs

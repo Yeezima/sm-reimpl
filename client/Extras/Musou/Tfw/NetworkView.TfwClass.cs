@@ -60,18 +60,18 @@ public partial class NetworkView
                 var sequence = _tfwState.Commands.Issue(TfwCommand.ChangeClass);
                 _ackShownUntil = 0;   // the acknowledgement's "applies when you respawn" is not true here: the class changes now
                 TfwClassChangesSent++;
-                GD.Print($"t {_connectedFor:F1} s: war: class change to {ClassDisplayName(ack.Loadout.Class)} (setup {waiting}, command {sequence})");
+                GD.Print($"t {_connectedFor:F1} s: war: class change to {MusouClassName(ack.Loadout.Class)} (setup {waiting}, command {sequence})");
             }
         }
 
         // The class changed under the player: its waiting look becomes the shown one now, not at a respawn that does not come.
         if (_tfwClassFrom >= 0 && me.Alive && me.Class != _tfwClassFrom)
         {
-            if (PickerRules.RespawnText(_tfwClassFrom, me.Class, ClassDisplayName(me.Class)) is { Length: > 0 } line) { _respawnLine = line; _respawnLineUntil = _connectedFor + 4.0; }   // "You are now playing ..."
+            if (PickerRules.RespawnText(_tfwClassFrom, me.Class, MusouClassName(me.Class)) is { Length: > 0 } line) { _respawnLine = line; _respawnLineUntil = _connectedFor + 4.0; }   // "You are now playing ..."
             _tfwClassFrom = -1;
             _setupSent = false;   // the Setup has been applied: a death later must not say "applies when you respawn" again
             _ownLooks.Update(false, 0, true);   // the next frame's Update(alive) is then a respawn of an acknowledged request: it promotes
-            GD.Print($"t {_connectedFor:F1} s: war: the own class is now {ClassDisplayName(me.Class)}");
+            GD.Print($"t {_connectedFor:F1} s: war: the own class is now {MusouClassName(me.Class)}");
         }
     }
 

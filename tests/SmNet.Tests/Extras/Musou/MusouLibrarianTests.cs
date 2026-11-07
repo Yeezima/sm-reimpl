@@ -486,7 +486,7 @@ public class MusouLibrarianTests
             new(9, 100f, true, false, 0f, 11.9f, 255, 0, []),
         };
         var bytes = LibrarianWire.Write(views);
-        Assert.Equal(1 + 2 * LibrarianWire.RecordBytes + 2 * LibrarianWire.LinkBytes, bytes.Length);
+        Assert.Equal(1 + 2 * LibrarianWire.RecordBytes + LibrarianWire.FirstLinkBytes + LibrarianWire.JumpBytes, bytes.Length);
         var read = LibrarianWire.Read(bytes)!;
         Assert.Equal(2, read.Count);
         Assert.Equal((ushort)7, read[0].Player);
