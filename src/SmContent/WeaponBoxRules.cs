@@ -59,6 +59,16 @@ public static class WeaponBoxRules
         return (int)MathF.Round((1f - f) * last);
     }
 
+    /// <summary>
+    /// The frame of a clip's tick strip with no round left (fix/bolter-hud-last-round, owner: the last round stayed white after its shot). The bolter strip's mask stops moving
+    /// at frame 95 and keeps its first tick white through <paramref name="frames"/> - 2, which <see cref="BarFrame"/> picks for an empty bar; only the last frame (the mask gone) shows every
+    /// tick spent (red), as rendered in game. Used for the clip (Spent) bars only, not the heat bars.
+    /// </summary>
+    public static int EmptyBarFrame(int frames) => Math.Max(0, frames - 1);
+
+    /// <summary>True when a clip display has no round loaded (a clip size known, none left).</summary>
+    public static bool ClipEmpty(int clip, int clipMax) => clipMax > 0 && clip <= 0;
+
     /// <summary>The grenade launcher display's round slots (<c>loadout_grenaderounddisplay_mc/round00</c> .. <c>round17</c>: the movie's eighteen, the launcher's clip 1 plus reserve 17).</summary>
     public const int LauncherSlots = 18;
 

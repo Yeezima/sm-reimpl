@@ -349,6 +349,8 @@ public sealed partial class Hud
             };
             if (d.WeaponBarFull >= 0f) full = d.WeaponBarFull;   // ui/hud-3: the melta's progress between shots
             barFrame = WeaponBoxRules.BarFrame(full, hud.FrameCount(barSprite));
+            // fix/bolter-hud-last-round: an empty clip shows the strip's last frame (no white tick left), not the one before it.
+            if (spec.Value == WeaponBoxBar.Spent && d.WeaponBarFull < 0f && WeaponBoxRules.ClipEmpty(d.Clip, d.ClipMax)) barFrame = WeaponBoxRules.EmptyBarFrame(hud.FrameCount(barSprite));
         }
         bool reserve = d.ReserveMax > 0 || d.Reserve > 0;
         int count = reserve ? d.Reserve : d.Clip;
