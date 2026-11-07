@@ -308,3 +308,31 @@ public class MeleeHitSynthTests
     [InlineData(null)]
     public void Other_weapons_keep_their_own(string? wargear) => Assert.Null(MeleeHitSynth.Replaces(wargear));
 }
+
+/// <summary>fix/melta-burn-onhit: the melta's whole-body burn starts on the hit, not on death.</summary>
+public class MeltaBurnRulesTests
+{
+    [Fact]
+    public void A_melta_body_hit_on_another_player_starts_the_burn_at_once()
+        => Assert.True(MeltaBurnRules.Due(MeltaBurnRules.IsMelta("wargear_sm_meltagun"), bodyHit: true, victim: 3, ownId: 1, now: 10.0, lastAt: double.NegativeInfinity));
+
+    [Theory]
+    [InlineData(false, true, 3, 1, 10.0, -1e9)]   // not a melta
+    [InlineData(true, false, 3, 1, 10.0, -1e9)]   // a wall
+    [InlineData(true, true, -1, 1, 10.0, -1e9)]   // no victim
+    [InlineData(true, true, 1, 1, 10.0, -1e9)]    // the own body
+    [InlineData(true, true, 3, 1, 10.1, 10.0)]    // inside the gap
+    public void Other_events_do_not_start_it(bool melta, bool body, int victim, int own, double now, double last)
+        => Assert.False(MeltaBurnRules.Due(melta, body, victim, own, now, last));
+
+    [Fact]
+    public void It_starts_again_after_the_gap_and_covers_head_to_feet_and_arms()
+    {
+        Assert.True(MeltaBurnRules.Due(true, true, 3, 1, 10.3, 10.0));
+        Assert.Contains("rig_head", MeltaBurnRules.Bones);
+        Assert.Contains("rig_rfoot", MeltaBurnRules.Bones);
+        Assert.Contains("rig_lupperarm", MeltaBurnRules.Bones);
+        Assert.Contains("rig_rhand", MeltaBurnRules.Bones);
+        Assert.True(MeltaBurnRules.IsMelta("wargear_csm_meltagun") && !MeltaBurnRules.IsMelta("wargear_sm_bolter"));
+    }
+}
