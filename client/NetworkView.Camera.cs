@@ -62,6 +62,7 @@ public partial class NetworkView
     string _switchKey = "";
     System.Numerics.Vector3 _switchCam, _switchPivot, _lastCam, _lastPivot;
     float _switchFov, _lastFov, _switchT = 1f, _switchTime = 0.25f;
+    float _switchFovRef, _lastFovRef, _reticleFovScale = 1f;   // ui/crosshair-fov-scale (ReticleFovScale)
     float _evadeBlend;                     // 0 .. 1 toward the evade roll's camera set
     string _evadeCameraNote = "";
     bool _evadeCurveNoted;
@@ -176,6 +177,8 @@ public partial class NetworkView
         float fovScale = FovMath.Scale(FovOverride ?? FovMath.Selected, FovMath.Aspect(viewSize.X, viewSize.Y));
         bool scoped = wc.ZoomFovs is { Count: > 0 };
         float fov = Mathf.Lerp(FovMath.Apply(Finite(ex.FieldOfView, DefaultFov), fovScale), scoped ? Finite(aimFov, DefaultFov) : FovMath.Apply(Finite(aimFov, DefaultFov), fovScale), w);
+        // ui/crosshair-fov-scale: the same camera state at the default setting, tracked beside fov (the crosshair's reference angle).
+        float fovRef = Mathf.Lerp(Finite(ex.FieldOfView, DefaultFov), Finite(aimFov, DefaultFov), w);
 
         // Evade roll (M21): blend to the roll's camera set (the ability's camera_curve, e.g. evade_default_mp) over its blend-in
         // time (back out over the exploration set's). Position from the set's rig curve (pitch clamped to the set's range for the
@@ -205,6 +208,7 @@ public partial class NetworkView
                     if (!_evadeCurveNoted) { _evadeCurveNoted = true; _notes.Add(_evadeCameraNote); GD.Print("  camera note: " + _evadeCameraNote); }
                 }
                 fov = Mathf.Lerp(fov, float.IsFinite(set.FieldOfView) ? FovMath.Apply(set.FieldOfView, fovScale) : fov, we);
+                fovRef = Mathf.Lerp(fovRef, float.IsFinite(set.FieldOfView) ? set.FieldOfView : fovRef, we);
                 if (_bot && !_evadeCamLogged && we > 0.5f)
                 {
                     _evadeCamLogged = true;
@@ -219,7 +223,7 @@ public partial class NetworkView
         string switchKey = $"{ex.Name}/{aim.Name}/{aimFov}";
         if (_switchKey.Length > 0 && switchKey != _switchKey && me.Alive && _cameraPlaced)
         {
-            _switchCam = _lastCam; _switchPivot = _lastPivot; _switchFov = _lastFov; _switchT = 0f;
+            _switchCam = _lastCam; _switchPivot = _lastPivot; _switchFov = _lastFov; _switchFovRef = _lastFovRef; _switchT = 0f;
             _switchTime = Finite(ex.BlendInTime, 0.25f);
         }
         _switchKey = switchKey;
@@ -230,8 +234,10 @@ public partial class NetworkView
             cam = System.Numerics.Vector3.Lerp(_switchCam, cam, ws);
             pivot = System.Numerics.Vector3.Lerp(_switchPivot, pivot, ws);
             fov = Mathf.Lerp(_switchFov, fov, ws);
+            fovRef = Mathf.Lerp(_switchFovRef, fovRef, ws);
         }
-        _lastCam = cam; _lastPivot = pivot; _lastFov = fov;   // what was placed (a switch during a blend continues from here)
+        _reticleFovScale = ReticleFovScale.Between(fovRef, fov);   // ui/crosshair-fov-scale: read by FillHud
+        _lastCam = cam; _lastPivot = pivot; _lastFov = fov; _lastFovRef = fovRef;   // what was placed (a switch during a blend continues from here)
 
         // camera/right-shoulder-fov (ours, owner 2026-11-02): a wider field of view draws the character nearer the crosshair, so the camera and its pivot sit further right (FovMath.CameraShift).
         // The view stays parallel, so the crosshair's ray moves with the camera and the converged shot (Converged) with it. A scope's zoom is not widened: no shift there.

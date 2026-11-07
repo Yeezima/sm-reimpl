@@ -241,7 +241,10 @@ public sealed partial class Hud
         return true;
     }
 
-    void DrawReticlePic(HudMovieArt.Pic pic, Vector2 c) => DrawPic(pic, c + ReticleContainer * StageToVirtual);
+    /// <summary>ui/crosshair-fov-scale: the crosshair's size factor for this frame (1 at the default FOV; text and panels never use it).</summary>
+    float ReticleScale => float.IsFinite(Data.ReticleScale) && Data.ReticleScale > 0f ? Data.ReticleScale : 1f;
+
+    void DrawReticlePic(HudMovieArt.Pic pic, Vector2 c) => DrawPic(pic, c + ReticleContainer * StageToVirtual * ReticleScale, null, ReticleScale);
 
     /// <summary>The movie's <c>default_mc</c> (a small dot at half alpha): the reticle with no weapon in hand.</summary>
     bool DrawDefaultReticle(HudMovie hud, Vector2 c)
@@ -313,7 +316,7 @@ public sealed partial class Hud
         string path = $"{ReticleRules.Container}/{ReticleRules.HitMarker}";
         var pic = _movieArt.Get("hit", (m, s) => m.Hud?.RenderAt(path, ReticleRules.Container, s, 1));
         if (pic is null) return true;
-        DrawPic(pic, c + ReticleContainer * StageToVirtual, new Color(1f, 1f, 1f, alpha));
+        DrawPic(pic, c + ReticleContainer * StageToVirtual * ReticleScale, new Color(1f, 1f, 1f, alpha), ReticleScale);
         return true;
     }
 }
