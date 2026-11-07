@@ -10,7 +10,8 @@ namespace SmSim.Extras.Musou.Campaign;
 public static class TfwPatrolRules
 {
     /// <summary>Columns walking a loop of the battle's places, and columns walking down the flow field to the nearest player wherever he is.</summary>
-    public const int RoutePatrols = 4, Hunters = 2;
+    /// <remarks>Expansion S3 (owner brief 2026-11-07): the Stormboy squads replace the hunter columns (<see cref="TfwStormboyRules"/>), so <see cref="Hunters"/> is 0 (was 2); the hunter code stays for a later use.</remarks>
+    public const int RoutePatrols = 4, Hunters = 0;
     /// <summary>Orks in one column (fodder only). They come out of the crowds' cap (<see cref="TfwBattleRules.AliveCap"/>): the map holds no more Orks than before, only some of them march instead of standing in a crowd.</summary>
     public const int Size = 40;
     /// <summary>A route patrol's march and a hunter column's (both under every Ork's run speed, so the ranks keep up).</summary>

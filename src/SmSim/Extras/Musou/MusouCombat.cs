@@ -85,7 +85,7 @@ public sealed partial class MusouSim
     public bool Stagger(ushort id, Vector2 push, float distance)
     {
         int i = id - 1;
-        if (i < 0 || i >= Capacity || !_used[i] || _state[i] == MusouEnemyState.Dying || _type[i] == MusouEnemyType.Warboss || MusouBossOrks.Is(_type[i])) return false;   // a Boss Ork too (owner, 2026-11-06: hyper armour)
+        if (i < 0 || i >= Capacity || !_used[i] || _state[i] is MusouEnemyState.Dying or MusouEnemyState.Airborne || _type[i] == MusouEnemyType.Warboss || MusouBossOrks.Is(_type[i])) return false;   // in a hop he cannot be staggered (S3); a Boss Ork too (owner, 2026-11-06: hyper armour)
         if (_state[i] is not (MusouEnemyState.Knocked or MusouEnemyState.Stunned)) SetState(i, MusouEnemyState.Stagger);   // one on the ground stays down: a war's fodder (MusouSim.Knock.cs); a stunned Weirdboy stays stunned
         _token[i] = 0; _burst[i] = 0;
         if (_type[i] == MusouEnemyType.Nob) distance *= Rules.Combat.NobKnockbackScale;

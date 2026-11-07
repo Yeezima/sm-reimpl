@@ -59,6 +59,8 @@ public sealed class MusouLooks
         new(MusouEnemyType.BossShootaBoy, "boy_ranged", BossOrkScale, "boy_melee", BossOrkScale, true),
         new(MusouEnemyType.BossArdBoy, "boy_ardboy", BossOrkScale, "boy_melee_pro", BossOrkScale, false),
         new(MusouEnemyType.BossNob, "nob_melee", BossOrkScale, "boy_melee_pro", 1.2f * BossOrkScale, false),
+        // Expansion S3: the Big Shoota Nob, the co-op set's nob_ranged (the Nob's body when it cannot be had), with the Shoota Boy's clips and gun effects (MusouOrkGunRules).
+        new(MusouEnemyType.BigShootaNob, "nob_ranged", 1f, "nob_melee", 1f, true),
         // Last, so nothing waits on the Warboss model's read: the Warboss model first (WarbossLooks); this is its fallback.
         new(MusouEnemyType.Warboss, "nob_melee", BossScale, "boy_melee_pro", BossScale, false),
     ];
@@ -80,6 +82,9 @@ public sealed class MusouLooks
     readonly SquigLooks? _squig;
     /// <summary>The Bomb Squig's placeholder when its own model cannot be had (*placeholder demonstration*): the Boy's body this small (ours).</summary>
     public const float SquigPlaceholderScale = 0.4f;
+    readonly StormboyLooks? _stormboy;
+    /// <summary>Whether the Stormboy is drawn with his own campaign model (false: a Boy, with the placeholder jump pack the view adds).</summary>
+    public bool StormboyOwnLook => _stormboy?.Look is not null;
     int _next;
     bool _chaosTried;
 
@@ -98,11 +103,13 @@ public sealed class MusouLooks
         catch (Exception ex) when (ex is not OutOfMemoryException) { Notes.Add($"musou: the Weirdboy model was not started: {ex.Message}"); }
         try { _squig = new SquigLooks(gameDir); }   // expansion S2: the Bomb Squig on its own rig (SquigLooks.cs)
         catch (Exception ex) when (ex is not OutOfMemoryException) { Notes.Add($"musou: the Squig model was not started: {ex.Message}"); }
+        try { _stormboy = new StormboyLooks(gameDir); }   // expansion S3: the campaign's Stormboy, his own body and rig (StormboyLooks.cs)
+        catch (Exception ex) when (ex is not OutOfMemoryException) { Notes.Add($"musou: the Stormboy model was not started: {ex.Message}"); }
         foreach (var w in Plan) { Start(w.Mesh); if (w.Fallback is not null) Start(w.Fallback); }
     }
 
     /// <summary>The look of a kind (null: not built yet; the crowd then draws the Boy's, or nothing).</summary>
-    public Look? For(MusouEnemyType type) => _looks[(int)type] ?? (type is MusouEnemyType.ChaosMarine or MusouEnemyType.Warboss or MusouEnemyType.Nob or MusouEnemyType.BombSquig || MusouBossOrks.Is(type) ? null : _looks[(int)MusouEnemyType.Boy]);   // the big ones wait for their own body: never a small Boy standing in (owner, 2026-11-01)
+    public Look? For(MusouEnemyType type) => _looks[(int)type] ?? (type is MusouEnemyType.ChaosMarine or MusouEnemyType.Warboss or MusouEnemyType.Nob or MusouEnemyType.BombSquig or MusouEnemyType.BigShootaNob || MusouBossOrks.Is(type) ? null : _looks[(int)MusouEnemyType.Boy]);   // the big ones wait for their own body: never a small Boy standing in (owner, 2026-11-01)
 
     /// <summary>Builds at most one look a call (main thread) once its files are read; returns the one built, or null.</summary>
     public Look? Step()
@@ -159,6 +166,15 @@ public sealed class MusouLooks
             Notes.Add($"musou: BombSquig drawn as a PLACEHOLDER (boy_melee x{SquigPlaceholderScale:0.##}): its own model could not be had");
             _looks[(int)MusouEnemyType.BombSquig] = new Look { Name = "BombSquig:placeholder", Assets = boySquig.Assets, Scale = SquigPlaceholderScale, Clips = boySquig.Clips };
         }
+        if (_stormboy is { Done: false } storm)   // the Stormboy's own look (a Boy with a placeholder pack stands in until then, and for good if it cannot be had)
+        {
+            var mine = storm.Step();
+            if (mine is null && !storm.Done) return null;
+            Notes.AddRange(storm.Notes); storm.Notes.Clear();
+            if (mine is not null) return _looks[(int)MusouEnemyType.Stormboy] = mine;
+        }
+        if (_looks[(int)MusouEnemyType.BigShootaNob] is null && _looks[(int)MusouEnemyType.Nob] is { } nobGun)   // no Nob mesh at all: the Nob's stand-in
+            _looks[(int)MusouEnemyType.BigShootaNob] = nobGun;
         if (_looks[(int)MusouEnemyType.Warboss] is null && _looks[(int)MusouEnemyType.Boy] is { } boy)   // no Nob and no pro mesh to be had: the Boy's body, big
             _looks[(int)MusouEnemyType.Warboss] = new Look { Name = "Warboss:boy_melee", Assets = boy.Assets, Scale = BossScale, Clips = boy.Clips };
         if (_looks[(int)MusouEnemyType.Nob] is null && _looks[(int)MusouEnemyType.Boy] is { } boyNob)   // the same for the Nob: never left invisible
@@ -173,7 +189,7 @@ public sealed class MusouLooks
     }
 
     /// <summary>Gives up waiting for the Chaos model (the view has none): the Chaos Marine is drawn as a Boy.</summary>
-    public void StopWaiting() { if (_next >= Plan.Length && !_chaosTried && _weirdboy is not { Done: false } && _squig is not { Done: false }) { _chaosTried = true; Done = true; Notes.Add("musou: no Chaos model built; Chaos Marines drawn as Boyz"); } }
+    public void StopWaiting() { if (_next >= Plan.Length && !_chaosTried && _weirdboy is not { Done: false } && _squig is not { Done: false } && _stormboy is not { Done: false }) { _chaosTried = true; Done = true; Notes.Add("musou: no Chaos model built; Chaos Marines drawn as Boyz"); } }
 
     void Start(string mesh)
     {

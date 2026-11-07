@@ -304,6 +304,8 @@ public sealed partial class TfwBattle
         int field = Math.Min(Squads, _final ? TfwBattleRules.FinalFieldSquads : TfwBattleRules.FieldSquads);
         _reserves = Squads - field;
         PlanColumns();   // TfwBattle.Patrols.cs: the patrols and hunter columns (their routes are searched off the tick, taken 3 s after the start)
+        PlanStormboys();   // TfwBattle.Stormboys.cs: the Stormboy squads (expansion S3, in place of the hunters)
+        PlaceBigShootas();   // TfwBattle.BigShootas.cs: a Big Shoota Nob and his squad at each position (expansion S3)
         for (int s = 0; s < field; s++) _guards.SpawnSquad(Ground(_layout.LandingZone + SquadOffset(s), _layout.LandingZone), YawTo(_layout.LandingZone, _layout.Hq));
         if (_final)
         {
@@ -521,6 +523,7 @@ public sealed partial class TfwBattle
         StepSquads();
         StepReserves();
         StepColumns(players);   // TfwBattle.Patrols.cs: before the arrivals, so the crowds see the cap the columns take
+        StepStormboys(players);   // TfwBattle.Stormboys.cs (expansion S3)
         StepArrivals();
         StepBossOrks(players);   // the roaming Boss Orks (owner, 2026-11-06; TfwBattle.BossOrks.cs)
         StepWeirdboyz(players);   // the Weirdboyz (TfwBattle.Weirdboyz.cs)

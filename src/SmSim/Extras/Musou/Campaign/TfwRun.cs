@@ -13,6 +13,7 @@ public sealed partial class TfwRun
     readonly Dictionary<int, int> _reviveTicks = new();    // a fallen human: ticks left of its revive window (0: closed)
     readonly List<int> _work = new();
     Vector3[] _feet = new Vector3[16];
+    int[] _feetIds = new int[16];
     TfwRunPhase _fighting;
     double _nextHqTransport;
     int _warTicks;
@@ -253,7 +254,9 @@ public sealed partial class TfwRun
 
         if (_feet.Length < w.Players.Count * 2) _feet = new Vector3[w.Players.Count * 4];
         int n = 0;
-        foreach (var p in w.Players.Values) if (p.Alive) _feet[n++] = p.Position;
+        if (_feetIds.Length < _feet.Length) _feetIds = new int[_feet.Length];
+        foreach (var (pid, p) in w.Players) if (p.Alive) { _feetIds[n] = pid; _feet[n++] = p.Position; }
+        battle.SetPlayerIds(_feetIds.AsSpan(0, n));   // the Stormboys hunt humans by id (TfwBattle.Stormboys.cs)
         int humans = 0;
         foreach (int id in w.Players.Keys) if (!TfwContracts.IsPuppet(id)) humans++;
         var change = battle.Step(_feet.AsSpan(0, n), humans);

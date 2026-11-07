@@ -101,6 +101,7 @@ public sealed partial class MusouSim
         SpawnedSwarm(i);
         SpawnedWeirdboy(i);   // MusouSim.Weirdboy.cs: the shield, the cooldowns
         SpawnedSquig(i);   // MusouSim.Squig.cs: the fuse, the kick
+        SpawnedStormboy(i); SpawnedBigShoota(i);   // expansion S3 (MusouSim.Stormboy.cs, MusouSim.BigShoota.cs)
         _prefer[i] = false;
         _relocations[i] = 0;
         _ring[i] = Rules.CircleMin + (Rules.CircleMax - Rules.CircleMin) * Unit(Mix((uint)i * 2654435761u, 0x9E3779B9u));
@@ -156,6 +157,7 @@ public sealed partial class MusouSim
             var state = _state[i];
             if (state == MusouEnemyState.Dying)
             {
+                if (_falling[i]) { StepFall(i); continue; }   // a shot-down Stormboy falls, then crashes (MusouSim.Stormboy.cs)
                 if (_stateTicks[i] >= Ticks(Rules.DyingSeconds)) _dead.Add(i);
                 continue;
             }
@@ -166,9 +168,12 @@ public sealed partial class MusouSim
                 continue;
             }
             if (state == MusouEnemyState.Knocked) { StepKnocked(i, targets, near); continue; }   // Campaign/MusouSim.Knock.cs: only a war's fodder falls
+            if (state == MusouEnemyState.Airborne) { StepAirborne(i); continue; }   // a Stormboy's hop (MusouSim.Stormboy.cs)
             if (_type[i] == MusouEnemyType.Weirdboy && StepWeirdboy(i, targets, near, fight)) { if (_cooldown[i] > 0) _cooldown[i]--; continue; }   // his stun, cast and fade (MusouSim.Weirdboy.cs)
             if (_cooldown[i] > 0) _cooldown[i]--;
             var spec = Rules.Of(_type[i]);
+            if (_type[i] == MusouEnemyType.Stormboy && StepOrdered(i, targets, near, spec)) continue;   // under his squad's orders (MusouSim.Stormboy.cs)
+            if (_type[i] == MusouEnemyType.BigShootaNob && float.IsPositiveInfinity(_aggro[i]) && StepBigShoota(i, targets, near, spec, fight, attacks)) continue;   // his gun's cycle (MusouSim.BigShoota.cs)
             bool leashed = !float.IsPositiveInfinity(_aggro[i]) && !_scripted[i], woken = leashed && Woken(i, targets);
             if (woken && Swarm is not null) { _pack[i] = PackFor(_group[i]); _aggro[i] = float.PositiveInfinity; _group[i] = 0; }   // once woken it never walks home: no yo-yo
             if (leashed && !woken)
