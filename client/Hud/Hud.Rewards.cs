@@ -70,12 +70,13 @@ public sealed partial class Hud
     /// </summary>
     void RunRewardsDemo()
     {
-        _rewardsDemo ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--hud-rewards-demo") >= 0;
+        _rewardsDemo ??= Array.IndexOf(OS.GetCmdlineUserArgs(), "--hud-rewards-demo") >= 0 || Array.IndexOf(OS.GetCmdlineUserArgs(), "--hud-headshot-demo") >= 0;
         if (_rewardsDemo != true || !Data.InGame) return;
         if (_rewardsDemoAt < 0) _rewardsDemoAt = _time + 3.0;
         if (_time < _rewardsDemoAt) return;
         double since = _time - _rewardsDemoAt;
-        string[] victims = ["P4", "P5", "P6"];
+        // --hud-headshot-demo: a single headshot kill (the medal line and its description alone).
+        string[] victims = Array.IndexOf(OS.GetCmdlineUserArgs(), "--hud-headshot-demo") >= 0 ? ["P4"] : ["P4", "P5", "P6"];
         double[] at = [0.0, 0.8, 1.6];
         if (_rewardsDemoStep < victims.Length && since >= at[_rewardsDemoStep])
         {

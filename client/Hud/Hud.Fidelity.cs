@@ -140,9 +140,9 @@ public sealed partial class Hud
                 // Headshot medal (the owner, 2026-11-07): the data's description (display_description) under the line, centred on the screen, white like the name, fading with the line (ours: the
                 // HUD movie has no description field; the original's reward screens show these texts).
                 float a = (float)(Math.Clamp(EventSeconds - age, 0.0, 0.5) / 0.5 * Math.Clamp(age / 0.25, 0.0, 1.0));
-                var under = root * new Vector2(0f, (float)step * 0.62f);
+                var under = root * new Vector2(0f, (float)step * 1.45f);
                 Txt(description, vs.X / 2f, under.Y, Math.Max(14, (int)MathF.Round(vs.Y / 1080f * 22f)), new Color(1f, 1f, 1f, a), 0, 3, 0);
-                below += step * 0.7;
+                below += step * 0.9;
             }
         }
         return true;
