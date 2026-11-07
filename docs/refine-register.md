@@ -28,20 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2436 spec table rows: **1778 tagged**, 473 not tagged (read from data with high confidence), 185 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 547 rows of the changes document.
-Scanned 2448 spec table rows: **1788 tagged**, 475 not tagged (read from data with high confidence), 185 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 548 rows of the changes document.
-Scanned 2448 spec table rows: **1778 tagged**, 473 not tagged (read from data with high confidence), 197 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 546 rows of the changes document.
-Scanned 2450 spec table rows: **1789 tagged**, 474 not tagged (read from data with high confidence), 187 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 554 rows of the changes document.
-Scanned 2437 spec table rows: **1779 tagged**, 473 not tagged (read from data with high confidence), 185 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 546 rows of the changes document.
+Scanned 2475 spec table rows: **1800 tagged**, 476 not tagged (read from data with high confidence), 199 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 561 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 382 | 324 | 324 | 114 | 12 |
 | Combat core (critical) | 12 | 3 | 12 | 10 | 9 |
-| Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
-| Melee (critical) | 111 | 96 | 88 | 36 | 5 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 109 | 95 | 86 | 35 | 5 |
+| Melee (critical) | 111 | 96 | 88 | 36 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -56,39 +50,22 @@ Scanned 2437 spec table rows: **1779 tagged**, 473 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 351 | 329 | 274 | 67 | 1 |
+| Core simulation (provisional values) | 362 | 340 | 284 | 69 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 173 | 164 | 80 | 50 | 0 |
-| **All areas** | **1788** | 1545 | 1365 | 559 | 38 |
-| Core simulation (provisional values) | 354 | 334 | 277 | 69 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 173 | 164 | 80 | 50 | 0 |
-| **All areas** | **1789** | 1549 | 1366 | 560 | 38 |
-| **All areas** | **1779** | 1539 | 1357 | 558 | 38 |
+| **All areas** | **1800** | 1557 | 1376 | 561 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 897 |
-| confidence: low | 652 |
-| confidence: medium | 585 |
-| kind: interpretation | 357 |
-| notes: ours | 350 |
-| kind: ours | 902 |
-| confidence: low | 655 |
-| confidence: medium | 583 |
+| kind: ours | 907 |
+| confidence: low | 659 |
+| confidence: medium | 588 |
 | kind: interpretation | 359 |
-| notes: ours | 351 |
-| confidence: none (low) | 128 |
-| kind: estimate | 119 |
-| kind: ours | 894 |
-| confidence: low | 648 |
-| confidence: medium | 580 |
-| kind: interpretation | 357 |
-| notes: ours | 349 |
+| notes: ours | 352 |
 | confidence: none (low) | 129 |
-| kind: estimate | 117 |
+| kind: estimate | 119 |
 | kind: provisional | 99 |
 | notes: estimate | 96 |
 | kind: user's knowledge | 55 |
@@ -2108,8 +2085,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (351)
-### Core simulation (provisional values) (354)
+### Core simulation (provisional values) (362)
 
 *Spec section: Provisional values in use*
 
@@ -2676,6 +2652,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-9095089B` | Slam steering: limit | **185** degrees in all; as the turn is capped at the rate over the window, the window opens 185 / 300 = **0.617 s** before the hit (0.483 s into the slam) and closes at the hit (1.1 s); before it the slam holds the facing it began with, after it the facing it… (deg, s) | kind: ours; kind: user's knowledge; confidence: medium | the owner's value (185); the window's place ours, fitted to the recording | Slam steering: limit: compare with SM1 by feel or video. Ours: 185 degrees in all; as the turn is capped at the rate over the… | ☐ |
 | `R-588F176B` | Slam steering: own model | The own marine's body in a steered slam shows the simulation's heading (not the view's frame-rate yaw), so it never runs ahead of the 185-degree limit | kind: ours; confidence: medium | ours | Slam steering: own model: compare with SM1 by feel or video. Ours: The own marine's body in a steered slam shows the simulation's… | ☐ |
 | `R-595B1816` | Protocol | No wire change: the yaw already travels in every input; the new step fields enter the config hash only when set (the hammer's and maul's maps), so mismatched builds are refused by the hash. `Protocol.Version` stays 63 | kind: ours | ours | Protocol: compare with SM1 by feel or video. Ours: No wire change: the yaw already travels in every input; the new step… | ☐ |
+
 *Spec section: Headshot medal, score and scream (protocol 64, 2026-11-07)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
