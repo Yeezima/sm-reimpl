@@ -163,6 +163,7 @@ public sealed partial class MusouSim
         int i = id - 1;
         if (i < 0 || i >= Capacity || !_used[i] || _state[i] == MusouEnemyState.Dying || !(amount > 0f)) return false;
         if (_type[i] == MusouEnemyType.BombSquig && cause != MusouDeathKind.World) amount = MathF.Max(amount, _health[i]);   // expansion S2: any hit sets a Squig off (MusouSim.Squig.cs)
+        if (MekDemo && _type[i] == MusouEnemyType.ScrapMek) return false;   // expansion S4's capture aid only (MusouSim.Mek.cs)
         if (_shield[i] > 0f && ShieldTakes(i, attacker, amount, cause)) return true;   // the Weirdboy's shield (MusouSim.Weirdboy.cs)
         _health[i] = MathF.Max(0f, _health[i] - amount);
         if (_group[i] != 0) ReleaseGroup(_group[i]);   // a hurt defender wakes its whole group (MusouSim.Ai.cs)

@@ -19,6 +19,9 @@ public sealed partial class MusouSim
     readonly bool[] _mekWork = new bool[Capacity];
     readonly bool[] _mekFleeing = new bool[Capacity];
 
+    /// <summary>Capture aid (ours; the server's <c>SM_MUSOU_S4_DEMO</c> only): the Meks take no damage and never run, so a capture shows every build to its end. Off in every match.</summary>
+    public bool MekDemo { get; set; }
+
     void SpawnedMek(int i) { _mekHasGoal[i] = false; _mekWork[i] = false; _mekFleeing[i] = false; }
 
     bool IsMek(ushort id) => id >= 1 && id <= Capacity && _used[id - 1] && _type[id - 1] == MusouEnemyType.ScrapMek && _state[id - 1] != MusouEnemyState.Dying;
@@ -68,7 +71,7 @@ public sealed partial class MusouSim
             var flat = new Vector2(d.X, d.Y);
             away = flat.LengthSquared() > 1e-6f ? Vector2.Normalize(flat) : Forward(_yaw[i] + MathF.PI);
         }
-        _mekFleeing[i] = away != Vector2.Zero;
+        _mekFleeing[i] = away != Vector2.Zero && !MekDemo;
         if (_mekFleeing[i])
         {
             _mekWork[i] = false;

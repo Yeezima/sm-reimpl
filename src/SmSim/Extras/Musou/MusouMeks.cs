@@ -595,7 +595,7 @@ public sealed class MusouMeks
     {
         destroyed = false;
         var s = Find(id);
-        if (s is null || !(amount > 0f)) return false;
+        if (s is null || !(amount > 0f) || DemoHide is not null) return false;   // the capture aid: nothing is destroyed
         s.Health = MathF.Max(0f, s.Health - amount);
         if (s.Health > 0f) return true;
         destroyed = true;

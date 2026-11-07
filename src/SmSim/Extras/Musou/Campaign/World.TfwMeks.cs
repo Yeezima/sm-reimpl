@@ -48,7 +48,7 @@ public sealed partial class World
         if (TfwGuards is { } guards) n += guards.AppendTargets(_mekTargets.AsSpan(n));
         _mekBlocked ??= Blocked;
         _mekGuardsNear ??= (point, radius) => TfwGuards is { } g && g.CountInside(point, radius) > 0;
-        if (TfwMekDemo) TfwMekDemoPlaces(musou, battle);
+        if (TfwMekDemo) { musou.MekDemo = true; TfwMekDemoPlaces(musou, battle); }
         battle.StepMeks(_mekTargets.AsSpan(0, n), _mekBlocked, _mekGuardsNear);
         var meks = battle.Meks;
         _mekTriggers.Clear();
