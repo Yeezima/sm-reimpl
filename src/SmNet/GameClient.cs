@@ -40,6 +40,11 @@ public sealed record ClientOptions
     public int MaxCorrectionSamples { get; init; } = 100_000;
     /// <summary>Loads the map a server names (from this machine's install). Null: flat ground only.</summary>
     public Func<string, LoadedMap?>? LoadMap { get; init; }
+    /// <summary>
+    /// Bot loadouts (2026-11-07, ours): called once the Challenge has named the map and it is loaded, before the Hello that joins; returns the options to join with
+    /// (the request fields of the Hello). Lets a test bot choose its Classic PvP loadout only on a Classic map. Null: the options stay. No wire change.
+    /// </summary>
+    public Func<string, ClientOptions, ClientOptions>? ReviseOnMap { get; init; }
     /// <summary>The class to play (index into <see cref="SimConfig.Classes"/>), or <see cref="Protocol.ServerDefaultClass"/>.</summary>
     public byte RequestedClass { get; init; } = Protocol.ServerDefaultClass;
     /// <summary>The primary to play: index into the class's primary choices (<see cref="Loadouts.Choices"/>), or <see cref="Protocol.DefaultChoice"/>.</summary>
@@ -121,7 +126,7 @@ public sealed partial class GameClient
     readonly ulong _contentFingerprint;
     readonly IClientTransport _transport;
     readonly IClock _clock;
-    readonly ClientOptions _options;
+    ClientOptions _options;   // changed only by ReviseOnMap while connecting
     readonly uint _nonce;
     readonly SortedDictionary<uint, (PlayerInput Input, PlayerState State)> _history = new();
     readonly List<(uint Tick, Dictionary<int, PlayerState> Players, Dictionary<int, ProjectileView> Projectiles)> _snapshots = new();
@@ -381,6 +386,7 @@ public sealed partial class GameClient
             var loaded = _options.LoadMap(map);
             if (loaded is null) { MapError = $"map '{map}' is not installed"; return; }
             Collision = loaded.Collision; _mapHash = loaded.Hash;
+            if (_options.ReviseOnMap is { } revise) _options = revise(map, _options) ?? _options;
         }
         catch (Exception e) when (e is not (StackOverflowException or AccessViolationException))
         {

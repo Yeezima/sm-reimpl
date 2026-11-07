@@ -20,6 +20,7 @@ return args switch
     ["make-tar", .. var rest] => SmTool.TarPackage.Run(rest),
     ["whats-new", .. var rest] => SmTool.WhatsNew.Run(rest),
     ["perks", var gameDir] => SmTool.PerkCommands.List(gameDir),
+    ["bot-loadouts", var gameDir] => SmTool.BotLoadoutCommands.List(gameDir),
     ["ork-balance", var gameDir, .. var rest] => SmTool.OrkCommands.Balance(gameDir, rest),
     ["ork-actions", var gameDir] => SmTool.OrkCommands.Actions(gameDir),
     ["ork-sounds", var gameDir, .. var rest] => SmTool.OrkSoundCommands.Run(gameDir, rest),
@@ -66,6 +67,7 @@ static int Usage()
           smtool ashfall-kit-stairs [--source <dir>] [--out <file>]   the walkable kit models' stairs found in their meshes -> AshfallKitStairs.g.cs (late batch F)
                                                     fits collision boxes to each Ashfall kit model (owner's library, read only); writes AshfallKitCollision.g.cs, a report and OBJs
           smtool perks <game-dir|auto>              the perks: upgrade strings, classes, simulation status, perk variants (M43)
+          smtool bot-loadouts <game-dir|auto>       the owner's fixed bot loadouts resolved against every class (2026-11-07)
           smtool armour-audit <game-dir|auto> [--all] [--packages]
                                                     every class's default look, every armour set worn whole and every offered piece of both races,
                                                     resolved and loaded as the client draws them: what fails, explained gaps, free-hanging cloth

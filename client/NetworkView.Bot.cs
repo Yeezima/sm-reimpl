@@ -124,17 +124,26 @@ public partial class NetworkView
         System.Numerics.Vector3 goal;
         float distance;
         string purpose;
-        // M44a: an enemy in its spawn room cannot be reached (the blockers) and is not chased; with only such enemies the bot waits at a hold point 8-15 m from the door (NetworkView.BotSpawn.cs).
+        // M44a: an enemy in its spawn room cannot be reached (the blockers) and is not chased; since 2026-11-07 neither is one in the no-loiter zone around it, and with
+        // only such enemies (or none alive) the bot holds its centre spot and roams (NetworkView.BotRoam.cs; the old wait at the door only with --bot-door-wait).
+        // 2026-11-08: a melee push goes first, through its concealed approach (NetworkView.BotPush.cs).
+        if (BotPushChaseInput(me, tick) is { } pushInput) return pushInput;
         var chased = BotChaseTarget(me);
         if (chased is null && BotHoldInput(me, tick) is { } holdInput) return holdInput;
-        if ((chased ?? NearestLivingTarget(me)) is { } enemy)
+        // 2026-11-07, Annihilation: a life's first leg goes through its lane, so a side's bots leave the spawn by different routes (NetworkView.BotRoam.cs).
+        if (BotLaneInput(me, tick, chased) is { } laneInput) return laneInput;
+        if (chased is null && BotIdleInput(me, tick) is { } idleInput) return idleInput;
+        if (chased is { } enemy)
         {
-            // Stream C: with an ally already engaging it, come in from the side (a flank point; NetworkView.BotTactics.cs).
+            // Stream C: with an ally already engaging it, come in from the side (a flank point; NetworkView.BotTactics.cs). 2026-11-07: else a long chase bends
+            // through a via point by rank (Annihilation; NetworkView.BotRoam.cs).
             var flank = BotFlankGoal(me, enemy);
-            goal = flank ?? BotPathGoal(enemy.Position);
+            var via = flank is null ? BotChaseVia(me, enemy) : null;
+            goal = flank ?? via ?? BotPathGoal(enemy.Position);
             distance = new Vector2(me.Position.X, me.Position.Y).DistanceTo(new Vector2(goal.X, goal.Y));
             _botNote = $"chasing P{enemy.PlayerId} at {distance:F0} m{(distance <= BotFightRange ? " (not visible)" : "")}{(flank is null ? "" : " flank")}";
-            purpose = flank is null ? $"chase P{enemy.PlayerId}" : $"flank P{enemy.PlayerId}";
+            if (via is not null) _botNote += " via";
+            purpose = flank is not null ? $"flank P{enemy.PlayerId}" : via is not null ? $"chase P{enemy.PlayerId} via" : $"chase P{enemy.PlayerId}";
         }
         else if (_mapCentre is { } centre && new Vector2(me.Position.X, me.Position.Y).DistanceTo(centre) is var toCentre && toCentre > BotCentreArrived)
         {
