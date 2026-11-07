@@ -188,6 +188,9 @@ public sealed class MusouSoundSet
     public MusouSoundCue SlamHit { get; } = new();
     public MusouSoundCue ChargeStart { get; } = new();
     public MusouSoundCue ChargeHit { get; } = new();
+    /// <summary>The gun jams (the Big Shoota Nob's overheat): the gun's own <c>actn_snd_wep_gun_jam</c> (in the data an exertion, <c>effort_big_pull</c>), and its cock when it is ready again (<c>actn_snd_wep_cock</c>).</summary>
+    public MusouSoundCue Jam { get; } = new();
+    public MusouSoundCue GunReady { get; } = new();
     /// <summary>Commands of the data this type would play that no loaded bank holds (reported at start-up and by <c>smtool musou-sounds</c>).</summary>
     public SortedSet<string> Missing { get; } = new(StringComparer.OrdinalIgnoreCase);
 
@@ -197,6 +200,7 @@ public sealed class MusouSoundSet
         ("grunt", Grunt), ("bark", Bark), ("roar", Roar), ("step left", StepLeft), ("step right", StepRight), ("wind-up", WindUp), ("effort", Effort), ("swing", Swing), ("melee hit", MeleeHit), ("fire", Fire),
         ("gun impact", GunImpact), ("hurt small", HurtSmall), ("hurt big", HurtBig), ("stun", Stun), ("death yell", DeathYell), ("fall", Fall), ("knocked", Knocked), ("land", Land), ("celebrate", Celebrate),
         ("slam wind-up", SlamWindUp), ("slam hit", SlamHit), ("charge start", ChargeStart), ("charge hit", ChargeHit),
+        ("jam", Jam), ("gun ready", GunReady),
     };
 
     /// <summary>The set of <paramref name="files"/>; <paramref name="inBanks"/> says whether an event can be posted.</summary>
@@ -283,6 +287,8 @@ public sealed class MusouSoundSet
         if (melee is not null) AddOption(set.SlamHit, melee.Of("actn_smash"), []);
         First(set.ChargeStart, charge, "weaponflare");
         First(set.ChargeHit, charge, "actn_bullrush_warboss", "actn_huge_swing");
+        First(set.Jam, gun, "actn_snd_wep_gun_jam");
+        First(set.GunReady, gun, "actn_snd_wep_cock");
         return set;
     }
 }
