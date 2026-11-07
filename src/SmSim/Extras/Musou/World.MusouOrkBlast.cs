@@ -79,6 +79,7 @@ public sealed partial class World
             orks++;
             if (musou.Damage(e.Id, credit, amount, new Vector3(push, 0.3f), out bool killed, cause: MusouDeathKind.OrkBlast) && killed) orkKills++;
         }
+        TfwMekOrkBlast(point, blast, credit);   // Campaign/World.TfwMeks.cs: the contraptions (expansion S4)
         musou.QueueSquigDetonations(point, blast.Radius, credit, _musouNear);
         int queued = musou.PendingDetonations - pending;
         return new OrkBlastResult(players, playerKills, guardMen, guardKills, orks, orkKills, queued);

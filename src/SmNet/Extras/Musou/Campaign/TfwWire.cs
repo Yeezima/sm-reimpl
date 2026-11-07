@@ -47,6 +47,8 @@ public static class TfwWire
     public const byte WarTag = 7, ObjectivesTag = 8, GuardsTag = 9, GuardEventsTag = 10, FireTag = 11, ScoreTag = 12, BarsTag = 13, RewardTag = 14, ArsenalTag = 15;
     /// <summary>Tag 16, the Librarian's (<see cref="LibrarianWire"/>): stress, cooldowns, casts and lightning links.</summary>
     public const byte LibrarianTag = LibrarianWire.Tag;
+    /// <summary>Tag 17, the Scrap Meks' contraptions (<see cref="MekWire"/>; expansion S4).</summary>
+    public const byte MekTag = MekWire.Tag;
     /// <summary>The tag of the war's commands in message kind 17 (another namespace than the envelope's: client to server).</summary>
     public const byte CommandTag = 7;
     /// <summary>Bytes of a command's payload, and of one with a place (at most <see cref="Protocol.MaxExtrasCommandPayload"/>).</summary>
@@ -83,7 +85,7 @@ public static class TfwWire
     const int ScoreHasOwn = 1, ScoreHasOthers = 2, ScoreHasHistory = 4;
 
     /// <summary>Whether an envelope tag is the war's (7 to 15).</summary>
-    public static bool Owns(byte tag) => tag is >= WarTag and <= LibrarianTag;
+    public static bool Owns(byte tag) => tag is >= WarTag and <= MekTag;
 
     /// <summary>Whether sequence <paramref name="a"/> is after <paramref name="b"/>, across the 16-bit wrap.</summary>
     public static bool IsNewer(ushort a, ushort b) => (short)(a - b) > 0;

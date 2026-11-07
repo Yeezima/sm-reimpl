@@ -102,6 +102,7 @@ public sealed partial class MusouSim
         SpawnedWeirdboy(i);   // MusouSim.Weirdboy.cs: the shield, the cooldowns
         SpawnedSquig(i);   // MusouSim.Squig.cs: the fuse, the kick
         SpawnedStormboy(i); SpawnedBigShoota(i);   // expansion S3 (MusouSim.Stormboy.cs, MusouSim.BigShoota.cs)
+        SpawnedMek(i);   // expansion S4 (MusouSim.Mek.cs)
         _prefer[i] = false;
         _relocations[i] = 0;
         _ring[i] = Rules.CircleMin + (Rules.CircleMax - Rules.CircleMin) * Unit(Mix((uint)i * 2654435761u, 0x9E3779B9u));
@@ -169,6 +170,7 @@ public sealed partial class MusouSim
             }
             if (state == MusouEnemyState.Knocked) { StepKnocked(i, targets, near); continue; }   // Campaign/MusouSim.Knock.cs: only a war's fodder falls
             if (state == MusouEnemyState.Airborne) { StepAirborne(i); continue; }   // a Stormboy's hop (MusouSim.Stormboy.cs)
+            if (_type[i] == MusouEnemyType.ScrapMek) { StepMek(i, targets, near); continue; }   // he runs, hides and builds (MusouSim.Mek.cs)
             if (_type[i] == MusouEnemyType.Weirdboy && StepWeirdboy(i, targets, near, fight)) { if (_cooldown[i] > 0) _cooldown[i]--; continue; }   // his stun, cast and fade (MusouSim.Weirdboy.cs)
             if (_cooldown[i] > 0) _cooldown[i]--;
             var spec = Rules.Of(_type[i]);

@@ -250,6 +250,7 @@ public sealed partial class World
         if (_musou is null) return;
         int librarian = LibrarianMeleeBegin(attacker);   // Librarian/World.Librarian.cs: a swing that strikes takes stress off
         MusouCleave(attacker, state, step);   // World.MusouCombat.cs
+        TfwMekMelee(attacker, state, step);   // Campaign/World.TfwMeks.cs: the contraptions (expansion S4)
         LibrarianMeleeEnd(attacker, librarian);
     }
 
@@ -257,6 +258,7 @@ public sealed partial class World
     {
         if (_musou is null) return;
         MusouBlast(owner, point, splash, melee);   // World.MusouCombat.cs
+        TfwMekBlast(owner, point, splash);   // Campaign/World.TfwMeks.cs: the contraptions (expansion S4)
     }
 
     partial void ExtrasDamageTaken(int target, ref float scale)

@@ -79,10 +79,16 @@ whole map. Death → all his contraptions are destroyed.
 - Shield generator: 800 hp, radius 10 m dome; stops shots from outside (walk in to fight).
 - Reinforcement beacon: 400 hp; every 30 s brings a drop of 10 Boys, up to 40 alive from it. Destroyed → the drop in
   flight and the queue are cancelled; Orks already on the ground stay and fight as ordinary Orks.
+  Rule (S4, built): every 30 s the beacon's queue takes one drop of 10 (it holds one drop at most); a drop flies when none
+  is in flight and fewer than 40 of its Boyz live, carrying what the cap leaves, and lands 3 s later round the beacon.
+  Destroying the beacon cancels the drop in flight and the queue; Boyz already landed stay and fight as ordinary Orks.
 - Rokkit turret: 500 hp, fires the Rokkit Boy's rocket every 4 s, range 50 m.
 - Scrap trap: 150 hp, radius 3 m, triggered by a Mek's enemy stepping in; deals 50 % of a player's maximum health to
   players (equivalent flat damage to Marines/Guards); spares Orks. Shot by a player → explodes as an Ork blast (hurts
   Orks). Drawn with a pulsing red light and spikes.
+- Built (S4, `MusouMekRules`, `MusouMeks`, `MusouSim.Mek.cs`, `TfwBattle.Meks.cs`, `World.TfwMeks.cs`; wire tag 17, cues 38 to 45, state Building 11): the turret's rocket is the Rokkit
+  Boy's (S2) with its Mek as shooter; a trap set off is spent; a trap destroyed by no player only breaks; the dome stops hit-scan shots, cones and blasts from
+  outside (not grenades that land inside, melee, the Guardsmen's fire or Ork blasts). The Mek and the contraptions are placeholder looks (no models in the install).
 
 **Librarian** (Musou class, appended only under Musou).
 - Psychic Stress 0-100; lightning adds 5/s (20 s to full); Warp Pull +50, Shockwave +50 (each = 10 s of lightning).
