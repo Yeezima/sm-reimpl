@@ -19,6 +19,11 @@ public sealed class BotPush(int seed)
     public const double AssaultChance = 0.75, TacticalChance = 0.35, HeavyChance = 0.15;
     /// <summary>The farthest target (m, flat) a push starts on (ours).</summary>
     public const float StartRange = 70f;
+    /// <summary>
+    /// Owner, 2026-11-08: "they should also not push when they are being actively shot at". No push starts within <see cref="UnderFireStart"/> s of the bot's last damage,
+    /// and damage within <see cref="UnderFireAbort"/> s ends one that has not closed in yet (ours).
+    /// </summary>
+    public const double UnderFireStart = 4, UnderFireAbort = 1;
 
     readonly Random _random = new(seed);
     double _nextRoll = double.NaN, _since, _meleeSince = double.NaN;
@@ -31,37 +36,51 @@ public sealed class BotPush(int seed)
     /// <summary>The roll's chance for a class role (<see cref="ClassLoadout.Role"/>).</summary>
     public static double ChanceFor(string role) => role switch { "assault" => AssaultChance, "tactical" => TacticalChance, "heavy" => HeavyChance, _ => TacticalChance };
 
+    /// <summary>Why the last push ended ("" before any).</summary>
+    public string Ended { get; private set; } = "";
+
     /// <summary>
     /// Per tick: <paramref name="target"/> is the enemy the bot would go for now (-1 none) at <paramref name="distance"/> m; <paramref name="targetAlive"/> whether the
-    /// push's own target still lives; <paramref name="inMelee"/> whether the bot is within melee reach of it. Returns whether a push is on.
+    /// push's own target still lives; <paramref name="inMelee"/> whether the bot is within melee reach of it; <paramref name="sinceDamage"/> seconds since the bot was
+    /// last hurt and <paramref name="closedIn"/> whether it is already within its jump or charge range of the target. Returns whether a push is on.
     /// </summary>
-    public bool Step(double now, string role, int target, float distance, bool targetAlive, bool inMelee)
+    public bool Step(double now, string role, int target, float distance, bool targetAlive, bool inMelee, double sinceDamage = double.MaxValue, bool closedIn = false)
     {
         if (double.IsNaN(_nextRoll)) _nextRoll = now + RollMin + _random.NextDouble() * (RollMax - RollMin);
         if (Active)
         {
-            if (!targetAlive || now - _since > Timeout) { End(now); return false; }
+            if (!targetAlive) { End(now, "target dead or back in its spawn"); return false; }
+            if (now - _since > Timeout) { End(now, "timeout"); return false; }
+            if (sinceDamage < UnderFireAbort && !closedIn && !inMelee) { End(now, "under fire"); return false; }
             if (inMelee && double.IsNaN(_meleeSince)) _meleeSince = now;
-            if (!double.IsNaN(_meleeSince) && now - _meleeSince > MeleeLinger) { End(now); return false; }
+            if (!double.IsNaN(_meleeSince) && now - _meleeSince > MeleeLinger) { End(now, "melee done"); return false; }
             return true;
         }
         if (now < _nextRoll) return false;
         _nextRoll = now + RollMin + _random.NextDouble() * (RollMax - RollMin);
-        if (target < 0 || distance > StartRange || _random.NextDouble() >= ChanceFor(role)) return false;
+        if (target < 0 || distance > StartRange || sinceDamage < UnderFireStart || _random.NextDouble() >= ChanceFor(role)) return false;
         Target = target; _since = now; _meleeSince = double.NaN; Pushes++;
         return true;
     }
 
-    /// <summary>Ends the push (the bot died, or the caller gave it up).</summary>
-    public void End(double now)
+    /// <summary>Ends the push (the bot died, or the caller gave it up: no safe approach).</summary>
+    public void End(double now, string why = "ended")
     {
+        if (Active) Ended = why;
         Target = -1; _meleeSince = double.NaN;
         if (_nextRoll < now + RollMin) _nextRoll = now + RollMin + _random.NextDouble() * (RollMax - RollMin);
     }
 }
 
-/// <summary>A concealed approach: up to two points to walk through and how much of it the enemy can see (0 to 1), against the straight line's.</summary>
-public sealed record ApproachPlan(IReadOnlyList<Vector3> Waypoints, float Exposure, float DirectExposure);
+/// <summary>
+/// A concealed approach: up to two points to walk through and how much of it the enemy can see (0 to 1), against the straight line's; <see cref="Lead"/> is the seen
+/// share up to the last point (the walk before the final rush, jump or charge). <see cref="Safe"/> (owner, 2026-11-08: "only approach for melee if there is safe way to
+/// do it out of sight"): there is a hidden point and at most <see cref="BotApproach.SafeExposure"/> of the walk to it is seen.
+/// </summary>
+public sealed record ApproachPlan(IReadOnlyList<Vector3> Waypoints, float Exposure, float DirectExposure, float Lead = 1f)
+{
+    public bool Safe => Waypoints.Count > 0 && Lead <= BotApproach.SafeExposure;
+}
 
 /// <summary>
 /// The route of a melee push (owner, 2026-11-08; ours): the walkable cells near the enemy are scored for how much of the leg to them the enemy sees from its eye
@@ -75,6 +94,8 @@ public static class BotApproach
     public const float StageMin = 4f, StageMax = 11f, CoverMin = 14f, CoverMax = 28f;
     /// <summary>Metres a seen metre of the leg counts extra (ours).</summary>
     public const float ExposureWeight = 3f;
+    /// <summary>The most of the walk to the last hidden point the enemy may see for the push to go ahead (<see cref="ApproachPlan.Safe"/>; ours).</summary>
+    public const float SafeExposure = 0.25f;
     /// <summary>Metres between the visibility samples on a leg, the chest height of a sample and the most a cell may differ in height from the enemy (ours).</summary>
     public const float SampleStep = 3f, ChestHeight = 1.2f, MaxRise = 4f;
     /// <summary>Every n-th graph cell is a candidate; the best this many by distance get their legs scored (ours).</summary>
@@ -124,7 +145,7 @@ public static class BotApproach
             if ((!isStage && !isCover) || Seen(world, eye, p)) continue;
             (isStage ? stage : cover).Add(p);
         }
-        if (stage.Count == 0) return new ApproachPlan([], direct, direct);
+        if (stage.Count == 0) return new ApproachPlan([], direct, direct, direct);
         // Stage cells: the nearest by the straight walk, scored on their legs.
         var stages = stage.OrderBy(p => Flat(me, p) + Flat(p, enemy)).Take(Scored).ToList();
         Vector3? bestCover = null;
@@ -149,14 +170,15 @@ public static class BotApproach
             if (cost < bestCost) { bestCost = cost; bestStage = s; }
         }
         var points = bestCover is { } bc ? new List<Vector3> { bc, bestStage } : new List<Vector3> { bestStage };
-        float seen = 0f, total = 0f;
+        float seen = 0f, total = 0f, leadSeen = 0f, leadTotal = 0f;
         var prev = me;
         foreach (var p in points.Append(enemy))
         {
-            float len = Flat(prev, p);
-            seen += len * Exposure(world, eye, prev, p); total += len; prev = p;
+            float len = Flat(prev, p), part = len * Exposure(world, eye, prev, p);
+            seen += part; total += len; prev = p;
+            if (p != enemy) { leadSeen += part; leadTotal += len; }
         }
-        return new ApproachPlan(points, total > 0f ? seen / total : 0f, direct);
+        return new ApproachPlan(points, total > 0f ? seen / total : 0f, direct, leadTotal > 0f ? leadSeen / leadTotal : 0f);
     }
 }
 

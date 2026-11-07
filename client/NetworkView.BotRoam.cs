@@ -48,6 +48,8 @@ public partial class NetworkView
                 var team = client.Predicted.Team;
                 var door = slot.Watch?.Door;
                 var cancel = _navCancel.Token;
+                string mapName = client.MapName;
+                float eye = _config?.EyeHeight ?? 1.7f;
                 slot.PlanTask = Task.Run(() =>
                 {
                     long started = System.Diagnostics.Stopwatch.GetTimestamp();
@@ -55,6 +57,8 @@ public partial class NetworkView
                     var theirs = map.StartAreas.FirstOrDefault(a => a.Side == MatchRules.Other(team));
                     if (team == Team.None || own is null || theirs is null) return ((BotMapPlan?)null, "no start area for both sides");
                     var plan = BotMapPlan.Build(graph, own.Position, theirs.Position, door, centre, world, cancel);
+                    // 2026-11-08: the ramp and balcony posts (NetworkView.BotPosts.cs).
+                    if (plan is not null) plan.Posts = BotPosts.Build(mapName, graph, world, own.Position, theirs.Position, map.ControlPoints.Select(p => p.Position).ToList(), eye, cancel);
                     return (plan, $"{System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds:F0} ms");
                 }, cancel);
             }
@@ -68,7 +72,7 @@ public partial class NetworkView
                     static string P(V3 p) => $"{p.X:F0},{p.Y:F0},{p.Z:F0}";
                     GD.Print($"t {_connectedFor:F1} s: id {_client!.PlayerId} map plan ({task.Result.Item2}): {slot.Plan?.Note ?? task.Result.Item2}");
                     if (slot.Plan is { } p)
-                        GD.Print($"  holds [{string.Join(" ", p.CentreHolds.Select(P))}] roam [{string.Join(" ", p.RoamPoints.Select(P))}] lanes [{string.Join(" ", p.Lanes.Select(P))}]");
+                        GD.Print($"  holds [{string.Join(" ", p.CentreHolds.Select(P))}] roam [{string.Join(" ", p.RoamPoints.Select(P))}] lanes [{string.Join(" ", p.Lanes.Select(P))}] posts [{string.Join(" ", p.Posts.Select(kv => $"{kv.Key} {kv.Value.Name} {P(kv.Value.Spot)}"))}]");
                 }
                 else GD.PrintErr($"map plan failed: {task.Exception?.GetBaseException().Message}");
             }
@@ -97,7 +101,8 @@ public partial class NetworkView
     void BotNoteDead()
     {
         _botWasAlive = false;
-        if (_botPush is { Active: true } push) { push.End(_connectedFor); GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} push ends: died"); }
+        if (_botPush is { Active: true } push) { push.End(_connectedFor, "died"); GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} push ends: died"); }
+        if (_botRetreat is { Active: true } retreat) { retreat.End(); _cover = null; GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} retreat ends: died"); }
     }
 
     /// <summary>The bot has an enemy to fight: the lane leg ends and the idle cycle starts again at the hold afterwards.</summary>
