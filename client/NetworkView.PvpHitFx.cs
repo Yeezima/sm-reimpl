@@ -121,7 +121,8 @@ public partial class NetworkView
             if (d < best) { best = d; target = c; id = pid; }
         }
         if (target is null) return;
-        var w = _catalogue.Weapons.Values.FirstOrDefault(x => x.Wargear.Contains("bolter", StringComparison.OrdinalIgnoreCase) && !x.Wargear.Contains("heavy", StringComparison.OrdinalIgnoreCase)) ?? _catalogue.Weapons.Values.FirstOrDefault();
+        bool melta = _pvpDemo is "melta" or "meltakill";   // fix/melta-burn-onhit aid: a melta hit (meltakill: on broken armour, as a killing shot)
+        var w = melta ? _catalogue.Weapons.Values.FirstOrDefault(x => x.Wargear.Contains("melta", StringComparison.OrdinalIgnoreCase)) : _catalogue.Weapons.Values.FirstOrDefault(x => x.Wargear.Contains("bolter", StringComparison.OrdinalIgnoreCase) && !x.Wargear.Contains("heavy", StringComparison.OrdinalIgnoreCase)) ?? _catalogue.Weapons.Values.FirstOrDefault();
         if (w is null) return;
         _pvpDemoAt = _connectedFor;
         string kind = _pvpDemo == "cycle" ? (_pvpDemoStep++ % 3) switch { 0 => "armour", 1 => "break", _ => "health" } : _pvpDemo;
@@ -133,6 +134,10 @@ public partial class NetworkView
         var dir = (point - camera.GlobalPosition).Normalized();
         switch (kind)
         {
+            case "melta":
+            case "meltakill":
+                FxImpact(w, w.Basic, ShotHit.Body, 0, point, -dir, dir, 0.0, id, kind == "melta");
+                break;
             case "armour":
                 _armourFlash.Reset(id);
                 FxImpact(w, w.Basic, ShotHit.Body, 0, point, -dir, dir, 0.0, id, true);

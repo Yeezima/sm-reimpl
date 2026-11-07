@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using SmClient.Bullets;
 using SmFormats.Fx;
 using Godot;
+using SmClient.ImpactRules;
 using SmContent;
 using SmNet;
 using SmSim;
@@ -551,6 +552,11 @@ public partial class NetworkView
         if (hit != ShotHit.World && up) ArmourSparks(end, dir, delay, victim);   // fx/bolt-tracer-impact
         if (hit != ShotHit.World && armourUp == false) BloodSplashAt(end, dir, delay, victim);   // fx/red-glow-blood: no armour left, a red splash
         if (hit != ShotHit.World) CharacterFlashHit(victim, armourUp, end);   // fx/character-visuals (pvp-hit-fx: at the hit point): the victim's model flashes (NetworkView.CharacterFlash.cs)
+        if (hit != ShotHit.World && MeltaBurnRules.IsMelta(w.Wargear))   // fix/melta-burn-onhit: the burn over the whole body, in the hit's own frame (NetworkView.MeltaBurn.cs)
+        {
+            var burn = plays.FirstOrDefault(x => x.Name.Contains("dmg_burn_limb", StringComparison.OrdinalIgnoreCase));
+            MeltaBurnBody(victim, w.Wargear, true, burn is null ? null : new EffectPlayLike(burn.Name, burn.Lifetime));
+        }
         if (plays.Count == 0) return;
         _fxImpacts++;
         if (hit != ShotHit.World) { _fxBodyImpacts++; if (up) _fxArmourImpacts++; else _fxFleshImpacts++; }
