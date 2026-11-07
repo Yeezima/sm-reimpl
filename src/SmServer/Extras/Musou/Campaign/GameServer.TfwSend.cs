@@ -61,6 +61,7 @@ public sealed partial class GameServer
         }
         if (hasBox) feed.ClearEvents();
         SendTfwRewards();   // GameServer.TfwRewards.cs: tags 12, 14 and 15
+        SendTfwLibrarian(tick, tickRate);   // Librarian/GameServer.TfwLibrarian.cs: tag 16
 
         _tfwGone.Clear();
         foreach (int id in _tfwInterest.Keys) if (!_peers.Values.Any(p => p.PlayerId == id)) _tfwGone.Add(id);

@@ -206,6 +206,8 @@ public partial class NetworkView
 
     // ---- the power sword ----
 
+    partial void ExtrasSwordOverlay(PlayerState s, WeaponModel model, ref ShaderMaterial? overlay);
+
     void SwordFrame(PlayerState s, CharacterViewer? character, string? wargear)
     {
         bool isSword = PowerBlade.IsPowerSword(wargear);
@@ -222,6 +224,7 @@ public partial class NetworkView
             _swordGlowMesh[s.PlayerId] = h.Mesh;
             // The blade's glow and flare (ours).
             var overlay = PowerBlade.OverlayFor(h.Model);
+            ExtrasSwordOverlay(s, h.Model, ref overlay);   // EXTRAS-HOOK: Musou's Librarian swaps in his force sword's glow (Extras/Musou/ForceBlade.cs)
             if (!ReferenceEquals(h.Mesh.MaterialOverlay, overlay)) h.Mesh.MaterialOverlay = overlay;
             float flare = _swordFlareAt.TryGetValue(s.PlayerId, out double hitAt) ? PowerBlade.FlareAt((float)(_connectedFor - hitAt)) : 0f;
             // fx/character-visuals (owner, 2026-10-30): the blade flares up while it swings, in every attack shown (a hit's flare stays on top).

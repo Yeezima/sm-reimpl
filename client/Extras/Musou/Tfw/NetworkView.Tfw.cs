@@ -35,6 +35,7 @@ public partial class NetworkView
         TfwSwarmCamFrame();
         TfwCloudsFrame();
         TfwClassFrame(war, me);
+        TfwLibrarianFrame(me, others);   // Librarian/NetworkView.TfwLibrarian.cs: tag 16
         TfwScoreFrame(war, me);   // NetworkView.TfwRewards.cs
         TfwRewardFrame(war, me);
         TfwBotFrame(war, me);

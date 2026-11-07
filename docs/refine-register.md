@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2436 spec table rows: **1778 tagged**, 473 not tagged (read from data with high confidence), 185 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 545 rows of the changes document.
+Scanned 2443 spec table rows: **1784 tagged**, 473 not tagged (read from data with high confidence), 186 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 546 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,24 +50,24 @@ Scanned 2436 spec table rows: **1778 tagged**, 473 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 343 | 323 | 267 | 67 | 1 |
+| Core simulation (provisional values) | 349 | 329 | 267 | 73 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 173 | 164 | 80 | 50 | 0 |
-| **All areas** | **1778** | 1538 | 1356 | 558 | 38 |
+| **All areas** | **1784** | 1544 | 1356 | 564 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 893 |
+| kind: ours | 899 |
 | confidence: low | 648 |
 | confidence: medium | 580 |
 | kind: interpretation | 357 |
 | notes: ours | 349 |
 | confidence: none (low) | 128 |
 | kind: estimate | 117 |
+| notes: estimate | 102 |
 | kind: provisional | 99 |
-| notes: estimate | 96 |
 | kind: user's knowledge | 53 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
@@ -77,7 +77,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: interpretation | 24 |
 | kind: approximation | 22 |
 | kind: placeholder | 22 |
-| notes: placeholder | 19 |
+| notes: placeholder | 20 |
 | kind: gap (not reproduced) | 18 |
 | notes: open question | 18 |
 | notes: not reproduced (gap) | 13 |
@@ -2077,7 +2077,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (343)
+### Core simulation (provisional values) (349)
 
 *Spec section: Provisional values in use*
 
@@ -2565,6 +2565,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EE58FBB2` | Musou: when Weirdboyz come | in a battle (never in the final assault), the first **45 to 90** s after the landing, then every **60 to 120** s, at most **2** alive; each appears **25 to 40** m from a player picked by a roll, on the graph where the players can be walked to (teleported in) (s, m) | kind: ours; notes: estimate | ours (Exterminatus has them teleport in: `cin_teleportin`) | Musou: when Weirdboyz come: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: in a battle (never in the final assault), the first 45 to 90 s after… | ☐ |
 | `R-B5EEE5B0` | Musou: the Weirdboy's effects | the original `master_fx` effects by name: `weirdboy_shield` on him while it is up, `weirdboy_shield_pulse` on a hit it takes, `weirdboy_shield_break` / `weirdboy_shield_restore`, `weirdboy_staff_muzzle` and the frazzle's `weirdboy_staff_trail` flying to the… (m) | kind: ours; notes: interpretation | effect names: the blueprints; placement ours | Musou: the Weirdboy's effects: compare with SM1 by measuring on a flat spot of the same map. Ours: the original master_fx effects by name: weirdboy_shield on him while… | ☐ |
 | `R-291961DA` | Musou: the Weirdboy's sounds | his blueprint's and staff's bindings (`ork_coop_weirdboy`, `ork_coop_weirdboy_staff`): the staff's fire on a bolt, the stun on a break; no pain on a shield hit | confidence: medium | the data (its fire event is `play_sm_bolter_fire`, as the file has it) | Musou: the Weirdboy's sounds: compare with SM1 by feel or video. Ours: his blueprint's and staff's bindings (ork_coop_weirdboy… | ☐ |
+
+*Spec section: Musou Mode: the Librarian (musou/exp-s5, 2026-11-07; `MusouSim.Version` 13, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-4FC8B113` | Musou: the Librarian class | a class `sm - librarian`, appended after the others only under Musou (`MusouLoadout.Prepare`; PvP and the extended profile never see it); the Tactical's body, perks and melee choices, no gun, no pistol, no grenade; the power sword (`sm_mp_melee_powersword`… | kind: ours; notes: estimate; notes: placeholder | no psyker body is in the install: the Tactical's body is a *placeholder* | Musou: the Librarian class: compare with SM1 by feel or video. Ours: a class sm - librarian, appended after the others only under Musou… | ☐ |
+| `R-B2F28F94` | Musou: the Librarian's binding | Fire held = chain lightning, Grenade press = Warp Pull, Reload press = Psychic Shockwave (no new input bit; he carries no gun or grenade so the keys are free); the HUD names them 'grenade key' and 'reload key' | kind: ours; notes: estimate | existing buttons, ours | Musou: the Librarian's binding: compare with SM1 by feel or video. Ours: Fire held = chain lightning, Grenade press = Warp Pull, Reload press… | ☐ |
+| `R-0CF795E2` | Musou: Psychic Stress | 0 to **100**, shared by all powers; lightning adds **5**/s while held (20 s to full), a Pull and a Shockwave add **50** each (each = 10 s of lightning: keep the ratios); cooling **12.5**/s (8 s from full) once **1.0** s has passed without a cast; each melee… (stress, s) | kind: ours; notes: estimate | owner brief 2026-11-07 | Musou: Psychic Stress: compare with SM1 by feel or video. Ours: 0 to 100, shared by all powers; lightning adds 5/s while held (20 s… | ☐ |
+| `R-65375028` | Musou: chain lightning | hold Fire: the enemy best lined up with the aim within **12** degrees and **30** m, in sight, takes **90** dps; it jumps to the nearest enemy not yet struck within **8** m (4 m up or down), each jump **x0.85** of the one before, up to **40** struck in all; a… (dps, m) | kind: ours; notes: estimate | owner brief 2026-11-07; the 12 degree aim cone ours | Musou: chain lightning: compare with SM1 by feel or video. Ours: hold Fire: the enemy best lined up with the aim within 12 degrees and… | ☐ |
+| `R-CCE684A3` | Musou: Warp Pull | press Grenade: every enemy in a cone of **30** degrees half-angle (the brief's 'cone 30 degrees' read with the melee cone's convention) and **25** m: an ordinary Ork is dragged to **2** m from him over **0.4** s (a stagger, then a drive), an elite (Nob, 'Ard… (m, s) | kind: ours; notes: estimate | owner brief 2026-11-07 | Musou: Warp Pull: compare with SM1 by feel or video. Ours: press Grenade: every enemy in a cone of 30 degrees half-angle (the… | ☐ |
+| `R-06A5F4B6` | Musou: Psychic Shockwave | press Reload: every enemy within **9** m (4 m up or down) takes **40** (kills only a Gretchin, 30 hp; a Boy has 85); an ordinary Ork is thrown **20 to 25** m (a roll of the tick and the id) over **1.0** s (the fall Musou's shove uses, else a stagger); elites… (m, dmg, s) | kind: ours; notes: estimate | owner brief 2026-11-07 | Musou: Psychic Shockwave: compare with SM1 by feel or video. Ours: press Reload: every enemy within 9 m (4 m up or down) takes 40 (kills… | ☐ |
 
 *Spec section: Musou Mode: the Guardsmen's strength, endless ammunition, the grenade refill, the AI Marines' damage (night/musou-rules, 2026-11-06; `TfwRules.Version` 30, no protocol or wire change)*
 
@@ -3633,6 +3644,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-3DA6A24D` | Musou: patrols, hunter columns and no Ork stuns (musou/ork-patrols-nostun, 2026-11-06; `TfwRules.Version` 28) | No Musou Mode in the original | Ours (added content, the owner's requests): 4 columns of 40 Orks walk loops between a battle's places on the walking graph and 2 columns of 40 walk down the flow field to the nearest player wherever he is, 4 abreast; a player within 25 m of a column's ranks wakes all of it; they come out of the crowds' existing cap… | Musou Mode only; classic PvP and the 5-wave test aid unchanged. `TfwCombatRules.EnemiesImpede` true restores the staggers; `SM_TFW_NO_PATROLS=1` (server) the battle without columns. Spec "Musou Mode: patrols, hunters and no Ork stuns". | Musou: patrols, hunter columns and no Ork stuns…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-4EECD63A` | Musou: the Warboss's head and 1.5x size (late batch stream E, 2026-11-06; `MusouSim.Version` 11) | No Musou Mode in the original; the campaign's Warboss fight is scripted and singleplayer | Ours (added content, the owner's request): the Musou Warboss wears the campaign's `warboss_regular` body with the head of the cutscene model `cinematic_warboss` (the install has no gameplay head mesh), its face bones bound to the gameplay rig's head, jaw, neck and chest (the face does not animate); he is 1.5x his… | Musou Mode only; classic PvP unchanged. Spec "Musou Mode: the Warboss's head and size"; docs/discovery.md "Warboss model". | Musou: the Warboss's head and 1.5x size (late batch stream…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-4DD099A7` | Musou: the Weirdboy (2026-11-07; `MusouSim.Version` 12, `TfwRules.Version` 31) | Exterminatus has the Weirdboy (`ork_coop_weirdboy`): a shield that bullets cannot pierce, bursting staff bolts, teleports, summons; there is no Musou Mode | Ours (added content, the owner's pick): Exterminatus's model, effects and the data's numbers (health 50, the bolt's 3 m burst at 40 m/s for 70 explosive, the 8 s stun and the shield's return at 75) in Musou Mode battles; ours: the shield's 300 (data 1500), a bolt every 2.5 s, the teleport away from a player within 6 m… | spec "Musou Mode: the Weirdboy" | Musou: the Weirdboy (2026-11-07; MusouSim.Version 12…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-682765E5` | Musou: the Librarian (musou/exp-s5, 2026-11-07; `MusouSim.Version` 13) | No Musou Mode and no playable psyker in the original | Ours (added content, the owner's brief): a Musou-only class on the Tactical's body (a placeholder) with the power sword as a force sword (rainbow glow), no gun; Psychic Stress 0 to 100 shared by chain lightning (30 m, 8 m jumps, 40 targets, 90 dps x0.85 a jump), Warp Pull (cone, 25 m) and Psychic Shockwave (9 m, 40… | spec "Musou Mode: the Librarian" | Musou: the Librarian (musou/exp-s5, 2026-11-07…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-79E049F1` | Musou: Boss Ork facing and wall room, bounded column waits (night/ork-movement, 2026-11-06) | No Musou Mode in the original | Ours (added content, the owner's request): a running Boss Ork faces the way it actually moves (turn rate 4 rad/s) instead of the way it is steered, and leans off walls nearer than its body radius; a patrol column's head never stops more than 2.5 s for its ranks (laggards over 9 m behind are let go, the head creeps on) | Musou Mode only; classic PvP unchanged. Spec "Musou Mode: Boss Ork facing and wall room, patrol waits bounded". | Musou: Boss Ork facing and wall room, bounded column waits…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-B8027519` | The charge clash: charger and victim locked through the shove (feel/charge-clash, 2026-11-06; protocol 59) | Ours in its mechanics (the original's pairing is engine code); its length and motion are the data's collision stop (1.83 m forward in 0.2 s, then 1.11 m back) and match the owner's recording | A stunned or staggered victim is carried with the charger through the stop's forward shove at 0.9 m (capsules touching), the charger's step ignores the victim's body, a victim the level stops holds the charger back; any charger meets a body at its edge (guard 0.85 m: the touch less a 5 cm slack, was 0.75 m); remotes… | spec "The charge clash: charger and victim locked through the shove" | The charge clash: charger and victim locked through the…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-FAB1E86D` | Musou: Guardsmen as defenders, capture under fire, Boss Ork cleave (musou/guard-formations, 2026-11-06; `TfwRules.Version` 28) | No Musou Mode in the original | Ours (added content, the owner's requests): the Guardsmen squads are back in every battle; they hold the landing zone, then share the secured positions out by the Orks near each, and never capture; only players, lords and retainers take a point, at the full rate, and Orks on the point no longer stop the progress (only… | Musou Mode only. Spec "Musou Mode: Guardsmen as defenders, the capture under fire, the Boss Ork cleave". | Musou: Guardsmen as defenders, capture under fire, Boss Ork…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
@@ -3841,5 +3853,6 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-101EAB9F` | Test aid: `--warboss-test` | Musou Mode: the Warboss's head and size (late batch stream E, 2026-11-06; `MusouSim.Version` 11, no protocol or wire change) |
 | `R-FA999C4E` | Test aid: `--fx-tint r,g,b` | Musou Mode: the Weirdboy (2026-11-07; `MusouSim.Version` 12, `TfwRules.Version` 31, no protocol or wire format change) |
 | `R-A5D771E7` | Test aid: `--warboss-test --model weirdboy` | Musou Mode: the Weirdboy (2026-11-07; `MusouSim.Version` 12, `TfwRules.Version` 31, no protocol or wire format change) |
+| `R-F7692A4D` | Musou: the Librarian's wire and look | Musou Mode: the Librarian (musou/exp-s5, 2026-11-07; `MusouSim.Version` 13, no protocol change) |
 | `R-AFD6145F` | Switch | The charge clash: charger and victim locked through the shove (feel/charge-clash; protocol 59, no wire change) |
 

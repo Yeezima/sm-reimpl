@@ -101,7 +101,7 @@ public sealed class TfwClientState
     readonly List<TfwGuardShown> _shown = new();
     TfwObjective[] _objectives = [];
     Vector3[] _sites = [];
-    uint? _warTick, _objectivesTick, _scoreOwnTick, _scoreOthersTick, _scoreHistoryTick, _barsTick, _arsenalTick;
+    uint? _warTick, _objectivesTick, _scoreOwnTick, _scoreOthersTick, _scoreHistoryTick, _barsTick, _arsenalTick, _librarianTick;
     double _now;
     readonly Dictionary<(TfwFireKind, uint, ushort), double> _firePlayed = new();
     readonly List<TfwFireEvent> _newFire = new();
@@ -118,6 +118,8 @@ public sealed class TfwClientState
     public TfwRewardOffer? Reward { get; private set; }
     /// <summary>The server tick of the last copy of <see cref="Reward"/>: a standing offer repeats every second, one no longer heard is gone.</summary>
     public uint RewardTick { get; private set; }
+    /// <summary>The newest Librarians heard (tag 16): their stress, cooldowns, casts and links.</summary>
+    public IReadOnlyList<LibrarianView> Librarians { get; private set; } = [];
     /// <summary>The newest extra slots heard (tag 15).</summary>
     public TfwArsenalView Arsenal { get; private set; } = TfwArsenalView.Empty;
 
@@ -169,7 +171,7 @@ public sealed class TfwClientState
             foreach (var s in held) Read(s, known);
         }
         if (section.Tag == TfwWire.WarTag) return ReadWar(section);
-        if (section.Tag is >= TfwWire.FireTag and <= TfwWire.ArsenalTag) return ReadBoxless(section);
+        if (section.Tag is >= TfwWire.FireTag and <= TfwWire.LibrarianTag) return ReadBoxless(section);
         if (box is { } ready) return Read(section, ready);
 
         // No box yet: hold it (the oldest goes first when full), after the length checks.
@@ -234,6 +236,11 @@ public sealed class TfwClientState
                 Reward = offer;
                 RewardTick = section.ServerTick;
                 return true;
+            case TfwWire.LibrarianTag:
+                if (LibrarianWire.Read(section.Payload) is not { } librarians) break;
+                Heard(section);
+                if (!Stale(ref _librarianTick, section.ServerTick)) Librarians = librarians;
+                return true;
             case TfwWire.ArsenalTag:
                 if (TfwWire.ReadArsenal(section.Payload) is not { } arsenal) break;
                 Heard(section);
@@ -255,8 +262,8 @@ public sealed class TfwClientState
     void ForgetBoxless()
     {
         _firePlayed.Clear(); _newFire.Clear();
-        _scoreOwnTick = _scoreOthersTick = _scoreHistoryTick = _barsTick = _arsenalTick = null;
-        ScoreOwn = null; ScoreOthers = []; ScoreHistory = []; Bars = []; Reward = null; RewardTick = 0; Arsenal = TfwArsenalView.Empty;
+        _scoreOwnTick = _scoreOthersTick = _scoreHistoryTick = _barsTick = _arsenalTick = _librarianTick = null;
+        ScoreOwn = null; ScoreOthers = []; ScoreHistory = []; Bars = []; Reward = null; RewardTick = 0; Arsenal = TfwArsenalView.Empty; Librarians = [];
     }
 
     bool Read(in ExtrasSection section, MusouBox box)
