@@ -12,6 +12,9 @@ namespace SmClient;
 /// after it (<c>walk</c>), then turns round. It has the human follow camera (<c>--swing-pitch</c>, default -0.2 rad) and logs one <c>SWINGTEST</c> line per press and per cycle.
 /// <c>--swing-shots &lt;dir&gt;</c> (a windowed client; a spectator with <c>--observe --observe-follow</c> works) saves a frame every <c>--swing-shot-every</c> seconds (default 0.1) from the first strike
 /// of a chain for <c>--swing-shot-for</c> seconds (default 4.5) as <c>swing&lt;set&gt;_&lt;ms&gt;.png</c>, for at most <c>--swing-shots-max</c> chains (default 1).
+/// sim/hop-swing and sim/slam-steer (2026-11-07) add two modes: <c>--swing-test hopswing</c> taps Space (a hop) and presses melee <c>--swing-hop-at</c> seconds into the hop (default 0.5, its
+/// second half; the strip starts with the hop), and <c>--swing-test slamsteer</c> presses F, F (the second F as the first strike's slam window opens) and from the slam's steering window turns the
+/// view <c>--swing-steer-rate</c> degrees a second (default 360) up to <c>--swing-steer</c> degrees (default 150).
 /// </summary>
 public partial class NetworkView
 {
@@ -25,7 +28,9 @@ public partial class NetworkView
     double _swingStart = -1, _swingCycleStart = double.NaN, _swingShotLast = double.NegativeInfinity;
     float _swingYaw;
     int _swingCycle = -1, _swingPressedStep = -1, _swingShotSet;
-    bool _swingPressedFirst;
+    bool _swingPressedFirst, _swingHopped;
+    float _swingSteered;
+    static readonly float SwingHopAt = CmdFloat("--swing-hop-at", 0.5f), SwingSteerRate = CmdFloat("--swing-steer-rate", 360f), SwingSteer = CmdFloat("--swing-steer", 150f);
 
     PlayerInput? SwingTestInput(PlayerState me, uint tick)
     {
@@ -38,10 +43,43 @@ public partial class NetworkView
         if (cycle != _swingCycle)
         {
             if (_swingCycle >= 0) _swingYaw = ViewSmoothing.WrapPi(_swingYaw + MathF.PI);   // back the way it came
-            _swingCycle = cycle; _swingPressedStep = -1; _swingPressedFirst = false;
+            _swingCycle = cycle; _swingPressedStep = -1; _swingPressedFirst = false; _swingHopped = false; _swingSteered = 0f;
         }
         _yaw = _swingYaw; _pitch = SwingPitch;
-        bool walk = SwingTestMode!.StartsWith("w", StringComparison.OrdinalIgnoreCase);
+        if (SwingTestMode!.StartsWith("hop", StringComparison.OrdinalIgnoreCase))
+        {
+            // sim/hop-swing capture: a Space tap (one tick: the hop), then the melee press late in the hop.
+            if (!_swingHopped && phase >= 0.3 && me.MeleeStep == 0 && !Evade.Evading(me) && me.Grounded)
+            {
+                _swingHopped = true;
+                GD.Print($"SWINGTEST t {_connectedFor:F2} cycle {cycle}: hop");
+                return new PlayerInput(tick, 0f, 0f, _swingYaw, InputButtons.Jump, SwingPitch);
+            }
+            if (_swingHopped && !_swingPressedFirst && Evade.Evading(me) && Evade.Time(me, _config) >= SwingHopAt)
+            {
+                _swingPressedFirst = true;
+                GD.Print($"SWINGTEST t {_connectedFor:F2} cycle {cycle}: melee {Evade.Time(me, _config):F2} s into the hop{(me.EvadeLanded ? " (landing)" : "")}");
+                return new PlayerInput(tick, 0f, 0f, _swingYaw, InputButtons.Melee, SwingPitch);
+            }
+            return new PlayerInput(tick, 0f, 0f, _swingYaw, InputButtons.None, SwingPitch);
+        }
+        if (SwingTestMode.StartsWith("slam", StringComparison.OrdinalIgnoreCase))
+        {
+            // sim/slam-steer capture: F, F, then the view turned through the slam's steering window.
+            var b = InputButtons.None;
+            var strike = Combat.MeleeStepOf(_config, me);
+            if (!_swingPressedFirst && phase >= 0.3 && me.MeleeStep == 0 && !me.MeleeHeavyHeld) { b = InputButtons.MeleeHeavy; _swingPressedFirst = true; GD.Print($"SWINGTEST t {_connectedFor:F2} cycle {cycle}: F"); }
+            else if (_swingPressedFirst && me.MeleeHeavy && strike is { YNext: > 0 } y && !me.MeleeQueued && !me.MeleeHeavyHeld && me.MeleeTime >= y.YComboOpen + 0.03f)
+            { b = InputButtons.MeleeHeavy; GD.Print($"SWINGTEST t {_connectedFor:F2} cycle {cycle}: second F at strike time {me.MeleeTime:F2}"); }
+            if (me.MeleeHeavy && strike is { Steers: true } slam && me.MeleeTime + _config.TickSeconds >= slam.SteerFrom && _swingSteered < SwingSteer)
+            {
+                float turn = MathF.Min(SwingSteerRate * _config.TickSeconds, SwingSteer - _swingSteered);
+                _swingSteered += turn; _swingYaw = ViewSmoothing.WrapPi(_swingYaw + turn * MathF.PI / 180f); _yaw = _swingYaw;
+                if (_swingSteered >= SwingSteer) GD.Print($"SWINGTEST t {_connectedFor:F2} cycle {cycle}: view turned {_swingSteered:F0} degrees by slam time {me.MeleeTime:F2}; body yaw {me.Yaw:F2}");
+            }
+            return new PlayerInput(tick, 0f, 0f, _swingYaw, b, SwingPitch);
+        }
+        bool walk = SwingTestMode.StartsWith("w", StringComparison.OrdinalIgnoreCase);
         float forward = walk && phase >= 0.05 ? 1f : 0f;
         var buttons = InputButtons.None;
         if (!_swingPressedFirst && phase >= 0.3 && me.MeleeStep == 0 && !me.MeleeHeld)
@@ -67,7 +105,8 @@ public partial class NetworkView
     {
         if (SwingShotsDir is null || _swingShotSet >= SwingShotsMax) return;
         bool striking = false;
-        foreach (var p in all) if (p.Alive && (p.MeleeStep > 0 || p.JumpSlash)) { striking = true; break; }
+        bool hopStrip = SwingTestMode?.StartsWith("hop", StringComparison.OrdinalIgnoreCase) == true;   // sim/hop-swing capture: the strip starts with the hop
+        foreach (var p in all) if (p.Alive && (p.MeleeStep > 0 || p.JumpSlash || (hopStrip && Evade.Evading(p)))) { striking = true; break; }
         if (striking) _swingLastStrike = _connectedFor;
         if (!double.IsFinite(_swingCycleStart))
         {

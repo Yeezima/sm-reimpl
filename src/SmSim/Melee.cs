@@ -65,7 +65,8 @@ public readonly record struct MeleeStep(
     /// <summary>
     /// sim/string-reset (protocol 62; the owner's batch of 2026-11-06 late, the thunder hammer's and daemon maul's combo): on a light attack, seconds from its start (the sequencer's
     /// <c>BRANCH_Melee_String_Reset</c>) from which a melee press (light or heavy) that nothing queued ends it and starts a new string from rest in the same tick, instead of waiting
-    /// for <see cref="Duration"/> (a press in the combo window still chains as before). Infinity (the default): none. Hashed only when set.
+    /// for <see cref="Duration"/> (a press in the combo window still chains as before). sim/slam-recovery (the owner, 2026-11-07): also on the hammer's and maul's Y,Y finishers, at their hit
+    /// plus the light combo's own hit-to-reset gap. Infinity (the default): none. Hashed only when set.
     /// </summary>
     public float StringResetAt { get; init; } = float.PositiveInfinity;
     /// <summary>
@@ -124,6 +125,28 @@ public readonly record struct MeleeStep(
     /// </summary>
     public bool Kick { get; init; }
 
+    /// <summary>
+    /// sim/slam-steer (the owner, 2026-11-07: "be able to rotate the FF stun strike combo animation during the second F ... as the hammer is coming down, from a central axis (like rotating a
+    /// turret)", "steered 185 degrees"; the thunder hammer's and the daemon maul's Y,Y "Hammer Slam"): from this time (seconds from the strike's start) up to <see cref="SteerTo"/> the strike's
+    /// heading turns toward the view (the mouse or right stick) at most <see cref="SteerRate"/> degrees a second, so it turns at most <see cref="SteerRate"/> × (<see cref="SteerTo"/> − SteerFrom)
+    /// degrees in all; before the window it holds the facing it began with, after it the facing it reached (the hit, its cone and its blast follow it). No locked target's alignment acts on such a
+    /// strike (the steering is the aim). Infinity (the default): none, the attack's usual heading rules. Hashed only when set.
+    /// </summary>
+    public float SteerFrom { get; init; } = float.PositiveInfinity;
+    /// <summary>End of the steering window (seconds from the strike's start; the slam's hit).</summary>
+    public float SteerTo { get; init; }
+    /// <summary>The steering's top turn rate, degrees a second.</summary>
+    public float SteerRate { get; init; }
+    /// <summary>Whether the strike is steered (<see cref="SteerFrom"/>).</summary>
+    public bool Steers => float.IsFinite(SteerFrom) && SteerTo > SteerFrom && SteerRate > 0f && float.IsFinite(SteerRate);
+
+    /// <summary>
+    /// sim/hop-swing (the owner, 2026-11-07: "the player should be able to perform a short hop (space bar) and at any point in that short hop early, or towards the end of the animation, perform a melee
+    /// swing with the hammer"): on a weapon's first light attack, a melee press at any time of the Assault's or Raptor's hop (the jump-pack dash) cancels it into this weapon's light swing
+    /// (<see cref="MeleeCancel"/>), also from the dash's <c>BRANCH_Dash_Attack</c> on, where other weapons start the dash attack. False (the default): the dash attack there. Hashed only when set.
+    /// </summary>
+    public bool HopSwing { get; init; }
+
     /// <summary>Writes the fields added in M28 (and M43, Weapons C) for a config hash.</summary>
     internal void WriteExtras(BinaryWriter w)
     {
@@ -146,6 +169,23 @@ public readonly record struct MeleeStep(
         if (float.IsFinite(StringResetAt)) { w.Write((byte)0xA6); w.Write(StringResetAt); }   // sim/string-reset: only when set
         // feel/locks-sprint-stop: only when read, so a step without it hashes as before.
         if (float.IsFinite(EvadeAt)) { w.Write((byte)0xE5); w.Write(EvadeAt); }
+        if (Steers) { w.Write((byte)0xA7); w.Write(SteerFrom); w.Write(SteerTo); w.Write(SteerRate); }   // sim/slam-steer: only when set
+        if (HopSwing) w.Write((byte)0xA8);   // sim/hop-swing: only when set
+    }
+}
+
+/// <summary>sim/slam-steer: the turret-like turn of a steered strike (<see cref="MeleeStep.Steers"/>).</summary>
+public static class MeleeSteer
+{
+    /// <summary>
+    /// The heading after the attack clock covered (<paramref name="from"/>, <paramref name="to"/>] of step <paramref name="m"/>: <paramref name="heading"/> turned toward
+    /// <paramref name="viewYaw"/> by at most the step's rate times the part of the interval inside its steering window; unchanged outside it.
+    /// </summary>
+    public static float Heading(MeleeStep m, float heading, float viewYaw, float from, float to)
+    {
+        float overlap = MeleeLock.Overlap(from, to, m.SteerFrom, m.SteerTo);
+        if (overlap <= 0f || !float.IsFinite(viewYaw)) return heading;
+        return MeleeLock.TurnToward(heading, viewYaw, m.SteerRate * MathF.PI / 180f * overlap);
     }
 }
 

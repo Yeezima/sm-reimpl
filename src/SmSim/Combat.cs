@@ -563,9 +563,11 @@ public static class Combat
             // sim/string-reset (protocol 62; the owner's batch of 2026-11-06 late): a light attack takes a new string from its BRANCH_Melee_String_Reset (MeleeStep.StringResetAt;
             // the hammer's and the maul's X3 at 1.544 s of 2.333 s, X1 and X2 at their combo window's close): a light or heavy press from there that nothing queued ends it, and the
             // press starts attack 1 or heavy strike 1 from rest below in this same tick (the melee lock, set at the attack's start up to its combo window, is over by then).
-            if (!heavy && !queued && (meleePress || heavyPress) && time + TimeEpsilon >= m.StringResetAt)
+            // sim/slam-recovery (the owner, 2026-11-07): the hammer's and the maul's Y,Y slam too (a heavy strike with a StringResetAt: its hit + the light combo's 0.633 s), so mashing
+            // (presses kept by the input buffer) starts the next swing or stun strike on the reset's tick.
+            if (!queued && (meleePress || heavyPress) && time + TimeEpsilon >= m.StringResetAt)
             {
-                step = 0; time = 0f; queuedHeavy = false; steps = lightSteps; motionStep = null;
+                step = 0; time = 0f; queuedHeavy = false; heavy = false; steps = lightSteps; motionStep = null;
                 goto stringReset;
             }
             // Buffering (M28 adds heavy presses): before the combo window closes a press is kept for the next attack; a heavy
@@ -930,6 +932,10 @@ public static class Combat
         bool newAttack = step > 0 && startedNow;
         var meleeDirection = step == 0 ? EvadeDirection.Forward : newAttack ? Evade.DirectionOf(sanitized.MoveX, sanitized.MoveY, diagonals: true) : s.MeleeDirection;
         float meleeTurn = Rush.DashOffset(meleeDirection);
+        // sim/slam-steer (the owner, 2026-11-07): a steered strike (the hammer's and the maul's Y,Y slam) begins along its strike facing, holds it until its steering window, turns
+        // toward the view there at its rate (MeleeSteer; at most 185 degrees in all) and keeps the facing it reached; no locked target's alignment acts on it.
+        float SteeredHeading(MeleeStep m, float previous) =>
+            startedNow ? sanitized.Yaw + meleeTurn : MeleeSteer.Heading(m, previous, sanitized.Yaw + meleeTurn, MathF.Max(0f, time - dt), time);
         if (step > 0 && time < MoveAtOf(steps[step - 1], c)) moveInput = moveInput with { Yaw = sanitized.Yaw + meleeTurn };   // while the stick is held off (a stick that moves the body keeps the view's frame)
         if (s.MeleeStep == 0 && step > 0 && sanitized.MeleeTarget > 0
             && MeleeLock.Target(s, sanitized, sanitized.MeleeTarget, others, c, world, MeleeLock.Phase.MeleeStart) is not null)
@@ -955,7 +961,8 @@ public static class Combat
         {
             Vector2? toTarget = MeleeLock.Target(s, sanitized, sanitized.MeleeTarget, others, c, world, s.MeleeStep == 0 ? MeleeLock.Phase.MeleeStart : MeleeLock.Phase.Melee) is { } target ? MeleeLock.Offset(s, target) : null;
             // The press tick starts from the strike's facing (the view turned by the stick's way; before, the next tick started from it), later ticks from the heading they hold.
-            float heading = MeleeLock.Align(startedNow ? sanitized.Yaw + meleeTurn : s.Yaw, sanitized.Yaw + meleeTurn, attack, motionFrom, motionTo, toTarget, c);
+            float heading = attack.Steers ? SteeredHeading(attack, s.Yaw)   // sim/slam-steer: the turret turn replaces the alignment
+                : MeleeLock.Align(startedNow ? sanitized.Yaw + meleeTurn : s.Yaw, sanitized.Yaw + meleeTurn, attack, motionFrom, motionTo, toTarget, c);
             float lunge = MeleeLock.LungeStep(attack, motionFrom, motionTo, heading, toTarget, c);
             meleeGlide = (heading, MeleeLock.Forward(heading) * (lunge / dt));
         }
@@ -968,13 +975,13 @@ public static class Combat
         {
             var carry = new Vector2(s.Velocity.X, s.Velocity.Y);
             if (!float.IsFinite(carry.X) || !float.IsFinite(carry.Y)) carry = Vector2.Zero;
-            float heading = startedNow ? sanitized.Yaw + meleeTurn : s.Yaw;
+            float heading = steps[step - 1].Steers ? SteeredHeading(steps[step - 1], s.Yaw) : startedNow ? sanitized.Yaw + meleeTurn : s.Yaw;
             var lungeVelocity = Vector2.Zero;
             if (motionStep is { } airAttack && motionTo > motionFrom
                 && (motionFrom - (startedNow ? 0f : dt) + TimeEpsilon < MoveAtOf(airAttack, c) || (sanitized.MoveX == 0f && sanitized.MoveY == 0f)))
             {
                 Vector2? toTarget = MeleeLock.Target(s, sanitized, sanitized.MeleeTarget, others, c, world, s.MeleeStep == 0 ? MeleeLock.Phase.MeleeStart : MeleeLock.Phase.Melee) is { } target ? MeleeLock.Offset(s, target) : null;
-                heading = MeleeLock.Align(heading, sanitized.Yaw + meleeTurn, airAttack, motionFrom, motionTo, toTarget, c);
+                if (!airAttack.Steers) heading = MeleeLock.Align(heading, sanitized.Yaw + meleeTurn, airAttack, motionFrom, motionTo, toTarget, c);
                 lungeVelocity = MeleeLock.Forward(heading) * (MeleeLock.LungeStep(airAttack, motionFrom, motionTo, heading, toTarget, c) / dt);
             }
             meleeGlide = (heading, carry + lungeVelocity);
@@ -996,7 +1003,7 @@ public static class Combat
             with { Pitch = input.Pitch, Aiming = aiming };
         // sim/combat-pass (review note): the chosen direction holds through the hit even when the hit comes after the move-on time (the walk then uses the view's frame, the body keeps the strike's facing).
         if (step > 0 && meleeGlide is null && !reacting && !rushing && !evading && time < MathF.Max(MoveAtOf(steps[step - 1], c), steps[step - 1].HitTime + dt + TimeEpsilon))
-            s = s with { Yaw = sanitized.Yaw + meleeTurn };
+            s = s with { Yaw = steps[step - 1].Steers ? SteeredHeading(steps[step - 1], beforeMove.Yaw) : sanitized.Yaw + meleeTurn };
         if (meleeGlide is { } glide)
         {
             // The attack's motion replaces the walk (the jump pack's bookkeeping of the walk tick stays).

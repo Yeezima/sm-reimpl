@@ -29,13 +29,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 2436 spec table rows: **1778 tagged**, 473 not tagged (read from data with high confidence), 185 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 547 rows of the changes document.
+Scanned 2448 spec table rows: **1788 tagged**, 475 not tagged (read from data with high confidence), 185 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 548 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 382 | 324 | 324 | 114 | 12 |
 | Combat core (critical) | 12 | 3 | 12 | 10 | 9 |
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
-| Melee (critical) | 109 | 95 | 86 | 35 | 5 |
+| Melee (critical) | 111 | 96 | 88 | 36 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -50,25 +51,25 @@ Scanned 2436 spec table rows: **1778 tagged**, 473 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 343 | 323 | 267 | 67 | 1 |
+| Core simulation (provisional values) | 351 | 329 | 274 | 67 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 173 | 164 | 80 | 50 | 0 |
-| **All areas** | **1778** | 1538 | 1356 | 558 | 38 |
+| **All areas** | **1788** | 1545 | 1365 | 559 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 893 |
-| confidence: low | 648 |
-| confidence: medium | 580 |
+| kind: ours | 897 |
+| confidence: low | 652 |
+| confidence: medium | 585 |
 | kind: interpretation | 357 |
-| notes: ours | 349 |
+| notes: ours | 350 |
 | confidence: none (low) | 128 |
-| kind: estimate | 117 |
+| kind: estimate | 119 |
 | kind: provisional | 99 |
 | notes: estimate | 96 |
-| kind: user's knowledge | 53 |
+| kind: user's knowledge | 55 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
 | kind: choice | 35 |
@@ -891,7 +892,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (109)
+### Melee (gameplay-critical) (111)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1091,6 +1092,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-0F3BD14D` | Hop cancelled by melee: carried momentum | **0.4** of the hop's horizontal speed (about 6.5 m/s of the dash's 16.4) rides on, constant, while the swing is in the air; the swing's own step or lock-on lunge (as on the ground, while its motion runs) is added; on landing the ground rules take over (the… (fraction) | kind: estimate; confidence: low; notes: ours | ours, estimate for the owner's "some momentum" | Hop cancelled by melee: carried momentum: compare with SM1 by feel or video. Ours: 0.4 of the hop's horizontal speed (about 6.5 m/s of the dash's 16.4)… | ☐ |
+
+*Spec section: Hammer and maul: hop swing, slam recovery and the steered slam (sim/hop-swing, sim/slam-recovery, sim/slam-steer; 2026-11-07, protocol 63 unchanged)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-E63929EE` | Hop swing: other melee weapons | Not changed: the knife, chainsword, power sword and power / chain axe still dash-attack from 0.333 s of the hop, as the data's `BRANCH_Dash_Attack` and the graph's `MeleeDash` say; a press while the dash attack's spacing runs is still lost (open question for… | confidence: low; notes: ours | the data; the lost press ours | Hop swing: other melee weapons: compare with SM1 by feel or video. Ours: Not changed: the knife, chainsword, power sword and power / chain axe… | ☐ |
+| `R-D0397FE7` | Slam steering: lock-on and lunge | A steered slam ignores the melee lock's alignment (the steering is the aim); its root-motion lunge runs along the steered heading, and the lock still sets its distance as before. Before this change the slam followed the view at once over its whole clip (its… | kind: ours; confidence: medium | ours | Slam steering: lock-on and lunge: compare with SM1 by feel or video. Ours: A steered slam ignores the melee lock's alignment (the steering is… | ☐ |
 
 ### Jump pack (gameplay-critical) (79)
 
@@ -2077,7 +2085,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (343)
+### Core simulation (provisional values) (351)
 
 *Spec section: Provisional values in use*
 
@@ -2632,6 +2640,19 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-DA2A5484` | Other weapons' string ends | Not changed: the power sword's and power / chain axe's last light swings (and the heavy classes' kick) still end at their clip's end; whether their `BRANCH_Melee_String_Reset` should free a new string too is the owner's call (s) | kind: ours; confidence: low | ours (scope of the owner's request) | Other weapons' string ends: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Not changed: the power sword's and power / chain axe's last light… | ☐ |
 | `R-56110630` | Charged release delay: what is left | The press starts the charge and the release fires (the M31 rule, unchanged); from the release the own shot's flash, sound and ball all start on the release tick's frame. The detonation of the own ball still plays when the interpolated view reaches the… | kind: gap (not reproduced); confidence: low | — | Charged release delay: what is left: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The press starts the charge and the release fires (the M31 rule… | ☐ |
 
+*Spec section: Hammer and maul: hop swing, slam recovery and the steered slam (sim/hop-swing, sim/slam-recovery, sim/slam-steer; 2026-11-07, protocol 63 unchanged)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-E9A1FB41` | Hop swing: the rule | With the thunder hammer or the daemon maul a melee press at any time of the ground hop (its flight and its landing part) cancels it into light swing 1 in the press tick (`MeleeStep.HopSwing` on swing 1); the dash attack never starts from the hop with these… | kind: user's knowledge; confidence: medium | the owner's description of the original (2026-11-07) | Hop swing: the rule: compare with SM1 by feel or video. Ours: With the thunder hammer or the daemon maul a melee press at any time… | ☐ |
+| `R-B9667C91` | Slam: timing in the recording | The second F's "Hammer Slam" hits about 1.1 s after it starts in both recorded slams (impact flash at frames 108 and 297–298; the data's `SM_MEL_TH_YATK_Displace2` hit 1.1 s of 3.0 s); the marine kneels in the dust until about 0.8–1.0 s after the impact… (s) | confidence: medium | the owner's recording of the original 2026-11-07 (60 fps) | Slam: timing in the recording: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The second F's "Hammer Slam" hits about 1.1 s after it starts in both… | ☐ |
+| `R-1D456E80` | Slam recovery | The F,F slams (`SM_MEL_TH_YATK_Displace2` 3.0 s, `SM_MEL_TH_YATK2` 2.0 s) free a new string **0.633 s** after their hit, at **1.733 s**: a light or heavy press (or one kept by the 0.3 s input buffer) ends the slam and starts swing 1 or stun strike 1 (and so a… (s) | kind: estimate; confidence: low | the owner's request (2026-11-07), the light-chain gap from `MeleeTuning.OwnerHammerRecoveryCut` | Slam recovery: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The F,F slams (SM_MEL_TH_YATK_Displace2 3.0 s, SM_MEL_TH_YATK2 2.0 s)… | ☐ |
+| `R-F9A13E50` | Slam steering: measured turn | In the recording the marine's body turns about **100 degrees in 0.33 s** (frames 64–84, about 0.37–0.70 s into the slam) and about **120 degrees in 0.43 s** (frames 258–284, about 0.45–0.88 s into it) while the hammer is raised and comes down, the camera… (deg, deg/s) | confidence: low | the owner's recording of the original 2026-11-07 | Slam steering: measured turn: compare with SM1 by feel or video. Ours: In the recording the marine's body turns about 100 degrees in 0.33 s… | ☐ |
+| `R-73585451` | Slam steering: rate | **300** degrees a second toward the view (the mouse or the right stick: the input's yaw, no new input) (deg/s) | kind: estimate; confidence: low | the owner's recording (row above) | Slam steering: rate: compare with SM1 by feel or video. Ours: 300 degrees a second toward the view (the mouse or the right stick:… | ☐ |
+| `R-9095089B` | Slam steering: limit | **185** degrees in all; as the turn is capped at the rate over the window, the window opens 185 / 300 = **0.617 s** before the hit (0.483 s into the slam) and closes at the hit (1.1 s); before it the slam holds the facing it began with, after it the facing it… (deg, s) | kind: ours; kind: user's knowledge; confidence: medium | the owner's value (185); the window's place ours, fitted to the recording | Slam steering: limit: compare with SM1 by feel or video. Ours: 185 degrees in all; as the turn is capped at the rate over the… | ☐ |
+| `R-588F176B` | Slam steering: own model | The own marine's body in a steered slam shows the simulation's heading (not the view's frame-rate yaw), so it never runs ahead of the 185-degree limit | kind: ours; confidence: medium | ours | Slam steering: own model: compare with SM1 by feel or video. Ours: The own marine's body in a steered slam shows the simulation's… | ☐ |
+| `R-595B1816` | Protocol | No wire change: the yaw already travels in every input; the new step fields enter the config hash only when set (the hammer's and maul's maps), so mismatched builds are refused by the hash. `Protocol.Version` stays 63 | kind: ours | ours | Protocol: compare with SM1 by feel or video. Ours: No wire change: the yaw already travels in every input; the new step… | ☐ |
+
 ### General game design (7)
 
 *Spec section: Known behavior (public, unverified)*
@@ -3093,6 +3114,9 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-28C39E94` | Toss follow-through (stream B; client only) | The data's throw ran to 0.667 s (`BRANCH_UseEquipment_End`), the toss clip with it | Since the quick throw ends at 0.1 s, the toss clip plays on to 0.667 s of the clip as a presentation only, cut at once by any other action | Owner's request 2026-11-06 ("play out a little longer"); the cut rules ours (spec "Stream B timing fixes") | Toss follow-through (stream B; client only): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-8F7E5DFD` | Predicted own plasma ball (stream B; client only) | The original's client prediction of projectiles is not known | The own plasma ball is drawn from the release frame by a client prediction of the server's flight, standing in for the server's ball until that is gone | Owner's request 2026-11-06 ("fire out of the barrel instantly"); ours (spec "Stream B timing fixes") | Predicted own plasma ball (stream B; client only): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-17510220` | Hammer and maul: new string after the light combo (stream B) | Not measured in the original; the data's swings carry `BRANCH_Melee_String_Reset` (X3 at 1.544 s of 2.333 s) | After X3 a melee press starts a new string from 1.333 s, 1 s before its end (before: only at the end); X1 and X2 from their tags; only the hammer map, the sword's and axe's string ends unchanged | Owner's request 2026-11-06 ("1 second" sooner, an estimate; the data's tag would give 0.79 s); the tag's meaning an interpretation (spec "Stream B timing fixes") | Hammer and maul: new string after the light combo (stream B): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-4D8C707E` | Hammer and maul: swing anywhere in the hop (sim/hop-swing) | The data sends a melee press in the hop from its `BRANCH_Dash_Attack` (0.333 s) to the dash attack; the owner: the original swings the hammer at any point of the hop | With the thunder hammer and the daemon maul a melee press anywhere in the hop cancels it into swing 1; other weapons keep the dash attack | the owner's report 2026-11-07; spec "Hammer and maul: hop swing, slam recovery and the steered slam" | Hammer and maul: swing anywhere in the hop (sim/hop-swing): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-A36A5CA1` | Hammer and maul: shorter recovery after F,F (sim/slam-recovery) | Not measured in the original (the recording shows no follow-up press); the slam's clip runs 3.0 s (hit 1.1 s) | A new swing or stun strike from 0.633 s after the slam's hit (1.733 s), the light combo's own hit-to-reset gap; buffered presses fire on that tick | the owner's request 2026-11-07 ("match the cooldown between ... light attack combo[s]"); same spec section | Hammer and maul: shorter recovery after F,F…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-1B0FED57` | Hammer and maul: the slam steered like a turret (sim/slam-steer) | The owner: steerable up to 185 degrees as the hammer comes down; the recording shows about 280–300 degrees a second | Turns toward the view at 300 degrees a second from 0.483 s to its hit (1.1 s), 185 degrees at most; holds before and after; the lock-on's alignment does not act on it | the owner's report and recording 2026-11-07; same spec section | Hammer and maul: the slam steered like a turret…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-88653021` | Dash attack ends on landing (feel/melee-charge-2) | As we read it (protocol 30): a dash attack's lunge that reaches its end in the air is held there until it lands, then plays its run-out (the "Dash to Idle" clip, `SM_NAV_Sprint_to_Idle_F`, 0.9 s) | The landing ends the dash attack on that tick: no run-out; the normal movement follows (speed kept up to sprint speed); the landing tick's contact still counts. A lunge begun in the air that lands before its end goes on as before | Owner's request 2026-10-29 for the ledge charge, applied to the dash attack alike at the lead's instruction ("the dash attack's equivalent must behave the same way"); spec "Melee and charge, second pass" | Dash attack ends on landing (feel/melee-charge-2): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-3C22065E` | The air slash (feel/jump-pack) | The slash used the pound's dive (50 m/s, 75 m/s²: 53 to 60 m/s into the ground, 3.8 to 7.7 m ahead whatever the aim), a dead stop, 0.638 s frozen (the clip's `BRANCH_Run`), the pound's smash sound; a press in the take-off and, with Air-Cooled Thrusters, in a jump's first 2 s was lost | Its own straight 40 m/s dive toward the point under the aim (at least 40 degrees down), a 6 m/s landing lunge for 0.2 s ("move forward a bit"), free 0.3 s after the landing (hit at the data's 0.133 s; damage and interrupt the data's), a melee press in the take-off is buffered to the tick after the lift-off, no pound… | Owner's requests 2026-10-29 ("feels terrible to use"; "move forward a bit, add a hit effect that shows roughly where the attack hitbox landed"); values ours; spec "Jump-pack feel" | The air slash (feel/jump-pack): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-83354B14` | Heavier pound impact, soft ground dust (feel/jump-pack) | The data's `jumppack_land_heavy` (M44 added dust, cracks, chunks, shake) | Dust 2.8 x / 1.8 x, 28 to 45 chunks, 0.09 rad shake; the ground effects' dust and smoke fade against the scene with no push (no hard lines where the ground, walls or bodies cut a card). Since fx/no-smoke the dust is not drawn (`--smoke on` shows it): the added landings now add their debris sprites only | Owner's request 2026-10-29 ("intensify the effect and make sure that textures aren't poking through the dust and smoke effects"); spec "Jump-pack feel" | Heavier pound impact, soft ground dust (feel/jump-pack): after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |

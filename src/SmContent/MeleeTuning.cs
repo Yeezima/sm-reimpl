@@ -85,6 +85,16 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         /// </summary>
         public float StringEndRecoveryCut { get; init; }
         /// <summary>
+        /// sim/slam-recovery (the owner, 2026-11-07: "make the cooldown after a stun strike combo ... shorter - match the cooldown between executing a new light attack combo after a previous light
+        /// attack combo"): the Y,Y finishers free a new string (<see cref="MeleeStep.StringResetAt"/>) as long after their hit as the light combo's last swing does after its own (X3: 1.333 − 0.700 =
+        /// 0.633 s). False (the default): the finisher plays to its clip's end. <c>SM_OLD_SLAM_RECOVERY=1</c> (test aid) turns it off.
+        /// </summary>
+        public bool FinisherRecoveryAsLight { get; init; }
+        /// <summary>sim/slam-steer: the Y,Y finishers are steered (<see cref="MeleeStep.SteerFrom"/>, <see cref="SlamSteerDegrees"/>, <see cref="SlamSteerRate"/>). <c>SM_OLD_SLAM_STEER=1</c> turns it off.</summary>
+        public bool SteerFinishers { get; init; }
+        /// <summary>sim/hop-swing: a melee press anywhere in the hop swings this weapon (<see cref="MeleeStep.HopSwing"/> on attack 1). <c>SM_OLD_HOP_SWING=1</c> turns it off.</summary>
+        public bool HopSwing { get; init; }
+        /// <summary>
         /// Weapons C: per light attack, the heavy strike (1-based) a heavy press in its combo window chains to; 0 (or missing): the old rule
         /// (strike n + 1 after attack n), -1: none (<see cref="MeleeStep.HeavyNext"/>; read off the graph's <c>BTN_Melee_Stun</c> transitions).
         /// </summary>
@@ -243,7 +253,46 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
         TrackToHit = true,
         StringReset = true,   // sim/string-reset: each light swing's BRANCH_Melee_String_Reset (X1 1.92 s, X2 1.995 s) instead of its clip's end
         StringEndRecoveryCut = OwnerHammerRecoveryCut,   // X3: 1 s before its end (1.333 s), the owner's "1 second" (the data's tag: 1.544 s)
+        FinisherRecoveryAsLight = true,   // sim/slam-recovery (owner, 2026-11-07): the slam frees a new string 0.633 s after its hit, as X3 after its own
+        SteerFinishers = true,   // sim/slam-steer (owner, 2026-11-07): the slam turns like a turret, up to 185 degrees
+        HopSwing = true,   // sim/hop-swing (owner, 2026-11-07): a press anywhere in the hop swings the hammer, never the dash attack
     };
+
+    /// <summary>
+    /// sim/slam-steer (the owner, 2026-11-07: "steered 185 degrees around in a circle from the original point of aim"): the most the Y,Y slam turns from the facing it begins its steering with,
+    /// degrees. **Owner's value.** Reached by <see cref="SlamSteerRate"/> over the steering window, which therefore opens 185 / 300 = 0.617 s before the slam's hit (0.483 s of the hammer's 1.1 s).
+    /// </summary>
+    public const float SlamSteerDegrees = 185f;
+    /// <summary>
+    /// sim/slam-steer: the slam's top turn rate, degrees a second. **Measured** on the owner's recording of the original (2026-11-07, 60 fps): the marine's body turned about 100 degrees in
+    /// 0.33 s (frames 64–84) and about 120 degrees in 0.43 s (frames 258–284) while the slam wound up and came down, so about 280–300 degrees a second; by eye from the body's
+    /// silhouette, confidence low. Spec "Hammer slam: steering".
+    /// </summary>
+    public const float SlamSteerRate = 300f;
+    static readonly bool OldSlamSteer = Environment.GetEnvironmentVariable("SM_OLD_SLAM_STEER") == "1";
+    static readonly bool OldSlamRecovery = Environment.GetEnvironmentVariable("SM_OLD_SLAM_RECOVERY") == "1";
+    static readonly bool OldHopSwing = Environment.GetEnvironmentVariable("SM_OLD_HOP_SWING") == "1";
+
+    /// <summary>
+    /// sim/slam-recovery and sim/slam-steer (the owner, 2026-11-07): a Y,Y finisher's rules from the weapon's last light swing. <paramref name="recovery"/>: it frees a new string
+    /// (<see cref="MeleeStep.StringResetAt"/>) as long after its hit as <paramref name="lastLight"/> does after its own (the hammer: X3 1.333 − 0.700 = 0.633 s, so the slam at 1.1 + 0.633 =
+    /// 1.733 s); none when the light swing has no reset or the time falls past the clip. <paramref name="steer"/>: it steers (<see cref="MeleeStep.SteerFrom"/>) at <see cref="SlamSteerRate"/>
+    /// over the last <see cref="SlamSteerDegrees"/> / <see cref="SlamSteerRate"/> seconds before its hit (never before its start).
+    /// </summary>
+    public static MeleeStep Finisher(MeleeStep finisher, MeleeStep lastLight, bool recovery, bool steer, List<string>? notes = null)
+    {
+        var f = finisher;
+        if (recovery)
+        {
+            float gap = float.IsFinite(lastLight.StringResetAt) ? lastLight.StringResetAt - lastLight.HitTime : float.NaN;
+            float at = f.HitTime + gap;
+            if (gap >= 0f && float.IsFinite(at) && at < f.Duration) f = f with { StringResetAt = at };
+            else notes?.Add($"finisher: no light-combo recovery to match (gap {gap}); it plays to its clip's end");
+        }
+        if (steer && f.HitTime > 0f)
+            f = f with { SteerFrom = MathF.Max(0f, f.HitTime - SlamSteerDegrees / SlamSteerRate), SteerTo = f.HitTime, SteerRate = SlamSteerRate };
+        return f;
+    }
 
     /// <summary>
     /// anim/hammer-swing (owner, 2026-11-01: "the step forward distance for the standard melee swings needs to be reduced slightly, maybe by 1 to 2 meters. You can also judge it"):
@@ -394,6 +443,13 @@ public sealed record MeleeTuning(string Weapon, IReadOnlyList<MeleeStep> Steps, 
             if (steps[i].HeavyNext > heavy.Count) steps[i] = steps[i] with { HeavyNext = -1 };
         for (int i = 0; i < heavy.Count; i++)
             if (heavy[i].YNext > heavy.Count) heavy[i] = heavy[i] with { YNext = 0, YComboOpen = 0f, YComboClose = 0f };
+        // sim/slam-recovery and sim/slam-steer (the owner, 2026-11-07): the Y,Y finishers (the heavy list after the weapon's own heavies).
+        if (steps.Count > 0 && ((weapon.FinisherRecoveryAsLight && !OldSlamRecovery) || (weapon.SteerFinishers && !OldSlamSteer)))
+        {
+            for (int i = weapon.HeavySequencers.Length; i < heavy.Count; i++)
+                heavy[i] = Finisher(heavy[i], steps[^1], weapon.FinisherRecoveryAsLight && !OldSlamRecovery, weapon.SteerFinishers && !OldSlamSteer, notes);
+        }
+        if (weapon.HopSwing && !OldHopSwing && steps.Count > 0) steps[0] = steps[0] with { HopSwing = true };   // sim/hop-swing
         if (range <= 0f) { notes.Add("no ability max_range; using 4"); range = 4f; }
         return new MeleeTuning(weapon.Wargear, steps, animations, range, notes) { Heavy = heavy, HeavyAnimations = heavyAnimations };
 

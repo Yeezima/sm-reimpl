@@ -52,7 +52,10 @@ public partial class NetworkView
 
     /// <summary>The yaw to draw the own model at: the view's while the simulation's follows the input, else the predicted state's (<see cref="ViewSmoothing.FollowAngle"/>).</summary>
     float DisplayYaw(PlayerState state) =>
-        !state.Alive || OwnDead ? state.Yaw : ViewSmoothing.FollowAngle(state.Yaw, _sampledYaw, _yaw);
+        !state.Alive || OwnDead || SteeredStrike(state) ? state.Yaw : ViewSmoothing.FollowAngle(state.Yaw, _sampledYaw, _yaw);
+
+    /// <summary>sim/slam-steer: the own body in a steered strike (the hammer's and the maul's slam) shows the simulation's heading, which turns at most 300 degrees a second and 185 in all, not the view.</summary>
+    bool SteeredStrike(PlayerState state) => _config is not null && state.MeleeStep > 0 && Combat.MeleeStepOf(_config, state) is { Steers: true };
 
     /// <summary>
     /// The own player's state as drawn this frame: the position between the last two predicted ticks plus the fading correction, and the pitch
