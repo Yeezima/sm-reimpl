@@ -116,6 +116,8 @@ public sealed partial class Hud : Control
         // Crosshair.
         /// <summary>weapons/spread: how far (virtual units) the crosshair's ticks move out for the next shot's scatter; 0 without spread.</summary>
         public float SpreadRadius;
+        /// <summary>ui/crosshair-fov-scale: factor on the crosshair's size (1 at the default FOV, below 1 wider); 0 = unset = 1.</summary>
+        public float ReticleScale;
         /// <summary>feel/scope-lascannon: the scope overlay (stalker bolter, lascannon) is on screen: it has its own reticle, so the normal crosshair is not drawn.</summary>
         public bool Scoped;
         /// <summary>ui/hud-fidelity: how far the next shot's scatter is between the stance's narrowest and widest (0..1, <see cref="ReticleRules.SpreadFraction"/>): picks the reticle's spread frame.</summary>
@@ -605,17 +607,18 @@ public sealed partial class Hud : Control
         var c = vs / 2f;
         var col = d.AimedAtEnemy ? new Color(0.95f, 0.1f, 0.08f) : new Color(1f, 1f, 1f, 0.9f);
         var shadow = new Color(0f, 0f, 0f, 0.55f);
-        const float r = 18f;
+        float rs = ReticleScale;   // ui/crosshair-fov-scale
+        float r = 18f * rs;
         // ui/hud-fidelity: the original reticle (Hud.Movie.cs); the M44 circle with --old-hud or without the movie.
         if (!d.Scoped && (OldHud || !DrawMovieReticle(c)))   // feel/scope-lascannon: the scope overlay has its own reticle (the name, hit marker and cards below stay)
         {
         DrawArc(c, r, 0f, MathF.Tau, 40, shadow, 4f, true);
-        DrawArc(c, r, 0f, MathF.Tau, 40, col, 1.8f, true);
+        DrawArc(c, r, 0f, MathF.Tau, 40, col, 1.8f, true);   // line widths stay; the open part is already an angle at the live FOV (NetworkView.Spread.cs)
         float open = Math.Clamp(float.IsFinite(d.SpreadRadius) ? d.SpreadRadius : 0f, 0f, 120f);   // weapons/spread: the ticks open with the scatter (ours)
         foreach (var dir in new[] { new Vector2(1, 0), new Vector2(-1, 0), new Vector2(0, 1), new Vector2(0, -1) })
         {
-            DrawLine(c + dir * (r - 5f + open), c + dir * (r + 6f + open), shadow, 4.5f);
-            DrawLine(c + dir * (r - 4f + open), c + dir * (r + 5f + open), col, 2f);
+            DrawLine(c + dir * (r - 5f * rs + open), c + dir * (r + 6f * rs + open), shadow, 4.5f);
+            DrawLine(c + dir * (r - 4f * rs + open), c + dir * (r + 5f * rs + open), col, 2f);
         }
         }
         // The enemy under the crosshair (owner's decision of 2026-10-30): no name; with Tactical Readout or Signum Link, its health and shield as a thin
@@ -638,7 +641,7 @@ public sealed partial class Hud : Control
         {
             float a = (float)(1.0 - since / life);
             var hc = _hitKill ? new Color(0.95f, 0.1f, 0.08f, a) : _hitHead ? new Color(1f, 0.9f, 0.45f, a) : new Color(1f, 1f, 1f, a);
-            float r0 = 12f + (float)since * 20f, r1 = r0 + 12f;
+            float r0 = (12f + (float)since * 20f) * rs, r1 = r0 + 12f * rs;
             foreach (var dir in new[] { new Vector2(1, 1), new Vector2(-1, 1), new Vector2(1, -1), new Vector2(-1, -1) })
             {
                 var n = dir.Normalized();
