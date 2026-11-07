@@ -1111,6 +1111,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
         _players.Remove(playerId);
         _jumpApex.Remove(playerId);
         _scores.Remove(playerId);
+        _lifeDamage.Remove(playerId);   // assists (Teams.cs)
         _nextLoadouts.Remove(playerId);
         ForgetSpawnChoice(playerId);
         _damageScale.Remove(playerId);

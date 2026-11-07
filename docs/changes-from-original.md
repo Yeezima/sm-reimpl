@@ -621,6 +621,16 @@ the hit is engine code, so these rules are ours (spec "Melee interaction pass").
 | Teleport Homer in classic PvP | A spawn the player chooses, no longer automatic (the automatic rule stays in Musou Mode) | What SM1's perk really did (no data consumer) | same; Perks without data |
 | Heavy bolter count | The weapon box shows the rounds left (400 a life, the data's clip) instead of the movie's endless sign | Whether SM1 showed the endless sign over a 400-round clip | same |
 
+### Headshot medal, score and scream (protocol 64; owner 2026-11-07)
+
+| Area | What we do | What is unknown | Spec |
+|---|---|---|---|
+| Headshot score | The owner's decision (2026-11-07: "add a +50 points to score"): a headshot kill scores 50 more than a kill; the data's `xp_settings_pvp/rewards/headshot` grants 35 experience. The medal line reads +100 (the kill's 50 and the headshot's 50) | — (the data's value is known: 35) | Headshot medal, score and scream: "Headshot score" |
+| Player score | A per-player score on the scoreboard: 50 a kill (the reward line's 50 from the footage) and 50 more a headshot kill; nothing else scores yet (assists counted, not scored; captures, streaks and the other rewards not scored) | How SM1 summed the scoreboard's score (its XP column) from the rewards | same: "Player score" |
+| Headshot scream | A headshot kill plays the victim class's speech-bank `death` exertion where it fell | The MP data binds no command to the `death` exertion: when SM1 played it (every death, headshots only, or never in MP) | same: "Headshot scream" |
+| Medal description | The medal line shows the data's `display_description` (105721) under it; the HUD movie has no field for it | Whether SM1's in-match popup showed the description | same: "Medal line" |
+| Assists | Counted per player: a hostile player other than the killer who dealt at least 25 % of the damage the victim took in that life (the data's lowest `damage_ratio`) | The ratio's base (the victim's maximum or the damage taken) | same: "Assists" |
+
 ## 3. Not yet reproduced
 
 Known original features missing from the alpha (alpha scope: Annihilation and Seize Ground on Manufactorum only).

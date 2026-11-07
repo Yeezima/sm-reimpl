@@ -33,11 +33,45 @@ public enum KillCause : byte
 /// drop repeats), <paramref name="Killer"/> is the player credited (0: none; the victim itself: a suicide), and the cause.
 /// <paramref name="Direction"/> (M23): the killing hit's push (<see cref="HitEvent.Direction"/>; unit, world space), zero for
 /// a death without one (fell out of the level or into a kill volume), for the clients' ragdolls.
+/// <paramref name="Headshot"/> (headshot medal, protocol 64): the killing hit was a weapon's shot on the head body of an enemy (<see cref="ScoreRules.IsHeadshotKill"/>).
 /// </summary>
-public readonly record struct KillEvent(int Sequence, uint Tick, int Killer, int Victim, KillCause Cause, int Index, System.Numerics.Vector3 Direction = default);
+public readonly record struct KillEvent(int Sequence, uint Tick, int Killer, int Victim, KillCause Cause, int Index, System.Numerics.Vector3 Direction = default, bool Headshot = false);
 
-/// <summary>A player's kills (enemies killed) and deaths in the current round.</summary>
-public readonly record struct PlayerScore(int Kills, int Deaths);
+/// <summary>
+/// A player's kills (enemies killed) and deaths in the current round; protocol 64 (headshot medal, scoreboard): the headshot kills among the kills and the
+/// assists (<see cref="ScoreRules.AssistShare"/>). <see cref="Score"/> follows from them (<see cref="ScoreRules.Of"/>).
+/// </summary>
+public readonly record struct PlayerScore(int Kills, int Deaths, int Headshots = 0, int Assists = 0)
+{
+    public int Score => ScoreRules.Of(Kills, Headshots);
+}
+
+/// <summary>
+/// A player's match score (headshot medal and scoreboard, owner 2026-11-07). The original's per-player score is the experience of <c>xp_settings_pvp/rewards</c>; what is
+/// counted here: <see cref="KillScore"/> per enemy killed (the kill reward line's 50, measured on the reference footage: SmContent's <c>RewardTable.Kill</c>) and
+/// <see cref="HeadshotScore"/> more for a headshot kill (the data's <c>rewards/headshot</c> grants 35; the owner asked for +50: a deliberate change). Nothing else scores yet
+/// (assists, captures, streaks: spec/behavior.md). Server-authoritative: the server counts kills and headshots; clients apply this same rule to the counts it sends.
+/// </summary>
+public static class ScoreRules
+{
+    public const int KillScore = 50;
+    /// <summary>The owner's +50 for a headshot kill (data <c>rewards/headshot/reward_experience</c>: 35).</summary>
+    public const int HeadshotScore = 50;
+    /// <summary>
+    /// <c>xp_settings_pvp/assists</c>: the lowest <c>damage_ratio</c> (0.25) that earns an assist. Read as the share of the damage (armour and health) the victim took in
+    /// the life that ended, dealt by a hostile player other than the killer (interpretation: the data does not name the ratio's base).
+    /// </summary>
+    public const float AssistShare = 0.25f;
+
+    public static int Of(int kills, int headshots) => Math.Max(0, kills) * KillScore + Math.Max(0, headshots) * HeadshotScore;
+
+    /// <summary>
+    /// A headshot kill's killing hit: on the head (<see cref="HitZone.Head"/>) and from a weapon's shot, not a melee blow, a thrown item, a jump-pack landing, a perk's
+    /// blast, a blast's splash or a flame cone (the data's <c>rewards/headshot</c>: "Kill an opponent with a headshot"; the head body is the one that takes the weapon's head multiplier).
+    /// </summary>
+    public static bool IsHeadshotKill(HitEvent h) =>
+        h.Killed && h.Zone == HitZone.Head && !h.Melee && !h.ThrownItem && !h.Landing && h.Perk < 0 && !h.Splash && !h.Cone && h.Weapon >= 0;
+}
 
 /// <summary>
 /// The rules of Annihilation (team deathmatch), server-side. What the install says and what is ours
@@ -295,6 +329,7 @@ public sealed partial class World
     /// </summary>
     void ResolveDeaths(List<int> aliveBefore)
     {
+        NoteLifeDamage();
         var tickScores = new int[3];
         bool ended = State == MatchState.Ended;
         foreach (int victim in aliveBefore)
@@ -309,26 +344,59 @@ public sealed partial class World
                 : h.Melee ? (KillCause.Melee, _players.TryGetValue(killer, out var k2) ? k2.MeleeChoice : -1)
                 : h.ThrownItem ? (KillCause.Thrown, h.Weapon)
                 : (KillCause.Weapon, h.Weapon);
-            var e = new KillEvent(++_killSequence, Tick, killer, victim, cause, index, fatal?.Direction ?? default);
+            bool hostileKill = killer != 0 && killer != victim && _players.TryGetValue(killer, out var by) && (Rules is null || Hostile(by.Team, dead.Team));
+            bool headshot = hostileKill && fatal is { } fh && ScoreRules.IsHeadshotKill(fh);
+            var e = new KillEvent(++_killSequence, Tick, killer, victim, cause, index, fatal?.Direction ?? default, headshot);
             _kills.Add(e);
             _recentKills.Add(e);
             _killLog.Add(e);
             if (_killLog.Count > KillLogLength) _killLog.RemoveRange(0, _killLog.Count - KillLogLength);
+            var damagedBy = _lifeDamage.Remove(victim, out var taken) ? taken : null;
             if (ended) continue;
 
             var score = _scores.GetValueOrDefault(victim);
             _scores[victim] = score with { Deaths = score.Deaths + 1 };
-            if (killer != 0 && killer != victim && _players.TryGetValue(killer, out var by) && (Rules is null || Hostile(by.Team, dead.Team)))
+            if (hostileKill)
             {
                 var ks = _scores.GetValueOrDefault(killer);
-                _scores[killer] = ks with { Kills = ks.Kills + 1 };
+                _scores[killer] = ks with { Kills = ks.Kills + 1, Headshots = ks.Headshots + (headshot ? 1 : 0) };
             }
+            if (damagedBy is not null) CreditAssists(victim, killer, dead.Team, damagedBy);
             // Seize Ground: deaths do not score (interpretation: the mode's preset has no Deaths objectives).
             if (State == MatchState.Playing && dead.Team != Team.None && Rules!.Mode == GameMode.Annihilation) tickScores[(int)MatchRules.Other(dead.Team)]++;
         }
         if (State != MatchState.Playing || Rules!.Mode != GameMode.Annihilation) return;
         for (int side = 1; side < 3; side++) _teamScores[side] += tickScores[side];
         CheckScoreLimit();
+    }
+
+    /// <summary>Per player: the damage (armour and health) each other player dealt it in its current life, for the assists (<see cref="ScoreRules.AssistShare"/>).</summary>
+    readonly Dictionary<int, Dictionary<int, float>> _lifeDamage = new();
+
+    /// <summary>The tick's hits into the damage of each victim's life (before the deaths are resolved, so the killing hit counts).</summary>
+    void NoteLifeDamage()
+    {
+        foreach (var h in _hits)
+        {
+            float dealt = h.ShieldDamage + h.HealthDamage;
+            if (h.Shooter == 0 || h.Shooter == h.Target || !(dealt > 0f) || !float.IsFinite(dealt)) continue;
+            if (!_lifeDamage.TryGetValue(h.Target, out var by)) _lifeDamage[h.Target] = by = new Dictionary<int, float>();
+            by[h.Shooter] = by.GetValueOrDefault(h.Shooter) + dealt;
+        }
+    }
+
+    /// <summary>An assist for every hostile player other than the killer who dealt at least <see cref="ScoreRules.AssistShare"/> of the damage the victim took in that life.</summary>
+    void CreditAssists(int victim, int killer, Team victimTeam, Dictionary<int, float> damagedBy)
+    {
+        float total = damagedBy.Values.Sum();
+        if (!(total > 0f)) return;
+        foreach (var (attacker, dealt) in damagedBy.OrderBy(kv => kv.Key))
+        {
+            if (attacker == killer || attacker == victim || dealt < ScoreRules.AssistShare * total) continue;
+            if (!_players.TryGetValue(attacker, out var a) || (Rules is not null && !Hostile(a.Team, victimTeam))) continue;
+            var s = _scores.GetValueOrDefault(attacker);
+            _scores[attacker] = s with { Assists = s.Assists + 1 };
+        }
     }
 
     /// <summary>One side at or over the score limit wins; both: the higher score wins, equal scores are a draw (ours).</summary>
@@ -425,6 +493,7 @@ public sealed partial class World
         Winner = Team.None;
         Array.Clear(_teamScores);
         foreach (var id in _scores.Keys.ToList()) _scores[id] = default;
+        _lifeDamage.Clear();   // assists count within a round
         TicksLeft = countdown ? Ticks(Rules!.CountdownTime) : Rules!.TimeLimit > 0f ? Ticks(Rules.TimeLimit) : uint.MaxValue;
         ResetPoints();
         if (!respawn) return;

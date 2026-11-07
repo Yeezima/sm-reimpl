@@ -255,13 +255,14 @@ public partial class NetworkView
             string text = KillText(k);
             NoteDeathCause(k);   // M23: the ragdoll's push
             OrkKillSound(k);     // Ork O8: an Ork standing still taunts after a kill (silly option)
+            HeadshotKillSound(k);   // protocol 64: a headshot kill's death scream (NetworkView.Headshot.cs)
             ExtrasKill(k);       // EXTRAS-HOOK: added content's kill reactions (loyalist barks: the killer's bark)
             _hudView?.AddKill(HudKill(k));
             _killsSeen++;
-            // A kill by the own player: a reward-style line (the hit marker comes from the hit reports, UpdateHits) (no experience points exist here).
+            // A kill by the own player: its reward lines (the hit marker comes from the hit reports, UpdateHits); protocol 64: the server says whether it was a headshot (the medal line).
             if (k.Killer == _client.PlayerId && k.Victim != k.Killer)
             {
-                _hudView?.AddEvent($"+ Kill {HudName(k.Victim)}");
+                _hudView?.AddOwnKill(HudName(k.Victim), k.Headshot);
             }
             if (_bot)
                 GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} kill feed #{k.Sequence}: {StripBbcode(text)} " +

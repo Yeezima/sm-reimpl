@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2436 spec table rows: **1778 tagged**, 473 not tagged (read from data with high confidence), 185 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 545 rows of the changes document.
+Scanned 2443 spec table rows: **1783 tagged**, 474 not tagged (read from data with high confidence), 186 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 550 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,20 +50,20 @@ Scanned 2436 spec table rows: **1778 tagged**, 473 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 343 | 323 | 267 | 67 | 1 |
+| Core simulation (provisional values) | 348 | 328 | 272 | 69 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 173 | 164 | 80 | 50 | 0 |
-| **All areas** | **1778** | 1538 | 1356 | 558 | 38 |
+| **All areas** | **1783** | 1543 | 1361 | 560 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 893 |
-| confidence: low | 648 |
-| confidence: medium | 580 |
-| kind: interpretation | 357 |
-| notes: ours | 349 |
+| kind: ours | 896 |
+| confidence: low | 652 |
+| confidence: medium | 581 |
+| kind: interpretation | 359 |
+| notes: ours | 351 |
 | confidence: none (low) | 128 |
 | kind: estimate | 117 |
 | kind: provisional | 99 |
@@ -2077,7 +2077,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (343)
+### Core simulation (provisional values) (348)
 
 *Spec section: Provisional values in use*
 
@@ -2631,6 +2631,16 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-A70E6CE5` | Hammer and maul: X1 and X2 string reset | A press after X1's or X2's combo window (no chain) starts a new string from the sequencer's `BRANCH_Melee_String_Reset`: X1 at 0.72 of 2.667 s = 1.92 s, X2 at 0.8548 of 2.333 s = 1.995 s (before: their clip's end, 2.667 / 2.333 s); each at or after its combo… (s) | kind: interpretation; confidence: medium | graph `MP_SM_MEL_ThunderHammer` (the maul shares the map); that the tag frees a new string is an interpretation | Hammer and maul: X1 and X2 string reset: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: A press after X1's or X2's combo window (no chain) starts a new… | ☐ |
 | `R-DA2A5484` | Other weapons' string ends | Not changed: the power sword's and power / chain axe's last light swings (and the heavy classes' kick) still end at their clip's end; whether their `BRANCH_Melee_String_Reset` should free a new string too is the owner's call (s) | kind: ours; confidence: low | ours (scope of the owner's request) | Other weapons' string ends: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Not changed: the power sword's and power / chain axe's last light… | ☐ |
 | `R-56110630` | Charged release delay: what is left | The press starts the charge and the release fires (the M31 rule, unchanged); from the release the own shot's flash, sound and ball all start on the release tick's frame. The detonation of the own ball still plays when the interpolated view reaches the… | kind: gap (not reproduced); confidence: low | — | Charged release delay: what is left: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: The press starts the charge and the release fires (the M31 rule… | ☐ |
+
+*Spec section: Headshot medal, score and scream (protocol 64, 2026-11-07)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-E272BD02` | Headshot kill | the killing hit of an enemy (not a suicide or team kill) was on the head body (`HitZone.Head`) and came from a weapon's shot: not melee, a thrown item, a jump-pack landing, a perk's blast, a blast's splash or a flame cone | kind: interpretation; confidence: medium; notes: ours | the data's reward text ("Kill an opponent with a headshot"); which hits count: ours | Headshot kill: compare with SM1 by feel or video. Ours: the killing hit of an enemy (not a suicide or team kill) was on the… | ☐ |
+| `R-B11639CE` | Player score | 50 per enemy killed + 50 per headshot kill; the server counts kills and headshots, every client applies the same rule (points) | kind: ours; confidence: low | the kill line's 50 (reference footage, `RewardTable.Kill`); the sum: ours | Player score: compare with SM1 by feel or video. Ours: 50 per enemy killed + 50 per headshot kill; the server counts kills… | ☐ |
+| `R-C6CC4A04` | Assists | an assist for each hostile player other than the killer who dealt at least 0.25 of the damage (armour and health) the victim took in the life that ended; counted, not scored (share) | kind: interpretation; confidence: low; notes: ours | `xp_settings_pvp/assists` (lowest `damage_ratio` 0.25); the ratio's base: ours | Assists: compare with SM1 by feel or video. Ours: an assist for each hostile player other than the killer who dealt at… | ☐ |
+| `R-D5F19D93` | Medal line | the killer's reward line for a headshot kill: icon frame `mp_bonus_headshot`, the name from locale 105720, +100, and the description (locale 105721) under it, centred, white, fading with the line; the older lines move down under it. The text comes only from… | kind: ours; confidence: low | data (icon, name, description); the description's place: ours | Medal line: compare with SM1 by feel or video. Ours: the killer's reward line for a headshot kill: icon frame… | ☐ |
+| `R-BC48BAFC` | Headshot scream | the victim class's `speech_exertion` line for `exertion_type` `death` (character from the class's `speech_arg_character`), positioned 1.6 m over where the victim stood, heard by everyone near (3D, the line's own attenuation) | kind: ours; confidence: low | the lines are the install's; the MP data binds no command that plays them, so when they play is ours | Headshot scream: compare with SM1 by feel or video. Ours: the victim class's speech_exertion line for exertion_type death… | ☐ |
 
 ### General game design (7)
 
@@ -3550,6 +3560,16 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-F53AA7C4` | Teleport Homer in classic PvP | A spawn the player chooses, no longer automatic (the automatic rule stays in Musou Mode) | What SM1's perk really did (no data consumer) | same; Perks without data | Teleport Homer in classic PvP: compare with SM1 by feel or video. Ours: A spawn the player chooses, no longer automatic (the automatic rule… | ☐ |
 | `C-6AEA967C` | Heavy bolter count | The weapon box shows the rounds left (400 a life, the data's clip) instead of the movie's endless sign | Whether SM1 showed the endless sign over a 400-round clip | same | Heavy bolter count: compare with SM1 by feel or video. Ours: The weapon box shows the rounds left (400 a life, the data's clip)… | ☐ |
 
+#### Headshot medal, score and scream (protocol 64; owner 2026-11-07)
+
+| ID | Area | What we do | What is unknown | Spec | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `C-5793154B` | Headshot score | The owner's decision (2026-11-07: "add a +50 points to score"): a headshot kill scores 50 more than a kill; the data's `xp_settings_pvp/rewards/headshot` grants 35 experience. The medal line reads +100 (the kill's 50 and the headshot's 50) | — (the data's value is known: 35) | Headshot medal, score and scream: "Headshot score" | Headshot score: compare with SM1 by feel or video. Ours: The owner's decision (2026-11-07: "add a +50 points to score"): a… | ☐ |
+| `C-C86AA32F` | Player score | A per-player score on the scoreboard: 50 a kill (the reward line's 50 from the footage) and 50 more a headshot kill; nothing else scores yet (assists counted, not scored; captures, streaks and the other rewards not scored) | How SM1 summed the scoreboard's score (its XP column) from the rewards | same: "Player score" | Player score: compare with SM1 by feel or video. Ours: A per-player score on the scoreboard: 50 a kill (the reward line's 50… | ☐ |
+| `C-95CA0C48` | Headshot scream | A headshot kill plays the victim class's speech-bank `death` exertion where it fell | The MP data binds no command to the `death` exertion: when SM1 played it (every death, headshots only, or never in MP) | same: "Headshot scream" | Headshot scream: compare with SM1 by feel or video. Ours: A headshot kill plays the victim class's speech-bank death exertion… | ☐ |
+| `C-8B6D6FA2` | Medal description | The medal line shows the data's `display_description` (105721) under it; the HUD movie has no field for it | Whether SM1's in-match popup showed the description | same: "Medal line" | Medal description: compare with SM1 by feel or video. Ours: The medal line shows the data's display_description (105721) under… | ☐ |
+| `C-898025F4` | Assists | Counted per player: a hostile player other than the killer who dealt at least 25 % of the damage the victim took in that life (the data's lowest `damage_ratio`) | The ratio's base (the victim's maximum or the damage taken) | same: "Assists" | Assists: compare with SM1 by feel or video. Ours: Counted per player: a hostile player other than the killer who dealt… | ☐ |
+
 ### Not yet reproduced
 
 | ID | Missing | Note | Compare in a playtest | Result |
@@ -3842,4 +3862,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-FA999C4E` | Test aid: `--fx-tint r,g,b` | Musou Mode: the Weirdboy (2026-11-07; `MusouSim.Version` 12, `TfwRules.Version` 31, no protocol or wire format change) |
 | `R-A5D771E7` | Test aid: `--warboss-test --model weirdboy` | Musou Mode: the Weirdboy (2026-11-07; `MusouSim.Version` 12, `TfwRules.Version` 31, no protocol or wire format change) |
 | `R-AFD6145F` | Switch | The charge clash: charger and victim locked through the shove (feel/charge-clash; protocol 59, no wire change) |
+| `R-04107A30` | Headshot on the wire | Headshot medal, score and scream (protocol 64, 2026-11-07) |
 

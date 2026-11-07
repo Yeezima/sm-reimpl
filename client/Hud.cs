@@ -209,11 +209,7 @@ public sealed partial class Hud : Control
         _hitAt = _time;
         _hitKill = kill;
         _hitHead = head && !kill;
-        if (kill && head) { _headKillAt = _time; _headKillAimed = Data.AimedName; }   // ui/hud-2: a killing head hit and who was under the crosshair, for the headshot reward line
     }
-
-    double _headKillAt = double.NegativeInfinity;
-    string _headKillAimed = "";
 
     /// <summary>Opens the weapon-switch cards (the HUD also opens them itself when the weapon in hand changes).</summary>
     public void ShowSwitchPopup() => _popupAt = _time;
@@ -227,22 +223,24 @@ public sealed partial class Hud : Control
     }
 
     /// <summary>
-    /// Adds the reward lines of an own kill ("+ Kill P3": the client's call for every kill by the own player): the kill's own line and, from the kills the HUD has seen (<see cref="RewardTracker"/>,
-    /// ui/hud-2), the headshot, revenge, avenger, grudge, victory in death, double to mega kill and killstreak lines it earned. Any other text is shown as it is.
+    /// Adds the reward lines of an own kill of <paramref name="victim"/> (the client's call for every kill by the own player): the kill's own line, or with <paramref name="headshot"/>
+    /// (protocol 64: the server's word, <c>KillView.Headshot</c>) the headshot medal's line instead, and, from the kills the HUD has seen (<see cref="RewardTracker"/>, ui/hud-2), the
+    /// revenge, avenger, grudge, victory in death, double to mega kill and killstreak lines it earned.
     /// </summary>
+    public void AddOwnKill(string victim, bool headshot)
+    {
+        string text = victim.Length > 0 ? "+ Kill " + victim : "+ Kill";
+        foreach (var earned in _rewards.OwnKill(victim, _time, headshot, Data.Alive))
+            _events.Add(new EventLine(earned.Spec == RewardTable.Kill ? text : "+ " + earned.Spec.Name, _time, earned.Spec));
+        while (_events.Count > 4) _events.RemoveAt(0);
+    }
+
+    /// <summary>Adds a line as it is; "+ Kill P3" is an own kill without a headshot (<see cref="AddOwnKill"/>).</summary>
     public void AddEvent(string text)
     {
         const string kill = "+ Kill ";
-        if (text.StartsWith(kill, StringComparison.Ordinal) || text == "+ Kill")
-        {
-            string victim = text.Length > kill.Length ? text[kill.Length..] : "";
-            // A headshot belongs to the one the head hit was on: the player under the crosshair then (when the HUD knew one), and the hit counts once.
-            bool head = _time - _headKillAt <= 1.0 && (_headKillAimed.Length == 0 || victim.Length == 0 || _headKillAimed.Contains(victim, StringComparison.Ordinal));
-            if (head) _headKillAt = double.NegativeInfinity;
-            foreach (var earned in _rewards.OwnKill(victim, _time, head, Data.Alive))
-                _events.Add(new EventLine(earned.Spec == RewardTable.Kill ? text : "+ " + earned.Spec.Name, _time, earned.Spec));
-        }
-        else _events.Add(new EventLine(text, _time));
+        if (text.StartsWith(kill, StringComparison.Ordinal) || text == "+ Kill") { AddOwnKill(text.Length > kill.Length ? text[kill.Length..] : "", false); return; }
+        _events.Add(new EventLine(text, _time));
         while (_events.Count > 4) _events.RemoveAt(0);
     }
 
@@ -543,7 +541,7 @@ public sealed partial class Hud : Control
         bool movie = DrawMovieRewards(vs);   // ui/hud-fidelity: the movie's reward lines (Hud.Fidelity.cs)
         if (movie) y = 250f + 49f * _events.Count;   // under the movie's reward lines (32.65 stage pixels apart)
         if (!movie)
-        foreach (var (text, at, _) in _events)
+        foreach (var (text, at, spec) in _events)
         {
             float a = (float)Math.Clamp(EventSeconds - (_time - at), 0.0, 0.6) / 0.6f;
             string line = text.StartsWith("+ ", StringComparison.Ordinal) ? text[2..] : text;
@@ -552,6 +550,7 @@ public sealed partial class Hud : Control
             if (!SpriteAt(HudSprites.KillMedal, new Vector2(x + 20f, y - 10f), 1.15f, new Color(1f, 1f, 1f, a))) Skull(new Vector2(x + 20f, y - 12f), 13f, new Color(Gold, a));
             Txt(line, x + 52f, y, 28, new Color(1f, 1f, 1f, a), -1, 4, 2);
             y += 44f;
+            if (RewardDescription(spec ?? RewardTable.Kill) is { Length: > 0 } description) { Txt(description, cx, y - 8f, 20, new Color(1f, 1f, 1f, a), 0, 3, 0); y += 30f; }   // headshot medal: its description
         }
         if (d.Banner.Length > 0) Txt(d.Banner, vs.X / 2f, d.Alive ? Math.Max(y + 12f, 275f) : 430f, 28, Gold, 0, 5, 2);
     }

@@ -104,12 +104,13 @@ public sealed partial class Hud
         int xpClip = hud.Find("score_mc/xp_event_1_mc/xp_mc")?.Placement.Character ?? -1;
         int nameClip = hud.Find("score_mc/xp_event_1_mc/name_offset_mc/name_mc")?.Placement.Character ?? -1;
         int n = 0;
+        double below = 0;   // headshot medal: a line with a description pushes the older lines down by the description's height
         for (int i = _events.Count - 1; i >= 0 && n < 4; i--, n++)
         {
             var (text, at, line) = _events[i];
             var spec = line ?? RewardTable.Kill;
             double age = _time - at;
-            var m = line1.ToStage; m = m with { Ty = m.Ty + step * n };
+            var m = line1.ToStage; m = m with { Ty = m.Ty + step * n + below };
             // ui/hud-3 (owner 2026-10-30): the centre announcements a little smaller, about the screen's middle line and the first line's top (ours).
             var root = stage * new Transform2D(0f, new Vector2(RewardScale, RewardScale), 0f, new Vector2(640f * (1f - RewardScale), (float)line1.ToStage.Ty * (1f - RewardScale))) * ToXf(m);
             int Clip(int sprite, string path)
@@ -134,6 +135,15 @@ public sealed partial class Hud
             }, ch => ch == iconSprite,
                 path => path.EndsWith("xp_txt", StringComparison.Ordinal) ? $"+{spec.Experience}" : path.EndsWith("name_txt", StringComparison.Ordinal) ? name : null,
                 fontScale: RewardFontScale);
+            if (RewardDescription(spec) is { Length: > 0 } description)
+            {
+                // Headshot medal (the owner, 2026-11-07): the data's description (display_description) under the line, centred on the screen, white like the name, fading with the line (ours: the
+                // HUD movie has no description field; the original's reward screens show these texts).
+                float a = (float)(Math.Clamp(EventSeconds - age, 0.0, 0.5) / 0.5 * Math.Clamp(age / 0.25, 0.0, 1.0));
+                var under = root * new Vector2(0f, (float)step * 0.62f);
+                Txt(description, vs.X / 2f, under.Y, Math.Max(14, (int)MathF.Round(vs.Y / 1080f * 22f)), new Color(1f, 1f, 1f, a), 0, 3, 0);
+                below += step * 0.7;
+            }
         }
         return true;
     }
