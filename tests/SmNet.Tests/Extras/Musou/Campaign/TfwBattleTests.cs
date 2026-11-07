@@ -28,6 +28,7 @@ internal static class TfwRig
         w.Tfw!.RetainerUp = _ => false;   // the tests of the extraction; those of the revive set their own
         w.Tfw.Guardsmen = true;   // these tests are of the battle with its squads; TfwOrkTests of the switch
         w.Tfw.Patrols = false;    // and of the crowds as they count; TfwPatrolTests of the columns
+        w.TfwMeksOn = false;      // the Scrap Meks too (MusouExpansionS4Tests turns them on)
         w.Spawn(Human, w.AssignClass(0));
         Steps(w, 30);
         Assert.Equal(MatchState.Playing, w.State);

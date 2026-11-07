@@ -74,6 +74,7 @@ public sealed partial class World
                     _shots[k] = shot with { Hit = ShotHit.Body, Surface = -1, Target = 0, Armoured = false };
                 continue;
             }
+            if (musou.War is not null) { TfwMekShot(k, ref shot, weapon, direction, ref length); if (!(length > 1e-3f)) continue; }   // Campaign/World.TfwMeks.cs: the domes and the contraptions (expansion S4)
             if (musou.War is { } war) { TfwPierceShot(k, shot, weapon, direction, length, war); continue; }   // Campaign/World.TfwMelee.cs: Musou Mode's shots go through
             ushort enemy = musou.Raycast(shot.Origin, direction, length, out float distance, out bool head);
             if (enemy == 0) continue;
@@ -107,7 +108,7 @@ public sealed partial class World
             float coverage = MusouSim.ConeCoverage(cone, origin, direction, e.Position, radius, height);
             if (coverage <= 0f) continue;
             var chest = MusouSim.Chest(e.Position, height);
-            if (Blocked(origin, chest)) continue;
+            if (Blocked(origin, chest) || TfwShielded(origin, chest)) continue;   // TfwShielded: a dome from outside (expansion S4)
             float distance = Vector3.Distance(origin, chest);
             float multiplier = Cones.Multiplier(cone, distance, coverage);
             if (multiplier <= 0f) continue;
@@ -306,6 +307,7 @@ public sealed partial class World
             float distance = Vector3.Distance(chest, point);
             if (distance > splash.Radius) continue;
             if (splash.LineOfSight && Blocked(point, chest)) continue;
+            if (TfwShielded(point, chest)) continue;   // Campaign/World.TfwMeks.cs: a dome stops a blast from outside (expansion S4)
             float intensity = Combat.SplashIntensity(splash.FallOff, distance);
             if (!(intensity > 0f)) continue;
             var away = new Vector2(e.Position.X - point.X, e.Position.Y - point.Y);

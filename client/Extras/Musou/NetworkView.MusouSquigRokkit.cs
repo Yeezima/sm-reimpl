@@ -82,24 +82,7 @@ public partial class NetworkView
                 var flat = new Num.Vector2(e.Vector.X - feet.X, e.Vector.Y - feet.Y);
                 var forward = flat.LengthSquared() > 1e-6f ? Num.Vector2.Normalize(flat) : Num.Vector2.UnitY;
                 var muzzle = feet + new Num.Vector3(forward * MusouRokkitRules.MuzzleForward, MusouRokkitRules.MuzzleHeight);
-                var way = e.Vector - muzzle;
-                if (way.LengthSquared() < 1e-6f) break;
-                var rocket = new ShownRocket { Serial = e.Player, Position = muzzle, Velocity = Num.Vector3.Normalize(way) * MusouRokkitRules.RocketSpeed, Born = now };
-                rocket.Emitter.Position = ToGodot(muzzle);
-                ushort serial = e.Player;
-                rocket.Emitter.Follow = () => _rockets.TryGetValue(serial, out var r) ? ToGodot(r.Position) : null;
-                _rockets[serial] = rocket;
-                _rocketsShown++;
-                S2Post(RokkitFireSound, ToGodot(muzzle), 0f);
-                if (_fx is not null && FxActive)
-                {
-                    var axes = AxesAlong(ToGodot(muzzle + rocket.Velocity) - ToGodot(muzzle));
-                    _fx.Play("rokkit_firing_line", ToGodot(muzzle), axes, 1f);
-                    rocket.Trail = _fx.Play("rokkit_missile_trail", ToGodot(muzzle), axes, 1f, follow: () =>
-                        _rockets.TryGetValue(serial, out var r) ? (ToGodot(r.Position - Num.Vector3.Normalize(r.Velocity) * RocketTrailBack), AxesAlong(ToGodot(r.Velocity) - ToGodot(Num.Vector3.Zero))) : null,
-                        lifetime: MusouRokkitRules.RocketMaxSeconds + 1f);
-                    if (rocket.Trail is not null) rocket.Trail.StopOnLost = true;
-                }
+                StartRocket(e.Player, muzzle, e.Vector);
                 break;
             }
             case MusouRokkitRules.BlastCue:
@@ -109,6 +92,29 @@ public partial class NetworkView
                 break;
         }
         return true;
+    }
+
+    /// <summary>A rocket shown from <paramref name="muzzle"/> towards <paramref name="aim"/>: its fire, its trail and its whine's emitter (a Rokkit Boy's, and expansion S4's turret's).</summary>
+    void StartRocket(ushort serial, Num.Vector3 muzzle, Num.Vector3 aim)
+    {
+        double now = _connectedFor;
+        var way = aim - muzzle;
+        if (way.LengthSquared() < 1e-6f) return;
+        var rocket = new ShownRocket { Serial = serial, Position = muzzle, Velocity = Num.Vector3.Normalize(way) * MusouRokkitRules.RocketSpeed, Born = now };
+        rocket.Emitter.Position = ToGodot(muzzle);
+        rocket.Emitter.Follow = () => _rockets.TryGetValue(serial, out var r) ? ToGodot(r.Position) : null;
+        _rockets[serial] = rocket;
+        _rocketsShown++;
+        S2Post(RokkitFireSound, ToGodot(muzzle), 0f);
+        if (_fx is not null && FxActive)
+        {
+            var axes = AxesAlong(ToGodot(muzzle + rocket.Velocity) - ToGodot(muzzle));
+            _fx.Play("rokkit_firing_line", ToGodot(muzzle), axes, 1f);
+            rocket.Trail = _fx.Play("rokkit_missile_trail", ToGodot(muzzle), axes, 1f, follow: () =>
+                _rockets.TryGetValue(serial, out var r) ? (ToGodot(r.Position - Num.Vector3.Normalize(r.Velocity) * RocketTrailBack), AxesAlong(ToGodot(r.Velocity) - ToGodot(Num.Vector3.Zero))) : null,
+                lifetime: MusouRokkitRules.RocketMaxSeconds + 1f);
+            if (rocket.Trail is not null) rocket.Trail.StopOnLost = true;
+        }
     }
 
     /// <summary>The frag grenade's own detonation (its effects and its sounds) at <paramref name="at"/>: the Squig's burst is the original frag. <paramref name="effects"/> false: its sounds only.</summary>

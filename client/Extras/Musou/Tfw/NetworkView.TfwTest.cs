@@ -493,7 +493,7 @@ public partial class NetworkView
         while (_connectedFor - start < seconds && TfwNow.Phase == TfwRunPhase.Battle)
         {
             var me = client.Predicted.Position;
-            var look = _musouState.MiddleNear(me, 45f) ?? point;   // towards the crowd
+            var look = (CmdFlag("tfw-fight-meks") ? MekLook(me) : null) ?? _musouState.MiddleNear(me, 45f) ?? point;   // towards the crowd (--tfw-fight-meks: the Meks' contraptions, Meks/NetworkView.MusouMeks.cs)
             _yaw = MathF.Atan2(-(look.X - me.X), look.Y - me.Y);
             await TfwWait(every);
             await TfwShot($"fight-{shot:00}");
