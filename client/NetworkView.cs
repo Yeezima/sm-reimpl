@@ -325,6 +325,7 @@ public partial class NetworkView : Node3D
                 Bot = _bot,   // protocol 37: the Hello marks a test bot (the server's --bot-damage-scale)
                 Observer = Observe,   // protocol 46: a spectator (NetworkView.Observer.cs)
                 StallKeepAlive = !NoStallKeepAlive,   // fix/stall-keepalive: a blocked main thread no longer gets the player timed out (NetworkView.Stall.cs)
+                ReviseOnMap = BotPresetWanted() ? BotPresetOnMap : null,   // 2026-11-07: a Classic PvP bot's fixed random loadout (NetworkView.BotLoadout.cs)
             };
             // The front end's perks, looks and emblems (customizer, T8); a replayed demo keeps its recorded Hello.
             if (_demoPlayback is null) clientOptions = SmClient.FrontEnd.FrontEndLaunch.WithProfile(clientOptions);
@@ -781,6 +782,7 @@ public partial class NetworkView : Node3D
         if (DashWallTestInput(me, tick) is { } dashWall) return dashWall;   // feel/jump-pack-2 test aid --dash-wall-test (NetworkView.DashAttack.cs)
         // A navigation jump in flight keeps its checked controls (NetworkView.Nav.cs).
         if (BotNavFlightInput(me, tick) is { } flightInput) return flightInput;
+        BotTrackLife(me);   // 2026-11-07: lives for the lane legs and the idle cycle (NetworkView.BotRoam.cs)
         // M44a: during the match's "MATCH BEGINS" countdown (attacks do not work yet) the bot holds still in its spawn room: no wasted shots, no stale path.
         if (_client.Match.Effective() == MatchState.Countdown) { _botNote = "countdown: holding"; _navAgent?.Reset(); return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch); }
         // Seize Ground (M16): go to a point not held, fight on the way and hold it (NetworkView.Seize.cs).
@@ -797,6 +799,7 @@ public partial class NetworkView : Node3D
             _yaw = MathF.Atan2(-dx, dy);   // direction (-sin yaw, cos yaw)
             _pitch = Math.Clamp(MathF.Atan2(dz, MathF.Sqrt(dx * dx + dy * dy)), -MaxPitchDown, MaxPitchUp);
             _botTickEnemy = target;   // stream C: the strafing and straight-run measurements (NetworkView.BotTactics.cs)
+            BotNoteFight();   // 2026-11-07: the lane leg ends; afterwards the idle cycle starts at the hold again (NetworkView.BotRoam.cs)
             // Jump pack (assault classes): jump at targets 8-30 m away and pound from above (NetworkView.Jump.cs).
             if (BotDashAttackInput(me, target, tick) is { } dashInput) return dashInput;   // protocol 30 test aid --bot-dash-attack (NetworkView.DashAttack.cs)
             if (BotJumpInput(me, target, tick) is { } jumpInput) return jumpInput;

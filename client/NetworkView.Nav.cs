@@ -50,6 +50,10 @@ public partial class NetworkView
         public SpawnRoomWatch? Watch;
         public Task<(SpawnRoomWatch?, string)>? WatchTask;
         public bool WatchDone;
+        /// <summary>2026-11-07: the centre holds, roam points, lanes and no-loiter zone of this side's bots (NetworkView.BotRoam.cs).</summary>
+        public BotMapPlan? Plan;
+        public Task<(BotMapPlan?, string)>? PlanTask;
+        public bool PlanDone;
     }
 
     readonly Dictionary<(Team, string), NavSlot> _navSlots = new();
