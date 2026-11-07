@@ -34,7 +34,7 @@ public sealed class MusouGunModels
             _reads[g.Type] = Task.Run(() =>
             {
                 var notes = new List<string>();
-                var catalogue = WeaponModels.Load(gameDir, RigProfiles.OrkBoy, notes, [wargear], bones);
+                var catalogue = WeaponModels.Load(gameDir, RigProfiles.OrkBoy with { WeaponMounts = MusouOrkGunRules.Mounts }, notes, [wargear], bones);   // the big shoota's mount too (Musou only)
                 var attachment = catalogue.Held(wargear) ?? OwnMount(catalogue, wargear, bones, notes) ?? throw new System.IO.InvalidDataException($"{wargear}: no wield entry");
                 var mount = GuardLasgun.From(WeaponModel.Load(gameDir, attachment, notes), attachment.Wield!, notes);
                 return new Read(mount, new CharacterPiece("musou_gun_" + wargear, mount.Model.Model, null) { Rigid = mount.Rigid, Hidden = mount.Hidden }, notes);

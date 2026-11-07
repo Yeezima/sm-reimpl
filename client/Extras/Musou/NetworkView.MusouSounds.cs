@@ -306,6 +306,11 @@ public partial class NetworkView
             case MusouEventKind.Telegraph when e.Value == MusouWeirdboy.ShieldBreakCue:   // his shield breaks: the stun
                 if (MusouSlotOf(enemy.Id) is { } stunned) MusouCue(set.Stun, set, stunned.Emitter, MusouSoundGroup.Hurt, distance, "stun");
                 break;
+            case MusouEventKind.Telegraph when e.Value is MusouBigShoota.OverheatCue or MusouBigShoota.VentCue:   // the Big Shoota jams: his gun's own jam (a pulling grunt), then its cock when ready
+                var gunCue = e.Value == MusouBigShoota.OverheatCue ? set.Jam : set.GunReady;
+                if (MusouSlotOf(enemy.Id) is { } jammed) MusouCue(gunCue, set, jammed.Emitter, MusouSoundGroup.Effort, distance, e.Value == MusouBigShoota.OverheatCue ? "jam" : "gun ready");
+                else MusouCueAt(gunCue, set, enemy.Position, MusouSoundGroup.Effort, distance, e.Value == MusouBigShoota.OverheatCue ? "jam" : "gun ready");
+                break;
             case MusouEventKind.Telegraph when e.Value >= MusouWeirdboy.BoltCue:   // his other cues are effects only
                 break;
             case MusouEventKind.Hit:
