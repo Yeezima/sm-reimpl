@@ -81,6 +81,15 @@ public static class PlasmaBolt
     /// <summary>The share of the data's soft smoke width the bolt keeps (the gun's 0.32 to 0.61 m smoke: 0.1 to 0.18 m; ours).</summary>
     public const float SmokeWidth = 0.3f;
 
+    /// <summary>
+    /// fx/plasma-tracers-safe-mode (owner, 2026-11-07: no plasma tracer drawn in safe mode): the Compatibility renderer also draws the bolt as a pooled streak (a plain unshaded mesh, the path of
+    /// the bolter's muzzle leg) beside the sprite-shader effect. Its tail is the bolt's 1.8 m (<see cref="TrailScale"/> of the data's 60 m per U) and its width the share of the pooled
+    /// streak's 0.16 m glow that matches the bolt's 0.09 m (ours).
+    /// </summary>
+    public static bool UsesPooledStreak(bool compatibility) => compatibility;
+    public const float SafeTail = 60f * TrailScale;
+    public const float SafeWidthScale = 0.09f / 0.16f;
+
     /// <summary>The loyalist bolt's blue (0..1 RGB; ours, between the data's tracer smoke keys (113, 255, 255) / (79, 149, 255) and a hot core).</summary>
     public static readonly (float R, float G, float B) LoyalistBlue = (0.45f, 0.72f, 1f);
 
