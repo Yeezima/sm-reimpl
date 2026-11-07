@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2436 spec table rows: **1778 tagged**, 473 not tagged (read from data with high confidence), 185 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 545 rows of the changes document.
+Scanned 2443 spec table rows: **1784 tagged**, 473 not tagged (read from data with high confidence), 186 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 546 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 382 | 324 | 324 | 114 | 12 |
+| Movement (critical) | 383 | 325 | 325 | 114 | 12 |
 | Combat core (critical) | 12 | 3 | 12 | 10 | 9 |
 | Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
 | Melee (critical) | 109 | 95 | 86 | 35 | 5 |
@@ -50,24 +50,24 @@ Scanned 2436 spec table rows: **1778 tagged**, 473 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 343 | 323 | 267 | 67 | 1 |
+| Core simulation (provisional values) | 346 | 326 | 267 | 70 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 173 | 164 | 80 | 50 | 0 |
-| **All areas** | **1778** | 1538 | 1356 | 558 | 38 |
+| Ork faction | 175 | 166 | 80 | 52 | 0 |
+| **All areas** | **1784** | 1544 | 1357 | 563 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 893 |
-| confidence: low | 648 |
+| kind: ours | 899 |
+| confidence: low | 649 |
 | confidence: medium | 580 |
 | kind: interpretation | 357 |
 | notes: ours | 349 |
 | confidence: none (low) | 128 |
 | kind: estimate | 117 |
+| notes: estimate | 101 |
 | kind: provisional | 99 |
-| notes: estimate | 96 |
 | kind: user's knowledge | 53 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (382)
+### Movement (gameplay-critical) (383)
 
 *Spec section: Extracted parameters*
 
@@ -699,6 +699,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-61D70BF7` | Air jump, Classic PvP | Assault / Raptor in the air (any airborne state): a Space hold no longer lifts the pack (the protocol 54 air start, feel/melee-cancels, is gone outside Musou Mode); a Space tap is still the hop (the air dash, sim/movement-fixes C) in the stick's direction (W… | kind: ours; notes: estimate | owner 2026-11-06 | Air jump, Classic PvP: compare with SM1 by feel or video. Ours: Assault / Raptor in the air (any airborne state): a Space hold no… | ☐ |
 | `R-0879224F` | Air jump, Musou Mode | unchanged: a Space hold in the air lifts the pack again (each jump still needs its fuel and the dash's spacing; "infinite" only as fuel allows) | kind: ours; notes: estimate | owner 2026-11-06 | Air jump, Musou Mode: compare with SM1 by feel or video. Ours: unchanged: a Space hold in the air lifts the pack again (each jump… | ☐ |
+
+*Spec section: Musou Mode: expansion S1, the foundation (musou/exp-s1, 2026-11-07; `MusouSim.Version` 13, no core protocol bump: `Protocol.Version` stays 63)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-DE34BE76` | Target preference: range, stickiness, movement | Only targets within **40** m are weighed (beyond, the flow field's nearest rules as before); the current target's score is x **0.85** at a re-choice so near-equal targets do not flip; a preference other than the nearest is walked to **directly** within 40 m… (m, factor) | kind: ours; confidence: low | ours | Target preference: range, stickiness, movement: compare with SM1 by timing a run over a known distance. Ours: Only targets within 40 m are weighed (beyond, the flow field's… | ☐ |
 
 ### Combat core (gameplay-critical) (12)
 
@@ -2077,7 +2083,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (343)
+### Core simulation (provisional values) (346)
 
 *Spec section: Provisional values in use*
 
@@ -2566,6 +2572,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B5EEE5B0` | Musou: the Weirdboy's effects | the original `master_fx` effects by name: `weirdboy_shield` on him while it is up, `weirdboy_shield_pulse` on a hit it takes, `weirdboy_shield_break` / `weirdboy_shield_restore`, `weirdboy_staff_muzzle` and the frazzle's `weirdboy_staff_trail` flying to the… (m) | kind: ours; notes: interpretation | effect names: the blueprints; placement ours | Musou: the Weirdboy's effects: compare with SM1 by measuring on a flat spot of the same map. Ours: the original master_fx effects by name: weirdboy_shield on him while… | ☐ |
 | `R-291961DA` | Musou: the Weirdboy's sounds | his blueprint's and staff's bindings (`ork_coop_weirdboy`, `ork_coop_weirdboy_staff`): the staff's fire on a bolt, the stun on a break; no pain on a shield hit | confidence: medium | the data (its fire event is `play_sm_bolter_fire`, as the file has it) | Musou: the Weirdboy's sounds: compare with SM1 by feel or video. Ours: his blueprint's and staff's bindings (ork_coop_weirdboy… | ☐ |
 
+*Spec section: Musou Mode: expansion S1, the foundation (musou/exp-s1, 2026-11-07; `MusouSim.Version` 13, no core protocol bump: `Protocol.Version` stays 63)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-B71C532D` | New enemy kinds (placeholder rows) | Enum values 12 to 16 in this order: BombSquig (hp **30**, run 7.5), RokkitBoy (**85**), Stormboy (**120**), BigShootaNob (**600**), ScrapMek (**250**); nothing spawns them until S2 to S4; the other fields are stand-ins (hp, m/s) | kind: ours; notes: estimate | `docs/musou-expansion.md` rules | New enemy kinds (placeholder rows): compare with SM1 by timing a run over a known distance. Ours: Enum values 12 to 16 in this order: BombSquig (hp 30, run 7.5)… | ☐ |
+| `R-35BB5591` | Target preference: elites and bosses | Nob, 'Ard Boy, Big Shoota Nob and the bosses (Warboss, Boss Orks): AI Marine **1**, human player **0.8**, Guard squad **3**, objective **3** (the objective weight is our reading: the brief names none) (weights) | kind: ours; notes: estimate | owner brief 2026-11-07 (objective ours) | Target preference: elites and bosses: compare with SM1 by feel or video. Ours: Nob, 'Ard Boy, Big Shoota Nob and the bosses (Warboss, Boss Orks): AI… | ☐ |
+| `R-356769A9` | Friendly fire | Ork bullets (rolled hits, no projectile) and Ork melee never hurt Orks; Ork explosions hurt players, AI Marines, Guards and Orks (elites and bosses too). The Weirdboy's burst and bolts keep their older rule | kind: ours; notes: estimate | owner brief 2026-11-07 | Friendly fire: compare with SM1 by feel or video. Ours: Ork bullets (rolled hits, no projectile) and Ork melee never hurt… | ☐ |
+
 *Spec section: Musou Mode: the Guardsmen's strength, endless ammunition, the grenade refill, the AI Marines' damage (night/musou-rules, 2026-11-06; `TfwRules.Version` 30, no protocol or wire change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -2941,6 +2955,13 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-AFBDB14D` | Musou: the Weirdboy's shield break throws Orks down | when his shield breaks, every Ork within **20** m (flat, **4** m up or down) but the Warboss, the Boss Orks (hyper armour) and other Weirdboyz falls (`Knocked`: the fall clip, 1.8 s down, 0.7 s to stand, as Musou Mode's shove) and is thrown **4** m away from… (m) | kind: ours; kind: user's knowledge; notes: interpretation | the owner, 2026-11-07: "when his shield breaks, ragdoll all orks within 20m"; the exceptions, the push and the fall clip ours | Musou: the Weirdboy's shield break throws Orks down: compare with SM1 by counting hits to kill and by video of the health bar. Ours: when his shield breaks, every Ork within 20 m (flat, 4 m up or down)… | ☐ |
+
+*Spec section: Musou Mode: expansion S1, the foundation (musou/exp-s1, 2026-11-07; `MusouSim.Version` 13, no core protocol bump: `Protocol.Version` stays 63)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-16E70461` | Target preference: ordinary Orks | A Tfw battle Ork that is not an elite or boss scores each living target as distance x weight (lower wins; distance is flat with height x 3): Guard squad, AI Marine (puppet id) and objective **1**, human player **2.5** (a player counts only when about 2.5 x… (weights, m) | kind: ours; notes: estimate | owner brief 2026-11-07 | Target preference: ordinary Orks: compare with SM1 by feel or video. Ours: A Tfw battle Ork that is not an elite or boss scores each living… | ☐ |
+| `R-79B7CA34` | Ork blast | One call, `World.MusouOrkBlast(point, OrkBlastSpec(radius, damage), credit)`, damages every living player (AI Marines too, through the enemies' attack rules: received-damage multipliers, no stagger), every Guardsman within the radius, and every Ork (elites… (m, hp) | kind: ours; notes: estimate | owner brief 2026-11-07 | Ork blast: compare with SM1 by measuring on a flat spot of the same map. Ours: One call, World.MusouOrkBlast(point, OrkBlastSpec(radius, damage)… | ☐ |
 
 *Spec section: Musou Mode: Guardsmen as defenders, the capture under fire, the Boss Ork cleave (musou/guard-formations, 2026-11-06; `TfwRules.Version` 28, no protocol or wire change)*
 
@@ -3633,6 +3654,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-3DA6A24D` | Musou: patrols, hunter columns and no Ork stuns (musou/ork-patrols-nostun, 2026-11-06; `TfwRules.Version` 28) | No Musou Mode in the original | Ours (added content, the owner's requests): 4 columns of 40 Orks walk loops between a battle's places on the walking graph and 2 columns of 40 walk down the flow field to the nearest player wherever he is, 4 abreast; a player within 25 m of a column's ranks wakes all of it; they come out of the crowds' existing cap… | Musou Mode only; classic PvP and the 5-wave test aid unchanged. `TfwCombatRules.EnemiesImpede` true restores the staggers; `SM_TFW_NO_PATROLS=1` (server) the battle without columns. Spec "Musou Mode: patrols, hunters and no Ork stuns". | Musou: patrols, hunter columns and no Ork stuns…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-4EECD63A` | Musou: the Warboss's head and 1.5x size (late batch stream E, 2026-11-06; `MusouSim.Version` 11) | No Musou Mode in the original; the campaign's Warboss fight is scripted and singleplayer | Ours (added content, the owner's request): the Musou Warboss wears the campaign's `warboss_regular` body with the head of the cutscene model `cinematic_warboss` (the install has no gameplay head mesh), its face bones bound to the gameplay rig's head, jaw, neck and chest (the face does not animate); he is 1.5x his… | Musou Mode only; classic PvP unchanged. Spec "Musou Mode: the Warboss's head and size"; docs/discovery.md "Warboss model". | Musou: the Warboss's head and 1.5x size (late batch stream…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-4DD099A7` | Musou: the Weirdboy (2026-11-07; `MusouSim.Version` 12, `TfwRules.Version` 31) | Exterminatus has the Weirdboy (`ork_coop_weirdboy`): a shield that bullets cannot pierce, bursting staff bolts, teleports, summons; there is no Musou Mode | Ours (added content, the owner's pick): Exterminatus's model, effects and the data's numbers (health 50, the bolt's 3 m burst at 40 m/s for 70 explosive, the 8 s stun and the shield's return at 75) in Musou Mode battles; ours: the shield's 300 (data 1500), a bolt every 2.5 s, the teleport away from a player within 6 m… | spec "Musou Mode: the Weirdboy" | Musou: the Weirdboy (2026-11-07; MusouSim.Version 12…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-30542A43` | Musou expansion S1: foundation (2026-11-07; `MusouSim.Version` 13) | Orks go for the nearest target; Ork explosions in Exterminatus hurt as the data says | Ours (added content, owner brief 2026-11-07): in Musou Mode battles ordinary Orks weigh Guard squads, AI Marines and objectives 1 and human players 2.5 (a player within 12 m wins outright), elites and bosses weigh AI Marines 1, players 0.8, Guards 3; a neutral Ork blast hurts players, AI Marines, Guards and Orks… | spec "Musou Mode: expansion S1" | Musou expansion S1: foundation (2026-11-07…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-79E049F1` | Musou: Boss Ork facing and wall room, bounded column waits (night/ork-movement, 2026-11-06) | No Musou Mode in the original | Ours (added content, the owner's request): a running Boss Ork faces the way it actually moves (turn rate 4 rad/s) instead of the way it is steered, and leans off walls nearer than its body radius; a patrol column's head never stops more than 2.5 s for its ranks (laggards over 9 m behind are let go, the head creeps on) | Musou Mode only; classic PvP unchanged. Spec "Musou Mode: Boss Ork facing and wall room, patrol waits bounded". | Musou: Boss Ork facing and wall room, bounded column waits…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-B8027519` | The charge clash: charger and victim locked through the shove (feel/charge-clash, 2026-11-06; protocol 59) | Ours in its mechanics (the original's pairing is engine code); its length and motion are the data's collision stop (1.83 m forward in 0.2 s, then 1.11 m back) and match the owner's recording | A stunned or staggered victim is carried with the charger through the stop's forward shove at 0.9 m (capsules touching), the charger's step ignores the victim's body, a victim the level stops holds the charger back; any charger meets a body at its edge (guard 0.85 m: the touch less a 5 cm slack, was 0.75 m); remotes… | spec "The charge clash: charger and victim locked through the shove" | The charge clash: charger and victim locked through the…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-FAB1E86D` | Musou: Guardsmen as defenders, capture under fire, Boss Ork cleave (musou/guard-formations, 2026-11-06; `TfwRules.Version` 28) | No Musou Mode in the original | Ours (added content, the owner's requests): the Guardsmen squads are back in every battle; they hold the landing zone, then share the secured positions out by the Orks near each, and never capture; only players, lords and retainers take a point, at the full rate, and Orks on the point no longer stop the progress (only… | Musou Mode only. Spec "Musou Mode: Guardsmen as defenders, the capture under fire, the Boss Ork cleave". | Musou: Guardsmen as defenders, capture under fire, Boss Ork…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
@@ -3841,5 +3863,6 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-101EAB9F` | Test aid: `--warboss-test` | Musou Mode: the Warboss's head and size (late batch stream E, 2026-11-06; `MusouSim.Version` 11, no protocol or wire change) |
 | `R-FA999C4E` | Test aid: `--fx-tint r,g,b` | Musou Mode: the Weirdboy (2026-11-07; `MusouSim.Version` 12, `TfwRules.Version` 31, no protocol or wire format change) |
 | `R-A5D771E7` | Test aid: `--warboss-test --model weirdboy` | Musou Mode: the Weirdboy (2026-11-07; `MusouSim.Version` 12, `TfwRules.Version` 31, no protocol or wire format change) |
+| `R-3FDFA812` | Wire: entity type byte | Musou Mode: expansion S1, the foundation (musou/exp-s1, 2026-11-07; `MusouSim.Version` 13, no core protocol bump: `Protocol.Version` stays 63) |
 | `R-AFD6145F` | Switch | The charge clash: charger and victim locked through the shove (feel/charge-clash; protocol 59, no wire change) |
 

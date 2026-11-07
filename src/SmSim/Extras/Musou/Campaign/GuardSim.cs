@@ -209,6 +209,29 @@ public sealed class GuardSim
         return n;
     }
 
+    /// <summary>
+    /// An explosion on the men (expansion S1, <c>World.MusouOrkBlast</c>): every living man within <paramref name="radius"/> of <paramref name="point"/> (metres, height x 3) takes <paramref name="damage"/>
+    /// times <paramref name="intensity"/> of his distance. Returns the men hit; the dead are counted in <paramref name="killed"/>.
+    /// </summary>
+    public int Blast(Vector3 point, float radius, Func<float, float> intensity, float damage, out int killed)
+    {
+        int hit = 0; killed = 0;
+        for (int i = 0; i < Capacity; i++)
+        {
+            if (!Living(i)) continue;
+            var d = _position[i] - point;
+            float distance = MathF.Sqrt(d.X * d.X + d.Y * d.Y + 9f * d.Z * d.Z);
+            if (distance > radius) continue;
+            float amount = damage * intensity(distance);
+            if (!(amount > 0f)) continue;
+            hit++;
+            _health[i] = MathF.Max(0f, _health[i] - amount);
+            if (_health[i] > 0f) { AddEvent(new GuardEvent(GuardEventKind.Hurt, Tick, (ushort)(i + 1), 0, _position[i])); continue; }
+            Fall(i); killed++;
+        }
+        return hit;
+    }
+
     /// <summary>Every man in a slot (alive or dying), in slot order, for tag 9 (id = slot + 1); the number written.</summary>
     public int CopyTo(Span<TfwGuard> into)
     {

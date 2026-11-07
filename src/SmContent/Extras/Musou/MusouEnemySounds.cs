@@ -150,6 +150,12 @@ public sealed class MusouSoundSet
         new(MusouEnemyType.BossNob, "ork_coop_nob", "ork_coop_nob_uge_axe", Charge: "ork_coop_nob_bullrush"),
         // The Weirdboy (Musou Mode only): his own blueprint and staff (its swing, and its fire for the bolt).
         new(MusouEnemyType.Weirdboy, "ork_coop_weirdboy", "ork_coop_weirdboy_staff", Gun: "ork_coop_weirdboy_staff"),
+        // Expansion S1 (docs/musou-expansion.md): PLACEHOLDER sound sets until S2 to S4 give the new kinds their own: the Squig the Gretchin's, the Rokkit Boy, Stormboy and Mek a Boy's, the Big Shoota Nob the Nob's with the Shoota's gun.
+        new(MusouEnemyType.BombSquig, "ork_coop_gretchin", "ork_coop_grot_choppa"),
+        new(MusouEnemyType.RokkitBoy, OrkSounds.Blueprint, "ork_coop_boy_choppa"),
+        new(MusouEnemyType.Stormboy, OrkSounds.Blueprint, "ork_coop_boy_choppa"),
+        new(MusouEnemyType.BigShootaNob, "ork_coop_nob", "ork_coop_nob_uge_axe", Gun: "ork_coop_boy_2hand_shoota_rapid", Charge: "ork_coop_nob_bullrush"),
+        new(MusouEnemyType.ScrapMek, OrkSounds.Blueprint, "ork_coop_boy_choppa"),
     ];
 
     /// <summary>Every file <see cref="Files"/> names, for <see cref="SoundTriggers.Load(string, IEnumerable{string}, IEnumerable{string}, IReadOnlyList{SmFormats.Havok.BehaviorGraph}?, IReadOnlyList{SmFormats.Havok.BehaviorGraph}?)"/>.</summary>

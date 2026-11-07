@@ -218,13 +218,13 @@ public static class OrkBloodRules
             : rangedWargear?.Contains("plasma", StringComparison.OrdinalIgnoreCase) == true ? PlasmaFallback : "",
         MusouDeathKind.Melee => melee is null ? "" : charging && melee.Of(OrkBloodWeapon.ChargeAbility) is { Length: > 0 } c ? c
             : melee.Of(meleeAbility) is { Length: > 0 } a ? a : melee.Of("ability_melee_x1"),
-        MusouDeathKind.Blast or MusouDeathKind.Barrage => "explosive_heavy",
+        MusouDeathKind.Blast or MusouDeathKind.Barrage or MusouDeathKind.OrkBlast => "explosive_heavy",
         MusouDeathKind.Strafe => "heavy_bolter",
         _ => "",
     };
 
     /// <summary>A blast or artillery death takes the whole body: <c>nothing_left</c> plays (interpretation: the original's explosions gib Orks).</summary>
-    public static bool TakesWholeBody(MusouDeathKind cause) => cause is MusouDeathKind.Blast or MusouDeathKind.Barrage;
+    public static bool TakesWholeBody(MusouDeathKind cause) => cause is MusouDeathKind.Blast or MusouDeathKind.Barrage or MusouDeathKind.OrkBlast;
 
     /// <summary>
     /// The zone of a kill (interpretation: the server sends no hit zone for a body hit): the head for a head shot, else one of the body, the arms and the legs, evenly by the

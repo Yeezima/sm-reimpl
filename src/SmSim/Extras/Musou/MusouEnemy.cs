@@ -3,7 +3,7 @@ using System.Numerics;
 namespace SmSim.Extras.Musou;
 
 /// <summary>
-/// The kinds of Musou enemy (design section B; 4 bits on the wire, so at most 16). Hit points and the rest come from the data where it has them, else
+/// The kinds of Musou enemy (design section B; a full byte on the wire since Musou version 13). Hit points and the rest come from the data where it has them, else
 /// estimates (MU1's tuning, tagged kind: ours).
 /// </summary>
 public enum MusouEnemyType : byte
@@ -30,6 +30,16 @@ public enum MusouEnemyType : byte
     /// <summary>The Weirdboy (Exterminatus's <c>ork_coop_weirdboy</c>; Musou Mode only, <see cref="MusouWeirdboy"/>): a frail psyker behind an energy shield that bullets cannot pierce,
     /// who throws bursting bolts from range, teleports away from anyone who closes in and calls Boyz.</summary>
     Weirdboy = 11,
+    /// <summary>Expansion S1 (docs/musou-expansion.md; placeholder rows, nothing spawns them until S2 to S4): the Bomb Squig, a fused runner that bursts as an Ork blast.</summary>
+    BombSquig = 12,
+    /// <summary>The Rokkit Boy (S2): holds 25-45 m and fires a slow rocket.</summary>
+    RokkitBoy = 13,
+    /// <summary>The Stormboy (S3): jump-pack squads.</summary>
+    Stormboy = 14,
+    /// <summary>The Big Shoota Nob (S3): an elite with a heavy gun.</summary>
+    BigShootaNob = 15,
+    /// <summary>The Scrap Mek (S4): builds contraptions.</summary>
+    ScrapMek = 16,
 }
 
 /// <summary>The state machine of one enemy (design section B; 4 bits on the wire).</summary>
