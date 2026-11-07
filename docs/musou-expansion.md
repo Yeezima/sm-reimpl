@@ -22,8 +22,10 @@ owner's playtest.
    budget. Fix: a new **aggregate far layer** (formations as counts + strength, resolved at 2 Hz); only troops within the
    near radius of a player are materialised as real units. This is the largest and riskiest stage.
 3. **Six independent AI Marines respawning after 30 s** conflict with today's retainers (follow the player, max 3 in a
-   battle, 180 s recovery) and the 8 puppet ids (4-player co-op). Proposal: in this phase the six independent Marines
-   **replace** the battle retainers (6 of the 8 puppet ids). Needs the owner's confirmation; until then behind a rule switch.
+   battle, 180 s recovery) and the 8 puppet ids (4-player co-op). **Owner, 2026-11-07: "Keep both."** The six
+   independent Marines come in addition to the retainers. S6 widens the puppet id range from 8 to 12 by lowering
+   `PuppetIdFirst` (65516-65527; the point target ids above `PuppetIdLast` stay put) and checks the World's 16-player cap:
+   4 humans + 3 retainers + 6 Marines = 13.
 4. **Assets.** In the install (co-op set): `squig_bomb`, `boy_pro_rocketlauncher` (Rokkit), `nob_ranged` (Big Shoota).
    **Stormboy** (`boy_stormboy`) is campaign-only: a singleplayer dependency, to be noted in CLAUDE.md like the Warboss.
    **No Mek model and no Librarian/psyker body found**: Mek = a Nob/Boy body with a placeholder look; Librarian = the
