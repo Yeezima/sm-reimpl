@@ -19,7 +19,8 @@ public readonly record struct GuardEvent(GuardEventKind Kind, uint Tick, ushort 
 /// </summary>
 public sealed class GuardSim
 {
-    public const int SquadSize = 10, MaxSquads = 24, Capacity = SquadSize * MaxSquads, MaxEventsPerTick = 512;
+    public const int SquadSize = 10, MaxSquads = 40,   // 24 until expansion S6 (the battle flow's garrisons of 200 near a player; TfwArmyRules.NearSquadsMost)
+    Capacity = SquadSize * MaxSquads, MaxEventsPerTick = 512;
     const int Columns = SquadSize / 2;
 
     readonly MusouSim _enemies;
@@ -103,20 +104,25 @@ public sealed class GuardSim
     }
 
     /// <summary>A full squad at <paramref name="centre"/>, facing <paramref name="yaw"/>, in the first free squad; its index, or -1 with none free or a position that is not finite.</summary>
-    public int SpawnSquad(Vector3 centre, float yaw = 0f)
+    public int SpawnSquad(Vector3 centre, float yaw = 0f) => SpawnSquad(centre, yaw, SquadSize);
+
+    /// <summary>A squad of <paramref name="men"/> (1 to <see cref="SquadSize"/>; expansion S6's armies promote a short one) in the first free squad, the rest of its slots empty; as <see cref="SpawnSquad(Vector3, float)"/>.</summary>
+    public int SpawnSquad(Vector3 centre, float yaw, int men)
     {
-        if (!Finite(centre) || !float.IsFinite(yaw)) return -1;
+        if (!Finite(centre) || !float.IsFinite(yaw) || men < 1) return -1;
+        men = Math.Min(men, SquadSize);
         int s = Array.IndexOf(_active, false);
         if (s < 0) return -1;
         var walk = _enemies.Walk;
         int anchorNode = walk?.Nearest(centre) ?? -1;
         if (anchorNode >= 0) centre = centre with { Z = walk!.Z(anchorNode) };
-        _active[s] = true; _living[s] = SquadSize;
+        _active[s] = true; _living[s] = men;
         _anchor[s] = centre; _anchorNode[s] = anchorNode; _squadYaw[s] = yaw; _order[s] = centre; _moving[s] = false;
         _seenCount[s] = 0; _goal[s] = -1; _halted[s] = false;
         for (int m = 0; m < SquadSize; m++)
         {
             int i = s * SquadSize + m;
+            if (m >= men) { _state[i] = GuardState.Free; continue; }
             var place = Place(s, m);
             int node = walk?.Nearest(place) ?? -1;
             _state[i] = GuardState.Idle; _stateTicks[i] = 0;
@@ -126,8 +132,44 @@ public sealed class GuardSim
         }
         _centre[s] = centre;
         _reach[s] = 0f;
-        Alive += SquadSize; Count += SquadSize;
+        Alive += men; Count += men;
         return s;
+    }
+
+    /// <summary>
+    /// Takes squad <paramref name="squad"/> out at once, its living and dying alike, with no death and no event (expansion S6: an army folds a squad back into its aggregate far from every player). The men
+    /// that were alive; 0, and nothing changed, for a squad not in use.
+    /// </summary>
+    public int Dismiss(int squad)
+    {
+        if (squad is < 0 or >= MaxSquads || !_active[squad]) return 0;
+        int living = _living[squad];
+        for (int i = squad * SquadSize; i < (squad + 1) * SquadSize; i++)
+        {
+            if (_state[i] == GuardState.Free) continue;
+            _state[i] = GuardState.Free;
+            Count--;
+        }
+        Alive -= living;
+        _living[squad] = 0;
+        _active[squad] = false; _moving[squad] = false; _seenCount[squad] = 0; _goal[squad] = -1; _halted[squad] = false;
+        return living;
+    }
+
+    /// <summary>The living man of squad <paramref name="squad"/> nearest <paramref name="at"/> dies (expansion S6: a far clash's losses on real men nobody sees); false with none.</summary>
+    public bool KillOne(int squad, Vector3 at)
+    {
+        if (AliveIn(squad) == 0) return false;
+        int best = -1; float bestD = float.PositiveInfinity;
+        for (int i = squad * SquadSize; i < (squad + 1) * SquadSize; i++)
+        {
+            if (!Living(i)) continue;
+            float d = Vector3.DistanceSquared(_position[i], at);
+            if (d < bestD) { bestD = d; best = i; }
+        }
+        _health[best] = 0f;
+        Fall(best);
+        return true;
     }
 
     /// <summary>

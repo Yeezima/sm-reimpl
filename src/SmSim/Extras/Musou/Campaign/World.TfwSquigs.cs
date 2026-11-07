@@ -93,7 +93,7 @@ public sealed partial class World
             if (!_squigDue.TryGetValue(id, out uint due)) { _squigDue[id] = Tick + SquigWait(id); continue; }
             if (Tick < due) continue;
             if (alive < 0) alive = musou.CountAlive(MusouEnemyType.BombSquig);
-            if (alive >= MusouSquigRules.MaxAlive || musou.Alive >= MusouSim.Capacity - TfwBattleRules.PoolReserve || !DropSquig(musou, p))
+            if (alive >= MusouSquigRules.MaxAlive || musou.Alive - (_tfw?.Battle?.ArmyOrksAlive ?? 0) >= TfwBattleRules.CrowdPoolRoom || !DropSquig(musou, p))
             {
                 _squigDue[id] = Tick + (uint)Math.Max(1, Config.TickRate);   // a second, then again
                 continue;

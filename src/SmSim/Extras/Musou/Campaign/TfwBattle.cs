@@ -62,6 +62,11 @@ public static class TfwBattleRules
     public const int EliteSquad = 20;
     /// <summary>Slots of the pool's 2048 no crowd or trickle may take: the commander, his escorts and the Warboss spawn only if the pool has room, and a battle cannot end without its boss.</summary>
     public const int PoolReserve = 80;   // 40 in a pool of 1024; doubled with the pool (2026-11-06)
+    /// <summary>
+    /// The pool every spawner but the battle flow's armies works in (expansion S6): the 2048 it had before the pool grew to <see cref="MusouSim.Capacity"/>, so the crowds, the trickle, the columns and the
+    /// specials behave as before and only the armies' real Orks (<see cref="TfwArmyRules.NearOrksMost"/>) take the new slots. <see cref="CrowdPoolRoom"/> is what they may fill (less the reserve).
+    /// </summary>
+    public const int CrowdPool = 2048, CrowdPoolRoom = CrowdPool - PoolReserve;
     /// <summary>A crowd and a garrison stand on a disc this wide round their point.</summary>
     public const float SpawnDisc = 11f;   // 8 m for crowds of 200; 11 m holds 400 at about the same room an Ork (2026-11-06)
     /// <summary>
@@ -306,6 +311,7 @@ public sealed partial class TfwBattle
         PlanColumns();   // TfwBattle.Patrols.cs: the patrols and hunter columns (their routes are searched off the tick, taken 3 s after the start)
         PlanStormboys();   // TfwBattle.Stormboys.cs: the Stormboy squads (expansion S3, in place of the hunters)
         PlaceBigShootas();   // TfwBattle.BigShootas.cs: a Big Shoota Nob and his squad at each position (expansion S3)
+        PlanArmyRoutes();   // TfwBattle.Armies.cs: the battle flow's routes (expansion S6)
         for (int s = 0; s < field; s++) _guards.SpawnSquad(Ground(_layout.LandingZone + SquadOffset(s), _layout.LandingZone), YawTo(_layout.LandingZone, _layout.Hq));
         if (_final)
         {
@@ -373,13 +379,16 @@ public sealed partial class TfwBattle
     {
         int garrison = 0;
         foreach (var g in _garrisons) garrison += g.Count;
-        return _enemies.Alive - garrison;
+        return _enemies.Alive - garrison - ArmyOrksAlive;   // the armies' real Orks are the far layer's (expansion S6), outside the crowds' cap
     }
+
+    /// <summary>The pool's slots the spawners other than the armies use (expansion S6: the armies' real Orks are in their own slots).</summary>
+    int PoolUsed => _enemies.Alive - ArmyOrksAlive;
 
     /// <summary>One more Ork in spawn point <paramref name="point"/>'s crowd (leashed on its disc); false when the pool had no room. The crowd that reaches <see cref="TfwBattleRules.CrowdSize"/> swarms.</summary>
     bool AddToCrowd(int point)
     {
-        if (_enemies.Alive >= MusouSim.Capacity - TfwBattleRules.PoolReserve) return false;
+        if (PoolUsed >= TfwBattleRules.CrowdPoolRoom) return false;
         var type = CrowdKind(_picked++);   // expansion S2: Rokkit Boyz among them (TfwBattle.Rokkits.cs)
         var at = DiscSpot(CrowdAnchor(point));
         ushort id = _enemies.SpawnLeashed(type, at, YawTo(at, _layout.LandingZone), Health(type), CrowdGroup(point), TfwBattleRules.CrowdAggro);
@@ -396,7 +405,7 @@ public sealed partial class TfwBattle
     bool AddSquad(int point, int spare)
     {
         int squad = TfwBattleRules.EliteSquad;
-        if (_eliteOwed[point] < squad || spare < squad || TfwBattleRules.CrowdSize - _crowds[point].Count < squad || _enemies.Alive + squad > MusouSim.Capacity - TfwBattleRules.PoolReserve) return false;
+        if (_eliteOwed[point] < squad || spare < squad || TfwBattleRules.CrowdSize - _crowds[point].Count < squad || PoolUsed + squad > TfwBattleRules.CrowdPoolRoom) return false;
         _eliteOwed[point] -= squad - EliteShare * (squad - 1);   // the squad's own head count earns its share too
         for (int k = 0; k < squad; k++)
         {
@@ -499,6 +508,7 @@ public sealed partial class TfwBattle
         TidyCrowds();
         TidyMusters();
         _enemies.KeepOut.Clear();
+        if (Armies) StepArmies(players);   // TfwBattle.Armies.cs: the battle flow (expansion S6): armies, waves, garrisons, retreats
         if (Won) { StepVictoryWave(players); return change; }   // TfwBattle.Victory.cs: the wave from every side
         if (BossId != 0)
         {
@@ -515,7 +525,8 @@ public sealed partial class TfwBattle
         if (!_final)
         {
             _clearTick++;
-            for (int k = 0; k < Positions; k++) change |= StepPosition(k, players);
+            var capturers = Capturers(players);   // the Defenders never capture (expansion S6)
+            for (int k = 0; k < Positions; k++) change |= StepPosition(k, capturers);
             // A position being taken is kept clear of shooters: they hold their band, which lies inside its ring (see MusouSim.KeepOut).
             for (int k = 0; k < Positions; k++)
                 if (_objectives[k].State is TfwPositionState.Clearing or TfwPositionState.Securing) _enemies.KeepOut.Add((_layout.Positions[k], _layout.Radius(k), _layout.Reach(k)));
@@ -539,16 +550,17 @@ public sealed partial class TfwBattle
     TfwBattleChange StepPosition(int k, ReadOnlySpan<Vector3> players)
     {
         var o = _objectives[k];
-        bool capturers = AnyInside(k, players), orks = OrksInside(k);
+        bool capturers = AnyInside(k, players), orks = OrksInside(k) || (Armies && ArmyOrksOn(k));   // an army's aggregate counts as its men would (expansion S6)
         if (o.State == TfwPositionState.Secured)
         {
-            bool imperial = capturers || _guards.CountInside(o.Position, _layout.Radius(k)) > 0;
+            bool imperial = capturers || _guards.CountInside(o.Position, _layout.Radius(k)) > 0 || (Armies && ArmyGuardsOn(k));
             float change = Dt / TfwBattleRules.RetakeSeconds;
             float held = orks && !imperial ? o.Progress - change : MathF.Min(1f, o.Progress + change);
             if (held > 0f) { _objectives[k] = o with { Progress = held }; return TfwBattleChange.None; }
             _objectives[k] = o with { State = TfwPositionState.Held, Progress = 0f };
             Secured--;
             SendAgain(k);
+            if (Armies) ArmiesPointFell(k);   // TfwBattle.Retreats.cs
             return TfwBattleChange.None;
         }
         if (!capturers)
@@ -568,6 +580,22 @@ public sealed partial class TfwBattle
 
     /// <summary>The owner: "Orks should begin spawning again immediately": the point's next Ork is due on this tick, if its interval has passed since the point last sent, so stepping on and off a point sends no faster than holding it.</summary>
     void SendAgain(int k) => _tideTicks[k] = Math.Max(0, _lastTide[k] + Ticks(TfwBattleRules.CrowdFillSeconds) - _now);
+
+    readonly HashSet<int> _defenderIds = new();
+    Vector3[] _capturerFeet = new Vector3[16];
+
+    /// <summary>The AI Marines that defend (expansion S6, <see cref="MarineRole.Defender"/>): they never add capture progress.</summary>
+    public void SetDefenders(IEnumerable<int> ids) { _defenderIds.Clear(); foreach (int id in ids) _defenderIds.Add(id); }
+
+    /// <summary>The feet that can capture: every one of <paramref name="players"/> but the Defenders (by <see cref="SetPlayerIds"/>' ids; without them, all).</summary>
+    ReadOnlySpan<Vector3> Capturers(ReadOnlySpan<Vector3> players)
+    {
+        if (_defenderIds.Count == 0 || _stormIds.Count != players.Length) return players;
+        if (_capturerFeet.Length < players.Length) _capturerFeet = new Vector3[players.Length * 2];
+        int n = 0;
+        for (int k = 0; k < players.Length; k++) if (!_defenderIds.Contains(_stormIds[k])) _capturerFeet[n++] = players[k];
+        return _capturerFeet.AsSpan(0, n);
+    }
 
     /// <summary>Whether any of <paramref name="feet"/> stands on position <paramref name="k"/>.</summary>
     bool AnyInside(int k, ReadOnlySpan<Vector3> feet)
@@ -638,7 +666,8 @@ public sealed partial class TfwBattle
         _taken |= 1 << k;
         var change = TfwBattleChange.PositionSecured;
         if (k == 1 && !_depotPaid) { _depotPaid = true; change |= TfwBattleChange.DepotSecured; }
-        for (int field = _guards.SquadsAlive; field < TfwBattleRules.FieldSquads && _reserves > 0; field++)
+        if (Armies) ArmiesSecured(k);   // TfwBattle.Retreats.cs
+        for (int field = FieldSquadsAlive; field < TfwBattleRules.FieldSquads && _reserves > 0; field++)
             if (_guards.SpawnSquad(Ground(_layout.LandingZone + SquadOffset(field), _layout.LandingZone), YawTo(_layout.LandingZone, _layout.Positions[k])) >= 0) _reserves--;
         if (_taken != (1 << Positions) - 1 || _commander) return change;
         SpawnCommander();
@@ -660,7 +689,7 @@ public sealed partial class TfwBattle
         _squadTicks = Ticks(TfwBattleRules.SquadOrderSeconds);
         int alive = 0, owned = 0;
         for (int s = 0; s < GuardSim.MaxSquads; s++)
-            if (_guards.AliveIn(s) > 0) alive++;
+            if (_guards.AliveIn(s) > 0 && !ArmySquad(s)) alive++;   // an army's squads take its orders (expansion S6)
             else _squadGoal[s] = -1;
         if (alive == 0) return;
         Span<float> threat = stackalloc float[Positions];
@@ -675,7 +704,7 @@ public sealed partial class TfwBattle
         }
         if (owned == 0)
         {
-            for (int s = 0; s < GuardSim.MaxSquads; s++) if (_guards.AliveIn(s) > 0) Keep(s, LandingGoal);
+            for (int s = 0; s < GuardSim.MaxSquads; s++) if (_guards.AliveIn(s) > 0 && !ArmySquad(s)) Keep(s, LandingGoal);
             return;
         }
         for (int n = 0; n < alive; n++)
@@ -694,14 +723,14 @@ public sealed partial class TfwBattle
         for (int s = 0; s < GuardSim.MaxSquads; s++)
         {
             int g = _squadGoal[s];
-            if (_guards.AliveIn(s) == 0 || g is < 0 or >= Positions || _have[g] >= _want[g]) continue;
+            if (_guards.AliveIn(s) == 0 || ArmySquad(s) || g is < 0 or >= Positions || _have[g] >= _want[g]) continue;
             _have[g]++;
             placed[s] = true;
             Keep(s, g);
         }
         for (int s = 0; s < GuardSim.MaxSquads; s++)
         {
-            if (_guards.AliveIn(s) == 0 || placed[s]) continue;
+            if (_guards.AliveIn(s) == 0 || ArmySquad(s) || placed[s]) continue;
             int best = -1;
             float bestD = float.PositiveInfinity;
             for (int k = 0; k < Positions; k++)
@@ -745,7 +774,7 @@ public sealed partial class TfwBattle
     /// <summary>A field short of squads gets the next reserve every <see cref="TfwBattleRules.ReserveSeconds"/>, from the landing zone.</summary>
     void StepReserves()
     {
-        if (_reserves == 0 || _guards.SquadsAlive >= Math.Min(Squads, _final ? TfwBattleRules.FinalFieldSquads : TfwBattleRules.FieldSquads)) { _reserveTicks = 0; return; }
+        if (_reserves == 0 || FieldSquadsAlive >= Math.Min(Squads, _final ? TfwBattleRules.FinalFieldSquads : TfwBattleRules.FieldSquads)) { _reserveTicks = 0; return; }
         if (++_reserveTicks < Ticks(TfwBattleRules.ReserveSeconds)) return;
         _reserveTicks = 0;
         if (_guards.SpawnSquad(_layout.LandingZone, YawTo(_layout.LandingZone, _layout.Hq)) >= 0) _reserves--;
@@ -772,7 +801,7 @@ public sealed partial class TfwBattle
             if (AddToCrowd(k)) { _released++; counted++; }
         }
         StepTrickle();
-        for (int k = 0; k < TfwBattleRules.ReleasesPerTick && _summons > 0 && Counted() - _trickled.Count < cap && _enemies.Alive < MusouSim.Capacity - TfwBattleRules.PoolReserve; k++)
+        for (int k = 0; k < TfwBattleRules.ReleasesPerTick && _summons > 0 && Counted() - _trickled.Count < cap && PoolUsed < TfwBattleRules.CrowdPoolRoom; k++)
         {
             _summons--;
             var at = SourceSpot(_summons % _layout.Sources.Length);
@@ -796,7 +825,7 @@ public sealed partial class TfwBattle
             if (!SourceActive(k)) { _trickleTicks[k] = Ticks(TfwBattleRules.TrickleSeconds); continue; }
             if (--_trickleTicks[k] > 0) continue;
             _trickleTicks[k] = Ticks(TfwBattleRules.TrickleSeconds);
-            if (_trickled.Count >= cap || Counted() >= TfwBattleRules.TrickleTotalMax || _enemies.Alive >= MusouSim.Capacity - TfwBattleRules.PoolReserve) continue;
+            if (_trickled.Count >= cap || Counted() >= TfwBattleRules.TrickleTotalMax || PoolUsed >= TfwBattleRules.CrowdPoolRoom) continue;
             var type = Fodder(_picked++);
             var at = SourceSpot(k);
             ushort id = _enemies.SpawnLeashed(type, at, YawTo(at, _layout.LandingZone), Health(type), MusterGroupFirst + k, TfwBattleRules.CrowdAggro);

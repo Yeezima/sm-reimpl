@@ -276,7 +276,7 @@ public sealed partial class TfwBattle
         if (Won || (!c.Hunter && c.Route is null)) return;
         int size = TfwPatrolRules.Size;
         if (c.EverFormed && !SourceActive(c.Source)) return;
-        if (Counted() - _trickled.Count + size > TfwBattleRules.AliveCap(_humansNow) || _enemies.Alive + size > MusouSim.Capacity - TfwBattleRules.PoolReserve) return;
+        if (Counted() - _trickled.Count + size > TfwBattleRules.AliveCap(_humansNow) || PoolUsed + size > TfwBattleRules.CrowdPoolRoom) return;
         float back = (size / TfwPatrolRules.Abreast) * TfwPatrolRules.RowSpacing;
         if (c.Hunter)
         {

@@ -71,7 +71,7 @@ public sealed partial class TfwBattle
         if (_final || !BossOrksOn) return;
         if (_bossOrkDue < 0) _bossOrkDue = _now + Ticks(TfwBossOrkRules.FirstSeconds + TfwBossOrkRules.FirstSpread * Roll(0xB055_0001u));
         if (_now < _bossOrkDue || _bossOrks.Count >= TfwBossOrkRules.MaxAlive || players.IsEmpty) return;   // none while nobody is in the field (ours): one due comes when someone is
-        if (_enemies.Alive + 1 + TfwBossOrkRules.Retinue > MusouSim.Capacity - TfwBattleRules.PoolReserve || !SpawnBossOrk(players))
+        if (PoolUsed + 1 + TfwBossOrkRules.Retinue > TfwBattleRules.CrowdPoolRoom || !SpawnBossOrk(players))
         {
             _bossOrkDue = _now + Ticks(TfwBossOrkRules.RetrySeconds);
             return;

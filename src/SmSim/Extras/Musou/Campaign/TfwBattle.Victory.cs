@@ -50,7 +50,7 @@ public sealed partial class TfwBattle
         }
         for (int k = 0; k < VictoryWaveRules.PerTick && _waveLeft > 0; k++)
         {
-            if (_enemies.Alive >= MusouSim.Capacity - TfwBattleRules.PoolReserve) { _waveLeft = 0; return; }   // the pool is full: the wave is what came
+            if (PoolUsed >= TfwBattleRules.CrowdPoolRoom) { _waveLeft = 0; return; }   // the pool is full: the wave is what came
             int n = _waveSent++;
             _waveLeft--;
             // Every bearing in turn: a golden-angle walk round the ring covers all sides evenly at any count, each tick's few far apart.

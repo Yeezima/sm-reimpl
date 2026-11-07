@@ -200,14 +200,15 @@ public class TfwPackTests
     [Fact]
     public void Twice_the_orks_again_and_all_of_it_fits_the_pool()
     {
-        Assert.Equal(2048, MusouSim.Capacity);
+        Assert.Equal(2048, TfwBattleRules.CrowdPool);   // every spawner's pool; expansion S6 grew MusouSim's for the armies alone
+        Assert.True(MusouSim.Capacity >= TfwBattleRules.CrowdPool + TfwArmyRules.NearOrksMost);
         Assert.Equal(96, TfwBattleRules.Garrison);
         Assert.Equal(400, TfwBattleRules.CrowdSize);
         Assert.Equal(1200, TfwBattleRules.AliveCap(1));
         Assert.Equal(1680, TfwBattleRules.AliveCap(4));
         Assert.Equal(1600, TfwBattleRules.TrickleTotalMax);
-        Assert.True(3 * TfwBattleRules.Garrison + TfwBattleRules.AliveCapMost + TfwBattleRules.PoolReserve <= MusouSim.Capacity);
-        Assert.True(TfwBattleRules.TrickleTotalMax <= MusouSim.Capacity - 3 * TfwBattleRules.Garrison - TfwBattleRules.PoolReserve);
+        Assert.True(3 * TfwBattleRules.Garrison + TfwBattleRules.AliveCapMost + TfwBattleRules.PoolReserve <= TfwBattleRules.CrowdPool);
+        Assert.True(TfwBattleRules.TrickleTotalMax <= TfwBattleRules.CrowdPool - 3 * TfwBattleRules.Garrison - TfwBattleRules.PoolReserve);
         // A crowd still fills in about the same time: 400 at one every 4 ticks.
         Assert.InRange(TfwBattleRules.CrowdSize * TfwBattleRules.CrowdFillSeconds, 50f, 56f);
     }
