@@ -264,6 +264,11 @@ public class HudMovieTests
         Assert.Equal(0, WeaponBoxRules.BarFrame(1f, 100));
         Assert.Equal(98, WeaponBoxRules.BarFrame(0f, 100));
         Assert.Equal(49, WeaponBoxRules.BarFrame(0.5f, 100));
+        // fix/bolter-hud-last-round: an empty clip (1 -> 0) shows the strip's last frame, where no tick stays white; 1 round left keeps the one-tick frame.
+        Assert.False(WeaponBoxRules.ClipEmpty(1, 30)); Assert.True(WeaponBoxRules.ClipEmpty(0, 30)); Assert.False(WeaponBoxRules.ClipEmpty(0, 0));
+        Assert.Equal(99, WeaponBoxRules.EmptyBarFrame(100));
+        Assert.Equal(95, WeaponBoxRules.BarFrame(1f / 30f, 100));
+        Assert.NotEqual(WeaponBoxRules.BarFrame(0f, 100), WeaponBoxRules.EmptyBarFrame(100));
         // The stalker's ten rounds.
         Assert.True(WeaponBoxRules.RoundLoaded(4, 5, 10)); Assert.False(WeaponBoxRules.RoundLoaded(5, 5, 10));
         Assert.False(WeaponBoxRules.RoundLoaded(6, 6, 6) && false);
