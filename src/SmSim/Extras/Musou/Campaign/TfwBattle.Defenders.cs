@@ -23,7 +23,7 @@ public sealed partial class TfwBattle
             owned++;
             threat[k] = _enemies.Query(_layout.Positions[k], DefenderRules.ThreatRadius, near, DefenderRules.ThreatRadius) + DefenderRules.ThreatFloor;
             foreach (var a in _armies)
-                if (a.Side == TfwArmySide.Ork && a.Goal == k && a.Order is TfwArmyOrder.March or TfwArmyOrder.Attack or TfwArmyOrder.Hold) threat[k] += a.Count;
+                if (a.Side == TfwArmySide.Ork && a.Goal == k && a.Order is TfwArmyOrder.March or TfwArmyOrder.Attack or TfwArmyOrder.Hold) threat[k] += a.FarCount;   // its real Orks are already in the Query
         }
         for (int i = 0; i < posts.Length; i++)
         {

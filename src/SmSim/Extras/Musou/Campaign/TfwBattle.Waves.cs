@@ -56,7 +56,7 @@ public sealed partial class TfwBattle
             float d = NearestHuman(PlacePos(p));
             if (d > best) { best = d; place = p; }
         }
-        if (place < 0) return;
+        if (place < 0 || _armies.Count >= TfwArmyRules.MaxArmies) return;   // no room for an army: no dice rolled, the Orks home stay banked
         int size = TfwArmyRules.WaveSize(WaveRoll(), WaveRoll()) + _orkHome;
         _orkHome = 0;
         var army = NewArmy(TfwArmySide.Ork, TfwArmyOrder.Muster, size, EliteShare);

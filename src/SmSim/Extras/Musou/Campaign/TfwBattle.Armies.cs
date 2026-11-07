@@ -169,8 +169,9 @@ public sealed partial class TfwBattle
     /// <summary>The marches: an army on its way goes on (an Ork army waits for its real ranks), its real Orks' places go with it, and at the way's end it arrives. A wave attacking closes on its point.</summary>
     void MoveArmies()
     {
-        for (int n = 0; n < _armies.Count; n++)
+        for (int n = _armies.Count - 1; n >= 0; n--)   // backwards: an arrival may remove the army (or add a garrison at the end)
         {
+            if (n >= _armies.Count) continue;
             var a = _armies[n];
             float speed = a.Side == TfwArmySide.Ork ? TfwArmyRules.OrkSpeed : TfwArmyRules.GuardSpeed;
             if (a.Order is TfwArmyOrder.March or TfwArmyOrder.Retreat && a.Way is { } way)
@@ -324,6 +325,16 @@ public sealed partial class TfwBattle
             Demoted++;
             budget--;
         }
+        CompactSlots(a);
+    }
+
+    /// <summary>After a demotion the aggregate starts right after the highest real slot still standing, so promote/demote cycles never push the army's slots back.</summary>
+    static void CompactSlots(TfwArmy a)
+    {
+        int high = 0;
+        foreach (int slot in a.OrkSlots) high = Math.Max(high, slot + 1);
+        foreach (int block in a.SquadBlocks) high = Math.Max(high, (block + 1) * GuardSim.SquadSize);
+        a.SlotBase = Math.Min(a.SlotBase, high);
     }
 
     void DemoteSquads(TfwArmy a, ref int budget)
@@ -341,6 +352,7 @@ public sealed partial class TfwBattle
             Demoted += men;
             budget--;
         }
+        CompactSlots(a);
     }
 
     /// <summary>Squad <paramref name="j"/> of a Guard army takes its army's order: its block round a held point, else the army's goal.</summary>
@@ -559,7 +571,10 @@ public sealed partial class TfwBattle
         }
         while (_realDebt[Positions + k] >= 1f)
         {
-            int s = _guards.NearestSquad(point);
+            int s = -1;
+            float best = reach;
+            for (int q = 0; q < GuardSim.MaxSquads; q++)
+                if (_guards.AliveIn(q) > 0 && FlatDistance(_guards.Centre(q), point) is var d && d <= best) { best = d; s = q; }   // only men standing at this point pay its losses
             if (s < 0 || !_guards.KillOne(s, point)) { _realDebt[Positions + k] = 0f; break; }
             _realDebt[Positions + k] -= 1f;
         }

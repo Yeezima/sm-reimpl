@@ -292,6 +292,35 @@ public class TfwArmyTests
     }
 
     [Fact]
+    public void Promote_and_demote_cycles_never_push_the_slots_back()
+    {
+        var (_, _, battle, _) = Frozen();
+        var anchor = new Vector3(80f, -60f, 0f);
+        var orks = battle.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.Hold, 0, 50, anchor)!;
+        Vector3[] near = [anchor + new Vector3(0f, 40f, 0f)], far = [new(-100f, 100f, 0f)];
+        for (int cycle = 0; cycle < 4; cycle++)
+        {
+            for (int t = 0; t < 8; t++) battle.Step(near);
+            Assert.Equal((50, 0), (orks.Real, orks.FarCount));
+            for (int t = 0; t < 8; t++) battle.Step(far);
+            Assert.Equal((0, 50), (orks.Real, orks.FarCount));
+            Assert.Equal(50, orks.Slots);
+        }
+    }
+
+    [Fact]
+    public void At_the_army_limit_no_wave_musters_and_nothing_breaks()
+    {
+        var (sim, guards, battle, layout) = Frozen();
+        Capture(sim, battle, layout, 0);
+        while (battle.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.Hold, 1, 10, new Vector3(100f, 100f, 0f)) is not null) { }
+        Assert.Equal(TfwArmyRules.MaxArmies, battle.ArmyList.Count);
+        Assert.Null(battle.SendWaveForTests(200));
+        Seconds(battle, guards, 200f, () => []);
+        Assert.True(battle.ArmyList.Count <= TfwArmyRules.MaxArmies);
+    }
+
+    [Fact]
     public void Every_coop_human_brings_the_armies_near_him_and_an_ai_marine_brings_none()
     {
         var (_, _, battle, _) = Frozen();
