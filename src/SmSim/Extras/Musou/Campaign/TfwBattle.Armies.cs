@@ -486,6 +486,8 @@ public sealed partial class TfwBattle
     {
         _inClash.Clear();
         float dt = FarStepSeconds;
+        Span<TfwClashUnit> orkUnits = stackalloc TfwClashUnit[TfwArmyRules.MaxArmies + 1];
+        Span<TfwClashUnit> guardUnits = stackalloc TfwClashUnit[TfwArmyRules.MaxArmies + 1];
         for (int k = 0; k < Positions; k++)
         {
             _clashOrks.Clear(); _clashGuards.Clear();
@@ -502,8 +504,8 @@ public sealed partial class TfwBattle
             int realOrks = seen ? 0 : _enemies.CountWithin(point, reach, _layout.Reach(k) + 2f);
             int realGuards = seen ? 0 : _guards.CountInside(point, reach);
             if ((_clashOrks.Count == 0 && realOrks == 0) || (_clashGuards.Count == 0 && realGuards == 0)) continue;
-            Span<TfwClashUnit> orks = stackalloc TfwClashUnit[_clashOrks.Count + 1];
-            Span<TfwClashUnit> guards = stackalloc TfwClashUnit[_clashGuards.Count + 1];
+            var orks = orkUnits[..(_clashOrks.Count + 1)];
+            var guards = guardUnits[..(_clashGuards.Count + 1)];
             for (int j = 0; j < _clashOrks.Count; j++) orks[j] = new TfwClashUnit(_clashOrks[j].Far, _clashOrks[j].Start, _clashOrks[j].Cohesion);
             for (int j = 0; j < _clashGuards.Count; j++) guards[j] = new TfwClashUnit(_clashGuards[j].Far, _clashGuards[j].Start, _clashGuards[j].Cohesion);
             orks[^1] = new TfwClashUnit(realOrks, realOrks, steady: true);

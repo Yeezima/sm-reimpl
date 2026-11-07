@@ -213,3 +213,46 @@ public sealed partial class TfwBattle
         a.Lost += lost;
     }
 }
+
+public sealed partial class TfwBattle
+{
+    /// <summary>Test aid (captures, the server's <c>SM_TFW_ARMY_TEST</c>): position <paramref name="k"/> is secured now, its Orks within its ring and 5 m gone.</summary>
+    public void ClearAndSecureForTests(int k)
+    {
+        if (_objectives[k].State == TfwPositionState.Secured) return;
+        Span<ushort> ids = stackalloc ushort[256];
+        int n = _enemies.Query(_layout.Positions[k], _layout.Radius(k) + 5f, ids, _layout.Reach(k) + 2f);
+        for (int i = 0; i < n; i++) _enemies.Remove(ids[i]);
+        _objectives[k] = _objectives[k] with { State = TfwPositionState.Secured, Progress = 1f };
+        Secure(k);
+    }
+
+    /// <summary>Test aid: a place <paramref name="share"/> of the way along the route from position <paramref name="k"/> to the base, and the way's flat direction there.</summary>
+    public (Vector3 At, Vector2 Way) RouteToBaseForTests(int k, float share)
+    {
+        var way = WayBetween(k, BasePlace);
+        return way.Sample(way.Length * Math.Clamp(share, 0f, 1f));
+    }
+
+    /// <summary>Test aid: the army goes home now (a retreat, as its loss rule would send it).</summary>
+    public void RetreatForTests(TfwArmy a) => Retreat(a);
+
+    /// <summary>Test aid: a wave of <paramref name="size"/> leaves now for position <paramref name="target"/> (which must be Imperial), from the stronghold the muster picks.</summary>
+    public TfwArmy? SendWaveForTests(int size, int target)
+    {
+        _nextDeparture = _now;
+        if (_muster is null) StartMuster();
+        if (_muster is not { } m || !Imperial(target)) return null;
+        m.Planned = size; m.Far = size; m.FarElites = size * m.EliteShare;
+        Redirect(m, target);
+        m.Order = TfwArmyOrder.March;
+        m.Goal = m.Post = target;
+        m.Start = m.Count;
+        m.Planned = 0;
+        _muster = null;
+        WavesSent++;
+        Departures.Add(_now);
+        _nextDeparture = _now + Seconds(TfwArmyRules.PeakMin, TfwArmyRules.PeakMax);
+        return m;
+    }
+}
