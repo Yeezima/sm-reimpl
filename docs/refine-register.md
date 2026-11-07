@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2443 spec table rows: **1784 tagged**, 473 not tagged (read from data with high confidence), 186 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 546 rows of the changes document.
+Scanned 2450 spec table rows: **1790 tagged**, 473 not tagged (read from data with high confidence), 187 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 547 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,29 +50,23 @@ Scanned 2443 spec table rows: **1784 tagged**, 473 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 346 | 326 | 267 | 70 | 1 |
+| Core simulation (provisional values) | 352 | 332 | 267 | 76 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 175 | 166 | 80 | 52 | 0 |
-| **All areas** | **1784** | 1544 | 1357 | 563 | 38 |
-| Core simulation (provisional values) | 349 | 329 | 267 | 73 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 173 | 164 | 80 | 50 | 0 |
-| **All areas** | **1784** | 1544 | 1356 | 564 | 38 |
+| **All areas** | **1790** | 1550 | 1357 | 569 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 899 |
+| kind: ours | 905 |
 | confidence: low | 649 |
-| confidence: low | 648 |
 | confidence: medium | 580 |
 | kind: interpretation | 357 |
 | notes: ours | 349 |
 | confidence: none (low) | 128 |
 | kind: estimate | 117 |
-| notes: estimate | 101 |
-| notes: estimate | 102 |
+| notes: estimate | 107 |
 | kind: provisional | 99 |
 | kind: user's knowledge | 53 |
 | notes: provisional | 38 |
@@ -2089,8 +2083,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (346)
-### Core simulation (provisional values) (349)
+### Core simulation (provisional values) (352)
 
 *Spec section: Provisional values in use*
 
@@ -2586,6 +2579,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-B71C532D` | New enemy kinds (placeholder rows) | Enum values 12 to 16 in this order: BombSquig (hp **30**, run 7.5), RokkitBoy (**85**), Stormboy (**120**), BigShootaNob (**600**), ScrapMek (**250**); nothing spawns them until S2 to S4; the other fields are stand-ins (hp, m/s) | kind: ours; notes: estimate | `docs/musou-expansion.md` rules | New enemy kinds (placeholder rows): compare with SM1 by timing a run over a known distance. Ours: Enum values 12 to 16 in this order: BombSquig (hp 30, run 7.5)… | ☐ |
 | `R-35BB5591` | Target preference: elites and bosses | Nob, 'Ard Boy, Big Shoota Nob and the bosses (Warboss, Boss Orks): AI Marine **1**, human player **0.8**, Guard squad **3**, objective **3** (the objective weight is our reading: the brief names none) (weights) | kind: ours; notes: estimate | owner brief 2026-11-07 (objective ours) | Target preference: elites and bosses: compare with SM1 by feel or video. Ours: Nob, 'Ard Boy, Big Shoota Nob and the bosses (Warboss, Boss Orks): AI… | ☐ |
 | `R-356769A9` | Friendly fire | Ork bullets (rolled hits, no projectile) and Ork melee never hurt Orks; Ork explosions hurt players, AI Marines, Guards and Orks (elites and bosses too). The Weirdboy's burst and bolts keep their older rule | kind: ours; notes: estimate | owner brief 2026-11-07 | Friendly fire: compare with SM1 by feel or video. Ours: Ork bullets (rolled hits, no projectile) and Ork melee never hurt… | ☐ |
+
 *Spec section: Musou Mode: the Librarian (musou/exp-s5, 2026-11-07; `MusouSim.Version` 13, no protocol change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
