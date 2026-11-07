@@ -59,6 +59,7 @@ public sealed partial class World
         if (_state == MatchState.Playing && !run.Idle) run.Step(this);
         else if (!run.Idle) run.Commands(null, Config.TickRate);
         TfwGuardsStep();   // World.TfwGuards.cs
+        TfwSquigsStep();   // World.TfwSquigs.cs: expansion S2's drops, kicks and Ork blasts
         TfwBossStep();
         TfwFireStep();   // World.TfwFire.cs: the barrages and the Thunderhawk (their KOs are credited next tick)
         TfwPuppetsStep();

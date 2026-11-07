@@ -28,7 +28,10 @@ public readonly record struct MusouGunShot(ushort Enemy, uint Tick, float Distan
 public static class MusouOrkGunRules
 {
     /// <summary>The ranged Orks and their guns (the Chaos Marine's bolter is not an Ork weapon: not drawn here).</summary>
-    public static readonly IReadOnlyList<MusouGun> Guns = [new(MusouEnemyType.ShootaBoy, OrkWeaponMounts.Shoota)];
+    public static readonly IReadOnlyList<MusouGun> Guns = [new(MusouEnemyType.ShootaBoy, OrkWeaponMounts.Shoota), new(MusouEnemyType.RokkitBoy, RokkitLauncha)];
+
+    /// <summary>Expansion S2: the Rokkit Boy's launcher, the co-op <c>ork_coop_boy_2hand_shoota_pro</c>'s wargear (docs/discovery.md "Exterminatus Ork roster"). His rocket's effects are its own (the client's S2 cues), not a tracer.</summary>
+    public const string RokkitLauncha = "ork_coop_boy_rokkit_launcha";
 
     /// <summary>The gun a type carries, or null.</summary>
     public static string? WargearOf(MusouEnemyType type)

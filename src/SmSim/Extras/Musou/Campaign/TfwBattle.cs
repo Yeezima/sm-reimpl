@@ -378,7 +378,7 @@ public sealed partial class TfwBattle
     bool AddToCrowd(int point)
     {
         if (_enemies.Alive >= MusouSim.Capacity - TfwBattleRules.PoolReserve) return false;
-        var type = Fodder(_picked++);
+        var type = CrowdKind(_picked++);   // expansion S2: Rokkit Boyz among them (TfwBattle.Rokkits.cs)
         var at = DiscSpot(CrowdAnchor(point));
         ushort id = _enemies.SpawnLeashed(type, at, YawTo(at, _layout.LandingZone), Health(type), CrowdGroup(point), TfwBattleRules.CrowdAggro);
         if (id == 0) return false;

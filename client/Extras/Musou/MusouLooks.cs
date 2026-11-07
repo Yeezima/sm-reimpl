@@ -52,6 +52,8 @@ public sealed class MusouLooks
         new(MusouEnemyType.ArdBoy, "boy_ardboy", 1f, "boy_melee_pro", 1f, false),
         new(MusouEnemyType.Gretchin, "boy_melee", 0.7f, null, 0.7f, false),
         new(MusouEnemyType.Nob, "nob_melee", 1f, "boy_melee_pro", 1.2f, false),
+        // Expansion S2: the Rokkit Boy is the co-op set's boy_ranged_pro (ork_coop_boy_2hand_shoota_pro) with the rokkit launcha in his hands (MusouOrkGunRules), else the Shoota's body.
+        new(MusouEnemyType.RokkitBoy, "boy_ranged_pro", 1f, "boy_ranged", 1f, true),
         // The Boss Orks (owner, 2026-11-06): the base kind's body at 3x (MusouBossOrks.BodyScale), as the sim's body is.
         new(MusouEnemyType.BossBoy, "boy_melee", BossOrkScale, null, BossOrkScale, false),
         new(MusouEnemyType.BossShootaBoy, "boy_ranged", BossOrkScale, "boy_melee", BossOrkScale, true),
@@ -75,6 +77,9 @@ public sealed class MusouLooks
     public MusouGunModels? Guns { get; }
     readonly WarbossLooks? _warboss;
     readonly WeirdboyLooks? _weirdboy;
+    readonly SquigLooks? _squig;
+    /// <summary>The Bomb Squig's placeholder when its own model cannot be had (*placeholder demonstration*): the Boy's body this small (ours).</summary>
+    public const float SquigPlaceholderScale = 0.4f;
     int _next;
     bool _chaosTried;
 
@@ -91,11 +96,13 @@ public sealed class MusouLooks
         catch (Exception ex) when (ex is not OutOfMemoryException) { Notes.Add($"musou: the Warboss model was not started: {ex.Message}"); }
         try { _weirdboy = new WeirdboyLooks(gameDir); }   // Musou Mode's Weirdboy: his own body, staff and rig (WeirdboyLooks.cs)
         catch (Exception ex) when (ex is not OutOfMemoryException) { Notes.Add($"musou: the Weirdboy model was not started: {ex.Message}"); }
+        try { _squig = new SquigLooks(gameDir); }   // expansion S2: the Bomb Squig on its own rig (SquigLooks.cs)
+        catch (Exception ex) when (ex is not OutOfMemoryException) { Notes.Add($"musou: the Squig model was not started: {ex.Message}"); }
         foreach (var w in Plan) { Start(w.Mesh); if (w.Fallback is not null) Start(w.Fallback); }
     }
 
     /// <summary>The look of a kind (null: not built yet; the crowd then draws the Boy's, or nothing).</summary>
-    public Look? For(MusouEnemyType type) => _looks[(int)type] ?? (type is MusouEnemyType.ChaosMarine or MusouEnemyType.Warboss or MusouEnemyType.Nob || MusouBossOrks.Is(type) ? null : _looks[(int)MusouEnemyType.Boy]);   // the big ones wait for their own body: never a small Boy standing in (owner, 2026-11-01)
+    public Look? For(MusouEnemyType type) => _looks[(int)type] ?? (type is MusouEnemyType.ChaosMarine or MusouEnemyType.Warboss or MusouEnemyType.Nob or MusouEnemyType.BombSquig || MusouBossOrks.Is(type) ? null : _looks[(int)MusouEnemyType.Boy]);   // the big ones wait for their own body: never a small Boy standing in (owner, 2026-11-01)
 
     /// <summary>Builds at most one look a call (main thread) once its files are read; returns the one built, or null.</summary>
     public Look? Step()
@@ -140,6 +147,18 @@ public sealed class MusouLooks
             Notes.AddRange(weird.Notes); weird.Notes.Clear();
             if (mine is not null) return _looks[(int)MusouEnemyType.Weirdboy] = mine;
         }
+        if (_squig is { Done: false } squig)   // the Squig's own look; a small labelled placeholder until then, and for good if it cannot be had
+        {
+            var mine = squig.Step();
+            if (mine is null && !squig.Done) return null;
+            Notes.AddRange(squig.Notes); squig.Notes.Clear();
+            if (mine is not null) return _looks[(int)MusouEnemyType.BombSquig] = mine;
+        }
+        if (_looks[(int)MusouEnemyType.BombSquig] is null && _looks[(int)MusouEnemyType.Boy] is { } boySquig)
+        {
+            Notes.Add($"musou: BombSquig drawn as a PLACEHOLDER (boy_melee x{SquigPlaceholderScale:0.##}): its own model could not be had");
+            _looks[(int)MusouEnemyType.BombSquig] = new Look { Name = "BombSquig:placeholder", Assets = boySquig.Assets, Scale = SquigPlaceholderScale, Clips = boySquig.Clips };
+        }
         if (_looks[(int)MusouEnemyType.Warboss] is null && _looks[(int)MusouEnemyType.Boy] is { } boy)   // no Nob and no pro mesh to be had: the Boy's body, big
             _looks[(int)MusouEnemyType.Warboss] = new Look { Name = "Warboss:boy_melee", Assets = boy.Assets, Scale = BossScale, Clips = boy.Clips };
         if (_looks[(int)MusouEnemyType.Nob] is null && _looks[(int)MusouEnemyType.Boy] is { } boyNob)   // the same for the Nob: never left invisible
@@ -154,7 +173,7 @@ public sealed class MusouLooks
     }
 
     /// <summary>Gives up waiting for the Chaos model (the view has none): the Chaos Marine is drawn as a Boy.</summary>
-    public void StopWaiting() { if (_next >= Plan.Length && !_chaosTried && _weirdboy is not { Done: false }) { _chaosTried = true; Done = true; Notes.Add("musou: no Chaos model built; Chaos Marines drawn as Boyz"); } }
+    public void StopWaiting() { if (_next >= Plan.Length && !_chaosTried && _weirdboy is not { Done: false } && _squig is not { Done: false }) { _chaosTried = true; Done = true; Notes.Add("musou: no Chaos model built; Chaos Marines drawn as Boyz"); } }
 
     void Start(string mesh)
     {

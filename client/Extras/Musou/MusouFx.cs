@@ -193,6 +193,7 @@ public partial class NetworkView
         _musouTelegraphs.Wedges = _tfwState.War is null;   // the owner, 2026-11-06: no melee wedges under the Orks in Musou Mode (the 5-wave run keeps them; the boss's rings and lanes stay)
         _musouTelegraphs.Frame(shown, camera, rules, delta);
         MusouWeirdboyFrame(shown);   // his shield and his coming (NetworkView.MusouWeirdboy.cs)
+        MusouS2Frame(shown, delta);   // the rockets, the warning, the fuses (NetworkView.MusouSquigRokkit.cs)
     }
 
     /// <summary>Whether the director went from <paramref name="prev"/> into a new run: back to waiting, out of a won or lost run, or the wave counting back.</summary>
@@ -357,6 +358,7 @@ public partial class NetworkView
     void MusouTelegraph(in MusouEvent e, IReadOnlyList<MusouShown> shown, Num.Vector3 camera, MusouBossRules boss)
     {
         if (MusouWeirdboyCue(e, shown)) return;   // the Weirdboy's bolts, shield, teleport and summons (NetworkView.MusouWeirdboy.cs)
+        if (MusouS2Cue(e, shown)) return;   // expansion S2: the Bomb Squig's and the Rokkit Boy's cues (NetworkView.MusouSquigRokkit.cs)
         int i = MusouFind(shown, e.Enemy);
         var from = i >= 0 ? shown[i].Position : e.Vector;
         switch ((MusouBossAbility)e.Value)

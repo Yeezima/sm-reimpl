@@ -26,6 +26,9 @@ public sealed partial class MusouSim
         return queued;
     }
 
+    /// <summary>Squig detonations queued and not yet taken.</summary>
+    public int PendingDetonations => _detonations.Count;
+
     /// <summary>The queued Squig detonations (id, credit), moved into <paramref name="into"/>.</summary>
     public void TakeDetonations(List<(ushort Id, int Credit)> into) { into.AddRange(_detonations); _detonations.Clear(); }
 }
