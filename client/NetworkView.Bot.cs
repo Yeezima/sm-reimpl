@@ -126,6 +126,8 @@ public partial class NetworkView
         string purpose;
         // M44a: an enemy in its spawn room cannot be reached (the blockers) and is not chased; since 2026-11-07 neither is one in the no-loiter zone around it, and with
         // only such enemies (or none alive) the bot holds its centre spot and roams (NetworkView.BotRoam.cs; the old wait at the door only with --bot-door-wait).
+        // 2026-11-08: a melee push goes first, through its concealed approach (NetworkView.BotPush.cs).
+        if (BotPushChaseInput(me, tick) is { } pushInput) return pushInput;
         var chased = BotChaseTarget(me);
         if (chased is null && BotHoldInput(me, tick) is { } holdInput) return holdInput;
         // 2026-11-07, Annihilation: a life's first leg goes through its lane, so a side's bots leave the spawn by different routes (NetworkView.BotRoam.cs).

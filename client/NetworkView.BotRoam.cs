@@ -90,6 +90,16 @@ public partial class NetworkView
         _botWasAlive = me.Alive;
     }
 
+    /// <summary>
+    /// The bot is dead (called from the input sampling, which skips <see cref="BotInput"/> while dead): the next life is counted when it lives again, and a push
+    /// under way ends.
+    /// </summary>
+    void BotNoteDead()
+    {
+        _botWasAlive = false;
+        if (_botPush is { Active: true } push) { push.End(_connectedFor); GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} push ends: died"); }
+    }
+
     /// <summary>The bot has an enemy to fight: the lane leg ends and the idle cycle starts again at the hold afterwards.</summary>
     void BotNoteFight()
     {

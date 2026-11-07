@@ -709,7 +709,11 @@ public partial class NetworkView : Node3D
     {
         _sampledYaw = _yaw; _sampledPitch = _pitch;   // M36: the view this input takes (NetworkView.Turning.cs)
         // Dead (M23): no control until the respawn - neither movement, look, fire nor abilities are sent.
-        if (OwnDead || PickerBusy) { _switchPending = false; _latch.Reset(); return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch); }
+        if (OwnDead || PickerBusy)
+        {
+            if (_bot && OwnDead) BotNoteDead();   // 2026-11-08: BotInput is not called while dead, so the lives and the push learn of the death here (NetworkView.BotRoam.cs)
+            _switchPending = false; _latch.Reset(); return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch);
+        }
         if (_bot && BotSwitchEvery > 0 && _connectedFor > 4.0) return BotSwitchInput(tick);   // fix/stow-right test aid (NetworkView.UpperBody.cs)
         if (_bot && BotIdle) return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch);
         if (_bot && BarrelTest) return BarrelTestInput(tick);   // fx/barrel-origin test aid (NetworkView.Barrel.cs)
@@ -783,6 +787,7 @@ public partial class NetworkView : Node3D
         // A navigation jump in flight keeps its checked controls (NetworkView.Nav.cs).
         if (BotNavFlightInput(me, tick) is { } flightInput) return flightInput;
         BotTrackLife(me);   // 2026-11-07: lives for the lane legs and the idle cycle (NetworkView.BotRoam.cs)
+        if (!SeizeGround) BotPushStep(me);   // 2026-11-08: the periodic melee push, Annihilation (NetworkView.BotPush.cs)
         // M44a: during the match's "MATCH BEGINS" countdown (attacks do not work yet) the bot holds still in its spawn room: no wasted shots, no stale path.
         if (_client.Match.Effective() == MatchState.Countdown) { _botNote = "countdown: holding"; _navAgent?.Reset(); return new PlayerInput(tick, 0f, 0f, _yaw, InputButtons.None, _pitch); }
         // Seize Ground (M16): go to a point not held, fight on the way and hold it (NetworkView.Seize.cs).
@@ -803,6 +808,8 @@ public partial class NetworkView : Node3D
             // Jump pack (assault classes): jump at targets 8-30 m away and pound from above (NetworkView.Jump.cs).
             if (BotDashAttackInput(me, target, tick) is { } dashInput) return dashInput;   // protocol 30 test aid --bot-dash-attack (NetworkView.DashAttack.cs)
             if (BotJumpInput(me, target, tick) is { } jumpInput) return jumpInput;
+            // 2026-11-08: a melee push keeps closing in sight instead of strafing until the jump, charge or melee range (NetworkView.BotPush.cs).
+            if (BotPushFightInput(me, target, tick, MathF.Sqrt(dx * dx + dy * dy)) is { } pushInput) return pushInput;
             // Evade roll (Tactical / Devastator classes): sideways every ~6 s (NetworkView.Evade.cs).
             if (BotEvadeInput(me, tick) is { } evadeInput) return evadeInput;
             bool hasMelee = Loadouts.Melee(_config, me).Count > 0;
