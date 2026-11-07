@@ -22,7 +22,7 @@ public partial class NetworkView
     {
         if (!MusouActive || _client is null) return;
         TfwGuardsFrame(sections, delta);   // the sections, the commands and the Guardsmen (TF7a)
-        if (_tfwState.War is not { } war) return;
+        if (_tfwState.War is not { } war) { TfwLibrarianFrame(me, others); return; }   // the 5-wave run: no war, but a Librarian's tag 16 still comes
         TfwOrderKeysFree();
         TfwOrdersFrame(war, me, (float)delta);
         TfwRedeployFrame(war, me);   // NetworkView.TfwFlow.cs: a fallen player's deploy for a supply

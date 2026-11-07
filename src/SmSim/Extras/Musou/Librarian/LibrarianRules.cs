@@ -38,8 +38,8 @@ public static class LibrarianRules
     public const float PrimaryDps = 90f, JumpFalloff = 0.85f;
     /// <summary>Enemies this far above or below the flat circle are out of reach of a jump (ours).</summary>
     public const float VerticalReach = 4f;
-    /// <summary>Most links the wire carries a tick (the drawing's; the simulation strikes all of <see cref="MaxTargets"/>).</summary>
-    public const int MaxDrawnLinks = 16;
+    /// <summary>Most links the wire carries a tick: every target struck since MusouSim 14 (the wire's 3-byte jumps, <c>LibrarianWire</c>; it was 16 at 12 bytes a link).</summary>
+    public const int MaxDrawnLinks = MaxTargets;
 
     // ---- Warp Pull ----
     /// <summary>A cone in front of the Librarian: half-angle <see cref="PullConeDegrees"/> (the melee cone's convention; the brief's "30 degrees" read as the half-angle, ours) and this far.</summary>

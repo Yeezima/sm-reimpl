@@ -95,7 +95,7 @@ whole map. Death → all his contraptions are destroyed.
   30 hp only; Boys 85 survive). Cooldown 12 s.
 - Force sword: power sword model and moves, rainbow-iridescent glow (client).
 - Psychic Ward: future idea only, not built (nothing reserved on the wire).
-- Binding (S5, built): Fire held = chain lightning, Grenade press = Warp Pull, Reload press = Psychic Shockwave; he carries no gun, pistol or grenade. Numbers: `LibrarianRules`. Wire: Musou tag 16. A melee "hit" is a swing that strikes at least one enemy (-6 once a swing); "cone 30" is the half-angle.
+- Binding (S5, built): Fire held = chain lightning, Grenade press = Warp Pull, Reload press = Psychic Shockwave; he carries no gun, pistol or grenade. Numbers: `LibrarianRules`. Wire: Musou tag 16. A melee "hit" is a swing that strikes at least one enemy (-6 once a swing); "cone 30" is the half-angle. Second pass (MusouSim 15): the install's MP Librarian torso, belt, right pad and hood backpack over his Tactical look; PLAY AS LIBRARIAN in the Stormbird's Esc menu; original install sounds; a weapon-box-style stress gauge; all 40 links drawn (3-byte jumps); tag 16 in the 5-wave run too.
 
 **Battle flow.**
 - Ork waves muster at strongholds; a peak every 3-5 min, lulls of 90-150 s. Wave size: 200 (70 %), 500 (25 %),

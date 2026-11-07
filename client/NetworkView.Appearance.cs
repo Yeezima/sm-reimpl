@@ -175,13 +175,16 @@ public partial class NetworkView
         if (cached is null)
         {
             var (names, carriedKey) = CarriedBy(s);
-            string input = LookKeys.InputOf(cls.Race, cls.Key, code, carriedKey);
+            Func<ResolvedAppearance, ResolvedAppearance>? dress = null;
+            ExtrasLook(s.Class, ref dress);   // EXTRAS-HOOK: an added class's own pieces over the resolved look (Musou: the Librarian's armour)
+            string input = LookKeys.InputOf(cls.Race, cls.Key, code, carriedKey) + (dress is null ? "" : $"|class {s.Class}");
             if (_failedInputs.Contains(input)) return null;
             if (!_resolvedLooks.TryGetValue(input, out var entry))
             {
                 try
                 {
                     var look = AppearanceResolver.Resolve(code, cls.Key, _lookCatalog!, _looks!.ResolveOptions(names));
+                    if (dress is not null) look = dress(look);
                     entry = new ResolvedEntry(look, LookKeys.Of(look, true), LookKeys.Of(look, false));
                 }
                 catch (Exception ex) when (ex is not (OutOfMemoryException or StackOverflowException or AccessViolationException))
@@ -207,6 +210,12 @@ public partial class NetworkView
             }
         return emblems ? cached.Ready : cached.Waiting;
     }
+
+    /// <summary>
+    /// Hook for added content: <paramref name="dress"/> set for a class whose players wear their resolved look changed (pieces put on over it); the class then gets looks of its own in the caches.
+    /// Called once per resolve input, before the resolver. Musou Mode: the Librarian's armour (client/Extras/Musou/Librarian/NetworkView.LibrarianLook.cs).
+    /// </summary>
+    partial void ExtrasLook(int playerClass, ref Func<ResolvedAppearance, ResolvedAppearance>? dress);
 
     LookRequest? WantedLook(PlayerState s, bool own)
     {
