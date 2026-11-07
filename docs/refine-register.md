@@ -60,10 +60,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | Reason | Rows |
 |---|---:|
 | kind: ours | 954 |
-| confidence: low | 655 |
-| confidence: medium | 581 |
-| kind: ours | 914 |
-| confidence: low | 650 |
+| confidence: low | 653 |
 | confidence: medium | 583 |
 | kind: interpretation | 357 |
 | notes: ours | 349 |
