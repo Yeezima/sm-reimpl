@@ -454,7 +454,7 @@ public class MusouExpansionS3Tests(Xunit.Abstractions.ITestOutputHelper output)
     public void The_new_states_and_cues_round_trip_and_the_versions_move()
     {
         Assert.True(MusouSim.Version >= 14u);   // S3 raised it; later stages raise it further
-        Assert.Equal(63u, Protocol.Version);
+        Assert.Equal(64u, Protocol.Version);   // main's protocol (headshots raised it to 64 at integration); the Musou expansion does not raise it
         Assert.True(TfwRules.Version >= 34u);
         var list = new List<MusouEntity>
         {
