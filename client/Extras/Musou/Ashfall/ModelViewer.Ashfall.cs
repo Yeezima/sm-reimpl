@@ -15,6 +15,14 @@ public partial class ModelViewer
             handled = true;
             return;
         }
+        if (args.ContainsKey("mek-gallery"))   // expansion S4: the contraptions' SM1 models (Meks/MekGalleryView.cs; it needs the install)
+        {
+            var repoRoot = System.IO.Path.GetFullPath(System.IO.Path.Combine(Godot.ProjectSettings.GlobalizePath("res://"), ".."));
+            var found = SmContent.GameInstall.TryLocate(args.GetValueOrDefault("game-dir"), repoRoot) ?? throw new System.IO.DirectoryNotFoundException(SmContent.GameInstall.NotFoundMessage);
+            AddChild(new MekGalleryView(found.Dir, args.GetValueOrDefault("out")) { Name = "MekGallery" });
+            handled = true;
+            return;
+        }
         if (!args.ContainsKey("ashfall-kit-gallery")) return;
         AddChild(new AshfallKitGallery(args) { Name = "AshfallKitGallery" });
         handled = true;
