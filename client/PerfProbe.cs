@@ -22,6 +22,10 @@ sealed class PerfProbe
     /// anti-aliasing), <c>fsr-native</c> FSR 2 Native AA. The summary gives each state's frames, renderer CPU and GPU, draw calls and primitives.
     /// </summary>
     static readonly string? Ab = Arg("perf-ab");
+    /// <summary><c>--perf-ab-shots &lt;dir&gt;</c>: a PNG just before each switch and 0.6 s after it (the same view either side, for a visual comparison).</summary>
+    static readonly string? AbShots = Arg("perf-ab-shots");
+    double _abShotAt = -1;
+    int _abSwitches;
     bool _abOn;
     readonly Dictionary<bool, (List<float> Frames, double Cpu, double Gpu, double Draw, double Prim, int N)> _abStats = new();
     readonly SmClient.Customizer.Model.UpscaleChoice _abStartUpscale = RenderQuality.Upscale;
@@ -31,6 +35,18 @@ sealed class PerfProbe
         var a = OS.GetCmdlineUserArgs();
         int i = Array.IndexOf(a, "--" + name);
         return i >= 0 && i + 1 < a.Length ? a[i + 1] : null;
+    }
+
+    void AbShot(string when)
+    {
+        if (AbShots is null) return;
+        try
+        {
+            System.IO.Directory.CreateDirectory(AbShots);
+            var path = System.IO.Path.Combine(AbShots, $"{Ab}-{_abSwitches:00}-{when}-{(_abOn ? "on" : "off")}.png");
+            _viewport.GetTexture().GetImage().SavePng(path);
+        }
+        catch (Exception e) { GD.PrintErr($"perf ab shot: {e.Message}"); }
     }
 
     /// <summary>The A/B's change on or off now.</summary>
@@ -89,6 +105,7 @@ sealed class PerfProbe
             st.Frames.Add(ms);
             _abStats[_abOn] = (st.Frames, st.Cpu + cpu, st.Gpu + gpu, st.Draw + draws, st.Prim + prims, st.N + 1);
         }
+        if (_abShotAt > 0 && _total >= _abShotAt) { _abShotAt = -1; AbShot("after"); }
         if (_elapsed < WindowSeconds) return;
 
         long alloc = GC.GetTotalAllocatedBytes(precise: false);
@@ -107,7 +124,13 @@ sealed class PerfProbe
         GD.Print(line);
         if (_total > WarmupSeconds) { _aAlloc += alloc - _allocStart; _aGc0 += gc0 - _gc0; _aGc2 += gc2 - _gc2; }
         _allocStart = alloc; _gc0 = gc0; _gc2 = gc2;
-        if (Ab is not null && _total > WarmupSeconds) AbSet(!_abOn);
+        if (Ab is not null && _total > WarmupSeconds)
+        {
+            AbShot("before");
+            AbSet(!_abOn);
+            _abSwitches++;
+            _abShotAt = _total + 0.6;
+        }
         _frames.Clear(); _elapsed = 0; _cpuSum = _gpuSum = _drawSum = _objSum = _primSum = _physSum = 0; _samples = 0;
     }
 

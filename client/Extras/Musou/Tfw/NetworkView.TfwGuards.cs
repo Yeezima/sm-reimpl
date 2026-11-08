@@ -53,7 +53,8 @@ public partial class NetworkView
             renderTick = demo.RenderTick;
         }
         var shown = _tfwState.Sample(renderTick, now);
-        if (!_musouNoDraw && _gameSpace is not null && (shown.Count > 0 || _guardLooks is not null || _tfwState.Armies.Count > 0))
+        // musou/perf-pass: the Guardsmen's look, crowd and effects are made from the war's first frame (in the Stormbird), not when the first men come into sight at the landing: a 430 ms frame there before.
+        if (!_musouNoDraw && _gameSpace is not null && (shown.Count > 0 || _guardLooks is not null || _tfwState.Armies.Count > 0 || _tfwState.War is not null))
         {
             var watch = System.Diagnostics.Stopwatch.StartNew();
             GuardsDraw(shown, (uint)renderTick, (float)delta);

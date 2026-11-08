@@ -210,6 +210,23 @@ group with a long range) at the army's front.
 point, 200 v 200, 500 v 500 and 1,000 v 1,000 clashing there, 90 s each, server tick mean / p99 / max and the ticks of
 the promotion and of the mass deaths.
 
+**Far-layer cost and the performance pass (musou/perf-pass, 2026-11-08).** Measured on Ashfall with one windowed client
+(`tools/musou-perf.ps1`, server `SM_TICK_STATS` sections): the far layer itself is cheap. In a 200/500/1,000 v 200/500/1,000
+clash the army sections (`armies: routes`, `tidy and march`, `levels (promote, fold)`, `clash, waves, garrisons`) cost
+0.00 to 0.01 ms a tick on average, at most 3 ms in the tick a wave lands; the tick's 4 to 6 ms go to the Orks' own AI
+(`tfw: ork ai`, about 2 ms with 1,100 to 1,500 Orks) and the core step of 16 players. The S6 spikes were not the promotion:
+the 130 to 150 ms tick a few seconds after each landing was the walk graph's edge-distance spread, computed lazily in the
+first Scrap Mek's hide search (now computed off the tick when the graph loads), and the route searches collected at 5 s
+(now run side by side, so they are in long before). What the far layer should keep: decisions at 2 Hz, aggregates as
+numbers, promotion capped per tick (16 Orks, 1 squad), no per-unit work for anything farther than 120 m from every human
+(co-op: the nearest human counts, every human is checked). Cheaper still if needed later: the near test per army is
+O(armies x humans) and the far clash O(armies) per point, both negligible below the 40-army cap.
+
+**The owner's answers (2026-11-08), built in musou/perf-pass (`TfwRules.Version` 38):** near matches far (army Guard
+squads made real at `TfwArmyRules.NearGuardStrength` 0.135 of the field's 4.5x; `NearFarBalanceTests`), fight off-screen
+(the remainder beyond the real caps clashes in the far layer near a player), base is a target (no point Imperial: waves
+march on the base), and far or unseen deaths leave no body. Details and numbers: `docs/musou-perf-pass.md`.
+
 ## Verification plan
 Unit/sim tests per stage (targeting, committed destination, blasts and the trap exception, Squig kick/fuse/chain,
 Stormboy crash vs landing, Mek limits and cleanup, Librarian stress ratios, garrison cap, retreat and rally loops,
