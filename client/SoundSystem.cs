@@ -584,7 +584,7 @@ public partial class SoundSystem : Node
         var v = a.Voice;
         float? distance = null;
         if (v.Is3D && v.Attenuation is not null && Distance(a.Emitter) is var (_, d)) distance = Loudness.CurveDistance(d);   // the curve's end read as the mix reads it
-        return VoiceAudibility.IsAudible(v.Is3D, v.Attenuation is not null, v.Attenuation?.MaxDistance ?? 0f, distance, MixOf(a).VolumeDb, _masterDb,
+        return VoiceAudibility.IsAudible(v.Is3D, v.Attenuation is not null, Loudness.MaxDistanceOf(v.Attenuation), distance, MixOf(a).VolumeDb, _masterDb,
             v.Chain.Count > 0 ? v.Chain[0].BelowThreshold : (byte)1, v.Chain.Count > 0, a.Limited);
     }
 
