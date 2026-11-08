@@ -45,6 +45,8 @@ public sealed class FxEffect
     public float HeadSpeed;
     /// <summary>fx/visuals-2 (ours): scales the width of a clamped bright-head beam (a bolt tracer's streak) and the length of the streak's trail (metres per U); 1: the data's. Other beams are untouched.</summary>
     public float TracerWidthScale = 1f, TracerTrailScale = 1f;
+    /// <summary>fix/plasma-trail-slab (owner, 2026-11-09: "too blocky ... smooth it out and make it a distinct thick bolt of plasma"): this effect's streamers are not drawn (a plasma ball's data trail ribbons are 1 to 6 m wide and hard-edged); the client draws a smooth thick bolt behind the ball instead.</summary>
+    public bool SoftHead;
     /// <summary>M41: run the collision descriptions (<see cref="CNode.OnCollision"/>): a "dropper" particle touches the level where it starts and starts what it holds (the ground pound's impact). The effect must be placed on the ground, its +Y along the surface normal.</summary>
     public bool Collisions;
     /// <summary>
@@ -767,6 +769,7 @@ public sealed partial class FxPlayer : Node3D
     {
         if (n.Distortion || _batch is null || !_batch.HasRoom) return;
         if (!LeafTime(n, age, seed, out float t, out float dur)) return;
+        if (e.SoftHead) return;   // fix/plasma-trail-slab: a plasma ball's data streamers are wide hard-edged ribbons; its smooth bolt is drawn by NetworkView.PlasmaLightShot.cs
         const int N = 8;
         float trail = At(n.Length, t, 0.3f);
         if (trail <= 0.001f) return;
