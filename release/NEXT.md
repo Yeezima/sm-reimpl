@@ -9,3 +9,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+
+- Musou Mode: Orks turn to face you more. Gunners no longer shoot while looking away or running off: they turn to you first (a Shoota Boy, Rokkit Boy or Big Shoota Nob fires only when facing within about 30 degrees of you), and Orks near you back off, circle and close in facing you. The build does not play with earlier ones in Musou Mode.
