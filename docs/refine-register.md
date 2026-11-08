@@ -34,6 +34,7 @@ Scanned 2596 spec table rows: **1908 tagged**, 479 not tagged (read from data wi
 Scanned 2600 spec table rows: **1911 tagged**, 480 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
 Scanned 2598 spec table rows: **1910 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
 Scanned 2602 spec table rows: **1913 tagged**, 479 not tagged (read from data with high confidence), 210 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
+Scanned 2596 spec table rows: **1908 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 581 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -57,6 +58,7 @@ Scanned 2602 spec table rows: **1913 tagged**, 479 not tagged (read from data wi
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
 | Core simulation (provisional values) | 458 | 436 | 311 | 126 | 1 |
+| Core simulation (provisional values) | 452 | 430 | 303 | 120 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 184 | 174 | 86 | 53 | 0 |
 | **All areas** | **1923** | 1679 | 1419 | 623 | 38 |
@@ -73,6 +75,7 @@ Scanned 2602 spec table rows: **1913 tagged**, 479 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 179 | 170 | 81 | 54 | 0 |
 | **All areas** | **1913** | 1670 | 1409 | 617 | 38 |
+| **All areas** | **1908** | 1665 | 1403 | 617 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -2181,6 +2184,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 ### Core simulation (provisional values) (458)
 ### Core simulation (provisional values) (462)
 ### Core simulation (provisional values) (456)
+### Core simulation (provisional values) (452)
 
 *Spec section: Provisional values in use*
 
@@ -2931,6 +2935,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-2AAB648A` | Allied pair look (Musou) | the pair wears the host's armour colours (the human with the lowest id), as a retainer wore its owner's | kind: ours; confidence: medium | ours (pass 2 item 1 moved to the pair) | Allied pair look (Musou): compare with SM1 by feel or video. Ours: the pair wears the host's armour colours (the human with the lowest… | ☐ |
 | `R-875EC075` | Order keys (Musou) | superseded on 2026-11-08 by the restored retainers (Z Follow, X Hold, V Attack to the own retainer; rows "War orders" and "Retainer orders"); before: Z, X and V gave no order any more (no player orders the pair): the client sends none and X next weapon and V… | kind: ours | ours | Order keys (Musou): compare with SM1 by feel or video. Ours: superseded on 2026-11-08 by the restored retainers (Z Follow, X Hold… | ☐ |
 | `R-A0E6849B` | Ashfall grime under FSR 2 and its depth pull (Musou, client) | the owner, 2026-11-08: "the floor shimmers a lot in musou mode ashfall". With Options > Graphics > Upscaling on FSR 2, the grime's overlay passes (EXACT) shimmered on the far floor even on a still camera (floor pixels flickering between three consecutive… (1e-4 of the distance) | kind: ours; confidence: medium | measured (hotfix/ashfall-floor-shimmer); the pull's size ours | Ashfall grime under FSR 2 and its depth pull (Musou, client): compare with SM1 by feel or video. Ours: the owner, 2026-11-08: "the floor shimmers a lot in musou mode… | ☐ |
+| `R-84F4C3EA` | Ashfall boundary block variant per face (Musou, client) | the owner, 2026-11-08: the wall bricks flicker with FSR off and with every FSR 2 preset (his recording: whole blocks of the boundary wall switching between the plain and the darker, grittier face each frame; under FSR 2 they turned to a per-pixel speckle).… (per vertex, rounded to the metre) | kind: ours | measured (ashfall-no-flicker) | Ashfall boundary block variant per face (Musou, client): compare with SM1 by feel or video. Ours: the owner, 2026-11-08: the wall bricks flicker with FSR off and with… | ☐ |
+| `R-D07010D0` | Ashfall grime pass order (Musou, client) | the owner, 2026-11-08: flickering all over the map with FSR off. Cause: the kit models' grime overlay (blend mix) and its multiply pass (its next pass) are two transparent passes of the same instance at the same depth, which the transparent sort left tied:… (overlay -12, multiply -11) | kind: ours | measured (ashfall-no-flicker) | Ashfall grime pass order (Musou, client): compare with SM1 by feel or video. Ours: the owner, 2026-11-08: flickering all over the map with FSR off.… | ☐ |
 
 *Spec section: Musou Mode: smooth crowd motion (crowd-smooth, 2026-11-08; Musou Mode only; `MusouSim.Version` 22, no core protocol bump: `Protocol.Version` stays 64)*
 

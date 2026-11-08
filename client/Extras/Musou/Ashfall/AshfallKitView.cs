@@ -238,6 +238,10 @@ uniform int seed = 1;
 uniform float tile = 4.0;
 varying vec3 wpos;
 varying vec3 wnor;
+// ashfall-no-flicker: the face a fragment lies on, as a whole number taken per vertex (rounded) and not interpolated. floor() of the interpolated plane coordinate flipped between two
+// neighbours on the boundary's faces, which lie on whole metres (x or y = +-240, +-244): whole blocks switched variant from frame to frame (FSR 2 jitter, any camera motion).
+varying flat int plane_id;
+const bool OLD_PLANE = false;   // --ashfall-old-wall-hash (test aid): the per-pixel floor() as before
 uniform float grime = 0.0;
 uniform float dark = 1.0;   // ashfall darkening (AshfallGrime): the whole surface times this
 uniform vec3 dark_tint = vec3(1.0);
@@ -271,6 +275,9 @@ uint blockhash(int a, int b, int c, int s) {
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wnor = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	vec3 vn = abs(wnor);
+	bool vx = vn.x > vn.z;
+	plane_id = int(floor((vx ? wpos.x : wpos.z) + 0.5)) * 2 + (vx ? 1 : 0);
 }
 void fragment() {
 	vec3 an = abs(wnor);
@@ -300,6 +307,7 @@ void fragment() {
 		c = mix(c, avgTop, smoothstep(0.04, 0.18, fwTop));
 	} else {
 		float plane = xface ? wpos.x : wpos.z;
+		int pid = OLD_PLANE ? int(floor(plane)) * 2 + (xface ? 1 : 0) : plane_id;
 		c = textureGrad(tex, uvSide, dSideX, dSideY).rgb;
 		c = mix(c, avgSide, smoothstep(0.04, 0.18, fwSide));   // joints and grit dissolve into an even tone before a pixel spans them
 		float far = 1.0 - smoothstep(0.25, 0.9, fwSide);       // block variants and chips: low frequency, they last longer
@@ -309,7 +317,7 @@ void fragment() {
 		float bidx = floor(s / 4.0);
 		float bu = s - bidx * 4.0;
 		float bv = fract(-wpos.y);
-		uint h = blockhash(int(bidx), course, int(floor(plane)) * 2 + (xface ? 1 : 0), seed);
+		uint h = blockhash(int(bidx), course, pid, seed);
 		int variant = int(h % 3u);
 		float edge = min(min(bu, 4.0 - bu), min(bv, 1.0 - bv));
 		float inner = smoothstep(0.06, 0.16 + 1.5 * fwSide, edge) * far;   // antialiased: the edge ramp is never narrower than a pixel
@@ -335,6 +343,11 @@ void fragment() {
 """;
 
     static Shader? _groundShader, _masonryShader;
+
+    /// <summary>Test aid (ashfall-no-flicker): <c>--ashfall-old-wall-hash</c> draws the boundary with the block hash taken from floor() of the interpolated plane coordinate, as before the fix (whole blocks flicker).</summary>
+    public static bool OldWallHash => Array.IndexOf(OS.GetCmdlineUserArgs(), "--ashfall-old-wall-hash") >= 0;
+
+    static string MasonryCode => OldWallHash ? MasonryShader.Replace("const bool OLD_PLANE = false;", "const bool OLD_PLANE = true;", StringComparison.Ordinal) : MasonryShader;
     static bool _variationOn = true;
 
     static ShaderMaterial Variant(string code, ref Shader? cache, Texture2D texture, Color tint, int seed, float tile)
@@ -441,7 +454,7 @@ void fragment() {
                     AshfallKind.Curb => Ground(new Color(0.70f, 0.67f, 0.63f), seed),
                     AshfallKind.Road => Ground(new Color(0.52f, 0.50f, 0.48f), seed),
                     AshfallKind.Paving => Ground(new Color(0.95f, 0.92f, 0.86f), seed),
-                    AshfallKind.Boundary => _variationOn ? Variant(MasonryShader, ref _masonryShader, Masonry(), new Color(0.62f, 0.58f, 0.55f), seed, 4f) : Triplanar(Masonry(), new Color(0.62f, 0.58f, 0.55f), 0.25f),
+                    AshfallKind.Boundary => _variationOn ? Variant(MasonryCode, ref _masonryShader, Masonry(), new Color(0.62f, 0.58f, 0.55f), seed, 4f) : Triplanar(Masonry(), new Color(0.62f, 0.58f, 0.55f), 0.25f),
                     _ => Triplanar(Stone(), StoneOf(group.Key), 0.25f),
                 };
             }
@@ -652,6 +665,7 @@ void fragment() {
             {
                 _items.AddChild(new MeshInstance3D
                 {
+                    Name = $"{id}_{i}",   // the asset and the dressing item (ashfall-no-flicker: attribution by asset)
                     Mesh = piece.Mesh, Transform = DrawOf(item, model, piece.Local),
                     CastShadow = _shadows ? GeometryInstance3D.ShadowCastingSetting.On : GeometryInstance3D.ShadowCastingSetting.Off,
                 });
