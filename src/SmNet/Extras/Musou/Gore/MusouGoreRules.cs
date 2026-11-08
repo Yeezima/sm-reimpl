@@ -20,11 +20,14 @@ public static class MusouGoreRules
 
     /// <summary>
     /// The velocity (m/s) a blast gives a body: one of three throws by a repeatable roll, mostly up, mostly sideways or both, away from the blast along <paramref name="push"/> (no push: a direction
-    /// by id) give or take 35 degrees; small bodies fly further, big ones less. Every number is ours (spec "Flung corpses").
+    /// by id) give or take <see cref="ThrowSpreadDegrees"/>; small bodies fly further, big ones less. Every number is ours (spec "Flung corpses").
     /// </summary>
+    /// <summary>How far a throw's flat direction may turn from straight away from the blast, each way (degrees; was 35 until the owner's corpse arcs, 2026-11-08: "a natural looking straight line parabolic arc away from the explosion"). Ours.</summary>
+    public const float ThrowSpreadDegrees = 8f;
+
     public static Vector3 BlastThrow(Vector3 push, ushort id, uint tick, MusouEnemyType type)
     {
-        float kind = GoreRules.Roll(id, tick), a = GoreRules.Roll(id, tick + 1u), b = GoreRules.Roll(id, tick + 2u), turn = (GoreRules.Roll(id, tick + 3u) * 2f - 1f) * 35f * MathF.PI / 180f;
+        float kind = GoreRules.Roll(id, tick), a = GoreRules.Roll(id, tick + 1u), b = GoreRules.Roll(id, tick + 2u), turn = (GoreRules.Roll(id, tick + 3u) * 2f - 1f) * ThrowSpreadDegrees * MathF.PI / 180f;
         var (side, up) = kind < 0.3f ? (1.5f + 2.5f * a, 11f + 4f * b) : kind < 0.6f ? (11f + 5f * a, 1.5f + 2f * b) : (8f + 4f * a, 8f + 4f * b);
         var flat = new Vector2(push.X, push.Y);
         float angle = flat.LengthSquared() > 0.0025f ? MathF.Atan2(flat.Y, flat.X) + turn : id * 2.399963f;

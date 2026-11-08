@@ -44,15 +44,11 @@ public partial class MusouCrowd : CrowdView
     /// <summary>Deaths the view has not handed out yet (night batch 2026-11-06, <see cref="MusouDeathRules"/>) and the seconds since each arrived: drawn where they fell, playing their death clip.</summary>
     public readonly List<(MusouDeathShown Death, float Age)> Dying = new();
 
-    /// <summary>How fast a thrown body turns end over end at most (rad/s, ours).</summary>
-    public const float FlungSpin = 9f;
-
-    /// <summary>A blast death with no ragdoll to spare, or far off: the body tumbles along <paramref name="velocity"/> and falls where it lands (<see cref="MusouRagdolls"/> throws the near ones).</summary>
+    /// <summary>A blast death with no ragdoll to spare, or far off: the body flies one arc along <paramref name="velocity"/>, tipping over about one axis (<see cref="SmNet.Extras.Musou.MusouFling.Tumble"/>; the owner, 2026-11-08: no corkscrew), and falls where it lands (<see cref="MusouRagdolls"/> throws the near ones).</summary>
     public void AddFlung(in MusouDeathShown d, Vector3 velocity, bool keepSkeleton = false)
     {
-        var (id, tick) = (d.Id, d.Tick);
-        float Spin(uint k) => (SmNet.Extras.Gore.GoreRules.Roll(id, tick + k) * 2f - 1f) * FlungSpin;
-        AddFlungBody(new Vector3(d.Position.X, d.Position.Y, d.Position.Z), d.Yaw, (int)d.Type, MusouLooks.Death, velocity, new Vector3(Spin(11u), Spin(12u), Spin(13u)), keepSkeleton ? d.Id : 0);
+        var t = SmNet.Extras.Musou.MusouFling.Tumble(new System.Numerics.Vector3(velocity.X, velocity.Y, velocity.Z));
+        AddFlungBody(new Vector3(d.Position.X, d.Position.Y, d.Position.Z), d.Yaw, (int)d.Type, MusouLooks.Death, velocity, new Vector3(t.X, t.Y, t.Z), keepSkeleton ? d.Id : 0);
     }
 
     /// <summary>Seconds a shot Ork's flinch plays, how soon a new shot restarts it, and how far it rocks him back (m). The owner, 2026-11-02: "add hit reactions to the orks getting shot". Drawn only: the simulation's Ork does not stop. Ours.</summary>

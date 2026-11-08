@@ -118,7 +118,7 @@ public abstract partial class CrowdView : Node3D
         KeepSkinned(from);
     }
 
-    /// <summary>A body thrown by a blast: it leaves with <paramref name="velocity"/> (m/s, game space) turning at <paramref name="spin"/> (rad/s, game space), plays its clip in the air, falls under gravity, stops at the walls (<see cref="SolidBetween"/>), bounces once, rolls out of its tumble and slides to rest. It starts to sink only once it rests.</summary>
+    /// <summary>A body thrown by a blast: it leaves with <paramref name="velocity"/> (m/s, game space) tipping over about the one axis of <paramref name="spin"/> (rad/s, game space; <see cref="SmNet.Extras.Musou.MusouFling.Tumble"/>), plays its clip in the air, falls under gravity in one arc, stops at the walls (<see cref="SolidBetween"/>), lands without a bounce, rolls out of its tumble and slides to rest. It starts to sink only once it rests.</summary>
     protected void AddFlungBody(Vector3 position, float yaw, int type, int clip, Vector3 velocity, Vector3 spin, int from = 0)
     {
         if (_bodies.Count >= Limits.MaxBodies) _bodies.RemoveAt(0);
@@ -135,20 +135,25 @@ public abstract partial class CrowdView : Node3D
     /// <summary>The distance to the first solid thing on the way from one point to another (null: clear, or no collision to ask). Set by the view.</summary>
     public Func<Vector3, Vector3, float?>? SolidBetween { get; set; }
 
-    /// <summary>Gravity, the ground's bounce, the slide, the height a body turns about, how fast it rolls out of its tumble, and the most seconds in the air (ours, spec "Flung corpses").</summary>
-    const float FlungGravity = 9.8f, FlungBounce = 0.3f, FlungSlide = 4f, FlungPivot = 0.9f, FlungRollOut = 6f, FlungMaxFlight = 8f;
+    /// <summary>
+    /// The ground's slide, the height a body turns about, how fast it rolls out of its tumble once down, and the most seconds in the air (ours, spec "Flung corpses"). Corpse arcs (the owner,
+    /// 2026-11-08): no bounce (it lands and stays down), a wall stops the flat travel instead of throwing it back, and the air's gravity and tumble are <see cref="SmNet.Extras.Musou.MusouFling"/>'s.
+    /// </summary>
+    const float FlungSlide = 4f, FlungPivot = 0.9f, FlungRollOut = 6f, FlungMaxFlight = 8f;
 
     void StepFlung(Body b, float dt)
     {
         b.Flight += dt;
         var v = b.Velocity;
-        if (b.Position.Z > b.Ground + 0.001f || v.Z > 0f) v.Z -= FlungGravity * dt;
-        var p = b.Position + v * dt;
+        var p = b.Position;
+        bool air = p.Z > b.Ground + 0.001f || v.Z > 0f;
+        if (air) v.Z -= SmNet.Extras.Musou.MusouFling.Gravity * dt;   // MusouFling.Fly: the flat velocity is not touched in the air
+        p += v * dt;
         if (SolidBetween is { } solid)
         {
             var chest = b.Position + new Vector3(0f, 0f, FlungPivot);
             var along = new Vector3(v.X, v.Y, 0f) * dt;
-            if (along.LengthSquared() > 1e-6f && solid(chest, chest + along) is not null) { v.X *= -0.25f; v.Y *= -0.25f; p.X = b.Position.X; p.Y = b.Position.Y; }
+            if (along.LengthSquared() > 1e-6f && solid(chest, chest + along) is not null) { v.X = 0f; v.Y = 0f; p.X = b.Position.X; p.Y = b.Position.Y; }   // a wall: stops, then drops straight down
             if (v.Z > 0f && solid(chest, chest + new Vector3(0f, 0f, v.Z * dt + 1f)) is not null) v.Z = 0f;   // a ceiling
             // The floor under the next place, wherever the body has gone: up a step, or none near (off a ledge, or high in the air) and it keeps falling.
             float top = MathF.Max(b.Position.Z, p.Z) + 0.25f, bottom = MathF.Min(b.Position.Z, p.Z) - 1.5f;
@@ -157,15 +162,14 @@ public abstract partial class CrowdView : Node3D
         if (p.Z <= b.Ground)
         {
             p.Z = b.Ground;
-            if (v.Z < -2f && !b.Landed) v.Z = -v.Z * FlungBounce;
-            else v.Z = 0f;
+            v.Z = 0f;   // corpse arcs: no bounce
             b.Landed = true;
             float keep = Mathf.Max(0f, 1f - FlungSlide * dt);   // sliding on the floor
             v.X *= keep; v.Y *= keep;
         }
-        // musou/perf-pass: normalised, as the tumble below is: a slerp's float error left the turn "not normalized", and Godot's quaternion product then threw out of the whole Musou frame (267 times in a 200 v 200 run)
+        // One fixed axis, the angle from the flight time (no integrated spin to drift into a corkscrew); musou/perf-pass: normalised, as Godot's quaternion product throws on a turn "not normalized".
         if (b.Landed) b.Turn = b.Turn.Slerp(Quaternion.Identity, Mathf.Min(1f, FlungRollOut * dt)).Normalized();
-        else if (b.Spin.LengthSquared() > 1e-4f) b.Turn = (new Quaternion(b.Spin.Normalized(), b.Spin.Length() * dt) * b.Turn).Normalized();
+        else if (b.Spin.LengthSquared() > 1e-6f) b.Turn = new Quaternion(b.Spin.Normalized(), SmNet.Extras.Musou.MusouFling.TumbleAngle(new System.Numerics.Vector3(b.Spin.X, b.Spin.Y, b.Spin.Z), b.Flight)).Normalized();
         b.Position = p; b.Velocity = v;
         b.Resting = (b.Landed && p.Z <= b.Ground + 0.01f && v.LengthSquared() < 0.05f) || b.Flight >= FlungMaxFlight;
     }
