@@ -175,3 +175,13 @@ public static class BotPosts
         return me == balcony ? Duty.Balcony : me == ramp ? Duty.Ramp : Duty.None;
     }
 }
+
+/// <summary>
+/// Which Classic PvP mode runs the 2026-11-08 bot pass (safe pushes only, cover at low health, ramp and balcony posts). Owner, 2026-11-08: "in annihilation classic pvp
+/// only, roll back the most recent ai changes. for seize ground keep them." So Seize Ground keeps the pass and Annihilation plays as before it (ours); a test aid
+/// (<c>--bot-recent-ai</c>) can force it on in both.
+/// </summary>
+public static class BotRecentAiRules
+{
+    public static bool Applies(bool seizeGround, bool forced) => seizeGround || forced;
+}

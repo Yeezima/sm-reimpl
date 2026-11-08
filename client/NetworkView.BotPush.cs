@@ -62,10 +62,12 @@ public partial class NetworkView
         bool closedIn = toTarget <= (Loadouts.JumpPack(_config, me) is not null ? BotHopper.JumpInRange : PushCloseRange);
         bool was = _botPush.Active;
         if (was && BotRetreating) _botPush.End(_connectedFor, "retreating to cover");
-        bool now = _botPush.Step(_connectedFor, role, candidate?.PlayerId ?? -1, distance, alive, inMelee, me.SinceDamage, closedIn);
+        bool now = BotRecentAi ? _botPush.Step(_connectedFor, role, candidate?.PlayerId ?? -1, distance, alive, inMelee, me.SinceDamage, closedIn)
+            : _botPush.Step(_connectedFor, role, candidate?.PlayerId ?? -1, distance, alive, inMelee);
         if (now && !was)
         {
-            _approachFor = -1; _approachSafe = false; _approach = null;
+            if (!BotRecentAi) _botRushNext = Math.Min(_botRushNext, _connectedFor);   // the charge is ready once in reach
+            _approachFor = -1; _approachSafe = !BotRecentAi; _approach = null;   // before the 2026-11-08 pass (Annihilation) the push needs no safe plan
             GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} push {_botPush.Pushes} considered on P{_botPush.Target} at {distance:F0} m ({role}); planning the approach");
         }
         else if (was && !now) GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} push ends ({_botPush.Ended}); dashes {_botHopper?.Dashes ?? 0}, hops {_botHopper?.Hops ?? 0}");
@@ -77,6 +79,7 @@ public partial class NetworkView
     /// </summary>
     void BotApproachArrived(ApproachPlan plan, PlayerState enemy, bool closedIn)
     {
+        if (!BotRecentAi) return;
         bool first = !_approachSafe;
         if (plan.Safe)
         {

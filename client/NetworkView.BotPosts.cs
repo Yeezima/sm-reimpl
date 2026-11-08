@@ -27,7 +27,7 @@ public partial class NetworkView
     /// <summary>The bot's duty now (none in Seize Ground, without a plan, or on a map without posts).</summary>
     BotPosts.Duty BotPostDuty(PlayerState me)
     {
-        if (BotNoPosts || SeizeGround || _config is not { } c || me.Team == Team.None || Plan is not { Posts.Count: > 0 } plan) return BotPosts.Duty.None;
+        if (BotNoPosts || !BotRecentAi || SeizeGround || _config is not { } c || me.Team == Team.None || Plan is not { Posts.Count: > 0 } plan) return BotPosts.Duty.None;
         var team = _lastOthers.Where(o => o.Team == me.Team && o.PlayerId > 0 && o.PlayerId != me.PlayerId).Select(o => (o.PlayerId, Loadouts.ClassOf(c, o.Class)?.Role ?? ""))
             .Append((me.PlayerId, Loadouts.ClassOf(c, me.Class)?.Role ?? ""));
         var duty = BotPosts.DutyOf(me.PlayerId, team);
