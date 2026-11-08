@@ -112,6 +112,7 @@ public sealed partial class GameServer
 
         if (!_musouNavBoxRead) { _musouNavBoxRead = true; _musouNavBox = MusouSend.BoundsOf(sim.Nav); }
         var box = MusouSend.EffectiveBox(sim.Director.Box, _musouNavBox);
+        sim.WireBox = box;   // musou/boss-collision: the players' bodies record of the big Orks is quantised as these records are (MusouSolids)
         var director = MusouWire.WriteDirector(sim.Director with { Box = box });
         uint tick = World.Tick;
         var enemies = new ReadOnlySpan<MusouEnemy>(_musouEnemies, 0, n);

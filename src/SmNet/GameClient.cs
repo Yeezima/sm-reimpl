@@ -333,16 +333,17 @@ public sealed partial class GameClient
         // Only on ticks that may lock (MeleeLock.Wants): their view tick is moved to the nearest snapshot this client holds, so its view of the others is
         // exactly the server's rewound world at that tick and every lock decision (cone, leash, height, line of sight) agrees (a tick at most: lag compensation
         // of a shot in such a tick moves by as much). Other ticks build no view.
-        IReadOnlyDictionary<int, PlayerState>? view = null;
+        IReadOnlyDictionary<int, PlayerState>? view = null, lockView = null;   // musou/boss-collision: the lock's view adds added content's targets (the charge's contact keeps the players')
         // feel/buffer-speed: a buffered melee press replayed this tick counts as a press (InputBuffer.Replayed), so it picks or keeps its lock like a fresh one.
         var (lockState, lockInput) = InputBuffer.Replayed(Predicted, Match.Predicted(_latestSnapshotTick, input), _config);
         if (_options.MeleeLock && MeleeLock.Wants(lockState, lockInput) && HeldSnapshotTick(RenderTick()) is uint held)
         {
             input = input with { ViewTick = held, ViewFraction = 0f };   // fix/hitboxes: exactly the held snapshot
             view = ViewAt(held);
+            lockView = LockViewAt(held, Predicted);
             // feel/melee-charge-2: the lock held last tick, else the one remembered from the last attack or charge (MeleeLock.LockMemory), so a quick follow-up keeps its target.
             int previous = MeleeLockTarget > 0 ? MeleeLockTarget : RecentMeleeLock(Tick);
-            input = input with { MeleeTarget = MeleeLock.Choose(lockState, lockInput with { ViewTick = held }, view, _config, Collision, previous) };
+            input = input with { MeleeTarget = MeleeLock.Choose(lockState, lockInput with { ViewTick = held }, lockView, _config, Collision, previous) };
         }
         MeleeLockTarget = input.MeleeTarget;
         if (input.MeleeTarget > 0) (_recentLock, _recentLockTick) = (input.MeleeTarget, Tick);
@@ -352,7 +353,7 @@ public sealed partial class GameClient
         SelfEvents events;
         LastBodies = BodiesFor(input);
         using (PlayerCollision.Use(ClashBodies(Predicted, input, LastBodies)))   // feel/charge-clash: the shove ignores its victim, as on the server
-            Predicted = Combat.StepPlayer(Predicted, Match.Predicted(_latestSnapshotTick, input), _config, out events, Collision, view);
+            Predicted = Combat.StepPlayer(Predicted, Match.Predicted(_latestSnapshotTick, input), _config, out events, Collision, lockView);
         // anim/melee-interaction: the charge's contact, stop and turn, as the server resolves them with the same view and bodies (ChargeLock.Predict).
         Predicted = PredictChargeContact(PreviousPredicted, Predicted, input, view, LastBodies);
         if (events != default)
@@ -534,7 +535,7 @@ public sealed partial class GameClient
             var replayBodies = BodiesFor(input);
             using (PlayerCollision.Use(ClashBodies(state, input, replayBodies)))   // sim/player-collision: the same bodies as when it was first predicted; feel/charge-clash: less the victim
                 state = Combat.StepSelf(state, Match.Predicted(s.ServerTick, input), _config, out _, out _, Collision,
-                    input.MeleeTarget > 0 ? ViewAt(input.ViewTick) : null);   // the stored input is raw: the lock follows the newest snapshot (protocol 25); feel/melee-lock: the view at its view tick, only with a lock
+                    input.MeleeTarget > 0 ? LockViewAt(input.ViewTick, state) : null);   // the stored input is raw: the lock follows the newest snapshot (protocol 25); feel/melee-lock: the view at its view tick, only with a lock
             state = PredictChargeContact(beforeLast, state, input, null, replayBodies);   // anim/melee-interaction
             _history[tick] = (input, state);
         }

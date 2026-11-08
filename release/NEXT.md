@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Musou Mode: the Warboss, the Nobs, the giant Boss Orks, the Big Shoota Nob, the Weirdboy and the Scrap Mek are now solid. You can no longer walk, sprint, charge or fly through them; the ordinary Boyz and Gretchin still let you pass. Your melee attacks and charges now lock onto these big Orks the same way they lock onto enemy players, so you line up and step in on them.

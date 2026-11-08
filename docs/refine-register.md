@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2594 spec table rows: **1906 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 581 rows of the changes document.
+Scanned 2598 spec table rows: **1910 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,16 +52,16 @@ Scanned 2594 spec table rows: **1906 tagged**, 479 not tagged (read from data wi
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
 | Core simulation (provisional values) | 450 | 428 | 303 | 120 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 178 | 169 | 80 | 54 | 0 |
-| **All areas** | **1906** | 1663 | 1403 | 617 | 38 |
+| Ork faction | 182 | 173 | 84 | 54 | 0 |
+| **All areas** | **1910** | 1667 | 1407 | 617 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1012 |
+| kind: ours | 1016 |
 | confidence: low | 667 |
-| confidence: medium | 607 |
+| confidence: medium | 611 |
 | kind: interpretation | 359 |
 | notes: ours | 352 |
 | notes: estimate | 152 |
@@ -3176,6 +3176,15 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-21E28C52` | Musou: spots across the ring | an Ork retaking a secured point takes its own spot, picked once a point: an area-even place between **0.2** and **0.85** of the capture ring's radius by its slot (the R2 sequence, turned by the point's hash), pulled in toward the centre (x0.6, up to 3 times)… (share of radius, m) | kind: ours; notes: estimate | owner 2026-11-08 | Musou: spots across the ring: compare with SM1 by feel or video. Ours: an Ork retaking a secured point takes its own spot, picked once a… | ☐ |
 | `R-B1DB6725` | Musou: looking round | a standing Ork (on its spot at a point, within 3 m of a ringless goal, or a leashed Ork at its post: a garrison, a crowd, a muster, an army's rank) faces its own heading, up to **50** degrees each way off outward (from the point's centre; a post's Ork: off… (degrees, s, deg/s, m) | kind: ours; notes: estimate | owner 2026-11-08 | Musou: looking round: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a standing Ork (on its spot at a point, within 3 m of a ringless… | ☐ |
 
+*Spec section: Musou: solid big Orks and the melee lock on them (musou/boss-collision, 2026-11-08; `MusouSim.Version` 24, `TfwRules.Version` 49, no protocol or wire change; Musou Mode only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-7A203784` | Musou: who is solid | the Warboss, Nobs, the four Boss Orks (Boy, Shoota Boy, 'Ard Boy, Nob at 3x), the Big Shoota Nob, the Weirdboy and the Scrap Mek, in any state but Dying and Vanishing; Boys, Shoota Boys, 'Ard Boys, Gretchin, Rokkit Boys, Stormboyz, Bomb Squigs and Chaos… | kind: ours; confidence: medium | the owner ("boss and elite and warboss orks"); which kinds count as elite ours | Musou: who is solid: compare with SM1 by feel or video. Ours: the Warboss, Nobs, the four Boss Orks (Boy, Shoota Boy, 'Ard Boy, Nob… | ☐ |
+| `R-375D5940` | Musou: a big Ork's body | an upright cylinder of the kind's walking radius and height (Warboss 0.75 x 4.5 = **3.375** m radius, 13 m tall; Boss Orks 3x their base: Boy/Shoota 1.2 m, 'Ard 1.35 m, Nob 1.8 m; Nob and Big Shoota Nob 0.6 m; Weirdboy 0.5 m; Scrap Mek 0.45 m); the player's… (m) | kind: ours; confidence: medium | ours (the shots' walking radius, not the 1.5x wider shot radius) | Musou: a big Ork's body: compare with SM1 by measuring on a flat spot of the same map. Ours: an upright cylinder of the kind's walking radius and height (Warboss… | ☐ |
+| `R-30461F2F` | Musou: the picture a step meets | as for players (protocol 43): the input's body tick; the server keeps each tick's big Orks quantised exactly as the entity records carry them, the client takes each one's newest record at or before that tick, no older than **30** ticks (1 s); no carry-on by… (ticks) | kind: ours; confidence: medium | ours | Musou: the picture a step meets: compare with SM1 by feel or video. Ours: as for players (protocol 43): the input's body tick; the server keeps… | ☐ |
+| `R-4512F50A` | Musou: melee lock on big Orks | every big Ork is offered to the lock (start, combo, charge: the same cone, range 7 m, leash 1 m, height 1.5 m and line of sight as a player) under id 60000 + its id, standing at its body's edge toward the attacker less a player's radius (the Warboss's lock… (m) | kind: ours; confidence: medium | the owner ("lock on of melee weapons should work with them as well"); the lock point ours | Musou: melee lock on big Orks: compare with SM1 by measuring on a flat spot of the same map. Ours: every big Ork is offered to the lock (start, combo, charge: the same… | ☐ |
+
 ## Part C: Deliberate changes (keep or revert after playtest)
 
 Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our choices where the original is unknown, and what is not reproduced yet. Nothing is classified here; every row is listed. The prompt says what to ask after the playtest.
@@ -3919,6 +3928,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-8252AEC0` | Tracers to the impact (fx/tracers-impact, 2026-11-07) | Every tracer is one straight line from the barrel's muzzle locator to the shot's end point, where its decal is painted (own shots: the sent input's ray, scatter included; others': the server's end). Replaces feel/bullets' bend onto the camera ray 3 m out (`--bent-bullets` restores it) | How the original drew the line from the barrel (it may have been straight; the owner says it went to the decal) | Effect rendering: "Tracer: one straight line from the barrel to the impact" | Tracers to the impact (fx/tracers-impact, 2026-11-07): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-B51F53AC` | Plasma bolt (fx/tracers-impact, 2026-11-07) | The plasma gun's and pistol's uncharged shot plays the data's `plasma_gun_tracer` (Chaos `chaos_plasma_gun_tracer`; the pistol's basic shot, read from its secondary ability, binds the same) recoloured blue (Chaos purple), the streak at 0.3 of its width and 0.03 of its length, the smoke at 0.3 of its width: ours, from… | The original's on-screen colour of the `plasma_tracer` texture under its pale yellow keys, | Effect rendering: "Plasma bolt" | Plasma bolt (fx/tracers-impact, 2026-11-07): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-477A605B` | Projectile shots impact on arrival (fx/tracers-impact, 2026-11-07) | An own projectile shot (charged plasma, plasma cannon, launcher) draws no tracer and paints no impact when fired; the detonation draws them when the projectile arrives, with the body hit (armour glow, flash) when it went off on a player (within 0.6 m of the axis, ours) (`--old-charged-impact` restores the early impact) | None (the early impact was our bug) | Effect rendering: "Projectile shots paint their impact on arrival" | Projectile shots impact on arrival (fx/tracers-impact…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-78DDAB2E` | Musou: solid big Orks and the melee lock on them (musou/boss-collision, 2026-11-08; `MusouSim.Version` 24, `TfwRules.Version` 49) | No Musou Mode in the original | Ours (added content; the owner's request): the Warboss, Nobs, Boss Orks, the Big Shoota Nob, the Weirdboy and the Scrap Mek block the players' movement at their body's size (a fixed cylinder; the player takes the whole push) on the server and in the own prediction, and the melee lock takes them like a player (same… | Musou Mode only; Classic PvP's bodies and lock unchanged. spec "Musou: solid big Orks and the melee lock on them" | Musou: solid big Orks and the melee lock on them…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

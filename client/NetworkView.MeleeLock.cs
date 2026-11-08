@@ -127,7 +127,7 @@ public partial class NetworkView
         {
             if (_client.MeleeLockTarget <= 0) return null;
             foreach (var o in _lastOthers) if (o.PlayerId == _client.MeleeLockTarget && o.Alive) return MeleeLock.Offset(s, o).Length();
-            return null;
+            return _client.LockTargetShown() is { } extra ? MeleeLock.Offset(s, extra).Length() : null;   // musou/boss-collision: a big Ork's lock (GameClient.ExtrasSolids)
         }
         var view = new Dictionary<int, PlayerState>();
         foreach (var o in _lastOthers) if (o.PlayerId != s.PlayerId) view[o.PlayerId] = o;
