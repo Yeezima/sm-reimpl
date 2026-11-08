@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2525 spec table rows: **1861 tagged**, 474 not tagged (read from data with high confidence), 190 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 553 rows of the changes document.
+Scanned 2526 spec table rows: **1862 tagged**, 474 not tagged (read from data with high confidence), 190 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 554 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,21 +50,21 @@ Scanned 2525 spec table rows: **1861 tagged**, 474 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 421 | 401 | 280 | 117 | 1 |
+| Core simulation (provisional values) | 422 | 402 | 280 | 118 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 176 | 167 | 80 | 52 | 0 |
-| **All areas** | **1861** | 1621 | 1370 | 611 | 38 |
+| **All areas** | **1862** | 1622 | 1370 | 612 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 976 |
+| kind: ours | 977 |
 | confidence: low | 654 |
 | confidence: medium | 588 |
 | kind: interpretation | 357 |
 | notes: ours | 349 |
-| notes: estimate | 149 |
+| notes: estimate | 150 |
 | confidence: none (low) | 128 |
 | kind: estimate | 117 |
 | kind: provisional | 99 |
@@ -744,7 +744,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-C5F90938` | Shield generator | **800** hp; a dome of radius **10** m round it (a sphere at its foot): a player's hit-scan shot that enters it from outside ends where it enters (nothing behind it is struck); a cone or a blast from outside does not reach what stands inside; a shot, cone or… (hp, m) | kind: ours; notes: estimate | owner brief 2026-11-07 (800, 10 m, outside only); what else it stops ours | Shield generator: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 800 hp; a dome of radius 10 m round it (a sphere at its foot): a… | ☐ |
+| `R-C5F90938` | Shield generator | **800** hp; a dome of radius **10** m round it (a sphere at its foot): a player's hit-scan shot that enters it from outside ends where it enters (nothing behind it is struck); a cone or a blast from outside does not reach what stands inside; a shot, cone or… (hp, m) | kind: ours; notes: estimate | owner brief 2026-11-07 (800, 10 m, outside only); owner 2026-11-08 (Guardsmen's fire, Ork blasts, grenades; not movement or melee); a projectile going off at… | Shield generator: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 800 hp; a dome of radius 10 m round it (a sphere at its foot): a… | ☐ |
 
 ### Weapons (gameplay-critical) (120)
 
@@ -2089,7 +2089,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (421)
+### Core simulation (provisional values) (422)
 
 *Spec section: Provisional values in use*
 
@@ -2653,6 +2653,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-BBA97A5F` | Mek's death | all his contraptions are destroyed at once (a destroyed cue each); no trap goes off and no beacon drop lands | kind: ours | owner brief 2026-11-07 | Mek's death: compare with SM1 by feel or video. Ours: all his contraptions are destroyed at once (a destroyed cue each); no… | ☐ |
 | `R-7BD2DFCB` | Reinforcement beacon | **400** hp; every **30** s (the first 30 s after it is built) its queue takes a drop of **10** Boyz (the queue holds one drop at most); a drop flies when none is in flight and fewer than **40** of its Boyz live, carrying what the cap leaves, and lands **3** s… (hp, s, Boyz) | kind: ours; notes: estimate | owner brief 2026-11-07 (400, 30 s, 10, 40); the flight, ring and one-drop queue ours | Reinforcement beacon: compare with SM1 by feel or video. Ours: 400 hp; every 30 s (the first 30 s after it is built) its queue takes… | ☐ |
 | `R-AD65392D` | Beacon destroyed | the drop in flight and the queue are cancelled; Boyz already landed stay and fight as ordinary Orks | kind: ours | owner brief 2026-11-07 | Beacon destroyed: compare with SM1 by feel or video. Ours: the drop in flight and the queue are cancelled; Boyz already landed… | ☐ |
+| `R-AABACAC9` | Guardsmen and the contraptions | the Guardsmen shoot built Rokkit turrets only (owner, 2026-11-08), never a shield generator, beacon or trap: a man takes the nearest built turret within his range (flat) in sight and with no dome between; the even-numbered men of a squad (half, ours) take it… | kind: ours; notes: estimate | owner 2026-11-08 (turrets only); half the squad first ours | Guardsmen and the contraptions: compare with SM1 by feel or video. Ours: the Guardsmen shoot built Rokkit turrets only (owner, 2026-11-08)… | ☐ |
 | `R-2ACB0453` | Rokkit turret | **500** hp; every **4** s the Rokkit Boy's rocket (S2: the same projectile, 16 m/s, collisions, the client's one warning, and its Ork blast r 3.5 / 120 that hurts Orks and sets off Squigs) from **1.4** m up and 0.8 m in front at the nearest living player, AI… (hp, s, m) | kind: ours; notes: estimate | owner brief 2026-11-07 (500, 4 s, 50 m, S2's rocket); the muzzle and retry ours | Rokkit turret: compare with SM1 by feel or video. Ours: 500 hp; every 4 s the Rokkit Boy's rocket (S2: the same projectile… | ☐ |
 | `R-BB9F6F01` | Scrap trap: trigger | **150** hp, radius **3** m (flat, 2 m up or down): a living player or AI Marine, or a living Guardsman, inside sets it off, and it is spent; every player and AI Marine in it takes **50 %** of his maximum health and armour together as an Ork's hit (the… (hp, m, share) | kind: ours; notes: estimate | owner brief 2026-11-07 (150, 3 m, 50 %, spares Orks); health and armour together, spent ours | Scrap trap: trigger: compare with SM1 by feel or video. Ours: 150 hp, radius 3 m (flat, 2 m up or down): a living player or AI… | ☐ |
 | `R-509BFB6A` | Scrap trap: shot | a built trap destroyed by a player (shot, blast, blow, or an Ork blast credited to him) goes off as an Ork blast at its place credited to him: radius **4**, **150** at the centre, linear to **25 %** at the edge (hurts players, AI Marines, Guards and Orks… (m, hp) | kind: ours; notes: estimate | owner brief 2026-11-07 (Ork blast, hurts Orks); the numbers ours | Scrap trap: shot: compare with SM1 by feel or video. Ours: a built trap destroyed by a player (shot, blast, blow, or an Ork… | ☐ |
@@ -3771,6 +3772,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-29DB88E6` | Musou expansion S2: Bomb Squig and Rokkit Boy (2026-11-07; `MusouSim.Version` 14) | Exterminatus has Bomb Squigs and Rokkit Boyz as co-op enemies (its own spawns and blueprints) | Ours (added content, owner brief 2026-11-07): in Musou Mode battles a Squig is dropped behind each human every 60-120 s, runs at the nearest player, AI Marine or Guard squad, lights a 1.8 s fuse within 10 m and bursts as the original frag through the Ork blast (it hurts Orks too and chains to other Squigs); any hit… | spec "Musou Mode: expansion S2" | Musou expansion S2: Bomb Squig and Rokkit Boy (2026-11-07…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-A1DBEE21` | Musou expansion S3: Stormboy squads and the Big Shoota Nob (2026-11-07; `MusouSim.Version` 14, `TfwRules.Version` 34) | No Stormboys or Big Shoota Nobs in Exterminatus's waves as we run them; Musou's hunter columns walked to the nearest player | Ours (added content, owner brief 2026-11-07): two squads of 8 Stormboys replace the hunter columns, hop together in 25 m arcs every 3 s, counterattack the latest secured point, then hunt the nearest human by walk (ties to the least hunted), go back to capturing when no human is alive, and hold the nearest Ork point… | spec "Musou Mode: expansion S3" | Musou expansion S3: Stormboy squads and the Big Shoota Nob…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1FA2B854` | Musou expansion S4: the Scrap Meks and their contraptions (2026-11-08; `MusouSim.Version` 18, `TfwRules.Version` 36, wire tag 17) | Exterminatus has no Scrap Meks or Ork contraptions as we run it | Ours (added content, owner brief 2026-11-07): in Musou Mode battles five Scrap Meks (250 hp, each replaced 300 s after his death) run from players within 20 m, hide far from them and build, 15 s each, up to three contraptions apiece (one shield generator on the map): a shield generator (800 hp, a 10 m dome that stops… | spec "Musou Mode: expansion S4" | Musou expansion S4: the Scrap Meks and their contraptions…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-B995ACAF` | Musou S4 follow-up (owner, 2026-11-08; `TfwRules.Version` 38) | as above | Ours (added content): a scrap trap kills an AI Marine outright; the shield dome also stops, from outside, the Guardsmen's fire, Ork blasts, the Orks' rockets and every player projectile (grenades go off at its edge), never movement or melee; the Guardsmen shoot built Rokkit turrets and no other contraption | spec "Musou Mode: expansion S4" | Musou S4 follow-up (owner, 2026-11-08; TfwRules.Version 38): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2513A70A` | Musou expansion S6: the battle flow (2026-11-08; `MusouSim.Version` 18, `TfwRules.Version` 36) | Exterminatus's waves come at the players; no Ork waves cross the map between points, no Guard garrisons, no retreats or rallies, no autonomous AI Marines | Ours (added content, owner brief 2026-11-07): Ork waves of 200/500/1,000+ muster at strongholds and march on the Imperial point farthest from every player, committed; Guard reinforcements every 60 s split by need into garrisons capped at 200; armies beyond 90/120 m of every human fight as aggregates (Lanchester with… | spec "Musou Mode: expansion S6" | Musou expansion S6: the battle flow (2026-11-08…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-317F4209` | Musou: the Librarian (musou/exp-s5, 2026-11-07; `MusouSim.Version` 14) | No Musou Mode and no playable psyker in the original | Ours (added content, the owner's brief): a Musou-only class on the Tactical's body (a placeholder) with the power sword as a force sword (rainbow glow), no gun; Psychic Stress 0 to 100 shared by chain lightning (30 m, 8 m jumps, 40 targets, 90 dps x0.85 a jump), Warp Pull (cone, 25 m) and Psychic Shockwave (9 m, 40… | spec "Musou Mode: the Librarian" | Musou: the Librarian (musou/exp-s5, 2026-11-07…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-1F489392` | Musou: the Librarian, second pass (MusouSim 15) | The original has MP Librarian armour packages but no class or armour set that wears them | Ours: he wears the install's MP Librarian torso and belt, right pad and hood backpack over the player's Tactical look; PLAY AS LIBRARIAN in the Stormbird's Esc menu; original install sounds chosen for his powers (some from the campaign psyker); a weapon-box-style stress gauge; all 40 lightning links drawn (3-byte… | spec "Musou Mode: the Librarian" | Musou: the Librarian, second pass (MusouSim 15): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
