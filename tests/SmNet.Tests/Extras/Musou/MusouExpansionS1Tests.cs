@@ -181,7 +181,7 @@ public class MusouExpansionS1Tests
         musou.TakeKills(kills);
         Assert.Contains(kills, k => k.Enemy == boy && k.Cause == MusouDeathKind.OrkBlast && k.Player == Human);
         // A heavy blast kills the men outright.
-        Assert.True(w.MusouOrkBlast(centre, new OrkBlastSpec(8f, 100000f)).GuardKills > 0 && guards.Alive < menBefore);
+        Assert.True(r.GuardKills + w.MusouOrkBlast(centre, new OrkBlastSpec(8f, 100000f)).GuardKills > 0 && guards.Alive < menBefore);   // at GuardRules.Strength 0.875 the first blast may already
     }
 
     [Fact]

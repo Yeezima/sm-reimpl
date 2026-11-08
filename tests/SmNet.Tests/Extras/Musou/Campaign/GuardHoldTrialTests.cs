@@ -14,7 +14,7 @@ namespace SmNet.Tests.Extras.Musou.Campaign;
 /// </summary>
 public static class GuardHoldTrial
 {
-    public const int Squads = TfwBattleRules.FieldSquads;
+    public const int Squads = TfwBattleRules.FieldSquads, Men = Squads * GuardSim.SquadSize;
     public const float PointRadius = 12f, LimitSeconds = 300f;
     public static readonly Vector3 Point = new(20f, 20f, 0f);
 
@@ -100,12 +100,15 @@ public static class GuardHoldTrial
 
 public class GuardHoldTrialTests(ITestOutputHelper output)
 {
-    /// <summary>The owner's target: about half (40 to 60 %) of 20 seeded counterattacks held (11 of 20 at <see cref="GuardRules.Strength"/> 4.5; about 1.5 minutes on 8 cores).</summary>
+    /// <summary>
+    /// The owner's target (2026-11-08: "near clash balance should match far clash balance", the far clash being even man for man): about half (40 to 60 %) of 20 seeded counterattacks of as many
+    /// Orks as the field has men (60) held (10 of 20 at <see cref="GuardRules.Strength"/> 0.875; about a minute on 8 cores).
+    /// </summary>
     [Fact]
     [Trait("Speed", "Slow")]
-    public void The_guard_hold_wins_about_half_of_twenty_seeded_counterattacks()
+    public void The_guard_hold_wins_about_half_of_twenty_seeded_counterattacks_of_its_own_size()
     {
-        var all = GuardHoldTrial.RunSeeds(20);
+        var all = GuardHoldTrial.RunSeeds(20, crowd: GuardHoldTrial.Men);
         foreach (var o in all) output.WriteLine(o.ToString());
         int held = all.Count(o => o.Held);
         output.WriteLine($"held {held} of {all.Length}");
@@ -134,13 +137,14 @@ public class GuardHoldTrialTests(ITestOutputHelper output)
     public void Sweep()
     {
         if (Environment.GetEnvironmentVariable("SM_GUARD_SWEEP") is not { Length: > 0 } list) return;
+        int crowd = int.TryParse(Environment.GetEnvironmentVariable("SM_GUARD_CROWD"), out int c) && c > 0 ? c : TfwBattleRules.CrowdSize;
         var baseRules = new GuardRules { Health = 85f, Damage = 5f };
         foreach (var (h, d) in list.Split(',').Select(x => float.Parse(x, System.Globalization.CultureInfo.InvariantCulture)).Select(x => (x, x)))
         {
             var rules = baseRules with { Health = baseRules.Health * h, Damage = baseRules.Damage * d };
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            var all = GuardHoldTrial.RunSeeds(20, rules);
-            output.WriteLine($"health x{h} damage x{d}: held {all.Count(o => o.Held)}/20 ({all.Count(o => o.Held && o.OrksLeft > 0)} at the limit), mean {all.Average(o => o.Seconds):0} s, guards left {all.Average(o => o.GuardsLeft):0.0}, orks left {all.Average(o => o.OrksLeft):0}, {watch.Elapsed.TotalSeconds:0.0} s wall");
+            var all = GuardHoldTrial.RunSeeds(20, rules, crowd);
+            output.WriteLine($"{crowd} Orks, health x{h} damage x{d}: held {all.Count(o => o.Held)}/20 ({all.Count(o => o.Held && o.OrksLeft > 0)} at the limit), mean {all.Average(o => o.Seconds):0} s, guards left {all.Average(o => o.GuardsLeft):0.0}, orks left {all.Average(o => o.OrksLeft):0}, {watch.Elapsed.TotalSeconds:0.0} s wall");
         }
     }
 }

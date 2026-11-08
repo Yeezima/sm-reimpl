@@ -167,7 +167,7 @@ Saved outside the repo under `%LOCALAPPDATA%\sm-reimpl\shots\musou-perf\`:
 
 | Answer | What was built | Measured |
 |---|---|---|
-| Near balance: "scale with size" | the near Guard share is set by the army's size (`TfwArmyRules.NearGuardStrength(men)`): 0.135 at 200, 0.072 at 500, 0.087 at 1,000, straight between on the log of the size | `NearFarBalanceTests` (8 bearings, 180 s, the rule): 200 v 200 held 4 of 8; 500 v 500 held 5 of 8; 1,000 v 1,000 held 4 of 8 (calibration: 500 at 0.065 / 0.08 gave 3 / 5 of 8; 1,000 at 0.065 / 0.08 / 0.095 gave 2 / 3 / 7 of 8). Far clash 511 of 1,000 at every size |
+| Near balance: "scale with size" (later replaced: see the integration below) | the near Guard share is set by the army's size (`TfwArmyRules.NearGuardStrength(men)`): 0.135 at 200, 0.072 at 500, 0.087 at 1,000, straight between on the log of the size | `NearFarBalanceTests` (8 bearings, 180 s, the rule): 200 v 200 held 4 of 8; 500 v 500 held 5 of 8; 1,000 v 1,000 held 4 of 8 (calibration: 500 at 0.065 / 0.08 gave 3 / 5 of 8; 1,000 at 0.065 / 0.08 / 0.095 gave 2 / 3 / 7 of 8). Far clash 511 of 1,000 at every size |
 | Send budget: "count it" | in a Musou match the core messages (snapshots, scoreboards, bars, pickups) come out of the client's Musou send bucket each tick (at least 0.3 of the refill stays); the war's bucket then has what Musou and the core left of its 58 KB/s. Classic PvP counts nothing (`SM_MUSOU_OLD_CORE_BUDGET=1` restores) | 500 v 500 on Ashfall: **59 to 62 KB/s a client** (before 72 to 80): crowd (tag 3) 31 to 33 KB/s (was 33 to 52), core 13 KB/s, the rest under 7 |
 | Grime: "option in Graphics" | Options > Graphics > Ashfall grime: EXACT (OVERLAY) default, FAST (FOLDED, WEAK GPUS): derived kit shaders with the grime and the multiply worked into albedo and roughness; surfaces with other features keep the overlay. Close, not exact | 500 v 500 A/B: GPU 4.12 -> 3.78 ms, draw calls 1,632 -> 1,200, primitives 25.0 M -> 16.4 M; frame time unchanged here. Pair: `%LOCALAPPDATA%\sm-reimpl\shots\musou-perf\ashfall-grime-EXACT.png` and `ashfall-grime-FAST.png` (the plaza a little lighter and less blotched with FAST); all pairs in `grime-fold\` |
 | Landing hitch: "ship now, fix after" | not worked on | see "Next item" |
@@ -182,3 +182,29 @@ were checked. FSR 2 stays off by default.
 The landing: one 420 to 460 ms client frame in the HUD, stations and markers' first battle frame (`tfw: orders, stations,
 hud, markers`), and 73 to 119 ms server ticks while the battle spawns (crowds 26 to 29 ms, Guard squads up to 28 ms, the
 core step). The owner: "ship now, fix after".
+
+## Integration with expansion S6's answers and the S4 follow-up (2026-11-08)
+
+Merged `claude/admiring-swanson-fe6c45` (S6: 414766bc, d43978f4) and `claude/elegant-torvalds-092dba` up to 01e56dca (S4
+follow-up: traps kill AI Marines, the shield dome stops Guard fire, Ork blasts, rockets and grenades through the new core
+hook `ExtrasProjectileStop` in `Projectiles.Fly`, Guardsmen shoot Rokkit turrets). The owner's picks:
+
+| Overlap | Kept | Dropped |
+|---|---|---|
+| Near balance | S6's: the Guardsmen 0.875x the install, a Guardsman worth an Ork in the far clash (`TfwClashRules.GuardWorth` 1) | this branch's size-scaled near-Guard share (0.135 / 0.072 / 0.087) and its `GuardSim` strength use |
+| Far bodies | this branch's: deaths beyond 90 m and out of view leave no body, ragdoll or gore; an aggregate's Ork losses leave bodies only within 90 m | S6's Guard impostor bodies (`GuardCrowd.AddImpostorBody`) |
+| Base target | this branch's: waves march on the base when the players hold no point | S6's "only once A, B and C are all Imperial" |
+| Remainders fighting near a player | S6's rule (real units a human can see take the aggregates' fire, put out none there), with this branch's rout fixes (a remainder's loss share is the army's; a routed remainder of an army with real men does not turn it home; under one man no remainder) | this branch's fire-share split |
+| Route stall | this branch's: searches side by side, taken at the fixed 5 s tick (deterministic) | S6's "taken when done, never waited for" (wall-clock dependent, not reproducible) |
+| Waiting waves | S6's creep (after 2.5 s a waiting wave goes on at 0.6 of its pace) | - |
+
+`TfwRules.Version` **40** (38 S4 follow-up, 39 S6's answers, 40 this integration); `MusouSim.Version` untouched (19). The
+new core hook is inert outside Musou: its stop stays infinite unless a Musou battle has a dome (`TfwMeks.AnyDome`); the
+Classic PvP tests pass.
+
+**Trials after the merge (Release):** S6's `GuardHoldTrialTests` (60 Guardsmen v 60 Orks): held **10 of 20** (S6's
+target). This branch's army trials near a player (`NearFarBalanceTests`, a garrison and a wave of N at a point, 8
+bearings): 200 v 200 held **8 of 8** (Guardsmen kept 64-70 %), 500 v 500 **8 of 8** (67-79 %), 1,000 v 1,000 **8 of 8**
+(65-75 %); far clash 511 of 1,000 at every size. So with S6's balance a near army clash at a point still goes to the
+garrison every time (the garrison holds the point and fights from it; the wave's real Orks come in a stream): the owner's
+call whether that is wanted. Base target: the first wave left at 144 s and reached the base at 226 s.

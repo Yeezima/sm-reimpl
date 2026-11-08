@@ -21,8 +21,8 @@ public static class TfwArmyRules
     public const float MarchAggro = 15f, AttackAggro = 30f;
     /// <summary>Aggregate march speeds (under an Ork's run and a Guardsman's walk, so real members keep up).</summary>
     public const float OrkSpeed = 3f, GuardSpeed = 3.6f;
-    /// <summary>A marching army waits while the middle of its real Orks is this far behind their places.</summary>
-    public const float WaitBehind = 5f;
+    /// <summary>A marching army waits while the middle of its real Orks is this far behind their places, at most <see cref="WaitMostSeconds"/> at a time; then it creeps on at <see cref="CreepShare"/> of its pace, so a wave whose front is fighting never stalls short of its point (the patrols' rule).</summary>
+    public const float WaitBehind = 5f, WaitMostSeconds = 2.5f, CreepShare = 0.6f;
     /// <summary>The routes between the battle's places are searched off the tick from the start and taken this long after it (deterministic, as the patrols').</summary>
     public const float RouteSeconds = 5f;
     public const int RouteExpansions = 200_000;
@@ -52,26 +52,6 @@ public static class TfwArmyRules
     public const float AtPointMargin = 10f;
     /// <summary>The base's radius for a wave attacking it (the owner's "base is a target", 2026-11-08; ours: the landing zone's hold radius, doubled for the squads round it).</summary>
     public const float BaseRadius = 20f;
-
-    /// <summary>
-    /// The owner's "near matches far" and "scale with size" (2026-11-08): an army's Guard squads made real near a player fight at this share of the Guardsmen's health and shot damage
-    /// (<see cref="GuardRules.Strength"/>, the field's 4.5x), by the army's size (its start), so a real fight near a player comes out as the far clash would (about even for even numbers) at 200, 500
-    /// and 1,000 a side. Tuned on <c>NearFarBalanceTests</c> (ours, an estimate).
-    /// </summary>
-    public static float NearGuardStrength(int men)
-    {
-        // The owner, 2026-11-08: "scale with size". Measured points (army size, share), straight between them on the size's logarithm, held flat beyond the ends.
-        ReadOnlySpan<(float Men, float Share)> points = [(200f, 0.135f), (500f, 0.072f), (1000f, 0.087f)];
-        float m = Math.Max(1f, men);
-        if (m <= points[0].Men) return points[0].Share;
-        for (int k = 1; k < points.Length; k++)
-            if (m <= points[k].Men)
-            {
-                float t = MathF.Log(m / points[k - 1].Men) / MathF.Log(points[k].Men / points[k - 1].Men);
-                return points[k - 1].Share + (points[k].Share - points[k - 1].Share) * t;
-            }
-        return points[^1].Share;
-    }
 
     /// <summary>The share of a wave's head count that is elite: the battle's (run progress) share.</summary>
     public static int WaveSize(float roll, float extraRoll) =>
@@ -296,6 +276,8 @@ public sealed class TfwArmy
     public int RetreatReady { get; set; }
     /// <summary>Times it was rallied (tests).</summary>
     public int Rallies { get; set; }
+    /// <summary>Ticks it has waited for its real ranks in a row.</summary>
+    public int WaitTicks { get; set; }
     /// <summary>A wave's departure tick (Muster: when it leaves).</summary>
     public int Leaves { get; set; }
     /// <summary>The wave's planned size while it musters.</summary>
