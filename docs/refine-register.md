@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2594 spec table rows: **1906 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 581 rows of the changes document.
+Scanned 2597 spec table rows: **1909 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 383 | 325 | 325 | 114 | 12 |
 | Combat core (critical) | 13 | 4 | 12 | 11 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 111 | 96 | 88 | 36 | 5 |
+| Melee (critical) | 114 | 99 | 91 | 36 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -53,14 +53,14 @@ Scanned 2594 spec table rows: **1906 tagged**, 479 not tagged (read from data wi
 | Core simulation (provisional values) | 450 | 428 | 303 | 120 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 178 | 169 | 80 | 54 | 0 |
-| **All areas** | **1906** | 1663 | 1403 | 617 | 38 |
+| **All areas** | **1909** | 1666 | 1406 | 617 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1012 |
-| confidence: low | 667 |
+| kind: ours | 1015 |
+| confidence: low | 670 |
 | confidence: medium | 607 |
 | kind: interpretation | 359 |
 | notes: ours | 352 |
@@ -904,7 +904,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (111)
+### Melee (gameplay-critical) (114)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -992,6 +992,19 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-60E21DD0` | Melee bark | an attack line, chance 0.15, at a melee attack's start (not the charge) (probability) | kind: ours; confidence: low | ours | Melee bark: compare with SM1 by listening A/B at the same distance and state. Ours: an attack line, chance 0.15, at a melee attack's start (not the… | ☐ |
+
+*Spec section: Added content: Musou — an experimental one-sided mode against swarms (server and client; no protocol change, extras wire 2)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-63074F9D` | Musou cleave radius (musou/melee-feel, owner 2026-11-08) | Musou Mode's war only: "increase the aoe cleave radius of all melee weapons" (no number given): the cleave's whole reach (the core's melee range + 0.5 m, + 1 m for a tracking strike) times `MusouCombatRules.CleaveRadiusScale` = 1.5, the same for every melee… (x) | kind: ours; confidence: low | the owner ("increase"); the 1.5 ours | Musou cleave radius (musou/melee-feel, owner 2026-11-08): compare with SM1 by measuring on a flat spot of the same map. Ours: Musou Mode's war only: "increase the aoe cleave radius of all melee… | ☐ |
+
+*Spec section: Added content: Musou Mode: gore (Musou pass 2 M10, owner items 8, 22 and 23; client only, no protocol change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-D3825FC0` | Melee slash, red / blue (musou/melee-feel, owner 2026-11-08) | Musou Mode (whatever the gore setting; replaces the dark gore's ink slash, which the original Ork blood had hidden since 2026-11-07): a glowing curved stroke across each enemy hit by a melee blow of a player or retainer (Hit event, marker 3) within 60 m, 1.5… (s, m) | kind: ours; confidence: low | the owner (colours, "bring back"); the shape and sizes ours | Melee slash, red / blue (musou/melee-feel, owner 2026-11-08): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: Musou Mode (whatever the gore setting; replaces the dark gore's ink… | ☐ |
+| `R-49628C10` | Melee hit shake, own (musou/melee-feel, owner 2026-11-08) | Musou Mode: "add a bit of screen shake": the own player's melee hit on an enemy shakes the camera by 0.008 rad for the first enemy of a swing and 0.001 rad for each further one, a swing capped at 0.014 rad in all (under half of the pound's 0.03 rad; a swing… (rad, s) | kind: ours; confidence: low | the owner ("a bit"); the numbers ours | Melee hit shake, own (musou/melee-feel, owner 2026-11-08): compare with SM1 by feel or video. Ours: Musou Mode: "add a bit of screen shake": the own player's melee hit… | ☐ |
 
 *Spec section: Added content: Musou Mode: the original blood (gore-original, 2026-11-07; client only, no protocol change)*
 
@@ -3266,6 +3279,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-B58DB761` | Ashfall concept pass (client, Musou Mode only) | the owner's concept art and his notes of 2026-11-06 (doubled airborne dirt, grime, black capture rings, raised letters shown when looked toward, a capture tracker; "something is wrong with the shadows"); every value ours | a higher sun and lifted grey shade, layered height haze, twice the ash and flakes with far debris and dust banks that never come near the camera, runtime grime on the ground, boundary and kit models, thin black ground rings, letters 24 m up shown only toward the view, a capture tracker on the HUD; `--ashfall-concept`… | Ashfall concept pass (client); Battle markers and capture tracker (concept pass, client) | Ashfall concept pass (client, Musou Mode only): compare with SM1 by feel or video. Ours: the owner's concept art and his notes of 2026-11-06 (doubled airborne… | ☐ |
 | `C-0FECB0BB` | Ashfall concept light pass (client, Musou Mode only) | the owner's concept art and his note of 2026-11-06 ("Musou currently feels too dark"); every value ours | a brighter, cooler grade with a fill light for what the sun leaves in shade, a storm sky with a warm break low behind the keep and far ruins in the haze, the boundary drawn to a ruined top (collision unchanged), cool grey ground tints and a floor wash; `--ashfall-concept v1`, `--ashfall-concept off`; never on Classic… | Ashfall concept light pass (client) | Ashfall concept light pass (client, Musou Mode only): compare with SM1 by feel or video. Ours: the owner's concept art and his note of 2026-11-06 ("Musou currently… | ☐ |
 | `C-C1F8181D` | Ashfall concept look, fable passes (client, Musou Mode only) | the owner's concept art and round-2 notes (2026-11-06); every value ours | our generated storm panorama sky with the warm break behind the keep; the kit drawn from Blender-baked, grimier, darker, matte copies of the owner's models (originals untouched, `--ashfall-kit-files source` draws them) plus a runtime multiply grime on every renderer; a cooler grade with lifted shade; camera-facing… | Ashfall concept look, fable passes (client) | Ashfall concept look, fable passes (client, Musou Mode only): compare with SM1 by feel or video. Ours: the owner's concept art and round-2 notes (2026-11-06); every value… | ☐ |
+| `C-547993D2` | Musou melee feel: red / blue slash, own-hit shake, wider cleave (musou/melee-feel; `TfwRules.Version` 44) | the owner's request (2026-11-08): "bring back the slashing visual effect... red for chain weapons and the combat knife, blue for power weapons. add a bit of screen shake. increase the aoe cleave radius of all melee weapons"; the shapes, amounts and the 1.5x ours (no number given), low confidence | a glowing slash across each enemy hit by a player's or retainer's melee, whatever the gore setting (it had vanished when the original Ork blood replaced the dark gore); red for chain weapons and the knife, blue for power weapons; the own melee hit shakes the camera 0.008 rad (0.014 most a swing); the cleave's reach… | spec "Musou cleave radius", "Melee slash, red / blue", "Melee hit shake, own" | Musou melee feel: red / blue slash, own-hit shake, wider…: compare with SM1 by feel or video. Ours: the owner's request (2026-11-08): "bring back the slashing visual… | ☐ |
 
 ### Deliberate changes (owner's decisions)
 

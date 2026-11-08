@@ -238,6 +238,7 @@ public partial class NetworkView
         if (i >= 0 && at.Z < shown[i].Position.Z + 0.5f) at = new Num.Vector3(at.X, at.Y, shown[i].Position.Z + 1.1f);
         else if (i < 0 && own) at = new Num.Vector3(at.X, at.Y, at.Z + 1.1f);
         bool? material = _musouTypeOf.TryGetValue(e.Enemy, out var hitType) ? MusouFleshRule.Material(hitType) : null;   // owner 2026-11-04: an unarmoured Ork's hit is always the flesh case
+        if (e.Value == 3) MusouMeleeSlash(e, at, camera, own, me);   // the red / blue slash and the small own-hit shake (NetworkView.MusouSlash.cs)
         if (e.Value == 3) { MusouPowerFlash(e, at, camera, me); MusouMeleeHitSound(e, at, camera, me, material); }   // fx/power-flash: a power weapon's cleave (the swing's budget caps the bursts)
         // The own weapon's hit sound on the enemy (hit-scan weapons; the killing blow included): the flesh case for an unarmoured Ork, the usual armour rule otherwise (owner 2026-11-04).
         if (own && e.Value is 1 or 2 && !NoSound && Loadouts.InHand(_config!, me) is { Delivery: DeliveryKind.Raycast } gun && _soundTriggers?.HitSound(gun.Name) is { } gunHit)
@@ -332,7 +333,7 @@ public partial class NetworkView
     {
         if (!MusouActive || _config is null) return;
         var rules = MusouCombatRules.Default;
-        float reach = _config.MeleeRange + rules.CleaveExtraRange + (step.TrackToHit ? MusouCombatRules.CleaveTrackRange : 0f);
+        float reach = rules.CleaveRange(_config.MeleeRange, step.TrackToHit);
         float minCos = MathF.Cos(MathF.Min(180f, _config.MeleeConeDegrees * rules.CleaveConeScale) * MathF.PI / 180f);
         var forward = new Num.Vector2(-MathF.Sin(me.Yaw), MathF.Cos(me.Yaw));
         float best = float.PositiveInfinity;

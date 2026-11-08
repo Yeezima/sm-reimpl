@@ -164,7 +164,7 @@ public sealed partial class World
         if (_state != MatchState.Playing || TfwMeks is not { Count: > 0 } meks || _musou is not { } musou) return;
         float damage = step.Damage * step.HealthMultiplier * Stims.MeleeDealt(Config, state);
         if (!(damage > 0f)) return;
-        float range = Config.MeleeRange + musou.Rules.Combat.CleaveExtraRange;
+        float range = musou.Rules.Combat.CleaveRange(Config.MeleeRange);
         float minCos = MathF.Cos(MathF.Min(180f, Config.MeleeConeDegrees * musou.Rules.Combat.CleaveConeScale) * MathF.PI / 180f);
         var forward = new Vector2(-MathF.Sin(state.Yaw), MathF.Cos(state.Yaw));
         meks.Near(state.Position, range + 2f, _mekNear);

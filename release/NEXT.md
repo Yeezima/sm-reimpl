@@ -9,3 +9,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Musou Mode: a glowing slash appears across every enemy your melee hits - red for the chain weapons and the combat knife, blue for the power weapons - and your own melee hits give the camera a small shake.
+- Musou Mode: every melee weapon now cleaves a wider area around you (1.5 times the old reach). This build does not play with earlier ones: everyone must update.

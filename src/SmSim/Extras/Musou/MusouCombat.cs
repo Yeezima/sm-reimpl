@@ -14,6 +14,18 @@ public sealed record MusouCombatRules
     public const float MeleeHealShare = 0.05f;
     /// <summary>A <see cref="MeleeStep.TrackToHit"/> strike's cleave reaches this much farther (ours, feel/melee-reliability: enemies carry no player lock).</summary>
     public const float CleaveTrackRange = 1f;
+    /// <summary>
+    /// The cleave's radius scale (owner, 2026-11-08: "increase the aoe cleave radius of all melee weapons", no number given; ours: 1.5x, low confidence, refine by playtest): the whole reach
+    /// (core range + <see cref="CleaveExtraRange"/> + the track bonus) times this, for every melee weapon alike (<see cref="CleaveRange"/>). 1 restores the old reach.
+    /// </summary>
+    public float CleaveRadiusScale { get; init; } = 1.5f;
+
+    /// <summary>
+    /// The cleave's reach from the attacker's feet: (<paramref name="meleeRange"/> + the extra range + the track bonus) times <see cref="CleaveRadiusScale"/> in Musou Mode's war
+    /// (<paramref name="war"/>); the 5-wave skirmish keeps the old reach (its replay is pinned, MusouSkirmishPinTests).
+    /// </summary>
+    public float CleaveRange(float meleeRange, bool trackToHit = false, bool war = true) => (meleeRange + CleaveExtraRange + (trackToHit ? CleaveTrackRange : 0f)) * (war ? CleaveRadiusScale : 1f);
+
     /// <summary>… within the core's <see cref="SimConfig.MeleeConeDegrees"/> times this (design: 1.5) …</summary>
     public float CleaveConeScale { get; init; } = 1.5f;
     /// <summary>… on at most this many enemies, nearest first (design: 8).</summary>

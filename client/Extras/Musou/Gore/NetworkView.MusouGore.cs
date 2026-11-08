@@ -173,7 +173,7 @@ public partial class NetworkView
             var from = cam;
             if (e.Player == ownId) from = me.Position;
             else if (e.Player > 0) foreach (var o in _lastOthers) if (o.PlayerId == e.Player) { from = o.Position; break; }
-            if (e.Value == 3) MusouCleaveSlash(chest, from);
+            // The slash itself is NetworkView.MusouSlash.cs now (red / blue, whatever the gore); the dark gore keeps its ink drops below.
             if (_goreFrameSprays >= GoreRules.HitsPerFrame) continue;
             _goreFrameSprays++; _goreSprays++;
             view.Field.HitCloud(chest, fire ? Num.Vector3.Zero : chest - from, e.Value == 3 ? GoreField.HitKind.Melee : fire ? GoreField.HitKind.Fire : e.Value == 2 ? GoreField.HitKind.Head : GoreField.HitKind.Shot, view.Field.LoadScale());
