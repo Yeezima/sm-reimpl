@@ -659,8 +659,6 @@ public partial class NetworkView
             }
             if (_fxTrailed.Count > 4096) _fxTrailed.Clear();
         }
-        if (!q.Thrown && !OldTrailSlab && IsPlasmaShot(q.Weapon, false) && !ProjectileWargear(q).Contains("cannon", StringComparison.OrdinalIgnoreCase) && _fxProjectileDir.TryGetValue(q.Id, out var flight))
-            BallBoltNote(q.Id, position, flight, 1f, PlasmaBoltTint(ProjectileWargear(q)) ?? new Color(0.45f, 0.72f, 1f));   // fix/plasma-trail-slab: the charged ball's smooth thick bolt
         return true;
     }
 
