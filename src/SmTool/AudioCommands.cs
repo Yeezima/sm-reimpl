@@ -511,6 +511,8 @@ static class AudioCommands
         var loudness = rest.Contains("--loudness") || rest.Contains("--loudness-gain") || rest.Contains("--loudness-range") ? SoundLoudness.FromArgs(rest, Console.Error.WriteLine) : SoundLoudness.Original;
         // --speech <character>/<exertion type>: a character's exertion line (speech_exertion) instead of an event, e.g. tactical_marine/effort_short_stab, ork_boy_2/damage_small.
         string? speech = Opt(rest, "--speech");
+        // --melee-hit: a melee weapon's on-hit post as the client posts it: the mix pass's on-hit +4 dB (SoundMixPass.Hit) and the rule's melee hit gain.
+        if (rest.Contains("--melee-hit")) offset = offset.Plus(SoundMixPass.Hit(false)).Plus(loudness.MeleeHit);
         Console.WriteLine($"event {eventName}: {(rest.Contains("--local") ? "local player" : "remote player")}, surface {Opt(rest, "--surface") ?? "(default)"}, speed {speed:0.##} m/s, distance {distance:0.#} m, master bus {catalog.MasterBusVolume:0.#} dB, rtpc volume cap {cap}" +
                           (offset.IsNone ? "" : $", offset {offset} included") + $", loudness {loudness}");
         for (int n = 0; n < posts; n++)
@@ -539,7 +541,7 @@ static class AudioCommands
         if (i < 0) return true;
         if (RtpcVolumeCaps.TryParse(i + 1 < rest.Length ? rest[i + 1] : null, out cap, out string? error)) return true;
         Console.Error.WriteLine($"--cap: {error}");
-        Console.Error.WriteLine("usage: smtool audio-mix <event> [--local] [--surface s] [--speed v] [--distance d] [--posts n] [--cap peak|node|voice|off] [--step] [--treatment impact|confirm-armour|confirm-flesh|confirm-kill] [--state <set-state event>] [--loudness [--loudness-gain dB] [--loudness-range x]] [--speech character/type]; smtool audio-levels [--speed v] [--posts n] [--cap ...]");
+        Console.Error.WriteLine("usage: smtool audio-mix <event> [--local] [--surface s] [--speed v] [--distance d] [--posts n] [--cap peak|node|voice|off] [--step] [--treatment impact|confirm-armour|confirm-flesh|confirm-kill] [--state <set-state event>] [--loudness [--loudness-gain dB] [--loudness-range x]] [--speech character/type] [--melee-hit]; smtool audio-levels [--speed v] [--posts n] [--cap ...]");
         return false;
     }
 

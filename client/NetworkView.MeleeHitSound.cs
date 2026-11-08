@@ -68,7 +68,7 @@ public partial class NetworkView
             if (LogSound("melee")) GD.Print($"MELEE HIT SOUND t {_connectedFor:F3} P{attacker.PlayerId} melee on {target} ({source}) wargear {wargear ?? "-"} strike {strike} ability {(ability.Length > 0 ? ability : "-")} rank {rank}: no hit sound in the data");
             return null;
         }
-        foreach (var evt in events) PostPlayerHitSound(evt, new SoundEmitter { Position = at, Label = $"melee hit on {target}", OneShot = true }, default, armoured);
+        foreach (var evt in events) PostPlayerHitSound(evt, new SoundEmitter { Position = at, Label = $"melee hit on {target}", OneShot = true }, LoudnessArg.MeleeHit, armoured);   // sound/louder-farther: melee hits x2
         CountSound(secondary ? "melee hit secondary" : "melee hit");
         _meleeHitPosts++;
         string joined = string.Join("+", events);
@@ -173,8 +173,11 @@ public partial class NetworkView
         _hitSoundCount++; _proceduralHits++;
         var player = new AudioStreamPlayer3D
         {
-            Stream = stream, Bus = SoundSystem.MixClassic ? SoundSystem.BusName : SoundSystem.HitBusName, PitchScale = pitch, VolumeDb = db + SoundGainDb + HitVolumeScaleDb + SoundMixPass.Hit(SoundSystem.MixClassic).GainDb, GlobalPosition = at,
-            AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.InverseDistance, UnitSize = 8f, MaxDistance = 90f,
+            Stream = stream, Bus = SoundSystem.MixClassic ? SoundSystem.BusName : SoundSystem.HitBusName, PitchScale = pitch, GlobalPosition = at,
+            // sound/louder-farther: the loudness rule and the melee hit gain; the distance (inverse from 8 m times the range scale, never under the floor) set once at the start, Godot's model off.
+            VolumeDb = db + SoundGainDb + HitVolumeScaleDb + SoundMixPass.Hit(SoundSystem.MixClassic).GainDb + LoudnessArg.GainDb + LoudnessArg.MeleeHitGainDb
+                       + LoudnessArg.InverseDistanceDb(GetViewport()?.GetCamera3D() is { } cam ? cam.GlobalPosition.DistanceTo(at) : 0f, 8f),
+            AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.Disabled, MaxDistance = 0f,
         };
         player.Finished += player.QueueFree;
         AddChild(player);

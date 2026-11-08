@@ -360,6 +360,7 @@ public partial class NetworkView
         if (option.Events.Count == 0 && _sound.SpeechBusy(emitter)) return false;
         if (_musouBudget.Take(group, distance, _musouLiveVoices, _musouLiveSpeech) != MusouSoundVerdict.Post) return false;
         var offset = MusouOrkOffset;
+        if (group == MusouSoundGroup.MeleeHit) offset = offset.Plus(LoudnessArg.MeleeHit);   // sound/louder-farther: melee hits x2 (owner 2026-11-08, all modes)
         int voices = 0, lines = 0;
         string events = "";
         foreach (var b in option.Events)

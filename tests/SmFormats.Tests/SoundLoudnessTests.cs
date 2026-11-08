@@ -88,11 +88,40 @@ public class SoundLoudnessTests
         Assert.Equal(-20f + SoundLoudness.DefaultGainDb, SoundLoudness.Default.Evaluate(v, null, 1, 0, null, null).VolumeDb, 3);
     }
 
+    /// <summary>
+    /// A melee weapon's on-hit sound (owner 2026-11-08: "raise melee weapon on hit sounds by 2X ... the same treatment as ... ranged weapons"): the synthetic voice stands for a hit at -20 dB
+    /// with the test curve; +6.02 dB (2x amplitude) on top of the rule's +9, the curves read at distance / 2.5, held at the floor.
+    /// </summary>
+    [Theory]
+    [InlineData(5f, -8.98f)]    // -20 - 4 + 9 + 6.02
+    [InlineData(15f, -16.98f)]  // -20 - 12 + 15.02
+    [InlineData(30f, -18.96f)]  // -20 - 13.98 (floor) + 15.02
+    [InlineData(60f, -18.96f)]
+    public void Melee_hits_are_twice_as_loud_with_the_same_distance_treatment(float distance, float expectedDb)
+    {
+        var rule = SoundLoudness.Default;
+        Assert.InRange(rule.MeleeHitGainDb, 6.01f, 6.03f);
+        var mix = rule.Evaluate(Voice(), null, 1, 0, distance, null).With(rule.MeleeHit);
+        Assert.InRange(mix.VolumeDb, expectedDb - 0.02f, expectedDb + 0.02f);
+        Assert.True(SoundLoudness.Original.MeleeHit.IsNone);
+        Assert.Equal(3f, SoundLoudness.FromArgs(["--melee-hit-gain", "3"]).MeleeHitGainDb);
+    }
+
+    [Fact]
+    public void Inverse_distance_for_godot_players_holds_the_floor()
+    {
+        var rule = SoundLoudness.Default;
+        Assert.Equal(0f, rule.InverseDistanceDb(20f, 8f));                     // within 8 m x 2.5
+        Assert.InRange(rule.InverseDistanceDb(40f, 8f), -6.03f, -6.01f);       // twice the unit: -6 dB
+        Assert.InRange(rule.InverseDistanceDb(1000f, 8f), -13.99f, -13.97f);   // the floor
+        Assert.True(SoundLoudness.Original.InverseDistanceDb(1000f, 8f) < -40f);
+    }
+
     [Fact]
     public void Arguments_set_or_restore_the_rule()
     {
         Assert.Equal(SoundLoudness.Original, SoundLoudness.FromArgs(["--loudness-original", "--loudness-gain", "12"]));
-        Assert.Equal(new SoundLoudness(12f, 3f, 0.2f), SoundLoudness.FromArgs(["--loudness-gain", "12", "--loudness-range", "3"]));
+        Assert.Equal(new SoundLoudness(12f, 3f, 0.2f, SoundLoudness.DefaultMeleeHitGainDb), SoundLoudness.FromArgs(["--loudness-gain", "12", "--loudness-range", "3"]));
         Assert.Equal(SoundLoudness.Default with { FloorFraction = 0f }, SoundLoudness.FromArgs(["--loudness-floor", "0"]));
         var errors = new List<string>();
         Assert.Equal(SoundLoudness.Default, SoundLoudness.FromArgs(["--loudness-gain", "loud", "--loudness-range", "0"], errors.Add));

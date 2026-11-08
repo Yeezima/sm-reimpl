@@ -13,7 +13,7 @@ namespace SmContent;
 /// Client <c>--loudness-gain &lt;dB&gt;</c>, <c>--loudness-range &lt;x&gt;</c>, <c>--loudness-floor &lt;fraction&gt;</c> (0 = no floor), <c>--loudness-original</c> (0 dB, x1, no floor: the data's
 /// levels and ranges); <c>smtool audio-mix --loudness</c>.
 /// </summary>
-public readonly record struct SoundLoudness(float GainDb, float RangeScale, float FloorFraction = 0f)
+public readonly record struct SoundLoudness(float GainDb, float RangeScale, float FloorFraction = 0f, float MeleeHitGainDb = 0f)
 {
     /// <summary>Added to every voice, dB (ours; about 2.8 times the amplitude). Refine in a playtest.</summary>
     public const float DefaultGainDb = 9f;
@@ -24,10 +24,29 @@ public readonly record struct SoundLoudness(float GainDb, float RangeScale, floa
     /// <summary>The share of a voice's amplitude at 0 m that distance can take it down to (the owner's 20 %, read as amplitude: -14 dB). Refine in a playtest.</summary>
     public const float DefaultFloorFraction = 0.2f;
 
-    public static SoundLoudness Default => new(DefaultGainDb, DefaultRangeScale, DefaultFloorFraction);
+    /// <summary>
+    /// Added to every melee weapon's on-hit sound on top of <see cref="GainDb"/> (owner, 2026-11-08: "raise melee weapon on hit sounds by 2X"): 2x the amplitude, +6.02 dB. All modes; swings' data
+    /// hit events on players and on Musou enemies, the Musou enemies' melee hits, the generated hit sound; not the charge's body smash. <c>--melee-hit-gain &lt;dB&gt;</c>.
+    /// </summary>
+    public static readonly float DefaultMeleeHitGainDb = 20f * MathF.Log10(2f);
+
+    public static SoundLoudness Default => new(DefaultGainDb, DefaultRangeScale, DefaultFloorFraction, DefaultMeleeHitGainDb);
 
     /// <summary>The data's levels and ranges (the behaviour before the rule).</summary>
-    public static SoundLoudness Original => new(0f, 1f, 0f);
+    public static SoundLoudness Original => new(0f, 1f, 0f, 0f);
+
+    /// <summary>The post offset of a melee weapon's on-hit sound (<see cref="MeleeHitGainDb"/>).</summary>
+    public VoiceOffset MeleeHit => new(MeleeHitGainDb);
+
+    /// <summary>
+    /// For a sound played outside the banks' curves (a Godot player): inverse distance, full within <paramref name="unitSize"/> times <see cref="RangeScale"/>, never under the floor; dB.
+    /// </summary>
+    public float InverseDistanceDb(float distance, float unitSize)
+    {
+        float unit = unitSize * RangeScale;
+        float db = distance <= unit || unit <= 0f ? 0f : 20f * MathF.Log10(unit / distance);
+        return Floored ? MathF.Max(db, FloorDb) : db;
+    }
 
     /// <summary>The floor in dB below the curve's value at 0 m (negative infinity: none).</summary>
     public float FloorDb => FloorFraction > 0f ? 20f * MathF.Log10(FloorFraction) : float.NegativeInfinity;
@@ -41,7 +60,7 @@ public readonly record struct SoundLoudness(float GainDb, float RangeScale, floa
     /// <summary>The curve end to test audibility against: the data's, or 0 (none) with a floor.</summary>
     public float MaxDistanceOf(SmFormats.Audio.WwiseAttenuation? attenuation) => Floored ? 0f : attenuation?.MaxDistance ?? 0f;
 
-    public override string ToString() => $"{GainDb:+0.#;-0.#;0} dB, range x{RangeScale:0.##}, floor {(Floored ? $"{FloorFraction * 100f:0.#} % ({FloorDb:0.#} dB)" : "none")}";
+    public override string ToString() => $"{GainDb:+0.#;-0.#;0} dB, range x{RangeScale:0.##}, floor {(Floored ? $"{FloorFraction * 100f:0.#} % ({FloorDb:0.#} dB)" : "none")}, melee hits {MeleeHitGainDb:+0.#;-0.#;0} dB";
 
     /// <summary>
     /// The rule from command-line arguments: <c>--loudness-original</c> = <see cref="Original"/>; otherwise <see cref="Default"/> with <c>--loudness-gain &lt;dB&gt;</c>,
@@ -63,6 +82,11 @@ public readonly record struct SoundLoudness(float GainDb, float RangeScale, floa
             {
                 if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float r) && float.IsFinite(r) && r >= 0.1f && r <= 20f) rule = rule with { RangeScale = r };
                 else error?.Invoke($"--loudness-range: '{value}' is not a factor (0.1 to 20); using {rule.RangeScale:0.##}");
+            }
+            else if (args[i] == "--melee-hit-gain")
+            {
+                if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float m) && float.IsFinite(m) && Math.Abs(m) <= 40f) rule = rule with { MeleeHitGainDb = m };
+                else error?.Invoke($"--melee-hit-gain: '{value}' is not a level in dB (-40 to 40); using {rule.MeleeHitGainDb:0.#}");
             }
             else if (args[i] == "--loudness-floor")
             {
