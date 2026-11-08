@@ -8,7 +8,7 @@ namespace SmServer;
 /// and the 20 Hz snapshots 47 or 63 ms apart; and with the PC busy (a build, a test sweep, the hosting client itself) a normal-priority sleeper woke tens to
 /// hundreds of milliseconds late: ticks skipped, snapshots more than the client's 100 ms interpolation delay apart (measured, docs/milestones.md). On Windows the
 /// wait is now a high-resolution waitable timer (Windows 10 1803 and later; else the timer resolution is raised to 1 ms for this process) and the server process
-/// (its loop and the Musou route-search workers the loop waits for) runs above normal priority, so a busy PC no longer delays its ticks. Elsewhere (the Linux VM) nothing changes: <c>Thread.Sleep(1)</c> already sleeps about 1 ms there. Pacing only: what a tick
+/// (its loop and the Musou route-search workers the loop waits for) (its loop thread; review 2026-11-08: not the whole process, so a client-hosted server never takes CPU from the client) runs above normal priority, so a busy PC no longer delays its ticks. Elsewhere (the Linux VM) nothing changes: <c>Thread.Sleep(1)</c> already sleeps about 1 ms there. Pacing only: what a tick
 /// computes is unchanged (the tick length and the catch-up rule are the same).
 /// </summary>
 public static class LoopPacing
@@ -27,9 +27,9 @@ public static class LoopPacing
         string priority = "normal priority";
         try
         {
-            using (var self = System.Diagnostics.Process.GetCurrentProcess()) self.PriorityClass = System.Diagnostics.ProcessPriorityClass.AboveNormal;
+            // Only the loop thread is raised, not the process (review 2026-11-08): a server hosted on the player's own PC must not take CPU from the client's render thread.
             Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
-            priority = "above normal priority";
+            priority = "above normal loop-thread priority";
         }
         catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException or ThreadStateException or PlatformNotSupportedException or UnauthorizedAccessException) { }
         try
