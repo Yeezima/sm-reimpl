@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2621 spec table rows: **1923 tagged**, 487 not tagged (read from data with high confidence), 211 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 587 rows of the changes document.
+Scanned 2630 spec table rows: **1932 tagged**, 487 not tagged (read from data with high confidence), 211 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 588 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 383 | 325 | 325 | 114 | 12 |
+| Movement (critical) | 384 | 326 | 326 | 114 | 12 |
 | Combat core (critical) | 13 | 4 | 12 | 11 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 112 | 97 | 88 | 37 | 5 |
+| Melee (critical) | 113 | 98 | 89 | 37 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -50,18 +50,18 @@ Scanned 2621 spec table rows: **1923 tagged**, 487 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 458 | 436 | 311 | 126 | 1 |
+| Core simulation (provisional values) | 465 | 443 | 316 | 126 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 184 | 174 | 86 | 53 | 0 |
-| **All areas** | **1923** | 1679 | 1419 | 623 | 38 |
+| **All areas** | **1932** | 1688 | 1426 | 623 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1022 |
-| confidence: low | 683 |
-| confidence: medium | 607 |
+| kind: ours | 1031 |
+| confidence: low | 689 |
+| confidence: medium | 608 |
 | kind: interpretation | 359 |
 | notes: ours | 358 |
 | notes: estimate | 152 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (383)
+### Movement (gameplay-critical) (384)
 
 *Spec section: Extracted parameters*
 
@@ -706,6 +706,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-DE34BE76` | Target preference: range, stickiness, movement | Only targets within **40** m are weighed (beyond, the flow field's nearest rules as before); the current target's score is x **0.85** at a re-choice so near-equal targets do not flip; a preference other than the nearest is walked to **directly** within 40 m… (m, factor) | kind: ours; confidence: low | ours | Target preference: range, stickiness, movement: compare with SM1 by timing a run over a known distance. Ours: Only targets within 40 m are weighed (beyond, the flow field's… | ☐ |
 
+*Spec section: Musou combat feel: contact at contact, pilot power sword and bolt pistol (claude/combat-feel, 2026-11-09; client only, no simulation, wire, protocol, config-hash or rules-version change; Musou Mode only, plus two accessibility options for every mode)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-DCC22DDE` | Musou: the rank and file pushed back | a Boy, Shoota Boy, Gretchin, Rokkit Boy, Stormboy, Mek or Squig hit by a player (server report) is drawn pushed away from the attacker by **0.12** m (shot) or **0.2** m (melee) over **0.15** s, clip, facing and run kept; 'Ard Boyz, Nobz, the Chaos Marine… (m, s) | kind: ours; confidence: low | the brief: directional reactions, no 180-degree turn (the old flinch swapped in the stagger clip and pushed along the Ork's own facing; it stays off) | Musou: the rank and file pushed back: compare with SM1 by timing a run over a known distance. Ours: a Boy, Shoota Boy, Gretchin, Rokkit Boy, Stormboy, Mek or Squig hit… | ☐ |
+
 ### Combat core (gameplay-critical) (13)
 
 *Spec section: Known behavior (public, unverified)*
@@ -904,7 +910,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (112)
+### Melee (gameplay-critical) (113)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1122,6 +1128,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-E63929EE` | Hop swing: other melee weapons | Not changed: the knife, chainsword, power sword and power / chain axe still dash-attack from 0.333 s of the hop, as the data's `BRANCH_Dash_Attack` and the graph's `MeleeDash` say; a press while the dash attack's spacing runs is still lost (open question for… | confidence: low; notes: ours | the data; the lost press ours | Hop swing: other melee weapons: compare with SM1 by feel or video. Ours: Not changed: the knife, chainsword, power sword and power / chain axe… | ☐ |
 | `R-D0397FE7` | Slam steering: lock-on and lunge | A steered slam ignores the melee lock's alignment (the steering is the aim); its root-motion lunge runs along the steered heading, and the lock still sets its distance as before. Before this change the slam followed the view at once over its whole clip (its… | kind: ours; confidence: medium | ours | Slam steering: lock-on and lunge: compare with SM1 by feel or video. Ours: A steered slam ignores the melee lock's alignment (the steering is… | ☐ |
+
+*Spec section: Musou combat feel: contact at contact, pilot power sword and bolt pistol (claude/combat-feel, 2026-11-09; client only, no simulation, wire, protocol, config-hash or rules-version change; Musou Mode only, plus two accessibility options for every mode)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-D4C04CE2` | Musou: predicted melee contact (pilot) | on the frame the own power sword strike's hit time passes, every Ork the client sees in the cleave's reach (its rule: reach, cone, height, no wall) gets the slash, the lead one the power flash, the swing its capped shake, the next two their secondary hit… (count) | kind: ours; confidence: low | owner's brief 2026-11-09; the pilot weapon the owner's choice | Musou: predicted melee contact (pilot): compare with SM1 by feel or video. Ours: on the frame the own power sword strike's hit time passes, every Ork… | ☐ |
 
 ### Jump pack (gameplay-critical) (79)
 
@@ -2136,7 +2148,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (458)
+### Core simulation (provisional values) (465)
 
 *Spec section: Provisional values in use*
 
@@ -2871,6 +2883,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-875EC075` | Order keys (Musou) | superseded on 2026-11-08 by the restored retainers (Z Follow, X Hold, V Attack to the own retainer; rows "War orders" and "Retainer orders"); before: Z, X and V gave no order any more (no player orders the pair): the client sends none and X next weapon and V… | kind: ours | ours | Order keys (Musou): compare with SM1 by feel or video. Ours: superseded on 2026-11-08 by the restored retainers (Z Follow, X Hold… | ☐ |
 | `R-A0E6849B` | Ashfall grime under FSR 2 and its depth pull (Musou, client) | the owner, 2026-11-08: "the floor shimmers a lot in musou mode ashfall". With Options > Graphics > Upscaling on FSR 2, the grime's overlay passes (EXACT) shimmered on the far floor even on a still camera (floor pixels flickering between three consecutive… (1e-4 of the distance) | kind: ours; confidence: medium | measured (hotfix/ashfall-floor-shimmer); the pull's size ours | Ashfall grime under FSR 2 and its depth pull (Musou, client): compare with SM1 by feel or video. Ours: the owner, 2026-11-08: "the floor shimmers a lot in musou mode… | ☐ |
 
+*Spec section: Musou combat feel: contact at contact, pilot power sword and bolt pistol (claude/combat-feel, 2026-11-09; client only, no simulation, wire, protocol, config-hash or rules-version change; Musou Mode only, plus two accessibility options for every mode)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-72F7B0F1` | Musou: predicted shot contact (pilot) | the own bolt pistol's drawn shot stops at the first Ork on its ray (the server's shot body: head sphere over a closed cylinder, without the server's last-ticks path), and the Ork's flesh impact and the gun's hit sound play on the shot's frame | kind: ours; confidence: low | as above | Musou: predicted shot contact (pilot): compare with SM1 by feel or video. Ours: the own bolt pistol's drawn shot stops at the first Ork on its ray… | ☐ |
+| `R-E9DBDE82` | Musou: matching the server's report | a report of the own hit on an Ork within **0.6** s of a predicted contact on it is that contact: no second slash, flash, shake, impact or sound; one never reported counts as unconfirmed (log only) (s) | kind: ours; confidence: medium | ours (past the measured 0.21 s worst) | Musou: matching the server's report: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a report of the own hit on an Ork within 0.6 s of a predicted contact… | ☐ |
+| `R-1230E32F` | Musou: power sword stroke | the power sword's slash lasts **0.18** s (others 0.3), **1.9 to 2.5** m long, width **0.22** (others 0.34), colour x **1.35** (s, m) | kind: ours; confidence: low | the owner's "fast energized slice" | Musou: power sword stroke: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the power sword's slash lasts 0.18 s (others 0.3), 1.9 to 2.5 m long… | ☐ |
+| `R-DA42ED08` | Musou: own gun hit sounds | one a shot (the hits of one tick share it), at most **10** a second (burst **4**) (count/s) | kind: ours; confidence: low | the brief: no dozens of identical full-volume sounds | Musou: own gun hit sounds: compare with SM1 by feel or video. Ours: one a shot (the hits of one tick share it), at most 10 a second… | ☐ |
+| `R-69FA8A9F` | Musou: camera shake does not stack | a new shake counts in full if it is the strongest, else **25 %** of it is added; the total never passes **0.04** rad (a close frag is 0.032) (share, rad) | kind: ours; confidence: low | the brief: prevent shake from stacking | Musou: camera shake does not stack: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a new shake counts in full if it is the strongest, else 25 % of it is… | ☐ |
+| `R-B66C5204` | Options: camera shake | 0 to **100 %** (default 100 %, steps of 5 %): a factor on every camera shake, kick and landing bob, every mode (share) | kind: ours | the brief's accessibility controls | Options: camera shake: compare with SM1 with an overlaid screenshot taken from the same position. Ours: 0 to 100 % (default 100 %, steps of 5 %): a factor on every camera… | ☐ |
+| `R-0141EEF1` | Options: screen flashes | 0 to **100 %** (default 100 %): a factor on the screen-wide flashes (krak close by, Musou call-outs) and the power weapon hit bursts, every mode (share) | kind: ours | as above | Options: screen flashes: compare with SM1 by feel or video. Ours: 0 to 100 % (default 100 %): a factor on the screen-wide flashes (krak… | ☐ |
+
 ### General game design (7)
 
 *Spec section: Known behavior (public, unverified)*
@@ -3320,6 +3344,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-0FECB0BB` | Ashfall concept light pass (client, Musou Mode only) | the owner's concept art and his note of 2026-11-06 ("Musou currently feels too dark"); every value ours | a brighter, cooler grade with a fill light for what the sun leaves in shade, a storm sky with a warm break low behind the keep and far ruins in the haze, the boundary drawn to a ruined top (collision unchanged), cool grey ground tints and a floor wash; `--ashfall-concept v1`, `--ashfall-concept off`; never on Classic… | Ashfall concept light pass (client) | Ashfall concept light pass (client, Musou Mode only): compare with SM1 by feel or video. Ours: the owner's concept art and his note of 2026-11-06 ("Musou currently… | ☐ |
 | `C-C1F8181D` | Ashfall concept look, fable passes (client, Musou Mode only) | the owner's concept art and round-2 notes (2026-11-06); every value ours | our generated storm panorama sky with the warm break behind the keep; the kit drawn from Blender-baked, grimier, darker, matte copies of the owner's models (originals untouched, `--ashfall-kit-files source` draws them) plus a runtime multiply grime on every renderer; a cooler grade with lifted shade; camera-facing… | Ashfall concept look, fable passes (client) | Ashfall concept look, fable passes (client, Musou Mode only): compare with SM1 by feel or video. Ours: the owner's concept art and round-2 notes (2026-11-06); every value… | ☐ |
 | `C-547993D2` | Musou melee feel: red / blue slash, own-hit shake, wider cleave (musou/melee-feel; `TfwRules.Version` 44) | the owner's request (2026-11-08): "bring back the slashing visual effect... red for chain weapons and the combat knife, blue for power weapons. add a bit of screen shake. increase the aoe cleave radius of all melee weapons"; the shapes, amounts and the 1.5x ours (no number given), low confidence | a glowing slash across each enemy hit by a player's or retainer's melee, whatever the gore setting (it had vanished when the original Ork blood replaced the dark gore); red for chain weapons and the knife, blue for power weapons; the own melee hit shakes the camera 0.008 rad (0.014 most a swing); the cleave's reach… | spec "Musou cleave radius", "Melee slash, red / blue", "Melee hit shake, own" | Musou melee feel: red / blue slash, own-hit shake, wider…: compare with SM1 by feel or video. Ours: the owner's request (2026-11-08): "bring back the slashing visual… | ☐ |
+| `C-AC2CAADD` | Musou combat feel: contact at contact (claude/combat-feel, 2026-11-09) | the owner's combat-feel brief and approvals (2026-11-09); every number ours, low confidence | the own power sword strike's slash, flash, shake and hit sounds and the own bolt pistol's impact and hit sound play at the predicted contact instead of the server's report about 186 ms later (no second copy from the report; no kill, death or gore predicted); the power sword's own faster, thinner, brighter stroke; own… | spec "Musou combat feel: contact at contact" | Musou combat feel: contact at contact (claude/combat-feel…: compare with SM1 by feel or video. Ours: the owner's combat-feel brief and approvals (2026-11-09); every… | ☐ |
 
 ### Deliberate changes (owner's decisions)
 

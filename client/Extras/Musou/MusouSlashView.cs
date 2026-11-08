@@ -37,7 +37,7 @@ void fragment() {
     {
         public bool Live;
         public Vector3 Pos, Axis, Up, Normal;
-        public float Length, Age, Bow;
+        public float Length, Age, Bow, Seconds, Width;
         public Color Colour;
     }
 
@@ -61,7 +61,10 @@ void fragment() {
     }
 
     /// <summary>Starts a slash across the enemy whose chest is at <paramref name="at"/>, struck from <paramref name="from"/>, seen from <paramref name="camera"/> (all world space).</summary>
-    public void Add(Vector3 at, Vector3 from, Vector3 camera, MusouSlashColour colour, RandomNumberGenerator rng)
+    public void Add(Vector3 at, Vector3 from, Vector3 camera, MusouSlashColour colour, RandomNumberGenerator rng) => Add(at, from, camera, colour, rng, MusouContactRules.DefaultSlash);
+
+    /// <summary>The same with the weapon's stroke style (combat feel, 2026-11-09: the power sword's faster, thinner, brighter stroke; <see cref="MusouContactRules.SlashOf"/>).</summary>
+    public void Add(Vector3 at, Vector3 from, Vector3 camera, MusouSlashColour colour, RandomNumberGenerator rng, MusouSlashStyle style)
     {
         var view = (camera - at).Normalized();
         if (view.LengthSquared() < 0.5f) view = Vector3.Back;
@@ -73,10 +76,12 @@ void fragment() {
         float angle = rng.RandfRange(0.45f, 1.05f) * (rng.Randf() < 0.5f ? 1f : -1f);
         var axis = (right * MathF.Cos(angle) * side + up * MathF.Sin(angle)).Normalized();
         var (r, g, b) = MusouSlashRules.Rgb(colour);
+        float bright = style.Brightness > 0f ? style.Brightness : 1f;
+        r *= bright; g *= bright; b *= bright;
         _slashes[_next] = new Slash
         {
             Live = true, Pos = at + view * 0.45f, Axis = axis, Up = view.Cross(axis).Normalized(), Normal = view,
-            Length = rng.RandfRange(MusouSlashRules.LengthMin, MusouSlashRules.LengthMax), Bow = rng.Randf() < 0.5f ? 1f : -1f, Colour = new Color(r, g, b, 1f),
+            Length = rng.RandfRange(style.LengthMin, style.LengthMax), Seconds = style.Seconds > 0f ? style.Seconds : MusouSlashRules.Seconds, Width = style.Width > 0f ? style.Width : MusouSlashRules.Width, Bow = rng.Randf() < 0.5f ? 1f : -1f, Colour = new Color(r, g, b, 1f),
         };
         _next = (_next + 1) % _slashes.Length;
         Started++;
@@ -90,11 +95,11 @@ void fragment() {
             ref var s = ref _slashes[i];
             if (!s.Live) continue;
             s.Age += (float)delta;
-            float t = s.Age / MusouSlashRules.Seconds;
+            float t = s.Age / s.Seconds;
             if (t >= 1f) { s.Live = false; continue; }
             float reveal = Math.Clamp(t / 0.4f, 0.05f, 1f) * 1.15f;   // the head runs a little past the end, so the whole stroke is lit before it fades
             float fade = 1f - Math.Clamp((t - 0.45f) / 0.55f, 0f, 1f);
-            var basis = new Basis(s.Axis * s.Length, s.Up * MusouSlashRules.Width * (s.Length / 1.8f) * 2.2f, s.Normal);
+            var basis = new Basis(s.Axis * s.Length, s.Up * s.Width * (s.Length / 1.8f) * 2.2f, s.Normal);
             _mm.SetInstanceTransform(n, new Transform3D(basis, s.Pos));
             _mm.SetInstanceColor(n, s.Colour);
             _mm.SetInstanceCustomData(n, new Color(reveal, fade, s.Bow, 0f));

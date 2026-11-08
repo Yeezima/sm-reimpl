@@ -45,6 +45,14 @@ public partial class NetworkView
 
     partial void ExtrasShotMaterial(ShotView shot, int victim, ref bool? armoured) => MusouShotMaterial(shot, victim, ref armoured);
 
+    partial void ExtrasOwnStrikeContact(PlayerState me, MeleeStep step) => MusouOwnStrikeContact(me, step);
+
+    partial void ExtrasOwnShotEnd(WeaponSpec weapon, System.Numerics.Vector3 start, System.Numerics.Vector3 dir, ref float distance, ref bool enemy) => MusouOwnShotEnd(weapon, start, dir, ref distance, ref enemy);
+
+    partial void ExtrasOwnShotContact(PlayerState me, WeaponSpec weapon, System.Numerics.Vector3 start, System.Numerics.Vector3 dir, System.Numerics.Vector3 end) => MusouOwnShotContact(me, weapon, start, dir, end);
+
+    partial void ExtrasShakeTotal(float current, float amount, ref float total) => MusouShakeTotal(current, amount, ref total);
+
     partial void ExtrasMapContent(string name, ref MapContent? map) => TfwAshfallContent(name, ref map);
 
     partial void ExtrasMapVisuals(string name, MapContent map, ref bool drawn) => TfwAshfallVisuals(name, ref drawn);

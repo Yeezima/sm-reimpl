@@ -37,19 +37,26 @@ public partial class NetworkView
         if (e.Player == 0 || _gameSpace is null || _camera is null) return;
         if (own) MusouMeleeShake();
         if (NoMusouSlash || Num.Vector3.Distance(at, camera) > MusouSlashRules.Metres) return;
+        PlayerState? attacker = own ? me : MusouPlayerState(e.Player);
+        string? wargear = MusouSlashWeaponArg ?? (attacker is { } who ? MeleeWargear(who) : null);   // a retainer (no state): the chainsword's red
+        MusouSlashAt(at, attacker?.Position, MusouSlashRules.ColourOf(wargear), MusouOldContact ? MusouContactRules.DefaultSlash : MusouContactRules.SlashOf(wargear));
+    }
+
+    /// <summary>One slash across the enemy whose chest is at <paramref name="at"/> (game space), struck from <paramref name="from"/> (the camera when unknown), within the frame's budget.</summary>
+    void MusouSlashAt(Num.Vector3 at, Num.Vector3? from, MusouSlashColour colour, MusouSlashStyle style)
+    {
+        if (_camera is null) return;
         ulong frame = Engine.GetProcessFrames();
         if (frame != _musouSlashFrame) { _musouSlashFrame = frame; _musouSlashFrameCount = 0; }
         if (_musouSlashFrameCount >= MusouSlashRules.PerFrame) return;
         _musouSlashFrameCount++; _musouSlashes++;
-        PlayerState? attacker = own ? me : MusouPlayerState(e.Player);
-        string? wargear = MusouSlashWeaponArg ?? (attacker is { } who ? MeleeWargear(who) : null);   // a retainer (no state): the chainsword's red
         if (_musouSlashView is null)
         {
             _musouSlashView = new MusouSlashView();
             AddChild(_musouSlashView);
         }
-        var from = attacker is { } a ? ToGodot(a.Position) : _camera.GlobalPosition;
-        _musouSlashView.Add(ToGodot(at), from, _camera.GlobalPosition, MusouSlashRules.ColourOf(wargear), _musouSlashRng);
+        var origin = from is { } f ? ToGodot(f) : _camera.GlobalPosition;
+        _musouSlashView.Add(ToGodot(at), origin, _camera.GlobalPosition, colour, _musouSlashRng, style);
     }
 
     /// <summary>The own melee hit's shake: a small one for the first enemy of a swing, less for each more, the whole swing capped (<see cref="MusouSlashRules.ShakeCap"/>).</summary>

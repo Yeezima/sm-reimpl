@@ -201,13 +201,65 @@ public partial class NetworkView
 
         // Item 24: shots along the crowd (the count starts here: a frag's hits share the markers).
         _tfwBestPierce = 0;
+        bool aimed = CmdFlag("tfw-melee-aim");   // combat feel (2026-11-09): the sustained fire aimed at the nearest Ork's chest, re-aimed every 0.2 s for 6 s
+        if (CmdFlag("tfw-melee-pistol")) { await TfwActionTap(GameAction.Weapon1); await TfwWait(0.6); }   // combat feel: the sustained fire with the pistol slot
         TfwFaceCrowd(30f);
         TfwAction(GameAction.Fire, true);
-        await TfwWait(3.0);
+        if (aimed) for (double until = _connectedFor + 6.0; _connectedFor < until;) { TfwAimNearest(25f); await TfwWait(0.2); }
+        else await TfwWait(3.0);
         TfwAction(GameAction.Fire, false);
         await TfwShot("melee-40-shots");
         GD.Print($"TFWMELEE own most enemies hit by one shot: {_tfwBestPierce}");
         TfwCheck("the run is still on", TfwNow.Phase != TfwRunPhase.Won);
+    }
+
+    /// <summary>
+    /// Test aid <c>--tfw-feel-capture</c> (combat feel, 2026-11-09): a short fight for the before / after captures and the timing logs. The player deploys,
+    /// walks towards the first objective and into the crowd until at least 4 Orks stand within 7 m (server <c>SM_TFW_KEEP_HUMAN=1</c>), swings 8 times at the
+    /// nearest Orks (light, light, stun strike, a pause), then fires 5 s at the nearest Ork's chest with the weapon in hand, and quits. Every press goes through the real actions.
+    /// </summary>
+    async Task TfwFeelCapture()
+    {
+        var client = _client!;
+        if (!await TfwTestDeploy(TfwLane.B)) return;
+        await TfwWait(1.0);
+        var point = _tfwState.Objectives[0].Position;
+        await TfwPathTo(point, "walked towards the Orks", 45.0, () => _musouState.MiddleNear(client.Predicted.Position, 22f) is not null);
+        int Near()
+        {
+            int n = 0;
+            var me = client.Predicted.Position;
+            foreach (var e in _tfwShown) if (e.State != MusouEnemyState.Dying && Num.Vector3.Distance(e.Position, me) < 7f) n++;
+            return n;
+        }
+        int near = Near();
+        for (int run = 0; run < 4 && near < 4; run++)   // walk into the crowd until at least 4 Orks stand within 7 m
+        {
+            var goal = _musouState.MiddleNear(client.Predicted.Position, 30f) ?? point;
+            await TfwPathTo(goal, $"walked into the crowd ({run + 1})", 8.0, () => Near() >= 4);
+            near = Near();
+        }
+        GD.Print($"TFWFEEL t {_connectedFor:F2} Orks within 7 m: {near}; swings start");
+        for (int k = 0; k < 8; k++)
+        {
+            TfwAimNearest(8f);
+            await TfwActionTap(k % 3 == 2 ? GameAction.StunStrike : GameAction.Melee);
+            if (k < 2) { await TfwWait(0.12); await TfwShot($"feel-swing-{k}"); }   // with --tfw-test <dir>: a still near the contact (a PNG costs ~330 ms: not in a timing run)
+            await TfwWait(k % 3 == 2 ? 1.1 : 0.55);
+        }
+        await TfwWait(0.8);
+        GD.Print($"TFWFEEL t {_connectedFor:F2} fire starts");
+        TfwAction(GameAction.Fire, true);
+        for (double until = _connectedFor + 5.0, still = _connectedFor + 1.5; _connectedFor < until;)
+        {
+            TfwAimNearest(25f);
+            await TfwWait(0.15);
+            if (_connectedFor >= still) { still = double.PositiveInfinity; await TfwShot("feel-fire"); }
+        }
+        TfwAction(GameAction.Fire, false);
+        await TfwWait(1.0);
+        GD.Print($"TFWFEEL t {_connectedFor:F2} done");
+        GetTree().Quit(0);
     }
 
     int _tfwBestCleave, _tfwBestPierce;

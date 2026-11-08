@@ -157,10 +157,15 @@ public sealed partial class MusouSim
     /// An enemy's body as a shot sees it: the height of the model drawn (Boy 2.15 m, Nob 3.0 m, docs/discovery.md; the type's <see cref="MusouTypeSpec.Height"/> is its walking size, and the top of the model was
     /// left without a body), <see cref="ShotRadiusScale"/> wide.
     /// </summary>
-    public (float Radius, float Height) ShotBody(MusouEnemyType type)
+    public (float Radius, float Height) ShotBody(MusouEnemyType type) => ShotBodyOf(Rules, type);
+
+    /// <summary><see cref="ShotBody"/> for any rules (the client's predicted shot, combat feel 2026-11-09, uses the same body as the server).</summary>
+    public static (float Radius, float Height) ShotBodyOf(MusouRules rules, MusouEnemyType type)
     {
-        var (radius, height) = Body(type);
-        if (MusouBossOrks.Is(type)) return (radius * ShotRadiusScale, ShotBody(MusouBossOrks.BaseOf(type)).Height * MusouBossOrks.BodyScale);   // its base's drawn height, 3x
+        var spec = rules.Of(type);
+        float scale = type == MusouEnemyType.Warboss ? rules.BossScale : 1f;
+        float radius = spec.Radius * scale, height = spec.Height * scale;
+        if (MusouBossOrks.Is(type)) return (radius * ShotRadiusScale, ShotBodyOf(rules, MusouBossOrks.BaseOf(type)).Height * MusouBossOrks.BodyScale);   // its base's drawn height, 3x
         height = type switch
         {
             MusouEnemyType.Boy or MusouEnemyType.ShootaBoy or MusouEnemyType.ArdBoy => 2.15f,

@@ -56,6 +56,13 @@ public partial class MusouCrowd : CrowdView
     readonly Dictionary<int, float> _flinch = new();   // per id: seconds into its flinch
     readonly List<int> _flinchOver = new();
 
+    /// <summary>Combat feel (2026-11-09): per id, the push back from a blow (seconds into it, the flat direction away from the attacker, metres); drawn only, the clip and facing kept.</summary>
+    readonly Dictionary<int, (float Age, Vector3 Away, float Metres)> _recoil = new();
+    readonly List<int> _recoilOver = new();
+
+    /// <summary>A blow from the direction opposite <paramref name="away"/> struck this Ork: it is drawn pushed back by up to <paramref name="metres"/> (<see cref="SmNet.Extras.Musou.MusouContactRules.RecoilAt"/>).</summary>
+    public void Recoil(int id, Vector3 away, float metres) => _recoil[id] = (0f, away, metres);
+
     /// <summary>A shot struck this Ork.</summary>
     public void Flinch(int id)
     {
@@ -81,8 +88,13 @@ public partial class MusouCrowd : CrowdView
                 clip = MusouLooks.Stagger; time = flinch;
                 p -= new Vector3(-MathF.Sin(e.Yaw), MathF.Cos(e.Yaw), 0f) * (FlinchBack * MathF.Sin(MathF.PI * MathF.Min(1f, flinch / FlinchSeconds)));
             }
+            if (_recoil.TryGetValue(e.Id, out var push)) p += push.Away * SmNet.Extras.Musou.MusouContactRules.RecoilAt(push.Age, push.Metres);
             Items.Add(new Item { Key = e.Id, Type = (int)e.Type, Position = p, Yaw = e.Yaw, Time = time, Clip = clip, Distance = p.DistanceTo(camera) });
         }
+        _recoilOver.Clear();
+        foreach (var (id, push) in _recoil) if (push.Age + delta >= SmNet.Extras.Musou.MusouContactRules.RecoilSeconds || !_seen.Contains(id)) _recoilOver.Add(id);
+        foreach (var id in _recoilOver) _recoil.Remove(id);
+        foreach (var id in new List<int>(_recoil.Keys)) { var r = _recoil[id]; _recoil[id] = (r.Age + delta, r.Away, r.Metres); }
         _flinchOver.Clear();
         foreach (var (id, age) in _flinch) if (age + delta >= FlinchSeconds || !_seen.Contains(id)) _flinchOver.Add(id);
         foreach (var id in _flinchOver) _flinch.Remove(id);

@@ -158,6 +158,7 @@ public partial class NetworkView
         long start = ImpactRules.MeleeHitGate.StartTick(tick, s.MeleeTime, _config!.TickSeconds);
         if (!_meleeFxGate.Passed(s.PlayerId, s.MeleeStep, s.MeleeHeavy, GateTime(s, step), FxTime(step), start)) return;   // sim/stomp-in-place: the drawn pose's time (the foot's landing), not the state's
         if (own) OwnStrikeHitSound(s, step, all);
+        if (own) ExtrasOwnStrikeContact(s, step);   // EXTRAS-HOOK: an added mode shows the own strike's contact on its own enemies at the predicted hit (Musou Mode, combat feel 2026-11-09)
         if (step.Stomp is { } blast && !NoStompFx) PlayStomp(s, own, character, wargear, blast);
         if (ImpactRules.PowerFlashRules.KindOf(wargear) is not null && !(PowerBlade.IsPowerSword(wargear) && NoSwordFx) && character is not null)
         {

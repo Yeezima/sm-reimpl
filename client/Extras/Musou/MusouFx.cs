@@ -105,6 +105,7 @@ public partial class NetworkView
         int ownId = client.PlayerId;
         var camera = _camera is null ? Num.Vector3.Zero : new Num.Vector3(_camera.GlobalPosition.X, -_camera.GlobalPosition.Z, _camera.GlobalPosition.Y);   // Godot to game space
         _musouFxTokens = MathF.Min(FxBurst, _musouFxTokens + FxPerSecond * delta);
+        MusouContactFrame(delta);   // combat feel: budgets, expiry, the log (NetworkView.MusouContact.cs)
         bool present = _musouHud is not null && _musouTelegraphs is not null;
 
         // The director: a new run forgets the crowd's enemies, the run's own counts and the telegraphs.
@@ -138,6 +139,7 @@ public partial class NetworkView
                     if (e.Player == ownId) { _hudView?.ShowHitMarker(false, e.Value == 2); _musouHitMarkers++; }
                     if (MusouWeirdboyShieldHit(e, shown)) break;   // the Weirdboy's shield took it: its pulse, no blood (NetworkView.MusouWeirdboy.cs)
                     MusouHitFx(e, shown, camera, own: e.Player == ownId, me);
+                    MusouRecoil(e, shown, me);   // combat feel: the rank and file pushed back from the blow (NetworkView.MusouContact.cs)
                     break;
                 case MusouEventKind.Death:
                     var (_, type) = MusouDeathOf(e);
@@ -238,15 +240,19 @@ public partial class NetworkView
         if (i >= 0 && at.Z < shown[i].Position.Z + 0.5f) at = new Num.Vector3(at.X, at.Y, shown[i].Position.Z + 1.1f);
         else if (i < 0 && own) at = new Num.Vector3(at.X, at.Y, at.Z + 1.1f);
         bool? material = _musouTypeOf.TryGetValue(e.Enemy, out var hitType) ? MusouFleshRule.Material(hitType) : null;   // owner 2026-11-04: an unarmoured Ork's hit is always the flesh case
-        if (e.Value == 3) MusouMeleeSlash(e, at, camera, own, me);   // the red / blue slash and the small own-hit shake (NetworkView.MusouSlash.cs)
-        if (e.Value == 3) { MusouPowerFlash(e, at, camera, me); MusouMeleeHitSound(e, at, camera, me, material); }   // fx/power-flash: a power weapon's cleave (the swing's budget caps the bursts)
+        bool predicted = own && MusouContactShown(e);   // combat feel (2026-11-09): this contact was shown at the prediction (NetworkView.MusouContact.cs): no second slash, flash, shake, impact or sound
+        if (e.Value == 3 && !predicted) MusouMeleeSlash(e, at, camera, own, me);   // the red / blue slash and the small own-hit shake (NetworkView.MusouSlash.cs)
+        if (e.Value == 3 && !predicted) { MusouPowerFlash(e, at, camera, me); MusouMeleeHitSound(e, at, camera, me, material); }   // fx/power-flash: a power weapon's cleave (the swing's budget caps the bursts)
         // The own weapon's hit sound on the enemy (hit-scan weapons; the killing blow included): the flesh case for an unarmoured Ork, the usual armour rule otherwise (owner 2026-11-04).
-        if (own && e.Value is 1 or 2 && !NoSound && Loadouts.InHand(_config!, me) is { Delivery: DeliveryKind.Raycast } gun && _soundTriggers?.HitSound(gun.Name) is { } gunHit)
+        // Combat feel: one sound a shot and a budget a second (a piercing shot or a burst no longer stacks identical sounds), none for a contact already sounded.
+        if (own && !predicted && e.Value is 1 or 2 && !NoSound && Loadouts.InHand(_config!, me) is { Delivery: DeliveryKind.Raycast } gun && _soundTriggers?.HitSound(gun.Name) is { } gunHit
+            && (MusouOldContact || MusouGunSoundTake(e.Tick)))
         {
             var emitter = new SoundEmitter { Position = ToGodot(at), Label = "musou enemy hit", OneShot = true };
             PostPlayerHitSound(gunHit, emitter, ImpactSounds.ImpactOffset(ImpactTreatmentArg, gunHit, hitScan: true), material);
             CountSound("body hit");
         }
+        if (predicted && e.Value is 1 or 2) return;   // the shot's impact was drawn at the shot (a kill's gore is the death's, elsewhere)
         if (_musouFxTokens < 1f || Num.Vector3.DistanceSquared(at, camera) > FxRange * FxRange) return;
         _musouFxTokens -= 1f;
         _musouHitFx++;

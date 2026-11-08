@@ -205,7 +205,7 @@ public sealed partial class MusouHud : Control
         double since = _time - _flashAt;
         if (since < 0 || since > seconds) return;
         float a = (float)(1.0 - since / seconds);
-        DrawRect(new Rect2(Vector2.Zero, vs), new Color(_flash, _flash.A * a * a));
+        DrawRect(new Rect2(Vector2.Zero, vs), new Color(_flash, _flash.A * a * a * SmClient.Customizer.Model.LiveOptions.ScreenFlashes));   // the Options menu's screen flashes
     }
 
     /// <summary>The run panel, top left (below the "F1: info" hint): the wave, the enemies left, the lives, the KOs and points.</summary>

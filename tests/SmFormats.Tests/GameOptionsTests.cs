@@ -19,6 +19,28 @@ public sealed class GameOptionsTests
         Assert.Equal(AaChoice.Default, o.Aa);
         Assert.Equal(ShadowChoice.Default, o.Shadows);
         Assert.Equal(0f, GameOptions.VolumeDb(1f));
+        Assert.Equal(1f, o.CameraShake);     // combat feel (2026-11-09): the game's own shake and flashes by default
+        Assert.Equal(1f, o.ScreenFlashes);
+    }
+
+    [Fact]
+    public void Camera_shake_and_screen_flashes_save_snap_and_clamp()
+    {
+        string dir = Directory.CreateTempSubdirectory("sm-options").FullName;
+        try
+        {
+            var options = GameOptions.Default with { CameraShake = 0.35f, ScreenFlashes = 0f };
+            var settings = FrontEndSettings.Default with { Options = options };
+            Assert.Null(settings.Save(dir));
+            var back = FrontEndSettings.Load(dir).Options;
+            Assert.Equal(0.35f, back.CameraShake, 3);
+            Assert.Equal(0f, back.ScreenFlashes);
+        }
+        finally { Directory.Delete(dir, true); }
+        var wild = (GameOptions.Default with { CameraShake = 7f, ScreenFlashes = float.NaN }).Clamped();
+        Assert.Equal(1f, wild.CameraShake);
+        Assert.Equal(1f, wild.ScreenFlashes);
+        Assert.Equal(0.35f, (GameOptions.Default with { CameraShake = 0.36f }).Clamped().CameraShake, 3);
     }
 
     [Fact]

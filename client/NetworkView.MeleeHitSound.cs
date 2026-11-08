@@ -94,6 +94,9 @@ public partial class NetworkView
     /// <summary>An added mode's own melee targets (Musou's enemies): the nearest one this strike should reach, at its chest (game space).</summary>
     partial void ExtrasMeleeTarget(PlayerState me, MeleeStep step, ref System.Numerics.Vector3? at, ref bool? armoured);
 
+    /// <summary>An added mode's contact feedback for the own strike at its predicted hit (Musou Mode: the slash, flash and shake on the Orks in reach; combat feel 2026-11-09).</summary>
+    partial void ExtrasOwnStrikeContact(PlayerState me, MeleeStep step);
+
     /// <summary>
     /// The owner, 2026-11-02: the sound was late. A server's hit report comes a round trip after the blow, so the own swing's hit sound plays on the frame its hit time passes (the moment the
     /// damage is dealt, from <see cref="MeleeFxFor"/>) when an enemy stands in reach; the report then adds nothing for that victim. With nobody in reach the report still sounds (as the swing's

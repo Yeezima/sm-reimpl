@@ -355,7 +355,17 @@ public partial class NetworkView
         OwnBallLaunch(index, stage, start, dir, end, victim >= 0);   // stream B (only a shot whose stage launches a plasma projectile): the own plasma ball leaves on the release frame (NetworkView.OwnBall.cs)
         FxShot(_client!.PlayerId, weapon, w, index, stage, endG, hit, surface, normalG, dirG, Combat.EyePosition(me, _config!), own: true, victim, ArmourUpForHit(hit, victim, own: true, OwnHitArmoured(victim)),   // protocol 22: the last hit report on this victim
                hitScan ? ToGodot(start) : null, hitScan ? dirG : null);
+        ExtrasOwnShotContact(me, weapon, start, dir, end);   // EXTRAS-HOOK: the contact on an added mode's enemy (Musou Mode: the flesh impact and the hit sound on the shot frame)
     }
+
+    /// <summary>An added mode's own enemies on the own shot's ray: <paramref name="distance"/> shortened to the nearest one before it, <paramref name="enemy"/> set (Musou Mode, combat feel 2026-11-09).</summary>
+    partial void ExtrasOwnShotEnd(WeaponSpec weapon, Num.Vector3 start, Num.Vector3 dir, ref float distance, ref bool enemy);
+
+    /// <summary>An added mode's contact feedback for the own shot just drawn from <paramref name="start"/> along <paramref name="dir"/> to <paramref name="end"/> (game space).</summary>
+    partial void ExtrasOwnShotContact(PlayerState me, WeaponSpec weapon, Num.Vector3 start, Num.Vector3 dir, Num.Vector3 end);
+
+    /// <summary>An added mode's rule for adding a camera shake: <paramref name="total"/> starts as the sum (Musou Mode: the strongest source plus a share of the rest, capped).</summary>
+    partial void ExtrasShakeTotal(float current, float amount, ref float total);
 
     /// <summary>The origin of the last <see cref="TraceOwn"/> (game space).</summary>
     Num.Vector3 _traceOwnStart;
@@ -382,6 +392,9 @@ public partial class NetworkView
         {
             // M39: players and props a piercing shot passes (NetworkView.Pierce.cs); without penetration the same first hit as before.
             var picture = PictureShot(start, dir, range, Pierces.Of(weapon, 0, upgrade => Pierces.HasUpgrade(c, me, upgrade)), c);
+            float enemyAt = picture.EndDistance; bool enemy = false;
+            ExtrasOwnShotEnd(weapon, start, dir, ref enemyAt, ref enemy);   // EXTRAS-HOOK: an added mode's own enemies stop the drawn shot (Musou Mode's Orks, combat feel 2026-11-09)
+            if (enemy) return (start + dir * enemyAt, ShotHit.None, -1, -dir, dir, -1);
             if (picture.EndVictim is { } v)
                 return (start + dir * picture.EndDistance, picture.EndZone == HitZone.Head ? ShotHit.Head : ShotHit.Body, -1, -dir, dir, v.PlayerId);
             if (picture.Surface is { } s && _client?.Collision is { } level)
@@ -746,16 +759,22 @@ public partial class NetworkView
     }
 
     /// <summary>Adds camera shake (radians of rotation; ours, not data: subtle by design).</summary>
-    void FxShake(float amount) => _shake += new Vector3(amount, amount, amount);
+    void FxShake(float amount)
+    {
+        float total = _shake.X + amount;
+        ExtrasShakeTotal(_shake.X, amount, ref total);   // EXTRAS-HOOK: Musou Mode's shakes do not stack (combat feel 2026-11-09); everywhere else the sum, as before
+        _shake = new Vector3(total, total, total);
+    }
 
     void FxApplyShake(double delta)
     {
         if (_camera is null) return;
-        float amount = _shake.X;
-        var bob = LandShakeOffset();   // animation pass 1 (NetworkView.Fall.cs): the landing's camera shake, a position offset along the camera's own axes
+        float accessibility = SmClient.Customizer.Model.LiveOptions.CameraShake;   // the Options menu's camera shake (combat feel 2026-11-09; 1 = as before)
+        float amount = _shake.X * accessibility;
+        var bob = LandShakeOffset() * accessibility;   // animation pass 1 (NetworkView.Fall.cs): the landing's camera shake, a position offset along the camera's own axes
         bool rotate = amount >= 0.0004f;
         if (!rotate) _shake = Vector3.Zero;
-        float punch = PunchNow() + CameraImpulseNow(delta);   // feel/weight-impact: the impulses (NetworkView.CameraImpulse.cs); anim/melee-interaction: the charge connect's camera kick (NetworkView.MeleeInteraction.cs)
+        float punch = (PunchNow() + CameraImpulseNow(delta)) * accessibility;   // feel/weight-impact: the impulses (NetworkView.CameraImpulse.cs); anim/melee-interaction: the charge connect's camera kick (NetworkView.MeleeInteraction.cs)
         if (!rotate && bob == Vector3.Zero && punch == 0f) return;
         _unshaken = _camera.GlobalTransform;
         var t = _unshaken;
@@ -781,7 +800,7 @@ public partial class NetworkView
         if (_flashLeft <= 0.0) { _flash.Visible = false; return; }
         _flashLeft -= delta;
         float a = (float)Math.Clamp(_flashLeft / 0.35, 0.0, 1.0);
-        _flash.Color = new Color(1f, 0.98f, 0.92f, 0.55f * a * a);
+        _flash.Color = new Color(1f, 0.98f, 0.92f, 0.55f * a * a * SmClient.Customizer.Model.LiveOptions.ScreenFlashes);   // the Options menu's screen flashes (1 = as before)
         _flash.Visible = a > 0.01f;
     }
 
