@@ -12,10 +12,12 @@ namespace SmClient;
 /// <summary>
 /// Expansion S4 on the client (Musou Mode only): the Scrap Meks and their contraptions (tag 17, <see cref="MekWire"/>; cues <see cref="MusouMekRules.BuildCue"/> to <see cref="MusouMekRules.TurretFireCue"/>).
 /// <list type="bullet">
-/// <item>*Placeholder demonstration* (no Mek model, no contraption models in the install): the Mek is the Boy's body (the crowd's fallback look) with a drawn wrench at his right hand; each contraption is
-/// built from simple shapes in scrap colours (the shield generator a drum with a mast, the beacon a pole with a blinking lamp, the turret a box with a launch tube that turns to its aim, the trap a
-/// rusty plate ringed with spikes and a pulsing red light); a build in progress rises out of the ground with its progress; the shield's dome a see-through green sphere of
-/// <see cref="MusouMekRules.ShieldRadius"/>.</item>
+/// <item>*Original asset loaded* (owner, 2026-11-08: "Yes, use these"; <see cref="MekModels"/>): the Mek is the co-op set's <c>nob_ranged_pro</c> at a Boy's height (<c>MusouLooks</c>); the shield
+/// generator the campaign's Ork pylon <c>ork_elektrik_tower_healthy</c> 4 m tall, its dome the Weirdboy's shield <c>shield_weird_boy</c> stretched to <see cref="MusouMekRules.ShieldRadius"/> and drawn
+/// see-through; the beacon the multiplayer banner <c>waaaghbanner</c>; the turret <c>ork_turret_healthy</c> (turning to its aim; <c>ork_turret_wreck</c> left a while when destroyed, the pylon's
+/// wreck likewise); the trap <c>ork_junkpile_d_healthy</c> ringed with six <c>Spikes_A</c>; a beacon's drop a small <c>ork_rok</c> falling in. A build rises out of the ground with its progress.</item>
+/// <item>*Placeholder demonstration*: the Mek's drawn wrench, the trap's red eye and pulsing light, the beacon's lamp; and every contraption's simple shapes until its model is built or when it
+/// does not load (<c>--mek-placeholders</c> keeps the shapes).</item>
 /// <item>*Original asset loaded* (master_fx and the sound triggers, read at run time): <c>amb_sparks_frequent</c> while a Mek builds, <c>weirdboy_shield_pulse</c> when a dome comes up,
 /// <c>ork_shield_break</c> when it is destroyed, <c>rokkit_dmg</c> and the frag grenade's detonation for a contraption destroyed and a trap's blast, <c>droppod_land_close</c> and
 /// <c>play_droppod_incoming</c> for a beacon's drop; the turret's rocket is the Rokkit Boy's (its fire, trail, burst and warning, <c>NetworkView.MusouSquigRokkit.cs</c>).</item>
@@ -29,7 +31,8 @@ public partial class NetworkView
     sealed class ShownContraption
     {
         public Node3D Root = null!;
-        public MeshInstance3D Body = null!;
+        public Node3D Body = null!;          // rises with the build (its Z scale); the turret's model turns with it
+        public bool Original;                // drawn with the install's model
         public Node3D? Turn;                 // the turret's head
         public OmniLight3D? Light;           // the trap's red pulse, the beacon's lamp
         public MeshInstance3D? Dome;
@@ -46,6 +49,17 @@ public partial class NetworkView
     Mesh? _turretHeadMesh;
     ShaderMaterial? _domeMaterial;
     int _mekBuilds, _mekBuilt, _mekDestroyed, _mekTraps, _mekDrops;
+    MekModels? _mekModels;
+    bool? _mekPlaceholders;
+    bool MekPlaceholders => _mekPlaceholders ??= CmdFlag("mek-placeholders");
+    readonly List<(Node3D Node, Vector3 From, Vector3 To, double Start)> _mekRoks = new();
+    readonly List<(Node3D Node, double Until)> _mekWrecks = new();
+
+    /// <summary>Model sizes in metres (ours, near the sim's bodies, <see cref="MusouMekRules.Body"/>): the pylon's and banner's height, the turret's, the junk pile's width, each spike row's length,
+    /// the falling rok's size; the turret model's turn to face its aim.</summary>
+    internal const float ShieldModelHeight = 4f, BeaconModelHeight = 3.2f, TurretModelHeight = 1.7f, TrapModelWidth = 2.6f, SpikeRowLength = 1.3f, SpikeHeight = 0.5f, RokSize = 2.5f, TurretModelYaw = 0f;
+    /// <summary>A drop's rok falls from this high (m) and a wreck stays this long (s); ours.</summary>
+    const float RokFallHeight = 45f, WreckSeconds = 12f;
 
     static readonly string[] MekEffects = ["amb_sparks_frequent", "droppod_land_close", "ork_shield_break", "weirdboy_shield_pulse", "rokkit_dmg"];
     System.Threading.Tasks.Task<(Dictionary<string, CSystem> Systems, Dictionary<string, byte[]> Decals, List<string> Failures)>? _mekFxLoad;
@@ -74,6 +88,7 @@ public partial class NetworkView
                 bool shield = _contraptions.TryGetValue((byte)e.Player, out var gone) && gone.Last.Kind == MusouContraptionKind.ShieldGenerator;
                 if (fx) _fx!.Play(shield ? "ork_shield_break" : "rokkit_dmg", at + Vector3.Up * 0.5f, Basis.Identity, shield ? 2f : 1f, priority: 2);
                 FragBurst(e.Vector, effects: false);
+                if (gone is { Original: true }) MekWreck(gone);
                 RemoveContraption((byte)e.Player);
                 break;
             }
@@ -89,6 +104,7 @@ public partial class NetworkView
                 break;
             case MusouMekRules.DropCue:
                 S2Post(SquigWhistle, at + Vector3.Up * 12f, -2f);
+                MekRok(e.Vector);
                 break;
             case MusouMekRules.DropLandCue:
                 _mekDrops++;
@@ -116,6 +132,13 @@ public partial class NetworkView
         MekFxLoad();
         if (_gameSpace is null) return;
         double now = _connectedFor;
+        if (!MekPlaceholders && _tfwState.Contraptions.Count > 0) _mekModels ??= new MekModels(_gameDir);   // read on the first contraption
+        if (_mekModels is { Done: false } models)
+        {
+            models.Step();
+            foreach (var note in models.Notes) GD.Print(note);
+            models.Notes.Clear();
+        }
         _mekSeen.Clear();
         foreach (var s in shown)
         {
@@ -141,12 +164,14 @@ public partial class NetworkView
         foreach (var c in _tfwState.Contraptions)
         {
             _contraptionSeen.Add(c.Id);
+            if (_contraptions.TryGetValue(c.Id, out var old) && !old.Original && ModelFor(c.Kind) is not null) { old.Root.QueueFree(); old.Sparks = StopSparks(old.Sparks); _contraptions.Remove(c.Id); }   // its model came: drawn again
             if (!_contraptions.TryGetValue(c.Id, out var shownC)) _contraptions[c.Id] = shownC = MakeContraption(c);
             shownC.Last = c;
             var p = c.Position;
             float rise = c.State == MusouContraptionState.Building ? 0.15f + 0.85f * c.Progress : 1f;
             shownC.Root.Transform = new Transform3D(Basis.Identity, new Vector3(p.X, p.Y, p.Z));
-            shownC.Body.Scale = new Vector3(1f, 1f, rise);
+            float turn = shownC.Original && c.Kind == MusouContraptionKind.Turret ? c.Aim + TurretModelYaw : 0f;
+            shownC.Body.Transform = new Transform3D(new Basis(Vector3.Back, turn).Scaled(new Vector3(1f, 1f, rise)), Vector3.Zero);
             if (shownC.Turn is { } head) { head.Visible = c.State == MusouContraptionState.Active; head.Rotation = new Vector3(0f, 0f, c.Aim); }
             if (shownC.Light is { } light)
             {
@@ -166,6 +191,89 @@ public partial class NetworkView
             if (!building && shownC.Sparks is { } sparks) { sparks.Repeat = false; sparks.Life = Math.Min(sparks.Life, sparks.Age + 0.3); shownC.Sparks = null; }
         }
         foreach (var id in _contraptions.Keys.Where(k => !_contraptionSeen.Contains(k)).ToList()) RemoveContraption(id);
+        // The drops' roks fall (turning slowly) and are gone as they land; the wrecks go after a while.
+        for (int k = _mekRoks.Count - 1; k >= 0; k--)
+        {
+            var (node, from, to, start) = _mekRoks[k];
+            float t = (float)((now - start) / MusouMekRules.DropFlightSeconds);
+            if (t >= 1f || !IsInstanceValid(node)) { if (IsInstanceValid(node)) node.QueueFree(); _mekRoks.RemoveAt(k); continue; }
+            node.Position = from.Lerp(to, t * t);
+            node.Rotation = new Vector3(0.4f * t, 0.9f * t, 0f);
+        }
+        for (int k = _mekWrecks.Count - 1; k >= 0; k--)
+            if (now >= _mekWrecks[k].Until || !IsInstanceValid(_mekWrecks[k].Node)) { if (IsInstanceValid(_mekWrecks[k].Node)) _mekWrecks[k].Node.QueueFree(); _mekWrecks.RemoveAt(k); }
+    }
+
+    static FxEffect? StopSparks(FxEffect? sparks)
+    {
+        if (sparks is { } s) { s.Repeat = false; s.Life = Math.Min(s.Life, s.Age + 0.2); }
+        return null;
+    }
+
+    /// <summary>A kind's model (null: none yet, none to be had, or <c>--mek-placeholders</c>).</summary>
+    MekModels.Built? ModelFor(MusouContraptionKind kind) => _mekModels?.Get(kind switch
+    {
+        MusouContraptionKind.ShieldGenerator => MekModels.ShieldGenerator,
+        MusouContraptionKind.Beacon => MekModels.Beacon,
+        MusouContraptionKind.Turret => MekModels.Turret,
+        _ => MekModels.Trap,
+    });
+
+    /// <summary>A contraption's model in game axes at its foot (Z up), sized near its body.</summary>
+    internal static Node3D OriginalBody(MusouContraptionKind kind, MekModels.Built model, MekModels models)
+    {
+        var body = new Node3D { Name = "Body" };
+        switch (kind)
+        {
+            case MusouContraptionKind.ShieldGenerator:
+                body.AddChild(MekModels.Place(model, Vector3.One * MekModels.ToHeight(model, ShieldModelHeight), true, "Pylon"));
+                break;
+            case MusouContraptionKind.Beacon:
+                body.AddChild(MekModels.Place(model, Vector3.One * MekModels.ToHeight(model, BeaconModelHeight), true, "Banner"));
+                break;
+            case MusouContraptionKind.Turret:
+                body.AddChild(MekModels.Place(model, Vector3.One * MekModels.ToHeight(model, TurretModelHeight), true, "Turret"));
+                break;
+            default:
+                body.AddChild(MekModels.Place(model, Vector3.One * MekModels.ToWidth(model, TrapModelWidth), true, "Junk"));
+                if (models.Get(MekModels.Spikes) is { } spikes)
+                    for (int k = 0; k < 6; k++)
+                    {
+                        float a = k * MathF.Tau / 6f;
+                        var ring = new Node3D { Name = $"Spikes{k}", Transform = new Transform3D(new Basis(Vector3.Back, a + MathF.PI / 2f), new Vector3(MathF.Cos(a) * 1.15f, MathF.Sin(a) * 1.15f, 0f)) };
+                        float across = MekModels.ToWidth(spikes, SpikeRowLength);
+                        ring.AddChild(MekModels.Place(spikes, new Vector3(across, MekModels.ToHeight(spikes, SpikeHeight), across), true, "Row"));   // the row's spikes stretched up (ours)
+                        body.AddChild(ring);
+                    }
+                break;
+        }
+        return body;
+    }
+
+    /// <summary>A destroyed turret or pylon: its wreck model where it stood, for <see cref="WreckSeconds"/>.</summary>
+    void MekWreck(ShownContraption gone)
+    {
+        var part = gone.Last.Kind switch { MusouContraptionKind.Turret => MekModels.TurretWreck, MusouContraptionKind.ShieldGenerator => MekModels.ShieldWreck, _ => null };
+        if (part is null || _mekModels?.Get(part) is not { } wreck || ModelFor(gone.Last.Kind) is not { } healthy || _gameSpace is null) return;
+        float height = gone.Last.Kind == MusouContraptionKind.Turret ? TurretModelHeight : ShieldModelHeight;
+        var p = gone.Last.Position;
+        float yaw = gone.Last.Kind == MusouContraptionKind.Turret ? gone.Last.Aim + TurretModelYaw : 0f;
+        var root = new Node3D { Name = "MekWreck", Transform = new Transform3D(new Basis(Vector3.Back, yaw), new Vector3(p.X, p.Y, p.Z)) };
+        root.AddChild(MekModels.Place(wreck, Vector3.One * MekModels.ToHeight(healthy, height), true, "Wreck"));   // the healthy model's scale: the wreck is what is left of it
+        _gameSpace.AddChild(root);
+        _mekWrecks.Add((root, _connectedFor + WreckSeconds));
+    }
+
+    /// <summary>A beacon's drop called: a rok falls in beside it over the drop's flight (ours: 3 m to its side).</summary>
+    void MekRok(Num.Vector3 beacon)
+    {
+        if (_mekModels?.Get(MekModels.Rok) is not { } rok || _gameSpace is null) return;
+        var to = new Vector3(beacon.X + 3f, beacon.Y, beacon.Z + 0.6f);
+        var from = to + new Vector3(6f, 4f, RokFallHeight);
+        var node = new Node3D { Name = "MekRok", Position = from };
+        node.AddChild(MekModels.Place(rok, Vector3.One * MekModels.ToWidth(rok, RokSize), false, "Rok"));
+        _gameSpace.AddChild(node);
+        _mekRoks.Add((node, from, to, _connectedFor));
     }
 
     void RemoveContraption(byte id)
@@ -179,11 +287,19 @@ public partial class NetworkView
     {
         var root = new Node3D { Name = $"Contraption{c.Id}" };
         _gameSpace!.AddChild(root);
-        var body = new MeshInstance3D { Name = "Body", Mesh = ContraptionMesh(c.Kind) };
+        var model = ModelFor(c.Kind);
+        Node3D body;
+        if (model is not null) body = OriginalBody(c.Kind, model, _mekModels!);
+        else { body = new Node3D { Name = "Body" }; body.AddChild(new MeshInstance3D { Name = "Shape", Mesh = ContraptionMesh(c.Kind) }); }
         root.AddChild(body);
-        var shown = new ShownContraption { Root = root, Body = body, Last = c };
+        var shown = new ShownContraption { Root = root, Body = body, Last = c, Original = model is not null };
+        if (model is not null && c.Kind == MusouContraptionKind.Trap)
+            body.AddChild(new MeshInstance3D { Name = "Eye", Mesh = new SphereMesh { Radius = 0.15f, Height = 0.3f }, Position = new Vector3(0f, 0f, 0.35f),
+                MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.9f, 0.08f, 0.04f), EmissionEnabled = true, Emission = new Color(1f, 0.05f, 0.02f), EmissionEnergyMultiplier = 2f } });
         switch (c.Kind)
         {
+            case MusouContraptionKind.Turret when model is not null:
+                break;
             case MusouContraptionKind.Turret:
                 var head = new Node3D { Name = "Head", Position = new Vector3(0f, 0f, MusouMekRules.TurretMuzzleHeight) };
                 head.AddChild(new MeshInstance3D { Mesh = _turretHeadMesh ??= TurretHeadMesh() });
@@ -198,12 +314,23 @@ public partial class NetworkView
                 shown.Light = new OmniLight3D { LightColor = new Color(1f, 0.55f, 0.1f), OmniRange = 8f, ShadowEnabled = false, Position = new Vector3(0f, 0f, 3.4f) };
                 root.AddChild(shown.Light);
                 break;
+            case MusouContraptionKind.ShieldGenerator when _mekModels?.Get(MekModels.Dome) is { } bubble:
+            {
+                // The Weirdboy's shield stretched to a sphere of the dome's radius round the generator's foot, drawn see-through with its own texture.
+                var size = bubble.Bounds.Size;
+                float d = MusouMekRules.ShieldRadius * 2f;
+                var place = MekModels.Place(bubble, new Vector3(d / MathF.Max(size.X, 1e-3f), d / MathF.Max(size.Y, 1e-3f), d / MathF.Max(size.Z, 1e-3f)), false, "Dome");
+                var texture = (bubble.Mesh.SurfaceGetMaterial(0) as StandardMaterial3D)?.AlbedoTexture;
+                foreach (var child in place.GetChildren()) if (child is MeshInstance3D shell) { shell.MaterialOverride = DomeMaterial(texture); shell.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off; shown.Dome = shell; }
+                root.AddChild(place);
+                break;
+            }
             case MusouContraptionKind.ShieldGenerator:
                 shown.Dome = new MeshInstance3D
                 {
                     Name = "Dome",
                     Mesh = new SphereMesh { Radius = MusouMekRules.ShieldRadius, Height = MusouMekRules.ShieldRadius * 2f, RadialSegments = 48, Rings = 24 },
-                    MaterialOverride = _domeMaterial ??= DomeMaterial(),
+                    MaterialOverride = _domeMaterial ??= DomeMaterial(null),
                     CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
                 };
                 root.AddChild(shown.Dome);
@@ -212,25 +339,34 @@ public partial class NetworkView
         return shown;
     }
 
-    /// <summary>The dome (ours): a see-through Ork-green shell, brighter at its rim, with slow bands running up it. *Placeholder demonstration*.</summary>
-    static ShaderMaterial DomeMaterial() => new()
+    /// <summary>
+    /// The dome's look (ours): see-through and added to what is behind, brighter at its rim; with the Weirdboy shield's texture (<paramref name="texture"/>, original) that texture drifting slowly,
+    /// else Ork-green bands (*placeholder demonstration*).
+    /// </summary>
+    internal static ShaderMaterial DomeMaterial(Texture2D? texture)
     {
-        Shader = new Shader
+        var material = new ShaderMaterial
         {
-            Code = """
-                shader_type spatial;
-                render_mode blend_add, depth_draw_never, cull_disabled, unshaded;
-                varying vec3 local;
-                void vertex() { local = VERTEX; }
-                void fragment() {
-                    float rim = pow(1.0 - abs(dot(normalize(NORMAL), normalize(VIEW))), 2.5);
-                    float bands = 0.5 + 0.5 * sin(local.y * 3.0 - TIME * 2.0);
-                    vec3 green = vec3(0.25, 0.95, 0.35);
-                    ALBEDO = green * (0.05 + 0.55 * rim + 0.06 * bands);
-                }
-                """,
-        },
-    };
+            Shader = new Shader
+            {
+                Code = """
+                    shader_type spatial;
+                    render_mode blend_add, depth_draw_never, cull_disabled, unshaded;
+                    uniform sampler2D skin : source_color, filter_linear_mipmap, repeat_enable;
+                    uniform bool textured = false;
+                    varying vec3 local;
+                    void vertex() { local = VERTEX; }
+                    void fragment() {
+                        float rim = pow(1.0 - abs(dot(normalize(NORMAL), normalize(VIEW))), 2.5);
+                        vec3 colour = textured ? texture(skin, UV + vec2(TIME * 0.02, TIME * 0.05)).rgb : vec3(0.25, 0.95, 0.35) * (0.5 + 0.5 * sin(local.y * 3.0 - TIME * 2.0));
+                        ALBEDO = colour * (0.12 + 0.75 * rim);
+                    }
+                    """,
+            },
+        };
+        if (texture is not null) { material.SetShaderParameter("skin", texture); material.SetShaderParameter("textured", true); }
+        return material;
+    }
 
     /// <summary>A contraption's body in game axes (Z up), as tall as its shot cylinder (<see cref="MusouMekRules.Body"/>). *Placeholder demonstration*: scrap iron, rust and Ork yellow.</summary>
     Mesh ContraptionMesh(MusouContraptionKind kind)

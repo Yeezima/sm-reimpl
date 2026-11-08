@@ -50,7 +50,7 @@ public static class MusouMekRules
     /// <summary>The players' shots meet a contraption as an upright cylinder of this radius and height (ours; the drawn placeholders are this size).</summary>
     public static (float Radius, float Height) Body(MusouContraptionKind kind) => kind switch
     {
-        MusouContraptionKind.ShieldGenerator => (0.9f, 1.8f),
+        MusouContraptionKind.ShieldGenerator => (1.0f, 4.0f),   // the drawn pylon (owner, 2026-11-08: ork_elektrik_tower at 4 m)
         MusouContraptionKind.Beacon => (0.6f, 3.2f),
         MusouContraptionKind.Turret => (0.9f, 1.6f),
         _ => (1.2f, 0.5f),

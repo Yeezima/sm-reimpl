@@ -2377,3 +2377,17 @@ applies 1001 stun damage, plays `weirdboy_shield_break` and after a `delayed_act
 `weirdboy_staff_muzzle`, fire sound `play_sm_bolter_fire`). The frazzle: speed 40, lifetime 5, raycast collision, detonates on collision; an area of 3 m: 70 explosive (light armour x0.75,
 heavy x0.5), `damage_armourshield` 0, trail `weirdboy_staff_trail`, hits `material_effect_container\weapon_hits\orks\ranged_weapons\weirdboy_staff`. Not in the data: when he teleports
 and where to, what and how many he summons, how often the AI fires. What Musou Mode makes of it: spec "Musou Mode: the Weirdboy".
+
+## Musou S4 models (owner, 2026-11-08)
+Musou Mode's Scrap Meks and contraptions use SM1 props read at run time (`client/Extras/Musou/Meks/MekModels.cs`); singleplayer content is read only because Musou depends on it here.
+| Object | Mesh | Chunk (data/chunks) | Notes |
+|---|---|---|---|
+| Scrap Mek | `nob_ranged_pro` | `ebp_sets__mp_coop_set` | co-op set; on the Ork boy's rig at x 0.717 |
+| Shield generator | `ork_elektrik_tower_healthy` / `_wreck` | `part_01__s_004_r300_orktrench` / `part_01__s_004_r400_inner_wall` | campaign; origin at ground, 26.5 m above it and 11.6 m buried |
+| Dome | `shield_weird_boy` | `part_02_04__s_009_r_200_socket` | campaign; a 16 x 16 x 6.7 m shell, stretched to a sphere |
+| Beacon | `waaaghbanner` | `ebp_sets__mp_versus_set` | multiplayer set; 7.1 m above ground |
+| Rokkit turret | `ork_turret_healthy` / `ork_turret_wreck` | `part_01__s_004_r300_orktrench` | campaign; its gun along the model's forward (game +Y at yaw 0) |
+| Scrap trap | `ork_junkpile_d_healthy` + `Spikes_A` | `part_01__s_004_r400_inner_wall` + `mp_dlc2_map4__wrld` | campaign junk; the spikes a DLC multiplayer map's row of five (5 m) |
+| Beacon drop | `ork_rok` | `cp_maps__cp_arena_desert_b` | Exterminatus arena |
+Other candidates rendered for the choice (`model viewer --archive data/chunks/<chunk>.oppc --mesh <name>`): `Ork_Turret_LODH`, `Ork_turrel_Base_A`, `kill_kroozer_turret`, `ork_elektrik_tower_set_healthy`, `ig_generator`, `ork_tower_healthy`, `Geo_ork_spawn`, `ork_junkpile_a_healthy`, `Ork_Spike_lg_A`, `Defence_tanktrap_LODH`, `gretchin_melee`, `boy_melee_pro`, `DropPod`, `ork_fighta`; `ork_flag_a` does not load (a type-2 block layout we do not read yet).
+

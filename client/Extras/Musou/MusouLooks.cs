@@ -68,11 +68,15 @@ public sealed class MusouLooks
         // Expansion S3 (owner, 2026-11-08: "the stormboys body should go on the ordinary boy rig"): the campaign's boy_stormboy, read from its own archive, skinned to the Ork boy's rig so he runs,
         // swings and dies with the Boy's clips; when it binds bones the boy's rig lacks, his own flight rig (StormboyLooks) stands in, else a Boy with a placeholder pack.
         new(MusouEnemyType.Stormboy, "boy_stormboy", 1f, null, 1f, false) { From = StormboyRig.Profile },
+        // Expansion S4 (owner, 2026-11-08: "Yes, use these"): the Scrap Mek is the co-op set's nob_ranged_pro (his kit backpack and antenna), drawn at a Boy's height (Nob 3.0 m, Boy 2.15 m), else a Boy.
+        new(MusouEnemyType.ScrapMek, "nob_ranged_pro", MekScale, "boy_melee", 1f, false),
         // Last, so nothing waits on the Warboss model's read: the Warboss model first (WarbossLooks); this is its fallback.
         new(MusouEnemyType.Warboss, "nob_melee", BossScale, "boy_melee_pro", BossScale, false),
     ];
 
     const float BossOrkScale = MusouBossOrks.BodyScale;
+    /// <summary>The Scrap Mek's Nob body brought to a Boy's height (2.15 / 3.0; ours).</summary>
+    const float MekScale = 2.15f / 3f;
     /// <summary>The Nob model's height (Boy 2.15 m, Nob 3.0 m, docs/discovery.md) when its own mesh cannot be measured: the Warboss model is sized to it times <see cref="BossScale"/>.</summary>
     const float NobDrawnHeight = 3f;
 
