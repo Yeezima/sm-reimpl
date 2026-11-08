@@ -17,12 +17,25 @@ public static partial class AshfallGrime
     static readonly Dictionary<Material, ShaderMaterial> FoldedMaterials = new(ReferenceEqualityComparer.Instance);
     static readonly Dictionary<MeshInstance3D, Material?[]> Originals = new(ReferenceEqualityComparer.Instance);
 
-    /// <summary>Whether the grime is folded into the kit's materials (the Graphics option; <c>--ashfall-grime-folded</c> forces it at start).</summary>
+    /// <summary>Whether the grime is folded into the kit's materials (the Graphics option, or FSR 2 upscaling; <c>--ashfall-grime-folded</c> forces it at start).</summary>
     public static bool Folded => _folded;
 
+    /// <summary>The Graphics option's choice (FAST); <see cref="Folded"/> is also true while FSR 2 upscales.</summary>
+    static bool _foldChoice = _folded;
+    static bool _foldForFsr;
+
     /// <summary>The Graphics option: folds the grime into the kit's materials, or puts the overlay back; applies at once to the kit loaded now and to models that load later.</summary>
-    public static void SetFolded(bool folded)
+    public static void SetFolded(bool folded) { _foldChoice = folded; ApplyFold(); }
+
+    /// <summary>
+    /// hotfix/ashfall-floor-shimmer: while the viewport upscales with FSR 2 the overlay passes shimmered on the far floor even on a still camera (still-camera flicker on the floor 0.58 % of pixels against 0.08 %
+    /// folded and 0.05 % with MSAA; the overlay is a transparent pass the upscaler's accumulation does not follow), so the grime is folded then whatever the option says, and goes back with it.
+    /// </summary>
+    static void SetFoldForFsr(bool fsr) { if (_foldForFsr == fsr) return; _foldForFsr = fsr; ApplyFold(); }
+
+    static void ApplyFold()
     {
+        bool folded = _foldChoice || _foldForFsr;
         if (_folded == folded) return;
         _folded = folded;
         if (_items is null || !GodotObject.IsInstanceValid(_items) || _top is null) return;

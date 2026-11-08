@@ -356,6 +356,7 @@ public partial class AshfallKitGallery : Node3D
         if (_phase == 1)
         {
             if (_wait > 0) { _wait--; return; }
+            if (_map && ShimmerMode) { if (Shimmer()) Done(0); return; }   // hotfix/ashfall-floor-shimmer: the floor shimmer measurement (AshfallKitGallery.Shimmer.cs)
             var wanted = (_args.GetValueOrDefault("shots") ?? "all").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             var list = _shots.Where(s => wanted.Contains("all") || wanted.Contains(s.Name) || (wanted.Contains("overview") && s.Name.StartsWith("overview", StringComparison.Ordinal)) || (wanted.Contains("d6") && s.Name.StartsWith("d6_", StringComparison.Ordinal)) || (wanted.Contains("d7") && s.Name.StartsWith("d7_", StringComparison.Ordinal))).ToList();
             if (_step >= list.Count)

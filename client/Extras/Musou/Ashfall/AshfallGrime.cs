@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Godot;
 
 namespace SmClient;
@@ -68,13 +69,45 @@ public static partial class AshfallGrime
     static ShaderMaterial? _darken;
 
     /// <summary>The models' multiply material (one, shared).</summary>
-    public static ShaderMaterial DarkenMaterial() => _darken ??= new ShaderMaterial { Shader = new Shader { Code = DarkenShader } };
+    public static ShaderMaterial DarkenMaterial() => _darken ??= new ShaderMaterial { Shader = DarkenShaderFor(_pulled) };
+
+    /// <summary>
+    /// The overlay passes' depth pull (hotfix/ashfall-floor-shimmer, ours): each pass is drawn <see cref="Pull"/> of its distance nearer the camera along its own view ray (the same pixels), so it no longer
+    /// loses the depth test against the surface it covers in patches as the camera moves. While the viewport upscales with FSR 2 the grime is folded instead (<see cref="SetFoldForFsr"/>) and any pass left
+    /// (the multiply alone, Low preset) is drawn plain, as before (the lines marked <c>//PULL</c> left out). <c>--ashfall-grime-pull off</c> (test aid) always draws the plain passes.
+    /// </summary>
+    public static bool PullOn { get; } = !(Array.IndexOf(OS.GetCmdlineUserArgs(), "--ashfall-grime-pull") is int i && i >= 0 && i + 1 < OS.GetCmdlineUserArgs().Length && OS.GetCmdlineUserArgs()[i + 1] == "off");
+
+    /// <summary>The pull's share of the distance (1 cm at 100 m; ours). Kept in the shaders' <c>pull</c> default.</summary>
+    public const float Pull = 1e-4f;
+
+    static Shader? _overlayPulled, _overlayPlain, _darkenPulled, _darkenPlain;
+    static bool _pulled = PullOn;
+
+    /// <summary>A shader's plain form: the <c>//PULL</c> lines and the hand transform left out (the engine transforms as before the hotfix).</summary>
+    static string Plain(string code) => string.Join("\n", code.Split('\n').Where(l => !l.Contains("//PULL", StringComparison.Ordinal)))
+        .Replace(", skip_vertex_transform;", ";", StringComparison.Ordinal);
+
+    static Shader OverlayShaderFor(bool pulled) => pulled ? _overlayPulled ??= new Shader { Code = OverlayShader } : _overlayPlain ??= new Shader { Code = Plain(OverlayShader) };
+    static Shader DarkenShaderFor(bool pulled) => pulled ? _darkenPulled ??= new Shader { Code = DarkenShader } : _darkenPlain ??= new Shader { Code = Plain(DarkenShader) };
+
+    /// <summary>Called each frame by <see cref="AshfallStorm"/> (the Options can switch FSR 2 during a match): with FSR 2 the grime folded and the passes plain, else the option's choice and the pulled passes.</summary>
+    public static void UpdateForViewport(Viewport? viewport)
+    {
+        bool fsr = viewport is not null && viewport.Scaling3DMode == Viewport.Scaling3DModeEnum.Fsr2;
+        SetFoldForFsr(fsr);
+        bool want = PullOn && viewport is not null && !fsr;
+        if (want == _pulled) return;
+        _pulled = want;
+        if (_overlay is not null) _overlay.Shader = OverlayShaderFor(want);
+        if (_darken is not null) _darken.Shader = DarkenShaderFor(want);
+    }
 
     /// <summary>The floor wash of the concept light pass (0 to 1; ours): set on the shared overlay by <see cref="AshfallStorm"/>.</summary>
     public const float LightPassWash = 1f;
 
     /// <summary>The models' overlay material (one, shared).</summary>
-    public static ShaderMaterial OverlayMaterial() => _overlay ??= new ShaderMaterial { Shader = new Shader { Code = OverlayShader } };
+    public static ShaderMaterial OverlayMaterial() => _overlay ??= new ShaderMaterial { Shader = OverlayShaderFor(_pulled) };
 
     /// <summary>Applies the grime to the kit look under <paramref name="root"/> (the map's game space); returns how many ground materials took it. Models that load later get the overlay as they arrive.</summary>
     public static int Apply(Node? root, float quality, bool compat)
@@ -117,7 +150,8 @@ public static partial class AshfallGrime
     /// </summary>
     public const string OverlayShader = """
 shader_type spatial;
-render_mode blend_mix, depth_draw_never, cull_back, specular_disabled;
+render_mode blend_mix, depth_draw_never, cull_back, specular_disabled, skip_vertex_transform;
+uniform float pull = 1e-4;   //PULL see vertex() (AshfallGrime.Pull)
 uniform float amount = 1.0;
 uniform float wash = 0.0;   // the concept light pass: a cool ash-grey wash on floors and tops (0: the first concept pass)
 varying vec3 wpos;
@@ -131,6 +165,11 @@ float fbm(vec2 p) { float v = 0.0; float a = 0.5; for (int i = 0; i < 4; i++) { 
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wnor = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	//PULL: hotfix/ashfall-floor-shimmer (AshfallGrime.PullOn): drawn over the model's own surface, this pass shows only where its depth matches the surface's, which another shader computed; with
+	//PULL: the camera moving the two rounded differently frame by frame and patches of floor and wall lost or regained the grime. Pulled toward the camera along its own view ray by PULL of its
+	//PULL: distance: the same pixels, always in front of its own surface (1 cm at 100 m).
+	VERTEX = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz * (1.0 - pull);   //PULL
+	NORMAL = normalize(MODELVIEW_NORMAL_MATRIX * NORMAL);   //PULL
 }
 void fragment() {
 	float up = wnor.y;
@@ -163,7 +202,8 @@ void fragment() {
     /// </summary>
     public const string DarkenShader = """
 shader_type spatial;
-render_mode unshaded, blend_mul, depth_draw_never, depth_test_default, cull_back, fog_disabled, shadows_disabled;
+render_mode unshaded, blend_mul, depth_draw_never, depth_test_default, cull_back, fog_disabled, shadows_disabled, skip_vertex_transform;
+uniform float pull = 1e-4;   //PULL as the overlay's
 uniform vec3 base = vec3(0.90, 0.92, 0.97);   // the baked kit is already dark and grimy: the runtime multiply keeps its variation, little of its darkening
 uniform float fog_density = 0.0036;
 uniform bool cheap = false;   // fewer noise lookups (Low, Compatibility)
@@ -178,6 +218,11 @@ float fbm(vec2 p) { float v = 0.0; float a = 0.5; for (int i = 0; i < 3; i++) { 
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wnor = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	//PULL: hotfix/ashfall-floor-shimmer (AshfallGrime.PullOn): drawn over the model's own surface, this pass shows only where its depth matches the surface's, which another shader computed; with
+	//PULL: the camera moving the two rounded differently frame by frame and patches of floor and wall lost or regained the grime. Pulled toward the camera along its own view ray by PULL of its
+	//PULL: distance: the same pixels, always in front of its own surface (1 cm at 100 m).
+	VERTEX = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz * (1.0 - pull);   //PULL
+	NORMAL = normalize(MODELVIEW_NORMAL_MATRIX * NORMAL);   //PULL
 }
 void fragment() {
 	float up = wnor.y;

@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2580 spec table rows: **1894 tagged**, 477 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 578 rows of the changes document.
+Scanned 2581 spec table rows: **1895 tagged**, 477 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 578 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -42,7 +42,7 @@ Scanned 2580 spec table rows: **1894 tagged**, 477 not tagged (read from data wi
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 66 | 61 | 49 | 10 | 0 |
 | Sound mix (critical) | 63 | 57 | 55 | 10 | 0 |
-| Effects (critical) | 89 | 79 | 74 | 40 | 0 |
+| Effects (critical) | 90 | 80 | 75 | 40 | 0 |
 | Game modes | 41 | 38 | 38 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
@@ -53,15 +53,15 @@ Scanned 2580 spec table rows: **1894 tagged**, 477 not tagged (read from data wi
 | Core simulation (provisional values) | 441 | 419 | 297 | 120 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 176 | 167 | 80 | 52 | 0 |
-| **All areas** | **1894** | 1651 | 1397 | 615 | 38 |
+| **All areas** | **1895** | 1652 | 1398 | 615 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1000 |
+| kind: ours | 1001 |
 | confidence: low | 667 |
-| confidence: medium | 601 |
+| confidence: medium | 602 |
 | kind: interpretation | 359 |
 | notes: ours | 352 |
 | notes: estimate | 150 |
@@ -1648,7 +1648,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5FBBC333` | Menu sound cost | its own catalogue of two packages (`init`, `in_game_default`) opens in the background in 65 to 130 ms when the first root is attached (not before a button exists) and is disposed when a match starts, one still loading too (the match's sound system plays the… (ms) | kind: ours; confidence: medium | measured | Menu sound cost: compare with SM1 by listening A/B at the same distance and state. Ours: its own catalogue of two packages (init, in_game_default) opens in… | ☐ |
 | `R-30F789A0` | Not played | `Play_Menu_Expand_Main` (the menu opening), `Play_Multiplayer_Select`, `Play_Cooperative_Select`, `Play_Network_Select`, `Play_Campaign_Select` (screens we do not have in that form), `play_mp_point_captured` and `play_mp_bonus` (exist; no trigger found)… | kind: gap (not reproduced); confidence: none (low) | gap | Not played: compare with SM1 by listening A/B at the same distance and state. Ours: Play_Menu_Expand_Main (the menu opening), Play_Multiplayer_Select… | ☐ |
 
-### Effects (gameplay-critical) (89)
+### Effects (gameplay-critical) (90)
 
 *Spec section: Jump-pack feel: fuel, air control, the air slash and impact effects (feel/jump-pack; protocol 31, used by the simulation)*
 
@@ -1773,6 +1773,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C7827821` | Fight off-screen (Musou) | near a human, an army's remainder beyond the real caps (480 Orks, 28 squads) fights on in the far clash at its point or the base; the real units a human can see take the aggregates' fire but put out none there (their fire is real already: expansion S6's rule… | kind: ours; confidence: low | the owner, 2026-11-08 ("fight off-screen"); the rout fixes ours | Fight off-screen (Musou): compare with SM1 with side-by-side video of the same action. Ours: near a human, an army's remainder beyond the real caps (480 Orks, 28… | ☐ |
 | `R-566447DD` | Base is a target (Musou) | with no position Imperial a wave leaves for the Imperial base (goal `LandingGoal`) instead of waiting; a wave whose point fell with no other Imperial position goes there too; at the base it attacks (real Orks loose as a pack, its remainder clashes with the… (m, s) | kind: ours; confidence: medium | the owner, 2026-11-08 ("base is a target"); 20 m ours | Base is a target (Musou): compare with SM1 with side-by-side video of the same action. Ours: with no position Imperial a wave leaves for the Imperial base (goal… | ☐ |
 | `R-0364AED2` | Ashfall grime: EXACT or FAST (Musou, Graphics option) | Options > Graphics > Ashfall grime: EXACT (OVERLAY), the default, draws the grime as the overlay pass as before; FAST (FOLDED, WEAK GPUS) gives each kit surface a derived shader (its standard material's albedo, vertex colour, normal map, roughness, metallic… | kind: ours; confidence: medium | the owner, 2026-11-08 ("option in Graphics"); the derived shader ours | Ashfall grime: EXACT or FAST (Musou, Graphics option): compare with SM1 with side-by-side video of the same action. Ours: Options > Graphics > Ashfall grime: EXACT (OVERLAY), the default… | ☐ |
+| `R-ACEFD4C0` | Ashfall grime under FSR 2 and its depth pull (Musou, client) | the owner, 2026-11-08: "the floor shimmers a lot in musou mode ashfall". With Options > Graphics > Upscaling on FSR 2, the grime's overlay passes (EXACT) shimmered on the far floor even on a still camera (floor pixels flickering between three consecutive… (1e-4 of the distance) | kind: ours; confidence: medium | measured (hotfix/ashfall-floor-shimmer); the pull's size ours | Ashfall grime under FSR 2 and its depth pull (Musou, client): compare with SM1 with side-by-side video of the same action. Ours: the owner, 2026-11-08: "the floor shimmers a lot in musou mode… | ☐ |
 
 ### Game modes (41)
 
