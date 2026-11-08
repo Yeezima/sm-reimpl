@@ -251,6 +251,7 @@ public sealed class TfwClientState
                 if (MekWire.Read(section.Payload) is not { } contraptions) break;
                 Heard(section);
                 if (!Stale(ref _mekTick, section.ServerTick)) Contraptions = contraptions;
+                return true;
             case TfwWire.ArmiesTag:
                 if (TfwArmyWire.Read(section.Payload) is not { } armies) break;
                 Heard(section);

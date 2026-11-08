@@ -279,7 +279,7 @@ public sealed class MusouMeks
     /// <summary>A new Mek for slot <paramref name="k"/>: at the spawn spot farthest from every player (ties: the list's order, from the slot's own turn), a little off it by slot, on the graph.</summary>
     void Come(int k, ReadOnlySpan<MusouTarget> targets, IReadOnlyList<Vector3> spawns)
     {
-        if (spawns.Count == 0 || _sim.Alive + 1 > MusouSim.Capacity - Campaign.TfwBattleRules.PoolReserve) { _meks[k].RespawnAt = _now + Ticks(1f); return; }
+        if (spawns.Count == 0 || _sim.Alive + 1 > Campaign.TfwBattleRules.CrowdPoolRoom) { _meks[k].RespawnAt = _now + Ticks(1f); return; }
         int best = -1; float bestScore = float.NegativeInfinity;
         for (int j = 0; j < spawns.Count; j++)
         {
@@ -527,7 +527,7 @@ public sealed class MusouMeks
         int landed = 0;
         for (int n = 0; n < s.Carried; n++)
         {
-            if (_sim.Alive + 1 > MusouSim.Capacity - Campaign.TfwBattleRules.PoolReserve) break;
+            if (_sim.Alive + 1 > Campaign.TfwBattleRules.CrowdPoolRoom) break;
             float angle = n * 2.399963f + s.Id;
             float r = MusouMekRules.DropRingMin + (MusouMekRules.DropRingMax - MusouMekRules.DropRingMin) * ((n * 0.618034f) % 1f);
             var spot = s.Position + new Vector3(MathF.Cos(angle) * r, MathF.Sin(angle) * r, 0f);
