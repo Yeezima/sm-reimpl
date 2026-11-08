@@ -113,6 +113,32 @@ public sealed record TfwCombatRules
     public SplashSpec BoltBlast() => new(BoltBlastRadius, new DamageSpec(BoltBlastDamage, 0f, 1f, 1f, 1f, 1f, false) { Type = DamageType.Explosive },
         BoltBlastFallOff, LineOfSight: true, IgnoreSelf: true, TargetFilter: "target_enemy");
 
+    // ---- plasma pierces and burns (the owner, 2026-11-08: "in musou mode all plasma weapons should pierce all enemies the shot passes through + do burning lingering plasma damage over time to them.")
+
+    /// <summary>Whether every plasma weapon's shot (light and charged; gun, pistol, cannon) goes through all the enemies on its path, each hit once at full damage (false: the plasma weapons pierce as <see cref="Pierced"/> says).</summary>
+    public bool PlasmaPierces { get; init; } = true;
+    /// <summary>The most enemies one plasma shot goes through (a buffer's size; no real path holds this many).</summary>
+    public const int MostPlasmaPierced = 64;
+    /// <summary>The burn's total as a share of the hit that set it (ours, low confidence: the owner gave no numbers).</summary>
+    public float PlasmaBurnShare { get; init; } = 0.5f;
+    /// <summary>How long a burn lasts after the latest hit, in seconds (ours); a new hit renews it, never stacks.</summary>
+    public float PlasmaBurnSeconds { get; init; } = 3f;
+    /// <summary>The time between two burn ticks, in seconds (ours).</summary>
+    public float PlasmaBurnInterval { get; init; } = 0.5f;
+    /// <summary>What a boss (the Warboss and the Boss Orks) takes of each burn tick (ours: they carry 10x the health, and a crowd of shooters would melt them with a flat share).</summary>
+    public float PlasmaBurnBossShare { get; init; } = 0.25f;
+    /// <summary>The burn ticks one hit leaves (3 s at 0.5 s: 6).</summary>
+    public int PlasmaBurnTicks => Math.Max(1, (int)MathF.Round(PlasmaBurnSeconds / MathF.Max(0.05f, PlasmaBurnInterval)));
+
+    /// <summary>Whether <paramref name="weapon"/> is a plasma weapon (the names hold <c>plasma</c>: the gun, the pistol and the cannon of either side).</summary>
+    public static bool IsPlasma(WeaponSpec weapon) => weapon.Name.Contains("plasma", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Whether <paramref name="type"/> is a boss, which takes <see cref="PlasmaBurnBossShare"/> of each burn tick.</summary>
+    public static bool IsBoss(MusouEnemyType type) => type is MusouEnemyType.Warboss or MusouEnemyType.BossBoy or MusouEnemyType.BossShootaBoy or MusouEnemyType.BossArdBoy or MusouEnemyType.BossNob;
+
+    /// <summary>Whether a shot of <paramref name="weapon"/> pierces every enemy and burns them.</summary>
+    public bool PlasmaShot(WeaponSpec weapon) => PlasmaPierces && IsPlasma(weapon);
+
     /// <summary>Whether a thrown item is a frag (a blind grenade, a melta bomb or stims are not).</summary>
     public static bool IsFrag(ThrownSpec item) => item.Stim is null && !item.IsBlindGrenade && item.Name.Contains("frag", StringComparison.OrdinalIgnoreCase);
 }

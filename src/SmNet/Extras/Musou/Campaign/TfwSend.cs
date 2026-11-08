@@ -33,7 +33,7 @@ public static class TfwSendRules
         Math.Clamp((int)(GuardBudgetBytesPerSecond / (float)Math.Max(1, tickRate) * EventShare / TfwWire.GuardEventBytes), 1, TfwWire.MaxGuardEvents);
 
     /// <summary>How many messages a fire record goes in (tag 11, M8; ours): a lost shell or run is missed, a lost tracer or bolt blast is not.</summary>
-    public static int FireCopies(TfwFireKind kind) => kind is TfwFireKind.Round or TfwFireKind.BoltBlast ? 1 : DeathRepeat;
+    public static int FireCopies(TfwFireKind kind) => kind is TfwFireKind.Round or TfwFireKind.BoltBlast or TfwFireKind.Burn ? 1 : DeathRepeat;
 
     /// <summary>How many messages an event of <paramref name="kind"/> goes in.</summary>
     public static int Copies(TfwGuardEventKind kind) => kind == TfwGuardEventKind.Death ? DeathRepeat : 1;
