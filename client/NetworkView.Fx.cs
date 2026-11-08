@@ -557,6 +557,7 @@ public partial class NetworkView
             var burn = plays.FirstOrDefault(x => x.Name.Contains("dmg_burn_limb", StringComparison.OrdinalIgnoreCase));
             MeltaBurnBody(victim, w.Wargear, true, burn is null ? null : new EffectPlayLike(burn.Name, burn.Lifetime));
         }
+        if (!HitDecalRules.DrawsContainer(hit, victim)) return;   // fix/hit-decals-map-only (owner, 2026-11-08): a shot that hits a player leaves no decal; the container is for the map
         if (plays.Count == 0) return;
         _fxImpacts++;
         if (hit != ShotHit.World) { _fxBodyImpacts++; if (up) _fxArmourImpacts++; else _fxFleshImpacts++; }
@@ -574,7 +575,7 @@ public partial class NetworkView
             };
             var axes = AxesFromY(axis);
             if (p.TriggerPoint != "exit_wound") TracerProbeImpact(pos);   // fx/tracers-impact: --tracer-probe (the exit wound sits 0.35 m past the hit on purpose)
-            _fx.Play(p.Name, pos, axes, p.Scale <= 0f ? 1f : p.Scale, null, hit == ShotHit.World ? null : StickToPlayer(victim, pos, axes), p.Lifetime, delay, false, 0, tint: RaceTint(w.Wargear, p.Name));   // night/weapon-fx: a player hit rides with the player
+            _fx.Play(p.Name, pos, axes, p.Scale <= 0f ? 1f : p.Scale, null, null, p.Lifetime, delay, false, 0, tint: RaceTint(w.Wargear, p.Name));
         }
     }
 

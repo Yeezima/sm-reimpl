@@ -66,7 +66,7 @@ public partial class NetworkView
         var axes = AxesFromY(back).Rotated(back, (float)(_burstRandom.NextDouble() * Math.Tau));
         float scale = HealthHitBurst.Size * (0.85f + (float)_burstRandom.NextDouble() * 0.35f);
         int variant = _burstRandom.Next(HealthHitBurst.Variants);
-        if (_fx.Play(HealthHitBurst.Name(variant), end + back * 0.05f, axes, scale, null, StickToPlayer(victim, end + back * 0.05f, axes), 0f, delay, false, 1) is not null)
+        if (_fx.Play(HealthHitBurst.Name(variant), end + back * 0.05f, axes, scale, null, null, 0f, delay, false, 1) is not null)
         {
             _bursts++;
             if (LogHitFx) GD.Print($"HITFX burst {HealthHitBurst.Name(variant)} at {end.X:F1},{end.Y:F1},{end.Z:F1} scale {scale:F2} (total {_bursts})");
@@ -125,7 +125,7 @@ public partial class NetworkView
         var w = melta ? _catalogue.Weapons.Values.FirstOrDefault(x => x.Wargear.Contains("melta", StringComparison.OrdinalIgnoreCase)) : _catalogue.Weapons.Values.FirstOrDefault(x => x.Wargear.Contains("bolter", StringComparison.OrdinalIgnoreCase) && !x.Wargear.Contains("heavy", StringComparison.OrdinalIgnoreCase)) ?? _catalogue.Weapons.Values.FirstOrDefault();
         if (w is null) return;
         _pvpDemoAt = _connectedFor;
-        string kind = _pvpDemo == "cycle" ? (_pvpDemoStep++ % 3) switch { 0 => "armour", 1 => "break", _ => "health" } : _pvpDemo;
+        string kind = _pvpDemo == "decals" ? ((_pvpDemoStep++ % 2) == 0 ? "armour" : "map") : _pvpDemo == "cycle" ? (_pvpDemoStep++ % 3) switch { 0 => "armour", 1 => "break", _ => "health" } : _pvpDemo;
         var chest = BodyMarker(id, "RIG_SpineD")?.Invoke()?.Position ?? target.GlobalPosition + Vector3.Up * 1.3f;
         var toCam = camera.GlobalPosition - chest; toCam.Y = 0f;
         toCam = toCam.LengthSquared() > 1e-4f ? toCam.Normalized() : Vector3.Forward;
@@ -134,6 +134,18 @@ public partial class NetworkView
         var dir = (point - camera.GlobalPosition).Normalized();
         switch (kind)
         {
+            case "map":   // fix/hit-decals-map-only aid: a shot at the map (the wall right of the player), no player struck: its decal shows
+            {
+                if (_client?.Collision is not { } world) return;
+                var down = (camera.GlobalBasis * new Vector3(0.35f, -0.12f, -0.93f)).Normalized();
+                var gDir = _gameSpace!.Basis.Inverse() * down;
+                var gFrom = ToGame(camera.GlobalPosition);
+                var nd = System.Numerics.Vector3.Normalize(new System.Numerics.Vector3(gDir.X, gDir.Y, gDir.Z));
+                if (world.Weapons.Raycast(gFrom, nd, 60f) is not { } wall) return;
+                var wn = System.Numerics.Vector3.Dot(wall.Normal, nd) > 0f ? -wall.Normal : wall.Normal;
+                FxImpact(w, w.Basic, ShotHit.World, world.Weapons.MaterialOf(wall.Triangle), ToGodot(wall.Point), DirToGodot(wn).Normalized(), down, 0.0, -1, null);
+                break;
+            }
             case "melta":
             case "meltakill":
                 FxImpact(w, w.Basic, ShotHit.Body, 0, point, -dir, dir, 0.0, id, kind == "melta");
