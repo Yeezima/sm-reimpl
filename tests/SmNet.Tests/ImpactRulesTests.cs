@@ -336,3 +336,15 @@ public class MeltaBurnRulesTests
         Assert.True(MeltaBurnRules.IsMelta("wargear_csm_meltagun") && !MeltaBurnRules.IsMelta("wargear_sm_bolter"));
     }
 }
+
+/// <summary>fix/hit-decals-map-only (owner, 2026-11-08): a ranged shot that hits a player leaves no decal; one that strikes the map does.</summary>
+public class HitDecalRulesTests
+{
+    [Theory]
+    [InlineData(SmSim.ShotHit.Body, 3, false)]
+    [InlineData(SmSim.ShotHit.Head, 7, false)]
+    [InlineData(SmSim.ShotHit.World, -1, true)]
+    [InlineData(SmSim.ShotHit.Body, -1, true)]   // a Musou enemy (no player id): unchanged
+    public void Player_hit_draws_no_decal_world_hit_does(SmSim.ShotHit hit, int victim, bool decal) =>
+        Assert.Equal(decal, HitDecalRules.DrawsContainer(hit, victim));
+}
