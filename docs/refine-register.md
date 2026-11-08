@@ -28,33 +28,21 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2601 spec table rows: **1908 tagged**, 482 not tagged (read from data with high confidence), 211 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 583 rows of the changes document.
-Scanned 2602 spec table rows: **1910 tagged**, 482 not tagged (read from data with high confidence), 210 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
-Scanned 2598 spec table rows: **1908 tagged**, 481 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
-Scanned 2593 spec table rows: **1903 tagged**, 481 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 580 rows of the changes document.
-Scanned 2595 spec table rows: **1907 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
-Scanned 2601 spec table rows: **1913 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
-Scanned 2597 spec table rows: **1909 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
-Scanned 2598 spec table rows: **1910 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
+Scanned 2621 spec table rows: **1923 tagged**, 487 not tagged (read from data with high confidence), 211 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 587 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 383 | 325 | 325 | 114 | 12 |
 | Combat core (critical) | 13 | 4 | 12 | 11 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 108 | 93 | 85 | 36 | 5 |
 | Melee (critical) | 112 | 97 | 88 | 37 | 5 |
-| Melee (critical) | 114 | 99 | 91 | 36 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 68 | 63 | 50 | 11 | 0 |
-| Sound mix (critical) | 66 | 60 | 58 | 10 | 0 |
-| Effects (critical) | 86 | 76 | 71 | 39 | 0 |
-| HUD and hit feedback (critical) | 67 | 62 | 49 | 10 | 0 |
 | Sound mix (critical) | 67 | 61 | 59 | 10 | 0 |
-| Effects (critical) | 89 | 79 | 74 | 40 | 0 |
+| Effects (critical) | 86 | 76 | 71 | 39 | 0 |
 | Game modes | 41 | 38 | 38 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
@@ -62,48 +50,17 @@ Scanned 2598 spec table rows: **1910 tagged**, 479 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 451 | 429 | 304 | 120 | 1 |
-| Core simulation (provisional values) | 457 | 435 | 310 | 126 | 1 |
+| Core simulation (provisional values) | 458 | 436 | 311 | 126 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 178 | 168 | 81 | 53 | 0 |
-| **All areas** | **1908** | 1664 | 1406 | 616 | 38 |
-| **All areas** | **1910** | 1666 | 1408 | 616 | 38 |
-| Ork faction | 180 | 171 | 81 | 54 | 0 |
-| **All areas** | **1908** | 1665 | 1404 | 617 | 38 |
-| Ork faction | 178 | 169 | 80 | 54 | 0 |
-| **All areas** | **1903** | 1660 | 1400 | 617 | 38 |
-| **All areas** | **1907** | 1664 | 1403 | 618 | 38 |
-| **All areas** | **1913** | 1670 | 1410 | 623 | 38 |
-| **All areas** | **1909** | 1666 | 1406 | 617 | 38 |
-| Ork faction | 182 | 173 | 84 | 54 | 0 |
-| **All areas** | **1910** | 1667 | 1407 | 617 | 38 |
+| Ork faction | 184 | 174 | 86 | 53 | 0 |
+| **All areas** | **1923** | 1679 | 1419 | 623 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1013 |
-| confidence: low | 669 |
-| confidence: medium | 608 |
-| kind: ours | 1015 |
-| confidence: low | 669 |
-| confidence: medium | 610 |
-| kind: ours | 1014 |
-| confidence: low | 667 |
-| confidence: medium | 608 |
-| kind: ours | 1009 |
-| confidence: low | 667 |
-| confidence: medium | 604 |
-| kind: ours | 1015 |
-| confidence: low | 670 |
-| kind: ours | 1016 |
-| confidence: low | 671 |
-| confidence: medium | 607 |
-| kind: interpretation | 359 |
-| notes: ours | 352 |
-| notes: estimate | 151 |
-| notes: estimate | 153 |
-| confidence: low | 674 |
+| kind: ours | 1022 |
+| confidence: low | 683 |
 | confidence: medium | 607 |
 | kind: interpretation | 359 |
 | notes: ours | 358 |
@@ -947,9 +904,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (108)
 ### Melee (gameplay-critical) (112)
-### Melee (gameplay-critical) (114)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -2181,8 +2136,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (451)
-### Core simulation (provisional values) (457)
+### Core simulation (provisional values) (458)
 
 *Spec section: Provisional values in use*
 
