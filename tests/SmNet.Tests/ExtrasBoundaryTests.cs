@@ -55,6 +55,9 @@ public class ExtrasBoundaryTests
         ("client/NetworkView.Fx.cs", "ExtrasOwnShotEnd"),   // NetworkView.ExtrasOwnShotEnd(WeaponSpec, Vector3, Vector3, ref float, ref bool), in TraceOwn: Musou's Orks stop the drawn own shot
         ("client/NetworkView.Fx.cs", "ExtrasOwnShotContact"),   // NetworkView.ExtrasOwnShotContact(PlayerState, WeaponSpec, Vector3, Vector3, Vector3), in FxPlayOwnShot: the predicted shot's impact and hit sound on an Ork
         ("client/NetworkView.Fx.cs", "ExtrasShakeTotal"),   // NetworkView.ExtrasShakeTotal(float, float, ref float), in FxShake: Musou's shakes do not stack
+        ("src/SmSim/WorldBodies.cs", "ExtrasRecordBodies"),   // World.ExtrasRecordBodies(), each tick: added content's solid bodies (Musou's big Orks, musou/boss-collision)
+        ("src/SmSim/WorldBodies.cs", "ExtrasBodies"),   // World.ExtrasBodies(uint, ref BodyView?): those bodies in a player's movement collision
+        ("src/SmSim/WorldBodies.cs", "ExtrasLockView"),   // World.ExtrasLockView(uint, in PlayerState, ref IReadOnlyDictionary<int, PlayerState>): the melee lock's extra targets (the big Orks)
         ("client/NetworkView.Appearance.cs", "ExtrasLook"),        // NetworkView.ExtrasLook(int, ref Func<ResolvedAppearance, ResolvedAppearance>?), in LookFor before the resolver: an added class's pieces over the look (Musou: the Librarian's armour)
         ("client/NetworkView.Loadout.cs", "ExtrasMatchMenu"),      // NetworkView.ExtrasMatchMenu(MatchMenu), when the Esc menu is built: an added mode's own rows (Musou Mode: the host's BACK TO STORMBIRD during a battle)
         ("client/NetworkView.Sound.cs", "ExtrasShotMaterial"),     // NetworkView.ExtrasShotMaterial(ShotView, int, ref bool?), in SoundShot: the material of another player's ranged hit (Musou: armoured Orks armour and flesh)
