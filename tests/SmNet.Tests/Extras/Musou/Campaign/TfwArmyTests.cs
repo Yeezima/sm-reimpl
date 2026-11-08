@@ -65,6 +65,55 @@ public class TfwArmyTests
     }
 
     [Fact]
+    public void The_base_is_a_wave_target_only_once_all_three_points_are_imperial()
+    {
+        var (sim, guards, battle, layout) = Frozen();
+        Capture(sim, battle, layout, 0);
+        Capture(sim, battle, layout, 1);
+        Vector3[] atC = [layout.Positions[2]];
+        battle.Step(atC);
+        for (int k = 0; k < 8; k++) Assert.NotEqual(TfwBattle.LandingGoal, battle.SendWaveForTests(200)!.Goal);
+        Capture(sim, battle, layout, 2);
+        battle.Step(atC);
+        var goals = Enumerable.Range(0, 8).Select(_ => battle.SendWaveForTests(200)!.Goal).ToList();
+        Assert.Contains(TfwBattle.LandingGoal, goals);                       // the farthest from the human on C, drawn with A
+        Assert.All(goals, g => Assert.Contains(g, new[] { TfwBattle.LandingGoal, 0 }));
+    }
+
+    [Fact]
+    public void A_wave_whose_real_ranks_lag_creeps_on_and_still_reaches_its_point()
+    {
+        var (sim, guards, battle, layout) = Frozen();   // frozen: its real Orks never walk, so its ranks always lag
+        for (int k = 0; k < 3; k++) Capture(sim, battle, layout, k);
+        Vector3[] atHq = [TfwTestArena.Sources[3]];
+        battle.Step(atHq);
+        var wave = battle.SendWaveForTests(100, 2)!;
+        for (int t = 0; t < 240 * Tick && wave.Order == TfwArmyOrder.March; t++) battle.Step(atHq);
+        Assert.True(wave.Real > 0);
+        Assert.Equal(TfwArmyOrder.Attack, wave.Order);
+    }
+
+    [Fact]
+    public void A_near_armys_remainder_wears_the_real_front_down_and_the_real_men_only_take_its_fire()
+    {
+        var (sim, guards, battle, layout) = Frozen();
+        Capture(sim, battle, layout, 1);
+        var point = layout.Positions[1];
+        var garrison = battle.AddArmyForTests(TfwArmySide.Guard, TfwArmyOrder.Hold, 1, 100, point)!;
+        var wave = battle.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.Attack, 1, 900, point)!;
+        Vector3[] near = [point + new Vector3(0f, -40f, 0f)];
+        for (int t = 0; t < 3 * Tick; t++) battle.Step(near);
+        Assert.Equal(0, garrison.FarCount);                                 // all of it real
+        Assert.Equal(TfwArmyRules.NearOrksMost, wave.Real);                 // the wave at the cap, the rest behind the line
+        int remainder = wave.FarCount;
+        Assert.True(remainder > 0);
+        int before = garrison.Count;
+        for (int t = 0; t < 30 * Tick; t++) battle.Step(near);
+        Assert.True(garrison.Count < before, "the remainder's fire killed real men");
+        Assert.Equal(remainder, wave.FarCount);                             // the real men's own fire is real only: the remainder lost nobody here
+    }
+
+    [Fact]
     public void Wave_sizes_follow_the_brief_shares()
     {
         int small = 0, medium = 0, large = 0;
@@ -352,12 +401,12 @@ public class TfwArmyTests
     {
         var (sim, guards, battle, layout) = Frozen();
         Capture(sim, battle, layout, 1);
-        var garrison = battle.AddArmyForTests(TfwArmySide.Guard, TfwArmyOrder.Hold, 1, 100, layout.Positions[1])!;
-        var wave = battle.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.Attack, 1, 300, layout.Positions[1])!;
+        var garrison = battle.AddArmyForTests(TfwArmySide.Guard, TfwArmyOrder.Hold, 1, 40, layout.Positions[1])!;   // worth 267 Orks, the field's 60 real men 400 more
+        var wave = battle.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.Attack, 1, 1200, layout.Positions[1])!;
         for (int t = 0; t < 240 * Tick && battle.Objectives[1].State == TfwPositionState.Secured; t++) battle.Step([]);
-        Assert.Equal(TfwArmyOrder.Retreat, garrison.Order);                 // outnumbered three to one, it broke
+        Assert.Equal(TfwArmyOrder.Retreat, garrison.Order);                 // outweighed almost two to one, it broke
         Assert.Equal(TfwPositionState.Held, battle.Objectives[1].State);    // then the Orks alone took the point
-        Assert.True(wave.Count > 150, $"the wave kept {wave.Count}");
+        Assert.True(wave.Count > 300, $"the wave kept {wave.Count}");
         Assert.Equal(TfwArmyOrder.Hold, wave.Order);                        // and hold it
         Assert.True(battle.OrksKilled > 0);
     }

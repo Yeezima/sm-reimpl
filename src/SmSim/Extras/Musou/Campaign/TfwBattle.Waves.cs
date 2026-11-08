@@ -84,7 +84,7 @@ public sealed partial class TfwBattle
     {
         int target = PickWaveTarget();
         if (target < 0) return false;
-        Redirect(m, target);
+        Redirect(m, GoalPlace(target));
         m.Order = TfwArmyOrder.March;
         m.Goal = m.Post = target;
         m.Start = Math.Max(1, m.Count);
@@ -104,6 +104,7 @@ public sealed partial class TfwBattle
     {
         _targets.Clear();
         for (int k = 0; k < Positions; k++) if (Imperial(k)) _targets.Add((NearestHuman(_layout.Positions[k]), k));
+        if (_targets.Count == Positions) _targets.Add((NearestHuman(_layout.LandingZone), LandingGoal));   // the owner, 2026-11-08: the base is a target only once A, B and C are all captured
         if (_targets.Count == 0) return -1;
         _targets.Sort((x, y) => y.D != x.D ? y.D.CompareTo(x.D) : x.K.CompareTo(y.K));
         int draw = Math.Min(TfwArmyRules.FarthestDraw, _targets.Count);

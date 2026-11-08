@@ -47,8 +47,11 @@ public partial class NetworkView
     {
         TfwArmiesFrame(new Num.Vector3(camera.X, camera.Y, camera.Z), delta);   // the camera in game space
         foreach (var d in _armyImpostors.Deaths)
-            if (d.Side == TfwArmySide.Ork && !ArmyImpostorsOff)
-                _musouCrowd?.AddBody(new MusouDeathShown(ImpostorId(d.Key, MusouSim.Capacity), d.Type, d.Position, d.Yaw, Num.Vector3.Zero, MusouDeathKind.Shot, 0, _tfwState.ArmiesTick));
+        {
+            if (ArmyImpostorsOff) break;
+            if (d.Side == TfwArmySide.Ork) _musouCrowd?.AddBody(new MusouDeathShown(ImpostorId(d.Key, MusouSim.Capacity), d.Type, d.Position, d.Yaw, Num.Vector3.Zero, MusouDeathKind.Shot, 0, _tfwState.ArmiesTick));
+            else _guardCrowd?.AddImpostorBody(new Vector3(d.Position.X, d.Position.Y, d.Position.Z), d.Yaw, d.Key, _tfwState.ArmiesTick);   // Guardsmen leave bodies too (owner, 2026-11-08)
+        }
         _armyImpostors.Deaths.Clear();
         if (_armyImpostorList.Count == 0) return shown;
         _armyOrksShown.Clear();

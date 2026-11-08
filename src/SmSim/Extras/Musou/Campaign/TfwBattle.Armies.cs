@@ -26,7 +26,14 @@ public sealed partial class TfwBattle
     int _armyRouteTicks, _armyFarTicks, _farSteps, _nextGroup = ArmyGroupFirst;
     byte _nextArmy = 1;
     float _farOrkKills, _farGuardLosses;
-    readonly float[] _realDebt = new float[2 * Positions];   // a far clash's losses still owed by real units (Orks, then Guardsmen, per position)
+    const int Sites = Positions + 1;   // the far clashes' sites: the three positions, then the base (a wave's target once all three are Imperial)
+    readonly float[] _realDebt = new float[2 * Sites];   // a far clash's losses still owed by real units (Orks, then Guardsmen, per site)
+
+    /// <summary>A clash site's place, ring and height reach (the base: the landing zone, a position's default ring).</summary>
+    Vector3 SitePos(int s) => s < Positions ? _layout.Positions[s] : _layout.LandingZone;
+    float SiteRadius(int s) => s < Positions ? _layout.Radius(s) : TfwLayout.DefaultRadius;
+    float SiteReach(int s) => s < Positions ? _layout.Reach(s) : TfwLayout.DefaultHalfHeight;
+    static int SiteGoal(int s) => s < Positions ? s : LandingGoal;
 
     /// <summary>Whether the battle flow runs (expansion S6; false only in tests that count the old flow alone, as <see cref="Trickle"/>).</summary>
     public bool Armies { get; set; } = true;
@@ -38,6 +45,10 @@ public sealed partial class TfwBattle
     public int ArmySquads { get; private set; }
     /// <summary>Guardsmen of the aggregates lost in far clashes (the war's count of the battle's losses adds them to the real ones).</summary>
     public int GuardsLostFar { get; private set; }
+    /// <summary>Ticks the routes came after <see cref="TfwArmyRules.RouteSeconds"/> (0: on time; above 0 the battle is no longer tick-for-tick reproducible, the cost report's).</summary>
+    public int RouteLateTicks { get; private set; }
+    /// <summary>Whether the searched routes are in (else the armies walk straight ways).</summary>
+    public bool RoutesReady => _armyRouteTask is null;
     /// <summary>Promotions and demotions so far (units; the profile's).</summary>
     public int Promoted { get; private set; }
     public int Demoted { get; private set; }
@@ -78,6 +89,9 @@ public sealed partial class TfwBattle
     void StepArmyRoutes()
     {
         if (_armyRouteTask is null || ++_armyRouteTicks < Ticks(TfwArmyRules.RouteSeconds)) return;
+        // Taken at RouteSeconds when the searches are done (always so far: they take well under a second); a search still running is never waited for on the tick (owner, 2026-11-08:
+        // no route stall): the armies keep the straight ways until it is done, and RouteLateTicks says how late it came.
+        if (!_armyRouteTask.IsCompleted) { RouteLateTicks++; return; }
         foreach (var (segment, way, _) in _armyRouteTask.Result)
         {
             if (way is null || way.Count < 2) continue;
@@ -177,7 +191,10 @@ public sealed partial class TfwBattle
             if (a.Order is TfwArmyOrder.March or TfwArmyOrder.Retreat && a.Way is { } way)
             {
                 bool wait = a.Side == TfwArmySide.Ork && OrksBehind(a) > TfwArmyRules.WaitBehind;
-                if (!wait) a.Along = MathF.Min(way.Length, a.Along + speed * Dt);
+                a.WaitTicks = wait ? a.WaitTicks + 1 : 0;
+                float pace = !wait ? speed : a.WaitTicks > Ticks(TfwArmyRules.WaitMostSeconds) ? speed * TfwArmyRules.CreepShare : 0f;   // waited long enough: it creeps on
+                a.Along = MathF.Min(way.Length, a.Along + pace * Dt);
+                wait = pace == 0f;
                 var (at, dir) = way.Sample(a.Along);
                 a.Anchor = at;
                 a.Yaw = YawOf(dir);
@@ -424,7 +441,7 @@ public sealed partial class TfwBattle
         if (a.Side == TfwArmySide.Ork)
         {
             if (a.Order == TfwArmyOrder.Retreat || a.Goal >= StrongholdGoalFirst) { OrksHome(a); return; }
-            a.Order = Imperial(a.Goal) ? TfwArmyOrder.Attack : TfwArmyOrder.Hold;
+            a.Order = a.Goal == LandingGoal || Imperial(a.Goal) ? TfwArmyOrder.Attack : TfwArmyOrder.Hold;   // the base: a wave sent there once all three positions were Imperial
             a.Post = a.Goal;
             a.Closing = TfwArmyLayout.Depth(a.Side, a.Width, a.Slots) * 0.5f;   // the wave walks on until its middle stands on the point
             if (a.Order == TfwArmyOrder.Attack) { ReleaseArmy(a); OnWaveArrived?.Invoke(a); }
@@ -470,8 +487,8 @@ public sealed partial class TfwBattle
     }
 
     /// <summary>Whether an army stands at position <paramref name="k"/>: attacking or holding it, its footprint on the point's ring (with <see cref="TfwArmyRules.AtPointMargin"/>).</summary>
-    bool AtPoint(TfwArmy a, int k) => a.Goal == k && a.Order is TfwArmyOrder.Attack or TfwArmyOrder.Hold
-        && FlatDistance(a.Middle, _layout.Positions[k]) <= _layout.Radius(k) + TfwArmyRules.AtPointMargin + a.Radius;
+    bool AtPoint(TfwArmy a, int k) => a.Goal == SiteGoal(k) && a.Order is TfwArmyOrder.Attack or TfwArmyOrder.Hold
+        && FlatDistance(a.Middle, SitePos(k)) <= SiteRadius(k) + TfwArmyRules.AtPointMargin + a.Radius;
 
     /// <summary>Whether an aggregate of Orks stands at position <paramref name="k"/> (it counts there as real Orks do).</summary>
     bool ArmyOrksOn(int k)
@@ -500,7 +517,7 @@ public sealed partial class TfwBattle
         float dt = FarStepSeconds;
         Span<TfwClashUnit> orkUnits = stackalloc TfwClashUnit[TfwArmyRules.MaxArmies + 1];
         Span<TfwClashUnit> guardUnits = stackalloc TfwClashUnit[TfwArmyRules.MaxArmies + 1];
-        for (int k = 0; k < Positions; k++)
+        for (int k = 0; k < Sites; k++)
         {
             _clashOrks.Clear(); _clashGuards.Clear();
             foreach (var a in _armies)
@@ -510,18 +527,21 @@ public sealed partial class TfwBattle
                 else _clashGuards.Add(a);
             }
             if (_clashOrks.Count == 0 && _clashGuards.Count == 0) continue;
-            var point = _layout.Positions[k];
-            float reach = _layout.Radius(k) + TfwArmyRules.AtPointMargin;
+            var point = SitePos(k);
+            float reach = SiteRadius(k) + TfwArmyRules.AtPointMargin;
             bool seen = !FarFromHumans(point);
-            int realOrks = seen ? 0 : _enemies.CountWithin(point, reach, _layout.Reach(k) + 2f);
-            int realGuards = seen ? 0 : _guards.CountInside(point, reach);
+            // The real units standing there take part. Unseen they fight at full cohesion; seen (a human near) they only take the aggregates' fire: their own fire is real already, and the
+            // aggregate remainder behind the real line still wears the enemy's real front down, so no army's reserve stands idle beside the fight (owner, 2026-11-08). Their deaths are real deaths.
+            int realOrks = _enemies.CountWithin(point, reach, SiteReach(k) + 2f);
+            int realGuards = _guards.CountInside(point, reach);
             if ((_clashOrks.Count == 0 && realOrks == 0) || (_clashGuards.Count == 0 && realGuards == 0)) continue;
             var orks = orkUnits[..(_clashOrks.Count + 1)];
             var guards = guardUnits[..(_clashGuards.Count + 1)];
-            for (int j = 0; j < _clashOrks.Count; j++) orks[j] = new TfwClashUnit(_clashOrks[j].Far, _clashOrks[j].Start, _clashOrks[j].Cohesion);
-            for (int j = 0; j < _clashGuards.Count; j++) guards[j] = new TfwClashUnit(_clashGuards[j].Far, _clashGuards[j].Start, _clashGuards[j].Cohesion);
-            orks[^1] = new TfwClashUnit(realOrks, realOrks, steady: true);
-            guards[^1] = new TfwClashUnit(realGuards, realGuards, steady: true);
+            const float ork = TfwClashRules.OrkWorth, guard = TfwClashRules.GuardWorth;
+            for (int j = 0; j < _clashOrks.Count; j++) orks[j] = new TfwClashUnit(_clashOrks[j].Far, _clashOrks[j].Start, _clashOrks[j].Cohesion, worth: ork);
+            for (int j = 0; j < _clashGuards.Count; j++) guards[j] = new TfwClashUnit(_clashGuards[j].Far, _clashGuards[j].Start, _clashGuards[j].Cohesion, worth: guard);
+            orks[^1] = new TfwClashUnit(realOrks, realOrks, steady: true, worth: ork) { Silent = seen };
+            guards[^1] = new TfwClashUnit(realGuards, realGuards, steady: true, worth: guard) { Silent = seen };
             TfwClash.Step(orks, guards, dt, TfwClash.Roll((uint)k + 1u, (uint)_farSteps, 0u), TfwClash.Roll((uint)k + 1u, (uint)_farSteps, 1u));
             for (int j = 0; j < _clashOrks.Count; j++) TakeFarLosses(_clashOrks[j], orks[j]);
             for (int j = 0; j < _clashGuards.Count; j++) TakeFarLosses(_clashGuards[j], guards[j]);
@@ -560,23 +580,23 @@ public sealed partial class TfwBattle
     void PayRealLosses(int k, float orks, float guards, Vector3 point, float reach)
     {
         _realDebt[k] += orks;
-        _realDebt[Positions + k] += guards;
+        _realDebt[Sites + k] += guards;
         Span<ushort> near = stackalloc ushort[16];
         while (_realDebt[k] >= 1f)
         {
-            int n = _enemies.Query(point, reach, near[..1], _layout.Reach(k) + 2f);
+            int n = _enemies.Query(point, reach, near[..1], SiteReach(k) + 2f);
             if (n == 0 || !_enemies.TryGet(near[0], out var e)) { _realDebt[k] = 0f; break; }
             _enemies.Damage(near[0], 0, e.Health, Vector3.Zero, out _, marker: 0, cause: MusouDeathKind.Shot);
             _realDebt[k] -= 1f;
         }
-        while (_realDebt[Positions + k] >= 1f)
+        while (_realDebt[Sites + k] >= 1f)
         {
             int s = -1;
             float best = reach;
             for (int q = 0; q < GuardSim.MaxSquads; q++)
                 if (_guards.AliveIn(q) > 0 && FlatDistance(_guards.Centre(q), point) is var d && d <= best) { best = d; s = q; }   // only men standing at this point pay its losses
-            if (s < 0 || !_guards.KillOne(s, point)) { _realDebt[Positions + k] = 0f; break; }
-            _realDebt[Positions + k] -= 1f;
+            if (s < 0 || !_guards.KillOne(s, point)) { _realDebt[Sites + k] = 0f; break; }
+            _realDebt[Sites + k] -= 1f;
         }
     }
 

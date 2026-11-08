@@ -22,6 +22,11 @@ public static class TfwClashRules
     public const float RoutCohesion = 0.2f, RoutLoss = 0.65f;
     /// <summary>A step's losses vary by up to this share either way (a seeded roll per side and step).</summary>
     public const float Noise = 0.3f;
+    /// <summary>
+    /// What one man of a side is worth in the far fight, in Orks (the owner, 2026-11-08: "the far from players clash should match the close to players balance"). The near layer's own balance: the
+    /// owner-tuned <c>GuardHoldTrial</c> holds 60 real Guardsmen (4.5 x the install's) against a crowd of 400 real Orks half the time, so one Guardsman is worth 400 / 60 Orks. Even strength is an even fight.
+    /// </summary>
+    public const float OrkWorth = 1f, GuardWorth = 400f / 60f;
     /// <summary>Elites die at this share of their part of the losses (they are tougher).</summary>
     public const float EliteLossShare = 0.5f;
 }
@@ -30,13 +35,17 @@ public static class TfwClashRules
 public struct TfwClashUnit
 {
     public float Count, Start, Cohesion, Lost;
+    /// <summary>What one of its men is worth (<see cref="TfwClashRules.OrkWorth"/>, <see cref="TfwClashRules.GuardWorth"/>).</summary>
+    public float Worth;
     /// <summary>Real units counted in a far clash: they fire at full cohesion and never rout (they fight to the last; the battle takes their losses).</summary>
     public bool Steady;
+    /// <summary>Takes fire but deals none here (real units a human can see: their fire is real already).</summary>
+    public bool Silent;
     public bool Routed;
 
-    public TfwClashUnit(float count, float start, float cohesion = 1f, bool steady = false)
+    public TfwClashUnit(float count, float start, float cohesion = 1f, bool steady = false, float worth = 1f)
     {
-        Count = count; Start = Math.Max(count, start); Cohesion = cohesion; Steady = steady; Lost = 0f; Routed = false;
+        Count = count; Start = Math.Max(count, start); Cohesion = cohesion; Steady = steady; Lost = 0f; Routed = false; Worth = worth > 0f ? worth : 1f;
     }
 
     /// <summary>The share of its start lost.</summary>
@@ -49,17 +58,17 @@ public readonly record struct TfwClashResult(bool AWon, float AKept, float BKept
 /// <summary>
 /// The far layer's attrition (pure, deterministic for given rolls): each side's losses in a step are the other side's men times <see cref="TfwClashRules.FirePerSecond"/> times its cohesion's
 /// share of fire, times a roll; they fall on the side's armies by their counts. Cohesion falls with losses and with the enemy's numerical edge; an army routs at <see cref="TfwClashRules.RoutCohesion"/>
-/// or <see cref="TfwClashRules.RoutLoss"/>. A side is symmetric: one man of an Ork aggregate is worth one Guardsman, so even numbers make an even fight (the brief's 200 v 200).
+/// or <see cref="TfwClashRules.RoutLoss"/>. Everything is in strength (men times their worth, <see cref="TfwClashRules.GuardWorth"/>), so the far fight keeps the near layer's balance: even strength is an even fight.
 /// </summary>
 public static class TfwClash
 {
     /// <summary>The fire one army puts out a second.</summary>
-    public static float Fire(in TfwClashUnit u) => u.Routed || u.Count <= 0f ? 0f : u.Count * TfwClashRules.FirePerSecond * (u.Steady ? 1f : TfwClashRules.CohesionFloor + (1f - TfwClashRules.CohesionFloor) * Math.Clamp(u.Cohesion, 0f, 1f));
+    public static float Fire(in TfwClashUnit u) => u.Routed || u.Silent || u.Count <= 0f ? 0f : u.Count * u.Worth * TfwClashRules.FirePerSecond * (u.Steady ? 1f : TfwClashRules.CohesionFloor + (1f - TfwClashRules.CohesionFloor) * Math.Clamp(u.Cohesion, 0f, 1f));
 
     static float Standing(ReadOnlySpan<TfwClashUnit> side)
     {
         float n = 0f;
-        foreach (var u in side) if (!u.Routed) n += Math.Max(0f, u.Count);
+        foreach (var u in side) if (!u.Routed) n += Math.Max(0f, u.Count) * u.Worth;   // strength: men times their worth
         return n;
     }
 
@@ -89,7 +98,7 @@ public static class TfwClash
         {
             ref var u = ref side[k];
             if (u.Routed || u.Count <= 0f) continue;
-            float lost = Math.Min(u.Count, losses * u.Count / men);
+            float lost = Math.Min(u.Count, losses * u.Count * u.Worth / men / u.Worth);   // its share of the strength lost, in its own men
             u.Lost = lost;
             u.Count -= lost;
             if (u.Steady) continue;
@@ -105,10 +114,10 @@ public static class TfwClash
     public static float Roll(uint seed, uint step, uint side) => MusouSim.Unit(MusouSim.Mix(MusouSim.Mix(seed, step * 2u + side), 0x636C6173u)) * 2f - 1f;
 
     /// <summary>A whole clash of one army a side, <paramref name="a"/> men against <paramref name="b"/>, to a rout or a wipe (at most <paramref name="maxSeconds"/>): the Monte Carlo test's and the profile's.</summary>
-    public static TfwClashResult Resolve(float a, float b, uint seed, float maxSeconds = 1200f)
+    public static TfwClashResult Resolve(float a, float b, uint seed, float maxSeconds = 1200f, float worthA = 1f, float worthB = 1f)
     {
-        Span<TfwClashUnit> sa = [new TfwClashUnit(a, a)];
-        Span<TfwClashUnit> sb = [new TfwClashUnit(b, b)];
+        Span<TfwClashUnit> sa = [new TfwClashUnit(a, a, worth: worthA)];
+        Span<TfwClashUnit> sb = [new TfwClashUnit(b, b, worth: worthB)];
         float t = 0f;
         uint step = 0;
         while (t < maxSeconds && !sa[0].Routed && !sb[0].Routed && sa[0].Count > 0f && sb[0].Count > 0f)

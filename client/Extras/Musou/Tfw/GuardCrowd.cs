@@ -84,6 +84,9 @@ public partial class GuardCrowd : CrowdView
     float HurtSeconds => _looks.Look?.Clips[GuardRig.Hurt]?.Animation.Duration ?? 2f;
 
     /// <summary>One body a death, whichever report comes first (<see cref="GuardDeaths"/>).</summary>
+    /// <summary>A body where a distant army's slot went (expansion S6: an aggregate's losses; no real man died there): one of the death clips, drawn as any body.</summary>
+    public void AddImpostorBody(Vector3 at, float yaw, int key, uint tick) => AddBody(at, yaw, 0, GuardRig.DeathClip((ushort)(key * 2654435761u >> 16), tick));
+
     void Fall(ushort id, uint tick, Vector3 at, float yaw, uint clipTick)
     {
         if (_deaths.Died(id, tick)) AddBody(at, yaw, 0, GuardRig.DeathClip(id, clipTick));

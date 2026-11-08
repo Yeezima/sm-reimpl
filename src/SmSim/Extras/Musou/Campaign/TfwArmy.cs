@@ -21,8 +21,8 @@ public static class TfwArmyRules
     public const float MarchAggro = 15f, AttackAggro = 30f;
     /// <summary>Aggregate march speeds (under an Ork's run and a Guardsman's walk, so real members keep up).</summary>
     public const float OrkSpeed = 3f, GuardSpeed = 3.6f;
-    /// <summary>A marching army waits while the middle of its real Orks is this far behind their places.</summary>
-    public const float WaitBehind = 5f;
+    /// <summary>A marching army waits while the middle of its real Orks is this far behind their places, at most <see cref="WaitMostSeconds"/> at a time; then it creeps on at <see cref="CreepShare"/> of its pace, so a wave whose front is fighting never stalls short of its point (the patrols' rule).</summary>
+    public const float WaitBehind = 5f, WaitMostSeconds = 2.5f, CreepShare = 0.6f;
     /// <summary>The routes between the battle's places are searched off the tick from the start and taken this long after it (deterministic, as the patrols').</summary>
     public const float RouteSeconds = 5f;
     public const int RouteExpansions = 200_000;
@@ -274,6 +274,8 @@ public sealed class TfwArmy
     public int RetreatReady { get; set; }
     /// <summary>Times it was rallied (tests).</summary>
     public int Rallies { get; set; }
+    /// <summary>Ticks it has waited for its real ranks in a row.</summary>
+    public int WaitTicks { get; set; }
     /// <summary>A wave's departure tick (Muster: when it leaves).</summary>
     public int Leaves { get; set; }
     /// <summary>The wave's planned size while it musters.</summary>
