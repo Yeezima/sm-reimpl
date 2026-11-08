@@ -95,13 +95,13 @@ public static class RenderQuality
         return true;
     }
 
+    /// <summary>The Options menu's render scale (set by <c>OptionsHost</c>; 1 until then): plain scaling's scale while FSR 2 is off.</summary>
+    public static float RenderScale { get; set; } = 1f;
+
     /// <summary>
     /// The 3D picture's scaling on the game's window: FSR 2 at its preset's scale when on, else plain scaling at <paramref name="renderScale"/> (the Options menu's render scale; 1 is native). The HUD and the
     /// menus are 2D and stay at the window's resolution either way. A sub-viewport (the customizer's preview) is left as it is.
     /// </summary>
-    /// <summary>The Options menu's render scale (set by <c>OptionsHost</c>; 1 until then): plain scaling's scale while FSR 2 is off.</summary>
-    public static float RenderScale { get; set; } = 1f;
-
     public static void ApplyScaling(Viewport viewport, float renderScale)
     {
         if (viewport is not Window) return;

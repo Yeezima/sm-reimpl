@@ -20,7 +20,8 @@ param(
     [int]$Seconds = 150,
     [switch]$Headless,
     [string]$ClientArgs = '',
-    [string]$ServerEnv = ''
+    [string]$ServerEnv = '',
+    [int]$Every = 30
 )
 $ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
@@ -41,7 +42,7 @@ switch -Regex ($Scene) {
     '^clash(\d+)$' {
         $env:SM_TFW_ARMY_TEST = "clash:$($Matches[1])"; $env:SM_TFW_KEEP_HUMAN = '1'
         $serverArgs += @('--content', 'musou')
-        $client += @('--content', 'musou', '--tfw-test-fight', '--tfw-fight-hold', '--tfw-fight-look-armies', '--tfw-fight-seconds', "$Seconds", '--tfw-fight-every', '30')
+        $client += @('--content', 'musou', '--tfw-test-fight', '--tfw-fight-hold', '--tfw-fight-look-armies', '--tfw-fight-seconds', "$Seconds", '--tfw-fight-every', "$Every")
     }
     '^burst$' {
         Remove-Item Env:SM_TFW_ARMY_TEST -ErrorAction SilentlyContinue; Remove-Item Env:SM_TFW_KEEP_HUMAN -ErrorAction SilentlyContinue
