@@ -156,7 +156,23 @@ public sealed class MusouNav
     /// </summary>
     public float EdgeDistance(int node)
     {
-        if (_edge is null)
+        _edge ??= _edgeTask?.Result ?? ComputeEdges();
+        return (uint)node < (uint)_edge.Length ? _edge[node] : float.PositiveInfinity;
+    }
+
+    Task<float[]>? _edgeTask;
+
+    /// <summary>
+    /// Starts <see cref="EdgeDistance"/>'s spread off the tick (musou/perf-pass: computed lazily it took 138 ms of the first tick a Scrap Mek looked for a hide, on Ashfall's graph); the first use waits for it
+    /// if it is not done. The values are the same either way.
+    /// </summary>
+    public void PrepareEdges()
+    {
+        if (_edge is null && _edgeTask is null) _edgeTask = Task.Run(ComputeEdges);
+    }
+
+    float[] ComputeEdges()
+    {
         {
             int n = NodeCount;
             var d = new float[n];
@@ -177,9 +193,8 @@ public sealed class MusouNav
                     if (c < d[t]) { d[t] = c; queue.Enqueue(t); }
                 }
             }
-            _edge = d;
+            return d;
         }
-        return (uint)node < (uint)_edge.Length ? _edge[node] : float.PositiveInfinity;
     }
 
     /// <summary>The direction of increasing <see cref="EdgeDistance"/> at a node (away from the nearest wall; flat, unit, or zero where the distance is flat).</summary>

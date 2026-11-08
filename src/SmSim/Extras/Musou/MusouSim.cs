@@ -44,6 +44,7 @@ public sealed partial class MusouSim
         Rules = rules ?? MusouRules.Default;
         for (int i = 0; i < Capacity; i++) _free.Enqueue(i);
         Walk = nav is { NodeCount: > 0 } ? new MusouNav(nav) : null;
+        Walk?.PrepareEdges();   // musou/perf-pass: the edge distances off the tick, before a Mek or a Boss Ork asks
         Flow = Walk is null ? null : new FlowField(Walk);
         Box = Walk?.Box() ?? new MusouBox(new Vector3(-64f, -64f, -2f), new Vector3(64f, 64f, 8f));
         _grid = new SpatialGrid(Box, Rules.SeparationCell);

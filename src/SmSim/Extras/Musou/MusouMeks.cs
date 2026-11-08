@@ -250,9 +250,11 @@ public sealed class MusouMeks
         {
             var m = _meks[k];
             if (m.Id != 0 && !(_sim.TryGet(m.Id, out var e) && e.Alive && e.Type == MusouEnemyType.ScrapMek)) Died(m);
-            if (m.Id == 0 && _now >= m.RespawnAt) Come(k, targets, spawns);
+            if (m.Id == 0 && _now >= m.RespawnAt) { long come = SimProfile.Begin(); Come(k, targets, spawns); SimProfile.End("meks: come", come); }   // musou/perf-pass: SM_TICK_STATS sections
         }
+        long think = SimProfile.Begin();
         for (int k = 0; k < _meks.Length; k++) if (_meks[k].Id != 0) Think(k, targets);
+        SimProfile.End("meks: think", think);
         for (int i = 0; i < _structures.Count; i++)
         {
             var s = _structures[i];
