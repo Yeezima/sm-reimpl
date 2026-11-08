@@ -15,6 +15,12 @@ public static class TfwSendRules
     public const int GuardBudgetBytesPerSecond = 20_000;
     /// <summary>The most a client gets for Musou's and the war's sections together (ours: under the design's 60 KB/s). Musou spends first, the war gets what is left, up to its own budget.</summary>
     public const int ClientBudgetBytesPerSecond = 58_000;
+    /// <summary>
+    /// crowd-smooth (2026-11-08, ours): the least the Guardsmen's bucket refills whatever Musou spent. Under a crowd that fills Musou's 55 KB/s the war got the 3 KB/s left of the client's 58, so a
+    /// Guardsman 60 m off had a record about every 48 ticks and was drawn standing, then jumping. What the war spends above Musou's leftover is charged to Musou's next refill
+    /// (<see cref="TfwGuardInterest.TakeOverdraw"/>, <see cref="MusouInterest.CoreBytes"/>), so the client's total stays where it was. Server <c>SM_TFW_OLD_GUARD_SHARE=1</c>: no floor (test aid).
+    /// </summary>
+    public const int GuardFloorBytesPerSecond = 8_000;
     /// <summary>Most envelope messages of the war to one client in one tick, on top of Musou's (ours).</summary>
     public const int MaxMessagesPerTick = 2;
     /// <summary>Most budget a client saves (ours: one tick of full messages).</summary>
@@ -132,6 +138,13 @@ public sealed class TfwGuardInterest
     readonly List<TfwGuardEvent> _events = new();
     float _tokens = TfwSendRules.BurstBytes;
     float _musouTokens = MusouSend.Burst;
+    float _overdraw;
+
+    /// <summary>Test aid (server <c>SM_TFW_OLD_GUARD_SHARE=1</c>): the share before 2026-11-08, without <see cref="TfwSendRules.GuardFloorBytesPerSecond"/>.</summary>
+    public bool OldShare { get; init; }
+
+    /// <summary>The bytes this client was sent for the war beyond what Musou's spending left of the client's budget, since the last call (then 0): the server charges them to Musou's next refill.</summary>
+    public float TakeOverdraw() { float o = _overdraw; _overdraw = 0f; return o; }
     byte[]? _lastWar;
     uint _lastWarTick, _lastObjectivesTick;
     bool _objectivesSent;
@@ -164,7 +177,11 @@ public sealed class TfwGuardInterest
     {
         float second = Math.Max(1, tickRate);
         float left = MathF.Max(0f, TfwSendRules.ClientBudgetBytesPerSecond / second - musouBytes);
-        _tokens = MathF.Min(TfwSendRules.BurstBytes, _tokens + MathF.Min(TfwSendRules.GuardBudgetBytesPerSecond / second, left));
+        float leftRefill = MathF.Min(TfwSendRules.GuardBudgetBytesPerSecond / second, left);
+        float refill = OldShare ? leftRefill : MathF.Max(leftRefill, MathF.Min(TfwSendRules.GuardFloorBytesPerSecond, TfwSendRules.GuardBudgetBytesPerSecond) / second);
+        float added = MathF.Min(TfwSendRules.BurstBytes, _tokens + refill) - _tokens;
+        _tokens += added;
+        if (!OldShare) _overdraw += Math.Clamp(added - leftRefill, 0f, refill - leftRefill);   // the floor's top-up that went into the bucket: Musou's next refill pays it back
 
         var messages = new List<List<(byte, byte[])>>();
         var sizes = new List<int>();

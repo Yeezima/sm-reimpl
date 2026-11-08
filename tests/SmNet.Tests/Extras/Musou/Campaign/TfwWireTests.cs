@@ -452,17 +452,32 @@ public class TfwWireTests(ITestOutputHelper output)
     public void The_war_gets_only_what_musou_leaves()
     {
         var crowd = Enumerable.Range(1, 120).Select(i => new TfwGuard((ushort)i, Vector3.Zero, 0f, 1)).ToArray();
-        long Run(float musouPerTick)
+        (long Bytes, long Overdraw) Run(float musouPerTick, bool old)
         {
-            var interest = new TfwGuardInterest();
+            var interest = new TfwGuardInterest { OldShare = old };
             long bytes = 0;
+            double overdraw = 0;
             for (uint tick = 1; tick <= 3000; tick++)
+            {
                 bytes += interest.Plan(tick, 30, null, null, crowd, Vector3.Zero, Box, [], musouPerTick).Sum(m => (long)Protocol.EnvelopeBytes(new ExtrasUpdate(tick, m)));
-            return bytes / 100;   // a second's worth
+                overdraw += interest.TakeOverdraw();
+            }
+            return (bytes / 100, (long)(overdraw / 100));   // a second's worth
         }
-        Assert.InRange(Run(0f), 15_000L, TfwSendRules.GuardBudgetBytesPerSecond + 200L);
-        Assert.True(Run(55_000f / 30f) <= TfwSendRules.ClientBudgetBytesPerSecond - 55_000 + 200, $"{Run(55_000f / 30f)}");
-        Assert.True(Run(60_000f / 30f) <= 200, $"{Run(60_000f / 30f)}");
+        // The share before crowd-smooth (OldShare): only what Musou leaves.
+        Assert.InRange(Run(0f, old: true).Bytes, 15_000L, TfwSendRules.GuardBudgetBytesPerSecond + 200L);
+        Assert.True(Run(55_000f / 30f, old: true).Bytes <= TfwSendRules.ClientBudgetBytesPerSecond - 55_000 + 200, $"{Run(55_000f / 30f, old: true)}");
+        Assert.True(Run(60_000f / 30f, old: true).Bytes <= 200, $"{Run(60_000f / 30f, old: true)}");
+        Assert.Equal(0L, Run(60_000f / 30f, old: true).Overdraw);
+        // crowd-smooth: at least the floor, and what the floor paid beyond Musou's leftover is handed back to Musou (charged to its next refill).
+        Assert.InRange(Run(0f, old: false).Bytes, 15_000L, TfwSendRules.GuardBudgetBytesPerSecond + 200L);
+        Assert.Equal(0L, Run(0f, old: false).Overdraw);
+        var full = Run(55_000f / 30f, old: false);
+        Assert.InRange(full.Bytes, TfwSendRules.GuardFloorBytesPerSecond - 600L, TfwSendRules.GuardFloorBytesPerSecond + 200L);
+        Assert.InRange(full.Bytes - full.Overdraw, 0L, TfwSendRules.ClientBudgetBytesPerSecond - 55_000 + 200);   // the rest of the floor comes out of Musou's share
+        var over = Run(60_000f / 30f, old: false);
+        Assert.InRange(over.Bytes, TfwSendRules.GuardFloorBytesPerSecond - 600L, TfwSendRules.GuardFloorBytesPerSecond + 200L);
+        Assert.InRange(over.Overdraw, over.Bytes - 300L, over.Bytes);
     }
 
     [Fact]

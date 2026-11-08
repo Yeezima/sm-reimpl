@@ -114,7 +114,7 @@ public partial class NetworkView
         {
             _guardLooks = new GuardLooks(_gameDir);
             int visible = MusouArg("guard-visible") ?? (SafeMode.Active ? GuardCrowd.LowVisible : GuardCrowd.DefaultVisible);
-            _guardCrowd = new GuardCrowd(_guardLooks, visible) { NoVat = CmdFlag("guard-no-vat") };
+            _guardCrowd = new GuardCrowd(_guardLooks, visible) { NoVat = CmdFlag("guard-no-vat"), OldTierSwitch = CmdFlag("musou-old-crowd-motion") };
             _gameSpace!.AddChild(_guardCrowd);
         }
         if (_guardLooks.Step() is { } look) GD.Print($"guards: look ready ({OrkAssets.Describe(look.Assets)}; muzzle at {_guardLooks.Muzzle})");

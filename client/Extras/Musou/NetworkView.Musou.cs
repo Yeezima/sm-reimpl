@@ -112,7 +112,7 @@ public partial class NetworkView
         {
             if (Orks() is not { } orks) return;
             _musouLooks = new MusouLooks(_gameDir, orks, MusouChaosLook, guns: MusouGunsOn);
-            _musouCrowd = new MusouCrowd(_musouLooks) { Visible = MusouArg("musou-visible") ?? MusouCrowd.DefaultVisible, NoVat = CmdFlag("musou-no-vat"), SolidBetween = MusouSolidBetween };
+            _musouCrowd = new MusouCrowd(_musouLooks) { Visible = MusouArg("musou-visible") ?? MusouCrowd.DefaultVisible, NoVat = CmdFlag("musou-no-vat"), SolidBetween = MusouSolidBetween, OldTierSwitch = CmdFlag("musou-old-crowd-motion") };
             _gameSpace!.AddChild(_musouCrowd);
         }
         var watch = System.Diagnostics.Stopwatch.StartNew();
