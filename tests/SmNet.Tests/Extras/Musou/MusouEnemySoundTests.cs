@@ -65,6 +65,24 @@ public class MusouEnemySoundTests
     }
 
     [Fact]
+    public void The_big_shoota_jams_with_its_own_pulling_grunt_and_cocks_when_ready()
+    {
+        var body = new SoundFile("ork_coop_nob_bigshoota", [Bind("evt_left_foot", "step")]);
+        var axe = new SoundFile("ork_coop_nob_uge_axe", [Bind("actn_huge_swing", "whoosh")]);
+        var gun = new SoundFile("ork_coop_nob_big_shoota", [Bind("fire_audio", "big_fire", "ability_ranged_primary"), Bind("actn_snd_wep_cock", "gun_cock")])
+        {
+            Speech = [Say("actn_snd_wep_gun_jam", "effort_big_pull")],
+        };
+        var set = MusouSoundSet.Build(new MusouSoundFiles(MusouEnemyType.BigShootaNob, "ork_coop_nob_bigshoota", "ork_coop_nob_uge_axe", Gun: "ork_coop_nob_big_shoota"),
+            Triggers("ork_nob", body, axe, gun), _ => true);
+        var jam = Assert.Single(set.Jam.Options);
+        Assert.Empty(jam.Events);
+        Assert.Equal("effort_big_pull", Assert.Single(jam.Lines).Type);
+        Assert.Equal("gun_cock", Assert.Single(Assert.Single(set.GunReady.Options).Events).StartEvent);
+        Assert.Contains(set.Cues, c => c.Name == "jam");
+    }
+
+    [Fact]
     public void A_weapon_that_whooshes_at_flare_and_swing_sounds_once()
     {
         var body = new SoundFile("ork_coop_nob", [Bind("evt_left_foot", "step")]);

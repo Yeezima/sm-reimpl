@@ -50,6 +50,7 @@ public sealed partial class World
     partial void ExtrasStep()
     {
         if (_musou is null || _musouDirector is null) return;
+        LibrarianStep();   // Librarian/World.Librarian.cs: a Librarian's powers (nobody else has any)
         if (_tfw is not null) { TfwStep(); return; }   // Campaign/World.Tfw.cs: the war, not the 5-wave run
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
         var director = _musouDirector;
@@ -236,6 +237,8 @@ public sealed partial class World
         }
     }
 
+    partial void ExtrasSampled(int id, in PlayerInput input) => LibrarianSampled(id, input);
+
     partial void ExtrasPlayerInput(int id, ref PlayerInput input, ref bool handled)
     {
         if (_tfw is null) return;
@@ -245,13 +248,17 @@ public sealed partial class World
     partial void ExtrasMelee(int attacker, PlayerState state, MeleeStep step)
     {
         if (_musou is null) return;
+        int librarian = LibrarianMeleeBegin(attacker);   // Librarian/World.Librarian.cs: a swing that strikes takes stress off
         MusouCleave(attacker, state, step);   // World.MusouCombat.cs
+        TfwMekMelee(attacker, state, step);   // Campaign/World.TfwMeks.cs: the contraptions (expansion S4)
+        LibrarianMeleeEnd(attacker, librarian);
     }
 
     partial void ExtrasBlast(int owner, Vector3 point, SplashSpec splash, bool melee)
     {
         if (_musou is null) return;
         MusouBlast(owner, point, splash, melee);   // World.MusouCombat.cs
+        TfwMekBlast(owner, point, splash);   // Campaign/World.TfwMeks.cs: the contraptions (expansion S4)
     }
 
     partial void ExtrasDamageTaken(int target, ref float scale)

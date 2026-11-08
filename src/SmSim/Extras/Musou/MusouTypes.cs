@@ -191,6 +191,15 @@ public sealed record MusouRules
             RangedDamage = 35f, RangedRounds = 1, RangedPeriod = 2.5f, RangedMin = 20f, RangedMax = 50f, RangedBlastRadius = 3f, RangedBoltSpeed = 40f,
             ShieldMax = 300f,
         },
+        // Expansion S1 (docs/musou-expansion.md, rules Bomb Squig, Rokkit Boy, Stormboys, Big Shoota Nob, Scrap Meks; every value ours / owner brief 2026-11-07): PLACEHOLDER rows in the enum's order.
+        // Health from the plan (Squig 30, Rokkit 85, Stormboy 120, Big Shoota 600, Mek 250); nothing spawns these until S2 to S4, which set their attacks (the fields below the health are stand-ins).
+        // S2 (MusouSquigRules, MusouRokkitRules): the Squig runs at 7.5 m/s (30 hp; no attack of its own: its burst); the Rokkit Boy holds 25-45 m and fires one rocket every 5 s (the round's damage
+        // stands for the rocket's blast, MusouRokkitRules.Blast; the hit chances are not used: a rocket hits what it meets).
+        new(MusouEnemyType.BombSquig, 30f, 7.5f, 0.3f, 0.8f, 5),
+        new(MusouEnemyType.RokkitBoy, 85f, 4.8f, 0.4f, 1.9f, 20) { RangedDamage = 120f, RangedRounds = 1, RangedPeriod = 5f, RangedMin = 25f, RangedMax = 45f },
+        new(MusouEnemyType.Stormboy, 120f, 5.2f, 0.4f, 1.9f, 20) { MeleeDamage = 8f, MeleePeriod = 1.4f },
+        new(MusouEnemyType.BigShootaNob, 600f, 4.0f, 0.6f, 2.3f, 150) { RangedDamage = 4f, RangedRounds = 3, RangedPeriod = 1.6f, RangedMin = 12f, RangedMax = 30f },
+        new(MusouEnemyType.ScrapMek, 250f, 4.8f, 0.45f, 1.9f, 50),
     ];
 
 

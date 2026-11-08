@@ -100,6 +100,10 @@ public sealed partial class MusouSim
         SpawnedCombat(i);   // MU3 (MusouCombat.cs): no script, no drive
         SpawnedSwarm(i);
         SpawnedWeirdboy(i);   // MusouSim.Weirdboy.cs: the shield, the cooldowns
+        SpawnedSquig(i);   // MusouSim.Squig.cs: the fuse, the kick
+        SpawnedStormboy(i); SpawnedBigShoota(i);   // expansion S3 (MusouSim.Stormboy.cs, MusouSim.BigShoota.cs)
+        SpawnedMek(i);   // expansion S4 (MusouSim.Mek.cs)
+        _prefer[i] = false;
         _relocations[i] = 0;
         _ring[i] = Rules.CircleMin + (Rules.CircleMax - Rules.CircleMin) * Unit(Mix((uint)i * 2654435761u, 0x9E3779B9u));
         if (Walk is not null && _node[i] < 0) _node[i] = Walk.Nearest(_position[i]);
@@ -116,6 +120,7 @@ public sealed partial class MusouSim
     {
         for (int i = 0; i < Capacity; i++) if (_used[i]) _trail[i * TrailLength + (int)(Tick % TrailLength)] = _position[i];
         if (_bolts.Count > 0) LandBolts(targets, fight, attacks);   // the Weirdboy's bolts (MusouSim.Weirdboy.cs)
+        if (_rockets.Count > 0) StepRockets(targets, collision);   // the Rokkit Boyz' rockets (MusouSim.Rokkit.cs)
         if (Frozen) { LastLosChecks = 0; return; }
         int nt = targets.Length;
         if (_targetNode.Length < nt) Grow(nt);
@@ -153,18 +158,24 @@ public sealed partial class MusouSim
             var state = _state[i];
             if (state == MusouEnemyState.Dying)
             {
+                if (_falling[i]) { StepFall(i); continue; }   // a shot-down Stormboy falls, then crashes (MusouSim.Stormboy.cs)
                 if (_stateTicks[i] >= Ticks(Rules.DyingSeconds)) _dead.Add(i);
                 continue;
             }
+            if (_type[i] == MusouEnemyType.BombSquig) { StepSquig(i, targets, near, fight); continue; }   // its fall, run, fuse and kick (MusouSim.Squig.cs)
             if (state == MusouEnemyState.Spawning)
             {
                 if (_stateTicks[i] >= Ticks(Rules.SpawnSeconds)) SetState(i, MusouEnemyState.Seek);
                 continue;
             }
             if (state == MusouEnemyState.Knocked) { StepKnocked(i, targets, near); continue; }   // Campaign/MusouSim.Knock.cs: only a war's fodder falls
+            if (state == MusouEnemyState.Airborne) { StepAirborne(i); continue; }   // a Stormboy's hop (MusouSim.Stormboy.cs)
+            if (_type[i] == MusouEnemyType.ScrapMek) { StepMek(i, targets, near); continue; }   // he runs, hides and builds (MusouSim.Mek.cs)
             if (_type[i] == MusouEnemyType.Weirdboy && StepWeirdboy(i, targets, near, fight)) { if (_cooldown[i] > 0) _cooldown[i]--; continue; }   // his stun, cast and fade (MusouSim.Weirdboy.cs)
             if (_cooldown[i] > 0) _cooldown[i]--;
             var spec = Rules.Of(_type[i]);
+            if (_type[i] == MusouEnemyType.Stormboy && StepOrdered(i, targets, near, spec)) continue;   // under his squad's orders (MusouSim.Stormboy.cs)
+            if (_type[i] == MusouEnemyType.BigShootaNob && float.IsPositiveInfinity(_aggro[i]) && StepBigShoota(i, targets, near, spec, fight, attacks)) continue;   // his gun's cycle (MusouSim.BigShoota.cs)
             bool leashed = !float.IsPositiveInfinity(_aggro[i]) && !_scripted[i], woken = leashed && Woken(i, targets);
             if (woken && Swarm is not null) { _pack[i] = PackFor(_group[i]); _aggro[i] = float.PositiveInfinity; _group[i] = 0; }   // once woken it never walks home: no yo-yo
             if (leashed && !woken)
@@ -308,6 +319,7 @@ public sealed partial class MusouSim
         _stranded.Clear();
         _losCursor = 0;
         _bolts.Clear();   // the Weirdboy's bolts in flight
+        _rockets.Clear(); _rocketBlasts.Clear(); _detonations.Clear();   // expansion S2
         _openPack.Clear();
         Array.Clear(_packMembers);
         _lastPack = 0;
@@ -339,11 +351,14 @@ public sealed partial class MusouSim
     /// an enemy no player can be walked to from has no target (it holds, and the failsafe moves it). Off the graph: the nearest straight (height x 3),
     /// switched to only when much nearer.
     /// </summary>
+    readonly bool[] _prefer = new bool[Capacity];   // its target is a kind preference other than the nearest: walked to directly within MusouTargetRules.PreferRange
+
     int Target(int i, ReadOnlySpan<MusouTarget> targets)
     {
         int current = IndexOf(targets, _target[i]);
         bool look = current < 0 || (_token[i] == 0 && (Tick + (uint)i) % 15u == 0u);
         if (!look) return current;
+        _prefer[i] = false;
         int best = -1, second = -1; float bestScore = float.MaxValue, secondScore = float.MaxValue, currentScore = float.MaxValue;
         for (int t = 0; t < targets.Length; t++)
         {
@@ -359,6 +374,13 @@ public sealed partial class MusouSim
             if (flank != current) { _token[i] = 0; _burst[i] = 0; _losTick[i] = 0; }
             _target[i] = TargetKey(targets[flank].Id);
             return flank;
+        }
+        if (War is not null && MusouTargetRules.Choose(_type[i], _position[i], targets, current) is var preferred and >= 0)   // expansion S1: Musou Mode's target preference by kind
+        {
+            if (preferred != current) { _token[i] = 0; _burst[i] = 0; _losTick[i] = 0; }
+            _prefer[i] = preferred != best;   // a choice other than the nearest is walked to directly (Approach); the nearest keeps the flow field
+            _target[i] = TargetKey(targets[preferred].Id);
+            return preferred;
         }
         if (Flow is { Ready: true } && _node[i] >= 0 && !(bestScore <= Rules.DirectSeekDistance * Rules.DirectSeekDistance))
         {
@@ -489,7 +511,8 @@ public sealed partial class MusouSim
     /// <summary>One round of a burst: the hit roll by distance (a hash of the tick and the enemy), the tracer, and the damage on a hit.</summary>
     void Fire(int i, MusouTarget target, float distance, MusouTypeSpec spec, List<MusouAttack> attacks, bool fight)
     {
-        if (spec.RangedBlastRadius > 0f) { ThrowBolt(i, target, spec, fight); return; }   // a bolt that bursts where it was aimed (MusouSim.Weirdboy.cs)
+        if (spec.RangedBlastRadius > 0f) { ThrowBolt(i, target, spec, fight); return; }
+        if (_type[i] == MusouEnemyType.RokkitBoy) { FireRocket(i, target, fight); return; }   // a real rocket (MusouSim.Rokkit.cs)   // a bolt that bursts where it was aimed (MusouSim.Weirdboy.cs)
         float span = MathF.Max(1e-3f, spec.RangedMax - spec.RangedMin);
         float chance = spec.RangedHitNear + (spec.RangedHitFar - spec.RangedHitNear) * Math.Clamp((distance - spec.RangedMin) / span, 0f, 1f);
         uint roll = Mix(Tick, (uint)i * 0x85EBCA6Bu + _burst[i]);
@@ -513,7 +536,7 @@ public sealed partial class MusouSim
     {
         var flat = new Vector2(d.X, d.Y);
         float distance = flat.Length();
-        bool direct = Walk is null || Flow is null || (_flowTicks[i] == 0 && distance <= Rules.DirectSeekDistance && MathF.Abs(d.Z) < 1.5f);
+        bool direct = Walk is null || Flow is null || (_flowTicks[i] == 0 && (distance <= Rules.DirectSeekDistance || (_prefer[i] && distance <= MusouTargetRules.PreferRange)) && MathF.Abs(d.Z) < 1.5f);
         if (!direct && _node[i] >= 0)
         {
             int next = Flow!.Next(_node[i]);

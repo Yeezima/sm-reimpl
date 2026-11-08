@@ -3,7 +3,7 @@ using System.Numerics;
 namespace SmSim.Extras.Musou;
 
 /// <summary>
-/// The kinds of Musou enemy (design section B; 4 bits on the wire, so at most 16). Hit points and the rest come from the data where it has them, else
+/// The kinds of Musou enemy (design section B; a full byte on the wire since Musou version 13). Hit points and the rest come from the data where it has them, else
 /// estimates (MU1's tuning, tagged kind: ours).
 /// </summary>
 public enum MusouEnemyType : byte
@@ -30,6 +30,16 @@ public enum MusouEnemyType : byte
     /// <summary>The Weirdboy (Exterminatus's <c>ork_coop_weirdboy</c>; Musou Mode only, <see cref="MusouWeirdboy"/>): a frail psyker behind an energy shield that bullets cannot pierce,
     /// who throws bursting bolts from range, teleports away from anyone who closes in and calls Boyz.</summary>
     Weirdboy = 11,
+    /// <summary>Expansion S1 (docs/musou-expansion.md; placeholder rows, nothing spawns them until S2 to S4): the Bomb Squig, a fused runner that bursts as an Ork blast.</summary>
+    BombSquig = 12,
+    /// <summary>The Rokkit Boy (S2): holds 25-45 m and fires a slow rocket.</summary>
+    RokkitBoy = 13,
+    /// <summary>The Stormboy (S3): jump-pack squads.</summary>
+    Stormboy = 14,
+    /// <summary>The Big Shoota Nob (S3): an elite with a heavy gun.</summary>
+    BigShootaNob = 15,
+    /// <summary>The Scrap Mek (S4, <see cref="MusouMeks"/>): runs from players, hides and builds contraptions; never attacks.</summary>
+    ScrapMek = 16,
 }
 
 /// <summary>The state machine of one enemy (design section B; 4 bits on the wire).</summary>
@@ -50,6 +60,13 @@ public enum MusouEnemyState : byte
     Casting = 9,
     /// <summary>The Weirdboy teleports away: he stands fading, then appears elsewhere (in <see cref="Spawning"/>).</summary>
     Vanishing = 10,
+    /// <summary>Expansion S4: a Scrap Mek at work on a contraption (<see cref="MusouMeks"/>): he stands, facing it.</summary>
+    Building = 11,
+    // 12 left free.
+    /// <summary>Expansion S3: a Stormboy in a jump-pack hop (<see cref="MusouStormboy"/>): his position follows the arc (the z on the wire is the arc's), nothing he does until he lands.</summary>
+    Airborne = 13,
+    /// <summary>Expansion S3: the Big Shoota Nob's gun overheated or jammed after a burst (<see cref="MusouBigShoota"/>): venting steam, not firing.</summary>
+    Overheated = 14,
 }
 
 /// <summary>

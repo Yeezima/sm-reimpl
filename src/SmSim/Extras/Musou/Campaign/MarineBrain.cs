@@ -52,11 +52,39 @@ public static class MarineRules
     public const int MaxInBattle = 3, MaxInFinal = 7;
 }
 
+/// <summary>
+/// The six independent AI Marines (expansion S6; owner 2026-11-07: "Keep both": the retainers stay and six Defenders come besides them). Every value but the brief's six and 30 s is ours. A change here raises
+/// <see cref="TfwRules.Version"/>.
+/// </summary>
+public static class DefenderRules
+{
+    /// <summary>Defenders a battle lands at most, and the seconds a dead one waits before he is back at the landing zone (the brief).</summary>
+    public const int Most = 6;
+    public const float RespawnSeconds = 30f;
+    /// <summary>The co-op's humans at most (SmContent's <c>MusouLocal.MaxPlayers</c>): each may have a retainer, so their ids are kept free.</summary>
+    public const int HumansMost = 4;
+    /// <summary>The Defenders' posts are looked at this often.</summary>
+    public const float PostSeconds = 1f;
+    /// <summary>A post's threat counts Orks this near it (up to <see cref="ThreatMost"/>), an army on its way or attacking it all its men; every post counts <see cref="ThreatFloor"/> more.</summary>
+    public const float ThreatRadius = 40f, ThreatFloor = 8f;
+    public const int ThreatMost = 64;
+    /// <summary>How far round its post a Defender stands (each his own place).</summary>
+    public const float PostSpread = 5f;
+    /// <summary>The Defenders' classes and placeholder names, in landing order (labelled so, as the lords').</summary>
+    public static readonly (string Role, string Name)[] Roster = [("tactical", "Brother Varro"), ("heavy", "Brother Calix"), ("assault", "Brother Doran"), ("tactical", "Brother Eskel"), ("heavy", "Brother Faust"), ("tactical", "Brother Garran")];
+
+    /// <summary>
+    /// The Defenders a battle with <paramref name="lords"/> lords lands: what the puppet ids leave after a retainer for each of the co-op's humans and two ids a lord (he and his retainer), at most six. So the World
+    /// never holds more than 16 players (4 humans + 12 puppets): six in a node battle with one lord, two in a final assault with three.
+    /// </summary>
+    public static int For(int lords) => Math.Clamp(TfwContracts.PuppetIds - HumansMost - 2 * Math.Max(0, lords), 0, Most);
+}
+
 /// <summary>A player's order to its retainers.</summary>
 public enum MarineOrder : byte { Follow = 0, Hold = 1, Attack = 2 }
 
-/// <summary>What a puppet is: a player's retainer, a lane's lord (autonomous), or a lord's retainer (his alone: no player orders it).</summary>
-public enum MarineRole : byte { Retainer = 0, Lord = 1, LordRetainer = 2 }
+/// <summary>What a puppet is: a player's retainer, a lane's lord (autonomous), a lord's retainer (his alone: no player orders it), or a Defender (expansion S6: autonomous, holds the Imperial positions, respawns).</summary>
+public enum MarineRole : byte { Retainer = 0, Lord = 1, LordRetainer = 2, Defender = 3 }
 
 /// <summary>One AI Marine (a real World player, <see cref="TfwContracts.PuppetIdFirst"/> up): what the brain remembers between ticks.</summary>
 public sealed class Marine(int id, MarineRole role, int owner, TfwLane lane, string name)
@@ -82,6 +110,9 @@ public sealed class Marine(int id, MarineRole role, int owner, TfwLane lane, str
     public int ReviveTicks { get; set; }
     /// <summary>Dead, and its death already dealt with.</summary>
     public bool Down { get; set; }
+    /// <summary>A Defender's ticks until it is back (dead), and its index among the Defenders (its post).</summary>
+    public int RespawnTicks { get; set; }
+    public int DefenderIndex { get; set; }
 }
 
 /// <summary>Where a puppet wants to be: within <see cref="Near"/> to <see cref="Far"/> of <see cref="Point"/>, flat (it stands inside the band, and backs off under it). <see cref="Via"/>: the next place on the way there (the walking graph's; none: straight).</summary>

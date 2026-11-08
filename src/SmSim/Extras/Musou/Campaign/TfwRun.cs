@@ -13,6 +13,7 @@ public sealed partial class TfwRun
     readonly Dictionary<int, int> _reviveTicks = new();    // a fallen human: ticks left of its revive window (0: closed)
     readonly List<int> _work = new();
     Vector3[] _feet = new Vector3[16];
+    int[] _feetIds = new int[16];
     TfwRunPhase _fighting;
     double _nextHqTransport;
     int _warTicks;
@@ -59,6 +60,9 @@ public sealed partial class TfwRun
     public bool Guardsmen { get; set; } = TfwBattleRules.GuardsmenEnabled;
     /// <summary>Whether a battle sends patrol and hunter columns (<see cref="TfwBattle.Patrols"/>; false only in tests that count the crowds alone, and the server's <c>SM_TFW_NO_PATROLS</c>).</summary>
     public bool Patrols { get; set; } = true;
+    /// <summary>Whether a battle runs the battle flow's armies (expansion S6, <see cref="TfwBattle.Armies"/>), and lands the six Defenders (false only in tests that count the old flow alone).</summary>
+    public bool Armies { get; set; } = true;
+    public bool Defenders { get; set; } = true;
     /// <summary>Whether a won battle sends the wave from every side (<see cref="TfwBattle.VictoryWave"/>; false only in tests of what a won battle does without it).</summary>
     public bool VictoryWave { get; set; } = true;
 
@@ -210,7 +214,7 @@ public sealed partial class TfwRun
         _deployed.Clear();
         foreach (int id in w.Players.Keys) if (!TfwContracts.IsPuppet(id)) _deployed.Add(id);
         _deployed.Sort();
-        Battle = new TfwBattle(w.Musou!, w.TfwGuards!, layout, state.Imperial, _deployed.Count, final, bonus, TfwBattleRules.EliteShare(TfwBattleRules.RunProgress(Wins, WinsNeeded(lane), final)), Guardsmen) { Patrols = Patrols, VictoryWave = VictoryWave };
+        Battle = new TfwBattle(w.Musou!, w.TfwGuards!, layout, state.Imperial, _deployed.Count, final, bonus, TfwBattleRules.EliteShare(TfwBattleRules.RunProgress(Wins, WinsNeeded(lane), final)), Guardsmen) { Patrols = Patrols, VictoryWave = VictoryWave, Armies = Armies };
         Battle.Start();
         Score.BeginMap(lane, (byte)node, _deployed);
         _fighting = final ? TfwRunPhase.FinalAssault : TfwRunPhase.Battle;
@@ -226,12 +230,14 @@ public sealed partial class TfwRun
             w.TfwSpawnRetainer(id, Ashore(w, layout, at - layout.LandingZone + new Vector3(0f, -2f, 0f)), yaw);
         }
         w.TfwPlaceCrates(Sites.Crates(layout, w.Tick), _deployed);
+        int lords = 0;
         for (int l = 0; l < 3; l++)
         {
             var other = (TfwLane)l;
             if ((final || other == lane) && War.LaneState(other).LordState == WarRules.LordPresent)
-                w.TfwSpawnLord(other, Ashore(w, layout, new Vector3(l * 3f - 3f, 3f, 0f)), yaw);
+                if (w.TfwSpawnLord(other, Ashore(w, layout, new Vector3(l * 3f - 3f, 3f, 0f)), yaw) is not null) lords++;
         }
+        if (Defenders && Guardsmen) w.TfwSpawnDefenders(DefenderRules.For(lords), layout.LandingZone, yaw);   // expansion S6: the six who defend beside the Guardsmen
         LastLandMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
     }
 
@@ -253,7 +259,9 @@ public sealed partial class TfwRun
 
         if (_feet.Length < w.Players.Count * 2) _feet = new Vector3[w.Players.Count * 4];
         int n = 0;
-        foreach (var p in w.Players.Values) if (p.Alive) _feet[n++] = p.Position;
+        if (_feetIds.Length < _feet.Length) _feetIds = new int[_feet.Length];
+        foreach (var (pid, p) in w.Players) if (p.Alive) { _feetIds[n] = pid; _feet[n++] = p.Position; }
+        battle.SetPlayerIds(_feetIds.AsSpan(0, n));   // the Stormboys hunt humans by id (TfwBattle.Stormboys.cs)
         int humans = 0;
         foreach (int id in w.Players.Keys) if (!TfwContracts.IsPuppet(id)) humans++;
         var change = battle.Step(_feet.AsSpan(0, n), humans);
@@ -314,7 +322,7 @@ public sealed partial class TfwRun
     {
         var battle = Battle!;
         Score.Bank(result);
-        if (left) War.PlayerLeft(War.BattleLane, battle.Secured, battle.OrksKilled, w.TfwGuards!.Lost);
+        if (left) War.PlayerLeft(War.BattleLane, battle.Secured, battle.OrksKilled, w.TfwGuards!.Lost + battle.GuardsLostFar);   // the far layer's losses too (expansion S6)
         for (int k = 0; k < _deployed.Count; k++)
         {
             var spawn = Field.Hub.Spawns[k % Field.Hub.Spawns.Count];

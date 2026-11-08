@@ -193,6 +193,9 @@ public partial class NetworkView
         _musouTelegraphs.Wedges = _tfwState.War is null;   // the owner, 2026-11-06: no melee wedges under the Orks in Musou Mode (the 5-wave run keeps them; the boss's rings and lanes stay)
         _musouTelegraphs.Frame(shown, camera, rules, delta);
         MusouWeirdboyFrame(shown);   // his shield and his coming (NetworkView.MusouWeirdboy.cs)
+        MusouS2Frame(shown, delta);   // the rockets, the warning, the fuses (NetworkView.MusouSquigRokkit.cs)
+        MusouStormboyFrame(shown);   // expansion S3: the Stormboys' packs and thrust (NetworkView.MusouStormboy.cs)
+        MusouMekFrame(shown, delta);   // expansion S4: the Meks' wrenches and their contraptions (Meks/NetworkView.MusouMeks.cs)
     }
 
     /// <summary>Whether the director went from <paramref name="prev"/> into a new run: back to waiting, out of a won or lost run, or the wave counting back.</summary>
@@ -357,6 +360,9 @@ public partial class NetworkView
     void MusouTelegraph(in MusouEvent e, IReadOnlyList<MusouShown> shown, Num.Vector3 camera, MusouBossRules boss)
     {
         if (MusouWeirdboyCue(e, shown)) return;   // the Weirdboy's bolts, shield, teleport and summons (NetworkView.MusouWeirdboy.cs)
+        if (MusouS2Cue(e, shown)) return;   // expansion S2: the Bomb Squig's and the Rokkit Boy's cues (NetworkView.MusouSquigRokkit.cs)
+        if (MusouStormboyCue(e, shown)) return;
+        if (MusouMekCue(e, shown)) return;   // expansion S4: the Scrap Meks' contraptions (Meks/NetworkView.MusouMeks.cs)   // expansion S3: the Stormboys' hops and crashes, the Big Shoota's steam (NetworkView.MusouStormboy.cs)
         int i = MusouFind(shown, e.Enemy);
         var from = i >= 0 ? shown[i].Position : e.Vector;
         switch ((MusouBossAbility)e.Value)
@@ -380,8 +386,8 @@ public partial class NetworkView
     }
 
     /// <summary>The note for the 10 s log line.</summary>
-    string MusouPresentNote() => _musouHud is null ? "hud none" : $"hud on, hit markers {_musouHitMarkers}, hit fx {_musouHitFx}, " +
-                                                                  $"telegraphs {_musouTelegraphs?.Shown ?? 0}, KOs {_musouScore.Kos} pts {_musouScore.Points}";
+    string MusouPresentNote() => (_musouHud is null ? "hud none" : $"hud on, hit markers {_musouHitMarkers}, hit fx {_musouHitFx}, " +
+                                                                  $"telegraphs {_musouTelegraphs?.Shown ?? 0}, KOs {_musouScore.Kos} pts {_musouScore.Points}") + "; " + MusouStormboyNote() + "; " + MusouMekNote();
 
     /// <summary><c>--musou-hud-demo</c>: made-up values for screenshots (the phase held, or wave, break, boss, won, lost in turn every 4 s).</summary>
     void MusouDemo(MusouHud.Frame f, PlayerState me, MusouRules rules, double now)

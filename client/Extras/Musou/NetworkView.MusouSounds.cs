@@ -133,6 +133,7 @@ public partial class NetworkView
         IReadOnlyList<MusouDeathShown> deaths = _musouOldDeaths ? _musouState.NewDeaths : _musouDeathsHanded;   // night batch 2026-11-06: a death's sound with its body (NetworkView.MusouDeathSpread.cs)
         for (int i = 0; i < deaths.Count; i++) MusouSoundDeath(deaths[i], camera);
         _musouDeathsHanded.Clear();
+        TfwWaaaghFrame(camera, now);   // the waves' Waaagh! (Tfw/NetworkView.TfwArmies.cs, expansion S6)
         // A Marine down: the nearest Ork with something to say about it.
         if (_musouOwnAlive && !me.Alive && _musouNear.Count > 0 && shown.Count > _musouNear[0].Index && MusouSetOf(shown[_musouNear[0].Index].Type) is { } nearest
             && MusouSlotOf(shown[_musouNear[0].Index].Id) is { } speaker) MusouCue(nearest.Celebrate, nearest, speaker.Emitter, MusouSoundGroup.Celebrate, MathF.Sqrt(_musouNear[0].Distance), "celebrate");
@@ -305,6 +306,11 @@ public partial class NetworkView
                 break;
             case MusouEventKind.Telegraph when e.Value == MusouWeirdboy.ShieldBreakCue:   // his shield breaks: the stun
                 if (MusouSlotOf(enemy.Id) is { } stunned) MusouCue(set.Stun, set, stunned.Emitter, MusouSoundGroup.Hurt, distance, "stun");
+                break;
+            case MusouEventKind.Telegraph when e.Value is MusouBigShoota.OverheatCue or MusouBigShoota.VentCue:   // the Big Shoota jams: his gun's own jam (a pulling grunt), then its cock when ready
+                var gunCue = e.Value == MusouBigShoota.OverheatCue ? set.Jam : set.GunReady;
+                if (MusouSlotOf(enemy.Id) is { } jammed) MusouCue(gunCue, set, jammed.Emitter, MusouSoundGroup.Effort, distance, e.Value == MusouBigShoota.OverheatCue ? "jam" : "gun ready");
+                else MusouCueAt(gunCue, set, enemy.Position, MusouSoundGroup.Effort, distance, e.Value == MusouBigShoota.OverheatCue ? "jam" : "gun ready");
                 break;
             case MusouEventKind.Telegraph when e.Value >= MusouWeirdboy.BoltCue:   // his other cues are effects only
                 break;

@@ -15,7 +15,7 @@ public static class MusouGoreRules
     public const float CloudAlpha = 0.58f;
 
     /// <summary>Whether a death throws the body (the owner, 2026-11-02): artillery, a frag, a launcher's or a plasma cannon's blast. A lascannon shot still bursts with no corpse.</summary>
-    public static bool Thrown(MusouDeathKind cause) => cause is MusouDeathKind.Blast or MusouDeathKind.Barrage;
+    public static bool Thrown(MusouDeathKind cause) => cause is MusouDeathKind.Blast or MusouDeathKind.Barrage or MusouDeathKind.OrkBlast;
 
     /// <summary>
     /// The velocity (m/s) a blast gives a body: one of three throws by a repeatable roll, mostly up, mostly sideways or both, away from the blast along <paramref name="push"/> (no push: a direction
@@ -46,7 +46,7 @@ public static class MusouGoreRules
     public static GoreClass Classify(MusouDeathKind cause, int killer, bool killerHasLascannon) => cause switch
     {
         MusouDeathKind.World => GoreClass.None,
-        MusouDeathKind.Barrage or MusouDeathKind.Blast => GoreClass.Explosion,
+        MusouDeathKind.Barrage or MusouDeathKind.Blast or MusouDeathKind.OrkBlast => GoreClass.Explosion,
         MusouDeathKind.Strafe => GoreClass.Gore,
         _ => killer <= 0 ? GoreClass.None : killerHasLascannon && cause == MusouDeathKind.Shot ? GoreClass.Explosion : GoreClass.Gore,
     };

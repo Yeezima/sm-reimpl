@@ -37,6 +37,9 @@ public sealed partial class GameServer
         var nav = TfwNav(field, out string navNote);
         bool started = World.StartTfw(nav, field);
         if (started) { PlayerJoined += p => World.MusouJoined(p.PlayerId); TfwUseWireBox(); }
+        if (started && float.TryParse(Environment.GetEnvironmentVariable("SM_MUSOU_S2_DEMO"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float demo) && demo > 0f)
+            World.TfwS2DemoSeconds = demo;   // expansion S2's capture aid (World.TfwSquigs.cs)
+        if (started && Environment.GetEnvironmentVariable("SM_MUSOU_S4_DEMO") == "1") World.TfwMekDemo = true;   // expansion S4's capture aid (World.TfwMeks.cs)
         _musouNote = started ? $"musou: Musou Mode runs on {Map.Name} ({(Map.Name == TfwMap.ManufactorumName ? $"{TfwMap.Battlefield} from the install" : "Ashfall Citadel, generated")} and the Stormbird at {field.Hub.Centre}; Space Marines only, no limits); {navNote}; {World.Tfw?.Sites.Candidates} open nodes" : "musou: not started (the match has no team rules)";
     }
 }

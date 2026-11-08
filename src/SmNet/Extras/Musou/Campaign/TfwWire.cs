@@ -39,12 +39,18 @@ public readonly record struct TfwGuardEvent(TfwGuardEventKind Kind, uint Tick, u
 /// A client's commands are message kind 17 under <see cref="CommandTag"/>: <c>[u16 sequence][u8 command][u8 argument]</c>, and for an order with a place (<see cref="HasPoint"/>: Hold and
 /// Attack) then <c>[i16 x][i16 y][i16 z]</c> in decimetres (<see cref="PointStep"/>), for ChooseReward then <c>[u16 offer]</c> (M6: a delayed pick cannot land on a newer offer): the point of the client's crosshair, which the server cannot work out itself (it has no camera), in a form that
 /// needs no box (a client may order before its first director) and cannot carry a NaN or an infinity. Resent every 250 ms until tag 7 echoes the sequence (<see cref="TfwCommandSender"/>).
-/// A faithful or extended server never sends 7 to 15 and drops 17.
+/// A faithful or extended server never sends 7 to 16 and drops 17.
 /// </summary>
 public static class TfwWire
 {
     /// <summary>The envelope tags (gore 1, loyalist barks 2, Musou 3 to 6).</summary>
     public const byte WarTag = 7, ObjectivesTag = 8, GuardsTag = 9, GuardEventsTag = 10, FireTag = 11, ScoreTag = 12, BarsTag = 13, RewardTag = 14, ArsenalTag = 15;
+    /// <summary>Tag 16, the Librarian's (<see cref="LibrarianWire"/>): stress, cooldowns, casts and lightning links.</summary>
+    public const byte LibrarianTag = LibrarianWire.Tag;
+    /// <summary>Tag 17, the Scrap Meks' contraptions (<see cref="MekWire"/>; expansion S4).</summary>
+    public const byte MekTag = MekWire.Tag;
+    /// <summary>Tag 18, the battle flow's armies (<see cref="TfwArmyWire"/>; expansion S6).</summary>
+    public const byte ArmiesTag = TfwArmyWire.Tag;
     /// <summary>The tag of the war's commands in message kind 17 (another namespace than the envelope's: client to server).</summary>
     public const byte CommandTag = 7;
     /// <summary>Bytes of a command's payload, and of one with a place (at most <see cref="Protocol.MaxExtrasCommandPayload"/>).</summary>
@@ -69,7 +75,7 @@ public static class TfwWire
     /// <summary>Most Guard events in one section: (1191 - 1) / 15 = 79.</summary>
     public const int MaxGuardEvents = (Protocol.MaxExtrasPayloadBytes - 1) / GuardEventBytes;
     /// <summary>The highest Guardsman id (design section E's pool: ids are slot + 1).</summary>
-    public const int GuardCapacity = 256;
+    public const int GuardCapacity = 448;   // 256 until expansion S6 (GuardSim grew to 40 squads, 400 men; a whole number of 64-bit words for the reader)
 
     public const int FireBytes = 19, ScoreOwnBytes = 12, ScorePlayerBytes = 6, ScoreMapBytes = 11, BarBytes = 3, RewardCards = 3, RewardCardBytes = 3, RewardBytes = 2 + RewardCards * RewardCardBytes, ArsenalBytes = 8;
     /// <summary>Most fire records in one section: (1191 - 1) / 19 = 62.</summary>
@@ -81,7 +87,7 @@ public static class TfwWire
     const int ScoreHasOwn = 1, ScoreHasOthers = 2, ScoreHasHistory = 4;
 
     /// <summary>Whether an envelope tag is the war's (7 to 15).</summary>
-    public static bool Owns(byte tag) => tag is >= WarTag and <= ArsenalTag;
+    public static bool Owns(byte tag) => tag is >= WarTag and <= MekTag or ArmiesTag;
 
     /// <summary>Whether sequence <paramref name="a"/> is after <paramref name="b"/>, across the 16-bit wrap.</summary>
     public static bool IsNewer(ushort a, ushort b) => (short)(a - b) > 0;

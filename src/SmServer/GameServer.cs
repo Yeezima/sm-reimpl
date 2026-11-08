@@ -435,9 +435,9 @@ public sealed partial class GameServer
 
     /// <summary>
     /// Ids no joining player gets, on any profile: added content's players without a peer live here (Musou Mode's AI Marines; a test pins these to its contract, which the
-    /// core cannot name). A plain range, not a hook: skipping 8 of 65535 ids changes nothing a faithful match can see.
+    /// core cannot name). A plain range, not a hook: skipping 12 of 65535 ids changes nothing a faithful match can see (8 until Musou expansion S6 widened the range down for its six Defenders).
     /// </summary>
-    internal const int ReservedPlayerIdFirst = 65520, ReservedPlayerIdLast = 65527;
+    internal const int ReservedPlayerIdFirst = 65516, ReservedPlayerIdLast = 65527;
 
     int NextPlayerId()
     {

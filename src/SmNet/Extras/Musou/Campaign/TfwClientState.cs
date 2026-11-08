@@ -101,7 +101,7 @@ public sealed class TfwClientState
     readonly List<TfwGuardShown> _shown = new();
     TfwObjective[] _objectives = [];
     Vector3[] _sites = [];
-    uint? _warTick, _objectivesTick, _scoreOwnTick, _scoreOthersTick, _scoreHistoryTick, _barsTick, _arsenalTick;
+    uint? _warTick, _objectivesTick, _scoreOwnTick, _scoreOthersTick, _scoreHistoryTick, _barsTick, _arsenalTick, _librarianTick, _mekTick;
     double _now;
     readonly Dictionary<(TfwFireKind, uint, ushort), double> _firePlayed = new();
     readonly List<TfwFireEvent> _newFire = new();
@@ -118,6 +118,14 @@ public sealed class TfwClientState
     public TfwRewardOffer? Reward { get; private set; }
     /// <summary>The server tick of the last copy of <see cref="Reward"/>: a standing offer repeats every second, one no longer heard is gone.</summary>
     public uint RewardTick { get; private set; }
+    /// <summary>The newest Librarians heard (tag 16): their stress, cooldowns, casts and links.</summary>
+    public IReadOnlyList<LibrarianView> Librarians { get; private set; } = [];
+    /// <summary>The newest contraptions heard (tag 17, expansion S4): the Scrap Meks' shield generators, beacons, turrets and traps.</summary>
+    public IReadOnlyList<MusouContraption> Contraptions { get; private set; } = [];
+    /// <summary>The newest armies heard (tag 18, expansion S6) and the server tick they are of.</summary>
+    public IReadOnlyList<TfwArmyView> Armies { get; private set; } = [];
+    public uint ArmiesTick { get; private set; }
+    uint? _armiesTick;
     /// <summary>The newest extra slots heard (tag 15).</summary>
     public TfwArsenalView Arsenal { get; private set; } = TfwArsenalView.Empty;
 
@@ -169,7 +177,7 @@ public sealed class TfwClientState
             foreach (var s in held) Read(s, known);
         }
         if (section.Tag == TfwWire.WarTag) return ReadWar(section);
-        if (section.Tag is >= TfwWire.FireTag and <= TfwWire.ArsenalTag) return ReadBoxless(section);
+        if (section.Tag is >= TfwWire.FireTag and <= TfwWire.MekTag or TfwWire.ArmiesTag) return ReadBoxless(section);
         if (box is { } ready) return Read(section, ready);
 
         // No box yet: hold it (the oldest goes first when full), after the length checks.
@@ -234,6 +242,21 @@ public sealed class TfwClientState
                 Reward = offer;
                 RewardTick = section.ServerTick;
                 return true;
+            case TfwWire.LibrarianTag:
+                if (LibrarianWire.Read(section.Payload) is not { } librarians) break;
+                Heard(section);
+                if (!Stale(ref _librarianTick, section.ServerTick)) Librarians = librarians;
+                return true;
+            case TfwWire.MekTag:
+                if (MekWire.Read(section.Payload) is not { } contraptions) break;
+                Heard(section);
+                if (!Stale(ref _mekTick, section.ServerTick)) Contraptions = contraptions;
+                return true;
+            case TfwWire.ArmiesTag:
+                if (TfwArmyWire.Read(section.Payload) is not { } armies) break;
+                Heard(section);
+                if (!Stale(ref _armiesTick, section.ServerTick)) { Armies = armies; ArmiesTick = section.ServerTick; }
+                return true;
             case TfwWire.ArsenalTag:
                 if (TfwWire.ReadArsenal(section.Payload) is not { } arsenal) break;
                 Heard(section);
@@ -255,8 +278,8 @@ public sealed class TfwClientState
     void ForgetBoxless()
     {
         _firePlayed.Clear(); _newFire.Clear();
-        _scoreOwnTick = _scoreOthersTick = _scoreHistoryTick = _barsTick = _arsenalTick = null;
-        ScoreOwn = null; ScoreOthers = []; ScoreHistory = []; Bars = []; Reward = null; RewardTick = 0; Arsenal = TfwArsenalView.Empty;
+        _scoreOwnTick = _scoreOthersTick = _scoreHistoryTick = _barsTick = _arsenalTick = _librarianTick = _mekTick = _armiesTick = null;
+        ScoreOwn = null; ScoreOthers = []; ScoreHistory = []; Bars = []; Reward = null; RewardTick = 0; Arsenal = TfwArsenalView.Empty; Librarians = []; Contraptions = []; Armies = [];
     }
 
     bool Read(in ExtrasSection section, MusouBox box)

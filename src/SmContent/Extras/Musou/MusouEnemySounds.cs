@@ -3,7 +3,7 @@ using SmSim.Extras.Musou;
 namespace SmContent;
 
 /// <summary>The kinds of sound Musou's enemies make; each has a budget of its own (<see cref="MusouSoundRules"/>).</summary>
-public enum MusouSoundGroup : byte { Footstep, Grunt, Bark, Effort, Swing, MeleeHit, Gun, GunImpact, Hurt, Stun, Death, Bodyfall, Boss, Celebrate }
+public enum MusouSoundGroup : byte { Footstep, Grunt, Bark, Effort, Swing, MeleeHit, Gun, GunImpact, Hurt, Stun, Death, Bodyfall, Boss, Celebrate, Waaagh }
 
 /// <summary>Why a sound was or was not posted.</summary>
 public enum MusouSoundVerdict : byte { Post, TooFar, OverRate, VoiceCap, SpeechCap }
@@ -59,6 +59,7 @@ public static class MusouSoundRules
         new(20f, 5f, 3f),                 // Bodyfall
         new(80f, 20f, 8f),                // Boss: never held by the caps
         new(45f, 1f, 2f, Speech: true),   // Celebrate (25 m, 0.5/s, 1): also the running taunts
+        new(300f, 1.5f, 3f, Speech: true),  // Waaagh (expansion S6): a wave's war cry carries across the field; WaaaghBarkPlanner keeps it to 3 voices
     ];
 
     public static MusouSoundLimit LimitOf(MusouSoundGroup g) => Limits[(int)g];
@@ -76,7 +77,7 @@ public static class MusouSoundRules
 /// <summary>The crowd's budget: <see cref="Refill"/> each frame, <see cref="Take"/> for each sound. Counts what it passed and held, by group.</summary>
 public sealed class MusouSoundBudget
 {
-    const int Groups = (int)MusouSoundGroup.Celebrate + 1, Verdicts = (int)MusouSoundVerdict.SpeechCap + 1;
+    const int Groups = (int)MusouSoundGroup.Waaagh + 1, Verdicts = (int)MusouSoundVerdict.SpeechCap + 1;
     readonly float[] _tokens = new float[Groups];
     readonly long[,] _count = new long[Groups, Verdicts];
 
@@ -150,6 +151,13 @@ public sealed class MusouSoundSet
         new(MusouEnemyType.BossNob, "ork_coop_nob", "ork_coop_nob_uge_axe", Charge: "ork_coop_nob_bullrush"),
         // The Weirdboy (Musou Mode only): his own blueprint and staff (its swing, and its fire for the bolt).
         new(MusouEnemyType.Weirdboy, "ork_coop_weirdboy", "ork_coop_weirdboy_staff", Gun: "ork_coop_weirdboy_staff"),
+        // Expansion S1 (docs/musou-expansion.md): PLACEHOLDER sound sets until S2 to S4 give the new kinds their own: the Squig the Gretchin's, the Rokkit Boy, Stormboy and Mek a Boy's, the Big Shoota Nob the Nob's with the Shoota's gun.
+        // Expansion S2: the Squig's own blueprint (its steps, roar and burst: play_or_squig_*; no melee wargear of its own, the grot's stands in); the Rokkit Boy's (boy_2hand_shoota_pro) with the launcha.
+        new(MusouEnemyType.BombSquig, "ork_coop_squig_bomb", "ork_coop_grot_choppa"),
+        new(MusouEnemyType.RokkitBoy, "ork_coop_boy_2hand_shoota_pro", "ork_coop_boy_choppa", Gun: "ork_coop_boy_rokkit_launcha"),
+        new(MusouEnemyType.Stormboy, OrkSounds.Blueprint, "ork_coop_boy_choppa"),
+        new(MusouEnemyType.BigShootaNob, "ork_coop_nob_bigshoota", "ork_coop_nob_uge_axe", Gun: "ork_coop_nob_big_shoota", Charge: "ork_coop_nob_bullrush"),   // expansion S3: his own blueprint and gun
+        new(MusouEnemyType.ScrapMek, OrkSounds.Blueprint, "ork_coop_boy_choppa"),
     ];
 
     /// <summary>Every file <see cref="Files"/> names, for <see cref="SoundTriggers.Load(string, IEnumerable{string}, IEnumerable{string}, IReadOnlyList{SmFormats.Havok.BehaviorGraph}?, IReadOnlyList{SmFormats.Havok.BehaviorGraph}?)"/>.</summary>
@@ -182,6 +190,9 @@ public sealed class MusouSoundSet
     public MusouSoundCue SlamHit { get; } = new();
     public MusouSoundCue ChargeStart { get; } = new();
     public MusouSoundCue ChargeHit { get; } = new();
+    /// <summary>The gun jams (the Big Shoota Nob's overheat): the gun's own <c>actn_snd_wep_gun_jam</c> (in the data an exertion, <c>effort_big_pull</c>), and its cock when it is ready again (<c>actn_snd_wep_cock</c>).</summary>
+    public MusouSoundCue Jam { get; } = new();
+    public MusouSoundCue GunReady { get; } = new();
     /// <summary>Commands of the data this type would play that no loaded bank holds (reported at start-up and by <c>smtool musou-sounds</c>).</summary>
     public SortedSet<string> Missing { get; } = new(StringComparer.OrdinalIgnoreCase);
 
@@ -191,6 +202,7 @@ public sealed class MusouSoundSet
         ("grunt", Grunt), ("bark", Bark), ("roar", Roar), ("step left", StepLeft), ("step right", StepRight), ("wind-up", WindUp), ("effort", Effort), ("swing", Swing), ("melee hit", MeleeHit), ("fire", Fire),
         ("gun impact", GunImpact), ("hurt small", HurtSmall), ("hurt big", HurtBig), ("stun", Stun), ("death yell", DeathYell), ("fall", Fall), ("knocked", Knocked), ("land", Land), ("celebrate", Celebrate),
         ("slam wind-up", SlamWindUp), ("slam hit", SlamHit), ("charge start", ChargeStart), ("charge hit", ChargeHit),
+        ("jam", Jam), ("gun ready", GunReady),
     };
 
     /// <summary>The set of <paramref name="files"/>; <paramref name="inBanks"/> says whether an event can be posted.</summary>
@@ -277,6 +289,8 @@ public sealed class MusouSoundSet
         if (melee is not null) AddOption(set.SlamHit, melee.Of("actn_smash"), []);
         First(set.ChargeStart, charge, "weaponflare");
         First(set.ChargeHit, charge, "actn_bullrush_warboss", "actn_huge_swing");
+        First(set.Jam, gun, "actn_snd_wep_gun_jam");
+        First(set.GunReady, gun, "actn_snd_wep_cock");
         return set;
     }
 }

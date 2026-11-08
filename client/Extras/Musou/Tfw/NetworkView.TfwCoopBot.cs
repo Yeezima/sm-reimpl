@@ -46,6 +46,7 @@ public partial class NetworkView
             {
                 _yaw = MathF.Atan2(-dx, dy);
                 _pitch = Math.Clamp(MathF.Atan2(dz, MathF.Max(flat, 0.1f)), -MaxPitchDown, MaxPitchUp);
+                if (CoopLibrarianInput(me, tick, flat) is { } psychic) { input = psychic; return; }   // Librarian/NetworkView.LibrarianLook.cs: his powers
                 if (flat <= CoopMelee && Loadouts.Melee(_config, me).Count > 0)
                 {
                     bool press = !me.MeleeHeld && !me.MeleeHeavyHeld && !me.MeleeQueued;

@@ -114,6 +114,7 @@ public partial class MusouCrowd : CrowdView
         MusouEnemyState.WindUp or MusouEnemyState.Strike or MusouEnemyState.Recover or MusouEnemyState.Casting => MusouLooks.Attack,   // Casting: the Weirdboy's summons
         MusouEnemyState.Stagger or MusouEnemyState.Stunned => MusouLooks.Stagger,   // Stunned: the Weirdboy's broken shield
         MusouEnemyState.Dying or MusouEnemyState.Knocked => MusouLooks.Death,
+        MusouEnemyState.Airborne => MusouLooks.Idle,   // expansion S3: a Stormboy in his hop (the crowd has no flight clip)
         _ => MusouLooks.Idle,
     };
 }

@@ -285,7 +285,7 @@ public class MusouSimTests
         Assert.Equal(0, sim.Spawn(MusouEnemyType.Boy, Vector3.Zero, 0f, float.PositiveInfinity));
         Assert.Equal(0, sim.Spawn(MusouEnemyType.Boy, new Vector3(float.NaN, 0f, 0f), 0f, 85f));
         Assert.Equal(0, sim.Spawn(MusouEnemyType.Boy, Vector3.Zero, float.NaN, 85f));
-        Assert.Equal(0, sim.Spawn((MusouEnemyType)15, Vector3.Zero, 0f, 85f));
+        Assert.Equal(0, sim.Spawn((MusouEnemyType)200, Vector3.Zero, 0f, 85f));
         Assert.Equal(0, sim.Count);
         Assert.Equal(1, sim.Spawn(MusouEnemyType.Boy, Vector3.Zero, 0f, 85f));
     }

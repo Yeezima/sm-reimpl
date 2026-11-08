@@ -28,7 +28,32 @@ public readonly record struct MusouGunShot(ushort Enemy, uint Tick, float Distan
 public static class MusouOrkGunRules
 {
     /// <summary>The ranged Orks and their guns (the Chaos Marine's bolter is not an Ork weapon: not drawn here).</summary>
-    public static readonly IReadOnlyList<MusouGun> Guns = [new(MusouEnemyType.ShootaBoy, OrkWeaponMounts.Shoota)];
+    public static readonly IReadOnlyList<MusouGun> Guns = [new(MusouEnemyType.ShootaBoy, OrkWeaponMounts.Shoota), new(MusouEnemyType.RokkitBoy, RokkitLauncha),
+        new(MusouEnemyType.BigShootaNob, BigShoota)];   // expansion S3: the co-op Big Shoota Nob's own gun (owner, 2026-11-08: the original's model and effects)
+
+    /// <summary>The co-op Big Shoota Nob's gun (*supported by evidence*: <c>ork_coop_nob_bigshoota</c>'s default wargear; its <c>fire_fx</c> <c>big_shoota_muzzle</c>, <c>hit_fx</c>
+    /// <c>big_shoota_tracer</c> and the container <c>big_shoota</c>, its sound <c>play_or_big_shoota_fire</c> and a jam, <c>actn_snd_wep_gun_jam</c>).</summary>
+    public const string BigShoota = "ork_coop_nob_big_shoota";
+
+    /// <summary>
+    /// The mounts Musou's guns are read with: the Ork boy's (<see cref="OrkWeaponMounts.Table"/>) plus the big shoota's, whose wield entries name no nodes either. **Ours**: two-handed on
+    /// <c>RIG_Prop_M_Chest</c>, as the shoota (the Nob is on the boy's rig). The Ork class's own table is not changed.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, RigWeaponMount> Mounts = new Dictionary<string, RigWeaponMount>(OrkWeaponMounts.Table, StringComparer.OrdinalIgnoreCase)
+    {
+        [BigShoota] = new("RIG_Prop_M_Chest", "RIG_Prop_M_Chest", null, TwoHanded: true),
+    };
+
+    /// <summary>Expansion S2: the Rokkit Boy's launcher, the co-op <c>ork_coop_boy_2hand_shoota_pro</c>'s wargear (docs/discovery.md "Exterminatus Ork roster"). His rocket's effects are its own (the client's S2 cues), not a tracer.</summary>
+    public const string RokkitLauncha = "ork_coop_boy_rokkit_launcha";
+
+    /// <summary>
+    /// Guns whose wargear gives no wield mount (owner 2026-11-08: "make the rokkit boy hold it by a placement we choose"): the handle node of the model put on the rig bone of the same name.
+    /// The launcha's file leaves its wield and stow nodes empty (so it reads as worn), but its model (<c>boy_pro_rocketlauncher</c>) has a <c>RIG_Prop_M_Chest</c> locator at the very
+    /// spot the Shoota's has ((-0.479, 0.477, 0.550) in both; <c>smtool weapon-parts ork_coop_boy_rokkit_launcha --rig ork --wargear</c>), and the Shoota is held by that node on that bone.
+    /// So the launcha is held as the Shoota is: **ours**, an interpretation the model's locator supports.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string> OwnMounts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [RokkitLauncha] = "RIG_Prop_M_Chest" };
 
     /// <summary>The gun a type carries, or null.</summary>
     public static string? WargearOf(MusouEnemyType type)

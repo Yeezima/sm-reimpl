@@ -28,9 +28,10 @@ public partial class NetworkView
         _tfwRedeployKey = key;
     }
 
-    /// <summary>The host's row in the Esc menu while a battle is under way: the Stormbird comes back in 20 s, then the run is in the Stormbird.</summary>
+    /// <summary>The Esc menu's Musou rows: in the Stormbird the Librarian's class; the host's row while a battle is under way (the Stormbird comes back in 20 s, then the run is in the Stormbird).</summary>
     partial void ExtrasMatchMenu(MatchMenu menu)
     {
+        LibrarianMatchMenu(menu);   // Librarian/NetworkView.LibrarianLook.cs: PLAY AS LIBRARIAN in the Stormbird
         if (!MusouActive || _client is not { } client || _tfwState.War is not { } war || !TfwHudModel.InBattle(war.Phase) || !war.Own.Deployed) return;
         if (client.Scoreboard is not { } board || !TfwHudModel.IsHost(client.PlayerId, board.Players.Select(r => r.PlayerId))) return;
         menu.AddRow(TfwHudModel.ReturnToShipText, () =>

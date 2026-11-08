@@ -31,9 +31,12 @@ public sealed partial class GameServer
     /// </summary>
     void SendTfw()
     {
-        if (World.Tfw is null || World.Musou is not { } sim) return;
+        if (World.Musou is not { } sim) return;
+        if (World.Tfw is null) { SendTfwLibrarian(World.Tick, World.Config.TickRate); return; }   // the 5-wave run: only the Librarian's tag 16 (his class is offered there too)
         TfwDownTest();   // GameServer.TfwDownTest.cs: a test aid, off without its variable
         TfwTestAids();   // GameServer.TfwWinTest.cs: the same
+        TfwStormboyTest();   // GameServer.TfwStormboyTest.cs: the same (expansion S3)
+        TfwArmyTest();   // GameServer.TfwArmyTest.cs: the same (expansion S6)
         FeedTfw();   // GameServer.TfwFeedRun.cs
         SendTfwFire();   // GameServer.TfwFire.cs: tag 11
         var feed = TfwFeed;
@@ -41,6 +44,7 @@ public sealed partial class GameServer
         int tickRate = World.Config.TickRate;
         SendTfwSmoke(tick);   // GameServer.TfwClass.cs (M7): the class change's smoke, tag 11
         SendTfwBars(tick, tickRate);   // GameServer.TfwBars.cs (M11): the elites' bars, tag 13
+        SendTfwMeks(tick, tickRate);   // Meks/GameServer.TfwMeks.cs (expansion S4): the contraptions, tag 17
         bool hasBox = sim.Director != default;
         var box = hasBox ? MusouSend.EffectiveBox(sim.Director.Box, _musouNavBox) : default;
         byte[]? objectives = hasBox ? TfwWire.WriteObjectives(feed.Objectives, box, feed.Sites) : null;
@@ -61,6 +65,8 @@ public sealed partial class GameServer
         }
         if (hasBox) feed.ClearEvents();
         SendTfwRewards();   // GameServer.TfwRewards.cs: tags 12, 14 and 15
+        SendTfwLibrarian(tick, tickRate);   // Librarian/GameServer.TfwLibrarian.cs: tag 16
+        SendTfwArmies(tick, tickRate);   // GameServer.TfwArmies.cs: tag 18 (expansion S6)
 
         _tfwGone.Clear();
         foreach (int id in _tfwInterest.Keys) if (!_peers.Values.Any(p => p.PlayerId == id)) _tfwGone.Add(id);
