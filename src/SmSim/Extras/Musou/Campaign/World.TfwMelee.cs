@@ -7,18 +7,16 @@ namespace SmSim;
 
 /// <summary>
 /// Musou Mode's melee and firepower in the World (pass 2, M5; items 7, 21, 22, 24; <see cref="TfwCombatRules"/>). All of it runs from <see cref="TfwStep"/> and the Musou combat hooks, and only with
-/// <see cref="MusouSim.War"/> set (<see cref="StartTfw"/>): the core's frag, melee and shots are not touched, in Musou Mode either. The bigger frags are <see cref="ProjectileState.Spec"/>, the
-/// per-projectile override the core already reads; the piercing and the cleave work on the enemies' pool alone, which no other mode has.
+/// <see cref="MusouSim.War"/> set (<see cref="StartTfw"/>): the core's frag, melee and shots are not touched, in Musou Mode either. The piercing and the cleave work on the enemies' pool alone, which no other mode has.
 /// </summary>
 public sealed partial class World
 {
     readonly Dictionary<int, List<ushort>> _tfwPierced = new();   // projectile id: the enemies it has gone through
     readonly HashSet<int> _tfwFragged = new();                    // humans given their grenades this life
 
-    /// <summary>For the fight's report: the most enemies one swing struck, the most one shot went into, and the frags that left a hand.</summary>
+    /// <summary>For the fight's report: the most enemies one swing struck and the most one shot went into.</summary>
     public int TfwBestCleave { get; private set; }
     public int TfwBestPierce { get; private set; }
-    public int TfwFragsOut { get; private set; }
 
     /// <summary>
     /// The Marines' shoves of this tick, each Marine in id order (<see cref="_musouIds"/>, from <see cref="TfwGuardsStep"/>): a Marine moving into a fodder Ork or a Guardsman throws him down. Heavier
@@ -64,46 +62,9 @@ public sealed partial class World
     }
 
     /// <summary>
-    /// The frags of this tick (item 21): a human's frag gets the bigger blast and two more beside it, fanned out from its launch (one grenade spent). A bigger blast that went off tells the clients
-    /// (tag 11, <see cref="TfwFireKind.Frag"/>): the snapshot's detonation is the core's and its effect the original size. After the core's launches and detonations of the tick.
-    /// </summary>
-    void TfwFrags()
-    {
-        var run = _tfw!;
-        if (_musou!.War is not { } war) return;
-        int throws = _throws.Count;   // the copies add none: only the one throw left the hand
-        for (int k = 0; k < throws; k++)
-        {
-            var thrown = _throws[k];
-            if (TfwContracts.IsPuppet(thrown.Thrower) || thrown.Item < 0 || thrown.Item >= Config.Thrown.Count || !TfwCombatRules.IsFrag(Config.Thrown[thrown.Item])) continue;
-            int at = IndexOf(thrown.Projectile);
-            if (at < 0) continue;
-            var p = _projectiles[at] with { Spec = war.BiggerFrag(SpecOf(_projectiles[at])) };
-            _projectiles[at] = p;
-            TfwFragsOut++;
-            if (p.Motion != ProjectileMotion.Flying) continue;
-            var launched = p.Position - p.Velocity * Config.TickSeconds;
-            for (int copy = 1; copy < war.FragsPerThrow; copy++)
-            {
-                if (_projectiles.Count >= Math.Clamp(Config.MaxProjectiles, 1, MaxProjectilesLimit)) break;
-                int side = (copy + 1) / 2;
-                float angle = (copy % 2 == 1 ? side : -side) * war.FragSpreadDegrees * (MathF.PI / 180f);
-                float cos = MathF.Cos(angle), sin = MathF.Sin(angle);
-                var v = new Vector3(p.Velocity.X * cos - p.Velocity.Y * sin, p.Velocity.X * sin + p.Velocity.Y * cos, p.Velocity.Z);
-                while (_projectiles.Any(q => (q.Id & 0xFFFF) == (_nextProjectileId & 0xFFFF)) || _recentDetonations.Any(d => (d.Projectile & 0xFFFF) == (_nextProjectileId & 0xFFFF)))
-                    _nextProjectileId++;
-                _projectiles.Add(p with { Id = _nextProjectileId++, Position = launched, Velocity = v });
-                TfwFragsOut++;
-            }
-        }
-        foreach (var d in _detonations)
-            if (d.Thrown && d.Weapon >= 0 && d.Weapon < Config.Thrown.Count && Config.Thrown[d.Weapon].Projectile.Splash is { } plain && d.Radius > plain.Radius * 1.01f)
-                run.AddFire(new TfwFireEvent(TfwFireKind.Frag, Tick, (ushort)d.Projectile, d.Position, new Vector3(d.Weapon, d.Radius, 0f)));
-    }
-
-    /// <summary>
-    /// Every human life in the war carries its grenades: the strip to the starting weapons (<see cref="MusouLoadout.Stripped"/>) takes them, and item 21 needs them. A fresh life is seen here once it
-    /// is armed; the war's own routine for a life (<see cref="TfwRespawnAt"/>) forgets the last one.
+    /// Every human life in the war carries its grenades, the vanilla count (the item's <c>SpawnCount</c>, as Classic PvP spawns with): the strip to the starting weapons
+    /// (<see cref="MusouLoadout.Stripped"/>) takes them. The throw itself is the core's (one frag, the data's blast; owner 2026-11-08: "make them function as they do in vanilla space marine").
+    /// A fresh life is seen here once it is armed; the war's own routine for a life (<see cref="TfwRespawnAt"/>) forgets the last one.
     /// </summary>
     void TfwGiveFrags()
     {
@@ -114,7 +75,7 @@ public sealed partial class World
             if (TfwContracts.IsPuppet(id)) continue;
             var p = _players[id];
             if (!p.Alive || !_musouArmed.Contains(id)) { _tfwFragged.Remove(id); continue; }
-            if (_tfwFragged.Add(id) && Loadouts.Equipment(Config, p) is { Stim: null } item) _players[id] = p with { Grenades = item.Count };
+            if (_tfwFragged.Add(id) && Loadouts.Equipment(Config, p) is { Stim: null } item) _players[id] = p with { Grenades = item.SpawnCount };
         }
         if (_tfwFragged.Count > _players.Count) _tfwFragged.RemoveWhere(id => !_players.ContainsKey(id));
     }

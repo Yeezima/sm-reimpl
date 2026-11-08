@@ -11,3 +11,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 -->
 - Musou Mode: your personal retainer is back, beside the two roaming allied Space Marines. Z tells it to follow you, X to hold the spot under your crosshair and V to attack what you aim at (in Musou X and V give orders again: the mouse wheel still changes weapon and the right mouse button still strikes); it revives you when you fall and is back about three war-minutes after it dies.
 - Musou Mode: Orks no longer drop ammunition or equipment boxes when they die (you already have endless ammunition).
+- Musou Mode: grenades work as in the normal game again. One press throws one frag with the normal blast size and damage (no more three big frags), and it can hurt you if you stand in it. A grenade you have used comes back every 15 seconds. This build does not play with earlier ones.

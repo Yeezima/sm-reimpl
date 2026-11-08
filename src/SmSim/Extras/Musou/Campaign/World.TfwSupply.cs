@@ -9,7 +9,7 @@ namespace SmSim.Extras.Musou.Campaign
     public static class TfwSupplyRules
     {
         /// <summary>The owner: "grenades should refill every 30 seconds automatically": one grenade back every this many seconds while a player carries fewer than its class's most.</summary>
-        public const float GrenadeRefillSeconds = 30f;
+        public const float GrenadeRefillSeconds = 15f;   // 30 until 2026-11-08; the owner: "vanilla grenades every 15s"
 
         /// <summary>The owner: "bots in musou mode should retain all player attributes and statistics - except make them take 90% reduced damage": the share of every hit an AI Marine takes.</summary>
         public const float BotDamageTaken = 0.10f;

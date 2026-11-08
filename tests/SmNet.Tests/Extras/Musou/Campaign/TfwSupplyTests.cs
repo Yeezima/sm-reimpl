@@ -45,6 +45,9 @@ public class TfwSupplyTests
     // ---------------------------------------------------------------- endless ammunition
 
     [Fact]
+    public void The_grenade_refill_period_is_the_owners_15_seconds() => Assert.Equal(15f, TfwSupplyRules.GrenadeRefillSeconds);
+
+    [Fact]
     public void Every_weapon_keeps_a_full_reserve_and_the_clip_still_needs_its_reload()
     {
         var w = TfwRig.War(config: Musou);
