@@ -32,6 +32,7 @@ Scanned 2621 spec table rows: **1923 tagged**, 487 not tagged (read from data wi
 Scanned 2617 spec table rows: **1924 tagged**, 482 not tagged (read from data with high confidence), 211 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 583 rows of the changes document.
 Scanned 2596 spec table rows: **1908 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 583 rows of the changes document.
 Scanned 2600 spec table rows: **1911 tagged**, 480 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
+Scanned 2598 spec table rows: **1910 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -65,6 +66,8 @@ Scanned 2600 spec table rows: **1911 tagged**, 480 not tagged (read from data wi
 | Ork faction | 178 | 169 | 80 | 54 | 0 |
 | **All areas** | **1908** | 1665 | 1403 | 619 | 38 |
 | **All areas** | **1911** | 1668 | 1408 | 617 | 38 |
+| Ork faction | 182 | 173 | 84 | 54 | 0 |
+| **All areas** | **1910** | 1667 | 1407 | 617 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -80,6 +83,9 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: ours | 1027 |
 | confidence: low | 678 |
 | confidence: medium | 613 |
+| kind: ours | 1016 |
+| confidence: low | 667 |
+| confidence: medium | 611 |
 | kind: interpretation | 359 |
 | notes: ours | 358 |
 | notes: estimate | 152 |
@@ -3279,6 +3285,14 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 |---|---|---|---|---|---|---|
 | `R-99C7D0B9` | Revive with retainer and pair (Musou) | the 25 s window stays open while the fallen human's own retainer or a Marine of the pair stands; whichever reaches the body first and holds 3 s brings it back; the HUD's progress is the furthest (s) | kind: ours; confidence: medium | ours (the two rules side by side) | Revive with retainer and pair (Musou): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the 25 s window stays open while the fallen human's own retainer or a… | ☐ |
 | `R-3DF22FC9` | HUD line and prompt (Musou) | the line is the own retainer's again: RETAINER: FOLLOW / HOLD / ATTACK, REVIVING YOU, RECOVERING m:ss WAR TIME, STANDING BY; the battle panel's hint Z FOLLOW X HOLD V ATTACK HOLD P PICKUP; the revive prompt names YOUR RETAINER while it stands, else THE ALLIED… | kind: ours | ours | HUD line and prompt (Musou): compare with SM1 by feel or video. Ours: the line is the own retainer's again: RETAINER: FOLLOW / HOLD /… | ☐ |
+*Spec section: Musou: solid big Orks and the melee lock on them (musou/boss-collision, 2026-11-08; `MusouSim.Version` 24, `TfwRules.Version` 49, no protocol or wire change; Musou Mode only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-7A203784` | Musou: who is solid | the Warboss, Nobs, the four Boss Orks (Boy, Shoota Boy, 'Ard Boy, Nob at 3x), the Big Shoota Nob, the Weirdboy and the Scrap Mek, in any state but Dying and Vanishing; Boys, Shoota Boys, 'Ard Boys, Gretchin, Rokkit Boys, Stormboyz, Bomb Squigs and Chaos… | kind: ours; confidence: medium | the owner ("boss and elite and warboss orks"); which kinds count as elite ours | Musou: who is solid: compare with SM1 by feel or video. Ours: the Warboss, Nobs, the four Boss Orks (Boy, Shoota Boy, 'Ard Boy, Nob… | ☐ |
+| `R-375D5940` | Musou: a big Ork's body | an upright cylinder of the kind's walking radius and height (Warboss 0.75 x 4.5 = **3.375** m radius, 13 m tall; Boss Orks 3x their base: Boy/Shoota 1.2 m, 'Ard 1.35 m, Nob 1.8 m; Nob and Big Shoota Nob 0.6 m; Weirdboy 0.5 m; Scrap Mek 0.45 m); the player's… (m) | kind: ours; confidence: medium | ours (the shots' walking radius, not the 1.5x wider shot radius) | Musou: a big Ork's body: compare with SM1 by measuring on a flat spot of the same map. Ours: an upright cylinder of the kind's walking radius and height (Warboss… | ☐ |
+| `R-30461F2F` | Musou: the picture a step meets | as for players (protocol 43): the input's body tick; the server keeps each tick's big Orks quantised exactly as the entity records carry them, the client takes each one's newest record at or before that tick, no older than **30** ticks (1 s); no carry-on by… (ticks) | kind: ours; confidence: medium | ours | Musou: the picture a step meets: compare with SM1 by feel or video. Ours: as for players (protocol 43): the input's body tick; the server keeps… | ☐ |
+| `R-4512F50A` | Musou: melee lock on big Orks | every big Ork is offered to the lock (start, combo, charge: the same cone, range 7 m, leash 1 m, height 1.5 m and line of sight as a player) under id 60000 + its id, standing at its body's edge toward the attacker less a player's radius (the Warboss's lock… (m) | kind: ours; confidence: medium | the owner ("lock on of melee weapons should work with them as well"); the lock point ours | Musou: melee lock on big Orks: compare with SM1 by measuring on a flat spot of the same map. Ours: every big Ork is offered to the lock (start, combo, charge: the same… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 
@@ -4032,6 +4046,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-B51F53AC` | Plasma bolt (fx/tracers-impact, 2026-11-07) | The plasma gun's and pistol's uncharged shot plays the data's `plasma_gun_tracer` (Chaos `chaos_plasma_gun_tracer`; the pistol's basic shot, read from its secondary ability, binds the same) recoloured blue (Chaos purple), the streak at 0.3 of its width and 0.03 of its length, the smoke at 0.3 of its width: ours, from… | The original's on-screen colour of the `plasma_tracer` texture under its pale yellow keys, | Effect rendering: "Plasma bolt" | Plasma bolt (fx/tracers-impact, 2026-11-07): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-477A605B` | Projectile shots impact on arrival (fx/tracers-impact, 2026-11-07) | An own projectile shot (charged plasma, plasma cannon, launcher) draws no tracer and paints no impact when fired; the detonation draws them when the projectile arrives, with the body hit (armour glow, flash) when it went off on a player (within 0.6 m of the axis, ours) (`--old-charged-impact` restores the early impact) | None (the early impact was our bug) | Effect rendering: "Projectile shots paint their impact on arrival" | Projectile shots impact on arrival (fx/tracers-impact…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-524E7284` | Ranged hit decals only on the map (fix/hit-decals-map-only, 2026-11-08) | The weapon's hit container (decals, impact marks, exit wound) plays at the hit point whatever is hit | A ranged shot that hits a player leaves no decal on or near him; the armour spark, flash and blood feedback stays, in world space (night/weapon-fx's stick-to-victim is gone, `--old-hit-stick` with it); a shot that strikes the map leaves its decal there; a Musou enemy hit is unchanged | Owner's request 2026-11-08; spec "Hit decals only on the map" | Ranged hit decals only on the map (fix/hit-decals-map-only…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-78DDAB2E` | Musou: solid big Orks and the melee lock on them (musou/boss-collision, 2026-11-08; `MusouSim.Version` 24, `TfwRules.Version` 49) | No Musou Mode in the original | Ours (added content; the owner's request): the Warboss, Nobs, Boss Orks, the Big Shoota Nob, the Weirdboy and the Scrap Mek block the players' movement at their body's size (a fixed cylinder; the player takes the whole push) on the server and in the own prediction, and the melee lock takes them like a player (same… | Musou Mode only; Classic PvP's bodies and lock unchanged. spec "Musou: solid big Orks and the melee lock on them" | Musou: solid big Orks and the melee lock on them…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay
 

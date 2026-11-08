@@ -16,8 +16,13 @@ public sealed partial record SimConfig
 /// Another living player's capsule as one movement step sees it (<see cref="PlayerCollision.See"/>): its id, its feet carried on to the step's tick
 /// (<see cref="Feet"/>, what blocks) and its feet at the snapshot tick (<see cref="Seen"/>, what the push apart is measured from); radius and height
 /// are the config's capsule.
+/// <para>
+/// Added content (Musou Mode's big Orks, musou/boss-collision): a body of its own size (<paramref name="Radius"/>, <paramref name="Height"/>; 0: the config's capsule) that does not
+/// move out of the player's way (<paramref name="Fixed"/>: the stepping player takes the whole overlap, as on a head). Every player's body leaves them at 0 and false, so the
+/// rules between players are unchanged.
+/// </para>
 /// </summary>
-public readonly record struct PlayerBody(int Id, Vector3 Feet, Vector3 Seen);
+public readonly record struct PlayerBody(int Id, Vector3 Feet, Vector3 Seen, float Radius = 0f, float Height = 0f, bool Fixed = false);
 
 /// <summary>The other players' bodies one player's movement steps collide with during one tick, in id order (so every sum over them is the same on server and client).</summary>
 public sealed class BodyView
@@ -29,6 +34,9 @@ public sealed class BodyView
     public IReadOnlyList<PlayerBody> Bodies => _bodies;
     /// <summary>The stepping player's own feet at the snapshot tick (null: not in it, e.g. dead then): the push apart counts its progress from there.</summary>
     public Vector3? Self { get; }
+
+    /// <summary>This view with <paramref name="more"/> bodies added (added content's, musou/boss-collision); itself when there are none.</summary>
+    public BodyView With(IReadOnlyCollection<PlayerBody> more) => more.Count == 0 ? this : Of(_bodies.Concat(more), Self);
 
     public static BodyView Of(IEnumerable<PlayerBody> bodies, Vector3? self = null)
     {
@@ -162,6 +170,28 @@ public static class PlayerCollision
         return Relation.Side;
     }
 
+    /// <summary>
+    /// <see cref="Relate(float, float, float)"/> for two bodies of their own heights (musou/boss-collision: a big Ork against a player): Above, the stepping body's feet on the
+    /// other's top; Below, the other's feet on the stepping body's top.
+    /// </summary>
+    public static Relation Relate(float selfFeet, float selfHeight, float otherFeet, float otherHeight)
+    {
+        float top = otherFeet + otherHeight;
+        if (selfFeet >= top - OnTopBand) return selfFeet <= top + HeadReach ? Relation.Above : Relation.None;
+        if (otherFeet >= selfFeet + selfHeight - OnTopBand) return otherFeet <= selfFeet + selfHeight + HeadReach ? Relation.Below : Relation.None;
+        return Relation.Side;
+    }
+
+    /// <summary>How <paramref name="b"/> lies against a stepping body at <paramref name="selfFeet"/>: the shared capsule's rule, or its own height's (<see cref="PlayerBody.Height"/>).</summary>
+    static Relation RelateTo(float selfFeet, PlayerBody b, float height) =>
+        b.Height > 0f ? Relate(selfFeet, height, b.Feet.Z, b.Height) : Relate(selfFeet, b.Feet.Z, height);
+
+    /// <summary>The distance between the axes at which a stepping body of radius <paramref name="r"/> touches <paramref name="b"/> (<paramref name="reach"/>: two shared capsules).</summary>
+    static float ReachOf(PlayerBody b, float r, float reach) => b.Radius > 0f ? r + b.Radius : reach;
+
+    /// <summary>The top of <paramref name="b"/>: its feet plus its own height, or the shared capsule's.</summary>
+    static float TopOf(PlayerBody b, float height) => b.Feet.Z + (b.Height > 0f ? b.Height : height);
+
     static readonly Vector2[] TieDirections =
     [
         new(1f, 0f), new(0.70710677f, 0.70710677f), new(0f, 1f), new(-0.70710677f, 0.70710677f),
@@ -198,15 +228,16 @@ public static class PlayerCollision
         for (int i = 0; i < list.Count; i++)
         {
             var b = list[i];
-            var relation = Relate(s.Position.Z, b.Feet.Z, height);
+            var relation = RelateTo(s.Position.Z, b, height);
             if (relation is Relation.None or Relation.Below) continue;
+            float reachB = ReachOf(b, r, reach);
             // The push: this player's share of the overlap the snapshot showed (half beside, all of it on a head), less its progress since.
             bool onHead = relation == Relation.Above;
-            push += Push(s, b, onHead, bodies.Self, reach, (onHead ? SlideOffSpeed : SeparationSpeed) * dt);
+            push += Push(s, b, onHead, bodies.Self, reachB, (onHead ? SlideOffSpeed : SeparationSpeed) * dt);
             if (onHead) continue;
-            var offset = p - Where(b, p, reach);
+            var offset = p - Where(b, p, reachB);
             float distance = offset.Length();
-            if (reach - distance < -Tolerance) continue;   // touching counts
+            if (reachB - distance < -Tolerance) continue;   // touching counts
             normals.Add(distance > 1e-4f ? offset / distance : TieDirection(s.PlayerId, b.Id));   // overlapping now: no move further into it
         }
         var rem = horizontal * dt;
@@ -222,10 +253,11 @@ public static class PlayerCollision
             for (int i = 0; i < list.Count; i++)
             {
                 var b = list[i];
-                if (Relate(s.Position.Z, b.Feet.Z, height) != Relation.Side) continue;
-                var centre = Where(b, p, reach);
+                if (RelateTo(s.Position.Z, b, height) != Relation.Side) continue;
+                float reachB = ReachOf(b, r, reach);
+                var centre = Where(b, p, reachB);
                 var off = at - centre;
-                float c0 = off.LengthSquared() - reach * reach;
+                float c0 = off.LengthSquared() - reachB * reachB;
                 float half = Vector2.Dot(off, rem);
                 if (half >= 0f) continue;   // moving away or along it
                 float t = 0f;   // touching or inside, moving in: met at once
@@ -256,7 +288,7 @@ public static class PlayerCollision
     /// </summary>
     static Vector2 Push(PlayerState s, PlayerBody b, bool onHead, Vector3? self, float reach, float most)
     {
-        float share = onHead ? 1f : 0.5f;
+        float share = onHead || b.Fixed ? 1f : 0.5f;   // musou/boss-collision: a fixed body (a big Ork) does not step aside: the player takes it all
         var p = new Vector2(s.Position.X, s.Position.Y);
         var from = self is { } me ? new Vector2(me.X, me.Y) : p;
         var other = self is null ? Where(b, p, reach) : new Vector2(b.Seen.X, b.Seen.Y);
@@ -329,8 +361,8 @@ public static class PlayerCollision
         var at = new Vector2(result.Position.X, result.Position.Y);
         foreach (var b in bodies.Bodies)
         {
-            float top = b.Feet.Z + height;
-            if (Vector2.Distance(at, Where(b, new Vector2(before.Position.X, before.Position.Y), reach)) >= reach - Tolerance) continue;
+            float top = TopOf(b, height), reachB = ReachOf(b, r, reach);
+            if (Vector2.Distance(at, Where(b, new Vector2(before.Position.X, before.Position.Y), reachB)) >= reachB - Tolerance) continue;
             if (before.Position.Z >= top - 0.01f && result.Position.Z < top) hold = MathF.Max(hold, top);   // coming down onto it from its top
         }
         if (float.IsFinite(hold))

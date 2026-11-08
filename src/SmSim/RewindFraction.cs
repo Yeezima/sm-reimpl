@@ -23,11 +23,28 @@ public sealed partial class World
     /// The players as the client that sent <paramref name="input"/> saw them, for the whole-tick paths (melee, the melee lock, the charge): its view tick
     /// rounded by its fraction (protocol 37: the tick at or before plus one from a fraction of 0.5 on, which is the nearest tick as before the fraction), rewind capped.
     /// </summary>
-    IReadOnlyDictionary<int, PlayerState> SeenBy(PlayerInput input)
+    IReadOnlyDictionary<int, PlayerState> SeenBy(PlayerInput input) => PlayersAt(SeenTick(input));
+
+    /// <summary>The whole tick <see cref="SeenBy"/> rewinds an input to.</summary>
+    uint SeenTick(PlayerInput input)
     {
         long rounded = (long)input.ViewTick + (input.ViewFraction >= 0.5f ? 1 : 0);
-        return PlayersAt((uint)Math.Clamp(rounded, OldestRewind, Tick));
+        return (uint)Math.Clamp(rounded, OldestRewind, Tick);
     }
+
+    /// <summary>
+    /// The others an input's melee lock is checked against (<see cref="MeleeLock.Target"/> in the player's step): <see cref="SeenBy"/>, plus added content's lock targets at the
+    /// same tick as the player stood at the tick's start (musou/boss-collision: Musou Mode's big Orks). Without added content it is <see cref="SeenBy"/> itself.
+    /// </summary>
+    IReadOnlyDictionary<int, PlayerState> LockView(int playerId, PlayerInput input)
+    {
+        var view = SeenBy(input);
+        if (_players.TryGetValue(playerId, out var self)) ExtrasLockView(SeenTick(input), self, ref view);   // EXTRAS-HOOK
+        return view;
+    }
+
+    /// <summary>The others player <paramref name="playerId"/>'s input's melee lock is checked against (<see cref="LockView"/>; tests and probes).</summary>
+    public IReadOnlyDictionary<int, PlayerState> MeleeLockView(int playerId, PlayerInput input) => LockView(playerId, input);
 
     /// <summary>
     /// fix/hitboxes (protocol 37): the players as the client that sent <paramref name="input"/> drew them, for hit-scan shots and cones: its view tick

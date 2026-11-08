@@ -148,6 +148,25 @@ public sealed class MusouClientState
         return best;
     }
 
+    /// <summary>
+    /// musou/boss-collision: the solid big Orks (<see cref="MusouSolids"/>) as this client knows them at server tick <paramref name="tick"/>: each one's newest record at or before
+    /// it, no older than <see cref="MusouSolids.MaxRecordAgeTicks"/>, in a state that counts; in id order, into <paramref name="into"/> (cleared first). The server meets the
+    /// same Orks at that tick (<c>World.MusouSolidsAt</c>).
+    /// </summary>
+    public void SolidsAt(uint tick, List<MusouSolid> into)
+    {
+        into.Clear();
+        foreach (var t in _tracks.Values)
+        {
+            if (!MusouSolids.Is(t.Type)) continue;
+            int k = t.Count - 1;
+            while (k >= 0 && t.Ticks[k] > tick) k--;
+            if (k < 0 || tick - t.Ticks[k] > MusouSolids.MaxRecordAgeTicks || !MusouSolids.Counts(t.States[k])) continue;
+            into.Add(new MusouSolid(t.Id, t.Type, t.Positions[k]));
+        }
+        into.Sort((a, b) => a.Id.CompareTo(b.Id));
+    }
+
     /// <summary>Clears <see cref="NewEvents"/> and <see cref="NewDeaths"/> (the view took them).</summary>
     public void TakeNew() { _newEvents.Clear(); _newDeaths.Clear(); }
 
