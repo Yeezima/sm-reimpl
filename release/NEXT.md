@@ -13,3 +13,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Musou Mode: Orks no longer drop ammunition or equipment boxes when they die (you already have endless ammunition).
 - Musou Mode: grenades work as in the normal game again. One press throws one frag with the normal blast size and damage (no more three big frags), and it can hurt you if you stand in it. A grenade you have used comes back every 15 seconds. This build does not play with earlier ones.
 - Musou Mode: Orks thrown by a grenade or any other blast no longer corkscrew through the air. Each body now flies in one clean arc straight away from the explosion, tips over as it falls and stays down where it lands.
+- Musou Mode: a glowing slash appears across every enemy your melee hits - red for the chain weapons and the combat knife, blue for the power weapons - and your own melee hits give the camera a small shake.
+- Musou Mode: every melee weapon now cleaves a wider area around you (1.5 times the old reach). This build does not play with earlier ones: everyone must update.
