@@ -20,3 +20,22 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Musou Mode: one grenade throw sends at most 20 Orks flying, the ones nearest the blast. Any other Ork it kills explodes on the spot, and small Orks that survive it are knocked to the ground. Everyone must update: this build does not play with earlier ones.
 - Musou Mode: every plasma weapon (plasma gun, plasma pistol, plasma cannon, light and charged shots) now pierces every enemy its shot passes through, and each enemy it hits burns with blue-white flames: about half the hit's damage again over 3 seconds. Bosses burn slower. Hit a crowd in a line and watch them all light up.
 - Musou Mode: the Warboss, the Nobs, the giant Boss Orks, the Big Shoota Nob, the Weirdboy and the Scrap Mek are now solid. You can no longer walk, sprint, charge or fly through them; the ordinary Boyz and Gretchin still let you pass. Your melee attacks and charges now lock onto these big Orks the same way they lock onto enemy players, so you line up and step in on them.
+
+### All modes
+- Every game sound is louder and carries much farther. Distance now turns a sound down to a fifth of its full level at most, so far-off fights stay audible instead of cutting out.
+- Melee weapons hit twice as loud as before, and their hit sounds carry over distance like gunfire.
+- Shots no longer leave hit effects stuck to players. Bullet and bolt marks only stay on walls, floors and other map surfaces.
+- The plasma gun and plasma pistol light shot now looks like a smaller charged shot: a glowing ball with the charged shot's trail, softened at both ends. The ball flies at twice the charged shot's speed (the hit itself still lands at once), and the plasma pistol gets a tracer.
+- Two new rows in Options: Camera shake and Screen flashes. They start at the old strength; turn them down if shake or flashes bother you.
+
+### Classic PvP
+- Annihilation bots play as they did in the previous build; the newer bot behaviour (safer pushes, cover, holding posts) stays in Seize Ground only.
+- The headshot medal no longer shows a description line under it.
+
+### Musou Mode
+- Guardsmen spread out in open order on the way to a point and fan out round it once it is taken, and no longer snag on corners or hug walls.
+- Air jumps with the jump pack (Assault Marine, Raptor) now make the same launch sound as the first jump.
+- A far-off battle now sounds all around you: Ork war cries, bolter and lasgun fire, artillery and explosions, with the odd artillery hit shaking the screen a little. You and the allied Marines also shout battle lines from the campaign.
+- Stormboyz fly smooth arcs when they hop, and Orks and Guardsmen glide instead of stepping, so crowds no longer look choppy.
+- Ashfall: the boundary wall and the map's models no longer flicker, with FSR on or off and in GPU safe mode.
+- Power sword strikes and bolt pistol shots react at the moment they connect on your screen: the slash, flash, camera shake and hit sound no longer wait for the server. Bolt pistol shots now stop at the Ork they hit. Kills, blood and hit markers still come from the server. Musou screen shake no longer piles up, and ordinary Orks are pushed back from your hits without spinning round.
