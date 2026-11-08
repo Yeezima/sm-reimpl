@@ -494,7 +494,8 @@ public sealed class PackageScanner
         if (!looksLikePack && !isClientExe) return;       // some other executable: nothing embedded to check
         // tools/release-parts: the Windows client is exported with its pack beside it (sm-reimpl.pck, checked as a standalone pack), so the engine
         // stays the same file from build to build. Such an exe is accepted only when it provably embeds nothing Godot could load: a well-formed PE
-        // with no GDPC trailer and no section named like a pack. Anything else (not a PE, a pack section, a damaged header) is refused as before.
+        // with no GDPC trailer whose pack section is still the template's empty placeholder. Anything else (not a PE, a grown pack section or one
+        // holding a pack, a damaged header) is refused as before.
         if (!looksLikePack && ext == ".exe" && PeHasPackSection(data) == false) return;
         var listing = ParsePack(data, embedded: !standalone);
         if (!listing.Ok) { add("pack-unverifiable", $"the Godot pack cannot be verified: {listing.Error}"); return; }
@@ -505,9 +506,14 @@ public sealed class PackageScanner
         foreach (var p in problems.Take(5)) add("game-content-in-pack", p!);
     }
 
+    /// <summary>The most a pack-named PE section may hold to count as Godot's empty placeholder (the template's "pck" section is 8 bytes, zero).</summary>
+    const int PackSectionPlaceholder = 16;
+
     /// <summary>
-    /// Whether a Windows executable has a section named like a Godot pack ("pck" in any case, anywhere in the name), where Godot can find an embedded
-    /// pack without the trailer. Null when the bytes are not a well-formed PE (MZ header, PE signature, a section table inside the file).
+    /// Whether a Windows executable has a section that can hold an embedded Godot pack: one named like a pack ("pck" in any case, anywhere in the name;
+    /// Godot's export grows its template's 8-byte "pck" section over the pack it embeds and finds the pack there without the trailer) that is larger than
+    /// the placeholder, or whose data starts with the GDPC magic. Null when the bytes are not a well-formed PE (MZ header, PE signature, a section table
+    /// and the pack section's data inside the file).
     /// </summary>
     internal static bool? PeHasPackSection(byte[] data)
     {
@@ -523,7 +529,11 @@ public sealed class PackageScanner
         {
             int at = (int)(table + 40L * i);
             string name = System.Text.Encoding.ASCII.GetString(data, at, 8).TrimEnd('\0');
-            if (name.Contains("pck", StringComparison.OrdinalIgnoreCase)) return true;
+            if (!name.Contains("pck", StringComparison.OrdinalIgnoreCase)) continue;
+            uint virtualSize = BitConverter.ToUInt32(data, at + 8), rawSize = BitConverter.ToUInt32(data, at + 16), rawPointer = BitConverter.ToUInt32(data, at + 20);
+            if (virtualSize > PackSectionPlaceholder) return true;
+            if (rawSize > 0 && (long)rawPointer + Math.Min(rawSize, 4u) > data.Length) return null;
+            if (rawSize >= 4 && data[rawPointer] == 'G' && data[rawPointer + 1] == 'D' && data[rawPointer + 2] == 'P' && data[rawPointer + 3] == 'C') return true;
         }
         return false;
     }
