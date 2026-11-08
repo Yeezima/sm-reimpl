@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2594 spec table rows: **1906 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 581 rows of the changes document.
+Scanned 2595 spec table rows: **1906 tagged**, 479 not tagged (read from data with high confidence), 210 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 581 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -4084,6 +4084,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-E51B0AE1` | No push under fire (owner 2026-11-08: "they should also not push when they are being actively shot at") | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
 | `R-7AC67BD7` | Cover at low health (owner 2026-11-08: "they should prioritize taking cover when their hp gets low to regenerate, then… | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
 | `R-014B92EA` | Ramp and balcony posts (owner 2026-11-08: "make one boss play at the top of the side ramps, one devastator on top of… | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
+| `R-C8026637` | Mode of the 2026-11-08 pass (owner 2026-11-08, verbatim: "in annihilation classic pvp only, roll back the most recent… | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
 | `R-10E5F98A` | `--bot-door-wait` | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
 | `R-9DA27EDE` | Probe (`--perf-probe`) | Performance pass 1 (perf/pass-1; build, client and release launcher; no protocol change) |
 | `R-454764E5` | Config hash | Added content: the content switch (E1; server, client and config hash; no protocol change) |

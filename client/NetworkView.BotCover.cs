@@ -19,6 +19,13 @@ namespace SmClient;
 public partial class NetworkView
 {
     static readonly bool BotNoRetreat = CmdFlag("bot-no-retreat");
+    static readonly bool BotRecentAiAlways = CmdFlag("bot-recent-ai");
+    /// <summary>
+    /// The 2026-11-08 pass of the Classic PvP bot AI (safe pushes only, cover at low health, ramp and balcony posts) runs in Seize Ground only. Owner, 2026-11-08: "in
+    /// annihilation classic pvp only, roll back the most recent ai changes. for seize ground keep them." Annihilation bots behave as after the 2026-11-07/08 melee push
+    /// (8dc42b18) and before that pass (db0595d8). <c>--bot-recent-ai</c> (test aid) turns the pass on in Annihilation too.
+    /// </summary>
+    bool BotRecentAi => BotRecentAiRules.Applies(SeizeGround, BotRecentAiAlways);
     /// <summary>Metres (flat) within which an enemy counts as a threat to hide from, and how close to a cover cell counts as in it (ours).</summary>
     const float RetreatThreatRange = 150f, CoverArrived = 1.5f;
     /// <summary>Seconds between the checks that the cover is still hidden (ours).</summary>
@@ -46,7 +53,7 @@ public partial class NetworkView
     /// </summary>
     PlayerInput? BotRetreatInput(PlayerState me, uint tick)
     {
-        if (BotNoRetreat || _config is null || _client?.Collision is not { } world || me.Team == Team.None || !me.Alive) return null;
+        if (BotNoRetreat || !BotRecentAi || _config is null || _client?.Collision is not { } world || me.Team == Team.None || !me.Alive) return null;
         _botRetreat ??= new BotRetreat();
         var body = Loadouts.Body(_config, me);
         bool was = _botRetreat.Active;
