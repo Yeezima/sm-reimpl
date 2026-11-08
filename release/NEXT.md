@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Musou Mode: Orks thrown by a grenade or any other blast no longer corkscrew through the air. Each body now flies in one clean arc straight away from the explosion, tips over as it falls and stays down where it lands.

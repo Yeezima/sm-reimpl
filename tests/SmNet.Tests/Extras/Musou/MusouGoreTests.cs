@@ -32,8 +32,8 @@ public class MusouGoreTests
         {
             var v = MusouGoreRules.BlastThrow(push, id, 1000u + id, MusouEnemyType.Boy);
             float flat = new Vector2(v.X, v.Y).Length();
-            Assert.True(v.X > 0f, "away from the blast, within 35 degrees");
-            Assert.InRange(MathF.Abs(MathF.Atan2(v.Y, v.X)), 0f, 35.01f * MathF.PI / 180f);
+            Assert.True(v.X > 0f, "away from the blast");
+            Assert.InRange(MathF.Abs(MathF.Atan2(v.Y, v.X)), 0f, (MusouGoreRules.ThrowSpreadDegrees + 0.01f) * MathF.PI / 180f);
             Assert.InRange(v.Length(), 8f, 18f);
             if (v.Z > flat * 2f) up++; else if (flat > v.Z * 2f) side++; else both++;
         }
