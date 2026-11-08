@@ -13,7 +13,7 @@ namespace SmClient;
 /// </list>
 /// Every value is ours (placeholder demonstration, refine register).
 /// </summary>
-public static class AshfallGrime
+public static partial class AshfallGrime
 {
     /// <summary>Whether the command line leaves the grime out.</summary>
     public static bool Off
@@ -53,6 +53,18 @@ public static class AshfallGrime
     public static readonly Color GroundDarkTint = new(0.92f, 0.97f, 1.04f);
 
     static ShaderMaterial? _overlay;
+    static Node? _items;
+    static ShaderMaterial? _top;
+    static bool _overlayOn = true;
+
+    /// <summary>Test aid (<c>--perf-ab grime</c>, musou/perf-pass): the kit models' overlay pass (the grime and the multiply) on or off, to measure what it costs.</summary>
+    public static void SetOverlay(bool on)
+    {
+        _overlayOn = on;
+        if (_items is null || !GodotObject.IsInstanceValid(_items)) return;
+        void Set(Node n) { if (n is MeshInstance3D mi) Dress(mi); foreach (var c in n.GetChildren()) Set(c); }
+        foreach (var child in _items.GetChildren()) Set(child);
+    }
     static ShaderMaterial? _darken;
 
     /// <summary>The models' multiply material (one, shared).</summary>
@@ -91,7 +103,8 @@ public static class AshfallGrime
             ShaderMaterial top = overlay ? OverlayMaterial() : DarkenMaterial();
             if (overlay && darken) top.NextPass = DarkenMaterial();
             DarkenMaterial().SetShaderParameter("cheap", !overlay);   // Low and Compatibility: the blotches, streaks and soot band only (review: scale with graphics settings)
-            void Give(Node n) { if (n is MeshInstance3D mi) mi.MaterialOverlay = top; foreach (var c in n.GetChildren()) Give(c); }
+            _items = items; _top = top;
+            void Give(Node n) { if (n is MeshInstance3D mi) Dress(mi); foreach (var c in n.GetChildren()) Give(c); }   // the overlay, or its folded materials (AshfallGrime.Folded.cs)
             foreach (var child in items.GetChildren()) Give(child);
             items.ChildEnteredTree += Give;
         }

@@ -316,6 +316,7 @@ public sealed partial class FxPlayer : Node3D
         _camera = camera;
         _camPos = camera.GlobalPosition;
         _camBasis = camera.GlobalBasis;
+        _frustum = CullOffScreen ? camera.GetFrustum() : null;
         _batch.Begin(_camPos);
         _lights.Clear();
         _frameQuads = 0;
@@ -455,12 +456,36 @@ public sealed partial class FxPlayer : Node3D
         return age >= 0 && age <= Math.Max(dur, MinShow);
     }
 
+    /// <summary>
+    /// musou/perf-pass (ours; a trial, off): an effect wholly outside the view is not evaluated that frame (its age runs on, so it is where it should be when the view turns back). Kept whatever the view: one within
+    /// <see cref="CullNear"/> m, a beam (it spans to its target), and one whose sprays touch the ground (their decals are placed while they are evaluated). Measured in a 200 v 200 battle (<c>--perf-ab fxcull</c>):
+    /// about 600 effects a second skipped, but no frame-time gain beyond the noise, so it stays off; <c>--fx-cull</c> (test aid) turns it on.
+    /// </summary>
+    public static bool CullOffScreen { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--fx-cull") >= 0;
+    /// <summary>The distance within which an effect is always evaluated, and an effect's reach round its origin per unit of scale (m, ours: generous, so nothing at a view's edge is cut).</summary>
+    public const float CullNear = 8f, CullReach = 12f;
+    Godot.Collections.Array<Plane>? _frustum;
+    readonly Dictionary<CSystem, bool> _grounded = new(ReferenceEqualityComparer.Instance);
+    /// <summary>Effects left out as off-screen, summed over frames (the log's).</summary>
+    public long OffScreenSkips { get; private set; }
+
+    bool OffScreen(FxEffect e, float dist)
+    {
+        if (_frustum is not { } planes || dist <= CullNear || e.Target is not null || e.Collisions) return false;
+        if (!_grounded.TryGetValue(e.System, out bool grounded)) _grounded[e.System] = grounded = e.System.Roots.Any(HoldsDropper);
+        if (grounded) return false;
+        float reach = CullReach * MathF.Max(1f, e.Scale);
+        foreach (var p in planes) if (p.DistanceTo(e.Origin) > reach) return true;
+        return false;
+    }
+
     void DrawEffect(FxEffect e)
     {
         if (e.Hidden || e.Opacity <= 0.002f) return;
         float dist = _camPos.DistanceTo(e.Origin);
         // Distance culling (map ambience much farther than a hit spark).
         if (dist > (e.Ambient ? 100f : 220f)) return;
+        if (OffScreen(e, dist)) { e.QuadsThisFrame = 0; OffScreenSkips++; return; }
         double age = e.Age;
         if (e.Repeat && e.System.Lifetime is { } l && l > 0.05f && !e.System.HasStreamer) age %= l + 0.05;
         var root = new Ctx(e.Origin, e.Axes, e.Scale, e.Seed);

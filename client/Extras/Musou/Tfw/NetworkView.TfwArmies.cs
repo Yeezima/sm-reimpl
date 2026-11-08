@@ -25,6 +25,8 @@ public partial class NetworkView
     ulong _armyFrame = ulong.MaxValue;
     bool? _armyImpostorsOff;
     bool ArmyImpostorsOff => _armyImpostorsOff ??= CmdFlag("no-army-impostors");
+    bool? _armyFarBodies;
+    bool ArmyFarBodies => _armyFarBodies ??= CmdFlag("army-far-bodies");
 
     /// <summary>A crowd id for an impostor's key, above every pool id (the crowd keys its clocks by it).</summary>
     static ushort ImpostorId(int key, int above) => (ushort)(above + 1 + (int)((uint)key * 2654435761u % (uint)(ushort.MaxValue - above - 1)));
@@ -46,8 +48,11 @@ public partial class NetworkView
     IReadOnlyList<MusouShown> TfwArmyOrks(IReadOnlyList<MusouShown> shown, Vector3 camera, float delta)
     {
         TfwArmiesFrame(new Num.Vector3(camera.X, camera.Y, camera.Z), delta);   // the camera in game space
+        // The owner, 2026-11-08: "All far battles corpses should instantly vanish. If a player cannot see it, it doesn't ever get drawn. Unless the player is close by." An aggregate's loss leaves a body only
+        // within the near distance (TfwArmyRules.NearMetres) of this view; farther its impostor just goes (--army-far-bodies, test aid: bodies at any distance, as expansion S6 had).
+        float bodiesWithin = ArmyFarBodies ? float.PositiveInfinity : TfwArmyRules.NearMetres;
         foreach (var d in _armyImpostors.Deaths)
-            if (d.Side == TfwArmySide.Ork && !ArmyImpostorsOff)
+            if (d.Side == TfwArmySide.Ork && !ArmyImpostorsOff && new Vector3(d.Position.X, d.Position.Y, d.Position.Z).DistanceTo(camera) <= bodiesWithin)
                 _musouCrowd?.AddBody(new MusouDeathShown(ImpostorId(d.Key, MusouSim.Capacity), d.Type, d.Position, d.Yaw, Num.Vector3.Zero, MusouDeathKind.Shot, 0, _tfwState.ArmiesTick));
         _armyImpostors.Deaths.Clear();
         if (_armyImpostorList.Count == 0) return shown;

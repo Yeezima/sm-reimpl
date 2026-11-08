@@ -53,6 +53,7 @@ public sealed partial class World
         {
             var p = _players[id];
             if (!p.Alive) continue;
+            if (TfwShielded(point, p.Position + new Vector3(0f, 0f, Config.CapsuleHeight * 0.5f))) continue;   // expansion S4: a dome keeps a blast from outside off him
             var d = p.Position + new Vector3(0f, 0f, Config.CapsuleHeight * 0.5f) - point;
             float distance = d.Length();
             float amount = blast.Damage * blast.IntensityAt(distance);
@@ -63,7 +64,8 @@ public sealed partial class World
         }
         if (TfwGuards is { } guards)
         {
-            guardMen = guards.Blast(point, blast.Radius, blast.IntensityAt, blast.Damage, out guardKills);
+            Func<Vector3, bool>? spared = TfwMeks is { AnyDome: true } ? at => TfwShielded(point, at) : null;   // expansion S4: the dome
+            guardMen = guards.Blast(point, blast.Radius, blast.IntensityAt, blast.Damage, out guardKills, spared);
         }
         int n = musou.Query(point, blast.Radius, _musouNear, verticalReach: blast.Radius + 3f);
         for (int k = 0; k < n; k++)
@@ -71,6 +73,7 @@ public sealed partial class World
             if (!musou.TryGet(_musouNear[k], out var e) || !e.Alive) continue;   // !Alive: one an earlier Weirdboy burst killed in this loop
             if (!blast.HurtBosses && (e.Type == MusouEnemyType.Warboss || MusouBossOrks.Is(e.Type))) continue;
             var chest = MusouSim.Chest(e.Position, musou.Body(e.Type).Height);
+            if (TfwShielded(point, chest)) continue;   // expansion S4: a dome keeps a blast from outside off the Orks in it
             float distance = Vector3.Distance(chest, point);
             float amount = blast.Damage * blast.IntensityAt(distance);
             if (!(amount > 0f)) continue;

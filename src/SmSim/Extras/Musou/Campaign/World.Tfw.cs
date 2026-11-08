@@ -56,14 +56,23 @@ public sealed partial class World
         TfwFrags();
         TfwCreditKills();   // the strikes and blasts earlier in the tick: a battle may end below
         TfwBoxAmmo();   // World.TfwArsenal.cs: last tick's ammunition boxes reach the weapons in the bank
+        long section = SimProfile.Begin();   // musou/perf-pass: SM_TICK_STATS's sections (nothing without it)
         if (_state == MatchState.Playing && !run.Idle) run.Step(this);
         else if (!run.Idle) run.Commands(null, Config.TickRate);
+        SimProfile.End("tfw: run and battle", section);
         TfwGuardsStep();   // World.TfwGuards.cs
+        section = SimProfile.Begin();
         TfwSquigsStep();   // World.TfwSquigs.cs: expansion S2's drops, kicks and Ork blasts
+        SimProfile.End("tfw: squigs", section); section = SimProfile.Begin();
         TfwMeksStep();   // World.TfwMeks.cs: expansion S4's Scrap Meks and their contraptions
+        SimProfile.End("tfw: meks", section); section = SimProfile.Begin();
         TfwBossStep();
+        SimProfile.End("tfw: boss", section); section = SimProfile.Begin();
         TfwFireStep();   // World.TfwFire.cs: the barrages and the Thunderhawk (their KOs are credited next tick)
+        SimProfile.End("tfw: fire", section);
+        section = SimProfile.Begin();
         TfwPuppetsStep();
+        SimProfile.End("tfw: puppets (AI Marines)", section);
         TfwEndlessAmmo();   // World.TfwSupply.cs: the owner's endless ammunition (2026-11-06)
         TfwGrenadeRefill();   // and a grenade back every 30 s
         MusouDropsStep();   // World.MusouDrops.cs: pickups (E), expiry

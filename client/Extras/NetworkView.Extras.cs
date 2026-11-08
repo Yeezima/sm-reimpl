@@ -36,6 +36,7 @@ public partial class NetworkView
             }
         LoyalistBarksFrame(me, others, delta, _barkSections);
         MusouFrame(me, others, delta, _musouSections);
+        Ph("tfw: guards, armies");   // musou/perf-pass: --frame-profile's phase
         TfwFrame(me, others, delta, _tfwSections);
     }
 

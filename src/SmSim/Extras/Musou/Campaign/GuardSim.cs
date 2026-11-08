@@ -38,6 +38,7 @@ public sealed class GuardSim
 
     readonly bool[] _active = new bool[MaxSquads];           // any man in the squad's slots, dying included
     readonly int[] _living = new int[MaxSquads];
+    readonly float[] _strength = new float[MaxSquads];   // musou/perf-pass (the owner's "near matches far"): a squad's share of the Guardsmen's health and shot damage (1: GuardRules' own)
     readonly Vector3[] _anchor = new Vector3[MaxSquads];     // the formation's centre
     readonly int[] _anchorNode = new int[MaxSquads];
     readonly float[] _squadYaw = new float[MaxSquads];
@@ -69,6 +70,14 @@ public sealed class GuardSim
     public AllyFlow? Ways { get; }
     /// <summary>What a shot's line of sight is checked against (null: always clear).</summary>
     public CollisionWorld? Sight { get; init; }
+    /// <summary>Expansion S4 (the owner, 2026-11-08): whether a dome stands between a man's eye and his mark (from outside it), so the shot is not fired at that mark (null: never).</summary>
+    public Func<Vector3, Vector3, bool>? Shielded { get; set; }
+    /// <summary>Expansion S4 (the owner, 2026-11-08): the nearest built Rokkit turret within a range of a point, and its middle (id 0: none); null: no turrets.</summary>
+    public TurretFinder? Turrets { get; set; }
+    /// <summary>A Guardsman's hit on a Rokkit turret (its id, the damage).</summary>
+    public Action<byte, float>? TurretHit { get; set; }
+    /// <summary>The turret query's shape (<see cref="Turrets"/>).</summary>
+    public delegate byte TurretFinder(Vector3 from, float range, out Vector3 centre);
     /// <summary>Line-of-sight raycasts of the last <see cref="Step"/>.</summary>
     public int LastRays { get; private set; }
 
@@ -107,16 +116,22 @@ public sealed class GuardSim
     public int SpawnSquad(Vector3 centre, float yaw = 0f) => SpawnSquad(centre, yaw, SquadSize);
 
     /// <summary>A squad of <paramref name="men"/> (1 to <see cref="SquadSize"/>; expansion S6's armies promote a short one) in the first free squad, the rest of its slots empty; as <see cref="SpawnSquad(Vector3, float)"/>.</summary>
-    public int SpawnSquad(Vector3 centre, float yaw, int men)
+    public int SpawnSquad(Vector3 centre, float yaw, int men) => SpawnSquad(centre, yaw, men, 1f);
+
+    /// <summary>
+    /// As <see cref="SpawnSquad(Vector3, float, int)"/>, its men at <paramref name="strength"/> times the rules' health and shot damage (musou/perf-pass, the owner's "near matches far" of 2026-11-08: an army's
+    /// squads promoted near a player fight as its aggregate would; the field's squads keep 1).
+    /// </summary>
+    public int SpawnSquad(Vector3 centre, float yaw, int men, float strength)
     {
-        if (!Finite(centre) || !float.IsFinite(yaw) || men < 1) return -1;
+        if (!Finite(centre) || !float.IsFinite(yaw) || men < 1 || !(strength > 0f)) return -1;
         men = Math.Min(men, SquadSize);
         int s = Array.IndexOf(_active, false);
         if (s < 0) return -1;
         var walk = _enemies.Walk;
         int anchorNode = walk?.Nearest(centre) ?? -1;
         if (anchorNode >= 0) centre = centre with { Z = walk!.Z(anchorNode) };
-        _active[s] = true; _living[s] = men;
+        _active[s] = true; _living[s] = men; _strength[s] = strength;
         _anchor[s] = centre; _anchorNode[s] = anchorNode; _squadYaw[s] = yaw; _order[s] = centre; _moving[s] = false;
         _seenCount[s] = 0; _goal[s] = -1; _halted[s] = false;
         for (int m = 0; m < SquadSize; m++)
@@ -127,7 +142,7 @@ public sealed class GuardSim
             int node = walk?.Nearest(place) ?? -1;
             _state[i] = GuardState.Idle; _stateTicks[i] = 0;
             _position[i] = node >= 0 ? place with { Z = walk!.Z(node) } : walk is null ? place : centre;   // a place in a wall: he starts at the squad's centre
-            _node[i] = node >= 0 ? node : anchorNode; _yaw[i] = yaw; _health[i] = Rules.Health;
+            _node[i] = node >= 0 ? node : anchorNode; _yaw[i] = yaw; _health[i] = Rules.Health * strength;
             _shotTicks[i] = NextShot(i, 0u);
         }
         _centre[s] = centre;
@@ -255,12 +270,13 @@ public sealed class GuardSim
     /// An explosion on the men (expansion S1, <c>World.MusouOrkBlast</c>): every living man within <paramref name="radius"/> of <paramref name="point"/> (metres, height x 3) takes <paramref name="damage"/>
     /// times <paramref name="intensity"/> of his distance. Returns the men hit; the dead are counted in <paramref name="killed"/>.
     /// </summary>
-    public int Blast(Vector3 point, float radius, Func<float, float> intensity, float damage, out int killed)
+    public int Blast(Vector3 point, float radius, Func<float, float> intensity, float damage, out int killed, Func<Vector3, bool>? spared = null)
     {
         int hit = 0; killed = 0;
         for (int i = 0; i < Capacity; i++)
         {
             if (!Living(i)) continue;
+            if (spared is not null && spared(_position[i] + new Vector3(0f, 0f, Rules.ChestHeight))) continue;   // expansion S4: a dome keeps a blast from outside off him
             var d = _position[i] - point;
             float distance = MathF.Sqrt(d.X * d.X + d.Y * d.Y + 9f * d.Z * d.Z);
             if (distance > radius) continue;
@@ -622,6 +638,8 @@ public sealed class GuardSim
     {
         if (_shotTicks[i] > 0 && --_shotTicks[i] > 0) return;
         _shotTicks[i] = NextShot(i, 1u);
+        bool turretFirst = man % 2 == 0;   // expansion S4: half the squad takes a Rokkit turret before the Orks (ours)
+        if (turretFirst && ShootTurret(i)) return;
         int seen = _seenCount[s], tries = 0;
         for (int k = 0; k < seen; k++)
         {
@@ -636,9 +654,40 @@ public sealed class GuardSim
                 if (tries++ >= Rules.SightTries) return;
                 if (!InSight(i, enemy)) continue;
             }
+            if (Shielded is { } dome && dome(_position[i] + new Vector3(0f, 0f, Rules.EyeHeight), enemy.Position + new Vector3(0f, 0f, Rules.ChestHeight))) continue;   // expansion S4: no shot into a dome from outside
             Fire(i, id, enemy, distance, flat);
             return;
         }
+        if (!turretFirst) ShootTurret(i);
+    }
+
+    /// <summary>Expansion S4: a shot at the nearest built Rokkit turret in range, sight and no dome between; whether one was fired.</summary>
+    bool ShootTurret(int i)
+    {
+        if (Turrets is not { } find) return false;
+        byte turret = find(_position[i], Rules.Range, out var centre);
+        if (turret == 0) return false;
+        var eye = _position[i] + new Vector3(0f, 0f, Rules.EyeHeight);
+        if (Shielded is { } dome && dome(eye, centre)) return false;
+        var ray = centre - eye;
+        float length = ray.Length();
+        if (Sight is not null && length > 1e-3f)
+        {
+            LastRays++;
+            if (Sight.Weapons.Raycast(eye, ray / length, length) is { } wall && wall.Distance < length - 0.1f) return false;
+        }
+        var flat = new Vector2(ray.X, ray.Y);
+        float distance = flat.Length();
+        if (flat.LengthSquared() > 1e-6f) _yaw[i] = YawOf(flat);
+        float span = MathF.Max(1e-3f, Rules.Range - Rules.HitNearDistance);
+        float chance = Rules.HitNear + (Rules.HitFar - Rules.HitNear) * Math.Clamp((distance - Rules.HitNearDistance) / span, 0f, 1f);
+        bool hit = MusouSim.Unit(MusouSim.Mix(Tick, (uint)i * 0x85EBCA6Bu + 0xC0FFEEu + turret)) < chance;
+        Shots++;
+        if (!hit) { AddEvent(new GuardEvent(GuardEventKind.Shot, Tick, (ushort)(i + 1), 0, centre + new Vector3(Forward(_yaw[i] + MathF.PI / 2f), 0f))); return true; }
+        ShotsHit++;
+        AddEvent(new GuardEvent(GuardEventKind.Shot, Tick, (ushort)(i + 1), 0, centre));
+        TurretHit?.Invoke(turret, Rules.Damage);
+        return true;
     }
 
     /// <summary>Whether a man's eyes see the enemy's chest: the weapons mesh, as a shot.</summary>
@@ -663,7 +712,7 @@ public sealed class GuardSim
         ShotsHit++;
         AddEvent(new GuardEvent(GuardEventKind.Shot, Tick, (ushort)(i + 1), id, chest));
         var direction = distance > 1e-3f ? flat / distance : Vector2.Zero;
-        _enemies.Damage(id, 0, Rules.Damage, new Vector3(direction, 0f), out _);
+        _enemies.Damage(id, 0, Rules.Damage * _strength[i / SquadSize], new Vector3(direction, 0f), out _);
     }
 
     void AddEvent(GuardEvent e)

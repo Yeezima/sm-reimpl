@@ -22,6 +22,7 @@ public partial class NetworkView
     {
         if (!MusouActive || _client is null) return;
         TfwGuardsFrame(sections, delta);   // the sections, the commands and the Guardsmen (TF7a)
+        Ph("tfw: orders, stations, hud, markers");   // musou/perf-pass: --frame-profile's phases
         if (_tfwState.War is not { } war) { TfwLibrarianFrame(me, others); return; }   // the 5-wave run: no war, but a Librarian's tag 16 still comes
         TfwOrderKeysFree();
         TfwOrdersFrame(war, me, (float)delta);
@@ -30,10 +31,12 @@ public partial class NetworkView
         TfwHudFrame(war, me);
         TfwBossOrksFrame(war);   // the roaming Boss Orks' bars and call-outs (NetworkView.TfwBossOrks.cs)
         TfwMarkersFrame(war);
+        Ph("tfw: fire, clouds");
         TfwFireFrame(war, delta);
         TfwFireCamFrame();
         TfwSwarmCamFrame();
         TfwCloudsFrame();
+        Ph("tfw: class, librarian, score, tests");
         TfwClassFrame(war, me);
         TfwLibrarianFrame(me, others);   // Librarian/NetworkView.TfwLibrarian.cs: tag 16
         TfwScoreFrame(war, me);   // NetworkView.TfwRewards.cs

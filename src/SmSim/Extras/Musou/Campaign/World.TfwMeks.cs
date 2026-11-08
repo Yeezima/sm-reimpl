@@ -49,6 +49,16 @@ public sealed partial class World
         _mekBlocked ??= Blocked;
         _mekGuardsNear ??= (point, radius) => TfwGuards is { } g && g.CountInside(point, radius) > 0;
         if (TfwMekDemo) { musou.MekDemo = true; TfwMekDemoPlaces(musou, battle); }
+        musou.RocketDome ??= (origin, direction, max) => TfwMeks is { AnyDome: true } m ? m.DomeEntry(origin, direction, max) : float.PositiveInfinity;   // the dome stops the Orks' rockets from outside
+        if (TfwGuards is { } squads && squads.Turrets is null)
+        {
+            squads.Shielded = TfwShielded;   // the dome stops the Guardsmen's fire from outside
+            if (MusouMekRules.GuardsShootTurrets)
+            {
+                squads.Turrets = (Vector3 from, float range, out Vector3 centre) => { centre = default; return TfwMeks is { Count: > 0 } m ? m.NearestTurret(from, range, out centre) : (byte)0; };
+                squads.TurretHit = (id, damage) => TfwMeks?.Damage(id, 0, damage, out _);
+            }
+        }
         battle.StepMeks(_mekTargets.AsSpan(0, n), _mekBlocked, _mekGuardsNear);
         var meks = battle.Meks;
         _mekTriggers.Clear();
@@ -74,7 +84,8 @@ public sealed partial class World
         return any;
     }
 
-    /// <summary>A trap set off: every living player and AI Marine within its radius takes <see cref="MusouMekRules.TrapShare"/> of his maximum (health and armour) as an Ork's hit; the Guardsmen in it the same share of a standard Marine's.</summary>
+    /// <summary>A trap set off: every living player within its radius takes <see cref="MusouMekRules.TrapShare"/> of his maximum (health and armour) as an Ork's hit, an AI Marine dies outright
+    /// (<see cref="MusouMekRules.TrapAiMarineDamage"/>); the Guardsmen in it the same share of a standard Marine's.</summary>
     void TfwTrapHurt(MusouTrapTrigger t)
     {
         float r2 = MusouMekRules.TrapRadius * MusouMekRules.TrapRadius;
@@ -84,7 +95,8 @@ public sealed partial class World
             var d = p.Position - t.Point;
             if (d.X * d.X + d.Y * d.Y > r2 || MathF.Abs(d.Z) > MusouMekRules.TrapVertical) continue;
             var body = Loadouts.Body(Config, p);
-            MusouHit(new MusouAttack(t.Mek, id, (body.HealthMax + body.ShieldMax) * MusouMekRules.TrapShare, Melee: false, Staggers: false, t.Point));
+            float damage = TfwContracts.IsPuppet(id) ? MusouMekRules.TrapAiMarineDamage : (body.HealthMax + body.ShieldMax) * MusouMekRules.TrapShare;   // an AI Marine dies outright (owner, 2026-11-08)
+            MusouHit(new MusouAttack(t.Mek, id, damage, Melee: false, Staggers: false, t.Point));
         }
         TfwGuards?.Blast(t.Point, MusouMekRules.TrapRadius, _ => 1f, TfwTrapFlatDamage, out _);
     }
@@ -119,6 +131,12 @@ public sealed partial class World
         if (!ended) return;
         shot = shot with { End = shot.Origin + direction * length, Hit = ShotHit.World, Surface = -1, Target = 0, Armoured = false };
         _shots[k] = shot;
+    }
+
+    /// <summary>A player's projectile (grenade, rocket, plasma ball) against the domes: where along its step it enters one from outside (Projectiles.cs; it detonates there).</summary>
+    partial void ExtrasProjectileStop(Vector3 from, Vector3 direction, float max, ref float stop)
+    {
+        if (TfwMeks is { AnyDome: true } meks) stop = MathF.Min(stop, meks.DomeEntry(from, direction, max));
     }
 
     /// <summary>Whether a dome stops what goes from <paramref name="from"/> (outside it) to <paramref name="to"/> (inside it): a blast or a cone from outside.</summary>
@@ -169,6 +187,7 @@ public sealed partial class World
         meks.Near(point, blast.Radius, _mekNear);
         foreach (var (id, distance) in _mekNear)
         {
+            if (meks.TryGet(id, out var c) && TfwShielded(point, MusouMeks.Centre(c))) continue;   // a dome keeps an Ork blast from outside off what stands in it
             float damage = blast.Damage * blast.IntensityAt(distance);
             if (damage > 0f) meks.Damage(id, credit, damage, out _);
         }

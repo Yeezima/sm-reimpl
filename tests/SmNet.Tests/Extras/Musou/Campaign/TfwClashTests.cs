@@ -6,18 +6,19 @@ namespace SmNet.Tests.Extras.Musou.Campaign;
 /// <summary>Expansion S6: the far layer's clash (Lanchester with cohesion), by the brief's Monte Carlo over 1,000 even seeds per size.</summary>
 public class TfwClashTests(ITestOutputHelper output)
 {
+    /// <summary>Even sizes (the owner, 2026-11-08: the near layer matches the far one, man for man): Orks against as many Guardsmen.</summary>
     [Theory]
-    [InlineData(200)]
-    [InlineData(500)]
-    [InlineData(1000)]
-    public void Even_clashes_are_even_the_winner_keeps_a_quarter_and_the_loser_routs(int size)
+    [InlineData(200, 200)]
+    [InlineData(500, 500)]
+    [InlineData(1000, 1000)]
+    public void Even_clashes_are_even_the_winner_keeps_a_quarter_and_the_loser_routs(int size, int guards)
     {
         int aWins = 0, routed = 0;
         float leastKept = 1f, meanKept = 0f, meanSeconds = 0f;
         const int seeds = 1000;
         for (uint seed = 1; seed <= seeds; seed++)
         {
-            var r = TfwClash.Resolve(size, size, seed * 2654435761u);
+            var r = TfwClash.Resolve(size, guards, seed * 2654435761u, worthA: TfwClashRules.OrkWorth, worthB: TfwClashRules.GuardWorth);
             if (r.AWon) aWins++;
             if (r.LoserRouted) routed++;
             float kept = r.AWon ? r.AKept : r.BKept;
@@ -25,10 +26,16 @@ public class TfwClashTests(ITestOutputHelper output)
             meanKept += kept / seeds;
             meanSeconds += r.Seconds / seeds;
         }
-        output.WriteLine($"{size} v {size}: A won {aWins}/{seeds}, loser routed {routed}, winner kept least {leastKept:P1} mean {meanKept:P1}, mean {meanSeconds:F0} s");
+        output.WriteLine($"{size} Orks v {guards} Guardsmen: the Orks won {aWins}/{seeds}, loser routed {routed}, winner kept least {leastKept:P1} mean {meanKept:P1}, mean {meanSeconds:F0} s");
         Assert.InRange(aWins, 450, 550);
         Assert.Equal(seeds, routed);
         Assert.True(leastKept >= 0.25f, $"the winner kept only {leastKept:P1}");
+    }
+
+    [Fact]
+    public void A_Guardsman_is_worth_an_Ork_as_near_a_player()
+    {
+        Assert.Equal(TfwClashRules.OrkWorth, TfwClashRules.GuardWorth);   // GuardHoldTrial: 60 real hold against 60 real Orks half the time
     }
 
     [Fact]

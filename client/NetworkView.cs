@@ -642,7 +642,9 @@ public partial class NetworkView : Node3D
         WeaponFrame(delta);   // M24
         Ph("sound");
         UpdateSound(me, others, delta);   // M26b
+        Ph("extras");   // musou/perf-pass: added content's frame is its own phase in --frame-profile (Musou Mode splits it further)
         ExtrasFrame(me, others, delta);   // EXTRAS-HOOK: added content's per-frame work after the sound (loyalist barks: barks and the FOR THE EMPEROR key)
+        Ph("brace, stims, hits");
         UpdateBraceVent(me, others);   // fidelity gap 7: the brace's and the vent's sounds and effects
         UpdateStims(me, others);   // perks/inert-2: combat stims' sound and effects (NetworkView.Stims.cs)
         UpdateHits();

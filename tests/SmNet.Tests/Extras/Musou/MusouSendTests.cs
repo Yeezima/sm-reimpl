@@ -256,4 +256,26 @@ public class MusouSendTests(ITestOutputHelper output)
         h.Server.World.Musou!.Frozen = true;
         return h;
     }
+
+    /// <summary>The owner's "count it" (musou/perf-pass): the core messages' bytes come out of the tick's refill, never below <see cref="MusouSendRules.CoreFloor"/> of it.</summary>
+    [Fact]
+    public void Core_bytes_come_out_of_the_refill_down_to_the_floor()
+    {
+        float refill = MusouSendRules.BudgetBytesPerSecond / 30f;
+        var plain = new MusouInterest();
+        var counted = new MusouInterest();
+        for (uint t = 1; t <= 200; t++)   // empty the burst first: nothing to send, so the buckets fill to the burst; then spend by asking for many
+        {
+            plain.Plan(t, 30, [], Vector3.Zero, Box, null, []);
+            counted.CoreBytes = 400f;
+            counted.Plan(t, 30, [], Vector3.Zero, Box, null, []);
+        }
+        Assert.Equal(plain.Tokens, counted.Tokens);   // both full at the burst
+        var floor = new MusouInterest();
+        float start = floor.Tokens;
+        floor.CoreBytes = 1e6f;
+        floor.Plan(1, 30, [], Vector3.Zero, Box, null, []);
+        Assert.True(floor.Tokens <= start + refill * MusouSendRules.CoreFloor + 0.01f);   // at most the floor's share came in (less when the bucket was full)
+        Assert.Equal(0f, floor.CoreBytes);
+    }
 }

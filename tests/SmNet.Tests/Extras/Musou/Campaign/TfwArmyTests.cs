@@ -65,6 +65,50 @@ public class TfwArmyTests
     }
 
     [Fact]
+    public void With_a_point_held_the_base_is_no_wave_target()
+    {
+        // The owner's pick at the musou/perf-pass integration (2026-11-08, "no point held"): the base is a target only while the players hold no position (S6's "only once all three are Imperial" dropped).
+        var (sim, guards, battle, layout) = Frozen();
+        Capture(sim, battle, layout, 0);
+        Vector3[] atA = [layout.Positions[0]];
+        battle.Step(atA);
+        for (int k = 0; k < 8; k++) Assert.NotEqual(TfwBattle.LandingGoal, battle.SendWaveForTests(200)!.Goal);
+    }
+
+    [Fact]
+    public void A_wave_whose_real_ranks_lag_creeps_on_and_still_reaches_its_point()
+    {
+        var (sim, guards, battle, layout) = Frozen();   // frozen: its real Orks never walk, so its ranks always lag
+        for (int k = 0; k < 3; k++) Capture(sim, battle, layout, k);
+        Vector3[] atHq = [TfwTestArena.Sources[3]];
+        battle.Step(atHq);
+        var wave = battle.SendWaveForTests(100, 2)!;
+        for (int t = 0; t < 240 * Tick && wave.Order == TfwArmyOrder.March; t++) battle.Step(atHq);
+        Assert.True(wave.Real > 0);
+        Assert.Equal(TfwArmyOrder.Attack, wave.Order);
+    }
+
+    [Fact]
+    public void A_near_armys_remainder_wears_the_real_front_down_and_the_real_men_only_take_its_fire()
+    {
+        var (sim, guards, battle, layout) = Frozen();
+        Capture(sim, battle, layout, 1);
+        var point = layout.Positions[1];
+        var garrison = battle.AddArmyForTests(TfwArmySide.Guard, TfwArmyOrder.Hold, 1, 100, point)!;
+        var wave = battle.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.Attack, 1, 900, point)!;
+        Vector3[] near = [point + new Vector3(0f, -40f, 0f)];
+        for (int t = 0; t < 3 * Tick; t++) battle.Step(near);
+        Assert.Equal(0, garrison.FarCount);                                 // all of it real
+        Assert.Equal(TfwArmyRules.NearOrksMost, wave.Real);                 // the wave at the cap, the rest behind the line
+        int remainder = wave.FarCount;
+        Assert.True(remainder > 0);
+        int before = garrison.Count;
+        for (int t = 0; t < 30 * Tick; t++) battle.Step(near);
+        Assert.True(garrison.Count < before, "the remainder's fire killed real men");
+        Assert.Equal(remainder, wave.FarCount);                             // the real men's own fire is real only: the remainder lost nobody here
+    }
+
+    [Fact]
     public void Wave_sizes_follow_the_brief_shares()
     {
         int small = 0, medium = 0, large = 0;
@@ -80,12 +124,24 @@ public class TfwArmyTests
     public void With_no_imperial_point_the_muster_waits_and_leaves_once_one_is_taken()
     {
         var (sim, guards, battle, layout) = Frozen();
+        battle.BaseTargets = false;   // expansion S6's rule; the owner's "base is a target" (2026-11-08) is the next test
         Seconds(battle, guards, 200f, () => [layout.LandingZone]);
         Assert.Equal(0, battle.WavesSent);                               // nothing Imperial to attack: the muster waits
         Assert.NotNull(battle.Mustering);
         Capture(sim, battle, layout, 0);
         Seconds(battle, guards, TfwArmyRules.WaitRecheck + 0.5f, () => [layout.LandingZone]);
         Assert.Equal(1, battle.WavesSent);
+    }
+
+    [Fact]
+    public void With_no_imperial_point_the_wave_marches_on_the_base()
+    {
+        var (_, guards, battle, layout) = Frozen();
+        TfwArmy? left = null;
+        battle.OnWaveLeft = a => left ??= a;
+        Seconds(battle, guards, 200f, () => [layout.LandingZone]);
+        Assert.Equal(1, battle.WavesSent);                               // the owner, 2026-11-08: "base is a target"
+        Assert.Equal(TfwBattle.LandingGoal, left!.Goal);
     }
 
     [Fact]
@@ -352,12 +408,12 @@ public class TfwArmyTests
     {
         var (sim, guards, battle, layout) = Frozen();
         Capture(sim, battle, layout, 1);
-        var garrison = battle.AddArmyForTests(TfwArmySide.Guard, TfwArmyOrder.Hold, 1, 100, layout.Positions[1])!;
-        var wave = battle.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.Attack, 1, 300, layout.Positions[1])!;
+        var garrison = battle.AddArmyForTests(TfwArmySide.Guard, TfwArmyOrder.Hold, 1, 40, layout.Positions[1])!;   // with the field's 60 real men, 100 (a Guardsman worth an Ork)
+        var wave = battle.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.Attack, 1, 200, layout.Positions[1])!;
         for (int t = 0; t < 240 * Tick && battle.Objectives[1].State == TfwPositionState.Secured; t++) battle.Step([]);
-        Assert.Equal(TfwArmyOrder.Retreat, garrison.Order);                 // outnumbered three to one, it broke
+        Assert.Equal(TfwArmyOrder.Retreat, garrison.Order);                 // outweighed two to one, it broke
         Assert.Equal(TfwPositionState.Held, battle.Objectives[1].State);    // then the Orks alone took the point
-        Assert.True(wave.Count > 150, $"the wave kept {wave.Count}");
+        Assert.True(wave.Count > 50, $"the wave kept {wave.Count}");
         Assert.Equal(TfwArmyOrder.Hold, wave.Order);                        // and hold it
         Assert.True(battle.OrksKilled > 0);
     }

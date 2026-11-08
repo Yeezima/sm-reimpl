@@ -45,9 +45,9 @@ public class MusouExpansionS4Tests
     static List<MusouEvent> Cues(World w, byte cue) => w.Musou!.Events.Where(e => e.Kind == MusouEventKind.Telegraph && e.Value == cue).ToList();
 
     /// <summary>A war battle on the test arena (no graph): the player at the landing zone, no Guardsmen, Squigs or Weirdboyz; the Meks have come.</summary>
-    static (World W, TfwBattle Battle, MusouMeks Meks) Battle()
+    static (World W, TfwBattle Battle, MusouMeks Meks) Battle(SimConfig? config = null)
     {
-        var w = TfwRig.War();
+        var w = TfwRig.War(config: config);
         w.TfwMeksOn = true;
         w.Tfw!.Guardsmen = false;
         w.TfwSquigDropsOn = false;
@@ -478,5 +478,147 @@ public class MusouExpansionS4Tests
         TfwRig.Seconds(war, 5f);   // in the Stormbird: no battle
         Assert.Null(war.TfwMeks);
         Assert.Equal(0, war.Musou!.CountAlive(MusouEnemyType.ScrapMek));
+    }
+
+    // ---------------------------------------------------------------- the owner's follow-up, 2026-11-08
+
+    [Fact]
+    public void A_trap_kills_an_AI_Marine_outright()
+    {
+        var (w, _, meks) = Battle();
+        w.Musou!.Frozen = true;
+        int marine = w.Players.Keys.First(TfwContracts.IsPuppet);
+        var spot = new Vector3(30f, -90f, 0f);
+        TfwRig.Teleport(w, spot + new Vector3(0f, -40f, 0f));
+        meks.PlaceBuilt(0, MusouContraptionKind.Trap, spot);
+        Assert.True(w.TfwRespawnAt(marine, spot + new Vector3(1f, 0f, 0f), 0f));
+        Assert.True(w.Players[marine].Alive);
+        Tick(w);
+        Assert.Single(Cues(w, MusouMekRules.TrapCue));
+        Assert.False(w.Players[marine].Alive, "the AI Marine dies at once");
+    }
+
+    [Fact]
+    public void The_dome_keeps_an_Ork_blast_from_outside_off_Orks_players_and_contraptions_inside()
+    {
+        var (w, _, meks) = Battle();
+        var musou = w.Musou!;
+        musou.Frozen = true;
+        var centre = new Vector3(40f, -70f, 0f);
+        Assert.NotNull(meks.PlaceBuilt(3, MusouContraptionKind.ShieldGenerator, centre));
+        ushort inside = musou.Spawn(MusouEnemyType.Boy, centre + new Vector3(0f, -9f, 0f), 0f, 85f);
+        ushort outside = musou.Spawn(MusouEnemyType.Boy, centre + new Vector3(0f, -13f, 0f), 0f, 85f);
+        TfwRig.Teleport(w, centre + new Vector3(1.5f, -9f, 0f));
+        Tick(w);
+        float before = Total(w.Players[Human]);
+        var point = centre + new Vector3(0f, -11f, 1f);   // 1 m outside the dome, 2 m from each Boy
+        w.MusouOrkBlast(point, new OrkBlastSpec(5f, 60f));
+        Assert.True(musou.TryGet(inside, out var a) && a.Health == 85f, "the Boy inside is spared");
+        Assert.True(musou.TryGet(outside, out var b) && b.Health < 85f, "the Boy outside is hurt");
+        Assert.Equal(before, Total(w.Players[Human]), 2);
+        // From inside, the blast reaches in.
+        w.MusouOrkBlast(centre + new Vector3(0f, -8f, 1f), new OrkBlastSpec(5f, 60f));
+        Assert.True(musou.TryGet(inside, out a) && a.Health < 85f, "a blast inside hurts him");
+    }
+
+    [Fact]
+    public void The_dome_stops_an_Ork_rocket_from_outside_where_it_enters()
+    {
+        var (w, _, meks) = Battle();
+        var musou = w.Musou!;
+        var centre = new Vector3(40f, -70f, 0f);
+        Assert.NotNull(meks.PlaceBuilt(3, MusouContraptionKind.ShieldGenerator, centre));
+        TfwRig.Teleport(w, centre + new Vector3(0f, -80f, 0f));
+        Tick(w);
+        ushort serial = musou.LaunchTurretRocket(meks.MekId(0), 1, centre + new Vector3(0f, -30f, 1.4f), centre + new Vector3(0f, 0f, 1.4f));
+        Assert.NotEqual(0, serial);
+        MusouEvent? blast = null;
+        for (int k = 0; k < 4 * Rate && blast is null; k++)
+        {
+            Tick(w);
+            blast = Cues(w, MusouRokkitRules.BlastCue).Cast<MusouEvent?>().FirstOrDefault(e => e!.Value.Player == serial);
+        }
+        Assert.NotNull(blast);
+        Assert.InRange(Vector3.Distance(blast!.Value.Vector, centre), MusouMekRules.ShieldRadius - 0.5f, MusouMekRules.ShieldRadius + 0.5f);
+    }
+
+    [Fact]
+    public void The_dome_stops_a_grenade_thrown_from_outside()
+    {
+        float Nearest(bool dome)
+        {
+            var frag = new ThrownSpec("test_frag", 2, 2, 1f, 10f, GrenadeTests.FragBall);
+            var config = TfwRig.Config with
+            {
+                Thrown = [frag],
+                Classes = TfwRig.Config.Classes.Select(c => c with { EquipmentChoices = [0] }).ToArray(),
+            };
+            var (w, _, meks) = Battle(config);
+            w.Musou!.Frozen = true;
+            var centre = new Vector3(40f, -70f, 0f);
+            if (dome) Assert.NotNull(meks.PlaceBuilt(3, MusouContraptionKind.ShieldGenerator, centre));
+            Assert.True(w.TfwRespawnAt(Human, centre + new Vector3(0f, -13f, 0f), 0f));
+            Tick(w);
+            float nearest = float.PositiveInfinity;
+            bool thrown = false;
+            for (int k = 0; k < 6 * Rate; k++)
+            {
+                var buttons = k < 2 ? InputButtons.Grenade : InputButtons.None;
+                w.Step(id => new PlayerInput(w.Tick, 0f, 0f, 0f, id == Human ? buttons : InputButtons.None, Pitch: 0.3f));
+                foreach (var p in w.Projectiles.Where(p => p.Owner == Human)) { thrown = true; nearest = MathF.Min(nearest, Vector3.Distance(p.Position, centre)); }
+            }
+            Assert.True(thrown, "a grenade was thrown");
+            return nearest;
+        }
+        Assert.True(Nearest(dome: false) < MusouMekRules.ShieldRadius - 1f, "with no dome it flies into the circle");
+        Assert.True(Nearest(dome: true) >= MusouMekRules.ShieldRadius - 0.2f, "the dome stops it at its edge");
+    }
+
+    static (MusouSim Sim, GuardSim Guards) Squad()
+    {
+        var sim = new MusouSim(null) { Frozen = true };
+        var guards = new GuardSim(sim);
+        guards.SpawnSquad(new Vector3(0f, 0f, 0f));
+        return (sim, guards);
+    }
+
+    static void Run(MusouSim sim, GuardSim guards, int ticks) { for (uint k = 1; k <= ticks; k++) { sim.BeginTick(k); guards.BeginTick(k); guards.Step(true); } }
+
+    [Fact]
+    public void The_dome_stops_the_Guardsmens_fire_and_spares_them_an_Ork_blast_from_outside()
+    {
+        var (sim, open) = Squad();
+        sim.Spawn(MusouEnemyType.Warboss, new Vector3(20f, 0f, 0f), 0f, 1e7f);
+        Run(sim, open, 300);
+        Assert.True(open.Shots > 0, "with no dome they fire");
+        var (sim2, domed) = Squad();
+        sim2.Spawn(MusouEnemyType.Warboss, new Vector3(20f, 0f, 0f), 0f, 1e7f);
+        domed.Shielded = (_, _) => true;
+        Run(sim2, domed, 300);
+        Assert.Equal(0, domed.Shots);
+        Assert.Equal(0, domed.Blast(new Vector3(0f, 0f, 1f), 5f, _ => 1f, 10f, out _, _ => true));
+        Assert.True(domed.Blast(new Vector3(0f, 0f, 1f), 5f, _ => 1f, 10f, out _) > 0);
+    }
+
+    [Fact]
+    public void The_Guardsmen_shoot_a_Rokkit_turret_and_no_other_contraption()
+    {
+        var (sim, meks) = Pool();
+        Step(sim, meks, 1, new MusouTarget(Human, new Vector3(0f, -400f, 0f), true));
+        var trap = meks.PlaceBuilt(0, MusouContraptionKind.Trap, new Vector3(15f, 0f, 0f))!.Value;
+        var beacon = meks.PlaceBuilt(1, MusouContraptionKind.Beacon, new Vector3(0f, 15f, 0f))!.Value;
+        var guards = new GuardSim(sim);
+        guards.SpawnSquad(new Vector3(0f, 0f, 0f));
+        float damage = 0f;
+        guards.Turrets = (Vector3 from, float range, out Vector3 centre) => meks.NearestTurret(from, range, out centre);
+        guards.TurretHit = (id, d) => { damage += d; meks.Damage(id, 0, d, out _); };
+        Run(sim, guards, 300);
+        Assert.Equal(0f, damage);
+        Assert.True(meks.TryGet(trap.Id, out var t) && t.Health == MusouMekRules.TrapHealth, "the trap is left alone");
+        Assert.True(meks.TryGet(beacon.Id, out var b) && b.Health == MusouMekRules.BeaconHealth, "the beacon is left alone");
+        var turret = meks.PlaceBuilt(2, MusouContraptionKind.Turret, new Vector3(-20f, 0f, 0f))!.Value;
+        for (uint k = 301; k <= 600; k++) { sim.BeginTick(k); guards.BeginTick(k); guards.Step(true); }
+        Assert.True(damage > 0f, "they shoot the turret");
+        Assert.True(!meks.TryGet(turret.Id, out var after) || after.Health < MusouMekRules.TurretHealth);
     }
 }

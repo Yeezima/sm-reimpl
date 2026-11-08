@@ -177,27 +177,51 @@ public sealed partial class TfwBattle
     /// <summary>The ways of <paramref name="ends"/> in order (a way back along a found way with no drop is that way reversed); straight lines without a graph. Runs off the tick: it reads the graph only.</summary>
     static List<((int, int) Segment, List<Vector3>? Way, double Milliseconds)> SearchAll(NavGraph? nav, ((int, int) Segment, Vector3 From, Vector3 To)[] ends)
     {
+        // musou/perf-pass: the searches that cannot be a way back run side by side (the graph's search scratch is per thread), so all of them are in long before RouteSeconds even on a busy
+        // server (S6's open item: collected late, they stalled the tick); a way back is then taken in order as before, so the ways are the same as one search after the other.
+        var ahead = new (List<Vector3>? Way, bool Reversible, double Ms)?[ends.Length];
+        if (nav is not null)
+        {
+            var first = new HashSet<(int, int)>();
+            var independent = new List<int>();
+            for (int i = 0; i < ends.Length; i++)
+            {
+                if (!first.Contains((ends[i].Segment.Item2, ends[i].Segment.Item1))) independent.Add(i);
+                first.Add(ends[i].Segment);
+            }
+            Parallel.ForEach(independent, new ParallelOptions { MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount / 2, 1, 4) }, i => ahead[i] = Search(nav, ends[i].From, ends[i].To));
+        }
         var found = new List<((int, int), List<Vector3>?, double)>();
         var reversible = new Dictionary<(int, int), List<Vector3>>();
-        foreach (var (segment, from, to) in ends)
+        for (int i = 0; i < ends.Length; i++)
         {
+            var (segment, from, to) = ends[i];
             if (reversible.TryGetValue((segment.Item2, segment.Item1), out var back)) { var reversed = new List<Vector3>(back); reversed.Reverse(); found.Add((segment, reversed, 0.0)); continue; }
             if (nav is null) { found.Add((segment, [from, to], 0.0)); reversible[segment] = [from, to]; continue; }
-            long started = System.Diagnostics.Stopwatch.GetTimestamp();
-            List<Vector3>? way = null;
-            try
-            {
-                var path = nav.FindPath(from, to, 10f, TfwPatrolRules.RouteExpansions);
-                if (path is { Partial: false, Waypoints.Count: >= 2 } && path.Waypoints.All(w => w.Kind != NavLinkKind.Jump))   // an Ork has no jump pack
-                {
-                    way = path.Waypoints.Select(w => w.Position).ToList();
-                    if (path.Waypoints.All(w => w.Kind == NavLinkKind.Walk)) reversible[segment] = way;
-                }
-            }
-            catch (Exception) { way = null; }   // a failed search leaves its loop unwalked, never the battle
-            found.Add((segment, way, System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds));
+            var (way, canReverse, ms) = ahead[i] ?? Search(nav, from, to);
+            if (canReverse && way is not null) reversible[segment] = way;
+            found.Add((segment, way, ms));
         }
         return found;
+    }
+
+    /// <summary>One route search: the way (null: none, partial or by a jump), whether it is walked all the way (so its reverse is a way back), and its wall-clock milliseconds.</summary>
+    static (List<Vector3>? Way, bool Reversible, double Ms) Search(NavGraph nav, Vector3 from, Vector3 to)
+    {
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
+        List<Vector3>? way = null;
+        bool reversible = false;
+        try
+        {
+            var path = nav.FindPath(from, to, 10f, TfwPatrolRules.RouteExpansions);
+            if (path is { Partial: false, Waypoints.Count: >= 2 } && path.Waypoints.All(w => w.Kind != NavLinkKind.Jump))   // an Ork has no jump pack
+            {
+                way = path.Waypoints.Select(w => w.Position).ToList();
+                reversible = path.Waypoints.All(w => w.Kind == NavLinkKind.Walk);
+            }
+        }
+        catch (Exception) { way = null; }   // a failed search leaves its loop unwalked, never the battle
+        return (way, reversible, System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
     }
 
     Task<List<((int, int) Segment, List<Vector3>? Way, double Milliseconds)>>? _routeTask;

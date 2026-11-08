@@ -32,6 +32,8 @@ public partial class NetworkView
 
     /// <summary>Enemy deaths the client has been told of (a test aid's count).</summary>
     internal long MusouDeathsSeen { get; private set; }
+    /// <summary>Deaths far and out of view given no body (musou/perf-pass; the log's count).</summary>
+    long _musouUnseenDeaths;
 
     bool MusouActive => _config is { } c && c.Extras.HasFlag(ContentExtras.Musou);
 
@@ -45,6 +47,7 @@ public partial class NetworkView
     {
         if (!MusouActive || _client is not { } client) { if (_musouHud is not null) _musouHud.Visible = false; return; }
         MusouDeathSpikeStart();   // --musou-death-spike-test (NetworkView.MusouDeathSpike.cs)
+        Ph("musou: state");   // musou/perf-pass: --frame-profile's Musou phases
         double now = Time.GetTicksUsec() / 1e6;
         MusouMotionSections(sections);   // NetworkView.MusouMotion.cs: --musou-old-far-motion, and the measure's bytes
         foreach (var section in MusouGoreFeed(me, sections, delta)) if (!MusouDropSection(section)) _musouState.Apply(section, now);   // MU-D: tag 6 to the drops (MusouDrops.cs); M10: --musou-gore-demo replaces the server's sections
@@ -63,16 +66,20 @@ public partial class NetworkView
         if (!_musouNoDraw)
         {
             MusouDeathsArrive(_musouState.NewDeaths, now);   // night batch 2026-11-06: a burst is handed out over a few frames (NetworkView.MusouDeathSpread.cs)
+            Ph("musou: crowd, deaths, ragdolls");
             if (_gameSpace is not null) MusouDraw(shown, (float)delta);
+            Ph("musou: hud, fx, sounds");
             ulong t0 = SpikeMark();
             MusouPresent(me, shown, (float)delta);   // MU3: the HUD, hit feedback and telegraphs (MusouFx.cs)
             MusouSoundsFrame(me, shown, (float)delta);   // the enemies' original sounds (NetworkView.MusouSounds.cs)
             _spikeSoundsMs += SpikeMs(t0);
             TfwMeleeCount(shown);   // Tfw/NetworkView.TfwMelee.cs: the test aid's counts, nothing without it
+            Ph("musou: gore");
             t0 = SpikeMark();
             MusouGoreFrame(me, shown, (float)delta);   // M10: gibs, sprays, pools and the cleave slashes (Gore/NetworkView.MusouGore.cs)
             _spikeGoreMs += SpikeMs(t0);
         }
+        Ph("musou: drops, log");
         MusouDeathSpikeFrame(_musouState.NewDeaths.Count);   // --musou-death-spike-test (NetworkView.MusouDeathSpike.cs)
         TfwCoopBotDeaths();   // Tfw/NetworkView.TfwCoopBot.cs: co-op's --bot counts its kills
         MusouDeathsSeen += _musouState.NewDeaths.Count;   // the Firing Range script counts the strike's kills
@@ -122,6 +129,10 @@ public partial class NetworkView
         foreach (var d in _musouDeaths)
         {
             float metres = new Vector3(d.Position.X, d.Position.Y, d.Position.Z).DistanceTo(camera);
+            // The owner, 2026-11-08 ("if a player cannot see it, it doesn't ever get drawn, unless the player is close by"; ours as to the distance): a death beyond the battle flow's near distance and
+            // outside the view leaves no body, gore or ragdoll (its yell still plays). --army-far-bodies (test aid) keeps them all.
+            if (metres > SmSim.Extras.Musou.Campaign.TfwArmyRules.NearMetres && !ArmyFarBodies && _camera is { } eye
+                && !eye.IsPositionInFrustum(_gameSpace!.Transform * new Vector3(d.Position.X, d.Position.Y, d.Position.Z + 1f))) { _musouUnseenDeaths++; continue; }
             bool gibbed = MusouGoreRegister(d, camera);   // M10: a gibbed body leaves no corpse
             if (MusouGoreRules.Thrown(d.Cause)) MusouThrow(d, metres);   // a blast or barrage death always leaves a body, thrown through the gore's burst: a ragdoll near, else a tumbling body
             else if (!gibbed) _musouCrowd!.AddBody(d, MusouDeathWaited(d.Id), keepSkeleton: !_musouOldDeaths);

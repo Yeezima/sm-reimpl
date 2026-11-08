@@ -121,6 +121,7 @@ public sealed partial class TfwBattle
             if (a.Order != TfwArmyOrder.March) continue;
             int next = NearestImperial(a.Middle, k);
             if (next >= 0) { a.Goal = a.Post = next; Redirect(a, next); }
+            else if (BaseTargets) { a.Goal = a.Post = LandingGoal; Redirect(a, BasePlace); }   // the owner's "base is a target" (2026-11-08)
             else Retreat(a);
         }
     }

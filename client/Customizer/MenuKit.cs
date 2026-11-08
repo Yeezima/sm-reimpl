@@ -302,6 +302,14 @@ public static partial class UiKit
 
         /// <summary>Sets the words beside the slider (a range that moved with the window).</summary>
         public void ShowValue(string text) => _value.Text = text;
+
+        /// <summary>A slider that rests (musou/perf-pass: the render scale while FSR 2 sets the scale): not editable, drawn faded.</summary>
+        public void SetDisabled(bool disabled)
+        {
+            Slider.Editable = !disabled;
+            Slider.FocusMode = disabled ? FocusModeEnum.None : FocusModeEnum.All;
+            Modulate = disabled ? new Color(1f, 1f, 1f, 0.45f) : Colors.White;
+        }
     }
 
     /// <summary>A row with a text field: the label, then the field.</summary>
