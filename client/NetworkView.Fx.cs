@@ -249,6 +249,7 @@ public partial class NetworkView
             _fx!.Update(delta / Math.Max(1f, FxSlow), _camera);
             MeltaFollowFrame();   // fx/melta-attached: --log-melta-follow (after the update: the place the effect is drawn at this frame)
             UpdateDeferredTracers();   // fx/visuals-2 (NetworkView.PistolTracer.cs)
+            UpdateLightBalls(delta);   // fix/plasma-light-tracer (NetworkView.PlasmaLightShot.cs)
             UpdateSlashCones();   // fx/visuals-2 (NetworkView.SlashCone.cs)
             UpdateMeltaCones();   // wfx (NetworkView.WeaponFx.cs)
             UpdateBulletLines();   // feel/bullets: the fallback streaks and the debug rays (NetworkView.Bullets.cs)
@@ -493,8 +494,11 @@ public partial class NetworkView
         bool projectileShot = !TracerRules.DrawnAtFire(spec, stage), atFire = OldChargedImpact || !projectileShot;
         if (projectileShot) { if (!atFire) _projectileShotsHeld++; TracerProbeProjectileShot(shooter, spec, stage); }
         var plays = se.Fire.AsEnumerable();
+        // fix/plasma-light-tracer (owner, 2026-11-08): the plasma gun's and pistol's light shot is a small copy (0.75) of the charged shot, ball and trail (NetworkView.PlasmaLightShot.cs), not a data tracer.
+        bool lightBall = atFire && LightBallApplies(w, spec, stage, projectileShot);
+        if (lightBall) plays = plays.Where(x => !x.HasTarget);
         // fx/tracers-impact: the plasma gun's and pistol's uncharged shot is a blue bolt, the weapon's data tracer (PlasmaBolt.Tracer: a basic shot naming none falls back to the wargear's first delivery tracer).
-        var tracerPlay = se.Tracer ?? (!projectileShot && PlasmaBoltOn && PlasmaBolt.IsBoltWeapon(w.Wargear) ? PlasmaBolt.Tracer(w) : null);
+        var tracerPlay = lightBall ? null : se.Tracer ?? (!projectileShot && PlasmaBoltOn && PlasmaBolt.IsBoltWeapon(w.Wargear) ? PlasmaBolt.Tracer(w) : null);
         if (tracerPlay is { } tracer && !se.Fire.Contains(tracer)) plays = plays.Append(tracer);
         foreach (var p in plays)
         {
@@ -523,6 +527,12 @@ public partial class NetworkView
                 var played1 = fx.Play(p.Name, place.Position, place.Axes, p.Scale <= 0f ? 1f : p.Scale, null, follow, p.Lifetime, 0.0, false, 1, tint: RaceTint(w.Wargear, p.Name), smokeRein: SmokeRein, followFor: ShotFollowSeconds(w.Wargear));
                 if (played1 is not null && p.Attached) MeltaFollowNote(played1, shooter, p.Marker, w.Wargear);   // fx/melta-attached: --log-melta-follow
             }
+        }
+        if (lightBall && (FxPlace(shooter, w.MuzzleMarker) ?? fallback) is var lightFrom && lightFrom.Position.DistanceTo(end) >= 0.4f)
+        {
+            travel = MathF.Max(travel, LightBallLaunch(shooter, spec, w, weaponIndex, lightFrom.Position, end));
+            tracered = true;
+            TracerProbeNote(true, lightFrom.Position, end);
         }
         // feel/bullets: a hit-scan weapon whose effects name no tracer still sends a visible bullet along the damaging path (a pooled bright streak).
         if (!tracered && BulletsOn && stage == 0 && spec.Delivery == DeliveryKind.Raycast && rayOrigin is not null && (FxPlace(shooter, w.MuzzleMarker) ?? fallback) is var from && from.Position.DistanceTo(end) >= 0.4f)

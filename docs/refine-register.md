@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2594 spec table rows: **1906 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 581 rows of the changes document.
+Scanned 2595 spec table rows: **1907 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -42,7 +42,7 @@ Scanned 2594 spec table rows: **1906 tagged**, 479 not tagged (read from data wi
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 67 | 62 | 49 | 10 | 0 |
 | Sound mix (critical) | 63 | 57 | 55 | 10 | 0 |
-| Effects (critical) | 89 | 79 | 74 | 40 | 0 |
+| Effects (critical) | 90 | 80 | 75 | 40 | 0 |
 | Game modes | 41 | 38 | 38 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
@@ -53,15 +53,15 @@ Scanned 2594 spec table rows: **1906 tagged**, 479 not tagged (read from data wi
 | Core simulation (provisional values) | 450 | 428 | 303 | 120 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 178 | 169 | 80 | 54 | 0 |
-| **All areas** | **1906** | 1663 | 1403 | 617 | 38 |
+| **All areas** | **1907** | 1664 | 1404 | 617 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1012 |
+| kind: ours | 1013 |
 | confidence: low | 667 |
-| confidence: medium | 607 |
+| confidence: medium | 608 |
 | kind: interpretation | 359 |
 | notes: ours | 352 |
 | notes: estimate | 152 |
@@ -1654,7 +1654,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5FBBC333` | Menu sound cost | its own catalogue of two packages (`init`, `in_game_default`) opens in the background in 65 to 130 ms when the first root is attached (not before a button exists) and is disposed when a match starts, one still loading too (the match's sound system plays the… (ms) | kind: ours; confidence: medium | measured | Menu sound cost: compare with SM1 by listening A/B at the same distance and state. Ours: its own catalogue of two packages (init, in_game_default) opens in… | ☐ |
 | `R-30F789A0` | Not played | `Play_Menu_Expand_Main` (the menu opening), `Play_Multiplayer_Select`, `Play_Cooperative_Select`, `Play_Network_Select`, `Play_Campaign_Select` (screens we do not have in that form), `play_mp_point_captured` and `play_mp_bonus` (exist; no trigger found)… | kind: gap (not reproduced); confidence: none (low) | gap | Not played: compare with SM1 by listening A/B at the same distance and state. Ours: Play_Menu_Expand_Main (the menu opening), Play_Multiplayer_Select… | ☐ |
 
-### Effects (gameplay-critical) (89)
+### Effects (gameplay-critical) (90)
 
 *Spec section: Jump-pack feel: fuel, air control, the air slash and impact effects (feel/jump-pack; protocol 31, used by the simulation)*
 
@@ -1697,6 +1697,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-3BCE2A4D` | Visible bullets: other players' ray | shot records carry the end only, so the origin is rebuilt by the shooter's own rule: the point of its camera ray (the original rig for its weapon, pitch and aim state, the settled blend, no wall pull-in) nearest its eye, bounded to 1.5 m and cut to the eye… (m) | kind: interpretation; confidence: medium; notes: ours | ours | Visible bullets: other players' ray: compare with SM1 by measuring on a flat spot of the same map. Ours: shot records carry the end only, so the origin is rebuilt by the… | ☐ |
 | `R-35FE8821` | Tracer: one straight line from the barrel to the impact (fx/tracers-impact, owner 2026-11-07) | every tracer (the weapon's data tracer, the pooled fallback streak, the plasma bolt) is drawn straight from the weapon's muzzle locator to the shot's end point, which is the point the impact's decal is projected onto (the impact's sprites sit 0.02 m off it… (m) | kind: ours | the owner's direction (2026-11-07) | Tracer: one straight line from the barrel to the impact…: compare with SM1 by measuring on a flat spot of the same map. Ours: every tracer (the weapon's data tracer, the pooled fallback streak… | ☐ |
 | `R-255466D1` | Plasma bolt: the uncharged plasma gun and plasma pistol shot (fx/tracers-impact, owner 2026-11-07) | the weapon's own data tracer: the gun's basic shot binds `plasma_gun_tracer` (Chaos `chaos_plasma_gun_tracer`); the pistol's primary ability is charge-only, so its basic shot is read from its secondary ability, which binds the same `plasma_gun_tracer` (were a… (m, RGB) | kind: ours; confidence: low | data (the effect), owner (blue, smaller, longer, skinnier), ours (the scales, the blue) | Plasma bolt: the uncharged plasma gun and plasma pistol…: compare with SM1 with side-by-side video of the same action. Ours: the weapon's own data tracer: the gun's basic shot binds… | ☐ |
+| `R-0DE47924` | Plasma light shot as a small charged shot (fix/plasma-light-tracer, owner 2026-11-08, all modes) | supersedes the plasma bolt above: the uncharged shot of the plasma gun and plasma pistol (either side; not the plasma cannon) is drawn as the weapon's own charged shot, at 0.75 of its size: the charged stage's solid roiling ball (client sphere r 0.35 m, so… (scale 0.75, m, s) | kind: ours; confidence: medium | owner (the look: the charged shot's, scaled), ours (the 0.75 reading, the flight speed) | Plasma light shot as a small charged shot…: compare with SM1 with side-by-side video of the same action. Ours: supersedes the plasma bolt above: the uncharged shot of the plasma… | ☐ |
 | `R-863852C2` | Projectile shots paint their impact on arrival (fx/tracers-impact, owner 2026-11-07) | a shot that launches a projectile (the charged plasma gun and pistol shot, the plasma cannon, the grenade launcher) plays its fire effects when fired and no tracer or impact; its impact effects and decals are the server's detonation, played when the view… (s) | kind: ours | the owner's direction (2026-11-07) | Projectile shots paint their impact on arrival…: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a shot that launches a projectile (the charged plasma gun and pistol… | ☐ |
 | `R-1A184C78` | Weapon smoke: reined in (the owner's change, 2026-10-29) | for the effects a weapon plays when it fires (muzzle, tracer, stop-fire smoke) every smoke element (a sprite whose material name holds `smoke` or starts `alpha_trail`) keeps 0.55 of its width (beams, streamers) and radius (puffs), and a spray that emits smoke… (fraction) | kind: ours; confidence: medium | owner's request ("rein them in a bit"); the 0.55 is ours | Weapon smoke: reined in (the owner's change, 2026-10-29): compare with SM1 with side-by-side video of the same action. Ours: for the effects a weapon plays when it fires (muzzle, tracer… | ☐ |
 | `R-5450C229` | No smoke: the rule | data-driven, engine-free (`SmokeRules.Classify`, tested): a god-ray beam is kept; an additive or distortion sprite is kept (it adds light and cannot hide anything; the data's additive "smoke" textures are used as fire, light cracks and glows); an alpha sprite… | kind: interpretation; confidence: medium; notes: ours | ours (our reading of what each texture shows; checked by eye on impacts, muzzles, frag, pound) | No smoke: the rule: compare with SM1 with side-by-side video of the same action. Ours: data-driven, engine-free (SmokeRules.Classify, tested): a god-ray… | ☐ |
@@ -3918,6 +3919,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-C4387F6C` | Jump escape, hop-cancel momentum, descent recharge (sim/jump-escape, sim/hop-cancel-momentum, sim/descent-recharge; protocol 62; owner 2026-11-06) | The Assault Marine / Raptor's Jump press ends any hit reaction (stun, stagger, interrupt), any melee attack, a throw, any phase of the charge, the landing's locks and the pound or slash recovery at once, in every mode (the data's own Jump branches open later or never; the owner's request); a hop cancelled by melee… | Which states the original lets the pack classes jump out of (the owner's word is "any animation"; ours: the list in spec); the carried fraction 0.4 is an estimate; when the original recharges (the data has only the rate; the descent is our reading of the owner's "two jumps, a third shortly after") | Spec "Jump escape, hop-cancel momentum and descent recharge (protocol 62)" | Jump escape, hop-cancel momentum, descent recharge…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-8252AEC0` | Tracers to the impact (fx/tracers-impact, 2026-11-07) | Every tracer is one straight line from the barrel's muzzle locator to the shot's end point, where its decal is painted (own shots: the sent input's ray, scatter included; others': the server's end). Replaces feel/bullets' bend onto the camera ray 3 m out (`--bent-bullets` restores it) | How the original drew the line from the barrel (it may have been straight; the owner says it went to the decal) | Effect rendering: "Tracer: one straight line from the barrel to the impact" | Tracers to the impact (fx/tracers-impact, 2026-11-07): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-B51F53AC` | Plasma bolt (fx/tracers-impact, 2026-11-07) | The plasma gun's and pistol's uncharged shot plays the data's `plasma_gun_tracer` (Chaos `chaos_plasma_gun_tracer`; the pistol's basic shot, read from its secondary ability, binds the same) recoloured blue (Chaos purple), the streak at 0.3 of its width and 0.03 of its length, the smoke at 0.3 of its width: ours, from… | The original's on-screen colour of the `plasma_tracer` texture under its pale yellow keys, | Effect rendering: "Plasma bolt" | Plasma bolt (fx/tracers-impact, 2026-11-07): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-6B938484` | Plasma light shot is a small charged shot (fix/plasma-light-tracer, owner 2026-11-08, all modes) | The plasma gun's and pistol's uncharged shot is drawn as the charged shot's ball and trail at 0.75 of its size (replaces the thin blue bolt above; the pistol had no tracer, now has one); the owner's ".75%" is read as 75 %; client only; `--old-light-bolt` restores the bolt | The original's light shot tracer (the data's `plasma_gun_tracer`; the pistol none) | Effect rendering: "Plasma light shot as a small charged shot" | Plasma light shot is a small charged shot…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-477A605B` | Projectile shots impact on arrival (fx/tracers-impact, 2026-11-07) | An own projectile shot (charged plasma, plasma cannon, launcher) draws no tracer and paints no impact when fired; the detonation draws them when the projectile arrives, with the body hit (armour glow, flash) when it went off on a player (within 0.6 m of the axis, ours) (`--old-charged-impact` restores the early impact) | None (the early impact was our bug) | Effect rendering: "Projectile shots paint their impact on arrival" | Projectile shots impact on arrival (fx/tracers-impact…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 
 ## Appendix: not gameplay

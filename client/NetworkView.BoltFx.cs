@@ -1,5 +1,6 @@
 using System;
 using Godot;
+using SmClient.Bullets;
 using SmNet;
 using SmSim;
 
@@ -113,6 +114,7 @@ public partial class NetworkView
         var normal = -dir;
         FxShot(-999, spec, w, index, 0, end, ShotHit.Body, -1, normal, dir, ToNum(from - dir * 0.9f), own: false, v.PlayerId, armoured,
                rayOrigin: from, rayDir: dir);
+        if (CmdFlag("bolt-fx-charged") && PlasmaLightShot.ChargedStage(spec) > 0) LightBallLaunch(-999, spec, w, index, from - dir * 0.9f, end, 1f);   // fix/plasma-light-tracer capture aid: the charged ball (1.0) instead of the light one
         _boltFxDemoShots++;
         GD.Print($"t {_connectedFor:F1} s: bolt-fx-demo shot {_boltFxDemoShots} of {name} at player {v.PlayerId} ({(armoured ? "armour up" : "armour down")})");
     }
