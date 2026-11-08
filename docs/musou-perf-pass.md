@@ -76,8 +76,8 @@ penalty is about 3 ms.
   still has one 420-460 ms frame, now shown to be in the HUD, stations and markers' first battle frame (`tfw: orders,
   stations, hud, markers`); not yet split or fixed.
 - Prewarm checked and found not needed: effect systems are compiled at load already (FxPlayer.Preload), the ragdoll pool is
-  dressed ahead (night batch), Godot 4.7's pipeline cache leaves no measurable shader stall in the burst (cold 26.6 vs warm
-  23.5 ms). Sounds decode on workers; their first loads were not a measurable share.
+  dressed ahead (night batch), the cold burst costs only about 3 ms more than a warm one (26.6 vs 23.5 ms), so no shader,
+  material or audio stall large enough to prewarm was found. Sounds decode on workers; their first loads were not a measurable share.
 - Not changed: the remaining 15 to 20 ms above a quiet frame in a 200-death burst is the engine side (20 ragdolls in the
   physics, about 1.5 ms a frame on average and more in the burst, the effects' update of 200 simultaneous death effects up to
   18 ms in this Debug build) and the hand-out already spreads deaths over 5 frames nearest first. Reducing it further would
@@ -128,7 +128,7 @@ penalty is about 3 ms.
 Gameplay: the Classic PvP code paths are unchanged (the Musou sim changes live in Musou-only files; the shared changes are
 the server's `SM_TICK_STATS` sections, which do nothing without the variable, the `--frame-profile` phase names, the
 default-off FSR 2 setting and the default-off `--fx-cull` trial). Full `dotnet test` (MusouIsolationTests, the Classic
-config-hash and protocol pins, every PvP test): TESTRESULT.
+config-hash and protocol pins, every PvP test): 5,664 of 5,665 passed in each of two full runs; the one failure each time was a different background-planning navigation test with a wall-clock wait (`NavigationTests.Background_planning_...`, then `NavJumpTests.A_background_plan_...`), both while another session's test sweep held the CPU at 99 %; both test classes pass when run alone (37 of 37), and `src/SmSim/Navigation.cs` is unchanged by this branch.
 
 Frame and tick on Manufactorum were **not** measured: from 12:17 another session ran a test sweep (`GuardHoldTrialTests`
 in another worktree, CPU at 99 %), so no further timing on this PC was clean. Expected: no change (the only shared
