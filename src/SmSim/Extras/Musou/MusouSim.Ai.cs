@@ -5,9 +5,10 @@ namespace SmSim.Extras.Musou;
 /// <summary>
 /// A target as the enemies see it in a tick (<see cref="MusouSim.Step"/>): its id, feet and whether it is alive. A player, or in Musou Mode a Guard squad (a negative id,
 /// <c>TfwContracts.GuardTargetId</c>; never 0, which is "no target"). <paramref name="Radius"/>: how far round its position a target reaches (a squad's men; a player 0). <paramref name="Goal"/>: a place to go to, not to fight
-/// (Musou Mode: a secured point the Orks retake), which the flow field leads to and nobody strikes.
+/// (Musou Mode: a secured point the Orks retake), which the flow field leads to and nobody strikes. <paramref name="Ring"/>: a goal's capture ring (m, flat); above 0 each Ork takes its own spot across it
+/// (<c>MusouSim.Hold.cs</c>), at 0 it stands within <see cref="MusouSwarmRules.GoalStand"/> of the centre as before.
 /// </summary>
-public readonly record struct MusouTarget(int Id, Vector3 Position, bool Alive, float Radius = 0f, bool Goal = false);
+public readonly record struct MusouTarget(int Id, Vector3 Position, bool Alive, float Radius = 0f, bool Goal = false, float Ring = 0f);
 
 /// <summary>
 /// An enemy's attack that landed this tick (<see cref="MusouSim.Step"/>), for the World to apply: the enemy, the player, the damage (before the player's own
@@ -183,7 +184,9 @@ public sealed partial class MusouSim
                 // A leashed defender (SpawnLeashed) with nobody near its home: no target, no token, back to its place; the failsafe leaves it alone.
                 _target[i] = 0; _token[i] = 0; _burst[i] = 0; _aim[i] = -1;
                 if (state != MusouEnemyState.Seek) SetState(i, MusouEnemyState.Seek);
-                Move(i, spec, HomeWay(i, spec), targets, near);
+                var home = HomeWay(i, spec);
+                Move(i, spec, home, targets, near);
+                if (Swarm is { } idle && home == Vector2.Zero && _homeVelocity[i] == Vector2.Zero) LookAround(i, targets, Vector2.Zero, threats: false, idle);   // MusouSim.Hold.cs: a post's Ork looks round
                 _headwayTick[i] = Tick; _anchor[i] = _position[i];
                 continue;
             }
@@ -301,6 +304,7 @@ public sealed partial class MusouSim
         _position[i] = position; _node[i] = node; _velocity[i] = Vector2.Zero;
         _token[i] = 0; _burst[i] = 0; _transit[i] = -1; _aim[i] = -1; _blocked[i] = 0; _flowTicks[i] = 0;
         _pack[i] = 0; _slotFor[i] = 0;   // moved away from its pack: it goes alone
+        ForgetHold(i);   // MusouSim.Hold.cs: a fresh spot and look
         SpawnedCombat(i);   // MU3: no script, no drive (a Warboss moved mid-ability starts afresh; MusouBoss sees the relocation)
         if (_state[i] == MusouEnemyState.Stunned) _shield[i] = MathF.Min(Rules.Of(_type[i]).ShieldMax, MusouWeirdboy.ShieldRestore);   // a Weirdboy moved mid-stun: his stun ends here, so his shield comes back
         if (Walk is not null && _node[i] < 0) _node[i] = Walk.Nearest(position);
@@ -442,7 +446,9 @@ public sealed partial class MusouSim
         {
             // A place to retake: no token, no blow, just go and stand on it.
             _token[i] = 0; _burst[i] = 0;
-            if (swarm is null || distance <= swarm.GoalStand) return Vector2.Zero;
+            if (swarm is null) return Vector2.Zero;
+            if (GoalSpotWay(i, target, d, spec.Speed, targets, swarm) is { } spot) return spot;   // MusouSim.Hold.cs: its own spot across the ring, looking round (owner, 2026-11-08)
+            if (distance <= swarm.GoalStand) { LookAround(i, targets, distance > 1e-4f ? -flat / distance : Vector2.Zero, threats: true, swarm); return Vector2.Zero; }
             return SwarmWay(i, t, target, d, spec.Speed, slot: false, hold: false, swarm);
         }
         if (_type[i] == MusouEnemyType.Weirdboy && fight && WeirdboyActs(i, target, distance, toward)) return Vector2.Zero;   // a teleport or a summons (MusouSim.Weirdboy.cs)
@@ -645,7 +651,7 @@ public sealed partial class MusouSim
             float room = nav.EdgeDistance(_node[i]), want = BossWallRoom(spec.Radius);
             if (room < want) v += nav.EdgeGradient(_node[i]) * (want - room) / want * spec.Speed * BossWallPush;
         }
-        if (!boss && desired.LengthSquared() > 0.01f && _state[i] == MusouEnemyState.Seek) Face(i, Vector2.Normalize(desired));
+        if (!boss && desired.LengthSquared() > 0.01f && _state[i] == MusouEnemyState.Seek) { Face(i, Vector2.Normalize(desired)); _lookSet[i] = false; }
         if (v.LengthSquared() < 1e-6f) { _velocity[i] = Vector2.Zero; return; }
 
         var step = v * Dt;

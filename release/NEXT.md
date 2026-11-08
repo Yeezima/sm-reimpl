@@ -10,3 +10,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Add your bullets in the same pull request as the change, when it merges.
 -->
 - Musou Mode: every battle on Ashfall now starts at the Imperial base in the south centre of the map, and redeploying after death or joining a battle in progress brings you there too (before, most battles dropped you somewhere random on the map). Everyone must update: this build does not play with earlier ones.
+- Musou Mode: Orks taking back a point now spread out across it instead of piling up in the middle, and Orks standing guard look around (and at you when you come near) instead of all staring the same way.
