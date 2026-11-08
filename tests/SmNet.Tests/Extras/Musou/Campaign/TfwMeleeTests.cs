@@ -469,7 +469,7 @@ public class TfwMeleeTests
         Assert.Equal(1.25f, war.BoltBlastRadius);
         Assert.Equal(war.BoltBlastRadius, war.BoltBlast().Radius);
         Assert.Equal(war.BoltBlastRadius, war.BoltBlastFallOff[^1].Distance);
-        Assert.Equal(30f, war.BoltBlastDamage);   // the per-hit damage is unchanged
+        Assert.Equal(15f, war.BoltBlastDamage);   // halved too (owner, 2026-11-08: "halve the damage as well yes")
         Assert.Equal(0.3f, Combat.SplashIntensity(war.BoltBlastFallOff, 1.25f), 3);
         Assert.Equal(0f, Combat.SplashIntensity(war.BoltBlastFallOff, 1.3f));
     }
