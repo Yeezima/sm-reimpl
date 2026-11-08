@@ -40,6 +40,7 @@ sealed class PerfProbe
         switch (Ab)
         {
             case "cells": CrowdView.OneBatch = !on; break;
+            case "fxcull": FxPlayer.CullOffScreen = on; break;
             case "grime": AshfallGrime.SetOverlay(on); break;
             case "fsr" or "fsr-native":
                 RenderQuality.ForceUpscale(on ? (Ab == "fsr" ? SmClient.Customizer.Model.UpscaleChoice.Fsr2Quality : SmClient.Customizer.Model.UpscaleChoice.Fsr2Native) : _abStartUpscale);
