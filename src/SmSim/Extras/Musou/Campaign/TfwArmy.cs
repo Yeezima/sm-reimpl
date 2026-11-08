@@ -54,10 +54,24 @@ public static class TfwArmyRules
     public const float BaseRadius = 20f;
 
     /// <summary>
-    /// The owner's "near matches far" (2026-11-08): an army's Guard squads made real near a player fight at this share of the Guardsmen's health and shot damage (<see cref="GuardRules.Strength"/>, the field's
-    /// 4.5x), so a real fight near a player comes out as the far clash would (about even for even numbers). Tuned on <c>NearFarBalanceTests</c> (ours, an estimate).
+    /// The owner's "near matches far" and "scale with size" (2026-11-08): an army's Guard squads made real near a player fight at this share of the Guardsmen's health and shot damage
+    /// (<see cref="GuardRules.Strength"/>, the field's 4.5x), by the army's size (its start), so a real fight near a player comes out as the far clash would (about even for even numbers) at 200, 500
+    /// and 1,000 a side. Tuned on <c>NearFarBalanceTests</c> (ours, an estimate).
     /// </summary>
-    public const float NearGuardStrength = 0.135f;
+    public static float NearGuardStrength(int men)
+    {
+        // The owner, 2026-11-08: "scale with size". Measured points (army size, share), straight between them on the size's logarithm, held flat beyond the ends.
+        ReadOnlySpan<(float Men, float Share)> points = [(200f, 0.135f), (500f, 0.072f), (1000f, 0.087f)];
+        float m = Math.Max(1f, men);
+        if (m <= points[0].Men) return points[0].Share;
+        for (int k = 1; k < points.Length; k++)
+            if (m <= points[k].Men)
+            {
+                float t = MathF.Log(m / points[k - 1].Men) / MathF.Log(points[k].Men / points[k - 1].Men);
+                return points[k - 1].Share + (points[k].Share - points[k - 1].Share) * t;
+            }
+        return points[^1].Share;
+    }
 
     /// <summary>The share of a wave's head count that is elite: the battle's (run progress) share.</summary>
     public static int WaveSize(float roll, float extraRoll) =>

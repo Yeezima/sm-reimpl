@@ -13,7 +13,7 @@ namespace SmClient;
 /// </list>
 /// Every value is ours (placeholder demonstration, refine register).
 /// </summary>
-public static class AshfallGrime
+public static partial class AshfallGrime
 {
     /// <summary>Whether the command line leaves the grime out.</summary>
     public static bool Off
@@ -62,7 +62,7 @@ public static class AshfallGrime
     {
         _overlayOn = on;
         if (_items is null || !GodotObject.IsInstanceValid(_items)) return;
-        void Set(Node n) { if (n is MeshInstance3D mi) mi.MaterialOverlay = on ? _top : null; foreach (var c in n.GetChildren()) Set(c); }
+        void Set(Node n) { if (n is MeshInstance3D mi) Dress(mi); foreach (var c in n.GetChildren()) Set(c); }
         foreach (var child in _items.GetChildren()) Set(child);
     }
     static ShaderMaterial? _darken;
@@ -103,10 +103,10 @@ public static class AshfallGrime
             ShaderMaterial top = overlay ? OverlayMaterial() : DarkenMaterial();
             if (overlay && darken) top.NextPass = DarkenMaterial();
             DarkenMaterial().SetShaderParameter("cheap", !overlay);   // Low and Compatibility: the blotches, streaks and soot band only (review: scale with graphics settings)
-            void Give(Node n) { if (n is MeshInstance3D mi) mi.MaterialOverlay = _overlayOn ? top : null; foreach (var c in n.GetChildren()) Give(c); }
+            _items = items; _top = top;
+            void Give(Node n) { if (n is MeshInstance3D mi) Dress(mi); foreach (var c in n.GetChildren()) Give(c); }   // the overlay, or its folded materials (AshfallGrime.Folded.cs)
             foreach (var child in items.GetChildren()) Give(child);
             items.ChildEnteredTree += Give;
-            _items = items; _top = top;
         }
         return ground;
     }

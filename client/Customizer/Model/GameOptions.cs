@@ -53,7 +53,7 @@ public sealed record GameOptions(
     ShadowChoice Shadows = ShadowChoice.Default, AaChoice Aa = AaChoice.Default, float Brightness = 1f,
     float MasterVolume = 1f, float MusicVolume = 1f, float EffectsVolume = 1f, float VoiceVolume = 1f, bool MuteUnfocused = false,
     bool InvertY = false, float AimSensitivity = 1f, float PadLookSensitivity = 1f, bool InvertPadY = false, float PadAimSensitivity = 1f,
-    LightingPresetChoice Lighting = LightingPresetChoice.FaithfulRemaster, UpscaleChoice Upscale = UpscaleChoice.Off)
+    LightingPresetChoice Lighting = LightingPresetChoice.FaithfulRemaster, UpscaleChoice Upscale = UpscaleChoice.Off, bool GrimeFast = false)
 {
     public static GameOptions Default => new();
 
@@ -106,7 +106,7 @@ public sealed record GameOptions(
         return new GameOptions(I("windowWidth"), I("windowHeight"), E("window", WindowChoice.Windowed), B("vsync", true), I("fpsCap"), F("renderScale", 1f), E("shadows", ShadowChoice.Default), E("antiAliasing", AaChoice.Default),
             F("brightness", 1f), F("masterVolume", 1f), F("musicVolume", 1f), F("effectsVolume", 1f), F("voiceVolume", 1f), B("muteUnfocused", false),
             B("invertY", false), F("aimSensitivity", 1f), F("padLookSensitivity", 1f), B("invertPadY", false), F("padAimSensitivity", 1f),
-            E("lightingPreset", LightingPresetChoice.FaithfulRemaster), E("upscaling", UpscaleChoice.Off)).Clamped();
+            E("lightingPreset", LightingPresetChoice.FaithfulRemaster), E("upscaling", UpscaleChoice.Off), B("ashfallGrimeFast", false)).Clamped();
     }
 
     /// <summary>The object saved in <c>frontend.json</c>.</summary>
@@ -116,7 +116,7 @@ public sealed record GameOptions(
         ["shadows"] = Shadows.ToString(), ["antiAliasing"] = Aa.ToString(), ["brightness"] = Math.Round(Brightness, 3),
         ["masterVolume"] = Math.Round(MasterVolume, 3), ["musicVolume"] = Math.Round(MusicVolume, 3), ["effectsVolume"] = Math.Round(EffectsVolume, 3), ["voiceVolume"] = Math.Round(VoiceVolume, 3), ["muteUnfocused"] = MuteUnfocused,
         ["invertY"] = InvertY, ["aimSensitivity"] = Math.Round(AimSensitivity, 3), ["padLookSensitivity"] = Math.Round(PadLookSensitivity, 3), ["invertPadY"] = InvertPadY, ["padAimSensitivity"] = Math.Round(PadAimSensitivity, 3),
-        ["lightingPreset"] = Lighting.ToString(), ["upscaling"] = Upscale.ToString(),
+        ["lightingPreset"] = Lighting.ToString(), ["upscaling"] = Upscale.ToString(), ["ashfallGrimeFast"] = GrimeFast,
     };
 
     /// <summary>A slider value (0 to 1) as decibels: 1 is 0 dB, 0 is silence (-80 dB).</summary>

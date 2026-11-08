@@ -80,6 +80,8 @@ public sealed partial class GameServer
     readonly MusouEnemy[] _musouEnemies = new MusouEnemy[MusouSim.Capacity];
     /// <summary>Test aid: <c>SM_MUSOU_OLD_FAR_SEND=1</c> sends the crowd in the order before 2026-11-06 (no <see cref="MusouSendRules.MaxWaitTicks"/>).</summary>
     static readonly bool MusouOldFarSend = Environment.GetEnvironmentVariable("SM_MUSOU_OLD_FAR_SEND") == "1";
+    /// <summary>Test aid (musou/perf-pass): <c>SM_MUSOU_OLD_CORE_BUDGET=1</c>, the core messages are not counted in the Musou budget (as before the owner's "count it").</summary>
+    static readonly bool MusouOldCoreBudget = Environment.GetEnvironmentVariable("SM_MUSOU_OLD_CORE_BUDGET") == "1";
     /// <summary>Test aid: <c>SM_MUSOU_OLD_NEAR_SEND=1</c> sends without the night batch's near-first order (<see cref="MusouSendRules.NearChangeFirst"/>, <see cref="MusouSendRules.TelegraphFirst"/>).</summary>
     static readonly bool MusouOldNearSend = Environment.GetEnvironmentVariable("SM_MUSOU_OLD_NEAR_SEND") == "1";
     readonly List<int> _musouGone = new();
@@ -115,9 +117,10 @@ public sealed partial class GameServer
         var enemies = new ReadOnlySpan<MusouEnemy>(_musouEnemies, 0, n);
         Vector3? anyone = null;
         foreach (var p in World.Players.Values) if (p.Alive) { anyone = p.Position; break; }
-        foreach (var peer in _peers.Values)
+        foreach (var (connection, peer) in _peers)
         {
             if (!_musouInterest.TryGetValue(peer.PlayerId, out var interest)) _musouInterest[peer.PlayerId] = interest = new MusouInterest { OldFarSend = MusouOldFarSend, OldNearSend = MusouOldNearSend };
+            interest.CoreBytes = MusouOldCoreBudget ? 0f : TakeCoreBytes(connection);   // the owner's "count it" (GameServer.MusouCoreBytes.cs); SM_MUSOU_OLD_CORE_BUDGET=1: not counted
             // The client's player, else (a spectator) the first living player: the crowd near the action stays fresh.
             Vector3? viewer = World.Players.TryGetValue(peer.PlayerId, out var me) ? me.Position : anyone;
             var planned = interest.Plan(tick, World.Config.TickRate, enemies, viewer, box, director, events);

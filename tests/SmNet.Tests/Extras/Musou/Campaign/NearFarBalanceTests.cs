@@ -15,7 +15,7 @@ public class NearFarBalanceTests(ITestOutputHelper output)
     static bool On => Environment.GetEnvironmentVariable("SM_ARMY_BALANCE") == "1";
 
     /// <summary>One near trial: who held, and the shares each side kept.</summary>
-    static (bool GuardsHeld, float GuardsKept, float OrksKept, float Seconds) Trial(int size, float strength, int bearing)
+    static (bool GuardsHeld, float GuardsKept, float OrksKept, float Seconds) Trial(int size, float? strength, int bearing)
     {
         var w = TfwRig.War();
         var battle = TfwRig.Deploy(w);
@@ -46,18 +46,21 @@ public class NearFarBalanceTests(ITestOutputHelper output)
     [Trait("Speed", "Slow")]
     [InlineData(200)]
     [InlineData(500)]
+    [InlineData(1000)]
     public void Near_matches_far(int size)
     {
         if (!On) return;
         int farWins = 0;
         for (uint seed = 0; seed < 1000; seed++) if (TfwClash.Resolve(size, size, seed).AWon) farWins++;
         output.WriteLine($"NEARFAR far clash {size} v {size}: side A won {farWins} of 1000");
-        var strengths = (Environment.GetEnvironmentVariable("SM_ARMY_BALANCE_STRENGTHS") ?? $"{GuardRules.Strength / GuardRules.Strength},{TfwArmyRules.NearGuardStrength}")
-            .Split(',').Select(s => float.Parse(s, System.Globalization.CultureInfo.InvariantCulture));
-        foreach (float strength in strengths)
+        // "rule": the size rule (TfwArmyRules.NearGuardStrength(size)); a number: that share for every size (calibration).
+        var strengths = (Environment.GetEnvironmentVariable("SM_ARMY_BALANCE_STRENGTHS") ?? "rule")
+            .Split(',').Select(s => s == "rule" ? (float?)null : float.Parse(s, System.Globalization.CultureInfo.InvariantCulture));
+        foreach (float? strength in strengths)
         {
             var trials = Enumerable.Range(0, 8).Select(b => Trial(size, strength, b)).ToList();
-            output.WriteLine($"NEARFAR near {size} v {size}, Guard squads at {strength:0.###} of the field's strength ({strength * GuardRules.Strength:0.##}x the install): Guardsmen held {trials.Count(x => x.GuardsHeld)} of 8; " +
+            float share = strength ?? TfwArmyRules.NearGuardStrength(size);
+            output.WriteLine($"NEARFAR near {size} v {size}, Guard squads at {share:0.###} of the field's strength ({share * GuardRules.Strength:0.##}x the install{(strength is null ? ", the size rule" : "")}): Guardsmen held {trials.Count(x => x.GuardsHeld)} of 8; " +
                              $"kept Guardsmen {string.Join(" ", trials.Select(x => x.GuardsKept.ToString("0.00")))}; kept Orks {string.Join(" ", trials.Select(x => x.OrksKept.ToString("0.00")))}; seconds {string.Join(" ", trials.Select(x => x.Seconds.ToString("0")))}");
         }
     }

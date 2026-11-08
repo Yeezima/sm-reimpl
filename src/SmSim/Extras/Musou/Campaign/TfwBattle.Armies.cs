@@ -29,7 +29,7 @@ public sealed partial class TfwBattle
     readonly float[] _realDebt = new float[2 * (Positions + 1)];   // a far clash's losses still owed by real units (Orks and Guardsmen of each position, then of the base)
 
     /// <summary>The health and shot damage share of an army's Guard squads made real (<see cref="TfwArmyRules.NearGuardStrength"/>; tests try others).</summary>
-    public float NearGuardStrength { get; set; } = TfwArmyRules.NearGuardStrength;
+    public float? NearGuardStrength { get; set; }
 
     /// <summary>Whether the battle flow runs (expansion S6; false only in tests that count the old flow alone, as <see cref="Trickle"/>).</summary>
     public bool Armies { get; set; } = true;
@@ -307,7 +307,7 @@ public sealed partial class TfwBattle
         {
             int block = (a.SlotBase + GuardSim.SquadSize - 1) / GuardSim.SquadSize, men = Math.Min(GuardSim.SquadSize, a.FarCount);
             var centre = TfwArmyLayout.SquadCentre(a.Width, a.Anchor, a.Yaw, block);
-            int s = _guards.SpawnSquad(Ground(centre, a.Anchor), a.Yaw, men, NearGuardStrength);   // the owner's "near matches far" (2026-11-08)
+            int s = _guards.SpawnSquad(Ground(centre, a.Anchor), a.Yaw, men, NearGuardStrength ?? TfwArmyRules.NearGuardStrength(Math.Max(a.Start, a.Count)));   // the owner's "near matches far" (2026-11-08)
             if (s < 0) break;
             _squadArmy[s] = a.Id;
             a.Squads.Add(s); a.SquadBlocks.Add(block); a.SquadLiving.Add(men);

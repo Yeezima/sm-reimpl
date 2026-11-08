@@ -121,6 +121,8 @@ public static class MusouSendRules
     public const int DirectorEveryTicks = 10;
     /// <summary>A client's long-run budget for Musou (ours: under the 60 KB/s target with headroom), refilled each tick; up to <see cref="BurstBytes"/> saved.</summary>
     public const int BudgetBytesPerSecond = 55_000;
+    /// <summary>The least share of a tick's refill Musou keeps whatever the core messages took (ours, musou/perf-pass): the crowd never stops.</summary>
+    public const float CoreFloor = 0.3f;
     /// <summary>Most budget a client saves (ours: one tick of <see cref="MaxMessagesPerTick"/> full messages).</summary>
     public const int BurstBytes = MaxMessagesPerTick * Protocol.MaxExtrasMessageBytes;
 
@@ -177,10 +179,17 @@ public sealed class MusouInterest
     /// <paramref name="viewer"/> is the client's player (null: a spectator or a dead player without a place; every enemy counts as mid range).
     /// Each message is a list of sections; an empty list means nothing to send.
     /// </summary>
+    /// <summary>The core messages' bytes this client was sent since the last plan (the server sets it; 0: none counted, as before musou/perf-pass).</summary>
+    public float CoreBytes { get; set; }
+
     public List<(byte Tag, byte[] Payload)[]> Plan(uint tick, int tickRate, ReadOnlySpan<MusouEnemy> enemies, Vector3? viewer, MusouBox box,
         byte[]? director, IReadOnlyList<MusouEvent> events)
     {
-        _tokens = MathF.Min(MusouSend.Burst, _tokens + MusouSendRules.BudgetBytesPerSecond / (float)Math.Max(1, tickRate));
+        // musou/perf-pass, the owner's "count it" (2026-11-08): the core messages this client was sent since the last plan come out of this tick's refill (at most down to CoreFloor of it), so
+        // the client's whole stream stays near the budget; the war's bucket then sees them as Musou's spending (TfwGuardInterest.MusouBytes) and keeps the total under its own.
+        float refill = MusouSendRules.BudgetBytesPerSecond / (float)Math.Max(1, tickRate);
+        _tokens = MathF.Min(MusouSend.Burst, _tokens + MathF.Max(refill * MusouSendRules.CoreFloor, refill - CoreBytes));
+        CoreBytes = 0f;
 
         // Interest: every living enemy gains by distance; a changed state is boosted; the dead are forgotten (their death is an event).
         _due.Clear();

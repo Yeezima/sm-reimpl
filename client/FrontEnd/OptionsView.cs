@@ -118,7 +118,7 @@ public sealed partial class OptionsView : UiKit.MenuPage
             aaRow?.SetDisabled(fsr || RenderQuality.AaFromCommandLine);
         }
         var upscaleRow = new UiKit.MenuChoice("Upscaling", upscales.Select(Upscaling.Name).ToArray(), Math.Max(0, Array.IndexOf(upscales, O.Upscale)), i => { Set(x => x with { Upscale = upscales[i] }); Rest(); },
-            fsrOk ? "AMD FSR 2: renders the 3D picture smaller and rebuilds it at full size (QUALITY, BALANCED, PERFORMANCE), or at full size as its own anti-aliasing (NATIVE AA). The menus and the HUD stay sharp. OFF uses the render scale and the anti-aliasing below."
+            fsrOk ? "AMD FSR 2: renders the 3D picture smaller and rebuilds it at full size (QUALITY, BALANCED, PERFORMANCE), or at full size as its own anti-aliasing (NATIVE AA). The menus and the HUD stay sharp. OFF uses the render scale and the anti-aliasing below. Cut-out edges (grates, fences) follow the change when the next map loads."
                   : "FSR 2 needs the Forward+ renderer; the Compatibility renderer (old GPU / safe mode) has none.");
         upscaleRow.Name = "UpscalingRow";
         upscaleRow.SetDisabled(!fsrOk || RenderQuality.UpscaleFromCommandLine);
@@ -132,6 +132,9 @@ public sealed partial class OptionsView : UiKit.MenuPage
             "Cut-out edges (grates, fences) follow the new choice when the next map loads. With FSR 2 on, FSR 2 is the anti-aliasing.");
         Add(aaRow);
         Rest();
+        // musou/perf-pass, the owner's "option in Graphics" (2026-11-08): Ashfall's grime as an overlay pass (exact, the default) or folded into the kit's materials (faster on weak GPUs, close but not exact).
+        Choice("Ashfall grime", ["EXACT (OVERLAY)", "FAST (FOLDED, WEAK GPUS)"], O.GrimeFast ? 1 : 0, i => Set(x => x with { GrimeFast = i == 1 }),
+            "Musou Mode's Ashfall only. EXACT draws the dirt and soot as an extra pass over the ruins. FAST works it into the ruins' own materials: the ruins are drawn once instead of three times, the look is close but not exact. Takes effect at once.");
         Add(UiKit.FovRow(_services.Settings.FovDegrees, f => _services.UpdateSettings(x => x with { FovDegrees = f })));   // ui/fov-slider (ours)
         Add(new UiKit.MenuSlider("Brightness", GameOptions.MinBrightness, GameOptions.MaxBrightness, GameOptions.BrightnessStep, O.Brightness, Percent, v => Set(x => x with { Brightness = (float)v }), "BrightnessSlider", "A gamma curve over the whole picture. 100% leaves it untouched."));
         // ui/lighting-presets (the owner's request of 2026-11-06; ours, cosmetic): ten looks over the map's lighting, applied live (LightingGradeView); Faithful Remaster is today's look.

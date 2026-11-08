@@ -163,3 +163,22 @@ Saved outside the repo under `%LOCALAPPDATA%\sm-reimpl\shots\musou-perf\`:
   Classic PvP, so not touched here.
 - Landing ticks still reach 73 to 119 ms on the server (spawning the battle); a one-off per battle.
 
+## Follow-up: the owner's answers (2026-11-08)
+
+| Answer | What was built | Measured |
+|---|---|---|
+| Near balance: "scale with size" | the near Guard share is set by the army's size (`TfwArmyRules.NearGuardStrength(men)`): 0.135 at 200, 0.072 at 500, 0.087 at 1,000, straight between on the log of the size | `NearFarBalanceTests` (8 bearings, 180 s, the rule): 200 v 200 held 4 of 8; 500 v 500 held 5 of 8; 1,000 v 1,000 held 4 of 8 (calibration: 500 at 0.065 / 0.08 gave 3 / 5 of 8; 1,000 at 0.065 / 0.08 / 0.095 gave 2 / 3 / 7 of 8). Far clash 511 of 1,000 at every size |
+| Send budget: "count it" | in a Musou match the core messages (snapshots, scoreboards, bars, pickups) come out of the client's Musou send bucket each tick (at least 0.3 of the refill stays); the war's bucket then has what Musou and the core left of its 58 KB/s. Classic PvP counts nothing (`SM_MUSOU_OLD_CORE_BUDGET=1` restores) | 500 v 500 on Ashfall: **59 to 62 KB/s a client** (before 72 to 80): crowd (tag 3) 31 to 33 KB/s (was 33 to 52), core 13 KB/s, the rest under 7 |
+| Grime: "option in Graphics" | Options > Graphics > Ashfall grime: EXACT (OVERLAY) default, FAST (FOLDED, WEAK GPUS): derived kit shaders with the grime and the multiply worked into albedo and roughness; surfaces with other features keep the overlay. Close, not exact | 500 v 500 A/B: GPU 4.12 -> 3.78 ms, draw calls 1,632 -> 1,200, primitives 25.0 M -> 16.4 M; frame time unchanged here. Pair: `%LOCALAPPDATA%\sm-reimpl\shots\musou-perf\ashfall-grime-EXACT.png` and `ashfall-grime-FAST.png` (the plaza a little lighter and less blotched with FAST); all pairs in `grime-fold\` |
+| Landing hitch: "ship now, fix after" | not worked on | see "Next item" |
+
+From the independent review: the FSR option's tooltip now says cut-out edges (grates, fences) follow the change on the next
+map load. **FSR 2 over the vertex-animated crowd needs the owner's check in motion:** the crowd's VAT shader writes no
+motion vectors of its own animation, so far Orks could ghost or smear under FSR 2's temporal reconstruction; only stills
+were checked. FSR 2 stays off by default.
+
+## Next item
+
+The landing: one 420 to 460 ms client frame in the HUD, stations and markers' first battle frame (`tfw: orders, stations,
+hud, markers`), and 73 to 119 ms server ticks while the battle spawns (crowds 26 to 29 ms, Guard squads up to 28 ms, the
+core step). The owner: "ship now, fix after".
