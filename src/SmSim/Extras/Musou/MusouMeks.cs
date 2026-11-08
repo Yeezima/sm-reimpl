@@ -26,7 +26,8 @@ public static class MusouMekRules
     /// <summary>Most contraptions alive per Mek, built or under way (owner brief: 3), and shield generators on the whole map (owner brief: 1).</summary>
     public const int MaxPerMek = 3, MaxShields = 1;
 
-    /// <summary>Shield generator (owner brief): 800 hp, a dome of 10 m round it that stops shots fired from outside it (walk in to fight).</summary>
+    /// <summary>Shield generator (owner brief): 800 hp, a dome of 10 m round it that stops shots fired from outside it (walk in to fight). The owner, 2026-11-08: it also stops the Guardsmen's fire, Ork blasts
+    /// and grenades (every projectile) from outside; never movement or melee.</summary>
     public const float ShieldHealth = 800f, ShieldRadius = 10f;
     /// <summary>Reinforcement beacon (owner brief): 400 hp; every 30 s a drop of 10 Boyz, at most 40 alive from it. Ours: the drop's flight (it lands this long after it is called) and the ring it lands on.</summary>
     public const float BeaconHealth = 400f, BeaconPeriod = 30f, DropFlightSeconds = 3f, DropRingMin = 2f, DropRingMax = 6f;
@@ -38,6 +39,13 @@ public static class MusouMekRules
     public const float TrapHealth = 150f, TrapRadius = 3f, TrapVertical = 2f, TrapShare = 0.5f;
     /// <summary>The trap destroyed by a player (shot, blast, blow, or an Ork blast he caused) goes off as an Ork blast that hurts Orks too (ours: radius 4, 150 at the centre, 25 % at the edge).</summary>
     public static readonly OrkBlastSpec TrapBlast = new(4f, 150f) { EdgeFraction = 0.25f };
+    /// <summary>The owner, 2026-11-08: "make ai marines be outright killed by scrap mek traps". An AI Marine in a trap that goes off dies at once (this damage before his tenth, far above any body).</summary>
+    public const float TrapAiMarineDamage = 1e7f;
+    /// <summary>
+    /// The owner, 2026-11-08: "guardsmen should target contraptions only the rokkit turret contraptions". A Guardsman shoots a built Rokkit turret in his range and sight; the even-numbered men of a squad
+    /// (half of it, ours) take one before the Orks, the rest only when no Ork is to be shot.
+    /// </summary>
+    public const bool GuardsShootTurrets = true;
 
     /// <summary>The players' shots meet a contraption as an upright cylinder of this radius and height (ours; the drawn placeholders are this size).</summary>
     public static (float Radius, float Height) Body(MusouContraptionKind kind) => kind switch
@@ -666,6 +674,22 @@ public sealed class MusouMeks
             if (Vector3.DistanceSquared(to, s.Position) <= r2 && Vector3.DistanceSquared(from, s.Position) > r2) return true;
         }
         return false;
+    }
+
+    /// <summary>The nearest built Rokkit turret whose middle lies within <paramref name="range"/> of <paramref name="from"/> (flat), and its middle (0: none). For the Guardsmen.</summary>
+    public byte NearestTurret(Vector3 from, float range, out Vector3 centre)
+    {
+        centre = default;
+        byte best = 0;
+        float bestD = range * range;
+        foreach (var s in _structures)
+        {
+            if (s.Kind != MusouContraptionKind.Turret || s.State != MusouContraptionState.Active) continue;
+            float dx = s.Position.X - from.X, dy = s.Position.Y - from.Y, d = dx * dx + dy * dy;
+            if (d > bestD) continue;
+            bestD = d; best = s.Id; centre = Centre(s);
+        }
+        return best;
     }
 
     /// <summary>Whether any built dome stands now (a quick skip for the shot hooks).</summary>

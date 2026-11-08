@@ -54,6 +54,9 @@ public sealed partial class MusouSim
     }
 
     /// <summary>Every rocket's move this tick (from <see cref="Step"/>, before the enemies move): it bursts at the first solid, Ork or player chest on its way, or at the end of its life.</summary>
+    /// <summary>Expansion S4: where along a rocket's step it enters a shield dome from outside (infinite: none); set by the World in a Musou Mode battle.</summary>
+    public Func<Vector3, Vector3, float, float>? RocketDome { get; set; }
+
     void StepRockets(ReadOnlySpan<MusouTarget> targets, CollisionWorld? collision)
     {
         Span<ushort> past = stackalloc ushort[1];
@@ -66,6 +69,7 @@ public sealed partial class MusouSim
             var dir = length > 1e-6f ? step / length : Vector3.UnitZ;
             float hit = float.PositiveInfinity;
             if (collision?.Weapons.Raycast(rocket.Position, dir, length) is { } wall) hit = wall.Distance;
+            if (RocketDome?.Invoke(rocket.Position, dir, length) is float dome && dome < hit) hit = dome;   // expansion S4: a shield dome stops it from outside
             past[0] = rocket.Shooter;
             if (Raycast(rocket.Position, dir, MathF.Min(length, hit), out float ork, out _, past) != 0) hit = MathF.Min(hit, ork);
             foreach (var t in targets)

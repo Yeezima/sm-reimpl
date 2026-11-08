@@ -36,6 +36,7 @@ public class ExtrasBoundaryTests
         ("src/SmSim/Simulation.cs", "ExtrasStep"),                 // World.ExtrasStep(), once a tick after ApplyPerkBlasts, before CountProjectilesOut (Musou: the enemies)
         ("src/SmSim/Simulation.cs", "ExtrasMelee"),                // World.ExtrasMelee(int, PlayerState, MeleeStep), at the end of ResolveMelee (Musou: the cleave)
         ("src/SmSim/Projectiles.cs", "ExtrasBlast"),               // World.ExtrasBlast(int, Vector3, SplashSpec, bool), at the end of ApplyBlast (Musou: blasts on enemies)
+        ("src/SmSim/Projectiles.cs", "ExtrasProjectileStop"),      // World.ExtrasProjectileStop(Vector3, Vector3, float, ref float), in Fly before a hit is taken (Musou S4: a shield dome stops a projectile from outside)
         ("src/SmSim/DamageScale.cs", "ExtrasDamageTaken"),         // World.ExtrasDamageTaken(int target, ref float scale), in DamageTakenScale at every player-damage site (Musou: AI Marines take a tenth)
         ("src/SmSim/Teams.cs", "ExtrasStepMatch"),                 // World.ExtrasStepMatch(ref bool handled), top of StepMatch; the core skips its flow when handled (Musou: one side)
         ("src/SmSim/Teams.cs", "ExtrasJoinSide"),                  // World.ExtrasJoinSide(ref Team, ref bool forced), in AssignClass / AssignSide (Musou: Space Marines only, no balance)
