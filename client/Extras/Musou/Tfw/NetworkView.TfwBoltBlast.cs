@@ -12,12 +12,15 @@ namespace SmClient;
 /// Musou Mode's bolt blasts on the client (the owner, 2026-11-07: every bolt weapon's shot blows up at each enemy it goes through). Each record of tag 11 kind <see cref="TfwFireKind.BoltBlast"/> plays
 /// the original frag detonation (its effect and its sound, the thrown item the record names) once at the blast's point; no new asset. A heavy bolter in a crowd sets off dozens a second, so the
 /// client thins what it draws (ours): a blast within <see cref="BoltBlastMergeMetres"/> of one drawn in the last <see cref="BoltBlastMergeSeconds"/> is left out (the damage is the server's either way),
-/// at most <see cref="BoltBlastsPerFrame"/> effects and <see cref="BoltBlastSoundsPerFrame"/> sounds a frame, and each blast shakes the camera a quarter of a frag's.
+/// at most <see cref="BoltBlastsPerFrame"/> effects and <see cref="BoltBlastSoundsPerFrame"/> sounds a frame, and each blast shakes the camera a quarter of a frag's. The effect plays at
+/// <see cref="BoltBlastFxScale"/> of the frag's size (owner, 2026-11-08: "make the vfx 60% smaller").
 /// </summary>
 public partial class NetworkView
 {
     const int BoltBlastsPerFrame = 6, BoltBlastSoundsPerFrame = 2;
     const float BoltBlastMergeMetres = 1.0f, BoltBlastMergeSeconds = 0.12f, BoltBlastShake = 0.25f;
+    /// <summary>The bolt blast's effect against the frag detonation it reuses: 60 % smaller (owner, 2026-11-08; until then 1).</summary>
+    internal const float BoltBlastFxScale = 0.4f;
 
     readonly Dictionary<(uint Tick, ushort Count), double> _tfwBoltPlayed = new();
     readonly List<(double At, Num.Vector3 Where)> _tfwBoltDrawn = new();
@@ -41,7 +44,7 @@ public partial class NetworkView
                 if (sounded < BoltBlastSoundsPerFrame) { SoundDetonation(view); sounded++; }
                 if (Lean || DisplayServer.GetName() == "headless") { drawn++; _tfwBoltDrawn.Add((_connectedFor, fire.At)); continue; }
                 var shake = _shake;
-                if (FxDetonation(view)) _tfwBoltBlastsDrawn++;
+                if (FxDetonation(view, BoltBlastFxScale)) _tfwBoltBlastsDrawn++;
                 _shake = shake + (_shake - shake) * BoltBlastShake;
                 drawn++;
                 _tfwBoltDrawn.Add((_connectedFor, fire.At));

@@ -23,7 +23,9 @@ public enum MusouEventKind : byte
 /// <summary>How an enemy died (<see cref="MusouEventKind.Death"/>'s value).</summary>
 public enum MusouDeathKind : byte { Shot = 0, Melee = 1, Blast = 2, World = 3, Barrage = 4, Strafe = 5,
     /// <summary>Expansion S1: an Ork's own explosion (<c>World.MusouOrkBlast</c>); the kill is credited to whoever caused it, or to no one. Gore treats it as a blast.</summary>
-    OrkBlast = 6 }
+    OrkBlast = 6,
+    /// <summary>A Musou Mode bolt blast (owner, 2026-11-08): gore bursts the body where it stands (an explosion), but it is never thrown as a ragdoll.</summary>
+    BoltBlast = 7 }
 
 /// <summary>The Warboss's abilities (<see cref="MusouEventKind.Telegraph"/>'s value; design section B).</summary>
 public enum MusouBossAbility : byte { GroundSlam = 1, Charge = 2, Waaagh = 3, Enrage = 4 }

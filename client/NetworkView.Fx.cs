@@ -661,9 +661,10 @@ public partial class NetworkView
 
     /// <summary>
     /// A detonation: the projectile's detonation effects, and the explosion its material container picks (the default surface: the snapshot does not say what
-    /// it hit). Returns whether the original explosion plays (the placeholder blast sphere is then not drawn).
+    /// it hit). Returns whether the original explosion plays (the placeholder blast sphere is then not drawn). <paramref name="scale"/> sizes every effect it plays (1: the data's; Musou Mode's bolt
+    /// blast alone passes less, NetworkView.TfwBoltBlast.cs).
     /// </summary>
-    bool FxDetonation(ProjectileView d)
+    bool FxDetonation(ProjectileView d, float scale = 1f)
     {
         if (!FxActive || _config is null) return false;
         var fx = FxProjectileOf(d);
@@ -678,10 +679,10 @@ public partial class NetworkView
         _fxDetonations++;
         _fxLastShotAt = _connectedFor; _fxLastEnd = pos; _fxLastFrom = pos;   // for --screenshot-on-effect
         string shooterWargear = ProjectileWargear(d);
-        foreach (var p in plays) _fx!.Play(p.Name, pos + Vector3.Up * 0.05f, Basis.Identity, p.Scale <= 0f ? 1f : p.Scale, null, null, p.Lifetime, 0.0, false, 2, tint: RaceTint(shooterWargear, p.Name));
+        foreach (var p in plays) _fx!.Play(p.Name, pos + Vector3.Up * 0.05f, Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * scale, null, null, p.Lifetime, 0.0, false, 2, tint: RaceTint(shooterWargear, p.Name));
         if (!d.Thrown && !OldChargedImpact) DetonationBodyHit(d);   // fx/tracers-impact: a projectile that struck a player shows the body hit (armour glow, flash) when it arrives
         foreach (var p in byMaterial)
-            _fx!.Play(p.Name, surfaceNormal is { } n ? surfacePoint + n * 0.02f : pos + Vector3.Up * 0.05f, surfaceNormal is { } sn ? AxesFromY(sn) : Basis.Identity, p.Scale <= 0f ? 1f : p.Scale, null, null, p.Lifetime, 0.0, false, 2, tint: RaceTint(shooterWargear, p.Name));
+            _fx!.Play(p.Name, surfaceNormal is { } n ? surfacePoint + n * 0.02f : pos + Vector3.Up * 0.05f, surfaceNormal is { } sn ? AxesFromY(sn) : Basis.Identity, (p.Scale <= 0f ? 1f : p.Scale) * scale, null, null, p.Lifetime, 0.0, false, 2, tint: RaceTint(shooterWargear, p.Name));
         // Shake the camera by the distance, flash for a krak close by.
         if (_client is { } client)
         {

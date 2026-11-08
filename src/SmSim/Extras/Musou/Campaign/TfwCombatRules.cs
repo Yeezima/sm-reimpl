@@ -95,12 +95,20 @@ public sealed record TfwCombatRules
 
     /// <summary>Whether a bolt weapon's shot sets off a blast at every enemy it strikes (false: the pierce of item 24 alone).</summary>
     public bool BoltBlasts { get; init; } = true;
-    /// <summary>The blast's reach in metres ("small-medium": ours, an estimate; the data's frag reaches 10 m, the Musou Mode frag 20 m).</summary>
-    public float BoltBlastRadius { get; init; } = 2.5f;
+    /// <summary>The blast's reach in metres ("small-medium": ours, an estimate; the data's frag reaches 10 m, the Musou Mode frag 20 m). Halved from 2.5 m (owner, 2026-11-08: "the explosion needs
+    /// to be half its current size").</summary>
+    public float BoltBlastRadius { get; init; } = 1.25f;
     /// <summary>The blast's damage at its centre (ours, an estimate: about a third of a Boy's 85, a bolter round is 22).</summary>
     public float BoltBlastDamage { get; init; } = 30f;
-    /// <summary>The blast's fall-off (distance in metres, share of <see cref="BoltBlastDamage"/>; linear between, nothing past the last): full to 1 m, 30 % at the edge (ours).</summary>
-    public IReadOnlyList<DistancePoint> BoltBlastFallOff { get; init; } = [new(1f, 1f), new(2.5f, 0.3f)];
+    /// <summary>The blast's fall-off (distance in metres, share of <see cref="BoltBlastDamage"/>; linear between, nothing past the last): full to 0.5 m, 30 % at the edge (ours; the distances halved
+    /// with the radius, owner 2026-11-08, so the same shares fall at the same fraction of the reach).</summary>
+    public IReadOnlyList<DistancePoint> BoltBlastFallOff { get; init; } = [new(0.5f, 1f), new(1.25f, 0.3f)];
+    /// <summary>
+    /// What the blast does to an enemy (owner, 2026-11-08: "remove the ragdoll effect, it simply rips enemy corpses apart as soon as the target dies or knocks them down if it deals damage to them and
+    /// they don't die"): one it kills dies as <see cref="MusouDeathKind.BoltBlast"/> (torn apart where he stands, never thrown); a fodder Ork it hurts and does not kill falls where he stands
+    /// (<see cref="MusouSim.KnockDown"/> with no throw and no death roll), any other is staggered with no knockback. False: the blasts' old way (a blast death, thrown; a stagger with knockback).
+    /// </summary>
+    public bool BoltBlastKnocksDown { get; init; } = true;
 
     /// <summary>
     /// Whether <paramref name="weapon"/> is a bolt weapon: every multiplayer bolter, bolt pistol, storm bolter, heavy bolter and stalker bolter of either side (the names hold <c>bolt</c>, the stalker
