@@ -125,6 +125,7 @@ public partial class NetworkView
         TfwShockFrame();
         _tfwCloud?.Frame((float)delta);
         TfwWarSoundFrame(war);
+        TfwBattleAmbienceFrame(war);   // musou/battle-ambience: the far battle (NetworkView.TfwBattleAmbience.cs)
         if (_connectedFor >= _tfwFireLogAt && (_tfwShellsPlayed + _tfwRoundsPlayed + _tfwWarPlayed) > 0)
         {
             _tfwFireLogAt = _connectedFor + 10.0;
@@ -422,7 +423,11 @@ public partial class NetworkView
         var at = camera.GlobalPosition + new Vector3(MathF.Cos(bearing) * far, 6f, MathF.Sin(bearing) * far);
         var offset = new VoiceOffset(GainDb: (inside ? HubGainDb : WarGainDb) + pick.Gain, PitchCents: (_tfwRoll.NextSingle() - 0.5f) * 300f - 150f, Lpf: inside ? HubLpf : WarLpf);
         var emitter = new SoundEmitter { Position = at, OneShot = true, Label = "tfw war" };
-        if (TfwPost(pick.Event, emitter, 0f, offset)) _tfwWarPlayed++;
+        if (TfwPost(pick.Event, emitter, 0f, offset))
+        {
+            _tfwWarPlayed++;
+            if (!inside && MusouAmbienceRules.IsArtillery(pick.Event)) TfwArtilleryShake(MusouAmbienceRules.ArtilleryShake);   // musou/battle-ambience: an artillery boom shakes a tiny bit
+        }
         else _tfwWarSilent++;
     }
 

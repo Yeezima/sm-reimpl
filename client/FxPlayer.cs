@@ -45,6 +45,9 @@ public sealed class FxEffect
     public float HeadSpeed;
     /// <summary>fx/visuals-2 (ours): scales the width of a clamped bright-head beam (a bolt tracer's streak) and the length of the streak's trail (metres per U); 1: the data's. Other beams are untouched.</summary>
     public float TracerWidthScale = 1f, TracerTrailScale = 1f;
+    /// <summary>fix/plasma-trail-slab (owner, 2026-11-09: "too blocky"; then "the original data look, softened"): this effect's streamers keep the data's look but their head is rounded and faded in over its first <see cref="SoftHeadShare"/> of the length instead of starting as a hard-edged rectangle (a plasma ball's trail).</summary>
+    public bool SoftHead;
+    public const float SoftHeadShare = 0.4f;
     /// <summary>M41: run the collision descriptions (<see cref="CNode.OnCollision"/>): a "dropper" particle touches the level where it starts and starts what it holds (the ground pound's impact). The effect must be placed on the ground, its +Y along the surface normal.</summary>
     public bool Collisions;
     /// <summary>
@@ -767,7 +770,7 @@ public sealed partial class FxPlayer : Node3D
     {
         if (n.Distortion || _batch is null || !_batch.HasRoom) return;
         if (!LeafTime(n, age, seed, out float t, out float dur)) return;
-        const int N = 8;
+        int N = e.SoftHead ? 14 : 8;   // fix/plasma-trail-slab: a finer ribbon for the rounded, faded head
         float trail = At(n.Length, t, 0.3f);
         if (trail <= 0.001f) return;
         float seconds = n.LengthAsSeconds ? trail : trail / MathF.Max(2f, c.InParticle ? MathF.Abs(c.Speed) : 4f);
@@ -812,6 +815,13 @@ public sealed partial class FxPlayer : Node3D
             float f = (j + 0.5f) / N;
             float width = width0 * (1f - 0.7f * f);
             var col = Shade(n.Colour.IsEmpty ? Colors.White : Tint(n.Colour, f, master), e);
+            if (e.SoftHead && f < FxEffect.SoftHeadShare)
+            {
+                // fix/plasma-trail-slab (owner, 2026-11-09: the original data look, softened): the ribbon's head swells from a point and fades in instead of starting as a hard-edged rectangle.
+                float k = f / FxEffect.SoftHeadShare, round = MathF.Max(0.05f, MathF.Sqrt(1f - (1f - k) * (1f - k)));
+                width *= round; col = new Color(col.R * round, col.G * round, col.B * round, col.A * round);   // additive: the colour fades too, not only its alpha
+            }
+            if (e.SoftHead && f > 0.6f) { float fade = MathF.Max(0f, (1f - f) / 0.4f); col = new Color(col.R * fade, col.G * fade, col.B * fade, col.A * fade); }   // the tail fades out too: a young ball's trail ends where it was launched, not as a cut-off rectangle
             float u0 = u, u1 = n.MeterPerU > 0.001f ? u + len / n.MeterPerU : (j + 1f) / N;
             if (n.MeterPerU <= 0.001f) u0 = (float)j / N;
             u = u1;

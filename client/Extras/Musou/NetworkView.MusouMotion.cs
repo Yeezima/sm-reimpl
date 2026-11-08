@@ -35,7 +35,12 @@ public partial class NetworkView
     /// <summary>Called before the frame's sections are read: the old-motion switch once, and the bytes received for the log.</summary>
     void MusouMotionSections(IReadOnlyList<ExtrasSection> sections)
     {
-        if (!_musouOldMotionSet) { _musouOldMotionSet = true; _musouState.OldFarMotion = CmdFlag("musou-old-far-motion"); if (_musouState.OldFarMotion) GD.Print("musou: the far crowd moves as before 2026-11-06 (--musou-old-far-motion)"); }
+        if (!_musouOldMotionSet) { _musouOldMotionSet = true; _musouState.OldFarMotion = CmdFlag("musou-old-far-motion"); if (_musouState.OldFarMotion) GD.Print("musou: the far crowd moves as before 2026-11-06 (--musou-old-far-motion)");
+            // crowd-smooth (2026-11-08): the Orks', Stormboys' and Guardsmen's drawn motion before it (no hop arcs, no glide but a runner's, no carried-on Guardsmen, no facing glide); test aid.
+            bool oldCrowd = CmdFlag("musou-old-crowd-motion");
+            _musouState.OldCrowdMotion = oldCrowd; _tfwState.OldCrowdMotion = oldCrowd;
+            if (_config is { } config) _musouState.TickRate = config.TickRate;
+            if (oldCrowd) GD.Print("musou: the crowd moves as before 2026-11-08 (--musou-old-crowd-motion)"); }
         if (_musouMotionLog != true) return;
         foreach (var s in sections) _musouMotionBytes += SmNet.Protocol.ExtrasSectionHeaderBytes + s.Payload.Length;
     }

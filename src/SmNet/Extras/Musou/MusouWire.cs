@@ -51,14 +51,10 @@ public static class MusouWire
 
     // ---------------------------------------------------------------- quantisation
 
-    static ushort Quantise(float v, float min, float max)
-    {
-        float span = max - min;
-        if (!(span > 0f) || !float.IsFinite(v)) return 0;
-        return (ushort)MathF.Round(Math.Clamp((v - min) / span, 0f, 1f) * ushort.MaxValue);
-    }
+    // musou/boss-collision: one quantisation for the wire and the server's record of the big Orks' bodies (MusouSolids.Quantised), so the two agree to the bit.
+    static ushort Quantise(float v, float min, float max) => MusouSolids.Quantise(v, min, max);
 
-    static float Dequantise(ushort q, float min, float max) => min + q / (float)ushort.MaxValue * (max - min);
+    static float Dequantise(ushort q, float min, float max) => MusouSolids.Dequantise(q, min, max);
 
     static void WritePosition(Span<byte> s, Vector3 p, MusouBox box)
     {

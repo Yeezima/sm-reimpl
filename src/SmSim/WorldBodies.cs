@@ -21,7 +21,18 @@ public sealed partial class World
         Array.Sort(all, (a, b) => a.PlayerId.CompareTo(b.PlayerId));
         _bodyHistory[Tick] = all;
         if (Tick >= BodyHistoryTicks) _bodyHistory.Remove(Tick - BodyHistoryTicks);
+        ExtrasRecordBodies();   // EXTRAS-HOOK: added content's solid bodies of this tick (Musou: the big Orks, musou/boss-collision)
     }
+
+    /// <summary>Added content records its own solid bodies of tick <see cref="Tick"/> (kept as long as <see cref="BodyHistoryTicks"/>).</summary>
+    partial void ExtrasRecordBodies();
+    /// <summary>Added content adds its solid bodies of tick <paramref name="tick"/> to <paramref name="view"/> (a player's movement collides with them as with the players).</summary>
+    partial void ExtrasBodies(uint tick, ref BodyView? view);
+    /// <summary>
+    /// Added content adds the targets of its own the melee lock of <paramref name="self"/> may take at tick <paramref name="tick"/> to <paramref name="view"/> (as players of no side, under ids no player has;
+    /// musou/boss-collision). Only the lock reads this view: melee hits, charges and shots keep the players' (<see cref="SeenBy"/>).
+    /// </summary>
+    partial void ExtrasLockView(uint tick, in PlayerState self, ref IReadOnlyDictionary<int, PlayerState> view);
 
     /// <summary>
     /// The bodies the input of player <paramref name="playerId"/> for the current tick collides with (<see cref="PlayerCollision.See"/> over the
@@ -38,7 +49,9 @@ public sealed partial class World
         if (tick == 0) { if (!BoundBodies) return null; tick = oldest; }
         else if (tick < oldest) tick = oldest;
         if (tick >= Tick) return null;
-        return _bodyHistory.TryGetValue(tick, out var seen) ? PlayerCollision.See(seen, playerId, tick, Tick, Config) : null;
+        var view = _bodyHistory.TryGetValue(tick, out var seen) ? PlayerCollision.See(seen, playerId, tick, Tick, Config) : null;
+        if (view is not null) ExtrasBodies(tick, ref view);   // EXTRAS-HOOK: added content's solid bodies as the same snapshot had them (Musou: the big Orks)
+        return view;
     }
 
     /// <summary>

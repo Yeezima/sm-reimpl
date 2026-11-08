@@ -1214,7 +1214,7 @@ public sealed partial class World(SimConfig config, CollisionWorld? collision = 
             }
             else
             using (PlayerCollision.Use(ClashBodies(id, BodiesFor(id, input))))   // feel/charge-clash: less its clash victim while it shoves; sim/player-collision: the others' capsules as this player's client knew them (WorldBodies.cs)
-                next = Combat.StepPlayer(_players[id], input, Config, out events, Collision, SeenBy(input));   // feel/melee-lock: the lock in the attacker's view
+                next = Combat.StepPlayer(_players[id], input, Config, out events, Collision, LockView(id, input));   // feel/melee-lock: the lock in the attacker's view (musou/boss-collision: and added content's targets)
             bool fired = events.Fired;
             int meleeHitStep = events.MeleeHitStep;
             var before = _players[id];

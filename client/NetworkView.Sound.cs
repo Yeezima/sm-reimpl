@@ -568,7 +568,7 @@ public partial class NetworkView
         var pack = Loadouts.JumpPack(_config!, s) is { } j ? _soundTriggers!.File(j.Name) : null;
         if (pack is not null)
         {
-            if (JumpPack.Jumping(s.Jump) && !wasUp) { t.TopZ = s.Position.Z; PostAll(pack.Of("action_ascending"), t.Emitter, own, "jump launch", extra: SoundMixPass.JumpTail(SoundSystem.MixClassic)); }   // sound/mix-and-reloads: the first burst stays, the tail fades
+            if (SmContent.JumpLaunchSoundRules.LaunchesNow(p.Jump, s.Jump)) { t.TopZ = s.Position.Z; PostAll(pack.Of("action_ascending"), t.Emitter, own, "jump launch", extra: SoundMixPass.JumpTail(SoundSystem.MixClassic)); }   // sound/mix-and-reloads: the first burst stays, the tail fades
             // M45: the own player's thrust ends at the release that cuts the rise (SmContent.ThrustEndRules), as its effect does; others' at the apex.
             if (SmContent.ThrustEndRules.EndsNow(JumpPack.Jumping(s.Jump), p.Velocity.Z, s.Velocity.Z, own && p.JumpCut, own && s.JumpCut))
                 PostAll(pack.Of("action_apex"), t.Emitter, own, s.JumpCut ? "jump thrust cut" : "jump apex", extra: SoundMixPass.JumpTail(SoundSystem.MixClassic));

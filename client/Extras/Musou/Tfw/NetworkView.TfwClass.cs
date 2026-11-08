@@ -108,5 +108,6 @@ public partial class NetworkView
         TfwSmokeFrame();
         TfwFragFrame();   // NetworkView.TfwMelee.cs
         TfwBoltBlastFrame();   // NetworkView.TfwBoltBlast.cs
+        TfwPlasmaBurnFrame();   // NetworkView.TfwPlasmaBurn.cs: the plasma burns' flames
     }
 }

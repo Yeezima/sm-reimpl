@@ -84,9 +84,10 @@ public sealed partial class World
     void TfwPierceShot(int k, in ShotEvent shot, WeaponSpec weapon, Vector3 direction, float length, TfwCombatRules war)
     {
         var musou = _musou!;
-        Span<ushort> passed = stackalloc ushort[TfwCombatRules.MostPierced];
-        Span<float> at = stackalloc float[TfwCombatRules.MostPierced];
-        int most = Math.Min(1 + TfwCombatRules.Pierced(weapon), passed.Length), struck = 0;
+        Span<ushort> passed = stackalloc ushort[TfwCombatRules.MostPlasmaPierced];
+        Span<float> at = stackalloc float[TfwCombatRules.MostPlasmaPierced];
+        bool plasma = war.PlasmaShot(weapon);   // World.TfwPlasma.cs: through every enemy, each at full damage, and each burns
+        int most = plasma ? passed.Length : Math.Min(1 + TfwCombatRules.Pierced(weapon), TfwCombatRules.MostPierced), struck = 0;
         float keep = 1f, last = 0f;
         bool firstHead = false;
         while (struck < most)
@@ -96,11 +97,12 @@ public sealed partial class World
             var spec = Shots.ChargeShotOf(weapon, shot.Stage)?.Damage ?? weapon.DirectDamage with { Damage = Combat.DamageAt(distance, weapon) };
             float damage = spec.Damage * (head ? spec.HeadMultiplier : spec.BodyMultiplier) * keep;
             musou.Damage(enemy, shot.Shooter, damage, direction, out _, marker: head ? (byte)2 : (byte)1, cause: MusouDeathKind.Shot);
+            if (plasma) TfwPlasmaBurn(enemy, shot.Shooter, damage, war);
             if (struck == 0) firstHead = head;
             at[struck] = distance;
             passed[struck++] = enemy;
             last = distance;
-            keep *= war.PierceKeep;
+            if (!plasma) keep *= war.PierceKeep;
         }
         if (struck == 0) return;
         if (war.BoltBlasts && TfwCombatRules.IsBolt(weapon)) TfwBoltBlasts(shot.Shooter, shot.Origin, direction, at[..struck], war);
@@ -139,13 +141,21 @@ public sealed partial class World
         var musou = _musou!;
         var weapon = WeaponOf(p);
         if (!_tfwPierced.TryGetValue(p.Id, out var passed)) _tfwPierced[p.Id] = passed = new List<ushort>(2);
-        int most = Math.Min(TfwCombatRules.Pierced(weapon), TfwCombatRules.MostPierced);
+        var war = musou.War!;
+        bool plasma = war.PlasmaShot(weapon);   // World.TfwPlasma.cs: a plasma ball never stops on an enemy (only on the map, where its splash goes off) and burns each it goes through
+        int most = plasma ? int.MaxValue : Math.Min(TfwCombatRules.Pierced(weapon), TfwCombatRules.MostPierced);
         while (true)
         {
             ushort enemy = musou.Raycast(from, direction, length, out distance, out head, CollectionsMarshal.AsSpan(passed));
             if (enemy == 0 || passed.Count >= most) return enemy;
-            if (Shots.DirectDamageOf(weapon, p.Stage) is { } direct)
-                musou.Damage(enemy, p.Owner, direct.Damage * (head ? direct.HeadMultiplier : direct.BodyMultiplier), direction, out _, marker: head ? (byte)2 : (byte)1, cause: MusouDeathKind.Shot);
+            // A charged plasma cannon ball carries its damage in the burst (DetonateDamage), not as a direct hit: each enemy it goes through takes that once.
+            var direct = Shots.DirectDamageOf(weapon, p.Stage) ?? (plasma ? SpecOf(p).DetonateDamage : null);
+            if (direct is { } hit)
+            {
+                float damage = hit.Damage * (head ? hit.HeadMultiplier : hit.BodyMultiplier);
+                musou.Damage(enemy, p.Owner, damage, direction, out _, marker: head ? (byte)2 : (byte)1, cause: MusouDeathKind.Shot);
+                if (plasma) TfwPlasmaBurn(enemy, p.Owner, damage, war);
+            }
             passed.Add(enemy);
         }
     }

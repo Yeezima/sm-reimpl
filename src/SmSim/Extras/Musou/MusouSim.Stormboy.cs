@@ -30,6 +30,15 @@ public static class MusouStormboy
     /// <summary>The Stormboy's cues (<see cref="MusouEventKind.Telegraph"/>'s value; above the Weirdboy's 16 to 21, room left for S2): a hop's take-off (where he lands in the vector), a landing
     /// (where, in the vector), a crash (the impact point in the vector, his killer in the event's player).</summary>
     public const byte HopCue = 32, LandCue = 33, CrashCue = 34;
+
+    /// <summary>
+    /// The hop cue's player field (2026-11-08, crowd-smooth; was 0): the hop's flight in ticks, so a client draws the exact arc between and past the sparse records of a far Stormboy (with the cue's
+    /// landing and start tick). <see cref="HopTicksOf"/> reads it back; 0 (an older server) reads as the full hop's flight.
+    /// </summary>
+    public static ushort HopEventPlayer(int flightTicks) => (ushort)Math.Clamp(flightTicks, 1, ushort.MaxValue);
+
+    /// <summary>The flight ticks a hop cue carries (<see cref="HopEventPlayer"/>); 0: the full hop's <see cref="FlightSeconds"/> at <paramref name="tickRate"/>.</summary>
+    public static int HopTicksOf(ushort player, int tickRate) => player > 0 ? player : Math.Max(1, (int)MathF.Round(FlightSeconds * Math.Max(1, tickRate)));
 }
 
 /// <summary>A shot-down Stormboy's impact (<see cref="MusouSim.TakeCrashes"/>): the corpse, where it struck the ground, and who shot him down (0: none).</summary>
@@ -110,7 +119,7 @@ public sealed partial class MusouSim
         _token[i] = 0; _burst[i] = 0; _transit[i] = -1; _aim[i] = -1; _drive[i] = Vector2.Zero; _driveTicks[i] = 0;
         Face(i, new Vector2(landing.X - from.X, landing.Y - from.Y));
         SetState(i, MusouEnemyState.Airborne);
-        AddEvent(new MusouEvent(MusouEventKind.Telegraph, Tick, id, 0, MusouStormboy.HopCue, landing));
+        AddEvent(new MusouEvent(MusouEventKind.Telegraph, Tick, id, MusouStormboy.HopEventPlayer(_hopTicks[i]), MusouStormboy.HopCue, landing));   // crowd-smooth: the flight in ticks in the player field
         return true;
     }
 

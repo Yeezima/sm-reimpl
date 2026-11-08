@@ -100,6 +100,12 @@ public static class MusouSendRules
     /// back up to 4 ticks). The server's <c>SM_MUSOU_OLD_NEAR_SEND=1</c> restores both old orders (<see cref="MusouInterest.OldNearSend"/>, <see cref="MusouEventWindow.OldOrder"/>).
     /// </summary>
     public const bool NearChangeFirst = true, TelegraphFirst = true;
+    /// <summary>
+    /// crowd-smooth (2026-11-08, ours): an enemy within <see cref="NearMetres"/> not sent for this many ticks goes before the overdue far ones (<see cref="MaxWaitTicks"/>), right after the near state
+    /// changes. Under a full budget (1800 Orks) the overdue far ones took it all and a Boy fighting 3 m from the player had a record only every 6th tick, so the client, 3 ticks behind, ran past his
+    /// newest record and his runs and stops were guessed. 2 keeps a near enemy's records within the view's 3-tick delay. Server <c>SM_MUSOU_OLD_NEAR_RATE=1</c>: the order before (<see cref="MusouInterest.OldNearRate"/>).
+    /// </summary>
+    public const uint NearMaxWaitTicks = 2;
     /// <summary>Most envelope messages to one client in one tick (design).</summary>
     public const int MaxMessagesPerTick = 4;
     /// <summary>Each event is sent in this many messages (design).</summary>
@@ -155,6 +161,11 @@ public sealed class MusouInterest
     /// <summary>Test aid (server env <c>SM_MUSOU_OLD_NEAR_SEND=1</c>): the send order before the night batch of 2026-11-06, without <see cref="MusouSendRules.NearChangeFirst"/>.</summary>
     public bool OldNearSend { get; init; }
     readonly bool[] _urgent = new bool[MusouSim.Capacity];
+    readonly bool[] _near = new bool[MusouSim.Capacity];
+    /// <summary>Test aid (server env <c>SM_MUSOU_OLD_NEAR_RATE=1</c>): the send order before crowd-smooth, without <see cref="MusouSendRules.NearMaxWaitTicks"/>.</summary>
+    public bool OldNearRate { get; init; }
+
+    bool NearOverdue(int i) => !OldNearRate && _near[i] && _known[i] && _tick >= _sentTick[i] && _tick - _sentTick[i] >= MusouSendRules.NearMaxWaitTicks;
 
     bool Starving(int i) => !OldFarSend && _known[i] && _tick - _sentTick[i] >= MusouSendRules.MaxWaitTicks && _tick >= _sentTick[i];
     readonly List<int> _due = new();
@@ -207,6 +218,7 @@ public sealed class MusouInterest
             bool changed = !_known[i] || _sentState[i] != (byte)e.State;
             if (changed) _priority[i] += MusouSendRules.StateChangeBoost;
             _urgent[i] = MusouSendRules.NearChangeFirst && !OldNearSend && _known[i] && changed && distance <= MusouSendRules.NearMetres;
+            _near[i] = distance <= MusouSendRules.NearMetres;
             if (_priority[i] >= MusouSendRules.SendThreshold - 1e-4f) _due.Add(_byIndex.Count);   // five 0.2 steps reach 1 despite the rounding
             _byIndex.Add(e);
         }
@@ -219,6 +231,8 @@ public sealed class MusouInterest
             int c = MusouSendRules.Rank(eb.Type).CompareTo(MusouSendRules.Rank(ea.Type));
             if (c != 0) return c;
             c = _urgent[eb.Id - 1].CompareTo(_urgent[ea.Id - 1]);   // a near Ork's new state (a wind-up) before the overdue far ones
+            if (c != 0) return c;
+            c = NearOverdue(eb.Id - 1).CompareTo(NearOverdue(ea.Id - 1));   // crowd-smooth: a near Ork 2 ticks unsent before the overdue far ones
             if (c != 0) return c;
             bool sa = Starving(ea.Id - 1), sb = Starving(eb.Id - 1);   // the overdue first, the longest unsent of them first: no far Ork waits much past MaxWaitTicks while the budget allows
             c = sb.CompareTo(sa);

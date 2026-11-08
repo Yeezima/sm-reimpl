@@ -46,6 +46,7 @@ public partial class NetworkView
     void MusouFrame(PlayerState me, IReadOnlyList<PlayerState> others, double delta, IReadOnlyList<ExtrasSection> sections)
     {
         if (!MusouActive || _client is not { } client) { if (_musouHud is not null) _musouHud.Visible = false; return; }
+        if (client.ExtrasSolids is null && _config is { } solidConfig) client.ExtrasSolids = new MusouSolidView(_musouState, solidConfig);   // musou/boss-collision: the big Orks are solid and lockable in the own prediction
         MusouDeathSpikeStart();   // --musou-death-spike-test (NetworkView.MusouDeathSpike.cs)
         Ph("musou: state");   // musou/perf-pass: --frame-profile's Musou phases
         double now = Time.GetTicksUsec() / 1e6;
@@ -111,7 +112,7 @@ public partial class NetworkView
         {
             if (Orks() is not { } orks) return;
             _musouLooks = new MusouLooks(_gameDir, orks, MusouChaosLook, guns: MusouGunsOn);
-            _musouCrowd = new MusouCrowd(_musouLooks) { Visible = MusouArg("musou-visible") ?? MusouCrowd.DefaultVisible, NoVat = CmdFlag("musou-no-vat"), SolidBetween = MusouSolidBetween };
+            _musouCrowd = new MusouCrowd(_musouLooks) { Visible = MusouArg("musou-visible") ?? MusouCrowd.DefaultVisible, NoVat = CmdFlag("musou-no-vat"), SolidBetween = MusouSolidBetween, OldTierSwitch = CmdFlag("musou-old-crowd-motion") };
             _gameSpace!.AddChild(_musouCrowd);
         }
         var watch = System.Diagnostics.Stopwatch.StartNew();

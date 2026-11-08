@@ -60,3 +60,19 @@ public static class ThrustEndRules
         return prevVz > 0f && vz <= 0f;
     }
 }
+
+/// <summary>
+/// When the jump pack's launch sound (the data's <c>action_ascending</c>) posts. A jump that starts with no jump or pound before it (from the ground, a walk-off fall, the landing), as before; and
+/// (sound/musou-air-jump-sound, the owner 2026-11-08: "additional jumps in musou mode (assault marine, raptor) make no noise. they should make the same noise as the initial jump") a jump started again
+/// in the air: the hang or the fall turning into a take-off (or straight into the ascent when a snapshot skipped the take-off). Only Musou Mode lets a jump start from the hang or the fall
+/// (<c>SimConfig.JumpPackAirJumps</c>), so Classic PvP's launches are unchanged.
+/// </summary>
+public static class JumpLaunchSoundRules
+{
+    public static bool LaunchesNow(SmSim.JumpPhase previous, SmSim.JumpPhase current)
+    {
+        if (!SmSim.JumpPack.Jumping(current)) return false;
+        if (!SmSim.JumpPack.Jumping(previous) && !SmSim.JumpPack.Pounding(previous)) return true;
+        return previous is SmSim.JumpPhase.Hang or SmSim.JumpPhase.Fall && current is SmSim.JumpPhase.TakeOff or SmSim.JumpPhase.Ascent;   // an air jump
+    }
+}
