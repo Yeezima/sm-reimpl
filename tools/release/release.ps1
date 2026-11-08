@@ -781,9 +781,11 @@ function Invoke-Supersede([string]$url) {
 # and, while the new build has no full zip, never the newest release that has one (the bridge for launchers from before the parts layout). Throws when
 # gh fails.
 function Published-Others {
-    $rows = @(Published-Rows | Where-Object { $_.Tag -and $_.Tag -cne $Tag -and $_.Tag -cne $PartsTag })
+    $all = @(Published-Rows)
+    $rows = @($all | Where-Object { $_.Tag -and $_.Tag -cne $Tag -and $_.Tag -cne $PartsTag })
     $script:BridgeTag = $null
-    $newHasZip = $script:ShipZip -or -not (Test-Path -LiteralPath $Zips.parts)
+    # The new build has a full zip when this ship uploads one, or (-ArchiveOnly) when its published release carries one.
+    $newHasZip = $script:ShipZip -or -not (Test-Path -LiteralPath $Zips.parts) -or [bool]@($all | Where-Object { $_.Tag -ceq $Tag -and $_.Zip })
     if (-not $newHasZip) {
         $bridge = @($rows | Where-Object { $_.Zip } | Sort-Object At -Descending)[0]
         if ($bridge) { $script:BridgeTag = $bridge.Tag; $rows = @($rows | Where-Object { $_.Tag -cne $bridge.Tag }) }
