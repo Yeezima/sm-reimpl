@@ -301,9 +301,7 @@ public partial class NetworkView
     float BarkDistanceDb(AudioStreamPlayer3D p3)
     {
         if (!LoudnessArg.Floored || GetViewport()?.GetCamera3D() is not { } camera) return 0f;
-        float d = camera.GlobalPosition.DistanceTo(p3.GlobalPosition), unit = BarkUnitSize * LoudnessArg.RangeScale;
-        float db = d <= unit ? 0f : 20f * MathF.Log10(unit / d);
-        return MathF.Max(db, LoudnessArg.FloorDb);
+        return LoudnessArg.InverseDistanceDb(camera.GlobalPosition.DistanceTo(p3.GlobalPosition), BarkUnitSize);
     }
 
     void BarkFollow(int id, BarkSpeaker sp)

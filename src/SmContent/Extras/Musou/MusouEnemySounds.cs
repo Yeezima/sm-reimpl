@@ -54,7 +54,7 @@ public static class MusouSoundRules
         new(45f, 3f, 4f, Speech: true),   // Bark (14 m, 0.8/s, 2)
         new(30f, 4f, 4f, Speech: true),   // Effort (12 m, 3/s, 3)
         new(18f, 5f, 3f),                 // Swing
-        new(20f, 6f, 4f),                 // MeleeHit
+        new(50f, 6f, 4f),                 // MeleeHit (2026-11-08, the owner: melee hits with the guns' distance treatment; 20 m before)
         new(50f, 6f, 4f),                 // Gun
         new(15f, 6f, 3f),                 // GunImpact
         new(30f, 4f, 3f, Speech: true),   // Hurt (12 m)
