@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using SmFormats.Obpk;
 
 // smtool: read-only inspection of original game archives.
@@ -19,6 +19,7 @@ return args switch
     ["refine-register", .. var rest] => SmTool.RefineRegister.Run(rest),
     ["scan-package", .. var rest] => SmTool.PackageScanCommand.Run(rest),
     ["make-tar", .. var rest] => SmTool.TarPackage.Run(rest),
+    ["release-parts", .. var rest] => SmTool.ReleasePartsCommand.Run(rest),
     ["whats-new", .. var rest] => SmTool.WhatsNew.Run(rest),
     ["perks", var gameDir] => SmTool.PerkCommands.List(gameDir),
     ["bot-loadouts", var gameDir] => SmTool.BotLoadoutCommands.List(gameDir),
@@ -77,6 +78,10 @@ static int Usage()
                                                     the release content guard: fails (exit 1) when a package holds game data, private files, user paths or secrets;
                                                     exit 2 when an input could not be used (missing folder, unreadable secrets file, install required but not indexed);
                                                     --index-cache keeps the comparison trees' fingerprints there (path, size, write time, 7 days; ignored inside a tree); --rehash uses none
+          smtool release-parts build <playtest folder> --parts-dir <dir> --manifest <x.parts.json> --tag <t> --version <v> [--commit <sha>] [--built <date>]
+          smtool release-parts plan <x.parts.json> --remote <assets.json> [--digest <asset>=<sha256>]... [--write <x.parts.json>]
+                                                    a release in parts (docs/releasing.md "Parts"): build the part zips and the manifest; plan which parts the
+                                                    parts release lacks (UPLOAD/REUSE lines) and write the manifest with the reused zips' hashes
           smtool make-tar <folder> <out.tar.gz> --prefix <top folder> [--exec a,b,...]
                                                     the Linux server package (tar.gz keeps the 0755 mode of the listed files)
           smtool ork-balance <game-dir|auto> [--mode parity|data|both]

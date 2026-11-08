@@ -11,7 +11,7 @@ namespace SmLauncher;
 ///                           else %LOCALAPPDATA%\SM Reimpl; the first run asks)
 ///   --selftest              headless: checks the build this launcher came with (or the active version of --root) against its file list, no network,
 ///                           writes nothing; exit 0 = ok (the release smoke test runs it)
-///   headless commands (need --root; for tests and support): --status, --check, --install-latest, --resume, --verify, --rollback, --adopt &lt;dir&gt;,
+///   headless commands (need --root; for tests and support): --status, --check, --install-latest, --resume, --verify, --rollback, --adopt &lt;dir&gt;, --install-parts &lt;manifest.parts.json&gt; (the release smoke test: from local parts),
 ///   --update-launcher (puts the active build's launcher in the install folder when it is newer than this one)
 ///   test aids of the window: --screenshot &lt;png&gt; [--screenshot-after &lt;s&gt;] (the window is drawn off-screen into the file once the update check
 ///   is done, or after s seconds, then it closes), --auto-update (presses Update once the check is done), --no-shortcuts (the first install
@@ -94,8 +94,8 @@ static class LauncherInfo
 sealed class Args
 {
     public Dictionary<string, string?> Values { get; } = new(StringComparer.OrdinalIgnoreCase);
-    static readonly HashSet<string> WithValue = new(StringComparer.OrdinalIgnoreCase) { "root", "adopt", "screenshot", "screenshot-after", "self-updated", "install-self", "wait-pid", "wait-start", "ui-scale", "ui-width", "ui-workarea", "ui-state", "layout-check", "row-check" };
-    static readonly string[] Commands = ["status", "check", "install-latest", "resume", "verify", "rollback", "adopt", "recover", "update-launcher", "install-self"];
+    static readonly HashSet<string> WithValue = new(StringComparer.OrdinalIgnoreCase) { "root", "adopt", "install-parts", "screenshot", "screenshot-after", "self-updated", "install-self", "wait-pid", "wait-start", "ui-scale", "ui-width", "ui-workarea", "ui-state", "layout-check", "row-check" };
+    static readonly string[] Commands = ["status", "check", "install-latest", "resume", "verify", "rollback", "adopt", "install-parts", "recover", "update-launcher", "install-self"];
 
     public static Args Parse(string[] args)
     {

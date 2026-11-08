@@ -36,11 +36,11 @@ The rest of the description (install steps, the file list, the controls table, k
 | Step | Checks | Stops when |
 |---|---|---|
 | 1. Preflight | on `main`; clean tree; `HEAD` = `origin/main` (after a fetch); `gh` installed and signed in; the version's tag (`tester-<date>-<short hash>`) not in the releases repo yet; `NEXT.md` has tester-facing bullets; `dotnet test`; `smtool refine-register --check` (both skipped when they passed on exactly this commit within 24 hours: see "Skipping a duplicate test run"). Prints the version, protocol and commit. | any check fails |
-| 2. Build | the playtest zip `SM-Reimpl-Playtest-<date>-<version>-Windows.zip` (`0 - SM Reimpl Launcher.exe`, numbered launchers, `game\`, `server\`, `source\`, `notes\`), the win64 server zip and the source zip, from a clean `git archive` of `HEAD`; the linux-x64 server package only with `-Linux` (or `-ServerAssets`) | a build or export error |
-| 3. Content guard | `smtool scan-package` over every package (the source zip inside the playtest zip too): no game files, private files, user paths, secrets, personal e-mail addresses or unexpected file types. The install's and the private cache's file fingerprints are kept between runs in `%LOCALAPPDATA%\sm-reimpl\cache\guard\` (below) | any finding: every package is deleted |
-| 4. Smoke test | unpacks the zip, `0 - SM Reimpl Launcher.exe --selftest` verifies it, `3 - Host a match on this PC.cmd` starts `server\` on 127.0.0.1 (ports 27141-27199), a headless bot from `game\` joins it, `2 - Play.cmd`'s HOST A MATCH finds `server\` | the server does not start, the bot does not join, a load error |
-| 5. Publish | re-scans the zip and the description, then `gh release create` with the zip as the only asset | the guard refuses, the tag appeared meanwhile, `gh` fails |
-| 5b. Hide earlier builds | after publishing (not with `-Draft`, not with `-KeepPrevious`): every other published release becomes a draft again, so testers only see this build; nothing is deleted | never stops the ship: a failed hide is a warning |
+| 2. Build | the playtest folder (`0 - SM Reimpl Launcher.exe`, numbered launchers, `game\`, `server\`, `source\`, `notes\`) as the zip `SM-Reimpl-Playtest-<date>-<version>-Windows.zip` and as parts (`parts\sm-reimpl-part-<part>-<fingerprint>.zip` and the manifest `SM-Reimpl-Playtest-<date>-<version>-Windows.parts.json`, see "Parts"), the win64 server zip and the source zip, from a clean `git archive` of `HEAD`; the linux-x64 server package only with `-Linux` (or `-ServerAssets`) | a build or export error |
+| 3. Content guard | `smtool scan-package` over every package, every part zip and the manifest (the source zip inside the playtest zip and the source part too; the client part must hold the verified Godot pack): no game files, private files, user paths, secrets, personal e-mail addresses or unexpected file types. The install's and the private cache's file fingerprints are kept between runs in `%LOCALAPPDATA%\sm-reimpl\cache\guard\` (below) | any finding: every package is deleted |
+| 4. Smoke test | unpacks the launcher part alone (as a new tester gets it) and lets it install the build from the parts (`--install-parts`: a local folder instead of GitHub, every check of a real update), then, in the version folder it assembled, `0 - SM Reimpl Launcher.exe --selftest` verifies it, `3 - Host a match on this PC.cmd` starts `server\` on 127.0.0.1 (ports 27141-27199), a headless bot from `game\` joins it, `2 - Play.cmd`'s HOST A MATCH finds `server\` | the server does not start, the bot does not join, a load error |
+| 5. Publish | compares the parts with the `parts` release (`smtool release-parts plan`), re-scans everything that goes up and the description, creates the `parts` release the first time, `gh release upload parts` with only the part zips it lacks, then `gh release create` with the manifest (the full zip only on the bridge release or with `-FullZip`; the Linux server tar only with `-Linux`) | the guard refuses, the tag appeared meanwhile, `gh` fails |
+| 5b. Hide earlier builds | after publishing (not with `-Draft`, not with `-KeepPrevious`): every other published release becomes a draft again, so testers only see this build; never the `parts` release, and never the newest release with a full zip while the new one has none (the bridge, see "Parts"); nothing is deleted | never stops the ship: a failed hide is a warning |
 | 6. Archive | only if the checkout is still `main` at the shipped commit, clean, with `NEXT.md` unchanged since step 1: `NEXT.md` to `release\history\<version>.md` in one commit on top of the shipped commit, pushed as exactly that commit (`git push origin <archive>:main`) only while `origin/main` is still the shipped commit | anything unexpected skips the commit or the push with the steps to finish by hand (the release is out either way) |
 
 ## Options
@@ -54,17 +54,68 @@ The rest of the description (install steps, the file list, the controls table, k
 | `-Supersede` | Only useful with `-KeepPrevious` (otherwise the previous release is hidden right after). Puts "A newer playtest build is out" with the new link at the top of the previous published release's description. Older releases are never deleted. |
 | `-NotPrerelease` | Publishes a normal release marked **Latest**. GitHub's `releases/latest` link only ever points at a published release that is *not* a pre-release, so without this switch that link does not move (the default stays a pre-release, the owner's earlier decision). |
 | `-SkipTests` | Skips `dotnet test` and `refine-register --check` (the guard and the smoke test still run). Without it they are skipped anyway when a green run of both on exactly this commit is recorded from the last 24 hours (below). |
-| `-Linux` | Also builds the linux-x64 server package (`sm-reimpl-server-linux-x64-<version>.tar.gz`). A ship always builds it and attaches it to the release; off by default for a plain `release.cmd`. `-ServerAssets` (with `-Publish`) turns it on by itself. Works with `release.cmd` and `ship.cmd`. |
-| `-Linux` | Also builds the linux-x64 server package (`sm-reimpl-server-linux-x64-<version>.tar.gz`). Off by default: the playtest zip, its smoke test and a ship need only the win64 server and the source zip. `-ServerAssets` (with `-Publish`) turns it on by itself. Works with `release.cmd` and `ship.cmd`. |
+| `-Linux` | Also builds the linux-x64 server package (`sm-reimpl-server-linux-x64-<version>.tar.gz`); with `ship.cmd` it is attached to the release too. Off by default, a ship included (owner, 2026-11-08: the VM builds the server from the shipped commit, see "Updating the Vultr server"). `-ServerAssets` (with `-Publish`) turns it on by itself. |
+| `-FullZip` / `-NoFullZip` | With `ship.cmd`: upload the full playtest zip as well, or never. Without either the ship decides: the zip goes up only while no published release has a parts manifest (the bridge release, see "Parts"). |
 | `-LinuxBots` | Also builds `sm-reimpl-bots-linux-x64-<version>.tar.gz`: the Godot client exported for headless bots on a Linux server (preset "Linux/X11" in `client/export_presets.cfg`; a build of an older commit without it gets the preset added to the clean copy) and the `smbots` script (docs/dedicated-server.md, "Bots on a Linux server"). The first use downloads the Linux export templates too. Private: not in `-Publish`, `-ServerAssets` or `-Ship`, and checked by the same content guard (the `.x86_64` client and its embedded pack included). The bots must be of the server's own commit: `release.cmd -Commit <sha> -Linux -LinuxBots -SkipClient`. |
 | `-NoPush` | Commits the archived `NEXT.md` but does not push. |
 | `-AllowEmptyNotes` | Ships with no What's new section. |
 | `-Playtest` | The preflight first checks that UDP 27025 is free or held by the earlier playtest server. After publishing, restarts the local playtest server on the shipped build: the zip's `server\` copied to `%LOCALAPPDATA%\sm-reimpl\tmp-build\playtest-srv-<version>`, `--bind 127.0.0.1 --port 27025 --honor-side-requests --bot-damage-scale 0.34`, and 7 headless bots from this checkout's client (`--headless --bot --no-sound`; marines tactical, devastator, assault; Chaos tactical, havoc, raptor, tactical). Their PIDs go to `tmp-build\playtest-27025-bots\pids.txt` (the server's to `server.txt`). It stops only the bots recorded there (a Godot `--bot` process joining 127.0.0.1:27025, started at the recorded time) and SmServer copies from `tmp-build\playtest-srv-*` on port 27025; if anything else holds 27025 it refuses. The new server must print its ready line and its 127.0.0.1-only line, else it is stopped and the run fails. Also works without shipping: `release.cmd -SkipBuild -Playtest` on a built version. |
 
-**Updating the Vultr server:** the VM downloads the package from the release, so nothing goes through the owner's PC (the owner, 2026-11-02; that route fell to about 13 KB/s while the VM reads GitHub at about 109 MB/s). On the VM: `curl -fsSLO https://github.com/Yeezima/sm-reimpl-releases/releases/download/<tag>/sm-reimpl-server-linux-x64-<version>.tar.gz`, then `bash /root/setup-smserver.sh /root/sm-reimpl-server-linux-x64-<version>.tar.gz annihilation`. The launcher takes only the playtest zip of a release, so testers see no change.
+**Updating the Vultr server:** the VM builds the server itself from the shipped commit (owner, 2026-11-08: no server upload from the owner's PC; the PC-to-VM route fell to about 13 KB/s on 2026-11-02 while the VM reads GitHub at about 109 MB/s). Once on the VM: git and the .NET 10 SDK (`curl -fsSLO https://dot.net/v1/dotnet-install.sh && bash dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet && ln -sf /usr/share/dotnet/dotnet /usr/local/bin/dotnet`) and the build script (`curl -fsSLo /root/vm-build-server.sh https://raw.githubusercontent.com/Yeezima/sm-reimpl/main/tools/release/vm-build-server.sh`). Per release, as root, while no one is playing:
+
+```sh
+sh /root/vm-build-server.sh <tag>      # e.g. tester-2026-11-08-cd13588: clones or fetches Yeezima/sm-reimpl and builds that commit
+bash /root/setup-smserver.sh /root/sm-reimpl-server-linux-x64-<version>.tar.gz annihilation
+```
+
+`tools/release/vm-build-server.sh` builds from a clean `git archive` of the commit (the tag's last part) with the release's publish settings and packs the layout `release.cmd -Linux` builds (`server.sh`, `SmServer` and the runtime, `LICENSE`, `THIRD_PARTY_NOTICES.md`, `VERSION.txt`, the 0755 modes), so `setup-smserver.sh` takes it unchanged; the source clone stays in `/root/sm-reimpl-src` (`SM_SRC`). The commit must be on GitHub (a ship checks that `HEAD` is `origin/main`). The bots on the VM (`smbots`) still need a bots package of the same commit (`release.cmd -Commit <sha> -Linux -LinuxBots -SkipClient`, docs/dedicated-server.md). A ship with `-Linux` still attaches the tar, and the older route (curl the tar from the release, then `setup-smserver.sh`) works for such a release.
 
 Lower-level commands stay available: `release.cmd` (build only), `release.cmd -Smoke`, `release.cmd -Linux`, `release.cmd -SkipBuild -Publish [-NoDraft] [-ServerAssets]`
 (`-ServerAssets` needs a build made with `-Linux` or `-ServerAssets`), `release.cmd -Commit <rev>` (re-package an older build). README, "Building a tester release".
+
+## Parts (what a ship uploads)
+
+Owner, 2026-11-08: upload as little as possible per release. A ship used to upload about 255 MB (the 218 MB playtest zip and the 37 MB Linux server
+tar). Now the build is also cut into parts, each a zip named by a fingerprint of its content, and a part goes up only when the releases repository
+does not have it yet.
+
+- **The parts** (`PartRules` in `src/SmLauncher.Core/Parts.cs`, by path): `engine` (`game\sm-reimpl.exe`, the console wrapper, `GodotSharp.dll`),
+  `dotnet` (the .NET runtime files of `game\data_*\` and `server\`, which hold the same bytes: carried once), `client` (the game's own assemblies,
+  `SmClient.deps.json`, `game\sm-reimpl.pck`), `media` (`game\assets\`), `ashfall` (`game\ashfall-kit\`), `server` (SmServer and the libraries it
+  shares with the client), `launcher` (`0 - SM Reimpl Launcher.exe`), `source` (the source offer) and `meta` (the numbered scripts, the read-me,
+  `game\Launcher.ps1`, `notes\`). Files with the same bytes are carried once, by the part of the first of them in path order.
+- **Fingerprints:** a part's content id is the SHA-256 of its `<sha256> <path>` lines (sorted); its zip is `sm-reimpl-part-<part>-<first 16 hex digits>.zip`
+  with fixed entry times, so the same files give the same name (and, with the same .NET, the same bytes) in every build.
+- **The manifest** `SM-Reimpl-Playtest-<date>-<version>-Windows.parts.json` (format `sm-reimpl-parts/1`, about 110 KB): the tag, version, commit, the parts
+  release's tag (`parts`), every part (name, zip name, content id, the zip's SHA-256 and size, entries, unpacked bytes) and every file (path, SHA-256,
+  size, part). `smtool release-parts build` writes it and the zips; the launcher reads it with the same code.
+- **Where they live:** the release `parts` of the releases repository holds every part zip ever uploaded. It is published (a draft's assets need a token)
+  and a pre-release, titled "Download parts (used by the launcher)"; the launcher never offers it (it has no zip and no manifest); a ship creates it the
+  first time, never hides it and never deletes or overwrites an asset in it (older manifests name the zips by their SHA-256). Each build's own release
+  carries only its manifest.
+- **The plan:** `smtool release-parts plan <manifest> --remote <the parts release's JSON> --write <copy>` prints `UPLOAD` / `REUSE` lines; a reused part
+  takes the SHA-256 and size of the zip on GitHub (the asset's digest; an asset without one is downloaded and hashed first) in the copy of the manifest
+  that goes up (`<version>\_publish\`). `ship.cmd -DryRun` prints the plan and the upload total when this version's parts were built before
+  (`release.cmd`); without a build it says so.
+- **Kept stable on purpose:** the Windows export keeps its pack beside the exe (`binary_format/embed_pck=false` in `client/export_presets.cfg`; the pack is
+  under 1 MB), so the 110 MB engine stays the same file until Godot changes. The guard accepts that exe only as a well-formed PE with no GDPC trailer and
+  no section named like a pack, and checks `sm-reimpl.pck` as a pack, as before (`.pck` is allowed in binary packages; any other `.pck` is still a
+  forbidden game extension). The launcher's file version and informational version come from the last commit that changed `src/SmLauncher`,
+  `src/SmLauncher.Core`, the build props, `global.json` or the icon, and its publish is reproducible (two publishes from different folders gave the same
+  bytes), so an unchanged launcher is not uploaded again.
+- **The bridge release:** launchers from before this change take only a full playtest zip. While no published release has a parts manifest the ship
+  uploads the full zip as well (once), and later ships never hide the newest release with a full zip, so an old launcher still finds it, installs it
+  and with it offers the new launcher (the self-update). `-FullZip` forces the zip, `-NoFullZip` leaves it out.
+- **New testers** download the launcher part (linked from the release description), unpack it and run `0 - SM Reimpl Launcher.exe`, which installs the
+  build. The release page has no full zip any more (except on the bridge release or with `-FullZip`); `release.cmd` still builds it locally.
+- **Sizes** (MiB, measured on two local builds of 2026-11-08, 0fdd9371 and 2586f6d2, whose launcher, engine, runtime, media and kit did not
+  change: those five zips came out byte-identical): meta 0.6, launcher 42.1, engine 39.3, dotnet 34.6, client 4.9, media 2.1, ashfall 54.3,
+  server 2.0, source 7.2; 187 together (the zip: 218, as it carries the runtime twice); the manifest 0.1. A **code-only build** changes meta, client,
+  server and source: **about 15 MiB to upload** (14.7). One that also changes the launcher: about 57. The **worst case** (a new .NET SDK, Godot,
+  launcher and Ashfall kit at once) is every part, **187**; the bridge release (once) adds the full zip, 218. Before: 255 per ship (the zip and the
+  Linux server tar).
+- **When an upload fails half-way:** the build is not released; parts that went up are reused by the next `ship.cmd`. A part GitHub kept half-uploaded
+  blocks its name: delete it with `gh release delete-asset parts <zip> --repo Yeezima/sm-reimpl-releases` and ship again.
 
 ## Step timings
 
@@ -110,10 +161,20 @@ from this repository's releases and starts Play, Host and Join. The zip's number
   version is the build commit's time in UTC, `<year>.<month*100+day>.<minute of the day>`; a local build is 1.0.0. Its runtime licences are in
   `notes\licenses\dotnet\` and `notes\licenses\dotnet-windowsdesktop\`. Not code-signed: SmartScreen warns once ("More info" > "Run anyway").
 - **Finding a build:** `GET https://api.github.com/repos/Yeezima/sm-reimpl-releases/releases` without a token (not `/releases/latest`, which skips
-  pre-releases): the newest published (non-draft) release by `published_at` with exactly one `SM-Reimpl-Playtest-<date>-<version>-Windows.zip`; other
-  assets are ignored; a newer release it cannot offer (two playtest zips, a tag that is no safe folder name: no trailing dot or space, no device name)
+  pre-releases): the newest published (non-draft) release by `published_at` with exactly one `SM-Reimpl-Playtest-<date>-<version>-Windows.zip`, exactly
+  one parts manifest (`...-Windows.parts.json`, at most 4 MB), or one of each; other assets are ignored; a newer release it cannot offer (two playtest zips, a tag that is no safe folder name: no trailing dot or space, no device name)
   is logged and named in the window. Hiding a build (turning it into a draft) removes it from that list; testers who installed it keep it. When the
   newest published build is older than the installed one, the window says "The current playtest build is ..." and offers to switch to it.
+- **Installing from parts** (`SmLauncher.Core/UpdaterParts.cs`, a release with a manifest): the manifest must be vouched for exactly like a zip (GitHub's
+  digest and/or the description's "SHA-256 of `<manifest>`:" line, equal when both exist), then it is parsed and checked (format, tags, every path
+  safe and unique, every hash and size, the game and its file list present). Only the parts carrying a file whose SHA-256 the active or the previous
+  version's `notes\CONTENTS-SHA256.txt` does not name are downloaded, from `.../releases/download/parts/<zip>` into `downloads\parts\` (resumable, the
+  same retries), and each is hashed against the manifest before it is opened. The version is assembled in `versions\<tag>.staging\`: a part's entries
+  must be paths the manifest gives to that part, with the stated size, each hashed while it is written; every other file is copied from the installed
+  version with the same bytes and hashed while it is copied (a damaged installed file makes its part download after all, once); then the folder must
+  match the build's own file list, and the switch is the zip install's. The window says "only the changed parts are downloaded"; the log names the
+  parts downloaded and reused. A failed parts update falls back to the release's full zip when it has one. `update.json` records it (source `parts`),
+  so a restart resumes with the parts already checked. `--install-parts <manifest>` (with `--root`) installs from a local folder: the smoke test.
 - **Checking it:** before a byte is downloaded the release must state the zip's SHA-256 (GitHub's asset `digest`, the description's "Download check", or
   both, and then both equal: keep that section in `tools/release/package/RELEASE-NOTES.md`); after the download the file must match. A mismatch
   deletes the file and offers a retry. The zip is then unpacked into `versions\<tag>.staging\` (zip-slip safe: an entry that would land outside it, a

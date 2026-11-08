@@ -335,6 +335,55 @@ public sealed class PackageScannerTests : IDisposable
         Assert.Empty(Scan(Zip(("SmServer.exe", Filler(5000)))));
     }
 
+    /// <summary>
+    /// A minimal PE: MZ header, PE signature, a COFF header with no optional header, and one section per (name, virtual size, first bytes of its data);
+    /// each section's data is 512 bytes inside the file.
+    /// </summary>
+    static byte[] Pe(params (string Name, uint VirtualSize, byte[] Data)[] sections)
+    {
+        int dataAt = 0x400;
+        var b = new byte[dataAt + 512 * sections.Length];
+        b[0] = (byte)'M'; b[1] = (byte)'Z';
+        BitConverter.GetBytes(0x80).CopyTo(b, 0x3C);
+        b[0x80] = (byte)'P'; b[0x81] = (byte)'E';
+        BitConverter.GetBytes((ushort)sections.Length).CopyTo(b, 0x80 + 6);
+        BitConverter.GetBytes((ushort)0).CopyTo(b, 0x80 + 20);
+        for (int i = 0; i < sections.Length; i++)
+        {
+            int h = 0x80 + 24 + 40 * i, raw = dataAt + 512 * i;
+            System.Text.Encoding.ASCII.GetBytes(sections[i].Name).CopyTo(b, h);
+            BitConverter.GetBytes(sections[i].VirtualSize).CopyTo(b, h + 8);
+            BitConverter.GetBytes(512u).CopyTo(b, h + 16);
+            BitConverter.GetBytes((uint)raw).CopyTo(b, h + 20);
+            sections[i].Data.CopyTo(b, raw);
+        }
+        return b;
+    }
+
+    static (string, uint, byte[]) Sec(string name, uint size = 4096, byte[]? data = null) => (name, size, data ?? []);
+
+    [Fact]
+    public void TheClientExeWithItsPackBesideItIsAcceptedOnlyWhenItEmbedsNothing()
+    {
+        string[] fine = ["project.binary", "Main.tscn.remap"];
+        void Require(PackageScanner s) { s.RequireVerifiedPack = true; s.AllowedExtensions = BinaryProfile(); }
+        // tools/release-parts: the engine part holds the exe alone: a PE whose "pck" section is still the template's 8-byte placeholder (zero), no
+        // trailer: nothing embedded, nothing to refuse (Godot 4.7's Windows template has exactly such a section)
+        Assert.Empty(Scan(Zip(("game/sm-reimpl.exe", Pe(Sec(".text"), Sec(".rdata"), Sec("pck", 8), Sec(".rsrc"))))));
+        Assert.Empty(Scan(Zip(("game/sm-reimpl.exe", Pe(Sec(".text"), Sec(".rsrc"))))));
+        // a pack section grown over a pack, or holding the GDPC magic, could still be loaded by Godot without the trailer: refused
+        Assert.Contains(Scan(Zip(("game/sm-reimpl.exe", Pe(Sec(".text"), Sec("pck", 700_000))))), f => f.Rule == "pack-unverifiable");
+        Assert.Contains(Scan(Zip(("game/sm-reimpl.exe", Pe(Sec(".text"), Sec("pck", 8, Text("GDPC")))))), f => f.Rule == "pack-unverifiable");
+        Assert.Contains(Scan(Zip(("game/sm-reimpl.exe", Pe(Sec(".text"), Sec(".PCK0", 4096))))), f => f.Rule == "pack-unverifiable");
+        // a damaged PE (section table outside the file) is refused as before
+        var cut = Pe(Sec(".text"));
+        BitConverter.GetBytes((ushort)60000).CopyTo(cut, 0x80 + 6);
+        Assert.Contains(Scan(Zip(("game/sm-reimpl.exe", cut))), f => f.Rule == "pack-unverifiable");
+        // the client part: the standalone pack satisfies --require-pack; the exe alone does not
+        Assert.Empty(Scan(Zip(("game/sm-reimpl.pck", GodotExe(4, 2, false, false, fine).Skip(500).ToArray()), ("game/data_x/SmClient.dll", Filler(100))), Require));
+        Assert.Contains(Scan(Zip(("game/sm-reimpl.exe", Pe(Sec(".text"), Sec("pck", 8)))), Require), f => f.Rule == "no-verified-pack");
+    }
+
     [Fact]
     public void TheLinuxBotExportIsCheckedLikeTheWindowsClient()
     {
