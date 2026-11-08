@@ -36,6 +36,7 @@ public partial class NetworkView
             drawn = true;
             TfwAshfallKit(level, dressing, view);
             TfwAshfallStorm(level, dressing, view);
+            if (AshfallFrameBurst.FromArgs() is { } burst) view.AddChild(burst);   // test aid: consecutive frames of the match camera (hotfix/ashfall-floor-shimmer)
         }
         catch (System.Exception e) when (e is not (System.StackOverflowException or System.AccessViolationException))
         {

@@ -289,6 +289,7 @@ public partial class AshfallStorm : Node3D
     public override void _Process(double delta)
     {
         _time += delta;
+        AshfallGrime.UpdateForViewport(GetViewport());   // hotfix/ashfall-floor-shimmer: the grime passes' depth pull, or the grime folded under FSR 2
         if (!_logged && _time > 1.0 && GetViewport()?.GetCamera3D() is { Environment: null } c0)   // on the field (aboard the Stormbird the camera has the hub's own environment)
         {
             // The values the camera draws with once every layer has run (the OPTIONS lighting preset grades on top of this look each frame): evidence for the look pass.
