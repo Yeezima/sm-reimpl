@@ -75,6 +75,13 @@ public abstract partial class CrowdView : Node3D
     readonly Dictionary<MusouLooks.Look, int> _farPerLook = new(ReferenceEqualityComparer.Instance);
     /// <summary>The side of a far batch's cell (m, ours) and the margin round it a member may reach (a body's size, a big look's scale).</summary>
     public const float CellMetres = 32f, CellMargin = 4f;
+    /// <summary>
+    /// crowd-smooth (2026-11-08, ours): a member drawn skinned stays skinned until this much past <see cref="CrowdLimits.NearMetres"/>, so one walking along the line does not swap between the
+    /// skinned pose and the baked one frame by frame. <see cref="OldTierSwitch"/> (client <c>--musou-old-crowd-motion</c>): no hold.
+    /// </summary>
+    public const float SkinnedHoldMetres = 3f;
+    /// <summary>Test aid: the tier switch before crowd-smooth (no <see cref="SkinnedHoldMetres"/>).</summary>
+    public bool OldTierSwitch { get; set; }
     /// <summary>Test aid: <c>--musou-crowd-one-batch</c>, one far batch per look over the whole crowd (before musou/perf-pass).</summary>
     public static bool OneBatch { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--musou-crowd-one-batch") >= 0;
     /// <summary>Far batches with members this frame (the profile's).</summary>
@@ -236,7 +243,8 @@ public abstract partial class CrowdView : Node3D
             if (i >= visible || look is null) { left++; continue; }
             // A look without a bake (failed, or not done yet) draws skinned at any distance, up to the fallback's cap.
             bool unbaked = look.Vat?.Mesh is null;
-            if (skinned < (unbaked ? Limits.FallbackSkinned : skinnedCap) && (it.Distance <= Limits.NearMetres || unbaked) && TakeSkinned(it, look)) { skinned++; continue; }
+            bool near = it.Distance <= Limits.NearMetres || !OldTierSwitch && it.Distance <= Limits.NearMetres + SkinnedHoldMetres && _skinnedByKey.ContainsKey(it.Key);
+            if (skinned < (unbaked ? Limits.FallbackSkinned : skinnedCap) && (near || unbaked) && TakeSkinned(it, look)) { skinned++; continue; }
             if (look.Vat?.Mesh is not null && AddFar(look, it)) { vat++; continue; }
             left++;
         }

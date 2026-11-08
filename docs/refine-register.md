@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2594 spec table rows: **1906 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 581 rows of the changes document.
+Scanned 2602 spec table rows: **1913 tagged**, 479 not tagged (read from data with high confidence), 210 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -50,18 +50,18 @@ Scanned 2594 spec table rows: **1906 tagged**, 479 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 450 | 428 | 303 | 120 | 1 |
+| Core simulation (provisional values) | 456 | 434 | 308 | 120 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 178 | 169 | 80 | 54 | 0 |
-| **All areas** | **1906** | 1663 | 1403 | 617 | 38 |
+| Ork faction | 179 | 170 | 81 | 54 | 0 |
+| **All areas** | **1913** | 1670 | 1409 | 617 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1012 |
+| kind: ours | 1019 |
 | confidence: low | 667 |
-| confidence: medium | 607 |
+| confidence: medium | 613 |
 | kind: interpretation | 359 |
 | notes: ours | 352 |
 | notes: estimate | 152 |
@@ -2118,7 +2118,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (450)
+### Core simulation (provisional values) (456)
 
 *Spec section: Provisional values in use*
 
@@ -2835,6 +2835,17 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-875EC075` | Order keys (Musou) | Z, X and V give no order any more (no player orders the pair): the client sends none and X next weapon and V melee keep their keys; an older client's Follow, Hold and Attack are taken and dropped by the server; the own block's order is always Follow | kind: ours | ours | Order keys (Musou): compare with SM1 by feel or video. Ours: Z, X and V give no order any more (no player orders the pair): the… | ☐ |
 | `R-A0E6849B` | Ashfall grime under FSR 2 and its depth pull (Musou, client) | the owner, 2026-11-08: "the floor shimmers a lot in musou mode ashfall". With Options > Graphics > Upscaling on FSR 2, the grime's overlay passes (EXACT) shimmered on the far floor even on a still camera (floor pixels flickering between three consecutive… (1e-4 of the distance) | kind: ours; confidence: medium | measured (hotfix/ashfall-floor-shimmer); the pull's size ours | Ashfall grime under FSR 2 and its depth pull (Musou, client): compare with SM1 by feel or video. Ours: the owner, 2026-11-08: "the floor shimmers a lot in musou mode… | ☐ |
 
+*Spec section: Musou Mode: smooth crowd motion (crowd-smooth, 2026-11-08; Musou Mode only; `MusouSim.Version` 22, no core protocol bump: `Protocol.Version` stays 64)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-0D3EF243` | Stormboy hop drawn (Musou, client) | between the hop's start and landing a Stormboy is drawn on the pool's own arc: the chord between his record at or before the render tick and the next record in the flight (or the landing past the newest) plus 4 x 5 m x (u - ua)(ub - u), u the share of the… (m) | kind: ours | ours (exact for the pool's arc) | Stormboy hop drawn (Musou, client): compare with SM1 by measuring on a flat spot of the same map. Ours: between the hop's start and landing a Stormboy is drawn on the pool's… | ☐ |
+| `R-D87C697F` | Glide of a drawn crowd member (Musou, client) | every Ork (any state but a fresh spawn) and every Guardsman is drawn from where he was drawn last frame moved on at the sampled velocity (an arc's: the secant over the frame) and pulled toward the sampled place with a time constant of **6 ticks** (0.2 s)… (ticks, m) | kind: ours; confidence: medium | ours (the far runners' glide of 2026-11-06, now every state) | Glide of a drawn crowd member (Musou, client): compare with SM1 by feel or video. Ours: every Ork (any state but a fresh spawn) and every Guardsman is drawn… | ☐ |
+| `R-BBF4BFD9` | Facing glide (Musou, client) | the drawn facing turns toward the sampled one with a time constant of **2 ticks** (67 ms) (ticks) | kind: ours; confidence: medium | ours | Facing glide (Musou, client): compare with SM1 by feel or video. Ours: the drawn facing turns toward the sampled one with a time constant of… | ☐ |
+| `R-B7F925B0` | Carry-on (Musou, client) | a member past his newest record is carried on along his last step for that step's span plus 3 ticks, at least 6, at most 30: the Orks' running rule of 2026-11-06, now also a runner whose last step started from a stand (a fight, a stagger) and a marching… (ticks) | kind: ours; confidence: medium | ours | Carry-on (Musou, client): compare with SM1 by feel or video. Ours: a member past his newest record is carried on along his last step for… | ☐ |
+| `R-09D12539` | Guardsmen's least share (Musou, server) | the war's bucket refills at least **8 KB/s** whatever Musou spent; the part beyond Musou's leftover that enters the bucket is charged to Musou's next refill, so the client's total stays at about 58 KB/s (KB/s) | kind: ours; confidence: medium | ours | Guardsmen's least share (Musou, server): compare with SM1 by feel or video. Ours: the war's bucket refills at least 8 KB/s whatever Musou spent; the… | ☐ |
+| `R-49817C2C` | Crowd tier hold (Musou, client) | a member drawn skinned stays skinned until **3 m** past the 25 m near distance (no swap between the skinned and the baked pose frame by frame along the line) (m) | kind: ours; confidence: medium | ours | Crowd tier hold (Musou, client): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a member drawn skinned stays skinned until 3 m past the 25 m near… | ☐ |
+
 ### General game design (7)
 
 *Spec section: Known behavior (public, unverified)*
@@ -3175,6 +3186,12 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 |---|---|---|---|---|---|---|
 | `R-21E28C52` | Musou: spots across the ring | an Ork retaking a secured point takes its own spot, picked once a point: an area-even place between **0.2** and **0.85** of the capture ring's radius by its slot (the R2 sequence, turned by the point's hash), pulled in toward the centre (x0.6, up to 3 times)… (share of radius, m) | kind: ours; notes: estimate | owner 2026-11-08 | Musou: spots across the ring: compare with SM1 by feel or video. Ours: an Ork retaking a secured point takes its own spot, picked once a… | ☐ |
 | `R-B1DB6725` | Musou: looking round | a standing Ork (on its spot at a point, within 3 m of a ringless goal, or a leashed Ork at its post: a garrison, a crowd, a muster, an army's rank) faces its own heading, up to **50** degrees each way off outward (from the point's centre; a post's Ork: off… (degrees, s, deg/s, m) | kind: ours; notes: estimate | owner 2026-11-08 | Musou: looking round: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a standing Ork (on its spot at a point, within 3 m of a ringless… | ☐ |
+
+*Spec section: Musou Mode: smooth crowd motion (crowd-smooth, 2026-11-08; Musou Mode only; `MusouSim.Version` 22, no core protocol bump: `Protocol.Version` stays 64)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-97F5B77B` | Near Orks' least send rate (Musou, server) | an enemy within 15 m not sent for **2** ticks goes before the overdue far ones, right after the leaders and the near state changes (ticks) | kind: ours; confidence: medium | ours (2 keeps a near enemy's records within the view's 3-tick delay) | Near Orks' least send rate (Musou, server): compare with SM1 by feel or video. Ours: an enemy within 15 m not sent for 2 ticks goes before the overdue far… | ☐ |
 
 ## Part C: Deliberate changes (keep or revert after playtest)
 
@@ -3914,6 +3931,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-F803125D` | Musou: core messages counted in the send budget (musou/perf-pass, owner 2026-11-08) | No Musou Mode in the original | Ours (added content; the owner: "count it"): a Musou client's snapshots and other core messages come out of its Musou send budget, so its whole stream stays near 60 KB/s; far Orks are updated less often. Classic PvP unchanged | Musou performance pass and the owner's battle decisions | Musou: core messages counted in the send budget…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-82FCC980` | Ashfall grime FAST option (musou/perf-pass, owner 2026-11-08) | No Musou Mode in the original | Ours (added content; the owner: "option in Graphics"): Options > Graphics > Ashfall grime, EXACT (the overlay, default) or FAST (folded into derived kit materials for weak GPUs; close, not exact) | Musou performance pass and the owner's battle decisions | Ashfall grime FAST option (musou/perf-pass, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2EB2F140` | FSR 2 upscaling setting (musou/perf-pass; every mode, default off) | SM1 (2011) had no upscaler | Ours (the owner's brief): Options > Graphics > Upscaling, Godot's built-in AMD FSR 2.2 (Native AA, Quality 0.67, Balanced 0.59, Performance 0.5), Forward+ only; off by default, so Classic PvP looks as before | Musou performance pass and the owner's battle decisions | FSR 2 upscaling setting (musou/perf-pass; every mode…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-6A97EA66` | Musou: smooth crowd motion (crowd-smooth, owner 2026-11-08) | No Musou Mode in the original | Ours (added content; the owner: "stormboyz look extremely choppy ... do the same for all guardsmen, orks"): the client draws a Stormboy's hop on its exact arc from the hop cue (which now carries the flight's ticks), glides every Ork and Guardsman between sparse records (place and facing) and carries marching Guardsmen… | Musou Mode: smooth crowd motion | Musou: smooth crowd motion (crowd-smooth, owner 2026-11-08): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-AB5C38E6` | Plasma release, plasma gun arms, stuck hit effects, hit-confirm distance, regen glow (night/weapon-fx, 2026-11-06) | Own charged plasma ball drawn without the 100 ms interpolation delay; no body recoil clip for the plasma gun; player-hit effects ride on the struck model; the shooter's hit confirmation falls from 0 dB at 2 m to -18 dB at 40 m and beyond; the armour-regeneration glow is the break glow in yellow | Original behaviour of these five is unknown (owner's requests); the 2 m / 40 m / -18 dB numbers, the yellow, and the model-root frame of stuck effects are ours | Spec "Plasma release, plasma gun arms, stuck hit effects, hit-confirm distance, regen glow (night/weapon-fx ...)" | Plasma release, plasma gun arms, stuck hit effects…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-C4387F6C` | Jump escape, hop-cancel momentum, descent recharge (sim/jump-escape, sim/hop-cancel-momentum, sim/descent-recharge; protocol 62; owner 2026-11-06) | The Assault Marine / Raptor's Jump press ends any hit reaction (stun, stagger, interrupt), any melee attack, a throw, any phase of the charge, the landing's locks and the pound or slash recovery at once, in every mode (the data's own Jump branches open later or never; the owner's request); a hop cancelled by melee… | Which states the original lets the pack classes jump out of (the owner's word is "any animation"; ours: the list in spec); the carried fraction 0.4 is an estimate; when the original recharges (the data has only the rate; the descent is our reading of the owner's "two jumps, a third shortly after") | Spec "Jump escape, hop-cancel momentum and descent recharge (protocol 62)" | Jump escape, hop-cancel momentum, descent recharge…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-8252AEC0` | Tracers to the impact (fx/tracers-impact, 2026-11-07) | Every tracer is one straight line from the barrel's muzzle locator to the shot's end point, where its decal is painted (own shots: the sent input's ray, scatter included; others': the server's end). Replaces feel/bullets' bend onto the camera ray 3 m out (`--bent-bullets` restores it) | How the original drew the line from the barrel (it may have been straight; the owner says it went to the decal) | Effect rendering: "Tracer: one straight line from the barrel to the impact" | Tracers to the impact (fx/tracers-impact, 2026-11-07): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
@@ -4135,4 +4153,5 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-04107A30` | Headshot on the wire | Headshot medal, score and scream (protocol 64, 2026-11-07) |
 | `R-4B7E3D1D` | Loading screen | Loading screen (2026-11-07, client only) |
 | `R-BE72EE96` | Core messages counted in the Musou budget (Musou) | Musou performance pass and the owner's battle decisions (musou/perf-pass, 2026-11-08; Musou Mode only but FSR 2 and the off-screen effects, which are shared client settings; `TfwRules.Version` 38, no protocol or wire change) |
+| `R-A9655E6C` | Stormboy hop cue's flight (Musou wire) | Musou Mode: smooth crowd motion (crowd-smooth, 2026-11-08; Musou Mode only; `MusouSim.Version` 22, no core protocol bump: `Protocol.Version` stays 64) |
 
