@@ -28,22 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2479 spec table rows: **1800 tagged**, 476 not tagged (read from data with high confidence), 203 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 561 rows of the changes document.
-
-| Area | Tagged rows | by kind | by confidence | by notes | by section text |
-|---|---:|---:|---:|---:|---:|
-| Movement (critical) | 382 | 324 | 324 | 114 | 12 |
-| Combat core (critical) | 12 | 3 | 12 | 10 | 9 |
-| Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 111 | 96 | 88 | 36 | 5 |
-Scanned 2525 spec table rows: **1861 tagged**, 474 not tagged (read from data with high confidence), 190 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 553 rows of the changes document.
+Scanned 2568 spec table rows: **1883 tagged**, 477 not tagged (read from data with high confidence), 208 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 569 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 383 | 325 | 325 | 114 | 12 |
 | Combat core (critical) | 13 | 4 | 12 | 11 | 9 |
-| Weapons (critical) | 120 | 72 | 105 | 54 | 3 |
-| Melee (critical) | 109 | 95 | 86 | 35 | 5 |
+| Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
+| Melee (critical) | 111 | 96 | 88 | 36 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -58,39 +50,25 @@ Scanned 2525 spec table rows: **1861 tagged**, 474 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 362 | 340 | 284 | 69 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 173 | 164 | 80 | 50 | 0 |
-| **All areas** | **1800** | 1557 | 1376 | 561 | 38 |
-| Core simulation (provisional values) | 421 | 401 | 280 | 117 | 1 |
+| Core simulation (provisional values) | 440 | 418 | 297 | 119 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 176 | 167 | 80 | 52 | 0 |
-| **All areas** | **1861** | 1621 | 1370 | 611 | 38 |
+| **All areas** | **1883** | 1640 | 1390 | 614 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 907 |
-| confidence: low | 659 |
-| confidence: medium | 588 |
+| kind: ours | 990 |
+| confidence: low | 665 |
+| confidence: medium | 596 |
 | kind: interpretation | 359 |
 | notes: ours | 352 |
+| notes: estimate | 149 |
 | confidence: none (low) | 129 |
 | kind: estimate | 119 |
 | kind: provisional | 99 |
-| notes: estimate | 96 |
 | kind: user's knowledge | 55 |
-| kind: ours | 976 |
-| confidence: low | 654 |
-| confidence: medium | 588 |
-| kind: interpretation | 357 |
-| notes: ours | 349 |
-| notes: estimate | 149 |
-| confidence: none (low) | 128 |
-| kind: estimate | 117 |
-| kind: provisional | 99 |
-| kind: user's knowledge | 53 |
 | notes: provisional | 38 |
 | section: provisional | 38 |
 | kind: choice | 35 |
@@ -762,14 +740,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-7E5B7D7F` | Musou: the Weirdboy's shield | **300** points; a shot or a strafe's round does nothing to it (a hit marker and the `weirdboy_shield_pulse`); melee, blasts and the barrage wear it down point for point; the hit that empties it breaks it and the rest of that hit is lost; health is open only… (points) | kind: ours; confidence: medium; notes: estimate | data: `armourshield_max` 1500, the `shield` action's `received_ranged_damage` x0; 300 ours (the data's 1500 is against co-op shield damage our Musou hits do… | Musou: the Weirdboy's shield: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 300 points; a shot or a strafe's round does nothing to it (a hit… | ☐ |
 
-### Weapons (gameplay-critical) (121)
 *Spec section: Musou Mode: expansion S4, the Scrap Meks and their contraptions (musou/exp-s4, 2026-11-08; `MusouSim.Version` 18, `TfwRules.Version` 36, wire tag 17, no core protocol bump: `Protocol.Version` stays 63)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
 | `R-C5F90938` | Shield generator | **800** hp; a dome of radius **10** m round it (a sphere at its foot): a player's hit-scan shot that enters it from outside ends where it enters (nothing behind it is struck); a cone or a blast from outside does not reach what stands inside; a shot, cone or… (hp, m) | kind: ours; notes: estimate | owner brief 2026-11-07 (800, 10 m, outside only); what else it stops ours | Shield generator: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 800 hp; a dome of radius 10 m round it (a sphere at its foot): a… | ☐ |
 
-### Weapons (gameplay-critical) (120)
+### Weapons (gameplay-critical) (121)
 
 *Spec section: Classes and default loadouts (M10, used by the simulation)*
 
@@ -2120,8 +2097,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (362)
-### Core simulation (provisional values) (421)
+### Core simulation (provisional values) (440)
 
 *Spec section: Provisional values in use*
 
