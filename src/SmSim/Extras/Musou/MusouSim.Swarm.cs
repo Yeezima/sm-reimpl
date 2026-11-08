@@ -55,6 +55,28 @@ public sealed record MusouSwarmRules
     public float SurroundDegrees { get; init; } = 160f;
     public float OrbitStepDegrees { get; init; } = 50f;
 
+    // Holding a point (MusouSim.Hold.cs; the owner, 2026-11-08: "orks pile up all looking at the center of a point when capturing it - they should spread out a bit and look around"; every value ours, an estimate).
+    /// <summary>
+    /// An Ork retaking a point (a goal with a <see cref="MusouTarget.Ring"/>) stands at its own spot between these shares of the ring's radius (area-even, by its slot), so the ring fills instead of its centre.
+    /// The outer share stays inside the ring: an Ork on its spot still counts on the point, so a retake runs exactly as before.
+    /// </summary>
+    public float GoalSpotInner { get; init; } = 0.2f;
+    public float GoalSpotOuter { get; init; } = 0.85f;
+    /// <summary>It heads for its spot once within the ring plus this (m) on the same level; farther it comes down the flow as before.</summary>
+    public float GoalSpotNear { get; init; } = 4f;
+    /// <summary>On its spot within this (m) it stands; pushed more than <see cref="GoalSpotLeave"/> off it, it walks back.</summary>
+    public float GoalSpotSettle { get; init; } = 0.7f;
+    public float GoalSpotLeave { get; init; } = 1.6f;
+    /// <summary>A standing Ork's own heading lies up to this far each way off outward (from the point's centre; a post's Ork: off its facing when it stopped).</summary>
+    public float LookSpreadDegrees { get; init; } = 50f;
+    /// <summary>Every <see cref="LookPeriodMin"/> to <see cref="LookPeriodMax"/> s (its own) it glances up to <see cref="LookSwingDegrees"/> each way off its heading, turning at <see cref="LookTurnDegrees"/> a second.</summary>
+    public float LookSwingDegrees { get; init; } = 70f;
+    public float LookPeriodMin { get; init; } = 3f;
+    public float LookPeriodMax { get; init; } = 8f;
+    public float LookTurnDegrees { get; init; } = 90f;
+    /// <summary>A threat (a player or a squad) within this (m, flat, within 3 m of height) draws a standing retaker's look (no raycast: a cheap stand-in for "in sight").</summary>
+    public float LookThreatRange { get; init; } = 20f;
+
     public static MusouSwarmRules Default { get; } = new();
 }
 
@@ -95,6 +117,7 @@ public sealed partial class MusouSim
         _flank[i] = Unit(Mix((uint)i * 0xC2B2AE35u + 7u, Tick)) < (Swarm?.FlankShare ?? 0f);
         _spread[i] = false;
         SpawnedPack(i);
+        ForgetHold(i);   // MusouSim.Hold.cs
     }
 
     static Vector2 Turned(Vector2 v, float radians)

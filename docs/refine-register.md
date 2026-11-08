@@ -28,7 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2580 spec table rows: **1894 tagged**, 477 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 578 rows of the changes document.
+Scanned 2582 spec table rows: **1896 tagged**, 477 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 579 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -52,19 +52,19 @@ Scanned 2580 spec table rows: **1894 tagged**, 477 not tagged (read from data wi
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
 | Core simulation (provisional values) | 441 | 419 | 297 | 120 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 176 | 167 | 80 | 52 | 0 |
-| **All areas** | **1894** | 1651 | 1397 | 615 | 38 |
+| Ork faction | 178 | 169 | 80 | 54 | 0 |
+| **All areas** | **1896** | 1653 | 1397 | 617 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1000 |
+| kind: ours | 1002 |
 | confidence: low | 667 |
 | confidence: medium | 601 |
 | kind: interpretation | 359 |
 | notes: ours | 352 |
-| notes: estimate | 150 |
+| notes: estimate | 152 |
 | confidence: none (low) | 129 |
 | kind: estimate | 120 |
 | kind: provisional | 99 |
@@ -3149,6 +3149,13 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-64573A3D` | Squads | as before: clamp(round(I / 15), 4, 12), at most 6 in the field, refilled from the landing zone every 15 s and at each secured point; 10 men in two rows of five (squads) | kind: ours; confidence: low | as before | Squads: compare with SM1 by feel or video. Ours: as before: clamp(round(I / 15), 4, 12), at most 6 in the field… | ☐ |
 | `R-AE9D13A5` | Boss Ork cleave on Guardsmen | a Boss Ork's melee blow on a squad strikes every living Guardsman, of any squad, within its melee reach + its body radius + 0.4 m (a Guardsman) + 0.5 m (the players' cleave's extra) of its feet, 1.5 m up or down, in the front half (the core's 60 degrees x… (m, men) | kind: ours; confidence: medium | the owner (2026-11-06): "the way that players cleave orks": the players' cleave and fall rules (`MusouCombatRules`, `TfwCombatRules`) reused; the reach's body… | Boss Ork cleave on Guardsmen: compare with SM1 by feel or video. Ours: a Boss Ork's melee blow on a squad strikes every living Guardsman, of… | ☐ |
 
+*Spec section: Musou Mode: Orks at a point spread out and look round (hotfix/ork-capture-spread, 2026-11-08; `MusouSim.Version` 20; Musou Mode only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-21E28C52` | Musou: spots across the ring | an Ork retaking a secured point takes its own spot, picked once a point: an area-even place between **0.2** and **0.85** of the capture ring's radius by its slot (the R2 sequence, turned by the point's hash), pulled in toward the centre (x0.6, up to 3 times)… (share of radius, m) | kind: ours; notes: estimate | owner 2026-11-08 | Musou: spots across the ring: compare with SM1 by feel or video. Ours: an Ork retaking a secured point takes its own spot, picked once a… | ☐ |
+| `R-B1DB6725` | Musou: looking round | a standing Ork (on its spot at a point, within 3 m of a ringless goal, or a leashed Ork at its post: a garrison, a crowd, a muster, an army's rank) faces its own heading, up to **50** degrees each way off outward (from the point's centre; a post's Ork: off… (degrees, s, deg/s, m) | kind: ours; notes: estimate | owner 2026-11-08 | Musou: looking round: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a standing Ork (on its spot at a point, within 3 m of a ringless… | ☐ |
+
 ## Part C: Deliberate changes (keep or revert after playtest)
 
 Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our choices where the original is unknown, and what is not reproduced yet. Nothing is classified here; every row is listed. The prompt says what to ask after the playtest.
@@ -3881,6 +3888,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-DE6EE554` | Musou: base is a target (musou/perf-pass, owner 2026-11-08) | No Musou Mode in the original | Ours (added content; the owner: "base is a target"): with no position Imperial a wave marches on the base instead of waiting at its stronghold (first wave on the test arena: left at 144 s, arrived 226 s) | Musou performance pass and the owner's battle decisions | Musou: base is a target (musou/perf-pass, owner 2026-11-08): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-6F7BA444` | Musou: unseen far deaths leave no body (musou/perf-pass, owner 2026-11-08) | No Musou Mode in the original | Ours (added content; the owner: "All far battles corpses should instantly vanish. If a player cannot see it, it doesn't ever get drawn. Unless the player is close by."): a death beyond 90 m and out of view leaves no body, ragdoll or gore; an army aggregate's loss leaves a body only within 90 m | Musou performance pass and the owner's battle decisions | Musou: unseen far deaths leave no body (musou/perf-pass…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-37CB73DA` | Musou crowd batched per 32 m cell (musou/perf-pass) | No Musou Mode in the original | Ours (rendering only): the far crowd tier is drawn in cell batches with their own boxes so the view and shadow cascades skip unseen cells; the same members are drawn | Musou performance pass and the owner's battle decisions | Musou crowd batched per 32 m cell (musou/perf-pass): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-BF4243A7` | Musou: Orks at a point spread out and look round (hotfix/ork-capture-spread, owner 2026-11-08; `MusouSim.Version` 20) | No Musou Mode in the original | Ours (added content; the owner: "they should spread out a bit and look around"): Orks retaking a point each stand at their own spot across its capture ring instead of heaped at its centre, and standing Orks (there and at their posts) face varied ways, glance round every few seconds and turn to a player near them | Musou Mode only; capture unchanged. Spec "Musou Mode: Orks at a point spread out and look round". | Musou: Orks at a point spread out and look round…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-F803125D` | Musou: core messages counted in the send budget (musou/perf-pass, owner 2026-11-08) | No Musou Mode in the original | Ours (added content; the owner: "count it"): a Musou client's snapshots and other core messages come out of its Musou send budget, so its whole stream stays near 60 KB/s; far Orks are updated less often. Classic PvP unchanged | Musou performance pass and the owner's battle decisions | Musou: core messages counted in the send budget…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-82FCC980` | Ashfall grime FAST option (musou/perf-pass, owner 2026-11-08) | No Musou Mode in the original | Ours (added content; the owner: "option in Graphics"): Options > Graphics > Ashfall grime, EXACT (the overlay, default) or FAST (folded into derived kit materials for weak GPUs; close, not exact) | Musou performance pass and the owner's battle decisions | Ashfall grime FAST option (musou/perf-pass, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2EB2F140` | FSR 2 upscaling setting (musou/perf-pass; every mode, default off) | SM1 (2011) had no upscaler | Ours (the owner's brief): Options > Graphics > Upscaling, Godot's built-in AMD FSR 2.2 (Native AA, Quality 0.67, Balanced 0.59, Performance 0.5), Forward+ only; off by default, so Classic PvP looks as before | Musou performance pass and the owner's battle decisions | FSR 2 upscaling setting (musou/perf-pass; every mode…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |

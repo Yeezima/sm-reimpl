@@ -296,7 +296,7 @@ public sealed partial class TfwBattle
     {
         int n = 0;
         for (int k = 0; k < Positions && !_final && n < into.Length; k++)
-            if (_objectives[k].State == TfwPositionState.Secured) into[n++] = new MusouTarget(TfwContracts.PointTargetId(k), _layout.Positions[k], true, 0f, Goal: true);
+            if (_objectives[k].State == TfwPositionState.Secured) into[n++] = new MusouTarget(TfwContracts.PointTargetId(k), _layout.Positions[k], true, 0f, Goal: true, Ring: _layout.Radius(k));   // each Ork its own spot across the ring (MusouSim.Hold.cs)
         return n;
     }
 

@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Musou Mode: Orks taking back a point now spread out across it instead of piling up in the middle, and Orks standing guard look around (and at you when you come near) instead of all staring the same way.
