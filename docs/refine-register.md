@@ -30,13 +30,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 Scanned 2621 spec table rows: **1923 tagged**, 487 not tagged (read from data with high confidence), 211 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 587 rows of the changes document.
 Scanned 2617 spec table rows: **1924 tagged**, 482 not tagged (read from data with high confidence), 211 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 583 rows of the changes document.
+Scanned 2596 spec table rows: **1908 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 583 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 384 | 326 | 325 | 114 | 12 |
 | Combat core (critical) | 13 | 4 | 12 | 11 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 112 | 97 | 88 | 37 | 5 |
+| Melee (critical) | 113 | 98 | 88 | 38 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -59,6 +60,8 @@ Scanned 2617 spec table rows: **1924 tagged**, 482 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 179 | 169 | 82 | 53 | 0 |
 | **All areas** | **1924** | 1678 | 1420 | 616 | 38 |
+| Ork faction | 178 | 169 | 80 | 54 | 0 |
+| **All areas** | **1908** | 1665 | 1403 | 619 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -66,6 +69,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---:|
 | kind: ours | 1022 |
 | confidence: low | 683 |
+| kind: ours | 1014 |
+| confidence: low | 667 |
 | confidence: medium | 607 |
 | kind: ours | 1027 |
 | confidence: low | 678 |
@@ -73,6 +78,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: interpretation | 359 |
 | notes: ours | 358 |
 | notes: estimate | 152 |
+| notes: ours | 352 |
+| notes: estimate | 154 |
 | confidence: none (low) | 129 |
 | kind: estimate | 126 |
 | kind: provisional | 99 |
@@ -913,7 +920,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (112)
+### Melee (gameplay-critical) (113)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1097,6 +1104,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC3C37DC` | Musou: ragdolls | a pool of **20** physics ragdolls of the boy rig's original ragdoll (15 bodies, 14 joints), made one a frame at load, thrown within **45** m of the camera for Boy, Shoota, 'Ard Boy, Gretchin and Nob (a Gretchin is the same physics drawn smaller round the… (m, s) | kind: ours; notes: estimate | owner 2026-11-02 | Musou: ragdolls: compare with SM1 by feel or video. Ours: a pool of 20 physics ragdolls of the boy rig's original ragdoll (15… | ☐ |
 | `R-3E2104BE` | Musou: tumbling bodies | past the pool, beyond 45 m, or a Warboss or Chaos Marine: the body keeps its death clip and tips over about **0.9** m up by the one tumble of row "Musou: corpse arcs" (was up to **9** rad/s about a random axis), under **9.8** m/s2, a wall stops its flat… (m/s, s) | kind: ours; notes: estimate | owner 2026-11-02 | Musou: tumbling bodies: compare with SM1 by timing a run over a known distance. Ours: past the pool, beyond 45 m, or a Warboss or Chaos Marine: the body… | ☐ |
 | `R-42DADD6E` | Musou: corpse arcs | a corpse a blast throws flies one parabola straight away from the blast: the flat velocity never changes in the air (ground track one straight line), gravity **9.8** m/s2; it tips over about ONE fixed horizontal axis square to its flight (up x flight… (m/s, rad/s, rad) | kind: ours; notes: estimate | owner 2026-11-08: "completely remove the corkscrewing corpses flying in the air in musou mode. corpses should never fly in a way that is not a natural looking… | Musou: corpse arcs: compare with SM1 by timing a run over a known distance. Ours: a corpse a blast throws flies one parabola straight away from the… | ☐ |
+| `R-0AAD2B15` | Musou: corpses a throw sends flying | of one grenade throw (the same owner's blasts within **0.5** s of the first: a throw's fan of frags; also a launcher's or plasma burst) at most **20** kills die thrown (death kind Blast), nearest the blast first (ties by id); the later kills die as BoltBlast… (kills, s) | kind: ours; notes: estimate | owner 2026-11-08: "limit the number of flying orks per grenade throw to 20. the rest get knocked down or if they died explode." | Musou: corpses a throw sends flying: compare with SM1 by feel or video. Ours: of one grenade throw (the same owner's blasts within 0.5 s of the… | ☐ |
 | `R-08560E01` | Musou: bodies kept | **100** (was 60) (bodies) | kind: ours; notes: estimate | owner 2026-11-02 | Musou: bodies kept: compare with SM1 by feel or video. Ours: 100 (was 60). | ☐ |
 | `R-F3F59A24` | Musou: cloud opacity | a gore cloud's thickest alpha **0.58** in Musou Mode (about a fifth thinner); classic PvP's Extended gore keeps **0.72** (0 to 1) | kind: ours; notes: estimate | owner 2026-11-02 | Musou: cloud opacity: compare with SM1 by feel or video. Ours: a gore cloud's thickest alpha 0.58 in Musou Mode (about a fifth… | ☐ |
 
@@ -3335,6 +3343,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-79B0339B` | Musou Mode: no health bars over enemies | the owner's item 14 (2026-11-01) added them; the owner's request of 2026-11-02 removed them | no bar is drawn over any enemy; the battle's boss keeps its bar at the top of the screen; the server still sends tag 13 (a later cleanup) | Elite bars | Musou Mode: no health bars over enemies: compare with SM1 by counting hits to kill and by video of the health bar. Ours: the owner's item 14 (2026-11-01) added them; the owner's request of… | ☐ |
 | `C-7B12D4F2` | Musou Mode: excessive gore and bloody explosions | the owner's items 8, 22 and 23 (2026-11-01); SM1's gore is a red splash and a ragdoll | gibs, sprays, spatter and pools from a player's, a retainer's or a Thunderhawk's kills, a bloody explosion for blast, frag, artillery and lascannon kills, a slash on each enemy a cleave hits; no blood on the screen; Musou Mode only | Who makes gore, Explosions, Burst size, Cleave slash | Musou Mode: excessive gore and bloody explosions: compare with SM1 by feel or video. Ours: the owner's items 8, 22 and 23 (2026-11-01); SM1's gore is a red… | ☐ |
 | `C-B595F9F7` | Musou Mode: corpses thrown in one arc | the owner (2026-11-08): "completely remove the corkscrewing corpses flying in the air in musou mode. corpses should never fly in a way that is not a natural looking straight line parabolic arc away from the explosion"; SM1's ragdolls take the blast's impulse | a blast's corpse (ragdoll or crowd body) leaves within 8 degrees of straight away from the blast, flies one parabola and tips over about one horizontal axis, at most 2.5 rad/s and (crowd bodies) a quarter turn; no random spin or limb scatter, no bounce, a wall stops it instead of throwing it back; Musou Mode only… | Musou: corpse arcs, Musou: ragdolls, Musou: tumbling bodies, Musou: the throw | Musou Mode: corpses thrown in one arc: compare with SM1 by feel or video. Ours: the owner (2026-11-08): "completely remove the corkscrewing corpses… | ☐ |
+| `C-9F0AFBB1` | Musou Mode: at most 20 bodies thrown per grenade throw | the owner (2026-11-08): "limit the number of flying orks per grenade throw to 20. the rest get knocked down or if they died explode."; SM1 has no such crowds | of one throw (a fan of frags within 0.5 s, or one launcher or plasma burst) the 20 kills nearest the blast are thrown, the rest are torn apart where they stand; small Orks it leaves alive fall down; Musou Mode only | Musou: corpses a throw sends flying | Musou Mode: at most 20 bodies thrown per grenade throw: compare with SM1 by feel or video. Ours: the owner (2026-11-08): "limit the number of flying orks per grenade… | ☐ |
 | `C-C3448196` | The dark gore: dark blood clouds and ink on every damaging hit and death (Musou Mode only; removed from classic PvP by hotfix 2026-11-01; since gore-original, 2026-11-07, only with `--old-musou-gore`) | the owner (2026-11-01); the game's own trailer is the reference; SM1's blood is a red glow and a ragdoll | dark oxblood ink splatter and big brown-red clouds, three times the amount, on every hit and death of an enemy (Musou Mode); classic PvP, Extended or Faithful, keeps the original blood and creates no gore view; `ContentExtras.Gore` is now unused by any code (kept so the config hash does not change); client only, no… | Added content: Gore: the dark blood | The dark gore: dark blood clouds and ink on every damaging…: compare with SM1 by feel or video. Ours: the owner (2026-11-01); the game's own trailer is the reference… | ☐ |
 | `C-4E5D3CF7` | Musou Mode: the original blood, 1.5x (gore-original, 2026-11-07; replaces the dark gore by default) | the owner's ("make the gore and blood splatters and clouds look and behave just like this reference and the original game"; choice 1 "but since it is musou mode multiply the volume and magnitude of the blood effects by 1.5x") | a Musou kill plays the Ork blueprint's own dismemberment point for the killer's weapon and the zone (the data's effects and floor decals); a shot's hit the weapon's own flesh impact, for every shooter; every blood effect 1.5 times the size and 1.5 times the particles of its blood sprays; the blood mist drawn despite… | "Musou Mode: the original blood" | Musou Mode: the original blood, 1.5x (gore-original…: compare with SM1 by feel or video. Ours: the owner's ("make the gore and blood splatters and clouds look and… | ☐ |
 | `C-F525EC6C` | Musou Mode: how a kill picks its blood (gore-original) | ours (interpretation): the data has the table, not the engine's reading of it | the kill's zone a seeded body part (the head for a head shot), the zone's chance a seeded roll, `nothing_left` for blasts and artillery, the plasma gun as plasma_light, markers placed by name, effects at their own lengths, 8 kills a frame within 45 m | "Musou Mode: the original blood" | Musou Mode: how a kill picks its blood (gore-original): compare with SM1 by feel or video. Ours: ours (interpretation): the data has the table, not the engine's… | ☐ |
