@@ -28,11 +28,11 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2602 spec table rows: **1910 tagged**, 482 not tagged (read from data with high confidence), 210 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
+Scanned 2603 spec table rows: **1911 tagged**, 482 not tagged (read from data with high confidence), 210 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 383 | 325 | 325 | 114 | 12 |
+| Movement (critical) | 384 | 326 | 325 | 114 | 12 |
 | Combat core (critical) | 13 | 4 | 12 | 11 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
 | Melee (critical) | 111 | 96 | 88 | 36 | 5 |
@@ -53,13 +53,13 @@ Scanned 2602 spec table rows: **1910 tagged**, 482 not tagged (read from data wi
 | Core simulation (provisional values) | 450 | 428 | 303 | 120 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 178 | 168 | 81 | 53 | 0 |
-| **All areas** | **1910** | 1666 | 1408 | 616 | 38 |
+| **All areas** | **1911** | 1667 | 1408 | 616 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1015 |
+| kind: ours | 1016 |
 | confidence: low | 669 |
 | confidence: medium | 610 |
 | kind: interpretation | 359 |
@@ -91,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (383)
+### Movement (gameplay-critical) (384)
 
 *Spec section: Extracted parameters*
 
@@ -699,6 +699,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-61D70BF7` | Air jump, Classic PvP | Assault / Raptor in the air (any airborne state): a Space hold no longer lifts the pack (the protocol 54 air start, feel/melee-cancels, is gone outside Musou Mode); a Space tap is still the hop (the air dash, sim/movement-fixes C) in the stick's direction (W… | kind: ours; notes: estimate | owner 2026-11-06 | Air jump, Classic PvP: compare with SM1 by feel or video. Ours: Assault / Raptor in the air (any airborne state): a Space hold no… | ☐ |
 | `R-0879224F` | Air jump, Musou Mode | unchanged: a Space hold in the air lifts the pack again (each jump still needs its fuel and the dash's spacing; "infinite" only as fuel allows) | kind: ours; notes: estimate | owner 2026-11-06 | Air jump, Musou Mode: compare with SM1 by feel or video. Ours: unchanged: a Space hold in the air lifts the pack again (each jump… | ☐ |
+| `R-09331B44` | Air jump sound, Musou Mode | every air jump posts the jump pack's launch sound (`action_ascending`, with the launch's tail fade and the loudness rule), as the first jump does, own and others', from the player's emitter: the hang or the fall turning into a take-off (or the ascent, when a… | kind: ours | owner 2026-11-08 ("additional jumps in musou mode (assault marine, raptor) make no noise. they should make the same noise as the initial jump") | Air jump sound, Musou Mode: compare with SM1 by listening A/B at the same distance and state. Ours: every air jump posts the jump pack's launch sound (action_ascending… | ☐ |
 
 *Spec section: Musou Mode: expansion S1, the foundation (musou/exp-s1, 2026-11-07; `MusouSim.Version` 13, no core protocol bump: `Protocol.Version` stays 63)*
 
