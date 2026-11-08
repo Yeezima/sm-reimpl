@@ -28,8 +28,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2593 spec table rows: **1905 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 581 rows of the changes document.
-Scanned 2581 spec table rows: **1895 tagged**, 477 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 578 rows of the changes document.
+Scanned 2594 spec table rows: **1906 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 581 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -43,7 +42,7 @@ Scanned 2581 spec table rows: **1895 tagged**, 477 not tagged (read from data wi
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 67 | 62 | 49 | 10 | 0 |
 | Sound mix (critical) | 63 | 57 | 55 | 10 | 0 |
-| Effects (critical) | 90 | 80 | 75 | 40 | 0 |
+| Effects (critical) | 89 | 79 | 74 | 40 | 0 |
 | Game modes | 41 | 38 | 38 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
@@ -51,23 +50,18 @@ Scanned 2581 spec table rows: **1895 tagged**, 477 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 449 | 427 | 302 | 120 | 1 |
+| Core simulation (provisional values) | 450 | 428 | 303 | 120 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 178 | 169 | 80 | 54 | 0 |
-| **All areas** | **1905** | 1662 | 1402 | 617 | 38 |
-| Ork faction | 176 | 167 | 80 | 52 | 0 |
-| **All areas** | **1895** | 1652 | 1398 | 615 | 38 |
+| **All areas** | **1906** | 1663 | 1403 | 617 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1011 |
+| kind: ours | 1012 |
 | confidence: low | 667 |
-| confidence: medium | 606 |
-| kind: ours | 1001 |
-| confidence: low | 667 |
-| confidence: medium | 602 |
+| confidence: medium | 607 |
 | kind: interpretation | 359 |
 | notes: ours | 352 |
 | notes: estimate | 152 |
@@ -1024,7 +1018,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-311A51BE` | Cones | at most 40 enemies a cone shot (the 5-wave aid's 24) (enemies) | kind: ours; confidence: low | owner item 24 | Cones: compare with SM1 by feel or video. Ours: at most 40 enemies a cone shot (the 5-wave aid's 24). | ☐ |
 | `R-A27EF439` | Bolt blasts: which weapons | every bolt weapon: the bolter, bolt pistol, storm bolter, heavy bolter and stalker bolter of both sides, the gold variants and the perk's pistol bolter (a wargear name holding `bolt`, or `sniper_rifle` for the stalker); the plasma, melta, lascannon and every… | kind: ours; confidence: medium | owner 2026-11-07 | Bolt blasts: which weapons: compare with SM1 by feel or video. Ours: every bolt weapon: the bolter, bolt pistol, storm bolter, heavy… | ☐ |
 | `R-60830AA7` | Bolt blasts: where | one blast at every enemy the shot strikes (each one it goes through and the one that stops it), at the point the ray struck him; after the pierce has dealt its hits; a tag 11 record each (kind `BoltBlast` 6: the point, the frag's thrown item, the radius; sent… | kind: ours; confidence: medium | owner 2026-11-07 | Bolt blasts: where: compare with SM1 by feel or video. Ours: one blast at every enemy the shot strikes (each one it goes through… | ☐ |
-| `R-531C3227` | Bolt blasts: reach and damage | 1.25 m reach (half the first pass's 2.5 m: the owner, 2026-11-08, "the explosion needs to be half its current size"; the data's frag 10 m); 30 damage at the centre (unchanged; an estimate: about a third of a Boy's 85, a bolter round 22), full to 0.5 m, linear… (m, damage) | kind: ours; confidence: low; notes: estimate | owner 2026-11-08 (halved); values ours (estimate) | Bolt blasts: reach and damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 1.25 m reach (half the first pass's 2.5 m: the owner, 2026-11-08… | ☐ |
+| `R-531C3227` | Bolt blasts: reach and damage | 1.25 m reach (half the first pass's 2.5 m: the owner, 2026-11-08, "the explosion needs to be half its current size"; the data's frag 10 m); 15 damage at the centre (halved from 30: the owner, 2026-11-08, "halve the damage as well yes"; the first value an… (m, damage) | kind: ours; confidence: low; notes: estimate | owner 2026-11-08 (halved); values ours (estimate) | Bolt blasts: reach and damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 1.25 m reach (half the first pass's 2.5 m: the owner, 2026-11-08… | ☐ |
 | `R-1F0BC7BD` | Bolt blasts: the look | the original frag grenade's detonation effect and sound (thrown item the record names; no new asset) once a blast, at its point, the effect at 0.4 of the frag's size (owner 2026-11-08: "make the vfx 60% smaller"; `BoltBlastFxScale`); the client thins a… (m, s) | kind: ours; confidence: low; notes: estimate | ours (estimate) | Bolt blasts: the look: compare with SM1 by feel or video. Ours: the original frag grenade's detonation effect and sound (thrown item… | ☐ |
 
 *Spec section: Player collision (sim/player-collision; protocol 43, used by the simulation)*
@@ -1660,7 +1654,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5FBBC333` | Menu sound cost | its own catalogue of two packages (`init`, `in_game_default`) opens in the background in 65 to 130 ms when the first root is attached (not before a button exists) and is disposed when a match starts, one still loading too (the match's sound system plays the… (ms) | kind: ours; confidence: medium | measured | Menu sound cost: compare with SM1 by listening A/B at the same distance and state. Ours: its own catalogue of two packages (init, in_game_default) opens in… | ☐ |
 | `R-30F789A0` | Not played | `Play_Menu_Expand_Main` (the menu opening), `Play_Multiplayer_Select`, `Play_Cooperative_Select`, `Play_Network_Select`, `Play_Campaign_Select` (screens we do not have in that form), `play_mp_point_captured` and `play_mp_bonus` (exist; no trigger found)… | kind: gap (not reproduced); confidence: none (low) | gap | Not played: compare with SM1 by listening A/B at the same distance and state. Ours: Play_Menu_Expand_Main (the menu opening), Play_Multiplayer_Select… | ☐ |
 
-### Effects (gameplay-critical) (90)
+### Effects (gameplay-critical) (89)
 
 *Spec section: Jump-pack feel: fuel, air control, the air slash and impact effects (feel/jump-pack; protocol 31, used by the simulation)*
 
@@ -1785,7 +1779,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-C7827821` | Fight off-screen (Musou) | near a human, an army's remainder beyond the real caps (480 Orks, 28 squads) fights on in the far clash at its point or the base; the real units a human can see take the aggregates' fire but put out none there (their fire is real already: expansion S6's rule… | kind: ours; confidence: low | the owner, 2026-11-08 ("fight off-screen"); the rout fixes ours | Fight off-screen (Musou): compare with SM1 with side-by-side video of the same action. Ours: near a human, an army's remainder beyond the real caps (480 Orks, 28… | ☐ |
 | `R-566447DD` | Base is a target (Musou) | with no position Imperial a wave leaves for the Imperial base (goal `LandingGoal`) instead of waiting; a wave whose point fell with no other Imperial position goes there too; at the base it attacks (real Orks loose as a pack, its remainder clashes with the… (m, s) | kind: ours; confidence: medium | the owner, 2026-11-08 ("base is a target"); 20 m ours | Base is a target (Musou): compare with SM1 with side-by-side video of the same action. Ours: with no position Imperial a wave leaves for the Imperial base (goal… | ☐ |
 | `R-0364AED2` | Ashfall grime: EXACT or FAST (Musou, Graphics option) | Options > Graphics > Ashfall grime: EXACT (OVERLAY), the default, draws the grime as the overlay pass as before; FAST (FOLDED, WEAK GPUS) gives each kit surface a derived shader (its standard material's albedo, vertex colour, normal map, roughness, metallic… | kind: ours; confidence: medium | the owner, 2026-11-08 ("option in Graphics"); the derived shader ours | Ashfall grime: EXACT or FAST (Musou, Graphics option): compare with SM1 with side-by-side video of the same action. Ours: Options > Graphics > Ashfall grime: EXACT (OVERLAY), the default… | ☐ |
-| `R-ACEFD4C0` | Ashfall grime under FSR 2 and its depth pull (Musou, client) | the owner, 2026-11-08: "the floor shimmers a lot in musou mode ashfall". With Options > Graphics > Upscaling on FSR 2, the grime's overlay passes (EXACT) shimmered on the far floor even on a still camera (floor pixels flickering between three consecutive… (1e-4 of the distance) | kind: ours; confidence: medium | measured (hotfix/ashfall-floor-shimmer); the pull's size ours | Ashfall grime under FSR 2 and its depth pull (Musou, client): compare with SM1 with side-by-side video of the same action. Ours: the owner, 2026-11-08: "the floor shimmers a lot in musou mode… | ☐ |
 
 ### Game modes (41)
 
@@ -2125,7 +2118,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (449)
+### Core simulation (provisional values) (450)
 
 *Spec section: Provisional values in use*
 
@@ -2840,6 +2833,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-0AF72DE3` | Allied pair revive (Musou) | a fallen human's 25 s window stays open while a Marine of the pair stands; the pair's leader goes to the nearest fallen human whose window is open (the follower with him) and, 3 s in a row within 2 m, brings him back where he fell at 50 % health and shield… (s, m) | kind: ours; confidence: medium | ours (the retainer's rule moved to the pair) | Allied pair revive (Musou): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a fallen human's 25 s window stays open while a Marine of the pair… | ☐ |
 | `R-2AAB648A` | Allied pair look (Musou) | the pair wears the host's armour colours (the human with the lowest id), as a retainer wore its owner's | kind: ours; confidence: medium | ours (pass 2 item 1 moved to the pair) | Allied pair look (Musou): compare with SM1 by feel or video. Ours: the pair wears the host's armour colours (the human with the lowest… | ☐ |
 | `R-875EC075` | Order keys (Musou) | Z, X and V give no order any more (no player orders the pair): the client sends none and X next weapon and V melee keep their keys; an older client's Follow, Hold and Attack are taken and dropped by the server; the own block's order is always Follow | kind: ours | ours | Order keys (Musou): compare with SM1 by feel or video. Ours: Z, X and V give no order any more (no player orders the pair): the… | ☐ |
+| `R-A0E6849B` | Ashfall grime under FSR 2 and its depth pull (Musou, client) | the owner, 2026-11-08: "the floor shimmers a lot in musou mode ashfall". With Options > Graphics > Upscaling on FSR 2, the grime's overlay passes (EXACT) shimmered on the far floor even on a still camera (floor pixels flickering between three consecutive… (1e-4 of the distance) | kind: ours; confidence: medium | measured (hotfix/ashfall-floor-shimmer); the pull's size ours | Ashfall grime under FSR 2 and its depth pull (Musou, client): compare with SM1 by feel or video. Ours: the owner, 2026-11-08: "the floor shimmers a lot in musou mode… | ☐ |
 
 ### General game design (7)
 
