@@ -1294,3 +1294,25 @@ Owner's correction of 2026-11-08 (same branch, `TfwRules.Version` 37, unreleased
 **Integration (2026-11-08):** merged expansion S6's answers and the S4 follow-up (up to 01e56dca) by the owner's picks: S6's near balance (Guardsmen 0.875x, a Guardsman worth an Ork; this branch's size-scaled share removed), this branch's far-body vanish and no-point-held base target (S6's Guard impostor bodies and all-three-Imperial rule dropped), S6's remainder rule with this branch's rout fixes, this branch's fixed-tick parallel route searches (S6's wall-clock route taking dropped), S6's wave creep. TfwRules.Version 40 (38 S4 follow-up, 39 S6, 40 integration). Trials: GuardHoldTrial held 10 of 20; army trials near a player held 8 of 8 at 200, 500 and 1,000.
 
 **Musou S4 models (owner, 2026-11-08: "Yes, use these").** The Scrap Mek and his contraptions are drawn with SM1 props from the player's install (`client/Extras/Musou/Meks/MekModels.cs`, read on a worker on the first contraption and built one a frame; the shapes stay until then or when a model does not load; `--mek-placeholders` keeps them): the Mek `nob_ranged_pro` at a Boy's height (`MusouLooks`), the shield generator `ork_elektrik_tower_healthy` (4 m; the sim's body now 1.0 x 4.0 m to match), the dome `shield_weird_boy` stretched to the 10 m sphere and drawn see-through with its own texture, the beacon `waaaghbanner`, the turret `ork_turret_healthy` turning whole to its aim with `ork_turret_wreck` left 12 s (the pylon's wreck too), the trap `ork_junkpile_d_healthy` ringed with `Spikes_A`, and each beacon drop a falling `ork_rok`. The props stand on their own origin (their authored ground). Chunks and sizes: docs/discovery.md "Musou S4 models". Test aid `--mek-gallery` (model viewer: every contraption, the wrecks and a rok on a floor; PNG to previews\musou-meks\gallery.png). In-game capture (`SM_MUSOU_S4_DEMO=1`, previews\musou-meks\run3): all nine models load and 15 contraptions build; the dome draws over the battle. Implemented, not playtested.
+
+**Release in parts (branch `tools/release-parts`; owner, 2026-11-08: "minimise the data uploaded per release"; tooling and launcher, no gameplay
+change, protocol 64 unchanged).** A ship uploaded about 255 MiB (the 218 MiB playtest zip and the 37 MiB Linux server tar) over a slow line. Now
+the build is also cut into nine parts (engine, dotnet, client, media, ashfall, server, launcher, source, meta; `src/SmLauncher.Core/Parts.cs`), each
+a zip named by a fingerprint of its files, kept in one stable published release `parts` of the releases repository; a build's own release carries
+only its manifest (`...-Windows.parts.json`, about 110 KB: every file's path, SHA-256, size and part, every part's zip hash and size). `ship.cmd`
+asks `smtool release-parts plan` which parts the `parts` release lacks and uploads only those (never over an existing asset). The launcher reads
+the manifest (vouched for by GitHub's digest and the description's "Download check", like the zip), downloads only the parts carrying a file the
+installed builds do not have, hashes each part and every file, copies the rest from the installed build, checks the result against the build's own
+file list, and falls back to the full zip when a release has one; resumable through `update.json` (source `parts`). To keep parts stable: the
+Windows export no longer embeds its pack (`sm-reimpl.pck` beside the exe, under 1 MB), so the 110 MB engine is the same file every build (the guard
+accepts that exe only while its `pck` section is still Godot's empty 8-byte placeholder and has no trailer, and allows `.pck` in binary packages
+only as a verified Godot pack); the launcher is versioned by the last commit that changed it and its publish is reproducible (checked byte for byte).
+The full zip goes up only on the bridge release (the first build with parts, while no published release has a manifest: launchers from before
+this change take only a zip, so that release stays visible) or with `-FullZip`. The Linux server tar is no longer uploaded (`-Linux` still does):
+the VM builds the server from the shipped commit with `tools/release/vm-build-server.sh` (docs/releasing.md, "Updating the Vultr server"). Measured
+on two local builds (0fdd9371, 2586f6d2): launcher, engine, dotnet, media and ashfall zips byte-identical; a code-only release uploads meta 0.6 +
+client 4.9 + server 2.0 + source 7.2 MiB + the manifest, about 15 MiB; with a launcher change about 57; worst case every part, 187 (the bridge
+adds the zip once, 218). `release.cmd -Smoke` now lets the launcher part alone install the build from the parts (`--install-parts`), then runs
+the usual smoke test in that folder: passed (500 files verified, server, bot, lean bot, HOST A MATCH, Musou). Tests: `PartsTests` (51: the split,
+the manifest's refusals, the selection, the upload plan, installs, updates, damaged parts and installed files, the zip fallback, resume, the local
+install) and the guard's new rule (`PackageScannerTests`). Not run: a real upload (`ship.cmd`); the VM script on the VM.

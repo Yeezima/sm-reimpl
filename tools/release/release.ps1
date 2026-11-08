@@ -586,7 +586,8 @@ function Write-ReleaseNotes([switch]$WithServerAssets, [switch]$Placeholder, [sw
     $zipName = Split-Path -Leaf $Zips.playtest
     $zipSize = if ($Placeholder) { '<size after the build>' } else { Size-Text $Zips.playtest }
     $zipSha = if ($Placeholder) { '<SHA-256 after the build>' } else { Sha256 $Zips.playtest }
-    $zipCheck = "SHA-256 of ``$zipName``:`n``````n$zipSha`n``````n"
+    $fence = '```'
+    $zipCheck = "SHA-256 of ``$zipName``:`n$fence`n$zipSha`n$fence`n"
     $fullZipSteps = "1. Download **``$zipName``** ($zipSize) from **Assets** below.`n2. Right-click the zip > **Properties** > tick **Unblock** > **OK**. The programs are not code-signed; this stops Windows from blocking every file inside.`n3. Right-click the zip > **Extract All...** to a folder of your choice. Keep the folders as they are.`n4. Open the folder and run **``$LauncherTop``**. It installs the build into its own folder, looks for new builds each time it starts, downloads and checks them, and starts the game. From then on, start **SM Reimpl Launcher** from the desktop or the Start menu. (Or run **``$($TopFiles.PLAY.Name)``** directly.)"
     if (-not $hasParts) {
         $t.GETIT = $fullZipSteps
@@ -607,7 +608,7 @@ function Write-ReleaseNotes([switch]$WithServerAssets, [switch]$Placeholder, [sw
         if ($WithZip) { $steps += "`n`nOr the whole build as one zip:`n`n" + $fullZipSteps }
         $t.GETIT = $steps
         # The launcher reads the manifest's hash from the line right after "SHA-256 of `<name>`:" (ReleaseNotes.FindZipHash): keep that layout.
-        $t.CHECK = "SHA-256 of ``$mName``:`n``````n$mSha`n``````n(The build's parts list: the launcher checks it, then every part and every file against it.)`n"
+        $t.CHECK = "SHA-256 of ``$mName``:`n$fence`n$mSha`n$fence`n(The build's parts list: the launcher checks it, then every part and every file against it.)`n"
         if ($WithZip) { $t.CHECK += "`n" + $zipCheck + "In PowerShell: ``Get-FileHash .\$zipName```n" }
     }
     # The comment marks the end of the What's new for the launcher, which shows that part (invisible on GitHub).

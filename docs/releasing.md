@@ -108,10 +108,12 @@ does not have it yet.
   and with it offers the new launcher (the self-update). `-FullZip` forces the zip, `-NoFullZip` leaves it out.
 - **New testers** download the launcher part (linked from the release description), unpack it and run `0 - SM Reimpl Launcher.exe`, which installs the
   build. The release page has no full zip any more (except on the bridge release or with `-FullZip`); `release.cmd` still builds it locally.
-- **Sizes**, from the parts of the 2026-11-08 build (cd13588c, whose engine still had its pack embedded): meta 0.6 MB, launcher 42.1 MB, engine 39.9 MB,
-  dotnet 34.6 MB, client 4.2 MB, media 2.1 MB, ashfall 54.3 MB, server 2.0 MB, source 7.1 MB, 187 MB together (less than the 218 MB zip: the runtime is
-  carried once). A code-only build changes meta, client, server and source: about 14 MB to upload. One that also changes the launcher: about 56 MB. The
-  worst case (a new .NET SDK, Godot, launcher and Ashfall kit at once) is every part, about 187 MB; the bridge release adds the full zip once.
+- **Sizes** (MiB, measured on two local builds of 2026-11-08, 0fdd9371 and 2586f6d2, whose launcher, engine, runtime, media and kit did not
+  change: those five zips came out byte-identical): meta 0.6, launcher 42.1, engine 39.3, dotnet 34.6, client 4.9, media 2.1, ashfall 54.3,
+  server 2.0, source 7.2; 187 together (the zip: 218, as it carries the runtime twice); the manifest 0.1. A **code-only build** changes meta, client,
+  server and source: **about 15 MiB to upload** (14.7). One that also changes the launcher: about 57. The **worst case** (a new .NET SDK, Godot,
+  launcher and Ashfall kit at once) is every part, **187**; the bridge release (once) adds the full zip, 218. Before: 255 per ship (the zip and the
+  Linux server tar).
 - **When an upload fails half-way:** the build is not released; parts that went up are reused by the next `ship.cmd`. A part GitHub kept half-uploaded
   blocks its name: delete it with `gh release delete-asset parts <zip> --repo Yeezima/sm-reimpl-releases` and ship again.
 
