@@ -39,7 +39,8 @@ public class MusouSkirmishPinTests(ITestOutputHelper output)
     // ---------------------------------------------------------------- the golden (captured on main 2ed1501e, before TF0's hooks)
 
     // Recaptured 2026-11-06 for the owner's melee heal per enemy struck (MusouSim.Version 8; was 1E66FBB5...B573): with that one change reverted the old golden still matched.
-    const string Golden = "8112E635E39011CB92C4C08D85A6C586353A874B7BCE1A345D7A21C77BE4E569";
+    // Recaptured 2026-11-08 for Ork facing (MusouSim.Version 22): gunners turn before they fire, engaged Orks move facing their target.
+    const string Golden = "846A440375146A00CEE92AD35AF1C9E6920ED1C1515CE39EE7FD312C839A7A66";
 
     [Fact]
     public void The_skirmish_replay_is_unchanged()

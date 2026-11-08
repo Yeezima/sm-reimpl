@@ -95,8 +95,7 @@ public sealed partial class MusouSim
         {
             int at = IndexOf(targets, _target[i]);
             if (at >= 0 && !targets[at].Goal) _fireAt[i] = targets[at].Position;
-            Face(i, Toward(i, _fireAt[i]));
-            _fireDue[i] += MusouBigShoota.RoundsPerSecond * Dt;
+            if (TurnTo(i, Toward(i, _fireAt[i]), MusouFacingRules.ShooterTurnDegrees) <= MusouFacingRules.FireConeRadians) _fireDue[i] += MusouBigShoota.RoundsPerSecond * Dt;   // rounds only within the cone (MusouSim.Facing.cs)
             while (_fireDue[i] >= 1f) { _fireDue[i] -= 1f; FireBigShoota(i, at >= 0 && !targets[at].Goal ? targets[at] : null, fight, attacks); }
             if (--_fireLeft[i] == 0) Overheat(i);
             Move(i, spec, Vector2.Zero, targets, near);
@@ -117,7 +116,7 @@ public sealed partial class MusouSim
                 _fireAt[i] = targets[t].Position;
                 BigShootaBursts++;
                 AddEvent(new MusouEvent(MusouEventKind.Telegraph, Tick, (ushort)(i + 1), (ushort)Math.Clamp(targets[t].Id, 0, ushort.MaxValue), MusouBigShoota.BurstCue, _position[i]));
-                Face(i, Toward(i, targets[t].Position));
+                TurnTo(i, Toward(i, targets[t].Position), MusouFacingRules.ShooterTurnDegrees);
                 Move(i, spec, Vector2.Zero, targets, near);
                 return true;
             }
@@ -126,9 +125,9 @@ public sealed partial class MusouSim
         // Posted: back to his spot, facing whatever he aims at.
         var home = new Vector2(_post[i].X - _position[i].X, _post[i].Y - _position[i].Y);
         float off = home.Length();
-        if (aim) Face(i, Toward(i, targets[t].Position));
+        if (aim) _faceWant[i] = Toward(i, targets[t].Position);
         Move(i, spec, off > MusouBigShoota.PostRadius ? home / off * spec.Speed : Vector2.Zero, targets, near);
-        if (aim) Face(i, Toward(i, targets[t].Position));
+        if (aim) TurnTo(i, _faceWant[i], MusouFacingRules.ShooterTurnDegrees);
         return true;
     }
 

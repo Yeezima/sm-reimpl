@@ -174,6 +174,7 @@ public sealed partial class MusouSim
             if (_type[i] == MusouEnemyType.ScrapMek) { StepMek(i, targets, near); continue; }   // he runs, hides and builds (MusouSim.Mek.cs)
             if (_type[i] == MusouEnemyType.Weirdboy && StepWeirdboy(i, targets, near, fight)) { if (_cooldown[i] > 0) _cooldown[i]--; continue; }   // his stun, cast and fade (MusouSim.Weirdboy.cs)
             if (_cooldown[i] > 0) _cooldown[i]--;
+            _faceWant[i] = Vector2.Zero;   // MusouSim.Facing.cs: Behave sets it while the Ork engages
             var spec = Rules.Of(_type[i]);
             if (_type[i] == MusouEnemyType.Stormboy && StepOrdered(i, targets, near, spec)) continue;   // under his squad's orders (MusouSim.Stormboy.cs)
             if (_type[i] == MusouEnemyType.BigShootaNob && float.IsPositiveInfinity(_aggro[i]) && StepBigShoota(i, targets, near, spec, fight, attacks)) continue;   // his gun's cycle (MusouSim.BigShoota.cs)
@@ -456,6 +457,7 @@ public sealed partial class MusouSim
         bool ranged = spec.Ranged && !melee;
         if ((_token[i] == ShooterToken && !ranged) || (_token[i] == MeleeToken && !melee)) { _token[i] = 0; _burst[i] = 0; }
         bool level = MathF.Abs(d.Z) <= 1.5f;
+        if (melee && distance <= MusouFacingRules.MeleeEngageRange) _faceWant[i] = toward;   // a close melee Ork faces its target while it closes in
         if (melee)
         {
             if (_token[i] == MeleeToken)
@@ -486,7 +488,9 @@ public sealed partial class MusouSim
             {
                 if (_burst[i] > 0)
                 {
-                    Face(i, toward);
+                    // Turn to the target first; a round leaves only with the gun within the cone of it (MusouSim.Facing.cs).
+                    bool aimed = TurnTo(i, toward, MusouFacingRules.ShooterTurnDegrees) <= MusouFacingRules.FireConeRadians;
+                    if (!aimed) return Vector2.Zero;
                     if (_roundTicks[i] > 0) _roundTicks[i]--;
                     else
                     {
@@ -501,16 +505,17 @@ public sealed partial class MusouSim
                     _burst[i] = (byte)Math.Clamp(spec.RangedRounds, 1, 255);
                     _roundTicks[i] = 0;
                     _cooldown[i] = Ticks(spec.RangedPeriod);
-                    Face(i, toward);
+                    TurnTo(i, toward, MusouFacingRules.ShooterTurnDegrees);
                     return Vector2.Zero;
                 }
             }
         }
         else if (distance <= spec.RangedMax * 1.2f && distance < _shotWantD[t]) { _shotWantD[t] = distance; _shotWant[t] = i; }
         // The band: closer backs off, farther or blind closes in, else holds facing the target.
+        if (distance <= spec.RangedMax * MusouFacingRules.ShooterEngageScale) _faceWant[i] = toward;   // engaged: the body faces the target while it moves
         if (distance > spec.RangedMax || (fresh && !_los[i])) return swarm is null ? Approach(i, t, d, spec.Speed) : SwarmWay(i, t, target, d, spec.Speed, slot: false, hold: false, swarm);
-        if (distance < spec.RangedMin) return -toward * spec.Speed * 0.6f;
-        Face(i, toward);
+        if (distance < spec.RangedMin) { _faceWant[i] = toward; return -toward * spec.Speed * 0.6f; }   // backs off still facing the target
+        TurnTo(i, toward, MusouFacingRules.ShooterTurnDegrees);
         return KeepOutWay(i, spec.Speed);
     }
 
@@ -651,7 +656,12 @@ public sealed partial class MusouSim
             float room = nav.EdgeDistance(_node[i]), want = BossWallRoom(spec.Radius);
             if (room < want) v += nav.EdgeGradient(_node[i]) * (want - room) / want * spec.Speed * BossWallPush;
         }
-        if (!boss && desired.LengthSquared() > 0.01f && _state[i] == MusouEnemyState.Seek) { Face(i, Vector2.Normalize(desired)); _lookSet[i] = false; }
+        if (!boss && desired.LengthSquared() > 0.01f && _state[i] == MusouEnemyState.Seek)
+        {
+            if (_faceWant[i] != Vector2.Zero) TurnTo(i, _faceWant[i], MusouFacingRules.EngageTurnDegrees);   // MusouSim.Facing.cs: engaged, it moves facing its target
+            else Face(i, Vector2.Normalize(desired));
+            _lookSet[i] = false;
+        }
         if (v.LengthSquared() < 1e-6f) { _velocity[i] = Vector2.Zero; return; }
 
         var step = v * Dt;

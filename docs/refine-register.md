@@ -35,6 +35,7 @@ Scanned 2593 spec table rows: **1903 tagged**, 481 not tagged (read from data wi
 Scanned 2595 spec table rows: **1907 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
 Scanned 2601 spec table rows: **1913 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
 Scanned 2597 spec table rows: **1909 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
+Scanned 2598 spec table rows: **1910 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -74,6 +75,8 @@ Scanned 2597 spec table rows: **1909 tagged**, 479 not tagged (read from data wi
 | **All areas** | **1907** | 1664 | 1403 | 618 | 38 |
 | **All areas** | **1913** | 1670 | 1410 | 623 | 38 |
 | **All areas** | **1909** | 1666 | 1406 | 617 | 38 |
+| Ork faction | 182 | 173 | 84 | 54 | 0 |
+| **All areas** | **1910** | 1667 | 1407 | 617 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -93,6 +96,8 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | confidence: medium | 604 |
 | kind: ours | 1015 |
 | confidence: low | 670 |
+| kind: ours | 1016 |
+| confidence: low | 671 |
 | confidence: medium | 607 |
 | kind: interpretation | 359 |
 | notes: ours | 352 |
@@ -3246,6 +3251,15 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-64573A3D` | Squads | as before: clamp(round(I / 15), 4, 12), at most 6 in the field, refilled from the landing zone every 15 s and at each secured point; 10 men in two rows of five (squads) | kind: ours; confidence: low | as before | Squads: compare with SM1 by feel or video. Ours: as before: clamp(round(I / 15), 4, 12), at most 6 in the field… | ☐ |
 | `R-AE9D13A5` | Boss Ork cleave on Guardsmen | a Boss Ork's melee blow on a squad strikes every living Guardsman, of any squad, within its melee reach + its body radius + 0.4 m (a Guardsman) + 0.5 m (the players' cleave's extra) of its feet, 1.5 m up or down, in the front half (the core's 60 degrees x… (m, men) | kind: ours; confidence: medium | the owner (2026-11-06): "the way that players cleave orks": the players' cleave and fall rules (`MusouCombatRules`, `TfwCombatRules`) reused; the reach's body… | Boss Ork cleave on Guardsmen: compare with SM1 by feel or video. Ours: a Boss Ork's melee blow on a squad strikes every living Guardsman, of… | ☐ |
 
+*Spec section: Musou Mode: Orks face their target (musou/ork-facing, 2026-11-08; `MusouSim.Version` 22, `TfwRules.Version` 44; Musou Mode only)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-D7CF2448` | Musou: fire cone | a ranged Ork (Shoota Boy, Rokkit Boy, Big Shoota Nob and any gunner using the burst) fires a round only with its facing within **30** degrees (each side) of its target; outside it, it turns and the burst waits (degrees) | kind: ours; confidence: low | ours | Musou: fire cone: compare with SM1 by measuring on a flat spot of the same map. Ours: a ranged Ork (Shoota Boy, Rokkit Boy, Big Shoota Nob and any gunner… | ☐ |
+| `R-E8358FAE` | Musou: gunner turn rate | **720** degrees a second while aiming (a half turn in 0.25 s) (deg/s) | kind: ours; confidence: low | ours | Musou: gunner turn rate: compare with SM1 by feel or video. Ours: 720 degrees a second while aiming (a half turn in 0.25 s). | ☐ |
+| `R-A14D421E` | Musou: engaged turn rate | **480** degrees a second while moving with the body on its target (deg/s) | kind: ours; confidence: low | ours | Musou: engaged turn rate: compare with SM1 by feel or video. Ours: 480 degrees a second while moving with the body on its target. | ☐ |
+| `R-2FE6015E` | Musou: facing while moving | a ranged Ork within **1.5** times its range of its target, and a melee Ork within **10** m, moves (backing off, closing in, strafing) with its body turned toward the target, not its walking direction; the Big Shoota Nob at his post likewise (m) | kind: ours; confidence: low | ours | Musou: facing while moving: compare with SM1 by measuring on a flat spot of the same map. Ours: a ranged Ork within 1.5 times its range of its target, and a melee… | ☐ |
+
 *Spec section: Musou Mode: Orks at a point spread out and look round (hotfix/ork-capture-spread, 2026-11-08; `MusouSim.Version` 20; Musou Mode only)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -3999,6 +4013,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-6F7BA444` | Musou: unseen far deaths leave no body (musou/perf-pass, owner 2026-11-08) | No Musou Mode in the original | Ours (added content; the owner: "All far battles corpses should instantly vanish. If a player cannot see it, it doesn't ever get drawn. Unless the player is close by."): a death beyond 90 m and out of view leaves no body, ragdoll or gore; an army aggregate's loss leaves a body only within 90 m | Musou performance pass and the owner's battle decisions | Musou: unseen far deaths leave no body (musou/perf-pass…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-37CB73DA` | Musou crowd batched per 32 m cell (musou/perf-pass) | No Musou Mode in the original | Ours (rendering only): the far crowd tier is drawn in cell batches with their own boxes so the view and shadow cascades skip unseen cells; the same members are drawn | Musou performance pass and the owner's battle decisions | Musou crowd batched per 32 m cell (musou/perf-pass): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-BF4243A7` | Musou: Orks at a point spread out and look round (hotfix/ork-capture-spread, owner 2026-11-08; `MusouSim.Version` 20) | No Musou Mode in the original | Ours (added content; the owner: "they should spread out a bit and look around"): Orks retaking a point each stand at their own spot across its capture ring instead of heaped at its centre, and standing Orks (there and at their posts) face varied ways, glance round every few seconds and turn to a player near them | Musou Mode only; capture unchanged. Spec "Musou Mode: Orks at a point spread out and look round". | Musou: Orks at a point spread out and look round…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-7CEF99F4` | Musou: Orks face their target (musou/ork-facing, owner 2026-11-08; `MusouSim.Version` 22, `TfwRules.Version` 44) | No Musou Mode in the original | Ours (added content; the owner: "orks should try to face the player more"): a gunner turns to its target (720 degrees a second) and fires only within 30 degrees of it; engaged Orks back off, strafe and close in with the body on the target (480 degrees a second) | Musou Mode only. Spec "Musou Mode: Orks face their target". | Musou: Orks face their target (musou/ork-facing, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-F803125D` | Musou: core messages counted in the send budget (musou/perf-pass, owner 2026-11-08) | No Musou Mode in the original | Ours (added content; the owner: "count it"): a Musou client's snapshots and other core messages come out of its Musou send budget, so its whole stream stays near 60 KB/s; far Orks are updated less often. Classic PvP unchanged | Musou performance pass and the owner's battle decisions | Musou: core messages counted in the send budget…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-82FCC980` | Ashfall grime FAST option (musou/perf-pass, owner 2026-11-08) | No Musou Mode in the original | Ours (added content; the owner: "option in Graphics"): Options > Graphics > Ashfall grime, EXACT (the overlay, default) or FAST (folded into derived kit materials for weak GPUs; close, not exact) | Musou performance pass and the owner's battle decisions | Ashfall grime FAST option (musou/perf-pass, owner…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-2EB2F140` | FSR 2 upscaling setting (musou/perf-pass; every mode, default off) | SM1 (2011) had no upscaler | Ours (the owner's brief): Options > Graphics > Upscaling, Godot's built-in AMD FSR 2.2 (Native AA, Quality 0.67, Balanced 0.59, Performance 0.5), Forward+ only; off by default, so Classic PvP looks as before | Musou performance pass and the owner's battle decisions | FSR 2 upscaling setting (musou/perf-pass; every mode…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |

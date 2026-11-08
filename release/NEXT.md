@@ -15,3 +15,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Musou Mode: Orks thrown by a grenade or any other blast no longer corkscrew through the air. Each body now flies in one clean arc straight away from the explosion, tips over as it falls and stays down where it lands.
 - Musou Mode: a glowing slash appears across every enemy your melee hits - red for the chain weapons and the combat knife, blue for the power weapons - and your own melee hits give the camera a small shake.
 - Musou Mode: every melee weapon now cleaves a wider area around you (1.5 times the old reach). This build does not play with earlier ones: everyone must update.
+
+- Musou Mode: Orks turn to face you more. Gunners no longer shoot while looking away or running off: they turn to you first (a Shoota Boy, Rokkit Boy or Big Shoota Nob fires only when facing within about 30 degrees of you), and Orks near you back off, circle and close in facing you. The build does not play with earlier ones in Musou Mode.
