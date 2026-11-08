@@ -10,7 +10,7 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Add your bullets in the same pull request as the change, when it merges.
 -->
 
-**This build does not play with earlier ones: everyone needs to update.**
+- This build does not play with earlier ones: everyone needs to update.
 
 ### Classic PvP
 - Thunder hammer and daemon maul: you can swing at any point during a hop, the recovery after a heavy double swing is shorter, and the slam can be steered while it winds up.
