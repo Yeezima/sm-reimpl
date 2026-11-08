@@ -492,6 +492,10 @@ public sealed class PackageScanner
         using (var s = open()) s.ReadExactly(data);
         bool looksLikePack = standalone || (data.Length >= 4 && data[^4] == 'G' && data[^3] == 'D' && data[^2] == 'P' && data[^1] == 'C');
         if (!looksLikePack && !isClientExe) return;       // some other executable: nothing embedded to check
+        // tools/release-parts: the Windows client is exported with its pack beside it (sm-reimpl.pck, checked as a standalone pack), so the engine
+        // stays the same file from build to build. Such an exe is accepted only when it provably embeds nothing Godot could load: a well-formed PE
+        // with no GDPC trailer and no section named like a pack. Anything else (not a PE, a pack section, a damaged header) is refused as before.
+        if (!looksLikePack && ext == ".exe" && PeHasPackSection(data) == false) return;
         var listing = ParsePack(data, embedded: !standalone);
         if (!listing.Ok) { add("pack-unverifiable", $"the Godot pack cannot be verified: {listing.Error}"); return; }
         foreach (var expected in ExpectedPackEntries)
@@ -499,6 +503,29 @@ public sealed class PackageScanner
         _verifiedPacks++;
         var problems = listing.Names.Select(PackNameProblem).Where(p => p is not null).Distinct().ToList();
         foreach (var p in problems.Take(5)) add("game-content-in-pack", p!);
+    }
+
+    /// <summary>
+    /// Whether a Windows executable has a section named like a Godot pack ("pck" in any case, anywhere in the name), where Godot can find an embedded
+    /// pack without the trailer. Null when the bytes are not a well-formed PE (MZ header, PE signature, a section table inside the file).
+    /// </summary>
+    internal static bool? PeHasPackSection(byte[] data)
+    {
+        if (data.Length < 0x40 || data[0] != 'M' || data[1] != 'Z') return null;
+        int pe = BitConverter.ToInt32(data, 0x3C);
+        if (pe < 0x40 || pe > data.Length - 24) return null;
+        if (data[pe] != 'P' || data[pe + 1] != 'E' || data[pe + 2] != 0 || data[pe + 3] != 0) return null;
+        int sections = BitConverter.ToUInt16(data, pe + 6);
+        int optional = BitConverter.ToUInt16(data, pe + 20);
+        long table = (long)pe + 24 + optional;
+        if (sections == 0 || table + 40L * sections > data.Length) return null;
+        for (int i = 0; i < sections; i++)
+        {
+            int at = (int)(table + 40L * i);
+            string name = System.Text.Encoding.ASCII.GetString(data, at, 8).TrimEnd('\0');
+            if (name.Contains("pck", StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
     }
 
     /// <summary>Licence and notice texts of third parties name their authors by e-mail address; the personal-address rule skips them.</summary>

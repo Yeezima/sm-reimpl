@@ -106,7 +106,7 @@ param(
     [string]$GameDir,
     [switch]$Publish, [switch]$ServerAssets, [switch]$NoDraft, [Alias('WhatIf')][switch]$DryRun,
     [switch]$Ship, [switch]$SkipTests, [switch]$Draft, [switch]$Supersede, [switch]$NotPrerelease, [switch]$NoPush, [switch]$AllowEmptyNotes, [switch]$Playtest, [switch]$ArchiveOnly, [switch]$KeepPrevious,
-    [switch]$Linux, [switch]$LinuxBots,
+    [switch]$Linux, [switch]$LinuxBots, [switch]$FullZip, [switch]$NoFullZip,
     [string]$Repo = 'Yeezima/sm-reimpl-releases', [switch]$AllowOtherRepo
 )
 # Step timings: every step's seconds and the total, printed as a table at the end (also when a step fails).
@@ -140,10 +140,12 @@ if ($Repo -ne 'Yeezima/sm-reimpl-releases' -and -not $AllowOtherRepo) {
 if ($Ship) {
     if ($Commit -or $Publish -or $SkipBuild -or $SkipClient -or $SkipServer -or $AllowDirty) { throw '-Ship builds and publishes HEAD of a clean main by itself; do not combine it with -Commit, -Publish, -SkipBuild, -SkipClient, -SkipServer or -AllowDirty.' }
     $Smoke = $true             # a ship always runs the smoke test
-    $Linux = $true             # every release carries the linux-x64 server: the VM downloads it from GitHub (the owner's PC to the VM can be very slow)
+    # The linux-x64 server is no longer uploaded (owner, 2026-11-08: minimal upload): the VM builds it from the shipped commit (docs/releasing.md,
+    # "Updating the Vultr server"). -Linux still builds and attaches it.
 }
 if ($ServerAssets) { $Linux = $true }      # the server assets include the Linux package
-foreach ($pair in @(@('SkipTests', $SkipTests), @('Draft', $Draft), @('Supersede', $Supersede), @('NotPrerelease', $NotPrerelease), @('NoPush', $NoPush), @('AllowEmptyNotes', $AllowEmptyNotes), @('ArchiveOnly', $ArchiveOnly), @('KeepPrevious', $KeepPrevious))) {
+if ($FullZip -and $NoFullZip) { throw '-FullZip and -NoFullZip contradict each other.' }
+foreach ($pair in @(@('SkipTests', $SkipTests), @('Draft', $Draft), @('Supersede', $Supersede), @('NotPrerelease', $NotPrerelease), @('NoPush', $NoPush), @('AllowEmptyNotes', $AllowEmptyNotes), @('ArchiveOnly', $ArchiveOnly), @('KeepPrevious', $KeepPrevious), @('FullZip', $FullZip), @('NoFullZip', $NoFullZip))) {
     if ($pair[1] -and -not $Ship) { throw "-$($pair[0]) belongs to -Ship (ship.cmd)." }
 }
 $ErrorActionPreference = 'Stop'
@@ -352,10 +354,16 @@ $Protocol = $m.Groups[1].Value
 $BuildDate = (git -C $RepoRoot show -s --format=%cd --date=format:%Y-%m-%d $CommitSha).Trim()
 if ($BuildDate -notmatch '^\d{4}-\d{2}-\d{2}$') { Fail "Could not read the commit date of $CommitSha ('$BuildDate')." }
 $Info = "$Version|$BuildDate"
-# The launcher's file version: <year>.<month*100+day>.<minute of the day> of the commit time (UTC). A launcher offers to replace itself with the one inside
-# a newer build when that one's version is higher, so it must grow with every build (two builds in the same minute would compare equal: no offer).
-$commitTime = [DateTimeOffset]::FromUnixTimeSeconds([int64]((git -C $RepoRoot show -s --format=%ct $CommitSha | Out-String).Trim())).UtcDateTime
+# The launcher's file version: <year>.<month*100+day>.<minute of the day> (UTC) of the last commit that changed the launcher's inputs (its two projects,
+# the build props, the SDK pin, the icon), and its informational version names that commit. A launcher offers to replace itself with the one inside a
+# newer build when that one's version is higher, so it grows whenever the launcher changes; a build whose launcher did not change carries the
+# byte-identical launcher (reproducible publish, PathMap), so its part is not uploaded again (docs/releasing.md, "Parts").
+$LauncherInputs = @('src/SmLauncher', 'src/SmLauncher.Core', 'Directory.Build.props', 'Directory.Build.targets', 'global.json', 'client/icon.ico')
+$LauncherCommit = (git -C $RepoRoot log -1 --format=%H $CommitSha -- @LauncherInputs | Out-String).Trim()
+if (-not $LauncherCommit) { $LauncherCommit = $CommitSha }
+$commitTime = [DateTimeOffset]::FromUnixTimeSeconds([int64]((git -C $RepoRoot show -s --format=%ct $LauncherCommit | Out-String).Trim())).UtcDateTime
 $LauncherVersion = '{0}.{1}.{2}' -f $commitTime.Year, ($commitTime.Month * 100 + $commitTime.Day), ($commitTime.Hour * 60 + $commitTime.Minute)
+$LauncherInfo = "launcher-$($LauncherCommit.Substring(0, 8))|$($commitTime.ToString('yyyy-MM-dd'))"
 # git describe found a tag: v<describe> (no second v if the tag already starts with v and a digit). A bare commit hash: tester-<date>-<short sha>.
 $Tag = if ($Version -match '^[0-9a-f]{7,40}$') { "tester-$BuildDate-$($CommitSha.Substring(0, 7))" } elseif ($Version -match '^v\d') { $Version } else { "v$Version" }
 
@@ -412,7 +420,13 @@ $Zips = [ordered]@{
     serverLinux = Join-Path $OutDir "sm-reimpl-server-linux-x64-$Version.tar.gz"
     botsLinux = Join-Path $OutDir "sm-reimpl-bots-linux-x64-$Version.tar.gz"
     source = Join-Path $OutDir "sm-reimpl-source-$Version.zip"
+    parts = Join-Path $OutDir "$PlaytestName.parts.json"         # the build in parts: the manifest (docs/releasing.md, "Parts")
 }
+# The part zips (named by their content fingerprint) next to the manifest, and the stable release of the releases repository that holds every part ever
+# uploaded (published, never hidden, so its assets stay downloadable). A ship uploads only the parts that release lacks.
+$PartsDir = Join-Path $OutDir 'parts'
+$PartsTag = 'parts'
+$PublishDir = Join-Path $OutDir '_publish'          # what a ship uploads: the manifest with the reused parts' hashes
 $SourceZipName = Split-Path -Leaf $Zips.source
 $Sums = Join-Path $OutDir 'SHA256SUMS.txt'
 $Notes = Join-Path $OutDir 'RELEASE-NOTES.md'
@@ -518,13 +532,19 @@ function Invoke-Scan([string[]]$paths, [switch]$Rehash) {
     foreach ($c in $secretFiles) { $common += @('--secrets', $c) }
     # Profiles by the file's leaf name (never the folder).
     $leaf = { param($p) Split-Path -Leaf $p }
-    $playtest = @($paths | Where-Object { (& $leaf $_) -match '^SM-Reimpl-Playtest-' })
+    $playtest = @($paths | Where-Object { (& $leaf $_) -match '^SM-Reimpl-Playtest-.*\.zip$' })
     $server = @($paths | Where-Object { (& $leaf $_) -match '^sm-reimpl-(server|bots)-' })
-    $other = @($paths | Where-Object { (& $leaf $_) -notmatch '^(SM-Reimpl-Playtest-|sm-reimpl-server-|sm-reimpl-bots-)' })
+    # The parts: binary packages like the playtest zip; the client part (the game's pack) must hold a verified Godot pack, the source part holds the
+    # source offer. The manifest (.parts.json) is a document: content rules only.
+    $clientPart = @($paths | Where-Object { (& $leaf $_) -match '^sm-reimpl-part-client-' })
+    $parts = @($paths | Where-Object { (& $leaf $_) -match '^sm-reimpl-part-' -and (& $leaf $_) -notmatch '^sm-reimpl-part-client-' })
+    $other = @($paths | Where-Object { (& $leaf $_) -notmatch '^(SM-Reimpl-Playtest-.*\.zip$|sm-reimpl-server-|sm-reimpl-bots-|sm-reimpl-part-)' })
     # Anything but a clean exit 0 is a refusal: a crashed process exits with a large or negative code (0xE0434352), or leaves no code at all.
     # The first real non-zero code is returned (-1 when there was no code), so the failure message can show it.
     $result = 0
-    foreach ($run in @(@{ Paths = $playtest; Extra = @('--profile', 'binary', '--require-pack', '--source-archive', "source/$SourceZipName") }, @{ Paths = $server; Extra = @('--profile', 'binary') }, @{ Paths = $other; Extra = @() })) {
+    foreach ($run in @(@{ Paths = $playtest; Extra = @('--profile', 'binary', '--require-pack', '--source-archive', "source/$SourceZipName") }, @{ Paths = $server; Extra = @('--profile', 'binary') },
+                       @{ Paths = $clientPart; Extra = @('--profile', 'binary', '--require-pack') }, @{ Paths = $parts; Extra = @('--profile', 'binary', '--source-archive', "source/$SourceZipName") },
+                       @{ Paths = $other; Extra = @() })) {
         if ($run.Paths.Count -eq 0) { continue }
         $global:LASTEXITCODE = 1                       # so that a command that never ran cannot look like success
         & dotnet @($common + $run.Extra + $run.Paths) | Out-Host
@@ -555,12 +575,41 @@ function Test-Sums([string[]]$Require = @()) {
 # The release description (tools/release/package/RELEASE-NOTES.md) with the playtest zip's name, size and SHA-256; with -ServerAssets also the server
 # packages and the source zip with their hashes. Written next to the packages on every build, so the owner can read it before publishing.
 # "What's new" (release/NEXT.md) goes at the top. -Placeholder (ship -DryRun): nothing is built yet, so the size and the hash are placeholders.
-function Write-ReleaseNotes([switch]$WithServerAssets, [switch]$Placeholder) {
-    if (-not $Placeholder -and -not (Test-Path -LiteralPath $Zips.playtest)) { return }
+# A build with parts: the manifest's hash in the Download check (the launcher refuses a manifest the release does not vouch for), the launcher part as the
+# new tester's download, and the full zip only when -WithZip (the ship's bridge release, or -FullZip). -Manifest: the manifest that is uploaded (a ship's
+# copy names the reused parts' zips), default the build's own.
+function Write-ReleaseNotes([switch]$WithServerAssets, [switch]$Placeholder, [switch]$WithZip, [switch]$ZipOnly, [string]$Manifest = $Zips.parts) {
+    $hasParts = -not $ZipOnly -and ($Placeholder -or (Test-Path -LiteralPath $Manifest))
+    if (-not $hasParts) { $WithZip = $true }       # an older layout without parts: the zip as before
+    if (-not $Placeholder -and $WithZip -and -not (Test-Path -LiteralPath $Zips.playtest)) { return }
     $t = $Tokens.Clone()
-    $t.ZIP = Split-Path -Leaf $Zips.playtest
-    $t.ZIPSIZE = if ($Placeholder) { '<size after the build>' } else { Size-Text $Zips.playtest }
-    $t.SHA256 = if ($Placeholder) { '<SHA-256 after the build>' } else { Sha256 $Zips.playtest }
+    $zipName = Split-Path -Leaf $Zips.playtest
+    $zipSize = if ($Placeholder) { '<size after the build>' } else { Size-Text $Zips.playtest }
+    $zipSha = if ($Placeholder) { '<SHA-256 after the build>' } else { Sha256 $Zips.playtest }
+    $zipCheck = "SHA-256 of ``$zipName``:`n``````n$zipSha`n``````n"
+    $fullZipSteps = "1. Download **``$zipName``** ($zipSize) from **Assets** below.`n2. Right-click the zip > **Properties** > tick **Unblock** > **OK**. The programs are not code-signed; this stops Windows from blocking every file inside.`n3. Right-click the zip > **Extract All...** to a folder of your choice. Keep the folders as they are.`n4. Open the folder and run **``$LauncherTop``**. It installs the build into its own folder, looks for new builds each time it starts, downloads and checks them, and starts the game. From then on, start **SM Reimpl Launcher** from the desktop or the Start menu. (Or run **``$($TopFiles.PLAY.Name)``** directly.)"
+    if (-not $hasParts) {
+        $t.GETIT = $fullZipSteps
+        $t.CHECK = $zipCheck + "In PowerShell: ``Get-FileHash .\$zipName```n"
+    } else {
+        $mName = Split-Path -Leaf $Zips.parts
+        $mSha = if ($Placeholder) { '<SHA-256 after the build>' } else { Sha256 $Manifest }
+        if ($Placeholder) { $lAsset = 'sm-reimpl-part-launcher-<fingerprint>.zip'; $lSize = '<size>'; $build = '<size>' }
+        else {
+            $mj = Get-Content -LiteralPath $Manifest -Raw | ConvertFrom-Json
+            $lp = @($mj.parts | Where-Object { $_.name -eq 'launcher' })[0]
+            if (-not $lp) { Fail 'The manifest has no launcher part.' }
+            $lAsset = $lp.asset; $lSize = '{0:N0} MB' -f ($lp.zipSize / 1MB)
+            $build = '{0:N0} MB' -f ((($mj.parts | ForEach-Object { [double]$_.zipSize }) | Measure-Object -Sum).Sum / 1MB)
+        }
+        $lUrl = "https://github.com/$Repo/releases/download/$PartsTag/$lAsset"
+        $steps = "**New here?** Download **[the SM Reimpl Launcher]($lUrl)** ($lSize). Right-click the zip > **Properties** > tick **Unblock** > **OK**, then **Extract All...** and run **``$LauncherTop``**. It downloads this build (about $build), checks every file, installs it into its own folder and starts the game; from then on, start **SM Reimpl Launcher** from the desktop or the Start menu. Updates download only the parts of the build that changed."
+        if ($WithZip) { $steps += "`n`nOr the whole build as one zip:`n`n" + $fullZipSteps }
+        $t.GETIT = $steps
+        # The launcher reads the manifest's hash from the line right after "SHA-256 of `<name>`:" (ReleaseNotes.FindZipHash): keep that layout.
+        $t.CHECK = "SHA-256 of ``$mName``:`n``````n$mSha`n``````n(The build's parts list: the launcher checks it, then every part and every file against it.)`n"
+        if ($WithZip) { $t.CHECK += "`n" + $zipCheck + "In PowerShell: ``Get-FileHash .\$zipName```n" }
+    }
     # The comment marks the end of the What's new for the launcher, which shows that part (invisible on GitHub).
     $t.WHATSNEW = if ($WhatsNew) { "## What's new in this build`n`n$WhatsNew`n`n<!-- whats-new-end -->`n`n" } else { '' }
     $t.SERVERASSETS = ''
@@ -601,7 +650,80 @@ function Ship-CreateArgs {
     $a = @('release', 'create', $Tag, '--repo', $Repo, '--title', "sm-reimpl tester build $Version", '--notes-file', $Notes)
     if ($Draft) { $a += '--draft' }
     if ($NotPrerelease) { if (-not $Draft) { $a += '--latest' } } else { $a += '--prerelease' }
-    return ,($a + @($Zips.playtest, $Zips.serverLinux))
+    # The build's own release carries only its parts manifest (the parts live in the parts release); the full zip only on a bridge release or with
+    # -FullZip; the linux-x64 server only with -Linux (the VM builds it from the shipped commit).
+    $assets = @(if (Test-Path -LiteralPath $Zips.parts) { $script:PublishManifest } else { $Zips.playtest })
+    if ($script:ShipZip -and (Test-Path -LiteralPath $Zips.parts)) { $assets += $Zips.playtest }
+    if ($Linux) { $assets += $Zips.serverLinux }
+    return ,($a + $assets)
+}
+
+# ---- ship: the parts release ------------------------------------------------------------------------------------------
+# The releases repository's release $PartsTag holds every part zip ever uploaded, each named by its content fingerprint, so a part is uploaded once and
+# every later build that has the same files names the same zip. It is published (assets of a draft are not downloadable without a token) and a
+# pre-release (never "latest"); the launcher ignores it (no playtest zip, no parts manifest). Nothing is ever deleted or overwritten in it: older
+# manifests name its zips by their SHA-256.
+$script:PublishManifest = Join-Path $PublishDir (Split-Path -Leaf $Zips.parts)
+$script:ShipZip = $false
+function Gh-Text([string[]]$a) {
+    $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try { $out = (& gh @a 2>$null | Out-String); return @{ Code = $LASTEXITCODE; Out = $out } } finally { $ErrorActionPreference = $old }
+}
+# The parts release: @{ Exists; Draft; AssetsFile } (AssetsFile: GitHub's JSON of the release, for smtool release-parts plan).
+function Get-PartsRelease {
+    $file = Join-Path $OutDir 'parts-release.json'
+    $r = Gh-Text @('api', "repos/$Repo/releases/tags/$PartsTag")
+    if ($r.Code -ne 0) {
+        # Not found (404) or the API failed: tell them apart with gh release view (which also reads drafts).
+        $v = Gh-Text @('release', 'view', $PartsTag, '--repo', $Repo, '--json', 'isDraft')
+        if ($v.Code -ne 0) { if (Test-Path -LiteralPath $file) { Remove-Item -LiteralPath $file }; return @{ Exists = $false; Draft = $false; AssetsFile = $file } }
+        $a = Gh-Text @('release', 'view', $PartsTag, '--repo', $Repo, '--json', 'assets')      # a draft (the API's tag lookup does not see drafts)
+        if ($a.Code -ne 0 -or -not $a.Out.Trim()) { Fail "Could not read the $PartsTag release of $Repo (gh exit $($a.Code))." }
+        Write-Utf8 $file $a.Out
+        return @{ Exists = $true; Draft = $true; AssetsFile = $file }
+    }
+    Write-Utf8 $file $r.Out
+    return @{ Exists = $true; Draft = $false; AssetsFile = $file }
+}
+# smtool release-parts plan against the parts release: which part zips to upload. An existing asset without GitHub's digest is downloaded and hashed
+# (never in a dry run). Writes the manifest to upload ($script:PublishManifest) with the reused zips' SHA-256 and size.
+function Plan-PartsUpload([string]$assetsFile, [switch]$NoDownload) {
+    New-Item -ItemType Directory -Force -Path $PublishDir | Out-Null
+    $base = @('run', '--project', (Join-Path $RepoRoot 'src\SmTool\SmTool.csproj'), '-c', 'Release', '--no-build', '--', 'release-parts', 'plan', $Zips.parts, '--remote', $assetsFile, '--write', $script:PublishManifest)
+    $digests = @()
+    for ($round = 1; $round -le 2; $round++) {
+        $lines = @(& dotnet @($base + $digests))
+        $code = $LASTEXITCODE
+        $plan = @{ Upload = @(); Reuse = @(); NoDigest = @(); Lines = $lines; Code = $code }
+        foreach ($l in $lines) {
+            if ($l -match '^UPLOAD (\S+) (\d+) (\S+)$') { $plan.Upload += [pscustomobject]@{ Asset = $Matches[1]; Size = [int64]$Matches[2]; Part = $Matches[3]; Path = (Join-Path $PartsDir $Matches[1]) } }
+            elseif ($l -match '^REUSE (\S+) (\d+) (\S+)$') { $plan.Reuse += [pscustomobject]@{ Asset = $Matches[1]; Size = [int64]$Matches[2]; Part = $Matches[3] } }
+            elseif ($l -match '^NODIGEST (\S+)$') { $plan.NoDigest += $Matches[1] }
+        }
+        if ($code -eq 0) { return $plan }
+        if ($code -ne 3 -or $NoDownload -or $round -eq 2) { return $plan }
+        # GitHub gave no digest for some existing assets: download them and hash them here.
+        $tmp = Join-Path $PublishDir 'hash-check'
+        New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+        foreach ($n in $plan.NoDigest) {
+            $r = Gh-Text @('release', 'download', $PartsTag, '--repo', $Repo, '--pattern', $n, '--dir', $tmp, '--clobber')
+            if ($r.Code -ne 0) { Fail "Could not download $n from the $PartsTag release to check its SHA-256 (gh exit $($r.Code))." }
+            $digests += @('--digest', "$n=$(Sha256 (Join-Path $tmp $n))")
+        }
+        Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+# The full zip goes up only on the bridge release: the first build with parts, while no published release has a parts manifest yet. Launchers older than
+# the parts layout take only a zip; the bridge release stays published (Hide-PreviousReleases skips it), so such a launcher finds it, installs it and
+# with it the new launcher. -FullZip forces the zip, -NoFullZip leaves it out.
+function Want-FullZip {
+    if ($FullZip) { return @{ Zip = $true; Why = '-FullZip' } }
+    if ($NoFullZip) { return @{ Zip = $false; Why = '-NoFullZip' } }
+    if (-not (Test-Path -LiteralPath $Zips.parts) -and -not ($Ship -and $DryRun)) { return @{ Zip = $true; Why = 'this build has no parts' } }
+    $rows = @(Published-Rows)
+    $withParts = @($rows | Where-Object { $_.Parts -and $_.Tag -cne $Tag })
+    if ($withParts.Count -gt 0) { return @{ Zip = $false; Why = "launchers find the parts ($($withParts[0].Tag) has a parts manifest already)" } }
+    return @{ Zip = $true; Why = 'the bridge release: no published build has parts yet, so launchers from before the parts layout need the zip once' }
 }
 # The newest published (not draft) release other than this one: the one -Supersede points at the new build. Empty when there is none or gh fails.
 function Previous-Release {
@@ -609,8 +731,25 @@ function Previous-Release {
     try {
         $tags = @(& gh api "repos/$Repo/releases?per_page=30" --jq '.[] | select(.draft == false) | .tag_name' 2>$null)
         if ($LASTEXITCODE -ne 0) { return $null }
-        return @($tags | Where-Object { $_ -and $_ -ne $Tag } | Select-Object -First 1)[0]
+        return @($tags | Where-Object { $_ -and $_ -ne $Tag -and $_ -ne $PartsTag } | Select-Object -First 1)[0]
     } finally { $ErrorActionPreference = $old }
+}
+# Every published (not draft) release with what the launcher sees in it: @{ Tag; At; Zip (a playtest zip); Parts (a parts manifest) }. Throws when gh fails.
+# (The JSON is read here, not filtered with jq: Windows PowerShell 5.1 mangles quotes in a native command's arguments.)
+function Published-Rows {
+    $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
+    try {
+        $lines = @(& gh api --paginate "repos/$Repo/releases?per_page=100" --jq '.[] | {tag_name, draft, published_at, names: [.assets[].name]}' 2>$null)
+        if ($LASTEXITCODE -ne 0) { Fail "gh api repos/$Repo/releases failed (exit $LASTEXITCODE)" }
+    } finally { $ErrorActionPreference = $old }
+    foreach ($l in $lines) {
+        if (-not $l.Trim()) { continue }
+        $r = $l | ConvertFrom-Json
+        if ($r.draft) { continue }
+        [pscustomobject]@{ Tag = $r.tag_name; At = [string]$r.published_at
+            Zip = [bool](@($r.names) | Where-Object { $_ -match '^SM-Reimpl-Playtest-.+-Windows\.zip$' })
+            Parts = [bool](@($r.names) | Where-Object { $_ -match '^SM-Reimpl-Playtest-.+-Windows\.parts\.json$' }) }
+    }
 }
 $SupersedeMark = '<!-- superseded -->'
 # Puts a "newer build" line on top of the previous release's description. Refuses (throws) when its description cannot be read or is empty: an edit
@@ -637,14 +776,18 @@ function Invoke-Supersede([string]$url) {
     } catch { Write-Warning "-Supersede did not edit the previous release ($($_.Exception.Message)). Edit it on GitHub if wanted (docs/releasing.md)." }
 }
 
-# Every other published (not draft) release of the repository: the ones a new build hides. Throws when gh fails.
+# Every other published (not draft) release of the repository: the ones a new build hides. Never the parts release (its zips must stay downloadable),
+# and, while the new build has no full zip, never the newest release that has one (the bridge for launchers from before the parts layout). Throws when
+# gh fails.
 function Published-Others {
-    $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
-    try {
-        $tags = @(& gh api --paginate "repos/$Repo/releases?per_page=100" --jq '.[] | select(.draft == false) | .tag_name' 2>$null)
-        if ($LASTEXITCODE -ne 0) { Fail "gh api repos/$Repo/releases failed (exit $LASTEXITCODE)" }
-        return @($tags | Where-Object { $_ -and $_ -cne $Tag })
-    } finally { $ErrorActionPreference = $old }
+    $rows = @(Published-Rows | Where-Object { $_.Tag -and $_.Tag -cne $Tag -and $_.Tag -cne $PartsTag })
+    $script:BridgeTag = $null
+    $newHasZip = $script:ShipZip -or -not (Test-Path -LiteralPath $Zips.parts)
+    if (-not $newHasZip) {
+        $bridge = @($rows | Where-Object { $_.Zip } | Sort-Object At -Descending)[0]
+        if ($bridge) { $script:BridgeTag = $bridge.Tag; $rows = @($rows | Where-Object { $_.Tag -cne $bridge.Tag }) }
+    }
+    return @($rows | ForEach-Object { $_.Tag })
 }
 # Hides the earlier builds (back to drafts: invisible to testers, nothing deleted) once $Tag is published. Never fails the ship: a warning per problem.
 function Hide-PreviousReleases {
@@ -654,6 +797,7 @@ function Hide-PreviousReleases {
         $state = (& gh release view $Tag --repo $Repo --json isDraft | ConvertFrom-Json)
         if (-not $state -or $state.isDraft) { Write-Warning "$Tag is not published; earlier releases stay visible."; return }
         $others = @(Published-Others)
+        if ($script:BridgeTag) { Write-Host "  kept $($script:BridgeTag) visible: the newest build with a full zip, which launchers from before the parts layout need" }
         if (-not $others) { Write-Host '  No earlier published release to hide.'; return }
         foreach ($t in $others) {
             & gh release edit $t --repo $Repo --draft=true | Out-Null
@@ -883,10 +1027,35 @@ if ($Ship -and $ArchiveOnly) {
 
 if ($Ship -and $DryRun) {
     Step "Ship DRY RUN: nothing is built, published, committed or stopped"
-    Write-Host "  would build: $PlaytestName.zip, the win64 server package$(if ($Linux) { ', the linux-x64 server package' }) and the source zip; content guard; smoke test (127.0.0.1, ports 27141-27199)"
+    Write-Host "  would build: $PlaytestName.zip and its parts ($(Split-Path -Leaf $Zips.parts) and parts\), the win64 server package$(if ($Linux) { ', the linux-x64 server package' }) and the source zip; content guard; smoke test (install from the parts; 127.0.0.1, ports 27141-27199)"
     New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+    # The upload: which parts the parts release lacks. Needs this version's parts from an earlier build (release.cmd) to say it exactly.
+    $ghReady = [bool](Get-Command gh -ErrorAction SilentlyContinue)
+    $zipChoice = if ($ghReady) { try { Want-FullZip } catch { @{ Zip = $true; Why = "unknown ($($_.Exception.Message))" } } } else { @{ Zip = $true; Why = 'gh is missing' } }
+    $script:ShipZip = $zipChoice.Zip
+    Write-Host '  the upload:' -ForegroundColor Cyan
+    $dryManifest = $Zips.parts
+    if ((Test-Path -LiteralPath $Zips.parts) -and $ghReady) {
+        $pr = Get-PartsRelease
+        if (-not $pr.Exists) { Write-Host "  $(Format-Command 'gh' @('release', 'create', $PartsTag, '--repo', $Repo, '--prerelease', '--latest=false', '--title', 'Download parts (used by the launcher)', '--notes-file', '<notes>'))   (once: the parts release does not exist yet)" }
+        elseif ($pr.Draft) { Write-Host "  $(Format-Command 'gh' @('release', 'edit', $PartsTag, '--repo', $Repo, '--draft=false'))   (the parts release is a draft: its zips would not download)" }
+        $plan = Plan-PartsUpload $pr.AssetsFile -NoDownload
+        $up = @($plan.Upload); $re = @($plan.Reuse)
+        foreach ($p in $up) { Write-Host ('  would upload  {0,-48} {1,9:N1} MB  ({2})' -f $p.Asset, ($p.Size / 1MB), $p.Part) -ForegroundColor Yellow }
+        foreach ($p in $re) { Write-Host ('  reuse         {0,-48} {1,9:N1} MB  ({2}, already in {3})' -f $p.Asset, ($p.Size / 1MB), $p.Part, $PartsTag) }
+        foreach ($n in @($plan.NoDigest)) { Write-Host "  hash first    $n (no digest on GitHub: the ship downloads it and hashes it)" }
+        if (Test-Path -LiteralPath $script:PublishManifest) { $dryManifest = $script:PublishManifest }
+        $upBytes = ($up | ForEach-Object { $_.Size } | Measure-Object -Sum).Sum + (Get-Item -LiteralPath $dryManifest).Length
+        if ($script:ShipZip -and (Test-Path -LiteralPath $Zips.playtest)) { $upBytes += (Get-Item -LiteralPath $Zips.playtest).Length }
+        Write-Host ('  upload total: {0:N1} MB ({1} part(s), the manifest{2})' -f ($upBytes / 1MB), $up.Count, $(if ($script:ShipZip) { ', the full zip' } else { '' })) -ForegroundColor Cyan
+        if ($up.Count -gt 0) { Write-Host "  $(Format-Command 'gh' (@('release', 'upload', $PartsTag, '--repo', $Repo) + @($up | ForEach-Object { $_.Path })))" }
+    } elseif (-not (Test-Path -LiteralPath $Zips.parts)) {
+        Write-Host "  (no parts of $Version built yet: run release.cmd first to see which parts would be uploaded; without a build every part the parts release lacks goes up)"
+    } else { Write-Host '  (gh is missing: the parts release cannot be compared)' }
+    Write-Host "  full zip: $(if ($script:ShipZip) { 'uploaded' } else { 'not uploaded' }) ($($zipChoice.Why))"
+    if ($Linux) { Write-Host '  -Linux: the linux-x64 server package is attached too' } else { Write-Host '  linux-x64 server: not uploaded (the VM builds it from the shipped commit; docs/releasing.md)' }
     $Notes = Join-Path $OutDir 'RELEASE-NOTES.dry-run.md'
-    Write-ReleaseNotes -Placeholder
+    if (Test-Path -LiteralPath $dryManifest) { Write-ReleaseNotes -WithZip:$script:ShipZip -Manifest $dryManifest } else { Write-ReleaseNotes -Placeholder -WithZip:$script:ShipZip }
     Write-Host "  release description (preview): $Notes"
     Write-Host '  ---- "What''s new" ----'
     if ($WhatsNew) { $WhatsNew -split "`n" | ForEach-Object { Write-Host "  $_" } } else { Write-Host '  (none)' }
@@ -930,6 +1099,7 @@ if (-not $SkipBuild) {
     if (Test-Path -LiteralPath $Stage) { Remove-Item -LiteralPath $Stage -Recurse -Force }
     New-Item -ItemType Directory -Force -Path $Stage | Out-Null
     foreach ($z in $Zips.Values) { if (Test-Path -LiteralPath $z) { Remove-Item -LiteralPath $z } }
+    foreach ($dir in $PartsDir, $PublishDir) { if (Test-Path -LiteralPath $dir) { Remove-Item -LiteralPath $dir -Recurse -Force } }
     # Packages of an earlier layout of this version (the client zip) would be mistaken for this build's.
     Get-ChildItem -LiteralPath $OutDir -File | Where-Object { $_.Name -match '^(sm-reimpl-client-|SM-Reimpl-Playtest-)' } | Remove-Item -Force
     foreach ($f in $Sums, $Notes) { if (Test-Path -LiteralPath $f) { Remove-Item -LiteralPath $f } }
@@ -964,7 +1134,9 @@ if (-not $SkipBuild) {
     # The launcher: self-contained, single file, compressed (WinForms cannot be trimmed safely, so it is not trimmed). Its version comes from the commit time.
     function Publish-Launcher([string]$dest) {
         Step "Publishing the launcher (win-x64, self-contained single file, version $LauncherVersion)"
-        Run-Native 'dotnet publish launcher' { dotnet publish (Join-Path $SrcCopy 'src\SmLauncher\SmLauncher.csproj') -c Release -r win-x64 -o $dest -nologo -v quiet @pubProps "-p:Version=$LauncherVersion" }
+        # Its own informational version (the launcher's commit, not the build's), so an unchanged launcher is the same file in every build.
+        $launcherProps = @($pubProps | ForEach-Object { if ($_ -like '-p:InformationalVersion=*') { "-p:InformationalVersion=$LauncherInfo" } else { $_ } })
+        Run-Native 'dotnet publish launcher' { dotnet publish (Join-Path $SrcCopy 'src\SmLauncher\SmLauncher.csproj') -c Release -r win-x64 -o $dest -nologo -v quiet @launcherProps "-p:Version=$LauncherVersion" }
         $exe = Join-Path $dest 'SM Reimpl Launcher.exe'
         if (-not (Test-Path -LiteralPath $exe)) { Fail 'The launcher publish produced no "SM Reimpl Launcher.exe".' }
         return $exe
@@ -1151,6 +1323,14 @@ if (-not $SkipBuild) {
         $want = @(@($LauncherTop) + @($TopFiles.Values | ForEach-Object { $_.Name }) + @('game', 'notes', 'server', 'source') | Sort-Object)
         if (($top -join '|') -ne ($want -join '|')) { Fail "The playtest zip's top level is not what testers are told: $($top -join ', ')" }
         New-Zip $d $Zips.playtest '' @()
+        # The same folder in parts (engine, .NET runtime, game, media, Ashfall kit, server, launcher, source, notes), each zip named by its content
+        # fingerprint, and the manifest the launcher installs from (docs/releasing.md, "Parts").
+        Step "Splitting the build into parts ($(Split-Path -Leaf $Zips.parts))"
+        $partArgs = @('run', '--project', (Join-Path $RepoRoot 'src\SmTool\SmTool.csproj'), '-c', 'Release', '--no-build', '--', 'release-parts', 'build', $d,
+            '--parts-dir', $PartsDir, '--manifest', $Zips.parts, '--tag', $Tag, '--version', $Version, '--commit', $CommitSha, '--built', $BuildDate, '--parts-tag', $PartsTag)
+        $partLines = @(& dotnet @partArgs)
+        if ($LASTEXITCODE -ne 0) { Fail "smtool release-parts build failed (exit $LASTEXITCODE)." }
+        foreach ($l in $partLines) { if ($l -match '^PART (\S+) (\S+) (\d+) (\d+) (\d+)$') { Write-Host ('  {0,-9} {1,-48} {2,9:N1} MB zipped ({3} files, {4:N1} MB)' -f $Matches[1], $Matches[2], ([double]$Matches[3] / 1MB), $Matches[4], ([double]$Matches[5] / 1MB)) } else { Write-Host "  $l" } }
     }
 
     # ---- the headless bot client for a Linux server (-LinuxBots) ----
@@ -1217,11 +1397,15 @@ if (-not $SkipBuild) {
 # ---- guard, sums, notes ----------------------------------------------------------------------------------------------
 $built = @($Zips.Values | Where-Object { Test-Path -LiteralPath $_ })
 if ($built.Count -eq 0) { Fail "No packages in $OutDir." }
+# Every part zip of this build too (each one may be uploaded on its own).
+$PartZips = @(if (Test-Path -LiteralPath $PartsDir) { Get-ChildItem -LiteralPath $PartsDir -Filter 'sm-reimpl-part-*.zip' | ForEach-Object FullName })
+if ((Test-Path -LiteralPath $Zips.parts) -and $PartZips.Count -eq 0) { Fail "The manifest $(Split-Path -Leaf $Zips.parts) has no part zips beside it ($PartsDir)." }
 Time-Step 'content guard'
 Step 'Content guard (smtool scan-package)'
-$scanCode = Invoke-Scan $built
+$scanCode = Invoke-Scan (@($built) + @($PartZips))
 if ($scanCode -ne 0) {
     foreach ($z in $built) { Remove-Item -LiteralPath $z -Force }
+    if (Test-Path -LiteralPath $PartsDir) { Remove-Item -LiteralPath $PartsDir -Recurse -Force }
     foreach ($f in $Sums, $Notes) { if (Test-Path -LiteralPath $f) { Remove-Item -LiteralPath $f } }
     Fail "The content guard refused the packages (exit $scanCode). They were deleted. Nothing may be distributed."
 }
@@ -1237,6 +1421,7 @@ Write-ReleaseNotes -WithServerAssets:$ServerAssets
 Write-Host ''
 Write-Host "Packages in $OutDir" -ForegroundColor Green
 foreach ($z in $built) { Write-Host ('  {0,-60} {1,10}' -f (Split-Path -Leaf $z), (Size-Text $z)) }
+if ($PartZips.Count -gt 0) { Write-Host ('  parts\ ({0} part zips, {1:N0} MB together; the manifest names them with their SHA-256)' -f $PartZips.Count, (($PartZips | ForEach-Object { (Get-Item -LiteralPath $_).Length } | Measure-Object -Sum).Sum / 1MB)) }
 Write-Host '  SHA256SUMS.txt'
 if (Test-Path -LiteralPath $Notes) { Write-Host '  RELEASE-NOTES.md (the release description)' }
 
@@ -1269,14 +1454,38 @@ if ($Smoke) {
     $smokeDir = Join-Path $OutDir '_smoke'
     if (Test-Path -LiteralPath $smokeDir) { Remove-Item -LiteralPath $smokeDir -Recurse -Force }
     New-Item -ItemType Directory -Force -Path $smokeDir | Out-Null
-    $pkg = Join-Path $smokeDir 'Playtest folder'          # a space in the path, as most testers' folders have
-    Expand-Archive -LiteralPath $Zips.playtest -DestinationPath $pkg
+    $fail = $false
+    if (Test-Path -LiteralPath $Zips.parts) {
+        # 0. As a new tester gets it: the launcher part alone, unpacked; it installs the build from the parts (a local folder instead of GitHub, with
+        #    every check of a real update: the manifest's hash, each part's hash, each file's hash, the build's own file list). The rest of the smoke
+        #    test runs in the version folder it assembled.
+        $manifestJson = Get-Content -LiteralPath $Zips.parts -Raw | ConvertFrom-Json
+        $launcherPart = @($manifestJson.parts | Where-Object { $_.name -eq 'launcher' })[0]
+        if (-not $launcherPart) { Fail 'The manifest has no launcher part.' }
+        $ldl = Join-Path $smokeDir 'Launcher download'
+        Expand-Archive -LiteralPath (Join-Path $PartsDir $launcherPart.asset) -DestinationPath $ldl
+        $iroot = Join-Path $smokeDir 'Launcher install'          # a space in the path, as most testers' folders have
+        Step "Smoke: installing $Tag from its parts ('$LauncherTop' --install-parts)"
+        $iout = Join-Path $smokeDir 'install-parts.out.txt'; $ierr = Join-Path $smokeDir 'install-parts.err.txt'
+        $ip = Start-QuietProcess -FilePath (Join-Path $ldl $LauncherTop) -ArgumentList '--root', $iroot, '--install-parts', $Zips.parts -WorkingDirectory $ldl -StdOut $iout -StdErr $ierr
+        if (-not $ip.WaitForExit(300000)) { Stop-Process -Id $ip.Id -Force; $icode = -1 } else { $icode = $ip.ExitCode }     # only the process started above
+        $itext = ((Get-Content $iout -ErrorAction SilentlyContinue) + (Get-Content $ierr -ErrorAction SilentlyContinue)) -join "`n"
+        ($itext -split "`n" | Where-Object { $_ -match '^(parts|installed|folder):' }) | ForEach-Object { Write-Host "    $_" }
+        $pkg = Join-Path $iroot "versions\$Tag"
+        if ($icode -ne 0 -or $itext -notmatch "(?m)^installed: $([regex]::Escape($Tag))" -or -not (Test-Path -LiteralPath (Join-Path $pkg 'game\sm-reimpl.exe'))) {
+            Write-Host $itext
+            Fail "Smoke test failed: the build could not be installed from its parts (exit $icode; logs kept in $smokeDir)."
+        }
+        Write-Host '  parts: the launcher part alone installed the whole build from the parts and checked every file' -ForegroundColor Green
+    } else {
+        $pkg = Join-Path $smokeDir 'Playtest folder'          # a build without parts (an older layout): the zip, unpacked
+        Expand-Archive -LiteralPath $Zips.playtest -DestinationPath $pkg
+    }
     Remove-Item Env:\SM_HOST_LAN -ErrorAction SilentlyContinue      # the smoke test hosts this PC only, whatever the calling shell has set
     $env:SM_HOST_BOTS = '0'                                          # the smoke test checks hosting, not bots (bots are not what this step checks)
     if ($GameDir) { $env:SM_GAME_DIR = $GameDir }
     $profileFile = Join-Path $smokeDir 'profile\customization.json'      # the front end's profile and settings stay in the smoke folder
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $profileFile) | Out-Null
-    $fail = $false
     try {
         # 1. The top level is the numbered files and the four folders, and the launchers are where they say.
         $top = @(Get-ChildItem -LiteralPath $pkg | ForEach-Object Name | Sort-Object)
@@ -1430,7 +1639,7 @@ if ($Publish) {
     $again = Invoke-Scan $need -Rehash          # the last scan before an upload trusts no stored hash
     if ($again -ne 0) { Fail "The content guard refused the packages just before publishing (exit $again). Nothing was uploaded." }
     Test-Sums -Require $need
-    Write-ReleaseNotes -WithServerAssets:$ServerAssets
+    Write-ReleaseNotes -WithServerAssets:$ServerAssets -ZipOnly      # -Publish uploads the zip alone (the parts go up with ship.cmd)
     $again = Invoke-Scan @($Notes) -Rehash          # the description is public too
     if ($again -ne 0) { Fail "The content guard refused RELEASE-NOTES.md (exit $again). Nothing was uploaded." }
     $ghArgs = @('release', 'create', $tag, '--repo', $Repo)
@@ -1454,12 +1663,48 @@ if ($Ship) {
     $ErrorActionPreference = 'Continue'      # gh and git report progress on stderr; every step checks its exit code and Fail still throws
     Time-Step 'publish'
     Step "Ship: publishing $Tag to $Repo"
-    # Re-scan right before the upload, the description too (it is public).
-    Write-ReleaseNotes
-    $again = Invoke-Scan @($Zips.playtest, $Zips.serverLinux, $Notes) -Rehash      # the last scan before an upload trusts no stored hash
-    if ($again -ne 0) { Fail "The content guard refused the packages or the description just before publishing (exit $again). Nothing was uploaded." }
-    Test-Sums -Require @($Zips.playtest, $Zips.serverLinux)
     if ((Quiet-Exit { gh release view $Tag --repo $Repo }) -eq 0) { Fail "$Tag appeared in $Repo while building; nothing was uploaded." }
+    $upload = @()
+    if (Test-Path -LiteralPath $Zips.parts) {
+        # The parts: only those the parts release lacks go up (docs/releasing.md, "Parts").
+        $zipChoice = Want-FullZip
+        $script:ShipZip = $zipChoice.Zip
+        Write-Host "  full zip: $(if ($script:ShipZip) { 'uploaded' } else { 'not uploaded' }) ($($zipChoice.Why))"
+        $pr = Get-PartsRelease
+        $plan = Plan-PartsUpload $pr.AssetsFile
+        if ($plan.Code -ne 0) { Fail "smtool release-parts plan failed (exit $($plan.Code)): $($plan.Lines -join '; ')" }
+        $upload = @($plan.Upload | ForEach-Object { $_.Path })
+        foreach ($p in $plan.Upload) { Write-Host ('  upload  {0,-48} {1,9:N1} MB  ({2})' -f $p.Asset, ($p.Size / 1MB), $p.Part) }
+        foreach ($p in $plan.Reuse) { Write-Host ('  reuse   {0,-48} {1,9:N1} MB  ({2})' -f $p.Asset, ($p.Size / 1MB), $p.Part) }
+        foreach ($f in $upload) { if (-not (Test-Path -LiteralPath $f)) { Fail "The part $(Split-Path -Leaf $f) to upload is missing." } }
+    } else { $script:ShipZip = $true }
+    # Re-scan right before the upload: every file that goes up, the description too (it is public).
+    $Notes = Join-Path $OutDir 'RELEASE-NOTES.md'
+    Write-ReleaseNotes -WithZip:$script:ShipZip -Manifest $script:PublishManifest
+    $goingUp = @($upload) + @(if (Test-Path -LiteralPath $Zips.parts) { $script:PublishManifest }) + @(if ($script:ShipZip) { $Zips.playtest }) + @(if ($Linux) { $Zips.serverLinux })
+    $again = Invoke-Scan (@($goingUp) + @($Notes)) -Rehash      # the last scan before an upload trusts no stored hash
+    if ($again -ne 0) { Fail "The content guard refused the packages or the description just before publishing (exit $again). Nothing was uploaded." }
+    Test-Sums -Require @(@(if ($script:ShipZip) { $Zips.playtest }) + @(if ($Linux) { $Zips.serverLinux }) + @(if (Test-Path -LiteralPath $Zips.parts) { $Zips.parts }))
+    if (Test-Path -LiteralPath $Zips.parts) {
+        if (-not $pr.Exists) {
+            $pnotes = Join-Path $PublishDir 'PARTS-NOTES.md'
+            Write-Utf8 $pnotes "The pieces of the sm-reimpl playtest builds. **You do not need to download anything here**: the SM Reimpl Launcher fetches the parts it needs and checks them. Each build's release lists its parts and their SHA-256.`n"
+            $pc = @('release', 'create', $PartsTag, '--repo', $Repo, '--prerelease', '--latest=false', '--title', 'Download parts (used by the launcher)', '--notes-file', $pnotes)
+            Write-Host "  $(Format-Command 'gh' $pc)"
+            & gh @pc
+            if ($LASTEXITCODE -ne 0) { Fail "gh release create $PartsTag failed (exit $LASTEXITCODE); nothing else was uploaded." }
+        } elseif ($pr.Draft) {
+            & gh release edit $PartsTag --repo $Repo --draft=false
+            if ($LASTEXITCODE -ne 0) { Fail "The $PartsTag release is a draft and could not be published (gh exit $LASTEXITCODE)." }
+        }
+        if ($upload.Count -gt 0) {
+            # No --clobber: an asset of the same name holds the same files (its name is their fingerprint), and older manifests name its SHA-256.
+            $ua = @('release', 'upload', $PartsTag, '--repo', $Repo) + $upload
+            Write-Host "  $(Format-Command 'gh' $ua)"
+            & gh @ua
+            if ($LASTEXITCODE -ne 0) { Fail "gh release upload $PartsTag failed (exit $LASTEXITCODE). The build is not released; parts that did go up are reused by the next run: run ship.cmd again." }
+        } else { Write-Host '  every part is in the parts release already: nothing to upload but the manifest' }
+    }
     $create = Ship-CreateArgs
     Write-Host "  $(Format-Command 'gh' $create)"
     & gh @create

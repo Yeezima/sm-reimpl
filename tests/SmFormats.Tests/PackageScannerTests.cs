@@ -335,6 +335,38 @@ public sealed class PackageScannerTests : IDisposable
         Assert.Empty(Scan(Zip(("SmServer.exe", Filler(5000)))));
     }
 
+    /// <summary>A minimal PE: MZ header, PE signature, a COFF header with no optional header, and one section per name.</summary>
+    static byte[] Pe(params string[] sections)
+    {
+        var b = new byte[0x200 + 40 * sections.Length + 256];
+        b[0] = (byte)'M'; b[1] = (byte)'Z';
+        BitConverter.GetBytes(0x80).CopyTo(b, 0x3C);
+        b[0x80] = (byte)'P'; b[0x81] = (byte)'E';
+        BitConverter.GetBytes((ushort)sections.Length).CopyTo(b, 0x80 + 6);
+        BitConverter.GetBytes((ushort)0).CopyTo(b, 0x80 + 20);
+        for (int i = 0; i < sections.Length; i++) System.Text.Encoding.ASCII.GetBytes(sections[i]).CopyTo(b, 0x80 + 24 + 40 * i);
+        return b;
+    }
+
+    [Fact]
+    public void TheClientExeWithItsPackBesideItIsAcceptedOnlyWhenItEmbedsNothing()
+    {
+        string[] fine = ["project.binary", "Main.tscn.remap"];
+        void Require(PackageScanner s) { s.RequireVerifiedPack = true; s.AllowedExtensions = BinaryProfile(); }
+        // tools/release-parts: the engine part holds the exe alone (a PE without a pack section or trailer): nothing embedded, nothing to refuse
+        Assert.Empty(Scan(Zip(("game/sm-reimpl.exe", Pe(".text", ".rdata", ".rsrc")))));
+        // a pack section without the trailer could still be loaded by Godot: refused
+        Assert.Contains(Scan(Zip(("game/sm-reimpl.exe", Pe(".text", "pck")))), f => f.Rule == "pack-unverifiable");
+        Assert.Contains(Scan(Zip(("game/sm-reimpl.exe", Pe(".text", ".PCK0")))), f => f.Rule == "pack-unverifiable");
+        // a damaged PE (section table outside the file) is refused as before
+        var cut = Pe(".text");
+        BitConverter.GetBytes((ushort)60000).CopyTo(cut, 0x80 + 6);
+        Assert.Contains(Scan(Zip(("game/sm-reimpl.exe", cut))), f => f.Rule == "pack-unverifiable");
+        // the client part: the standalone pack satisfies --require-pack; the exe alone does not
+        Assert.Empty(Scan(Zip(("game/sm-reimpl.pck", GodotExe(4, 2, false, false, fine).Skip(500).ToArray()), ("game/data_x/SmClient.dll", Filler(100))), Require));
+        Assert.Contains(Scan(Zip(("game/sm-reimpl.exe", Pe(".text"))), Require), f => f.Rule == "no-verified-pack");
+    }
+
     [Fact]
     public void TheLinuxBotExportIsCheckedLikeTheWindowsClient()
     {

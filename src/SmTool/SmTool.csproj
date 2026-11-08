@@ -1,8 +1,10 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\SmFormats\SmFormats.csproj" />
     <ProjectReference Include="..\SmContent\SmContent.csproj" />
+    <!-- release-parts: the parts manifest, builder and upload plan the launcher reads (one implementation for both sides). -->
+    <ProjectReference Include="..\SmLauncher.Core\SmLauncher.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
