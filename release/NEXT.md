@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Musou Mode: grenades work as in the normal game again. One press throws one frag with the normal blast size and damage (no more three big frags), and it can hurt you if you stand in it. A grenade you have used comes back every 15 seconds. This build does not play with earlier ones.

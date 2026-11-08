@@ -223,43 +223,37 @@ public class TfwMeleeTests
     }
 
     [Fact]
-    public void One_throw_is_three_frags_in_a_fan_for_one_grenade()
+    public void One_throw_is_one_vanilla_frag_with_the_datas_blast_for_one_grenade()
     {
         var w = War();
         int carried = w.Players[Human].Grenades;
-        Assert.True(carried > 0);
+        Assert.Equal(Frag.SpawnCount, carried);
         Throw(w);
-        Assert.Equal(3, w.Projectiles.Count);
+        Assert.Single(w.Projectiles);
         Assert.Equal(carried - 1, w.Players[Human].Grenades);
-        Assert.Equal(3, w.Projectiles.Select(p => p.Id).Distinct().Count());
-        var headings = w.Projectiles.Select(p => MathF.Atan2(p.Velocity.X, p.Velocity.Y) * 180f / MathF.PI).OrderBy(a => a).ToArray();
-        Assert.Equal(TfwCombatRules.Default.FragSpreadDegrees, headings[1] - headings[0], 1f);
-        Assert.Equal(TfwCombatRules.Default.FragSpreadDegrees, headings[2] - headings[1], 1f);
-        Assert.All(w.Projectiles, p => Assert.Equal(Frag.Projectile.Splash!.Radius * 2f, p.Spec!.Splash!.Radius));
+        var p = w.Projectiles[0];
+        Assert.Equal(Frag.Projectile.Splash!.Radius, (p.Spec ?? Frag.Projectile).Splash!.Radius);
+        Assert.False((p.Spec ?? Frag.Projectile).Splash!.IgnoreSelf);   // the thrower is not spared
     }
 
     [Fact]
-    public void A_frags_blast_reaches_twice_as_far_tells_the_clients_and_spares_the_thrower()
+    public void A_frags_blast_is_the_datas_size_and_sends_no_big_blast_record()
     {
         var w = War();
         w.Musou!.Frozen = true;
         Throw(w);
-        var fuse = w.Projectiles[0];
         ushort far = 0;
         int blasts = 0;
-        float health = w.Players[Human].Health + w.Players[Human].Shield;
         for (int k = 0; k < 300 && w.Projectiles.Count > 0; k++)
         {
-            // 14 m from where it will land: outside the data's 10 m, inside the 20.
+            // 14 m from where it will land: outside the data's 10 m.
             if (far == 0 && w.Projectiles[0].Position.Z < 1.5f) far = Boy(w, w.Projectiles[0].Position with { Z = 0f } + new Vector3(14f, 0f, 0f), health: 10000f);
             Tick(w);
             blasts += w.LastDetonations.Count(d => d.Thrown);
         }
-        Assert.Equal(3, blasts);
-        Assert.True(w.Musou.TryGet(far, out var e) && e.Health < 10000f, "the blast reached past the data's radius");
-        Assert.Equal(health, w.Players[Human].Health + w.Players[Human].Shield);
-        Assert.Equal(3, w.Tfw!.Smoke.Count(f => f.Kind == TfwFireKind.Frag));
-        Assert.All(w.Tfw.Smoke, f => Assert.Equal(20f, f.To.Y));
+        Assert.Equal(1, blasts);
+        Assert.True(w.Musou.TryGet(far, out var e) && e.Health >= 10000f, "the blast stays within the data's radius");
+        Assert.Empty(w.Tfw!.Smoke.Where(f => f.Kind == TfwFireKind.Frag));
     }
 
     [Fact]

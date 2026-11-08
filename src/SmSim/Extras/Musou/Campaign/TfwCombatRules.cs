@@ -1,9 +1,9 @@
 namespace SmSim.Extras.Musou.Campaign;
 
 /// <summary>
-/// The owner's melee and firepower changes for Musou Mode (pass 2, M5; items 7, 21, 22, 24): the shove and the fall, the three big frags, the 20-enemy cleave, the piercing shots. They are set on
+/// The owner's melee and firepower changes for Musou Mode (pass 2, M5; items 7, 22, 24): the shove and the fall, the 20-enemy cleave, the piercing shots. They are set on
 /// <see cref="MusouSim.War"/> by <see cref="World.StartTfw"/> alone, so the 5-wave test aid and every other mode never read them (<c>MusouSkirmishPinTests</c>, <c>PvpCombatIsolationTests</c>). Nothing
-/// here changes a shared default: the core's frag, melee and shot rules stay as they are, and the Musou Mode ones sit on top through the Musou hooks. Every value is ours (kind: ours, spec "Added
+/// here changes a shared default: the core's frag (one frag, the data's blast: item 21's three big frags were taken out, owner 2026-11-08), melee and shot rules stay as they are, and the Musou Mode ones sit on top through the Musou hooks. Every value is ours (kind: ours, spec "Added
 /// content: Musou Mode: melee and firepower"). Distances in metres, times in seconds. Hashed only through <see cref="TfwRules.Version"/>.
 /// </summary>
 public sealed record TfwCombatRules
@@ -58,14 +58,6 @@ public sealed record TfwCombatRules
     /// <c>MusouHit</c>). The barrage the players call (no enemy's) keeps its stagger. True restores the old staggers. The 5-wave test aid never reads it (it has no <see cref="MusouSim.War"/>).
     /// </summary>
     public bool EnemiesImpede { get; init; }
-
-    // ---- the frag (item 21)
-
-    /// <summary>Frags per throw: the player's one and this many less one beside it; each is one fan <see cref="FragSpreadDegrees"/> from the next.</summary>
-    public int FragsPerThrow { get; init; } = 3;
-    public float FragSpreadDegrees { get; init; } = 24f;
-    /// <summary>A Musou Mode frag's blast radius and its fall-off's distances, times this (the data's 10 m to 20 m); the damage stays the data's.</summary>
-    public float FragRadiusScale { get; init; } = 2f;
 
     // ---- piercing (item 24)
 
@@ -123,16 +115,4 @@ public sealed record TfwCombatRules
 
     /// <summary>Whether a thrown item is a frag (a blind grenade, a melta bomb or stims are not).</summary>
     public static bool IsFrag(ThrownSpec item) => item.Stim is null && !item.IsBlindGrenade && item.Name.Contains("frag", StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>
-    /// A frag's projectile with the bigger blast: the radius and the fall-off's distances scaled. The thrower is left out of it: at twice the data's reach a frag at arm's length would otherwise
-    /// kill him with his own three.
-    /// </summary>
-    public ProjectileSpec BiggerFrag(ProjectileSpec spec) => spec with { Splash = spec.Splash is { } s ? Bigger(s) : null, ExtraSplashes = [.. spec.ExtraSplashes.Select(Bigger)] };
-
-    SplashSpec Bigger(SplashSpec s) => s with
-    {
-        Radius = s.Radius * FragRadiusScale, IgnoreSelf = true,
-        FallOff = [.. s.FallOff.Select(p => p with { Distance = p.Distance * FragRadiusScale })],
-    };
 }

@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2594 spec table rows: **1906 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 581 rows of the changes document.
+Scanned 2593 spec table rows: **1903 tagged**, 481 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 580 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 383 | 325 | 325 | 114 | 12 |
 | Combat core (critical) | 13 | 4 | 12 | 11 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 111 | 96 | 88 | 36 | 5 |
+| Melee (critical) | 108 | 93 | 85 | 36 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -53,15 +53,15 @@ Scanned 2594 spec table rows: **1906 tagged**, 479 not tagged (read from data wi
 | Core simulation (provisional values) | 450 | 428 | 303 | 120 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 178 | 169 | 80 | 54 | 0 |
-| **All areas** | **1906** | 1663 | 1403 | 617 | 38 |
+| **All areas** | **1903** | 1660 | 1400 | 617 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1012 |
+| kind: ours | 1009 |
 | confidence: low | 667 |
-| confidence: medium | 607 |
+| confidence: medium | 604 |
 | kind: interpretation | 359 |
 | notes: ours | 352 |
 | notes: estimate | 152 |
@@ -904,7 +904,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (111)
+### Melee (gameplay-critical) (108)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1011,9 +1011,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-DA85B25E` | A landing | a fall of at least 4 m/s ending on the ground shoves all round within 2.5 m (m/s, m) | kind: estimate; confidence: low; notes: ours | ours | A landing: compare with SM1 by timing a run over a known distance. Ours: a fall of at least 4 m/s ending on the ground shoves all round within… | ☐ |
 | `R-FE29B7C5` | Melee on fodder | every melee hit a fodder Ork survives throws him down, a light step too (the design said heavy steps; the brief says melee attacks) | kind: interpretation; confidence: medium | owner item 7 | Melee on fodder: compare with SM1 by feel or video. Ours: every melee hit a fodder Ork survives throws him down, a light step… | ☐ |
 | `R-6F99415B` | The fall as drawn | the death clip in at most 0.8 s, held, then backwards over the get-up time (clip only: no ragdoll for a crowd member; a thrown body is not lowered for shots) (s) | kind: ours; confidence: medium | design C's fallback | The fall as drawn: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the death clip in at most 0.8 s, held, then backwards over the get-up… | ☐ |
-| `R-41B48EF6` | The frag | one grenade spent, three frags thrown: the player's and one each way 24 degrees apart, a human's only (degrees) | kind: ours; confidence: medium | owner item 21 | The frag: compare with SM1 with an overlaid screenshot taken from the same position. Ours: one grenade spent, three frags thrown: the player's and one each way… | ☐ |
-| `R-D8FDC67E` | The frag's blast | radius and fall-off distances times 2 (the data's 10 m to 20 m), the data's damage, the thrower spared; drawn as the original detonation in two rings at 0.4 and 0.8 of the radius (6 and 10 effects) (m) | kind: ours; confidence: medium | owner item 21 | The frag's blast: compare with SM1 by measuring on a flat spot of the same map. Ours: radius and fall-off distances times 2 (the data's 10 m to 20 m), the… | ☐ |
-| `R-46610662` | Grenades in the war | a human life carries its item's full count (the strip to the starting weapons would take them; the frag's data carries 2) | kind: ours; confidence: medium | needed by item 21 | Grenades in the war: compare with SM1 by feel or video. Ours: a human life carries its item's full count (the strip to the starting… | ☐ |
 | `R-E75D89A0` | Piercing | enemies a shot goes through before the one that stops it: lascannon 8, heavy bolter and plasma cannon 5, stalker bolter 4, storm bolter and melta 3, other ranged 2, pistols 1; each next enemy takes 0.85 of the last's damage (hit-scan); a projectile deals its… (enemies) | kind: ours; confidence: low | owner item 24 | Piercing: compare with SM1 by feel or video. Ours: enemies a shot goes through before the one that stops it: lascannon… | ☐ |
 | `R-311A51BE` | Cones | at most 40 enemies a cone shot (the 5-wave aid's 24) (enemies) | kind: ours; confidence: low | owner item 24 | Cones: compare with SM1 by feel or video. Ours: at most 40 enemies a cone shot (the 5-wave aid's 24). | ☐ |
 | `R-A27EF439` | Bolt blasts: which weapons | every bolt weapon: the bolter, bolt pistol, storm bolter, heavy bolter and stalker bolter of both sides, the gold variants and the perk's pistol bolter (a wargear name holding `bolt`, or `sniper_rifle` for the stalker); the plasma, melta, lascannon and every… | kind: ours; confidence: medium | owner 2026-11-07 | Bolt blasts: which weapons: compare with SM1 by feel or video. Ours: every bolt weapon: the bolter, bolt pistol, storm bolter, heavy… | ☐ |
@@ -2724,7 +2721,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-36FE4046` | Guardsmen's strength | health and shot damage **0.875x** (85 to 74.4 hit points, 5 to 4.375 a shot); fire rate, hit chance, range, speed and the squads unchanged. 4.5x from the night batch of 2026-11-06 (60 held against a full crowd of 400 half the time) until 2026-11-08, when the… (factor) | kind: estimate; confidence: low; notes: ours | the owner's request; the factor ours, from the trial below | Guardsmen's strength: compare with SM1 by feel or video. Ours: health and shot damage 0.875x (85 to 74.4 hit points, 5 to 4.375 a… | ☐ |
 | `R-20C50C83` | The counterattack trial | headless, no player, deterministic: the field's 6 squads (60 men) stand on a secured point (12 m); one spawn point's full crowd (400 Orks, the run's middle elite share 35 %: 140 elites in runs of 20, 75 % 'Ard Boyz and 25 % Nobs, the rest 70 % Boyz and 30 %… (seeds) | kind: estimate; confidence: low; notes: ours | ours: one crowd is the counterattack the battle sends at a point (`TfwBattleRules.CrowdSize`); no player, lord, retainer, Boss Ork, trickle or reserve squad… | The counterattack trial: compare with SM1 by feel or video. Ours: headless, no player, deterministic: the field's 6 squads (60 men)… | ☐ |
 | `R-8CA34C62` | Endless ammunition | every living player's weapons (humans and AI Marines, every slot) keep a full reserve (the perks' size; more from a box is kept), so a reload always fills the clip; a weapon that cannot reload (a brace weapon, or one with no reserve) gets a full clip back… (rounds) | notes: ours | the owner's request; keeping the reload ours (the reserve is what runs out in the original) | Endless ammunition: compare with SM1 by feel or video. Ours: every living player's weapons (humans and AI Marines, every slot)… | ☐ |
-| `R-E9033C4C` | Grenade refill | each living player (humans and AI Marines) with fewer grenades than its item's most (`capacity_clip`) gets one back every **30 s**; the time counts only while it is short and starts again at a full count or a new life; a stim is no grenade (s) | notes: ours | the owner's request; "one at a time, timer only while short" ours | Grenade refill: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each living player (humans and AI Marines) with fewer grenades than… | ☐ |
+| `R-E9033C4C` | Grenade refill | each living player (humans and AI Marines) with fewer grenades than its item's most (`capacity_clip`) gets one back every **15 s** (owner's value, 2026-11-08: "vanilla grenades every 15s"; 30 s before); the time counts only while it is short and starts again… (s) | notes: ours | the owner's request; "one at a time, timer only while short" ours | Grenade refill: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each living player (humans and AI Marines) with fewer grenades than… | ☐ |
 
 *Spec section: Added content: Musou Mode co-op for up to 4 players (2026-11-06; server, front end and release files; no protocol or wire change)*
 
@@ -3252,7 +3249,6 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-F525EC6C` | Musou Mode: how a kill picks its blood (gore-original) | ours (interpretation): the data has the table, not the engine's reading of it | the kill's zone a seeded body part (the head for a head shot), the zone's chance a seeded roll, `nothing_left` for blasts and artillery, the plasma gun as plasma_light, markers placed by name, effects at their own lengths, 8 kills a frame within 45 m | "Musou Mode: the original blood" | Musou Mode: how a kill picks its blood (gore-original): compare with SM1 by feel or video. Ours: ours (interpretation): the data has the table, not the engine's… | ☐ |
 | `C-3FF5DAAE` | Effect colours read raw in a linear pipeline (found by gore-original; not changed outside Musou's blood) | ours (the effect player since M25b): the data's colour keys tint the sprites as linear values, so every effect draws lighter than the original's gamma-space blending showed it (the blood mist's (98, 21, 17) as salmon pink) | Musou's blood reads them as display values (`FxEffect.GammaColours`); every other effect, classic PvP's included, unchanged until the owner decides | "Musou Mode: the original blood" | Effect colours read raw in a linear pipeline (found by…: compare with SM1 by feel or video. Ours: ours (the effect player since M25b): the data's colour keys tint the… | ☐ |
 | `C-7C39B7CA` | Musou Mode: Marines throw fodder down | the owner's item 7 (2026-11-01); SM1 has no crowd collision | a Marine moving, sprinting, charging or landing into a Boy, Shoota, Gretchin or Guardsman throws him down for 2.5 s, sometimes killing him; any melee hit does the same to fodder; elites stagger as before | Melee and firepower | Musou Mode: Marines throw fodder down: compare with SM1 by feel or video. Ours: the owner's item 7 (2026-11-01); SM1 has no crowd collision. | ☐ |
-| `C-9E329822` | Musou Mode: three big frags | the owner's item 21 (2026-11-01) | one grenade throws three frags 24 degrees apart, each with twice the data's blast radius and sparing the thrower; every human life carries grenades | Melee and firepower | Musou Mode: three big frags: compare with SM1 by feel or video. Ours: the owner's item 21 (2026-11-01). | ☐ |
 | `C-E41F34C3` | Musou Mode: a cleave of 20 | the owner's item 22 (2026-11-01) | a swing strikes up to 20 enemies | Melee and firepower | Musou Mode: a cleave of 20: compare with SM1 by feel or video. Ours: the owner's item 22 (2026-11-01). | ☐ |
 | `C-079F9B9C` | Musou Mode: shots pierce | the owner's item 24 (2026-11-01); SM1's shots stop on the first body | every ranged weapon goes through 1 to 8 enemies by weight | Melee and firepower | Musou Mode: shots pierce: compare with SM1 by shooting through a crate or a line of players and counting who is hit. Ours: the owner's item 24 (2026-11-01); SM1's shots stop on the first body. | ☐ |
 | `C-2280E2B9` | Musou Mode: bolt weapons blow up at every enemy struck | the owner (2026-11-07): "make all bolter weapons cause an explosion to trigger on every enemy the projectile passes through. the explosion is a small-medium explosion."; SM1's bolts do not explode | every bolter, bolt pistol, storm, heavy and stalker bolter shot sets off a 1.25 m, 30-damage blast (enemies only; halved from 2.5 m, owner 2026-11-08) with the original frag's effect at 0.4 of its size and its sound at each enemy it goes through; an Ork it kills bursts where he stands (no ragdoll), a fodder Ork it… | Melee and firepower | Musou Mode: bolt weapons blow up at every enemy struck: compare with SM1 by feel or video. Ours: the owner (2026-11-07): "make all bolter weapons cause an explosion… | ☐ |
