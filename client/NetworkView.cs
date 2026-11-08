@@ -797,6 +797,8 @@ public partial class NetworkView : Node3D
         PlayerInput? extrasBot = null;
         ExtrasBotInput(me, tick, ref extrasBot);   // EXTRAS-HOOK: added content's own bot (Musou Mode co-op: deploy with the team, fight the Orks)
         if (extrasBot is { } extrasInput) return extrasInput;
+        // 2026-11-08: at low health, cover first, then back into the fight (Classic PvP, both modes; NetworkView.BotCover.cs).
+        if (BotRetreatInput(me, tick) is { } retreatInput) return retreatInput;
         if (BotSeizeInput(me, tick, phase) is { } seizeInput) { _botNote = _botSeizeNote; return seizeInput; }
         // M19: on a map it fights only an enemy it sees within BotFightRange; otherwise it chases (NetworkView.Bot.cs).
         if (me.Alive && BotFightTarget(me, out _) is { } target)
@@ -813,7 +815,7 @@ public partial class NetworkView : Node3D
             // 2026-11-08: a melee push keeps closing in sight instead of strafing until the jump, charge or melee range (NetworkView.BotPush.cs).
             if (BotPushFightInput(me, target, tick, MathF.Sqrt(dx * dx + dy * dy)) is { } pushInput) return pushInput;
             // Evade roll (Tactical / Devastator classes): sideways every ~6 s (NetworkView.Evade.cs).
-            if (BotEvadeInput(me, tick) is { } evadeInput) return evadeInput;
+            if (BotPostOf(me) is null && BotEvadeInput(me, tick) is { } evadeInput) return evadeInput;   // 2026-11-08: no rolls off a post's edge
             bool hasMelee = Loadouts.Melee(_config, me).Count > 0;
             // perks/inert-2: a bot carrying combat stims uses them once it has a target within 20 m (melee bots too; ours, test script).
             if (StimOf(me) is not null && BotThrow(me, MathF.Sqrt(dx * dx + dy * dy)) is var stimPress and not InputButtons.None)
@@ -866,7 +868,13 @@ public partial class NetworkView : Node3D
             BotNoteEngagement(horizontal);
             // M44a: far from the target (more than BotAdvanceBeyond m) the bot keeps firing and walks toward it along its path, so that long-range
             // fights close up (no sprint: it would stop the fire). Without a graph, or at the end of the path, it strafes as before.
-            if (horizontal > BotAdvanceBeyond && Nav is not null)
+            // 2026-11-08: a bot with a post (ramp top, balcony) fights from there, stepping back onto it while firing (NetworkView.BotPosts.cs).
+            if (BotPostReturn(me) is { } postSpot && Nav is not null)
+            {
+                var (back, backSpeed, _, _) = BotSteer(me, postSpot, "back to post");
+                if (back.LengthSquared() > 1e-6f) return BotMoveInput(tick, back * backSpeed, grenade | weaponButtons | _navJump);
+            }
+            if (horizontal > BotAdvanceBeyond && Nav is not null && BotPostOf(me) is null)
             {
                 var (advance, speed, _, _) = BotSteer(me, BotPathGoal(target.Position), $"advance on P{target.PlayerId}");
                 // Not along a path that flies a jump link (the take-off needs the bot still); drops are fine (a spawn room's exit is one).

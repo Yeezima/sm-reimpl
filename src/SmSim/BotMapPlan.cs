@@ -50,6 +50,8 @@ public sealed class BotMapPlan
     /// <summary>The spawn-exit lanes, ordered from one side of the map to the other.</summary>
     public IReadOnlyList<Vector3> Lanes { get; private set; } = [];
     public string Note { get; private set; } = "";
+    /// <summary>The side's posts on this map (<see cref="BotPosts"/>; empty on maps without anchors). Set by the caller after the build.</summary>
+    public IReadOnlyDictionary<BotPosts.Duty, BotPost> Posts { get; set; } = new Dictionary<BotPosts.Duty, BotPost>();
 
     static float Flat(Vector3 a, Vector3 b) => MathF.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Y - b.Y) * (a.Y - b.Y));
 

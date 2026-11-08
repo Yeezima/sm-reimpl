@@ -20,6 +20,10 @@ namespace SmClient;
 /// that range while pushing), then shoots and melees as before; the others charge and melee at 9 m or less as before;</item>
 /// <item>the push ends when the enemy dies or goes back into its spawn zone, the bot dies, 4 s after reaching melee reach, or after 30 s.</item>
 /// </list>
+/// Owner, 2026-11-08 (second pass): "only approach for melee if there is safe way to do it out of sight" and "not push when they are being actively shot at": the
+/// bot does nothing different until the approach is planned, and drops the push when the plan is not <see cref="ApproachPlan.Safe"/> (also on a replan before it has
+/// closed in); no push starts within 4 s of being hurt, and a hit ends one that has not closed in yet (<see cref="BotPush.UnderFireStart"/>). Bots on a post
+/// (NetworkView.BotPosts.cs) and retreating bots (NetworkView.BotCover.cs) do not push.
 /// Annihilation only (Seize Ground keeps its point logic; Musou bots return earlier, <c>ExtrasBotInput</c>). <c>--bot-no-push</c> turns it off.
 /// </summary>
 public partial class NetworkView
@@ -39,6 +43,8 @@ public partial class NetworkView
     V3 _approachEnemyAt;
     double _approachAt = double.NegativeInfinity;
     int _pushLogged;
+    /// <summary>Whether the latest approach plan for the push under way is safe (false while it is pending).</summary>
+    bool _approachSafe;
 
     /// <summary>Per bot tick (Classic PvP): starts and ends pushes (<see cref="BotPush.Step"/>).</summary>
     void BotPushStep(PlayerState me)
@@ -47,20 +53,45 @@ public partial class NetworkView
         _botPush ??= new BotPush(Math.Max(_client.PlayerId, 0) * 104729 + 3);
         if (!me.Alive) { if (_botPush.Active) { _botPush.End(_connectedFor); GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} push ends: died"); } return; }
         string role = Loadouts.ClassOf(_config, me.Class)?.Role ?? "";
-        var candidate = BotChaseTarget(me);
+        var candidate = BotPostDuty(me) != BotPosts.Duty.None || BotRetreating ? null : BotChaseTarget(me);
         float distance = candidate is { } c ? new Vector2(c.Position.X - me.Position.X, c.Position.Y - me.Position.Y).Length() : float.MaxValue;
         var target = _botPush.Active ? _lastOthers.FirstOrDefault(o => o.PlayerId == _botPush.Target) : default;
         bool alive = _botPush.Active && target.PlayerId == _botPush.Target && target.Alive && !InEnemyRoom(me, target) && !InEnemyZone(me, target);
         bool inMelee = alive && (new Vector2(target.Position.X - me.Position.X, target.Position.Y - me.Position.Y).Length() <= BotMeleeDistance + 1f || me.MeleeStep > 0 || me.Rush != RushPhase.None);
+        float toTarget = alive ? new Vector2(target.Position.X - me.Position.X, target.Position.Y - me.Position.Y).Length() : float.MaxValue;
+        bool closedIn = toTarget <= (Loadouts.JumpPack(_config, me) is not null ? BotHopper.JumpInRange : PushCloseRange);
         bool was = _botPush.Active;
-        bool now = _botPush.Step(_connectedFor, role, candidate?.PlayerId ?? -1, distance, alive, inMelee);
+        if (was && BotRetreating) _botPush.End(_connectedFor, "retreating to cover");
+        bool now = _botPush.Step(_connectedFor, role, candidate?.PlayerId ?? -1, distance, alive, inMelee, me.SinceDamage, closedIn);
         if (now && !was)
         {
-            _botRushNext = Math.Min(_botRushNext, _connectedFor);   // the charge is ready once in reach
-            _approachFor = -1;
-            GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} push {_botPush.Pushes} starts on P{_botPush.Target} at {distance:F0} m ({role})");
+            _approachFor = -1; _approachSafe = false; _approach = null;
+            GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} push {_botPush.Pushes} considered on P{_botPush.Target} at {distance:F0} m ({role}); planning the approach");
         }
-        else if (was && !now) GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} push ends ({(alive ? inMelee ? "melee done" : "timeout" : "target dead or back in its spawn")}); dashes {_botHopper?.Dashes ?? 0}, hops {_botHopper?.Hops ?? 0}");
+        else if (was && !now) GD.Print($"t {_connectedFor:F1} s: id {_client.PlayerId} push ends ({_botPush.Ended}); dashes {_botHopper?.Dashes ?? 0}, hops {_botHopper?.Hops ?? 0}");
+    }
+
+    /// <summary>
+    /// A finished approach plan for the push under way: the push goes ahead only when it is safe; an unsafe one ends it unless the bot has already closed in
+    /// (<paramref name="closedIn"/>).
+    /// </summary>
+    void BotApproachArrived(ApproachPlan plan, PlayerState enemy, bool closedIn)
+    {
+        bool first = !_approachSafe;
+        if (plan.Safe)
+        {
+            _approachSafe = true;
+            if (first)
+            {
+                _botRushNext = Math.Min(_botRushNext, _connectedFor);   // the charge is ready once in reach
+                GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} push {_botPush?.Pushes} starts on P{enemy.PlayerId}: safe approach, seen {plan.Lead * 100f:F0} % before the rush");
+            }
+            return;
+        }
+        if (closedIn && !first) return;
+        _botPush?.End(_connectedFor, plan.Waypoints.Count == 0 ? "no hidden approach" : $"approach not safe (seen {plan.Lead * 100f:F0} % before the rush)");
+        GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} push ends ({_botPush?.Ended})");
+        _approachSafe = false;
     }
 
     /// <summary>The enemy of the push under way (null without one).</summary>
@@ -80,8 +111,11 @@ public partial class NetworkView
             if (task.IsCompletedSuccessfully)
             {
                 _approach = task.Result; _approachIndex = 0;
-                if (_pushLogged++ < 40)
-                    GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} approach to P{enemy.PlayerId}: {string.Join(" ", _approach.Waypoints.Select(p => $"{p.X:F0},{p.Y:F0},{p.Z:F0}"))} seen {_approach.Exposure * 100f:F0} % (straight {_approach.DirectExposure * 100f:F0} %)");
+                if (_pushLogged++ < 60)
+                    GD.Print($"t {_connectedFor:F1} s: id {_client?.PlayerId} approach to P{enemy.PlayerId}: {string.Join(" ", _approach.Waypoints.Select(p => $"{p.X:F0},{p.Y:F0},{p.Z:F0}"))} seen {_approach.Exposure * 100f:F0} % (straight {_approach.DirectExposure * 100f:F0} %), lead {_approach.Lead * 100f:F0} %{(_approach.Safe ? " safe" : "")}");
+                float d = new Vector2(enemy.Position.X - me.Position.X, enemy.Position.Y - me.Position.Y).Length();
+                BotApproachArrived(_approach, enemy, d <= (_config is { } cc && Loadouts.JumpPack(cc, me) is not null ? BotHopper.JumpInRange : PushCloseRange));
+                if (PushTarget() is null) { _approach = null; return null; }
             }
         }
         bool stale = enemy.PlayerId != _approachFor || V3.Distance(enemy.Position, _approachEnemyAt) > ApproachReplanMove || _connectedFor - _approachAt > ApproachReplanAge;
@@ -92,7 +126,7 @@ public partial class NetworkView
             var from = me.Position; var at = enemy.Position; float eye = config.EyeHeight; var cancel = _navCancel.Token;
             _approachTask = Task.Run(() => BotApproach.Plan(graph, world, from, at, eye, cancel), cancel);
         }
-        if (_approach is not { } plan) return null;
+        if (_approach is not { } plan || !_approachSafe) return null;
         while (_approachIndex < plan.Waypoints.Count && new Vector2(plan.Waypoints[_approachIndex].X - me.Position.X, plan.Waypoints[_approachIndex].Y - me.Position.Y).Length() <= ApproachPass) _approachIndex++;
         return _approachIndex < plan.Waypoints.Count ? plan.Waypoints[_approachIndex] : null;
     }
@@ -120,6 +154,7 @@ public partial class NetworkView
     {
         if (!me.Alive || PushTarget() is not { } enemy) return null;
         var via = BotApproachGoal(me, enemy);
+        if (!_approachSafe) return null;   // planning (the bot goes on as before), or no safe approach (the push has ended)
         var goal = via ?? BotPathGoal(enemy.Position);
         float distance = new Vector2(enemy.Position.X - me.Position.X, enemy.Position.Y - me.Position.Y).Length();
         _botNote = $"pushing P{enemy.PlayerId} at {distance:F0} m{(via is null ? "" : " (concealed)")}";
@@ -136,9 +171,11 @@ public partial class NetworkView
     PlayerInput? BotPushFightInput(PlayerState me, PlayerState target, uint tick, float horizontal)
     {
         if (PushTarget() is not { } enemy || enemy.PlayerId != target.PlayerId || _config is null) return null;
-        if (horizontal <= PushCloseRange) return null;   // the charge and melee scripts (a jump pack's jump onto the target ran before this, from 16 m)
+        if (horizontal <= PushCloseRange) return null;
+        var safeGoal = BotApproachGoal(me, enemy);
+        if (!_approachSafe) return null;   // the charge and melee scripts (a jump pack's jump onto the target ran before this, from 16 m)
         if (Loadouts.JumpPack(_config, me) is not null && horizontal <= BotHopper.JumpInRange && _connectedFor - _botLastJump < BotJumpEvery + 1.0) return null;   // just jumped at it: the air script runs
-        var goal = BotApproachGoal(me, enemy) ?? BotPathGoal(enemy.Position);
+        var goal = safeGoal ?? BotPathGoal(enemy.Position);
         var (to, speed, _, _) = BotSteer(me, goal, $"push P{enemy.PlayerId}");
         if (to.LengthSquared() < 1e-6f) to = new Vector2(target.Position.X - me.Position.X, target.Position.Y - me.Position.Y).Normalized();
         var weapon = BotWeaponButtons(me, tick, target) & ~InputButtons.Switch;

@@ -29,6 +29,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 ## Summary
 
 Scanned 2475 spec table rows: **1800 tagged**, 476 not tagged (read from data with high confidence), 199 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 561 rows of the changes document.
+Scanned 2452 spec table rows: **1778 tagged**, 473 not tagged (read from data with high confidence), 201 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 546 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -3873,18 +3874,22 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-DF18D21C` | Lean headless bot (perf/lean-bots) | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
 | `R-05C5A7B5` | Lean bot heap compaction | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
 | `R-F98F14E0` | Bot memory, measured (perf/lean-bots; Manufactorum, headless, `--bot --no-sound --no-hud`, in-process at 30 s… | Test bots: aim error, engagement range, spawn-door wait, launcher and side requests (M44a; client and server option, test aids, not simulated, no protocol change) |
-| `R-4F0ABCFA` | No-loiter zone | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push 2026-11-08; client test aid, no protocol change) |
-| `R-19A356A4` | Centre holds | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push 2026-11-08; client test aid, no protocol change) |
-| `R-102A3F55` | Idle cycle | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push 2026-11-08; client test aid, no protocol change) |
-| `R-D885D64C` | Roam points | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push 2026-11-08; client test aid, no protocol change) |
-| `R-8B767736` | Spawn-exit lanes (Annihilation) | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push 2026-11-08; client test aid, no protocol change) |
-| `R-7697E92B` | Chase via point (Annihilation) | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push 2026-11-08; client test aid, no protocol change) |
-| `R-4ED8200B` | Seize Ground | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push 2026-11-08; client test aid, no protocol change) |
-| `R-0C03E0FB` | Bot loadouts | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push 2026-11-08; client test aid, no protocol change) |
-| `R-703090E9` | Melee push (owner 2026-11-08: "periodically choose to close in and attempt melee combat. but taking a route that… | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push 2026-11-08; client test aid, no protocol change) |
-| `R-8354E634` | Concealed approach | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push 2026-11-08; client test aid, no protocol change) |
-| `R-3C25DD56` | Jump-pack approach | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push 2026-11-08; client test aid, no protocol change) |
-| `R-10E5F98A` | `--bot-door-wait` | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push 2026-11-08; client test aid, no protocol change) |
+| `R-4F0ABCFA` | No-loiter zone | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
+| `R-19A356A4` | Centre holds | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
+| `R-102A3F55` | Idle cycle | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
+| `R-D885D64C` | Roam points | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
+| `R-8B767736` | Spawn-exit lanes (Annihilation) | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
+| `R-7697E92B` | Chase via point (Annihilation) | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
+| `R-4ED8200B` | Seize Ground | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
+| `R-0C03E0FB` | Bot loadouts | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
+| `R-703090E9` | Melee push (owner 2026-11-08: "periodically choose to close in and attempt melee combat. but taking a route that… | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
+| `R-8354E634` | Concealed approach | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
+| `R-3C25DD56` | Jump-pack approach | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
+| `R-9D75144E` | Safe approach only (owner 2026-11-08: "change the bot behavior so that they only approach for melee if there is safe… | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
+| `R-E51B0AE1` | No push under fire (owner 2026-11-08: "they should also not push when they are being actively shot at") | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
+| `R-7AC67BD7` | Cover at low health (owner 2026-11-08: "they should prioritize taking cover when their hp gets low to regenerate, then… | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
+| `R-014B92EA` | Ramp and balcony posts (owner 2026-11-08: "make one boss play at the top of the side ramps, one devastator on top of… | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
+| `R-10E5F98A` | `--bot-door-wait` | Classic PvP bots: centre hold, roaming, spread routes, fixed loadouts and the melee push (2026-11-07, push, cover and posts 2026-11-08; client test aid, no protocol change) |
 | `R-9DA27EDE` | Probe (`--perf-probe`) | Performance pass 1 (perf/pass-1; build, client and release launcher; no protocol change) |
 | `R-454764E5` | Config hash | Added content: the content switch (E1; server, client and config hash; no protocol change) |
 | `R-692FC354` | Extras wire version | Added content: the content switch (E1; server, client and config hash; no protocol change) |

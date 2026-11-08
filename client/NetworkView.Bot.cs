@@ -128,6 +128,8 @@ public partial class NetworkView
         // only such enemies (or none alive) the bot holds its centre spot and roams (NetworkView.BotRoam.cs; the old wait at the door only with --bot-door-wait).
         // 2026-11-08: a melee push goes first, through its concealed approach (NetworkView.BotPush.cs).
         if (BotPushChaseInput(me, tick) is { } pushInput) return pushInput;
+        // 2026-11-08: a ramp or balcony holder goes to its post and holds it instead of chasing (NetworkView.BotPosts.cs).
+        if (BotPostInput(me, tick) is { } postInput) return postInput;
         var chased = BotChaseTarget(me);
         if (chased is null && BotHoldInput(me, tick) is { } holdInput) return holdInput;
         // 2026-11-07, Annihilation: a life's first leg goes through its lane, so a side's bots leave the spawn by different routes (NetworkView.BotRoam.cs).

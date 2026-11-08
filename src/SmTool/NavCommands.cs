@@ -10,6 +10,47 @@ namespace SmTool;
 /// </summary>
 static class NavCommands
 {
+    /// <summary>
+    /// <c>smtool bot-posts &lt;game-dir|auto&gt; [--map mp_tdm_09] [--grid]</c>: the Classic PvP bots' ramp and balcony posts for each side (<see cref="BotPosts"/>), and with
+    /// <c>--grid</c> a 5 m map of the highest walkable floor (digits in metres, letters 10 m and up). Test aid; read-only against the install.
+    /// </summary>
+    public static int Posts(string gameDir, string map, string? cache, bool grid)
+    {
+        if (gameDir == "auto") gameDir = GameInstall.Locate();
+        var config = GameplayTuning.Load(gameDir).Config;
+        var content = MapContent.Load(gameDir, map);
+        var world = content.ToCollisionWorld();
+        var graph = BotNavigation.LoadOrBuild(content, world, config, Team.SpaceMarines, -1, cache ?? BotNavigation.CacheDirectory, out _);
+        foreach (var p in content.ControlPoints) Console.WriteLine($"point {p.Name} {p.Position}");
+        foreach (var side in new[] { Team.SpaceMarines, Team.Chaos })
+        {
+            var own = content.StartAreas.FirstOrDefault(a => a.Side == side); var theirs = content.StartAreas.FirstOrDefault(a => a.Side != side && a.Side != Team.None);
+            if (own is null || theirs is null) continue;
+            var sideGraph = BotNavigation.LoadOrBuild(content, world, config, side, -1, cache ?? BotNavigation.CacheDirectory, out _);
+            foreach (var (duty, post) in BotPosts.Build(map, sideGraph, world, own.Position, theirs.Position, content.ControlPoints.Select(p => p.Position).ToList(), config.EyeHeight))
+                Console.WriteLine($"{side} {duty}: {post.Name} at {post.Spot.X:F1},{post.Spot.Y:F1},{post.Spot.Z:F1}");
+        }
+        if (!grid) return 0;
+        var max = new Dictionary<(int, int), float>();
+        float minX = float.MaxValue, maxX = float.MinValue, minY = float.MaxValue, maxY = float.MinValue;
+        for (int n = 0; n < graph.NodeCount; n++)
+        {
+            var p = graph.Position(n);
+            var k = ((int)MathF.Floor(p.X / 5), (int)MathF.Floor(p.Y / 5));
+            max[k] = max.TryGetValue(k, out var z) ? MathF.Max(z, p.Z) : p.Z;
+            minX = MathF.Min(minX, p.X); maxX = MathF.Max(maxX, p.X); minY = MathF.Min(minY, p.Y); maxY = MathF.Max(maxY, p.Y);
+        }
+        Console.WriteLine($"bounds x {minX:F0}..{maxX:F0} y {minY:F0}..{maxY:F0}");
+        for (int y = (int)MathF.Floor(maxY / 5); y >= (int)MathF.Floor(minY / 5); y--)
+        {
+            var sb = new System.Text.StringBuilder($"{y * 5,5} ");
+            for (int x = (int)MathF.Floor(minX / 5); x <= (int)MathF.Floor(maxX / 5); x++)
+                sb.Append(max.TryGetValue((x, y), out var z) ? (z < 0.5f ? " ." : z < 9.5f ? $" {(int)MathF.Round(z)}" : z < 35.5f ? $" {(char)('A' + (int)MathF.Round(z) - 10)}" : " #") : "  ");
+            Console.WriteLine(sb.ToString());
+        }
+        return 0;
+    }
+
     public static int Stats(string gameDir, string map, string[] classes, string? cache, int top = 0)
     {
         if (gameDir == "auto") gameDir = GameInstall.Locate();
