@@ -137,7 +137,7 @@ public partial class NetworkView
         MusouGunsFrame(shown, camera, delta);   // the ranged Orks' shots: flash, tracer, impact (NetworkView.MusouGuns.cs)
         t0 = SpikeMark();
         MusouDeathsWaitingItems();   // the deaths not yet handed out keep their place in the crowd, already dying
-        _musouCrowd!.Frame(shown, camera, delta);
+        _musouCrowd!.Frame(TfwArmyOrks(shown, camera, delta), camera, delta);   // with the distant armies' impostors (Tfw/NetworkView.TfwArmies.cs, expansion S6)
         _spikeCrowdMs += SpikeMs(t0);
         t0 = SpikeMark();
         _musouRagdolls?.Frame(delta, MusouCrowd.SinkSeconds, MusouCrowd.SinkDepth);

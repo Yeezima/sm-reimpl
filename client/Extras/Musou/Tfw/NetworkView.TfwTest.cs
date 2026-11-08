@@ -493,13 +493,28 @@ public partial class NetworkView
         while (_connectedFor - start < seconds && TfwNow.Phase == TfwRunPhase.Battle)
         {
             var me = client.Predicted.Position;
-            var look = (CmdFlag("tfw-fight-meks") ? MekLook(me) : null) ?? _musouState.MiddleNear(me, 45f) ?? point;   // towards the crowd (--tfw-fight-meks: the Meks' contraptions, Meks/NetworkView.MusouMeks.cs)
+            var look = (CmdFlag("tfw-fight-meks") ? MekLook(me) : null) ?? TfwFightArmyLook(me) ?? _musouState.MiddleNear(me, 45f) ?? point;   // towards the crowd (--tfw-fight-meks: the Meks' contraptions, Meks/NetworkView.MusouMeks.cs; --tfw-fight-look-armies: the nearest army, expansion S6)
             _yaw = MathF.Atan2(-(look.X - me.X), look.Y - me.Y);
             await TfwWait(every);
             await TfwShot($"fight-{shot:00}");
             await TfwSwarmShots(shot++);   // --tfw-swarm-shots: overhead views too (NetworkView.TfwSwarmCam.cs)
         }
         TfwCheck("the fight was filmed", shot > 1, TfwNow.Phase.ToString());
+    }
+
+    /// <summary>Capture aid <c>--tfw-fight-look-armies</c> (expansion S6): the middle of the nearest army (tag 18) within 150 m, so a rally or a clash stays in the picture; null without the flag or an army.</summary>
+    Num.Vector3? TfwFightArmyLook(Num.Vector3 me)
+    {
+        if (!CmdFlag("tfw-fight-look-armies")) return null;
+        Num.Vector3? best = null;
+        float bestD = 150f;
+        foreach (var a in _tfwState.Armies)
+        {
+            var at = _armyImpostors.Of(a.Id)?.Anchor ?? a.Anchor;
+            float d = Num.Vector3.Distance(at, me);
+            if (d < bestD) { bestD = d; best = at; }
+        }
+        return best;
     }
 
     /// <summary>

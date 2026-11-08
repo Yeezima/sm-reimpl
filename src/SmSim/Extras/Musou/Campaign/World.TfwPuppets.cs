@@ -42,6 +42,30 @@ public sealed partial class World
         return lord.Id;
     }
 
+    /// <summary>
+    /// Lands <paramref name="count"/> Defenders (expansion S6, <see cref="DefenderRules"/>) round <paramref name="at"/>, each in a free puppet id after the retainers and lords; the battle is told who they are, so they
+    /// never capture. How many came (fewer with the ids taken).
+    /// </summary>
+    public int TfwSpawnDefenders(int count, Vector3 at, float yaw = 0f)
+    {
+        if (_tfw is not { } run) return 0;
+        int n = 0;
+        for (int k = 0; k < count; k++)
+        {
+            var (role, name) = DefenderRules.Roster[k % DefenderRules.Roster.Length];
+            var spot = at + new Vector3((k % 3 - 1) * 2f, -4f - k / 3 * 2f, 0f);
+            if (Musou?.Nav is { } nav && nav.Nearest(spot, 1.5f, 2.5f) is var node and >= 0) spot = nav.Position(node);
+            var m = TfwSpawnMarine(MarineRole.Defender, 0, default, role, name, spot, yaw);
+            if (m is null) break;
+            m.DefenderIndex = k;
+            n++;
+        }
+        var ids = new List<int>();
+        foreach (var m in run.Marines) if (m.Role == MarineRole.Defender) ids.Add(m.Id);
+        run.Battle?.SetDefenders(ids);
+        return n;
+    }
+
     Marine? TfwSpawnMarine(MarineRole role, int owner, TfwLane lane, string classRole, string name, Vector3 at, float yaw)
     {
         var run = _tfw!;
@@ -137,6 +161,7 @@ public sealed partial class World
         float dt = 1f / Math.Max(1, Config.TickRate);
         run.StepRecovery(dt);
         if (run.Marines.Count == 0) return;
+        TfwDefenderPosts(run);
         _tfwMarineWork.Clear();
         _tfwMarineWork.AddRange(run.Marines);
         foreach (var m in _tfwMarineWork)
@@ -154,6 +179,19 @@ public sealed partial class World
         }
     }
 
+    readonly List<Marine> _tfwDefenders = new();
+
+    /// <summary>Once a second the Defenders' posts (expansion S6): the battle shares them over the Imperial positions by the Orks' pressure, else the landing zone.</summary>
+    void TfwDefenderPosts(TfwRun run)
+    {
+        if (run.Battle is not { } battle || Tick % (uint)Math.Max(1, (int)(DefenderRules.PostSeconds * Config.TickRate)) != 0) return;
+        _tfwDefenders.Clear();
+        foreach (var m in run.Marines) if (m.Role == MarineRole.Defender) _tfwDefenders.Add(m);
+        if (_tfwDefenders.Count == 0) return;
+        var posts = battle.DefenderPosts(_tfwDefenders.Count);
+        for (int k = 0; k < _tfwDefenders.Count; k++) _tfwDefenders[k].AttackAt = posts[k];
+    }
+
     /// <summary>Follow, Hold and Attack out of the command queue; the run's other commands stay in it, in their order, for TF4.</summary>
     void TfwTakeOrders(TfwRun run)
     {
@@ -169,6 +207,20 @@ public sealed partial class World
     {
         m.ReviveTicks = 0;
         m.Target = 0;
+        if (m.Role == MarineRole.Defender)
+        {
+            // Expansion S6: a Defender is back at the landing zone DefenderRules.RespawnSeconds after his death (real seconds), with a fresh life.
+            if (!m.Down) { m.Down = true; m.RespawnTicks = Math.Max(1, (int)MathF.Round(DefenderRules.RespawnSeconds * Math.Max(1, Config.TickRate))); }
+            else if (--m.RespawnTicks <= 0)
+            {
+                var back = run.Battle?.Layout.LandingZone ?? run.Field.MarineStart;
+                TfwRespawnAt(m.Id, back, 0f);
+                m.Down = false;
+                return;
+            }
+            _players[m.Id] = _players[m.Id] with { RespawnLeft = MarineRules.DeadHold };
+            return;
+        }
         int recovery = m.Role == MarineRole.Lord ? 0 : m.Owner;
         if (!m.Down)
         {
@@ -200,7 +252,7 @@ public sealed partial class World
         if (_players.TryGetValue(m.Owner, out var owner)) { ownerAt = owner.Position; ownerAlive = owner.Alive; }
         var order = m.Role switch
         {
-            MarineRole.Lord => MarineOrder.Attack,
+            MarineRole.Lord or MarineRole.Defender => MarineOrder.Attack,   // a Defender goes to his post (AttackAt, TfwDefenderPosts) and fights there
             MarineRole.LordRetainer => ownerAlive ? MarineOrder.Follow : MarineOrder.Attack,
             _ => run.Orders.Of(m.Owner),
         };

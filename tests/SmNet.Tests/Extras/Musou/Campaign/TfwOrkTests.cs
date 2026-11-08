@@ -192,7 +192,7 @@ public class TfwOrkTests
         for (int t = 0; t < 200 * 30; t++) battle.Step([]);
         Assert.Equal(TfwBattleRules.AliveCap(1) + TfwTestArena.StartAlive, sim.Alive);   // the garrisons stand outside the cap
         for (int t = 0; t < 120 * 30; t++) battle.Step([], 2);
-        Assert.Equal(MusouSim.Capacity - TfwBattleRules.PoolReserve, sim.Alive);   // the pool's reserve is met first
+        Assert.Equal(TfwBattleRules.CrowdPoolRoom, sim.Alive);   // the pool's reserve is met first (the crowds' pool: expansion S6's armies have their own slots)
     }
 
     [Fact]

@@ -152,7 +152,7 @@ public sealed partial class TfwBattle
             if (found < 0) return;
             source = found;
         }
-        if (Counted() - _trickled.Count + size > TfwBattleRules.AliveCap(_humansNow) || _enemies.Alive + size > MusouSim.Capacity - TfwBattleRules.PoolReserve) return;
+        if (Counted() - _trickled.Count + size > TfwBattleRules.AliveCap(_humansNow) || PoolUsed + size > TfwBattleRules.CrowdPoolRoom) return;
         var at = Ground(_layout.Sources[source], _layout.Sources[source]);
         if (StormboyTest && _humansAlive.Count > 0)
         {

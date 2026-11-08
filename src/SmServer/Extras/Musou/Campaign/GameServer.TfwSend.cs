@@ -36,6 +36,7 @@ public sealed partial class GameServer
         TfwDownTest();   // GameServer.TfwDownTest.cs: a test aid, off without its variable
         TfwTestAids();   // GameServer.TfwWinTest.cs: the same
         TfwStormboyTest();   // GameServer.TfwStormboyTest.cs: the same (expansion S3)
+        TfwArmyTest();   // GameServer.TfwArmyTest.cs: the same (expansion S6)
         FeedTfw();   // GameServer.TfwFeedRun.cs
         SendTfwFire();   // GameServer.TfwFire.cs: tag 11
         var feed = TfwFeed;
@@ -65,6 +66,7 @@ public sealed partial class GameServer
         if (hasBox) feed.ClearEvents();
         SendTfwRewards();   // GameServer.TfwRewards.cs: tags 12, 14 and 15
         SendTfwLibrarian(tick, tickRate);   // Librarian/GameServer.TfwLibrarian.cs: tag 16
+        SendTfwArmies(tick, tickRate);   // GameServer.TfwArmies.cs: tag 18 (expansion S6)
 
         _tfwGone.Clear();
         foreach (int id in _tfwInterest.Keys) if (!_peers.Values.Any(p => p.PlayerId == id)) _tfwGone.Add(id);
