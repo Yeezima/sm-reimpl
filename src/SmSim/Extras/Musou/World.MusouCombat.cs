@@ -303,6 +303,12 @@ public sealed partial class World
         var musou = _musou!;
         var rules = musou.Rules.Combat;
         int n = musou.Query(point, splash.Radius, _musouNear, verticalReach: splash.Radius + 3f);
+        // Corpse cap (the owner, 2026-11-08: "limit the number of flying orks per grenade throw to 20. the rest get knocked down or if they died explode"): a blast's kills nearest it
+        // first; of one throw (its frags' blasts within MusouCombatRules.BlastThrowWindowSeconds of the first, the same owner) the first MusouCombatRules.BlastThrownMax die as Blast
+        // (thrown), the later ones as BoltBlast (torn apart where they stand, no corpse).
+        bool capped = !melee && !bolt;
+        if (capped) SortNearest(musou, point, n);
+        int thrownLeft = capped ? ThrownLeft(owner, rules) : 0;
         for (int k = 0; k < n; k++)
         {
             if (!musou.TryGet(_musouNear[k], out var e) || !e.Alive) continue;   // !Alive: one a Weirdboy's burst killed earlier in this loop
@@ -317,7 +323,8 @@ public sealed partial class World
             var push = away.LengthSquared() > 1e-8f ? Vector2.Normalize(away) : new Vector2(-MathF.Sin(e.Yaw), MathF.Cos(e.Yaw));
             float damage = splash.Damage.Damage * intensity * splash.Damage.BodyMultiplier;
             bool killed = false;
-            if (damage > 0f) musou.Damage(e.Id, owner, damage, new Vector3(push, 0.3f), out killed, cause: melee ? MusouDeathKind.Melee : bolt ? MusouDeathKind.BoltBlast : MusouDeathKind.Blast);
+            if (damage > 0f) musou.Damage(e.Id, owner, damage, new Vector3(push, 0.3f), out killed, cause: melee ? MusouDeathKind.Melee : bolt || thrownLeft <= 0 ? MusouDeathKind.BoltBlast : MusouDeathKind.Blast);
+            if (killed && capped && thrownLeft > 0) thrownLeft--;
             if (melee && damage > 0f)
             {
                 MusouMeleeHeal(owner, e.Id);
@@ -331,8 +338,32 @@ public sealed partial class World
                 if (!killed && damage > 0f && musou.TryGet(e.Id, out var hurt) && hurt.Alive && !musou.KnockDown(e.Id, push, 0f, owner, 0f)) musou.Stagger(e.Id, push, 0f);
                 continue;
             }
-            if (!killed && intensity >= rules.BlastStaggerIntensity) musou.Stagger(e.Id, push, rules.BlastKnockback * MathF.Min(1f, intensity));
+            if (killed || intensity < rules.BlastStaggerIntensity) continue;
+            float knock = rules.BlastKnockback * MathF.Min(1f, intensity);
+            // Corpse cap: in Musou Mode's war a fodder Ork the blast leaves alive is knocked down (thrown back as before, then on the ground); the rest stagger as before.
+            if (capped && musou.KnockDown(e.Id, push, knock, owner, 0f)) continue;
+            musou.Stagger(e.Id, push, knock);
         }
+        if (capped) _musouThrowBudget[owner] = (_musouThrowBudget[owner].First, rules.BlastThrownMax - thrownLeft);
+    }
+
+    readonly Dictionary<int, (uint First, int Thrown)> _musouThrowBudget = new();
+
+    /// <summary>How many more of <paramref name="owner"/>'s blast kills may die thrown: a blast after the throw's window starts a new throw (<see cref="MusouCombatRules.BlastThrownMax"/>).</summary>
+    int ThrownLeft(int owner, MusouCombatRules rules)
+    {
+        uint window = (uint)MathF.Max(1f, MathF.Round(rules.BlastThrowWindowSeconds * Config.TickRate));
+        if (!_musouThrowBudget.TryGetValue(owner, out var b) || Tick - b.First > window) _musouThrowBudget[owner] = b = (Tick, 0);
+        return Math.Max(0, rules.BlastThrownMax - b.Thrown);
+    }
+
+    readonly float[] _musouNearMetres = new float[MusouSim.Capacity];
+
+    /// <summary>The first <paramref name="n"/> of <see cref="_musouNear"/> ordered nearest <paramref name="point"/> first (the enemy's place; ties by id, so the order is repeatable).</summary>
+    void SortNearest(MusouSim musou, Vector3 point, int n)
+    {
+        for (int k = 0; k < n; k++) _musouNearMetres[k] = musou.TryGet(_musouNear[k], out var e) ? Vector3.DistanceSquared(e.Position, point) + _musouNear[k] * 1e-7f : float.MaxValue;
+        Array.Sort(_musouNearMetres, _musouNear, 0, n);
     }
 
     /// <summary>

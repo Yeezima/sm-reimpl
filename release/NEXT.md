@@ -10,3 +10,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Add your bullets in the same pull request as the change, when it merges.
 -->
 - Musou Mode: Orks thrown by a grenade or any other blast no longer corkscrew through the air. Each body now flies in one clean arc straight away from the explosion, tips over as it falls and stays down where it lands.
+- Musou Mode: one grenade throw sends at most 20 Orks flying, the ones nearest the blast. Any other Ork it kills explodes on the spot, and small Orks that survive it are knocked to the ground. Everyone must update: this build does not play with earlier ones.

@@ -522,4 +522,36 @@ public class TfwMeleeTests
         w2.Musou.TryGet(ard, out var ardAfter);
         Assert.True(Vector3.Distance(ardBefore.Position, ardAfter.Position) < 0.05f, $"pushed {Vector3.Distance(ardBefore.Position, ardAfter.Position):F2} m");
     }
+
+    [Fact]
+    public void One_grenade_throw_throws_at_most_twenty_bodies_the_other_kills_are_torn_apart_and_survivors_fall()
+    {
+        // The owner, 2026-11-08: "limit the number of flying orks per grenade throw to 20. the rest get knocked down or if they died explode."
+        var w = War();
+        w.Musou!.Frozen = true;
+        Throw(w);
+        var victims = new List<ushort>();
+        var tough = new List<ushort>();
+        var causes = new Dictionary<ushort, MusouDeathKind>();
+        for (int k = 0; k < 300 && w.Projectiles.Count > 0; k++)
+        {
+            if (victims.Count == 0 && w.Projectiles[0].Position.Z < 1.5f)
+            {
+                var ground = w.Projectiles[0].Position with { Z = 0f };
+                for (int i = 0; i < 40; i++)
+                {
+                    float a = i * 2.39996f, r = 0.8f + i % 5 * 0.5f;
+                    victims.Add(Boy(w, ground + new Vector3(MathF.Cos(a) * r, MathF.Sin(a) * r, 0f), health: 5f));
+                }
+                for (int i = 0; i < 3; i++) tough.Add(Boy(w, ground + new Vector3(4.5f * MathF.Cos(i * 2.1f), 4.5f * MathF.Sin(i * 2.1f), 0f), health: 100000f));
+            }
+            Tick(w);
+            foreach (var e in w.Musou.Events) if (e.Kind == MusouEventKind.Death) causes[e.Enemy] = (MusouDeathKind)e.Value;
+        }
+        Assert.Equal(40, victims.Count(v => causes.ContainsKey(v)));
+        int thrown = causes.Values.Count(SmNet.Extras.Musou.MusouGoreRules.Thrown);
+        Assert.Equal(MusouCombatRules.Default.BlastThrownMax, thrown);
+        Assert.Equal(40 - thrown, victims.Count(v => causes[v] == MusouDeathKind.BoltBlast));   // the rest explode where they stand
+        Assert.All(tough, t => Assert.Equal(MusouEnemyState.Knocked, State(w, t)));   // the blast's survivors fall
+    }
 }

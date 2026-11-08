@@ -29,6 +29,10 @@ public sealed record MusouCombatRules
     public float NobKnockbackScale { get; init; } = 0.5f;
     /// <summary>A blast staggers only from this intensity (ours: the outer ring only hurts).</summary>
     public float BlastStaggerIntensity { get; init; } = 0.25f;
+    /// <summary>The most of one blast's kills (a frag, a launcher's or a plasma burst) that die thrown, nearest it first; the later ones are torn apart, no corpse (the owner, 2026-11-08: "limit the number of flying orks per grenade throw to 20").</summary>
+    public int BlastThrownMax { get; init; } = 20;
+    /// <summary>Blasts of one owner within this many seconds of the first count as one throw for <see cref="BlastThrownMax"/> (a throw's fan of frags goes off together; ours).</summary>
+    public float BlastThrowWindowSeconds { get; init; } = 0.5f;
     /// <summary>Most enemies one charge hits (ours: as the cleave).</summary>
     public int ChargeTargets { get; init; } = 8;
     /// <summary>Most enemies one cone shot covers, nearest first (ours; MU3a review: a cost cap).</summary>
