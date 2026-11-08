@@ -127,9 +127,10 @@ public class AllyNavTests
         Assert.True(w.StartTfw(Graph(mesh), TfwTestArena.Field));
         w.Spawn(1, w.AssignClass(0));
         for (int k = 0; k < 60 && w.State != MatchState.Playing; k++) w.Step(_ => default);
-        int marine = w.TfwSpawnRetainer(1, new Vector3(10f, 10f, 0f))!.Value;
+        int marine = w.TfwSpawnAlly(new Vector3(10f, 10f, 0f))!.Value;
         var to = new Vector3(50f, 10f, 0f);
-        Assert.True(w.TfwOrderMarines(1, new TfwCommandRecord(1, TfwCommand.Attack, 0, to)));
+        w.Tfw!.Idle = true;   // no battle: the pair goes to the run's active position
+        w.Tfw.ActivePosition = to;
         for (int k = 0; k < 40 * 30 && MarineBrain.Flat(w.Players[marine].Position, to) > MarineRules.ArriveRadius; k++) w.Step(_ => default);
         Assert.True(MarineBrain.Flat(w.Players[marine].Position, to) <= MarineRules.ArriveRadius + 1f, $"stopped at {w.Players[marine].Position}");
     }

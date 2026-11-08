@@ -418,7 +418,7 @@ public class TfwArmyTests
         Assert.True(battle.OrksKilled > 0);
     }
 
-    // ---------------------------------------------------------------- the Defenders and the ids
+    // ---------------------------------------------------------------- the allied pair and the ids
 
     [Fact]
     public void Twelve_puppet_ids_and_the_world_never_passes_16_players()
@@ -426,40 +426,17 @@ public class TfwArmyTests
         Assert.Equal(12, TfwContracts.PuppetIds);
         Assert.Equal(65527, TfwContracts.PuppetIdLast);
         Assert.Equal(TfwContracts.PuppetIdLast + 3, TfwContracts.PointTargetId(0));   // the point targets stay where they were
-        Assert.True(DefenderRules.HumansMost + TfwContracts.PuppetIds <= Protocol.MaxPlayers);
-        Assert.Equal(6, DefenderRules.For(0));
-        Assert.Equal(6, DefenderRules.For(1));
-        Assert.Equal(2, DefenderRules.For(3));
+        Assert.True(AllyRules.HumansMost + TfwContracts.PuppetIds <= Protocol.MaxPlayers);
+        Assert.True(AllyRules.Count <= TfwContracts.PuppetIds);                       // the pair fits the range with ids to spare
         Assert.Equal(TfwContracts.PuppetIdFirst, GameServer.ReservedPlayerIdFirst);
     }
 
     [Fact]
-    public void Six_defenders_land_act_alone_never_capture_and_come_back_30_s_after_a_death()
-    {
-        var w = TfwRig.War();
-        var battle = TfwRig.Deploy(w);
-        var run = w.Tfw!;
-        var defenders = run.Marines.Where(m => m.Role == MarineRole.Defender).ToList();
-        Assert.Equal(6, defenders.Count);
-        Assert.True(w.Players.Count <= Protocol.MaxPlayers);
-        Assert.All(defenders, d => Assert.True(TfwContracts.IsPuppet(d.Id)));
-        TfwRig.Seconds(w, 1.1f);
-        Assert.All(defenders, d => Assert.NotNull(d.AttackAt));               // a post each, no order needed
-        var one = defenders[0];
-        Assert.True(w.TfwKillForTests(one.Id));
-        TfwRig.Seconds(w, DefenderRules.RespawnSeconds - 0.5f);
-        Assert.False(w.Players[one.Id].Alive);
-        TfwRig.Seconds(w, 1f);
-        Assert.True(w.Players[one.Id].Alive);
-        Assert.True(Vector3.Distance(w.Players[one.Id].Position with { Z = 0f }, battle.Layout.LandingZone with { Z = 0f }) < 8f);   // back at the landing zone (half a second on his way)
-    }
-
-    [Fact]
-    public void A_defender_on_a_held_point_adds_no_capture_progress()
+    public void A_marine_of_the_allied_pair_on_a_held_point_adds_no_capture_progress()
     {
         var (_, _, battle, layout) = Frozen();
         battle.SetPlayerIds([TfwContracts.PuppetIdFirst]);
-        battle.SetDefenders([TfwContracts.PuppetIdFirst]);
+        battle.SetAllies([TfwContracts.PuppetIdFirst]);
         for (int t = 0; t < 5 * Tick; t++) battle.Step([layout.Positions[0]]);
         Assert.Equal(0f, battle.Objectives[0].Progress);
     }

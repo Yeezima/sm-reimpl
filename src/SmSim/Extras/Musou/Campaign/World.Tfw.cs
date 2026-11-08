@@ -8,7 +8,7 @@ namespace SmSim;
 /// Musou Mode in the World (TF0: the contract and stubs; the owner's decision of 2026-11-01: this war is Musou Mode). <see cref="World.Musou"/> and its pool run a war
 /// too; <see cref="_tfw"/>, set only by <see cref="StartTfw"/>, sends the World's Musou hooks here instead of the 5-wave director, which stays reachable as a test aid
 /// (<c>--map mp_tdm_09</c>). Without a war every method here returns at once and the Skirmish replay is unchanged (<c>MusouSkirmishPinTests</c>).
-/// /// <c>_tfw!.RetainerOf(id) is { } m &amp;&amp; _players.TryGetValue(m.Id, out var p) &amp;&amp; p.Alive</c>.
+/// The 5-wave run lands no AI Marine: the allied pair (<see cref="AllyRules"/>) needs a war.
 /// </summary>
 public sealed partial class World
 {
@@ -146,7 +146,7 @@ public sealed partial class World
         battle.NoteWaaaghs(_musouBoss.Waaaghs);
     }
 
-    /// <summary>The field is empty: no enemy, Guardsman, drop or AI Marine (recoveries and orders stay). A new round does not clear the Guardsmen by itself.</summary>
+    /// <summary>The field is empty: no enemy, Guardsman, drop or AI Marine. A new round does not clear the Guardsmen by itself.</summary>
     internal void TfwClearField()
     {
         _musou!.Clear();   // the enemies fire no projectile: their rounds are rolled hits (MusouSim.Fire)
@@ -158,9 +158,6 @@ public sealed partial class World
         TfwDismissMarines();
         _musouBoss = null;
     }
-
-    /// <summary>Whether <paramref name="id"/>'s retainer stands and can revive it.</summary>
-    internal bool TfwRetainerUp(int id) => _tfw!.RetainerOf(id) is { } m && _players.TryGetValue(m.Id, out var p) && p.Alive;
 
     /// <summary>A dead player waits (the core's timer would bring it back in the Stormbird).</summary>
     internal void TfwHoldRespawn(int id)

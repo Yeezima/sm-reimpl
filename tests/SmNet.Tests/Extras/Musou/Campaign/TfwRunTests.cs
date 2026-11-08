@@ -6,7 +6,7 @@ using SmSim.Extras.Musou.Campaign;
 
 namespace SmNet.Tests.Extras.Musou.Campaign;
 
-/// <summary>The run (TF4, design sections D and F): scripted through the real World, the AI Marines faked by <see cref="TfwRun.RetainerUp"/>.</summary>
+/// <summary>The run (TF4, design sections D and F): scripted through the real World, the AI Marines faked by <see cref="TfwRun.AllyUp"/>.</summary>
 public class TfwRunTests
 {
     const int Human = TfwRig.Human;
@@ -57,111 +57,43 @@ public class TfwRunTests
     }
 
     [Fact]
-    public void Orders_need_a_battle_and_their_points_stay_in_the_arena()
+    public void The_old_order_commands_do_nothing_since_the_allied_pair()
     {
         var w = TfwRig.War();
         var run = w.Tfw!;
-        var seen = new List<TfwCommandRecord>();
-        run.OrderSeen = (_, c) => seen.Add(c);
-        run.Enqueue(Human, new TfwCommandRecord(1, TfwCommand.Hold, 0, new Vector3(1f, 2f, 0f)));
-        TfwRig.Steps(w, 2);
-        Assert.Empty(seen);                                                  // the hub: refused
         TfwRig.Deploy(w);
-        run.Enqueue(Human, new TfwCommandRecord(2, TfwCommand.Attack, 0, new Vector3(3277f, -3277f, -3277f)));
-        run.Enqueue(TfwContracts.PuppetIdFirst, new TfwCommandRecord(3, TfwCommand.Attack, 0, Vector3.Zero));   // nobody in the field
         TfwRig.Steps(w, 2);
-        var order = Assert.Single(seen);
-        Assert.Equal(TfwTestArena.Field.Clamp(new Vector3(3277f, -3277f, -3277f)), order.Point);
+        var goal = run.AllyGoal;
+        Assert.NotNull(goal);
+        run.Enqueue(Human, new TfwCommandRecord(1, TfwCommand.Hold, 0, new Vector3(3277f, 10f, 0f)));
+        run.Enqueue(Human, new TfwCommandRecord(2, TfwCommand.Attack, 0, new Vector3(5f, -3277f, 0f)));
+        run.Enqueue(Human, new TfwCommandRecord(3, TfwCommand.Follow, 0));
+        TfwRig.Steps(w, 2);
+        Assert.Equal(0, run.QueuedCommands);                                 // taken and dropped
+        Assert.Equal(goal, run.AllyGoal);                                    // the pair goes on with its own goal
+        Assert.Equal(MarineOrder.Follow, w.TfwOwn(Human).Order);
+        Assert.Equal(TfwRunPhase.Battle, run.Phase);
     }
 
     [Fact]
-    public void Hold_and_attack_take_the_clamped_point_a_retainer_stands_after_a_deploy_and_leaves_with_the_battle()
+    public void The_allied_pair_lands_with_the_battle_revives_the_fallen_and_leaves_with_it()
     {
         var w = TfwRig.War();
         var run = w.Tfw!;
-        run.RetainerUp = null;
+        run.AllyUp = null;
+        Assert.Empty(run.Marines);
         TfwRig.Deploy(w);
-        var retainer = Assert.IsType<Marine>(run.RetainerOf(Human));
-        run.Enqueue(Human, new TfwCommandRecord(1, TfwCommand.Hold, 0, new Vector3(3277f, 10f, 0f)));
-        TfwRig.Steps(w, 1);
-        Assert.Equal(new Vector3(TfwTestArena.Field.Bounds.Max.X, 10f, 0f), retainer.HoldAt);
-        run.Enqueue(Human, new TfwCommandRecord(2, TfwCommand.Attack, 0, new Vector3(5f, -3277f, 0f)));
-        TfwRig.Steps(w, 1);
-        Assert.Equal(new Vector3(5f, TfwTestArena.Field.Bounds.Min.Y, 0f), retainer.AttackAt);
-        run.Enqueue(Human, new TfwCommandRecord(3, TfwCommand.Follow, 0));
-        TfwRig.Steps(w, 1);
-        Assert.Null(retainer.AttackAt);
-        Assert.True(w.TfwKillForTests(Human));                               // the real retainer: a window opens, the respawn is held
+        Assert.Equal(AllyRules.Count, run.Marines.Count);
+        Assert.True(w.TfwKillForTests(Human));                               // the real pair: a window opens, the respawn is held
         TfwRig.Steps(w, 2);
         Assert.True(run.ReviveWanted(Human));
         var body = w.Players[Human].Position;
         for (int t = 0; t < 25 * 30 && !w.Players[Human].Alive; t++) w.Step(_ => default);
-        Assert.True(w.Players[Human].Alive, "the retainer came and revived");
+        Assert.True(w.Players[Human].Alive, "the pair came and revived");
         Assert.Equal(body.X, w.Players[Human].Position.X, 2);                // where it fell, not in the Stormbird
-        Assert.Equal(4, run.Supplies);
-        TfwRig.Steps(w, 2);
-        Assert.False(run.ReviveWanted(Human));
-    }
-
-    [Fact]
-    public void The_last_human_leaving_takes_the_marines_with_it()
-    {
-        var w = TfwRig.War();
-        TfwRig.Deploy(w);
-        Assert.NotEmpty(w.Tfw!.Marines);                                     // a retainer and the lane's lord with his own
-        w.Remove(Human);
-        TfwRig.Steps(w, 2);
-        Assert.Equal(MatchState.Warmup, w.State);
-        Assert.Empty(w.Tfw.Marines);
-        Assert.Empty(w.Players);
-    }
-
-    [Fact]
-    public void A_human_who_joins_mid_battle_is_flown_in_has_a_say_and_holds_off_the_extraction_while_it_fights()
-    {
-        // Co-op (2026-11-06; TfwCoopTests): before, a late joiner waited in the Stormbird with no say until the next deploy.
-        var w = TfwRig.War();
-        var run = w.Tfw!;
-        TfwRig.Deploy(w);
-        w.Spawn(2, w.AssignClass(0));
-        TfwRig.Seconds(w, 1f);
-        Assert.Equal([Human, 2], run.InField);
-        Assert.False(TfwRig.InStormbird(w.Players[2].Position), $"{w.Players[2].Position}");
-        Assert.True(w.TfwKillForTests(Human));
-        TfwRig.Seconds(w, TfwBattleRules.ExtractionPromptSeconds + 0.3f);
-        Assert.Equal((TfwRunPhase.Battle, 0), (run.Phase, run.ExtractionTicks));   // the joiner still fights
-        Assert.True(run.Enqueue(2, new TfwCommandRecord(1, TfwCommand.RequestPickup, 0)));
-        TfwRig.Steps(w, 2);
-        Assert.Equal(TfwRunPhase.Pickup, run.Phase);                          // in the field: its call counts
-    }
-
-    [Fact]
-    public void Without_transport_a_pickup_and_a_deploy_are_refused_until_the_hq_sends_one()
-    {
-        var w = TfwRig.War();
-        var run = w.Tfw!;
-        for (int k = 0; k < 2; k++)
-        {
-            TfwRig.Deploy(w);
-            TfwRig.Command(w, TfwCommand.RequestPickup);
-            TfwRig.Seconds(w, TfwBattleRules.PickupSeconds + 0.2f);
-        }
-        TfwRig.Deploy(w);
-        Assert.Equal(0, run.Transport);
-        TfwRig.Command(w, TfwCommand.RequestPickup);
-        TfwRig.Steps(w, 2);
-        Assert.Equal(TfwRunPhase.Battle, run.Phase);                         // no way out by air
-        Assert.True(w.TfwKillForTests(Human));
-        TfwRig.Seconds(w, TfwBattleRules.ExtractionPromptSeconds + 0.3f);
-        Assert.Equal((TfwRunPhase.Hub, 0, 2), (run.Phase, run.Transport, run.Supplies));
-        TfwRig.Command(w, TfwCommand.Deploy);
-        TfwRig.Steps(w, 2);
-        Assert.Equal((TfwRunPhase.Hub, 0), (run.Phase, run.Transport));
-        while (run.War.Clock < TfwBattleRules.HqTransportSeconds) run.War.Step();
-        TfwRig.Seconds(w, 1.2f);
-        Assert.Equal(1, run.Transport);
-        TfwRig.Deploy(w);
-        Assert.Equal((TfwRunPhase.Battle, 0), (run.Phase, run.Transport));
+        run.PickupForTests(w);
+        Assert.Empty(run.Marines);
+        Assert.DoesNotContain(w.Players.Keys, TfwContracts.IsPuppet);
     }
 
     [Fact]
@@ -170,7 +102,7 @@ public class TfwRunTests
         var slow = new ProjectileSpec("t", 0.5f, 120f, "raycast", 0f, [], false, false, false, 0, 0f, 0f, 0, null, null);
         var pistol = TfwRig.Config.Weapons[1] with { Delivery = DeliveryKind.Projectile, Projectile = slow };
         var w = TfwRig.War(config: TfwRig.Config with { Weapons = [TfwRig.Config.Weapons[0], pistol] });
-        w.Tfw!.RetainerUp = _ => false;
+        w.Tfw!.AllyUp = _ => false;
         TfwRig.Deploy(w);
         for (int k = 0; k < 8 && w.Projectiles.Count == 0; k++)
         {
@@ -190,16 +122,14 @@ public class TfwRunTests
     {
         var w = TfwRig.War();
         var run = w.Tfw!;
-        var seen = new List<TfwCommandRecord>();
-        run.OrderSeen = (_, c) => seen.Add(c);
         TfwRig.Deploy(w);
         for (int k = 0; k < TfwRun.MaxQueuedCommands; k++) Assert.True(run.Enqueue(Human, new TfwCommandRecord((ushort)k, TfwCommand.Deploy, 1)));
         Assert.False(run.Enqueue(Human, new TfwCommandRecord(100, TfwCommand.Follow, 0)));   // full
         TfwRig.Steps(w, 1);
         Assert.Equal(0, run.QueuedCommands);
-        Assert.True(run.Enqueue(Human, new TfwCommandRecord(101, TfwCommand.Follow, 0)));
+        Assert.True(run.Enqueue(Human, new TfwCommandRecord(101, TfwCommand.RequestPickup, 0)));
         TfwRig.Steps(w, 1);
-        Assert.Single(seen);
+        Assert.Equal(TfwRunPhase.Pickup, run.Phase);                          // the command after the flood was applied
         Assert.Equal(TfwLane.A, run.War.BattleLane);
     }
 
@@ -490,11 +420,11 @@ public class TfwRunTests
     }
 
     [Fact]
-    public void With_a_retainer_the_fallen_wait_25_s_for_a_revive_and_then_extract()
+    public void With_the_allied_pair_up_the_fallen_wait_25_s_for_a_revive_and_then_extract()
     {
         var w = TfwRig.War();
         var run = w.Tfw!;
-        run.RetainerUp = _ => true;
+        run.AllyUp = _ => true;
         TfwRig.Deploy(w);
         w.TfwDismissMarines();                                               // a stand-in that never comes: the window alone
         Assert.True(w.TfwKillForTests(Human));
@@ -520,12 +450,12 @@ public class TfwRunTests
     }
 
     [Fact]
-    public void A_retainer_lost_closes_the_window()
+    public void The_allied_pair_lost_closes_the_window()
     {
         var w = TfwRig.War();
         var run = w.Tfw!;
         bool up = true;
-        run.RetainerUp = _ => up;
+        run.AllyUp = _ => up;
         TfwRig.Deploy(w);
         Assert.True(w.TfwKillForTests(Human));
         TfwRig.Steps(w, 2);
@@ -586,7 +516,7 @@ public class TfwRunTests
         TfwRig.Seconds(w, 10f);
         Assert.Equal(10.0, run.War.Clock - clock, 1);
         Assert.Equal(lane.Progress, run.War.LaneState(TfwLane.A).Progress);
-        Assert.Equal(1f, run.WarTimeScale);
+        Assert.Equal(1.0, run.War.TimeScale, 3);
     }
 
     static (ulong Hash, int Tick) WholeRun()

@@ -108,6 +108,6 @@ public sealed partial class TfwBattlePanel : Control
         Txt(data.Slots, lx, y + 3 * RowH, 14, White);
         int orbitalWait = data.War is { } shownWar ? shownWar.Own.OrbitalSeconds : 0;   // contracts 25: the strike's cooldown (the owner, 2026-11-06)
         Txt(TfwHudModel.OrbitalTextFor(PadHost.Active, orbitalWait), lx, y + 4 * RowH, 16, orbitalWait > 0 ? Grey : Gold);
-        Txt("Z FOLLOW   X HOLD   V ATTACK   HOLD P PICKUP", lx, y + 122f, 14, Grey);
+        Txt("HOLD P PICKUP", lx, y + 122f, 14, Grey);
     }
 }

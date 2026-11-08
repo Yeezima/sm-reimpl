@@ -29,7 +29,7 @@ public class MusouExpansionS2Tests
         Assert.Equal(MatchState.Playing, w.State);
         w.TfwRespawnAt(Human, new Vector3(0f, -60f, 0f), 0f);
         Tick(w);
-        marine = w.TfwSpawnRetainer(Human, new Vector3(30f, -60f, 0f)) ?? 0;
+        marine = w.TfwSpawnAlly(new Vector3(30f, -60f, 0f)) ?? 0;
         Assert.NotEqual(0, marine);
         Tick(w);
         return w;
