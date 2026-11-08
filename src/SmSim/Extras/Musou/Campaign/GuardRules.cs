@@ -53,6 +53,39 @@ public sealed record GuardRules
     /// <summary>Seconds a dead man's slot is kept for the client's death.</summary>
     public float DyingSeconds { get; init; } = 2f;
 
+    // musou/guard-spread (the owner, 2026-11-08: "guardsmen need to spread out much more when running to a point. after its captured they splinter and spread out around the point to defend it. on the
+    // way to the point guardsmen get stuck on corners and walk in straight lines directly next to walls. they need to spread out."). Every number below is ours (an estimate for the playtest).
+
+    /// <summary>The spread (true) or the old tight walk (false: the restore switch): wide open order on the move, the squads in their own lanes, the way kept off the walls, a stuck man's detour, and a squad sent to hold a point splitting into fire teams round it.</summary>
+    public bool Spread { get; init; } = true;
+    /// <summary>On the move: the gap between men abreast and between the two ranks (the second rank sits half a gap aside), and how far a man's place is shifted by his own roll, each way.</summary>
+    public float MoveSpacing { get; init; } = 3.5f;
+    public float MoveRankSpacing { get; init; } = 3f;
+    public float MoveJitter { get; init; } = 0.75f;
+    /// <summary>Over the squad's last this many metres to its order the open order closes, down to the standing spacing's share of it (<see cref="Spacing"/> / <see cref="MoveSpacing"/>).</summary>
+    public float MoveTaper { get; init; } = 6f;
+    /// <summary>On the move: squads go in three lanes (squad index mod 3: the middle, right, left) this far apart, so squads bound for one point do not walk in one file.</summary>
+    public float LaneSpacing { get; init; } = 6f;
+    /// <summary>A man's place (on the move or at his post) is pulled in towards his squad until it is at least this far from a wall or ledge (the graph's own body margin not counted).</summary>
+    public float PlaceClearance { get; init; } = 1f;
+    /// <summary>The way: among the steps that still get nearer, a step's clearance from the walls (up to <see cref="WayClearance"/>) counts this much against how directly it gets nearer (1: straight on).</summary>
+    public float WayClearance { get; init; } = 2f;
+    public float WayClearanceWeight { get; init; } = 1.5f;
+    /// <summary>A man whose straight line to his place is checked on the graph every this many ticks (his line is walked: else he goes by the way).</summary>
+    public int DirectCheckTicks { get; init; } = 6;
+    /// <summary>A man who moved less than <see cref="StuckFraction"/> of the step he wanted for <see cref="StuckSeconds"/> is stuck: he goes by the way from where he stands (or sideways, with no way) for <see cref="DetourSeconds"/>.</summary>
+    public float StuckSeconds { get; init; } = 0.5f;
+    public float StuckFraction { get; init; } = 0.3f;
+    public float DetourSeconds { get; init; } = 2f;
+    /// <summary>Holding a point: a squad splits into this many fire teams spread over an arc of <see cref="HoldArcDegrees"/> centred on its own bearing from the point, at <see cref="HoldRadiusScale"/> of the point's radius, the men of a team <see cref="TeamSpacing"/> apart.</summary>
+    public int HoldTeams { get; init; } = 3;
+    public float HoldArcDegrees { get; init; } = 120f;
+    public float HoldRadiusScale { get; init; } = 0.8f;
+    public float TeamSpacing { get; init; } = 2f;
+    /// <summary>A fire team looks this far round its spot for cover: the walkable place nearest <see cref="CoverEdge"/> metres from a wall (in its lee), reachable in a straight line from the point.</summary>
+    public float CoverSearch { get; init; } = 3f;
+    public float CoverEdge { get; init; } = 1f;
+
     /// <summary>The design's numbers.</summary>
     public static GuardRules Default { get; } = new();
 }

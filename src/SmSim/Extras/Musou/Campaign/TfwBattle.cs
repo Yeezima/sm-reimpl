@@ -768,7 +768,7 @@ public sealed partial class TfwBattle
         var offset = SquadOffset(s);
         float most = RadiusOf(goal) * TfwBattleRules.SquadOnPoint;
         if (offset.Length() > most) offset *= most / offset.Length();
-        _guards.Order(s, Ground(at + offset, at), at);
+        _guards.Order(s, Ground(at + offset, at), at, RadiusOf(goal));   // musou/guard-spread: on arrival the squad splits into fire teams round the point (GuardRules.Spread)
     }
 
     /// <summary>A field short of squads gets the next reserve every <see cref="TfwBattleRules.ReserveSeconds"/>, from the landing zone.</summary>
