@@ -6,11 +6,11 @@ namespace SmNet.Tests.Extras.Musou.Campaign;
 /// <summary>Expansion S6: the far layer's clash (Lanchester with cohesion), by the brief's Monte Carlo over 1,000 even seeds per size.</summary>
 public class TfwClashTests(ITestOutputHelper output)
 {
-    /// <summary>Even strength (the owner, 2026-11-08: the far fight keeps the near layer's balance): Orks against the Guardsmen worth as many (<see cref="TfwClashRules.GuardWorth"/>).</summary>
+    /// <summary>Even sizes (the owner, 2026-11-08: the near layer matches the far one, man for man): Orks against as many Guardsmen.</summary>
     [Theory]
-    [InlineData(200, 30)]
-    [InlineData(500, 75)]
-    [InlineData(1000, 150)]
+    [InlineData(200, 200)]
+    [InlineData(500, 500)]
+    [InlineData(1000, 1000)]
     public void Even_clashes_are_even_the_winner_keeps_a_quarter_and_the_loser_routs(int size, int guards)
     {
         int aWins = 0, routed = 0;
@@ -33,12 +33,9 @@ public class TfwClashTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void As_near_a_player_a_garrison_beats_a_wave_of_its_own_size()
+    public void A_Guardsman_is_worth_an_Ork_as_near_a_player()
     {
-        int orks = 0;
-        for (uint seed = 1; seed <= 200; seed++) if (TfwClash.Resolve(200, 200, seed, worthA: TfwClashRules.OrkWorth, worthB: TfwClashRules.GuardWorth).AWon) orks++;
-        Assert.Equal(0, orks);
-        Assert.Equal(400f / 60f, TfwClashRules.GuardWorth / TfwClashRules.OrkWorth, 3);   // GuardHoldTrial: 60 hold against 400 half the time
+        Assert.Equal(TfwClashRules.OrkWorth, TfwClashRules.GuardWorth);   // GuardHoldTrial: 60 real hold against 60 real Orks half the time
     }
 
     [Fact]

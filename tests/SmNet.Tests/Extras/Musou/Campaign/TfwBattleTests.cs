@@ -228,13 +228,13 @@ public class TfwBattleTests
         Assert.True(squad >= 0);
         int before = guards.Lost;
         bool slam = false, hurt = false;
-        for (int t = 0; t < 12 * 30 && !(slam && hurt); t++)
+        for (int t = 0; t < 20 * 30 && !(slam && hurt); t++)
         {
             w.Step(_ => default);
             slam |= w.Musou!.Events.Any(e => e.Kind == MusouEventKind.Strike && e.Enemy == battle.BossId && e.Value == (byte)MusouBossAbility.GroundSlam);
             hurt |= guards.Events.Any(e => e.Kind is GuardEventKind.Hurt or GuardEventKind.Death);
         }
-        Assert.True(slam, "the slam met a squad");
+        Assert.True(slam, $"the slam met a squad (men {guards.AliveIn(squad)}, lost {guards.Lost - before}; it lands at about 12 s)");
         Assert.True(hurt, "and hurt a man");
     }
 

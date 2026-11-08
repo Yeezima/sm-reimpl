@@ -171,7 +171,7 @@ public class MusouExpansionS2Tests
         int before = guards.Alive;
         var r = w.MusouOrkBlast(at, MusouSquigRules.Blast, Human);
         Assert.True(r.GuardMen > 0, $"men struck {r.GuardMen}, killed {r.GuardKills}");
-        Assert.True(w.MusouOrkBlast(at, MusouSquigRules.Blast with { Damage = 1e5f }, Human).GuardKills > 0 && guards.Alive < before, "a big enough burst kills them");
+        Assert.True(r.GuardKills + w.MusouOrkBlast(at, MusouSquigRules.Blast with { Damage = 1e5f }, Human).GuardKills > 0 && guards.Alive < before, "a big enough burst kills them");   // at GuardRules.Strength 0.875 the Squig's own may already
     }
 
     [Fact]

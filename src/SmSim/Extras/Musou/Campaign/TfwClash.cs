@@ -23,10 +23,10 @@ public static class TfwClashRules
     /// <summary>A step's losses vary by up to this share either way (a seeded roll per side and step).</summary>
     public const float Noise = 0.3f;
     /// <summary>
-    /// What one man of a side is worth in the far fight, in Orks (the owner, 2026-11-08: "the far from players clash should match the close to players balance"). The near layer's own balance: the
-    /// owner-tuned <c>GuardHoldTrial</c> holds 60 real Guardsmen (4.5 x the install's) against a crowd of 400 real Orks half the time, so one Guardsman is worth 400 / 60 Orks. Even strength is an even fight.
+    /// What one man of a side is worth in the far fight, in Orks: one each (the owner, 2026-11-08: "near clash balance should match far clash balance"; the near Guardsmen are tuned to it,
+    /// <see cref="GuardRules.Strength"/>: 60 real hold against 60 real Orks half the time). Even sizes are an even fight. Kept as a worth so the two can be set apart again.
     /// </summary>
-    public const float OrkWorth = 1f, GuardWorth = 400f / 60f;
+    public const float OrkWorth = 1f, GuardWorth = 1f;
     /// <summary>Elites die at this share of their part of the losses (they are tougher).</summary>
     public const float EliteLossShare = 0.5f;
 }
@@ -58,7 +58,7 @@ public readonly record struct TfwClashResult(bool AWon, float AKept, float BKept
 /// <summary>
 /// The far layer's attrition (pure, deterministic for given rolls): each side's losses in a step are the other side's men times <see cref="TfwClashRules.FirePerSecond"/> times its cohesion's
 /// share of fire, times a roll; they fall on the side's armies by their counts. Cohesion falls with losses and with the enemy's numerical edge; an army routs at <see cref="TfwClashRules.RoutCohesion"/>
-/// or <see cref="TfwClashRules.RoutLoss"/>. Everything is in strength (men times their worth, <see cref="TfwClashRules.GuardWorth"/>), so the far fight keeps the near layer's balance: even strength is an even fight.
+/// or <see cref="TfwClashRules.RoutLoss"/>. Everything is in strength (men times their worth, <see cref="TfwClashRules.GuardWorth"/>, one each), and the near layer is tuned to the same balance: even sizes are an even fight.
 /// </summary>
 public static class TfwClash
 {

@@ -401,12 +401,12 @@ public class TfwArmyTests
     {
         var (sim, guards, battle, layout) = Frozen();
         Capture(sim, battle, layout, 1);
-        var garrison = battle.AddArmyForTests(TfwArmySide.Guard, TfwArmyOrder.Hold, 1, 40, layout.Positions[1])!;   // worth 267 Orks, the field's 60 real men 400 more
-        var wave = battle.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.Attack, 1, 1200, layout.Positions[1])!;
+        var garrison = battle.AddArmyForTests(TfwArmySide.Guard, TfwArmyOrder.Hold, 1, 40, layout.Positions[1])!;   // with the field's 60 real men, 100 (a Guardsman worth an Ork)
+        var wave = battle.AddArmyForTests(TfwArmySide.Ork, TfwArmyOrder.Attack, 1, 200, layout.Positions[1])!;
         for (int t = 0; t < 240 * Tick && battle.Objectives[1].State == TfwPositionState.Secured; t++) battle.Step([]);
-        Assert.Equal(TfwArmyOrder.Retreat, garrison.Order);                 // outweighed almost two to one, it broke
+        Assert.Equal(TfwArmyOrder.Retreat, garrison.Order);                 // outweighed two to one, it broke
         Assert.Equal(TfwPositionState.Held, battle.Objectives[1].State);    // then the Orks alone took the point
-        Assert.True(wave.Count > 300, $"the wave kept {wave.Count}");
+        Assert.True(wave.Count > 50, $"the wave kept {wave.Count}");
         Assert.Equal(TfwArmyOrder.Hold, wave.Order);                        // and hold it
         Assert.True(battle.OrksKilled > 0);
     }

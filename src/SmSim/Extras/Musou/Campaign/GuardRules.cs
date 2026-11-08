@@ -2,17 +2,17 @@ namespace SmSim.Extras.Musou.Campaign;
 
 /// <summary>
 /// The Guardsmen's numbers (Musou Mode, design section E; spec "Musou Mode: Guardsmen"). The design's slice values (ours), but for the health: its 40 lost the 6 squads
-/// against 60 Boyz (TF3's measure), so the health is the install's; since the night batch of 2026-11-06 the health and the shot's damage are <see cref="Strength"/> times. <c>ig_coop_guardsman</c>'s others (run 6.25 m/s, walk 3.6 m/s; lasgun damage 1, clip 40, range 75) are in the spec
+/// against 60 Boyz (TF3's measure), so the health is the install's; the health and the shot's damage are <see cref="Strength"/> times (4.5 from the night batch of 2026-11-06, 0.875 since 2026-11-08). <c>ig_coop_guardsman</c>'s others (run 6.25 m/s, walk 3.6 m/s; lasgun damage 1, clip 40, range 75) are in the spec
 /// for the owner to choose from. A change here raises <see cref="TfwRules.Version"/>. Distances in metres, times in seconds, speeds in metres a second.
 /// </summary>
 public sealed record GuardRules
 {
     /// <summary>
-    /// The owner's scale (night batch 2026-11-06: "scale up the guardsmen to what you believe will half the time win, half the time lose against ork counterattacks") over the install's
-    /// <c>ig_coop_guardsman</c> 85 hit points (the design's 40 failed its own target) and the design's 5 a shot: the field's six squads hold a point against one full crowd about half the
-    /// time (<c>GuardHoldTrialTests</c>: 11 of 20 seeds; 4x held none, 4.25x 7). An estimate (ours, the owner's request).
+    /// The scale over the install's <c>ig_coop_guardsman</c> 85 hit points and the design's 5 a shot. The owner, 2026-11-08: "near clash balance should match far clash balance": the far clash
+    /// is even man for man (<see cref="TfwClashRules.GuardWorth"/> 1), so the field's six squads (60 men) hold a point against 60 real Orks about half the time (<c>GuardHoldTrialTests</c>:
+    /// 10 of 20 seeds at 0.875; 0.85 held 7, 0.9 15, 1 18). It was 4.5 (the night batch of 2026-11-06: 60 held against a full crowd of 400 half the time) until then. An estimate (ours).
     /// </summary>
-    public const float Strength = 4.5f;
+    public const float Strength = 0.875f;
     /// <summary>A Guardsman's hit points: the install's 85 x <see cref="Strength"/>.</summary>
     public float Health { get; init; } = 85f * Strength;
     /// <summary>A Guardsman's speed; the squad's place in the world moves at <see cref="SquadSpeedScale"/> of it, so the men keep up.</summary>
