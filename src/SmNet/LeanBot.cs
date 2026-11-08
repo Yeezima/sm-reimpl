@@ -48,6 +48,8 @@ public static class LeanBot
         "musou-gore-demo",   // added content Musou (pass 2 M10): the scripted feed of the gore
         "musou-death-spike-test",   // added content Musou (night batch 2026-11-06): the whole scripted crowd dies at once, the frame times measured
         "log-ork-blood",   // added content Musou (gore-original): the original blood's per-kill log
+        "feel-probe", "log-musou-contact",   // added content Musou (combat feel 2026-11-09): the contact timing and the predicted contacts, read where the crowd is drawn
+        "tfw-feel-capture",   // added content Musou (combat feel): a short scripted fight for the before / after captures
         "guard-demo", "guard-demo-at", "guard-no-vat", "tfw-deploy", "tfw-test", "tfw-test-downs", "tfw-test-win", "tfw-test-fight", "tfw-fight-seconds", "tfw-test-capture", "tfw-capture-seconds", "tfw-capture-weak", "tfw-fire-test", "tfw-fire-at", "tfw-fire-cam", "tfw-fire-cam-run", "tfw-reduce-motion", "tfw-orbital-test", "tfw-librarian", "librarian-demo",   // added content Musou (TF7a; the Librarian pass 2: the Stormbird pick, the capture script): the scripted Guardsmen, the skinned crowd only, a scripted Deploy
         // review round (L2): the remaining probes, logs, captures and sweeps of the client
         "pose-pop-probe", "turn-probe", "turn-probe-events", "turn-probe-trace", "transition-probe-csv", "transition-probe-trace", "anim-probe-csv", "motion-probe-worst",
