@@ -33,6 +33,7 @@ Scanned 2602 spec table rows: **1910 tagged**, 482 not tagged (read from data wi
 Scanned 2598 spec table rows: **1908 tagged**, 481 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
 Scanned 2593 spec table rows: **1903 tagged**, 481 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 580 rows of the changes document.
 Scanned 2595 spec table rows: **1907 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
+Scanned 2601 spec table rows: **1913 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -59,6 +60,7 @@ Scanned 2595 spec table rows: **1907 tagged**, 479 not tagged (read from data wi
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
 | Core simulation (provisional values) | 451 | 429 | 304 | 120 | 1 |
+| Core simulation (provisional values) | 457 | 435 | 310 | 126 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 178 | 168 | 81 | 53 | 0 |
 | **All areas** | **1908** | 1664 | 1406 | 616 | 38 |
@@ -68,6 +70,7 @@ Scanned 2595 spec table rows: **1907 tagged**, 479 not tagged (read from data wi
 | Ork faction | 178 | 169 | 80 | 54 | 0 |
 | **All areas** | **1903** | 1660 | 1400 | 617 | 38 |
 | **All areas** | **1907** | 1664 | 1403 | 618 | 38 |
+| **All areas** | **1913** | 1670 | 1410 | 623 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -89,8 +92,13 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | notes: ours | 352 |
 | notes: estimate | 151 |
 | notes: estimate | 153 |
+| confidence: low | 674 |
+| confidence: medium | 607 |
+| kind: interpretation | 359 |
+| notes: ours | 358 |
+| notes: estimate | 152 |
 | confidence: none (low) | 129 |
-| kind: estimate | 120 |
+| kind: estimate | 126 |
 | kind: provisional | 99 |
 | kind: user's knowledge | 55 |
 | notes: provisional | 38 |
@@ -2149,6 +2157,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
 ### Core simulation (provisional values) (451)
+### Core simulation (provisional values) (457)
 
 *Spec section: Provisional values in use*
 
@@ -2747,6 +2756,18 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-348C8FA7` | Client impostors | an army's aggregate drawn in its slots, eased to each section's place (**3** a second, snapped past **25** m); at most **900** Ork and **400** Guard impostors, nearest armies first; an aggregate's Ork losses become up to **6** bodies a section at the slots… | kind: ours; confidence: medium | ours; Guardsmen's bodies owner 2026-11-08 | Client impostors: compare with SM1 by feel or video. Ours: an army's aggregate drawn in its slots, eased to each section's place… | ☐ |
 | `R-46313AC6` | Waaagh! | each Ork army attacking a point shouts every **4-8** s (its first within 2 s), the nearest first, at most **3** voices at once (counted **2.2** s each), never the voice just heard (Boy, Nob, 'Ard Boy: roar or taunt), within **300** m, through the budget's… (s, m) | kind: ours; confidence: medium | brief (3 voices, 4-8 s, nearest first); the rest ours | Waaagh!: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: each Ork army attacking a point shouts every 4-8 s (its first within… | ☐ |
 
+*Spec section: Musou Mode: the Guardsmen spread out on the way and round a held point (musou/guard-spread, 2026-11-08; `TfwRules.Version` 44, no protocol or wire change)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-53A9E14E` | Open order on the move | while a squad walks to an order its men take places in two loose ranks of five round the squad's place on its way: **3.5** m abreast, ranks **3** m apart, the second rank half a gap aside, each man shifted up to **0.75** m each way by a fixed roll of his slot… (m) | kind: estimate; confidence: low; notes: ours | the owner (2026-11-08): "spread out much more when running to a point"; the numbers ours | Open order on the move: compare with SM1 by timing a run over a known distance. Ours: while a squad walks to an order its men take places in two loose… | ☐ |
+| `R-DD9B0C55` | Squad lanes | squads on the move go in three lanes by their index (mod 3: middle, right, left), **6** m apart across their heading, so squads bound for one point do not walk in one file (m) | kind: estimate; confidence: low; notes: ours | ours, from the same request | Squad lanes: compare with SM1 by measuring on a flat spot of the same map. Ours: squads on the move go in three lanes by their index (mod 3: middle… | ☐ |
+| `R-8868C935` | Places off the walls | a man's place on the move is pulled in towards the squad's place (whole, 3/4, 1/2, 1/4) until it stands at least **1** m from a wall or ledge (the graph's own body margin not counted) and can be walked to in a straight line from the squad's place (checked… (m, ticks) | kind: estimate; confidence: low; notes: ours | the owner: "walk in straight lines directly next to walls"; the numbers ours | Places off the walls: compare with SM1 by feel or video. Ours: a man's place on the move is pulled in towards the squad's place… | ☐ |
+| `R-6939E072` | The way off the walls | the squad's way, and a man's when his straight line to his place is blocked, takes at each node, of the linked neighbours that still get nearer to the goal, the one with the highest directness (metres nearer per metre walked, at most 1) + **1.5** x its wall… (m) | kind: estimate; confidence: low; notes: ours | ours (an inflated-obstacle walk on the existing field, no new field) | The way off the walls: compare with SM1 by measuring on a flat spot of the same map. Ours: the squad's way, and a man's when his straight line to his place is… | ☐ |
+| `R-B4D0929A` | Stuck men | a man who moves less than **30 %** of the step he wants for **0.5** s takes a detour for **2** s: by the way from where he stands, or, with no way, sideways (60 degrees off his line, his side by his slot and the detour's half) (s, share) | kind: estimate; confidence: low; notes: ours | the owner: "get stuck on corners"; the numbers ours | Stuck men: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: a man who moves less than 30 % of the step he wants for 0.5 s takes a… | ☐ |
+| `R-A80106A6` | Fire teams round a held point | a squad sent to a point (`TfwBattle.Send`: a secured position, or the landing zone with none, each squad to its own spot within 0.7 of the radius) splits on arrival into **3** fire teams (3, 3 and 4 men) spread over an arc of **120** degrees centred on its… (m, degrees) | kind: estimate; confidence: low; notes: ours | the owner (2026-11-08): "after its captured they splinter and spread out around the point to defend it"; the numbers ours | Fire teams round a held point: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a squad sent to a point (TfwBattle.Send: a secured position, or the… | ☐ |
+| `R-B56895C3` | Armies' squads | an army's squads (expansion S6) walk in the open order and lanes too; a held army keeps its block layout (`TfwArmyLayout`), no fire teams | kind: ours; confidence: low | ours (the block layout is the far layer's) | Armies' squads: compare with SM1 by feel or video. Ours: an army's squads (expansion S6) walk in the open order and lanes too… | ☐ |
+
 *Spec section: Musou Mode: the Guardsmen's strength, endless ammunition, the grenade refill, the AI Marines' damage (night/musou-rules, 2026-11-06; `TfwRules.Version` 30, no protocol or wire change)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -3280,6 +3301,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-09C74C8A` | Musou Mode replaces the 5-wave run | the owner's decision (2026-11-01) | `--content musou` runs the war on `tfw_war`, Manufactorum from the install with a generated Stormbird beside it and no spawn-room blockers; the 5-wave run stays only as a test aid (`--map mp_tdm_09`) | War map | Musou Mode replaces the 5-wave run: compare with SM1 by timing a run over a known distance. Ours: the owner's decision (2026-11-01). | ☐ |
 | `C-38A58728` | AI Marines in the war | the owner's decisions (2026-11-01) and ours | server-side puppets: a retainer per player who follows orders and revives, three lords with retainers who act alone; ammunition without end, placeholder names | Retainer orders | AI Marines in the war: compare with SM1 by feel or video. Ours: the owner's decisions (2026-11-01) and ours. | ☐ |
 | `C-A5D8C2C2` | Guard squads fight beside the players; leashed Ork defenders | the design of the war (2026-11-01); SM1 has no such allies (the Guardsman is the Exterminatus co-op blueprint) | squads of 10 shoot and are struck server-side; defenders hold until a target is within 30 m or their group is hurt | War Guard squads, Leashed defenders | Guard squads fight beside the players; leashed Ork defenders: compare with SM1 by feel or video. Ours: the design of the war (2026-11-01); SM1 has no such allies (the… | ☐ |
+| `C-8DF0F6BD` | Musou Guardsmen spread out on the way and round a held point (musou/guard-spread, 2026-11-08; `TfwRules.Version` 44) | the owner's request (2026-11-08); added content, no SM1 counterpart | Ours (the numbers estimates): squads walk in open order (3.5 m abreast, two ranks 3 m apart, each man shifted up to 0.75 m) in three lanes 6 m apart, their places kept 1 m off walls, their way chosen for clearance (up to 2 m) among the steps that get nearer, a stuck man detours for 2 s; on a point they hold each squad… | spec "Musou Mode: the Guardsmen spread out on the way and round a held point" | Musou Guardsmen spread out on the way and round a held…: compare with SM1 by feel or video. Ours: the owner's request (2026-11-08); added content, no SM1 counterpart. | ☐ |
 | `C-5493CF9D` | Musou Mode's hub is the inside of the campaign Thunderhawk | the owner's pass 2 item 29 (2026-11-01) | the Stormbird is the model `thunderhawk_interior` of the singleplayer chunk (a singleplayer-content dependency, read from the install at run time), its ramp open on black space and a planet; generated collision (the chunk has none); stations at the monitor and a tech panel; warm work lights ours | War map, War map look | Musou Mode's hub is the inside of the campaign Thunderhawk: compare with SM1 by feel or video. Ours: the owner's pass 2 item 29 (2026-11-01). | ☐ |
 | `C-7A2FCDE6` | Musou Mode's rewards and slots | the owner's items 3, 9, 11, 25, 26, 27 (2026-11-01); the numbers ours | full loadout from the start, enemies drop the core's boxes (fodder 8%, elites 40%), 6 class crates a battle, 3 reward cards after a won map, found weapons in keys 3, 4, 5 that never replace the primary, keyboard only | Boxes from enemies, Box chance, Weapon crates, Reward offer, Extra primary slots | Musou Mode's rewards and slots: compare with SM1 by feel or video. Ours: the owner's items 3, 9, 11, 25, 26, 27 (2026-11-01); the numbers ours. | ☐ |
 | `C-89AFC966` | Musou Mode's score | the owner's item 17 (2026-11-01); the addendum's rules | chain points as the 5-wave run's, map and run totals, end-of-map and end-of-run panels, a local best and COPY RESULT; no online leaderboard | Score: a KO, Score: map and run totals, Local best | Musou Mode's score: compare with SM1 by feel or video. Ours: the owner's item 17 (2026-11-01); the addendum's rules. | ☐ |
