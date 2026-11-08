@@ -32,8 +32,8 @@ public class TfwBaseSpawnTests
         var data = Ashfallish.Value;
         var w = new World(TfwRig.Config, data.Collision, data.Spawns) { Rules = new MatchRules { CountdownTime = 0.1f, TimeLimit = 0f, ScoreLimit = int.MaxValue / 2, RestartDelay = 2f }, StartAreas = data.StartAreas };
         Assert.True(w.StartTfw(Graph.Value, data.Field));
-        w.Tfw!.RetainerUp = _ => false;
-        w.Tfw.Guardsmen = true;
+        // retainers are gone (hotfix/musou-allies-two): the two allied Marines do not affect where a human lands
+        w.Tfw!.Guardsmen = true;
         w.Tfw.Patrols = false;
         w.TfwMeksOn = false;
         w.Spawn(Human, w.AssignClass(0));
