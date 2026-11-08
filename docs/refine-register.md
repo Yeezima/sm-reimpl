@@ -28,22 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2630 spec table rows: **1932 tagged**, 487 not tagged (read from data with high confidence), 211 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 588 rows of the changes document.
+Scanned 2665 spec table rows: **1964 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 595 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
-| Movement (critical) | 384 | 326 | 326 | 114 | 12 |
+| Movement (critical) | 385 | 327 | 326 | 114 | 12 |
 | Combat core (critical) | 13 | 4 | 12 | 11 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 113 | 98 | 89 | 37 | 5 |
-Scanned 2656 spec table rows: **1955 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 594 rows of the changes document.
-
-| Area | Tagged rows | by kind | by confidence | by notes | by section text |
-|---|---:|---:|---:|---:|---:|
-| Movement (critical) | 384 | 326 | 325 | 114 | 12 |
-| Combat core (critical) | 13 | 4 | 12 | 11 | 9 |
-| Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 118 | 103 | 93 | 38 | 5 |
+| Melee (critical) | 119 | 104 | 94 | 38 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -58,25 +50,18 @@ Scanned 2656 spec table rows: **1955 tagged**, 488 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 465 | 443 | 316 | 126 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 184 | 174 | 86 | 53 | 0 |
-| **All areas** | **1932** | 1688 | 1426 | 623 | 38 |
-| Core simulation (provisional values) | 476 | 452 | 327 | 126 | 1 |
+| Core simulation (provisional values) | 483 | 459 | 332 | 126 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 190 | 180 | 92 | 53 | 0 |
-| **All areas** | **1955** | 1709 | 1447 | 624 | 38 |
+| **All areas** | **1964** | 1718 | 1454 | 624 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1031 |
-| confidence: low | 689 |
-| confidence: medium | 608 |
-| kind: ours | 1052 |
-| confidence: low | 697 |
-| confidence: medium | 621 |
+| kind: ours | 1061 |
+| confidence: low | 703 |
+| confidence: medium | 622 |
 | kind: interpretation | 359 |
 | notes: ours | 358 |
 | notes: estimate | 153 |
@@ -106,7 +91,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 
 ## Part A: gameplay areas, critical first
 
-### Movement (gameplay-critical) (384)
+### Movement (gameplay-critical) (385)
 
 *Spec section: Extracted parameters*
 
@@ -926,8 +911,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (113)
-### Melee (gameplay-critical) (118)
+### Melee (gameplay-critical) (119)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -2172,8 +2156,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (465)
-### Core simulation (provisional values) (476)
+### Core simulation (provisional values) (483)
 
 *Spec section: Provisional values in use*
 
@@ -2936,6 +2919,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-69FA8A9F` | Musou: camera shake does not stack | a new shake counts in full if it is the strongest, else **25 %** of it is added; the total never passes **0.04** rad (a close frag is 0.032) (share, rad) | kind: ours; confidence: low | the brief: prevent shake from stacking | Musou: camera shake does not stack: compare with SM1 with an overlaid screenshot taken from the same position. Ours: a new shake counts in full if it is the strongest, else 25 % of it is… | ☐ |
 | `R-B66C5204` | Options: camera shake | 0 to **100 %** (default 100 %, steps of 5 %): a factor on every camera shake, kick and landing bob, every mode (share) | kind: ours | the brief's accessibility controls | Options: camera shake: compare with SM1 with an overlaid screenshot taken from the same position. Ours: 0 to 100 % (default 100 %, steps of 5 %): a factor on every camera… | ☐ |
 | `R-0141EEF1` | Options: screen flashes | 0 to **100 %** (default 100 %): a factor on the screen-wide flashes (krak close by, Musou call-outs) and the power weapon hit bursts, every mode (share) | kind: ours | as above | Options: screen flashes: compare with SM1 by feel or video. Ours: 0 to 100 % (default 100 %): a factor on the screen-wide flashes (krak… | ☐ |
+
 *Spec section: Musou Mode: smooth crowd motion (crowd-smooth, 2026-11-08; Musou Mode only; `MusouSim.Version` 22, no core protocol bump: `Protocol.Version` stays 64)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
