@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Musou Mode: the bolt weapons' explosions are smaller: half the reach and a smaller flash. An Ork they kill is torn apart where he stands instead of flying away, and one they hurt is knocked to the ground. Testers must all update (new game version).

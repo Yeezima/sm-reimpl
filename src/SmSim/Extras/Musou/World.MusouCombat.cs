@@ -292,8 +292,11 @@ public sealed partial class World
     readonly Dictionary<int, uint> _musouHealTick = new();
     readonly HashSet<(int Attacker, int Enemy)> _musouHealed = new();
 
-    /// <summary>A blast on the enemies (see the class summary).</summary>
-    void MusouBlast(int owner, Vector3 point, SplashSpec splash, bool melee)
+    /// <summary>
+    /// A blast on the enemies (see the class summary). <paramref name="bolt"/>: a Musou Mode bolt blast (<see cref="TfwCombatRules.BoltBlastKnocksDown"/>, owner 2026-11-08): a kill is
+    /// <see cref="MusouDeathKind.BoltBlast"/> (torn apart, not thrown); one hurt and alive falls where he stands (fodder) or staggers with no knockback (the rest).
+    /// </summary>
+    void MusouBlast(int owner, Vector3 point, SplashSpec splash, bool melee, bool bolt = false)
     {
         if (_state != MatchState.Playing || splash.BlindOnly || !(splash.Radius > 0f)) return;
         MusouBeginTick();
@@ -314,13 +317,19 @@ public sealed partial class World
             var push = away.LengthSquared() > 1e-8f ? Vector2.Normalize(away) : new Vector2(-MathF.Sin(e.Yaw), MathF.Cos(e.Yaw));
             float damage = splash.Damage.Damage * intensity * splash.Damage.BodyMultiplier;
             bool killed = false;
-            if (damage > 0f) musou.Damage(e.Id, owner, damage, new Vector3(push, 0.3f), out killed, cause: melee ? MusouDeathKind.Melee : MusouDeathKind.Blast);
+            if (damage > 0f) musou.Damage(e.Id, owner, damage, new Vector3(push, 0.3f), out killed, cause: melee ? MusouDeathKind.Melee : bolt ? MusouDeathKind.BoltBlast : MusouDeathKind.Blast);
             if (melee && damage > 0f)
             {
                 MusouMeleeHeal(owner, e.Id);
                 // A stomp: the step's cleave follows at once (ResolveMelee) and gives each enemy only what it adds to this.
                 if (_musouStompTick != Tick || _musouStompBy != owner) { _musouStomped.Clear(); _musouStompTick = Tick; _musouStompBy = owner; }
                 _musouStomped[e.Id] = _musouStomped.GetValueOrDefault(e.Id) + damage;
+            }
+            if (bolt)
+            {
+                // Knocked down on the spot, never thrown: no throw distance, no death roll; one already down stays down. Not a fodder Ork: a stagger in place.
+                if (!killed && damage > 0f && musou.TryGet(e.Id, out var hurt) && hurt.Alive && !musou.KnockDown(e.Id, push, 0f, owner, 0f)) musou.Stagger(e.Id, push, 0f);
+                continue;
             }
             if (!killed && intensity >= rules.BlastStaggerIntensity) musou.Stagger(e.Id, push, rules.BlastKnockback * MathF.Min(1f, intensity));
         }

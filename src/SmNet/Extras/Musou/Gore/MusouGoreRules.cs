@@ -14,7 +14,8 @@ public static class MusouGoreRules
     /// <summary>How solid a gore cloud is at its thickest in Musou Mode (the owner, 2026-11-02: "slightly more see through"; the shared cloud's is <see cref="GoreRules.CloudAlpha"/>).</summary>
     public const float CloudAlpha = 0.58f;
 
-    /// <summary>Whether a death throws the body (the owner, 2026-11-02): artillery, a frag, a launcher's or a plasma cannon's blast. A lascannon shot still bursts with no corpse.</summary>
+    /// <summary>Whether a death throws the body (the owner, 2026-11-02): artillery, a frag, a launcher's or a plasma cannon's blast. A lascannon shot still bursts with no corpse, and so does a
+    /// bolt blast (<see cref="MusouDeathKind.BoltBlast"/>: owner 2026-11-08, torn apart on the spot, no ragdoll).</summary>
     public static bool Thrown(MusouDeathKind cause) => cause is MusouDeathKind.Blast or MusouDeathKind.Barrage or MusouDeathKind.OrkBlast;
 
     /// <summary>
@@ -46,7 +47,7 @@ public static class MusouGoreRules
     public static GoreClass Classify(MusouDeathKind cause, int killer, bool killerHasLascannon) => cause switch
     {
         MusouDeathKind.World => GoreClass.None,
-        MusouDeathKind.Barrage or MusouDeathKind.Blast or MusouDeathKind.OrkBlast => GoreClass.Explosion,
+        MusouDeathKind.Barrage or MusouDeathKind.Blast or MusouDeathKind.OrkBlast or MusouDeathKind.BoltBlast => GoreClass.Explosion,
         MusouDeathKind.Strafe => GoreClass.Gore,
         _ => killer <= 0 ? GoreClass.None : killerHasLascannon && cause == MusouDeathKind.Shot ? GoreClass.Explosion : GoreClass.Gore,
     };

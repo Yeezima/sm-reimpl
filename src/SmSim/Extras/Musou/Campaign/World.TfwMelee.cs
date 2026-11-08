@@ -163,7 +163,7 @@ public sealed partial class World
         foreach (float distance in distances)
         {
             var point = origin + direction * distance;
-            MusouBlast(shooter, point, splash, melee: false);
+            MusouBlast(shooter, point, splash, melee: false, bolt: war.BoltBlastKnocksDown);
             TfwBoltBlastsOut++;
             _tfw?.Fire.BoltBlast(Tick, point, frag, splash.Radius);
         }
