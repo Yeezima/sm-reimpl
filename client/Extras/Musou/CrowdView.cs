@@ -61,8 +61,24 @@ public abstract partial class CrowdView : Node3D
     static HavokTransform[] _sample = Array.Empty<HavokTransform>();
     Transform3D[] _pose = Array.Empty<Transform3D>();
 
-    sealed class Far { public required MusouLooks.Look Look; public required MultiMeshInstance3D Node; public required float[] Buffer; public int Count; }
-    readonly Dictionary<MusouLooks.Look, Far> _far = new(ReferenceEqualityComparer.Instance);
+    /// <summary>
+    /// One batch of the vertex-animation tier: a look's members in one cell of <see cref="CellMetres"/> (musou/perf-pass, ours). One batch per look over the whole crowd had one box
+    /// spanning the field, so the renderer drew every far member in every view and every shadow cascade; a cell's box (<see cref="MultiMesh.CustomAabb"/>) lets the frustum and the
+    /// cascades leave out the cells they do not see. <c>--musou-crowd-one-batch</c> (test aid) restores one batch per look.
+    /// </summary>
+    sealed class Far
+    {
+        public required MusouLooks.Look Look; public required MultiMeshInstance3D Node; public float[] Buffer = Array.Empty<float>(); public int Count, Capacity;
+        public long Cell; public float Low = float.MaxValue, High = float.MinValue; public bool Boxed;
+    }
+    readonly Dictionary<(MusouLooks.Look Look, long Cell), Far> _far = new();
+    readonly Dictionary<MusouLooks.Look, int> _farPerLook = new(ReferenceEqualityComparer.Instance);
+    /// <summary>The side of a far batch's cell (m, ours) and the margin round it a member may reach (a body's size, a big look's scale).</summary>
+    public const float CellMetres = 32f, CellMargin = 4f;
+    /// <summary>Test aid: <c>--musou-crowd-one-batch</c>, one far batch per look over the whole crowd (before musou/perf-pass).</summary>
+    public static bool OneBatch { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--musou-crowd-one-batch") >= 0;
+    /// <summary>Far batches with members this frame (the profile's).</summary>
+    public int FarBatches { get; private set; }
     readonly List<int> _unused = new();
     bool _odd;
 
@@ -147,7 +163,8 @@ public abstract partial class CrowdView : Node3D
             float keep = Mathf.Max(0f, 1f - FlungSlide * dt);   // sliding on the floor
             v.X *= keep; v.Y *= keep;
         }
-        if (b.Landed) b.Turn = b.Turn.Slerp(Quaternion.Identity, Mathf.Min(1f, FlungRollOut * dt));
+        // musou/perf-pass: normalised, as the tumble below is: a slerp's float error left the turn "not normalized", and Godot's quaternion product then threw out of the whole Musou frame (267 times in a 200 v 200 run)
+        if (b.Landed) b.Turn = b.Turn.Slerp(Quaternion.Identity, Mathf.Min(1f, FlungRollOut * dt)).Normalized();
         else if (b.Spin.LengthSquared() > 1e-4f) b.Turn = (new Quaternion(b.Spin.Normalized(), b.Spin.Length() * dt) * b.Turn).Normalized();
         b.Position = p; b.Velocity = v;
         b.Resting = (b.Landed && p.Z <= b.Ground + 0.01f && v.LengthSquared() < 0.05f) || b.Flight >= FlungMaxFlight;
@@ -210,6 +227,7 @@ public abstract partial class CrowdView : Node3D
 
         foreach (var s in _skinned) s.Used = false;
         foreach (var f in _far.Values) f.Count = 0;
+        _farPerLook.Clear();
         int skinned = 0, vat = 0, left = 0;
         for (int i = 0; i < Items.Count; i++)
         {
@@ -226,11 +244,16 @@ public abstract partial class CrowdView : Node3D
         _unused.Clear();
         foreach (var (key, s) in _skinnedByKey) if (!s.Used) { s.Root.Visible = false; s.Key = int.MinValue; _unused.Add(key); }
         foreach (var key in _unused) _skinnedByKey.Remove(key);
+        int batches = 0;
         foreach (var f in _far.Values)
         {
             f.Node.Multimesh.VisibleInstanceCount = f.Count;
-            if (f.Count > 0) RenderingServer.MultimeshSetBuffer(f.Node.Multimesh.GetRid(), f.Buffer);
+            if (f.Count == 0) continue;
+            batches++;
+            RenderingServer.MultimeshSetBuffer(f.Node.Multimesh.GetRid(), f.Buffer);
+            if (!f.Boxed && !OneBatch) Box(f);
         }
+        FarBatches = batches;
         ShownSkinned = skinned; ShownVat = vat; LeftOut = left;
         _drawWorst = Math.Max(_drawWorst, ThreadClock.Ms(started));
     }
@@ -330,17 +353,39 @@ public abstract partial class CrowdView : Node3D
         return it.Turn.W == 0f && it.Turn.X == 0f && it.Turn.Y == 0f && it.Turn.Z == 0f ? yaw : new Basis(it.Turn) * yaw;
     }
 
+    static long CellOf(Vector3 p) => ((long)Mathf.FloorToInt(p.X / CellMetres) << 32) | (uint)Mathf.FloorToInt(p.Y / CellMetres);
+
+    /// <summary>A cell batch's box: its cell, the margin round it, and the heights its members have stood at (game space, the node's own); set again when a member stands higher or lower.</summary>
+    static void Box(Far f)
+    {
+        f.Boxed = true;
+        float x0 = (int)(f.Cell >> 32) * CellMetres, y0 = (int)(uint)f.Cell * CellMetres;
+        f.Node.Multimesh.CustomAabb = new Aabb(new Vector3(x0 - CellMargin, y0 - CellMargin, f.Low - CellMargin), new Vector3(CellMetres + 2f * CellMargin, CellMetres + 2f * CellMargin, f.High - f.Low + 2f * CellMargin));
+    }
+
     bool AddFar(MusouLooks.Look look, in Item it)
     {
-        if (!_far.TryGetValue(look, out var f))
+        int perLook = _farPerLook.GetValueOrDefault(look);
+        if (perLook >= Limits.MaxVat) return false;
+        long cell = OneBatch ? long.MinValue : CellOf(it.Position);   // one batch: a key no cell has
+        if (!_far.TryGetValue((look, cell), out var f))
         {
-            var mm = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseCustomData = true, Mesh = look.Vat!.Mesh, InstanceCount = Limits.MaxVat };
-            mm.VisibleInstanceCount = 0;
-            var node = new MultiMeshInstance3D { Name = "Far " + look.Name, Multimesh = mm, ExtraCullMargin = 4f };
+            var mm = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseCustomData = true, Mesh = look.Vat!.Mesh };
+            var node = new MultiMeshInstance3D { Name = $"Far {look.Name} {cell:X}", Multimesh = mm, ExtraCullMargin = 4f };
             AddChild(node);
-            _far[look] = f = new Far { Look = look, Node = node, Buffer = new float[Limits.MaxVat * 16] };
+            _far[(look, cell)] = f = new Far { Look = look, Node = node, Cell = cell };
         }
-        if (f.Count >= Limits.MaxVat) return false;
+        if (f.Count >= f.Capacity)
+        {
+            // Grown by doubling (one batch per look: its whole cap at once, as before); a new instance count clears the buffer, which is written again below and uploaded whole.
+            int capacity = OneBatch ? Limits.MaxVat : Math.Min(Limits.MaxVat, Math.Max(32, f.Capacity * 2));
+            var buffer = new float[capacity * 16];
+            Array.Copy(f.Buffer, buffer, f.Count * 16);
+            f.Buffer = buffer; f.Capacity = capacity;
+            f.Node.Multimesh.InstanceCount = capacity;
+        }
+        if (!OneBatch && (it.Position.Z < f.Low || it.Position.Z > f.High)) { f.Low = MathF.Min(f.Low, it.Position.Z); f.High = MathF.Max(f.High, it.Position.Z); f.Boxed = false; }
+        _farPerLook[look] = perLook + 1;
         var vat = look.Vat!;
         var (r0, r1, blend) = MusouVat.FramesAt(vat.Clips[it.Clip], it.Time);
         var basis = BasisOf(it).Scaled(Vector3.One * look.Scale);

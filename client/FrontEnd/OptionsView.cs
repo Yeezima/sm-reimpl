@@ -106,14 +106,32 @@ public sealed partial class OptionsView : UiKit.MenuPage
         Choice("Vsync", OffOn, O.Vsync ? 1 : 0, i => Set(x => x with { Vsync = i == 1 }));
         var caps = GameOptions.FpsCaps;
         Choice("FPS cap", caps.Select(c => c == 0 ? "UNLIMITED" : c.ToString()).ToArray(), Array.IndexOf(caps, O.FpsCap), i => Set(x => x with { FpsCap = caps[i] }));
-        Add(new UiKit.MenuSlider("Render scale", GameOptions.MinRenderScale, GameOptions.MaxRenderScale, GameOptions.RenderScaleStep, O.RenderScale, Percent, v => Set(x => x with { RenderScale = (float)v }), "RenderScaleSlider",
-            "The 3D picture's resolution as a part of the window's; lower runs faster, the menus and the HUD stay sharp."));
+        // musou/perf-pass (the owner's brief, ours): FSR 2 upscaling, default off. On, its preset sets the 3D scale and it is the anti-aliasing, so the render scale and anti-aliasing rows rest.
+        var upscales = Enum.GetValues<UpscaleChoice>();
+        bool fsrOk = RenderQuality.Fsr2Supported;
+        UiKit.MenuSlider? scaleRow = null;
+        UiKit.MenuChoice? aaRow = null;
+        void Rest()
+        {
+            bool fsr = fsrOk && O.Upscale != UpscaleChoice.Off;
+            scaleRow?.SetDisabled(fsr);
+            aaRow?.SetDisabled(fsr || RenderQuality.AaFromCommandLine);
+        }
+        var upscaleRow = new UiKit.MenuChoice("Upscaling", upscales.Select(Upscaling.Name).ToArray(), Math.Max(0, Array.IndexOf(upscales, O.Upscale)), i => { Set(x => x with { Upscale = upscales[i] }); Rest(); },
+            fsrOk ? "AMD FSR 2: renders the 3D picture smaller and rebuilds it at full size (QUALITY, BALANCED, PERFORMANCE), or at full size as its own anti-aliasing (NATIVE AA). The menus and the HUD stay sharp. OFF uses the render scale and the anti-aliasing below."
+                  : "FSR 2 needs the Forward+ renderer; the Compatibility renderer (old GPU / safe mode) has none.");
+        upscaleRow.Name = "UpscalingRow";
+        upscaleRow.SetDisabled(!fsrOk || RenderQuality.UpscaleFromCommandLine);
+        Add(upscaleRow);
+        scaleRow = new UiKit.MenuSlider("Render scale", GameOptions.MinRenderScale, GameOptions.MaxRenderScale, GameOptions.RenderScaleStep, O.RenderScale, Percent, v => Set(x => x with { RenderScale = (float)v }), "RenderScaleSlider",
+            "The 3D picture's resolution as a part of the window's; lower runs faster, the menus and the HUD stay sharp. With FSR 2 on, its preset sets the scale.");
+        Add(scaleRow);
         Choice("Shadow quality", ["DEFAULT", "LOW", "MEDIUM", "HIGH"], (int)O.Shadows, i => Set(x => x with { Shadows = (ShadowChoice)i }), "DEFAULT follows the lighting preset. Takes effect on the sun's shadows at once.");
         var aa = RenderQuality.Choices;
-        var aaRow = new UiKit.MenuChoice("Anti-aliasing", aa.Select(RenderQuality.ChoiceName).ToArray(), Math.Max(0, Array.IndexOf(aa, O.Aa)), i => Set(x => x with { Aa = aa[i] }),
-            "Cut-out edges (grates, fences) follow the new choice when the next map loads.");
-        aaRow.SetDisabled(RenderQuality.AaFromCommandLine);
+        aaRow = new UiKit.MenuChoice("Anti-aliasing", aa.Select(RenderQuality.ChoiceName).ToArray(), Math.Max(0, Array.IndexOf(aa, O.Aa)), i => Set(x => x with { Aa = aa[i] }),
+            "Cut-out edges (grates, fences) follow the new choice when the next map loads. With FSR 2 on, FSR 2 is the anti-aliasing.");
         Add(aaRow);
+        Rest();
         Add(UiKit.FovRow(_services.Settings.FovDegrees, f => _services.UpdateSettings(x => x with { FovDegrees = f })));   // ui/fov-slider (ours)
         Add(new UiKit.MenuSlider("Brightness", GameOptions.MinBrightness, GameOptions.MaxBrightness, GameOptions.BrightnessStep, O.Brightness, Percent, v => Set(x => x with { Brightness = (float)v }), "BrightnessSlider", "A gamma curve over the whole picture. 100% leaves it untouched."));
         // ui/lighting-presets (the owner's request of 2026-11-06; ours, cosmetic): ten looks over the map's lighting, applied live (LightingGradeView); Faithful Remaster is today's look.
