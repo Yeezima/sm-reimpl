@@ -269,6 +269,7 @@ public partial class NetworkView
         bool any = false;
         for (int i = 0; i < _streaks.Length && !any; i++) any = _streaks[i].Live;
         for (int i = 0; i < _debugRays.Length && !any; i++) any = _debugRays[i].Live;
+        any |= AnyBallBolt();   // fix/plasma-trail-slab
         any |= AnyLaser();   // feel/scope-lascannon (NetworkView.Laser.cs)
         if (!any)
         {
@@ -290,6 +291,7 @@ public partial class NetworkView
         _bulletMesh!.ClearSurfaces();
         _bulletSurfaceOpen = false;
         DrawLasers(camera);   // feel/scope-lascannon: the lascannon beams (NetworkView.Laser.cs)
+        DrawBallBolts(camera);   // fix/plasma-trail-slab (NetworkView.PlasmaLightShot.cs)
         for (int i = 0; i < _streaks.Length; i++)
         {
             ref var s = ref _streaks[i];

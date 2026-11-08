@@ -655,10 +655,12 @@ public partial class NetworkView
                 var e = _fx!.Play(p.Name, position, AxesFromY(Vector3.Down), p.Scale <= 0f ? 1f : p.Scale, null,
                     () => _fxProjectilePos.TryGetValue(id, out var pos) ? (pos, AxesFromY(_fxProjectileDir.TryGetValue(id, out var d) ? -d : Vector3.Down)) : null,
                     p.Lifetime > 0f ? p.Lifetime : 8f, 0.0, false, 1, tint: RaceTint(ProjectileWargear(q), p.Name));
-                if (e is not null) { e.StopOnLost = true; _fxTrails++; }
+                if (e is not null) { e.StopOnLost = true; _fxTrails++; if (IsPlasmaShot(q.Weapon, q.Thrown) && !ProjectileWargear(q).Contains("cannon", StringComparison.OrdinalIgnoreCase) && !OldTrailSlab) e.SoftHead = true; }   // fix/plasma-trail-slab
             }
             if (_fxTrailed.Count > 4096) _fxTrailed.Clear();
         }
+        if (!q.Thrown && !OldTrailSlab && IsPlasmaShot(q.Weapon, false) && !ProjectileWargear(q).Contains("cannon", StringComparison.OrdinalIgnoreCase) && _fxProjectileDir.TryGetValue(q.Id, out var flight))
+            BallBoltNote(q.Id, position, flight, 1f, PlasmaBoltTint(ProjectileWargear(q)) ?? new Color(0.45f, 0.72f, 1f));   // fix/plasma-trail-slab: the charged ball's smooth thick bolt
         return true;
     }
 
