@@ -15,7 +15,7 @@ namespace SmClient;
 /// (<see cref="ProjectileLook"/> of the charged stage) and the same data trail effects the charged projectile plays (<see cref="FxProjectile"/>: glow, streamers, light; the side's tint), each at
 /// 0.75 of its size, flying from the muzzle straight to the shot's end point; the impact arrives with it. It replaces the thin blue bolt of fx/tracers-impact (<see cref="PlasmaBolt"/>), and
 /// gives the pistol, whose basic shot names no tracer of its own in the data, one. Normal and Compatibility renderers draw it the same way (the ball is a plain unshaded mesh).
-/// <c>--old-light-bolt</c> (test aid) restores the thin bolt. The charged shot and the plasma cannon are untouched.
+/// <c>--old-light-bolt</c> (test aid) restores the thin bolt. The ball flies at <see cref="PlasmaLightShot.FlightSpeed"/> (owner, 2026-11-09: "real speed, faster than 90 if possible, no drop; hit and damage still instant"): the impact effect waits for it. The charged shot and the plasma cannon are untouched.
 /// </summary>
 public partial class NetworkView
 {
@@ -31,7 +31,7 @@ public partial class NetworkView
 
     sealed class LightBall
     {
-        public int Id, Shooter, Index, Stage;
+        public int Shooter, Index, Stage;
         public WeaponEffects W = null!;
         public double At;            // client time the ball leaves (later than the shot for a pistol that is still coming up)
         public Vector3 From, End;
@@ -44,40 +44,7 @@ public partial class NetworkView
 
     readonly List<LightBall> _lightBalls = new();
     readonly Stack<MeshInstance3D> _lightBallPool = new();
-    int _lightBallsLaunched, _lightBallTrails, _nextLightBallId = -2_000_000;
-
-    // ---- the smooth thick plasma bolt behind a ball (owner, 2026-11-09: "too blocky ... smooth it out and make it a distinct thick bolt of plasma") ----
-
-    /// <summary>The bolt's length behind the ball (metres at size 1; ours) and its width scale of the pooled streak's 0.16 m glow / 0.022 m core (3.5: a 1.1 m glow round a 0.15 m hot core; ours).</summary>
-    const float BallBoltLength = 4f, BallBoltWidth = 7f;
-    readonly Dictionary<int, (Vector3 Pos, Vector3 Dir, float Size, Color Tint, ulong Frame, float Max)> _ballBolts = new();
-    readonly List<int> _ballBoltStale = new();
-
-    /// <summary>Each frame a plasma ball is drawn: where it is, which way it flies, its size (1 charged, 0.75 light), the side's colour, and how far back the bolt may reach (a ball just launched has not flown far).</summary>
-    void BallBoltNote(int key, Vector3 pos, Vector3 dir, float size, Color tint, float reach = 1000f) =>
-        _ballBolts[key] = (pos, dir, size, tint, Engine.GetProcessFrames(), reach);
-
-    bool AnyBallBolt() => _ballBolts.Count > 0;
-
-    /// <summary>From <see cref="UpdateBulletLines"/>: the bolts noted this frame or the last, a soft glow ribbon with a hot core (<see cref="SoftStreak"/>), faint at the tail, bright at the ball.</summary>
-    void DrawBallBolts(Vector3 camera)
-    {
-        ulong now = Engine.GetProcessFrames();
-        _ballBoltStale.Clear();
-        foreach (var (key, b) in _ballBolts)
-        {
-            if (now - b.Frame > 1) { _ballBoltStale.Add(key); continue; }
-            float len = MathF.Min(BallBoltLength * b.Size, b.Max);
-            if (len < 0.05f || b.Dir.LengthSquared() < 1e-6f) continue;
-            _streakWidth = b.Size * BallBoltWidth;
-            var cold = new Color(b.Tint.R, b.Tint.G, b.Tint.B, 0f);
-            var hot = new Color(b.Tint.Lerp(Colors.White, 0.2f), 1f);
-            SoftStreak(camera, b.Pos - b.Dir.Normalized() * len, b.Pos, cold, hot);
-            if (CmdFlag("log-ball-bolt")) GD.Print($"ball-bolt {key}: pos {b.Pos} dir {b.Dir} len {len:F2} width {_streakWidth:F2}");
-        }
-        _streakWidth = 1f;
-        foreach (var k in _ballBoltStale) _ballBolts.Remove(k);
-    }
+    int _lightBallsLaunched, _lightBallTrails;
 
     /// <summary>From <see cref="FxShot"/>: launches the light shot's ball from <paramref name="from"/> to <paramref name="end"/>. Returns the seconds until it arrives (the impact's delay).</summary>
     float LightBallLaunch(int shooter, WeaponSpec spec, WeaponEffects w, int index, Vector3 from, Vector3 end, float size = PlasmaLightShot.Scale)
@@ -86,9 +53,9 @@ public partial class NetworkView
         int stage = PlasmaLightShot.ChargedStage(spec);
         float distance = from.DistanceTo(end);
         float chargedSpeed = Shots.ProjectileOf(spec, stage)?.Speed ?? 0f;
-        float speed = size >= 1f ? MathF.Max(chargedSpeed, 1f) : PlasmaLightShot.FlightSpeed(chargedSpeed, distance);   // size 1: the --bolt-fx-charged capture reference, at the charged ball's own speed
+        float speed = size >= 1f ? MathF.Max(chargedSpeed, 1f) : PlasmaLightShot.FlightSpeed(chargedSpeed);   // size 1: the --bolt-fx-charged capture reference, at the charged ball's own speed
         float wait = PistolRaiseWait(shooter, spec);   // fx/visuals-2: a pistol still coming up releases the ball from the raised muzzle
-        _lightBalls.Add(new LightBall { Id = _nextLightBallId--, Shooter = shooter, Index = index, Stage = stage, W = w, At = _connectedFor + wait, From = from, End = end, Speed = speed, Distance = distance, Size = size });
+        _lightBalls.Add(new LightBall { Shooter = shooter, Index = index, Stage = stage, W = w, At = _connectedFor + wait, From = from, End = end, Speed = speed, Distance = distance, Size = size });
         if (_lightBalls.Count > 48) RetireLightBall(_lightBalls[0], true);
         _lightBallsLaunched++;
         return wait + distance / speed;
@@ -123,7 +90,6 @@ public partial class NetworkView
             }
             b.Pos = b.From + b.Dir * travelled;
             if (b.Node is { } n && _projectileRoot is not null) n.Position = _projectileRoot.ToLocal(b.Pos);
-            if (!OldTrailSlab) BallBoltNote(b.Id, b.Pos, b.Dir, b.Size, PlasmaBoltTint(b.W.Wargear) ?? new Color(0.45f, 0.72f, 1f), travelled);
         }
     }
 
@@ -138,7 +104,7 @@ public partial class NetworkView
         b.Distance = from.DistanceTo(b.End);
         b.Dir = (b.End - from).Normalized();
         float cs = Shots.ProjectileOf(_config.Weapons[b.Index], b.Stage)?.Speed ?? 0f;
-        b.Speed = b.Size >= 1f ? MathF.Max(cs, 1f) : PlasmaLightShot.FlightSpeed(cs, b.Distance);
+        b.Speed = b.Size >= 1f ? MathF.Max(cs, 1f) : PlasmaLightShot.FlightSpeed(cs);
         var (mesh, material) = ProjectileLook(b.Index, b.Stage);   // the charged ball's own mesh and material
         var node = _lightBallPool.Count > 0 ? _lightBallPool.Pop() : NewProjectileNode();
         node.Mesh = mesh; node.MaterialOverride = material;

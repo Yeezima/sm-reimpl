@@ -40,11 +40,10 @@ public class PlasmaLightShotTests
     }
 
     [Fact]
-    public void TheBallCrossesAShotInAtMostTheCapAtTheChargedBallsSpeedOrFaster()
+    public void TheLightBallFliesAtTwiceTheChargedBallsSpeedWithNoCap()
     {
-        Assert.Equal(90f, PlasmaLightShot.FlightSpeed(90f, 5f));                 // short shot: the ball's own speed
-        Assert.Equal(1000f, PlasmaLightShot.FlightSpeed(90f, 100f), 3);          // long shot: 100 m in 0.1 s
-        Assert.True(100f / PlasmaLightShot.FlightSpeed(90f, 100f) <= PlasmaLightShot.MaxFlightSeconds + 1e-4f);
-        Assert.True(PlasmaLightShot.FlightSpeed(0f, 0f) >= 1f);
+        Assert.Equal(180f, PlasmaLightShot.FlightSpeed(90f));
+        Assert.Equal(180f, PlasmaLightShot.FlightSpeed(0f));   // no speed in the data: the 90 m/s plasma ball's
+        Assert.True(PlasmaLightShot.FlightSpeed(90f) > 90f);
     }
 }
