@@ -457,10 +457,11 @@ public sealed partial class FxPlayer : Node3D
     }
 
     /// <summary>
-    /// musou/perf-pass (ours): an effect wholly outside the view is not evaluated this frame (its age runs on, so it is where it should be when the view turns back). Kept whatever the view: one within
-    /// <see cref="CullNear"/> m, a beam (it spans to its target), and one whose sprays touch the ground (their decals are placed while they are evaluated). <c>--fx-no-cull</c> (test aid) draws them all.
+    /// musou/perf-pass (ours; a trial, off): an effect wholly outside the view is not evaluated that frame (its age runs on, so it is where it should be when the view turns back). Kept whatever the view: one within
+    /// <see cref="CullNear"/> m, a beam (it spans to its target), and one whose sprays touch the ground (their decals are placed while they are evaluated). Measured in a 200 v 200 battle (<c>--perf-ab fxcull</c>):
+    /// about 600 effects a second skipped, but no frame-time gain beyond the noise, so it stays off; <c>--fx-cull</c> (test aid) turns it on.
     /// </summary>
-    public static bool CullOffScreen { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--fx-no-cull") < 0;
+    public static bool CullOffScreen { get; set; } = Array.IndexOf(OS.GetCmdlineUserArgs(), "--fx-cull") >= 0;
     /// <summary>The distance within which an effect is always evaluated, and an effect's reach round its origin per unit of scale (m, ours: generous, so nothing at a view's edge is cut).</summary>
     public const float CullNear = 8f, CullReach = 12f;
     Godot.Collections.Array<Plane>? _frustum;
