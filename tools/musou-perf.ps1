@@ -57,7 +57,7 @@ switch -Regex ($Scene) {
 }
 foreach ($kv in ($ServerEnv -split ';' | Where-Object { $_ -match '=' })) { $k, $v = $kv -split '=', 2; Set-Item -Path "Env:$k" -Value $v }
 if ($ClientArgs) { $client += ($ClientArgs -split ' ' | Where-Object { $_ }) }
-if ($Scene -like 'clash*') { $client += @('--tfw-test', $shots) }   # --tfw-test goes last (its argument is the PNG folder)
+if ($Scene -like 'clash*') { $client += @('--quit-after', "$($Seconds + 300)", '--tfw-test', $shots) }   # bounded even if the fight never ends (a lost server)   # --tfw-test goes last (its argument is the PNG folder)
 
 $server = Start-QuietProcess -FilePath (Get-Command dotnet).Source -ArgumentList $serverArgs -WorkingDirectory $RepoRoot -StdOut $serverLog
 Write-Host "server pid $($server.Id) on 127.0.0.1:$Port ($Scene, tag $Tag)"
@@ -68,6 +68,7 @@ try {
         Start-Sleep -Milliseconds 500
     }
     Start-Sleep -Seconds 2
+    if ($server.HasExited -or ((Get-Content -LiteralPath $serverLog -Raw -ErrorAction SilentlyContinue) -match 'already in use')) { throw "the server did not start on 127.0.0.1:$Port (see $serverLog): is another run still going?" }
     $godot = @(); if (-not $Headless) { $godot += '--windowed' }
     $godot += @('--disable-vsync', '--log', $clientLog, '--')   # vsync off: the frame time is the work, not the display's pacing
     & (Join-Path $RepoRoot 'tools\godot.ps1') @godot @client *> $null
