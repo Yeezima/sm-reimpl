@@ -28,32 +28,21 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2621 spec table rows: **1923 tagged**, 487 not tagged (read from data with high confidence), 211 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 587 rows of the changes document.
-Scanned 2617 spec table rows: **1924 tagged**, 482 not tagged (read from data with high confidence), 211 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 583 rows of the changes document.
-Scanned 2596 spec table rows: **1908 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 583 rows of the changes document.
-Scanned 2600 spec table rows: **1911 tagged**, 480 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
-Scanned 2598 spec table rows: **1910 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
-Scanned 2602 spec table rows: **1913 tagged**, 479 not tagged (read from data with high confidence), 210 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
-Scanned 2596 spec table rows: **1908 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 581 rows of the changes document.
-Scanned 2595 spec table rows: **1907 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
+Scanned 2656 spec table rows: **1955 tagged**, 488 not tagged (read from data with high confidence), 213 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 594 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 384 | 326 | 325 | 114 | 12 |
 | Combat core (critical) | 13 | 4 | 12 | 11 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 113 | 98 | 88 | 38 | 5 |
-| Melee (critical) | 116 | 101 | 93 | 36 | 5 |
+| Melee (critical) | 118 | 103 | 93 | 38 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
 | Camera (critical) | 55 | 53 | 44 | 22 | 0 |
 | HUD and hit feedback (critical) | 68 | 63 | 50 | 11 | 0 |
 | Sound mix (critical) | 67 | 61 | 59 | 10 | 0 |
-| Effects (critical) | 86 | 76 | 71 | 39 | 0 |
-| HUD and hit feedback (critical) | 67 | 62 | 49 | 10 | 0 |
-| Sound mix (critical) | 63 | 57 | 55 | 10 | 0 |
-| Effects (critical) | 90 | 80 | 75 | 40 | 0 |
+| Effects (critical) | 87 | 77 | 72 | 39 | 0 |
 | Game modes | 41 | 38 | 38 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
@@ -61,55 +50,21 @@ Scanned 2595 spec table rows: **1907 tagged**, 479 not tagged (read from data wi
 | Animation blending | 7 | 6 | 7 | 0 | 0 |
 | Lighting and rendering | 31 | 22 | 13 | 20 | 0 |
 | Networking and render smoothing | 19 | 10 | 10 | 10 | 7 |
-| Core simulation (provisional values) | 458 | 436 | 311 | 126 | 1 |
-| Core simulation (provisional values) | 452 | 430 | 303 | 120 | 1 |
+| Core simulation (provisional values) | 476 | 452 | 327 | 126 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 184 | 174 | 86 | 53 | 0 |
-| **All areas** | **1923** | 1679 | 1419 | 623 | 38 |
-| Core simulation (provisional values) | 462 | 438 | 314 | 120 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 179 | 169 | 82 | 53 | 0 |
-| **All areas** | **1924** | 1678 | 1420 | 616 | 38 |
-| Ork faction | 178 | 169 | 80 | 54 | 0 |
-| **All areas** | **1908** | 1665 | 1403 | 619 | 38 |
-| **All areas** | **1911** | 1668 | 1408 | 617 | 38 |
-| Ork faction | 182 | 173 | 84 | 54 | 0 |
-| **All areas** | **1910** | 1667 | 1407 | 617 | 38 |
-| Core simulation (provisional values) | 456 | 434 | 308 | 120 | 1 |
-| General game design | 7 | 7 | 6 | 0 | 0 |
-| Ork faction | 179 | 170 | 81 | 54 | 0 |
-| **All areas** | **1913** | 1670 | 1409 | 617 | 38 |
-| **All areas** | **1908** | 1665 | 1403 | 617 | 38 |
-| **All areas** | **1907** | 1664 | 1404 | 617 | 38 |
+| Ork faction | 190 | 180 | 92 | 53 | 0 |
+| **All areas** | **1955** | 1709 | 1447 | 624 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1022 |
-| confidence: low | 683 |
-| kind: ours | 1014 |
-| confidence: low | 667 |
-| kind: ours | 1017 |
-| confidence: low | 672 |
-| confidence: medium | 607 |
-| kind: ours | 1027 |
-| confidence: low | 678 |
-| confidence: medium | 613 |
-| kind: ours | 1016 |
-| confidence: low | 667 |
-| confidence: medium | 611 |
-| kind: ours | 1019 |
-| confidence: low | 667 |
-| confidence: medium | 613 |
-| kind: ours | 1013 |
-| confidence: low | 667 |
-| confidence: medium | 608 |
+| kind: ours | 1052 |
+| confidence: low | 697 |
+| confidence: medium | 621 |
 | kind: interpretation | 359 |
 | notes: ours | 358 |
-| notes: estimate | 152 |
-| notes: ours | 352 |
-| notes: estimate | 154 |
+| notes: estimate | 153 |
 | confidence: none (low) | 129 |
 | kind: estimate | 126 |
 | kind: provisional | 99 |
@@ -950,8 +905,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (113)
-### Melee (gameplay-critical) (116)
+### Melee (gameplay-critical) (118)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1733,8 +1687,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-5FBBC333` | Menu sound cost | its own catalogue of two packages (`init`, `in_game_default`) opens in the background in 65 to 130 ms when the first root is attached (not before a button exists) and is disposed when a match starts, one still loading too (the match's sound system plays the… (ms) | kind: ours; confidence: medium | measured | Menu sound cost: compare with SM1 by listening A/B at the same distance and state. Ours: its own catalogue of two packages (init, in_game_default) opens in… | ☐ |
 | `R-30F789A0` | Not played | `Play_Menu_Expand_Main` (the menu opening), `Play_Multiplayer_Select`, `Play_Cooperative_Select`, `Play_Network_Select`, `Play_Campaign_Select` (screens we do not have in that form), `play_mp_point_captured` and `play_mp_bonus` (exist; no trigger found)… | kind: gap (not reproduced); confidence: none (low) | gap | Not played: compare with SM1 by listening A/B at the same distance and state. Ours: Play_Menu_Expand_Main (the menu opening), Play_Multiplayer_Select… | ☐ |
 
-### Effects (gameplay-critical) (86)
-### Effects (gameplay-critical) (90)
+### Effects (gameplay-critical) (87)
 
 *Spec section: Jump-pack feel: fuel, air control, the air slash and impact effects (feel/jump-pack; protocol 31, used by the simulation)*
 
@@ -2191,10 +2144,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-27DBAE5F` | Jump escape: what a fresh Jump press ends, in the press tick | any hit reaction (stun, stagger, light interrupt; its knockback too) at any time of its clip (was: the clip's Jump branch × the lock scale, never for the stun and stagger without one); any melee attack at any time (was: from its `BRANCH_Evade`), not given… | kind: interpretation; confidence: low; notes: ours | owner 2026-11-06; which states count as "animations" ours | Jump escape: what a fresh Jump press ends, in the press tick: compare with SM1 by feel or video. Ours: any hit reaction (stun, stagger, light interrupt; its knockback too)… | ☐ |
 
-### Core simulation (provisional values) (458)
-### Core simulation (provisional values) (462)
-### Core simulation (provisional values) (456)
-### Core simulation (provisional values) (452)
+### Core simulation (provisional values) (476)
 
 *Spec section: Provisional values in use*
 
@@ -2945,8 +2895,6 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-2AAB648A` | Allied pair look (Musou) | the pair wears the host's armour colours (the human with the lowest id), as a retainer wore its owner's | kind: ours; confidence: medium | ours (pass 2 item 1 moved to the pair) | Allied pair look (Musou): compare with SM1 by feel or video. Ours: the pair wears the host's armour colours (the human with the lowest… | ☐ |
 | `R-875EC075` | Order keys (Musou) | superseded on 2026-11-08 by the restored retainers (Z Follow, X Hold, V Attack to the own retainer; rows "War orders" and "Retainer orders"); before: Z, X and V gave no order any more (no player orders the pair): the client sends none and X next weapon and V… | kind: ours | ours | Order keys (Musou): compare with SM1 by feel or video. Ours: superseded on 2026-11-08 by the restored retainers (Z Follow, X Hold… | ☐ |
 | `R-A0E6849B` | Ashfall grime under FSR 2 and its depth pull (Musou, client) | the owner, 2026-11-08: "the floor shimmers a lot in musou mode ashfall". With Options > Graphics > Upscaling on FSR 2, the grime's overlay passes (EXACT) shimmered on the far floor even on a still camera (floor pixels flickering between three consecutive… (1e-4 of the distance) | kind: ours; confidence: medium | measured (hotfix/ashfall-floor-shimmer); the pull's size ours | Ashfall grime under FSR 2 and its depth pull (Musou, client): compare with SM1 by feel or video. Ours: the owner, 2026-11-08: "the floor shimmers a lot in musou mode… | ☐ |
-| `R-84F4C3EA` | Ashfall boundary block variant per face (Musou, client) | the owner, 2026-11-08: the wall bricks flicker with FSR off and with every FSR 2 preset (his recording: whole blocks of the boundary wall switching between the plain and the darker, grittier face each frame; under FSR 2 they turned to a per-pixel speckle).… (per vertex, rounded to the metre) | kind: ours | measured (ashfall-no-flicker) | Ashfall boundary block variant per face (Musou, client): compare with SM1 by feel or video. Ours: the owner, 2026-11-08: the wall bricks flicker with FSR off and with… | ☐ |
-| `R-D07010D0` | Ashfall grime pass order (Musou, client) | the owner, 2026-11-08: flickering all over the map with FSR off. Cause: the kit models' grime overlay (blend mix) and its multiply pass (its next pass) are two transparent passes of the same instance at the same depth, which the transparent sort left tied:… (overlay -12, multiply -11) | kind: ours | measured (ashfall-no-flicker) | Ashfall grime pass order (Musou, client): compare with SM1 by feel or video. Ours: the owner, 2026-11-08: flickering all over the map with FSR off.… | ☐ |
 
 *Spec section: Musou Mode: smooth crowd motion (crowd-smooth, 2026-11-08; Musou Mode only; `MusouSim.Version` 22, no core protocol bump: `Protocol.Version` stays 64)*
 
@@ -3321,6 +3269,7 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 |---|---|---|---|---|---|---|
 | `R-99C7D0B9` | Revive with retainer and pair (Musou) | the 25 s window stays open while the fallen human's own retainer or a Marine of the pair stands; whichever reaches the body first and holds 3 s brings it back; the HUD's progress is the furthest (s) | kind: ours; confidence: medium | ours (the two rules side by side) | Revive with retainer and pair (Musou): compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: the 25 s window stays open while the fallen human's own retainer or a… | ☐ |
 | `R-3DF22FC9` | HUD line and prompt (Musou) | the line is the own retainer's again: RETAINER: FOLLOW / HOLD / ATTACK, REVIVING YOU, RECOVERING m:ss WAR TIME, STANDING BY; the battle panel's hint Z FOLLOW X HOLD V ATTACK HOLD P PICKUP; the revive prompt names YOUR RETAINER while it stands, else THE ALLIED… | kind: ours | ours | HUD line and prompt (Musou): compare with SM1 by feel or video. Ours: the line is the own retainer's again: RETAINER: FOLLOW / HOLD /… | ☐ |
+
 *Spec section: Musou: solid big Orks and the melee lock on them (musou/boss-collision, 2026-11-08; `MusouSim.Version` 24, `TfwRules.Version` 49, no protocol or wire change; Musou Mode only)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
@@ -3329,6 +3278,7 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 | `R-375D5940` | Musou: a big Ork's body | an upright cylinder of the kind's walking radius and height (Warboss 0.75 x 4.5 = **3.375** m radius, 13 m tall; Boss Orks 3x their base: Boy/Shoota 1.2 m, 'Ard 1.35 m, Nob 1.8 m; Nob and Big Shoota Nob 0.6 m; Weirdboy 0.5 m; Scrap Mek 0.45 m); the player's… (m) | kind: ours; confidence: medium | ours (the shots' walking radius, not the 1.5x wider shot radius) | Musou: a big Ork's body: compare with SM1 by measuring on a flat spot of the same map. Ours: an upright cylinder of the kind's walking radius and height (Warboss… | ☐ |
 | `R-30461F2F` | Musou: the picture a step meets | as for players (protocol 43): the input's body tick; the server keeps each tick's big Orks quantised exactly as the entity records carry them, the client takes each one's newest record at or before that tick, no older than **30** ticks (1 s); no carry-on by… (ticks) | kind: ours; confidence: medium | ours | Musou: the picture a step meets: compare with SM1 by feel or video. Ours: as for players (protocol 43): the input's body tick; the server keeps… | ☐ |
 | `R-4512F50A` | Musou: melee lock on big Orks | every big Ork is offered to the lock (start, combo, charge: the same cone, range 7 m, leash 1 m, height 1.5 m and line of sight as a player) under id 60000 + its id, standing at its body's edge toward the attacker less a player's radius (the Warboss's lock… (m) | kind: ours; confidence: medium | the owner ("lock on of melee weapons should work with them as well"); the lock point ours | Musou: melee lock on big Orks: compare with SM1 by measuring on a flat spot of the same map. Ours: every big Ork is offered to the lock (start, combo, charge: the same… | ☐ |
+
 *Spec section: Musou Mode: smooth crowd motion (crowd-smooth, 2026-11-08; Musou Mode only; `MusouSim.Version` 22, no core protocol bump: `Protocol.Version` stays 64)*
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
