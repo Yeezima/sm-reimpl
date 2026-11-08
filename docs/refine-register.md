@@ -30,6 +30,7 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 Scanned 2595 spec table rows: **1906 tagged**, 479 not tagged (read from data with high confidence), 210 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 581 rows of the changes document.
 Scanned 2594 spec table rows: **1905 tagged**, 480 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
+Scanned 2600 spec table rows: **1909 tagged**, 481 not tagged (read from data with high confidence), 210 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
@@ -44,6 +45,9 @@ Scanned 2594 spec table rows: **1905 tagged**, 480 not tagged (read from data wi
 | HUD and hit feedback (critical) | 68 | 63 | 50 | 11 | 0 |
 | Sound mix (critical) | 63 | 57 | 55 | 10 | 0 |
 | Effects (critical) | 86 | 76 | 71 | 39 | 0 |
+| HUD and hit feedback (critical) | 67 | 62 | 49 | 10 | 0 |
+| Sound mix (critical) | 66 | 60 | 58 | 10 | 0 |
+| Effects (critical) | 89 | 79 | 74 | 40 | 0 |
 | Game modes | 41 | 38 | 38 | 19 | 1 |
 | Perks | 59 | 48 | 31 | 25 | 0 |
 | Death and ragdoll | 14 | 10 | 12 | 10 | 0 |
@@ -55,6 +59,8 @@ Scanned 2594 spec table rows: **1905 tagged**, 480 not tagged (read from data wi
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 178 | 169 | 80 | 54 | 0 |
 | **All areas** | **1905** | 1662 | 1402 | 617 | 38 |
+| Ork faction | 178 | 168 | 81 | 53 | 0 |
+| **All areas** | **1909** | 1665 | 1407 | 616 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
@@ -63,9 +69,12 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | kind: ours | 1011 |
 | confidence: low | 667 |
 | confidence: medium | 606 |
+| kind: ours | 1014 |
+| confidence: low | 669 |
+| confidence: medium | 609 |
 | kind: interpretation | 359 |
 | notes: ours | 352 |
-| notes: estimate | 152 |
+| notes: estimate | 151 |
 | confidence: none (low) | 129 |
 | kind: estimate | 120 |
 | kind: provisional | 99 |
@@ -1546,7 +1555,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 |---|---|---|---|---|---|---|
 | `R-9D0EF360` | HUD line (Musou) | ALLIED MARINES: ROAMING / REVIVING YOU / BACK IN m:ss (both down: the first back) / STANDING BY; the revive prompt THE ALLIED MARINES ARE COMING: n S, THE ALLIED MARINES REVIVE YOU: n % | kind: ours | ours | HUD line (Musou): compare with SM1 with side-by-side screenshots in the same spot. Ours: ALLIED MARINES: ROAMING / REVIVING YOU / BACK IN m:ss (both down: the… | ☐ |
 
-### Sound mix (gameplay-critical) (63)
+### Sound mix (gameplay-critical) (66)
 
 *Spec section: Sound playback (M26b; client only, not simulated)*
 
@@ -1649,6 +1658,14 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-EC8B74D8` | Jump pack tail | every voice of the launch (`action_ascending`: `play_sm_jump_pack_launch`: a 1.1 s burst, full for about 0.6 s, and two thrust layers of 1.7 and 2.0 s, the second pitched -300 cents) and the apex/thrust cut (`action_apex`) posts: full for 0.5 s, then a fade… (s, dB) | kind: ours; confidence: low | owner's request; samples measured with `smtool audio-decode` (RMS per 50 ms); times and depth ours | Jump pack tail: compare with SM1 by listening A/B at the same distance and state. Ours: every voice of the launch (action_ascending:… | ☐ |
 | `R-43C4D8D6` | Reload sounds: one source | a reload's tag sounds come only from the reload's schedule (the reload clip's tags over the simulation's reload time, once per reload). The reload clip laid over the upper body (M35) no longer posts its tags as an animation: it posted them a second time at… | kind: interpretation; confidence: medium | found by reading the code (not reproduced by listening); interpretation | Reload sounds: one source: compare with SM1 by listening A/B at the same distance and state. Ours: a reload's tag sounds come only from the reload's schedule (the… | ☐ |
 | `R-7F314C38` | Reload sounds after a correction | a reload seen again (a prediction correction cancelled and restarted it) schedules only the tags still ahead of where the reload is (the simulation's reload time minus its time left; tags passed by more than 1.5 ticks are dropped), so nothing restarts on top… (s) | kind: ours; confidence: medium | ours | Reload sounds after a correction: compare with SM1 by listening A/B at the same distance and state. Ours: a reload seen again (a prediction correction cancelled and restarted… | ☐ |
+
+*Spec section: Sound loudness: louder and farther (sound/louder-farther; owner 2026-11-08; client only, both modes, not simulated)*
+
+| ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
+|---|---|---|---|---|---|---|
+| `R-74E86226` | Loudness gain | +9 on every voice of `SoundSystem` (positioned and not, own and others', both modes) and on the loyalist barks; the -60 dB culling threshold is tested on the boosted level (dB) | kind: ours; confidence: low | owner's request 2026-11-08; the amount ours | Loudness gain: compare with SM1 by listening A/B at the same distance and state. Ours: +9 on every voice of SoundSystem (positioned and not, own and… | ☐ |
+| `R-3E8B1D7F` | Loudness range scale | x2.5: every distance curve of the banks (an attenuation's dry volume and low-pass, its end, the `distance` RTPC) is read at the listener's distance / 2.5, so a sound heard at 30 m has the data's level of 12 m; the loyalist barks' 8 m and 70 m times 2.5. The… (factor) | kind: ours; confidence: low | owner's request; the amount ours | Loudness range scale: compare with SM1 by listening A/B at the same distance and state. Ours: x2.5: every distance curve of the banks (an attenuation's dry volume… | ☐ |
+| `R-1A740764` | Distance floor | distance takes a positioned voice at most down to 20 % of its amplitude at 0 m (-14.0 dB under the dry volume curve's value at 0 m); a voice past its curve's end is no longer cut, it plays at the floor (only the voice cap and the -60 dB threshold still drop… (fraction of amplitude) | kind: ours; confidence: medium | owner 2026-11-08 ("revert the change ... barks and all combat sounds will get quieter the further away they are. sounds should scale down to 20% of their… | Distance floor: compare with SM1 by listening A/B at the same distance and state. Ours: distance takes a positioned voice at most down to 20 % of its… | ☐ |
 
 *Spec section: Match sounds and menu sounds (fidelity gap 9; client only, not simulated, no protocol change)*
 
@@ -3045,7 +3062,7 @@ The Orks are an addition the owner keeps (the original multiplayer had Space Mar
 
 | ID | Parameter | Current value (units) | Why tagged | Source | Compare in a playtest | Result |
 |---|---|---|---|---|---|---|
-| `R-4AB1F4E3` | Ork voice distance curve | every voice cue (grunt, bark, effort, hurt, stun, death, celebration, roar) plays from the enemy's own voice emitter with the **bolter's** distance curves (`play_sm_bolter_fire`, shared by the multiplayer guns): about -6 dB at 10 m, -13 at 20, -25 at 40 with… (dB, LPF 0..100) | kind: ours; notes: estimate | the owner's "muffled, similar to weapons fire"; curve values read from the banks (`smtool audio-mix`) | Ork voice distance curve: compare with SM1 by listening A/B at the same distance and state. Ours: every voice cue (grunt, bark, effort, hurt, stun, death, celebration… | ☐ |
+| `R-4AB1F4E3` | Ork voice distance curve | **the voices' own** (since 2026-11-08, the owner: "revert the request i made awhile ago that made ork yelling, barks, and other sounds and noises be quiet the further away you are. use the original game's exterminatus sound levels"): every voice cue keeps the… (dB, LPF 0..100) | confidence: medium | the data (bank curves); the owner's revert 2026-11-08 | Ork voice distance curve: compare with SM1 by listening A/B at the same distance and state. Ours: the voices' own (since 2026-11-08, the owner: "revert the request i… | ☐ |
 | `R-D4B2AEB2` | Running bark mix | of a running bark: 20 % a taunt (the celebration line), 25 % a roar, the rest the bark cue (share) | kind: estimate; confidence: low; notes: ours | ours ("scream, yell, and taunt often") | Running bark mix: compare with SM1 by listening A/B at the same distance and state. Ours: of a running bark: 20 % a taunt (the celebration line), 25 % a roar… | ☐ |
 | `R-B691D833` | Measured posts (real server, `SM_TFW_STRESS=300,0`, a scripted player in the crowd, 40 s in it) | about 5 grunts and 2.5 barks a second, 0.8 taunts; crowd voices at their cap mostly through the guns (measured with a cap of 30, now 23) (posts/s) | confidence: medium | measured 2026-11-06 | Measured posts (real server, SM_TFW_STRESS=300,0, a…: compare with SM1 by feel or video. Ours: about 5 grunts and 2.5 barks a second, 0.8 taunts; crowd voices at… | ☐ |
 | `R-224A5612` | A shot Ork's flinch | **off**: no drawn flinch (the stagger clip and 0.22 m rock back, read as a 180-degree turn) when a shot hits; the simulation never stopped a shot Ork. `--musou-ork-flinch` brings it back | kind: ours | owner 2026-11-06 | A shot Ork's flinch: compare with SM1 by watching the reaction and timing it frame by frame. Ours: off: no drawn flinch (the stagger clip and 0.22 m rock back, read as… | ☐ |
@@ -3218,7 +3235,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-5C22E4FE` | Bark limits | ours (the pack's suggestions) | 8 s per speaker, 20 s per phrase, no immediate repeat of a take, 1.5 s between any two random barks, one line per speaker | Speaker cooldown, Phrase cooldown, Take choice, Global spacing | Bark limits: compare with SM1 by listening A/B at the same distance and state. Ours: ours (the pack's suggestions). | ☐ |
 | `C-D6694B0D` | SM1 speech first | ours | random barks yield to SM1's exertion and action lines; the key's shout cuts them | SM1 speech precedence | SM1 speech first: compare with SM1 by feel or video. Ours: ours. | ☐ |
 | `C-B0816781` | The FOR THE EMPEROR key | the owner's decision: at any time, no animation, no interruption; key T and the 2 s cooldown: ours | others hear it from the shouter | The key, The key on the wire | The FOR THE EMPEROR key: compare with SM1 by feel or video. Ours: the owner's decision: at any time, no animation, no interruption; key… | ☐ |
-| `C-343A74CB` | Level and range | ours | -2 dB on the sound bus, full within 8 m, silent beyond 70 m | Level and position | Level and range: compare with SM1 by measuring on a flat spot of the same map. Ours: ours. | ☐ |
+| `C-343A74CB` | Level and range | ours | -2 dB on the sound bus, full within 8 m, silent beyond 70 m; since 2026-11-08 with the sound loudness rule on top (+9 dB, full within 20 m, inverse distance, never under 20 % of the amplitude) | Level and position | Level and range: compare with SM1 by measuring on a flat spot of the same map. Ours: ours. | ☐ |
 
 #### Musou (`Musou`; experimental mode, spec "Added content: Musou")
 
@@ -3236,7 +3253,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-C744028F` | Musou Mode on Ashfall: every battle lands at the Imperial base | the owner's request (2026-11-08); added content, no SM1 counterpart | the landing zone is always the Space Marine start area in the south centre (no drawn landing zone); the landing, a redeploy and a late join put the players there | War landing zone on Ashfall | Musou Mode on Ashfall: every battle lands at the Imperial…: compare with SM1 by feel or video. Ours: the owner's request (2026-11-08); added content, no SM1 counterpart. | ☐ |
 | `C-08618741-2` | Musou Mode: orbital support and the far war | the owner's items 10 and 12 and his decision of 2026-11-01: artillery only when a player calls it with B on the crosshair's point, starting at once; Thunderhawk runs paused by him the same day; SM1 multiplayer has none of this | a walking barrage on the called point, no cooldown (the owner, 2026-11-01), friend and foe hurt; a muffled war heard round the map (sound only; the far fires and flak were taken out, 2026-11-02); the optional local whistle `client/assets/musou/whistle.ogg` is never shipped | Musou Mode: fire support | Musou Mode: orbital support and the far war: compare with SM1 by feel or video. Ours: the owner's items 10 and 12 and his decision of 2026-11-01: artillery… | ☐ |
 | `C-8D1FAC43` | Musou enemy sounds: only the nearest enemies are heard | ours (a crowd of hundreds against the original's dozens): the events and mix are the data's, when they play and how many are ours | 24 emitters within 45 m, 6 stepping, at most about 23 voices and 18 lines (2026-11-06), a crowd voice never cuts a player's; the Warboss speaks with the `ork_nob` lines; the crowd's clip tags are stood in for by state changes and ground covered | Musou enemy sounds | Musou enemy sounds: only the nearest enemies are heard: compare with SM1 by feel or video. Ours: ours (a crowd of hundreds against the original's dozens): the events… | ☐ |
-| `C-58D1B36D` | Musou Ork voices carry like gunfire (musou/ork-voices, 2026-11-06) | the owner's ("constant grunting, shouting, yelling" near, "muffled, similar to weapons fire" far); the curve choice ours | the voices take the bolter's distance curves (volume and low-pass) instead of their own (-21 dB at 10 m), heard to 45 m and duller with distance; more frequent grunts, barks, roars and taunts, also while fighting | Musou Ork voices, shot flinch and spread | Musou Ork voices carry like gunfire (musou/ork-voices…: compare with SM1 by feel or video. Ours: the owner's ("constant grunting, shouting, yelling" near, "muffled… | ☐ |
+| `C-D4FD42C2` | Musou Ork voices: more often (musou/ork-voices, 2026-11-06; the distance curves back to the data's 2026-11-08) | the owner's ("constant grunting, shouting, yelling" near); since 2026-11-08 the owner's revert ("use the original game's exterminatus sound levels") | the voices keep their own bank curves again (the bolter's curves of 2026-11-06 only with `--musou-ork-voice-curve weapon`); the sound loudness rule applies on top as to every sound; more frequent grunts, barks, roars and taunts, also while fighting, heard to 45 m | Musou Ork voices, shot flinch and spread | Musou Ork voices: more often (musou/ork-voices, 2026-11-06…: compare with SM1 by timing a run over a known distance. Ours: the owner's ("constant grunting, shouting, yelling" near); since… | ☐ |
 | `C-05E961E2` | Musou: no flinch on a shot Ork (2026-11-06) | the owner's ("for now, simply remove those hit reactions completely") | no drawn reaction when shot (our flinch read as a 180-degree turn); blasts and heavy melee still stagger | Musou Ork voices, shot flinch and spread | Musou: no flinch on a shot Ork (2026-11-06): compare with SM1 by watching the reaction and timing it frame by frame. Ours: the owner's ("for now, simply remove those hit reactions completely"). | ☐ |
 | `C-0EB34FE6` | Musou: no bullet spread (2026-11-06) | the owner's ("in musou mode only completely remove bullet spread") | Musou Mode only: shots go exactly along the aim, nothing blooms, the reticle stays closed; Classic PvP keeps the data's spread | Musou Ork voices, shot flinch and spread | Musou: no bullet spread (2026-11-06): compare with SM1 by feel or video. Ours: the owner's ("in musou mode only completely remove bullet spread"). | ☐ |
 | `C-09C74C8A` | Musou Mode replaces the 5-wave run | the owner's decision (2026-11-01) | `--content musou` runs the war on `tfw_war`, Manufactorum from the install with a generated Stormbird beside it and no spawn-room blockers; the 5-wave run stays only as a test aid (`--map mp_tdm_09`) | War map | Musou Mode replaces the 5-wave run: compare with SM1 by timing a run over a known distance. Ours: the owner's decision (2026-11-01). | ☐ |
@@ -3390,6 +3407,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-5B66CCFA` | Sound mix pass: on-hit sounds louder, no bass | The data's impact and hit sounds as mixed (plus the earlier deeper bolter impacts and soft confirm) | shot impacts on the level and on players, melee hits and the shooter's hit confirm +4 dB and through a 250 Hz high-pass (24 dB per octave); explosions unchanged | the owner (2026-11-06): "weapon on hit effects all need to be louder, and have the bass removed. all on hit sound effects should have zero bass"; values ours; same spec section | Sound mix pass: on-hit sounds louder, no bass: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-9079D22D` | Sound mix pass: master volume +10 % | The master bus at the options' level | the master bus ×1.1 (+0.83 dB) at every option level, with a limiter (ceiling -0.3 dB) on it | the owner (2026-11-06): "increase the global master volume by 10%"; the limiter ours; same spec section | Sound mix pass: master volume +10 %: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-412DE228` | Sound mix pass: jump pack tail faded | `play_sm_jump_pack_launch` plays a burst and two thrust layers for 1.7 to 2.4 s | each voice of the launch and apex posts holds full level for 0.5 s, then fades over 0.3 s to -15 dB | the owner (2026-11-06): "the intial sound is fine, but any echoes/reverb or extra something after that should be deeply diminished"; times and depth ours; same spec section | Sound mix pass: jump pack tail faded: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
+| `C-F25E317A` | Sound loudness: everything louder and heard farther (sound/louder-farther, 2026-11-08) | The data's mix as it is: a remote bolter shot -25.5 dB at the voice at 5 m, -60.9 dB at 60 m; each sound fades by its bank curve | every sound +9 dB and every bank distance curve read at the distance / 2.5 (a sound at 30 m has the data's level of 12 m); distance never takes a sound below 20 % of its amplitude up close (-14 dB) and nothing is cut at a curve's end; both modes, the loyalist barks too; `--loudness-gain`, `--loudness-range`… | the owner (2026-11-08): "clearly hearable and relatively much louder from much further away", "make everything much louder", "sounds should scale down to 20% of their normal sound when turned down by distance" (read as amplitude, ours); no bug found that made us quieter than the data; the amounts ours; spec "Sound… | Sound loudness: everything louder and heard farther…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 | `C-548F13D7` | Plasma reticles stay still while charging (fix/plasma-reticle-still) | The plasma gun's, plasma pistol's and plasma cannon's reticle clips (`plasmaidle_mc`, `plasmapistol_mc`, `plasma_cannon_mc` and their active versions in `Hud.gfx`) have charge frames (`alt_fire_fade` .. `alt_fire`) that turn the reticle; we played them by the charge | the reticle stays on its first frame (no turning); only the charge arc and the heat arc move; `--old-plasma-spin` plays the charge frames again | **Owner's request 2026-11-06** ("there should be no spinning of crosshairs or reticule. it should stay still. only the charge meter/heat bar moves."); spec "Reticles: charge and brace" | Plasma reticles stay still while charging…: after playing SM1 and this build, keep this change or revert it; compare the original behaviour (the Original column) with ours. | ☐ |
 
 ### Our choices where the original is unknown
@@ -3970,6 +3988,7 @@ Test aids, probes, demo and capture tooling, and engineering decisions (protocol
 | `R-32B78EA1` | Scope overlay: test aids | Effect rendering (M25b; client only, not simulated) |
 | `R-80BE700C` | Lascannon beam and scope: test aids | Effect rendering (M25b; client only, not simulated) |
 | `R-1CFEF5CE` | Effect budget | Effect rendering (M25b; client only, not simulated) |
+| `R-21D6B598` | Test aids | Sound loudness: louder and farther (sound/louder-farther; owner 2026-11-08; client only, both modes, not simulated) |
 | `R-9A377061` | Cache bounds | Armour rendering of a customized look (customizer T6; client only, not simulated) |
 | `R-AC078FB5` | Emblem bytes | Armour rendering of a customized look (customizer T6; client only, not simulated) |
 | `R-185BAADB` | Loading in a match | Armour rendering of a customized look (customizer T6; client only, not simulated) |

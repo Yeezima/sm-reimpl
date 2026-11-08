@@ -41,6 +41,9 @@ public partial class NetworkView
     /// <summary><c>--rtpc-volume-cap peak|node|voice|off</c> (sound/footsteps-2; default peak): see <see cref="SoundSystem.RtpcCap"/>.</summary>
     static readonly RtpcVolumeCap RtpcCapArg = ParseRtpcCap();
 
+    /// <summary><c>--loudness-gain &lt;dB&gt;</c>, <c>--loudness-range &lt;x&gt;</c>, <c>--loudness-original</c> (sound/louder-farther, owner 2026-11-08): see <see cref="SoundSystem.Loudness"/>.</summary>
+    static readonly SoundLoudness LoudnessArg = SoundLoudness.FromArgs(OS.GetCmdlineUserArgs(), s => GD.PrintErr(s));
+
     static RtpcVolumeCap ParseRtpcCap()
     {
         var args = OS.GetCmdlineUserArgs();
@@ -74,7 +77,7 @@ public partial class NetworkView
         if (e.Own) distance = Math.Min(distance, SoundSystem.OwnMinDistance);
         var voices = play.Voices.Select(v =>
         {
-            var mix = VoiceMixer.Evaluate(v, null, e.Id, 0, v.Is3D ? distance : null, e.Parameters, RtpcCapArg).With(offset);
+            var mix = LoudnessArg.Evaluate(v, null, e.Id, 0, v.Is3D ? distance : null, e.Parameters, RtpcCapArg).With(offset);
             return $"wem {v.WemId} {(v.Is3D ? "3D" : "2D")} {mix.VolumeDb:F1}dB {mix.PitchCents:F0}c lpf{mix.Lpf:F0}";
         });
         return $"dist {distance:F1} m, {play.Voices.Count} voices: " + string.Join("; ", voices);

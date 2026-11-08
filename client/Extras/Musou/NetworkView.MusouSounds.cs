@@ -46,7 +46,10 @@ public partial class NetworkView
     }
 
     readonly MusouSoundSlot[] _musouSlots = Enumerable.Range(0, MusouSoundRules.Slots).Select(i => new MusouSoundSlot { Emitter = { Label = $"musou slot {i}" }, Mouth = { Label = $"musou voice {i}" } }).ToArray();
-    /// <summary>The weapon-fire distance curves the voices take (<see cref="MusouSoundRules.VoiceCurveEvent"/>); null: their own (<c>--musou-ork-voice-curve own</c>, or no such event).</summary>
+    /// <summary>
+    /// The distance curves the voices take; null (the default since 2026-11-08, the owner: "revert ... use the original game's exterminatus sound levels"): their own, as the banks have them.
+    /// Test aid <c>--musou-ork-voice-curve weapon</c>: the weapon-fire curves of <see cref="MusouSoundRules.VoiceCurveEvent"/> (musou/ork-voices, 2026-11-06).
+    /// </summary>
     SmFormats.Audio.WwiseAttenuation? _musouVoiceCurve;
     readonly MusouSoundBudget _musouBudget = new();
     readonly Random _musouSoundRoll = new(7);
@@ -107,7 +110,7 @@ public partial class NetworkView
         _sound.Prefetch(wems);
         GD.Print($"musou sounds: ready, prefetch {wems.Count} wems of {events.Count} events");
         _musouAllPeakStart = _sound.PeakActive;
-        _musouVoiceCurve = CmdArg("musou-ork-voice-curve") is "own" ? null : _sound.AttenuationOf(MusouSoundRules.VoiceCurveEvent);
+        _musouVoiceCurve = (CmdArg("musou-ork-voice-curve") is { } curveArg ? curveArg == "weapon" : MusouSoundRules.VoicesOnWeaponCurve) ? _sound.AttenuationOf(MusouSoundRules.VoiceCurveEvent) : null;
         GD.Print($"musou sounds: voices on {(_musouVoiceCurve is null ? "their own distance curve" : "the weapon-fire distance curve of " + MusouSoundRules.VoiceCurveEvent)}");
         foreach (var s in _musouSlots) s.Mouth.AttenuationOverride = _musouVoiceCurve;
         _musouSets = sets;

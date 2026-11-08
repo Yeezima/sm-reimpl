@@ -25,8 +25,12 @@ public static class MusouSoundRules
     /// <summary>
     /// The event whose distance curves (dry volume and low-pass) the Orks' voices take instead of their own (the owner, 2026-11-06: further away "muffled, similar to weapons fire sound effects in
     /// classic pvp mode"): the bolter's, which every gun of the multiplayer banks shares (-6 dB at 10 m, -13 at 20, -25 at 40 with low-pass 17; the voices' own: -21, -49, -81). Ours.
+    /// Off since 2026-11-08 (the owner: "revert the request ... use the original game's exterminatus sound levels"): the voices keep their own curves; only the test aid
+    /// <c>--musou-ork-voice-curve weapon</c> uses this event.
     /// </summary>
     public const string VoiceCurveEvent = "play_sm_bolter_fire";
+    /// <summary>Whether the voices take <see cref="VoiceCurveEvent"/>'s curves by default: false since 2026-11-08 (their own curves, the original Exterminatus levels).</summary>
+    public const bool VoicesOnWeaponCurve = false;
     /// <summary>Of a running bark, the shares that are a roar and a taunt (celebration line) instead of the bark cue (ours: Exterminatus-like "scream, yell, and taunt often").</summary>
     public const float BarkRoarShare = 0.25f, BarkTauntShare = 0.2f;
     /// <summary>

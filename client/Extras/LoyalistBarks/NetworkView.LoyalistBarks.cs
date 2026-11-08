@@ -54,6 +54,7 @@ public partial class NetworkView
     {
         public Node? Player;          // AudioStreamPlayer3D (others) or AudioStreamPlayer (own)
         public double Until;          // when its line ends (connection seconds)
+        public float BaseDb;          // the take's level before distance (sound/louder-farther: distance applied in BarkFollow)
         public bool Key;              // the line is a key shout (SM1 speech does not cut it)
         public string Line = "";
         public PlayerState Prev;
@@ -274,25 +275,44 @@ public partial class NetworkView
             if (own) sp.Player = new AudioStreamPlayer { Name = $"LoyalistBark{id}", Bus = bus };
             else sp.Player = new AudioStreamPlayer3D
             {
-                Name = $"LoyalistBark{id}", Bus = bus, UnitSize = BarkUnitSize, MaxDistance = BarkMaxDistance,
-                AttenuationModel = AudioStreamPlayer3D.AttenuationModelEnum.InverseDistance, DopplerTracking = AudioStreamPlayer3D.DopplerTrackingEnum.Disabled,
+                Name = $"LoyalistBark{id}", Bus = bus, UnitSize = BarkUnitSize * LoudnessArg.RangeScale, MaxDistance = LoudnessArg.Floored ? 0f : BarkMaxDistance * LoudnessArg.RangeScale,   // sound/louder-farther: the range scale
+                // With the loudness floor the distance is applied here (BarkDistanceDb), as Godot's model has no floor.
+                AttenuationModel = LoudnessArg.Floored ? AudioStreamPlayer3D.AttenuationModelEnum.Disabled : AudioStreamPlayer3D.AttenuationModelEnum.InverseDistance, DopplerTracking = AudioStreamPlayer3D.DopplerTrackingEnum.Disabled,
             };
             AddChild(sp.Player);
             BarkFollow(id, sp);
         }
-        float db = BarkBaseGainDb + LoyalistGainDb + SoundGainDb + (_audio?.MasterBusVolume ?? 0f);
+        float db = BarkBaseGainDb + LoyalistGainDb + SoundGainDb + (_audio?.MasterBusVolume ?? 0f) + LoudnessArg.GainDb;   // sound/louder-farther: the loudness gain
         switch (sp.Player)
         {
             case AudioStreamPlayer p2: p2.Stream = stream; p2.VolumeDb = db + SmClient.Customizer.Model.LiveOptions.GainDb(SmClient.Customizer.Model.SoundCategory.Voice); p2.Play(); break;
-            case AudioStreamPlayer3D p3: p3.Stream = stream; p3.VolumeDb = db + SmClient.Customizer.Model.LiveOptions.GainDb(SmClient.Customizer.Model.SoundCategory.Voice); p3.Play(); break;
+            case AudioStreamPlayer3D p3:
+                p3.Stream = stream; sp.BaseDb = db + SmClient.Customizer.Model.LiveOptions.GainDb(SmClient.Customizer.Model.SoundCategory.Voice);
+                p3.VolumeDb = sp.BaseDb + BarkDistanceDb(p3); p3.Play(); break;
         }
         return stream.GetLength();
     }
 
     /// <summary>Keeps a 3D player at its character; a random bark gives way when Space Marine's own speech starts (M33 precedence).</summary>
+    /// <summary>
+    /// sound/louder-farther with the floor: the barks' inverse distance (full within <see cref="BarkUnitSize"/> times the range scale), never below the floor (the owner's 20 %); 0 without a floor
+    /// (Godot's own model applies).
+    /// </summary>
+    float BarkDistanceDb(AudioStreamPlayer3D p3)
+    {
+        if (!LoudnessArg.Floored || GetViewport()?.GetCamera3D() is not { } camera) return 0f;
+        float d = camera.GlobalPosition.DistanceTo(p3.GlobalPosition), unit = BarkUnitSize * LoudnessArg.RangeScale;
+        float db = d <= unit ? 0f : 20f * MathF.Log10(unit / d);
+        return MathF.Max(db, LoudnessArg.FloorDb);
+    }
+
     void BarkFollow(int id, BarkSpeaker sp)
     {
-        if (sp.Player is AudioStreamPlayer3D p3 && IsInstanceValid(p3) && PlayerSoundPoint(id) is { } at) p3.GlobalPosition = at;
+        if (sp.Player is AudioStreamPlayer3D p3 && IsInstanceValid(p3) && PlayerSoundPoint(id) is { } at)
+        {
+            p3.GlobalPosition = at;
+            if (LoudnessArg.Floored) p3.VolumeDb = sp.BaseDb + BarkDistanceDb(p3);
+        }
         if (sp.Until > _connectedFor && !sp.Key && _sound is not null && _soundTracks.TryGetValue(id, out var t) && _sound.SpeechBusy(t.Emitter))
             BarkStop(id, "SM1 speech");
     }

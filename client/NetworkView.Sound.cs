@@ -143,12 +143,13 @@ public partial class NetworkView
                 return false;
             }
             (_audio, _soundTriggers, double ms) = load.Result;
-            _sound = new SoundSystem(_audio) { GlobalGainDb = SoundGainDb, Limits = SoundLimitsMode, FootstepGainDb = FootstepGainDbArg, RtpcCap = RtpcCapArg, LimitLog = LogSound("footstep") ? GD.Print : null };
+            _sound = new SoundSystem(_audio) { GlobalGainDb = SoundGainDb, Limits = SoundLimitsMode, FootstepGainDb = FootstepGainDbArg, RtpcCap = RtpcCapArg, Loudness = LoudnessArg, LimitLog = LogSound("footstep") ? GD.Print : null };
             PrewarmHitSounds();
             AddChild(_sound);
             _worldEmitter = new SoundEmitter { Label = "world" };
             _soundNote = $"{_audio.LoadedPackages.Count} packages, {_audio.Library.ObjectCount:N0} objects, {_soundTriggers.Files.Count} files, " +
                          $"{_soundTriggers.Files.Values.Sum(f => f.Bindings.Count)} commands, {_soundTriggers.ClipTags.Count} tagged clips; loaded in {ms:F0} ms";
+            GD.Print($"sound: loudness {LoudnessArg} (sound/louder-farther; --loudness-original for the data's levels)");
             GD.Print("sound: " + _soundNote + (_audio.MissingPackages.Count > 0 ? $"; packages not in the install: {string.Join(", ", _audio.MissingPackages)}" : ""));
             foreach (var n in _soundTriggers.Notes) GD.Print("  sound note: " + n);
         }
