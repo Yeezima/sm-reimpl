@@ -353,6 +353,28 @@ public partial class SoundSystem : Node
         return SpeechResult.Started;
     }
 
+    /// <summary>
+    /// musou/battle-ambience: posts one line of a dialogue event (an audio node from <see cref="AudioCatalog.DialogueLeaves"/>) as a character voice: one line at a time per emitter, as
+    /// <see cref="PostSpeech"/>. <paramref name="label"/> names it in the statistics (prefixed <c>speech/</c>).
+    /// </summary>
+    public SpeechResult PostLine(uint node, string label, SoundEmitter emitter, VoiceOffset offset = default)
+    {
+        if (_catalog is null || node == 0) return SpeechResult.NoSpeech;
+        Posts++;
+        label = "speech/" + label;
+        if (_speechUntil.TryGetValue(emitter.Id, out double until) && _now < until) { BarksDropped++; return SpeechResult.Busy; }
+        var play = _catalog.PostNode(node, emitter.Switches, emitter.Id);
+        Barks++;
+        var (p, v) = ByEvent.GetValueOrDefault(label);
+        ByEvent[label] = (p + 1, v + play.Voices.Count);
+        if (!play.Found) return SpeechResult.NoSpeech;
+        if (play.Voices.Count == 0) { BarksSilent++; return SpeechResult.NoLine; }
+        _speechUntil[emitter.Id] = _now + play.Voices.Max(x => x.Delay + _catalog.Duration(x.WemId) / Math.Max(0.05f, x.PitchScale));
+        Schedule(play, emitter, 0f, label, offset: offset);
+        if (emitter.OneShot) _oneShots.Add(emitter);
+        return SpeechResult.Started;
+    }
+
     /// <summary>The distance curves of an event's first positioned voice (null: no catalogue, no such event or no curve). Resolved through a post that plays nothing.</summary>
     public SmFormats.Audio.WwiseAttenuation? AttenuationOf(string eventName)
     {
