@@ -227,6 +227,9 @@ public sealed class TfwFire
     /// <summary>A bolt weapon's blast at <paramref name="at"/> (the owner, 2026-11-07): the effect of thrown item <paramref name="item"/> (a frag; -1: none found), reaching <paramref name="radius"/> m.</summary>
     internal void BoltBlast(uint tick, Vector3 at, int item, float radius) => Add(new TfwFireEvent(TfwFireKind.BoltBlast, tick, ++_boltBlasts, at, new Vector3(item, radius, 0f)));
 
+    /// <summary>An enemy is burning from a plasma hit (owner, 2026-11-08): <paramref name="enemy"/> at <paramref name="at"/>; the clients draw the flame for the burn's length.</summary>
+    internal void Burn(uint tick, ushort enemy, Vector3 at) => Add(new TfwFireEvent(TfwFireKind.Burn, tick, enemy, at));
+
     void Add(in TfwFireEvent e)
     {
         if (_events.Count >= TfwFireRules.MaxEvents) return;

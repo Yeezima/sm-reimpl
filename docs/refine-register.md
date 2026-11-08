@@ -28,14 +28,14 @@ Rows read from the install with high confidence and no such wording are not tagg
 
 ## Summary
 
-Scanned 2594 spec table rows: **1906 tagged**, 479 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 581 rows of the changes document.
+Scanned 2600 spec table rows: **1911 tagged**, 480 not tagged (read from data with high confidence), 209 in the appendix (test aids, capture tooling, engineering), 0 malformed (not classified). Part C lists 582 rows of the changes document.
 
 | Area | Tagged rows | by kind | by confidence | by notes | by section text |
 |---|---:|---:|---:|---:|---:|
 | Movement (critical) | 383 | 325 | 325 | 114 | 12 |
 | Combat core (critical) | 13 | 4 | 12 | 11 | 9 |
 | Weapons (critical) | 121 | 73 | 106 | 54 | 3 |
-| Melee (critical) | 111 | 96 | 88 | 36 | 5 |
+| Melee (critical) | 116 | 101 | 93 | 36 | 5 |
 | Jump pack (critical) | 79 | 71 | 63 | 19 | 0 |
 | Charge (critical) | 56 | 47 | 47 | 22 | 0 |
 | Reactions (critical) | 15 | 13 | 14 | 6 | 0 |
@@ -53,14 +53,14 @@ Scanned 2594 spec table rows: **1906 tagged**, 479 not tagged (read from data wi
 | Core simulation (provisional values) | 450 | 428 | 303 | 120 | 1 |
 | General game design | 7 | 7 | 6 | 0 | 0 |
 | Ork faction | 178 | 169 | 80 | 54 | 0 |
-| **All areas** | **1906** | 1663 | 1403 | 617 | 38 |
+| **All areas** | **1911** | 1668 | 1408 | 617 | 38 |
 
 A row can fire several rules, so the right-hand columns add up to more than the tagged count.
 
 | Reason | Rows |
 |---|---:|
-| kind: ours | 1012 |
-| confidence: low | 667 |
+| kind: ours | 1017 |
+| confidence: low | 672 |
 | confidence: medium | 607 |
 | kind: interpretation | 359 |
 | notes: ours | 352 |
@@ -904,7 +904,7 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-63D5DA0C` | Magazine returns | at the load tag or when the left hand is back at the weapon, whichever is later (never before the magazine left): bolter tag 0.30, hand 0.35 (`RIG_L_Hand` 0.15 m from the magazine at its closest, 1.13 m at its furthest, away from 0.11 to 0.35) → 0.35; stalker… (fraction of the clip) | kind: interpretation; confidence: medium | clip, skeleton, weapon mount | Magazine returns: compare with SM1 by feel or video. Ours: at the load tag or when the left hand is back at the weapon… | ☐ |
 | `R-125B93CF` | Dropped magazine physics | a `RigidBody3D` (layer none, mask: the level) with a box the size of the mesh, mass 0.4 kg, friction 0.7, bounce 0.3, linear damping 0.05, angular 0.6; initial velocity = the carrier's velocity + up to 0.6 m/s sideways (0.12 up) + up to 5 rad/s spin… (kg, m/s, rad/s, s) | kind: placeholder; confidence: none (low); notes: ours | ours | Dropped magazine physics: compare with SM1 by timing a run over a known distance. Ours: a RigidBody3D (layer none, mask: the level) with a box the size of… | ☐ |
 
-### Melee (gameplay-critical) (111)
+### Melee (gameplay-critical) (116)
 
 *Spec section: Melee flow, the hammer in both hands and the transitions pass (anim/melee-flow; client only, not simulated, no protocol change)*
 
@@ -1020,6 +1020,11 @@ A row can fire several rules, so the right-hand columns add up to more than the 
 | `R-60830AA7` | Bolt blasts: where | one blast at every enemy the shot strikes (each one it goes through and the one that stops it), at the point the ray struck him; after the pierce has dealt its hits; a tag 11 record each (kind `BoltBlast` 6: the point, the frag's thrown item, the radius; sent… | kind: ours; confidence: medium | owner 2026-11-07 | Bolt blasts: where: compare with SM1 by feel or video. Ours: one blast at every enemy the shot strikes (each one it goes through… | ☐ |
 | `R-531C3227` | Bolt blasts: reach and damage | 1.25 m reach (half the first pass's 2.5 m: the owner, 2026-11-08, "the explosion needs to be half its current size"; the data's frag 10 m); 15 damage at the centre (halved from 30: the owner, 2026-11-08, "halve the damage as well yes"; the first value an… (m, damage) | kind: ours; confidence: low; notes: estimate | owner 2026-11-08 (halved); values ours (estimate) | Bolt blasts: reach and damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 1.25 m reach (half the first pass's 2.5 m: the owner, 2026-11-08… | ☐ |
 | `R-1F0BC7BD` | Bolt blasts: the look | the original frag grenade's detonation effect and sound (thrown item the record names; no new asset) once a blast, at its point, the effect at 0.4 of the frag's size (owner 2026-11-08: "make the vfx 60% smaller"; `BoltBlastFxScale`); the client thins a… (m, s) | kind: ours; confidence: low; notes: estimate | ours (estimate) | Bolt blasts: the look: compare with SM1 by feel or video. Ours: the original frag grenade's detonation effect and sound (thrown item… | ☐ |
+| `R-4C02B733` | Plasma burn: damage | 50 % of the hit that set it, in 6 equal ticks (the owner gave no numbers) (share) | kind: ours; confidence: low | owner asked for a burn, numbers ours | Plasma burn: damage: compare with SM1 by counting hits to kill and by video of the health bar. Ours: 50 % of the hit that set it, in 6 equal ticks (the owner gave no… | ☐ |
+| `R-938DD84A` | Plasma burn: length and tick | 3 s after the latest hit, a tick every 0.5 s; the first tick lands 0.5 s to 1 s after the first hit (spread by enemy id so a crowd does not tick on one tick) (s) | kind: ours; confidence: low | ours | Plasma burn: length and tick: compare with SM1 by feel and frame-counted video (a stopwatch for long timers). Ours: 3 s after the latest hit, a tick every 0.5 s; the first tick lands… | ☐ |
+| `R-181F0056` | Plasma burn: renewal | a new hit renews the burn to its full 6 ticks and never stacks: the stronger tick stands (with its owner), the tick phase is kept | kind: ours; confidence: low | ours | Plasma burn: renewal: compare with SM1 by feel or video. Ours: a new hit renews the burn to its full 6 ticks and never stacks: the… | ☐ |
+| `R-C8E79DCA` | Plasma burn: bosses | the Warboss and the Boss Orks take a quarter of each tick (a Weirdboy behind his shield does not burn) (share) | kind: ours; confidence: low | ours | Plasma burn: bosses: compare with SM1 by feel or video. Ours: the Warboss and the Boss Orks take a quarter of each tick (a Weirdboy… | ☐ |
+| `R-393E33A0` | Plasma burn: credit and signal | ticks are quiet (no Hit event, so no flinch, blood or pain cue per tick); a kill is the shooter's (`MusouDeathKind.Shot`); tag 11 kind Burn (7) tells the clients when a burn starts and at most once a second while hits renew it; the client draws two blue-white… | kind: ours; confidence: low | ours | Plasma burn: credit and signal: compare with SM1 by feel or video. Ours: ticks are quiet (no Hit event, so no flinch, blood or pain cue per… | ☐ |
 
 *Spec section: Player collision (sim/player-collision; protocol 43, used by the simulation)*
 
@@ -3917,6 +3922,7 @@ Rows of `docs/changes-from-original.md`: the owner's deliberate changes, our cho
 | `C-AB5C38E6` | Plasma release, plasma gun arms, stuck hit effects, hit-confirm distance, regen glow (night/weapon-fx, 2026-11-06) | Own charged plasma ball drawn without the 100 ms interpolation delay; no body recoil clip for the plasma gun; player-hit effects ride on the struck model; the shooter's hit confirmation falls from 0 dB at 2 m to -18 dB at 40 m and beyond; the armour-regeneration glow is the break glow in yellow | Original behaviour of these five is unknown (owner's requests); the 2 m / 40 m / -18 dB numbers, the yellow, and the model-root frame of stuck effects are ours | Spec "Plasma release, plasma gun arms, stuck hit effects, hit-confirm distance, regen glow (night/weapon-fx ...)" | Plasma release, plasma gun arms, stuck hit effects…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-C4387F6C` | Jump escape, hop-cancel momentum, descent recharge (sim/jump-escape, sim/hop-cancel-momentum, sim/descent-recharge; protocol 62; owner 2026-11-06) | The Assault Marine / Raptor's Jump press ends any hit reaction (stun, stagger, interrupt), any melee attack, a throw, any phase of the charge, the landing's locks and the pound or slash recovery at once, in every mode (the data's own Jump branches open later or never; the owner's request); a hop cancelled by melee… | Which states the original lets the pack classes jump out of (the owner's word is "any animation"; ours: the list in spec); the carried fraction 0.4 is an estimate; when the original recharges (the data has only the rate; the descent is our reading of the owner's "two jumps, a third shortly after") | Spec "Jump escape, hop-cancel momentum and descent recharge (protocol 62)" | Jump escape, hop-cancel momentum, descent recharge…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-8252AEC0` | Tracers to the impact (fx/tracers-impact, 2026-11-07) | Every tracer is one straight line from the barrel's muzzle locator to the shot's end point, where its decal is painted (own shots: the sent input's ray, scatter included; others': the server's end). Replaces feel/bullets' bend onto the camera ray 3 m out (`--bent-bullets` restores it) | How the original drew the line from the barrel (it may have been straight; the owner says it went to the decal) | Effect rendering: "Tracer: one straight line from the barrel to the impact" | Tracers to the impact (fx/tracers-impact, 2026-11-07): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
+| `C-4426EC4D` | Musou: plasma pierces and burns (musou/plasma-pierce-burn, owner 2026-11-08; `TfwRules.Version` 49, `MusouSim.Version` 24) | No Musou Mode in the original | Ours (added content; the owner: "in musou mode all plasma weapons should pierce all enemies the shot passes through + do burning lingering plasma damage over time to them"): every plasma weapon's shot goes through all the enemies on its path at full damage each and sets each burning (50 % of the hit over 3 s in 0.5 s… | Classic PvP's plasma is untouched (Musou Mode only) | Musou: plasma pierces and burns (musou/plasma-pierce-burn…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-B51F53AC` | Plasma bolt (fx/tracers-impact, 2026-11-07) | The plasma gun's and pistol's uncharged shot plays the data's `plasma_gun_tracer` (Chaos `chaos_plasma_gun_tracer`; the pistol's basic shot, read from its secondary ability, binds the same) recoloured blue (Chaos purple), the streak at 0.3 of its width and 0.03 of its length, the smoke at 0.3 of its width: ours, from… | The original's on-screen colour of the `plasma_tracer` texture under its pale yellow keys, | Effect rendering: "Plasma bolt" | Plasma bolt (fx/tracers-impact, 2026-11-07): not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 | `C-477A605B` | Projectile shots impact on arrival (fx/tracers-impact, 2026-11-07) | An own projectile shot (charged plasma, plasma cannon, launcher) draws no tracer and paints no impact when fired; the detonation draws them when the projectile arrives, with the body hit (armour glow, flash) when it went off on a player (within 0.6 m of the axis, ours) (`--old-charged-impact` restores the early impact) | None (the early impact was our bug) | Effect rendering: "Projectile shots paint their impact on arrival" | Projectile shots impact on arrival (fx/tracers-impact…: not reproduced; note how much the missing feature matters in SM1 play. | ☐ |
 

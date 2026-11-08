@@ -54,6 +54,7 @@ public sealed partial class World
         MusouArm();
         TfwGiveFrags();   // World.TfwMelee.cs
         TfwFrags();
+        TfwBurnStep();   // World.TfwPlasma.cs: the plasma burns' ticks (their KOs are credited just below)
         TfwCreditKills();   // the strikes and blasts earlier in the tick: a battle may end below
         TfwBoxAmmo();   // World.TfwArsenal.cs: last tick's ammunition boxes reach the weapons in the bank
         long section = SimProfile.Begin();   // musou/perf-pass: SM_TICK_STATS's sections (nothing without it)

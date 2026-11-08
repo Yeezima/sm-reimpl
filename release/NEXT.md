@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Musou Mode: every plasma weapon (plasma gun, plasma pistol, plasma cannon, light and charged shots) now pierces every enemy its shot passes through, and each enemy it hits burns with blue-white flames: about half the hit's damage again over 3 seconds. Bosses burn slower. Hit a crowd in a line and watch them all light up.
