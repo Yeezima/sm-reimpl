@@ -9,3 +9,4 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Musou Mode: every battle on Ashfall now starts at the Imperial base in the south centre of the map, and redeploying after death or joining a battle in progress brings you there too (before, most battles dropped you somewhere random on the map). Everyone must update: this build does not play with earlier ones.

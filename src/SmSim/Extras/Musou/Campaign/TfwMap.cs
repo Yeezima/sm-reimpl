@@ -187,8 +187,10 @@ public sealed record TfwRange(Vector3 Centre)
 /// <summary>
 /// The fixed places of the battlefield, read from the map once (design section A): the Stormbird, the Seize Ground points A, B and C (position 1, the depot, position 3), the Chaos start
 /// area, where the commander stands, the Space Marine start area, one possible landing zone, and the map's own markers, which seed the enemies' graph (never the Stormbird).
+/// <paramref name="BaseLanding"/>: every battle lands at the Space Marine start area (Ashfall Citadel's Imperial base in the south centre; the owner, 2026-11-08: "you should always spawn
+/// in at the imperial base in the south center of the ashfall map in musou mode"); false (the Manufactorum composition), the landing zone is drawn as before (<see cref="TfwSites"/>).
 /// </summary>
-public sealed record TfwBattlefield(TfwHub Hub, IReadOnlyList<TfwPoint> Points, Vector3 Commander, Vector3 MarineStart, IReadOnlyList<Vector3> WalkSeeds, MusouBox Bounds, TfwRange? Range = null)
+public sealed record TfwBattlefield(TfwHub Hub, IReadOnlyList<TfwPoint> Points, Vector3 Commander, Vector3 MarineStart, IReadOnlyList<Vector3> WalkSeeds, MusouBox Bounds, TfwRange? Range = null, bool BaseLanding = false)
 {
     /// <summary>Where the enemies walk: around the map's own markers. No cell of the Stormbird: no marker is there and the box leaves it out.</summary>
     public NavArea WalkArea() => NavArea.Around(WalkSeeds, TfwMap.WalkMargin);
@@ -282,7 +284,7 @@ public static class TfwMap
         var high = seeds.Aggregate(seeds[0], Vector3.Max) + margin;
         var bounds = new MusouBox(low with { Z = MathF.Min(low.Z, level.Character.Min.Z) }, high with { Z = MathF.Max(high.Z, level.Character.Max.Z) });
         var range = TfwRange.For(level);
-        var field = new TfwBattlefield(hub, points.Take(PointsNeeded).Select(p => new TfwPoint(p.Center, p.Radius, p.HalfHeight)).ToArray(), chaos.Center, marines.Center, [.. seeds, range.Centre], bounds, range);   // the range's seed last: its own part of the graph
+        var field = new TfwBattlefield(hub, points.Take(PointsNeeded).Select(p => new TfwPoint(p.Center, p.Radius, p.HalfHeight)).ToArray(), chaos.Center, marines.Center, [.. seeds, range.Centre], bounds, range, BaseLanding: !manufactorum);   // the range's seed last: its own part of the graph; Ashfall always lands at its Imperial base (owner, 2026-11-08)
         return new TfwMapData(world, hub.Spawns, [hub.Area, chaos], hash, field);
     }
 }
