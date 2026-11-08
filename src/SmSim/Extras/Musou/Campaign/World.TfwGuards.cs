@@ -37,11 +37,17 @@ public sealed partial class World
         if (playing) MusouPlayerShots();
         TfwCreditKills();
         _musouAttacks.Clear();
+        long section = SimProfile.Begin();   // musou/perf-pass: SM_TICK_STATS's sections
         musou.Step(_musouTargets.AsSpan(0, n), Collision, playing, _musouAttacks);
+        SimProfile.End("tfw: ork ai", section);
+        section = SimProfile.Begin();
         foreach (var attack in _musouAttacks) MusouHit(attack);
+        SimProfile.End("tfw: ork hits", section);
         MusouStormboyCrashes();   // World.MusouStormboy.cs: shot-down Stormboys that struck the ground (expansion S3)
         if (playing) TfwShoves();   // World.TfwMelee.cs
+        section = SimProfile.Begin();
         guards.Step(playing);
+        SimProfile.End("tfw: guards", section);
         TfwCreditKills();
         musou.LastStepMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
     }

@@ -115,13 +115,20 @@ public sealed partial class TfwBattle
     /// </summary>
     void StepArmies(ReadOnlySpan<Vector3> players)
     {
+        long section = SimProfile.Begin();   // musou/perf-pass: SM_TICK_STATS's sections
         StepArmyRoutes();
+        SimProfile.End("armies: routes", section);
         _armyHumans.Clear();
         bool ids = _stormIds.Count == players.Length;
         for (int k = 0; k < players.Length; k++) if (!ids || !TfwContracts.IsPuppet(_stormIds[k])) _armyHumans.Add(players[k]);
+        section = SimProfile.Begin();
         TidyArmies();
         MoveArmies();
+        SimProfile.End("armies: tidy and march", section);
+        section = SimProfile.Begin();
         StepLevels();
+        SimProfile.End("armies: levels (promote, fold)", section);
+        section = SimProfile.Begin();
         if (++_armyFarTicks >= Ticks(TfwClashRules.StepSeconds))
         {
             _armyFarTicks = 0;
@@ -132,6 +139,7 @@ public sealed partial class TfwBattle
         }
         StepWaves();            // TfwBattle.Waves.cs
         StepReinforcements();   // TfwBattle.Garrisons.cs
+        SimProfile.End("armies: clash, waves, garrisons", section);
         _armies.RemoveAll(a => a.Count == 0 && a.Order != TfwArmyOrder.Muster && a.Orks.Count == 0 && a.Squads.Count == 0);
     }
 

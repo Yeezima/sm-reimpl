@@ -256,13 +256,19 @@ public sealed partial class GameServer
         {
             if (_options.MaxCatchUpTicks > 0 && ran >= _options.MaxCatchUpTicks) { SkipLateTicks(now, tickLength); break; }
             long tickStarted = TickStatsBegin();   // test aid SM_TICK_STATS (GameServer.TickStats.cs)
+            long section = SmSim.SimProfile.Begin();   // musou/perf-pass: SM_TICK_STATS's sections (nothing without it)
             GuardTick();   // a fault is logged; too many in a row stop the server for its supervisor (GameServer.Guard.cs)
+            SmSim.SimProfile.End("world step", section);
             _nextTickAt += tickLength;
+            section = SmSim.SimProfile.Begin();
             if (_nextTickAt > _nextSnapshotAt) { Guard("snapshots", SendSnapshots); _nextSnapshotAt += snapshotLength; }
             if (_nextTickAt > _nextScoreboardAt) { Guard("scoreboards", SendScoreboards); _nextScoreboardAt += _options.ScoreboardInterval; }
             Guard("bars", SendBars);   // protocol 44: Tactical Readout / Signum Link (GameServer.Bars.cs)
             Guard("pickups", SendPickups);   // protocol 26: dropped pickups, outside the snapshots (GameServer.Pickups.cs)
+            SmSim.SimProfile.End("send: core", section);
+            section = SmSim.SimProfile.Begin();
             Guard("extras", SendExtrasDue);   // added content's envelope, never on a faithful server (GameServer.Envelope.cs)
+            SmSim.SimProfile.End("send: extras", section);
             TickStatsEnd(tickStarted);
         }
     }

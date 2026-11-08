@@ -45,6 +45,7 @@ public partial class NetworkView
     {
         if (!MusouActive || _client is not { } client) { if (_musouHud is not null) _musouHud.Visible = false; return; }
         MusouDeathSpikeStart();   // --musou-death-spike-test (NetworkView.MusouDeathSpike.cs)
+        Ph("musou: state");   // musou/perf-pass: --frame-profile's Musou phases
         double now = Time.GetTicksUsec() / 1e6;
         MusouMotionSections(sections);   // NetworkView.MusouMotion.cs: --musou-old-far-motion, and the measure's bytes
         foreach (var section in MusouGoreFeed(me, sections, delta)) if (!MusouDropSection(section)) _musouState.Apply(section, now);   // MU-D: tag 6 to the drops (MusouDrops.cs); M10: --musou-gore-demo replaces the server's sections
@@ -63,16 +64,20 @@ public partial class NetworkView
         if (!_musouNoDraw)
         {
             MusouDeathsArrive(_musouState.NewDeaths, now);   // night batch 2026-11-06: a burst is handed out over a few frames (NetworkView.MusouDeathSpread.cs)
+            Ph("musou: crowd, deaths, ragdolls");
             if (_gameSpace is not null) MusouDraw(shown, (float)delta);
+            Ph("musou: hud, fx, sounds");
             ulong t0 = SpikeMark();
             MusouPresent(me, shown, (float)delta);   // MU3: the HUD, hit feedback and telegraphs (MusouFx.cs)
             MusouSoundsFrame(me, shown, (float)delta);   // the enemies' original sounds (NetworkView.MusouSounds.cs)
             _spikeSoundsMs += SpikeMs(t0);
             TfwMeleeCount(shown);   // Tfw/NetworkView.TfwMelee.cs: the test aid's counts, nothing without it
+            Ph("musou: gore");
             t0 = SpikeMark();
             MusouGoreFrame(me, shown, (float)delta);   // M10: gibs, sprays, pools and the cleave slashes (Gore/NetworkView.MusouGore.cs)
             _spikeGoreMs += SpikeMs(t0);
         }
+        Ph("musou: drops, log");
         MusouDeathSpikeFrame(_musouState.NewDeaths.Count);   // --musou-death-spike-test (NetworkView.MusouDeathSpike.cs)
         TfwCoopBotDeaths();   // Tfw/NetworkView.TfwCoopBot.cs: co-op's --bot counts its kills
         MusouDeathsSeen += _musouState.NewDeaths.Count;   // the Firing Range script counts the strike's kills
