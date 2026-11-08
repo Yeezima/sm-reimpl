@@ -18,6 +18,12 @@ public sealed partial class Hud
     /// <summary>Deaths seen in the feed, waiting 0.3 s (the own kill's call comes after the feed's): whoever was owed revenge and died is no longer.</summary>
     readonly List<(string Victim, double At)> _pendingDied = new();
 
+    /// <summary>
+    /// Whether a reward line's description (the headshot medal's "Kill an opponent with a headshot.") is drawn under it. Off in Classic PvP (owner, 2026-11-08: the text is to be removed there;
+    /// the "+100 Headshot" line and icon stay); <c>NetworkView</c> turns it on only in Musou Mode, whose HUD is unchanged.
+    /// </summary>
+    public bool RewardDescriptions;
+
     double _ownDiedAt = double.NegativeInfinity;
     bool _rewardAliveKnown, _rewardAlive;
     int _rewardScore = -1;
@@ -105,9 +111,9 @@ public sealed partial class Hud
     }
 
     /// <summary>The reward's description from the install's locale (headshot medal, 2026-11-07); empty without one or before the locale is read (no text from the code).</summary>
-    string RewardDescription(RewardSpec spec)
+    internal string RewardDescription(RewardSpec spec)
     {
-        if (spec.DescriptionId <= 0) return "";
+        if (!RewardDescriptions || spec.DescriptionId <= 0) return "";
         RewardName(spec);   // starts or collects the locale read
         return _rewardNames is not null && _rewardNames.TryGetValue(spec.DescriptionId, out var text) ? text : "";
     }

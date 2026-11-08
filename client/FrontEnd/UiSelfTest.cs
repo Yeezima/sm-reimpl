@@ -302,6 +302,7 @@ public sealed partial class UiSelfTest : Node
         await PresetsGlowChecks();   // ui/lighting-presets, ui/focus-glow (UiSelfTest.PresetsGlow.cs)
         await FitChecks();
         await ArmourBarChecks();   // ui/armour-bar-fix: one armour bar layer (UiSelfTest.ArmourBar.cs)
+        await HeadshotMedalChecks();
         await ScoreBoxChecks();   // ui/score-box-center: the HUD score box holds its block (UiSelfTest.ScoreBox.cs)
     }
 

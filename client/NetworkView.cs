@@ -1929,6 +1929,7 @@ public partial class NetworkView : Node3D
         f.Status = statusText; f.StatusIsError = statusError;
         _hudView.ShowHint = !_showInfo && !_bot && Spectate is null && !NoOverlay;
         _hudView.Data = f;
+        _hudView.RewardDescriptions = MusouActive;   // the headshot medal's description line: Musou Mode only, never in Classic PvP (owner, 2026-11-08)
         if (_client?.Status != ClientStatus.Connected || _config is null) { _scopeView?.Hide(); _scopeSince = -1; return; }   // feel/scope-lascannon: no overlay without a match
         var me = _client.Predicted;
         var c = _config;
