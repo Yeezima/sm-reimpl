@@ -9,3 +9,5 @@ Rules (the text is public; ship.cmd refuses lines that break them):
 - Leave out changes a tester cannot notice (tooling, docs, refactors). Optional "### " headings group long lists.
 - Add your bullets in the same pull request as the change, when it merges.
 -->
+- Musou Mode: your personal retainer is back, beside the two roaming allied Space Marines. Z tells it to follow you, X to hold the spot under your crosshair and V to attack what you aim at (in Musou X and V give orders again: the mouse wheel still changes weapon and the right mouse button still strikes); it revives you when you fall and is back about three war-minutes after it dies.
+- Musou Mode: Orks no longer drop ammunition or equipment boxes when they die (you already have endless ammunition).

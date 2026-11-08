@@ -57,21 +57,50 @@ public class TfwRunTests
     }
 
     [Fact]
-    public void The_old_order_commands_do_nothing_since_the_allied_pair()
+    public void Orders_need_a_battle_and_their_points_stay_in_the_arena()
     {
         var w = TfwRig.War();
         var run = w.Tfw!;
+        var seen = new List<TfwCommandRecord>();
+        run.OrderSeen = (_, c) => seen.Add(c);
+        run.Enqueue(Human, new TfwCommandRecord(1, TfwCommand.Hold, 0, new Vector3(1f, 2f, 0f)));
+        TfwRig.Steps(w, 2);
+        Assert.Empty(seen);                                                  // the hub: refused
+        TfwRig.Deploy(w);
+        run.Enqueue(Human, new TfwCommandRecord(2, TfwCommand.Attack, 0, new Vector3(3277f, -3277f, -3277f)));
+        run.Enqueue(TfwContracts.PuppetIdFirst, new TfwCommandRecord(3, TfwCommand.Attack, 0, Vector3.Zero));   // nobody in the field
+        TfwRig.Steps(w, 2);
+        var order = Assert.Single(seen);
+        Assert.Equal(TfwTestArena.Field.Clamp(new Vector3(3277f, -3277f, -3277f)), order.Point);
+    }
+
+    [Fact]
+    public void Hold_and_attack_reach_the_retainer_only_and_the_allied_pair_keeps_its_own_goal()
+    {
+        // The owner, 2026-11-08: "return the player retainer bots with orders as well": Z/X/V order the player's own retainer; the two roaming Marines take no order.
+        var w = TfwRig.War();
+        var run = w.Tfw!;
+        run.AllyUp = null;
         TfwRig.Deploy(w);
         TfwRig.Steps(w, 2);
+        var retainer = Assert.IsType<Marine>(run.RetainerOf(Human));
+        Assert.Equal(MarineRole.Retainer, retainer.Role);
         var goal = run.AllyGoal;
         Assert.NotNull(goal);
         run.Enqueue(Human, new TfwCommandRecord(1, TfwCommand.Hold, 0, new Vector3(3277f, 10f, 0f)));
+        TfwRig.Steps(w, 1);
+        Assert.Equal(new Vector3(TfwTestArena.Field.Bounds.Max.X, 10f, 0f), retainer.HoldAt);
+        Assert.Equal(MarineOrder.Hold, w.TfwOwn(Human).Order);
         run.Enqueue(Human, new TfwCommandRecord(2, TfwCommand.Attack, 0, new Vector3(5f, -3277f, 0f)));
+        TfwRig.Steps(w, 1);
+        Assert.Equal(new Vector3(5f, TfwTestArena.Field.Bounds.Min.Y, 0f), retainer.AttackAt);
+        Assert.All(run.Pair, m => Assert.Null(m.AttackAt));                  // the pair: no order reaches it
+        Assert.Equal(goal, run.AllyGoal);
         run.Enqueue(Human, new TfwCommandRecord(3, TfwCommand.Follow, 0));
-        TfwRig.Steps(w, 2);
-        Assert.Equal(0, run.QueuedCommands);                                 // taken and dropped
-        Assert.Equal(goal, run.AllyGoal);                                    // the pair goes on with its own goal
+        TfwRig.Steps(w, 1);
+        Assert.Null(retainer.AttackAt);
         Assert.Equal(MarineOrder.Follow, w.TfwOwn(Human).Order);
+        Assert.Equal(0, run.QueuedCommands);
         Assert.Equal(TfwRunPhase.Battle, run.Phase);
     }
 
@@ -83,7 +112,8 @@ public class TfwRunTests
         run.AllyUp = null;
         Assert.Empty(run.Marines);
         TfwRig.Deploy(w);
-        Assert.Equal(AllyRules.Count, run.Marines.Count);
+        Assert.Equal(AllyRules.Count, run.Pair.Count);
+        Assert.True(w.TfwKillForTests(run.RetainerOf(Human)!.Id));          // the retainer down: this test is of the pair's revive
         Assert.True(w.TfwKillForTests(Human));                               // the real pair: a window opens, the respawn is held
         TfwRig.Steps(w, 2);
         Assert.True(run.ReviveWanted(Human));

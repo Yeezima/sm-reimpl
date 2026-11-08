@@ -8,7 +8,7 @@ namespace SmSim;
 /// Musou Mode in the World (TF0: the contract and stubs; the owner's decision of 2026-11-01: this war is Musou Mode). <see cref="World.Musou"/> and its pool run a war
 /// too; <see cref="_tfw"/>, set only by <see cref="StartTfw"/>, sends the World's Musou hooks here instead of the 5-wave director, which stays reachable as a test aid
 /// (<c>--map mp_tdm_09</c>). Without a war every method here returns at once and the Skirmish replay is unchanged (<c>MusouSkirmishPinTests</c>).
-/// The 5-wave run lands no AI Marine: the allied pair (<see cref="AllyRules"/>) needs a war.
+/// The 5-wave run lands no AI Marine: the retainers and the allied pair (<see cref="AllyRules"/>) need a war.
 /// </summary>
 public sealed partial class World
 {

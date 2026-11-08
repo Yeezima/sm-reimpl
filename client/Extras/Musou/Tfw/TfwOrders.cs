@@ -10,16 +10,18 @@ using Num = System.Numerics;
 namespace SmClient;
 
 /// <summary>
-/// The war's keys (design section G; the owner's approved choice, fixed keys, read here in <see cref="TfwFrame"/>): P held 1 s for a pickup (or to call a running one off), B an orbital strike on the
-/// point under the crosshair (the owner, 2026-11-01). Z, X and V (the retainers' Follow, Hold and Attack) are gone with the retainers (the owner's allied pair, 2026-11-08: no player orders it), so
-/// X next weapon and V melee keep their default keys again. <see cref="TfwOrderKeysFree"/> takes the war's keys out of the InputMap for this match only: nothing is saved, the player's
-/// <c>controls.json</c> and the controls screen are unchanged, and the node <see cref="TfwKeysBack"/> puts them back when the view goes.
+/// The war's order keys (design section G; the owner's approved choice, fixed keys, read here in <see cref="TfwFrame"/>): Z follow, X hold at the ground point under the crosshair, V attack the enemy or
+/// the point under the crosshair, P held 1 s for a pickup (or to call a running one off), B an orbital strike on the point under the crosshair (the owner, 2026-11-01). Two of them clash with the defaults, X next weapon and V melee: in a war's match the order keys win, each action
+/// keeps its other input (the wheel, the right mouse button). <see cref="TfwOrderKeysFree"/> takes these keys out of the InputMap for this match only: nothing is saved, the player's
+/// <c>controls.json</c> and the controls screen are unchanged, and the node <see cref="TfwKeysBack"/> puts them back when the view goes. There is no controller binding for the orders yet.
 /// </summary>
 public partial class NetworkView
 {
     /// <summary>The reach of the crosshair's ray (m, ours: the arena's diagonal).</summary>
     const float OrderReach = 340f;
-    static readonly string[] TfwOrderInputs = ["Key:P", "Key:M", "Key:Key4", "Key:Key5", "Key:B"];
+    /// <summary>How far from the crosshair's ray an enemy still counts as aimed at (m, ours).</summary>
+    const float OrderEnemyRadius = 3f;
+    static readonly string[] TfwOrderInputs = ["Key:Z", "Key:X", "Key:V", "Key:P", "Key:M", "Key:Key4", "Key:Key5", "Key:B"];
 
     readonly TfwOrderKeys _tfwKeys = new();
     BindingSet? _tfwKeysFreed;
@@ -56,8 +58,11 @@ public partial class NetworkView
         bool cooling = !atRange && war.Own.OrbitalSeconds > 0;   // contracts 25: one battle strike a minute (the HUD counts it down); the server decides all the same
         if (orbital && !_tfwOrbitalKey && (enabled || atRange) && !cooling) { var target = TfwCrosshairPoint(me); _tfwState.Commands.Issue(TfwCommand.Orbital, 0, target); _tfwOrbitalCalled = _connectedFor; TfwDesignatorBeam(me, target); }   // the server decides
         _tfwOrbitalKey = orbital;
-        // Z, X and V gave the retainers their orders; no player orders the allied pair since 2026-11-08, so the keys are left to their own actions and only P is read here.
-        var press = _tfwKeys.Update(false, false, false, Input.IsPhysicalKeyPressed(Key.P), delta, enabled);
+        var press = _tfwKeys.Update(Input.IsPhysicalKeyPressed(Key.Z), Input.IsPhysicalKeyPressed(Key.X), Input.IsPhysicalKeyPressed(Key.V), Input.IsPhysicalKeyPressed(Key.P), delta, enabled);
+        if (press == TfwOrderPress.None) return;
+        if (press.HasFlag(TfwOrderPress.Follow)) _tfwState.Commands.Issue(TfwCommand.Follow);
+        if (press.HasFlag(TfwOrderPress.Hold)) _tfwState.Commands.Issue(TfwCommand.Hold, 0, TfwCrosshairPoint(me));
+        if (press.HasFlag(TfwOrderPress.Attack)) _tfwState.Commands.Issue(TfwCommand.Attack, 0, TfwCrosshairEnemy(me) ?? TfwCrosshairPoint(me));
         if (press.HasFlag(TfwOrderPress.Pickup)) _tfwState.Commands.Issue(war.Phase == TfwRunPhase.Pickup ? TfwCommand.CancelPickup : TfwCommand.RequestPickup);
     }
 
@@ -104,5 +109,25 @@ public partial class NetworkView
         if (_client?.Collision is { } world && world.Character.Raycast(origin, direction, OrderReach) is { } hit) return hit.Point;
         var far = origin + direction * OrderReach;
         return new Num.Vector3(far.X, far.Y, 0f);
+    }
+
+    /// <summary>The nearest enemy on the crosshair's ray (chest height), its feet; null: none near the ray.</summary>
+    Num.Vector3? TfwCrosshairEnemy(PlayerState me)
+    {
+        if (_client is not { } client) return null;
+        var (origin, direction) = TfwCrosshairRay(me);
+        var (renderTick, _) = client.RemotePlayers();
+        var shown = _musouState.Sample(renderTick > 0 ? renderTick : _musouState.NewestTick, Time.GetTicksUsec() / 1e6);
+        float best = float.MaxValue;
+        Num.Vector3? found = null;
+        for (int i = 0; i < shown.Count; i++)
+        {
+            var to = shown[i].Position + new Num.Vector3(0f, 0f, 1.1f) - origin;
+            float along = Num.Vector3.Dot(to, direction);
+            if (along <= 0f || along > OrderReach || along >= best || (to - direction * along).LengthSquared() > OrderEnemyRadius * OrderEnemyRadius) continue;
+            best = along;
+            found = shown[i].Position;
+        }
+        return found;
     }
 }

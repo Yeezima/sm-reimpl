@@ -68,7 +68,7 @@ public class TfwCoopTests
     }
 
     [Fact]
-    public void One_deploy_lands_all_4_humans_apart_by_the_landing_zone_with_two_allied_marines_in_all()
+    public void One_deploy_lands_all_4_humans_apart_by_the_landing_zone_each_with_its_retainer_and_two_allied_marines_in_all()
     {
         var w = FourHumans();
         var run = w.Tfw!;
@@ -84,12 +84,14 @@ public class TfwCoopTests
             Assert.Equal(Team.SpaceMarines, w.Players[id].Team);
             Assert.True(w.TfwOwn(id).Deployed);
         }
-        Assert.Equal(AllyRules.Count, run.Marines.Count);                    // the owner, 2026-11-08: two, whatever the number of players
+        Assert.Equal(AllyRules.Count, run.Pair.Count);                       // the owner, 2026-11-08: two, whatever the number of players
+        foreach (int id in run.InField) Assert.Equal(Team.SpaceMarines, w.Players[run.RetainerOf(id)!.Id].Team);   // and each human's own retainer (restored 2026-11-08), on one side
+        Assert.Equal(AllyRules.Count + 4, run.Marines.Count);
         Assert.Equal(0, run.LateJoins);
     }
 
     [Fact]
-    public void A_human_who_joins_during_a_battle_is_flown_in_at_the_landing_zone_and_brings_no_marine()
+    public void A_human_who_joins_during_a_battle_is_flown_in_at_the_landing_zone_with_its_retainer_and_no_third_ally()
     {
         var w = TfwRig.War();
         var run = w.Tfw!;
@@ -102,7 +104,9 @@ public class TfwCoopTests
         Assert.True(w.TfwOwn(2).Deployed);
         Assert.True(Vector3.Distance(w.Players[2].Position with { Z = 0f }, TfwTestArena.LandingZone) < 6f, $"{w.Players[2].Position}");
         Assert.False(TfwTestArena.Hub.Contains(w.Players[2].Position));
-        Assert.Equal(AllyRules.Count, run.Marines.Count);
+        Assert.Equal(AllyRules.Count, run.Pair.Count);                       // no third Marine of the pair
+        Assert.NotNull(run.RetainerOf(2));                                   // its own retainer
+        Assert.True(Vector3.Distance(w.Players[run.RetainerOf(2)!.Id].Position with { Z = 0f }, w.Players[2].Position with { Z = 0f }) < 5f);
         TfwRig.Steps(w, 30);
         Assert.Equal(1, run.LateJoins);                                     // once
     }
