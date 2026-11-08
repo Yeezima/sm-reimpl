@@ -26,7 +26,10 @@ public sealed partial class TfwBattle
     int _armyRouteTicks, _armyFarTicks, _farSteps, _nextGroup = ArmyGroupFirst;
     byte _nextArmy = 1;
     float _farOrkKills, _farGuardLosses;
-    readonly float[] _realDebt = new float[2 * Positions];   // a far clash's losses still owed by real units (Orks, then Guardsmen, per position)
+    readonly float[] _realDebt = new float[2 * (Positions + 1)];   // a far clash's losses still owed by real units (Orks and Guardsmen of each position, then of the base)
+
+    /// <summary>The health and shot damage share of an army's Guard squads made real (<see cref="TfwArmyRules.NearGuardStrength"/>; tests try others).</summary>
+    public float NearGuardStrength { get; set; } = TfwArmyRules.NearGuardStrength;
 
     /// <summary>Whether the battle flow runs (expansion S6; false only in tests that count the old flow alone, as <see cref="Trickle"/>).</summary>
     public bool Armies { get; set; } = true;
@@ -304,7 +307,7 @@ public sealed partial class TfwBattle
         {
             int block = (a.SlotBase + GuardSim.SquadSize - 1) / GuardSim.SquadSize, men = Math.Min(GuardSim.SquadSize, a.FarCount);
             var centre = TfwArmyLayout.SquadCentre(a.Width, a.Anchor, a.Yaw, block);
-            int s = _guards.SpawnSquad(Ground(centre, a.Anchor), a.Yaw, men);
+            int s = _guards.SpawnSquad(Ground(centre, a.Anchor), a.Yaw, men, NearGuardStrength);   // the owner's "near matches far" (2026-11-08)
             if (s < 0) break;
             _squadArmy[s] = a.Id;
             a.Squads.Add(s); a.SquadBlocks.Add(block); a.SquadLiving.Add(men);
@@ -432,9 +435,10 @@ public sealed partial class TfwBattle
         if (a.Side == TfwArmySide.Ork)
         {
             if (a.Order == TfwArmyOrder.Retreat || a.Goal >= StrongholdGoalFirst) { OrksHome(a); return; }
-            a.Order = Imperial(a.Goal) ? TfwArmyOrder.Attack : TfwArmyOrder.Hold;
+            a.Order = Imperial(a.Goal) || a.Goal == LandingGoal ? TfwArmyOrder.Attack : TfwArmyOrder.Hold;   // the base is always the Imperium's (the owner's "base is a target")
             a.Post = a.Goal;
             a.Closing = TfwArmyLayout.Depth(a.Side, a.Width, a.Slots) * 0.5f;   // the wave walks on until its middle stands on the point
+            if (FirstArrival < 0) FirstArrival = _now;
             if (a.Order == TfwArmyOrder.Attack) { ReleaseArmy(a); OnWaveArrived?.Invoke(a); }
             return;
         }
@@ -477,9 +481,17 @@ public sealed partial class TfwBattle
         get { int n = 0; for (int s = 0; s < GuardSim.MaxSquads; s++) if (_guards.AliveIn(s) > 0 && !ArmySquad(s)) n++; return n; }
     }
 
-    /// <summary>Whether an army stands at position <paramref name="k"/>: attacking or holding it, its footprint on the point's ring (with <see cref="TfwArmyRules.AtPointMargin"/>).</summary>
-    bool AtPoint(TfwArmy a, int k) => a.Goal == k && a.Order is TfwArmyOrder.Attack or TfwArmyOrder.Hold
-        && FlatDistance(a.Middle, _layout.Positions[k]) <= _layout.Radius(k) + TfwArmyRules.AtPointMargin + a.Radius;
+    /// <summary>
+    /// Whether an army stands at position <paramref name="k"/> (or, <paramref name="k"/> = <c>Positions</c>, at the base: the owner's "base is a target", 2026-11-08): attacking or holding it, its footprint on the
+    /// point's ring (with <see cref="TfwArmyRules.AtPointMargin"/>).
+    /// </summary>
+    bool AtPoint(TfwArmy a, int k) => (k == Positions ? a.Goal == LandingGoal : a.Goal == k) && a.Order is TfwArmyOrder.Attack or TfwArmyOrder.Hold
+        && FlatDistance(a.Middle, ClashPoint(k)) <= ClashRadius(k) + TfwArmyRules.AtPointMargin + a.Radius;
+
+    /// <summary>A clash's place: position <paramref name="k"/>, or the base (k = <c>Positions</c>).</summary>
+    Vector3 ClashPoint(int k) => k == Positions ? _layout.LandingZone : _layout.Positions[k];
+    float ClashRadius(int k) => k == Positions ? TfwArmyRules.BaseRadius : _layout.Radius(k);
+    float ClashReach(int k) => k == Positions ? _layout.Reach(0) : _layout.Reach(k);
 
     /// <summary>Whether an aggregate of Orks stands at position <paramref name="k"/> (it counts there as real Orks do).</summary>
     bool ArmyOrksOn(int k)
@@ -508,34 +520,73 @@ public sealed partial class TfwBattle
         float dt = FarStepSeconds;
         Span<TfwClashUnit> orkUnits = stackalloc TfwClashUnit[TfwArmyRules.MaxArmies + 1];
         Span<TfwClashUnit> guardUnits = stackalloc TfwClashUnit[TfwArmyRules.MaxArmies + 1];
-        for (int k = 0; k < Positions; k++)
+        for (int k = 0; k <= Positions; k++)   // the positions, then the base (the owner's "base is a target", 2026-11-08)
         {
             _clashOrks.Clear(); _clashGuards.Clear();
+            float orkFar = 0f, guardFar = 0f;
             foreach (var a in _armies)
             {
-                if (!AtPoint(a, k) || a.Far <= 0f) continue;
-                if (a.Side == TfwArmySide.Ork) { if (a.Closing <= 0f) _clashOrks.Add(a); }
-                else _clashGuards.Add(a);
+                if (!AtPoint(a, k) || a.Far < 1f) continue;   // musou/perf-pass: a fraction of a man is no remainder
+                if (a.Side == TfwArmySide.Ork) { if (a.Closing <= 0f) { _clashOrks.Add(a); orkFar += a.Far; } }
+                else { _clashGuards.Add(a); guardFar += a.Far; }
             }
             if (_clashOrks.Count == 0 && _clashGuards.Count == 0) continue;
-            var point = _layout.Positions[k];
-            float reach = _layout.Radius(k) + TfwArmyRules.AtPointMargin;
+            var point = ClashPoint(k);
+            float reach = ClashRadius(k) + TfwArmyRules.AtPointMargin;
             bool seen = !FarFromHumans(point);
-            int realOrks = seen ? 0 : _enemies.CountWithin(point, reach, _layout.Reach(k) + 2f);
-            int realGuards = seen ? 0 : _guards.CountInside(point, reach);
+            int realOrks = _enemies.CountWithin(point, reach, ClashReach(k) + 2f);
+            int realGuards = _guards.CountInside(point, reach);
             if ((_clashOrks.Count == 0 && realOrks == 0) || (_clashGuards.Count == 0 && realGuards == 0)) continue;
+            // Unseen: the real units there fight as the aggregate does and die by its numbers. Seen (a human near, expansion S6 left the remainder idle): the owner's "fight off-screen" (2026-11-08):
+            // the aggregate beyond the real caps fights on in the far layer, nothing drawn; the real units give it the share of their fire the enemy's aggregate is of the enemy there (the rest is their
+            // real fight), and they die by numbers only for the share of the enemy's fire its aggregate puts out. An aggregate never fights its own side's real units' real enemies twice.
+            float orkFire = 1f, guardFire = 1f;
+            if (seen)
+            {
+                orkFire = guardFar / MathF.Max(1f, guardFar + realGuards);
+                guardFire = orkFar / MathF.Max(1f, orkFar + realOrks);
+            }
             var orks = orkUnits[..(_clashOrks.Count + 1)];
             var guards = guardUnits[..(_clashGuards.Count + 1)];
-            for (int j = 0; j < _clashOrks.Count; j++) orks[j] = new TfwClashUnit(_clashOrks[j].Far, _clashOrks[j].Start, _clashOrks[j].Cohesion);
-            for (int j = 0; j < _clashGuards.Count; j++) guards[j] = new TfwClashUnit(_clashGuards[j].Far, _clashGuards[j].Start, _clashGuards[j].Cohesion);
-            orks[^1] = new TfwClashUnit(realOrks, realOrks, steady: true);
-            guards[^1] = new TfwClashUnit(realGuards, realGuards, steady: true);
+            for (int j = 0; j < _clashOrks.Count; j++) orks[j] = new TfwClashUnit(_clashOrks[j].Far, ClashStart(_clashOrks[j]), _clashOrks[j].Cohesion);
+            for (int j = 0; j < _clashGuards.Count; j++) guards[j] = new TfwClashUnit(_clashGuards[j].Far, ClashStart(_clashGuards[j]), _clashGuards[j].Cohesion);
+            orks[^1] = new TfwClashUnit(realOrks * orkFire, realOrks * orkFire, steady: true);
+            guards[^1] = new TfwClashUnit(realGuards * guardFire, realGuards * guardFire, steady: true);
+            if (orks[^1].Count + orkFar <= 0f || guards[^1].Count + guardFar <= 0f) continue;
             TfwClash.Step(orks, guards, dt, TfwClash.Roll((uint)k + 1u, (uint)_farSteps, 0u), TfwClash.Roll((uint)k + 1u, (uint)_farSteps, 1u));
             for (int j = 0; j < _clashOrks.Count; j++) TakeFarLosses(_clashOrks[j], orks[j]);
             for (int j = 0; j < _clashGuards.Count; j++) TakeFarLosses(_clashGuards[j], guards[j]);
-            PayRealLosses(k, orks[^1].Lost, guards[^1].Lost, point, reach);
+            float realOrkLoss = orks[^1].Lost, realGuardLoss = guards[^1].Lost;
+            if (seen)
+            {
+                // Of the losses the step put on the real units, only the enemy aggregate's share is theirs to pay here.
+                float fromGuardFar = AggregateShare(guards, _clashGuards.Count), fromOrkFar = AggregateShare(orks, _clashOrks.Count);
+                realOrkLoss *= fromGuardFar; realGuardLoss *= fromOrkFar;
+            }
+            PayRealLosses(k, realOrkLoss, realGuardLoss, point, reach);
         }
         foreach (var a in _armies) if (!_inClash.Contains(a)) a.Cohesion = TfwClash.Recover(a.Cohesion, dt);
+    }
+
+    /// <summary>
+    /// An army's aggregate as a clash unit's start (musou/perf-pass): the aggregate's count over the share of the army still standing, so the unit's loss share is the army's. The army's start alone counted the men
+    /// promoted to real units as lost, and a near army's remainder routed (and turned the whole army home) the moment it met an enemy. With nothing promoted it is the army's start, as before.
+    /// </summary>
+    static float ClashStart(TfwArmy a) => a.Far / Math.Clamp(a.Count / (float)Math.Max(1, a.Start), 0.05f, 1f);
+
+    /// <summary>The share of a side's fire its aggregates (the first <paramref name="armies"/> units; the last is the real units) put out.</summary>
+    static float AggregateShare(ReadOnlySpan<TfwClashUnit> side, int armies)
+    {
+        float far = 0f, all = 0f;
+        for (int j = 0; j < side.Length; j++)
+        {
+            var u = side[j];
+            u.Count += u.Lost;   // the fire was the step's start
+            float f = TfwClash.Fire(u);
+            all += f;
+            if (j < armies) far += f;
+        }
+        return all > 0f ? far / all : 0f;
     }
 
     void TakeFarLosses(TfwArmy a, in TfwClashUnit u)
@@ -561,30 +612,32 @@ public sealed partial class TfwBattle
             GuardsLostFar += whole;
             _farGuardLosses -= whole;
         }
-        if (u.Routed && a.Order != TfwArmyOrder.Retreat) Retreat(a);   // TfwBattle.Retreats.cs
+        // musou/perf-pass: a near army's remainder that routs stops fighting; the army itself goes home by its own loss rule (StepRetreats), not because the men still waiting to be made real broke
+        if (u.Routed && a.Order != TfwArmyOrder.Retreat && a.Real == 0) Retreat(a);   // TfwBattle.Retreats.cs
     }
 
     /// <summary>The real units' share of a far clash's losses at position <paramref name="k"/> (nobody near to see): whole men die, the nearest the point first; fractions wait for the next step.</summary>
     void PayRealLosses(int k, float orks, float guards, Vector3 point, float reach)
     {
-        _realDebt[k] += orks;
-        _realDebt[Positions + k] += guards;
+        int o = 2 * k, g = 2 * k + 1;
+        _realDebt[o] += orks;
+        _realDebt[g] += guards;
         Span<ushort> near = stackalloc ushort[16];
-        while (_realDebt[k] >= 1f)
+        while (_realDebt[o] >= 1f)
         {
-            int n = _enemies.Query(point, reach, near[..1], _layout.Reach(k) + 2f);
-            if (n == 0 || !_enemies.TryGet(near[0], out var e)) { _realDebt[k] = 0f; break; }
+            int n = _enemies.Query(point, reach, near[..1], ClashReach(k) + 2f);
+            if (n == 0 || !_enemies.TryGet(near[0], out var e)) { _realDebt[o] = 0f; break; }
             _enemies.Damage(near[0], 0, e.Health, Vector3.Zero, out _, marker: 0, cause: MusouDeathKind.Shot);
-            _realDebt[k] -= 1f;
+            _realDebt[o] -= 1f;
         }
-        while (_realDebt[Positions + k] >= 1f)
+        while (_realDebt[g] >= 1f)
         {
             int s = -1;
             float best = reach;
             for (int q = 0; q < GuardSim.MaxSquads; q++)
                 if (_guards.AliveIn(q) > 0 && FlatDistance(_guards.Centre(q), point) is var d && d <= best) { best = d; s = q; }   // only men standing at this point pay its losses
-            if (s < 0 || !_guards.KillOne(s, point)) { _realDebt[Positions + k] = 0f; break; }
-            _realDebt[Positions + k] -= 1f;
+            if (s < 0 || !_guards.KillOne(s, point)) { _realDebt[g] = 0f; break; }
+            _realDebt[g] -= 1f;
         }
     }
 

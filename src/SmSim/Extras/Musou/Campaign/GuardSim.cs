@@ -38,6 +38,7 @@ public sealed class GuardSim
 
     readonly bool[] _active = new bool[MaxSquads];           // any man in the squad's slots, dying included
     readonly int[] _living = new int[MaxSquads];
+    readonly float[] _strength = new float[MaxSquads];   // musou/perf-pass (the owner's "near matches far"): a squad's share of the Guardsmen's health and shot damage (1: GuardRules' own)
     readonly Vector3[] _anchor = new Vector3[MaxSquads];     // the formation's centre
     readonly int[] _anchorNode = new int[MaxSquads];
     readonly float[] _squadYaw = new float[MaxSquads];
@@ -107,16 +108,22 @@ public sealed class GuardSim
     public int SpawnSquad(Vector3 centre, float yaw = 0f) => SpawnSquad(centre, yaw, SquadSize);
 
     /// <summary>A squad of <paramref name="men"/> (1 to <see cref="SquadSize"/>; expansion S6's armies promote a short one) in the first free squad, the rest of its slots empty; as <see cref="SpawnSquad(Vector3, float)"/>.</summary>
-    public int SpawnSquad(Vector3 centre, float yaw, int men)
+    public int SpawnSquad(Vector3 centre, float yaw, int men) => SpawnSquad(centre, yaw, men, 1f);
+
+    /// <summary>
+    /// As <see cref="SpawnSquad(Vector3, float, int)"/>, its men at <paramref name="strength"/> times the rules' health and shot damage (musou/perf-pass, the owner's "near matches far" of 2026-11-08: an army's
+    /// squads promoted near a player fight as its aggregate would; the field's squads keep 1).
+    /// </summary>
+    public int SpawnSquad(Vector3 centre, float yaw, int men, float strength)
     {
-        if (!Finite(centre) || !float.IsFinite(yaw) || men < 1) return -1;
+        if (!Finite(centre) || !float.IsFinite(yaw) || men < 1 || !(strength > 0f)) return -1;
         men = Math.Min(men, SquadSize);
         int s = Array.IndexOf(_active, false);
         if (s < 0) return -1;
         var walk = _enemies.Walk;
         int anchorNode = walk?.Nearest(centre) ?? -1;
         if (anchorNode >= 0) centre = centre with { Z = walk!.Z(anchorNode) };
-        _active[s] = true; _living[s] = men;
+        _active[s] = true; _living[s] = men; _strength[s] = strength;
         _anchor[s] = centre; _anchorNode[s] = anchorNode; _squadYaw[s] = yaw; _order[s] = centre; _moving[s] = false;
         _seenCount[s] = 0; _goal[s] = -1; _halted[s] = false;
         for (int m = 0; m < SquadSize; m++)
@@ -127,7 +134,7 @@ public sealed class GuardSim
             int node = walk?.Nearest(place) ?? -1;
             _state[i] = GuardState.Idle; _stateTicks[i] = 0;
             _position[i] = node >= 0 ? place with { Z = walk!.Z(node) } : walk is null ? place : centre;   // a place in a wall: he starts at the squad's centre
-            _node[i] = node >= 0 ? node : anchorNode; _yaw[i] = yaw; _health[i] = Rules.Health;
+            _node[i] = node >= 0 ? node : anchorNode; _yaw[i] = yaw; _health[i] = Rules.Health * strength;
             _shotTicks[i] = NextShot(i, 0u);
         }
         _centre[s] = centre;
@@ -663,7 +670,7 @@ public sealed class GuardSim
         ShotsHit++;
         AddEvent(new GuardEvent(GuardEventKind.Shot, Tick, (ushort)(i + 1), id, chest));
         var direction = distance > 1e-3f ? flat / distance : Vector2.Zero;
-        _enemies.Damage(id, 0, Rules.Damage, new Vector3(direction, 0f), out _);
+        _enemies.Damage(id, 0, Rules.Damage * _strength[i / SquadSize], new Vector3(direction, 0f), out _);
     }
 
     void AddEvent(GuardEvent e)

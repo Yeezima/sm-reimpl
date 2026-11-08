@@ -80,12 +80,24 @@ public class TfwArmyTests
     public void With_no_imperial_point_the_muster_waits_and_leaves_once_one_is_taken()
     {
         var (sim, guards, battle, layout) = Frozen();
+        battle.BaseTargets = false;   // expansion S6's rule; the owner's "base is a target" (2026-11-08) is the next test
         Seconds(battle, guards, 200f, () => [layout.LandingZone]);
         Assert.Equal(0, battle.WavesSent);                               // nothing Imperial to attack: the muster waits
         Assert.NotNull(battle.Mustering);
         Capture(sim, battle, layout, 0);
         Seconds(battle, guards, TfwArmyRules.WaitRecheck + 0.5f, () => [layout.LandingZone]);
         Assert.Equal(1, battle.WavesSent);
+    }
+
+    [Fact]
+    public void With_no_imperial_point_the_wave_marches_on_the_base()
+    {
+        var (_, guards, battle, layout) = Frozen();
+        TfwArmy? left = null;
+        battle.OnWaveLeft = a => left ??= a;
+        Seconds(battle, guards, 200f, () => [layout.LandingZone]);
+        Assert.Equal(1, battle.WavesSent);                               // the owner, 2026-11-08: "base is a target"
+        Assert.Equal(TfwBattle.LandingGoal, left!.Goal);
     }
 
     [Fact]

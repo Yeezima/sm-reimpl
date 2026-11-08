@@ -51,7 +51,7 @@ public sealed partial class World
     {
         if (_musou is null || _musouDirector is null) return;
         LibrarianStep();   // Librarian/World.Librarian.cs: a Librarian's powers (nobody else has any)
-        if (_tfw is not null) { TfwStep(); return; }   // Campaign/World.Tfw.cs: the war, not the 5-wave run
+        if (_tfw is not null) { long whole = SimProfile.Begin(); TfwStep(); SimProfile.End("tfw: whole step", whole); return; }   // Campaign/World.Tfw.cs: the war, not the 5-wave run (musou/perf-pass: SM_TICK_STATS section)
         long started = System.Diagnostics.Stopwatch.GetTimestamp();
         var director = _musouDirector;
         MusouBeginTick();   // World.MusouCombat.cs: once a tick (a cleave or a blast earlier in the tick may have begun it)

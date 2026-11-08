@@ -10,6 +10,11 @@ namespace SmSim.Extras.Musou.Campaign;
 public sealed partial class TfwBattle
 {
     TfwArmy? _muster;
+
+    /// <summary>The owner's "base is a target" (2026-11-08): with no Imperial position a wave marches on the base (false: it waits, as expansion S6 did; tests of the old flow).</summary>
+    public bool BaseTargets { get; set; } = true;
+    /// <summary>Test aid: the tick the first wave reached its destination (-1: not yet).</summary>
+    public int FirstArrival { get; private set; } = -1;
     int _nextDeparture = -1;
     uint _waveRolls;
 
@@ -84,7 +89,7 @@ public sealed partial class TfwBattle
     {
         int target = PickWaveTarget();
         if (target < 0) return false;
-        Redirect(m, target);
+        Redirect(m, GoalPlace(target));
         m.Order = TfwArmyOrder.March;
         m.Goal = m.Post = target;
         m.Start = Math.Max(1, m.Count);
@@ -99,12 +104,15 @@ public sealed partial class TfwBattle
 
     readonly List<(float D, int K)> _targets = new();
 
-    /// <summary>The destination of a wave leaving now: the Imperial positions by their distance from the nearest human, farthest first, one of the first two by the dice; -1 with none.</summary>
+    /// <summary>
+    /// The destination of a wave leaving now: the Imperial positions by their distance from the nearest human, farthest first, one of the first two by the dice; with none, the Imperial base (the owner's
+    /// "base is a target", 2026-11-08: <see cref="LandingGoal"/>), so the players must push out.
+    /// </summary>
     int PickWaveTarget()
     {
         _targets.Clear();
         for (int k = 0; k < Positions; k++) if (Imperial(k)) _targets.Add((NearestHuman(_layout.Positions[k]), k));
-        if (_targets.Count == 0) return -1;
+        if (_targets.Count == 0) return BaseTargets ? LandingGoal : -1;
         _targets.Sort((x, y) => y.D != x.D ? y.D.CompareTo(x.D) : x.K.CompareTo(y.K));
         int draw = Math.Min(TfwArmyRules.FarthestDraw, _targets.Count);
         return _targets[Math.Min(draw - 1, (int)(WaveRoll() * draw))].K;

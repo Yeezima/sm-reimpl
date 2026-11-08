@@ -50,6 +50,14 @@ public static class TfwArmyRules
 
     /// <summary>An army is at a point (it clashes there and counts on it) within its radius and this margin.</summary>
     public const float AtPointMargin = 10f;
+    /// <summary>The base's radius for a wave attacking it (the owner's "base is a target", 2026-11-08; ours: the landing zone's hold radius, doubled for the squads round it).</summary>
+    public const float BaseRadius = 20f;
+
+    /// <summary>
+    /// The owner's "near matches far" (2026-11-08): an army's Guard squads made real near a player fight at this share of the Guardsmen's health and shot damage (<see cref="GuardRules.Strength"/>, the field's
+    /// 4.5x), so a real fight near a player comes out as the far clash would (about even for even numbers). Tuned on <c>NearFarBalanceTests</c> (ours, an estimate).
+    /// </summary>
+    public const float NearGuardStrength = 0.135f;
 
     /// <summary>The share of a wave's head count that is elite: the battle's (run progress) share.</summary>
     public static int WaveSize(float roll, float extraRoll) =>
