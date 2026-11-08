@@ -363,9 +363,32 @@ public class TfwRewardsTests
     }
 
     [Fact]
-    public void Kos_leave_the_cores_own_boxes_in_a_battle()
+    public void Ork_kills_leave_no_ammunition_box_in_musou()
+    {
+        // The owner, 2026-11-08: "remove the ammo box drops from ork kills in musou mode".
+        Assert.False(TfwRewardRules.KillBoxes);
+        var w = War();
+        Assert.False(w.TfwKillBoxes);
+        TfwRig.Deploy(w);
+        var enemies = w.Musou!;
+        var at = Me(w).Position;
+        int killed = 0;
+        for (int round = 0; round < 10; round++)
+        {
+            for (int k = 0; k < 40; k++) enemies.Spawn(round % 2 == 0 ? MusouEnemyType.ArdBoy : MusouEnemyType.Boy, at + new Vector3(k, 3f, 0f), 0f, 170f);
+            killed += enemies.Alive;
+            TfwRig.KillAll(w);
+            TfwRig.Steps(w, 2);
+        }
+        Assert.True(killed >= 400, $"{killed}");   // with the old 8 % and 40 % that is about a hundred boxes
+        Assert.DoesNotContain(w.LivePickups, p => p.Dropper >= TfwRewardRules.BoxDropperBase);
+    }
+
+    [Fact]
+    public void Kos_leave_the_cores_own_boxes_in_a_battle_with_the_switch_on()
     {
         var w = War();
+        w.TfwKillBoxes = true;   // the old rule, kept behind the switch
         TfwRig.Deploy(w);
         var enemies = w.Musou!;
         var at = Me(w).Position;

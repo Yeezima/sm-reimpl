@@ -201,13 +201,13 @@ public partial class NetworkView
     string TfwPromptNow => _tfwState.War is { } war ? TfwHudModel.Prompt(war, _client!.Predicted.Alive) : "";
 
     /// <summary>An order key: the order the server reports follows, the key's old action does not.</summary>
-    async Task TfwKeyKept(Key key, GameAction action)
+    async Task TfwOrder(Key key, MarineOrder order, GameAction? old)
     {
         TfwKey(key, true);
         await TfwFrames(3);
-        TfwCheck($"{key} still does '{action}' in the war (no order keys since 2026-11-08)", ControlsInput.Held(action));
+        if (old is { } action) TfwCheck($"{key} no longer does '{action}' in the war", !ControlsInput.Held(action));
         TfwKey(key, false);
-        await TfwFrames(2);
+        await TfwUntil($"{key}: the server reports the order {order}", () => TfwNow.Own.Order == order, 5.0);
     }
 
     async Task<bool> TfwTestDeploy(TfwLane lane, bool final = false)
@@ -657,7 +657,7 @@ public partial class NetworkView
         await TfwWait(0.5);
         var me = client.Predicted.Position;
         TfwCheck("the player stands at the landing zone", _tfwState.Sites.Count > 0 && Num.Vector2.Distance(new(me.X, me.Y), new(_tfwState.Sites[0].X, _tfwState.Sites[0].Y)) < TfwMap.LandingRadius, $"{me}");
-        TfwCheck("the HUD shows the allied pair, and the Guardsmen when there are any", (landed.Own.Guards > 0) == (TfwHudModel.GuardsText(landed.Own).Length > 0) && landed.Own.Retainer == TfwRetainerState.Ready, TfwHudModel.GuardsText(landed.Own) + "; " + TfwHudModel.RetainerText(landed.Own));
+        TfwCheck("the HUD shows the retainer, and the Guardsmen when there are any", (landed.Own.Guards > 0) == (TfwHudModel.GuardsText(landed.Own).Length > 0) && landed.Own.Retainer == TfwRetainerState.Ready, TfwHudModel.GuardsText(landed.Own) + "; " + TfwHudModel.RetainerText(landed.Own));
         TfwCheck("the first position is held", _tfwState.Objectives[0].State >= TfwPositionState.Held);
         await TfwWait(1.5);
         await TfwShot("battle-hud");
@@ -672,8 +672,9 @@ public partial class NetworkView
         _yaw = MathF.Atan2(-(pointA.X - me.X), pointA.Y - me.Y);   // the world's markers: the letter and nothing else
         await TfwWait(0.5);
         await TfwShot("markers-letters");
-        await TfwKeyKept(Key.X, GameAction.NextWeapon);   // no order keys since the allied pair (2026-11-08)
-        await TfwKeyKept(Key.V, GameAction.Melee);
+        await TfwOrder(Key.X, MarineOrder.Hold, GameAction.NextWeapon);
+        await TfwOrder(Key.V, MarineOrder.Attack, GameAction.Melee);
+        await TfwOrder(Key.Z, MarineOrder.Follow, null);
 
         TfwKey(Key.P, true);
         await TfwFrames(10);
@@ -700,32 +701,32 @@ public partial class NetworkView
         if (CmdFlag("tfw-test-win")) { await TfwTestWinRun(); return; }
         if (System.Environment.GetEnvironmentVariable("SM_TFW_DOWN_TEST") is null && !CmdFlag("tfw-test-downs")) return;
 
-        // The second battle: down alone, the allied pair revives
+        // The second battle: down alone, the retainer revives
         if (!await TfwTestDeploy(TfwLane.A)) return;
         if (await TfwUntil("the player falls (SM_TFW_DOWN_TEST)", () => !client.Predicted.Alive, 60.0))
         {
             await TfwWait(0.3);
-            TfwCheck("the revive window shows", TfwNow.Own.ReviveSeconds > 0 && TfwPromptNow.Contains("ALLIED MARINES", StringComparison.Ordinal), TfwPromptNow);
+            TfwCheck("the revive window shows", TfwNow.Own.ReviveSeconds > 0 && TfwPromptNow.Contains("RETAINER", StringComparison.Ordinal), TfwPromptNow);
             await TfwShot("revive");
-            await TfwUntil("the allied pair revives the player", () => client.Predicted.Alive, 30.0);
+            await TfwUntil("the retainer revives the player", () => client.Predicted.Alive, 30.0);
         }
         TfwKey(Key.P, true);
         await TfwUntil("P calls the pickup again", () => TfwNow.Phase == TfwRunPhase.Pickup, 4.0);
         TfwKey(Key.P, false);
         if (!await TfwUntil("home again", () => TfwNow.Phase == TfwRunPhase.Hub, 25.0)) return;
 
-        // The third: down with the allied pair, the extraction
+        // The third: down with the retainer, the extraction
         await TfwWait(0.5);
         byte supplies = TfwNow.Supplies;
         if (!await TfwTestDeploy(TfwLane.C)) return;
-        if (!await TfwUntil("the player falls with the allied pair", () => !client.Predicted.Alive, 60.0)) return;
+        if (!await TfwUntil("the player falls with its retainer", () => !client.Predicted.Alive, 60.0)) return;
         await TfwUntil("the extraction's prompt shows", () => TfwNow.Own.ExtractionSeconds > 0 && TfwPromptNow.Contains("EXTRACTION", StringComparison.Ordinal), 5.0);
         await TfwShot("extraction-prompt");
         await TfwUntil("the extraction brings the player home", () => TfwNow.Phase == TfwRunPhase.Hub, 8.0);
         await TfwWait(0.5);
         var last = TfwNow;
         TfwCheck("it cost the supplies", last.Supplies == supplies - TfwBattleRules.ExtractionSupplies, last.Supplies.ToString());
-        TfwCheck("the allied pair stays in the battle it fought", last.Own.Retainer == TfwRetainerState.None, TfwHudModel.RetainerText(last.Own));
+        TfwCheck("the retainer recovers", last.Own.Retainer == TfwRetainerState.Recovering && last.Own.RecoverySeconds > 0, TfwHudModel.RetainerText(last.Own));
         await TfwTestPanelsAway();
         await TfwShot("hub-after-extraction");
     }

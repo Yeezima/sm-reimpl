@@ -100,23 +100,23 @@ public class TfwHudTests
         run.Enqueue(TfwRig.Human, new TfwCommandRecord(8, TfwCommand.RequestPickup, 0));
         TfwRig.Steps(w, 2);
         own = w.TfwOwn(TfwRig.Human);
-        Assert.Equal(MarineOrder.Follow, own.Order);                          // a Hold does nothing: no player orders the allied pair (2026-11-08)
+        Assert.Equal(MarineOrder.Hold, own.Order);                            // the retainer's order (restored 2026-11-08)
         Assert.Equal(20, own.PickupSeconds);
     }
 
     [Fact]
-    public void TheAlliedPairDownShowsWhenItIsBack()
+    public void AFallenRetainerShowsItsRecovery()
     {
         var w = TfwRig.War();
         TfwRig.Deploy(w);
-        Assert.True(w.TfwKillForTests(w.Tfw!.Marines[0].Id));
+        foreach (var m in w.Tfw!.Pair.ToList()) Assert.True(w.TfwKillForTests(m.Id));   // the allied pair is not on the retainer's line
         TfwRig.Steps(w, 2);
-        Assert.Equal(TfwRetainerState.Ready, w.TfwOwn(TfwRig.Human).Retainer);   // one of the two still stands
-        Assert.True(w.TfwKillForTests(w.Tfw.Marines[1].Id));
+        Assert.Equal(TfwRetainerState.Ready, w.TfwOwn(TfwRig.Human).Retainer);
+        Assert.True(w.TfwKillForTests(w.Tfw.RetainerOf(TfwRig.Human)!.Id));
         TfwRig.Steps(w, 2);
         var own = w.TfwOwn(TfwRig.Human);
         Assert.Equal(TfwRetainerState.Recovering, own.Retainer);
-        Assert.InRange(own.RecoverySeconds, 28, 30);                           // the first back: AllyRules.RespawnSeconds after its death
+        Assert.InRange(own.RecoverySeconds, 170, 180);
     }
 
     [Fact]
@@ -206,11 +206,23 @@ public class TfwHudTests
     }
 
     [Fact]
-    public void TheAlliedPairLineFollowsItsState()
+    public void TheRetainerLineFollowsItsState()
     {
-        Assert.Equal("ALLIED MARINES: ROAMING", TfwHudModel.RetainerText(new TfwOwnView { Retainer = TfwRetainerState.Ready, Order = MarineOrder.Hold }));
-        Assert.Equal("ALLIED MARINES: REVIVING YOU", TfwHudModel.RetainerText(new TfwOwnView { Retainer = TfwRetainerState.Reviving }));
-        Assert.Contains("0:30", TfwHudModel.RetainerText(new TfwOwnView { Retainer = TfwRetainerState.Recovering, RecoverySeconds = 30 }));
+        Assert.Equal("RETAINER: HOLD", TfwHudModel.RetainerText(new TfwOwnView { Retainer = TfwRetainerState.Ready, Order = MarineOrder.Hold }));
+        Assert.Equal("RETAINER: REVIVING YOU", TfwHudModel.RetainerText(new TfwOwnView { Retainer = TfwRetainerState.Reviving }));
+        Assert.Contains("3:00", TfwHudModel.RetainerText(new TfwOwnView { Retainer = TfwRetainerState.Recovering, RecoverySeconds = 180 }));
+    }
+
+    [Fact]
+    public void TheRevivePromptNamesTheRetainerWhenItStandsElseTheAlliedPair()
+    {
+        static string Prompt(TfwRetainerState retainer, byte tenths) =>
+            TfwHudModel.Prompt(new TfwWarView(TfwRunPhase.Battle, TfwLane.B, 1f, 1f, 1, 3, 0, default, default, default,
+                new TfwOwnView { ReviveSeconds = 20, ReviveTenths = tenths, Retainer = retainer, Deployed = true }), alive: false);
+        Assert.Contains("YOUR RETAINER IS COMING", Prompt(TfwRetainerState.Ready, 0));
+        Assert.Contains("YOUR RETAINER REVIVES YOU: 40%", Prompt(TfwRetainerState.Reviving, 4));
+        Assert.Contains("THE ALLIED MARINES ARE COMING", Prompt(TfwRetainerState.Recovering, 0));
+        Assert.Contains("THE ALLIED MARINES REVIVE YOU: 60%", Prompt(TfwRetainerState.None, 6));
     }
 
     [Fact]

@@ -14,7 +14,7 @@ public static class TfwBattleRules
     public const float SecureDecayPerSecond = 0.02f;
     /// <summary>
     /// The Guardsmen of a battle: off on 2026-11-01 ("Temporarily remove all guardsmen allies"), back on 2026-11-06 ("re add the imperial guardsmen infantry formations to the game. they move and act on their own to
-    /// defend existing points. only allied space marine lords and players and retainers go capture new territory"). They never capture: they hold the landing zone and the secured positions (since 2026-11-08 only the human players capture; the allied pair does not).
+    /// defend existing points. only allied space marine lords and players and retainers go capture new territory"). They never capture: they hold the landing zone and the secured positions (since 2026-11-08 the human players and their retainers capture; the allied pair does not).
     /// </summary>
     public const bool GuardsmenEnabled = true;
     /// <summary>What a secured position takes to fall: this long with Orks alone on it (a retake, and the way back up the same).</summary>
@@ -167,7 +167,7 @@ public enum TfwBattleChange : byte
 /// <summary>
 /// One battle (design sections D and I), or the final assault: the three positions, the crowd each spawn point pools and then swarms with (owner, 2026-11-01), the Guard squads, which hold the landing zone and defend the secured positions and never take one (owner, 2026-11-06), the commander
 /// (he comes once each point has fallen, whatever has been retaken since, so a battle cannot hang on holding all three at once), and the failsafe for enemies nobody can reach. Works on the enemies' pool and the Guardsmen alone, deterministically; the run (<see cref="TfwRun"/>) owns everything around it. A
-/// position is Held with no capturer (a human player) on it, Clearing with capturers and Orks on it, Securing with capturers alone (both grow its progress at the full rate, owner 2026-11-06), Secured when that has run
+/// position is Held with no capturer (a human player or its retainer) on it, Clearing with capturers and Orks on it, Securing with capturers alone (both grow its progress at the full rate, owner 2026-11-06), Secured when that has run
 /// its time; only Held sends Orks (a capture pauses it, a full one stops it, and the tick a capture ends or a retake is done it sends again). A secured position with Orks alone on it (no capturer, no Guardsman) falls
 /// back to Held in <see cref="TfwBattleRules.RetakeSeconds"/>. The squads share the secured positions out by threat.
 /// </summary>
@@ -542,7 +542,7 @@ public sealed partial class TfwBattle
     }
 
     /// <summary>
-    /// One tick of a position: who stands on it says what it does (the type's summary). Only a capturer takes ground: a human player (<paramref name="players"/>, the living players;
+    /// One tick of a position: who stands on it says what it does (the type's summary). Only a capturer takes ground: a human player or its retainer (<paramref name="players"/>, the living players and AI Marines;
     /// the allied pair is taken out by <see cref="Capturers"/>); a Guardsman never does (owner, 2026-11-06). The owner, 2026-11-06: "players should be able to make progress capturing a point even if orks are still defending it. only stop capturing
     /// if no player remains on the point": with a capturer on it the progress grows at the full rate whatever Orks stand there (Clearing with Orks on it, Securing without); with none it is Held and
     /// decays. A secured position is kept by any Imperial on it, Guardsmen included (they defend it), and falls with Orks alone on it.

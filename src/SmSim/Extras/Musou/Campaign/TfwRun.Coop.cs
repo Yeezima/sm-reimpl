@@ -12,7 +12,7 @@ public sealed partial class TfwRun
 
     /// <summary>
     /// A living human who is not in the field while a battle or the final assault is under way (it joined after the landing: it spawned in the Stormbird) lands at the landing zone at the
-    /// next free place of <see cref="TfwCoop.LandingOffset"/>, facing the HQ, and is one of the team from then on (its scores, its revive window, the extraction).
+    /// next free place of <see cref="TfwCoop.LandingOffset"/>, facing the HQ, with its retainer, and is one of the team from then on (its scores, its revive window, the extraction).
     /// Not during a pickup (the team is leaving: it waits in the Stormbird), not after the run's end.
     /// </summary>
     void JoinLate(World w)
@@ -32,6 +32,7 @@ public sealed partial class TfwRun
             _landingSlots[id] = _deployed.Count;   // TfwRun.Flow.cs: a redeploy comes back here
             _deployed.Add(id);
             w.TfwRespawnAt(id, at, yaw);
+            w.TfwSpawnRetainer(id, Ashore(w, layout, at - layout.LandingZone + new Vector3(0f, -2f, 0f)), yaw);
             LateJoins++;
         }
         _deployed.Sort();

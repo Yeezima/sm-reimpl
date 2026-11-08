@@ -17,21 +17,19 @@ public sealed partial class World
         int rate = Math.Max(1, Config.TickRate);
         var battle = run.Battle;
         var guards = battle is null ? null : TfwGuards;
-        var allies = TfwAlliesOf(id, run);
         return new TfwOwnView(
             Seconds(run.TravelTicks, rate), Seconds(run.PickupTicks, rate), Seconds(run.ReviveTicks(id), rate), Seconds(run.ExtractionTicks, rate),
-            (byte)Math.Clamp(MathF.Ceiling(run.ReviveProgress(id, rate) * 10f), 0f, 10f), battle?.Won ?? false, allies, MarineOrder.Follow,   // no player orders the pair (2026-11-08)
-            (ushort)(allies == TfwRetainerState.Recovering ? Math.Clamp(MathF.Ceiling(TfwAllyBackIn()), 0f, ushort.MaxValue) : 0f),
+            (byte)Math.Clamp(MathF.Ceiling(run.ReviveProgress(id, rate) * 10f), 0f, 10f), battle?.Won ?? false, TfwRetainerOf(id, run), run.Orders.Of(id),
+            (ushort)Math.Clamp(MathF.Ceiling(run.RecoveryLeft(id)), 0f, ushort.MaxValue),
             (byte)Math.Clamp(guards?.Alive ?? 0, 0, byte.MaxValue), (byte)Math.Clamp(guards?.SquadsAlive ?? 0, 0, byte.MaxValue),
             (byte)Math.Clamp(battle?.Reserves ?? 0, 0, byte.MaxValue), (byte)Math.Clamp(battle?.Secured ?? 0, 0, WarRules.Positions), run.InField.Contains(id),
             Seconds((int)Math.Min(run.Fire.OrbitalTicksLeft(id, Tick), int.MaxValue), rate));   // contracts 25: the orbital strike's cooldown
     }
 
-    /// <summary>The allied pair as <paramref name="id"/>'s HUD shows it (the wire's retainer state, kept): one up (reviving this player or not), both down and coming back, or none.</summary>
-    TfwRetainerState TfwAlliesOf(int id, TfwRun run)
+    /// <summary><paramref name="id"/>'s own retainer as its HUD shows it (restored 2026-11-08): up (reviving this player or not), down and recovering, or none. The allied pair is not on this line.</summary>
+    TfwRetainerState TfwRetainerOf(int id, TfwRun run)
     {
-        if (run.Marines.Count == 0) return TfwRetainerState.None;
-        if (!TfwAllyUp()) return TfwRetainerState.Recovering;
-        return run.ReviveProgress(id, Math.Max(1, Config.TickRate)) > 0f ? TfwRetainerState.Reviving : TfwRetainerState.Ready;
+        if (run.RetainerOf(id) is { } m && _players.TryGetValue(m.Id, out var p) && p.Alive) return m.ReviveTicks > 0 ? TfwRetainerState.Reviving : TfwRetainerState.Ready;
+        return run.RecoveryLeft(id) > 0f ? TfwRetainerState.Recovering : TfwRetainerState.None;
     }
 }

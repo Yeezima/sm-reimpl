@@ -6,7 +6,12 @@ public static class TfwRewardRules
     /// <summary>The reward cards after a won map: switched off by the owner (2026-11-01: "temporarily disable the end of run rewards"). While false no offer is rolled or sent and the client has nothing to wait for; the code stays. Set it true to bring the cards back. The score panel is separate and stays.</summary>
     public static readonly bool Enabled = false;
 
-    /// <summary>The chance a KO leaves an ammunition or equipment box (ours: the owner said "a chance"; the original's drop on every player death would bury the map at 100 Orks).</summary>
+    /// <summary>
+    /// Whether an Ork's KO leaves a box at all: off since the owner, 2026-11-08 ("remove the ammo box drops from ork kills in musou mode"; Musou already has endless ammunition and a grenade back every
+    /// 30 s). The rule below stays for a switch back. A player's own death drop (the core's <c>StepPickups</c>) is a different path and is unchanged.
+    /// </summary>
+    public static readonly bool KillBoxes = false;
+    /// <summary>The chance a KO leaves an ammunition or equipment box when <see cref="KillBoxes"/> is on (ours: the owner said "a chance"; the original's drop on every player death would bury the map at 100 Orks).</summary>
     public const float FodderBoxChance = 0.08f, EliteBoxChance = 0.40f;
     /// <summary>Extra primary slots (keys 3, 4, 5; owner's item 26).</summary>
     public const int ExtraSlots = 3, FirstExtraKey = 3;

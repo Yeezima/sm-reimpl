@@ -50,8 +50,11 @@ public sealed partial class TfwRun
     /// <summary>The humans in the field.</summary>
     public IReadOnlyList<int> InField => _deployed;
 
-    /// <summary>Test seam for the AI Marines: whether the allied pair can revive a fallen player (null: the World asks whether a Marine of the pair stands).</summary>
+    /// <summary>Test seam for the AI Marines: whether a fallen player can be revived (null: the World asks whether its retainer or a Marine of the allied pair stands).</summary>
     public Func<int, bool>? AllyUp { get; set; }
+
+    /// <summary>Test seam: an order as it reaches the Marines.</summary>
+    public Action<int, TfwCommandRecord>? OrderSeen { get; set; }
 
     /// <summary>Battles won this run: the elites rise with them.</summary>
     public int Wins { get; private set; }
@@ -121,6 +124,7 @@ public sealed partial class TfwRun
             War.Step();
             for (; War.Clock >= _nextHqTransport; _nextHqTransport += TfwBattleRules.HqTransportSeconds) Transport++;
         }
+        WarTimeScale = (float)War.TimeScale;   // a retainer's recovery runs on the war clock
         if (Ended) return;
         RangeStep(w, rate);
         if (Phase == TfwRunPhase.Travel) { if (--TravelTicks <= 0) Land(w, rate); }
@@ -148,9 +152,18 @@ public sealed partial class TfwRun
                 case TfwCommand.RangeBack: RangeBack(w, player); break;
                 case TfwCommand.Orbital: w.TfwOrbital(player, c.Point); break;   // World.TfwFire.cs: the server decides
                 case TfwCommand.FireTest: if (Fire.TestCommands) w.TfwFireForTests((c.Argument & 1) != 0, TfwFireRules.RunsEnabled && (c.Argument & 2) != 0, Field.Clamp(c.Point), w.TfwFireTestHeading(player, c.Point)); break;   // test aid (SM_TFW_FIRE_TEST)
-                default: break;   // Follow, Hold and Attack (an older client's order keys): no player orders the allied pair since 2026-11-08, so they do nothing
+                default: Order(w, player, c); break;   // Follow, Hold and Attack: to the sender's retainer (restored 2026-11-08; the allied pair takes no order)
             }
         }
+    }
+
+    /// <summary>An order to the sender's retainer: only with a battle on, from a human in it; its point is the client's, so it is kept inside the battlefield.</summary>
+    void Order(World w, int player, TfwCommandRecord c)
+    {
+        if (Battle is null || !_deployed.Contains(player)) return;
+        var order = c with { Point = Field.Clamp(c.Point) };
+        OrderSeen?.Invoke(player, order);
+        w.TfwOrderMarines(player, order);
     }
 
     void Deploy(World w, int player, byte lane, int rate)
@@ -213,9 +226,10 @@ public sealed partial class TfwRun
             var at = Ashore(w, layout, TfwCoop.LandingOffset(k));
             _landingSlots[id] = k;   // TfwRun.Flow.cs: a redeploy comes back here
             w.TfwRespawnAt(id, at, yaw);
+            w.TfwSpawnRetainer(id, Ashore(w, layout, at - layout.LandingZone + new Vector3(0f, -2f, 0f)), yaw);   // each human's own retainer (restored 2026-11-08)
         }
         w.TfwPlaceCrates(Sites.Crates(layout, w.Tick), _deployed);
-        if (Allies) w.TfwSpawnAllies(layout.LandingZone, yaw);   // the owner, 2026-11-08: two allied Marines in all, whatever the number of players (no retainer, lord or Defender)
+        if (Allies) w.TfwSpawnAllies(layout.LandingZone, yaw);   // the owner, 2026-11-08: two allied Marines besides the retainers, whatever the number of players (no lord or Defender)
         LastLandMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
     }
 
@@ -273,7 +287,7 @@ public sealed partial class TfwRun
             if (p.Alive) { fighting = true; _reviveTicks.Remove(id); continue; }
             // A death cancels a pickup: the death itself (its first tick down), not every tick after it, so the living of a team can call one while a fallen one waits (co-op, 2026-11-06).
             if (Phase == TfwRunPhase.Pickup && !_recall && !_reviveTicks.ContainsKey(id)) EndPickup();   // the host's recall goes on: the fallen fly out with the team
-            bool up = AllyUp?.Invoke(id) ?? w.TfwAllyUp();
+            bool up = AllyUp?.Invoke(id) ?? (w.TfwRetainerUp(id) || w.TfwAllyUp());   // its own retainer or a Marine of the pair stands
             if (!_reviveTicks.TryGetValue(id, out int left)) left = up ? Math.Max(1, (int)MathF.Round(TfwBattleRules.ReviveWindowSeconds * rate)) : 0;
             left = up ? Math.Max(0, left - 1) : 0;
             _reviveTicks[id] = left;

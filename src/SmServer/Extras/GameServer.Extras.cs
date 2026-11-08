@@ -31,7 +31,7 @@ public sealed partial class GameServer
     /// <summary>A scoreboard name: Musou Mode's AI Marines.</summary>
     partial void ExtrasPlayerName(int id, ref string name) => TfwPlayerName(id, ref name);
 
-    /// <summary>The look of a player without a peer: Musou Mode's allied pair wears the host's.</summary>
+    /// <summary>The look of a player without a peer: Musou Mode's retainers wear their owner's, the allied pair the host's.</summary>
     partial void ExtrasPuppetAppearance(int playerId, ref (ushort Version, Race Race, AppearanceCode Code)? look) => TfwPuppetAppearance(playerId, ref look);
 
     /// <summary>The players a match admits: Musou Mode's co-op takes at most 4.</summary>
